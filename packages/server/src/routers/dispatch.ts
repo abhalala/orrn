@@ -337,6 +337,11 @@ const createInput = z.object({
   /** Transporter master (FP-PK-11); its name is snapshotted on the dispatch. */
   transporterId: z.string().min(1).max(64).nullable().optional(),
   vehicleCapacityG: capacityG,
+  /**
+   * BACKLOG 47: one key per call. Sent again after a lost reply, the create answers the first
+   * dispatch with `replayed: true`; the same key with other content is a CONFLICT.
+   */
+  clientRequestId: clientRequestIdSchema.optional(),
 });
 
 /** Text field that clears with null or "" and is trimmed otherwise. */
@@ -1037,7 +1042,13 @@ async function addByCodes(
 export const dispatchRouter = router({
   create: actionProcedure("dispatch.create")
     .input(createInput)
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: raw }) => {
+      const { clientRequestId, ...input } = raw;
+      // BACKLOG 47: a create that landed before answers its first dispatch, ahead of every check
+      // (the order may have closed or the truck left since).
+      let replay: Replay | null = clientRequestId ? await openReplay(ctx.db, ctx.companyId, "dispatch.create", clientRequestId, input) : null;
+      const replayed = (r: Replay) => ({ success: true as const, id: r.priorSubjectId!, code: String(r.prior?.code ?? ""), replayed: true as const });
+      if (replay?.prior) return replayed(replay);
       // FP-PK-17: from a sales order the party is the order's; a different customerId is refused.
       let order: { id: string; number: string; customerId: string } | null = null;
       if (input.salesOrderId) {
@@ -1163,23 +1174,35 @@ export const dispatchRouter = router({
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
+            ...(replay ? { id: replay.id } : {}),
             action: "dispatch.create",
             subjectType: "dispatch",
             subjectId: id,
-            meta: { code, customerId, ...(order ? { salesOrderId: order.id, orderNumber: order.number } : {}), ...(truck ? { truckId: truck.truckId ?? truck.id, truckOf: truck.code } : {}) },
+            meta: {
+              code,
+              customerId,
+              ...(order ? { salesOrderId: order.id, orderNumber: order.number } : {}),
+              ...(truck ? { truckId: truck.truckId ?? truck.id, truckOf: truck.code } : {}),
+              ...replayMeta(replay, clientRequestId),
+            },
           },
         ),
       );
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        // An identical call landed first (on the record's primary key): answer its dispatch.
+        if (replay && lostReplayRace(e, replay)) {
+          replay = await readReplay(ctx.db, ctx.companyId, replay);
+          if (replay.prior) return replayed(replay);
+        }
         if (truckRoot && isBatchAbort(e, "sales_order_line")) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "This customer already has a packing list on that truck, or the truck has left" });
         }
         throw e;
       }
 
-      return { success: true, id, code };
+      return { success: true as const, id, code, replayed: false as const };
     }),
 
   listDispatches: companyProcedure

@@ -10,11 +10,11 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5398 screen strings in 49 groups, 16 guides with 292 strings.
+Counts: 5529 screen strings in 49 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
-### common (68)
+### common (69)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -80,6 +80,7 @@ Counts: 5398 screen strings in 49 groups, 16 guides with 292 strings.
 | `reason` | Reason | कारण |
 | `note` | Note | नोट |
 | `noteRequired` | Write a note when you pick Other. | अन्य चुनें तो नोट लिखें। |
+| `noteRequiredReason` | This reason needs a note. | इस कारण के साथ नोट लिखें। |
 | `other` | Other | अन्य |
 | `shift` | Shift | शिफ्ट |
 | `productionDay` | Production day | प्रोडक्शन का दिन |
@@ -2169,10 +2170,36 @@ Counts: 5398 screen strings in 49 groups, 16 guides with 292 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (209)
+### masters (238)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `reasons.title` | Reason codes | कारण कोड |
+| `reasons.subtitle` | Why a press stopped, a bundle was voided or a label was printed again. These are the choices people pick from. | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा। लोग इन्हीं में से चुनते हैं। |
+| `reasons.kindsLabel` | Kind of reason | कारण का प्रकार |
+| `reasons.add` | Add reason | कारण जोड़ें |
+| `reasons.columns.label` | Reason | कारण |
+| `reasons.columns.key` | Key | कोड |
+| `reasons.columns.hindi` | Hindi | हिंदी |
+| `reasons.columns.gujarati` | Gujarati | गुजराती |
+| `reasons.columns.note` | Note | नोट |
+| `reasons.columns.status` | Status | स्थिति |
+| `reasons.noteYes` | Asks for a note | नोट मांगता है |
+| `reasons.noteNo` | No note | नोट नहीं |
+| `reasons.fixed` | Fixed | तय |
+| `reasons.fixedHint` | Other is always there, always asks for a note and always comes last. It cannot be changed. | 'अन्य' हमेशा रहता है, हमेशा नोट मांगता है और हमेशा आखिर में आता है। इसे बदला नहीं जा सकता। |
+| `reasons.empty` | No reasons of this kind | इस प्रकार का कोई कारण नहीं |
+| `reasons.form.addTitle` | Add a reason | कारण जोड़ें |
+| `reasons.form.editTitle` | Edit {name} | {name} बदलें |
+| `reasons.form.english` | English wording | अंग्रेज़ी शब्द |
+| `reasons.form.englishHint` | The key is made from this when the reason is added. Renaming never changes the key. | कारण जोड़ते समय इसी से कोड बनता है। नाम बदलने पर कोड नहीं बदलता। |
+| `reasons.form.hindi` | Hindi wording | हिंदी शब्द |
+| `reasons.form.gujarati` | Gujarati wording | गुजराती शब्द |
+| `reasons.form.translationHint` | Leave blank to use the built-in wording, or the English. | खाली छोड़ें तो बना-बनाया शब्द दिखेगा, या अंग्रेज़ी। |
+| `reasons.form.note` | Ask for a note when this reason is picked | यह कारण चुनने पर नोट मांगें |
+| `reasons.form.save` | Save reason | कारण सेव करें |
+| `reasons.form.retireHint` | A retired reason leaves the pickers but stays on old records. | बंद किया कारण चुनने की सूची से हट जाता है, पर पुराने रिकॉर्ड में रहता है। |
+| `reasons.form.labelRequired` | Give the wording. | शब्द लिखें। |
 | `hub.title` | Masters | मास्टर |
 | `hub.subtitle` | The lists every other screen picks from. | वे लिस्टें जिनसे बाकी सभी स्क्रीन चुनती हैं। |
 | `hub.buying` | Buying and melting | खरीद और भट्टी |
@@ -2197,6 +2224,9 @@ Counts: 5398 screen strings in 49 groups, 16 guides with 292 strings.
 | `hub.dieCopiesNoun` | {count:copy\|copies} | {count:कॉपी\|कॉपी} |
 | `hub.toConfirm` | Vendors to confirm | पक्की करने वाली पार्टियां |
 | `hub.toConfirmMeta` | Added at the kanta. Check each name, then confirm. | कांटे पर जोड़ी गईं। हर नाम जांचें, फिर पक्का करें। |
+| `hub.reasons` | Reason codes | कारण कोड |
+| `hub.reasonsHint` | Why a press stopped, a bundle was voided or a label was printed again | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा |
+| `hub.reasonsNoun` | {count:reason\|reasons} | {count:कारण\|कारण} |
 | `show` | Show | दिखाएं |
 | `showInUse` | In use | चालू |
 | `showRetired` | Retired | बंद |
@@ -4516,7 +4546,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (431)
+### press (468)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4927,6 +4957,43 @@ Please check, Lalubhai:
 | `report.late` | Late | देर से |
 | `report.openRun` | Open run {number} | रन {number} खोलें |
 | `report.csvName` | press-report | press-report |
+| `alerts.title` | Press alerts | प्रेस अलर्ट |
+| `alerts.subtitle` | Readings that went outside the limits set for a press. Check the press, then acknowledge the alert. | प्रेस के लिए तय सीमा से बाहर गए रीडिंग। प्रेस देखें, फिर अलर्ट को देख लिया चिह्नित करें। |
+| `alerts.show` | Show | दिखाएं |
+| `alerts.showOpen` | Open | खुले |
+| `alerts.showAll` | All | सब |
+| `alerts.empty` | No alerts yet. | अभी कोई अलर्ट नहीं। |
+| `alerts.emptyOpen` | No open alerts. | कोई अलर्ट खुला नहीं। |
+| `alerts.loadFailed` | The alerts did not load. Check the connection and try again. | अलर्ट नहीं आए। कनेक्शन देखकर फिर कोशिश करें। |
+| `alerts.columns.line` | Press | प्रेस |
+| `alerts.columns.metric` | Reading | रीडिंग |
+| `alerts.columns.limit` | Limit | सीमा |
+| `alerts.columns.peak` | Worst | सबसे ज़्यादा |
+| `alerts.columns.started` | Started | शुरू |
+| `alerts.columns.last` | Last reading | आखिरी रीडिंग |
+| `alerts.columns.status` | Status | स्थिति |
+| `alerts.columns.run` | Run | रन |
+| `alerts.metric.ram_speed` | Ram speed | राम की रफ़्तार |
+| `alerts.metric.billet_temp` | Billet temperature | बिलेट का तापमान |
+| `alerts.metric.exit_temp` | Exit temperature | बाहर निकलते समय तापमान |
+| `alerts.metric.container_temp` | Container temperature | कंटेनर का तापमान |
+| `alerts.metric.pressure` | Pressure | दबाव |
+| `alerts.unit.ram_speed` | mm/s | mm/s |
+| `alerts.unit.billet_temp` | °C | °C |
+| `alerts.unit.exit_temp` | °C | °C |
+| `alerts.unit.container_temp` | °C | °C |
+| `alerts.unit.pressure` | bar | bar |
+| `alerts.low` | Below {limit} {unit} | {limit} {unit} से कम |
+| `alerts.high` | Above {limit} {unit} | {limit} {unit} से ज़्यादा |
+| `alerts.status.open` | Open | खुला |
+| `alerts.status.ended` | Ended | खत्म |
+| `alerts.status.acknowledged` | Acknowledged | देख लिया |
+| `alerts.simulated` | From the simulator | सिमुलेटर से |
+| `alerts.frames` | {count} {count:reading\|readings} | {count} {count:रीडिंग\|रीडिंग} |
+| `alerts.acknowledge` | Acknowledge | देख लिया |
+| `alerts.acknowledged` | Alert acknowledged | अलर्ट देख लिया गया |
+| `alerts.ackFailed` | Could not acknowledge. Try again. | चिह्नित नहीं हुआ। फिर कोशिश करें। |
+| `alerts.ackedAt` | Acknowledged {time} | {time} पर देखा गया |
 | `summary.title` | Daily press summary | रोज़ का प्रेस सारांश |
 | `summary.pressedToday` | Pressed today | आज प्रेस हुआ |
 | `summary.recovery` | Recovery | रिकवरी |
@@ -4952,10 +5019,54 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (64)
+### foundry (108)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `inbox.columns.file` | File | फ़ाइल |
+| `inbox.columns.when` | When | कब |
+| `inbox.columns.status` | Status | स्थिति |
+| `inbox.title` | Spectro inbox | स्पेक्ट्रो इनबॉक्स |
+| `inbox.subtitle` | Result files the spectrometer computer sent. Nothing is attached by itself: pick the melt each file belongs to. | स्पेक्ट्रोमीटर कंप्यूटर से आई नतीजों की फ़ाइलें। कुछ अपने आप नहीं जुड़ता: हर फ़ाइल के लिए मेल्ट खुद चुनें। |
+| `inbox.tabs.label` | Files | फ़ाइलें |
+| `inbox.tabs.waiting` | Waiting | इंतज़ार में |
+| `inbox.tabs.arriving` | Arriving | आ रही हैं |
+| `inbox.tabs.handled` | Handled | निपटी |
+| `inbox.empty` | No files waiting. | कोई फ़ाइल इंतज़ार में नहीं। |
+| `inbox.emptyArriving` | Nothing is arriving. | कुछ भी आ नहीं रहा। |
+| `inbox.emptyHandled` | No handled files yet. | अभी कोई फ़ाइल निपटी नहीं। |
+| `inbox.loadFailed` | The files did not load. Check the connection and try again. | फ़ाइलें नहीं आईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `inbox.size` | {kb} kB | {kb} kB |
+| `inbox.captured` | Captured {time} | {time} पर ली गई |
+| `inbox.sample` | Sample {ref} | सैंपल {ref} |
+| `inbox.instrument` | Instrument {name} | मशीन {name} |
+| `inbox.uploaded` | Received {time} | {time} पर मिली |
+| `inbox.simulated` | Simulated | सिमुलेटर |
+| `inbox.simulatedHint` | Demo data from the simulator. It can only be dismissed. | सिमुलेटर का डेमो डेटा। इसे सिर्फ़ हटाया जा सकता है। |
+| `inbox.status.uploading` | Arriving | आ रही है |
+| `inbox.status.pending_review` | Waiting | इंतज़ार में |
+| `inbox.status.attached` | Attached | जुड़ी |
+| `inbox.status.dismissed` | Dismissed | हटाई |
+| `inbox.attach` | Attach to a melt | मेल्ट से जोड़ें |
+| `inbox.dismiss` | Dismiss | हटाएं |
+| `inbox.attachSheet.title` | Attach {file} | {file} जोड़ें |
+| `inbox.attachSheet.cast` | Cast | कास्ट |
+| `inbox.attachSheet.castPick` | Pick a cast | कास्ट चुनें |
+| `inbox.attachSheet.moreCasts` | Show older casts | पुरानी कास्ट दिखाएँ |
+| `inbox.attachSheet.melt` | Melt | मेल्ट |
+| `inbox.attachSheet.meltPick` | Pick a melt | मेल्ट चुनें |
+| `inbox.attachSheet.meltLabel` | Melt {seq} | मेल्ट {seq} |
+| `inbox.attachSheet.noMelts` | This cast has no melts yet. | इस कास्ट में अभी कोई मेल्ट नहीं। |
+| `inbox.attachSheet.confirm` | Attach file | फ़ाइल जोड़ें |
+| `inbox.attachSheet.attached` | File attached to melt {seq} of cast {cast} | फ़ाइल कास्ट {cast} की मेल्ट {seq} से जुड़ गई |
+| `inbox.attachSheet.values` | Values read from the file (ppm) | फ़ाइल से पढ़े गए मान (ppm) |
+| `inbox.dismissSheet.title` | Dismiss {file} | {file} हटाएं |
+| `inbox.dismissSheet.reason` | Why is this file not needed? | यह फ़ाइल क्यों नहीं चाहिए? |
+| `inbox.dismissSheet.reasonRequired` | Give a reason. | कारण लिखें। |
+| `inbox.dismissSheet.confirm` | Dismiss file | फ़ाइल हटाएं |
+| `inbox.dismissSheet.dismissed` | File dismissed | फ़ाइल हटा दी गई |
+| `inbox.failed` | Could not save. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
+| `inbox.handledAt` | Handled {time} | {time} पर निपटी |
 | `title` | Foundry | फाउंड्री |
 | `casts.title` | Casts | Cast |
 | `casts.open` | Open cast | Cast खोलें |
@@ -5154,10 +5265,30 @@ Please check, Lalubhai:
 | `orders.priceOnSalesOrder` | Rates on orders | ऑर्डर पर रेट |
 | `orders.dieRequired` | Order lines need a die copy or tier | ऑर्डर लाइन पर die कॉपी या टियर ज़रूरी |
 
-### devices (42)
+### devices (62)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `collectors.title` | Collectors | कलेक्टर |
+| `collectors.intro` | The limits a press reading must stay inside. A reading outside them raises an alert on Today and on the press alerts list. | प्रेस की रीडिंग जिस सीमा के अंदर रहनी चाहिए। सीमा से बाहर जाने पर आज के पेज और प्रेस अलर्ट सूची में अलर्ट आता है। |
+| `collectors.line` | Press | प्रेस |
+| `collectors.allLines` | Every press | हर प्रेस |
+| `collectors.allLinesHint` | Used for a press that has no limits of its own. | उस प्रेस के लिए जिसकी अपनी सीमा नहीं है। |
+| `collectors.metric` | Reading | रीडिंग |
+| `collectors.min` | Lower limit | निचली सीमा |
+| `collectors.max` | Upper limit | ऊपरी सीमा |
+| `collectors.on` | On | चालू |
+| `collectors.save` | Save | सेव करें |
+| `collectors.saved` | Limits saved | सीमाएं सेव हुईं |
+| `collectors.saveFailed` | Could not save the limits. Check the connection and try again. | सीमाएं सेव नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `collectors.invalid` | Give a lower or an upper limit, and keep the lower one below the upper. | निचली या ऊपरी सीमा लिखें, और निचली को ऊपरी से कम रखें। |
+| `collectors.unitHint` | Units: ram speed in mm/s, temperatures in °C, pressure in bar. | इकाइयां: राम की रफ़्तार mm/s में, तापमान °C में, दबाव bar में। |
+| `collectors.readOnly` | Only a manager or the admin can change these limits. | ये सीमाएं सिर्फ़ मैनेजर या एडमिन बदल सकते हैं। |
+| `collectors.alertsLink` | Open the press alerts | प्रेस अलर्ट खोलें |
+| `collectors.inboxLink` | Open the spectro inbox | स्पेक्ट्रो इनबॉक्स खोलें |
+| `collectors.inboxWaiting` | {count} waiting | {count} इंतज़ार में |
+| `collectors.loadFailed` | The limits did not load. Check the connection and try again. | सीमाएं नहीं आईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `collectors.noLines` | No press line yet. Add one under Press first. | अभी कोई प्रेस लाइन नहीं। पहले प्रेस में एक जोड़ें। |
 | `title` | Devices | डिवाइस |
 | `label` | Name | नाम |
 | `lastSeen` | Last seen {time} | आखिरी बार {time} |

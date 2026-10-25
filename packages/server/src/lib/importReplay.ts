@@ -32,7 +32,10 @@ export type ImportReplayKind =
   // BACKLOG 50: floor writes, recorded by `lib/requestReplay.ts`.
   | "bundle.receipt"
   | "dispatch.add"
-  | "stock.move";
+  | "stock.move"
+  // BACKLOG 47.
+  | "dispatch.create"
+  | "die_reading.add";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 

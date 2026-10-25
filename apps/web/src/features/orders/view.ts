@@ -169,8 +169,6 @@ export function poRepeatFromMessage(message: string | undefined | null): { po: s
 // Reallocating bundles (FP-OP-08): what the sheet checks before asking the server.
 // ---------------------------------------------------------------------------
 
-export const REALLOCATE_REASONS = ["length_mismatch", "customer_request", "packed_wrong_order", "other"] as const;
-export type ReallocateReason = (typeof REALLOCATE_REASONS)[number];
 
 export type MovableBundle = { id: string; status: string; lengthMm: number; movedAway?: boolean };
 
@@ -191,12 +189,15 @@ export function reallocateProblem(input: {
   mismatch: boolean;
   reasonCode: string;
   note: string;
+  /** The picked code needs a note (a code the plant set so in Masters); `other` always does. */
+  requiresNote?: boolean;
 }): MessageKey | null {
   if (input.selected < 1) return "reallocate.pickBundles";
   if (input.selected > input.max) return "reallocate.tooMany";
   const note = input.note.trim();
   if (input.mismatch && !input.reasonCode) return "reallocate.lengthMismatch";
   if (input.reasonCode === "other" && !note) return "common.noteRequired";
+  if (input.reasonCode && input.requiresNote && !note) return "common.noteRequiredReason";
   if (!input.reasonCode && !note) return "reallocate.reasonNeeded";
   return null;
 }

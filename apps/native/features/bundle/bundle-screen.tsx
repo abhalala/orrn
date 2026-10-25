@@ -154,7 +154,7 @@ function BundleDetail({
     if (reprint.isPending) return;
     setPrintNote(null);
     try {
-      await reprint.mutateAsync({ bundleId: bundle.id });
+      await reprint.mutateAsync({ bundleId: bundle.id, reprint: true });
       feedback.success();
       announce(t("pack.detail.labelSent"));
       setPrintNote({ ok: true, text: t("pack.detail.labelSent") });

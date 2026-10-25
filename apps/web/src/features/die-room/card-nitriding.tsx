@@ -101,7 +101,7 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
   });
 
   const submit = () => {
-    const input: Record<string, { openG: number; usedG: number; closeG: number }> = {};
+    const input: Record<string, { openG: number; usedG: number }> = {};
     for (const c of CHEMICALS) {
       const { open: o, used: u } = draft[c];
       if (o.trim() === "" && u.trim() === "") continue;
@@ -111,7 +111,8 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
         setError(t("dieRoom.nitriding.chemInvalid", { name: t(`dieRoom.nitriding.chem.${c}`) }));
         return;
       }
-      input[c] = { openG, usedG, closeG: openG - usedG };
+      // The server derives the close (BACKLOG 19); the sheet shows it but never sends it.
+      input[c] = { openG, usedG };
     }
     const hardness = hv.trim() === "" ? undefined : Number(hv);
     if (hardness !== undefined && (!Number.isInteger(hardness) || hardness < 1)) {

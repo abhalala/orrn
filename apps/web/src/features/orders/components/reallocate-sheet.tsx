@@ -12,12 +12,13 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
+import { reasonOptions } from "@/features/press/reason-label";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "../errors";
 import { FieldSelect } from "./controls";
 import { orderKgText, pcsText } from "../format";
-import { isMovable, lengthMismatches, REALLOCATE_REASONS, reallocateProblem } from "../view";
+import { isMovable, lengthMismatches, reallocateProblem } from "../view";
 
 export type ReallocateSource = {
   lineId: string;
@@ -47,11 +48,14 @@ export function ReallocateSheet({
   source: ReallocateSource;
   formatLength(mm: number): string;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [destination, setDestination] = useState<string>("plant");
   const [reasonCode, setReasonCode] = useState("");
+  // W4-MASTERS I-3: the plant's active reallocate codes (Masters, Reason codes), never a fixed list.
+  const reasons = useQuery({ ...trpc.press.reasons.queryOptions({ kind: "reallocate" }), enabled: open, staleTime: 5 * 60_000 });
+  const reasonChoices = reasonOptions(t, "reallocate", reasons.data, locale);
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [done, setDone] = useState<Done | null>(null);
@@ -85,6 +89,7 @@ export function ReallocateSheet({
     mismatch: mismatched.length > 0,
     reasonCode,
     note,
+    requiresNote: reasonChoices.find((o) => o.value === reasonCode)?.requiresNote,
   });
 
   const move = useMutation({
@@ -253,9 +258,9 @@ export function ReallocateSheet({
           <Field label={t("reallocate.reasonCode")}>
             <FieldSelect value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} aria-label={t("reallocate.reasonCode")}>
               <option value="">{t("reallocate.reasonNone")}</option>
-              {REALLOCATE_REASONS.map((code) => (
-                <option key={code} value={code}>
-                  {t(`reasons.reallocate.${code}`)}
+              {reasonChoices.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
                 </option>
               ))}
             </FieldSelect>

@@ -244,6 +244,23 @@ describe("FP-OP-08: orders.reallocate", () => {
     expect(row).toMatchObject({ lengthMismatch: true, reasonCode: "length_mismatch", reason: "Different cut length" });
   }, SLOW);
 
+  test("W4-MASTERS I-3: a retired reallocate code is refused; a code the plant added in Masters moves them", async () => {
+    const p = await opPlant();
+    const { s, a, b } = await twoOrders(p);
+    const serials = await p.pack(s, [{ kg: 100 }], a.lineIds[0]);
+    const ids = (await bundlesBySerial(p, serials)).map((x) => x.id);
+    const req = (await p.owner.reasonCodes.list({ kind: "reallocate" })).find((r) => r.code === "customer_request")!;
+    await p.owner.reasonCodes.setActive({ id: req.id, active: false });
+    await expect(p.owner.orders.reallocate({ bundleIds: ids, toLineId: b.lineIds[0]!, reasonCode: "customer_request" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Pick a reason from the list",
+    });
+    const added = await p.owner.reasonCodes.create({ kind: "reallocate", label: "Rush order" });
+    const res = await p.owner.orders.reallocate({ bundleIds: ids, toLineId: b.lineIds[0]!, reasonCode: added.code });
+    expect(res.status).toBe("applied");
+    expect((await transfersOf(p.companyId)).map((r) => [r.reasonCode, r.reason])).toEqual([["rush_order", "Rush order"]]);
+  }, SLOW);
+
   test("refusals: another die, a held bundle, a void bundle, the same line, a closed target, too many, no permission", async () => {
     const p = await opPlant();
     const { s, a, b } = await twoOrders(p);

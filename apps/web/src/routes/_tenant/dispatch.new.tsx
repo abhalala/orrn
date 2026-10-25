@@ -9,7 +9,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { CustomerPicker, type PickedCustomer } from "@/features/dispatch/customer-picker";
@@ -20,6 +20,7 @@ import { dispatchErrorText } from "@/features/dispatch/errors";
 import { capacityErrorText, TransportFieldset } from "@/features/dispatch/transport-fields";
 import { EMPTY_TRANSPORT, parseCapacityKg, type TransportFields } from "@/features/dispatch/transport";
 import { parseDayInput } from "@/features/dispatch/format";
+import { requestIdFor } from "@/features/dispatch/request-key";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -82,6 +83,7 @@ function NewDispatchForm() {
   const [transport, setTransport] = useState<TransportFields>(EMPTY_TRANSPORT);
   const [errors, setErrors] = useState<{ customer?: string; order?: string; notes?: string; capacity?: string; form?: string }>({});
   const create = useMutation(trpc.dispatch.create.mutationOptions());
+  const sent = useRef<{ id: string; body: string } | null>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -93,18 +95,22 @@ function NewDispatchForm() {
     if (capacityG === undefined) next.capacity = capacityErrorText(t, transport.capacityKg);
     setErrors(next);
     if ((mode === "customer" && !customer) || (mode === "order" && !order) || next.notes || next.capacity) return;
+    const body = {
+      // From a sales order the party is the order's: only the order is sent (FP-PK-17).
+      ...(mode === "order" ? { salesOrderId: order!.id } : { customerId: customer!.id }),
+      ...(scope === "per_truck" && truckOf ? { truckOf } : {}),
+      shipDate: parseDayInput(shipDate),
+      notes: notes.trim() || null,
+      ...(transport.transporterId ? { transporterId: transport.transporterId } : {}),
+      ...(capacityG ? { vehicleCapacityG: capacityG } : {}),
+    };
+    // BACKLOG 47: Create tapped twice, or sent again after a lost reply, opens one packing list.
+    sent.current = requestIdFor(sent.current, body);
     create.mutate(
-      {
-        // From a sales order the party is the order's: only the order is sent (FP-PK-17).
-        ...(mode === "order" ? { salesOrderId: order!.id } : { customerId: customer!.id }),
-        ...(scope === "per_truck" && truckOf ? { truckOf } : {}),
-        shipDate: parseDayInput(shipDate),
-        notes: notes.trim() || null,
-        ...(transport.transporterId ? { transporterId: transport.transporterId } : {}),
-        ...(capacityG ? { vehicleCapacityG: capacityG } : {}),
-      },
+      { ...body, clientRequestId: sent.current.id },
       {
         onSuccess: (res) => {
+          sent.current = null;
           toast.success(t("dispatch.new.created", { code: res.code }));
           void queryClient.invalidateQueries({ queryKey: trpc.dispatch.listDispatches.pathKey() });
           // Today counts open dispatches.

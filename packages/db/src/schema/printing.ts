@@ -81,7 +81,15 @@ export const printLog = sqliteTable(
     variables: text("variables", { mode: "json" }).$type<Record<string, unknown>>(),
     payloadHash: text("payload_hash"),
     responseText: text("response_text"),
+    /**
+     * Print intent number (BACKLOG 44): 1 for the first print of a bundle at a label version, +1 only
+     * when a person explicitly asks for a reprint. A transport retry reuses it (and so the spool job key).
+     */
     attempt: integer("attempt").notNull().default(1),
+    /** The label template version this print used; with `attempt` it is part of the spool job key. */
+    labelVersion: integer("label_version"),
+    /** The exactly-once key sent to the spool: `bundle:<serial>:label:v<version>:attempt:<n>`. */
+    jobKey: text("job_key"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
   },

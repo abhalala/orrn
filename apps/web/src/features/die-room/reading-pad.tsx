@@ -3,9 +3,10 @@ import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { requestIdFor } from "@/features/dispatch/request-key";
 import { trpc } from "@/shared/utils/trpc";
 
 import { bandTitle, milliKgText, parseKgToMilli, refusalText } from "./die-room-model";
@@ -37,10 +38,14 @@ export function ReadingPad({
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const parsed = parseKgToMilli(text);
+  // BACKLOG 47: one request id per reading. Save tapped twice, or sent again after a lost reply, is
+  // the same reading; a different value is a new one. Cleared once a reading has landed.
+  const sent = useRef<{ id: string; body: string } | null>(null);
 
   const add = useMutation({
     ...trpc.dieInstance.addReading.mutationOptions(),
     onSuccess: async (r) => {
+      sent.current = null;
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: trpc.dieInstance.pathKey() }),
         queryClient.invalidateQueries({ queryKey: trpc.die.pathKey() }),
@@ -92,7 +97,8 @@ export function ReadingPad({
             disabled={parsed === null}
             onClick={() => {
               if (parsed === null) return;
-              add.mutate({ dieInstanceId, kgPer12ftMilli: parsed });
+              sent.current = requestIdFor(sent.current, { dieInstanceId, kgPer12ftMilli: parsed });
+              add.mutate({ dieInstanceId, kgPer12ftMilli: parsed, clientRequestId: sent.current.id });
             }}
           >
             {t("dieRoom.reading.add")}

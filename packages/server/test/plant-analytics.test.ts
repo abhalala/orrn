@@ -702,6 +702,49 @@ describe("trends, dispatch volume and stock ageing", () => {
     expect(await p.owner.analytics.trends({})).toHaveLength(90);
   });
 
+  test("BACKLOG 20: with shifts saved the trend days are production days (shift 1 start to the next), like the Today blocks", async () => {
+    const shifts = [
+      { id: "s1", name: "Day", seq: 1, startMin: 8 * 60, endMin: 20 * 60 },
+      { id: "s2", name: "Night", seq: 2, startMin: 20 * 60, endMin: 8 * 60 },
+    ];
+    const p = await plant({ shifts });
+    // 03:30 on 3 Oct is still production day 2 Oct (shift 1 starts at 08:00).
+    setClock(ist("2026-10-03T03:30:00"));
+    await seedStock(p.companyId, p.dieId, ist("2026-10-01T07:59:00"), kg(1)); // production day 30 Sep
+    await seedStock(p.companyId, p.dieId, ist("2026-10-01T08:00:00"), kg(2)); // 1 Oct
+    await seedStock(p.companyId, p.dieId, ist("2026-10-02T02:00:00"), kg(3)); // still 1 Oct (night shift past midnight)
+    await seedStock(p.companyId, p.dieId, ist("2026-10-02T09:00:00"), kg(4)); // 2 Oct
+    await seedStock(p.companyId, p.dieId, ist("2026-10-03T02:00:00"), kg(5)); // 2 Oct, the day "so far"
+    const days = await p.owner.analytics.trends({ days: 3 });
+    expect(days).toEqual([
+      { date: "2026-09-30", packedKgG: kg(1), dispatchedKgG: 0 },
+      { date: "2026-10-01", packedKgG: kg(5), dispatchedKgG: 0 },
+      { date: "2026-10-02", packedKgG: kg(9), dispatchedKgG: 0 },
+    ]);
+    // The last point is the one the Today KPI blocks show for the same instant.
+    const today = await p.owner.dashboard.today();
+    expect(today.date).toBe("2026-10-02");
+    expect(today.kpis.packedG).toBe(kg(9));
+  });
+
+  test("BACKLOG 20: dispatches bucket on the production day too; without shifts nothing changes (calendar days)", async () => {
+    const shifts = [{ id: "s1", name: "Day", seq: 1, startMin: 6 * 60, endMin: 18 * 60 }, { id: "s2", name: "Night", seq: 2, startMin: 18 * 60, endMin: 6 * 60 }];
+    const withShifts = await plant({ shifts });
+    setClock(ist("2026-10-03T12:00:00"));
+    await seedDispatch(withShifts.companyId, withShifts.customerId, ist("2026-10-03T05:00:00"), [{ dieId: withShifts.dieId, weightG: kg(8) }]);
+    await seedDispatch(withShifts.companyId, withShifts.customerId, ist("2026-10-03T07:00:00"), [{ dieId: withShifts.dieId, weightG: kg(9) }]);
+    const a = await withShifts.owner.analytics.trends({ days: 2 });
+    expect(a).toEqual([
+      // The test helper packs each dispatch's bundles a day before it ships.
+      { date: "2026-10-02", packedKgG: kg(9), dispatchedKgG: kg(8) },
+      { date: "2026-10-03", packedKgG: 0, dispatchedKgG: kg(9) },
+    ]);
+    const plain = await plant();
+    await seedDispatch(plain.companyId, plain.customerId, ist("2026-10-03T05:00:00"), [{ dieId: plain.dieId, weightG: kg(8) }]);
+    const b = await plain.owner.analytics.trends({ days: 2 });
+    expect(b.at(-1)).toEqual({ date: "2026-10-03", packedKgG: 0, dispatchedKgG: kg(8) });
+  });
+
   test("dispatch volume: months ending this month, zero-filled", async () => {
     const p = await plant();
     setClock(ist("2026-10-03T12:00:00"));

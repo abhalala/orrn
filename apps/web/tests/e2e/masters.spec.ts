@@ -65,13 +65,14 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("heading", { level: 1, name: "Masters" })).toBeVisible();
       // The rows of the two lists (the amber "Vendors to confirm" block is a link too, shown only while drafts exist).
       const entry = (name: string) => page.getByRole("listitem").getByRole("link", { name: new RegExp(`^${name}`) });
-      for (const name of ["Vendors", "Scrap and returns", "Store items", "Locations", "Sections", "Die copies"]) {
+      for (const name of ["Vendors", "Scrap and returns", "Store items", "Locations", "Sections", "Die copies", "Reason codes"]) {
         await expect(entry(name)).toBeVisible();
       }
       // Store items are kept on the Store screens (one page, PL-W6), sections on /dies.
       await expect(entry("Store items")).toHaveAttribute("href", "/store/items");
       await expect(entry("Sections")).toHaveAttribute("href", "/dies");
       await expect(entry("Die copies")).toHaveAttribute("href", "/masters/dies");
+      await expect(entry("Reason codes")).toHaveAttribute("href", "/masters/reasons");
       await expectCleanLayout(page);
     });
 
@@ -95,6 +96,65 @@ for (const width of WIDTHS) {
       await expect(rowWith(page, code)).toBeVisible();
       await expectNoHorizontalScroll(page);
       await retireLocation(page, code);
+    });
+
+    test("reason codes: add with Hindi wording, rename, retire and bring back; Other is fixed", async ({ page }) => {
+      const label = `E2E reprint ${width} ${run}`;
+      const renamed = `${label} renamed`;
+      await open(page, "/masters/reasons?kind=reprint", width);
+      await expect(page.getByRole("heading", { level: 1, name: "Reason codes" })).toBeVisible();
+      await expect(page.getByRole("tab", { name: "Reprint", selected: true })).toBeVisible();
+      // The standard codes are there, and Other is listed last, marked fixed, with no edit button.
+      await expect(rowWith(page, "Label damaged")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Edit Other" })).toHaveCount(0);
+      await expect(page.locator("main#main").getByText("Fixed").first()).toBeVisible();
+      await expectCleanLayout(page);
+
+      await page.getByRole("button", { name: "Add reason" }).first().click();
+      const s = sheet(page);
+      await expect(s).toBeVisible();
+      await s.getByRole("button", { name: "Save reason" }).click();
+      await expect(s.getByText("Give the wording.")).toBeVisible();
+      await s.getByLabel("English wording").fill(label);
+      await s.getByLabel("Hindi wording").fill("धुंधला लेबल");
+      await s.getByRole("button", { name: "Save reason" }).click();
+      await expect(s).toBeHidden();
+      await expect(rowWith(page, label)).toBeVisible();
+      await expect(rowWith(page, "धुंधला लेबल")).toBeVisible();
+      await expectNoHorizontalScroll(page);
+
+      // Rename keeps the key; the Hindi wording stays.
+      await page.getByRole("button", { name: `Edit ${label}` }).click();
+      await s.getByLabel("English wording").fill(renamed);
+      await s.getByRole("button", { name: "Save reason" }).click();
+      await expect(s).toBeHidden();
+      await expect(rowWith(page, renamed)).toBeVisible();
+
+      // Retire: it leaves the in-use list and shows under Retired; bring it back.
+      await page.getByRole("button", { name: `Edit ${renamed}` }).click();
+      await s.getByRole("button", { name: "Retire" }).click();
+      await expect(s).toBeHidden();
+      await expect(rowWith(page, renamed)).toHaveCount(0);
+      await page.getByRole("radio", { name: "Retired" }).click();
+      await expect(rowWith(page, renamed)).toBeVisible();
+      await page.getByRole("button", { name: `Edit ${renamed}` }).click();
+      await s.getByRole("button", { name: "Bring back" }).click();
+      await expect(s).toBeHidden();
+      await page.getByRole("radio", { name: "In use" }).click();
+      await expect(rowWith(page, renamed)).toBeVisible();
+
+      // Leave the shared plant as found: retire what this spec added.
+      await page.getByRole("button", { name: `Edit ${renamed}` }).click();
+      await s.getByRole("button", { name: "Retire" }).click();
+      await expect(s).toBeHidden();
+    });
+
+    test("reason codes: a role without masters.publish reads the list and has no add or edit", async ({ page }) => {
+      await open(page, "/masters/reasons", width, "operator");
+      await expect(page.getByRole("heading", { level: 1, name: "Reason codes" })).toBeVisible();
+      await expect(rowWith(page, "Die change")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Add reason" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Edit Die change" })).toHaveCount(0);
     });
 
     test("vendors: list and add one", async ({ page }) => {

@@ -90,6 +90,21 @@ export const verification = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+/**
+ * A fixed-window counter for public auth endpoints (BACKLOG 23: `/request-password-reset`, per
+ * email and per IP). One row per key; `hits` counts the calls since `window_start`. The key for an
+ * email is a SHA-256 of it, never the address. Written only by `@orrn/auth` (`reset-throttle.ts`).
+ */
+export const authThrottle = sqliteTable(
+  "auth_throttle",
+  {
+    key: text("key").primaryKey(),
+    windowStart: integer("window_start").notNull(),
+    hits: integer("hits").notNull().default(1),
+  },
+  (table) => [index("auth_throttle_window_idx").on(table.windowStart)],
+);
+
 export const twoFactor = sqliteTable(
   "two_factor",
   {

@@ -29,7 +29,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
 import { companySettings, isPressAbort, LIVE_RUN_STATUSES, lineQueue, pressAbortUnless, pressErrorText } from "../lib/press";
-import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
+import { ensureDefaultReasonCodes, hasStandardWording } from "../lib/reasonCodes";
 import { pressDaySummary, pressReport, pressReportCsv } from "../lib/pressReport";
 import { nextCompanySeq } from "../lib/sequence";
 import { pressRunRouter } from "./pressRun";
@@ -512,7 +512,7 @@ const downtimeRouter = router({
   list: companyProcedure
     .input(z.object({ pressLineId: id.optional(), pressRunId: id.optional(), openOnly: z.boolean().optional(), limit: z.number().int().min(1).max(200).default(50) }))
     .query(async ({ ctx, input }) => {
-      return ctx.db
+      const rows = await ctx.db
         .select({
           id: pressDowntime.id,
           pressLineId: pressDowntime.pressLineId,
@@ -520,6 +520,9 @@ const downtimeRouter = router({
           reasonCodeId: pressDowntime.reasonCodeId,
           reasonCode: reasonCode.code,
           reasonLabel: reasonCode.label,
+          // I-2: the station shows the reason in the reader's language (typed wording, else built-in).
+          labelHi: reasonCode.labelHi,
+          labelGu: reasonCode.labelGu,
           note: pressDowntime.note,
           startedAt: pressDowntime.startedAt,
           stoppedAt: pressDowntime.stoppedAt,
@@ -536,6 +539,7 @@ const downtimeRouter = router({
         )
         .orderBy(desc(pressDowntime.startedAt))
         .limit(input.limit);
+      return rows.map((r) => ({ ...r, standard: hasStandardWording("downtime", r.reasonCode, r.reasonLabel) }));
     }),
 });
 
@@ -557,12 +561,14 @@ export const pressRouter = router({
     .input(z.object({ kind: z.enum(REASON_CODE_KINDS), includeInactive: z.boolean().default(false) }))
     .query(async ({ ctx, input }) => {
       await ensureDefaultReasonCodes(ctx.db, ctx.companyId);
-      return ctx.db
+      const rows = await ctx.db
         .select({
           id: reasonCode.id,
           kind: reasonCode.kind,
           code: reasonCode.code,
           label: reasonCode.label,
+          labelHi: reasonCode.labelHi,
+          labelGu: reasonCode.labelGu,
           requiresNote: reasonCode.requiresNote,
           active: reasonCode.active,
           sortOrder: reasonCode.sortOrder,
@@ -570,6 +576,7 @@ export const pressRouter = router({
         .from(reasonCode)
         .where(and(eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, input.kind), input.includeInactive ? undefined : eq(reasonCode.active, true)))
         .orderBy(asc(reasonCode.sortOrder), asc(reasonCode.code));
+      return rows.map((r) => ({ ...r, standard: hasStandardWording(r.kind, r.code, r.label) }));
     }),
 
   /** Press report (FP-PR-17): 17 columns, logged runs by production day; `csv` when asked. */

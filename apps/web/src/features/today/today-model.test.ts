@@ -10,7 +10,6 @@ import {
   formatCount,
   formatRupees,
   greetingKey,
-  inStock,
   needsStartHere,
   newestFirst,
   productionDayCaption,
@@ -87,19 +86,6 @@ describe("formatCount", () => {
     expect(interpolate(bundles, { count: formatCount(1284) })).toBe("1,284 bundles");
     expect(interpolate(bundles, { count: formatCount(1) })).toBe("1 bundle");
     expect(interpolate(bundles, { count: formatCount(0) })).toBe("0 bundles");
-  });
-});
-
-describe("inStock", () => {
-  test("in stock is available only (as on Stock); held, dispatched and void are not counted", () => {
-    expect(
-      inStock({
-        available: { bundles: 10, weightG: 250_000 },
-        reserved: { bundles: 2, weightG: 52_400 },
-        dispatched: { bundles: 99, weightG: 9_999_000 },
-        void: { bundles: 3, weightG: 75_000 },
-      }),
-    ).toEqual({ bundles: 10, kg: 250 });
   });
 });
 

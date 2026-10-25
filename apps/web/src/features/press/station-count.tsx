@@ -56,7 +56,7 @@ const unitSuffix = (unit: LengthUnit) => (unit === "inch" ? "in" : "mm");
  * person typed is cleared when a save fails: the message says so and the same button tries again.
  */
 export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const qc = useQueryClient();
   const { data: me } = useMe();
   const holds = useHolds();
@@ -181,7 +181,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
   };
 
   /**
-   * The last step's remark and reading. Neither write has an idempotency key on the server, so a
+   * The last step's remark and reading. The remark has no idempotency key on the server, so a
    * retry first reads what the server holds now and sends only what is not there (m-3).
    */
   const saveNotes = async (): Promise<boolean> => {
@@ -201,7 +201,8 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
       if (todo.die) await remark.mutateAsync({ id: runId, kind: "die", body: todo.die });
       if (todo.reading !== undefined && fresh.copy) {
         attempts.current = { reading: todo.reading };
-        await reading.mutateAsync({ dieInstanceId: fresh.copy.id, pressRunId: runId, kgPer12ftMilli: todo.reading });
+        // BACKLOG 47: keyed on the run and the value, so a resend after a lost reply is the same reading.
+        await reading.mutateAsync({ dieInstanceId: fresh.copy.id, pressRunId: runId, kgPer12ftMilli: todo.reading, clientRequestId: `rd-${runId}-${todo.reading}` });
         attempts.current = {};
         patch({ readingText: "" });
         setNotice(t("press.console.readingSaved"));
@@ -454,7 +455,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                         value={row.reasonCodeId}
                         onValueChange={(reasonCodeId) => setDraft((d) => ({ ...d, qc: d.qc.map((q) => (q.key === row.key ? { ...q, reasonCodeId } : q)) }))}
                         placeholder={t("press.console.pickOne")}
-                        options={(rejectReasons.data ?? []).map((r) => ({ value: r.id, label: reasonLabel(t, "qc_reject", r.code, r.label) }))}
+                        options={(rejectReasons.data ?? []).map((r) => ({ value: r.id, label: reasonLabel(t, "qc_reject", r.code, r.label, r, locale) }))}
                       />
                     </Field>
                     <Field label={t("press.console.rejectNote")} hint={chosen?.requiresNote ? t("press.console.noteRequired") : undefined}>

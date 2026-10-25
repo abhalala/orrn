@@ -429,3 +429,46 @@ test.describe("layout and accessibility", () => {
     }
   });
 });
+
+test.describe("route cross-fade honours prefers-reduced-motion (BACKLOG 22)", () => {
+  /** Counts the page's view transitions: the route cross-fade is one per navigation. */
+  async function countTransitions(page: Page) {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __vt: number };
+      w.__vt = 0;
+      const original = document.startViewTransition?.bind(document);
+      if (original) {
+        document.startViewTransition = ((cb?: unknown) => {
+          w.__vt += 1;
+          return original(cb as never);
+        }) as typeof document.startViewTransition;
+      }
+    });
+  }
+  const transitions = (page: Page) => page.evaluate(() => (window as unknown as { __vt: number }).__vt);
+
+  test("reduced motion: moving between screens starts no view transition", async ({ page }) => {
+    await countTransitions(page);
+    await open(page, { width: 1280 });
+    await mainNav(page).getByRole("link", { name: "Stock" }).first().click();
+    await expect(page).toHaveURL(/\/stock/);
+    await expect(page.locator("main#main h1").first()).toBeVisible();
+    expect(await transitions(page)).toBe(0);
+  });
+
+  test("no preference: the same move does cross-fade (the guard is the setting, not a removed feature)", async ({ page }) => {
+    await countTransitions(page);
+    await open(page, { width: 1280 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.waitForFunction(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    // Let the router's change listener run before the first move.
+    await page.evaluate(() => new Promise((r) => setTimeout(r, 100)));
+    // A router invalidation can skip the fade for one move, so look at a few moves, not one.
+    for (const [name, url] of [["Stock", /\/stock/], ["Today", /\/today/], ["Stock", /\/stock/]] as const) {
+      await mainNav(page).getByRole("link", { name }).first().click();
+      await expect(page).toHaveURL(url);
+      await expect(page.locator("main#main h1").first()).toBeVisible();
+    }
+    expect(await transitions(page)).toBeGreaterThan(0);
+  });
+});

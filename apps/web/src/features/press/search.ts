@@ -34,3 +34,9 @@ export function parseQueueSearch(raw: Record<string, unknown>): QueueSearch {
   if (copy) out.copy = copy;
   return out;
 }
+
+/** `/press/alerts?show=all` (open alerts only when missing, so the list opens on what needs a look). */
+export type AlertsSearch = { show?: "all" };
+export function parseAlertsSearch(raw: Record<string, unknown>): AlertsSearch {
+  return raw.show === "all" ? { show: "all" } : {};
+}

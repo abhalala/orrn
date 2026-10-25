@@ -145,6 +145,15 @@ export function bucketKeyExpr(col: SQLiteColumn | SQL, segments: OffsetSegment[]
   return sql<string>`date(${seconds}, 'unixepoch', '-6 days', 'weekday 1')`;
 }
 
+/**
+ * Production-day key of `col` (BACKLOG 20): the calendar date of (wall clock - `startMin`), so a
+ * moment before shift 1's start belongs to the day before. `startMin` 0 is `bucketKeyExpr(..., "day")`.
+ */
+export function productionDayKeyExpr(col: SQLiteColumn | SQL, segments: OffsetSegment[], startMin: number): SQL<string> {
+  const seconds = sql`((${localMsExpr(col, segments)} - ${literal(startMin * 60_000)}) / 1000)`;
+  return sql<string>`date(${seconds}, 'unixepoch')`;
+}
+
 /** A local-date range [from, to) as UTC instants plus the offsets that cover it. */
 export function zonedRange(timezone: string, from: string, to: string) {
   const fromMs = localMidnight(timezone, from);

@@ -12,9 +12,26 @@ import { unwrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { buildBundleLabelVariables } from "../lib/bundle-label";
-import { SpoolClient, spoolBaseUrl } from "../lib/spool-client";
+import { SpoolClient, SpoolHttpError, spoolBaseUrl } from "../lib/spool-client";
 import { can } from "../lib/permissions";
 import { actionProcedure, companyProcedure, router } from "../index";
+
+/** What the spool compares under one job key (printer, template, variables, copies): sha-256 hex of sorted JSON. */
+async function labelPayloadHash(body: { printer_id: number; template_id: number; variables: Record<string, unknown>; copies: number }): Promise<string> {
+  const variables = Object.fromEntries(Object.entries(body.variables).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  const text = JSON.stringify({ c: body.copies, p: body.printer_id, t: body.template_id, v: variables });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The spool's exactly-once key (orrn-spool docs/print-exactly-once.md): one per print intent,
+ * `bundle:<serial>:label:v<template version>:attempt:<n>`. The spool accepts 1-200 characters from
+ * A-Z a-z 0-9 . _ : / # @ = + ~ -, so any other character of a serial becomes `_`.
+ */
+export function spoolJobKey(serial: string, labelVersion: number, attempt: number): string {
+  return `bundle:${serial.replace(/[^A-Za-z0-9._:/#@=+~-]/g, "_")}:label:v${labelVersion}:attempt:${attempt}`.slice(0, 200);
+}
 import { loadPackLabelVariables } from "../lib/pack";
 
 /** Get the active spool deployment for the current company, or throw. */
@@ -297,6 +314,12 @@ export const spoolRouter = router({
         profileId: z.string().optional(),
         layout: z.string().regex(/^x\d+$/).default("x0"),
         copies: z.number().int().min(1).max(100).optional(),
+        /**
+         * BACKLOG 44: true only when a person asks for ANOTHER label of a bundle already printed
+         * (the Reprint action). That is a new print intent (the spool job key's attempt + 1). Left
+         * out, the call is the same print again (a retry, a double tap) and cannot make a second label.
+         */
+        reprint: z.boolean().default(false),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -376,6 +399,39 @@ export const spoolRouter = router({
       const copies = input.copies ?? profile.defaultCopies;
       Object.assign(variables, packVariables);
 
+      // BACKLOG 44: the print intent. The first print of a bundle at a label version is attempt 1. The
+      // attempt moves up when a person asks for a reprint of a label that went out (ANY row of the latest
+      // attempt has a spool job id: the spool accepted that key, whatever its status became since), or
+      // when the label content differs from what that attempt already sent (another profile, copies, a
+      // changed sales order on the label): the spool would refuse that key as a conflict. Anything else
+      // (a transport retry, a second tap, a reprint whose first try never reached the spool) reuses the
+      // latest attempt, hence the key.
+      const labelVersion = template.version;
+      const payloadHash = await labelPayloadHash({
+        printer_id: Number(profile.spoolPrinterId),
+        template_id: Number(template.spoolTemplateId),
+        variables,
+        copies,
+      });
+      const scope = and(eq(printLog.companyId, ctx.companyId!), eq(printLog.bundleId, bundleRow.id), eq(printLog.labelVersion, labelVersion));
+      const [latest] = await ctx.db
+        .select({ attempt: printLog.attempt })
+        .from(printLog)
+        .where(scope)
+        .orderBy(desc(printLog.attempt))
+        .limit(1);
+      let attempt = 1;
+      if (latest) {
+        const rows = await ctx.db
+          .select({ spoolJobId: printLog.spoolJobId, payloadHash: printLog.payloadHash })
+          .from(printLog)
+          .where(and(scope, eq(printLog.attempt, latest.attempt)));
+        const went = rows.some((r) => r.spoolJobId != null);
+        const changed = rows.some((r) => r.payloadHash != null && r.payloadHash !== payloadHash);
+        attempt = (input.reprint && went) || changed ? latest.attempt + 1 : latest.attempt;
+      }
+      const jobKey = spoolJobKey(bundleRow.serial, labelVersion, attempt);
+
       await ctx.db.insert(printLog).values({
         id: printLogId,
         companyId: ctx.companyId!,
@@ -386,7 +442,10 @@ export const spoolRouter = router({
         status: "queued",
         layout: input.layout,
         variables,
-        attempt: 1,
+        attempt,
+        labelVersion,
+        jobKey,
+        payloadHash,
       });
 
       try {
@@ -395,7 +454,10 @@ export const spoolRouter = router({
           template_id: Number(template.spoolTemplateId),
           variables,
           copies,
+          job_key: jobKey,
         });
+        // `duplicate: true` (HTTP 200): this label is already queued or printed under the key. That is
+        // success: the id recorded is the first job's, and nothing was queued again.
 
         await ctx.db
           .update(printLog)
@@ -412,6 +474,15 @@ export const spoolRouter = router({
           })
           .where(eq(printLog.id, printLogId));
 
+        // The same key came back for different label content: orrn built the key wrong. Never a quiet
+        // success (a wrong label might be queued) and never retried; loud in the logs.
+        if (err instanceof SpoolHttpError && err.status === 409 && err.code === "job_key_conflict") {
+          console.error(`spool job_key_conflict (bug): key ${jobKey} was already used for a different label; print log ${printLogId}`);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "This label was already sent to the printer with different content. Ask support; nothing was printed again.",
+          });
+        }
         throw new TRPCError({
           code: "BAD_GATEWAY",
           message: `Failed to submit bundle label print: ${err instanceof Error ? err.message : String(err)}`,

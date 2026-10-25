@@ -77,14 +77,6 @@ export function formatCount(n: number): string {
   return Math.round(n).toLocaleString("en-IN");
 }
 
-/**
- * Bundles in stock right now: available only, the Stock screen's "In stock" (held bundles show
- * there as Held). Same rule as the server's `dashboard.today` `kpis.inStock*`.
- */
-export function inStock(stock: TodayData["stock"]): { bundles: number; kg: number } {
-  return { bundles: stock.available.bundles, kg: stock.available.weightG / 1000 };
-}
-
 export type TrendPoint = { t: Date; v: number; partial?: boolean };
 export type TrendSeries = { key: "packed" | "dispatched"; label: string; points: TrendPoint[] };
 

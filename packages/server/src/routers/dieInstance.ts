@@ -47,6 +47,8 @@ import { actionProcedure, anyActionProcedure, companyProcedure, router } from ".
 import { requestApprovalInsert } from "../lib/approval";
 import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { clientRequestIdSchema } from "../lib/importReplay";
+import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import { now as clockNow } from "../lib/clock";
 import {
   audit,
@@ -81,10 +83,20 @@ const grams = z.number().int().min(0).max(1_000_000_000);
 
 const NOT_FOUND = { code: "NOT_FOUND", message: "Die not found" } as const;
 
+/**
+ * The server derives `closeG = openG - usedG` (BACKLOG 19, digest §8.6); the client sends open and
+ * used only. A `closeG` still sent (one release of backwards compatibility) must equal that value.
+ * Used above open is refused.
+ */
+function withDerivedClose<T extends z.ZodType<{ openG: number; usedG: number; closeG?: number | undefined }>>(schema: T) {
+  return schema
+    .refine((c) => c.usedG <= c.openG, "Used is more than was open")
+    .refine((c) => c.closeG === undefined || c.closeG === c.openG - c.usedG, "Close must equal open minus used")
+    .transform((c) => ({ ...c, closeG: c.openG - c.usedG }) as Omit<z.output<T>, "closeG"> & { closeG: number });
+}
+
 /** One chemical's open / used / close, in grams; close = open - used (digest §8.6). */
-const chemical = z
-  .object({ openG: grams, usedG: grams, closeG: grams })
-  .refine((c) => c.closeG === c.openG - c.usedG, "Close must equal open minus used");
+const chemical = withDerivedClose(z.object({ openG: grams, usedG: grams, closeG: grams.optional() }));
 
 const shortText = (max: number) => z.string().trim().max(max).nullable().optional();
 
@@ -178,9 +190,9 @@ function auditCtx(ctx: {
 }
 
 /** Nitriding chemical with an optional central-store item (counted in kg) to draw the used grams from. */
-const nitridingChemical = z
-  .object({ openG: grams, usedG: grams, closeG: grams, storeItemId: z.string().min(1).max(64).optional() })
-  .refine((c) => c.closeG === c.openG - c.usedG, "Close must equal open minus used");
+const nitridingChemical = withDerivedClose(
+  z.object({ openG: grams, usedG: grams, closeG: grams.optional(), storeItemId: z.string().min(1).max(64).optional() }),
+);
 
 /** "12170-1 is issued to a press; it cannot be sent to nitriding". */
 function copyBusyMessage(instance: { code: string; status: string }, what: string): string {
@@ -706,9 +718,34 @@ export const dieInstanceRouter = router({
         dieInstanceId: z.string().min(1),
         pressRunId: z.string().trim().min(1).max(64).optional(),
         kgPer12ftMilli,
+        /**
+         * BACKLOG 47: one key per reading. Sent again after a lost reply, the call answers the first
+         * reading with `replayed: true` and adds nothing; the same key with another value is a CONFLICT.
+         */
+        clientRequestId: clientRequestIdSchema.optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: raw }) => {
+      const { clientRequestId, ...input } = raw;
+      let replay: Replay | null = clientRequestId
+        ? await openReplay(ctx.db, ctx.companyId, "die_reading.add", clientRequestId, { ...input, pressRunId: input.pressRunId ?? null })
+        : null;
+      // The first reading itself is the answer (its previous value and instant were set at write time).
+      const replayed = async (r: Replay) => {
+        const [first] = await ctx.db
+          .select()
+          .from(dieWeightReading)
+          .where(and(eq(dieWeightReading.id, String(r.prior?.readingId ?? "")), eq(dieWeightReading.companyId, ctx.companyId)))
+          .limit(1);
+        return {
+          id: first?.id ?? "",
+          kgPer12ftMilli: first?.kgPer12ftMilli ?? input.kgPer12ftMilli,
+          lastKgPer12ftMilli: first?.lastKgPer12ftMilli ?? null,
+          readAt: first?.readAt ?? 0,
+          replayed: true as const,
+        };
+      };
+      if (replay?.prior) return await replayed(replay);
       const instance = await loadInstance(ctx, input.dieInstanceId);
       if (instance.status === "retired") {
         throw new TRPCError({ code: "BAD_REQUEST", message: `${instance.code} is retired; it takes no readings` });
@@ -720,7 +757,7 @@ export const dieInstanceRouter = router({
       // The copy's previous reading and the instant to stay after, both read at write time.
       const lastValue = sql`select r.kg_per_12ft_milli from die_weight_reading r where r.company_id = ${outer("company_id")} and r.die_instance_id = ${outer("id")} order by r.read_at desc limit 1`;
       const afterLast = sql`select max(r.read_at) + 1 from die_weight_reading r where r.company_id = ${outer("company_id")} and r.die_instance_id = ${outer("id")}`;
-      await atomicBatch(ctx.db, [
+      const statements: SqliteBatchItem[] = [
         ctx.db.insert(dieWeightReading).select(
           ctx.db
             .select({
@@ -747,14 +784,32 @@ export const dieInstanceRouter = router({
         auditInsertGuarded(
           auditCtx(ctx),
           {
+            ...(replay ? { id: replay.id } : {}),
             action: "die_reading.add",
             subjectType: "die_instance",
             subjectId: instance.id,
-            meta: { code: instance.code, kgPer12ftMilli: input.kgPer12ftMilli, pressRunId: input.pressRunId ?? null },
+            meta: {
+              code: instance.code,
+              kgPer12ftMilli: input.kgPer12ftMilli,
+              pressRunId: input.pressRunId ?? null,
+              readingId: id,
+              // The first answer, for a repeat: the previous value and instant are read at write time.
+              ...replayMeta(replay, clientRequestId),
+            },
           },
           { from: dieWeightReading, where: and(eq(dieWeightReading.id, id), eq(dieWeightReading.serverSeq, seq)) },
         ),
-      ]);
+      ];
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        // An identical call landed first (on the record's primary key): answer its reading.
+        if (replay && lostReplayRace(e, replay)) {
+          replay = await readReplay(ctx.db, ctx.companyId, replay);
+          if (replay.prior) return await replayed(replay);
+        }
+        throw e;
+      }
       const [row] = await ctx.db
         .select()
         .from(dieWeightReading)
@@ -769,6 +824,7 @@ export const dieInstanceRouter = router({
         kgPer12ftMilli: row.kgPer12ftMilli,
         lastKgPer12ftMilli: row.lastKgPer12ftMilli,
         readAt: row.readAt,
+        replayed: false as const,
       };
     }),
 

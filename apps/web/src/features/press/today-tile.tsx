@@ -41,8 +41,14 @@ export function TodayPressTile({ data, alerts = null }: { data: PressedToday; al
       </div>
       {alerts ? (
         <p className="m-0 flex flex-wrap items-center gap-2" data-testid="today-press-alerts">
-          {alerts.open > 0 ? <Chip tone="red">{t("today.press.alertsOpen", { count: alerts.open })}</Chip> : null}
-          <Chip tone="amber">{t("today.press.alertsToday", { count: alerts.today })}</Chip>
+          {alerts.open > 0 ? (
+            <UiLink to="/press/alerts" className="no-underline" data-testid="today-press-alerts-open">
+              <Chip tone="red">{t("today.press.alertsOpen", { count: alerts.open })}</Chip>
+            </UiLink>
+          ) : null}
+          <UiLink to="/press/alerts?show=all" className="no-underline" data-testid="today-press-alerts-today">
+            <Chip tone="amber">{t("today.press.alertsToday", { count: alerts.today })}</Chip>
+          </UiLink>
           {alerts.simulated ? <Chip tone="blue">{t("today.press.alertsSimulated")}</Chip> : null}
         </p>
       ) : null}

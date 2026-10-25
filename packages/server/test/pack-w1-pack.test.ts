@@ -343,6 +343,20 @@ describe("rejects at pack (FP-PK-14) and the ledger", () => {
     expect(await env.db.select().from(packReject).where(eq(packReject.companyId, p.companyId))).toHaveLength(0);
   }, SLOW);
 
+  test("W4-MASTERS I-3: a retired reject code is refused; a code the plant added in Masters is taken", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const bend = (await p.owner.reasonCodes.list({ kind: "qc_reject" })).find((r) => r.code === "bend")!;
+    await p.owner.reasonCodes.setActive({ id: bend.id, active: false });
+    await expect(
+      p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, rows: [row(10)], rejects: [{ pcs: 1, reasonCode: "bend" }] }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    const added = await p.owner.reasonCodes.create({ kind: "qc_reject", label: "Die line" });
+    await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, rows: [row(10)], rejects: [{ pcs: 1, reasonCode: added.code }] });
+    const saved = await env.db.select().from(packReject).where(eq(packReject.companyId, p.companyId));
+    expect(saved.map((r) => r.reason)).toEqual(["die_line"]);
+  }, SLOW);
+
   test("stock.rejections lists them with totals per reason", async () => {
     setClock(NOON);
     const p = await plant();

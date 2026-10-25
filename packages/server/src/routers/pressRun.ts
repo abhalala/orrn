@@ -93,6 +93,7 @@ import {
   type LoadedRun,
 } from "../lib/press";
 import { reopenBlockers } from "../lib/press/reopenBlockers";
+import { hasStandardWording } from "../lib/reasonCodes";
 import { nextCompanySeq } from "../lib/sequence";
 
 const id = z.string().min(1).max(64);
@@ -361,6 +362,8 @@ async function runChildren(db: OrrnDb, companyId: string, runId: string) {
         reasonCodeId: qcEntry.reasonCodeId,
         reasonCode: reasonCode.code,
         reasonLabel: reasonCode.label,
+        labelHi: reasonCode.labelHi,
+        labelGu: reasonCode.labelGu,
         requiresNote: reasonCode.requiresNote,
         pcs: qcEntry.pcs,
         kgG: qcEntry.kgG,
@@ -376,6 +379,8 @@ async function runChildren(db: OrrnDb, companyId: string, runId: string) {
         reasonCodeId: pressDowntime.reasonCodeId,
         reasonCode: reasonCode.code,
         reasonLabel: reasonCode.label,
+        labelHi: reasonCode.labelHi,
+        labelGu: reasonCode.labelGu,
         note: pressDowntime.note,
         startedAt: pressDowntime.startedAt,
         stoppedAt: pressDowntime.stoppedAt,
@@ -385,7 +390,13 @@ async function runChildren(db: OrrnDb, companyId: string, runId: string) {
       .where(and(eq(pressDowntime.companyId, companyId), eq(pressDowntime.pressRunId, runId)))
       .orderBy(asc(pressDowntime.startedAt)),
   ]);
-  return { lines, billets, qc, downtime };
+  // I-2: the run sheet shows reasons in the reader's language (the `standard` flag picks the built-in translation).
+  return {
+    lines,
+    billets,
+    qc: qc.map((r) => ({ ...r, standard: r.reasonCode != null && r.reasonLabel != null && hasStandardWording("qc_reject", r.reasonCode, r.reasonLabel) })),
+    downtime: downtime.map((r) => ({ ...r, standard: hasStandardWording("downtime", r.reasonCode, r.reasonLabel) })),
+  };
 }
 
 async function castOnHand(db: OrrnDb, companyId: string, castId: string | null): Promise<{ number: string | null; onHandG: number | null }> {

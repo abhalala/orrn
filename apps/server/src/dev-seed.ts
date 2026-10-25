@@ -1,6 +1,6 @@
 import { createAuth } from "@orrn/auth";
 import { atomicBatch } from "@orrn/db";
-import { user } from "@orrn/db/schema/auth";
+import { authThrottle, user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem, transporter, type DispatchStatus } from "@orrn/db/schema/dispatch";
@@ -13,6 +13,7 @@ import {
 import { packingList, packingListDispatch, packingListLine } from "@orrn/db/schema/packing";
 import { auditLog } from "@orrn/db/schema/audit";
 import { approval } from "@orrn/db/schema/approval";
+import { pressAlert, pressAlertThreshold, pressCollectorFrame, pressRunCollector, spectroInbox } from "@orrn/db/schema/collector";
 import { countLine, countLocation, countSeen, countSession, countTally } from "@orrn/db/schema/count";
 import {
   alloy,
@@ -130,6 +131,9 @@ const DEMO_SETTINGS = {
   standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } },
   // Wave 3: KD Extrusion's party login is seeded (dev-seed-portal.ts).
   portalEnabled: true,
+  // The collector seed has a locked melt (dev-melt-1); left automatic, that would make every pack
+  // session ask for a cast. The demo plant packs without one, as it did before that melt existed.
+  requireCastOnBundle: false,
 };
 
 /** Every module on, Wave 1 floor modules included (FP-PF-07). */
@@ -1542,8 +1546,114 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   // Sequence now covers everything allocated above; packing-list codes continue from it.
   const sequenceAfterData = seq;
 
+  // Collector demo rows (BACKLOG 46, simulated or not as marked). Alerts are all ended (so none is "open" and
+  // the unique open-alert index is untouched); three are unacknowledged, one per e2e width, so parallel
+  // specs never acknowledge the same one. Inbox files: two per width (one to attach, one to dismiss), plus a
+  // simulated one that can only be dismissed. Their R2 objects do not exist: attach/dismiss never read them.
+  const collectorMeltRows: (typeof melt.$inferInsert)[] = [
+    // m-6: a locked melt reads like one: times in lock order (charging start, casting end) inside
+    // the cast's day, and its figures (2.6 t charged, the 2.4 t of billets the cast opened with).
+    {
+      id: "dev-melt-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      castId: "dev-press-cast-1",
+      seq: 1,
+      alloy: "6063",
+      alloyId: "dev-alloy-6063",
+      furnaceId: "dev-furnace-f1",
+      status: "locked",
+      preheatStartAt: new Date(pastAt(2, 6)),
+      chargingStartAt: new Date(pastAt(2, 6.75)),
+      chargingEndAt: new Date(pastAt(2, 8.5)),
+      castingStartAt: new Date(pastAt(2, 9)),
+      castingEndAt: new Date(pastAt(2, 11)),
+      inputG: 2_600_000,
+      logsPcs: 40,
+      logsLengthMm: 6_000,
+      logsG: billetOpeningG,
+      drossG: 130_000,
+      returnsG: 70_000,
+      createdBy: ownerId,
+    } as typeof melt.$inferInsert,
+  ];
+  const alertAt = (minAgo: number) => new Date(now - minAgo * 60_000);
+  const collectorAlertRows: (typeof pressAlert.$inferInsert)[] = [
+    ...([375, 820, 1280] as const).map((w, i) => ({
+      id: `dev-alert-${w}`,
+      companyId: COMPANY_ID,
+      pressLineId: "dev-press-line-1",
+      metric: (["ram_speed", "billet_temp", "exit_temp"] as const)[i]!,
+      direction: "high" as const,
+      limitX10: [120, 4800, 5600][i]!,
+      peakX10: [131, 5010, 5890][i]!,
+      frames: 4 + i,
+      simulated: false,
+      startedAt: alertAt(20),
+      lastAt: alertAt(18),
+      endedAt: alertAt(18),
+    })),
+    {
+      id: "dev-alert-acked",
+      companyId: COMPANY_ID,
+      pressLineId: "dev-press-line-2",
+      metric: "pressure" as const,
+      direction: "low" as const,
+      limitX10: 2200,
+      peakX10: 1890,
+      frames: 3,
+      simulated: false,
+      startedAt: alertAt(40),
+      lastAt: alertAt(38),
+      endedAt: alertAt(38),
+      acknowledgedAt: alertAt(30),
+      acknowledgedBy: ownerId,
+    },
+    {
+      id: "dev-alert-sim",
+      companyId: COMPANY_ID,
+      pressLineId: "dev-press-line-2",
+      metric: "container_temp" as const,
+      direction: "high" as const,
+      limitX10: 4300,
+      peakX10: 4450,
+      frames: 2,
+      simulated: true,
+      startedAt: alertAt(60),
+      lastAt: alertAt(59),
+      endedAt: alertAt(59),
+    },
+  ];
+  const inboxRow = (id: string, name: string, over: Partial<typeof spectroInbox.$inferInsert> = {}): typeof spectroInbox.$inferInsert => ({
+    id,
+    companyId: COMPANY_ID,
+    sha256: `${id.replace(/[^a-z0-9]/g, "")}`.padEnd(64, "0").slice(0, 64),
+    fileName: name,
+    mime: "text/csv",
+    sizeBytes: 2_048,
+    fileKey: `${COMPANY_ID}/spectro/${id}`,
+    status: "pending_review",
+    simulated: false,
+    capturedAt: alertAt(90),
+    sampleRef: name.replace(/\.csv$/, ""),
+    instrument: "Spectro 1",
+    valuesPpm: { si: 4_500, fe: 2_000, mg: 5_200 },
+    uploadedAt: alertAt(85),
+    ...over,
+  });
+  const collectorInboxRows: (typeof spectroInbox.$inferInsert)[] = [
+    ...([375, 820, 1280] as const).flatMap((w) => [
+      inboxRow(`dev-inbox-${w}-attach`, `6063-${w}-attach.csv`),
+      inboxRow(`dev-inbox-${w}-dismiss`, `6063-${w}-dismiss.csv`),
+    ]),
+    inboxRow("dev-inbox-sim", "simulated-6063.csv", { simulated: true }),
+  ];
+
   const statements: Statement[] = [
     // Reset: children before parents (several FKs are RESTRICT).
+    // I-4: the password-reset throttle (5 per 15 min per address and per IP) would refuse the
+    // forgot-password e2e on a rerun inside the window. Dev seed only (the route is dev-gated).
+    db.delete(authThrottle),
     // Customer portal (Wave 3): certificates hold keys to dispatches and customers, grants to dies.
     db.delete(testCertificate).where(eq(testCertificate.companyId, COMPANY_ID)),
     db.delete(customerPortalSection).where(eq(customerPortalSection.companyId, COMPANY_ID)),
@@ -1555,6 +1665,10 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     // lines, copies, casts and reason codes; transfers and pack rejects to bundles and groups.
     // Wave 2 run children (billets hold keys to casts, downtime to lines and reason codes, die
     // remarks to copies): before the runs, casts, lines, reason codes and copies they point at.
+    db.delete(pressAlert).where(eq(pressAlert.companyId, COMPANY_ID)),
+    db.delete(pressAlertThreshold).where(eq(pressAlertThreshold.companyId, COMPANY_ID)),
+    db.delete(pressRunCollector).where(eq(pressRunCollector.companyId, COMPANY_ID)),
+    db.delete(pressCollectorFrame).where(eq(pressCollectorFrame.companyId, COMPANY_ID)),
     db.delete(qcEntry).where(eq(qcEntry.companyId, COMPANY_ID)),
     db.delete(pressRunLine).where(eq(pressRunLine.companyId, COMPANY_ID)),
     db.delete(pressBilletUse).where(eq(pressBilletUse.companyId, COMPANY_ID)),
@@ -1584,6 +1698,8 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     // Foundry and store rows hold RESTRICT FKs to lots, locations, store items and casts: delete
     // them child-to-parent before those (else the batch fails once the demo has one melt). Casts go
     // with doc_series, or the next casts.open reuses J1 and hits cast_company_period_seq_unique.
+    // Collector rows (W4-COLLECTORS): the inbox points at melts and spectro results, alerts and frames at lines and runs.
+    db.delete(spectroInbox).where(eq(spectroInbox.companyId, COMPANY_ID)),
     db.delete(spectroResult).where(eq(spectroResult.companyId, COMPANY_ID)),
     db.delete(meltChemical).where(eq(meltChemical.companyId, COMPANY_ID)),
     db.delete(meltOutput).where(eq(meltOutput.companyId, COMPANY_ID)),
@@ -1763,6 +1879,10 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     ...insertChunks(db, pressRemark, pressExtras.pressRemarks),
     ...insertChunks(db, dieRemark, pressExtras.dieRemarks),
     ...insertChunks(db, docSeries, pressPlanSeriesRows),
+    // Collector UIs (BACKLOG 46): a melt for the inbox's picker, alerts and files to work through.
+    ...insertChunks(db, melt, collectorMeltRows),
+    ...insertChunks(db, pressAlert, collectorAlertRows),
+    ...insertChunks(db, spectroInbox, collectorInboxRows),
   ];
   await atomicBatch(db, statements);
 

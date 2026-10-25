@@ -1,12 +1,14 @@
 import { useT } from "@orrn/i18n";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
+import { randomId } from "@/lib/random-id";
+import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
 import { trpc } from "@/utils/trpc";
 
 import { applyPadKey, milliKgText, parseKgToMilli, type PadKey } from "./copy-model";
@@ -43,6 +45,8 @@ export function ReadingPanel({
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const add = useMutation(trpc.dieInstance.addReading.mutationOptions());
+  // BACKLOG 47: one key per keyed reading; a lost reply is sent once more with it and never adds twice.
+  const attempt = useRef<ReplayAttempt>(null);
   const milli = parseKgToMilli(text);
 
   const keyLabel = (key: PadKey) => (key === "back" ? t("dieRoom.reading.backspace") : key === "." ? t("native.dies.pad.point") : key);
@@ -51,7 +55,11 @@ export function ReadingPanel({
     if (milli == null) return;
     setError(null);
     try {
-      await add.mutateAsync({ dieInstanceId: copyId, kgPer12ftMilli: milli });
+      const body = { dieInstanceId: copyId, kgPer12ftMilli: milli };
+      const next = replayKey(attempt.current, body, randomId);
+      attempt.current = next.attempt;
+      await sendOnce((clientRequestId) => add.mutateAsync({ ...body, clientRequestId }), next.id);
+      attempt.current = null;
       feedback.success();
       announce(t("dieRoom.reading.saved", { code, kg: milliKgText(milli) }));
       setText("");

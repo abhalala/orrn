@@ -28,3 +28,17 @@ export async function sendOnce<T>(call: (clientRequestId: string) => Promise<T>,
     return call(key);
   }
 }
+
+/**
+ * A form that can be sent again (Save tapped twice, a retry after an unsure answer) keeps the SAME
+ * key while its content is unchanged; edited content is a different write and gets a fresh key.
+ * Clear the ref once a write has landed so the next one always has its own key.
+ */
+export function requestIdFor(
+  previous: { id: string; body: string } | null,
+  body: unknown,
+  makeId: () => string = newRequestKey,
+): { id: string; body: string } {
+  const json = JSON.stringify(body);
+  return previous && previous.body === json ? previous : { id: makeId(), body: json };
+}

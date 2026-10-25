@@ -781,6 +781,17 @@ test.describe("press in Hindi and Gujarati at 375", () => {
     await expect(page.getByTestId("started-at")).toContainText("શરૂ");
     await shot(page, 375, "station-gu-running");
     await clean(page);
+    // Review I-2: a standard stop reason reads Gujarati in the picker AND in the downtime list
+    // (the list must carry the `standard` flag, or the row falls back to the English wording).
+    await page.getByRole("button", { name: "પ્રેસ બંધ થયું", exact: true }).click();
+    const stopSheet = page.getByRole("dialog");
+    await pickOption(page, stopSheet.getByLabel("કેમ અટક્યું"), "બિલેટની રાહ");
+    await stopSheet.getByRole("button", { name: "પ્રેસ બંધ થયું" }).click();
+    const openStop = page.locator('[data-slot="downtime"] li[data-open="true"]');
+    await expect(openStop).toContainText("બિલેટની રાહ");
+    await expect(openStop).not.toContainText("Waiting for billets");
+    await page.getByRole("button", { name: "પ્રેસ ફરી ચાલુ" }).click();
+    await expect(page.locator('[data-slot="downtime"] li[data-open="false"]')).toContainText("બિલેટની રાહ");
     await page.getByRole("button", { name: "રોકો", exact: true }).click();
     await page.getByRole("button", { name: "ગણતરી અને તપાસ" }).click();
     await expect(page.locator('[data-banner="counting"]')).toBeVisible();

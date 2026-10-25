@@ -13,7 +13,7 @@ export function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}@orrn.local`;
 }
 
-export type InviteRole = "owner" | "admin" | "manager" | "operator" | "packer" | "viewer";
+export type InviteRole = "owner" | "admin" | "manager" | "operator" | "packer" | "viewer" | "foundry";
 
 /**
  * An invite (sent by the seeded owner) into a fresh company, so a test never
@@ -21,7 +21,7 @@ export type InviteRole = "owner" | "admin" | "manager" | "operator" | "packer" |
  */
 export async function devInvite(
   request: APIRequestContext,
-  input: { email: string; role: InviteRole; expired?: boolean; companyName?: string },
+  input: { email: string; role: InviteRole; expired?: boolean; companyName?: string; companyId?: string },
 ) {
   const res = await request.post(`${API}/dev/invite`, { data: input });
   expect(res.ok(), `/dev/invite returned ${res.status()}: ${await res.text()}`).toBe(true);

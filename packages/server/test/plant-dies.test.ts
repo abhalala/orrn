@@ -323,8 +323,9 @@ describe("nitriding log", () => {
     const bad = (chem: object) => p.dieRoom.dieInstance.addNitriding({ dieInstanceId: a.id, ...chem });
     await expect(bad({ cr4: { openG: 5_000, usedG: 800, closeG: 4_300 } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(bad({ k2s: { openG: 100, usedG: 200, closeG: -100 } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await expect(bad({ caustic: { openG: 100, usedG: 20 } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    expect(await env.db.select().from(nitridingLog).where(eq(nitridingLog.dieInstanceId, a.id))).toHaveLength(1);
+    // BACKLOG 19: close is derived by the server, so open + used alone is a complete chemical.
+    await expect(bad({ caustic: { openG: 100, usedG: 20 } })).resolves.toMatchObject({ id: expect.any(String) });
+    expect(await env.db.select().from(nitridingLog).where(eq(nitridingLog.dieInstanceId, a.id))).toHaveLength(2);
   });
 
   test("chemicals are optional; the date defaults to now; the future is refused; retired is refused", async () => {

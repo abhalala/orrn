@@ -36,6 +36,9 @@ export const reasonCode = sqliteTable(
     code: text("code").notNull(),
     /** English label for a plant-added code (seeded rows carry the default English too). */
     label: text("label").notNull(),
+    /** Hindi / Gujarati wording a plant typed for this code (null = the built-in translation, else English). */
+    labelHi: text("label_hi"),
+    labelGu: text("label_gu"),
     /** `other` (and any plant code marked so) needs a note. */
     requiresNote: integer("requires_note", { mode: "boolean" }).notNull().default(false),
     active: integer("active", { mode: "boolean" }).notNull().default(true),

@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
+import { TodaySpectroInbox } from "@/features/foundry/today-inbox";
 import { TodayPressTile } from "@/features/press/today-tile";
 import { TodayOldStockTile } from "@/features/reports/today-old-stock";
 import { Can } from "@/shared/components/can";
@@ -28,7 +29,6 @@ import {
   clockTime,
   companyClock,
   greetingKey,
-  inStock,
   needsStartHere,
   productionDayCaption,
   todaySections,
@@ -184,13 +184,14 @@ export function TodayScreen() {
     );
   }
 
-  const stock = inStock(data.stock);
-
   return (
     <>
       {header}
       <TodayKpis data={data} />
       {data.pressedToday && canAny(me, ["press.run", "press.close"]) ? <TodayPressTile data={data.pressedToday} alerts={data.pressAlerts} /> : null}
+      <Can do="cast.enter">
+        <TodaySpectroInbox />
+      </Can>
       <TodayTiles tiles={data.tiles} startIndex={3} />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
@@ -208,8 +209,9 @@ export function TodayScreen() {
                 date: data.date,
                 packedG: data.packedToday.weightG,
                 dispatchedG: data.dispatchedToday.weightG,
-                stockBundles: stock.bundles,
-                stockKg: stock.kg,
+                // m-1: the same server figures as the In stock KPI, never summed here.
+                stockBundles: data.kpis.inStockBundles,
+                stockKg: data.kpis.inStockG / 1000,
               }}
             />
           </Suspense>

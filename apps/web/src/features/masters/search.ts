@@ -42,6 +42,15 @@ export function parseScrapSearch(search: Record<string, unknown>): { tab?: Scrap
   return tab && tab !== "items" ? { tab } : {};
 }
 
+export const REASON_KINDS = ["downtime", "qc_reject", "void", "reprint", "ageing_hold", "ageing_rework", "ageing_scrap", "reallocate"] as const;
+export type ReasonKind = (typeof REASON_KINDS)[number];
+
+/** `?kind=qc_reject|void|...` (downtime when missing or unknown, so it keeps a clean URL). */
+export function parseReasonsSearch(search: Record<string, unknown>): { kind?: ReasonKind } {
+  const kind = oneOf(search.kind, REASON_KINDS);
+  return kind && kind !== "downtime" ? { kind } : {};
+}
+
 /** `?q=<name or spelling>&status=draft|archived|merged&offset=50`. */
 export function parseVendorsSearch(search: Record<string, unknown>): VendorsSearch {
   const out: VendorsSearch = {};

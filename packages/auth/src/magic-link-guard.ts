@@ -82,7 +82,14 @@ export async function magicLinkAllowed(db: Db, email: string): Promise<boolean> 
  * slip past the guard while the plugin still finds it.
  */
 export function magicLinkSecondFactorGuard(db: Db) {
-  return createAuthMiddleware(async (ctx) => {
+  return createAuthMiddleware(async (ctx) => magicLinkGuardBody(db, ctx));
+}
+
+type GuardCtx = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+/** The guard's work, callable from a combined `hooks.before` (index.ts). */
+export async function magicLinkGuardBody(db: Db, ctx: GuardCtx): Promise<void> {
+  {
     if (ctx.path === MAGIC_LINK_REQUEST_PATH) {
       throw new APIError("FORBIDDEN", { message: MAGIC_LINK_REQUEST_REFUSED });
     }
@@ -115,5 +122,5 @@ export function magicLinkSecondFactorGuard(db: Db) {
       throw ctx.redirect(back.toString());
     }
     throw new APIError("FORBIDDEN", { message: MAGIC_LINK_REFUSED });
-  });
+  }
 }

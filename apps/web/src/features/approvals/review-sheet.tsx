@@ -5,7 +5,7 @@
  * only purchase readers may call), and Approve / Reject. Reject asks for a
  * reason so the requester can fix it. Nobody decides their own request.
  */
-import { useT, type MessageKey } from "@orrn/i18n";
+import { useT } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -21,6 +21,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { serverRefusal } from "@/features/shared/server-refusal";
+import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -223,7 +224,7 @@ function MoveFigures({ move }: { move: ReallocateView }) {
     [t("approvals.move.from"), move.from.map(endText).join(", ") || plant],
     [t("approvals.move.to"), endText(move.to)],
   ];
-  if (move.reasonCode) rows.push([t("approvals.move.reason"), t(`reasons.reallocate.${move.reasonCode}` as MessageKey) || move.reasonCode]);
+  if (move.reasonCode) rows.push([t("approvals.move.reason"), reasonLabel(t, "reallocate", move.reasonCode, move.reasonCode)]);
   return (
     <Block title={t("approvals.move.title")}>
       <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid="move-summary">

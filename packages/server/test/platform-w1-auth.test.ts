@@ -231,7 +231,7 @@ describe("magic links cannot stand in for the second factor (FP-PF-08)", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const authSrc = readFileSync(join(here, "../../auth/src/index.ts"), "utf8");
     expect(authSrc).toContain("twoFactor()");
-    expect(authSrc).toContain("magicLinkSecondFactorGuard(db)");
+    expect(authSrc).toContain("magicLinkGuardBody(db, ctx)");
     expect(authSrc).toContain("disableSignUp: true");
     expect(authSrc).not.toContain("custom-hasher");
     expect(authSrc).not.toMatch(/emailOTP|ipAddress.*skip|cidr|trustedIp/i);

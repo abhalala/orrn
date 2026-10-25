@@ -15,6 +15,7 @@ export type ScrapItemRow = Outputs["purchase"]["scrapItems"]["list"]["items"][nu
 export type ScrapGradeRow = Outputs["purchase"]["scrapGrades"]["list"]["items"][number];
 export type StreamRow = Outputs["foundry"]["returnStreams"]["list"]["items"][number];
 export type DieCopyRow = Outputs["dieInstance"]["list"]["items"][number];
+export type ReasonRow = Outputs["reasonCodes"]["list"][number];
 export type VendorRow = Outputs["vendor"]["list"]["items"][number];
 export type VendorDetail = Outputs["vendor"]["get"];
 
@@ -57,5 +58,9 @@ export function useInvalidate() {
     streams: useCallback(() => queryClient.invalidateQueries(trpc.foundry.returnStreams.pathFilter()), [queryClient]),
     dieCopies: useCallback(() => queryClient.invalidateQueries(trpc.dieInstance.pathFilter()), [queryClient]),
     vendors: useCallback(() => queryClient.invalidateQueries(trpc.vendor.pathFilter()), [queryClient]),
+    reasons: useCallback(
+      () => Promise.all([queryClient.invalidateQueries(trpc.reasonCodes.pathFilter()), queryClient.invalidateQueries(trpc.press.reasons.pathFilter())]),
+      [queryClient],
+    ),
   };
 }

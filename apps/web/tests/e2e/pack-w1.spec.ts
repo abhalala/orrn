@@ -219,6 +219,42 @@ test.describe("pack: rejects at pack", () => {
   });
 });
 
+test.describe("pack: reject reasons come from Masters (W4-MASTERS review I-3)", () => {
+  test("a code the plant added is offered (with its note rule); a retired one is not", async ({ page }) => {
+    const tag = Date.now().toString(36);
+    const keptLabel = `E2E die line ${tag}`;
+    const goneLabel = `E2E retired ${tag}`;
+    await signInViaApi(page, "owner");
+    const kept = await trpcMutation<{ id: string; code: string }>(page, "reasonCodes.create", { kind: "qc_reject", label: keptLabel, requiresNote: true });
+    const gone = await trpcMutation<{ id: string; code: string }>(page, "reasonCodes.create", { kind: "qc_reject", label: goneLabel });
+    await trpcMutation(page, "reasonCodes.setActive", { id: gone.id, active: false });
+    try {
+      await open(page, "/pack/new", { width: 820 });
+      await source(page);
+      await bundle(page, "47.90", "20");
+      await expect(savedRows(page)).toHaveCount(1);
+      await page.getByRole("button", { name: "Add reject" }).click();
+      const reason = page.getByLabel("Reason", { exact: true });
+      await expect(reason.locator("option", { hasText: keptLabel })).toHaveCount(1);
+      await expect(reason.locator("option", { hasText: goneLabel })).toHaveCount(0);
+      await expect(reason.locator("option", { hasText: "Bend" })).toHaveCount(1);
+      await page.getByLabel("Reject pieces", { exact: true }).fill("1");
+      await reason.selectOption(kept.code);
+      // The plant set this code to need a note: the note field shows and is asked for.
+      await page.getByRole("button", { name: "Save reject" }).click();
+      await expect(page.getByText("This reason needs a note.")).toBeVisible();
+      await page.getByLabel("Note", { exact: true }).fill("Line on the face");
+      await page.getByRole("button", { name: "Save reject" }).click();
+      const row = page.locator("[data-slot='reject-row']");
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText(keptLabel);
+    } finally {
+      await signInViaApi(page, "owner");
+      await trpcMutation(page, "reasonCodes.setActive", { id: kept.id, active: false });
+    }
+  });
+});
+
 test.describe("pack: party number after save, one tone everywhere, labels with no printer", () => {
   for (const width of WIDTHS) {
     test(`a customer's own number shows after save; the pack line, the session and /b agree; the label sheet works, at ${width}`, async ({ page }) => {
