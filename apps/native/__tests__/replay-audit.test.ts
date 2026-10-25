@@ -50,6 +50,13 @@ const KEYED: Record<string, Keyed> = {
   "dispatch.create": { how: "replay-key", field: "clientRequestId", server: "dispatch.ts", leaf: "create", sendsIn: "app/(tabs)/dispatch/new.tsx", model: "replayKey + sendOnce (BACKLOG 47)" },
   "dieInstance.addReading": { how: "replay-key", field: "clientRequestId", server: "dieInstance.ts", leaf: "addReading", sendsIn: "features/dies/reading-panel.tsx", model: "replayKey + sendOnce (BACKLOG 47)" },
   "orders.create": { how: "replay-key", field: "clientRequestId", server: "salesOrder.ts", leaf: "create", sendsIn: "features/orders/booking-screen.tsx", model: "bookingSubmit -> replayKey" },
+  // W3-AG-N (FP-AG-16): the ageing station. Each write goes through `useKeyedWrite` (features/ageing/use-ageing.ts: replayKey + sendOnce), the key is the server's `clientMutationId`.
+  "ageing.batches.load": { how: "replay-key", field: "clientMutationId", server: "ageing.ts", leaf: "load", sendsIn: "features/ageing/load-view.tsx", model: "useKeyedWrite (replayKey + sendOnce)" },
+  "ageing.batches.start": { how: "replay-key", field: "clientMutationId", server: "ageing.ts", leaf: "start", sendsIn: "features/ageing/sheets.tsx", model: "useKeyedWrite (replayKey + sendOnce)" },
+  "ageing.batches.temp": { how: "replay-key", field: "clientMutationId", server: "ageing.ts", leaf: "temp", sendsIn: "features/ageing/sheets.tsx", model: "useKeyedWrite (replayKey + sendOnce)" },
+  "ageing.batches.out": { how: "replay-key", field: "clientMutationId", server: "ageing.ts", leaf: "out", sendsIn: "features/ageing/sheets.tsx", model: "useKeyedWrite (replayKey + sendOnce)" },
+  "ageing.batches.hardness": { how: "replay-key", field: "clientMutationId", server: "ageing.ts", leaf: "hardness", sendsIn: "features/ageing/sheets.tsx", model: "useKeyedWrite (replayKey + sendOnce)" },
+  "ageing.batches.release": { how: "replay-key", field: "clientMutationId", server: "ageing.ts", leaf: "release", sendsIn: "features/ageing/batch-view.tsx", model: "useKeyedWrite (replayKey + sendOnce)" },
 };
 
 /** Writes the server gives no replay key. Each says what stops a second send doing harm; the screens re-read after an unsure answer instead of resending. */
@@ -77,6 +84,10 @@ const GUARDED: Record<string, Guarded> = {
   "press.runs.handover": { how: "guarded", server: "pressRun.ts", leaf: "handover", guard: "sets the people on a run to absolute values; the same values twice change nothing" },
   "orders.confirm": { how: "guarded", server: "orderFlow.ts", leaf: "confirm", guard: "sends serverSeq (optimistic lock) and the booking-only status guard: a second call is refused 'Only a booking can be confirmed' or 'changed meanwhile'" },
   "invite.acceptByToken": { how: "guarded", server: "invite.ts", leaf: "acceptByToken", guard: "the token is single use; a second call finds the invite accepted" },
+  // W3-AG-N: the supervisor's hold, clear and approval request. The server keys none of them; `useGuardedWrite` never resends on its own and, after an unsure answer, re-reads the batch before the button is free again.
+  "ageing.batches.hold": { how: "guarded", server: "ageing.ts", leaf: "hold", guard: "already_held: a second hold of a held line or trolley is refused 'already held' (status guard)" },
+  "ageing.batches.unhold": { how: "guarded", server: "ageing.ts", leaf: "unhold", guard: "not_held: a second clear is refused 'not held' (status guard); a batch that moved on answers wrong_status" },
+  "ageing.batches.requestOverride": { how: "guarded", server: "ageing.ts", leaf: "requestOverride", guard: "one pending ageing_override approval per batch: a second request is refused override_pending" },
   "device.register": { how: "guarded", server: "release.ts", leaf: "register", guard: "upsert by install id, once per launch per plant" },
 };
 
@@ -85,14 +96,23 @@ function procedureHead(file: string, leaf: string): string {
   const src = read(join(SERVER, file));
   const m = new RegExp(`^\\s+${leaf}: [A-Za-z]*Procedure`, "m").exec(src);
   expect({ file, leaf, found: m !== null }).toEqual({ file, leaf, found: true });
-  const from = m!.index;
+  let from = m!.index;
+  // A router that names its procedures once and lists them (`load: loadProcedure,`, routers/ageing.ts): read the definition.
+  const alias = new RegExp(`^\\s+${leaf}: (\\w+Procedure),`, "m").exec(src)?.[1];
+  if (alias) {
+    from = src.search(new RegExp(`^const ${alias}\\b`, "m"));
+    expect({ alias, found: from > -1 }).toEqual({ alias, found: true });
+  }
   const to = src.indexOf(".mutation(", from);
   let head = src.slice(from, to);
   const shared = /\.input\(\s*([A-Za-z_]\w*)\s*\)/.exec(head)?.[1];
   if (shared) {
-    const at = src.search(new RegExp(`const ${shared}\\b`));
+    // The shared input is in the router file, or (ageing) in lib/ageingContracts.ts.
+    const contracts = read(join(SERVER, "..", "lib", "ageingContracts.ts"));
+    const where = src.search(new RegExp(`const ${shared}\\b`)) > -1 ? src : contracts;
+    const at = where.search(new RegExp(`const ${shared}\\b`));
     expect({ shared, found: at > -1 }).toEqual({ shared, found: true });
-    head += src.slice(at, at + 1500);
+    head += where.slice(at, at + 1500);
   }
   return head;
 }

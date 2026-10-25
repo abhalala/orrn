@@ -103,17 +103,17 @@ describe("Orders and Dies from More for the packer-set roles", () => {
     expect(extraTabs(me("owner"))).toEqual(["dies", "orders", "press"]);
     expect(reachableTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "press", "orders"]);
     expect(visibleTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch"]);
-    expect(rows("owner")).toEqual(["press:/press", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("owner")).toEqual(["ageing:/more/ageing", "press:/press", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("manager (masters.publish, order.manage, order.plan) gets the die board (read-only card) and Orders (m-4)", () => {
     expect(extraTabs(me("manager"))).toEqual(["dies", "orders", "press"]);
-    expect(rows("manager")).toEqual(["press:/press", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("manager")).toEqual(["ageing:/more/ageing", "press:/press", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("admin (masters.publish, no order.manage) reaches the die board from More, but not Orders: the web hides Orders from admin too (m-4)", () => {
     expect(extraTabs(me("admin"))).toEqual(["dies", "press"]);
-    expect(rows("admin")).toEqual(["press:/press", "dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("admin")).toEqual(["ageing:/more/ageing", "press:/press", "dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("a masters-publish role has no write action on the die card (it is read-only there)", () => {
@@ -124,7 +124,7 @@ describe("Orders and Dies from More for the packer-set roles", () => {
 
   test("supervisor holds die.reading and press.run: Press and the Dies row that opens the die room screens join More; the press role has both on its bar", () => {
     expect(extraTabs(me("supervisor"))).toEqual(["dies", "press"]);
-    expect(rows("supervisor").slice(0, 2)).toEqual(["press:/press", "dieRoom:/dies"]);
+    expect(rows("supervisor").slice(0, 3)).toEqual(["ageing:/more/ageing", "press:/press", "dieRoom:/dies"]);
     expect(extraTabs(me("press"))).toEqual([]);
     expect(rows("press")).not.toContain("dieRoom:/dies");
   });

@@ -13,6 +13,7 @@ import { Screen } from "@/components/ui/screen";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { StatusBlock } from "@/components/ui/status-block";
 import { PageHeader } from "@/components/ui/page-header";
+import { AgeingToday } from "@/features/ageing/today-card";
 import { greetingKey, inStock, showStartHere, TILE_META, todayTiles, type TodayTile } from "@/features/today/today-model";
 import { hourIn, zoneOf } from "@/lib/format";
 import { useFormat } from "@/lib/use-format";
@@ -129,6 +130,8 @@ export default function TodayScreen() {
               })}
             </View>
           ) : null}
+
+          <AgeingToday ageing={data.ageing} />
 
           {showStartHere(data.stock) ? (
             <View className="gap-3 rounded-card border border-hairline bg-surface p-4">
