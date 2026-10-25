@@ -435,3 +435,118 @@ describe("Q37: what one packing list may carry (company setting packingList.scop
     expect((await p.owner.company.getSettings()).packingList).toEqual({ kgPerPiece: true, scope: "one_so" });
   }, SLOW);
 });
+
+describe("review r1: suggest and add agree on the line (die AND cut length); one_so never leaks", () => {
+  test("I-2: one die in two lengths: 18 ft plant stock goes to the 18 ft line, by scan and by preferLineIds", async () => {
+    const p = await opPlant();
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    const sibling = await p.confirmedOrder([{ sectionId: s, kgG: kg(5_000) }]);
+    const o = await p.confirmedOrder([
+      { sectionId: s, kgG: kg(1_000) }, // line 1: 12 ft
+      { sectionId: s, kgG: kg(1_000), mm: FT18 }, // line 2: 18 ft
+    ]);
+    const short = await plantStock(p, s, [{ kg: 100 }], sibling.lineIds[0]!);
+    const long = await plantStock(p, s, [{ kg: 150, mm: FT18 }, { kg: 150, mm: FT18 }], sibling.lineIds[0]!);
+    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+
+    // The suggestion names the line of the bundle's own length.
+    const res = await p.owner.dispatch.suggestBundles({ id });
+    const lineOf = new Map(res.items.map((i) => [i.serial, i.lineId]));
+    expect(lineOf.get(short[0]!)).toBe(o.lineIds[0]!);
+    expect(lineOf.get(long[0]!)).toBe(o.lineIds[1]!);
+    expect(lineOf.get(long[1]!)).toBe(o.lineIds[1]!);
+
+    // A plain scan: the 18 ft bundle lands on the 18 ft line (line 1 is older and has room too).
+    await p.owner.dispatch.scan({ id, serials: [long[0]!] });
+    // The suggest sheet's add names the suggested lines; a named line of another length is never used.
+    const rep = await p.owner.dispatch.addBundlesBySerial({
+      id,
+      serials: [short[0]!, long[1]!],
+      preferLineIds: [o.lineIds[0]!], // wrong length for long[1]: ignored for it
+    });
+    expect(rep.added.sort()).toEqual([short[0]!, long[1]!].sort());
+    const items = new Map((await itemsOf(id)).map((i) => [i.serial, i.lineId]));
+    expect(items.get(short[0]!)).toBe(o.lineIds[0]!);
+    expect(items.get(long[0]!)).toBe(o.lineIds[1]!);
+    expect(items.get(long[1]!)).toBe(o.lineIds[1]!);
+    // Every link agrees with what the sheet said.
+    for (const [serial, lineId] of items) expect(lineOf.get(serial)).toBe(lineId ?? undefined);
+
+    // An ordinary dispatch (no order) also prefers the line of the bundle's length over an older one.
+    const q = await opPlant();
+    const qs = await q.section();
+    await q.copy(qs, { milli: 12_000 });
+    const older = await q.confirmedOrder([{ sectionId: qs, kgG: kg(1_000) }]); // 12 ft only
+    const newer = await q.confirmedOrder([{ sectionId: qs, kgG: kg(1_000), mm: FT18 }]);
+    const [l18] = await q.pack(qs, [{ kg: 150, mm: FT18 }], newer.lineIds[0]);
+    await q.owner.orders.reallocate({ bundleIds: await idsOf(q, [l18!]), toLineId: null, reason: "to plant" });
+    const plain = await q.owner.dispatch.create({ customerId: q.customerId });
+    await q.owner.dispatch.scan({ id: plain.id, serials: [l18!] });
+    expect((await itemsOf(plain.id))[0]!.lineId).toBe(newer.lineIds[0]!);
+    expect(older.lineIds).toHaveLength(1);
+  }, SLOW);
+
+  test("I-3: one_so: plant stock links only to the dispatch's own order; once its line is full the next is refused outside_order", async () => {
+    const p = await opPlant();
+    await p.owner.company.updateSettings({ packingList: { scope: "one_so" } });
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    const sibling = await p.confirmedOrder([{ sectionId: s, kgG: kg(5_000) }]); // same party, older, lots of room
+    const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(200) }]);
+    const plant = await plantStock(p, s, [{ kg: 100 }, { kg: 100 }, { kg: 100 }], sibling.lineIds[0]!);
+    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+
+    // Two fill the 200 kg line; the suggestions stop offering plant stock past it.
+    const sug = await p.owner.dispatch.suggestBundles({ id });
+    expect(sug.items.filter((i) => i.group === "plant").map((i) => i.serial)).toEqual(plant.slice(0, 2));
+    expect(sug.items.every((i) => i.lineId === o.lineIds[0])).toBe(true);
+
+    const first = await p.owner.dispatch.addBundlesBySerial({ id, serials: plant.slice(0, 2) });
+    expect(first.added.sort()).toEqual(plant.slice(0, 2).sort());
+    const full = await p.owner.dispatch.scan({ id, serials: [plant[2]!] });
+    expect(full.added).toEqual([]);
+    expect(full.refused.map((r) => [r.serial, r.code])).toEqual([[plant[2]!, "outside_order"]]);
+    expect(full.refused[0]!.reason).toBe(`This packing list is for ${o.number} only`);
+    // The single-bundle path says the same.
+    await expect(p.owner.dispatch.addBundle({ id, bundleId: (await idsOf(p, [plant[2]!]))[0]! })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: `This packing list is for ${o.number} only`,
+    });
+    // The order's own bundle still goes on (its line; overdraw rules at completion decide).
+    const [own] = await p.pack(s, [{ kg: 100 }], o.lineIds[0]);
+    const ownRep = await p.owner.dispatch.scan({ id, serials: [own!] });
+    expect(ownRep.added).toEqual([own!]);
+    // Nothing on the packing list is on the sibling order.
+    const lines = (await itemsOf(id)).map((i) => i.lineId);
+    expect(lines).toHaveLength(3);
+    expect(lines.every((l) => l === o.lineIds[0])).toBe(true);
+  }, SLOW);
+
+  test("m-4: a truck sibling cannot be switched to a customer already on the truck", async () => {
+    const p = await opPlant();
+    await p.owner.company.updateSettings({ packingList: { scope: "per_truck" } });
+    const first = await p.owner.dispatch.create({ customerId: p.customerId });
+    const second = await p.owner.dispatch.create({ customerId: p.otherCustomer, truckOf: first.id });
+    await expect(p.owner.dispatch.update({ id: second.id, customerId: p.customerId })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "This customer already has a packing list on that truck",
+    });
+    expect((await p.owner.dispatch.getDispatch({ id: second.id })).dispatch.customerId).toBe(p.otherCustomer);
+  }, SLOW);
+
+  test("m-7: changing packingList.scope / kgPerPiece / orderLeadDays writes a company.settings.update audit row", async () => {
+    const p = await opPlant();
+    await p.owner.company.updateSettings({ packingList: { scope: "per_truck", kgPerPiece: true } });
+    await p.owner.company.updateSettings({ orderLeadDays: 9 });
+    const rows = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "company.settings.update")));
+    const metas = JSON.stringify(rows.map((r) => r.meta));
+    expect(metas).toContain("packingList");
+    expect(metas).toContain("per_truck");
+    expect(metas).toContain("kgPerPiece");
+    expect(metas).toContain("orderLeadDays");
+  }, SLOW);
+});

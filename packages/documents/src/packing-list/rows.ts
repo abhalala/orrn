@@ -1,6 +1,13 @@
 import { MM_PER_INCH, kgPer12ft, weightRange12ft } from "@orrn/domain";
 
+import { kgPerPieceG } from "./snapshot";
 import type { PackingListSnapshot, PackingListSnapshotItem } from "./types";
+
+/** kg per piece (3 decimals) by the one rule, `kgPerPieceG` (review m-6). */
+function kgPerPieceOf(weightG: number, pcs: number): number | null {
+  const g = kgPerPieceG(weightG, pcs);
+  return g == null ? null : g / 1000;
+}
 
 /**
  * The packing list as the plant prints it, built once from a parsed snapshot
@@ -173,7 +180,7 @@ export function packingListModel(pl: PackingListSnapshot, opts: PackingListModel
         pcs: item.quantity,
         kgPer12ft: kg12 === null ? null : round(kg12, 3),
         weightRange12ft: kg12 === null ? null : weightRange12ft(kg12),
-        kgPerPiece: item.quantity > 0 ? round(item.weightG / 1000 / item.quantity, 3) : null,
+        kgPerPiece: kgPerPieceOf(item.weightG, item.quantity),
       };
     });
     totalG += groupG;

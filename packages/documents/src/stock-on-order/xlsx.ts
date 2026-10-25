@@ -25,7 +25,7 @@ function workbook(model: StockOnOrderModel) {
     aoa.push([`${g.bundles} ${g.bundles === 1 ? "bundle" : "bundles"}`, null, null, null, null, g.pcs, +g.weightKg.toFixed(3)]);
   }
   aoa.push([]);
-  aoa.push([`Total ${model.totals.bundles} ${model.totals.bundles === 1 ? "bundle" : "bundles"}`, null, null, null, null, model.totals.pcs, +model.totals.weightKg.toFixed(3)]);
+  aoa.push([`${model.truncated ? "Partial total (bundles listed only)" : "Total"} ${model.totals.bundles} ${model.totals.bundles === 1 ? "bundle" : "bundles"}`, null, null, null, null, model.totals.pcs, +model.totals.weightKg.toFixed(3)]);
   aoa.push([]);
   aoa.push(["Ordered kg", +model.strip.orderedKg.toFixed(3)]);
   aoa.push(["Dispatched kg", +model.strip.dispatchedKg.toFixed(3)]);

@@ -63,6 +63,7 @@ import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallo
 import {
   classifyBundles,
   classifyScan,
+  refuseOutsideOrder,
   dispatchLoadG,
   truckDispatchIds,
   refusalOf,
@@ -683,6 +684,7 @@ async function relinkOpen(
       bundleId: dispatchItem.bundleId,
       serial: bundle.serial,
       dieId: bundle.dieId,
+      lengthMm: bundle.lengthMm,
       weightG: bundle.weightG,
       packedFor: bundle.salesOrderLineId,
     })
@@ -698,11 +700,14 @@ async function relinkOpen(
     )
     .orderBy(bundle.serial);
   if (rows.length === 0) return { statements: [], picks: new Map(), serialOf: new Map() };
+  // Q37 one_so: never another order of the party (review r1 I-3); the overdraw rule sees the rest.
+  const oneSo = d.salesOrderId ? (await companyFloor(db, companyId)).floor.packingList.scope === "one_so" : false;
   const picks = await suggestLines(db, companyId, {
     customerId: d.customerId,
     dispatchId: d.id,
     preferOrderId: d.salesOrderId ?? null,
-    bundles: rows.map((r) => ({ id: r.bundleId, dieId: r.dieId, weightG: r.weightG, salesOrderLineId: r.packedFor })),
+    onlyOrderId: oneSo ? d.salesOrderId : null,
+    bundles: rows.map((r) => ({ id: r.bundleId, dieId: r.dieId, lengthMm: r.lengthMm, weightG: r.weightG, salesOrderLineId: r.packedFor })),
   });
   const serialOf = new Map(rows.map((r) => [r.bundleId, r.serial]));
   if (picks.size === 0) return { statements: [], picks, serialOf };
@@ -755,8 +760,15 @@ const scanInput = z.object({
   approvalId: z.string().min(1).max(64).optional(),
 });
 
-/** The office add paths (D12): `allowUnassigned` lifts only the unassigned block, for `order.manage`. */
-const addInput = scanInput.extend({ allowUnassigned: z.boolean().optional() });
+/**
+ * The office add paths (D12): `allowUnassigned` lifts only the unassigned block, for `order.manage`.
+ * `preferLineIds` (review r1 I-2): the lines the suggest sheet showed; a bundle goes to one of them
+ * only when its die AND cut length match and the line has baki left.
+ */
+const addInput = scanInput.extend({
+  allowUnassigned: z.boolean().optional(),
+  preferLineIds: z.array(z.string().min(1).max(64)).max(100).optional(),
+});
 
 type ScanCtx = Pick<Context, "db" | "session" | "impersonation"> & {
   companyId: string;
@@ -846,10 +858,28 @@ async function addByCodes(
       });
     }
 
-    const { results, toAdd, holds } = await classifyScan({ db: ctx.db, companyId: ctx.companyId }, d, serials, {
+    const classified = await classifyScan({ db: ctx.db, companyId: ctx.companyId }, d, serials, {
       approvalId: input.approvalId ?? null,
       allowUnassigned,
     });
+    const { results, holds } = classified;
+    // Order line suggested per bundle (spec P13): packed-for line, else a line of the same die AND
+    // cut length with baki (the suggest sheet's named lines, then the dispatch's own order, then the
+    // oldest). FP-OP-17: a bundle held for this customer's open line counts as packed for that line.
+    // Q37 one_so: the order's lines only; a bundle with no room left there is refused (review r1 I-3).
+    const picks =
+      classified.toAdd.length === 0
+        ? new Map<string, LineBalance>()
+        : await suggestLines(ctx.db, ctx.companyId, {
+            customerId: d.customerId,
+            dispatchId: d.id,
+            preferOrderId: d.salesOrderId,
+            preferLineIds: input.preferLineIds,
+            onlyOrderId: classified.oneSo?.orderId ?? null,
+            strict: true,
+            bundles: classified.toAdd.map((b) => ({ id: b.id, dieId: b.dieId, lengthMm: b.lengthMm, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) })),
+          });
+    const toAdd = refuseOutsideOrder(classified, new Set(picks.keys()));
     const report: ScanReport = {
       added: [],
       linked: [],
@@ -863,15 +893,6 @@ async function addByCodes(
       return report;
     }
     const unassignedIds = new Set(results.filter((r) => r.outcome === "added" && r.note === "unassigned").map((r) => r.bundleId));
-
-    // Order line suggested per bundle (spec P13): packed-for line, else oldest open line with baki.
-    // FP-OP-17: a bundle held for this customer's open line counts as packed for that line.
-    const picks = await suggestLines(ctx.db, ctx.companyId, {
-      customerId: d.customerId,
-      dispatchId: d.id,
-      preferOrderId: d.salesOrderId,
-      bundles: toAdd.map((b) => ({ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) })),
-    });
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
     // Write time (FP-OP-17): a hold for another customer landing after the read fails the add whole.
     const statements: SqliteBatchItem[] = chunk(
@@ -1041,7 +1062,19 @@ export const dispatchRouter = router({
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const code = formatDispatchCode(seq);
 
-      await atomicBatch(ctx.db, [
+      const truckRoot = truck ? (truck.truckId ?? truck.id) : null;
+      const statements: SqliteBatchItem[] = [];
+      if (truckRoot) {
+        // Write time (review m-4): the truck has not left, and this customer is not on it yet.
+        statements.push(
+          batchAbortUnless(
+            ctx.db,
+            "sales_order_line",
+            sql`exists (select 1 from dispatch t where t.company_id = ${ctx.companyId} and t.id = ${truck!.id} and t.deleted_at is null and t.status in ('draft', 'reserved')) and not exists (select 1 from dispatch t where t.company_id = ${ctx.companyId} and t.deleted_at is null and t.status <> 'cancelled' and t.customer_id = ${customerId} and (t.id = ${truckRoot} or t.truck_id = ${truckRoot}))`,
+          ),
+        );
+      }
+      statements.push(
         ctx.db.insert(dispatch).values({
           id,
           companyId: ctx.companyId,
@@ -1084,7 +1117,15 @@ export const dispatchRouter = router({
             meta: { code, customerId, ...(order ? { salesOrderId: order.id, orderNumber: order.number } : {}), ...(truck ? { truckId: truck.truckId ?? truck.id, truckOf: truck.code } : {}) },
           },
         ),
-      ]);
+      );
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (truckRoot && isBatchAbort(e, "sales_order_line")) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "This customer already has a packing list on that truck, or the truck has left" });
+        }
+        throw e;
+      }
 
       return { success: true, id, code };
     }),
@@ -1446,6 +1487,24 @@ export const dispatchRouter = router({
         });
         if (!newCustomer) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+        }
+        // Q37 per_truck (review m-4): one packing list per customer on a truck.
+        if (existing.truckId) {
+          const [twin] = await ctx.db
+            .select({ id: dispatch.id })
+            .from(dispatch)
+            .where(
+              and(
+                eq(dispatch.companyId, ctx.companyId),
+                eq(dispatch.truckId, existing.truckId),
+                eq(dispatch.customerId, input.customerId),
+                isNull(dispatch.deletedAt),
+                sql`${dispatch.status} <> 'cancelled'`,
+                sql`${dispatch.id} <> ${existing.id}`,
+              ),
+            )
+            .limit(1);
+          if (twin) throw new TRPCError({ code: "BAD_REQUEST", message: "This customer already has a packing list on that truck" });
         }
         const [linked] = await ctx.db
           .select({ id: dispatchItem.id })
@@ -1828,7 +1887,7 @@ export const dispatchRouter = router({
         }
 
         // The §E6 order, same as a scan: void, dispatched, held, held for an order, unassigned, wrong customer, owned die.
-        const { results, holds } = await classifyBundles(
+        const classified = await classifyBundles(
           { db: ctx.db, companyId: ctx.companyId },
           d,
           [b.serial],
@@ -1836,6 +1895,21 @@ export const dispatchRouter = router({
           new Map(),
           { approvalId: input.approvalId ?? null, allowUnassigned: input.allowUnassigned === true },
         );
+        const { results, holds } = classified;
+        // FP-OP-17: held for this customer, it is linked to the held line (the line the office put it on).
+        // Q37 one_so: the order's own lines only; no room left there refuses the bundle (review r1 I-3).
+        const picks =
+          classified.toAdd.length === 0
+            ? new Map<string, LineBalance>()
+            : await suggestLines(ctx.db, ctx.companyId, {
+                customerId: d.customerId,
+                dispatchId: d.id,
+                preferOrderId: d.salesOrderId,
+                onlyOrderId: classified.oneSo?.orderId ?? null,
+                strict: true,
+                bundles: [{ id: b.id, dieId: b.dieId, lengthMm: b.lengthMm, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) }],
+              });
+        refuseOutsideOrder(classified, new Set(picks.keys()));
         const verdict = results[0]!;
         const refusal = refusalOf(verdict);
         if (refusal) {
@@ -1849,13 +1923,6 @@ export const dispatchRouter = router({
           return { success: true, added: [] as string[], alreadyInDispatch: [b.serial], linked: [] as LinkedBundle[] };
         }
 
-        // FP-OP-17: held for this customer, it is linked to the held line (the line the office put it on).
-        const picks = await suggestLines(ctx.db, ctx.companyId, {
-          customerId: d.customerId,
-          dispatchId: d.id,
-          preferOrderId: d.salesOrderId,
-          bundles: [{ id: b.id, dieId: b.dieId, weightG: b.weightG, salesOrderLineId: linkLineFor(b, holds, d.customerId) }],
-        });
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
         const statements: SqliteBatchItem[] = [
           ctx.db.insert(dispatchItem).values({

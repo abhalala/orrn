@@ -297,11 +297,19 @@ export async function classifyScan(
   d: { id: string; customerId: string; salesOrderId?: string | null },
   rawCodes: readonly string[],
   opts: ClassifyOpts,
-): Promise<{ results: ScanResult[]; toAdd: ScanBundle[]; holds: ReadonlyMap<string, BundleHold> }> {
+): Promise<Classified> {
   const codes = Array.from(new Set(rawCodes.map(normalizeSerial).filter(Boolean)));
   const { found, ambiguous } = await lookupCodes(ctx, codes);
   return classifyBundles(ctx, d, codes, found, ambiguous, opts);
 }
+
+export type Classified = {
+  results: ScanResult[];
+  toAdd: ScanBundle[];
+  holds: ReadonlyMap<string, BundleHold>;
+  /** Q37 one_so: the order this packing list is limited to (null in every other mode). */
+  oneSo: { orderId: string; number: string } | null;
+};
 
 export type ClassifyOpts = {
   approvalId?: string | null;
@@ -320,7 +328,7 @@ export async function classifyBundles(
   found: ReadonlyMap<string, ScanBundle>,
   ambiguous: ReadonlyMap<string, string[]>,
   opts: ClassifyOpts,
-): Promise<{ results: ScanResult[]; toAdd: ScanBundle[]; holds: ReadonlyMap<string, BundleHold> }> {
+): Promise<Classified> {
   // One outcome per bundle: a bundle scanned twice (serial and party no) repeats its first outcome.
   const firstOutcome = new Map<string, ScanResult>();
   const bundles = [...new Map([...found.values()].map((b) => [b.id, b])).values()];
@@ -430,7 +438,24 @@ export async function classifyBundles(
     results.push(r);
     if (r.outcome === "added") toAdd.push(b);
   }
-  return { results, toAdd, holds };
+  return { results, toAdd, holds, oneSo: oneSo && d.salesOrderId ? { orderId: d.salesOrderId, number: oneSo.number } : null };
+}
+
+/**
+ * Q37 one_so, after the line picks (review r1 I-3): a bundle that is not the order's own and found
+ * no line of its die and cut length with baki left on the order is refused `outside_order`
+ * ("This packing list is for SO-n only"), never linked to another of the party's orders. Returns
+ * the bundles still to add; `results` are rewritten in place.
+ */
+export function refuseOutsideOrder(c: Classified, picked: ReadonlySet<string>): ScanBundle[] {
+  if (!c.oneSo) return c.toAdd;
+  const out = new Set(c.toAdd.filter((b) => !picked.has(b.id)).map((b) => b.id));
+  if (out.size === 0) return c.toAdd;
+  for (const [i, r] of c.results.entries()) {
+    if (!r.bundleId || !out.has(r.bundleId) || (r.outcome !== "added" && r.outcome !== "already_on_dispatch")) continue;
+    c.results[i] = result(r.code, "outside_order", { bundleId: r.bundleId, serial: r.serial, orderNumber: c.oneSo.number });
+  }
+  return c.toAdd.filter((b) => !out.has(b.id));
 }
 
 /**

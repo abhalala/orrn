@@ -54,7 +54,10 @@ describe("stock held on an order (FP-OP-19)", () => {
     const html = buildStockOnOrderHtml(m);
     expect(html).toContain("No stock is held on this order.");
     expect(html).toContain("The list was cut");
+    expect(html).toContain("Partial total (bundles listed only)");
     expect(m.groups).toEqual([]);
+    // A full list says "Total" with no "partial" (review m-5).
+    expect(buildStockOnOrderHtml(stockOnOrderModel(input))).not.toContain("Partial total");
   });
 
   test("file names are safe", () => {

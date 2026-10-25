@@ -6,7 +6,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { customer } from "@orrn/db/schema";
+import { bundle, customer } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -69,6 +69,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
     expect(by.get(a.id)!.bar).toEqual({
       dispatchedG: kg(120),
       inStockG: kg(240),
+      heldG: 0,
       pressedG: 0,
       plannedG: kg(240),
       restG: kg(1_200),
@@ -80,6 +81,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
     expect(by.get(b.id)!.bar).toEqual({
       dispatchedG: 0,
       inStockG: kg(120),
+      heldG: 0,
       pressedG: 0,
       plannedG: 0,
       restG: 0,
@@ -91,7 +93,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
 
     for (const i of list.items) {
       const bar = i.bar;
-      expect(bar.dispatchedG + bar.inStockG + bar.pressedG + bar.plannedG + bar.restG).toBe(i.orderedG);
+      expect(bar.dispatchedG + bar.inStockG + bar.heldG + bar.pressedG + bar.plannedG + bar.restG).toBe(i.orderedG);
     }
 
     // The strip equals the sum of the grid, from the list and from the dedicated query.
@@ -104,6 +106,7 @@ describe("FP-OP-20: bar segments and the strip", () => {
       orderedG: sum((i) => i.orderedG),
       dispatchedG: sum((i) => i.bar.dispatchedG),
       inStockG: sum((i) => i.bar.inStockG),
+      heldG: sum((i) => i.bar.heldG),
       pressedG: sum((i) => i.bar.pressedG),
       plannedG: sum((i) => i.bar.plannedG),
       restG: sum((i) => i.bar.restG),
@@ -188,6 +191,50 @@ describe("FP-OP-20: bar segments and the strip", () => {
       await expect(api.orders.bookCities()).resolves.toBeTruthy();
     }
     await expect(env.caller(null).orders.bookTotals({})).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  }, SLOW);
+});
+
+describe("review r1 I-5: in stock is available only, in kg and in count; held is its own segment", () => {
+  test("a bundle on a dispatch and a bundle held in the yard for the line are Held, not In stock; header = sum of grid", async () => {
+    setClock(NOON);
+    const p = await opPlant();
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    const sibling = await p.confirmedOrder([{ sectionId: s, kgG: kg(5_000) }]);
+    const o = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]); // 1,200 kg
+    const mine = await p.pack(s, [{ kg: 120 }, { kg: 120 }, { kg: 120 }], o.lineIds[0]);
+    await p.held([mine[0]!]); // reserved on a dispatch: on its way, not free stock
+    const [yard] = await p.pack(s, [{ kg: 100 }], sibling.lineIds[0]);
+    const ids = await env.db.select({ id: bundle.id }).from(bundle).where(eq(bundle.serial, yard!));
+    await p.owner.orders.reallocate({ bundleIds: [ids[0]!.id], toLineId: null, reason: "Order short closed" }); // plant stock
+    await p.owner.orders.hold({ lineId: o.lineIds[0]!, bundleIds: [ids[0]!.id] }); // held for this line, in the yard
+
+    const list = await p.owner.orders.list({});
+    const row = list.items.find((i) => i.id === o.id)!;
+    expect(row.bar).toMatchObject({ inStockG: kg(240), heldG: kg(220), dispatchedG: 0 });
+    expect(row.inStockBundles).toBe(2);
+    expect(row.heldBundles).toBe(2);
+    expect(row.bar.dispatchedG + row.bar.inStockG + row.bar.heldG + row.bar.pressedG + row.bar.plannedG + row.bar.restG).toBe(row.orderedG);
+    // The order detail says the same "in stock".
+    const got = await p.owner.orders.get({ id: o.id });
+    expect(got.lineDetails[0]!.strip).toMatchObject({ inStockG: kg(240), inStockBundles: 2 });
+    // The yard bundle left the sibling's line for plant stock: none of its kg counts there.
+    const sib = list.items.find((i) => i.id === sibling.id)!;
+    expect(sib.bar.inStockG).toBe(0);
+    expect(sib.inStockBundles).toBe(0);
+
+    const sum = (f: (i: (typeof list.items)[number]) => number) => list.items.reduce((acc, i) => acc + f(i), 0);
+    const totals = await p.owner.orders.bookTotals({});
+    expect(totals).toMatchObject({
+      inStockG: sum((i) => i.bar.inStockG),
+      heldG: sum((i) => i.bar.heldG),
+      inStockBundles: sum((i) => i.inStockBundles),
+      heldBundles: sum((i) => i.heldBundles),
+    });
+    // Stage filter "held" narrows grid and strip together.
+    const heldOnly = await p.owner.orders.list({ stage: "held" });
+    expect(heldOnly.items.map((i) => i.id)).toEqual([o.id]);
+    expect(heldOnly.totals.heldG).toBe(kg(220));
   }, SLOW);
 });
 
@@ -313,5 +360,72 @@ describe("FP-OP-19: stock held on this order", () => {
     expect(JSON.stringify(res)).not.toContain("rate");
     await expect(p.as("viewer").orders.stockOn({ id: a.id })).resolves.toBeTruthy();
     await expect(p.owner.orders.stockOn({ id: "nope" })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  }, SLOW);
+});
+
+describe("review r1 I-1: totals and shares come from the server", () => {
+  test("orders.quoteMany: each row's quote, per-block and order totals, and each row's share in basis points", async () => {
+    const p = await opPlant();
+    const s1 = await p.section();
+    const s2 = await p.section();
+    await p.copy(s1, { milli: 12_000 });
+    await p.copy(s2, { milli: 12_300 });
+    const FT18 = 5_486;
+    const res = await p.as("office").orders.quoteMany({
+      rows: [
+        { key: "a1", block: "A", sectionId: s1, cutLengthMm: FT18, qtyBasis: "pcs", pcs: 30 },
+        { key: "a2", block: "A", sectionId: s1, cutLengthMm: FT12, qtyBasis: "kg", kgG: kg(330) },
+        { key: "b1", block: "B", sectionId: s2, cutLengthMm: FT18, qtyBasis: "pcs", pcs: 30 },
+        { key: "bad", block: "B", sectionId: "no-such-die", cutLengthMm: FT12, qtyBasis: "pcs", pcs: 10 },
+      ],
+    });
+    const by = new Map(res.rows.map((r) => [r.key, r]));
+    expect(by.get("a1")!.quote).toMatchObject({ pcs: 30, kgG: 540_000 });
+    expect(by.get("b1")!.quote).toMatchObject({ pcs: 30, kgG: 553_500 });
+    expect(by.get("bad")!.quote).toBeNull();
+    expect(by.get("bad")!.error).toBeTruthy();
+    const a2 = by.get("a2")!.quote!;
+    const blockA = res.blocks.find((b) => b.block === "A")!;
+    const blockB = res.blocks.find((b) => b.block === "B")!;
+    expect(blockA).toMatchObject({ lines: 2, pcs: 30 + a2.pcs, kgG: 540_000 + a2.kgG });
+    expect(blockB).toMatchObject({ lines: 1, pcs: 30, kgG: 553_500 });
+    expect(res.order).toMatchObject({ lines: 3, pcs: blockA.pcs + blockB.pcs, kgG: blockA.kgG + blockB.kgG, failed: 1 });
+    const half = (n: number, d: number) => Math.floor((n * 10_000 * 2 + d) / (d * 2));
+    expect(by.get("a1")!.shareBp).toBe(half(540_000, res.order.kgG));
+    expect(by.get("b1")!.shareBp).toBe(half(553_500, res.order.kgG));
+    expect(by.get("bad")!.shareBp).toBeNull();
+    // Too many rows is refused; an empty form has nothing to total.
+    const empty = await p.owner.orders.quoteMany({ rows: [] });
+    expect(empty.order).toMatchObject({ lines: 0, pcs: 0, kgG: 0 });
+  }, SLOW);
+
+  test("orders.get: per-die totals, and a line filter's shown lines and totals (FP-OP-05)", async () => {
+    const p = await opPlant();
+    const s1 = await p.section();
+    const s2 = await p.section();
+    await p.copy(s1, { milli: 12_000 });
+    await p.copy(s2, { milli: 12_000 });
+    const FT18 = 5_486;
+    const o = await p.confirmedOrder([
+      { sectionId: s1, pcs: 100 }, // 12 ft
+      { sectionId: s1, pcs: 30, mm: FT18 },
+      { sectionId: s2, pcs: 50 },
+    ]);
+    await p.pack(s1, [{ kg: 120 }], o.lineIds[0]);
+    const all = await p.owner.orders.get({ id: o.id });
+    const l = all.lines;
+    const d1 = all.dieTotals.find((d) => d.dieId === s1)!;
+    expect(d1).toMatchObject({ lines: 2, orderedG: l[0]!.orderedG + l[1]!.orderedG, orderedPcs: 130, pcsMissing: 0 });
+    expect(all.dieTotals.find((d) => d.dieId === s2)).toMatchObject({ lines: 1, orderedPcs: 50 });
+    expect(all.shown).toBeNull();
+
+    const byDie = await p.owner.orders.get({ id: o.id, lineFilter: { dieId: s1 } });
+    expect(byDie.shown).toMatchObject({ lineIds: [o.lineIds[0], o.lineIds[1]], lines: 2, orderedG: d1.orderedG, orderedPcs: 130, pcsMissing: 0 });
+    const byLen = await p.owner.orders.get({ id: o.id, lineFilter: { cutLengthMm: FT18 } });
+    expect(byLen.shown!.lineIds).toEqual([o.lineIds[1]!]);
+    const inStock = await p.owner.orders.get({ id: o.id, lineFilter: { stage: "in_stock" } });
+    expect(inStock.shown).toMatchObject({ lineIds: [o.lineIds[0]], orderedPcs: 100 });
+    const unplanned = await p.owner.orders.get({ id: o.id, lineFilter: { stage: "unplanned", hasBaki: true } });
+    expect(unplanned.shown!.lineIds).toEqual(o.lineIds);
   }, SLOW);
 });

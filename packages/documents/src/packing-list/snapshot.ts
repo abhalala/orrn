@@ -168,9 +168,18 @@ export function plRowExtras(pl: V2Extras, r: PlRow): { partyNo: string; original
   return { partyNo: info?.partyNo ?? r.bundleNo, originalSo: info?.originalSo ?? "" };
 }
 
+/**
+ * FP-PK-13: grams per piece, rounded half up (= kg per piece to 3 decimals), or null without
+ * pieces. The one rule for every kg/pc figure (screen, PDF, HTML, Excel; review m-6).
+ */
+export function kgPerPieceG(weightG: number, pcs: number): number | null {
+  return pcs > 0 ? Math.floor((weightG * 2 + pcs) / (pcs * 2)) : null;
+}
+
 /** FP-PK-13: kg per piece of a printed row, "2.500", or "" without pieces. Optional column, off by default. */
 export function plKgPerPiece(r: Pick<PlRow, "weightG" | "pcs">): string {
-  return r.pcs > 0 ? (r.weightG / 1000 / r.pcs).toFixed(3) : "";
+  const g = kgPerPieceG(r.weightG, r.pcs);
+  return g == null ? "" : (g / 1000).toFixed(3);
 }
 
 /**

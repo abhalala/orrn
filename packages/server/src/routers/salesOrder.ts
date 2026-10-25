@@ -38,6 +38,7 @@ import {
   lineBalances,
   lineTotals,
   sumBalances,
+  type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
 import { assertDieAllowed } from "../lib/dieOwner";
@@ -46,7 +47,7 @@ import { can, type Action, type CompanyRole } from "../lib/permissions";
 import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
 import { stockOnOrder } from "../lib/orderStock";
 import { BOOK_STAGES, bookCities, bookTotals, orderBook, type BookFilter } from "../lib/orderBook";
-import { LATE_AFTER_DAYS, lateOf, lineStrips, onReleasedPlan, ymdMinusDays, ymdOf } from "../lib/orderStrip";
+import { LATE_AFTER_DAYS, lateOf, lineStrips, onReleasedPlan, ymdMinusDays, ymdOf, type LineStrip } from "../lib/orderStrip";
 
 const MAX_LINES = 100;
 
@@ -309,6 +310,52 @@ async function bookFilterOf(db: OrrnDb, companyId: string, input: z.infer<typeof
     cutoff: ymdMinusDays(today, LATE_AFTER_DAYS),
   };
   return { filter, today };
+}
+
+/** The stages a line can be filtered by (FP-OP-05): it has kg there on its strip. */
+const LINE_FILTER_STAGES = ["dispatched", "in_stock", "pressed", "planned", "unplanned", "over"] as const;
+type LineFilterInput = { dieId?: string; cutLengthMm?: number; stage?: (typeof LINE_FILTER_STAGES)[number]; hasBaki?: boolean };
+
+type OrderedTotals = { lines: number; orderedG: number; orderedPcs: number; pcsMissing: number };
+
+function orderedTotalsOf(lines: readonly LineBalance[]): OrderedTotals {
+  const t: OrderedTotals = { lines: 0, orderedG: 0, orderedPcs: 0, pcsMissing: 0 };
+  for (const l of lines) {
+    t.lines += 1;
+    t.orderedG += l.orderedG;
+    // A line with no piece count adds none, and says so (pcsMissing) instead of a silent low total.
+    if (l.orderedPcs == null) t.pcsMissing += 1;
+    else t.orderedPcs += l.orderedPcs;
+  }
+  return t;
+}
+
+function orderedTotalsByDie(lines: readonly LineBalance[]): (OrderedTotals & { dieId: string })[] {
+  const by = new Map<string, LineBalance[]>();
+  for (const l of lines) by.set(l.sectionId, [...(by.get(l.sectionId) ?? []), l]);
+  return [...by].map(([dieId, ls]) => ({ dieId, ...orderedTotalsOf(ls) }));
+}
+
+function shownLines(
+  lines: readonly LineBalance[],
+  details: readonly { lineId: string; strip: LineStrip }[],
+  f: LineFilterInput,
+): OrderedTotals & { lineIds: string[] } {
+  const strips = new Map(details.map((d) => [d.lineId, d.strip]));
+  const inStage = (strip: LineStrip | undefined) => {
+    if (!f.stage) return true;
+    if (!strip) return false;
+    const g = { dispatched: strip.dispatchedG, in_stock: strip.inStockG, pressed: strip.pressedG, planned: strip.plannedG, unplanned: strip.planableG, over: strip.overG }[f.stage];
+    return g > 0;
+  };
+  const kept = lines.filter(
+    (l) =>
+      (!f.dieId || l.sectionId === f.dieId) &&
+      (f.cutLengthMm == null || l.cutLengthMm === f.cutLengthMm) &&
+      (!f.hasBaki || l.bakiG > 0) &&
+      inStage(strips.get(l.lineId)),
+  );
+  return { lineIds: kept.map((l) => l.lineId), ...orderedTotalsOf(kept) };
 }
 
 export const salesOrderRouter = router({
@@ -814,7 +861,23 @@ export const salesOrderRouter = router({
     }),
 
   get: companyProcedure
-    .input(z.object({ id: z.string().min(1).max(64) }))
+    .input(
+      z.object({
+        id: z.string().min(1).max(64),
+        /**
+         * FP-OP-05 (review r1 I-1): narrow the lines by die, cut length, stage and "has baki"; `shown`
+         * then carries the lines that match and their ordered kg and pieces.
+         */
+        lineFilter: z
+          .object({
+            dieId: z.string().min(1).max(64).optional(),
+            cutLengthMm: z.number().int().min(1).max(30_000).optional(),
+            stage: z.enum(LINE_FILTER_STAGES).optional(),
+            hasBaki: z.boolean().optional(),
+          })
+          .optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const order = await loadOrder(ctx.db, ctx.companyId, input.id);
       const [cust] = await ctx.db
@@ -837,6 +900,9 @@ export const salesOrderRouter = router({
         lateDays: lateOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today)?.days ?? null,
         lateRule: lateOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today)?.rule ?? null,
         ...extras,
+        /** Ordered kg and pieces per die, in line order (the die blocks of the order). */
+        dieTotals: orderedTotalsByDie(lines),
+        shown: input.lineFilter ? shownLines(lines, extras.lineDetails, input.lineFilter) : null,
       };
     }),
 
@@ -870,6 +936,7 @@ export const salesOrderRouter = router({
         bakiG: r.bakiG,
         overG: r.excessG,
         inStockBundles: r.inStockBundles,
+        heldBundles: r.heldBundles,
         bar: r.bar,
         /** Days running late (FP-OP-18 rule, review m-1), else null. */
         lateDays: late?.days ?? null,

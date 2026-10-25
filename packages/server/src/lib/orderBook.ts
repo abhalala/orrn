@@ -3,17 +3,22 @@
  * strip over the same filter, both from ONE SQL statement text so the strip is the sum of the grid
  * by construction (a test asserts it).
  *
- * Per order line, with O ordered, D dispatched, P packed (available + reserved), H held in the yard
- * for the line and not already on it, R pressed-not-packed and L planned (the strip's own
+ * Per order line, with O ordered, D dispatched, A available on the line (in stock: the D-3B rule,
+ * the same as the detail strip's `inStockG`), V reserved on a dispatch, H held in the yard for the
+ * line and not already on it (FP-OP-17), R pressed-not-packed and L planned (the strip's own
  * subqueries, `lib/orderStrip.ts`), the bar segments are taken in order and capped so they add up
  * to the ordered kg:
  *
  *   dispatched = min(D, O)
- *   in stock   = min(P + H, O - dispatched)
- *   pressed    = min(R, O - dispatched - in stock)
- *   planned    = min(L, O - dispatched - in stock - pressed)
- *   rest       = O - dispatched - in stock - pressed - planned       (not planned)
- *   over       = max(0, D + P + H + R + L - O)                       (its own chip)
+ *   in stock   = min(A, O - dispatched)
+ *   held       = min(V + H, O - dispatched - in stock)                (on a truck, or held for it)
+ *   pressed    = min(R, O - dispatched - in stock - held)
+ *   planned    = min(L, O - dispatched - in stock - held - pressed)
+ *   rest       = O - dispatched - in stock - held - pressed - planned (not planned)
+ *   over       = max(0, D + A + V + H + R + L - O)                   (its own chip)
+ *
+ * The bundle counts follow the same sets: `inStockBundles` counts A, `heldBundles` counts V + H
+ * (review r1 I-5: "In stock X kg · N bundles" is one set).
  *
  * Segments are summed per order and over the filter. `dispatchedBp` = dispatched ÷ ordered in
  * basis points, rounded half up, so the bar's label is a share of ordered, never a bare figure.
@@ -35,7 +40,7 @@ import {
   producedExpr,
 } from "./orderStrip";
 
-export const BOOK_STAGES = ["dispatched", "in_stock", "pressed", "planned", "unplanned", "over"] as const;
+export const BOOK_STAGES = ["dispatched", "in_stock", "held", "pressed", "planned", "unplanned", "over"] as const;
 export type BookStage = (typeof BOOK_STAGES)[number];
 
 export type BookFilter = {
@@ -59,6 +64,8 @@ export type BookFilter = {
 export type BookBar = {
   dispatchedG: number;
   inStockG: number;
+  /** Reserved on a dispatch, or held in the yard for the order (FP-OP-17). */
+  heldG: number;
   pressedG: number;
   plannedG: number;
   /** Not planned yet. */
@@ -89,6 +96,7 @@ export type BookRow = {
   /** Dispatched beyond ordered, per line (the list's long-standing figure). */
   excessG: number;
   inStockBundles: number;
+  heldBundles: number;
   late: boolean;
   bar: BookBar;
 };
@@ -101,12 +109,14 @@ export type BookTotals = {
   orderedG: number;
   dispatchedG: number;
   inStockG: number;
+  heldG: number;
   pressedG: number;
   plannedG: number;
   restG: number;
   overG: number;
   bakiG: number;
   inStockBundles: number;
+  heldBundles: number;
   dispatchedBp: number;
 };
 
@@ -149,6 +159,7 @@ function bookCte(companyId: string, f: BookFilter): SQL {
     const col = {
       dispatched: sql`ord.dispatched_g`,
       in_stock: sql`ord.in_stock_g`,
+      held: sql`ord.held_g`,
       pressed: sql`ord.pressed_g`,
       planned: sql`ord.planned_g`,
       unplanned: sql`ord.rest_g`,
@@ -160,25 +171,29 @@ function bookCte(companyId: string, f: BookFilter): SQL {
   return sql`with f as (
       select sales_order_line.id as lid, sales_order_line.sales_order_id as oid, sales_order_line.kg_g as o_g,
         ${dispatchedExpr("g")} as d_g,
-        ${bundleSum(["available", "reserved"])} as p_g,
+        ${bundleSum(["available"])} as a_g,
+        ${bundleSum(["reserved"])} as v_g,
         ${heldSum("g", true)} as h_g,
         ${plannedExpr()} as pl_g,
         max(0, ${loggedExpr} - ${producedExpr}) as r_g,
         ${producedExpr} as prod_g,
-        (select count(*) from bundle ab where ab.company_id = sales_order_line.company_id and ab.sales_order_line_id = sales_order_line.id and ab.status = 'available') as in_n
+        (select count(*) from bundle ab where ab.company_id = sales_order_line.company_id and ab.sales_order_line_id = sales_order_line.id and ab.status = 'available') as in_n,
+        (select count(*) from bundle vb where vb.company_id = sales_order_line.company_id and vb.sales_order_line_id = sales_order_line.id and vb.status = 'reserved')
+          + (select count(*) from bundle hb where hb.company_id = sales_order_line.company_id and hb.held_for_line_id = sales_order_line.id and hb.status in ('available', 'reserved') and coalesce(hb.sales_order_line_id, '') <> sales_order_line.id) as held_n
       from sales_order_line
       join sales_order on sales_order.id = sales_order_line.sales_order_id and sales_order.company_id = sales_order_line.company_id
       join customer on customer.id = sales_order.customer_id and customer.company_id = sales_order_line.company_id
       where ${sql.join(where, sql` and `)}
     ),
-    s1 as (select *, min(d_g, o_g) as ds, min(p_g + h_g, o_g - min(d_g, o_g)) as ss from f),
-    s2 as (select *, min(r_g, o_g - ds - ss) as ps from s1),
-    s3 as (select *, min(pl_g, o_g - ds - ss - ps) as ls from s2),
+    s1 as (select *, min(d_g, o_g) as ds, min(a_g, o_g - min(d_g, o_g)) as ss from f),
+    s1h as (select *, min(v_g + h_g, o_g - ds - ss) as hs from s1),
+    s2 as (select *, min(r_g, o_g - ds - ss - hs) as ps from s1h),
+    s3 as (select *, min(pl_g, o_g - ds - ss - hs - ps) as ls from s2),
     ord as (
       select oid, count(*) as lines, sum(o_g) as ordered_g, sum(d_g) as raw_d_g, sum(ds) as dispatched_g, sum(ss) as in_stock_g,
-        sum(ps) as pressed_g, sum(ls) as planned_g, sum(o_g - ds - ss - ps - ls) as rest_g,
-        sum(max(0, d_g + p_g + h_g + r_g + pl_g - o_g)) as over_g, sum(prod_g) as produced_g,
-        sum(max(o_g - d_g, 0)) as baki_g, sum(max(d_g - o_g, 0)) as excess_g, sum(in_n) as in_n
+        sum(hs) as held_g, sum(ps) as pressed_g, sum(ls) as planned_g, sum(o_g - ds - ss - hs - ps - ls) as rest_g,
+        sum(max(0, d_g + a_g + v_g + h_g + r_g + pl_g - o_g)) as over_g, sum(prod_g) as produced_g,
+        sum(max(o_g - d_g, 0)) as baki_g, sum(max(d_g - o_g, 0)) as excess_g, sum(in_n) as in_n, sum(held_n) as held_n
       from s3 group by oid
     ),
     fo as (
@@ -211,6 +226,7 @@ type FoRow = {
   raw_d_g: number;
   dispatched_g: number;
   in_stock_g: number;
+  held_g: number;
   pressed_g: number;
   planned_g: number;
   rest_g: number;
@@ -219,6 +235,7 @@ type FoRow = {
   baki_g: number;
   excess_g: number;
   in_n: number;
+  held_n: number;
 };
 
 function rowOf(r: FoRow): BookRow {
@@ -244,10 +261,12 @@ function rowOf(r: FoRow): BookRow {
     bakiG: num(r.baki_g),
     excessG: num(r.excess_g),
     inStockBundles: num(r.in_n),
+    heldBundles: num(r.held_n),
     late: num(r.is_late) === 1,
     bar: {
       dispatchedG,
       inStockG: num(r.in_stock_g),
+      heldG: num(r.held_g),
       pressedG: num(r.pressed_g),
       plannedG: num(r.planned_g),
       restG: num(r.rest_g),
@@ -279,9 +298,9 @@ export async function bookTotals(db: OrrnDb, companyId: string, filter: BookFilt
   const [r] = await db.all<Record<string, number>>(
     sql`${bookCte(companyId, filter)} select count(*) as orders, coalesce(sum(case when status in ${OPEN} then 1 else 0 end), 0) as open_orders,
       coalesce(sum(is_late), 0) as late_orders, coalesce(sum(lines), 0) as lines, coalesce(sum(ordered_g), 0) as ordered_g,
-      coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(in_stock_g), 0) as in_stock_g, coalesce(sum(pressed_g), 0) as pressed_g,
+      coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(in_stock_g), 0) as in_stock_g, coalesce(sum(held_g), 0) as held_g, coalesce(sum(pressed_g), 0) as pressed_g,
       coalesce(sum(planned_g), 0) as planned_g, coalesce(sum(rest_g), 0) as rest_g, coalesce(sum(over_g), 0) as over_g,
-      coalesce(sum(baki_g), 0) as baki_g, coalesce(sum(in_n), 0) as in_n from fo`,
+      coalesce(sum(baki_g), 0) as baki_g, coalesce(sum(in_n), 0) as in_n, coalesce(sum(held_n), 0) as held_n from fo`,
   );
   const orderedG = num(r?.ordered_g);
   const dispatchedG = num(r?.dispatched_g);
@@ -293,12 +312,14 @@ export async function bookTotals(db: OrrnDb, companyId: string, filter: BookFilt
     orderedG,
     dispatchedG,
     inStockG: num(r?.in_stock_g),
+    heldG: num(r?.held_g),
     pressedG: num(r?.pressed_g),
     plannedG: num(r?.planned_g),
     restG: num(r?.rest_g),
     overG: num(r?.over_g),
     bakiG: num(r?.baki_g),
     inStockBundles: num(r?.in_n),
+    heldBundles: num(r?.held_n),
     dispatchedBp: dispatchedBpOf(dispatchedG, orderedG),
   };
 }

@@ -158,6 +158,8 @@ export async function suggestBundlesFor(
   const lineById = new Map(lines.map((l) => [l.lineId, l]));
   const taken = new Set(onDispatch.map((i) => i.bundleId));
 
+  // A candidate read that hit CANDIDATE_CAP may have left bundles out: say so (`truncated`, review m-9).
+  let capped = false;
   // A: the order's own bundles in the yard (on its lines, or held for them).
   const own: ScanBundle[] = [];
   for (const part of chunk(lineIds, 40)) {
@@ -173,6 +175,7 @@ export async function suggestBundlesFor(
       )
       .orderBy(asc(bundle.createdAt), asc(bundle.serial))
       .limit(CANDIDATE_CAP);
+    if (rows.length >= CANDIDATE_CAP) capped = true;
     own.push(...rows);
   }
 
@@ -195,6 +198,7 @@ export async function suggestBundlesFor(
       )
       .orderBy(asc(bundle.createdAt), asc(bundle.serial))
       .limit(CANDIDATE_CAP);
+    if (rows.length >= CANDIDATE_CAP) capped = true;
     plant.push(...rows);
   }
 
@@ -215,7 +219,7 @@ export async function suggestBundlesFor(
 
   // The scan's own verdict: only bundles that would be "added" are offered.
   const found = new Map([...candidates.values()].map(({ b }) => [b.serial, b]));
-  const { results } = await classifyBundles(
+  const { results, oneSo } = await classifyBundles(
     { db, companyId },
     { id: d.id, customerId: d.customerId, salesOrderId: d.salesOrderId },
     [...found.keys()],
@@ -238,23 +242,23 @@ export async function suggestBundlesFor(
     ).map((r) => [r.id, r]),
   );
 
-  // The line each would go to: its own / held line, or the order's first open line for die + length.
+  // The line each would go to, as the add will pick it (`suggestLines`, review r1 I-2): its own /
+  // held line, else the order's line of the same die AND cut length with room left (greedy, in this
+  // order), else that die + length's first line (it would run past the order).
   const lineOrder = new Map(lines.map((l, i) => [l.lineId, i]));
+  const sameDieLength = (b: ScanBundle) => lines.filter((l) => l.sectionId === b.dieId && l.cutLengthMm === b.lengthMm);
   const placed = [...candidates.values()]
     .filter(({ b }) => ok.has(b.id))
     .map(({ b, group }) => {
       const lineId = group === "order" ? ((b.heldForLineId && ownSet.has(b.heldForLineId) ? b.heldForLineId : b.salesOrderLineId) as string | null) : null;
-      const target =
-        (lineId ? lineById.get(lineId) : undefined) ??
-        openLines.find((l) => l.sectionId === b.dieId && l.cutLengthMm === b.lengthMm) ??
-        lines.find((l) => l.sectionId === b.dieId);
-      return { b, group, target };
+      const own = lineId ? lineById.get(lineId) : undefined;
+      return { b, group, own, first: own ?? sameDieLength(b)[0] };
     })
-    .filter((x): x is typeof x & { target: LineBalance } => x.target != null);
+    .filter((x) => x.first != null);
   placed.sort(
     (a, b) =>
       Number(b.group === "order") - Number(a.group === "order") ||
-      (lineOrder.get(a.target.lineId) ?? 0) - (lineOrder.get(b.target.lineId) ?? 0) ||
+      (lineOrder.get(a.first!.lineId) ?? 0) - (lineOrder.get(b.first!.lineId) ?? 0) ||
       a.b.createdAt.getTime() - b.b.createdAt.getTime() ||
       a.b.serial.localeCompare(b.b.serial),
   );
@@ -263,9 +267,12 @@ export async function suggestBundlesFor(
   const items: SuggestedBundle[] = [];
   const counts = { order: 0, plant: 0, fits: 0 };
   let fitsG = 0;
-  for (const { b, group, target } of placed) {
+  for (const { b, group, own } of placed) {
     const sec = sections.get(b.dieId);
+    const target = own ?? sameDieLength(b).find((l) => (left.get(l.lineId) ?? 0) > 0) ?? sameDieLength(b)[0]!;
     const room = left.get(target.lineId) ?? 0;
+    // Q37 one_so: plant stock past the order's room would be refused by the scan; not offered.
+    if (oneSo && !own && room <= 0) continue;
     const fits = b.weightG <= room;
     if (fits) {
       left.set(target.lineId, room - b.weightG);
@@ -292,6 +299,6 @@ export async function suggestBundlesFor(
       packedAt: b.createdAt.getTime(),
     });
   }
-  const truncated = items.length > opts.limit;
+  const truncated = capped || items.length > opts.limit;
   return { items: items.slice(0, opts.limit), progress, counts, fitsG, truncated };
 }

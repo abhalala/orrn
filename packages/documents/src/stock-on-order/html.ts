@@ -59,7 +59,7 @@ export function buildStockOnOrderHtml(model: StockOnOrderModel): string {
   </div>
   ${empty}
   ${model.groups.length > 0 ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : ""}
-  <p class="total">${bundles(model.totals.bundles)} · ${model.totals.pcs} pcs · ${kg(model.totals.weightKg)} kg</p>
+  <p class="total">${model.truncated ? "Partial total (bundles listed only): " : ""}${bundles(model.totals.bundles)} · ${model.totals.pcs} pcs · ${kg(model.totals.weightKg)} kg</p>
   <div class="strip">
     <span>Ordered <strong>${kg(model.strip.orderedKg)} kg</strong></span>
     <span>Dispatched <strong>${kg(model.strip.dispatchedKg)} kg</strong></span>

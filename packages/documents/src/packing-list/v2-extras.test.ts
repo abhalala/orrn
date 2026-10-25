@@ -164,3 +164,14 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(grid.find((r) => r[1] === "BG-1-B002")!.at(-1)).toBe(2.6);
   });
 });
+
+describe("kg/pc: one rounding rule (review m-6)", () => {
+  test("grams per piece half up; the row model and the printed text agree at .0005", async () => {
+    const { kgPerPieceG, plKgPerPiece } = await import("./snapshot");
+    expect(kgPerPieceG(2_501, 2)).toBe(1_251); // 1.2505 kg -> 1.251
+    expect(kgPerPieceG(2_499, 2)).toBe(1_250); // 1.2495 kg -> 1.250
+    expect(kgPerPieceG(100, 0)).toBeNull();
+    expect(plKgPerPiece({ weightG: 2_501, pcs: 2 })).toBe("1.251");
+    expect(plKgPerPiece({ weightG: 1_000, pcs: 0 })).toBe("");
+  });
+});
