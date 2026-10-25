@@ -2,6 +2,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { freshPlant, signInPlant } from "./helpers/fresh-plant";
+import { toPlantStock } from "./helpers/plant-stock";
 import {
   closeOrders,
   confirmedOrder,
@@ -275,15 +277,25 @@ test.describe("the order form: lengths under their die, expected date", () => {
     });
   }
 
-  test("a new order's expected date follows the plant's lead days; the edit sheet changes it", async ({ page }) => {
-    await open(page, { width: 1280, path: "/orders/new" });
+  test("a new order's expected date follows the plant's lead days (a plant of its own)", async ({ page }) => {
+    // Lead days are plant-wide: changed only in a throwaway plant (review r1 I-6), never the shared one.
+    const plant = await freshPlant("Lead");
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    await signInPlant(page, plant, "owner");
     await m(page, "company.updateSettings", { orderLeadDays: 7 });
+    await page.goto("/orders/new");
+    await expect(page.getByLabel("Expected by")).toHaveValue(ymdPlus(7));
+    await expect(page.getByText("Starts 7 days after the order date.")).toBeVisible();
+    // The shared demo company still starts 15 days out.
+    await signInViaApi(page, "owner");
+    expect((await q<{ orderLeadDays: number }>(page, "company.getSettings", {})).orderLeadDays).toBe(15);
+  });
+
+  test("the edit sheet changes an order's expected date", async ({ page }) => {
+    await open(page, { width: 1280, path: "/orders" });
     let made: string | null = null;
     try {
-      await page.reload();
-      await expect(page.getByLabel("Expected by")).toHaveValue(ymdPlus(7));
-      await expect(page.getByText("Starts 7 days after the order date.")).toBeVisible();
-
       const party = await makeParty(page, "Edit");
       const order = await confirmedOrder(page, party.id, [{ pcs: 5 }], { expectedDate: "2031-01-10" });
       made = order.id;
@@ -298,7 +310,6 @@ test.describe("the order form: lengths under their die, expected date", () => {
       await expect(sheet).toBeHidden();
       expect((await q<{ order: { expectedDate: string } }>(page, "orders.get", { id: order.id })).order.expectedDate).toBe("2031-02-02");
     } finally {
-      await m(page, "company.updateSettings", { orderLeadDays: 15 });
       if (made) await closeOrders(page, [made]);
     }
   });
@@ -450,6 +461,73 @@ test.describe("the press plan draft in three views", () => {
       expect(await axeViolations(page)).toEqual([]);
     } finally {
       await closeOrders(page, [o.id, second.id]);
+    }
+  });
+});
+
+test.describe("hold stock for an order line (FP-OP-17)", () => {
+  test("hold 2 yard bundles: the strip shows them held, another customer's dispatch refuses them, release lets them on", async ({ page }) => {
+    // A die and a cut length of this run's own, so the hold sheet lists our two bundles first.
+    const die = "dev-die-12212";
+    const len = 3000 + Math.floor(Math.random() * 900);
+    await open(page, { width: 1280, path: "/orders" });
+    const party = await makeParty(page, "Hold");
+    const other = await makeParty(page, "Elsewhere");
+    const order = await confirmedOrder(page, party.id, [{ sectionId: die, cutLengthMm: len, pcs: 100 }]);
+    const serials = await packFor(page, order.lineIds[0]!, [31, 42], { sectionId: die, lengthMm: len });
+    await toPlantStock(serials);
+    let dispatchId: string | null = null;
+    try {
+      await page.goto(`/orders/${order.id}`);
+      await settled(page);
+      await expect(page.locator("[data-held-chip='1']")).toHaveCount(0);
+      await page.locator("[data-hold-stock='1']").click();
+      const sheet = page.getByRole("dialog");
+      for (const serial of serials) await sheet.locator(`[data-stock-bundle='${serial}']`).getByRole("checkbox").check();
+      await sheet.locator("[data-hold-submit]").click();
+      await expect(sheet.locator("[data-hold-result]")).toContainText("Held 2 bundles (73.000 kg)");
+      await sheet.getByRole("button", { name: "Done" }).click();
+      await expect(sheet).toBeHidden();
+      await expect(page.locator("[data-held-chip='1']")).toHaveText("Held: 2 bundles · 73.000 kg");
+      await expectNoHorizontalScroll(page);
+
+      // Another customer's dispatch: the scan refuses them, naming the order.
+      const sent = await m<{ id: string }>(page, "dispatch.create", { customerId: other.id });
+      dispatchId = sent.id;
+      const refused = await m<{ added: string[]; refused: { serial: string; code: string; reason: string }[] }>(page, "dispatch.addBundlesBySerial", {
+        id: sent.id,
+        serials: [serials[0]!],
+      });
+      expect(refused.added).toEqual([]);
+      expect(refused.refused[0]).toMatchObject({ serial: serials[0], code: "held_for_order" });
+      expect(refused.refused[0]!.reason).toContain(`Held for ${order.number}`);
+
+      // Release all from the held list: the chip goes and the scan takes the bundle.
+      await page.locator("[data-held-open='1']").click();
+      const list = page.getByRole("dialog");
+      await expect(list.locator("[data-held-serial]")).toHaveCount(2);
+      await list.locator("[data-release-all]").click();
+      await expect(list.getByText("Nothing is held for this line.")).toBeVisible();
+      await list.getByRole("button", { name: "Done" }).click();
+      await expect(page.locator("[data-held-chip='1']")).toHaveCount(0);
+      const after = await m<{ added: string[] }>(page, "dispatch.addBundlesBySerial", { id: sent.id, serials: [serials[0]!] });
+      expect(after.added).toEqual([serials[0]]);
+    } finally {
+      if (dispatchId) await m(page, "dispatch.cancel", { id: dispatchId }).catch(() => undefined);
+      await closeOrders(page, [order.id]);
+    }
+  });
+
+  test("the hold controls are the office's: a viewer sees no Hold stock", async ({ page }) => {
+    await open(page, { width: 375, path: "/orders" });
+    const party = await makeParty(page, "HoldView");
+    const order = await confirmedOrder(page, party.id, [{ pcs: 5 }]);
+    try {
+      await open(page, { role: "viewer", width: 375, path: `/orders/${order.id}` });
+      await settled(page);
+      await expect(page.locator("[data-hold-stock]")).toHaveCount(0);
+    } finally {
+      await closeOrders(page, [order.id]);
     }
   });
 });

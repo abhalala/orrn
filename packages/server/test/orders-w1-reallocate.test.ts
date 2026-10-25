@@ -87,6 +87,7 @@ describe("FP-OP-05/07: the scripted balance (ordered 8 t, packed 6.7 t, dispatch
       inStockPcs: expect.any(Number),
       heldG: 0,
       heldPcs: 0,
+      heldBundles: 0,
       overG: 0,
       planableG: 0,
     });

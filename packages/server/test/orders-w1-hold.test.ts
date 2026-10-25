@@ -91,6 +91,7 @@ describe("orders.hold: happy path and the strip", () => {
       inStockG: kg(100),
       heldG: kg(600),
       heldPcs: 25,
+      heldBundles: 3,
       bakiG: kg(1_000),
       planableG: kg(400),
     });
@@ -238,7 +239,7 @@ describe("orders.release", () => {
 
     const rest = await p.owner.orders.release({ lineId: la });
     expect([...rest.released].sort()).toEqual([yard[1]!, yard[2]!].sort());
-    expect(await strip(p, a.id)).toMatchObject({ heldG: 0, heldPcs: 0, planableG: kg(1_000) });
+    expect(await strip(p, a.id)).toMatchObject({ heldG: 0, heldPcs: 0, heldBundles: 0, planableG: kg(1_000) });
     expect((await rowsOf(p, yard)).map((r) => [r.status, r.heldForLineId, r.heldAt])).toEqual([
       ["available", null, null],
       ["available", null, null],

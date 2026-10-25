@@ -3,7 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { toPlantStock } from "./helpers/plant-stock";
-import { closeOrders, confirmedOrder, dispatchNow, kg3, m, makeParty, packFor, q } from "./helpers/orders-api";
+import { freshPlant, plantDispatch, signInPlant, type FreshPlant } from "./helpers/fresh-plant";
+import { closeOrders, confirmedOrder, kg3, m, makeParty, packFor, q } from "./helpers/orders-api";
 
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -231,76 +232,96 @@ test.describe("dispatch from a sales order", () => {
   });
 });
 
+/**
+ * Plant-wide settings are changed only in a throwaway plant of the test's own (review r1 I-6): the
+ * seeded company is shared by every spec running in parallel.
+ */
+async function openPlant(page: Page, plant: FreshPlant, opts: { role?: "owner" | "office"; width: number; path: string }) {
+  await page.setViewportSize({ width: opts.width, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await signInPlant(page, plant, opts.role ?? "owner");
+  await page.goto(opts.path);
+  await expect(page.locator("main h1").first()).toBeAttached({ timeout: 30_000 });
+}
+
 test.describe("packing list: kg per piece", () => {
-  test.describe.configure({ mode: "serial" });
   test("off by default; the owner switches it on for the plant and the column shows; the office sees it but cannot change it", async ({ page }) => {
-    await open(page, { width: 1280, path: "/orders" });
-    const party = await makeParty(page, "Pack");
-    const o = await confirmedOrder(page, party.id, [{ pcs: 100 }]);
-    const serials = await packFor(page, o.lineIds[0]!, [30, 45]);
-    const sent = await dispatchNow(page, o.id, serials);
-    await m(page, "company.updateSettings", { packingList: { kgPerPiece: false } });
-    try {
-      await page.goto(`/dispatch/${sent.id}`);
-      const table = page.getByTestId("packing-list-table");
-      await expect(table).toBeVisible();
-      const toggle = page.getByTestId("kg-per-piece-toggle").getByRole("checkbox");
-      await expect(toggle).not.toBeChecked();
-      await expect(table.getByRole("columnheader", { name: "kg/pc" })).toHaveCount(0);
-      await expect(table.getByRole("columnheader", { name: "Weight range /12'" }).or(table.getByRole("columnheader", { name: /range/i })).first()).toBeVisible();
+    const plant = await freshPlant("KgPc");
+    await openPlant(page, plant, { width: 1280, path: "/dispatch" });
+    const sent = await plantDispatch(page, m, q);
+    expect((await q<{ packingList: { kgPerPiece: boolean } }>(page, "company.getSettings", {})).packingList.kgPerPiece).toBe(false);
 
-      await toggle.click();
-      await expect(toggle).toBeChecked();
-      await expect(table.getByRole("columnheader", { name: "kg/pc" })).toBeVisible();
-      // 30 kg over 10 pieces, 45 kg over 10: the column is weight over pieces to the gram.
-      await expect(page.getByTestId("packing-list-kg-per-piece")).toHaveText(["3.000", "4.500"]);
-      expect((await q<{ packingList: { kgPerPiece: boolean } }>(page, "company.getSettings", {})).packingList.kgPerPiece).toBe(true);
-      // Excel and PDF carry it too: the files are made on click from the same switch.
-      const [xlsx] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Excel" }).click()]);
-      expect(xlsx.suggestedFilename()).toMatch(/\.xlsx$/);
-      await expectNoHorizontalScroll(page);
+    await page.goto(`/dispatch/${sent.id}`);
+    const table = page.getByTestId("packing-list-table");
+    await expect(table).toBeVisible();
+    const toggle = page.getByTestId("kg-per-piece-toggle").getByRole("checkbox");
+    await expect(toggle).not.toBeChecked();
+    await expect(table.getByRole("columnheader", { name: "kg/pc" })).toHaveCount(0);
+    await expect(table.getByRole("columnheader", { name: "Weight range /12'" }).or(table.getByRole("columnheader", { name: /range/i })).first()).toBeVisible();
 
-      // Persisted per company: a reload and another role see it; only settings.update can change it.
-      await page.reload();
-      await expect(page.getByTestId("packing-list-table").getByRole("columnheader", { name: "kg/pc" })).toBeVisible();
-      const office = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
-      const op = await office.newPage();
-      await open(op, { role: "office", width: 1280, path: `/dispatch/${sent.id}` });
-      await expect(op.getByTestId("packing-list-table").getByRole("columnheader", { name: "kg/pc" })).toBeVisible();
-      await expect(op.getByTestId("kg-per-piece-toggle")).toHaveCount(0);
-      await office.close();
+    await toggle.click();
+    await expect(toggle).toBeChecked();
+    await expect(table.getByRole("columnheader", { name: "kg/pc" })).toBeVisible();
+    // 30 kg over 10 pieces, 45 kg over 10: the column is weight over pieces to the gram.
+    await expect(page.getByTestId("packing-list-kg-per-piece")).toHaveText(["3.000", "4.500"]);
+    expect((await q<{ packingList: { kgPerPiece: boolean } }>(page, "company.getSettings", {})).packingList.kgPerPiece).toBe(true);
+    // Excel and PDF carry it too: the files are made on click from the same switch.
+    const [xlsx] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Excel" }).click()]);
+    expect(xlsx.suggestedFilename()).toMatch(/\.xlsx$/);
+    await expectNoHorizontalScroll(page);
 
-      // Narrow screens show it as a fact on each row.
-      await page.setViewportSize({ width: 375, height: 900 });
-      await page.reload();
-      await expect(page.getByText("kg/pc").first()).toBeVisible();
-      await expectNoHorizontalScroll(page);
+    // Persisted per company: a reload and another role see it; only settings.update can change it.
+    await page.reload();
+    await expect(page.getByTestId("packing-list-table").getByRole("columnheader", { name: "kg/pc" })).toBeVisible();
+    const office = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
+    const op = await office.newPage();
+    await openPlant(op, plant, { role: "office", width: 1280, path: `/dispatch/${sent.id}` });
+    await expect(op.getByTestId("packing-list-table").getByRole("columnheader", { name: "kg/pc" })).toBeVisible();
+    await expect(op.getByTestId("kg-per-piece-toggle")).toHaveCount(0);
+    await office.close();
 
-      await page.setViewportSize({ width: 1280, height: 900 });
-      await page.reload();
-      await page.getByTestId("kg-per-piece-toggle").getByRole("checkbox").click();
-      await expect(page.getByTestId("packing-list-table").getByRole("columnheader", { name: "kg/pc" })).toHaveCount(0);
-    } finally {
-      await m(page, "company.updateSettings", { packingList: { kgPerPiece: false } });
-      await closeOrders(page, [o.id]);
-    }
+    // Narrow screens show it as a fact on each row.
+    await page.setViewportSize({ width: 375, height: 900 });
+    await page.reload();
+    await expect(page.getByText("kg/pc").first()).toBeVisible();
+    await expectNoHorizontalScroll(page);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.reload();
+    await page.getByTestId("kg-per-piece-toggle").getByRole("checkbox").click();
+    await expect(page.getByTestId("packing-list-table").getByRole("columnheader", { name: "kg/pc" })).toHaveCount(0);
+    // The shared demo company never changed.
+    await signInViaApi(page, "owner");
+    expect((await q<{ packingList: { kgPerPiece: boolean } }>(page, "company.getSettings", {})).packingList.kgPerPiece).toBe(false);
   });
 });
 
+/** A customer of the throwaway plant. */
+async function plantParty(page: Page, label: string) {
+  const tag = Math.random().toString(36).slice(2, 8);
+  const name = `${label} Traders ${tag}`;
+  const made = await m<{ id: string }>(page, "customer.create", {
+    name,
+    phone: null,
+    billingAddress: { line1: "Plot 1", city: `Testpur ${tag}`, state: "Gujarat", postalCode: "380001", country: "India" },
+  });
+  return { id: made.id, name };
+}
+
 test.describe("what one packing list carries (Q37)", () => {
-  test.describe.configure({ mode: "serial" });
   for (const width of WIDTHS) {
     test(`the owner sets the mode in Printing; several customers can share a truck at ${width}`, async ({ page }) => {
-      await open(page, { width, path: "/settings?tab=printing" });
-      const a = await makeParty(page, "TruckA");
-      const b = await makeParty(page, "TruckB");
+      const plant = await freshPlant("Truck");
+      await openPlant(page, plant, { width, path: "/settings?tab=printing" });
+      const a = await plantParty(page, "TruckA");
+      const b = await plantParty(page, "TruckB");
       let first: string | null = null;
       let second: string | null = null;
       try {
         const card = page.getByTestId("packing-list-scope");
         await expect(card.getByRole("radio", { name: "One customer" })).toBeChecked();
         await expect(page.getByTestId("packing-list-scope-body")).toContainText("Each packing list is for one customer.");
-        // One order: set and put straight back (the setting is the whole plant's).
+        // One order, then back (the plant is this test's own; the shared company never changes).
         await card.getByRole("radio", { name: "One order" }).click();
         await expect(card.getByRole("radio", { name: "One order" })).toBeChecked();
         await expect(page.getByTestId("packing-list-scope-body")).toContainText("Each packing list is for one sales order.");
@@ -343,7 +364,6 @@ test.describe("what one packing list carries (Q37)", () => {
         await expectNoHorizontalScroll(page);
         await expectNoClippedText(page, "main");
       } finally {
-        await m(page, "company.updateSettings", { packingList: { scope: "one_customer" } });
         for (const id of [first, second]) if (id) await m(page, "dispatch.cancel", { id }).catch(() => undefined);
       }
     });
