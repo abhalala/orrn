@@ -48,7 +48,11 @@ describe("dev seed: Wave 2 press demo (idempotent)", () => {
       const files = await env.db.select().from(spectroInbox).where(eq(spectroInbox.companyId, companyId));
       expect(files).toHaveLength(7);
       expect(files.filter((f) => f.simulated)).toHaveLength(1);
-      expect(await env.db.select().from(melt).where(eq(melt.companyId, companyId))).toHaveLength(1);
+      // W2-FD-S: cast 1's locked melt (the billets the runs pressed) and cast 3's draft.
+      expect((await env.db.select({ id: melt.id, status: melt.status }).from(melt).where(eq(melt.companyId, companyId))).sort((x, y) => x.id.localeCompare(y.id))).toEqual([
+        { id: "dev-melt-1", status: "locked" },
+        { id: "dev-melt-2", status: "draft" },
+      ]);
 
       const byNumber = (r: { number: string }) => Number(r.number.slice(3));
       const runs = (await env.db.select().from(pressRun).where(eq(pressRun.companyId, companyId))).sort((a, b) => byNumber(a) - byNumber(b));

@@ -168,10 +168,10 @@ describe("dev seed: the reset knows the foundry tables", () => {
 
     // The reset must delete the foundry rows before the lots, locations and store items they point at.
     expect((await seedDevData(env.db, { password: "dev-seed-test" })).ok).toBe(true);
-    // Only the seed's own casts (W2-PR-S press demo with billets on hand, and the older cast 2) come back; the app-made one is gone.
-    expect((await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, companyId))).map((c) => c.id).sort()).toEqual(["dev-press-cast-1", "dev-press-cast-2"]);
-    // Only the seed's own melt (BACKLOG 46: the spectro inbox demo needs one to attach to) is left.
-    expect((await env.db.select({ id: melt.id }).from(melt).where(eq(melt.companyId, companyId))).map((m) => m.id)).toEqual(["dev-melt-1"]);
+    // Only the seed's own casts (W2-PR-S press demo with billets on hand, the older cast 2, W2-FD-S's open cast 3) come back; the app-made one is gone.
+    expect((await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, companyId))).map((c) => c.id).sort()).toEqual(["dev-press-cast-1", "dev-press-cast-2", "dev-press-cast-3"]);
+    // Only the seed's own melts are left: cast 1's locked melt (BACKLOG 46: the spectro inbox attaches to it) and cast 3's draft.
+    expect((await env.db.select({ id: melt.id }).from(melt).where(eq(melt.companyId, companyId))).map((m) => m.id).sort()).toEqual(["dev-melt-1", "dev-melt-2"]);
     // Wave 2 contracts: the seed puts back the foundry sheet's 11 streams (fresh rows, none the app made).
     const streams = await env.db.select().from(returnStream).where(eq(returnStream.companyId, companyId));
     expect(streams.map((r) => r.code).sort()).toEqual(

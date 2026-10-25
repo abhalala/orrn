@@ -39,7 +39,7 @@ One password for all (`ORRN_LOCAL_PASSWORD`). Emails are `{key}@orrn.local`. Eve
 | `packer` | packer | Pack, scan and dispatch on a phone (the packing bay tablet) |
 | `operator` | operator | Packing sessions and labels (the floor, before the packer role existed) |
 | `storekeeper` | storekeeper | The store: GRN and MRS |
-| `foundry` | foundry | Casts (dev-press-cast-1 with billets on hand; no melts, the foundry lane is paused) |
+| `foundry` | foundry | Casts: dev-press-cast-1 complete (locked melt, spectro passed, billets on hand), cast 3 open with a draft melt |
 | `viewer` | viewer | Four KPIs on Today and read-only pages |
 | `staff` | platform `super_admin` | Godseye: companies, builds, support inbox (one open request) |
 | `party` | KD Extrusion portal | The party portal: KD's dispatches, certificate, sections, orders |
@@ -91,8 +91,10 @@ Production day = 08:00 to 08:00. **P1:** PR-8 logged (the spec's worked example:
 behind released plan PP-3. **P2:** PR-12 logged (a 62 minute container-heater stop), **PR-10 running now**
 (angle 11250 on copy 11250-1), PR-13 queued (plan PP-4), **PR-9 a late entry waiting for approval**.
 PR-3, PR-4 (queued tee) and PR-5..PR-7 (die trial runs on PP-2) are the die room's. All billets come from
-cast `dev-press-cast-1` (2,400 kg opening; the ledger rows of the three logged runs are exactly what
-`press.runs.close` posts). No melts and no spectro rows.
+cast `dev-press-cast-1`: its melt `dev-melt-1` charged 2,600 kg of LOT-6 and made 2,400 kg of logs (130 kg
+dross, 20 kg Fe, 50 kg burnt), spectro passed; its ledger rows are what `melts.lock` posts and the three
+logged runs' rows are what `press.runs.close` posts, so its close-out tail is 0. Cast 3
+(`dev-press-cast-3`) is open with a draft melt `dev-melt-2` (1,500 kg of LOT-6 written, nothing posted).
 
 ### Stock (129 bundles in 9 packing sessions)
 
@@ -145,7 +147,7 @@ Container heater element, Hydraulic oil) with a GRN each and three issues (GRN-1
 `dev-company-orrn`, `dev-die-{code}` (`dev-die-14701`, `-13090`, `-11250`, `-12212`, `-14715`), `dev-customer-{kd,royal,tejura,...}`,
 `dev-so-1..10`, `dev-sol-{order}-{line}`, `dev-dispatch-{draft,held,done-1..4}`, `dev-group-001..009`,
 `dev-copy-{code}` (`dev-copy-14701-1`, `dev-copy-13090-1`), `dev-run-*` (`dev-run-14701-1` is PR-1,
-`dev-run-12230-1` is PR-8), `dev-press-line-{1,2}`, `dev-press-cast-{1,2}`, `dev-plan-*`, `dev-count-1`,
+`dev-run-12230-1` is PR-8), `dev-press-line-{1,2}`, `dev-press-cast-{1,2,3}`, `dev-melt-{1,2}`, `dev-plan-*`, `dev-count-1`,
 `dev-approval-*`, `dev-portal-user-kd`, `dev-cert-done-1`, `dev-user-{key}`.
 
 ## Where it lives

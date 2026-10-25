@@ -687,17 +687,29 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
   any output above input warns; warnings are returned and stored on the melt (`melt.warnings`), never
   block. Burn loss up to 3 % per melt (`allowed_burn_g`) counts as explained at close-out.
-- Close-out (Review Focus 4, cast.close): tail = input − (by-products + allowed burn + bundles
-  (not void) with `cast_id` + press returns + billets of the cast on hand). `|tail| × 10000 >
-  input × 100` needs a reason → `closing` + approval `cast_close` (foundry, manager, admin, owner;
-  never the requester; applied by the `cast_close` hook in `lib/approvalApply.ts`). The close UPDATE
-  is guarded by the cast's `server_seq` unchanged (moved by every melt create AND cancel), `melt_count`
-  unchanged and, for a no-reason close, `castTailWithinBand` at write time.
-  KNOWN DEFECT (BACKLOG 55, FINAL-CHAIN finding 3): press runs now post − billets (item_ref = cast id)
-  at the BILLET store and discard / ends / rejects to DISCARD / PLANT-SCRAP when they are logged (see Press),
-  but `castPressReturnsSql` still returns 0, so the tail does not credit what the press consumed and a
-  reason-free close is refused after any logged press run. Fix it before the foundry lane resumes.
-- `melts.cancel` (cast.enter or cast.close, open casts only): moves the cast's `server_seq` (so a close
+- Close-out (spec E4, W2-FD-S, cast.close: supervisor, manager, admin, owner): billets produced (Σ logs of
+  LOCKED live melts) − billets the press used (`castPressReturnsSql`: −Σ billet ledger rows of the cast with
+  voucher_type press_run / press_run_reopen) − billets on hand (Σ billet ledger of the cast) = tail.
+  Furnace burn and bundles are shown beside it, never in it. Any non-zero tail, or billets short (on hand
+  below 0, D22: the press logged more than the store held), needs a `cast_tail` reason code; |tail| above
+  3 % of produced, or billets short, also goes to `closing` + approval `cast_close` (never the requester;
+  applied by `lib/approvalApply.ts`). A draft melt blocks the close. The close UPDATE is guarded by the
+  cast's `server_seq`, `melt_count`, draft count = 0 and the tail / on hand read at write time; replay by
+  `clientMutationId` ("cast.close"). BACKLOG 55 (castPressReturnsSql returned 0) is FIXED: a cast whose
+  billets went to logged runs closes with no reason (w2-fd-s-foundry.test.ts "REAL logged press run").
+- Melt stepper (W2-FD-S, `routers/foundryMelt.ts`, melt.enter: foundry, supervisor, owner): `melts.save`
+  writes a DRAFT (no ledger, no MRS, lots keep their kg; every sum counts status = 'locked' only);
+  `melts.lock` checks the gates (`meltLockGates`: times in sheet order, input and logs present, capacity,
+  more out than in needs a balance note, spectro not passed needs a reason, alloy other than the cast's
+  needs a reason) then posts ledger + MRS in one atomicBatch (≤ 100 params per statement, per-lot abort
+  on remaining < 0); replay "melt.lock". `melts.discard` drops a draft. No edit after lock: `requestCorrection`
+  (melt.correct, reason kind `melt_correct`) → approval `melt_correct` → `correct` reverses the locked melt
+  and opens a draft copy (`corrects_melt_id`). Spectro: `spectro.enter` (typed, reason), `spectro.void`
+  (draft only), every result judged against the alloy limits (`spectroJudge`). Masters:
+  `foundry.furnaces.*`, `foundry.alloys.*` (masters.publish). Reads: `casts.trace`, `casts.traceBundle`,
+  `casts.cost` (purchase readers), `stock.billets`, `analytics.foundryYield`. Furnace readings:
+  `readings.add` (typed), `readings.simulate` only with FOUNDRY_SIMULATOR=1 (owner-only bring-up, Q46/Q47).
+- `melts.cancel` (cast.close only since W2-FD-S, open casts only): moves the cast's `server_seq` (so a close
   that read the figures before refuses), marks the melt, reverses every melt ledger row
   (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
   refused when the cast's billets on hand are below the melt's logs (the press used them), or while a
