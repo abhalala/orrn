@@ -108,6 +108,7 @@ import {
   type SeedBundle,
   type Statement,
 } from "./dev-seed-kit";
+import { buildAgeingDemo } from "./dev-seed-ageing";
 import { DEV_ACCOUNTS, DEV_MEMBER_ROLES, type DevAccountKey, type DevMemberKey } from "./dev-accounts";
 import { demoOrderSeed } from "./dev-seed-orders";
 import { seedPlatformRows } from "./dev-seed-platform";
@@ -1490,6 +1491,27 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   downtimeRows.push(...pressExtras.downtimes);
   readingRows.push(...pressExtras.readings);
   approvalRows.push(...orderSeed.approvals, ...dieExtras.approvals);
+  // Ageing (W3-AG-S): PR-8's line on two trolleys, AG-1 released, AG-2 in the oven now.
+  const ageingDemo = buildAgeingDemo({
+    companyId: COMPANY_ID,
+    clock,
+    ownerId,
+    supervisorId: users.supervisor.id,
+    pressUserId: users.press.id,
+    nextSeq,
+    shiftAt: (ms) => shiftAt(DEMO_SETTINGS, ms),
+    period: docPeriod("ageing", new Date(now), DEMO_SETTINGS.timezone),
+    sectionId: dieId("chan1"),
+    copyId: devCopyId("12230-1"),
+    castId: "dev-press-cast-1",
+    pressRunId: "dev-run-12230-1",
+    pressRunLineId: "dev-run-12230-1-line-1",
+    lineGoodG: 234_200,
+    linePcs: 80,
+    ovenId: "dev-ageing-oven-1",
+    recipeId: (alloy, temper) => `dev-ageing-recipe-${alloy}-${temper.toLowerCase()}`,
+  });
+  approvalRows.push(...ageingDemo.approvals);
   const pressPlanSeriesRows: (typeof docSeries.$inferInsert)[] = [
     { id: `dev-series-press_plan-${pressPlanPeriod}`, companyId: COMPANY_ID, docType: "press_plan", period: pressPlanPeriod, value: trialPlanRows.length + pressExtras.plans.length, createdBy: ownerId },
   ];
@@ -1864,8 +1886,8 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     ...insertChunks(db, furnace, furnaceRows),
     ...insertChunks(db, alloy, alloyRows),
     ...insertChunks(db, alloyLimit, alloyLimitRows),
-    // Ageing masters (W3-AG-C): one active oven, one active trolley, the two 6063 full-cycle recipes
-    // (T5, T6) published; nothing loaded. The other suggestions stay unsaved (Q1: a manager publishes).
+    // Ageing masters (W3-AG-C): one active oven, trolley T-1, the two 6063 full-cycle recipes
+    // (T5, T6) published; W3-AG-S loads PR-8 onto T-1 / T-2 below. The other suggestions stay unsaved (Q1: a manager publishes).
     ...insertChunks(db, ageingOven, [
       { id: "dev-ageing-oven-1", companyId: COMPANY_ID, serverSeq: nextSeq(), ...AGEING_OVEN_SEED, status: "active", sortOrder: 1, createdBy: ownerId },
     ]),
@@ -1885,6 +1907,13 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
         createdBy: ownerId,
       })),
     ),
+    // W3-AG-S: a second trolley and the two demo batches (after their masters).
+    ...insertChunks(db, trolley, ageingDemo.trolleys),
+    ...insertChunks(db, ageingBatch, ageingDemo.batches),
+    ...insertChunks(db, ageingRow, ageingDemo.rows),
+    ...insertChunks(db, ageingTempLog, ageingDemo.readings),
+    ...insertChunks(db, ageingHardness, ageingDemo.hardness),
+    ...insertChunks(db, docSeries, ageingDemo.series),
     ...(defaultReturnStreamStatements(db as never, COMPANY_ID, { userId: ownerId, seq: 0 }) as Statement[]),
     ...insertChunks(
       db,

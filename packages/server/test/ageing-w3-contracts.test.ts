@@ -368,7 +368,7 @@ describe("pack's trolley draw on the real table", () => {
 });
 
 describe("dev seed: ageing masters (idempotent)", () => {
-  test("one active oven, one trolley, 6063 T5 and T6 active, nothing loaded", async () => {
+  test("one active oven, two trolleys, 6063 T5 and T6 active; PR-8 on AG-1 (released) and AG-2 (in the oven)", async () => {
     await precreateDevSeedUsers(env);
     const seedPath = "../../../apps/server/src/dev-seed";
     const { seedDevData } = (await import(seedPath)) as {
@@ -380,13 +380,33 @@ describe("dev seed: ageing masters (idempotent)", () => {
       const ovens = await env.db.select().from(ag.ageingOven).where(eq(ag.ageingOven.companyId, companyId));
       expect(ovens.map((o) => [o.code, o.status, o.capacityG])).toEqual([["OV-1", "active", 2_000_000]]);
       const trolleys = await env.db.select().from(ag.trolley).where(eq(ag.trolley.companyId, companyId));
-      expect(trolleys.map((t) => [t.code, t.status])).toEqual([["T-1", "active"]]);
+      expect(trolleys.map((t) => [t.code, t.status]).sort()).toEqual([
+        ["T-1", "active"],
+        ["T-2", "active"],
+      ]);
       const recipes = await env.db.select().from(ag.ageingRecipe).where(eq(ag.ageingRecipe.companyId, companyId));
       expect(recipes.map((r) => [r.alloy, r.temper, r.kind, r.status, r.targetTempX10, r.soakMin]).sort()).toEqual([
         ["6063", "T5", "full", "active", 1850, 240],
         ["6063", "T6", "full", "active", 1850, 360],
       ]);
-      expect(await env.db.select().from(ag.ageingBatch).where(eq(ag.ageingBatch.companyId, companyId))).toHaveLength(0);
+      // W3-AG-S: PR-8's 80 pcs: 40 released on T-1, 30 in OV-1 on T-2, 10 left on the press line.
+      const batches = await env.db.select().from(ag.ageingBatch).where(eq(ag.ageingBatch.companyId, companyId));
+      expect(batches.map((b) => [b.number, b.status, b.trolleyId]).sort()).toEqual([
+        ["AG-1", "released", "dev-trolley-1"],
+        ["AG-2", "in_oven", "dev-trolley-2"],
+      ]);
+      const released = batches.find((b) => b.number === "AG-1")!;
+      // The production day may be too young for a 6 h soak: AG-1 is always released on an approved override.
+      expect(["under_aged", "no_readings"]).toContain(released.soakVerdict!);
+      expect([released.qcVerdict, released.overrideApprovalId]).toEqual(["override", "dev-approval-ageing-override-1"]);
+      const rows = await env.db.select().from(ag.ageingRow).where(eq(ag.ageingRow.companyId, companyId));
+      expect(rows.map((r) => [r.pressRunLineId, r.pcs, r.kgG, r.status]).sort()).toEqual([
+        ["dev-run-12230-1-line-1", 30, 87_825, "pending"],
+        ["dev-run-12230-1-line-1", 40, 117_100, "released"],
+      ]);
+      const sim = await env.db.select().from(ag.ageingTempLog).where(and(eq(ag.ageingTempLog.companyId, companyId), eq(ag.ageingTempLog.batchId, "dev-ageing-batch-2")));
+      expect(sim.length).toBeGreaterThan(0);
+      expect(sim.every((r) => r.source === "simulator")).toBe(true);
     }
   }, 120_000);
 });

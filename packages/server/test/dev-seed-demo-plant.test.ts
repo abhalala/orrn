@@ -75,7 +75,12 @@ const TABLE_COUNTS: Record<string, number> = {
   packing_list: 6,
   transporter: 3,
   location: 10,
-  approval: 5,
+  // W3-AG-S: + the approved ageing_override that released AG-1.
+  approval: 6,
+  ageing_batch: 2,
+  ageing_row: 2,
+  ageing_hardness: 3,
+  trolley: 2,
   count_session: 1,
   count_seen: 33,
   count_line: 4,
