@@ -6,7 +6,7 @@ import { can, useMe, type Action, type Me } from "@/shared/lib/me";
 
 export { useCan, useCompanyTimeZone } from "@/features/dispatch/hooks";
 
-type TrpcLike = { message?: unknown; data?: { code?: unknown; meta?: { gates?: unknown } } | null };
+type TrpcLike = { message?: unknown; data?: { code?: unknown; meta?: { gates?: unknown; ownerName?: unknown; billetsOnHandG?: unknown } } | null };
 const asTrpc = (error: unknown): TrpcLike => (error && typeof error === "object" ? (error as TrpcLike) : {});
 
 /** The gate codes a refused `press.runs.close` carries (server `TRPCMetaError`), or null. */
@@ -30,6 +30,10 @@ export function pressErrorText(t: Translate, error: unknown, fallback?: MessageK
   const code = e.data?.code;
   const message = typeof e.message === "string" ? e.message : "";
   if (code === undefined) return t("press.console.saveFailed");
+  const pick = /^Pick the order line for (\d+(?:\.\d+)?) mm$/.exec(message);
+  if (pick) return t("press.console.pickOrderLine", { mm: pick[1]! });
+  const owner = asTrpc(error).data?.meta?.ownerName;
+  if (code === "FORBIDDEN" && typeof owner === "string" && owner) return t("scan.continuous.dieOwned", { name: owner });
   if ((code === "BAD_REQUEST" || code === "CONFLICT") && message && !message.startsWith("[") && message.length < 240) return message;
   if (fallback && code !== "FORBIDDEN" && code !== "UNAUTHORIZED") return t(fallback);
   return actionErrorText(t, error);
@@ -57,4 +61,10 @@ export function useHolds(): { run: boolean; close: boolean; queue: boolean; publ
 /** Whether a plant role holds an action (to list the people who can be named on a run). */
 export function roleCan(role: string, action: Action): boolean {
   return can({ company: { role }, isPlatformAdmin: false, platformRole: null } as unknown as Me, action);
+}
+
+/** What a refused billets save says about the store (server `meta.billetsOnHandG`), when it does. */
+export function billetsOnHandOf(error: unknown): number | null {
+  const g = asTrpc(error).data?.meta?.billetsOnHandG;
+  return typeof g === "number" ? g : null;
 }

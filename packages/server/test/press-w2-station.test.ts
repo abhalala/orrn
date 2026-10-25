@@ -3,13 +3,17 @@
  * one running run per line, server time + skew → press_time, pause / undo start, count, void,
  * handover, downtime rows, remarks, drawing, idempotent replays, permissions.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { approval, auditLog, dieInstance, dieIssue, dieRemark, pressDowntime, pressRemark, pressRun } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { pressHelpers } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -190,6 +194,9 @@ describe("every transition and its refusals", () => {
     const press = p.as("press").press.runs;
     await press.start({ id: r.runId });
     await expect(press.handover({ id: r.runId, supervisorId: p.users.packer.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    // m-5: an office hand or a packer is not an operator.
+    await expect(press.handover({ id: r.runId, reliefOperatorId: p.users.office.id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "The operator must be someone who runs the press" });
+    await expect(press.handover({ id: r.runId, operatorId: p.users.packer.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await press.handover({ id: r.runId, reliefOperatorId: p.users.operator.id, supervisorId: p.users.supervisor.id });
     expect(await run(r.runId)).toMatchObject({ reliefOperatorId: p.users.operator.id, supervisorId: p.users.supervisor.id, operatorId: p.users.press.id });
     expect(await audits(r.runId)).toContain("press_run.handover");

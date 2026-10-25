@@ -3,13 +3,17 @@
  * numbers), FP-PR-25 queue changes after release (reorder, urgent, pull back; `press.queue`; audit
  * per change).
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { auditLog, pressLine, pressPlanLine, pressRun } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { pressHelpers } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -88,6 +92,14 @@ describe("queue changes after release (FP-PR-25)", () => {
     // Urgent goes first whatever the position.
     await p.as("supervisor").press.queue.urgent({ runId: b.runId, urgent: true });
     expect((await p.as("supervisor").press.queue.list({ pressLineId: p.pressLineId })).cards.map((x) => x.id)).toEqual([b.runId, c.runId, a.runId]);
+    // m-7: a move may not cross the urgent boundary (the list would contradict it).
+    await expect(p.as("supervisor").press.queue.move({ runId: a.runId, toIndex: 0 })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: expect.stringContaining("Urgent runs stay at the top"),
+    });
+    await expect(p.as("supervisor").press.queue.move({ runId: b.runId, toIndex: 2 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await p.as("supervisor").press.queue.move({ runId: a.runId, toIndex: 1 })).order.map((o) => o.id)).toEqual([b.runId, a.runId, c.runId]);
+    expect((await p.as("supervisor").press.queue.list({ pressLineId: p.pressLineId })).cards.map((x) => x.id)).toEqual([b.runId, a.runId, c.runId]);
     // A running run can't move.
     await p.issue(a.runId, a.copyId);
     await p.as("press").press.runs.start({ id: a.runId });

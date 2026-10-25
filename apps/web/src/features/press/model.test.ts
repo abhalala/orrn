@@ -44,11 +44,11 @@ describe("gate text mapping", () => {
 
   test("an unknown code falls back to the server's sentence, then to the code", () => {
     expect(gateKey("brand_new_gate")).toBeNull();
-    expect(gateSentences(["no_cast", "brand_new_gate", "other"], t, ["x", "Server says so"])).toEqual(["press.console.gate.no_cast", "Server says so", "other"]);
+    expect(gateSentences(["no_cast", "brand_new_gate", "other"], t, ["x", "Server says so"])).toEqual(["press.console.gates.no_cast", "Server says so", "other"]);
   });
 
   test("the refused-close sentences keep the server's order", () => {
-    expect(gateSentences(["no_qc", "no_cast"], t)).toEqual(["press.console.gate.no_qc", "press.console.gate.no_cast"]);
+    expect(gateSentences(["no_qc", "no_cast"], t)).toEqual(["press.console.gates.no_qc", "press.console.gates.no_cast"]);
   });
 });
 

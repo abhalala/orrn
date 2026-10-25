@@ -243,7 +243,7 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
   test("shifts, standards, all modules, press line, transporter and reason codes survive a re-seed", async () => {
     const { user, company, pressLine, reasonCode, transporter, dieInstance: copies, dieBand } = await import("@orrn/db/schema");
     const { defaultReasonCodeRows, COMPANY_MODULES, readFloorSettings } = await import("@orrn/domain");
-    for (const key of ["owner", "operator", "viewer", "office", "supervisor", "press", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";
@@ -271,9 +271,10 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
     expect((await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).map((l) => l.code).sort()).toEqual(["P1", "P2"]);
     expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(1);
     expect(await env.db.select().from(reasonCode).where(eq(reasonCode.companyId, companyId))).toHaveLength(defaultReasonCodeRows().length);
-    // The app-made copy is gone; only the die room demo copies (W1-DR-S) are back.
+    // The app-made copy is gone; only the die room demo copies are back: five demo copies and the seven
+    // Tee copies the e2e mutates one per width (W1-DR-W), and nine Tee copies on trial (W2-DR2).
     const seeded = await env.db.select({ code: copies.code }).from(copies).where(eq(copies.companyId, companyId));
     expect(seeded.map((c) => c.code)).not.toContain("SEED-99");
-    expect(seeded).toHaveLength(5);
+    expect(seeded).toHaveLength(21);
   });
 });

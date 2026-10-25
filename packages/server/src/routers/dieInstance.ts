@@ -36,6 +36,8 @@ import {
   driftPercentTenths,
   effectiveDieOwner,
   kgPerMetre,
+  newCopyStatus,
+  normalizeDieCopySearch,
   planTierChange,
   recoveryBp,
   suggestFirstCopy,
@@ -56,12 +58,15 @@ import {
   errorText,
   isDieRoomAbort,
   loadDriftBands,
+  loadFloorSettings,
   requireActiveBand,
   requireLiveCustomer,
 } from "../lib/dieRoom";
 import { signDieFileUrl } from "../lib/dieFiles";
 import { checkDieAllowed } from "../lib/dieOwner";
+import { loadTrialRun, trialMoveStatements, trialRunCheck } from "../lib/dieTrial";
 import { can, canApprove, type CompanyRole } from "../lib/permissions";
+import { likeContains } from "../lib/search";
 import { nextCompanySeq } from "../lib/sequence";
 import { isStoreDrawAbort, loadStoreItem, prepareStoreDraws } from "../lib/store";
 import { dieFileRouter } from "./dieFile";
@@ -83,7 +88,18 @@ const chemical = z
 
 const shortText = (max: number) => z.string().trim().max(max).nullable().optional();
 
+/** The maker's own number on the die and its project number: free text, empty clears. */
+const makerNo = z
+  .string()
+  .trim()
+  .max(60)
+  .nullable()
+  .optional()
+  .transform((v) => (v === "" ? null : v));
+
 const dieCardFields = {
+  makerDieNo: makerNo,
+  makerProjectNo: makerNo,
   supplier: z.string().trim().max(200).nullable().optional(),
   trialKgPer12ftMilli: kgPer12ftMilli.nullable().optional(),
   hardness: hardness.nullable().optional(),
@@ -174,6 +190,7 @@ function copyBusyMessage(instance: { code: string; status: string }, what: strin
     at_maker: "is at the die maker",
     retired: "is retired",
     available: "is on the rack",
+    on_trial: "is on trial",
   };
   return `${instance.code} ${where[instance.status] ?? `is ${instance.status}`}; it cannot be ${what}`;
 }
@@ -212,6 +229,10 @@ export const dieInstanceRouter = router({
         .object({
           sectionId: z.string().min(1).optional(),
           status: z.enum(dieInstanceStatuses).optional(),
+          /** Any of these statuses (the issue form lists copies on the rack and on trial). */
+          statuses: z.array(z.enum(dieInstanceStatuses)).min(1).max(6).optional(),
+          /** A copy code as the floor writes it: `12170-2`, or `12170/2`. Matches anywhere in the code. */
+          search: z.string().trim().max(40).optional(),
           limit: z.number().int().min(1).max(200).default(50),
           offset: z.number().int().min(0).default(0),
         })
@@ -222,6 +243,8 @@ export const dieInstanceRouter = router({
         eq(dieInstance.companyId, ctx.companyId),
         input.sectionId ? eq(dieInstance.sectionId, input.sectionId) : undefined,
         input.status ? eq(dieInstance.status, input.status) : undefined,
+        input.statuses ? inArray(dieInstance.status, input.statuses) : undefined,
+        input.search ? likeContains(dieInstance.code, normalizeDieCopySearch(input.search)) : undefined,
       );
       const [items, [totalRow]] = await Promise.all([
         ctx.db
@@ -379,6 +402,22 @@ export const dieInstanceRouter = router({
     const ownerId = effectiveDieOwner(instance.ownerCustomerId, sectionRow?.ownerCustomerId);
     const names = await customerNames(ctx.db, ctx.companyId, [ownerId]);
     const pendingTierChange = tierChanges.find((t) => t.status === "pending") ?? null;
+    // Each reading against the copy's band now, so the card can chip every row (never stored).
+    const readingRunIds = [...new Set(readings.map((r) => r.pressRunId).filter((id): id is string => Boolean(id)))];
+    const runNumbers = new Map(
+      readingRunIds.length
+        ? (
+            await ctx.db
+              .select({ id: pressRun.id, number: pressRun.number })
+              .from(pressRun)
+              .where(and(eq(pressRun.companyId, ctx.companyId), inArray(pressRun.id, readingRunIds)))
+          ).map((r) => [r.id, r.number] as const)
+        : [],
+    );
+    const readingRows = readings.map((r) => {
+      const f = band ? copyFigures(r.kgPer12ftMilli, band, driftBands) : null;
+      return { ...r, pressRunNumber: r.pressRunId ? (runNumbers.get(r.pressRunId) ?? null) : null, pctTenth: f?.pctTenth ?? null, tone: f?.tone ?? ("none" as const), position: f?.position ?? null };
+    });
     const lifeRemainingG = instance.lifeG == null ? null : instance.lifeG - produced;
     return {
       instance,
@@ -397,7 +436,7 @@ export const dieInstanceRouter = router({
       openMakerJob: openMakerJob[0] ?? null,
       pendingTierChange,
       files,
-      readings,
+      readings: readingRows,
       nitriding,
       tierChanges,
     };
@@ -423,6 +462,14 @@ export const dieInstanceRouter = router({
       if (input.status === "at_nitriding") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A new copy starts on the rack; send it to nitriding from its card" });
       }
+      // FP-DR-17: a new copy starts on trial while the plant setting is on. Only a manager (masters.publish)
+      // may start one on the rack, and only with the setting on there is anything to skip.
+      const floor = await loadFloorSettings(ctx.db, ctx.companyId);
+      const startStatus = newCopyStatus(floor);
+      if (input.status === "available" && startStatus === "on_trial" && !can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish")) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "A new copy starts on trial; a manager can release it once it has passed" });
+      }
+      const newStatus = input.status ?? startStatus;
       // A copy on another band (FP-DR-03). Never a duplicate: copies on a band are always allowed.
       if (input.bandId) {
         await requireActiveBand(ctx.db, ctx.companyId, section.id, input.bandId, "Pick a band of this section");
@@ -456,7 +503,7 @@ export const dieInstanceRouter = router({
               hardness: sql<number | null>`${input.hardness ?? null}`.as("hardness"),
               lifeG: sql<number | null>`${input.lifeG ?? null}`.as("life_g"),
               ftr: sql<string | null>`${input.ftr ?? null}`.as("ftr"),
-              status: sql<string>`${input.status ?? "available"}`.as("status"),
+              status: sql<string>`${newStatus}`.as("status"),
               tierRank: sql<number | null>`${ranked}`.as("tier_rank"),
               tierSince: sql<number | null>`${ranked === null ? null : at.getTime()}`.as("tier_since"),
               notes: sql<string | null>`${input.notes ?? null}`.as("notes"),
@@ -469,8 +516,8 @@ export const dieInstanceRouter = router({
               rackNo: sql<string | null>`${input.rackNo ?? null}`.as("rack_no"),
               receivedAt: sql<number | null>`${input.receivedAt ?? null}`.as("received_at"),
               dieMakerId: sql<string | null>`${input.dieMakerId ?? null}`.as("die_maker_id"),
-              makerDieNo: sql<string | null>`null`.as("maker_die_no"),
-              makerProjectNo: sql<string | null>`null`.as("maker_project_no"),
+              makerDieNo: sql<string | null>`${input.makerDieNo ?? null}`.as("maker_die_no"),
+              makerProjectNo: sql<string | null>`${input.makerProjectNo ?? null}`.as("maker_project_no"),
               createdBy: sql<string>`${userId}`.as("created_by"),
               createdAt: sql<number>`${at.getTime()}`.as("created_at"),
               updatedAt: sql<number>`${at.getTime()}`.as("updated_at"),
@@ -520,7 +567,7 @@ export const dieInstanceRouter = router({
             action: "die_instance.create",
             subjectType: "die_instance",
             subjectId: id,
-            meta: { sectionId: input.sectionId, tierRank: ranked, bandId: input.bandId ?? null },
+            meta: { sectionId: input.sectionId, tierRank: ranked, bandId: input.bandId ?? null, status: newStatus },
           },
           { from: dieInstance, where: and(eq(dieInstance.id, id), eq(dieInstance.serverSeq, seq)) },
         ),
@@ -543,7 +590,7 @@ export const dieInstanceRouter = router({
         .limit(1);
       // The section was deleted or archived between the read and the write.
       if (!created) throw new TRPCError({ code: "CONFLICT", message: "The section changed; try again" });
-      return { id, code: created.code, seqNo: created.seqNo };
+      return { id, code: created.code, seqNo: created.seqNo, status: created.status };
     }),
 
   /**
@@ -576,7 +623,13 @@ export const dieInstanceRouter = router({
                 : `${existing.code} is out at nitriding; record it back from nitriding first`,
           });
         }
-        if (dieCopyNext(existing.status, "retire") !== input.status) {
+        if (existing.status === "on_trial" && input.status === "available") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `${existing.code} is on trial; it becomes available when a trial passes, or a manager releases it`,
+          });
+        }
+        if ((dieCopyNext(existing.status, "retire") ?? dieCopyNext(existing.status, "trialRetire")) !== input.status) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
@@ -1350,6 +1403,117 @@ export const dieInstanceRouter = router({
     const signed = await signDieFileUrl(ctx, ctx.companyId, row.key);
     return { key: row.key, url: signed.url, expiresAt: signed.expiresAt };
   }),
+
+  /**
+   * A copy on trial becomes available (FP-DR-17). Two ways, both audited:
+   * - `pressRunId`: the trial run (plan purpose `die_trial`) of this copy is logged with result
+   *   `pass` (the press close calls this, or a supervisor does it from the run). Audit `die_trial.pass`.
+   * - no run: a manager releases the copy without a trial; `reason` is required. Audit
+   *   `die_trial.release`. Only `masters.publish` may.
+   */
+  trialPass: anyActionProcedure("press.close", "masters.publish")
+    .input(
+      z.object({
+        id: z.string().min(1),
+        pressRunId: z.string().min(1).optional(),
+        reason: z.string().trim().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const copy = await loadInstance(ctx, input.id);
+      if (copy.status !== "on_trial") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} is not on trial` });
+      }
+      const manager = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish");
+      let statements: SqliteBatchItem[];
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      if (input.pressRunId) {
+        const run = await loadTrialRun(ctx.db, ctx.companyId, input.pressRunId);
+        trialRunCheck(run, copy, "pass");
+        statements = trialMoveStatements(ctx, {
+          copy,
+          move: "trialPass",
+          seq,
+          action: "die_trial.pass",
+          meta: { pressRunId: run.id, pressRunNumber: run.number },
+        });
+      } else {
+        if (!manager) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only a manager can release a copy without a passed trial" });
+        }
+        if (!input.reason || input.reason.length < 3) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Say why this copy is released without a trial" });
+        }
+        statements = trialMoveStatements(ctx, { copy, move: "trialRelease", seq, action: "die_trial.release", meta: { reason: input.reason } });
+      }
+      try {
+        await atomicBatch(ctx.db, [
+          ...statements,
+          dieRoomAbortUnless(ctx.db, sql`exists (select 1 from die_instance i where i.id = ${copy.id} and i.status = 'available' and i.server_seq = ${seq})`),
+        ]);
+      } catch (e) {
+        if (isDieRoomAbort(e)) throw new TRPCError({ code: "CONFLICT", message: `${copy.code} changed meanwhile; nothing was changed` });
+        throw e;
+      }
+      return { status: "available" as const };
+    }),
+
+  /**
+   * A failed trial of a copy that is back on trial (its trial run is logged with result `fail`).
+   * Audit `die_trial.fail`. `then: "retire"` also retires the copy; `"stay"` keeps it on trial (send it
+   * back to the maker from the Maker tab, or try again with a new trial plan).
+   */
+  trialFail: anyActionProcedure("press.close", "die.card", "masters.publish")
+    .input(
+      z.object({
+        id: z.string().min(1),
+        pressRunId: z.string().min(1),
+        then: z.enum(["stay", "retire"]).default("stay"),
+        note: z.string().trim().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const copy = await loadInstance(ctx, input.id);
+      if (copy.status !== "on_trial") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: copy.status === "in_use" ? `${copy.code} is still on the press; take the die out and return it first` : `${copy.code} is not on trial`,
+        });
+      }
+      const run = await loadTrialRun(ctx.db, ctx.companyId, input.pressRunId);
+      trialRunCheck(run, copy, "fail");
+      const editor = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "die.card")
+        || can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish");
+      if (input.then === "retire" && !editor) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the die room or a manager can retire a copy" });
+      }
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const meta = { pressRunId: run.id, pressRunNumber: run.number, then: input.then, note: input.note ?? null };
+      const statements: SqliteBatchItem[] =
+        input.then === "retire"
+          ? trialMoveStatements(ctx, { copy, move: "trialRetire", seq, action: "die_trial.fail", meta })
+          : [
+              ctx.db
+                .update(dieInstance)
+                .set({ serverSeq: seq })
+                .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "on_trial"))),
+              auditInsertGuarded(
+                auditCtx(ctx),
+                { action: "die_trial.fail", subjectType: "die_instance", subjectId: copy.id, meta: { code: copy.code, from: "on_trial", to: "on_trial", ...meta } },
+                { from: dieInstance, where: and(eq(dieInstance.id, copy.id), eq(dieInstance.serverSeq, seq), eq(dieInstance.status, "on_trial")) },
+              ),
+            ];
+      await atomicBatch(ctx.db, statements);
+      const [after] = await ctx.db
+        .select({ status: dieInstance.status, serverSeq: dieInstance.serverSeq })
+        .from(dieInstance)
+        .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId)))
+        .limit(1);
+      if (!after || after.serverSeq !== seq) {
+        throw new TRPCError({ code: "CONFLICT", message: `${copy.code} changed meanwhile; nothing was changed` });
+      }
+      return { status: after.status };
+    }),
 
   issues: dieIssueRouter,
   maker: dieMakerRouter,

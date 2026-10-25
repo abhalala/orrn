@@ -23,7 +23,7 @@ const ROLES: CompanyRole[] = [
 ];
 
 async function plant() {
-  const { companyId } = await env.seedCompany();
+  const { companyId } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false } } }); // these tests are about the rack; the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200 });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   const dieRoom = as("die_room");

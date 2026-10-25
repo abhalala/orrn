@@ -39,9 +39,9 @@ export const CLOSE_GATE_CODES = [
   "trial_result_missing",
 ] as const satisfies readonly CloseGateError[];
 
-/** The message key of one gate code (`press.console.gate.<code>`); null for a code this build does not know. */
+/** The message key of one gate code (`press.console.gates.<code>`); null for a code this build does not know. */
 export function gateKey(code: string): MessageKey | null {
-  return (CLOSE_GATE_CODES as readonly string[]).includes(code) ? (`press.console.gate.${code}` as MessageKey) : null;
+  return (CLOSE_GATE_CODES as readonly string[]).includes(code) ? (`press.console.gates.${code}` as MessageKey) : null;
 }
 
 /**

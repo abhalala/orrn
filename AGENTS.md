@@ -259,6 +259,41 @@ bun run deploy
   and return `{ items, nextCursor }` (null on the last page); `dieInstance.list` and `die.list` page
   by `limit`/`offset` with `total`/`nextOffset`.
 
+### Die room conventions, Wave 2 (W2-DR2: copy on trial, bulk drawings)
+
+- Copy on trial (FP-DR-17): `dieInstance.create` and a maker receive put the copy `on_trial` while
+  `settings.dieRoom.newCopyOnTrial` is on (default; `company.updateSettings({ dieRoom })`, owner/admin).
+  Only a manager (`masters.publish`) may create a copy straight to `available`. `canIssueDie` refuses
+  an on_trial copy unless the run's plan purpose is `die_trial` (`lib/dieTrial.ts runPurpose`).
+  Nitriding and card status-by-hand refuse it; retire and "send to maker" accept it.
+- Trial state lives on the rows, never in `audit_log` (migration `0029_die_trial`): `die_issue.trial`
+  (1 when the copy went out `on_trial`, set in the issue insert-select from the copy row) and
+  `die_maker_job.from_status` (`available` | `on_trial`; '' on older rows = `available`). Return and
+  cancel read `trial`; a maker cancel puts the copy back to `from_status`. The audit meta keeps a copy
+  as a log only. A trial issue comes back `on_trial`, unless its run is logged with `trial_result =
+  pass`: then the return batch moves it to `available` and writes `die_trial.pass` (`via: "return"`),
+  re-checking the pass inside the batch (a reopen meanwhile aborts with CONFLICT).
+- `dieInstance.trialPass({ id, pressRunId? , reason? })` (`press.close` or `masters.publish`): with a
+  logged `die_trial` run of this copy and result `pass` -> `die_trial.pass`; without a run, only
+  `masters.publish` with a reason -> `die_trial.release` (reason in the audit meta). `trialFail`
+  (`press.close`, `die.card`, `masters.publish`) writes `die_trial.fail`, optionally retires.
+- Press close seam (W2-PR-S): the close records the verdict on the run, then appends
+  `applyTrialVerdictOnReturn(ctx, { run, verdict, seq, at, after })` from `lib/dieTrial.ts` to its batch
+  (`after` = its own "run logged at seq" SQL). Issue still open on the run: the seam returns it and moves
+  the copy (`available`, or `on_trial` for a trial issue without a pass; `die_trial.pass` `via: "close"`
+  on a pass). Copy already back `on_trial`: a pass moves it to `available` with `die_trial.pass`. A
+  carried-over issue (C43) skips the seam. The contract is at the top of `lib/dieTrial.ts`.
+- Bulk attach (FP-DR-19): `files.matchNames({ names })` reads file names (`12170.pdf` -> section by
+  section code, `12170-1.cdr` -> copy code, `/` reads as `-`), never writes; two sections with one code
+  are `ambiguous`, never guessed. The web then runs `beginUpload` (`pressDrawingIfNone` for a section
+  PDF) / PUT / `commit` per file, one at a time. `commit` inserts the PDF as a plain file, sets
+  `die.drawing_key` only where it is still null (and no file is flagged), then flags the file only if
+  the key is now its own: two commits racing never fail, and the loser stays a plain file.
+- Board: `die.list` takes `copyStatus`, `copies`, `profileKind`, `owner`, `sort`; `die.boardCounts`
+  feeds the tiles, which count copies. A copy-status tile opens the copies in that status
+  (`dieInstance.list({ status })`, so the list total equals the tile); "Dies without copies" lists
+  sections. A die import goes in calls of 2,000 rows (`importChunkSize("dies")`), other sheets 500.
+
 ## Scrap purchase (vendors, lots, D/C notes)
 
 - Tables in `packages/db/src/schema/purchase.ts`; routers `vendor` (`routers/vendor.ts`) and
@@ -427,8 +462,24 @@ bun run deploy
 - Close arithmetic and gates live in `@orrn/domain` (`closeGates`, `closeFigures`, `recoveryBp`,
   `balanceG`, `theoreticalHintG`, `skewUnconfirmed`, `bpPercent1`); the server never trusts a client
   figure. Ledger on close only: voucher `press_run` (−input_g `billet` item_ref = cast id at the
-  BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP), reopen posts
+  BILLET `billet_store`; +discard to stream DISCARD, +ends/+rejects to PLANT-SCRAP, D23), reopen posts
   `press_run_reopen` reversals.
+- D22 (0030_press_fixes): `input_g` is the WEIGHED billet kg; recovery and balance use it. When the
+  cast's billets on hand are less, the close needs `billet_short_reason`, still debits the full kg
+  (BILLET may go negative), and writes `press_run.billet_short_g`; the cast shows Σ of its logged
+  runs as `billetsShortG` (`foundry.casts.list` / `get().closeout`). The billet row's write-time guard
+  is "on hand ≥ min(input, on hand as read)".
+- Run lines on a production run whose plan die has lines must each name a `pressPlanLineId`; a row
+  without one takes the plan's single line of that cut length, else "Pick the order line for N mm".
+  Rows with no order line only on trial / sample runs (or a run with no plan lines). A die trial's
+  verdict (and the issue return) reaches the copy through lib/dieTrial `applyTrialVerdictOnReturn`
+  (skipped when C43 carries the issue on); a reopen puts a copy its pass racked back `on_trial`
+  (`die_trial.reopen`).
+- Reopen blockers: `lib/press/reopenBlockers.ts` `registerReopenBlocker((db, companyId, runId) =>
+  Promise<string | null>)`; `press.runs.reopen` calls `reopenBlockers` and refuses with CONFLICT and
+  the first reason. The ageing lane registers its check there (a non-void `ageing_row` pointing at
+  the run); register at module load of the ageing router so every worker has it. Late entry checks the copy with
+  `assertLateEntryCopy` (issue words, owner gate) and refuses retired lines and runs > 7 days old.
 - Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
   columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5
   create path posts on create), nullable times/dips for drafts, `furnace_id`, `alloy_id`, `yield_bp`,

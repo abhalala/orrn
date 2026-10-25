@@ -4,23 +4,29 @@
  * for `press_time`, `press_reopen` and `press_late_entry`.
  *
  * Ledger shape of a run (voucher `press_run`, voucher_id = run id, written by the close only):
- *   − billet `{castId}` at the billet store (input_g; the row lands only while the cast's billets
- *     on hand still cover it, read inside the INSERT)
+ *   − billet `{castId}` at the billet store (input_g = the weighed kg, D22: debited in full even
+ *     when the store goes negative; the row lands only while the store still holds at least what
+ *     the close read, so a shortfall can never grow unrecorded between read and write)
  *   + return_stream DISCARD at plant scrap (butt, discard_g)
  *   + return_stream PLANT-SCRAP at plant scrap (ends_g, then reject_g on its own line)
+ * D23 (LEDGER): the butt goes to the DISCARD stream at the Plant Scrap location, ends and rejects
+ * to PLANT-SCRAP. AGENTS.md wins over the §E3 shorthand "+discard, +ends, +reject → Plant Scrap":
+ * the foundry sheet keeps a separate "Plant Discard" stream, and the foundry lane reads DISCARD as
+ * press butt.
  * Good kg is never posted here: it enters stock as bundles at pack. A reopen reverses every row
  * that is not reversed yet (voucher `press_run_reopen`, same line, `reversal_of`); the next close
  * numbers its lines after the highest line the run ever used, so the voucher-line unique index
  * never collides.
  */
 import { productionDayWindow } from "./dayWindow";
-import { sortPressQueue } from "@orrn/domain";
+import { sortPressQueue, type DieCopyStatus } from "@orrn/domain";
 import { approval } from "@orrn/db/schema/approval";
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { returnStream } from "@orrn/db/schema/foundry";
-import { dieIssue, pressPlan, pressPlanDie, pressRemark, pressRun } from "@orrn/db/schema/press";
+import { dieIssue, pressLine, pressPlan, pressPlanDie, pressPlanLine, pressRemark, pressRun } from "@orrn/db/schema/press";
+import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { stockLedger } from "@orrn/db/schema/stock";
 import { company } from "@orrn/db/schema/tenant";
 import { TRPCError } from "@trpc/server";
@@ -28,6 +34,7 @@ import { and, eq, getTableColumns, inArray, sql, type SQL } from "drizzle-orm";
 
 import type { ApplyCtx, ApprovalApplier } from "./approvalApply";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { assertDieAllowed } from "./dieOwner";
 import { createId } from "./id";
 import { defaultReturnStreamStatements } from "./foundry";
 import { sqlUuid } from "./ledger";
@@ -194,16 +201,21 @@ export type CloseLedgerInput = {
   plantScrapLocationId: string | null;
   streams: { discardId: string; plantScrapId: string } | null;
   inputG: number;
+  /**
+   * D22: the billets on hand the row needs at write time: min(input, on hand as read). Equal to
+   * `inputG` when the store covered it; less (even below zero) when the close records a shortfall.
+   */
+  billetGuardG: number;
   discardG: number;
   endsG: number;
   rejectG: number;
 };
 
 /**
- * The close's ledger rows. The billet row is an INSERT … SELECT that lands only while the run is
- * `logged` by this request and the cast's billets on hand (read inside the statement) still cover
- * `inputG`; the caller adds a `pressAbortUnless` on it. Scrap rows are plain values (they only
- * add stock).
+ * The close's ledger rows. The billet row (−inputG, the weighed kg) is an INSERT … SELECT that
+ * lands only while the run is `logged` by this request and the cast's billets on hand (read inside
+ * the statement) are still at least `billetGuardG`; the caller adds a `pressAbortUnless` on it.
+ * Scrap rows are plain values (they only add stock).
  */
 export function closeLedgerStatements(db: OrrnDb, i: CloseLedgerInput): { statements: SqliteBatchItem[]; billetLine: number; lines: number } {
   const statements: SqliteBatchItem[] = [];
@@ -235,7 +247,7 @@ export function closeLedgerStatements(db: OrrnDb, i: CloseLedgerInput): { statem
           and(
             eq(company.id, i.companyId),
             runLanded(i.runId, i.seq, "logged"),
-            sql`${billetOnHandSql(i.companyId, i.castId)} >= ${i.inputG}`,
+            sql`${billetOnHandSql(i.companyId, i.castId)} >= ${i.billetGuardG}`,
           ),
         ),
     ),
@@ -332,7 +344,7 @@ function decisionLandedSql(ctx: ApplyCtx, approvalId: string, decision: "approve
   return sql`exists (select 1 from ${approval} a where a.id = ${approvalId} and a.company_id = ${ctx.companyId} and a.server_seq = ${ctx.seq} and a.status = ${decision})`;
 }
 
-function applierAudit(ctx: ApplyCtx, action: string, runId: string, meta: Record<string, unknown>, guard: SQL): SqliteBatchItem {
+function applierAudit(ctx: ApplyCtx, action: string, subjectId: string | SQL, meta: Record<string, unknown>, guard: SQL, subjectType = "press_run"): SqliteBatchItem {
   // Keys follow audit_log's column order (insert-select rule).
   return ctx.db.insert(auditLog).select(
     ctx.db
@@ -342,8 +354,8 @@ function applierAudit(ctx: ApplyCtx, action: string, runId: string, meta: Record
         actorId: sql<string | null>`${ctx.userId}`.as("actor_id"),
         impersonatorId: sql<string | null>`null`.as("impersonator_id"),
         action: sql<string>`${action}`.as("action"),
-        subjectType: sql<string>`'press_run'`.as("subject_type"),
-        subjectId: sql<string>`${runId}`.as("subject_id"),
+        subjectType: sql<string>`${subjectType}`.as("subject_type"),
+        subjectId: sql<string>`${subjectId}`.as("subject_id"),
         meta: sql<string>`${JSON.stringify(meta)}`.as("meta"),
         at: sql<number>`${ctx.decidedAt.getTime()}`.as("at"),
       })
@@ -413,6 +425,10 @@ export const pressLateEntryDecision: ApprovalApplier = (ctx, row, decision) => {
  * `press_run_reopen`, same line, `reversal_of`). The figures written at log are cleared (the next
  * close computes them again); the rows under the run stay for editing. Rejected: nothing.
  * There are no ageing rows yet (Wave 3), so nothing can have loaded the run's pieces.
+ * A die trial whose pass put the copy on the rack (the copy is still `available` and its latest
+ * issue is this run's trial issue; for a late entry with no issue, its latest trial audit is this
+ * run's `die_trial.pass`) puts the copy back `on_trial` with audit `die_trial.reopen`; the next
+ * close applies the new verdict through lib/dieTrial (I-4). A copy issued again since stays.
  */
 export const pressReopenDecision: ApprovalApplier = (ctx, row, decision) => {
   if (decision === "rejected") return [];
@@ -432,11 +448,41 @@ export const pressReopenDecision: ApprovalApplier = (ctx, row, decision) => {
         rejectG: null,
         recoveryBp: null,
         balanceG: null,
+        billetShortG: null,
         trialResult: null,
         serverSeq: seq,
         updatedAt: ctx.decidedAt,
       })
       .where(and(eq(pressRun.id, row.subjectId), eq(pressRun.companyId, companyId), eq(pressRun.status, "logged"), decisionLandedSql(ctx, row.id, decision))),
+    db
+      .update(dieInstance)
+      .set({ status: "on_trial", serverSeq: seq })
+      .where(
+        and(
+          eq(dieInstance.companyId, companyId),
+          eq(dieInstance.status, "available"),
+          sql`${dieInstance.id} = (select tr.die_instance_id from press_run tr where tr.id = ${row.subjectId} and tr.company_id = ${companyId})`,
+          sql`(
+            (select li.press_run_id || ':' || li.trial || ':' || li.status from die_issue li
+              where li.company_id = ${companyId} and li.die_instance_id = ${dieInstance.id}
+              order by li.issued_at desc, li.rowid desc limit 1) = ${`${row.subjectId}:1:returned`}
+            or (not exists (select 1 from die_issue ni where ni.company_id = ${companyId} and ni.die_instance_id = ${dieInstance.id} and ni.press_run_id = ${row.subjectId})
+              and (select la.action || ':' || coalesce(json_extract(la.meta, '$.pressRunId'), '') from audit_log la
+                where la.company_id = ${companyId} and la.subject_type = 'die_instance' and la.subject_id = ${dieInstance.id} and la.action like 'die_trial.%'
+                order by la.at desc, la.rowid desc limit 1) = ${`die_trial.pass:${row.subjectId}`})
+          )`,
+          reopened,
+        ),
+      ),
+    applierAudit(
+      ctx,
+      "die_trial.reopen",
+      sql`(select tr.die_instance_id from press_run tr where tr.id = ${row.subjectId} and tr.company_id = ${companyId})`,
+      { pressRunId: row.subjectId, approvalId: row.id, from: "available", to: "on_trial" },
+      sql`exists (select 1 from die_instance rc where rc.company_id = ${companyId} and rc.status = 'on_trial' and rc.server_seq = ${seq}
+        and rc.id = (select tr.die_instance_id from press_run tr where tr.id = ${row.subjectId} and tr.company_id = ${companyId}))`,
+      "die_instance",
+    ),
     db.insert(stockLedger).select(
       sql`select ${sqlUuid}, ${O("company_id")}, ${seq}, 'press_run_reopen', ${O("voucher_id")}, ${O("line")}, ${O("item_kind")}, ${O("item_ref")}, ${O(
         "location_id",
@@ -449,3 +495,71 @@ export const pressReopenDecision: ApprovalApplier = (ctx, row, decision) => {
     applierAudit(ctx, "press_run.reopen", row.subjectId, { approvalId: row.id }, reopened),
   ];
 };
+
+// ---------------------------------------------------------------------------
+// Late entry: the copy is checked like an issue (I-1)
+// ---------------------------------------------------------------------------
+
+/** The issue screen's words for a copy that cannot go to a press (dieIssue.ts STATUS_WORDS). */
+const COPY_STATUS_WORDS: Record<string, string> = {
+  in_use: "is already issued to a press",
+  at_nitriding: "is out at nitriding",
+  at_maker: "is at the die maker",
+  retired: "is retired",
+  on_trial: "is on trial",
+};
+
+/** A late entry may be at most this many days old (m-3). */
+export const LATE_ENTRY_MAX_DAYS = 7;
+
+/**
+ * Check a die copy for a late entry exactly as `dieInstance.issues.issue` would (same words): the
+ * copy is of the run's die, not issued to another run, `available` (or `on_trial` for a die trial
+ * run), and every party the run presses for may use it (`assertDieAllowed`, purpose press). The
+ * run's own open issue counts as fine (a die_issued run entered late).
+ */
+export async function assertLateEntryCopy(
+  db: OrrnDb,
+  companyId: string,
+  input: {
+    copyId: string;
+    run: { id: string; number: string; sectionId: string; pressPlanDieId: string | null; purpose: string } | null;
+  },
+): Promise<{ id: string; code: string; sectionId: string; status: DieCopyStatus }> {
+  const [copy] = await db
+    .select({ id: dieInstance.id, code: dieInstance.code, sectionId: dieInstance.sectionId, status: dieInstance.status })
+    .from(dieInstance)
+    .where(and(eq(dieInstance.id, input.copyId), eq(dieInstance.companyId, companyId)))
+    .limit(1);
+  if (!copy) throw new TRPCError({ code: "NOT_FOUND", message: "Die copy not found" });
+  const bad = (message: string): never => {
+    throw new TRPCError({ code: "BAD_REQUEST", message });
+  };
+  const run = input.run;
+  if (run && copy.sectionId !== run.sectionId) bad(`${copy.code} is not a copy of the die ${run.number} needs`);
+  const [open] = await db
+    .select({ id: dieIssue.id, pressRunId: dieIssue.pressRunId, lineCode: pressLine.code })
+    .from(dieIssue)
+    .innerJoin(pressLine, and(eq(pressLine.id, dieIssue.pressLineId), eq(pressLine.companyId, dieIssue.companyId)))
+    .where(and(eq(dieIssue.companyId, companyId), eq(dieIssue.dieInstanceId, copy.id), eq(dieIssue.status, "issued")))
+    .limit(1);
+  const ownIssue = Boolean(open && run && open.pressRunId === run.id);
+  if (open && !ownIssue) throw new TRPCError({ code: "CONFLICT", message: `${copy.code} is already issued to ${open.lineCode}` });
+  if (!ownIssue) {
+    if (copy.status === "on_trial") {
+      if (run?.purpose !== "die_trial") bad(`${copy.code} is on trial; it goes only to a die trial run until the trial passes or a manager releases it`);
+    } else if (copy.status !== "available") {
+      bad(`${copy.code} ${COPY_STATUS_WORDS[copy.status] ?? `is ${copy.status}`}`);
+    }
+  }
+  if (run?.pressPlanDieId) {
+    const customers = await db
+      .selectDistinct({ customerId: salesOrder.customerId })
+      .from(pressPlanLine)
+      .innerJoin(salesOrderLine, and(eq(salesOrderLine.id, pressPlanLine.salesOrderLineId), eq(salesOrderLine.companyId, pressPlanLine.companyId)))
+      .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, salesOrderLine.companyId)))
+      .where(and(eq(pressPlanLine.companyId, companyId), eq(pressPlanLine.pressPlanDieId, run.pressPlanDieId)));
+    for (const { customerId } of customers) await assertDieAllowed(db, companyId, { dieInstanceId: copy.id, customerId, purpose: "press" });
+  }
+  return copy;
+}

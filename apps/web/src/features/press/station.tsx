@@ -167,7 +167,7 @@ function BannerBlock({ banner, data, tz, actions, canClose }: { banner: Banner; 
 
   const tone = banner === "running" || banner === "logged" ? "green" : banner === "locked" ? "amber" : "blue";
   const title: Record<Banner, MessageKey> = {
-    locked: "press.console.lockedTitle",
+    locked: "press.console.startLocked",
     ready: "press.console.readyTitle",
     running: "press.console.status.running",
     stopped: "press.console.stoppedTitle",

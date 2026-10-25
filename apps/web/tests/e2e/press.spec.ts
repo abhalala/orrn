@@ -10,8 +10,8 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
 
 /**
  * Press (W2-PR-W): `/press`, `/press/lines`, `/press/lines/$id`, `/press/runs/$id`, `/press/report`,
- * `/press/summary` and Today's press tile against the local seed (PR-1 die_issued on P1, PR-2 logged
- * today, PR-3 a late entry waiting for approval on P2).
+ * `/press/summary` and Today's press tile against the local seed (PR-1 die_issued on P1, PR-8 logged
+ * today, PR-9 a late entry waiting for approval on P2, queued and trial runs on P1).
  *
  * Each width gets its own press line, die copies and plan, created through the API in `beforeAll`
  * (the first run's one-running-per-press rule and the three widths running in parallel must not
@@ -128,8 +128,8 @@ async function makeFixture(width: number): Promise<Fixture> {
   try {
     const lineCode = `E${width}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
     const line = await owner.m<{ id: string }>("press.lines.create", { code: lineCode, name: `E2E ${width}` });
-    const readyCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-13090" });
-    const lateCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-14701" });
+    const readyCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-13090", status: "available" });
+    const lateCopy = await owner.m<{ id: string; code: string }>("dieInstance.create", { sectionId: "dev-die-14701", status: "available" });
     await owner.m("dieInstance.addReading", { dieInstanceId: readyCopy.id, kgPer12ftMilli: 2700 });
     const now = Date.now();
     const plan = await owner.m<{ id: string }>("plans.create", {
@@ -189,9 +189,12 @@ for (const width of WIDTHS) {
       const mine = page.locator(`[data-slot="press-line"][data-line="${fx.lineCode}"]`);
       await expect(p1).toBeVisible();
       await expect(p2).toBeVisible();
-      // P1: PR-1 (die issued) waits; P2: PR-3 is being counted (late entry).
-      await expect(p1.getByTestId("line-waiting")).toHaveText("1");
-      await expect(p2.getByTestId("line-on-line")).toHaveText("PR-3");
+      // P1 waits with the seeded queued runs (the count is the server's); P2: PR-9 is being counted (late entry).
+      const owner = await apiAs("owner");
+      const p1Queue = await owner.q<{ cards: { status: string }[] }>("press.queue.list", { pressLineId: "dev-press-line-1" });
+      await owner.dispose();
+      await expect(p1.getByTestId("line-waiting")).toHaveText(String(p1Queue.cards.filter((c) => c.status === "queued" || c.status === "die_issued").length));
+      await expect(p2.getByTestId("line-on-line")).toHaveText("PR-9");
       await expect(p2.getByTestId("line-waiting")).toHaveText("0");
       await expect(mine.getByTestId("line-waiting")).toHaveText("2");
       await expect(mine.getByTestId("line-on-line")).toHaveText("Nothing running");
@@ -383,7 +386,7 @@ for (const width of WIDTHS) {
       await expect(page.getByTestId("preview-good")).toHaveText(`${kg1(server.figures.goodG)} kg`);
       await expect(page.getByTestId("preview-balance")).toHaveText(`${kg1(server.figures.balanceG)} kg`);
       // The stoppage left open is named in the gate list, in the screen's words.
-      await expect(page.locator('[data-gate="downtime_open"]')).toContainText("Stop the open downtime first.");
+      await expect(page.locator('[data-gate="downtime_open"]')).toContainText("Stop the open downtime first");
       await shot(page, width, "count-last-press");
       await clean(page);
       await owner.dispose();
@@ -399,7 +402,7 @@ for (const width of WIDTHS) {
       await page.getByRole("button", { name: "Log run" }).click();
       const refused = page.locator('[data-slot="close-refused"]');
       await expect(refused).toContainText("The run was not logged.");
-      await expect(refused).toContainText("Stop the open downtime first.");
+      await expect(refused).toContainText("Stop the open downtime first");
       await shot(page, width, "close-refused");
       await clean(page);
 
@@ -473,9 +476,9 @@ for (const width of WIDTHS) {
         await expect(row).toContainText("75.5");
         await expect(row).toContainText("Waiting for billets");
         await expect(page.getByTestId("press-report-totals")).toContainText("75.5");
-        // Without the plan filter the seeded PR-2 (logged today) is on the sheet too.
+        // Without the plan filter the seeded PR-8 (logged today) is on the sheet too.
         await page.goto(`/press/report?from=${day}&to=${day}`);
-        await expect(page.getByTestId("press-report-table").locator('tbody tr[data-run="PR-2"]')).toBeVisible();
+        await expect(page.getByTestId("press-report-table").locator('tbody tr[data-run="PR-8"]')).toBeVisible();
         await page.goto(`/press/report?from=${day}&to=${day}&plan=${fx.planId}`);
         await expect(page.getByTestId("press-report-table")).toBeVisible();
         const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download CSV" }).click()]);
@@ -543,7 +546,7 @@ test.describe("press in Hindi and Gujarati at 375", () => {
 
   test("hi: the lock banner, the start button and the counting words are Hindi; no sideways scroll", async ({ browser }) => {
     const { page, context } = await openAs(browser, "press", 375, `/press/runs/${fx.queued.id}`, { locale: "hi" });
-    await expect(page.locator('[data-banner="locked"]')).toContainText("Die जारी नहीं हुई। Start बंद है।");
+    await expect(page.locator('[data-banner="locked"]')).toContainText("Die जारी नहीं हुई। शुरू करना बंद है।");
     await clean(page);
     await page.goto(`/press/runs/${fx.ready.id}`);
     await expect(page.locator('[data-banner="ready"]')).toContainText("Die जारी हो गई");

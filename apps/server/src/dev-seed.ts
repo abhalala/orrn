@@ -414,6 +414,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     office: await ensureUser(db, "office", password),
     supervisor: await ensureUser(db, "supervisor", password),
     press: await ensureUser(db, "press", password),
+    dieroom: await ensureUser(db, "dieroom", password),
     staff: await ensureUser(db, "staff", password),
   };
   const createdUsers = (Object.keys(users) as DevAccountKey[]).filter((key) => users[key].created);
@@ -427,7 +428,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     .from(membership)
     .where(
       and(
-        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId, users.supervisor.id, users.press.id]),
+        inArray(membership.userId, [ownerId, operatorId, users.viewer.id, officeId, users.supervisor.id, users.press.id, users.dieroom.id]),
         ne(membership.companyId, COMPANY_ID),
       ),
     );
@@ -992,11 +993,23 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       updatedAt: new Date(pastAt(9, 10)),
     },
   ];
-  type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use"; bandId?: string; readings: number[]; lifeG?: number };
+  type CopyDef = { section: string; code: string; seqNo: number; tier: number | null; status: "available" | "in_use" | "on_trial"; bandId?: string; readings: number[]; lifeG?: number };
   const COPIES: CopyDef[] = [
     { section: "tee125", code: "13090-1", seqNo: 1, tier: 1, status: "available", readings: [2_740, 2_760], lifeG: 60_000_000 },
     { section: "tee125", code: "13090-2", seqNo: 2, tier: 2, status: "available", readings: [2_910, 2_950] },
     { section: "tee125", code: "13090-3", seqNo: 3, tier: 1, status: "available", bandId: heavyBandId, readings: [3_150, 3_200] },
+    // One copy per width for the e2e mutations (readings 4-6, issue to a run 7-9, the 375 lift page 10),
+    // so parallel workers never touch the same copy.
+    { section: "tee125", code: "13090-4", seqNo: 4, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-5", seqNo: 5, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-6", seqNo: 6, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-7", seqNo: 7, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-8", seqNo: 8, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-9", seqNo: 9, tier: 1, status: "available", readings: [2_760] },
+    { section: "tee125", code: "13090-10", seqNo: 10, tier: 2, status: "available", readings: [2_910, 2_950] },
+    // FP-DR-17 (W2-DR2 e2e): three copies on trial per width. A: issued to the width's own trial run and taken
+    // back; B: released by the owner with a reason; C: maker numbers, bulk file. Parallel workers never share one.
+    ...Array.from({ length: 9 }, (_, i): CopyDef => ({ section: "tee125", code: `13090-${11 + i}`, seqNo: 11 + i, tier: 1, status: "on_trial", readings: [] })),
     { section: "chan1", code: "12230-1", seqNo: 1, tier: 1, status: "available", readings: [2_850] },
     { section: "patti1", code: "14701-1", seqNo: 1, tier: 1, status: "in_use", readings: [2_480] },
   ];
@@ -1055,8 +1068,52 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdAt: new Date(todayAt(0.05)),
       updatedAt: new Date(todayAt(0.1)),
     },
+    // Released and waiting for a die: Tee 13090 on Press 1 (PR-2, PR-3, PR-4). The die room issues a copy to each.
+    {
+      id: "dev-run-13090-queued",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: "PR-2",
+      period: pressRunPeriod,
+      status: "queued",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("tee125"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.06)),
+      updatedAt: new Date(todayAt(0.06)),
+    },
+    // Two more for Tee: with PR-2, one queued run per width of the e2e (each issues its own copy to its own run).
+    ...(["PR-3", "PR-4"] as const).map((number) => ({
+      id: `dev-run-13090-queued-${number}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number,
+      period: pressRunPeriod,
+      status: "queued" as const,
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("tee125"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.06)),
+      updatedAt: new Date(todayAt(0.06)),
+    })),
+    // Die trial runs for Tee (plan PP-2, purpose die_trial): the only runs a copy on trial may be issued to.
+    // One per width of the die room e2e (PR-5, PR-6, PR-7).
+    ...(["PR-5", "PR-6", "PR-7"] as const).map((number) => ({
+      id: `dev-run-13090-trial-${number}`,
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number,
+      period: pressRunPeriod,
+      status: "queued" as const,
+      planId: "dev-plan-trial-2",
+      pressLineId: "dev-press-line-1",
+      sectionId: dieId("tee125"),
+      createdBy: ownerId,
+      createdAt: new Date(todayAt(0.07)),
+      updatedAt: new Date(todayAt(0.07)),
+    })),
   ];
-  // The press run book continues after PR-1.
+  // The press run book continues after PR-7.
   const pressRunSeriesRows: (typeof docSeries.$inferInsert)[] = [
     // value is read when the batch is built (after the Wave 2 press runs below are pushed).
     { id: `dev-series-press_run-${pressRunPeriod}`, companyId: COMPANY_ID, docType: "press_run", period: pressRunPeriod, value: 1, createdBy: ownerId },
@@ -1083,7 +1140,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   const castMonth = Number(castPeriod.slice(5));
   const castRows: (typeof cast.$inferInsert)[] = [
     {
-      id: "dev-cast-1",
+      id: "dev-press-cast-1",
       companyId: COMPANY_ID,
       serverSeq: nextSeq(),
       number: formatCastCode(castMonth, 1),
@@ -1102,7 +1159,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     },
   ];
   const castSeriesRows: (typeof docSeries.$inferInsert)[] = [
-    { id: `dev-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: 1, createdBy: ownerId },
+    { id: `dev-press-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: 1, createdBy: ownerId },
   ];
   const billetOpeningG = 2_400_000;
   const loggedStart = todayAt(0.15);
@@ -1118,7 +1175,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       id: "dev-run-12230-1",
       companyId: COMPANY_ID,
       serverSeq: loggedSeq,
-      number: "PR-2",
+      number: "PR-8",
       period: pressRunPeriod,
       status: "logged",
       pressLineId: "dev-press-line-1",
@@ -1129,7 +1186,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       shiftId: loggedShift.shiftId,
       operatorId,
       supervisorId: ownerId,
-      castId: "dev-cast-1",
+      castId: "dev-press-cast-1",
       dieInAt: new Date(loggedStart),
       dieOutAt: new Date(loggedStop),
       startedAt: new Date(loggedStart),
@@ -1142,6 +1199,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       goodG: 234_200,
       recoveryBp: 7545,
       balanceG: 31_400,
+      billetShortG: 0,
       pressRemark: "Ram slow on the third billet",
       loggedAt: new Date(loggedAt),
       createdBy: ownerId,
@@ -1152,7 +1210,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       id: "dev-run-13090-2-late",
       companyId: COMPANY_ID,
       serverSeq: nextSeq(),
-      number: "PR-3",
+      number: "PR-9",
       period: pressRunPeriod,
       status: "counting",
       pressLineId: "dev-press-line-2",
@@ -1162,7 +1220,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       shiftSeq: lateShift.shiftSeq,
       shiftId: lateShift.shiftId,
       operatorId,
-      castId: "dev-cast-1",
+      castId: "dev-press-cast-1",
       dieInAt: new Date(lateStart),
       dieOutAt: new Date(lateStop),
       startedAt: new Date(lateStart),
@@ -1192,9 +1250,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     { id: "dev-run-late-line-1", ...runChild, serverSeq: nextSeq(), pressRunId: "dev-run-13090-2-late", line: 1, cutLengthMm: 3_658, pcs: 60, goodG: 170_000 },
   ];
   const pressBilletRows: (typeof pressBilletUse.$inferInsert)[] = [
-    { id: "dev-run-12230-1-billet-1", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 1, castId: "dev-cast-1", lengthMm: 600, count: 4, kgG: 155_200 },
-    { id: "dev-run-12230-1-billet-2", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 2, castId: "dev-cast-1", lengthMm: 600, count: 4, kgG: 155_200 },
-    { id: "dev-run-late-billet-1", ...runChild, serverSeq: nextSeq(), pressRunId: "dev-run-13090-2-late", line: 1, castId: "dev-cast-1", lengthMm: 600, count: 4, kgG: 230_000 },
+    { id: "dev-run-12230-1-billet-1", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 1, castId: "dev-press-cast-1", lengthMm: 600, count: 4, kgG: 155_200 },
+    { id: "dev-run-12230-1-billet-2", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 2, castId: "dev-press-cast-1", lengthMm: 600, count: 4, kgG: 155_200 },
+    { id: "dev-run-late-billet-1", ...runChild, serverSeq: nextSeq(), pressRunId: "dev-run-13090-2-late", line: 1, castId: "dev-press-cast-1", lengthMm: 600, count: 4, kgG: 230_000 },
   ];
   const qcRows: (typeof qcEntry.$inferInsert)[] = [
     { id: "dev-run-12230-1-qc-1", ...runChild, serverSeq: loggedSeq, pressRunId: "dev-run-12230-1", line: 1, pressRunLineId: "dev-run-12230-1-line-1", reasonCodeId: "dev-reason-qc_reject-bend", pcs: 3, kgG: 7_000 },
@@ -1222,7 +1280,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     subjectId: "dev-run-13090-2-late",
     status: "pending",
     requestNote: "Tablet was down on the night shift",
-    meta: { reason: "Tablet was down on the night shift", productionDay: lateShift.productionDay, shiftSeq: lateShift.shiftSeq, runNumber: "PR-3" },
+    meta: { reason: "Tablet was down on the night shift", productionDay: lateShift.productionDay, shiftSeq: lateShift.shiftSeq, runNumber: "PR-9" },
     requestedBy: operatorId,
     createdAt: new Date(todayAt(0.3)),
   });
@@ -1246,6 +1304,23 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdBy: ownerId,
     },
   ];
+  // A released die trial plan (PP-2) holding the trial runs PR-5..PR-7 of Tee.
+  trialPlanRows.push({
+    id: "dev-plan-trial-2",
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    number: "PP-2",
+    period: pressPlanPeriod,
+    status: "released",
+    purpose: "die_trial",
+    pressLineId: "dev-press-line-1",
+    windowStart: new Date(todayWindowStart),
+    windowEnd: new Date(todayWindowStart + 12 * 60 * 60 * 1000),
+    note: "Trial of the new Tee copies",
+    releasedAt: new Date(todayAt(0.07)),
+    releasedBy: ownerId,
+    createdBy: ownerId,
+  });
   const trialPlanDieRows: (typeof pressPlanDie.$inferInsert)[] = [
     { id: "dev-plan-trial-1-die-1", companyId: COMPANY_ID, serverSeq: nextSeq(), pressPlanId: "dev-plan-trial-1", sectionId: dieId("patti1"), sortOrder: 1, createdBy: ownerId },
   ];
@@ -1278,6 +1353,29 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdBy: ownerId,
     })),
   );
+  // An approved exception: Tejura & Sons may use KD Extrusion's 12230-1 (a manager closes it from the issues page).
+  approvalRows.push({
+    id: "dev-approval-12230-1-tejura",
+    companyId: COMPANY_ID,
+    serverSeq: nextSeq(),
+    kind: "die_owner_override",
+    subjectId: devCopyId("12230-1"),
+    status: "approved",
+    requestNote: "KD asked us to cover the Tejura order",
+    meta: {
+      attemptedCustomerId: customerId("tejura"),
+      purpose: "pack",
+      closedAt: null,
+      code: "12230-1",
+      sectionId: dieId("chan1"),
+      ownerCustomerId: customerId(CUSTOMERS[0]!.key),
+    },
+    requestedBy: officeId,
+    decidedBy: ownerId,
+    decidedAt: new Date(pastAt(2, 10)),
+    createdAt: new Date(pastAt(2, 9)),
+    updatedAt: new Date(pastAt(2, 10)),
+  });
   const ownedSectionId = dieId("chan1");
   const ownedBy = customerId(CUSTOMERS[0]!.key);
 
@@ -1397,6 +1495,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       { id: "dev-membership-office", userId: officeId, companyId: COMPANY_ID, role: "office" as const },
       { id: "dev-membership-supervisor", userId: users.supervisor.id, companyId: COMPANY_ID, role: "supervisor" as const },
       { id: "dev-membership-press", userId: users.press.id, companyId: COMPANY_ID, role: "press" as const },
+      { id: "dev-membership-dieroom", userId: users.dieroom.id, companyId: COMPANY_ID, role: "die_room" as const },
     ]),
     db
       .insert(platformAdmin)
@@ -1460,6 +1559,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, dieWeightReading, readingRows),
     ...insertChunks(db, cast, castRows),
     ...insertChunks(db, docSeries, castSeriesRows),
+    // Plans before the runs that point at them (PP-2 holds the die trial runs).
+    ...insertChunks(db, pressPlan, trialPlanRows),
     ...insertChunks(db, pressRun, pressRunRows),
     ...insertChunks(db, docSeries, pressRunSeriesRows.map((r) => ({ ...r, value: pressRunRows.length }))),
     ...insertChunks(db, dieIssue, dieIssueRows),
@@ -1467,7 +1568,6 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     ...insertChunks(db, pressBilletUse, pressBilletRows),
     ...insertChunks(db, qcEntry, qcRows),
     ...insertChunks(db, pressDowntime, downtimeRows),
-    ...insertChunks(db, pressPlan, trialPlanRows),
     ...insertChunks(db, pressPlanDie, trialPlanDieRows),
     ...insertChunks(db, docSeries, pressPlanSeriesRows),
   ];
@@ -1502,14 +1602,14 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   });
   await atomicBatch(db, [
     db.insert(stockLedger).values({
-      id: "dev-ledger-cast-1-opening",
+      id: "dev-ledger-press-cast-1-opening",
       companyId: COMPANY_ID,
       serverSeq: castRows[0]!.serverSeq!,
       voucherType: "opening",
-      voucherId: "dev-cast-1",
+      voucherId: "dev-press-cast-1",
       line: 1,
       itemKind: "billet",
-      itemRef: "dev-cast-1",
+      itemRef: "dev-press-cast-1",
       locationId: devLocationId("BILLET"),
       qtyG: billetOpeningG,
       postedAt: new Date(pastAt(1, 18)),
@@ -1517,10 +1617,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       createdBy: ownerId,
     }),
     db.insert(stockLedger).values([
-      pressLedger(1, "billet", "dev-cast-1", "BILLET", -310_400, "PR-2 billets"),
-      pressLedger(2, "return_stream", streamOf("DISCARD"), "PLANT-SCRAP", 25_000, "PR-2 butt"),
-      pressLedger(3, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 12_800, "PR-2 ends"),
-      pressLedger(4, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 7_000, "PR-2 rejects"),
+      pressLedger(1, "billet", "dev-press-cast-1", "BILLET", -310_400, "PR-8 billets"),
+      pressLedger(2, "return_stream", streamOf("DISCARD"), "PLANT-SCRAP", 25_000, "PR-8 butt"),
+      pressLedger(3, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 12_800, "PR-8 ends"),
+      pressLedger(4, "return_stream", streamOf("PLANT-SCRAP"), "PLANT-SCRAP", 7_000, "PR-8 rejects"),
     ]),
   ] as Statement[]);
 
@@ -1584,6 +1684,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       office: DEV_ACCOUNTS.office.email,
       supervisor: DEV_ACCOUNTS.supervisor.email,
       press: DEV_ACCOUNTS.press.email,
+      dieroom: DEV_ACCOUNTS.dieroom.email,
       staff: DEV_ACCOUNTS.staff.email,
     },
     createdUsers,

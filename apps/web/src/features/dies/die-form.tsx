@@ -11,6 +11,7 @@ import { DELETED_DIE_CODE_MESSAGE, type LengthUnit } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
+import { Button } from "@orrn/ui/components/button";
 import { cn } from "@orrn/ui/lib/utils";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
@@ -18,13 +19,20 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
+import { CustomerSearchPicker } from "@/features/die-room/pickers";
+import { Can } from "@/shared/components/can";
+import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import {
   dieToDraft,
   draftToDieInput,
+  draftToExtrasInput,
   EMPTY_DIE_DRAFT,
   GEOMETRY_FIELDS,
+  KNOWN_ALLOYS,
+  KNOWN_TEMPERS,
+  PROFILE_KINDS,
   validateDieDraft,
   type DieDraft,
   type DieDraftErrors,
@@ -44,6 +52,7 @@ type ServerError = { data?: { code?: string } | null; message?: string };
 
 export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieFormProps) {
   const { t } = useT();
+  const { data: me } = useMe();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DieDraft>(() => (die ? dieToDraft(die, unit) : EMPTY_DIE_DRAFT));
   const [errors, setErrors] = useState<DieDraftErrors>({});
@@ -101,7 +110,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
       return;
     }
     setAnnounce("");
-    const input = draftToDieInput(draft, unit, die);
+    const input = { ...draftToDieInput(draft, unit, die), ...draftToExtrasInput(draft, unit, die, can(me, "masters.publish")) };
     if (die) update.mutate({ id: die.id, ...input });
     else create.mutate(input);
   };
@@ -162,6 +171,67 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dies.form.statusHint")}</p>
       </div>
 
+      <section aria-labelledby={`${formId}-shape`} className="flex min-w-0 flex-col gap-4 border-t border-border pt-4" data-testid="die-form-shape">
+        <h3 id={`${formId}-shape`} className="m-0 text-[15px] leading-6 font-semibold">
+          {t("dies.form.shapeSection")}
+        </h3>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-[14px] leading-5 font-semibold">{t("dieRoom.card.profileKind")}</span>
+          <SegmentedControl
+            label={t("dieRoom.card.profileKind")}
+            value={draft.profileKind || "none"}
+            onChange={(v) => setDraft((d) => ({ ...d, profileKind: v === "none" ? "" : v }))}
+            options={[
+              { value: "none", label: t("dies.form.profileNone") },
+              ...PROFILE_KINDS.map((k) => ({ value: k, label: t(`dieRoom.card.${k}`) })),
+            ]}
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label={t("dieRoom.card.alloy")} hint={t("dies.form.alloyHint")} id={`${formId}-alloy`}>
+            <TextInput value={draft.alloy} onChangeText={set("alloy")} list={`${formId}-alloys`} maxLength={16} autoComplete="off" className="font-mono" />
+            <datalist id={`${formId}-alloys`}>
+              {withCurrent(KNOWN_ALLOYS, draft.alloy).map((a) => (
+                <option key={a} value={a} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label={t("dieRoom.card.temper")} hint={t("dies.form.alloyHint")} id={`${formId}-temper`}>
+            <TextInput value={draft.temper} onChangeText={set("temper")} list={`${formId}-tempers`} maxLength={8} autoComplete="off" className="font-mono" />
+            <datalist id={`${formId}-tempers`}>
+              {withCurrent(KNOWN_TEMPERS, draft.temper).map((a) => (
+                <option key={a} value={a} />
+              ))}
+            </datalist>
+          </Field>
+        </div>
+        <Field label={t("dieRoom.bands.wall")} hint={t("dies.form.wallHint")} error={err("wall")} id={`${formId}-wall`}>
+          <NumberInput value={draft.wall} onValueChange={set("wall")} suffix={t("units.mm")} />
+        </Field>
+        <Can do="masters.publish">
+          <div className="flex min-w-0 flex-col gap-2" data-testid="die-form-owner">
+            <CustomerSearchPicker
+              label={t("dieRoom.copies.owner")}
+              value={draft.ownerId || null}
+              valueLabel={draft.ownerName || undefined}
+              placeholder={t("dies.form.ownerSearch")}
+              hint={t("dies.form.ownerHint")}
+              onChange={(party) => setDraft((d) => ({ ...d, ownerId: party.id, ownerName: party.name }))}
+            />
+            {draft.ownerId ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="self-start px-3"
+                onClick={() => setDraft((d) => ({ ...d, ownerId: "", ownerName: "" }))}
+              >
+                {t("dies.form.ownerClear")}
+              </Button>
+            ) : null}
+          </div>
+        </Can>
+      </section>
+
       <Field label={t("dies.form.notes")} id={`${formId}-notes`}>
         <FieldTextArea value={draft.notes} onChangeText={set("notes")} rows={3} maxLength={500} />
       </Field>
@@ -205,10 +275,17 @@ const FIELD_ORDER: (keyof DieDraft)[] = [
   "name",
   "weightMin",
   "weightMax",
+  "wall",
   "width",
   "thickness",
   "leg",
 ];
+
+/** The known values, plus the one the die already has when it is something else. */
+function withCurrent(known: readonly string[], current: string): string[] {
+  const c = current.trim();
+  return c && !known.includes(c) ? [c, ...known] : [...known];
+}
 
 function focusField(formId: string, field: keyof DieDraft) {
   document.getElementById(`${formId}-${field}`)?.focus();

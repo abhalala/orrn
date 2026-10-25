@@ -2,13 +2,17 @@
  * FP-PR-17 press report (17 columns, CSV, filters incl. planId), FP-PR-18 summary + Today's
  * pressedToday, FP-PR-24 late share, D1 ≤ 100 bound parameters on bulk run lines / QC rows.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { pressRun, pressRunLine, qcEntry } from "@orrn/db/schema";
 import { eq } from "drizzle-orm";
 
 import { createTestEnv, D1_MAX_PARAMS, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -146,7 +150,8 @@ describe("D1 limits and permissions on bulk rows", () => {
     const p = await pressPlant();
     const r = await p.countingRun();
     const press = p.as("press").press.runs;
-    const rows = Array.from({ length: 50 }, (_, i) => ({ cutLengthMm: 3_000 + i, pcs: 1, goodG: kg(1) }));
+    // I-3: every row of a production run names its plan line.
+    const rows = Array.from({ length: 50 }, (_, i) => ({ cutLengthMm: 3_000 + i, pcs: 1, goodG: kg(1), pressPlanLineId: r.planLineIds[0] }));
     env.resetPeakParams();
     await press.lines({ id: r.runId, rows });
     const before = await env.db.select().from(pressRunLine).where(eq(pressRunLine.pressRunId, r.runId));

@@ -1032,7 +1032,7 @@ describe("fix round 1", () => {
 describe("dev seed: scrap purchase", () => {
   test("vendors with aliases, ten lots, one short lot with an approved D/C note; ledger = register; re-runnable", async () => {
     const { user } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "supervisor", "press", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` });
     }
     const seedPath = "../../../apps/server/src/dev-seed";

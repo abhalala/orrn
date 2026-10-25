@@ -4,13 +4,17 @@
  * on-hand guard with a short reason, issue return / hand-over (C43), reopen reversal, client
  * figures stripped, trial runs, late entry, pressed on the sales order.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
-import { approval, auditLog, dieInstance, dieIssue, pressBilletUse, pressRun, pressRunLine, qcEntry, returnStream, stockLedger } from "@orrn/db/schema";
+import { approval, auditLog, dieInstance, dieIssue, pressBilletUse, pressDowntime, pressRun, pressRunLine, qcEntry, returnStream, stockLedger } from "@orrn/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
+
+// Each test walks whole runs (release, issue, start, count, close) on Miniflare D1; 5 s is too
+// tight when other worktrees run their gates on the same machine (as plant-foundry.test.ts).
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -228,18 +232,18 @@ describe("close gates (each)", () => {
 });
 
 describe("BILLET balance guard (FP-PR-07)", () => {
-  test("weighed above on hand needs a short reason; input becomes on hand, weighed kept", async () => {
+  test("D22: weighed above on hand needs a short reason; input and recovery stay on the weighed kg, the shortfall is recorded", async () => {
     const p = await pressPlant();
     const c = await p.castWith(kg(300));
     const r = await p.countingRun();
     await fillWorkedExample(p, r.runId, c.id);
     expect(await gatesOf(p, r.runId)).toEqual(["billet_short_reason_missing"]);
     const out = await p.as("supervisor").press.runs.close({ id: r.runId, billetShortReason: "Billets of K-prev mixed in the rack" });
-    expect(out).toMatchObject({ inputG: 300_000, inputWeighedG: 310_400, short: true });
+    expect(out).toMatchObject({ inputG: 310_400, inputWeighedG: 310_400, short: true, billetShortG: 10_400 });
     const row = await run(r.runId);
-    expect(row).toMatchObject({ inputG: 300_000, inputWeighedG: 310_400, billetShortReason: "Billets of K-prev mixed in the rack", recoveryBp: 7807 });
+    expect(row).toMatchObject({ inputG: 310_400, inputWeighedG: 310_400, billetShortReason: "Billets of K-prev mixed in the rack", billetShortG: 10_400, recoveryBp: 7545 });
     const [billet] = (await ledger(p.companyId, r.runId)).filter((x) => x.itemKind === "billet");
-    expect(billet!.qtyG).toBe(-300_000);
+    expect(billet!.qtyG).toBe(-310_400);
   });
 
   test("billets taken by another run between read and write: the billet row does not land → CONFLICT, nothing posted", async () => {
@@ -349,7 +353,18 @@ describe("trial and sample runs (FP-PR-23)", () => {
   test("die_trial plan: no order line; close needs pass / fail; fail → copy on_trial, pass → available; billets still debit", async () => {
     const p = await pressPlant();
     const c = await p.castWith(kg(1000));
-    const fail = await p.countingRun({ purpose: "die_trial" });
+    // Copies on trial (FP-DR-17): the issue carries `trial`, so the close's verdict moves the copy.
+    const onTrial = async () => {
+      const r = await p.queuedRun({ purpose: "die_trial" });
+      await env.db.update(dieInstance).set({ status: "on_trial" }).where(eq(dieInstance.id, r.copyId));
+      await p.issue(r.runId, r.copyId);
+      const s = p.as("press").press.runs;
+      await s.start({ id: r.runId });
+      await s.stop({ id: r.runId });
+      await s.count({ id: r.runId });
+      return r;
+    };
+    const fail = await onTrial();
     expect(fail.planLineIds).toEqual([]);
     const press = p.as("press").press.runs;
     await press.billets({ id: fail.runId, castId: c.id, rows: [{ count: 1, kgG: kg(60) }] });
@@ -363,7 +378,7 @@ describe("trial and sample runs (FP-PR-23)", () => {
     expect(failed!.status).toBe("on_trial");
     expect((await ledger(p.companyId, fail.runId)).find((x) => x.itemKind === "billet")!.qtyG).toBe(-60_000);
 
-    const pass = await p.countingRun({ purpose: "die_trial" });
+    const pass = await onTrial();
     await press.billets({ id: pass.runId, castId: c.id, rows: [{ count: 1, kgG: kg(60) }] });
     await press.lines({ id: pass.runId, rows: [{ cutLengthMm: 3_658, pcs: 4, goodG: kg(40) }] });
     await press.qc({ id: pass.runId, rows: [{ pcs: 0, kgG: 0 }] });
@@ -430,5 +445,38 @@ describe("late entry (FP-PR-24)", () => {
     expect(await run(r.runId)).toMatchObject({ status: "counting", lateEntry: true, dieInstanceId: r.copyId, planId: r.planId });
     await p.as("owner").approval.decide({ id: out.approvalId!, decision: "rejected" });
     expect(await run(r.runId)).toMatchObject({ status: "voided", voidNote: "Late entry rejected" });
+  });
+});
+
+describe("write-time gates of the close (m-11)", () => {
+  test("downtime opened between the read and the write: CONFLICT, nothing posted", async () => {
+    const p = await pressPlant();
+    const c = await p.castWith(kg(500));
+    const r = await p.countingRun();
+    await fillWorkedExample(p, r.runId, c.id);
+    const reasonCodeId = await p.code("downtime", "billet_wait");
+    env.beforeNextBatch(() =>
+      env.db.insert(pressDowntime).values({
+        id: crypto.randomUUID(),
+        companyId: p.companyId,
+        pressLineId: p.pressLineId,
+        pressRunId: r.runId,
+        reasonCodeId,
+        startedAt: new Date(),
+      }),
+    );
+    await expect(p.as("supervisor").press.runs.close({ id: r.runId })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await ledger(p.companyId, r.runId)).toEqual([]);
+    expect((await run(r.runId)).status).toBe("counting");
+  });
+
+  test("time marked unconfirmed between the read and the write: CONFLICT, nothing posted", async () => {
+    const p = await pressPlant();
+    const c = await p.castWith(kg(500));
+    const r = await p.countingRun();
+    await fillWorkedExample(p, r.runId, c.id);
+    env.beforeNextBatch(() => env.db.update(pressRun).set({ timeUnconfirmed: true }).where(eq(pressRun.id, r.runId)));
+    await expect(p.as("supervisor").press.runs.close({ id: r.runId })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(await ledger(p.companyId, r.runId)).toEqual([]);
   });
 });

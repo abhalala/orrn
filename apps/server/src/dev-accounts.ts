@@ -9,6 +9,8 @@ export const DEV_ACCOUNTS = {
   supervisor: { email: "supervisor@orrn.local", name: "Local Supervisor" },
   /** Press man (press.run only): starts, stops and counts a run; cannot log it. */
   press: { email: "press@orrn.local", name: "Local Press" },
+  /** Die room: readings, die card, tier proposals, issue and maker (die.* actions). */
+  dieroom: { email: "dieroom@orrn.local", name: "Local Die Room" },
   /** ORRN platform staff (super_admin), not a tenant member. Used by Godseye tests. */
   staff: { email: "staff@orrn.local", name: "Local Staff" },
 } as const;

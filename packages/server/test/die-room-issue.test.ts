@@ -38,7 +38,7 @@ const ROLES: CompanyRole[] = [
 let runNo = 0;
 
 async function plant() {
-  const { companyId, users } = await env.seedCompany();
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false } } }); // these tests are about the rack; the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: 5_900, weightMaxG: 6_200 });
   const lineId = crypto.randomUUID();
   await env.db.insert(pressLine).values({ id: lineId, companyId, code: "P1", name: "Press 1" });
@@ -117,6 +117,27 @@ describe("issue", () => {
     expect((await copyRow(c.id)).status).toBe("available");
     expect(await issues(c.id)).toEqual([]);
     expect(await runRow(wrongDie)).toMatchObject({ status: "queued", dieInstanceId: null });
+  });
+
+  test("queuedRuns and pressLines feed the issue form: only queued runs without a copy, optionally one section; any member reads", async () => {
+    const p = await plant();
+    const other = await env.seedDie(p.companyId, { series: "Tee", sectionCode: "13090", weightMinG: 2_700, weightMaxG: 2_900 });
+    const q1 = await queuedRun(p);
+    const q2 = await queuedRun(p, { sectionId: other, pressLineId: null });
+    const started = await queuedRun(p, { status: "running" });
+    const c = await copy(p);
+    await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: q1 });
+
+    const viewer = env.caller({ role: "viewer", companyId: p.companyId });
+    const all = await viewer.dieInstance.issues.queuedRuns();
+    expect(all.map((r) => [r.id, r.pressLineCode])).toEqual([[q2, null]]);
+    expect(all.some((r) => r.id === started)).toBe(false);
+    expect((await viewer.dieInstance.issues.queuedRuns({ sectionId: p.sectionId })).map((r) => r.id)).toEqual([]);
+    expect((await viewer.dieInstance.issues.queuedRuns({ sectionId: other })).map((r) => r.sectionCode)).toEqual(["13090"]);
+    expect((await viewer.dieInstance.issues.pressLines()).map((l) => l.code)).toEqual(["P1"]);
+    // Another company sees none of them.
+    const x = await plant();
+    expect(await env.caller({ role: "viewer", companyId: x.companyId }).dieInstance.issues.queuedRuns()).toEqual([]);
   });
 
   test("a run with no press line yet takes the issue's line", async () => {

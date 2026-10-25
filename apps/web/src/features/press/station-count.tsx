@@ -62,6 +62,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retry?: () => void } | null>(null);
   const [gates, setGates] = useState<string[] | null>(null);
+  const [refusedShort, setRefusedShort] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const casts = useQuery(trpc.foundry.casts.list.queryOptions({ limit: 200 }));
@@ -102,7 +103,10 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
       (casts.data?.items ?? [])
         .filter((c) => c.billetsOnHandG > 0 || c.id === draft.castId)
         .sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)
-        .map((c) => ({ value: c.id, label: `${c.number} · ${t("press.console.castOnHand", { kg: kgFromG(c.billetsOnHandG) })}` })),
+        .map((c) => ({
+          value: c.id,
+          label: `${c.number} · ${t("press.console.castOnHand", { kg: kgFromG(c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { kg: kgFromG(c.billetsShortG) })}` : ""}`,
+        })),
     [casts.data, draft.castId, t],
   );
 
@@ -122,28 +126,28 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
     const again = () => void next();
     try {
       if (step === 0) {
-        if (!draft.castId) return invalid("press.console.gate.no_cast");
+        if (!draft.castId) return invalid("press.console.gates.no_cast");
         const r = billetRows(draft.billets, toMm);
-        if ("issue" in r) return invalid("press.console.gate.billet_row_invalid");
-        if (r.rows.length === 0) return invalid("press.console.gate.no_billets");
+        if ("issue" in r) return invalid("press.console.gates.billet_row_invalid");
+        if (r.rows.length === 0) return invalid("press.console.gates.no_billets");
         await billets.mutateAsync({ id: runId, castId: draft.castId, rows: r.rows });
       } else if (step === 1) {
         const r = lineRows(draft.lines, toMm);
-        if ("issue" in r) return invalid("press.console.gate.line_invalid");
-        if (r.rows.length === 0) return invalid("press.console.gate.no_lines");
+        if ("issue" in r) return invalid("press.console.gates.line_invalid");
+        if (r.rows.length === 0) return invalid("press.console.gates.no_lines");
         const pressed = draft.pressedLengthText.trim() === "" ? null : toMm(draft.pressedLengthText);
-        if (draft.pressedLengthText.trim() !== "" && pressed === null) return invalid("press.console.gate.line_invalid");
+        if (draft.pressedLengthText.trim() !== "" && pressed === null) return invalid("press.console.gates.line_invalid");
         await lines.mutateAsync({ id: runId, rows: r.rows });
         await scrap.mutateAsync({ id: runId, pressedLengthMm: pressed });
       } else if (step === 2) {
         const d = draft.discardText.trim() === "" ? null : kgTextToG(draft.discardText);
         const e = draft.endsText.trim() === "" ? null : kgTextToG(draft.endsText);
-        if ((draft.discardText.trim() !== "" && d === null) || (draft.endsText.trim() !== "" && e === null)) return invalid("press.console.gate.no_input");
+        if ((draft.discardText.trim() !== "" && d === null) || (draft.endsText.trim() !== "" && e === null)) return invalid("press.console.gates.no_input");
         await scrap.mutateAsync({ id: runId, discardG: d, endsG: e });
       } else if (step === 3) {
         const r = qcRows(draft.qc);
-        if ("issue" in r) return invalid("press.console.gate.qc_row_invalid");
-        if (r.rows.length === 0) return invalid("press.console.gate.no_qc");
+        if ("issue" in r) return invalid("press.console.gates.qc_row_invalid");
+        if (r.rows.length === 0) return invalid("press.console.gates.no_qc");
         await qcMut.mutateAsync({ id: runId, rows: r.rows });
       }
       await refresh();
@@ -170,7 +174,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
       if (dieText && data.copy && dieText !== (data.run.dieRemark ?? "")) await remark.mutateAsync({ id: runId, kind: "die", body: dieText });
       if (draft.readingText.trim() !== "" && data.copy) {
         const kg = parseDecimal(draft.readingText);
-        if (kg === null || kg <= 0) return invalid("press.console.gate.line_invalid");
+        if (kg === null || kg <= 0) return invalid("press.console.gates.line_invalid");
         await reading.mutateAsync({ dieInstanceId: data.copy.id, pressRunId: runId, kgPer12ftMilli: Math.round(kg * 1000) });
         patch({ readingText: "" });
         setNotice(t("press.console.readingSaved"));
@@ -210,6 +214,7 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
     } catch (e) {
       const refused = gatesOf(e);
       if (refused) {
+        if (refused.includes("billet_short_reason_missing")) setRefusedShort(true);
         setGates(refused);
         setError(null);
       } else {
@@ -301,6 +306,19 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
                   )}
                   {row.releasedPcs !== null ? <p className="m-0 text-[14px] text-muted-foreground">{t("press.console.pcsOrdered", { pcs: row.releasedPcs })}</p> : null}
                 </div>
+                {row.pressPlanLineId === null && data.planLines.length > 0 ? (
+                  <Field label={t("press.console.orderLine")} className="sm:col-span-2">
+                    <Select
+                      value=""
+                      onValueChange={(id) => {
+                        const pl = data.planLines.find((p) => p.id === id);
+                        if (pl) setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, pressPlanLineId: pl.id, orderNumber: pl.orderNumber, cutLengthMm: pl.cutLengthMm, releasedPcs: pl.pcs } : l)) }));
+                      }}
+                      placeholder={t("press.console.pickOne")}
+                      options={data.planLines.map((p) => ({ value: p.id, label: `${p.orderNumber} ${p.customerName} · ${formatLength(p.cutLengthMm, unit)}` }))}
+                    />
+                  </Field>
+                ) : null}
                 {row.cutLengthMm === null ? (
                   <Field label={t("press.console.cutLength")}>
                     <NumberInput
@@ -458,8 +476,8 @@ export function CountingPanel({ data, unit, canClose }: { data: RunDetail; unit:
               />
             </div>
           ) : null}
-          {figures?.short ? (
-            <Field label={t("press.console.billetShortReason")} hint={t("press.console.shortStock", { kg: kgFromG(preview.data?.billetsOnHandG ?? 0) })}>
+          {figures?.short || refusedShort ? (
+            <Field label={t("press.console.billetShortReason")} hint={`${t("press.console.shortStock", { kg: kgFromG(preview.data?.billetsOnHandG ?? 0) })}${figures?.billetShortG ? ` ${t("press.console.billetsShortBy", { kg: kgFromG(figures.billetShortG) })}.` : ""}`}>
               <TextArea value={draft.billetShortReason} rows={2} maxLength={500} onChangeText={(billetShortReason) => patch({ billetShortReason })} />
             </Field>
           ) : null}

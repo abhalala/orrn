@@ -289,6 +289,12 @@ const queueRouter = router({
       const ids = queue.map((r) => r.id);
       const from = ids.indexOf(run.id);
       const next = moveInQueue(ids, run.id, input.toIndex);
+      // m-7: the queue shows urgent runs first, so a move may not cross that boundary.
+      const urgentOf = new Map(queue.map((r) => [r.id, r.urgent]));
+      const firstNormal = next.findIndex((n) => !urgentOf.get(n.id));
+      if (firstNormal >= 0 && next.slice(firstNormal).some((n) => urgentOf.get(n.id))) {
+        bad(urgentOf.get(run.id) ? `${run.number} is urgent; it stays above the other runs` : `Urgent runs stay at the top; mark ${run.number} urgent to move it there`);
+      }
       const was = new Map(queue.map((r) => [r.id, r.queuePos]));
       const changed = next.filter((n) => was.get(n.id) !== n.queuePos);
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -363,8 +369,23 @@ const queueRouter = router({
         .from(pressPlanLine)
         .where(and(eq(pressPlanLine.companyId, ctx.companyId), eq(pressPlanLine.pressPlanDieId, pl.pressPlanDieId)));
       if (Number(n) <= 1) bad(`This is ${run!.number}'s only line; void the run instead`);
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       try {
         await atomicBatch(ctx.db, [
+          // m-8: the run's sequence moves only while the line is still there, so of two concurrent
+          // pull backs one lands (and is audited); the other aborts.
+          ctx.db
+            .update(pressRun)
+            .set({ serverSeq: seq })
+            .where(
+              and(
+                eq(pressRun.id, run!.id),
+                eq(pressRun.companyId, ctx.companyId),
+                inArray(pressRun.status, [...PRESS_QUEUE_REORDERABLE]),
+                sql`exists (select 1 from press_plan_line g where g.id = ${pl.id})`,
+              ),
+            ),
+          pressAbortUnless(ctx.db, sql`exists (select 1 from press_run sr where sr.id = ${run!.id} and sr.server_seq = ${seq})`),
           ctx.db
             .delete(pressPlanLine)
             .where(
@@ -384,11 +405,11 @@ const queueRouter = router({
               subjectId: run!.id,
               meta: { number: run!.number, pressPlanLineId: pl.id, salesOrderLineId: pl.salesOrderLineId, orderNumber: pl.orderNumber, kgG: pl.kgG, pcs: pl.pcs, cutLengthMm: pl.cutLengthMm, reason: input.reason ?? null },
             },
-            { from: pressRun, where: and(eq(pressRun.id, run!.id), sql`not exists (select 1 from press_plan_line g where g.id = ${pl.id})`) },
+            { from: pressRun, where: and(eq(pressRun.id, run!.id), eq(pressRun.serverSeq, seq), sql`not exists (select 1 from press_plan_line g where g.id = ${pl.id})`) },
           ),
         ]);
       } catch (e) {
-        if (isPressAbort(e)) throw new TRPCError({ code: "CONFLICT", message: `${run!.number} started meanwhile; nothing was pulled back` });
+        if (isPressAbort(e)) throw new TRPCError({ code: "CONFLICT", message: `${run!.number} changed meanwhile; nothing was pulled back` });
         throw e;
       }
       return { success: true, salesOrderLineId: pl.salesOrderLineId, kgG: pl.kgG };
@@ -470,12 +491,18 @@ const downtimeRouter = router({
       if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Downtime not found" });
       if (row.stoppedAt) return { id: row.id, stoppedAt: row.stoppedAt, minutes: Math.round((row.stoppedAt.getTime() - row.startedAt.getTime()) / 60_000) };
       const at = clockNow();
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
         ctx.db
           .update(pressDowntime)
-          .set({ stoppedAt: at, stoppedBy: ctx.session.user.id, updatedAt: at })
+          .set({ stoppedAt: at, stoppedBy: ctx.session.user.id, serverSeq: seq, updatedAt: at })
           .where(and(eq(pressDowntime.id, row.id), eq(pressDowntime.companyId, ctx.companyId), isNull(pressDowntime.stoppedAt))),
-        auditInsert(ctx, { action: "press_downtime.stop", subjectType: "press_downtime", subjectId: row.id, meta: { minutes: Math.round((at.getTime() - row.startedAt.getTime()) / 60_000) } }),
+        // m-8: audited only by the request whose stop landed.
+        auditInsertGuarded(
+          ctx,
+          { action: "press_downtime.stop", subjectType: "press_downtime", subjectId: row.id, meta: { minutes: Math.round((at.getTime() - row.startedAt.getTime()) / 60_000) } },
+          { from: pressDowntime, where: and(eq(pressDowntime.id, row.id), eq(pressDowntime.serverSeq, seq)) },
+        ),
       ]);
       return { id: row.id, stoppedAt: at, minutes: Math.max(0, Math.round((at.getTime() - row.startedAt.getTime()) / 60_000)) };
     }),
