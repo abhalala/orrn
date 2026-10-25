@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5105 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1731,7 +1731,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (68)
+### printing (82)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1803,6 +1803,20 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `scale.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
 | `scale.noneHint` | This print computer has no scale connected. | इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है। |
 | `scale.unknownHint` | This print computer has not said whether a scale is connected yet. | इस प्रिंट कंप्यूटर ने अभी बताया नहीं कि कांटा जुड़ा है या नहीं। |
+| `collectors.title` | Press and spectro collectors | प्रेस और स्पेक्ट्रो कलेक्टर |
+| `collectors.none` | This print computer runs no collector. | इस प्रिंट कंप्यूटर पर कोई कलेक्टर नहीं चल रहा। |
+| `collectors.press` | Press {line} | प्रेस {line} |
+| `collectors.spectro` | Spectro files | स्पेक्ट्रो फ़ाइलें |
+| `collectors.sending` | Sending | भेज रहा है |
+| `collectors.watching` | Watching the folder | फ़ोल्डर देख रहा है |
+| `collectors.quiet` | Nothing coming in | कुछ नहीं आ रहा |
+| `collectors.notConfigured` | Not set up | लगा नहीं |
+| `collectors.simulated` | Simulated | नकली |
+| `collectors.simulatedHint` | Simulated data: no press or spectrometer is connected to this computer. | नकली डेटा: इस कंप्यूटर से कोई प्रेस या स्पेक्ट्रोमीटर नहीं जुड़ा है। |
+| `collectors.lastFrame` | Last reading {time} | आखिरी रीडिंग {time} पर |
+| `collectors.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
+| `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
+| `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
 ### settings (205)
 
@@ -4320,7 +4334,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (425)
+### press (428)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4744,6 +4758,9 @@ Please check, Lalubhai:
 | `summary.shifts` | By shift | शिफ़्ट के हिसाब से |
 | `summary.late` | Entered late | देर से भरे |
 | `summary.lateShare` | {pct}% of runs | {pct}% रन |
+| `summary.alertsOpen` | Press alerts open: {count} | प्रेस अलर्ट खुले: {count} |
+| `summary.alertsToday` | Press alerts today: {count} | आज के प्रेस अलर्ट: {count} |
+| `summary.alertsSimulated` | From the simulator | नकली डेटा से |
 | `summary.open` | Open the press summary | प्रेस सारांश खोलें |
 | `summary.report` | Open the press report | प्रेस रिपोर्ट खोलें |
 | `summary.previous` | Earlier day | पिछला दिन |

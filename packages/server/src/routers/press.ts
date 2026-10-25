@@ -33,6 +33,7 @@ import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
 import { pressDaySummary, pressReport, pressReportCsv } from "../lib/pressReport";
 import { nextCompanySeq } from "../lib/sequence";
 import { pressRunRouter } from "./pressRun";
+import { pressCollectorRouter } from "./pressCollector";
 
 const id = z.string().min(1).max(64);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Day as YYYY-MM-DD");
@@ -543,6 +544,8 @@ export const pressRouter = router({
   queue: queueRouter,
   runs: pressRunRouter,
   downtime: downtimeRouter,
+  /** W4-COLLECTORS: thresholds, alerts, run annotation (frames arrive node-signed, not here). */
+  collector: pressCollectorRouter,
 
   /**
    * Reason codes of one kind for the pickers (downtime, qc_reject, void, reprint, ...). The first
