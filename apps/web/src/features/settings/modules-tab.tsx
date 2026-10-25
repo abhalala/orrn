@@ -151,7 +151,7 @@ function ModulesPanel({ settings }: { settings: PlantSettings }) {
 }
 
 /** "Last change: Asha, 24 Oct, 14:05. Off → On", or that nothing was recorded. Quiet until the audit log has loaded. */
-function SwitchAudit({ change, ready, labelOf, testId }: { change: SwitchChange | null; ready: boolean; labelOf: (value: unknown) => string; testId: string }) {
+export function SwitchAudit({ change, ready, labelOf, testId }: { change: SwitchChange | null; ready: boolean; labelOf: (value: unknown) => string; testId: string }) {
   const { t } = useT();
   const when = useCompanyWhen();
   if (!ready) return null;

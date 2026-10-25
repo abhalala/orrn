@@ -12,7 +12,7 @@
  * Audit: press_line.create / update / retire / restore, press_run.queue_move, press_run.urgent,
  * press_plan_line.pull_back, press_downtime.start / stop.
  */
-import { moveInQueue, PRESS_QUEUE_REORDERABLE } from "@orrn/domain";
+import { moveInQueue, PRESS_QUEUE_REORDERABLE, REASON_CODE_KINDS } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
@@ -29,6 +29,7 @@ import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
 import { companySettings, isPressAbort, LIVE_RUN_STATUSES, lineQueue, pressAbortUnless, pressErrorText } from "../lib/press";
+import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
 import { pressDaySummary, pressReport, pressReportCsv } from "../lib/pressReport";
 import { nextCompanySeq } from "../lib/sequence";
 import { pressRunRouter } from "./pressRun";
@@ -538,24 +539,35 @@ const downtimeRouter = router({
 });
 
 export const pressRouter = router({
-  /**
-   * The active reason codes of one kind for the station's pickers (downtime, rejects) and the void
-   * dialog. Any member; codes are never deleted, only retired, so a retired one simply drops out.
-   */
-  reasons: companyProcedure
-    .input(z.object({ kind: z.enum(["downtime", "qc_reject", "void"]) }))
-    .query(async ({ ctx, input }) => {
-      return ctx.db
-        .select({ id: reasonCode.id, code: reasonCode.code, label: reasonCode.label, requiresNote: reasonCode.requiresNote })
-        .from(reasonCode)
-        .where(and(eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, input.kind), eq(reasonCode.active, true)))
-        .orderBy(asc(reasonCode.sortOrder), asc(reasonCode.code));
-    }),
-
   lines: linesRouter,
   queue: queueRouter,
   runs: pressRunRouter,
   downtime: downtimeRouter,
+
+  /**
+   * Reason codes of one kind for the pickers (downtime, qc_reject, void, reprint, ...). The first
+   * read of a plant that has none (or only some) adds the standard codes it is missing, so no
+   * plant starts with an empty list (rank 30); renamed or retired codes are left alone. Any member
+   * (D26): the station's pickers and the void dialog read it; a retired code simply drops out.
+   */
+  reasons: companyProcedure
+    .input(z.object({ kind: z.enum(REASON_CODE_KINDS), includeInactive: z.boolean().default(false) }))
+    .query(async ({ ctx, input }) => {
+      await ensureDefaultReasonCodes(ctx.db, ctx.companyId);
+      return ctx.db
+        .select({
+          id: reasonCode.id,
+          kind: reasonCode.kind,
+          code: reasonCode.code,
+          label: reasonCode.label,
+          requiresNote: reasonCode.requiresNote,
+          active: reasonCode.active,
+          sortOrder: reasonCode.sortOrder,
+        })
+        .from(reasonCode)
+        .where(and(eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, input.kind), input.includeInactive ? undefined : eq(reasonCode.active, true)))
+        .orderBy(asc(reasonCode.sortOrder), asc(reasonCode.code));
+    }),
 
   /** Press report (FP-PR-17): 17 columns, logged runs by production day; `csv` when asked. */
   report: actionProcedure("reports.read")

@@ -7,7 +7,7 @@ import type { Messages } from "./en";
  * variables and the floor namespaces against en.ts.
  *
  * Any task that adds keys to a floor namespace (today, pack, scan, press.console,
- * ageing.readings) adds them here too.
+ * ageing.readings, reasons.{kinds,downtime,qc_reject,void,reprint}) adds them here too.
  */
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
 
@@ -15,12 +15,20 @@ type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPart
 /** W1-PK-W r1 m-1: the dispatch scan, stock and the packing list are read at the bay too (D6). */
 export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "ageing.readings", "stock", "dispatch.capacity", "dispatch.detail", "dispatch.steps", "dispatch.build", "dispatch.paste", "dispatch.errors", "packingList", "status.bundle", "status.dispatch", "status.range"] as const;
 
+/**
+ * Reason labels the floor reads on the press console and at pack (downtime, rejects, void, reprint)
+ * plus the kind names: complete in gu. The office-only kinds (ageing, reallocate) are translated
+ * too but may fall back to English.
+ */
+export const GU_REASON_FLOOR_KINDS = ["kinds", "downtime", "qc_reject", "void", "reprint"] as const;
+
 export type GuMessages = DeepPartial<Messages> &
   Pick<Messages, "today" | "pack" | "scan" | "stock" | "packingList"> & {
     dispatch: Pick<Messages["dispatch"], "capacity" | "detail" | "steps" | "build" | "paste" | "errors">;
     status: Pick<Messages["status"], "bundle" | "dispatch" | "range">;
     press: { console: Messages["press"]["console"] };
     ageing: { readings: Messages["ageing"]["readings"] };
+    reasons: Pick<Messages["reasons"], (typeof GU_REASON_FLOOR_KINDS)[number]>;
   };
 
 export const gu = {
@@ -1271,5 +1279,73 @@ export const gu = {
     po: "PO",
     invoice: "ઇન્વૉઇસ",
     print: "પ્રિન્ટ",
+  },
+  reasons: {
+    kinds: {
+      downtime: "બંધ સમય",
+      qc_reject: "રિજેક્ટ",
+      void: "રદ",
+      reprint: "ફરી પ્રિન્ટ",
+      ageing_hold: "એજિંગ હોલ્ડ",
+      ageing_rework: "ફરી એજિંગ",
+      ageing_scrap: "એજિંગ સ્ક્રેપ",
+      reallocate: "બીજા ઓર્ડરમાં ફેરવવું",
+    },
+    downtime: {
+      die_change: "Die બદલી",
+      billet_wait: "બિલેટની રાહ",
+      breakdown: "બ્રેકડાઉન",
+      power: "વીજળી ગઈ",
+      no_order: "ઓર્ડર નથી",
+      die_correction: "Die સુધારો",
+      quality_hold: "ક્વૉલિટી હોલ્ડ",
+      other: "અન્ય",
+    },
+    qc_reject: {
+      dimension: "માપ",
+      surface: "સપાટી",
+      bend: "વળેલું",
+      crack: "તિરાડ",
+      short_length: "ટૂંકી લંબાઈ",
+      other: "અન્ય",
+    },
+    void: {
+      wrong_entry: "ખોટી એન્ટ્રી",
+      damaged: "ખરાબ",
+      repacked: "ફરી પૅક",
+      other: "અન્ય",
+    },
+    reprint: {
+      label_damaged: "લેબલ ખરાબ",
+      printer_fault: "પ્રિન્ટર ખરાબ",
+      wrong_label: "ખોટું લેબલ",
+      other: "અન્ય",
+    },
+    ageing_hold: {
+      hardness_low: "હાર્ડનેસ ઓછી",
+      hardness_high: "હાર્ડનેસ વધુ",
+      under_soak: "સોક ઓછો",
+      surface: "સપાટી",
+      bend: "વળેલું",
+      customer: "ગ્રાહકનું હોલ્ડ",
+      other: "અન્ય",
+    },
+    ageing_rework: {
+      hardness_low: "હાર્ડનેસ ઓછી",
+      under_soak: "સોક ઓછો",
+      other: "અન્ય",
+    },
+    ageing_scrap: {
+      bend: "વળેલું",
+      surface: "સપાટી",
+      short_length: "ટૂંકી લંબાઈ",
+      other: "અન્ય",
+    },
+    reallocate: {
+      length_mismatch: "અલગ કટ લંબાઈ",
+      customer_request: "ગ્રાહકે કહ્યું",
+      packed_wrong_order: "ખોટા ઓર્ડર પર પૅક થયું",
+      other: "અન્ય",
+    },
   },
 } as const satisfies GuMessages;

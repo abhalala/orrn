@@ -13,7 +13,9 @@ import {
   SETTINGS_LOCALES,
   readFloorSettings,
   validateShifts,
+  validateThresholds,
   type Shift,
+  type ThresholdError,
 } from "@orrn/domain";
 import { atomicBatch, type OrrnDb } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
@@ -22,6 +24,16 @@ import { DEFAULT_TIMEZONE, isValidTimezone, monthStartMs, productionDayWindow } 
 import { companyStandards, shiftErrorMessage, shiftGapMinutes } from "../lib/companySettings";
 import { listActiveMemberships } from "../lib/tenantContext";
 import { actionProcedure, authedProcedure, companyProcedure, router } from "../index";
+
+const THRESHOLD_MESSAGES: Record<ThresholdError, string> = {
+  drift_range: "Drift limits are between 0 and 100 %",
+  drift_order: "The green drift limit must be below the amber limit",
+  recovery_range: "Recovery limits are between 0 and 100 %",
+  recovery_order: "The amber recovery minimum must be below the green minimum",
+  balance_range: "The balance warning is between 0 and 100 %",
+};
+
+const bpInput = z.number().int().min(0).max(10_000);
 
 const standardPair = z.object({
   standard: z.string().trim().max(MAX_STANDARD_TEXT),
@@ -177,6 +189,17 @@ export const companyRouter = router({
           .optional(),
         /** Company default language (FP-PF-13); the device's `orrn.locale` wins when set. */
         locale: z.enum(SETTINGS_LOCALES).optional(),
+        /**
+         * Thresholds (rank 31), in basis points (100 bp = 1 %). Drift: green up to `driftGreenMaxBp`,
+         * amber up to `driftAmberMaxBp`, red above (green < amber; one sent alone is checked against
+         * the stored other). Recovery bands for the press report: green at or above `greenMinBp`,
+         * amber at or above `amberMinBp` (amber < green); null clears them (no colour).
+         * `pressBalanceWarnBp`: a run's balance past this share of its input is flagged.
+         */
+        driftGreenMaxBp: bpInput.optional(),
+        driftAmberMaxBp: bpInput.optional(),
+        recoveryBands: z.object({ greenMinBp: bpInput, amberMinBp: bpInput }).nullable().optional(),
+        pressBalanceWarnBp: bpInput.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -248,6 +271,29 @@ export const companyRouter = router({
           else next[kind] = { standard: pair.standard, cml: pair.cml };
         }
         patch.standards = next;
+      }
+      if (input.driftGreenMaxBp !== undefined || input.driftAmberMaxBp !== undefined || input.recoveryBands !== undefined || input.pressBalanceWarnBp !== undefined) {
+        const floor = readFloorSettings(row.settings);
+        const drift = {
+          greenMaxBp: input.driftGreenMaxBp ?? floor.drift.greenMaxBp,
+          amberMaxBp: input.driftAmberMaxBp ?? floor.drift.amberMaxBp,
+        };
+        const problems = validateThresholds({
+          drift: input.driftGreenMaxBp !== undefined || input.driftAmberMaxBp !== undefined ? drift : undefined,
+          recoveryBands: input.recoveryBands,
+          balanceWarnBp: input.pressBalanceWarnBp,
+        });
+        if (problems.length > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: problems.map((p) => THRESHOLD_MESSAGES[p]).join(". ") });
+        }
+        if (input.driftGreenMaxBp !== undefined || input.driftAmberMaxBp !== undefined) {
+          patch.driftGreenMaxBp = drift.greenMaxBp;
+          patch.driftAmberMaxBp = drift.amberMaxBp;
+        }
+        if (input.recoveryBands !== undefined) patch.recoveryBands = input.recoveryBands;
+        if (input.pressBalanceWarnBp !== undefined) {
+          patch.press = { ...((row.settings?.press ?? {}) as Record<string, unknown>), balanceWarnBp: input.pressBalanceWarnBp };
+        }
       }
       if (input.castSeriesStart !== undefined) {
         if (input.castSeriesStart !== null) {

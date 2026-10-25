@@ -12,6 +12,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { MAX_STANDARD_TEXT, STANDARD_KINDS, standardBlank, standardsDraft, standardsPatch, type StandardsDraft } from "./model";
 import { Note, TabState, usePlantSettings } from "./ui";
+import { ThresholdsCard } from "./thresholds-card";
 
 /**
  * Standards (FP-PF-09): the BIS designation and the CM/L licence printed on the label and the test
@@ -23,7 +24,12 @@ export function StandardsTab() {
   const signature = JSON.stringify(settings.data?.standards ?? {});
   return (
     <TabState query={settings}>
-      {settings.data ? <StandardsForm key={signature} saved={standardsDraft(settings.data.standards)} /> : null}
+      {settings.data ? (
+        <div className="flex min-w-0 flex-col gap-6">
+          <StandardsForm key={signature} saved={standardsDraft(settings.data.standards)} />
+          <ThresholdsCard settings={settings.data} />
+        </div>
+      ) : null}
     </TabState>
   );
 }
