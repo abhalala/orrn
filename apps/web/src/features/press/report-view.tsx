@@ -15,6 +15,7 @@ import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { downloadCsv as saveCsvFile } from "../imports/templates";
 import { kgFromG, percentOfBp } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { ReportSearch } from "./search";
@@ -109,15 +110,8 @@ export function ReportScreen({
     setDownloadError(false);
     try {
       const out = await trpcClient.press.report.query({ ...input, format: "csv" });
-      const blob = new Blob([out.csv ?? ""], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${t("press.report.csvName")}-${input.from}${input.to !== input.from ? `-${input.to}` : ""}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // The shared saver adds the UTF-8 BOM, so Excel reads Hindi names.
+      saveCsvFile(`${t("press.report.csvName")}-${input.from}${input.to !== input.from ? `-${input.to}` : ""}.csv`, out.csv ?? "");
     } catch {
       setDownloadError(true);
     } finally {

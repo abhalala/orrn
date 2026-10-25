@@ -677,13 +677,22 @@ bun run deploy
   (shown inside the `analytics.view` block). `analytics.stockAgeing` (0-15/16-30/31-60/60+, available +
   reserved, analytics.view) is unchanged for the Stock and Today charts. The order summary uses
   `lib/orderBook.ts` `bookSummary` on the SAME `fo` CTE as the grid, so each row is the sum of its book
-  rows and `totals` is `bookTotals`; `sum` is the rows added up (raw dispatched kg, like each list row).
+  rows and `totals` is `bookTotals`; dispatched kg is counted up to ordered per line (the bar's and the strip's
+  figure, so ordered - dispatched = baki; the excess is `excessG`), and `sum` is the rows added up, equal to the
+  strip unless `truncated` (more than 500 groups), when `sum` is the strip. The page asks for OPEN orders by
+  default (`ordersFilterInput`) and has a status select (open / closed / cancelled / all); `today` is the
+  company's day for the months chart. Rupee `dispatched` value is `round(min(dispatched, ordered) x rate)` per
+  line, so it can differ by paise from the dispatch's per-weight sum. Stock age: a bundle held for a line
+  (`held_for_line_id`) but not packed on one is plant stock until packed on the line. Recovery by shift groups
+  by the stable `shift_id` (key = shift id, `seq:N` for a run with none).
   Rupee columns (`bookCte(..., {rates})`) exist only when `withRates` is sent, which is FORBIDDEN unless
   the caller holds `order.price` AND `priceOnSalesOrder` is on; the plain answer has no rupee field
   (`ratesAllowed` tells the page whether to offer the toggle). Pages `/reports`, `/reports/production`
   (mounts `press/report-view` `ReportScreen` with `title/back/children`), `/reports/die-life`,
   `/reports/stock-age`, `/reports/orders`; print CSS via `ReportPrintStyle` (`data-report-print`,
-  `.report-no-print`); CSV written on the client from the server rows (`features/reports/model.ts`);
+  `.report-no-print`; `ReportPrintContext` prints the filters); CSV written on the client from the server rows
+  (`features/reports/model.ts`) and saved with the shared `downloadCsv` (UTF-8 BOM, so Excel reads Hindi);
+  a text cell starting with = + - @ gets a leading `'`;
   charts lazy (`report-charts.tsx`) behind `<Can do="analytics.view">`, tables for every reader.
 
 ## Sales orders, baki and dispatch header (PL-8)

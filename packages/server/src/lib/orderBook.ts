@@ -29,6 +29,7 @@
 import { sql, type SQL } from "drizzle-orm";
 
 import type { SalesOrderStatus } from "@orrn/db/schema/sales";
+import { bpPercent1 } from "@orrn/domain";
 
 import type { OrrnDb } from "./atomic";
 import {
@@ -202,7 +203,7 @@ function bookCte(companyId: string, f: BookFilter, opts: { rates?: boolean } = {
         ${
           opts.rates
             ? sql`, sum(case when rate_p is null then 0 else cast(round(o_g * rate_p / 1000.0) as integer) end) as ordered_v,
-        sum(case when rate_p is null then 0 else cast(round(d_g * rate_p / 1000.0) as integer) end) as dispatched_v,
+        sum(case when rate_p is null then 0 else cast(round(min(d_g, o_g) * rate_p / 1000.0) as integer) end) as dispatched_v,
         sum(case when rate_p is null then 0 else cast(round(max(o_g - d_g, 0) * rate_p / 1000.0) as integer) end) as baki_v,
         sum(case when rate_p is null then 1 else 0 end) as rate_missing`
             : sql``
@@ -337,6 +338,9 @@ export async function bookTotals(db: OrrnDb, companyId: string, filter: BookFilt
   };
 }
 
+/** Most summary rows one answer carries; past it the answer says `truncated` and the foot is still the strip. */
+export const BOOK_SUMMARY_LIMIT = 500;
+
 export const BOOK_SUMMARY_GROUPS = ["customer", "month"] as const;
 export type BookSummaryGroup = (typeof BOOK_SUMMARY_GROUPS)[number];
 
@@ -358,13 +362,15 @@ export type BookSummaryRow = {
   lateOrders: number;
   lines: number;
   orderedG: number;
-  /** Raw dispatched kg (as each order's list row; it can pass ordered). */
+  /** Dispatched kg counted up to ordered per line (the bar's and the strip's figure), so ordered - dispatched = baki. */
   dispatchedG: number;
   bakiG: number;
-  /** Dispatched beyond ordered, per line. */
+  /** Dispatched beyond ordered, per line (kept out of `dispatchedG`). */
   excessG: number;
   /** Dispatched (capped per line) ÷ ordered, basis points half up. */
   dispatchedBp: number;
+  /** `bpPercent1(dispatchedBp)`, e.g. "5.9". */
+  dispatchedPct: string;
   rates?: BookSummaryRates;
 };
 
@@ -379,7 +385,8 @@ export async function bookSummary(
   filter: BookFilter,
   groupBy: BookSummaryGroup,
   opts: { rates?: boolean; limit?: number } = {},
-): Promise<BookSummaryRow[]> {
+): Promise<{ rows: BookSummaryRow[]; truncated: boolean }> {
+  const limit = opts.limit ?? BOOK_SUMMARY_LIMIT;
   const key = groupBy === "customer" ? sql`customer_id` : sql`substr(order_date, 1, 7)`;
   const label = groupBy === "customer" ? sql`max(customer_name)` : sql`substr(order_date, 1, 7)`;
   const order = groupBy === "customer" ? sql`sum(ordered_g) desc, lower(max(customer_name)), k` : sql`k desc`;
@@ -389,11 +396,11 @@ export async function bookSummary(
   const rows = await db.all<Record<string, string | number | null>>(
     sql`${bookCte(companyId, filter, { rates: opts.rates })} select ${key} as k, ${label} as label, count(*) as orders,
       coalesce(sum(case when status in ${OPEN} then 1 else 0 end), 0) as open_orders, coalesce(sum(is_late), 0) as late_orders,
-      coalesce(sum(lines), 0) as lines, coalesce(sum(ordered_g), 0) as ordered_g, coalesce(sum(raw_d_g), 0) as raw_d_g,
-      coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(baki_g), 0) as baki_g, coalesce(sum(excess_g), 0) as excess_g ${rateCols}
-      from fo group by k order by ${order} limit ${opts.limit ?? 500}`,
+      coalesce(sum(lines), 0) as lines, coalesce(sum(ordered_g), 0) as ordered_g, coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(baki_g), 0) as baki_g, coalesce(sum(excess_g), 0) as excess_g ${rateCols}
+      from fo group by k order by ${order} limit ${limit + 1}`,
   );
-  return rows.map((r) => {
+  const truncated = rows.length > limit;
+  const mapped = rows.slice(0, limit).map((r) => {
     const orderedG = num(r.ordered_g);
     const row: BookSummaryRow = {
       key: String(r.k ?? ""),
@@ -403,10 +410,11 @@ export async function bookSummary(
       lateOrders: num(r.late_orders),
       lines: num(r.lines),
       orderedG,
-      dispatchedG: num(r.raw_d_g),
+      dispatchedG: num(r.dispatched_g),
       bakiG: num(r.baki_g),
       excessG: num(r.excess_g),
       dispatchedBp: dispatchedBpOf(num(r.dispatched_g), orderedG),
+      dispatchedPct: bpPercent1(dispatchedBpOf(num(r.dispatched_g), orderedG)),
     };
     if (opts.rates) {
       row.rates = {
@@ -418,4 +426,5 @@ export async function bookSummary(
     }
     return row;
   });
+  return { rows: mapped, truncated };
 }

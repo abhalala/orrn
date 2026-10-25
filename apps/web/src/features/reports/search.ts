@@ -39,10 +39,13 @@ export function parseStockAgeSearch(raw: Record<string, unknown>): StockAgeSearc
   return out;
 }
 
+/** The order status shown. Open orders are the default (as in the order book) and stay out of the URL. */
+export type OrdersShow = "closed" | "cancelled" | "all";
+
 export type OrdersReportSearch = {
   group?: "customer" | "month";
   party?: string;
-  open?: boolean;
+  show?: OrdersShow;
   late?: boolean;
   from?: string;
   to?: string;
@@ -54,7 +57,7 @@ export function parseOrdersReportSearch(raw: Record<string, unknown>): OrdersRep
   if (raw.group === "customer" || raw.group === "month") out.group = raw.group;
   const party = pickId(raw.party);
   if (party) out.party = party;
-  if (isTrue(raw.open)) out.open = true;
+  if (raw.show === "closed" || raw.show === "cancelled" || raw.show === "all") out.show = raw.show;
   if (isTrue(raw.late)) out.late = true;
   if (typeof raw.from === "string" && DAY.test(raw.from)) out.from = raw.from;
   if (typeof raw.to === "string" && DAY.test(raw.to)) out.to = raw.to;

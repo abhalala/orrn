@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 
 import { en, type MessageKey } from "@orrn/i18n/en";
 
+import { csvBlob } from "../imports/templates";
+
 import {
-  bpText,
   csvFileName,
   dieLifeCsv,
   kgText,
@@ -11,7 +12,9 @@ import {
   lifeHeader,
   lifeTone,
   monthText,
+  orderMonthBuckets,
   ordersCsv,
+  ordersFilterInput,
   ordersRowName,
   orderMonthBars,
   recoveryBars,
@@ -48,20 +51,26 @@ const recovery: RecoveryData = {
   totals: { runs: 3, inputG: 510_400, goodG: 414_200, scrapG: 62_800, recoveryBp: 8115, recoveryPct: "81.2" },
 };
 
+const MONTHS_EN = "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec".split(",");
+const MONTHS_HI = "जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰".split(",");
+
 describe("formatting", () => {
   test("kg, rupees, percents from the server's integers", () => {
     expect(kgText(1_280_000)).toBe("1,280.000");
     expect(kgText(234_200)).toBe("234.200");
     expect(rupeeText(30_000_000)).toBe("3,00,000.00");
-    expect(bpText(7545)).toBe("75.5");
-    expect(bpText(588)).toBe("5.9");
-    expect(bpText(null)).toBe("");
-    expect(monthText("2026-09")).toBe("Sep 2026");
-    expect(monthText("junk")).toBe("junk");
+    expect(monthText("2026-09", MONTHS_EN)).toBe("Sep 2026");
+    expect(monthText("2026-09", MONTHS_HI)).toBe("सित॰ 2026");
+    expect(monthText("junk", MONTHS_EN)).toBe("junk");
   });
 
-  test("CSV cells are quoted when they hold a comma, quote or newline; file names carry the days", () => {
+  test("CSV cells are quoted when they hold a comma, quote or line break; a text cell cannot run as a formula (m-2)", () => {
     expect(toCsv(["a", "b,c"], [["x \"y\"", 1]])).toBe('a,"b,c"\n"x ""y""",1\n');
+    expect(toCsv(["a"], [["line\rbreak"]])).toBe('a\n"line\rbreak"\n');
+    // A party name that starts with = + - @ is written as text; numbers (and number strings, negative too) stay numbers.
+    expect(toCsv(["a"], [["=SUM(A1)"], ["+91 98250"], ["-x"], ["@cmd"], [-5], ["-5.250"], ["12.500"], ["Plain"]])).toBe(
+      "a\n'=SUM(A1)\n'+91 98250\n'-x\n'@cmd\n-5\n-5.250\n12.500\nPlain\n",
+    );
     expect(csvFileName("recovery", "2026-10-24", "2026-10-24")).toBe("recovery-2026-10-24.csv");
     expect(csvFileName("recovery", "2026-10-01", "2026-10-24")).toBe("recovery-2026-10-01-2026-10-24.csv");
     expect(csvFileName("die-life")).toBe("die-life.csv");
@@ -165,10 +174,12 @@ describe("stock age", () => {
 const orders: OrdersData = {
   groupBy: "month",
   rows: [
-    { key: "2026-10", label: "2026-10", orders: 2, openOrders: 2, lateOrders: 0, lines: 3, orderedG: 1_920_000, dispatchedG: 120_000, bakiG: 1_800_000, excessG: 0, dispatchedBp: 625, rates: { orderedValuePaise: 30_000_000, dispatchedValuePaise: 3_000_000, bakiValuePaise: 27_000_000, rateMissingLines: 2 } },
-    { key: "2026-09", label: "2026-09", orders: 1, openOrders: 1, lateOrders: 1, lines: 1, orderedG: 240_000, dispatchedG: 0, bakiG: 240_000, excessG: 0, dispatchedBp: 0, rates: { orderedValuePaise: 0, dispatchedValuePaise: 0, bakiValuePaise: 0, rateMissingLines: 1 } },
+    { key: "2026-10", label: "2026-10", orders: 2, openOrders: 2, lateOrders: 0, lines: 3, orderedG: 1_920_000, dispatchedG: 120_000, bakiG: 1_800_000, excessG: 0, dispatchedBp: 625, dispatchedPct: "6.3", rates: { orderedValuePaise: 30_000_000, dispatchedValuePaise: 3_000_000, bakiValuePaise: 27_000_000, rateMissingLines: 2 } },
+    { key: "2026-09", label: "2026-09", orders: 1, openOrders: 1, lateOrders: 1, lines: 1, orderedG: 240_000, dispatchedG: 0, bakiG: 240_000, excessG: 0, dispatchedBp: 0, dispatchedPct: "0.0", rates: { orderedValuePaise: 0, dispatchedValuePaise: 0, bakiValuePaise: 0, rateMissingLines: 1 } },
   ],
-  sum: { orders: 3, openOrders: 3, lateOrders: 1, lines: 4, orderedG: 2_160_000, dispatchedG: 120_000, bakiG: 2_040_000, excessG: 0, dispatchedBp: 556 },
+  sum: { orders: 3, openOrders: 3, lateOrders: 1, lines: 4, orderedG: 2_160_000, dispatchedG: 120_000, bakiG: 2_040_000, excessG: 0, dispatchedBp: 556, dispatchedPct: "5.6" },
+  truncated: false,
+  today: "2026-10-20",
   totals: {} as OrdersData["totals"],
   rateTotals: { orderedValuePaise: 30_000_000, dispatchedValuePaise: 3_000_000, bakiValuePaise: 27_000_000, rateMissingLines: 3 },
   ratesAllowed: true,
@@ -176,12 +187,8 @@ const orders: OrdersData = {
 
 describe("order book report", () => {
   test("month names, chart oldest first, CSV with rupees only when asked", () => {
-    expect(ordersRowName(orders.rows[0]!, "month")).toBe("Oct 2026");
-    expect(ordersRowName({ key: "p1", label: "Bhavesh Traders" }, "customer")).toBe("Bhavesh Traders");
-    expect(orderMonthBars(orders).map((b) => [b.label, b.value])).toEqual([
-      ["Sep 2026", 240],
-      ["Oct 2026", 1920],
-    ]);
+    expect(ordersRowName(orders.rows[0]!, "month", MONTHS_EN)).toBe("Oct 2026");
+    expect(ordersRowName({ key: "p1", label: "Bhavesh Traders" }, "customer", MONTHS_EN)).toBe("Bhavesh Traders");
     const plain = ordersCsv(orders, t, false).trim().split("\n");
     expect(plain[0]).toBe("Order month,Orders,Late,Ordered kg,Dispatched kg,Baki kg,Dispatched %");
     expect(plain[1]).toBe("Oct 2026,2,0,1920.000,120.000,1800.000,6.3");
@@ -194,6 +201,74 @@ describe("order book report", () => {
   });
 });
 
+describe("order months chart buckets (I-3)", () => {
+  const rows = (...keys: [string, number][]) => keys.map(([key, orderedG]) => ({ key, orderedG }));
+  const keysOf = (b: ReturnType<typeof orderMonthBuckets>) => b.map((x) => [x.key, x.orderedG, x.partial]);
+
+  test("every month between the first and the last is a bucket, the gaps are zero, oldest first", () => {
+    const b = orderMonthBuckets(rows(["2026-10", 1920], ["2026-06", 240]), { today: "2026-10-20" });
+    expect(keysOf(b)).toEqual([
+      ["2026-06", 240, false],
+      ["2026-07", 0, false],
+      ["2026-08", 0, false],
+      ["2026-09", 0, false],
+      ["2026-10", 1920, true],
+    ]);
+    // Each bucket carries its start date (noon UTC on the 1st, so it reads as that month in any zone).
+    expect(b[0]!.t.toISOString()).toBe("2026-06-01T12:00:00.000Z");
+    expect(b[4]!.t.toISOString()).toBe("2026-10-01T12:00:00.000Z");
+  });
+
+  test("it crosses a year; only the company's current month is partial", () => {
+    const b = orderMonthBuckets(rows(["2026-01", 5], ["2025-11", 7]), { today: "2026-01-20" });
+    expect(keysOf(b)).toEqual([
+      ["2025-11", 7, false],
+      ["2025-12", 0, false],
+      ["2026-01", 5, true],
+    ]);
+  });
+
+  test("this month with no orders yet is still a (partial, zero) bucket when the period runs to today", () => {
+    expect(keysOf(orderMonthBuckets(rows(["2026-09", 240]), { today: "2026-10-20" }))).toEqual([
+      ["2026-09", 240, false],
+      ["2026-10", 0, true],
+    ]);
+    // A period that ended in September does not grow an October bar.
+    expect(keysOf(orderMonthBuckets(rows(["2026-09", 240]), { today: "2026-10-20", to: "2026-09-30" }))).toEqual([["2026-09", 240, false]]);
+    // No rows, no buckets.
+    expect(orderMonthBuckets([], { today: "2026-10-20" })).toEqual([]);
+  });
+});
+
+describe("order months bars", () => {
+  test("bars carry the bucket start, a label from the formatter, and mark the open month partial", () => {
+    const buckets = orderMonthBuckets([{ key: "2026-09", orderedG: 240_000 }], { today: "2026-10-20" });
+    const bars = orderMonthBars(buckets, { long: (d) => `L${d.getUTCMonth() + 1}`, short: (d) => `S${d.getUTCMonth() + 1}` });
+    expect(bars.map((b) => [b.key, b.label, b.short, b.value, b.partial, b.t.getUTCMonth()])).toEqual([
+      ["2026-09", "L9", "S9", 240, false, 8],
+      ["2026-10", "L10", "S10", 0, true, 9],
+    ]);
+  });
+});
+
+describe("order report filters (I-2)", () => {
+  test("open orders by default, like the order book; the status choice and Late map onto the book's own filters", () => {
+    expect(ordersFilterInput({})).toEqual({ groupBy: "customer", openOnly: true });
+    expect(ordersFilterInput({ show: "all" })).toEqual({ groupBy: "customer" });
+    expect(ordersFilterInput({ show: "closed", group: "month" })).toEqual({ groupBy: "month", status: "closed" });
+    expect(ordersFilterInput({ show: "cancelled" })).toEqual({ groupBy: "customer", status: "cancelled" });
+    // Late is the book's Late chip (open orders past their date): it replaces the status.
+    expect(ordersFilterInput({ show: "closed", late: true })).toEqual({ groupBy: "customer", late: true });
+    expect(ordersFilterInput({ party: "p1", from: "2026-09-01", to: "2026-09-30" })).toEqual({
+      groupBy: "customer",
+      openOnly: true,
+      customerId: "p1",
+      dateFrom: "2026-09-01",
+      dateTo: "2026-09-30",
+    });
+  });
+});
+
 describe("search params", () => {
   test("production keeps the press report filters plus the group", () => {
     expect(parseProductionSearch({ from: "2026-10-24", to: "x", shift: "2", line: "l1", group: "shift" })).toEqual({ from: "2026-10-24", shift: 2, line: "l1", group: "shift" });
@@ -203,12 +278,31 @@ describe("search params", () => {
     expect(parseDieLifeSearch({ all: "true", retired: "0" })).toEqual({ all: true });
     expect(parseStockAgeSearch({ plant: "1", party: "p1" })).toEqual({ plant: true });
     expect(parseStockAgeSearch({ party: "p1" })).toEqual({ party: "p1" });
-    expect(parseOrdersReportSearch({ group: "month", party: "p1", late: "true", from: "2026-09-01", to: "bad", rates: true })).toEqual({
+    expect(parseOrdersReportSearch({ group: "month", party: "p1", late: "true", from: "2026-09-01", to: "bad", rates: true, show: "closed" })).toEqual({
       group: "month",
       party: "p1",
+      show: "closed",
       late: true,
       from: "2026-09-01",
       rates: true,
     });
+  });
+  test("open orders are the default and stay out of the URL; unknown values are dropped", () => {
+    expect(parseOrdersReportSearch({ show: "open" })).toEqual({});
+    expect(parseOrdersReportSearch({ show: "all" })).toEqual({ show: "all" });
+    expect(parseOrdersReportSearch({ show: "nope", open: "true" })).toEqual({});
+  });
+});
+
+describe("every report CSV is saved with the UTF-8 BOM (I-1)", () => {
+  const bytes = async (csv: string) => new Uint8Array(await csvBlob(csv).arrayBuffer());
+
+  test("the file starts EF BB BF and the Hindi inside reads back as Hindi", async () => {
+    const hindi = ordersCsv({ ...orders, rows: [{ ...orders.rows[0]!, key: "p1", label: "भावेश ट्रेडर्स" }], groupBy: "customer" }, t, false);
+    const b = await bytes(hindi);
+    expect([...b.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(new TextDecoder("utf-8", { ignoreBOM: true }).decode(b.slice(3))).toContain("भावेश ट्रेडर्स");
+    // Same for every other report's CSV text.
+    for (const csv of [recoveryCsv(recovery, t), stockAgeCsv(age, t), dieLifeCsv([], t, (x) => x)]) expect([...(await bytes(csv)).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   });
 });

@@ -88,8 +88,8 @@ describe("analytics.recovery", () => {
 
     const byShift = await office.analytics.recovery({ from: day, to: day, groupBy: "shift" });
     expect(byShift.rows.map((r) => [r.key, r.label, r.recoveryPct])).toEqual([
-      ["1", "Day", "75.5"],
-      ["2", "Night", "90.0"],
+      ["w4-day", "Day", "75.5"],
+      ["w4-night", "Night", "90.0"],
     ]);
 
     const byCopy = await office.analytics.recovery({ from: day, to: day, groupBy: "copy" });
@@ -127,6 +127,37 @@ describe("analytics.recovery", () => {
   });
 });
 
+describe("analytics.recovery: what counts", () => {
+  test("voided and die_trial runs leave the figures; a reorder that reuses a seq keeps the two shifts apart", async () => {
+    const { p, a, b, day } = await twoRuns();
+    const c = await p.castWith(kg(5_000));
+    const office = p.as("office");
+    const before = await office.analytics.recovery({ from: day, to: day, groupBy: "die" });
+
+    const voided = await p.countingRun();
+    await fillWorkedExample(p, voided.runId, c.id, { planLineId: voided.planLineIds[0] });
+    await closed(p, voided.runId);
+    await env.db.update(pressRun).set({ status: "voided", productionDay: day }).where(eq(pressRun.id, voided.runId));
+    const trial = await p.countingRun({ purpose: "die_trial" });
+    await fillWorkedExample(p, trial.runId, c.id);
+    await p.as("supervisor").press.runs.close({ id: trial.runId, trialResult: "pass" });
+    await env.db.update(pressRun).set({ productionDay: day }).where(eq(pressRun.id, trial.runId));
+
+    const after = await office.analytics.recovery({ from: day, to: day, groupBy: "die" });
+    expect(after.totals).toEqual(before.totals);
+    expect(after.rows).toEqual(before.rows);
+
+    // The night shift was reordered to seq 1 (a reorder changes only the seq): still two shifts, not one mixed row.
+    await env.db.update(pressRun).set({ shiftSeq: 1 }).where(eq(pressRun.id, b.runId));
+    const byShift = await office.analytics.recovery({ from: day, to: day, groupBy: "shift" });
+    expect(byShift.rows.map((r) => [r.key, r.label, r.runs, r.recoveryPct])).toEqual([
+      ["w4-day", "Day", 1, "75.5"],
+      ["w4-night", "Night", 1, "90.0"],
+    ]);
+    void a;
+  });
+});
+
 describe("analytics.dieLife", () => {
   test("dieLifeUse: half-up basis points, near from 90 %, reached at 100 %", () => {
     expect(dieLifeUse(null, 5_000)).toEqual({ usedBp: null, remainingG: null, state: "none", reached: false });
@@ -160,6 +191,13 @@ describe("analytics.dieLife", () => {
     expect(firstNone).toBeGreaterThanOrEqual(3);
     expect(life.items.find((i) => i.dieInstanceId === a.copyId)).toMatchObject({ producedG: 234_200, runs: 1, lifeG: 468_400, remainingG: 234_200, reached: false });
     expect(life.counts).toMatchObject({ withLife: 3, reached: 0, near: 1 });
+
+    // 234.2 kg of 260.223 kg is 8999.99 bp: it rounds to 9000, so the row and the count both say near.
+    await setLife(a.copyId, 260_223);
+    life = await office.analytics.dieLife({});
+    expect(life.items.find((i) => i.dieInstanceId === a.copyId)).toMatchObject({ usedBp: 9000, state: "near" });
+    expect(life.counts.near).toBe(2);
+    await setLife(a.copyId, kg(468.4));
 
     await setLife(b.copyId, kg(150));
     life = await office.analytics.dieLife({ withLife: true });

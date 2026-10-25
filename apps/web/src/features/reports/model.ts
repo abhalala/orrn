@@ -8,6 +8,8 @@ import type { MessageKey, TranslateVars } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import type { inferRouterOutputs } from "@trpc/server";
 
+import type { OrdersReportSearch } from "./search";
+
 type Outputs = inferRouterOutputs<AppRouter>;
 export type RecoveryData = Outputs["analytics"]["recovery"];
 export type DieLifeData = Outputs["analytics"]["dieLife"];
@@ -31,19 +33,19 @@ export const kgWholeText = (g: number): string => KG0.format(Math.round(g / 1000
 export const rupeeText = (paise: number): string => RS.format(paise / 100);
 /** Indian-grouped count. */
 export const countText = (n: number): string => COUNT.format(n);
-/** Basis points (the server's) as "75.5"; "" for null. Same rule as `bpPercent1`. */
-export function bpText(bp: number | null | undefined): string {
-  if (bp == null || !Number.isInteger(bp)) return "";
-  const tenths = Math.sign(bp) * Math.floor((Math.abs(bp) + 5) / 10);
-  const a = Math.abs(tenths);
-  return `${tenths < 0 ? "-" : ""}${Math.floor(a / 10)}.${a % 10}`;
-}
-
 // ── CSV ────────────────────────────────────────────────────────────────────
 
+const PLAIN_NUMBER = /^-?\d+(\.\d+)?$/;
+
+/**
+ * One CSV cell. A text cell that starts with = + - @ (or a tab / CR) would run as a formula in
+ * Excel, so it is written as text with a leading '; numbers and number strings ("-5.250") are left
+ * alone.
+ */
 function cell(v: string | number | null | undefined): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  let s = v == null ? "" : String(v);
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s) && !PLAIN_NUMBER.test(s)) s = `'${s}`;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /** Plain kg in a CSV cell (no grouping, so a spreadsheet reads it as a number). */
@@ -172,20 +174,22 @@ export function stockAgeCsv(data: StockAgeData, t: T): string {
 
 // ── order book ─────────────────────────────────────────────────────────────
 
-const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** The plant's twelve short month names, in the app's language (`reports.monthsShort`). */
+export const monthNames = (t: T): string[] => t("reports.monthsShort").split(",");
 
 /** "2026-09" as "Sep 2026" (Latin digits in every language, like the rest of the figures). */
-export function monthText(key: string): string {
+export function monthText(key: string, months: readonly string[]): string {
   const [y, m] = key.split("-").map(Number);
-  return y && m && m >= 1 && m <= 12 ? `${MONTHS_EN[m - 1]} ${y}` : key;
+  return y && m && m >= 1 && m <= 12 && months[m - 1] ? `${months[m - 1]} ${y}` : key;
 }
 
-export function ordersRowName(r: Pick<OrdersRow, "key" | "label">, group: "customer" | "month"): string {
-  return group === "month" ? monthText(r.key) : r.label;
+export function ordersRowName(r: Pick<OrdersRow, "key" | "label">, group: "customer" | "month", months: readonly string[]): string {
+  return group === "month" ? monthText(r.key, months) : r.label;
 }
 
 export function ordersCsv(data: OrdersData, t: T, withRates: boolean): string {
   const group = data.groupBy;
+  const months = monthNames(t);
   const header = [
     group === "month" ? t("reports.orders.month") : t("reports.orders.party"),
     t("reports.orders.orders"),
@@ -197,13 +201,13 @@ export function ordersCsv(data: OrdersData, t: T, withRates: boolean): string {
     ...(withRates ? [t("reports.orders.orderedValue"), t("reports.orders.dispatchedValue"), t("reports.orders.bakiValue")] : []),
   ];
   const rows = data.rows.map((r) => [
-    ordersRowName(r, group),
+    ordersRowName(r, group, months),
     r.orders,
     r.lateOrders,
     csvKg(r.orderedG),
     csvKg(r.dispatchedG),
     csvKg(r.bakiG),
-    bpText(r.dispatchedBp),
+    r.dispatchedPct,
     ...(withRates && r.rates ? [csvRs(r.rates.orderedValuePaise), csvRs(r.rates.dispatchedValuePaise), csvRs(r.rates.bakiValuePaise)] : []),
   ]);
   rows.push([
@@ -213,7 +217,7 @@ export function ordersCsv(data: OrdersData, t: T, withRates: boolean): string {
     csvKg(data.sum.orderedG),
     csvKg(data.sum.dispatchedG),
     csvKg(data.sum.bakiG),
-    bpText(data.sum.dispatchedBp),
+    data.sum.dispatchedPct,
     ...(withRates && data.rateTotals
       ? [csvRs(data.rateTotals.orderedValuePaise), csvRs(data.rateTotals.dispatchedValuePaise), csvRs(data.rateTotals.bakiValuePaise)]
       : []),
@@ -221,7 +225,53 @@ export function ordersCsv(data: OrdersData, t: T, withRates: boolean): string {
   return toCsv(header, rows);
 }
 
-/** Ordered kg per month for the chart, oldest first (the answer is newest first). */
-export function orderMonthBars(data: OrdersData) {
-  return [...data.rows].reverse().map((r) => ({ key: r.key, label: monthText(r.key), short: monthText(r.key), value: r.orderedG / 1000 }));
+export type OrderMonthBucket = { key: string; t: Date; orderedG: number; partial: boolean };
+
+const monthIndex = (key: string): number => {
+  const [y, m] = key.split("-").map(Number) as [number, number];
+  return y * 12 + (m - 1);
+};
+/** A month's start as a Date that reads as that month in any zone (noon UTC on the 1st). */
+const monthStart = (index: number): Date => new Date(Date.UTC(Math.floor(index / 12), index % 12, 1, 12));
+const monthKey = (index: number): string => `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
+
+/**
+ * Ordered kg per order month for the chart, oldest first. Every month from the first to the last
+ * is a bucket (a month with no orders is a zero bar, so the axis spacing tells the truth). When
+ * the period runs to today (no earlier end date) the company's current month closes the series,
+ * even with no orders yet, and is the one open bucket (`partial`): the chart kit's rule for a
+ * period that is still running. `today` is the company's calendar day, from the server.
+ */
+export function orderMonthBuckets(rows: readonly { key: string; orderedG: number }[], opts: { today: string; to?: string }): OrderMonthBucket[] {
+  if (rows.length === 0) return [];
+  const byKey = new Map(rows.map((r) => [r.key, r.orderedG]));
+  const idx = rows.map((r) => monthIndex(r.key));
+  const current = monthIndex(opts.today.slice(0, 7));
+  const periodEnd = opts.to ? Math.min(current, monthIndex(opts.to.slice(0, 7))) : current;
+  const first = Math.min(...idx);
+  const last = Math.max(...idx, periodEnd);
+  const out: OrderMonthBucket[] = [];
+  for (let i = first; i <= last; i += 1) {
+    const key = monthKey(i);
+    out.push({ key, t: monthStart(i), orderedG: byKey.get(key) ?? 0, partial: i === current });
+  }
+  return out;
+}
+
+/** The buckets as chart bars: dated (`t`), labelled by the chart's own date formatter. */
+export function orderMonthBars(buckets: readonly OrderMonthBucket[], dates: { long(d: Date): string; short(d: Date): string }) {
+  return buckets.map((b) => ({ key: b.key, label: dates.long(b.t), short: dates.short(b.t), t: b.t, value: b.orderedG / 1000, partial: b.partial }));
+}
+
+/** The URL's choices as the `analytics.orders` input: open orders unless the person picks another status. */
+export function ordersFilterInput(s: OrdersReportSearch) {
+  const status = s.late ? {} : s.show === "closed" || s.show === "cancelled" ? { status: s.show } : s.show === "all" ? {} : { openOnly: true as const };
+  return {
+    groupBy: s.group ?? ("customer" as const),
+    ...status,
+    ...(s.late ? { late: true as const } : {}),
+    ...(s.party ? { customerId: s.party } : {}),
+    ...(s.from ? { dateFrom: s.from } : {}),
+    ...(s.to ? { dateTo: s.to } : {}),
+  };
 }

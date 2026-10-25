@@ -5277,13 +5277,13 @@ Please check, Lalubhai:
 |---|---|---|
 | `title` | Reports | रिपोर्ट |
 | `subtitle` | Production, die life, stock age and the order book. The server works out every figure. | प्रोडक्शन, die की लाइफ, स्टॉक की उम्र और ऑर्डर बुक। हर आंकड़ा सर्वर निकालता है। |
-| `open` | Open report | रिपोर्ट खोलें |
 | `csv` | Download CSV | CSV डाउनलोड करें |
 | `downloadFailed` | The CSV did not download. Try again. | CSV डाउनलोड नहीं हुई। फिर से कोशिश करें। |
 | `loadFailed` | The report did not load. | रिपोर्ट नहीं खुली। |
 | `from` | From | से |
 | `to` | To | तक |
 | `total` | Total | कुल |
+| `monthsShort` | Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec | जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰ |
 | `showMore` | Show more | और दिखाएं |
 | `clear` | Clear | हटाएं |
 | `noAccess` | Reports are for the office, managers, the accountant and supervisors. | रिपोर्ट ऑफिस, मैनेजर, अकाउंटेंट और सुपरवाइज़र के लिए हैं। |
@@ -5327,7 +5327,6 @@ Please check, Lalubhai:
 | `dieLife.lastRun` | Last run | आखिरी रन |
 | `dieLife.noLife` | No life set | लाइफ तय नहीं |
 | `dieLife.reached` | Life reached | लाइफ पूरी |
-| `dieLife.near` | Near life | लाइफ पूरी होने वाली |
 | `dieLife.usedPct` | {pct} % used | {pct} % इस्तेमाल |
 | `dieLife.withLifeOnly` | Only copies with a life set | सिर्फ वे copy जिनकी लाइफ तय है |
 | `dieLife.includeRetired` | Show retired copies | रिटायर copy भी दिखाएं |
@@ -5361,7 +5360,7 @@ Please check, Lalubhai:
 | `stockAge.empty` | No available bundles in the yard. | यार्ड में कोई available bundle नहीं। |
 | `stockAge.csvName` | stock-age | stock-age |
 | `orders.title` | Order book report | ऑर्डर बुक रिपोर्ट |
-| `orders.subtitle` | The order book summed by party or by order month. The total is the order book strip for the same filter. | पार्टी या ऑर्डर महीने के हिसाब से ऑर्डर बुक का जोड़। कुल वही है जो इसी फ़िल्टर पर ऑर्डर बुक की पट्टी में है। |
+| `orders.subtitle` | The order book summed by party or by order month. Open orders unless you pick another status; the total is the order book strip for the same filter. | पार्टी या ऑर्डर महीने के हिसाब से ऑर्डर बुक का जोड़। जब तक दूसरी स्थिति न चुनें, खुले ऑर्डर दिखते हैं; कुल वही है जो इसी फ़िल्टर पर ऑर्डर बुक की पट्टी में है। |
 | `orders.groupBy` | Group by | किस हिसाब से |
 | `orders.byParty` | By party | पार्टी के हिसाब से |
 | `orders.byMonth` | By month | महीने के हिसाब से |
@@ -5370,7 +5369,10 @@ Please check, Lalubhai:
 | `orders.allParties` | All parties | सभी पार्टी |
 | `orders.status` | Status | स्थिति |
 | `orders.allStatuses` | All orders | सभी ऑर्डर |
-| `orders.openOnly` | Open orders | खुले ऑर्डर |
+| `orders.statusOpen` | Open orders | खुले ऑर्डर |
+| `orders.statusClosed` | Closed orders | बंद ऑर्डर |
+| `orders.statusCancelled` | Cancelled orders | रद्द ऑर्डर |
+| `orders.truncated` | Showing the first {count} parties. The total row counts every party. | पहली {count} पार्टी दिख रही हैं। कुल की पंक्ति में हर पार्टी गिनी गई है। |
 | `orders.lateOnly` | Late orders only | सिर्फ लेट ऑर्डर |
 | `orders.orders` | Orders | ऑर्डर |
 | `orders.late` | Late | लेट |
@@ -5379,7 +5381,6 @@ Please check, Lalubhai:
 | `orders.baki` | Baki kg | बाकी kg |
 | `orders.dispatchedShare` | Dispatched % | Dispatch % |
 | `orders.showRates` | Show rupees | रुपये दिखाएं |
-| `orders.showRatesHint` | Rupees from the rates on the order lines. Only people who see rates get this. | ऑर्डर लाइन के रेट से रुपये। सिर्फ रेट देखने वालों को दिखते हैं। |
 | `orders.orderedValue` | Ordered Rs | ऑर्डर Rs |
 | `orders.dispatchedValue` | Dispatched Rs | Dispatch Rs |
 | `orders.bakiValue` | Baki Rs | बाकी Rs |
@@ -5392,7 +5393,6 @@ Please check, Lalubhai:
 | `orders.csvName` | order-book | order-book |
 | `todayTile.title` | Stock older than 90 days | 90 दिन से पुराना स्टॉक |
 | `todayTile.meta` | {kg} kg in the yard | यार्ड में {kg} kg |
-| `todayTile.open` | Stock age | स्टॉक की उम्र |
 
 ### errors (16)
 

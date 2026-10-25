@@ -15,6 +15,7 @@
  * `dieLife` also answers the die room (die.card / die.reading) for the card. Floor roles without
  * these keys get FORBIDDEN. Reads only; nothing here writes.
  */
+import { bpPercent1 } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -90,8 +91,8 @@ export const analyticsReportProcedures = {
       if (withRates && !ratesAllowed) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Rates are not shown to you" });
       }
-      const { filter } = await bookFilterOf(ctx.db, ctx.companyId, book);
-      const [rows, totals] = await Promise.all([
+      const { filter, today } = await bookFilterOf(ctx.db, ctx.companyId, book);
+      const [{ rows, truncated }, totals] = await Promise.all([
         bookSummary(ctx.db, ctx.companyId, filter, groupBy, { rates: withRates }),
         bookTotals(ctx.db, ctx.companyId, filter),
       ]);
@@ -106,7 +107,8 @@ export const analyticsReportProcedures = {
             { orderedValuePaise: 0, dispatchedValuePaise: 0, bakiValuePaise: 0, rateMissingLines: 0 },
           )
         : null;
-      // The table's foot: the rows summed here (dispatched is the raw kg, as each row).
+      // The table's foot: the rows summed here. Dispatched is counted up to ordered per line, as the
+      // strip does, so the foot's ordered - dispatched = baki and it equals `totals`.
       const sum = rows.reduce(
         (s, r) => ({
           orders: s.orders + r.orders,
@@ -120,6 +122,10 @@ export const analyticsReportProcedures = {
         }),
         { orders: 0, openOrders: 0, lateOrders: 0, lines: 0, orderedG: 0, dispatchedG: 0, bakiG: 0, excessG: 0 },
       );
-      return { groupBy, rows, sum: { ...sum, dispatchedBp: totals.dispatchedBp }, totals, rateTotals, ratesAllowed };
+      // More than BOOK_SUMMARY_LIMIT groups: the rows are a head, so the foot is the whole filter's strip.
+      const foot = truncated
+        ? { ...sum, orders: totals.orders, openOrders: totals.openOrders, lateOrders: totals.lateOrders, lines: totals.lines, orderedG: totals.orderedG, dispatchedG: totals.dispatchedG, bakiG: totals.bakiG }
+        : sum;
+      return { groupBy, today, rows, truncated, sum: { ...foot, dispatchedBp: totals.dispatchedBp, dispatchedPct: bpPercent1(totals.dispatchedBp) }, totals, rateTotals, ratesAllowed };
     }),
 };

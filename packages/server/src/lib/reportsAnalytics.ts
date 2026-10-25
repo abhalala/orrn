@@ -66,6 +66,9 @@ function figures(inputG: number, goodG: number) {
   return { recoveryBp: bp, recoveryPct: bp == null ? null : bpPercent1(bp) };
 }
 
+/** A run's shift group: its stable shift id, else `seq:N` for a run written before ids, else none. */
+const SHIFT_KEY = sql`case when r.shift_id is not null then r.shift_id when r.shift_seq is not null then 'seq:' || r.shift_seq else '' end`;
+
 /** Logged production runs of the production days from..to, summed per group. */
 export async function recoverySummary(db: OrrnDb, companyId: string, filter: RecoveryFilter): Promise<RecoverySummary> {
   const where = [
@@ -83,13 +86,13 @@ export async function recoverySummary(db: OrrnDb, companyId: string, filter: Rec
     die: sql`r.section_id as k, d.section_code as label, d.name as detail, d.section_code as sort1, 0 as sort2`,
     copy: sql`coalesce(r.die_instance_id, '') as k, coalesce(di.code, '') as label, d.section_code as detail, d.section_code as sort1, coalesce(di.seq_no, 0) as sort2`,
     press: sql`coalesce(r.press_line_id, '') as k, coalesce(pl.code, '') as label, pl.name as detail, coalesce(pl.sort_order, 999999) as sort1, coalesce(pl.code, '') as sort2`,
-    shift: sql`coalesce(cast(r.shift_seq as text), '') as k, max(r.shift_id) as label, null as detail, coalesce(r.shift_seq, 99) as sort1, 0 as sort2`,
+    shift: sql`${SHIFT_KEY} as k, max(r.shift_id) as label, null as detail, coalesce(min(r.shift_seq), 99) as sort1, 0 as sort2`,
   }[filter.groupBy];
   const groupBy = {
     die: sql`r.section_id`,
     copy: sql`r.die_instance_id`,
     press: sql`r.press_line_id`,
-    shift: sql`r.shift_seq`,
+    shift: SHIFT_KEY,
   }[filter.groupBy];
 
   const rows = await db.all<{ k: string; label: string | null; detail: string | null; runs: number; input_g: number; good_g: number; scrap_g: number }>(sql`
@@ -112,8 +115,9 @@ export async function recoverySummary(db: OrrnDb, companyId: string, filter: Rec
     const goodG = num(r.good_g);
     let label = r.label ?? "";
     if (filter.groupBy === "shift") {
-      const seq = r.k === "" ? null : Number(r.k);
-      label = shifts.find((s) => s.id === r.label)?.name ?? shifts.find((s) => s.seq === seq)?.name ?? (seq == null ? "" : String(seq));
+      // The group is the shift's stable id (a reorder changes only the seq); a run with no id falls back to its seq.
+      const seq = r.k.startsWith("seq:") ? Number(r.k.slice(4)) : null;
+      label = shifts.find((s) => s.id === r.k)?.name ?? (seq == null ? "" : (shifts.find((s) => s.seq === seq)?.name ?? String(seq)));
     }
     return { key: r.k ?? "", label, detail: r.detail ?? null, runs: num(r.runs), inputG, goodG, scrapG: num(r.scrap_g), ...figures(inputG, goodG) };
   });
@@ -198,7 +202,7 @@ export async function dieLife(db: OrrnDb, companyId: string, f: DieLifeFilter) {
     ${cte} select count(*) as total,
       coalesce(sum(case when life_g > 0 then 1 else 0 end), 0) as with_life,
       coalesce(sum(case when life_g > 0 and produced_g >= life_g then 1 else 0 end), 0) as reached,
-      coalesce(sum(case when life_g > 0 and produced_g < life_g and produced_g * 10000 >= life_g * ${DIE_LIFE_NEAR_BP} then 1 else 0 end), 0) as near
+      coalesce(sum(case when life_g > 0 and produced_g < life_g and (produced_g * 20000 + life_g) / (life_g * 2) >= ${DIE_LIFE_NEAR_BP} then 1 else 0 end), 0) as near
     from c
   `);
   const items: DieLifeRow[] = rows.map((r) => {

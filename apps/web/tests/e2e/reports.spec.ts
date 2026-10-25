@@ -66,17 +66,36 @@ async function axeSerious(page: Page) {
     .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
 }
 
-/** Click a CSV button and return the file's name and lines. */
+/**
+ * Click a CSV button and return the file's name and lines. Every report file starts with the UTF-8
+ * BOM (EF BB BF), so Excel reads Hindi; the lines are returned without it.
+ */
 async function csvFrom(page: Page, button: ReturnType<Page["getByRole"]>) {
   const [download] = await Promise.all([page.waitForEvent("download"), button.click()]);
-  const text = await readFile((await download.path())!, "utf8");
-  return { name: download.suggestedFilename(), lines: text.trim().split("\n") };
+  const bytes = await readFile((await download.path())!);
+  expect([...bytes.subarray(0, 3)], `${download.suggestedFilename()} starts with the UTF-8 BOM`).toEqual([0xef, 0xbb, 0xbf]);
+  return { name: download.suggestedFilename(), lines: bytes.subarray(3).toString("utf8").trim().split("\n") };
 }
 
-type Recovery = { rows: { key: string; recoveryPct: string | null }[]; totals: { runs: number; recoveryPct: string | null } };
-type DieLife = { items: { dieInstanceId: string; code: string; usedPct: string | null; state: string }[] };
-type StockAge = { totals: { bundles: number; kgG: number }; over90: { bundles: number }; rows: { customerId: string | null }[] };
-type Orders = { rows: { key: string }[]; sum: { orders: number }; ratesAllowed: boolean };
+/** Grams as the page writes kg: "1,280.000" (Indian grouping: "12,80,000.000" from a lakh). */
+const expectedKg = (g: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(g / 1000);
+/** Half-up share in basis points, then one decimal: the server's rule, worked independently. */
+const pct1 = (num: number, den: number) => {
+  const bp = Math.floor((num * 10_000 * 2 + den) / (den * 2));
+  const tenths = Math.floor((bp + 5) / 10);
+  return `${Math.floor(tenths / 10)}.${tenths % 10}`;
+};
+
+type Recovery = { rows: { key: string; label: string; recoveryPct: string | null }[]; totals: { runs: number; inputG: number; goodG: number; recoveryPct: string | null } };
+type DieLife = { items: { dieInstanceId: string; code: string; lifeG: number | null; producedG: number; usedPct: string | null; state: string }[] };
+type StockAge = {
+  totals: { bundles: number; kgG: number };
+  over90: { bundles: number };
+  buckets: { key: string; bundles: number; kgG: number }[];
+  rows: { customerId: string | null }[];
+};
+type OrdersSum = { orders: number; orderedG: number; dispatchedG: number; bakiG: number; dispatchedBp: number };
+type Orders = { rows: { key: string; label: string; orders: number; orderedG: number; dispatchedG: number; bakiG: number }[]; sum: OrdersSum; totals: OrdersSum; today: string; ratesAllowed: boolean };
 
 let office: Api;
 let day: string;
@@ -108,6 +127,19 @@ for (const width of WIDTHS) {
       await expect(summary.getByTestId("recovery-totals")).toContainText(byDie.totals.recoveryPct!);
       await expect(summary.getByTestId("recovery-table").locator("tbody tr")).toHaveCount(byDie.rows.length);
 
+      // Seed figures, not the API's say-so (I-4): PR-8 is the one logged production run of the day,
+      // the worked example. Channel 1" 12230: 310.400 kg of billet in, 234.200 kg good, 44.800 kg
+      // butt, ends and rejects = 75.5 % (234,200 / 310,400 = 75.45 %, half up). The day's total is
+      // the same figures while that is the only logged run (nothing else logs a production run here).
+      const chan = summary.getByTestId("recovery-table").locator("tbody tr").filter({ hasText: "12230" });
+      await expect(chan).toHaveCount(1);
+      const chanCells = (await chan.locator("th,td").allInnerTexts()).map((c) => c.trim());
+      expect(chanCells.slice(1, 6)).toEqual(["1", "310.400", "234.200", "44.800", "75.5"]);
+      expect(byDie.rows.find((r) => r.label === "12230")?.recoveryPct).toBe("75.5");
+      expect(pct1(234_200, 310_400)).toBe("75.5");
+      expect(byDie.totals).toMatchObject({ runs: 1, inputG: 310_400, goodG: 234_200, recoveryPct: "75.5" });
+      await expect(summary.getByTestId("recovery-totals")).toContainText("75.5");
+
       // Group by press: one row per line, the same total.
       await summary.getByRole("radio", { name: "Press" }).click();
       await expect(page).toHaveURL(/group=press/);
@@ -132,6 +164,12 @@ for (const width of WIDTHS) {
       const row = page.getByTestId("die-life-table").locator('tbody tr[data-copy="13090-1"]');
       await expect(row).toBeVisible();
       await expect(row).toContainText(`${tee.usedPct} % used`);
+      // Seed figures (I-4): 13090-1 has a 60,000 kg life. Its share is worked here from the kg it has
+      // pressed (the server's rule: half up, one decimal), not read back from the API.
+      expect(tee.lifeG).toBe(60_000_000);
+      expect(tee.usedPct).toBe(pct1(tee.producedG, tee.lifeG!));
+      await expect(row).toContainText("60,000.000");
+      await expect(row).toContainText(`${pct1(tee.producedG, 60_000_000)} % used`);
       const lifeCsv = await csvFrom(page, page.getByRole("button", { name: "Download CSV" }));
       expect(lifeCsv.name).toBe("die-life.csv");
       expect(lifeCsv.lines[0]).toBe("Die copy,Section,Status,Life kg,Pressed kg,Used,Left kg,Runs,Last run");
@@ -142,33 +180,128 @@ for (const width of WIDTHS) {
       const age = await office.q<StockAge>("analytics.stockAge", {});
       await page.goto("/reports/stock-age");
       await expect(page.getByRole("heading", { name: "Stock age", level: 1 })).toBeVisible();
-      if (age.totals.bundles > 0) {
-        await expect(page.getByTestId("stock-age-table").locator("tbody tr")).toHaveCount(age.rows.length);
-        await expect(page.getByTestId("stock-age-totals")).toContainText(`${age.totals.bundles} bundle`);
-        const ageCsv = await csvFrom(page, page.getByRole("button", { name: "Download CSV" }));
-        expect(ageCsv.name).toMatch(/^stock-age-\d{4}-\d{2}-\d{2}\.csv$/);
-        expect(ageCsv.lines.at(-1)).toMatch(new RegExp(`^Total,.*,${age.totals.bundles}$`));
-        await page.getByRole("radio", { name: "Plant stock only" }).click();
-        await expect(page).toHaveURL(/plant=true/);
+      // The seed packs available bundles 0 to 9 days ago, so this is never empty (it fails, not skips).
+      expect(age.totals.bundles).toBeGreaterThan(0);
+      // Recent stock sits in the young bands and none of the seed is over 90 days old; the bands add up.
+      const [d0, d8, d31, d91] = age.buckets;
+      expect(d0!.bundles + d8!.bundles).toBeGreaterThan(0);
+      expect(d0!.bundles).toBeGreaterThan(0);
+      expect(d91!.bundles).toBe(0);
+      expect(age.buckets.reduce((n, b) => n + b.bundles, 0)).toBe(age.totals.bundles);
+      expect(age.buckets.reduce((n, b) => n + b.kgG, 0)).toBe(age.totals.kgG);
+      await expect(page.getByTestId("stock-age-table").locator("tbody tr")).toHaveCount(age.rows.length);
+      await expect(page.getByTestId("stock-age-totals")).toContainText(`${age.totals.bundles} bundle`);
+      // Each band's cell on the page carries that band's bundles and kg.
+      for (const b of age.buckets) {
+        const cell = page.getByTestId("stock-age-totals").locator(`td[data-bucket="${b.key}"]`);
+        if (b.bundles === 0) await expect(cell).toHaveText("—");
+        else await expect(cell).toContainText(`${b.bundles} ${b.bundles === 1 ? "bundle" : "bundles"}`);
       }
+      const ageCsv = await csvFrom(page, page.getByRole("button", { name: "Download CSV" }));
+      expect(ageCsv.name).toMatch(/^stock-age-\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(ageCsv.lines.at(-1)).toMatch(new RegExp(`^Total,.*,${age.totals.bundles}$`));
+      await page.getByRole("radio", { name: "Plant stock only" }).click();
+      await expect(page).toHaveURL(/plant=true/);
       await expectNoHorizontalScroll(page);
       expect(await axeSerious(page)).toEqual([]);
 
-      const orders = await office.q<Orders>("analytics.orders", { groupBy: "month" });
+      // Order book report (I-2, I-3, I-4): open orders by default, the foot is the order book strip.
+      const strip = await office.q<OrdersSum>("orders.bookTotals", { openOnly: true });
+      expect(strip.orders).toBeGreaterThan(0); // SO-1, SO-2, SO-3 are open in the seed
+      const orders = await office.q<Orders>("analytics.orders", { groupBy: "month", openOnly: true });
+      expect(orders.totals).toEqual(strip);
       await page.goto("/reports/orders?group=month");
       await expect(page.getByRole("heading", { name: "Order book report", level: 1 })).toBeVisible();
+      await expect(page.getByTestId("orders-status")).toHaveValue("open");
       await expect(page.getByTestId("orders-report-table").locator("tbody tr")).toHaveCount(orders.rows.length);
-      await expect(page.getByTestId("orders-report-totals")).toContainText(String(orders.sum.orders));
+      const foot = page.getByTestId("orders-report-totals").locator("td");
+      expect((await foot.allInnerTexts()).map((c) => c.trim()).slice(0, 6)).toEqual([
+        String(strip.orders),
+        expect.any(String),
+        expectedKg(strip.orderedG),
+        expectedKg(strip.dispatchedG),
+        expectedKg(strip.bakiG),
+        pct1(strip.dispatchedG, strip.orderedG),
+      ]);
+      // Ordered less dispatched is baki, in the foot as in the strip.
+      expect(strip.orderedG - strip.dispatchedG).toBe(strip.bakiG);
       const ordersCsv = await csvFrom(page, page.getByRole("button", { name: "Download CSV" }));
       expect(ordersCsv.name).toBe("order-book.csv");
       expect(ordersCsv.lines[0]).toBe("Order month,Orders,Late,Ordered kg,Dispatched kg,Baki kg,Dispatched %");
       expect(ordersCsv.lines).toHaveLength(orders.rows.length + 2);
+
+      // The months chart: every month from the first order to this month is a bar (empty months too),
+      // and the company's current month is the one open (partial) bar.
+      const chart = page.getByTestId("chart-order-months");
+      await expect(chart).toBeVisible({ timeout: 20_000 });
+      const months = orders.rows.map((r) => r.key).sort();
+      const monthIndex = (k: string) => Number(k.slice(0, 4)) * 12 + Number(k.slice(5, 7)) - 1;
+      const span = monthIndex(orders.today.slice(0, 7)) - monthIndex(months[0]!) + 1;
+      await expect(chart.locator('[data-slot="chart-bar-mark"]')).toHaveCount(span);
+      await expect(chart.locator("[data-partial]")).toHaveCount(1);
       await expectNoHorizontalScroll(page);
       expect(await axeSerious(page)).toEqual([]);
       await context.close();
     });
   });
 }
+
+test.describe("order book report", () => {
+  test("open orders by default; a seeded party's row is its own strip; the status choice re-filters", async ({ browser }) => {
+    // SO-1 is a confirmed seed order, 25 days old (late), with a 200-piece line and an 800 kg line.
+    const list = await office.q<{ items: { number: string; customerId: string; orderedG: number }[] }>("orders.list", { limit: 100 });
+    const so1 = list.items.find((i) => i.number === "SO-1")!;
+    expect(so1.orderedG).toBeGreaterThan(800_000);
+    const partyStrip = await office.q<OrdersSum & { lateOrders: number }>("orders.bookTotals", { openOnly: true, customerId: so1.customerId });
+    expect(partyStrip.orders).toBeGreaterThanOrEqual(1);
+    expect(partyStrip.orderedG).toBeGreaterThanOrEqual(so1.orderedG);
+    expect(partyStrip.lateOrders).toBeGreaterThanOrEqual(1);
+
+    const { page, context } = await openAs(browser, "office", 1280, "/reports/orders");
+    await expect(page.getByTestId("orders-status")).toHaveValue("open");
+    const row = page.getByTestId("orders-report-table").locator(`tbody tr[data-key="${so1.customerId}"]`);
+    await expect(row).toBeVisible();
+    // Orders, late, ordered kg, dispatched kg, baki kg, dispatched %: the party's strip, worked here.
+    expect((await row.locator("td").allInnerTexts()).map((c) => c.trim())).toEqual([
+      String(partyStrip.orders),
+      String(partyStrip.lateOrders),
+      expectedKg(partyStrip.orderedG),
+      expectedKg(partyStrip.dispatchedG),
+      expectedKg(partyStrip.bakiG),
+      pct1(partyStrip.dispatchedG, partyStrip.orderedG),
+    ]);
+    expect(partyStrip.orderedG - partyStrip.dispatchedG).toBe(partyStrip.bakiG);
+
+    // The foot of the party view is the whole open book.
+    const openStrip = await office.q<OrdersSum>("orders.bookTotals", { openOnly: true });
+    const foot = page.getByTestId("orders-report-totals").locator("td");
+    expect((await foot.allInnerTexts()).map((c) => c.trim())).toEqual(
+      expect.arrayContaining([String(openStrip.orders), expectedKg(openStrip.orderedG), expectedKg(openStrip.dispatchedG), expectedKg(openStrip.bakiG)]),
+    );
+
+    // Every status, then closed, then cancelled: the foot follows the book's strip for the same filter.
+    for (const [value, label, input] of [
+      ["all", "All orders", {}],
+      ["closed", "Closed orders", { status: "closed" }],
+      ["cancelled", "Cancelled orders", { status: "cancelled" }],
+    ] as const) {
+      await page.getByTestId("orders-status").selectOption({ label });
+      await expect(page).toHaveURL(new RegExp(`show=${value}`));
+      const strip = await office.q<OrdersSum>("orders.bookTotals", input);
+      if (strip.orders === 0) {
+        await expect(page.getByText("No orders match.")).toBeVisible();
+      } else {
+        const cells = (await page.getByTestId("orders-report-totals").locator("td").allInnerTexts()).map((c) => c.trim());
+        await expect.poll(async () => (await page.getByTestId("orders-report-totals").locator("td").first().innerText()).trim()).toBe(String(strip.orders));
+        expect(cells.length).toBeGreaterThan(0);
+        await expect(page.getByTestId("orders-report-totals")).toContainText(expectedKg(strip.bakiG));
+      }
+    }
+    await page.getByTestId("orders-status").selectOption({ label: "Open orders" });
+    await expect(page).not.toHaveURL(/show=/);
+    await context.close();
+  });
+});
 
 test.describe("who sees what", () => {
   test("viewer reads the reports but never a rupee; asking for rates is refused", async ({ browser }) => {

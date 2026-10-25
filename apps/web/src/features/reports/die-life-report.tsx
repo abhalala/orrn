@@ -10,13 +10,15 @@ import { useQueries } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
-import { trpc } from "@/shared/utils/trpc";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { csvFileName, dieLifeCsv, kgText, lifeChip, lifeTone, type DieLifeItem } from "./model";
 import { NUM, ReportActions, ReportPrintStyle, ReportsGate, ReportTableFrame, ReportToggle as Toggle, TD, TH } from "./report-chrome";
 import type { DieLifeSearch } from "./search";
 
 const PAGE = 100;
+/** The most the server returns in one answer; the CSV walks the pages with it. */
+const CSV_PAGE = 200;
 
 /** `/reports/die-life`: copies by share of planned life used (`analytics.dieLife`), highest first. */
 export function DieLifeReport({ search, onSearch }: { search: DieLifeSearch; onSearch: (next: DieLifeSearch) => void }) {
@@ -56,7 +58,19 @@ function DieLifeBody({ search, onSearch }: { search: DieLifeSearch; onSearch: (n
         back={{ to: "/reports", label: t("reports.title") }}
         actions={
           <div className="report-no-print flex flex-wrap gap-2">
-            <ReportActions csv={() => (items.length ? { name: csvFileName(t("reports.dieLife.csvName")), text: dieLifeCsv(items, t, statusLabel) } : null)} />
+            <ReportActions
+              csv={async () => {
+                // The file holds every copy the filters match, not only the pages loaded on screen.
+                if (items.length === 0) return null;
+                const all: DieLifeItem[] = [];
+                for (let offset = 0; ; offset += CSV_PAGE) {
+                  const page = await trpcClient.analytics.dieLife.query({ ...filter, limit: CSV_PAGE, offset });
+                  all.push(...page.items);
+                  if (page.nextOffset == null) break;
+                }
+                return { name: csvFileName(t("reports.dieLife.csvName")), text: dieLifeCsv(all, t, statusLabel) };
+              }}
+            />
           </div>
         }
       />

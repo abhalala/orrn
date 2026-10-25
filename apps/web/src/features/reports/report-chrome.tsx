@@ -2,7 +2,8 @@
  * Shared pieces of the report pages: the print stylesheet (A4, landscape for wide tables, the app
  * chrome and filters hidden), the CSV + Print actions, the "no access" card and a plain table
  * shell. The CSV is written on the client from the rows the server returned (AGENTS.md: Workers do
- * not build files).
+ * not build files) and saved with the shared `downloadCsv`, which adds the UTF-8 BOM so Excel reads
+ * Hindi.
  */
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
@@ -12,6 +13,8 @@ import { Download, Printer } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
+
+import { downloadCsv } from "../imports/templates";
 
 const PRINT_CSS = `
 @media print {
@@ -28,7 +31,7 @@ const PRINT_CSS = `
   html[data-report-print] .report-table { width: 100% !important; min-width: 0 !important; font-size: 9px !important; }
   html[data-report-print] .report-table th,
   html[data-report-print] .report-table td { padding: 2px 4px !important; white-space: normal !important; }
-  html[data-report-print] .report-print-title { display: block !important; }
+  html[data-report-print] .report-print-context { display: block !important; margin: 0 0 4px; font-size: 11px; }
 }
 `;
 
@@ -43,21 +46,22 @@ export function ReportPrintStyle() {
   return <style>{PRINT_CSS}</style>;
 }
 
-/** Save `text` as a CSV file. */
-export function saveCsv(fileName: string, text: string) {
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/**
+ * One line under the title that shows only on paper: the filters the screen shows in the controls
+ * (which print hides), so a printout says which party, period, status and grouping it is.
+ */
+export function ReportPrintContext({ parts }: { parts: readonly (string | null | undefined | false)[] }) {
+  const line = parts.filter(Boolean).join(" · ");
+  if (!line) return null;
+  return (
+    <p className="report-print-context m-0 hidden" data-testid="report-print-context">
+      {line}
+    </p>
+  );
 }
 
 /** CSV and Print buttons; `csv` returns the file (name + text) or null while there is nothing to save. */
-export function ReportActions({ csv }: { csv?: () => { name: string; text: string } | null }) {
+export function ReportActions({ csv }: { csv?: () => { name: string; text: string } | null | Promise<{ name: string; text: string } | null> }) {
   const { t } = useT();
   const [failed, setFailed] = useState(false);
   return (
@@ -65,11 +69,11 @@ export function ReportActions({ csv }: { csv?: () => { name: string; text: strin
       {csv ? (
         <Button
           variant="secondary"
-          onClick={() => {
+          onClick={async () => {
             setFailed(false);
             try {
-              const file = csv();
-              if (file) saveCsv(file.name, file.text);
+              const file = await csv();
+              if (file) downloadCsv(file.name, file.text);
             } catch {
               setFailed(true);
             }

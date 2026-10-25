@@ -129,7 +129,7 @@ async function book(settings: Record<string, unknown> = {}) {
   await p.pack(s1, [{ kg: 200 }], b.lineIds[0]); // in stock, 80 kg past ordered
   const c = await p.confirmedOrder([{ sectionId: s2, pcs: 20 }]); // 240 kg
   await saveOrder(p.owner, { id: c.id, orderDate: "2026-09-15" });
-  return { p, a, b, c };
+  return { p, a, b, c, s1, s2 };
 }
 
 describe("analytics.orders", () => {
@@ -145,7 +145,7 @@ describe("analytics.orders", () => {
       orders: items.length,
       lateOrders: items.filter((i) => i.lateDays != null).length,
       orderedG: items.reduce((s, i) => s + i.orderedG, 0),
-      dispatchedG: items.reduce((s, i) => s + i.dispatchedG, 0),
+      dispatchedG: items.reduce((s, i) => s + i.bar.dispatchedG, 0),
       bakiG: items.reduce((s, i) => s + i.bakiG, 0),
     });
     for (const row of byParty.rows) {
@@ -163,17 +163,25 @@ describe("analytics.orders", () => {
       [p.customerId, 2, kg(2_040), kg(120), kg(1_920), 1],
       [p.otherCustomer, 1, kg(120), 0, kg(120), 0],
     ]);
-    expect(byParty.rows[0]).toMatchObject({ dispatchedBp: 588, lines: 3 }); // 120 / 2,040 = 5.88 %
+    expect(byParty.rows[0]).toMatchObject({ dispatchedBp: 588, dispatchedPct: "5.9", lines: 3 }); // 120 / 2,040 = 5.88 %
     expect(byParty.sum).toMatchObject({ orders: 3, orderedG: strip.orderedG, bakiG: strip.bakiG, lateOrders: strip.lateOrders, lines: strip.lines, dispatchedBp: strip.dispatchedBp });
     expect(byParty.rows.every((r) => r.rates === undefined)).toBe(true);
 
     const byMonth = await office.analytics.orders({ groupBy: "month" });
+    expect(byMonth.today).toBe("2026-10-20"); // the company's day: the page marks this month as still open
+    expect(byMonth.truncated).toBe(false);
     expect(byMonth.rows.map((r) => [r.key, r.orders, r.orderedG, r.lateOrders])).toEqual([
       ["2026-10", 2, kg(1_920), 0],
       ["2026-09", 1, kg(240), 1],
     ]);
 
     // The book's filters narrow the summary and its total together.
+    // Another plant sees none of these orders.
+    const q = await opPlant();
+    const none = await q.as("office").analytics.orders({ groupBy: "customer" });
+    expect(none.rows).toEqual([]);
+    expect(none.totals.orders).toBe(0);
+
     const lateOnly = await office.analytics.orders({ groupBy: "customer", late: true });
     expect(lateOnly.rows.map((r) => [r.key, r.orders])).toEqual([[p.customerId, 1]]);
     expect(lateOnly.totals).toEqual(await p.owner.orders.bookTotals({ late: true }));
@@ -214,5 +222,64 @@ describe("analytics.orders", () => {
     const off = await book();
     await expect(off.p.as("office").analytics.orders({ groupBy: "customer", withRates: true })).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect((await off.p.as("office").analytics.orders({ groupBy: "customer" })).ratesAllowed).toBe(false);
+  }, SLOW);
+});
+
+describe("analytics.orders: open by default, the strip's figures", () => {
+  test("open orders only match the book's strip; cancelled and closed-short orders only with their own filter; dispatched is capped", async () => {
+    const { p, s1 } = await book();
+    const owner = p.owner;
+    // D: cancelled (nothing made). E: 120 kg ordered, 200 kg packed and sent (80 kg over). F: 120 kg, 60 kg sent, closed short.
+    const d = await p.confirmedOrder([{ sectionId: s1, pcs: 10 }]);
+    await owner.orders.cancel({ id: d.id, reason: "Entered twice" });
+    const e = await p.confirmedOrder([{ sectionId: s1, pcs: 10 }]);
+    const eDispatch = await p.held(await p.pack(s1, [{ kg: 200 }], e.lineIds[0]));
+    await owner.dispatch.complete({ id: eDispatch }).catch(async () => {
+      const [req] = await owner.approval.list({ status: "pending" }).then((r) => r.items.filter((i) => i.kind === "dispatch_overdraw"));
+      await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+      await owner.dispatch.complete({ id: eDispatch });
+    });
+    const f = await p.confirmedOrder([{ sectionId: s1, pcs: 10 }]);
+    await owner.dispatch.complete({ id: await p.held(await p.pack(s1, [{ kg: 60 }], f.lineIds[0])) });
+    await owner.orders.close({ id: f.id, reason: "Customer took the rest from stock" });
+
+    const office = p.as("office");
+    for (const filters of [{ openOnly: true }, {}, { status: "closed" as const }, { status: "cancelled" as const }, { openOnly: true, late: true }]) {
+      const strip = await owner.orders.bookTotals(filters);
+      for (const groupBy of ["customer", "month"] as const) {
+        const res = await office.analytics.orders({ groupBy, ...filters });
+        expect(res.totals).toEqual(strip);
+        // The foot is the strip: orders, ordered, dispatched (capped), baki, late, and the share.
+        expect(res.sum).toMatchObject({
+          orders: strip.orders,
+          lateOrders: strip.lateOrders,
+          orderedG: strip.orderedG,
+          dispatchedG: strip.dispatchedG,
+          bakiG: strip.bakiG,
+          dispatchedBp: strip.dispatchedBp,
+        });
+        // ordered - dispatched = baki in every row and in the foot (nothing is over-counted).
+        for (const r of [...res.rows, res.sum]) expect(r.orderedG - r.dispatchedG).toBe(r.bakiG);
+      }
+    }
+
+    const open = await office.analytics.orders({ groupBy: "customer", openOnly: true });
+    const all = await office.analytics.orders({ groupBy: "customer" });
+    const closedOnly = await office.analytics.orders({ groupBy: "customer", status: "closed" });
+    const cancelledOnly = await office.analytics.orders({ groupBy: "customer", status: "cancelled" });
+    // Cancelled and closed orders are in "all" but not in "open": their kg and their baki do not leak into the open foot.
+    expect(cancelledOnly.sum).toMatchObject({ orders: 1, orderedG: kg(120), bakiG: kg(120) });
+    expect(closedOnly.sum.bakiG).toBeGreaterThanOrEqual(kg(60));
+    expect(all.sum.orders).toBe(open.sum.orders + closedOnly.sum.orders + cancelledOnly.sum.orders);
+    expect(all.sum.bakiG).toBe(open.sum.bakiG + closedOnly.sum.bakiG + cancelledOnly.sum.bakiG);
+    expect(all.sum.bakiG).toBeGreaterThan(open.sum.bakiG);
+
+    // Over-dispatch: E sent 200 of 120 kg. The rows count 120 (capped, as the bar), 80 is excess.
+    const list = await owner.orders.list({ limit: 100 });
+    const partyRow = all.rows.find((r) => r.key === p.customerId)!;
+    const mine = list.items.filter((i) => i.customerId === p.customerId);
+    expect(partyRow.dispatchedG).toBe(mine.reduce((s, i) => s + i.bar.dispatchedG, 0));
+    expect(partyRow.excessG).toBeGreaterThanOrEqual(kg(80));
+    expect(mine.reduce((s, i) => s + i.dispatchedG, 0)).toBe(partyRow.dispatchedG + partyRow.excessG);
   }, SLOW);
 });
