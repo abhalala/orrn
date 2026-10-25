@@ -419,15 +419,15 @@ Cast detail on an 11" tablet keeps the sticky Lock / Close bar and collapses the
 
 Foundry station, 375 px.
 
-| Screen | Shows | Primary action |
-|---|---|---|
-| Cast (tab) | Open casts, number and alloy large, on-hand kg | Open cast, or open the one cast already open today |
-| Melt | The draft or the locked sheet. Start and end as the big pair; the other three times behind "All times". Charge as a list of kg. Running burn % | Lock |
-| Scan (tab) | A lot number (`LOT-41`) or a return stream code, added to the open draft melt | Add to charge. Unknown code: "No lot with that number." A bundle QR is refused with "That is a bundle, not a lot." Do not send lot scans through `resolve.byCode` |
-| Stock (tab) | Same groups as `/foundry/stock`, one cast per card | Open cast |
-| More | Furnace (read-only), alloys (read-only), guides | — |
+| Screen | Shows | Primary action | Built (W2-FD-N) |
+|---|---|---|---|
+| Cast (tab) | Open casts, number and alloy large, on-hand kg | Open cast, or open the one cast already open today | Built. Newest open cast first, a row of cast numbers to switch between open ones, status chip, tail chip from `casts.get().closeout`, melts list, New melt, Open cast (new cast: alloy picker, a plant with no furnace is told so) |
+| Melt | The draft or the locked sheet. Start and end as the big pair; the other three times behind "All times". Charge as a list of kg. Running burn % | Lock | Built. Four parts that open on tap (times, charge, logs and dross, spectro), Now buttons and the past-midnight roll, lot and stream pickers with kg left, returns, running balance and yield (preview), gates listed from `melts.preview` in the person's language, Save draft and Lock in a fixed bar, Discard. A locked melt is the read-only sheet with the correction request. Chemicals and LDO dips are kept as saved but not edited on the phone |
+| Scan (tab) | A lot number (`LOT-41`) or a return stream code, added to the open draft melt | Add to charge. Unknown code: "No lot with that number." A bundle QR is refused with "That is a bundle, not a lot." Do not send lot scans through `resolve.byCode` | Not built: the tab is the bundle scanner; lots are picked from a list on the Charge part |
+| Stock (tab) | Same groups as `/foundry/stock`, one cast per card | Open cast | Built. A Billets section above the bundle stock (`stock.billets`: total, byAlloy, one card per cast, finished casts last) for the foundry floor and cast holders |
+| More | Furnace (read-only), alloys (read-only), guides | — | Guides and the usual rows only; the read-only furnace and alloy lists wait for their Gujarati words (`foundry.masters` has none) |
 
-Close cast is not on the phone primary bar for the foundry role (they lack `cast.close`). A supervisor on the phone gets Close on the cast screen, with the tail reason as a required field when the chip is amber.
+Close cast is not on the phone primary bar for the foundry role (they lack `cast.close`). A supervisor on the phone gets Close on the cast screen, with the tail reason as a required field when the chip is amber. (Built: the sheet counts pieces and kg, reads `casts.closePreview`, and the reason is required exactly when the server says so; a tail that needs a second person says so on the button.)
 
 Offline: not in this phase (plant-modules out of scope). The phone submits when it has a session. `client_request_id` makes a retry safe. No local foundry outbox until the floor sync scope grows past pack and dispatch.
 

@@ -310,6 +310,10 @@ export const foundryEn = {
       confirm: "Discard draft",
       done: "Draft discarded",
     },
+    reload: {
+      button: "Load the saved melt",
+      hint: "This melt changed since you opened it, or the last save did not reach the server. Load the saved melt to carry on. What you typed here is replaced.",
+    },
     cancelledNote: "This melt is cancelled. Its kg were reversed.",
     spectroNeedsSample: "The alloy changed. A new sample is needed for {alloy}, or write why it is not.",
     cancel: {

@@ -49,6 +49,12 @@ const KEYED: Record<string, Keyed> = {
   "dispatch.addBundlesBySerial": { how: "replay-key", field: "clientRequestId", server: "dispatch.ts", leaf: "addBundlesBySerial", sendsIn: "features/bundle/add-to-dispatch-sheet.tsx", model: "replayKey (also features/scan/scan-view.tsx: replayKey + sendOnce)" },
   "dispatch.create": { how: "replay-key", field: "clientRequestId", server: "dispatch.ts", leaf: "create", sendsIn: "app/(tabs)/dispatch/new.tsx", model: "replayKey + sendOnce (BACKLOG 47)" },
   "dieInstance.addReading": { how: "replay-key", field: "clientRequestId", server: "dieInstance.ts", leaf: "addReading", sendsIn: "features/dies/reading-panel.tsx", model: "replayKey + sendOnce (BACKLOG 47)" },
+  "foundry.casts.open": { how: "replay-key", field: "clientRequestId", server: "foundry.ts", leaf: "open", sendsIn: "features/foundry/new-cast-view.tsx", model: "replayKey + sendOnce (W2-FD-N)" },
+  "foundry.casts.close": { how: "replay-key", field: "clientMutationId", server: "foundry.ts", leaf: "close", sendsIn: "features/foundry/close-sheet.tsx", model: "replayKey + sendOnce; the key is the clientMutationId (W2-FD-N)" },
+  "foundry.melts.save": { how: "replay-key", field: "clientRequestId", server: "foundryMelt.ts", leaf: "save", sendsIn: "features/foundry/melt-editor.tsx", model: "replayKey + sendOnce on the FIRST save (it makes the draft); later saves send expectedServerSeq, so a repeat of one that landed is refused as stale (W2-FD-N)" },
+  "foundry.melts.lock": { how: "replay-key", field: "clientMutationId", server: "foundryMelt.ts", leaf: "lock", sendsIn: "features/foundry/melt-editor.tsx", model: "replayKey + sendOnce; the key is the clientMutationId (W2-FD-N)" },
+  "foundry.melts.correct": { how: "replay-key", field: "clientMutationId", server: "foundryMelt.ts", leaf: "correct", sendsIn: "features/foundry/melt-sheet-view.tsx", model: "replayKey + sendOnce; the key is the clientMutationId (W2-FD-N)" },
+  "foundry.spectro.enter": { how: "replay-key", field: "clientRequestId", server: "foundry.ts", leaf: "enter", sendsIn: "features/foundry/spectro-panel.tsx", model: "replayKey + sendOnce (W2-FD-N)" },
   "orders.create": { how: "replay-key", field: "clientRequestId", server: "salesOrder.ts", leaf: "create", sendsIn: "features/orders/booking-screen.tsx", model: "bookingSubmit -> replayKey" },
 };
 
@@ -77,6 +83,9 @@ const GUARDED: Record<string, Guarded> = {
   "press.downtime.start": { how: "guarded", server: "press.ts", leaf: "start", guard: "one open downtime per press line: a second call is refused 'already has downtime running'" },
   "press.downtime.stop": { how: "guarded", server: "press.ts", leaf: "stop", guard: "stops an open row once; a second call finds it stopped" },
   "press.runs.handover": { how: "guarded", server: "pressRun.ts", leaf: "handover", guard: "sets the people on a run to absolute values; the same values twice change nothing" },
+  "foundry.melts.discard": { how: "guarded", server: "foundryMelt.ts", leaf: "discard", guard: "state move draft to cancelled: a second call is refused 'Only a draft can be discarded'; a draft posts nothing, so there is nothing to reverse" },
+  "foundry.melts.requestCorrection": { how: "guarded", server: "foundryMelt.ts", leaf: "requestCorrection", guard: "one open request per melt: a second call is refused 'A correction for this melt is already waiting for approval'; an approval is not a stock effect" },
+  "foundry.spectro.attach": { how: "guarded", server: "foundry.ts", leaf: "attach", guard: "adds one more result of the same photo to a draft melt; the latest live result is the one judged, nothing posts to stock, and the button waits for the answer (an unsure answer re-reads the results before a second photo is sent)" },
   "orders.confirm": { how: "guarded", server: "orderFlow.ts", leaf: "confirm", guard: "sends serverSeq (optimistic lock) and the booking-only status guard: a second call is refused 'Only a booking can be confirmed' or 'changed meanwhile'" },
   "invite.acceptByToken": { how: "guarded", server: "invite.ts", leaf: "acceptByToken", guard: "the token is single use; a second call finds the invite accepted" },
   "device.register": { how: "guarded", server: "release.ts", leaf: "register", guard: "upsert by install id, once per launch per plant" },

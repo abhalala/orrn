@@ -315,6 +315,10 @@ export const guFoundry = {
         confirm: "ડ્રાફ્ટ કાઢી નાખો",
         done: "ડ્રાફ્ટ કાઢી નાખ્યો",
       },
+      reload: {
+        button: "સેવ કરેલો melt ખોલો",
+        hint: "તમે ખોલ્યા પછી આ melt બદલાયો, અથવા છેલ્લું સેવ સર્વર સુધી પહોંચ્યું નહીં. આગળ વધવા સેવ કરેલો melt ખોલો. અહીં જે લખ્યું છે તે બદલાઈ જશે.",
+      },
       cancelledNote: "આ melt રદ છે. તેના kg પાછા ફેરવ્યા છે.",
       spectroNeedsSample: "Alloy બદલાયો. {alloy} માટે નવો sample જોઈએ, અથવા કેમ નહીં તે લખો.",
       cancel: {

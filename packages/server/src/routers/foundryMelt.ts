@@ -225,20 +225,29 @@ function meltFigures(inputs: readonly Pick<InputRow, "kind" | "kgG">[], outputs:
   };
 }
 
-/** The latest result on the melt that is not voided (its verdict gates the lock). */
+/**
+ * A result that carries numbers (a typed entry, a parsed file, an inbox import). A photo of the printout is stored with
+ * `values: {}` and judges `incomplete`: it is evidence, not a reading, so it never decides (W2-FD-N review m-4).
+ */
+const HAS_VALUES_SQL = sql`(${spectroResult.valuesPpm} is not null and ${spectroResult.valuesPpm} not in ('{}', ''))`;
+
+/** Deciding order: results with numbers first, then the newest. A melt with only photos falls back to the newest photo (incomplete: Lock asks for a reason). */
+const decidingOrder = () => [sql`case when ${HAS_VALUES_SQL} then 0 else 1 end`, desc(spectroResult.createdAt), desc(spectroResult.serverSeq)] as const;
+
+/** The result that decides the melt's spectro verdict: the latest live result with numbers (else the latest live one). Its verdict gates the lock. */
 async function latestSpectro(ctx: Ctx, meltId: string): Promise<{ id: string; verdict: SpectroVerdict | null; limitsSnapshot: SpectroLimitsSnapshot | null } | null> {
   const [row] = await ctx.db
     .select({ id: spectroResult.id, verdict: spectroResult.verdict, limitsSnapshot: spectroResult.limitsSnapshot })
     .from(spectroResult)
     .where(and(eq(spectroResult.companyId, ctx.companyId), eq(spectroResult.meltId, meltId), isNull(spectroResult.voidedAt)))
-    .orderBy(desc(spectroResult.createdAt), desc(spectroResult.serverSeq))
+    .orderBy(...decidingOrder())
     .limit(1);
   return row ?? null;
 }
 
-/** The id of the melt's latest live spectro result (same order as `latestSpectro`), as SQL. */
+/** The id of the melt's deciding spectro result (same order as `latestSpectro`), as SQL. */
 function latestSpectroIdSql(companyId: string, meltId: string): SQL {
-  return sql`(select ls.id from ${spectroResult} ls where ls.company_id = ${companyId} and ls.melt_id = ${meltId} and ls.voided_at is null order by ls.created_at desc, ls.server_seq desc limit 1)`;
+  return sql`(select ls.id from ${spectroResult} ls where ls.company_id = ${companyId} and ls.melt_id = ${meltId} and ls.voided_at is null order by case when (ls.values_ppm is not null and ls.values_ppm not in ('{}', '')) then 0 else 1 end, ls.created_at desc, ls.server_seq desc limit 1)`;
 }
 
 /** INSERT … SELECT a melt row from its cast (number = the cast's bumped melt count), every column in table order. */
@@ -961,7 +970,7 @@ export const meltStepperProcedures = {
         .select()
         .from(spectroResult)
         .where(and(eq(spectroResult.companyId, companyId), eq(spectroResult.meltId, m.id), isNull(spectroResult.voidedAt)))
-        .orderBy(desc(spectroResult.createdAt), desc(spectroResult.serverSeq))
+        .orderBy(...decidingOrder())
         .limit(1);
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, companyId);

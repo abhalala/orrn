@@ -17,7 +17,7 @@ function me(role: NonNullable<Me["company"]>["role"], modules: string[] = []): M
 
 describe("native tabs", () => {
   test("declared order keeps the packer set first, then the die room and office tabs, then More", () => {
-    expect(TAB_ROUTES.map((t) => t.name)).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "press", "orders", "menu"]);
+    expect(TAB_ROUTES.map((t) => t.name)).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "press", "cast", "orders", "menu"]);
   });
 
   test("an owner sees every tab", () => {
@@ -66,8 +66,13 @@ describe("role-aware tab sets (spec E1, E2 Native)", () => {
     expect(placeScan(visibleTabs(me("press", ["press", "dies", "bundles"])))).toEqual(["today", "press", "scan", "dies", "menu"]);
   });
 
+  test("foundry gets Today, Cast, Scan, Stock, More (spec FD Native); Scan sits in the middle", () => {
+    expect(tabSetFor(me("foundry"))).toBe("foundry");
+    expect(placeScan(visibleTabs(me("foundry")))).toEqual(["today", "cast", "scan", "stock", "menu"]);
+  });
+
   test("every other role keeps the packer set, including owner, manager, supervisor and packer", () => {
-    for (const role of ["owner", "admin", "manager", "supervisor", "packer", "viewer", "operator", "accountant", "foundry", "storekeeper"] as const) {
+    for (const role of ["owner", "admin", "manager", "supervisor", "packer", "viewer", "operator", "accountant", "storekeeper"] as const) {
       expect(tabSetFor(me(role))).toBe("floor");
       expect(visibleTabs(me(role)).every((t) => TAB_SETS.floor.includes(t))).toBe(true);
     }
@@ -91,6 +96,14 @@ describe("role-aware tab sets (spec E1, E2 Native)", () => {
     expect(menu?.labelKey).toBe("nav.more");
   });
 
+  test("review m-9: Stock is the bundle stock for the packer set, so a plant without the bundles module gives it no Stock tab; the foundry role keeps it for billets", () => {
+    expect(visibleTabs(me("packer", ["foundry"]))).not.toContain("stock");
+    expect(visibleTabs(me("viewer", ["foundry", "dispatches"]))).not.toContain("stock");
+    expect(visibleTabs(me("packer", ["bundles"]))).toContain("stock");
+    expect(visibleTabs(me("foundry", ["foundry"]))).toContain("stock");
+    expect(visibleTabs(me("foundry", ["bundles"]))).toContain("stock");
+  });
+
   test("signed out or no company is Today only, whatever the set", () => {
     expect(visibleTabs(null)).toEqual(["today"]);
   });
@@ -100,20 +113,20 @@ describe("Orders and Dies from More for the packer-set roles", () => {
   const rows = (role: NonNullable<Me["company"]>["role"], modules: string[] = []) => moreRows(me(role, modules)).map((r) => `${r.key}:${r.href}`);
 
   test("owner holds every action: Orders and the die room's Dies join More, the bar stays the packer set", () => {
-    expect(extraTabs(me("owner"))).toEqual(["dies", "orders", "press"]);
-    expect(reachableTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "press", "orders"]);
+    expect(extraTabs(me("owner"))).toEqual(["dies", "orders", "press", "cast"]);
+    expect(reachableTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "press", "cast", "orders"]);
     expect(visibleTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch"]);
-    expect(rows("owner")).toEqual(["press:/press", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("owner")).toEqual(["press:/press", "cast:/cast", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("manager (masters.publish, order.manage, order.plan) gets the die board (read-only card) and Orders (m-4)", () => {
-    expect(extraTabs(me("manager"))).toEqual(["dies", "orders", "press"]);
-    expect(rows("manager")).toEqual(["press:/press", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(extraTabs(me("manager"))).toEqual(["dies", "orders", "press", "cast"]);
+    expect(rows("manager")).toEqual(["press:/press", "cast:/cast", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("admin (masters.publish, no order.manage) reaches the die board from More, but not Orders: the web hides Orders from admin too (m-4)", () => {
-    expect(extraTabs(me("admin"))).toEqual(["dies", "press"]);
-    expect(rows("admin")).toEqual(["press:/press", "dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(extraTabs(me("admin"))).toEqual(["dies", "press", "cast"]);
+    expect(rows("admin")).toEqual(["press:/press", "cast:/cast", "dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("a masters-publish role has no write action on the die card (it is read-only there)", () => {
@@ -123,10 +136,22 @@ describe("Orders and Dies from More for the packer-set roles", () => {
   });
 
   test("supervisor holds die.reading and press.run: Press and the Dies row that opens the die room screens join More; the press role has both on its bar", () => {
-    expect(extraTabs(me("supervisor"))).toEqual(["dies", "press"]);
-    expect(rows("supervisor").slice(0, 2)).toEqual(["press:/press", "dieRoom:/dies"]);
+    expect(extraTabs(me("supervisor"))).toEqual(["dies", "press", "cast"]);
+    expect(rows("supervisor").slice(0, 3)).toEqual(["press:/press", "cast:/cast", "dieRoom:/dies"]);
     expect(extraTabs(me("press"))).toEqual([]);
     expect(rows("press")).not.toContain("dieRoom:/dies");
+  });
+
+  test("review I-3: whoever sees the Billets cards (cast.close included) can open a cast, so a card tap is never a dead end", () => {
+    for (const role of ["owner", "manager", "admin", "supervisor"] as const) {
+      expect({ role, cast: reachableTabs(me(role)).includes("cast") }).toEqual({ role, cast: true });
+    }
+    for (const role of ["packer", "viewer", "office", "press", "die_room"] as const) {
+      expect({ role, cast: reachableTabs(me(role)).includes("cast") }).toEqual({ role, cast: false });
+    }
+    // Close is a cast.close action: the manager and the admin hold it and reach the screen that has it.
+    expect(can(me("manager"), "cast.close")).toBe(true);
+    expect(can(me("admin"), "cast.close")).toBe(true);
   });
 
   test("a packer or viewer holds none of them: More is unchanged", () => {

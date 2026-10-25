@@ -120,6 +120,19 @@ export const FOUNDRY_LINE_MAX_G = 100_000_000;
 export const FOUNDRY_REASON_MAX = 500;
 export const SPECTRO_FILE_MAX_BASE64 = 1_000_000;
 
+/**
+ * The spectro result that decides a melt: the latest live (not voided) result that carries numbers, else the
+ * latest live one. A photo of the printout is stored with no values and judges `incomplete`; it is evidence, not a
+ * reading, so it never replaces typed numbers that passed (W2-FD-N review m-4). `results` run oldest to newest, as
+ * `casts.get` returns them. The server applies the same order in SQL (`foundryMelt.ts`).
+ */
+export function decidingSpectro<T extends { voidedAt?: unknown; values?: unknown }>(results: readonly T[]): T | null {
+  const live = results.filter((r) => !r.voidedAt);
+  const hasValues = (r: T) => typeof r.values === "object" && r.values !== null && Object.keys(r.values).length > 0;
+  for (let i = live.length - 1; i >= 0; i--) if (hasValues(live[i]!)) return live[i]!;
+  return live[live.length - 1] ?? null;
+}
+
 const roundBp = (num: number, den: number) => {
   const x = (num * 10_000) / den;
   return Math.sign(x) * Math.round(Math.abs(x));

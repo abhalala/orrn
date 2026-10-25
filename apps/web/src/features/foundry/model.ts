@@ -6,6 +6,7 @@
  */
 import type { StatusTone } from "@orrn/domain";
 import {
+  decidingSpectro,
   percentToPpm,
   SPECTRO_ELEMENTS,
   spectroCheck,
@@ -25,6 +26,14 @@ export const MELT_TONE: Record<MeltStatus, StatusTone> = { draft: "amber", locke
 
 export function verdictTone(v: SpectroVerdict | null | undefined): StatusTone {
   return v === "pass" ? "green" : v === "fail" ? "red" : v === "incomplete" ? "amber" : "neutral";
+}
+
+/**
+ * The verdict that decides a melt: the latest live result that carries numbers (a photo of the printout is stored
+ * with none and judges `incomplete`; it never replaces typed numbers that passed). The server reads the same result.
+ */
+export function latestVerdict(spectro: readonly { verdict: string | null; voidedAt: unknown; values?: unknown }[]): SpectroVerdict | null {
+  return (decidingSpectro(spectro)?.verdict as SpectroVerdict | null | undefined) ?? null;
 }
 
 export function readingTone(r: SpectroReading): StatusTone {

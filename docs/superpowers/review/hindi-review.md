@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6990 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6992 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -5318,7 +5318,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (581)
+### foundry (583)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5721,6 +5721,8 @@ Please check, Lalubhai:
 | `melt.discard.reason` | Reason (optional) | कारण (ज़रूरी नहीं) |
 | `melt.discard.confirm` | Discard draft | ड्राफ़्ट हटाएं |
 | `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
+| `melt.reload.button` | Load the saved melt | सेव की हुई मेल्ट खोलें |
+| `melt.reload.hint` | This melt changed since you opened it, or the last save did not reach the server. Load the saved melt to carry on. What you typed here is replaced. | यह मेल्ट आपके खोलने के बाद बदल गई, या पिछला सेव सर्वर तक नहीं पहुँचा। आगे बढ़ने के लिए सेव की हुई मेल्ट खोलें। यहाँ जो आपने लिखा है वह बदल जाएगा। |
 | `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
 | `melt.spectroNeedsSample` | The alloy changed. A new sample is needed for {alloy}, or write why it is not. | अलॉय बदल गया। {alloy} के लिए नया सैंपल चाहिए, या लिखें कि क्यों नहीं। |
 | `melt.cancel.title` | Cancel this melt | यह मेल्ट रद्द करें |
