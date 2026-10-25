@@ -24,6 +24,7 @@ import {
 } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
 
+import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, chunk, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
@@ -260,6 +261,160 @@ function lineRow(
   };
 }
 
+/** Who is creating an order: a member (`orders.create`) or a party (`portal.orders.create`, C29). */
+export type OrderCreateCtx = {
+  db: OrrnDb;
+  companyId: string;
+  session: NonNullable<Context["session"]>;
+  impersonation: Context["impersonation"];
+};
+
+export type OrderCreateInput = z.infer<typeof createInput>;
+
+/**
+ * The one sales-order insert path (C29: the portal creates through the same code as `orders.create`,
+ * with `source: 'portal'`). Always a booking. `canPrice` gates rates (C23); the portal passes false
+ * and refuses rates before it gets here. Office rows audit `order.create`, portal rows
+ * `portal.order.create` (meta without kg or rate).
+ */
+export async function createSalesOrder(
+  ctx: OrderCreateCtx,
+  input: OrderCreateInput,
+  opts: { canPrice: boolean; source: "office" | "portal" },
+): Promise<{ id: string; number: string; replayed: boolean }> {
+  const auditAction = opts.source === "portal" ? "portal.order.create" : "order.create";
+  // D11 / review round 1 I-1: a new order is a booking; confirming is `orders.confirm`.
+  if (input.status !== undefined && input.status !== "booking") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "A new order is saved as a booking. Confirm it with Confirm once it is complete.",
+    });
+  }
+  const fingerprint = await createFingerprint(input);
+  /** The order this key already made, if any; CONFLICT when it was made from another request. */
+  const byRequest = async () => {
+    if (!input.clientRequestId) return null;
+    const [row] = await ctx.db
+      .select({ id: salesOrder.id, number: salesOrder.number, customerId: salesOrder.customerId })
+      .from(salesOrder)
+      .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.clientRequestId, input.clientRequestId)))
+      .limit(1);
+    if (!row) return null;
+    const [made] = await ctx.db
+      .select({ fingerprint: sql<string | null>`json_extract(${auditLog.meta}, '$.fingerprint')` })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.companyId, ctx.companyId),
+          eq(auditLog.action, auditAction),
+          eq(auditLog.subjectType, "sales_order"),
+          eq(auditLog.subjectId, row.id),
+        ),
+      )
+      .limit(1);
+    // Orders made before the fingerprint was kept compare on the customer only.
+    const same = made?.fingerprint ? made.fingerprint === fingerprint : row.customerId === input.customerId;
+    if (!same) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: `This save was already used for another order (${row.number}). Reload the order screen and save again.`,
+      });
+    }
+    return row;
+  };
+  const prior = await byRequest();
+  if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
+  await assertCustomer(ctx.db, ctx.companyId, input.customerId);
+  await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
+  const resolved = await resolveLines(ctx.db, ctx.companyId, input.lines, { canPrice: opts.canPrice });
+  const poNumber = blank(input.poNumber);
+  if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber });
+
+  const at = clockNow();
+  const userId = ctx.session.user.id;
+  const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
+  const today = zonedYmd(companyTimezone(co?.settings), at.getTime());
+  const orderDate =
+    input.orderDate ?? `${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+  // SO numbers restart every financial year: the order keeps the period it was numbered in, and
+  // the unique key is (company, period, number).
+  const { number, period } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
+  const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+  const id = crypto.randomUUID();
+  const status: SalesOrderStatus = "booking";
+
+  const statements: SqliteBatchItem[] = [
+    ctx.db.insert(salesOrder).values({
+      id,
+      companyId: ctx.companyId,
+      serverSeq: seq,
+      period,
+      number,
+      customerId: input.customerId,
+      poNumber,
+      orderDate,
+      status,
+      note: blank(input.note),
+      lineSeq: input.lines.length,
+      source: opts.source,
+      clientRequestId: input.clientRequestId ?? null,
+      statusChangedAt: at,
+      statusChangedBy: userId,
+      createdBy: userId,
+      createdAt: at,
+    }),
+  ];
+  pushChunkedInserts(
+    statements,
+    (rows) => ctx.db.insert(salesOrderLine).values(rows),
+    input.lines.map((l, i) =>
+      lineRow(l, resolved[i]!, {
+        id: crypto.randomUUID(),
+        companyId: ctx.companyId,
+        serverSeq: seq,
+        salesOrderId: id,
+        lineNo: i + 1,
+        createdBy: userId,
+      }),
+    ),
+  );
+  // Write-time PO repeat check (FP-OP-01): a second order with this PO saved meanwhile fails the batch.
+  if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber }));
+  statements.push(
+    auditInsert(ctx, {
+      action: auditAction,
+      subjectType: "sales_order",
+      subjectId: id,
+      // Portal rows (platform spec §3 Audit): sales-order id and customer id, never kg or rate.
+      meta:
+        opts.source === "portal"
+          ? { salesOrderId: id, customerId: input.customerId, number, period, ...(input.clientRequestId ? { fingerprint } : {}) }
+          : {
+              number,
+              period,
+              customerId: input.customerId,
+              lines: input.lines.length,
+              kgG: resolved.reduce((s, l) => s + l.kgG, 0),
+              ...(input.clientRequestId ? { fingerprint } : {}),
+            },
+    }),
+  );
+  try {
+    await atomicBatch(ctx.db, statements);
+  } catch (e) {
+    if (isBatchAbort(e, "sales_order_line")) {
+      throw new TRPCError({ code: "CONFLICT", message: `PO ${poNumber} is already on another order of this customer` });
+    }
+    // The same key raced in from a retry: the first one's order stands (this number is a gap, R5).
+    const won = /UNIQUE constraint failed: sales_order\.company_id, sales_order\.client_request_id/.test(errorText(e))
+      ? await byRequest()
+      : null;
+    if (!won) throw e;
+    return { id: won.id, number: won.number, replayed: true as const };
+  }
+  return { id, number, replayed: false as const };
+}
+
 export const roleCan = (role: CompanyRole, action: Action) => can({ company: { role }, isPlatformAdmin: false, platformRole: null }, action);
 const canPrice = (role: CompanyRole) => roleCan(role, "order.price");
 
@@ -270,131 +425,7 @@ export const salesOrderRouter = router({
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
-      // D11 / review round 1 I-1: a new order is a booking; confirming is `orders.confirm`.
-      if (input.status !== undefined && input.status !== "booking") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "A new order is saved as a booking. Confirm it with Confirm once it is complete.",
-        });
-      }
-      const fingerprint = await createFingerprint(input);
-      /** The order this key already made, if any; CONFLICT when it was made from another request. */
-      const byRequest = async () => {
-        if (!input.clientRequestId) return null;
-        const [row] = await ctx.db
-          .select({ id: salesOrder.id, number: salesOrder.number, customerId: salesOrder.customerId })
-          .from(salesOrder)
-          .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.clientRequestId, input.clientRequestId)))
-          .limit(1);
-        if (!row) return null;
-        const [made] = await ctx.db
-          .select({ fingerprint: sql<string | null>`json_extract(${auditLog.meta}, '$.fingerprint')` })
-          .from(auditLog)
-          .where(
-            and(
-              eq(auditLog.companyId, ctx.companyId),
-              eq(auditLog.action, "order.create"),
-              eq(auditLog.subjectType, "sales_order"),
-              eq(auditLog.subjectId, row.id),
-            ),
-          )
-          .limit(1);
-        // Orders made before the fingerprint was kept compare on the customer only.
-        const same = made?.fingerprint ? made.fingerprint === fingerprint : row.customerId === input.customerId;
-        if (!same) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: `This save was already used for another order (${row.number}). Reload the order screen and save again.`,
-          });
-        }
-        return row;
-      };
-      const prior = await byRequest();
-      if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
-      await assertCustomer(ctx.db, ctx.companyId, input.customerId);
-      await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
-      const resolved = await resolveLines(ctx.db, ctx.companyId, input.lines, { canPrice: canPrice(ctx.role) });
-      const poNumber = blank(input.poNumber);
-      if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber });
-
-      const at = clockNow();
-      const userId = ctx.session.user.id;
-      const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
-      const today = zonedYmd(companyTimezone(co?.settings), at.getTime());
-      const orderDate =
-        input.orderDate ?? `${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
-      // SO numbers restart every financial year: the order keeps the period it was numbered in, and
-      // the unique key is (company, period, number).
-      const { number, period } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const id = crypto.randomUUID();
-      const status: SalesOrderStatus = "booking";
-
-      const statements: SqliteBatchItem[] = [
-        ctx.db.insert(salesOrder).values({
-          id,
-          companyId: ctx.companyId,
-          serverSeq: seq,
-          period,
-          number,
-          customerId: input.customerId,
-          poNumber,
-          orderDate,
-          status,
-          note: blank(input.note),
-          lineSeq: input.lines.length,
-          clientRequestId: input.clientRequestId ?? null,
-          statusChangedAt: at,
-          statusChangedBy: userId,
-          createdBy: userId,
-          createdAt: at,
-        }),
-      ];
-      pushChunkedInserts(
-        statements,
-        (rows) => ctx.db.insert(salesOrderLine).values(rows),
-        input.lines.map((l, i) =>
-          lineRow(l, resolved[i]!, {
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            serverSeq: seq,
-            salesOrderId: id,
-            lineNo: i + 1,
-            createdBy: userId,
-          }),
-        ),
-      );
-      // Write-time PO repeat check (FP-OP-01): a second order with this PO saved meanwhile fails the batch.
-      if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber }));
-      statements.push(
-        auditInsert(ctx, {
-          action: "order.create",
-          subjectType: "sales_order",
-          subjectId: id,
-          meta: {
-            number,
-            period,
-            customerId: input.customerId,
-            lines: input.lines.length,
-            kgG: resolved.reduce((s, l) => s + l.kgG, 0),
-            ...(input.clientRequestId ? { fingerprint } : {}),
-          },
-        }),
-      );
-      try {
-        await atomicBatch(ctx.db, statements);
-      } catch (e) {
-        if (isBatchAbort(e, "sales_order_line")) {
-          throw new TRPCError({ code: "CONFLICT", message: `PO ${poNumber} is already on another order of this customer` });
-        }
-        // The same key raced in from a retry: the first one's order stands (this number is a gap, R5).
-        const won = /UNIQUE constraint failed: sales_order\.company_id, sales_order\.client_request_id/.test(errorText(e))
-          ? await byRequest()
-          : null;
-        if (!won) throw e;
-        return { id: won.id, number: won.number, replayed: true as const };
-      }
-      return { id, number, replayed: false as const };
+      return createSalesOrder(ctx, input, { canPrice: canPrice(ctx.role), source: "office" });
     }),
 
   update: actionProcedure("order.manage")

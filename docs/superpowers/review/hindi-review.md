@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4067 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 4150 screen strings in 45 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -4285,6 +4285,94 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load the audit log. Try again. | ऑडिट लॉग लोड नहीं हुआ। फिर कोशिश करें। |
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
+
+### portal (83)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Party portal | पार्टी पोर्टल |
+| `signedInAs` | Signed in for {party} | {party} के लिए साइन इन |
+| `switchPlant` | Plant | प्लांट |
+| `nav.today` | Today | आज |
+| `nav.orders` | Orders | ऑर्डर |
+| `nav.dies` | Dies | Die |
+| `nav.dispatches` | Dispatches | डिस्पैच |
+| `today.openOrders` | Open orders | खुले ऑर्डर |
+| `today.baki` | Baki | बाकी |
+| `today.lastDispatch` | Last dispatch | पिछला डिस्पैच |
+| `today.noDispatch` | No dispatch yet | अभी कोई डिस्पैच नहीं |
+| `today.noOrder` | No order yet | अभी कोई ऑर्डर नहीं |
+| `today.placeOrder` | Place order | ऑर्डर दें |
+| `dies.title` | Your dies | आपके die |
+| `dies.subtitle` | Dies the plant has opened for you, and the ones you own. | प्लांट ने जो die आपके लिए खोले हैं, और जो आपके अपने हैं। |
+| `dies.empty` | The plant has not opened any die for you yet. | प्लांट ने अभी आपके लिए कोई die नहीं खोला है। |
+| `dies.copy` | Copy | कॉपी |
+| `dies.latest` | Latest kg/12ft | ताज़ा kg/12ft |
+| `dies.noReading` | No reading yet | अभी कोई रीडिंग नहीं |
+| `dies.band` | Band | बैंड |
+| `dies.owned` | Yours | आपका |
+| `orders.title` | Orders | ऑर्डर |
+| `orders.empty` | No order yet | अभी कोई ऑर्डर नहीं |
+| `orders.new` | New order | नया ऑर्डर |
+| `orders.number` | Order | ऑर्डर |
+| `orders.date` | Date | तारीख |
+| `orders.poNumber` | Your PO number | आपका PO नंबर |
+| `orders.section` | Die | Die |
+| `orders.cutLength` | Cut length | कट लंबाई |
+| `orders.pieces` | Pieces | पीस |
+| `orders.kg` | kg | kg |
+| `orders.piecesOrKg` | Enter pieces or kg | पीस या kg भरें |
+| `orders.note` | Note | नोट |
+| `orders.addLine` | Add line | लाइन जोड़ें |
+| `orders.removeLine` | Remove line | लाइन हटाएं |
+| `orders.submit` | Place order | ऑर्डर दें |
+| `orders.placed` | Order {number} placed. The plant will confirm it. | ऑर्डर {number} दे दिया गया। प्लांट इसे पक्का करेगा। |
+| `orders.noRate` | The plant sets the rate. | रेट प्लांट तय करता है। |
+| `orders.ordered` | Ordered | ऑर्डर किया |
+| `orders.dispatched` | Dispatched | भेजा गया |
+| `orders.baki` | Baki | बाकी |
+| `orders.status.booking` | Waiting for the plant | प्लांट की पुष्टि बाकी |
+| `orders.status.confirmed` | Confirmed | पक्का |
+| `orders.status.dispatching` | Dispatching | भेजा जा रहा है |
+| `orders.status.closed` | Closed | बंद |
+| `orders.status.cancelled` | Cancelled | रद्द |
+| `dispatches.title` | Dispatches | डिस्पैच |
+| `dispatches.empty` | No dispatch yet | अभी कोई डिस्पैच नहीं |
+| `dispatches.bundles` | {count:one\|other} bundle\|bundles | {count:one\|other} बंडल\|बंडल |
+| `dispatches.bundleNo` | Bundle no | बंडल नंबर |
+| `dispatches.downloadPl` | Download packing list | पैकिंग लिस्ट डाउनलोड करें |
+| `dispatches.downloadCertificate` | Download test certificate | टेस्ट सर्टिफिकेट डाउनलोड करें |
+| `certificate.title` | Test certificate | टेस्ट सर्टिफिकेट |
+| `certificate.number` | Certificate no | सर्टिफिकेट नंबर |
+| `certificate.chemistryPending` | Chemistry pending: the plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन cast की जांच अभी नहीं की है। |
+| `certificate.chemistryPartial` | Chemistry for {tested} of {total} bundles. The rest are not tested yet. | {total} में से {tested} बंडल की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
+| `certificate.chemistryReady` | Chemistry | केमिस्ट्री |
+| `certificate.standard` | Standard | स्टैंडर्ड |
+| `certificate.licence` | CM/L | CM/L |
+| `certificate.standardAsOfIssue` | Standard as of issue | जारी करते समय का स्टैंडर्ड |
+| `certificate.profileKindNotSet` | Profile kind not set: the solid standard is shown. | प्रोफ़ाइल प्रकार नहीं भरा: solid का स्टैंडर्ड दिखाया है। |
+| `certificate.notTaxDocument` | Quality document. Not a tax invoice. | क्वालिटी दस्तावेज़। टैक्स इनवॉइस नहीं। |
+| `errors.notFound` | Not found | नहीं मिला |
+| `errors.revoked` | Your login was turned off by the plant. Ask them to turn it on again. | प्लांट ने आपका लॉगिन बंद कर दिया है। उनसे फिर से चालू करने को कहें। |
+| `errors.disabled` | The plant has turned the party portal off. | प्लांट ने पार्टी पोर्टल बंद कर दिया है। |
+| `errors.noAccess` | This login has no party portal. | इस लॉगिन के लिए कोई पार्टी पोर्टल नहीं है। |
+| `staff.logins` | Party logins | पार्टी लॉगिन |
+| `staff.grant` | Give a login | लॉगिन दें |
+| `staff.revoke` | Turn off | बंद करें |
+| `staff.email` | Email | ईमेल |
+| `staff.party` | Party | पार्टी |
+| `staff.inviteLink` | Invite link | इनवाइट लिंक |
+| `staff.copyLink` | Copy link | लिंक कॉपी करें |
+| `staff.linkHint` | If the email does not arrive, send this link to the party. It works for 7 days. | अगर ईमेल न पहुंचे तो यह लिंक पार्टी को भेजें। यह 7 दिन चलता है। |
+| `staff.statusInvited` | Invited | इनवाइट भेजा |
+| `staff.statusActive` | Active | चालू |
+| `staff.statusRevoked` | Off | बंद |
+| `staff.sections` | Dies the party sees | पार्टी को दिखने वाले die |
+| `staff.grantSection` | Open a die | Die खोलें |
+| `staff.revokeSection` | Close | बंद करें |
+| `staff.ownedByOther` | Another party owns this die. The party will not see it. | यह die किसी दूसरी पार्टी का है। पार्टी को यह नहीं दिखेगा। |
+| `staff.issueCertificate` | Issue test certificate | टेस्ट सर्टिफिकेट जारी करें |
+| `staff.reissueCertificate` | Issue again | फिर से जारी करें |
 
 ### errors (16)
 

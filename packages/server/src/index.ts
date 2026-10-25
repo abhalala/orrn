@@ -3,6 +3,8 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import type { Context } from "./context";
 import { errorMetaOf } from "./lib/errorMeta";
 import { assertModule, moduleForPath } from "./lib/moduleGate";
+import { PORTAL_REFUSALS, resolvePortalAccess } from "./lib/portal";
+import { COMPANY_HEADER, IMPERSONATE_HEADER } from "./lib/tenantContext";
 import { can, canAny, type Action } from "./lib/permissions";
 import { ScanRefusalError } from "./lib/scanRefusal";
 
@@ -156,3 +158,35 @@ export function roleGuard(...allowedRoles: Role[]) {
     return next({ ctx });
   });
 }
+
+/**
+ * Party portal procedure (FP-PF-01, C29; specs §E7 "Rules"). NOT a company role and no `can()`:
+ * session + an active `customer_portal_user` row + company active + `portalEnabled`, and the user
+ * holds no membership in that plant. Company AND customer come from the portal row, never from the
+ * input; `x-orrn-company` only picks among the party's own plants. Impersonation never enters the
+ * portal (a platform admin signs in as a demo party instead).
+ */
+export const portalProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.session) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required", cause: "No session" });
+  }
+  if (ctx.impersonation || ctx.impersonationHeaderRejected || ctx.request.headers.get(IMPERSONATE_HEADER)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: PORTAL_REFUSALS.impersonation });
+  }
+  const portal = await resolvePortalAccess(ctx.db, {
+    userId: ctx.session.user.id,
+    companyHeader: ctx.request.headers.get(COMPANY_HEADER),
+  });
+  return next({
+    ctx: {
+      ...ctx,
+      session: ctx.session,
+      portal,
+      companyId: portal.companyId,
+      // A party is never a member: no role, no membership, no impersonation downstream.
+      membership: null,
+      role: null,
+      impersonation: null,
+    },
+  });
+});

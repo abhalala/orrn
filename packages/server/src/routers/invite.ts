@@ -4,6 +4,11 @@ import { TRPCError } from "@trpc/server";
 
 import { companyRoles, invite, membership } from "@orrn/db/schema/tenant";
 import { user } from "@orrn/db/schema/auth";
+import { customerPortalUser } from "@orrn/db/schema/portal";
+import type { Context } from "../context";
+import type { OrrnDb } from "../lib/atomic";
+import { hasLivePortalRow } from "../lib/portal";
+import { nextCompanySeq } from "../lib/sequence";
 import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
@@ -15,6 +20,8 @@ export const inviteRouter = router({
     return ctx.db.query.invite.findMany({
       where: and(
         eq(invite.companyId, ctx.companyId),
+        // Party logins are listed by portal.users.list (Team tab second list), not here.
+        eq(invite.kind, "member"),
         isNull(invite.acceptedAt),
         isNull(invite.revokedAt)
       ),
@@ -48,6 +55,10 @@ export const inviteRouter = router({
         if (existingMembership) {
            throw new TRPCError({ code: "BAD_REQUEST", message: "User is already a member" });
         }
+      }
+      // PF §9-12: an email that is a party login in this plant is never also staff here.
+      if (await hasLivePortalRow(ctx.db, ctx.companyId, { email })) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This email is a party login here. Use another email for staff." });
       }
 
       const inviteId = crypto.randomUUID();
@@ -99,7 +110,8 @@ export const inviteRouter = router({
         )
       });
       
-      if (!targetInvite) {
+      // Party invites are revoked with portal.users.revoke (it also revokes the login).
+      if (!targetInvite || targetInvite.kind !== "member") {
         throw new TRPCError({ code: "NOT_FOUND", message: "Invite not found" });
       }
 
@@ -153,6 +165,15 @@ export const inviteRouter = router({
           throw new TRPCError({ code: "FORBIDDEN", message: "Invite email does not match logged in user" });
       }
 
+      if (targetInvite.kind === "portal") {
+        return acceptPortalInvite({ db: ctx.db, session: ctx.session, impersonation: ctx.impersonation }, targetInvite, userId);
+      }
+
+      // PF §9-12: a party login in this plant never also becomes staff here.
+      if (await hasLivePortalRow(ctx.db, targetInvite.companyId, { userId })) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This login is a party login in this plant. Ask for an invite on another email." });
+      }
+
       const membershipId = crypto.randomUUID();
 
       await atomicBatch(ctx.db, [
@@ -180,3 +201,71 @@ export const inviteRouter = router({
       return { success: true };
     }),
 });
+
+/**
+ * Accept a party invite (Wave 3 portal): the portal row turns `active` for this account. No
+ * membership is ever created; an account that is staff in this plant is refused (PF §9-12).
+ */
+async function acceptPortalInvite(
+  ctx: { db: OrrnDb; session: NonNullable<Context["session"]>; impersonation?: Context["impersonation"] },
+  target: typeof invite.$inferSelect,
+  userId: string,
+) {
+  const [member] = await ctx.db
+    .select({ id: membership.id })
+    .from(membership)
+    .where(and(eq(membership.userId, userId), eq(membership.companyId, target.companyId)))
+    .limit(1);
+  if (member) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This login works in the plant here. A party needs its own email." });
+  }
+  const [row] = await ctx.db
+    .select()
+    .from(customerPortalUser)
+    .where(
+      and(
+        eq(customerPortalUser.companyId, target.companyId),
+        eq(customerPortalUser.inviteId, target.id),
+        eq(customerPortalUser.status, "invited"),
+      ),
+    )
+    .limit(1);
+  if (!row) throw new TRPCError({ code: "BAD_REQUEST", message: "Invite is expired or no longer valid" });
+  const [other] = await ctx.db
+    .select({ id: customerPortalUser.id })
+    .from(customerPortalUser)
+    .where(and(eq(customerPortalUser.companyId, target.companyId), eq(customerPortalUser.userId, userId)))
+    .limit(1);
+  if (other && other.id !== row.id) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This account already has a party login in this plant" });
+  }
+  const at = new Date();
+  const seq = await nextCompanySeq({ db: ctx.db }, target.companyId);
+  await atomicBatch(ctx.db, [
+    ctx.db
+      .update(customerPortalUser)
+      .set({ status: "active", userId, acceptedAt: at, serverSeq: seq, updatedAt: at })
+      .where(
+        and(
+          eq(customerPortalUser.id, row.id),
+          eq(customerPortalUser.companyId, target.companyId),
+          eq(customerPortalUser.status, "invited"),
+          eq(customerPortalUser.inviteId, target.id),
+        ),
+      ),
+    ctx.db
+      .update(invite)
+      .set({ acceptedAt: at })
+      .where(and(eq(invite.id, target.id), isNull(invite.acceptedAt), isNull(invite.revokedAt))),
+    auditInsert(
+      { ...ctx, companyId: target.companyId },
+      {
+        action: "portal.user.accept",
+        subjectType: "customer_portal_user",
+        subjectId: row.id,
+        meta: { inviteId: target.id, customerId: row.customerId },
+      },
+    ),
+  ]);
+  return { success: true, portal: true as const };
+}

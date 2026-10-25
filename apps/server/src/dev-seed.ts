@@ -93,6 +93,8 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { DEV_ACCOUNTS, type DevAccountKey } from "./dev-accounts";
 import { demoOrderSeed } from "./dev-seed-orders";
 import { seedPlatformRows } from "./dev-seed-platform";
+import { seedPortalRows } from "./dev-seed-portal";
+import { customerPortalSection, customerPortalUser, testCertificate } from "@orrn/db/schema/portal";
 
 type Db = ReturnType<typeof createDb>;
 type Statement = BatchItem<"sqlite">;
@@ -117,6 +119,8 @@ const DEMO_SETTINGS = {
   dcTolerancePct: 50,
   shifts: SUGGESTED_SHIFTS.map((s) => ({ ...s, id: `dev-shift-${s.seq}` })),
   standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } },
+  // Wave 3: KD Extrusion's party login is seeded (dev-seed-portal.ts).
+  portalEnabled: true,
 };
 
 /** Every module on, Wave 1 floor modules included (FP-PF-07). */
@@ -418,7 +422,8 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
     dieroom: await ensureUser(db, "dieroom", password),
     staff: await ensureUser(db, "staff", password),
   };
-  const createdUsers = (Object.keys(users) as DevAccountKey[]).filter((key) => users[key].created);
+  // The party login (portal) is made by dev-seed-portal.ts, outside Better Auth; it is never a member.
+  const createdUsers = (Object.keys(users) as (keyof typeof users)[]).filter((key) => users[key].created) as DevAccountKey[];
   const ownerId = users.owner.id;
   const operatorId = users.operator.id;
   const officeId = users.office.id;
@@ -1387,6 +1392,10 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
 
   const statements: Statement[] = [
     // Reset: children before parents (several FKs are RESTRICT).
+    // Customer portal (Wave 3): certificates hold keys to dispatches and customers, grants to dies.
+    db.delete(testCertificate).where(eq(testCertificate.companyId, COMPANY_ID)),
+    db.delete(customerPortalSection).where(eq(customerPortalSection.companyId, COMPANY_ID)),
+    db.delete(customerPortalUser).where(eq(customerPortalUser.companyId, COMPANY_ID)),
     db.delete(packingListLine).where(eq(packingListLine.companyId, COMPANY_ID)),
     db.delete(packingListDispatch).where(eq(packingListDispatch.companyId, COMPANY_ID)),
     db.delete(packingList).where(eq(packingList.companyId, COMPANY_ID)),
@@ -1756,6 +1765,15 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   // 6. FP-PF rows: a build per native platform, the pack tablet, one support request.
   await seedPlatformRows(db, { companyId: COMPANY_ID, ownerId, operatorId, staffId: users.staff.id, now });
 
+  // 7. Customer portal (Wave 3): KD's party login, two granted sections, a portal booking, a certificate.
+  await seedPortalRows(db, {
+    companyId: COMPANY_ID,
+    party: DEV_ACCOUNTS.party,
+    password,
+    officeId,
+    now,
+  });
+
   const bundlesByStatus: Record<string, number> = {};
   for (const member of bundles) bundlesByStatus[member.status] = (bundlesByStatus[member.status] ?? 0) + 1;
 
@@ -1771,6 +1789,7 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
       office: DEV_ACCOUNTS.office.email,
       dieroom: DEV_ACCOUNTS.dieroom.email,
       staff: DEV_ACCOUNTS.staff.email,
+      party: DEV_ACCOUNTS.party.email,
     },
     createdUsers,
     counts: {

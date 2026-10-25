@@ -11,6 +11,7 @@ export * from "./inventory";
 export * from "./legacy";
 export * from "./packing";
 export * from "./platform";
+export * from "./portal";
 export * from "./press";
 export * from "./printing";
 export * from "./purchase";
