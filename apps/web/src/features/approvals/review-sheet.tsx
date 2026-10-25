@@ -5,7 +5,8 @@
  * only purchase readers may call), and Approve / Reject. Reject asks for a
  * reason so the requester can fix it. Nobody decides their own request.
  */
-import { useT } from "@orrn/i18n";
+import "@orrn/i18n/refusal-foundry";
+import { useT, type MessageKey } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -41,6 +42,7 @@ import {
   subjectCodes,
   unbrokenCodes,
   type ReallocateView,
+  foundryFiguresOf,
 } from "./approval-view";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
@@ -67,6 +69,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const subject = current ? approvalSubject(current, { plant: t("approvals.move.plant") }) : null;
   // BACKLOG 34: a move request shows what moves, from where to where, before anyone decides.
   const move = current?.kind === "order_reallocate" ? reallocateMoveOf(current.meta) : null;
+  const foundry = current ? foundryFiguresOf(current.kind, current.meta) : [];
   const readsFigures = canAny(me, PURCHASE_READERS);
   const isNote = current?.kind === "dc_note";
 
@@ -154,6 +157,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
         {move ? <MoveFigures move={move} /> : null}
 
+        {foundry.length > 0 ? <FoundryFigures rows={foundry} /> : null}
+
         {isNote ? (
           readsFigures ? (
             <NoteFigures data={figures.data} loading={figures.isLoading} error={showsQueryError(figures)} />
@@ -211,6 +216,23 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
       <h3 className="m-0 text-[14px] font-semibold">{title}</h3>
       {children}
     </section>
+  );
+}
+
+/** The cast or melt figures of a foundry request (`cast_close`, `melt_correct`). */
+function FoundryFigures({ rows }: { rows: { labelKey: MessageKey; value: string }[] }) {
+  const { t } = useT();
+  return (
+    <Block title={t("approvals.foundry.title")}>
+      <dl className="m-0 flex flex-col divide-y divide-border rounded-card border border-border px-4" data-testid="foundry-summary">
+        {rows.map((r) => (
+          <div key={r.labelKey} className="flex min-h-11 flex-wrap items-baseline justify-between gap-x-4 py-2 text-[15px]">
+            <dt className="text-muted-foreground">{t(r.labelKey)}</dt>
+            <dd className="m-0 min-w-0 text-right font-medium tabular-nums break-words">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </Block>
   );
 }
 

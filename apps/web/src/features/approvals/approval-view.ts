@@ -127,6 +127,41 @@ export function moveFromText(from: readonly MoveEndView[], plant: string): strin
 const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 export const moveKgText = (grams: number) => KG3.format(grams / 1000);
 
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** Percent text of basis points ("2.9"), "" when absent. */
+const bpPct = (bp: number | null) => (bp === null ? "" : (Math.abs(bp) / 100).toFixed(1));
+
+/** A figure of a foundry request, shown in the review sheet: the label key and the already formatted value. */
+export type FoundryFigure = { labelKey: MessageKey; value: string };
+
+/**
+ * What a `cast_close` or `melt_correct` request is about (W2-FD-W), read from its meta: the cast's
+ * billets produced, the tail and its share, or the melt's metal in and logs. Absent figures are
+ * left out (a request made before a figure existed).
+ */
+export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknown> | null | undefined): FoundryFigure[] {
+  const m = meta ?? {};
+  const rows: FoundryFigure[] = [];
+  const kg = (g: number | null, labelKey: MessageKey) => {
+    if (g !== null) rows.push({ labelKey, value: `${moveKgText(g)} kg` });
+  };
+  if (kind === "cast_close") {
+    kg(num(m.producedG), "approvals.foundry.produced");
+    kg(num(m.inputG), "approvals.foundry.metalIn");
+    const tail = num(m.tailG);
+    if (tail !== null) {
+      const pct = bpPct(num(m.tailBp));
+      rows.push({ labelKey: "approvals.foundry.tail", value: `${tail < 0 ? "-" : ""}${moveKgText(Math.abs(tail))} kg${pct ? ` (${pct}%)` : ""}` });
+    }
+    kg(num(m.shortG) && num(m.shortG)! > 0 ? num(m.shortG) : null, "approvals.foundry.short");
+  } else if (kind === "melt_correct") {
+    kg(num(m.inputG), "approvals.foundry.metalIn");
+    kg(num(m.logsG), "approvals.foundry.logs");
+  }
+  return rows;
+}
+
 export function approvalSubject(row: ApprovalForView, words: { plant: string } = { plant: "plant stock" }): ApprovalSubject {
   const kindKey = `approvals.kind.${row.kind}` as MessageKey;
   const m = row.meta ?? {};
@@ -162,6 +197,28 @@ export function approvalSubject(row: ApprovalForView, words: { plant: string } =
       return { kindKey, titleKey: "approvals.subject.dieRerankNew", vars: { code: text(m.code), to }, href, openKey };
     }
     return { kindKey, titleKey: "approvals.subject.dieRerank", vars: { code: text(m.code), from: m.fromRank, to }, href, openKey };
+  }
+  if (row.kind === "cast_close") {
+    const castNumber = text(m.number);
+    const tail = num(m.tailG);
+    return {
+      kindKey,
+      titleKey: tail === null ? "approvals.subject.castCloseBare" : "approvals.subject.castClose",
+      vars: { number: castNumber, kg: tail === null ? "" : moveKgText(Math.abs(tail)) },
+      href: safeId(row.subjectId) ? `/casts/${row.subjectId}` : null,
+      openKey: safeId(row.subjectId) ? "approvals.openCast" : null,
+    };
+  }
+  if (row.kind === "melt_correct") {
+    const castId = safeId(m.castId);
+    const meltId = safeId(row.subjectId);
+    return {
+      kindKey,
+      titleKey: "approvals.subject.meltCorrect",
+      vars: { number: text(m.castNumber), seq: text(m.meltSeq) },
+      href: castId && meltId ? `/casts/${castId}/melt/${meltId}` : null,
+      openKey: castId && meltId ? "approvals.openMelt" : null,
+    };
   }
   return {
     kindKey,

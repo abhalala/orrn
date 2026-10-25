@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { APPROVAL_TONE, approvalSubject, decideState, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
+import { APPROVAL_TONE, approvalSubject, decideState, foundryFiguresOf, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
 
 function me(role: string, id = "u-manager"): Me {
   return {
@@ -114,9 +114,47 @@ describe("approvalSubject", () => {
     });
   });
 
-  test("kinds without a screen yet fall back to a code or number from meta, no link", () => {
-    expect(approvalSubject(row({ kind: "cast_close", meta: { code: "K31" } }))).toEqual({
+  test("a cast close names the cast and the tail and links to the cast", () => {
+    expect(approvalSubject(row({ kind: "cast_close", subjectId: "cast-9", meta: { number: "K31", producedG: 5_860_000, tailG: -250_000, tailBp: -427 } }))).toEqual({
       kindKey: "approvals.kind.cast_close",
+      titleKey: "approvals.subject.castClose",
+      vars: { number: "K31", kg: "250.000" },
+      href: "/casts/cast-9",
+      openKey: "approvals.openCast",
+    });
+    expect(approvalSubject(row({ kind: "cast_close", subjectId: "cast-9", meta: { number: "K31" } })).titleKey).toBe("approvals.subject.castCloseBare");
+  });
+
+  test("a melt correction names the melt and cast and links to the melt page", () => {
+    expect(approvalSubject(row({ kind: "melt_correct", subjectId: "melt-4", meta: { castId: "cast-9", castNumber: "K31", meltSeq: 2, logsG: 5_860_000 } }))).toEqual({
+      kindKey: "approvals.kind.melt_correct",
+      titleKey: "approvals.subject.meltCorrect",
+      vars: { number: "K31", seq: "2" },
+      href: "/casts/cast-9/melt/melt-4",
+      openKey: "approvals.openMelt",
+    });
+    // An id that does not look like an id is never a link.
+    expect(approvalSubject(row({ kind: "melt_correct", subjectId: "m/../x", meta: { castId: "cast-9" } })).href).toBeNull();
+  });
+
+  test("foundryFiguresOf: the figures a cast close and a melt correction carry", () => {
+    expect(foundryFiguresOf("cast_close", { producedG: 5_860_000, inputG: 6_150_000, tailG: 250_000, tailBp: 427, shortG: 0 })).toEqual([
+      { labelKey: "approvals.foundry.produced", value: "5,860.000 kg" },
+      { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
+      { labelKey: "approvals.foundry.tail", value: "250.000 kg (4.3%)" },
+    ]);
+    expect(foundryFiguresOf("cast_close", { producedG: 100_000, tailG: -5_000, shortG: 5_000 }).map((r) => r.labelKey)).toEqual(["approvals.foundry.produced", "approvals.foundry.tail", "approvals.foundry.short"]);
+    expect(foundryFiguresOf("melt_correct", { inputG: 6_150_000, logsG: 5_860_000 })).toEqual([
+      { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
+      { labelKey: "approvals.foundry.logs", value: "5,860.000 kg" },
+    ]);
+    expect(foundryFiguresOf("cast_close", {})).toEqual([]);
+    expect(foundryFiguresOf("dc_note", { inputG: 1 })).toEqual([]);
+  });
+
+  test("kinds without a screen yet fall back to a code or number from meta, no link", () => {
+    expect(approvalSubject(row({ kind: "press_time", meta: { code: "K31" } }))).toEqual({
+      kindKey: "approvals.kind.press_time",
       titleKey: "approvals.subject.generic",
       vars: { ref: "K31" },
       href: null,
@@ -182,7 +220,8 @@ describe("subjectCodes", () => {
     expect(
       subjectCodes(approvalSubject(row({ kind: "die_rerank", meta: { sectionId: "die-7", code: "14701-B", fromRank: 2, toRank: 1 } }))),
     ).toEqual(["14701-B"]);
-    expect(subjectCodes(approvalSubject(row({ kind: "cast_close", meta: { code: "K31" } })))).toEqual(["K31"]);
+    expect(subjectCodes(approvalSubject(row({ kind: "press_time", meta: { code: "K31" } })))).toEqual(["K31"]);
+    expect(subjectCodes(approvalSubject(row({ kind: "cast_close", meta: { number: "K31", tailG: 1000 } })))).toEqual(["K31"]);
   });
 });
 

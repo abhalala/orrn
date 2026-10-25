@@ -194,8 +194,13 @@ describe("masterEntries (the Masters page)", () => {
 
   test("owner and manager see every master", () => {
     for (const role of ["owner", "manager", "admin"] as const) {
-      expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons"]);
+      expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons", "furnaces", "alloys"]);
     }
+  });
+
+  test("furnaces and alloys only for the people who publish masters", () => {
+    expect(keys("supervisor")).not.toContain("furnaces");
+    expect(keys("foundry")).not.toContain("alloys");
   });
 
   test("vendors only for purchase readers, store items only for the store's people", () => {

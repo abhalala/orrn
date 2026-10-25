@@ -17,6 +17,7 @@ import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
 import { guDies } from "./gu-more/dies";
 import { guDispatch } from "./gu-more/dispatch";
+import { guFoundry } from "./gu-more/foundry";
 import { guGuides } from "./gu-more/guides";
 import { guNative } from "./gu-more/native";
 import { guOrders } from "./gu-more/orders";
@@ -65,6 +66,8 @@ export const GU_FLOOR_NAMESPACES = [
   "customers.detail.recent.title", "customers.detail.openOrders",
   // W4-MASTERS: the press alerts list and the spectro inbox are floor screens
   "press.alerts", "foundry.inbox",
+  // W2-FD-W: the foundry screens the furnace floor reads (the certificate, masters and yield report stay English)
+  "foundry.title", "foundry.common", "foundry.today", "foundry.casts", "foundry.newCast", "foundry.cast", "foundry.melt", "foundry.spectro", "foundry.stock",
   // W2-FD-S: a refused foundry write reaches the furnace floor
   "foundry.refusal",
 ] as const;
@@ -80,6 +83,7 @@ export const GU_REASON_FLOOR_KINDS = ["kinds", "downtime", "qc_reject", "void", 
 export type GuMessages = GuBaseMessages &
   Pick<Messages, "settings" | "approvals" | "dieRoom" | "dies" | "bundle" | "nav" | "errors" | "roles" | "ui" | "refusal" | "native" | "guides"> & {
     dispatch: Messages["dispatch"];
+    foundry: Pick<Messages["foundry"], "title" | "common" | "today" | "casts" | "newCast" | "cast" | "melt" | "spectro" | "stock" | "inbox" | "refusal">;
     status: Messages["status"];
     units: Messages["units"];
     common: Messages["common"];
@@ -1747,6 +1751,7 @@ export const gu = mergeGu(
   guDieRoom,
   guDies,
   guDispatch,
+  guFoundry,
   guGuides,
   guNative,
   guOrders,
@@ -1760,6 +1765,7 @@ export const gu = mergeGu(
   typeof guDieRoom &
   typeof guDies &
   typeof guDispatch &
+  typeof guFoundry &
   typeof guGuides &
   typeof guNative &
   typeof guOrders &
