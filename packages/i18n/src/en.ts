@@ -3693,6 +3693,7 @@ export const en = {
       press_reopen: "Reopen a press run",
       ageing_override: "Ageing override",
       press_late_entry: "Press run entered late",
+      melt_correct: "Correct a locked melt",
     },
     subject: {
       dcDebit: "Debit note {number} on {lot}",

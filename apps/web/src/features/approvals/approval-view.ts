@@ -26,6 +26,7 @@ export const APPROVAL_KINDS = [
   "ageing_override",
   // FP Wave 2.
   "press_late_entry",
+  "melt_correct",
 ] as const satisfies readonly ApprovalKind[];
 
 // Compile-time: every server kind is listed (a new kind fails check-types here until it is added).

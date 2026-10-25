@@ -27,6 +27,8 @@ export interface CloudflareEnv {
   ORRN_LOCAL_PASSWORD?: string;
   /** Local dev only: "1" makes scale.reading answer from a built-in simulator (never in production). */
   SCALE_SIMULATOR?: string;
+  /** Local / demo only: "1" lets `foundry.readings.simulate` write a furnace temperature curve (W2-FD-S; real PLC bring-up is owner-only, Q46). */
+  FOUNDRY_SIMULATOR?: string;
   /** Daily per-company exports and restore drills (FP-PF-12). Optional: no binding = backups report failed. */
   BACKUPS?: R2Bucket;
 }

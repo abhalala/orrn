@@ -26,6 +26,7 @@ import { BOOK_SUMMARY_GROUPS, bookSummary, bookTotals } from "../lib/orderBook";
 import { companyFloor } from "../lib/orderLines";
 import { dieLife, RECOVERY_GROUPS, recoverySummary, stockAge } from "../lib/reportsAnalytics";
 import { bookFilterOf, bookInput } from "./salesOrder";
+import { foundryYieldProcedure } from "./foundryTrace";
 
 const id = z.string().min(1).max(64);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Day as YYYY-MM-DD");
@@ -33,6 +34,8 @@ const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Day as YYYY-MM-DD");
 const reportsProcedure = actionProcedure("reports.read");
 
 export const analyticsReportProcedures = {
+  /** W2-FD-S (FP-FD-19): foundry yield by production day, alloy or furnace. */
+  foundryYield: foundryYieldProcedure,
   /** Recovery per die / copy / press / shift: Σ good ÷ Σ input of logged production runs. */
   recovery: reportsProcedure
     .input(

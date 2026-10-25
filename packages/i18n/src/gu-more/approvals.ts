@@ -28,6 +28,7 @@ export const guApprovals = {
       press_reopen: "Press રન ફરી ખોલવો",
       ageing_override: "Ageing ની છૂટ",
       press_late_entry: "પછીથી ભરેલો press રન",
+      melt_correct: "લૉક થયેલ melt સુધારવો",
     },
     subject: {
       dcDebit: "{lot} પર ડેબિટ નોટ {number}",

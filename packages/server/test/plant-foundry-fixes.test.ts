@@ -297,23 +297,40 @@ describe("a bori deduction can never take a lot below what the foundry melted", 
 // Melt cancel racing the cast close (correctness review I-2)
 // ---------------------------------------------------------------------------
 
+/** A billet row of the cast outside the melts (a move off the billet store, the W2-FD-S tail). */
+async function billetMove(p: Plant, castId: string, kg: number) {
+  const billetStore = (await p.owner.stock.locations.list()).items.find((l) => l.code === "BILLET")!.id;
+  await env.db.insert(stockLedger).values({
+    id: crypto.randomUUID(), companyId: p.companyId, serverSeq: 0, voucherType: "move", voucherId: crypto.randomUUID(),
+    line: 1, itemKind: "billet", itemRef: castId, locationId: billetStore, qtyG: kg * KG, postedAt: new Date(),
+  });
+}
+
+async function tailCode(p: Plant, code: string) {
+  return (await p.viewer.reasonCodes.list({ kind: "cast_tail" })).find((r) => r.code === code)!.id;
+}
+
 describe("a melt cancel that lands between the close read and its batch makes the close refuse", () => {
-  test("[S3] reason path: the 6 % melt is cancelled mid-close — no closing, no approval for a tail that no longer exists", async () => {
+  test("[S3] reason path: a melt is cancelled mid-close — no closing, no approval frozen on the old figures", async () => {
     const p = await plant();
     const lot = await okLot(p, 30_000);
     const c = await openCast(p);
-    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 11_000, 10_700)); // 2.7 %: no tail
-    const bad = await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 10_000, 9_400)); // 6 %: 300 kg tail
-    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ tailG: 300 * KG, needsReason: true });
-    env.beforeNextBatch(() => p.foundry.foundry.melts.cancel({ meltId: bad.id, reason: "Entered on the wrong cast" }));
-    await expect(p.supervisor.foundry.casts.close({ castId: c.id, tailReason: "Pit metal" })).rejects.toMatchObject({
+    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 11_000, 10_700));
+    const wrong = await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 10_000, 9_400));
+    await billetMove(p, c.id, -1_000); // 1,000 kg off the billet store outside the press: the tail
+    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ producedG: 20_100 * KG, tailG: 1_000 * KG, needsReason: true, needsApproval: true });
+    const scrapped = await tailCode(p, "scrapped");
+    env.beforeNextBatch(() => p.supervisor.foundry.melts.cancel({ meltId: wrong.id, reason: "Entered on the wrong cast" }));
+    await expect(p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: scrapped })).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: expect.stringContaining("changed"),
     });
     expect(await castRow(c.id)).toMatchObject({ status: "open", tailG: null, closeSummary: null, closeApprovalId: null });
     expect(await castCloseApprovals(p.companyId)).toEqual([]);
-    // asked again, it closes on the live figures without a reason
-    expect(await p.supervisor.foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 0 });
+    // asked again, the approval carries the live figures (the cancelled melt's billets are gone from produced)
+    const r = await p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: scrapped });
+    expect(r).toMatchObject({ status: "closing", tailG: 1_000 * KG });
+    expect((await castRow(c.id)).closeSummary).toMatchObject({ producedG: 10_700 * KG });
   });
 
   test("[S2] no-reason path: a second normal melt is cancelled mid-close — the close does not freeze the stale input", async () => {
@@ -322,27 +339,23 @@ describe("a melt cancel that lands between the close read and its batch makes th
     const c = await openCast(p);
     await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 11_000, 10_700));
     const second = await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 11_000, 10_700));
-    env.beforeNextBatch(() => p.foundry.foundry.melts.cancel({ meltId: second.id, reason: "Typed twice" }));
+    env.beforeNextBatch(() => p.supervisor.foundry.melts.cancel({ meltId: second.id, reason: "Typed twice" }));
     await expect(p.supervisor.foundry.casts.close({ castId: c.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect((await castRow(c.id)).status).toBe("open");
     await p.supervisor.foundry.casts.close({ castId: c.id });
-    expect((await castRow(c.id)).closeSummary).toMatchObject({ inputG: 11_000 * KG });
+    expect((await castRow(c.id)).closeSummary).toMatchObject({ inputG: 11_000 * KG, producedG: 10_700 * KG });
   });
 
   test("reason path: billets leave after the close read the tail — the close does not freeze the old tail into an approval", async () => {
     const p = await plant();
     const lot = await okLot(p, 30_000);
     const c = await openCast(p);
-    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 10_000, 9_400)); // 300 kg tail
-    const billetStore = (await p.owner.stock.locations.list()).items.find((l) => l.code === "BILLET")!.id;
-    // a press run stand-in: 500 kg of the cast's billets leave the billet store
-    env.beforeNextBatch(() =>
-      env.db.insert(stockLedger).values({
-        id: crypto.randomUUID(), companyId: p.companyId, serverSeq: 0, voucherType: "move", voucherId: crypto.randomUUID(),
-        line: 1, itemKind: "billet", itemRef: c.id, locationId: billetStore, qtyG: -500 * KG, postedAt: new Date(),
-      }),
-    );
-    await expect(p.supervisor.foundry.casts.close({ castId: c.id, tailReason: "Pit metal" })).rejects.toMatchObject({
+    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 10_000, 9_400));
+    await billetMove(p, c.id, -300); // 300 kg tail (3.19 %)
+    const remelted = await tailCode(p, "remelted");
+    // 500 kg more of the cast's billets leave the billet store while the close is in flight
+    env.beforeNextBatch(() => billetMove(p, c.id, -500));
+    await expect(p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: remelted })).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: expect.stringContaining("changed"),
     });
@@ -356,7 +369,7 @@ describe("a melt cancel that lands between the close read and its batch makes th
     const c = await openCast(p);
     const m = await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, 1_000, 970));
     const before = (await castRow(c.id)).serverSeq;
-    await p.foundry.foundry.melts.cancel({ meltId: m.id, reason: "x" });
+    await p.supervisor.foundry.melts.cancel({ meltId: m.id, reason: "x" });
     const after = await castRow(c.id);
     expect(after.serverSeq).toBeGreaterThan(before);
     expect(after.meltCount).toBe(1); // the next melt still gets number 2

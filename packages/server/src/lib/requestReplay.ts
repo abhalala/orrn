@@ -26,7 +26,16 @@ import { errorText } from "./pack";
  * the company exists. A write that changed nothing (every serial already on the load, every bundle
  * already in the yard) writes no row; its repeat recomputes the same answer.
  */
-export type ReplayKind = "bundle.receipt" | "dispatch.add" | "stock.move" | "dispatch.create" | "die_reading.add";
+export type ReplayKind =
+  | "bundle.receipt"
+  | "dispatch.add"
+  | "stock.move"
+  | "dispatch.create"
+  | "die_reading.add"
+  // W2-FD-S: the foundry's two irreversible steps and the correction that redoes a melt.
+  | "cast.close"
+  | "melt.lock"
+  | "melt.correct";
 
 export type Replay = {
   /** The audit row id this request writes (and a repeat finds). */

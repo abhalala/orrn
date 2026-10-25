@@ -241,6 +241,7 @@ const castCloseDecision: ApprovalApplier = (ctx, row, decision) => {
         tailG: null,
         tailBp: null,
         tailReason: null,
+        tailReasonCodeId: null,
         closeSummary: null,
         closedAt: null,
         closedBy: null,

@@ -177,12 +177,20 @@ async function remainingOf(p: Plant, lotId: string) {
   const { lots } = await p.foundry.foundry.lots.available();
   return lots.find((l) => l.id === lotId)?.remainingG ?? 0;
 }
-/** A press run stand-in: take (or, negative, add) billets of the cast out of the billet store. */
-async function moveBillets(p: Plant, castId: string, qtyG: number) {
+/**
+ * Billets of the cast leaving (negative) or entering the billet store outside the melts. `move` is
+ * not the press: under the W2-FD-S rule it is the tail; `press_run` is billets the press used.
+ */
+async function moveBillets(p: Plant, castId: string, qtyG: number, voucherType: "move" | "press_run" = "move") {
   await env.db.insert(stockLedger).values({
-    id: crypto.randomUUID(), companyId: p.companyId, serverSeq: 0, voucherType: "move", voucherId: crypto.randomUUID(),
+    id: crypto.randomUUID(), companyId: p.companyId, serverSeq: 0, voucherType, voucherId: crypto.randomUUID(),
     line: 1, itemKind: "billet", itemRef: castId, locationId: p.loc("BILLET"), qtyG, postedAt: new Date(),
   });
+}
+
+/** The company's `cast_tail` reason code by its stable key. */
+async function tailCode(p: Plant, code: string) {
+  return (await p.viewer.reasonCodes.list({ kind: "cast_tail" })).find((r) => r.code === code)!.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -215,7 +223,7 @@ describe("[L30,L33,L34,L32] the write-time tail guard agrees with the read-time 
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
     await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
-    await moveBillets(p, c.id, -4_000 * KG);
+    await moveBillets(p, c.id, -4_000 * KG, "press_run");
     const dieId = await env.seedDie(p.companyId);
     const [b] = await env.seedBundles(p.companyId, dieId, 1);
     await env.db.update(bundle).set({ castId: c.id, weightG: 4_000 * KG }).where(eq(bundle.id, b!.id));
@@ -223,14 +231,15 @@ describe("[L30,L33,L34,L32] the write-time tail guard agrees with the read-time 
     expect(await p.supervisor.foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 0 });
   });
 
-  test("[L33] a tail of exactly 1 % closes without a reason (read side says within the band, so must the write side)", async () => {
+  test("[L33] a tail of exactly 3 % needs a reason code but no second person (read side and write side agree at the band)", async () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
-    // 10,000 in, 9,600 logs: loss 4 %, 3 % is burn, 100 kg = exactly 1.00 % is the tail
-    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_000, 9_600));
-    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ tailG: 100 * KG, tailBp: 100, excessBurnG: 100 * KG, needsReason: false });
-    expect(await p.supervisor.foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 100 * KG, tailBp: 100 });
+    // 10,000 kg of billets produced; 300 kg = exactly 3.00 % leave outside the press
+    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_300, 10_000));
+    await moveBillets(p, c.id, -300 * KG);
+    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ tailG: 300 * KG, tailBp: 300, needsReason: true, needsApproval: false });
+    expect(await p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "remelted") })).toMatchObject({ status: "closed", tailG: 300 * KG, tailBp: 300 });
   });
 
   test("[L34] RACE: 1.5 % of the billets leave after the close read a zero tail — the no-reason close does not land", async () => {
@@ -253,12 +262,12 @@ describe("[L30,L33,L34,L32] the write-time tail guard agrees with the read-time 
     expect((await castRow(c.id)).status).toBe("open");
   });
 
-  test("[L24,L35] the close-out shows the burn beyond 3 % as excess", async () => {
+  test("[L24,L35] furnace burn is shown beside the tail, never in it (the melt's own balance reason covers it)", async () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
     await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_000, 9_400)); // 6 % loss
-    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ allowedBurnG: 300 * KG, excessBurnG: 300 * KG, tailG: 300 * KG });
+    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ inputG: 10_000 * KG, burnG: 600 * KG, producedG: 9_400 * KG, tailG: 0, needsReason: false });
   });
 
   test("[L26,L28] billets and bundles are counted per cast, never plant-wide", async () => {
@@ -368,9 +377,10 @@ describe("casts.list and casts.get contracts the foundry screens will rely on", 
     const a = await openCast(p);
     const b = await openCast(p);
     await p.foundry.foundry.melts.create(meltPayload(a.id, lot.id, p));
-    // 6 % loss on cast b so its close needs a reason and opens an approval
-    await p.foundry.foundry.melts.create(simpleMelt(b.id, lot.id, p, 10_000, 9_400));
-    await p.supervisor.foundry.casts.close({ castId: b.id, tailReason: "pit" });
+    // 1,000 kg of cast b's billets left outside the press: its close needs a reason and opens an approval
+    await p.foundry.foundry.melts.create(simpleMelt(b.id, lot.id, p, 10_000, 9_700));
+    await moveBillets(p, b.id, -1_000 * KG);
+    await p.supervisor.foundry.casts.close({ castId: b.id, reasonCodeId: await tailCode(p, "other"), note: "pit" });
     const got = await p.viewer.foundry.casts.get({ id: a.id });
     const m = got.melts[0]!;
     expect(m.inputs.map((i) => [i.line, i.kind, i.lotNumber ?? i.streamCode, i.itemName ?? null, i.gradeCode ?? null, i.kgG])).toEqual([
@@ -388,7 +398,7 @@ describe("casts.list and casts.get contracts the foundry screens will rely on", 
     expect(m.chemicals.find((x) => x.name === "Grain refiner")).toMatchObject({ mrsNumber: null, storeTxnId: null });
     expect(got.approval).toBeNull(); // cast a never asked for a close-out
     const gotB = await p.viewer.foundry.casts.get({ id: b.id });
-    expect(gotB.approval).toMatchObject({ status: "pending", requestNote: "pit" });
+    expect(gotB.approval).toMatchObject({ status: "pending", requestNote: "Other: pit" });
   });
 });
 
@@ -752,14 +762,15 @@ describe("melts.cancel", () => {
     expect(await ledger(p.companyId, { voucherType: "melt_cancel" })).toEqual([]);
   });
 
-  test("[R159,R160] cast.close holders (manager) and cast.enter holders (foundry) can both cancel", async () => {
+  test("[R159,R160] W2-FD-S (spec E4): cast.close holders cancel a locked melt; the foundry floor asks for a correction instead", async () => {
     const p = await plant();
     const lot = await okLot(p, 40_000);
     const c = await openCast(p);
     const m1 = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
     const m2 = await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
     await expect(p.manager.foundry.melts.cancel({ meltId: m1.id, reason: "x" })).resolves.toMatchObject({ cancelled: true });
-    await expect(p.foundry.foundry.melts.cancel({ meltId: m2.id, reason: "x" })).resolves.toMatchObject({ cancelled: true });
+    await expect(p.foundry.foundry.melts.cancel({ meltId: m2.id, reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.supervisor.foundry.melts.cancel({ meltId: m2.id, reason: "x" })).resolves.toMatchObject({ cancelled: true });
   });
 });
 
@@ -773,11 +784,12 @@ describe("casts.close", () => {
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
     await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p));
-    await p.supervisor.foundry.casts.close({ castId: c.id, tailReason: "Nothing missing" });
+    await p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "scale_difference"), note: "Nothing missing" });
     const row = await castRow(c.id);
     expect(row.closedAt).toBeInstanceOf(Date);
-    expect(row).toMatchObject({ tailReason: "Nothing missing" });
-    expect(row.closeSummary).toMatchObject({ inputG: 11_000 * KG, logsG: 10_450 * KG, byproductG: 270 * KG, allowedBurnG: 280 * KG, bundlesG: 0, billetsOnHandG: 10_450 * KG, explainedG: 11_000 * KG, tailG: 0, tailBp: 0 });
+    expect(row).toMatchObject({ tailReason: "Scale difference: Nothing missing" });
+    expect(row.tailReasonCodeId).toBeTruthy();
+    expect(row.closeSummary).toMatchObject({ producedG: 10_450 * KG, creditedG: 0, billetsOnHandG: 10_450 * KG, shortG: 0, inputG: 11_000 * KG, logsG: 10_450 * KG, bundlesG: 0, tailG: 0, tailBp: 0, reasonCode: "scale_difference" });
   });
 
   test("[R54] RACE: two closes — the loser fails and the first closer stays", async () => {
@@ -806,15 +818,16 @@ describe("casts.close", () => {
     const p = await plant();
     const lot = await okLot(p, 40_000);
     const c = await openCast(p);
-    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_000, 9_400));
-    const r = await p.manager.foundry.casts.close({ castId: c.id, tailReason: "Unknown" });
-    expect(await castRow(c.id)).toMatchObject({ status: "closing", tailG: 300 * KG, tailBp: 300, tailReason: "Unknown" });
+    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_000, 9_700));
+    await moveBillets(p, c.id, -400 * KG); // 4.12 %: beyond 3 %
+    const r = await p.manager.foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "other"), note: "Unknown" });
+    expect(await castRow(c.id)).toMatchObject({ status: "closing", tailG: 400 * KG, tailBp: 412, tailReason: "Other: Unknown" });
     const audits = (await env.db.select().from(auditLog).where(eq(auditLog.companyId, p.companyId))).map((a) => a.action);
     expect(audits).toContain("cast.close_request");
     expect(audits).not.toContain("cast.close");
     await p.foundry.approval.decide({ id: r.approvalId!, decision: "rejected", note: "Find it" });
     const row = await castRow(c.id);
-    expect(row).toMatchObject({ status: "open", tailG: null, tailBp: null, tailReason: null, closeSummary: null, closeRequestedAt: null, closeRequestedBy: null, closedAt: null, closedBy: null });
+    expect(row).toMatchObject({ status: "open", tailG: null, tailBp: null, tailReason: null, tailReasonCodeId: null, closeSummary: null, closeRequestedAt: null, closeRequestedBy: null, closedAt: null, closedBy: null });
     const open = (await p.viewer.foundry.casts.list({})).items[0]!;
     expect(open).toMatchObject({ status: "open", tailG: null, tailBp: null });
   });
@@ -962,11 +975,11 @@ describe("[R101,D16] melt and close-out figures at their edges", () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
-    await p.foundry.foundry.melts.create(meltPayload(c.id, lot.id, p)); // input 11,000 kg
+    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 11_300, 11_000)); // 11,000 kg of billets produced
     await moveBillets(p, c.id, -5 * KG); // 5 kg nobody can account for
     const co = (await p.viewer.foundry.casts.get({ id: c.id })).closeout;
-    expect(co).toMatchObject({ tailG: 5 * KG, tailBp: 5, needsReason: false });
-    expect(await p.supervisor.foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 5 * KG, tailBp: 5 });
+    expect(co).toMatchObject({ tailG: 5 * KG, tailBp: 5, needsReason: true, needsApproval: false });
+    expect(await p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "scale_difference") })).toMatchObject({ status: "closed", tailG: 5 * KG, tailBp: 5 });
     expect(await castRow(c.id)).toMatchObject({ tailBp: 5 });
   });
 });
@@ -1004,7 +1017,7 @@ describe("[R82,R83] retired and by-product streams: refused up front, with the r
 
 
 describe("[L29,R53,R46] close-out: by-products in the write-time twin, a melt that keeps the tail inside 1 %, cast notes", () => {
-  test("[L29] a no-reason close of a cast whose by-products are large (dross) lands: the write-time tail counts them", async () => {
+  test("[L29] a no-reason close of a cast whose by-products are large (dross) lands: dross is furnace side, never the tail", async () => {
     const p = await plant();
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
@@ -1012,7 +1025,7 @@ describe("[L29,R53,R46] close-out: by-products in the write-time twin, a melt th
     await p.foundry.foundry.melts.create(
       simpleMelt(c.id, lot.id, p, 10_000, 9_400, { outputs: { logs: { pcs: 30, lengthMm: 6_000, kgG: 9_400 * KG }, drossG: 600 * KG, feG: 0, returns: [] } }),
     );
-    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ byproductG: 600 * KG, allowedBurnG: 0, tailG: 0, needsReason: false });
+    expect((await p.viewer.foundry.casts.get({ id: c.id })).closeout).toMatchObject({ byproductG: 600 * KG, burnG: 0, tailG: 0, needsReason: false });
     expect(await p.supervisor.foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 0 });
   });
 
@@ -1090,14 +1103,15 @@ describe("[X60] casts.get shows its own company's approval, never another compan
     const q = await plant();
     const lot = await okLot(p, 20_000);
     const c = await openCast(p);
-    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_000, 9_400));
-    const r = await p.supervisor.foundry.casts.close({ castId: c.id, tailReason: "pit" });
+    await p.foundry.foundry.melts.create(simpleMelt(c.id, lot.id, p, 10_000, 9_700));
+    await moveBillets(p, c.id, -1_000 * KG);
+    const r = await p.supervisor.foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "other"), note: "pit" });
     await env.db.insert(approval).values({
       id: crypto.randomUUID(), companyId: q.companyId, kind: "cast_close", subjectId: c.id, requestedBy: q.users.supervisor.id,
       requestNote: "forged", createdAt: new Date(Date.now() + 60_000),
     });
     const got = await p.viewer.foundry.casts.get({ id: c.id });
-    expect(got.approval).toMatchObject({ id: r.approvalId, status: "pending", requestNote: "pit" });
+    expect(got.approval).toMatchObject({ id: r.approvalId, status: "pending", requestNote: "Other: pit" });
   });
 });
 
@@ -1112,9 +1126,11 @@ describe("[R50,X61] casts.close says why a cast that is no longer open cannot be
       message: expect.stringContaining("already closed"),
     });
     const b = await openCast(p);
-    await p.foundry.foundry.melts.create(simpleMelt(b.id, lot.id, p, 10_000, 9_400));
-    await p.supervisor.foundry.casts.close({ castId: b.id, tailReason: "pit" });
-    await expect(p.supervisor.foundry.casts.close({ castId: b.id, tailReason: "again" })).rejects.toMatchObject({
+    await p.foundry.foundry.melts.create(simpleMelt(b.id, lot.id, p, 10_000, 9_700));
+    await moveBillets(p, b.id, -1_000 * KG);
+    const other = await tailCode(p, "other");
+    await p.supervisor.foundry.casts.close({ castId: b.id, reasonCodeId: other, note: "pit" });
+    await expect(p.supervisor.foundry.casts.close({ castId: b.id, reasonCodeId: other, note: "again" })).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: expect.stringContaining("waiting for its close-out approval"),
     });

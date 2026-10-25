@@ -58,7 +58,8 @@ const MATRIX: Record<string, CompanyRole[]> = {
   // Pre-existing action: legacy admin keeps it (old 5-role matrix is frozen).
   "dispatch.complete": ["supervisor", "office", "manager", "admin"],
   "cast.enter": ["foundry", "supervisor"],
-  "cast.close": ["supervisor", "manager"],
+  // W2-FD-S: manager and up (admin) close a cast; the supervisor keeps it (spec E4).
+  "cast.close": ["supervisor", "manager", "admin"],
   "press.run": ["press", "supervisor"],
   "die.reading": ["press", "supervisor", "die_room"],
   "die.card": ["die_room"],
@@ -91,6 +92,9 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "audit.read": ["admin", "manager"],
   // Wave 2 contracts (FP-PR-25, Q15 A).
   "press.queue": ["supervisor", "office", "manager"],
+  // W2-FD-S: the melt stepper and its correction request.
+  "melt.enter": ["foundry", "supervisor"],
+  "melt.correct": ["foundry", "supervisor"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
@@ -320,6 +324,7 @@ describe("approvals", () => {
       press_reopen: ["owner", "admin", "manager"],
       ageing_override: ["owner", "admin", "manager"],
       press_late_entry: ["owner", "supervisor", "manager"],
+      melt_correct: ["owner", "admin", "manager"],
     });
   });
 

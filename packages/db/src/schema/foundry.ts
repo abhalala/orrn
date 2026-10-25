@@ -166,16 +166,22 @@ export type CastStatus = (typeof castStatuses)[number];
 
 /** Figures behind a close-out, frozen on the cast when it was asked (grams). */
 export type CastCloseSummary = {
-  inputG: number;
-  logsG: number;
-  byproductG: number;
-  allowedBurnG: number;
-  bundlesG: number;
-  pressReturnsG: number;
+  /**
+   * W2-FD-S tail (spec E4): billets produced (Σ locked log kg) − billets the press used (`creditedG`,
+   * press_run postings net of reopens) − billets on hand (BILLET ledger). `shortG` = billets the press
+   * logged beyond what the store held (D22). Bundles and metal in are shown beside it, never in it.
+   */
+  producedG: number;
+  creditedG: number;
   billetsOnHandG: number;
-  explainedG: number;
+  shortG: number;
   tailG: number;
   tailBp: number | null;
+  inputG: number;
+  logsG: number;
+  bundlesG: number;
+  /** The tail reason code's stable key (`billets_short`), when one was named. */
+  reasonCode?: string | null;
 };
 
 export const cast = sqliteTable(
@@ -225,6 +231,8 @@ export const cast = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /** W2-FD-S (0036): the `reason_code` (kind `cast_tail`) the closer named for a tail or a shortfall. App-enforced id. */
+    tailReasonCodeId: text("tail_reason_code_id"),
   },
   (table) => [
     uniqueIndex("cast_company_period_seq_unique").on(table.companyId, table.period, table.seq),
@@ -311,6 +319,13 @@ export const melt = sqliteTable(
     spectroReason: text("spectro_reason"),
     notes: text("notes"),
     clientRequestId: text("client_request_id"),
+    /** W2-FD-S (0036): why the melt's alloy differs from the cast's (lock needs it then; the cast is never retargeted). */
+    alloyReason: text("alloy_reason"),
+    /**
+     * W2-FD-S (0036): on a draft opened by `melts.correct`, the locked melt it replaces (that one is
+     * reversed and cancelled in the same batch). App-enforced id, like `bundle.cast_id`.
+     */
+    correctsMeltId: text("corrects_melt_id"),
     lockedAt: integer("locked_at", { mode: "timestamp_ms" }),
     lockedBy: text("locked_by").references(() => user.id, { onDelete: "set null" }),
     /** A cancelled melt keeps its number; `melt_cancel` ledger rows reverse its postings. */
@@ -393,6 +408,7 @@ export const meltOutput = sqliteTable(
     /** The stream credited (dross → DROSS, fe → FE, return_stream → the chosen charge stream). */
     returnStreamId: text("return_stream_id").references(() => returnStream.id, { onDelete: "restrict" }),
     pcs: integer("pcs"),
+    /** Log lines: the length as it left the caster (mm). */
     lengthMm: integer("length_mm"),
     kgG: integer("kg_g").notNull(),
     locationId: text("location_id")
@@ -400,6 +416,10 @@ export const meltOutput = sqliteTable(
       .references(() => location.id, { onDelete: "restrict" }),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    /** W2-FD-S (0036, FP-FD-07): log lines, the length the press charges (defaults to the log length). */
+    billetLengthMm: integer("billet_length_mm"),
+    /** W2-FD-S (0036): log lines, the furnace's billet diameter at lock (a later furnace edit rewrites nothing). */
+    diameterMm: integer("diameter_mm"),
   },
   (table) => [
     uniqueIndex("melt_output_company_melt_line_unique").on(table.companyId, table.meltId, table.line),
@@ -442,6 +462,9 @@ export const meltChemical = sqliteTable(
 );
 
 export const spectroVerdicts = ["pass", "fail", "incomplete"] as const;
+/** Where a result came from: a file a person attached, numbers typed with no file, or the watcher inbox. */
+export const spectroSources = ["file", "typed", "import"] as const;
+export type SpectroSource = (typeof spectroSources)[number];
 export type SpectroVerdictColumn = (typeof spectroVerdicts)[number];
 export const spectroAlSources = ["measured", "balance"] as const;
 /** The alloy's limits at attach time (limits may change later; the verdict never re-reads). */
@@ -499,14 +522,60 @@ export const spectroResult = sqliteTable(
     voidReason: text("void_reason"),
     createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    /** W2-FD-S (0036): file / typed / import (the watcher inbox). SQL default: rows before it were files. */
+    source: text("source", { enum: spectroSources }).notNull().default(sql`'file'`),
+    /** W2-FD-S (0036): numbers typed with no printout or file need a reason (1-500). */
+    entryReason: text("entry_reason"),
+    /** W2-FD-S (0036): a retried attach returns the first result. Unique per company when set. */
+    clientRequestId: text("client_request_id"),
   },
   (table) => [
+    uniqueIndex("spectro_result_company_request_unique")
+      .on(table.companyId, table.clientRequestId)
+      .where(sql`${table.clientRequestId} is not null`),
     index("spectro_result_company_melt_idx").on(table.companyId, table.meltId),
     index("spectro_result_company_cast_idx").on(table.companyId, table.castId),
     index("spectro_result_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],
 );
 
+/**
+ * W2-FD-S (0036): furnace readings over a melt (temperature now; the PLC tag list is owner-only, Q46).
+ * `source`: `typed` (a person read the pyrometer), `simulated` (the FOUNDRY_SIMULATOR seam), `device`
+ * (a real collector, later). A simulated row is never shown as a device reading. Readings never move stock.
+ */
+export const meltReadingKinds = ["furnace_temp"] as const;
+export const meltReadingSources = ["typed", "simulated", "device"] as const;
+export type MeltReadingSource = (typeof meltReadingSources)[number];
+
+export const meltReading = sqliteTable(
+  "melt_reading",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    serverSeq: integer("server_seq").notNull().default(0),
+    meltId: text("melt_id")
+      .notNull()
+      .references(() => melt.id, { onDelete: "cascade" }),
+    furnaceId: text("furnace_id").references(() => furnace.id),
+    kind: text("kind", { enum: meltReadingKinds }).notNull(),
+    /** Degrees Celsius × 10 (735.5 °C = 7355). */
+    valueX10: integer("value_x10").notNull(),
+    readAt: integer("read_at", { mode: "timestamp_ms" }).notNull(),
+    source: text("source", { enum: meltReadingSources }).notNull(),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    // One reading per melt, kind, instant and source: a repeated simulate (or a device resend) is a no-op.
+    uniqueIndex("melt_reading_company_melt_kind_at_unique").on(table.companyId, table.meltId, table.kind, table.readAt, table.source),
+    index("melt_reading_company_server_seq_idx").on(table.companyId, table.serverSeq),
+  ],
+);
+
+export type MeltReadingRow = typeof meltReading.$inferSelect;
 export type ReturnStreamRow = typeof returnStream.$inferSelect;
 export type FurnaceRow = typeof furnace.$inferSelect;
 export type AlloyRow = typeof alloy.$inferSelect;

@@ -35,7 +35,11 @@ export type ImportReplayKind =
   | "stock.move"
   // BACKLOG 47.
   | "dispatch.create"
-  | "die_reading.add";
+  | "die_reading.add"
+  // W2-FD-S: foundry close, lock and correction.
+  | "cast.close"
+  | "melt.lock"
+  | "melt.correct";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 

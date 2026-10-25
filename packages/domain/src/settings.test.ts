@@ -32,6 +32,8 @@ describe("reason codes (C39: one master with a kind)", () => {
       "ageing_scrap",
       "reallocate",
       "die_work",
+      "melt_correct",
+      "cast_tail",
     ]);
     expect(isReasonCodeKind("downtime")).toBe(true);
     expect(isReasonCodeKind("threshold")).toBe(false);
@@ -50,6 +52,9 @@ describe("reason codes (C39: one master with a kind)", () => {
     ]);
     expect(DEFAULT_REASON_CODES.qc_reject.map((r) => r.code)).toEqual(["dimension", "surface", "bend", "crack", "short_length", "other"]);
     expect(DEFAULT_REASON_CODES.reallocate.map((r) => r.code)).toContain("length_mismatch");
+    // W2-FD-S: a locked melt is corrected only through an approval with a reason code; a cast tail is explained by one.
+    expect(DEFAULT_REASON_CODES.melt_correct.map((r) => r.code)).toEqual(["wrong_weight", "wrong_lot", "wrong_time", "wrong_output", "other"]);
+    expect(DEFAULT_REASON_CODES.cast_tail.map((r) => r.code)).toEqual(["billets_short", "scale_difference", "remelted", "scrapped", "other"]);
   });
 
   test("every kind ends with other, which needs a note; codes unique per kind", () => {

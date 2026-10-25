@@ -19,17 +19,22 @@
  */
 import {
   CAST_ALLOYS,
-  CAST_TAIL_REASON_BP,
   MELT_BALANCE_WARN_BP,
   meltBalance,
+  PPM_TOTAL,
+  reasonNoteMissing,
+  SPECTRO_ELEMENTS,
+  type SpectroElementKey,
+  type SpectroVerdict,
 } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 
 import { approval } from "@orrn/db/schema/approval";
+import { reasonCode } from "@orrn/db/schema/reasons";
 import {
+  alloy,
   cast,
   castStatuses,
   melt,
@@ -45,13 +50,12 @@ import {
   type MeltWarning,
 } from "@orrn/db/schema/foundry";
 import { purchaseLot, scrapGrade, scrapItem } from "@orrn/db/schema/purchase";
-import { location, stockLedger, type LedgerVoucherType } from "@orrn/db/schema/stock";
+import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn, storeUnits, type StoreItemRow } from "@orrn/db/schema/store";
 
 import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
-import type { Context } from "../context";
 import { requestApprovalInsert } from "../lib/approval";
-import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
@@ -63,8 +67,8 @@ import {
   castInputSql,
   castLiveMeltsSql,
   castLogsSql,
+  castDraftMeltsSql,
   castTailSql,
-  castTailWithinBand,
   defaultReturnStreamStatements,
   DROSS_STREAM,
   FE_STREAM,
@@ -81,6 +85,7 @@ import {
   resolvePlantScrap,
 } from "../lib/foundry";
 import { nameKey } from "../lib/purchase";
+import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import { nextCompanySeq } from "../lib/sequence";
 import {
   diagnoseStoreCancel,
@@ -88,19 +93,30 @@ import {
   MAX_STORE_DRAWS,
   MAX_STORE_QTY_MILLI,
   prepareStoreDraws,
-  storeCancelMark,
-  storeCancelRows,
   type PreparedStoreDraws,
 } from "../lib/store";
+import {
+  activeStream,
+  auditCtx,
+  bad,
+  castStateMessage,
+  liveMeltDraws,
+  loadCast,
+  lotsForMelt,
+  MELT_NOT_FOUND,
+  meltReversalStatements,
+  storeReturnBlock,
+  streamByCode,
+  streamsByIds,
+  spectroJudge,
+  type Ctx,
+  type LotForMelt,
+} from "../lib/foundryKit";
+import { foundryMastersRouter } from "./foundryMasters";
+import { meltStepperProcedures } from "./foundryMelt";
+import { foundryReadingsRouter, foundryStockRouter, foundryTraceProcedures } from "./foundryTrace";
 import { spectroInboxRouter } from "./spectroInbox";
 
-type Ctx = Pick<Context, "db" | "session" | "impersonation"> & {
-  db: OrrnDb;
-  companyId: string;
-  session: NonNullable<Context["session"]>;
-};
-
-const sqlUuid = sql<string>`lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-' || substr('89ab', 1 + (random() & 3), 1) || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6)))`;
 
 /** 100 t per line: beyond any furnace charge, far below 2^53 in every sum. */
 const MAX_LINE_G = 100_000_000;
@@ -126,9 +142,7 @@ const MAX_SPECTRO_BASE64 = 4 * Math.ceil(MAX_SPECTRO_BYTES / 3);
 const SPECTRO_MIMES = ["image/jpeg", "image/png", "image/webp", "application/pdf", "text/csv", "text/plain"] as const;
 const MAX_SPECTRO_VALUES = 40;
 
-const CAST_NOT_FOUND = { code: "NOT_FOUND", message: "Cast not found" } as const;
 const REQUEST_REUSED = "That request id was already used for something else";
-const MELT_NOT_FOUND = { code: "NOT_FOUND", message: "Melt not found" } as const;
 
 const id = z.string().min(1).max(64);
 const grams = z.number().int().min(0).max(MAX_LINE_G);
@@ -145,14 +159,8 @@ const optText = (max: number) =>
     .optional()
     .transform((s) => (s ? s : null));
 const clientRequestId = z.string().trim().min(1).max(64).optional();
-
-function bad(message: string): never {
-  throw new TRPCError({ code: "BAD_REQUEST", message });
-}
-
-function auditCtx(ctx: Ctx) {
-  return { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation };
-}
+/** W2-FD-S replay key (the audit row records the first answer; a retry gets it back). */
+const clientMutationId = z.string().trim().min(8).max(64).optional();
 
 // ---------------------------------------------------------------------------
 // Return streams
@@ -407,28 +415,11 @@ const lotsRouter = router({
 // Casts
 // ---------------------------------------------------------------------------
 
-async function loadCast(ctx: Pick<Ctx, "db" | "companyId">, castId: string): Promise<CastRow> {
-  const [row] = await ctx.db
-    .select()
-    .from(cast)
-    .where(and(eq(cast.id, castId), eq(cast.companyId, ctx.companyId)))
-    .limit(1);
-  if (!row) throw new TRPCError(CAST_NOT_FOUND);
-  return row;
-}
-
-function castStateMessage(c: Pick<CastRow, "number" | "status">): string {
-  return c.status === "closed"
-    ? `${c.number} is closed`
-    : c.status === "closing"
-      ? `${c.number} is waiting for its close-out approval`
-      : `${c.number} changed; open it again`;
-}
-
 /** The cast's live summary columns (melt count, kg in, logs, billets on hand) for lists. */
 function castSummaryFields(companyId: string) {
   return {
     liveMelts: castLiveMeltsSql(companyId, OUTER_CAST_ID),
+    draftMelts: castDraftMeltsSql(companyId, OUTER_CAST_ID),
     inputG: castInputSql(companyId, OUTER_CAST_ID),
     logsG: castLogsSql(companyId, OUTER_CAST_ID),
     billetsOnHandG: castBilletsOnHandSql(companyId, OUTER_CAST_ID),
@@ -437,6 +428,8 @@ function castSummaryFields(companyId: string) {
 }
 
 const castsRouter = router({
+  /** W2-FD-S: trace (FP-FD-16/17), traceBundle, cost (FP-FD-20). */
+  ...foundryTraceProcedures,
   /** Newest first; filter by status or by letter code (the code repeats every year). Any member. */
   list: companyProcedure
     .input(
@@ -483,6 +476,7 @@ const castsRouter = router({
         // LIVE melts (cancelled ones excluded). casts.get().cast.meltCount is different: every melt
         // ever added, cancelled included (the next melt's number − 1). Screens show this one.
         meltCount: Number(liveMelts),
+        draftMelts: Number(r.draftMelts),
         inputG: Number(r.inputG),
         logsG: Number(r.logsG),
         billetsOnHandG: Number(r.billetsOnHandG),
@@ -532,6 +526,8 @@ const castsRouter = router({
           streamName: returnStream.name,
           pcs: meltOutput.pcs,
           lengthMm: meltOutput.lengthMm,
+          billetLengthMm: meltOutput.billetLengthMm,
+          diameterMm: meltOutput.diameterMm,
           kgG: meltOutput.kgG,
         })
         .from(meltOutput)
@@ -565,6 +561,13 @@ const castsRouter = router({
           mime: spectroResult.mime,
           sizeBytes: spectroResult.sizeBytes,
           valuesPpm: spectroResult.valuesPpm,
+          verdict: spectroResult.verdict,
+          source: spectroResult.source,
+          entryReason: spectroResult.entryReason,
+          alPpm: spectroResult.alPpm,
+          alSource: spectroResult.alSource,
+          voidedAt: spectroResult.voidedAt,
+          voidReason: spectroResult.voidReason,
           createdBy: spectroResult.createdBy,
           createdAt: spectroResult.createdAt,
         })
@@ -618,14 +621,34 @@ const castsRouter = router({
   /** Open a cast (cast.enter). Its number comes from the doc series; the year is stored, not shown. */
   open: actionProcedure("cast.enter")
     .input(
-      z.object({
-        alloy: z.enum(CAST_ALLOYS),
-        grade: optText(20),
-        notes: optText(500),
-        clientRequestId,
-      }),
+      z
+        .object({
+          /** The alloy code (PL5 list) or, W2-FD-S, the alloy master row; one of them. */
+          alloy: z.enum(CAST_ALLOYS).optional(),
+          alloyId: id.optional(),
+          grade: optText(20),
+          notes: optText(500),
+          clientRequestId,
+        })
+        .refine((v) => v.alloy !== undefined || v.alloyId !== undefined, { message: "Pick the alloy" }),
     )
-    .mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input: raw }) => {
+      // The alloy master row: picked by id, or found by the code (a plant with no master keeps the code only).
+      let alloyId: string | null = null;
+      let alloyCode: string;
+      if (raw.alloyId) {
+        const [a] = await ctx.db.select().from(alloy).where(and(eq(alloy.id, raw.alloyId), eq(alloy.companyId, ctx.companyId))).limit(1);
+        if (!a) throw new TRPCError({ code: "NOT_FOUND", message: "Alloy not found" });
+        if (a.status !== "active") bad(`Alloy ${a.code} is retired`);
+        if (raw.alloy && raw.alloy !== a.code) bad(`Alloy ${a.code} is not ${raw.alloy}`);
+        alloyId = a.id;
+        alloyCode = a.code;
+      } else {
+        alloyCode = raw.alloy!;
+        const [a] = await ctx.db.select({ id: alloy.id }).from(alloy).where(and(eq(alloy.companyId, ctx.companyId), eq(alloy.code, alloyCode), eq(alloy.status, "active"))).limit(1);
+        alloyId = a?.id ?? null;
+      }
+      const input = { ...raw, alloy: alloyCode };
       const prior = async () =>
         input.clientRequestId
           ? (
@@ -659,6 +682,7 @@ const castsRouter = router({
         month: Number(doc.period.slice(5, 7)),
         seq: doc.seq,
         alloy: input.alloy,
+        alloyId,
         grade: input.grade,
         status: "open" as const,
         notes: input.notes,
@@ -689,44 +713,66 @@ const castsRouter = router({
     }),
 
   /**
-   * Close-out (cast.close, Review Focus 4). Tail within 1 % of the input: the cast closes now.
-   * Above it: a reason is required and the cast waits in `closing` for a `cast_close` approval.
-   * The UPDATE carries the guards (still open; the cast row unchanged since the read — every melt
-   * create AND cancel moves its server_seq; for a no-reason close the tail still within 1 % at
-   * write time, for a close with a reason the tail still exactly what was read, so the approval
-   * never shows stale figures), so a melt, a melt cancel or a billet movement that lands between
-   * the read and the batch makes the close refuse instead of closing on stale figures.
+   * Close-out (cast.close: supervisor, manager, admin, owner; spec E4). Tail = billets produced
+   * (Σ locked log kg) − billets the press used (press_run postings net of reopens) − billets on
+   * hand. Zero with nothing short: the cast closes now. Any other tail needs a reason code (kind
+   * `cast_tail`); beyond 3 % of produced, or billets short (the press logged more than the store
+   * held, D22), the cast waits in `closing` for a `cast_close` approval (never the requester).
+   * Refused while a melt is still a draft. The UPDATE re-checks the figures it read (cast row,
+   * tail, on hand, no drafts), so a melt, cancel or press posting in between makes it refuse.
+   * `clientMutationId` makes a retry answer the first close.
    */
   close: actionProcedure("cast.close")
-    .input(z.object({ castId: id, tailReason: optText(500) }))
+    .input(
+      z.object({
+        castId: id,
+        reasonCodeId: id.optional(),
+        /** Free text beside the reason code (required for `other`). `tailReason` is the PL5 name. */
+        note: optText(500),
+        tailReason: optText(500),
+        clientMutationId,
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const note = input.note ?? input.tailReason;
+      const content = { castId: input.castId, reasonCodeId: input.reasonCodeId ?? null, note };
+      let replay: Replay | null = input.clientMutationId ? await openReplay(ctx.db, ctx.companyId, "cast.close", input.clientMutationId, content) : null;
+      if (replay?.prior?.replay) return replay.prior.replay as CastCloseAnswer;
       const c = await loadCast(ctx, input.castId);
       if (c.status !== "open") bad(c.status === "closed" ? `${c.number} is already closed` : castStateMessage(c));
       const co = await castCloseout(ctx.db, ctx.companyId, c.id);
-      if (co.needsReason && !input.tailReason) {
-        bad(
-          `${fmtKg(co.tailG)} kg of ${c.number} is not explained${
-            co.tailBp === null ? "" : ` (${(co.tailBp / 100).toFixed(2)} % of the input, more than 1 %)`
-          }; give a reason`,
-        );
+      if (co.draftMelts > 0) bad(`${c.number} has a melt that is not locked; lock or discard it first`);
+      let reason: { id: string; code: string; label: string } | null = null;
+      if (co.needsReason || input.reasonCodeId) {
+        if (!input.reasonCodeId) {
+          bad(
+            co.shortG > 0
+              ? `The press used ${fmtKg(co.shortG)} kg more billets of ${c.number} than the store held; pick a reason`
+              : `${fmtKg(co.tailG)} kg of ${c.number} billets is not explained; pick a reason`,
+          );
+        }
+        reason = await castTailReason(ctx, input.reasonCodeId, note);
       }
       const userId = ctx.session.user.id;
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const status = co.needsReason ? ("closing" as const) : ("closed" as const);
-      const approvalId = co.needsReason ? crypto.randomUUID() : null;
+      const status = co.needsApproval ? ("closing" as const) : ("closed" as const);
+      const approvalId = co.needsApproval ? crypto.randomUUID() : null;
       const summary: CastCloseSummary = {
-        inputG: co.inputG,
-        logsG: co.logsG,
-        byproductG: co.byproductG,
-        allowedBurnG: co.allowedBurnG,
-        bundlesG: co.bundlesG,
-        pressReturnsG: co.pressReturnsG,
+        producedG: co.producedG,
+        creditedG: co.creditedG,
         billetsOnHandG: co.billetsOnHandG,
-        explainedG: co.explainedG,
+        shortG: co.shortG,
         tailG: co.tailG,
         tailBp: co.tailBp,
+        inputG: co.inputG,
+        logsG: co.logsG,
+        bundlesG: co.bundlesG,
+        reasonCode: reason?.code ?? null,
       };
+      const reasonText = reason ? (note ? `${reason.label}: ${note}` : reason.label) : note;
+      const answer: CastCloseAnswer = { id: c.id, number: c.number, status, tailG: co.tailG, tailBp: co.tailBp, shortG: co.shortG, approvalId };
+      const castId = sql`${c.id}`;
       const mine = and(eq(cast.id, c.id), eq(cast.companyId, ctx.companyId), eq(cast.serverSeq, seq), eq(cast.status, status));
       const statements: SqliteBatchItem[] = [
         ctx.db
@@ -737,11 +783,12 @@ const castsRouter = router({
             closeRequestedBy: userId,
             tailG: co.tailG,
             tailBp: co.tailBp,
-            tailReason: input.tailReason,
+            tailReason: reasonText,
+            tailReasonCodeId: reason?.id ?? null,
             closeSummary: summary,
             closeApprovalId: approvalId,
-            closedAt: co.needsReason ? null : at,
-            closedBy: co.needsReason ? null : userId,
+            closedAt: co.needsApproval ? null : at,
+            closedBy: co.needsApproval ? null : userId,
             serverSeq: seq,
             updatedAt: at,
           })
@@ -750,12 +797,12 @@ const castsRouter = router({
               eq(cast.id, c.id),
               eq(cast.companyId, ctx.companyId),
               eq(cast.status, "open"),
-              // melts.create and melts.cancel both move server_seq (melt_count alone misses a cancel).
+              // Every melt save, lock, discard and cancel moves server_seq (melt_count alone misses a cancel).
               eq(cast.serverSeq, c.serverSeq),
               eq(cast.meltCount, c.meltCount),
-              co.needsReason
-                ? sql`${castTailSql(ctx.companyId, sql`${c.id}`)} = ${co.tailG}`
-                : castTailWithinBand(ctx.companyId, sql`${c.id}`, CAST_TAIL_REASON_BP),
+              sql`${castTailSql(ctx.companyId, castId)} = ${co.tailG}`,
+              sql`${castBilletsOnHandSql(ctx.companyId, castId)} = ${co.billetsOnHandG}`,
+              sql`${castDraftMeltsSql(ctx.companyId, castId)} = 0`,
             ),
           ),
       ];
@@ -766,8 +813,8 @@ const castsRouter = router({
             kind: "cast_close",
             subjectId: c.id,
             serverSeq: seq,
-            requestNote: input.tailReason,
-            meta: { number: c.number, year: c.year, inputG: co.inputG, tailG: co.tailG, tailBp: co.tailBp },
+            requestNote: reasonText,
+            meta: { number: c.number, year: c.year, producedG: co.producedG, inputG: co.inputG, tailG: co.tailG, tailBp: co.tailBp, shortG: co.shortG, reasonCode: reason?.code ?? null },
             guard: { from: cast, where: mine },
           }).statement,
         );
@@ -776,24 +823,98 @@ const castsRouter = router({
         auditInsertGuarded(
           auditCtx(ctx),
           {
-            action: co.needsReason ? "cast.close_request" : "cast.close",
+            id: replay?.id,
+            action: co.needsApproval ? "cast.close_request" : "cast.close",
             subjectType: "cast",
             subjectId: c.id,
-            meta: { number: c.number, ...summary, reason: input.tailReason, approvalId },
+            meta: { number: c.number, ...summary, reason: reasonText, approvalId, ...replayMeta(replay, input.clientMutationId, answer) },
           },
           { from: cast, where: mine },
         ),
       );
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        if (lostReplayRace(e, replay)) {
+          replay = await readReplay(ctx.db, ctx.companyId, replay!);
+          if (replay.prior?.replay) return replay.prior.replay as CastCloseAnswer;
+        }
+        throw e;
+      }
       const [landed] = await ctx.db.select({ id: cast.id }).from(cast).where(mine).limit(1);
       if (!landed) {
         const now = await loadCast(ctx, c.id);
         if (now.status !== "open") bad(castStateMessage(now));
         bad(`${c.number} changed while you were closing it; check the close-out again`);
       }
-      return { id: c.id, number: c.number, status, tailG: co.tailG, tailBp: co.tailBp, approvalId };
+      return answer;
+    }),
+
+  /**
+   * Cancel a cast opened by mistake (cast.close): only while it has no locked melt and no draft.
+   * Its number stays used (the series never reuses one).
+   */
+  cancel: actionProcedure("cast.close")
+    .input(z.object({ castId: id, reason: z.string().trim().min(1, "Give a reason").max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const c = await loadCast(ctx, input.castId);
+      if (c.status === "cancelled") bad(`${c.number} is already cancelled`);
+      if (c.status !== "open") bad(castStateMessage(c));
+      const castId = sql`${c.id}`;
+      const notEmpty = () => bad(`${c.number} has melts; cancel or discard them first`);
+      const co = await castCloseout(ctx.db, ctx.companyId, c.id);
+      if (co.liveMelts > 0 || co.draftMelts > 0 || co.billetsOnHandG !== 0) notEmpty();
+      const at = clockNow();
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const mine = and(eq(cast.id, c.id), eq(cast.companyId, ctx.companyId), eq(cast.serverSeq, seq), eq(cast.status, "cancelled"));
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(cast)
+          .set({ status: "cancelled", cancelledAt: at, cancelledBy: ctx.session.user.id, cancelReason: input.reason, serverSeq: seq, updatedAt: at })
+          .where(
+            and(
+              eq(cast.id, c.id),
+              eq(cast.companyId, ctx.companyId),
+              eq(cast.status, "open"),
+              sql`${castLiveMeltsSql(ctx.companyId, castId)} = 0`,
+              sql`${castDraftMeltsSql(ctx.companyId, castId)} = 0`,
+              sql`${castBilletsOnHandSql(ctx.companyId, castId)} = 0`,
+            ),
+          ),
+        auditInsertGuarded(
+          auditCtx(ctx),
+          { action: "foundry.cast.cancel", subjectType: "cast", subjectId: c.id, meta: { number: c.number, reason: input.reason } },
+          { from: cast, where: mine },
+        ),
+      ]);
+      const [landed] = await ctx.db.select({ id: cast.id }).from(cast).where(mine).limit(1);
+      if (!landed) notEmpty();
+      return { id: c.id, number: c.number, status: "cancelled" as const };
     }),
 });
+
+type CastCloseAnswer = {
+  id: string;
+  number: string;
+  status: "closed" | "closing";
+  tailG: number;
+  tailBp: number | null;
+  shortG: number;
+  approvalId: string | null;
+};
+
+/** The closer's tail reason: an active `cast_tail` reason code of the company; `other` (or a code that asks) needs the note. */
+async function castTailReason(ctx: Ctx, reasonCodeId: string, note: string | null) {
+  // The id came from reasonCodes.list (which adds the defaults); no write here, so a close reads before it writes.
+  const [row] = await ctx.db
+    .select({ id: reasonCode.id, code: reasonCode.code, label: reasonCode.label, requiresNote: reasonCode.requiresNote })
+    .from(reasonCode)
+    .where(and(eq(reasonCode.id, reasonCodeId), eq(reasonCode.companyId, ctx.companyId), eq(reasonCode.kind, "cast_tail"), eq(reasonCode.active, true)))
+    .limit(1);
+  if (!row) bad("Pick why the billets do not add up");
+  if (reasonNoteMissing({ code: row.code, requiresNote: row.requiresNote, note })) bad("Say what happened in the note");
+  return row;
+}
 
 // ---------------------------------------------------------------------------
 // Melts
@@ -849,68 +970,6 @@ const meltCreateInput = z.object({
 });
 
 type MeltCreateInput = z.infer<typeof meltCreateInput>;
-
-type LotForMelt = {
-  id: string;
-  number: string;
-  status: string;
-  locationId: string | null;
-  scrapItemId: string;
-  scrapGradeId: string;
-  remainingG: number;
-};
-
-async function lotsForMelt(ctx: Ctx, lotIds: string[]): Promise<Map<string, LotForMelt>> {
-  const remaining = lotRemainingSql(ctx.companyId, OUTER_LOT_ID);
-  const rows = await mapInChunks(
-    lotIds,
-    (ids) =>
-      ctx.db
-        .select({
-          id: purchaseLot.id,
-          number: purchaseLot.number,
-          status: purchaseLot.status,
-          locationId: purchaseLot.locationId,
-          scrapItemId: purchaseLot.scrapItemId,
-          scrapGradeId: purchaseLot.scrapGradeId,
-          remainingG: remaining,
-        })
-        .from(purchaseLot)
-        .where(and(eq(purchaseLot.companyId, ctx.companyId), inArray(purchaseLot.id, ids))),
-    60,
-  );
-  return new Map(rows.map((r) => [r.id, { ...r, remainingG: Number(r.remainingG) }]));
-}
-
-async function streamsByIds(ctx: Ctx, ids: string[]) {
-  if (ids.length === 0) return new Map<string, typeof returnStream.$inferSelect>();
-  const rows = await mapInChunks(ids, (part) =>
-    ctx.db
-      .select()
-      .from(returnStream)
-      .where(and(eq(returnStream.companyId, ctx.companyId), inArray(returnStream.id, part))),
-  );
-  return new Map(rows.map((r) => [r.id, r]));
-}
-
-/** The by-product stream dross / Fe posts to: it must exist, be active and be a by-product. */
-async function streamByCode(ctx: Ctx, code: string) {
-  const label = code === DROSS_STREAM ? "Dross" : "Fe";
-  const [row] = await ctx.db
-    .select()
-    .from(returnStream)
-    .where(and(eq(returnStream.companyId, ctx.companyId), eq(returnStream.code, code)))
-    .limit(1);
-  if (!row) bad(`Add the ${label} return stream first (Masters → Return streams)`);
-  if (!row.active) bad(`The ${label} return stream (${code}) is retired; reactivate it first (Masters → Return streams)`);
-  if (row.kind !== "byproduct") bad(`The ${code} return stream must be a by-product stream to take ${label.toLowerCase()}`);
-  return row;
-}
-
-/** EXISTS: the stream is still active and of `kind` (write-time guard for output streams). */
-function activeStream(companyId: string, streamId: string, kind: "charge" | "byproduct") {
-  return sql`exists (select 1 from ${returnStream} os where os.id = ${streamId} and os.company_id = ${companyId} and os.active = 1 and os.kind = ${kind})`;
-}
 
 /** The shape every melts.create caller gets back (a repeat with the same clientRequestId included). */
 async function meltResult(ctx: Ctx, m: MeltRow) {
@@ -970,6 +1029,8 @@ function validateTimes(t: MeltCreateInput["timestamps"], at: Date, c: Pick<CastR
 type LedgerValues = typeof stockLedger.$inferInsert;
 
 const meltsRouter = router({
+  /** W2-FD-S stepper: save (draft), preview, lock, discard, requestCorrection, correct. */
+  ...meltStepperProcedures,
   /**
    * Record a melt (cast.enter): inputs (lots by remaining kg, charge streams), chemicals (store
    * items are drawn now, RP17), outputs (logs, dross, Fe, returned metal), the five times and the
@@ -1159,6 +1220,8 @@ const meltsRouter = router({
               spectroReason: sql`null`.as("spectro_reason"),
               notes: v(input.notes).as("notes"),
               clientRequestId: v(input.clientRequestId ?? null).as("client_request_id"),
+              alloyReason: sql`null`.as("alloy_reason"),
+              correctsMeltId: sql`null`.as("corrects_melt_id"),
               lockedAt: v(at.getTime()).as("locked_at"),
               lockedBy: v(userId).as("locked_by"),
               cancelledAt: sql`null`.as("cancelled_at"),
@@ -1379,12 +1442,13 @@ const meltsRouter = router({
     }),
 
   /**
-   * Cancel a melt (cast.enter or cast.close) while its cast is open: the melt keeps its number and
+   * Cancel a locked melt (cast.close: supervisor, manager and up, spec E4; the foundry floor asks
+   * for a correction instead, `melts.requestCorrection`) while its cast is open: the melt keeps its number and
    * gets `cancelled_*`; every ledger row of the melt is reversed (`melt_cancel`, `reversal_of`);
    * its store draws are cancelled (store reversal rows); its lot kg is free again. Refused once the
    * cast's billets on hand are below what the melt made (the press used them).
    */
-  cancel: anyActionProcedure("cast.enter", "cast.close")
+  cancel: actionProcedure("cast.close")
     .input(z.object({ meltId: id, reason: z.string().trim().min(1, "Give a reason").max(500) }))
     .mutation(async ({ ctx, input }) => {
       const { companyId } = ctx;
@@ -1395,6 +1459,7 @@ const meltsRouter = router({
         .limit(1);
       if (!m) throw new TRPCError(MELT_NOT_FOUND);
       if (m.cancelledAt) bad("This melt is already cancelled");
+      if (m.status === "draft") bad("This melt is not locked; discard the draft instead");
       const c = await loadCast(ctx, m.castId);
       if (c.status !== "open") bad(`${castStateMessage(c)}; its melts stay as they are`);
       const billetsSql = castBilletsOnHandSql(companyId, sql`${c.id}`);
@@ -1414,8 +1479,6 @@ const meltsRouter = router({
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, companyId);
       const reason = input.reason;
-      const orig = alias(stockLedger, "orig");
-      const o = (col: string) => sql`${sql.identifier("orig")}.${sql.identifier(col)}`;
       const statements: SqliteBatchItem[] = [
         // The cast changes with its melt: a close that read the figures before this cancel then
         // refuses (it guards on the cast's server_seq), and sync clients see the cast move. The
@@ -1431,58 +1494,26 @@ const meltsRouter = router({
             and(
               eq(melt.id, m.id),
               eq(melt.companyId, companyId),
+              eq(melt.status, "locked"),
               isNull(melt.cancelledAt),
               sql`exists (select 1 from ${cast} oc where oc.id = ${c.id} and oc.company_id = ${companyId} and oc.status = 'open' and oc.server_seq = ${seq})`,
               sql`${billetsSql} >= ${melt.logsG}`,
             ),
           ),
         foundryAbort(ctx.db, companyId, sql`not exists (select 1 from ${melt} mm where mm.id = ${m.id} and mm.company_id = ${companyId} and mm.server_seq = ${seq} and mm.cancelled_at is not null)`),
-        ctx.db.insert(stockLedger).select(
-          ctx.db
-            .select({
-              id: sqlUuid.as("id"),
-              companyId: sql<string>`${o("company_id")}`.as("company_id"),
-              serverSeq: sql<number>`${seq}`.as("server_seq"),
-              voucherType: sql<LedgerVoucherType>`'melt_cancel'`.as("voucher_type"),
-              voucherId: sql<string>`${o("voucher_id")}`.as("voucher_id"),
-              line: sql<number>`${o("line")}`.as("line"),
-              itemKind: sql<string>`${o("item_kind")}`.as("item_kind"),
-              itemRef: sql<string>`${o("item_ref")}`.as("item_ref"),
-              locationId: sql<string | null>`${o("location_id")}`.as("location_id"),
-              qtyG: sql<number>`-${o("qty_g")}`.as("qty_g"),
-              postedAt: sql<number>`max(${at.getTime()}, ${o("posted_at")} + 1)`.as("posted_at"),
-              reversalOf: sql<string>`${o("id")}`.as("reversal_of"),
-              reason: sql<string>`${reason}`.as("reason"),
-              createdBy: sql<string>`${userId}`.as("created_by"),
-              createdAt: sql<number>`${at.getTime()}`.as("created_at"),
-            })
-            .from(orig)
-            .where(
-              and(
-                eq(orig.companyId, companyId),
-                eq(orig.voucherType, "melt"),
-                eq(orig.voucherId, m.id),
-                sql`not exists (select 1 from ${stockLedger} r where r.company_id = ${companyId} and r.reversal_of = ${o("id")})`,
-              ),
-            ),
-        ),
       ];
-      for (const t of txns) {
-        const cancelInput = { companyId, seq, txnId: t.id, exchangeId: null, userId, at, reason: `Melt cancelled: ${reason}` };
-        statements.push(storeCancelRows(ctx.db, cancelInput), storeCancelMark(ctx.db, cancelInput));
-      }
-      if (txns.length > 0) {
-        statements.push(
-          foundryAbort(
-            ctx.db,
-            companyId,
-            sql`(select count(*) from ${storeTxn} st where st.company_id = ${companyId} and st.server_seq = ${seq} and st.cancelled_at is not null and st.id in (${sql.join(
-              txns.map((t) => sql`${t.id}`),
-              sql`, `,
-            )})) < ${txns.length}`,
-          ),
-        );
-      }
+      statements.push(
+        ...meltReversalStatements(ctx.db, {
+          companyId,
+          meltId: m.id,
+          seq,
+          at,
+          userId,
+          reason,
+          storeTxnIds: txns.map((t) => t.id),
+          storeReason: `Melt cancelled: ${reason}`,
+        }),
+      );
       statements.push(
         auditInsert(ctx, {
           action: "melt.cancel",
@@ -1515,41 +1546,6 @@ const meltsRouter = router({
       return { id: m.id, cancelled: true as const };
     }),
 });
-
-/** The melt's store draws not cancelled yet, with what a cancel would return them to. */
-async function liveMeltDraws(ctx: Ctx, meltId: string) {
-  return ctx.db
-    .select({
-      id: storeTxn.id,
-      number: storeTxn.number,
-      itemName: storeItem.name,
-      itemActive: storeItem.active,
-      locationCode: location.code,
-      locationActive: location.active,
-      locationKind: location.kind,
-    })
-    .from(meltChemical)
-    .innerJoin(storeTxn, and(eq(storeTxn.id, meltChemical.storeTxnId), eq(storeTxn.companyId, meltChemical.companyId)))
-    .leftJoin(storeItem, and(eq(storeItem.id, storeTxn.itemId), eq(storeItem.companyId, storeTxn.companyId)))
-    .leftJoin(location, and(eq(location.id, storeTxn.locationId), eq(location.companyId, storeTxn.companyId)))
-    .where(and(eq(meltChemical.companyId, ctx.companyId), eq(meltChemical.meltId, meltId), isNull(storeTxn.cancelledAt)));
-}
-
-/**
- * Cancelling a melt puts its chemicals back in the store. Like `store.cancel` (ruling PL7RR), it
- * never puts stock on a retired item or into a retired / re-typed store location: this read gives
- * the melt-side message; `storeCancelRows` holds the same rule at write time (nothing lands, the
- * cancel's store abort fails the batch).
- */
-function storeReturnBlock(draws: Awaited<ReturnType<typeof liveMeltDraws>>): string | null {
-  for (const d of draws) {
-    if (!d.itemActive) return `${d.itemName ?? d.number} is retired in the store; reactivate it first (cancelling the melt returns it)`;
-    if (!d.locationActive || d.locationKind !== "store") {
-      return `${d.locationCode ?? "The store location"} is retired; reactivate it first (cancelling the melt returns ${d.itemName ?? d.number} there)`;
-    }
-  }
-  return null;
-}
 
 /** A melt batch aborted: say why from the state as it is now. */
 async function explainMeltLost(ctx: Ctx, c: CastRow, input: MeltCreateInput, before: Map<string, LotForMelt>): Promise<never> {
@@ -1593,6 +1589,18 @@ function base64Bytes(b64: string): number | null {
   return (b64.length / 4) * 3 - pad;
 }
 
+/** The melt a spectro result goes on: the company's, not cancelled. */
+async function spectroMelt(ctx: Ctx, meltId: string) {
+  const [m] = await ctx.db
+    .select({ id: melt.id, castId: melt.castId, cancelledAt: melt.cancelledAt, status: melt.status, alloy: melt.alloy, alloyId: melt.alloyId })
+    .from(melt)
+    .where(and(eq(melt.id, meltId), eq(melt.companyId, ctx.companyId)))
+    .limit(1);
+  if (!m) throw new TRPCError(MELT_NOT_FOUND);
+  if (m.cancelledAt || m.status === "cancelled") bad("This melt is cancelled");
+  return m;
+}
+
 const spectroRouter = router({
   /**
    * Attach a spectro result to a melt (cast.enter): the printout, photo or results file as base64
@@ -1619,14 +1627,9 @@ const spectroRouter = router({
       const entries = Object.entries(input.values);
       if (entries.length > MAX_SPECTRO_VALUES) bad(`At most ${MAX_SPECTRO_VALUES} values`);
       if (size === 0 && entries.length === 0) bad("Attach the file or enter the values");
-      const [m] = await ctx.db
-        .select({ id: melt.id, castId: melt.castId, cancelledAt: melt.cancelledAt })
-        .from(melt)
-        .where(and(eq(melt.id, input.meltId), eq(melt.companyId, ctx.companyId)))
-        .limit(1);
-      if (!m) throw new TRPCError(MELT_NOT_FOUND);
-      if (m.cancelledAt) bad("This melt is cancelled");
+      const m = await spectroMelt(ctx, input.meltId);
       const valuesPpm = Object.fromEntries(entries.map(([k, val]) => [k, Math.round(val * 10_000)]));
+      const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, valuesPpm);
       const rowId = crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
@@ -1641,16 +1644,129 @@ const spectroRouter = router({
           sizeBytes: size,
           dataBase64: input.base64,
           valuesPpm,
+          ...judged,
+          source: size > 0 ? "file" : "typed",
           createdBy: ctx.session.user.id,
         }),
         auditInsert(ctx, {
           action: "spectro.attach",
           subjectType: "spectro_result",
           subjectId: rowId,
-          meta: { meltId: m.id, castId: m.castId, fileName: input.fileName, mime: input.mime, sizeBytes: size, valuesPpm },
+          meta: { meltId: m.id, castId: m.castId, fileName: input.fileName, mime: input.mime, sizeBytes: size, valuesPpm, verdict: judged.verdict },
         }),
       ]);
-      return { id: rowId, sizeBytes: size };
+      return { id: rowId, sizeBytes: size, verdict: judged.verdict };
+    }),
+
+  /**
+   * Type the spectro numbers with no printout or file (melt.enter; spec E4 "manual entry with
+   * reason"): integer ppm per element (0.45 % = 4500), a reason (the machine printer is down, …).
+   * Judged against the alloy's limits like a file. A retry with the same `clientRequestId` returns it.
+   */
+  enter: actionProcedure("melt.enter")
+    .input(
+      z.object({
+        meltId: id,
+        valuesPpm: z.object(Object.fromEntries(SPECTRO_ELEMENTS.map((el) => [el, z.number().int().min(0).max(PPM_TOTAL).nullable().optional()])) as Record<SpectroElementKey, z.ZodOptional<z.ZodNullable<z.ZodNumber>>>),
+        entryReason: z.string().trim().min(1, "Say why the numbers are typed").max(500),
+        clientRequestId,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const prior = async () =>
+        input.clientRequestId
+          ? (
+              await ctx.db
+                .select({ id: spectroResult.id, meltId: spectroResult.meltId, verdict: spectroResult.verdict })
+                .from(spectroResult)
+                .where(and(eq(spectroResult.companyId, ctx.companyId), eq(spectroResult.clientRequestId, input.clientRequestId)))
+                .limit(1)
+            )[0]
+          : undefined;
+      const shape = (r: { id: string; meltId: string; verdict: SpectroVerdict | null }) => {
+        if (r.meltId !== input.meltId) throw new TRPCError({ code: "CONFLICT", message: REQUEST_REUSED });
+        return { id: r.id, verdict: r.verdict };
+      };
+      const before = await prior();
+      if (before) return shape(before);
+      const valuesPpm = Object.fromEntries(Object.entries(input.valuesPpm).filter(([, v]) => v != null)) as Record<string, number>;
+      if (Object.keys(valuesPpm).length === 0) bad("Enter at least one element");
+      const m = await spectroMelt(ctx, input.meltId);
+      const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, valuesPpm);
+      const rowId = crypto.randomUUID();
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      try {
+        await atomicBatch(ctx.db, [
+          ctx.db.insert(spectroResult).values({
+            id: rowId,
+            companyId: ctx.companyId,
+            serverSeq: seq,
+            meltId: m.id,
+            castId: m.castId,
+            fileName: "typed",
+            mime: "text/plain",
+            sizeBytes: 0,
+            dataBase64: "",
+            valuesPpm,
+            ...judged,
+            source: "typed",
+            entryReason: input.entryReason,
+            clientRequestId: input.clientRequestId ?? null,
+            createdBy: ctx.session.user.id,
+          }),
+          auditInsert(ctx, {
+            action: "spectro.attach",
+            subjectType: "spectro_result",
+            subjectId: rowId,
+            meta: { meltId: m.id, castId: m.castId, source: "typed", valuesPpm, verdict: judged.verdict, entryReason: input.entryReason },
+          }),
+        ]);
+      } catch (e) {
+        if (input.clientRequestId && isUniqueViolation(e, "spectro_result.company_id, spectro_result.client_request_id")) {
+          const won = await prior();
+          if (won) return shape(won);
+        }
+        throw e;
+      }
+      return { id: rowId, verdict: judged.verdict };
+    }),
+
+  /**
+   * Void a result entered on the wrong melt or with a wrong number (melt.enter), while its melt is
+   * still a draft. A locked melt keeps the result it was locked with (a correction redoes it).
+   */
+  void: actionProcedure("melt.enter")
+    .input(z.object({ id, reason: z.string().trim().min(1, "Give a reason").max(500) }))
+    .mutation(async ({ ctx, input }) => {
+      const [r] = await ctx.db
+        .select({ id: spectroResult.id, meltId: spectroResult.meltId, voidedAt: spectroResult.voidedAt, meltStatus: melt.status })
+        .from(spectroResult)
+        .innerJoin(melt, and(eq(melt.id, spectroResult.meltId), eq(melt.companyId, spectroResult.companyId)))
+        .where(and(eq(spectroResult.id, input.id), eq(spectroResult.companyId, ctx.companyId)))
+        .limit(1);
+      if (!r) throw new TRPCError({ code: "NOT_FOUND", message: "Not found" });
+      if (r.voidedAt) bad("This result is already void");
+      if (r.meltStatus !== "draft") bad("The melt is locked; its spectro stays as it is");
+      const at = clockNow();
+      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+      const gone = and(eq(spectroResult.id, r.id), eq(spectroResult.companyId, ctx.companyId), eq(spectroResult.serverSeq, seq));
+      await atomicBatch(ctx.db, [
+        ctx.db
+          .update(spectroResult)
+          .set({ voidedAt: at, voidedBy: ctx.session.user.id, voidReason: input.reason, serverSeq: seq })
+          .where(
+            and(
+              eq(spectroResult.id, r.id),
+              eq(spectroResult.companyId, ctx.companyId),
+              isNull(spectroResult.voidedAt),
+              sql`exists (select 1 from ${melt} vm where vm.id = ${r.meltId} and vm.company_id = ${ctx.companyId} and vm.status = 'draft')`,
+            ),
+          ),
+        auditInsertGuarded(auditCtx(ctx), { action: "foundry.spectro.void", subjectType: "spectro_result", subjectId: r.id, meta: { meltId: r.meltId, reason: input.reason } }, { from: spectroResult, where: gone }),
+      ]);
+      const [landed] = await ctx.db.select({ id: spectroResult.id }).from(spectroResult).where(gone).limit(1);
+      if (!landed) bad("The melt is locked; its spectro stays as it is");
+      return { id: r.id, voided: true as const };
     }),
 
   /** The stored file of a spectro result (any member of the company). */
@@ -1672,6 +1788,8 @@ const spectroRouter = router({
 });
 
 export const foundryRouter = router({
+  /** W2-FD-S (FP-FD-01, 09): furnace and alloy masters. */
+  ...foundryMastersRouter,
   returnStreams: returnStreamsRouter,
   lots: lotsRouter,
   casts: castsRouter,
@@ -1679,4 +1797,8 @@ export const foundryRouter = router({
   spectro: spectroRouter,
   /** W4-COLLECTORS (FP-FD-12): watcher files waiting for a person. */
   spectroInbox: spectroInboxRouter,
+  /** W2-FD-S: billet stock by cast and alloy. */
+  stock: foundryStockRouter,
+  /** W2-FD-S: furnace readings (typed; FOUNDRY_SIMULATOR seam). */
+  readings: foundryReadingsRouter,
 });

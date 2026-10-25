@@ -3679,6 +3679,7 @@ export const hi = {
       press_reopen: "प्रेस रन फिर खोलना",
       ageing_override: "एजिंग की छूट",
       press_late_entry: "बाद में भरा गया प्रेस रन",
+      melt_correct: "लॉक किया melt सुधारना",
     },
     subject: {
       dcDebit: "{lot} पर डेबिट नोट {number}",

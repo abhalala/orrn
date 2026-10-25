@@ -173,7 +173,9 @@ describe("Wave 2 actions and approvals", () => {
     ["press.close", ["owner", "supervisor", "manager", "admin"]],
     ["press.queue", ["owner", "supervisor", "office", "manager"]],
     ["cast.enter", ["owner", "foundry", "supervisor"]],
-    ["cast.close", ["owner", "supervisor", "manager"]],
+    ["cast.close", ["owner", "supervisor", "manager", "admin"]],
+    ["melt.enter", ["owner", "foundry", "supervisor"]],
+    ["melt.correct", ["owner", "foundry", "supervisor"]],
     ["qc.enter", ["owner", "press", "supervisor"]],
     ["masters.publish", ["owner", "manager", "admin"]],
   ];

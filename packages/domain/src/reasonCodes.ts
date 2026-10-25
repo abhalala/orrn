@@ -15,6 +15,8 @@ export const REASON_CODE_KINDS = [
   "ageing_scrap", // FP-AG discard remaining
   "reallocate", // orders.reallocate with a different cut length (ledger D6)
   "die_work", // FP-DR-18 die work log kinds (W4-NEXTROWS)
+  "melt_correct", // FP-FD-13 correction of a locked melt (approval melt_correct, W2-FD-S)
+  "cast_tail", // FP-FD-14 why a cast closes with a tail or billets short (W2-FD-S)
 ] as const;
 export type ReasonCodeKind = (typeof REASON_CODE_KINDS)[number];
 
@@ -63,6 +65,22 @@ export const DEFAULT_REASON_CODES: Record<ReasonCodeKind, readonly ReasonCodeSee
   ],
   // FP-DR-18: in-house work on a die copy. `correct` may send the copy back on trial.
   die_work: [seed("polish", "Polish"), seed("correct", "Correction"), seed("inspect", "Inspection"), seed("clean", "Cleaning"), other],
+  // FP-FD-13: why a locked melt must be corrected (reverse and enter again through a draft).
+  melt_correct: [
+    seed("wrong_weight", "Wrong weight"),
+    seed("wrong_lot", "Wrong lot or stream"),
+    seed("wrong_time", "Wrong time"),
+    seed("wrong_output", "Wrong logs or dross"),
+    other,
+  ],
+  // FP-FD-14: why the billets of a cast do not add up at close (produced − pressed − on hand).
+  cast_tail: [
+    seed("billets_short", "Press used more billets than the store held"),
+    seed("scale_difference", "Scale difference"),
+    seed("remelted", "Billets sent back to the furnace"),
+    seed("scrapped", "Billets scrapped"),
+    other,
+  ],
 };
 
 /** Longest note on any reason (FD/PR/PK caps: 1-500 characters). */
