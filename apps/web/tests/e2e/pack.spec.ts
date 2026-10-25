@@ -43,6 +43,29 @@ async function trpcQuery<T>(page: Page, path: string, input: unknown): Promise<T
   return (await res.json()).result.data as T;
 }
 
+/**
+ * Wait until the page has stopped scrolling: the scroll position (window and every scrolled ancestor
+ * that matters here) is the same over several consecutive frames. A focus change scrolls the row into
+ * view, smoothly on a loaded machine, and a box read mid-scroll sits under the action bar for a frame.
+ */
+async function waitForScrollSettle(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((done) => {
+        let last = Number.NaN;
+        let still = 0;
+        const tick = () => {
+          const y = window.scrollY + (document.scrollingElement?.scrollTop ?? 0);
+          still = y === last ? still + 1 : 0;
+          last = y;
+          if (still >= 4) done();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+}
+
 /** Press Tab (only the keyboard) until `target` has focus. */
 async function tabTo(page: Page, target: Locator, max = 40) {
   for (let i = 0; i < max; i++) {
@@ -300,6 +323,7 @@ test.describe("pack", () => {
       await page.keyboard.press("Tab");
       const row = savedRows(page).nth(i);
       await expect(row).toBeFocused();
+      await waitForScrollSettle(page);
       const [r, b] = await Promise.all([row.boundingBox(), bar.boundingBox()]);
       expect(r!.y + r!.height, `row ${i + 1} bottom vs action bar top`).toBeLessThanOrEqual(b!.y + 1);
     }

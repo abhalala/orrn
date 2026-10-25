@@ -230,7 +230,8 @@ export const dieIssueRouter = router({
             input.sectionId ? eq(pressRun.sectionId, input.sectionId) : undefined,
           ),
         )
-        .orderBy(asc(pressRun.number))
+        // Financial year, then the run's number as a number (PR-2 before PR-13), like the press queue.
+        .orderBy(asc(pressRun.period), sql`cast(substr(${pressRun.number}, instr(${pressRun.number}, '-') + 1) as integer)`, asc(pressRun.id))
         .limit(100),
     ),
 

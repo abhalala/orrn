@@ -12,7 +12,9 @@ import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout
  * plant's v2 with revisions, branding and combine.
  *
  * Every test builds its own customers and bundles through the owner's API, so parallel specs never
- * share a dispatch. The seed has one real ambiguity: "26J1" is both a serial and a party number.
+ * share a dispatch. The seed has one real ambiguity: the monthly customer's first party number (like "26J1") is
+ * also a plant serial. Its month letter comes from the seed's clock, so the spec reads the code from the seeded
+ * clash bundle instead of hard-coding October.
  */
 
 const WIDTHS = [375, 820, 1280] as const;
@@ -70,6 +72,16 @@ async function gate(api: OwnerApi, tag: string) {
   return { a, b, wrong, loose, plant, d, die };
 }
 
+/** The ambiguous code the demo plant keeps on purpose: kd's first monthly party number, e.g. "26J1" in October 2026. */
+async function clashCode(api: OwnerApi) {
+  const { bundle: seeded } = await api.query<{ bundle: { serial: string; partyNo: string | null } }>("bundle.getBundle", { id: "dev-bundle-party-clash" });
+  expect(seeded.partyNo, "the seeded clash bundle").toBeTruthy();
+  expect(seeded.serial).toBe(seeded.partyNo);
+  // Year (two digits) + month letter A-L + sequence 1: the month letter follows the seed's clock.
+  expect(seeded.serial).toMatch(/^\d{2}[A-L]1$/);
+  return seeded.serial;
+}
+
 async function openScan(page: Page, d: { id: string; code: string }) {
   await visit(page, `/dispatch/${d.id}`);
   await page.getByRole("button", { name: "Scan bundles" }).click();
@@ -83,6 +95,7 @@ test.describe("dispatch scan: refusals in ORRN wording, spoken, and the office's
     test(`floor scan at ${width}: other customer, no order, ambiguous, plant stock`, async ({ page }) => {
       const api = await ownerApi();
       const g = await gate(api, `${width}-${Date.now() % 100_000}`);
+      const clash = await clashCode(api);
       await api.dispose();
       await captureSpeech(page);
       await start(page, "operator", width);
@@ -98,9 +111,9 @@ test.describe("dispatch scan: refusals in ORRN wording, spoken, and the office's
       // The floor never sees the office's override.
       await expect(sheet.getByTestId("add-anyway")).toHaveCount(0);
 
-      await field.fill("26J1");
+      await field.fill(clash);
       await field.press("Enter");
-      await expect(status).toContainText("More than one bundle has this number: 26J1, BG-000001-B001");
+      await expect(status).toContainText(`More than one bundle has this number: ${clash}, BG-000001-B001`);
       await expect(sheet.getByRole("list", { name: "Pick the bundle" }).getByRole("button")).toHaveCount(2);
 
       await field.fill(g.plant.serial);

@@ -40,9 +40,9 @@ Open work only. History (milestones M0 to M9, the plant waves W0 to W4) is in gi
 - **Ageing.** Contracts only: `wt/W3-AG-C` @1ebdd0d (migrations 0033/0034 there, to renumber), round 2 open. Not started: AG-S server, AG-W web, AG-NATIVE, AG-SEED (AG-01..17), the trolley slice of pack (FP-PK-01), AG-15 packed share per batch, `ageing_override` applier, `bundle.ageing_row_id`, registering the reopen blocker, `agedG` on the order strip. The chain test skips the ageing step. Rank: re-pass 47.
 - Resume order: satellite passes memtest86+, pushes both branches here, a merger lands foundry then ageing on top of the head, regenerates the Hindi review, reruns the chain e2e with the ageing step.
 
-## Built on a branch, waiting to merge
+## Merge follow-ups
 
-- `wt/W4-TESTSWEEP`: per-file server runner (`bun run test:server:files`), e2e groups A/B/C (`bun run e2e:group`), ICU-pinned web tests, load timeouts, e2e flake fixes. Ranks: base 27, 28; audit 49, 56.
+- Renumber check: migrations are chained 0000 to the head in `packages/db/src/migrations/meta/_journal.json`; the Hindi review (`export-review`) and the gu review lists must be regenerated after every merge that touches a dictionary.
 
 ## Not built yet (decided; pick which are pilot-blocking)
 

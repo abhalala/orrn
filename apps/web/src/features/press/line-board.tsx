@@ -17,7 +17,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { statusTone } from "./job-card";
-import { kgFromG, splitQueue } from "./model";
+import { kgFromG, leadOnLine, splitQueue } from "./model";
 import type { LineRow, SummaryOut } from "./types";
 
 const REFRESH_MS = 20_000;
@@ -32,7 +32,7 @@ function LineCard({ line, summary }: { line: LineRow; summary: SummaryOut | unde
   });
   const cards = queue.data?.cards;
   const { onLine, waiting } = splitQueue(cards ?? []);
-  const current = onLine[0];
+  const current = leadOnLine(onLine);
   const today = summary?.byLine.find((l) => l.pressLineId === line.id);
 
   return (

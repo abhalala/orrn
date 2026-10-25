@@ -147,6 +147,23 @@ describe("issue", () => {
     expect(await env.caller({ role: "viewer", companyId: x.companyId }).dieInstance.issues.queuedRuns()).toEqual([]);
   });
 
+  test("queuedRuns lists runs in numeric run order (PR-2 before PR-13), not text order, and by financial year first", async () => {
+    const p = await plant();
+    const make = async (number: string, period = "2026-27") => {
+      const id = crypto.randomUUID();
+      await env.db.insert(pressRun).values({ id, companyId: p.companyId, number, period, status: "queued", sectionId: p.sectionId, pressLineId: p.lineId });
+      return id;
+    };
+    const r13 = await make("PR-13");
+    const r2 = await make("PR-2");
+    const r100 = await make("PR-100");
+    const r9 = await make("PR-9");
+    const old = await make("PR-50", "2025-26");
+    const rows = await p.dieRoom.dieInstance.issues.queuedRuns({});
+    expect(rows.map((r) => r.id)).toEqual([old, r2, r9, r13, r100]);
+    expect(rows.map((r) => r.number)).toEqual(["PR-50", "PR-2", "PR-9", "PR-13", "PR-100"]);
+  });
+
   test("a run with no press line yet takes the issue's line", async () => {
     const p = await plant();
     const c = await copy(p);

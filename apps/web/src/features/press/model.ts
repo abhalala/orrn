@@ -295,6 +295,15 @@ export function splitQueue<T extends QueueCardLike>(cards: readonly T[]): { onLi
   return { onLine, waiting };
 }
 
+/**
+ * The run a line board card leads with: the RUNNING run, even when a counting or stopped run sits
+ * before it in queue order (a counting PR-9 must not hide the running PR-10); otherwise the first
+ * run on the line. Later runs keep queue order.
+ */
+export function leadOnLine<T extends { status: string }>(onLine: readonly T[]): T | undefined {
+  return onLine.find((c) => c.status === "running") ?? onLine[0];
+}
+
 /** The 0-based target index in the waiting list for "up" / "down", or null at the ends. */
 export function reorderTarget(waiting: readonly { id: string }[], id: string, dir: "up" | "down"): number | null {
   const at = waiting.findIndex((c) => c.id === id);

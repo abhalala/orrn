@@ -493,8 +493,10 @@ test.describe("dispatch: packing list exports", () => {
     await page.waitForLoadState("networkidle");
     expect(urls.filter((u) => HEAVY.test(u))).toEqual([]);
 
+    // The PDF renderer is a lazy chunk (react-pdf + fonts) that is made on click: on a loaded machine the
+    // file takes well over the 5 s expect default, so wait on the download event itself, 60 s.
     const [download] = await Promise.all([
-      page.waitForEvent("download"),
+      page.waitForEvent("download", { timeout: 60_000 }),
       page.getByRole("button", { name: "Download PDF" }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(/\.pdf$/);
@@ -505,7 +507,7 @@ test.describe("dispatch: packing list exports", () => {
     await start(page, "owner");
     await visit(page, "/dispatch/dev-dispatch-done-1");
     const [download] = await Promise.all([
-      page.waitForEvent("download"),
+      page.waitForEvent("download", { timeout: 60_000 }),
       page.getByRole("button", { name: "Download Excel" }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/);

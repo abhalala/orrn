@@ -130,15 +130,21 @@ Rules that come from sharing one machine (COMMON rules 12 and 13):
   argument oddly and the whole suite runs. Use `cd apps/web && bunx playwright test --project=e2e tests/e2e/<spec>.spec.ts`
   after sourcing the ports. A spec at one width: add `-g` with the title; the visual projects (`desktop-dark` ...) are a separate suite.
 - **Server tests per file.** One `bun test` process runs about 100 Miniflare files back to back; on a loaded machine or on Linux a
-  single stuck file leaves a poisoned stub and every later file times out. Run the files one by one, stopping at the first failure:
-  `cd packages/server && for f in test/*.test.ts; do bun test "$f" --timeout 60000 || break; done`, or one file by hand
-  (`bun test test/<name>.test.ts`). The Miniflare files need no ports. `wt/W4-TESTSWEEP` adds a runner for this
-  (`bun run test:server:files`: one bun process per file, `JOBS=2`, `RETRY=1`, a name filter, per-file logs); it lands with MERGER-11.
-- **e2e groups A, B, C.** The full suite (about 1,000 tests) is too long for one run on a shared machine, so the mergers ran it in
-  three groups, alphabetical thirds of the spec files in `apps/web/tests/e2e`, one after another on one port pair, never together
-  (about ten minutes each at `E2E_WORKERS=2`): `bunx playwright test --project=e2e <the group's spec files>` after sourcing the ports.
-  Specs create what they change and assert only on their own rows, so a group runs in any order. `wt/W4-TESTSWEEP` adds
-  `bun run e2e:group A|B|C` and the membership file `apps/web/tests/e2e/GROUPS.md`; it lands with MERGER-11.
+  single stuck file leaves a poisoned stub and every later file times out. Run `bun run test:server:files` (one bun process per
+  file, `JOBS=2` for two at a time, `RETRY=1` reruns a failed file once alone, a name filter such as
+  `bun run test:server:files -- press-w2 plant-store`, logs per file) or one file by hand: `cd packages/server && bun test test/<name>.test.ts`
+  (`--timeout 60000` for a slow one). The Miniflare files need no ports.
+- **e2e groups A, B, C.** The full suite (about 1,000 tests in 40 spec files) is too long for one run on a shared machine, so the mergers
+  ran it in three groups, one after another on one port pair, never together: `bun run e2e:group A` (then `B`, `C`; extra
+  Playwright flags pass through: `bun run e2e:group B --retries=1`). Membership is in `apps/web/tests/e2e/GROUPS.md` and
+  `apps/web/scripts/e2e-group.sh` (A: catalog, charts, die-room, die-room-flows, die-room-w2, dispatch, dispatch-w1, dispatch-w2, front-door, godseye, gu-w4, guides,
+  imports; B: layout-guards, marketing, masters, orders, orders-w2, pack, pack-w1, platform, portal, press, printing-settings, reports;
+  C: chain, collectors, next-rows, orders-plan-purpose, preview-redirects, purchase, redirects, scan, session, shell, stock, stock-w1, store, today, ui-kit). A new spec is added to a group in both places; the script warns about a spec that is in none. Specs create what
+  they change and assert only on their own rows, so a group runs in any order.
+- **Linux / ICU.** The web unit tests that assert date wording (`formatDay`, `formatInstantDay`, `instantDateText`,
+  `companyClock`) are pinned: the code reads `Intl.DateTimeFormat#formatToParts` (day, month, year, hour, minute,
+  weekday) and joins them itself, so "Sept" vs "Sep", "3 Oct at 14:00" vs "3 Oct, 14:00" and a comma after the weekday
+  no longer depend on the ICU build. Write new date assertions the same way.
 
 ## Seed realistic data
 

@@ -6,7 +6,7 @@
  * bundle and per location equals what the bundle rows say (the projection), and at the end that
  * the ledger "as of" each step's instant equals that step's projection.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,9 @@ import { asc, eq } from "drizzle-orm";
 import { can, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 import { precreateDevSeedUsers } from "./dev-seed-fixture";
+
+// Heavy Miniflare D1 cases: the 5 s default flakes when other gates share the machine.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;
