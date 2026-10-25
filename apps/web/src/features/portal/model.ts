@@ -84,6 +84,12 @@ export function chemistryNote(chem: { status: CertChemistryStatus; testedBundles
   return { key: "portal.certificate.chemistryReady", vars: {} };
 }
 
+/** What a cast block says: its chemistry, "failed" plainly, or pending when it has no figures. */
+export function castState(c: Pick<CertCast, "status" | "elements">): "tested" | "failed" | "pending" {
+  if (c.status === "pending" || c.elements.length === 0) return "pending";
+  return c.status;
+}
+
 /** ppm to a percent as the lab sheet writes it: 4500 -> "0.450". */
 export function ppmPercentText(ppm: number | null): string {
   return ppm == null ? "-" : (ppm / 10_000).toFixed(3);
@@ -92,13 +98,18 @@ export function ppmPercentText(ppm: number | null): string {
 /** The certificate's snapshot as the portal reads it (version 1 has no `casts`). */
 export type CertCast = {
   castNo: string;
+  alloy: string | null;
+  /** tested = passes or incomplete, failed = latest result failed (shown plainly), pending = no result yet. */
+  status: "tested" | "failed" | "pending";
+  verdict: "pass" | "fail" | "incomplete" | null;
   bundles: number;
   pcs: number;
   weightG: number;
-  tested: boolean;
-  verdict: "pass" | "fail" | "incomplete" | null;
-  alloy: string | null;
-  elements: { element: string; ppm: number | null }[];
+  sectionCodes: string[];
+  /** Al is the balance (1 000 000 minus the other eight), not measured. */
+  alBalance: boolean;
+  /** Empty while pending. */
+  elements: { element: string; ppm: number | null; pct: string | null }[];
 };
 
 export type CertLine = {
@@ -130,6 +141,8 @@ export type CertSnapshot = {
     alloys: string[];
     testedBundles: number;
     untestedBundles: number;
+    noCastBundles?: number;
+    failedCasts?: number;
   };
   casts?: CertCast[];
 };

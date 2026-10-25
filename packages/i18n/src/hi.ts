@@ -4768,6 +4768,7 @@ export const hi = {
       licence: "CM/L",
       standardAsOfIssue: "स्टैंडर्ड वही है जो सर्टिफिकेट जारी करने के दिन था।",
       profileKindNotSet: "प्रोफ़ाइल का प्रकार तय नहीं है: सॉलिड स्टैंडर्ड दिखाया गया है।",
+      alBalance: "Al बाकी आठ का शेष है, मापा नहीं गया।",
       notTaxDocument: "क्वालिटी दस्तावेज़। टैक्स इनवॉइस नहीं।",
     },
     errors: {

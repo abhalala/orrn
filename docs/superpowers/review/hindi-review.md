@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4237 screen strings in 45 groups, 16 guides with 292 strings.
+Counts: 4238 screen strings in 45 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -4287,7 +4287,7 @@ Please check, Lalubhai:
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
 
-### portal (169)
+### portal (170)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4407,6 +4407,7 @@ Please check, Lalubhai:
 | `certificate.licence` | CM/L | CM/L |
 | `certificate.standardAsOfIssue` | Standard as of the day this certificate was issued. | स्टैंडर्ड वही है जो सर्टिफिकेट जारी करने के दिन था। |
 | `certificate.profileKindNotSet` | Profile kind not set: the solid standard is shown. | प्रोफ़ाइल का प्रकार तय नहीं है: सॉलिड स्टैंडर्ड दिखाया गया है। |
+| `certificate.alBalance` | Al is the balance of the other eight, not measured. | Al बाकी आठ का शेष है, मापा नहीं गया। |
 | `certificate.notTaxDocument` | Quality document. Not a tax invoice. | क्वालिटी दस्तावेज़। टैक्स इनवॉइस नहीं। |
 | `errors.notFound` | Not found | नहीं मिला |
 | `errors.notFoundBody` | There is nothing here for you. Check the link, or go back to your plant screens. | यहां आपके लिए कुछ नहीं है। लिंक जांचें, या प्लांट की स्क्रीन पर लौटें। |

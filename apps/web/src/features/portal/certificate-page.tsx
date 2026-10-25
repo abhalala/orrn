@@ -10,9 +10,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
-import { certCasts, chemistryNote, kgText, pcsText, ppmPercentText, type CertCast, type CertSnapshot } from "./model";
-
-const VERDICT_TONE = { pass: "green", fail: "red", incomplete: "amber" } as const;
+import { castState, certCasts, chemistryNote, kgText, pcsText, type CertCast, type CertSnapshot } from "./model";
 
 /**
  * `/portal/certificate/$dispatchId`: the test certificate of a dispatch, a frozen snapshot. It cites
@@ -137,38 +135,43 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
 
 function CastBlock({ cast }: { cast: CertCast }) {
   const { t } = useT();
+  const state = castState(cast);
   return (
-    <li className="flex min-w-0 flex-col gap-3 rounded-card border border-border p-3" data-cast={cast.castNo}>
+    <li className="flex min-w-0 flex-col gap-3 rounded-card border border-border p-3" data-cast={cast.castNo} data-cast-state={state}>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <p className="m-0 text-[15px] font-semibold">
           {t("portal.certificate.cast")} <span className="font-mono">{cast.castNo}</span>
           {cast.alloy ? <span className="ml-2 text-[13px] font-normal text-muted-foreground">{cast.alloy}</span> : null}
         </p>
-        {cast.tested && cast.verdict ? (
-          <Chip tone={VERDICT_TONE[cast.verdict]} truncate={false}>
-            {t(`portal.certificate.verdict.${cast.verdict}`)}
-          </Chip>
-        ) : (
+        {state === "pending" ? (
           <Chip tone="neutral" truncate={false}>
             {t("portal.certificate.castPending")}
+          </Chip>
+        ) : (
+          <Chip tone={state === "failed" ? "red" : cast.verdict === "incomplete" ? "amber" : "green"} truncate={false}>
+            {t(state === "failed" ? "portal.certificate.verdict.fail" : cast.verdict === "incomplete" ? "portal.certificate.verdict.incomplete" : "portal.certificate.verdict.pass")}
           </Chip>
         )}
       </div>
       <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
         {pcsText(cast.bundles)} {t("portal.dispatches.bundlesLabel")} · {kgText(cast.weightG)} {t("units.kg")}
+        {cast.sectionCodes.length > 0 ? ` · ${cast.sectionCodes.join(", ")}` : ""}
       </p>
-      {cast.tested ? (
-        <dl className="m-0 grid grid-cols-3 gap-x-3 gap-y-2" aria-label={t("portal.certificate.chemistry")}>
-          {cast.elements.map((e) => (
-            <div key={e.element} className="min-w-0">
-              <dt className="text-xs font-medium uppercase text-muted-foreground">{e.element}</dt>
-              <dd className="m-0 font-mono text-[14px] tabular-nums">
-                {ppmPercentText(e.ppm)}
-                {e.ppm != null ? <span className="text-xs text-muted-foreground"> %</span> : null}
-              </dd>
-            </div>
-          ))}
-        </dl>
+      {state !== "pending" ? (
+        <>
+          <dl className="m-0 grid grid-cols-3 gap-x-3 gap-y-2" aria-label={t("portal.certificate.chemistry")}>
+            {cast.elements.map((e) => (
+              <div key={e.element} className="min-w-0">
+                <dt className="text-xs font-medium uppercase text-muted-foreground">{e.element}</dt>
+                <dd className="m-0 font-mono text-[14px] tabular-nums">
+                  {e.pct ?? "-"}
+                  {e.pct != null ? <span className="text-xs text-muted-foreground"> %</span> : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {cast.alBalance ? <p className="m-0 text-[12px] text-muted-foreground">{t("portal.certificate.alBalance")}</p> : null}
+        </>
       ) : null}
     </li>
   );

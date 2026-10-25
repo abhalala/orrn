@@ -4781,6 +4781,7 @@ export const en = {
       licence: "CM/L",
       standardAsOfIssue: "Standard as of the day this certificate was issued.",
       profileKindNotSet: "Profile kind not set: the solid standard is shown.",
+      alBalance: "Al is the balance of the other eight, not measured.",
       notTaxDocument: "Quality document. Not a tax invoice.",
     },
     errors: {

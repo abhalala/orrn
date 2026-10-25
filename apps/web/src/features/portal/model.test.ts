@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   bandPosition,
+  castState,
   certCasts,
   chemistryNote,
   kgPer12ftText,
@@ -58,7 +59,15 @@ describe("certificate", () => {
   });
   test("a version 1 snapshot has no casts", () => {
     expect(certCasts({})).toEqual([]);
-    expect(certCasts({ casts: [{ castNo: "K31", bundles: 1, pcs: 1, weightG: 1, tested: false, verdict: null, alloy: null, elements: [] }] })).toHaveLength(1);
+    const base = { castNo: "K31", alloy: "6063", bundles: 1, pcs: 1, weightG: 1, sectionCodes: ["14701"], alBalance: true };
+    expect(certCasts({ casts: [{ ...base, status: "pending", verdict: null, elements: [] }] })).toHaveLength(1);
+  });
+  test("a cast with no figures is pending, a failed cast says failed, a tested one shows its chemistry", () => {
+    const el = [{ element: "si", ppm: 4500, pct: "0.450" }];
+    expect(castState({ status: "pending", elements: [] })).toBe("pending");
+    expect(castState({ status: "tested", elements: [] })).toBe("pending");
+    expect(castState({ status: "failed", elements: el })).toBe("failed");
+    expect(castState({ status: "tested", elements: el })).toBe("tested");
   });
 });
 
