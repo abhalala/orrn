@@ -10,6 +10,7 @@ import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
 import { TodayPressTile } from "@/features/press/today-tile";
+import { TodayOldStockTile } from "@/features/reports/today-old-stock";
 import { Can } from "@/shared/components/can";
 import { canAny, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, refreshFailed, showsQueryError } from "@/shared/lib/query-errors";
@@ -199,6 +200,7 @@ export function TodayScreen() {
         </ListsGrid>
       ) : null}
       <Can do="analytics.view">
+        <TodayOldStockTile />
         <ChartsBoundary>
           <Suspense fallback={<ChartsSkeleton />}>
             <TodayCharts

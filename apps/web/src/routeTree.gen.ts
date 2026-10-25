@@ -38,6 +38,7 @@ import { Route as TenantVendorsIndexRouteImport } from './routes/_tenant/vendors
 import { Route as TenantStoreIndexRouteImport } from './routes/_tenant/store.index'
 import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
 import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.index'
+import { Route as TenantReportsIndexRouteImport } from './routes/_tenant/reports.index'
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
 import { Route as TenantPurchaseIndexRouteImport } from './routes/_tenant/purchase.index'
 import { Route as TenantPreviewIndexRouteImport } from './routes/_tenant/preview.index'
@@ -62,6 +63,10 @@ import { Route as TenantStockLengthsRouteImport } from './routes/_tenant/stock.l
 import { Route as TenantStockBundlesRouteImport } from './routes/_tenant/stock.bundles'
 import { Route as TenantStockDieIdRouteImport } from './routes/_tenant/stock.$dieId'
 import { Route as TenantSettingsMembersRouteImport } from './routes/_tenant/settings.members'
+import { Route as TenantReportsStockAgeRouteImport } from './routes/_tenant/reports.stock-age'
+import { Route as TenantReportsProductionRouteImport } from './routes/_tenant/reports.production'
+import { Route as TenantReportsOrdersRouteImport } from './routes/_tenant/reports.orders'
+import { Route as TenantReportsDieLifeRouteImport } from './routes/_tenant/reports.die-life'
 import { Route as TenantReceiptsNewRouteImport } from './routes/_tenant/receipts.new'
 import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.$id'
 import { Route as TenantPurchaseNewRouteImport } from './routes/_tenant/purchase.new'
@@ -284,6 +289,11 @@ const TenantSpoolIndexRoute = TenantSpoolIndexRouteImport.update({
   path: '/spool/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantReportsIndexRoute = TenantReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
   id: '/receipts/',
   path: '/receipts/',
@@ -403,6 +413,26 @@ const TenantSettingsMembersRoute = TenantSettingsMembersRouteImport.update({
   id: '/members',
   path: '/members',
   getParentRoute: () => TenantSettingsRoute,
+} as any)
+const TenantReportsStockAgeRoute = TenantReportsStockAgeRouteImport.update({
+  id: '/reports/stock-age',
+  path: '/reports/stock-age',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsProductionRoute = TenantReportsProductionRouteImport.update({
+  id: '/reports/production',
+  path: '/reports/production',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsOrdersRoute = TenantReportsOrdersRouteImport.update({
+  id: '/reports/orders',
+  path: '/reports/orders',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsDieLifeRoute = TenantReportsDieLifeRouteImport.update({
+  id: '/reports/die-life',
+  path: '/reports/die-life',
+  getParentRoute: () => TenantRoute,
 } as any)
 const TenantReceiptsNewRoute = TenantReceiptsNewRouteImport.update({
   id: '/receipts/new',
@@ -890,6 +920,10 @@ export interface FileRoutesByFullPath {
   '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
   '/receipts/new': typeof TenantReceiptsNewRoute
+  '/reports/die-life': typeof TenantReportsDieLifeRoute
+  '/reports/orders': typeof TenantReportsOrdersRoute
+  '/reports/production': typeof TenantReportsProductionRoute
+  '/reports/stock-age': typeof TenantReportsStockAgeRoute
   '/settings/members': typeof TenantSettingsMembersRoute
   '/stock/$dieId': typeof TenantStockDieIdRoute
   '/stock/bundles': typeof TenantStockBundlesRoute
@@ -914,6 +948,7 @@ export interface FileRoutesByFullPath {
   '/preview/': typeof TenantPreviewIndexRoute
   '/purchase/': typeof TenantPurchaseIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
+  '/reports/': typeof TenantReportsIndexRoute
   '/spool/': typeof TenantSpoolIndexRoute
   '/stock/': typeof TenantStockIndexRoute
   '/store/': typeof TenantStoreIndexRoute
@@ -1021,6 +1056,10 @@ export interface FileRoutesByTo {
   '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
   '/receipts/new': typeof TenantReceiptsNewRoute
+  '/reports/die-life': typeof TenantReportsDieLifeRoute
+  '/reports/orders': typeof TenantReportsOrdersRoute
+  '/reports/production': typeof TenantReportsProductionRoute
+  '/reports/stock-age': typeof TenantReportsStockAgeRoute
   '/settings/members': typeof TenantSettingsMembersRoute
   '/stock/$dieId': typeof TenantStockDieIdRoute
   '/stock/bundles': typeof TenantStockBundlesRoute
@@ -1045,6 +1084,7 @@ export interface FileRoutesByTo {
   '/preview': typeof TenantPreviewIndexRoute
   '/purchase': typeof TenantPurchaseIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
+  '/reports': typeof TenantReportsIndexRoute
   '/spool': typeof TenantSpoolIndexRoute
   '/stock': typeof TenantStockIndexRoute
   '/store': typeof TenantStoreIndexRoute
@@ -1158,6 +1198,10 @@ export interface FileRoutesById {
   '/_tenant/purchase/new': typeof TenantPurchaseNewRoute
   '/_tenant/receipts/$id': typeof TenantReceiptsIdRoute
   '/_tenant/receipts/new': typeof TenantReceiptsNewRoute
+  '/_tenant/reports/die-life': typeof TenantReportsDieLifeRoute
+  '/_tenant/reports/orders': typeof TenantReportsOrdersRoute
+  '/_tenant/reports/production': typeof TenantReportsProductionRoute
+  '/_tenant/reports/stock-age': typeof TenantReportsStockAgeRoute
   '/_tenant/settings/members': typeof TenantSettingsMembersRoute
   '/_tenant/stock/$dieId': typeof TenantStockDieIdRoute
   '/_tenant/stock/bundles': typeof TenantStockBundlesRoute
@@ -1182,6 +1226,7 @@ export interface FileRoutesById {
   '/_tenant/preview/': typeof TenantPreviewIndexRoute
   '/_tenant/purchase/': typeof TenantPurchaseIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
+  '/_tenant/reports/': typeof TenantReportsIndexRoute
   '/_tenant/spool/': typeof TenantSpoolIndexRoute
   '/_tenant/stock/': typeof TenantStockIndexRoute
   '/_tenant/store/': typeof TenantStoreIndexRoute
@@ -1291,6 +1336,10 @@ export interface FileRouteTypes {
     | '/purchase/new'
     | '/receipts/$id'
     | '/receipts/new'
+    | '/reports/die-life'
+    | '/reports/orders'
+    | '/reports/production'
+    | '/reports/stock-age'
     | '/settings/members'
     | '/stock/$dieId'
     | '/stock/bundles'
@@ -1315,6 +1364,7 @@ export interface FileRouteTypes {
     | '/preview/'
     | '/purchase/'
     | '/receipts/'
+    | '/reports/'
     | '/spool/'
     | '/stock/'
     | '/store/'
@@ -1422,6 +1472,10 @@ export interface FileRouteTypes {
     | '/purchase/new'
     | '/receipts/$id'
     | '/receipts/new'
+    | '/reports/die-life'
+    | '/reports/orders'
+    | '/reports/production'
+    | '/reports/stock-age'
     | '/settings/members'
     | '/stock/$dieId'
     | '/stock/bundles'
@@ -1446,6 +1500,7 @@ export interface FileRouteTypes {
     | '/preview'
     | '/purchase'
     | '/receipts'
+    | '/reports'
     | '/spool'
     | '/stock'
     | '/store'
@@ -1558,6 +1613,10 @@ export interface FileRouteTypes {
     | '/_tenant/purchase/new'
     | '/_tenant/receipts/$id'
     | '/_tenant/receipts/new'
+    | '/_tenant/reports/die-life'
+    | '/_tenant/reports/orders'
+    | '/_tenant/reports/production'
+    | '/_tenant/reports/stock-age'
     | '/_tenant/settings/members'
     | '/_tenant/stock/$dieId'
     | '/_tenant/stock/bundles'
@@ -1582,6 +1641,7 @@ export interface FileRouteTypes {
     | '/_tenant/preview/'
     | '/_tenant/purchase/'
     | '/_tenant/receipts/'
+    | '/_tenant/reports/'
     | '/_tenant/spool/'
     | '/_tenant/stock/'
     | '/_tenant/store/'
@@ -1852,6 +1912,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantSpoolIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/reports/': {
+      id: '/_tenant/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof TenantReportsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/receipts/': {
       id: '/_tenant/receipts/'
       path: '/receipts'
@@ -2019,6 +2086,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/members'
       preLoaderRoute: typeof TenantSettingsMembersRouteImport
       parentRoute: typeof TenantSettingsRoute
+    }
+    '/_tenant/reports/stock-age': {
+      id: '/_tenant/reports/stock-age'
+      path: '/reports/stock-age'
+      fullPath: '/reports/stock-age'
+      preLoaderRoute: typeof TenantReportsStockAgeRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/production': {
+      id: '/_tenant/reports/production'
+      path: '/reports/production'
+      fullPath: '/reports/production'
+      preLoaderRoute: typeof TenantReportsProductionRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/orders': {
+      id: '/_tenant/reports/orders'
+      path: '/reports/orders'
+      fullPath: '/reports/orders'
+      preLoaderRoute: typeof TenantReportsOrdersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/die-life': {
+      id: '/_tenant/reports/die-life'
+      path: '/reports/die-life'
+      fullPath: '/reports/die-life'
+      preLoaderRoute: typeof TenantReportsDieLifeRouteImport
+      parentRoute: typeof TenantRoute
     }
     '/_tenant/receipts/new': {
       id: '/_tenant/receipts/new'
@@ -2733,6 +2828,10 @@ interface TenantRouteChildren {
   TenantPurchaseNewRoute: typeof TenantPurchaseNewRoute
   TenantReceiptsIdRoute: typeof TenantReceiptsIdRoute
   TenantReceiptsNewRoute: typeof TenantReceiptsNewRoute
+  TenantReportsDieLifeRoute: typeof TenantReportsDieLifeRoute
+  TenantReportsOrdersRoute: typeof TenantReportsOrdersRoute
+  TenantReportsProductionRoute: typeof TenantReportsProductionRoute
+  TenantReportsStockAgeRoute: typeof TenantReportsStockAgeRoute
   TenantStockDieIdRoute: typeof TenantStockDieIdRoute
   TenantStockBundlesRoute: typeof TenantStockBundlesRoute
   TenantStockLengthsRoute: typeof TenantStockLengthsRoute
@@ -2754,6 +2853,7 @@ interface TenantRouteChildren {
   TenantPreviewIndexRoute: typeof TenantPreviewIndexRoute
   TenantPurchaseIndexRoute: typeof TenantPurchaseIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
+  TenantReportsIndexRoute: typeof TenantReportsIndexRoute
   TenantSpoolIndexRoute: typeof TenantSpoolIndexRoute
   TenantStockIndexRoute: typeof TenantStockIndexRoute
   TenantStoreIndexRoute: typeof TenantStoreIndexRoute
@@ -2831,6 +2931,10 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPurchaseNewRoute: TenantPurchaseNewRoute,
   TenantReceiptsIdRoute: TenantReceiptsIdRoute,
   TenantReceiptsNewRoute: TenantReceiptsNewRoute,
+  TenantReportsDieLifeRoute: TenantReportsDieLifeRoute,
+  TenantReportsOrdersRoute: TenantReportsOrdersRoute,
+  TenantReportsProductionRoute: TenantReportsProductionRoute,
+  TenantReportsStockAgeRoute: TenantReportsStockAgeRoute,
   TenantStockDieIdRoute: TenantStockDieIdRoute,
   TenantStockBundlesRoute: TenantStockBundlesRoute,
   TenantStockLengthsRoute: TenantStockLengthsRoute,
@@ -2852,6 +2956,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPreviewIndexRoute: TenantPreviewIndexRoute,
   TenantPurchaseIndexRoute: TenantPurchaseIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
+  TenantReportsIndexRoute: TenantReportsIndexRoute,
   TenantSpoolIndexRoute: TenantSpoolIndexRoute,
   TenantStockIndexRoute: TenantStockIndexRoute,
   TenantStoreIndexRoute: TenantStoreIndexRoute,

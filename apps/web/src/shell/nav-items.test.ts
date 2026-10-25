@@ -27,6 +27,7 @@ describe("visibleItems", () => {
       "dispatch",
       "orders",
       "press",
+      "reports",
       "purchase",
       "approvals",
       "dies",
@@ -79,7 +80,7 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "orders", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit", "preview"]);
+    expect(visible).toEqual(["today", "orders", "reports", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit", "preview"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 
@@ -193,5 +194,17 @@ describe("Orders (FP-OP)", () => {
     expect(isItemActive(item, "/orders/plan")).toBe(true);
     expect(isItemActive(item, "/orders/dev-so-1")).toBe(true);
     expect(isItemActive(item, "/dispatch")).toBe(false);
+  });
+});
+
+describe("Reports (W4-ANALYTICS)", () => {
+  test("shows for reports.read holders only", () => {
+    const has = (role: CompanyRole) => keys(visibleItems(TENANT_MORE, me(role))).includes("reports");
+    for (const role of ["owner", "admin", "manager", "office", "accountant", "supervisor", "viewer"] as const) {
+      expect({ role, reports: has(role) }).toEqual({ role, reports: true });
+    }
+    for (const role of ["operator", "packer", "press", "foundry", "storekeeper", "die_room"] as const) {
+      expect({ role, reports: has(role) }).toEqual({ role, reports: false });
+    }
   });
 });
