@@ -185,3 +185,97 @@ test.describe("FP-OP-21 press plan on the owner's phone", () => {
     });
   }
 });
+
+test.describe("FP-PR-19 press station outbox", () => {
+  test.describe.configure({ mode: "serial" });
+  type Run = { id: string; number: string };
+  let api: Awaited<ReturnType<typeof ownerApi>>;
+  let lineId = "";
+  let copyId = "";
+  let orderId = "";
+  let run: Run;
+
+  test.beforeAll(async () => {
+    api = await ownerApi();
+    const tag = Date.now().toString(36).slice(-5).toUpperCase();
+    lineId = (await api.mutate<{ id: string }>("press.lines.create", { code: `OB${tag}`, name: `Outbox ${tag}` })).id;
+    copyId = (await api.mutate<{ id: string }>("dieInstance.create", { sectionId: "dev-die-13090", status: "available" })).id;
+    await api.mutate("dieInstance.addReading", { dieInstanceId: copyId, kgPer12ftMilli: 2700 });
+    const { id: customerId } = await api.mutate<{ id: string }>("customer.create", { name: `Outbox Traders ${tag}` });
+    const made = await api.mutate<{ id: string }>("orders.create", { customerId, poNumber: `OB-${tag}`, lines: [{ sectionId: "dev-die-13090", cutLengthMm: 5486, qtyBasis: "pcs", pcs: 20, tierRank: 1 }] });
+    orderId = made.id;
+    const got = await api.query<{ order: { serverSeq: number }; lines: { lineId: string }[] }>("orders.get", { id: made.id });
+    await api.mutate("orders.confirm", { id: made.id, serverSeq: got.order.serverSeq });
+    const now = Date.now();
+    const plan = await api.mutate<{ id: string }>("plans.create", {
+      windowStart: now,
+      windowEnd: now + 8 * 3_600_000,
+      pressLineId: lineId,
+      dies: [{ sectionId: "dev-die-13090", lines: [{ salesOrderLineId: got.lines[0]!.lineId, pcs: 20 }] }],
+    });
+    run = (await api.mutate<{ runs: Run[] }>("plans.release", { id: plan.id })).runs[0]!;
+    await api.mutate("dieInstance.issues.issue", { dieInstanceId: copyId, pressLineId: lineId, pressRunId: run.id });
+  });
+
+  test.afterAll(async () => {
+    // Leave the plant as it was: finish the run, retire the press and the copy, close the order.
+    const get = () => api.query<{ run: { status: string; castId: string | null }; planLines: { id: string; cutLengthMm: number }[]; downtime: { id: string; stoppedAt: string | null }[] }>("press.runs.get", { id: run.id });
+    let g = await get();
+    if (g.run.status === "die_issued" || g.run.status === "queued") {
+      const reasons = await api.query<{ id: string; code: string }[]>("press.reasons", { kind: "void" });
+      await api.mutate("press.runs.void", { id: run.id, reasonCodeId: (reasons.find((r) => r.code === "other") ?? reasons[0]!).id, note: "e2e cleanup" });
+    } else if (g.run.status !== "logged") {
+      if (g.run.status === "running") await api.mutate("press.runs.stop", { id: run.id });
+      g = await get();
+      if (g.run.status === "stopped") await api.mutate("press.runs.count", { id: run.id });
+      g = await get();
+      for (const d of g.downtime.filter((x) => !x.stoppedAt)) await api.mutate("press.downtime.stop", { id: d.id });
+      await api.mutate("press.runs.handover", { id: run.id, supervisorId: null });
+      const casts = await api.query<{ items: { id: string; billetsOnHandG: number }[] }>("foundry.casts.list", { limit: 200 });
+      const cast = [...casts.items].sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)[0]!;
+      await api.mutate("press.runs.billets", { id: run.id, castId: g.run.castId ?? cast.id, rows: [{ lengthMm: 600, count: 1, kgG: 10_000 }] });
+      await api.mutate("press.runs.lines", { id: run.id, rows: g.planLines.map((p) => ({ cutLengthMm: p.cutLengthMm, pcs: 1, goodG: 1000, pressPlanLineId: p.id })) });
+      await api.mutate("press.runs.qc", { id: run.id, rows: [{ pcs: 0, kgG: 0, reasonCodeId: null, note: null, runLine: null }] });
+      await api.mutate("press.runs.close", { id: run.id });
+    }
+    await api.mutate("press.lines.retire", { id: lineId });
+    await api.mutate("dieInstance.update", { id: copyId, status: "retired" });
+    await api.mutate("orders.close", { id: orderId, reason: "e2e cleanup" });
+    await api.dispose();
+  });
+
+  test("offline Start waits with its key and goes when the connection is back; a refused Stop is shown on its own", async ({ page, context }) => {
+    await page.setViewportSize({ width: 820, height: 1100 });
+    await signInViaApi(page, "press");
+    await page.goto(`/press/runs/${run.id}`);
+    const start = page.getByRole("button", { name: "Start", exact: true });
+    await expect(start).toBeVisible({ timeout: 30_000 });
+
+    await context.setOffline(true);
+    await start.click();
+    const banner = page.locator("[data-outbox-banner]");
+    await expect(banner).toHaveText("Offline: 1 change waiting");
+    await expectNoHorizontalScroll(page);
+    // The write is kept across a reload of the list (same tab storage), and nothing reached the server.
+    expect((await api.query<{ run: { status: string } }>("press.runs.get", { id: run.id })).run.status).toBe("die_issued");
+
+    await context.setOffline(false);
+    await expect(page.locator("[data-outbox]")).toHaveCount(0, { timeout: 30_000 });
+    await expect(page.locator('[data-slot="station"]')).toHaveAttribute("data-status", "running", { timeout: 30_000 });
+    expect((await api.query<{ run: { status: string } }>("press.runs.get", { id: run.id })).run.status).toBe("running");
+
+    // Offline Stop, while another device stops the run: the queued Stop comes back refused, as a conflict.
+    const stop = page.getByRole("button", { name: "Stop", exact: true });
+    await expect(stop).toBeVisible();
+    await context.setOffline(true);
+    await stop.click();
+    await expect(banner).toHaveText("Offline: 1 change waiting");
+    await api.mutate("press.runs.stop", { id: run.id });
+    await context.setOffline(false);
+    const conflict = page.locator('[data-outbox-conflict="stop"]');
+    await expect(conflict).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("[data-outbox-banner]")).toHaveCount(0);
+    await conflict.locator("[data-outbox-drop]").click();
+    await expect(page.locator("[data-outbox]")).toHaveCount(0);
+  });
+});

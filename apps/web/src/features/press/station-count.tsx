@@ -21,6 +21,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { clearDraft, emptyBillet, emptyCut, emptyQc, serverBase, textToLength, useCountDraft } from "./count-draft";
 import { ErrorLines } from "./error-lines";
 import { gatesOf, pressErrorText, pressErrorToast, useActionKey, useHolds } from "./hooks";
+import { outboxCounts, unsentNotes, type OutboxKind } from "./outbox";
+import { useOutbox, useStationSend } from "./outbox-hooks";
 import {
   billetRows,
   COUNT_STEPS,
@@ -69,6 +71,8 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
   const attempts = useRef<NoteAttempts>({});
   const toMm = (text: string) => textToLength(text, unit);
   const closeKey = useActionKey();
+  // FP-PR-19: offline, a save waits in the outbox (its key kept) and the stepper moves on; the draft stays.
+  const send = useStationSend(runId, data.run.number);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retry?: () => void } | null>(null);
   const [gates, setGates] = useState<string[] | null>(null);
@@ -87,13 +91,8 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     placeholderData: keepPreviousData,
   });
 
-  const billets = useMutation(trpc.press.runs.billets.mutationOptions());
-  const lines = useMutation(trpc.press.runs.lines.mutationOptions());
-  const scrap = useMutation(trpc.press.runs.scrap.mutationOptions());
-  const qcMut = useMutation(trpc.press.runs.qc.mutationOptions());
   const remark = useMutation(trpc.press.runs.remark.mutationOptions());
   const reading = useMutation(trpc.dieInstance.addReading.mutationOptions());
-  const close = useMutation(trpc.press.runs.close.mutationOptions());
   const confirmTime = useMutation(trpc.press.runs.confirmTime.mutationOptions());
 
   // A refused close stays on screen until the figures change (the person fixed something).
@@ -112,6 +111,16 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     const fresh = qc.getQueryData(trpc.press.runs.get.queryKey({ id: runId }));
     if (fresh) patch({ base: serverBase(fresh) });
   };
+
+  // Once this run's waiting writes have all gone, the draft starts from what the server holds (they match).
+  const { box } = useOutbox();
+  const waitingHere = outboxCounts(box, runId).waiting;
+  const wasWaiting = useRef(waitingHere);
+  useEffect(() => {
+    if (wasWaiting.current > 0 && waitingHere === 0) void refresh().then(syncBase);
+    wasWaiting.current = waitingHere;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingHere]);
 
   const castOptions = useMemo(
     () =>
@@ -139,31 +148,40 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     setError(null);
     setNotice(null);
     const again = () => void next();
+    let queued = false;
+    const put = async (kind: OutboxKind, input: Record<string, unknown>) => {
+      const r = await send(kind, input);
+      if (r.queued) queued = true;
+    };
     try {
       if (step === 0) {
         if (!draft.castId) return invalid("press.console.gates.no_cast");
         const r = billetRows(draft.billets, toMm);
         if ("issue" in r) return invalid("press.console.gates.billet_row_invalid");
         if (r.rows.length === 0) return invalid("press.console.gates.no_billets");
-        await billets.mutateAsync({ id: runId, castId: draft.castId, rows: r.rows });
+        await put("billets", { id: runId, castId: draft.castId, rows: r.rows });
       } else if (step === 1) {
         const r = lineRows(draft.lines, toMm);
         if ("issue" in r) return invalid("press.console.gates.line_invalid");
         if (r.rows.length === 0) return invalid("press.console.gates.no_lines");
         const pressed = draft.pressedLengthText.trim() === "" ? null : toMm(draft.pressedLengthText);
         if (draft.pressedLengthText.trim() !== "" && pressed === null) return invalid("press.console.gates.line_invalid");
-        await lines.mutateAsync({ id: runId, rows: r.rows });
-        await scrap.mutateAsync({ id: runId, pressedLengthMm: pressed });
+        await put("lines", { id: runId, rows: r.rows });
+        await put("scrap", { id: runId, pressedLengthMm: pressed });
       } else if (step === 2) {
         const d = draft.discardText.trim() === "" ? null : kgTextToG(draft.discardText);
         const e = draft.endsText.trim() === "" ? null : kgTextToG(draft.endsText);
         if ((draft.discardText.trim() !== "" && d === null) || (draft.endsText.trim() !== "" && e === null)) return invalid("press.console.kgInvalid");
-        await scrap.mutateAsync({ id: runId, discardG: d, endsG: e });
+        await put("scrap", { id: runId, discardG: d, endsG: e });
       } else if (step === 3) {
         const r = qcRows(draft.qc);
         if ("issue" in r) return invalid("press.console.gates.qc_row_invalid");
         if (r.rows.length === 0) return invalid("press.console.gates.no_qc");
-        await qcMut.mutateAsync({ id: runId, rows: r.rows });
+        await put("qc", { id: runId, rows: r.rows });
+      }
+      if (queued) {
+        setNotice(t("press.console.outbox.queued"));
+        return true;
       }
       await refresh();
       syncBase();
@@ -225,15 +243,26 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     setBusy(true);
     setGates(null);
     setNotice(null);
-    const ok = await saveNotes();
+    // Offline the remarks and the reading cannot go (no idempotency key): log without them only when none are typed.
+    const offline = typeof navigator !== "undefined" && !navigator.onLine;
+    if (offline && unsentNotes(draft, data)) {
+      setError({ message: t("press.console.outbox.notesNeedConnection") });
+      return setBusy(false);
+    }
+    const ok = offline ? true : await saveNotes();
     if (!ok) return setBusy(false);
     try {
-      const out = await close.mutateAsync({
+      const res = await send("close", {
         id: runId,
         clientMutationId: closeKey.get(),
         ...(draft.billetShortReason.trim() ? { billetShortReason: draft.billetShortReason.trim() } : {}),
         ...(draft.trialResult ? { trialResult: draft.trialResult } : {}),
       });
+      if (res.queued) {
+        setNotice(t("press.console.outbox.queued"));
+        return;
+      }
+      const out = res.out as { recoveryBp: number | null };
       closeKey.reset();
       clearDraft(runId);
       toast.success(t("press.console.loggedDone", { pct: out.recoveryBp == null ? "" : bpPercent1(out.recoveryBp) }));

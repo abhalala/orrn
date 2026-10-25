@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5155 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5176 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -4381,7 +4381,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (425)
+### press (446)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4658,6 +4658,27 @@ Please check, Lalubhai:
 | `console.busy` | Another run is running on this press. Stop it first. | इस प्रेस पर दूसरा रन चल रहा है। पहले उसे रोकें। |
 | `console.stoppedBannerChip` | Stopped | रुका हुआ |
 | `console.startFailed` | The run did not start. | रन शुरू नहीं हुआ। |
+| `console.outbox.notesNeedConnection` | Offline, the remarks and the die reading cannot be saved. Clear them or wait for the connection, then log the run. | ऑफ़लाइन में रिमार्क और डाई रीडिंग सेव नहीं हो सकते। उन्हें हटाएँ या कनेक्शन का इंतज़ार करें, फिर रन लॉग करें। |
+| `console.outbox.offline` | Offline: {count} {count:change\|changes} waiting | ऑफ़लाइन: {count} बदलाव बाकी |
+| `console.outbox.waiting` | {count} {count:change\|changes} waiting to send | {count} बदलाव भेजने बाकी |
+| `console.outbox.sending` | Sending {count} {count:change\|changes} | {count} बदलाव भेज रहे हैं |
+| `console.outbox.sendNow` | Send now | अभी भेजें |
+| `console.outbox.keepOpen` | Saved on this tablet. They go to orrn in order when the connection is back. Keep this page open. | इस टैबलेट पर सेव है। कनेक्शन आते ही क्रम से orrn पर जाएँगे। यह पेज खुला रखें। |
+| `console.outbox.queued` | Offline. Saved on this tablet; it goes when the connection is back. | ऑफ़लाइन। इस टैबलेट पर सेव है; कनेक्शन आते ही जाएगा। |
+| `console.outbox.sent` | {count} {count:change\|changes} sent | {count} बदलाव भेजे गए |
+| `console.outbox.conflicts` | Changes orrn did not take | जो बदलाव orrn ने नहीं लिए |
+| `console.outbox.notTaken` | {what} on {run} was not taken | {run} पर {what} नहीं लिया गया |
+| `console.outbox.drop` | Remove from the list | सूची से हटाएँ |
+| `console.outbox.kind.start` | Start | शुरू |
+| `console.outbox.kind.stop` | Stop | रोकें |
+| `console.outbox.kind.count` | Count | गिनती |
+| `console.outbox.kind.resume` | Resume | फिर चालू |
+| `console.outbox.kind.undoStart` | Undo start | शुरू वापस |
+| `console.outbox.kind.billets` | Billets | बिलेट |
+| `console.outbox.kind.lines` | Pieces and kg | पीस और kg |
+| `console.outbox.kind.scrap` | Butt and ends | बट और एंड |
+| `console.outbox.kind.qc` | Rejects | रिजेक्ट |
+| `console.outbox.kind.close` | Log run | रन लॉग |
 | `console.stopFailed` | The run did not stop. | रन रुका नहीं। |
 | `console.sections` | Sections | सेक्शन |
 | `console.dieCopy` | Die copy | Die कॉपी |
