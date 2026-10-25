@@ -9,7 +9,8 @@ import { errorText } from "./pack";
 
 /**
  * Replay-safe floor writes (BACKLOG 50, architecture SAD §5): `bundle.createReceipt`,
- * `dispatch.scan` / `addBundlesBySerial` and `stock.move` take an optional `clientRequestId`.
+ * `dispatch.scan` / `addBundlesBySerial` and `stock.move` take (BACKLOG 47 adds `dispatch.create` and
+ * `dieInstance.addReading`) an optional `clientRequestId`.
  *
  * The write's own audit row is the record: its id is derived from (company, kind, request id)
  * (`requestRowIds`, as the imports do), and its meta carries the request's fingerprint and what the
@@ -25,7 +26,7 @@ import { errorText } from "./pack";
  * the company exists. A write that changed nothing (every serial already on the load, every bundle
  * already in the yard) writes no row; its repeat recomputes the same answer.
  */
-export type ReplayKind = "bundle.receipt" | "dispatch.add" | "stock.move";
+export type ReplayKind = "bundle.receipt" | "dispatch.add" | "stock.move" | "dispatch.create" | "die_reading.add";
 
 export type Replay = {
   /** The audit row id this request writes (and a repeat finds). */

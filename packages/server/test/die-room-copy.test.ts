@@ -168,6 +168,31 @@ describe("nitriding out and back (FP-DR-09)", () => {
     expect((await row(a.id)).status).toBe("available");
   });
 
+  test("BACKLOG 19: the server derives close = open - used; open and used are all the client sends", async () => {
+    const p = await plant();
+    const a = await copy(p);
+    const out = await p.dieRoom.dieInstance.nitridingOut({
+      dieInstanceId: a.id,
+      cr4: { openG: 5_000, usedG: 1_200 },
+      caustic: { openG: 800, usedG: 800 },
+    });
+    const [log] = await env.db.select().from(nitridingLog).where(eq(nitridingLog.id, out.id));
+    expect(log).toMatchObject({ cr4OpenG: 5_000, cr4UsedG: 1_200, cr4CloseG: 3_800, causticCloseG: 0, cr2CloseG: null });
+    await p.dieRoom.dieInstance.nitridingBack({ dieInstanceId: a.id });
+    // The record form (addNitriding) derives it too, and still accepts a matching closeG for one release.
+    const rec = await p.dieRoom.dieInstance.addNitriding({ dieInstanceId: a.id, k2s: { openG: 2_000, usedG: 150 }, cr2: { openG: 1_000, usedG: 400, closeG: 600 } });
+    const [row2] = await env.db.select().from(nitridingLog).where(eq(nitridingLog.id, rec.id));
+    expect(row2).toMatchObject({ k2sCloseG: 1_850, cr2CloseG: 600 });
+  });
+
+  test("used above open is refused; a wrong closeG still is; nothing is written", async () => {
+    const p = await plant();
+    const a = await copy(p);
+    await expect(p.dieRoom.dieInstance.nitridingOut({ dieInstanceId: a.id, k2s: { openG: 100, usedG: 200 } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.dieRoom.dieInstance.nitridingOut({ dieInstanceId: a.id, k2s: { openG: 100, usedG: 20, closeG: 90 } })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect((await row(a.id)).status).toBe("available");
+  });
+
   test("refused from in_use, at_maker, retired and while an issue is open; no log written", async () => {
     const p = await plant();
     for (const status of ["in_use", "at_maker", "retired"] as const) {
