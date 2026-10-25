@@ -74,7 +74,7 @@ async function gate(api: OwnerApi, tag: string) {
 
 /** The ambiguous code the demo plant keeps on purpose: kd's first monthly party number, e.g. "26J1" in October 2026. */
 async function clashCode(api: OwnerApi) {
-  const seeded = await api.query<{ serial: string; partyNo: string | null }>("bundle.getBundle", { id: "dev-bundle-party-clash" });
+  const { bundle: seeded } = await api.query<{ bundle: { serial: string; partyNo: string | null } }>("bundle.getBundle", { id: "dev-bundle-party-clash" });
   expect(seeded.partyNo, "the seeded clash bundle").toBeTruthy();
   expect(seeded.serial).toBe(seeded.partyNo);
   // Year (two digits) + month letter A-L + sequence 1: the month letter follows the seed's clock.

@@ -330,23 +330,39 @@ async function expectStickerFits(sticker: ReturnType<Page["locator"]>) {
   await expect(sticker.locator("img[data-slot='sticker-qr']")).toBeVisible({ timeout: 15_000 });
   // Under reduced motion every property change is a 0.01 ms transition (globals.css), so a box read in
   // the same frame as a density or media switch still has its old size: wait two frames first.
-  // Fonts first (a late web font changes the text widths), then two frames for the layout to settle.
+  // Fonts first (a late web font changes the text widths), then wait until the boxes stop moving: two frames
+  // are not enough when the machine is loaded (a density switch is a 0.01 ms transition per property, and
+  // one measured mid-flight showed the 21-up grid with the 10-up QR). Stable = the same boxes on three
+  // frames in a row; the last read is what is judged.
   const boxes = await sticker.evaluate(async (el) => {
+    const frame = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const nodes = [el, ...Array.from(el.querySelectorAll("[data-slot^='sticker-']"))];
+    await Promise.all(nodes.map((n) => document.fonts.load(getComputedStyle(n).font, n.textContent ?? "").catch(() => [])));
     await document.fonts.ready;
-    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
     const box = (e: Element | null) => {
       if (!e) return null;
       const r = e.getBoundingClientRect();
       return { x: r.x, y: r.y, width: r.width, height: r.height };
     };
     const slot = (name: string) => box(el.querySelector(`[data-slot='${name}']`));
-    const weight = el.querySelector("[data-slot='sticker-weight']");
-    return {
-      outer: box(el)!,
-      qr: slot("sticker-qr"),
-      parts: { "sticker-company": slot("sticker-company"), "sticker-serial": slot("sticker-serial"), "sticker-weight": slot("sticker-weight") },
-      weightClipped: weight ? weight.scrollWidth > weight.clientWidth + 1 : true,
+    const read = () => {
+      const weight = el.querySelector("[data-slot='sticker-weight']");
+      return {
+        outer: box(el)!,
+        qr: slot("sticker-qr"),
+        parts: { "sticker-company": slot("sticker-company"), "sticker-serial": slot("sticker-serial"), "sticker-weight": slot("sticker-weight") },
+        weightClipped: weight ? weight.scrollWidth > weight.clientWidth + 1 : true,
+      };
     };
+    let last = JSON.stringify(read());
+    let same = 0;
+    for (let i = 0; i < 100 && same < 3; i += 1) {
+      await frame();
+      const now = JSON.stringify(read());
+      same = now === last ? same + 1 : 0;
+      last = now;
+    }
+    return JSON.parse(last) as ReturnType<typeof read>;
   });
   const qr = boxes.qr;
   expect(qr, "sticker-qr has a box").not.toBeNull();
