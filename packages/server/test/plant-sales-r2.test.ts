@@ -230,7 +230,8 @@ describe("S-3 dev seed", () => {
     // The order made in the app is gone; only the seed's own demo orders (W1-OP-S, fixed ids) are back.
     const ids = (await env.db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.companyId, companyId))).map((r) => r.id);
     expect(ids).not.toContain(made.id);
-    expect(ids.sort()).toEqual(["dev-so-1", "dev-so-2", "dev-so-3"]);
+    // dev-so-4: KD Extrusion's portal booking (W3-PORTAL-S, dev-seed-portal.ts).
+    expect(ids.sort()).toEqual(["dev-so-1", "dev-so-2", "dev-so-3", "dev-so-4"]);
   }, 120_000);
 });
 

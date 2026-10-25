@@ -1,0 +1,232 @@
+/**
+ * W3-PORTAL-S dispatches, packing list and test certificate for the party (FP-PF-03/04, C30, Q39):
+ * completed dispatches of the party's own customer only (draft and held hidden, other parties Not
+ * found); the PL snapshot without cast numbers or the author id; the certificate (TC/{FY}/n, revisions
+ * keep the number) with the BIS pair and an honest "chemistry pending" while the foundry has no
+ * result, "ready" once every bundle's cast has one; no cast numbers on it either.
+ */
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+
+import { auditLog, bundle, cast, die, melt, spectroResult, testCertificate } from "@orrn/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
+
+import { createTestEnv, type TestEnv } from "./harness";
+import { portalHelpers } from "./portal-w3-fixture";
+import { kg, NOON, ROLES, SLOW, type SalesPlant } from "./sales-fixture";
+
+let env: TestEnv;
+let setClock: (at: Date | null) => void;
+
+beforeAll(async () => {
+  env = await createTestEnv();
+  setClock = (await import("../src/lib/clock")).setClockForTests;
+}, 60_000);
+afterEach(() => setClock(null));
+afterAll(async () => {
+  await env.dispose();
+});
+
+const helpers = portalHelpers(() => env);
+/** Casts with melts exist in these plants; bundles here are packed without naming one (set below). */
+const h = { ...helpers, portalPlant: (settings: Record<string, unknown> = {}) => helpers.portalPlant({ requireCastOnBundle: false, ...settings }) };
+
+async function errOf(promise: Promise<unknown>) {
+  try {
+    await promise;
+  } catch (e) {
+    return { code: (e as { code?: string }).code, message: (e as Error).message };
+  }
+  return { code: "OK", message: "" };
+}
+
+/** A cast with a melt; `spectro` adds a live spectro result. */
+async function seedCast(companyId: string, n: number, spectro?: { verdict: "pass" | "fail"; si: number; mg: number }) {
+  const castId = crypto.randomUUID();
+  await env.db.insert(cast).values({ id: castId, companyId, number: `K${n}`, period: "2026-10", year: 2026, month: 10, seq: n, alloy: "6063", openedAt: NOON });
+  const meltId = crypto.randomUUID();
+  await env.db.insert(melt).values({ id: meltId, companyId, castId, seq: 1, alloy: "6063" });
+  if (spectro) {
+    await env.db.insert(spectroResult).values({
+      id: crypto.randomUUID(),
+      companyId,
+      meltId,
+      castId,
+      fileName: "s.pdf",
+      mime: "application/pdf",
+      sizeBytes: 1,
+      dataBase64: "AA==",
+      siPpm: spectro.si,
+      mgPpm: spectro.mg,
+      verdict: spectro.verdict,
+      limitsSnapshot: { alloyId: null, alloyCode: "6063", limits: [] },
+    });
+  }
+  return castId;
+}
+
+/** Pack `rows`, ship them for `cust` on a completed dispatch; returns dispatch id and serials. */
+async function shipped(p: SalesPlant, rows: number[], cust = p.customerId, castId?: string) {
+  const serials = await p.pack(p.dieA, rows.map((k) => ({ kg: k })));
+  if (castId) await env.db.update(bundle).set({ castId }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, serials)));
+  const d = await p.held(serials, cust);
+  await p.owner.dispatch.complete({ id: d });
+  return { d, serials };
+}
+
+describe("dispatches", () => {
+  test("only completed dispatches of this party; draft / held / other party hidden; get of another's is Not found", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant();
+    const party = await h.partyLogin(p);
+    const mine = await shipped(p, [10, 12]);
+    const theirs = await shipped(p, [9], p.otherCustomer);
+    const held = await p.held(await p.pack(p.dieA, [{ kg: 5 }]));
+    const draft = (await p.owner.dispatch.create({ customerId: p.customerId })).id;
+    const list = await party.api.portal.dispatches.list();
+    expect(list.items.map((d) => d.id)).toEqual([mine.d]);
+    expect(list.items[0]).toMatchObject({ bundles: 2, weightG: kg(22), hasPackingList: true, hasCertificate: false });
+    const got = await party.api.portal.dispatches.get({ id: mine.d });
+    expect(got.bundles.map((b) => b.bundleNo).sort()).toEqual([...mine.serials].sort());
+    expect(got.totals).toMatchObject({ bundles: 2, weightG: kg(22) });
+    for (const id of [theirs.d, held, draft, "nope"]) {
+      expect(await errOf(party.api.portal.dispatches.get({ id }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
+      expect(await errOf(party.api.portal.packingList.get({ dispatchId: id }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
+      expect(await errOf(party.api.portal.certificate.get({ dispatchId: id }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
+    }
+    expect((await party.api.portal.today()).lastDispatch?.id).toBe(mine.d);
+  }, SLOW);
+});
+
+describe("packing list", () => {
+  test("the current PL snapshot of the party's dispatch, with no cast number and no author id", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant();
+    const party = await h.partyLogin(p);
+    const castId = await seedCast(p.companyId, 31);
+    const mine = await shipped(p, [10, 11], p.customerId, castId);
+    const pl = await party.api.portal.packingList.get({ dispatchId: mine.d });
+    const text = JSON.stringify(pl);
+    expect(text).not.toMatch(/cast/i);
+    expect(text).not.toContain("K31");
+    expect(text).not.toContain(castId);
+    expect(text).not.toContain("generatedBy");
+    for (const serial of mine.serials) expect(text).toContain(serial);
+    // Regenerated: the party gets the newest revision.
+    const staff = await p.owner.packingList.byDispatch({ dispatchId: mine.d });
+    await p.owner.packingList.regenerate({ id: staff!.id });
+    const again = await party.api.portal.packingList.get({ dispatchId: mine.d });
+    expect(again.revision).toBe(2);
+    expect(again.code).toBe(pl.code);
+  }, SLOW);
+
+  test("stripForParty drops cast keys, rate keys and the author id at any depth", async () => {
+    const { stripForParty } = await import("../src/lib/portal");
+    expect(
+      stripForParty({ a: 1, castNo: "K31", generatedBy: "u", generatedAt: "t", rows: [{ cast: "K", ratePaise: 1, weightG: 5 }], header: { castCode: "x", plNumber: "PL/1" } }),
+    ).toEqual({ a: 1, generatedAt: "t", rows: [{ weightG: 5 }], header: { plNumber: "PL/1" } });
+  });
+});
+
+describe("test certificate", () => {
+  test("pending chemistry while the foundry has no result; BIS pair as of issue; number TC/FY/n; party reads it", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant({ standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "CM/L-1234" } } });
+    await env.db.update(die).set({ alloy: "6063", temper: "T6", profileKind: "hollow" }).where(eq(die.id, p.dieA));
+    const party = await h.partyLogin(p);
+    const castId = await seedCast(p.companyId, 40);
+    const mine = await shipped(p, [10, 12], p.customerId, castId);
+    expect(await errOf(party.api.portal.certificate.get({ dispatchId: mine.d }))).toEqual({ code: "NOT_FOUND", message: "Not found" });
+    const issued = await p.as("office").portal.certificates.issue({ dispatchId: mine.d });
+    expect(issued).toMatchObject({ number: "TC/2026-27/1", revision: 1, chemistry: "pending" });
+    const cert = await party.api.portal.certificate.get({ dispatchId: mine.d });
+    const snap = cert.snapshot as {
+      lines: { sectionCode: string; alloy: string; temper: string; standard: string; cml: string | null; standardSource: string; bundles: number; weightG: number }[];
+      chemistry: { status: string; verdict: string | null; testedBundles: number; untestedBundles: number };
+      totals: { bundles: number; weightG: number };
+      notTaxDocument: boolean;
+    };
+    expect(snap.chemistry).toMatchObject({ status: "pending", verdict: null, testedBundles: 0, untestedBundles: 2 });
+    expect(snap.lines).toHaveLength(1);
+    // Bundles packed through the real pack path carry the pair as packed; legacy ones read it at issue.
+    expect(snap.lines[0]).toMatchObject({ alloy: "6063", temper: "T6", standard: "IS 1285", bundles: 2, weightG: kg(22) });
+    expect(snap.notTaxDocument).toBe(true);
+    const text = JSON.stringify(cert);
+    expect(text).not.toMatch(/cast/i);
+    expect(text).not.toContain("K40");
+    expect(text).not.toMatch(/rate|paise/i);
+    expect((await party.api.portal.dispatches.list()).items[0]!.hasCertificate).toBe(true);
+    const a = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "portal.certificate.issue")));
+    expect(a[0]?.meta).toMatchObject({ dispatchId: mine.d, number: "TC/2026-27/1", revision: 1, chemistry: "pending" });
+  }, SLOW);
+
+  test("a blank CM/L prints no licence; legacy bundles without a packed pair use the live pair as of issue", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant({ standards: { solid: { standard: "IS 733", cml: "" } } });
+    const party = await h.partyLogin(p);
+    const mine = await shipped(p, [10]);
+    await env.db.update(bundle).set({ bisStandard: null, cmlNo: null }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, mine.serials)));
+    await p.as("office").portal.certificates.issue({ dispatchId: mine.d });
+    const cert = await party.api.portal.certificate.get({ dispatchId: mine.d });
+    const line = (cert.snapshot as { lines: Record<string, unknown>[] }).lines[0]!;
+    expect(line).toMatchObject({ standard: "IS 733", cml: null, standardSource: "as_of_issue", profileKindSet: false });
+  }, SLOW);
+
+  test("chemistry: partial with one cast tested, ready with all; re-issue keeps the number, adds a revision", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant();
+    const party = await h.partyLogin(p);
+    const tested = await seedCast(p.companyId, 51, { verdict: "pass", si: 4_500, mg: 5_000 });
+    const untested = await seedCast(p.companyId, 52);
+    const a = await p.pack(p.dieA, [{ kg: 10 }]);
+    const b = await p.pack(p.dieA, [{ kg: 11 }]);
+    await env.db.update(bundle).set({ castId: tested }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, a)));
+    await env.db.update(bundle).set({ castId: untested }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, b)));
+    const d = await p.held([...a, ...b]);
+    await p.owner.dispatch.complete({ id: d });
+    const first = await p.as("office").portal.certificates.issue({ dispatchId: d });
+    expect(first.chemistry).toBe("partial");
+    // The foundry tests the second cast; the office re-issues.
+    const meltRow = (await env.db.select().from(melt).where(eq(melt.castId, untested)))[0]!;
+    await env.db.insert(spectroResult).values({
+      id: crypto.randomUUID(),
+      companyId: p.companyId,
+      meltId: meltRow.id,
+      castId: untested,
+      fileName: "s.pdf",
+      mime: "application/pdf",
+      sizeBytes: 1,
+      dataBase64: "AA==",
+      siPpm: 4_300,
+      mgPpm: 5_200,
+      verdict: "pass",
+      limitsSnapshot: { alloyId: null, alloyCode: "6063", limits: [] },
+    });
+    const second = await p.as("supervisor").portal.certificates.issue({ dispatchId: d });
+    expect(second).toMatchObject({ number: first.number, revision: 2, chemistry: "ready" });
+    const cert = await party.api.portal.certificate.get({ dispatchId: d });
+    expect(cert.revision).toBe(2);
+    const chem = (cert.snapshot as { chemistry: { verdict: string; elements: { element: string; minPpm: number; maxPpm: number }[]; alloys: string[] } }).chemistry;
+    expect(chem.verdict).toBe("pass");
+    expect(chem.alloys).toEqual(["6063"]);
+    expect(chem.elements.find((e) => e.element === "si")).toEqual({ element: "si", minPpm: 4_300, maxPpm: 4_500 });
+    expect(chem.elements.find((e) => e.element === "mg")).toEqual({ element: "mg", minPpm: 5_000, maxPpm: 5_200 });
+    expect(await env.db.select().from(testCertificate).where(eq(testCertificate.dispatchId, d))).toHaveLength(2);
+  }, SLOW);
+
+  test("issue: completed dispatch only; portal.manage or dispatch.complete holders; another plant Not found", async () => {
+    setClock(NOON);
+    const p = await h.portalPlant();
+    const other = await h.portalPlant();
+    const held = await p.held(await p.pack(p.dieA, [{ kg: 5 }]));
+    expect((await errOf(p.as("office").portal.certificates.issue({ dispatchId: held }))).code).toBe("BAD_REQUEST");
+    const mine = await shipped(p, [10]);
+    expect((await errOf(other.as("office").portal.certificates.issue({ dispatchId: mine.d }))).code).toBe("NOT_FOUND");
+    const allowed = new Set(["owner", "admin", "manager", "office", "supervisor"]);
+    for (const role of ROLES) {
+      if (allowed.has(role)) continue;
+      expect([role, (await errOf(p.as(role).portal.certificates.issue({ dispatchId: mine.d }))).code]).toEqual([role, "FORBIDDEN"]);
+    }
+    expect(await env.db.select().from(testCertificate).where(eq(testCertificate.dispatchId, mine.d))).toHaveLength(0);
+    expect(await p.as("viewer").portal.certificates.forDispatch({ dispatchId: mine.d })).toBeNull();
+  }, SLOW);
+});
