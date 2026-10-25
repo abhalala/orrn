@@ -24,7 +24,7 @@ afterAll(async () => {
 const h = portalHelpers(() => env);
 
 test("dev seed: KD's party login, two grants + owned 12230, SO-4 booking, a pending certificate; idempotent", async () => {
-  for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
+  for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
     await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
   }
   const seedPath = "../../../apps/server/src/dev-seed";
