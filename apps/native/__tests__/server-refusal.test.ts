@@ -71,6 +71,7 @@ describe("every die room and orders refusal has a sentence in the person's langu
   test("every refusal key is used by an entry (or the generic line), and no entry is shadowed by an earlier one", () => {
     const used = new Set<string>(SERVER_REFUSALS.map(keyOf));
     used.add("refusal.unknown");
+    used.add("refusal.joinAnd");
     used.add("refusal.stillNeeds");
     used.add("refusal.owned");
     used.add("refusal.ownedOther");

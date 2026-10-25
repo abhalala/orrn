@@ -322,7 +322,7 @@ export const guDieRoom = {
       makersLink: "Die મેકર",
       loadFailed: "Die ની યાદી ખૂલી નહીં. કનેક્શન તપાસો અને ફરી પ્રયત્ન કરો.",
       noMatchBody: "સેક્શન કોડ, સિરીઝ કે કૉપી કોડ અજમાવો.",
-      copiesNote: "આ આ સ્થિતિવાળી કૉપી છે. દરેક કૉપી પોતાનું કાર્ડ ખોલે છે.",
+      copiesNote: "આ સ્થિતિમાં રહેલી કૉપી છે. દરેક કૉપી પોતાનું કાર્ડ ખોલે છે.",
       copiesLabel: "આ સ્થિતિવાળી કૉપી",
       noCopiesInState: "આ સ્થિતિમાં કોઈ કૉપી નથી",
       noCopiesInStateBody: "બધી die જોવા માટે ટાઇલ હટાવો.",

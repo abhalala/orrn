@@ -36,8 +36,8 @@ cd apps/native && bunx expo export --platform android   # bundle smoke
 Things the tests pin that are easy to break:
 
 - `__tests__/server-refusal.test.ts` reads the die room and orders routers and fails when a server sentence has no
-  Hindi and Gujarati wording. Add the pattern to `lib/server-refusal.ts` and the key to `native/refusal.{en,hi,gu}.ts`
-  in `packages/i18n`. The phone never shows or speaks the server's English.
+  Hindi and Gujarati wording. Add the pattern to `packages/i18n/src/refusal.ts` (shared with the web app) and the key to
+  `packages/i18n/src/native/refusal.{en,hi,gu}.ts`. The phone never shows or speaks the server's English.
 - `__tests__/replay-audit.test.ts` lists every write the app can send twice and how it is protected.
 - `__tests__/press-role.test.ts` pins the press role's tab bar, routes and read-only screens.
 
@@ -86,4 +86,6 @@ Sound is not asserted: the refusal text on screen is what the voice reads.
 ## Gujarati
 
 The Gujarati strings written for `native.press.*`, `native.pack.*`, `native.stock.*` and `refusal.*` have not
-been read by a Gujarati speaker. They are listed in `.fp-build/reports/gu-review-list.md` for review.
+been read by a Gujarati speaker. They are listed in `.fp-build/reports/gu-review-list.md` for review. Every key the
+app reads has a Gujarati string (`__tests__/gu-coverage.test.ts`); the W4-GU strings are listed in
+`.fp-build/reports/gu-review-list-web.md`.

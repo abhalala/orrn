@@ -885,8 +885,8 @@ bun run deploy
 - Hold stock UI (FP-OP-17): `/orders/$id` per line "Hold stock" (`orders.matchStock` → bundles on
   no line or this line, not held, ≤ 100 → `orders.hold`, length warnings shown from the answer),
   a "Held" chip (`strip.heldBundles`, `heldG`) and "Held bundles" (`orders.holds`) with Release
-  selected / all (`orders.release`), behind `order.manage`. Hold refusals are mapped to en/hi in
-  `features/orders/errors.ts`.
+  selected / all (`orders.release`), behind `order.manage`. Hold refusals are mapped with every
+  other orders refusal (see "Gujarati and server refusals" below).
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
 - Packing list: `settings.packingList.kgPerPiece` (default off, `company.updateSettings`,
@@ -957,6 +957,28 @@ bun run deploy
 - **Support (FP-PF-14).** Status goes Open → Answered → Closed, or Open → Closed. A staff reply or
   close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
   audit row is written.
+
+## Gujarati and server refusals (W4-GU)
+
+- Gujarati is complete for the namespaces in `GU_FLOOR_NAMESPACES` (`packages/i18n/src/gu.ts`; the
+  floor, settings, approvals, the die room, `dies`, `nav`, `errors`, `status`, `native`, `bundle`,
+  `dispatch`, the orders words that reach the floor or the phone, phone sign in); `gu.test.ts` fails on any en key
+  missing under one. A new key there needs its Gujarati in the same change. Office-only namespaces and
+  the guide texts fall back to English on purpose. Plant words stay Latin (die, bundle, dispatch, PO, kg).
+  The Gujarati strings of the sweep live in `packages/i18n/src/gu-more/*.ts` (one file per namespace
+  group, typed `DeepPartial<Messages>`), merged into `gu` by `mergeGu` (a key written twice throws).
+- Server refusal sentences are English. Die room, orders and approval refusals are matched in
+  `packages/i18n/src/refusal.ts` (`SERVER_REFUSALS`) and said from `refusal.*` (en, hi, gu); web
+  (`features/shared/server-refusal.ts`: `serverRefusal`, `serverRefusalLines`) and native
+  (`lib/server-refusal.ts`) share the table. Never show `error.message` from these routers: call
+  `serverRefusal(t, error)`; an unknown sentence shows `refusal.unknown`. A new `message:` sentence in
+  the routers listed in `refusal-sentences.ts` (`FILES`) fails the web and native completeness tests
+  until it has an entry and a key in `native/refusal.{en,hi,gu}.ts`.
+- Default language: a device that never chose one opens in the plant's `settings.locale`, else English.
+  `GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS` (`packages/domain/src/settings.ts`) ships `false`; the owner
+  flips it once the native-speaker review (`.fp-build/reports/gu-review-list-web.md`) is done, and a
+  plant with no chosen language and a Gujarat GSTIN (24...) then opens in Gujarati
+  (`shell/plant-locale.tsx`).
 
 ## Worker performance rules
 

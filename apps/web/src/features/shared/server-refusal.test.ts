@@ -86,3 +86,20 @@ describe("what the die room and orders screens say", () => {
     }
   });
 });
+
+describe("the sentences with figures keep them, in every language", () => {
+  test("a full press line, a file over its limit, a duplicate band", () => {
+    const en = createI18n("en").t;
+    expect(serverRefusal(en, err("BAD_REQUEST", "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back before issuing 13090-9."))).toBe(
+      "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back before issuing 13090-9.",
+    );
+    expect(serverRefusal(en, err("BAD_REQUEST", "This PDF is larger than 25 MB"))).toBe("This file is larger than 25 MB.");
+    expect(serverRefusal(en, err("CONFLICT", "12170 already has the primary band 5.900-6.200 at 1.2 mm. Add the copy to that band instead."))).toBe(
+      "12170 already has a band 5.900 to 6.200 kg/12ft at 1.2 mm. Add the copy to that band instead.",
+    );
+    const gu = createI18n("gu").t;
+    const said = serverRefusal(gu, err("BAD_REQUEST", "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back, or record the die out of 13090-20, before issuing 13090-9."));
+    expect(said).toContain("13090-20 (PR-16) અને 13090-21 (PR-17)");
+    expect(said).not.toContain("Take one back");
+  });
+});

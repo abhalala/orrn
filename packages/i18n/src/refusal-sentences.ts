@@ -133,7 +133,9 @@ function composedSentences(): string[] {
   const busy = blockLiterals(inst, "const where: Record<string, string> = {\n    in_use").filter((p) => /^is /.test(p) && p !== "is 7").map((p) => `${p}; it cannot be sent to nitriding`);
   const whyPhrases = blockLiterals(flow, "const why =").filter((p) => /^is /.test(p)).map((p) => `${PLACEHOLDER} ${p}`);
   const holdWhy = blockLiterals(flow, "const why: Record").filter((p) => p.includes(PLACEHOLDER) && !p.startsWith("Line"));
-  return [...phrases.map((p) => `${PLACEHOLDER} ${p}`), ...busy.map((p) => `${PLACEHOLDER} ${p}`), ...whyPhrases, ...holdWhy];
+  // dieIssue.ts lineFullMessage(): "P1 already has A (PR-1) and B (PR-2). Take one back[, or record the die out of A,] before issuing C."
+  const lineFull = [`${PLACEHOLDER} already has ${PLACEHOLDER} (${PLACEHOLDER}) and ${PLACEHOLDER}. Take one back before issuing ${PLACEHOLDER}.`, `${PLACEHOLDER} already has ${PLACEHOLDER} (${PLACEHOLDER}) and ${PLACEHOLDER}. Take one back, or record the die out of ${PLACEHOLDER}, before issuing ${PLACEHOLDER}.`];
+  return [...lineFull, ...phrases.map((p) => `${PLACEHOLDER} ${p}`), ...busy.map((p) => `${PLACEHOLDER} ${p}`), ...whyPhrases, ...holdWhy];
 }
 
 export const FILES = [
@@ -143,6 +145,10 @@ export const FILES = [
   "routers/orderFlow.ts",
   "routers/salesOrder.ts",
   "routers/approval.ts",
+  "routers/die.ts",
+  "routers/dieBand.ts",
+  "routers/dieFile.ts",
+  "lib/dieFiles.ts",
   "routers/pressPlan.ts",
   "lib/dieOwner.ts",
   "lib/dieRoom.ts",

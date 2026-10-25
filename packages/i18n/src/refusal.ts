@@ -53,6 +53,9 @@ const COPY_PHRASES = Object.keys(COPY_PHRASE)
 
 const S = String.raw`(\S+)`;
 
+/** "A (PR-1) and B (PR-2)" with the language's own "and". */
+const holdersText = (holders: string, t: Translate) => holders.split(" and ").join(t("refusal.joinAnd"));
+
 /** Order matters: the specific sentences come before the general ones. */
 export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   // --- not found -----------------------------------------------------------
@@ -138,6 +141,45 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "didNotPress", re: new RegExp(`^${S} did not press ${S}$`), vars: (m) => ({ run: m[1]!, code: m[2]! }) },
   { id: "trialNotClosed", re: new RegExp(`^${S} is not closed yet; close the trial first$`), vars: (m) => ({ run: m[1]! }) },
   { id: "trialResult", re: new RegExp(`^${S} (?:has no trial result|was marked \\w+, not \\w+)$`), vars: (m) => ({ run: m[1]! }) },
+
+  // --- die cards, bands and files (the die room's other routers) -----------------------
+  { id: "minOverMax", re: /^Min weight cannot be greater than max weight$/ },
+  { id: "dieExists", re: /^(?:A|Another) die with this series and section code already exists$/ },
+  { id: "copyOwnerClash", re: new RegExp(`^${S} belongs to another customer; clear that copy's owner first$`), vars: (m) => ({ code: m[1]! }) },
+  {
+    id: "bandExists",
+    re: new RegExp(`^${S} already has (?:the primary band|a band|7) ([\\d.]+)-([\\d.]+) at ([\\d.]+) mm\\. Add the copy to that band instead\\.$`),
+    vars: (m) => ({ code: m[1]!, min: m[2]!, max: m[3]!, wall: m[4]! }),
+  },
+  { id: "bandRetired", re: /^This band is retired$/ },
+  { id: "copyOnBand", re: new RegExp(`^${S} is still on this band; lift it to another band first$`), vars: (m) => ({ code: m[1]! }) },
+  { id: "liftWaiting", re: /^A lift to this band is waiting for approval$/ },
+  { id: "bandRaced", re: /^A copy was put on this band; try again$/ },
+  {
+    id: "lineFullDieOut",
+    re: new RegExp(`^${S} already has (.+)\\. Take one back, or record the die out of ${S}, before issuing ${S}\\.$`),
+    vars: (m, t) => ({ line: m[1]!, holders: holdersText(m[2]!, t), out: m[3]!, copy: m[4]! }),
+  },
+  {
+    id: "lineFull",
+    re: new RegExp(`^${S} already has (.+)\\. Take one back before issuing ${S}\\.$`),
+    vars: (m, t) => ({ line: m[1]!, holders: holdersText(m[2]!, t), copy: m[3]! }),
+  },
+  { id: "pickSectionOrCopy", re: /^Pick a section or a die copy$/ },
+  { id: "copyOtherSection", re: /^This die copy belongs to another section$/ },
+  { id: "drawingPdf", re: /^(?:The press drawing must be a PDF|Only a section's PDF can become its press drawing)$/ },
+  { id: "drawingOfSection", re: /^The press drawing belongs to the section, not one copy$/ },
+  { id: "uploadExpired", re: /^This upload has expired; pick the file again$/ },
+  { id: "fileNotFound", re: /^(?:Upload|File) not found$/ },
+  { id: "fileSaved", re: /^This file is already saved$/ },
+  { id: "fileNotArrived", re: /^The file has not arrived; upload it again$/ },
+  { id: "fileNotWhole", re: /^The file did not arrive whole; upload it again$/ },
+  { id: "storageOff", re: /^File (?:storage is|links are) not set up for this plant yet$/ },
+  { id: "fileEmpty", re: /^The file is empty$/ },
+  { id: "fileTooBig", re: /^This \w+ is larger than (\d+)(?: MB)?$/, vars: (m) => ({ mb: m[1]! }) },
+  { id: "imageTypes", re: /^Images must be JPEG, PNG or WebP$/ },
+  { id: "notPdf", re: /^This is not a PDF$/ },
+  { id: "pickFileKind", re: /^Pick a \.(\w+) file$/, vars: (m) => ({ kind: m[1]! }) },
 
   // --- who owns the die ----------------------------------------------------------------
   { id: "owned", re: /^This die belongs to another customer$/, key: "refusal.ownedOther" },

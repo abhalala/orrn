@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5214 screen strings in 47 groups, 16 guides with 292 strings.
+Counts: 5240 screen strings in 47 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2891,7 +2891,7 @@ Counts: 5214 screen strings in 47 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### refusal (137)
+### refusal (163)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3031,6 +3031,32 @@ Counts: 5214 screen strings in 47 groups, 16 guides with 292 strings.
 | `maxDies` | At most {max} dies on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} die। |
 | `alreadyDecided` | This request was already decided. | इस रिक्वेस्ट पर पहले ही फ़ैसला हो चुका है। |
 | `ownRequest` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
+| `minOverMax` | The minimum weight can't be more than the maximum weight. | कम से कम वज़न, ज़्यादा से ज़्यादा वज़न से ज़्यादा नहीं हो सकता। |
+| `dieExists` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड की die पहले से है। |
+| `copyOwnerClash` | {code} belongs to another customer. Clear that copy's owner first. | {code} दूसरे ग्राहक की है। पहले उस कॉपी का मालिक हटाएं। |
+| `bandExists` | {code} already has a band {min} to {max} kg/12ft at {wall} mm. Add the copy to that band instead. | {code} का {min} से {max} kg/12ft, {wall} mm वाला बैंड पहले से है। कॉपी को उसी बैंड में जोड़ें। |
+| `bandRetired` | This band is retired. | यह बैंड बंद है। |
+| `copyOnBand` | {code} is still on this band. Lift it to another band first. | {code} अभी इस बैंड पर है। पहले उसे दूसरे बैंड में ले जाएं। |
+| `liftWaiting` | A lift to this band is waiting for approval. | इस बैंड में ले जाने की मंज़ूरी बाकी है। |
+| `bandRaced` | A copy was put on this band meanwhile. Try again. | इस बीच इस बैंड पर एक कॉपी रखी गई। फिर कोशिश करें। |
+| `lineFull` | {line} already has {holders}. Take one back before issuing {copy}. | {line} पर पहले से {holders} हैं। {copy} देने से पहले एक वापस लें। |
+| `lineFullDieOut` | {line} already has {holders}. Take one back, or record the die out of {out}, before issuing {copy}. | {line} पर पहले से {holders} हैं। {copy} देने से पहले एक वापस लें, या {out} की die निकलना दर्ज करें। |
+| `joinAnd` |  and  |  और  |
+| `pickSectionOrCopy` | Pick a die or a die copy. | Die या die की कॉपी चुनें। |
+| `copyOtherSection` | This die copy belongs to another die. | यह कॉपी किसी दूसरी die की है। |
+| `drawingPdf` | The press drawing must be a PDF, and it belongs to the die. | प्रेस ड्रॉइंग PDF होनी चाहिए, और वह die की होती है। |
+| `drawingOfSection` | The press drawing belongs to the die, not to one copy. | प्रेस ड्रॉइंग die की होती है, किसी एक कॉपी की नहीं। |
+| `uploadExpired` | This upload has expired. Pick the file again. | यह अपलोड पुराना हो गया। फ़ाइल फिर से चुनें। |
+| `fileNotFound` | That file was not found. | वह फ़ाइल नहीं मिली। |
+| `fileSaved` | This file is already saved. | यह फ़ाइल पहले से सेव है। |
+| `fileNotArrived` | The file has not arrived. Upload it again. | फ़ाइल पहुंची नहीं। फिर से अपलोड करें। |
+| `fileNotWhole` | The file did not arrive whole. Upload it again. | फ़ाइल पूरी नहीं पहुंची। फिर से अपलोड करें। |
+| `storageOff` | File storage is not set up for this plant yet. | इस प्लांट के लिए फ़ाइल स्टोरेज अभी सेट नहीं है। |
+| `fileEmpty` | The file is empty. | फ़ाइल खाली है। |
+| `fileTooBig` | This file is larger than {mb} MB. | यह फ़ाइल {mb} MB से बड़ी है। |
+| `imageTypes` | Pictures must be JPEG, PNG or WebP. | फ़ोटो JPEG, PNG या WebP होनी चाहिए। |
+| `notPdf` | This is not a PDF. | यह PDF नहीं है। |
+| `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
 | `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
 
 ### native (251)
