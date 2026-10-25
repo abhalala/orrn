@@ -4,13 +4,14 @@ import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { c2, tones } from "@orrn/ui/tokens";
 import * as Haptics from "expo-haptics";
-import type { Tabs } from "expo-router";
+import { useRouter, type Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { useThemeColor } from "@/lib/theme";
-import { placeScan, TAB_ROUTES, type TabName } from "@/lib/nav";
+import { placeScan, TAB_ROUTES, visibleTabs, type TabName } from "@/lib/nav";
+import { useMe } from "@/utils/me";
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
@@ -96,14 +97,19 @@ function ScanButton({ label, focused, onPress }: { label: string; focused: boole
 }
 
 /**
- * Phone and iPad tab bar: Today · Pack · [Scan] · Stock · Dispatch, mirroring
- * the web phone bar. Scan is the raised green button in the middle of whatever
+ * Phone and iPad tab bar: Today · Pack · [Scan] · Stock · Dispatch for the floor,
+ * Today · Dies · [Scan] · Press · More for the die room and Today · Dispatch ·
+ * [Scan] · Orders · More for the office (lib/nav.ts), mirroring the web phone bar. Scan is the raised green button in the middle of whatever
  * tabs this person can see (hidden tabs are removed by `Tabs.Protected`, so
  * they never reach `state.routes`). Always visible (ruling R23).
  */
 export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) {
   const { t } = useT();
-  const order = placeScan(state.routes.map((r) => r.name as TabName));
+  const router = useRouter();
+  const { data: me } = useMe();
+  // Routes the person can open from More (Orders, Dies) are in the navigator but not on the bar.
+  const onBar = new Set(visibleTabs(me));
+  const order = placeScan(state.routes.map((r) => r.name as TabName).filter((n) => onBar.has(n)));
 
   return (
     <View
@@ -121,6 +127,11 @@ export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) 
           const label = (descriptors[route.key]?.options.title as string | undefined) ?? t(meta.labelKey);
 
           const onPress = () => {
+            // More is the stack the avatar opens, not a tab screen: it opens on top of the tabs.
+            if (name === "menu") {
+              router.navigate("/more");
+              return;
+            }
             const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
             // A focused stack tab pops to its root on its own (native-stack listens for tabPress).
             if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);

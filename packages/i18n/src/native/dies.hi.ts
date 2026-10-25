@@ -1,0 +1,38 @@
+/** Native-only strings for the die room screens (apps/native). Top-level keys become `native.<key>.*`. Keep en and hi identical in shape. */
+export const diesHi = {
+  dies: {
+    searchLabel: "कॉपी खोजें",
+    found: "{count} कॉपी मिली",
+    noMatch: "कोई कॉपी नहीं मिली",
+    attentionCount: "{count} कॉपी पर ध्यान चाहिए",
+    filterLabel: "ध्यान क्यों चाहिए",
+    partial: "पहली {count} कॉपी दिख रही हैं। बाकी खोजने के लिए सर्च करें।",
+    showMore: "{count} और दिखाएं",
+    nothingTitle: "किसी पर ध्यान की जरूरत नहीं",
+    nothingBody: "हर कॉपी अपने बैंड में है, इस महीने नापी गई है और रैक में है।",
+    reason: {
+      above_band: "बैंड से ऊपर",
+      at_nitriding: "नाइट्राइडिंग पर",
+      at_maker: "डाई मेकर के पास",
+      on_trial: "ट्रायल पर",
+      open_issue: "प्रेस पर",
+      stale_reading: "30 दिन से रीडिंग नहीं",
+      never_read: "अभी रीडिंग नहीं",
+    },
+    pad: {
+      point: "दशमलव बिंदु",
+    },
+    saveReading: "रीडिंग सेव करें",
+    chemicalsOnWeb: "केमिकल वेब पर कार्ड में लिखे जाते हैं।",
+    addMakerOnWeb: "वेब पर जोड़ें।",
+    issueTitle: "{code} इश्यू करें",
+    issueToRun: "{run} के लिए इश्यू करें",
+    fileFailed: "फाइल नहीं खुली। फिर कोशिश करें।",
+    openFile: "खोलें",
+    readOnly: "ये जानकारी वेब पर कार्ड में बदली जाती है।",
+    waitingTitle: "डाई का इंतजार",
+    waitingEmpty: "कोई प्रेस रन इंतजार में नहीं है",
+    waitingEmptyBody: "प्रेस प्लान से रिलीज हुए रन कॉपी इश्यू होने तक यहां दिखते हैं।",
+    needsDie: "डाई चाहिए",
+  },
+} as const;

@@ -13,7 +13,7 @@ import { sortMembers } from "../features/settings/team";
 import { DEFAULT_THEME_PREF, isThemePref, pickThemePref } from "../lib/theme-pref";
 
 type MeArg = Parameters<typeof moreRows>[0];
-const me = (modules: string[]): MeArg => ({ company: { id: "c", name: "F", slug: "f", status: "active", plan: null, role: "manager", modules } }) as never;
+const me = (modules: string[]): MeArg => ({ company: { id: "c", name: "F", slug: "f", status: "active", plan: null, role: "packer", modules } }) as never;
 
 describe("More rows and modules", () => {
   test("an empty module list means every module is on", () => {

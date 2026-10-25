@@ -85,14 +85,17 @@ describe("app.json (N13)", () => {
     expect(plugin("expo-font")).toBeDefined();
     expect(plugin("expo-router")).toBeDefined();
     const loc = plugin("expo-localization") as [string, { supportedLocales: string[] }];
-    expect(loc[1].supportedLocales).toEqual(["en", "hi"]);
+    expect(loc[1].supportedLocales).toEqual(["en", "hi", "gu"]);
   });
 
-  test("OS strings exist in English and Hindi with the same keys", () => {
-    expect(Object.keys(appJson.locales).sort()).toEqual(["en", "hi"]);
+  test("OS strings exist in English, Hindi and Gujarati with the same keys", () => {
+    expect(Object.keys(appJson.locales).sort()).toEqual(["en", "gu", "hi"]);
     const en = json(appJson.locales.en);
     const hi = json(appJson.locales.hi);
+    const gu = json(appJson.locales.gu);
     expect(Object.keys(hi.ios).sort()).toEqual(Object.keys(en.ios).sort());
+    expect(Object.keys(gu.ios).sort()).toEqual(Object.keys(en.ios).sort());
+    expect(gu.ios.NSCameraUsageDescription).toMatch(/[઀-૿]/);
     const camera = plugin("expo-camera") as [string, Record<string, unknown>];
     expect(en.ios.NSCameraUsageDescription).toBe(camera[1].cameraPermission);
     expect(hi.ios.NSCameraUsageDescription).toMatch(/[ऀ-ॿ]/);

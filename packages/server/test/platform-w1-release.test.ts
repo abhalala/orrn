@@ -160,7 +160,7 @@ describe("release.check gate matrix (public, no company data)", () => {
     await admin.device.revoke({ id });
     const blocked = await anon().release.check({ platform: "ios", channel: "floor", buildNumber: b + 50, installId });
     expect(blocked).toMatchObject({ state: "blocked", reason: "revoked" });
-    await expect(operator.device.register({ installId, platform: "ios" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(operator.device.register({ installId, platform: "ios" })).rejects.toMatchObject({ code: "FORBIDDEN", meta: { reason: "device_revoked" } });
 
     await admin.device.restore({ id });
     expect((await anon().release.check({ platform: "ios", channel: "floor", buildNumber: b, installId })).state).toBe("open");

@@ -3,6 +3,9 @@ import { packHi } from "./native/pack.hi";
 import { scanHi } from "./native/scan.hi";
 import { dispatchHi } from "./native/dispatch.hi";
 import { moreHi } from "./native/more.hi";
+import { diesHi } from "./native/dies.hi";
+import { ordersHi } from "./native/orders.hi";
+import { platformHi } from "./native/platform.hi";
 
 /**
  * Hindi messages. Conversational Devanagari, matching the plant's own Hindi SOP.
@@ -2850,6 +2853,9 @@ export const hi = {
     ...scanHi,
     ...dispatchHi,
     ...moreHi,
+    ...diesHi,
+    ...ordersHi,
+    ...platformHi,
   },
 
   ui: {

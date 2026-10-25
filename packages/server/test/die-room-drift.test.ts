@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { dieBand, dieInstance, dieWeightReading, nitridingLog, pressRun } from "@orrn/db/schema";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -242,6 +242,26 @@ describe("dieInstance.list carries the drift figures (clients never recompute)",
     expect(byId.get(b.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 98, tone: "amber", position: "above" });
     expect(byId.get(none.id)).toMatchObject({ latestMilli: null, percentTenths: null, tone: "none", position: null, kgPerMetre: null });
     expect(byId.get(heavy.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 29, tone: "green", position: "in", bandId: band.id });
+  });
+});
+
+describe("dieInstance.list carries when the latest reading was taken", () => {
+  test("latestReadAt is the newest reading's time in ms, null for a copy never read", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const before = Date.now();
+    const read = await copyWith(p, [5_940, 5_967]);
+    const after = Date.now();
+    const none = await copyWith(p, []);
+    const list = await p.viewer.dieInstance.list({ sectionId: p.sectionId });
+    const byId = new Map(list.items.map((i) => [i.id, i]));
+    const at = byId.get(read.id)!.latestReadAt;
+    expect(typeof at).toBe("number");
+    expect(at!).toBeGreaterThanOrEqual(before);
+    // readAt is kept strictly after the previous reading, so it can run a millisecond past the clock.
+    expect(at!).toBeLessThanOrEqual(after + 5);
+    const [newest] = await env.db.select({ at: dieWeightReading.readAt }).from(dieWeightReading).where(eq(dieWeightReading.dieInstanceId, read.id)).orderBy(desc(dieWeightReading.readAt)).limit(1);
+    expect(at).toBe(newest!.at.getTime());
+    expect(byId.get(none.id)!.latestReadAt).toBeNull();
   });
 });
 

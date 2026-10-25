@@ -16,6 +16,9 @@ import { packEn } from "./native/pack.en";
 import { scanEn } from "./native/scan.en";
 import { dispatchEn } from "./native/dispatch.en";
 import { moreEn } from "./native/more.en";
+import { diesEn } from "./native/dies.en";
+import { ordersEn } from "./native/orders.en";
+import { platformEn } from "./native/platform.en";
 
 export const en = {
   common: {
@@ -2859,6 +2862,9 @@ export const en = {
     ...scanEn,
     ...dispatchEn,
     ...moreEn,
+    ...diesEn,
+    ...ordersEn,
+    ...platformEn,
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

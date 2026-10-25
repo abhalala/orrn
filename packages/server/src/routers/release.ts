@@ -10,6 +10,7 @@ import { effectiveMinBuild, OFFLINE_GRACE_MS, RELEASE_CHANNELS, RELEASE_PLATFORM
 import { actionProcedure, companyProcedure, publicProcedure, router } from "../index";
 import { atomicBatch, atomicBatchLast } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
+import { TRPCMetaError } from "../lib/errorMeta";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
 
@@ -139,7 +140,8 @@ export const deviceRouter = router({
           if (sessionId) {
             await ctx.db.delete(session).where(and(eq(session.id, sessionId), eq(session.userId, userId)));
           }
-          throw new TRPCError({ code: "FORBIDDEN", message: "This device has been turned off for this plant" });
+          // `data.meta.reason` is the machine code the phone signs out on (it must not match this English sentence).
+          throw new TRPCMetaError({ code: "FORBIDDEN", message: "This device has been turned off for this plant", meta: { reason: "device_revoked" } });
         }
         await ctx.db
           .update(device)
