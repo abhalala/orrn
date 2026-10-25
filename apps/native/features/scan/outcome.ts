@@ -11,7 +11,7 @@ export type UnavailableRow = {
   serial: string;
   reason: string;
   /** D12 adds unassigned / wrong_customer / owned_die; until their floor keys exist they show `reason`. */
-  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "unassigned" | "wrong_customer" | "owned_die" | "held_for_order";
+  code?: "held" | "dispatched" | "void" | "status" | "reallocation_pending" | "unassigned" | "wrong_customer" | "owned_die" | "held_for_order" | "outside_order";
   status?: string;
   heldBy?: string | null;
   /** `held_for_order` (FP-OP-17): the sales order it is held for and its customer. */

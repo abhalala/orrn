@@ -297,7 +297,7 @@ describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 eit
     const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
     const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [far!], allowUnassigned: true });
     expect(rep.added).toEqual([far!]);
-    expect(rep.warnings).toEqual([]);
+    expect(rep.warnings ?? []).toEqual([]);
     expect((await p.owner.dispatch.getDispatch({ id })).items[0]).toMatchObject({ offBand: false, lineKgPer12ftMilli: null });
   }, SLOW);
 });

@@ -1915,7 +1915,7 @@ export const dispatchRouter = router({
           added: [b.serial],
           alreadyInDispatch: [] as string[],
           linked: await landedLinks(ctx.db, ctx.companyId, d.id, new Map([[b.id, b.serial]]), picks),
-          warnings: offBandWarnings([b], picks),
+          ...(offBandWarnings([b], picks).length > 0 ? { warnings: offBandWarnings([b], picks) } : {}),
         };
       };
 
@@ -1942,7 +1942,7 @@ export const dispatchRouter = router({
     .mutation(async ({ ctx, input }): Promise<AddBundlesReport> => {
       // The PL-8 report shape, unchanged for its clients: an ambiguous code is in `notFound`.
       const r = await addByCodes(ctx, input, { path: "office" });
-      return { added: r.added, alreadyInDispatch: r.alreadyInDispatch, notFound: r.notFound, unavailable: r.unavailable, linked: r.linked, warnings: r.warnings };
+      return { added: r.added, alreadyInDispatch: r.alreadyInDispatch, notFound: r.notFound, unavailable: r.unavailable, linked: r.linked, ...(r.warnings && r.warnings.length > 0 ? { warnings: r.warnings } : {}) };
     }),
 
   /**
