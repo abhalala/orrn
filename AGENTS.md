@@ -664,6 +664,27 @@ bun run deploy
   the customer has no open order line.
 - Indexes `dispatch(company_id, completed_at)` and `bundle(company_id, created_at)` (migration 0016)
   serve the range filters.
+- Office reports (W4-ANALYTICS, `routers/analyticsReports.ts` + `lib/reportsAnalytics.ts`, mounted on
+  `analytics`): `recovery({from,to,groupBy die|copy|press|shift, shiftSeq?, pressLineId?, planId?})`,
+  `stockAge({customerId?|plantOnly?})`, `orders({...orders.list filters, groupBy customer|month, withRates})`
+  are `reports.read` (viewer and supervisor included); `dieLife` is `reports.read` OR `die.card` OR
+  `die.reading` (the die card's Runs header). Recovery = Σ good ÷ Σ input of logged PRODUCTION runs
+  (plan purpose production or no plan), `recoveryPct` = `bpPercent1`; never an average of percents.
+  Die life = `life_g` vs Σ `good_g` of the copy's logged runs, `usedBp` half up, `near` from 90 %,
+  `reached` at 100 % (warn only). Stock age (FP-PK-16) counts AVAILABLE bundles only (held on a truck is
+  not lying in the yard), buckets 0-7 / 8-30 / 31-90 / 90+ company calendar days; party = the order of
+  `bundle.sales_order_line_id`, no line = plant stock; Today's "older than 90 days" tile is `over90`
+  (shown inside the `analytics.view` block). `analytics.stockAgeing` (0-15/16-30/31-60/60+, available +
+  reserved, analytics.view) is unchanged for the Stock and Today charts. The order summary uses
+  `lib/orderBook.ts` `bookSummary` on the SAME `fo` CTE as the grid, so each row is the sum of its book
+  rows and `totals` is `bookTotals`; `sum` is the rows added up (raw dispatched kg, like each list row).
+  Rupee columns (`bookCte(..., {rates})`) exist only when `withRates` is sent, which is FORBIDDEN unless
+  the caller holds `order.price` AND `priceOnSalesOrder` is on; the plain answer has no rupee field
+  (`ratesAllowed` tells the page whether to offer the toggle). Pages `/reports`, `/reports/production`
+  (mounts `press/report-view` `ReportScreen` with `title/back/children`), `/reports/die-life`,
+  `/reports/stock-age`, `/reports/orders`; print CSS via `ReportPrintStyle` (`data-report-print`,
+  `.report-no-print`); CSV written on the client from the server rows (`features/reports/model.ts`);
+  charts lazy (`report-charts.tsx`) behind `<Can do="analytics.view">`, tables for every reader.
 
 ## Sales orders, baki and dispatch header (PL-8)
 
