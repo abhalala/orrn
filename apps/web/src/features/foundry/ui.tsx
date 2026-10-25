@@ -1,6 +1,8 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { useFieldControl } from "@orrn/ui/components/field";
+import { NativeSelect, type NativeSelectProps } from "@orrn/ui/components/native-select";
 import { cn } from "@orrn/ui/lib/utils";
 import type { ReactNode } from "react";
 
@@ -73,8 +75,16 @@ export function Figure({ label, value, hint, strong, testId }: { label: string; 
   return (
     <div className="min-w-0" data-testid={testId}>
       <dt className="text-[13px] text-muted-foreground">{label}</dt>
-      <dd className={cn("m-0 font-mono tabular-nums break-words", strong ? "text-[22px] font-bold" : "text-[17px] font-semibold")}>{value}</dd>
-      {hint ? <p className="m-0 text-[12px] text-muted-foreground">{hint}</p> : null}
+      <dd className="m-0">
+        <span className={cn("block font-mono tabular-nums break-words", strong ? "text-[22px] font-bold" : "text-[17px] font-semibold")}>{value}</span>
+        {hint ? <span className="block text-[12px] text-muted-foreground">{hint}</span> : null}
+      </dd>
     </div>
   );
+}
+
+/** A select tied to its surrounding `Field` (label, hint, error), like `TextInput`. */
+export function FieldSelect(props: NativeSelectProps) {
+  const a11y = useFieldControl({ id: props.id, "aria-describedby": props["aria-describedby"], "aria-invalid": props["aria-invalid"] });
+  return <NativeSelect {...props} {...a11y} />;
 }

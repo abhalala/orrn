@@ -1,7 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -24,7 +23,7 @@ import {
 } from "./melt-form";
 import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
-import { Note } from "./ui";
+import { Note, FieldSelect } from "./ui";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
 export type Stream = { id: string; code: string; name: string; kind: string; active: boolean; balanceG: number };
@@ -73,24 +72,24 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t("foundry.melt.furnace")} hint={furnaces.length === 0 ? t("foundry.melt.noFurnace") : undefined}>
-          <NativeSelect value={form.furnaceId} onChange={(e) => patch({ furnaceId: e.currentTarget.value })} data-testid="melt-furnace">
+          <FieldSelect value={form.furnaceId} onChange={(e) => patch({ furnaceId: e.currentTarget.value })} data-testid="melt-furnace">
             <option value="">{t("foundry.melt.furnacePick")}</option>
             {furnaces.map((f) => (
               <option key={f.id} value={f.id}>
                 {f.code} · {kgFromG(f.capacityG)} {t("units.kg")}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         <Field label={t("foundry.melt.alloy")}>
-          <NativeSelect value={form.alloyId} onChange={(e) => patch({ alloyId: e.currentTarget.value })} data-testid="melt-alloy">
+          <FieldSelect value={form.alloyId} onChange={(e) => patch({ alloyId: e.currentTarget.value })} data-testid="melt-alloy">
             <option value="">{t("foundry.melt.alloyAsCast", { alloy: castAlloy })}</option>
             {alloys.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.code}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
       </div>
       {differs ? (
@@ -147,7 +146,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
             <div key={l.key} className={LINE} data-testid="lot-line">
               <div className="min-w-0 flex-1">
                 <Field label={t("foundry.melt.charge.lot")} error={marked && (issue!.code === "lot" || issue!.code === "duplicateLot") ? t(`foundry.melt.issue.${issue!.code}`) : undefined}>
-                  <NativeSelect
+                  <FieldSelect
                     value={l.lotId}
                     onChange={(e) => patch({ lots: form.lots.map((x) => (x.key === l.key ? { ...x, lotId: e.currentTarget.value } : x)) })}
                     data-testid="lot-pick"
@@ -158,7 +157,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                         {x.number} · {[x.itemName, x.gradeCode].filter(Boolean).join(" ")} · {kgFromG(x.remainingG)} {t("units.kg")}
                       </option>
                     ))}
-                  </NativeSelect>
+                  </FieldSelect>
                 </Field>
               </div>
               <div className="sm:w-44">
@@ -197,14 +196,14 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
             <div key={s.key} className={LINE} data-testid="stream-line">
               <div className="min-w-0 flex-1">
                 <Field label={t("foundry.melt.charge.stream")}>
-                  <NativeSelect value={s.streamId} onChange={(e) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, streamId: e.currentTarget.value } : x)) })} data-testid="stream-pick">
+                  <FieldSelect value={s.streamId} onChange={(e) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, streamId: e.currentTarget.value } : x)) })} data-testid="stream-pick">
                     <option value="">{t("foundry.melt.charge.streamPick")}</option>
                     {charge.map((x) => (
                       <option key={x.id} value={x.id} disabled={takenStreams.has(x.id) && x.id !== s.streamId}>
                         {x.code} · {kgFromG(x.balanceG)} {t("units.kg")}
                       </option>
                     ))}
-                  </NativeSelect>
+                  </FieldSelect>
                 </Field>
               </div>
               <div className="sm:w-44">
@@ -265,7 +264,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
           return (
             <div key={c.key} className="flex min-w-0 flex-col gap-3 rounded-card border border-border p-3" data-testid="chem-line">
               <Field label={t("foundry.melt.chem.item")}>
-                <NativeSelect value={other ? "__other" : c.storeItemId} onChange={(e) => set(e.currentTarget.value === "__other" ? { storeItemId: "", unit: c.unit || "kg" } : { storeItemId: e.currentTarget.value, name: "", unit: "" })} data-testid="chem-pick">
+                <FieldSelect value={other ? "__other" : c.storeItemId} onChange={(e) => set(e.currentTarget.value === "__other" ? { storeItemId: "", unit: c.unit || "kg" } : { storeItemId: e.currentTarget.value, name: "", unit: "" })} data-testid="chem-pick">
                   <option value="">{t("foundry.melt.chem.pick")}</option>
                   {active.map((x) => (
                     <option key={x.id} value={x.id} disabled={taken.has(x.id) && x.id !== c.storeItemId}>
@@ -273,7 +272,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                     </option>
                   ))}
                   <option value="__other">{t("foundry.melt.chem.other")}</option>
-                </NativeSelect>
+                </FieldSelect>
               </Field>
               {other ? (
                 <div className="grid grid-cols-2 gap-3">
@@ -281,13 +280,13 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                     <TextInput value={c.name} maxLength={60} onChange={(e) => set({ name: e.currentTarget.value })} data-testid="chem-name" />
                   </Field>
                   <Field label={t("foundry.melt.chem.unit")}>
-                    <NativeSelect value={c.unit} onChange={(e) => set({ unit: e.currentTarget.value })}>
+                    <FieldSelect value={c.unit} onChange={(e) => set({ unit: e.currentTarget.value })}>
                       {UNIT_CHOICES.map((u) => (
                         <option key={u} value={u}>
                           {u}
                         </option>
                       ))}
-                    </NativeSelect>
+                    </FieldSelect>
                   </Field>
                 </div>
               ) : null}
@@ -393,14 +392,14 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
           <div key={r.key} className={LINE}>
             <div className="min-w-0 flex-1">
               <Field label={t("foundry.melt.charge.stream")}>
-                <NativeSelect value={r.streamId} onChange={(e) => patch({ returns: form.returns.map((x) => (x.key === r.key ? { ...x, streamId: e.currentTarget.value } : x)) })}>
+                <FieldSelect value={r.streamId} onChange={(e) => patch({ returns: form.returns.map((x) => (x.key === r.key ? { ...x, streamId: e.currentTarget.value } : x)) })}>
                   <option value="">{t("foundry.melt.charge.streamPick")}</option>
                   {returnable.map((x) => (
                     <option key={x.id} value={x.id}>
                       {x.code}
                     </option>
                   ))}
-                </NativeSelect>
+                </FieldSelect>
               </Field>
             </div>
             <div className="sm:w-44">

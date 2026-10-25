@@ -2,7 +2,6 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { Field } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
@@ -24,7 +23,7 @@ import { clockText, dayText } from "./format";
 import { mmToFtText } from "./melt-form";
 import { bpText } from "./model";
 import { SpectroPanel } from "./spectro-panel";
-import { ErrorLine, Figure, Note, Panel, useTimeZone } from "./ui";
+import { ErrorLine, Figure, Note, Panel, useTimeZone, FieldSelect } from "./ui";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 type MeltRow = CastData["melts"][number];
@@ -231,12 +230,12 @@ function AskSheet({ meltId, open, onClose }: { meltId: string; open: boolean; on
     >
       <div className="flex flex-col gap-4 pt-1">
         <Field label={t("foundry.melt.correction.reason")} error={tried && !row ? t("foundry.melt.correction.reasonRequired") : undefined}>
-          <NativeSelect value={code} onChange={(e) => setCode(e.currentTarget.value)} data-testid="ask-reason">
+          <FieldSelect value={code} onChange={(e) => setCode(e.currentTarget.value)} data-testid="ask-reason">
             <option value="">{t("foundry.melt.correction.reasonPick")}</option>
             {options.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         <Field label={t("foundry.melt.correction.note")} error={tried && needsNote && !note.trim() ? t("foundry.melt.correction.noteRequired") : undefined}>
           <FieldTextArea value={note} maxLength={500} onChange={(e) => setNote(e.currentTarget.value)} data-testid="ask-note" />

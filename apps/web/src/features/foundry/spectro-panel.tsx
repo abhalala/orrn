@@ -3,13 +3,11 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { Can } from "@/shared/components/can";
@@ -17,7 +15,7 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ELEMENT_LABEL, limitText, ppmPct, readingTone, spectroInput, spectroRows, verdictTone } from "./model";
-import { ErrorLine, Note } from "./ui";
+import { ErrorLine, Note, FieldSelect } from "./ui";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 export type SpectroResult = CastData["melts"][number]["spectro"][number];
@@ -165,10 +163,11 @@ export function SpectroPanel({
   const [typing, setTyping] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [fileError, setFileError] = useState<"size" | "type" | null>(null);
+  const [added, setAdded] = useState(false);
   const attachFile = useMutation(
     trpc.foundry.spectro.attach.mutationOptions({
       onSuccess: () => {
-        toast.success(t("foundry.spectro.attached"));
+        setAdded(true);
         refresh();
       },
     }),
@@ -219,13 +218,15 @@ export function SpectroPanel({
         </ul>
       )}
       {live.length === 0 && results.length > 0 ? <Note tone="amber">{t("foundry.spectro.allVoid")}</Note> : null}
-      {meltId ? <InboxSheet meltId={meltId} open={inbox} onClose={() => setInbox(false)} /> : null}
-      {meltId ? <TypeSheet meltId={meltId} limits={limits} open={typing} onClose={() => setTyping(false)} /> : null}
+      {meltId ? <InboxSheet meltId={meltId} open={inbox} onClose={() => setInbox(false)} onAdded={() => setAdded(true)} /> : null}
+      {meltId ? <TypeSheet meltId={meltId} limits={limits} open={typing} onClose={() => setTyping(false)} onAdded={() => setAdded(true)} /> : null}
+      {/* The new result card is the confirmation; a toast would sit over the Lock button. */}
+      <p role="status" className="sr-only">{added ? t("foundry.spectro.attached") : ""}</p>
     </div>
   );
 }
 
-function InboxSheet({ meltId, open, onClose }: { meltId: string; open: boolean; onClose(): void }) {
+function InboxSheet({ meltId, open, onClose, onAdded }: { meltId: string; open: boolean; onClose(): void; onAdded(): void }) {
   const { t } = useT();
   const refresh = useRefresh();
   const files = useQuery({ ...trpc.foundry.spectroInbox.list.queryOptions({ status: ["pending_review"] }), enabled: open, meta: INLINE_ERROR_META });
@@ -233,7 +234,7 @@ function InboxSheet({ meltId, open, onClose }: { meltId: string; open: boolean; 
   const attach = useMutation(
     trpc.foundry.spectroInbox.attach.mutationOptions({
       onSuccess: () => {
-        toast.success(t("foundry.spectro.attached"));
+        onAdded();
         refresh();
         done();
       },
@@ -262,7 +263,7 @@ function InboxSheet({ meltId, open, onClose }: { meltId: string; open: boolean; 
       <div className="flex flex-col gap-4 pt-1">
         {files.isSuccess && usable.length === 0 ? <Note>{t("foundry.spectro.inboxEmpty")}</Note> : null}
         <Field label={t("foundry.spectro.inboxFile")}>
-          <NativeSelect value={fileId} onChange={(e) => setFileId(e.currentTarget.value)} data-testid="spectro-inbox-pick">
+          <FieldSelect value={fileId} onChange={(e) => setFileId(e.currentTarget.value)} data-testid="spectro-inbox-pick">
             <option value="">{t("foundry.spectro.inboxPick")}</option>
             {usable.map((f) => (
               <option key={f.id} value={f.id}>
@@ -270,7 +271,7 @@ function InboxSheet({ meltId, open, onClose }: { meltId: string; open: boolean; 
                 {f.sampleRef ? ` · ${f.sampleRef}` : ""}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         <ErrorLine error={attach.error} />
       </div>
@@ -278,7 +279,7 @@ function InboxSheet({ meltId, open, onClose }: { meltId: string; open: boolean; 
   );
 }
 
-function TypeSheet({ meltId, limits, open, onClose }: { meltId: string; limits: readonly SpectroLimit[]; open: boolean; onClose(): void }) {
+function TypeSheet({ meltId, limits, open, onClose, onAdded }: { meltId: string; limits: readonly SpectroLimit[]; open: boolean; onClose(): void; onAdded(): void }) {
   const { t } = useT();
   const refresh = useRefresh();
   const [texts, setTexts] = useState<Partial<Record<SpectroElementKey, string>>>({});
@@ -288,7 +289,7 @@ function TypeSheet({ meltId, limits, open, onClose }: { meltId: string; limits: 
   const enter = useMutation(
     trpc.foundry.spectro.enter.mutationOptions({
       onSuccess: () => {
-        toast.success(t("foundry.spectro.attached"));
+        onAdded();
         refresh();
         done();
         requestId.current = crypto.randomUUID();

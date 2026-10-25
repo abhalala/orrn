@@ -1,7 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +14,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { trpc } from "@/shared/utils/trpc";
 
 import { bpText, closeFormIssue } from "./model";
-import { ErrorLine, Note } from "./ui";
+import { ErrorLine, Note, FieldSelect } from "./ui";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 
@@ -101,14 +100,14 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
         {co.needsReason ? (
           <>
             <Field label={t("foundry.cast.close.reason")} error={tried && issue === "reason" ? t("foundry.cast.close.reasonRequired") : undefined}>
-              <NativeSelect value={reasonCode} onChange={(e) => setReasonCode(e.currentTarget.value)} data-testid="close-reason">
+              <FieldSelect value={reasonCode} onChange={(e) => setReasonCode(e.currentTarget.value)} data-testid="close-reason">
                 <option value="">{t("foundry.cast.close.reasonPick")}</option>
                 {options.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </FieldSelect>
             </Field>
             <Field label={t("foundry.cast.close.note")} error={tried && issue === "note" ? t("foundry.cast.close.noteRequired") : undefined}>
               <FieldTextArea value={note} maxLength={500} onChange={(e) => setNote(e.currentTarget.value)} data-testid="close-note" />

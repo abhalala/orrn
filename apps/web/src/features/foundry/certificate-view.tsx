@@ -111,7 +111,7 @@ export function CertificateScreen({ id }: { id: string }) {
             <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.cert.title")}</p>
           </div>
           {worst ? (
-            <Chip tone={verdictTone(worst)} truncate={false} className="text-[16px] font-bold" data-testid="cert-verdict">
+            <Chip tone={verdictTone(worst)} truncate={false} className={`text-[16px] font-bold ${worst === "fail" ? "uppercase" : ""}`} data-testid="cert-verdict">
               {worst === "fail" ? t("foundry.cert.fail") : t(`foundry.spectro.verdict.${worst}`)}
             </Chip>
           ) : (

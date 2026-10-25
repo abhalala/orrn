@@ -3,7 +3,6 @@ import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { Field } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,7 +15,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { kgFromG } from "@/features/press/model";
-import { ErrorLine, LoadFailed, Note } from "./ui";
+import { ErrorLine, LoadFailed, Note, FieldSelect } from "./ui";
 
 /**
  * `/casts/new` (FP-FD-02): pick the alloy the cast aims at. The number comes from the plant's series
@@ -68,7 +67,7 @@ export function NewCastScreen() {
           </Note>
         ) : (
           <Field label={t("foundry.newCast.alloy")} hint={t("foundry.newCast.alloyHint")}>
-            <NativeSelect value={alloyId} onChange={(e) => {
+            <FieldSelect value={alloyId} onChange={(e) => {
                 // A new choice is a new request: the same id for another alloy is refused.
                 requestId.current = crypto.randomUUID();
                 setAlloyId(e.currentTarget.value);
@@ -80,7 +79,7 @@ export function NewCastScreen() {
                   {a.name && a.name !== `Alloy ${a.code}` ? ` · ${a.name}` : ""}
                 </option>
               ))}
-            </NativeSelect>
+            </FieldSelect>
           </Field>
         )}
         <div className="flex min-w-0 flex-col gap-2" data-testid="furnace-line">

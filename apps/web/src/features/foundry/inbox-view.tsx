@@ -3,7 +3,6 @@ import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Sheet } from "@orrn/ui/components/sheet";
@@ -21,6 +20,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { INBOX_TABS, type InboxTab } from "./search";
+import { FieldSelect } from "./ui";
 
 type InboxFile = inferRouterOutputs<AppRouter>["foundry"]["spectroInbox"]["list"][number];
 
@@ -204,7 +204,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
     >
       <div className="flex flex-col gap-4 pt-1">
         <Field label={t("foundry.inbox.attachSheet.cast")}>
-          <NativeSelect
+          <FieldSelect
             value={castId}
             data-testid="inbox-cast"
             onChange={(e) => {
@@ -218,7 +218,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
                 {c.number} · {c.alloy}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         {casts.hasNextPage ? (
           <div>
@@ -228,14 +228,14 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
           </div>
         ) : null}
         <Field label={t("foundry.inbox.attachSheet.melt")} hint={castId !== "" && cast.isSuccess && melts.length === 0 ? t("foundry.inbox.attachSheet.noMelts") : undefined}>
-          <NativeSelect value={meltId} disabled={castId === "" || melts.length === 0} data-testid="inbox-melt" onChange={(e) => setMeltId(e.currentTarget.value)}>
+          <FieldSelect value={meltId} disabled={castId === "" || melts.length === 0} data-testid="inbox-melt" onChange={(e) => setMeltId(e.currentTarget.value)}>
             <option value="">{t("foundry.inbox.attachSheet.meltPick")}</option>
             {melts.map((m) => (
               <option key={m.id} value={m.id}>
                 {t("foundry.inbox.attachSheet.meltLabel", { seq: m.seq })}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         {values.length > 0 ? (
           <div className="flex flex-col gap-1">

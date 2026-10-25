@@ -17,7 +17,7 @@ shift
 
 case "$(printf '%s' "$group" | tr '[:lower:]' '[:upper:]')" in
   A) specs="catalog charts die-room-w2 die-room dispatch-w1 dispatch-w2 dispatch front-door godseye gu-w4 guides imports" ;;
-  B) specs="die-room-flows layout-guards marketing masters orders-w2 orders pack-w1 pack platform portal press printing-settings reports" ;;
+  B) specs="die-room-flows foundry foundry-masters layout-guards marketing masters orders-w2 orders pack-w1 pack platform portal press printing-settings reports" ;;
   C) specs="chain collectors next-rows orders-plan-purpose preview-redirects purchase redirects scan session shell stock-w1 stock store today ui-kit" ;;
   *) echo "unknown group '$group' (use A, B or C)" >&2; exit 2 ;;
 esac
@@ -29,7 +29,7 @@ for f in "${files[@]}"; do [ -f "$f" ] || { echo "GROUPS.md is out of date: $f i
 # A spec file not in any group would silently never run: say so.
 for f in tests/e2e/*.spec.ts; do
   name="$(basename "$f" .spec.ts)"
-  case " catalog chain charts collectors die-room-flows die-room-w2 die-room dispatch-w1 dispatch-w2 dispatch front-door godseye gu-w4 guides imports layout-guards marketing masters next-rows orders-plan-purpose orders-w2 orders pack-w1 pack platform portal press preview-redirects printing-settings purchase redirects reports scan session shell stock-w1 stock store today ui-kit " in
+  case " catalog chain charts collectors die-room-flows foundry foundry-masters die-room-w2 die-room dispatch-w1 dispatch-w2 dispatch front-door godseye gu-w4 guides imports layout-guards marketing masters next-rows orders-plan-purpose orders-w2 orders pack-w1 pack platform portal press preview-redirects printing-settings purchase redirects reports scan session shell stock-w1 stock store today ui-kit " in
     *" $name "*) ;;
     *) echo "warning: $f is in no group (add it to GROUPS.md and this script)" >&2 ;;
   esac

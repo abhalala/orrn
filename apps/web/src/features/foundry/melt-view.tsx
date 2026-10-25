@@ -112,6 +112,8 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
   }
   const saved = useRef<MeltForm>(form);
   const meltIdRef = useRef<string | null>(melt?.id ?? null);
+  // Mirrors the ref for what renders (the gate list reads the saved draft).
+  const [savedMeltId, setSavedMeltId] = useState<string | null>(melt?.id ?? null);
   const seqRef = useRef<number | undefined>(melt?.serverSeq);
   const firstRequest = useRef(crypto.randomUUID());
   const lockRequest = useRef(crypto.randomUUID());
@@ -122,12 +124,14 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
 
   const saveMut = useMutation(trpc.foundry.melts.save.mutationOptions());
   const lockMut = useMutation(trpc.foundry.melts.lock.mutationOptions());
+  // The gates always come from the server's preview of the SAVED draft; a spectro result, a save or a
+  // discard refreshes it (they invalidate `foundry.melts`).
   const preview = useQuery({
-    ...trpc.foundry.melts.preview.queryOptions({ meltId: melt?.id ?? "" }),
-    enabled: melt !== null && view === null,
+    ...trpc.foundry.melts.preview.queryOptions({ meltId: savedMeltId ?? "" }),
+    enabled: savedMeltId !== null,
     meta: INLINE_ERROR_META,
   });
-  const gates = ((view ?? preview.data)?.gates ?? []).filter(isGate);
+  const gates = ((preview.data ?? view)?.gates ?? []).filter(isGate);
 
   const castAlloy = data.cast.alloy;
   const alloyList = (alloys.data?.items ?? []).filter((a) => a.status === "active");
@@ -157,6 +161,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
       seqRef.current = v.serverSeq;
       const wasNew = meltIdRef.current === null;
       meltIdRef.current = v.id;
+      setSavedMeltId(v.id);
       setView(v);
       void queryClient.invalidateQueries({ queryKey: trpc.foundry.casts.pathKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.foundry.melts.pathKey() });
@@ -177,7 +182,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
     go(STEPS[Math.min(index + 1, STEPS.length - 1)]!);
   };
   const lock = async () => {
-    const v = dirty || meltIdRef.current === null ? await save() : (view ?? (preview.data as DraftView | undefined) ?? null);
+    const v = dirty || meltIdRef.current === null ? await save() : ((await preview.refetch()).data ?? view ?? null);
     if (!v) return;
     if (v.gates.length > 0) return;
     try {
@@ -190,7 +195,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
     }
   };
 
-  const savedMelt = melt ?? data.melts.find((m) => m.id === meltIdRef.current) ?? null;
+  const savedMelt = data.melts.find((m) => m.id === savedMeltId) ?? melt ?? null;
   const verdict = savedMelt ? latestVerdict(savedMelt.spectro) : null;
   const seq = savedMelt?.seq;
   const stepNames = STEPS.map((s) => t(`foundry.melt.steps.${s}`));
@@ -202,7 +207,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
       actions={
         <div className="flex items-center gap-2">
           <Chip tone="amber" truncate={false}>{t("foundry.melt.status.draft")}</Chip>
-          {meltIdRef.current ? (
+          {savedMeltId ? (
             <Button variant="ghost" onClick={() => setDiscarding(true)} data-testid="discard-draft">
               {t("foundry.melt.discard.button")}
             </Button>
@@ -225,6 +230,9 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
   return (
     <>
       {header}
+      {savedMelt?.correctsMeltId ? (
+        <Note testId="corrects-note">{t("foundry.melt.correctsNote", { n: data.melts.find((m) => m.id === savedMelt.correctsMeltId)?.seq ?? "" })}</Note>
+      ) : null}
       <Stepper steps={stepNames} current={index} />
       <div className="flex min-w-0 flex-col gap-4 rounded-card border border-border bg-card p-4 sm:p-5" data-testid={`melt-step-${step}`}>
         <h2 className="m-0 text-[18px] font-semibold">{stepNames[index]}</h2>
@@ -242,7 +250,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
         ) : (
           <div className="flex flex-col gap-5">
             <SpectroPanel
-              meltId={meltIdRef.current}
+              meltId={savedMeltId}
               results={savedMelt?.spectro ?? []}
               limits={meltAlloy?.limits ?? []}
               alloyCode={meltAlloy?.code ?? castAlloy}
@@ -259,8 +267,8 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
               <FieldTextArea value={form.notes} maxLength={500} onChange={(e) => patch({ notes: e.currentTarget.value })} />
             </Field>
             <Balance form={form} capacityG={capacityG} />
-            <GateList gates={gates} dirty={dirty} onGo={go} />
-            <Readings meltId={meltIdRef.current} />
+            <GateList gates={gates} dirty={dirty} pending={preview.isFetching} onGo={go} />
+            <Readings meltId={savedMeltId} />
           </div>
         )}
       </div>
@@ -287,15 +295,16 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
           </Can>
         )}
       </FormActions>
-      {meltIdRef.current ? <DiscardSheet open={discarding} onClose={() => setDiscarding(false)} meltId={meltIdRef.current} castId={castId} /> : null}
+      {savedMeltId ? <DiscardSheet open={discarding} onClose={() => setDiscarding(false)} meltId={savedMeltId} castId={castId} /> : null}
     </>
   );
 }
 
 /** What still stops the lock, each in the person's language with a jump to the step that fixes it. */
-function GateList({ gates, dirty, onGo }: { gates: readonly import("@orrn/domain").MeltLockError[]; dirty: boolean; onGo(step: Step): void }) {
+function GateList({ gates, dirty, pending, onGo }: { gates: readonly import("@orrn/domain").MeltLockError[]; dirty: boolean; pending: boolean; onGo(step: Step): void }) {
   const { t } = useT();
   if (dirty) return <Note>{t("foundry.melt.gates.unsaved")}</Note>;
+  if (pending) return <Note>{t("common.loading")}</Note>;
   if (gates.length === 0) return <Note tone="green" testId="gates-ready">{t("foundry.melt.gates.ready")}</Note>;
   const sentences = gateSentences(t, gates);
   return (
