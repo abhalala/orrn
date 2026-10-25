@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3913 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 4013 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2995,7 +2995,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (339)
+### dieRoom (412)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3036,6 +3036,8 @@ Please check, Lalubhai:
 | `bands.retired` | Retired | बंद |
 | `bands.noCopies` | No copies on this band. | इस बैंड पर कोई कॉपी नहीं। |
 | `bands.liftedTo` | {code} lifted to {band} on {date} | {code} को {date} को {band} में ले गए |
+| `card.makerDieNo` | Maker die no. | मेकर का die नंबर |
+| `card.makerProjectNo` | Maker project no. | मेकर का प्रोजेक्ट नंबर |
 | `card.title` | Die card | Die कार्ड |
 | `card.alloy` | Alloy | अलॉय |
 | `card.temper` | Temper | टेम्पर |
@@ -3103,6 +3105,7 @@ Please check, Lalubhai:
 | `drift.red` | Over band | बैंड से ज़्यादा |
 | `drift.value` | {pct}% over band start | बैंड शुरू से {pct}% ज़्यादा |
 | `drift.none` | No reading | कोई रीडिंग नहीं |
+| `issue.returnedTrial` | Back on trial | ट्रायल पर लौटी |
 | `issue.title` | Issue to press | प्रेस को दें |
 | `issue.issue` | Issue | दें |
 | `issue.return` | Take back | वापस लें |
@@ -3113,6 +3116,8 @@ Please check, Lalubhai:
 | `issue.notAvailable` | This copy is not in the rack. | यह कॉपी रैक में नहीं है। |
 | `issue.openIssue` | This copy is already issued. | यह कॉपी पहले से दी हुई है। |
 | `issue.dieOnPress` | The die is still on the press. Log the run first. | Die अभी प्रेस पर है। पहले रन दर्ज करें। |
+| `maker.receivedTrialToast` | {number}: {code} is back, on trial | {number}: {code} लौट आई, ट्रायल पर |
+| `maker.comesBackOnTrial` | The copy comes back on trial. A trial run or a manager makes it available. | कॉपी ट्रायल पर लौटती है। ट्रायल रन या मैनेजर उसे उपलब्ध करता है। |
 | `maker.title` | Die maker | Die मेकर |
 | `maker.makers` | Die makers | Die मेकर |
 | `maker.addMaker` | Add die maker | Die मेकर जोड़ें |
@@ -3188,9 +3193,68 @@ Please check, Lalubhai:
 | `tabs.tier` | Tier | टियर |
 | `tabs.maker` | Maker | मेकर |
 | `tabs.files` | Files | फ़ाइलें |
+| `trial.title` | On trial | ट्रायल पर |
+| `trial.body` | This copy goes only to a die trial run. It becomes available when a trial passes. | यह कॉपी सिर्फ़ die ट्रायल रन पर जाती है। ट्रायल पास होने पर यह उपलब्ध हो जाती है। |
+| `trial.issueToTrial` | Issue to a trial run | ट्रायल रन को दें |
+| `trial.release` | Release without a trial | ट्रायल के बिना छोड़ें |
+| `trial.releaseTitle` | Release {code} without a trial? | {code} को ट्रायल के बिना छोड़ें? |
+| `trial.releaseBody` | The copy becomes available for production. Your reason is kept in the audit trail. | कॉपी प्रोडक्शन के लिए उपलब्ध हो जाएगी। आपकी वजह ऑडिट रिकॉर्ड में रहेगी। |
+| `trial.reasonRequired` | Write why. A few words are enough. | वजह लिखें। कुछ शब्द काफ़ी हैं। |
+| `trial.releaseConfirm` | Release | छोड़ें |
+| `trial.releasedToast` | {code} is available | {code} उपलब्ध है |
+| `bulk.menu` | Attach drawings by file name | फ़ाइल के नाम से ड्रॉइंग जोड़ें |
+| `bulk.title` | Attach drawings | ड्रॉइंग जोड़ें |
+| `bulk.intro` | Pick many files at once. The file name says where each one goes. | एक साथ कई फ़ाइलें चुनें। फ़ाइल का नाम बताता है कि वह कहां जाएगी। |
+| `bulk.pick` | Files | फ़ाइलें |
+| `bulk.ruleSection` | 12170.pdf goes to die 12170. | 12170.pdf, die 12170 में जाती है। |
+| `bulk.ruleCopy` | 12170-1.cdr goes to copy 12170-1. | 12170-1.cdr, कॉपी 12170-1 में जाती है। |
+| `bulk.ruleDrawing` | A PDF becomes the press drawing only if the die has none. | PDF तभी प्रेस ड्रॉइंग बनती है जब die की कोई ड्रॉइंग न हो। |
+| `bulk.reading` | Reading the file names | फ़ाइलों के नाम पढ़ रहे हैं |
+| `bulk.attach` | Attach {count} files | {count} फ़ाइलें जोड़ें |
+| `bulk.retry` | Try {count} again | {count} फिर से भेजें |
+| `bulk.progress` | {done} of {total} files | {total} में से {done} फ़ाइलें |
+| `bulk.summary` | {saved} saved, {failed} failed, {already} already there, {notMatched} not matched. | {saved} सेव हुईं, {failed} नहीं गईं, {already} पहले से थीं, {notMatched} का मिलान नहीं हुआ। |
+| `bulk.willAttach` | To attach ({count}) | जोड़ी जाएंगी ({count}) |
+| `bulk.toSection` | Die {target} | Die {target} |
+| `bulk.toCopy` | Copy {target} | कॉपी {target} |
+| `bulk.asDrawing` | Press drawing | प्रेस ड्रॉइंग |
+| `bulk.nothingToAttach` | No file can be attached. Check the file names. | कोई फ़ाइल नहीं जोड़ी जा सकती। फ़ाइलों के नाम देखें। |
+| `bulk.alreadyTitle` | Already there ({count}) | पहले से हैं ({count}) |
+| `bulk.notMatchedTitle` | Not attached ({count}) | नहीं जोड़ी गईं ({count}) |
+| `bulk.reason.unmatched` | No die or copy has this code. | इस कोड का कोई die या कॉपी नहीं है। |
+| `bulk.reason.unsupported` | orrn keeps images, PDF, CDR and DWG files only. | orrn सिर्फ़ फ़ोटो, PDF, CDR और DWG फ़ाइलें रखता है। |
+| `bulk.reason.ambiguous` | Two dies have this section code. Attach it from the die. | दो die का सेक्शन कोड यही है। उसे die के पन्ने से जोड़ें। |
+| `bulk.state.saved` | Saved | सेव हुई |
+| `bulk.state.uploading` | Sending | भेज रहे हैं |
+| `bulk.state.error` | Failed | नहीं गई |
+| `bulk.putFailed` | The file did not go through. Check the connection and try again. | फ़ाइल नहीं पहुंची। कनेक्शन देखें और फिर से कोशिश करें। |
+| `bulk.savedToast` | {count} files attached | {count} फ़ाइलें जुड़ीं |
 | `errors.exists` | Already exists: {code} | पहले से है: {code} |
+| `board.tilesLabel` | Copies by state | स्थिति के हिसाब से कॉपी |
+| `board.filtersLabel` | Filters | फ़िल्टर |
+| `board.filter.all` | All | सभी |
+| `board.filter.customerOwned` | Owned by a customer | ग्राहक के मालिकाना |
+| `board.sortLabel` | Sort by | इस क्रम में |
+| `board.sort.newest` | Newest first | नया पहले |
+| `board.sort.code` | Series and section | सीरीज़ और सेक्शन |
+| `board.sort.band` | Lightest band first | हल्का बैंड पहले |
+| `board.sort.copies` | Most copies first | ज़्यादा कॉपी पहले |
+| `board.clearFilters` | Clear filters | फ़िल्टर हटाएं |
+| `board.noFilterMatch` | No die matches | कोई die नहीं मिला |
+| `board.noFilterMatchBody` | Clear the filters to see every die. | सभी die देखने के लिए फ़िल्टर हटाएं। |
+| `board.tiles.on_trial` | On trial | ट्रायल पर |
+| `board.tiles.available` | In rack | रैक में |
+| `board.tiles.in_use` | On press | प्रेस पर |
+| `board.tiles.at_nitriding` | At nitriding | नाइट्राइडिंग पर |
+| `board.tiles.at_maker` | At die maker | Die मेकर के पास |
+| `board.tiles.none` | Dies without copies | बिना कॉपी वाले die |
+| `board.trialSetting.title` | New copies start on trial | नई कॉपी ट्रायल से शुरू हो |
+| `board.trialSetting.body` | A new copy, and a copy back from the die maker, goes only to a die trial run until a trial passes or a manager releases it. | नई कॉपी और die मेकर से लौटी कॉपी तब तक सिर्फ़ die ट्रायल रन पर जाती है, जब तक ट्रायल पास न हो या मैनेजर उसे छोड़ न दे। |
+| `board.trialSetting.saved` | Setting saved | सेटिंग सेव हुई |
 | `board.searchHint` | Search a section, a series or a copy like 12170-2 | सेक्शन, सीरीज़ या कॉपी खोजें, जैसे 12170-2 |
 | `board.slashHint` | A slash works too: 12170/2 finds 12170-2. | स्लैश भी चलता है: 12170/2 से 12170-2 मिलती है। |
+| `board.columns.copy` | Copy | कॉपी |
+| `board.columns.series` | Series | सीरीज़ |
 | `board.columns.shape` | Shape | आकार |
 | `board.columns.band` | Weight band | वज़न बैंड |
 | `board.columns.owner` | Owner | मालिक |
@@ -3202,6 +3266,12 @@ Please check, Lalubhai:
 | `board.makersLink` | Die makers | Die मेकर |
 | `board.loadFailed` | The dies didn't load. Check the connection and try again. | Die की सूची नहीं खुली। कनेक्शन देखकर फिर कोशिश करें। |
 | `board.noMatchBody` | Try a section code, a series or a copy code. | सेक्शन कोड, सीरीज़ या कॉपी कोड आज़माएं। |
+| `board.copiesNote` | These are the copies in this state. Each one opens its card. | ये इस स्थिति वाली कॉपी हैं। हर कॉपी अपना कार्ड खोलती है। |
+| `board.copiesLabel` | Copies in this state | इस स्थिति वाली कॉपी |
+| `board.noCopiesInState` | No copy is in this state | इस स्थिति में कोई कॉपी नहीं |
+| `board.noCopiesInStateBody` | Clear the tile to see every die. | सभी die देखने के लिए टाइल हटाएं। |
+| `section.copyAddedTrial` | {code} added, on trial | {code} जुड़ी, ट्रायल पर |
+| `section.startsOnTrial` | A new copy starts on trial until a trial passes or a manager releases it. | नई कॉपी ट्रायल से शुरू होती है, जब तक ट्रायल पास न हो या मैनेजर उसे छोड़ न दे। |
 | `section.useFirst` | Run {code} first: {kg} kg/12ft, in band. | पहले {code} चलाएं: {kg} kg/12ft, बैंड में। |
 | `section.bandsAndCopies` | Bands and copies | बैंड और कॉपी |
 | `section.emptyCopiesBody` | The copy number is given when you add one. | कॉपी जोड़ते समय उसका नंबर अपने आप मिलता है। |
@@ -3300,6 +3370,9 @@ Please check, Lalubhai:
 | `lift.noOtherBand` | This die has no other band. Add one first. | इस die का कोई दूसरा बैंड नहीं है। पहले एक जोड़ें। |
 | `lift.dieRoomOnly` | Only the die room asks for a move. | बदलाव सिर्फ़ die रूम मांगता है। |
 | `lift.submit` | Ask for approval | मंज़ूरी मांगें |
+| `issues.noTrialRun` | No die trial run is waiting for this section. A copy on trial goes only to a die trial run: release one in the plan first. | इस सेक्शन के लिए कोई die ट्रायल रन इंतज़ार में नहीं। ट्रायल वाली कॉपी सिर्फ़ die ट्रायल रन पर जाती है: पहले प्लान में एक छोड़ें। |
+| `issues.trialNote` | This copy is on trial. It goes only to a die trial run. | यह कॉपी ट्रायल पर है। यह सिर्फ़ die ट्रायल रन पर जाती है। |
+| `issues.trialRun` | Die trial | Die ट्रायल |
 | `issues.pickRun` | Pick a press run | प्रेस रन चुनें |
 | `issues.noRun` | No press run is waiting for a die of this section. Release one in the plan first. | इस सेक्शन के किसी रन को die का इंतज़ार नहीं है। पहले प्लान में रन छोड़ें। |
 | `issues.run` | Press run | प्रेस रन |
@@ -3635,7 +3708,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (133)
+### press (160)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3742,6 +3815,33 @@ Please check, Lalubhai:
 | `console.logRun` | Log run | रन दर्ज करें |
 | `console.supervisorOnly` | Only this run's supervisor can log it. | सिर्फ़ इस रन का सुपरवाइज़र इसे दर्ज कर सकता है। |
 | `console.queuePosition` | Number {n} in queue | कतार में नंबर {n} |
+| `console.startLocked` | Die not issued. Start is locked. | Die जारी नहीं हुई। शुरू करना बंद है। |
+| `console.billetsShortBy` | Billets short by {kg} kg | बिलेट {kg} kg कम |
+| `console.pickOrderLine` | Pick the order line for {mm} mm | {mm} mm के लिए ऑर्डर लाइन चुनें |
+| `console.gates.not_counting` | Only a run being counted can be logged | सिर्फ़ गिनती वाला रन ही दर्ज हो सकता है |
+| `console.gates.no_close_permission` | Only a supervisor or manager can log a run | रन सिर्फ़ सुपरवाइज़र या मैनेजर दर्ज कर सकता है |
+| `console.gates.not_supervisor` | Only the run's supervisor can log it | रन सिर्फ़ उसका सुपरवाइज़र दर्ज कर सकता है |
+| `console.gates.no_cast` | Pick the cast the billets came from | बिलेट जिस कास्ट के हैं, वह चुनें |
+| `console.gates.no_billets` | Enter the billets used | लगे हुए बिलेट भरें |
+| `console.gates.too_many_billets` | At most 10 billet rows on a run | एक रन में ज़्यादा से ज़्यादा 10 बिलेट लाइन |
+| `console.gates.billet_row_invalid` | Every billet row needs a count and its kg | हर बिलेट लाइन में गिनती और kg चाहिए |
+| `console.gates.billet_cast_mismatch` | Every billet row must be of the run's cast | हर बिलेट लाइन रन के कास्ट की होनी चाहिए |
+| `console.gates.no_input` | The billets weigh nothing; enter their kg | बिलेट का वज़न शून्य है; उनका kg भरें |
+| `console.gates.no_lines` | Enter the pieces by cut length | कट लंबाई के हिसाब से पीस भरें |
+| `console.gates.line_without_kg` | A cut length with pieces needs its kg | जिस कट लंबाई में पीस हैं, उसका kg भरें |
+| `console.gates.line_invalid` | A cut length row is not valid | एक कट लंबाई लाइन सही नहीं है |
+| `console.gates.no_good` | Enter the good pieces and their kg | अच्छे पीस और उनका kg भरें |
+| `console.gates.good_over_input` | Good kg is more than the billets that went in | अच्छा kg लगे हुए बिलेट से ज़्यादा है |
+| `console.gates.pieces_over_pressed_length` | The pieces are longer in total than the pressed length | पीस की कुल लंबाई प्रेस हुई लंबाई से ज़्यादा है |
+| `console.gates.no_qc` | Enter the rejects (0 when there were none) | रिजेक्ट भरें (न हों तो 0) |
+| `console.gates.qc_row_invalid` | A reject row is not valid | एक रिजेक्ट लाइन सही नहीं है |
+| `console.gates.qc_reason_missing` | Every reject needs a reason | हर रिजेक्ट का कारण चाहिए |
+| `console.gates.qc_note_missing` | A reject marked Other needs a note | अन्य वाले रिजेक्ट के लिए नोट चाहिए |
+| `console.gates.billet_short_reason_missing` | The billet store has less of this cast than entered; give the reason | बिलेट स्टोर में इस कास्ट के बिलेट भरे गए से कम हैं; कारण दें |
+| `console.gates.time_unconfirmed` | The start or stop time is waiting for a supervisor to confirm it | शुरू या बंद का समय सुपरवाइज़र की पुष्टि का इंतज़ार कर रहा है |
+| `console.gates.late_entry_unapproved` | This late entry is waiting for approval | बाद में भरा यह रन मंज़ूरी का इंतज़ार कर रहा है |
+| `console.gates.downtime_open` | Stop the open downtime first | पहले खुली रुकावट बंद करें |
+| `console.gates.trial_result_missing` | Say whether the die trial passed or failed | बताएं कि die ट्रायल पास हुआ या फेल |
 | `report.title` | Press report | प्रेस रिपोर्ट |
 | `report.runNo` | Run no | रन नंबर |
 | `report.productionDay` | Production day | उत्पादन दिन |

@@ -22,7 +22,7 @@ import { z } from "zod";
 import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { customer } from "@orrn/db/schema/customers";
-import { pressLine, pressPlan, pressPlanDie, pressPlanLine, pressPlanStatuses, pressRun } from "@orrn/db/schema/press";
+import { pressLine, pressPlan, pressPlanDie, pressPlanLine, pressPlanPurposes, pressPlanStatuses, pressRun } from "@orrn/db/schema/press";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 
 import { actionProcedure, companyProcedure, router } from "../index";
@@ -54,12 +54,17 @@ const createInput = z.object({
   windowStart: z.number().int().positive(),
   windowEnd: z.number().int().positive(),
   note: z.string().trim().max(500).nullable().optional(),
+  /**
+   * FP-PR-23: production (default) presses for order lines; die_trial / sample / other need no
+   * order line (and take none), never move baki, and show as their own rows on the press report.
+   */
+  purpose: z.enum(pressPlanPurposes).default("production"),
   dies: z
     .array(
       z.object({
         sectionId: id,
         urgent: z.boolean().optional(),
-        lines: z.array(planLineInput).min(1, "Add at least one order line").max(MAX_LINES),
+        lines: z.array(planLineInput).max(MAX_LINES).default([]),
       }),
     )
     .min(1, "Add at least one die")
@@ -401,6 +406,13 @@ export const pressPlanRouter = router({
       const span = input.windowEnd - input.windowStart;
       if (!(span > 0) || span > PRESS_PLAN_MAX_WINDOW_MS) windowError();
       if (input.pressLineId) await resolvePressLine(ctx.db, ctx.companyId, input.pressLineId);
+      const production = input.purpose === "production";
+      for (const d of input.dies) {
+        if (production && d.lines.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Add at least one order line" });
+        if (!production && d.lines.length > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "A trial or sample plan takes no order lines" });
+        }
+      }
       const sectionIds = input.dies.map((d) => d.sectionId);
       if (new Set(sectionIds).size !== sectionIds.length) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "A die is on the plan twice; put its lines under one die" });
@@ -470,6 +482,7 @@ export const pressPlanRouter = router({
           number,
           period,
           status: "draft",
+          purpose: input.purpose,
           pressLineId: input.pressLineId ?? null,
           windowStart: new Date(input.windowStart),
           windowEnd: new Date(input.windowEnd),
@@ -489,7 +502,7 @@ export const pressPlanRouter = router({
           action: "plan.create",
           subjectType: "press_plan",
           subjectId: planId,
-          meta: { number, period, dies: dieRows.length, lines: lineRows.length, kgG: lineRows.reduce((s, r) => s + r.kgG, 0), orderIds },
+          meta: { number, period, purpose: input.purpose, dies: dieRows.length, lines: lineRows.length, kgG: lineRows.reduce((s, r) => s + r.kgG, 0), orderIds },
         }),
       );
       try {
@@ -516,7 +529,8 @@ export const pressPlanRouter = router({
         windowStartMs: plan.windowStart.getTime(),
         windowEndMs: plan.windowEnd.getTime(),
         dieCount: parts.dies.length,
-        lineCount: parts.lines.length,
+        // FP-PR-23: a trial / sample plan has dies and no order lines.
+        lineCount: plan.purpose === "production" ? parts.lines.length : parts.dies.length,
       });
       if (!ok.ok) {
         if (ok.refusal === "window") windowError();
@@ -559,7 +573,7 @@ export const pressPlanRouter = router({
         set.add(l.customerId);
         customersBySection.set(s, set);
       }
-      const warnings = await otherPartyWarnings(ctx.db, ctx.companyId, {
+      const warnings = plan.purpose !== "production" ? [] : await otherPartyWarnings(ctx.db, ctx.companyId, {
         sectionIds: parts.dies.map((d) => d.sectionId),
         lineIds: new Set(lineIds),
         customersBySection,
@@ -999,6 +1013,7 @@ export const pressPlanRouter = router({
           number: pressPlan.number,
           period: pressPlan.period,
           status: pressPlan.status,
+          purpose: pressPlan.purpose,
           pressLineId: pressPlan.pressLineId,
           windowStart: pressPlan.windowStart,
           windowEnd: pressPlan.windowEnd,

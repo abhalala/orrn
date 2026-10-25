@@ -39,6 +39,7 @@ import {
   type CardTab,
 } from "./die-room-model";
 import { PrintCard, printCard } from "./print-card";
+import { TrialPanel } from "./trial-panel";
 import { ReadingPad } from "./reading-pad";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
@@ -143,7 +144,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
             icon: <Pencil aria-hidden="true" strokeWidth={2} />,
             onSelect: () => setEditing(true),
           },
-          ...(instance.status === "available"
+          ...(instance.status === "available" || instance.status === "on_trial"
             ? [
                 {
                   key: "retire",
@@ -234,6 +235,8 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           ) : null}
         </div>
 
+        <TrialPanel card={card} />
+
         <Card className="min-w-0">
           <CardTitle>{t("dieRoom.card.cardTitle")}</CardTitle>
           <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -243,6 +246,8 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
             <Fact label={t("dieRoom.card.trial")} value={instance.trialKgPer12ftMilli == null ? null : `${milliKgText(instance.trialKgPer12ftMilli)} ${t("units.kgPer12ft")}`} mono />
             <Fact label={t("dieRoom.card.hardness")} value={instance.hardness == null ? null : String(instance.hardness)} />
             <Fact label={t("dieRoom.copies.rack")} value={instance.rackNo} mono />
+            <Fact label={t("dieRoom.card.makerDieNo")} value={instance.makerDieNo} mono />
+            <Fact label={t("dieRoom.card.makerProjectNo")} value={instance.makerProjectNo} mono />
           </dl>
           <details className="rounded-card border border-border p-3">
             <summary className="min-h-11 cursor-pointer text-[15px] leading-[44px] font-semibold">{t("common.advanced")}</summary>

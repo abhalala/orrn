@@ -241,6 +241,12 @@ export const pressRun = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * D22 (0030_press_fixes): grams of the weighed billets the cast's store could not cover at the
+     * close (0 when it could; null until logged). The ledger still debits the full weighed kg; the
+     * cast shows Σ of its logged runs as "billets short by N kg" for the foundry close-out.
+     */
+    billetShortG: integer("billet_short_g"),
   },
   (table) => [
     uniqueIndex("press_run_company_number_unique").on(table.companyId, table.period, table.number),
@@ -299,6 +305,11 @@ export const dieIssue = sqliteTable(
       .default(nowMs)
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * 1 when the copy was `on_trial` as it went out (FP-DR-17, migration 0029). Return and cancel read
+     * it: a trial issue comes back `on_trial` unless its run is logged with a passed trial.
+     */
+    trial: integer("trial").notNull().default(0),
   },
   (table) => [
     uniqueIndex("die_issue_open_unique")

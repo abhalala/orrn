@@ -41,7 +41,7 @@ const ROLES: CompanyRole[] = [
 
 /** A plant with one section (band 1.600-1.700 kg per 12 ft) and its users. */
 async function plant(band: { min: number; max: number } = { min: 1_600, max: 1_700 }) {
-  const { companyId, users } = await env.seedCompany();
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false } } }); // these tests are about the rack; the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: band.min, weightMaxG: band.max });
   const owner = env.caller({ role: "owner", companyId });
   const dieRoom = env.caller({ role: "die_room", companyId });

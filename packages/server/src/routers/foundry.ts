@@ -58,6 +58,7 @@ import { nextDocNumber } from "../lib/docNumber";
 import {
   activeLocation,
   castBilletsOnHandSql,
+  castBilletsShortSql,
   castCloseout,
   castInputSql,
   castLiveMeltsSql,
@@ -430,6 +431,7 @@ function castSummaryFields(companyId: string) {
     inputG: castInputSql(companyId, OUTER_CAST_ID),
     logsG: castLogsSql(companyId, OUTER_CAST_ID),
     billetsOnHandG: castBilletsOnHandSql(companyId, OUTER_CAST_ID),
+    billetsShortG: castBilletsShortSql(companyId, OUTER_CAST_ID),
   };
 }
 
@@ -483,6 +485,7 @@ const castsRouter = router({
         inputG: Number(r.inputG),
         logsG: Number(r.logsG),
         billetsOnHandG: Number(r.billetsOnHandG),
+        billetsShortG: Number(r.billetsShortG),
       }));
       const total = Number(totalRow?.n ?? 0);
       const next = input.offset + items.length;

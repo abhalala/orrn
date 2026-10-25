@@ -28,6 +28,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ConfirmDialog } from "./confirm-dialog";
+import { useNewCopyOnTrial } from "./use-die-room";
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
 import {
   bandTitle,
@@ -468,8 +469,11 @@ function AddCopySheet({
   const [tier, setTier] = useState("");
   const [bandId, setBandId] = useState("primary");
   const [rack, setRack] = useState("");
+  const [makerDie, setMakerDie] = useState("");
+  const [makerProject, setMakerProject] = useState("");
   const [error, setError] = useState<string | null>(null);
   const formId = useId();
+  const startsOnTrial = useNewCopyOnTrial();
 
   const create = useMutation({
     ...trpc.dieInstance.create.mutationOptions(),
@@ -478,9 +482,11 @@ function AddCopySheet({
         queryClient.invalidateQueries({ queryKey: trpc.die.pathKey() }),
         queryClient.invalidateQueries({ queryKey: trpc.dieInstance.pathKey() }),
       ]);
-      toast.success(t("dieRoom.section.copyAdded", { code: r.code }));
+      toast.success(t(r.status === "on_trial" ? "dieRoom.section.copyAddedTrial" : "dieRoom.section.copyAdded", { code: r.code }));
       setTier("");
       setRack("");
+      setMakerDie("");
+      setMakerProject("");
       setBandId("primary");
       setError(null);
       onOpenChange(false);
@@ -500,6 +506,8 @@ function AddCopySheet({
       ...(rank !== undefined ? { tierRank: rank } : {}),
       ...(bandId !== "primary" ? { bandId } : {}),
       ...(rack.trim() ? { rackNo: rack.trim() } : {}),
+      ...(makerDie.trim() ? { makerDieNo: makerDie.trim() } : {}),
+      ...(makerProject.trim() ? { makerProjectNo: makerProject.trim() } : {}),
     });
   };
 
@@ -546,6 +554,19 @@ function AddCopySheet({
         <Field label={t("dieRoom.copies.rack")}>
           <TextInput value={rack} onChangeText={setRack} maxLength={20} autoComplete="off" />
         </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t("dieRoom.card.makerDieNo")}>
+            <TextInput value={makerDie} onChangeText={setMakerDie} maxLength={60} autoComplete="off" />
+          </Field>
+          <Field label={t("dieRoom.card.makerProjectNo")}>
+            <TextInput value={makerProject} onChangeText={setMakerProject} maxLength={60} autoComplete="off" />
+          </Field>
+        </div>
+        {startsOnTrial ? (
+          <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="starts-on-trial">
+            {t("dieRoom.section.startsOnTrial")}
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
             {error}

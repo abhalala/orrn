@@ -12,6 +12,7 @@ import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
 import { boriMeltedMessage, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
+import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { reallocateDecision } from "./reallocate";
 
 /** What an approval's apply hook sees: this request, and the decision that is being written. */
@@ -289,6 +290,10 @@ export const APPROVAL_APPLIERS: Partial<Record<ApprovalKind, ApprovalApplier>> =
   die_owner_override: dieOwnerOverrideDecision,
   // FP-OP-08 (W1-OP-S): cross-customer reallocation moves its bundles on approval.
   order_reallocate: reallocateDecision,
+  // FP-PR-20 (W2-PR-S): confirm times, reopen with ledger reversals, late entry flag / void.
+  press_time: pressTimeDecision,
+  press_reopen: pressReopenDecision,
+  press_late_entry: pressLateEntryDecision,
 };
 
 /**

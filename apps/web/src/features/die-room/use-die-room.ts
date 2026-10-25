@@ -1,6 +1,7 @@
 import { useT } from "@orrn/i18n";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { refusalText } from "./die-room-model";
@@ -20,4 +21,13 @@ export function useRefreshDieRoom() {
 export function useRefusal() {
   const { t } = useT();
   return (error: unknown) => refusalText(error, { forbidden: t("errors.forbidden"), generic: t("errors.generic") });
+}
+
+/**
+ * Whether new copies (and copies back from the maker) start on trial (`dieRoom.newCopyOnTrial`,
+ * FP-DR-17). Undefined until the plant settings arrive, so the screens say nothing rather than guess.
+ */
+export function useNewCopyOnTrial(): boolean | undefined {
+  const settings = useQuery({ ...trpc.company.getSettings.queryOptions(), meta: INLINE_ERROR_META, staleTime: 30_000 });
+  return settings.data?.dieRoom.newCopyOnTrial;
 }

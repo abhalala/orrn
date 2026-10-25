@@ -7,7 +7,7 @@ import type { StatusTone } from "@orrn/domain";
 
 export type DriftTone = "none" | "under" | "green" | "amber" | "red";
 export type BandPosition = "in" | "above" | "below";
-export type CopyStatus = "available" | "in_use" | "at_nitriding" | "at_maker" | "on_trial" | "retired";
+export type CopyStatus = "available" | "in_use" | "at_nitriding" | "at_maker" | "retired" | "on_trial";
 
 export const COPY_STATUSES: readonly CopyStatus[] = ["available", "in_use", "at_nitriding", "at_maker", "on_trial", "retired"];
 

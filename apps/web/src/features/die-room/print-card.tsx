@@ -61,6 +61,8 @@ export function PrintCard({ card }: { card: CardData }) {
     [t("dieRoom.card.bolster"), instance.bolster],
     [t("dieRoom.card.backer"), instance.backerNo],
     [t("dieRoom.card.subBolster"), instance.subBolster],
+    [t("dieRoom.card.makerDieNo"), instance.makerDieNo],
+    [t("dieRoom.card.makerProjectNo"), instance.makerProjectNo],
     [t("dieRoom.card.supplier"), instance.supplier],
     [t("dieRoom.card.ftr"), instance.ftr],
     [t("dieRoom.copies.owner"), card.owner?.name ?? null],

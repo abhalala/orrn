@@ -56,7 +56,7 @@ function IssueForm() {
 
   // Only to say "nothing on the rack"; the picker itself searches the server.
   const rack = useQuery({
-    ...trpc.dieInstance.list.queryOptions({ status: "available", limit: 1 }),
+    ...trpc.dieInstance.list.queryOptions({ statuses: ["available", "on_trial"], limit: 1 }),
     meta: INLINE_ERROR_META,
   });
   const lines = useQuery({ ...trpc.dieInstance.issues.pressLines.queryOptions(), meta: INLINE_ERROR_META });
@@ -82,8 +82,13 @@ function IssueForm() {
     onError: (e) => setError(refusal(e)),
   });
 
-  const runList = runs.data ?? [];
-  const runOptions = runList.map((r) => ({ value: r.id, label: r.pressLineCode ? `${r.number} \u00b7 ${r.pressLineCode}` : r.number }));
+  // A copy on trial goes only to a die trial run (FP-DR-17); the server refuses any other.
+  const onTrial = copy?.status === "on_trial";
+  const runList = (runs.data ?? []).filter((r) => !onTrial || r.purpose === "die_trial");
+  const runOptions = runList.map((r) => ({
+    value: r.id,
+    label: [r.number, r.pressLineCode, r.purpose === "die_trial" ? t("dieRoom.issues.trialRun") : null].filter(Boolean).join(" \u00b7 "),
+  }));
   const chosenRun = runList.find((r) => r.id === (runId || runList[0]?.id));
   const lineOptions = (lines.data ?? []).map((l) => ({ value: l.id, label: l.code === l.name ? l.code : `${l.code} \u00b7 ${l.name}` }));
   // The run knows its line: the person cannot pick another one (the server would refuse it).
@@ -104,7 +109,7 @@ function IssueForm() {
             label={t("dieRoom.copies.copy")}
             value={copy?.id ?? null}
             valueLabel={copy?.code}
-            status="available"
+            statuses={["available", "on_trial"]}
             placeholder={t("dieRoom.issues.pickCopy")}
             onChange={(c) => {
               setCopy(c);
@@ -113,10 +118,15 @@ function IssueForm() {
               setError(null);
             }}
           />
+          {onTrial ? (
+            <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="trial-note">
+              {t("dieRoom.issues.trialNote")}
+            </p>
+          ) : null}
           {copyId ? (
             runs.isSuccess && runList.length === 0 ? (
               <p role="status" className="m-0 text-[14px] leading-6 text-muted-foreground" data-testid="no-run">
-                {t("dieRoom.issues.noRun")}
+                {onTrial ? t("dieRoom.issues.noTrialRun") : t("dieRoom.issues.noRun")}
               </p>
             ) : (
               <Field label={t("dieRoom.issues.run")}>
@@ -184,9 +194,9 @@ function OpenIssues() {
   });
   const giveBack = useMutation({
     ...trpc.dieInstance.issues.return.mutationOptions(),
-    onSuccess: async () => {
+    onSuccess: async (r) => {
       await refresh();
-      toast.success(t("dieRoom.issue.returned"));
+      toast.success(r.status === "on_trial" ? t("dieRoom.issue.returnedTrial") : t("dieRoom.issue.returned"));
     },
     onError: (e) => toast.error(refusal(e)),
   });

@@ -22,7 +22,7 @@ afterAll(async () => {
 });
 
 async function plant(band: { min: number; max: number }, settings: Record<string, unknown> = {}) {
-  const { companyId, users } = await env.seedCompany({ settings });
+  const { companyId, users } = await env.seedCompany({ settings: { dieRoom: { newCopyOnTrial: false }, ...settings } }); // the trial flow has its own file
   const sectionId = await env.seedDie(companyId, { series: "Domal", sectionCode: "12170", weightMinG: band.min, weightMaxG: band.max, wallTenthMm: 12 });
   return {
     companyId,

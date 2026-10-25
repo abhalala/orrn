@@ -31,21 +31,21 @@ export function CopyPicker({
   value,
   valueLabel,
   onChange,
-  status,
+  statuses,
   placeholder,
 }: {
   label: string;
   value: string | null;
   valueLabel?: string;
   onChange(copy: PickedCopy): void;
-  /** Only copies in this state (the issue form takes copies on the rack). */
-  status?: CopyStatus;
+  /** Only copies in these states (the issue form takes copies on the rack and copies on trial). */
+  statuses?: CopyStatus[];
   placeholder: string;
 }) {
   const { t } = useT();
   const seen = useRef(new Map<string, PickedCopy>());
   const first = useQuery({
-    ...trpc.dieInstance.list.queryOptions({ ...(status ? { status } : {}), limit: PAGE }),
+    ...trpc.dieInstance.list.queryOptions({ ...(statuses ? { statuses } : {}), limit: PAGE }),
     meta: INLINE_ERROR_META,
   });
   const toOption = (c: CopyListItem): ComboboxOption<string> => {
@@ -75,7 +75,7 @@ export function CopyPicker({
         }}
         search={async (q) => {
           const res = await trpcClient.dieInstance.list.query({
-            ...(status ? { status } : {}),
+            ...(statuses ? { statuses } : {}),
             search: copyCodeQuery(q),
             limit: PAGE,
           });

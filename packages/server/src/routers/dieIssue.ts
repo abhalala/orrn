@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
-import { dieIssue, dieIssueStatuses, pressLine, pressPlanLine, pressRun } from "@orrn/db/schema/press";
+import { dieIssue, dieIssueStatuses, pressLine, pressPlan, pressPlanLine, pressRun } from "@orrn/db/schema/press";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { canCancelIssue, canIssueDie, canReturnDie } from "@orrn/domain";
 
@@ -24,6 +24,7 @@ import { auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { auditCtx, decodeListCursor, dieRoomAbortUnless, encodeListCursor, errorText, isDieRoomAbort, listCursorInput } from "../lib/dieRoom";
 import { assertDieAllowed } from "../lib/dieOwner";
+import { issueReturnStatements, loggedVerdict, runPurpose } from "../lib/dieTrial";
 import { nextCompanySeq } from "../lib/sequence";
 
 const STATUS_WORDS: Record<string, string> = {
@@ -31,6 +32,7 @@ const STATUS_WORDS: Record<string, string> = {
   at_nitriding: "is out at nitriding",
   at_maker: "is at the die maker",
   retired: "is retired",
+  on_trial: "is on trial",
 };
 
 async function loadCopy(db: OrrnDb, companyId: string, id: string) {
@@ -174,9 +176,12 @@ export const dieIssueRouter = router({
           sectionCode: die.sectionCode,
           pressLineId: pressRun.pressLineId,
           pressLineCode: pressLine.code,
+          /** The plan purpose: an on_trial copy goes only to `die_trial` (FP-DR-17). */
+          purpose: sql<"production" | "die_trial" | "sample" | "other">`coalesce(${pressPlan.purpose}, 'production')`,
         })
         .from(pressRun)
         .innerJoin(die, and(eq(die.id, pressRun.sectionId), eq(die.companyId, pressRun.companyId)))
+        .leftJoin(pressPlan, and(eq(pressPlan.id, pressRun.planId), eq(pressPlan.companyId, pressRun.companyId)))
         .leftJoin(pressLine, and(eq(pressLine.id, pressRun.pressLineId), eq(pressLine.companyId, pressRun.companyId)))
         .where(
           and(
@@ -234,11 +239,14 @@ export const dieIssueRouter = router({
         .innerJoin(pressLine, and(eq(pressLine.id, dieIssue.pressLineId), eq(pressLine.companyId, dieIssue.companyId)))
         .where(and(eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.dieInstanceId, copy.id), eq(dieIssue.status, "issued")))
         .limit(1);
+      // FP-DR-17: an on_trial copy goes only to a die trial run (plan purpose `die_trial`).
+      const purpose = await runPurpose(ctx.db, ctx.companyId, run.id);
       const verdict = canIssueDie({
         copy: { status: copy.status, sectionId: copy.sectionId },
         openIssueForCopy: Boolean(open),
         pressLineId: line.id,
         run: { status: run.dieInstanceId ? "die_issued" : run.status, sectionId: run.sectionId, pressLineId: run.pressLineId },
+        purpose,
       });
       if (!verdict.ok) {
         switch (verdict.refusal) {
@@ -246,6 +254,11 @@ export const dieIssueRouter = router({
             throw new TRPCError({ code: "CONFLICT", message: `${copy.code} is already issued to ${open?.lineCode ?? "a press"}` });
           case "copy_not_available":
             throw new TRPCError({ code: "BAD_REQUEST", message: `${copy.code} ${STATUS_WORDS[copy.status] ?? `is ${copy.status}`}` });
+          case "copy_on_trial":
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `${copy.code} is on trial; it goes only to a die trial run until the trial passes or a manager releases it`,
+            });
           case "run_not_queued":
             throw new TRPCError({ code: "BAD_REQUEST", message: `${run.number} already has a die or has started; only a queued run takes a die` });
           case "section_mismatch":
@@ -292,9 +305,11 @@ export const dieIssueRouter = router({
               note: sql<string | null>`${input.note ?? null}`.as("note"),
               createdAt: sql<number>`${at.getTime()}`.as("created_at"),
               updatedAt: sql<number>`${at.getTime()}`.as("updated_at"),
+              // 0029: the copy row itself says whether it goes out on trial (dieTrial.ts).
+              trial: sql<number>`case when ${I("status")} = 'on_trial' then 1 else 0 end`.as("trial"),
             })
             .from(dieInstance)
-            .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "available"))),
+            .where(and(eq(dieInstance.id, copy.id), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, copy.status))),
         ),
         ctx.db
           .update(dieInstance)
@@ -303,7 +318,7 @@ export const dieIssueRouter = router({
             and(
               eq(dieInstance.id, copy.id),
               eq(dieInstance.companyId, ctx.companyId),
-              eq(dieInstance.status, "available"),
+              eq(dieInstance.status, copy.status),
               sql`exists (select 1 from die_issue x where x.id = ${id} and x.server_seq = ${seq})`,
             ),
           ),
@@ -333,7 +348,17 @@ export const dieIssueRouter = router({
             action: "die_issue.issue",
             subjectType: "die_instance",
             subjectId: copy.id,
-            meta: { issueId: id, code: copy.code, pressLineId: line.id, pressRunId: run.id, pressRunNumber: run.number, warnings },
+            meta: {
+              issueId: id,
+              code: copy.code,
+              pressLineId: line.id,
+              pressRunId: run.id,
+              pressRunNumber: run.number,
+              warnings,
+              // A log of what die_issue.trial holds; return and cancel read the column, never this row.
+              trial: copy.status === "on_trial" ? 1 : 0,
+              purpose,
+            },
           },
           { from: dieIssue, where: and(eq(dieIssue.id, id), eq(dieIssue.serverSeq, seq)) },
         ),
@@ -394,8 +419,8 @@ export const dieIssueRouter = router({
           ),
       ];
       if (issue.run) statements.push(requeueRun(ctx, issue, seq, "returned"));
-      await runIssueClose(ctx, issue, seq, statements, "returned");
-      return { success: true };
+      const status = await runIssueClose(ctx, issue, seq, statements, "returned");
+      return { success: true, status };
     }),
 
   /** Undo an issue before die-in: copy back to the rack, the run back to `queued` with no copy. */
@@ -421,8 +446,8 @@ export const dieIssueRouter = router({
           .where(and(eq(dieIssue.id, issue.id), eq(dieIssue.companyId, ctx.companyId), eq(dieIssue.status, "issued"))),
       ];
       if (issue.run) statements.push(requeueRun(ctx, issue, seq, "cancelled"));
-      await runIssueClose(ctx, issue, seq, statements, "cancelled");
-      return { success: true };
+      const status = await runIssueClose(ctx, issue, seq, statements, "cancelled");
+      return { success: true, status };
     }),
 });
 
@@ -452,9 +477,10 @@ function requeueRun(
 }
 
 /**
- * The shared tail of return and cancel: the issue row change(s) given, then the copy back to
- * `available`, all-or-nothing, with the audit row. Whatever the path, no run may be left
- * `die_issued` on the copy that went back to the rack (D13).
+ * The shared tail of return and cancel: the issue row change(s) given, then the copy back to the
+ * rack (or `on_trial` for a trial issue that has not passed, plus `die_trial.pass` for one that has:
+ * `issueReturnStatements`), all-or-nothing, with the audit row. Whatever the path, no run may be left
+ * `die_issued` on the copy that went back (D13). Returns where the copy landed.
  */
 async function runIssueClose(
   ctx: Parameters<typeof auditCtx>[0] & { db: OrrnDb },
@@ -462,9 +488,18 @@ async function runIssueClose(
   seq: number,
   head: SqliteBatchItem[],
   to: "returned" | "cancelled",
-): Promise<void> {
+): Promise<"available" | "on_trial"> {
   const issueLanded = sql`exists (select 1 from die_issue x where x.id = ${issue.id} and x.server_seq = ${seq} and x.status = ${to})`;
-  let landed = sql`${issueLanded} and exists (select 1 from die_instance i where i.id = ${issue.dieInstanceId} and i.status = 'available' and i.server_seq = ${seq})`;
+  const back = issueReturnStatements(ctx, {
+    issue: { id: issue.id, trial: issue.trial === 1, to },
+    copy: { id: issue.dieInstanceId, code: issue.code },
+    run: issue.run ? { id: issue.run.id, number: issue.run.number } : null,
+    verdict: issue.trial === 1 && to === "returned" ? await loggedVerdict(ctx.db, ctx.companyId, issue.run?.id) : null,
+    seq,
+    via: to === "returned" ? "return" : "cancel",
+  });
+  const copyTo = back.copyTo;
+  let landed = sql`${issueLanded} and ${back.landed}`;
   if (issue.run) {
     landed = sql`${landed} and not exists (select 1 from press_run r where r.id = ${issue.run.id} and r.status = 'die_issued' and r.die_instance_id = ${issue.dieInstanceId})`;
   }
@@ -474,10 +509,7 @@ async function runIssueClose(
   const runRequeued = Boolean(issue.run && issue.run.status === "die_issued" && issue.run.dieInAt == null);
   const statements: SqliteBatchItem[] = [
     ...head,
-    ctx.db
-      .update(dieInstance)
-      .set({ status: "available", serverSeq: seq })
-      .where(and(eq(dieInstance.id, issue.dieInstanceId), eq(dieInstance.companyId, ctx.companyId), eq(dieInstance.status, "in_use"), issueLanded)),
+    ...back.statements,
     dieRoomAbortUnless(ctx.db, landed),
     auditInsertGuarded(
       auditCtx(ctx),
@@ -485,7 +517,7 @@ async function runIssueClose(
         action: to === "returned" ? "die_issue.return" : "die_issue.cancel",
         subjectType: "die_instance",
         subjectId: issue.dieInstanceId,
-        meta: { issueId: issue.id, code: issue.code, pressLineId: issue.pressLineId, pressRunId: issue.pressRunId, runRequeued },
+        meta: { issueId: issue.id, code: issue.code, pressLineId: issue.pressLineId, pressRunId: issue.pressRunId, runRequeued, copyTo },
       },
       { from: dieIssue, where: and(eq(dieIssue.id, issue.id), eq(dieIssue.serverSeq, seq)) },
     ),
@@ -503,4 +535,5 @@ async function runIssueClose(
     }
     throw e;
   }
+  return copyTo;
 }

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { die, dieProfileKinds, dieStatuses } from "@orrn/db/schema/catalog";
-import { dieBand, dieFile, dieInstance, dieTierChange } from "@orrn/db/schema/dies";
+import { dieBand, dieFile, dieInstance, dieInstanceStatuses, dieTierChange } from "@orrn/db/schema/dies";
 import {
   DELETED_DIE_CODE_MESSAGE,
   effectiveDieOwner,
@@ -183,6 +183,16 @@ export const dieRouter = router({
       search: z.string().optional(),
       /** Only dies in this status (the Pack picker asks for active ones, so archived dies take no places). */
       status: z.enum(dieStatuses).optional(),
+      /** Profile kind of the section. */
+      profileKind: z.enum(dieProfileKinds).optional(),
+      /** `plant`: no owner; `customer`: owned by a customer. */
+      owner: z.enum(["plant", "customer"]).optional(),
+      /** `none`: no live copies; `some`: at least one. */
+      copies: z.enum(["none", "some"]).optional(),
+      /** Sections that have a copy in this status (the board tiles: "On trial", "At maker", ...). */
+      copyStatus: z.enum(dieInstanceStatuses).optional(),
+      /** `newest` (default), `code` (series, section), `band` (lightest first), `copies` (most first). */
+      sort: z.enum(["newest", "code", "band", "copies"]).default("newest"),
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().default(0),
     }))
@@ -205,12 +215,32 @@ export const dieRouter = router({
       if (input.status) {
         conditions.push(eq(die.status, input.status));
       }
+      if (input.profileKind) conditions.push(eq(die.profileKind, input.profileKind));
+      if (input.owner === "plant") conditions.push(isNull(die.ownerCustomerId));
+      if (input.owner === "customer") conditions.push(sql`${die.ownerCustomerId} is not null`);
+      const liveCopies = sql`select 1 from die_instance lc where lc.company_id = ${sql.identifier("die")}.${sql.identifier("company_id")} and lc.section_id = ${sql.identifier("die")}.${sql.identifier("id")} and lc.status <> 'retired'`;
+      if (input.copies === "none") conditions.push(sql`not exists (${liveCopies})`);
+      if (input.copies === "some") conditions.push(sql`exists (${liveCopies})`);
+      if (input.copyStatus) {
+        conditions.push(
+          sql`exists (select 1 from die_instance sc where sc.company_id = ${sql.identifier("die")}.${sql.identifier("company_id")} and sc.section_id = ${sql.identifier("die")}.${sql.identifier("id")} and sc.status = ${input.copyStatus})`,
+        );
+      }
+      const copyCountSql = sql<number>`(select count(*) from die_instance cc where cc.company_id = ${sql.identifier("die")}.${sql.identifier("company_id")} and cc.section_id = ${sql.identifier("die")}.${sql.identifier("id")} and cc.status <> 'retired')`;
+      const orderBy =
+        input.sort === "code"
+          ? [asc(die.series), asc(die.sectionCode), asc(die.id)]
+          : input.sort === "band"
+            ? [asc(die.weightMinG), asc(die.series), asc(die.sectionCode), asc(die.id)]
+            : input.sort === "copies"
+              ? [desc(copyCountSql), asc(die.series), asc(die.sectionCode), asc(die.id)]
+              : [desc(die.createdAt), asc(die.id)];
 
       const items = await ctx.db.query.die.findMany({
         where: and(...conditions),
         limit: input.limit,
         offset: input.offset,
-        orderBy: [desc(die.createdAt)],
+        orderBy,
       });
 
       const result = await ctx.db
@@ -261,6 +291,31 @@ export const dieRouter = router({
         total: result[0]?.count ?? 0,
       };
     }),
+
+  /**
+   * The board tiles (FP-DR-01/17): live sections, sections without copies, and copies by status
+   * (available, in use, at nitriding, at maker, on trial, retired). Any member. One grouped read each.
+   */
+  boardCounts: companyProcedure.query(async ({ ctx }) => {
+    const [byStatus, sections] = await Promise.all([
+      ctx.db
+        .select({ status: dieInstance.status, n: sql<number>`count(*)` })
+        .from(dieInstance)
+        .innerJoin(die, and(eq(die.id, dieInstance.sectionId), eq(die.companyId, dieInstance.companyId)))
+        .where(and(eq(dieInstance.companyId, ctx.companyId), isNull(die.deletedAt)))
+        .groupBy(dieInstance.status),
+      ctx.db
+        .select({
+          total: sql<number>`count(*)`,
+          withoutCopies: sql<number>`coalesce(sum(case when not exists (select 1 from die_instance lc where lc.company_id = ${sql.identifier("die")}.${sql.identifier("company_id")} and lc.section_id = ${sql.identifier("die")}.${sql.identifier("id")} and lc.status <> 'retired') then 1 else 0 end), 0)`,
+        })
+        .from(die)
+        .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt))),
+    ]);
+    const copies = Object.fromEntries(dieInstanceStatuses.map((status) => [status, 0])) as Record<(typeof dieInstanceStatuses)[number], number>;
+    for (const row of byStatus) copies[row.status] = Number(row.n);
+    return { sections: Number(sections[0]?.total ?? 0), sectionsWithoutCopies: Number(sections[0]?.withoutCopies ?? 0), copies };
+  }),
 
   /**
    * The section with its bands (primary first), copies (with current weight, percent, tone, band
