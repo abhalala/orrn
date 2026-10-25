@@ -32,7 +32,12 @@ import { expectNoHorizontalScroll } from "../helpers/layout-guards";
  *   of the chain's bundles. Strip: ordered 8,000, pressed 234.2 at log (26.06 after packing, §E2:
  *   logged − aged − produced), produced 208.14, dispatched 139.10, held 69.04 (1 bundle), baki 7,860.90.
  *
- * Ageing is paused on the satellite: that step is a visible skip.
+ * Ageing (W3-AG-S, through the API until the screens land): the 20 logged pieces go on the chain's own
+ * trolley in the chain's own oven on the plant's 6063 T5 recipe, in 5 h 20 min ago; the oven simulator
+ * logs the curve; out, three Webster samples, the supervisor releases. The strip then shows the 234.2 kg
+ * as aged (pressed 0). The pack screen packs from that trolley line (the test adds its id to the
+ * receipt: the screens' trolley picker is W3-AG-W): 18 pcs on bundles + 2 rejected = the row's 20, so
+ * the row and the batch close and the strip is back to pressed 26.06 (logged − produced) with aged 0.
  *
  * Global setting touched: `requireCastOnBundle` is set Off before the melt is locked (as portal.spec does),
  * because the seed's "automatic" rule would otherwise turn on for every spec packing without a cast.
@@ -138,6 +143,20 @@ async function pickOption(page: Page, trigger: ReturnType<Page["getByLabel"]>, o
 const kg3 = (g: number) => (g / 1000).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/** The posted receipt with `ageingRowId` set on the input that carries `clientRequestId` (any tRPC body shape). */
+function withAgeingRow(posted: string, rowId: string): string {
+  const visit = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(visit);
+    if (v && typeof v === "object") {
+      const o = Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, visit(x)]));
+      if ("clientRequestId" in o && "rows" in o) o.ageingRowId = rowId;
+      return o;
+    }
+    return v;
+  };
+  return JSON.stringify(visit(JSON.parse(posted)));
+}
+
 /**
  * The plant's Range/12' (memory §2, AGENTS.md): floor((kg/12ft + 0.01) × 10) / 10 on the RAW kg per
  * 12 ft = weightG × 3657.6 / (1000 × pcs × lengthMm), evaluated on integers so no float edge decides it.
@@ -190,6 +209,7 @@ type Chain = {
   dispatch?: { id: string; code: string };
   otherDispatchId?: string;
   portal?: { email: string; password: string; portalUserId: string };
+  ageing?: { batchId: string; number: string; rowId: string };
 };
 
 /** What a chain has made, filled as it goes, so a half-built chain is still cleaned. */
@@ -202,8 +222,19 @@ type Created = {
   dispatches: string[];
   bundles: { id: string; serial: string }[];
   portalUsers: string[];
+  ageing: { batches: string[]; ovens: { id: string; code: string }[]; trolleys: { id: string; code: string }[] };
 };
-const newCreated = (): Created => ({ sections: [], copies: [], lines: [], orders: [], casts: [], dispatches: [], bundles: [], portalUsers: [] });
+const newCreated = (): Created => ({
+  sections: [],
+  copies: [],
+  lines: [],
+  orders: [],
+  casts: [],
+  dispatches: [],
+  bundles: [],
+  portalUsers: [],
+  ageing: { batches: [], ovens: [], trolleys: [] },
+});
 
 async function makeChain(width: number, created: Created): Promise<Chain> {
   return withApi("owner", async (owner) => {
@@ -356,6 +387,28 @@ async function cleanup(created: Created) {
         if (got.bundle.status === "available") await owner.m("bundle.transitionStatus", { id: b.id, toStatus: "void", reason: "e2e cleanup" });
       });
     }
+    // A batch the chain left unfinished is voided (a closed one stays: it is the record). Voiding the held
+    // bundle above gave its 6 pieces back to the released trolley line: those are written off as scrap,
+    // which closes the line and the batch. Then the trolley and the oven go out of service.
+    if (created.ageing.batches.length > 0) {
+      const abort = (await owner.q<{ id: string; code: string }[]>("press.reasons", { kind: "ageing_abort" }))[0]!.id;
+      const scrap = (await owner.q<{ id: string; code: string }[]>("press.reasons", { kind: "ageing_scrap" }))[0]!.id;
+      for (const id of created.ageing.batches) {
+        await attempt(`finish ageing batch ${id}`, async () => {
+          const b = await owner.q<{ status: string; rows: { id: string; status: string; remainingPcs: number }[] }>("ageing.batches.get", { id });
+          if (b.status === "released" || b.status === "held") {
+            for (const r of b.rows.filter((x) => (x.status === "released" || x.status === "held") && x.remainingPcs > 0)) {
+              await owner.m("ageing.batches.discardRemaining", { rowId: r.id, pcs: r.remainingPcs, reasonCodeId: scrap, note: "e2e cleanup" });
+            }
+            return;
+          }
+          if (b.status === "in_oven") await owner.m("ageing.batches.out", { batchId: id, gasEndMilli: 1 });
+          if (b.status !== "closed" && b.status !== "void") await owner.m("ageing.batches.void", { batchId: id, reasonCodeId: abort, reason: "e2e cleanup" });
+        });
+      }
+    }
+    for (const t of created.ageing.trolleys) await attempt(`trolley ${t.code} out of service`, () => owner.m("ageing.trolleys.save", { id: t.id, code: t.code, status: "out_of_service" }));
+    for (const o of created.ageing.ovens) await attempt(`oven ${o.code} out of service`, () => owner.m("ageing.ovens.save", { id: o.id, code: o.code, status: "out_of_service" }));
     for (const id of created.portalUsers) await attempt(`revoke portal login ${id}`, () => owner.m("portal.users.revoke", { id }));
     for (const id of created.copies) await attempt(`retire copy ${id}`, () => owner.m("dieInstance.update", { id, status: "retired" }));
     for (const id of created.sections) {
@@ -626,7 +679,60 @@ for (const width of WIDTHS) {
     });
 
     test("ageing: the trolley is loaded, aged and released", async () => {
-      test.skip(true, "ageing server and screens (W3-AG-S/W) not landed; contracts in place (W3-AG-C)");
+      const run = fx.run!;
+      const code = `AG${fx.tag}`.slice(0, 12);
+      const masters = await withApi("owner", async (o) => {
+        const oven = await o.m<{ id: string; code: string }>("ageing.ovens.save", { code, status: "active", capacityG: 1_000_000, maxTempX10: 2500 });
+        created.ageing.ovens.push({ id: oven.id, code: oven.code });
+        const trolley = await o.m<{ id: string; code: string }>("ageing.trolleys.save", { code, status: "active" });
+        created.ageing.trolleys.push({ id: trolley.id, code: trolley.code });
+        const recipes = await o.q<{ items: { id: string; alloy: string; temper: string; kind: string; status: string; soakMin: number }[] }>("ageing.recipes.list", {});
+        const recipe = recipes.items.find((r) => r.alloy === "6063" && r.temper === "T5" && r.kind === "full" && r.status === "active");
+        expect(recipe, "the plant's active 6063 T5 recipe (dev seed)").toBeTruthy();
+        const settings = await o.q<{ shifts: { id: string }[] }>("company.getSettings");
+        const lines = await o.q<{ lines: { id: string; pcs: number }[] }>("press.runs.get", { id: run.id });
+        return { ovenId: oven.id, trolleyId: trolley.id, recipeId: recipe!.id, shiftId: settings.shifts[0]!.id, lineId: lines.lines[0]!.id };
+      });
+
+      const batch = await withApi("press", async (press) => {
+        const loaded = await press.m<{ id: string; number: string; rows: { id: string; pcs: number; kgG: number; castId: string | null }[]; totals: { loadedPcs: number; loadedKgG: number } }>(
+          "ageing.batches.load",
+          { trolleyId: masters.trolleyId, rows: [{ pressRunLineId: masters.lineId, pcs: PRESS.pcs }], clientMutationId: `chain-load-${fx.tag}` },
+        );
+        created.ageing.batches.push(loaded.id);
+        expect(loaded.totals).toMatchObject({ loadedPcs: PRESS.pcs, loadedKgG: PRESS.goodG });
+        expect(loaded.rows).toEqual([expect.objectContaining({ pcs: PRESS.pcs, kgG: PRESS.goodG, castId: fx.cast.id })]);
+        // In 5 h 20 min ago: the simulator's curve (45 min ramp, 4 h soak, 30 min tail) is all in the past.
+        const started = await press.m<{ batch: { status: string } }>("ageing.batches.start", {
+          batchId: loaded.id,
+          ovenId: masters.ovenId,
+          recipeId: masters.recipeId,
+          shiftId: masters.shiftId,
+          gasStartMilli: 1_000,
+          inAt: Date.now() - 320 * 60_000,
+        });
+        expect(started.batch.status).toBe("in_oven");
+        const sim = await press.m<{ inserted: number }>("ageing.batches.simulate", { batchId: loaded.id });
+        expect(sim.inserted).toBeGreaterThan(20);
+        const out = await press.m<{ status: string; soak: { verdict: string; met: boolean } }>("ageing.batches.out", { batchId: loaded.id, gasEndMilli: 4_250 });
+        expect(out).toMatchObject({ status: "out", soak: { verdict: "ok", met: true } });
+        await press.m("ageing.batches.hardness", { rowId: loaded.rows[0]!.id, method: "webster", readingsX10: [95, 100, 105] });
+        return { batchId: loaded.id, number: loaded.number, rowId: loaded.rows[0]!.id };
+      });
+
+      await withApi("supervisor", async (sup) => {
+        const released = await sup.m<{ status: string; qcVerdict: string; rows: { status: string; hardnessReadingX10: number }[] }>("ageing.batches.release", { batchId: batch.batchId });
+        expect(released).toMatchObject({ status: "released", qcVerdict: "pass", rows: [{ status: "released", hardnessReadingX10: 100 }] });
+      });
+      fx.ageing = batch;
+
+      await withApi("owner", async (o) => {
+        // The trolley holds the run's 234.2 kg: aged, nothing left pressed-not-aged.
+        const strip = (await o.q<{ lineDetails: { strip: Strip }[] }>("orders.get", { id: fx.order!.id })).lineDetails[0]!.strip;
+        expect(strip).toMatchObject({ pressedG: 0, agedG: PRESS.goodG, producedG: 0, planableG: ORDER_KG_G - PRESS.goodG, bakiG: ORDER_KG_G });
+        const source = await o.q<{ items: { ageingRowId: string; remainingPcs: number }[] }>("ageing.packSource", { dieId: fx.sectionId });
+        expect(source.items).toEqual([expect.objectContaining({ ageingRowId: batch.rowId, remainingPcs: PRESS.pcs })]);
+      });
     });
 
     test("packer packs 3 bundles on the order line: live kg/12 ft, a reject, a lost reply sent again without a duplicate, party numbers", async ({ browser }) => {
@@ -675,8 +781,9 @@ for (const width of WIDTHS) {
       const sent: { key: string; body: string }[] = [];
       let cut = true;
       await page.route("**/trpc/bundle.createReceipt*", async (route) => {
-        const posted = route.request().postData() ?? "";
-        const response = await route.fetch();
+        // W3-AG-S: pack from the released trolley line (the screen's trolley picker is W3-AG-W's).
+        const posted = withAgeingRow(route.request().postData() ?? "", fx.ageing!.rowId);
+        const response = await route.fetch({ postData: posted });
         sent.push({ key: /"clientRequestId":"([^"]+)"/.exec(posted)?.[1] ?? "", body: await response.text() });
         if (cut) {
           cut = false;
@@ -722,7 +829,10 @@ for (const width of WIDTHS) {
         const rej = await o.q<{ items: { pcs: number; weightG: number | null; reason: string; groupId: string; createdAt: string }[] }>("stock.rejections", { dieId: fx.sectionId, limit: 10 });
         expect(rej.items.filter((r) => r.groupId === groupId).map((r) => [r.pcs, r.weightG, r.reason])).toEqual([[REJECT.pcs, REJECT.g, "bend"]]);
         const strip = (await o.q<{ lineDetails: { strip: Strip }[] }>("orders.get", { id: fx.order!.id })).lineDetails[0]!.strip;
-        expect(strip).toMatchObject({ producedG: PACKED_G, packedG: PACKED_G, inStockG: PACKED_G, pressedG: PRESS.goodG - PACKED_G });
+        expect(strip).toMatchObject({ producedG: PACKED_G, packedG: PACKED_G, inStockG: PACKED_G, pressedG: PRESS.goodG - PACKED_G, agedG: 0 });
+        // The 18 packed + 2 rejected pieces were the trolley line's 20: the line and the batch closed.
+        const aged = await o.q<{ status: string; rows: { status: string; packedPcs: number; remainingPcs: number }[] }>("ageing.batches.get", { id: fx.ageing!.batchId });
+        expect(aged).toMatchObject({ status: "closed", rows: [{ status: "closed", packedPcs: PRESS.pcs, remainingPcs: 0 }] });
       });
     });
 

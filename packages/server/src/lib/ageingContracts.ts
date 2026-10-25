@@ -27,12 +27,13 @@
  *   ageing.batches.discardRemaining → ageingDiscardRemainingInput ageing.release (pack calls the lib helper inside its own batch)
  *   ageing.batches.split       → ageingSplitInput               ageing.release (setting ageing.split)
  *   ageing.batches.void        → ageingVoidInput                ageing.load while loading; ageing.release after take-out
- *   ageing.batches.simulate    → ageingSimulateInput            ageing.record, and only when OVEN_SIMULATOR=1 (lib/ageingSimulator.ts)
+ *   ageing.batches.simulate    → ageingSimulateInput            ageing.record, and only when OVEN_SIMULATOR=1 and not production (lib/ageingSimulator.ts)
  *   ageing.packSource          → ageingPackSourceInput          bundle.pack | ageing.view (released rows with pieces left)
  *   ageing.bundleTrace         → ageingBundleTraceInput         any member (the batch, press run and cast behind a bundle, AG-13)
  *   ageing.forOrder            → ageingForOrderInput            order.manage | ageing.view | reports.read
  *   reports.ageing             → ageingReportInput              reports.read
- *   collector (FP-AG-17)       → ageingTelemetryInput          POST /collector/ageing/readings, node-signed, source `telemetry`
+ *   collector (FP-AG-17)       → { instance_id, batch_id, device_id?, readings: [{ at, temp_c_x10 }] }
+ *                                (lib/ageingCollector.ts)       POST /collector/ageing/readings, node-signed, source `telemetry`
  *
  * Inserts of loads and feeds go through `pushChunkedInserts` with every column named (≤ 100 bound
  * parameters; 40 rows × ~20 columns and 50 readings × 9 columns are both above it).
