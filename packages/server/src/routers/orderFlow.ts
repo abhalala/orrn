@@ -41,7 +41,7 @@ import {
 } from "../lib/orderLines";
 import { batchAbortUnless, isBatchAbort, kgText, lineBalancePage, lineTotals } from "../lib/orders";
 import { holdsOf, releaseOrderHoldsStatements } from "../lib/orderHold";
-import { daysBetween, LATE_AFTER_DAYS, lineStrips, suggestedLine, ymdMinusDays } from "../lib/orderStrip";
+import { daysBetween, LATE_AFTER_DAYS, lateOf, lineStrips, suggestedLine, ymdMinusDays } from "../lib/orderStrip";
 import {
   bundlesPendingReallocation,
   isPlantStockSql,
@@ -208,6 +208,84 @@ const reallocateInput = z.object({
    */
   dieOwnerApprovalId: id.optional(),
 });
+
+/** The `orders.quote` input (one order line as typed). */
+const quoteInput = z.object({
+  sectionId: id,
+  dieInstanceId: id.nullable().optional(),
+  cutLengthMm: z.number().int().min(1).max(30_000),
+  qtyBasis: z.enum(["pcs", "kg"]),
+  pcs: z.number().int().min(1).max(10_000_000).optional(),
+  kgG: z.number().int().min(1).max(1_000_000_000).optional(),
+  weightBasis: z.enum(salesOrderWeightBases).optional(),
+  /**
+   * Editing a booked line: quote on the basis it was locked with, exactly as `orders.update`
+   * will save it, unless the section, the pin or the basis choice changed (that re-bases it,
+   * and the quote is the fresh one). `locked` says which.
+   */
+  lineId: id.optional(),
+});
+
+/** Most rows one `orders.quoteMany` call quotes. */
+const QUOTE_MANY_MAX = 200;
+
+/** A row's share of the order's kg in basis points, rounded half up (0 when either has no kg). */
+export function shareBpOf(rowG: number, orderG: number): number {
+  return orderG > 0 && rowG > 0 ? Math.floor((rowG * 10_000 * 2 + orderG) / (orderG * 2)) : 0;
+}
+
+/** One line's quote (shared by `orders.quote` and `orders.quoteMany`). */
+async function quoteLine(
+  ctx: { db: OrrnDb; companyId: string },
+  input: z.infer<typeof quoteInput>,
+  floor: Awaited<ReturnType<typeof companyFloor>>,
+) {
+  let stored: typeof salesOrderLine.$inferSelect | null = null;
+  if (input.lineId) {
+    const [row] = await ctx.db
+      .select()
+      .from(salesOrderLine)
+      .where(and(eq(salesOrderLine.id, input.lineId), eq(salesOrderLine.companyId, ctx.companyId)))
+      .limit(1);
+    if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Order line not found" });
+    stored = row;
+  }
+  const section = await loadSection(ctx.db, ctx.companyId, input.sectionId);
+  const copies = await sectionCopies(ctx.db, ctx.companyId, section);
+  const keepsBasis =
+    stored != null &&
+    stored.qtyBasis != null &&
+    stored.kgPer12ftMilli != null &&
+    stored.dieId === input.sectionId &&
+    (input.dieInstanceId ?? null) === (stored.dieInstanceId ?? null) &&
+    (input.weightBasis === undefined || input.weightBasis === stored.weightBasis);
+  if (!keepsBasis && input.dieInstanceId && !copies.some((c) => c.id === input.dieInstanceId)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `That copy is not a live copy of ${section.sectionCode}` });
+  }
+  const basis =
+    keepsBasis && stored
+      ? {
+          weightBasis: stored.weightBasis ?? ("copy_current" as const),
+          basisMilli: stored.kgPer12ftMilli!,
+          bandStartMilli: stored.bandStartMilli ?? section.weightMinG,
+          copyMilli: stored.copyMilli,
+          readingId: stored.readingId,
+          basisNote: stored.basisNote,
+          copyId: stored.dieInstanceId,
+          copyCode: stored.dieInstanceId ? (copies.find((c) => c.id === stored.dieInstanceId)?.code ?? null) : null,
+        }
+      : chooseBasis(section, copies, { pinnedCopyId: input.dieInstanceId, weightBasis: input.weightBasis });
+  const qty = lineQty(input, basis.basisMilli, floor.unit);
+  return {
+    ...basis,
+    ...qty,
+    locked: keepsBasis,
+    alloy: section.alloy ?? floor.floor.defaultAlloy,
+    temper: section.temper ?? floor.floor.defaultTemper,
+    lengthUnit: floor.unit,
+    dieBands: floor.floor.dieBands,
+  };
+}
 
 export const orderFlowProcedures = {
   /**
@@ -403,70 +481,50 @@ export const orderFlowProcedures = {
    * Line quote while typing (IP §6): the basis the server would lock and the other side of the
    * line. Nothing is saved. No prices.
    */
-  quote: companyProcedure
-    .input(
-      z.object({
-        sectionId: id,
-        dieInstanceId: id.nullable().optional(),
-        cutLengthMm: z.number().int().min(1).max(30_000),
-        qtyBasis: z.enum(["pcs", "kg"]),
-        pcs: z.number().int().min(1).max(10_000_000).optional(),
-        kgG: z.number().int().min(1).max(1_000_000_000).optional(),
-        weightBasis: z.enum(salesOrderWeightBases).optional(),
-        /**
-         * Editing a booked line: quote on the basis it was locked with, exactly as `orders.update`
-         * will save it, unless the section, the pin or the basis choice changed (that re-bases it,
-         * and the quote is the fresh one). `locked` says which.
-         */
-        lineId: id.optional(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
+  quote: companyProcedure.input(quoteInput).query(async ({ ctx, input }) => {
+    const floor = await companyFloor(ctx.db, ctx.companyId);
+    return quoteLine(ctx, input, floor);
+  }),
+
+  /**
+   * The new-order form's quotes in one call (review r1 I-1, FP-OP-02): every row's quote (or why it
+   * could not be quoted), the totals per die block and for the whole order, and each row's share
+   * of the order's kg in basis points (rounded half up). The screen only writes these down.
+   * Nothing is saved: it is a read sent as POST (a mutation) only because a long order's rows do
+   * not fit in a GET URL.
+   */
+  quoteMany: companyProcedure
+    .input(z.object({ rows: z.array(quoteInput.extend({ key: z.string().min(1).max(64), block: z.string().min(1).max(64) })).max(QUOTE_MANY_MAX) }))
+    .mutation(async ({ ctx, input }) => {
       const floor = await companyFloor(ctx.db, ctx.companyId);
-      let stored: typeof salesOrderLine.$inferSelect | null = null;
-      if (input.lineId) {
-        const [row] = await ctx.db
-          .select()
-          .from(salesOrderLine)
-          .where(and(eq(salesOrderLine.id, input.lineId), eq(salesOrderLine.companyId, ctx.companyId)))
-          .limit(1);
-        if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Order line not found" });
-        stored = row;
+      const quoted: { key: string; block: string; quote: Awaited<ReturnType<typeof quoteLine>> | null; error: string | null }[] = [];
+      for (const { key, block, ...args } of input.rows) {
+        try {
+          quoted.push({ key, block, quote: await quoteLine(ctx, args, floor), error: null });
+        } catch (e) {
+          if (!(e instanceof TRPCError)) throw e;
+          quoted.push({ key, block, quote: null, error: e.message });
+        }
       }
-      const section = await loadSection(ctx.db, ctx.companyId, input.sectionId);
-      const copies = await sectionCopies(ctx.db, ctx.companyId, section);
-      const keepsBasis =
-        stored != null &&
-        stored.qtyBasis != null &&
-        stored.kgPer12ftMilli != null &&
-        stored.dieId === input.sectionId &&
-        (input.dieInstanceId ?? null) === (stored.dieInstanceId ?? null) &&
-        (input.weightBasis === undefined || input.weightBasis === stored.weightBasis);
-      if (!keepsBasis && input.dieInstanceId && !copies.some((c) => c.id === input.dieInstanceId)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `That copy is not a live copy of ${section.sectionCode}` });
+      const blocks = new Map<string, { block: string; lines: number; pcs: number; kgG: number; failed: number }>();
+      const order = { lines: 0, pcs: 0, kgG: 0, failed: 0 };
+      for (const r of quoted) {
+        const b = blocks.get(r.block) ?? { block: r.block, lines: 0, pcs: 0, kgG: 0, failed: 0 };
+        blocks.set(r.block, b);
+        for (const t of [b, order]) {
+          if (r.quote) {
+            t.lines += 1;
+            t.pcs += r.quote.pcs;
+            t.kgG += r.quote.kgG;
+          } else {
+            t.failed += 1;
+          }
+        }
       }
-      const basis =
-        keepsBasis && stored
-          ? {
-              weightBasis: stored.weightBasis ?? ("copy_current" as const),
-              basisMilli: stored.kgPer12ftMilli!,
-              bandStartMilli: stored.bandStartMilli ?? section.weightMinG,
-              copyMilli: stored.copyMilli,
-              readingId: stored.readingId,
-              basisNote: stored.basisNote,
-              copyId: stored.dieInstanceId,
-              copyCode: stored.dieInstanceId ? (copies.find((c) => c.id === stored.dieInstanceId)?.code ?? null) : null,
-            }
-          : chooseBasis(section, copies, { pinnedCopyId: input.dieInstanceId, weightBasis: input.weightBasis });
-      const qty = lineQty(input, basis.basisMilli, floor.unit);
       return {
-        ...basis,
-        ...qty,
-        locked: keepsBasis,
-        alloy: section.alloy ?? floor.floor.defaultAlloy,
-        temper: section.temper ?? floor.floor.defaultTemper,
-        lengthUnit: floor.unit,
-        dieBands: floor.floor.dieBands,
+        rows: quoted.map((r) => ({ ...r, shareBp: r.quote ? shareBpOf(r.quote.kgG, order.kgG) : null })),
+        blocks: [...blocks.values()],
+        order,
       };
     }),
 
@@ -1658,7 +1716,10 @@ export const orderFlowProcedures = {
       }),
   }),
 
-  /** Orders running late (FP-OP-18 data): confirmed / dispatching, baki left, ordered more than 15 days ago. */
+  /**
+   * Orders running late (FP-OP-18, Q7 A): confirmed / dispatching with baki left whose expected date
+   * passed, or, with no expected date, that were ordered more than 15 days ago. `lateRule` says which.
+   */
   late: companyProcedure
     .input(z.object({ customerId: id.optional(), limit: z.number().int().min(1).max(500).default(100), offset: z.number().int().min(0).default(0) }))
     .query(async ({ ctx, input }) => {
@@ -1669,7 +1730,7 @@ export const orderFlowProcedures = {
         customerId: input.customerId,
         statuses: ["confirmed", "dispatching"] as const,
         withBaki: true,
-        orderDateBefore: ymdMinusDays(today, LATE_AFTER_DAYS),
+        late: { today, cutoff: ymdMinusDays(today, LATE_AFTER_DAYS) },
       };
       const [page, totals] = await Promise.all([
         lineBalancePage(ctx.db, ctx.companyId, filter, { limit: input.limit, offset: input.offset }),
@@ -1677,7 +1738,10 @@ export const orderFlowProcedures = {
       ]);
       return {
         today,
-        lines: page.lines.map((l) => ({ ...l, daysOpen: daysBetween(l.orderDate, today) })),
+        lines: page.lines.map((l) => {
+          const late = lateOf({ status: l.orderStatus, orderDate: l.orderDate, expectedDate: l.expectedDate, bakiG: l.bakiG }, today);
+          return { ...l, daysOpen: daysBetween(l.orderDate, today), lateDays: late?.days ?? null, lateRule: late?.rule ?? null };
+        }),
         totals,
         nextOffset: page.nextOffset,
       };

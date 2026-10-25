@@ -483,6 +483,10 @@ export const gu = {
     notFound: "આ કંપનીમાં મળ્યું નહીં",
     unrecognised: "આ bundle નો serial કે લેબલ લિંક નથી. જોઈને ફરી પ્રયત્ન કરો.",
     continuous: {
+      offBand: "{kg} kg/12ft, {order} માં {line}. વજન તપાસો.",
+      outsideOrder: "આ packing list ફક્ત {order} ની છે",
+      orderBaki: "{order}: બાકી {baki} kg, આ લોડ પછી {left} kg બાકી",
+      orderOver: "બાકીથી {kg} kg વધુ.",
       title: "{code} માં સ્કૅન થાય છે",
       added: "{serial} ઉમેરાયું",
       count: "{count} ઉમેરાયા",
@@ -1182,6 +1186,9 @@ export const gu = {
     },
   },
   packingList: {
+    kgPerPiece: "પીસ દીઠ kg બતાવો",
+    kgPerPieceOn: "આ પ્લાન્ટ લિસ્ટમાં પીસ દીઠ kg બતાવે છે.",
+    kgPerPieceFailed: "સેટિંગ સેવ ન થયું. ફરી પ્રયત્ન કરો.",
     title: "પૅકિંગ લિસ્ટ",
     plNo: "PL નંબર",
     date: "તારીખ",
@@ -1201,6 +1208,7 @@ export const gu = {
       section: "સેક્શન",
       po: "PO",
       originalSo: "મૂળ ઓર્ડર",
+      kgPerPiece: "kg/પીસ",
     },
     groupTotal: "ગ્રુપનો કુલ",
     grandTotal: "કુલ",

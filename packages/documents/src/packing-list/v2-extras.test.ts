@@ -140,4 +140,38 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     const flat = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]!]!, { header: 1, raw: true }).flat().map(String);
     expect(flat).toContain("Hollow 3 bundles · 75.000 kg");
   });
+
+  test("FP-PK-13: the kg-per-piece column is off by default, then follows the plant's switch in print and xlsx", () => {
+    const pl = parsePackingListSnapshot(v2());
+    // Off: no column, same 11 plus extras as before.
+    expect(buildPackingListHtml(pl, "PL/2026-27/7")).not.toContain("kg/pc");
+    const off = XLSX.read(buildPackingListXlsxBuffer(pl, "PL/2026-27/7"), { type: "array" });
+    const offGrid = XLSX.utils.sheet_to_json<unknown[]>(off.Sheets[off.SheetNames[0]!]!, { header: 1, raw: true });
+    expect((offGrid.find((r) => r[0] === "Sr") as string[]).includes("kg/pc")).toBe(false);
+
+    // On: a last column; 25.000 kg over 10 pcs is 2.500 per piece, 26.000 is 2.600. Range/12' stays.
+    const html = buildPackingListHtml(pl, "PL/2026-27/7", undefined, { kgPerPiece: true });
+    expect(html).toContain("<th>kg/pc</th>");
+    expect(html).toContain("2.500");
+    expect(html).toContain("2.600");
+    expect(html).toContain("Range /12&#39;".replace("&#39;", "'"));
+    const on = XLSX.read(buildPackingListXlsxBuffer(pl, "PL/2026-27/7", undefined, { kgPerPiece: true }), { type: "array" });
+    const grid = XLSX.utils.sheet_to_json<unknown[]>(on.Sheets[on.SheetNames[0]!]!, { header: 1, raw: true });
+    const header = grid.find((r) => r[0] === "Sr") as string[];
+    expect(header.at(-1)).toBe("kg/pc");
+    expect(header).toContain("Range /12'");
+    expect(grid.find((r) => r[1] === "BG-1-B001")!.at(-1)).toBe(2.5);
+    expect(grid.find((r) => r[1] === "BG-1-B002")!.at(-1)).toBe(2.6);
+  });
+});
+
+describe("kg/pc: one rounding rule (review m-6)", () => {
+  test("grams per piece half up; the row model and the printed text agree at .0005", async () => {
+    const { kgPerPieceG, plKgPerPiece } = await import("./snapshot");
+    expect(kgPerPieceG(2_501, 2)).toBe(1_251); // 1.2505 kg -> 1.251
+    expect(kgPerPieceG(2_499, 2)).toBe(1_250); // 1.2495 kg -> 1.250
+    expect(kgPerPieceG(100, 0)).toBeNull();
+    expect(plKgPerPiece({ weightG: 2_501, pcs: 2 })).toBe("1.251");
+    expect(plKgPerPiece({ weightG: 1_000, pcs: 0 })).toBe("");
+  });
 });

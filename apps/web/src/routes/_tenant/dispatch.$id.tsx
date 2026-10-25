@@ -25,10 +25,13 @@ import { dispatchErrorText } from "@/features/dispatch/errors";
 import { GroupLabelSheet } from "@/features/dispatch/group-label-sheet";
 import { dispatchTotals, type DispatchItem, type ItemGroup } from "@/features/dispatch/group-items";
 import { HoldNote, ReleaseButton } from "@/features/dispatch/hold-step";
-import { useCan, useCompanyTimeZone } from "@/features/dispatch/hooks";
+import { useCan, useCompanyTimeZone, usePackingListScope } from "@/features/dispatch/hooks";
+import { OrderPanel } from "@/features/dispatch/order-panel";
+import { TruckPanel } from "@/features/dispatch/truck-panel";
 import { PackingListView } from "@/features/dispatch/packing-list-view";
 import { PasteSerialsSheet } from "@/features/dispatch/paste-serials-sheet";
 import { SearchAddSheet } from "@/features/dispatch/search-add-sheet";
+import { SuggestSheet } from "@/features/dispatch/suggest-sheet";
 import { useFreshSerials } from "@/features/dispatch/use-fresh";
 import { useScan, type AddBundlesReport } from "@/features/scan/scan-context";
 import { addOutcome, renderScanMessage } from "@/features/scan/scan-outcome";
@@ -119,7 +122,14 @@ function DispatchDetail({ data }: { data: DetailData }) {
   const actions = dispatchActions(status);
   const editable = status === "draft" || status === "reserved";
 
-  const [sheet, setSheet] = useState<"paste" | "search" | "complete" | null>(null);
+  // Q37 per_truck: the packing lists on this truck; a lone dispatch can still take another customer.
+  const scope = usePackingListScope();
+  const truckData =
+    data.truck ??
+    (scope === "per_truck" && editable
+      ? { id: d.id, dispatches: [{ id: d.id, code: d.code, status, plNumber: d.plNumber, customerName, bundles: totals.bundles, weightG: totals.weightG }] }
+      : null);
+  const [sheet, setSheet] = useState<"paste" | "search" | "suggest" | "complete" | null>(null);
   const [labelGroup, setLabelGroup] = useState<ItemGroup | null>(null);
   const [celebrate, setCelebrate] = useState(0);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -317,10 +327,15 @@ function DispatchDetail({ data }: { data: DetailData }) {
           onScan={openScan}
           onPaste={() => setSheet("paste")}
           onSearch={() => setSheet("search")}
+          onSuggest={data.salesOrder ? () => setSheet("suggest") : undefined}
         />
       ) : null}
 
       {status !== "completed" ? <CapacityBanner capacity={data.capacity} /> : null}
+
+      {truckData ? <TruckPanel truck={truckData} currentId={d.id} canAdd={editable} /> : null}
+
+      {data.salesOrder && status !== "cancelled" ? <OrderPanel order={data.salesOrder} items={items} editable={editable} /> : null}
 
       {status === "completed" ? (
         <PackingListView dispatchId={d.id} dispatch={d} customerName={customerName} focusTitle={celebrate > 0} />
@@ -377,6 +392,9 @@ function DispatchDetail({ data }: { data: DetailData }) {
             inDispatch={inDispatch}
             onAdded={onAdded}
           />
+          {data.salesOrder ? (
+            <SuggestSheet open={sheet === "suggest"} onOpenChange={(open) => setSheet(open ? "suggest" : null)} dispatchId={d.id} unit={unit} onAdded={onAdded} />
+          ) : null}
           <GroupLabelSheet
             group={labelGroup}
             dispatchId={d.id}

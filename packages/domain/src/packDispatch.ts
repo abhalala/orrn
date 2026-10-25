@@ -4,6 +4,7 @@
  * return.
  */
 import { formatBundleNo } from "./serial";
+import { kgPer12ft } from "./units";
 
 // ---------------------------------------------------------------------------
 // Party bundle numbers (FP-PK-07)
@@ -172,4 +173,24 @@ export function diffPackingListRevisions(prev: readonly PlDiffRow[], next: reado
   const sum = (rows: readonly PlDiffRow[]) => rows.reduce((s, r) => s + r.weightG, 0);
   const weightDeltaG = sum(next) - sum(prev);
   return { added, removed, changed, unchanged, weightDeltaG, same: added.length + removed.length + changed.length === 0 };
+}
+
+/**
+ * Dispatch weight check (Q36): a bundle on a dispatch is compared with the kg/12ft of the ORDER LINE
+ * it is linked to, not the die's band (pack keeps that, D15). More than 0.1 kg/12ft apart (100 milli,
+ * milli = grams per 12 ft) is a WARNING on the add and on the draft, never a block.
+ */
+export const DISPATCH_LINE_BAND_MILLI = 100;
+
+/** The bundle's kg/12ft in milli from its own weight, pieces and length (null without pieces or length). */
+export function bundleKgPer12ftMilli(b: { weightG: number; pieces: number; lengthMm: number }): number | null {
+  const kg = kgPer12ft({ weightG: b.weightG, pieces: b.pieces, lengthMm: b.lengthMm });
+  return kg === null ? null : Math.round(kg * 1000);
+}
+
+/** Whether a bundle is off its order line's weight: more than 0.1 kg/12ft either way; unknown figures never warn. */
+export function offLineBand(bundleMilli: number | null, lineMilli: number | null): { off: boolean; diffMilli: number } | null {
+  if (bundleMilli === null || lineMilli === null || !(lineMilli > 0)) return null;
+  const diffMilli = bundleMilli - lineMilli;
+  return { off: Math.abs(diffMilli) > DISPATCH_LINE_BAND_MILLI, diffMilli };
 }

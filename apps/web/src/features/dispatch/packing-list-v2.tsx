@@ -1,3 +1,4 @@
+import { plKgPerPiece } from "@orrn/documents/packing-list/model";
 import { formatKg, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
@@ -9,6 +10,8 @@ import type { PlGroupView, PlRowView, PlSubtotal, PlView } from "./pl-model";
 const kg = (g: number) => formatKg(gToKg(g));
 const k12 = (milli: number | null) => (milli === null ? "-" : (milli / 1000).toFixed(3));
 const range = (v: number | null) => (v === null ? "-" : v.toFixed(1));
+/** W2-OPPK-W: kg per piece of a row (the plant's optional column), blank when it has no pieces. */
+const kgPc = (r: Pick<PlRowView, "weightG" | "pcs">) => plKgPerPiece(r) || "-";
 
 /**
  * The packing list the plant sends (FP-PK-13), on screen: header with the letterhead, bill to / ship
@@ -17,12 +20,12 @@ const range = (v: number | null) => (v === null ? "-" : v.toFixed(1));
  * the party number and original order columns when they have something to say. Built from the stored
  * snapshot only (`pl-model.ts`).
  */
-export function PlV2Body({ view, code }: { view: PlView; code: string }) {
+export function PlV2Body({ view, code, kgPerPiece = false }: { view: PlView; code: string; kgPerPiece?: boolean }) {
   const wide = useMediaQuery(breakpoints.desktop);
   return (
     <>
       <PlHeader view={view} code={code} />
-      {wide ? <PlTable view={view} /> : <PlStack view={view} />}
+      {wide ? <PlTable view={view} kgPerPiece={kgPerPiece} /> : <PlStack view={view} kgPerPiece={kgPerPiece} />}
       <PlSummary view={view} />
     </>
   );
@@ -130,7 +133,7 @@ function groupTotals(t: ReturnType<typeof useT>["t"], s: PlSubtotal) {
   return t("packingList.totals", { bundles: s.bundles, kg: kg(s.weightG) });
 }
 
-function PlTable({ view }: { view: PlView }) {
+function PlTable({ view, kgPerPiece }: { view: PlView; kgPerPiece: boolean }) {
   const { t } = useT();
   const { partyNo, originalSo } = view.columns;
   const cols = [
@@ -147,6 +150,7 @@ function PlTable({ view }: { view: PlView }) {
     { key: "range", label: t("packingList.columns.weightRange"), end: true },
     { key: "po", label: t("packingList.columns.po"), end: false },
     ...(originalSo ? [{ key: "so", label: t("packingList.columns.originalSo"), end: false }] : []),
+    ...(kgPerPiece ? [{ key: "kgpc", label: t("packingList.columns.kgPerPiece"), end: true }] : []),
   ];
   const cell = "px-3 py-2 first:pl-5 last:pr-5";
   const span = cols.length;
@@ -164,7 +168,7 @@ function PlTable({ view }: { view: PlView }) {
             </tr>
           </thead>
           {view.groups.map((g) => (
-            <GroupBody key={g.key} g={g} span={span} cell={cell} partyNo={partyNo} originalSo={originalSo} />
+            <GroupBody key={g.key} g={g} span={span} cell={cell} partyNo={partyNo} originalSo={originalSo} kgPerPiece={kgPerPiece} />
           ))}
           <tfoot>
             <tr className="border-t-2 border-foreground text-[15px] font-bold">
@@ -183,6 +187,7 @@ function PlTable({ view }: { view: PlView }) {
               <td className={cell} />
               <td className={cell} />
               {originalSo ? <td className={cell} /> : null}
+              {kgPerPiece ? <td className={cell} /> : null}
             </tr>
           </tfoot>
         </table>
@@ -191,7 +196,7 @@ function PlTable({ view }: { view: PlView }) {
   );
 }
 
-function GroupBody({ g, span, cell, partyNo, originalSo }: { g: PlGroupView; span: number; cell: string; partyNo: boolean; originalSo: boolean }) {
+function GroupBody({ g, span, cell, partyNo, originalSo, kgPerPiece }: { g: PlGroupView; span: number; cell: string; partyNo: boolean; originalSo: boolean; kgPerPiece: boolean }) {
   const { t } = useT();
   const blank = (n: number) => Array.from({ length: n }, (_, i) => <td key={i} className={cell} />);
   return (
@@ -216,6 +221,7 @@ function GroupBody({ g, span, cell, partyNo, originalSo }: { g: PlGroupView; spa
           <td className={cn(cell, "text-right font-mono font-semibold tabular-nums")}>{range(r.range12ft)}</td>
           <td className={cn(cell, "font-mono")}>{r.po ?? ""}</td>
           {originalSo ? <td className={cn(cell, "font-mono whitespace-nowrap")}>{r.originalSo ?? ""}</td> : null}
+          {kgPerPiece ? <td className={cn(cell, "text-right font-mono tabular-nums")} data-testid="packing-list-kg-per-piece">{kgPc(r)}</td> : null}
         </tr>
       ))}
       <tr className="border-b border-border font-semibold" data-testid="pl-group-total">
@@ -229,6 +235,7 @@ function GroupBody({ g, span, cell, partyNo, originalSo }: { g: PlGroupView; spa
         <td className={cn(cell, "text-right font-mono tabular-nums")}>{g.subtotal.pcs}</td>
         {blank(3)}
         {originalSo ? <td className={cell} /> : null}
+        {kgPerPiece ? <td className={cell} /> : null}
       </tr>
       {g.sectionAfter ? (
         <tr className="border-b border-border bg-surface-sunken/60 font-semibold" data-testid="pl-section-total">
@@ -242,13 +249,14 @@ function GroupBody({ g, span, cell, partyNo, originalSo }: { g: PlGroupView; spa
           <td className={cn(cell, "text-right font-mono tabular-nums")}>{g.sectionAfter.pcs}</td>
           {blank(3)}
           {originalSo ? <td className={cell} /> : null}
+          {kgPerPiece ? <td className={cell} /> : null}
         </tr>
       ) : null}
     </tbody>
   );
 }
 
-function PlStack({ view }: { view: PlView }) {
+function PlStack({ view, kgPerPiece }: { view: PlView; kgPerPiece: boolean }) {
   const { t } = useT();
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -262,7 +270,7 @@ function PlStack({ view }: { view: PlView }) {
           </div>
           <ul aria-label={t("packingList.rowsLabel")} className="m-0 list-none divide-y divide-border p-0">
             {g.rows.map((r) => (
-              <StackRow key={r.sr} r={r} originalSo={view.columns.originalSo} />
+              <StackRow key={r.sr} r={r} originalSo={view.columns.originalSo} kgPerPiece={kgPerPiece} />
             ))}
           </ul>
           {g.sectionAfter ? (
@@ -282,7 +290,7 @@ function PlStack({ view }: { view: PlView }) {
   );
 }
 
-function StackRow({ r, originalSo }: { r: PlRowView; originalSo: boolean }) {
+function StackRow({ r, originalSo, kgPerPiece }: { r: PlRowView; originalSo: boolean; kgPerPiece: boolean }) {
   const { t } = useT();
   return (
     <li data-testid="packing-list-row" className="flex min-w-0 flex-col gap-2 px-4 py-3">
@@ -303,6 +311,7 @@ function StackRow({ r, originalSo }: { r: PlRowView; originalSo: boolean }) {
         <StackFact label={t("packingList.columns.kgPer12ft")} value={k12(r.kgPer12ftMilli)} />
         <StackFact label={t("packingList.columns.weightRange")} value={range(r.range12ft)} strong />
         {originalSo && r.originalSo ? <StackFact label={t("packingList.columns.originalSo")} value={r.originalSo} /> : null}
+        {kgPerPiece ? <StackFact label={t("packingList.columns.kgPerPiece")} value={kgPc(r)} /> : null}
       </dl>
     </li>
   );

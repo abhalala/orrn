@@ -166,3 +166,27 @@ describe("validateThresholds (rank 31)", () => {
     expect(read.press.balanceWarnBp).toBe(300);
   });
 });
+
+describe("order lead days and the packing list column (W2-OPPK-W)", () => {
+  test("defaults: a new order is due 15 days out (Q8) and the packing list has no kg-per-piece column", () => {
+    const s = readFloorSettings({});
+    expect(s.orderLeadDays).toBe(15);
+    expect(s.packingList).toEqual({ kgPerPiece: false, scope: "one_customer" });
+    expect(FLOOR_SETTINGS_DEFAULTS.orderLeadDays).toBe(15);
+  });
+
+  test("a stored value is read; a malformed one falls back to the default", () => {
+    expect(readFloorSettings({ orderLeadDays: 7, packingList: { kgPerPiece: true } })).toMatchObject({ orderLeadDays: 7, packingList: { kgPerPiece: true } });
+    expect(readFloorSettings({ orderLeadDays: 0 }).orderLeadDays).toBe(0);
+    for (const bad of [-1, 121, 3.5, "7", null]) expect(readFloorSettings({ orderLeadDays: bad }).orderLeadDays).toBe(15);
+    expect(readFloorSettings({ packingList: { kgPerPiece: "yes" } }).packingList.kgPerPiece).toBe(false);
+    expect(readFloorSettings({ packingList: "on" }).packingList.kgPerPiece).toBe(false);
+  });
+
+  test("the packing list scope (Q37): one customer by default; a stored mode is read, an unknown one is not", () => {
+    expect(readFloorSettings({}).packingList.scope).toBe("one_customer");
+    for (const scope of ["one_so", "one_customer", "per_truck"] as const) expect(readFloorSettings({ packingList: { scope } }).packingList.scope).toBe(scope);
+    expect(readFloorSettings({ packingList: { scope: "all" } }).packingList.scope).toBe("one_customer");
+    expect(readFloorSettings({ packingList: { kgPerPiece: true } }).packingList).toEqual({ kgPerPiece: true, scope: "one_customer" });
+  });
+});

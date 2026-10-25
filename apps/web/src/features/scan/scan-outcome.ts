@@ -58,7 +58,18 @@ export type AddBundlesReport = {
   capacity?: CapacityReport;
   /** `dispatch.scan` / the add paths: one result per code, in the §E6 order. */
   results?: ScanResultRow[];
+  /** Q36: bundles added more than 0.1 kg/12ft off the weight of the order line they went to. */
+  warnings?: OffBandWarning[];
 };
+
+export type OffBandWarning = { serial: string; orderNumber: string; lineNo: number; bundleMilli: number; lineMilli: number; diffMilli: number };
+
+/** The warning for one added serial in the floor's words ("2.620 kg/12ft, the order says 2.500"), or null. */
+export function offBandText(t: Translate, report: Pick<AddBundlesReport, "warnings">, serial: string): string | null {
+  const w = report.warnings?.find((x) => x.serial === serial);
+  if (!w) return null;
+  return t("scan.continuous.offBand", { kg: (w.bundleMilli / 1000).toFixed(3), line: (w.lineMilli / 1000).toFixed(3), order: w.orderNumber });
+}
 
 /**
  * The refusal of `serial` with every detail the server gave: the `unavailable` row merged with its
@@ -207,6 +218,9 @@ export function blockMessage(block: BundleBlock): ScanMessage {
       if (block.orderNumber) {
         return { key: "scan.continuous.heldForOrder", vars: { order: block.orderNumber, customer: block.customerName ?? "" } };
       }
+      break;
+    case "outside_order":
+      if (block.orderNumber) return { key: "scan.continuous.outsideOrder", vars: { order: block.orderNumber } };
       break;
     case "status":
       if (block.status) return { key: "scan.continuous.wrongStatus", status: block.status };

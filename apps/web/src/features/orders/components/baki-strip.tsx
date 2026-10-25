@@ -32,6 +32,7 @@ export function BakiStrip({ strip, label }: { strip: Strip; label?: string }) {
             {cell.pcs != null ? (
               <dd className={cn("m-0 text-[13px] tabular-nums", cell.open ? "text-tone-amber-ink" : "text-muted-foreground")}>
                 {cell.pcs} {t("units.pcs")}
+                {cell.bundles != null ? ` · ${t("units.bundles", { count: cell.bundles })}` : ""}
               </dd>
             ) : null}
           </div>

@@ -14,6 +14,7 @@ import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
 import { Input } from "@orrn/ui/components/input";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
+import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -33,6 +34,9 @@ import {
   defaultWindow,
   dieTitle,
   draftCounts,
+  draftGroups,
+  draftOrderCount,
+  PLAN_VIEWS,
   fromLocalInput,
   movePlanDie,
   removePlanLine,
@@ -41,6 +45,7 @@ import {
   toLocalInput,
   windowState,
   type DraftDie,
+  type PlanView,
 } from "./view";
 import { OtherLines } from "./components/other-lines";
 import { parseKgG } from "./line-model";
@@ -174,6 +179,7 @@ function PlanBuilder() {
   const [query, setQuery] = useState("");
   const [customerId, setCustomerId] = useState("all");
   const [errors, setErrors] = useState<string[]>([]);
+  const [view, setView] = useState<PlanView>("die");
   // Review m-4: kg per draft line (blank = all that is left to plan) and the press when there are two.
   const [lineKg, setLineKg] = useState<Record<string, string>>({});
   const [pressLineId, setPressLineId] = useState("");
@@ -280,6 +286,47 @@ function PlanBuilder() {
   });
 
   const label = (mm: number) => formatLengthMm(mm, unit);
+  const orderOf = (lineId: string) => infoOf(lineId)?.orderNumber;
+  const orderIdOf = (lineId: string) => dies.flatMap((d) => d.lines).find((l) => l.lineId === lineId)?.orderId ?? others.data?.lines.find((l) => l.lineId === lineId)?.orderId;
+  const groups = draftGroups(draft, view, orderOf);
+  const orderCount = draftOrderCount(draft, orderOf);
+  /** One line of the draft, with the kg box; `showDie` names its die when the die is not the heading. */
+  const draftLine = (sectionId: string, lineId: string, showDie: boolean) => {
+    const l = infoOf(lineId);
+    if (!l) return null;
+    const kgText = lineKg[lineId] ?? "";
+    const bad = badKg.includes(lineId);
+    return (
+      <li key={lineId} data-draft-line={l.orderNumber} className="flex min-w-0 flex-wrap items-end justify-between gap-2 border-t border-border pt-2">
+        <div className="min-w-0 flex-1">
+          {showDie ? (
+            <p className="m-0 font-mono text-[14px] font-semibold tabular-nums">{dieTitle({ sectionCode: l.sectionCode, sectionName: l.sectionName, series: l.series })}</p>
+          ) : null}
+          <p className="m-0 text-[14px] leading-5 break-words">
+            {l.customerName}
+            {l.poNumber ? ` · ${l.poNumber}` : ""}
+          </p>
+          <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
+            {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.planableG) })}
+          </p>
+        </div>
+        <div className="w-[9rem]">
+          <Field label={t("orders.plan.lineKg", { order: l.orderNumber })} error={bad ? t("orders.form.errors.qty") : undefined}>
+            <NumberInput
+              value={kgText}
+              onValueChange={(v) => setLineKg((cur) => ({ ...cur, [lineId]: v }))}
+              suffix={t("units.kg")}
+              placeholder={orderKgText(l.planableG)}
+              aria-label={t("orders.plan.lineKg", { order: l.orderNumber })}
+            />
+          </Field>
+        </div>
+        <Button variant="ghost" onClick={() => setDraft((cur) => removePlanLine(cur, sectionId, lineId))}>
+          {t("common.remove")}
+        </Button>
+      </li>
+    );
+  };
   const canCreate = draft.length > 0 && win === "ok" && badKg.length === 0 && (!twoPresses || pressLineId !== "") && !create.isPending;
 
   return (
@@ -400,9 +447,17 @@ function PlanBuilder() {
 
         <section className="flex min-w-0 flex-col gap-3" aria-label={t("orders.plan.draftDies")}>
           <h3 className="m-0 text-[15px] font-semibold">{t("orders.plan.draftDies")}</h3>
+          {draft.length > 1 || (draft.length === 1 && draft[0]!.lineIds.length > 1) ? (
+            <SegmentedControl<PlanView>
+              label={t("orders.plan.view.label")}
+              value={view}
+              onChange={setView}
+              options={PLAN_VIEWS.map((v) => ({ value: v, label: t(`orders.plan.view.${v}`) }))}
+            />
+          ) : null}
           {draft.length === 0 ? (
             <EmptyState title={t("orders.plan.chooseLines")} body={t("orders.plan.chooseLinesBody")} />
-          ) : (
+          ) : view === "die" ? (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {draft.map((d, index) => {
                 const first = infoOf(d.lineIds[0]!);
@@ -428,49 +483,40 @@ function PlanBuilder() {
                         </div>
                       </CardHeader>
                       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-                        {d.lineIds.map((lineId) => {
-                          const l = infoOf(lineId);
-                          if (!l) return null;
-                          const kgText = lineKg[lineId] ?? "";
-                          const bad = badKg.includes(lineId);
-                          return (
-                            <li key={lineId} data-draft-line={l.orderNumber} className="flex min-w-0 flex-wrap items-end justify-between gap-2 border-t border-border pt-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="m-0 text-[14px] leading-5 break-words">
-                                  {l.customerName}
-                                  {l.poNumber ? ` · ${l.poNumber}` : ""}
-                                </p>
-                                <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-                                  {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.planableG) })}
-                                </p>
-                              </div>
-                              <div className="w-[9rem]">
-                                <Field label={t("orders.plan.lineKg", { order: l.orderNumber })} error={bad ? t("orders.form.errors.qty") : undefined}>
-                                  <NumberInput
-                                    value={kgText}
-                                    onValueChange={(v) => setLineKg((cur) => ({ ...cur, [lineId]: v }))}
-                                    suffix={t("units.kg")}
-                                    placeholder={orderKgText(l.planableG)}
-                                    aria-label={t("orders.plan.lineKg", { order: l.orderNumber })}
-                                  />
-                                </Field>
-                              </div>
-                              <Button variant="ghost" onClick={() => setDraft((cur) => removePlanLine(cur, d.sectionId, lineId))}>
-                                {t("common.remove")}
-                              </Button>
-                            </li>
-                          );
-                        })}
+                        {d.lineIds.map((lineId) => draftLine(d.sectionId, lineId, false))}
                       </ul>
                     </Card>
                   </li>
                 );
               })}
             </ul>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-3 p-0" data-draft-view={view}>
+              {groups.map((g) => (
+                <li key={g.key} data-draft-group={g.orderNumber ?? g.key}>
+                  <Card size="sm" className="min-w-0">
+                    {g.kind === "order" ? (
+                      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+                        <CardTitle className="font-mono tabular-nums">{g.orderNumber}</CardTitle>
+                        <Link to="/orders/$id" params={{ id: orderIdOf(g.lines[0]!.lineId) ?? "" }} className="text-[13px] font-medium underline-offset-4 hover:underline" target="_blank" rel="noreferrer">
+                          {t("orders.plan.openOrder")}
+                        </Link>
+                      </CardHeader>
+                    ) : null}
+                    <ul className="m-0 flex list-none flex-col gap-2 p-0">{g.lines.map((l) => draftLine(l.sectionId, l.lineId, true))}</ul>
+                  </Card>
+                </li>
+              ))}
+            </ul>
           )}
           {draft.length > 0 ? (
             <p data-draft-footer="" className="m-0 font-mono text-[13px] font-semibold tabular-nums">
               {t("orders.plan.draftFooter", { dies: counts.dies, lines: counts.lines })}
+            </p>
+          ) : null}
+          {draft.length > 0 ? (
+            <p data-draft-orders="" className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
+              {t("orders.plan.draftOrders", { orders: orderCount })}
             </p>
           ) : null}
           {draft.length > 0 ? (

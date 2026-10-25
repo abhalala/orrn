@@ -12,6 +12,8 @@ import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
+import { PackingListScopeCard } from "./packing-list-scope";
+
 /**
  * Printing defaults: the stored status of the plant's print computer with
  * its last heartbeat time, and each label printer's design and default
@@ -74,6 +76,8 @@ export function PrintingTab() {
           )}
         </CardContent>
       </Card>
+
+      <PackingListScopeCard />
 
       <section aria-labelledby="label-defaults" className="flex min-w-0 flex-col gap-3">
         <h2 id="label-defaults" className="m-0 text-[17px] font-semibold">

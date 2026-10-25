@@ -125,16 +125,22 @@ test.describe("orders list and detail", () => {
       // Only SO-1 is past 15 days.
       await expect(main.getByText(/Late, \d+ days/)).toHaveCount(1);
       // Other tests in this file book and confirm orders of their own, so these are "at least".
-      await expect(main.getByText("Booking", { exact: true }).first()).toBeVisible();
-      await expect(main.getByText("Confirmed", { exact: true }).first()).toBeVisible();
+      // (the Status filter's options say the same words: look at the chips)
+      await expect(main.locator("[data-slot='chip']").filter({ hasText: /^Booking$/ }).first()).toBeVisible();
+      await expect(main.locator("[data-slot='chip']").filter({ hasText: /^Confirmed$/ }).first()).toBeVisible();
       await expectNoHorizontalScroll(page);
       await expectNoClippedText(page, "main#main");
       await shot(page, `list-${width}`);
 
       // The segments filter on the server.
-      await page.getByRole("radio", { name: "Closed" }).check();
-      await expect(main.getByText("Nothing under Closed")).toBeVisible();
-      await page.getByRole("radio", { name: "Open" }).check();
+      // (the filter lives in the URL, so the radio settles a beat after the click)
+      await page.getByRole("radio", { name: "Closed" }).click();
+      await expect(page.getByRole("radio", { name: "Closed" })).toBeChecked();
+      // Other specs close the orders they make, so the Closed list is not empty; the seeded open orders are not in it.
+      await expect(main.getByText("SO-1", { exact: true })).toHaveCount(0);
+      await expect(main.getByText("SO-2", { exact: true })).toHaveCount(0);
+      await page.getByRole("radio", { name: "Open" }).click();
+      await expect(page.getByRole("radio", { name: "Open" })).toBeChecked();
       await page.getByRole("textbox", { name: "Search orders" }).fill("PO-118");
       await expect(main.getByText("SO-2", { exact: true })).toBeVisible();
       await expect(main.getByText("SO-1", { exact: true })).toHaveCount(0);

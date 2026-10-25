@@ -1,7 +1,10 @@
 /**
  * `/orders/new`: book a customer's PO. `orders.create` only books; the order is confirmed on its
- * own page once the PO number and every line are complete. Pieces <-> kg, the locked kg/12ft and
- * the basis note are the server's (`orders.quote`); the ready-stock prompt is `orders.matchStock`.
+ * own page once the PO number and every line are complete. The form lists each die once with its
+ * cut lengths under it (Enter in pieces or kg adds the next length, Shift+Enter another die); the
+ * expected date starts at the order date plus the plant's lead days (15 unless set) and stays
+ * editable. Pieces <-> kg, the locked kg/12ft and the basis note are the server's (`orders.quote`);
+ * the ready-stock prompt is `orders.matchStock`.
  */
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
@@ -12,7 +15,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
@@ -20,14 +23,31 @@ import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { LineEditor } from "./components/line-editor";
+import { DieBlockCard, useOrderQuotes } from "./components/die-block";
 import { CustomerField, type Picked } from "./components/pickers";
+import {
+  addRow,
+  allLines,
+  blockProblems,
+  blocksComplete,
+  defaultExpectedDate,
+  duplicateRow,
+  newBlock,
+  patchRow,
+  patchShared,
+  removeRow,
+  setBlockDie,
+  todayYmd,
+  NO_TOTALS,
+  type DieBlock,
+} from "./die-blocks";
 import { orderErrorLines } from "./errors";
-import { useFloor, useShowRates } from "./hooks";
-import { lineProblems, newLine, toLineInput, type LineDraft, type LineProblems } from "./line-model";
+import { orderKgText, pcsText } from "./format";
+import { useCompanyTimeZone, useFloor, useShowRates } from "./hooks";
+import { toLineInput } from "./line-model";
 
-let lineSeq = 0;
-const lineKey = () => `line-${(lineSeq += 1)}`;
+let seq = 0;
+const nextKey = (p: string) => `${p}-${(seq += 1)}`;
 
 export function NewOrderPage() {
   const { t } = useT();
@@ -59,19 +79,30 @@ function NewOrderForm() {
   const { unit } = useLengthUnit();
   const floor = useFloor();
   const showRates = useShowRates();
+  const zone = useCompanyTimeZone();
 
   const [customer, setCustomer] = useState<Picked | null>(null);
   const [po, setPo] = useState("");
   const [note, setNote] = useState("");
-  const [lines, setLines] = useState<LineDraft[]>(() => [newLine(lineKey())]);
+  // Null = untouched: the expected date follows today plus the plant's lead days (Q8).
+  const [expected, setExpected] = useState<string | null>(null);
+  const [blocks, setBlocks] = useState<DieBlock[]>(() => [newBlock(nextKey("block"), nextKey("row"))]);
+  const [focusKey, setFocusKey] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   // A retry after an unsure answer sends the same request id; an edited form gets a new one.
   const sent = useRef<{ id: string; body: string } | null>(null);
+  const onFocused = useCallback(() => setFocusKey(null), []);
 
-  const problems: Record<string, LineProblems> = {};
-  for (const l of lines) problems[l.key] = lineProblems(l, unit);
-  const complete = customer != null && lines.every((l) => Object.keys(problems[l.key]!).length === 0);
+  const expectedDefault = defaultExpectedDate(todayYmd(zone), floor.orderLeadDays);
+  const expectedValue = expected ?? expectedDefault;
+
+  const lines = allLines(blocks);
+  // Every figure below (row quotes, block and order totals, shares) is the server's (review r1 I-1).
+  const quoted = useOrderQuotes(blocks, unit);
+  const quotes = quoted.rows;
+  const order = quoted.order;
+  const complete = customer != null && blocksComplete(blocks, unit);
 
   const create = useMutation({
     mutationFn: (input: Parameters<typeof trpcClient.orders.create.mutate>[0]) => trpcClient.orders.create.mutate(input),
@@ -83,9 +114,11 @@ function NewOrderForm() {
     onError: (error) => setErrors(orderErrorLines(t, error)),
   });
 
-  function patchLine(key: string, patch: Partial<LineDraft>) {
-    setLines((current) => current.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  }
+  const setBlock = (key: string, fn: (b: DieBlock) => DieBlock) => setBlocks((cur) => cur.map((b) => (b.key === key ? fn(b) : b)));
+  const addBlock = () => {
+    const block = newBlock(nextKey("block"), nextKey("row"));
+    setBlocks((cur) => [...cur, block]);
+  };
 
   function save() {
     setTried(true);
@@ -95,6 +128,7 @@ function NewOrderForm() {
       customerId: customer.id,
       poNumber: po.trim() || null,
       note: note.trim() || null,
+      expectedDate: expectedValue || null,
       lines: lines.map((l) => toLineInput(l, unit, showRates)),
     };
     const json = JSON.stringify(body);
@@ -111,6 +145,9 @@ function NewOrderForm() {
           <Field label={t("orders.poNumber")} hint={t("orders.form.poHint")}>
             <TextInput value={po} onChangeText={setPo} placeholder={t("orders.form.poPlaceholder")} autoComplete="off" />
           </Field>
+          <Field label={t("orders.expectedDate")} hint={t("orders.form.expectedHint", { days: floor.orderLeadDays })}>
+            <TextInput type="date" value={expectedValue} onChangeText={(v) => setExpected(v)} />
+          </Field>
           <div className="md:col-span-2">
             <Field label={t("common.note")}>
               <FieldTextArea value={note} onChangeText={setNote} rows={2} />
@@ -119,27 +156,54 @@ function NewOrderForm() {
         </div>
       </section>
 
-      {lines.map((line, i) => (
-        <LineEditor
-          key={line.key}
-          line={line}
+      {blocks.map((block, i) => (
+        <DieBlockCard
+          key={block.key}
+          block={block}
           index={i}
-          count={lines.length}
+          count={blocks.length}
           unit={unit}
           customerId={customer?.id ?? null}
           dieBands={floor.dieBands}
           showRates={showRates}
-          problems={tried ? problems[line.key] : undefined}
-          onChange={(patch) => patchLine(line.key, patch)}
-          onRemove={() => setLines((current) => current.filter((l) => l.key !== line.key))}
+          problems={tried ? blockProblems(block, unit) : undefined}
+          quotes={quotes}
+          totals={quoted.blocks.get(block.key) ?? NO_TOTALS}
+          focusKey={focusKey}
+          onFocused={onFocused}
+          onDie={(die) => setBlock(block.key, (b) => setBlockDie(b, die))}
+          onCopy={(copy) => setBlock(block.key, (b) => ({ ...b, copy }))}
+          onShared={(patch) => setBlock(block.key, (b) => patchShared(b, patch))}
+          onRow={(key, patch) => setBlock(block.key, (b) => patchRow(b, key, patch))}
+          onAddRow={(afterKey) => {
+            const key = nextKey("row");
+            setBlock(block.key, (b) => addRow(b, key, afterKey));
+            setFocusKey(key);
+          }}
+          onAddBlock={() => {
+            addBlock();
+          }}
+          onDuplicate={(key) => {
+            const next = nextKey("row");
+            setBlock(block.key, (b) => duplicateRow(b, key, next));
+            setFocusKey(next);
+          }}
+          onRemoveRow={(key) => setBlock(block.key, (b) => removeRow(b, key))}
+          onRemoveBlock={() => setBlocks((cur) => cur.filter((b) => b.key !== block.key))}
         />
       ))}
 
-      <div>
-        <Button variant="secondary" onClick={() => setLines((current) => [...current, newLine(lineKey())])}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button variant="secondary" data-add-die="" onClick={addBlock}>
           <Plus aria-hidden="true" strokeWidth={2} />
-          {t("orders.form.addLine")}
+          {t("orders.form.block.addDie")}
         </Button>
+        {order.lines > 0 ? (
+          <p data-order-total="" className="m-0 font-mono text-[15px] font-semibold tabular-nums" aria-live="polite">
+            {t("orders.form.orderTotal", { lines: order.lines, pcs: pcsText(order.pcs), kg: orderKgText(order.kgG) })}
+            {order.pending ? ` ${t("orders.form.quoting")}` : ""}
+          </p>
+        ) : null}
       </div>
 
       {errors.length > 0 ? (

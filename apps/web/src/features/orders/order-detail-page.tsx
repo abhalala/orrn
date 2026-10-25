@@ -12,10 +12,10 @@ import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Boxes, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { Boxes, FileText, RefreshCw, Truck } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { bookDateText } from "@/features/purchase/format";
@@ -24,13 +24,18 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { BakiStrip } from "./components/baki-strip";
+import { LineFilters } from "./components/line-filters";
+import { StockOnSheet } from "./components/stock-on-sheet";
 import { EditSheet } from "./components/edit-sheet";
 import { ReallocateSheet, type ReallocateSource } from "./components/reallocate-sheet";
 import { LinesEditor } from "./components/lines-editor";
 import { ReasonSheet } from "./components/reason-sheet";
 import { TakeStockSheet, type TakeStockTarget } from "./components/take-stock-sheet";
+import { HeldSheet, HoldStockSheet, type HoldTarget } from "./components/hold-sheet";
 import { Timeline } from "./components/timeline";
+import { lateRuleKey } from "./book-view";
 import { orderErrorLines } from "./errors";
+import { filterOptions, lineFilterActive, NO_LINE_FILTER, serverLineFilter, shownOf, showLineFilters, type LineFilterState } from "./line-filter";
 import { milliText, orderKgText, pcsText, rateText } from "./format";
 import { blockerText, dieTitle, isOrderStatus, STATUS_TONE, statusActions, type OrderStatus, type Strip } from "./view";
 
@@ -43,13 +48,26 @@ export function OrderDetailPage({ id }: { id: string }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [moveLine, setMoveLine] = useState<ReallocateSource | null>(null);
   const [takeLine, setTakeLine] = useState<TakeStockTarget | null>(null);
+  // FP-OP-17: hold yard stock for a line, and the line's held bundles with Release.
+  const [holdLine, setHoldLine] = useState<HoldTarget | null>(null);
+  const [heldLine, setHeldLine] = useState<HoldTarget | null>(null);
   const [editing, setEditing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [events, setEvents] = useState(50);
+  const [stockOpen, setStockOpen] = useState(false);
+  const [lineFilter, setLineFilter] = useState<LineFilterState>(NO_LINE_FILTER);
 
-  const get = useQuery(trpc.orders.get.queryOptions({ id }));
+  // FP-OP-05: from 20 lines on the lines can be narrowed; the server picks them and totals them.
+  const filterInput = lineFilterActive(lineFilter) ? serverLineFilter(lineFilter) : undefined;
+  const get = useQuery({ ...trpc.orders.get.queryOptions({ id, ...(filterInput ? { lineFilter: filterInput } : {}) }), placeholderData: keepPreviousData });
   const timeline = useQuery({ ...trpc.orders.timeline.queryOptions({ id, limit: events }) });
   const pending = useQuery(trpc.orders.reallocations.list.queryOptions({ orderId: id, status: "pending" }));
+
+  const longOrder = showLineFilters(get.data?.lines.length ?? 0);
+  const shownLines = useMemo(
+    () => (get.data && longOrder ? shownOf(get.data.lines, get.data.shown.lineIds) : (get.data?.lines ?? [])),
+    [get.data, longOrder],
+  );
 
   const refresh = () =>
     Promise.all([
@@ -183,7 +201,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             {t(`orders.status.${status}`)}
           </Chip>
           {isLate ? (
-            <Chip tone="red" truncate={false}>
+            <Chip tone="red" truncate={false} title={t(lateRuleKey(get.data.lateRule))}>
               {t("orders.late", { days: daysLate })}
             </Chip>
           ) : null}
@@ -191,6 +209,24 @@ export function OrderDetailPage({ id }: { id: string }) {
             <Chip tone="red" truncate={false}>
               {t("orders.over", { kg: orderKgText(totals.overG) })}
             </Chip>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setStockOpen(true)} data-stock-on-open="" aria-haspopup="dialog">
+            <FileText aria-hidden="true" strokeWidth={2} />
+            {t("orders.stockOn.button")}
+          </Button>
+          {/* Every open order can be dispatched from, a booking too (as dispatch.create allows; review m-8). */}
+          {status === "booking" || status === "confirmed" || status === "dispatching" ? (
+            <Can do="dispatch.create">
+              <Button variant="secondary" asChild>
+                <Link to="/dispatch/new" search={{ salesOrderId: order.id }} data-dispatch-from-order="">
+                  <Truck aria-hidden="true" strokeWidth={2} />
+                  {t("orders.detail.dispatch")}
+                </Link>
+              </Button>
+            </Can>
           ) : null}
         </div>
 
@@ -298,7 +334,18 @@ export function OrderDetailPage({ id }: { id: string }) {
         ) : (
         <section className="flex min-w-0 flex-col gap-3">
           <h2 className="m-0 text-[15px] font-semibold">{t("orders.detail.lines")}</h2>
-          {lines.map((line) => {
+          {longOrder ? (
+            <LineFilters
+              value={lineFilter}
+              onChange={setLineFilter}
+              options={filterOptions(lines)}
+              unit={unit}
+              shown={get.data.shown}
+              total={lines.length}
+            />
+          ) : null}
+          {shownLines.length === 0 ? <p className="m-0 text-[14px] text-muted-foreground">{t("orders.detail.filter.none")}</p> : null}
+          {shownLines.map((line) => {
             const d = details.get(line.lineId);
             const strip = d?.strip as Strip | undefined;
             const rate = d && "ratePaise" in d && typeof d.ratePaise === "number" ? d.ratePaise : null;
@@ -355,6 +402,40 @@ export function OrderDetailPage({ id }: { id: string }) {
                   </p>
                 ) : null}
                 {strip ? <BakiStrip strip={strip} label={`${order.number} ${t("orders.detail.lineShort", { n: line.lineNo })}`} /> : null}
+                {(() => {
+                  const target: HoldTarget = {
+                    lineId: line.lineId,
+                    lineNo: line.lineNo,
+                    orderNumber: order.number,
+                    sectionId: line.sectionId,
+                    cutLengthMm: line.cutLengthMm,
+                    customerId: order.customerId,
+                  };
+                  const heldG = strip?.heldG ?? 0;
+                  const openOrder = status === "booking" || status === "confirmed" || status === "dispatching";
+                  if (heldG === 0 && !openOrder) return null;
+                  return (
+                    <Can do="order.manage">
+                      <div className="flex flex-wrap items-center gap-2" data-hold-line={line.lineNo}>
+                        {heldG > 0 ? (
+                          <Chip tone="blue" truncate={false} data-held-chip={line.lineNo}>
+                            {t("orders.hold.chip", { count: strip?.heldBundles ?? 0, kg: orderKgText(heldG) })}
+                          </Chip>
+                        ) : null}
+                        {openOrder ? (
+                          <Button variant="secondary" data-hold-stock={line.lineNo} onClick={() => setHoldLine(target)}>
+                            {t("orders.hold.button")}
+                          </Button>
+                        ) : null}
+                        {heldG > 0 ? (
+                          <Button variant="ghost" data-held-open={line.lineNo} onClick={() => setHeldLine(target)}>
+                            {t("orders.hold.list")}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </Can>
+                  );
+                })()}
                 {can.move ? (
                   <div className="flex flex-wrap gap-2">
                     <Can do="order.reallocate">
@@ -419,8 +500,9 @@ export function OrderDetailPage({ id }: { id: string }) {
       <EditSheet
         open={editOpen}
         onOpenChange={setEditOpen}
-        order={{ id: order.id, serverSeq: order.serverSeq, poNumber: order.poNumber, note: order.note }}
+        order={{ id: order.id, serverSeq: order.serverSeq, poNumber: order.poNumber, expectedDate: order.expectedDate, note: order.note }}
       />
+      <StockOnSheet open={stockOpen} onOpenChange={setStockOpen} orderId={order.id} orderNumber={order.number} />
       <ReasonSheet
         open={closeOpen}
         onOpenChange={setCloseOpen}
@@ -451,6 +533,26 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setTakeLine(null);
           }}
           target={takeLine}
+          formatLength={(mm) => formatLengthMm(mm, unit)}
+        />
+      ) : null}
+      {holdLine ? (
+        <HoldStockSheet
+          open
+          onOpenChange={(o) => {
+            if (!o) setHoldLine(null);
+          }}
+          target={holdLine}
+          formatLength={(mm) => formatLengthMm(mm, unit)}
+        />
+      ) : null}
+      {heldLine ? (
+        <HeldSheet
+          open
+          onOpenChange={(o) => {
+            if (!o) setHeldLine(null);
+          }}
+          target={heldLine}
           formatLength={(mm) => formatLengthMm(mm, unit)}
         />
       ) : null}
