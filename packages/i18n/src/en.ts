@@ -22,6 +22,7 @@ import { refusalEn } from "./native/refusal.en";
 import { platformEn } from "./native/platform.en";
 import { pressEn } from "./native/press.en";
 import { stockEn } from "./native/stock.en";
+import { foundryRefusalEn } from "./native/foundry-refusal.en";
 
 export const en = {
   common: {
@@ -5313,6 +5314,7 @@ export const en = {
   },
 
   foundry: {
+    refusal: foundryRefusalEn,
     inbox: {
       columns: {
         file: "File",
@@ -5487,6 +5489,8 @@ export const en = {
       ageing_scrap: "Ageing scrap",
       reallocate: "Move to another order",
       die_work: "Die work",
+      melt_correct: "Correct a locked melt",
+      cast_tail: "Cast close-out",
     },
     downtime: {
       die_change: "Die change",
@@ -5549,6 +5553,20 @@ export const en = {
       correct: "Correction",
       inspect: "Inspection",
       clean: "Cleaning",
+      other: "Other",
+    },
+    melt_correct: {
+      wrong_weight: "Wrong weight",
+      wrong_lot: "Wrong lot or stream",
+      wrong_time: "Wrong time",
+      wrong_output: "Wrong logs or dross",
+      other: "Other",
+    },
+    cast_tail: {
+      billets_short: "Press used more billets than the store held",
+      scale_difference: "Scale difference",
+      remelted: "Billets sent back to the furnace",
+      scrapped: "Billets scrapped",
       other: "Other",
     },
   },

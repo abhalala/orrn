@@ -870,7 +870,7 @@ export const meltStepperProcedures = {
       if (!m) throw new TRPCError(MELT_NOT_FOUND);
       if (m.status !== "locked" || m.cancelledAt) bad("Only a locked melt can be corrected");
       const c = await loadCast(ctx, m.castId);
-      if (c.status !== "open") bad(`${castStateMessage(c)}; its melts stay as they are`);
+      if (c.status !== "open") bad(castStateMessage(c));
       const [rc] = await ctx.db
         .select({ id: reasonCode.id, code: reasonCode.code, label: reasonCode.label, requiresNote: reasonCode.requiresNote })
         .from(reasonCode)
@@ -918,7 +918,7 @@ export const meltStepperProcedures = {
       const grant = await openCorrection(ctx, m.id);
       if (!grant || grant.status !== "approved") bad("Ask for a correction first; an approver has to agree");
       const c = await loadCast(ctx, m.castId);
-      if (c.status !== "open") bad(`${castStateMessage(c)}; its melts stay as they are`);
+      if (c.status !== "open") bad(castStateMessage(c));
       const billetsSql = castBilletsOnHandSql(companyId, sql`${c.id}`);
       const [onHand] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
       const used = () => bad(`The press has already used billets of ${c.number}; this melt can no longer be corrected`);
@@ -1008,7 +1008,7 @@ export const meltStepperProcedures = {
         }
         if (isFoundryAbort(e)) {
           const castNow = await loadCast(ctx, c.id);
-          if (castNow.status !== "open") bad(`${castStateMessage(castNow)}; its melts stay as they are`);
+          if (castNow.status !== "open") bad(castStateMessage(castNow));
           const [h] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
           if (Number(h?.g ?? 0) < m.logsG) used();
           bad("This melt changed; open it again");

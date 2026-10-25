@@ -156,6 +156,42 @@ export const FILES = [
   "lib/orderLines.ts",
 ];
 
+/**
+ * W2-FD-S: the foundry routers refuse through `bad("…")` (BAD_REQUEST) as well as `message:`; the melt
+ * lock's gate sentences sit in `MELT_GATE_TEXT`. Their sentences are read the same way.
+ */
+export const FOUNDRY_FILES = [
+  "routers/foundry.ts",
+  "routers/foundryMasters.ts",
+  "routers/foundryMelt.ts",
+  "routers/foundryTrace.ts",
+  "lib/foundryKit.ts",
+];
+
+function badSentences(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(/\bbad\(\s*/g)) {
+    const from = m.index! + m[0].length;
+    out.push(...literalsOfExpression(src, from));
+  }
+  return out;
+}
+
+function foundrySentences(): { file: string; text: string }[] {
+  const out: { file: string; text: string }[] = [];
+  for (const f of FOUNDRY_FILES) {
+    const src = SRC(f);
+    for (const text of [...messageSentences(src), ...badSentences(src)]) out.push({ file: f, text });
+  }
+  for (const text of blockLiterals(SRC("routers/foundryMelt.ts"), "export const MELT_GATE_TEXT")) out.push({ file: "routers/foundryMelt.ts", text });
+  // lib/foundryKit.ts: the cast's state (`castStateMessage`) and the store returns a melt cancel refuses.
+  const kit = SRC("lib/foundryKit.ts");
+  for (const marker of ["export function castStateMessage", "if (!d.itemActive) return", "return `${d.locationCode"]) {
+    for (const text of blockLiterals(kit, marker)) out.push({ file: "lib/foundryKit.ts", text });
+  }
+  return out;
+}
+
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
 const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
 
@@ -172,6 +208,7 @@ export function serverSentences(): { file: string; text: string }[] {
     }
   }
   for (const text of composedSentences()) out.push({ file: "composed", text });
+  for (const s of foundrySentences()) if (isSentence(s.text)) out.push(s);
   return out.flatMap((s) => realize(s.text).map((text) => ({ file: s.file, text })));
 }
 

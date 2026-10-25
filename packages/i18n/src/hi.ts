@@ -9,6 +9,7 @@ import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { stockHi } from "./native/stock.hi";
+import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 
 /**
  * Hindi messages. Conversational Devanagari, matching the plant's own Hindi SOP.
@@ -5299,6 +5300,7 @@ export const hi = {
   },
 
   foundry: {
+    refusal: foundryRefusalHi,
     inbox: {
       columns: {
         file: "फ़ाइल",
@@ -5473,6 +5475,8 @@ export const hi = {
       ageing_scrap: "एजिंग स्क्रैप",
       reallocate: "दूसरे ऑर्डर में डालना",
       die_work: "Die का काम",
+      melt_correct: "लॉक मेल्ट का सुधार",
+      cast_tail: "कास्ट क्लोज़-आउट",
     },
     downtime: {
       die_change: "Die बदली",
@@ -5535,6 +5539,20 @@ export const hi = {
       correct: "करेक्शन",
       inspect: "जाँच",
       clean: "सफ़ाई",
+      other: "अन्य",
+    },
+    melt_correct: {
+      wrong_weight: "गलत वज़न",
+      wrong_lot: "गलत लॉट या स्ट्रीम",
+      wrong_time: "गलत समय",
+      wrong_output: "गलत लॉग या ड्रॉस",
+      other: "अन्य",
+    },
+    cast_tail: {
+      billets_short: "प्रेस ने स्टोर से ज़्यादा बिलेट लिए",
+      scale_difference: "काँटे का फ़र्क",
+      remelted: "बिलेट फ़र्नेस में वापस गए",
+      scrapped: "बिलेट स्क्रैप हुए",
       other: "अन्य",
     },
   },

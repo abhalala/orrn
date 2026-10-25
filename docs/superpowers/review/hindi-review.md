@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5723 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -3668,7 +3668,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (75)
+### approvals (76)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3693,6 +3693,7 @@ Please check, Lalubhai:
 | `kind.press_reopen` | Reopen a press run | प्रेस रन फिर खोलना |
 | `kind.ageing_override` | Ageing override | एजिंग की छूट |
 | `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
+| `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
@@ -5119,10 +5120,85 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (108)
+### foundry (183)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `refusal.notFound` | Not found. Refresh the list and try again. | नहीं मिला। सूची रीफ़्रेश करके फिर कोशिश करें। |
+| `refusal.streamExists` | A return stream with that code or name already exists. | इस कोड या नाम की रिटर्न स्ट्रीम पहले से है। |
+| `refusal.giveName` | Give a name. | नाम लिखें। |
+| `refusal.pickAlloy` | Pick the alloy. | अलॉय चुनें। |
+| `refusal.alloyRetired` | Alloy {code} is retired. | अलॉय {code} बंद है। |
+| `refusal.alloyMismatch` | Alloy {code} is not {other}. | अलॉय {code}, {other} नहीं है। |
+| `refusal.castClosed` | Cast {cast} is closed. | कास्ट {cast} बंद हो चुका है। |
+| `refusal.castWaiting` | Cast {cast} is waiting for its close-out approval. | कास्ट {cast} क्लोज़-आउट की मंज़ूरी का इंतज़ार कर रहा है। |
+| `refusal.castChanged` | Cast {cast} changed. Open it again. | कास्ट {cast} बदल गया। उसे फिर खोलें। |
+| `refusal.castDraft` | Cast {cast} has a melt that is not locked. Lock it or discard it first. | कास्ट {cast} में एक मेल्ट लॉक नहीं है। पहले उसे लॉक करें या हटाएँ। |
+| `refusal.castShort` | The press used {kg} kg more billets of {cast} than the store held. Pick a reason. | प्रेस ने {cast} के स्टोर से {kg} kg ज़्यादा बिलेट लिए। कारण चुनें। |
+| `refusal.castTail` | {kg} kg of {cast} billets is not explained. Pick a reason. | {cast} के {kg} kg बिलेट का हिसाब नहीं मिलता। कारण चुनें। |
+| `refusal.castClosing` | Cast {cast} changed while you were closing it. Check the close-out again. | बंद करते समय कास्ट {cast} बदल गया। क्लोज़-आउट फिर देखें। |
+| `refusal.castHasMelts` | Cast {cast} has melts. Cancel or discard them first. | कास्ट {cast} में मेल्ट हैं। पहले उन्हें रद्द करें या हटाएँ। |
+| `refusal.tailReason` | Pick why the billets do not add up. | बिलेट का हिसाब क्यों नहीं मिलता, कारण चुनें। |
+| `refusal.noteNeeded` | Write what happened in the note. | नोट में लिखें क्या हुआ। |
+| `refusal.timesOrder` | The melt times are out of order. Check them. | मेल्ट के समय क्रम में नहीं हैं। जाँचें। |
+| `refusal.future` | That time is in the future. Check the date and time. | यह समय आगे का है। तारीख और समय जाँचें। |
+| `refusal.span` | Check the times: the melt runs over 3 days. | समय जाँचें: मेल्ट 3 दिन से लंबा है। |
+| `refusal.preheatEarly` | The preheat start is more than 7 days before cast {cast} was opened. Check the date. | प्रीहीट शुरू, कास्ट {cast} खुलने से 7 दिन से ज़्यादा पहले है। तारीख जाँचें। |
+| `refusal.castAlloyOther` | Cast {cast} is alloy {alloy}. Open a new cast for {other}. | कास्ट {cast} अलॉय {alloy} का है। {other} के लिए नया कास्ट खोलें। |
+| `refusal.lotNotInStock` | {lot} is not in scrap stock. | {lot} स्क्रैप स्टॉक में नहीं है। |
+| `refusal.lotLeft` | Only {kg} kg left in {lot}. | {lot} में सिर्फ़ {kg} kg बचा है। |
+| `refusal.lineTwice` | A line is listed twice. Put its kg on one line. | एक लाइन दो बार है। उसका kg एक लाइन में लिखें। |
+| `refusal.storeRetired` | {name} is retired in the store. Turn it back on first: cancelling the melt returns it. | {name} स्टोर में बंद है। पहले उसे चालू करें: मेल्ट रद्द करने पर वह वापस आता है। |
+| `refusal.storeLocRetired` | {place} is retired. Turn it back on first: cancelling the melt returns {name} there. | {place} बंद है। पहले उसे चालू करें: मेल्ट रद्द करने पर {name} वहाँ लौटता है। |
+| `refusal.byproduct` | {name} is a by-product. It is not charged or returned as metal. | {name} बाय-प्रोडक्ट है। इसे धातु की तरह चार्ज या वापस नहीं किया जाता। |
+| `refusal.namedRetired` | {name} is retired. | {name} बंद है। |
+| `refusal.logsTogether` | Logs need pieces, length and kg together. | लॉग के लिए नग, लंबाई और kg तीनों लिखें। |
+| `refusal.chemClose` | For each chemical, close must be open minus used. | हर केमिकल में, बंद = खुला − इस्तेमाल। |
+| `refusal.storeQty` | A store item needs the quantity used. | स्टोर आइटम की इस्तेमाल मात्रा लिखें। |
+| `refusal.storeTwice` | A store item is listed twice. | एक स्टोर आइटम दो बार है। |
+| `refusal.chemName` | Name the chemical, or pick it from the store. | केमिकल का नाम लिखें, या स्टोर से चुनें। |
+| `refusal.tryAgain` | Something changed while saving. Try again. | सेव करते समय कुछ बदल गया। फिर कोशिश करें। |
+| `refusal.meltCancelled` | This melt is cancelled. | यह मेल्ट रद्द है। |
+| `refusal.discardInstead` | This melt is not locked. Discard the draft instead. | यह मेल्ट लॉक नहीं है। इसके बजाय ड्राफ़्ट हटाएँ। |
+| `refusal.billetsUsed` | The press has already used billets of {cast}. This melt can no longer be changed. | प्रेस {cast} के बिलेट इस्तेमाल कर चुका है। यह मेल्ट अब बदला नहीं जा सकता। |
+| `refusal.meltChanged` | This melt changed. Open it again. | यह मेल्ट बदल गया। उसे फिर खोलें। |
+| `refusal.base64` | The file could not be read. Attach it again. | फ़ाइल पढ़ी नहीं जा सकी। फिर से जोड़ें। |
+| `refusal.fileSize` | The file is larger than 1 MB. | फ़ाइल 1 MB से बड़ी है। |
+| `refusal.maxValues` | At most {max} values. | ज़्यादा से ज़्यादा {max} मान। |
+| `refusal.fileOrValues` | Attach the file or enter the values. | फ़ाइल जोड़ें या मान लिखें। |
+| `refusal.oneElement` | Enter at least one element. | कम से कम एक तत्व लिखें। |
+| `refusal.resultVoid` | This result is already void. | यह नतीजा पहले से रद्द है। |
+| `refusal.spectroLocked` | The melt is locked. Its spectro stays as it is. | मेल्ट लॉक है। उसका स्पेक्ट्रो वैसा ही रहेगा। |
+| `refusal.elementTwice` | An element is listed twice. | एक तत्व दो बार है। |
+| `refusal.minAboveMax` | A minimum is above its maximum. | न्यूनतम उसकी अधिकतम सीमा से ज़्यादा है। |
+| `refusal.requestReused` | This request was already used for something else. Refresh and try again. | यह अनुरोध पहले किसी और काम में लगा। रीफ़्रेश करके फिर कोशिश करें। |
+| `refusal.otherCast` | This melt belongs to another cast. | यह मेल्ट किसी दूसरे कास्ट का है। |
+| `refusal.lockedAsk` | This melt is locked. Ask for a correction to change it. | यह मेल्ट लॉक है। बदलने के लिए सुधार माँगें। |
+| `refusal.notDraft` | Only a draft melt can be changed or discarded. | सिर्फ़ ड्राफ़्ट मेल्ट बदला या हटाया जा सकता है। |
+| `refusal.onlyLocked` | Only a locked melt can be corrected. | सिर्फ़ लॉक किया मेल्ट सुधारा जा सकता है। |
+| `refusal.pickWrong` | Pick what is wrong with the melt. | मेल्ट में क्या गलत है, चुनें। |
+| `refusal.askFirst` | Ask for a correction first. An approver has to agree. | पहले सुधार माँगें। मंज़ूरी देने वाले की हाँ ज़रूरी है। |
+| `refusal.correctionWaiting` | A correction for this melt is already waiting for approval. | इस मेल्ट का सुधार पहले से मंज़ूरी का इंतज़ार कर रहा है। |
+| `refusal.correctionApproved` | A correction for this melt is approved. Correct it now. | इस मेल्ट का सुधार मंज़ूर है। अब सुधारें। |
+| `refusal.giveBundle` | Scan or type the bundle. | बंडल स्कैन करें या लिखें। |
+| `refusal.simulatorOff` | The furnace simulator is off. | फ़र्नेस सिम्युलेटर बंद है। |
+| `refusal.dayOrder` | The end day is before the start day. | आख़िरी दिन शुरू के दिन से पहले है। |
+| `refusal.maxDays` | Pick at most 92 days. | ज़्यादा से ज़्यादा 92 दिन चुनें। |
+| `refusal.addStream` | Add the dross and Fe return streams first in Masters, Return streams. | पहले ड्रॉस और Fe रिटर्न स्ट्रीम जोड़ें (मास्टर्स में, रिटर्न स्ट्रीम)। |
+| `refusal.streamReactivate` | Return stream {code} is retired. Turn it back on first in Masters, Return streams. | रिटर्न स्ट्रीम {code} बंद है। पहले उसे चालू करें (मास्टर्स में, रिटर्न स्ट्रीम)। |
+| `refusal.streamByproduct` | Return stream {code} must be a by-product stream to take dross or Fe. | ड्रॉस या Fe लेने के लिए रिटर्न स्ट्रीम {code} बाय-प्रोडक्ट होनी चाहिए। |
+| `refusal.alreadyLocked` | This melt is already locked. | यह मेल्ट पहले से लॉक है। |
+| `refusal.addInput` | Add what went into the furnace. | फ़र्नेस में क्या डाला, जोड़ें। |
+| `refusal.addLogs` | Add the logs that came out. | जो लॉग निकले, जोड़ें। |
+| `refusal.chargingStart` | Write the charging start time. | चार्जिंग शुरू का समय लिखें। |
+| `refusal.castingEnd` | Write the casting end time, after the charging start. | कास्टिंग खत्म का समय लिखें, चार्जिंग शुरू के बाद का। |
+| `refusal.overCapacity` | More metal than the furnace holds. Check the kg. | फ़र्नेस की क्षमता से ज़्यादा धातु। kg जाँचें। |
+| `refusal.balanceReason` | The kg in and out do not match. Write why in the balance note. | अंदर और बाहर का kg नहीं मिलता। बैलेंस नोट में कारण लिखें। |
+| `refusal.spectroReason` | Spectro has not passed. Write why the melt is locked anyway. | स्पेक्ट्रो पास नहीं हुआ। फिर भी लॉक करने का कारण लिखें। |
+| `refusal.alloyReason` | This melt's alloy differs from the cast's. Write why. | इस मेल्ट का अलॉय कास्ट से अलग है। कारण लिखें। |
+| `refusal.lineTooLarge` | A line is above 100 t. Check the kg. | एक लाइन 100 t से ऊपर है। kg जाँचें। |
+| `refusal.spectroOver` | The eight elements add up to more than 100 %. Check the values. | आठों तत्व मिलकर 100 % से ज़्यादा हैं। मान जाँचें। |
+| `refusal.spectroPpm` | Spectro values must be whole ppm from 0 to 1,000,000. | स्पेक्ट्रो मान 0 से 1,000,000 तक पूरे ppm में लिखें। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
@@ -5257,7 +5333,7 @@ Please check, Lalubhai:
 | `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
 | `readings.outOfRange` | Outside {min} to {max}. | {min} से {max} के बाहर। |
 
-### reasons (54)
+### reasons (66)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5270,6 +5346,8 @@ Please check, Lalubhai:
 | `kinds.ageing_scrap` | Ageing scrap | एजिंग स्क्रैप |
 | `kinds.reallocate` | Move to another order | दूसरे ऑर्डर में डालना |
 | `kinds.die_work` | Die work | Die का काम |
+| `kinds.melt_correct` | Correct a locked melt | लॉक मेल्ट का सुधार |
+| `kinds.cast_tail` | Cast close-out | कास्ट क्लोज़-आउट |
 | `downtime.die_change` | Die change | Die बदली |
 | `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
 | `downtime.breakdown` | Breakdown | ब्रेकडाउन |
@@ -5315,6 +5393,16 @@ Please check, Lalubhai:
 | `die_work.inspect` | Inspection | जाँच |
 | `die_work.clean` | Cleaning | सफ़ाई |
 | `die_work.other` | Other | अन्य |
+| `melt_correct.wrong_weight` | Wrong weight | गलत वज़न |
+| `melt_correct.wrong_lot` | Wrong lot or stream | गलत लॉट या स्ट्रीम |
+| `melt_correct.wrong_time` | Wrong time | गलत समय |
+| `melt_correct.wrong_output` | Wrong logs or dross | गलत लॉग या ड्रॉस |
+| `melt_correct.other` | Other | अन्य |
+| `cast_tail.billets_short` | Press used more billets than the store held | प्रेस ने स्टोर से ज़्यादा बिलेट लिए |
+| `cast_tail.scale_difference` | Scale difference | काँटे का फ़र्क |
+| `cast_tail.remelted` | Billets sent back to the furnace | बिलेट फ़र्नेस में वापस गए |
+| `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
+| `cast_tail.other` | Other | अन्य |
 
 ### plantSettings (50)
 

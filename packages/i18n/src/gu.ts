@@ -22,6 +22,7 @@ import { guNative } from "./gu-more/native";
 import { guOrders } from "./gu-more/orders";
 import { guSettings } from "./gu-more/settings";
 import { guShell } from "./gu-more/shell";
+import { foundryRefusalGu } from "./native/foundry-refusal.gu";
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
 
@@ -64,6 +65,8 @@ export const GU_FLOOR_NAMESPACES = [
   "customers.detail.recent.title", "customers.detail.openOrders",
   // W4-MASTERS: the press alerts list and the spectro inbox are floor screens
   "press.alerts", "foundry.inbox",
+  // W2-FD-S: a refused foundry write reaches the furnace floor
+  "foundry.refusal",
 ] as const;
 
 /**
@@ -87,7 +90,7 @@ type GuBaseMessages = DeepPartial<Messages> &
     dispatch: Pick<Messages["dispatch"], "capacity" | "detail" | "steps" | "build" | "paste" | "errors">;
     status: Pick<Messages["status"], "bundle" | "dispatch" | "range">;
     press: { console: Messages["press"]["console"]; alerts: Messages["press"]["alerts"] };
-    foundry: { inbox: Messages["foundry"]["inbox"] };
+    foundry: { inbox: Messages["foundry"]["inbox"]; refusal: Messages["foundry"]["refusal"] };
     ageing: { readings: Messages["ageing"]["readings"] };
     reasons: Pick<Messages["reasons"], (typeof GU_REASON_FLOOR_KINDS)[number]>;
   };
@@ -1565,6 +1568,8 @@ const guBase = {
       ageing_scrap: "એજિંગ સ્ક્રેપ",
       reallocate: "બીજા ઓર્ડરમાં ફેરવવું",
       die_work: "Die નું કામ",
+      melt_correct: "લૉક મેલ્ટનો સુધારો",
+      cast_tail: "કાસ્ટ ક્લોઝ-આઉટ",
     },
     downtime: {
       die_change: "Die બદલી",
@@ -1629,8 +1634,23 @@ const guBase = {
       clean: "સફાઈ",
       other: "અન્ય",
     },
+    melt_correct: {
+      wrong_weight: "ખોટું વજન",
+      wrong_lot: "ખોટો લૉટ કે સ્ટ્રીમ",
+      wrong_time: "ખોટો સમય",
+      wrong_output: "ખોટા લૉગ કે ડ્રોસ",
+      other: "અન્ય",
+    },
+    cast_tail: {
+      billets_short: "પ્રેસે સ્ટોરથી વધુ બિલેટ વાપર્યા",
+      scale_difference: "કાંટાનો ફરક",
+      remelted: "બિલેટ ફર્નેસમાં પાછા ગયા",
+      scrapped: "બિલેટ સ્ક્રેપ થયા",
+      other: "અન્ય",
+    },
   },
   foundry: {
+    refusal: foundryRefusalGu,
     inbox: {
       columns: {
         file: "ફાઇલ",

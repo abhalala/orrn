@@ -1461,7 +1461,7 @@ const meltsRouter = router({
       if (m.cancelledAt) bad("This melt is already cancelled");
       if (m.status === "draft") bad("This melt is not locked; discard the draft instead");
       const c = await loadCast(ctx, m.castId);
-      if (c.status !== "open") bad(`${castStateMessage(c)}; its melts stay as they are`);
+      if (c.status !== "open") bad(castStateMessage(c));
       const billetsSql = castBilletsOnHandSql(companyId, sql`${c.id}`);
       const [onHand] = await ctx.db
         .select({ g: billetsSql })
@@ -1529,7 +1529,7 @@ const meltsRouter = router({
           const [now] = await ctx.db.select().from(melt).where(and(eq(melt.id, m.id), eq(melt.companyId, companyId))).limit(1);
           if (now?.cancelledAt) bad("This melt is already cancelled");
           const castNow = await loadCast(ctx, c.id);
-          if (castNow.status !== "open") bad(`${castStateMessage(castNow)}; its melts stay as they are`);
+          if (castNow.status !== "open") bad(castStateMessage(castNow));
           const [h] = await ctx.db.select({ g: billetsSql }).from(cast).where(and(eq(cast.id, c.id), eq(cast.companyId, companyId))).limit(1);
           if (Number(h?.g ?? 0) < m.logsG) billetsShort();
           const drawsNow = await liveMeltDraws(ctx, m.id);
