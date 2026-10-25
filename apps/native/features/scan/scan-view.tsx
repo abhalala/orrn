@@ -24,6 +24,8 @@ import { saveErrorText } from "@/lib/save-error";
 import { useThemeColor } from "@/lib/theme";
 import { queryClient, trpc } from "@/utils/trpc";
 
+import { copyCodeQuery, copyIdFromLink, looksLikeCopyCode } from "@/features/dies/copy-model";
+
 import { createDeduper } from "./dedupe";
 import { addOutcome, renderScanMessage, scanErrorKey } from "./outcome";
 import {
@@ -220,9 +222,45 @@ export function ScanView() {
     [fail, refreshDispatches, remember, resolveCode, t],
   );
 
+  /**
+   * Lookup mode, die room: a die copy label (a card link, or a code like 12170-2 that names a live
+   * copy) opens the copy's card. Anything else is a bundle and goes on to the normal lookup.
+   */
+  const openDieCopy = useCallback(
+    async (id: number, raw: string): Promise<boolean> => {
+      const open = (copyId: string, code: string) => {
+        feedback.success();
+        announce(t("dieRoom.card.title"), { shownInLiveRegion: false });
+        remember(code, "opened");
+        setLine(null);
+        router.push({ pathname: "/dies/[id]", params: { id: copyId } });
+      };
+      const linked = copyIdFromLink(raw);
+      if (linked) {
+        open(linked, linked);
+        return true;
+      }
+      const code = copyCodeQuery(raw).toUpperCase();
+      if (!looksLikeCopyCode(code)) return false;
+      try {
+        const res = await queryClient.fetchQuery({ ...trpc.dieInstance.list.queryOptions({ search: code, limit: 5 }), staleTime: 0 });
+        const hit = res.items.find((c) => c.code.toUpperCase() === code);
+        if (!hit) return false;
+        setLine({ id, tone: "progress", message: t("ui.searching") });
+        open(hit.id, hit.code);
+        return true;
+      } catch {
+        // The copy lookup failed: the bundle lookup below reports the network problem if there is one.
+        return false;
+      }
+    },
+    [remember, router, t],
+  );
+
   const handle = useCallback(
     async (raw: string) => {
       const id = ++seq.current;
+      if (modeRef.current.kind === "lookup" && (await openDieCopy(id, raw))) return;
       const read = readSerial(raw);
       if (read.kind === "unrecognised") {
         fail(id, t("scan.unrecognised"));
@@ -232,7 +270,7 @@ export function ScanView() {
       if (current.kind === "dispatch") await addToDispatch(id, read.serial, current.dispatchId);
       else await lookup(id, read.serial);
     },
-    [addToDispatch, fail, lookup, t],
+    [addToDispatch, fail, lookup, openDieCopy, t],
   );
 
   const onScan = useCallback(

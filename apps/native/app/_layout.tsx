@@ -14,6 +14,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { MessageScreen } from "@/components/message-screen";
+import { ReleaseGate } from "@/components/release-gate";
 import { TenantCacheGuard } from "@/components/tenant-cache-guard";
 import { Button } from "@/components/ui/button";
 import { appStateFocus } from "@/lib/app-focus";
@@ -176,30 +177,32 @@ function RootNavigator() {
   const pushed = (name: string) => (NESTED_STACKS.includes(name) ? { headerShown: false } : {});
   return (
     <GateContext value={state}>
-      <Stack screenOptions={stackOptions}>
-        {/* `index` first and unguarded: it is the fallback when a guard flips. */}
-        <Stack.Screen name="index" options={gateSwap} />
-        <Stack.Protected guard={state === "/(tabs)/today"}>
-          {ROOT_ROUTES.app.map((name) => (
-            <Stack.Screen key={name} name={name} options={name === "(tabs)" ? gateSwap : pushed(name)} />
-          ))}
-        </Stack.Protected>
-        <Stack.Protected guard={state === "/(auth)/sign-in"}>
-          {ROOT_ROUTES.auth.map((name) => (
-            <Stack.Screen key={name} name={name} options={gateSwap} />
-          ))}
-        </Stack.Protected>
-        <Stack.Protected guard={state === "/no-access"}>
-          {ROOT_ROUTES.noAccess.map((name) => (
-            <Stack.Screen key={name} name={name} options={gateSwap} />
-          ))}
-        </Stack.Protected>
-        {ROOT_ROUTES.public
-          .filter((name) => name !== "index")
-          .map((name) => (
-            <Stack.Screen key={name} name={name} options={{ title: t("auth.invite.genericTitle") }} />
-          ))}
-      </Stack>
+      <ReleaseGate active={state === "/(tabs)/today"}>
+        <Stack screenOptions={stackOptions}>
+          {/* `index` first and unguarded: it is the fallback when a guard flips. */}
+          <Stack.Screen name="index" options={gateSwap} />
+          <Stack.Protected guard={state === "/(tabs)/today"}>
+            {ROOT_ROUTES.app.map((name) => (
+              <Stack.Screen key={name} name={name} options={name === "(tabs)" ? gateSwap : pushed(name)} />
+            ))}
+          </Stack.Protected>
+          <Stack.Protected guard={state === "/(auth)/sign-in"}>
+            {ROOT_ROUTES.auth.map((name) => (
+              <Stack.Screen key={name} name={name} options={gateSwap} />
+            ))}
+          </Stack.Protected>
+          <Stack.Protected guard={state === "/no-access"}>
+            {ROOT_ROUTES.noAccess.map((name) => (
+              <Stack.Screen key={name} name={name} options={gateSwap} />
+            ))}
+          </Stack.Protected>
+          {ROOT_ROUTES.public
+            .filter((name) => name !== "index")
+            .map((name) => (
+              <Stack.Screen key={name} name={name} options={{ title: t("auth.invite.genericTitle") }} />
+            ))}
+        </Stack>
+      </ReleaseGate>
     </GateContext>
   );
 }

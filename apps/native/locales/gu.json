@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "orrn",
+    "NSCameraUsageDescription": "orrn બંડલ લેબલ સ્કેન કરવા માટે કેમેરાનો ઉપયોગ કરે છે."
+  }
+}

@@ -83,7 +83,7 @@ describe("route table", () => {
         expect(existsSync(join(APP, "(tabs)", `${tab.name}.tsx`))).toBe(true);
       }
     }
-    expect(TAB_ROUTES.filter((t) => t.stack).map((t) => t.name)).toEqual(["today", "pack", "stock", "dispatch"]);
+    expect(TAB_ROUTES.filter((t) => t.stack).map((t) => t.name)).toEqual(["today", "pack", "stock", "dispatch", "dies", "press", "orders"]);
   });
 
   test("a link that cold-starts the app (an invite) keeps \"/\" underneath, so Back reaches the gate", () => {

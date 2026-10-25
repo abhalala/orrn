@@ -1,6 +1,6 @@
 import { useT, type MessageKey } from "@orrn/i18n";
 import { useRef, useState } from "react";
-import { Text, View, type TextInput } from "react-native";
+import { Linking, Text, View, type TextInput } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { FadeIn, FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +16,8 @@ import { authClient } from "@/lib/auth-client";
 import { AnimatedView } from "@/lib/nativewind-interop";
 import { afterPassword, afterTotp, cleanTotp, totpInputError } from "@/lib/sign-in-flow";
 import { afterSignIn } from "@/lib/sign-out";
+import { webUrl } from "@/lib/web-url";
+import { FORGOT_PASSWORD_PATH } from "@/lib/web-link";
 
 type Step = "password" | "totp";
 
@@ -201,13 +203,22 @@ export default function SignInScreen() {
             ) : null}
 
             {step === "password" ? (
-              <Button
-                size="lg"
-                label={t("auth.login.submit")}
-                loading={busy}
-                loadingLabel={t("auth.login.submitting")}
-                onPress={() => void submitPassword()}
-              />
+              <View className="gap-3">
+                <Button
+                  size="lg"
+                  label={t("auth.login.submit")}
+                  loading={busy}
+                  loadingLabel={t("auth.login.submitting")}
+                  onPress={() => void submitPassword()}
+                />
+                {/* Resetting a password happens on the web: the link in the email opens there. */}
+                <Button
+                  variant="ghost"
+                  label={t("auth.login.forgot")}
+                  disabled={busy}
+                  onPress={() => void Linking.openURL(webUrl(FORGOT_PASSWORD_PATH)).catch(() => {})}
+                />
+              </View>
             ) : (
               <View className="gap-3">
                 <Button

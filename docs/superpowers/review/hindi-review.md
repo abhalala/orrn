@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3913 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 3964 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2527,7 +2527,7 @@ Counts: 3913 screen strings in 44 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (129)
+### native (180)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2660,6 +2660,57 @@ Counts: 3913 screen strings in 44 groups, 16 guides with 292 strings.
 | `invite.checkAccount` | Check my account | मेरा अकाउंट जांचें |
 | `invite.tryAgain` | Try again | फिर कोशिश करें |
 | `invite.signOutOther` | Sign out and use another account | साइन आउट करें और दूसरा अकाउंट इस्तेमाल करें |
+| `dies.searchLabel` | Find a copy | कॉपी खोजें |
+| `dies.found` | {count} {count:copy\|copies} found | {count} कॉपी मिली |
+| `dies.noMatch` | No copy matches | कोई कॉपी नहीं मिली |
+| `dies.attentionCount` | {count} {count:copy needs\|copies need} attention | {count} कॉपी पर ध्यान चाहिए |
+| `dies.filterLabel` | Why it needs attention | ध्यान क्यों चाहिए |
+| `dies.partial` | Showing the first {count} copies. Search to find the others. | पहली {count} कॉपी दिख रही हैं। बाकी खोजने के लिए सर्च करें। |
+| `dies.showMore` | Show {count} more | {count} और दिखाएं |
+| `dies.nothingTitle` | Nothing needs attention | किसी पर ध्यान की जरूरत नहीं |
+| `dies.nothingBody` | Every copy is in its band, read this month and in the rack. | हर कॉपी अपने बैंड में है, इस महीने नापी गई है और रैक में है। |
+| `dies.reason.above_band` | Above band | बैंड से ऊपर |
+| `dies.reason.at_nitriding` | At nitriding | नाइट्राइडिंग पर |
+| `dies.reason.at_maker` | At die maker | डाई मेकर के पास |
+| `dies.reason.on_trial` | On trial | ट्रायल पर |
+| `dies.reason.open_issue` | On a press | प्रेस पर |
+| `dies.reason.stale_reading` | No reading in 30 days | 30 दिन से रीडिंग नहीं |
+| `dies.reason.never_read` | No reading yet | अभी रीडिंग नहीं |
+| `dies.pad.point` | Decimal point | दशमलव बिंदु |
+| `dies.saveReading` | Save reading | रीडिंग सेव करें |
+| `dies.chemicalsOnWeb` | Chemicals are written on the card on the web. | केमिकल वेब पर कार्ड में लिखे जाते हैं। |
+| `dies.addMakerOnWeb` | Add one on the web. | वेब पर जोड़ें। |
+| `dies.issueTitle` | Issue {code} | {code} इश्यू करें |
+| `dies.issueToRun` | Issue to {run} | {run} के लिए इश्यू करें |
+| `dies.fileFailed` | The file didn't open. Try again. | फाइल नहीं खुली। फिर कोशिश करें। |
+| `dies.openFile` | Open | खोलें |
+| `dies.readOnly` | These details are changed on the card on the web. | ये जानकारी वेब पर कार्ड में बदली जाती है। |
+| `dies.waitingTitle` | Waiting for a die | डाई का इंतजार |
+| `dies.waitingEmpty` | No press run is waiting | कोई प्रेस रन इंतजार में नहीं है |
+| `dies.waitingEmptyBody` | Runs released from a press plan show here until a copy is issued. | प्रेस प्लान से रिलीज हुए रन कॉपी इश्यू होने तक यहां दिखते हैं। |
+| `dies.needsDie` | Needs a die | डाई चाहिए |
+| `orders.lineOf` | Line {n} of {total} | लाइन {n} / {total} |
+| `orders.review` | Review | जांच |
+| `orders.toReview` | Review the order | ऑर्डर की जांच करें |
+| `orders.changeDie` | Change die | डाई बदलें |
+| `orders.incomplete` | Not complete | अधूरी |
+| `tabs.press` | Press | प्रेस |
+| `gate.checking` | Checking this version | यह वर्जन जांच रहे हैं |
+| `gate.blockedTitle` | orrn can't open on this phone | orrn इस फोन पर नहीं खुल सकता |
+| `gate.blocked.below_min_build` | This version of orrn is too old. Install the latest version, then open it again. | orrn का यह वर्जन बहुत पुराना है। नया वर्जन इंस्टॉल करें, फिर दोबारा खोलें। |
+| `gate.blocked.revoked` | This phone has been turned off for this plant. Ask your admin to turn it back on. | इस फोन को इस प्लांट के लिए बंद कर दिया गया है। एडमिन से इसे फिर चालू करने को कहें। |
+| `gate.blocked.never_checked` | orrn could not check this version. Connect to the internet and check again. | orrn इस वर्जन को जांच नहीं सका। इंटरनेट से जुड़ें और फिर जांचें। |
+| `gate.blocked.grace_expired` | orrn has not been able to check for updates for over 24 hours. Connect to the internet and check again. | orrn 24 घंटे से ज्यादा समय से अपडेट नहीं जांच सका। इंटरनेट से जुड़ें और फिर जांचें। |
+| `gate.blocked.last_blocked` | This version of orrn cannot open. Connect to the internet and check again. | orrn का यह वर्जन नहीं खुल सकता। इंटरनेट से जुड़ें और फिर जांचें। |
+| `gate.latest` | The latest version is {version}. | नया वर्जन {version} है। |
+| `gate.getLatest` | Get the latest version | नया वर्जन लें |
+| `gate.graceNote` | Could not check for updates. This version can still open until {time}. | अपडेट नहीं जांच सके। यह वर्जन {time} तक खुल सकता है। |
+| `web.title` | Open on the web | वेब पर खोलें |
+| `web.hint` | Opens in your browser | ब्राउजर में खुलता है |
+| `web.team` | Team | टीम |
+| `web.shifts` | Shifts | शिफ्ट |
+| `web.standards` | Standards | स्टैंडर्ड |
+| `web.backup` | Backup | बैकअप |
 
 ### ui (9)
 

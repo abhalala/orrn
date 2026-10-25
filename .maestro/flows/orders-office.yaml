@@ -1,0 +1,47 @@
+# Office tabs: Today, Dispatch, Scan, Orders, More. Book an order one line at a time.
+# Needs an office user, a customer and a die in the dev seed:
+#   maestro test -e APP_ID=in.orrn.app -e MAESTRO_EMAIL=... -e MAESTRO_PASSWORD=... -e CUSTOMER="Demo customer" -e DIE=14701 .maestro/flows/orders-office.yaml
+# UNTESTED on a device or simulator (written with the screens; run it before relying on it).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- assertVisible: "Orders"
+- assertVisible: "Dispatch"
+- assertVisible: "More"
+- tapOn: "Orders"
+- takeScreenshot: orders-list
+- tapOn: "New order"
+# Step 1: customer and PO.
+- tapOn: "Customer"
+- inputText: ${CUSTOMER}
+- tapOn: ${CUSTOMER}
+- tapOn: "PO number"
+- inputText: "MAESTRO-1"
+- hideKeyboard
+- tapOn: "Next"
+# Step 2: one line.
+- tapOn: "Die"
+- inputText: ${DIE}
+- tapOn:
+    text: ${DIE}
+    index: 0
+- tapOn: "Pieces"
+- inputText: "30"
+- hideKeyboard
+- takeScreenshot: order-line

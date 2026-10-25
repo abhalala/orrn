@@ -6,7 +6,7 @@ import { Text, View } from "react-native";
 import { PressableScale } from "@/components/ui/pressable-scale";
 
 /**
- * English / हिंदी toggle (spec §2: on the login screen and in More). A radio
+ * English / हिंदी / ગુજરાતી toggle (spec §2: on the login screen and in More). A radio
  * group: each option names itself in its own script and says it is selected.
  * Dark mode mirrors the web SegmentedControl (canvas track with a hairline,
  * sunken pill with a control ring) so the choice stays visible.
@@ -32,7 +32,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
               key={code}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected, selected }}
-              accessibilityLanguage={code === "hi" ? "hi-IN" : "en-IN"}
+              accessibilityLanguage={code === "hi" ? "hi-IN" : code === "gu" ? "gu-IN" : "en-IN"}
               accessibilityLabel={LOCALE_NAMES[code]}
               onPress={() => setLocale(code)}
               className="flex-1"
