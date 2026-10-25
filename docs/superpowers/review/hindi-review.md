@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4067 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 4094 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -401,7 +401,7 @@ Counts: 4067 screen strings in 44 groups, 16 guides with 292 strings.
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
 
-### today (102)
+### today (112)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -507,6 +507,16 @@ Counts: 4067 screen strings in 44 groups, 16 guides with 292 strings.
 | `floor.ordersHint` | {count} open | {count} {count:खुला\|खुले} |
 | `floor.ageing` | Ageing | एजिंग |
 | `floor.ageingHint` | {count} in the oven | {count} ओवन में |
+| `floor.pressHintNone` | Nothing queued | कतार खाली है |
+| `floor.pressHintAny` | Runs and queue | रन और कतार |
+| `floor.dieRoomHintNone` | Nothing to issue | देने को कुछ नहीं |
+| `floor.dieRoomHintAny` | Issue and take back | Die दें और वापस लें |
+| `floor.ordersHintNone` | No open orders | कोई खुला ऑर्डर नहीं |
+| `floor.ordersHintAny` | Order book | ऑर्डर बुक |
+| `floor.approvals` | Approvals | मंज़ूरी |
+| `floor.approvalsHint` | {count} waiting | {count} इंतज़ार में |
+| `floor.approvalsHintNone` | Nothing waiting | कुछ इंतज़ार में नहीं |
+| `floor.approvalsHintAny` | Requests to decide | तय करने वाले अनुरोध |
 
 ### pack (151)
 
@@ -2979,7 +2989,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (65)
+### approvals (75)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3008,7 +3018,17 @@ Please check, Lalubhai:
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
 | `subject.dieRerankNew` | Copy {code}, set tier {to} | कॉपी {code}, टियर {to} करें |
+| `subject.reallocate` | {count} {count:bundle\|bundles}, {kg} kg: {from} to {to} | {count} bundle, {kg} kg: {from} से {to} को |
 | `subject.generic` | {ref} | {ref} |
+| `move.title` | What moves | क्या जा रहा है |
+| `move.bundles` | Bundles | Bundle |
+| `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
+| `move.from` | From | कहां से |
+| `move.to` | To | कहां |
+| `move.reason` | Reason | कारण |
+| `move.plant` | plant stock | प्लांट स्टॉक |
+| `move.line` | {party}, {order} line {line} | {party}, {order} लाइन {line} |
+| `openOrder` | Open order | ऑर्डर खोलें |
 | `askedBy` | Asked by {name} | {name} ने मांगा |
 | `someone` | Someone | किसी ने |
 | `decidedBy` | {status} by {name} | {name} ने {status} किया |
@@ -3466,7 +3486,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (258)
+### orders (265)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3572,7 +3592,7 @@ Please check, Lalubhai:
 | `strip.planned` | Planned | प्लान |
 | `strip.pressed` | Pressed | प्रेस हुआ |
 | `strip.aged` | Aged | एजिंग |
-| `strip.packed` | Packed | पैक |
+| `strip.packed` | Packed (incl. held) | पैक (होल्ड सहित) |
 | `strip.inStock` | In stock | स्टॉक में |
 | `strip.dispatched` | Dispatched | Dispatch हुआ |
 | `strip.baki` | Baki | बाकी |
@@ -3671,6 +3691,13 @@ Please check, Lalubhai:
 | `timeline.reallocatePending` | {count} {count:bundle\|bundles}, {kg} kg, asked to move. Waiting for a manager. | {count} bundle, {kg} kg डालने की मांग। मैनेजर का इंतज़ार। |
 | `timeline.reallocateApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved | {count} bundle, {kg} kg डाले गए |
 | `timeline.reallocateRejected` | The move of {count} {count:bundle\|bundles} was refused | {count} bundle डालना मना किया गया |
+| `timeline.moveApplied` | {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to} | {count} bundle, {kg} kg, {from} से {to} को |
+| `timeline.movePending` | {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to}, asked. Waiting for a manager. | {count} bundle, {kg} kg, {from} से {to} को, मांगा गया। मैनेजर का इंतज़ार। |
+| `timeline.moveRejected` | The move of {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to} was refused | {count} bundle, {kg} kg, {from} से {to} को ले जाना मना किया गया |
+| `timeline.plantStock` | plant stock | प्लांट स्टॉक |
+| `timeline.hold` | {count} {count:bundle\|bundles}, {kg} kg, held for line {line} | {count} bundle, {kg} kg, लाइन {line} के लिए होल्ड |
+| `timeline.release` | Hold on line {line} ended: {count} {count:bundle\|bundles}, {kg} kg | लाइन {line} का होल्ड हटा: {count} bundle, {kg} kg |
+| `timeline.releaseDispatched` | {count} held {count:bundle\|bundles}, {kg} kg, left on {code} | होल्ड के {count} bundle, {kg} kg, {code} पर गए |
 | `timeline.planCreate` | Press plan {number} drafted | प्रेस प्लान {number} बना |
 | `timeline.planRelease` | Press plan {number} released to the press | प्रेस प्लान {number} प्रेस को भेजा गया |
 | `timeline.planCancel` | Press plan {number} cancelled | प्रेस प्लान {number} रद्द हुआ |

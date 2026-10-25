@@ -89,7 +89,8 @@ function IssueForm() {
     value: r.id,
     label: [r.number, r.pressLineCode, r.purpose === "die_trial" ? t("dieRoom.issues.trialRun") : null].filter(Boolean).join(" \u00b7 "),
   }));
-  const chosenRun = runList.find((r) => r.id === (runId || runList[0]?.id));
+  // BACKLOG 36: the person names the run; nothing is picked for them (no silent "oldest").
+  const chosenRun = runList.find((r) => r.id === runId);
   const lineOptions = (lines.data ?? []).map((l) => ({ value: l.id, label: l.code === l.name ? l.code : `${l.code} \u00b7 ${l.name}` }));
   // The run knows its line: the person cannot pick another one (the server would refuse it).
   const lockedLine = chosenRun?.pressLineId ?? null;

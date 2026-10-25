@@ -442,7 +442,7 @@ function CopyRow({ copy }: { copy: CopyView }) {
             <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
               {kgPerMetreText(copy.kgPerMetre)} {t("units.kgPerMetre")}
             </span>
-            <PercentChip tone={copy.tone} pctTenth={copy.pctTenth} />
+            <PercentChip tone={copy.tone} pctTenth={copy.pctTenth} position={copy.position} />
             <BandPositionChip position={copy.position} />
           </>
         )}

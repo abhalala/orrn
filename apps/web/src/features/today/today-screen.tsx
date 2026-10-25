@@ -188,7 +188,7 @@ export function TodayScreen() {
     <>
       {header}
       <TodayKpis data={data} />
-      <TodayTiles openCount={data.openDispatchCount} startIndex={3} />
+      <TodayTiles tiles={data.tiles} startIndex={3} />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
         <ListsGrid pair={sections.dispatches && sections.sessions}>

@@ -54,7 +54,8 @@ export function IssuePanel({
 
   const current = open.data?.items[0] ?? null;
   const runs = runsForSection(queued.data ?? [], sectionId);
-  const chosen = runs.find((r) => r.id === runId) ?? runs[0] ?? null;
+  // BACKLOG 36: the die room names the run; nothing is picked for them (no silent "oldest").
+  const chosen = runs.find((r) => r.id === runId) ?? null;
   const resolvedLine = chosen ? (lineId ?? issueLine(chosen, lines.data ?? [])) : null;
   const actions = current
     ? issueActions({

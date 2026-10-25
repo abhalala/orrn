@@ -12,7 +12,7 @@ export function Timeline({ events }: { events: readonly TimelineEvent[] }) {
   return (
     <ol className="m-0 flex list-none flex-col p-0" aria-label={t("orders.detail.timeline")}>
       {events.map((ev, index) => {
-        const label = timelineLabel(ev);
+        const label = timelineLabel(ev, { plant: t("orders.timeline.plantStock") });
         return (
           <li key={ev.id} className="relative flex gap-3 pb-4 last:pb-0" data-timeline={ev.action}>
             {index < events.length - 1 ? <span aria-hidden="true" className="absolute top-3 bottom-0 left-[5px] w-px bg-border" /> : null}
