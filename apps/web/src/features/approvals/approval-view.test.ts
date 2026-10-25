@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { APPROVAL_TONE, approvalSubject, decideState, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
+import { APPROVAL_TONE, approvalSubject, decideState, foundryCastIdOf, foundryLiveOf, foundryFiguresOf, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
 
 function me(role: string, id = "u-manager"): Me {
   return {
@@ -114,9 +114,117 @@ describe("approvalSubject", () => {
     });
   });
 
-  test("kinds without a screen yet fall back to a code or number from meta, no link", () => {
-    expect(approvalSubject(row({ kind: "cast_close", meta: { code: "K31" } }))).toEqual({
+  test("a cast close names the cast and the tail and links to the cast", () => {
+    expect(approvalSubject(row({ kind: "cast_close", subjectId: "cast-9", meta: { number: "K31", producedG: 5_860_000, tailG: -250_000, tailBp: -427 } }))).toEqual({
       kindKey: "approvals.kind.cast_close",
+      titleKey: "approvals.subject.castClose",
+      vars: { number: "K31", kg: "250.000" },
+      href: "/casts/cast-9",
+      openKey: "approvals.openCast",
+    });
+    expect(approvalSubject(row({ kind: "cast_close", subjectId: "cast-9", meta: { number: "K31" } })).titleKey).toBe("approvals.subject.castCloseBare");
+  });
+
+  test("a melt correction names the melt and cast and links to the melt page", () => {
+    expect(approvalSubject(row({ kind: "melt_correct", subjectId: "melt-4", meta: { castId: "cast-9", castNumber: "K31", meltSeq: 2, logsG: 5_860_000 } }))).toEqual({
+      kindKey: "approvals.kind.melt_correct",
+      titleKey: "approvals.subject.meltCorrect",
+      vars: { number: "K31", seq: "2" },
+      href: "/casts/cast-9/melt/melt-4",
+      openKey: "approvals.openMelt",
+    });
+    // An id that does not look like an id is never a link.
+    expect(approvalSubject(row({ kind: "melt_correct", subjectId: "m/../x", meta: { castId: "cast-9" } })).href).toBeNull();
+  });
+
+  test("foundryFiguresOf: the figures a cast close and a melt correction carry", () => {
+    expect(foundryFiguresOf("cast_close", { producedG: 5_860_000, inputG: 6_150_000, tailG: 250_000, tailBp: 427, shortG: 0 })).toEqual([
+      { labelKey: "approvals.foundry.produced", value: "5,860.000 kg" },
+      { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
+      { labelKey: "approvals.foundry.tail", value: "250.000 kg (4.3%)" },
+    ]);
+    // The close counts the billets left: ledger on hand, the count and what the ledger moves by.
+    expect(foundryFiguresOf("cast_close", { producedG: 5_860_000, ledgerOnHandG: 860_000, countedG: 840_000, adjustG: -20_000, tailG: 20_000, tailBp: 34 }).map((r) => [r.labelKey, r.value])).toEqual([
+      ["approvals.foundry.produced", "5,860.000 kg"],
+      ["approvals.foundry.ledgerOnHand", "860.000 kg"],
+      ["approvals.foundry.counted", "840.000 kg"],
+      ["approvals.foundry.adjust", "-20.000 kg"],
+      ["approvals.foundry.tail", "20.000 kg (0.3%)"],
+    ]);
+    expect(foundryFiguresOf("cast_close", { producedG: 100_000, tailG: -5_000, shortG: 5_000 }).map((r) => r.labelKey)).toEqual(["approvals.foundry.produced", "approvals.foundry.tail", "approvals.foundry.short"]);
+    expect(foundryFiguresOf("melt_correct", { inputG: 6_150_000, logsG: 5_860_000 })).toEqual([
+      { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
+      { labelKey: "approvals.foundry.logs", value: "5,860.000 kg" },
+    ]);
+    expect(foundryFiguresOf("cast_close", {})).toEqual([]);
+    expect(foundryFiguresOf("dc_note", { inputG: 1 })).toEqual([]);
+  });
+
+  test("foundryCastIdOf: the cast to load for a request (the subject of a close, the meta of a correction)", () => {
+    expect(foundryCastIdOf("cast_close", "cast-1", {})).toBe("cast-1");
+    expect(foundryCastIdOf("melt_correct", "melt-1", { castId: "cast-2" })).toBe("cast-2");
+    expect(foundryCastIdOf("melt_correct", "melt-1", {})).toBeNull();
+    expect(foundryCastIdOf("melt_correct", "melt-1", { castId: "a/../b" })).toBeNull();
+    expect(foundryCastIdOf("dc_note", "lot-1", { castId: "cast-2" })).toBeNull();
+  });
+
+  test("foundryLiveOf: today's cast figures first, what changed since the request, and a cast that moved on", () => {
+    const live = {
+      cast: { status: "closing" },
+      closeout: { producedG: 5_860_000, inputG: 6_150_000, billetsOnHandG: 860_000 },
+      melts: [{ id: "m-1", status: "locked", inputG: 6_150_000, logsG: 5_860_000 }],
+    };
+    const meta = { producedG: 5_860_000, ledgerOnHandG: 860_000, countedG: 840_000 };
+    // Nothing moved: the three live figures and no extra line.
+    expect(foundryLiveOf("cast_close", "c-1", meta, live)).toEqual({
+      rows: [
+        { labelKey: "approvals.foundry.produced", value: "5,860.000 kg" },
+        { labelKey: "approvals.foundry.metalIn", value: "6,150.000 kg" },
+        { labelKey: "approvals.foundry.ledgerOnHand", value: "860.000 kg" },
+      ],
+      notes: [],
+    });
+    // The press used 100 kg of the cast's billets after the request was made.
+    const used = foundryLiveOf("cast_close", "c-1", meta, { ...live, closeout: { ...live.closeout, billetsOnHandG: 760_000 } });
+    expect(used?.rows[2]).toEqual({ labelKey: "approvals.foundry.ledgerOnHand", value: "760.000 kg" });
+    expect(used?.notes).toEqual([{ key: "approvals.foundry.usedSince", kg: "100.000" }]);
+    // More on hand than at the request (a press run was reopened).
+    expect(foundryLiveOf("cast_close", "c-1", meta, { ...live, closeout: { ...live.closeout, billetsOnHandG: 880_000 } })?.notes).toEqual([
+      { key: "approvals.foundry.addedSince", kg: "20.000" },
+    ]);
+    // A request with no ledger figure in its meta cannot say what changed.
+    expect(foundryLiveOf("cast_close", "c-1", {}, { ...live, closeout: { ...live.closeout, billetsOnHandG: 1 } })?.notes).toEqual([]);
+    // The cast is no longer waiting to close: the server will refuse, so say so.
+    expect(foundryLiveOf("cast_close", "c-1", meta, { ...live, cast: { status: "closed" } })?.notes).toEqual([{ key: "approvals.foundry.castMoved" }]);
+    expect(foundryLiveOf("cast_close", "c-1", meta, { ...live, cast: { status: "open" } })?.notes).toEqual([{ key: "approvals.foundry.castMoved" }]);
+  });
+
+  test("foundryLiveOf: a melt correction shows the melt as it is now", () => {
+    const live = {
+      cast: { status: "open" },
+      closeout: { producedG: 0, inputG: 0, billetsOnHandG: 0 },
+      melts: [
+        { id: "m-1", status: "locked", inputG: 6_200_000, logsG: 5_900_000 },
+        { id: "m-2", status: "locked", inputG: 1, logsG: 1 },
+      ],
+    };
+    expect(foundryLiveOf("melt_correct", "m-1", { inputG: 6_150_000, logsG: 5_860_000 }, live)).toEqual({
+      rows: [
+        { labelKey: "approvals.foundry.metalIn", value: "6,200.000 kg" },
+        { labelKey: "approvals.foundry.logs", value: "5,900.000 kg" },
+      ],
+      notes: [],
+    });
+    expect(foundryLiveOf("melt_correct", "m-1", {}, { ...live, melts: [{ ...live.melts[0]!, status: "cancelled" }] })?.notes).toEqual([{ key: "approvals.foundry.meltMoved" }]);
+    expect(foundryLiveOf("melt_correct", "m-1", {}, { ...live, cast: { status: "closed" } })?.notes).toEqual([{ key: "approvals.foundry.meltMoved" }]);
+    // The melt is not on the cast the request names: nothing live to show, and the sheet keeps Approve off.
+    expect(foundryLiveOf("melt_correct", "m-9", {}, live)).toBeNull();
+    expect(foundryLiveOf("dc_note", "x", {}, live)).toBeNull();
+  });
+
+  test("kinds without a screen yet fall back to a code or number from meta, no link", () => {
+    expect(approvalSubject(row({ kind: "press_time", meta: { code: "K31" } }))).toEqual({
+      kindKey: "approvals.kind.press_time",
       titleKey: "approvals.subject.generic",
       vars: { ref: "K31" },
       href: null,
@@ -182,7 +290,8 @@ describe("subjectCodes", () => {
     expect(
       subjectCodes(approvalSubject(row({ kind: "die_rerank", meta: { sectionId: "die-7", code: "14701-B", fromRank: 2, toRank: 1 } }))),
     ).toEqual(["14701-B"]);
-    expect(subjectCodes(approvalSubject(row({ kind: "cast_close", meta: { code: "K31" } })))).toEqual(["K31"]);
+    expect(subjectCodes(approvalSubject(row({ kind: "press_time", meta: { code: "K31" } })))).toEqual(["K31"]);
+    expect(subjectCodes(approvalSubject(row({ kind: "cast_close", meta: { number: "K31", tailG: 1000 } })))).toEqual(["K31"]);
   });
 });
 

@@ -1,24 +1,28 @@
 import { useT } from "@orrn/i18n";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-type ComingSoonModule = "foundry" | "ageing";
-
-/** Honest placeholder for the two modules still being built elsewhere. No fixture screens. */
+/**
+ * Honest placeholder for the module still being built elsewhere (ageing). No fixture screens.
+ * Foundry is built: `?module=foundry`, or a missing module, no longer says it is coming and goes
+ * to the real casts screen.
+ */
 export const Route = createFileRoute("/_tenant/preview/coming-soon")({
-  validateSearch: (search: Record<string, unknown>): { module: ComingSoonModule } => ({
-    module: search.module === "ageing" ? "ageing" : "foundry",
+  validateSearch: (search: Record<string, unknown>): { module?: "ageing" | "foundry" } => ({
+    module: search.module === "ageing" ? "ageing" : search.module === "foundry" ? "foundry" : undefined,
   }),
+  beforeLoad: ({ search }) => {
+    if (search.module === "foundry") throw redirect({ to: "/casts", replace: true });
+  },
   component: ComingSoon,
 });
 
 function ComingSoon() {
   const { t } = useT();
-  const { module } = Route.useSearch();
   return (
     <>
-      <PageHeader title={t(module === "ageing" ? "comingSoon.ageing" : "comingSoon.foundry")} />
+      <PageHeader title={t("comingSoon.ageing")} />
       <EmptyState title={t("comingSoon.title")} body={t("comingSoon.body")} />
     </>
   );

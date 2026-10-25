@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6152 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -171,7 +171,7 @@ Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (52)
+### nav (53)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -183,6 +183,7 @@ Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
 | `dispatch` | Dispatch | Dispatch |
 | `more` | More | और |
 | `orders` | Orders | ऑर्डर |
+| `foundry` | Foundry | फाउंड्री |
 | `dies` | Dies | Die |
 | `customers` | Customers | ग्राहक |
 | `store` | Store | स्टोर |
@@ -2188,7 +2189,7 @@ Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (238)
+### masters (244)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2245,6 +2246,12 @@ Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
 | `hub.reasons` | Reason codes | कारण कोड |
 | `hub.reasonsHint` | Why a press stopped, a bundle was voided or a label was printed again | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा |
 | `hub.reasonsNoun` | {count:reason\|reasons} | {count:कारण\|कारण} |
+| `hub.furnaces` | Furnaces | फर्नेस |
+| `hub.furnacesHint` | The foundry's furnaces and how much one melt may hold | फाउंड्री की फर्नेस और एक मेल्ट में कितना आ सकता है |
+| `hub.furnacesNoun` | {count:furnace\|furnaces} | {count:फर्नेस\|फर्नेस} |
+| `hub.alloys` | Alloys | अलॉय |
+| `hub.alloysHint` | The alloys cast and the element limits a spectro result is judged by | ढाले जाने वाले अलॉय और वे तत्व-सीमाएं जिनसे स्पेक्ट्रो नतीजा जाँचा जाता है |
+| `hub.alloysNoun` | {count:alloy\|alloys} | {count:अलॉय\|अलॉय} |
 | `show` | Show | दिखाएं |
 | `showInUse` | In use | चालू |
 | `showRetired` | Retired | बंद |
@@ -3409,11 +3416,10 @@ Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
 
-### comingSoon (4)
+### comingSoon (3)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `foundry` | Foundry | फाउंड्री |
 | `ageing` | Ageing | एजिंग |
 | `title` | This module is being built on another machine | यह मॉड्यूल दूसरी मशीन पर बन रहा है |
 | `body` | It is not ready in this app yet. Nothing here is saved. | यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता। |
@@ -3668,7 +3674,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (75)
+### approvals (98)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3693,12 +3699,35 @@ Please check, Lalubhai:
 | `kind.press_reopen` | Reopen a press run | प्रेस रन फिर खोलना |
 | `kind.ageing_override` | Ageing override | एजिंग की छूट |
 | `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
+| `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
 | `subject.dieRerankNew` | Copy {code}, set tier {to} | कॉपी {code}, टियर {to} करें |
 | `subject.reallocate` | {count} {count:bundle\|bundles}, {kg} kg: {from} to {to} | {count} bundle, {kg} kg: {from} से {to} को |
 | `subject.generic` | {ref} | {ref} |
+| `subject.castClose` | Close cast {number}, tail {kg} kg | कास्ट {number} बंद करें, टेल {kg} kg |
+| `subject.castCloseBare` | Close cast {number} | कास्ट {number} बंद करें |
+| `subject.meltCorrect` | Correct melt {seq} of cast {number} | कास्ट {number} की मेल्ट {seq} सुधारें |
+| `foundry.title` | Figures | आँकड़े |
+| `foundry.produced` | Billets made | बने बिलेट |
+| `foundry.metalIn` | Metal in | डाला मेटल |
+| `foundry.logs` | Logs out | निकले लॉग |
+| `foundry.tail` | Tail | टेल |
+| `foundry.short` | Billets short | बिलेट कम |
+| `foundry.ledgerOnHand` | On hand by the ledger | खाते के हिसाब से हाथ में |
+| `foundry.counted` | Counted by the closer | बंद करने वाले ने गिने |
+| `foundry.adjust` | Ledger moves by | खाता इतना हिलेगा |
+| `foundry.now` | Now | अभी |
+| `foundry.atRequest` | When it was asked | माँगते समय |
+| `foundry.usedSince` | The press used {kg} kg of the billets since the request. | माँग के बाद प्रेस ने {kg} kg बिलेट काम में लिए। |
+| `foundry.addedSince` | {kg} kg more billets are on hand than at the request. | माँग के समय से {kg} kg बिलेट ज़्यादा हाथ में हैं। |
+| `foundry.castMoved` | This cast is no longer waiting to close. | यह कास्ट अब बंद होने के इंतज़ार में नहीं है। |
+| `foundry.meltMoved` | This melt is no longer locked. | यह मेल्ट अब लॉक नहीं है। |
+| `foundry.wait` | Approve waits until the figures load. Reject is open. | आँकड़े आने तक मंज़ूर बंद है। नामंज़ूर खुला है। |
+| `foundry.loadError` | The live figures didn't load, so Approve is off. Reject is open. Check the connection and try again. | ताज़ा आँकड़े नहीं आए, इसलिए मंज़ूर बंद है। नामंज़ूर खुला है। कनेक्शन देखकर फिर कोशिश करें। |
+| `openCast` | Open cast | कास्ट खोलें |
+| `openMelt` | Open melt | मेल्ट खोलें |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
@@ -4621,7 +4650,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (493)
+### press (494)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4704,7 +4733,7 @@ Please check, Lalubhai:
 | `console.billetKg` | Billet kg | बिलेट kg |
 | `console.addBillet` | Add billets | बिलेट जोड़ें |
 | `console.tooManyBillets` | At most {max} billet rows. | ज़्यादा से ज़्यादा {max} बिलेट लाइनें। |
-| `console.billetCastMismatch` | Billets must be of this run's cast. | बिलेट इसी रन की cast के होने चाहिए। |
+| `console.billetCastMismatch` | Add a billet row of this run's cast. | इस रन की cast की एक बिलेट लाइन डालें। |
 | `console.billetShort` | Fewer billets in stock than typed | भरे गए से कम बिलेट स्टॉक में हैं |
 | `console.billetShortReason` | Why the billets are short | बिलेट कम क्यों हैं |
 | `console.pieces` | Pieces | पीस |
@@ -4738,7 +4767,7 @@ Please check, Lalubhai:
 | `console.gates.no_billets` | Enter the billets used | लगे हुए बिलेट भरें |
 | `console.gates.too_many_billets` | At most 10 billet rows on a run | एक रन में ज़्यादा से ज़्यादा 10 बिलेट लाइन |
 | `console.gates.billet_row_invalid` | Every billet row needs a count and its kg | हर बिलेट लाइन में गिनती और kg चाहिए |
-| `console.gates.billet_cast_mismatch` | Every billet row must be of the run's cast | हर बिलेट लाइन रन के कास्ट की होनी चाहिए |
+| `console.gates.billet_cast_mismatch` | Add a billet row of the run's cast | रन के कास्ट की एक बिलेट लाइन डालें |
 | `console.gates.no_input` | The billets weigh nothing; enter their kg | बिलेट का वज़न शून्य है; उनका kg भरें |
 | `console.gates.no_lines` | Enter the pieces by cut length | कट लंबाई के हिसाब से पीस भरें |
 | `console.gates.line_without_kg` | A cut length with pieces needs its kg | जिस कट लंबाई में पीस हैं, उसका kg भरें |
@@ -4775,6 +4804,7 @@ Please check, Lalubhai:
 | `console.errors.lineHasRun` | {number} is still open on {line}. Finish or void it first. | {number} अभी {line} पर खुला है। पहले उसे पूरा करें या रद्द करें। |
 | `console.errors.hasStarted` | {number} has started, so this can no longer change. | {number} शुरू हो चुका है, इसलिए अब यह नहीं बदल सकता। |
 | `console.errors.castCancelled` | That cast is cancelled. | वह cast रद्द है। |
+| `console.errors.billetAlloy` | Billets of {cast} are {alloy}; this run is {runAlloy}. Use billets of the run's alloy. | {cast} के बिलेट {alloy} के हैं; यह रन {runAlloy} का है। रन के अलॉय के बिलेट लें। |
 | `console.errors.pickReason` | Pick a reason from the list. | सूची से कारण चुनें। |
 | `console.errors.timeSkew` | This tablet's clock differs from the server's by more than 2 minutes. A supervisor confirms the time. | इस टैबलेट की घड़ी सर्वर की घड़ी से 2 मिनट से ज़्यादा अलग है। समय की पुष्टि सुपरवाइज़र करेगा। |
 | `console.errors.copyOnTrial` | {code} is on trial. It goes only to a die trial run. | {code} ट्रायल पर है। वह सिर्फ़ die ट्रायल रन में जाती है। |
@@ -5119,10 +5149,92 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (108)
+### foundry (581)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `refusal.notFound` | Not found. Refresh the list and try again. | नहीं मिला। सूची रीफ़्रेश करके फिर कोशिश करें। |
+| `refusal.streamExists` | A return stream with that code or name already exists. | इस कोड या नाम की रिटर्न स्ट्रीम पहले से है। |
+| `refusal.giveName` | Give a name. | नाम लिखें। |
+| `refusal.pickAlloy` | Pick the alloy. | अलॉय चुनें। |
+| `refusal.alloyRetired` | Alloy {code} is retired. | अलॉय {code} बंद है। |
+| `refusal.alloyMismatch` | Alloy {code} is not {other}. | अलॉय {code}, {other} नहीं है। |
+| `refusal.castClosed` | Cast {cast} is closed. | कास्ट {cast} बंद हो चुका है। |
+| `refusal.castWaiting` | Cast {cast} is waiting for its close-out approval. | कास्ट {cast} क्लोज़-आउट की मंज़ूरी का इंतज़ार कर रहा है। |
+| `refusal.castChanged` | Cast {cast} changed. Open it again. | कास्ट {cast} बदल गया। उसे फिर खोलें। |
+| `refusal.castDraft` | Cast {cast} has a melt that is not locked. Lock it or discard it first. | कास्ट {cast} में एक मेल्ट लॉक नहीं है। पहले उसे लॉक करें या हटाएँ। |
+| `refusal.castShort` | The press used {kg} kg more billets of {cast} than the store held. Pick a reason. | प्रेस ने {cast} के स्टोर से {kg} kg ज़्यादा बिलेट लिए। कारण चुनें। |
+| `refusal.castTail` | {kg} kg of {cast} billets is not explained. Pick a reason. | {cast} के {kg} kg बिलेट का हिसाब नहीं मिलता। कारण चुनें। |
+| `refusal.castClosing` | Cast {cast} changed while you were closing it. Check the close-out again. | बंद करते समय कास्ट {cast} बदल गया। क्लोज़-आउट फिर देखें। |
+| `refusal.castHasMelts` | Cast {cast} has melts. Cancel or discard them first. | कास्ट {cast} में मेल्ट हैं। पहले उन्हें रद्द करें या हटाएँ। |
+| `refusal.tailReason` | Pick why the billets do not add up. | बिलेट का हिसाब क्यों नहीं मिलता, कारण चुनें। |
+| `refusal.noteNeeded` | Write what happened in the note. | नोट में लिखें क्या हुआ। |
+| `refusal.timesOrder` | The melt times are out of order. Check them. | मेल्ट के समय क्रम में नहीं हैं। जाँचें। |
+| `refusal.future` | That time is in the future. Check the date and time. | यह समय आगे का है। तारीख और समय जाँचें। |
+| `refusal.span` | Check the times: the melt runs over 3 days. | समय जाँचें: मेल्ट 3 दिन से लंबा है। |
+| `refusal.preheatEarly` | The preheat start is more than 7 days before cast {cast} was opened. Check the date. | प्रीहीट शुरू, कास्ट {cast} खुलने से 7 दिन से ज़्यादा पहले है। तारीख जाँचें। |
+| `refusal.castAlloyOther` | Cast {cast} is alloy {alloy}. Open a new cast for {other}. | कास्ट {cast} अलॉय {alloy} का है। {other} के लिए नया कास्ट खोलें। |
+| `refusal.lotNotInStock` | {lot} is not in scrap stock. | {lot} स्क्रैप स्टॉक में नहीं है। |
+| `refusal.lotLeft` | Only {kg} kg left in {lot}. | {lot} में सिर्फ़ {kg} kg बचा है। |
+| `refusal.lineTwice` | A line is listed twice. Put its kg on one line. | एक लाइन दो बार है। उसका kg एक लाइन में लिखें। |
+| `refusal.storeRetired` | {name} is retired in the store. Turn it back on first: cancelling the melt returns it. | {name} स्टोर में बंद है। पहले उसे चालू करें: मेल्ट रद्द करने पर वह वापस आता है। |
+| `refusal.storeLocRetired` | {place} is retired. Turn it back on first: cancelling the melt returns {name} there. | {place} बंद है। पहले उसे चालू करें: मेल्ट रद्द करने पर {name} वहाँ लौटता है। |
+| `refusal.byproduct` | {name} is a by-product. It is not charged or returned as metal. | {name} बाय-प्रोडक्ट है। इसे धातु की तरह चार्ज या वापस नहीं किया जाता। |
+| `refusal.namedRetired` | {name} is retired. | {name} बंद है। |
+| `refusal.logsTogether` | Logs need pieces, length and kg together. | लॉग के लिए नग, लंबाई और kg तीनों लिखें। |
+| `refusal.chemClose` | For each chemical, close must be open minus used. | हर केमिकल में, बंद = खुला − इस्तेमाल। |
+| `refusal.storeQty` | A store item needs the quantity used. | स्टोर आइटम की इस्तेमाल मात्रा लिखें। |
+| `refusal.storeTwice` | A store item is listed twice. | एक स्टोर आइटम दो बार है। |
+| `refusal.chemName` | Name the chemical, or pick it from the store. | केमिकल का नाम लिखें, या स्टोर से चुनें। |
+| `refusal.tryAgain` | Something changed while saving. Try again. | सेव करते समय कुछ बदल गया। फिर कोशिश करें। |
+| `refusal.meltCancelled` | This melt is cancelled. | यह मेल्ट रद्द है। |
+| `refusal.discardInstead` | This melt is not locked. Discard the draft instead. | यह मेल्ट लॉक नहीं है। इसके बजाय ड्राफ़्ट हटाएँ। |
+| `refusal.billetsUsed` | The press has already used billets of {cast}. This melt can no longer be changed. | प्रेस {cast} के बिलेट इस्तेमाल कर चुका है। यह मेल्ट अब बदला नहीं जा सकता। |
+| `refusal.meltChanged` | This melt changed. Open it again. | यह मेल्ट बदल गया। उसे फिर खोलें। |
+| `refusal.base64` | The file could not be read. Attach it again. | फ़ाइल पढ़ी नहीं जा सकी। फिर से जोड़ें। |
+| `refusal.fileSize` | The file is larger than 1 MB. | फ़ाइल 1 MB से बड़ी है। |
+| `refusal.maxValues` | At most {max} values. | ज़्यादा से ज़्यादा {max} मान। |
+| `refusal.fileOrValues` | Attach the file or enter the values. | फ़ाइल जोड़ें या मान लिखें। |
+| `refusal.oneElement` | Enter at least one element. | कम से कम एक तत्व लिखें। |
+| `refusal.resultVoid` | This result is already void. | यह नतीजा पहले से रद्द है। |
+| `refusal.spectroLocked` | The melt is locked. Its spectro stays as it is. | मेल्ट लॉक है। उसका स्पेक्ट्रो वैसा ही रहेगा। |
+| `refusal.elementTwice` | An element is listed twice. | एक तत्व दो बार है। |
+| `refusal.minAboveMax` | A minimum is above its maximum. | न्यूनतम उसकी अधिकतम सीमा से ज़्यादा है। |
+| `refusal.requestReused` | This request was already used for something else. Refresh and try again. | यह अनुरोध पहले किसी और काम में लगा। रीफ़्रेश करके फिर कोशिश करें। |
+| `refusal.otherCast` | This melt belongs to another cast. | यह मेल्ट किसी दूसरे कास्ट का है। |
+| `refusal.lockedAsk` | This melt is locked. Ask for a correction to change it. | यह मेल्ट लॉक है। बदलने के लिए सुधार माँगें। |
+| `refusal.notDraft` | Only a draft melt can be changed or discarded. | सिर्फ़ ड्राफ़्ट मेल्ट बदला या हटाया जा सकता है। |
+| `refusal.onlyLocked` | Only a locked melt can be corrected. | सिर्फ़ लॉक किया मेल्ट सुधारा जा सकता है। |
+| `refusal.pickWrong` | Pick what is wrong with the melt. | मेल्ट में क्या गलत है, चुनें। |
+| `refusal.askFirst` | Ask for a correction first. An approver has to agree. | पहले सुधार माँगें। मंज़ूरी देने वाले की हाँ ज़रूरी है। |
+| `refusal.correctionWaiting` | A correction for this melt is already waiting for approval. | इस मेल्ट का सुधार पहले से मंज़ूरी का इंतज़ार कर रहा है। |
+| `refusal.correctionApproved` | A correction for this melt is approved. Correct it now. | इस मेल्ट का सुधार मंज़ूर है। अब सुधारें। |
+| `refusal.giveBundle` | Scan or type the bundle. | बंडल स्कैन करें या लिखें। |
+| `refusal.simulatorOff` | The furnace simulator is off. | फ़र्नेस सिम्युलेटर बंद है। |
+| `refusal.dayOrder` | The end day is before the start day. | आख़िरी दिन शुरू के दिन से पहले है। |
+| `refusal.maxDays` | Pick at most 92 days. | ज़्यादा से ज़्यादा 92 दिन चुनें। |
+| `refusal.addStream` | Add the dross and Fe return streams first in Masters, Return streams. | पहले ड्रॉस और Fe रिटर्न स्ट्रीम जोड़ें (मास्टर्स में, रिटर्न स्ट्रीम)। |
+| `refusal.streamReactivate` | Return stream {code} is retired. Turn it back on first in Masters, Return streams. | रिटर्न स्ट्रीम {code} बंद है। पहले उसे चालू करें (मास्टर्स में, रिटर्न स्ट्रीम)। |
+| `refusal.streamByproduct` | Return stream {code} must be a by-product stream to take dross or Fe. | ड्रॉस या Fe लेने के लिए रिटर्न स्ट्रीम {code} बाय-प्रोडक्ट होनी चाहिए। |
+| `refusal.alreadyLocked` | This melt is already locked. | यह मेल्ट पहले से लॉक है। |
+| `refusal.addInput` | Add what went into the furnace. | फ़र्नेस में क्या डाला, जोड़ें। |
+| `refusal.addLogs` | Add the logs that came out. | जो लॉग निकले, जोड़ें। |
+| `refusal.chargingStart` | Write the charging start time. | चार्जिंग शुरू का समय लिखें। |
+| `refusal.castingEnd` | Write the casting end time, after the charging start. | कास्टिंग खत्म का समय लिखें, चार्जिंग शुरू के बाद का। |
+| `refusal.overCapacity` | More metal than the furnace holds. Check the kg. | फ़र्नेस की क्षमता से ज़्यादा धातु। kg जाँचें। |
+| `refusal.balanceReason` | The kg in and out do not match. Write why in the balance note. | अंदर और बाहर का kg नहीं मिलता। बैलेंस नोट में कारण लिखें। |
+| `refusal.spectroReason` | Spectro has not passed. Write why the melt is locked anyway. | स्पेक्ट्रो पास नहीं हुआ। फिर भी लॉक करने का कारण लिखें। |
+| `refusal.alloyReason` | This melt's alloy differs from the cast's. Write why. | इस मेल्ट का अलॉय कास्ट से अलग है। कारण लिखें। |
+| `refusal.lineTooLarge` | A line is above 100 t. Check the kg. | एक लाइन 100 t से ऊपर है। kg जाँचें। |
+| `refusal.spectroOver` | The eight elements add up to more than 100 %. Check the values. | आठों तत्व मिलकर 100 % से ज़्यादा हैं। मान जाँचें। |
+| `refusal.spectroPpm` | Spectro values must be whole ppm from 0 to 1,000,000. | स्पेक्ट्रो मान 0 से 1,000,000 तक पूरे ppm में लिखें। |
+| `refusal.castCountOver` | The count finds {kg} kg more billets of {cast} than the ledger. Pick a reason. | गिनती में {cast} के बिलेट लेजर से {kg} kg ज़्यादा मिले। कारण चुनें। |
+| `refusal.countWithKg` | Count the billets and weigh them together. | बिलेट गिनें और साथ में तौलें। |
+| `refusal.streamShort` | Only {kg} kg of {stream} is in stock. | {stream} में सिर्फ़ {kg} kg स्टॉक में है। |
+| `refusal.openingExists` | {name} already has an opening balance. | {name} का ओपनिंग बैलेंस पहले से है। |
+| `refusal.spectroNoFile` | No file is attached. Write why the numbers are typed. | कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे। |
+| `refusal.spectroChanged` | The spectro result changed. Check it and lock again. | स्पेक्ट्रो रिज़ल्ट बदल गया। उसे जाँचकर फिर से लॉक करें। |
+| `refusal.billetStoreRetired` | The billet store {code} is retired. Reactivate it to post the count, or reject the close. | बिलेट स्टोर {code} बंद है। गिनती दर्ज करने के लिए उसे फिर चालू करें, या क्लोज़ अस्वीकार करें। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
@@ -5168,69 +5280,460 @@ Please check, Lalubhai:
 | `inbox.failed` | Could not save. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
 | `inbox.handledAt` | Handled {time} | {time} पर निपटी |
 | `title` | Foundry | फाउंड्री |
-| `casts.title` | Casts | Cast |
-| `casts.open` | Open cast | Cast खोलें |
-| `casts.number` | Cast {number} | Cast {number} |
-| `casts.alloy` | Alloy | एलॉय |
+| `common.failed` | Could not save. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
+| `common.notAllowed` | Your role cannot do this. Ask a supervisor. | आपका रोल यह नहीं कर सकता। सुपरवाइज़र से कहें। |
+| `today.title` | Foundry | फाउंड्री |
+| `today.open` | Open foundry | फाउंड्री खोलें |
+| `today.openCasts` | Open casts | खुली कास्ट |
+| `today.openCastsMeta` | Casts still taking melts | जिनमें अभी मेल्ट जुड़ सकती हैं |
+| `today.melts` | Melts in progress | चालू मेल्ट |
+| `today.meltsMeta` | Drafts not locked yet | ड्राफ़्ट जो अभी लॉक नहीं हुए |
+| `today.spectro` | Spectro waiting | स्पेक्ट्रो इंतज़ार में |
+| `today.spectroMeta` | Files to attach to a melt | मेल्ट से जोड़ने वाली फ़ाइलें |
+| `casts.title` | Casts | कास्ट |
+| `casts.subtitle` | Every cast, newest first. A cast is a campaign: several melts under one number. | हर कास्ट, नई पहले। कास्ट एक अभियान है: एक नंबर के नीचे कई मेल्ट। |
+| `casts.open` | Open cast | कास्ट खोलें |
+| `casts.filter.label` | Status | स्थिति |
+| `casts.filter.all` | All | सब |
 | `casts.status.open` | Open | खुली |
-| `casts.status.closing` | Waiting for approval | मंज़ूरी बाकी |
+| `casts.status.closing` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `casts.status.closed` | Closed | बंद |
 | `casts.status.cancelled` | Cancelled | रद्द |
-| `casts.close` | Close cast | Cast बंद करें |
-| `casts.cancel` | Cancel cast | Cast रद्द करें |
-| `casts.tail` | Tail | टेल |
-| `casts.tailReason` | Why the tail | टेल का कारण |
-| `casts.empty` | No casts yet. | अभी कोई cast नहीं। |
+| `casts.columns.cast` | Cast | कास्ट |
+| `casts.columns.alloy` | Alloy | अलॉय |
+| `casts.columns.status` | Status | स्थिति |
+| `casts.columns.melts` | Melts | मेल्ट |
+| `casts.columns.logs` | Billets made | बने बिलेट |
+| `casts.columns.onHand` | On hand | हाथ में |
+| `casts.columns.opened` | Opened | खुली |
+| `casts.drafts` | {count} {count:draft\|drafts} | {count} ड्राफ़्ट |
+| `casts.empty` | No casts yet. | अभी कोई कास्ट नहीं। |
+| `casts.emptyHint` | Open the first cast to start a melt. | मेल्ट शुरू करने के लिए पहली कास्ट खोलें। |
+| `casts.emptyFiltered` | No cast matches. | कोई कास्ट नहीं मिली। |
+| `casts.loadFailed` | The casts did not load. Check the connection and try again. | कास्ट नहीं आईं। कनेक्शन देखकर फिर कोशिश करें। |
+| `casts.trace.label` | Find a cast or bundle | कास्ट या बंडल खोजें |
+| `casts.trace.placeholder` | k31 or 26J1842 | k31 या 26J1842 |
+| `casts.trace.go` | Trace | ट्रेस |
+| `casts.trace.notCode` | Type a cast code like k31 or a bundle number like 26J1842. | k31 जैसा कास्ट कोड या 26J1842 जैसा बंडल नंबर लिखें। |
+| `casts.trace.bundleFrom` | Bundle {serial} came from cast {number}. | बंडल {serial} कास्ट {number} से आया। |
+| `casts.trace.openTrace` | Open the trace | ट्रेस खोलें |
+| `casts.trace.noCast` | Bundle {serial} has no cast on it. | बंडल {serial} पर कास्ट नहीं लिखी। |
+| `newCast.title` | Open a cast | कास्ट खोलें |
+| `newCast.subtitle` | Pick the alloy this cast is for. The number comes from the plant's series. | इस कास्ट का अलॉय चुनें। नंबर प्लांट की सीरीज़ से आता है। |
+| `newCast.alloy` | Alloy | अलॉय |
+| `newCast.alloyHint` | Melts of this cast aim at this alloy. | इस कास्ट की मेल्ट इसी अलॉय के लिए होंगी। |
+| `newCast.alloyPick` | Pick the alloy | अलॉय चुनें |
+| `newCast.furnace` | Furnace | फर्नेस |
+| `newCast.noAlloy` | No alloy is set up yet. | अभी कोई अलॉय नहीं जुड़ा। |
+| `newCast.addAlloy` | Add an alloy | अलॉय जोड़ें |
+| `newCast.noFurnace` | No furnace is set up yet. | अभी कोई फर्नेस नहीं जुड़ी। |
+| `newCast.noFurnaceAsk` | Ask a manager to add the furnace. | मैनेजर से फर्नेस जुड़वाएं। |
+| `newCast.addFurnace` | Add a furnace | फर्नेस जोड़ें |
+| `newCast.loadFailed` | The alloys did not load. Check the connection and try again. | अलॉय नहीं आए। कनेक्शन देखकर फिर कोशिश करें। |
+| `newCast.opened` | Cast {number} is open | कास्ट {number} खुल गई |
+| `cast.heading` | Cast {number} | कास्ट {number} |
+| `cast.alloyIs` | Alloy {alloy} | अलॉय {alloy} |
+| `cast.back` | Cast | कास्ट |
+| `cast.certificate` | Test certificate | टेस्ट सर्टिफ़िकेट |
+| `cast.notFound` | That cast was not found. | वह कास्ट नहीं मिली। |
+| `cast.loadFailed` | The cast did not load. Check the connection and try again. | कास्ट नहीं आई। कनेक्शन देखकर फिर कोशिश करें। |
+| `cast.tailChip.balanced` | Every billet accounted for | हर बिलेट का हिसाब पूरा |
+| `cast.tailChip.tail` | Tail {kg} kg | टेल {kg} kg |
+| `cast.tailChip.short` | Billets short {kg} kg | बिलेट कम {kg} kg |
+| `cast.tailChip.empty` | No melts yet | अभी कोई मेल्ट नहीं |
+| `cast.panel.title` | Billets | बिलेट |
+| `cast.panel.produced` | Made | बने |
+| `cast.panel.pressed` | Used by the press | प्रेस ने लिए |
+| `cast.panel.onHand` | On hand | हाथ में |
+| `cast.panel.tail` | Tail | टेल |
+| `cast.panel.hint` | Tail is billets made, less what the press used, less what is on hand. | टेल = बने बिलेट, घटा प्रेस ने जो लिए, घटा जो हाथ में हैं। |
+| `cast.panel.beside` | Beside the tail | टेल के साथ |
+| `cast.panel.metalIn` | Metal in | डाला हुआ मेटल |
+| `cast.panel.burn` | Burn | बर्न |
+| `cast.panel.bundles` | In bundles | बंडलों में |
+| `cast.panel.melts` | Melts | मेल्ट |
+| `cast.approval.waiting` | This cast is waiting for a second person to approve the close. No new melt can start. | इस कास्ट का क्लोज़ दूसरे व्यक्ति की मंज़ूरी का इंतज़ार कर रहा है। नई मेल्ट शुरू नहीं होगी। |
+| `cast.approval.rejected` | The close was not approved. | क्लोज़ मंज़ूर नहीं हुआ। |
+| `cast.tabs.label` | Cast pages | कास्ट के पन्ने |
+| `cast.tabs.melts` | Melts | मेल्ट |
+| `cast.tabs.trace` | Trace | ट्रेस |
+| `cast.melts.title` | Melts | मेल्ट |
+| `cast.melts.none` | No melt yet. Start the first melt. | अभी कोई मेल्ट नहीं। पहली मेल्ट शुरू करें। |
+| `cast.melts.melt` | Melt | मेल्ट |
+| `cast.melts.status` | Status | स्थिति |
+| `cast.melts.time` | Charging to casting end | चार्जिंग से कास्टिंग अंत |
+| `cast.melts.in` | Metal in | डाला मेटल |
+| `cast.melts.logs` | Logs out | निकले लॉग |
+| `cast.melts.burn` | Burn | बर्न |
+| `cast.melts.spectro` | Spectro | स्पेक्ट्रो |
+| `cast.close.button` | Close cast | कास्ट बंद करें |
+| `cast.close.title` | Close cast {number} | कास्ट {number} बंद करें |
+| `cast.close.confirm` | Close cast | कास्ट बंद करें |
+| `cast.close.askButton` | Send for approval | मंज़ूरी के लिए भेजें |
+| `cast.close.clean` | The count matches the ledger. Every billet is accounted for. | गिनती खाते से मिलती है। हर बिलेट का हिसाब पूरा है। |
+| `cast.close.countTitle` | Count the billets left | बचे हुए बिलेट गिनें |
+| `cast.close.countHint` | Count the billets of this cast still in the yard and weigh them. The tail is worked out from your count. | इस कास्ट के जो बिलेट अभी यार्ड में हैं, गिनकर तौलें। टेल आपकी गिनती से निकलती है। |
+| `cast.close.pcs` | Billets counted (pieces) | गिने बिलेट (पीस) |
+| `cast.close.kg` | Billets counted (kg) | गिने बिलेट (kg) |
+| `cast.close.pcsInvalid` | Write the number of billets, 0 if none. | बिलेट की संख्या लिखें, न हों तो 0। |
+| `cast.close.kgInvalid` | Write the weight in kg, 0 if none. | वज़न kg में लिखें, न हो तो 0। |
+| `cast.close.together` | Pieces and kg go together: both zero or both above zero. | पीस और kg साथ चलते हैं: दोनों शून्य या दोनों शून्य से ऊपर। |
+| `cast.close.ledgerOnHand` | On hand by the ledger | खाते के हिसाब से हाथ में |
+| `cast.close.counted` | Counted | गिने |
+| `cast.close.adjust` | The ledger moves by {kg} kg to match the count | गिनती से मिलाने के लिए खाता {kg} kg हिलेगा |
+| `cast.close.adjustNone` | No change to the ledger | खाते में कोई बदलाव नहीं |
+| `cast.close.tailIs` | Tail {kg} kg | टेल {kg} kg |
+| `cast.close.countOver` | The count finds {kg} kg more billets than the ledger. | गिनती में खाते से {kg} kg बिलेट ज़्यादा निकले। |
+| `cast.close.waitingCount` | Write the count to see the tail. | टेल देखने के लिए गिनती लिखें। |
+| `cast.close.short` | The press used {kg} kg more billets than the store held. | प्रेस ने स्टोर में जितने थे उससे {kg} kg बिलेट ज़्यादा लिए। |
+| `cast.close.needsApproval` | A tail this size needs a second person to approve before the cast closes. | इतनी टेल पर कास्ट बंद करने से पहले दूसरे व्यक्ति की मंज़ूरी चाहिए। |
+| `cast.close.reason` | Why the billets do not add up | बिलेट का हिसाब क्यों नहीं मिला |
+| `cast.close.reasonPick` | Pick a reason | कारण चुनें |
+| `cast.close.reasonRequired` | Pick a reason. | कारण चुनें। |
+| `cast.close.note` | Note | टिप्पणी |
+| `cast.close.noteRequired` | Write what happened. | क्या हुआ, लिखें। |
+| `cast.close.blockedDraft` | Lock or discard the draft melt before closing the cast. | कास्ट बंद करने से पहले ड्राफ़्ट मेल्ट लॉक करें या हटाएं। |
+| `cast.close.closed` | Cast {number} is closed | कास्ट {number} बंद हो गई |
+| `cast.close.sent` | Close of cast {number} sent for approval | कास्ट {number} का क्लोज़ मंज़ूरी के लिए भेजा गया |
+| `cast.cancel.button` | Cancel cast | कास्ट रद्द करें |
+| `cast.cancel.title` | Cancel cast {number} | कास्ट {number} रद्द करें |
+| `cast.cancel.body` | Only a cast with no melt and no billets can be cancelled. The number is not given back. | सिर्फ़ वही कास्ट रद्द होती है जिसमें न कोई मेल्ट है न बिलेट। नंबर वापस नहीं आता। |
+| `cast.cancel.reason` | Why is it cancelled? | रद्द क्यों? |
+| `cast.cancel.reasonRequired` | Give a reason. | कारण लिखें। |
+| `cast.cancel.confirm` | Cancel cast | कास्ट रद्द करें |
+| `cast.cancel.done` | Cast {number} is cancelled | कास्ट {number} रद्द हो गई |
+| `cast.trace.loadFailed` | The trace did not load. Check the connection and try again. | ट्रेस नहीं आया। कनेक्शन देखकर फिर कोशिश करें। |
+| `cast.trace.lots` | Scrap lots in | आए हुए स्क्रैप लॉट |
+| `cast.trace.noLots` | No scrap lot has gone into this cast yet. | इस कास्ट में अभी कोई स्क्रैप लॉट नहीं गया। |
+| `cast.trace.melts` | Melts | मेल्ट |
+| `cast.trace.inLogs` | in {inKg} kg, logs {logs} kg | डाला {inKg} kg, लॉग {logs} kg |
+| `cast.trace.lockedWith` | locked with spectro {verdict} | स्पेक्ट्रो {verdict} के साथ लॉक हुई |
+| `cast.trace.mixed` | Mixed run | मिली-जुली रन |
+| `cast.trace.otherCast` | this cast's billets only; the run's bundles carry the run's own cast | सिर्फ़ इस कास्ट के बिलेट; रन के बंडल रन की अपनी कास्ट के हैं |
+| `cast.trace.adjusted` | count at close moved the ledger by {kg} kg | बंद करते समय की गिनती से खाता {kg} kg हिला |
+| `cast.trace.billets` | Billets | बिलेट |
+| `cast.trace.billetsLine` | made {produced} kg, used {pressed} kg, on hand {onHand} kg | बने {produced} kg, प्रेस ने लिए {pressed} kg, हाथ में {onHand} kg |
+| `cast.trace.runs` | Press runs | प्रेस रन |
+| `cast.trace.noRuns` | The press has not used this cast yet. | प्रेस ने इस कास्ट से अभी कुछ नहीं लिया। |
+| `cast.trace.bundles` | Bundles | बंडल |
+| `cast.trace.noBundles` | No bundle names this cast yet. | अभी किसी बंडल पर यह कास्ट नहीं लिखी। |
+| `cast.trace.truncated` | Only the first bundles are listed. | सिर्फ़ शुरू के बंडल दिखाए हैं। |
+| `cast.trace.customers` | Customers | ग्राहक |
+| `cast.trace.noCustomers` | No bundle of this cast has gone to a customer yet. | इस कास्ट का कोई बंडल अभी ग्राहक को नहीं गया। |
+| `cast.cost.title` | Charge cost | चार्ज की लागत |
+| `cast.cost.total` | Cost of the scrap charged | डाले गए स्क्रैप की लागत |
+| `cast.cost.perKg` | Per kg of billet | बिलेट के प्रति kg |
+| `cast.cost.lotsKg` | Scrap lots kg | स्क्रैप लॉट kg |
+| `cast.cost.notCosted` | Not costed | लागत नहीं निकली |
+| `cast.cost.missingRate` | A lot has no rate, so the cost is not worked out. | किसी लॉट का रेट नहीं है, इसलिए लागत नहीं निकली। |
+| `cast.cost.streams` | Metal returned from streams ({kg} kg) carries no rate. | स्ट्रीम से लौटे मेटल ({kg} kg) का कोई रेट नहीं होता। |
+| `cast.cost.loadFailed` | The cost did not load. | लागत नहीं आई। |
 | `melt.title` | Melt | मेल्ट |
 | `melt.new` | New melt | नई मेल्ट |
 | `melt.number` | Melt {n} | मेल्ट {n} |
+| `melt.titleOf` | Melt {n} of {number} | {number} की मेल्ट {n} |
+| `melt.newOf` | New melt of {number} | {number} की नई मेल्ट |
+| `melt.draftHint` | A draft posts nothing. Stock moves when you lock the melt. | ड्राफ़्ट कुछ पोस्ट नहीं करता। मेल्ट लॉक करने पर ही स्टॉक हिलता है। |
+| `melt.notFound` | That melt was not found. | वह मेल्ट नहीं मिली। |
+| `melt.castNotOpen` | Cast {number} is not open, so no new melt can start. | कास्ट {number} खुली नहीं है, इसलिए नई मेल्ट शुरू नहीं होगी। |
+| `melt.loadFailed` | The melt did not load. Check the connection and try again. | मेल्ट नहीं आई। कनेक्शन देखकर फिर कोशिश करें। |
 | `melt.status.draft` | Draft | ड्राफ़्ट |
 | `melt.status.locked` | Locked | लॉक |
 | `melt.status.cancelled` | Cancelled | रद्द |
-| `melt.furnace` | Furnace | भट्टी |
-| `melt.chargingStart` | Charging start | चार्जिंग शुरू |
-| `melt.castingEnd` | Casting end | कास्टिंग खत्म |
-| `melt.charge` | Charge | चार्ज |
-| `melt.lots` | Scrap lots | स्क्रैप लॉट |
-| `melt.streams` | Return streams | वापसी माल |
-| `melt.logs` | Logs | लॉग |
-| `melt.dross` | Dross | ड्रॉस |
-| `melt.fe` | Iron (Fe) | लोहा (Fe) |
-| `melt.metalIn` | Metal in | डाला गया धातु |
-| `melt.burn` | Burn loss | जलन घटत |
-| `melt.balance` | Balance | बाकी |
-| `melt.yield` | Yield | यील्ड |
-| `melt.balanceReason` | Why the balance is off | बाकी में फर्क क्यों |
+| `melt.status.corrected` | Corrected | सुधारी गई |
+| `melt.steps.times` | Furnace and times | फर्नेस और समय |
+| `melt.steps.charge` | Charge | चार्ज |
+| `melt.steps.chemicals` | Chemicals and LDO | केमिकल और LDO |
+| `melt.steps.output` | Logs and dross | लॉग और ड्रॉस |
+| `melt.steps.spectro` | Spectro and lock | स्पेक्ट्रो और लॉक |
+| `melt.times.preheatStart` | Preheat start | प्रीहीट शुरू |
+| `melt.times.chargingStart` | Charging start | चार्जिंग शुरू |
+| `melt.times.chargingEnd` | Charging end | चार्जिंग खत्म |
+| `melt.times.castingStart` | Casting start | कास्टिंग शुरू |
+| `melt.times.castingEnd` | Casting end | कास्टिंग खत्म |
+| `melt.furnace` | Furnace | फर्नेस |
+| `melt.furnacePick` | Pick the furnace | फर्नेस चुनें |
+| `melt.noFurnace` | No furnace is set up. Ask a manager. | कोई फर्नेस नहीं जुड़ी। मैनेजर से कहें। |
+| `melt.alloy` | Alloy | अलॉय |
+| `melt.alloyAsCast` | Same as the cast ({alloy}) | कास्ट जैसा ({alloy}) |
+| `melt.alloyReason` | Why a different alloy? | अलग अलॉय क्यों? |
+| `melt.alloyReasonHint` | The cast is {cast}. A melt of another alloy needs a reason. | कास्ट {cast} है। दूसरे अलॉय की मेल्ट के लिए कारण चाहिए। |
+| `melt.date` | Melt date | मेल्ट की तारीख |
+| `melt.now` | Now | अभी |
+| `melt.nextDay` | Next day | अगला दिन |
+| `melt.charge.title` | Charge | चार्ज |
+| `melt.charge.lots` | Scrap lots | स्क्रैप लॉट |
+| `melt.charge.lot` | Lot | लॉट |
+| `melt.charge.lotPick` | Pick a lot | लॉट चुनें |
+| `melt.charge.noLots` | No lot has kg left to charge. | किसी लॉट में डालने लायक kg नहीं बचा। |
+| `melt.charge.kg` | Kg | Kg |
+| `melt.charge.left` | {kg} kg left | {kg} kg बचा |
+| `melt.charge.over` | More than the {kg} kg left in this lot | इस लॉट में बचे {kg} kg से ज़्यादा |
+| `melt.charge.all` | All | सब |
+| `melt.charge.addLot` | Add lot | लॉट जोड़ें |
+| `melt.charge.streams` | Return streams | रिटर्न स्ट्रीम |
+| `melt.charge.stream` | Stream | स्ट्रीम |
+| `melt.charge.streamPick` | Pick a stream | स्ट्रीम चुनें |
+| `melt.charge.addStream` | Add stream | स्ट्रीम जोड़ें |
+| `melt.charge.total` | Charged {kg} kg | चार्ज {kg} kg |
+| `melt.charge.overCapacity` | More metal than the furnace holds. | फर्नेस की क्षमता से ज़्यादा मेटल। |
+| `melt.charge.nearCapacity` | Near the furnace limit. | फर्नेस की सीमा के पास। |
+| `melt.chem.title` | Chemicals from the store | स्टोर से केमिकल |
+| `melt.chem.hint` | Each chemical used leaves the store when the melt is locked. Close is open less used. | मेल्ट लॉक होने पर इस्तेमाल हुआ हर केमिकल स्टोर से निकलता है। क्लोज़ = ओपन घटा इस्तेमाल। |
+| `melt.chem.item` | Chemical | केमिकल |
+| `melt.chem.pick` | Pick from the store | स्टोर से चुनें |
+| `melt.chem.other` | Not in the store (type its name) | स्टोर में नहीं (नाम लिखें) |
+| `melt.chem.name` | Name | नाम |
+| `melt.chem.unit` | Unit | इकाई |
+| `melt.chem.open` | Open | ओपन |
+| `melt.chem.used` | Used | इस्तेमाल |
+| `melt.chem.close` | Close | क्लोज़ |
+| `melt.chem.add` | Add chemical | केमिकल जोड़ें |
+| `melt.chem.storeItem` | Store item | स्टोर आइटम |
+| `melt.chem.line` | open {open}, used {used}, close {close} | ओपन {open}, इस्तेमाल {used}, क्लोज़ {close} |
+| `melt.ldo.title` | LDO tank dips | LDO टंकी की डिप |
+| `melt.ldo.hint` | Write the tank dip in inches at each point. Inches stay inches. | हर जगह टंकी की डिप इंच में लिखें। इंच इंच ही रहते हैं। |
+| `melt.ldo.start` | Start | शुरू |
+| `melt.ldo.chargingStart` | Charging start | चार्जिंग शुरू |
+| `melt.ldo.chargingEnd` | Charging end | चार्जिंग खत्म |
+| `melt.ldo.castingStart` | Casting start | कास्टिंग शुरू |
+| `melt.ldo.end` | End | अंत |
+| `melt.ldo.used` | LDO used {inches} in | LDO इस्तेमाल {inches} इंच |
+| `melt.out.logs` | Logs out | निकले लॉग |
+| `melt.out.logsHint` | One line for each length that came out. Weigh the kg. | हर लंबाई की एक लाइन। kg तौलकर लिखें। |
+| `melt.out.pcs` | Pieces | पीस |
+| `melt.out.length` | Log length | लॉग की लंबाई |
+| `melt.out.billetLength` | Billet length | बिलेट की लंबाई |
+| `melt.out.billetLengthHint` | Leave empty if the same | वही हो तो खाली छोड़ें |
+| `melt.out.kg` | Kg | Kg |
+| `melt.out.addLog` | Add log line | लॉग लाइन जोड़ें |
+| `melt.out.logLine` | {pcs} pcs, {ft} ft, {kg} kg | {pcs} पीस, {ft} ft, {kg} kg |
+| `melt.out.byproducts` | Dross and iron | ड्रॉस और आयरन |
+| `melt.out.dross` | Dross | ड्रॉस |
+| `melt.out.fe` | Iron (Fe) | आयरन (Fe) |
+| `melt.out.returns` | Metal returned to a stream | स्ट्रीम में लौटा मेटल |
+| `melt.out.addReturn` | Add return | वापसी जोड़ें |
+| `melt.out.balanceNote` | Why the balance is off | हिसाब क्यों नहीं मिला |
+| `melt.out.burnHigh` | The burn is above 3 percent. Say why. | बर्न 3 प्रतिशत से ऊपर है। कारण लिखें। |
+| `melt.out.moreOut` | More came out than went in. Say why. | डाले से ज़्यादा निकला। कारण लिखें। |
+| `melt.balance.in` | In {kg} kg | डाला {kg} kg |
+| `melt.balance.out` | Out {kg} kg | निकला {kg} kg |
+| `melt.balance.burn` | Burn {kg} kg ({pct}%) | बर्न {kg} kg ({pct}%) |
+| `melt.balance.yield` | Yield {pct}% | यील्ड {pct}% |
+| `melt.balance.yieldLabel` | Yield | यील्ड |
+| `melt.spectroReason` | Why lock without a spectro pass? | स्पेक्ट्रो पास हुए बिना लॉक क्यों? |
+| `melt.spectroReasonHint` | The metal is already cast, so a melt can lock without a pass. The reason stays on the melt. | मेटल ढल चुका है, इसलिए बिना पास के भी मेल्ट लॉक हो सकती है। कारण मेल्ट पर रहेगा। |
+| `melt.notes` | Notes | टिप्पणी |
+| `melt.saveDraft` | Save draft | ड्राफ़्ट सेव करें |
+| `melt.saveNext` | Save and next | सेव करें और आगे |
+| `melt.draftSaved` | Draft saved | ड्राफ़्ट सेव हुआ |
 | `melt.lock` | Lock melt | मेल्ट लॉक करें |
-| `melt.overCapacity` | More than the furnace holds. | भट्टी की क्षमता से ज़्यादा। |
-| `melt.nearCapacity` | Near the furnace limit. | भट्टी की सीमा के पास। |
+| `melt.locked` | Melt {seq} of {number} is locked | {number} की मेल्ट {seq} लॉक हो गई |
+| `melt.gates.title` | Before you can lock | लॉक करने से पहले |
+| `melt.gates.ready` | Everything needed is in. You can lock this melt. | सब कुछ भरा है। यह मेल्ट लॉक हो सकती है। |
+| `melt.gates.unsaved` | Save the draft to check what still stops the lock. | लॉक में क्या रुकावट है, देखने के लिए ड्राफ़्ट सेव करें। |
+| `melt.gates.fix` | Go there | वहाँ जाएं |
+| `melt.issue.date` | Write the melt date. | मेल्ट की तारीख लिखें। |
+| `melt.issue.time` | A time is not a clock time. Write it like 14:20. | समय घड़ी जैसा नहीं है। 14:20 की तरह लिखें। |
+| `melt.issue.kg` | Write the kg as a number. | kg अंक में लिखें। |
+| `melt.issue.kgTooLarge` | A line is above 100 t. Check the kg. | एक लाइन 100 टन से ऊपर है। kg जाँचें। |
+| `melt.issue.lot` | Pick the lot for this line. | इस लाइन के लिए लॉट चुनें। |
+| `melt.issue.stream` | Pick the stream for this line. | इस लाइन के लिए स्ट्रीम चुनें। |
+| `melt.issue.duplicateLot` | This lot is on another line. Put its kg on one line. | यह लॉट दूसरी लाइन में है। उसका kg एक लाइन में रखें। |
+| `melt.issue.duplicateStream` | This stream is on another line. Put its kg on one line. | यह स्ट्रीम दूसरी लाइन में है। उसका kg एक लाइन में रखें। |
+| `melt.issue.chemical` | Write what the chemical is and the open and used quantities. | केमिकल क्या है और ओपन व इस्तेमाल की मात्रा लिखें। |
+| `melt.issue.chemicalClose` | Close must be open less used. | क्लोज़ = ओपन घटा इस्तेमाल होना चाहिए। |
+| `melt.issue.log` | A log line needs pieces, length and kg. | लॉग लाइन में पीस, लंबाई और kg चाहिए। |
+| `melt.issue.ldo` | Write the dip as inches, for example 42.5. | डिप इंच में लिखें, जैसे 42.5। |
+| `melt.issue.tooMany` | Too many charge lines. | चार्ज की लाइनें बहुत ज़्यादा हैं। |
+| `melt.discard.button` | Discard draft | ड्राफ़्ट हटाएं |
+| `melt.discard.title` | Discard this draft? | यह ड्राफ़्ट हटाएं? |
+| `melt.discard.body` | Nothing was posted, so nothing is reversed. The draft is gone. | कुछ पोस्ट नहीं हुआ था, इसलिए कुछ पलटना नहीं है। ड्राफ़्ट चला जाएगा। |
+| `melt.discard.reason` | Reason (optional) | कारण (ज़रूरी नहीं) |
+| `melt.discard.confirm` | Discard draft | ड्राफ़्ट हटाएं |
+| `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
+| `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
+| `melt.spectroNeedsSample` | The alloy changed. A new sample is needed for {alloy}, or write why it is not. | अलॉय बदल गया। {alloy} के लिए नया सैंपल चाहिए, या लिखें कि क्यों नहीं। |
+| `melt.cancel.title` | Cancel this melt | यह मेल्ट रद्द करें |
+| `melt.cancel.body` | Use this for a melt locked by mistake, when nobody needs it corrected. The kg and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। kg और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
+| `melt.cancel.button` | Cancel melt | मेल्ट रद्द करें |
+| `melt.cancel.sheetTitle` | Cancel melt {n} of {number} | {number} की मेल्ट {n} रद्द करें |
+| `melt.cancel.reason` | Why is it cancelled? | रद्द क्यों की? |
+| `melt.cancel.reasonRequired` | Give a reason. | कारण लिखें। |
+| `melt.cancel.confirm` | Cancel melt | मेल्ट रद्द करें |
+| `melt.cancel.done` | Melt {n} of {number} is cancelled | {number} की मेल्ट {n} रद्द हो गई |
+| `melt.correctedNote` | This melt was corrected. A newer melt took its place and its kg were reversed. | यह मेल्ट सुधारी गई थी। नई मेल्ट ने इसकी जगह ली और इसके kg वापस कर दिए गए। |
+| `melt.correctsNote` | This draft corrects melt {n}. | यह ड्राफ़्ट मेल्ट {n} को सुधारता है। |
+| `melt.sheet.figures` | Figures | आँकड़े |
+| `melt.sheet.balanceNote` | Balance note: {note} | हिसाब की टिप्पणी: {note} |
+| `melt.sheet.alloyReason` | Alloy note: {note} | अलॉय की टिप्पणी: {note} |
+| `melt.sheet.spectroReason` | Spectro note: {note} | स्पेक्ट्रो की टिप्पणी: {note} |
+| `melt.correction.title` | Correct this melt | इस मेल्ट को सुधारें |
+| `melt.correction.body` | A locked melt is not edited. Ask for a correction. When an approver agrees, the melt is reversed and opens again as a draft. | लॉक मेल्ट बदली नहीं जाती। सुधार माँगें। मंज़ूरी देने वाले के हाँ करने पर मेल्ट पलट दी जाती है और ड्राफ़्ट बनकर फिर खुलती है। |
+| `melt.correction.ask` | Ask for a correction | सुधार माँगें |
+| `melt.correction.askTitle` | Ask to correct this melt | इस मेल्ट का सुधार माँगें |
+| `melt.correction.reason` | What is wrong | क्या गलत है |
+| `melt.correction.reasonPick` | Pick what is wrong | क्या गलत है, चुनें |
+| `melt.correction.reasonRequired` | Pick what is wrong. | क्या गलत है, चुनें। |
+| `melt.correction.note` | Note | टिप्पणी |
+| `melt.correction.noteRequired` | Write what is wrong. | क्या गलत है, लिखें। |
+| `melt.correction.send` | Send request | अनुरोध भेजें |
+| `melt.correction.sent` | Correction request sent for approval | सुधार का अनुरोध मंज़ूरी के लिए भेजा गया |
+| `melt.correction.pending` | A correction is waiting for approval. | सुधार मंज़ूरी का इंतज़ार कर रहा है। |
+| `melt.correction.rejected` | The correction was not approved. | सुधार मंज़ूर नहीं हुआ। |
+| `melt.correction.now` | Correct this melt now | अब यह मेल्ट सुधारें |
+| `melt.correction.done` | The melt is open again as a draft | मेल्ट ड्राफ़्ट बनकर फिर खुल गई |
+| `melt.readings.title` | Furnace readings | फर्नेस रीडिंग |
+| `melt.readings.none` | No reading yet. | अभी कोई रीडिंग नहीं। |
+| `melt.readings.unit` | C | C |
+| `melt.readings.simulate` | Add simulated readings | सिमुलेटेड रीडिंग जोड़ें |
 | `spectro.title` | Spectro | स्पेक्ट्रो |
-| `spectro.attach` | Add spectro | स्पेक्ट्रो जोड़ें |
+| `spectro.none` | No spectro | स्पेक्ट्रो नहीं |
+| `spectro.noneYet` | No spectro result on this melt yet. | इस मेल्ट पर अभी स्पेक्ट्रो नतीजा नहीं। |
 | `spectro.verdict.pass` | Pass | पास |
 | `spectro.verdict.fail` | Fail | फेल |
 | `spectro.verdict.incomplete` | Incomplete | अधूरा |
+| `spectro.source.file` | File | फ़ाइल |
+| `spectro.source.typed` | Typed | हाथ से लिखा |
+| `spectro.source.import` | From the spectro computer | स्पेक्ट्रो कंप्यूटर से |
 | `spectro.element` | Element | तत्व |
 | `spectro.limit` | Limit | सीमा |
 | `spectro.reading` | Reading | रीडिंग |
-| `spectro.alBalance` | Al by balance | Al बाकी से |
-| `spectro.reason` | Why lock without a pass | बिना पास लॉक क्यों |
-| `spectro.overMillion` | The values add up to more than 100%. | कुल मान 100% से ज़्यादा है। |
-| `spectro.file` | Spectro file | स्पेक्ट्रो फ़ाइल |
+| `spectro.readingPass` | Inside | अंदर |
+| `spectro.readingFail` | Outside | बाहर |
+| `spectro.noLimit` | No limit | सीमा नहीं |
+| `spectro.alBalance` | balance | बाकी |
+| `spectro.max` | max | अधिकतम |
+| `spectro.min` | min | न्यूनतम |
+| `spectro.to` | to | से |
+| `spectro.noTable` | These values cannot be shown against the limits. | ये मान सीमा के साथ नहीं दिखाए जा सकते। |
+| `spectro.hint` | Judged against the limits of alloy {alloy}. The numbers are the record; a file is the evidence. | अलॉय {alloy} की सीमा से जाँचा जाता है। लिखे हुए आँकड़े रिकॉर्ड हैं; फ़ाइल सबूत है। |
+| `spectro.saveFirst` | Save the draft first. A spectro result goes on a saved melt. | पहले ड्राफ़्ट सेव करें। स्पेक्ट्रो नतीजा सेव की हुई मेल्ट पर जुड़ता है। |
+| `spectro.fromInbox` | Attach from inbox | इनबॉक्स से जोड़ें |
+| `spectro.attachFile` | Attach a file or photo | फ़ाइल या फ़ोटो जोड़ें |
+| `spectro.type` | Type the numbers | आँकड़े लिखें |
+| `spectro.attached` | Spectro added | स्पेक्ट्रो जुड़ गया |
+| `spectro.fileTooBig` | That file is too big. Use one under 700 kB. | फ़ाइल बहुत बड़ी है। 700 kB से छोटी लें। |
+| `spectro.fileType` | Use a PDF, a photo or a text or CSV file. | PDF, फ़ोटो या टेक्स्ट/CSV फ़ाइल लें। |
+| `spectro.inboxTitle` | Attach a file from the inbox | इनबॉक्स से फ़ाइल जोड़ें |
+| `spectro.inboxFile` | File | फ़ाइल |
+| `spectro.inboxPick` | Pick a file | फ़ाइल चुनें |
+| `spectro.inboxEmpty` | No file is waiting in the inbox. | इनबॉक्स में कोई फ़ाइल इंतज़ार में नहीं। |
+| `spectro.typeTitle` | Type the spectro numbers | स्पेक्ट्रो के आँकड़े लिखें |
+| `spectro.typeHint` | Write each element in percent, for example 0.42. Leave empty what was not measured. Aluminium is the balance when you leave it empty. | हर तत्व प्रतिशत में लिखें, जैसे 0.42। जो नापा नहीं वह खाली छोड़ें। खाली छोड़ने पर एल्युमिनियम बाकी माना जाता है। |
+| `spectro.typeReason` | Why are the numbers typed? | आँकड़े हाथ से क्यों लिखे? |
+| `spectro.typeReasonHint` | For example: the printer is down. | जैसे: प्रिंटर बंद है। |
+| `spectro.typeConfirm` | Save numbers | आँकड़े सेव करें |
+| `spectro.typedBecause` | Typed because: {reason} | हाथ से लिखे क्योंकि: {reason} |
+| `spectro.badNumber` | Not a number | अंक नहीं है |
+| `spectro.enterOne` | Write at least one element. | कम से कम एक तत्व लिखें। |
+| `spectro.overMillion` | The eight elements add up to more than 100 percent. | आठ तत्वों का जोड़ 100 प्रतिशत से ज़्यादा है। |
+| `spectro.previewIs` | Against the limits: | सीमा के हिसाब से: |
+| `spectro.reasonRequired` | Give a reason. | कारण लिखें। |
+| `spectro.allVoid` | Every result on this melt is void. | इस मेल्ट के सारे नतीजे रद्द हैं। |
+| `spectro.void` | Void | रद्द |
+| `spectro.voidButton` | Void | रद्द करें |
+| `spectro.voidTitle` | Void this result | यह नतीजा रद्द करें |
+| `spectro.voidReason` | Why is it void? | क्यों रद्द? |
+| `spectro.voidConfirm` | Void result | नतीजा रद्द करें |
 | `stock.title` | Billet stock | बिलेट स्टॉक |
-| `stock.byCast` | By cast | Cast के हिसाब से |
-| `stock.byAlloy` | By alloy | एलॉय के हिसाब से |
-| `stock.onHand` | On hand | हाथ में |
+| `stock.subtitle` | Billets in the store by alloy and cast. The kg is the store ledger. | स्टोर के बिलेट अलॉय और कास्ट के हिसाब से। kg स्टोर का खाता है। |
+| `stock.showFinished` | Show finished casts | पूरी हो चुकी कास्ट दिखाएं |
+| `stock.finished` | Finished casts | पूरी हो चुकी कास्ट |
 | `stock.empty` | No billets in stock. | स्टॉक में कोई बिलेट नहीं। |
-| `masters.furnaces` | Furnaces | भट्टियां |
-| `masters.alloys` | Alloys | एलॉय |
-| `masters.addFurnace` | Add furnace | भट्टी जोड़ें |
-| `masters.addAlloy` | Add alloy | एलॉय जोड़ें |
-| `masters.capacity` | Capacity (kg) | क्षमता (kg) |
+| `stock.total` | {kg} kg of billets in stock | स्टॉक में {kg} kg बिलेट |
+| `stock.adjusted` | includes {kg} kg from the counts at close | इसमें बंद करते समय की गिनती से {kg} kg शामिल |
+| `stock.alloyLine` | {kg} kg in {casts} {casts:cast\|casts} | {casts} कास्ट में {kg} kg |
+| `stock.onHand` | On hand | हाथ में |
+| `stock.loadFailed` | The billet stock did not load. Check the connection and try again. | बिलेट स्टॉक नहीं आया। कनेक्शन देखकर फिर कोशिश करें। |
+| `stock.streams.title` | Return streams | रिटर्न स्ट्रीम |
+| `stock.streams.hint` | Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds, so a new plant states what it holds now. | प्लांट स्क्रैप, ड्रॉस और बाकी स्ट्रीम जिनसे मेल्ट मेटल लेती है। मेल्ट स्ट्रीम में जितना है उससे ज़्यादा नहीं ले सकती, इसलिए नया प्लांट अभी का स्टॉक बताता है। |
+| `stock.streams.balance` | {kg} kg | {kg} kg |
+| `stock.streams.open` | Set opening balance | ओपनिंग बैलेंस डालें |
+| `stock.streams.sheetTitle` | Opening balance of {name} | {name} का ओपनिंग बैलेंस |
+| `stock.streams.kg` | Kg held now | अभी हाथ में kg |
+| `stock.streams.kgInvalid` | Write the kg as a number above zero. | kg अंक में, शून्य से ऊपर लिखें। |
+| `stock.streams.note` | Note (optional) | टिप्पणी (ज़रूरी नहीं) |
+| `stock.streams.once` | This is posted once for each stream. Later stock moves through melts and the press. | यह हर स्ट्रीम के लिए एक बार डलता है। इसके बाद स्टॉक मेल्ट और प्रेस से हिलता है। |
+| `stock.streams.save` | Post opening balance | ओपनिंग बैलेंस डालें |
+| `stock.streams.saved` | Opening balance posted | ओपनिंग बैलेंस डल गया |
+| `stock.streams.posted` | Opening balance posted | ओपनिंग बैलेंस डल चुका |
+| `stock.streams.confirm` | Post {kg} kg as the opening balance of {name}? It cannot be changed later. | {name} का ओपनिंग बैलेंस {kg} kg डालें? बाद में इसे बदला नहीं जा सकता। |
+| `stock.streams.confirmSave` | Yes, post it | हाँ, डालें |
+| `stock.streams.retired` | Retired | बंद |
+| `cert.title` | Test certificate | टेस्ट सर्टिफ़िकेट |
+| `cert.staffCopy` | Staff copy. Not a tax invoice. | स्टाफ़ कॉपी। टैक्स इनवॉइस नहीं। |
+| `cert.period` | Cast month | कास्ट का महीना |
+| `cert.fail` | Fail | फेल |
+| `cert.noSpectro` | No spectro on melt {melts}. | मेल्ट {melts} पर स्पेक्ट्रो नहीं। |
+| `cert.noSpectroMelt` | No spectro on melt {n}. | मेल्ट {n} पर स्पेक्ट्रो नहीं। |
+| `cert.limitsNote` | Judged against the limits in force when the result was added. | नतीजा जुड़ते समय जो सीमाएं थीं, उनसे जाँचा गया। |
+| `cert.bundles` | Bundles of this cast | इस कास्ट के बंडल |
+| `cert.noBundles` | No bundle names this cast yet. | अभी किसी बंडल पर यह कास्ट नहीं लिखी। |
+| `cert.footer` | Printed {date}. Staff copy, not a tax invoice. | {date} को प्रिंट। स्टाफ़ कॉपी, टैक्स इनवॉइस नहीं। |
+| `masters.furnaces` | Furnaces | फर्नेस |
+| `masters.furnacesSubtitle` | Each furnace has a capacity. A melt cannot be locked above it. | हर फर्नेस की एक क्षमता है। उससे ऊपर मेल्ट लॉक नहीं होती। |
+| `masters.alloys` | Alloys | अलॉय |
+| `masters.alloysSubtitle` | The elements and limits a spectro result is judged against. | वे तत्व और सीमाएं जिनसे स्पेक्ट्रो नतीजा जाँचा जाता है। |
+| `masters.addFurnace` | Add furnace | फर्नेस जोड़ें |
+| `masters.addAlloy` | Add alloy | अलॉय जोड़ें |
+| `masters.editFurnace` | Edit furnace {code} | फर्नेस {code} बदलें |
+| `masters.editAlloy` | Edit alloy {code} | अलॉय {code} बदलें |
+| `masters.edit` | Edit | बदलें |
+| `masters.code` | Code | कोड |
+| `masters.codeInvalid` | Use letters, digits and dashes, up to 12. | अक्षर, अंक और डैश, 12 तक। |
+| `masters.name` | Name | नाम |
+| `masters.nameRequired` | Write a name. | नाम लिखें। |
+| `masters.note` | Note | टिप्पणी |
+| `masters.capacity` | Capacity | क्षमता |
+| `masters.capacityKg` | Capacity (kg) | क्षमता (kg) |
+| `masters.capacityHint` | The most metal one melt may hold. | एक मेल्ट में अधिकतम इतना मेटल। |
+| `masters.capacityInvalid` | Write the capacity in kg. | क्षमता kg में लिखें। |
 | `masters.billetDia` | Billet size (mm) | बिलेट साइज़ (mm) |
+| `masters.diaInvalid` | Write a whole number of mm from 25 to 500. | 25 से 500 के बीच पूरा mm लिखें। |
+| `masters.status` | Status | स्थिति |
+| `masters.state.active` | Active | चालू |
+| `masters.state.retired` | Retired | बंद |
+| `masters.retire` | Retire | बंद करें |
+| `masters.reactivate` | Make active again | फिर चालू करें |
+| `masters.saved` | Saved | सेव हुआ |
+| `masters.seeded` | Added | जोड़ दिया |
+| `masters.noFurnace` | No furnace yet. | अभी कोई फर्नेस नहीं। |
+| `masters.noFurnaceBody` | Add the furnace, or add the plant's default furnace in one go. | फर्नेस जोड़ें, या प्लांट की सामान्य फर्नेस एक बार में जोड़ें। |
+| `masters.seedFurnace` | Add the default furnace | सामान्य फर्नेस जोड़ें |
+| `masters.noAlloy` | No alloy yet. | अभी कोई अलॉय नहीं। |
+| `masters.noAlloyBody` | Add the alloys the plant casts, or add 6063 and 6061 with their usual limits. | प्लांट जो अलॉय ढालता है वे जोड़ें, या 6063 और 6061 उनकी सामान्य सीमाओं के साथ जोड़ें। |
+| `masters.seedAlloy` | Add 6063 and 6061 | 6063 और 6061 जोड़ें |
 | `masters.limits` | Limits | सीमाएं |
-| `masters.min` | Min % | कम से कम % |
-| `masters.max` | Max % | ज़्यादा से ज़्यादा % |
-| `masters.noLimit` | No limit | कोई सीमा नहीं |
+| `masters.noLimits` | No limits | सीमा नहीं |
+| `masters.editLimits` | Edit limits | सीमाएं बदलें |
+| `masters.limitsTitle` | Limits of alloy {code} | अलॉय {code} की सीमाएं |
+| `masters.limitsHint` | Write percent, for example 0.35. Leave a side empty for no limit. Aluminium is the balance unless you give it limits. | प्रतिशत लिखें, जैसे 0.35। जिस तरफ़ सीमा नहीं, वह खाली छोड़ें। एल्युमिनियम बाकी माना जाता है जब तक उसकी सीमा न दें। |
+| `masters.limitsSnapshot` | Results already added keep the limits they were judged by. Only new results use these. | जो नतीजे पहले जुड़ चुके, वे अपनी पुरानी सीमाओं से जाँचे रहते हैं। सिर्फ़ नए नतीजे इन सीमाओं से जाँचे जाएंगे। |
+| `masters.saveLimits` | Save limits | सीमाएं सेव करें |
+| `masters.min` | Min % | न्यूनतम % |
+| `masters.max` | Max % | अधिकतम % |
+| `masters.limitInvalid` | Write percent like 0.35. | प्रतिशत 0.35 जैसा लिखें। |
+| `masters.limitOrder` | The minimum is above the maximum. | न्यूनतम अधिकतम से ऊपर है। |
+| `masters.loadFailed` | The list did not load. Check the connection and try again. | सूची नहीं आई। कनेक्शन देखकर फिर कोशिश करें। |
+| `yield.title` | Foundry yield | फाउंड्री यील्ड |
+| `yield.subtitle` | Locked melts only, by production day, alloy or furnace. A draft cannot improve the month. | सिर्फ़ लॉक मेल्ट, उत्पादन दिन, अलॉय या फर्नेस के हिसाब से। ड्राफ़्ट महीने को बेहतर नहीं दिखा सकता। |
+| `yield.groupBy` | Group by | ऐसे बाँटें |
+| `yield.group.day` | Day | दिन |
+| `yield.group.alloy` | Alloy | अलॉय |
+| `yield.group.furnace` | Furnace | फर्नेस |
+| `yield.melts` | Melts | मेल्ट |
+| `yield.in` | Metal in kg | डाला मेटल kg |
+| `yield.logs` | Logs kg | लॉग kg |
+| `yield.dross` | Dross kg | ड्रॉस kg |
+| `yield.fe` | Iron kg | आयरन kg |
+| `yield.burn` | Burn % | बर्न % |
+| `yield.yield` | Yield % | यील्ड % |
+| `yield.ldo` | LDO in per tonne of logs | प्रति टन लॉग LDO |
+| `yield.empty` | No locked melts in these days. | इन दिनों में कोई लॉक मेल्ट नहीं। |
+| `yield.note` | LDO is inches of tank dip per tonne of logs made, not litres. | LDO प्रति टन बने लॉग पर टंकी की डिप के इंच हैं, लीटर नहीं। |
+| `yield.tailAdjust` | Billet count adjustments at cast close in these days: {kg} kg. Net yield after them: {pct}%. | इन दिनों कास्ट बंद करते समय बिलेट गिनती से हुए बदलाव: {kg} kg। उनके बाद नेट यील्ड: {pct}%। |
+| `yield.csvName` | foundry-yield | foundry-yield |
 
 ### ageing (20)
 
@@ -5257,7 +5760,7 @@ Please check, Lalubhai:
 | `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
 | `readings.outOfRange` | Outside {min} to {max}. | {min} से {max} के बाहर। |
 
-### reasons (54)
+### reasons (66)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5270,6 +5773,8 @@ Please check, Lalubhai:
 | `kinds.ageing_scrap` | Ageing scrap | एजिंग स्क्रैप |
 | `kinds.reallocate` | Move to another order | दूसरे ऑर्डर में डालना |
 | `kinds.die_work` | Die work | Die का काम |
+| `kinds.melt_correct` | Correct a locked melt | लॉक मेल्ट का सुधार |
+| `kinds.cast_tail` | Cast close-out | कास्ट क्लोज़-आउट |
 | `downtime.die_change` | Die change | Die बदली |
 | `downtime.billet_wait` | Waiting for billets | बिलेट का इंतज़ार |
 | `downtime.breakdown` | Breakdown | ब्रेकडाउन |
@@ -5315,6 +5820,16 @@ Please check, Lalubhai:
 | `die_work.inspect` | Inspection | जाँच |
 | `die_work.clean` | Cleaning | सफ़ाई |
 | `die_work.other` | Other | अन्य |
+| `melt_correct.wrong_weight` | Wrong weight | गलत वज़न |
+| `melt_correct.wrong_lot` | Wrong lot or stream | गलत लॉट या स्ट्रीम |
+| `melt_correct.wrong_time` | Wrong time | गलत समय |
+| `melt_correct.wrong_output` | Wrong logs or dross | गलत लॉग या ड्रॉस |
+| `melt_correct.other` | Other | अन्य |
+| `cast_tail.billets_short` | Press used more billets than the store held | प्रेस ने स्टोर से ज़्यादा बिलेट लिए |
+| `cast_tail.scale_difference` | Scale difference | काँटे का फ़र्क |
+| `cast_tail.remelted` | Billets sent back to the furnace | बिलेट फ़र्नेस में वापस गए |
+| `cast_tail.scrapped` | Billets scrapped | बिलेट स्क्रैप हुए |
+| `cast_tail.other` | Other | अन्य |
 
 ### plantSettings (50)
 
@@ -5738,7 +6253,7 @@ Please check, Lalubhai:
 | `staff.chemistry_partial` | Chemistry partly tested | केमिस्ट्री आंशिक जांची गई |
 | `staff.chemistry_ready` | Chemistry ready | केमिस्ट्री तैयार |
 
-### reports (118)
+### reports (120)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5762,6 +6277,8 @@ Please check, Lalubhai:
 | `list.stockAgeBody` | Bundles in the yard by days since packing, per party and plant stock. | यार्ड में पड़े bundle, पैकिंग से कितने दिन हुए, पार्टी और प्लांट स्टॉक के हिसाब से। |
 | `list.orders` | Order book | ऑर्डर बुक |
 | `list.ordersBody` | Ordered, dispatched, baki and late orders by party and by month. | पार्टी और महीने के हिसाब से ऑर्डर, dispatch, बाकी और लेट ऑर्डर। |
+| `list.foundryYield` | Foundry yield | फाउंड्री यील्ड |
+| `list.foundryYieldBody` | Metal in, logs, dross, burn and yield of locked melts by day, alloy and furnace. | लॉक मेल्ट का डाला मेटल, लॉग, ड्रॉस, बर्न और यील्ड, दिन, अलॉय और फर्नेस के हिसाब से। |
 | `production.title` | Production report | प्रोडक्शन रिपोर्ट |
 | `production.subtitle` | Logged runs of the production days, then recovery by die, press and shift. | प्रोडक्शन दिनों के लॉग हुए रन, फिर die, प्रेस और शिफ्ट के हिसाब से रिकवरी। |
 | `production.recoveryTitle` | Recovery | रिकवरी |

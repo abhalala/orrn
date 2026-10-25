@@ -258,7 +258,7 @@ export const STORE_ITEM_PEOPLE: readonly Action[] = ["store.txn", "masters.publi
 /** Die card fields: the die room or masters publishers (ruling RP7). */
 export const DIE_CARD_EDITORS: readonly Action[] = ["die.card", "masters.publish"];
 
-export type MasterKey = "vendors" | "scrap" | "storeItems" | "locations" | "sections" | "dieCopies" | "reasons";
+export type MasterKey = "vendors" | "scrap" | "storeItems" | "locations" | "sections" | "dieCopies" | "reasons" | "furnaces" | "alloys";
 
 export type MasterEntry = {
   key: MasterKey;
@@ -281,6 +281,9 @@ const ENTRIES: readonly MasterEntry[] = [
   { key: "sections", group: "floor", to: "/dies", titleKey: "masters.hub.sections", hintKey: "masters.hub.sectionsHint" },
   { key: "dieCopies", group: "floor", to: "/masters/dies", titleKey: "masters.hub.dieCopies", hintKey: "masters.hub.dieCopiesHint" },
   { key: "reasons", group: "floor", to: "/masters/reasons", titleKey: "masters.hub.reasons", hintKey: "masters.hub.reasonsHint" },
+  // W2-FD-W: the foundry's furnaces and alloys (limits); publishers only.
+  { key: "furnaces", group: "floor", to: "/masters/furnaces", titleKey: "masters.hub.furnaces", hintKey: "masters.hub.furnacesHint", requires: ["masters.publish"] },
+  { key: "alloys", group: "floor", to: "/masters/alloys", titleKey: "masters.hub.alloys", hintKey: "masters.hub.alloysHint", requires: ["masters.publish"] },
 ];
 
 export function masterEntries(me: Me | null | undefined): MasterEntry[] {

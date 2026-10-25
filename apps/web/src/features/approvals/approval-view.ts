@@ -26,6 +26,7 @@ export const APPROVAL_KINDS = [
   "ageing_override",
   // FP Wave 2.
   "press_late_entry",
+  "melt_correct",
 ] as const satisfies readonly ApprovalKind[];
 
 // Compile-time: every server kind is listed (a new kind fails check-types here until it is added).
@@ -126,6 +127,97 @@ export function moveFromText(from: readonly MoveEndView[], plant: string): strin
 const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 export const moveKgText = (grams: number) => KG3.format(grams / 1000);
 
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** Percent text of basis points ("2.9"), "" when absent. */
+const bpPct = (bp: number | null) => (bp === null ? "" : (Math.abs(bp) / 100).toFixed(1));
+
+/** A figure of a foundry request, shown in the review sheet: the label key and the already formatted value. */
+export type FoundryFigure = { labelKey: MessageKey; value: string };
+
+/**
+ * What a `cast_close` or `melt_correct` request is about (W2-FD-W), read from its meta: the cast's
+ * billets produced, the tail and its share, or the melt's metal in and logs. Absent figures are
+ * left out (a request made before a figure existed).
+ */
+export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknown> | null | undefined): FoundryFigure[] {
+  const m = meta ?? {};
+  const rows: FoundryFigure[] = [];
+  const kg = (g: number | null, labelKey: MessageKey) => {
+    if (g !== null) rows.push({ labelKey, value: `${moveKgText(g)} kg` });
+  };
+  if (kind === "cast_close") {
+    kg(num(m.producedG), "approvals.foundry.produced");
+    kg(num(m.inputG), "approvals.foundry.metalIn");
+    kg(num(m.ledgerOnHandG), "approvals.foundry.ledgerOnHand");
+    kg(num(m.countedG), "approvals.foundry.counted");
+    const adjust = num(m.adjustG);
+    if (adjust !== null && adjust !== 0) rows.push({ labelKey: "approvals.foundry.adjust", value: `${adjust < 0 ? "-" : "+"}${moveKgText(Math.abs(adjust))} kg` });
+    const tail = num(m.tailG);
+    if (tail !== null) {
+      const pct = bpPct(num(m.tailBp));
+      rows.push({ labelKey: "approvals.foundry.tail", value: `${tail < 0 ? "-" : ""}${moveKgText(Math.abs(tail))} kg${pct ? ` (${pct}%)` : ""}` });
+    }
+    kg(num(m.shortG) && num(m.shortG)! > 0 ? num(m.shortG) : null, "approvals.foundry.short");
+  } else if (kind === "melt_correct") {
+    kg(num(m.inputG), "approvals.foundry.metalIn");
+    kg(num(m.logsG), "approvals.foundry.logs");
+  }
+  return rows;
+}
+
+/** The cast a foundry request is about: the subject of a close, the `castId` in a correction's meta. */
+export function foundryCastIdOf(kind: ApprovalKind, subjectId: string, meta: Record<string, unknown> | null | undefined): string | null {
+  if (kind === "cast_close") return safeId(subjectId);
+  if (kind === "melt_correct") return safeId((meta ?? {}).castId);
+  return null;
+}
+
+/** What `foundry.casts.get` gives the sheet, narrowed to the figures a decision needs. */
+export type FoundryLiveSource = {
+  cast: { status: string };
+  closeout: { producedG: number; inputG: number; billetsOnHandG: number };
+  melts: { id: string; status: string; inputG: number; logsG: number }[];
+};
+
+/** A line under the live figures: a message key and, for the kg ones, the kilograms already formatted. */
+export type FoundryLiveNote = { key: MessageKey; kg?: string };
+
+/**
+ * The live side of a foundry request (W2-FD-W review I1): the figures as the ledger and the melt
+ * stand now, plus what changed since the request was made. The request's own meta stays the
+ * "when it was asked" block. `null` when the live rows do not hold the subject (the sheet then
+ * keeps Approve off).
+ */
+export function foundryLiveOf(
+  kind: ApprovalKind,
+  subjectId: string,
+  meta: Record<string, unknown> | null | undefined,
+  live: FoundryLiveSource,
+): { rows: FoundryFigure[]; notes: FoundryLiveNote[] } | null {
+  const m = meta ?? {};
+  const kg = (g: number, labelKey: MessageKey): FoundryFigure => ({ labelKey, value: `${moveKgText(g)} kg` });
+  if (kind === "cast_close") {
+    const notes: FoundryLiveNote[] = [];
+    const asked = num(m.ledgerOnHandG);
+    const now = live.closeout.billetsOnHandG;
+    if (asked !== null && now < asked) notes.push({ key: "approvals.foundry.usedSince", kg: moveKgText(asked - now) });
+    else if (asked !== null && now > asked) notes.push({ key: "approvals.foundry.addedSince", kg: moveKgText(now - asked) });
+    if (live.cast.status !== "closing") notes.push({ key: "approvals.foundry.castMoved" });
+    return {
+      rows: [kg(live.closeout.producedG, "approvals.foundry.produced"), kg(live.closeout.inputG, "approvals.foundry.metalIn"), kg(now, "approvals.foundry.ledgerOnHand")],
+      notes,
+    };
+  }
+  if (kind === "melt_correct") {
+    const melt = live.melts.find((x) => x.id === subjectId);
+    if (!melt) return null;
+    const notes: FoundryLiveNote[] = melt.status !== "locked" || live.cast.status !== "open" ? [{ key: "approvals.foundry.meltMoved" }] : [];
+    return { rows: [kg(melt.inputG, "approvals.foundry.metalIn"), kg(melt.logsG, "approvals.foundry.logs")], notes };
+  }
+  return null;
+}
+
 export function approvalSubject(row: ApprovalForView, words: { plant: string } = { plant: "plant stock" }): ApprovalSubject {
   const kindKey = `approvals.kind.${row.kind}` as MessageKey;
   const m = row.meta ?? {};
@@ -161,6 +253,28 @@ export function approvalSubject(row: ApprovalForView, words: { plant: string } =
       return { kindKey, titleKey: "approvals.subject.dieRerankNew", vars: { code: text(m.code), to }, href, openKey };
     }
     return { kindKey, titleKey: "approvals.subject.dieRerank", vars: { code: text(m.code), from: m.fromRank, to }, href, openKey };
+  }
+  if (row.kind === "cast_close") {
+    const castNumber = text(m.number);
+    const tail = num(m.tailG);
+    return {
+      kindKey,
+      titleKey: tail === null ? "approvals.subject.castCloseBare" : "approvals.subject.castClose",
+      vars: { number: castNumber, kg: tail === null ? "" : moveKgText(Math.abs(tail)) },
+      href: safeId(row.subjectId) ? `/casts/${row.subjectId}` : null,
+      openKey: safeId(row.subjectId) ? "approvals.openCast" : null,
+    };
+  }
+  if (row.kind === "melt_correct") {
+    const castId = safeId(m.castId);
+    const meltId = safeId(row.subjectId);
+    return {
+      kindKey,
+      titleKey: "approvals.subject.meltCorrect",
+      vars: { number: text(m.castNumber), seq: text(m.meltSeq) },
+      href: castId && meltId ? `/casts/${castId}/melt/${meltId}` : null,
+      openKey: castId && meltId ? "approvals.openMelt" : null,
+    };
   }
   return {
     kindKey,

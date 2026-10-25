@@ -136,7 +136,26 @@ export function BundleFacts({
     },
     ...(die?.name ? [{ key: "die", label: t("bundle.facts.die"), value: die.name }] : []),
     ...(dieCopy ? [{ key: "copy", label: t("pack.source.copy"), value: dieCopy.code, mono: true }] : []),
-    ...(cast ? [{ key: "cast", label: t("pack.source.cast"), value: cast.number, mono: true }] : []),
+    ...(cast
+      ? [
+          {
+            key: "cast",
+            label: t("pack.source.cast"),
+            // W2-FD-W: the cast opens its trace (lots, melts, spectro, billets, runs, bundles, customers) with this bundle marked.
+            value: (
+              <Link
+                to="/casts/$id"
+                params={{ id: cast.id }}
+                search={{ tab: "trace", bundle: bundle.serial }}
+                data-testid="bundle-cast-trace"
+                className="inline-flex min-h-11 items-center font-mono font-semibold text-foreground underline decoration-1 underline-offset-4 hover:decoration-2 pointer-fine:min-h-0"
+              >
+                {cast.number}
+              </Link>
+            ),
+          },
+        ]
+      : []),
     {
       key: "location",
       label: t("bundle.facts.location"),

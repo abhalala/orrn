@@ -32,6 +32,9 @@ export const approvalKinds = [
   // Wave 2 (FP-PR-24): a press run entered after the fact; subject = run id; meta { reason,
   // productionDay, shiftSeq }. Approvers owner, supervisor, manager; never the requester.
   "press_late_entry",
+  // W2-FD-S (FP-FD-13): correct a locked melt; subject = melt id; meta { castNumber, meltSeq,
+  // reasonCode, usedAt?, draftId? }. No applier: the approved row is the grant `melts.correct` uses once.
+  "melt_correct",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 

@@ -1,7 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { ActionTile } from "@orrn/ui/components/action-tile";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { CalendarClock, Cylinder, Factory, ListChecks } from "lucide-react";
+import { CalendarClock, Cylinder, Factory, Flame, ListChecks } from "lucide-react";
 
 import { useMe } from "@/shared/lib/me";
 
@@ -18,6 +18,7 @@ export function ReportsIndex() {
     { module: "press", to: "/reports/production", title: t("reports.list.production"), hint: t("reports.list.productionBody"), icon: <Factory aria-hidden="true" className="size-5" />, accent: "green" as const },
     { module: "dies", to: "/reports/die-life", title: t("reports.list.dieLife"), hint: t("reports.list.dieLifeBody"), icon: <Cylinder aria-hidden="true" className="size-5" />, accent: "red" as const },
     { module: "bundles", to: "/reports/stock-age", title: t("reports.list.stockAge"), hint: t("reports.list.stockAgeBody"), icon: <CalendarClock aria-hidden="true" className="size-5" />, accent: "amber" as const },
+    { module: "foundry", to: "/reports/foundry-yield", title: t("reports.list.foundryYield"), hint: t("reports.list.foundryYieldBody"), icon: <Flame aria-hidden="true" className="size-5" />, accent: "red" as const },
     { module: null, to: "/reports/orders", title: t("reports.list.orders"), hint: t("reports.list.ordersBody"), icon: <ListChecks aria-hidden="true" className="size-5" />, accent: "blue" as const },
   ].filter((i) => on(i.module));
   return (

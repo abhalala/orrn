@@ -6,11 +6,12 @@ import { countLine } from "@orrn/db/schema/count";
 import { dieInstance, dieTierChange } from "@orrn/db/schema/dies";
 import { cast } from "@orrn/db/schema/foundry";
 import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
+import { location } from "@orrn/db/schema/stock";
 import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
-import { boriMeltedMessage, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
+import { billetStoreRetiredMessage, boriMeltedMessage, castTailAdjustRow, dcNoteOverdrawAbort, foundryAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { reallocateDecision } from "./reallocate";
@@ -224,11 +225,32 @@ const castCloseDecision: ApprovalApplier = (ctx, row, decision) => {
     decisionLanded(ctx, row.id, decision),
   );
   if (decision === "approved") {
+    // Q59-A: the count's adjustment (frozen in the close summary at the request) posts with the
+    // approval, never before. It is the tail AS COUNTED: billets the press used after the count are
+    // its own rows, so on hand = counted − later use. Guarded on "this approval closed the cast".
+    const closedNow = sql`exists (select 1 from ${cast} ac where ac.id = ${row.subjectId} and ac.company_id = ${companyId} and ac.status = 'closed' and ac.server_seq = ${seq} and ac.close_approval_id = ${row.id})`;
+    const frozen = (key: string) =>
+      sql`(select json_extract(fc.close_summary, ${`$.${key}`}) from ${cast} fc where fc.id = ${row.subjectId} and fc.company_id = ${companyId})`;
+    const activeBilletStore = sql`exists (select 1 from ${location} al where al.id = ${frozen("adjustLocationId")} and al.company_id = ${companyId} and al.kind = 'billet_store' and al.active = 1)`;
     return [
       db
         .update(cast)
         .set({ status: "closed", closedAt: ctx.decidedAt, closedBy: ctx.userId, serverSeq: seq, updatedAt: ctx.decidedAt })
         .where(subject),
+      castTailAdjustRow(db, {
+        companyId,
+        castId: row.subjectId,
+        qtyG: frozen("adjustG"),
+        locationId: frozen("adjustLocationId"),
+        seq,
+        at: ctx.decidedAt,
+        userId: ctx.userId,
+        reason: "Count at close (approved)",
+        when: and(closedNow, sql`${frozen("adjustLocationId")} is not null`, activeBilletStore),
+      }),
+      // r2 (m-d): never close on a count the ledger cannot take: a retired billet store refuses the
+      // approval (explained by `explainApplyAbort`); reactivate it, or reject the close.
+      foundryAbort(db, companyId, sql`${closedNow} and coalesce(${frozen("adjustG")}, 0) <> 0 and not ${activeBilletStore}`),
     ];
   }
   return [
@@ -241,6 +263,7 @@ const castCloseDecision: ApprovalApplier = (ctx, row, decision) => {
         tailG: null,
         tailBp: null,
         tailReason: null,
+        tailReasonCodeId: null,
         closeSummary: null,
         closedAt: null,
         closedBy: null,
@@ -306,7 +329,19 @@ export async function explainApplyAbort(
   row: { kind: ApprovalKind; subjectId: string },
   e: unknown,
 ): Promise<void> {
-  if (row.kind !== "dc_note" || !isFoundryAbort(e)) return;
+  if (!isFoundryAbort(e)) return;
+  if (row.kind === "cast_close") {
+    // r2 (m-d): the frozen count adjustment's billet store was retired after the request.
+    const [c] = await db
+      .select({ code: location.code, active: location.active })
+      .from(cast)
+      .innerJoin(location, and(eq(location.companyId, cast.companyId), sql`${location.id} = json_extract(${cast.closeSummary}, '$.adjustLocationId')`))
+      .where(and(eq(cast.id, row.subjectId), eq(cast.companyId, companyId)))
+      .limit(1);
+    if (c && !c.active) throw new TRPCError({ code: "BAD_REQUEST", message: billetStoreRetiredMessage(c.code) });
+    return;
+  }
+  if (row.kind !== "dc_note") return;
   const [note] = await db
     .select({ lotId: dcNote.lotId, lotNumber: purchaseLot.number, number: dcNote.number, boriG: dcNote.boriDeductionG, status: dcNote.status })
     .from(dcNote)

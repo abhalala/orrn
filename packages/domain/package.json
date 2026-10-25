@@ -14,5 +14,6 @@
     "@orrn/config": "workspace:*",
     "@types/bun": "^1.3.13",
     "typescript": "^6"
-  }
+  },
+  "sideEffects": false
 }

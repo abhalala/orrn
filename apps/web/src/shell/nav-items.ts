@@ -9,6 +9,7 @@ import {
   ChartColumn,
   Cylinder,
   Factory,
+  Flame,
   House,
   Inbox,
   LayoutDashboard,
@@ -28,7 +29,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry";
 
 export type NavItem = {
   key: string;
@@ -66,10 +67,15 @@ const APPROVAL_PEOPLE: readonly Action[] = ["masters.publish", "purchase.dcnote"
 /** The press: who runs it, who logs it, and who reads its report (FP-PR). The viewer's page shows nothing actionable. */
 const PRESS_PEOPLE: readonly Action[] = ["press.run", "press.close", "reports.read"];
 
+/** The foundry: who enters casts and melts, closes them, and who reads reports (the cast pages are readable by any member). */
+const FOUNDRY_PEOPLE: readonly Action[] = ["cast.enter", "melt.enter", "cast.close", "reports.read"];
+
 export const TENANT_MORE: readonly NavItem[] = [
   // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
   { key: "orders", to: "/orders", labelKey: "nav.orders", icon: ListChecks, requires: ["order.manage", "order.plan"] },
   { key: "press", to: "/press", labelKey: "nav.press", icon: Factory, requires: PRESS_PEOPLE, module: "press" },
+  // W2-FD-W: casts, melts, spectro, billet stock (the Foundry entry; Billet stock and the inbox are linked from it).
+  { key: "foundry", to: "/casts", labelKey: "nav.foundry", icon: Flame, requires: FOUNDRY_PEOPLE, module: "foundry" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
@@ -150,5 +156,6 @@ export function isItemActive(item: NavItem, pathname: string): boolean {
   if (item.exact) return pathname === item.to;
   if (item.key === "stock" && under(pathname, "/b")) return true;
   if (item.key === "masters" && under(pathname, "/vendors")) return true;
+  if (item.key === "foundry" && under(pathname, "/foundry")) return true;
   return under(pathname, item.to);
 }

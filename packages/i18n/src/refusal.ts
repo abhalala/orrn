@@ -309,9 +309,24 @@ const splitCodes = (s: string) => s.split(",").map((c) => c.trim()).filter(Boole
 
 export type Hit = { key: MessageKey; vars: TranslateVars };
 
+/**
+ * W2-FD-S: a module's own refusals, kept out of the `/` entry. The module that holds them registers
+ * them when it loads (`@orrn/i18n/refusal-foundry`); `mapSentence` reads them after the shared table.
+ */
+const EXTRA_REFUSALS: RefusalEntry[] = [];
+
+export function registerRefusals(entries: readonly RefusalEntry[]): void {
+  for (const e of entries) if (!EXTRA_REFUSALS.includes(e)) EXTRA_REFUSALS.push(e);
+}
+
+/** The shared table, then every registered module table, in match order. */
+export function refusalEntries(): readonly RefusalEntry[] {
+  return EXTRA_REFUSALS.length === 0 ? SERVER_REFUSALS : [...SERVER_REFUSALS, ...EXTRA_REFUSALS];
+}
+
 /** The dictionary key and variables for one server sentence, or null when this build does not know it. */
 export function mapSentence(message: string, t: Translate): Hit | null {
-  for (const e of SERVER_REFUSALS) {
+  for (const e of refusalEntries()) {
     const m = e.re.exec(message);
     if (!m) continue;
     const vars = e.vars ? e.vars(m, t) : {};

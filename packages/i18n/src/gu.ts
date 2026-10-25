@@ -17,11 +17,13 @@ import { guCustomers } from "./gu-more/customers";
 import { guDieRoom } from "./gu-more/dieRoom";
 import { guDies } from "./gu-more/dies";
 import { guDispatch } from "./gu-more/dispatch";
+import { guFoundry } from "./gu-more/foundry";
 import { guGuides } from "./gu-more/guides";
 import { guNative } from "./gu-more/native";
 import { guOrders } from "./gu-more/orders";
 import { guSettings } from "./gu-more/settings";
 import { guShell } from "./gu-more/shell";
+import { foundryRefusalGu } from "./native/foundry-refusal.gu";
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
 
@@ -64,6 +66,10 @@ export const GU_FLOOR_NAMESPACES = [
   "customers.detail.recent.title", "customers.detail.openOrders",
   // W4-MASTERS: the press alerts list and the spectro inbox are floor screens
   "press.alerts", "foundry.inbox",
+  // W2-FD-W: the foundry screens the furnace floor reads (the certificate, masters and yield report stay English)
+  "foundry.title", "foundry.common", "foundry.today", "foundry.casts", "foundry.newCast", "foundry.cast", "foundry.melt", "foundry.spectro", "foundry.stock",
+  // W2-FD-S: a refused foundry write reaches the furnace floor
+  "foundry.refusal",
 ] as const;
 
 /**
@@ -77,6 +83,7 @@ export const GU_REASON_FLOOR_KINDS = ["kinds", "downtime", "qc_reject", "void", 
 export type GuMessages = GuBaseMessages &
   Pick<Messages, "settings" | "approvals" | "dieRoom" | "dies" | "bundle" | "nav" | "errors" | "roles" | "ui" | "refusal" | "native" | "guides"> & {
     dispatch: Messages["dispatch"];
+    foundry: Pick<Messages["foundry"], "title" | "common" | "today" | "casts" | "newCast" | "cast" | "melt" | "spectro" | "stock" | "inbox" | "refusal">;
     status: Messages["status"];
     units: Messages["units"];
     common: Messages["common"];
@@ -87,7 +94,7 @@ type GuBaseMessages = DeepPartial<Messages> &
     dispatch: Pick<Messages["dispatch"], "capacity" | "detail" | "steps" | "build" | "paste" | "errors">;
     status: Pick<Messages["status"], "bundle" | "dispatch" | "range">;
     press: { console: Messages["press"]["console"]; alerts: Messages["press"]["alerts"] };
-    foundry: { inbox: Messages["foundry"]["inbox"] };
+    foundry: { inbox: Messages["foundry"]["inbox"]; refusal: Messages["foundry"]["refusal"] };
     ageing: { readings: Messages["ageing"]["readings"] };
     reasons: Pick<Messages["reasons"], (typeof GU_REASON_FLOOR_KINDS)[number]>;
   };
@@ -722,7 +729,7 @@ const guBase = {
       billetKg: "બિલેટ kg",
       addBillet: "બિલેટ ઉમેરો",
       tooManyBillets: "વધુમાં વધુ {max} બિલેટ લાઇન.",
-      billetCastMismatch: "બિલેટ આ રનની cast ના જ હોવા જોઈએ.",
+      billetCastMismatch: "આ રનની cast ની એક બિલેટ લાઇન ઉમેરો.",
       billetShort: "લખ્યા કરતાં ઓછા બિલેટ સ્ટોકમાં છે",
       billetShortReason: "બિલેટ ઓછા કેમ છે",
       pieces: "પીસ",
@@ -908,7 +915,7 @@ const guBase = {
         no_billets: "વપરાયેલા બિલેટ ભરો",
         too_many_billets: "એક રનમાં વધુમાં વધુ 10 બિલેટ લાઇન",
         billet_row_invalid: "દરેક બિલેટ લાઇનમાં ગણતરી અને kg જોઈએ",
-        billet_cast_mismatch: "દરેક બિલેટ લાઇન રનના કાસ્ટની હોવી જોઈએ",
+        billet_cast_mismatch: "રનના કાસ્ટની એક બિલેટ લાઇન ઉમેરો",
         no_input: "બિલેટનું વજન શૂન્ય છે; તેમનું kg ભરો",
         no_lines: "કટ લંબાઈ પ્રમાણે પીસ ભરો",
         line_without_kg: "જે કટ લંબાઈમાં પીસ છે તેનું kg ભરો",
@@ -947,6 +954,7 @@ const guBase = {
         lineHasRun: "{number} હજી {line} પર ખુલ્લો છે. પહેલાં તેને પૂરો કરો અથવા રદ કરો.",
         hasStarted: "{number} શરૂ થઈ ગયો છે, એટલે હવે આ બદલાઈ શકતું નથી.",
         castCancelled: "તે cast રદ છે.",
+        billetAlloy: "{cast} ના બિલેટ {alloy} ના છે; આ રન {runAlloy} નો છે. રનના અલૉયના બિલેટ લો.",
         pickReason: "યાદીમાંથી કારણ પસંદ કરો.",
         timeSkew: "આ ટૅબ્લેટની ઘડિયાળ સર્વરની ઘડિયાળથી 2 મિનિટથી વધુ જુદી છે. સમયની ખાતરી સુપરવાઇઝર કરશે.",
         copyOnTrial: "{code} ટ્રાયલ પર છે. તે ફક્ત die ટ્રાયલ રનમાં જાય છે.",
@@ -1565,6 +1573,8 @@ const guBase = {
       ageing_scrap: "એજિંગ સ્ક્રેપ",
       reallocate: "બીજા ઓર્ડરમાં ફેરવવું",
       die_work: "Die નું કામ",
+      melt_correct: "લૉક મેલ્ટનો સુધારો",
+      cast_tail: "કાસ્ટ ક્લોઝ-આઉટ",
     },
     downtime: {
       die_change: "Die બદલી",
@@ -1629,8 +1639,23 @@ const guBase = {
       clean: "સફાઈ",
       other: "અન્ય",
     },
+    melt_correct: {
+      wrong_weight: "ખોટું વજન",
+      wrong_lot: "ખોટો લૉટ કે સ્ટ્રીમ",
+      wrong_time: "ખોટો સમય",
+      wrong_output: "ખોટા લૉગ કે ડ્રોસ",
+      other: "અન્ય",
+    },
+    cast_tail: {
+      billets_short: "પ્રેસે સ્ટોરથી વધુ બિલેટ વાપર્યા",
+      scale_difference: "કાંટાનો ફરક",
+      remelted: "બિલેટ ફર્નેસમાં પાછા ગયા",
+      scrapped: "બિલેટ સ્ક્રેપ થયા",
+      other: "અન્ય",
+    },
   },
   foundry: {
+    refusal: foundryRefusalGu,
     inbox: {
       columns: {
         file: "ફાઇલ",
@@ -1727,6 +1752,7 @@ export const gu = mergeGu(
   guDieRoom,
   guDies,
   guDispatch,
+  guFoundry,
   guGuides,
   guNative,
   guOrders,
@@ -1740,6 +1766,7 @@ export const gu = mergeGu(
   typeof guDieRoom &
   typeof guDies &
   typeof guDispatch &
+  typeof guFoundry &
   typeof guGuides &
   typeof guNative &
   typeof guOrders &

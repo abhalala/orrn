@@ -197,6 +197,9 @@ describe("foundry.spectroInbox", () => {
     const out = await foundry.foundry.spectroInbox.attach({ id, meltId: p.meltId });
     const result = await env.db.select().from(spectroResult).where(eq(spectroResult.id, out.spectroResultId)).get();
     expect(result).toMatchObject({ meltId: p.meltId, castId: p.castId, fileKey: `${p.companyId}/spectro/${id}`, dataBase64: "", valuesPpm: { Si: 4500, Fe: 1800, Mg: 5500 } });
+    // W2-FD-S: the watcher's values are judged like a typed result (three of eight elements: incomplete), source import.
+    expect(result).toMatchObject({ source: "import", siPpm: 4500, fePpm: 1800, mgPpm: 5500, verdict: "incomplete" });
+    expect(out.verdict).toBe("incomplete");
     expect(await env.db.select().from(spectroInbox).where(eq(spectroInbox.id, id)).get()).toMatchObject({ status: "attached", meltId: p.meltId, spectroResultId: out.spectroResultId });
     const audit = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.subjectId, out.spectroResultId))).get();
     expect(audit).toMatchObject({ action: "spectro.attach" });

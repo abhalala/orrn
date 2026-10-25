@@ -5,7 +5,7 @@ import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
  * The fixture-only `/preview/*` demos were retired when every module got a real screen. Each old
- * URL lands on its real route (or, for foundry and ageing, the honest coming-soon page), and no
+ * URL lands on its real route (or, for ageing, the honest coming-soon page), and no
  * navigation item says "Preview" any more. Needs the local stack (this worktree's API + web ports).
  */
 
@@ -33,10 +33,10 @@ const ROWS: readonly Row[] = [
   { old: "/preview/platform/settings", next: /\/settings$/ },
   { old: "/preview/platform/devices", next: /\/settings\?tab=devices$/ },
   { old: "/preview/platform/portal", next: /\/portal$/, role: "party" },
-  { old: "/preview/foundry", next: /\/preview\/coming-soon\?module=foundry$/ },
-  { old: "/preview/foundry/cast", next: /\/preview\/coming-soon\?module=foundry$/ },
-  { old: "/preview/foundry/stock", next: /\/preview\/coming-soon\?module=foundry$/ },
-  { old: "/preview/foundry/certificate", next: /\/preview\/coming-soon\?module=foundry$/ },
+  { old: "/preview/foundry", next: /\/casts$/ },
+  { old: "/preview/foundry/cast", next: /\/casts$/ },
+  { old: "/preview/foundry/stock", next: /\/foundry\/stock$/ },
+  { old: "/preview/foundry/certificate", next: /\/casts$/ },
   { old: "/preview/ageing", next: /\/preview\/coming-soon\?module=ageing$/ },
   { old: "/preview/ageing/batch", next: /\/preview\/coming-soon\?module=ageing$/ },
   { old: "/preview/ageing/report", next: /\/preview\/coming-soon\?module=ageing$/ },
@@ -61,12 +61,21 @@ for (const width of [375, 1280]) {
 
     test("the coming-soon page says the module is being built on another machine", async ({ page }) => {
       await signInViaApi(page, "owner");
-      for (const [module, heading] of [["foundry", "Foundry"], ["ageing", "Ageing"]] as const) {
+      for (const [module, heading] of [["ageing", "Ageing"]] as const) {
         await page.goto(`/preview/coming-soon?module=${module}`);
         await expect(page.locator("main#main h1").first()).toHaveText(heading);
         await expect(page.getByText("This module is being built on another machine")).toBeVisible();
         await expectNoHorizontalScroll(page);
       }
+    });
+
+    test("a stale coming-soon link for the built foundry lands on the casts, and a bare one says Ageing", async ({ page }) => {
+      await signInViaApi(page, "owner");
+      await page.goto("/preview/coming-soon?module=foundry");
+      await expect(page).toHaveURL(/\/casts$/);
+      await expect(page.getByText("This module is being built on another machine")).toHaveCount(0);
+      await page.goto("/preview/coming-soon");
+      await expect(page.locator("main#main h1").first()).toHaveText("Ageing");
     });
 
     test("no navigation item says Preview", async ({ page }) => {

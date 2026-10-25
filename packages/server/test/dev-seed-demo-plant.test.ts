@@ -11,6 +11,9 @@
  */
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
+import { cast } from "@orrn/db/schema";
+import { eq } from "drizzle-orm";
+
 import { setClockForTests } from "../src/lib/clock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { DEV_SEED_COMPANY, DEV_SEED_PASSWORD, loadDevSeed, precreateDevSeedUsers, type DevSeedResult } from "./dev-seed-fixture";
@@ -59,7 +62,12 @@ const TABLE_COUNTS: Record<string, number> = {
   press_billet_use: 7,
   qc_entry: 5,
   press_downtime: 2,
-  cast: 2,
+  // W2-FD-S: cast 3 is open with a draft melt; cast 1's melt is complete (inputs, outputs, spectro).
+  cast: 3,
+  melt: 2,
+  melt_input: 2,
+  melt_output: 3,
+  spectro_result: 1,
   furnace: 1,
   alloy: 2,
   sales_order: 10,
@@ -408,9 +416,24 @@ describe("press and today", () => {
       ["PP-3", "released", "production"],
       ["PP-4", "released", "production"],
     ]);
-    // Billets on hand: the cast's opening, less what the three logged runs took (the ledger is exact).
+    // Billets on hand: melt 1's 2.4 t of logs, less what the three logged runs took (the ledger is exact).
     const billet = await env.d1.prepare("select sum(qty_g) g from stock_ledger where company_id = ? and item_kind = 'billet'").bind(company).first<{ g: number }>();
     expect(Number(billet?.g)).toBe(2_400_000 - 310_400 - 296_000 - 300_000);
+  });
+
+  test("W2-FD-S: cast 1 is a complete cast (locked melt, spectro passed, billets pressed) whose billets add up; cast 3 is open with a draft", async () => {
+    const c1 = await owner().foundry.casts.get({ id: "dev-press-cast-1" });
+    expect(c1.closeout).toMatchObject({ producedG: 2_400_000, creditedG: 310_400 + 296_000 + 300_000, billetsOnHandG: 2_400_000 - 906_400, tailG: 0, needsReason: false });
+    const chain = await owner().foundry.casts.trace({ castId: "dev-press-cast-1" });
+    expect(chain.lotsIn).toEqual([expect.objectContaining({ lotId: "dev-lot-06", kgG: 2_600_000 })]);
+    // W2-FD-S r1 (Q59-A, m-12): it closed on a yard count of exactly its ledger: tail 0, no adjustment row.
+    expect(chain.billets).toMatchObject({ onHandG: 1_493_600, countedG: 1_493_600, adjustedG: 0, tailG: 0 });
+    const [row] = await env.db.select({ tailG: cast.tailG, closeSummary: cast.closeSummary }).from(cast).where(eq(cast.id, "dev-press-cast-1"));
+    expect(row).toMatchObject({ tailG: 0, closeSummary: { producedG: 2_400_000, creditedG: 906_400, billetsOnHandG: 1_493_600, countedG: 1_493_600, tailG: 0, adjustG: 0 } });
+    expect(chain.melts).toEqual([expect.objectContaining({ id: "dev-melt-1", spectroVerdict: "pass" })]);
+    expect(chain.runs.length).toBeGreaterThanOrEqual(3);
+    const open = (await owner().foundry.casts.list({})).items.find((c) => c.id === "dev-press-cast-3")!;
+    expect(open).toMatchObject({ status: "open", draftMelts: 1, meltCount: 0 });
   });
 
   test("the three logged runs: good, rejects, downtime; recovery and balance are the server's figures", async () => {

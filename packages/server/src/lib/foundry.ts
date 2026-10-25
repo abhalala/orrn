@@ -12,7 +12,7 @@
  * A lot's remaining kg = its own postings (OK, D/C deductions, cancel reversals) − Σ kg of live
  * melt lines on it. The ledger has no lot column; `melt_input.lot_id` carries the link.
  */
-import { castTail, type CastTail } from "@orrn/domain";
+import { castCloseCheck, type CastCloseCheck } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, sql, type SQL } from "drizzle-orm";
 
@@ -147,12 +147,15 @@ export function lotPostedSql(companyId: string, lotId: SQL): SQL<number> {
   ), 0))`;
 }
 
-/** What live (not cancelled) melts have drawn from the lot (grams). */
+/**
+ * What live melts have drawn from the lot (grams). Live = LOCKED and not cancelled: a draft has
+ * posted nothing (C18), so its lines hold no lot kg until the lock writes them to the ledger.
+ */
 export function lotDrawnSql(companyId: string, lotId: SQL): SQL<number> {
   return sql<number>`coalesce((
     select sum(di.kg_g) from ${meltInput} di
     join ${melt} dm on dm.id = di.melt_id and dm.company_id = di.company_id
-    where di.company_id = ${companyId} and di.lot_id = ${lotId} and dm.cancelled_at is null
+    where di.company_id = ${companyId} and di.lot_id = ${lotId} and dm.status = 'locked' and dm.cancelled_at is null
   ), 0)`;
 }
 
@@ -217,13 +220,74 @@ export async function lotRemaining(db: OrrnDb, companyId: string, lotId: string)
   return { remainingG: Number(row?.remainingG ?? 0), drawnG: Number(row?.drawnG ?? 0) };
 }
 
-/** NOT EXISTS: no live melt draws on the lot (an OK lot can then be cancelled). */
+/** NOT EXISTS: no locked, live melt draws on the lot (an OK lot can then be cancelled; a draft does not hold it). */
 export function lotHasNoLiveDraws(companyId: string, lotId: SQL): SQL {
   return sql`not exists (
     select 1 from ${meltInput} ni
     join ${melt} nm on nm.id = ni.melt_id and nm.company_id = ni.company_id
-    where ni.company_id = ${companyId} and ni.lot_id = ${lotId} and nm.cancelled_at is null
+    where ni.company_id = ${companyId} and ni.lot_id = ${lotId} and nm.status = 'locked' and nm.cancelled_at is null
   )`;
+}
+
+// ---------------------------------------------------------------------------
+// Return stream balance (FP-FD-05: a stream cannot be charged below its ledger balance)
+// ---------------------------------------------------------------------------
+
+/** A return stream's kg at a location: Σ its ledger rows (grams). */
+export function streamBalanceSql(companyId: string, streamId: string, locationId: string): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(sb.qty_g) from ${stockLedger} sb
+    where sb.company_id = ${companyId} and sb.item_kind = 'return_stream' and sb.item_ref = ${streamId} and sb.location_id = ${locationId}
+  ), 0)`;
+}
+
+export type StreamCharge = { streamId: string; locationId: string; netG: number };
+
+/**
+ * What a melt takes out of each return stream at each place, net of the metal it puts back into
+ * the same stream there (W2-FD-S r1, I-3). Only streams the melt takes from (net > 0) are listed.
+ */
+export function streamCharges(
+  inputs: readonly { streamId: string; locationId: string; kgG: number }[],
+  returns: readonly { streamId: string; locationId: string; kgG: number }[],
+): StreamCharge[] {
+  const net = new Map<string, StreamCharge>();
+  const add = (streamId: string, locationId: string, g: number) => {
+    const key = `${streamId}|${locationId}`;
+    const row = net.get(key) ?? { streamId, locationId, netG: 0 };
+    row.netG += g;
+    net.set(key, row);
+  };
+  for (const i of inputs) add(i.streamId, i.locationId, i.kgG);
+  for (const o of returns) if (net.has(`${o.streamId}|${o.locationId}`)) add(o.streamId, o.locationId, -o.kgG);
+  return [...net.values()].filter((c) => c.netG > 0);
+}
+
+/** r2 (m-d): a `cast_close` approval whose count adjustment would post at a retired billet store. */
+export function billetStoreRetiredMessage(code: string): string {
+  return `The billet store ${code} is retired; reactivate it to post the count, or reject the close`;
+}
+
+/** The refusal for a stream charged beyond its balance. */
+export function streamShortMessage(name: string, balanceG: number): string {
+  return `Only ${fmtKg(Math.max(balanceG, 0))} kg of ${name} is in stock`;
+}
+
+/**
+ * Read-time check (the batch repeats it with `streamChargeAborts`): every stream the melt takes from
+ * holds its net kg. Refuses with "Only N kg of <stream> is in stock".
+ */
+export async function assertStreamsCover(db: OrrnDb, companyId: string, charges: readonly StreamCharge[], nameOf: (streamId: string) => string): Promise<void> {
+  for (const ch of charges) {
+    const [row] = await db.select({ g: streamBalanceSql(companyId, ch.streamId, ch.locationId) }).from(company).where(eq(company.id, companyId)).limit(1);
+    const balance = Number(row?.g ?? 0);
+    if (balance < ch.netG) throw new TRPCError({ code: "BAD_REQUEST", message: streamShortMessage(nameOf(ch.streamId), balance) });
+  }
+}
+
+/** Write-time twin: after the melt's ledger rows, any stream it took from below zero fails the batch. */
+export function streamChargeAborts(db: OrrnDb, companyId: string, charges: readonly StreamCharge[]): SqliteBatchItem[] {
+  return charges.map((ch) => foundryAbort(db, companyId, sql`${streamBalanceSql(companyId, ch.streamId, ch.locationId)} < 0`));
 }
 
 // ---------------------------------------------------------------------------
@@ -233,33 +297,37 @@ export function lotHasNoLiveDraws(companyId: string, lotId: SQL): SQL {
 /** The outer cast's id, table-qualified. `cast` is an SQL keyword, so it is always quoted. */
 export const OUTER_CAST_ID: SQL = sql`${sql.identifier("cast")}.${sql.identifier("id")}`;
 
+/** Σ over the cast's LIVE melts: locked and not cancelled (drafts move nothing, C18). */
 function liveMeltSum(companyId: string, castId: SQL, expr: SQL): SQL<number> {
   return sql<number>`coalesce((
     select sum(${expr}) from ${melt} lm
-    where lm.company_id = ${companyId} and lm.cast_id = ${castId} and lm.cancelled_at is null
+    where lm.company_id = ${companyId} and lm.cast_id = ${castId} and lm.status = 'locked' and lm.cancelled_at is null
   ), 0)`;
 }
 
 export function castInputSql(companyId: string, castId: SQL) {
   return liveMeltSum(companyId, castId, sql`lm.input_g`);
 }
+/** Billets produced: Σ log kg of the cast's locked melts (the tail's `produced`). */
 export function castLogsSql(companyId: string, castId: SQL) {
   return liveMeltSum(companyId, castId, sql`lm.logs_g`);
 }
 export function castByproductSql(companyId: string, castId: SQL) {
   return liveMeltSum(companyId, castId, sql`lm.dross_g + lm.fe_g + lm.returns_g`);
 }
-export function castAllowedBurnSql(companyId: string, castId: SQL) {
-  return liveMeltSum(companyId, castId, sql`lm.allowed_burn_g`);
-}
 export function castLossSql(companyId: string, castId: SQL) {
   return liveMeltSum(companyId, castId, sql`lm.loss_g`);
 }
+/** Locked, live melts of the cast. */
 export function castLiveMeltsSql(companyId: string, castId: SQL): SQL<number> {
-  return sql<number>`(select count(*) from ${melt} cm where cm.company_id = ${companyId} and cm.cast_id = ${castId} and cm.cancelled_at is null)`;
+  return sql<number>`(select count(*) from ${melt} cm where cm.company_id = ${companyId} and cm.cast_id = ${castId} and cm.status = 'locked' and cm.cancelled_at is null)`;
+}
+/** Draft melts of the cast (the stepper's open sheets; they block a close). */
+export function castDraftMeltsSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`(select count(*) from ${melt} dm where dm.company_id = ${companyId} and dm.cast_id = ${castId} and dm.status = 'draft')`;
 }
 
-/** Billets of the cast still in stock, any location (ledger). */
+/** Billets of the cast still in stock, any location (ledger). Negative once the press logged more than the store held (D22). */
 export function castBilletsOnHandSql(companyId: string, castId: SQL): SQL<number> {
   return sql<number>`coalesce((
     select sum(bl.qty_g) from ${stockLedger} bl
@@ -272,13 +340,24 @@ export function castBilletsOnHandSql(companyId: string, castId: SQL): SQL<number
  * of the cast's logged runs). Above 0 the cast shows "billets short by N kg" for the close-out.
  */
 export function castBilletsShortSql(companyId: string, castId: SQL): SQL<number> {
+  // r2 (m-b): a run's billet rows may name several casts. A run of one cast (every row of it, or no
+  // rows) gives that cast its whole `billet_short_g`. On a mixed run each cast is short by the part of
+  // its own kg its ledger did not hold just before that run's billet row: kg − max(0, on hand before),
+  // read from the ledger by server_seq (company-monotonic), the same rule the close used (D22).
+  const ownRowsG = sql`(select coalesce(sum(su.kg_g), 0) from press_billet_use su where su.company_id = ${companyId} and su.press_run_id = sr.id and su.cast_id = ${castId})`;
+  const rowSeq = sql`(select max(sl.server_seq) from ${stockLedger} sl where sl.company_id = ${companyId} and sl.voucher_type = 'press_run' and sl.voucher_id = sr.id and sl.item_kind = 'billet' and sl.item_ref = ${castId})`;
+  const before = sql`(select coalesce(sum(sh.qty_g), 0) from ${stockLedger} sh where sh.company_id = ${companyId} and sh.item_kind = 'billet' and sh.item_ref = ${castId} and sh.server_seq < ${rowSeq})`;
+  const otherCast = sql`exists (select 1 from press_billet_use so where so.company_id = ${companyId} and so.press_run_id = sr.id and so.cast_id <> ${castId})`;
+  const ownRow = sql`exists (select 1 from press_billet_use sw where sw.company_id = ${companyId} and sw.press_run_id = sr.id and sw.cast_id = ${castId})`;
+  const anyRow = sql`exists (select 1 from press_billet_use sa where sa.company_id = ${companyId} and sa.press_run_id = sr.id)`;
   return sql<number>`coalesce((
-    select sum(sr.billet_short_g) from press_run sr
-    where sr.company_id = ${companyId} and sr.cast_id = ${castId} and sr.status = 'logged'
+    select sum(case when ${otherCast} then max(0, ${ownRowsG} - max(0, ${before})) else sr.billet_short_g end) from press_run sr
+    where sr.company_id = ${companyId} and sr.status = 'logged' and coalesce(sr.billet_short_g, 0) > 0
+      and (${ownRow} or (sr.cast_id = ${castId} and not ${anyRow}))
   ), 0)`;
 }
 
-/** Bundles packed from the cast that still count (void bundles never existed; RP11). */
+/** Bundles packed from the cast that still count (void bundles never existed; RP11). Shown beside the tail, never in it. */
 export function castBundlesSql(companyId: string, castId: SQL): SQL<number> {
   return sql<number>`coalesce((
     select sum(bb.weight_g) from ${bundle} bb
@@ -287,38 +366,87 @@ export function castBundlesSql(companyId: string, castId: SQL): SQL<number> {
 }
 
 /**
- * Discard, ends and rejects the press and QC returned for the cast. PL-9 (press runs, QC) extends
- * this with its own vouchers; until then nothing is attributed to a cast after the furnace.
+ * Billets the press consumed from the cast (the tail's `credited`, spec E4): − Σ billet rows of the
+ * press vouchers for this cast. A logged run posts − its weighed input (`press_run`); a reopen posts
+ * the reversal (`press_run_reopen`, +), so a reopened run nets to 0. FIXED in W2-FD-S: this returned 0
+ * (BACKLOG 55, FINAL-CHAIN finding 3), so a cast refused a reason-free close after any logged run.
+ * Discard, ends and rejects are not here: they are kg of section the press made from billets it
+ * already used, posted to return streams.
  */
-export function castPressReturnsSql(_companyId: string, _castId: SQL): SQL<number> {
-  return sql<number>`0`;
+export function castPressReturnsSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select -sum(pl.qty_g) from ${stockLedger} pl
+    where pl.company_id = ${companyId} and pl.item_kind = 'billet' and pl.item_ref = ${castId}
+      and pl.voucher_type in ('press_run', 'press_run_reopen')
+  ), 0)`;
 }
 
-/** Input − everything that explains it, as one SQL expression (for write-time guards). */
+/**
+ * Q59-A (W2-FD-S r1): the close's count adjustment, Σ `cast_tail` billet rows of the cast (grams;
+ * negative = billets the count did not find). Part of on hand, so after a close the identity
+ * produced − credited − on hand equals −adjusted = the recorded tail.
+ */
+export function castTailAdjustSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`coalesce((
+    select sum(ta.qty_g) from ${stockLedger} ta
+    where ta.company_id = ${companyId} and ta.item_kind = 'billet' and ta.item_ref = ${castId} and ta.voucher_type = 'cast_tail'
+  ), 0)`;
+}
+
+/**
+ * The close's count adjustment row (Q59-A): one `cast_tail` billet row of the cast (voucher = cast
+ * id, line 1, so a cast never takes two), as an INSERT … SELECT that lands only when `when` holds
+ * (the close or the approval landed). `qtyG` and `locationId` may be SQL (the approval reads them
+ * from the frozen close summary); a zero quantity inserts nothing.
+ */
+export function castTailAdjustRow(
+  db: OrrnDb,
+  o: {
+    companyId: string;
+    castId: string;
+    qtyG: number | SQL;
+    locationId: string | SQL;
+    seq: number;
+    at: Date;
+    userId: string | null;
+    reason: string | null;
+    when: SQL | undefined;
+  },
+): SqliteBatchItem {
+  const at = o.at.getTime();
+  const qty = typeof o.qtyG === "number" ? sql`${o.qtyG}` : o.qtyG;
+  const loc = typeof o.locationId === "string" ? sql`${o.locationId}` : o.locationId;
+  return db.insert(stockLedger).select(
+    sql`select ${crypto.randomUUID()}, ${o.companyId}, ${o.seq}, 'cast_tail', ${o.castId}, 1, 'billet', ${o.castId}, ${loc}, ${qty}, ${at}, null, ${o.reason}, ${o.userId}, ${at}
+      from ${company} where ${company.id} = ${o.companyId} and coalesce(${qty}, 0) <> 0 and ${o.when ?? sql`1`}` as never,
+  );
+}
+
+/** Tail = produced − on hand − credited (grams), as one SQL expression. */
 export function castTailSql(companyId: string, castId: SQL): SQL<number> {
-  return sql<number>`(${castInputSql(companyId, castId)} - ${castByproductSql(companyId, castId)} - ${castAllowedBurnSql(
-    companyId,
-    castId,
-  )} - ${castBundlesSql(companyId, castId)} - ${castPressReturnsSql(companyId, castId)} - ${castBilletsOnHandSql(companyId, castId)})`;
+  return sql<number>`(${castLogsSql(companyId, castId)} - ${castBilletsOnHandSql(companyId, castId)} - ${castPressReturnsSql(companyId, castId)})`;
 }
 
-/** Write-time guard: the cast's tail is still within 1 % of its input (`|tail| × 10000 ≤ input × 100`). */
-export function castTailWithinBand(companyId: string, castId: SQL, bandBp: number): SQL {
-  return sql`abs(${castTailSql(companyId, castId)}) * 10000 <= ${castInputSql(companyId, castId)} * ${bandBp}`;
-}
-
-export type CastCloseout = CastTail & {
+export type CastCloseout = CastCloseCheck & {
+  /** Billets produced: Σ locked log kg. */
+  producedG: number;
+  /** BILLET ledger on hand (negative when short). */
+  billetsOnHandG: number;
+  /** Billets the press used (credited). Same figure as `pressReturnsG` (kept for older readers). */
+  creditedG: number;
+  pressReturnsG: number;
+  /** Metal charged (Σ locked melt inputs), logs, by-products, burn: the furnace side, shown beside the tail. */
   inputG: number;
   logsG: number;
   byproductG: number;
-  allowedBurnG: number;
-  /** Σ melt loss beyond the 3 % burn allowance (negative when melts put out more than went in). */
-  excessBurnG: number;
+  burnG: number;
   bundlesG: number;
-  pressReturnsG: number;
-  billetsOnHandG: number;
-  /** D22: billets logged by the press beyond what the store held (0 when none). */
+  /** D22: Σ billets the press logged beyond what the store held, from the runs (0 when none). */
   billetsShortG: number;
+  /** Q59-A: the close's count adjustment posted so far (`cast_tail` rows; 0 before a close). */
+  adjustedG: number;
+  liveMelts: number;
+  draftMelts: number;
 };
 
 /** Live close-out figures of one cast (scoped to the company; zeros for an unknown id). */
@@ -329,27 +457,38 @@ export async function castCloseout(db: OrrnDb, companyId: string, castId: string
       inputG: castInputSql(companyId, id),
       logsG: castLogsSql(companyId, id),
       byproductG: castByproductSql(companyId, id),
-      allowedBurnG: castAllowedBurnSql(companyId, id),
       lossG: castLossSql(companyId, id),
       bundlesG: castBundlesSql(companyId, id),
-      pressReturnsG: castPressReturnsSql(companyId, id),
+      creditedG: castPressReturnsSql(companyId, id),
       billetsOnHandG: castBilletsOnHandSql(companyId, id),
       billetsShortG: castBilletsShortSql(companyId, id),
+      adjustedG: castTailAdjustSql(companyId, id),
+      liveMelts: castLiveMeltsSql(companyId, id),
+      draftMelts: castDraftMeltsSql(companyId, id),
     })
     .from(company)
     .where(eq(company.id, companyId))
     .limit(1);
   const n = (v: unknown) => Number(v ?? 0);
-  const parts = {
+  const producedG = n(row?.logsG);
+  const billetsOnHandG = n(row?.billetsOnHandG);
+  const creditedG = n(row?.creditedG);
+  return {
+    ...castCloseCheck({ producedG, onHandG: billetsOnHandG, creditedG }),
+    producedG,
+    billetsOnHandG,
+    creditedG,
+    pressReturnsG: creditedG,
     inputG: n(row?.inputG),
-    logsG: n(row?.logsG),
+    logsG: producedG,
     byproductG: n(row?.byproductG),
-    allowedBurnG: n(row?.allowedBurnG),
+    burnG: n(row?.lossG),
     bundlesG: n(row?.bundlesG),
-    pressReturnsG: n(row?.pressReturnsG),
-    billetsOnHandG: n(row?.billetsOnHandG),
+    billetsShortG: n(row?.billetsShortG),
+    adjustedG: n(row?.adjustedG),
+    liveMelts: n(row?.liveMelts),
+    draftMelts: n(row?.draftMelts),
   };
-  return { ...parts, billetsShortG: n(row?.billetsShortG), excessBurnG: n(row?.lossG) - parts.allowedBurnG, ...castTail(parts) };
 }
 
 // ---------------------------------------------------------------------------

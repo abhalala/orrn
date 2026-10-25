@@ -137,7 +137,7 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
   );
 }
 
-function CastBlock({ cast }: { cast: CertCast }) {
+export function CastBlock({ cast }: { cast: CertCast }) {
   const { t } = useT();
   const state = castState(cast);
   return (

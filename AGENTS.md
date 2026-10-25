@@ -8,7 +8,7 @@ it, the test is named. When code and this file disagree, fix the file in the sam
 
 ## Project overview
 
-ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The foundry and ageing modules are PAUSED on a satellite machine (see Foundry and Ageing); everything else described here is built.
+ORRN (domain: orrn.in) is built as a sellable multi-company ERP SaaS for manufactured inventory operations: dies, bundles, stock, label printing, dispatches, packing lists, customers, permissions, auditability, web app, and native iOS/iPadOS/Android apps. This is like a collection of ERP modules that can be setup with different tenants based on their needs. The first plant is FourCubes (aluminium extrusion): the flow is order, press plan, die issue, press, ageing, pack, dispatch, packing list, with the stock ledger balancing at every step. The ageing module is PAUSED (see Ageing); the foundry (server and web) is built on the satellite lane and everything else described here is built.
 
 ## Stack
 
@@ -653,7 +653,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 ## Foundry (casts, melts, spectro, close-out)
 
-**The foundry web screens and the melt lock are PAUSED (D27): they were built on the omafranky satellite (`wt/W2-FD-S` @28a5a83, unpushed) and are not on this branch.** What main holds is the PL5 server (below), the pack cast picker and `receiptCast`, the press billet ledger, the portal certificate and the collector inbox. `/casts` and `/foundry/*` do not exist yet (the old `/preview/foundry*` URLs redirect to `/preview/coming-soon`; the fixture components stay in `features/preview` only for the lane); casts can be opened by API only. On resume the foundry migrations renumber after the current head.
+**Foundry web (W2-FD-W):** `/casts` (list, trace box), `/casts/new`, `/casts/$id` (tail panel, melts, trace tab, cost card for purchase readers, close and cancel), `/casts/$id/melt/$meltId` (the stepper; `$meltId` is a draft, a locked melt as a read-only sheet with the correction request, or `new`), `/casts/$id/certificate` (staff copy), `/casts/inbox`, `/foundry/stock`, `/masters/furnaces`, `/masters/alloys`, `/reports/foundry-yield`, the Today Foundry tile and the Foundry nav entry. Rules the tests hold: `@orrn/i18n/refusal-foundry` is imported in `features/foundry/errors.ts` (every foundry screen reaches it through `foundryError` / `ErrorLine`; never show `error.message`) and in `features/approvals/review-sheet.tsx` (the approvals sheet shows foundry refusals without loading a foundry screen); any other module that shows a foundry refusal imports it the same way, the lock gates come from the server's `melts.preview` of the SAVED draft (a spectro result or a save refreshes it) and are said through `GATE_KEY`, every figure stored (burn, yield, verdict, tail) is the server's (`melt-form.ts` only previews while typing and never sends one), selects inside a `Field` use `FieldSelect` (a bare `NativeSelect` has no accessible name), search parsers live in the no-import `features/foundry/search.ts`, and `foundry.*` is a lazy dictionary (the floor parts carry gu: `GU_FLOOR_NAMESPACES`; the certificate, masters and yield report read English in gu). `@orrn/domain` declares `sideEffects: false` so its foundry maths used by lazy screens does not enter the `/` closure. The `/preview/foundry*` URLs redirect to the real screens; the fixture components are gone.
 
 - Tables in `packages/db/src/schema/foundry.ts` (`return_stream`, `cast`, `melt`, `melt_input`,
   `melt_output`, `melt_chemical`, `spectro_result`); router `foundry` (`routers/foundry.ts`), shared
@@ -662,7 +662,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   BEND-LOG, HILL-METAL, PIT-METAL, TENDIS, DROSS-METAL) plus 2 `byproduct` streams (DROSS, FE).
   Codes are stable keys other modules post to (press discard → DISCARD, ends / QC rejects →
   PLANT-SCRAP); code and kind never change after create. They sit at the plant-scrap (`wip`)
-  location. `seedDefaults` (masters.publish or cast.enter) and every `casts.open` add missing ones.
+  location. `seedDefaults` (masters.publish or cast.enter) and every `casts.open` add missing ones. `returnStreams.opening` (masters.publish, W2-FD-W) posts a stream's go-live balance once (an `opening` ledger row at plant scrap, voucher = the stream), from the Return streams panel on `/foundry/stock`; without it a fresh plant's first melt cannot take metal from a stream.
   Stream draws are not balance-guarded (no opening counts yet); negative balances show on
   `returnStreams.list`.
 - A cast is a campaign: `casts.open` (cast.enter) takes its number from the doc series (`K31`, month
@@ -687,17 +687,29 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
   any output above input warns; warnings are returned and stored on the melt (`melt.warnings`), never
   block. Burn loss up to 3 % per melt (`allowed_burn_g`) counts as explained at close-out.
-- Close-out (Review Focus 4, cast.close): tail = input − (by-products + allowed burn + bundles
-  (not void) with `cast_id` + press returns + billets of the cast on hand). `|tail| × 10000 >
-  input × 100` needs a reason → `closing` + approval `cast_close` (foundry, manager, admin, owner;
-  never the requester; applied by the `cast_close` hook in `lib/approvalApply.ts`). The close UPDATE
-  is guarded by the cast's `server_seq` unchanged (moved by every melt create AND cancel), `melt_count`
-  unchanged and, for a no-reason close, `castTailWithinBand` at write time.
-  KNOWN DEFECT (BACKLOG 55, FINAL-CHAIN finding 3): press runs now post − billets (item_ref = cast id)
-  at the BILLET store and discard / ends / rejects to DISCARD / PLANT-SCRAP when they are logged (see Press),
-  but `castPressReturnsSql` still returns 0, so the tail does not credit what the press consumed and a
-  reason-free close is refused after any logged press run. Fix it before the foundry lane resumes.
-- `melts.cancel` (cast.enter or cast.close, open casts only): moves the cast's `server_seq` (so a close
+- Close-out (spec E4, W2-FD-S, cast.close: supervisor, manager, admin, owner): billets produced (Σ logs of
+  LOCKED live melts) − billets the press used (`castPressReturnsSql`: −Σ billet ledger rows of the cast with
+  voucher_type press_run / press_run_reopen) − billets on hand (Σ billet ledger of the cast) = tail.
+  Furnace burn and bundles are shown beside it, never in it. Any non-zero tail, or billets short (on hand
+  below 0, D22: the press logged more than the store held), needs a `cast_tail` reason code; |tail| above
+  3 % of produced, or billets short, also goes to `closing` + approval `cast_close` (never the requester;
+  applied by `lib/approvalApply.ts`). A draft melt blocks the close. The close UPDATE is guarded by the
+  cast's `server_seq`, `melt_count`, draft count = 0 and the tail / on hand read at write time; replay by
+  `clientMutationId` ("cast.close"). BACKLOG 55 (castPressReturnsSql returned 0) is FIXED: a cast whose
+  billets went to logged runs closes with no reason (w2-fd-s-foundry.test.ts "REAL logged press run").
+- Melt stepper (W2-FD-S, `routers/foundryMelt.ts`, melt.enter: foundry, supervisor, owner): `melts.save`
+  writes a DRAFT (no ledger, no MRS, lots keep their kg; every sum counts status = 'locked' only);
+  `melts.lock` checks the gates (`meltLockGates`: times in sheet order, input and logs present, capacity,
+  more out than in needs a balance note, spectro not passed needs a reason, alloy other than the cast's
+  needs a reason) then posts ledger + MRS in one atomicBatch (≤ 100 params per statement, per-lot abort
+  on remaining < 0); replay "melt.lock". `melts.discard` drops a draft. No edit after lock: `requestCorrection`
+  (melt.correct, reason kind `melt_correct`) → approval `melt_correct` → `correct` reverses the locked melt
+  and opens a draft copy (`corrects_melt_id`). Spectro: `spectro.enter` (typed, reason), `spectro.void`
+  (draft only), every result judged against the alloy limits (`spectroJudge`). Masters:
+  `foundry.furnaces.*`, `foundry.alloys.*` (masters.publish). Reads: `casts.trace`, `casts.traceBundle`,
+  `casts.cost` (purchase readers), `stock.billets`, `analytics.foundryYield`. Furnace readings:
+  `readings.add` (typed), `readings.simulate` only with FOUNDRY_SIMULATOR=1 (owner-only bring-up, Q46/Q47).
+- `melts.cancel` (cast.close only since W2-FD-S, open casts only): moves the cast's `server_seq` (so a close
   that read the figures before refuses), marks the melt, reverses every melt ledger row
   (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
   refused when the cast's billets on hand are below the melt's logs (the press used them), or while a
@@ -1197,8 +1209,8 @@ The ageing lane (AG-01..17: trolleys, readings, ageing rows, packed share per ba
   `redirect` in `beforeLoad` to its real route (`apps/web/src/routes/_tenant/preview.*.tsx`, guarded by
   `tests/e2e/preview-redirects.spec.ts`). Keep those files so bookmarks keep working.
 - A module that is not built here yet gets `/preview/coming-soon?module=<slug>` (honest copy,
-  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/{foundry,ageing}` and
-  `preview-frame.tsx` are kept only for the paused foundry and ageing lane; they have no route and no
+  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/ageing` and
+  `preview-frame.tsx` are kept only for the paused ageing lane; they have no route and no
   nav entry. New work does not add to `features/preview` or `PREVIEW_MODULES`.
 - To promote a module, build the real route against tRPC, add it to `shell/nav-items.ts` with
   `requires`, and delete the fixtures it replaces; do not leave a demo copy beside it.

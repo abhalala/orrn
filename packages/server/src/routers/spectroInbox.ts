@@ -14,6 +14,7 @@ import { melt, spectroResult } from "@orrn/db/schema/foundry";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch } from "../lib/atomic";
+import { spectroJudge } from "../lib/foundryKit";
 import { nextCompanySeq } from "../lib/sequence";
 
 const id = z.string().min(1).max(64);
@@ -67,12 +68,15 @@ export const spectroInboxRouter = router({
       // stays in the inbox, marked simulated, until someone dismisses it.
       if (row.simulated) throw new TRPCError({ code: "BAD_REQUEST", message: "Simulated file — demo only" });
       const m = await ctx.db
-        .select({ id: melt.id, castId: melt.castId, cancelledAt: melt.cancelledAt })
+        .select({ id: melt.id, castId: melt.castId, cancelledAt: melt.cancelledAt, alloy: melt.alloy, alloyId: melt.alloyId })
         .from(melt)
         .where(and(eq(melt.id, input.meltId), eq(melt.companyId, ctx.companyId)))
         .get();
       if (!m) throw new TRPCError({ code: "NOT_FOUND", message: "Melt not found" });
       if (m.cancelledAt) throw new TRPCError({ code: "BAD_REQUEST", message: "This melt is cancelled" });
+
+      // W2-FD-S: the watcher's values are judged against the melt's alloy limits like a typed result.
+      const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, row.valuesPpm ?? {});
 
       // Claim the row first so two people cannot attach the same file twice.
       const claimed = await ctx.db
@@ -98,6 +102,8 @@ export const spectroInboxRouter = router({
             dataBase64: "",
             fileKey: row.fileKey,
             valuesPpm: row.valuesPpm ?? {},
+            ...judged,
+            source: "import",
             createdBy: ctx.session.user.id,
           }),
           ctx.db.update(spectroInbox).set({ spectroResultId: resultId }).where(eq(spectroInbox.id, row.id)),
@@ -105,7 +111,7 @@ export const spectroInboxRouter = router({
             action: "spectro.attach",
             subjectType: "spectro_result",
             subjectId: resultId,
-            meta: { meltId: m.id, castId: m.castId, source: "collector", inboxId: row.id, sha256: row.sha256, simulated: row.simulated },
+            meta: { meltId: m.id, castId: m.castId, source: "collector", inboxId: row.id, sha256: row.sha256, simulated: row.simulated, verdict: judged.verdict },
           }),
         ]);
       } catch (error) {
@@ -115,7 +121,7 @@ export const spectroInboxRouter = router({
           .where(eq(spectroInbox.id, row.id));
         throw error;
       }
-      return { id: row.id, spectroResultId: resultId };
+      return { id: row.id, spectroResultId: resultId, verdict: judged.verdict };
     }),
 
   dismiss: actionProcedure("cast.enter")

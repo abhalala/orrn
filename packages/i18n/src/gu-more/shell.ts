@@ -75,6 +75,7 @@ export const guShell = {
     dispatch: "Dispatch",
     more: "વધુ",
     orders: "ઓર્ડર",
+    foundry: "ફાઉન્ડ્રી",
     dies: "Die",
     customers: "ગ્રાહક",
     store: "સ્ટોર",

@@ -116,6 +116,9 @@ export const PLANT_ACTIONS = [
   "support.request", // ask platform support for help
   // Wave 2 (FP). FP-PR-25 change the press queue after release (Q15 default: supervisor + planner).
   "press.queue", // reorder queued / die_issued runs, pull a cut length back to planable
+  // Wave 2 foundry (W2-FD-S): the melt stepper and its correction.
+  "melt.enter", // save a draft melt, lock it, attach / void spectro, furnace readings
+  "melt.correct", // ask to correct a locked melt (approval melt_correct) and redo it as a draft
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -197,7 +200,8 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "dispatch.scan": ["operator", "packer", "supervisor", "office", "manager", "admin"],
   "dispatch.complete": ["supervisor", "office", "manager"],
   "cast.enter": ["foundry", "supervisor"],
-  "cast.close": ["supervisor", "manager"],
+  // W2-FD-S: manager and up close a cast (admin = the plant admin); the supervisor keeps it (spec E4).
+  "cast.close": ["supervisor", "manager", "admin"],
   "press.run": ["press", "supervisor"],
   "die.reading": ["press", "supervisor", "die_room"],
   "die.card": ["die_room"],
@@ -230,6 +234,9 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "audit.read": ["admin", "manager"],
   // Wave 2 (FP-PR-25, Q15 A): the supervisor and the planner (order.plan holders).
   "press.queue": ["supervisor", "office", "manager"],
+  // W2-FD-S: the foundry floor and the supervisor run the melt stepper; corrections go to an approver.
+  "melt.enter": ["foundry", "supervisor"],
+  "melt.correct": ["foundry", "supervisor"],
   "support.request": [
     "admin",
     "manager",
@@ -342,6 +349,8 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   press_reopen: ["owner", "admin", "manager"],
   ageing_override: ["owner", "admin", "manager"],
   press_late_entry: ["owner", "supervisor", "manager"],
+  // W2-FD-S: correcting a locked melt (reverse it, enter it again as a draft). Never the requester.
+  melt_correct: ["owner", "admin", "manager"],
 };
 
 export function canApprove(role: CompanyRole | null | undefined, kind: ApprovalKind): boolean {

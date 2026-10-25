@@ -254,20 +254,39 @@ async function makeChain(width: number, created: Created): Promise<Chain> {
     const line = await owner.m<{ id: string }>("press.lines.create", { code: lineCode, name: lineName, sortOrder: 950 });
     created.lines.push(line.id);
 
-    // The cast and its billets: one locked melt of 410 kg of ingot giving 400 kg of logs (2.4 % loss).
+    // The cast and its billets: one locked melt of 410 kg of scrap giving 400 kg of logs (2.4 % loss).
+    // W2-FD-S r1: a return stream is never charged below its balance (the seed holds no ingot), so the
+    // melt charges a fresh OK purchase lot of TT grade A (an item no other spec reads stock of).
     // The cast rule goes Off first (the seed's "automatic" turns on with any locked melt; portal.spec does the same).
     await owner.m("company.updateSettings", { requireCastOnBundle: false });
     const cast = await owner.m<{ id: string; number: string }>("foundry.casts.open", { alloy: "6063" });
     created.casts.push(cast.id);
     const streams = await owner.q<{ items: { id: string; code: string }[] }>("foundry.returnStreams.list");
     const byCode = (code: string) => streams.items.find((s) => s.code === code)!.id;
+    const [vendors, scrapItems] = await Promise.all([
+      owner.q<{ items: { id: string }[] }>("vendor.list", { q: "K.D. Metals", limit: 1 }),
+      owner.q<{ items: { id: string; name: string }[] }>("purchase.scrapItems.list"),
+    ]);
+    const lot = await owner.m<{ id: string }>("purchase.lots.create", {
+      vendorId: vendors.items[0]!.id,
+      itemId: scrapItems.items.find((i) => i.name === "TT")!.id,
+      grade: "A",
+      partyKgG: MELT.inG,
+      fcKgG: MELT.inG,
+      ratePaise: 16_800,
+      billBook: "main",
+      vehicleNo: `GJ03CH${tag}`.slice(0, 20),
+    });
+    await owner.m("purchase.lots.advance", { id: lot.id, to: "ok" });
     const t = Date.now();
     const min = 60_000;
     await owner.m("foundry.melts.create", {
       castId: cast.id,
       timestamps: { preheatStart: t - 300 * min, chargingStart: t - 240 * min, chargingEnd: t - 200 * min, castingStart: t - 150 * min, castingEnd: t - 60 * min },
       ldoTenthIn: { start: 300, end: 250 },
-      inputs: [{ kind: "return_stream", ref: byCode("INGOT"), kgG: MELT.inG }],
+      // The melt is locked on create: there is no spectro result in this chain, so the reason is given.
+      spectroReason: "Spectro sample sent to the lab",
+      inputs: [{ kind: "lot", ref: lot.id, kgG: MELT.inG }],
       outputs: { logs: { pcs: 8, lengthMm: 600, kgG: MELT.logsG }, drossG: 0, feG: 0, returns: [] },
     });
     const melt = await owner.q<{ items: { id: string; billetsOnHandG: number; number: string }[] }>("foundry.casts.list", { limit: 200 });

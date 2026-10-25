@@ -3,7 +3,6 @@ import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Field } from "@orrn/ui/components/field";
-import { NativeSelect } from "@orrn/ui/components/native-select";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Sheet } from "@orrn/ui/components/sheet";
@@ -21,6 +20,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { INBOX_TABS, type InboxTab } from "./search";
+import { ErrorLine, FieldSelect } from "./ui";
 
 type InboxFile = inferRouterOutputs<AppRouter>["foundry"]["spectroInbox"]["list"][number];
 
@@ -167,7 +167,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
   });
   const castItems = (casts.data?.pages ?? []).flatMap((p) => p.items);
   const cast = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), enabled: file !== null && castId !== "", meta: INLINE_ERROR_META });
-  const melts = (cast.data?.melts ?? []).filter((m) => m.status !== "cancelled");
+  const melts = (cast.data?.melts ?? []).filter((m) => m.status !== "cancelled" && m.status !== "corrected");
   const picked = cast.data?.cast;
   const attach = useMutation(
     trpc.foundry.spectroInbox.attach.mutationOptions({
@@ -204,7 +204,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
     >
       <div className="flex flex-col gap-4 pt-1">
         <Field label={t("foundry.inbox.attachSheet.cast")}>
-          <NativeSelect
+          <FieldSelect
             value={castId}
             data-testid="inbox-cast"
             onChange={(e) => {
@@ -218,7 +218,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
                 {c.number} · {c.alloy}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         {casts.hasNextPage ? (
           <div>
@@ -228,14 +228,14 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
           </div>
         ) : null}
         <Field label={t("foundry.inbox.attachSheet.melt")} hint={castId !== "" && cast.isSuccess && melts.length === 0 ? t("foundry.inbox.attachSheet.noMelts") : undefined}>
-          <NativeSelect value={meltId} disabled={castId === "" || melts.length === 0} data-testid="inbox-melt" onChange={(e) => setMeltId(e.currentTarget.value)}>
+          <FieldSelect value={meltId} disabled={castId === "" || melts.length === 0} data-testid="inbox-melt" onChange={(e) => setMeltId(e.currentTarget.value)}>
             <option value="">{t("foundry.inbox.attachSheet.meltPick")}</option>
             {melts.map((m) => (
               <option key={m.id} value={m.id}>
                 {t("foundry.inbox.attachSheet.meltLabel", { seq: m.seq })}
               </option>
             ))}
-          </NativeSelect>
+          </FieldSelect>
         </Field>
         {values.length > 0 ? (
           <div className="flex flex-col gap-1">
@@ -243,11 +243,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
             <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">{values.map(([k, v]) => `${k} ${v}`).join(", ")}</p>
           </div>
         ) : null}
-        {attach.error ? (
-          <p role="alert" className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words">
-            {attach.error.message || t("foundry.inbox.failed")}
-          </p>
-        ) : null}
+        <ErrorLine error={attach.error} />
       </div>
     </Sheet>
   );
@@ -303,11 +299,7 @@ function DismissSheet({ file, onClose }: { file: InboxFile | null; onClose(): vo
         <Field label={t("foundry.inbox.dismissSheet.reason")} error={missing ? t("foundry.inbox.dismissSheet.reasonRequired") : undefined}>
           <FieldTextArea value={reason} maxLength={500} onChange={(e) => setReason(e.currentTarget.value)} data-testid="inbox-dismiss-reason" />
         </Field>
-        {dismiss.error ? (
-          <p role="alert" className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words">
-            {dismiss.error.message || t("foundry.inbox.failed")}
-          </p>
-        ) : null}
+        <ErrorLine error={dismiss.error} />
       </div>
     </Sheet>
   );

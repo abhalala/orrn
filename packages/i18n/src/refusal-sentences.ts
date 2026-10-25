@@ -156,6 +156,47 @@ export const FILES = [
   "lib/orderLines.ts",
 ];
 
+/**
+ * W2-FD-S: the foundry routers refuse through `bad("…")` (BAD_REQUEST) as well as `message:`; the melt
+ * lock's gate sentences sit in `MELT_GATE_TEXT`. Their sentences are read the same way.
+ */
+export const FOUNDRY_FILES = [
+  "routers/foundry.ts",
+  "routers/foundryMasters.ts",
+  "routers/foundryMelt.ts",
+  "routers/foundryTrace.ts",
+  "lib/foundryKit.ts",
+];
+
+function badSentences(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(/\bbad\(\s*/g)) {
+    const from = m.index! + m[0].length;
+    out.push(...literalsOfExpression(src, from));
+  }
+  return out;
+}
+
+/** The foundry routers' sentences (W2-FD-S), checked against `FOUNDRY_REFUSALS` by refusal-foundry.test.ts. */
+export function foundrySentences(): { file: string; text: string }[] {
+  const out: { file: string; text: string }[] = [];
+  for (const f of FOUNDRY_FILES) {
+    const src = SRC(f);
+    for (const text of [...messageSentences(src), ...badSentences(src)]) out.push({ file: f, text });
+  }
+  for (const text of blockLiterals(SRC("routers/foundryMelt.ts"), "export const MELT_GATE_TEXT")) out.push({ file: "routers/foundryMelt.ts", text });
+  // lib/foundryKit.ts: the cast's state (`castStateMessage`) and the store returns a melt cancel refuses.
+  const kit = SRC("lib/foundryKit.ts");
+  for (const marker of ["export function castStateMessage", "if (!d.itemActive) return", "return `${d.locationCode"]) {
+    for (const text of blockLiterals(kit, marker)) out.push({ file: "lib/foundryKit.ts", text });
+  }
+  // lib/foundry.ts (W2-FD-S r1, I-3): a return stream charged past its balance.
+  for (const text of blockLiterals(SRC("lib/foundry.ts"), "export function streamShortMessage")) out.push({ file: "lib/foundry.ts", text });
+  // lib/foundry.ts (W2-FD-S r2, m-d): a cast_close approval at a retired billet store.
+  for (const text of blockLiterals(SRC("lib/foundry.ts"), "export function billetStoreRetiredMessage")) out.push({ file: "lib/foundry.ts", text });
+  return out.filter((x) => isSentence(x.text));
+}
+
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
 const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
 

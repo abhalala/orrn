@@ -37,6 +37,8 @@ export const approvalRouter = router({
       z.object({
         status: z.enum(approvalStatuses).optional(),
         kind: z.enum(approvalKinds).optional(),
+        /** Only the requests about one record (a melt's correction requests, a cast's close). */
+        subjectId: z.string().min(1).max(64).optional(),
         limit: z.number().int().min(1).max(200).default(50),
         offset: z.number().int().min(0).default(0),
       }),
@@ -45,6 +47,7 @@ export const approvalRouter = router({
       const conditions: (SQL | undefined)[] = [eq(approval.companyId, ctx.companyId)];
       if (input.status) conditions.push(eq(approval.status, input.status));
       if (input.kind) conditions.push(eq(approval.kind, input.kind));
+      if (input.subjectId) conditions.push(eq(approval.subjectId, input.subjectId));
       const where = and(...conditions);
       const items = await ctx.db
         .select({

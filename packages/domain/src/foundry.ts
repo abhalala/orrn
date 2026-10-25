@@ -173,6 +173,12 @@ export type CastCloseTailInput = {
   onHandG: number;
   /** −Σ non-melt negative billet rows (press closes and other draws), i.e. billets used. */
   creditedG: number;
+  /**
+   * Q59-A (W2-FD-S r1): the billets PHYSICALLY counted in the yard at close, grams. When given, the
+   * tail is the ledger on hand − the count (the ledger alone always balances, so only a count can
+   * find a real gap) and `adjustG` = count − ledger is the `cast_tail` row the close posts.
+   */
+  countedG?: number;
 };
 export type CastCloseTail = { tailG: number; tailBp: number | null; needsApproval: boolean };
 
@@ -187,6 +193,60 @@ function castCloseTail(input: CastCloseTailInput): CastCloseTail {
     tailBp: input.producedG > 0 ? roundBp(tailG, input.producedG) : null,
     needsApproval: Math.abs(tailG) * 10_000 > input.producedG * CAST_TAIL_APPROVAL_BP,
   };
+}
+
+/** Close-out check (W2-FD-S): the spec E4 tail plus D22's "billets short" (on hand below zero). */
+export type CastCloseCheck = CastCloseTail & {
+  /** Billets the press logged beyond what the store held (−on hand when negative), grams. */
+  shortG: number;
+  /** Any non-zero tail or a shortfall: the closer names a reason code (kind `cast_tail`). */
+  needsReason: boolean;
+  /** With a count only: the `cast_tail` ledger row (count − ledger on hand, grams; 0 = no row). */
+  adjustG?: number;
+};
+
+/**
+ * Cast close (spec E4, brief W2-FD-S): tail = billets produced − billets the press used − billets on
+ * hand. Zero with nothing short closes as is; any other tail needs a reason code; a tail beyond 3 %
+ * of produced, or billets short (D22), also needs a second person (approval `cast_close`).
+ */
+export function castCloseCheck(input: CastCloseTailInput): CastCloseCheck {
+  const shortG = input.onHandG < 0 ? -input.onHandG : 0;
+  if (input.countedG !== undefined) {
+    const counted = input.countedG;
+    if (!Number.isInteger(counted) || counted < 0) throw new RangeError(`countedG must be whole grams >= 0, got ${counted}`);
+    const tailG = input.onHandG - counted;
+    const needsApproval = Math.abs(tailG) * 10_000 > input.producedG * CAST_TAIL_APPROVAL_BP || shortG > 0;
+    return {
+      tailG,
+      tailBp: input.producedG > 0 ? roundBp(tailG, input.producedG) : null,
+      needsApproval,
+      needsReason: tailG !== 0 || shortG > 0,
+      shortG,
+      adjustG: counted - input.onHandG,
+    };
+  }
+  const t = castCloseTail(input);
+  return { ...t, needsApproval: t.needsApproval || shortG > 0, needsReason: t.tailG !== 0 || shortG > 0, shortG };
+}
+
+/** LDO used on a melt, tenths of an inch: start − end; null when a dip is missing or the tank was refilled (end above start). */
+export function ldoUsedTenthIn(startTenthIn: number | null | undefined, endTenthIn: number | null | undefined): number | null {
+  if (startTenthIn == null || endTenthIn == null || endTenthIn > startTenthIn) return null;
+  return startTenthIn - endTenthIn;
+}
+
+/**
+ * Charge cost (FP-FD-20, a read, never stored): Σ lot kg × the lot's rate per kg (paise), each line
+ * rounded to the paisa. Null ("not costed") when any lot has no rate.
+ */
+export function chargeCostPaise(lines: readonly { kgG: number; ratePaise: number | null }[]): number | null {
+  let total = 0;
+  for (const l of lines) {
+    if (l.ratePaise == null) return null;
+    total += Math.round((l.kgG * l.ratePaise) / 1000);
+  }
+  return total;
 }
 
 // --- Spectro ---------------------------------------------------------------
@@ -300,8 +360,13 @@ export const FURNACE_SEED = { code: "F1", name: "Furnace 1", capacityG: 6_000_00
  * Melt lock gate (spec E4, C18): what stops a draft from locking. The server repeats the stock
  * checks (lot remaining, grade balance, stream active) inside the write.
  */
+/** The five times on the foundry sheet, in the order they happen (Q-P13). */
+export const MELT_TIME_KEYS = ["preheatStart", "chargingStart", "chargingEnd", "castingStart", "castingEnd"] as const;
+export type MeltTimeKey = (typeof MELT_TIME_KEYS)[number];
+
 export type MeltLockError =
   | "not_draft"
+  | "times_out_of_order"
   | "no_input"
   | "no_logs"
   | "no_charging_start"
@@ -324,8 +389,10 @@ export function meltLockGates(input: {
   spectroVerdict: SpectroVerdict | null;
   spectroReason?: string | null;
   alloyDiffersFromCast?: boolean;
-  /** Reason for a melt alloy other than the cast's (kept in notes). */
+  /** Reason for a melt alloy other than the cast's. */
   alloyReason?: string | null;
+  /** The five times in `MELT_TIME_KEYS` order (null = not written); the written ones must not go back. */
+  timesMs?: readonly (number | null)[];
 }): MeltLockError[] {
   const errors: MeltLockError[] = [];
   const ok = (s: string | null | undefined) => typeof s === "string" && s.trim().length >= 1 && s.trim().length <= FOUNDRY_REASON_MAX;
@@ -335,8 +402,13 @@ export function meltLockGates(input: {
   if ([...input.inputsG, ...input.logLinesG].some((g) => g > FOUNDRY_LINE_MAX_G)) errors.push("line_too_large");
   if (input.chargingStartMs == null) errors.push("no_charging_start");
   else if (input.castingEndMs == null || input.castingEndMs < input.chargingStartMs) errors.push("casting_before_charging");
+  if (input.timesMs) {
+    const written = input.timesMs.filter((t): t is number => t != null);
+    if (written.some((t, i) => i > 0 && t < written[i - 1]!)) errors.push("times_out_of_order");
+  }
   if (input.capacityG != null && furnaceLoad(input.balance.metalInG, input.capacityG) === "over") errors.push("over_capacity");
-  if (input.balance.needsReason && !ok(input.balanceReason)) errors.push("balance_reason_missing");
+  // Beyond 3 % either way, or ANY excess of output over input (inputs >= outputs sanity): a reason.
+  if ((input.balance.needsReason || input.balance.negativeBurn) && !ok(input.balanceReason)) errors.push("balance_reason_missing");
   if (input.spectroVerdict !== "pass" && !ok(input.spectroReason)) errors.push("spectro_reason_missing");
   if (input.alloyDiffersFromCast && !ok(input.alloyReason)) errors.push("alloy_reason_missing");
   return errors;

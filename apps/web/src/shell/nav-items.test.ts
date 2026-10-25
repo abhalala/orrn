@@ -27,6 +27,7 @@ describe("visibleItems", () => {
       "dispatch",
       "orders",
       "press",
+      "foundry",
       "reports",
       "purchase",
       "approvals",

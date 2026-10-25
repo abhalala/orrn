@@ -1,5 +1,5 @@
 /**
- * Fixture-backed components kept for the paused foundry and ageing lanes. Their routes are
+ * Fixture-backed components kept for the paused ageing lane. Their routes are
  * redirects to `/preview/coming-soon`; nothing here is in the nav. Do not add new modules.
  */
 export type PreviewModule = {
@@ -13,13 +13,6 @@ export type PreviewModule = {
 };
 
 export const PREVIEW_MODULES: readonly PreviewModule[] = [
-  {
-    slug: "foundry",
-    title: "Foundry",
-    summary: "Casts, melts, billets and chemistry.",
-    specPath: "docs/superpowers/specs/2026-10-24-orrn-fp-foundry-design.md",
-    featurePrefix: "FP-FD",
-  },
   {
     slug: "ageing",
     title: "Ageing",

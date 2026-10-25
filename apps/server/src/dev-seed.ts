@@ -24,6 +24,7 @@ import {
   meltChemical,
   meltInput,
   meltOutput,
+  meltReading,
   returnStream,
   spectroResult,
 } from "@orrn/db/schema/foundry";
@@ -67,7 +68,7 @@ import {
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
-import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -78,7 +79,7 @@ import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSeri
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
-import { defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
+import { castCloseout, defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
 import { shiftAt } from "@orrn/server/lib/press";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
 import { allocatePartyBundleNumbers, docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
@@ -1257,7 +1258,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       alloy: "6063",
       alloyId: "dev-alloy-6063",
       status: "closed",
-      notes: "Billets from the paper sheet (opening balance)",
+      notes: "Melt 1: 2.4 t of logs",
       openedAt: new Date(pastAt(2, 8)),
       closedAt: new Date(pastAt(1, 18)),
       closedBy: ownerId,
@@ -1283,11 +1284,29 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       closedBy: ownerId,
       createdBy: ownerId,
     },
+    // W2-FD-S: today's cast, still open, with one melt being written up (a draft posts nothing).
+    {
+      id: "dev-press-cast-3",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      number: formatCastCode(castMonth, 3),
+      period: castPeriod,
+      year: Number(castPeriod.slice(0, 4)),
+      month: castMonth,
+      seq: 3,
+      alloy: "6063",
+      alloyId: "dev-alloy-6063",
+      status: "open",
+      openedAt: new Date(pastAt(0, 6)),
+      createdBy: ownerId,
+    },
   ];
   const castSeriesRows: (typeof docSeries.$inferInsert)[] = [
     { id: `dev-press-series-cast-${castPeriod}`, companyId: COMPANY_ID, docType: "cast", period: castPeriod, value: castRows.length, createdBy: ownerId },
   ];
   const billetOpeningG = 2_400_000;
+  /** W2-FD-S: what dev-melt-1 charged from LOT-6 (dev-lot-06, 17,950 kg). */
+  const meltLotG = 2_600_000;
   // PR-8 counts on Today's "pressed today", which reads the CURRENT production day: its run and
   // downtime sit inside it (7f172a70).
   const pressDayAt = clock.dayAt;
@@ -1553,7 +1572,9 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   // simulated one that can only be dismissed. Their R2 objects do not exist: attach/dismiss never read them.
   const collectorMeltRows: (typeof melt.$inferInsert)[] = [
     // m-6: a locked melt reads like one: times in lock order (charging start, casting end) inside
-    // the cast's day, and its figures (2.6 t charged, the 2.4 t of billets the cast opened with).
+    // the cast's day, and its figures. W2-FD-S: a complete melt as melts.lock posts it: 2.6 t of
+    // LOT-6 charged, 2.4 t of logs (the cast's billets; no paper "opening" any more), 130 kg dross,
+    // 20 kg Fe, 50 kg burnt; spectro passed; the billets then went to PR-8, PR-11 and PR-12.
     {
       id: "dev-melt-1",
       companyId: COMPANY_ID,
@@ -1569,14 +1590,46 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       chargingEndAt: new Date(pastAt(2, 8.5)),
       castingStartAt: new Date(pastAt(2, 9)),
       castingEndAt: new Date(pastAt(2, 11)),
-      inputG: 2_600_000,
+      inputG: meltLotG,
       logsPcs: 40,
       logsLengthMm: 6_000,
       logsG: billetOpeningG,
       drossG: 130_000,
-      returnsG: 70_000,
+      feG: 20_000,
+      returnsG: 0,
+      outputG: billetOpeningG + 150_000,
+      lossG: 50_000,
+      lossBp: 192,
+      yieldBp: 9_231,
+      warnings: [],
+      ldoStartTenthIn: 480,
+      ldoEndTenthIn: 455,
+      lockedAt: new Date(pastAt(2, 11.5)),
+      lockedBy: ownerId,
       createdBy: ownerId,
     } as typeof melt.$inferInsert,
+    // The open cast's melt in progress: charging started, nothing locked (FP-FD-03 draft).
+    {
+      id: "dev-melt-2",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      castId: "dev-press-cast-3",
+      seq: 1,
+      alloy: "6063",
+      alloyId: "dev-alloy-6063",
+      furnaceId: "dev-furnace-f1",
+      status: "draft",
+      preheatStartAt: new Date(pastAt(0, 6)),
+      chargingStartAt: new Date(pastAt(0, 6.75)),
+      inputG: 1_500_000,
+      createdBy: ownerId,
+    } as typeof melt.$inferInsert,
+  ];
+  const meltLot = lotRows.find((l) => l.id === "dev-lot-06")!;
+  const meltLotRef = scrapItemRef(meltLot.scrapItemId!, meltLot.scrapGradeId!);
+  const meltInputRows: (typeof meltInput.$inferInsert)[] = [
+    { id: "dev-melt-1-in-1", companyId: COMPANY_ID, serverSeq: collectorMeltRows[0]!.serverSeq!, meltId: "dev-melt-1", line: 1, kind: "lot", lotId: "dev-lot-06", itemRef: meltLotRef, locationId: scrapLocationId, kgG: meltLotG, createdBy: ownerId },
+    { id: "dev-melt-2-in-1", companyId: COMPANY_ID, serverSeq: collectorMeltRows[1]!.serverSeq!, meltId: "dev-melt-2", line: 1, kind: "lot", lotId: "dev-lot-06", itemRef: meltLotRef, locationId: scrapLocationId, kgG: 1_500_000, createdBy: ownerId },
   ];
   const alertAt = (minAgo: number) => new Date(now - minAgo * 60_000);
   const collectorAlertRows: (typeof pressAlert.$inferInsert)[] = [
@@ -1703,6 +1756,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     db.delete(spectroInbox).where(eq(spectroInbox.companyId, COMPANY_ID)),
     db.delete(spectroResult).where(eq(spectroResult.companyId, COMPANY_ID)),
     db.delete(meltChemical).where(eq(meltChemical.companyId, COMPANY_ID)),
+    db.delete(meltReading).where(eq(meltReading.companyId, COMPANY_ID)),
     db.delete(meltOutput).where(eq(meltOutput.companyId, COMPANY_ID)),
     db.delete(meltInput).where(eq(meltInput.companyId, COMPANY_ID)),
     db.delete(melt).where(eq(melt.companyId, COMPANY_ID)),
@@ -1883,6 +1937,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     ...insertChunks(db, docSeries, pressPlanSeriesRows),
     // Collector UIs (BACKLOG 46): a melt for the inbox's picker, alerts and files to work through.
     ...insertChunks(db, melt, collectorMeltRows),
+    ...insertChunks(db, meltInput, meltInputRows),
     ...insertChunks(db, pressAlert, collectorAlertRows),
     ...insertChunks(db, spectroInbox, collectorInboxRows),
   ];
@@ -1915,22 +1970,70 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     reason,
     createdBy: ownerId,
   });
+  const meltSeq = collectorMeltRows[0]!.serverSeq!;
+  const meltAt = new Date(pastAt(2, 11.5));
+  const meltLedgerRow = (line: number, itemKind: "scrap_grade" | "billet" | "return_stream", itemRef: string, locationId: string, qtyG: number, reason: string) => ({
+    id: `dev-ledger-melt-1-${line}`,
+    companyId: COMPANY_ID,
+    serverSeq: meltSeq,
+    voucherType: "melt" as const,
+    voucherId: "dev-melt-1",
+    line,
+    itemKind,
+    itemRef,
+    locationId,
+    qtyG,
+    postedAt: meltAt,
+    reason,
+    createdBy: ownerId,
+    createdAt: meltAt,
+  });
+  const meltLedger = [
+    meltLedgerRow(1, "scrap_grade", meltLotRef, scrapLocationId, -meltLotG, meltLot.number!),
+    meltLedgerRow(2, "billet", "dev-press-cast-1", devLocationId("BILLET"), billetOpeningG, `${castRows[0]!.number} logs`),
+    meltLedgerRow(3, "return_stream", streamOf("DROSS"), devLocationId("PLANT-SCRAP"), 130_000, "DROSS"),
+    meltLedgerRow(4, "return_stream", streamOf("FE"), devLocationId("PLANT-SCRAP"), 20_000, "FE"),
+  ];
+  const meltOutputBase = { companyId: COMPANY_ID, serverSeq: meltSeq, meltId: "dev-melt-1", createdBy: ownerId, createdAt: meltAt };
+  const meltOutputRows: (typeof meltOutput.$inferInsert)[] = [
+    { ...meltOutputBase, id: "dev-melt-1-out-2", line: 2, kind: "logs", pcs: 40, lengthMm: 6_000, billetLengthMm: 600, diameterMm: 127, kgG: billetOpeningG, locationId: devLocationId("BILLET") },
+    { ...meltOutputBase, id: "dev-melt-1-out-3", line: 3, kind: "dross", returnStreamId: streamOf("DROSS"), kgG: 130_000, locationId: devLocationId("PLANT-SCRAP") },
+    { ...meltOutputBase, id: "dev-melt-1-out-4", line: 4, kind: "fe", returnStreamId: streamOf("FE"), kgG: 20_000, locationId: devLocationId("PLANT-SCRAP") },
+  ];
+  // The lab's result for melt 1: every element inside the 6063 limits, judged as spectro.attach judges it.
+  const meltSpectro: typeof spectroResult.$inferInsert = {
+    id: "dev-spectro-melt-1",
+    companyId: COMPANY_ID,
+    serverSeq: meltSeq,
+    meltId: "dev-melt-1",
+    castId: "dev-press-cast-1",
+    fileName: "K31-1.csv",
+    mime: "text/csv",
+    sizeBytes: 0,
+    dataBase64: "",
+    valuesPpm: { Si: 4_500, Fe: 1_800, Cu: 100, Mn: 100, Mg: 5_200, Zn: 100, Ti: 100, Cr: 100 },
+    siPpm: 4_500,
+    fePpm: 1_800,
+    cuPpm: 100,
+    mnPpm: 100,
+    mgPpm: 5_200,
+    znPpm: 100,
+    tiPpm: 100,
+    crPpm: 100,
+    alPpm: 1_000_000 - (4_500 + 1_800 + 100 + 100 + 5_200 + 100 + 100 + 100),
+    alSource: "balance",
+    verdict: "pass",
+    limitsSnapshot: { alloyId: "dev-alloy-6063", alloyCode: "6063", limits: ALLOY_LIMIT_SEEDS["6063"].map((l) => ({ ...l })) },
+    source: "file",
+    createdBy: ownerId,
+    createdAt: new Date(pastAt(2, 10)),
+  };
   await atomicBatch(db, [
-    db.insert(stockLedger).values({
-      id: "dev-ledger-press-cast-1-opening",
-      companyId: COMPANY_ID,
-      serverSeq: castRows[0]!.serverSeq!,
-      voucherType: "opening",
-      voucherId: "dev-press-cast-1",
-      line: 1,
-      itemKind: "billet",
-      itemRef: "dev-press-cast-1",
-      locationId: devLocationId("BILLET"),
-      qtyG: billetOpeningG,
-      postedAt: new Date(pastAt(1, 18)),
-      reason: "Billets on hand from the paper cast sheet",
-      createdBy: ownerId,
-    }),
+    // W2-FD-S: dev-melt-1's lock, exactly as melts.lock posts it: LOT-6 out of scrap stock, the logs
+    // into the billet store as cast 1, dross and Fe to their streams. Then its outputs and spectro.
+    ...insertChunks(db, stockLedger, meltLedger),
+    ...insertChunks(db, meltOutput, meltOutputRows),
+    db.insert(spectroResult).values(meltSpectro),
     db.insert(stockLedger).values([
       pressLedger(1, "billet", "dev-press-cast-1", "BILLET", -310_400, "PR-8 billets"),
       pressLedger(2, "return_stream", streamOf("DISCARD"), "PLANT-SCRAP", 25_000, "PR-8 butt"),
@@ -2125,6 +2228,41 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       { voucherId: "dev-opening-balance" },
     ),
   ]);
+
+  // 5b. W2-FD-S r1 (Q59-A, review m-12): cast 1 was closed on a yard count. The count found exactly
+  //     what its ledger holds after the seed's press postings (1,493.6 kg), so its tail is 0 and no
+  //     `cast_tail` row is posted. The billets stay in stock under the closed cast for later runs.
+  {
+    const co = await castCloseout(db, COMPANY_ID, "dev-press-cast-1");
+    const counted = co.billetsOnHandG;
+    const check = castCloseCheck({ producedG: co.producedG, onHandG: co.billetsOnHandG, creditedG: co.creditedG, countedG: counted });
+    await db
+      .update(cast)
+      .set({
+        tailG: check.tailG,
+        tailBp: check.tailBp,
+        closeRequestedAt: new Date(pastAt(1, 18)),
+        closeRequestedBy: ownerId,
+        closeSummary: {
+          producedG: co.producedG,
+          creditedG: co.creditedG,
+          billetsOnHandG: co.billetsOnHandG,
+          shortG: check.shortG,
+          tailG: check.tailG,
+          tailBp: check.tailBp,
+          inputG: co.inputG,
+          logsG: co.logsG,
+          bundlesG: co.bundlesG,
+          reasonCode: null,
+          // 600 mm billets of 127 mm dia weigh about 38.8 kg each.
+          countedCount: Math.round(counted / 38_800),
+          countedG: counted,
+          adjustG: check.adjustG ?? 0,
+          adjustLocationId: null,
+        },
+      })
+      .where(and(eq(cast.id, "dev-press-cast-1"), eq(cast.companyId, COMPANY_ID)));
+  }
 
   // 6. FP-PF rows: a build per native platform, the pack tablet, one support request.
   await seedPlatformRows(db, { companyId: COMPANY_ID, ownerId, operatorId, staffId: users.staff.id, now });
