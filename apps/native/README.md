@@ -12,7 +12,7 @@ cp apps/native/.env.example apps/native/.env  # then set EXPO_PUBLIC_SERVER_URL 
 bun run --cwd apps/native dev                 # Metro
 ```
 
-The app has a native module that Expo Go does not carry (`expo-speech`), so it needs a development build:
+The app has native modules that Expo Go does not carry (`expo-speech`, `expo-application`, `expo-crypto` and `expo-camera` for the foundry spectro photo), so it needs a development build:
 
 ```bash
 cd apps/native
@@ -23,7 +23,7 @@ bunx expo run:ios          # macOS with Xcode
 `EXPO_PUBLIC_SERVER_URL` from an Android emulator: `localhost` is the emulator itself. Use
 `http://10.0.2.2:<api port>` or run `adb reverse tcp:<api port> tcp:<api port>` and keep `http://localhost:<api port>`.
 A real phone needs the computer's LAN address. Seed accounts and the shared password are in `docs/LOCAL_DEV.md`
-(`owner@`, `office@`, `supervisor@`, `press@`, `dieroom@` and `operator@orrn.local`).
+(`owner@`, `office@`, `supervisor@`, `press@`, `dieroom@`, `foundry@` and `operator@orrn.local`; `foundry@` opens the Cast tab, and `press@`, `operator@`, `supervisor@` and `manager@` find Ageing under More).
 
 ## Checks
 

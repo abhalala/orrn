@@ -35,6 +35,14 @@ const APPROVALS: RelatedScreen = {
   requires: ["masters.publish", "purchase.dcnote", "die.rerank", "cast.close", "cast.enter"],
 };
 
+const FOUNDRY: RelatedScreen = {
+  to: "/casts",
+  labelKey: "nav.foundry",
+  requires: ["cast.enter", "cast.close", "melt.enter"],
+};
+const AGEING: RelatedScreen = { to: "/ageing", labelKey: "nav.ageing", requires: ["ageing.view", "ageing.enter"] };
+const AGEING_LOAD: RelatedScreen = { to: "/ageing/load", labelKey: "ageing.load.title", requires: ["ageing.load"] };
+
 export const RELATED_SCREENS: Record<GuideSlug, readonly RelatedScreen[]> = {
   "pack-session": [PACK, BUNDLES],
   "reprint-label": [BUNDLES, PRINTING],
@@ -77,6 +85,15 @@ export const RELATED_SCREENS: Record<GuideSlug, readonly RelatedScreen[]> = {
   "portal-login": [CUSTOMERS, { to: "/settings", labelKey: "nav.settings", requires: ["settings.update", "users.manage"] }],
   "issue-certificate": [DISPATCH],
   "reason-codes": [MASTERS],
+  "open-cast": [FOUNDRY, MASTERS],
+  "melt-entry": [FOUNDRY],
+  "spectro-attach": [FOUNDRY],
+  "cast-close-count": [FOUNDRY, APPROVALS],
+  "load-trolley": [AGEING_LOAD, AGEING],
+  "age-and-release": [AGEING, APPROVALS],
+  "pack-from-trolley": [PACK, AGEING],
+  "die-share-link": [DIES],
+  "approvals-review": [APPROVALS],
 };
 
 /** The related screens this person can open. */

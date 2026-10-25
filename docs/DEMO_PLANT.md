@@ -55,8 +55,8 @@ order), Mehta Windows.
 
 **Sections (12)** from the catalogue (patti 14701, angle 11250 and 11262, tee 13090 and 13072, channel 12212
 and 12230, patti 14715, flat 14730, angle 11280, tubes 15204 and 15310). Each has one to three copies
-(`14701-1`, `14701-2`; Tee 13090 has 20: each e2e width mutates its own, nine are on trial). Five sections
-have a heavier band (the ladder). Drift is computed by the server: green (up to +8 % over the band start),
+(`14701-1`, `14701-2`; Tee 13090 has 19: each e2e width mutates its own, nine are on trial; 34 copies in all). Six sections
+have a heavier band (the ladder: Tee, patti 14701, angle 11250 and 11262, channel 12212, flat 14730). Drift is computed by the server: green (up to +8 % over the band start),
 amber (up to +10 %), red. Examples: 13090-1 green, 13090-2 amber, 13090-3 red on the heavy band, 14701-2
 red (a lift to the heavier band is waiting for a manager), 11250-2 red and **at nitriding** (with its log),
 12212-2 **at the die maker** (job DM-1 open), 12230 **owned by KD** (Tejura & Sons' exception on 12230-1 is approved; Royal is refused),
@@ -112,9 +112,9 @@ from the seed; Today shows "In the oven: 1". `OVEN_SIMULATOR=1` (local only) add
 Serials are `BG-000001-B001` style plus one plant-format clash on purpose (`26J1` is both a plant serial and
 KD's first party number, so a scan of it is `ambiguous`). Every bundle has its **copy**, and a **cast** from session 3 on (sessions
 6-8 from `dev-press-cast-1`, 3-5 from cast 2); KD's first truck predates cast numbers, so its certificate says
-"bundles have no cast number". Of the 84 in stock: most stand on an order line, 13
+"bundles have no cast number". Of the 84 packed and not yet dispatched, 74 are in stock (available) and 10 are held (reserved on the held dispatch; Today and Stock count in stock as available only, FINAL-FIXES-2). Most stand on an order line, 13
 are **plant stock** (a transfer to no line, D20; 2 of them also **held** for SO-8), the rest are on no order (legacy stock).
-42 are dispatched, 10 reserved on the held dispatch, 3 void. The six yards all hold stock.
+42 are dispatched, 3 void. The six yards all hold stock.
 **CNT-1** (yards Y1 and Y2, closed two days ago): 2 phantoms nobody found, 1 code scanned that is in no
 list, 1 bundle found in the wrong yard.
 
@@ -155,7 +155,7 @@ decides their own. The `die_owner_override` for Tejura & Sons on KD's 12230-1 is
 7a. **Ageing** as `press` (More, Ageing): the board (AG-2 soaking in OV-1, T-1 released), then Load trolley with the 10 pcs left, Start on a free trolley, add readings, Take out, record hardness; as `supervisor` Release, hold a line, ask for approval; as `manager` approve it in Approvals (the figures are in the sheet). Pack then lists the released line under "Trolley line"; the bundle page says "Aged" and links to its batch.
 7b. **Ageing on the phone** (native, More, Ageing; first row for `press`, `supervisor`, `operator`, `manager`, `office`, `admin`): the board lists OV-1 with AG-2 (stage, last temperature, soak timer, a line of the log), T-1 and T-2, and the held batches first. As `press` or `operator`: Load trolley (T-1 or T-2 once free, or the 10 pcs left on PR-8; pieces default to all), open the batch, Start (recipe shown, gas meter), Add reading (a collector or simulator reading is listed read-only), Take out, Record hardness (the median is the server's). As `supervisor`: Release (the soak verdict panel says ok, under-aged or over-aged), Hold a line, Clear hold, Ask for approval. Age again, Discard the rest and Void are on the web: the batch screen names them under "Open on the web". Today carries an Ageing tile (in the oven, out, held); the bundle page shows "Aged" with its batch, and the void sheet says whether the pieces go back or are written off.
 8. **Portal** as `party`: KD sees its own dispatch and certificate, never Royal's.
-9. **Foundry** as `foundry` on a phone (W2-FD-W): Today's Foundry tile (open casts, melts in progress, spectro waiting), then
+9. **Foundry** as `foundry` on the web, at a desk or tablet (W2-FD-W): Today's Foundry tile (open casts, melts in progress, spectro waiting), then
    `/casts`. Open the seeded cast 3 (open, a draft melt): the stepper opens on the draft's steps (times, charge of LOT-6,
    chemicals and LDO, logs and dross, spectro and lock); the last step lists what still stops the lock, each with a button to the
    step that fixes it. Type the spectro numbers with a reason (Fe 0.41 shows a fail against the 6063 limits), lock the melt, and
@@ -190,7 +190,7 @@ decides their own. The `die_owner_override` for Tejura & Sons on KD's 12230-1 is
 
 `apps/server/src/dev-seed.ts` (orchestration, customers, bundles, dispatches, purchase, packing lists) and one
 module per area: `dev-seed-orders.ts`, `dev-seed-dies.ts`, `dev-seed-press.ts`, `dev-seed-count.ts`,
-`dev-seed-printing.ts`, `dev-seed-portal.ts`, `dev-seed-platform.ts`, `dev-seed-kit.ts` (time and chunking
+`dev-seed-printing.ts`, `dev-seed-portal.ts`, `dev-seed-platform.ts`, `dev-seed-ageing.ts`, `dev-seed-store.ts`, `dev-spectro.ts` (the local spectro fixture hook), `dev-seed-kit.ts` (time and chunking
 helpers), `dev-accounts.ts` (logins and roles). Tests: `packages/server/test/dev-seed-demo-plant.test.ts`
 (the plant in numbers, idempotence, seven moments in time) and the older per-module seed tests, which use
 `test/dev-seed-fixture.ts` to create the logins.

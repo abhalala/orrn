@@ -42,7 +42,7 @@ export const GUIDE_SLUGS_BASE = [
   "floor-tablet-signin",
 ] as const;
 
-/** FP modules: orders and planning, press, die room, dispatch from an order, count settlement, portal, reasons. */
+/** FP modules: orders and planning, press, die room, dispatch from an order, count settlement, portal, reasons, foundry, ageing, die share link, approvals. */
 export const GUIDE_SLUGS_FP = [
   "book-order",
   "hold-for-order",
@@ -63,6 +63,15 @@ export const GUIDE_SLUGS_FP = [
   "portal-login",
   "issue-certificate",
   "reason-codes",
+  "open-cast",
+  "melt-entry",
+  "spectro-attach",
+  "cast-close-count",
+  "load-trolley",
+  "age-and-release",
+  "pack-from-trolley",
+  "die-share-link",
+  "approvals-review",
 ] as const;
 
 export const GUIDE_SLUGS = [...GUIDE_SLUGS_BASE, ...GUIDE_SLUGS_FP] as const;

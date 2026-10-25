@@ -354,7 +354,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 - Owner gate: `assertDieAllowed` (`lib/dieOwner.ts`) is called for purposes `plan`, `press`, `pack` and `dispatch`; a customer's own die never goes to another party's order, run, bundle or load unless an approved `die_owner_override` exists. A section grant in the portal never overrides another party's ownership (see Customer portal).
 - A press run's close reaches the copy through `applyTrialVerdictOnReturn` (see Press); drift on a reading is never stored (above); die life (`life_g` against logged runs) is a report (see Analytics).
-- Nitriding: maker send/receive and nitriding out/back have no e2e yet (BACKLOG 19, open).
+- Nitriding: maker send/receive (on trial) and nitriding out/back (server-derived close) are covered by `die-room-flows.spec.ts`.
 - Nitriding close is server-derived: the client sends `openG` and `usedG` and the server derives `closeG = open - used` (a `closeG` still sent must equal it; used above open is refused).
 - Files (`DIE_FILES` R2 bucket) are committed in two steps (signed PUT, then `files.commit`); an upload that is never committed leaves an orphan object.
 - The daily cron purges orphan die-file objects (`lib/dieFilesPurge.ts`, lifecycle note in `docs/R2_BUCKETS.md`).
@@ -596,7 +596,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Retention: simulated frames 24 h, real frames 90 days (the real period is an owner decision), purged by the daily cron; run annotations outlive their frames.
 - Spectro: the file is hashed before it is stored (R2 `{companyId}/spectro/{inboxId}`, at most 5 MB, ticketed 10-minute PUT), idempotent on (company, sha256). A person with `cast.enter` attaches it to a melt of an existing cast or dismisses it; nothing is attached automatically (the sample label is free text) and a simulated file can only be dismissed.
 - **Open alert (BACKLOG 81, `alertOpenSql`).** ONE definition: an alert is open until it is acknowledged, whether its reading has ended or not. The Today chip (`dashboard.today.pressAlerts.open`), `press.collector.alerts({ openOnly })`, `openAlertCount` ({ open, all }, the page's tab counts) and the "No open alerts" empty state all use it. Whether the reading is still out of band is a separate fact on the row ("Ongoing" or "Ended", `alertEndedAt`). "Alerts today" counts alerts that started since the production day began. Known gap (BACKLOG, review m7): there is no "Acknowledge all ended" action and alerts are never purged, so a noisy sensor or the simulator makes the open count grow until somebody acknowledges each one; add a bulk acknowledge for ended alerts (`press.close`).
-- Screens: `/press/alerts` (list + acknowledge, `press.close`), Settings > Devices "Collectors" card (limits per press and reading, `masters.publish`; needs users.manage to reach, managers use the API) and `/casts/inbox` (attach / dismiss, `cast.enter`). The Today alerts chip links to the list.
+- Screens: `/press/alerts` (list + acknowledge, `press.close`), Settings > Standards "Collectors" card (`CollectorsCard` in `standards-tab.tsx`: limits per press and reading; the Standards tab has no `requires`, the card gates its own edits with `masters.publish` (`<Can>` in `collectors-card.tsx`); the Devices tab needs users.manage and does not hold it) and `/casts/inbox` (attach / dismiss, `cast.enter`). The Today alerts chip links to the list.
 
 # 9. Purchase, store and foundry
 
@@ -700,13 +700,18 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   Codes are stable keys other modules post to (press discard → DISCARD, ends / QC rejects →
   PLANT-SCRAP); code and kind never change after create. They sit at the plant-scrap (`wip`)
   location. `seedDefaults` (masters.publish or cast.enter) and every `casts.open` add missing ones. `returnStreams.opening` (masters.publish, W2-FD-W) posts a stream's go-live balance once (an `opening` ledger row at plant scrap, voucher = the stream), from the Return streams panel on `/foundry/stock`; without it a fresh plant's first melt cannot take metal from a stream.
-  Stream draws are not balance-guarded (no opening counts yet); negative balances show on
-  `returnStreams.list`.
+  A melt may not take more from a stream than its balance at plant scrap: the net kg (charged minus
+  returned to the same stream) above the balance is refused "Only N kg of <stream> is in stock", checked on read
+  and again inside the batch. A fresh plant has no balances, so the owner enters one opening entry per stream
+  (`returnStreams.opening`, once per stream) before the first melt can take metal from it.
 - A cast is a campaign: `casts.open` (cast.enter) takes its number from the doc series (`K31`, month
   letter + monthly seq, year stored). Status `open → closing → closed` (`closing` = waiting on a
   `cast_close` approval; rejected → `open`). Never use `cast` unquoted in raw SQL (it is a keyword):
   interpolate `${cast}` or `sql.identifier("cast")`.
-- `melts.create` (cast.enter) is ONE batch: cast `melt_count + 1` (guarded: still open, billet store
+- **Legacy `melts.create`** (cast.enter) still exists (the e2e chain, the portal tests and about 170 server tests use it) and
+  posts on create, but it now runs `meltLockGates` too: no logs, a balance beyond 3 % without `balanceNote`, a spectro reason
+  (optional `spectroReason`; create has no result) and the active furnace's capacity refuse with the gate sentence and
+  `meta.gates`. No web or phone screen calls it; the stepper's `melts.save` then `melts.lock` is the way. It is ONE batch: cast `melt_count + 1` (guarded: still open, billet store
   and plant scrap still active, output streams still active) → melt row (INSERT … SELECT from that
   cast) → one guarded INSERT … SELECT per input line (lot still OK with remaining ≥ kg; stream still active and
   `charge`) → `foundryAbort` (NOT NULL on `melt_input.id`) unless every line landed → outputs,
@@ -724,16 +729,28 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Balance (spec P15): `meltBalance` — loss above 3 % of the input (`lossG × 10000 > inputG × 300`) or
   any output above input warns; warnings are returned and stored on the melt (`melt.warnings`), never
   block. Burn loss up to 3 % per melt (`allowed_burn_g`) counts as explained at close-out.
-- Close-out (spec E4, W2-FD-S, cast.close: supervisor, manager, admin, owner): billets produced (Σ logs of
-  LOCKED live melts) − billets the press used (`castPressReturnsSql`: −Σ billet ledger rows of the cast with
-  voucher_type press_run / press_run_reopen) − billets on hand (Σ billet ledger of the cast) = tail.
-  Furnace burn and bundles are shown beside it, never in it. Any non-zero tail, or billets short (on hand
-  below 0, D22: the press logged more than the store held), needs a `cast_tail` reason code; |tail| above
-  3 % of produced, or billets short, also goes to `closing` + approval `cast_close` (never the requester;
-  applied by `lib/approvalApply.ts`). A draft melt blocks the close. The close UPDATE is guarded by the
-  cast's `server_seq`, `melt_count`, draft count = 0 and the tail / on hand read at write time; replay by
-  `clientMutationId` ("cast.close"). BACKLOG 55 (castPressReturnsSql returned 0) is FIXED: a cast whose
-  billets went to logged runs closes with no reason (w2-fd-s-foundry.test.ts "REAL logged press run").
+- Close-out (spec E4, Q59-A, cast.close: supervisor, manager, admin, owner; `casts.close` and `casts.closePreview`). The
+  foundry **counts the billets physically** (`billetsOnHand: { count, kgG }`, pieces and grams weighed together) and the
+  server finds the tail: produced (Σ logs of LOCKED live melts) − billets the press used (`castPressReturnsSql`: −Σ billet
+  rows with voucher_type press_run / press_run_reopen, per cast) = ledger on hand; **tail = ledger on hand − counted**; the
+  adjustment = counted − ledger. Clients never send a tail or a verdict. Furnace burn and bundles are shown beside the tail,
+  never in it. Any non-zero tail needs a `cast_tail` reason code (three refusals: the press used X kg more than the store
+  held, X kg is not explained, the count finds X kg more than the ledger). **The 3 % rule:** |tail| above 3 % of produced,
+  or billets short (on hand below 0, D22), also sends the cast to `closing` and an approval `cast_close` (never the
+  requester; applied by `lib/approvalApply.ts`, which posts one `cast_tail` ledger row of the frozen adjustment on approve and
+  nothing on reject; a retired billet store refuses the approval until it is reactivated or the close is rejected). Otherwise
+  the cast is `closed` and the same batch posts the `cast_tail` row when the adjustment is not 0. **The counted billets stay
+  in stock** under the cast and a later press run may use a closed cast. A draft melt blocks the close. The close UPDATE is
+  guarded by the cast's `server_seq`, `melt_count`, draft count = 0 and the on-hand read at write time; replay by
+  `clientMutationId` ("cast.close"). While a cast is `closing` the press's on hand for it is the ledger plus the frozen
+  adjustment (counted − used since the count), so the D22 short and the write-time guard agree. BACKLOG 55
+  (`castPressReturnsSql` returned 0) is FIXED: a cast whose billets went to logged runs closes with no reason.
+- **Per-cast billets on the press (I-1c).** `press.runs.billets` rows may each name a `castId` (the run's own cast must appear
+  on at least one row, gate `billet_cast_mismatch` = "no row of the run's cast"). A row naming another cast is refused when
+  that cast's alloy is not the run's ("Billets of K are 6061; this run is 6063"); another cast of the same alloy is allowed.
+  `press.runs.close` posts ONE billet ledger row per cast, each guarded on that cast's own stock, and billets-short is per
+  cast. `casts.trace` lists every non-void run with a billet row of the cast, marking `mixed` runs (bundles carry the run's
+  own cast).
 - Melt stepper (W2-FD-S, `routers/foundryMelt.ts`, melt.enter: foundry, supervisor, owner): `melts.save`
   writes a DRAFT (no ledger, no MRS, lots keep their kg; every sum counts status = 'locked' only);
   `melts.lock` checks the gates (`meltLockGates`: times in sheet order, input and logs present, capacity,
@@ -746,6 +763,16 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   `foundry.furnaces.*`, `foundry.alloys.*` (masters.publish). Reads: `casts.trace`, `casts.traceBundle`,
   `casts.cost` (purchase readers), `stock.billets`, `analytics.foundryYield`. Furnace readings:
   `readings.add` (typed), `readings.simulate` only with FOUNDRY_SIMULATOR=1 (owner-only bring-up, Q46/Q47).
+- **Lock posts, a draft does not.** Every sum counts `status = 'locked'` and not `cancelled_at`. Melt status is `draft | locked |
+  cancelled | corrected` (a discarded draft is `cancelled` with `locked_at` null; `melts.correct` marks the original
+  `corrected`, and its copy names it in `corrects_melt_id` and copies the latest live spectro result so the copy locks without a
+  new sample). The lock re-reads the latest live spectro result at write time and refuses "The spectro result changed; check
+  it and lock again" if a void or a newer attach slipped in. A result judged for another alloy (the limits snapshot's alloy is
+  not the melt's) makes `spectroVerdict` null and `spectroNeedsNewSample` true: the gate asks for a reason or a new sample.
+  **Deciding spectro result:** `decidingSpectro` in `@orrn/domain` and the server's `latestSpectro` take the latest live result
+  that **has values** (`spectroHasValues`: `values_ppm` has keys; ties by `server_seq`); a photo-only result never replaces typed
+  numbers, and the certificate, the lock gate and the phone all use that one rule. Spectro attach with an empty file and typed
+  numbers needs `entryReason` (stored as `source: "typed"`).
 - `melts.cancel` (cast.close only since W2-FD-S, open casts only): moves the cast's `server_seq` (so a close
   that read the figures before refuses), marks the melt, reverses every melt ledger row
   (`melt_cancel`, `reversal_of`), cancels its MRS draws through `storeCancelRows/Mark`;
@@ -770,14 +797,14 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 ### Foundry and press contracts from migration 0028 (FP-W2)
 
 - Foundry: `furnace`, `alloy`, `alloy_limit` (ppm min/max per element), cast `alloy_id` + cancel
-  columns (status +`cancelled`), melt `status` draft|locked|cancelled (SQL default `locked`: the PL5
+  columns (status +`cancelled`), melt `status` draft|locked|cancelled|corrected (SQL default `locked`: the PL5
   create path posts on create), nullable times/dips for drafts, `furnace_id`, `alloy_id`, `yield_bp`,
   `spectro_reason`, `locked_at/by`. Spec names map onto PL5 columns: metal_in_g = `input_g`, burn_g =
   `loss_g`, balance_bp = `loss_bp`, balance_reason = `balance_note`. Spectro typed ppm columns +
-  `verdict` + `limits_snapshot` + `al_source` + `file_key` + void columns. Maths: `meltBalance`
+  `verdict` + `limits_snapshot` + `al_source` + `file_key` + void columns (migration `0036_foundry` adds `melt_reading`, the melt
+  alloy reason and correction link, billet length and diameter on outputs, spectro source / entry reason and the cast tail reason). Maths: `meltBalance`
   (lock shape `{lotsG, streamsG, logsG, drossG, feG}`), `castTail({producedG, onHandG, creditedG})`
   (3 %), `spectroCheck` / `spectroVerdict`, `meltLockGates`, `furnaceLoad`, `ALLOY_LIMIT_SEEDS`.
-  The PL5 shapes of `meltBalance` / `castTail` still answer as before until W2-FD-S moves to lock.
 - A draft melt must not count against a lot or post anything: readers that sum melt lines filter
   `melt.status = 'locked'` (W2-FD-S). 0028 rebuilds `melt` and refuses to run (NOT NULL failure on
   `__w2_melt_guard`) when melts already exist, rather than cascading their lines away.
@@ -786,12 +813,15 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 
 ## Ageing (contracts W3-AG-C, server W3-AG-S, web W3-AG-W)
 
-D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d never landed; this branch's contracts supersede it. Cheat-sheets: `.fp-build/reports/W3-AG-C-cheatsheet.md` (contracts) and `.fp-build/reports/W3-AG-S-cheatsheet.md` (procedures, inputs, outputs, permissions, refusals for the web and native lanes).
+D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky` @1ebdd0d7 (and `wt/W2-FD-S-omafranky` @ddf3bd9c for the foundry); both are superseded, not merged (D32: the hub's lanes win; 8 satellite test cases were ported into W2-FD-S). Cheat-sheets: `.fp-build/reports/W3-AG-C-cheatsheet.md` (contracts) and `.fp-build/reports/W3-AG-S-cheatsheet.md` (procedures, inputs, outputs, permissions, refusals for the web and native lanes).
 
 - Flow (spec `2026-10-24-orrn-fp-ageing-design.md`): press log → trolley (`ageing_row` from a logged press-run line, a typed line, or a whole packed bundle) → oven cycle on a recipe → readings → hardness → release → pack draws pieces from released rows (`bundle.ageing_row_id`). No stock-ledger row anywhere in ageing; the oven is not a location; trolley kg are theoretical.
-- Tables (`schema/ageing.ts`, migration `0039_ageing`, idx 39 (written as 0038; renumbered by MERGER-12)): `ageing_oven`, `trolley`, `ageing_recipe` (one active per alloy + temper + kind), `ageing_batch` (`AG-n`, one unfinished per trolley, one `in_oven` per oven, recipe snapshot copied at start), `ageing_row` (pack reads `die_id`, `length_mm`, `pcs`, `packed_pcs`, `scrap_pcs`, `rework_pcs`), `ageing_temp_log` (typed / telemetry / simulator; feed rows unique on batch + source + at), `ageing_hardness`. ×10 integers for °C and hardness.
+- Tables (`schema/ageing.ts`, migration `0039_ageing`): `ageing_oven`, `trolley`, `ageing_recipe` (one active per alloy + temper + kind), `ageing_batch` (`AG-n`, one unfinished per trolley, one `in_oven` per oven, recipe snapshot copied at start), `ageing_row` (pack reads `die_id`, `length_mm`, `pcs`, `packed_pcs`, `scrap_pcs`, `rework_pcs`), `ageing_temp_log` (typed / telemetry / simulator; feed rows unique on batch + source + at), `ageing_hardness`. ×10 integers for °C and hardness.
 - Statuses: batch `loading → in_oven → out → released | held → closed`, `void`; the board phase splits `in_oven` into heating / soaking (derived). Row `pending | held | released | closed | void`. Rules are pure in `@orrn/domain` `ageing.ts` (`soakCompliance`, `hardnessSummary`, `ageingReleasePlan`, gates, `bundleAgeingState`, `dispatchAgeingRefusal`).
 - `bundle.status` keeps its four values. A bundle's ageing state is derived (`not_aged | in_ageing | held | aged`); dispatch refuses `in_ageing` and `held` always and `not_aged` only with `settings.ageing.requireAgeing` (default off; bundles packed before `requireAgeingSince` stay dispatchable).
+- **Soak (Q56-A, Q57-A).** `soakCompliance` counts minutes at the recipe temperature within tolerance, and **each reading counts for at most 15 minutes**: a longer gap is `unknownMin`, so the operator logs a reading at least every 15 minutes or the soak comes up short. A reading above the band gets 15 minutes of grace before it counts as over-aged. A batch releases the lines that passed and holds the rest; `qcVerdict` turns to `pass` when a retest clears the last held line. Approving an override never releases by itself.
+- **Chunking.** A trolley of any number of whole bundles releases: the bundle UPDATE is chunked at **45 ids** (each id binds twice, D1's 100-parameter limit). Any new statement that lists bundle ids in an ageing batch follows the same chunk.
+- Defaults the owner may change (Q53 to Q58, all "as built"): ageing sits between press and pack and gives `bundle.status` no new value; press, supervisor and operator load and record; supervisor or manager releases; a trolley is free again when its batch closes.
 - Actions: `ageing.load` / `ageing.record` (press, supervisor, operator), `ageing.release` (supervisor, manager), `ageing.view` (+ operator). `ageing.enter` stays as the station umbrella key. Override: approval `ageing_override` (owner, admin, manager); the requester never approves.
 - Reason kinds: `ageing_hold`, `ageing_rework`, `ageing_scrap`, `ageing_abort` (void / abort), `ageing_reject` (the QC verdict release writes on a failed line: under_aged, over_aged, no_readings, hardness_low, too_few_samples).
 - Refusals: the router throws `ageingRefusal(code, vars)` (`lib/ageingRefusals.ts`); every sentence maps to `ageing.refusal.*` in en, hi and gu. The table is `@orrn/i18n/refusal-ageing` (`AGEING_REFUSALS`), NOT in the shared `SERVER_REFUSALS`: it registers itself on import (`registerRefusals`, as `refusal-foundry` does), so an ageing screen (web route chunk or native screen) imports it once, and so does every screen that can show an ageing refusal from another module: the bundle restore / void screen (a restore can refuse with `not_released` or `draw_over`), the pack screen, dispatch; the `/` entry never carries it (`check-route-budget.ts` fails on `ageing.refusal.` in the `/` closure). `refusal-ageing.test.ts` checks it against `refusal-sentences.ts` `ageingSentences()`. `ageing` is a whole floor namespace in `GU_FLOOR_NAMESPACES`.
@@ -1156,6 +1186,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
   (`30 21 * * *` UTC) exports each active plant once per IST day, then removes drill scratch
   companies older than `DRILL_SCRATCH_KEEP_DAYS` (7), children first, and logs
   `backup.drill.discard`. Runbook: `docs/RESTORE_DRILL.md`.
+- **Audit words and subjects (BACKLOG 84, 100; final explore M5).** A person never reads a raw action key or an id. Words for an action are the dictionary keys `audit.actions.<code with "." written "__">`; the set of actions that HAVE words is `AUDIT_ACTION_WORDS` in `features/audit/action-words.ts` (about 190 codes: foundry, ageing, share link, approvals, die room, press, pack, dispatch, platform), and an action the server writes later that is not listed still shows, as its code, until it is added with its en and hi words (`audit/model.test.ts` reads the server source: it fails when the server writes an action literal that is not listed, and when a listed one lacks en or hi words). Subject types have words (`audit.subjectTypes.<type>`) and a screen to open (`features/audit/subject-words.ts`, `SUBJECT_PATHS`: orders, dispatches, packing lists, press runs and plans, die and copy, customer, vendor, bundle, cast, purchase lot, count). Both modules are separate files on purpose: the audit route's `validateSearch` imports `model.ts`, and `scripts/route-imports.test.ts` fails if the ~190 strings or the paths ride into the app entry. The server adds `subjectLabel` to every row (`lib/auditSubjects.ts`: the number, code or name of the subject, this plant only, resolved in chunks); a new audited subject type adds its label there and its path/words on the web. The approvals inbox filter (`features/approvals/approval-filter.ts`, kinds and statuses) is its own module for the same reason, and its kind list mirrors the db `approvalKinds` (the db package stays out of the web bundle), so a new approval kind is added there too.
 - **Settings tabs, Today, audit, forgot password (W1-PF-W).** `/settings` tabs live in
   `features/settings/sections.tsx` (`requires` hides a tab from roles without the action; the
   server still judges). Shifts, standards, letterhead and the commercial switches all save through
@@ -1250,7 +1281,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 ## Guides (SOPs per flow)
 
 - Guides live in `packages/i18n/src/guides`: slugs in `types.ts` (`GUIDE_SLUGS_BASE`, `GUIDE_SLUGS_FP`), English in `en.ts` / `en-fp.ts`, Hindi in `hi.ts` / `hi-fp.ts`, Gujarati floor flows in `gu.ts` (`GUIDE_SLUGS_GU`; every other guide reads the English book in gu), roles per guide in `fp-roles.ts` (follow `PLANT_ACTION_ROLES`; the owner is in every list). A guide has 4 to 7 steps and at least one problem; en, hi and gu have the same steps, problems and roles one for one.
-- A button, tab or status name in straight double quotes MUST be an exact en.ts value (hi.ts value in Hindi, a value the Gujarati screen shows in Gujarati, which is the English value where gu has none): `parity.test.ts` and `guides.gu.test.ts` fail on a quoted name that is not on a screen. Describe a screen that is not on this branch without quotes.
+- A button, tab or status name in straight double quotes MUST be an exact en.ts value (hi.ts value in Hindi, a value the Gujarati screen shows in Gujarati, which is the English value where gu has none): `parity.test.ts` and `guides.gu.test.ts` fail on a quoted name that is not on a screen. Describe a screen that does not exist without quotes. There are 44 guides in en and hi (the last nine: foundry `open-cast`, `melt-entry`, `spectro-attach`, `cast-close-count`; ageing `load-trolley`, `age-and-release`, `pack-from-trolley`; `die-share-link`; `approvals-review`); gu keeps the nine floor guides it had and the new ones read English in gu until the dedicated Gujarati pass (owner decision O8). A guide must not name an ALL-CAPS code the copy test does not allow (a cast number such as K31, a batch number such as AG-3): say "a cast number" instead.
 - A new guide needs: the slug in `types.ts`, text in en and hi (and gu for a floor flow), roles, an entry in `RELATED_SCREENS` (`apps/web/src/features/guides/related.ts`, `requires` mirrors the nav item), and `export-review`. `guides.spec.ts` renders every slug in en, hi and gu.
 
 # 15. Web bundle and routes
@@ -1263,7 +1294,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
   the page into every first load: `/purchase` once put `/` at 306.8 kB) and never use a zod
   schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
   for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
-- `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (about 222 kB at the end of the FP build) and fails if Hindi, the full English or guide text reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
+- `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (223.5 kB at the end of the FP build) and fails if Hindi, the full English or guide text reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
 
 ## No fixture-only routes in production nav
 
@@ -1271,10 +1302,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
   command palette or a gallery. The `/preview/*` demos were retired on 2026-10-25: each old URL is a
   `redirect` in `beforeLoad` to its real route (`apps/web/src/routes/_tenant/preview.*.tsx`, guarded by
   `tests/e2e/preview-redirects.spec.ts`). Keep those files so bookmarks keep working.
-- A module that is not built here yet gets `/preview/coming-soon?module=<slug>` (honest copy,
-  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/ageing` and
-  `preview-frame.tsx` are kept only for the paused ageing lane; they have no route and no
-  nav entry. New work does not add to `features/preview` or `PREVIEW_MODULES`.
+- Every module is built. `/preview/ageing*` redirect to `/ageing` and `/reports/ageing` like the others (FINAL-FIXES-4 removes `features/preview` and repoints them; until that merges they still land on `/preview/coming-soon?module=ageing`). `/preview/coming-soon` stays only as a redirect target for old bookmarks. New work does not add to `features/preview` or `PREVIEW_MODULES`.
 - To promote a module, build the real route against tRPC, add it to `shell/nav-items.ts` with
   `requires`, and delete the fixtures it replaces; do not leave a demo copy beside it.
 
@@ -1287,11 +1315,14 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 - Tests that depend on "now" pin it with `setClockForTests` (`lib/clock.ts`). Date wording in web unit tests must not depend on a locale's own wording (ICU differs on Linux; BACKLOG 27): build it from `Intl` format parts.
 - The demo seed is a fixture: seed-dependent tests create the same users with `precreateDevSeedUsers(env)` from `test/dev-seed-fixture.ts`; a figure a spec asserts on comes from the seed's own rows (`docs/DEMO_PLANT.md`), and the seed is pinned by `dev-seed-demo-plant.test.ts`.
 
-## Machine load: rules 12 and 13 of the FP build
+## Machine load and disk: rules 12 to 15 of the FP build
 
 - Other agents and the owner share the machine. Run e2e with `E2E_WORKERS=2`, never two heavy gates (server tests, build, e2e) at once in one worktree, and if a test fails only under load (timeouts, a blank first load) rerun it alone before calling it a failure. Never kill a process you did not start: port 3001 is the owner's, and other worktrees run dev servers on their own pairs.
 - Filter e2e with Playwright directly, after sourcing the worktree's ports: `cd apps/web && bunx playwright test --project=e2e tests/e2e/<spec>.spec.ts`. `bun run --cwd apps/web test:e2e -- <spec>` does NOT filter (bun passes the argument oddly) and runs the whole suite.
-- The full e2e suite (about 1,000 tests in 40 spec files) is run in three groups, A, B and C, one after another on one port pair, never together: `bun run e2e:group A|B|C` (`apps/web/scripts/e2e-group.sh`, membership in `apps/web/tests/e2e/GROUPS.md`; a spec in no group is warned about). A new spec is added to a group in both places.
+- The full e2e suite (1,237 tests in 45 spec files at the end of the FP build) is run in three groups, A, B and C, one after another on one port pair, never together: `bun run e2e:group A|B|C` (`apps/web/scripts/e2e-group.sh`; which spec is in which group, and the last pass counts, are in `apps/web/tests/e2e/GROUPS.md` and are rebalanced by duration from time to time, so read the file, not a copy; a spec in no group is warned about). A new spec is added to a group in both places. `unset CI` before Playwright: with `CI` set it will not reuse a running dev server, runs one worker and retries every failure once.
+- **Disk hygiene (rule 14).** Before finishing in a worktree delete `apps/server/.wrangler/logs`, `apps/web/test-results`, `apps/web/playwright-report` and `apps/web/dist` (wrangler logs alone reached 11 GB in the FP build and took the disk down once). A merger also retires a merged lane's worktree (`git worktree remove --force` once the branch is an ancestor of the integration branch and the tree is clean) and prunes `~/Library/Preferences/.wrangler/logs` files older than an hour. Never delete anything under the owner's `orrn/` checkout or another lane's uncommitted work.
+- **Never delete shared temp dirs (rule 15).** Do not sweep `/var/folders/*/T`, `/tmp` outside your own `/tmp/<lane>` paths or `~/Library/Caches`: live Miniflare and workerd processes of other lanes hold handles there and silently start failing. If the disk is short, clean your own worktree and report; the orchestrator owns anything shared. (FINAL-FIXES-2 once removed 3,257 stale `miniflare-*` dirs older than an hour under the system temp folder during the disk-full incident; that is the thing this rule forbids.)
+- A new worktree has no `apps/server/.dev.local-account.local` (gitignored): run `bun run --cwd apps/server scripts/write-local-accounts.ts`, copy it from another worktree, or export `ORRN_LOCAL_PASSWORD`, or the first e2e that signs in throws ENOENT (`docs/LOCAL_DEV.md`).
 - One bun process runs about 100 Miniflare D1 files back to back; on a loaded machine (or Linux) one stuck file leaves a poisoned stub and the failure cascades as timeouts into every later file. For a trustworthy full run use the per-file runner: `bun run test:server:files` (`packages/server/scripts/test-per-file.sh`; `JOBS`, `RETRY=1`, a name filter, per-file logs). Heavy files set their own `setDefaultTimeout`; `--timeout 60000` rescues a single slow test.
 - Specs own their fixtures: a spec that changes data creates its own customer, order, press line, die copy and bundles (helpers `own-press.ts`, `owner-api.ts`, `fresh-plant.ts`), cleans up in `finally` / `afterAll` (finish or void every run it created, retire its lines and copies even after a failure) and asserts only on its own rows when it reads a shared list. Two specs must not plan the same seeded order line (the press.spec and orders.spec clash that cost a merge round), and a count over a shared list is scoped to the spec's own party. This is what lets the files of a group run in any order on any worker count.
 - Visual QA is at 375, 820 and 1280 px (phone, tablet, desktop); a new screen is checked at all three, in en and hi (and gu for floor screens), with axe (`@axe-core/playwright`) and the layout guards (`expectNoHorizontalScroll`, `expectNoClippedText`).
@@ -1310,7 +1341,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 - **Dates and numbers** use the plant's time zone from `me.company.settings.timezone` (IST when unset), never the phone's (`lib/format.ts`, `use-format.ts`); the production day is the server's.
 - **Release gate.** `lib/release-gate.ts` asks `release.check` (public, no company data); Blocked below the effective `minBuild`; offline the last Open answer holds 24 h; a revoked install is blocked everywhere. The build number comes from `expo-application`.
 - **Build dependencies (a new development build is needed).** The app has native modules Expo Go does not carry: `expo-speech`, `expo-application`, `expo-crypto` (replay ids and the install id) on top of `expo-camera` and `expo-haptics`. Rebuild with `bunx expo run:android` / `run:ios` or EAS after any native dependency or `app.json` change; an OTA update cannot clear a block. `EXPO_PUBLIC_SERVER_URL` and `EXPO_PUBLIC_WEB_URL` come from `apps/native/.env`. Android emulator: `10.0.2.2:<api port>` or `adb reverse`.
-- **Maestro** flows (`apps/native/.maestro/flows`) have never been run on a device; do not mark one run from a machine that did not run it (README table).
+- **Maestro** flows (`.maestro/flows` at the repo root, 10 flows) have never been run on a device; do not mark one run from a machine that did not run it (README table).
 - Gujarati: every key the app reads has a Gujarati string (`gu-coverage.test.ts`); the words await a native reader (Q48).
 
 # 18. Spool, scale and hardware
@@ -1329,7 +1360,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 - The `@orrn/server/lib/spool-client.ts` SpoolClient class wraps all spool API calls with auto-signing.
 - **Print exactly once.** `print_log.id` and `job_key = bundle:<serial>:label:v<template version>:attempt:<n>` identify a label job. The spool stores UNIQUE(job key) and a repeat POST answers the first job (`docs/print-exactly-once.md` in orrn-spool); a 200 `duplicate: true` is success, a 409 `job_key_conflict` is logged as a bug and refused. `attempt` rises only for `reprint: true` on a bundle whose latest attempt really went out; a transport retry, a double tap or a reprint that never reached the spool reuses it.
 - **Scale.** `scale.reading` (`bundle.pack`) polls the node's `/scale/reading` through the signed client; a typed weight needs a reason whenever the node reports a scale (D12, `weightNeedsReason`). `SCALE_SIMULATOR=1` in `apps/server/.dev.vars` (never in production) lets `scale.reading` answer from a deterministic cycle; the Go spool has `--scale-sim`. The real indicator make, frame and baud are owner-only (Q5).
-- **Collectors** (press frames, spectro files) use the same node token; see Press. Hardware is never faked as done: a simulator says `simulated: true`, a PLC is never written, and bring-up items stay in `TODO.md` under hardware.
+- **Collectors** (press frames, spectro files, oven readings through `POST /collector/ageing/readings`, `lib/ageingCollector.ts`) use the same node token; see Press and Ageing. There is no orrn-spool oven collector yet. Hardware is never faked as done: a simulator says `simulated: true`, a PLC is never written, and bring-up items stay in `TODO.md` under hardware.
 - The Go spool is built outside this repo (`orrn-spool`, branches `fp/scale-reader`, `fp/collectors`; Go 1.22+ in `go.mod`, 1.24 used for the FP build; there is no Go on the Mac, see `docs/LOCAL_DEV.md`).
 
 # 19. Data, seed and orchestration
@@ -1346,7 +1377,7 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 
 - `POST /dev/seed` (`apps/server/src/dev-seed.ts` plus one `dev-seed-{area}.ts` per module) builds one coherent plant; `docs/DEMO_PLANT.md` is the tour (logins, orders, press board, stock, dispatches).
 - A new demo login goes in `dev-accounts.ts` (`DEV_ACCOUNTS`, and `DEV_MEMBER_ROLES` when it is a plant member). Tests create the same users with `precreateDevSeedUsers(env)` from `test/dev-seed-fixture.ts` (never a hand-written key list); the e2e helper type `LocalRole` and `write-local-accounts.ts` follow.
-- Idempotent: fixed ids (`dev-*`), children before parents in the reset, doc_series counters written past every seeded number, at most 100 bound parameters per statement (`insertChunks`). Add a table to the reset in the same change that seeds it (a new table with a RESTRICT FK to a demo row, location, bundle or lot must be added to the reset too). Never seed a secret (the spool node holds placeholder text).
+- Idempotent: fixed ids (`dev-*`), children before parents in the reset, doc_series counters written past every seeded number, at most 100 bound parameters per statement (`insertChunks`). Add a table to the reset in the same change that seeds it (a new table with a RESTRICT FK to a demo row, location, bundle or lot must be added to the reset too). Never seed a secret (the spool node holds placeholder text). The foundry and ageing rows are seeded too (cast 1 complete and closed on a count, cast 3 open with a draft melt, OV-1 with AG-2 in the oven, AG-1 released on an approved override); `readings.simulate` and the oven curve need their simulator vars (`docs/LOCAL_DEV.md`).
 - Time: nothing is a fixed date. `seedClock` (`dev-seed-kit.ts`) gives `pastAt(days, hour)` and `dayAt(fraction)`, the current production day; anything that must read as "today" uses `dayAt`. `seedDevData(db, { password, now? })` takes `now` for the test that seeds at seven moments.
 - Quantities of an order line that stands on bundles are derived from those bundles, so baki reconciles by construction. SO-1..SO-4 keep the quantities older specs read; keep the ids that specs name. The plant in numbers is pinned by `dev-seed-demo-plant.test.ts`; change the seed, that file and `docs/DEMO_PLANT.md` together.
 
@@ -1355,5 +1386,6 @@ D31 brought the lane back to the hub. The satellite's `wt/W3-AG-C` @1ebdd0d neve
 - Keep root `TODO.md` updated when changing milestone scope or status (open work only, with its backlog rank).
 - Keep this file updated when durable conventions or project constraints change.
 - Do not add an audit pruning Worker cron unless explicitly requested.
-- Never push, deploy or merge to `main`/`prod` from a task worktree; promotion is `docs/DEPLOY_PROMOTION.md`, run by the owner.
+- Never push, deploy or merge to `main`/`prod` from a task worktree. Promotion is `docs/DEPLOY_PROMOTION.md`: green `wt/FP` shas reach `main` (dev only) through the peer session the owner named (D33), and `prod` moves only on the owner's explicit go. What only the owner can do is listed in `docs/OWNER_HANDOVER.md`; what is still to build is `TODO.md`.
+- Migrations after the head are additive and strictly consecutive; a step that changes existing data is named in the PROMOTE message and in `docs/DEPLOY_PROMOTION.md` (today `0038` retires duplicate live reason codes and `0041` rebuilds `ageing_hardness`).
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice / e-way bill, Tally export or invoicing inside the app. Prices on orders and dispatch value are optional operational data.
