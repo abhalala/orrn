@@ -1,12 +1,16 @@
+import { getRandomBytes, randomUUID } from "expo-crypto";
+
+import { hexId } from "./hex-id";
+
 /**
- * A random hex id of `bytes` bytes (32 hex characters for 16). Used for the install id and for
- * replay keys, which need to be unique, not secret. Uses the platform's secure generator when it has
- * one (`crypto.getRandomValues`), else Math.random, which Hermes always has.
+ * A random hex id for replay keys (`clientRequestId`). The bytes come from the OS secure generator
+ * through `expo-crypto`; there is no weak fallback, because a predictable id could collide across phones.
  */
 export function randomId(bytes = 16): string {
-  const buf = new Uint8Array(bytes);
-  const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
-  if (c?.getRandomValues) c.getRandomValues(buf);
-  else for (let i = 0; i < bytes; i++) buf[i] = Math.floor(Math.random() * 256);
-  return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+  return hexId(bytes, getRandomBytes);
+}
+
+/** A new install id (a v4 UUID from the OS secure generator). It is the key a device revoke works on. */
+export function newInstallId(): string {
+  return randomUUID();
 }

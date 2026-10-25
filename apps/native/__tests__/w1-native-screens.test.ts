@@ -78,7 +78,7 @@ describe("die room procedures (shapes from the dieInstance routers)", () => {
 
   test("scan: a copy code or card link opens the card, in lookup mode only", () => {
     const scan = read("features/scan/scan-view.tsx");
-    expect(scan).toMatch(/modeRef\.current\.kind === "lookup" && \(await openDieCopy\(id, raw\)\)/);
+    expect(scan).toMatch(/modeRef\.current\.kind === "lookup" && diesRef\.current && \(await openDieCopy\(id, raw\)\)/);
     expect(scan).toMatch(/pathname: "\/dies\/\[id\]"/);
   });
 });
@@ -111,7 +111,7 @@ describe("orders procedures", () => {
     expect(tryBlock).not.toMatch(/setDraft|newDraft/);
     const catchBlock = form.slice(form.indexOf("} catch (e)"), form.indexOf("} catch (e)") + 200);
     expect(catchBlock).not.toMatch(/setDraft|newDraft/);
-    expect(form).toMatch(/clientRequestId: id/);
+    expect(form).toMatch(/clientRequestId: sent\.id/);
   });
 
   test("no plan board on the phone", () => {

@@ -24,9 +24,8 @@ import { useAttentionCopies, type CopyRow } from "./use-attention";
 const PAGE_ROWS = 40;
 
 function asAttention(row: CopyRow): CopyRow & AttentionCopy {
-  // The list may carry `latestReadAt` (ms); until it does, "no reading in 30 days" cannot be told and only "no reading yet" shows.
-  const at = (row as { latestReadAt?: number | null }).latestReadAt ?? null;
-  return { ...row, status: row.status as AttentionCopy["status"], latestReadAt: at };
+  // `latestReadAt` (ms) comes from the server's list row; a rename there breaks the type check here.
+  return { ...row, status: row.status as AttentionCopy["status"], latestReadAt: row.latestReadAt ?? null };
 }
 
 /**

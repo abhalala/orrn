@@ -5,6 +5,7 @@ import {
   filterAttention,
   rankAttention,
   reasonCounts,
+  restPageOffsets,
   STALE_READING_DAYS,
   type AttentionCopy,
 } from "../features/dies/attention";
@@ -122,5 +123,20 @@ describe("filters and counts", () => {
     expect(counts.open_issue).toBe(2);
     expect(counts.at_maker).toBe(1);
     expect(counts.never_read).toBe(0);
+  });
+});
+
+describe("restPageOffsets (m-10: few requests, capped)", () => {
+  test("one page holds up to its limit; the rest follow in one batch", () => {
+    expect(restPageOffsets(0, 200, 10)).toEqual([]);
+    expect(restPageOffsets(200, 200, 10)).toEqual([]);
+    expect(restPageOffsets(201, 200, 10)).toEqual([200]);
+    expect(restPageOffsets(650, 200, 10)).toEqual([200, 400, 600]);
+  });
+
+  test("the cap counts the first page: 10 pages at most, however large the rack", () => {
+    expect(restPageOffsets(100_000, 200, 10)).toHaveLength(9);
+    expect(restPageOffsets(100_000, 200, 10).at(-1)).toBe(1800);
+    expect(restPageOffsets(5, 200, 0)).toEqual([]);
   });
 });

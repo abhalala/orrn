@@ -11,17 +11,19 @@ import { isDeviceRevoked } from "../lib/device-revoked";
 import {
   appVersionLabel,
   blockedKey,
-  decideRelease,
-  nativeBuildNumber,
+  gateInputs,
+  gateState,
+  installedBuildNumber,
   needsUpdate,
-  optimisticDecision,
   parseStored,
   releaseChannel,
+  shouldStore,
   storedFrom,
+  UNREADABLE_BUILD,
   type CheckAnswer,
   type StoredCheck,
 } from "../lib/release-gate";
-import { randomId } from "../lib/random-id";
+import { hexId } from "../lib/hex-id";
 import { FORGOT_PASSWORD_PATH, joinWebUrl, settingsTabPath, webLinkRows } from "../lib/web-link";
 
 const ROOT = join(import.meta.dir, "..");
@@ -34,12 +36,12 @@ const below: CheckAnswer = { state: "blocked", reason: "below_min_build", latest
 const lastOpen = (ago: number, build = 11): StoredCheck => ({ at: NOW - ago, state: "open", buildNumber: build, latestVersion: "1.2.0", apkUrl: null });
 
 describe("release gate decision (spec E7: Check to Open or Blocked)", () => {
-  test("an Open answer lets the app in", () => {
-    expect(decideRelease({ answer: open, last: null, now: NOW, buildNumber: 11 })).toEqual({ kind: "open", via: "server", graceUntil: null });
+  test("an Open answer, online and fresh, lets the app in", () => {
+    expect(gateState({ lastOpenAt: NOW - HOUR, lastVerdict: open, now: NOW, online: true })).toEqual({ kind: "open", via: "server", graceUntil: null });
   });
 
   test("a Blocked answer is a block with its reason, the newest version and the APK link", () => {
-    expect(decideRelease({ answer: below, last: lastOpen(HOUR), now: NOW, buildNumber: 5 })).toEqual({
+    expect(gateState({ lastOpenAt: null, lastVerdict: below, now: NOW, online: true })).toEqual({
       kind: "blocked",
       reason: "below_min_build",
       latestVersion: "1.2.0",
@@ -47,56 +49,126 @@ describe("release gate decision (spec E7: Check to Open or Blocked)", () => {
     });
   });
 
-  test("a revoked install is blocked whatever the build", () => {
+  test("a revoked install is blocked", () => {
     const revoked: CheckAnswer = { state: "blocked", reason: "revoked", latest: null, apkUrl: null };
-    expect(decideRelease({ answer: revoked, last: lastOpen(HOUR), now: NOW, buildNumber: 99 })).toMatchObject({ kind: "blocked", reason: "revoked" });
+    expect(gateState({ lastOpenAt: NOW - HOUR, lastVerdict: revoked, now: NOW, online: true })).toMatchObject({ kind: "blocked", reason: "revoked" });
   });
 });
 
-describe("offline grace (24 h from the last Open check, never-checked is Blocked)", () => {
-  test("offline within 24 hours of an Open check for this build opens, saying until when", () => {
-    const d = decideRelease({ answer: null, last: lastOpen(23 * HOUR), now: NOW, buildNumber: 11 });
-    expect(d).toEqual({ kind: "open", via: "grace", graceUntil: NOW - 23 * HOUR + OFFLINE_GRACE_MS });
+describe("gateState: offline grace (24 h from the last Open answer, never-checked is Blocked)", () => {
+  const offline = (lastOpenAt: number | null, lastVerdict: CheckAnswer | null, now = NOW) => gateState({ lastOpenAt, lastVerdict, now, online: false });
+
+  test("offline within 24 hours of an Open answer opens, saying until when", () => {
+    expect(offline(NOW - 23 * HOUR, open)).toEqual({ kind: "open", via: "grace", graceUntil: NOW - 23 * HOUR + OFFLINE_GRACE_MS });
   });
 
   test("at exactly 24 hours the grace has ended", () => {
-    expect(decideRelease({ answer: null, last: lastOpen(OFFLINE_GRACE_MS), now: NOW, buildNumber: 11 })).toMatchObject({ kind: "blocked", reason: "grace_expired" });
+    expect(offline(NOW - OFFLINE_GRACE_MS, open)).toMatchObject({ kind: "blocked", reason: "grace_expired" });
   });
 
-  test("offline and never checked is Blocked", () => {
-    expect(decideRelease({ answer: null, last: null, now: NOW, buildNumber: 11 })).toMatchObject({ kind: "blocked", reason: "never_checked" });
+  test("never checked is Blocked", () => {
+    expect(offline(null, null)).toMatchObject({ kind: "blocked", reason: "never_checked" });
   });
 
-  test("an answer kept for another build does not count (an update must check once)", () => {
-    expect(decideRelease({ answer: null, last: lastOpen(HOUR, 10), now: NOW, buildNumber: 11 })).toMatchObject({ kind: "blocked", reason: "never_checked" });
+  test("an offline Blocked answer stays blocked, as last_blocked", () => {
+    expect(offline(null, below)).toMatchObject({ kind: "blocked", reason: "last_blocked", latestVersion: "1.2.0" });
   });
 
-  test("a Blocked answer stays blocked offline", () => {
+  test("a phone clock set back before the last answer is not trusted", () => {
+    expect(offline(NOW + HOUR, open)).toMatchObject({ kind: "blocked", reason: "grace_expired" });
+  });
+
+  test("I-1: the same inputs, a later clock: the app that was Open at 23 h is Blocked at 24 h (recomputed while it stays open)", () => {
+    const lastOpenAt = NOW - 23 * HOUR;
+    expect(offline(lastOpenAt, open, NOW)).toMatchObject({ kind: "open", via: "grace" });
+    expect(offline(lastOpenAt, open, NOW + HOUR)).toMatchObject({ kind: "blocked", reason: "grace_expired" });
+  });
+
+  test("I-1: a failed refetch is not online: old Open data past 24 h is Blocked, not 'open via server'", () => {
+    // React Query keeps `data` after a failed refetch; the caller passes online: false for it.
+    const arrived = NOW - 30 * HOUR;
+    expect(gateState({ lastOpenAt: arrived, lastVerdict: open, now: NOW, online: false })).toMatchObject({ kind: "blocked", reason: "grace_expired" });
+  });
+
+  test("I-1: even an 'online' Open answer older than 24 h is not trusted (no recheck has landed)", () => {
+    expect(gateState({ lastOpenAt: NOW - 25 * HOUR, lastVerdict: open, now: NOW, online: true })).toMatchObject({ kind: "blocked", reason: "grace_expired" });
+  });
+});
+
+describe("gateInputs: what the live query and the kept answer say", () => {
+  const keptOpen = (ago: number, build = 11): StoredCheck => ({ at: NOW - ago, state: "open", buildNumber: build, latestVersion: "1.2.0", apkUrl: null });
+
+  test("a live answer is timed by when it arrived, not by now (a remount keeps the old time)", () => {
+    const i = gateInputs({ data: open, dataUpdatedAt: NOW - 20 * HOUR, stored: null, buildNumber: 11 });
+    expect(i).toEqual({ lastVerdict: open, lastOpenAt: NOW - 20 * HOUR });
+    expect(gateState({ ...i, now: NOW, online: false })).toMatchObject({ kind: "open", via: "grace", graceUntil: NOW + 4 * HOUR });
+  });
+
+  test("a live Blocked answer has no Open time", () => {
+    expect(gateInputs({ data: below, dataUpdatedAt: NOW, stored: keptOpen(HOUR), buildNumber: 11 })).toEqual({ lastVerdict: below, lastOpenAt: null });
+  });
+
+  test("cold start with no answer yet: the kept Open answer for this build opens inside the grace", () => {
+    const i = gateInputs({ data: undefined, dataUpdatedAt: 0, stored: keptOpen(HOUR), buildNumber: 11 });
+    expect(gateState({ ...i, now: NOW, online: false })).toMatchObject({ kind: "open", via: "grace" });
+  });
+
+  test("cold start: an answer kept for another build does not count (an update must check once)", () => {
+    const i = gateInputs({ data: undefined, dataUpdatedAt: 0, stored: keptOpen(HOUR, 10), buildNumber: 11 });
+    expect(i).toEqual({ lastVerdict: null, lastOpenAt: null });
+    expect(gateState({ ...i, now: NOW, online: false })).toMatchObject({ kind: "blocked", reason: "never_checked" });
+  });
+
+  test("cold start: past 24 h, or last blocked, or nothing kept, is Blocked", () => {
+    const stale = gateInputs({ data: undefined, dataUpdatedAt: 0, stored: keptOpen(25 * HOUR), buildNumber: 11 });
+    expect(gateState({ ...stale, now: NOW, online: false })).toMatchObject({ reason: "grace_expired" });
     const blocked: StoredCheck = { at: NOW - HOUR, state: "blocked", buildNumber: 11, latestVersion: null, apkUrl: null };
-    expect(decideRelease({ answer: null, last: blocked, now: NOW, buildNumber: 11 })).toMatchObject({ kind: "blocked", reason: "last_blocked" });
+    const last = gateInputs({ data: undefined, dataUpdatedAt: 0, stored: blocked, buildNumber: 11 });
+    expect(gateState({ ...last, now: NOW, online: false })).toMatchObject({ reason: "last_blocked" });
+    expect(gateState({ ...gateInputs({ data: undefined, dataUpdatedAt: 0, stored: null, buildNumber: 11 }), now: NOW, online: false })).toMatchObject({ reason: "never_checked" });
   });
 
-  test("a phone clock set back before the last check is not trusted", () => {
-    expect(decideRelease({ answer: null, last: lastOpen(-HOUR), now: NOW, buildNumber: 11 })).toMatchObject({ kind: "blocked", reason: "grace_expired" });
+  test("I-1: the answer is stored once; seeing it again (a remount) does not restamp and restart the 24 h", () => {
+    const stored = storedFrom(open, 11, NOW - 20 * HOUR);
+    expect(shouldStore(null, open, 11, NOW - 20 * HOUR)).toBe(true);
+    expect(shouldStore(stored, open, 11, NOW - 20 * HOUR)).toBe(false);
+    expect(shouldStore(stored, open, 11, NOW)).toBe(true);
+    expect(shouldStore(stored, below, 11, NOW - 20 * HOUR)).toBe(true);
+    expect(shouldStore(stored, open, 12, NOW - 20 * HOUR)).toBe(true);
   });
 
-  test("the first frame opens at once only when this build last checked Open inside the grace", () => {
-    expect(optimisticDecision(lastOpen(HOUR), NOW, 11)).toMatchObject({ kind: "open", via: "grace" });
-    expect(optimisticDecision(lastOpen(25 * HOUR), NOW, 11)).toBeNull();
-    expect(optimisticDecision(null, NOW, 11)).toBeNull();
-    expect(optimisticDecision(lastOpen(HOUR, 10), NOW, 11)).toBeNull();
+  test("I-1 wiring: the gate stamps with dataUpdatedAt (never Date.now), recomputes on a clock tick, and rechecks on an interval", () => {
+    const src = read("components/release-gate.tsx");
+    expect(src).not.toMatch(/Date\.now\(\)/);
+    expect(src).toMatch(/storedFrom\([^)]*check\.dataUpdatedAt\)/);
+    expect(src).toMatch(/useNow\(/);
+    expect(src).toMatch(/refetchInterval/);
+    expect(src).toMatch(/online = data !== null && !check\.isError/);
+    expect(read("lib/use-now.ts")).toMatch(/AppState\.addEventListener\("change"/);
+    expect(read("lib/use-now.ts")).toMatch(/setInterval/);
   });
 });
 
 describe("blocked copy", () => {
-  const reasons = ["below_min_build", "revoked", "never_checked", "grace_expired", "last_blocked"] as const;
+  const reasons = ["below_min_build", "revoked", "never_checked", "grace_expired", "last_blocked", "unreadable_build"] as const;
 
-  test("every blocked reason has a sentence in English and Hindi", () => {
+  test("every blocked reason has a sentence in English, Hindi and Gujarati (floor phones see this screen)", () => {
     for (const r of reasons) {
       const key = blockedKey(r);
       expect(createI18n("en").t(key)).not.toBe(key);
       expect(createI18n("hi").t(key)).not.toBe(createI18n("en").t(key));
+      expect(createI18n("gu").t(key)).not.toBe(createI18n("en").t(key));
     }
+  });
+
+  test("every gate string and every 'Open on the web' string has Gujarati", () => {
+    const gu = createI18n("gu");
+    const en = createI18n("en");
+    const keys = [
+      "native.checkAgain", "native.gate.checking", "native.gate.blockedTitle", "native.gate.latest", "native.gate.getLatest", "native.gate.graceNote",
+      "native.web.title", "native.web.hint", "native.web.team", "native.web.shifts", "native.web.standards", "native.web.backup",
+    ] as const;
+    for (const k of keys) expect(gu.t(k, { version: "1", time: "2" })).not.toBe(en.t(k, { version: "1", time: "2" }));
   });
 
   test("the offline grace message says 24 hours", () => {
@@ -132,14 +204,32 @@ describe("storing the last answer", () => {
   });
 });
 
-describe("build identity", () => {
-  test("iOS reads buildNumber, Android reads versionCode, missing is 0", () => {
-    const cfg = { ios: { buildNumber: "11" }, android: { versionCode: 12 } };
-    expect(nativeBuildNumber("ios", cfg)).toBe(11);
-    expect(nativeBuildNumber("android", cfg)).toBe(12);
-    expect(nativeBuildNumber("android", {})).toBe(0);
-    expect(nativeBuildNumber("ios", null)).toBe(0);
-    expect(nativeBuildNumber("ios", { ios: { buildNumber: "x" } })).toBe(0);
+describe("build identity (I-2: the installed binary, never the update manifest)", () => {
+  test("the build is a whole number above 0 from the binary's own string; anything else is unreadable", () => {
+    expect(installedBuildNumber("11")).toBe(11);
+    expect(installedBuildNumber(" 12 ")).toBe(12);
+    expect(installedBuildNumber(13)).toBe(13);
+    for (const bad of [null, undefined, "", "0", "-1", "1.0.0", "abc", "12a", "1e3"]) expect(installedBuildNumber(bad)).toBeNull();
+  });
+
+  test("an unreadable build is a block with its own sentence", () => {
+    expect(UNREADABLE_BUILD).toMatchObject({ kind: "blocked", reason: "unreadable_build" });
+    expect(createI18n("en").t(blockedKey("unreadable_build"))).toContain("could not read");
+    expect(needsUpdate("unreadable_build")).toBe(false);
+  });
+
+  test("the gate, device.register and More read the build through expo-application, none from Constants.expoConfig", () => {
+    for (const f of ["components/release-gate.tsx", "lib/device-register.ts", "app/more/index.tsx"]) {
+      const src = read(f);
+      expect(src).not.toMatch(/buildNumber\b[^\n]*expoConfig|expoConfig[^\n]*(buildNumber|versionCode|\.version)|nativeBuildNumber/);
+      expect(src).toMatch(/lib\/native-build|\.\/native-build/);
+    }
+    const native = read("lib/native-build.ts");
+    expect(native).toMatch(/from "expo-application"/);
+    expect(native).toMatch(/nativeBuildVersion/);
+    expect(native).not.toMatch(/expo-constants/);
+    // unreadable means blocked
+    expect(read("components/release-gate.tsx")).toMatch(/buildNumber === null\) return UNREADABLE_BUILD/);
   });
 
   test("channel is production unless the build says floor", () => {
@@ -160,20 +250,32 @@ describe("build identity", () => {
     expect(app.extra.releaseChannel).toBe("production");
   });
 
-  test("random ids are 32 hex characters and differ", () => {
-    expect(randomId()).toMatch(/^[0-9a-f]{32}$/);
-    expect(randomId()).not.toBe(randomId());
-    expect(randomId().length).toBeGreaterThanOrEqual(8);
+  test("hex ids are 2 hex characters per byte from the byte source", () => {
+    expect(hexId(16, () => Uint8Array.from({ length: 16 }, (_, i) => i * 16 + 1))).toBe(["01", "11", "21", "31", "41", "51", "61", "71", "81", "91", "a1", "b1", "c1", "d1", "e1", "f1"].join(""));
+    expect(hexId(2, () => Uint8Array.from([0, 255]))).toBe("00ff");
+    expect(() => hexId(4, () => new Uint8Array(3))).toThrow();
+  });
+
+  test("m-9: ids and the install id come from expo-crypto, never Math.random", () => {
+    for (const f of ["lib/random-id.ts", "lib/hex-id.ts", "lib/install-id.ts"]) expect(read(f)).not.toMatch(/Math\.random/);
+    expect(read("lib/random-id.ts")).toMatch(/from "expo-crypto"/);
+    expect(read("lib/random-id.ts")).toMatch(/randomUUID\(\)/);
+    expect(read("lib/install-id.ts")).toMatch(/newInstallId\(\)/);
   });
 });
 
 describe("device.register on launch", () => {
-  test("only the server's 'turned off' refusal signs the phone out", () => {
-    expect(isDeviceRevoked({ data: { code: "FORBIDDEN" }, message: "This device has been turned off for this plant" })).toBe(true);
-    expect(isDeviceRevoked({ data: { code: "FORBIDDEN" }, message: "Company suspended" })).toBe(false);
-    expect(isDeviceRevoked({ data: { code: "INTERNAL_SERVER_ERROR" }, message: "turned off" })).toBe(false);
+  test("m-8: the sign-out decision is the server's code (data.meta.reason), never its English sentence", () => {
+    const revoked = { data: { code: "FORBIDDEN", meta: { reason: "device_revoked" } }, message: "anything at all" };
+    expect(isDeviceRevoked(revoked)).toBe(true);
+    // A reworded or translated sentence still revokes; the old sentence without the code does not.
+    expect(isDeviceRevoked({ ...revoked, message: "यह डिवाइस बंद है" })).toBe(true);
+    expect(isDeviceRevoked({ data: { code: "FORBIDDEN" }, message: "This device has been turned off for this plant" })).toBe(false);
+    expect(isDeviceRevoked({ data: { code: "FORBIDDEN", meta: { reason: "suspended" } }, message: "turned off" })).toBe(false);
+    expect(isDeviceRevoked({ data: { code: "INTERNAL_SERVER_ERROR", meta: { reason: "device_revoked" } } })).toBe(false);
     expect(isDeviceRevoked(new Error("Network request failed"))).toBe(false);
     expect(isDeviceRevoked(null)).toBe(false);
+    expect(read("lib/device-revoked.ts")).not.toMatch(/turned off"\)|includes\(/);
   });
 
   test("wiring: the root layout gates the signed-in app, the tabs register the device", () => {

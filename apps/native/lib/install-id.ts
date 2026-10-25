@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 
-import { randomId } from "./random-id";
+import { newInstallId } from "./random-id";
 
 /** SecureStore keys allow only `[\w.-]`. The id stays on this install; a reinstall makes a new one. */
 export const INSTALL_ID_KEY = "orrn.install-id";
@@ -20,7 +20,7 @@ export function getInstallId(): string {
     cached = stored;
     return stored;
   }
-  const made = randomId(16);
+  const made = newInstallId();
   cached = made;
   // A broken keychain only means a new id next launch.
   SecureStore.setItemAsync(INSTALL_ID_KEY, made).catch(() => {});

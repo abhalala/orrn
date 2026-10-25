@@ -22,6 +22,8 @@ import { useReduceMotion } from "@/lib/reduced-motion";
 import { writeFailureKind } from "@/lib/request-timeout";
 import { saveErrorText } from "@/lib/save-error";
 import { useThemeColor } from "@/lib/theme";
+import { reachableTabs } from "@/lib/nav";
+import { useMe } from "@/utils/me";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { copyCodeQuery, copyIdFromLink, looksLikeCopyCode } from "@/features/dies/copy-model";
@@ -84,6 +86,10 @@ export function ScanView() {
   const countRef = useRef(0);
   const modeRef = useRef(mode);
   modeRef.current = mode;
+  // A die label opens the copy card only for people who can open the Dies screens; for anyone else it is just a bundle lookup.
+  const { data: me } = useMe();
+  const diesRef = useRef(false);
+  diesRef.current = reachableTabs(me).includes("dies");
   // Reads are handled one after another, in the order they were made, so a quick burst never races itself on the server.
   const queue = useRef<Promise<void>>(Promise.resolve());
 
@@ -260,7 +266,7 @@ export function ScanView() {
   const handle = useCallback(
     async (raw: string) => {
       const id = ++seq.current;
-      if (modeRef.current.kind === "lookup" && (await openDieCopy(id, raw))) return;
+      if (modeRef.current.kind === "lookup" && diesRef.current && (await openDieCopy(id, raw))) return;
       const read = readSerial(raw);
       if (read.kind === "unrecognised") {
         fail(id, t("scan.unrecognised"));

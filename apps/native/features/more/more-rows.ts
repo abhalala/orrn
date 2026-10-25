@@ -1,6 +1,6 @@
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { extraTabs } from "@/lib/nav";
+import { extraTabs, visibleTabs } from "@/lib/nav";
 
 export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom";
 
@@ -38,7 +38,11 @@ const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.di
  */
 export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] {
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
-  const base = ROWS.filter((row) => !row.modules || modules.length === 0 || row.modules.some((m) => modules.includes(m)));
+  // The die room has a Dies tab: More does not list a second "Dies" that opens the read-only list.
+  const hasDiesTab = me?.company ? visibleTabs(me as Me).includes("dies") : false;
+  const base = ROWS.filter(
+    (row) => (!row.modules || modules.length === 0 || row.modules.some((m) => modules.includes(m))) && !(row.key === "dies" && hasDiesTab),
+  );
   const extra = me?.company ? extraTabs(me as Me) : [];
   const rows = extra.includes("dies") ? base.map((r) => (r.key === "dies" ? DIE_ROOM_ROW : r)) : base;
   if (!extra.includes("orders")) return rows;

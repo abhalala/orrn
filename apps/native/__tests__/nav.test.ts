@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-import type { Me } from "@orrn/server/lib/permissions";
+import { can, type Me } from "@orrn/server/lib/permissions";
 
 import { moreRows } from "../features/more/more-rows";
 import { extraTabs, placeScan, reachableTabs, TAB_ROUTES, TAB_SETS, tabSetFor, visibleTabs } from "../lib/nav";
@@ -96,14 +98,20 @@ describe("Orders and Dies from More for the packer-set roles", () => {
     expect(rows("owner")).toEqual(["dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
-  test("manager (order.manage, order.plan) gets Orders and keeps the read-only die list (no die.card or die.reading)", () => {
-    expect(extraTabs(me("manager"))).toEqual(["orders"]);
-    expect(rows("manager")).toEqual(["dies:/more/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+  test("manager (masters.publish, order.manage, order.plan) gets the die board (read-only card) and Orders (m-4)", () => {
+    expect(extraTabs(me("manager"))).toEqual(["dies", "orders"]);
+    expect(rows("manager")).toEqual(["dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
-  test("admin holds neither order.manage nor die.card in the matrix: no extra rows", () => {
-    expect(extraTabs(me("admin"))).toEqual([]);
-    expect(rows("admin")).toEqual(["dies:/more/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+  test("admin (masters.publish, no order.manage) reaches the die board from More, but not Orders: the web hides Orders from admin too (m-4)", () => {
+    expect(extraTabs(me("admin"))).toEqual(["dies"]);
+    expect(rows("admin")).toEqual(["dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+  });
+
+  test("a masters-publish role has no write action on the die card (it is read-only there)", () => {
+    expect(can(me("admin"), "die.card")).toBe(false);
+    expect(can(me("admin"), "die.reading")).toBe(false);
+    expect(can(me("admin"), "die.issue")).toBe(false);
   });
 
   test("press and supervisor hold die.reading: the Dies row opens the die room screens", () => {
@@ -123,6 +131,25 @@ describe("Orders and Dies from More for the packer-set roles", () => {
     expect(extraTabs(me("office"))).toEqual([]);
     expect(rows("office")).not.toContain("orders:/orders");
     expect(rows("die_room")).not.toContain("dieRoom:/dies");
+  });
+
+  test("m-1: the die room sees one Dies entry (the tab), not a second 'Dies' row for the read-only list", () => {
+    expect(placeScan(visibleTabs(me("die_room")))).toContain("dies");
+    expect(rows("die_room")).toEqual(["customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(moreRows(me("die_room")).some((r) => r.labelKey === "nav.dies")).toBe(false);
+  });
+
+  test("a die_room plant on the bundles module only has no Dies tab, so More keeps the read-only list Pack needs", () => {
+    expect(rows("die_room", ["bundles"])[0]).toBe("dies:/more/dies");
+  });
+
+  test("m-2: a packer's reachable tabs have no Dies, so a scanned die label is only a bundle lookup for them", () => {
+    expect(reachableTabs(me("packer")).includes("dies")).toBe(false);
+    expect(reachableTabs(me("die_room")).includes("dies")).toBe(true);
+    expect(reachableTabs(me("supervisor")).includes("dies")).toBe(true);
+    const scan = readFileSync(join(import.meta.dir, "..", "features/scan/scan-view.tsx"), "utf8");
+    expect(scan).toMatch(/reachableTabs\(me\)\.includes\("dies"\)/);
+    expect(scan).toMatch(/diesRef\.current && \(await openDieCopy/);
   });
 
   test("company modules still apply: no orders module, no Orders row; no dies module, no die room row", () => {

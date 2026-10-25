@@ -89,3 +89,13 @@ export function reasonCounts(rows: readonly AttentionRow[]): Record<AttentionRea
   for (const row of rows) for (const r of row.reasons) counts[r] += 1;
   return counts;
 }
+
+/**
+ * The offsets of the pages after the first when `total` rows are read `limit` at a time, at most
+ * `maxPages` pages in all (the first included). [] when one page holds everything.
+ */
+export function restPageOffsets(total: number, limit: number, maxPages: number): number[] {
+  if (!(limit > 0) || !(total > limit)) return [];
+  const pages = Math.min(Math.ceil(total / limit), Math.max(1, maxPages));
+  return Array.from({ length: pages - 1 }, (_, i) => (i + 1) * limit);
+}

@@ -1,3 +1,4 @@
+import { bpPercent1 } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { Stack, useRouter } from "expo-router";
@@ -211,7 +212,7 @@ export function CopyCard({ id }: { id: string }) {
               <View key={r.pressRunId} accessible className="flex-row justify-between gap-3">
                 <Text className="font-mono-semibold text-[15px] text-ink">{r.number}</Text>
                 <Text className="font-mono text-[15px] text-ink-muted">
-                  {`${kgGroupedText(r.outputG)} ${t("units.kg")}${r.recoveryBp != null ? `, ${(r.recoveryBp / 100).toFixed(1)}%` : ""}`}
+                  {`${kgGroupedText(r.outputG)} ${t("units.kg")}${r.recoveryBp != null ? `, ${bpPercent1(r.recoveryBp)}%` : ""}`}
                 </Text>
               </View>
             ))}

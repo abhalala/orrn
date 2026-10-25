@@ -1,26 +1,33 @@
 import { useT } from "@orrn/i18n";
 import { useQuery } from "@tanstack/react-query";
 import Constants from "expo-constants";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { ActivityIndicator, Linking, Platform, View } from "react-native";
 
 import { MessageScreen } from "@/components/message-screen";
 import { Button } from "@/components/ui/button";
 import { getInstallId } from "@/lib/install-id";
+import { getBuildNumber } from "@/lib/native-build";
 import {
   blockedKey,
-  decideRelease,
-  nativeBuildNumber,
+  gateInputs,
+  gateState,
   needsUpdate,
-  optimisticDecision,
   releaseChannel,
+  shouldStore,
   storedFrom,
+  UNREADABLE_BUILD,
   type CheckAnswer,
 } from "@/lib/release-gate";
 import { readStoredCheck, storeCheck } from "@/lib/release-gate-store";
 import { ReleaseStatusContext } from "@/lib/release-status";
 import { useThemeColor } from "@/lib/theme";
+import { useNow } from "@/lib/use-now";
 import { trpc } from "@/utils/trpc";
+
+/** How often the decision is recomputed while the app is open, and how often the server is asked again. */
+const TICK_MS = 30_000;
+const RECHECK_MS = 15 * 60_000;
 
 function CheckingScreen() {
   const { t } = useT();
@@ -34,40 +41,51 @@ function CheckingScreen() {
 
 /**
  * The distribution gate (spec E7): before the tabs, `release.check` for this build. Open lets the app
- * in; Blocked is a full screen with no way past it (an OTA update cannot clear it, the gate reads the
- * native build number). Offline, the last answer holds for 24 hours (lib/release-gate.ts). A build that
- * last checked Open opens at once and checks in the background, so a cold start never waits for the
- * network; if that check says Blocked the screen takes over. Outside the signed-in app (`active` false)
- * it only renders its children.
+ * in; Blocked is a full screen with no way past it. The build number is the installed binary's
+ * (expo-application), never the update manifest's, so an OTA update cannot clear a block; a phone that
+ * cannot read it is blocked. Offline, the last Open answer holds for 24 hours from when it arrived
+ * (lib/release-gate.ts `gateState`): the decision is recomputed every 30 s and when the app returns to
+ * the foreground, so a block appears when the grace runs out while the app stays open, and a failed
+ * recheck is never treated as Open past the grace. A build that last checked Open opens at once on a
+ * cold start and checks in the background. Outside the signed-in app (`active` false) it only renders its children.
  */
 export function ReleaseGate({ active, children }: { active: boolean; children: ReactNode }) {
   const { t } = useT();
   const platform = Platform.OS === "ios" ? "ios" : "android";
-  const buildNumber = nativeBuildNumber(platform, Constants.expoConfig);
+  const buildNumber = getBuildNumber();
   const channel = releaseChannel(Constants.expoConfig);
   const installId = getInstallId();
-  const [first] = useState(readStoredCheck);
+  const kept = useRef(readStoredCheck());
+  const now = useNow(TICK_MS);
   const check = useQuery({
-    ...trpc.release.check.queryOptions({ platform, channel, buildNumber, installId }),
-    enabled: active,
+    ...trpc.release.check.queryOptions({ platform, channel, buildNumber: buildNumber ?? 0, installId }),
+    enabled: active && buildNumber !== null,
     retry: false,
     staleTime: 0,
     refetchOnMount: "always",
+    refetchInterval: RECHECK_MS,
   });
 
-  // Keep the last answer for the offline rule.
+  // Keep each new answer for a cold start, timed when it arrived. The same answer seen again (a remount) is not re-stamped.
   useEffect(() => {
-    if (check.data) storeCheck(storedFrom(check.data as CheckAnswer, buildNumber, Date.now()));
+    if (!check.data || buildNumber === null) return;
+    if (!shouldStore(kept.current, check.data as CheckAnswer, buildNumber, check.dataUpdatedAt)) return;
+    kept.current = storedFrom(check.data as CheckAnswer, buildNumber, check.dataUpdatedAt);
+    storeCheck(kept.current);
   }, [check.data, check.dataUpdatedAt, buildNumber]);
 
   const decision = useMemo(() => {
     if (!active) return null;
-    const now = Date.now();
-    if (check.data) return decideRelease({ answer: check.data as CheckAnswer, last: null, now, buildNumber });
-    if (check.isError) return decideRelease({ answer: null, last: readStoredCheck() ?? first, now, buildNumber });
-    return optimisticDecision(first, now, buildNumber);
-    // dataUpdatedAt / errorUpdatedAt change when an answer arrives; Date.now() is read then.
-  }, [active, check.data, check.isError, check.dataUpdatedAt, check.errorUpdatedAt, first, buildNumber]);
+    if (buildNumber === null) return UNREADABLE_BUILD;
+    const data = (check.data as CheckAnswer | undefined) ?? null;
+    const inputs = gateInputs({ data, dataUpdatedAt: check.dataUpdatedAt, stored: kept.current, buildNumber });
+    // `isError` is the latest check: React Query keeps the old data after a failed refetch, but that is not an online answer.
+    const online = data !== null && !check.isError;
+    const d = gateState({ ...inputs, now, online });
+    // While a check is on its way, a block that more time on the wire could clear waits behind the spinner.
+    if (d.kind === "blocked" && check.isFetching && (data === null || d.reason === "grace_expired")) return null;
+    return d;
+  }, [active, buildNumber, check.data, check.dataUpdatedAt, check.isError, check.isFetching, now]);
 
   if (!active) return <>{children}</>;
   if (decision === null) return <CheckingScreen />;

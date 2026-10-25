@@ -168,3 +168,24 @@ export function updateLine(d: BookingDraft, index: number, patch: Partial<LineDr
 
 /** Quick lengths for the order line, in feet (inch companies). */
 export const QUICK_FEET = [12, 14, 18] as const;
+
+/** The request id of a booking being sent, with the payload it was made for. */
+export type BookingAttempt = { payload: string; id: string } | null;
+
+/**
+ * Which `clientRequestId` this send uses (FP-OP: a retry must not make a second order). The same booking
+ * sent again after an unsure answer (a timeout, a dropped connection) reuses the id, so the server
+ * returns the first order; an edited booking is a different order and gets a new one; a booking that
+ * was saved ends the attempt (`afterBooked`), so the next order always gets its own id. Pure.
+ * `fresh` makes a new id; it is only used when there is no attempt to reuse.
+ */
+export function bookingSubmit(attempt: BookingAttempt, input: NonNullable<ReturnType<typeof toCreateInput>>, fresh: () => string): { id: string; attempt: NonNullable<BookingAttempt> } {
+  const payload = JSON.stringify({ ...input, clientRequestId: "" });
+  const id = attempt && attempt.payload === payload ? attempt.id : fresh();
+  return { id, attempt: { payload, id } };
+}
+
+/** After the server saved the order the attempt is over. */
+export function afterBooked(): BookingAttempt {
+  return null;
+}

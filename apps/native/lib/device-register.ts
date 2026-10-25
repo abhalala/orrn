@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query";
-import Constants from "expo-constants";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 
@@ -7,7 +6,8 @@ import { trpc } from "@/utils/trpc";
 
 import { isDeviceRevoked } from "./device-revoked";
 import { getInstallId } from "./install-id";
-import { appVersionLabel, nativeBuildNumber } from "./release-gate";
+import { getAppVersion, getBuildNumber } from "./native-build";
+import { appVersionLabel } from "./release-gate";
 import { signOut } from "./sign-out";
 
 /** Companies this launch has already registered the device with. */
@@ -23,6 +23,9 @@ export function useDeviceRegister(companyId: string | null | undefined) {
   const register = useMutation(trpc.device.register.mutationOptions());
   useEffect(() => {
     if (!companyId || registered.has(companyId)) return;
+    // The installed binary's build (not the update manifest's). Unreadable: the release gate blocks this phone anyway.
+    const build = getBuildNumber();
+    if (build === null) return;
     registered.add(companyId);
     const platform = Platform.OS === "ios" ? "ios" : "android";
     register.mutate(
@@ -30,7 +33,7 @@ export function useDeviceRegister(companyId: string | null | undefined) {
         installId: getInstallId(),
         platform,
         osVersion: String(Platform.Version),
-        appVersion: appVersionLabel(Constants.expoConfig?.version, nativeBuildNumber(platform, Constants.expoConfig)),
+        appVersion: appVersionLabel(getAppVersion(), build),
       },
       {
         onError: (error) => {

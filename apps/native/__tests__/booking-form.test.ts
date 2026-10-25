@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   addLine,
+  afterBooked,
+  bookingSubmit,
   completeLines,
   copyChoiceInput,
   cutLengthMm,
@@ -165,5 +169,72 @@ describe("what is sent (the server works out the other side)", () => {
     expect(toCreateInput(draft({ customer: null }), "mm", "r")).toBeNull();
     expect(toCreateInput(draft({ lines: [filled({ pcsText: "" })] }), "mm", "r")).toBeNull();
     expect(completeLines(draft({ lines: [filled(), filled({ key: "x", pcsText: "" })] }), "mm")).toHaveLength(1);
+  });
+});
+
+describe("bookingSubmit: a retry must not make a second order (I-3)", () => {
+  const draft = (over: Partial<LineDraft> = {}): BookingDraft => ({
+    customer: { id: "c1", name: "Shah" },
+    po: "PO-7",
+    lines: [filled(over)],
+    at: 0,
+    step: "review",
+  });
+  const input = (d: BookingDraft) => toCreateInput(d, "mm", "")!;
+  let n = 0;
+  const fresh = () => `req-${++n}`;
+
+  test("the first send makes a new id", () => {
+    n = 0;
+    const sent = bookingSubmit(null, input(draft()), fresh);
+    expect(sent.id).toBe("req-1");
+  });
+
+  test("the same booking sent again after an unsure failure reuses the id", () => {
+    n = 0;
+    const first = bookingSubmit(null, input(draft()), fresh);
+    const again = bookingSubmit(first.attempt, input(draft()), fresh);
+    const third = bookingSubmit(again.attempt, input(draft()), fresh);
+    expect([first.id, again.id, third.id]).toEqual(["req-1", "req-1", "req-1"]);
+    expect(n).toBe(1);
+  });
+
+  test("an edited line is a different order and gets a new id", () => {
+    n = 0;
+    const first = bookingSubmit(null, input(draft()), fresh);
+    const edited = bookingSubmit(first.attempt, input(draft({ pcsText: "31" })), fresh);
+    expect(edited.id).toBe("req-2");
+  });
+
+  test("a changed PO or customer is a different order too", () => {
+    n = 0;
+    const first = bookingSubmit(null, input(draft()), fresh);
+    expect(bookingSubmit(first.attempt, input({ ...draft(), po: "PO-8" }), fresh).id).toBe("req-2");
+    expect(bookingSubmit(first.attempt, input({ ...draft(), customer: { id: "c2", name: "Mehta" } }), fresh).id).toBe("req-3");
+  });
+
+  test("editing and then reverting to the same booking reuses the first attempt's id only while that attempt is the last one", () => {
+    n = 0;
+    const first = bookingSubmit(null, input(draft()), fresh);
+    const edited = bookingSubmit(first.attempt, input(draft({ pcsText: "31" })), fresh);
+    // The last attempt is now the edited one: reverting is a new send with a new id (the server never saw the edited one succeed, and the original may have).
+    const reverted = bookingSubmit(edited.attempt, input(draft()), fresh);
+    expect(reverted.id).toBe("req-3");
+  });
+
+  test("after the order was saved the attempt is over, so the next order gets its own id", () => {
+    n = 0;
+    const first = bookingSubmit(null, input(draft()), fresh);
+    const next = bookingSubmit(afterBooked(), input(draft()), fresh);
+    expect(first.id).toBe("req-1");
+    expect(next.id).toBe("req-2");
+  });
+
+  test("the screen sends the id the model chose, and ends the attempt only after the server answered", () => {
+    // Behaviour is above; this only pins the wiring.
+    const src = readFileSync(join(import.meta.dir, "..", "features/orders/booking-screen.tsx"), "utf8");
+    expect(src).toMatch(/bookingSubmit\(attempt, base, randomId\)/);
+    expect(src).toMatch(/clientRequestId: sent\.id/);
+    expect(src.indexOf("setAttempt(afterBooked())")).toBeGreaterThan(src.indexOf("await create.mutateAsync"));
   });
 });

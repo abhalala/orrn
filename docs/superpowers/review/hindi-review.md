@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 3964 screen strings in 44 groups, 16 guides with 292 strings.
+Counts: 3965 screen strings in 44 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2527,7 +2527,7 @@ Counts: 3964 screen strings in 44 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (180)
+### native (181)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2702,6 +2702,7 @@ Counts: 3964 screen strings in 44 groups, 16 guides with 292 strings.
 | `gate.blocked.never_checked` | orrn could not check this version. Connect to the internet and check again. | orrn इस वर्जन को जांच नहीं सका। इंटरनेट से जुड़ें और फिर जांचें। |
 | `gate.blocked.grace_expired` | orrn has not been able to check for updates for over 24 hours. Connect to the internet and check again. | orrn 24 घंटे से ज्यादा समय से अपडेट नहीं जांच सका। इंटरनेट से जुड़ें और फिर जांचें। |
 | `gate.blocked.last_blocked` | This version of orrn cannot open. Connect to the internet and check again. | orrn का यह वर्जन नहीं खुल सकता। इंटरनेट से जुड़ें और फिर जांचें। |
+| `gate.blocked.unreadable_build` | orrn could not read its own version on this phone. Install the latest version again. | orrn इस फोन पर अपना वर्जन नहीं पढ़ सका। नया वर्जन दोबारा इंस्टॉल करें। |
 | `gate.latest` | The latest version is {version}. | नया वर्जन {version} है। |
 | `gate.getLatest` | Get the latest version | नया वर्जन लें |
 | `gate.graceNote` | Could not check for updates. This version can still open until {time}. | अपडेट नहीं जांच सके। यह वर्जन {time} तक खुल सकता है। |

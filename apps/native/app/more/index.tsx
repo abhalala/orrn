@@ -1,16 +1,15 @@
 import Feather from "@expo/vector-icons/Feather";
 import { useT, type MessageKey } from "@orrn/i18n";
-import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Linking, Platform, ScrollView, Text, View } from "react-native";
+import { Linking, ScrollView, Text, View } from "react-native";
 
 import { initials } from "@/components/account-button";
 import { LanguageSwitch } from "@/components/language-switch";
 import { Button } from "@/components/ui/button";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { moreRows } from "@/features/more/more-rows";
-import { nativeBuildNumber } from "@/lib/release-gate";
+import { getAppVersion, getBuildNumber } from "@/lib/native-build";
 import { useReleaseStatus } from "@/lib/release-status";
 import { useFormat } from "@/lib/use-format";
 import { webLinkRows } from "@/lib/web-link";
@@ -27,8 +26,8 @@ export default function MoreScreen() {
   const { t } = useT();
   const { data: me } = useMe();
   const [signingOut, setSigningOut] = useState(false);
-  const version = Constants.expoConfig?.version;
-  const build = nativeBuildNumber(Platform.OS === "ios" ? "ios" : "android", Constants.expoConfig);
+  const version = getAppVersion();
+  const build = getBuildNumber();
   const release = useReleaseStatus();
   const format = useFormat();
   const webRows = webLinkRows(can(me, "settings.update"));
@@ -127,7 +126,7 @@ export default function MoreScreen() {
             }}
           />
           {version ? (
-            <Text className="text-center font-sans text-xs text-ink-muted">{t("native.version", { version: build > 0 ? `${version} (${build})` : version })}</Text>
+            <Text className="text-center font-sans text-xs text-ink-muted">{t("native.version", { version: build !== null ? `${version} (${build})` : version })}</Text>
           ) : null}
           {release?.kind === "open" && release.via === "grace" && release.graceUntil ? (
             <Text accessibilityLiveRegion="polite" className="text-center font-sans text-xs text-ink-muted">

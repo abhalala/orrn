@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { bpPercent1 } from "@orrn/domain";
 
 import {
   applyPadKey,
@@ -200,5 +204,30 @@ describe("refusal wording", () => {
     expect(refusalText(err("BAD_REQUEST", '[{"code":"too_small"}]'), fb)).toBe("oops");
     expect(refusalText(err("INTERNAL_SERVER_ERROR", "boom"), fb)).toBe("oops");
     expect(refusalText(new Error("Network request failed"), fb)).toBe("offline");
+  });
+});
+
+describe("recovery percent (I-4: half away from zero, no client arithmetic)", () => {
+  test("7835 bp shows 78.4, not the 78.3 that toFixed gives", () => {
+    expect(bpPercent1(7835)).toBe("78.4");
+    expect(bpPercent1(7545)).toBe("75.5");
+    expect(bpPercent1(286)).toBe("2.9");
+    expect(bpPercent1(10000)).toBe("100.0");
+    expect(bpPercent1(0)).toBe("0.0");
+  });
+
+  test("no screen divides basis points itself: toFixed(1) on a bp value is gone from the phone", () => {
+    const root = join(import.meta.dir, "..");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+        if (e.name === "node_modules" || e.name === "__tests__" || e.name.startsWith(".")) return [];
+        const full = join(dir, e.name);
+        return e.isDirectory() ? walk(full) : /\.(ts|tsx)$/.test(e.name) ? [full] : [];
+      });
+    const bad = ["app", "features", "components", "lib"]
+      .flatMap((d) => walk(join(root, d)))
+      .filter((f) => /[bB]p\b[^\n]*(toFixed|\/ 100)|(toFixed|\/ 100)[^\n]*[bB]p\b/.test(readFileSync(f, "utf8")));
+    expect(bad).toEqual([]);
+    expect(readFileSync(join(root, "features/dies/copy-card.tsx"), "utf8")).toMatch(/bpPercent1\(r\.recoveryBp\)/);
   });
 });

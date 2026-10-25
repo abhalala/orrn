@@ -26,6 +26,8 @@ import { queryClient, trpc } from "@/utils/trpc";
 
 import {
   addLine,
+  afterBooked,
+  bookingSubmit,
   completeLines,
   copyChoiceInput,
   cutLengthMm,
@@ -81,16 +83,15 @@ export function BookingScreen() {
   };
 
   async function book() {
-    const clientRequestId = randomId();
-    const input = toCreateInput(draft, unit, clientRequestId);
-    if (!input) return;
+    const base = toCreateInput(draft, unit, "");
+    if (!base) return;
     // The same booking asked again after an unsure answer reuses its key, so it cannot be made twice.
-    const payload = JSON.stringify({ ...input, clientRequestId: "" });
-    const id = attempt && attempt.payload === payload ? attempt.id : clientRequestId;
-    setAttempt({ payload, id });
+    const sent = bookingSubmit(attempt, base, randomId);
+    setAttempt(sent.attempt);
     setErrors([]);
     try {
-      const done = await create.mutateAsync({ ...input, clientRequestId: id });
+      const done = await create.mutateAsync({ ...base, clientRequestId: sent.id });
+      setAttempt(afterBooked());
       feedback.success();
       announce(t("orders.form.saved", { number: done.number }));
       void queryClient.invalidateQueries(trpc.orders.pathFilter());
