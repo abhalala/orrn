@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5366 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5369 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -4968,10 +4968,13 @@ Please check, Lalubhai:
 | `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 
-### foundry (104)
+### foundry (107)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `inbox.columns.file` | File | फ़ाइल |
+| `inbox.columns.when` | When | कब |
+| `inbox.columns.status` | Status | स्थिति |
 | `inbox.title` | Spectro inbox | स्पेक्ट्रो इनबॉक्स |
 | `inbox.subtitle` | Result files the spectrometer computer sent. Nothing is attached by itself: pick the melt each file belongs to. | स्पेक्ट्रोमीटर कंप्यूटर से आई नतीजों की फ़ाइलें। कुछ अपने आप नहीं जुड़ता: हर फ़ाइल के लिए मेल्ट खुद चुनें। |
 | `inbox.tabs.label` | Files | फ़ाइलें |

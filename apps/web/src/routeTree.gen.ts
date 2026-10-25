@@ -68,6 +68,7 @@ import { Route as TenantPurchaseNewRouteImport } from './routes/_tenant/purchase
 import { Route as TenantPurchaseIdRouteImport } from './routes/_tenant/purchase.$id'
 import { Route as TenantPressSummaryRouteImport } from './routes/_tenant/press.summary'
 import { Route as TenantPressReportRouteImport } from './routes/_tenant/press.report'
+import { Route as TenantPressAlertsRouteImport } from './routes/_tenant/press.alerts'
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
 import { Route as TenantPackNewRouteImport } from './routes/_tenant/pack.new'
 import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
@@ -86,6 +87,7 @@ import { Route as TenantDiesMakersRouteImport } from './routes/_tenant/dies.make
 import { Route as TenantDiesIssuesRouteImport } from './routes/_tenant/dies.issues'
 import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
 import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
+import { Route as TenantCastsInboxRouteImport } from './routes/_tenant/casts.inbox'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
 import { Route as PortalPortalDiesRouteImport } from './routes/_portal/portal.dies'
@@ -435,6 +437,11 @@ const TenantPressReportRoute = TenantPressReportRouteImport.update({
   path: '/press/report',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPressAlertsRoute = TenantPressAlertsRouteImport.update({
+  id: '/press/alerts',
+  path: '/press/alerts',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackingListsIdRoute = TenantPackingListsIdRouteImport.update({
   id: '/packing-lists/$id',
   path: '/packing-lists/$id',
@@ -523,6 +530,11 @@ const TenantDiesIdRoute = TenantDiesIdRouteImport.update({
 const TenantCustomersIdRoute = TenantCustomersIdRouteImport.update({
   id: '/customers/$id',
   path: '/customers/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCastsInboxRoute = TenantCastsInboxRouteImport.update({
+  id: '/casts/inbox',
+  path: '/casts/inbox',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantBundlesIdRoute = TenantBundlesIdRouteImport.update({
@@ -873,6 +885,7 @@ export interface FileRoutesByFullPath {
   '/portal/dies': typeof PortalPortalDiesRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
+  '/casts/inbox': typeof TenantCastsInboxRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
   '/dies/issues': typeof TenantDiesIssuesRoute
@@ -891,6 +904,7 @@ export interface FileRoutesByFullPath {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/press/alerts': typeof TenantPressAlertsRoute
   '/press/report': typeof TenantPressReportRoute
   '/press/summary': typeof TenantPressSummaryRoute
   '/purchase/$id': typeof TenantPurchaseIdRoute
@@ -1005,6 +1019,7 @@ export interface FileRoutesByTo {
   '/portal/dies': typeof PortalPortalDiesRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
+  '/casts/inbox': typeof TenantCastsInboxRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
   '/dies/issues': typeof TenantDiesIssuesRoute
@@ -1023,6 +1038,7 @@ export interface FileRoutesByTo {
   '/pack/$id': typeof TenantPackIdRoute
   '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/press/alerts': typeof TenantPressAlertsRoute
   '/press/report': typeof TenantPressReportRoute
   '/press/summary': typeof TenantPressSummaryRoute
   '/purchase/$id': typeof TenantPurchaseIdRoute
@@ -1143,6 +1159,7 @@ export interface FileRoutesById {
   '/_portal/portal/dies': typeof PortalPortalDiesRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
+  '/_tenant/casts/inbox': typeof TenantCastsInboxRoute
   '/_tenant/customers/$id': typeof TenantCustomersIdRoute
   '/_tenant/dies/$id': typeof TenantDiesIdRoute
   '/_tenant/dies/issues': typeof TenantDiesIssuesRoute
@@ -1161,6 +1178,7 @@ export interface FileRoutesById {
   '/_tenant/pack/$id': typeof TenantPackIdRoute
   '/_tenant/pack/new': typeof TenantPackNewRoute
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/_tenant/press/alerts': typeof TenantPressAlertsRoute
   '/_tenant/press/report': typeof TenantPressReportRoute
   '/_tenant/press/summary': typeof TenantPressSummaryRoute
   '/_tenant/purchase/$id': typeof TenantPurchaseIdRoute
@@ -1277,6 +1295,7 @@ export interface FileRouteTypes {
     | '/portal/dies'
     | '/invite/$token'
     | '/bundles/$id'
+    | '/casts/inbox'
     | '/customers/$id'
     | '/dies/$id'
     | '/dies/issues'
@@ -1295,6 +1314,7 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/press/alerts'
     | '/press/report'
     | '/press/summary'
     | '/purchase/$id'
@@ -1409,6 +1429,7 @@ export interface FileRouteTypes {
     | '/portal/dies'
     | '/invite/$token'
     | '/bundles/$id'
+    | '/casts/inbox'
     | '/customers/$id'
     | '/dies/$id'
     | '/dies/issues'
@@ -1427,6 +1448,7 @@ export interface FileRouteTypes {
     | '/pack/$id'
     | '/pack/new'
     | '/packing-lists/$id'
+    | '/press/alerts'
     | '/press/report'
     | '/press/summary'
     | '/purchase/$id'
@@ -1546,6 +1568,7 @@ export interface FileRouteTypes {
     | '/_portal/portal/dies'
     | '/_public/invite/$token'
     | '/_tenant/bundles/$id'
+    | '/_tenant/casts/inbox'
     | '/_tenant/customers/$id'
     | '/_tenant/dies/$id'
     | '/_tenant/dies/issues'
@@ -1564,6 +1587,7 @@ export interface FileRouteTypes {
     | '/_tenant/pack/$id'
     | '/_tenant/pack/new'
     | '/_tenant/packing-lists/$id'
+    | '/_tenant/press/alerts'
     | '/_tenant/press/report'
     | '/_tenant/press/summary'
     | '/_tenant/purchase/$id'
@@ -2074,6 +2098,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPressReportRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/press/alerts': {
+      id: '/_tenant/press/alerts'
+      path: '/press/alerts'
+      fullPath: '/press/alerts'
+      preLoaderRoute: typeof TenantPressAlertsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/packing-lists/$id': {
       id: '/_tenant/packing-lists/$id'
       path: '/packing-lists/$id'
@@ -2198,6 +2229,13 @@ declare module '@tanstack/react-router' {
       path: '/customers/$id'
       fullPath: '/customers/$id'
       preLoaderRoute: typeof TenantCustomersIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/casts/inbox': {
+      id: '/_tenant/casts/inbox'
+      path: '/casts/inbox'
+      fullPath: '/casts/inbox'
+      preLoaderRoute: typeof TenantCastsInboxRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/bundles/$id': {
@@ -2729,6 +2767,7 @@ interface TenantRouteChildren {
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
   TenantTodayRoute: typeof TenantTodayRoute
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
+  TenantCastsInboxRoute: typeof TenantCastsInboxRoute
   TenantCustomersIdRoute: typeof TenantCustomersIdRoute
   TenantDiesIdRoute: typeof TenantDiesIdRoute
   TenantDiesIssuesRoute: typeof TenantDiesIssuesRoute
@@ -2747,6 +2786,7 @@ interface TenantRouteChildren {
   TenantPackIdRoute: typeof TenantPackIdRoute
   TenantPackNewRoute: typeof TenantPackNewRoute
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
+  TenantPressAlertsRoute: typeof TenantPressAlertsRoute
   TenantPressReportRoute: typeof TenantPressReportRoute
   TenantPressSummaryRoute: typeof TenantPressSummaryRoute
   TenantPurchaseIdRoute: typeof TenantPurchaseIdRoute
@@ -2828,6 +2868,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantSettingsRoute: TenantSettingsRouteWithChildren,
   TenantTodayRoute: TenantTodayRoute,
   TenantBundlesIdRoute: TenantBundlesIdRoute,
+  TenantCastsInboxRoute: TenantCastsInboxRoute,
   TenantCustomersIdRoute: TenantCustomersIdRoute,
   TenantDiesIdRoute: TenantDiesIdRoute,
   TenantDiesIssuesRoute: TenantDiesIssuesRoute,
@@ -2846,6 +2887,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPackIdRoute: TenantPackIdRoute,
   TenantPackNewRoute: TenantPackNewRoute,
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
+  TenantPressAlertsRoute: TenantPressAlertsRoute,
   TenantPressReportRoute: TenantPressReportRoute,
   TenantPressSummaryRoute: TenantPressSummaryRoute,
   TenantPurchaseIdRoute: TenantPurchaseIdRoute,

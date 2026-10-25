@@ -5182,6 +5182,11 @@ export const en = {
 
   foundry: {
     inbox: {
+      columns: {
+        file: "File",
+        when: "When",
+        status: "Status",
+      },
       title: "Spectro inbox",
       subtitle: "Result files the spectrometer computer sent. Nothing is attached by itself: pick the melt each file belongs to.",
       tabs: {
