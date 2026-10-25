@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import { mapSentence } from "@orrn/i18n/refusal";
+// W3-AG-S review I3: the ageing table is registered by its own module (an ageing screen imports it once).
+import "@orrn/i18n/refusal-ageing";
 import { AGEING_REFUSAL_CODES, type AgeingRefusalCode } from "@orrn/domain";
 import { ageingRefusalMessage } from "@orrn/server/lib/ageingRefusals";
 
