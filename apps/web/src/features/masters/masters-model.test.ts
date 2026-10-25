@@ -194,7 +194,7 @@ describe("masterEntries (the Masters page)", () => {
 
   test("owner and manager see every master", () => {
     for (const role of ["owner", "manager", "admin"] as const) {
-      expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons", "furnaces", "alloys"]);
+      expect(keys(role)).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons", "furnaces", "alloys", "ovens", "trolleys", "recipes"]);
     }
   });
 
@@ -204,7 +204,7 @@ describe("masterEntries (the Masters page)", () => {
   });
 
   test("vendors only for purchase readers, store items only for the store's people", () => {
-    expect(keys("office")).toEqual(["vendors", "scrap", "locations", "sections", "dieCopies", "reasons"]);
+    expect(keys("office")).toEqual(["vendors", "scrap", "locations", "sections", "dieCopies", "reasons", "ovens", "trolleys", "recipes"]);
     expect(keys("storekeeper")).toEqual(["vendors", "scrap", "storeItems", "locations", "sections", "dieCopies", "reasons"]);
     expect(keys("packer")).toEqual(["scrap", "locations", "sections", "dieCopies", "reasons"]);
   });

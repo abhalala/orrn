@@ -10,6 +10,7 @@ import {
   Cylinder,
   Factory,
   Flame,
+  Thermometer,
   House,
   Inbox,
   LayoutDashboard,
@@ -29,7 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press" | "foundry" | "ageing";
 
 export type NavItem = {
   key: string;
@@ -76,6 +77,8 @@ export const TENANT_MORE: readonly NavItem[] = [
   { key: "press", to: "/press", labelKey: "nav.press", icon: Factory, requires: PRESS_PEOPLE, module: "press" },
   // W2-FD-W: casts, melts, spectro, billet stock (the Foundry entry; Billet stock and the inbox are linked from it).
   { key: "foundry", to: "/casts", labelKey: "nav.foundry", icon: Flame, requires: FOUNDRY_PEOPLE, module: "foundry" },
+  // W3-AG-W: the ageing ovens and trolleys, between the press and pack. Floor roles hold ageing.view / ageing.enter.
+  { key: "ageing", to: "/ageing", labelKey: "nav.ageing", icon: Thermometer, requires: ["ageing.view", "ageing.enter"], module: "ageing" },
   // W4-ANALYTICS: production, die life, stock age and the order book (reports.read).
   { key: "reports", to: "/reports", labelKey: "nav.reports", icon: ChartColumn, requires: ["reports.read"] },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },

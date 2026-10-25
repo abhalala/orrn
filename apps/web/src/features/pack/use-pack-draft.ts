@@ -86,6 +86,8 @@ export type PackDefaults = {
   approvalId?: string;
   /** The office packs on another copy than the order line pins (D15; audited on the server). */
   overridePin?: boolean;
+  /** W3-AG-W: a released trolley line the pieces come from (`ageing.packSource`); none = packed by hand. */
+  ageingRowId?: string;
 };
 
 export function emptyDraft(companyId: string, userId?: string): PackDraft {
@@ -158,6 +160,7 @@ function parseDraft(raw: string): PackDraft | null {
     !(defaults.locationId === undefined || typeof defaults.locationId === "string") ||
     !optionalString(defaults.dieInstanceId) ||
     !optionalString(defaults.castId) ||
+    !optionalString(defaults.ageingRowId) ||
     !optionalString(defaults.salesOrderLineId) ||
     !optionalString(defaults.approvalId) ||
     !(defaults.showLogo === undefined || typeof defaults.showLogo === "boolean") ||
@@ -275,6 +278,8 @@ export type ReceiptInput = {
   /** D20: `plant_stock` when no order line is chosen (the "Plant stock" choice). */
   source: "order" | "plant_stock";
   overridePin?: boolean;
+  /** A released trolley line the pieces and rejects are drawn from (W3-AG-S). */
+  ageingRowId?: string;
   showLogo?: boolean;
   approvalId?: string;
   rows: ReceiptRow[];
@@ -310,7 +315,7 @@ function sessionYard(d: PackDraft, yards: YardContext | undefined): string | und
 export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardContext): ReceiptInput | null {
   if (!d.dieId || !(d.defaults.lengthMm > 0) || d.bundles.length === 0) return null;
   const locationId = sessionYard(d, yards);
-  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId, overridePin } = d.defaults;
+  const { dieInstanceId, castId, salesOrderLineId, showLogo, approvalId, overridePin, ageingRowId } = d.defaults;
   const rejects = d.rejects ?? [];
   return {
     dieId: d.dieId,
@@ -323,6 +328,7 @@ export function toReceiptInput(d: PackDraft, unit: LengthUnit, yards?: YardConte
     // D20: no order line is the deliberate "Plant stock" choice; the server writes it as plant stock.
     source: salesOrderLineId ? "order" : "plant_stock",
     ...(salesOrderLineId && dieInstanceId && overridePin ? { overridePin: true } : {}),
+    ...(ageingRowId ? { ageingRowId } : {}),
     ...(showLogo === false ? { showLogo: false } : {}),
     ...(approvalId ? { approvalId } : {}),
     rows: d.bundles.map((b) => ({

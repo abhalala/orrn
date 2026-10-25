@@ -21,6 +21,7 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { AgeingOverrideFigures } from "@/features/ageing/approval-figures";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
@@ -217,6 +218,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         {foundry.length > 0 ? <FoundryFigures rows={foundry} title={isFoundryLive ? t("approvals.foundry.atRequest") : undefined} /> : null}
 
         {late ? <LateEntryFigures late={late} run={lateRun.data} loading={lateRun.isLoading} error={showsQueryError(lateRun)} /> : null}
+
+        {current.kind === "ageing_override" && canAny(me, ["ageing.view"]) ? <AgeingOverrideFigures batchId={current.subjectId} /> : null}
 
         {isNote ? (
           readsFigures ? (

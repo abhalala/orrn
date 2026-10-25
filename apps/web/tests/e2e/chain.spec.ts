@@ -33,11 +33,11 @@ import { expectNoHorizontalScroll } from "../helpers/layout-guards";
  *   of the chain's bundles. Strip: ordered 8,000, pressed 234.2 at log (26.06 after packing, §E2:
  *   logged − aged − produced), produced 208.14, dispatched 139.10, held 69.04 (1 bundle), baki 7,860.90.
  *
- * Ageing (W3-AG-S, through the API until the screens land): the 20 logged pieces go on the chain's own
+ * Ageing (W3-AG-S through the API; W3-AG-W's pack screen picks the line): the 20 logged pieces go on the chain's own
  * trolley in the chain's own oven on the plant's 6063 T5 recipe, in 5 h 20 min ago; the oven simulator
  * logs the curve; out, three Webster samples, the supervisor releases. The strip then shows the 234.2 kg
- * as aged (pressed 0). The pack screen packs from that trolley line (the test adds its id to the
- * receipt: the screens' trolley picker is W3-AG-W): 18 pcs on bundles + 2 rejected = the row's 20, so
+ * as aged (pressed 0). The pack screen packs from that trolley line (the packer picks it in the Source
+ * step's trolley picker and the receipt carries its id): 18 pcs on bundles + 2 rejected = the row's 20, so
  * the row and the batch close and the strip is back to pressed 26.06 (logged − produced) with aged 0.
  *
  * Global setting touched: `requireCastOnBundle` is set Off before the melt is locked (as portal.spec does),
@@ -144,20 +144,6 @@ async function pickOption(page: Page, trigger: ReturnType<Page["getByLabel"]>, o
 const kg3 = (g: number) => (g / 1000).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** The posted receipt with `ageingRowId` set on the input that carries `clientRequestId` (any tRPC body shape). */
-function withAgeingRow(posted: string, rowId: string): string {
-  const visit = (v: unknown): unknown => {
-    if (Array.isArray(v)) return v.map(visit);
-    if (v && typeof v === "object") {
-      const o = Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, visit(x)]));
-      if ("clientRequestId" in o && "rows" in o) o.ageingRowId = rowId;
-      return o;
-    }
-    return v;
-  };
-  return JSON.stringify(visit(JSON.parse(posted)));
-}
-
 /**
  * The plant's Range/12' (memory §2, AGENTS.md): floor((kg/12ft + 0.01) × 10) / 10 on the RAW kg per
  * 12 ft = weightG × 3657.6 / (1000 × pcs × lengthMm), evaluated on integers so no float edge decides it.
@@ -210,7 +196,7 @@ type Chain = {
   dispatch?: { id: string; code: string };
   otherDispatchId?: string;
   portal?: { email: string; password: string; portalUserId: string };
-  ageing?: { batchId: string; number: string; rowId: string };
+  ageing?: { batchId: string; number: string; rowId: string; trolleyCode: string };
 };
 
 /** What a chain has made, filled as it goes, so a half-built chain is still cleaned. */
@@ -698,7 +684,7 @@ for (const width of WIDTHS) {
       });
     });
 
-    test("ageing: the trolley is loaded, aged and released", async () => {
+    test("ageing: the trolley is loaded, aged and released", async ({ browser }) => {
       const run = fx.run!;
       const code = `AG${fx.tag}`.slice(0, 12);
       const masters = await withApi("owner", async (o) => {
@@ -711,7 +697,7 @@ for (const width of WIDTHS) {
         expect(recipe, "the plant's active 6063 T5 recipe (dev seed)").toBeTruthy();
         const settings = await o.q<{ shifts: { id: string }[] }>("company.getSettings");
         const lines = await o.q<{ lines: { id: string; pcs: number }[] }>("press.runs.get", { id: run.id });
-        return { ovenId: oven.id, trolleyId: trolley.id, recipeId: recipe!.id, shiftId: settings.shifts[0]!.id, lineId: lines.lines[0]!.id };
+        return { ovenId: oven.id, trolleyId: trolley.id, trolleyCode: trolley.code, recipeId: recipe!.id, shiftId: settings.shifts[0]!.id, lineId: lines.lines[0]!.id };
       });
 
       const batch = await withApi("press", async (press) => {
@@ -737,7 +723,7 @@ for (const width of WIDTHS) {
         const out = await press.m<{ status: string; soak: { verdict: string; met: boolean } }>("ageing.batches.out", { batchId: loaded.id, gasEndMilli: 4_250 });
         expect(out).toMatchObject({ status: "out", soak: { verdict: "ok", met: true } });
         await press.m("ageing.batches.hardness", { rowId: loaded.rows[0]!.id, method: "webster", readingsX10: [95, 100, 105] });
-        return { batchId: loaded.id, number: loaded.number, rowId: loaded.rows[0]!.id };
+        return { batchId: loaded.id, number: loaded.number, rowId: loaded.rows[0]!.id, trolleyCode: masters.trolleyCode };
       });
 
       await withApi("supervisor", async (sup) => {
@@ -753,6 +739,15 @@ for (const width of WIDTHS) {
         const source = await o.q<{ items: { ageingRowId: string; remainingPcs: number }[] }>("ageing.packSource", { dieId: fx.sectionId });
         expect(source.items).toEqual([expect.objectContaining({ ageingRowId: batch.rowId, remainingPcs: PRESS.pcs })]);
       });
+
+      // W3-AG-W: the order's strip shows the trolley's kg in its own "Aged" cell, and the press cell is empty.
+      const { page, context } = await openAs(browser, "office", width, `/orders/${fx.order!.id}`);
+      await settled(page);
+      const line1 = page.locator("[data-order-line='1']");
+      await expect(line1.locator("[data-strip='agedG']")).toContainText(`${kg3(PRESS.goodG)} kg`);
+      await expect(line1.locator("[data-strip='agedG']")).toContainText("Aged");
+      await expect(line1.locator("[data-strip='pressedG']")).toContainText("0.000 kg");
+      await context.close();
     });
 
     test("packer packs 3 bundles on the order line: live kg/12 ft, a reject, a lost reply sent again without a duplicate, party numbers", async ({ browser }) => {
@@ -766,6 +761,11 @@ for (const width of WIDTHS) {
       await orders.getByRole("radio", { name: new RegExp(escape(fx.party.name)) }).check({ force: true });
       await page.locator("[data-slot='copy-picker']").getByRole("radio", { name: fx.copies.a.code, exact: true }).check({ force: true });
       await page.locator("[data-slot='cast-picker']").getByRole("radio", { name: fx.cast.number, exact: true }).check({ force: true });
+      // W3-AG-W: the pieces come off the released trolley line: the Source step lists it (trolley, batch, pieces left) and the pick goes into the receipt.
+      const trolleyLine = page.locator("[data-slot='trolley-picker']").getByRole("radio", { name: `${fx.ageing!.trolleyCode} ${fx.ageing!.number}`, exact: true });
+      await expect(trolleyLine).toBeAttached({ timeout: 15_000 });
+      await trolleyLine.check({ force: true });
+      await expect(page.locator("[data-slot='pack-source']")).toContainText("Trolley");
       await page.getByLabel("Feet", { exact: true }).fill("12");
       await page.getByLabel("Inches", { exact: true }).fill("0");
       const yard = page.locator("input[type='radio'][value$='-Y2']");
@@ -801,9 +801,10 @@ for (const width of WIDTHS) {
       const sent: { key: string; body: string }[] = [];
       let cut = true;
       await page.route("**/trpc/bundle.createReceipt*", async (route) => {
-        // W3-AG-S: pack from the released trolley line (the screen's trolley picker is W3-AG-W's).
-        const posted = withAgeingRow(route.request().postData() ?? "", fx.ageing!.rowId);
-        const response = await route.fetch({ postData: posted });
+        // W3-AG-W: the receipt already carries the trolley line the packer picked on the Source step.
+        const posted = route.request().postData() ?? "";
+        expect(posted).toContain(fx.ageing!.rowId);
+        const response = await route.fetch();
         sent.push({ key: /"clientRequestId":"([^"]+)"/.exec(posted)?.[1] ?? "", body: await response.text() });
         if (cut) {
           cut = false;

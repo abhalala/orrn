@@ -12,6 +12,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { MAX_STANDARD_TEXT, STANDARD_KINDS, standardBlank, standardsDraft, standardsPatch, type StandardsDraft } from "./model";
 import { Note, TabState, usePlantSettings } from "./ui";
+import { AgeingSettingsCard } from "@/features/ageing/settings-card";
 import { CollectorsCard } from "./collectors-card";
 import { ThresholdsCard } from "./thresholds-card";
 
@@ -29,6 +30,7 @@ export function StandardsTab() {
         <div className="flex min-w-0 flex-col gap-6">
           <StandardsForm key={signature} saved={standardsDraft(settings.data.standards)} />
           <ThresholdsCard settings={settings.data} />
+          <AgeingSettingsCard settings={settings.data} />
           {/* I-5: the press reading limits live with the other plant standards, where managers
               (masters.publish) reach them; the card gates its own editing. */}
           <CollectorsCard />

@@ -10,6 +10,7 @@ import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
 import { TodayFoundryTile } from "@/features/foundry/today-tile";
+import { TodayAgeingTile } from "@/features/ageing/today-tile";
 import { TodayPressTile } from "@/features/press/today-tile";
 import { TodayOldStockTile } from "@/features/reports/today-old-stock";
 import { Can } from "@/shared/components/can";
@@ -193,6 +194,7 @@ export function TodayScreen() {
         <TodayFoundryTile />
       </Can>
       <TodayTiles tiles={data.tiles} startIndex={3} />
+      {data.ageing ? <TodayAgeingTile data={data.ageing} /> : null}
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
         <ListsGrid pair={sections.dispatches && sections.sessions}>

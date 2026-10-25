@@ -1,6 +1,6 @@
 import type { Locale, MessageKey, Translate } from "@orrn/i18n";
 
-export type ReasonCodeKind = "cast_tail" | "melt_correct" | "downtime" | "qc_reject" | "void" | "reprint" | "ageing_hold" | "ageing_rework" | "ageing_scrap" | "reallocate";
+export type ReasonCodeKind = "cast_tail" | "melt_correct" | "downtime" | "qc_reject" | "void" | "reprint" | "ageing_hold" | "ageing_rework" | "ageing_scrap" | "ageing_abort" | "ageing_reject" | "reallocate";
 
 /** The wording a plant typed for a code in another language (null / missing = none typed). */
 /** `standard`: a standard code still on its standard English wording (the server says; not renamed). */

@@ -19,6 +19,7 @@ import { lengthUnitOf, type RangeState } from "@/features/pack/pack-ui";
 import { partyRange } from "@/features/pack/party";
 import { labelRun } from "@/features/pack/print-labels";
 import { ReviewStep } from "@/features/pack/review-step";
+import { serverRefusal } from "@/features/shared/server-refusal";
 import { ownerNameOf, saveErrorKind, type SaveErrorKind } from "@/features/pack/save-error";
 import { newSessionKey, reachableStep, receiptRequestKey, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
 import { sessionPrintQueue, useCanPrintLabels } from "@/features/pack/use-print-labels";
@@ -71,7 +72,7 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
   const yardCode = yards.yards.find((y) => y.id === draft.defaults.locationId)?.code ?? null;
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [saveError, setSaveError] = useState<{ kind: SaveErrorKind; ownerName?: string | null } | null>(null);
+  const [saveError, setSaveError] = useState<{ kind: SaveErrorKind; ownerName?: string | null; text?: string } | null>(null);
   const [popped, setPopped] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [showRestored, setShowRestored] = useState(restored);
@@ -166,7 +167,7 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
       // A yard retired or removed since the yards loaded: fresh yards move the packer back to step 1
       // by themselves when the chosen yard is gone.
       if (kind === "yard") yards.retry();
-      setSaveError({ kind, ownerName: kind === "owned" ? ownerNameOf(error) : null });
+      setSaveError({ kind, ownerName: kind === "owned" ? ownerNameOf(error) : null, ...(kind === "trolley" ? { text: serverRefusal(t, error) } : {}) });
     }
   };
 

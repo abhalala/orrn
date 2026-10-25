@@ -96,6 +96,14 @@ dross, 20 kg Fe, 50 kg burnt), spectro passed; its ledger rows are what `melts.l
 logged runs' rows are what `press.runs.close` posts, so its close-out tail is 0. Cast 3
 (`dev-press-cast-3`) is open with a draft melt `dev-melt-2` (1,500 kg of LOT-6 written, nothing posted).
 
+### Ageing (2 batches on PR-8's line, 80 pcs)
+
+Oven **OV-1**, trolleys **T-1** and **T-2**, recipes 6063 **T5** (240 min) and **T6** (360 min), both active. **AG-1** on T-1: 40 pcs,
+released on the approved override `dev-approval-ageing-override-1` (the soak is always short in the seed, so this is the override
+path); its line is the pack screen's trolley picker. **AG-2** on T-2: 30 pcs in OV-1 with the simulator curve logged up to now (the board's
+oven card shows the stage timer and the line of readings). 10 pcs of the line are left to load. PR-8 has no order line, so no strip shows aged kg
+from the seed; Today shows "In the oven: 1". `OVEN_SIMULATOR=1` (local only) adds the "Add simulated readings" button on a batch.
+
 ### Stock (129 bundles in 9 packing sessions)
 
 Serials are `BG-000001-B001` style plus one plant-format clash on purpose (`26J1` is both a plant serial and
@@ -140,6 +148,7 @@ Container heater element, Hydraulic oil) with a GRN each and three issues (GRN-1
 5. **Pack/Dispatch** as `packer` on a phone: scan plant stock onto the Shivam draft; the held dispatch for Tejura.
 6. **Packing lists:** done-1 (two revisions), the combined Tejura list, SO-8's "original SO" column.
 7. **Stock:** yards, CNT-1 and its two phantoms.
+7a. **Ageing** as `press` (More, Ageing): the board (AG-2 soaking in OV-1, T-1 released), then Load trolley with the 10 pcs left, Start on a free trolley, add readings, Take out, record hardness; as `supervisor` Release, hold a line, ask for approval; as `manager` approve it in Approvals (the figures are in the sheet). Pack then lists the released line under "Trolley line"; the bundle page says "Aged" and links to its batch.
 8. **Portal** as `party`: KD sees its own dispatch and certificate, never Royal's.
 9. **Foundry** as `foundry` on a phone (W2-FD-W): Today's Foundry tile (open casts, melts in progress, spectro waiting), then
    `/casts`. Open the seeded cast 3 (open, a draft melt): the stepper opens on the draft's steps (times, charge of LOT-6,

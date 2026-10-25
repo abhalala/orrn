@@ -13,6 +13,8 @@ import {
   copyLocked,
   packableCopy,
   sourceBlockers,
+  trolleyRequired,
+  withAgeingRow,
   withCast,
   withCopy,
   withPinOverride,
@@ -21,7 +23,7 @@ import {
   type SourceChoice,
 } from "./source-gate";
 import { packLineChoices } from "./pack-lines";
-import { useCasts, useDieCopies, useOpenLines, useOwnerCheck } from "./use-pack-server";
+import { useCasts, useDieCopies, useOpenLines, useOwnerCheck, useTrolleyLines } from "./use-pack-server";
 import { kg12Text } from "./line-preview";
 
 const NONE = "";
@@ -34,10 +36,11 @@ export function useSourceGate(dieId: string | null, choice: SourceChoice, settin
   const liveCasts = useMemo(() => (casts.data?.items ?? []).filter((c) => c.meltCount > 0), [casts.data]);
   const line = lines.data?.find((l) => l.lineId === choice.salesOrderLineId);
   const owner = useOwnerCheck({ dieId, dieInstanceId: choice.dieInstanceId, customerId: line?.customerId ?? null });
+  const trolleys = useTrolleyLines(dieId);
   const required = castRequired(settings, liveCasts.length);
-  const blockers = sourceBlockers({ choice, castRequired: required, owner: owner.data });
+  const blockers = sourceBlockers({ choice, castRequired: required, owner: owner.data, trolleyRequired: trolleyRequired(settings, trolleys.data?.items.length ?? 0) });
   const loading = copies.isPending || lines.isPending || casts.isPending || owner.isPending;
-  return { copies, lines, liveCasts, line, owner, castRequired: required, blockers, loading };
+  return { copies, lines, liveCasts, line, owner, trolleys, castRequired: required, blockers, loading };
 }
 
 type Gate = ReturnType<typeof useSourceGate>;
@@ -52,11 +55,14 @@ export function SourceExtras({
   onChange,
   gate,
   showErrors,
+  onPickTrolley,
 }: {
   choice: SourceChoice;
   onChange(next: SourceChoice): void;
   gate: Gate;
   showErrors: boolean;
+  /** A trolley line was picked: the Source step may fill the cut length from it. */
+  onPickTrolley?(row: { cutLengthMm: number } | null): void;
 }) {
   const { t } = useT();
   const blockers = gate.blockers;
@@ -109,6 +115,30 @@ export function SourceExtras({
       })),
   ];
 
+  const trolleyRows = gate.trolleys.data?.items ?? [];
+  const trolleyChoices: Choice[] = [
+    { value: NONE, label: t("pack.source.noTrolley"), detail: t("pack.source.noTrolleyHint") },
+    ...trolleyRows.map((r) => ({
+      value: r.ageingRowId,
+      label: (
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-mono">{r.trolleyCode}</span>
+          <span className="font-mono text-muted-foreground">{r.batchNumber}</span>
+          <span className="font-medium">{t("pack.source.trolleyLeft", { pcs: r.remainingPcs })}</span>
+        </span>
+      ),
+      ariaLabel: `${r.trolleyCode} ${r.batchNumber}`,
+      detail: [
+        r.dieInstanceCode ? `${r.sectionLabel} · ${r.dieInstanceCode}` : r.sectionLabel,
+        t("pack.source.trolleyCut", { mm: r.cutLengthMm }),
+        r.castCode ? t("pack.source.trolleyCast", { cast: r.castCode }) : null,
+        r.salesOrderNumber ? `${r.salesOrderNumber}${r.customerName ? ` · ${r.customerName}` : ""}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    })),
+  ];
+
   const castChoices: Choice[] = [
     ...(gate.castRequired ? [] : [{ value: NONE, label: t("pack.source.noCast") }]),
     ...gate.liveCasts.map((c) => ({
@@ -126,9 +156,31 @@ export function SourceExtras({
     <div data-slot="source-extras" className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5" data-slot="pack-source">
         <span className="text-[14px] font-semibold">{t("pack.source.title")}</span>
-        <Chip tone="neutral">{t("pack.source.hand")}</Chip>
-        <span className="text-[13px] text-muted-foreground">{t("pack.source.handHint")}</span>
+        <Chip tone="neutral">{choice.ageingRowId ? t("pack.source.trolley") : t("pack.source.hand")}</Chip>
+        <span className="text-[13px] text-muted-foreground">{choice.ageingRowId ? t("pack.source.trolleyHint") : t("pack.source.handHint")}</span>
       </div>
+
+      {trolleyChoices.length > 1 ? (
+        <ChoiceRadios
+          slot="trolley-picker"
+          legend={t("pack.source.trolleyLine")}
+          hint={t("pack.source.trolleyLineHint")}
+          error={showErrors && has("trolley") ? t("pack.source.trolleyRequired") : undefined}
+          choices={trolleyChoices}
+          value={choice.ageingRowId ?? NONE}
+          onChange={(v) => {
+            const picked = trolleyRows.find((r) => r.ageingRowId === v);
+            // The line's cast and die copy follow it, so the server's cast check agrees (a pinned order copy stays).
+            let next = withAgeingRow(choice, v || undefined);
+            const cast = picked?.castCode ? gate.liveCasts.find((c) => c.number === picked.castCode) : undefined;
+            if (cast) next = withCast(next, cast.id);
+            const copy = picked?.dieInstanceCode && !pinnedCopyId ? (gate.copies.data?.items ?? []).find((c) => c.code === picked.dieInstanceCode && packableCopy(c.status)) : undefined;
+            if (copy) next = withCopy(next, copy.id);
+            onChange(next);
+            onPickTrolley?.(picked ? { cutLengthMm: picked.cutLengthMm } : null);
+          }}
+        />
+      ) : null}
 
       {gate.lines.isPending ? (
         <Skeleton className="h-24 rounded-input" />

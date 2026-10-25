@@ -30,6 +30,7 @@ import {
   renderScanMessage,
   resultOutcome,
   scanErrorKey,
+  scanErrorText,
   type AddBundlesReport,
   type BundleBlockCode,
   type CapacityReport,
@@ -451,7 +452,7 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
       }
     } catch (error) {
       buzz([30, 50, 30]);
-      const said = t(scanErrorKey(error, "dispatch"));
+      const said = scanErrorText(t, error, "dispatch");
       setLine({ id, tone: "error", message: said, serial: code });
       speak(said, locale);
     }

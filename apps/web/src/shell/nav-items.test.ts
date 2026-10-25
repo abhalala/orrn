@@ -28,6 +28,7 @@ describe("visibleItems", () => {
       "orders",
       "press",
       "foundry",
+      "ageing",
       "reports",
       "purchase",
       "approvals",
@@ -63,9 +64,22 @@ describe("visibleItems", () => {
     expect(has("owner", ["press"])).toBe(true);
   });
 
+  test("Ageing shows for the floor roles that read it and for no one else (W3-AG-W)", () => {
+    const has = (role: CompanyRole, modules?: string[]) => keys(visibleItems(TENANT_MORE, me(role, modules))).includes("ageing");
+    for (const role of ["owner", "press", "supervisor", "operator", "manager", "admin", "office"] as const) {
+      expect({ role, ageing: has(role) }).toEqual({ role, ageing: true });
+    }
+    for (const role of ["viewer", "packer", "storekeeper", "accountant"] as const) {
+      expect({ role, ageing: has(role) }).toEqual({ role, ageing: false });
+    }
+    // The ageing module switched off hides it for everyone.
+    expect(has("owner", ["dies", "press"])).toBe(false);
+    expect(has("owner", ["ageing"])).toBe(true);
+  });
+
   test("operator packs but doesn't see Settings (R24)", () => {
     expect(keys(visibleItems(TENANT_PRIMARY, me("operator")))).toContain("pack");
-    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["purchase", "dies", "customers", "printing", "guides"]);
+    expect(keys(visibleItems(TENANT_MORE, me("operator")))).toEqual(["ageing", "purchase", "dies", "customers", "printing", "guides"]);
   });
 
   test("Store shows for the storekeeper and the roles that may read balances (store.txn | masters.publish)", () => {

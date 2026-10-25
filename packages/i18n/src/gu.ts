@@ -11,6 +11,7 @@ import type { Messages } from "./en";
  */
 import { refusalGu } from "./native/refusal.gu";
 import { guAgeing } from "./gu-more/ageing";
+import { guAgeingWeb } from "./gu-more/ageing-web";
 import { guApprovals } from "./gu-more/approvals";
 import { guPressBoard } from "./gu-more/press-board";
 import { guAuth } from "./gu-more/auth";
@@ -196,6 +197,16 @@ const guBase = {
     rangeTo: "{min} થી {max}",
   },
   today: {
+    oven: {
+      title: "એજિંગ",
+      open: "બોર્ડ ખોલો",
+      inOven: "ઓવનમાં",
+      inOvenMeta: "હમણાં સાઇકલમાં બેચ",
+      out: "બહાર, તપાસ બાકી",
+      outMeta: "કઠિનતાની રાહ",
+      held: "હોલ્ડ",
+      heldMeta: "પેકની યાદીની બહાર રાખેલો માલ",
+    },
     title: "આજે",
     greetingMorning: "નમસ્તે, {name}",
     greetingAfternoon: "નમસ્તે, {name}",
@@ -546,7 +557,17 @@ const guBase = {
     source: {
       title: "સ્રોત",
       hand: "ટ્રોલી નથી",
-      handHint: "હાથથી પૅકિંગ. ટ્રોલીની લાઇન એજિંગ સાથે આવશે.",
+      handHint: "હાથથી પૅકિંગ, ટ્રોલી લાઇન વગર.",
+      trolley: "ટ્રોલી",
+      trolleyHint: "પીસ છોડેલી ટ્રોલી લાઇનમાંથી આવે છે.",
+      noTrolley: "ટ્રોલી નહીં",
+      noTrolleyHint: "હાથથી પેક કરો.",
+      trolleyLine: "ટ્રોલી લાઇન",
+      trolleyLineHint: "ફક્ત છોડેલી અને પીસ બાકી હોય તેવી લાઇનો દેખાય છે.",
+      trolleyRequired: "આ પ્લાન્ટ ટ્રોલી લાઇનમાંથી પેક કરે છે. એક પસંદ કરો.",
+      trolleyLeft: "{pcs} પીસ બાકી",
+      trolleyCut: "{mm} mm",
+      trolleyCast: "કાસ્ટ {cast}",
       forOrderHint: "પૅકિંગથી બાકી બદલાતું નથી. ડિસ્પૅચથી બદલાય છે.",
       plantStock: "પ્લાન્ટ સ્ટોક",
       plantStockHint: "કોઈ ઓર્ડર માટે નહીં. ઑફિસ તેને કોઈ પણ ગ્રાહકના લોડ પર મોકલી શકે છે.",
@@ -1105,6 +1126,18 @@ const guBase = {
   },
   ageing: {
     readings: {
+      addTitle: "{number} માં રીડિંગ ઉમેરો",
+      at: "સમય",
+      atHint: "ખાલી છોડો તો હમણાંનો સમય.",
+      note: "નોંધ",
+      tempInvalid: "તાપમાન ડિગ્રીમાં લખો, વધુમાં વધુ એક દશાંશ.",
+      target: "સેટ {temp} °C, ± {tol}",
+      feedNote: "કેટલાક રીડિંગ ઓવનના કલેક્ટરમાંથી આવ્યા.",
+      inBand: "તાપમાનમાં",
+      outBand: "બહાર",
+      source: "સ્રોત",
+      showAll: "બધા {count} બતાવો",
+      showLess: "ઓછા બતાવો",
       title: "રીડિંગ",
       batch: "બૅચ {number}",
       oven: "ઓવન",
@@ -1780,6 +1813,7 @@ function mergeGu(...parts: readonly object[]): Record<string, unknown> {
 export const gu = mergeGu(
   guBase,
   guAgeing,
+  guAgeingWeb,
   guApprovals,
   guAuth,
   guBundle,
@@ -1795,6 +1829,7 @@ export const gu = mergeGu(
   guShell,
   guPressBoard,
 ) as typeof guBase &
+  typeof guAgeingWeb &
   typeof guApprovals &
   typeof guAuth &
   typeof guBundle &

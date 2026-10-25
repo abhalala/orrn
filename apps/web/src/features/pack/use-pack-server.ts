@@ -1,3 +1,4 @@
+import "@orrn/i18n/refusal-ageing";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
@@ -92,6 +93,16 @@ export function useOpenLines(dieId: string | null) {
     ...trpc.orders.openLines.queryOptions({ dieId: dieId ?? "" }),
     enabled: Boolean(dieId),
     staleTime: 30_000,
+  });
+}
+
+/** Released trolley lines of the section with pieces left (the Source step's trolley picker, W3-AG-W). */
+export function useTrolleyLines(dieId: string | null) {
+  return useQuery({
+    ...trpc.ageing.packSource.queryOptions({ dieId: dieId ?? "", limit: 50, offset: 0 }),
+    enabled: Boolean(dieId),
+    staleTime: 15_000,
+    meta: { inlineError: true },
   });
 }
 

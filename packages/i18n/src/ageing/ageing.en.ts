@@ -1,10 +1,12 @@
+import { ageingWebEn } from "./ageing.web.en";
+
 /**
  * Ageing (FP-AG; W3-AG-C contracts). A floor namespace: en, hi and gu complete (GU_FLOOR_NAMESPACES).
  * Product word is ageing, never the other spelling. A trolley is the painted rack; a recipe is the
  * cycle for an alloy and temper; product hardness is Webster or Brinell, never the die copy's HV.
  * `refusal.*` are the server's ageing sentences (lib/ageingRefusals.ts), matched in refusal.ts.
  */
-export const ageingEn = {
+const baseEn = {
   ageing: {
     title: "Ageing",
     board: "Ageing board",
@@ -252,5 +254,17 @@ export const ageingEn = {
       trolleyNotFound: "That trolley was not found.",
       recipeNotFound: "That ageing recipe was not found.",
     },
+  },
+};
+
+/** The base words (status, field, refusal) plus the screens' words (W3-AG-W); the four groups both write are spread together. */
+export const ageingEn = {
+  ageing: {
+    ...baseEn.ageing,
+    ...ageingWebEn.ageing,
+    readings: { ...baseEn.ageing.readings, ...ageingWebEn.ageing.readings },
+    field: { ...baseEn.ageing.field, ...ageingWebEn.ageing.field },
+    action: { ...baseEn.ageing.action, ...ageingWebEn.ageing.action },
+    empty: { ...baseEn.ageing.empty, ...ageingWebEn.ageing.empty },
   },
 };

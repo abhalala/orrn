@@ -9,7 +9,7 @@ import type { StatusTone } from "@orrn/domain";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { sendOnce } from "./request-key";
-import { blockMessage, blocksOf, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { blockMessage, blocksOf, renderScanMessage, scanErrorText, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { Can } from "@/shared/components/can";
 import { trpcClient } from "@/shared/utils/trpc";
 
@@ -212,7 +212,7 @@ function reportLines(t: Translate, report: AddBundlesReport): ReportLine[] {
 /** The report in one sentence, for the sheet's live region. */
 function reportSummary(t: Translate, result: ChunkedAddResult): string {
   const lines = reportLines(t, result.report).map((l) => l.text);
-  if (result.error) lines.push(t(scanErrorKey(result.error, "dispatch")));
+  if (result.error) lines.push(scanErrorText(t, result.error, "dispatch"));
   return lines.join(". ");
 }
 
@@ -243,7 +243,7 @@ function PasteReport({
         <p className="m-0 text-[15px] leading-6">{lines.map((l) => l.text).join(". ")}</p>
         {result.error ? (
           <p className="m-0 text-[14px] font-medium text-destructive">
-            {t("dispatch.paste.stopped", { done, total })} {t(scanErrorKey(result.error, "dispatch"))}
+            {t("dispatch.paste.stopped", { done, total })} {scanErrorText(t, result.error, "dispatch")}
           </p>
         ) : null}
       </div>

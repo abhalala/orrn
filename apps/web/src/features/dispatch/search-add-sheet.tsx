@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { sendOnce } from "./request-key";
-import { addOutcome, renderScanMessage, resultOutcome, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { addOutcome, renderScanMessage, resultOutcome, scanErrorText, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -67,7 +67,7 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
         setMessage(`${serial}: ${t("scan.notFound")}`);
       }
     } catch (error) {
-      toast.error(t(scanErrorKey(error, "dispatch")));
+      toast.error(scanErrorText(t, error, "dispatch"));
     } finally {
       setBusy(null);
     }
@@ -85,7 +85,7 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
         onAdded(r);
       }
     } catch (error) {
-      toast.error(t(scanErrorKey(error, "dispatch")));
+      toast.error(scanErrorText(t, error, "dispatch"));
     }
   };
 

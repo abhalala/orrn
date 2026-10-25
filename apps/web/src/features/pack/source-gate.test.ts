@@ -6,6 +6,8 @@ import {
   copyLocked,
   packableCopy,
   sourceBlockers,
+  trolleyRequired,
+  withAgeingRow,
   withCast,
   withCopy,
   withLine,
@@ -77,5 +79,27 @@ describe("D15: a line that pins a die copy", () => {
       dieInstanceId: "p",
       overridePin: true,
     });
+  });
+});
+
+describe("W3-AG-W: the trolley line", () => {
+  test("picking a line sets it, picking none takes it off and keeps the rest", () => {
+    const c = { showLogo: true, salesOrderLineId: "l", castId: "c" };
+    expect(withAgeingRow(c, "row-1")).toEqual({ ...c, ageingRowId: "row-1" });
+    expect(withAgeingRow({ ...c, ageingRowId: "row-1" }, undefined)).toEqual(c);
+  });
+
+  test("a plant that packs from a trolley blocks Next until a line is picked, when one is waiting", () => {
+    const base = { choice: { showLogo: true }, castRequired: false, owner: undefined };
+    expect(sourceBlockers({ ...base, trolleyRequired: true })).toEqual([{ kind: "trolley" }]);
+    expect(sourceBlockers({ ...base, choice: { showLogo: true, ageingRowId: "r" }, trolleyRequired: true })).toEqual([]);
+    expect(sourceBlockers({ ...base, trolleyRequired: false })).toEqual([]);
+  });
+
+  test("the rule is the setting and at least one released line", () => {
+    expect(trolleyRequired({ ageing: { requireForPack: true } }, 2)).toBe(true);
+    expect(trolleyRequired({ ageing: { requireForPack: true } }, 0)).toBe(false);
+    expect(trolleyRequired({ ageing: { requireForPack: false } }, 2)).toBe(false);
+    expect(trolleyRequired(null, 2)).toBe(false);
   });
 });

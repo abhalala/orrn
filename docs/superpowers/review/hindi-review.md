@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6948 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -171,10 +171,11 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (55)
+### nav (56)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `ageing` | Ageing | एजिंग |
 | `main` | Main | मुख्य |
 | `today` | Today | आज |
 | `pack` | Pack | पैकिंग |
@@ -413,10 +414,18 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
 
-### today (128)
+### today (136)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `oven.title` | Ageing | एजिंग |
+| `oven.open` | Open the board | बोर्ड खोलें |
+| `oven.inOven` | In the oven | ओवन में |
+| `oven.inOvenMeta` | Batches in a cycle now | अभी साइकल में बैच |
+| `oven.out` | Out, to test | बाहर, जांच बाकी |
+| `oven.outMeta` | Waiting for hardness | कठोरता का इंतज़ार |
+| `oven.held` | Held | होल्ड |
+| `oven.heldMeta` | Pieces kept off the pack list | पैक की सूची से बाहर रखा माल |
 | `title` | Today | आज |
 | `greetingMorning` | Good morning, {name} | नमस्ते, {name} |
 | `greetingAfternoon` | Good afternoon, {name} | नमस्ते, {name} |
@@ -546,7 +555,7 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
-### pack (211)
+### pack (221)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -737,7 +746,17 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `partyNos` | Party numbers {from} to {to} | पार्टी नंबर {from} से {to} |
 | `source.title` | Source | स्रोत |
 | `source.hand` | No trolley | ट्रॉली नहीं |
-| `source.handHint` | Packing by hand. Trolley rows come with ageing. | हाथ से पैकिंग। ट्रॉली की पंक्तियां एजिंग के साथ आएंगी। |
+| `source.handHint` | Packing by hand, with no trolley line. | हाथ से पैकिंग, बिना ट्रॉली लाइन के। |
+| `source.trolley` | Trolley | ट्रॉली |
+| `source.trolleyHint` | Pieces come off a released trolley line. | पीस छोड़ी गई ट्रॉली लाइन से आते हैं। |
+| `source.noTrolley` | No trolley | ट्रॉली नहीं |
+| `source.noTrolleyHint` | Pack by hand. | हाथ से पैक करें। |
+| `source.trolleyLine` | Trolley line | ट्रॉली लाइन |
+| `source.trolleyLineHint` | Only released lines with pieces left are listed. | केवल छोड़ी गई और पीस बचे वाली लाइनें दिखती हैं। |
+| `source.trolleyRequired` | This plant packs from a trolley line. Pick one. | यह प्लांट ट्रॉली लाइन से पैक करता है। एक चुनें। |
+| `source.trolleyLeft` | {pcs} pcs left | {pcs} पीस बचे |
+| `source.trolleyCut` | {mm} mm | {mm} mm |
+| `source.trolleyCast` | Cast {cast} | कास्ट {cast} |
 | `source.forOrderHint` | Packing does not change baki. Dispatch does. | पैकिंग से बाकी नहीं बदलता। डिस्पैच से बदलता है। |
 | `source.plantStock` | Plant stock | प्लांट स्टॉक |
 | `source.plantStockHint` | Packed for no order. The office can send them on any customer's load. | किसी ऑर्डर के लिए नहीं। ऑफिस इन्हें किसी भी ग्राहक के लोड पर भेज सकता है। |
@@ -1853,10 +1872,19 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (221)
+### settings (230)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `ageing.title` | Ageing | एजिंग |
+| `ageing.intro` | How strict the plant is about aged metal. | एजिंग वाले माल को लेकर प्लांट कितना सख़्त है। |
+| `ageing.requireForPackHint` | Pack refuses a hand pack of a section that has released trolley pieces. | जिस सेक्शन के छोड़े हुए ट्रॉली पीस हों, उसका हाथ से पैक नहीं होता। |
+| `ageing.manualLoadHint` | Lines typed by hand, with no press log behind them. | हाथ से लिखी लाइनें, जिनके पीछे प्रेस लॉग नहीं। |
+| `ageing.splitHint` | A trolley line can be cut into other lengths before it is packed. | पैक से पहले ट्रॉली लाइन को दूसरी लंबाइयों में बांटा जा सकता है। |
+| `ageing.fromToday` | Turning this on starts today. Bundles packed before today still go. | इसे चालू करने पर आज से लागू। आज से पहले पैक बंडल जा सकते हैं। |
+| `ageing.since` | Required for bundles packed from {day}. Earlier bundles still go. | {day} से पैक बंडलों के लिए ज़रूरी। पहले के बंडल जा सकते हैं। |
+| `ageing.saved` | Ageing settings saved. | एजिंग सेटिंग सेव हुईं। |
+| `ageing.saveFailed` | Could not save. Try again. | सेव नहीं हो सका। फिर कोशिश करें। |
 | `title` | Settings | सेटिंग्स |
 | `subtitle` | Company, shifts, team, devices and printing for your plant. | आपके प्लांट की कंपनी, शिफ्ट, टीम, डिवाइस और प्रिंटिंग। |
 | `loadFailed` | Couldn't load settings. Check your connection and try again. | सेटिंग्स लोड नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें। |
@@ -2206,7 +2234,7 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
-### masters (244)
+### masters (253)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2269,6 +2297,15 @@ Counts: 6663 screen strings in 49 groups, 35 guides with 646 strings.
 | `hub.alloys` | Alloys | अलॉय |
 | `hub.alloysHint` | The alloys cast and the element limits a spectro result is judged by | ढाले जाने वाले अलॉय और वे तत्व-सीमाएं जिनसे स्पेक्ट्रो नतीजा जाँचा जाता है |
 | `hub.alloysNoun` | {count:alloy\|alloys} | {count:अलॉय\|अलॉय} |
+| `hub.ovens` | Ageing ovens | एजिंग ओवन |
+| `hub.ovensHint` | The ovens, their size and whether they are in service | ओवन, उनकी क्षमता और चालू हैं या नहीं |
+| `hub.ovensNoun` | {count:oven\|ovens} | {count:ओवन\|ओवन} |
+| `hub.trolleys` | Trolleys | ट्रॉलियां |
+| `hub.trolleysHint` | The painted racks between the press and the oven | प्रेस और ओवन के बीच के रंगे हुए रैक |
+| `hub.trolleysNoun` | {count:trolley\|trolleys} | {count:ट्रॉली\|ट्रॉलियां} |
+| `hub.recipes` | Cycle recipes | साइकल रेसिपी |
+| `hub.recipesHint` | Temperature, soak and hardness for each alloy and temper | हर एलॉय और टेम्पर का तापमान, सोक और कठोरता |
+| `hub.recipesNoun` | {count:active recipe\|active recipes} | {count:चालू रेसिपी\|चालू रेसिपी} |
 | `show` | Show | दिखाएं |
 | `showInUse` | In use | चालू |
 | `showRetired` | Retired | बंद |
@@ -3693,10 +3730,11 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (145)
+### approvals (148)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `ageing.title` | The batch | बैच |
 | `title` | Approvals | मंज़ूरी |
 | `subtitle` | Requests that need a second person | जिन कामों पर दूसरे व्यक्ति की मंज़ूरी चाहिए |
 | `waitingTitle` | Waiting for a decision | फ़ैसले के इंतज़ार में |
@@ -3719,6 +3757,7 @@ Please check, Lalubhai:
 | `kind.ageing_override` | Ageing override | एजिंग की छूट |
 | `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
 | `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
+| `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
@@ -3817,6 +3856,7 @@ Please check, Lalubhai:
 | `rejectNeedsNote` | Write why you are rejecting it. | नामंज़ूर करने की वजह लिखें। |
 | `own` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
 | `viewOnly` | A manager approves this. | इसे मैनेजर मंज़ूर करते हैं। |
+| `openBatch` | Open batch | बैच खोलें |
 | `openLot` | Open lot | लॉट खोलें |
 | `openDie` | Open die | डाई खोलें |
 | `theirNote` | Their note | उनका नोट |
@@ -5864,7 +5904,7 @@ Please check, Lalubhai:
 | `yield.tailAdjust` | Billet count adjustments at cast close in these days: {kg} kg. Net yield after them: {pct}%. | इन दिनों कास्ट बंद करते समय बिलेट गिनती से हुए बदलाव: {kg} kg। उनके बाद नेट यील्ड: {pct}%। |
 | `yield.csvName` | foundry-yield | foundry-yield |
 
-### ageing (208)
+### ageing (453)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5888,6 +5928,18 @@ Please check, Lalubhai:
 | `readings.scrap` | Scrap | स्क्रैप |
 | `readings.empty` | No readings yet. | अभी कोई रीडिंग नहीं। |
 | `readings.outOfRange` | Outside {min} to {max}. | {min} से {max} के बाहर। |
+| `readings.addTitle` | Add a reading to {number} | {number} में रीडिंग जोड़ें |
+| `readings.at` | Time | समय |
+| `readings.atHint` | Leave empty for now. | खाली छोड़ें तो अभी का समय। |
+| `readings.note` | Note | टिप्पणी |
+| `readings.tempInvalid` | Type the temperature in degrees, one decimal at most. | तापमान डिग्री में लिखें, अधिकतम एक दशमलव। |
+| `readings.target` | Set {temp} °C, plus or minus {tol} | सेट {temp} °C, ± {tol} |
+| `readings.feedNote` | Some readings came from the oven's collector. | कुछ रीडिंग ओवन के कलेक्टर से आईं। |
+| `readings.inBand` | At temperature | तापमान में |
+| `readings.outBand` | Outside | बाहर |
+| `readings.source` | Source | स्रोत |
+| `readings.showAll` | Show all {count} | सभी {count} दिखाएं |
+| `readings.showLess` | Show fewer | कम दिखाएं |
 | `status.loading` | Loading | लोड हो रहा है |
 | `status.in_oven` | In the oven | ओवन में |
 | `status.out` | Out | बाहर |
@@ -5986,6 +6038,9 @@ Please check, Lalubhai:
 | `field.pressRun` | Press run | प्रेस रन |
 | `field.verdict` | Verdict | नतीजा |
 | `field.median` | Median | बीच का मान |
+| `field.day` | Production day | उत्पादन दिन |
+| `field.hardness` | Hardness | कठोरता |
+| `field.capacity` | Capacity | क्षमता |
 | `action.load` | Load trolley | ट्रॉली लोड करें |
 | `action.start` | Start | शुरू करें |
 | `action.takeOut` | Take out | बाहर निकालें |
@@ -6001,12 +6056,19 @@ Please check, Lalubhai:
 | `action.addOven` | Add oven | ओवन जोड़ें |
 | `action.addTrolley` | Add trolley | ट्रॉली जोड़ें |
 | `action.publish` | Publish | पब्लिश करें |
+| `action.holdBatch` | Hold the trolley | पूरी ट्रॉली होल्ड करें |
+| `action.unhold` | Clear hold | होल्ड हटाएं |
+| `action.retest` | Test again | फिर जांचें |
 | `empty.noOven` | No oven yet. Add an oven under Masters. | अभी कोई ओवन नहीं। मास्टर्स में ओवन जोड़ें। |
 | `empty.noShift` | No shifts yet. Add shifts in Settings. | अभी कोई शिफ़्ट नहीं। सेटिंग्स में शिफ़्ट जोड़ें। |
 | `empty.noRecipe` | No active recipe. A manager publishes one under Masters. | कोई चालू रेसिपी नहीं। मैनेजर मास्टर्स में पब्लिश करता है। |
 | `empty.noLines` | Nothing is waiting from the press. | प्रेस से कुछ भी बाकी नहीं। |
 | `empty.noRows` | No lines on this trolley yet. | इस ट्रॉली पर अभी कोई लाइन नहीं। |
 | `empty.noBatches` | No batches in this range. | इस समय में कोई बैच नहीं। |
+| `empty.noOvenAsk` | No oven yet. Ask a manager to add one. | अभी कोई ओवन नहीं। मैनेजर से जुड़वाएं। |
+| `empty.noShiftAsk` | No shifts yet. Ask the owner to add shifts. | अभी शिफ़्ट नहीं हैं। मालिक से शिफ़्ट जुड़वाएं। |
+| `empty.noTrolley` | No trolley yet. Add a trolley under Masters. | अभी कोई ट्रॉली नहीं। मास्टर्स में ट्रॉली जोड़ें। |
+| `empty.noTrolleyAsk` | No trolley yet. Ask a manager to add one. | अभी कोई ट्रॉली नहीं। मैनेजर से जुड़वाएं। |
 | `settings.requireAgeing` | Dispatch aged metal only | सिर्फ़ एजिंग हुआ माल डिस्पैच करें |
 | `settings.requireAgeingHint` | Dispatch refuses a bundle that has not been through the oven. Bundles packed before the day this is turned on still go. | जो बंडल ओवन से नहीं गुज़रा, डिस्पैच उसे नहीं लेगा। इसे चालू करने के दिन से पहले पैक हुए बंडल फिर भी जाएँगे। |
 | `settings.requireForPack` | Pack names a trolley | पैक में ट्रॉली चुनना ज़रूरी |
@@ -6076,6 +6138,229 @@ Please check, Lalubhai:
 | `refusal.ovenNotFound` | That oven was not found. | वह ओवन नहीं मिला। |
 | `refusal.trolleyNotFound` | That trolley was not found. | वह ट्रॉली नहीं मिली। |
 | `refusal.recipeNotFound` | That ageing recipe was not found. | वह एजिंग रेसिपी नहीं मिली। |
+| `loadFailed` | The ageing screen did not load. | एजिंग स्क्रीन लोड नहीं हुई। |
+| `noAccess` | You cannot do this here. | आप यहां यह नहीं कर सकते। |
+| `noAccessLoad` | Loading a trolley is for the press, the supervisor and the operator. | ट्रॉली लोड करना प्रेस, सुपरवाइज़र और ऑपरेटर का काम है। |
+| `pcsKg` | {pcs} pcs, {kg} kg | {pcs} पीस, {kg} kg |
+| `stage.load` | Load | लोड |
+| `stage.oven` | In the oven | ओवन में |
+| `stage.out` | Take out | बाहर निकालें |
+| `stage.test` | Test | जांच |
+| `stage.release` | Release | छोड़ें |
+| `duration.hm` | {h} h {m} min | {h} घं {m} मिनट |
+| `duration.m` | {m} min | {m} मिनट |
+| `spark.label` | Temperature log: {count} readings, from {min} to {max} °C | तापमान लॉग: {count} रीडिंग, {min} से {max} °C |
+| `recipe.line` | {temp} °C, plus or minus {tol}, soak {soak}, hardness at least {hardness} {method}, {samples} samples | {temp} °C, ± {tol}, सोक {soak}, कठोरता कम से कम {hardness} {method}, {samples} नमूने |
+| `next.start` | Next: start the cycle. | अगला: साइकल शुरू करें। |
+| `next.takeOut` | Next: take the trolley out. | अगला: ट्रॉली बाहर निकालें। |
+| `next.hardness` | Next: record hardness. | अगला: कठोरता दर्ज करें। |
+| `next.release` | Next: release the batch. | अगला: बैच छोड़ें। |
+| `next.askRelease` | Next: a supervisor or manager releases the batch. | अगला: सुपरवाइज़र या मैनेजर बैच छोड़ेगा। |
+| `floor.subtitle` | Ovens, trolleys and what waits for the test. | ओवन, ट्रॉली और जांच का इंतज़ार करता माल। |
+| `floor.counts` | Batches now | अभी के बैच |
+| `floor.inOven` | {count} in the oven | {count} ओवन में |
+| `floor.out` | {count} out, waiting for the test | {count} बाहर, जांच बाकी |
+| `floor.held` | {count} held | {count} होल्ड पर |
+| `floor.heldTitle` | Held | होल्ड |
+| `floor.heldHint` | Held pieces stay off the pack list. | होल्ड का माल पैक की सूची में नहीं आता। |
+| `floor.ovens` | Ovens | ओवन |
+| `floor.trolleys` | Trolleys | ट्रॉलियां |
+| `floor.empty` | Empty | खाली |
+| `floor.free` | Free | खाली है |
+| `floor.capacity` | Capacity {kg} kg | क्षमता {kg} kg |
+| `floor.onTrolley` | Trolley {trolley} | ट्रॉली {trolley} |
+| `floor.lastTemp` | Last reading | आखिरी रीडिंग |
+| `floor.soakOf` | Soak time, recipe {total} | सोक समय, रेसिपी {total} |
+| `floor.stage` | Stage | चरण |
+| `floor.soakProgress` | Soak progress | सोक की प्रगति |
+| `floor.loadedPcs` | {pcs} pcs | {pcs} पीस |
+| `floor.packablePcs` | {pcs} ready to pack | {pcs} पैक के लिए तैयार |
+| `floor.heldPcs` | {pcs} held | {pcs} होल्ड |
+| `floor.noRecipeYet` | No recipe yet | अभी रेसिपी नहीं |
+| `load.title` | Load a trolley | ट्रॉली लोड करें |
+| `load.subtitle` | Pick the trolley, then the lines that go on it. | ट्रॉली चुनें, फिर उस पर जाने वाली लाइनें। |
+| `load.source` | Take from | कहां से लेना है |
+| `load.bundles` | Whole bundles | पूरे बंडल |
+| `load.recipeFilter` | Recipe | रेसिपी |
+| `load.anyRecipe` | Any recipe | कोई भी रेसिपी |
+| `load.pickTrolley` | Pick a trolley. | ट्रॉली चुनें। |
+| `load.noFreeTrolley` | No free trolley | कोई खाली ट्रॉली नहीं |
+| `load.noFreeTrolleyBody` | Every trolley is carrying a batch. Close or void one, or add a trolley under Masters. | हर ट्रॉली पर बैच है। एक बंद करें या रद्द करें, या मास्टर्स में ट्रॉली जोड़ें। |
+| `load.addTo` | Add to {number} | {number} में जोड़ें |
+| `load.linesLabel` | Logged press lines | दर्ज की गई प्रेस लाइनें |
+| `load.lineLength` | {mm} mm | {mm} mm |
+| `load.lineLeft` | {pcs} pcs, {kg} kg left | {pcs} पीस, {kg} kg बचे |
+| `load.lineCast` | Cast {cast} | कास्ट {cast} |
+| `load.piecesOf` | Pieces of {name} | {name} के पीस |
+| `load.piecesInvalid` | Type a whole number of pieces. | पीस की पूरी संख्या लिखें। |
+| `load.bundleSearch` | Find a bundle | बंडल ढूंढें |
+| `load.bundlesHint` | Packed bundles that are not on a trolley yet. | पैक हो चुके बंडल जो अभी किसी ट्रॉली पर नहीं हैं। |
+| `load.noBundles` | No bundle to load. | लोड करने के लिए कोई बंडल नहीं। |
+| `load.summary` | {lines} {lines:line\|lines}, {pcs} pcs, {kg} kg | {lines} {lines:लाइन\|लाइनें}, {pcs} पीस, {kg} kg |
+| `load.submit` | Load trolley | ट्रॉली लोड करें |
+| `load.loaded` | Trolley loaded as {number}. | ट्रॉली {number} के रूप में लोड हुई। |
+| `start.title` | Start {number} | {number} शुरू करें |
+| `start.subtitle` | Trolley {trolley} | ट्रॉली {trolley} |
+| `start.gasHint` | Read the gas meter before the door closes. | दरवाज़ा बंद करने से पहले गैस मीटर पढ़ें। |
+| `start.gasRequired` | Type the gas meter reading. | गैस मीटर की रीडिंग लिखें। |
+| `start.meterReset` | The gas meter was replaced | गैस मीटर बदला गया था |
+| `start.inAt` | Went in at (optional) | कब अंदर गया (वैकल्पिक) |
+| `start.inAtHint` | Only if it went in earlier. At most 12 hours back. | केवल तब जब पहले गया हो। अधिकतम 12 घंटे पहले तक। |
+| `start.timeInvalid` | Type a time that is not in the future. | भविष्य का समय नहीं, सही समय लिखें। |
+| `start.noFreeOven` | Every oven has a batch in it. | हर ओवन में बैच है। |
+| `start.started` | {number} is in the oven. | {number} ओवन में है। |
+| `out.title` | Take out {number} | {number} बाहर निकालें |
+| `out.subtitle` | Read the gas meter and take the trolley out. | गैस मीटर पढ़ें और ट्रॉली बाहर निकालें। |
+| `out.gasStartWas` | Gas at the start: {gas} | शुरू में गैस: {gas} |
+| `out.outAt` | Came out at (optional) | कब बाहर आया (वैकल्पिक) |
+| `out.outAtHint` | Only if it came out earlier. | केवल तब जब पहले निकला हो। |
+| `out.done` | {number} is out. Record hardness next. | {number} बाहर है। अब कठोरता दर्ज करें। |
+| `sim.run` | Add simulated readings | सिम्युलेटेड रीडिंग जोड़ें |
+| `sim.done` | Added {count} simulated readings. | {count} सिम्युलेटेड रीडिंग जुड़ीं। |
+| `hardness.title` | Hardness of {number} | {number} की कठोरता |
+| `hardness.rule` | At least {min} {method}, {samples} samples per line | कम से कम {min} {method}, हर लाइन के {samples} नमूने |
+| `hardness.line` | Line | लाइन |
+| `hardness.samples` | Samples | नमूने |
+| `hardness.sample` | Sample {n} | नमूना {n} |
+| `hardness.invalid` | Type each sample as a number with one decimal at most. | हर नमूना अधिकतम एक दशमलव वाली संख्या में लिखें। |
+| `hardness.median` | Median {value} | माध्य {value} |
+| `hardness.otherMethod` | Only {method} decides the line. Other methods are kept, not counted. | लाइन का फ़ैसला सिर्फ़ {method} से होता है। दूसरी विधि रखी जाती है, गिनी नहीं जाती। |
+| `hardness.forLine` | {pcs} pcs on this line. | इस लाइन पर {pcs} पीस। |
+| `hardness.save` | Save hardness | कठोरता सेव करें |
+| `hardness.saved` | {section}: median {median}, {result}. | {section}: माध्य {median}, {result}। |
+| `hardness.done` | Hardness is recorded. | कठोरता दर्ज हो गई। |
+| `hardness.untested` | Not tested | जांच नहीं हुई |
+| `hold.titleLine` | Hold {section} | {section} होल्ड करें |
+| `hold.titleBatch` | Hold {number} | {number} होल्ड करें |
+| `hold.subtitle` | Held pieces stay off the pack list until they are cleared. | होल्ड का माल हटाए जाने तक पैक की सूची से बाहर रहता है। |
+| `hold.reason` | Reason | कारण |
+| `hold.pick` | Pick a reason | कारण चुनें |
+| `hold.reasonRequired` | Pick a reason. | कारण चुनें। |
+| `hold.note` | Note | टिप्पणी |
+| `hold.noteRequired` | Say what is wrong. | क्या गड़बड़ है, लिखें। |
+| `hold.done` | Held. | होल्ड कर दिया। |
+| `unhold.title` | Clear the hold on {section} | {section} का होल्ड हटाएं |
+| `unhold.body` | The line goes back to where it was. A failed test clears with a retest or an approval. | लाइन वापस पहले जैसी हो जाती है। फ़ेल जांच दोबारा जांच या मंज़ूरी से हटती है। |
+| `unhold.done` | Hold cleared. | होल्ड हट गया। |
+| `discard.title` | Discard the rest of {section} | {section} का बचा माल फेंकें |
+| `discard.left` | {pcs} pcs left on this line. | इस लाइन पर {pcs} पीस बचे हैं। |
+| `discard.kg` | About {kg} kg | लगभग {kg} kg |
+| `discard.hint` | Discarded pieces leave {number} and are not packed. | फेंके गए पीस {number} से निकल जाते हैं और पैक नहीं होते। |
+| `discard.done` | Pieces discarded. | पीस फेंक दिए गए। |
+| `split.title` | Split {section} | {section} को बांटें |
+| `split.body` | {pcs} pcs at {mm} mm, {total} mm in all. | {mm} mm के {pcs} पीस, कुल {total} mm। |
+| `split.cutLength` | Cut {n} length | कट {n} की लंबाई |
+| `split.addCut` | Add a cut | कट जोड़ें |
+| `split.sum` | Cuts add up to {total} mm of {want} mm. | कट मिलकर {total} mm हैं, चाहिए {want} mm। |
+| `split.invalid` | Type a length and pieces for every cut. | हर कट की लंबाई और पीस लिखें। |
+| `split.hint` | The cuts must add up to the loaded length within 25 mm. {number} keeps the first cut on this line. | कट मिलकर लोड की लंबाई के 25 mm के भीतर होने चाहिए। {number} में पहला कट इसी लाइन पर रहता है। |
+| `split.done` | Line split. | लाइन बांट दी गई। |
+| `override.title` | Ask for approval on {number} | {number} के लिए मंज़ूरी मांगें |
+| `override.body` | A manager decides. Approving does not release the batch. Release it again afterwards. | मैनेजर फ़ैसला करता है। मंज़ूरी से बैच अपने आप नहीं छूटता। उसके बाद फिर से छोड़ें। |
+| `override.reason` | Why should it go? | इसे क्यों छोड़ा जाए? |
+| `override.reasonRequired` | Say why. | कारण लिखें। |
+| `override.sent` | Sent for approval. | मंज़ूरी के लिए भेजा। |
+| `override.pending` | Waiting for approval. | मंज़ूरी का इंतज़ार। |
+| `override.open` | Open approvals | मंज़ूरियां खोलें |
+| `override.approved` | Approved. Release the batch again. | मंज़ूर हुआ। बैच फिर से छोड़ें। |
+| `release.done` | {number} released. | {number} छोड़ा गया। |
+| `release.partial` | {count} {count:line\|lines} held at release. | छोड़ते समय {count} {count:लाइन\|लाइनें} होल्ड रहीं। |
+| `release.overrideHelps` | An approval can release them. | मंज़ूरी से इन्हें छोड़ा जा सकता है। |
+| `rework.title` | Age {number} again | {number} को फिर से एजिंग |
+| `rework.body` | {pcs} held pcs go to a new batch. | {pcs} होल्ड पीस नए बैच में जाते हैं। |
+| `rework.trolley` | Trolley | ट्रॉली |
+| `rework.trolleyHint` | Leave as is to use the same trolley. | वही ट्रॉली रखने के लिए जैसा है वैसा छोड़ें। |
+| `rework.sameTrolley` | Same trolley | वही ट्रॉली |
+| `rework.recipe` | Recipe | रेसिपी |
+| `rework.recipeHint` | The top-up recipe for this alloy is used when you pick none. | कुछ न चुनें तो इस एलॉय की टॉप-अप रेसिपी लगती है। |
+| `rework.defaultRecipe` | Top-up recipe | टॉप-अप रेसिपी |
+| `rework.done` | Opened {number}. | {number} खुला। |
+| `void.title` | Void {number} | {number} रद्द करें |
+| `void.bodyLoading` | Nothing went in the oven. The pieces go back to their press lines. | ओवन में कुछ नहीं गया। पीस अपनी प्रेस लाइन पर लौट जाते हैं। |
+| `void.bodyAfter` | Say why this batch is voided. A batch with pieces already moved or packed cannot be voided. | बताएं यह बैच क्यों रद्द हो रहा है। जिस बैच से पीस हट चुके या पैक हो चुके हों वह रद्द नहीं होता। |
+| `void.bodyRework` | This undoes the rework. The pieces go back to the first batch, held again. | इससे दोबारा एजिंग रद्द होती है। पीस पहले बैच में लौटते हैं, फिर से होल्ड पर। |
+| `void.done` | {number} voided. | {number} रद्द हुआ। |
+| `batch.title` | Ageing batch | एजिंग बैच |
+| `batch.lines` | Lines | लाइनें |
+| `batch.linesHint` | Pieces left are the server's count. | बचे पीस सर्वर की गिनती हैं। |
+| `batch.more` | More | और |
+| `batch.actions` | Actions | कार्रवाई |
+| `batch.addMore` | Add more lines | और लाइनें जोड़ें |
+| `batch.testFirst` | Lines still to test: {count}. | जांच बाकी लाइनें: {count}। |
+| `batch.closedNote` | This batch is closed. Its trolley is free. | यह बैच बंद है। इसकी ट्रॉली खाली है। |
+| `batch.voidWhy` | Voided: {reason} | रद्द: {reason} |
+| `batch.reworkOf` | Aged again from an earlier batch | पहले के बैच से फिर एजिंग |
+| `batch.successor` | Aged again as a new batch | नए बैच में फिर एजिंग |
+| `batch.trail` | History | इतिहास |
+| `batch.trailEmpty` | Nothing recorded yet. | अभी कुछ दर्ज नहीं। |
+| `verdict.title` | Soak verdict | सोक का नतीजा |
+| `verdict.inBand` | At temperature | तापमान में |
+| `verdict.inBandOf` | {min} of {total} | {total} में से {min} |
+| `verdict.above` | Above the band | बैंड से ऊपर |
+| `verdict.below` | Below the band | बैंड से नीचे |
+| `verdict.unknown` | No reading | रीडिंग नहीं |
+| `verdict.unknownHint` | Log a reading at least every 15 minutes. | कम से कम हर 15 मिनट में रीडिंग लिखें। |
+| `verdict.say.ok` | The soak was met. | सोक पूरा हुआ। |
+| `verdict.say.under_aged` | Short by {short} at temperature. | तापमान पर {short} कम रहा। |
+| `verdict.say.over_aged` | Too long at temperature ({over}) or above the band for {above}. | तापमान पर ज़्यादा देर ({over}) या बैंड से ऊपर {above}। |
+| `verdict.say.no_readings` | No readings were logged. | कोई रीडिंग दर्ज नहीं हुई। |
+| `history.title` | Ageing history | एजिंग का इतिहास |
+| `history.subtitle` | Every cycle, newest first. | हर साइकल, नया पहले। |
+| `history.from` | From | से |
+| `history.to` | To | तक |
+| `history.anyOven` | Any oven | कोई भी ओवन |
+| `history.anyStatus` | Any status | कोई भी स्थिति |
+| `history.clear` | Clear filters | फ़िल्टर हटाएं |
+| `history.report` | Ageing report | एजिंग रिपोर्ट |
+| `report.title` | Ageing report | एजिंग रिपोर्ट |
+| `report.subtitle` | One row for every trolley line that went in during these days. | इन दिनों में गई हर ट्रॉली लाइन की एक पंक्ति। |
+| `report.soak` | Soak min, recipe | सोक मिनट, रेसिपी |
+| `report.temps` | Set, lowest-highest °C | सेट, न्यूनतम-अधिकतम °C |
+| `report.taken` | Taken by pack | पैक ने लिया |
+| `report.onBundles` | On bundles | बंडलों में |
+| `report.batches` | Batches | बैच |
+| `report.heldLines` | Held lines | होल्ड लाइनें |
+| `report.groupBy` | Totals by | जोड़ किसके हिसाब से |
+| `report.group.none` | Lines only | सिर्फ़ लाइनें |
+| `report.group.day` | Day | दिन |
+| `report.group.oven` | Oven | ओवन |
+| `report.anyShift` | Any shift | कोई भी शिफ़्ट |
+| `report.badRange` | From must be on or before to. | शुरू की तारीख़ आख़िरी तारीख़ से पहले या वही होनी चाहिए। |
+| `report.shown` | {from} to {to} of {total} | {total} में से {from} से {to} |
+| `report.prev` | Previous | पिछला |
+| `report.next` | Next | अगला |
+| `report.toHistory` | Open these days in history | इन दिनों को इतिहास में खोलें |
+| `masters.ovens` | Ovens | ओवन |
+| `masters.ovensHint` | The ageing ovens, their size and whether they are in service. | एजिंग ओवन, उनकी क्षमता और चालू हैं या नहीं। |
+| `masters.trolleys` | Trolleys | ट्रॉलियां |
+| `masters.trolleysHint` | The painted racks that carry cut lengths from the press to the oven. | रंगे हुए रैक जो कटे हुए माल को प्रेस से ओवन तक ले जाते हैं। |
+| `masters.recipes` | Cycle recipes | साइकल रेसिपी |
+| `masters.recipesHint` | Temperature, soak and hardness for each alloy and temper. | हर एलॉय और टेम्पर का तापमान, सोक और कठोरता। |
+| `masters.status` | Status | स्थिति |
+| `masters.inUse` | In use | इस्तेमाल में |
+| `masters.draftOnly` | Anyone who drafts masters can save a draft. A manager makes it active. | जो मास्टर्स का ड्राफ़्ट बनाता है वह ड्राफ़्ट सेव कर सकता है। मैनेजर उसे चालू करता है। |
+| `masters.noOvens` | No ovens yet. | अभी कोई ओवन नहीं। |
+| `masters.noTrolleys` | No trolleys yet. | अभी कोई ट्रॉली नहीं। |
+| `masters.noRecipes` | No recipes yet. Fill the suggested ones, then check the figures. | अभी कोई रेसिपी नहीं। सुझाई हुई भरें, फिर आंकड़े जांचें। |
+| `masters.save` | Save | सेव करें |
+| `masters.codeHint` | Letters, digits and dashes, at most 16. | अक्षर, अंक और डैश, अधिकतम 16। |
+| `masters.codeRequired` | Type a value. | कुछ लिखें। |
+| `masters.numberInvalid` | Type a number. | संख्या लिखें। |
+| `masters.editOven` | Edit {code} | {code} बदलें |
+| `masters.editTrolley` | Edit trolley {code} | ट्रॉली {code} बदलें |
+| `masters.editRecipe` | Edit {name} | {name} बदलें |
+| `masters.addRecipe` | Add a recipe | रेसिपी जोड़ें |
+| `masters.trolleyCodeHint` | The number painted on the steel. | स्टील पर पेंट किया हुआ नंबर। |
+| `masters.oneActive` | One recipe is active for each alloy, temper and cycle. Activating a new one archives the old one. | हर एलॉय, टेम्पर और साइकल की एक ही रेसिपी चालू रहती है। नई चालू करने पर पुरानी संग्रह में चली जाती है। |
+| `masters.activeRule` | Activating this recipe archives the active one for the same alloy, temper and cycle. | इसे चालू करने पर उसी एलॉय, टेम्पर और साइकल की चालू रेसिपी संग्रह में चली जाती है। |
+| `masters.activeLocked` | An active recipe's numbers cannot change. Copy it as a draft, then activate the copy. | चालू रेसिपी के आंकड़े नहीं बदलते। उसकी ड्राफ़्ट कॉपी बनाएं, फिर कॉपी चालू करें। |
+| `masters.copyAsDraft` | Copy as a new draft | नई ड्राफ़्ट कॉपी बनाएं |
+| `masters.suggestFailed` | The suggested recipes could not be saved. | सुझाई हुई रेसिपी सेव नहीं हो सकीं। |
+| `trace.voidReturns` | Voiding this bundle returns its pieces to the trolley line of {batch}. | इस बंडल को रद्द करने पर इसके पीस {batch} की ट्रॉली लाइन में लौट जाएंगे। |
+| `trace.voidWritesOff` | Batch {batch} is closed. Voiding this bundle writes its pieces off as loose aged stock. Nothing goes back to the trolley. | बैच {batch} बंद है। इस बंडल को रद्द करने पर इसके पीस खुले एजिंग स्टॉक के रूप में बट्टे खाते जाते हैं। ट्रॉली पर कुछ वापस नहीं जाता। |
+| `trace.title` | Ageing | एजिंग |
+| `trace.none` | This bundle has not been through the oven. | यह बंडल ओवन से नहीं गुज़रा। |
+| `trace.released` | Released | छोड़ा गया |
 
 ### reasons (79)
 

@@ -13,6 +13,8 @@ export type SourceChoice = {
   showLogo: boolean;
   /** D15: the office packs on another copy than the line's pin (the server checks order.manage and audits). */
   overridePin?: boolean;
+  /** W3-AG-W: the released trolley line the pieces come from; none = packed by hand. */
+  ageingRowId?: string;
 };
 
 export const DEFAULT_SOURCE: SourceChoice = { showLogo: true };
@@ -23,6 +25,7 @@ export type OwnerDecisionLike =
 
 export type SourceBlocker =
   | { kind: "cast" }
+  | { kind: "trolley" }
   | { kind: "copy" }
   | { kind: "noCopies"; ownerName: string | null }
   | { kind: "owned"; ownerName: string | null };
@@ -31,8 +34,11 @@ export function sourceBlockers(input: {
   choice: SourceChoice;
   castRequired: boolean;
   owner: OwnerDecisionLike | null | undefined;
+  /** `settings.ageing.requireForPack` and at least one released trolley line for the section (the server refuses a hand pack then). */
+  trolleyRequired?: boolean;
 }): SourceBlocker[] {
   const out: SourceBlocker[] = [];
+  if (input.trolleyRequired && !input.choice.ageingRowId) out.push({ kind: "trolley" });
   if (input.castRequired && !input.choice.castId) out.push({ kind: "cast" });
   const o = input.owner;
   if (o && !o.ok) {
@@ -88,4 +94,15 @@ export function withPinOverride(choice: SourceChoice, on: boolean, pinnedCopyId:
   const { overridePin: _drop, ...rest } = choice;
   if (on) return { ...rest, overridePin: true };
   return pinnedCopyId ? { ...rest, dieInstanceId: pinnedCopyId } : rest;
+}
+
+/** The trolley line the pieces come from (or none = by hand). */
+export function withAgeingRow(choice: SourceChoice, rowId: string | undefined): SourceChoice {
+  const { ageingRowId: _drop, ...rest } = choice;
+  return rowId ? { ...rest, ageingRowId: rowId } : rest;
+}
+
+/** Whether the plant makes the packer name a trolley line (`ageing.requireForPack`) and one is waiting. */
+export function trolleyRequired(settings: unknown, linesWaiting: number): boolean {
+  return readFloorSettings(settings as Record<string, unknown> | null | undefined).ageing.requireForPack && linesWaiting > 0;
 }
