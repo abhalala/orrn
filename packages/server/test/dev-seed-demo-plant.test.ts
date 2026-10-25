@@ -11,6 +11,9 @@
  */
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
+import { cast } from "@orrn/db/schema";
+import { eq } from "drizzle-orm";
+
 import { setClockForTests } from "../src/lib/clock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { DEV_SEED_COMPANY, DEV_SEED_PASSWORD, loadDevSeed, precreateDevSeedUsers, type DevSeedResult } from "./dev-seed-fixture";
@@ -423,6 +426,10 @@ describe("press and today", () => {
     expect(c1.closeout).toMatchObject({ producedG: 2_400_000, creditedG: 310_400 + 296_000 + 300_000, billetsOnHandG: 2_400_000 - 906_400, tailG: 0, needsReason: false });
     const chain = await owner().foundry.casts.trace({ castId: "dev-press-cast-1" });
     expect(chain.lotsIn).toEqual([expect.objectContaining({ lotId: "dev-lot-06", kgG: 2_600_000 })]);
+    // W2-FD-S r1 (Q59-A, m-12): it closed on a yard count of exactly its ledger: tail 0, no adjustment row.
+    expect(chain.billets).toMatchObject({ onHandG: 1_493_600, countedG: 1_493_600, adjustedG: 0, tailG: 0 });
+    const [row] = await env.db.select({ tailG: cast.tailG, closeSummary: cast.closeSummary }).from(cast).where(eq(cast.id, "dev-press-cast-1"));
+    expect(row).toMatchObject({ tailG: 0, closeSummary: { producedG: 2_400_000, creditedG: 906_400, billetsOnHandG: 1_493_600, countedG: 1_493_600, tailG: 0, adjustG: 0 } });
     expect(chain.melts).toEqual([expect.objectContaining({ id: "dev-melt-1", spectroVerdict: "pass" })]);
     expect(chain.runs.length).toBeGreaterThanOrEqual(3);
     const open = (await owner().foundry.casts.list({})).items.find((c) => c.id === "dev-press-cast-3")!;

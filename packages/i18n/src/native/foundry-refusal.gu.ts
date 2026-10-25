@@ -75,4 +75,8 @@ export const foundryRefusalGu = {
   lineTooLarge: "એક લાઇન 100 t થી ઉપર છે. kg તપાસો.",
   spectroOver: "આઠેય તત્ત્વ મળીને 100 % થી વધુ છે. મૂલ્ય તપાસો.",
   spectroPpm: "સ્પેક્ટ્રો મૂલ્ય 0 થી 1,000,000 સુધી પૂરા ppm માં લખો.",
+  castCountOver: "ગણતરીમાં {cast} ના બિલેટ લેજર કરતાં {kg} kg વધુ મળ્યા. કારણ પસંદ કરો.",
+  countWithKg: "બિલેટ ગણો અને સાથે તોલો.",
+  streamShort: "{stream} માં ફક્ત {kg} kg સ્ટોકમાં છે.",
+  spectroNoFile: "કોઈ ફાઇલ જોડી નથી. આંકડા હાથે કેમ લખ્યા તે લખો.",
 };

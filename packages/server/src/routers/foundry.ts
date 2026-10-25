@@ -19,7 +19,10 @@
  */
 import {
   CAST_ALLOYS,
+  castCloseCheck,
   MELT_BALANCE_WARN_BP,
+  MELT_TIME_KEYS,
+  meltLockGates,
   meltBalance,
   PPM_TOTAL,
   reasonNoteMissing,
@@ -37,6 +40,7 @@ import {
   alloy,
   cast,
   castStatuses,
+  furnace,
   melt,
   meltChemical,
   meltInput,
@@ -59,12 +63,15 @@ import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/at
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { now as clockNow } from "../lib/clock";
 import { nextDocNumber } from "../lib/docNumber";
+import { TRPCMetaError } from "../lib/errorMeta";
 import {
   activeLocation,
   castBilletsOnHandSql,
   castBilletsShortSql,
   castCloseout,
   castInputSql,
+  castTailAdjustRow,
+  type CastCloseout,
   castLiveMeltsSql,
   castLogsSql,
   castDraftMeltsSql,
@@ -83,6 +90,9 @@ import {
   OUTER_LOT_ID,
   resolveBilletStore,
   resolvePlantScrap,
+  assertStreamsCover,
+  streamChargeAborts,
+  streamCharges,
 } from "../lib/foundry";
 import { nameKey } from "../lib/purchase";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
@@ -113,7 +123,7 @@ import {
   type LotForMelt,
 } from "../lib/foundryKit";
 import { foundryMastersRouter } from "./foundryMasters";
-import { meltStepperProcedures } from "./foundryMelt";
+import { MELT_GATE_TEXT, meltStepperProcedures } from "./foundryMelt";
 import { foundryReadingsRouter, foundryStockRouter, foundryTraceProcedures } from "./foundryTrace";
 import { spectroInboxRouter } from "./spectroInbox";
 
@@ -158,6 +168,13 @@ const optText = (max: number) =>
     .max(max)
     .optional()
     .transform((s) => (s ? s : null));
+/** The physical billet count at close (Q59-A): pieces and grams, both zero or both above zero. */
+const billetCount = z
+  .object({
+    count: z.number().int().min(0).max(1_000_000),
+    kgG: grams,
+  })
+  .refine((b) => (b.count === 0) === (b.kgG === 0), { message: "Count the billets and weigh them together" });
 const clientRequestId = z.string().trim().min(1).max(64).optional();
 /** W2-FD-S replay key (the audit row records the first answer; a retry gets it back). */
 const clientMutationId = z.string().trim().min(8).max(64).optional();
@@ -713,19 +730,53 @@ const castsRouter = router({
     }),
 
   /**
-   * Close-out (cast.close: supervisor, manager, admin, owner; spec E4). Tail = billets produced
-   * (Σ locked log kg) − billets the press used (press_run postings net of reopens) − billets on
-   * hand. Zero with nothing short: the cast closes now. Any other tail needs a reason code (kind
-   * `cast_tail`); beyond 3 % of produced, or billets short (the press logged more than the store
-   * held, D22), the cast waits in `closing` for a `cast_close` approval (never the requester).
-   * Refused while a melt is still a draft. The UPDATE re-checks the figures it read (cast row,
-   * tail, on hand, no drafts), so a melt, cancel or press posting in between makes it refuse.
-   * `clientMutationId` makes a retry answer the first close.
+   * The close-out a count would give, without closing (cast.close; the close screen's last step):
+   * the same figures `casts.close` would write for this count. Server-computed; nothing is stored.
+   */
+  closePreview: actionProcedure("cast.close")
+    .input(z.object({ castId: id, billetsOnHand: billetCount }))
+    .query(async ({ ctx, input }) => {
+      const c = await loadCast(ctx, input.castId);
+      const co = await castCloseout(ctx.db, ctx.companyId, c.id);
+      const check = countedClose(co, input.billetsOnHand);
+      return {
+        castId: c.id,
+        number: c.number,
+        status: c.status,
+        producedG: co.producedG,
+        creditedG: co.creditedG,
+        ledgerOnHandG: co.billetsOnHandG,
+        countedCount: input.billetsOnHand.count,
+        countedG: input.billetsOnHand.kgG,
+        tailG: check.tailG,
+        tailBp: check.tailBp,
+        shortG: check.shortG,
+        adjustG: check.adjustG ?? 0,
+        needsReason: check.needsReason,
+        needsApproval: check.needsApproval,
+        draftMelts: co.draftMelts,
+      };
+    }),
+
+  /**
+   * Close-out (cast.close: supervisor, manager, admin, owner; spec E4, Q59-A). The closer counts the
+   * billets of the cast still in the yard (`billetsOnHand`: pieces and kg). Ledger on hand =
+   * produced (Σ locked log kg) − billets the press used (its rows per cast, net of reopens);
+   * tail = ledger on hand − counted. A non-zero tail, or billets short (the press logged more than
+   * the store held, D22), needs a reason code (kind `cast_tail`); beyond 3 % of produced, or short,
+   * the cast waits in `closing` for a `cast_close` approval (never the requester). The adjustment
+   * (counted − ledger, one `cast_tail` billet row) posts with the close, or with the approval when
+   * one is needed. The counted billets stay in stock on the cast: a later press run may still use
+   * them (and is tracked against them). Refused while a melt is still a draft. The UPDATE re-checks
+   * the figures it read (cast row, tail, on hand, no drafts), so a melt, cancel or press posting in
+   * between makes it refuse. `clientMutationId` makes a retry answer the first close.
    */
   close: actionProcedure("cast.close")
     .input(
       z.object({
         castId: id,
+        /** The physical count of the cast's billets left (Q59-A). Required: only a count finds a real tail. */
+        billetsOnHand: billetCount,
         reasonCodeId: id.optional(),
         /** Free text beside the reason code (required for `other`). `tailReason` is the PL5 name. */
         note: optText(500),
@@ -735,43 +786,58 @@ const castsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const note = input.note ?? input.tailReason;
-      const content = { castId: input.castId, reasonCodeId: input.reasonCodeId ?? null, note };
+      const content = { castId: input.castId, billetsOnHand: input.billetsOnHand, reasonCodeId: input.reasonCodeId ?? null, note };
       let replay: Replay | null = input.clientMutationId ? await openReplay(ctx.db, ctx.companyId, "cast.close", input.clientMutationId, content) : null;
       if (replay?.prior?.replay) return replay.prior.replay as CastCloseAnswer;
       const c = await loadCast(ctx, input.castId);
       if (c.status !== "open") bad(c.status === "closed" ? `${c.number} is already closed` : castStateMessage(c));
       const co = await castCloseout(ctx.db, ctx.companyId, c.id);
       if (co.draftMelts > 0) bad(`${c.number} has a melt that is not locked; lock or discard it first`);
+      const check = countedClose(co, input.billetsOnHand);
+      const adjustG = check.adjustG ?? 0;
       let reason: { id: string; code: string; label: string } | null = null;
-      if (co.needsReason || input.reasonCodeId) {
+      if (check.needsReason || input.reasonCodeId) {
         if (!input.reasonCodeId) {
-          bad(
-            co.shortG > 0
-              ? `The press used ${fmtKg(co.shortG)} kg more billets of ${c.number} than the store held; pick a reason`
-              : `${fmtKg(co.tailG)} kg of ${c.number} billets is not explained; pick a reason`,
-          );
+          if (check.shortG > 0) bad(`The press used ${fmtKg(check.shortG)} kg more billets of ${c.number} than the store held; pick a reason`);
+          if (check.tailG > 0) bad(`${fmtKg(check.tailG)} kg of ${c.number} billets is not explained; pick a reason`);
+          bad(`The count finds ${fmtKg(-check.tailG)} kg more billets of ${c.number} than the ledger; pick a reason`);
         }
         reason = await castTailReason(ctx, input.reasonCodeId, note);
       }
+      const billetStore = adjustG !== 0 ? await resolveBilletStore(ctx.db, ctx.companyId) : null;
       const userId = ctx.session.user.id;
       const at = clockNow();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const status = co.needsApproval ? ("closing" as const) : ("closed" as const);
-      const approvalId = co.needsApproval ? crypto.randomUUID() : null;
+      const status = check.needsApproval ? ("closing" as const) : ("closed" as const);
+      const approvalId = check.needsApproval ? crypto.randomUUID() : null;
       const summary: CastCloseSummary = {
         producedG: co.producedG,
         creditedG: co.creditedG,
         billetsOnHandG: co.billetsOnHandG,
-        shortG: co.shortG,
-        tailG: co.tailG,
-        tailBp: co.tailBp,
+        shortG: check.shortG,
+        tailG: check.tailG,
+        tailBp: check.tailBp,
         inputG: co.inputG,
         logsG: co.logsG,
         bundlesG: co.bundlesG,
         reasonCode: reason?.code ?? null,
+        countedCount: input.billetsOnHand.count,
+        countedG: input.billetsOnHand.kgG,
+        adjustG,
+        adjustLocationId: billetStore?.id ?? null,
       };
       const reasonText = reason ? (note ? `${reason.label}: ${note}` : reason.label) : note;
-      const answer: CastCloseAnswer = { id: c.id, number: c.number, status, tailG: co.tailG, tailBp: co.tailBp, shortG: co.shortG, approvalId };
+      const answer: CastCloseAnswer = {
+        id: c.id,
+        number: c.number,
+        status,
+        tailG: check.tailG,
+        tailBp: check.tailBp,
+        shortG: check.shortG,
+        countedG: input.billetsOnHand.kgG,
+        adjustG,
+        approvalId,
+      };
       const castId = sql`${c.id}`;
       const mine = and(eq(cast.id, c.id), eq(cast.companyId, ctx.companyId), eq(cast.serverSeq, seq), eq(cast.status, status));
       const statements: SqliteBatchItem[] = [
@@ -781,14 +847,14 @@ const castsRouter = router({
             status,
             closeRequestedAt: at,
             closeRequestedBy: userId,
-            tailG: co.tailG,
-            tailBp: co.tailBp,
+            tailG: check.tailG,
+            tailBp: check.tailBp,
             tailReason: reasonText,
             tailReasonCodeId: reason?.id ?? null,
             closeSummary: summary,
             closeApprovalId: approvalId,
-            closedAt: co.needsApproval ? null : at,
-            closedBy: co.needsApproval ? null : userId,
+            closedAt: check.needsApproval ? null : at,
+            closedBy: check.needsApproval ? null : userId,
             serverSeq: seq,
             updatedAt: at,
           })
@@ -800,12 +866,30 @@ const castsRouter = router({
               // Every melt save, lock, discard and cancel moves server_seq (melt_count alone misses a cancel).
               eq(cast.serverSeq, c.serverSeq),
               eq(cast.meltCount, c.meltCount),
+              // The ledger the count was compared with is still the ledger (a press run or a cancel in
+              // between would move it, and the tail with it).
               sql`${castTailSql(ctx.companyId, castId)} = ${co.tailG}`,
               sql`${castBilletsOnHandSql(ctx.companyId, castId)} = ${co.billetsOnHandG}`,
               sql`${castDraftMeltsSql(ctx.companyId, castId)} = 0`,
+              billetStore ? activeLocation(ctx.companyId, billetStore.id, "billet_store") : undefined,
             ),
           ),
       ];
+      if (adjustG !== 0 && !approvalId) {
+        statements.push(
+          castTailAdjustRow(ctx.db, {
+            companyId: ctx.companyId,
+            castId: c.id,
+            qtyG: adjustG,
+            locationId: billetStore!.id,
+            seq,
+            at,
+            userId,
+            reason: `${c.number} count at close${reasonText ? `: ${reasonText}` : ""}`,
+            when: sql`exists (select 1 from ${cast} tc where tc.id = ${c.id} and tc.company_id = ${ctx.companyId} and tc.server_seq = ${seq} and tc.status = 'closed')`,
+          }),
+        );
+      }
       if (approvalId) {
         statements.push(
           requestApprovalInsert(ctx, {
@@ -814,7 +898,20 @@ const castsRouter = router({
             subjectId: c.id,
             serverSeq: seq,
             requestNote: reasonText,
-            meta: { number: c.number, year: c.year, producedG: co.producedG, inputG: co.inputG, tailG: co.tailG, tailBp: co.tailBp, shortG: co.shortG, reasonCode: reason?.code ?? null },
+            meta: {
+              number: c.number,
+              year: c.year,
+              producedG: co.producedG,
+              inputG: co.inputG,
+              ledgerOnHandG: co.billetsOnHandG,
+              countedG: input.billetsOnHand.kgG,
+              countedCount: input.billetsOnHand.count,
+              adjustG,
+              tailG: check.tailG,
+              tailBp: check.tailBp,
+              shortG: check.shortG,
+              reasonCode: reason?.code ?? null,
+            },
             guard: { from: cast, where: mine },
           }).statement,
         );
@@ -824,7 +921,7 @@ const castsRouter = router({
           auditCtx(ctx),
           {
             id: replay?.id,
-            action: co.needsApproval ? "cast.close_request" : "cast.close",
+            action: check.needsApproval ? "cast.close_request" : "cast.close",
             subjectType: "cast",
             subjectId: c.id,
             meta: { number: c.number, ...summary, reason: reasonText, approvalId, ...replayMeta(replay, input.clientMutationId, answer) },
@@ -845,6 +942,7 @@ const castsRouter = router({
       if (!landed) {
         const now = await loadCast(ctx, c.id);
         if (now.status !== "open") bad(castStateMessage(now));
+        if (billetStore) await resolveBilletStore(ctx.db, ctx.companyId);
         bad(`${c.number} changed while you were closing it; check the close-out again`);
       }
       return answer;
@@ -900,8 +998,16 @@ type CastCloseAnswer = {
   tailG: number;
   tailBp: number | null;
   shortG: number;
+  /** r1 (Q59-A): the count the closer gave, and the `cast_tail` row it posts (now, or on approval). */
+  countedG: number;
+  adjustG: number;
   approvalId: string | null;
 };
+
+/** The close check for a count (Q59-A): tail = ledger on hand − counted. */
+function countedClose(co: CastCloseout, counted: { kgG: number }) {
+  return castCloseCheck({ producedG: co.producedG, onHandG: co.billetsOnHandG, creditedG: co.creditedG, countedG: counted.kgG });
+}
 
 /** The closer's tail reason: an active `cast_tail` reason code of the company; `other` (or a code that asks) needs the note. */
 async function castTailReason(ctx: Ctx, reasonCodeId: string, note: string | null) {
@@ -965,6 +1071,11 @@ const meltCreateInput = z.object({
     returns: z.array(z.object({ streamId: id, kgG: positiveGrams })).max(MAX_MELT_RETURNS).default([]),
   }),
   balanceNote: optText(500),
+  /**
+   * r1 (I-2): this one-step path locks the melt as it saves it, so it passes the stepper's lock gates;
+   * no spectro result can exist yet, so the reason the melt is locked without one is required.
+   */
+  spectroReason: optText(500),
   notes: optText(500),
   clientRequestId,
 });
@@ -1121,6 +1232,35 @@ const meltsRouter = router({
       const returnsG = outReturns.reduce((s, r) => s + r.kgG, 0);
       const outputG = logs.kgG + input.outputs.drossG + input.outputs.feG + returnsG;
       const bal = meltBalance({ inputG, outputG });
+      // r1 (I-2): the same lock gates as melts.lock (spec E4, C18): spectro reason (no result can exist
+      // yet), furnace capacity (the single active furnace), the balance reason (3 % either way, or more
+      // out than in), logs, times. Refused with the stepper's words and `meta.gates`.
+      const furnaces = await ctx.db.select().from(furnace).where(and(eq(furnace.companyId, companyId), eq(furnace.status, "active"))).limit(2);
+      const furnaceRow = furnaces.length === 1 ? furnaces[0]! : null;
+      const lotsInG = input.inputs.filter((i) => i.kind === "lot").reduce((s, i) => s + i.kgG, 0);
+      const gates = meltLockGates({
+        status: "draft",
+        inputsG: input.inputs.map((i) => i.kgG),
+        logLinesG: hasLogs ? [logs.kgG] : [],
+        chargingStartMs: input.timestamps.chargingStart,
+        castingEndMs: input.timestamps.castingEnd,
+        capacityG: furnaceRow?.capacityG ?? null,
+        balance: meltBalance({ lotsG: lotsInG, streamsG: inputG - lotsInG, logsG: logs.kgG, drossG: input.outputs.drossG, feG: input.outputs.feG, returnsG }),
+        balanceReason: input.balanceNote,
+        spectroVerdict: null,
+        spectroReason: input.spectroReason,
+        timesMs: MELT_TIME_KEYS.map((k) => input.timestamps[k]),
+      });
+      if (gates.length > 0) throw new TRPCMetaError({ code: "BAD_REQUEST", message: MELT_GATE_TEXT[gates[0]!], meta: { gates } });
+      // r1 (I-3): a stream is never charged below its ledger balance (net of what this melt puts back).
+      const charges = plantScrap
+        ? streamCharges(
+            input.inputs.filter((i) => i.kind === "return_stream").map((i) => ({ streamId: i.ref, locationId: plantScrap.id, kgG: i.kgG })),
+            outReturns.map((o) => ({ streamId: o.streamId, locationId: plantScrap.id, kgG: o.kgG })),
+          )
+        : [];
+      const streamName = (sid: string) => streams.get(sid)?.name ?? "a return stream";
+      await assertStreamsCover(ctx.db, companyId, charges, streamName);
       const warnings: MeltWarning[] = [];
       if (bal.warning) warnings.push({ code: bal.warning, lossBp: bal.lossBp, limitBp: MELT_BALANCE_WARN_BP });
       if (!hasLogs) warnings.push({ code: "no_logs" });
@@ -1191,7 +1331,7 @@ const meltsRouter = router({
               alloy: sql<string>`${cast.alloy}`.as("alloy"),
               // Wave 2 columns (0028): this path posts on create, so the melt is born locked.
               status: sql<string>`'locked'`.as("status"),
-              furnaceId: sql`null`.as("furnace_id"),
+              furnaceId: v(furnaceRow?.id ?? null).as("furnace_id"),
               alloyId: sql<string | null>`${cast.alloyId}`.as("alloy_id"),
               preheatStartAt: v(t.preheatStart).as("preheat_start_at"),
               chargingStartAt: v(t.chargingStart).as("charging_start_at"),
@@ -1217,7 +1357,7 @@ const meltsRouter = router({
               yieldBp: v(Math.round((logs.kgG * 10_000) / inputG)).as("yield_bp"),
               warnings: v(JSON.stringify(warnings)).as("warnings"),
               balanceNote: v(input.balanceNote).as("balance_note"),
-              spectroReason: sql`null`.as("spectro_reason"),
+              spectroReason: v(input.spectroReason ?? null).as("spectro_reason"),
               notes: v(input.notes).as("notes"),
               clientRequestId: v(input.clientRequestId ?? null).as("client_request_id"),
               alloyReason: sql`null`.as("alloy_reason"),
@@ -1377,6 +1517,7 @@ const meltsRouter = router({
       for (const r of outReturns) pushOutput("return_stream", r.kgG, plantScrap!.id, streams.get(r.streamId)!, null, null);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(meltOutput).values(rows), outputRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(stockLedger).values(rows), ledgerRows);
+      statements.push(...streamChargeAborts(ctx.db, companyId, charges));
       // 6. Store draws (each guarded by the store balance; their own abort fails the batch).
       if (prepared) statements.push(...prepared.statements);
       // 7. Chemical lines, linked to their MRS.
@@ -1424,7 +1565,10 @@ const meltsRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
-        if (isFoundryAbort(e)) await explainMeltLost(ctx, c, input, lots);
+        if (isFoundryAbort(e)) {
+          await assertStreamsCover(ctx.db, companyId, charges, streamName);
+          await explainMeltLost(ctx, c, input, lots);
+        }
         if (prepared && isStoreDrawAbort(e)) await prepared.explain();
         if (input.clientRequestId && isUniqueViolation(e, "melt.company_id, melt.client_request_id")) {
           const won = await meltByRequest(ctx, input.clientRequestId);
@@ -1489,7 +1633,7 @@ const meltsRouter = router({
           .where(and(eq(cast.id, c.id), eq(cast.companyId, companyId), eq(cast.status, "open"))),
         ctx.db
           .update(melt)
-          .set({ cancelledAt: at, cancelledBy: userId, cancelReason: reason, serverSeq: seq, updatedAt: at })
+          .set({ status: "cancelled", cancelledAt: at, cancelledBy: userId, cancelReason: reason, serverSeq: seq, updatedAt: at })
           .where(
             and(
               eq(melt.id, m.id),
@@ -1618,6 +1762,8 @@ const spectroRouter = router({
           z.string().regex(/^[A-Za-z][A-Za-z0-9]{0,7}$/, "Element like Si, Fe, Mg"),
           z.number().finite().min(0).max(100),
         ),
+        /** r1 (I-4): with no file the numbers are typed, and typed numbers need the reason (as spectro.enter). */
+        entryReason: optText(500),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1627,6 +1773,8 @@ const spectroRouter = router({
       const entries = Object.entries(input.values);
       if (entries.length > MAX_SPECTRO_VALUES) bad(`At most ${MAX_SPECTRO_VALUES} values`);
       if (size === 0 && entries.length === 0) bad("Attach the file or enter the values");
+      // A result with no file is typed numbers: the same rule as spectro.enter (a reason, 1-500).
+      if (size === 0 && !input.entryReason) bad("No file is attached; say why the numbers are typed");
       const m = await spectroMelt(ctx, input.meltId);
       const valuesPpm = Object.fromEntries(entries.map(([k, val]) => [k, Math.round(val * 10_000)]));
       const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, valuesPpm);
@@ -1646,6 +1794,7 @@ const spectroRouter = router({
           valuesPpm,
           ...judged,
           source: size > 0 ? "file" : "typed",
+          entryReason: size > 0 ? null : input.entryReason,
           createdBy: ctx.session.user.id,
         }),
         auditInsert(ctx, {

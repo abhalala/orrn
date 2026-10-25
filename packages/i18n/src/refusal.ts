@@ -275,7 +275,8 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "notOnPlan", re: /^That order line is not on this plan$/ },
   { id: "alreadyOnPlan", re: new RegExp(`^${S} line (\\d+) is already on this plan$`), vars: (m) => ({ order: m[1]!, n: m[2]! }) },
   { id: "planNeedsLine", re: /^A plan needs at least one order line; cancel the plan instead$/ },
-  { id: "maxDies", re: /^At most (\d+) dies on a plan$/, vars: (m) => ({ max: m[1]! }) },];
+  { id: "maxDies", re: /^At most (\d+) dies on a plan$/, vars: (m) => ({ max: m[1]! }) },
+];
 
 function word(name: string, w: string | null): TranslateVars | null {
   return w === null ? null : { [name]: w };
@@ -308,7 +309,6 @@ const splitCodes = (s: string) => s.split(",").map((c) => c.trim()).filter(Boole
 
 export type Hit = { key: MessageKey; vars: TranslateVars };
 
-/** The dictionary key and variables for one server sentence, or null when this build does not know it. */
 /**
  * W2-FD-S: a module's own refusals, kept out of the `/` entry. The module that holds them registers
  * them when it loads (`@orrn/i18n/refusal-foundry`); `mapSentence` reads them after the shared table.
@@ -324,6 +324,7 @@ export function refusalEntries(): readonly RefusalEntry[] {
   return EXTRA_REFUSALS.length === 0 ? SERVER_REFUSALS : [...SERVER_REFUSALS, ...EXTRA_REFUSALS];
 }
 
+/** The dictionary key and variables for one server sentence, or null when this build does not know it. */
 export function mapSentence(message: string, t: Translate): Hit | null {
   for (const e of refusalEntries()) {
     const m = e.re.exec(message);

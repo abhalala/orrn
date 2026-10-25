@@ -68,7 +68,7 @@ import {
 import { reasonCode } from "@orrn/db/schema/reasons";
 import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema/printing";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
-import { ALLOY_LIMIT_SEEDS, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
+import { ALLOY_LIMIT_SEEDS, castCloseCheck, COMPANY_MODULES, defaultReasonCodeRows, formatCastCode, FURNACE_SEED, SUGGESTED_SHIFTS } from "@orrn/domain";
 import { docSeries } from "@orrn/db/schema/series";
 import { location, stockLedger } from "@orrn/db/schema/stock";
 import { storeItem, storeTxn } from "@orrn/db/schema/store";
@@ -79,7 +79,7 @@ import { formatBundleSerial, formatGroupCode } from "@orrn/server/lib/bundleSeri
 import { formatDispatchCode } from "@orrn/server/lib/dispatchCode";
 import { DEFAULT_LOCATIONS, defaultLocationStatements, openingRows } from "@orrn/server/lib/ledger";
 import { nextCompanySeq } from "@orrn/server/lib/sequence";
-import { defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
+import { castCloseout, defaultReturnStreamStatements } from "@orrn/server/lib/foundry";
 import { shiftAt } from "@orrn/server/lib/press";
 import { kgPer12ftMilli } from "@orrn/server/lib/bundleWeight";
 import { allocatePartyBundleNumbers, docPeriod, nextDocNumber } from "@orrn/server/lib/docNumber";
@@ -2228,6 +2228,41 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       { voucherId: "dev-opening-balance" },
     ),
   ]);
+
+  // 5b. W2-FD-S r1 (Q59-A, review m-12): cast 1 was closed on a yard count. The count found exactly
+  //     what its ledger holds after the seed's press postings (1,493.6 kg), so its tail is 0 and no
+  //     `cast_tail` row is posted. The billets stay in stock under the closed cast for later runs.
+  {
+    const co = await castCloseout(db, COMPANY_ID, "dev-press-cast-1");
+    const counted = co.billetsOnHandG;
+    const check = castCloseCheck({ producedG: co.producedG, onHandG: co.billetsOnHandG, creditedG: co.creditedG, countedG: counted });
+    await db
+      .update(cast)
+      .set({
+        tailG: check.tailG,
+        tailBp: check.tailBp,
+        closeRequestedAt: new Date(pastAt(1, 18)),
+        closeRequestedBy: ownerId,
+        closeSummary: {
+          producedG: co.producedG,
+          creditedG: co.creditedG,
+          billetsOnHandG: co.billetsOnHandG,
+          shortG: check.shortG,
+          tailG: check.tailG,
+          tailBp: check.tailBp,
+          inputG: co.inputG,
+          logsG: co.logsG,
+          bundlesG: co.bundlesG,
+          reasonCode: null,
+          // 600 mm billets of 127 mm dia weigh about 38.8 kg each.
+          countedCount: Math.round(counted / 38_800),
+          countedG: counted,
+          adjustG: check.adjustG ?? 0,
+          adjustLocationId: null,
+        },
+      })
+      .where(and(eq(cast.id, "dev-press-cast-1"), eq(cast.companyId, COMPANY_ID)));
+  }
 
   // 6. FP-PF rows: a build per native platform, the pack tablet, one support request.
   await seedPlatformRows(db, { companyId: COMPANY_ID, ownerId, operatorId, staffId: users.staff.id, now });

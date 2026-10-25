@@ -10,7 +10,7 @@ import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
-import { boriMeltedMessage, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
+import { boriMeltedMessage, castTailAdjustRow, dcNoteOverdrawAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { reallocateDecision } from "./reallocate";
@@ -224,11 +224,28 @@ const castCloseDecision: ApprovalApplier = (ctx, row, decision) => {
     decisionLanded(ctx, row.id, decision),
   );
   if (decision === "approved") {
+    // Q59-A: the count's adjustment (frozen in the close summary at the request) posts with the
+    // approval, never before. It is the tail AS COUNTED: billets the press used after the count are
+    // its own rows, so on hand = counted − later use. Guarded on "this approval closed the cast".
+    const closedNow = sql`exists (select 1 from ${cast} ac where ac.id = ${row.subjectId} and ac.company_id = ${companyId} and ac.status = 'closed' and ac.server_seq = ${seq} and ac.close_approval_id = ${row.id})`;
+    const frozen = (key: string) =>
+      sql`(select json_extract(fc.close_summary, ${`$.${key}`}) from ${cast} fc where fc.id = ${row.subjectId} and fc.company_id = ${companyId})`;
     return [
       db
         .update(cast)
         .set({ status: "closed", closedAt: ctx.decidedAt, closedBy: ctx.userId, serverSeq: seq, updatedAt: ctx.decidedAt })
         .where(subject),
+      castTailAdjustRow(db, {
+        companyId,
+        castId: row.subjectId,
+        qtyG: frozen("adjustG"),
+        locationId: frozen("adjustLocationId"),
+        seq,
+        at: ctx.decidedAt,
+        userId: ctx.userId,
+        reason: "Count at close (approved)",
+        when: and(closedNow, sql`${frozen("adjustLocationId")} is not null`),
+      }),
     ];
   }
   return [

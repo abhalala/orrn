@@ -65,7 +65,37 @@ async function foundryPlant(opts: { settings?: Record<string, unknown> } = {}): 
   }
   const t0 = Date.now() - 8 * H;
   const times = () => ({ preheatStart: t0, chargingStart: t0 + H, chargingEnd: t0 + 3 * H, castingStart: t0 + 4 * H, castingEnd: t0 + 6 * H });
-  return { ...p, lot, stream: (code: string) => streams.find((s) => s.code === code)!.id, fluxId, times };
+  const stream = (code: string) => streams.find((s) => s.code === code)!.id;
+  // r1 (I-3): a stream is never charged below its balance; the plant starts with plant scrap in stock.
+  await openStream(p.companyId, stream("PLANT-SCRAP"), p.plantScrapId, 2_000);
+  return { ...p, lot, stream, fluxId, times };
+}
+
+/** An `opening` row: the stream's stock at go-live (there is no opening screen for return streams yet). */
+async function openStream(companyId: string, streamId: string, locationId: string, kgs: number) {
+  await env.db.insert(stockLedger).values({
+    id: crypto.randomUUID(), companyId, serverSeq: 0, voucherType: "opening", voucherId: crypto.randomUUID(),
+    line: 1, itemKind: "return_stream", itemRef: streamId, locationId, qtyG: kg(kgs), postedAt: new Date(),
+  });
+}
+
+/** The yard count at close (Q59-A): billets and their kg. 0 kg is an empty yard. */
+const count = (kgs: number) => ({ count: kgs === 0 ? 0 : Math.max(1, Math.round(kgs / 38.8)), kgG: kg(kgs) });
+
+/** A cast with one locked 5,150 kg melt (spectro reason) and the worked-example press run logged on it (310.4 kg). */
+async function castPressed(p: FoundryPlant) {
+  const lot = await p.lot(8_000);
+  const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+  const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { spectroReason: "Lab" }));
+  await p.as("foundry").foundry.melts.lock({ meltId: d.id });
+  const r = await p.countingRun({ pcs: 100 });
+  await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
+  await p.as("supervisor").press.runs.close({ id: r.runId });
+  return { lot, c, d, r };
+}
+
+async function billetLedger(companyId: string, castId: string) {
+  return env.db.select().from(stockLedger).where(and(eq(stockLedger.companyId, companyId), eq(stockLedger.itemKind, "billet"), eq(stockLedger.itemRef, castId)));
 }
 
 /** A complete draft: 5,000 kg lot + 300 kg plant scrap in; 5,150 kg logs, 80 dross, 20 Fe out (burn 50 kg, 0.94 %). */
@@ -237,6 +267,52 @@ describe("FD-03..08 melt stepper: a draft posts nothing; the lock posts everythi
     expect((await ledgerOf(p.companyId, d.id)).filter((r) => r.itemKind === "scrap_grade")).toHaveLength(59);
   });
 
+  test("r1 (I-3): the lock never charges a return stream below its balance (read time and inside the batch)", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(20_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const ingot = (kgs: number) => ({
+      spectroReason: "Lab",
+      inputs: [{ kind: "lot" as const, ref: lot.id, kgG: kg(3_000) }, { kind: "return_stream" as const, ref: p.stream("INGOT"), kgG: kg(kgs) }],
+      logs: [{ pcs: 20, lengthMm: 6_000, kgG: kg(2_900 + kgs) }],
+    });
+    const empty = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, ingot(300)));
+    await expect(p.as("foundry").foundry.melts.lock({ meltId: empty.id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Only 0 kg of Ingot is in stock" });
+    expect(await ledgerOf(p.companyId, empty.id)).toEqual([]);
+    // 1,500 kg in stock; two drafts each take 1,000: the one that locks second loses inside its batch.
+    await openStream(p.companyId, p.stream("INGOT"), p.plantScrapId, 1_500);
+    const a = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, ingot(1_000)));
+    const b = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, ingot(1_000)));
+    env.beforeNextBatch(() => p.as("supervisor").foundry.melts.lock({ meltId: a.id }));
+    await expect(p.as("foundry").foundry.melts.lock({ meltId: b.id })).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Only 500 kg of Ingot is in stock" });
+    expect(await ledgerOf(p.companyId, b.id)).toEqual([]);
+    expect((await env.db.select({ status: melt.status }).from(melt).where(eq(melt.id, b.id)))[0]!.status).toBe("draft");
+    const bal = (await p.as("viewer").foundry.returnStreams.list()).items.find((s) => s.code === "INGOT")!.balanceG;
+    expect(bal).toBe(kg(500));
+  });
+
+  test("r1 (I-2): the legacy melts.create runs the lock gates (spectro reason, furnace capacity) and records the furnace", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(20_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const t = p.times();
+    const legacy = (inKg: number, over: Record<string, unknown> = {}) => ({
+      castId: c.id,
+      timestamps: { preheatStart: t.preheatStart, chargingStart: t.chargingStart, chargingEnd: t.chargingEnd, castingStart: t.castingStart, castingEnd: t.castingEnd },
+      ldoTenthIn: { start: 480, end: 455 },
+      inputs: [{ kind: "lot" as const, ref: lot.id, kgG: kg(inKg) }],
+      chemicals: [],
+      outputs: { logs: { pcs: 20, lengthMm: 6_000, kgG: kg(inKg * 0.98) }, drossG: 0, feG: 0, returns: [] },
+      ...over,
+    });
+    await expect(p.as("foundry").foundry.melts.create(legacy(5_000))).rejects.toMatchObject({ code: "BAD_REQUEST", meta: { gates: ["spectro_reason_missing"] } });
+    await expect(p.as("foundry").foundry.melts.create(legacy(6_500, { spectroReason: "Lab" }))).rejects.toMatchObject({ code: "BAD_REQUEST", meta: { gates: ["over_capacity"] } });
+    expect(await env.db.select().from(melt).where(eq(melt.castId, c.id))).toEqual([]);
+    const m = await p.as("foundry").foundry.melts.create(legacy(5_000, { spectroReason: "Lab" }));
+    const furnaceId = (await p.as("viewer").foundry.furnaces.list()).items[0]!.id;
+    expect((await env.db.select().from(melt).where(eq(melt.id, m.id)))[0]).toMatchObject({ status: "locked", furnaceId, spectroReason: "Lab" });
+  });
+
   test("discard drops a draft (it keeps its number); a locked melt cannot be discarded; the next melt is number 2", async () => {
     const p = await foundryPlant();
     const lot = await p.lot(8_000);
@@ -253,7 +329,7 @@ describe("FD-03..08 melt stepper: a draft posts nothing; the lock posts everythi
     const lot = await p.lot(8_000);
     const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
     await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id));
-    await expect(p.as("manager").foundry.casts.close({ castId: c.id })).rejects.toMatchObject({ message: expect.stringContaining("not locked") });
+    await expect(p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(0) })).rejects.toMatchObject({ message: expect.stringContaining("not locked") });
     expect((await p.as("viewer").foundry.casts.list({})).items.find((x) => x.id === c.id)).toMatchObject({ draftMelts: 1, meltCount: 0 });
     for (const role of ROLES.filter((r) => !can(r, "melt.enter"))) {
       await expect(p.as(role).foundry.melts.save(draft(p, c.id, lot.id))).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -271,7 +347,8 @@ describe("FD-13 no edit after lock: a reason-coded correction through approval m
     const p = await foundryPlant();
     const lot = await p.lot(8_000);
     const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
-    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { spectroReason: "Lab" }));
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id));
+    await pass(p, d.id);
     await p.as("foundry").foundry.melts.lock({ meltId: d.id });
     await expect(p.as("foundry").foundry.melts.correct({ meltId: d.id })).rejects.toMatchObject({ message: expect.stringContaining("Ask for a correction first") });
     const code = (await p.as("viewer").reasonCodes.list({ kind: "melt_correct" })).find((r) => r.code === "wrong_weight")!.id;
@@ -285,13 +362,18 @@ describe("FD-13 no edit after lock: a reason-coded correction through approval m
     expect((await env.db.select().from(storeTxn).where(eq(storeTxn.companyId, p.companyId))).filter((t) => t.cancelledAt)).toHaveLength(1);
     const [copy] = await env.db.select().from(melt).where(eq(melt.id, out.draftId));
     expect(copy).toMatchObject({ status: "draft", seq: 2, correctsMeltId: d.id, inputG: kg(5_300) });
+    // r1 (m-2): the corrected original says so; (m-3) the copy keeps the spectro it was judged by.
+    expect((await env.db.select({ status: melt.status, cancelledAt: melt.cancelledAt }).from(melt).where(eq(melt.id, d.id)))[0]).toMatchObject({ status: "corrected", cancelledAt: expect.any(Date) });
+    const copied = await env.db.select().from(spectroResult).where(eq(spectroResult.meltId, out.draftId));
+    expect(copied).toEqual([expect.objectContaining({ verdict: "pass", source: "typed", siPpm: 4_500, mgPpm: 5_200 })]);
+    expect((await p.as("foundry").foundry.melts.preview({ meltId: out.draftId })).spectroVerdict).toBe("pass");
     expect(await env.db.select().from(meltInput).where(eq(meltInput.meltId, out.draftId))).toHaveLength(2);
     expect((await env.db.select({ meta: approval.meta }).from(approval).where(eq(approval.id, approvalId)))[0]!.meta).toMatchObject({ draftId: out.draftId });
     // The grant is used once; a retry answers the first correction.
     expect(await p.as("foundry").foundry.melts.correct({ meltId: d.id, clientMutationId: "correct-0001" })).toEqual(out);
-    // Fix the weight and lock the copy.
-    await p.as("foundry").foundry.melts.save({ ...draft(p, c.id, lot.id, { spectroReason: "Lab" }), meltId: out.draftId, logs: [{ pcs: 20, lengthMm: 6_000, kgG: kg(5_105) }] });
-    expect(await p.as("foundry").foundry.melts.lock({ meltId: out.draftId })).toMatchObject({ logsG: kg(5_105) });
+    // Fix the weight and lock the copy: the copied pass clears the spectro gate, no reason asked.
+    await p.as("foundry").foundry.melts.save({ ...draft(p, c.id, lot.id), meltId: out.draftId, logs: [{ pcs: 20, lengthMm: 6_000, kgG: kg(5_105) }] });
+    expect(await p.as("foundry").foundry.melts.lock({ meltId: out.draftId })).toMatchObject({ logsG: kg(5_105), spectroVerdict: "pass" });
     expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ producedG: kg(5_105), billetsOnHandG: kg(5_105), tailG: 0 });
   });
 
@@ -304,6 +386,40 @@ describe("FD-13 no edit after lock: a reason-coded correction through approval m
     await p.as("foundry").foundry.melts.lock({ meltId: d.id });
     await expect(p.as("foundry").foundry.melts.cancel({ meltId: d.id, reason: "x" })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(p.as("admin").foundry.melts.cancel({ meltId: d.id, reason: "Wrong cast" })).resolves.toMatchObject({ cancelled: true });
+    // r1 (m-2): a cancelled locked melt is `cancelled`, everywhere (row, cast sheet, trace).
+    expect((await env.db.select({ status: melt.status }).from(melt).where(eq(melt.id, d.id)))[0]!.status).toBe("cancelled");
+    expect((await p.as("viewer").foundry.casts.trace({ castId: c.id })).melts[0]).toMatchObject({ id: d.id, status: "cancelled", cancelledAt: expect.any(Date) });
+  });
+
+  test("r1 (m-6): the owner asks for a correction and cannot approve it; another approver can", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("owner").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("owner").foundry.melts.save(draft(p, c.id, lot.id, { spectroReason: "Lab" }));
+    await p.as("owner").foundry.melts.lock({ meltId: d.id });
+    const code = (await p.as("viewer").reasonCodes.list({ kind: "melt_correct" })).find((r) => r.code === "wrong_weight")!.id;
+    const { approvalId } = await p.as("owner").foundry.melts.requestCorrection({ meltId: d.id, reasonCodeId: code, note: "Logs 5,105 kg" });
+    // The owner IS a melt_correct approver: only the requester rule stops this.
+    await expect(p.as("owner").approval.decide({ id: approvalId, decision: "approved" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await env.db.select({ status: approval.status }).from(approval).where(eq(approval.id, approvalId)))[0]!.status).toBe("pending");
+    await p.as("admin").approval.decide({ id: approvalId, decision: "approved" });
+    expect((await env.db.select({ status: approval.status }).from(approval).where(eq(approval.id, approvalId)))[0]!.status).toBe("approved");
+  });
+
+  test("r1 (m-7): melts.save and spectro.enter with a clientRequestId answer a retry with the first row", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const first = await p.as("foundry").foundry.melts.save({ ...draft(p, c.id, lot.id), clientRequestId: "save-0001" });
+    const again = await p.as("foundry").foundry.melts.save({ ...draft(p, c.id, lot.id), clientRequestId: "save-0001" });
+    expect(again.id).toBe(first.id);
+    expect(await env.db.select({ id: melt.id }).from(melt).where(eq(melt.castId, c.id))).toHaveLength(1);
+    const valuesPpm = { si: 4_500, fe: 1_800, cu: 100, mn: 100, mg: 5_200, zn: 100, ti: 100, cr: 100 };
+    const s1 = await p.as("foundry").foundry.spectro.enter({ meltId: first.id, valuesPpm, entryReason: "Printer down", clientRequestId: "spec-0001" });
+    const s2 = await p.as("foundry").foundry.spectro.enter({ meltId: first.id, valuesPpm, entryReason: "Printer down", clientRequestId: "spec-0001" });
+    expect(s2.id).toBe(s1.id);
+    expect(await env.db.select({ id: spectroResult.id }).from(spectroResult).where(eq(spectroResult.meltId, first.id))).toHaveLength(1);
+    expect((await audits(p.companyId)).filter((a) => a === "spectro.attach")).toHaveLength(1);
   });
 });
 
@@ -320,8 +436,16 @@ describe("FD-10..12 spectro: verdict against the alloy limits, typed entry with 
     const f = p.as("foundry").foundry.spectro;
     const fail = await f.enter({ meltId: d.id, valuesPpm: { si: 4_500, fe: 1_800, cu: 100, mn: 100, mg: 9_500, zn: 100, ti: 100, cr: 100 }, entryReason: "typed" });
     expect(fail.verdict).toBe("fail");
-    const part = await f.attach({ meltId: d.id, fileName: "K.csv", mime: "text/csv", base64: "", values: { Si: 0.45, Mg: 0.52 } });
+    // r1 (I-4): no file means typed numbers, and typed numbers need the reason.
+    await expect(f.attach({ meltId: d.id, fileName: "K.csv", mime: "text/csv", base64: "", values: { Si: 0.45, Mg: 0.52 } })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "No file is attached; say why the numbers are typed",
+    });
+    await expect(f.attach({ meltId: d.id, fileName: "K.csv", mime: "text/csv", base64: "", values: { Si: 0.45 }, entryReason: "   " })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await env.db.select().from(spectroResult).where(eq(spectroResult.meltId, d.id))).toHaveLength(1);
+    const part = await f.attach({ meltId: d.id, fileName: "K.csv", mime: "text/csv", base64: "", values: { Si: 0.45, Mg: 0.52 }, entryReason: "Spectro PC offline" });
     expect(part.verdict).toBe("incomplete");
+    expect((await env.db.select().from(spectroResult).where(eq(spectroResult.id, part.id)))[0]).toMatchObject({ source: "typed", entryReason: "Spectro PC offline" });
     const [row] = await env.db.select().from(spectroResult).where(eq(spectroResult.id, fail.id));
     expect(row).toMatchObject({ source: "typed", entryReason: "typed", mgPpm: 9_500, alSource: "balance", verdict: "fail" });
     expect(row!.limitsSnapshot!.alloyCode).toBe("6063");
@@ -344,21 +468,107 @@ describe("FD-10..12 spectro: verdict against the alloy limits, typed entry with 
 // ---------------------------------------------------------------------------
 
 describe("FD-14/15 cast close after a REAL logged press run (castPressReturnsSql fixed)", () => {
-  test("billets − press used − on hand = 0: the cast closes with no reason; a reopen puts the billets back in the sum", async () => {
+  test("billets − press used − on hand = 0: the count matches, the cast closes with no reason and no adjustment", async () => {
     const p = await foundryPlant();
-    const lot = await p.lot(8_000);
-    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
-    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { spectroReason: "Lab" }));
-    await p.as("foundry").foundry.melts.lock({ meltId: d.id });
-    const r = await p.countingRun({ pcs: 100 });
-    await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
-    await p.as("supervisor").press.runs.close({ id: r.runId });
+    const { c } = await castPressed(p);
     const co = (await p.as("viewer").foundry.casts.get({ id: c.id })).closeout;
     expect(co).toMatchObject({ producedG: kg(5_150), creditedG: kg(310.4), billetsOnHandG: kg(5_150) - kg(310.4), tailG: 0, needsReason: false, needsApproval: false });
     const stock = await p.as("viewer").foundry.stock.billets();
-    expect(stock.casts.find((x) => x.castId === c.id)).toMatchObject({ onHandG: kg(5_150) - kg(310.4), alloy: "6063" });
+    expect(stock.casts.find((x) => x.castId === c.id)).toMatchObject({ onHandG: kg(5_150) - kg(310.4), adjustedG: 0, alloy: "6063" });
     expect(stock.byAlloy.find((a) => a.alloy === "6063")!.onHandG).toBeGreaterThanOrEqual(kg(5_150) - kg(310.4));
-    expect(await p.as("manager").foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 0, approvalId: null });
+    expect(await p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(4_839.6) })).toMatchObject({ status: "closed", tailG: 0, adjustG: 0, approvalId: null });
+    expect((await billetLedger(p.companyId, c.id)).filter((x) => x.voucherType === "cast_tail")).toEqual([]);
+  });
+
+  test("r1 (m-1): a REOPENED press run puts its billets back: credited 0, on hand back to the melt's logs", async () => {
+    const p = await foundryPlant();
+    const { c, r } = await castPressed(p);
+    expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ creditedG: kg(310.4), billetsOnHandG: kg(4_839.6) });
+    const { approvalId } = await p.as("manager").press.runs.reopen({ id: r.runId, reason: "Wrong cast on the sheet" });
+    await p.as("admin").approval.decide({ id: approvalId, decision: "approved" });
+    const back = (await p.as("viewer").foundry.casts.get({ id: c.id })).closeout;
+    expect(back).toMatchObject({ producedG: kg(5_150), creditedG: 0, billetsOnHandG: kg(5_150), tailG: 0 });
+    expect((await billetLedger(p.companyId, c.id)).filter((x) => x.voucherType === "press_run_reopen").map((x) => x.qtyG)).toEqual([kg(310.4)]);
+    // The run is counting again; with its billets back the yard count of 5,150 kg closes clean.
+    expect(await p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(5_150) })).toMatchObject({ status: "closed", tailG: 0, adjustG: 0 });
+  });
+
+  test("r1 (I-1, Q59-A) a REAL tail: the yard count finds 39.6 kg less than the ledger — reason, cast_tail row, stock, trace and yield show it", async () => {
+    const p = await foundryPlant();
+    const { c } = await castPressed(p);
+    // Ledger on hand = 5,150 − 310.4 = 4,839.6 kg; the yard count finds 4,800 kg.
+    const preview = await p.as("supervisor").foundry.casts.closePreview({ castId: c.id, billetsOnHand: count(4_800) });
+    expect(preview).toMatchObject({ ledgerOnHandG: kg(4_839.6), countedG: kg(4_800), tailG: kg(39.6), adjustG: -kg(39.6), needsReason: true, needsApproval: false });
+    await expect(p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(4_800) })).rejects.toMatchObject({ message: "39.6 kg of " + c.number + " billets is not explained; pick a reason" });
+    const out = await p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(4_800), reasonCodeId: await tailCode(p, "scrapped") });
+    expect(out).toMatchObject({ status: "closed", tailG: kg(39.6), countedG: kg(4_800), adjustG: -kg(39.6), approvalId: null });
+    const tail = (await billetLedger(p.companyId, c.id)).filter((x) => x.voucherType === "cast_tail");
+    expect(tail).toEqual([expect.objectContaining({ voucherId: c.id, line: 1, qtyG: -kg(39.6), locationId: p.billetStoreId })]);
+    // Ledger, stock, trace and yield agree with the count.
+    expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ billetsOnHandG: kg(4_800), adjustedG: -kg(39.6), tailG: kg(39.6) });
+    expect((await p.as("viewer").foundry.stock.billets()).casts.find((x) => x.castId === c.id)).toMatchObject({ onHandG: kg(4_800), adjustedG: -kg(39.6), status: "closed" });
+    expect((await p.as("viewer").foundry.casts.trace({ castId: c.id })).billets).toMatchObject({ onHandG: kg(4_800), adjustedG: -kg(39.6), tailG: kg(39.6), countedG: kg(4_800) });
+    const today = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    const y = await p.as("manager").analytics.foundryYield({ from, to: today, groupBy: "alloy" });
+    expect(y.total).toMatchObject({ logsG: kg(5_150), tailAdjustG: -kg(39.6), netYieldBp: Math.round(((kg(5_150) - kg(39.6)) * 10_000) / kg(5_300)) });
+    expect(y.rows.find((x) => x.key === "6063")).toMatchObject({ tailAdjustG: -kg(39.6) });
+  });
+
+  test("r1 (I-1) beyond 3 %: closing + cast_close approval; the applier posts the count adjustment; a later press run on the CLOSED cast is allowed and tracked", async () => {
+    const p = await foundryPlant();
+    const { c } = await castPressed(p);
+    // The count finds 4,500 kg: 339.6 kg short of the ledger = 6.59 % of 5,150 kg produced.
+    const out = await p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(4_500), reasonCodeId: await tailCode(p, "scrapped"), note: "Bent logs cut up" });
+    expect(out).toMatchObject({ status: "closing", tailG: kg(339.6), tailBp: 659, adjustG: -kg(339.6) });
+    expect((await billetLedger(p.companyId, c.id)).filter((x) => x.voucherType === "cast_tail")).toEqual([]);
+    const [req] = await env.db.select().from(approval).where(eq(approval.id, out.approvalId!));
+    expect(req!.meta).toMatchObject({ ledgerOnHandG: kg(4_839.6), countedG: kg(4_500), adjustG: -kg(339.6) });
+    await expect(p.as("manager").approval.decide({ id: out.approvalId!, decision: "approved" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await p.as("owner").approval.decide({ id: out.approvalId!, decision: "approved" });
+    expect((await env.db.select({ status: cast.status }).from(cast).where(eq(cast.id, c.id)))[0]!.status).toBe("closed");
+    expect((await billetLedger(p.companyId, c.id)).filter((x) => x.voucherType === "cast_tail").map((x) => x.qtyG)).toEqual([-kg(339.6)]);
+    expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ billetsOnHandG: kg(4_500), tailG: kg(339.6) });
+    // The counted billets stay in stock under the cast; the press can still use them.
+    const r2 = await p.countingRun({ pcs: 100 });
+    await fillWorkedExample(p, r2.runId, c.id, { planLineId: r2.planLineIds[0] });
+    await p.as("supervisor").press.runs.close({ id: r2.runId });
+    const after = (await p.as("viewer").foundry.casts.get({ id: c.id })).closeout;
+    expect(after).toMatchObject({ creditedG: kg(620.8), billetsOnHandG: kg(4_500) - kg(310.4), tailG: kg(339.6), adjustedG: -kg(339.6) });
+    expect((await p.as("viewer").foundry.stock.billets()).casts.find((x) => x.castId === c.id)).toMatchObject({ onHandG: kg(4_500) - kg(310.4), status: "closed" });
+  });
+
+  test("r1 (I-1c) a run that used billets of TWO casts charges each cast its own billets (one ledger row per cast)", async () => {
+    const p = await foundryPlant();
+    const a = await castPressed(p);
+    const lotB = await p.lot(8_000);
+    const b = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const db = await p.as("foundry").foundry.melts.save(draft(p, b.id, lotB.id, { spectroReason: "Lab" }));
+    await p.as("foundry").foundry.melts.lock({ meltId: db.id });
+    const r = await p.countingRun({ pcs: 100 });
+    await fillWorkedExample(p, r.runId, a.c.id, { planLineId: r.planLineIds[0] });
+    await p.as("press").press.runs.billets({
+      id: r.runId,
+      castId: a.c.id,
+      rows: [{ castId: a.c.id, count: 4, kgG: kg(155.2), lengthMm: 600 }, { castId: b.id, count: 4, kgG: kg(120), lengthMm: 600 }],
+    });
+    await p.as("supervisor").press.runs.close({ id: r.runId });
+    const rows = (await ledgerOf(p.companyId, r.runId)).filter((x) => x.itemKind === "billet");
+    expect(rows.map((x) => [x.itemRef, x.qtyG]).sort()).toEqual([[a.c.id, -kg(155.2)], [b.id, -kg(120)]].sort());
+    expect((await p.as("viewer").foundry.casts.get({ id: a.c.id })).closeout).toMatchObject({ creditedG: kg(310.4) + kg(155.2), billetsOnHandG: kg(5_150) - kg(465.6) });
+    expect((await p.as("viewer").foundry.casts.get({ id: b.id })).closeout).toMatchObject({ creditedG: kg(120), billetsOnHandG: kg(5_150) - kg(120), tailG: 0 });
+    // Each closes on its own honest count: neither carries the other's billets.
+    expect(await p.as("manager").foundry.casts.close({ castId: b.id, billetsOnHand: count(5_030) })).toMatchObject({ status: "closed", tailG: 0 });
+  });
+
+  test("r1 (I-1) the count finds MORE than the ledger: a reason, and a positive cast_tail row (sign follows counted − ledger)", async () => {
+    const p = await foundryPlant();
+    const { c } = await castPressed(p);
+    await expect(p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(4_850) })).rejects.toMatchObject({ message: `The count finds 10.4 kg more billets of ${c.number} than the ledger; pick a reason` });
+    const out = await p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(4_850), reasonCodeId: await tailCode(p, "other"), note: "Press over-weighed the run" });
+    expect(out).toMatchObject({ status: "closed", tailG: -kg(10.4), adjustG: kg(10.4) });
+    expect((await billetLedger(p.companyId, c.id)).filter((x) => x.voucherType === "cast_tail").map((x) => x.qtyG)).toEqual([kg(10.4)]);
+    expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ billetsOnHandG: kg(4_850), tailG: -kg(10.4) });
   });
 
   test("D22 with a real run: the press logs more billets than the cast made → billets short, reason and approval", async () => {
@@ -372,8 +582,8 @@ describe("FD-14/15 cast close after a REAL logged press run (castPressReturnsSql
     await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
     await p.as("supervisor").press.runs.close({ id: r.runId, clientMutationId: "close-short-01", billetShortReason: "Billets of cast 2 were mixed in" });
     expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ producedG: kg(300), creditedG: kg(310.4), billetsOnHandG: -kg(10.4), shortG: kg(10.4), tailG: 0, needsReason: true, needsApproval: true });
-    await expect(p.as("manager").foundry.casts.close({ castId: c.id })).rejects.toMatchObject({ message: expect.stringContaining("more billets") });
-    const out = await p.as("manager").foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "billets_short"), note: "Billets from cast 2 mixed in" });
+    await expect(p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(0) })).rejects.toMatchObject({ message: expect.stringContaining("more billets") });
+    const out = await p.as("manager").foundry.casts.close({ castId: c.id, billetsOnHand: count(0), reasonCodeId: await tailCode(p, "billets_short"), note: "Billets from cast 2 mixed in" });
     expect(out).toMatchObject({ status: "closing", shortG: kg(10.4) });
     expect(out.approvalId).toBeTruthy();
   });
@@ -417,6 +627,19 @@ describe("FD-16/17 trace and cast-on-label; FD-19 yield; FD-20 cost", () => {
     expect(fromBundle.chain!.cast.id).toBe(c.id);
   });
 
+  test("r1 (m-4): the trace shows the verdict the melt was LOCKED with beside the latest one", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(8_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, { spectroReason: "Mg high; customer agreed" }));
+    await p.as("foundry").foundry.spectro.enter({ meltId: d.id, valuesPpm: { si: 4_500, fe: 1_800, cu: 100, mn: 100, mg: 9_500, zn: 100, ti: 100, cr: 100 }, entryReason: "typed" });
+    await p.as("foundry").foundry.melts.lock({ meltId: d.id });
+    setClock(new Date(Date.now() + 60_000));
+    await pass(p, d.id); // a later re-test passes
+    const m = (await p.as("viewer").foundry.casts.trace({ castId: c.id })).melts[0]!;
+    expect(m).toMatchObject({ spectroVerdict: "pass", lockSpectroVerdict: "fail" });
+  });
+
   test("FD-16 automatic rule: once a melt is LOCKED (a draft is not enough) a receipt must name its cast", async () => {
     const p = await foundryPlant();
     const lot = await p.lot(8_000);
@@ -453,6 +676,8 @@ describe("FD-16/17 trace and cast-on-label; FD-19 yield; FD-20 cost", () => {
     const from = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
     const byAlloy = await p.as("manager").analytics.foundryYield({ from, to: today, groupBy: "alloy" });
     expect(byAlloy.rows).toEqual([expect.objectContaining({ key: "6063", melts: 1, inputG: kg(5_300), logsG: kg(5_150), yieldBp: Math.round((5_150 * 10_000) / 5_300), ldoTenthIn: 25 })]);
+    // r1 (m-9): FP-FD-19 reads LDO per tonne OF LOGS: 25 tenths over 5.15 t = 4.85 → 5.
+    expect(byAlloy.rows[0]!.ldoPerTonneTenthIn).toBe(Math.round((25 * 1_000_000) / kg(5_150)));
     expect((await p.as("manager").analytics.foundryYield({ from, to: today, groupBy: "furnace" })).rows[0]!.key).toBe("F1");
     expect((await p.as("manager").analytics.foundryYield({ from, to: today })).total.melts).toBe(1);
     await expect(p.as("foundry").analytics.foundryYield({ from, to: today })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -469,7 +694,11 @@ describe("furnace readings: typed always; simulate only behind FOUNDRY_SIMULATOR
     const lot = await p.lot(8_000);
     const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
     const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id));
-    await p.as("foundry").foundry.readings.add({ meltId: d.id, valueX10: 7_355 });
+    const at = Date.now() - 60_000;
+    expect(await p.as("foundry").foundry.readings.add({ meltId: d.id, valueX10: 7_355, readAt: at })).toMatchObject({ added: true });
+    // r1 (m-12): the same reading again (same melt, instant, source) is dropped, and so is its audit row.
+    expect(await p.as("foundry").foundry.readings.add({ meltId: d.id, valueX10: 7_355, readAt: at })).toMatchObject({ added: false });
+    expect((await audits(p.companyId)).filter((a) => a === "foundry.reading.add")).toHaveLength(1);
     await expect(p.as("foundry").foundry.readings.simulate({ meltId: d.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     workersEnv.FOUNDRY_SIMULATOR = "1";
     const first = await p.as("foundry").foundry.readings.simulate({ meltId: d.id });

@@ -4,6 +4,7 @@ import {
   MAX_BILLET_ROWS,
   PRESS_SKEW_MAX_MS,
   balanceG,
+  billetInputByCast,
   bpPercent1,
   closeFigures,
   closeGates,
@@ -166,6 +167,49 @@ describe("closeFigures (server-computed; client values ignored)", () => {
     expect([negative.inputG, negative.recoveryBp, negative.billetShortG, negative.short]).toEqual([310_400, 7545, 310_400, true]);
     const unknown = closeFigures({ billets: [{ kgG: 310_400 }], lines: [{ goodG: 234_200 }], qc: [] });
     expect([unknown.short, unknown.billetShortG]).toEqual([false, 0]);
+  });
+});
+
+describe("billets of two casts on one run (W2-FD-S r1, I-1c): each cast is charged its own kg", () => {
+  const run = (over: Partial<CloseRunInput> = {}): CloseRunInput => ({ status: "counting", supervisorId: "sup", castId: "cast-a", timeUnconfirmed: false, ...over });
+  const lines: CloseRunLine[] = [{ cutLengthMm: 3658, pcs: 40, goodG: 234_200 }];
+  const zeroQc: CloseQcRow[] = [{ pcs: 0, kgG: 0, reasonCode: null }];
+  const mixed: CloseBilletRow[] = [
+    { castId: "cast-a", count: 5, kgG: 200_000 },
+    { castId: "cast-b", count: 3, kgG: 110_400 },
+  ];
+
+  test("rows of the run's cast and another cast are allowed; a run with no row of its own cast is still a mismatch", () => {
+    const ctx = { callerId: "sup", callerCanClose: true, billetOnHandByCastG: { "cast-a": 1_000 * KG, "cast-b": 1_000 * KG } };
+    expect(closeGates(run(), lines, mixed, zeroQc, [], {}, ctx)).toEqual([]);
+    expect(closeGates(run({ castId: "cast-c" }), lines, mixed, zeroQc, [], {}, ctx)).toEqual(["billet_cast_mismatch"]);
+  });
+
+  test("the input is split by cast: billetInputByCast sums each cast's rows", () => {
+    expect(billetInputByCast([...mixed, { castId: "cast-a", count: 1, kgG: 40_000 }])).toEqual(
+      new Map([
+        ["cast-a", 240_000],
+        ["cast-b", 110_400],
+      ]),
+    );
+  });
+
+  test("short is judged per cast: A covers its 200 kg, B holds 100 of its 110.4 kg -> 10.4 kg short and a reason", () => {
+    const byCast = { "cast-a": 5_000 * KG, "cast-b": 100 * KG };
+    const ctx = { callerId: "sup", callerCanClose: true, billetOnHandByCastG: byCast };
+    expect(closeGates(run(), lines, mixed, zeroQc, [], {}, ctx)).toEqual(["billet_short_reason_missing"]);
+    expect(closeGates(run({ billetShortReason: "B's rack was miscounted" }), lines, mixed, zeroQc, [], {}, ctx)).toEqual([]);
+    const f = closeFigures({ billets: mixed, lines, qc: [], billetOnHandByCastG: byCast });
+    expect([f.inputG, f.short, f.billetShortG]).toEqual([310_400, true, 10_400]);
+    // The plant-wide sum (5,100 kg) would have hidden B's shortfall: per cast is the rule.
+    expect(closeFigures({ billets: mixed, lines, qc: [], billetOnHandG: 5_100 * KG }).short).toBe(false);
+  });
+
+  test("a cast with nothing (or less than nothing) on hand is short by all of its own kg, never by the other cast's", () => {
+    const f = closeFigures({ billets: mixed, lines, qc: [], billetOnHandByCastG: { "cast-a": 5_000 * KG, "cast-b": -5 * KG } });
+    expect([f.short, f.billetShortG]).toEqual([true, 110_400]);
+    const covered = closeFigures({ billets: mixed, lines, qc: [], billetOnHandByCastG: { "cast-a": 200_000, "cast-b": 110_400 } });
+    expect([covered.short, covered.billetShortG]).toEqual([false, 0]);
   });
 });
 

@@ -182,6 +182,16 @@ export type CastCloseSummary = {
   bundlesG: number;
   /** The tail reason code's stable key (`billets_short`), when one was named. */
   reasonCode?: string | null;
+  /**
+   * Q59-A (W2-FD-S r1): the physical count at close (pieces and grams). With a count, `tailG` =
+   * `billetsOnHandG` (the ledger then) − `countedG`, and `adjustG` = −tail is the `cast_tail` ledger
+   * row (posted with the close, or by the `cast_close` approval at `adjustLocationId`). Absent on
+   * casts closed before r1.
+   */
+  countedCount?: number;
+  countedG?: number;
+  adjustG?: number;
+  adjustLocationId?: string | null;
 };
 
 export const cast = sqliteTable(
@@ -250,8 +260,11 @@ export const cast = sqliteTable(
  * Wave 2 (C18, FP-FD-13): draft → locked (posts ledger + store draws in one batch) | cancelled.
  * A draft moves nothing; its times, LDO dips and figures may be empty until lock. Rows written by
  * the PL5 create path are `locked` (the SQL default), since that path posts on create.
+ * r1 (m-2): a locked melt whose postings were reversed is `cancelled` (melts.cancel) or `corrected`
+ * (melts.correct; its draft copy names it in `corrects_melt_id`), and carries `cancelled_at`. A
+ * discarded draft is `cancelled` with `locked_at` null. Every sum counts `locked` and live only.
  */
-export const meltStatuses = ["draft", "locked", "cancelled"] as const;
+export const meltStatuses = ["draft", "locked", "cancelled", "corrected"] as const;
 export type MeltStatus = (typeof meltStatuses)[number];
 
 /** What a melt's balance check said, stored with the melt (spec P15: warns, never silently passes). */

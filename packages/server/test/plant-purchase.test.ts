@@ -1055,6 +1055,10 @@ describe("dev seed: scrap purchase", () => {
       expect(melted).toBe(2_600 * KG);
       expect(await scrapBalance(companyId)).toBe(reg.totals.stockKgG - melted);
       expect(reg.totals.stockKgG).toBeGreaterThan(0);
+      // W2-FD-S r1 (m-10): the register now says what was melted and what is left, per lot and in total.
+      expect(reg.totals.meltedKgG).toBe(melted);
+      expect(reg.totals.remainingKgG).toBe(await scrapBalance(companyId));
+      expect(reg.lots.filter((l) => l.meltedKgG > 0).map((l) => [l.meltedKgG, l.remainingKgG])).toEqual([[2_600 * KG, reg.lots.find((l) => l.meltedKgG > 0)!.stockKgG! - 2_600 * KG]]);
     }
     // The app continues the seeded books.
     const owner = env.caller({ role: "owner", companyId });

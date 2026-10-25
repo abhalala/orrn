@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5723 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5727 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -4705,7 +4705,7 @@ Please check, Lalubhai:
 | `console.billetKg` | Billet kg | बिलेट kg |
 | `console.addBillet` | Add billets | बिलेट जोड़ें |
 | `console.tooManyBillets` | At most {max} billet rows. | ज़्यादा से ज़्यादा {max} बिलेट लाइनें। |
-| `console.billetCastMismatch` | Billets must be of this run's cast. | बिलेट इसी रन की cast के होने चाहिए। |
+| `console.billetCastMismatch` | Add a billet row of this run's cast. | इस रन की cast की एक बिलेट लाइन डालें। |
 | `console.billetShort` | Fewer billets in stock than typed | भरे गए से कम बिलेट स्टॉक में हैं |
 | `console.billetShortReason` | Why the billets are short | बिलेट कम क्यों हैं |
 | `console.pieces` | Pieces | पीस |
@@ -4739,7 +4739,7 @@ Please check, Lalubhai:
 | `console.gates.no_billets` | Enter the billets used | लगे हुए बिलेट भरें |
 | `console.gates.too_many_billets` | At most 10 billet rows on a run | एक रन में ज़्यादा से ज़्यादा 10 बिलेट लाइन |
 | `console.gates.billet_row_invalid` | Every billet row needs a count and its kg | हर बिलेट लाइन में गिनती और kg चाहिए |
-| `console.gates.billet_cast_mismatch` | Every billet row must be of the run's cast | हर बिलेट लाइन रन के कास्ट की होनी चाहिए |
+| `console.gates.billet_cast_mismatch` | Add a billet row of the run's cast | रन के कास्ट की एक बिलेट लाइन डालें |
 | `console.gates.no_input` | The billets weigh nothing; enter their kg | बिलेट का वज़न शून्य है; उनका kg भरें |
 | `console.gates.no_lines` | Enter the pieces by cut length | कट लंबाई के हिसाब से पीस भरें |
 | `console.gates.line_without_kg` | A cut length with pieces needs its kg | जिस कट लंबाई में पीस हैं, उसका kg भरें |
@@ -5120,7 +5120,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (183)
+### foundry (187)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5199,6 +5199,10 @@ Please check, Lalubhai:
 | `refusal.lineTooLarge` | A line is above 100 t. Check the kg. | एक लाइन 100 t से ऊपर है। kg जाँचें। |
 | `refusal.spectroOver` | The eight elements add up to more than 100 %. Check the values. | आठों तत्व मिलकर 100 % से ज़्यादा हैं। मान जाँचें। |
 | `refusal.spectroPpm` | Spectro values must be whole ppm from 0 to 1,000,000. | स्पेक्ट्रो मान 0 से 1,000,000 तक पूरे ppm में लिखें। |
+| `refusal.castCountOver` | The count finds {kg} kg more billets of {cast} than the ledger. Pick a reason. | गिनती में {cast} के बिलेट लेजर से {kg} kg ज़्यादा मिले। कारण चुनें। |
+| `refusal.countWithKg` | Count the billets and weigh them together. | बिलेट गिनें और साथ में तौलें। |
+| `refusal.streamShort` | Only {kg} kg of {stream} is in stock. | {stream} में सिर्फ़ {kg} kg स्टॉक में है। |
+| `refusal.spectroNoFile` | No file is attached. Write why the numbers are typed. | कोई फ़ाइल नहीं जोड़ी। लिखें कि आंकड़े हाथ से क्यों लिखे। |
 | `inbox.columns.file` | File | फ़ाइल |
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |

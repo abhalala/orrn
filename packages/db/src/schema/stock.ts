@@ -104,6 +104,13 @@ export const ledgerVoucherTypes = [
   "press_run",
   /** Reversal of a logged run's `press_run` rows when it is reopened (same voucher, `reversal_of`). */
   "press_run_reopen",
+  /**
+   * W2-FD-S r1 (Q59-A): the physical billet count at a cast's close against the BILLET ledger.
+   * voucher = cast.id, line 1, item `billet` (item_ref = cast id) at the billet store, qty = counted −
+   * ledger on hand (negative: billets missing; positive: more found). Posted by `casts.close`, or by
+   * the `cast_close` approval when the tail needed a second person. At most one per cast.
+   */
+  "cast_tail",
 ] as const;
 export type LedgerVoucherType = (typeof ledgerVoucherTypes)[number];
 

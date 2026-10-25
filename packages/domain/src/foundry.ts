@@ -173,6 +173,12 @@ export type CastCloseTailInput = {
   onHandG: number;
   /** −Σ non-melt negative billet rows (press closes and other draws), i.e. billets used. */
   creditedG: number;
+  /**
+   * Q59-A (W2-FD-S r1): the billets PHYSICALLY counted in the yard at close, grams. When given, the
+   * tail is the ledger on hand − the count (the ledger alone always balances, so only a count can
+   * find a real gap) and `adjustG` = count − ledger is the `cast_tail` row the close posts.
+   */
+  countedG?: number;
 };
 export type CastCloseTail = { tailG: number; tailBp: number | null; needsApproval: boolean };
 
@@ -195,6 +201,8 @@ export type CastCloseCheck = CastCloseTail & {
   shortG: number;
   /** Any non-zero tail or a shortfall: the closer names a reason code (kind `cast_tail`). */
   needsReason: boolean;
+  /** With a count only: the `cast_tail` ledger row (count − ledger on hand, grams; 0 = no row). */
+  adjustG?: number;
 };
 
 /**
@@ -203,8 +211,22 @@ export type CastCloseCheck = CastCloseTail & {
  * of produced, or billets short (D22), also needs a second person (approval `cast_close`).
  */
 export function castCloseCheck(input: CastCloseTailInput): CastCloseCheck {
-  const t = castCloseTail(input);
   const shortG = input.onHandG < 0 ? -input.onHandG : 0;
+  if (input.countedG !== undefined) {
+    const counted = input.countedG;
+    if (!Number.isInteger(counted) || counted < 0) throw new RangeError(`countedG must be whole grams >= 0, got ${counted}`);
+    const tailG = input.onHandG - counted;
+    const needsApproval = Math.abs(tailG) * 10_000 > input.producedG * CAST_TAIL_APPROVAL_BP || shortG > 0;
+    return {
+      tailG,
+      tailBp: input.producedG > 0 ? roundBp(tailG, input.producedG) : null,
+      needsApproval,
+      needsReason: tailG !== 0 || shortG > 0,
+      shortG,
+      adjustG: counted - input.onHandG,
+    };
+  }
+  const t = castCloseTail(input);
   return { ...t, needsApproval: t.needsApproval || shortG > 0, needsReason: t.tailG !== 0 || shortG > 0, shortG };
 }
 
