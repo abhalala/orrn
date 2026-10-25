@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createI18n } from "@orrn/i18n";
 
 import {
   percentChipTone,
@@ -176,13 +177,19 @@ describe("server refusals", () => {
     expect(conflictExisting(null)).toBeNull();
   });
 
-  test("the server's plain sentences pass through; role refusals and surprises use shared wording", () => {
-    expect(refusalText({ message: "12170-2 is retired; it takes no readings", data: { code: "BAD_REQUEST" } }, words)).toBe("12170-2 is retired; it takes no readings");
-    expect(refusalText({ message: "You don't have permission to do that", data: { code: "FORBIDDEN" } }, words)).toBe(words.forbidden);
-    expect(refusalText({ message: "This die belongs to KD Extrusion", data: { code: "FORBIDDEN" } }, words)).toBe("This die belongs to KD Extrusion");
-    expect(refusalText({ message: "[{\"code\":\"too_small\"}]", data: { code: "BAD_REQUEST" } }, words)).toBe(words.generic);
-    expect(refusalText({ message: "boom", data: { code: "INTERNAL_SERVER_ERROR" } }, words)).toBe(words.generic);
-    expect(refusalText(new Error("x"), words)).toBe(words.generic);
+  test("a refusal is said from the dictionary in every language, never the server's English (BACKLOG 48)", () => {
+    const err = (code: string, message: string) => ({ message, data: { code } });
+    for (const lang of ["en", "hi", "gu"] as const) {
+      const t = createI18n(lang).t;
+      expect(refusalText(err("BAD_REQUEST", "12170-2 is retired; it takes no readings"), t)).toBe(t("refusal.retiredNoReadings", { code: "12170-2" }));
+      expect(refusalText(err("FORBIDDEN", "You don't have permission to do that"), t)).toBe(t("errors.forbidden"));
+      expect(refusalText(err("FORBIDDEN", "This die belongs to KD Extrusion"), t)).toBe(t("refusal.owned", { name: "KD Extrusion" }));
+      expect(refusalText(err("BAD_REQUEST", "[{\"code\":\"too_small\"}]"), t)).toBe(t("refusal.unknown"));
+      expect(refusalText(err("BAD_REQUEST", "A sentence the server learnt last night"), t)).toBe(t("refusal.unknown"));
+      expect(refusalText(err("INTERNAL_SERVER_ERROR", "boom"), t)).toBe(t("errors.generic"));
+      expect(refusalText(new Error("x"), t)).toBe(t("errors.network"));
+    }
+    expect(refusalText(err("BAD_REQUEST", "12170-2 is retired; it takes no readings"), createI18n("en").t)).toBe("12170-2 is retired. It takes no readings.");
   });
 });
 

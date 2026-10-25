@@ -20,6 +20,7 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { serverRefusal } from "@/features/shared/server-refusal";
 import { canAny, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -84,7 +85,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         onOpenChange(false);
       },
       onError: (e) => {
-        toast.error(e.message);
+        toast.error(serverRefusal(t, e));
         // "This request was already decided" (another approver won), "the lot changed": show what is true now.
         if (isStaleRefusal(e)) {
           void Promise.all([

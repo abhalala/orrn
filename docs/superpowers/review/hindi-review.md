@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5258 screen strings in 48 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -170,7 +170,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (47)
+### nav (46)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -189,7 +189,6 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `masters` | Masters | मास्टर |
 | `guides` | Guides | गाइड |
 | `settings` | Settings | सेटिंग्स |
-| `preview` | Preview | प्रीव्यू |
 | `account` | Account | अकाउंट |
 | `signOut` | Sign out | साइन आउट |
 | `skipToContent` | Skip to content | मुख्य हिस्से पर जाएं |
@@ -1731,7 +1730,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (68)
+### printing (82)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1803,6 +1802,20 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `scale.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
 | `scale.noneHint` | This print computer has no scale connected. | इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है। |
 | `scale.unknownHint` | This print computer has not said whether a scale is connected yet. | इस प्रिंट कंप्यूटर ने अभी बताया नहीं कि कांटा जुड़ा है या नहीं। |
+| `collectors.title` | Press and spectro collectors | प्रेस और स्पेक्ट्रो कलेक्टर |
+| `collectors.none` | This print computer runs no collector. | इस प्रिंट कंप्यूटर पर कोई कलेक्टर नहीं चल रहा। |
+| `collectors.press` | Press {line} | प्रेस {line} |
+| `collectors.spectro` | Spectro files | स्पेक्ट्रो फ़ाइलें |
+| `collectors.sending` | Sending | भेज रहा है |
+| `collectors.watching` | Watching the folder | फ़ोल्डर देख रहा है |
+| `collectors.quiet` | Nothing coming in | कुछ नहीं आ रहा |
+| `collectors.notConfigured` | Not set up | लगा नहीं |
+| `collectors.simulated` | Simulated | नकली |
+| `collectors.simulatedHint` | Simulated data: no press or spectrometer is connected to this computer. | नकली डेटा: इस कंप्यूटर से कोई प्रेस या स्पेक्ट्रोमीटर नहीं जुड़ा है। |
+| `collectors.lastFrame` | Last reading {time} | आखिरी रीडिंग {time} पर |
+| `collectors.noFrame` | No recent reading when this computer last reported ({time}). | इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी। |
+| `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
+| `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
 ### settings (205)
 
@@ -2891,6 +2904,174 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
+### refusal (163)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `notFoundDie` | That die was not found. Go back and open it again. | वह die नहीं मिली। वापस जाकर फिर खोलें। |
+| `notFoundIssue` | That die issue was not found. | वह die issue नहीं मिला। |
+| `notFoundRun` | That run was not found. | वह रन नहीं मिला। |
+| `notFoundPress` | That press was not found. | वह press नहीं मिला। |
+| `notFoundMaker` | That die maker was not found. | वह die मेकर नहीं मिला। |
+| `notFoundOrder` | That order was not found. Go back and open it again. | वह ऑर्डर नहीं मिला। वापस जाकर फिर खोलें। |
+| `notFoundBundle` | A bundle was not found. | एक bundle नहीं मिला। |
+| `notFoundPlan` | That press plan was not found. | वह press प्लान नहीं मिला। |
+| `notFoundCustomer` | That customer was not found. | वह कस्टमर नहीं मिला। |
+| `copyState` | {code} can't be used for this now. Status: {state}. | {code} अभी इसके लिए इस्तेमाल नहीं हो सकती। स्थिति: {state}। |
+| `retired` | {code} is retired. | {code} बंद की जा चुकी है। |
+| `retiredNoReadings` | {code} is retired. It takes no readings. | {code} बंद है। इसकी रीडिंग नहीं ली जाती। |
+| `sectionDeleted` | {code} belongs to a die that was deleted. It can't be issued. | {code} जिस die की है वह हटा दी गई है। इसे issue नहीं कर सकते। |
+| `alreadyIssued` | {code} is already issued to {line}. | {code} पहले से {line} को issue है। |
+| `copyOnTrialIssue` | {code} is on trial. It goes only to a trial run until the trial passes or a manager releases it. | {code} ट्रायल पर है। ट्रायल पास होने या मैनेजर के छोड़ने तक यह सिर्फ ट्रायल रन पर जाएगी। |
+| `runHasDie` | {run} already has a die or has started. Only a queued run takes a die. | {run} के पास पहले से die है या वह शुरू हो चुका है। सिर्फ कतार वाले रन को die मिलती है। |
+| `notCopyOfRunDie` | {code} is not a copy of the die {run} needs. | {code} उस die की कॉपी नहीं है जो {run} को चाहिए। |
+| `runOtherLine` | {run} is planned on another press. | {run} दूसरे press पर प्लान है। |
+| `changed` | This changed while you were working and nothing was saved. Open it again and check. | आपके काम करते समय यह बदल गया और कुछ सेव नहीं हुआ। इसे फिर खोलकर देखें। |
+| `dieOnPress` | {code} is in the press for {run}. Take the die out first. | {code} {run} के लिए press में है। पहले die बाहर निकालें। |
+| `issueClosed` | This die issue is already closed. | यह die issue पहले ही बंद हो चुका है। |
+| `runStartedReturn` | {run} has started. Return the die when it is out. | {run} शुरू हो चुका है। die बाहर आने पर उसे लौटाएं। |
+| `editIssued` | {code} is on a press. Return it before editing the card. | {code} press पर है। कार्ड बदलने से पहले उसे लौटाएं। |
+| `editAtMaker` | {code} is at the die maker. Receive it before editing the card. | {code} die मेकर के पास है। कार्ड बदलने से पहले उसे वापस लें। |
+| `nitridingStepOnly` | Send {code} to nitriding from the nitriding step of its card, not by editing its status. | {code} को नाइट्राइडिंग पर कार्ड के नाइट्राइडिंग स्टेप से भेजें, स्थिति बदलकर नहीं। |
+| `backFromNitridingFirst` | {code} is out at nitriding. Record it back from nitriding first. | {code} नाइट्राइडिंग पर बाहर है। पहले उसे नाइट्राइडिंग से वापस दर्ज करें। |
+| `onTrialRelease` | {code} is on trial. It becomes available when a trial passes, or a manager releases it. | {code} ट्रायल पर है। ट्रायल पास होने पर या मैनेजर के छोड़ने पर यह उपलब्ध होगी। |
+| `badStatusMove` | {code} can't be moved to that status from where it is. | {code} अभी जिस स्थिति में है वहां से उस स्थिति में नहीं जा सकती। |
+| `ownerSetManager` | Only a manager or admin can set who owns a die. | die का मालिक सिर्फ मैनेजर या एडमिन तय कर सकता है। |
+| `sectionOwned` | This die belongs to a customer. Its copies can't be given to someone else or made plant-owned. | यह die किसी कस्टमर की है। इसकी कॉपी किसी और को नहीं दी जा सकती और प्लांट की नहीं बनाई जा सकती। |
+| `pickMaker` | Pick an active die maker. | कोई चालू die मेकर चुनें। |
+| `sectionArchived` | This die is archived. No new copies can be added. | यह die आर्काइव है। नई कॉपी नहीं जोड़ी जा सकती। |
+| `newOnRack` | A new copy starts in the rack. Send it to nitriding from its card. | नई कॉपी रैक में शुरू होती है। उसे कार्ड से नाइट्राइडिंग पर भेजें। |
+| `newOnTrial` | A new copy starts on trial. A manager can release it once it has passed. | नई कॉपी ट्रायल पर शुरू होती है। पास होने पर मैनेजर उसे छोड़ सकता है। |
+| `pickBand` | Pick a band of this die. | इस die का कोई बैंड चुनें। |
+| `nitridingFuture` | The nitriding date can't be in the future. | नाइट्राइडिंग की तारीख आगे की नहीं हो सकती। |
+| `bandOnlyLift` | A band is only given with a lift. | बैंड सिर्फ लिफ्ट के साथ दिया जाता है। |
+| `pickTier` | Pick a tier first. | पहले टियर चुनें। |
+| `tierPending` | {code} already has a tier change waiting for approval. | {code} का टियर बदलाव पहले से मंज़ूरी के इंतज़ार में है। |
+| `alreadyTier` | {code} is already on that tier. | {code} पहले से उसी टियर पर है। |
+| `chemicalUnused` | Nothing was used of {name}. Leave its store item empty. | {name} कुछ इस्तेमाल नहीं हुआ। उसका स्टोर आइटम खाली छोड़ें। |
+| `itemNotKg` | {item} is counted in {unit}. Pick a store item counted in kg. | {item} {unit} में गिना जाता है। kg में गिना जाने वाला स्टोर आइटम चुनें। |
+| `notAtNitriding` | {code} is not out at nitriding. | {code} नाइट्राइडिंग पर बाहर नहीं है। |
+| `pickCopy` | Pick the die copy. | die की कॉपी चुनें। |
+| `sectionNoCopies` | This die has no copies. | इस die की कोई कॉपी नहीं है। |
+| `copyNotOfDie` | That copy is not of that die. | वह कॉपी इस die की नहीं है। |
+| `plantOwned` | {code} is plant-owned. No exception is needed. | {code} प्लांट की अपनी है। छूट की ज़रूरत नहीं। |
+| `ownerNoException` | {name} owns {code}. No exception is needed. | {code} का मालिक {name} है। छूट की ज़रूरत नहीं। |
+| `exceptionOpen` | {name} already has an open exception on {code}. | {name} की {code} पर छूट पहले से खुली है। |
+| `exceptionAsked` | {name} already asked for an exception on {code}. It is waiting for approval. | {name} ने {code} पर छूट पहले ही मांगी है। वह मंज़ूरी के इंतज़ार में है। |
+| `exceptionClosed` | This exception can't be closed now. Only an approved exception can be closed, once. | यह छूट अभी बंद नहीं हो सकती। सिर्फ मंज़ूर हुई छूट, एक बार बंद होती है। |
+| `notOnTrial` | {code} is not on trial. | {code} ट्रायल पर नहीं है। |
+| `releaseManagerOnly` | Only a manager can release a copy without a passed trial. | पास हुए ट्रायल के बिना कॉपी सिर्फ मैनेजर छोड़ सकता है। |
+| `releaseWhy` | Say why this copy is released without a trial. | बताएं कि यह कॉपी ट्रायल के बिना क्यों छोड़ी जा रही है। |
+| `stillOnPress` | {code} is still on the press. Take the die out and return it first. | {code} अभी press पर है। पहले die बाहर निकालकर लौटाएं। |
+| `retireRoleOnly` | Only the die room or a manager can retire a copy. | कॉपी सिर्फ die room या मैनेजर बंद कर सकता है। |
+| `pickCustomer` | Pick a customer of this plant. | इस प्लांट का कोई कस्टमर चुनें। |
+| `listStale` | This list is out of date. Pull down to reload it. | यह सूची पुरानी हो गई है। नीचे खींचकर फिर लोड करें। |
+| `makerNameTaken` | A die maker named {name} already exists. | {name} नाम का die मेकर पहले से है। |
+| `nameLetters` | The name needs letters or digits. | नाम में अक्षर या अंक होने चाहिए। |
+| `makerOpenJob` | {number} is still with {name}. | {number} अभी {name} के पास है। |
+| `makerArchived` | {name} is archived. | {name} आर्काइव है। |
+| `jobClosed` | {number} is already closed. | {number} पहले ही बंद हो चुका है। |
+| `notTrialRun` | {run} is not a die trial run. | {run} die ट्रायल रन नहीं है। |
+| `didNotPress` | {run} did not press {code}. | {run} ने {code} नहीं दबाई। |
+| `trialNotClosed` | {run} is not closed yet. Close the trial first. | {run} अभी बंद नहीं हुआ। पहले ट्रायल बंद करें। |
+| `trialResult` | {run} has no matching trial result. Check the run. | {run} का ट्रायल नतीजा मेल नहीं खाता। रन देखें। |
+| `owned` | This die belongs to {name}. | यह die {name} की है। |
+| `ownedOther` | This die belongs to another customer. | यह die किसी दूसरे कस्टमर की है। |
+| `poOther` | PO {po} is already on another order of this customer. | PO {po} इस कस्टमर के दूसरे ऑर्डर पर पहले से है। |
+| `copyNotLive` | That copy is not a live copy of {section}. | वह कॉपी {section} की चालू कॉपी नहीं है। |
+| `onlyBookingConfirm` | Only a booking can be confirmed. This order is {status}. | सिर्फ बुकिंग कन्फर्म हो सकती है। यह ऑर्डर {status} है। |
+| `cantClose` | A {status} order can't be closed. | {status} ऑर्डर बंद नहीं हो सकता। |
+| `bakiReason` | {kg} kg baki is left on this order. Give a reason to close it. | इस ऑर्डर पर {kg} kg बाकी है। बंद करने का कारण दें। |
+| `cantCancel` | A {status} order can't be cancelled. | {status} ऑर्डर रद्द नहीं हो सकता। |
+| `cancelCarried` | Bundles, a press plan or a dispatch already carry this order. Close it instead of cancelling. | इस ऑर्डर पर bundle, press प्लान या dispatch है। रद्द करने की जगह इसे बंद करें। |
+| `cantChange` | A {status} order can't be changed. | {status} ऑर्डर बदला नहीं जा सकता। |
+| `lineWeightLocked` | Line {n} is on a released press plan. Its weight can't change now. | लाइन {n} रिलीज़ हुए press प्लान पर है। उसका वज़न अब नहीं बदल सकता। |
+| `listedTwice` | A bundle is listed twice. | एक bundle दो बार लिखा है। |
+| `pickOpenOrder` | {order} is {status}. Pick an open order. | {order} {status} है। कोई खुला ऑर्डर चुनें। |
+| `pendingRealloc` | {serial} is waiting on a reallocation approval. | {serial} दोबारा बांटने की मंज़ूरी के इंतज़ार में है। |
+| `alreadyOnLine` | {serial} is already on {order} line {n}. | {serial} पहले से {order} की लाइन {n} पर है। |
+| `heldFor` | {serial} is held for {order} line {n}. Release the hold first. | {serial} {order} की लाइन {n} के लिए रुका है। पहले होल्ड हटाएं। |
+| `heldOther` | {serial} is already held for another order line. Release it first. | {serial} पहले से दूसरी ऑर्डर लाइन के लिए रुका है। पहले उसे हटाएं। |
+| `alreadyPlantStock` | {serial} is already plant stock. | {serial} पहले से प्लांट स्टॉक है। |
+| `bundleDispatched` | {serial} is already dispatched. | {serial} पहले ही dispatch हो चुका है। |
+| `bundleVoid` | {serial} is void. | {serial} रद्द (void) है। |
+| `onDispatchHeld` | {serial} is held on a dispatch. | {serial} एक dispatch पर रुका है। |
+| `onDispatch` | {serial} is on dispatch {code}. Take it off the dispatch first. | {serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं। |
+| `diffDie` | {serial} is a different die from that line. | {serial} उस लाइन से अलग die का है। |
+| `pickReason` | Pick a reason from the list. | सूची में से कारण चुनें। |
+| `reasonNote` | Write a note for this reason. | इस कारण के लिए नोट लिखें। |
+| `moveWhy` | Say why the bundles move. | बताएं कि bundle क्यों बदले जा रहे हैं। |
+| `cutDiffers` | The cut length differs for {serials}. Pick a reason to move them. | {serials} की कट लंबाई अलग है। उन्हें बदलने के लिए कारण चुनें। |
+| `holdOrderClosed` | {order} is {status}. Hold stock for an open order. | {order} {status} है। होल्ड खुले ऑर्डर के लिए ही करें। |
+| `holdNotAvailable` | {serial} is not in the yard. Only bundles in the yard can be held. | {serial} यार्ड में नहीं है। सिर्फ यार्ड के bundle होल्ड हो सकते हैं। |
+| `onOtherOrder` | {serial} is on another order line. Move it with Reallocate instead. | {serial} दूसरी ऑर्डर लाइन पर है। उसे Reallocate से बदलें। |
+| `notHeldFor` | {serials} not held for {order} line {n}. | {serials} {order} की लाइन {n} के लिए रुके नहीं हैं। |
+| `savedAsBooking` | A new order is saved as a booking. Confirm it once it is complete. | नया ऑर्डर बुकिंग के रूप में सेव होता है। पूरा होने पर उसे कन्फर्म करें। |
+| `saveUsed` | This save was already used for another order, {code}. Reload the order and save again. | यह सेव पहले ही दूसरे ऑर्डर {code} के लिए इस्तेमाल हो चुका है। ऑर्डर फिर लोड करके सेव करें। |
+| `editMoveStatus` | An edit can't move the order from {from} to {to}. Use Confirm, Close or Cancel. | बदलाव से ऑर्डर {from} से {to} में नहीं जा सकता। Confirm, Close या Cancel इस्तेमाल करें। |
+| `customerLocked` | Bundles are linked to this order. The customer can't change. | इस ऑर्डर से bundle जुड़े हैं। कस्टमर नहीं बदल सकता। |
+| `lineTwice` | Line {n} is listed twice. | लाइन {n} दो बार लिखी है। |
+| `lineSectionLocked` | Line {n} has bundles. Its die can't change. | लाइन {n} पर bundle हैं। उसकी die नहीं बदल सकती। |
+| `lineHasWork` | Line {n} has bundles or dispatches. Change its kg instead of removing it. | लाइन {n} पर bundle या dispatch हैं। हटाने की जगह उसके kg बदलें। |
+| `lineOnPlan` | Line {n} is on a press plan. Change its kg instead of removing it. | लाइन {n} press प्लान पर है। हटाने की जगह उसके kg बदलें। |
+| `stillNeeds` | This order is {status}. It still needs: | यह ऑर्डर {status} है। इसमें अभी ये बाकी हैं: |
+| `enterPieces` | Enter the pieces. | पीस लिखें। |
+| `weightMore` | Weight must be more than 0. | वज़न 0 से ज़्यादा होना चाहिए। |
+| `ratesOff` | Rates on orders are turned off for this plant. | इस प्लांट में ऑर्डर पर रेट बंद हैं। |
+| `planWindow` | The plan must end after it starts and last at most 24 hours. | प्लान शुरू होने के बाद खत्म होना चाहिए और ज़्यादा से ज़्यादा 24 घंटे का हो। |
+| `thatPressRetired` | That press is retired. | वह press बंद है। |
+| `addPressFirst` | Add a press first. | पहले एक press जोड़ें। |
+| `pickPress` | Pick the press for this plan. | इस प्लान के लिए press चुनें। |
+| `noKg12` | Line {n} of {order} has no kg/12ft. Enter the kg. | {order} की लाइन {n} का kg/12ft नहीं है। kg लिखें। |
+| `nothingLeftToPlan` | Nothing is left to plan on {order} line {n}. | {order} की लाइन {n} पर प्लान करने को कुछ नहीं बचा। |
+| `askedMore` | {order} line {n}: {asked} kg asked, only {left} kg is left to plan. | {order} लाइन {n}: {asked} kg मांगा, प्लान के लिए सिर्फ {left} kg बचा है। |
+| `addOneLine` | Add at least one order line. | कम से कम एक ऑर्डर लाइन जोड़ें। |
+| `trialNoLines` | Only a production plan takes order lines. A trial or sample plan takes none. | सिर्फ़ प्रोडक्शन प्लान में ऑर्डर लाइन जुड़ती है। ट्रायल या सैंपल प्लान में नहीं। |
+| `dieTwice` | A die is on the plan twice. Put its lines under one die. | एक die प्लान में दो बार है। उसकी लाइनें एक ही die के नीचे रखें। |
+| `lineTwicePlan` | An order line is on the plan twice. | एक ऑर्डर लाइन प्लान में दो बार है। |
+| `maxLines` | At most {max} order lines on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} ऑर्डर लाइन। |
+| `confirmFirst` | {order} is {status}. Confirm it before planning. | {order} {status} है। प्लान करने से पहले उसे कन्फर्म करें। |
+| `anotherDie` | {order} line {n} is another die. | {order} की लाइन {n} दूसरी die की है। |
+| `planDraftOnly` | Only a draft plan can be changed or released. This plan is {status}. | सिर्फ ड्राफ्ट प्लान बदला या रिलीज़ किया जा सकता है। यह प्लान {status} है। |
+| `cantGoToPress` | {order} is {status}. It can't go to the press. | {order} {status} है। वह press पर नहीं जा सकता। |
+| `planCancelStarted` | A run of this plan has its die issued or has started. It can't be cancelled. | इस प्लान के एक रन में die issue हो चुकी है या वह शुरू हो चुका है। प्लान रद्द नहीं हो सकता। |
+| `runsOpen` | Some runs of this plan are not logged or voided yet. | इस प्लान के कुछ रन अभी लॉग या void नहीं हुए। |
+| `planCantCancel` | A {status} plan can't be cancelled or closed. | {status} प्लान रद्द या बंद नहीं हो सकता। |
+| `nothingToChange` | Nothing to change. | बदलने को कुछ नहीं। |
+| `notOnPlan` | That order line is not on this plan. | वह ऑर्डर लाइन इस प्लान पर नहीं है। |
+| `alreadyOnPlan` | {order} line {n} is already on this plan. | {order} की लाइन {n} पहले से इस प्लान पर है। |
+| `planNeedsLine` | A plan needs at least one order line. Cancel the plan instead. | प्लान में कम से कम एक ऑर्डर लाइन चाहिए। उसकी जगह प्लान रद्द करें। |
+| `maxDies` | At most {max} dies on a plan. | एक प्लान में ज़्यादा से ज़्यादा {max} die। |
+| `alreadyDecided` | This request was already decided. | इस रिक्वेस्ट पर पहले ही फ़ैसला हो चुका है। |
+| `ownRequest` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
+| `minOverMax` | The minimum weight can't be more than the maximum weight. | कम से कम वज़न, ज़्यादा से ज़्यादा वज़न से ज़्यादा नहीं हो सकता। |
+| `dieExists` | A die with this series and section code already exists. | इस सीरीज़ और सेक्शन कोड की die पहले से है। |
+| `copyOwnerClash` | {code} belongs to another customer. Clear that copy's owner first. | {code} दूसरे ग्राहक की है। पहले उस कॉपी का मालिक हटाएं। |
+| `bandExists` | {code} already has a band {min} to {max} kg/12ft at {wall} mm. Add the copy to that band instead. | {code} का {min} से {max} kg/12ft, {wall} mm वाला बैंड पहले से है। कॉपी को उसी बैंड में जोड़ें। |
+| `bandRetired` | This band is retired. | यह बैंड बंद है। |
+| `copyOnBand` | {code} is still on this band. Lift it to another band first. | {code} अभी इस बैंड पर है। पहले उसे दूसरे बैंड में ले जाएं। |
+| `liftWaiting` | A lift to this band is waiting for approval. | इस बैंड में ले जाने की मंज़ूरी बाकी है। |
+| `bandRaced` | A copy was put on this band meanwhile. Try again. | इस बीच इस बैंड पर एक कॉपी रखी गई। फिर कोशिश करें। |
+| `lineFull` | {line} already has {holders}. Take one back before issuing {copy}. | {line} पर पहले से {holders} हैं। {copy} देने से पहले एक वापस लें। |
+| `lineFullDieOut` | {line} already has {holders}. Take one back, or record the die out of {out}, before issuing {copy}. | {line} पर पहले से {holders} हैं। {copy} देने से पहले एक वापस लें, या {out} की die निकलना दर्ज करें। |
+| `joinAnd` |  and  |  और  |
+| `pickSectionOrCopy` | Pick a die or a die copy. | Die या die की कॉपी चुनें। |
+| `copyOtherSection` | This die copy belongs to another die. | यह कॉपी किसी दूसरी die की है। |
+| `drawingPdf` | The press drawing must be a PDF, and it belongs to the die. | प्रेस ड्रॉइंग PDF होनी चाहिए, और वह die की होती है। |
+| `drawingOfSection` | The press drawing belongs to the die, not to one copy. | प्रेस ड्रॉइंग die की होती है, किसी एक कॉपी की नहीं। |
+| `uploadExpired` | This upload has expired. Pick the file again. | यह अपलोड पुराना हो गया। फ़ाइल फिर से चुनें। |
+| `fileNotFound` | That file was not found. | वह फ़ाइल नहीं मिली। |
+| `fileSaved` | This file is already saved. | यह फ़ाइल पहले से सेव है। |
+| `fileNotArrived` | The file has not arrived. Upload it again. | फ़ाइल पहुंची नहीं। फिर से अपलोड करें। |
+| `fileNotWhole` | The file did not arrive whole. Upload it again. | फ़ाइल पूरी नहीं पहुंची। फिर से अपलोड करें। |
+| `storageOff` | File storage is not set up for this plant yet. | इस प्लांट के लिए फ़ाइल स्टोरेज अभी सेट नहीं है। |
+| `fileEmpty` | The file is empty. | फ़ाइल खाली है। |
+| `fileTooBig` | This file is larger than {mb} MB. | यह फ़ाइल {mb} MB से बड़ी है। |
+| `imageTypes` | Pictures must be JPEG, PNG or WebP. | फ़ोटो JPEG, PNG या WebP होनी चाहिए। |
+| `notPdf` | This is not a PDF. | यह PDF नहीं है। |
+| `pickFileKind` | Pick a .{kind} file. | .{kind} फ़ाइल चुनें। |
+| `unknown` | orrn refused this. Check the details and try again. | orrn ने इसे मना किया। ब्योरा जांचकर फिर कोशिश करें। |
+
 ### native (251)
 
 | Key | English | हिंदी |
@@ -3147,7 +3328,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `stock.yard` | Yard | यार्ड |
 | `stock.allYards` | All yards | सभी यार्ड |
 
-### ui (9)
+### ui (7)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3158,8 +3339,15 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `recent` | Recent | हाल के |
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
-| `stubTitle` | This screen is being rebuilt | यह स्क्रीन फिर से बन रही है |
-| `stubBody` | It will be back here soon. | यह जल्द ही यहाँ वापस आएगी। |
+
+### comingSoon (4)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `foundry` | Foundry | फाउंड्री |
+| `ageing` | Ageing | एजिंग |
+| `title` | This module is being built on another machine | यह मॉड्यूल दूसरी मशीन पर बन रहा है |
+| `body` | It is not ready in this app yet. Nothing here is saved. | यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता। |
 
 ### charts (28)
 
@@ -3908,7 +4096,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (374)
+### orders (363)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4049,16 +4237,6 @@ Please check, Lalubhai:
 | `hold.listTitle` | Held for line {n} | लाइन {n} के लिए होल्ड |
 | `hold.onDispatch` | On {code} | {code} पर |
 | `hold.releaseSelected` | Release {count} | {count} से होल्ड हटाएं |
-| `hold.refusal.on_dispatch` | {serial} is on dispatch {code}. Take it off the dispatch first. | {serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं। |
-| `hold.refusal.held_elsewhere` | {serial} is already held for {order} line {line} ({customer}). Release it first. | {serial} पहले से {order} लाइन {line} ({customer}) के लिए होल्ड है। पहले होल्ड हटाएं। |
-| `hold.refusal.held_elsewhere_bare` | {serial} is already held for another order line. Release it first. | {serial} पहले से किसी और ऑर्डर लाइन के लिए होल्ड है। पहले होल्ड हटाएं। |
-| `hold.refusal.other_line` | {serial} is on {order} line {line}. Move it with Reallocate instead. | {serial} {order} लाइन {line} पर है। उसे Reallocate से ले जाएं। |
-| `hold.refusal.die_mismatch` | {serial} is a different die from that line. | {serial} उस लाइन की die का नहीं है। |
-| `hold.refusal.pending` | {serial} is waiting on a reallocation approval. | {serial} reallocation की मंज़ूरी की राह देख रहा है। |
-| `hold.refusal.not_available` | {serial} is not in the yard ({status}). Only bundles in the yard can be held. | {serial} यार्ड में नहीं है ({status})। सिर्फ यार्ड के bundle रोके जा सकते हैं। |
-| `hold.refusal.line_closed` | {order} is {status}. Hold stock for an open order. | {order} {status} है। खुले ऑर्डर के लिए स्टॉक होल्ड करें। |
-| `hold.refusal.not_held` | {serials} not held for {order} line {line}. | {serials} {order} लाइन {line} के लिए होल्ड नहीं हैं। |
-| `hold.refusal.changed` | A bundle or the order changed meanwhile. Reload and try again. | इस बीच कोई bundle या ऑर्डर बदल गया। फिर से लोड करके कोशिश करें। |
 | `hold.refused.line_closed` | The order is not open | ऑर्डर खुला नहीं है |
 | `hold.refused.not_available` | Not in the yard | यार्ड में नहीं है |
 | `hold.refused.on_dispatch` | On a dispatch | dispatch पर है |
@@ -4140,7 +4318,6 @@ Please check, Lalubhai:
 | `edit.linesSaved` | Lines saved | लाइनें सेव हुईं |
 | `edit.releasedPlan` | Line {lines} is on a released press plan. Its kg, pieces, length and die can't change now. | लाइन {lines} प्रेस को भेजे गए प्लान पर है। इसके kg, पीस, लंबाई और die अभी नहीं बदल सकते। |
 | `edit.belowDispatched` | Line {line}: {dispatched} kg is already dispatched, more than the new {kg} kg. | लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा। |
-| `serverSaid` | {message} | सर्वर का जवाब: {message} |
 | `ownedBy` | This die belongs to {name}. | यह die {name} की है। |
 | `form.expectedHint` | Starts {days} {days:day\|days} after the order date. Change it if the customer wants it sooner or later. | ऑर्डर की तारीख से {days} दिन बाद से शुरू होता है। ग्राहक को जल्दी या देर से चाहिए तो बदलें। |
 | `form.orderTotal` | This order: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} kg | यह ऑर्डर: {lines} लंबाई, {pcs} पीस, {kg} kg |
@@ -4320,7 +4497,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (425)
+### press (428)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4744,6 +4921,9 @@ Please check, Lalubhai:
 | `summary.shifts` | By shift | शिफ़्ट के हिसाब से |
 | `summary.late` | Entered late | देर से भरे |
 | `summary.lateShare` | {pct}% of runs | {pct}% रन |
+| `summary.alertsOpen` | Press alerts open: {count} | प्रेस अलर्ट खुले: {count} |
+| `summary.alertsToday` | Press alerts today: {count} | आज के प्रेस अलर्ट: {count} |
+| `summary.alertsSimulated` | From the simulator | नकली डेटा से |
 | `summary.open` | Open the press summary | प्रेस सारांश खोलें |
 | `summary.report` | Open the press report | प्रेस रिपोर्ट खोलें |
 | `summary.previous` | Earlier day | पिछला दिन |

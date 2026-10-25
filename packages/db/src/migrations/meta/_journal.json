@@ -232,6 +232,13 @@
       "when": 1792906452746,
       "tag": "0032_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1792914616777,
+      "tag": "0033_collectors",
+      "breakpoints": true
     }
   ]
 }

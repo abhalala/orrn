@@ -1,5 +1,7 @@
 # Ageing — design (FP-AG)
 
+> Preview retired on 2026-10-25; real route: none yet; `/preview/*` now redirects to `/preview/coming-soon?module=ageing` (built on another machine).
+
 **Date:** 2026-10-24
 **Module:** AG
 **Preview slug:** `ageing`

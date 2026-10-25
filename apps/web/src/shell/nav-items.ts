@@ -8,7 +8,6 @@ import {
   ClipboardCheck,
   Cylinder,
   Factory,
-  FlaskConical,
   House,
   Inbox,
   LayoutDashboard,
@@ -92,7 +91,6 @@ export const TENANT_MORE: readonly NavItem[] = [
   },
   // FP-PF-16: the plant's audit log; owner, admin and manager hold audit.read.
   { key: "audit", to: "/audit", labelKey: "nav.audit", icon: ScrollText, requires: ["audit.read"] },
-  { key: "preview", to: "/preview", labelKey: "nav.preview", icon: FlaskConical },
 ];
 
 export const GODSEYE_NAV: readonly NavItem[] = [

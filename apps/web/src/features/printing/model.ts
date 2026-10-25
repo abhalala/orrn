@@ -103,3 +103,67 @@ export function scaleRowOf(node: {
   }
   return { kind: "idle", simulated, reportedAt: reported };
 }
+
+/** A press frame newer than this at report time counts as "sending" (the node posts every 2-30 s). */
+export const COLLECTOR_FRAME_FRESH_MS = 60_000;
+
+/** One collector as the node reported it (`spool_deployment.collectors`, W4-COLLECTORS). */
+export type CollectorReport = {
+  kind: "press" | "spectro";
+  line: string | null;
+  source: string;
+  configured: boolean;
+  simulated: boolean;
+  connected: boolean;
+  lastFrameAt: string | null;
+  backlog: number;
+  lastError: string | null;
+};
+
+export type CollectorItem = {
+  key: string;
+  kind: "press" | "spectro";
+  line: string | null;
+  source: string;
+  simulated: boolean;
+  state: "not_configured" | "sending" | "watching" | "quiet";
+  lastFrameAt: Date | null;
+  backlog: number;
+  lastError: string | null;
+};
+
+export type CollectorRows = { kind: "unknown" } | { kind: "none"; reportedAt: Date } | { kind: "list"; reportedAt: Date; items: CollectorItem[] };
+
+/**
+ * The collectors row of a print computer: press collectors and spectro watchers as the node last
+ * reported them in its signed heartbeat. A simulator is always shown as simulated; "sending" means
+ * a frame within a minute of that report, never a live check.
+ */
+export function collectorRowsOf(node: {
+  collectors?: CollectorReport[] | null;
+  collectorsReportedAt?: Date | string | number | null;
+}): CollectorRows {
+  const reported = node.collectorsReportedAt == null ? null : new Date(node.collectorsReportedAt);
+  if (!Array.isArray(node.collectors) || !reported || Number.isNaN(reported.getTime())) return { kind: "unknown" };
+  if (node.collectors.length === 0) return { kind: "none", reportedAt: reported };
+  const items = node.collectors.map((c, i): CollectorItem => {
+    const frame = c.lastFrameAt == null ? null : new Date(c.lastFrameAt);
+    const frameOk = frame != null && !Number.isNaN(frame.getTime());
+    let state: CollectorItem["state"];
+    if (!c.configured) state = "not_configured";
+    else if (c.kind === "spectro") state = c.connected ? "watching" : "quiet";
+    else state = frameOk && reported.getTime() - frame!.getTime() <= COLLECTOR_FRAME_FRESH_MS ? "sending" : "quiet";
+    return {
+      key: `${c.kind}-${c.line ?? ""}-${i}`,
+      kind: c.kind,
+      line: c.line,
+      source: c.source,
+      simulated: c.simulated === true,
+      state,
+      lastFrameAt: frameOk ? frame : null,
+      backlog: c.backlog ?? 0,
+      lastError: c.lastError ?? null,
+    };
+  });
+  return { kind: "list", reportedAt: reported, items };
+}

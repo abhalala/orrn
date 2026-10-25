@@ -8,6 +8,22 @@ const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
 export type EdgeNodeStatus = (typeof edgeNodeStatuses)[number];
 
+/** One collector as a node reports it in its heartbeat (orrn-spool docs/press-collector.md §6). */
+export type CollectorPresence = {
+  kind: "press" | "spectro";
+  /** Press line code (press collectors) or null. */
+  line: string | null;
+  /** `sim`, `modbus`, `opcua`, `watch_dir`, … as the node names its source. */
+  source: string;
+  configured: boolean;
+  simulated: boolean;
+  connected: boolean;
+  lastFrameAt: string | null;
+  /** Frames / files waiting on the node to be sent (outage backlog). */
+  backlog: number;
+  lastError: string | null;
+};
+
 /**
  * Per-tenant edge node deployment record.
  *
@@ -65,6 +81,14 @@ export const edgeNodeDeployment = sqliteTable(
     scaleLastFrameAt: integer("scale_last_frame_at", { mode: "timestamp_ms" }),
     /** When the scale fields above were last written (a signed heartbeat). */
     scaleReportedAt: integer("scale_reported_at", { mode: "timestamp_ms" }),
+    /**
+     * Collector presence from the node's last signed heartbeat (W4-COLLECTORS): one entry per press
+     * collector / spectro watcher the node runs, as the node reports it (null = never reported).
+     * `simulated` is the node's own word; ORRN never upgrades a simulator to a device.
+     */
+    collectors: text("collectors", { mode: "json" }).$type<CollectorPresence[]>(),
+    /** When `collectors` was last written (a signed heartbeat). */
+    collectorsReportedAt: integer("collectors_reported_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })
       .default(nowMs)

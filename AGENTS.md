@@ -885,8 +885,8 @@ bun run deploy
 - Hold stock UI (FP-OP-17): `/orders/$id` per line "Hold stock" (`orders.matchStock` → bundles on
   no line or this line, not held, ≤ 100 → `orders.hold`, length warnings shown from the answer),
   a "Held" chip (`strip.heldBundles`, `heldG`) and "Held bundles" (`orders.holds`) with Release
-  selected / all (`orders.release`), behind `order.manage`. Hold refusals are mapped to en/hi in
-  `features/orders/errors.ts`.
+  selected / all (`orders.release`), behind `order.manage`. Hold refusals are mapped with every
+  other orders refusal (see "Gujarati and server refusals" below).
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
 - Packing list: `settings.packingList.kgPerPiece` (default off, `company.updateSettings`,
@@ -958,6 +958,28 @@ bun run deploy
   close lands only if the request is unchanged since it was read; otherwise it is a CONFLICT and no
   audit row is written.
 
+## Gujarati and server refusals (W4-GU)
+
+- Gujarati is complete for the namespaces in `GU_FLOOR_NAMESPACES` (`packages/i18n/src/gu.ts`; the
+  floor, settings, approvals, the die room, `dies`, `nav`, `errors`, `status`, `native`, `bundle`,
+  `dispatch`, the orders words that reach the floor or the phone, phone sign in); `gu.test.ts` fails on any en key
+  missing under one. A new key there needs its Gujarati in the same change. Office-only namespaces and
+  the guide texts fall back to English on purpose. Plant words stay Latin (die, bundle, dispatch, PO, kg).
+  The Gujarati strings of the sweep live in `packages/i18n/src/gu-more/*.ts` (one file per namespace
+  group, typed `DeepPartial<Messages>`), merged into `gu` by `mergeGu` (a key written twice throws).
+- Server refusal sentences are English. Die room, orders and approval refusals are matched in
+  `packages/i18n/src/refusal.ts` (`SERVER_REFUSALS`) and said from `refusal.*` (en, hi, gu); web
+  (`features/shared/server-refusal.ts`: `serverRefusal`, `serverRefusalLines`) and native
+  (`lib/server-refusal.ts`) share the table. Never show `error.message` from these routers: call
+  `serverRefusal(t, error)`; an unknown sentence shows `refusal.unknown`. A new `message:` sentence in
+  the routers listed in `refusal-sentences.ts` (`FILES`) fails the web and native completeness tests
+  until it has an entry and a key in `native/refusal.{en,hi,gu}.ts`.
+- Default language: a device that never chose one opens in the plant's `settings.locale`, else English.
+  `GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS` (`packages/domain/src/settings.ts`) ships `false`; the owner
+  flips it once the native-speaker review (`.fp-build/reports/gu-review-list-web.md`) is done, and a
+  plant with no chosen language and a Gujarat GSTIN (24...) then opens in Gujarati
+  (`shell/plant-locale.tsx`).
+
 ## Worker performance rules
 
 - Minimize Worker CPU and wall time.
@@ -989,6 +1011,19 @@ bun run deploy
   the page into every first load: `/purchase` once put `/` at 306.8 kB) and never use a zod
   schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
   for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
+
+## No fixture-only routes in production nav
+
+- A screen that runs on fixtures or client-only demo state never ships in the nav, the More sheet, the
+  command palette or a gallery. The `/preview/*` demos were retired on 2026-10-25: each old URL is a
+  `redirect` in `beforeLoad` to its real route (`apps/web/src/routes/_tenant/preview.*.tsx`, guarded by
+  `tests/e2e/preview-redirects.spec.ts`). Keep those files so bookmarks keep working.
+- A module that is not built here yet gets `/preview/coming-soon?module=<slug>` (honest copy,
+  `comingSoon.*` in en and hi), never a fixture screen. `features/preview/{foundry,ageing}` and
+  `preview-frame.tsx` are kept only for the paused foundry and ageing lane; they have no route and no
+  nav entry. New work does not add to `features/preview` or `PREVIEW_MODULES`.
+- To promote a module, build the real route against tRPC, add it to `shell/nav-items.ts` with
+  `requires`, and delete the fixtures it replaces; do not leave a demo copy beside it.
 
 ## Spool integration (orrn-spool)
 

@@ -59,7 +59,7 @@ function Body({ onOpenChange }: { onOpenChange(open: boolean): void }) {
       }
       setStage({ name: "ready", files, plan: planBulk(matches) });
     } catch (e) {
-      setStage({ name: "pick", error: refusalText(e, { forbidden: t("errors.forbidden"), generic: t("errors.generic") }) });
+      setStage({ name: "pick", error: refusalText(e, t) });
     }
   };
 
@@ -84,7 +84,7 @@ function Body({ onOpenChange }: { onOpenChange(open: boolean): void }) {
         states[entry.index] = { state: "saved", pressDrawing: saved.pressDrawing };
         outcomes.push({ index: entry.index, ok: true, pressDrawing: saved.pressDrawing });
       } catch (e) {
-        const error = e instanceof UploadPutError ? t("dieRoom.bulk.putFailed") : refusalText(e, { forbidden: t("errors.forbidden"), generic: t("errors.generic") });
+        const error = e instanceof UploadPutError ? t("dieRoom.bulk.putFailed") : refusalText(e, t);
         states[entry.index] = { state: "error", error };
         outcomes.push({ index: entry.index, ok: false, error });
       }

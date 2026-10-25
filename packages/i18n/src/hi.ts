@@ -5,6 +5,7 @@ import { dispatchHi } from "./native/dispatch.hi";
 import { moreHi } from "./native/more.hi";
 import { diesHi } from "./native/dies.hi";
 import { ordersHi } from "./native/orders.hi";
+import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { stockHi } from "./native/stock.hi";
@@ -197,7 +198,6 @@ export const hi = {
     masters: "मास्टर",
     guides: "गाइड",
     settings: "सेटिंग्स",
-    preview: "प्रीव्यू",
     account: "अकाउंट",
     signOut: "साइन आउट",
     skipToContent: "मुख्य हिस्से पर जाएं",
@@ -2009,6 +2009,22 @@ export const hi = {
       noneHint: "इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है।",
       unknownHint: "इस प्रिंट कंप्यूटर ने अभी बताया नहीं कि कांटा जुड़ा है या नहीं।",
     },
+    collectors: {
+      title: "प्रेस और स्पेक्ट्रो कलेक्टर",
+      none: "इस प्रिंट कंप्यूटर पर कोई कलेक्टर नहीं चल रहा।",
+      press: "प्रेस {line}",
+      spectro: "स्पेक्ट्रो फ़ाइलें",
+      sending: "भेज रहा है",
+      watching: "फ़ोल्डर देख रहा है",
+      quiet: "कुछ नहीं आ रहा",
+      notConfigured: "लगा नहीं",
+      simulated: "नकली",
+      simulatedHint: "नकली डेटा: इस कंप्यूटर से कोई प्रेस या स्पेक्ट्रोमीटर नहीं जुड़ा है।",
+      lastFrame: "आखिरी रीडिंग {time} पर",
+      noFrame: "इस कंप्यूटर की आखिरी रिपोर्ट ({time}) पर कोई ताज़ा रीडिंग नहीं थी।",
+      backlog: "{count} भेजने बाकी",
+      error: "आखिरी दिक्कत: {message}",
+    },
   },
 
   settings: {
@@ -3240,6 +3256,8 @@ export const hi = {
     copyright: "© {year} orrn",
   },
 
+  /** What a refused die room, orders or approval write says (web and native share it: packages/i18n/src/refusal.ts). */
+  refusal: refusalHi.refusal,
   native: {
     scanHint: "बंडल लेबल स्कैन करने के लिए कैमरा खोलता है।",
     offlineTitle: "orrn से कनेक्ट नहीं हो पा रहा",
@@ -3279,8 +3297,14 @@ export const hi = {
     recent: "हाल के",
     pages: "पेज",
     pageRangeOpen: "{from}-{to}",
-    stubTitle: "यह स्क्रीन फिर से बन रही है",
-    stubBody: "यह जल्द ही यहाँ वापस आएगी।",
+  },
+
+  /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
+  comingSoon: {
+    foundry: "फाउंड्री",
+    ageing: "एजिंग",
+    title: "यह मॉड्यूल दूसरी मशीन पर बन रहा है",
+    body: "यह अभी इस ऐप में तैयार नहीं है। यहाँ कुछ भी सेव नहीं होता।",
   },
 
   charts: {
@@ -4295,18 +4319,6 @@ export const hi = {
       listTitle: "लाइन {n} के लिए होल्ड",
       onDispatch: "{code} पर",
       releaseSelected: "{count} से होल्ड हटाएं",
-      refusal: {
-        on_dispatch: "{serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं।",
-        held_elsewhere: "{serial} पहले से {order} लाइन {line} ({customer}) के लिए होल्ड है। पहले होल्ड हटाएं।",
-        held_elsewhere_bare: "{serial} पहले से किसी और ऑर्डर लाइन के लिए होल्ड है। पहले होल्ड हटाएं।",
-        other_line: "{serial} {order} लाइन {line} पर है। उसे Reallocate से ले जाएं।",
-        die_mismatch: "{serial} उस लाइन की die का नहीं है।",
-        pending: "{serial} reallocation की मंज़ूरी की राह देख रहा है।",
-        not_available: "{serial} यार्ड में नहीं है ({status})। सिर्फ यार्ड के bundle रोके जा सकते हैं।",
-        line_closed: "{order} {status} है। खुले ऑर्डर के लिए स्टॉक होल्ड करें।",
-        not_held: "{serials} {order} लाइन {line} के लिए होल्ड नहीं हैं।",
-        changed: "इस बीच कोई bundle या ऑर्डर बदल गया। फिर से लोड करके कोशिश करें।",
-      },
       refused: {
         line_closed: "ऑर्डर खुला नहीं है",
         not_available: "यार्ड में नहीं है",
@@ -4409,7 +4421,6 @@ export const hi = {
       releasedPlan: "लाइन {lines} प्रेस को भेजे गए प्लान पर है। इसके kg, पीस, लंबाई और die अभी नहीं बदल सकते।",
       belowDispatched: "लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा।",
     },
-    serverSaid: "सर्वर का जवाब: {message}",
     ownedBy: "यह die {name} की है।",
     form: {
       expectedHint: "ऑर्डर की तारीख से {days} दिन बाद से शुरू होता है। ग्राहक को जल्दी या देर से चाहिए तो बदलें।",
@@ -5056,6 +5067,9 @@ export const hi = {
       shifts: "शिफ़्ट के हिसाब से",
       late: "देर से भरे",
       lateShare: "{pct}% रन",
+      alertsOpen: "प्रेस अलर्ट खुले: {count}",
+      alertsToday: "आज के प्रेस अलर्ट: {count}",
+      alertsSimulated: "नकली डेटा से",
       open: "प्रेस सारांश खोलें",
       report: "प्रेस रिपोर्ट खोलें",
       previous: "पिछला दिन",

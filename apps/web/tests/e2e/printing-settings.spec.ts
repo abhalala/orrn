@@ -182,6 +182,52 @@ test.describe("printing", () => {
   });
 
   for (const width of WIDTHS) {
+    test(`${width}: collectors on a print computer say simulated, sending or the problem, as last reported`, async ({ page }) => {
+      const reportedAt = new Date().toISOString();
+      const frameAt = new Date(Date.now() - 5_000).toISOString();
+      await rewrite<{ nodes: unknown[] }>(page, "edge.overview", (o) => {
+        o.nodes = [
+          {
+            id: "n1",
+            nodeName: "Press office PC",
+            siteLabel: "Main facility",
+            status: "active",
+            runtimeVersion: "1.5.0",
+            lastHeartbeatAt: reportedAt,
+            lastErrorMessage: null,
+            scaleConfigured: false,
+            scaleSimulated: false,
+            scaleLastFrameAt: null,
+            scaleReportedAt: reportedAt,
+            collectors: [
+              { kind: "press", line: "P1", source: "sim", configured: true, simulated: true, connected: true, lastFrameAt: frameAt, backlog: 0, lastError: null },
+              { kind: "press", line: "P2", source: "modbus", configured: true, simulated: false, connected: false, lastFrameAt: null, backlog: 0, lastError: "owner: PLC make/protocol unknown (Q-PR8)" },
+              { kind: "spectro", line: null, source: "watch_dir", configured: true, simulated: false, connected: true, lastFrameAt: null, backlog: 2, lastError: null },
+            ],
+            collectorsReportedAt: reportedAt,
+          },
+        ];
+      });
+      await open(page, "/printing?tab=printers", { width });
+      const row = page.locator('[data-slot="collectors-row"]');
+      await expect(row).toBeVisible();
+      const sim = row.locator('[data-collector="press"]').first();
+      await expect(sim).toHaveAttribute("data-state", "sending");
+      await expect(sim).toContainText("Press P1");
+      await expect(sim).toContainText("Simulated");
+      await expect(sim).toContainText("Simulated data: no press or spectrometer is connected to this computer.");
+      const stub = row.locator('[data-collector="press"]').nth(1);
+      await expect(stub).toHaveAttribute("data-state", "quiet");
+      await expect(stub).not.toContainText("Simulated");
+      await expect(stub).toContainText("Last problem: owner: PLC make/protocol unknown (Q-PR8)");
+      const spectro = row.locator('[data-collector="spectro"]');
+      await expect(spectro).toContainText("Watching the folder");
+      await expect(spectro).toContainText("2 waiting to send");
+      await expectContained(page);
+    });
+  }
+
+  for (const width of WIDTHS) {
     test(`owner ${width}: Labels has the reprint entry, which opens the bundle`, async ({ page }) => {
       await open(page, "/printing?tab=labels", { width });
       await expect(page.getByRole("heading", { name: "Reprint a label" })).toBeVisible();

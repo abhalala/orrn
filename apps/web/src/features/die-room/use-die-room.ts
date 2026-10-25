@@ -20,7 +20,7 @@ export function useRefreshDieRoom() {
 /** A server refusal as the sentence to show. */
 export function useRefusal() {
   const { t } = useT();
-  return (error: unknown) => refusalText(error, { forbidden: t("errors.forbidden"), generic: t("errors.generic") });
+  return (error: unknown) => refusalText(error, t);
 }
 
 /**

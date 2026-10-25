@@ -1,9 +1,13 @@
 import { gToKg, formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
+import { Chip } from "@orrn/ui/components/chip";
 import { UiLink } from "@orrn/ui/components/link";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 
 import { percentOfBp } from "./model";
+
+/** `dashboard.today.pressAlerts` (FP-PR-22): null when there is no alert at all. */
+export type PressAlertsToday = { open: number; today: number; simulated: boolean } | null;
 
 export type PressedToday = {
   kgG: number;
@@ -18,7 +22,7 @@ export type PressedToday = {
  * Today's press tile (press, supervisor, manager): what was logged today, recovery, downtime and
  * the share of runs entered late. Figures are `dashboard.today.pressedToday`, the server's.
  */
-export function TodayPressTile({ data }: { data: PressedToday }) {
+export function TodayPressTile({ data, alerts = null }: { data: PressedToday; alerts?: PressAlertsToday }) {
   const { t } = useT();
   return (
     <section aria-labelledby="today-press" data-testid="today-press" className="flex min-w-0 flex-col gap-3">
@@ -30,6 +34,13 @@ export function TodayPressTile({ data }: { data: PressedToday }) {
           {t("press.summary.open")}
         </UiLink>
       </div>
+      {alerts ? (
+        <p className="m-0 flex flex-wrap items-center gap-2" data-testid="today-press-alerts">
+          {alerts.open > 0 ? <Chip tone="red">{t("press.summary.alertsOpen", { count: alerts.open })}</Chip> : null}
+          <Chip tone="amber">{t("press.summary.alertsToday", { count: alerts.today })}</Chip>
+          {alerts.simulated ? <Chip tone="blue">{t("press.summary.alertsSimulated")}</Chip> : null}
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatusBlock tone="green" title={t("press.summary.pressedToday")} meta={`${t("press.summary.runs")}: ${data.runs}`} value={gToKg(data.kgG)} unit={t("units.kg")} format={formatKgTotal} countUp={false} href="/press/summary" />
         <StatusBlock

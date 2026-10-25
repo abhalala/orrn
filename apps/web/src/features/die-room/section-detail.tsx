@@ -115,7 +115,7 @@ export function SectionDetail({ id }: { id: string }) {
     },
     onError: (e) => {
       setRetiring(null);
-      toast.error(refusalText(e, { forbidden: t("errors.forbidden"), generic: t("errors.generic") }));
+      toast.error(refusalText(e, t));
     },
   });
 
@@ -491,7 +491,7 @@ function AddCopySheet({
       setError(null);
       onOpenChange(false);
     },
-    onError: (e) => setError(refusalText(e, { forbidden: t("errors.forbidden"), generic: t("errors.generic") })),
+    onError: (e) => setError(refusalText(e, t)),
   });
 
   const submit = () => {

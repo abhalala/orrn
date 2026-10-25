@@ -91,9 +91,10 @@ describe("confirm blockers", () => {
     const hi = createI18n("hi").t;
     expect(blockerText("po_number", hi)).toBe("PO नंबर डालें।");
     expect(blockerText("line_1_kg", hi)).toContain("लाइन 1");
-    // A code this screen does not know is marked as the server's (review m-8).
-    expect(blockerText("line_1_weird", en)).toBe("line_1_weird");
-    expect(blockerText("line_1_weird", hi)).toBe("सर्वर का जवाब: line_1_weird");
+    // A code this screen does not know is never echoed: the generic line, in the person's language (BACKLOG 48).
+    expect(blockerText("line_1_weird", en)).toBe(en("refusal.unknown"));
+    expect(blockerText("line_1_weird", hi)).toBe(hi("refusal.unknown"));
+    expect(blockerText("line_1_weird", createI18n("gu").t)).toBe(createI18n("gu").t("refusal.unknown"));
   });
 
   test("the server refusal text yields its codes", () => {

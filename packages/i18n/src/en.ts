@@ -18,6 +18,7 @@ import { dispatchEn } from "./native/dispatch.en";
 import { moreEn } from "./native/more.en";
 import { diesEn } from "./native/dies.en";
 import { ordersEn } from "./native/orders.en";
+import { refusalEn } from "./native/refusal.en";
 import { platformEn } from "./native/platform.en";
 import { pressEn } from "./native/press.en";
 import { stockEn } from "./native/stock.en";
@@ -204,7 +205,6 @@ export const en = {
     masters: "Masters",
     guides: "Guides",
     settings: "Settings",
-    preview: "Preview",
     account: "Account",
     signOut: "Sign out",
     skipToContent: "Skip to content",
@@ -2016,6 +2016,22 @@ export const en = {
       noneHint: "This print computer has no scale connected.",
       unknownHint: "This print computer has not said whether a scale is connected yet.",
     },
+    collectors: {
+      title: "Press and spectro collectors",
+      none: "This print computer runs no collector.",
+      press: "Press {line}",
+      spectro: "Spectro files",
+      sending: "Sending",
+      watching: "Watching the folder",
+      quiet: "Nothing coming in",
+      notConfigured: "Not set up",
+      simulated: "Simulated",
+      simulatedHint: "Simulated data: no press or spectrometer is connected to this computer.",
+      lastFrame: "Last reading {time}",
+      noFrame: "No recent reading when this computer last reported ({time}).",
+      backlog: "{count} waiting to send",
+      error: "Last problem: {message}",
+    },
   },
 
   settings: {
@@ -3249,6 +3265,8 @@ export const en = {
   },
 
   /** Native app chrome (apps/native): gate screens, tab bar, sign-in extras. */
+  /** What a refused die room, orders or approval write says (web and native share it: packages/i18n/src/refusal.ts). */
+  refusal: refusalEn.refusal,
   native: {
     scanHint: "Opens the camera to scan a bundle label.",
     offlineTitle: "Can't reach orrn",
@@ -3289,8 +3307,14 @@ export const en = {
     recent: "Recent",
     pages: "Pages",
     pageRangeOpen: "{from}-{to}",
-    stubTitle: "This screen is being rebuilt",
-    stubBody: "It will be back here soon.",
+  },
+
+  /** Placeholder for the two modules still being built elsewhere (`/preview/coming-soon`). */
+  comingSoon: {
+    foundry: "Foundry",
+    ageing: "Ageing",
+    title: "This module is being built on another machine",
+    body: "It is not ready in this app yet. Nothing here is saved.",
   },
 
   /** Chart kit chrome (@orrn/ui/charts). Legend and series labels come from the screen. */
@@ -4308,18 +4332,6 @@ export const en = {
       listTitle: "Held for line {n}",
       onDispatch: "On {code}",
       releaseSelected: "Release {count}",
-      refusal: {
-        on_dispatch: "{serial} is on dispatch {code}. Take it off the dispatch first.",
-        held_elsewhere: "{serial} is already held for {order} line {line} ({customer}). Release it first.",
-        held_elsewhere_bare: "{serial} is already held for another order line. Release it first.",
-        other_line: "{serial} is on {order} line {line}. Move it with Reallocate instead.",
-        die_mismatch: "{serial} is a different die from that line.",
-        pending: "{serial} is waiting on a reallocation approval.",
-        not_available: "{serial} is not in the yard ({status}). Only bundles in the yard can be held.",
-        line_closed: "{order} is {status}. Hold stock for an open order.",
-        not_held: "{serials} not held for {order} line {line}.",
-        changed: "A bundle or the order changed meanwhile. Reload and try again.",
-      },
       refused: {
         line_closed: "The order is not open",
         not_available: "Not in the yard",
@@ -4422,7 +4434,6 @@ export const en = {
       releasedPlan: "Line {lines} is on a released press plan. Its kg, pieces, length and die can't change now.",
       belowDispatched: "Line {line}: {dispatched} kg is already dispatched, more than the new {kg} kg.",
     },
-    serverSaid: "{message}",
     ownedBy: "This die belongs to {name}.",
     form: {
       expectedHint: "Starts {days} {days:day|days} after the order date. Change it if the customer wants it sooner or later.",
@@ -5069,6 +5080,9 @@ export const en = {
       shifts: "By shift",
       late: "Entered late",
       lateShare: "{pct}% of runs",
+      alertsOpen: "Press alerts open: {count}",
+      alertsToday: "Press alerts today: {count}",
+      alertsSimulated: "From the simulator",
       open: "Open the press summary",
       report: "Open the press report",
       previous: "Earlier day",
