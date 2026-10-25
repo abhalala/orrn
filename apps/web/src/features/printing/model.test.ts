@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   canRetry,
+  collectorRowsOf,
   nodeTone,
   parsePage,
   parsePrintStatus,
@@ -70,5 +71,42 @@ describe("scale row of a print computer", () => {
 
   test("a simulated scale says so", () => {
     expect(scaleRowOf(node({ scaleSimulated: true }))).toMatchObject({ kind: "connected", simulated: true });
+  });
+});
+
+describe("collectors row of a print computer", () => {
+  const at = (ms: number) => new Date(1_700_000_000_000 + ms).toISOString();
+  const press = (over: object = {}) => ({
+    kind: "press" as const,
+    line: "P1",
+    source: "sim",
+    configured: true,
+    simulated: true,
+    connected: true,
+    lastFrameAt: at(-5_000),
+    backlog: 0,
+    lastError: null,
+    ...over,
+  });
+
+  test("never reported, or nothing configured", () => {
+    expect(collectorRowsOf({ collectors: null, collectorsReportedAt: null })).toEqual({ kind: "unknown" });
+    expect(collectorRowsOf({ collectors: [], collectorsReportedAt: at(0) })).toMatchObject({ kind: "none" });
+  });
+
+  test("a simulated press collector stays simulated; fresh frame = sending, old = quiet", () => {
+    const rows = collectorRowsOf({ collectors: [press(), press({ simulated: false, source: "modbus", lastFrameAt: at(-61_000) })], collectorsReportedAt: at(0) });
+    expect(rows.kind).toBe("list");
+    if (rows.kind !== "list") return;
+    expect(rows.items[0]).toMatchObject({ kind: "press", simulated: true, state: "sending" });
+    expect(rows.items[1]).toMatchObject({ simulated: false, source: "modbus", state: "quiet" });
+  });
+
+  test("spectro watcher: watching when the folder is reachable; not set up wins", () => {
+    const spectro = { ...press(), kind: "spectro" as const, line: null, source: "watch_dir", lastFrameAt: null };
+    const rows = collectorRowsOf({ collectors: [spectro, { ...spectro, connected: false, lastError: "folder missing" }, { ...spectro, configured: false }], collectorsReportedAt: at(0) });
+    if (rows.kind !== "list") throw new Error("list expected");
+    expect(rows.items.map((i) => i.state)).toEqual(["watching", "quiet", "not_configured"]);
+    expect(rows.items[1]!.lastError).toBe("folder missing");
   });
 });

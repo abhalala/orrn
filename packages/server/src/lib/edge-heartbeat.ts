@@ -2,7 +2,9 @@
  * Node heartbeat: orrn-spool -> ORRN `POST /webhooks/spool/activate` (alias
  * `/webhooks/edge/heartbeat`). Kept out of the Hono file so it can be tested against a real D1.
  *
- * Body: `{ instance_id, version?, scale?: { configured, simulated?, connected?, lastFrameAt } }`.
+ * Body: `{ instance_id, version?, scale?: { configured, simulated?, connected?, lastFrameAt },
+ * collectors?: [{ kind, line?, source, configured, simulated, connected, lastFrameAt, backlog?, lastError? }] }`
+ * (collectors: W4-COLLECTORS, orrn-spool docs/press-collector.md §6; stored only when signed, like scale).
  * orrn-spool signs it with the node secret (`Authorization: Bearer v1:<ts>:<hmac>`, path
  * `/webhooks/spool/activate`, ±5 min). Scale presence is stored ONLY from a signed heartbeat, so
  * the Printing screen never shows a scale on the word of an unsigned caller. An unsigned heartbeat
@@ -12,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
-import { spoolDeployment } from "@orrn/db/schema/spool";
+import { type CollectorPresence, spoolDeployment } from "@orrn/db/schema/spool";
 import { unwrapSecret } from "@orrn/crypto";
 
 import { SPOOL_TOKEN_MAX_SKEW_MS, verifySpoolToken } from "./spool-crypto";
@@ -29,6 +31,22 @@ const heartbeatSchema = z.object({
       connected: z.boolean().optional(),
       lastFrameAt: z.string().datetime({ offset: true }).nullable().optional(),
     })
+    .optional(),
+  collectors: z
+    .array(
+      z.object({
+        kind: z.enum(["press", "spectro"]),
+        line: z.string().max(32).nullable().optional(),
+        source: z.string().min(1).max(32),
+        configured: z.boolean(),
+        simulated: z.boolean(),
+        connected: z.boolean().optional(),
+        lastFrameAt: z.string().datetime({ offset: true }).nullable().optional(),
+        backlog: z.number().int().min(0).max(10_000_000).optional(),
+        lastError: z.string().max(200).nullable().optional(),
+      }),
+    )
+    .max(8)
     .optional(),
 });
 
@@ -81,6 +99,24 @@ export async function handleNodeHeartbeat(
         }
       : {};
 
+  const collectors: { collectors?: CollectorPresence[]; collectorsReportedAt?: Date } =
+    signed && body.collectors
+      ? {
+          collectors: body.collectors.map((c) => ({
+            kind: c.kind,
+            line: c.line ?? null,
+            source: c.source,
+            configured: c.configured,
+            simulated: c.simulated,
+            connected: c.connected ?? false,
+            lastFrameAt: c.lastFrameAt ? new Date(c.lastFrameAt).toISOString() : null,
+            backlog: c.backlog ?? 0,
+            lastError: c.lastError ?? null,
+          })),
+          collectorsReportedAt: new Date(nowMs),
+        }
+      : {};
+
   await db
     .update(spoolDeployment)
     .set({
@@ -88,6 +124,7 @@ export async function handleNodeHeartbeat(
       lastHeartbeatAt: new Date(nowMs),
       ...(body.version ? { runtimeVersion: body.version } : {}),
       ...scale,
+      ...collectors,
     })
     .where(eq(spoolDeployment.id, deployment.id));
 

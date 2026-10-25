@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { trpc } from "@/shared/utils/trpc";
 
-import { nodeTone, scaleRowOf } from "./model";
+import { collectorRowsOf, nodeTone, scaleRowOf } from "./model";
 
 /**
  * Print computers (`edge.overview`) and the label printers set up for the
@@ -100,6 +100,7 @@ export function PrintersTab() {
                       </p>
                     ) : null}
                     <ScaleRow node={node} when={when} />
+                    <CollectorsRow node={node} when={when} />
                     {node.lastErrorMessage ? (
                       <p className="m-0 text-[13px] break-words text-muted-foreground">
                         {t("printing.nodes.lastError", { message: node.lastErrorMessage })}
@@ -177,6 +178,52 @@ function ScaleRow({
               ? t("printing.scale.noneHint")
               : t("printing.scale.unknownHint")}
       </p>
+    </div>
+  );
+}
+
+/**
+ * Press collectors and spectro watchers on this print computer (W4-COLLECTORS), as the node last
+ * reported them: simulated ones say so, and nothing here claims a live connection.
+ */
+function CollectorsRow({
+  node,
+  when,
+}: {
+  node: Parameters<typeof collectorRowsOf>[0];
+  when: (d: Date | string | number) => string;
+}) {
+  const { t } = useT();
+  const rows = collectorRowsOf(node);
+  if (rows.kind === "unknown") return null;
+  return (
+    <div data-slot="collectors-row" className="mt-2 flex min-w-0 flex-col gap-1 border-t border-border pt-2">
+      <p className="m-0 text-[15px] font-semibold">{t("printing.collectors.title")}</p>
+      {rows.kind === "none" ? <p className="m-0 text-[13px] text-muted-foreground">{t("printing.collectors.none")}</p> : null}
+      {rows.kind === "list"
+        ? rows.items.map((item) => (
+            <div key={item.key} data-collector={item.kind} data-state={item.state} className="flex min-w-0 flex-col gap-1">
+              <p className="m-0 flex flex-wrap items-center gap-2 text-[14px]">
+                <span className="font-semibold">
+                  {item.kind === "press" ? t("printing.collectors.press", { line: item.line ?? "?" }) : t("printing.collectors.spectro")}
+                </span>
+                {item.state === "sending" ? <Chip tone="green">{t("printing.collectors.sending")}</Chip> : null}
+                {item.state === "watching" ? <Chip tone="green">{t("printing.collectors.watching")}</Chip> : null}
+                {item.state === "quiet" ? <Chip tone="amber">{t("printing.collectors.quiet")}</Chip> : null}
+                {item.state === "not_configured" ? <Chip tone="neutral">{t("printing.collectors.notConfigured")}</Chip> : null}
+                {item.simulated ? <Chip tone="blue">{t("printing.collectors.simulated")}</Chip> : null}
+              </p>
+              <p className="m-0 text-[13px] break-words text-muted-foreground">
+                {item.lastFrameAt ? t("printing.collectors.lastFrame", { time: when(item.lastFrameAt) }) : t("printing.collectors.noFrame", { time: when(rows.reportedAt) })}
+                {item.backlog > 0 ? ` · ${t("printing.collectors.backlog", { count: item.backlog })}` : ""}
+              </p>
+              {item.simulated ? <p className="m-0 text-[13px] text-muted-foreground">{t("printing.collectors.simulatedHint")}</p> : null}
+              {item.lastError ? (
+                <p className="m-0 text-[13px] break-words text-muted-foreground">{t("printing.collectors.error", { message: item.lastError })}</p>
+              ) : null}
+            </div>
+          ))
+        : null}
     </div>
   );
 }

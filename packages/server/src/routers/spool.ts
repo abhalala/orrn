@@ -591,6 +591,8 @@ export const spoolRouter = router({
         scaleSimulated: spoolDeployment.scaleSimulated,
         scaleLastFrameAt: spoolDeployment.scaleLastFrameAt,
         scaleReportedAt: spoolDeployment.scaleReportedAt,
+        collectors: spoolDeployment.collectors,
+        collectorsReportedAt: spoolDeployment.collectorsReportedAt,
       })
       .from(spoolDeployment)
       .where(eq(spoolDeployment.companyId, ctx.companyId!))

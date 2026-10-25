@@ -15,6 +15,7 @@ import { now } from "../lib/clock";
 import { productionDayWindow } from "../lib/dayWindow";
 import { can } from "../lib/permissions";
 import { pressedToday as pressedTodayOf } from "../lib/pressReport";
+import { pressAlertsToday } from "../lib/pressCollector";
 
 const LIST_LIMIT = 10;
 
@@ -225,6 +226,8 @@ export const dashboardRouter = router({
 
     // FP-PR-18: the press tile (logged runs of this production day; downtime of the day's rows).
     const pressedToday = kpisOnly ? null : await pressedTodayOf(ctx.db, companyId, day.productionDay, nowMs);
+    // W4-COLLECTORS (FP-PR-22): press alerts from a collector; null when none (no collector, no chip).
+    const pressAlerts = kpisOnly ? null : await pressAlertsToday(ctx.db, companyId, day.startMs);
 
     const none = { bundles: 0, weightG: 0 };
     const packedToday = { bundles: num(packedRows[0]?.n), weightG: num(packedRows[0]?.w) };
@@ -280,6 +283,8 @@ export const dashboardRouter = router({
       failedPrintJobs: num(failedRows[0]?.n),
       /** FP-PR-18 `{ kgG, recoveryBp, downtimeMin, byLine[] }` (+ runs, late share); null for viewers. */
       pressedToday,
+      /** `{ open, today, simulated }` press alerts (FP-PR-22) for the Today chip; null when none / viewer. */
+      pressAlerts,
       /**
        * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any
        * bundle ever packed (void included: the step was done) and a live label printer.

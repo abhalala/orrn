@@ -15,6 +15,7 @@ import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orr
 
 import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
 import { seedDevData } from "./dev-seed";
+import { collectorRoutes } from "./collector-routes";
 import { spoolRoutes } from "./spool-routes";
 
 const app = new Hono();
@@ -50,6 +51,8 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 // Spool webhook and activation routes (non-tRPC)
 app.route("/", spoolRoutes);
+// Press collector frames and spectro watcher files from orrn-spool nodes (node-signed).
+app.route("/", collectorRoutes);
 
 if (env.NODE_ENV === "development") {
   app.post("/dev/seed", async (c) => {

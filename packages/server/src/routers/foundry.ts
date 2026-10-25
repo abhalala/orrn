@@ -92,6 +92,7 @@ import {
   storeCancelRows,
   type PreparedStoreDraws,
 } from "../lib/store";
+import { spectroInboxRouter } from "./spectroInbox";
 
 type Ctx = Pick<Context, "db" | "session" | "impersonation"> & {
   db: OrrnDb;
@@ -1676,4 +1677,6 @@ export const foundryRouter = router({
   casts: castsRouter,
   melts: meltsRouter,
   spectro: spectroRouter,
+  /** W4-COLLECTORS (FP-FD-12): watcher files waiting for a person. */
+  spectroInbox: spectroInboxRouter,
 });
