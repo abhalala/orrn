@@ -49,6 +49,8 @@ import {
 } from "./view";
 import { OtherLines } from "./components/other-lines";
 import { parseKgG } from "./line-model";
+import { isTrialPurpose, PLAN_PURPOSES, trialDraftProblems, trialPlanInput, type PlanPurpose } from "./plan-purpose";
+import { EMPTY_TRIAL, PlanTrialForm, type TrialDraft } from "./plan-trial-form";
 
 type DraftLineInfo = {
   lineId: string;
@@ -141,9 +143,16 @@ function PlanListPage({ offset, first, onMore }: { offset: number; first: boolea
               >
                 <span className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-mono text-[15px] font-semibold tabular-nums">{p.number}</span>
-                  <Chip tone={PLAN_STATUS_TONE[p.status]} truncate={false}>
-                    {t(`press.plan.status.${p.status}`)}
-                  </Chip>
+                  <span className="flex flex-wrap items-center gap-2">
+                    {p.purpose !== "production" ? (
+                      <Chip tone="blue" truncate={false} data-plan-purpose={p.purpose}>
+                        {t(`press.plan.purpose.${p.purpose}`)}
+                      </Chip>
+                    ) : null}
+                    <Chip tone={PLAN_STATUS_TONE[p.status]} truncate={false}>
+                      {t(`press.plan.status.${p.status}`)}
+                    </Chip>
+                  </span>
                 </span>
                 <span className="text-[13px] text-muted-foreground">
                   {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
@@ -193,6 +202,10 @@ function PlanBuilder() {
   // Review m-4: kg per draft line (blank = all that is left to plan) and the press when there are two.
   const [lineKg, setLineKg] = useState<Record<string, string>>({});
   const [pressLineId, setPressLineId] = useState("");
+  // BACKLOG 61: production presses order lines; a die trial, sample or other plan is dies only.
+  const [purpose, setPurpose] = useState<PlanPurpose>("production");
+  const [trial, setTrial] = useState<TrialDraft>(EMPTY_TRIAL);
+  const trialProblems = trialDraftProblems({ sectionId: trial.section?.id ?? "", kgText: trial.kgText, pcsText: trial.pcsText });
   const pressLines = useQuery(trpc.plans.pressLines.queryOptions());
 
   const startMs = fromZonedInput(startText, planZone);
@@ -274,7 +287,21 @@ function PlanBuilder() {
 
   const create = useMutation({
     mutationFn: () =>
-      trpcClient.plans.create.mutate({
+      purpose !== "production"
+        ? trpcClient.plans.create.mutate(
+            trialPlanInput({
+              purpose,
+              sectionId: trial.section!.id,
+              copyCode: trial.copy?.code ?? null,
+              kgText: trial.kgText,
+              pcsText: trial.pcsText,
+              windowStart: startMs!,
+              windowEnd: endMs!,
+              pressLineId,
+            }),
+          )
+        : trpcClient.plans.create.mutate({
+        purpose: "production",
         windowStart: startMs!,
         windowEnd: endMs!,
         ...(pressLineId ? { pressLineId } : {}),
@@ -337,13 +364,35 @@ function PlanBuilder() {
       </li>
     );
   };
-  const canCreate = draft.length > 0 && win === "ok" && badKg.length === 0 && (!twoPresses || pressLineId !== "") && !create.isPending;
+  const trialMode = isTrialPurpose(purpose);
+  const canCreate = trialMode
+    ? Object.keys(trialProblems).length === 0 && win === "ok" && (!twoPresses || pressLineId !== "") && !create.isPending
+    : draft.length > 0 && win === "ok" && badKg.length === 0 && (!twoPresses || pressLineId !== "") && !create.isPending;
 
   return (
     <section className="flex min-w-0 flex-col gap-4" aria-label={t("press.plan.new")}>
       <h2 className="m-0 text-[15px] font-semibold">{t("press.plan.new")}</h2>
       <Card>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <Field label={t("press.plan.purpose.label")}>
+            <NativeSelect
+              value={purpose}
+              onChange={(e) => {
+                setPurpose(e.target.value as PlanPurpose);
+                setTrial(EMPTY_TRIAL);
+                setErrors([]);
+              }}
+              aria-label={t("press.plan.purpose.label")}
+              data-testid="plan-purpose"
+            >
+              {PLAN_PURPOSES.map((p) => (
+                <option key={p} value={p}>
+                  {t(`press.plan.purpose.${p}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <div className="hidden md:block" />
           <Field label={t("orders.plan.from")}>
             <TextInput
               type="datetime-local"
@@ -399,6 +448,36 @@ function PlanBuilder() {
         </div>
       </Card>
 
+      {trialMode ? (
+        <div className="flex min-w-0 flex-col gap-3">
+          <PlanTrialForm purpose={purpose as Exclude<PlanPurpose, "production">} draft={trial} problems={trialProblems} onChange={setTrial} />
+          {trialProblems.die && trial.section == null ? (
+            <p data-trial-need-die="" className="m-0 text-[13px] text-muted-foreground">
+              {t("orders.plan.trial.needDie")}
+            </p>
+          ) : null}
+          {errors.length > 0 ? (
+            <div role="alert" className="flex flex-col gap-1">
+              {errors.map((e) => (
+                <p key={e} className="m-0 text-[14px] font-medium leading-5 text-destructive">
+                  {e}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          <div>
+            <Button
+              onClick={() => {
+                setErrors([]);
+                create.mutate();
+              }}
+              disabled={!canCreate}
+            >
+              {create.isPending ? t("common.saving") : t("orders.plan.saveDraft")}
+            </Button>
+          </div>
+        </div>
+      ) : (
       <div className="grid min-w-0 grid-cols-1 gap-4 min-[820px]:grid-cols-2">
         <section className="flex min-w-0 flex-col gap-3" aria-label={t("orders.plan.openLines")}>
           <h3 className="m-0 text-[15px] font-semibold">{t("orders.plan.openLines")}</h3>
@@ -587,6 +666,7 @@ function PlanBuilder() {
           </div>
         </section>
       </div>
+      )}
     </section>
   );
 }
