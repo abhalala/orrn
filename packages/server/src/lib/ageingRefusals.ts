@@ -77,6 +77,7 @@ export const AGEING_REFUSALS: Record<AgeingRefusalCode, (v: V) => Refusal> = {
   void_after_pack: (v) => ({ code: "BAD_REQUEST", message: `Pieces were packed from ${s(v, "batch")}; it cannot be voided` }),
   void_reason_missing: () => ({ code: "BAD_REQUEST", message: "Say why this batch is voided" }),
   void_after_rework: (v) => ({ code: "BAD_REQUEST", message: `Pieces of ${s(v, "batch")} were aged again or discarded; it cannot be voided` }),
+  void_rework_changed: (v) => ({ code: "BAD_REQUEST", message: `${s(v, "batch")} took more pieces or was split after the rework; it cannot be voided` }),
   nothing_to_rework: () => ({ code: "BAD_REQUEST", message: "No held pieces are left to age again" }),
   discard_over: (v) => ({ code: "BAD_REQUEST", message: `Only ${s(v, "n")} pieces are left on this trolley line` }),
   split_off: () => ({ code: "FORBIDDEN", message: "Splitting lengths is off for this plant" }),

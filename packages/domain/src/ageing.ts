@@ -147,6 +147,7 @@ export const AGEING_REFUSAL_CODES = [
   "void_after_pack",
   "void_reason_missing",
   "void_after_rework",
+  "void_rework_changed",
   "nothing_to_rework",
   "discard_over",
   "split_off",

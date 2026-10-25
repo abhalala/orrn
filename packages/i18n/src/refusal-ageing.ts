@@ -95,6 +95,7 @@ export const AGEING_REFUSALS: readonly RefusalEntry[] = [
   { id: "ageingVoidAfterPack", key: ag("voidAfterPack"), re: new RegExp(`^Pieces were packed from ${S}; it cannot be voided$`), vars: (m) => ({ batch: m[1]! }) },
   { id: "ageingVoidReasonMissing", key: ag("voidReasonMissing"), re: /^Say why this batch is voided$/ },
   { id: "ageingVoidAfterRework", key: ag("voidAfterRework"), re: new RegExp(`^Pieces of ${S} were aged again or discarded; it cannot be voided$`), vars: (m) => ({ batch: m[1]! }) },
+  { id: "ageingVoidReworkChanged", key: ag("voidReworkChanged"), re: new RegExp(`^${S} took more pieces or was split after the rework; it cannot be voided$`), vars: (m) => ({ batch: m[1]! }) },
   { id: "ageingNothingToRework", key: ag("nothingToRework"), re: /^No held pieces are left to age again$/ },
   { id: "ageingDiscardOver", key: ag("discardOver"), re: /^Only (\d+) pieces are left on this trolley line$/, vars: (m) => ({ n: m[1]! }) },
   { id: "ageingSplitOff", key: ag("splitOff"), re: /^Splitting lengths is off for this plant$/ },

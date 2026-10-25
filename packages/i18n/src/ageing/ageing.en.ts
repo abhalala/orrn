@@ -197,6 +197,7 @@ export const ageingEn = {
       simulatorOff: "The oven simulator is off on this server.",
       notHeld: "This trolley line has no hold to clear. A failed test clears with a retest or an approval.",
       voidAfterRework: "Pieces of {batch} were aged again or discarded. It cannot be voided.",
+      voidReworkChanged: "{batch} took more pieces or was split after the rework. It cannot be voided.",
       drawOver: "Only {n} pieces are left on this trolley line to pack.",
       castMismatch: "This trolley line is from cast {cast}. Pick that cast for the bundle.",
       ageingRowRequired: "This plant packs aged metal from a trolley. Pick the trolley line.",

@@ -324,6 +324,41 @@ describe("the trolley from press to pack (FP-AG-04..10, 15)", () => {
     expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", rows: [{ packedPcs: 10, remainingPcs: 0 }] });
   });
 
+  test("review r2 n1: restoring a bundle whose void was no give-back (no ageing audit, as a phantom-count void) never draws the trolley line again", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
+    await passHardness(p, batchId);
+    await p.as("supervisor").ageing.batches.release({ batchId });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [packRow(4, 11_000), packRow(4, 11_000)] });
+    const [a] = await env.db.select().from(bundle).where(eq(bundle.ageingRowId, rowId));
+    // A void with no ageing audit on the bundle: the row keeps counting its 4 pieces (what a phantom void leaves behind).
+    await p.owner.bundle.transitionStatus({ id: a!.id, toStatus: "void", reason: "Wrong label" });
+    await env.db.delete(auditLog).where(and(eq(auditLog.subjectId, a!.id), sql`${auditLog.action} like 'ageing.%'`));
+    await env.db.update(ag.ageingRow).set({ packedPcs: 8 }).where(eq(ag.ageingRow.id, rowId));
+    await p.owner.bundle.transitionStatus({ id: a!.id, toStatus: "available" });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "released", rows: [{ packedPcs: 8, remainingPcs: 2 }] });
+    expect(await auditActions(p, [a!.id])).not.toContain("ageing.draw");
+  });
+
+  test("review r2 n2: a give-back restore is refused when QC has held the refilled line since", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
+    await passHardness(p, batchId);
+    const sup = p.as("supervisor");
+    await sup.ageing.batches.release({ batchId });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [packRow(4, 11_000)] });
+    const [four] = await env.db.select().from(bundle).where(eq(bundle.ageingRowId, rowId));
+    await p.owner.bundle.transitionStatus({ id: four!.id, toStatus: "void", reason: "Wrong label" });
+    await sup.ageing.batches.hold({ rowId, reasonCodeId: await reasonId(p, "ageing_hold", "customer") });
+    await expect(p.owner.bundle.transitionStatus({ id: four!.id, toStatus: "available" })).rejects.toThrow("This trolley line is not released; it is not on the pack list");
+    expect((await p.owner.ageing.batches.get({ id: batchId })).rows[0]).toMatchObject({ status: "held", packedPcs: 0, remainingPcs: 10 });
+    expect((await env.db.select().from(bundle).where(eq(bundle.id, four!.id)))[0]!.status).toBe("void");
+  });
+
   test("start refuses a plant with no shifts, a busy oven, a recipe of another alloy; gas going backwards warns", async () => {
     const p = await agPlant();
     const l = await loggedLine(p);
@@ -527,6 +562,28 @@ describe("rework, discard, split, void (FP-AG-09, 12, 13; review I4)", () => {
     await expect(sup.ageing.batches.void({ batchId: redo.successor.id, reasonCodeId: await reasonId(p, "ageing_abort", "wrong_load") })).rejects.toThrow(
       `Pieces of ${redo.successor.number} were aged again or discarded; it cannot be voided`,
     );
+  });
+
+  test("review r2 n3: undoing a rework whose successor took an extra load or a split says so, and changes nothing", async () => {
+    const p = await agPlant({ ageing: { split: true } });
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 30 }] });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    await p.as("press").ageing.batches.hardness({ rowId, method: "webster", readingsX10: [60, 60, 60] });
+    const sup = p.as("supervisor");
+    await sup.ageing.batches.release({ batchId });
+    const { successor } = await sup.ageing.batches.rework({ batchId });
+    const said = (n: string) => `${n} took more pieces or was split after the rework; it cannot be voided`;
+    // An extra load on the successor's trolley.
+    await p.as("press").ageing.batches.load({ trolleyId: p.t1, rows: [{ pressRunLineId: l.lineId, pcs: 5 }] });
+    await expect(sup.ageing.batches.void({ batchId: successor.id })).rejects.toThrow(said(successor.number));
+    expect(await p.owner.ageing.batches.get({ id: successor.id })).toMatchObject({ status: "loading", totals: { loadedPcs: 35 } });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", disposition: "rework" });
+    // A split of its line says the same.
+    const again = await p.owner.ageing.batches.get({ id: successor.id });
+    const cut = await sup.ageing.batches.split({ rowId: again.rows[0]!.id, cuts: [{ lengthMm: 1_829, pcs: 30 }, { lengthMm: 3_658, pcs: 15 }] });
+    expect(cut.rows.length).toBeGreaterThan(2);
+    await expect(sup.ageing.batches.void({ batchId: successor.id })).rejects.toThrow(said(successor.number));
   });
 
   test("void: free while loading (load role); never in the oven; after take-out a supervisor with an ageing_abort reason; pieces go back once", async () => {

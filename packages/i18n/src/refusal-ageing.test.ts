@@ -7,6 +7,7 @@ import { hi } from "./hi";
 import { keyOf, mapSentence, refusalEntries, SERVER_REFUSALS } from "./refusal";
 import { AGEING_REFUSALS } from "./refusal-ageing";
 import { ageingSentences, FILES } from "./refusal-sentences";
+// Merger note (review r2 n4): foundry registers its own table from `./refusal-foundry` (wt/W2-FD-S, absent on this branch); once both branches are merged, add `import "./refusal-foundry";` here so the first-match checks cover both registered tables (registration follows import order).
 
 /**
  * W3-AG-S (review I3): every sentence of `lib/ageingRefusals.ts` is said from the dictionary once an

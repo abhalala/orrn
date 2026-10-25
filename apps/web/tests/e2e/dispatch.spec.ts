@@ -4,7 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { packPlantStock } from "./helpers/plant-stock";
+import { ownSection, packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -46,24 +46,36 @@ async function start(page: Page, role: LocalRole, opts: { width?: number; height
   await signInViaApi(page, role);
 }
 
-/** Packs `count` new bundles through the API (owner), so this test alone owns them. */
-async function packFresh(page: Page, count: number) {
-  // D20: packed as "Plant stock", which the floor scan adds to any customer's load with no office step.
-  return packPlantStock(page, count);
+/**
+ * This spec's own die and customer, made once per worker (BACKLOG 73). Packing on "the newest active
+ * plant die" and dispatching to "the first customer with no open order" put these specs' plant-stock
+ * bundles on whatever another spec (chain) had just made, and cut that spec's planable. A section and a
+ * customer made here, with no order on them, cannot be reached by any other spec.
+ */
+type Own = { die: { dieId: string; dieInstanceId: string }; customer: { id: string; name: string } };
+let own: Promise<Own> | null = null;
+function ownPlant(page: Page): Promise<Own> {
+  own ??= (async () => {
+    const die = await ownSection(page, "DSP");
+    const name = `Dispatch spec ${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
+    const customer = await trpcMutation<{ id: string }>(page, "customer.create", { name });
+    return { die, customer: { id: customer.id, name } };
+  })().catch((e) => {
+    own = null;
+    throw e;
+  });
+  return own;
 }
 
-/**
- * The first customer with no open sales order. The dev seed books orders (SO-1/SO-3) for the first
- * customer on the first die, and a dispatch for that customer links fresh bundles to those lines
- * and is refused as an overdraw; these specs are about plain dispatches.
- */
+/** Packs `count` new bundles through the API (owner) on this spec's own die, so this test alone owns them. */
+async function packFresh(page: Page, count: number) {
+  // D20: packed as "Plant stock", which the floor scan adds to any customer's load with no office step.
+  return packPlantStock(page, count, (await ownPlant(page)).die);
+}
+
+/** This spec's own customer: it has no sales order, so a dispatch to it links fresh bundles to no order line. */
 async function firstCustomer(page: Page) {
-  const res = await trpcQuery<{ items: { id: string; name: string }[] }>(page, "customer.list", { limit: 50 });
-  const open = await trpcQuery<{ items: { customerId: string }[] }>(page, "orders.list", { openOnly: true, limit: 100 });
-  const busy = new Set(open.items.map((o) => o.customerId));
-  const free = res.items.find((c) => !busy.has(c.id));
-  expect(free, "a customer with no open sales order").toBeTruthy();
-  return free!;
+  return (await ownPlant(page)).customer;
 }
 
 async function newDispatch(page: Page) {
@@ -102,7 +114,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
     await visit(page, "/dispatch/new");
     await expect(page.getByRole("heading", { level: 1, name: "New dispatch" })).toBeVisible();
     const combo = page.getByRole("combobox", { name: "Customer" });
-    await combo.fill(customer.name.slice(0, 6));
+    await combo.fill(customer.name);
     await page.getByRole("option", { name: customer.name }).first().click();
     await page.getByRole("button", { name: "Create dispatch" }).click();
 
@@ -277,7 +289,7 @@ test.describe("dispatch: review fixes (round 1)", () => {
     const existing = await firstCustomer(page);
     await visit(page, "/dispatch/new");
     const combo = page.getByRole("combobox", { name: "Customer" });
-    await combo.fill(existing.name.slice(0, 6));
+    await combo.fill(existing.name);
     await page.getByRole("option", { name: existing.name }).first().click();
 
     await page.getByRole("button", { name: "New customer" }).click();

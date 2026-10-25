@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5835 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5836 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -5232,7 +5232,7 @@ Please check, Lalubhai:
 | `masters.max` | Max % | ज़्यादा से ज़्यादा % |
 | `masters.noLimit` | No limit | कोई सीमा नहीं |
 
-### ageing (207)
+### ageing (208)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5390,6 +5390,7 @@ Please check, Lalubhai:
 | `refusal.simulatorOff` | The oven simulator is off on this server. | इस सर्वर पर ओवन सिम्युलेटर बंद है। |
 | `refusal.notHeld` | This trolley line has no hold to clear. A failed test clears with a retest or an approval. | इस ट्रॉली लाइन पर हटाने के लिए कोई रोक नहीं है। फेल टेस्ट दोबारा टेस्ट या मंज़ूरी से हटता है। |
 | `refusal.voidAfterRework` | Pieces of {batch} were aged again or discarded. It cannot be voided. | {batch} के पीस दोबारा एजिंग में गए या फेंके गए। इसे रद्द नहीं किया जा सकता। |
+| `refusal.voidReworkChanged` | {batch} took more pieces or was split after the rework. It cannot be voided. | रीवर्क के बाद {batch} में और पीस लोड हुए या उसे बाँटा गया। इसे रद्द नहीं किया जा सकता। |
 | `refusal.drawOver` | Only {n} pieces are left on this trolley line to pack. | इस ट्रॉली लाइन पर पैक के लिए सिर्फ़ {n} पीस बचे हैं। |
 | `refusal.castMismatch` | This trolley line is from cast {cast}. Pick that cast for the bundle. | यह ट्रॉली लाइन कास्ट {cast} की है। बंडल के लिए वही कास्ट चुनें। |
 | `refusal.ageingRowRequired` | This plant packs aged metal from a trolley. Pick the trolley line. | यह प्लांट ट्रॉली से एज्ड माल पैक करता है। ट्रॉली लाइन चुनें। |

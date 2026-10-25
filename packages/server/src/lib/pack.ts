@@ -197,11 +197,12 @@ const OPEN_FOR_PACK = sql.raw(`('released', 'held')`);
  *   record; its trolley may already carry a new load). The pieces leave as loose aged stock written
  *   off: the bundle's own ledger void (`voidRows`, with the void's reason) takes its kg out, and the
  *   write-off is audited `ageing.writeOff` on the bundle (row, batch, pieces, reason).
- * - **restore of a bundle whose last void was a write-off**: the pieces come back from loose stock
- *   into the bundle (its ledger restore); the row is not drawn again. Audited `ageing.writeOffUndo`.
- * - **restore after a give-back**: the row is drawn again (`packed_pcs += quantity`); over-drawing
- *   fails the batch (`packAbort` → `isPackAbort`), a row emptied again closes, and its batch with it.
- *   Audited `ageing.draw`.
+ * - **restore of a bundle whose last void was a write-off** (or had no ageing audit at all, as a
+ *   phantom-count void): the pieces come back from loose stock into the bundle (its ledger restore);
+ *   the row is not drawn again. Audited `ageing.writeOffUndo`.
+ * - **restore after a give-back**: the row is drawn again (`packed_pcs += quantity`); over-drawing, or
+ *   a row that is held or void since (QC), fails the batch (`packAbort` → `isPackAbort`), a row emptied
+ *   again closes, and its batch with it. Audited `ageing.draw`.
  *
  * Every choice is made at write time inside the status change's own batch (the batch status and
  * the bundle's last `ageing.restore`/`ageing.writeOff` audit row are read in SQL), and lands only when
@@ -255,7 +256,9 @@ export function restoreAgeingRowStatements(
   }
 
   // Restore: undo a write-off (row untouched) or draw the given-back pieces again.
-  const wasWrittenOff = sql`coalesce(${lastVoid} = 'ageing.writeOff', 0)`;
+  // Only a give-back (always audited `ageing.restore`) draws the row again. A void with no ageing audit at
+  // all (a phantom-count void leaves the row alone, review r2 n1) restores without touching the row.
+  const wasWrittenOff = sql`(coalesce(${lastVoid}, 'ageing.writeOff') = 'ageing.writeOff')`;
   return [
     ...audited("ageing.writeOffUndo", { kind: "loose_aged" }, wasWrittenOff),
     ...audited("ageing.draw", { kind: "restore" }, sql`not ${wasWrittenOff}`),
@@ -266,7 +269,8 @@ export function restoreAgeingRowStatements(
     packAbort(
       db,
       sql`exists (select 1 from ageing_row ar where ar.id = ${ageingRowId} and ar.company_id = ${companyId}
-            and ar.packed_pcs + ar.scrap_pcs + ar.rework_pcs > ar.pcs)`,
+            and (ar.packed_pcs + ar.scrap_pcs + ar.rework_pcs > ar.pcs
+              or (not ${wasWrittenOff} and ar.status not in ('released', 'closed'))))`,
     ),
     db
       .update(ageingRow)

@@ -1518,6 +1518,8 @@ const voidProcedure = companyProcedure.input(ageingVoidInput).mutation(async ({ 
     { batch: b.number, status: b.status },
   );
   if (reason?.requiresNote && !reasonText) throw ageingRefusal("void_reason_missing");
+  // Review r2 n3: a successor that took an extra load or a split no longer maps one-to-one onto the original lines.
+  if (undoRework && (await reworkUndoChanged(ctx, b.reworkOfBatchId!, rows.filter((r) => r.status !== "void")))) throw ageingRefusal("void_rework_changed", { batch: b.number });
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   const userId = userOf(ctx);
   const statements: SqliteBatchItem[] = [
@@ -1552,6 +1554,7 @@ const voidProcedure = companyProcedure.input(ageingVoidInput).mutation(async ({ 
       if (ageingAnyMoved(again) || undoRework) {
         const now = await readBatch(ctx.db, ctx.companyId, b.id);
         if (now.status !== b.status) return statusRace(ctx, b.id);
+        if (undoRework && (await reworkUndoChanged(ctx, b.reworkOfBatchId!, again.filter((r) => r.status !== "void")))) throw ageingRefusal("void_rework_changed", { batch: b.number });
         throw ageingRefusal("void_after_rework", { batch: b.number });
       }
       if (ageingAnyPacked(again)) throw ageingRefusal("void_after_pack", { batch: b.number });
@@ -1568,6 +1571,23 @@ const voidProcedure = companyProcedure.input(ageingVoidInput).mutation(async ({ 
   }
   return detail(ctx, b.id);
 });
+
+/**
+ * Review r2 n3: true when a rework successor's lines no longer map one-to-one onto the original lines that
+ * gave them (an extra load or a split added lines, or an original line gave fewer pieces): its undo would
+ * fail the whole batch, so it is refused with its own sentence.
+ */
+async function reworkUndoChanged(ctx: Ctx, originalId: string, successorRows: readonly RowRead[]): Promise<boolean> {
+  const originals = await ctx.db
+    .select({ reworkRowId: ageingRow.reworkRowId, reworkPcs: ageingRow.reworkPcs, status: ageingRow.status })
+    .from(ageingRow)
+    .where(and(eq(ageingRow.companyId, ctx.companyId), eq(ageingRow.batchId, originalId), sql`${ageingRow.reworkRowId} is not null`));
+  const byLink = new Map(originals.map((o) => [o.reworkRowId, o]));
+  return successorRows.some((r) => {
+    const o = byLink.get(r.id);
+    return !o || o.status !== "closed" || num(o.reworkPcs) < num(r.pcs);
+  });
+}
 
 /**
  * Review m5: voiding a rework successor that is still loading puts its pieces back where the rework took
