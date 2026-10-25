@@ -233,7 +233,7 @@ describe("rate limit on /request-password-reset (BACKLOG 23)", () => {
   });
 
   test("the window ends: after 15 minutes the counter starts again", async () => {
-    const { throttleHit, RESET_LIMIT } = await import("../../auth/src/reset-throttle");
+    const { throttleHit, RESET_LIMIT } = await import("@orrn/auth/reset-throttle");
     const { createDb } = await import("@orrn/db");
     const db = createDb();
     const key = `test:${crypto.randomUUID()}`;

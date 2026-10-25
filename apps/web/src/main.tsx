@@ -50,7 +50,7 @@ const router = createRouter({
 });
 
 reducedMotion?.addEventListener("change", (event) => {
-  router.update({ defaultViewTransition: !event.matches });
+  router.update({ ...router.options, defaultViewTransition: !event.matches });
 });
 
 /** Layouts that sit behind a session guard; anything else (public pages, 404) never bounces to login. */

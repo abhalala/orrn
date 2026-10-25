@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { auditLog, reasonCode } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
-import { createTestEnv, type TestEnv } from "./harness";
+import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -20,7 +20,7 @@ afterAll(async () => {
 
 async function plant() {
   const { companyId } = await env.seedCompany();
-  const as = (role: Parameters<typeof env.caller>[0]["role"]) => env.caller({ role, companyId });
+  const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, as, manager: as("manager") };
 }
 const audits = (companyId: string, action: string) =>
