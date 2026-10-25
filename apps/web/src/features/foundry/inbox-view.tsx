@@ -20,7 +20,7 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { INBOX_TABS, type InboxTab } from "./search";
-import { FieldSelect } from "./ui";
+import { ErrorLine, FieldSelect } from "./ui";
 
 type InboxFile = inferRouterOutputs<AppRouter>["foundry"]["spectroInbox"]["list"][number];
 
@@ -243,11 +243,7 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
             <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">{values.map(([k, v]) => `${k} ${v}`).join(", ")}</p>
           </div>
         ) : null}
-        {attach.error ? (
-          <p role="alert" className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words">
-            {attach.error.message || t("foundry.inbox.failed")}
-          </p>
-        ) : null}
+        <ErrorLine error={attach.error} />
       </div>
     </Sheet>
   );
@@ -303,11 +299,7 @@ function DismissSheet({ file, onClose }: { file: InboxFile | null; onClose(): vo
         <Field label={t("foundry.inbox.dismissSheet.reason")} error={missing ? t("foundry.inbox.dismissSheet.reasonRequired") : undefined}>
           <FieldTextArea value={reason} maxLength={500} onChange={(e) => setReason(e.currentTarget.value)} data-testid="inbox-dismiss-reason" />
         </Field>
-        {dismiss.error ? (
-          <p role="alert" className="m-0 rounded-card bg-tone-red-tint px-4 py-3 text-[14px] font-medium text-tone-red-ink break-words">
-            {dismiss.error.message || t("foundry.inbox.failed")}
-          </p>
-        ) : null}
+        <ErrorLine error={dismiss.error} />
       </div>
     </Sheet>
   );

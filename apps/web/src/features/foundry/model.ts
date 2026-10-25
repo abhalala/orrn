@@ -4,6 +4,7 @@
  * Every figure here is the server's (`casts.get().closeout`, the melt row); nothing is recomputed
  * except the spectro readings, which the client shows next to the stored verdict.
  */
+import type { StatusTone } from "@orrn/domain";
 import {
   percentToPpm,
   SPECTRO_ELEMENTS,
@@ -12,11 +13,11 @@ import {
   type SpectroLimit,
   type SpectroReading,
   type SpectroVerdict,
-  type StatusTone,
 } from "@orrn/domain";
 
-export const CAST_STATUSES = ["open", "closing", "closed", "cancelled"] as const;
-export type CastStatus = (typeof CAST_STATUSES)[number];
+export { CAST_STATUSES, type CastStatus } from "./search";
+import { type CastStatus } from "./search";
+
 export type MeltStatus = "draft" | "locked" | "cancelled";
 
 export const CAST_TONE: Record<CastStatus, StatusTone> = { open: "blue", closing: "amber", closed: "neutral", cancelled: "red" };
@@ -42,15 +43,7 @@ export function lockedMeltTone(m: { verdict: SpectroVerdict | null; lossBp: numb
 
 // --- List search -------------------------------------------------------------------------------------
 
-export type CastsSearch = { status?: CastStatus; q?: string };
-
-/** `/casts?status=open&q=K31` (plain function: the route entry chunk must not import zod). */
-export function parseCastsSearch(raw: Record<string, unknown>): CastsSearch {
-  const out: CastsSearch = {};
-  if (typeof raw.status === "string" && (CAST_STATUSES as readonly string[]).includes(raw.status)) out.status = raw.status as CastStatus;
-  if (typeof raw.q === "string" && raw.q.trim() !== "" && raw.q.length <= 40) out.q = raw.q.trim();
-  return out;
-}
+export { parseCastsSearch, type CastsSearch } from "./search";
 
 export type TraceQuery = { kind: "cast"; number: string } | { kind: "bundle"; serial: string };
 

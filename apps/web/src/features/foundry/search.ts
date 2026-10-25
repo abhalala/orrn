@@ -37,3 +37,15 @@ export function parseYieldSearch(raw: Record<string, unknown>): YieldSearch {
   if (raw.group === "alloy" || raw.group === "furnace") out.group = raw.group;
   return out;
 }
+
+export const CAST_STATUSES = ["open", "closing", "closed", "cancelled"] as const;
+export type CastStatus = (typeof CAST_STATUSES)[number];
+export type CastsSearch = { status?: CastStatus; q?: string };
+
+/** `/casts?status=open&q=K31` (plain function: the route entry chunk must not import zod). */
+export function parseCastsSearch(raw: Record<string, unknown>): CastsSearch {
+  const out: CastsSearch = {};
+  if (typeof raw.status === "string" && (CAST_STATUSES as readonly string[]).includes(raw.status)) out.status = raw.status as CastStatus;
+  if (typeof raw.q === "string" && raw.q.trim() !== "" && raw.q.length <= 40) out.q = raw.q.trim();
+  return out;
+}

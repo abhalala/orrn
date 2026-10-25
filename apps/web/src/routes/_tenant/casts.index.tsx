@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { CastsScreen } from "@/features/foundry/casts-view";
-import { parseCastsSearch } from "@/features/foundry/model";
+import { parseCastsSearch } from "@/features/foundry/search";
 
 /** `/casts?status=open&q=K31`. */
 export const Route = createFileRoute("/_tenant/casts/")({

@@ -4,7 +4,8 @@
  * saved draft back into text. The server owns every figure that is stored (burn, yield, verdict,
  * gates): the numbers computed here are previews for the person typing, never sent.
  */
-import { FOUNDRY_LINE_MAX_G, furnaceLoad, meltBalance, parseDecimal, type MeltLockBalance } from "@orrn/domain";
+import { parseDecimal } from "@orrn/domain";
+import { FOUNDRY_LINE_MAX_G, furnaceLoad, meltBalance, type MeltLockBalance } from "@orrn/domain";
 
 import { MELT_TIME_KEYS, resolveMeltTimes, splitInstant, type MeltTimeKey, type MeltTimes } from "./melt-times";
 

@@ -141,6 +141,16 @@ Container heater element, Hydraulic oil) with a GRN each and three issues (GRN-1
 6. **Packing lists:** done-1 (two revisions), the combined Tejura list, SO-8's "original SO" column.
 7. **Stock:** yards, CNT-1 and its two phantoms.
 8. **Portal** as `party`: KD sees its own dispatch and certificate, never Royal's.
+9. **Foundry** as `foundry` on a phone (W2-FD-W): Today's Foundry tile (open casts, melts in progress, spectro waiting), then
+   `/casts`. Open the seeded cast 3 (open, a draft melt): the stepper opens on the draft's steps (times, charge of LOT-6,
+   chemicals and LDO, logs and dross, spectro and lock); the last step lists what still stops the lock, each with a button to the
+   step that fixes it. Type the spectro numbers with a reason (Fe 0.41 shows a fail against the 6063 limits), lock the melt, and
+   the cast page's tail panel moves (billets made, used by the press, on hand, tail; burn and bundles stay beside it).
+   Cast 1 is complete: the tail chip says every billet is accounted for, **Trace** shows LOT-6 in, the melt with its spectro,
+   the press runs PR-8, PR-11 and PR-12 and the bundles that name the cast, and **Test certificate** is the staff copy.
+   As `supervisor` close an empty or balanced cast; as `manager` open **Masters, Furnaces and Alloys** (limits editor),
+   **Reports, Foundry yield**, and **Approvals** (a melt correction asked by foundry shows the melt's figures and a link).
+   `/foundry/stock` lists billets on hand by alloy and cast.
 
 ## Ids that specs and tests rely on (do not rename)
 
