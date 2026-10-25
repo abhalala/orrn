@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { dispatchNow } from "../features/dispatch/dispatch-now";
 import { dispatchTotals, groupItems } from "../features/dispatch/group-items";
+import { overRaceAfterComplete } from "../features/dispatch/capacity";
 import { barActions, currentStep, nextStep, showsActionBar, stepPerms } from "../features/dispatch/next-step";
 import { plTable, toPlSnapshot } from "../features/dispatch/packing-list";
 import { resolvePasted } from "../features/dispatch/paste";
@@ -221,5 +222,23 @@ describe("bottom action bar visibility (role x status, mirrors the web dispatch 
       expect(bar(role, "completed", 3)).toEqual([]);
       expect(bar(role, "cancelled", 3)).toEqual([]);
     }
+  });
+});
+
+describe("complete refused because the load went over while the sheet was open (m-8)", () => {
+  const over = { loadedG: 11_000_000, capacityG: 9_000_000, state: "over" as const, fillBp: 12_222, overG: 2_000_000, needsReason: true };
+  const ok = { ...over, loadedG: 8_000_000, state: "ok" as const, overG: 0, needsReason: false };
+  const refused = { data: { code: "PRECONDITION_FAILED" }, message: "Loaded 11,000 kg is 2,000 kg over the vehicle's 9,000 kg. Give a reason to complete." };
+
+  test("no reason was sent and the fresh read says over: keep the sheet open and ask why", () => {
+    expect(overRaceAfterComplete(refused, false, over)).toBe(true);
+  });
+
+  test("anything else stays an ordinary failure", () => {
+    expect(overRaceAfterComplete(refused, true, over)).toBe(false);
+    expect(overRaceAfterComplete(refused, false, ok)).toBe(false);
+    expect(overRaceAfterComplete(refused, false, null)).toBe(false);
+    expect(overRaceAfterComplete({ data: { code: "BAD_REQUEST" } }, false, over)).toBe(false);
+    expect(overRaceAfterComplete(new Error("Network request failed"), false, over)).toBe(false);
   });
 });

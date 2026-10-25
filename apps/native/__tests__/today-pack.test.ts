@@ -2,14 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import { decideAfterCheck } from "../features/pack/save-check";
 import {
-  bundleReadout,
   canLeaveDefaults,
   dieCode,
   draftOwner,
   hasRange,
   kgText,
   newBundleKey,
-  outOfRangeCount,
   parseBundleEntry,
   sessionTotals,
   type TypedBundle,
@@ -56,39 +54,6 @@ describe("typed bundle", () => {
       lengthMm: null,
       po: null,
     });
-  });
-});
-
-describe("kg/12ft readout and verdict", () => {
-  const die = { weightMinG: 2_400, weightMaxG: 2_600 };
-  test("12 ft bundle in range", () => {
-    // 52.4 kg / 21 pcs at 12 ft = 2.4949 per 12 ft, band 2.5
-    const r = bundleReadout({ weightG: 52_400, pieces: 21, lengthMm: null }, 3658, die);
-    expect(r?.text).toBe("2.49");
-    expect(r?.verdict).toBe("in");
-  });
-
-  test("a bundle's own length wins over the session length", () => {
-    const r = bundleReadout({ weightG: 52_400, pieces: 21, lengthMm: 1829 }, 3658, die);
-    expect(r?.verdict).toBe("above");
-  });
-
-  test("heavy and light bundles", () => {
-    expect(bundleReadout({ weightG: 40_000, pieces: 21, lengthMm: null }, 3658, die)?.verdict).toBe("below");
-  });
-
-  test("no verdict without a die range; no readout without a length", () => {
-    expect(bundleReadout({ weightG: 52_400, pieces: 21, lengthMm: null }, 3658, { weightMinG: 0, weightMaxG: 0 })?.verdict).toBeNull();
-    expect(bundleReadout({ weightG: 52_400, pieces: 21, lengthMm: null }, null, die)).toBeNull();
-  });
-
-  test("counts bundles outside the range", () => {
-    const rows = [
-      { weightG: 52_400, pieces: 21, lengthMm: null },
-      { weightG: 40_000, pieces: 21, lengthMm: null },
-      { weightG: 90_000, pieces: 21, lengthMm: null },
-    ];
-    expect(outOfRangeCount(rows, 3658, die)).toBe(2);
   });
 });
 

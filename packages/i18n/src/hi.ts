@@ -6,6 +6,8 @@ import { moreHi } from "./native/more.hi";
 import { diesHi } from "./native/dies.hi";
 import { ordersHi } from "./native/orders.hi";
 import { platformHi } from "./native/platform.hi";
+import { pressHi } from "./native/press.hi";
+import { stockHi } from "./native/stock.hi";
 
 /**
  * Hindi messages. Conversational Devanagari, matching the plant's own Hindi SOP.
@@ -100,6 +102,8 @@ export const hi = {
     feetInches: "{ft} ft {in} in",
     kgPerM: "kg/m",
     percent: "{value}%",
+    /** Two figures of a band ("2.4 to 2.6"); the word between them is the language's own. */
+    rangeTo: "{min} से {max}",
     kgPerMetre: "kg/m",
   },
 
@@ -810,6 +814,7 @@ export const hi = {
     continuous: {
       offBand: "{kg} kg/12ft, {order} में {line}। वज़न जांचें।",
       outsideOrder: "यह packing list सिर्फ़ {order} की है",
+      outsideOrderPlain: "यह packing list सिर्फ़ एक sales order की है",
       orderBaki: "{order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा",
       orderOver: "बाकी से {kg} kg ज़्यादा।",
       title: "{code} में स्कैन हो रहा है",
@@ -848,6 +853,7 @@ export const hi = {
       pickOne: "Bundle चुनें",
       speak: "मना करने की वजह बोलकर बताएं",
       heldForOrder: "{order} ({customer}) के लिए होल्ड पर है",
+      heldForOrderPlain: "एक sales order के लिए होल्ड पर है",
     },
   },
 
@@ -3249,6 +3255,8 @@ export const hi = {
     ...diesHi,
     ...ordersHi,
     ...platformHi,
+    ...pressHi,
+    ...stockHi,
   },
 
   ui: {

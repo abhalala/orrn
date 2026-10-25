@@ -19,6 +19,8 @@ import { moreEn } from "./native/more.en";
 import { diesEn } from "./native/dies.en";
 import { ordersEn } from "./native/orders.en";
 import { platformEn } from "./native/platform.en";
+import { pressEn } from "./native/press.en";
+import { stockEn } from "./native/stock.en";
 
 export const en = {
   common: {
@@ -107,6 +109,8 @@ export const en = {
     feetInches: "{ft} ft {in} in",
     kgPerM: "kg/m",
     percent: "{value}%",
+    /** Two figures of a band ("2.4 to 2.6"); the word between them is the language's own. */
+    rangeTo: "{min} to {max}",
     kgPerMetre: "kg/m",
   },
 
@@ -817,6 +821,7 @@ export const en = {
     continuous: {
       offBand: "{kg} kg/12ft, {order} says {line}. Check the weight.",
       outsideOrder: "This packing list is for {order} only",
+      outsideOrderPlain: "This packing list is for one sales order only",
       orderBaki: "{order}: baki {baki} kg, {left} kg left after this load",
       orderOver: "{kg} kg over the baki.",
       title: "Scanning into {code}",
@@ -855,6 +860,7 @@ export const en = {
       pickOne: "Pick the bundle",
       speak: "Speak refusals aloud",
       heldForOrder: "Held for {order} ({customer})",
+      heldForOrderPlain: "Held for a sales order",
     },
   },
 
@@ -3258,6 +3264,8 @@ export const en = {
     ...diesEn,
     ...ordersEn,
     ...platformEn,
+    ...pressEn,
+    ...stockEn,
   },
 
   /** Component library chrome (@orrn/ui): screen-reader and helper text. */

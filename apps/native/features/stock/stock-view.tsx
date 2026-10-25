@@ -17,8 +17,9 @@ import { trpc } from "@/utils/trpc";
 
 import { failedWithoutData } from "./section-page";
 import { SectionBlock } from "./section-row";
-import { rowTotals, sectionRows, type SectionSort, type SummaryRow } from "./sections";
+import { sectionRows, stockTotals, type SectionSort, type SummaryRow } from "./sections";
 import { useRefresh } from "./use-refresh";
+import { YardFilter } from "./yard-filter";
 
 /**
  * The Stock tab: one block per section (die) with stock, from
@@ -29,8 +30,10 @@ import { useRefresh } from "./use-refresh";
 export function StockView() {
   const { t } = useT();
   const router = useRouter();
-  const available = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "available" }));
-  const reserved = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved" }));
+  const [yard, setYard] = useState<string | undefined>(undefined);
+  const filter = yard ? { locationId: yard } : {};
+  const available = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "available", ...filter }));
+  const reserved = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved", ...filter }));
   const { data: me } = useMe();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SectionSort>("kg");
@@ -39,7 +42,8 @@ export function StockView() {
   const items = (q: typeof available): SummaryRow[] => (q.data?.items ?? []) as SummaryRow[];
   const all = sectionRows(items(available), items(reserved), { query: "", sort });
   const shown = sectionRows(items(available), items(reserved), { query, sort });
-  const totals = rowTotals(all);
+  // In stock = available and held apart, counted by the server over the same yard filter as the sections.
+  const totals = stockTotals(available.data?.stock, all);
   const canPack = can(me, "bundle.pack");
 
   const loading = available.isPending || reserved.isPending;
@@ -70,6 +74,8 @@ export function StockView() {
               ) : null}
             </View>
           ) : null}
+
+          <YardFilter value={yard} onChange={setYard} />
 
           <ListRow title={t("stock.list.title")} onPress={() => router.push("/stock/bundles")} />
 

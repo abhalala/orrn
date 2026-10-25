@@ -1,9 +1,9 @@
 import { bundleTone, type BundleStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,12 +15,15 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { StatusBlock } from "@/components/ui/status-block";
 import { needsResolve } from "@/features/scan/scan-flow";
 import { useRefresh } from "@/features/stock/use-refresh";
+import { announce } from "@/lib/a11y";
+import { feedback } from "@/lib/feedback";
 import { useFormat } from "@/lib/use-format";
 import { can, useMe } from "@/utils/me";
 import { trpc } from "@/utils/trpc";
 
 import { AddToDispatchSheet } from "./add-to-dispatch-sheet";
 import { BundleFacts } from "./facts";
+import { canReprint, printErrorKey } from "./reprint";
 import { NoticeBanner, type BundleNotice } from "./notice";
 import { buildTimeline } from "./timeline";
 import { BundleTimeline } from "./timeline-view";
@@ -142,6 +145,26 @@ function BundleDetail({
   const canAdd = status === "available" && can(me, "dispatch.addBundle");
   const canTransition = transitionTo !== null && can(me, "bundle.void");
   const packedAt = [fmt.day(bundle.createdAt), fmt.time(bundle.createdAt)].filter(Boolean).join(", ");
+  // Reprint goes through the plant's print service (`spool.printBundleLabel`); the person who may print sees the button.
+  const reprint = useMutation(trpc.spool.printBundleLabel.mutationOptions());
+  const [printNote, setPrintNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const canPrint = canReprint(status) && can(me, "spool.create_jobs");
+  const printLabel = async () => {
+    // A second tap while the first label is still going to the printer must not print another.
+    if (reprint.isPending) return;
+    setPrintNote(null);
+    try {
+      await reprint.mutateAsync({ bundleId: bundle.id });
+      feedback.success();
+      announce(t("pack.detail.labelSent"));
+      setPrintNote({ ok: true, text: t("pack.detail.labelSent") });
+    } catch (error) {
+      const text = t(printErrorKey(error));
+      feedback.error();
+      announce(text, { shownInLiveRegion: true });
+      setPrintNote({ ok: false, text });
+    }
+  };
 
   const done = (next: BundleNotice) => {
     onNotice(next);
@@ -165,16 +188,28 @@ function BundleDetail({
         <ListRow title={t("bundle.inDispatch", { code: activeDispatch.code })} accessibilityHint={t("bundle.openDispatchPlain")} onPress={() => router.push(`/dispatch/${encodeURIComponent(activeDispatch.id)}`)} />
       ) : null}
 
-      {canAdd || canTransition ? (
+      {canAdd || canTransition || canPrint ? (
         <View accessibilityLabel={t("bundle.actionsLabel")} className="gap-2">
           {canAdd ? <Button size="lg" label={t("bundle.addToDispatch")} onPress={() => setAddOpen(true)} /> : null}
+          {canPrint ? <Button variant="secondary" label={t("bundle.reprint")} loading={reprint.isPending} onPress={() => void printLabel()} /> : null}
+          {printNote ? (
+            <Text accessibilityLiveRegion="polite" className={printNote.ok ? "font-sans-medium text-[15px] text-tone-green-ink" : "font-sans-medium text-[15px] text-destructive"}>
+              {printNote.text}
+            </Text>
+          ) : null}
           {canTransition ? (
             <Button variant="secondary" label={t(transitionTo === "void" ? "bundle.void" : "bundle.restore")} onPress={() => setTransitionOpen(true)} />
           ) : null}
         </View>
       ) : null}
 
-      <BundleFacts bundle={bundle} die={die} group={group} packedAt={packedAt} />
+      <BundleFacts
+        bundle={bundle}
+        die={die}
+        group={group}
+        packedAt={packedAt}
+        extras={{ band: data.band, range12ft: data.range12ft, location: data.location, dieCopy: data.dieCopy, cast: data.cast, order: data.order, packedFor: data.packedFor }}
+      />
       <BundleTimeline entries={timeline} activeDispatch={activeDispatch} />
 
       <View className="flex-row flex-wrap gap-x-2">

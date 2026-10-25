@@ -2,15 +2,15 @@ import type { Me } from "@orrn/server/lib/permissions";
 
 import { extraTabs, visibleTabs } from "@/lib/nav";
 
-export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom";
+export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press";
 
 export type MoreRow = {
   key: MoreRowKey;
   /** The More stack's own screens, or a tab screen reached from More (Orders, Dies). */
-  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies";
-  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders";
+  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press";
+  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press";
   /** A Feather glyph. */
-  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc";
+  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity";
   /** Company modules (lower case) any one of which keeps the row. No entry: always shown. */
   modules?: readonly string[];
 };
@@ -24,6 +24,7 @@ const ROWS: readonly MoreRow[] = [
 ];
 
 const ORDERS_ROW: MoreRow = { key: "orders", href: "/orders", labelKey: "nav.orders", icon: "file-text" };
+const PRESS_ROW: MoreRow = { key: "press", href: "/press", labelKey: "native.tabs.press", icon: "activity" };
 const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.dies", icon: "disc" };
 
 /**
@@ -45,8 +46,10 @@ export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] 
   );
   const extra = me?.company ? extraTabs(me as Me) : [];
   const rows = extra.includes("dies") ? base.map((r) => (r.key === "dies" ? DIE_ROOM_ROW : r)) : base;
-  if (!extra.includes("orders")) return rows;
+  // Press (supervisor, manager, admin) sits first: it is the plant's live view.
+  const withPress = extra.includes("press") ? [PRESS_ROW, ...rows] : rows;
+  if (!extra.includes("orders")) return withPress;
   // Orders sits right after Dies, before Customers.
-  const at = rows.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
-  return [...rows.slice(0, at + 1), ORDERS_ROW, ...rows.slice(at + 1)];
+  const at = withPress.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
+  return [...withPress.slice(0, at + 1), ORDERS_ROW, ...withPress.slice(at + 1)];
 }

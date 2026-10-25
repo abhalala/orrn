@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createDeduper, DEDUPE_WINDOW_MS } from "../features/scan/dedupe";
-import { addOutcome, rejectionMessage, scanErrorKey, type AddBundlesReport } from "../features/scan/outcome";
+import { addOutcome, rejectionMessage, scanErrorKey, unavailableMessage, type AddBundlesReport } from "../features/scan/outcome";
 import { lookupTarget, needsResolve, scanLogEntry } from "../features/scan/scan-flow";
 
 const ROOT = join(import.meta.dir, "..");
@@ -55,6 +55,7 @@ describe("dispatch mode outcome per scanned serial", () => {
     expect(addOutcome(blocked, "S1")).toEqual({
       kind: "rejected",
       serial: "S1",
+      code: "held",
       message: { key: "scan.continuous.heldBy", vars: { code: "D-0007" } },
     });
     const voided = report({ unavailable: [{ serial: "S1", reason: "x", code: "void" } as never] });
@@ -67,9 +68,9 @@ describe("dispatch mode outcome per scanned serial", () => {
     expect(addOutcome(held, "S3")).toMatchObject({
       message: { key: "scan.continuous.heldForOrder", vars: { order: "SO-7", customer: "Shreeji" } },
     });
-    // Without the order number the English sentence is shown as sent.
+    // Without the order number a plain floor sentence is said, in the person's language (never the server's English).
     const bare = report({ unavailable: [{ serial: "S4", reason: "Held for SO-7 (Shreeji)", code: "held_for_order" }] });
-    expect(addOutcome(bare, "S4")).toMatchObject({ message: { text: "Held for SO-7 (Shreeji)" } });
+    expect(addOutcome(bare, "S4")).toMatchObject({ message: { key: "scan.continuous.heldForOrderPlain" } });
   });
 
   test("older servers: the English reason is mapped to floor wording", () => {
@@ -78,7 +79,11 @@ describe("dispatch mode outcome per scanned serial", () => {
     expect(rejectionMessage("Bundle is already dispatched")).toEqual({ key: "scan.continuous.dispatched" });
     expect(rejectionMessage("Bundle is void")).toEqual({ key: "scan.continuous.void" });
     expect(rejectionMessage("Bundle is reserved")).toEqual({ key: "scan.continuous.wrongStatus", status: "reserved" });
-    expect(rejectionMessage("Odd new reason")).toEqual({ text: "Odd new reason" });
+    // An unknown sentence is never shown or spoken: it becomes the generic "Not added".
+    expect(rejectionMessage("Odd new reason")).toEqual({ key: "scan.continuous.result.rejected" });
+    expect(JSON.stringify(unavailableMessage({ serial: "S1", reason: "Odd new reason" }))).not.toContain("Odd new reason");
+    expect(JSON.stringify(unavailableMessage({ serial: "S1", reason: "Odd new reason", code: "status", status: "weird" }))).not.toContain("Odd new reason");
+    expect(JSON.stringify(addOutcome({ added: [], alreadyInDispatch: [], unavailable: [{ serial: "S1", reason: "Odd new reason" }] } as unknown as AddBundlesReport, "S1"))).not.toContain("Odd new reason");
   });
 
   test("request failures say what happened", () => {

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5059 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -87,7 +87,7 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (15)
+### units (16)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -105,6 +105,7 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
 | `kgPerM` | kg/m | kg/m |
 | `percent` | {value}% | {value}% |
+| `rangeTo` | {min} to {max} | {min} से {max} |
 | `kgPerMetre` | kg/m | kg/m |
 
 ### status (31)
@@ -723,7 +724,7 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `source.logoHint` | Off hides the logo on the label. The company name still prints. | बंद करने पर लेबल से लोगो हट जाता है। कंपनी का नाम फिर भी छपता है। |
 | `source.cannotContinue` | Fix the points above before you go on. | आगे जाने से पहले ऊपर की बातें ठीक करें। |
 
-### scan (58)
+### scan (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -749,6 +750,7 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
 | `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Check the weight. | {kg} kg/12ft, {order} में {line}। वज़न जांचें। |
 | `continuous.outsideOrder` | This packing list is for {order} only | यह packing list सिर्फ़ {order} की है |
+| `continuous.outsideOrderPlain` | This packing list is for one sales order only | यह packing list सिर्फ़ एक sales order की है |
 | `continuous.orderBaki` | {order}: baki {baki} kg, {left} kg left after this load | {order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा |
 | `continuous.orderOver` | {kg} kg over the baki. | बाकी से {kg} kg ज़्यादा। |
 | `continuous.title` | Scanning into {code} | {code} में स्कैन हो रहा है |
@@ -785,6 +787,7 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `continuous.pickOne` | Pick the bundle | Bundle चुनें |
 | `continuous.speak` | Speak refusals aloud | मना करने की वजह बोलकर बताएं |
 | `continuous.heldForOrder` | Held for {order} ({customer}) | {order} ({customer}) के लिए होल्ड पर है |
+| `continuous.heldForOrderPlain` | Held for a sales order | एक sales order के लिए होल्ड पर है |
 
 ### stock (174)
 
@@ -2876,7 +2879,7 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (181)
+### native (251)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2941,6 +2944,25 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `pack.notLanded` | That session did not save. It's safe to save it again. | वह सेशन सेव नहीं हुआ। दोबारा सेव करना सुरक्षित है। |
 | `pack.review` | Review | जांचें |
 | `pack.editBundles` | Back to bundles | Bundle पर वापस |
+| `pack.savePin` | This order line is for another die copy. Pick that copy, or ask the office. | यह order line दूसरी die copy के लिए है। वही copy चुनें, या office से पूछें। |
+| `pack.saveRetired` | That die copy can't be packed from. Pick another copy. | उस die copy से pack नहीं हो सकता। दूसरी copy चुनें। |
+| `pack.serialsLine` | {count} {count:bundle\|bundles} packed, {from} to {to} | {count} bundle pack हुए, {from} से {to} |
+| `pack.serialOne` | 1 bundle packed, {serial} | 1 bundle pack हुआ, {serial} |
+| `pack.packAnother` | Pack another session | एक और सेशन pack करें |
+| `pack.replayedNote` | This session was already saved. Nothing was packed twice. | यह सेशन पहले ही सेव हो चुका था। कुछ भी दोबारा pack नहीं हुआ। |
+| `pack.forOrderLine` | For {order} | {order} के लिए |
+| `pack.copyLine` | Copy {code} | Copy {code} |
+| `pack.castLine` | Cast {cast} | Cast {cast} |
+| `pack.noLines` | No open order lines for this die. These bundles go to plant stock. | इस die की कोई खुली order line नहीं है। ये bundle plant stock में जाएंगे। |
+| `pack.sourceChecking` | Checking the die | Die जांच रहे हैं |
+| `pack.copyLockedNote` | Locked to the copy this order line asks for. | इस order line की माँगी हुई copy पर लॉक है। |
+| `pack.scaleSilent` | A scale is set up but sends nothing. Type the weight and say why. | Scale लगा है पर कुछ भेज नहीं रहा। वज़न टाइप करें और कारण बताएं। |
+| `pack.scaleChip` | {state} {kg} kg | {state} {kg} kg |
+| `pack.liveChecking` | Checking against the band | Band से जांच रहे हैं |
+| `pack.rejectsLine` | Rejects: {count} {count:piece\|pieces} | Reject: {count} पीस |
+| `pack.typedBundles` | {count} typed | {count} टाइप किए |
+| `pack.saved` | Packed | Pack हुआ |
+| `pack.stepSource` | Choose what these bundles are for, then the cut length. | चुनें कि ये bundle किसके लिए हैं, फिर कटाई की लंबाई। |
 | `scan.openSettings` | Open settings | सेटिंग्स खोलें |
 | `scan.cameraBlockedPhone` | The camera is blocked. Open settings and allow it, or type the serial below. | कैमरा बंद है। सेटिंग्स खोलकर इसे चालू करें, या नीचे serial लिखें। |
 | `scan.opened` | Opened | खुला |
@@ -3061,6 +3083,57 @@ Counts: 4986 screen strings in 46 groups, 16 guides with 292 strings.
 | `web.shifts` | Shifts | शिफ्ट |
 | `web.standards` | Standards | स्टैंडर्ड |
 | `web.backup` | Backup | बैकअप |
+| `press.linesHeading` | Press lines | Press लाइनें |
+| `press.noLines` | No press is set up yet. Ask the office to add one. | अभी कोई press सेट नहीं है। office से जुड़वाएं। |
+| `press.stationNote` | Start, stop and counting are done on the tablet at the press. This phone shows what is happening. | Start, stop और गिनती press के पास वाले टैबलेट पर होती है। यह फोन बस दिखाता है कि क्या चल रहा है। |
+| `press.lineIdle` | Idle | खाली |
+| `press.lineRunning` | Running {number} | {number} चल रहा है |
+| `press.lineQueued` | {count} {count:run\|runs} waiting | {count} रन इंतज़ार में |
+| `press.lineDowntime` | Press stopped | Press बंद है |
+| `press.atTablet` | Use the tablet at the press to start, stop or count this run. | इस रन को शुरू, बंद या गिनने के लिए press के पास वाला टैबलेट इस्तेमाल करें। |
+| `press.gateUnknown` | Something else is missing before this run can be logged. | इस रन को लॉग करने से पहले कुछ और बाकी है। |
+| `press.onPress` | On the press now | अभी press पर |
+| `press.urgent` | Urgent | ज़रूरी |
+| `press.jobCopy` | Copy {code} | Copy {code} |
+| `press.jobNoCopy` | No die copy yet | अभी die copy नहीं |
+| `press.jobLine` | {order}, {length}, {pcs} pcs, {kg} kg | {order}, {length}, {pcs} पीस, {kg} kg |
+| `press.jobTotals` | {pcs} pcs, {kg} kg | {pcs} पीस, {kg} kg |
+| `press.jobPressed` | {kg} kg already pressed | {kg} kg पहले ही press हुआ |
+| `press.jobHeading` | Orders on this die | इस die के order |
+| `press.line` | Press | Press |
+| `press.dieCopy` | Die copy | Die copy |
+| `press.startedAt` | Started | शुरू |
+| `press.stoppedAt` | Stopped | बंद |
+| `press.runningSince` | Since {time} | {time} से |
+| `press.figuresLive` | Figures so far | अब तक के आंकड़े |
+| `press.figuresLogged` | Logged figures | लॉग किए आंकड़े |
+| `press.gatesHeading` | Before the supervisor can log this run | सुपरवाइज़र के इस रन को लॉग करने से पहले |
+| `press.downtimeWhy` | Why did the press stop? | Press क्यों रुका? |
+| `press.downtimeSince` | Since {time}, {minutes} min | {time} से, {minutes} मिनट |
+| `press.downtimeStarted` | Downtime started | डाउनटाइम शुरू हुआ |
+| `press.downtimeStopped` | Downtime stopped, {minutes} min | डाउनटाइम बंद हुआ, {minutes} मिनट |
+| `press.downtimeTotal` | {minutes} min stopped on this run | इस रन पर {minutes} मिनट बंद रहा |
+| `press.handoverTitle` | Handover | हैंडओवर |
+| `press.handoverSave` | Save handover | हैंडओवर सेव करें |
+| `press.handoverSaved` | Handover saved | हैंडओवर सेव हुआ |
+| `press.nobody` | Nobody | कोई नहीं |
+| `press.scanOpened` | Opened run {number} | रन {number} खुला |
+| `press.scanNoRun` | No run is waiting for this die copy. Its card is opening instead. | इस die copy के लिए कोई रन इंतज़ार में नहीं है। इसके बजाय इसका card खुल रहा है। |
+| `press.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जो die दी गई है वह किसी दूसरे रन या press की है। die room से पूछें। |
+| `press.errors.downtimeRunning` | This press already has downtime running. Stop it first. | इस press पर डाउनटाइम पहले से चल रहा है। पहले उसे बंद करें। |
+| `press.errors.noteNeeded` | Add a note for Other. | Other के लिए नोट लिखें। |
+| `press.errors.pickReason` | Pick a reason from the list. | सूची से कारण चुनें। |
+| `press.errors.runClosed` | That run is closed. | वह रन बंद हो चुका है। |
+| `press.errors.otherPress` | That run is on another press. | वह रन दूसरे press पर है। |
+| `press.errors.retired` | {code} is retired. | {code} बंद कर दिया गया है। |
+| `press.errors.notMember` | That person is not on this plant's team. | वह व्यक्ति इस प्लांट की टीम में नहीं है। |
+| `press.errors.operatorRole` | The operator must be someone who runs the press. | ऑपरेटर कोई ऐसा होना चाहिए जो press चलाता हो। |
+| `press.errors.supervisorRole` | The supervisor must be someone who can log runs. | सुपरवाइज़र कोई ऐसा होना चाहिए जो रन लॉग कर सके। |
+| `press.errors.changed` | This changed meanwhile and was not saved. Pull down to reload. | यह इस बीच बदल गया और सेव नहीं हुआ। नीचे खींचकर फिर लोड करें। |
+| `press.errors.handoverClosed` | {number} is closed, so its people can't change. | {number} बंद है, इसलिए इसके लोग नहीं बदल सकते। |
+| `press.errors.notFound` | That press or run isn't in this company. | वह press या रन इस कंपनी में नहीं है। |
+| `stock.yard` | Yard | यार्ड |
+| `stock.allYards` | All yards | सभी यार्ड |
 
 ### ui (9)
 
