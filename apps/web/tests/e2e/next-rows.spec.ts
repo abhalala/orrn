@@ -117,3 +117,41 @@ test.describe("FP-DR-18 die work log on the copy card", () => {
     });
   }
 });
+
+test.describe("FP-OP-19 order print and export", () => {
+  for (const width of WIDTHS) {
+    test(`order sheet in Excel and the print button at ${width}px; the book exports`, async ({ page }) => {
+      const api = await ownerApi();
+      const { id: customerId } = await api.mutate<{ id: string }>("customer.create", { name: `Print Traders ${width}-${Date.now().toString(36)}` });
+      const made = await api.mutate<{ id: string; number: string }>("orders.create", {
+        customerId,
+        poNumber: `PR-${width}-${Date.now().toString(36)}`,
+        lines: [{ sectionId: "dev-die-11262", cutLengthMm: 3658, kgG: 250_000, pcs: null, finish: null }],
+      });
+      await api.dispose();
+
+      await page.setViewportSize({ width, height: 900 });
+      await signInViaApi(page, "office");
+      await page.goto(`/orders/${made.id}`);
+      await expect(page.locator("[data-order-print]")).toBeVisible({ timeout: 30_000 });
+      await expectNoHorizontalScroll(page);
+      const [file] = await Promise.all([page.waitForEvent("download"), page.locator("[data-order-excel]").click()]);
+      expect(file.suggestedFilename()).toBe(`order-${made.number.replace(/[^A-Za-z0-9._-]+/g, "-")}.xlsx`);
+
+      await page.goto("/orders");
+      const exportButton = page.locator("[data-book-export]");
+      await expect(exportButton).toBeVisible({ timeout: 30_000 });
+      const [book] = await Promise.all([page.waitForEvent("download"), exportButton.click()]);
+      expect(book.suggestedFilename()).toMatch(/^order-book-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    });
+  }
+
+  test("the plan's shift die list in Excel (plans open from 820px)", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await signInViaApi(page, "office");
+    await page.goto("/orders/plan/dev-plan-trial-1");
+    await expect(page.locator("[data-plan-print]")).toBeVisible({ timeout: 30_000 });
+    const [file] = await Promise.all([page.waitForEvent("download"), page.locator("[data-plan-excel]").click()]);
+    expect(file.suggestedFilename()).toMatch(/^plan-PP-\d+\.xlsx$/);
+  });
+});

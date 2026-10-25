@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5133 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5141 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -3947,7 +3947,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (374)
+### orders (382)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4004,6 +4004,14 @@ Please check, Lalubhai:
 | `stockOn.pdf` | PDF | PDF |
 | `stockOn.excel` | Excel | Excel |
 | `stockOn.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
+| `printOut.order` | Print order | ऑर्डर प्रिंट करें |
+| `printOut.orderExcel` | Order in Excel | ऑर्डर Excel में |
+| `printOut.plan` | Print shift list | शिफ्ट लिस्ट प्रिंट करें |
+| `printOut.planExcel` | Shift list in Excel | शिफ्ट लिस्ट Excel में |
+| `printOut.book` | Export to Excel | Excel में निकालें |
+| `printOut.bookBusy` | Exporting | निकाल रहे हैं |
+| `printOut.bookCut` | Only the first {count} orders went into the file. | फ़ाइल में सिर्फ़ पहले {count} ऑर्डर गए। |
+| `printOut.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
 | `title` | Orders | ऑर्डर |
 | `new` | New order | नया ऑर्डर |
 | `number` | Order | ऑर्डर |

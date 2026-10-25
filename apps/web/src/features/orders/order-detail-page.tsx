@@ -26,6 +26,7 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 import { BakiStrip } from "./components/baki-strip";
 import { LineFilters } from "./components/line-filters";
 import { StockOnSheet } from "./components/stock-on-sheet";
+import { OrderPrintButtons } from "./components/print-buttons";
 import { EditSheet } from "./components/edit-sheet";
 import { ReallocateSheet, type ReallocateSource } from "./components/reallocate-sheet";
 import { LinesEditor } from "./components/lines-editor";
@@ -217,6 +218,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             <FileText aria-hidden="true" strokeWidth={2} />
             {t("orders.stockOn.button")}
           </Button>
+          <OrderPrintButtons data={get.data} />
           {/* Every open order can be dispatched from, a booking too (as dispatch.create allows; review m-8). */}
           {status === "booking" || status === "confirmed" || status === "dispatching" ? (
             <Can do="dispatch.create">

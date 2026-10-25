@@ -15,6 +15,12 @@
     },
     "./stock-on-order/model": {
       "default": "./src/stock-on-order/model-entry.ts"
+    },
+    "./order-sheet": {
+      "default": "./src/order-sheet/index.ts"
+    },
+    "./order-sheet/model": {
+      "default": "./src/order-sheet/model-entry.ts"
     }
   },
   "scripts": {
