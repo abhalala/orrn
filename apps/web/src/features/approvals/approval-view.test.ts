@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { APPROVAL_TONE, approvalSubject, decideState, type ApprovalForView } from "./approval-view";
+import { APPROVAL_TONE, approvalSubject, decideState, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
 
 function me(role: string, id = "u-manager"): Me {
   return {
@@ -27,6 +28,61 @@ function row(over: Partial<ApprovalForView> = {}): ApprovalForView {
 describe("APPROVAL_TONE", () => {
   test("waiting is amber, approved green, rejected red", () => {
     expect(APPROVAL_TONE).toEqual({ pending: "amber", approved: "green", rejected: "red" });
+  });
+});
+
+describe("BACKLOG 34: a move request says what moves", () => {
+  const kd = { customerName: "KD Extrusion", orderNumber: "SO-1", lineNo: 1 };
+  const royal = { customerName: "Royal Aluminium", orderNumber: "SO-4", lineNo: 1 };
+  const meta = {
+    bundleIds: ["b1", "b2"],
+    orderIds: ["dev-so-1", "so-4"],
+    reasonCode: "length_mismatch",
+    kgG: 119_046,
+    move: {
+      count: 2,
+      kgG: 119_046,
+      from: [kd],
+      to: royal,
+      bundles: [
+        { serial: "26J4001", weightG: 62_000, from: kd },
+        { serial: "26J4002", weightG: 57_046, from: kd },
+      ],
+    },
+  };
+
+  test("the summary is read from the request's meta", () => {
+    expect(reallocateMoveOf(meta)).toEqual({
+      count: 2,
+      kgG: 119_046,
+      from: [kd],
+      to: royal,
+      bundles: meta.move.bundles,
+      reasonCode: "length_mismatch",
+      orderId: "dev-so-1",
+    });
+    expect(reallocateMoveOf({ bundleIds: ["b1"], kgG: 5 })).toBeNull();
+  });
+
+  test("the title names bundles, kg, from and to, and links the order (en and hi)", () => {
+    const subject = approvalSubject(row({ kind: "order_reallocate", meta }));
+    expect(subject).toEqual({
+      kindKey: "approvals.kind.order_reallocate",
+      titleKey: "approvals.subject.reallocate",
+      vars: { count: 2, kg: "119.046", from: "KD Extrusion", to: "Royal Aluminium SO-4" },
+      href: "/orders/dev-so-1",
+      openKey: "approvals.openOrder",
+    });
+    expect(createI18n("en").t(subject.titleKey, subject.vars)).toBe("2 bundles, 119.046 kg: KD Extrusion to Royal Aluminium SO-4");
+    expect(createI18n("hi").t(subject.titleKey, subject.vars)).toBe("2 bundle, 119.046 kg: KD Extrusion से Royal Aluminium SO-4 को");
+    expect(subjectCodes(subject)).toContain("SO-4");
+    // Plant stock as a source is worded, not blank.
+    const fromPlant = approvalSubject(row({ kind: "order_reallocate", meta: { ...meta, move: { ...meta.move, from: [null, kd] } } }), { plant: "plant stock" });
+    expect(fromPlant.vars.from).toBe("plant stock, KD Extrusion");
+  });
+
+  test("a request from before the summary keeps the generic title", () => {
+    expect(approvalSubject(row({ kind: "order_reallocate", meta: { bundleIds: ["b1"] } })).titleKey).toBe("approvals.subject.generic");
   });
 });
 

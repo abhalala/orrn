@@ -11,29 +11,35 @@ import { tileHint, tileLayout, todayTiles, type TodayTile } from "./today-model"
 
 /** Each tile keeps its area colour in the icon well (spec: Pack blue, Dispatch red, Stock amber, Guides black). */
 const ACCENT: Record<TodayTile["key"], NonNullable<ActionTileProps["accent"]>> = {
+  orders: "green",
+  dieRoom: "amber",
+  press: "blue",
   pack: "blue",
   dispatch: "red",
   stock: "amber",
+  store: "green",
+  approvals: "ink",
   guides: "ink",
 };
 
 /**
- * Shortcuts by role (plan Task 19): Pack for `bundle.create`, Dispatch for
- * `dispatch.create` or `dispatch.addBundle` (with the open count), Stock and
- * Guides alongside (viewers and other read-only roles get no tiles, spec
- * section 3). Quiet white tiles: the KPI row above is the screen's
- * one loud element (design brief), and the tab bar already reaches each area.
- * `openCount` is undefined while unknown (loading or error): Dispatch then
- * reads a plain line ("Load a truck") instead of a count. Columns follow
- * the tile count (`tileLayout`), so office's three tiles fill their row.
+ * Shortcuts by role (BACKLOG 35, FP-PF-15): the server's tiles for this role
+ * (`dashboard.today.tiles`), each with the count it acts on (orders open, runs to
+ * issue, the press queue, dispatches open, approvals waiting). Viewers get none
+ * (spec section 3: "Viewers see no action tiles, only numbers"). Quiet white
+ * tiles: the KPI row above is the screen's one loud element (design brief).
+ * Without the server's answer (loading or error) the same role table is used and
+ * counted tiles read a plain line instead of a count. Columns follow the tile
+ * count (`tileLayout`), so office's three tiles fill their row.
  */
-export function TodayTiles({ openCount, startIndex = 0 }: { openCount?: number; startIndex?: number }) {
+export function TodayTiles({ tiles: served, startIndex = 0 }: { tiles?: readonly { key: string; count: number | null }[]; startIndex?: number }) {
   const { t } = useT();
   const { data: me } = useMe();
   const headingId = useId();
-  const tiles = todayTiles(me);
+  const tiles = todayTiles(me, served);
   if (tiles.length === 0) return null;
   const layout = tileLayout(tiles.length);
+  const countOf = (key: string) => served?.find((x) => x.key === key)?.count;
 
   return (
     <section aria-labelledby={headingId} data-testid="today-tiles">
@@ -43,11 +49,12 @@ export function TodayTiles({ openCount, startIndex = 0 }: { openCount?: number; 
       <ul className={cn("m-0 grid list-none gap-3 p-0", layout.grid)}>
         {tiles.map((tile, i) => {
           const Icon = tile.icon;
-          const hint = tileHint(tile, openCount);
+          const hint = tileHint(tile, countOf(tile.key));
           const spans = layout.spanLast && i === tiles.length - 1;
           return (
             <li
               key={tile.key}
+              data-tile={tile.key}
               className={cn("animate-rise flex min-w-0", spans && "col-span-2 md:col-span-1")}
               style={riseDelay(startIndex + i)}
             >

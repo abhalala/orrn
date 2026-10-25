@@ -46,9 +46,13 @@ import {
   bundlesPendingReallocation,
   isPlantStockSql,
   plantOriginCustomerSql,
+  moveForAudit,
   moveStatements,
   pendingReallocationOf,
+  reallocateMove,
+  timelineMoveOf,
   type ReallocateMeta,
+  type TimelineMove,
   type TransferRow,
 } from "../lib/reallocate";
 import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
@@ -695,7 +699,41 @@ export const orderFlowProcedures = {
         .limit(input.limit + 1)
         .offset(input.offset);
       const more = rows.length > input.limit;
-      return { events: more ? rows.slice(0, input.limit) : rows, nextOffset: more ? input.offset + input.limit : null };
+      const page = more ? rows.slice(0, input.limit) : rows;
+      // BACKLOG 34 / explorer H5: a move says how many bundles, their kg and from -> to. Rows from
+      // before the move summary get count and kg from their batch's transfers (applied rows only: a
+      // pending or refused request moved nothing, whatever the batch did later).
+      const metaOf = (m: unknown) => (m && typeof m === "object" && !Array.isArray(m) ? (m as Record<string, unknown>) : {});
+      const legacyBatches = [
+        ...new Set(
+          page.flatMap((r) => {
+            const m = metaOf(r.meta);
+            return r.action === "order.reallocate" && !m.move && m.status === "applied" && typeof m.batchId === "string" ? [m.batchId] : [];
+          }),
+        ),
+      ];
+      const moved = new Map<string, { count: number; kgG: number }>();
+      if (legacyBatches.length > 0) {
+        const sums = await mapInChunks(legacyBatches, (part) =>
+          ctx.db
+            .select({ batchId: bundleTransfer.batchId, n: sql<number>`count(*)`, g: sql<number>`coalesce(sum(${bundle.weightG}), 0)` })
+            .from(bundleTransfer)
+            .innerJoin(bundle, and(eq(bundle.id, bundleTransfer.bundleId), eq(bundle.companyId, bundleTransfer.companyId)))
+            .where(and(eq(bundleTransfer.companyId, ctx.companyId), inArray(bundleTransfer.batchId, part)))
+            .groupBy(bundleTransfer.batchId),
+        );
+        for (const r of sums) moved.set(r.batchId, { count: Number(r.n), kgG: Number(r.g) });
+      }
+      const events = page.map((r) => {
+        if (r.action !== "order.reallocate") return { ...r, move: null as TimelineMove | null };
+        const m = metaOf(r.meta);
+        const status = typeof m.status === "string" ? m.status : "";
+        const fallback = status === "applied" && typeof m.batchId === "string" ? moved.get(m.batchId) : undefined;
+        const move = timelineMoveOf(m, fallback);
+        // `bundles` / `kgG` in meta follow the move too (older readers word the line from them).
+        return { ...r, meta: { ...m, bundles: move.count, kgG: move.kgG } as typeof r.meta, move };
+      });
+      return { events, nextOffset: more ? input.offset + input.limit : null };
     }),
 
   /**
@@ -760,10 +798,14 @@ export const orderFlowProcedures = {
       if (ids.length !== input.bundleIds.length) throw new TRPCError({ code: "BAD_REQUEST", message: "A bundle is listed twice" });
       const fromLine = alias(salesOrderLine, "from_line");
       const fromOrder = alias(salesOrder, "from_order");
+      const fromCustomer = alias(customer, "from_customer");
       const rows = await ctx.db
         .select({
           id: bundle.id,
           serial: bundle.serial,
+          fromOrderNumber: fromOrder.number,
+          fromLineNo: fromLine.lineNo,
+          fromCustomerName: fromCustomer.name,
           status: bundle.status,
           dieId: bundle.dieId,
           dieInstanceId: bundle.dieInstanceId,
@@ -783,18 +825,28 @@ export const orderFlowProcedures = {
         .from(bundle)
         .leftJoin(fromLine, and(eq(fromLine.id, bundle.salesOrderLineId), eq(fromLine.companyId, ctx.companyId)))
         .leftJoin(fromOrder, and(eq(fromOrder.id, fromLine.salesOrderId), eq(fromOrder.companyId, ctx.companyId)))
+        .leftJoin(fromCustomer, and(eq(fromCustomer.id, fromOrder.customerId), eq(fromCustomer.companyId, ctx.companyId)))
         .leftJoin(dispatch, and(eq(dispatch.id, bundle.currentDispatchId), eq(dispatch.companyId, ctx.companyId)))
         .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, ids)));
       if (rows.length !== ids.length) throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
 
-      let target: { lineId: string; orderId: string; customerId: string; dieId: string; cutLengthMm: number; lineNo: number; orderNumber: string } | null =
-        null;
+      let target: {
+        lineId: string;
+        orderId: string;
+        customerId: string;
+        customerName: string;
+        dieId: string;
+        cutLengthMm: number;
+        lineNo: number;
+        orderNumber: string;
+      } | null = null;
       if (input.toLineId) {
         const [t] = await ctx.db
           .select({
             lineId: salesOrderLine.id,
             orderId: salesOrder.id,
             customerId: salesOrder.customerId,
+            customerName: customer.name,
             dieId: salesOrderLine.dieId,
             cutLengthMm: salesOrderLine.cutLengthMm,
             lineNo: salesOrderLine.lineNo,
@@ -803,6 +855,7 @@ export const orderFlowProcedures = {
           })
           .from(salesOrderLine)
           .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, ctx.companyId)))
+          .innerJoin(customer, and(eq(customer.id, salesOrder.customerId), eq(customer.companyId, ctx.companyId)))
           .where(and(eq(salesOrderLine.id, input.toLineId), eq(salesOrderLine.companyId, ctx.companyId)))
           .limit(1);
         if (!t) throw new TRPCError({ code: "NOT_FOUND", message: "Order line not found" });
@@ -922,6 +975,18 @@ export const orderFlowProcedures = {
       const fromLineIds = [...new Set(rows.flatMap((b) => (b.lineId ? [b.lineId] : [])))];
       const orderIds = [...new Set([...rows.flatMap((b) => (b.orderId ? [b.orderId] : [])), ...(target ? [target.orderId] : [])])];
       const reasonCodeValue = input.reasonCode ?? null;
+      // BACKLOG 34: what moves, from where to where, for the approver and the order timeline.
+      const move = reallocateMove(
+        rows.map((b) => ({
+          serial: b.serial,
+          weightG: b.weightG,
+          from:
+            b.lineId && b.fromOrderNumber
+              ? { customerName: b.fromCustomerName ?? "", orderNumber: b.fromOrderNumber, lineNo: b.fromLineNo ?? 0 }
+              : null,
+        })),
+        target ? { customerName: target.customerName, orderNumber: target.orderNumber, lineNo: target.lineNo } : null,
+      );
 
       if (needsApproval && target) {
         const meta: ReallocateMeta = {
@@ -935,6 +1000,7 @@ export const orderFlowProcedures = {
           lengthMismatchBundleIds: warnings.map((w) => w.bundleId),
           orderIds,
           dieOwnerApprovalId: input.dieOwnerApprovalId ?? null,
+          move,
         };
         const req = requestApprovalInsert(ctx, {
           kind: "order_reallocate",
@@ -963,7 +1029,17 @@ export const orderFlowProcedures = {
               action: "order.reallocate",
               subjectType: "bundle_transfer",
               subjectId: batchId,
-              meta: { status: "pending", approvalId: req.id, batchId, toLineId: target.lineId, orderIds, bundles: ids.length, kgG, reasonCode: reasonCodeValue },
+              meta: {
+                status: "pending",
+                approvalId: req.id,
+                batchId,
+                toLineId: target.lineId,
+                orderIds,
+                bundles: ids.length,
+                kgG,
+                reasonCode: reasonCodeValue,
+                move: moveForAudit(move),
+              },
             }),
           ]);
         } catch (e) {
@@ -1006,6 +1082,7 @@ export const orderFlowProcedures = {
             kgG,
             reasonCode: reasonCodeValue,
             lengthMismatch: warnings.length,
+            move: moveForAudit(move),
           },
         }),
       ];
