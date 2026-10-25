@@ -130,6 +130,47 @@ describe("approvalSubject", () => {
   });
 });
 
+describe("W3-AG-W: an ageing override request", () => {
+  const request = (over: Partial<ApprovalForView> = {}): ApprovalForView => ({
+    kind: "ageing_override",
+    status: "pending",
+    subjectId: "dev-ageing-batch-2",
+    requestedBy: "u-supervisor",
+    meta: { number: "AG-2", soak: "under_aged", inBandMin: 60 },
+    ...over,
+  });
+
+  test("names the batch, links to it and keeps its number on one line", () => {
+    const subject = approvalSubject(request());
+    expect(subject.kindKey).toBe("approvals.kind.ageing_override");
+    expect(subject.titleKey).toBe("approvals.subject.ageingOverride");
+    expect(subject.vars).toEqual({ number: "AG-2" });
+    expect(subject.href).toBe("/ageing/batch/dev-ageing-batch-2");
+    expect(subject.openKey).toBe("approvals.openBatch");
+    expect(subjectCodes(subject)).toContain("AG-2");
+  });
+
+  test("says so in all three languages", () => {
+    for (const lang of ["en", "hi", "gu"] as const) {
+      const t = createI18n(lang).t;
+      const subject = approvalSubject(request());
+      expect(t(subject.titleKey, subject.vars)).toContain("AG-2");
+      expect(t(subject.openKey!)).not.toBe(subject.openKey);
+    }
+  });
+
+  test("an id that is not an id is no link", () => {
+    expect(approvalSubject(request({ subjectId: "../x y" })).href).toBeNull();
+  });
+
+  test("the manager decides, the requester never does", () => {
+    expect(decideState(me("manager"), request())).toBe("decide");
+    expect(decideState(me("supervisor", "u-other"), request())).toBe("view");
+    expect(decideState(me("supervisor", "u-supervisor"), request())).toBe("own");
+    expect(decideState(me("manager", "u-supervisor"), request())).toBe("own");
+  });
+});
+
 describe("splitCodes", () => {
   test("cuts a title into text and whole codes, so LOT-13 never breaks at its hyphen", async () => {
     const { splitCodes } = await import("./approval-view");

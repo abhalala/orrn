@@ -1,5 +1,7 @@
+import { ageingWebHi } from "./ageing.web.hi";
+
 /** Hindi for ageing (W3-AG-C). Plant words stay as the floor says them (bundle, die, cast, PO, kg). */
-export const ageingHi = {
+const baseHi = {
   ageing: {
     title: "एजिंग",
     board: "एजिंग बोर्ड",
@@ -246,5 +248,17 @@ export const ageingHi = {
       trolleyNotFound: "वह ट्रॉली नहीं मिली।",
       recipeNotFound: "वह एजिंग रेसिपी नहीं मिली।",
     },
+  },
+};
+
+/** The base words (status, field, refusal) plus the screens' words (W3-AG-W); the four groups both write are spread together. */
+export const ageingHi = {
+  ageing: {
+    ...baseHi.ageing,
+    ...ageingWebHi.ageing,
+    readings: { ...baseHi.ageing.readings, ...ageingWebHi.ageing.readings },
+    field: { ...baseHi.ageing.field, ...ageingWebHi.ageing.field },
+    action: { ...baseHi.ageing.action, ...ageingWebHi.ageing.action },
+    empty: { ...baseHi.ageing.empty, ...ageingWebHi.ageing.empty },
   },
 };

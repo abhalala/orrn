@@ -10,7 +10,7 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { addOutcome, renderScanMessage, resultOutcome, type AddBundlesReport } from "@/features/scan/scan-outcome";
+import { addOutcome, ageingDispatchRefusal, renderScanMessage, resultOutcome, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
@@ -97,7 +97,8 @@ export function AddToDispatchSheet({
         },
         onError: (error) => {
           const code = (error as { data?: { code?: string } }).data?.code;
-          toast.error(code === "FORBIDDEN" ? t("stock.noPermission") : t("bundle.addFailed"));
+          const ageing = ageingDispatchRefusal(error);
+          toast.error(code === "FORBIDDEN" ? t("stock.noPermission") : ageing ? t(ageing.key, ageing.vars) : t("bundle.addFailed"));
         },
       },
     );

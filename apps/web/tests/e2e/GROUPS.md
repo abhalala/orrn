@@ -1,6 +1,6 @@
 # e2e groups A / B / C
 
-The full e2e suite (40 spec files) is too long and too heavy for one Playwright run on a
+The full e2e suite (42 spec files) is too long and too heavy for one Playwright run on a
 shared machine, so the mergers ran it in three groups, split by spec file name (alphabetical thirds, each about 10
 minutes at `E2E_WORKERS=2`). Each group boots the same API + web pair, seeds once through `e2e-setup`, and runs its
 files in parallel; the groups are run one after another, never together on one port pair.
@@ -9,7 +9,7 @@ files in parallel; the groups are run one after another, never together on one p
 |---|---|---|---|
 | A | catalog, charts, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports | 316 | 306 (+10 screenshot skips) |
 | B | die-room-flows, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 355 | 355 |
-| C | chain, collectors, next-rows, orders-plan-purpose, preview-redirects, purchase, redirects, scan, session, shell, stock-w1, stock, store, today, ui-kit | 457 | 443 (+14 skips: screenshots, chain ageing step) |
+| C | ageing-masters, ageing, chain, collectors, next-rows, orders-plan-purpose, preview-redirects, purchase, redirects, scan, session, shell, stock-w1, stock, store, today, ui-kit | 457 | 443 (+14 skips: screenshots, chain ageing step) |
 
 A new spec file must be added to a group here AND in `apps/web/scripts/e2e-group.sh` (the script warns when a spec
 file is in no group). Specs build what they change (own customer, orders, press line, bundles; see `helpers/own-press.ts`,

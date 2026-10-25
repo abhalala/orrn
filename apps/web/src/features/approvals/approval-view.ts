@@ -151,6 +151,17 @@ export function approvalSubject(row: ApprovalForView, words: { plant: string } =
       openKey: lotId ? "approvals.openLot" : null,
     };
   }
+  if (row.kind === "ageing_override") {
+    // The batch id is the subject; the request's meta carries the batch number (W3-AG-S). The figures are in the review sheet.
+    const batchId = safeId(row.subjectId);
+    return {
+      kindKey,
+      titleKey: "approvals.subject.ageingOverride",
+      vars: { number: text(m.number) },
+      href: batchId ? `/ageing/batch/${batchId}` : null,
+      openKey: batchId ? "approvals.openBatch" : null,
+    };
+  }
   if (row.kind === "die_rerank") {
     const sectionId = safeId(m.sectionId);
     const to = typeof m.toRank === "number" ? m.toRank : text(m.toRank);

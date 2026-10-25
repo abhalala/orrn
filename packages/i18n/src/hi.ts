@@ -185,6 +185,7 @@ export const hi = {
   },
 
   nav: {
+    ageing: "एजिंग",
     main: "मुख्य",
     today: "आज",
     pack: "पैकिंग",
@@ -453,6 +454,16 @@ export const hi = {
   },
 
   today: {
+    oven: {
+      title: "एजिंग",
+      open: "बोर्ड खोलें",
+      inOven: "ओवन में",
+      inOvenMeta: "अभी साइकल में बैच",
+      out: "बाहर, जांच बाकी",
+      outMeta: "कठोरता का इंतज़ार",
+      held: "होल्ड",
+      heldMeta: "पैक की सूची से बाहर रखा माल",
+    },
     title: "आज",
     greetingMorning: "नमस्ते, {name}",
     greetingAfternoon: "नमस्ते, {name}",
@@ -802,7 +813,17 @@ export const hi = {
     source: {
       title: "स्रोत",
       hand: "ट्रॉली नहीं",
-      handHint: "हाथ से पैकिंग। ट्रॉली की पंक्तियां एजिंग के साथ आएंगी।",
+      handHint: "हाथ से पैकिंग, बिना ट्रॉली लाइन के।",
+      trolley: "ट्रॉली",
+      trolleyHint: "पीस छोड़ी गई ट्रॉली लाइन से आते हैं।",
+      noTrolley: "ट्रॉली नहीं",
+      noTrolleyHint: "हाथ से पैक करें।",
+      trolleyLine: "ट्रॉली लाइन",
+      trolleyLineHint: "केवल छोड़ी गई और पीस बचे वाली लाइनें दिखती हैं।",
+      trolleyRequired: "यह प्लांट ट्रॉली लाइन से पैक करता है। एक चुनें।",
+      trolleyLeft: "{pcs} पीस बचे",
+      trolleyCut: "{mm} mm",
+      trolleyCast: "कास्ट {cast}",
       forOrderHint: "पैकिंग से बाकी नहीं बदलता। डिस्पैच से बदलता है।",
       plantStock: "प्लांट स्टॉक",
       plantStockHint: "किसी ऑर्डर के लिए नहीं। ऑफिस इन्हें किसी भी ग्राहक के लोड पर भेज सकता है।",
@@ -2061,6 +2082,17 @@ export const hi = {
   },
 
   settings: {
+    ageing: {
+      title: "एजिंग",
+      intro: "एजिंग वाले माल को लेकर प्लांट कितना सख़्त है।",
+      requireForPackHint: "जिस सेक्शन के छोड़े हुए ट्रॉली पीस हों, उसका हाथ से पैक नहीं होता।",
+      manualLoadHint: "हाथ से लिखी लाइनें, जिनके पीछे प्रेस लॉग नहीं।",
+      splitHint: "पैक से पहले ट्रॉली लाइन को दूसरी लंबाइयों में बांटा जा सकता है।",
+      fromToday: "इसे चालू करने पर आज से लागू। आज से पहले पैक बंडल जा सकते हैं।",
+      since: "{day} से पैक बंडलों के लिए ज़रूरी। पहले के बंडल जा सकते हैं।",
+      saved: "एजिंग सेटिंग सेव हुईं।",
+      saveFailed: "सेव नहीं हो सका। फिर कोशिश करें।",
+    },
     title: "सेटिंग्स",
     subtitle: "आपके प्लांट की कंपनी, शिफ्ट, टीम, डिवाइस और प्रिंटिंग।",
     loadFailed: "सेटिंग्स लोड नहीं हुईं। कनेक्शन देखकर फिर कोशिश करें।",
@@ -2522,6 +2554,15 @@ export const hi = {
       reasons: "कारण कोड",
       reasonsHint: "प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा",
       reasonsNoun: "{count:कारण|कारण}",
+      ovens: "एजिंग ओवन",
+      ovensHint: "ओवन, उनकी क्षमता और चालू हैं या नहीं",
+      ovensNoun: "{count:ओवन|ओवन}",
+      trolleys: "ट्रॉलियां",
+      trolleysHint: "प्रेस और ओवन के बीच के रंगे हुए रैक",
+      trolleysNoun: "{count:ट्रॉली|ट्रॉलियां}",
+      recipes: "साइकल रेसिपी",
+      recipesHint: "हर एलॉय और टेम्पर का तापमान, सोक और कठोरता",
+      recipesNoun: "{count:चालू रेसिपी|चालू रेसिपी}",
     },
     show: "दिखाएं",
     showInUse: "चालू",
@@ -3656,6 +3697,9 @@ export const hi = {
   },
 
   approvals: {
+    ageing: {
+      title: "बैच",
+    },
     title: "मंज़ूरी",
     subtitle: "जिन कामों पर दूसरे व्यक्ति की मंज़ूरी चाहिए",
     waitingTitle: "फ़ैसले के इंतज़ार में",
@@ -3682,6 +3726,7 @@ export const hi = {
       press_late_entry: "बाद में भरा गया प्रेस रन",
     },
     subject: {
+      ageingOverride: "मंज़ूरी पर {number} छोड़ें",
       dcDebit: "{lot} पर डेबिट नोट {number}",
       dcCredit: "{lot} पर क्रेडिट नोट {number}",
       dieRerank: "कॉपी {code}, टियर {from} से {to}",
@@ -3714,6 +3759,7 @@ export const hi = {
     rejectNeedsNote: "नामंज़ूर करने की वजह लिखें।",
     own: "आपकी रिक्वेस्ट कोई और मंज़ूर करेगा।",
     viewOnly: "इसे मैनेजर मंज़ूर करते हैं।",
+    openBatch: "बैच खोलें",
     openLot: "लॉट खोलें",
     openDie: "डाई खोलें",
     theirNote: "उनका नोट",

@@ -4,7 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { SCAN_OUTCOMES } from "@orrn/server/lib/scan";
 import { SCAN_REFUSALS } from "@orrn/server/lib/scanRefusal";
 
-import { addOutcome, blockMessage, blockOf, blocksOf, offBandText, rejectionMessage, renderScanMessage, resultOutcome, scanErrorKey, type ScanResultRow } from "./scan-outcome";
+import { ageingRefusalMessage } from "@orrn/server/lib/ageingRefusals";
+import { addOutcome, ageingDispatchRefusal, blockMessage, blockOf, blocksOf, offBandText, rejectionMessage, renderScanMessage, resultOutcome, scanErrorKey, scanErrorText, type ScanResultRow } from "./scan-outcome";
 
 const { t } = createI18n("en");
 const say = (reason: string) => renderScanMessage(t, rejectionMessage(reason));
@@ -253,5 +254,37 @@ describe("one order per packing list and the weight warning (Q36, Q37)", () => {
     expect(offBandText(t, report, "26J1")).toBeNull();
     expect(offBandText(t, { warnings: undefined }, "26J2")).toBeNull();
     expect(addOutcome(report, "26J2").kind).toBe("added");
+  });
+});
+
+describe("W3-AG-W: dispatch refuses a bundle in ageing", () => {
+  const failure = (code: "bundle_in_ageing" | "bundle_ageing_held" | "bundle_not_aged") => {
+    const { code: trpc, message } = ageingRefusalMessage(code, { serial: "26J12", batch: "AG-38" });
+    return { message, data: { code: trpc } };
+  };
+
+  test("each of the three server sentences maps to its own words with the bundle and batch", () => {
+    expect(ageingDispatchRefusal(failure("bundle_in_ageing"))).toEqual({ key: "ageing.refusal.bundleInAgeing", vars: { serial: "26J12", batch: "AG-38" } });
+    expect(ageingDispatchRefusal(failure("bundle_ageing_held"))).toEqual({ key: "ageing.refusal.bundleAgeingHeld", vars: { serial: "26J12", batch: "AG-38" } });
+    expect(ageingDispatchRefusal(failure("bundle_not_aged"))?.key).toBe("ageing.refusal.bundleNotAged");
+  });
+
+  test("a failure that is not about ageing is left to the generic words", () => {
+    expect(ageingDispatchRefusal({ message: "Dispatch is closed", data: { code: "BAD_REQUEST" } })).toBeNull();
+    expect(ageingDispatchRefusal(null)).toBeNull();
+    const t = createI18n("en").t;
+    expect(scanErrorText(t, { message: "Dispatch is closed", data: { code: "BAD_REQUEST" } }, "dispatch")).toBe(t(scanErrorKey({ data: { code: "BAD_REQUEST" } }, "dispatch")));
+  });
+
+  test("the floor hears it in its own language, naming the bundle", () => {
+    for (const lang of ["en", "hi", "gu"] as const) {
+      const t = createI18n(lang).t;
+      for (const code of ["bundle_in_ageing", "bundle_ageing_held", "bundle_not_aged"] as const) {
+        const said = scanErrorText(t, failure(code), "dispatch");
+        expect(said).toContain("26J12");
+        expect(said).not.toContain("ageing.refusal");
+      }
+      expect(scanErrorText(t, failure("bundle_in_ageing"), "dispatch")).toContain("AG-38");
+    }
   });
 });

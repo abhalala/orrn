@@ -20,6 +20,7 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { AgeingOverrideFigures } from "@/features/ageing/approval-figures";
 import { serverRefusal } from "@/features/shared/server-refusal";
 import { reasonLabel } from "@/features/press/reason-label";
 import { canAny, useMe } from "@/shared/lib/me";
@@ -153,6 +154,8 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         ) : null}
 
         {move ? <MoveFigures move={move} /> : null}
+
+        {current.kind === "ageing_override" && canAny(me, ["ageing.view"]) ? <AgeingOverrideFigures batchId={current.subjectId} /> : null}
 
         {isNote ? (
           readsFigures ? (

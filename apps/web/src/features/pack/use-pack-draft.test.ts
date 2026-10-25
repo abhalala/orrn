@@ -292,3 +292,24 @@ describe("clientRequestId of a save (BACKLOG 50)", () => {
     expect(readDraft(s, "co-1")).toBeNull();
   });
 });
+
+describe("W3-AG-W: the trolley line in the draft and the receipt", () => {
+  test("the chosen line goes into the receipt, and survives a reload", () => {
+    const d = addBundle(draftWith({ defaults: { lengthMm: 3658, ageingRowId: "row-9" } }), { weightG: 1000, pieces: 1 });
+    expect(toReceiptInput(d, "inch")).toMatchObject({ ageingRowId: "row-9" });
+    const s = memoryStorage();
+    writeDraft(s, d);
+    expect(readDraft(s, "co-1")?.defaults.ageingRowId).toBe("row-9");
+  });
+
+  test("no line, no key (a hand pack sends nothing about a trolley)", () => {
+    const d = addBundle(draftWith(), { weightG: 1000, pieces: 1 });
+    expect(toReceiptInput(d, "inch")).not.toHaveProperty("ageingRowId");
+  });
+
+  test("a stored draft with a line that is not text is dropped", () => {
+    const s = memoryStorage();
+    s.setItem("orrn.packDraft", JSON.stringify({ ...draftWith(), defaults: { lengthMm: 3658, ageingRowId: 5 } }));
+    expect(readDraft(s, "co-1")).toBeNull();
+  });
+});

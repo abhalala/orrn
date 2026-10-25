@@ -258,7 +258,10 @@ export const STORE_ITEM_PEOPLE: readonly Action[] = ["store.txn", "masters.publi
 /** Die card fields: the die room or masters publishers (ruling RP7). */
 export const DIE_CARD_EDITORS: readonly Action[] = ["die.card", "masters.publish"];
 
-export type MasterKey = "vendors" | "scrap" | "storeItems" | "locations" | "sections" | "dieCopies" | "reasons";
+/** Who sees the ageing masters: `ageing.recipes.save` and friends take masters.draft (a draft) or masters.publish. */
+export const AGEING_MASTER_PEOPLE: readonly Action[] = ["masters.draft", "masters.publish"];
+
+export type MasterKey = "vendors" | "scrap" | "storeItems" | "locations" | "sections" | "dieCopies" | "reasons" | "ovens" | "trolleys" | "recipes";
 
 export type MasterEntry = {
   key: MasterKey;
@@ -281,6 +284,10 @@ const ENTRIES: readonly MasterEntry[] = [
   { key: "sections", group: "floor", to: "/dies", titleKey: "masters.hub.sections", hintKey: "masters.hub.sectionsHint" },
   { key: "dieCopies", group: "floor", to: "/masters/dies", titleKey: "masters.hub.dieCopies", hintKey: "masters.hub.dieCopiesHint" },
   { key: "reasons", group: "floor", to: "/masters/reasons", titleKey: "masters.hub.reasons", hintKey: "masters.hub.reasonsHint" },
+  // W3-AG-W: the ageing masters (ovens, trolleys, cycle recipes), for the people who draft or publish masters.
+  { key: "ovens", group: "floor", to: "/masters/ovens", titleKey: "masters.hub.ovens", hintKey: "masters.hub.ovensHint", requires: AGEING_MASTER_PEOPLE },
+  { key: "trolleys", group: "floor", to: "/masters/trolleys", titleKey: "masters.hub.trolleys", hintKey: "masters.hub.trolleysHint", requires: AGEING_MASTER_PEOPLE },
+  { key: "recipes", group: "floor", to: "/masters/recipes", titleKey: "masters.hub.recipes", hintKey: "masters.hub.recipesHint", requires: AGEING_MASTER_PEOPLE },
 ];
 
 export function masterEntries(me: Me | null | undefined): MasterEntry[] {

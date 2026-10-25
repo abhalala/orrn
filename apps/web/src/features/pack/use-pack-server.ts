@@ -95,6 +95,16 @@ export function useOpenLines(dieId: string | null) {
   });
 }
 
+/** Released trolley lines of the section with pieces left (the Source step's trolley picker, W3-AG-W). */
+export function useTrolleyLines(dieId: string | null) {
+  return useQuery({
+    ...trpc.ageing.packSource.queryOptions({ dieId: dieId ?? "", limit: 50, offset: 0 }),
+    enabled: Boolean(dieId),
+    staleTime: 15_000,
+    meta: { inlineError: true },
+  });
+}
+
 /** Casts for the picker (open and closed, newest first). */
 export function useCasts() {
   return useQuery({

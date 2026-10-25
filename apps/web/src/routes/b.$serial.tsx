@@ -9,6 +9,7 @@ import { Link, createFileRoute, redirect, useLocation } from "@tanstack/react-ro
 import { ChevronLeft } from "lucide-react";
 import { useMemo } from "react";
 
+import { BundleAgeing } from "@/features/ageing/bundle-trace";
 import { BundleActions } from "@/features/stock/bundle-actions";
 import { BundleFacts } from "@/features/stock/bundle-facts";
 import { BundleHero } from "@/features/stock/bundle-hero";
@@ -194,6 +195,7 @@ function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) 
           lengthUnit={lu.unit}
           packedAt={when(bundle.createdAt)}
         />
+        <BundleAgeing bundleId={bundle.id} />
         <BundleTimeline entries={timeline} activeDispatch={activeDispatch} />
       </BundleActions>
     </>

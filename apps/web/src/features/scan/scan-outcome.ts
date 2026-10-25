@@ -257,7 +257,35 @@ export function rejectionMessage(reason: string): ScanMessage {
   return { text: reason };
 }
 
-type TrpcLike = { data?: { code?: unknown } | null };
+type TrpcLike = { message?: unknown; data?: { code?: unknown } | null };
+
+/**
+ * The three refusals dispatch gives a bundle that is in the oven, held in ageing, or (when the plant
+ * dispatches aged metal only) never aged (W3-AG-S `assertDispatchAgeing`). They arrive as the whole
+ * request failing, in English; the floor hears them in its own language, with the bundle and batch.
+ */
+const AGEING_DISPATCH: readonly { re: RegExp; key: MessageKey }[] = [
+  { re: /^Bundle (\S+) is held in ageing on (\S+)$/, key: "ageing.refusal.bundleAgeingHeld" },
+  { re: /^Bundle (\S+) is in ageing on (\S+)$/, key: "ageing.refusal.bundleInAgeing" },
+  { re: /^Bundle (\S+) is not aged\b/, key: "ageing.refusal.bundleNotAged" },
+];
+
+/** The ageing wording of a failed dispatch scan or add, or null when the failure is something else. */
+export function ageingDispatchRefusal(error: unknown): { key: MessageKey; vars: { serial: string; batch: string } } | null {
+  const message = error && typeof error === "object" ? (error as TrpcLike).message : undefined;
+  if (typeof message !== "string") return null;
+  for (const entry of AGEING_DISPATCH) {
+    const m = entry.re.exec(message);
+    if (m) return { key: entry.key, vars: { serial: m[1]!, batch: m[2] ?? "" } };
+  }
+  return null;
+}
+
+/** `scanErrorKey` said as a sentence: the ageing refusals first (they name the bundle and batch), else the generic one. */
+export function scanErrorText(t: (key: MessageKey, vars?: Record<string, string | number>) => string, error: unknown, mode: "lookup" | "dispatch"): string {
+  const ageing = ageingDispatchRefusal(error);
+  return ageing ? t(ageing.key, ageing.vars) : t(scanErrorKey(error, mode));
+}
 
 /** What to say when a scan request itself failed (not a per-bundle rejection). */
 export function scanErrorKey(error: unknown, mode: "lookup" | "dispatch"): MessageKey {

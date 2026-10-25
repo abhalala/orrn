@@ -5,12 +5,12 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Cylinder, Layers, ListChecks, MapPin, Recycle, Store, Truck, type LucideIcon } from "lucide-react";
+import { ChevronRight, Cylinder, Flame, Layers, ListChecks, MapPin, Recycle, Store, Truck, Container, FlaskConical, type LucideIcon } from "lucide-react";
 
 import { canAny } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { masterEntries, STORE_ITEM_PEOPLE, type MasterEntry, type MasterKey } from "./masters-model";
+import { AGEING_MASTER_PEOPLE, masterEntries, STORE_ITEM_PEOPLE, type MasterEntry, type MasterKey } from "./masters-model";
 import { useMastersAccess } from "./use-masters";
 
 const ICONS: Record<MasterKey, LucideIcon> = {
@@ -21,6 +21,9 @@ const ICONS: Record<MasterKey, LucideIcon> = {
   sections: Layers,
   dieCopies: Cylinder,
   reasons: ListChecks,
+  ovens: Flame,
+  trolleys: Container,
+  recipes: FlaskConical,
 };
 
 const NOUNS: Record<MasterKey, MessageKey> = {
@@ -31,10 +34,13 @@ const NOUNS: Record<MasterKey, MessageKey> = {
   sections: "masters.hub.sectionsNoun",
   dieCopies: "masters.hub.dieCopiesNoun",
   reasons: "masters.hub.reasonsNoun",
+  ovens: "masters.hub.ovensNoun",
+  trolleys: "masters.hub.trolleysNoun",
+  recipes: "masters.hub.recipesNoun",
 };
 
 /** How many entries each list holds (live ones), for the count beside it. Undefined while loading. */
-function useCounts(enabled: { vendors: boolean; storeItems: boolean }) {
+function useCounts(enabled: { vendors: boolean; storeItems: boolean; ageing: boolean }) {
   const vendors = useQuery({ ...trpc.vendor.list.queryOptions({ limit: 1, offset: 0 }), enabled: enabled.vendors });
   const drafts = useQuery({
     ...trpc.vendor.list.queryOptions({ status: "draft", limit: 1, offset: 0 }),
@@ -46,6 +52,9 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean }) {
   const sections = useQuery(trpc.die.list.queryOptions({ limit: 1, offset: 0 }));
   const copies = useQuery(trpc.dieInstance.list.queryOptions({ limit: 1, offset: 0 }));
   const reasons = useQuery(trpc.reasonCodes.list.queryOptions());
+  const ovens = useQuery({ ...trpc.ageing.ovens.list.queryOptions({}), enabled: enabled.ageing });
+  const trolleys = useQuery({ ...trpc.ageing.trolleys.list.queryOptions({}), enabled: enabled.ageing });
+  const recipes = useQuery({ ...trpc.ageing.recipes.list.queryOptions({}), enabled: enabled.ageing });
   const counts: Partial<Record<MasterKey, number>> = {
     vendors: vendors.data?.total,
     scrap: scrap.data?.items.filter((i) => i.active).length,
@@ -54,6 +63,9 @@ function useCounts(enabled: { vendors: boolean; storeItems: boolean }) {
     sections: sections.data === undefined ? undefined : Number(sections.data.total),
     dieCopies: copies.data?.total,
     reasons: reasons.data?.filter((r) => r.active).length,
+    ovens: ovens.data?.items.length,
+    trolleys: trolleys.data?.items.length,
+    recipes: recipes.data?.items.filter((r) => r.status === "active").length,
   };
   return { counts, drafts: drafts.data?.total ?? 0 };
 }
@@ -70,6 +82,7 @@ export function MastersHubPage() {
   const { counts, drafts } = useCounts({
     vendors: access.canReadVendors,
     storeItems: canAny(access.me, STORE_ITEM_PEOPLE),
+    ageing: canAny(access.me, AGEING_MASTER_PEOPLE),
   });
   const groups = (["buying", "floor"] as const)
     .map((g) => ({ id: g, entries: entries.filter((e) => e.group === g) }))

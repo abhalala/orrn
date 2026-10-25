@@ -490,6 +490,7 @@ function DefaultsForm({
     ...(draft.defaults.salesOrderLineId ? { salesOrderLineId: draft.defaults.salesOrderLineId } : {}),
     ...(draft.defaults.dieInstanceId ? { dieInstanceId: draft.defaults.dieInstanceId } : {}),
     ...(draft.defaults.castId ? { castId: draft.defaults.castId } : {}),
+    ...(draft.defaults.ageingRowId ? { ageingRowId: draft.defaults.ageingRowId } : {}),
     ...(draft.defaults.overridePin ? { overridePin: true } : {}),
     showLogo: draft.defaults.showLogo !== false,
   }));
@@ -562,6 +563,7 @@ function DefaultsForm({
       ...(yardId ? { locationId: yardId } : {}),
       ...(choice.dieInstanceId ? { dieInstanceId: choice.dieInstanceId } : {}),
       ...(choice.castId ? { castId: choice.castId } : {}),
+      ...(choice.ageingRowId ? { ageingRowId: choice.ageingRowId } : {}),
       ...(choice.salesOrderLineId ? { salesOrderLineId: choice.salesOrderLineId } : {}),
       ...(choice.salesOrderLineId && choice.overridePin ? { overridePin: true } : {}),
       ...(choice.showLogo ? {} : { showLogo: false }),
@@ -690,6 +692,14 @@ function DefaultsForm({
             }}
             gate={gate}
             showErrors={showSourceErrors}
+            onPickTrolley={(row) => {
+              // The cut length of the trolley line, unless the packer already typed one.
+              if (!row || (mm.trim() !== "" || feet.trim() !== "" || inches.trim() !== "")) return;
+              const next = lengthToInput(row.cutLengthMm, unit);
+              setMm(next.mm);
+              setFeet(next.feet);
+              setInches(next.inches);
+            }}
           />
         ) : null}
 

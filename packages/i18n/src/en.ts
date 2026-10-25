@@ -192,6 +192,7 @@ export const en = {
   },
 
   nav: {
+    ageing: "Ageing",
     main: "Main",
     today: "Today",
     pack: "Pack",
@@ -460,6 +461,16 @@ export const en = {
   },
 
   today: {
+    oven: {
+      title: "Ageing",
+      open: "Open the board",
+      inOven: "In the oven",
+      inOvenMeta: "Batches in a cycle now",
+      out: "Out, to test",
+      outMeta: "Waiting for hardness",
+      held: "Held",
+      heldMeta: "Pieces kept off the pack list",
+    },
     title: "Today",
     greetingMorning: "Good morning, {name}",
     greetingAfternoon: "Good afternoon, {name}",
@@ -810,7 +821,17 @@ export const en = {
     source: {
       title: "Source",
       hand: "No trolley",
-      handHint: "Packing by hand. Trolley rows come with ageing.",
+      handHint: "Packing by hand, with no trolley line.",
+      trolley: "Trolley",
+      trolleyHint: "Pieces come off a released trolley line.",
+      noTrolley: "No trolley",
+      noTrolleyHint: "Pack by hand.",
+      trolleyLine: "Trolley line",
+      trolleyLineHint: "Only released lines with pieces left are listed.",
+      trolleyRequired: "This plant packs from a trolley line. Pick one.",
+      trolleyLeft: "{pcs} pcs left",
+      trolleyCut: "{mm} mm",
+      trolleyCast: "Cast {cast}",
       forOrderHint: "Packing does not change baki. Dispatch does.",
       plantStock: "Plant stock",
       plantStockHint: "Packed for no order. The office can send them on any customer's load.",
@@ -2069,6 +2090,17 @@ export const en = {
   },
 
   settings: {
+    ageing: {
+      title: "Ageing",
+      intro: "How strict the plant is about aged metal.",
+      requireForPackHint: "Pack refuses a hand pack of a section that has released trolley pieces.",
+      manualLoadHint: "Lines typed by hand, with no press log behind them.",
+      splitHint: "A trolley line can be cut into other lengths before it is packed.",
+      fromToday: "Turning this on starts today. Bundles packed before today still go.",
+      since: "Required for bundles packed from {day}. Earlier bundles still go.",
+      saved: "Ageing settings saved.",
+      saveFailed: "Could not save. Try again.",
+    },
     title: "Settings",
     subtitle: "Company, shifts, team, devices and printing for your plant.",
     loadFailed: "Couldn't load settings. Check your connection and try again.",
@@ -2530,6 +2562,15 @@ export const en = {
       reasons: "Reason codes",
       reasonsHint: "Why a press stopped, a bundle was voided or a label was printed again",
       reasonsNoun: "{count:reason|reasons}",
+      ovens: "Ageing ovens",
+      ovensHint: "The ovens, their size and whether they are in service",
+      ovensNoun: "{count:oven|ovens}",
+      trolleys: "Trolleys",
+      trolleysHint: "The painted racks between the press and the oven",
+      trolleysNoun: "{count:trolley|trolleys}",
+      recipes: "Cycle recipes",
+      recipesHint: "Temperature, soak and hardness for each alloy and temper",
+      recipesNoun: "{count:active recipe|active recipes}",
     },
     show: "Show",
     showInUse: "In use",
@@ -3670,6 +3711,9 @@ export const en = {
 
   /** Approvals inbox (PL-W2): second-person sign-off for every kind. */
   approvals: {
+    ageing: {
+      title: "The batch",
+    },
     title: "Approvals",
     subtitle: "Requests that need a second person",
     waitingTitle: "Waiting for a decision",
@@ -3696,6 +3740,7 @@ export const en = {
       press_late_entry: "Press run entered late",
     },
     subject: {
+      ageingOverride: "Release {number} on approval",
       dcDebit: "Debit note {number} on {lot}",
       dcCredit: "Credit note {number} on {lot}",
       dieRerank: "Copy {code}, tier {from} to {to}",
@@ -3728,6 +3773,7 @@ export const en = {
     rejectNeedsNote: "Write why you are rejecting it.",
     own: "Someone else has to approve your request.",
     viewOnly: "A manager approves this.",
+    openBatch: "Open batch",
     openLot: "Open lot",
     openDie: "Open die",
     theirNote: "Their note",

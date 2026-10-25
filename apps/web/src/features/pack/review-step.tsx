@@ -16,7 +16,7 @@ import { Measure, PackBar, type RangeState } from "./pack-ui";
 import { VerdictChip } from "./bundles-step";
 import type { SaveErrorKind } from "./save-error";
 import type { PackDraft } from "./use-pack-draft";
-import { useCasts, useDieCopies, useLinesPreview, useOpenLines } from "./use-pack-server";
+import { useCasts, useDieCopies, useLinesPreview, useOpenLines, useTrolleyLines } from "./use-pack-server";
 
 type Props = {
   draft: PackDraft;
@@ -74,6 +74,8 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
   const copyCode = copies.data?.items.find((c) => c.id === draft.defaults.dieInstanceId)?.code ?? null;
   const castNumber = casts.data?.items.find((c) => c.id === draft.defaults.castId)?.number ?? null;
   const line = orderLines.data?.find((l) => l.lineId === draft.defaults.salesOrderLineId);
+  const trolleyLines = useTrolleyLines(draft.defaults.ageingRowId ? draft.dieId : null);
+  const trolley = trolleyLines.data?.items.find((r) => r.ageingRowId === draft.defaults.ageingRowId) ?? null;
 
   return (
     <div ref={ref} className="flex flex-col gap-4">
@@ -143,6 +145,11 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         {castNumber ? (
           <Fact label={t("pack.source.cast")}>
             <span className="font-mono font-semibold">{castNumber}</span>
+          </Fact>
+        ) : null}
+        {draft.defaults.ageingRowId ? (
+          <Fact label={t("pack.source.trolleyLine")}>
+            <span data-slot="review-trolley" className="font-mono font-semibold">{trolley ? `${trolley.trolleyCode} · ${trolley.batchNumber}` : t("pack.source.trolley")}</span>
           </Fact>
         ) : null}
         <Fact label={t("pack.showLogo")}>
