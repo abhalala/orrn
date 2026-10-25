@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5093 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -1045,7 +1045,7 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (201)
+### dispatch (206)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1237,6 +1237,11 @@ Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 | `capacity.locked` | The capacity this load went against stays as it was. | जिस क्षमता पर यह लोड गया, वह वैसी ही रहती है। |
 | `capacity.overReasonHint` | Say why this truck goes over its capacity. It is kept with the dispatch. | बताएं कि यह ट्रक अपनी क्षमता से ज़्यादा क्यों जा रहा है। यह डिस्पैच के साथ सेव रहता है। |
 | `capacity.reasonRequired` | Say why before you dispatch. | डिस्पैच से पहले कारण लिखें। |
+| `value.title` | Value | मूल्य |
+| `value.priced` | {kg} kg priced at the order rate | {kg} kg ऑर्डर रेट पर |
+| `value.missing` | {count} {count:bundle has\|bundles have} no rate on the order line ({kg} kg) | {count} bundle की ऑर्डर लाइन पर रेट नहीं है ({kg} kg) |
+| `value.complete` | Every bundle has a rate | हर bundle पर रेट है |
+| `value.note` | From the rate on each order line, on weighed kg. Not a tax invoice. | हर ऑर्डर लाइन के रेट से, तौले गए kg पर। यह टैक्स इनवॉइस नहीं है। |
 | `transporter.label` | Transporter | ट्रांसपोर्टर |
 | `transporter.add` | Add transporter | ट्रांसपोर्टर जोड़ें |
 | `transporter.none` | No transporter | कोई ट्रांसपोर्टर नहीं |

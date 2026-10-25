@@ -1359,6 +1359,13 @@ export const en = {
       overReasonHint: "Say why this truck goes over its capacity. It is kept with the dispatch.",
       reasonRequired: "Say why before you dispatch.",
     },
+    value: {
+      title: "Value",
+      priced: "{kg} kg priced at the order rate",
+      missing: "{count} {count:bundle has|bundles have} no rate on the order line ({kg} kg)",
+      complete: "Every bundle has a rate",
+      note: "From the rate on each order line, on weighed kg. Not a tax invoice.",
+    },
     transporter: {
       label: "Transporter",
       add: "Add transporter",

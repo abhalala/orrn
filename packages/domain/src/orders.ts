@@ -240,3 +240,42 @@ export function holdBlocksDispatch(input: {
 }): boolean {
   return input.hold !== null && input.hold.orderOpen && input.hold.customerId !== input.dispatchCustomerId;
 }
+
+/**
+ * FP-OP-14 "Price on the line, value on dispatch": the value of a dispatch from the rate on each
+ * item's order line, `Σ round(weightG × ratePaise / 1000)` (weighed grams, never theoretical kg;
+ * `ratePaise` is ₹ per kg in paise). An item whose line has no rate (or no line) is counted in
+ * `rateMissing` and left out of the sum: a missing rate never zeroes the dispatch. A value figure,
+ * not a tax invoice (P12). Rounding is per item, half up, so a line total equals the sum of its rows.
+ */
+export type DispatchValueItem = { weightG: number; ratePaise: number | null | undefined };
+
+export function itemValuePaise(weightG: number, ratePaise: number): number {
+  return Math.round((weightG * ratePaise) / 1000);
+}
+
+export function dispatchValue(items: readonly DispatchValueItem[]): {
+  valuePaise: number;
+  pricedItems: number;
+  pricedG: number;
+  rateMissing: number;
+  missingG: number;
+} {
+  let valuePaise = 0;
+  let pricedItems = 0;
+  let pricedG = 0;
+  let rateMissing = 0;
+  let missingG = 0;
+  for (const it of items) {
+    const g = Math.max(0, Math.trunc(Number(it.weightG) || 0));
+    if (it.ratePaise == null) {
+      rateMissing += 1;
+      missingG += g;
+      continue;
+    }
+    valuePaise += itemValuePaise(g, it.ratePaise);
+    pricedItems += 1;
+    pricedG += g;
+  }
+  return { valuePaise, pricedItems, pricedG, rateMissing, missingG };
+}
