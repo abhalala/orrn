@@ -1,4 +1,5 @@
-import { COMPANY_ROLES, type CompanyRole, type GuideBook } from "./types";
+import { COMPANY_ROLES, type CompanyRole, type GuideBook, type GuideBookBase } from "./types";
+import { guidesHiFp } from "./hi-fp";
 
 /**
  * SOP guides, Hindi. Same steps as guides/en.ts, one for one. Button and tab
@@ -10,7 +11,7 @@ const FLOOR: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "packer
 const OFFICE: CompanyRole[] = ["owner", "admin", "manager", "office"];
 const EVERYONE: CompanyRole[] = [...COMPANY_ROLES];
 
-export const guidesHi: GuideBook = {
+const guidesHiBase: GuideBookBase = {
   "pack-session": {
     slug: "pack-session",
     roles: FLOOR,
@@ -705,3 +706,5 @@ export const guidesHi: GuideBook = {
     ],
   },
 };
+
+export const guidesHi: GuideBook = { ...guidesHiBase, ...guidesHiFp };

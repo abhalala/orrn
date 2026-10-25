@@ -1,16 +1,17 @@
 import type { Locale } from "../core";
 import { guidesEn } from "./en";
+import { guidesGu } from "./gu";
 import { guidesHi } from "./hi";
-import { GUIDE_SLUGS, type CompanyRole, type Guide, type GuideSlug } from "./types";
+import { GUIDE_SLUGS, type CompanyRole, type Guide, type GuideBook, type GuideSlug } from "./types";
 
 export * from "./types";
 
 /**
- * No Gujarati guide texts yet (W4-GU, by design): gu reads the English book, like any other missing gu message.
- * The guides page chrome (`guides.*`: titles, "Steps", "If something goes wrong") is Gujarati. The per-flow
- * guides in gu are FINAL-DOCS work.
+ * Gujarati has the floor guides only (`GUIDE_SLUGS_GU`: pack, reprint, scan, build a dispatch, dispatch from an
+ * order, the press station, a press stoppage, a die reading, die issue and return). Every other guide reads the
+ * English book in gu, like any other missing gu message. The guides page chrome (`guides.*`) is Gujarati.
  */
-const BOOKS: Record<Locale, typeof guidesEn> = { en: guidesEn, hi: guidesHi, gu: guidesEn };
+const BOOKS: Record<Locale, GuideBook> = { en: guidesEn, hi: guidesHi, gu: { ...guidesEn, ...guidesGu } };
 
 /** One guide in the given locale. */
 export function getGuide(slug: GuideSlug, locale: Locale): Guide {

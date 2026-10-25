@@ -22,7 +22,8 @@ export type CompanyRole = (typeof COMPANY_ROLES)[number];
  */
 export type GuideRole = CompanyRole | "platform_admin";
 
-export const GUIDE_SLUGS = [
+/** The first sixteen guides (packing, dispatch, masters, platform). */
+export const GUIDE_SLUGS_BASE = [
   "pack-session",
   "reprint-label",
   "scan-bundle",
@@ -41,7 +42,51 @@ export const GUIDE_SLUGS = [
   "floor-tablet-signin",
 ] as const;
 
+/** FP modules: orders and planning, press, die room, dispatch from an order, count settlement, portal, reasons. */
+export const GUIDE_SLUGS_FP = [
+  "book-order",
+  "hold-for-order",
+  "reallocate-bundles",
+  "plan-press-run",
+  "press-station-day",
+  "press-late-entry",
+  "press-downtime",
+  "die-reading",
+  "die-issue-return",
+  "die-trial",
+  "bulk-drawings",
+  "dispatch-from-order",
+  "truck-capacity",
+  "packing-list-revisions",
+  "combine-packing-lists",
+  "settle-count",
+  "portal-login",
+  "issue-certificate",
+  "reason-codes",
+] as const;
+
+export const GUIDE_SLUGS = [...GUIDE_SLUGS_BASE, ...GUIDE_SLUGS_FP] as const;
+
+/**
+ * Guides that also exist in Gujarati: the floor flows (pack, scan, dispatch, press station, die issue and
+ * return). Every other guide reads the English book in gu, like any other missing gu text.
+ */
+export const GUIDE_SLUGS_GU = [
+  "pack-session",
+  "reprint-label",
+  "scan-bundle",
+  "build-dispatch",
+  "dispatch-from-order",
+  "press-station-day",
+  "press-downtime",
+  "die-reading",
+  "die-issue-return",
+] as const;
+
 export type GuideSlug = (typeof GUIDE_SLUGS)[number];
+export type GuideSlugBase = (typeof GUIDE_SLUGS_BASE)[number];
+export type GuideSlugFp = (typeof GUIDE_SLUGS_FP)[number];
+export type GuideSlugGu = (typeof GUIDE_SLUGS_GU)[number];
 
 export type GuideStep = { title: string; body: string };
 export type GuideProblem = { title: string; fix: string };
@@ -58,6 +103,10 @@ export type Guide = {
 };
 
 export type GuideBook = { [S in GuideSlug]: Guide & { slug: S } };
+export type GuideBookBase = { [S in GuideSlugBase]: Guide & { slug: S } };
+export type GuideBookFp = { [S in GuideSlugFp]: Guide & { slug: S } };
+/** A Gujarati book holds only the floor guides. */
+export type GuideBookGu = { [S in GuideSlugGu]: Guide & { slug: S } };
 
 export function isGuideSlug(value: string): value is GuideSlug {
   return (GUIDE_SLUGS as readonly string[]).includes(value);
