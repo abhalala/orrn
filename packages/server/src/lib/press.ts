@@ -24,7 +24,7 @@ import { approval } from "@orrn/db/schema/approval";
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
 import { dieInstance } from "@orrn/db/schema/dies";
-import { returnStream } from "@orrn/db/schema/foundry";
+import { cast, returnStream } from "@orrn/db/schema/foundry";
 import { dieIssue, pressLine, pressPlan, pressPlanDie, pressPlanLine, pressRemark, pressRun } from "@orrn/db/schema/press";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { stockLedger } from "@orrn/db/schema/stock";
@@ -187,6 +187,17 @@ export function billetOnHandSql(companyId: string, castId: string): SQL<number> 
   return sql<number>`coalesce((select sum(bl.qty_g) from stock_ledger bl where bl.company_id = ${companyId} and bl.item_kind = 'billet' and bl.item_ref = ${castId}), 0)`;
 }
 
+/**
+ * W2-FD-S r2 (m-c): the billets of a cast the press may count on. The ledger, plus the count
+ * adjustment frozen in the close summary while the cast is `closing` (waiting for `cast_close`): the
+ * yard was counted, so the press is judged against counted − what it used since, not the uncorrected
+ * ledger. The approval then posts that adjustment (`cast_tail`), so the ledger agrees; a reject clears
+ * it. Both signs: fewer counted records a short, more counted is usable without a false short.
+ */
+export function billetUsableSql(companyId: string, castId: string): SQL<number> {
+  return sql<number>`(${billetOnHandSql(companyId, castId)} + coalesce((select json_extract(uc.close_summary, '$.adjustG') from ${cast} uc where uc.id = ${castId} and uc.company_id = ${companyId} and uc.status = 'closing'), 0))`;
+}
+
 /** One cast's share of a run's billets (W2-FD-S r1: a run may use billets of several casts). */
 export type CloseBilletCharge = {
   castId: string;
@@ -258,7 +269,7 @@ export function closeLedgerStatements(
             createdAt: sql<number>`${at}`.as("created_at"),
           })
           .from(company)
-          .where(and(eq(company.id, i.companyId), runLanded(i.runId, i.seq, "logged"), sql`${billetOnHandSql(i.companyId, b.castId)} >= ${b.guardG}`)),
+          .where(and(eq(company.id, i.companyId), runLanded(i.runId, i.seq, "logged"), sql`${billetUsableSql(i.companyId, b.castId)} >= ${b.guardG}`)),
       ),
     );
   }

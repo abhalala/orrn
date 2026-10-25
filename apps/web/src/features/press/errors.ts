@@ -65,6 +65,8 @@ export const PRESS_REFUSALS: readonly PressRefusal[] = [
   { id: "lineHasRun", code: "BAD_REQUEST", re: /^(\S+) is still open on (\S+); finish or void it first$/, key: E("lineHasRun"), vars: (m) => ({ number: m[1]!, line: m[2]! }), sample: "PR-3 is still open on P1; finish or void it first", src: "finish or void it first" },
   { id: "hasStarted", code: "BAD_REQUEST", re: /^(\S+) has started\b/, key: E("hasStarted"), vars: (m) => ({ number: m[1]! }), sample: "PR-3 has started; only queued runs move", src: "has started; only queued runs move" },
   { id: "castCancelled", code: "BAD_REQUEST", re: /^That cast is cancelled$/, key: E("castCancelled"), sample: "That cast is cancelled", src: "That cast is cancelled" },
+  // W2-FD-S r2 (I-5): billets of another cast must be the run's alloy.
+  { id: "billetAlloy", code: "BAD_REQUEST", re: /^Billets of (\S+) are (\S+); this run is (\S+)$/, key: E("billetAlloy"), vars: (m) => ({ cast: m[1]!, alloy: m[2]!, runAlloy: m[3]! }), sample: "Billets of K31 are 6061; this run is 6063", src: "; this run is " },
   { id: "pickReason", code: "BAD_REQUEST", re: /^Pick a reject reason from the list$/, key: E("pickReason"), sample: "Pick a reject reason from the list", src: "Pick a reject reason from the list" },
   { id: "timeSkew", code: "BAD_REQUEST", re: /device time differs from server time/, key: E("timeSkew"), sample: "PR-3: device time differs from server time by more than 2 minutes", src: "device time differs from server time" },
   { id: "copyOnTrial", code: "BAD_REQUEST", re: /^(\S+) is on trial;/, key: E("copyOnTrial"), vars: (m) => ({ code: m[1]! }), sample: "D-1 is on trial; it goes only to a die trial run until the trial passes or a manager releases it", src: "is on trial; it goes only to a die trial run" },

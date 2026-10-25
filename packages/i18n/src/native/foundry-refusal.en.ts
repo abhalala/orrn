@@ -79,4 +79,6 @@ export const foundryRefusalEn = {
   countWithKg: "Count the billets and weigh them together.",
   streamShort: "Only {kg} kg of {stream} is in stock.",
   spectroNoFile: "No file is attached. Write why the numbers are typed.",
+  spectroChanged: "The spectro result changed. Check it and lock again.",
+  billetStoreRetired: "The billet store {code} is retired. Reactivate it to post the count, or reject the close.",
 };

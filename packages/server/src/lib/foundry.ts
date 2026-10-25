@@ -263,6 +263,11 @@ export function streamCharges(
   return [...net.values()].filter((c) => c.netG > 0);
 }
 
+/** r2 (m-d): a `cast_close` approval whose count adjustment would post at a retired billet store. */
+export function billetStoreRetiredMessage(code: string): string {
+  return `The billet store ${code} is retired; reactivate it to post the count, or reject the close`;
+}
+
 /** The refusal for a stream charged beyond its balance. */
 export function streamShortMessage(name: string, balanceG: number): string {
   return `Only ${fmtKg(Math.max(balanceG, 0))} kg of ${name} is in stock`;
@@ -335,9 +340,20 @@ export function castBilletsOnHandSql(companyId: string, castId: SQL): SQL<number
  * of the cast's logged runs). Above 0 the cast shows "billets short by N kg" for the close-out.
  */
 export function castBilletsShortSql(companyId: string, castId: SQL): SQL<number> {
+  // r2 (m-b): a run's billet rows may name several casts. A run of one cast (every row of it, or no
+  // rows) gives that cast its whole `billet_short_g`. On a mixed run each cast is short by the part of
+  // its own kg its ledger did not hold just before that run's billet row: kg − max(0, on hand before),
+  // read from the ledger by server_seq (company-monotonic), the same rule the close used (D22).
+  const ownRowsG = sql`(select coalesce(sum(su.kg_g), 0) from press_billet_use su where su.company_id = ${companyId} and su.press_run_id = sr.id and su.cast_id = ${castId})`;
+  const rowSeq = sql`(select max(sl.server_seq) from ${stockLedger} sl where sl.company_id = ${companyId} and sl.voucher_type = 'press_run' and sl.voucher_id = sr.id and sl.item_kind = 'billet' and sl.item_ref = ${castId})`;
+  const before = sql`(select coalesce(sum(sh.qty_g), 0) from ${stockLedger} sh where sh.company_id = ${companyId} and sh.item_kind = 'billet' and sh.item_ref = ${castId} and sh.server_seq < ${rowSeq})`;
+  const otherCast = sql`exists (select 1 from press_billet_use so where so.company_id = ${companyId} and so.press_run_id = sr.id and so.cast_id <> ${castId})`;
+  const ownRow = sql`exists (select 1 from press_billet_use sw where sw.company_id = ${companyId} and sw.press_run_id = sr.id and sw.cast_id = ${castId})`;
+  const anyRow = sql`exists (select 1 from press_billet_use sa where sa.company_id = ${companyId} and sa.press_run_id = sr.id)`;
   return sql<number>`coalesce((
-    select sum(sr.billet_short_g) from press_run sr
-    where sr.company_id = ${companyId} and sr.cast_id = ${castId} and sr.status = 'logged'
+    select sum(case when ${otherCast} then max(0, ${ownRowsG} - max(0, ${before})) else sr.billet_short_g end) from press_run sr
+    where sr.company_id = ${companyId} and sr.status = 'logged' and coalesce(sr.billet_short_g, 0) > 0
+      and (${ownRow} or (sr.cast_id = ${castId} and not ${anyRow}))
   ), 0)`;
 }
 
