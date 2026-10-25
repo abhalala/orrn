@@ -155,3 +155,33 @@ test.describe("FP-OP-19 order print and export", () => {
     expect(file.suggestedFilename()).toMatch(/^plan-PP-\d+\.xlsx$/);
   });
 });
+
+test.describe("FP-OP-21 press plan on the owner's phone", () => {
+  test("375px: read-only plan and today's figures; no planning grid", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 900 });
+    await signInViaApi(page, "owner");
+    await page.goto("/orders/plan");
+    await expect(page.locator("[data-phone-summary]")).toBeVisible({ timeout: 30_000 });
+    const card = page.locator('[data-phone-plan-card="PP-2"]');
+    await expect(card).toBeVisible();
+    await expect(card.locator("[data-phone-die]").first()).toBeVisible();
+    await expect(card.locator("[data-die-chip]").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: /release/i })).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+    // The plan's own page shows the same read-only view on a phone.
+    await page.goto("/orders/plan/dev-plan-trial-2");
+    await expect(page.locator('[data-phone-plan-card="PP-2"]')).toBeVisible({ timeout: 30_000 });
+    await expectNoHorizontalScroll(page);
+  });
+
+  for (const width of [820, 1280] as const) {
+    test(`${width}px: the planning board, not the phone view`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await signInViaApi(page, "owner");
+      await page.goto("/orders/plan");
+      await expect(page.getByRole("heading").first()).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator("[data-phone-plan]")).toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+    });
+  }
+});

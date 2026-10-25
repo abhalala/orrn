@@ -37,6 +37,12 @@ export const pressHi = {
     nobody: "कोई नहीं",
     scanOpened: "रन {number} खुला",
     scanNoRun: "इस die copy के लिए कोई रन इंतज़ार में नहीं है। इसके बजाय इसका card खुल रहा है।",
+    planHeading: "प्रेस प्लान",
+    planToday: "{kg} kg, {runs} रन, {min} मिनट बंद",
+    planNone: "प्रेस को कोई प्लान रिलीज़ नहीं हुआ।",
+    planKg: "{planned} में से {pressed} kg",
+    planPcs: "{planned} में से {pressed} pcs",
+    planNotStarted: "शुरू नहीं हुआ",
     errors: {
       dieElsewhere: "जो die दी गई है वह किसी दूसरे रन या press की है। die room से पूछें।",
       downtimeRunning: "इस press पर डाउनटाइम पहले से चल रहा है। पहले उसे बंद करें।",

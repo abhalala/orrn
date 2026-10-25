@@ -4244,6 +4244,16 @@ export const hi = {
       failed: "फ़ाइल नहीं बन पाई। फिर कोशिश करें।",
     },
     title: "ऑर्डर",
+    phonePlan: {
+      none: "कोई रिलीज़ प्लान नहीं",
+      noneBody: "प्रेस को रिलीज़ होने के बाद प्लान यहाँ दिखेगा।",
+      planTotal: "{planned} में से {pressed} kg प्रेस हुआ ({pct}%)",
+      kgLine: "{planned} में से {pressed} kg",
+      pcsLine: "{planned} में से {pressed} pcs",
+      notStarted: "शुरू नहीं हुआ",
+      urgent: "अर्जेंट",
+      readOnly: "सिर्फ़ देखने के लिए। प्लान टैबलेट या कंप्यूटर पर बनाएँ और बदलें।",
+    },
     printOut: {
       order: "ऑर्डर प्रिंट करें",
       orderExcel: "ऑर्डर Excel में",

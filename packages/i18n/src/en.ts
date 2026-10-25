@@ -4256,6 +4256,16 @@ export const en = {
       excel: "Excel",
       failed: "Could not make the file. Try again.",
     },
+    phonePlan: {
+      none: "No released plan",
+      noneBody: "A plan shows here once it is released to the press.",
+      planTotal: "{pressed} of {planned} kg pressed ({pct}%)",
+      kgLine: "{pressed} of {planned} kg",
+      pcsLine: "{pressed} of {planned} pcs",
+      notStarted: "Not started",
+      urgent: "Urgent",
+      readOnly: "Read only. Make and change plans on a tablet or computer.",
+    },
     printOut: {
       order: "Print order",
       orderExcel: "Order in Excel",

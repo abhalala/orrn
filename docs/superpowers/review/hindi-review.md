@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5141 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5155 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -2909,7 +2909,7 @@ Counts: 5141 screen strings in 46 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (251)
+### native (257)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3149,6 +3149,12 @@ Counts: 5141 screen strings in 46 groups, 16 guides with 292 strings.
 | `press.nobody` | Nobody | कोई नहीं |
 | `press.scanOpened` | Opened run {number} | रन {number} खुला |
 | `press.scanNoRun` | No run is waiting for this die copy. Its card is opening instead. | इस die copy के लिए कोई रन इंतज़ार में नहीं है। इसके बजाय इसका card खुल रहा है। |
+| `press.planHeading` | Press plan | प्रेस प्लान |
+| `press.planToday` | {kg} kg, {runs} {runs:run\|runs}, {min} min stopped | {kg} kg, {runs} रन, {min} मिनट बंद |
+| `press.planNone` | No plan is released to the press. | प्रेस को कोई प्लान रिलीज़ नहीं हुआ। |
+| `press.planKg` | {pressed} of {planned} kg | {planned} में से {pressed} kg |
+| `press.planPcs` | {pressed} of {planned} pcs | {planned} में से {pressed} pcs |
+| `press.planNotStarted` | Not started | शुरू नहीं हुआ |
 | `press.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जो die दी गई है वह किसी दूसरे रन या press की है। die room से पूछें। |
 | `press.errors.downtimeRunning` | This press already has downtime running. Stop it first. | इस press पर डाउनटाइम पहले से चल रहा है। पहले उसे बंद करें। |
 | `press.errors.noteNeeded` | Add a note for Other. | Other के लिए नोट लिखें। |
@@ -3947,7 +3953,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (382)
+### orders (390)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4004,6 +4010,14 @@ Please check, Lalubhai:
 | `stockOn.pdf` | PDF | PDF |
 | `stockOn.excel` | Excel | Excel |
 | `stockOn.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
+| `phonePlan.none` | No released plan | कोई रिलीज़ प्लान नहीं |
+| `phonePlan.noneBody` | A plan shows here once it is released to the press. | प्रेस को रिलीज़ होने के बाद प्लान यहाँ दिखेगा। |
+| `phonePlan.planTotal` | {pressed} of {planned} kg pressed ({pct}%) | {planned} में से {pressed} kg प्रेस हुआ ({pct}%) |
+| `phonePlan.kgLine` | {pressed} of {planned} kg | {planned} में से {pressed} kg |
+| `phonePlan.pcsLine` | {pressed} of {planned} pcs | {planned} में से {pressed} pcs |
+| `phonePlan.notStarted` | Not started | शुरू नहीं हुआ |
+| `phonePlan.urgent` | Urgent | अर्जेंट |
+| `phonePlan.readOnly` | Read only. Make and change plans on a tablet or computer. | सिर्फ़ देखने के लिए। प्लान टैबलेट या कंप्यूटर पर बनाएँ और बदलें। |
 | `printOut.order` | Print order | ऑर्डर प्रिंट करें |
 | `printOut.orderExcel` | Order in Excel | ऑर्डर Excel में |
 | `printOut.plan` | Print shift list | शिफ्ट लिस्ट प्रिंट करें |

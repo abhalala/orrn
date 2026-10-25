@@ -1,0 +1,74 @@
+/**
+ * W4-NEXTROWS FP-OP-21: `plans.phone` for the owner's phone, read-only. Released plans with per-die
+ * lengths, planned vs pressed pcs/kg (logged runs only) and the run-state chip; the summary is the
+ * FP-PR-18 day summary. Floor roles without reports.read / order.plan are refused.
+ */
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
+
+import { createTestEnv, type TestEnv } from "./harness";
+import { fillWorkedExample, kg, pressHelpers } from "./press-w2-fixture";
+
+setDefaultTimeout(60_000);
+
+let env: TestEnv;
+beforeAll(async () => {
+  env = await createTestEnv();
+}, 60_000);
+afterAll(async () => {
+  await env.dispose();
+});
+
+const { pressPlant } = pressHelpers(() => env);
+
+describe("plans.phone (FP-OP-21)", () => {
+  test("a released plan: planned per length, chip follows the run, pressed only once logged; summary matches", async () => {
+    const p = await pressPlant();
+    const r = await p.queuedRun({ pcs: 100 });
+
+    const queued = await p.owner.plans.phone();
+    const plan = queued.plans.find((x) => x.id === r.planId)!;
+    expect(plan.pressLine?.code).toBe("P1");
+    expect(plan.dies).toHaveLength(1);
+    const d0 = plan.dies[0]!;
+    expect(d0.state).toBe("queued");
+    expect(d0.lengths).toHaveLength(1);
+    expect(d0.lengths[0]).toMatchObject({ cutLengthMm: 3_658, plannedPcs: 100, pressedPcs: 0, pressedG: 0 });
+    expect(d0.plannedG).toBeGreaterThan(0);
+    expect(d0).not.toHaveProperty("ratePaise");
+
+    // Run it to counting: the chip moves, nothing pressed yet.
+    await p.issue(r.runId, r.copyId);
+    await p.as("press").press.runs.start({ id: r.runId });
+    expect((await p.owner.plans.phone({ planId: r.planId })).plans[0]!.dies[0]!.state).toBe("running");
+    await p.as("press").press.runs.stop({ id: r.runId });
+    await p.as("press").press.runs.count({ id: r.runId });
+    const c = await p.castWith(kg(400));
+    await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
+    const counting = (await p.owner.plans.phone({ planId: r.planId })).plans[0]!.dies[0]!;
+    expect(counting).toMatchObject({ state: "counting", pressedPcs: 0, pressedG: 0 });
+
+    await p.as("supervisor").press.runs.close({ id: r.runId });
+    const after = await p.as("office").plans.phone({ planId: r.planId });
+    const d = after.plans[0]!.dies[0]!;
+    // Worked example: 80 pcs, 234.2 kg good at 12 ft.
+    expect(d).toMatchObject({ state: "logged", pressedPcs: 80, pressedG: kg(234.2) });
+    expect(d.lengths[0]).toMatchObject({ cutLengthMm: 3_658, plannedPcs: 100, pressedPcs: 80, pressedG: kg(234.2) });
+    expect(d.pressedBp).toBe(Math.round((kg(234.2) * 10_000) / d.plannedG));
+    expect(after.plans[0]!.pressedG).toBe(kg(234.2));
+    // The summary is the day summary (FP-PR-18) of the same day.
+    const day = await p.owner.press.summary({});
+    expect(after.summary).toMatchObject({ productionDay: day.productionDay, runs: day.runs, kgG: day.kgG, recoveryBp: day.recoveryBp });
+  });
+
+  test("only released plans by default; floor roles are refused", async () => {
+    const p = await pressPlant();
+    const r = await p.queuedRun({ pcs: 10 });
+    expect((await p.owner.plans.phone()).plans.map((x) => x.id)).toContain(r.planId);
+    await expect(p.as("packer").plans.phone()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.as("press").plans.phone()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.as("viewer").plans.phone()).resolves.toBeTruthy();
+    // Another plant's plan is not there.
+    const q = await pressPlant();
+    expect((await q.owner.plans.phone({ planId: r.planId })).plans).toEqual([]);
+  });
+});

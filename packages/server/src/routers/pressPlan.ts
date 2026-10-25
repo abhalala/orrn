@@ -25,7 +25,7 @@ import { customer } from "@orrn/db/schema/customers";
 import { pressLine, pressPlan, pressPlanDie, pressPlanLine, pressPlanPurposes, pressPlanStatuses, pressRun } from "@orrn/db/schema/press";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 
-import { actionProcedure, companyProcedure, router } from "../index";
+import { actionProcedure, anyActionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, chunk, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
@@ -35,6 +35,10 @@ import { companyFloor } from "../lib/orderLines";
 import { batchAbortUnless, isBatchAbort, kgText, lineBalancePage, lineBalances, type LineBalance } from "../lib/orders";
 import { lineStrips, planOverPlannedSql, type LineStrip } from "../lib/orderStrip";
 import { nextCompanySeq } from "../lib/sequence";
+import { productionDayWindow } from "../lib/dayWindow";
+import { companySettings } from "../lib/press";
+import { planPhoneView } from "../lib/planPhoneView";
+import { pressDaySummary } from "../lib/pressReport";
 
 const id = z.string().min(1).max(64);
 const MAX_DIES = 30;
@@ -959,6 +963,37 @@ export const pressPlanRouter = router({
     }),
 
   /** Active press lines, for the plan's press pick (a plant with two needs one before release). */
+  /**
+   * FP-OP-21 (W4-NEXTROWS): the press plan and the day's press summary on the owner's phone,
+   * read-only. Released plans (or one `planId`) with per-die lengths, planned vs pressed pcs/kg and
+   * a run-state chip; the summary is FP-PR-18's. No rates, no 17-column grid.
+   */
+  phone: anyActionProcedure("reports.read", "order.plan")
+    .input(z.object({ planId: id.optional(), productionDay: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }).default({}))
+    .query(async ({ ctx, input }) => {
+      const nowMs = clockNow().getTime();
+      const day = input.productionDay ?? productionDayWindow(await companySettings(ctx.db, ctx.companyId), nowMs).productionDay;
+      const [plans, summary] = await Promise.all([
+        planPhoneView(ctx.db, ctx.companyId, input.planId ? { planId: input.planId } : {}),
+        pressDaySummary(ctx.db, ctx.companyId, day, nowMs),
+      ]);
+      return {
+        plans,
+        summary: {
+          productionDay: summary.productionDay,
+          runs: summary.runs,
+          kgG: summary.kgG,
+          pcs: summary.pcs,
+          recoveryBp: summary.recoveryBp,
+          downtimeMin: summary.downtimeMin,
+          lateRuns: summary.lateRuns,
+          byLine: summary.byLine.map((l) => ({ pressLineId: l.pressLineId, code: l.code, name: l.name, runs: l.runs, kgG: l.kgG, pcs: l.pcs, recoveryBp: l.recoveryBp, downtimeMin: l.downtimeMin })),
+          byShift: summary.byShift.map((s) => ({ shiftSeq: s.shiftSeq, shiftName: s.shiftName, runs: s.runs, kgG: s.kgG, recoveryBp: s.recoveryBp })),
+          downtimeByReason: summary.downtimeByReason,
+        },
+      };
+    }),
+
   pressLines: companyProcedure.query(async ({ ctx }) => {
     return ctx.db
       .select({ id: pressLine.id, code: pressLine.code, name: pressLine.name })

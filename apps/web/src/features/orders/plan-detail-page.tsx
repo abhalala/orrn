@@ -23,6 +23,7 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { OtherLines } from "./components/other-lines";
 import { PlanPrintButtons } from "./components/print-buttons";
+import { PhonePlan } from "./components/phone-plan";
 import { ReasonSheet } from "./components/reason-sheet";
 import { orderErrorLines } from "./errors";
 import { dayTimeText, orderKgText } from "./format";
@@ -124,7 +125,10 @@ export function PlanDetailPage({ id }: { id: string }) {
     return (
       <>
         <PageHeader title={t("press.plan.title")} back={back} />
-        <BiggerScreenNote />
+        <div className="flex min-w-0 flex-col gap-4">
+          <PhonePlan planId={id} />
+          <BiggerScreenNote />
+        </div>
       </>
     );
   }
