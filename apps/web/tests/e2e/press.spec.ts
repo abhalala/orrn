@@ -289,18 +289,23 @@ for (const width of WIDTHS) {
       await expect(p1).toBeVisible();
       await expect(p2).toBeVisible();
       // P1 and P2 wait with the seeded queued runs (the counts are the server's); P2 has PR-10 running now
-      // (PR-9, a late entry, is being counted behind it).
+      // (PR-9, a late entry, is being counted behind it). P1 is shared with other specs that release plans on it
+      // (orders, die-room-w2), so the server's cards are read again with each attempt (BACKLOG 49): the board
+      // and the API are compared at the same moment, never one stale snapshot against a moving queue.
       const owner = await apiAs("owner");
       const cardsOf = async (pressLineId: string) =>
         (await owner.q<{ cards: { number: string; status: string }[] }>("press.queue.list", { pressLineId })).cards;
-      const p1Cards = await cardsOf("dev-press-line-1");
+      const waiting = (cards: { status: string }[]) => cards.filter((c) => c.status === "queued" || c.status === "die_issued").length;
+      await expect(async () => {
+        const p1Cards = await cardsOf("dev-press-line-1");
+        await expect(p1.getByTestId("line-waiting")).toHaveText(String(waiting(p1Cards)), { timeout: 1_500 });
+      }).toPass({ timeout: 20_000 });
       const p2Cards = await cardsOf("dev-press-line-2");
       await owner.dispose();
-      const waiting = (cards: { status: string }[]) => cards.filter((c) => c.status === "queued" || c.status === "die_issued").length;
-      await expect(p1.getByTestId("line-waiting")).toHaveText(String(waiting(p1Cards)));
-      // The board shows the first card that is on the press, in the server's order (PR-9 is being counted, PR-10 is running).
+      // The board leads with the RUNNING run (PR-10) even though the counting PR-9 comes before it in queue order.
       expect(p2Cards.map((c) => c.number)).toEqual(expect.arrayContaining(["PR-9", "PR-10"]));
-      await expect(p2.getByTestId("line-on-line")).toHaveText(p2Cards.find((c) => c.status !== "queued" && c.status !== "die_issued")!.number);
+      const onPress = p2Cards.filter((c) => c.status !== "queued" && c.status !== "die_issued");
+      await expect(p2.getByTestId("line-on-line")).toHaveText((onPress.find((c) => c.status === "running") ?? onPress[0]!).number);
       await expect(p2.getByTestId("line-waiting")).toHaveText(String(waiting(p2Cards)));
       await expect(mine.getByTestId("line-waiting")).toHaveText("2");
       await expect(mine.getByTestId("line-on-line")).toHaveText("Nothing running");
@@ -492,7 +497,9 @@ for (const width of WIDTHS) {
       for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Back" }).click();
       await expect(page.getByLabel("Weighed kg", { exact: true })).toHaveValue("77");
       await expect(page.getByLabel("Billets", { exact: true })).toHaveValue("4");
-      // Nothing says another device changed the figures: this tablet saved them itself.
+      // Nothing says another device changed the figures: this tablet saved them itself. The notice appears only
+      // once the run query answers, and toHaveCount(0) passes at once, so let the network go idle first.
+      await page.waitForLoadState("networkidle");
       await expect(page.locator('[data-slot="draft-stale"]')).toHaveCount(0);
 
       const preview = await owner.q<{ saved: boolean; figures: { recoveryPct: string | null; inputG: number; goodG: number; rejectG: number; balanceG: number }; gates: string[] }>("press.runs.preview", { id: fx.ready.id });

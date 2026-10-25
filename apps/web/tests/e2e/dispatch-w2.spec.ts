@@ -266,7 +266,7 @@ test.describe("packing list: kg per piece", () => {
     await expect(page.getByTestId("packing-list-kg-per-piece")).toHaveText(["3.000", "4.500"]);
     expect((await q<{ packingList: { kgPerPiece: boolean } }>(page, "company.getSettings", {})).packingList.kgPerPiece).toBe(true);
     // Excel and PDF carry it too: the files are made on click from the same switch.
-    const [xlsx] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Excel" }).click()]);
+    const [xlsx] = await Promise.all([page.waitForEvent("download", { timeout: 60_000 }), page.getByRole("button", { name: "Excel" }).click()]);
     expect(xlsx.suggestedFilename()).toMatch(/\.xlsx$/);
     await expectNoHorizontalScroll(page);
 

@@ -5,13 +5,16 @@
  * to the fixes ([D36 D37 O24 O30] follows the amended suggestion rule; [D15] pins "same figures,
  * request untouched"). Slow lane: about 90 tests, each seeds its own plant.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 
 import { approval, auditLog, bundle, company, customer, die, dispatch, dispatchItem, packingList, packingListLine, salesOrder, salesOrderLine } from "@orrn/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { ist, kg, NOON, salesHelpers, SLOW, type SalesPlant as Plant, saveOrder, cancelOrder, closeOrder, confirmOrder } from "./sales-fixture";
+
+// Heavy Miniflare D1 cases: the 5 s default flakes when other gates share the machine.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;

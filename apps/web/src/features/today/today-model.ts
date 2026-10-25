@@ -48,13 +48,17 @@ export function companyClock(timezone: string, nowMs: number, locale: string): {
   const hour = Number(
     new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone }).format(at),
   );
-  const date = new Intl.DateTimeFormat(dateTag(locale), {
+  // Weekday, day and month are read as format parts and joined here: Intl's own pattern differs
+  // between ICU builds (a comma after the weekday in some, none in others).
+  const parts = new Intl.DateTimeFormat(dateTag(locale), {
     weekday: "long",
     day: "numeric",
     month: "long",
     timeZone,
     numberingSystem: "latn",
-  }).format(at);
+  }).formatToParts(at);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  const date = `${part("weekday")}, ${part("day")} ${part("month")}`;
   return { hour, date };
 }
 

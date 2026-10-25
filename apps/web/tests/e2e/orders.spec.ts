@@ -122,8 +122,12 @@ test.describe("orders list and detail", () => {
       // SO-3 has no PO yet. Other specs (pack-w1) book orders without a PO too, so read SO-3's own row.
       const so3 = main.locator("li, tr").filter({ has: page.getByText("SO-3", { exact: true }) });
       await expect(so3.getByText("No PO yet")).toBeVisible();
-      // Only SO-1 is past 15 days.
-      await expect(main.getByText(/Late, \d+ days/)).toHaveCount(1);
+      // Only SO-1 is past 15 days. Scoped to the seeded orders' own rows: other specs (orders-w2's overdue Book
+      // Traders order, the demo plant's own late order) legitimately add Late rows to the shared list (BACKLOG 56).
+      const rowOf = (n: string) => main.locator("li, tr").filter({ has: page.getByText(n, { exact: true }) });
+      await expect(rowOf("SO-1").getByText(/Late, \d+ days/)).toHaveCount(1);
+      await expect(rowOf("SO-2").getByText(/Late, \d+ days/)).toHaveCount(0);
+      await expect(rowOf("SO-3").getByText(/Late, \d+ days/)).toHaveCount(0);
       // Other tests in this file book and confirm orders of their own, so these are "at least".
       // (the Status filter's options say the same words: look at the chips)
       await expect(main.locator("[data-slot='chip']").filter({ hasText: /^Booking$/ }).first()).toBeVisible();

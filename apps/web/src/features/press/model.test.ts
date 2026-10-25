@@ -24,6 +24,7 @@ import {
   percentOfBp,
   pollIntervalFor,
   qcRows,
+  leadOnLine,
   reorderTarget,
   splitQueue,
   STATION_ACTION,
@@ -204,6 +205,13 @@ describe("queue", () => {
     expect(onLine.map((c) => c.id)).toEqual(["r1", "r2"]);
     expect(waiting.map((c) => c.id)).toEqual(["w1", "w2", "w3"]);
     expect(onLine.length + waiting.length).toBe(cards.length);
+  });
+
+  test("the line board leads with the running run, not the first card on the line", () => {
+    expect(leadOnLine([{ status: "counting" }, { status: "running" }])?.status).toBe("running");
+    expect(leadOnLine([{ status: "stopped" }, { status: "counting" }])).toEqual({ status: "stopped" });
+    expect(leadOnLine([{ status: "counting" }, { status: "running" }, { status: "running" }])).toEqual({ status: "running" });
+    expect(leadOnLine([])).toBeUndefined();
   });
 
   test("move up / down targets stop at the ends", () => {

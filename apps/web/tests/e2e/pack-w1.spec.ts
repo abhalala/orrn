@@ -316,9 +316,11 @@ test.describe("pack: party number after save, one tone everywhere, labels with n
 });
 
 type Box = { x: number; y: number; width: number; height: number };
-const overlaps = (a: Box, b: Box) => a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5 && a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5;
+/** Sub-pixel layout noise (fractional widths at 375/820 under load, font swap rounding): 1 px either way is the same layout. */
+const TOL = 1;
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.width - TOL && b.x < a.x + a.width - TOL && a.y < b.y + b.height - TOL && b.y < a.y + a.height - TOL;
 const inside = (inner: Box, outer: Box) =>
-  inner.x >= outer.x - 0.5 && inner.y >= outer.y - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5 && inner.y + inner.height <= outer.y + outer.height + 0.5;
+  inner.x >= outer.x - TOL && inner.y >= outer.y - TOL && inner.x + inner.width <= outer.x + outer.width + TOL && inner.y + inner.height <= outer.y + outer.height + TOL;
 
 /**
  * C-1: the QR box never intersects the company name, serial or weight, and all of them sit inside the sticker.
@@ -328,7 +330,9 @@ async function expectStickerFits(sticker: ReturnType<Page["locator"]>) {
   await expect(sticker.locator("img[data-slot='sticker-qr']")).toBeVisible({ timeout: 15_000 });
   // Under reduced motion every property change is a 0.01 ms transition (globals.css), so a box read in
   // the same frame as a density or media switch still has its old size: wait two frames first.
+  // Fonts first (a late web font changes the text widths), then two frames for the layout to settle.
   const boxes = await sticker.evaluate(async (el) => {
+    await document.fonts.ready;
     await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
     const box = (e: Element | null) => {
       if (!e) return null;

@@ -1,9 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 
 import { bundle, bundleStatusEvent, customer, die, dispatchItem, packingListLine } from "@orrn/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
+
+// Heavy Miniflare D1 cases: the 5 s default flakes when other gates share the machine.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 

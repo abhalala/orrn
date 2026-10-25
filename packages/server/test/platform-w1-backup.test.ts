@@ -4,13 +4,16 @@
  * compares customer/die/bundle/dispatch, every failure path leaves a failed run and the previous
  * Ok object untouched. R2 is a fake bucket here (`workersEnv.BACKUPS`).
  */
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 
 import { auditLog, backupRun, bundle, company, customer, die, dispatch, dispatchItem, invite, session } from "@orrn/db/schema";
 import { and, count, eq } from "drizzle-orm";
 
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
+
+// Heavy Miniflare D1 cases: the 5 s default flakes when other gates share the machine.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 

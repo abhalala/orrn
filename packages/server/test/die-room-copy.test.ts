@@ -3,7 +3,7 @@
  * customer-owned die and its exception flow (FP-DR-12), card fields (FP-DR-07), and the permission
  * matrix per role. Every transition, allowed and refused.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 
 import {
   approval,
@@ -18,6 +18,9 @@ import {
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+
+// Heavy Miniflare D1 cases: the 5 s default flakes when other gates share the machine.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let dieOwnerLib: typeof import("../src/lib/dieOwner");

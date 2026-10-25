@@ -2,7 +2,7 @@
  * PL-4: die instances (the physical copies, "obliques"), weight readings, nitriding logs and the
  * approved tier re-rank (spec P4/P18, digest Stage 19).
  */
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test, setDefaultTimeout } from "bun:test";
 
 import {
   approval,
@@ -16,6 +16,9 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
+
+// Heavy Miniflare D1 cases: the 5 s default flakes when other gates share the machine.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;

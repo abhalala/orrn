@@ -212,8 +212,8 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   const stopButton = banner.getByRole("button", { name: "Stop impersonating" });
   // boundingBox() does not wait: a banner still settling after the Today load gave null (0 px).
   await expect(stopButton).toBeVisible();
-  const stopBox = await stopButton.boundingBox();
-  expect(stopBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+  // Measured after visibility, and polled: the banner can still be reflowing for a frame or two after the Today load.
+  await expect.poll(async () => (await stopButton.boundingBox())?.height ?? 0, "Stop button height").toBeGreaterThanOrEqual(44);
   await expect(page.locator("[data-slot='app-shell']")).toHaveAttribute("data-variant", "tenant");
   expect(await blockingAxeViolations(page, "[data-slot='impersonation-banner']"), "impersonation banner").toEqual([]);
   const stored = await page.evaluate(() => sessionStorage.getItem("orrn:impersonate-company-id"));

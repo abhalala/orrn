@@ -88,7 +88,13 @@ export function instantDateText(at: Date | string | number, locale: Locale, time
       timeZone: zone,
     };
     if (yearIn(when, zone) !== yearIn(new Date(now), zone)) options.year = "numeric";
-    return new Intl.DateTimeFormat(tag, options).format(when);
+    // Explicit parts, not Intl's own pattern: the "at" / comma between date and time and the English
+    // "Sept" spelling differ between ICU builds (Linux vs macOS).
+    const parts = new Intl.DateTimeFormat(tag, options).formatToParts(when);
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+    const month = locale === "hi" ? part("month") : part("month").replace(/^Sept$/, "Sep");
+    const date = [part("day"), month, options.year ? part("year") : ""].filter(Boolean).join(" ");
+    return `${date}${locale === "hi" ? ", " : " at "}${part("hour")}:${part("minute")}`;
   };
   try {
     return format(timeZone);

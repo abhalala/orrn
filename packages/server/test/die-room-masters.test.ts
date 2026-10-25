@@ -482,9 +482,8 @@ describe("dev seed: die room demo (idempotent)", () => {
       ["PR-13", "queued"],
       ["PR-14", "queued"],
     ]);
-    // queuedRuns orders by the run number as text, so PR-13 comes before PR-2 (reported by W2-SEED, not fixed there):
-    // compare in run order.
-    const queuedRuns = (await caller.dieInstance.issues.queuedRuns()).sort((a, b) => Number(a.number.slice(3)) - Number(b.number.slice(3)));
+    // queuedRuns arrives in run order (numeric suffix: PR-2 before PR-13), no client sort needed.
+    const queuedRuns = await caller.dieInstance.issues.queuedRuns();
     expect(queuedRuns).toMatchObject([
       { number: "PR-2", pressLineCode: "P1", sectionCode: "13090", purpose: "production" },
       { number: "PR-3", pressLineCode: "P1", sectionCode: "13090", purpose: "production" },
