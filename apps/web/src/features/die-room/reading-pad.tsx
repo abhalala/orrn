@@ -50,7 +50,7 @@ export function ReadingPad({
       setError(null);
       onOpenChange(false);
     },
-    onError: (e) => setError(refusalText(e, { forbidden: t("errors.forbidden"), generic: t("errors.generic") })),
+    onError: (e) => setError(refusalText(e, t)),
   });
 
   const push = (key: string) => {

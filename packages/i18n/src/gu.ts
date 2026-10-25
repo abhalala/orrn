@@ -9,11 +9,60 @@ import type { Messages } from "./en";
  * Any task that adds keys to a floor namespace (today, pack, scan, press.console,
  * ageing.readings, reasons.{kinds,downtime,qc_reject,void,reprint}) adds them here too.
  */
-type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
+import { refusalGu } from "./native/refusal.gu";
+import { guApprovals } from "./gu-more/approvals";
+import { guAuth } from "./gu-more/auth";
+import { guBundle } from "./gu-more/bundle";
+import { guCustomers } from "./gu-more/customers";
+import { guDieRoom } from "./gu-more/dieRoom";
+import { guDies } from "./gu-more/dies";
+import { guDispatch } from "./gu-more/dispatch";
+import { guGuides } from "./gu-more/guides";
+import { guNative } from "./gu-more/native";
+import { guOrders } from "./gu-more/orders";
+import { guSettings } from "./gu-more/settings";
+import { guShell } from "./gu-more/shell";
 
-/** Dotted namespaces gu must carry in full. */
-/** W1-PK-W r1 m-1: the dispatch scan, stock and the packing list are read at the bay too (D6). */
-export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "ageing.readings", "stock", "dispatch.capacity", "dispatch.detail", "dispatch.steps", "dispatch.build", "dispatch.paste", "dispatch.errors", "packingList", "status.bundle", "status.dispatch", "status.range"] as const;
+export type DeepPartial<T> = { [K in keyof T]?: T[K] extends string ? string : DeepPartial<T[K]> };
+
+/**
+ * Dotted namespaces (or single keys) gu must carry in full; gu.test.ts fails on any en key under one that is missing.
+ * W4-GU (BACKLOG 43; PF §9-8 first ship): the floor screens plus the chrome around them are complete, so a new
+ * key in any of these namespaces needs its Gujarati in the same change. Left to fall back to English on purpose:
+ * the office-only namespaces (admin, masters, purchase, store, imports, vendors, press.report/plan/queue/summary,
+ * orders.form/plan/book/hold/detail except the lines below, customers.form/detail except the lines below, the
+ * party portal and marketing pages) and the guide texts.
+ */
+export const GU_FLOOR_NAMESPACES = [
+  // The floor (W1, D6)
+  "today", "pack", "scan", "press.console", "ageing.readings", "stock", "packingList", "labelSheet",
+  "dispatch", "bundle",
+  // Chrome and shared words
+  "common", "units", "nav", "errors", "roles", "ui", "status", "refusal",
+  // Settings, approvals, the die room (a floor desk at FourCubes), the die list
+  "settings", "approvals", "dieRoom", "dies",
+  // The phone app's own keys and the guides page chrome
+  "native", "guides",
+  // Orders: only what reaches a floor screen or the phone (words, status, lines, timeline, balance strip)
+  "orders.status", "orders.blockers", "orders.strip", "orders.totals", "orders.timeline", "orders.empty", "orders.filter",
+  "orders.line", "orders.list", "orders.qtyBasis", "orders.weightBasis", "orders.form",
+  "orders.title", "orders.new", "orders.number", "orders.poNumber", "orders.orderDate", "orders.expectedDate", "orders.ordered",
+  "orders.dispatched", "orders.baki", "orders.planable", "orders.over", "orders.confirm", "orders.close", "orders.cancel",
+  "orders.closeReason", "orders.cancelReason", "orders.poRepeat", "orders.subtitle", "orders.search", "orders.searchLabel",
+  "orders.customer", "orders.po", "orders.noPo", "orders.late", "orders.bakiNote", "orders.confirmed", "orders.closed",
+  "orders.cancelled", "orders.toConfirm", "orders.closeBakiHint", "orders.ownedBy",
+  "orders.detail.lineShort", "orders.detail.basisLine", "orders.detail.timeline", "orders.detail.timelineEmpty", "orders.detail.notFound",
+  "orders.edit.releasedPlan", "orders.edit.belowDispatched",
+  // Phone sign in and invite, customers on the phone
+  "auth.login", "auth.totp", "auth.validation", "auth.errors", "auth.invite", "auth.noAccess", "auth.sessionExpired", "auth.signOut",
+  "customers.search", "customers.searchLabel", "customers.empty", "customers.noDispatches", "customers.period",
+  "customers.form.notes", "customers.form.billingAddress", "customers.form.shippingAddress",
+  "customers.detail.gstin", "customers.detail.lastToday", "customers.detail.lastYesterday", "customers.detail.lastDaysAgo",
+  "customers.detail.lastNever", "customers.detail.cadence", "customers.detail.contact", "customers.detail.noContact",
+  "customers.detail.noAddress", "customers.detail.sameAsBilling", "customers.detail.notFound", "customers.detail.backToList",
+  "customers.detail.kpi.kg", "customers.detail.kpi.dispatches", "customers.detail.kpi.avgLoad", "customers.detail.kpi.perDispatch",
+  "customers.detail.recent.title", "customers.detail.openOrders",
+] as const;
 
 /**
  * Reason labels the floor reads on the press console and at pack (downtime, rejects, void, reprint)
@@ -22,7 +71,16 @@ export const GU_FLOOR_NAMESPACES = ["today", "pack", "scan", "press.console", "a
  */
 export const GU_REASON_FLOOR_KINDS = ["kinds", "downtime", "qc_reject", "void", "reprint"] as const;
 
-export type GuMessages = DeepPartial<Messages> &
+/** What the finished Gujarati must carry in full (the types check this; gu.test.ts checks every key). */
+export type GuMessages = GuBaseMessages &
+  Pick<Messages, "settings" | "approvals" | "dieRoom" | "dies" | "bundle" | "nav" | "errors" | "roles" | "ui" | "refusal" | "native" | "guides"> & {
+    dispatch: Messages["dispatch"];
+    status: Messages["status"];
+    units: Messages["units"];
+    common: Messages["common"];
+  };
+
+type GuBaseMessages = DeepPartial<Messages> &
   Pick<Messages, "today" | "pack" | "scan" | "stock" | "packingList"> & {
     dispatch: Pick<Messages["dispatch"], "capacity" | "detail" | "steps" | "build" | "paste" | "errors">;
     status: Pick<Messages["status"], "bundle" | "dispatch" | "range">;
@@ -31,7 +89,7 @@ export type GuMessages = DeepPartial<Messages> &
     reasons: Pick<Messages["reasons"], (typeof GU_REASON_FLOOR_KINDS)[number]>;
   };
 
-export const gu = {
+const guBase = {
   common: {
     appName: "orrn",
     save: "સેવ કરો",
@@ -805,6 +863,8 @@ export const gu = {
       tooOld: "શરૂનો સમય {days} દિવસથી વધુ જૂનો છે. પછીથી ભરેલી એન્ટ્રી છેલ્લા {days} દિવસની જ હોઈ શકે.",
     },
   },
+  /** What a refused die room, orders or approval write says (web and native share it: packages/i18n/src/refusal.ts). */
+  refusal: refusalGu.refusal,
   native: {
     checkAgain: "ફરી તપાસો",
     gate: {
@@ -1450,4 +1510,60 @@ export const gu = {
       other: "અન્ય",
     },
   },
-} as const satisfies GuMessages;
+} as const satisfies GuBaseMessages;
+
+/** Merges the Gujarati parts into one tree. A key written twice is a mistake, not an override. */
+function mergeGu(...parts: readonly object[]): Record<string, unknown> {
+  const isTree = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+  const out: Record<string, unknown> = {};
+  const merge = (into: Record<string, unknown>, from: Record<string, unknown>, path: string) => {
+    for (const [key, value] of Object.entries(from)) {
+      const here = path ? `${path}.${key}` : key;
+      if (isTree(value)) {
+        const existing = into[key];
+        if (existing !== undefined && !isTree(existing)) throw new Error(`gu: ${here} is both a string and a group`);
+        const node = (existing as Record<string, unknown> | undefined) ?? {};
+        into[key] = node;
+        merge(node, value, here);
+      } else {
+        if (key in into) throw new Error(`gu: ${here} is written twice`);
+        into[key] = value;
+      }
+    }
+  };
+  for (const part of parts) merge(out, part as Record<string, unknown>, "");
+  return out;
+}
+
+/**
+ * The finished Gujarati: the floor base above plus the W4-GU sweep (gu-more/*, one file per
+ * namespace group, generated from the review list's wording). Namespaces named in
+ * GU_FLOOR_NAMESPACES are checked complete by gu.test.ts.
+ */
+export const gu = mergeGu(
+  guBase,
+  guApprovals,
+  guAuth,
+  guBundle,
+  guCustomers,
+  guDieRoom,
+  guDies,
+  guDispatch,
+  guGuides,
+  guNative,
+  guOrders,
+  guSettings,
+  guShell,
+) as typeof guBase &
+  typeof guApprovals &
+  typeof guAuth &
+  typeof guBundle &
+  typeof guCustomers &
+  typeof guDieRoom &
+  typeof guDies &
+  typeof guDispatch &
+  typeof guGuides &
+  typeof guNative &
+  typeof guOrders &
+  typeof guSettings &
+  typeof guShell satisfies GuMessages;

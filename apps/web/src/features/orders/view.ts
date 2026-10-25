@@ -141,7 +141,7 @@ export function blockerText(code: string, t: Translate): string {
     case "line":
       return t("orders.blockers.line", { n: b.n, problem: t(`orders.blockers.${b.problem}`) });
     default:
-      return t("orders.serverSaid", { message: b.code });
+      return t("refusal.unknown");
   }
 }
 

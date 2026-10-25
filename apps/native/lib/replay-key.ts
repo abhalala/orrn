@@ -6,18 +6,29 @@
  */
 
 /** The request id of a write being sent, with the content it was made for. */
-export type ReplayAttempt = { payload: string; id: string } | null;
+export type ReplayAttempt = { payload: string; id: string; earlier?: Readonly<Record<string, string>> } | null;
+
+/** How many unsaved earlier sends are remembered; a person edits a handful of times, not dozens. */
+const REMEMBERED = 8;
 
 /**
  * Which `clientRequestId` this send uses. The same content sent again after an unsure answer (a timeout, a
  * dropped connection) reuses the id; edited content is a different write and gets a new one. A write that
  * was saved ends the attempt (`null`), so the next one always gets its own id. `fresh` makes a new id and is
  * only called when there is no attempt to reuse.
+ *
+ * Earlier unsaved sends are remembered too: an unsure send may have landed, so editing and then reverting
+ * to the first content must send the FIRST id again (the server answers with the first result) rather than
+ * a new one that would save the same thing twice.
  */
 export function replayKey(attempt: ReplayAttempt, content: unknown, fresh: () => string): { id: string; attempt: NonNullable<ReplayAttempt> } {
   const payload = JSON.stringify(content);
-  const id = attempt && attempt.payload === payload ? attempt.id : fresh();
-  return { id, attempt: { payload, id } };
+  const earlier: Record<string, string> = { ...(attempt?.earlier ?? {}) };
+  if (attempt) earlier[attempt.payload] = attempt.id;
+  const id = earlier[payload] ?? fresh();
+  delete earlier[payload];
+  const kept = Object.entries(earlier).slice(-REMEMBERED);
+  return { id, attempt: { payload, id, ...(kept.length > 0 ? { earlier: Object.fromEntries(kept) } : {}) } };
 }
 
 /** orrn never answered: the request may or may not have landed (no tRPC code, or a gateway 502 or later). */

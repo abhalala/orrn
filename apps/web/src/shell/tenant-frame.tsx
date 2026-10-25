@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ScanProvider } from "@/features/scan/scan-context";
 
 import { AppShell } from "./app-shell";
+import { PlantLocaleDefault } from "./plant-locale";
 
 /**
  * The signed-in company frame: scan sheet plus the app shell. `_tenant` wraps
@@ -12,6 +13,7 @@ import { AppShell } from "./app-shell";
 export function TenantFrame({ children }: { children: ReactNode }) {
   return (
     <ScanProvider>
+      <PlantLocaleDefault />
       <AppShell variant="tenant">{children}</AppShell>
     </ScanProvider>
   );

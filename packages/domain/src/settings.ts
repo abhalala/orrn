@@ -84,6 +84,34 @@ export function resolveStandard(standards: Standards | null | undefined, profile
 export const SETTINGS_LOCALES = ["en", "hi", "gu"] as const;
 export type SettingsLocale = (typeof SETTINGS_LOCALES)[number];
 
+/**
+ * PF §9-14 (W4-GU): FourCubes' default language becomes Gujarati once the native speakers have
+ * passed the review list (`.fp-build/reports/gu-review-list-web.md`) and the gu parity gate holds.
+ * This is the one line the owner flips. OFF: a plant that never chose a language keeps English.
+ * ON: a plant that never chose one, and whose GSTIN is a Gujarat one (state code 24), opens in Gujarati.
+ */
+export const GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS = false;
+
+/** The first two digits of a Gujarat GSTIN. */
+export const GUJARAT_GSTIN_STATE_CODE = "24";
+
+/**
+ * The language a plant opens in: the one its owner chose (`settings.locale`), else Gujarati for a Gujarat
+ * plant when the switch above is on, else English. `gujaratDefault` is a parameter only so a test can
+ * flip it without editing the constant.
+ */
+export function plantDefaultLocale(
+  raw: Record<string, unknown> | null | undefined,
+  gujaratDefault: boolean = GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS,
+): SettingsLocale {
+  const s = raw ?? {};
+  if ((SETTINGS_LOCALES as readonly unknown[]).includes(s.locale)) return s.locale as SettingsLocale;
+  const letterhead = s.letterhead;
+  const gstin = letterhead && typeof letterhead === "object" ? (letterhead as Record<string, unknown>).gstin : null;
+  const isGujarat = typeof gstin === "string" && gstin.trim().startsWith(GUJARAT_GSTIN_STATE_CODE);
+  return gujaratDefault && isGujarat ? "gu" : "en";
+}
+
 /** Company letterhead (PL v2 header, certificate): the company's legal name, GSTIN, address, phone. */
 export type Letterhead = { legalName: string | null; gstin: string | null; address: string | null; phone: string | null };
 
@@ -259,7 +287,7 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
     dieRequiredOnSalesOrder: bool(s.dieRequiredOnSalesOrder, d.dieRequiredOnSalesOrder),
     portalEnabled: bool(s.portalEnabled, d.portalEnabled),
     standards,
-    locale: (SETTINGS_LOCALES as readonly unknown[]).includes(s.locale) ? (s.locale as SettingsLocale) : d.locale,
+    locale: plantDefaultLocale(s),
     // Amber below green is malformed: keep both defaults.
     drift: amber >= green ? { greenMaxBp: green, amberMaxBp: amber } : { ...d.drift },
     recoveryBands,

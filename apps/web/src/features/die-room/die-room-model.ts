@@ -4,6 +4,9 @@
  * only formatted. What IS parsed here is what a person types (a weight in kg, a wall in mm).
  */
 import type { StatusTone } from "@orrn/domain";
+import type { Translate } from "@orrn/i18n";
+
+import { serverRefusal } from "@/features/shared/server-refusal";
 
 export type DriftTone = "none" | "under" | "green" | "amber" | "red";
 export type BandPosition = "in" | "above" | "below";
@@ -201,23 +204,12 @@ export function errorCode(error: unknown): string | undefined {
 }
 
 /**
- * The words for a failed die-room call. The server's refusals are already plain ORRN sentences
- * that name the copy ("12170-2 is retired; it takes no readings"), so they pass through; a role
- * refusal and anything unexpected use the shared wording.
+ * The words for a failed die-room call, in the person's language. Every sentence the die room routers
+ * can raise has a `refusal.*` key (features/shared/server-refusal.ts, shared with the phone); the
+ * server's English is never shown. A role refusal and anything unexpected use the shared wording.
  */
-export function refusalText(error: unknown, fallbacks: { forbidden: string; generic: string }): string {
-  const code = errorCode(error);
-  if (code === "FORBIDDEN") {
-    const message = (error as MetaCarrier).message;
-    // "This die belongs to KD Extrusion" is the answer, not a role refusal.
-    return message && message.startsWith("This die belongs") ? message : fallbacks.forbidden;
-  }
-  if (code === "BAD_REQUEST" || code === "CONFLICT" || code === "NOT_FOUND") {
-    const message = (error as MetaCarrier).message;
-    // A zod failure arrives as a JSON array of issues: never show that to a person.
-    if (message && !message.trimStart().startsWith("[")) return message;
-  }
-  return fallbacks.generic;
+export function refusalText(error: unknown, t: Translate): string {
+  return serverRefusal(t, error);
 }
 
 /** "24 Oct 2026" from an ISO string, epoch ms or Date (the API sends ISO strings). Empty when unknown. */
