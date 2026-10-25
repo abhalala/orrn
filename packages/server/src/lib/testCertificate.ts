@@ -15,7 +15,7 @@
  * Summary status: `pending` (no bundle's cast tested), `partial` (some bundles untested), `ready`.
  * Never a rate, never party-vs-FC kg, never a die band; not a tax document.
  */
-import { readFloorSettings, resolveStandard, type ProfileKind } from "@orrn/domain";
+import { decidingSpectro, readFloorSettings, resolveStandard, type ProfileKind } from "@orrn/domain";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatchItem } from "@orrn/db/schema/dispatch";
@@ -229,6 +229,7 @@ export async function buildCertificateSnapshot(
         .select({
           castId: spectroResult.castId,
           createdAt: spectroResult.createdAt,
+          valuesPpm: spectroResult.valuesPpm,
           verdict: spectroResult.verdict,
           limits: spectroResult.limitsSnapshot,
           alSource: spectroResult.alSource,
@@ -247,11 +248,24 @@ export async function buildCertificateSnapshot(
         .orderBy(desc(spectroResult.createdAt)),
     ),
   ]);
-  const latestByCast = new Map<string, (typeof results)[number]>();
+  // The result that decides a cast is `decidingSpectro` (BACKLOG 79): the latest live result that carries numbers.
+  // A photo of a printout has none and judges `incomplete`; it never replaces typed numbers that passed.
+  // A row has numbers when `values_ppm` has keys or any per-element column is filled (typed rows fill both).
+  const byCast = new Map<string, (typeof results)[number][]>();
   for (const r of results) {
     if (!r.castId) continue;
-    const prev = latestByCast.get(r.castId);
-    if (!prev || r.createdAt.getTime() > prev.createdAt.getTime()) latestByCast.set(r.castId, r);
+    const list = byCast.get(r.castId);
+    if (list) list.push(r);
+    else byCast.set(r.castId, [r]);
+  }
+  const hasNumbers = (r: (typeof results)[number]) =>
+    Object.keys(r.valuesPpm ?? {}).length > 0 || CERT_ELEMENTS.some((element) => r[element] != null);
+  const latestByCast = new Map<string, (typeof results)[number]>();
+  for (const [castId, list] of byCast) {
+    // oldest to newest, as `decidingSpectro` reads them (the query already dropped voided rows)
+    const oldestFirst = list.map((r) => ({ r, values: hasNumbers(r) ? { n: 1 } : {} })).sort((a, b) => a.r.createdAt.getTime() - b.r.createdAt.getTime());
+    const deciding = decidingSpectro(oldestFirst);
+    if (deciding) latestByCast.set(castId, deciding.r);
   }
   const tested = [...latestByCast.values()];
   const testedBundles = items.filter((i) => i.castId && latestByCast.has(i.castId)).length;

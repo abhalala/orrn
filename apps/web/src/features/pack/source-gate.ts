@@ -48,9 +48,9 @@ export function castRequired(settings: unknown, liveCasts: number): boolean {
   return castRequiredOnBundle(readFloorSettings(settings as Record<string, unknown> | null | undefined), liveCasts > 0);
 }
 
-/** Copies that can still be packed from (retired copies and copies at the maker are not offered). */
+/** Copies that can still be packed from (retired copies, copies at the maker and copies out for nitriding are not offered). */
 export function packableCopy(status: string): boolean {
-  return status !== "retired" && status !== "at_maker";
+  return status !== "retired" && status !== "at_maker" && status !== "at_nitriding";
 }
 
 /** Choosing another order line may change who owns the material: a copy chosen before stays only if still valid. */
@@ -88,4 +88,27 @@ export function withPinOverride(choice: SourceChoice, on: boolean, pinnedCopyId:
   const { overridePin: _drop, ...rest } = choice;
   if (on) return { ...rest, overridePin: true };
   return pinnedCopyId ? { ...rest, dieInstanceId: pinnedCopyId } : rest;
+}
+
+/**
+ * BACKLOG 99: when only one source applies, it comes pre-picked. One open order line is the order; a line's pinned copy
+ * comes with it; with no pin, the one copy on the press (else the one packable copy) is the copy. Several lines, or several
+ * copies, stay the packer's choice, and plant stock is still one tap away. A choice already made is never touched.
+ */
+export function preselectSource(
+  choice: SourceChoice,
+  lines: readonly { lineId: string; pinnedCopyId?: string | null }[] | undefined,
+  copies: readonly { id: string; status: string }[] | undefined,
+): SourceChoice {
+  let next = choice;
+  if (!next.salesOrderLineId && lines && lines.length === 1) {
+    next = withPinnedLine(next, lines[0]!.lineId, lines[0]!.pinnedCopyId ?? null);
+  }
+  if (!next.dieInstanceId && copies) {
+    const packable = copies.filter((c) => packableCopy(c.status));
+    const onPress = packable.filter((c) => c.status === "in_use");
+    const only = onPress.length === 1 ? onPress[0] : packable.length === 1 ? packable[0] : undefined;
+    if (only) next = withCopy(next, only.id);
+  }
+  return next;
 }

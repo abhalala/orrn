@@ -3,11 +3,20 @@
  * this file only writes it down: three decimals for kg, Indian digit grouping, no arithmetic.
  */
 const KG = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const KG1 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const PCS = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 
 /** Grams as kg to the gram: "553.500", "1,280.000". */
 export function orderKgText(grams: number): string {
   return KG.format(grams / 1000);
+}
+
+/**
+ * Grams as kg to one decimal for list screens (the order book): "553.5", "1,280.0". Grams matter on the
+ * order, the packing list and the dispatch; on a list of orders they read as noise (BACKLOG 93).
+ */
+export function listKgText(grams: number): string {
+  return KG1.format(grams / 1000);
 }
 
 /** Whole pieces: "1,200". */

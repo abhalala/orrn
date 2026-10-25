@@ -935,6 +935,33 @@ test.describe("audit viewer", () => {
     await expect(page.getByTestId("audit-more")).toHaveCount(0);
   });
 
+  test("a named subject reads as words with a link, and Only this filters by it (BACKLOG 100)", async ({ page }) => {
+    const named = {
+      id: "a3",
+      at: "2026-10-24T09:00:00.000Z",
+      action: "packingList.combine",
+      subjectType: "packing_list",
+      subjectId: "a7c0f15d-1111-4222-8333-444455556666",
+      subjectLabel: "PL/2026-27/5",
+      actorId: "u1",
+      actorName: "Office",
+      byStaff: false,
+      meta: {},
+    };
+    await rewrite<{ items: unknown[]; nextCursor: unknown }>(page, "audit.list", (r) => {
+      r.items = [named];
+      r.nextCursor = null;
+    });
+    await open(page, "/audit", { width: 1280 });
+    const row = page.getByTestId("audit-list").locator('[data-audit-subject="packing_list"]');
+    await expect(row).toContainText("Packing list");
+    await expect(row.getByRole("link", { name: "PL/2026-27/5" })).toHaveAttribute("href", "/packing-lists/a7c0f15d-1111-4222-8333-444455556666");
+    // The raw id is not shown; it is only the filter's handle.
+    await expect(page.getByTestId("audit-list")).not.toContainText("a7c0f15d");
+    await row.getByRole("button", { name: "Only this" }).click();
+    await expect(page).toHaveURL(/subject=a7c0f15d/);
+  });
+
   test("a subject in a row filters by it", async ({ page }) => {
     await rewrite<{ items: unknown[]; nextCursor: unknown }>(page, "audit.list", (r) => {
       r.items = AUDIT_ROWS;

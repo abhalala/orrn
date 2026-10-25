@@ -39,7 +39,7 @@ import {
 import { BookStrip } from "./components/book-strip";
 import { BookExportButton } from "./components/print-buttons";
 import { OrderBar } from "./components/order-bar";
-import { orderKgText } from "./format";
+import { listKgText } from "./format";
 import { useDebounced } from "./hooks";
 import { STATUS_TONE, type OrderStatus } from "./view";
 
@@ -107,16 +107,25 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
       header: t("orders.customer"),
       cell: (o) => (
         <span className="flex min-w-0 flex-col">
-          <span>{o.customerName}</span>
-          {o.city ? <span className="text-[13px] text-muted-foreground">{o.city}</span> : null}
+          <span className="max-w-[26ch] truncate" title={o.customerName}>
+            {o.customerName}
+          </span>
+          {o.city ? <span className="max-w-[26ch] truncate text-[13px] text-muted-foreground">{o.city}</span> : null}
         </span>
       ),
     },
     {
       key: "po",
       header: t("orders.po"),
-      // The PO is the document: its own cell, never cut short by the customer's name.
-      cell: (o) => (o.poNumber ? <span className="font-mono break-all">{o.poNumber}</span> : <span className="text-muted-foreground">{t("orders.noPo")}</span>),
+      // The PO is the document: its own cell, one line (cut with an ellipsis, the whole number in the title), never wrapped letter by letter.
+      cell: (o) =>
+        o.poNumber ? (
+          <span className="block max-w-[22ch] truncate font-mono" title={o.poNumber} data-po="">
+            {o.poNumber}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">{t("orders.noPo")}</span>
+        ),
     },
     {
       key: "status",
@@ -160,7 +169,7 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
       header: t("orders.list.ordered"),
       align: "end",
       hideOnPhone: true,
-      cell: (o) => <span className="font-mono tabular-nums">{orderKgText(o.orderedG)}</span>,
+      cell: (o) => <span className="font-mono tabular-nums">{listKgText(o.orderedG)}</span>,
     },
   ];
 

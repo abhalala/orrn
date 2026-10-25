@@ -62,6 +62,9 @@ export const DIE_ANGLE = "dev-die-11250";
 
 export const kg3 = (grams: number) => (grams / 1000).toLocaleString("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
+/** The order book's list figure (BACKLOG 93): kg to one decimal. */
+export const kg1 = (grams: number) => (grams / 1000).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
 export type Party = { id: string; name: string; city: string };
 
 /** A new customer in a city of its own. */

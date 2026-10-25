@@ -5,6 +5,7 @@ import {
   castRequired,
   copyLocked,
   packableCopy,
+  preselectSource,
   sourceBlockers,
   withCast,
   withCopy,
@@ -45,7 +46,8 @@ describe("source step gates", () => {
     expect(withCopy(c, undefined).dieInstanceId).toBeUndefined();
   });
 
-  test("copies that are retired or at the maker are not offered", () => {
+  test("copies that are retired, at the maker or out for nitriding are not offered (BACKLOG 99)", () => {
+    expect(packableCopy("at_nitriding")).toBe(false);
     expect(packableCopy("available")).toBe(true);
     expect(packableCopy("in_use")).toBe(true);
     expect(packableCopy("retired")).toBe(false);
@@ -77,5 +79,37 @@ describe("D15: a line that pins a die copy", () => {
       dieInstanceId: "p",
       overridePin: true,
     });
+  });
+});
+
+describe("preselect the only source that applies (BACKLOG 99)", () => {
+  const line = (lineId: string, pinnedCopyId: string | null = null) => ({ lineId, pinnedCopyId });
+  const copy = (id: string, status: string) => ({ id, status });
+
+  test("one open order line is picked for the packer; the packer can still choose plant stock", () => {
+    const next = preselectSource(DEFAULT_SOURCE, [line("l1")], []);
+    expect(next.salesOrderLineId).toBe("l1");
+    expect(preselectSource(DEFAULT_SOURCE, [line("l1"), line("l2")], [])).toEqual(DEFAULT_SOURCE);
+    expect(preselectSource(DEFAULT_SOURCE, [], [])).toEqual(DEFAULT_SOURCE);
+  });
+
+  test("a line that pins a copy brings the copy with it", () => {
+    expect(preselectSource(DEFAULT_SOURCE, [line("l1", "c9")], [copy("c9", "available"), copy("c2", "in_use")])).toMatchObject({ salesOrderLineId: "l1", dieInstanceId: "c9" });
+  });
+
+  test("the copy on the press is picked when only one copy is in use; a lone packable copy too", () => {
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("b", "in_use"), copy("c", "at_nitriding")]).dieInstanceId).toBe("b");
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("c", "at_nitriding"), copy("d", "at_maker")]).dieInstanceId).toBe("a");
+  });
+
+  test("two copies and none or two on the press: the packer picks", () => {
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "available"), copy("b", "available")]).dieInstanceId).toBeUndefined();
+    expect(preselectSource(DEFAULT_SOURCE, [], [copy("a", "in_use"), copy("b", "in_use")]).dieInstanceId).toBeUndefined();
+  });
+
+  test("nothing loaded yet, or a choice already made, is left alone", () => {
+    expect(preselectSource(DEFAULT_SOURCE, undefined, undefined)).toEqual(DEFAULT_SOURCE);
+    const made = { ...DEFAULT_SOURCE, salesOrderLineId: "x", dieInstanceId: "y" };
+    expect(preselectSource(made, [line("l1")], [copy("a", "in_use")])).toEqual(made);
   });
 });

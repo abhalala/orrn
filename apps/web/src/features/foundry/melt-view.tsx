@@ -160,7 +160,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
       return null;
     }
     try {
-      const v = await saveMut.mutateAsync(r.input as never);
+      const v = await saveMut.mutateAsync(r.input);
       saved.current = form;
       seqRef.current = v.serverSeq;
       const wasNew = meltIdRef.current === null;

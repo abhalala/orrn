@@ -2,7 +2,7 @@ import { bpPercent1 } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 
-import { orderKgText } from "../format";
+import { listKgText } from "../format";
 import { BAR_TONE, barSegments, nothingPlanned, type Bar } from "../book-view";
 
 /**
@@ -22,8 +22,8 @@ export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { nu
   const summary = [
     t("orders.book.bar.label", { number }),
     t("orders.book.bar.dispatchedPct", { pct }),
-    ...visible.map((s) => `${t(s.labelKey)} ${orderKgText(s.labelG)} ${t("units.kg")}`),
-    ...(bar.overG > 0 ? [t("orders.book.bar.over", { kg: orderKgText(bar.overG) })] : []),
+    ...visible.map((s) => `${t(s.labelKey)} ${listKgText(s.labelG)} ${t("units.kg")}`),
+    ...(bar.overG > 0 ? [t("orders.book.bar.over", { kg: listKgText(bar.overG) })] : []),
   ].join(", ");
   return (
     <div className="flex min-w-0 flex-col gap-1.5" data-order-bar={number}>
@@ -40,7 +40,7 @@ export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { nu
         </p>
         <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
           {idle ? `${t("orders.book.bar.nothingPlanned")} · ` : ""}
-          {t("orders.book.bar.baki", { kg: orderKgText(bakiG) })}
+          {t("orders.book.bar.baki", { kg: listKgText(bakiG) })}
         </p>
       </div>
       {idle && bar.overG === 0 ? null : (
@@ -51,12 +51,12 @@ export function OrderBar({ number, bar, orderedG, bakiG, compact = false }: { nu
               <li key={s.key} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <span aria-hidden="true" className={cn("size-2 rounded-sm", BAR_TONE[s.key])} />
                 <span>{t(s.labelKey)}</span>
-                <span className="font-mono tabular-nums text-foreground">{orderKgText(s.labelG)}</span>
+                <span className="font-mono tabular-nums text-foreground">{listKgText(s.labelG)}</span>
               </li>
             ))}
           {bar.overG > 0 ? (
             <li className="inline-flex items-center gap-1.5 whitespace-nowrap font-semibold text-tone-red-ink" data-bar-over="">
-              {t("orders.book.bar.over", { kg: orderKgText(bar.overG) })}
+              {t("orders.book.bar.over", { kg: listKgText(bar.overG) })}
             </li>
           ) : null}
         </ul>

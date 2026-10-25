@@ -106,6 +106,11 @@ test.describe("printing", () => {
       await expect(main.getByText("Packing bay").first()).toBeVisible();
       await expect(main.getByText("Waiting", { exact: true }).first()).toBeVisible();
       await expect(page.getByText("Nothing waiting to print.")).toHaveCount(0);
+      // BACKLOG 102: the print computer has never connected, so the waiting labels come with a warning and what to do.
+      const banner = page.getByTestId("print-computer-banner");
+      await expect(banner).toHaveAttribute("data-kind", "never");
+      await expect(banner).toContainText("The print computer has never connected");
+      await expect(banner).toContainText("2 labels are waiting");
       await expectContained(page);
     });
 
@@ -157,6 +162,18 @@ test.describe("printing", () => {
     await expect(node).toContainText("No scale");
     await expect(main.getByRole("heading", { name: "Packing bay", level: 4, exact: true })).toBeVisible();
     await expect(main.getByText("Label printing isn't set up")).toHaveCount(0);
+  });
+
+  test("labels waiting while the print computer stopped reporting in: offline since its last report (BACKLOG 102)", async ({ page }) => {
+    await rewrite<{ nodes: unknown[] }>(page, "edge.overview", (o) => {
+      o.nodes = [{ id: "n1", nodeName: "Packing bay PC", siteLabel: "Main facility", status: "offline", runtimeVersion: null, lastHeartbeatAt: "2026-10-20T10:00:00.000Z", lastErrorMessage: null }];
+    });
+    await open(page, "/printing", { width: 1280 });
+    const banner = page.getByTestId("print-computer-banner");
+    await expect(banner).toHaveAttribute("data-kind", "offline");
+    await expect(banner).toContainText("The print computer is offline since");
+    await expect(banner).toContainText("switched on and online");
+    await expectContained(page);
   });
 
   test("a print computer shows its last heartbeat, or that it has not reported in", async ({ page }) => {

@@ -18,6 +18,7 @@ import { bundleDetailPath } from "@/shared/lib/paths";
 import { trpc } from "@/shared/utils/trpc";
 
 import { canRetry, PRINT_PAGE_SIZE, PRINT_STATUSES, printJobTone, queueSummary, type PrintStatus } from "./model";
+import { printComputerBanner } from "./print-computer";
 
 type Job = inferRouterOutputs<AppRouter>["spool"]["queue"]["rows"][number];
 
@@ -67,6 +68,9 @@ export function QueueTab({
 
   const counts = queue.data?.counts;
   const summary = counts ? queueSummary(counts) : null;
+  // BACKLOG 102: labels waiting while no print computer is reporting in.
+  const nodes = useQuery(trpc.edge.overview.queryOptions());
+  const banner = summary && nodes.data ? printComputerBanner(nodes.data.nodes, summary.waiting, Date.now()) : null;
 
   const columns: ResponsiveListColumn<Job>[] = [
     {
@@ -132,6 +136,16 @@ export function QueueTab({
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {banner && summary ? (
+        <div role="status" data-testid="print-computer-banner" data-kind={banner.kind} className="flex min-w-0 flex-col gap-1 rounded-card bg-tone-amber-tint px-4 py-3 text-tone-amber-ink">
+          <p className="m-0 text-[15px] font-semibold">
+            {banner.kind === "never" ? t("printing.computerBanner.neverTitle") : t("printing.computerBanner.offlineTitle", { time: when(banner.since) })}
+          </p>
+          <p className="m-0 text-[14px] leading-6">
+            {t(banner.kind === "never" ? "printing.computerBanner.neverBody" : "printing.computerBanner.offlineBody", { waiting: summary.waiting })}
+          </p>
+        </div>
+      ) : null}
       {summary ? (
         <p className="m-0 text-[15px] leading-6 text-muted-foreground" role="status" data-testid="queue-summary">
           {summary.clear

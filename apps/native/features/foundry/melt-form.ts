@@ -17,6 +17,9 @@ export const MAX_LOT_LINES = 60;
 export const MAX_STREAM_RETURNS = 10;
 export const MAX_LOG_LINES = 10;
 export const MAX_CHEMICALS = 40;
+/** The units the store knows (`storeUnits` in `@orrn/db`, pinned by a web and a server test). A chemical that is not in the store is typed with one of these. */
+export const CHEMICAL_UNITS = ["kg", "litre", "piece", "metre", "set", "box", "bag"] as const;
+export type ChemicalUnit = (typeof CHEMICAL_UNITS)[number];
 
 export type LotLine = { key: string; lotId: string; kgText: string };
 export type StreamLine = { key: string; streamId: string; kgText: string };
@@ -196,7 +199,7 @@ export type SaveInput = {
   times: Partial<Record<MeltTimeKey, number | null>>;
   ldoTenthIn: Partial<Record<LdoKey, number | null>>;
   inputs: { kind: "lot" | "return_stream"; ref: string; kgG: number }[];
-  chemicals: { storeItemId?: string; name?: string; unit?: "kg" | "g" | "l" | "ml" | "pcs"; openMilli: number; usedMilli: number; closeMilli: number }[];
+  chemicals: { storeItemId?: string; name?: string; unit?: ChemicalUnit; openMilli: number; usedMilli: number; closeMilli: number }[];
   logs: { pcs: number; lengthMm: number; billetLengthMm?: number; kgG: number }[];
   drossG: number;
   feG: number;
@@ -207,8 +210,6 @@ export type SaveInput = {
   clientRequestId?: string;
 };
 
-type StoreUnit = SaveInput["chemicals"][number]["unit"];
-const UNITS = ["kg", "g", "l", "ml", "pcs"] as const;
 
 /**
  * The form as a `melts.save` body, or the first thing that cannot be sent. A draft may leave a lot of
@@ -269,8 +270,8 @@ export function saveInputOf(form: MeltForm, ctx: SaveContext): { ok: true; input
     const closeMilli = close ?? open - used;
     if (closeMilli < 0 || closeMilli !== open - used) return fail({ code: "chemicalClose", step: "chemicals", line: i });
     if (blank(c.storeItemId)) {
-      if (blank(c.name) || !(UNITS as readonly string[]).includes(c.unit)) return fail({ code: "chemical", step: "chemicals", line: i });
-      chemicals.push({ name: c.name.trim(), unit: c.unit as StoreUnit, openMilli: open, usedMilli: used, closeMilli });
+      if (blank(c.name) || !(CHEMICAL_UNITS as readonly string[]).includes(c.unit)) return fail({ code: "chemical", step: "chemicals", line: i });
+      chemicals.push({ name: c.name.trim(), unit: c.unit as ChemicalUnit, openMilli: open, usedMilli: used, closeMilli });
     } else {
       chemicals.push({ storeItemId: c.storeItemId, openMilli: open, usedMilli: used, closeMilli });
     }

@@ -477,6 +477,48 @@ test.describe("pack: a save whose reply is lost is sent again safely (BACKLOG 50
   });
 });
 
+test.describe("pack: the one source that applies comes pre-picked (BACKLOG 99)", () => {
+  test("a single open order line and the copy on the press are chosen for the packer; a copy out for nitriding is not offered", async ({ page }) => {
+    const names = (url: string) => decodeURIComponent(new URL(url).pathname.split("/trpc/")[1] ?? "").split(",");
+    await page.route("**/trpc/**", async (route) => {
+      const procs = names(route.request().url());
+      const iLines = procs.indexOf("orders.openLines");
+      const iCopies = procs.indexOf("dieInstance.list");
+      if (iLines === -1 && iCopies === -1) return route.fallback();
+      const response = await route.fetch();
+      const body = await response.json();
+      const entryAt = (i: number) => (Array.isArray(body) ? body[i] : body)?.result?.data as { json?: unknown } | undefined;
+      const lines = iLines === -1 ? undefined : entryAt(iLines);
+      if (lines) {
+        const list = (lines.json ?? lines) as unknown[];
+        list.splice(1);
+      }
+      const copies = iCopies === -1 ? undefined : entryAt(iCopies);
+      if (copies) {
+        const data = (copies.json ?? copies) as { items: Record<string, unknown>[] };
+        const first = data.items[0]!;
+        data.items = [
+          { ...first, id: `${String(first.id)}`, code: "RUN-1", status: "in_use", pinnedCopyId: null },
+          { ...first, id: `${String(first.id)}-n`, code: "NIT-9", status: "at_nitriding" },
+          { ...first, id: `${String(first.id)}-a`, code: "AVL-9", status: "available" },
+        ];
+      }
+      await route.fulfill({ response, json: body });
+    });
+    await open(page, "/pack/new", { width: 375 });
+    await page.getByLabel("Search die code or section").fill(DIE);
+    await expect(page.locator("button[data-die]")).toHaveCount(1);
+    await page.locator("button[data-die]").first().click();
+    const orders = page.locator("[data-slot='order-picker']");
+    await expect(orders.getByRole("radio", { checked: true })).toHaveCount(1, { timeout: 15_000 });
+    await expect(orders.getByRole("radio", { name: /plant stock/i })).not.toBeChecked();
+    const copies = page.locator("[data-slot='copy-picker']");
+    await expect(copies.getByRole("radio", { name: "RUN-1" })).toBeChecked({ timeout: 15_000 });
+    await expect(copies.getByRole("radio", { name: "NIT-9" })).toHaveCount(0);
+    await expect(copies.getByRole("radio", { name: "AVL-9" })).not.toBeChecked();
+  });
+});
+
 test.describe("pack: an order line that pins a die copy (D15)", () => {
   test("the screen preselects the pinned copy and locks the others; the pack line is judged on that copy's band; the server refuses another copy", async ({ page }) => {
     const owner = await ownerApi();
