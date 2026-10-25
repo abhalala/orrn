@@ -166,7 +166,6 @@ const guBase = {
     mm: "mm",
     inch: "in",
     ft: "ft",
-    min: "મિનિટ",
     bundles: "{count} bundle",
     pieces: "{count} પીસ",
     bundlesKg: "{bundles} bundle · {kg} kg",
@@ -292,6 +291,9 @@ const guBase = {
       stops: "બંધ, સૌથી લાંબું પહેલાં",
       late: "પછીથી ભરેલા",
       lateShare: "{pct}% રન",
+      alertsOpen: "ખુલ્લા પ્રેસ અલર્ટ: {count}",
+      alertsToday: "આજના પ્રેસ અલર્ટ: {count}",
+      alertsSimulated: "સિમ્યુલેટરથી",
     },
     floor: {
       heading: "ફ્લોર",
