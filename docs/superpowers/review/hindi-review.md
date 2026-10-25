@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6948 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6965 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -6624,7 +6624,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (230)
+### audit (247)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6734,6 +6734,8 @@ Please check, Lalubhai:
 | `actions.die_owner__set` | Die owner set | डाई का मालिक तय किया |
 | `actions.die_reading__add` | Die weight reading added | डाई वज़न रीडिंग जोड़ी |
 | `actions.die_remark__add` | Die remark added | डाई टिप्पणी जोड़ी |
+| `actions.die_share__create` | Drawing share link made | ड्रॉइंग शेयर लिंक बनाया |
+| `actions.die_share__revoke` | Drawing share link stopped | ड्रॉइंग शेयर लिंक बंद किया |
 | `actions.die_tier__propose` | Die tier change asked | डाई टियर बदलने को कहा |
 | `actions.die_trial__fail` | Die trial failed | डाई ट्रायल फेल |
 | `actions.die_trial__pass` | Die trial passed | डाई ट्रायल पास |
@@ -6756,6 +6758,20 @@ Please check, Lalubhai:
 | `actions.dispatch__setPackingGroup` | Packing list group set | पैकिंग लिस्ट ग्रुप तय किया |
 | `actions.dispatch__unreserve` | Dispatch back to draft | Dispatch फिर ड्राफ़्ट में |
 | `actions.dispatch__update` | Dispatch details changed | Dispatch की जानकारी बदली |
+| `actions.foundry__alloy__create` | Alloy added | अलॉय जोड़ा |
+| `actions.foundry__alloy__limits` | Alloy limits changed | अलॉय की सीमाएं बदलीं |
+| `actions.foundry__alloy__update` | Alloy changed | अलॉय बदला |
+| `actions.foundry__cast__cancel` | Cast cancelled | कास्ट रद्द किया |
+| `actions.foundry__furnace__create` | Furnace added | फर्नेस जोड़ी |
+| `actions.foundry__furnace__update` | Furnace changed | फर्नेस बदली |
+| `actions.foundry__melt__correct` | Melt corrected | मेल्ट सुधारा |
+| `actions.foundry__melt__correct_request` | Melt correction sent for approval | मेल्ट सुधारने की मंज़ूरी मांगी |
+| `actions.foundry__melt__discard` | Draft melt thrown away | ड्राफ्ट मेल्ट हटाया |
+| `actions.foundry__melt__lock` | Melt locked | मेल्ट लॉक किया |
+| `actions.foundry__melt__save` | Melt saved | मेल्ट सेव किया |
+| `actions.foundry__reading__add` | Furnace temperature added | फर्नेस का तापमान जोड़ा |
+| `actions.foundry__reading__simulate` | Furnace curve simulated (demo) | फर्नेस का सिमुलेटेड कर्व चलाया (डेमो) |
+| `actions.foundry__spectro__void` | Spectro result voided | स्पेक्ट्रो नतीजा रद्द किया |
 | `actions.location__create` | Yard added | यार्ड जोड़ा |
 | `actions.location__seedDefaults` | Default yards added | डिफ़ॉल्ट यार्ड जोड़े |
 | `actions.location__update` | Yard changed | यार्ड बदला |
@@ -6830,6 +6846,7 @@ Please check, Lalubhai:
 | `actions.reason_code__rename` | Reason renamed | कारण का नाम बदला |
 | `actions.reason_code__retire` | Reason retired | कारण बंद किया |
 | `actions.return_stream__create` | Return stream added | रिटर्न स्ट्रीम जोड़ी |
+| `actions.return_stream__opening` | Return stream opening entered | रिटर्न स्ट्रीम की शुरुआती मात्रा भरी |
 | `actions.return_stream__seed` | Default return streams added | डिफ़ॉल्ट रिटर्न स्ट्रीम जोड़ीं |
 | `actions.return_stream__update` | Return stream changed | रिटर्न स्ट्रीम बदली |
 | `actions.scrap_grade__create` | Scrap grade added | स्क्रैप ग्रेड जोड़ा |
