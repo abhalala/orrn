@@ -353,7 +353,8 @@ export const ageingRowView = z.object({
 });
 
 export const ageingTempReadingView = z.object({ id: z.string(), at: z.number().int(), tempCX10: z.number().int(), source: ageingTempSource, note: z.string().nullable(), inBand: z.boolean() });
-export const ageingHardnessView = z.object({ id: z.string(), rowId: z.string(), method: hardnessMethod, readingX10: z.number().int(), pass: z.boolean(), testedAt: z.number().int() });
+/** `pass` is null for a sample of the other method (not deciding, review m4). */
+export const ageingHardnessView = z.object({ id: z.string(), rowId: z.string(), method: hardnessMethod, readingX10: z.number().int(), pass: z.boolean().nullable(), testedAt: z.number().int() });
 
 export const ageingBatchTotalsView = z.object({
   loadedPcs: z.number().int(),

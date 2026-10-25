@@ -8,11 +8,12 @@
  */
 import { z } from "zod";
 
-import { AGEING_READINGS_MAX, AGEING_TEMP_MAX_X10, AGEING_TEMP_MIN_X10 } from "@orrn/domain";
+import { AGEING_READINGS_MAX, AGEING_TEMP_MAX_X10, AGEING_TEMP_MIN_X10, isModuleOn } from "@orrn/domain";
 
 import { ingestAgeingReadings } from "./ageingServer";
 import type { OrrnDb } from "./atomic";
 import { authenticateCollectorNode, type CollectorHttpResult } from "./collectorNode";
+import { companyModules, MODULE_OFF_MESSAGE } from "./moduleGate";
 import { nextCompanySeq } from "./sequence";
 
 export const AGEING_READINGS_PATH = "/collector/ageing/readings";
@@ -36,6 +37,8 @@ export async function handleAgeingReadingsRequest(
   const parsed = ageingReadingsBodySchema.safeParse(auth.json);
   if (!parsed.success) return { status: 400, body: { error: "Invalid readings", issues: parsed.error.issues.slice(0, 5) } };
   const nowMs = input.nowMs ?? Date.now();
+  // Review m9: the ageing module off for the node's company refuses the feed, as the tRPC mutations do.
+  if (!isModuleOn(await companyModules(db, auth.node.companyId), "ageing")) return { status: 403, body: { error: MODULE_OFF_MESSAGE } };
   try {
     const seq = await nextCompanySeq({ db }, auth.node.companyId);
     const result = await ingestAgeingReadings(

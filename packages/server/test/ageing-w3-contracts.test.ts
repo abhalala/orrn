@@ -95,6 +95,22 @@ describe("migration 0038_ageing", () => {
     }
   });
 
+  test("0040 (W3-AG-S review m4): follows 0039; ageing_hardness.pass takes null for a sample of the other method, its indexes survive the rebuild", async () => {
+    const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as { entries: { idx: number; tag: string; when: number }[] };
+    const e39 = journal.entries.find((e) => e.tag === "0039_ageing_2")!;
+    const e40 = journal.entries.find((e) => e.tag === "0040_ageing_3");
+    expect(e40!.idx).toBe(e39.idx + 1);
+    expect(e40!.when).toBeGreaterThan(e39.when);
+    const snap39 = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0039_snapshot.json"), "utf8")) as { id: string };
+    const snap40 = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/0040_snapshot.json"), "utf8")) as { prevId: string };
+    expect(snap40.prevId).toBe(snap39.id);
+    const info = (await env.db.all(sql`pragma table_info(ageing_hardness)`)) as { name: string; notnull: number }[];
+    expect(info.find((c) => c.name === "pass")!.notnull).toBe(0);
+    expect(info.find((c) => c.name === "id")!.notnull).toBe(1);
+    const idx = new Set(((await env.db.all(sql`select name from sqlite_master where type = 'index' and tbl_name = 'ageing_hardness'`)) as { name: string }[]).map((r) => r.name));
+    for (const i of ["ageing_hardness_company_row_idx", "ageing_hardness_company_batch_idx", "ageing_hardness_company_server_seq_idx"]) expect({ i, exists: idx.has(i) }).toEqual({ i, exists: true });
+  });
+
   test("ageing_row carries the exact columns pack reads (lib/pack.ts)", async () => {
     const cols = await columnsOf("ageing_row");
     for (const c of ["id", "company_id", "die_id", "length_mm", "pcs", "packed_pcs", "scrap_pcs", "rework_pcs", "status", "batch_id", "source", "bundle_id", "press_run_line_id"]) {

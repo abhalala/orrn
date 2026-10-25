@@ -782,7 +782,15 @@ export const bundleRouter = router({
         );
       }
       if (ageingRow) {
-        statements.push(...drawAgeingRowStatements(ctx.db, ctx.companyId, ageingRow.id, drawPcs, { batchId: ageingRow.batchId, seq, userId }));
+        statements.push(
+          ...drawAgeingRowStatements(ctx.db, ctx.companyId, ageingRow.id, drawPcs, {
+            batchId: ageingRow.batchId,
+            seq,
+            userId,
+            groupId,
+            audit: { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+          }),
+        );
       }
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
       // Pack = + bundle kg at its location, voucher = this receipt (spec §5).
@@ -1332,7 +1340,9 @@ export const bundleRouter = router({
         const open = (await openBundleRows(ctx.db, ctx.companyId, [existing.id])).get(existing.id);
         if (open && (open.status === "pending" || open.status === "held")) throw ageingRefusal(open.status === "held" ? "bundle_ageing_held" : "bundle_in_ageing", { serial: existing.serial, batch: open.batchNumber });
       }
-      // D6: a bundle packed from a trolley row gives its pieces back on void (its own whole-bundle row never does).
+      // D6 + Q60-A (review C1): a bundle packed from a trolley row gives its pieces back on void while the
+      // row's batch is open; once closed, the void writes them off as loose aged stock (batch untouched).
+      // Its own whole-bundle row never moves.
       const ageingRestore =
         existing.ageingRowId && (await ageingTablesExist(ctx.db))
           ? restoreAgeingRowStatements(ctx.db, {
@@ -1342,6 +1352,8 @@ export const bundleRouter = router({
               seq,
               to: input.toStatus === "void" ? "void" : "available",
               userId: ctx.session.user.id,
+              reason: input.reason ?? null,
+              audit: { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
             })
           : [];
 
@@ -1355,45 +1367,51 @@ export const bundleRouter = router({
           )
         : [];
 
-      await atomicBatch(ctx.db, [
-        ctx.db
-          .update(bundle)
-          .set({ status: input.toStatus, serverSeq: seq, ...(voiding ? { heldForLineId: null, heldAt: null } : {}) })
-          // Status predicate (audit S6): a dispatch that reserved the bundle
-          // after our read must not have its hold overwritten by a void.
-          .where(
-            and(
-              eq(bundle.companyId, ctx.companyId),
-              eq(bundle.id, existing.id),
-              eq(bundle.status, existing.status),
+      try {
+        await atomicBatch(ctx.db, [
+          ctx.db
+            .update(bundle)
+            .set({ status: input.toStatus, serverSeq: seq, ...(voiding ? { heldForLineId: null, heldAt: null } : {}) })
+            // Status predicate (audit S6): a dispatch that reserved the bundle
+            // after our read must not have its hold overwritten by a void.
+            .where(
+              and(
+                eq(bundle.companyId, ctx.companyId),
+                eq(bundle.id, existing.id),
+                eq(bundle.status, existing.status),
+              ),
             ),
-          ),
-        ledgerPosting,
-        ...ageingRestore,
-        ...holdRelease,
-        ctx.db.insert(bundleStatusEvent).values({
-          id: eventId,
-          companyId: ctx.companyId,
-          bundleId: existing.id,
-          fromStatus: existing.status,
-          toStatus: input.toStatus,
-          reason: input.reason ?? null,
-          actorId: ctx.session.user.id,
-        }),
-        auditInsert(
-          { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
-          {
-            action: "bundle.transition",
-            subjectType: "bundle",
-            subjectId: existing.id,
-            meta: {
-              from: existing.status,
-              to: input.toStatus,
-              reason: input.reason ?? null,
+          ledgerPosting,
+          ...ageingRestore,
+          ...holdRelease,
+          ctx.db.insert(bundleStatusEvent).values({
+            id: eventId,
+            companyId: ctx.companyId,
+            bundleId: existing.id,
+            fromStatus: existing.status,
+            toStatus: input.toStatus,
+            reason: input.reason ?? null,
+            actorId: ctx.session.user.id,
+          }),
+          auditInsert(
+            { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
+            {
+              action: "bundle.transition",
+              subjectType: "bundle",
+              subjectId: existing.id,
+              meta: {
+                from: existing.status,
+                to: input.toStatus,
+                reason: input.reason ?? null,
+              },
             },
-          },
-        ),
-      ]);
+          ),
+        ]);
+      } catch (e) {
+        // Restoring a bundle whose pieces went back on the trolley line, when that line no longer has them.
+        if (existing.ageingRowId && isPackAbort(e)) throw await ageingDrawRaceRefusal(ctx.db, ctx.companyId, existing.ageingRowId);
+        throw e;
+      }
 
       return { success: true };
     }),

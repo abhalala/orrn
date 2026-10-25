@@ -5,7 +5,7 @@
  * (IN_LIST_CHUNK) and inserts go through `pushChunkedInserts` with every column named (≤ 100 bound
  * parameters per statement).
  */
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 
 import { approval } from "@orrn/db/schema/approval";
 import { ageingBatch, ageingRecipe, ageingRow, ageingTempLog, type AgeingBatchRow } from "@orrn/db/schema/ageing";
@@ -36,6 +36,7 @@ import type {
 import { closeEmptyStatements } from "./ageing";
 import { ageingRefusal } from "./ageingRefusals";
 import { chunk, IN_LIST_CHUNK, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { auditInsert } from "./audit";
 
 const num = (v: unknown) => (v == null ? 0 : Number(v));
 const numOrNull = (v: unknown) => (v == null ? null : Number(v));
@@ -191,15 +192,15 @@ export async function readReadings(db: OrrnDb, companyId: string, batchId: strin
 
 /** Samples per row (chunked). */
 export async function readSamples(db: OrrnDb, companyId: string, rowIds: readonly string[]) {
-  const out = new Map<string, { id: string; rowId: string; method: HardnessSample["method"]; readingX10: number; pass: boolean; testedAt: number }[]>();
+  const out = new Map<string, { id: string; rowId: string; method: HardnessSample["method"]; readingX10: number; pass: boolean | null; testedAt: number }[]>();
   for (const ids of chunk([...new Set(rowIds)], IN_LIST_CHUNK)) {
-    const rows = await db.all<{ id: string; row_id: string; method: HardnessSample["method"]; reading_x10: number; pass: number; tested_at: number }>(
+    const rows = await db.all<{ id: string; row_id: string; method: HardnessSample["method"]; reading_x10: number; pass: number | null; tested_at: number }>(
       sql`select id, row_id, method, reading_x10, pass, tested_at from ageing_hardness
           where company_id = ${companyId} and row_id in (${list(ids)}) order by tested_at, id`,
     );
     for (const r of rows) {
       const arr = out.get(r.row_id) ?? [];
-      arr.push({ id: r.id, rowId: r.row_id, method: r.method, readingX10: num(r.reading_x10), pass: Boolean(Number(r.pass)), testedAt: num(r.tested_at) });
+      arr.push({ id: r.id, rowId: r.row_id, method: r.method, readingX10: num(r.reading_x10), pass: r.pass == null ? null : Boolean(Number(r.pass)), testedAt: num(r.tested_at) });
       out.set(r.row_id, arr);
     }
   }
@@ -330,7 +331,8 @@ export async function batchDetail(db: OrrnDb, companyId: string, b: AgeingBatchR
   const [successor] = await db
     .select({ id: ageingBatch.id })
     .from(ageingBatch)
-    .where(and(eq(ageingBatch.companyId, companyId), eq(ageingBatch.reworkOfBatchId, b.id)))
+    // A voided successor (review m5: the rework was undone) is not the successor; a redo is.
+    .where(and(eq(ageingBatch.companyId, companyId), eq(ageingBatch.reworkOfBatchId, b.id), ne(ageingBatch.status, "void")))
     .limit(1);
   const soak = soakOf(b, readings, opts.nowMs);
   const snapshot =
@@ -423,10 +425,16 @@ export async function rejectReasonIds(db: OrrnDb, companyId: string): Promise<Ma
  * A released whole-bundle row: packed_pcs = pcs (the pieces are the bundle), the row closes, and
  * `bundle.ageing_row_id` names it so the bundle stays `aged` after its batch closes.
  */
+/**
+ * Ids per release statement (review I2): the bundle UPDATE binds its IN list twice plus 4 values,
+ * so 2n + 4 ≤ 100 → n ≤ 48; 45 leaves room. A trolley filled by repeat loads can carry any number.
+ */
+export const RELEASE_BUNDLE_CHUNK = 45;
+
 export function releaseBundleRowStatements(db: OrrnDb, companyId: string, rowIds: readonly string[], seq: number): SqliteBatchItem[] {
   if (rowIds.length === 0) return [];
   const out: SqliteBatchItem[] = [];
-  for (const ids of chunk([...rowIds], IN_LIST_CHUNK)) {
+  for (const ids of chunk([...rowIds], RELEASE_BUNDLE_CHUNK)) {
     out.push(
       db
         .update(bundle)
@@ -500,7 +508,14 @@ export async function ingestAgeingReadings(
       createdBy: opts.userId,
     })),
   );
-  statements.push(soakStartStatement(db, companyId, b.id, opts.seq));
+  statements.push(
+    soakStartStatement(db, companyId, b.id, opts.seq),
+    // Review m3: one audit row per feed call (collector POST or simulator run), not one per reading.
+    auditInsert(
+      { db, companyId, session: (opts.userId ? { user: { id: opts.userId } } : null) as never },
+      { action: "ageing.readings", subjectType: "ageing_batch", subjectId: b.id, meta: { number: b.number, source: input.source, deviceId: input.deviceId, sent: good.length, refused: refused.length } },
+    ),
+  );
   await db.batch(statements as never);
   const after = await db.all<{ n: number }>(sql`select count(*) as n from ageing_temp_log where company_id = ${companyId} and batch_id = ${b.id}`);
   return { inserted: num(after[0]?.n) - num(before[0]?.n), refused };

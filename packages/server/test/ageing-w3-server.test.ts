@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, te
 
 import { wrapSecret } from "@orrn/crypto";
 import * as ag from "@orrn/db/schema/ageing";
-import { approval, bundle, pressRunLine, reasonCode } from "@orrn/db/schema";
+import { approval, auditLog, bundle, company, pressRunLine, reasonCode, stockLedger } from "@orrn/db/schema";
 import { spoolDeployment } from "@orrn/db/schema/spool";
 import { and, eq, sql } from "drizzle-orm";
 
@@ -97,6 +97,23 @@ const reasonId = async (p: AgPlant, kind: string, code: string) =>
 
 const packRow = (pcs: number, g = 117_100) => ({ quantity: pcs, weightG: g, lengthMm: 3_658 });
 
+/** The ageing audit actions on these subjects (rows, bundles), oldest first. */
+async function auditActions(p: AgPlant, subjectIds: string[]): Promise<string[]> {
+  const rows = await env.db.select({ action: auditLog.action, subjectId: auditLog.subjectId }).from(auditLog).where(eq(auditLog.companyId, p.companyId)).orderBy(sql`rowid`);
+  return rows.filter((r) => r.action.startsWith("ageing.") && subjectIds.includes(r.subjectId ?? "")).map((r) => r.action);
+}
+
+/** Start (in_at `minutes` ago) → readings → out, for a batch loaded by the test. */
+async function startToOut(p: AgPlant, batchId: string, minutes = 300, temp = 1850) {
+  const press = p.as("press");
+  const inAt = Date.now() - minutes * MIN;
+  await press.ageing.batches.start({ batchId, ovenId: p.ovenId, recipeId: p.recipeId, shiftId: "ag-day", gasStartMilli: 1_000, inAt });
+  await press.ageing.batches.temp({ batchId, tempCX10: temp, at: inAt + 5 * MIN });
+  await logReadings(p, batchId, inAt, minutes - 5, temp);
+  await press.ageing.batches.out({ batchId, gasEndMilli: 5_500 });
+  return inAt;
+}
+
 describe("masters (FP-AG-01..03)", () => {
   test("office saves drafts; activating is masters.publish; codes are normalized and unique", async () => {
     const p = await agPlant();
@@ -121,6 +138,46 @@ describe("masters (FP-AG-01..03)", () => {
     expect(old!.status).toBe("archived");
     expect((await mgr.ageing.recipes.list()).items.filter((r) => r.kind === "full").map((r) => r.id)).toEqual([next.id]);
     await expect(mgr.ageing.recipes.save({ alloy: "6063", temper: "T5", targetTempX10: 1850, soakMin: 240, maxSoakMin: 200, hardnessMinX10: 80, status: "draft" })).rejects.toThrow();
+  });
+
+  test("review m6: a status save and a load or start racing each other: the later write fails whole and says why", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const mgr = p.as("manager");
+    const press = p.as("press");
+    const t1 = (await p.owner.ageing.trolleys.get({ id: p.t1 })).code;
+    // A load lands between the out-of-service save's read and its write.
+    env.beforeNextBatch(() => press.ageing.batches.load({ trolleyId: p.t1, rows: [{ pressRunLineId: l.lineId, pcs: 5 }] }));
+    await expect(mgr.ageing.trolleys.save({ id: p.t1, code: t1, status: "out_of_service" })).rejects.toThrow(new RegExp(`^Trolley ${t1} carries AG-\\S+; it stays in service until that batch closes$`));
+    expect((await p.owner.ageing.trolleys.get({ id: p.t1 })).status).toBe("active");
+    // The other way round: the trolley goes out of service between the load's read and its write.
+    const t2 = (await p.owner.ageing.trolleys.get({ id: p.t2 })).code;
+    env.beforeNextBatch(() => mgr.ageing.trolleys.save({ id: p.t2, code: t2, status: "out_of_service" }));
+    await expect(press.ageing.batches.load({ trolleyId: p.t2, rows: [{ pressRunLineId: l.lineId, pcs: 5 }] })).rejects.toThrow(`Trolley ${t2} is not in service`);
+    expect((await p.owner.ageing.trolleys.list({ includeInactive: true })).items.find((t) => t.id === p.t2)).toMatchObject({ status: "out_of_service", openBatchId: null });
+    // A start racing the oven's out-of-service save.
+    const open = (await p.owner.ageing.batches.list({ trolleyId: p.t1, status: "loading" })).items[0]!;
+    const oven = (await p.owner.ageing.ovens.get({ id: p.ovenId })).code;
+    env.beforeNextBatch(() => mgr.ageing.ovens.save({ id: p.ovenId, code: oven, status: "out_of_service" }));
+    await expect(press.ageing.batches.start({ batchId: open.id, ovenId: p.ovenId, recipeId: p.recipeId, shiftId: "ag-day", gasStartMilli: 1 })).rejects.toThrow(`Oven ${oven} is not in service`);
+    expect((await p.owner.ageing.batches.get({ id: open.id })).status).toBe("loading");
+  });
+
+  test("review m6: a dispatch reserve racing a whole-bundle load fails whole and names the bundle in ageing", async () => {
+    const p = await agPlant();
+    const [serial] = await p.pack(p.dieA, [{ kg: 50, pcs: 10 }]);
+    const [b] = await env.db.select().from(bundle).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, serial!)));
+    await env.plantStock(p.companyId, [b!.id]);
+    const dispatch = await p.owner.dispatch.create({ customerId: p.customerId });
+    await p.owner.dispatch.addBundlesBySerial({ id: dispatch.id, serials: [serial!], allowUnassigned: true });
+    let batchNumber = "";
+    env.beforeNextBatch(async () => {
+      batchNumber = (await p.as("press").ageing.batches.load({ trolleyId: p.t1, bundles: [{ bundleId: b!.id }] })).number;
+    });
+    await expect(p.owner.dispatch.reserve({ id: dispatch.id })).rejects.toThrow(/^Bundle \S+ is in ageing on AG-/);
+    expect(batchNumber).toMatch(/^AG-/);
+    const [after] = await env.db.select().from(bundle).where(eq(bundle.id, b!.id));
+    expect(after!.status).toBe("available");
   });
 
   test("an oven with a batch in it, or a trolley carrying one, stays in service", async () => {
@@ -187,22 +244,27 @@ describe("the trolley from press to pack (FP-AG-04..10, 15)", () => {
       expect.objectContaining({ ageingRowId: row2, remainingPcs: 30 }),
     ]);
 
-    // Pack every piece from the row: row and batch close (Q58), the trolley takes a new load.
+    // Pack every piece of the first row: the row closes; the batch stays released (row 2 has pieces).
     await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [packRow(25), packRow(25)] });
+    expect(await p.owner.ageing.batches.get({ id: first.id })).toMatchObject({ status: "released", rows: [{ status: "closed", packedPcs: 50 }, { status: "released" }] });
+    const bundles = await env.db.select().from(bundle).where(eq(bundle.ageingRowId, rowId));
+    expect(bundles).toHaveLength(2);
+
+    // Q60-A: while the batch is open, a bundle void gives its pieces back (the row reopens); restore draws them again.
+    await p.owner.bundle.transitionStatus({ id: bundles[0]!.id, toStatus: "void", reason: "Wrong label" });
+    expect(await p.owner.ageing.batches.get({ id: first.id })).toMatchObject({ status: "released", rows: [{ status: "released", remainingPcs: 25 }, { status: "released" }] });
+    await p.owner.bundle.transitionStatus({ id: bundles[0]!.id, toStatus: "available" });
+    expect(await p.owner.ageing.batches.get({ id: first.id })).toMatchObject({ status: "released", rows: [{ status: "closed", remainingPcs: 0 }, { status: "released" }] });
+    // Review m3: the draw, the give-back and the draw again are audited.
+    expect(await auditActions(p, [rowId, bundles[0]!.id])).toEqual(["ageing.draw", "ageing.restore", "ageing.draw"]);
+
+    // The rest of the trolley: row and batch close (Q58), the trolley takes a new load.
     await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: row2, rows: [packRow(30)] });
     const closed = await p.owner.ageing.batches.get({ id: first.id });
     expect(closed).toMatchObject({ status: "closed", rows: [{ status: "closed", packedPcs: 50, remainingPcs: 0 }, { status: "closed", packedPcs: 30 }] });
     if (l.solId) expect((await lineStrips(env.db as never, p.companyId, [l.solId])).get(l.solId)!.agedG).toBe(0);
-    const bundles = await env.db.select().from(bundle).where(eq(bundle.ageingRowId, rowId));
-    expect(bundles).toHaveLength(2);
     const trace = await p.owner.ageing.bundleTrace({ bundleId: bundles[0]!.id });
     expect(trace).toMatchObject({ state: "aged", batchNumber: first.number, pressRunId: l.runId, castId: l.castId, qcVerdict: "pass" });
-
-    // A bundle void gives its pieces back and reopens the row and the batch; restore closes them again.
-    await p.owner.bundle.transitionStatus({ id: bundles[0]!.id, toStatus: "void", reason: "Wrong label" });
-    expect(await p.owner.ageing.batches.get({ id: first.id })).toMatchObject({ status: "released", rows: [{ status: "released", remainingPcs: 25 }, { status: "closed" }] });
-    await p.owner.bundle.transitionStatus({ id: bundles[0]!.id, toStatus: "available" });
-    expect(await p.owner.ageing.batches.get({ id: first.id })).toMatchObject({ status: "closed", rows: [{ status: "closed", remainingPcs: 0 }, { status: "closed" }] });
 
     const next = await press.ageing.batches.load({ trolleyId: p.t1, manual: [{ dieId: l.sectionId, lengthMm: 3_658, pcs: 5, kgG: 14_000 }] });
     expect(next.id).not.toBe(first.id);
@@ -210,6 +272,56 @@ describe("the trolley from press to pack (FP-AG-04..10, 15)", () => {
       const fo = await p.as("office").ageing.forOrder({ salesOrderId: l.orderId });
       expect(fo.lines.find((x) => x.salesOrderLineId === l.solId)).toMatchObject({ loadedPcs: 80, packedPcs: 80, remainingPcs: 0, agedG: 0 });
     }
+  });
+
+  test("review C1 / Q60-A: a bundle voided after its batch closed and its trolley took a new load is written off as loose aged stock", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
+    await passHardness(p, batchId);
+    await p.as("supervisor").ageing.batches.release({ batchId });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    // Pack all 10 → the row and the batch close; the trolley is free and takes a new load at once.
+    await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [packRow(6, 17_000), packRow(4, 11_000)] });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", rows: [{ status: "closed", packedPcs: 10, remainingPcs: 0 }] });
+    const reload = await p.as("press").ageing.batches.load({ trolleyId: p.t1, rows: [{ pressRunLineId: l.lineId, pcs: 5 }] });
+    const [six] = await env.db.select().from(bundle).where(and(eq(bundle.ageingRowId, rowId), eq(bundle.quantity, 6)));
+
+    // The void lands (no reopen, so no trolley clash); the old batch, its row and the new load are untouched.
+    await p.owner.bundle.transitionStatus({ id: six!.id, toStatus: "void", reason: "Bent in the yard" });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", rows: [{ status: "closed", packedPcs: 10, remainingPcs: 0 }] });
+    expect(await p.owner.ageing.batches.get({ id: reload.id })).toMatchObject({ status: "loading", trolleyId: p.t1, totals: { loadedPcs: 5 } });
+    expect((await p.as("packer").ageing.packSource({ dieId: l.sectionId })).items).toHaveLength(0);
+    // The write-off: the bundle's ledger void (its kg out, with the reason) and an ageing.writeOff audit row.
+    const ledger = await env.db.select().from(stockLedger).where(and(eq(stockLedger.companyId, p.companyId), eq(stockLedger.itemRef, six!.id)));
+    expect(ledger.map((r) => [r.voucherType, Math.sign(Number(r.qtyG))])).toEqual([["pack", 1], ["void", -1]]);
+    const [writeOff] = await env.db.select().from(auditLog).where(and(eq(auditLog.subjectId, six!.id), eq(auditLog.action, "ageing.writeOff")));
+    expect(writeOff!.meta).toMatchObject({ rowId, reason: "Bent in the yard", kind: "loose_aged" });
+
+    // Restore undoes the write-off: the row is not drawn again; a second void writes off again.
+    await p.owner.bundle.transitionStatus({ id: six!.id, toStatus: "available" });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", rows: [{ packedPcs: 10 }] });
+    await p.owner.bundle.transitionStatus({ id: six!.id, toStatus: "void", reason: "Bent in the yard" });
+    expect(await auditActions(p, [six!.id])).toEqual(["ageing.writeOff", "ageing.writeOffUndo", "ageing.writeOff"]);
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", rows: [{ packedPcs: 10 }] });
+  });
+
+  test("Q60-A: pieces given back while open are drawn again on restore; once another pack took them and the batch closed, the restore is refused", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
+    await passHardness(p, batchId);
+    await p.as("supervisor").ageing.batches.release({ batchId });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [packRow(4, 11_000)] });
+    const [four] = await env.db.select().from(bundle).where(eq(bundle.ageingRowId, rowId));
+    await p.owner.bundle.transitionStatus({ id: four!.id, toStatus: "void", reason: "Wrong label" });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "released", rows: [{ remainingPcs: 10 }] });
+    // The 10 pieces are packed again on new bundles: the row and the batch close.
+    await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: rowId, rows: [packRow(10, 27_000)] });
+    expect((await p.owner.ageing.batches.get({ id: batchId })).status).toBe("closed");
+    await expect(p.owner.bundle.transitionStatus({ id: four!.id, toStatus: "available" })).rejects.toThrow("This trolley line is not released; it is not on the pack list");
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({ status: "closed", rows: [{ packedPcs: 10, remainingPcs: 0 }] });
   });
 
   test("start refuses a plant with no shifts, a busy oven, a recipe of another alloy; gas going backwards warns", async () => {
@@ -301,11 +413,70 @@ describe("release, hold, override, unhold (FP-AG-08, 11, 14)", () => {
 
     await p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: b!.id, rows: [packRow(5, 14_000)] });
     await expect(sup.ageing.batches.hold({ batchId, reasonCodeId: customer })).rejects.toThrow("Pieces were packed from this trolley; hold the lines that are still full");
-    // Review I6: the row held after pack's read: the receipt fails whole.
-    await sup.ageing.batches.hold({ rowId: b!.id, reasonCodeId: customer });
+    // Review I6 / m1: the row is held between pack's read and its write (the in-batch guard, not the
+    // pre-read, refuses): the receipt fails whole, no bundle lands and the row keeps its pieces.
+    const bundlesBefore = (await env.db.select({ id: bundle.id }).from(bundle).where(eq(bundle.ageingRowId, b!.id))).length;
+    env.beforeNextBatch(() => sup.ageing.batches.hold({ rowId: b!.id, reasonCodeId: customer }));
     await expect(p.owner.bundle.createReceipt({ dieId: l.sectionId, unit: "pcs", locationId: p.yard, ageingRowId: b!.id, rows: [packRow(1, 3_000)] })).rejects.toThrow(
       "This trolley line is not released; it is not on the pack list",
     );
+    expect((await env.db.select({ id: bundle.id }).from(bundle).where(eq(bundle.ageingRowId, b!.id))).length).toBe(bundlesBefore);
+    expect((await p.owner.ageing.batches.get({ id: batchId })).rows.find((r) => r.id === b!.id)).toMatchObject({ status: "held", packedPcs: 5, remainingPcs: 5 });
+  });
+
+  test("review m2: a manager who requested an override cannot approve it; another approver can", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 5 }] }, 120);
+    await passHardness(p, batchId);
+    const mgr = p.as("manager");
+    expect(await mgr.ageing.batches.release({ batchId })).toMatchObject({ status: "held", soak: { verdict: "under_aged" } });
+    const { approvalId } = await mgr.ageing.batches.requestOverride({ batchId, reason: "Customer accepts a short soak" });
+    await expect(mgr.approval.decide({ id: approvalId, decision: "approved" })).rejects.toThrow("Someone else has to approve your request");
+    await expect(p.as("supervisor").approval.decide({ id: approvalId, decision: "approved" })).rejects.toThrow();
+    const [still] = await env.db.select().from(ag.ageingBatch).where(eq(ag.ageingBatch.id, batchId));
+    expect(still!.overrideApprovalId).toBeNull();
+    await p.as("admin").approval.decide({ id: approvalId, decision: "approved" });
+    expect(await mgr.ageing.batches.release({ batchId })).toMatchObject({ status: "released", qcVerdict: "override" });
+  });
+
+  test("review m7: an unhold whose batch moved meanwhile names the batch's status; review m8: a re-hold keeps the note", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const sup = p.as("supervisor");
+    const customer = await reasonId(p, "ageing_hold", "customer");
+    const one = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
+    await passHardness(p, one.batchId);
+    const rowId = (await p.owner.ageing.batches.get({ id: one.batchId })).rows[0]!.id;
+    await sup.ageing.batches.hold({ rowId, reasonCodeId: customer, note: "Customer asked to wait" });
+    env.beforeNextBatch(() => sup.ageing.batches.release({ batchId: one.batchId }));
+    await expect(sup.ageing.batches.unhold({ rowId })).rejects.toThrow(new RegExp(`^${one.number} is (held|released); that step is not open now$`));
+    const [kept] = await env.db.select().from(ag.ageingRow).where(eq(ag.ageingRow.id, rowId));
+    expect(kept).toMatchObject({ status: "held", holdReasonCodeId: customer });
+
+    // m8: released, hand-held with a note, then a soft retest: the unhold holds it again for hardness and keeps the note.
+    const two = await cycled(p, { trolleyId: p.t2, rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
+    await passHardness(p, two.batchId);
+    expect((await sup.ageing.batches.release({ batchId: two.batchId })).status).toBe("released");
+    const row2 = (await p.owner.ageing.batches.get({ id: two.batchId })).rows[0]!.id;
+    await sup.ageing.batches.hold({ rowId: row2, reasonCodeId: customer, note: "Customer asked to wait" });
+    await p.as("press").ageing.batches.hardness({ rowId: row2, method: "webster", readingsX10: [50] });
+    await sup.ageing.batches.unhold({ rowId: row2 });
+    const [again] = await env.db.select().from(ag.ageingRow).where(eq(ag.ageingRow.id, row2));
+    expect(again).toMatchObject({ status: "held", holdReasonCodeId: await reasonId(p, "ageing_reject", "hardness_low"), holdNote: "Customer asked to wait" });
+  });
+
+  test("review m4: a sample of the other method is stored as not deciding (null), never as a fail", async () => {
+    const p = await agPlant();
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 5 }] });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    await p.as("press").ageing.batches.hardness({ rowId, method: "hb", readingsX10: [600] });
+    const d = await p.as("press").ageing.batches.hardness({ rowId, method: "webster", readingsX10: [100, 105, 110] });
+    expect(d.hardness.map((h) => [h.method, h.pass])).toEqual([["hb", null], ["webster", true], ["webster", true], ["webster", true]]);
+    expect(d.rows[0]).toMatchObject({ hardnessPass: true, hardnessReadingX10: 105 });
+    const stored = await env.db.select({ method: ag.ageingHardness.method, pass: ag.ageingHardness.pass }).from(ag.ageingHardness).where(eq(ag.ageingHardness.rowId, rowId));
+    expect(stored.filter((x) => x.method === "hb")).toEqual([{ method: "hb", pass: null }]);
   });
 
   test("a QC-held line is not cleared by unhold", async () => {
@@ -320,7 +491,7 @@ describe("release, hold, override, unhold (FP-AG-08, 11, 14)", () => {
 });
 
 describe("rework, discard, split, void (FP-AG-09, 12, 13; review I4)", () => {
-  test("rework moves held pieces once; the original closes and frees its trolley; neither batch can be voided", async () => {
+  test("rework moves held pieces once; the original closes and frees its trolley; the original cannot be voided", async () => {
     const p = await agPlant();
     const l = await loggedLine(p);
     const { batchId, number } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 30 }] });
@@ -334,9 +505,28 @@ describe("rework, discard, split, void (FP-AG-09, 12, 13; review I4)", () => {
     expect(successor.recipeLabel).toBe("6063 T6 top-up");
     // The press line counts the 30 pieces once: 50 left, not 20 or 80.
     expect((await p.as("press").ageing.batches.availableLines({})).items.find((x) => x.pressRunLineId === l.lineId)).toMatchObject({ pcsLeft: 50, kgLeftG: 146_375 });
-    await expect(sup.ageing.batches.void({ batchId, reasonCodeId: await reasonId(p, "ageing_abort", "wrong_load") })).rejects.toThrow();
-    await expect(p.as("press").ageing.batches.void({ batchId: successor.id })).rejects.toThrow(`Pieces of ${successor.number} were aged again or discarded; it cannot be voided`);
-    void number;
+    await expect(sup.ageing.batches.void({ batchId, reasonCodeId: await reasonId(p, "ageing_abort", "wrong_load") })).rejects.toThrow(`Pieces of ${number} were aged again or discarded; it cannot be voided`);
+
+    // Review m5: a successor still loading can be voided (by the release role: it undoes a QC decision).
+    // Its pieces go back on the original line, held again with their reason; the original is held again.
+    await expect(p.as("press").ageing.batches.void({ batchId: successor.id })).rejects.toThrow("You don't have permission to do that");
+    const undone = await sup.ageing.batches.void({ batchId: successor.id });
+    expect(undone).toMatchObject({ status: "void" });
+    expect(await p.owner.ageing.batches.get({ id: batchId })).toMatchObject({
+      status: "held",
+      disposition: null,
+      successorBatchId: null,
+      rows: [{ status: "held", reworkPcs: 0, remainingPcs: 30, holdReasonCodeId: await reasonId(p, "ageing_reject", "hardness_low") }],
+    });
+    expect((await p.as("press").ageing.batches.availableLines({})).items.find((x) => x.pressRunLineId === l.lineId)).toMatchObject({ pcsLeft: 50, kgLeftG: 146_375 });
+    // The rework can be done again; once the successor has gone into the oven its void stays refused.
+    const redo = await sup.ageing.batches.rework({ batchId });
+    await p.as("press").ageing.batches.start({ batchId: redo.successor.id, ovenId: p.ovenId, recipeId: p.topUpId, shiftId: "ag-day", gasStartMilli: 1, inAt: Date.now() - 90 * MIN });
+    await p.as("press").ageing.batches.temp({ batchId: redo.successor.id, tempCX10: 1850, at: Date.now() - 80 * MIN });
+    await p.as("press").ageing.batches.out({ batchId: redo.successor.id, gasEndMilli: 2 });
+    await expect(sup.ageing.batches.void({ batchId: redo.successor.id, reasonCodeId: await reasonId(p, "ageing_abort", "wrong_load") })).rejects.toThrow(
+      `Pieces of ${redo.successor.number} were aged again or discarded; it cannot be voided`,
+    );
   });
 
   test("void: free while loading (load role); never in the oven; after take-out a supervisor with an ageing_abort reason; pieces go back once", async () => {
@@ -368,6 +558,9 @@ describe("rework, discard, split, void (FP-AG-09, 12, 13; review I4)", () => {
       [1_829, 20, 29_275],
       [3_658, 10, 29_275],
     ]);
+    // Review I1: the press line still counts 20 of its own 3658 mm pieces on the trolley, so 60 are left.
+    const press = p.as("press");
+    expect((await press.ageing.batches.availableLines({})).items.find((x) => x.pressRunLineId === l.lineId)).toMatchObject({ pcsLeft: 60, kgLeftG: 234_200 - 58_550 });
     const bend = await reasonId(p, "ageing_scrap", "bend");
     await expect(sup.ageing.batches.discardRemaining({ rowId, pcs: 21, reasonCodeId: bend })).rejects.toThrow("Only 20 pieces are left on this trolley line");
     const d = await sup.ageing.batches.discardRemaining({ rowId, pcs: 2, reasonCodeId: bend });
@@ -376,9 +569,48 @@ describe("rework, discard, split, void (FP-AG-09, 12, 13; review I4)", () => {
       "Pieces were packed from this trolley line; it cannot be split",
     );
   });
+
+  test("review I1: a split keeps the press line's piece count in its cut length (40 → 40 @1829 + 20 @3658 is still 40)", async () => {
+    const p = await agPlant({ ageing: { split: true } });
+    const l = await loggedLine(p);
+    const { batchId } = await cycled(p, { trolleyId: p.t1, rows: [{ pressRunLineId: l.lineId, pcs: 40 }] });
+    const rowId = (await p.owner.ageing.batches.get({ id: batchId })).rows[0]!.id;
+    await p.as("supervisor").ageing.batches.split({ rowId, cuts: [{ lengthMm: 1_829, pcs: 40 }, { lengthMm: 3_658, pcs: 20 }] });
+    const press = p.as("press");
+    // 40 of the line's 80 pieces are on the trolley: 40 left with the grams of 40 pieces.
+    expect((await press.ageing.batches.availableLines({})).items.find((x) => x.pressRunLineId === l.lineId)).toMatchObject({ pcsLeft: 40, kgLeftG: 117_100 });
+    // The load and its write-time guard count the same way: 41 is over, 40 fits and empties the line.
+    await expect(press.ageing.batches.load({ trolleyId: p.t2, rows: [{ pressRunLineId: l.lineId, pcs: 41 }] })).rejects.toThrow("Only 40 pieces of this press line are left to load");
+    const rest = await press.ageing.batches.load({ trolleyId: p.t2, rows: [{ pressRunLineId: l.lineId, pcs: 40 }] });
+    expect(rest.totals).toMatchObject({ loadedPcs: 40, loadedKgG: 117_100 });
+    expect((await press.ageing.batches.availableLines({})).items.find((x) => x.pressRunLineId === l.lineId)).toBeUndefined();
+  });
 });
 
 describe("whole bundles on a trolley (review I3) and dispatch", () => {
+  test("review I2: a trolley of 60 or 120 whole bundles (repeat loads) releases within D1's 100 bound parameters", async () => {
+    for (const n of [60, 120]) {
+      const p = await agPlant();
+      const seeded = await env.seedBundles(p.companyId, p.dieA, n);
+      const press = p.as("press");
+      let batchId = "";
+      for (let i = 0; i < n; i += 40) batchId = (await press.ageing.batches.load({ trolleyId: p.t1, bundles: seeded.slice(i, i + 40).map((b) => ({ bundleId: b.id })) })).id;
+      await startToOut(p, batchId);
+      // Three passing Webster samples per line, written directly (120 hardness calls would only slow the test).
+      const rows = await env.db.select({ id: ag.ageingRow.id }).from(ag.ageingRow).where(eq(ag.ageingRow.batchId, batchId));
+      expect(rows).toHaveLength(n);
+      const samples = rows.flatMap((r) => [100, 105, 110].map((readingX10) => ({ id: crypto.randomUUID(), companyId: p.companyId, batchId, rowId: r.id, method: "webster" as const, readingX10, pass: true })));
+      for (let i = 0; i < samples.length; i += 10) await env.db.insert(ag.ageingHardness).values(samples.slice(i, i + 10));
+      env.resetPeakParams();
+      const rel = await p.as("supervisor").ageing.batches.release({ batchId });
+      expect(env.peakParams()).toBeLessThanOrEqual(100);
+      expect({ n, status: rel.status, closed: rel.rows.filter((r) => r.status === "closed" && r.packedPcs === 10).length }).toEqual({ n, status: "closed", closed: n });
+      const aged = await env.db.select({ id: bundle.id }).from(bundle).where(and(eq(bundle.companyId, p.companyId), sql`${bundle.ageingRowId} is not null`));
+      expect(aged).toHaveLength(n);
+    }
+  });
+
+
   test("a bundle in the oven cannot dispatch or be voided; release marks it aged and closes its row with packed = pcs", async () => {
     const p = await agPlant();
     const [serial] = await p.pack(p.dieA, [{ kg: 50, pcs: 10 }]);
@@ -477,6 +709,16 @@ describe("readings feed (FP-AG-06, 17) and replays", () => {
     const sim = await p.as("press").ageing.batches.simulate({ batchId: b.id });
     expect(sim.inserted).toBeGreaterThan(0);
     expect((await p.as("press").ageing.batches.simulate({ batchId: b.id })).inserted).toBe(0);
+    // Review m3: one audit row per feed call (3 POSTs that reached the batch, 2 simulator runs) and per typed reading.
+    await p.as("press").ageing.batches.temp({ batchId: b.id, tempCX10: 1850, at: inAt + 30 * MIN });
+    expect((await auditActions(p, [b.id])).filter((a): a is string => a === "ageing.readings" || a === "ageing.temp")).toEqual<string[]>([
+      ...Array<string>(5).fill("ageing.readings"),
+      "ageing.temp",
+    ]);
+    // Review m9: the ageing module off for the node's company refuses the feed.
+    await env.db.update(company).set({ modules: ["press"] }).where(eq(company.id, p.companyId));
+    expect(await post({ device_id: "probe-3", readings: [{ at, temp_c_x10: 1850 }] })).toMatchObject({ status: 403 });
+    await env.db.update(company).set({ modules: [] }).where(eq(company.id, p.companyId));
   });
 
   test("clientMutationId: a load, a reading and a release sent twice land once", async () => {
