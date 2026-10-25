@@ -46,6 +46,15 @@ export function typedWeightNeedsReason(view: ScaleView): boolean {
   return view.state !== "off";
 }
 
+/**
+ * The view a typed weight is judged against. Until the scale has answered once (or failed once) nobody
+ * knows whether one is connected, so the weight is treated as typed against a scale that is not answering:
+ * it asks its reason. A weight typed in the first moments is then never saved without one.
+ */
+export function viewForReason(view: ScaleView | null): ScaleView {
+  return view ?? { state: "silent", simulated: false };
+}
+
 /** How long to wait before asking again: quick while a scale is there, lazy when there is none. */
 export function scalePollMs(view: ScaleView | null): number {
   if (view === null) return 800;

@@ -65,15 +65,3 @@ export function buildTimeline(events: readonly StatusEvent[], bundle: { createdA
   // Newest first; the server's order (already newest first) breaks ties.
   return entries.sort((a, b) => b.entry.at.getTime() - a.entry.at.getTime() || a.order - b.order).map((x) => x.entry);
 }
-
-export type RangeStatus = "inRange" | "below" | "above" | "noRange";
-
-/** A bundle's kg/12ft against its die's band (grams per 12 ft). Edges count as in range. */
-export function rangeStatus(kgPer12ft: number | null, minG: number, maxG: number): RangeStatus {
-  if (kgPer12ft === null || !(maxG > 0)) return "noRange";
-  const g = kgPer12ft * 1000;
-  // Half a gram of slack: kg/12ft is a float from weight, pieces and length.
-  if (g < minG - 0.5) return "below";
-  if (g > maxG + 0.5) return "above";
-  return "inRange";
-}

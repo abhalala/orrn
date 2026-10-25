@@ -5,6 +5,8 @@
  */
 import type { MessageKey, Translate } from "@orrn/i18n";
 
+import { zoneOf } from "@/lib/format";
+
 type Stored = Record<string, unknown> | null | undefined;
 
 function text(v: unknown): string {
@@ -39,8 +41,7 @@ const FALLBACK_ZONE = "Asia/Kolkata";
 
 /** `settings.timezone` when it is a string, IST otherwise (the server's own default). */
 export function companyTimeZone(settings: { [key: string]: unknown } | null | undefined): string {
-  const tz = settings?.timezone;
-  return typeof tz === "string" && tz.length > 0 ? tz : FALLBACK_ZONE;
+  return zoneOf(settings);
 }
 
 function ymdIn(timeZone: string, at: Date): string {

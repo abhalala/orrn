@@ -47,10 +47,30 @@ export function kg12Text(milli: number | null): string | null {
   return milli == null ? null : formatKg(milli / 1000, 3);
 }
 
-/** The band as the plant writes it ("2.4 to 2.6"), from grams per 12 ft. */
-export function bandText(band: Pick<NonNullable<LineVerdict["band"]>, "minG" | "maxG">): string {
+/** What the preview asks the server about: one bundle being typed. */
+export type PreviewInput = { dieId: string | null; dieInstanceId?: string; lengthMm: number; weightG: number | null; pieces: number | null };
+
+/**
+ * The preview input as ONE string. The screen builds a new object on every render, so the debounce must
+ * compare this key (equal content = equal string) and never the object itself.
+ */
+export function previewInputKey(i: PreviewInput): string {
+  return JSON.stringify([i.dieId, i.dieInstanceId ?? null, i.lengthMm, i.weightG, i.pieces]);
+}
+
+/** The input a key stands for (the inverse of `previewInputKey`). */
+export function previewInputOf(key: string): PreviewInput {
+  const [dieId, dieInstanceId, lengthMm, weightG, pieces] = JSON.parse(key) as [string | null, string | null, number, number | null, number | null];
+  return { dieId, ...(dieInstanceId ? { dieInstanceId } : {}), lengthMm, weightG, pieces };
+}
+
+/**
+ * The band as the plant writes it ("2.4 to 2.6"), from grams per 12 ft. The word between the two figures
+ * is the person's language: `rangeTo` is `t("units.rangeTo", { min, max })`.
+ */
+export function bandText(band: Pick<NonNullable<LineVerdict["band"]>, "minG" | "maxG">, rangeTo: (vars: { min: string; max: string }) => string): string {
   const f = (g: number) => (Number.isInteger(g / 100) ? (g / 1000).toFixed(1) : formatKg(g / 1000, 3));
-  return `${f(band.minG)} to ${f(band.maxG)}`;
+  return rangeTo({ min: f(band.minG), max: f(band.maxG) });
 }
 
 /** Whether a line has enough to ask the server (all three figures are positive whole numbers). */

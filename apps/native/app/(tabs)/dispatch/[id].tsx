@@ -26,7 +26,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 
 import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
-import { capacityView, completeExtras, overReasonError } from "@/features/dispatch/capacity";
+import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
 import { dispatchNow } from "@/features/dispatch/dispatch-now";
@@ -213,6 +213,13 @@ export default function DispatchDetailScreen() {
         setJustDispatched(true);
         closeSheet();
         done(t("dispatch.dispatched"));
+      } else if (overRaceAfterComplete(error, completeExtras(capacity, overReason).capacityOverrideReason !== undefined, fresh.data?.capacity)) {
+        // The load went over while the sheet was open: keep it open and ask why.
+        feedback.error();
+        setOverTried(true);
+        setSheetError(t("dispatch.capacity.reasonRequired"));
+        announce(t("dispatch.capacity.reasonRequired"), { shownInLiveRegion: true });
+        refresh();
       } else {
         fail(error, true);
         refresh();

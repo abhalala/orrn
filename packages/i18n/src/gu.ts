@@ -106,6 +106,8 @@ export const gu = {
     feetInches: "{ft} ft {in} in",
     kgPerM: "kg/m",
     percent: "{value}%",
+    /** Two figures of a band ("2.4 to 2.6"); the word between them is the language's own. */
+    rangeTo: "{min} થી {max}",
   },
   today: {
     title: "આજે",

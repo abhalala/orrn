@@ -20,7 +20,7 @@ type Result = { report: AddBundlesReport; ambiguous: string[]; unsent: string[];
 export type PasteSheetProps = {
   visible: boolean;
   onClose: () => void;
-  /** One chunk of at most 100 serials to `dispatch.addBundlesBySerial`. */
+  /** One chunk of at most 100 serials to `dispatch.scan` (with a replay key per chunk). */
   send: (serials: string[]) => Promise<AddBundlesReport>;
   /** `resolve.byCode`, for old month-only numbers. */
   resolve: (code: string) => Promise<ResolveHit>;

@@ -154,8 +154,8 @@ export function PressRunView() {
                 <Text accessibilityRole="header" className="font-sans-semibold text-base text-tone-amber-ink">
                   {t("native.press.gatesHeading")}
                 </Text>
-                {gates.map((g) => (
-                  <Text key={g} className="font-sans text-[15px] leading-6 text-tone-amber-ink">
+                {gates.map((g, i) => (
+                  <Text key={`${i}:${g}`} className="font-sans text-[15px] leading-6 text-tone-amber-ink">
                     {g}
                   </Text>
                 ))}

@@ -1,4 +1,4 @@
-import { formatKg, gToKg, kgPer12ft, weightRange12ft } from "@orrn/domain";
+import { formatKg, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
@@ -8,12 +8,7 @@ import { Chip } from "@/components/ui/chip";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { bandText, driftChipTone, driftText, kg12Text, positionKey, positionTone, type ServerDriftTone, type ServerPosition } from "@/features/pack/line-preview";
 import { partyNoLabel } from "@/features/pack/party";
-import { formatKgBand } from "@/features/stock/format";
 import { useLengthUnit } from "@/utils/length";
-
-import { rangeStatus } from "./timeline";
-
-const RANGE_TONE = { inRange: "green", below: "amber", above: "amber", noRange: "neutral" } as const;
 
 /** The server's band verdict for the bundle (`bundle.getBySerial().band`, D15). */
 export type BundleBandView = {
@@ -73,16 +68,14 @@ export function BundleFacts({
   const { t } = useT();
   const router = useRouter();
   const lu = useLengthUnit();
-  // kg/12 ft, the band word and the drift are the server's (D15); the phone only works them out for an older server.
+  // kg/12 ft, the band word, the band and the drift are all the server's (D15); nothing is worked out here.
   const serverBand = extras?.band ?? null;
   const milli = bundle.kgPer12ftMilli ?? null;
-  const perFoot = milli != null ? milli / 1000 : kgPer12ft({ weightG: bundle.weightG, pieces: bundle.quantity, lengthMm: bundle.lengthMm });
-  const range = serverBand ? "noRange" : die ? rangeStatus(perFoot, die.weightMinG, die.weightMaxG) : "noRange";
+  const kg12 = kg12Text(milli);
   const bandKey = serverBand ? positionKey(serverBand.position) : null;
   const driftTone = serverBand ? driftChipTone(serverBand.tone) : null;
   const drift = serverBand ? driftText(serverBand.percentTenths) : null;
-  const serverRange = serverBand && serverBand.minG != null && serverBand.maxG != null ? bandText({ minG: serverBand.minG, maxG: serverBand.maxG }) : null;
-  const band = serverRange ?? (die ? formatKgBand(die.weightMinG, die.weightMaxG) : null);
+  const band = serverBand && serverBand.minG != null && serverBand.maxG != null ? bandText({ minG: serverBand.minG, maxG: serverBand.maxG }, (v) => t("units.rangeTo", v)) : null;
   const party = bundle.serial ? partyNoLabel({ serial: bundle.serial, partyNo: bundle.partyNo ?? null }) : null;
   const orderText = (o: OrderRef) => `${o.orderNumber}/${o.lineNo}`;
   const section = die ? [die.series, die.sectionCode].filter(Boolean).join(" ") : null;
@@ -101,18 +94,17 @@ export function BundleFacts({
       key: "kg12",
       label: t("bundle.facts.kgPer12ft"),
       value:
-        perFoot === null ? (
+        kg12 === null ? (
           "-"
         ) : (
           <View className="flex-row flex-wrap items-center justify-end gap-2">
-            <Text className="font-mono-semibold text-base text-ink">{milli != null ? (kg12Text(milli) ?? "-") : formatKg(perFoot)}</Text>
+            <Text className="font-mono-semibold text-base text-ink">{kg12}</Text>
             {bandKey ? <Chip tone={positionTone(serverBand!.position)} label={t(bandKey)} /> : null}
             {driftTone && drift ? <Chip tone={driftTone} label={t("pack.new.drift", { percent: drift })} /> : null}
-            {!serverBand && range !== "noRange" ? <Chip tone={RANGE_TONE[range]} label={t(`status.range.${range}`)} /> : null}
           </View>
         ),
     },
-    { key: "range", label: t("bundle.facts.weightRange"), value: extras?.range12ft != null ? formatKg(extras.range12ft, 1) : perFoot === null ? "-" : formatKg(weightRange12ft(perFoot), 1) },
+    { key: "range", label: t("bundle.facts.weightRange"), value: extras?.range12ft != null ? formatKg(extras.range12ft, 1) : "-" },
     ...(band ? [{ key: "band", label: serverBand?.source === "copy" ? t("bundle.facts.copyBand") : t("bundle.facts.dieBand"), value: band }] : []),
     ...(party ? [{ key: "party", label: t("pack.partyNo"), value: party }] : []),
     { key: "section", label: t("bundle.facts.section"), value: section ? link(section, false, `/stock/${encodeURIComponent(bundle.dieId)}`) : "-" },

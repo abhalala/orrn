@@ -17,7 +17,7 @@ import { trpc } from "@/utils/trpc";
 
 import { failedWithoutData } from "./section-page";
 import { SectionBlock } from "./section-row";
-import { sectionRows, stockTotals, type SectionSort, type StockPosition, type SummaryRow } from "./sections";
+import { sectionRows, stockTotals, type SectionSort, type SummaryRow } from "./sections";
 import { useRefresh } from "./use-refresh";
 import { YardFilter } from "./yard-filter";
 
@@ -43,7 +43,7 @@ export function StockView() {
   const all = sectionRows(items(available), items(reserved), { query: "", sort });
   const shown = sectionRows(items(available), items(reserved), { query, sort });
   // In stock = available and held apart, counted by the server over the same yard filter as the sections.
-  const totals = stockTotals(available.data?.stock as StockPosition | undefined, all);
+  const totals = stockTotals(available.data?.stock, all);
   const canPack = can(me, "bundle.pack");
 
   const loading = available.isPending || reserved.isPending;

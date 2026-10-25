@@ -466,6 +466,8 @@ export function ScanView() {
           <Button
             variant="ghost"
             label={t("scan.continuous.speak")}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: speaking }}
             icon={<Feather name={speaking ? "volume-2" : "volume-x"} size={18} color={ink} />}
             onPress={() => {
               setSpeechOn(!speaking);

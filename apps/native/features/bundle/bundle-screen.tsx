@@ -150,6 +150,8 @@ function BundleDetail({
   const [printNote, setPrintNote] = useState<{ ok: boolean; text: string } | null>(null);
   const canPrint = canReprint(status) && can(me, "spool.create_jobs");
   const printLabel = async () => {
+    // A second tap while the first label is still going to the printer must not print another.
+    if (reprint.isPending) return;
     setPrintNote(null);
     try {
       await reprint.mutateAsync({ bundleId: bundle.id });

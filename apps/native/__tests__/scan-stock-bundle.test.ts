@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { rangeStatus, buildTimeline } from "../features/bundle/timeline";
+import { buildTimeline } from "../features/bundle/timeline";
 import { dedupeKey, pushScanLog, readSerial, scanLogEntry, scanMode, SCAN_LOG_SIZE } from "../features/scan/scan-flow";
 import {
   offsetOf,
@@ -125,15 +125,6 @@ describe("stock lists", () => {
 });
 
 describe("bundle page", () => {
-  test("kg/12ft against the die's band; edges count as in range", () => {
-    expect(rangeStatus(2.5, 2400, 2600)).toBe("inRange");
-    expect(rangeStatus(2.4, 2400, 2600)).toBe("inRange");
-    expect(rangeStatus(2.3, 2400, 2600)).toBe("below");
-    expect(rangeStatus(2.7, 2400, 2600)).toBe("above");
-    expect(rangeStatus(null, 2400, 2600)).toBe("noRange");
-    expect(rangeStatus(2.5, 0, 0)).toBe("noRange");
-  });
-
   test("a refused void or restore says the bundle changed; a hold is named; permission is its own message", () => {
     expect(transitionError({ data: { code: "FORBIDDEN" } })).toEqual({ key: "stock.noPermission" });
     expect(transitionError({ data: { code: "CONFLICT" } })).toEqual({ key: "bundle.changedElsewhere" });

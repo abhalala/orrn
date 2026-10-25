@@ -113,7 +113,7 @@ describe("press gates and refusals have native sentences", () => {
     for (const r of PRESS_REFUSALS) {
       expect({ sample: r.sample, hit: r.re.test(r.sample) }).toEqual({ sample: r.sample, hit: true });
       expect({ src: r.src, found: sources.includes(r.src) }).toEqual({ src: r.src, found: true });
-      for (const [name, dict] of [["en", en], ["hi", hi]] as const) {
+      for (const [name, dict] of [["en", en], ["hi", hi], ["gu", gu]] as const) {
         expect({ key: r.key, lang: name, text: typeof lookup(dict, r.key) }).toEqual({ key: r.key, lang: name, text: "string" });
       }
     }

@@ -1,15 +1,11 @@
 import { gToKg, type LengthUnit } from "@orrn/domain";
-import type { MessageKey } from "@orrn/i18n";
 
 import {
-  bundleKgPer12ft,
   draftTotals,
   lengthFieldsToMm,
   parsePieces,
   parseWeightG,
-  rangeVerdict,
   type LengthFields,
-  type RangeVerdict,
 } from "./pack-math";
 
 /** Pure helpers behind the New session screen: form parsing, readouts, labels. */
@@ -77,43 +73,6 @@ export function parseBundleEntry(unit: LengthUnit, typed: TypedBundle): BundleEn
 
   if (errors.weight || errors.pieces || errors.length || weightG === null || pieces === null) return { ok: false, errors };
   return { ok: true, weightG, pieces, lengthMm, po };
-}
-
-export type Readout = { kg12ft: number; text: string; verdict: RangeVerdict | null };
-
-/** kg per 12 ft for a bundle and where it sits against its die; null until weight, pieces and length are all usable. */
-export function bundleReadout(
-  bundle: { weightG: number; pieces: number; lengthMm: number | null },
-  defaultLengthMm: number | null,
-  die: DieRange,
-): Readout | null {
-  const lengthMm = bundle.lengthMm ?? defaultLengthMm;
-  if (lengthMm === null) return null;
-  const kg12ft = bundleKgPer12ft({ weightG: bundle.weightG, pieces: bundle.pieces, lengthMm });
-  if (kg12ft === null) return null;
-  return { kg12ft, text: kg12ft.toFixed(2), verdict: hasRange(die) ? rangeVerdict(kg12ft, die) : null };
-}
-
-export const VERDICT_KEY: Record<RangeVerdict, MessageKey> = {
-  in: "status.range.inRange",
-  below: "status.range.below",
-  above: "status.range.above",
-};
-
-export const VERDICT_TONE: Record<RangeVerdict, "green" | "amber"> = { in: "green", below: "amber", above: "amber" };
-
-/** How many bundles in the list sit outside the die range. */
-export function outOfRangeCount(
-  bundles: readonly { weightG: number; pieces: number; lengthMm: number | null }[],
-  defaultLengthMm: number | null,
-  die: DieRange,
-): number {
-  let n = 0;
-  for (const b of bundles) {
-    const v = bundleReadout(b, defaultLengthMm, die)?.verdict;
-    if (v === "below" || v === "above") n += 1;
-  }
-  return n;
 }
 
 /** Totals of a saved session. Void bundles are listed but never counted (web semantics). */

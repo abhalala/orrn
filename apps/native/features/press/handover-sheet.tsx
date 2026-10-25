@@ -36,6 +36,7 @@ function PersonPicker({ label, value, onChange, people, nobody }: { label: strin
             key={p.id ?? "none"}
             title={p.name}
             className={cn(selected && "border-primary")}
+            radioChecked={selected}
             trailing={selected ? <Feather name="check-circle" size={22} color={ink} importantForAccessibility="no" /> : undefined}
             accessibilityLabel={`${label}, ${p.name}`}
             onPress={() => onChange(p.id)}

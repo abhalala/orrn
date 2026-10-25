@@ -2,7 +2,7 @@ import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Text } from "react-native";
 
 import { Can } from "@/components/can";
@@ -14,6 +14,8 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { addOutcome, renderScanMessage } from "@/features/scan/outcome";
 import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
+import { randomId } from "@/lib/random-id";
+import { replayKey, type ReplayAttempt } from "@/lib/replay-key";
 import { writeFailureKind } from "@/lib/request-timeout";
 import { saveErrorText } from "@/lib/save-error";
 import { queryClient, trpc } from "@/utils/trpc";
@@ -42,6 +44,8 @@ export function AddToDispatchSheet({
   const [failure, setFailure] = useState<string | null>(null);
   const drafts = useQuery({ ...trpc.dispatch.listDispatches.queryOptions({ status: "draft", limit: 50 }), enabled: visible });
   const add = useMutation(trpc.dispatch.addBundlesBySerial.mutationOptions());
+  // One request id per add, reused when the same add is sent again after an unsure answer (BACKLOG 50).
+  const attempt = useRef<ReplayAttempt>(null);
 
   const refresh = () => {
     void queryClient.invalidateQueries(trpc.dispatch.pathFilter());
@@ -51,10 +55,13 @@ export function AddToDispatchSheet({
   const choose = (d: { id: string; code: string }) => {
     if (add.isPending) return;
     setFailure(null);
+    const key = replayKey(attempt.current, { dispatchId: d.id, serial }, randomId);
+    attempt.current = key.attempt;
     add.mutate(
-      { id: d.id, serials: [serial] },
+      { id: d.id, serials: [serial], clientRequestId: key.id },
       {
         onSuccess: (report) => {
+          attempt.current = null;
           const outcome = addOutcome(report, serial);
           refresh();
           if (outcome.kind === "added") {
@@ -83,6 +90,7 @@ export function AddToDispatchSheet({
         onError: (error) => {
           feedback.error();
           const code = (error as { data?: { code?: unknown } } | null)?.data?.code;
+          if (writeFailureKind(error) !== "unsure") attempt.current = null;
           if (writeFailureKind(error) === "unsure") {
             // It may have been added: re-read, and tell the person to check before trying again.
             refresh();

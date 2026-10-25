@@ -1,13 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  bundleKgPer12ft,
   draftTotals,
   lengthFieldsToMm,
   lengthToFields,
   parsePieces,
   parseWeightG,
-  rangeVerdict,
   receiptPayload,
   type DraftBundle,
 } from "../features/pack/pack-math";
@@ -58,29 +56,6 @@ describe("cut length in the company unit", () => {
     expect(lengthToFields(3658, "inch")).toEqual({ mm: "", feet: "12", inches: "" });
     expect(lengthToFields(3505, "inch")).toEqual({ mm: "", feet: "11", inches: "6" });
     expect(lengthToFields(3658, "mm")).toEqual({ mm: "3658", feet: "", inches: "" });
-  });
-});
-
-describe("kg/12ft chip", () => {
-  test("bundle kg/12ft uses the shared formula", () => {
-    // 52.40 kg, 21 pcs, 12 ft: 2.4952 kg per 12 ft piece
-    expect(bundleKgPer12ft({ weightG: 52_400, pieces: 21, lengthMm: 3658 })).toBeCloseTo(2.4952, 3);
-    expect(bundleKgPer12ft({ weightG: 52_400, pieces: 0, lengthMm: 3658 })).toBeNull();
-  });
-
-  test("compares the billed band (floor to 0.1 with 0.01 tolerance) against the die range (ruling T20)", () => {
-    const die = { weightMinG: 2_400, weightMaxG: 2_600 };
-    // 2.689 bills as 2.6; 2.69 + 0.01 is exactly the 2.7 boundary (domain weightRange12ft, PL-8 round 3).
-    expect(rangeVerdict(2.689, die)).toBe("in");
-    expect(rangeVerdict(2.69, die)).toBe("above");
-    expect(rangeVerdict(2.7, die)).toBe("above");
-    expect(rangeVerdict(2.38, die)).toBe("below");
-    expect(rangeVerdict(2.395, die)).toBe("in");
-  });
-
-  test("no usable range gives no verdict", () => {
-    expect(rangeVerdict(2.5, { weightMinG: 0, weightMaxG: 0 })).toBeNull();
-    expect(rangeVerdict(2.5, { weightMinG: 3_000, weightMaxG: 2_000 })).toBeNull();
   });
 });
 

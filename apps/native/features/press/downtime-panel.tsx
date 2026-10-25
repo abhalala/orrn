@@ -125,6 +125,7 @@ export function DowntimePanel({ pressLineId }: { pressLineId: string }) {
                 key={r.id}
                 title={reasonLabel(t, "downtime", r.code, r.label)}
                 className={cn(selected && "border-primary")}
+                radioChecked={selected}
                 trailing={selected ? <Feather name="check-circle" size={22} color={ink} importantForAccessibility="no" /> : undefined}
                 onPress={() => setReasonId(r.id)}
               />

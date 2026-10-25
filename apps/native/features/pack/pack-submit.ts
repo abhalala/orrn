@@ -98,6 +98,43 @@ export type SaveErrorKind = "forbidden" | "yard" | "unsure" | "owned" | "cast" |
 
 type TrpcLike = { data?: { code?: string; httpStatus?: number } | null; message?: unknown };
 
+export type PackRefusal = {
+  re: RegExp;
+  kind: Exclude<SaveErrorKind, "unsure" | "forbidden" | "failed">;
+  /** A real server message the pattern must match. */
+  sample: string;
+  /** A fixed piece of the server's text; a test checks the server source still carries it. */
+  src: string;
+};
+
+/**
+ * The server's plain-English refusals for `bundle.createReceipt`, in the order they are tried. The server
+ * sends only its tRPC code and a sentence (no machine code for these), so the sentence is the key: each
+ * entry carries a `sample` and a `src`, and `pack-submit.test.ts` checks both against the server source, so
+ * a reworded sentence fails a test instead of silently degrading. A sentence matching none of them gets the
+ * generic line in `packSaveText`, never the server's words.
+ */
+export const PACK_REFUSALS: readonly PackRefusal[] = [
+  { re: /^Pick the cast these bundles came from$/, kind: "cast", sample: "Pick the cast these bundles came from", src: "Pick the cast these bundles came from" },
+  { re: /^Cast .* has no melt yet/, kind: "cast", sample: "Cast C-12 has no melt yet; pick another cast", src: "has no melt yet; pick another cast" },
+  { re: /^Cast not found$/, kind: "cast", sample: "Cast not found", src: "Cast not found" },
+  { re: /^Pick the die copy$/, kind: "copy", sample: "Pick the die copy", src: "Pick the die copy" },
+  { re: /^This section has no copies$/, kind: "copy", sample: "This section has no copies", src: "This section has no copies" },
+  { re: /say why the weight was typed instead of weighed/, kind: "reason", sample: "Row 2: say why the weight was typed instead of weighed", src: "say why the weight was typed instead of weighed" },
+  { re: /no scale is connected; type the weight and say why/, kind: "scale", sample: "Row 1: no scale is connected; type the weight and say why", src: "no scale is connected; type the weight and say why" },
+  { re: /a scale weight must be the reading/, kind: "scale", sample: "Row 1: a scale weight must be the reading", src: "a scale weight must be the reading" },
+  { re: /^This line is pinned to /, kind: "pin", sample: "This line is pinned to 12170-2", src: "This line is pinned to" },
+  { re: /^Die copy \S+ is (retired|at the die maker)$/, kind: "retired", sample: "Die copy 12170-2 is at the die maker", src: "is at the die maker" },
+  { re: /pick an open order$/, kind: "order", sample: "Order 2610 is closed; pick an open order", src: "pick an open order" },
+  { re: /^That order line is for another section$/, kind: "order", sample: "That order line is for another section", src: "That order line is for another section" },
+  { re: /^Order line not found$/, kind: "order", sample: "Order line not found", src: "Order line not found" },
+  { re: /^That order line changed meanwhile/, kind: "order", sample: "That order line changed meanwhile (closed, cancelled or removed). Pick the line again.", src: "That order line changed meanwhile" },
+  { re: /^Pick the yard location for these bundles$/, kind: "yard", sample: "Pick the yard location for these bundles", src: "Pick the yard location for these bundles" },
+  { re: /^Location not found$/, kind: "yard", sample: "Location not found", src: "Location not found" },
+  { re: /^Location \S+ is retired$/, kind: "yard", sample: "Location Y2 is retired", src: "is retired" },
+  { re: /^Bundles go to a yard location, not /, kind: "yard", sample: "Bundles go to a yard location, not Y2", src: "Bundles go to a yard location, not" },
+];
+
 export function saveErrorKind(error: unknown): SaveErrorKind {
   if (writeFailureKind(error) === "unsure") return "unsure";
   const e = (error && typeof error === "object" ? error : {}) as TrpcLike;
@@ -105,14 +142,7 @@ export function saveErrorKind(error: unknown): SaveErrorKind {
   const message = typeof e.message === "string" ? e.message : "";
   if (code === "FORBIDDEN") return /^This die belongs to/i.test(message) ? "owned" : "forbidden";
   if (code === "BAD_REQUEST" || code === "NOT_FOUND" || code === "CONFLICT") {
-    if (/^Pick the cast|^Cast .* has no melt|^Cast not found/i.test(message)) return "cast";
-    if (/^Pick the die copy|^This section has no copies/i.test(message)) return "copy";
-    if (/say why the weight was typed/i.test(message)) return "reason";
-    if (/no scale is connected|a scale weight must be/i.test(message)) return "scale";
-    if (/is pinned to/i.test(message)) return "pin";
-    if (/is retired|is at the die maker/i.test(message) && /Die copy/i.test(message)) return "retired";
-    if (/pick an open order|another section|Order line not found|changed meanwhile/i.test(message)) return "order";
-    if (/\b(yard|location)/i.test(message)) return "yard";
+    for (const r of PACK_REFUSALS) if (r.re.test(message)) return r.kind;
   }
   return "failed";
 }
@@ -148,7 +178,7 @@ export function packSaveText(t: Translate, error: unknown): { kind: SaveErrorKin
       return { kind, title: t("pack.new.saveFailed"), body: name ? t("pack.dieOwned", { name }) : t("pack.dieOwnedOther") };
     }
     case "failed":
-      return { kind, title: t("pack.new.saveFailed"), body: "" };
+      return { kind, title: t("pack.new.saveFailed"), body: t("errors.generic") };
     default:
       return { kind, title: t("pack.new.saveFailed"), body: t(KEY[kind]) };
   }

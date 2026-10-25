@@ -17,10 +17,14 @@ export const FALLBACK_ZONE = "Asia/Kolkata";
 /** A calendar day with no time ("2026-10-24"): the server's order and ship dates. It names a day, never an instant. */
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-/** The company's IANA zone from `me.company.settings` (key `timezone`), IST when it is missing. */
+/**
+ * The company's IANA zone from `me.company.settings` (key `timezone`). Missing, empty or not a zone this
+ * runtime knows reads as IST, exactly as the server's `companyTimezone` does (so a bad setting shows the
+ * same day on the phone and on the web, never the phone's own clock).
+ */
 export function zoneOf(settings: { [key: string]: unknown } | null | undefined): string {
   const tz = settings?.timezone;
-  return typeof tz === "string" && tz.length > 0 ? tz : FALLBACK_ZONE;
+  return typeof tz === "string" && tz.length > 0 && zoneFormatter(tz) !== null ? tz : FALLBACK_ZONE;
 }
 
 function toDate(value: DateLike): Date | null {

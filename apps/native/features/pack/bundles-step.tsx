@@ -11,7 +11,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { announce } from "@/lib/a11y";
 import { useThemeColor } from "@/lib/theme";
 
-import { positionKey } from "./line-preview";
+import { kg12Text, positionKey } from "./line-preview";
 import { cardBundle, asksReason, type CardErrors } from "./pack-card";
 import { newBundleKey, type PickedDie, type TypedBundle } from "./pack-form";
 import { draftTotals, lengthFieldsToMm, lengthToFields, parsePieces, parseWeightG, type DraftBundle, type DraftReject, type LengthFields } from "./pack-math";
@@ -97,7 +97,7 @@ export function BundlesStep(p: BundlesStepProps) {
   );
   const totals = draftTotals(p.bundles);
   const outside = saved.verdicts.filter((v) => v.position === "below" || v.position === "above").length;
-  const whyField = asksReason(scale.view, weightG, filledFrom);
+  const whyField = asksReason(scale.reasonView, weightG, filledFrom);
 
   const reset = () => {
     setTyped(BLANK);
@@ -110,7 +110,7 @@ export function BundlesStep(p: BundlesStepProps) {
 
   const save = () => {
     setTried(true);
-    const res = cardBundle({ key: editing ?? newBundleKey(), unit: p.unit, typed, scale: scale.view, filledFromG: filledFrom, lastStableG: scale.lastStableG, reason });
+    const res = cardBundle({ key: editing ?? newBundleKey(), unit: p.unit, typed, scale: scale.reasonView, filledFromG: filledFrom, lastStableG: scale.lastStableG, reason });
     if (!res.ok) {
       setErrors(res.errors);
       return;
@@ -263,7 +263,7 @@ export function BundlesStep(p: BundlesStepProps) {
                   ? t("native.pack.bundleLineOwn", { kg: formatKg(gToKg(b.weightG)), pieces: b.pieces, length: p.formatLength(b.lengthMm ?? p.defaultLengthMm), po: b.po ?? "-" })
                   : t("native.pack.bundleLine", { kg: formatKg(gToKg(b.weightG)), pieces: b.pieces })}
               </Text>
-              {v?.kgPer12ftMilli != null ? <Text className="font-mono text-sm text-ink-muted">{t("native.pack.readout", { value: (v.kgPer12ftMilli / 1000).toFixed(3) })}</Text> : null}
+              {v?.kgPer12ftMilli != null ? <Text className="font-mono text-sm text-ink-muted">{t("native.pack.readout", { value: kg12Text(v.kgPer12ftMilli) ?? "" })}</Text> : null}
               {b.weightSource === "manual" ? <Text className="font-sans text-sm text-ink-muted">{t("pack.scale.typed")}</Text> : null}
               <View className="flex-row gap-2">
                 <Button variant="secondary" label={t("pack.new.editBundle")} onPress={() => edit(b)} className="flex-1" />

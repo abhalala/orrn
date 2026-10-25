@@ -249,6 +249,12 @@ describe("dates are the company's, not the phone's (BACKLOG 29, T29 m-5)", () =>
     expect(zoneOf({ timezone: "" })).toBe("Asia/Kolkata");
   });
 
+  test("a zone this runtime does not know reads as IST like the server, not as the phone's clock", () => {
+    expect(zoneOf({ timezone: "Mars/Olympus" })).toBe("Asia/Kolkata");
+    expect(zoneOf({ timezone: 5 })).toBe("Asia/Kolkata");
+    expect(dayKeyIn(zoneOf({ timezone: "Mars/Olympus" }), new Date("2026-10-23T20:00:00Z"))).toBe("2026-10-24");
+  });
+
   test("a date-only text names a day: it prints that day in every zone and never shifts", () => {
     for (const zone of ["Asia/Kolkata", "America/Los_Angeles", "Pacific/Auckland", undefined]) {
       expect(formatDay("2026-10-24", months, now, zone)).toBe("24 Oct");
@@ -322,19 +328,37 @@ describe("reprint a label (E6 Native: reprint via the print service)", () => {
   });
 });
 
-describe("the press screens only read, and write downtime and handover (spec E3 Native)", () => {
-  test("no phone file starts, stops, counts, closes, reopens, voids or queues a run", async () => {
-    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+describe("the phone only reads press runs, and writes downtime and handover (spec E3 Native)", () => {
+  const sourceFiles = async () => {
+    const { readdirSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");
     const root = join(import.meta.dir, "..");
-    const walk = (dir: string): string[] => readdirSync(dir).flatMap((e) => (statSync(join(dir, e)).isDirectory() ? walk(join(dir, e)) : /\.tsx?$/.test(e) ? [join(dir, e)] : []));
-    const files = [...walk(join(root, "features/press")), ...walk(join(root, "app/(tabs)/press"))];
-    expect(files.length).toBeGreaterThan(5);
+    const skip = new Set(["node_modules", "__tests__", ".expo", "dist"]);
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((e) => (skip.has(e) ? [] : statSync(join(dir, e)).isDirectory() ? walk(join(dir, e)) : /\.tsx?$/.test(e) ? [join(dir, e)] : []));
+    return ["features", "app", "components", "lib", "utils"].flatMap((d) => walk(join(root, d)));
+  };
+
+  test("across the whole native app, press writes are downtime.start, downtime.stop and runs.handover and nothing else", async () => {
+    const { readFileSync } = await import("node:fs");
+    const files = await sourceFiles();
+    expect(files.length).toBeGreaterThan(100);
     const writes = new Set<string>();
     for (const f of files) {
-      for (const m of readFileSync(f, "utf8").matchAll(/trpc\.press\.([a-zA-Z.]+)\.mutationOptions/g)) writes.add(m[1]!);
+      const src = readFileSync(f, "utf8");
+      for (const m of src.matchAll(/\bpress\.([a-zA-Z.]+?)\.(?:mutationOptions|mutationKey|mutate|mutateAsync)\b/g)) writes.add(m[1]!);
     }
     expect([...writes].sort()).toEqual(["downtime.start", "downtime.stop", "runs.handover"]);
+  });
+
+  test("no phone file even names a run start, stop, count, close, reopen, void, resume or queue procedure", async () => {
+    const { readFileSync } = await import("node:fs");
+    const bad: string[] = [];
+    for (const f of await sourceFiles()) {
+      const src = readFileSync(f, "utf8");
+      for (const m of src.matchAll(/\bpress\.(?:runs|queue|plan|lines)\.(start|stop|count|close|reopen|void|resume|undoStart|move|urgent|pullBack)\b/g)) bad.push(`${f}: ${m[0]}`);
+    }
+    expect(bad).toEqual([]);
   });
 
   test("the scan tab never starts a run: it only lists the copy's runs", async () => {
@@ -342,6 +366,37 @@ describe("the press screens only read, and write downtime and handover (spec E3 
     const { join } = await import("node:path");
     const src = readFileSync(join(import.meta.dir, "..", "features/scan/scan-view.tsx"), "utf8");
     expect(src).toMatch(/trpc\.press\.runs\.list\.queryOptions/);
-    expect(src).not.toMatch(/trpc\.press\.runs\.(start|stop|count|close)/);
+    expect(src).not.toMatch(/trpc\.press\.runs\.(?!list\b|get\b)/);
+  });
+});
+
+describe("controls tell a screen reader their state (m-5)", () => {
+  const src = async (rel: string) => (await import("node:fs")).readFileSync((await import("node:path")).join(import.meta.dir, "..", rel), "utf8");
+
+  test("the radio rows of a radiogroup carry the radio role and the checked state", async () => {
+    const row = await src("components/ui/list-row.tsx");
+    expect(row).toMatch(/radioChecked === undefined \? "button" : "radio"/);
+    expect(row).toMatch(/accessibilityState=\{radioChecked === undefined \? undefined : \{ checked: radioChecked \}\}/);
+    for (const f of ["features/press/downtime-panel.tsx", "features/press/handover-sheet.tsx"]) {
+      expect(await src(f)).toMatch(/radioChecked=\{selected\}/);
+    }
+  });
+
+  test("the speech toggle is a switch with an on/off state", async () => {
+    const view = await src("features/scan/scan-view.tsx");
+    expect(view).toMatch(/accessibilityRole="switch"/);
+    expect(view).toMatch(/accessibilityState=\{\{ checked: speaking \}\}/);
+  });
+
+  test("the band's joining word is translated in all three languages", async () => {
+    const { en } = await import("@orrn/i18n/en");
+    const { hi } = await import("@orrn/i18n/hi");
+    const { gu } = await import("@orrn/i18n/gu");
+    for (const dict of [en, hi, gu]) {
+      const text = (dict as unknown as { units: { rangeTo: string } }).units.rangeTo;
+      expect(text).toContain("{min}");
+      expect(text).toContain("{max}");
+    }
+    expect((hi as unknown as { units: { rangeTo: string } }).units.rangeTo).not.toContain(" to ");
   });
 });

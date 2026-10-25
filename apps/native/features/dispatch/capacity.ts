@@ -54,6 +54,17 @@ export function completeExtras(view: CapacityView, reason: string): { capacityOv
   return view?.needsReason ? { capacityOverrideReason: reason.trim() } : {};
 }
 
+/**
+ * `dispatch.complete` refused with PRECONDITION_FAILED although no reason was sent: the load went over
+ * the truck's capacity after the sheet opened (another phone added a bundle). When the fresh read says
+ * the load is over, this is that race, so the sheet stays open and asks for the reason. A refusal after a
+ * reason was sent (or with the load not over) is something else, such as an overdraw request.
+ */
+export function overRaceAfterComplete(error: unknown, sentReason: boolean, fresh: CapacityReport | null | undefined): boolean {
+  const code = error && typeof error === "object" ? (error as { data?: { code?: unknown } | null }).data?.code : undefined;
+  return code === "PRECONDITION_FAILED" && !sentReason && capacityView(fresh)?.needsReason === true;
+}
+
 /** The text the Scan screen says when a scan pushes the load over (spoken as well). */
 export function overCapacityLine(capacity: CapacityReport | null | undefined): { key: MessageKey; vars: TranslateVars } | null {
   if (!capacity || capacity.state !== "over") return null;

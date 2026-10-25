@@ -29,7 +29,7 @@ export function DriftChip({ verdict }: { verdict: LineVerdict | null | undefined
 export function LiveReadout({ verdict, loading }: { verdict: LineVerdict | null; loading: boolean }) {
   const { t } = useT();
   const kg = verdict ? kg12Text(verdict.kgPer12ftMilli) : null;
-  const range = verdict?.band ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band) }) : null;
+  const range = verdict?.band ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band, (v) => t("units.rangeTo", v)) }) : null;
   return (
     <View className="min-h-12 gap-2 rounded-card bg-surface-sunken px-4 py-3">
       {verdict && kg ? (

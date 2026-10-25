@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useDebounced } from "@/features/dispatch/use-debounced";
 import { trpc } from "@/utils/trpc";
 
-import { previewReady, type LineVerdict } from "./line-preview";
-import { scalePollMs, scaleView, type ScaleView } from "./scale-view";
+import { previewInputKey, previewInputOf, previewReady, type LineVerdict, type PreviewInput } from "./line-preview";
+import { scalePollMs, scaleView, viewForReason, type ScaleView } from "./scale-view";
 
 type Out = inferRouterOutputs<AppRouter>;
 export type DieCopy = Out["dieInstance"]["list"]["items"][number];
@@ -20,8 +20,12 @@ export type OwnerCheck = Out["dieInstance"]["ownerCheck"];
  * worked out on the phone: the same bundle reads the same here, in the saved session, in the stock lists
  * and on the bundle page (D15). Debounced; the last answer stays on screen while the next one loads.
  */
-export function useLinePreview(input: { dieId: string | null; dieInstanceId?: string; lengthMm: number; weightG: number | null; pieces: number | null }) {
-  const settled = useDebounced(input, 250);
+export function useLinePreview(input: PreviewInput) {
+  // Debounce a string key, never the object: `input` is a new object on every render, and settling on it
+  // would re-render (and re-ask the server) four times a second for as long as the step is open.
+  const key = previewInputKey(input);
+  const settledKey = useDebounced(key, 250);
+  const settled = useMemo(() => previewInputOf(settledKey), [settledKey]);
   const ready = previewReady(settled);
   const query = useQuery({
     ...trpc.bundle.previewLine.queryOptions({
@@ -37,7 +41,7 @@ export function useLinePreview(input: { dieId: string | null; dieInstanceId?: st
   });
   // Typing again hides the old answer at once when the inputs no longer make a line.
   const live = previewReady(input);
-  return { verdict: live && query.data ? (query.data as LineVerdict) : null, loading: live && (query.isFetching || settled !== input) };
+  return { verdict: live && query.data ? (query.data as LineVerdict) : null, loading: live && (query.isFetching || settledKey !== key) };
 }
 
 /** Server verdicts for every saved bundle of the session, in one call (result i = bundle i). */
@@ -99,7 +103,7 @@ export function useOwnerCheck(input: { dieId: string | null; dieInstanceId?: str
  * scale is connected, once in a while when there is none. A failed poll reads as "no steady weight", never
  * as an error. `lastStableG` is the last steady weight seen, kept as evidence when the packer types.
  */
-export function useScale(enabled: boolean): { view: ScaleView; lastStableG: number | null } {
+export function useScale(enabled: boolean): { view: ScaleView; reasonView: ScaleView; lastStableG: number | null } {
   const [view, setView] = useState<ScaleView | null>(null);
   const query = useQuery({
     ...trpc.scale.reading.queryOptions(undefined),
@@ -122,5 +126,6 @@ export function useScale(enabled: boolean): { view: ScaleView; lastStableG: numb
   useEffect(() => {
     if (next.state === "stable") setLastStable(next.grams);
   }, [next]);
-  return { view: view ?? { state: "off" }, lastStableG };
+  // `view` is what the screen shows (nothing until the scale answers); `reasonView` is what a typed weight is judged against.
+  return { view: view ?? { state: "off" }, reasonView: viewForReason(view), lastStableG };
 }

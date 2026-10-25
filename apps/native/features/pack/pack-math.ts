@@ -1,4 +1,4 @@
-import { kgPer12ft, kgToG, lengthFromInput, MM_PER_INCH, weightRange12ft, type LengthUnit } from "@orrn/domain";
+import { kgToG, lengthFromInput, MM_PER_INCH, type LengthUnit } from "@orrn/domain";
 
 /**
  * Packing maths for the native Pack screens (mirrors web T20's pack-math).
@@ -47,29 +47,6 @@ export function lengthToFields(mm: number, unit: LengthUnit): LengthFields {
   const feet = Math.floor(totalInches / 12);
   const inches = Number((totalInches - feet * 12).toFixed(2));
   return { mm: "", feet: feet > 0 ? String(feet) : "", inches: inches > 0 ? String(inches) : "" };
-}
-
-/** kg per 12 ft for one bundle, or null without pieces or length. */
-export function bundleKgPer12ft(b: { weightG: number; pieces: number; lengthMm: number }): number | null {
-  return kgPer12ft(b);
-}
-
-export type RangeVerdict = "in" | "below" | "above";
-
-/**
- * Where a bundle sits against its die's weight range (kg / 12 ft, stored in
- * grams on the die). Compares the plant's billed band (`weightRange12ft`, the
- * packing list's "Weight range /12'"), ruling T20. Null without a usable range.
- */
-export function rangeVerdict(kg12ft: number, die: { weightMinG: number; weightMaxG: number }): RangeVerdict | null {
-  const min = die.weightMinG / 1000;
-  const max = die.weightMaxG / 1000;
-  if (!Number.isFinite(kg12ft) || !(min > 0) || !(max > 0) || min > max) return null;
-  const band = weightRange12ft(kg12ft);
-  const EPS = 1e-6;
-  if (band < min - EPS) return "below";
-  if (band > max + EPS) return "above";
-  return "in";
 }
 
 /** One typed bundle. `lengthMm`/`po` null means "use the session default". */

@@ -1,4 +1,4 @@
-import { bundleTone, formatKg, gToKg, kgPer12ft, type BundleStatus } from "@orrn/domain";
+import { bundleTone, formatKg, gToKg, type BundleStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useRouter } from "expo-router";
 import { Text, View } from "react-native";
@@ -48,8 +48,8 @@ export function BundleRows({ rows, showSection = true }: { rows: readonly Bundle
   return (
     <View className="gap-2">
       {rows.map((r) => {
-        // kg/12 ft and the band chip are the server's (D15); the phone only works them out for an older server.
-        const perFoot = r.kgPer12ftMilli != null ? r.kgPer12ftMilli / 1000 : kgPer12ft({ weightG: r.weightG, pieces: r.quantity, lengthMm: r.lengthMm });
+        // kg/12 ft and the band chip are the server's (D15); nothing is worked out on the phone.
+        const kg12 = kg12Text(r.kgPer12ftMilli ?? null);
         const status = t(`status.bundle.${r.status}`);
         const bandKey = positionKey(r.band?.position ?? null);
         const party = partyNoLabel({ serial: r.serial, partyNo: r.partyNo ?? null });
@@ -57,7 +57,7 @@ export function BundleRows({ rows, showSection = true }: { rows: readonly Bundle
           showSection ? sectionLabel({ series: r.dieSeries, sectionCode: r.dieSectionCode }) : null,
           `${formatKg(gToKg(r.weightG))} kg`,
           `${r.quantity} × ${lu.formatLength(r.lengthMm)}`,
-          perFoot === null ? null : `${r.kgPer12ftMilli != null ? (kg12Text(r.kgPer12ftMilli) ?? "") : formatKg(perFoot)} ${t("units.kgPer12ft")}`,
+          kg12 === null ? null : `${kg12} ${t("units.kgPer12ft")}`,
         ].filter(Boolean);
         const more = [
           r.locationCode ? `${t("native.stock.yard")} ${r.locationCode}` : null,

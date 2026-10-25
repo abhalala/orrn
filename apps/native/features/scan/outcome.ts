@@ -73,10 +73,10 @@ export type AddBundlesReport = {
 };
 
 /** An i18n key plus variables (`status` fills `{status}` with that bundle status' word), or the server's own words. */
-export type ScanMessage = { key: MessageKey; vars?: TranslateVars; status?: BundleStatus } | { text: string };
+/** A refusal as a dictionary key with its values. There is no raw-text variant: the server's English is never shown or spoken. */
+export type ScanMessage = { key: MessageKey; vars?: TranslateVars; status?: BundleStatus };
 
 export function renderScanMessage(t: Translate, message: ScanMessage): string {
-  if ("text" in message) return message.text;
   const vars = message.status ? { ...message.vars, status: t(`status.bundle.${message.status}`) } : message.vars;
   return t(message.key, vars);
 }
@@ -214,7 +214,8 @@ export function addOutcome(report: AddBundlesReport, serial: string): AddOutcome
 
 /**
  * The server's English reason (`bundleBlockReason`) mapped to translated
- * floor wording; anything else is shown as the server wrote it.
+ * floor wording; anything else becomes the one generic "Not added", never the server's words
+ * (this text is also spoken aloud).
  */
 export function rejectionMessage(reason: string): ScanMessage {
   const held = /held by (?!another dispatch)(\S+)\s*$/i.exec(reason);
@@ -224,7 +225,7 @@ export function rejectionMessage(reason: string): ScanMessage {
   if (/\bvoid\b/i.test(reason)) return { key: "scan.continuous.void" };
   const status = /bundle is (\w+)\s*$/i.exec(reason)?.[1]?.toLowerCase();
   if (isBundleStatus(status)) return { key: "scan.continuous.wrongStatus", status };
-  return { text: reason };
+  return { key: "scan.continuous.result.rejected" };
 }
 
 type TrpcLike = { data?: { code?: unknown } | null };

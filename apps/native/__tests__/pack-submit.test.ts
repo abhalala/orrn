@@ -1,16 +1,21 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { DEFAULT_REASON_CODES } from "@orrn/domain";
 import { en } from "@orrn/i18n/en";
 
 import { cardBundle, asksReason, typedCount } from "../features/pack/pack-card";
 import { DEFAULT_SOURCE, receiptPayload, type DraftBundle } from "../features/pack/pack-math";
-import { packSaveText, readReject, receiptRequestKey, REJECT_CODES, saveErrorKind, validSessionKey, withRequestKey } from "../features/pack/pack-submit";
+import { PACK_REFUSALS, packSaveText, readReject, receiptRequestKey, REJECT_CODES, saveErrorKind, validSessionKey, withRequestKey } from "../features/pack/pack-submit";
 import { partyNoLabel, partyRange } from "../features/pack/party";
 import { copyLocked, sourceBlockers, withPinnedLine, withPinOverride } from "../features/pack/source-gate";
-import { gramsToFieldText, scaleView, typedWeightNeedsReason, weightProvenance } from "../features/pack/scale-view";
+import { gramsToFieldText, scaleView, typedWeightNeedsReason, viewForReason, weightProvenance } from "../features/pack/scale-view";
 import { positionKey, previewReady } from "../features/pack/line-preview";
 import { replayKey, noReply, sendOnce } from "../lib/replay-key";
+
+const REPO = join(import.meta.dir, "..", "..", "..");
+const read = (rel: string) => readFileSync(join(REPO, rel), "utf8");
 
 const bundle = (over: Partial<DraftBundle> = {}): DraftBundle => ({ key: "k1", weightG: 52_400, pieces: 21, lengthMm: null, po: null, ...over });
 const base = { dieId: "die-1", unit: "inch" as const, defaults: { lengthMm: 3658, po: "PO-7" }, locationId: "yard-1", bundles: [bundle()] };
@@ -176,6 +181,17 @@ describe("the scale and where a weight came from (FP-PK-02, D12)", () => {
     expect(gramsToFieldText(52_400)).toBe("52.4");
   });
 
+  test("before the scale has answered once, a typed weight asks its reason (m-10)", () => {
+    expect(typedWeightNeedsReason(viewForReason(null))).toBe(true);
+    expect(asksReason(viewForReason(null), 52_400, null)).toBe(true);
+    const r = cardBundle({ key: "k", unit: "mm", typed, scale: viewForReason(null), filledFromG: null, lastStableG: null, reason: "" });
+    expect(r.ok).toBe(false);
+    // Once it has answered, the answer decides.
+    expect(viewForReason(off)).toEqual(off);
+    expect(typedWeightNeedsReason(viewForReason(off))).toBe(false);
+    expect(viewForReason(stable)).toEqual(stable);
+  });
+
   test("no scale on the node: nothing about provenance is sent and no reason is asked", () => {
     const r = cardBundle({ key: "k", unit: "mm", typed, scale: off, filledFromG: null, lastStableG: null, reason: "" });
     expect(r.ok).toBe(true);
@@ -258,6 +274,22 @@ describe("a failed save, in the packer's language", () => {
     expect(packSaveText(t as never, trpcError("FORBIDDEN", "This die belongs to Bhavesh Traders", 403))).toMatchObject({ body: 'pack.dieOwned:{"name":"Bhavesh Traders"}' });
     const unknown = packSaveText(t as never, trpcError("BAD_REQUEST", "Some new English sentence"));
     expect(JSON.stringify(unknown)).not.toContain("Some new English sentence");
+    // A sentence this build does not know still says something, in the person's language.
+    expect(unknown).toMatchObject({ kind: "failed", body: "errors.generic" });
+  });
+
+  test("each refusal pattern matches its sample, maps to a kind the screen words, and the server still says it", () => {
+    const sources = ["packages/server/src/routers/bundle.ts", "packages/server/src/lib/dieOwner.ts", "packages/server/src/routers/dieInstance.ts"].map(read).join("\n");
+    expect(sources).toContain("This die belongs to");
+    for (const r of PACK_REFUSALS) {
+      expect({ sample: r.sample, hit: r.re.test(r.sample) }).toEqual({ sample: r.sample, hit: true });
+      expect({ src: r.src, found: sources.includes(r.src) }).toEqual({ src: r.src, found: true });
+      expect({ sample: r.sample, kind: saveErrorKind(trpcError("BAD_REQUEST", r.sample)) }).toEqual({ sample: r.sample, kind: r.kind });
+    }
+  });
+
+  test("the same sentence under another tRPC code is not a known refusal", () => {
+    expect(saveErrorKind(trpcError("INTERNAL_SERVER_ERROR", "Pick the die copy", 400))).toBe("failed");
   });
 
   test("every key the save text can use exists", () => {
