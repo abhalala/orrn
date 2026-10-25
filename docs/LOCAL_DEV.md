@@ -167,3 +167,18 @@ cd apps/server
 bunx wrangler d1 execute orrn-local --local -c wrangler.local.jsonc \
   --command "select status, count(*) from bundle group by status"
 ```
+
+## Running the tests when the machine is busy (or on Linux)
+
+- **Server tests, one process per file.** `bun run test:server:files` runs each `packages/server/test/*.test.ts` in its
+  own `bun test` process and prints one PASS / FLAKY / FAIL line per file (a failing file is retried once alone;
+  `RETRY=0` turns that off, `JOBS=2` runs two at a time, `bun run test:server:files -- plant-store press` filters by
+  name, logs land in `$LOG_DIR`). Use it whenever `bun run --cwd packages/server test` shows a wall of timeouts: in one
+  process a stuck Miniflare D1 file leaves a "poisoned stub" / ECONNRESET behind and every later file times out. The
+  heavy files (plant-analytics, d1-limits, die-room-copy, plant-dies, plant-ledger, platform-w1-backup,
+  plant-sales-gaps and the press, foundry and store files) set `setDefaultTimeout(30_000)` or more themselves.
+- **Linux / ICU.** The web unit tests that assert date wording (`formatDay`, `formatInstantDay`, `instantDateText`,
+  `companyClock`) are pinned: the code reads `Intl.DateTimeFormat#formatToParts` (day, month, year, hour, minute,
+  weekday) and joins them itself, so "Sept" vs "Sep", "3 Oct at 14:00" vs "3 Oct, 14:00" and a comma after the weekday
+  no longer depend on the ICU build. Write new date assertions the same way.
+- **e2e in groups.** `bun run e2e:group A|B|C` (see `apps/web/tests/e2e/GROUPS.md`).
