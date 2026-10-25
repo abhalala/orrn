@@ -148,6 +148,7 @@ export const FILES = [
   "routers/die.ts",
   "routers/dieBand.ts",
   "routers/dieFile.ts",
+  "routers/dieShare.ts",
   "lib/dieFiles.ts",
   "routers/pressPlan.ts",
   "lib/dieOwner.ts",

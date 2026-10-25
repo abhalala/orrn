@@ -69,6 +69,7 @@ const GUARDED: Record<string, Guarded> = {
   "dieInstance.issues.issue": { how: "guarded", server: "dieIssue.ts", leaf: "issue", guard: "one open issue per copy (partial unique index): a second call is refused 'is already issued to'" },
   "dieInstance.issues.return": { how: "guarded", server: "dieIssue.ts", leaf: "return", guard: "state move issued to returned: a second call is refused 'This issue is already closed'" },
   "dieInstance.issues.cancel": { how: "guarded", server: "dieIssue.ts", leaf: "cancel", guard: "state move issued to cancelled: a second call is refused 'This issue is already closed'" },
+  "die.share.create": { how: "guarded", server: "dieShare.ts", leaf: "create", guard: "FP-DR-20: a repeat makes a second expiring link, never a stock or ledger effect; the button is disabled while a send is pending, every link is listed on the web and revocable, and each has its own audit row" },
   "dieInstance.maker.jobs.send": { how: "guarded", server: "dieMaker.ts", leaf: "send", guard: "one open maker job per copy (partial unique index): a second call is refused" },
   "dieInstance.maker.jobs.receive": { how: "guarded", server: "dieMaker.ts", leaf: "receive", guard: "state move sent to received: a second call is refused 'already closed'" },
   "dieInstance.maker.jobs.cancel": { how: "guarded", server: "dieMaker.ts", leaf: "cancel", guard: "state move sent to cancelled: a second call is refused 'already closed'" },

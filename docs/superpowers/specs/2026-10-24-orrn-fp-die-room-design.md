@@ -4,7 +4,7 @@
 
 **Date:** 2026-10-24
 **Module:** DR · preview slug `die-room`
-**Status (2026-10-25):** built (W1 and W2); see the Status column. Missing: FP-DR-20 (Later). Real routes: `/dies`, `/dies/$id`, `/dies/copies/$copyId`, `/dies/makers`, `/dies/issues`.
+**Status (2026-10-25):** built (W1 and W2); see the Status column. Real routes: `/dies`, `/dies/$id`, `/dies/copies/$copyId`, `/dies/makers`, `/dies/issues`, and the public `/share/die/$token` (FP-DR-20).
 **Reads with:** plant-modules spec P4 / P18 / §3, plan PL-4 and PL-W5, C2 IA `/dies`, AGENTS.md "Die room".
 
 A die is a section catalogue row (`die`: 12170 Domal and its band per 12 ft). A die copy is the physical oblique (`die_instance`, code `12170-1`). This spec does not rename either table. Words coined here and marked **new**: section band, profile kind, die maker, die issue, press drawing, owner override.
@@ -101,7 +101,7 @@ Rows added by the competitive re-pass (2026-10-24, `.fp-build/inputs/competitive
 | FP-DR-17 | Copy on trial until it passes | As the die room, a copy that is new from the maker or back from correction reads "on trial" until a trial run passes, and the board counts copies ready to run. | Next | FP-PR-23, FP-DR-11, FP-DR-16 | **Built.** `on_trial` on create and maker receive, issue gate, `dieInstance.trialPass` / `trialFail`, release with a reason (0029); trial-panel, board tile; a trial run itself can only be planned through the API until PR-23 has a screen |
 | FP-DR-18 | Die work log | As the die room, I log polishing, in-house correction, inspection and cleaning on a copy, with date, who and a note, beside nitriding. | Next | FP-DR-07, FP-DR-17 | **Built.** `dieInstance.work.*`, Work tab on the copy card (migration `die_work`) |
 | FP-DR-19 | Attach drawings in bulk by file name | As the die room, I drop a folder of PDF, CDR and DWG files named by section or copy code, and each file lands on its section or copy. | Next | FP-DR-13, D13 signed PUT | **Built.** files.matchNames bulk attach; bulk-drawings sheet |
-| FP-DR-20 | Share a section drawing with a party | As the die room, I send a drawing to a party as a link that expires, and the send is in the audit. | Later | FP-DR-13, FP-PF-01, FP-DR-12 | **Missing.** Later: no signed share link (re-pass 48) |
+| FP-DR-20 | Share a section drawing with a party | As the die room, I send a drawing to a party as a link that expires, and the send is in the audit. | Later | FP-DR-13, FP-PF-01, FP-DR-12 | **Built.** die.share.create/list/revoke + public `/share/die/$token`; `die_share` (0037); card Share sheet; phone Share |
 
 ---
 

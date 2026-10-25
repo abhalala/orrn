@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 6152 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 6214 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -2974,7 +2974,7 @@ Counts: 6152 screen strings in 49 groups, 35 guides with 646 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### refusal (163)
+### refusal (165)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3131,6 +3131,8 @@ Counts: 6152 screen strings in 49 groups, 35 guides with 646 strings.
 | `drawingOfSection` | The press drawing belongs to the die, not to one copy. | प्रेस ड्रॉइंग die की होती है, किसी एक कॉपी की नहीं। |
 | `uploadExpired` | This upload has expired. Pick the file again. | यह अपलोड पुराना हो गया। फ़ाइल फिर से चुनें। |
 | `fileNotFound` | That file was not found. | वह फ़ाइल नहीं मिली। |
+| `shareNoDrawing` | This die has no press drawing to share yet. Add one on the Files tab first. | इस die की प्रेस ड्रॉइंग अभी नहीं है, इसलिए भेजने को कुछ नहीं। पहले Files टैब में जोड़ें। |
+| `shareNotFound` | That share link was not found. | वह शेयर लिंक नहीं मिला। |
 | `fileSaved` | This file is already saved. | यह फ़ाइल पहले से सेव है। |
 | `fileNotArrived` | The file has not arrived. Upload it again. | फ़ाइल पहुंची नहीं। फिर से अपलोड करें। |
 | `fileNotWhole` | The file did not arrive whole. Upload it again. | फ़ाइल पूरी नहीं पहुंची। फिर से अपलोड करें। |
@@ -3777,7 +3779,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (433)
+### dieRoom (493)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3785,6 +3787,66 @@ Please check, Lalubhai:
 | `print.button` | Print card | कार्ड प्रिंट करें |
 | `print.date` | Date | तारीख |
 | `print.readings` | Last readings | पिछली रीडिंग |
+| `share.button` | Share | शेयर करें |
+| `share.title` | Share {section} | {section} शेयर करें |
+| `share.description` | Send the press drawing as a link that expires. The page shows the section, the drawing and the weight band. It shows no stock, no costs and no customers. | प्रेस ड्रॉइंग को ऐसे लिंक से भेजें जो तय समय पर बंद हो जाता है। पेज पर सेक्शन, ड्रॉइंग और वज़न की रेंज दिखती है। स्टॉक, कीमत या कस्टमर नहीं दिखते। |
+| `share.partyLabel` | Party | पार्टी |
+| `share.partyOptional` | Optional. Name who the link is for. | ज़रूरी नहीं। लिंक किसके लिए है, यह लिखें। |
+| `share.partyPlaceholder` | Pick a customer | कस्टमर चुनें |
+| `share.partyOwner` | This die belongs to {name}. The link is for them and names them as the owner. | यह die {name} की है। लिंक उन्हीं के लिए है और उसमें उनका नाम मालिक के रूप में दिखेगा। |
+| `share.daysLabel` | Link stays open for | लिंक कितने दिन खुला रहे |
+| `share.dayOne` | 1 day | 1 दिन |
+| `share.dayMany` | {n} days | {n} दिन |
+| `share.noteLabel` | Note | नोट |
+| `share.noteHint` | Only you see this. | इसे सिर्फ़ आप देखते हैं। |
+| `share.create` | Create link | लिंक बनाएं |
+| `share.noDrawing` | This die has no press drawing yet. Add one on the Files tab first. | इस die की प्रेस ड्रॉइंग अभी नहीं है। पहले Files टैब में जोड़ें। |
+| `share.ready` | The link is ready. Copy it now. It cannot be shown again. | लिंक तैयार है। अभी कॉपी कर लें। यह दोबारा नहीं दिखेगा। |
+| `share.linkLabel` | Link | लिंक |
+| `share.copy` | Copy link | लिंक कॉपी करें |
+| `share.copied` | Link copied | लिंक कॉपी हो गया |
+| `share.copyFailed` | Could not copy. Select the link and copy it by hand. | कॉपी नहीं हो सका। लिंक चुनकर हाथ से कॉपी करें। |
+| `share.send` | Send | भेजें |
+| `share.message` | Press drawing for {section}. Link: {link} | {section} की प्रेस ड्रॉइंग। लिंक: {link} |
+| `share.sent` | Link ready for {section} | {section} के लिए लिंक तैयार |
+| `share.nativeHint` | Makes a link that stays open for 7 days and opens the share sheet. | ऐसा लिंक बनाता है जो 7 दिन खुला रहता है और शेयर शीट खोलता है। |
+| `share.listTitle` | Links sent | भेजे गए लिंक |
+| `share.listEmpty` | No links sent for this die yet. | इस die के लिए अभी कोई लिंक नहीं भेजा गया। |
+| `share.listError` | Could not load the links. | लिंक लोड नहीं हो सके। |
+| `share.statusActive` | Open | खुला |
+| `share.statusExpired` | Expired | समय पूरा |
+| `share.statusRevoked` | Revoked | बंद किया |
+| `share.expires` | Open until {date} | {date} तक खुला |
+| `share.forParty` | For {name} | {name} के लिए |
+| `share.forNobody` | No named party | कोई पार्टी तय नहीं |
+| `share.opened` | Opened {n} times | {n} बार खोला गया |
+| `share.openedOnce` | Opened once | एक बार खोला गया |
+| `share.neverOpened` | Not opened yet | अभी तक नहीं खोला |
+| `share.madeBy` | By {name} | {name} ने बनाया |
+| `share.revoke` | Revoke | बंद करें |
+| `share.revokeTitle` | Revoke this link? | यह लिंक बंद करें? |
+| `share.revokeBody` | The page stops working at once. Anyone who has the link sees that it is no longer available. | पेज तुरंत काम करना बंद कर देगा। लिंक रखने वाले को दिखेगा कि यह अब उपलब्ध नहीं है। |
+| `share.revokedToast` | Link revoked | लिंक बंद कर दिया |
+| `share.more` | Show more | और दिखाएं |
+| `share.page.sharedBy` | Shared by {name} | {name} की ओर से |
+| `share.page.sectionNo` | Section no | सेक्शन नंबर |
+| `share.page.drawing` | Drawing | ड्रॉइंग |
+| `share.page.openDrawing` | Open drawing | ड्रॉइंग खोलें |
+| `share.page.noDrawing` | There is no drawing on this link now. | इस लिंक पर अब कोई ड्रॉइंग नहीं है। |
+| `share.page.notToScale` | Not to scale. Read the dimensions off the drawing. | स्केल के अनुसार नहीं है। नाप ड्रॉइंग से पढ़ें। |
+| `share.page.weight` | Weight per 12 ft | 12 ft का वज़न |
+| `share.page.range` | {min} to {max} | {min} से {max} |
+| `share.page.wall` | Wall | दीवार |
+| `share.page.alloy` | Alloy and temper | एलॉय और टेम्पर |
+| `share.page.tier` | Best tier | सबसे अच्छा टियर |
+| `share.page.owner` | Owner | मालिक |
+| `share.page.openUntil` | This link is open until {date} | यह लिंक {date} तक खुला है |
+| `share.page.goneTitle` | This link is no longer available | यह लिंक अब उपलब्ध नहीं है |
+| `share.page.goneBody` | Ask the sender for a new link. | भेजने वाले से नया लिंक मांगें। |
+| `share.page.busyTitle` | Too many requests | बहुत ज़्यादा अनुरोध |
+| `share.page.busyBody` | Try again in a few minutes. | कुछ मिनट बाद फिर कोशिश करें। |
+| `share.page.errorTitle` | This page could not be opened | यह पेज खुल नहीं सका |
+| `share.page.errorBody` | Check your connection and try again. | अपना कनेक्शन देखें और फिर कोशिश करें। |
 | `copies.title` | Copies | कॉपी |
 | `copies.copy` | Copy | कॉपी |
 | `copies.tier` | Tier {rank} | टियर {rank} |

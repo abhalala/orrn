@@ -159,6 +159,8 @@ export const refusalEn = {
     drawingOfSection: "The press drawing belongs to the die, not to one copy.",
     uploadExpired: "This upload has expired. Pick the file again.",
     fileNotFound: "That file was not found.",
+    shareNoDrawing: "This die has no press drawing to share yet. Add one on the Files tab first.",
+    shareNotFound: "That share link was not found.",
     fileSaved: "This file is already saved.",
     fileNotArrived: "The file has not arrived. Upload it again.",
     fileNotWhole: "The file did not arrive whole. Upload it again.",

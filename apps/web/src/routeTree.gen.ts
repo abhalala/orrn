@@ -55,6 +55,7 @@ import { Route as TenantCastsIndexRouteImport } from './routes/_tenant/casts.ind
 import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
 import { Route as PortalPortalIndexRouteImport } from './routes/_portal/portal.index'
 import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
+import { Route as ShareDieTokenRouteImport } from './routes/share.die.$token'
 import { Route as TenantVendorsIdRouteImport } from './routes/_tenant/vendors.$id'
 import { Route as TenantStoreReceiveRouteImport } from './routes/_tenant/store.receive'
 import { Route as TenantStoreIssueRouteImport } from './routes/_tenant/store.issue'
@@ -386,6 +387,11 @@ const PlatformAdminIndexRoute = PlatformAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
   getParentRoute: () => PlatformRoute,
+} as any)
+const ShareDieTokenRoute = ShareDieTokenRouteImport.update({
+  id: '/share/die/$token',
+  path: '/share/die/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const TenantVendorsIdRoute = TenantVendorsIdRouteImport.update({
   id: '/vendors/$id',
@@ -1022,6 +1028,7 @@ export interface FileRoutesByFullPath {
   '/store/issue': typeof TenantStoreIssueRoute
   '/store/receive': typeof TenantStoreReceiveRoute
   '/vendors/$id': typeof TenantVendorsIdRoute
+  '/share/die/$token': typeof ShareDieTokenRoute
   '/admin/': typeof PlatformAdminIndexRoute
   '/portal/': typeof PortalPortalIndexRoute
   '/bundles/': typeof TenantBundlesIndexRoute
@@ -1171,6 +1178,7 @@ export interface FileRoutesByTo {
   '/store/issue': typeof TenantStoreIssueRoute
   '/store/receive': typeof TenantStoreReceiveRoute
   '/vendors/$id': typeof TenantVendorsIdRoute
+  '/share/die/$token': typeof ShareDieTokenRoute
   '/admin': typeof PlatformAdminIndexRoute
   '/portal': typeof PortalPortalIndexRoute
   '/bundles': typeof TenantBundlesIndexRoute
@@ -1326,6 +1334,7 @@ export interface FileRoutesById {
   '/_tenant/store/issue': typeof TenantStoreIssueRoute
   '/_tenant/store/receive': typeof TenantStoreReceiveRoute
   '/_tenant/vendors/$id': typeof TenantVendorsIdRoute
+  '/share/die/$token': typeof ShareDieTokenRoute
   '/_platform/admin/': typeof PlatformAdminIndexRoute
   '/_portal/portal/': typeof PortalPortalIndexRoute
   '/_tenant/bundles/': typeof TenantBundlesIndexRoute
@@ -1477,6 +1486,7 @@ export interface FileRouteTypes {
     | '/store/issue'
     | '/store/receive'
     | '/vendors/$id'
+    | '/share/die/$token'
     | '/admin/'
     | '/portal/'
     | '/bundles/'
@@ -1626,6 +1636,7 @@ export interface FileRouteTypes {
     | '/store/issue'
     | '/store/receive'
     | '/vendors/$id'
+    | '/share/die/$token'
     | '/admin'
     | '/portal'
     | '/bundles'
@@ -1780,6 +1791,7 @@ export interface FileRouteTypes {
     | '/_tenant/store/issue'
     | '/_tenant/store/receive'
     | '/_tenant/vendors/$id'
+    | '/share/die/$token'
     | '/_platform/admin/'
     | '/_portal/portal/'
     | '/_tenant/bundles/'
@@ -1863,6 +1875,7 @@ export interface RootRouteChildren {
   PublicRoute: typeof PublicRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   BSerialRoute: typeof BSerialRoute
+  ShareDieTokenRoute: typeof ShareDieTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2188,6 +2201,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof PlatformAdminIndexRouteImport
       parentRoute: typeof PlatformRoute
+    }
+    '/share/die/$token': {
+      id: '/share/die/$token'
+      path: '/share/die/$token'
+      fullPath: '/share/die/$token'
+      preLoaderRoute: typeof ShareDieTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_tenant/vendors/$id': {
       id: '/_tenant/vendors/$id'
@@ -3289,6 +3309,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicRoute: PublicRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   BSerialRoute: BSerialRoute,
+  ShareDieTokenRoute: ShareDieTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

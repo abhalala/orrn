@@ -30,6 +30,7 @@ import {
   worstTone,
 } from "../lib/dieRoom";
 import { dieBandRouter, duplicateBandError, findDuplicateBand } from "./dieBand";
+import { dieShareRouter } from "./dieShare";
 import { likeContains } from "../lib/search";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { nextCompanySeq } from "../lib/sequence";
@@ -172,6 +173,9 @@ const auditOf = (ctx: { db: OrrnDb; companyId: string; session: Parameters<typeo
 
 export const dieRouter = router({
   bands: dieBandRouter,
+
+  /** Share links for a section drawing (FP-DR-20): create / list / revoke, and the public `view`. */
+  share: dieShareRouter,
 
   /**
    * Sections. Search matches series, section code, name, "SERIES CODE", and a copy code

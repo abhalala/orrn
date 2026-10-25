@@ -12,7 +12,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Boxes, Pencil, Plus, Trash2 } from "lucide-react";
+import { Boxes, Pencil, Plus, Share2, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useNewCopyOnTrial } from "./use-die-room";
 import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
+import { ShareSheet } from "./share-sheet";
 import {
   bandTitle,
   formatBand,
@@ -80,6 +81,7 @@ export function SectionDetail({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [pending, setPending] = useState(false);
   const [retiring, setRetiring] = useState<BandView | null>(null);
 
@@ -209,6 +211,12 @@ export function SectionDetail({ id }: { id: string }) {
                   : []
               }
             />
+            <Can do={["die.card", "masters.publish"]}>
+              <Button variant="secondary" onClick={() => setSharing(true)} data-testid="section-share">
+                <Share2 aria-hidden="true" strokeWidth={2} />
+                {t("dieRoom.share.button")}
+              </Button>
+            </Can>
             <Can do="die.update">
               <Button variant="secondary" asChild>
                 <Link to="/dies/$id/bands/new" params={{ id: die.id }}>
@@ -409,6 +417,7 @@ export function SectionDetail({ id }: { id: string }) {
           </>
         }
       />
+      <ShareSheet open={sharing} onOpenChange={setSharing} sectionId={die.id} />
     </>
   );
 }
