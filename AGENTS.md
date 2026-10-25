@@ -820,6 +820,80 @@ bun run deploy
   default such as `time_unconfirmed` / `source` when a row leaves it out, which broke the 100-param
   chunking at 7 dies).
 
+## Order book, dispatch from an order, Wave 2 (W2-OPPK-W)
+
+- The order book (`orders.list`, FP-OP-20) and its header strip (`totals` of the same answer,
+  `orders.bookTotals`) come from ONE SQL text (`lib/orderBook.ts`): per line, segments are taken in
+  order and capped so they add up to the ordered kg: dispatched, in stock (AVAILABLE on the line
+  only, the D-3B rule, the same set as the detail strip's `inStockG`; `inStockBundles` counts the
+  same set), held (reserved on a dispatch + held in the yard for the line; `heldBundles`), pressed
+  not packed, planned, rest (not planned); `over` is its own figure. Stage filter `held` exists. Every filter
+  (party, `city` = the customer's billing address city, status, `late`, order-date range, `stage`,
+  search) narrows rows and strip together. The strip is the sum of the grid by construction; a test
+  holds it. Never sum bars on a client. `orders.bookCities` lists the city options.
+- Late (FP-OP-18, Q7 A): confirmed / dispatching, baki left, and the expected date passed; with no
+  expected date, ordered more than 15 days ago (`lateOf` in `lib/orderStrip.ts`, the same rule in
+  SQL in `orderBook.ts` and `LineFilter.late`). `lateRule` says which date fired. `expectedDate`
+  is stored as typed (`orders.create|update`, null clears it); the server does not default it. The
+  new-order form starts it at order date + `settings.orderLeadDays` (default 15, Q8). The late
+  fallback for an order with NO expected date stays a fixed 15 days (`LATE_AFTER_DAYS`); it is not
+  tied to `orderLeadDays` (a plant that changes its lead days changes only the form's prefill).
+  `orderLeadDays` has no settings screen yet (set with `company.updateSettings`).
+- No client arithmetic on kg / pcs / % (review r1 I-1): the new-order form's row quotes, die-block
+  and order totals and each row's share (`shareBp`, shown with `bpPercent1`) come from
+  `orders.quoteMany` (a read sent as POST because a long order's rows do not fit a GET URL);
+  `orders.get` returns `dieTotals` and, for `lineFilter` (die, cut length, stage, has baki), `shown`
+  = the kept `lineIds` with their ordered kg / pieces (`pcsMissing` counts lines with no pieces).
+  Bars are drawn with `flex-grow: grams`, never a computed width.
+- `orders.stockOn` (FP-OP-19) is the in-yard bundles of an order by line from
+  `bundle.sales_order_line_id`; the print, PDF and Excel are made on the client from it
+  (`@orrn/documents/stock-on-order`). No rate in it.
+- The strip also gives `inStockBundles` / `inStockPcs` (FP-OP-05).
+- Dispatch from a sales order (FP-PK-17, migration 0031 `dispatch.sales_order_id` + `truck_id`):
+  `dispatch.create({ salesOrderId })` takes the order's customer (a different `customerId` is
+  refused; the order must be open); `dispatch.update` cannot move such a dispatch to another
+  customer. `getDispatch.salesOrder.progress` is the order's live baki against this load, per line
+  (`lib/dispatchOrder.ts orderProgress`). Line pick for a bundle on no line (`suggestLines`, spec
+  §E2): a line of the same die AND cut length with baki, the caller's `preferLineIds` first (the
+  suggest sheet sends the lines it showed), then the dispatch's own order (`preferOrderId`), then
+  the oldest; only then the oldest line of the die in another length, then the newest (overdraw).
+  A bundle packed for another order of the party keeps that link. `suggestBundles` names the same
+  line the add will pick (a test holds it with two lengths of one die). `dispatch.suggestBundles` (action `dispatch.addBundle`) lists the order's own yard
+  stock (on its lines or held for them) first, then plant stock (moved to plant stock; never
+  legacy stock on no line) of the same die and cut length; every candidate passes the scan's own
+  classifier, bundles held for another order's line are left out, and `fits` marks what stays
+  within the baki in the order listed.
+- Packing list scope (Q37, `settings.packingList.scope`, `company.updateSettings` only):
+  `one_customer` (default) one customer's lines from several of their orders; `one_so` a dispatch
+  must start from a sales order and carries that order only: the classifier refuses
+  `outside_order` ("This packing list is for SO-n only") for a bundle on another order or of a die
+  the order lacks, and after the line picks (`refuseOutsideOrder`) for plant stock once the
+  order's line of that die and length has no baki left; `suggestLines({ onlyOrderId, strict })`
+  never links to another order of the party (complete's relink too); `per_truck` several
+  customers on one truck: `dispatch.create({ truckOf })` makes a sibling dispatch sharing
+  `truck_id` (the first dispatch's id), vehicle, driver, transporter and capacity (its own
+  `transporterId` / `vehicleCapacityG` are ignored); one customer once per truck (read check +
+  write-time `batchAbortUnless`; `update` cannot switch a sibling to a customer already on the
+  truck); capacity counts the whole truck (`truckDispatchIds`); each customer gets its own PL
+  number.
+- Q36 (warning, never a block): add / scan reports `warnings[]` (`{ serial, orderNumber, lineNo,
+  bundleMilli, lineMilli, diffMilli }`, domain `offLineBand`) for a
+  bundle whose kg/12ft is more than 0.100 (100 milli, exclusive) off its order line's
+  `kg_per_12ft_milli`; `getDispatch` items carry `offBand`, `lineKgPer12ftMilli`,
+  `offBandDiffMilli`. A bundle with no line has nothing to compare with. Pack's D15 band is
+  separate and untouched.
+- Hold stock UI (FP-OP-17): `/orders/$id` per line "Hold stock" (`orders.matchStock` → bundles on
+  no line or this line, not held, ≤ 100 → `orders.hold`, length warnings shown from the answer),
+  a "Held" chip (`strip.heldBundles`, `heldG`) and "Held bundles" (`orders.holds`) with Release
+  selected / all (`orders.release`), behind `order.manage`. Hold refusals are mapped to en/hi in
+  `features/orders/errors.ts`.
+- "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
+  (`addInChunks`); a failed call stops the run and says how many went on.
+- Packing list: `settings.packingList.kgPerPiece` (default off, `company.updateSettings`,
+  `settings.update`) adds a "kg/pc" column to the screen, the PDF, the v2 print and the Excel
+  sheet (render-time option `kgPerPiece`; stored snapshots do not change). One rounding rule:
+  grams per piece half up (`kgPerPieceG`).
+
 ## Platform: modules, shifts, releases, backups
 
 - **Modules (FP-PF-07, D14).** `company.modules` is the bought-module list; `[]` means every module
@@ -936,6 +1010,19 @@ bun run deploy
 - Print attempts must always be logged whether they succeed or fail.
 - Bundle serials are unique per company.
 - Bundles are never deleted; use status transitions including `void`.
+
+## Customer portal (FP-PF-01..04, W3)
+
+- Router `portal` (`packages/server/src/routers/portal.ts`), rules in `lib/portal.ts`, migration 0032, D28. A party login is a `customer_portal_user` row: never a membership, never a company role, never `can()`.
+- Party procedures use `portalProcedure` (`packages/server/src/index.ts`): session + an `active` portal row + company `active` + `portalEnabled` (floor settings) + NO membership of that user in that plant. Company AND customer come from the portal row (`ctx.portal.companyId/customerId`), never from input; `x-orrn-company` only picks among the party's own plants (naming another is FORBIDDEN, never a fallback). Impersonation is refused (the header too); downstream ctx has `role: null`, `membership: null`.
+- Staff side (`portal.users.*`, `portal.sections.*`) is `actionProcedure("portal.manage")` (office, manager, admin; owner holds all). `portal.certificates.issue|forDispatch` take `portal.manage` OR `dispatch.complete`. `portal.access` is session-only (which plants this login can read).
+- A miss is NOT_FOUND "Not found" (`portalNotFound()`), including a real row of another party or plant: never FORBIDDEN, never a hint.
+- Visibility: a section shows when this customer owns it or one live copy, or has a live `customer_portal_section` grant AND the section is not owned by another customer (a grant never overrides a foreign owner). A copy shows when its effective owner (copy, else section) is null or this customer. Archived/deleted sections and retired copies never show. Use `sectionVisibleSql`/`copyVisibleSql` (fixed param count, no id lists); `assertSectionsVisible` before any write that names a section.
+- Inputs are closed: `z.strictObject` with `unknownKeyError` — an unknown key is BAD_REQUEST naming it ("the plant picks this"), a rate-like key (`rate|price|paise`) gets `PORTAL_RATE_REFUSAL`. A portal order line is section + cut length + pcs OR kg (+ note), at most `MAX_PORTAL_LINES` (20); it books `status: "booking"`, `source: "portal"`, `weightBasis: "band_start"`, `canPrice: false`; `clientRequestId` is namespaced `portal:<portalUserId>:…`.
+- What the party never sees: rates, office notes (an order's note only when `source === "portal"`), copy, tier, `generatedBy`, internal ids (`salesOrderLineId`, `groupId`). Dispatches are only the party's own `completed`, not deleted ones.
+- Packing list: `stripForParty` drops every key naming a cast (Q39), rate-like keys, `notes` and author ids. The TEST CERTIFICATE is different: `stripCertificateForParty` keeps cast numbers and per-cast chemistry (the certificate cites them, D28/C30) and drops only author and rate-like keys. Certificates are staff-issued (re-issue = next revision, same number); untested chemistry is marked pending, never invented.
+- Logins: `portal.users.grant` makes an `invite` row of `kind: "portal"` (7 days; an older pending one is revoked) + the portal row `invited`, and returns `inviteUrl` for the office to copy (email is unreliable). `/invite/{token}` → `invite.acceptByToken` turns the row `active` without creating a membership. Re-granting a revoked login that already has an account goes straight back to `active` (`inviteUrl: null`). One email is never staff and party in the same plant (grant, accept and `portalProcedure` all refuse it). Member invites list/revoke never touch `kind: "portal"`.
+- Web: party routes live under `apps/web/src/routes/_portal*`. tRPC header rule (`shared/lib/trpc-links.ts` + `portal-plant.ts`): party procedures travel in their own batch carrying `x-orrn-company` (the chosen plant, `orrn.portalPlant`); every other call travels in a batch that never carries it. A new party procedure MUST be added to `PARTY_PROCEDURE` in `portal-plant.ts`, or it loses the plant choice.
 
 ## Orchestration notes
 

@@ -203,7 +203,8 @@ describe("writes follow the T28 rule (unsure vs failed)", () => {
   const writers = ["app/(tabs)/pack/new.tsx", "app/(tabs)/dispatch/new.tsx", "app/(tabs)/dispatch/[id].tsx", "app/b/[serial].tsx"];
   for (const f of writers) {
     test(`${f} tells "not sure it saved" from "failed"`, () => {
-      expect(read(f)).toMatch(/writeFailureKind\(|saveErrorText\(/);
+      // packSaveText wraps writeFailureKind (features/pack/pack-submit.ts) for the pack session save.
+      expect(read(f)).toMatch(/writeFailureKind\(|saveErrorText\(|packSaveText\(/);
     });
   }
 });

@@ -7,7 +7,7 @@
  */
 import { confirmBlockers } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, inArray, isNull, like, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
@@ -25,6 +25,7 @@ import {
 } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
 
+import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
 import { atomicBatch, chunk, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
@@ -38,15 +39,17 @@ import {
   lineBalancePage,
   lineBalances,
   lineTotals,
-  orderTotals,
   sumBalances,
+  type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
 import { can, type Action, type CompanyRole } from "../lib/permissions";
 import { assertPoFree, orderDetailExtras, orderFlowProcedures, poRepeatGuard } from "./orderFlow";
-import { lateDaysOf, lineStrips, onReleasedPlan, ymdOf } from "../lib/orderStrip";
+import { stockOnOrder } from "../lib/orderStock";
+import { BOOK_STAGES, bookCities, bookTotals, orderBook, type BookFilter } from "../lib/orderBook";
+import { LATE_AFTER_DAYS, lateOf, lineStrips, onReleasedPlan, ymdMinusDays, ymdOf, type LineStrip } from "../lib/orderStrip";
 
 const MAX_LINES = 100;
 
@@ -94,6 +97,8 @@ const createInput = z.object({
   poNumber: text(100).nullable().optional(),
   /** Company calendar date; defaults to today on the company clock. */
   orderDate: ymd.optional(),
+  /** The date the customer wants it by (FP-OP-01); the form starts it at order date + lead days. */
+  expectedDate: ymd.nullable().optional(),
   /** Only `booking` (or omitted): confirm with `orders.confirm` (D11). */
   status: z.enum(salesOrderStatuses).optional(),
   note: text(1000).nullable().optional(),
@@ -116,6 +121,8 @@ const updateInput = z.object({
   customerId: z.string().min(1).max(64).optional(),
   poNumber: text(100).nullable().optional(),
   orderDate: ymd.optional(),
+  /** Null clears it; omitted keeps it. */
+  expectedDate: ymd.nullable().optional(),
   note: text(1000).nullable().optional(),
   /** Must equal the order's status when sent: an edit never moves it (D11; confirm / close / cancel do). */
   status: z.enum(salesOrderStatuses).optional(),
@@ -148,6 +155,7 @@ async function createFingerprint(input: z.infer<typeof createInput>): Promise<st
     customerId: input.customerId,
     poNumber: blank(input.poNumber),
     orderDate: input.orderDate ?? null,
+    ...(input.expectedDate !== undefined ? { expectedDate: input.expectedDate } : {}),
     status: input.status ?? "booking",
     note: blank(input.note),
     lines: input.lines.map((l) => [
@@ -261,8 +269,251 @@ function lineRow(
   };
 }
 
+/** Who is creating an order: a member (`orders.create`) or a party (`portal.orders.create`, C29). */
+export type OrderCreateCtx = {
+  db: OrrnDb;
+  companyId: string;
+  session: NonNullable<Context["session"]>;
+  impersonation: Context["impersonation"];
+};
+
+export type OrderCreateInput = z.infer<typeof createInput>;
+
+/**
+ * The one sales-order insert path (C29: the portal creates through the same code as `orders.create`,
+ * with `source: 'portal'`). Always a booking. `canPrice` gates rates (C23); the portal passes false
+ * and refuses rates before it gets here. Office rows audit `order.create`, portal rows
+ * `portal.order.create` (meta without kg or rate).
+ */
+export async function createSalesOrder(
+  ctx: OrderCreateCtx,
+  input: OrderCreateInput,
+  opts: { canPrice: boolean; source: "office" | "portal" },
+): Promise<{ id: string; number: string; replayed: boolean }> {
+  const auditAction = opts.source === "portal" ? "portal.order.create" : "order.create";
+  // D11 / review round 1 I-1: a new order is a booking; confirming is `orders.confirm`.
+  if (input.status !== undefined && input.status !== "booking") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "A new order is saved as a booking. Confirm it with Confirm once it is complete.",
+    });
+  }
+  const fingerprint = await createFingerprint(input);
+  /** The order this key already made, if any; CONFLICT when it was made from another request. */
+  const byRequest = async () => {
+    if (!input.clientRequestId) return null;
+    const [row] = await ctx.db
+      .select({ id: salesOrder.id, number: salesOrder.number, customerId: salesOrder.customerId })
+      .from(salesOrder)
+      .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.clientRequestId, input.clientRequestId)))
+      .limit(1);
+    if (!row) return null;
+    const [made] = await ctx.db
+      .select({ fingerprint: sql<string | null>`json_extract(${auditLog.meta}, '$.fingerprint')` })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.companyId, ctx.companyId),
+          eq(auditLog.action, auditAction),
+          eq(auditLog.subjectType, "sales_order"),
+          eq(auditLog.subjectId, row.id),
+        ),
+      )
+      .limit(1);
+    // Orders made before the fingerprint was kept compare on the customer only.
+    const same = made?.fingerprint ? made.fingerprint === fingerprint : row.customerId === input.customerId;
+    if (!same) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: `This save was already used for another order (${row.number}). Reload the order screen and save again.`,
+      });
+    }
+    return row;
+  };
+  const prior = await byRequest();
+  if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
+  await assertCustomer(ctx.db, ctx.companyId, input.customerId);
+  await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
+  const resolved = await resolveLines(ctx.db, ctx.companyId, input.lines, { canPrice: opts.canPrice });
+  const poNumber = blank(input.poNumber);
+  if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber });
+
+  const at = clockNow();
+  const userId = ctx.session.user.id;
+  const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
+  const today = zonedYmd(companyTimezone(co?.settings), at.getTime());
+  const orderDate =
+    input.orderDate ?? `${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+  // SO numbers restart every financial year: the order keeps the period it was numbered in, and
+  // the unique key is (company, period, number).
+  const { number, period } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
+  const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+  const id = crypto.randomUUID();
+  const status: SalesOrderStatus = "booking";
+
+  const statements: SqliteBatchItem[] = [
+    ctx.db.insert(salesOrder).values({
+      id,
+      companyId: ctx.companyId,
+      serverSeq: seq,
+      period,
+      number,
+      customerId: input.customerId,
+      poNumber,
+      orderDate,
+      expectedDate: input.expectedDate ?? null,
+      status,
+      note: blank(input.note),
+      lineSeq: input.lines.length,
+      source: opts.source,
+      clientRequestId: input.clientRequestId ?? null,
+      statusChangedAt: at,
+      statusChangedBy: userId,
+      createdBy: userId,
+      createdAt: at,
+    }),
+  ];
+  pushChunkedInserts(
+    statements,
+    (rows) => ctx.db.insert(salesOrderLine).values(rows),
+    input.lines.map((l, i) =>
+      lineRow(l, resolved[i]!, {
+        id: crypto.randomUUID(),
+        companyId: ctx.companyId,
+        serverSeq: seq,
+        salesOrderId: id,
+        lineNo: i + 1,
+        createdBy: userId,
+      }),
+    ),
+  );
+  // Write-time PO repeat check (FP-OP-01): a second order with this PO saved meanwhile fails the batch.
+  if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber }));
+  statements.push(
+    auditInsert(ctx, {
+      action: auditAction,
+      subjectType: "sales_order",
+      subjectId: id,
+      // Portal rows (platform spec §3 Audit): sales-order id and customer id, never kg or rate.
+      meta:
+        opts.source === "portal"
+          ? { salesOrderId: id, customerId: input.customerId, number, period, ...(input.clientRequestId ? { fingerprint } : {}) }
+          : {
+              number,
+              period,
+              customerId: input.customerId,
+              lines: input.lines.length,
+              kgG: resolved.reduce((s, l) => s + l.kgG, 0),
+              ...(input.clientRequestId ? { fingerprint } : {}),
+            },
+    }),
+  );
+  try {
+    await atomicBatch(ctx.db, statements);
+  } catch (e) {
+    if (isBatchAbort(e, "sales_order_line")) {
+      throw new TRPCError({ code: "CONFLICT", message: `PO ${poNumber} is already on another order of this customer` });
+    }
+    // The same key raced in from a retry: the first one's order stands (this number is a gap, R5).
+    const won = /UNIQUE constraint failed: sales_order\.company_id, sales_order\.client_request_id/.test(errorText(e))
+      ? await byRequest()
+      : null;
+    if (!won) throw e;
+    return { id: won.id, number: won.number, replayed: true as const };
+  }
+  return { id, number, replayed: false as const };
+}
+
 export const roleCan = (role: CompanyRole, action: Action) => can({ company: { role }, isPlatformAdmin: false, platformRole: null }, action);
 const canPrice = (role: CompanyRole) => roleCan(role, "order.price");
+
+const bookInput = z.object({
+  status: z.enum(salesOrderStatuses).optional(),
+  /** Booking, confirmed and dispatching only. */
+  openOnly: z.boolean().optional(),
+  customerId: z.string().min(1).max(64).optional(),
+  /** Party city (billing address). */
+  city: z.string().trim().min(1).max(80).optional(),
+  search: z.string().trim().max(100).optional(),
+  /** Order date range, inclusive. */
+  dateFrom: ymd.optional(),
+  dateTo: ymd.optional(),
+  /** Only orders with kg in this stage of the bar. */
+  stage: z.enum(BOOK_STAGES).optional(),
+  /** Only orders running late (FP-OP-18, Q7). */
+  late: z.boolean().optional(),
+});
+
+async function bookFilterOf(db: OrrnDb, companyId: string, input: z.infer<typeof bookInput>) {
+  const floor = await companyFloor(db, companyId);
+  const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));
+  const statuses: readonly SalesOrderStatus[] | undefined = input.status
+    ? [input.status]
+    : input.openOnly || input.late
+      ? input.late
+        ? (["confirmed", "dispatching"] as const)
+        : openSalesOrderStatuses
+      : undefined;
+  const filter: BookFilter = {
+    statuses,
+    customerId: input.customerId,
+    city: input.city,
+    search: input.search || undefined,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    stage: input.stage,
+    late: input.late,
+    today,
+    cutoff: ymdMinusDays(today, LATE_AFTER_DAYS),
+  };
+  return { filter, today };
+}
+
+/** The stages a line can be filtered by (FP-OP-05): it has kg there on its strip. */
+const LINE_FILTER_STAGES = ["dispatched", "in_stock", "pressed", "planned", "unplanned", "over"] as const;
+type LineFilterInput = { dieId?: string; cutLengthMm?: number; stage?: (typeof LINE_FILTER_STAGES)[number]; hasBaki?: boolean };
+
+type OrderedTotals = { lines: number; orderedG: number; orderedPcs: number; pcsMissing: number };
+
+function orderedTotalsOf(lines: readonly LineBalance[]): OrderedTotals {
+  const t: OrderedTotals = { lines: 0, orderedG: 0, orderedPcs: 0, pcsMissing: 0 };
+  for (const l of lines) {
+    t.lines += 1;
+    t.orderedG += l.orderedG;
+    // A line with no piece count adds none, and says so (pcsMissing) instead of a silent low total.
+    if (l.orderedPcs == null) t.pcsMissing += 1;
+    else t.orderedPcs += l.orderedPcs;
+  }
+  return t;
+}
+
+function orderedTotalsByDie(lines: readonly LineBalance[]): (OrderedTotals & { dieId: string })[] {
+  const by = new Map<string, LineBalance[]>();
+  for (const l of lines) by.set(l.sectionId, [...(by.get(l.sectionId) ?? []), l]);
+  return [...by].map(([dieId, ls]) => ({ dieId, ...orderedTotalsOf(ls) }));
+}
+
+function shownLines(
+  lines: readonly LineBalance[],
+  details: readonly { lineId: string; strip: LineStrip }[],
+  f: LineFilterInput,
+): OrderedTotals & { lineIds: string[] } {
+  const strips = new Map(details.map((d) => [d.lineId, d.strip]));
+  const inStage = (strip: LineStrip | undefined) => {
+    if (!f.stage) return true;
+    if (!strip) return false;
+    const g = { dispatched: strip.dispatchedG, in_stock: strip.inStockG, pressed: strip.pressedG, planned: strip.plannedG, unplanned: strip.planableG, over: strip.overG }[f.stage];
+    return g > 0;
+  };
+  const kept = lines.filter(
+    (l) =>
+      (!f.dieId || l.sectionId === f.dieId) &&
+      (f.cutLengthMm == null || l.cutLengthMm === f.cutLengthMm) &&
+      (!f.hasBaki || l.bakiG > 0) &&
+      inStage(strips.get(l.lineId)),
+  );
+  return { lineIds: kept.map((l) => l.lineId), ...orderedTotalsOf(kept) };
+}
 
 export const salesOrderRouter = router({
   // Wave 1 (FP-OP, W1-OP-S): confirm / close / cancel, quote, repriceWeight, timeline, lineBundles,
@@ -271,131 +522,7 @@ export const salesOrderRouter = router({
   create: actionProcedure("order.manage")
     .input(createInput)
     .mutation(async ({ ctx, input }) => {
-      // D11 / review round 1 I-1: a new order is a booking; confirming is `orders.confirm`.
-      if (input.status !== undefined && input.status !== "booking") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "A new order is saved as a booking. Confirm it with Confirm once it is complete.",
-        });
-      }
-      const fingerprint = await createFingerprint(input);
-      /** The order this key already made, if any; CONFLICT when it was made from another request. */
-      const byRequest = async () => {
-        if (!input.clientRequestId) return null;
-        const [row] = await ctx.db
-          .select({ id: salesOrder.id, number: salesOrder.number, customerId: salesOrder.customerId })
-          .from(salesOrder)
-          .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.clientRequestId, input.clientRequestId)))
-          .limit(1);
-        if (!row) return null;
-        const [made] = await ctx.db
-          .select({ fingerprint: sql<string | null>`json_extract(${auditLog.meta}, '$.fingerprint')` })
-          .from(auditLog)
-          .where(
-            and(
-              eq(auditLog.companyId, ctx.companyId),
-              eq(auditLog.action, "order.create"),
-              eq(auditLog.subjectType, "sales_order"),
-              eq(auditLog.subjectId, row.id),
-            ),
-          )
-          .limit(1);
-        // Orders made before the fingerprint was kept compare on the customer only.
-        const same = made?.fingerprint ? made.fingerprint === fingerprint : row.customerId === input.customerId;
-        if (!same) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: `This save was already used for another order (${row.number}). Reload the order screen and save again.`,
-          });
-        }
-        return row;
-      };
-      const prior = await byRequest();
-      if (prior) return { id: prior.id, number: prior.number, replayed: true as const };
-      await assertCustomer(ctx.db, ctx.companyId, input.customerId);
-      await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
-      const resolved = await resolveLines(ctx.db, ctx.companyId, input.lines, { canPrice: canPrice(ctx.role) });
-      const poNumber = blank(input.poNumber);
-      if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber });
-
-      const at = clockNow();
-      const userId = ctx.session.user.id;
-      const [co] = await ctx.db.select({ settings: company.settings }).from(company).where(eq(company.id, ctx.companyId)).limit(1);
-      const today = zonedYmd(companyTimezone(co?.settings), at.getTime());
-      const orderDate =
-        input.orderDate ?? `${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
-      // SO numbers restart every financial year: the order keeps the period it was numbered in, and
-      // the unique key is (company, period, number).
-      const { number, period } = await nextDocNumber(ctx.db, ctx.companyId, "so", at, userId);
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      const id = crypto.randomUUID();
-      const status: SalesOrderStatus = "booking";
-
-      const statements: SqliteBatchItem[] = [
-        ctx.db.insert(salesOrder).values({
-          id,
-          companyId: ctx.companyId,
-          serverSeq: seq,
-          period,
-          number,
-          customerId: input.customerId,
-          poNumber,
-          orderDate,
-          status,
-          note: blank(input.note),
-          lineSeq: input.lines.length,
-          clientRequestId: input.clientRequestId ?? null,
-          statusChangedAt: at,
-          statusChangedBy: userId,
-          createdBy: userId,
-          createdAt: at,
-        }),
-      ];
-      pushChunkedInserts(
-        statements,
-        (rows) => ctx.db.insert(salesOrderLine).values(rows),
-        input.lines.map((l, i) =>
-          lineRow(l, resolved[i]!, {
-            id: crypto.randomUUID(),
-            companyId: ctx.companyId,
-            serverSeq: seq,
-            salesOrderId: id,
-            lineNo: i + 1,
-            createdBy: userId,
-          }),
-        ),
-      );
-      // Write-time PO repeat check (FP-OP-01): a second order with this PO saved meanwhile fails the batch.
-      if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber }));
-      statements.push(
-        auditInsert(ctx, {
-          action: "order.create",
-          subjectType: "sales_order",
-          subjectId: id,
-          meta: {
-            number,
-            period,
-            customerId: input.customerId,
-            lines: input.lines.length,
-            kgG: resolved.reduce((s, l) => s + l.kgG, 0),
-            ...(input.clientRequestId ? { fingerprint } : {}),
-          },
-        }),
-      );
-      try {
-        await atomicBatch(ctx.db, statements);
-      } catch (e) {
-        if (isBatchAbort(e, "sales_order_line")) {
-          throw new TRPCError({ code: "CONFLICT", message: `PO ${poNumber} is already on another order of this customer` });
-        }
-        // The same key raced in from a retry: the first one's order stands (this number is a gap, R5).
-        const won = /UNIQUE constraint failed: sales_order\.company_id, sales_order\.client_request_id/.test(errorText(e))
-          ? await byRequest()
-          : null;
-        if (!won) throw e;
-        return { id: won.id, number: won.number, replayed: true as const };
-      }
-      return { id, number, replayed: false as const };
+      return createSalesOrder(ctx, input, { canPrice: canPrice(ctx.role), source: "office" });
     }),
 
   update: actionProcedure("order.manage")
@@ -601,6 +728,7 @@ export const salesOrderRouter = router({
             customerId: input.customerId ?? order.customerId,
             poNumber: nextPo,
             orderDate: input.orderDate ?? order.orderDate,
+            expectedDate: input.expectedDate === undefined ? order.expectedDate : input.expectedDate,
             note: input.note === undefined ? order.note : blank(input.note),
             lineSeq: sql`max(${salesOrder.lineSeq}, ${lineSeq})`,
             serverSeq: seq,
@@ -765,7 +893,23 @@ export const salesOrderRouter = router({
     }),
 
   get: companyProcedure
-    .input(z.object({ id: z.string().min(1).max(64) }))
+    .input(
+      z.object({
+        id: z.string().min(1).max(64),
+        /**
+         * FP-OP-05 (review r1 I-1): narrow the lines by die, cut length, stage and "has baki"; `shown`
+         * then carries the lines that match and their ordered kg and pieces.
+         */
+        lineFilter: z
+          .object({
+            dieId: z.string().min(1).max(64).optional(),
+            cutLengthMm: z.number().int().min(1).max(30_000).optional(),
+            stage: z.enum(LINE_FILTER_STAGES).optional(),
+            hasBaki: z.boolean().optional(),
+          })
+          .optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const order = await loadOrder(ctx.db, ctx.companyId, input.id);
       const [cust] = await ctx.db
@@ -784,80 +928,99 @@ export const salesOrderRouter = router({
         order: { ...order, customerName: cust?.name ?? "", customerGstin: cust?.taxId ?? null },
         lines,
         totals,
-        /** Days running late (FP-OP-18 rule, review m-1), else null. */
-        lateDays: lateDaysOf({ status: order.status, orderDate: order.orderDate, bakiG: totals.bakiG }, today),
+        /** Days running late (FP-OP-18 rule, review m-1), else null; `lateRule` says which date fired. */
+        lateDays: lateOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today)?.days ?? null,
+        lateRule: lateOf({ status: order.status, orderDate: order.orderDate, expectedDate: order.expectedDate, bakiG: totals.bakiG }, today)?.rule ?? null,
         ...extras,
+        /** Ordered kg and pieces per die, in line order (the die blocks of the order). */
+        dieTotals: orderedTotalsByDie(lines),
+        /** The lines the filter keeps (every line without one) with their ordered kg and pieces (FP-OP-05). */
+        shown: shownLines(lines, extras.lineDetails, input.lineFilter ?? {}),
       };
     }),
 
-  list: companyProcedure
-    .input(
-      z.object({
-        status: z.enum(salesOrderStatuses).optional(),
-        /** Booking, confirmed and dispatching only. */
-        openOnly: z.boolean().optional(),
-        customerId: z.string().min(1).max(64).optional(),
-        search: z.string().trim().max(100).optional(),
-        limit: z.number().int().min(1).max(100).default(50),
-        offset: z.number().int().min(0).default(0),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const conditions: (SQL | undefined)[] = [eq(salesOrder.companyId, ctx.companyId)];
-      if (input.status) conditions.push(eq(salesOrder.status, input.status));
-      if (input.openOnly) conditions.push(inArray(salesOrder.status, [...openSalesOrderStatuses]));
-      if (input.customerId) conditions.push(eq(salesOrder.customerId, input.customerId));
-      if (input.search) {
-        const pattern = `%${input.search}%`;
-        conditions.push(or(like(salesOrder.number, pattern), like(salesOrder.poNumber, pattern), like(customer.name, pattern)));
-      }
-      const where = and(...conditions);
-      const rows = await ctx.db
-        .select({
-          id: salesOrder.id,
-          period: salesOrder.period,
-          number: salesOrder.number,
-          customerId: salesOrder.customerId,
-          customerName: customer.name,
-          poNumber: salesOrder.poNumber,
-          orderDate: salesOrder.orderDate,
-          status: salesOrder.status,
-          createdAt: salesOrder.createdAt,
-        })
-        .from(salesOrder)
-        .innerJoin(customer, and(eq(customer.id, salesOrder.customerId), eq(customer.companyId, ctx.companyId)))
-        .where(where)
-        .orderBy(desc(salesOrder.createdAt), desc(sql`length(${salesOrder.number})`), desc(salesOrder.number))
-        .limit(input.limit)
-        .offset(input.offset);
-      const [totalRow] = await ctx.db
-        .select({ n: count() })
-        .from(salesOrder)
-        .innerJoin(customer, and(eq(customer.id, salesOrder.customerId), eq(customer.companyId, ctx.companyId)))
-        .where(where);
+  /**
+   * The order book (FP-OP-20): a page of orders, each with the kg bar figures of the balance strip
+   * (`bar`), plus `totals`, the header strip over the whole filter. Both come from the same SQL
+   * (`lib/orderBook.ts`), so the strip is the sum of the grid. `status` may be "late"-free: pass
+   * `late: true` for orders running late (FP-OP-18, Q7).
+   */
+  list: companyProcedure.input(bookInput.extend({ limit: z.number().int().min(1).max(100).default(50), offset: z.number().int().min(0).default(0) })).query(async ({ ctx, input }) => {
+    const { filter, today } = await bookFilterOf(ctx.db, ctx.companyId, input);
+    const book = await orderBook(ctx.db, ctx.companyId, filter, { limit: input.limit, offset: input.offset });
+    const items = book.rows.map((r) => {
+      const late = lateOf({ status: r.status, orderDate: r.orderDate, expectedDate: r.expectedDate, bakiG: r.bakiG }, today);
+      return {
+        id: r.id,
+        period: r.period,
+        number: r.number,
+        customerId: r.customerId,
+        customerName: r.customerName,
+        city: r.city,
+        poNumber: r.poNumber,
+        orderDate: r.orderDate,
+        expectedDate: r.expectedDate,
+        status: r.status,
+        createdAt: new Date(r.createdAt),
+        lines: r.lines,
+        orderedG: r.orderedG,
+        producedG: r.producedG,
+        dispatchedG: r.dispatchedG,
+        bakiG: r.bakiG,
+        overG: r.excessG,
+        inStockBundles: r.inStockBundles,
+        heldBundles: r.heldBundles,
+        bar: r.bar,
+        /** Days running late (FP-OP-18 rule, review m-1), else null. */
+        lateDays: late?.days ?? null,
+        /** Which date made it late: the expected date, or the order date when none was set. */
+        lateRule: late?.rule ?? null,
+      };
+    });
+    const next = input.offset + book.rows.length;
+    return { items, total: book.total, nextOffset: next < book.total ? next : null, totals: book.totals };
+  }),
 
-      // Per-order sums in SQL (GROUP BY order), never from a capped list of lines.
-      const sums = await orderTotals(ctx.db, ctx.companyId, rows.map((r) => r.id));
-      const floor = await companyFloor(ctx.db, ctx.companyId);
-      const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));
-      const items = rows.map((r) => {
-        const t = sums.get(r.id) ?? sumBalances([]);
-        return {
-          ...r,
-          lines: t.lines,
-          orderedG: t.orderedG,
-          producedG: t.producedG,
-          dispatchedG: t.dispatchedG,
-          bakiG: t.bakiG,
-          overG: t.overG,
-          /** Days running late (FP-OP-18 rule, review m-1), else null. */
-          lateDays: lateDaysOf({ status: r.status, orderDate: r.orderDate, bakiG: t.bakiG }, today),
-        };
-      });
-      const total = totalRow?.n ?? 0;
-      const next = input.offset + rows.length;
-      return { items, total, nextOffset: next < total ? next : null };
-    }),
+  /** The header strip alone (FP-OP-20): sums over every order the filter matches, same SQL as the grid. */
+  bookTotals: companyProcedure.input(bookInput).query(async ({ ctx, input }) => {
+    const { filter } = await bookFilterOf(ctx.db, ctx.companyId, input);
+    return bookTotals(ctx.db, ctx.companyId, filter);
+  }),
+
+  /**
+   * Stock held on this order (FP-OP-19): its in-yard bundles by line, with a total and the order's
+   * baki strip, for the print / PDF / Excel. No rates.
+   */
+  stockOn: companyProcedure.input(z.object({ id: z.string().min(1).max(64) })).query(async ({ ctx, input }) => {
+    const order = await loadOrder(ctx.db, ctx.companyId, input.id);
+    const [cust] = await ctx.db
+      .select({ name: customer.name })
+      .from(customer)
+      .where(and(eq(customer.id, order.customerId), eq(customer.companyId, ctx.companyId)))
+      .limit(1);
+    const stock = await stockOnOrder(ctx.db, ctx.companyId, order.id);
+    const lines = await lineBalances(ctx.db, ctx.companyId, { orderId: order.id });
+    const totals = sumBalances(lines);
+    const floor = await companyFloor(ctx.db, ctx.companyId);
+    return {
+      order: {
+        id: order.id,
+        number: order.number,
+        period: order.period,
+        poNumber: order.poNumber,
+        orderDate: order.orderDate,
+        expectedDate: order.expectedDate,
+        status: order.status,
+        customerName: cust?.name ?? "",
+      },
+      companyName: floor.floor.letterhead.legalName ?? null,
+      ...stock,
+      strip: { orderedG: totals.orderedG, dispatchedG: totals.dispatchedG, bakiG: totals.bakiG, inStockG: stock.total.weightG },
+    };
+  }),
+
+  /** Party cities of customers with orders: the options of the city filter. */
+  bookCities: companyProcedure.query(({ ctx }) => bookCities(ctx.db, ctx.companyId)),
 
   /**
    * Order balance (baki) per line — the "Order balance" report (spec P19): ordered, produced,

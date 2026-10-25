@@ -150,6 +150,20 @@ export function issueLine(run: Pick<QueuedRun, "pressLineId">, lines: readonly P
   return lines.length === 1 ? lines[0]!.id : null;
 }
 
+/**
+ * What the issue sheet would send (BACKLOG 36): the run the person named, never a default ("no
+ * silent oldest"), and its line. Issue is enabled only when both are known.
+ */
+export function issueTarget(
+  runs: readonly QueuedRun[],
+  runId: string | null,
+  pickedLineId: string | null,
+  lines: readonly PressLine[],
+): { run: QueuedRun | null; lineId: string | null } {
+  const run = runs.find((r) => r.id === runId) ?? null;
+  return { run, lineId: run ? (pickedLineId ?? issueLine(run, lines)) : null };
+}
+
 /** Queued runs of one section, the only runs a copy of it can go to. */
 export function runsForSection(runs: readonly QueuedRun[], sectionId: string): QueuedRun[] {
   return runs.filter((r) => r.sectionId === sectionId);

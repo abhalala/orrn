@@ -30,6 +30,9 @@ export const companyRoles = [
 export const platformStaffRoles = ["super_admin", "admin", "support"] as const;
 export type PlatformStaffRole = (typeof platformStaffRoles)[number];
 export const waitlistStatuses = ["pending", "approved", "rejected"] as const;
+/** `member` = a plant login (membership); `portal` = a party login (customer_portal_user, C29). */
+export const inviteKinds = ["member", "portal"] as const;
+export type InviteKind = (typeof inviteKinds)[number];
 
 export const company = sqliteTable(
   "company",
@@ -100,6 +103,13 @@ export const invite = sqliteTable(
     revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
     invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    /**
+     * Wave 3 portal (platform spec §3 `invite`). A `portal` invite names the customer; its `role`
+     * is only the non-null placeholder `viewer` and acceptance never creates a membership
+     * (invite.acceptByToken branches on kind, server side).
+     */
+    kind: text("kind", { enum: inviteKinds }).notNull().default("member"),
+    customerId: text("customer_id"),
   },
   (table) => [
     index("invite_company_idx").on(table.companyId),

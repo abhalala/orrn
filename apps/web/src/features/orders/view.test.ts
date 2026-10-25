@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 
 import {
+  holdableItems,
   addPlanLine,
   blockerText,
   copyChoiceInput,
@@ -14,6 +15,8 @@ import {
   movePlanDie,
   addPlanLines,
   draftCounts,
+  draftGroups,
+  draftOrderCount,
   soLines,
   parseBlocker,
   poRepeatFromMessage,
@@ -50,6 +53,19 @@ describe("stripCells", () => {
     expect(cells[0]).toMatchObject({ kg: "480.000", pcs: "200", open: false });
     expect(cells[4]).toMatchObject({ kg: "105.895", pcs: null });
     expect(cells[7]).toMatchObject({ kg: "480.000", pcs: "200", open: true });
+  });
+
+  test("BACKLOG 39: Packed says it counts bundles on a truck, so it never reads as the In stock figure (en and hi)", () => {
+    const cells = stripCells(strip);
+    const packed = cells.find((c) => c.key === "packedG")!;
+    const inStock = cells.find((c) => c.key === "inStockG")!;
+    for (const lang of ["en", "hi"] as const) {
+      const t = createI18n(lang).t;
+      expect(t(packed.labelKey)).not.toBe(t(inStock.labelKey));
+    }
+    expect(createI18n("en").t(packed.labelKey)).toBe("Packed (incl. on a truck)");
+    expect(createI18n("en").t(inStock.labelKey)).toBe("In stock");
+    expect(createI18n("hi").t(packed.labelKey)).toBe("पैक (गाड़ी पर रखे सहित)");
   });
 
   test("a settled baki is not flagged open", () => {
@@ -144,6 +160,37 @@ describe("timelineLabel", () => {
       vars: { count: 2, kg: "105.895" },
     });
     expect(timelineLabel({ action: "order.reallocate", meta: { status: "applied", bundles: 1, kgG: 5 } }).key).toBe("orders.timeline.reallocateApplied");
+  });
+
+  test("BACKLOG 34: a move with the server's summary reads count, kg and from -> to (en and hi)", () => {
+    const kd = { customerName: "KD Extrusion", orderNumber: "SO-1", lineNo: 1 };
+    const toPlant = timelineLabel({ action: "order.reallocate", meta: { status: "applied" }, move: { count: 3, kgG: 57_000, from: [kd], to: null } });
+    expect(toPlant).toEqual({ key: "orders.timeline.moveApplied", vars: { count: 3, kg: "57.000", from: "KD Extrusion", to: "plant stock" } });
+    const en = createI18n("en").t;
+    expect(en(toPlant.key, toPlant.vars)).toBe("3 bundles, 57.000 kg, moved from KD Extrusion to plant stock");
+    const hi = createI18n("hi").t;
+    const hiLabel = timelineLabel(
+      { action: "order.reallocate", meta: { status: "applied" }, move: { count: 3, kgG: 57_000, from: [kd], to: null } },
+      { plant: hi("orders.timeline.plantStock") },
+    );
+    expect(hi(hiLabel.key, hiLabel.vars)).toBe("3 bundle, 57.000 kg, KD Extrusion से प्लांट स्टॉक को ले जाए गए");
+    const royal = { customerName: "Royal Aluminium", orderNumber: "SO-4", lineNo: 1 };
+    const asked = timelineLabel({ action: "order.reallocate", meta: { status: "pending" }, move: { count: 1, kgG: 57_046, from: [kd], to: royal } });
+    expect(en(asked.key, asked.vars)).toBe("1 bundle, 57.046 kg, from KD Extrusion to Royal Aluminium SO-4, asked. Waiting for a manager.");
+    // The server's count and kg win over a row's own (the old "0 bundles, 0.000 kg" decision row).
+    const old = timelineLabel({ action: "order.reallocate", meta: { status: "applied", moved: 1 }, move: { count: 1, kgG: 57_046, from: null } });
+    expect(old).toEqual({ key: "orders.timeline.reallocateApplied", vars: { count: 1, kg: "57.046" } });
+  });
+
+  test("explorer W1 M5: holds read as words, not order.hold / order.release", () => {
+    const en = createI18n("en").t;
+    const hold = timelineLabel({ action: "order.hold", meta: { lineNo: 1, serials: ["26J4007"], kgG: 62_000 } });
+    expect(en(hold.key, hold.vars)).toBe("1 bundle, 62.000 kg, held for line 1");
+    const left = timelineLabel({ action: "order.release", meta: { lineNo: 1, serials: ["26J4007"], kgG: 62_000, reason: "dispatched", dispatchCode: "DSP-183" } });
+    expect(en(left.key, left.vars)).toBe("1 held bundle, 62.000 kg, left on DSP-183");
+    const ended = timelineLabel({ action: "order.release", meta: { lineNo: 2, serials: ["A", "B"], kgG: 100_000, reason: "released" } });
+    expect(en(ended.key, ended.vars)).toBe("Hold on line 2 ended: 2 bundles, 100.000 kg");
+    expect(createI18n("hi").t(hold.key, hold.vars)).toBe("1 bundle, 62.000 kg, लाइन 1 के लिए होल्ड");
   });
 
   test("a plan names its number; an unknown action is shown as is", () => {
@@ -245,5 +292,64 @@ describe("copyChoiceInput", () => {
     expect(copyChoiceInput("copy:abc")).toEqual({ dieInstanceId: "abc", tierRank: null });
     expect(copyChoiceInput("tier:2")).toEqual({ dieInstanceId: null, tierRank: 2 });
     expect(copyChoiceInput("tier:x")).toEqual({ dieInstanceId: null, tierRank: null });
+  });
+});
+
+describe("the draft in three views (FP-OP-11)", () => {
+  const draft: DraftDie[] = [
+    { sectionId: "d1", urgent: false, lineIds: ["l1", "l3"] },
+    { sectionId: "d2", urgent: true, lineIds: ["l2"] },
+  ];
+  const order: Record<string, string> = { l1: "SO-1", l2: "SO-2", l3: "SO-2" };
+  const orderOf = (id: string) => order[id];
+
+  test("by die keeps the run order of the dies", () => {
+    const g = draftGroups(draft, "die", orderOf);
+    expect(g.map((x) => [x.key, x.lines.map((l) => l.lineId)])).toEqual([
+      ["d1", ["l1", "l3"]],
+      ["d2", ["l2"]],
+    ]);
+  });
+
+  test("by order groups every line of a sales order together, orders in the order they first appear", () => {
+    const g = draftGroups(draft, "order", orderOf);
+    expect(g.map((x) => [x.orderNumber, x.lines.map((l) => `${l.sectionId}:${l.lineId}`)])).toEqual([
+      ["SO-1", ["d1:l1"]],
+      ["SO-2", ["d1:l3", "d2:l2"]],
+    ]);
+  });
+
+  test("flat is one list in run order, and an empty draft has no groups", () => {
+    const g = draftGroups(draft, "flat", orderOf);
+    expect(g).toHaveLength(1);
+    expect(g[0]!.lines.map((l) => l.lineId)).toEqual(["l1", "l3", "l2"]);
+    expect(draftGroups([], "flat", orderOf)).toEqual([]);
+    expect(draftGroups([], "order", orderOf)).toEqual([]);
+  });
+
+  test("the footer counts orders, dies and lines", () => {
+    expect(draftOrderCount(draft, orderOf)).toBe(2);
+    expect(draftCounts(draft)).toEqual({ dies: 2, lines: 3 });
+  });
+});
+
+describe("in stock with its bundle count (FP-OP-05)", () => {
+  test("the in-stock cell carries the pieces and bundles; other cells do not", () => {
+    const cells = stripCells({ ...strip, inStockG: 100_000, inStockPcs: 50, inStockBundles: 1 });
+    expect(cells[5]).toMatchObject({ key: "inStockG", kg: "100.000", pcs: "50", bundles: 1 });
+    expect(cells[4]).toMatchObject({ bundles: null });
+    expect(stripCells(strip)[5]).toMatchObject({ pcs: null, bundles: null });
+  });
+});
+
+describe("holdableItems (FP-OP-17)", () => {
+  test("bundles on no line or this line, not held yet", () => {
+    const items = [
+      { id: "a", lineId: null, heldForLineId: null },
+      { id: "b", lineId: "l1", heldForLineId: null },
+      { id: "c", lineId: "l2", heldForLineId: null },
+      { id: "d", lineId: null, heldForLineId: "l9" },
+    ];
+    expect(holdableItems(items, "l1").map((i) => i.id)).toEqual(["a", "b"]);
   });
 });

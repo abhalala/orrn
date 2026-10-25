@@ -60,6 +60,8 @@ export type LineBalance = {
   orderNumber: string;
   orderStatus: SalesOrderStatus;
   orderDate: string;
+  /** The date the order is due (FP-OP-01); null on orders made without one. */
+  expectedDate: string | null;
   poNumber: string | null;
   customerId: string;
   customerName: string;
@@ -124,6 +126,12 @@ export type LineFilter = {
   orderDateBefore?: string;
   /** Only lines of this cut length (suggested line, FP-OP). */
   cutLengthMm?: number;
+  /**
+   * Only lines of late orders (FP-OP-18, Q7 A): the expected date passed (`< today`), or with no
+   * expected date, the order date before `cutoff` (today minus the late window). Pair with
+   * `statuses` confirmed / dispatching and `withBaki`.
+   */
+  late?: { today: string; cutoff: string };
 };
 
 /** Most lines one `lineBalances` call returns. Past it the call throws (page with `lineBalancePage`). */
@@ -162,6 +170,11 @@ function lineWhere(companyId: string, filter: LineFilter, ids: IdList): SQL | un
   if (filter.withBaki) conditions.push(sql`${salesOrderLine.kgG} > ${dispatchedExpr("g")}`);
   if (filter.orderDateBefore) conditions.push(sql`${salesOrder.orderDate} < ${filter.orderDateBefore}`);
   if (filter.cutLengthMm != null) conditions.push(eq(salesOrderLine.cutLengthMm, filter.cutLengthMm));
+  if (filter.late) {
+    conditions.push(
+      sql`((${salesOrder.expectedDate} is not null and ${salesOrder.expectedDate} < ${filter.late.today}) or (${salesOrder.expectedDate} is null and ${salesOrder.orderDate} < ${filter.late.cutoff}))`,
+    );
+  }
   return and(...conditions);
 }
 
@@ -194,6 +207,7 @@ function lineSelect(db: OrrnDb) {
       orderNumber: salesOrder.number,
       orderStatus: salesOrder.status,
       orderDate: salesOrder.orderDate,
+      expectedDate: salesOrder.expectedDate,
       poNumber: salesOrder.poNumber,
       orderCreatedAt: salesOrder.createdAt,
       customerId: salesOrder.customerId,
@@ -406,27 +420,54 @@ export function sumBalances(lines: readonly LineBalance[]): BalanceTotals {
   return t;
 }
 
-type SuggestBundle = { id: string; dieId: string; weightG: number; salesOrderLineId: string | null };
+type SuggestBundle = { id: string; dieId: string; lengthMm: number; weightG: number; salesOrderLineId: string | null };
 
 /**
  * Order line to link each bundle to when it is scanned onto a dispatch (spec P13 "order line
- * suggested per bundle"; ruling PL8-R10 as amended in fix round 1):
+ * suggested per bundle"; ruling PL8-R10 as amended in fix round 1; spec §E2 "oldest open same
+ * customer + die + cut length, else customer + die"):
  *   1. the line it was packed for, when that line is an open line of this customer and section;
- *   2. else the oldest open line of this customer and section that still has baki after what is
- *      already on this dispatch;
- *   3. else, when the customer has open lines for the section but none has baki left, the NEWEST of
- *      them, so kg beyond the order meets the dispatch_overdraw rule at completion (Review Focus 5)
- *      instead of leaving unlinked and unchecked.
+ *   2. else a line the caller names (`preferLineIds`, the suggest sheet's lines) of the bundle's die
+ *      AND cut length that still has baki after what is already on this dispatch;
+ *   3. else a line of the same die AND cut length with baki: the dispatch's own order first
+ *      (`preferOrderId`, FP-PK-17), then the oldest of any of the customer's orders;
+ *   4. else the oldest line of the same die with baki (another cut length);
+ *   5. else, when the customer has open lines for the section but none has baki left, the NEWEST of
+ *      them (same cut length first), so kg beyond the order meets the dispatch_overdraw rule at
+ *      completion (Review Focus 5) instead of leaving unlinked and unchecked.
  * Bundles of a section the customer has no open line for stay unlinked.
+ *
+ * `onlyOrderId` (Q37 one_so): every step looks at that order's lines only, never another order of
+ * the party. With `strict` too (the scan), a bundle that is not the order's own takes step 2 or 3
+ * only: no line of its die and length with baki left means no pick, and the scan refuses it
+ * (`outside_order`) instead of running the order over.
  */
 export async function suggestLines(
   db: OrrnDb,
   companyId: string,
-  input: { customerId: string; dispatchId: string; bundles: readonly SuggestBundle[] },
+  input: {
+    customerId: string;
+    dispatchId: string;
+    bundles: readonly SuggestBundle[];
+    /**
+     * FP-PK-17: a dispatch opened from a sales order. A bundle with no line of its own goes to that
+     * order's line of its die and cut length first (while it has baki), before the oldest line of
+     * any order.
+     */
+    preferOrderId?: string | null;
+    /** Lines the caller would put the bundles on (the suggest sheet): used when die AND length match. */
+    preferLineIds?: readonly string[];
+    /** Q37 one_so: only this order's lines. */
+    onlyOrderId?: string | null;
+    /** With `onlyOrderId`: no overdraw fallback for a bundle that is not the order's own. */
+    strict?: boolean;
+  },
 ): Promise<Map<string, LineBalance>> {
   const out = new Map<string, LineBalance>();
   if (input.bundles.length === 0) return out;
   const dieIds = [...new Set(input.bundles.map((b) => b.dieId))];
+  const only = input.onlyOrderId ?? null;
+  const prefer = only ?? input.preferOrderId ?? null;
 
   // Open lines with baki, oldest first (baki filtered in SQL). A scan adds at most 100 bundles and
   // each takes one line, so reading the oldest MAX_LINE_ROWS of them per chunk never changes a pick.
@@ -435,7 +476,7 @@ export async function suggestLines(
     const page = await lineBalancePage(
       db,
       companyId,
-      { customerId: input.customerId, dieIds: part, openOnly: true, withBaki: true },
+      { customerId: input.customerId, dieIds: part, openOnly: true, withBaki: true, ...(only ? { orderId: only } : {}) },
       { limit: MAX_LINE_ROWS },
     );
     withBaki.push(...page.lines);
@@ -448,7 +489,9 @@ export async function suggestLines(
     (packedForIds.length
       ? await lineBalances(db, companyId, { customerId: input.customerId, lineIds: packedForIds, openOnly: true })
       : []
-    ).map((l) => [l.lineId, l]),
+    )
+      .filter((l) => !only || l.orderId === only)
+      .map((l) => [l.lineId, l]),
   );
 
   const onThisDispatch = await db
@@ -479,26 +522,39 @@ export async function suggestLines(
     list.push(l);
     byDie.set(l.sectionId, list);
   }
+  const named = new Set(input.preferLineIds ?? []);
+  // Steps 2-3 (same die AND length): named lines first, then the preferred order's, each group
+  // keeping its oldest-first order. Step 4 (another length) is oldest first with no preference.
+  const rank = (l: LineBalance) => (named.has(l.lineId) ? 0 : prefer && l.orderId === prefer ? 1 : 2);
+  const ranked = new Map([...byDie].map(([dieId, list]) => [dieId, [...list].sort((a, b) => rank(a) - rank(b))]));
+
   const fallback = new Map<string, LineBalance | null>();
-  const fallbackFor = async (dieId: string) => {
-    if (!fallback.has(dieId)) {
-      const page = await lineBalancePage(
-        db,
-        companyId,
-        { customerId: input.customerId, dieIds: [dieId], openOnly: true },
-        { limit: 1, newestFirst: true },
-      );
-      fallback.set(dieId, page.lines[0] ?? null);
+  const newestOf = async (filter: LineFilter) =>
+    (await lineBalancePage(db, companyId, { customerId: input.customerId, openOnly: true, ...filter }, { limit: 1, newestFirst: true })).lines[0] ?? null;
+  const fallbackFor = async (dieId: string, lengthMm: number) => {
+    const key = `${dieId}|${lengthMm}`;
+    if (!fallback.has(key)) {
+      const scopes: LineFilter[] = only ? [{ orderId: only }] : prefer ? [{ orderId: prefer }, {}] : [{}];
+      let pick: LineBalance | null = null;
+      for (const lengthScope of [{ cutLengthMm: lengthMm }, {}]) {
+        for (const scope of scopes) {
+          pick = await newestOf({ dieIds: [dieId], ...scope, ...lengthScope });
+          if (pick) break;
+        }
+        if (pick) break;
+      }
+      fallback.set(key, pick);
     }
-    return fallback.get(dieId)!;
+    return fallback.get(key)!;
   };
 
   for (const b of input.bundles) {
     const own = b.salesOrderLineId ? packedFor.get(b.salesOrderLineId) : undefined;
-    const pick =
-      (own && own.sectionId === b.dieId ? own : undefined) ??
-      (byDie.get(b.dieId) ?? []).find((l) => remainingOf(l) > 0) ??
-      (await fallbackFor(b.dieId));
+    let pick: LineBalance | null | undefined = own && own.sectionId === b.dieId ? own : undefined;
+    pick ??= (ranked.get(b.dieId) ?? []).find((l) => l.cutLengthMm === b.lengthMm && remainingOf(l) > 0);
+    if (!pick && !(only && input.strict)) {
+      pick = (byDie.get(b.dieId) ?? []).find((l) => remainingOf(l) > 0) ?? (await fallbackFor(b.dieId, b.lengthMm));
+    }
     if (!pick) continue;
     out.set(b.id, pick);
     remaining.set(pick.lineId, remainingOf(pick) - b.weightG);

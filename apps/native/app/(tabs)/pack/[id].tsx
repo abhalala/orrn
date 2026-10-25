@@ -9,7 +9,9 @@ import { ListRow } from "@/components/ui/list-row";
 import { PageHeader } from "@/components/ui/page-header";
 import { Screen } from "@/components/ui/screen";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
+import { positionKey, positionTone } from "@/features/pack/line-preview";
 import { dieCode, sessionTotals } from "@/features/pack/pack-form";
+import { partyNoLabel } from "@/features/pack/party";
 import { useFormat } from "@/lib/use-format";
 import { useLengthUnit } from "@/utils/length";
 import { trpc } from "@/utils/trpc";
@@ -67,16 +69,27 @@ export default function PackSessionScreen() {
               {t("native.pack.bundlesTitle")}
             </Text>
             <View className="gap-2">
-              {data.bundles.map((b) => (
-                <ListRow
-                  key={b.id}
-                  title={b.serial}
-                  subtitle={`${formatKg(b.weightG / 1000)} ${t("units.kg")}, ${t("units.pieces", { count: b.quantity })}, ${length.formatLength(b.lengthMm)}`}
-                  trailing={<Chip tone={bundleTone(b.status)} label={t(STATUS_KEY[b.status])} />}
-                  accessibilityLabel={t("pack.detail.viewBundle", { serial: b.serial })}
-                  onPress={() => router.push({ pathname: "/b/[serial]", params: { serial: b.serial } } as never)}
-                />
-              ))}
+              {data.bundles.map((b) => {
+                // The customer's own number, only when it differs from the serial (FP-PK-07); the band word is the server's (D15).
+                const party = partyNoLabel({ serial: b.serial, partyNo: b.partyNo ?? null });
+                const bandKey = positionKey(b.band?.position ?? null);
+                return (
+                  <ListRow
+                    key={b.id}
+                    title={b.serial}
+                    code={party ? `${t("pack.partyNo")} ${party}` : undefined}
+                    subtitle={`${formatKg(b.weightG / 1000)} ${t("units.kg")}, ${t("units.pieces", { count: b.quantity })}, ${length.formatLength(b.lengthMm)}`}
+                    trailing={
+                      <View className="items-end gap-1">
+                        <Chip tone={bundleTone(b.status)} label={t(STATUS_KEY[b.status])} />
+                        {bandKey ? <Chip tone={positionTone(b.band?.position ?? null)} label={t(bandKey)} /> : null}
+                      </View>
+                    }
+                    accessibilityLabel={`${t("pack.detail.viewBundle", { serial: b.serial })}${party ? `, ${t("pack.partyNo")} ${party}` : ""}${bandKey ? `, ${t(bandKey)}` : ""}`}
+                    onPress={() => router.push({ pathname: "/b/[serial]", params: { serial: b.serial } } as never)}
+                  />
+                );
+              })}
             </View>
           </>
         ) : null}

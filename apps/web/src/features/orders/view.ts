@@ -51,6 +51,13 @@ export type Strip = {
   agedG: number;
   packedG: number;
   inStockG: number;
+  /** FP-OP-05: the bundles and pieces that make up "in stock" (absent on an older server answer). */
+  inStockBundles?: number;
+  inStockPcs?: number;
+  /** FP-OP-17: held for this line in the yard (absent on an older server answer). */
+  heldG?: number;
+  heldPcs?: number;
+  heldBundles?: number;
   dispatchedG: number;
   bakiG: number;
   bakiPcs: number | null;
@@ -65,6 +72,7 @@ export const STRIP_CELLS: readonly { key: StripGramKey; pcs?: StripPcsKey; label
   { key: "plannedG", labelKey: "orders.strip.planned" },
   { key: "pressedG", labelKey: "orders.strip.pressed" },
   { key: "agedG", labelKey: "orders.strip.aged" },
+  // BACKLOG 39: packed counts bundles on a truck too (available + reserved), so it never reads as "In stock".
   { key: "packedG", labelKey: "orders.strip.packed" },
   { key: "inStockG", labelKey: "orders.strip.inStock" },
   { key: "dispatchedG", labelKey: "orders.strip.dispatched" },
@@ -75,8 +83,10 @@ export type StripCell = {
   key: StripGramKey;
   labelKey: MessageKey;
   kg: string;
-  /** Only where the server gives pieces (ordered, baki); the other figures are kg. */
+  /** Only where the server gives pieces (ordered, baki, in stock); the other figures are kg. */
   pcs: string | null;
+  /** In stock only: how many bundles those kg are (FP-OP-05: "100 kg, 50 pcs, 1 bundle"). */
+  bundles: number | null;
   /** The baki cell while kg are still to dispatch. */
   open: boolean;
 };
@@ -84,12 +94,14 @@ export type StripCell = {
 export function stripCells(strip: Strip): StripCell[] {
   return STRIP_CELLS.map((cell) => {
     const grams = strip[cell.key];
-    const pcs = cell.pcs ? strip[cell.pcs] : null;
+    const inStock = cell.key === "inStockG";
+    const pcs = inStock ? (strip.inStockPcs ?? null) : cell.pcs ? strip[cell.pcs] : null;
     return {
       key: cell.key,
       labelKey: cell.labelKey,
       kg: orderKgText(grams),
       pcs: pcs == null ? null : pcsText(pcs),
+      bundles: inStock ? (strip.inStockBundles ?? null) : null,
       open: Boolean(cell.balance) && grams > 0,
     };
   });
@@ -193,19 +205,48 @@ export function reallocateProblem(input: {
 // Timeline wording
 // ---------------------------------------------------------------------------
 
-export type TimelineEvent = { id: string; at: Date | string; action: string; actorName: string | null; meta: unknown };
+/** One end of a move on the timeline: an order line of a customer, or null for plant stock. */
+export type TimelineMoveEnd = { customerName: string; orderNumber: string; lineNo: number } | null;
+
+/** The server's reading of an `order.reallocate` row (BACKLOG 34): count, kg, and the ends when known. */
+export type TimelineMove = { count: number; kgG: number; from: TimelineMoveEnd[] | null; to?: TimelineMoveEnd };
+
+export type TimelineEvent = {
+  id: string;
+  at: Date | string;
+  action: string;
+  actorName: string | null;
+  meta: unknown;
+  move?: TimelineMove | null;
+};
+
+/** "KD Extrusion" (or several, comma separated) for where a move comes from. */
+function fromText(from: readonly TimelineMoveEnd[], plant: string): string {
+  return [...new Set(from.map((e) => (e ? e.customerName : plant)))].join(", ");
+}
+
+/** "Royal Aluminium SO-5" for a line, the plant word for plant stock. */
+function toText(to: TimelineMoveEnd, plant: string): string {
+  return to ? `${to.customerName} ${to.orderNumber}` : plant;
+}
 
 function metaOf(meta: unknown): Record<string, unknown> {
   return meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
 }
 
-export function timelineLabel(ev: Pick<TimelineEvent, "action" | "meta">): { key: MessageKey; vars: Record<string, string | number> } {
+export function timelineLabel(
+  ev: Pick<TimelineEvent, "action" | "meta" | "move">,
+  words: { plant: string } = { plant: "plant stock" },
+): { key: MessageKey; vars: Record<string, string | number> } {
   const meta = metaOf(ev.meta);
   const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : "");
   const num = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
+  const listLength = (k: string) => (Array.isArray(meta[k]) ? (meta[k] as unknown[]).length : 0);
   switch (ev.action) {
     case "order.create":
       return { key: "orders.timeline.create", vars: {} };
+    case "portal.order.create":
+      return { key: "orders.timeline.portalCreate", vars: {} };
     case "order.update":
       return { key: "orders.timeline.update", vars: {} };
     case "order.confirm":
@@ -218,11 +259,27 @@ export function timelineLabel(ev: Pick<TimelineEvent, "action" | "meta">): { key
       return { key: "orders.timeline.weightRefresh", vars: {} };
     case "order.reallocate": {
       const status = str("status");
-      const vars = { count: num("bundles"), kg: orderKgText(num("kgG")) };
+      const move = ev.move;
+      // BACKLOG 34: "3 bundles, 57.000 kg, from KD Extrusion to plant stock" (the server's figures).
+      if (move && move.from && move.from.length > 0 && move.to !== undefined) {
+        const vars = { count: move.count, kg: orderKgText(move.kgG), from: fromText(move.from, words.plant), to: toText(move.to, words.plant) };
+        if (status === "pending") return { key: "orders.timeline.movePending", vars };
+        if (status === "rejected") return { key: "orders.timeline.moveRejected", vars };
+        return { key: "orders.timeline.moveApplied", vars };
+      }
+      const vars = { count: move?.count ?? num("bundles"), kg: orderKgText(move?.kgG ?? num("kgG")) };
       if (status === "pending") return { key: "orders.timeline.reallocatePending", vars };
       if (status === "rejected") return { key: "orders.timeline.reallocateRejected", vars };
       return { key: "orders.timeline.reallocateApplied", vars };
     }
+    // Explorer W1 M5: holds read as words, not "order.hold" / "order.release".
+    case "order.hold":
+      return { key: "orders.timeline.hold", vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo") } };
+    case "order.release":
+      return {
+        key: str("reason") === "dispatched" ? "orders.timeline.releaseDispatched" : "orders.timeline.release",
+        vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
+      };
     case "plan.create":
       return { key: "orders.timeline.planCreate", vars: { number: str("number") } };
     case "plan.release":
@@ -335,6 +392,38 @@ export function draftCounts(draft: readonly DraftDie[]): { dies: number; lines: 
   return { dies: draft.length, lines: draft.reduce((n, d) => n + d.lineIds.length, 0) };
 }
 
+// ---------------------------------------------------------------------------
+// The draft's three views (FP-OP-11): by die (the run order), by sales order, flat.
+// ---------------------------------------------------------------------------
+
+export const PLAN_VIEWS = ["die", "order", "flat"] as const;
+export type PlanView = (typeof PLAN_VIEWS)[number];
+
+export type DraftLineRef = { sectionId: string; lineId: string };
+export type DraftGroup = { key: string; kind: PlanView; sectionId?: string; orderNumber?: string; lines: DraftLineRef[] };
+
+/**
+ * The draft's lines grouped for the view picked. By die keeps the dies in run order (they can be
+ * moved and marked urgent there); by sales order groups every line of an order together, orders in
+ * the order their first line appears; flat is one list in run order.
+ */
+export function draftGroups(draft: readonly DraftDie[], view: PlanView, orderOf: (lineId: string) => string | undefined): DraftGroup[] {
+  const lines = draft.flatMap((d) => d.lineIds.map((lineId) => ({ sectionId: d.sectionId, lineId })));
+  if (view === "die") return draft.map((d) => ({ key: d.sectionId, kind: "die", sectionId: d.sectionId, lines: d.lineIds.map((lineId) => ({ sectionId: d.sectionId, lineId })) }));
+  if (view === "flat") return lines.length > 0 ? [{ key: "flat", kind: "flat", lines }] : [];
+  const byOrder = new Map<string, DraftLineRef[]>();
+  for (const l of lines) {
+    const order = orderOf(l.lineId) ?? "";
+    byOrder.set(order, [...(byOrder.get(order) ?? []), l]);
+  }
+  return [...byOrder].map(([orderNumber, grouped]) => ({ key: `order:${orderNumber}`, kind: "order", orderNumber, lines: grouped }));
+}
+
+/** Distinct sales orders on the draft. */
+export function draftOrderCount(draft: readonly DraftDie[], orderOf: (lineId: string) => string | undefined): number {
+  return new Set(draft.flatMap((d) => d.lineIds.map((id) => orderOf(id) ?? ""))).size;
+}
+
 /** Quick lengths for the order line, in feet (inch companies). */
 export const QUICK_FEET = [12, 14, 18] as const;
 
@@ -352,4 +441,12 @@ export function copyChoiceInput(value: string): { dieInstanceId: string | null; 
     return { dieInstanceId: null, tierRank: Number.isInteger(rank) && rank > 0 ? rank : null };
   }
   return { dieInstanceId: null, tierRank: null };
+}
+
+/**
+ * FP-OP-17: the yard bundles that can be held for a line, from `orders.matchStock`: on no order
+ * line or on this one, and not held yet. (The server checks again and says why if not.)
+ */
+export function holdableItems<T extends { lineId: string | null; heldForLineId: string | null }>(items: readonly T[], lineId: string): T[] {
+  return items.filter((i) => (i.lineId == null || i.lineId === lineId) && i.heldForLineId == null);
 }

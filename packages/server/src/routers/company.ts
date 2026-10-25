@@ -10,6 +10,7 @@ import {
   MAX_SHIFT_NAME,
   MAX_SHIFTS,
   MAX_STANDARD_TEXT,
+  PACKING_LIST_SCOPES,
   SETTINGS_LOCALES,
   readFloorSettings,
   validateShifts,
@@ -161,6 +162,12 @@ export const companyRouter = router({
         requireCastOnBundle: z.boolean().nullable().optional(),
         /** Die room (FP-DR-17): new copies and copies back from the maker start on trial. */
         dieRoom: z.object({ newCopyOnTrial: z.boolean() }).optional(),
+        /** Days from the order date to a new order's expected date (FP-OP-01, Q8). */
+        orderLeadDays: z.number().int().min(0).max(120).optional(),
+        /** The packing list's optional kg-per-piece column (FP-PK-13): off by default. */
+        packingList: z
+          .object({ kgPerPiece: z.boolean().optional(), scope: z.enum(PACKING_LIST_SCOPES).optional() })
+          .optional(),
         /** Continue the cast book (FP-FD-02): only for a month with no cast yet. */
         castSeriesStart: z
           .object({
@@ -261,6 +268,14 @@ export const companyRouter = router({
       if (input.requireCastOnBundle !== undefined) patch.requireCastOnBundle = input.requireCastOnBundle;
       if (input.dieRoom !== undefined) {
         patch.dieRoom = { ...((row.settings?.dieRoom ?? {}) as Record<string, unknown>), newCopyOnTrial: input.dieRoom.newCopyOnTrial };
+      }
+      if (input.orderLeadDays !== undefined) patch.orderLeadDays = input.orderLeadDays;
+      if (input.packingList !== undefined) {
+        patch.packingList = {
+          ...((row.settings?.packingList ?? {}) as Record<string, unknown>),
+          ...(input.packingList.kgPerPiece !== undefined ? { kgPerPiece: input.packingList.kgPerPiece } : {}),
+          ...(input.packingList.scope !== undefined ? { scope: input.packingList.scope } : {}),
+        };
       }
       if (input.standards !== undefined) {
         const current = readFloorSettings(row.settings).standards;

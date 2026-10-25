@@ -3,6 +3,16 @@ import { DEFAULT_LOCALE, hasMessages, isLocale, loadMessages, type Locale } from
 /** Per-device language choice (index.html reads the same key to set `<html lang>` before paint). */
 export const LOCALE_STORAGE_KEY = "orrn.locale";
 
+/** The saved choice, or null when this device has never chosen (the portal then uses the plant's). */
+export function readStoredLocaleOrNull(): Locale | null {
+  try {
+    const value = localStorage.getItem(LOCALE_STORAGE_KEY);
+    return isLocale(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export function readStoredLocale(): Locale {
   try {
     const value = localStorage.getItem(LOCALE_STORAGE_KEY);

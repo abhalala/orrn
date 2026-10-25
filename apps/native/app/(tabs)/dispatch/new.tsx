@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Screen } from "@/components/ui/screen";
 import { announce } from "@/lib/a11y";
+import { zoneOf } from "@/lib/format";
 import { feedback } from "@/lib/feedback";
 import { saveErrorText } from "@/lib/save-error";
+import { useMe } from "@/utils/me";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { ActionBar } from "@/features/dispatch/action-bar";
@@ -28,6 +30,7 @@ type ShipKind = ShipDateChoice["kind"];
 export default function NewDispatchScreen() {
   const { t } = useT();
   const router = useRouter();
+  const me = useMe();
   const create = useMutation(trpc.dispatch.create.mutationOptions());
   const [customer, setCustomer] = useState<PickedCustomer | null>(null);
   const [kind, setKind] = useState<ShipKind>("none");
@@ -37,7 +40,7 @@ export default function NewDispatchScreen() {
   const [problem, setProblem] = useState<{ title: string; body: string; unsure: boolean } | null>(null);
 
   const choice: ShipDateChoice = kind === "typed" ? { kind, text: typed } : { kind };
-  const shipDate = shipDateFromChoice(choice);
+  const shipDate = shipDateFromChoice(choice, new Date(), zoneOf(me.data?.company?.settings as { [key: string]: unknown } | null | undefined));
   const dateError = kind === "typed" && shipDate === undefined && (tried || typed.trim() !== "") ? t("native.dispatch.dateInvalid") : null;
   const customerError = tried && !customer ? t("native.dispatch.customerRequired") : null;
 

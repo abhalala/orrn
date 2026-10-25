@@ -1,0 +1,49 @@
+# Scan a bundle into a building dispatch, read the capacity banner and a spoken refusal, then dispatch with a reason.
+# NOT RUN ON A DEVICE: written against the screens, never executed (NATIVE-B). Needs a seeded building dispatch (${DISPATCH_CODE}) with a vehicle
+# capacity set just below its load, an in-stock bundle (${SERIAL}) and a bundle packed for another customer (${OTHER_SERIAL}):
+#   maestro test -e MAESTRO_EMAIL=... -e MAESTRO_PASSWORD=... -e DISPATCH_CODE=D-0007 -e SERIAL=26J1 -e OTHER_SERIAL=26J2 .maestro/flows/dispatch-capacity.yaml
+# Sound is not asserted: the refusal text on screen is what the voice reads.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- tapOn: "Dispatch"
+- tapOn: ${DISPATCH_CODE}
+- takeScreenshot: dispatch-capacity-banner
+- tapOn: "Scan bundles"
+- tapOn: "Serial or label link"
+- inputText: ${SERIAL}
+- tapOn: "Find"
+- extendedWaitUntil:
+    visible: "Added.*"
+    timeout: 20000
+# A bundle packed for another customer is refused in words, and the voice says the same.
+- tapOn: "Serial or label link"
+- inputText: ${OTHER_SERIAL}
+- tapOn: "Find"
+- extendedWaitUntil:
+    visible: "Packed for.*"
+    timeout: 20000
+- takeScreenshot: dispatch-scan-refusal
+- tapOn: "Done scanning"
+# Over the truck's capacity, Dispatch asks why before it completes.
+- tapOn: "Dispatch"
+- assertVisible: "Why load over capacity"
+- tapOn: "Why load over capacity"
+- inputText: "Customer asked for the full load"
+- takeScreenshot: dispatch-over-capacity

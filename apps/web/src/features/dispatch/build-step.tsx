@@ -4,7 +4,7 @@ import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { useToastLift } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
-import { ClipboardPaste, ScanLine, Search } from "lucide-react";
+import { ClipboardPaste, ScanLine, Search, Sparkles } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
@@ -15,12 +15,14 @@ export type AddActionsProps = {
   onScan(): void;
   onPaste(): void;
   onSearch(): void;
+  /** Dispatch opened from a sales order (FP-PK-17): list this order's bundles, then plant stock of its dies. */
+  onSuggest?(): void;
   /** Build: scanning is the main job (black pill). Hold: adding is the exception (quiet pills). */
   emphasis: "primary" | "quiet";
 };
 
 /** Scan bundles, Paste serials, Search to add. Floor-sized on phones; only for dispatch.addBundle. */
-export function AddActions({ onScan, onPaste, onSearch, emphasis }: AddActionsProps) {
+export function AddActions({ onScan, onPaste, onSearch, onSuggest, emphasis }: AddActionsProps) {
   const { t } = useT();
   return (
     <Can do="dispatch.addBundle">
@@ -43,6 +45,12 @@ export function AddActions({ onScan, onPaste, onSearch, emphasis }: AddActionsPr
           <Search aria-hidden="true" strokeWidth={2} />
           {t("dispatch.build.searchAdd")}
         </Button>
+        {onSuggest ? (
+          <Button variant="secondary" className="col-span-2 max-sm:h-14 max-sm:px-3 sm:col-auto" onClick={onSuggest} aria-haspopup="dialog" data-suggest-open="">
+            <Sparkles aria-hidden="true" strokeWidth={2} />
+            {t("dispatch.suggest.button")}
+          </Button>
+        ) : null}
       </div>
     </Can>
   );

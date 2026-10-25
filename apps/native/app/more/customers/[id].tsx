@@ -24,7 +24,6 @@ import {
   PERIODS,
   periodRange,
   todayIn,
-  ymdToDate,
   type Period,
 } from "@/features/customers/customer-view";
 import { PagedList } from "@/features/more/paged-list";
@@ -121,7 +120,7 @@ function Analytics({ customerId }: { customerId: string }) {
           <StatusBlock
             tone="neutral"
             title={t("customers.detail.kpi.kg")}
-            meta={t("customers.period.range", { from: format.day(ymdToDate(range.from)) ?? range.from, to: format.day(ymdToDate(range.to)) ?? range.to })}
+            meta={t("customers.period.range", { from: format.day(range.from) ?? range.from, to: format.day(range.to) ?? range.to })}
             value={totals.kgG / 1000}
             format={formatKgTotal}
             unit={t("units.kg")}
@@ -284,7 +283,7 @@ function Recent({ customerId }: { customerId: string }) {
         empty={<EmptyState title={t("customers.noDispatches")} />}
         renderRow={(d) => {
           // A completed load reads the day it left; one still being built reads its ship date, else the day it was started.
-          const day = format.day(d.status === "completed" && d.completedAt ? d.completedAt : (d.shipDate ?? d.createdAt));
+          const day = d.status === "completed" && d.completedAt ? format.day(d.completedAt) : d.shipDate ? format.shipDay(d.shipDate) : format.day(d.createdAt);
           const load = `${t("units.bundles", { count: d.itemCount })}, ${formatKgTotal(d.totalWeightG / 1000)} ${t("units.kg")}`;
           return (
             <ListRow

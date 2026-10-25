@@ -1,4 +1,5 @@
 import { useT } from "@orrn/i18n";
+import type { ReactNode } from "react";
 import { Text } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -17,14 +18,17 @@ export type ConfirmSheetProps = {
   error?: string | null;
   onConfirm: () => void;
   onClose: () => void;
+  /** Extra content between the text and the buttons (the over-capacity reason). */
+  children?: ReactNode;
 };
 
 /** A yes or no before something that cannot be taken back: what happens, then the two buttons. */
-export function ConfirmSheet({ visible, title, body, confirmLabel, keepLabel, danger, loading, error, onConfirm, onClose }: ConfirmSheetProps) {
+export function ConfirmSheet({ visible, title, body, confirmLabel, keepLabel, danger, loading, error, onConfirm, onClose, children }: ConfirmSheetProps) {
   const { t } = useT();
   return (
     <Sheet visible={visible} onClose={loading ? () => undefined : onClose} title={title}>
       <Text className="font-sans text-base leading-6 text-ink">{body}</Text>
+      {children}
       {error ? (
         <Text accessibilityLiveRegion="polite" className="font-sans-medium text-[15px] leading-6 text-destructive">
           {error}

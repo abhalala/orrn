@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
+Counts: 5088 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -87,7 +87,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (15)
+### units (16)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -105,6 +105,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
 | `kgPerM` | kg/m | kg/m |
 | `percent` | {value}% | {value}% |
+| `rangeTo` | {min} to {max} | {min} से {max} |
 | `kgPerMetre` | kg/m | kg/m |
 
 ### status (31)
@@ -403,7 +404,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `done.goOther` | Continue | आगे बढ़ें |
 | `done.opening` | Opening | खुल रहा है |
 
-### today (102)
+### today (114)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -509,6 +510,18 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `floor.ordersHint` | {count} open | {count} {count:खुला\|खुले} |
 | `floor.ageing` | Ageing | एजिंग |
 | `floor.ageingHint` | {count} in the oven | {count} ओवन में |
+| `floor.pressHintNone` | Nothing queued | कतार खाली है |
+| `floor.pressHintAny` | Runs and queue | रन और कतार |
+| `floor.dieRoomHintNone` | Nothing to issue | देने को कुछ नहीं |
+| `floor.dieRoomHintAny` | Issue and take back | Die दें और वापस लें |
+| `floor.ordersHintNone` | No open orders | कोई खुला ऑर्डर नहीं |
+| `floor.ordersHintAny` | Order book | ऑर्डर बुक |
+| `floor.approvals` | Approvals | मंज़ूरी |
+| `floor.approvalsHint` | {count} waiting | {count} इंतज़ार में |
+| `floor.approvalsHintNone` | Nothing waiting | कुछ इंतज़ार में नहीं |
+| `floor.approvalsHintAny` | Requests waiting | इंतज़ार में अनुरोध |
+| `floor.store` | Store | स्टोर |
+| `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
 ### pack (208)
 
@@ -723,7 +736,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `source.logoHint` | Off hides the logo on the label. The company name still prints. | बंद करने पर लेबल से लोगो हट जाता है। कंपनी का नाम फिर भी छपता है। |
 | `source.cannotContinue` | Fix the points above before you go on. | आगे जाने से पहले ऊपर की बातें ठीक करें। |
 
-### scan (54)
+### scan (60)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -747,6 +760,11 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `torchOff` | Turn torch off | टॉर्च बंद करें |
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
 | `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
+| `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Check the weight. | {kg} kg/12ft, {order} में {line}। वज़न जांचें। |
+| `continuous.outsideOrder` | This packing list is for {order} only | यह packing list सिर्फ़ {order} की है |
+| `continuous.outsideOrderPlain` | This packing list is for one sales order only | यह packing list सिर्फ़ एक sales order की है |
+| `continuous.orderBaki` | {order}: baki {baki} kg, {left} kg left after this load | {order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा |
+| `continuous.orderOver` | {kg} kg over the baki. | बाकी से {kg} kg ज़्यादा। |
 | `continuous.title` | Scanning into {code} | {code} में स्कैन हो रहा है |
 | `continuous.added` | Added {serial} | {serial} जुड़ गया |
 | `continuous.count` | {count} added | {count} {count:जुड़ा\|जुड़े} |
@@ -781,6 +799,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `continuous.pickOne` | Pick the bundle | Bundle चुनें |
 | `continuous.speak` | Speak refusals aloud | मना करने की वजह बोलकर बताएं |
 | `continuous.heldForOrder` | Held for {order} ({customer}) | {order} ({customer}) के लिए होल्ड पर है |
+| `continuous.heldForOrderPlain` | Held for a sales order | एक sales order के लिए होल्ड पर है |
 
 ### stock (174)
 
@@ -1026,10 +1045,56 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (155)
+### dispatch (201)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `scope.one_so` | This plant sends one sales order per packing list. | यह प्लांट एक packing list में एक सेल्स ऑर्डर भेजता है। |
+| `scope.one_customer` | This plant sends one customer per packing list. | यह प्लांट एक packing list में एक ग्राहक भेजता है। |
+| `scope.per_truck` | This plant can put several customers on one truck, each with its own packing list. | यह प्लांट एक ट्रक में कई ग्राहक भेज सकता है, हर एक की अपनी packing list। |
+| `truck.title` | On this truck | इस ट्रक में |
+| `truck.hint` | Vehicle, driver and transporter are the truck's. Each customer keeps its own packing list. | गाड़ी, ड्राइवर और ट्रांसपोर्टर ट्रक के हैं। हर ग्राहक की अपनी packing list रहती है। |
+| `truck.pick` | Same truck as | इसी ट्रक में |
+| `truck.none` | A truck of its own | अलग ट्रक |
+| `truck.option` | {code}, {customer}, {vehicle} | {code}, {customer}, {vehicle} |
+| `truck.noVehicle` | no vehicle yet | गाड़ी अभी नहीं |
+| `truck.add` | Add another customer to this truck | इस ट्रक में एक और ग्राहक जोड़ें |
+| `truck.item` | {code}, {customer} | {code}, {customer} |
+| `offBand.chip` | {kg} kg/12ft, the order says {line} | {kg} kg/12ft, ऑर्डर में {line} |
+| `fromOrder.start` | Start from | शुरू करें |
+| `fromOrder.byCustomer` | Customer | ग्राहक से |
+| `fromOrder.tab` | From sales order | सेल्स ऑर्डर से |
+| `fromOrder.order` | Sales order | सेल्स ऑर्डर |
+| `fromOrder.hint` | The order's customer becomes the dispatch's customer. | ऑर्डर का ग्राहक ही dispatch का ग्राहक बन जाता है। |
+| `fromOrder.search` | Search by number, PO or customer | नंबर, PO या ग्राहक से खोजें |
+| `fromOrder.baki` | Baki {kg} kg | बाकी {kg} kg |
+| `fromOrder.required` | Pick the sales order. | सेल्स ऑर्डर चुनें। |
+| `order.title` | Order {number} | ऑर्डर {number} |
+| `order.baki` | Baki now | अभी बाकी |
+| `order.onLoad` | On this load | इस लोड में |
+| `order.left` | Left after this load | इस लोड के बाद बाकी |
+| `order.done` | Order complete with this load | इस लोड से ऑर्डर पूरा |
+| `order.over` | {kg} kg over the baki | बाकी से {kg} kg ज़्यादा |
+| `order.lines` | Lines of this order | इस ऑर्डर की लाइनें |
+| `order.lineShort` | Line {n}, die {die} | लाइन {n}, die {die} |
+| `order.lineFigures` | Baki {baki}, load {load}, left {left} kg | बाकी {baki}, लोड {load}, बचा {left} kg |
+| `order.others` | {count} {count:bundle goes\|bundles go} to other orders of this customer: {orders} | {count} bundle इस ग्राहक के दूसरे ऑर्डर पर जा रहे {count:है\|हैं}: {orders} |
+| `suggest.button` | Suggest bundles | Bundle सुझाएं |
+| `suggest.title` | Suggest bundles | Bundle सुझाएं |
+| `suggest.intro` | This order's stock first, then plant stock of the same die and length. | पहले इस ऑर्डर का स्टॉक, फिर उसी die और लंबाई का प्लांट स्टॉक। |
+| `suggest.left` | Left to send after this load: {kg} kg | इस लोड के बाद भेजना बाकी: {kg} kg |
+| `suggest.added` | Added {count} {count:bundle\|bundles} | {count} bundle जुड़े |
+| `suggest.nothingAdded` | Nothing was added | कुछ नहीं जुड़ा |
+| `suggest.empty` | No bundles to suggest. Nothing of this order lies in the yard, and no plant stock matches its dies and lengths. | सुझाने के लिए कोई bundle नहीं। इस ऑर्डर का कुछ यार्ड में नहीं है और प्लांट स्टॉक में इसकी die और लंबाई का कुछ नहीं। |
+| `suggest.addAll` | Add {count} that fit ({kg} kg) | {count} जोड़ें जो समाएं ({kg} kg) |
+| `suggest.order` | This order's stock | इस ऑर्डर का स्टॉक |
+| `suggest.plant` | Plant stock, same die and length | प्लांट स्टॉक, वही die और लंबाई |
+| `suggest.forLine` | line {n} | लाइन {n} |
+| `suggest.held` | Held for this line | इस लाइन के लिए रोका हुआ |
+| `suggest.pastBaki` | Past the baki | बाकी से ज़्यादा |
+| `suggest.cut` | The list is cut. Add these and ask again. | सूची कटी हुई है। इन्हें जोड़कर फिर देखें। |
+| `suggest.progress` | Adding {done} of {total}… | {total} में से {done} जुड़ रहे हैं… |
+| `suggest.partial` | Added {added} of {total}. The rest was not added: {reason} | {total} में से {added} जुड़े। बाकी नहीं जुड़े: {reason} |
 | `title` | Dispatch | Dispatch |
 | `newDispatch` | New dispatch | नया dispatch |
 | `columns.code` | Code | कोड |
@@ -1186,16 +1251,20 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `header.invoiceNumber` | Tally invoice number | Tally इनवॉइस नंबर |
 | `header.invoiceDate` | Invoice date | इनवॉइस की तारीख |
 
-### packingList (89)
+### packingList (93)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `kgPerPiece` | Show kg per piece | प्रति पीस kg दिखाएं |
+| `kgPerPieceOn` | This plant shows kg per piece on the list. | यह प्लांट सूची में प्रति पीस kg दिखाता है। |
+| `kgPerPieceFailed` | Could not save the setting. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
 | `title` | Packing list | पैकिंग लिस्ट |
 | `plNo` | PL no | PL नंबर |
 | `date` | Date | तारीख |
 | `shipDate` | Ship date | भेजने की तारीख |
 | `customer` | Customer | ग्राहक |
 | `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
+| `columns.kgPerPiece` | kg/pc | kg/पीस |
 | `columns.sr` | Sr | क्र. |
 | `columns.bundleNo` | Bundle no | Bundle नंबर |
 | `columns.item` | Item | आइटम |
@@ -1391,9 +1460,9 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `form.phone` | Phone | फ़ोन |
 | `form.email` | Email | ईमेल |
 | `form.gstin` | GSTIN | GSTIN |
-| `form.gstinHint` | 15 characters, from the customer's GST certificate. | 15 अक्षर, ग्राहक के GST सर्टिफ़िकेट से। |
+| `form.gstinHint` | 15 characters, from the customer's GST certificate. | 15 अक्षर, ग्राहक के GST सर्टिफिकेट से। |
 | `form.gstinInvalid` | A GSTIN has 15 letters and numbers. Check it and try again. | GSTIN में 15 अक्षर और अंक होते हैं। जांच कर फिर से डालें। |
-| `form.gstinLegacy` | This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can. | यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफ़िकेट से मिलाएं। |
+| `form.gstinLegacy` | This GSTIN isn't 15 letters and numbers. Check it against the GST certificate when you can. | यह GSTIN 15 अक्षर और अंक का नहीं है। समय मिलने पर GST सर्टिफिकेट से मिलाएं। |
 | `form.notes` | Notes | नोट |
 | `form.billingAddress` | Billing address | बिलिंग का पता |
 | `form.shippingAddress` | Shipping address | डिलीवरी का पता |
@@ -1749,7 +1818,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (195)
+### settings (205)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1923,6 +1992,16 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `about.supportSaveFailed` | Couldn't save the contact. Try again. | संपर्क सेव नहीं हुआ। फिर कोशिश करें। |
 | `about.help` | Open Help | मदद खोलें |
 | `about.guides` | Guides | गाइड |
+| `printing.packingList.title` | What one packing list carries | एक packing list में क्या जाएगा |
+| `printing.packingList.hint` | How a dispatch is built. Changing it does not touch dispatches already started. | dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता। |
+| `printing.packingList.failed` | Could not save the setting. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
+| `printing.packingList.readOnly` | Set by the plant's owner or admin. | प्लांट के owner या admin तय करते हैं। |
+| `printing.packingList.scope.one_so.label` | One order | एक ऑर्डर |
+| `printing.packingList.scope.one_so.body` | Each packing list is for one sales order. A dispatch starts from the order and takes that order's bundles only. | हर packing list एक सेल्स ऑर्डर की होती है। dispatch ऑर्डर से शुरू होता है और उसी ऑर्डर के bundle लेता है। |
+| `printing.packingList.scope.one_customer.label` | One customer | एक ग्राहक |
+| `printing.packingList.scope.one_customer.body` | Each packing list is for one customer. Lines from several of that customer's orders can go on it. | हर packing list एक ग्राहक की होती है। उसमें उस ग्राहक के कई ऑर्डर की लाइनें आ सकती हैं। |
+| `printing.packingList.scope.per_truck.label` | Several per truck | ट्रक में कई |
+| `printing.packingList.scope.per_truck.body` | One truck can carry several customers. Each customer has its own packing list, all under the same vehicle. | एक ट्रक में कई ग्राहक जा सकते हैं। हर ग्राहक की अपनी packing list होती है, सब एक ही गाड़ी के नीचे। |
 | `printing.status` | Label printing | लेबल प्रिंटिंग |
 | `printing.printers` | Printers | प्रिंटर |
 | `printing.lastSeen` | Last report from the print computer: {time} | प्रिंट कंप्यूटर की आखिरी रिपोर्ट: {time} |
@@ -2826,7 +2905,7 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### native (181)
+### native (251)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2891,6 +2970,25 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `pack.notLanded` | That session did not save. It's safe to save it again. | वह सेशन सेव नहीं हुआ। दोबारा सेव करना सुरक्षित है। |
 | `pack.review` | Review | जांचें |
 | `pack.editBundles` | Back to bundles | Bundle पर वापस |
+| `pack.savePin` | This order line is for another die copy. Pick that copy, or ask the office. | यह order line दूसरी die copy के लिए है। वही copy चुनें, या office से पूछें। |
+| `pack.saveRetired` | That die copy can't be packed from. Pick another copy. | उस die copy से pack नहीं हो सकता। दूसरी copy चुनें। |
+| `pack.serialsLine` | {count} {count:bundle\|bundles} packed, {from} to {to} | {count} bundle pack हुए, {from} से {to} |
+| `pack.serialOne` | 1 bundle packed, {serial} | 1 bundle pack हुआ, {serial} |
+| `pack.packAnother` | Pack another session | एक और सेशन pack करें |
+| `pack.replayedNote` | This session was already saved. Nothing was packed twice. | यह सेशन पहले ही सेव हो चुका था। कुछ भी दोबारा pack नहीं हुआ। |
+| `pack.forOrderLine` | For {order} | {order} के लिए |
+| `pack.copyLine` | Copy {code} | Copy {code} |
+| `pack.castLine` | Cast {cast} | Cast {cast} |
+| `pack.noLines` | No open order lines for this die. These bundles go to plant stock. | इस die की कोई खुली order line नहीं है। ये bundle plant stock में जाएंगे। |
+| `pack.sourceChecking` | Checking the die | Die जांच रहे हैं |
+| `pack.copyLockedNote` | Locked to the copy this order line asks for. | इस order line की माँगी हुई copy पर लॉक है। |
+| `pack.scaleSilent` | A scale is set up but sends nothing. Type the weight and say why. | Scale लगा है पर कुछ भेज नहीं रहा। वज़न टाइप करें और कारण बताएं। |
+| `pack.scaleChip` | {state} {kg} kg | {state} {kg} kg |
+| `pack.liveChecking` | Checking against the band | Band से जांच रहे हैं |
+| `pack.rejectsLine` | Rejects: {count} {count:piece\|pieces} | Reject: {count} पीस |
+| `pack.typedBundles` | {count} typed | {count} टाइप किए |
+| `pack.saved` | Packed | Pack हुआ |
+| `pack.stepSource` | Choose what these bundles are for, then the cut length. | चुनें कि ये bundle किसके लिए हैं, फिर कटाई की लंबाई। |
 | `scan.openSettings` | Open settings | सेटिंग्स खोलें |
 | `scan.cameraBlockedPhone` | The camera is blocked. Open settings and allow it, or type the serial below. | कैमरा बंद है। सेटिंग्स खोलकर इसे चालू करें, या नीचे serial लिखें। |
 | `scan.opened` | Opened | खुला |
@@ -3011,6 +3109,57 @@ Counts: 4645 screen strings in 45 groups, 16 guides with 292 strings.
 | `web.shifts` | Shifts | शिफ्ट |
 | `web.standards` | Standards | स्टैंडर्ड |
 | `web.backup` | Backup | बैकअप |
+| `press.linesHeading` | Press lines | Press लाइनें |
+| `press.noLines` | No press is set up yet. Ask the office to add one. | अभी कोई press सेट नहीं है। office से जुड़वाएं। |
+| `press.stationNote` | Start, stop and counting are done on the tablet at the press. This phone shows what is happening. | Start, stop और गिनती press के पास वाले टैबलेट पर होती है। यह फोन बस दिखाता है कि क्या चल रहा है। |
+| `press.lineIdle` | Idle | खाली |
+| `press.lineRunning` | Running {number} | {number} चल रहा है |
+| `press.lineQueued` | {count} {count:run\|runs} waiting | {count} रन इंतज़ार में |
+| `press.lineDowntime` | Press stopped | Press बंद है |
+| `press.atTablet` | Use the tablet at the press to start, stop or count this run. | इस रन को शुरू, बंद या गिनने के लिए press के पास वाला टैबलेट इस्तेमाल करें। |
+| `press.gateUnknown` | Something else is missing before this run can be logged. | इस रन को लॉग करने से पहले कुछ और बाकी है। |
+| `press.onPress` | On the press now | अभी press पर |
+| `press.urgent` | Urgent | ज़रूरी |
+| `press.jobCopy` | Copy {code} | Copy {code} |
+| `press.jobNoCopy` | No die copy yet | अभी die copy नहीं |
+| `press.jobLine` | {order}, {length}, {pcs} pcs, {kg} kg | {order}, {length}, {pcs} पीस, {kg} kg |
+| `press.jobTotals` | {pcs} pcs, {kg} kg | {pcs} पीस, {kg} kg |
+| `press.jobPressed` | {kg} kg already pressed | {kg} kg पहले ही press हुआ |
+| `press.jobHeading` | Orders on this die | इस die के order |
+| `press.line` | Press | Press |
+| `press.dieCopy` | Die copy | Die copy |
+| `press.startedAt` | Started | शुरू |
+| `press.stoppedAt` | Stopped | बंद |
+| `press.runningSince` | Since {time} | {time} से |
+| `press.figuresLive` | Figures so far | अब तक के आंकड़े |
+| `press.figuresLogged` | Logged figures | लॉग किए आंकड़े |
+| `press.gatesHeading` | Before the supervisor can log this run | सुपरवाइज़र के इस रन को लॉग करने से पहले |
+| `press.downtimeWhy` | Why did the press stop? | Press क्यों रुका? |
+| `press.downtimeSince` | Since {time}, {minutes} min | {time} से, {minutes} मिनट |
+| `press.downtimeStarted` | Downtime started | डाउनटाइम शुरू हुआ |
+| `press.downtimeStopped` | Downtime stopped, {minutes} min | डाउनटाइम बंद हुआ, {minutes} मिनट |
+| `press.downtimeTotal` | {minutes} min stopped on this run | इस रन पर {minutes} मिनट बंद रहा |
+| `press.handoverTitle` | Handover | हैंडओवर |
+| `press.handoverSave` | Save handover | हैंडओवर सेव करें |
+| `press.handoverSaved` | Handover saved | हैंडओवर सेव हुआ |
+| `press.nobody` | Nobody | कोई नहीं |
+| `press.scanOpened` | Opened run {number} | रन {number} खुला |
+| `press.scanNoRun` | No run is waiting for this die copy. Its card is opening instead. | इस die copy के लिए कोई रन इंतज़ार में नहीं है। इसके बजाय इसका card खुल रहा है। |
+| `press.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जो die दी गई है वह किसी दूसरे रन या press की है। die room से पूछें। |
+| `press.errors.downtimeRunning` | This press already has downtime running. Stop it first. | इस press पर डाउनटाइम पहले से चल रहा है। पहले उसे बंद करें। |
+| `press.errors.noteNeeded` | Add a note for Other. | Other के लिए नोट लिखें। |
+| `press.errors.pickReason` | Pick a reason from the list. | सूची से कारण चुनें। |
+| `press.errors.runClosed` | That run is closed. | वह रन बंद हो चुका है। |
+| `press.errors.otherPress` | That run is on another press. | वह रन दूसरे press पर है। |
+| `press.errors.retired` | {code} is retired. | {code} बंद कर दिया गया है। |
+| `press.errors.notMember` | That person is not on this plant's team. | वह व्यक्ति इस प्लांट की टीम में नहीं है। |
+| `press.errors.operatorRole` | The operator must be someone who runs the press. | ऑपरेटर कोई ऐसा होना चाहिए जो press चलाता हो। |
+| `press.errors.supervisorRole` | The supervisor must be someone who can log runs. | सुपरवाइज़र कोई ऐसा होना चाहिए जो रन लॉग कर सके। |
+| `press.errors.changed` | This changed meanwhile and was not saved. Pull down to reload. | यह इस बीच बदल गया और सेव नहीं हुआ। नीचे खींचकर फिर लोड करें। |
+| `press.errors.handoverClosed` | {number} is closed, so its people can't change. | {number} बंद है, इसलिए इसके लोग नहीं बदल सकते। |
+| `press.errors.notFound` | That press or run isn't in this company. | वह press या रन इस कंपनी में नहीं है। |
+| `stock.yard` | Yard | यार्ड |
+| `stock.allYards` | All yards | सभी यार्ड |
 
 ### ui (9)
 
@@ -3276,7 +3425,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (65)
+### approvals (75)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3305,7 +3454,17 @@ Please check, Lalubhai:
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
 | `subject.dieRerankNew` | Copy {code}, set tier {to} | कॉपी {code}, टियर {to} करें |
+| `subject.reallocate` | {count} {count:bundle\|bundles}, {kg} kg: {from} to {to} | {count} bundle, {kg} kg: {from} से {to} को |
 | `subject.generic` | {ref} | {ref} |
+| `move.title` | What moves | क्या जा रहा है |
+| `move.bundles` | Bundles | Bundle |
+| `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
+| `move.from` | From | कहां से |
+| `move.to` | To | कहां को |
+| `move.reason` | Reason | कारण |
+| `move.plant` | plant stock | प्लांट स्टॉक |
+| `move.line` | {party}, {order} line {line} | {party}, {order} लाइन {line} |
+| `openOrder` | Open order | ऑर्डर खोलें |
 | `askedBy` | Asked by {name} | {name} ने मांगा |
 | `someone` | Someone | किसी ने |
 | `decidedBy` | {status} by {name} | {name} ने {status} किया |
@@ -3763,10 +3922,63 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (258)
+### orders (374)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `book.bar.column` | Where it stands | कहां तक पहुंचा |
+| `book.bar.label` | {number}: kg by stage | {number}: स्टेज के हिसाब से kg |
+| `book.bar.dispatchedPct` | {pct}% dispatched | {pct}% dispatch हुआ |
+| `book.bar.baki` | Baki {kg} kg | बाकी {kg} kg |
+| `book.bar.nothingPlanned` | Nothing planned yet | अभी कुछ प्लान नहीं |
+| `book.bar.over` | {kg} kg over the order | ऑर्डर से {kg} kg ज़्यादा |
+| `book.due` | Due {date} | देय {date} |
+| `book.strip.label` | Order book totals | ऑर्डर बुक का कुल |
+| `book.strip.orders` | Open orders | खुले ऑर्डर |
+| `book.strip.ofShown` | {count} in this view | इस सूची में {count} |
+| `book.strip.ordered` | Ordered | ऑर्डर |
+| `book.strip.inStock` | In stock | स्टॉक में |
+| `book.strip.held` | Held | होल्ड |
+| `book.strip.dispatched` | Dispatched | Dispatch हुआ |
+| `book.strip.baki` | Baki | बाकी |
+| `book.strip.late` | Late: {count} | लेट: {count} |
+| `book.filter.label` | Order book filters | ऑर्डर बुक के फ़िल्टर |
+| `book.filter.status` | Status | स्थिति |
+| `book.filter.anyOpen` | Any open status | कोई भी खुली स्थिति |
+| `book.filter.party` | Party | पार्टी |
+| `book.filter.anyParty` | Any party | कोई भी पार्टी |
+| `book.filter.city` | City | शहर |
+| `book.filter.anyCity` | Any city | कोई भी शहर |
+| `book.filter.from` | Ordered from | ऑर्डर की तारीख से |
+| `book.filter.to` | Ordered to | ऑर्डर की तारीख तक |
+| `book.filter.stage` | Stage | स्टेज |
+| `book.filter.anyStage` | Any stage | कोई भी स्टेज |
+| `book.filter.clear` | Clear filters | फ़िल्टर हटाएं |
+| `book.show.open` | Open | खुले |
+| `book.show.booking` | Booking | बुकिंग |
+| `book.show.confirmed` | Confirmed | पक्का |
+| `book.show.dispatching` | Dispatching | Dispatch चालू |
+| `book.show.late` | Late | लेट |
+| `book.show.closed` | Closed | बंद |
+| `book.show.cancelled` | Cancelled | रद्द |
+| `book.stage.dispatched` | Dispatched | Dispatch हुआ |
+| `book.stage.in_stock` | In stock | स्टॉक में |
+| `book.stage.held` | Held (on a truck or for the order) | होल्ड (ट्रक पर या ऑर्डर के लिए) |
+| `book.stage.pressed` | Pressed, not packed | प्रेस हुआ, पैक नहीं |
+| `book.stage.planned` | Planned, not pressed | प्लान हुआ, प्रेस नहीं |
+| `book.stage.unplanned` | Not planned | प्लान नहीं हुआ |
+| `book.stage.over` | Over the order | ऑर्डर से ज़्यादा |
+| `lateRule.expected_date` | Its expected date has passed | कब तक चाहिए की तारीख निकल गई |
+| `lateRule.order_date` | Ordered more than 15 days ago | ऑर्डर को 15 दिन से ज़्यादा हो गए |
+| `stockOn.button` | Stock on this order | इस ऑर्डर का स्टॉक |
+| `stockOn.title` | Stock on {number} | {number} का स्टॉक |
+| `stockOn.hint` | Bundles in the yard that are packed against this order's lines. | यार्ड के वे bundle जो इस ऑर्डर की लाइनों के लिए पैक हैं। |
+| `stockOn.empty` | No stock is held on this order. | इस ऑर्डर का कोई स्टॉक नहीं है। |
+| `stockOn.cut` | The list is cut. Open the order for the rest. | सूची कटी हुई है। बाकी के लिए ऑर्डर खोलें। |
+| `stockOn.print` | Print | प्रिंट |
+| `stockOn.pdf` | PDF | PDF |
+| `stockOn.excel` | Excel | Excel |
+| `stockOn.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
 | `title` | Orders | ऑर्डर |
 | `new` | New order | नया ऑर्डर |
 | `number` | Order | ऑर्डर |
@@ -3838,6 +4050,29 @@ Please check, Lalubhai:
 | `hold.release` | Release | होल्ड हटाएं |
 | `hold.releaseAll` | Release all | सब होल्ड हटाएं |
 | `hold.released` | {count} {count:bundle\|bundles} released | {count} bundle से होल्ड हटा |
+| `hold.button` | Hold stock | स्टॉक होल्ड करें |
+| `hold.sheetTitle` | Hold stock for line {n} | लाइन {n} के लिए स्टॉक होल्ड करें |
+| `hold.hint` | Yard bundles of this die on no order, or on this line. They stay where they are; while held, no other customer's dispatch can take them. | इस die के यार्ड bundle जो किसी ऑर्डर पर नहीं हैं, या इसी लाइन पर हैं। वे जहां हैं वहीं रहते हैं; होल्ड रहने तक किसी और ग्राहक का dispatch उन्हें नहीं ले सकता। |
+| `hold.none` | No yard bundles of this die can be held for this line. | इस die का कोई यार्ड bundle इस लाइन के लिए होल्ड नहीं किया जा सकता। |
+| `hold.submit` | Hold {count} {count:bundle\|bundles} | {count} bundle होल्ड करें |
+| `hold.heldDone` | Held {count} {count:bundle\|bundles} ({kg} kg) | {count} bundle होल्ड किए ({kg} kg) |
+| `hold.alreadyList` | Already held: {serials} | पहले से होल्ड: {serials} |
+| `hold.lengthWarning` | {serial} is {length}; the line is {lineLength}. Held anyway. | {serial} की लंबाई {length} है; लाइन {lineLength} की है। फिर भी होल्ड किया। |
+| `hold.chip` | Held: {count} {count:bundle\|bundles} · {kg} kg | होल्ड: {count} bundle · {kg} kg |
+| `hold.list` | Held bundles | होल्ड bundle |
+| `hold.listTitle` | Held for line {n} | लाइन {n} के लिए होल्ड |
+| `hold.onDispatch` | On {code} | {code} पर |
+| `hold.releaseSelected` | Release {count} | {count} से होल्ड हटाएं |
+| `hold.refusal.on_dispatch` | {serial} is on dispatch {code}. Take it off the dispatch first. | {serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं। |
+| `hold.refusal.held_elsewhere` | {serial} is already held for {order} line {line} ({customer}). Release it first. | {serial} पहले से {order} लाइन {line} ({customer}) के लिए होल्ड है। पहले होल्ड हटाएं। |
+| `hold.refusal.held_elsewhere_bare` | {serial} is already held for another order line. Release it first. | {serial} पहले से किसी और ऑर्डर लाइन के लिए होल्ड है। पहले होल्ड हटाएं। |
+| `hold.refusal.other_line` | {serial} is on {order} line {line}. Move it with Reallocate instead. | {serial} {order} लाइन {line} पर है। उसे Reallocate से ले जाएं। |
+| `hold.refusal.die_mismatch` | {serial} is a different die from that line. | {serial} उस लाइन की die का नहीं है। |
+| `hold.refusal.pending` | {serial} is waiting on a reallocation approval. | {serial} reallocation की मंज़ूरी की राह देख रहा है। |
+| `hold.refusal.not_available` | {serial} is not in the yard ({status}). Only bundles in the yard can be held. | {serial} यार्ड में नहीं है ({status})। सिर्फ यार्ड के bundle रोके जा सकते हैं। |
+| `hold.refusal.line_closed` | {order} is {status}. Hold stock for an open order. | {order} {status} है। खुले ऑर्डर के लिए स्टॉक होल्ड करें। |
+| `hold.refusal.not_held` | {serials} not held for {order} line {line}. | {serials} {order} लाइन {line} के लिए होल्ड नहीं हैं। |
+| `hold.refusal.changed` | A bundle or the order changed meanwhile. Reload and try again. | इस बीच कोई bundle या ऑर्डर बदल गया। फिर से लोड करके कोशिश करें। |
 | `hold.refused.line_closed` | The order is not open | ऑर्डर खुला नहीं है |
 | `hold.refused.not_available` | Not in the yard | यार्ड में नहीं है |
 | `hold.refused.on_dispatch` | On a dispatch | dispatch पर है |
@@ -3869,7 +4104,7 @@ Please check, Lalubhai:
 | `strip.planned` | Planned | प्लान |
 | `strip.pressed` | Pressed | प्रेस हुआ |
 | `strip.aged` | Aged | एजिंग |
-| `strip.packed` | Packed | पैक |
+| `strip.packed` | Packed (incl. on a truck) | पैक (गाड़ी पर रखे सहित) |
 | `strip.inStock` | In stock | स्टॉक में |
 | `strip.dispatched` | Dispatched | Dispatch हुआ |
 | `strip.baki` | Baki | बाकी |
@@ -3886,6 +4121,17 @@ Please check, Lalubhai:
 | `closeBakiHint` | {kg} kg is still to dispatch. Say why you are closing it. | {kg} kg अभी dispatch होना बाकी है। बंद करने का कारण लिखें। |
 | `pending.title` | Waiting for a manager | मैनेजर का इंतज़ार |
 | `pending.line` | {count} {count:bundle\|bundles}, {kg} kg, to {order} {customer} | {count} bundle, {kg} kg, {order} {customer} को |
+| `detail.dispatch` | Dispatch | Dispatch |
+| `detail.filter.label` | Filter the lines | लाइनें छांटें |
+| `detail.filter.die` | Die | Die |
+| `detail.filter.anyDie` | Any die | कोई भी die |
+| `detail.filter.length` | Cut length | कट लंबाई |
+| `detail.filter.anyLength` | Any length | कोई भी लंबाई |
+| `detail.filter.stage` | Stage | स्टेज |
+| `detail.filter.hasBaki` | Has baki | बाकी है |
+| `detail.filter.shown` | {shown} of {total} lines | {total} में से {shown} लाइनें |
+| `detail.filter.pcsMissing` | {n} lines without pieces | {n} लाइनों में पीस नहीं |
+| `detail.filter.none` | No line matches these filters. | इन फ़िल्टर से कोई लाइन नहीं मिली। |
 | `detail.lines` | Lines | लाइनें |
 | `detail.lineShort` | Line {n} | लाइन {n} |
 | `detail.moveBundles` | Move bundles | Bundle डालें |
@@ -3910,6 +4156,21 @@ Please check, Lalubhai:
 | `edit.belowDispatched` | Line {line}: {dispatched} kg is already dispatched, more than the new {kg} kg. | लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा। |
 | `serverSaid` | {message} | सर्वर का जवाब: {message} |
 | `ownedBy` | This die belongs to {name}. | यह die {name} की है। |
+| `form.expectedHint` | Starts {days} {days:day\|days} after the order date. Change it if the customer wants it sooner or later. | ऑर्डर की तारीख से {days} दिन बाद से शुरू होता है। ग्राहक को जल्दी या देर से चाहिए तो बदलें। |
+| `form.orderTotal` | This order: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} kg | यह ऑर्डर: {lines} लंबाई, {pcs} पीस, {kg} kg |
+| `form.block.title` | Die {n} | Die {n} |
+| `form.block.remove` | Remove die {n} | Die {n} हटाएं |
+| `form.block.lengths` | Cut lengths | कट लंबाइयां |
+| `form.block.lengthN` | Length {n} | लंबाई {n} |
+| `form.block.addLength` | Add a length | लंबाई जोड़ें |
+| `form.block.addDie` | Add another die | एक और die जोड़ें |
+| `form.block.copy` | Copy | कॉपी |
+| `form.block.copyLength` | Copy length {n} | लंबाई {n} की कॉपी |
+| `form.block.removeLength` | Remove length {n} | लंबाई {n} हटाएं |
+| `form.block.subtotal` | This die: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} kg | यह die: {lines} लंबाई, {pcs} पीस, {kg} kg |
+| `form.block.share` | {pct}% of the order | ऑर्डर का {pct}% |
+| `form.block.enterHint` | Press Enter in pieces or kg to add the next length. Shift and Enter add another die. | अगली लंबाई जोड़ने के लिए पीस या kg में Enter दबाएं। Shift और Enter से एक और die जुड़ती है। |
+| `form.block.more` | Alloy, temper, finish and weight basis | अलॉय, टेम्पर, फ़िनिश और वज़न का आधार |
 | `form.subtitle` | Book a customer's PO. Confirm it on the order once the PO number and every line are complete. | ग्राहक का PO बुक करें। PO नंबर और हर लाइन पूरी होने पर ऑर्डर पर पक्का करें। |
 | `form.party` | Customer and PO | ग्राहक और PO |
 | `form.customerSearch` | Search customers | ग्राहक खोजें |
@@ -3959,6 +4220,7 @@ Please check, Lalubhai:
 | `stock.group.unassigned` | Not on an order | किसी ऑर्डर पर नहीं |
 | `stock.group.same_customer` | This customer's orders | इसी ग्राहक के ऑर्डर |
 | `stock.group.other_customer` | Another customer's orders | दूसरे ग्राहक के ऑर्डर |
+| `timeline.portalCreate` | Booked by the party from the portal | पार्टी ने पोर्टल से बुक किया |
 | `timeline.create` | Order booked | ऑर्डर बुक हुआ |
 | `timeline.update` | Order edited | ऑर्डर बदला गया |
 | `timeline.confirm` | Order confirmed | ऑर्डर पक्का हुआ |
@@ -3968,6 +4230,13 @@ Please check, Lalubhai:
 | `timeline.reallocatePending` | {count} {count:bundle\|bundles}, {kg} kg, asked to move. Waiting for a manager. | {count} bundle, {kg} kg डालने की मांग। मैनेजर का इंतज़ार। |
 | `timeline.reallocateApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved | {count} bundle, {kg} kg डाले गए |
 | `timeline.reallocateRejected` | The move of {count} {count:bundle\|bundles} was refused | {count} bundle डालना मना किया गया |
+| `timeline.moveApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved from {from} to {to} | {count} bundle, {kg} kg, {from} से {to} को ले जाए गए |
+| `timeline.movePending` | {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to}, asked. Waiting for a manager. | {count} bundle, {kg} kg, {from} से {to} को, मांगा गया। मैनेजर का इंतज़ार। |
+| `timeline.moveRejected` | The move of {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to} was refused | {count} bundle, {kg} kg, {from} से {to} को ले जाना मना किया गया |
+| `timeline.plantStock` | plant stock | प्लांट स्टॉक |
+| `timeline.hold` | {count} {count:bundle\|bundles}, {kg} kg, held for line {line} | {count} bundle, {kg} kg, लाइन {line} के लिए होल्ड |
+| `timeline.release` | Hold on line {line} ended: {count} {count:bundle\|bundles}, {kg} kg | लाइन {line} का होल्ड हटा: {count} bundle, {kg} kg |
+| `timeline.releaseDispatched` | {count} held {count:bundle\|bundles}, {kg} kg, left on {code} | होल्ड के {count} bundle, {kg} kg, {code} पर गए |
 | `timeline.planCreate` | Press plan {number} drafted | प्रेस प्लान {number} बना |
 | `timeline.planRelease` | Press plan {number} released to the press | प्रेस प्लान {number} प्रेस को भेजा गया |
 | `timeline.planCancel` | Press plan {number} cancelled | प्रेस प्लान {number} रद्द हुआ |
@@ -3977,6 +4246,12 @@ Please check, Lalubhai:
 | `timeline.dispatched` | Dispatch completed | Dispatch पूरा हुआ |
 | `timeline.overdraw` | More than ordered was asked for on a dispatch | Dispatch पर ऑर्डर से ज़्यादा मांगा गया |
 | `timeline.other` | {action} | {action} |
+| `plan.view.label` | View | देखें |
+| `plan.view.die` | By die | Die के हिसाब से |
+| `plan.view.order` | By order | ऑर्डर के हिसाब से |
+| `plan.view.flat` | All lines | सारी लाइनें |
+| `plan.draftOrders` | {orders} {orders:sales order\|sales orders} on the draft | ड्राफ़्ट में {orders} ऑर्डर |
+| `plan.openOrder` | Open the order | ऑर्डर खोलें |
 | `plan.subtitle` | Group open lines by die, set the window, release to the press. | खुली लाइनें die के हिसाब से जोड़ें, समय तय करें, प्रेस को भेजें। |
 | `plan.biggerTitle` | Use a bigger screen | बड़ी स्क्रीन पर खोलें |
 | `plan.biggerBody` | The press plan needs a desktop or an 11-inch tablet. Open it there to plan. | प्रेस प्लान के लिए डेस्कटॉप या 11 इंच का टैबलेट चाहिए। प्लान वहीं खोलें। |
@@ -4850,6 +5125,196 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load the audit log. Try again. | ऑडिट लॉग लोड नहीं हुआ। फिर कोशिश करें। |
 | `listLabel` | Audit entries | ऑडिट एंट्री |
 | `noAccess` | Your role can't read the audit log. Ask an owner, admin or manager. | आपकी भूमिका ऑडिट लॉग नहीं पढ़ सकती। मालिक, एडमिन या मैनेजर से कहें। |
+
+### portal (185)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Party portal | पार्टी पोर्टल |
+| `signedInAs` | Signed in for {party} | {party} के लिए साइन इन |
+| `switchPlant` | Plant | प्लांट |
+| `nav.label` | Portal | पोर्टल |
+| `nav.tabs` | Portal sections | पोर्टल के हिस्से |
+| `nav.today` | Today | आज |
+| `nav.orders` | Orders | ऑर्डर |
+| `nav.dies` | Dies | Die |
+| `nav.dispatches` | Dispatches | डिस्पैच |
+| `account.open` | Open account menu | खाता मेन्यू खोलें |
+| `account.title` | Your account | आपका खाता |
+| `invite.title` | Your party login | आपका पार्टी लॉगिन |
+| `invite.body` | Create your password to see your dies, orders and dispatches. | अपने die, ऑर्डर और डिस्पैच देखने के लिए पासवर्ड बनाएं। |
+| `invite.joined` | Your party login is ready | आपका पार्टी लॉगिन तैयार है |
+| `today.openOrders` | Open orders | खुले ऑर्डर |
+| `today.baki` | Baki | बाकी |
+| `today.bakiHint` | Still to dispatch on your open orders | आपके खुले ऑर्डर का अभी भेजना बाकी |
+| `today.lastDispatch` | Last dispatch | पिछला डिस्पैच |
+| `today.noDispatch` | No dispatch yet | अभी कोई डिस्पैच नहीं |
+| `today.noOrder` | No open order | कोई खुला ऑर्डर नहीं |
+| `today.placeOrder` | Place an order | ऑर्डर दें |
+| `dies.title` | Your dies | आपके die |
+| `dies.subtitle` | Dies the plant has opened for you, and the ones you own. | प्लांट ने जो die आपके लिए खोले हैं, और जो आपके अपने हैं। |
+| `dies.empty` | The plant has not opened any die for you yet. | प्लांट ने अभी आपके लिए कोई die नहीं खोला है। |
+| `dies.copy` | Copy | कॉपी |
+| `dies.latest` | Latest kg/12ft | ताज़ा kg/12ft |
+| `dies.noReading` | No reading yet | अभी कोई रीडिंग नहीं |
+| `dies.noCopies` | No copy of this die yet | इस die की अभी कोई कॉपी नहीं |
+| `dies.band` | Band | बैंड |
+| `dies.bandRange` | Band {min} to {max} kg/12ft | बैंड {min} से {max} kg/12ft |
+| `dies.inBand` | In band | बैंड में |
+| `dies.overBand` | Over band by {kg} kg/12ft | बैंड से {kg} kg/12ft ऊपर |
+| `dies.underBand` | Under band by {kg} kg/12ft | बैंड से {kg} kg/12ft नीचे |
+| `dies.owned` | Yours | आपका |
+| `dies.granted` | Opened for you | आपके लिए खुला |
+| `orders.title` | Orders | ऑर्डर |
+| `orders.empty` | No order yet | अभी कोई ऑर्डर नहीं |
+| `orders.new` | New order | नया ऑर्डर |
+| `orders.newSubtitle` | Book a die, a cut length and how many. The plant picks the die copy and sets the rate. | die, कट लंबाई और कितना चाहिए, बुक करें। die की कॉपी और रेट प्लांट तय करता है। |
+| `orders.number` | Order | ऑर्डर |
+| `orders.date` | Date | तारीख |
+| `orders.poNumber` | Your PO number | आपका PO नंबर |
+| `orders.poHint` | Optional. Your own reference. | वैकल्पिक। आपका अपना संदर्भ। |
+| `orders.section` | Die | Die |
+| `orders.pickSection` | Pick a die | Die चुनें |
+| `orders.cutLength` | Cut length | कट लंबाई |
+| `orders.lengthHintInch` | Feet and inches, like 12 ft or 11 ft 6 in. | फ़ुट और इंच में, जैसे 12 ft या 11 ft 6 in। |
+| `orders.lengthHintMm` | In millimetres, like 3658. | मिलीमीटर में, जैसे 3658। |
+| `orders.feet` | Feet | फ़ुट |
+| `orders.inches` | Inches | इंच |
+| `orders.pieces` | Pieces | पीस |
+| `orders.kg` | kg | kg |
+| `orders.piecesOrKg` | Order by | ऑर्डर का तरीका |
+| `orders.note` | Note | नोट |
+| `orders.lineNote` | Note for this line | इस लाइन का नोट |
+| `orders.addLine` | Add line | लाइन जोड़ें |
+| `orders.removeLine` | Remove line | लाइन हटाएं |
+| `orders.maxLines` | At most {count} lines on one order. | एक ऑर्डर में अधिकतम {count} लाइन। |
+| `orders.lineNo` | Line {n} | लाइन {n} |
+| `orders.lines` | Lines | लाइनें |
+| `orders.submit` | Place order | ऑर्डर दें |
+| `orders.placed` | Order {number} is booked. The plant will confirm it. | ऑर्डर {number} बुक हो गया। प्लांट इसे कन्फ़र्म करेगा। |
+| `orders.confirmation` | Your booking is with the office | आपकी बुकिंग ऑफ़िस के पास है |
+| `orders.viewOrder` | View order | ऑर्डर देखें |
+| `orders.waiting` | Your booking is with the office. They will confirm it. | आपकी बुकिंग ऑफ़िस के पास है। वे इसे कन्फ़र्म करेंगे। |
+| `orders.noRate` | The plant sets the rate. You do not enter one. | रेट प्लांट तय करता है। आपको रेट नहीं भरना है। |
+| `orders.ordered` | Ordered | ऑर्डर |
+| `orders.dispatched` | Dispatched | भेजा गया |
+| `orders.baki` | Baki | बाकी |
+| `orders.bakiHint` | Baki = still to deliver | बाकी = अभी भेजना बाकी |
+| `orders.statusLabel` | Status | स्थिति |
+| `orders.filterLabel` | Show orders | ऑर्डर दिखाएं |
+| `orders.filterOpen` | Open | खुले |
+| `orders.filterAll` | All | सभी |
+| `orders.showMore` | Show more | और दिखाएं |
+| `orders.status.booking` | Booking | बुकिंग |
+| `orders.status.confirmed` | Confirmed | कन्फ़र्म |
+| `orders.status.dispatching` | Dispatching | भेजा जा रहा है |
+| `orders.status.closed` | Closed | बंद |
+| `orders.status.cancelled` | Cancelled | रद्द |
+| `orders.errors.section` | Pick a die. | Die चुनें। |
+| `orders.errors.length` | Enter the cut length. | कट लंबाई भरें। |
+| `orders.errors.qty` | Enter a whole number of pieces, or the kg. | पीस की पूरी संख्या या kg भरें। |
+| `orders.errors.dieClosed` | That die is no longer open for you. Go back and pick another die. | यह Die अब आपके लिए खुला नहीं है। वापस जाकर दूसरा Die चुनें। |
+| `orders.errors.noLines` | Add at least one line. | कम से कम एक लाइन जोड़ें। |
+| `orders.errors.tooManyLines` | An order can have at most 20 lines. Place the rest as a second order. | एक ऑर्डर में ज़्यादा से ज़्यादा 20 लाइन हो सकती हैं। बाकी दूसरे ऑर्डर में दें। |
+| `orders.errors.plantPicks` | The plant picks the die copy and sets the rate. Leave those out. | Die की कॉपी और रेट प्लांट तय करता है। इन्हें न भेजें। |
+| `orders.errors.range` | A length or quantity is outside what the plant can take. Check the numbers. | कोई लंबाई या मात्रा प्लांट की सीमा से बाहर है। संख्याएं जांचें। |
+| `orders.errors.poUsed` | This PO number is already on another order of yours. Use a new PO number. | यह PO नंबर आपके दूसरे ऑर्डर पर पहले से है। नया PO नंबर डालें। |
+| `orders.errors.reload` | This order was already saved. Open Orders to see it. | यह ऑर्डर पहले ही सेव हो चुका है। ऑर्डर खोलकर देखें। |
+| `orders.errors.ordersOff` | The plant has not turned on orders for the portal. | प्लांट ने पोर्टल पर ऑर्डर चालू नहीं किए हैं। |
+| `dispatches.title` | Dispatches | डिस्पैच |
+| `dispatches.subtitle` | What the plant has sent you, with the packing list and test certificate. | प्लांट ने आपको जो भेजा, पैकिंग लिस्ट और टेस्ट सर्टिफिकेट के साथ। |
+| `dispatches.empty` | No dispatch yet | अभी कोई डिस्पैच नहीं |
+| `dispatches.code` | Dispatch | डिस्पैच |
+| `dispatches.date` | Date | तारीख |
+| `dispatches.plNo` | PL no | PL नंबर |
+| `dispatches.vehicle` | Vehicle | गाड़ी |
+| `dispatches.bundlesLabel` | Bundles | बंडल |
+| `dispatches.weight` | kg | kg |
+| `dispatches.totals` | {bundles} bundles, {pcs} pcs, {kg} kg | {bundles} बंडल, {pcs} पीस, {kg} kg |
+| `dispatches.noPl` | The packing list is not ready yet. | पैकिंग लिस्ट अभी तैयार नहीं है। |
+| `dispatches.downloadPl` | Download packing list | पैकिंग लिस्ट डाउनलोड करें |
+| `dispatches.print` | Print | प्रिंट |
+| `dispatches.viewCertificate` | Test certificate | टेस्ट सर्टिफिकेट |
+| `certificate.title` | Test certificate | टेस्ट सर्टिफिकेट |
+| `certificate.number` | Certificate no | सर्टिफिकेट नंबर |
+| `certificate.revision` | revision {n} | रिविज़न {n} |
+| `certificate.issuedOn` | Issued on | जारी तारीख |
+| `certificate.dispatch` | Dispatch | डिस्पैच |
+| `certificate.customer` | Supplied to | इन्हें भेजा गया |
+| `certificate.material` | Material | माल |
+| `certificate.chemistry` | Chemistry | केमिस्ट्री |
+| `certificate.cast` | Cast | कास्ट |
+| `certificate.castPending` | Chemistry pending | केमिस्ट्री बाकी |
+| `certificate.verdict.pass` | Passed | पास |
+| `certificate.verdict.fail` | Failed | फ़ेल |
+| `certificate.verdict.incomplete` | Incomplete | अधूरा |
+| `certificate.chemistryPending` | Chemistry pending: the plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन कास्ट की जांच अभी नहीं की है। |
+| `certificate.chemistryPartial` | Chemistry for {tested} of {total} bundles that name a cast. The rest are not tested yet. | कास्ट वाले {total} बंडल में से {tested} की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
+| `certificate.noCastBundles` | {n} bundles have no cast number | {n} बंडल पर कास्ट नंबर नहीं है |
+| `certificate.noCastBundlesOne` | 1 bundle has no cast number | 1 बंडल पर कास्ट नंबर नहीं है |
+| `certificate.castsFailed` | {n} casts failed chemistry | {n} कास्ट केमिस्ट्री में फ़ेल हुए |
+| `certificate.castsFailedOne` | 1 cast failed chemistry | 1 कास्ट केमिस्ट्री में फ़ेल हुआ |
+| `certificate.chemistryReady` | Chemistry of each cast behind this dispatch, in percent. | इस डिस्पैच के हर कास्ट की केमिस्ट्री, प्रतिशत में। |
+| `certificate.standard` | Standard | स्टैंडर्ड |
+| `certificate.licence` | CM/L | CM/L |
+| `certificate.standardAsOfIssue` | Standard as of the day this certificate was issued. | स्टैंडर्ड वही है जो सर्टिफिकेट जारी करने के दिन था। |
+| `certificate.profileKindNotSet` | Profile kind not set: the solid standard is shown. | प्रोफ़ाइल का प्रकार तय नहीं है: सॉलिड स्टैंडर्ड दिखाया गया है। |
+| `certificate.alBalance` | Al is the balance of the other eight, not measured. | Al बाकी आठ का शेष है, मापा नहीं गया। |
+| `certificate.notTaxDocument` | Quality document. Not a tax invoice. | क्वालिटी दस्तावेज़। टैक्स इनवॉइस नहीं। |
+| `errors.notFound` | Not found | नहीं मिला |
+| `errors.notFoundBody` | There is nothing here for you. Check the link. | यहां आपके लिए कुछ नहीं है। लिंक जांचें। |
+| `errors.backToPlant` | Back to Today | आज पर लौटें |
+| `errors.revoked` | Your login was turned off by the plant. Ask them to turn it on again. | प्लांट ने आपका लॉगिन बंद कर दिया है। उनसे दोबारा चालू करने को कहें। |
+| `errors.loadFailed` | Could not load your portal | आपका पोर्टल लोड नहीं हो सका |
+| `errors.loadFailedBody` | Check your connection and try again. | अपना कनेक्शन जांचें और फिर कोशिश करें। |
+| `errors.disabled` | The plant has turned the party portal off. | प्लांट ने पार्टी पोर्टल बंद कर रखा है। |
+| `errors.noAccess` | This login has no party portal. | इस लॉगिन के लिए कोई पार्टी पोर्टल नहीं है। |
+| `errors.wrongPlant` | You do not have a login in that plant. | उस प्लांट में आपका लॉगिन नहीं है। |
+| `errors.member` | This login works in the plant. Use the plant screens. | यह लॉगिन प्लांट में चलता है। प्लांट की स्क्रीन इस्तेमाल करें। |
+| `staff.accessTitle` | Portal access | पोर्टल एक्सेस |
+| `staff.accessBody` | Logins for this party and the dies the party can see and book. The portal never shows a rate. | इस पार्टी के लॉगिन और वे die जो पार्टी देख और बुक कर सकती है। पोर्टल में रेट कभी नहीं दिखता। |
+| `staff.logins` | Logins | लॉगिन |
+| `staff.noLogins` | No login yet | अभी कोई लॉगिन नहीं |
+| `staff.grant` | Give a login | लॉगिन दें |
+| `staff.grantTitle` | Give a party a login | पार्टी को लॉगिन दें |
+| `staff.grantSubmit` | Give login | लॉगिन दें |
+| `staff.granted` | Login given to {email} | {email} को लॉगिन दिया गया |
+| `staff.regranted` | Login for {email} is on again | {email} का लॉगिन फिर चालू है |
+| `staff.revoke` | Turn off | बंद करें |
+| `staff.revokedToast` | Login turned off | लॉगिन बंद किया गया |
+| `staff.turnOn` | Turn on | चालू करें |
+| `staff.newLink` | New link | नया लिंक |
+| `staff.email` | Email | ईमेल |
+| `staff.party` | Party | पार्टी |
+| `staff.status` | Status | स्थिति |
+| `staff.since` | Since | तब से |
+| `staff.pickParty` | Pick the party. | पार्टी चुनें। |
+| `staff.status_invited` | Invited | न्योता भेजा |
+| `staff.status_active` | Active | चालू |
+| `staff.status_revoked` | Off | बंद |
+| `staff.inviteLink` | Invite link | न्योते का लिंक |
+| `staff.copyLink` | Copy link | लिंक कॉपी करें |
+| `staff.linkTitle` | Invite link for {email} | {email} के लिए न्योते का लिंक |
+| `staff.linkHint` | If the email does not arrive, send this link to the party. It works for 7 days. | अगर ईमेल न पहुंचे तो यह लिंक पार्टी को भेज दें। यह 7 दिन चलता है। |
+| `staff.sections` | Dies the party sees | पार्टी को दिखने वाले die |
+| `staff.noSections` | No die opened yet | अभी कोई die नहीं खोला |
+| `staff.grantSection` | Open a die | Die खोलें |
+| `staff.revokeSection` | Close | बंद करें |
+| `staff.sectionGranted` | Die opened for the party | पार्टी के लिए die खोला गया |
+| `staff.sectionRevoked` | Die closed for the party | पार्टी के लिए die बंद किया गया |
+| `staff.ownedByOther` | Another party owns this die. The party will not see it. | इस die का मालिक दूसरी पार्टी है। यह पार्टी इसे नहीं देखेगी। |
+| `staff.portalOff` | Turn on the party portal in Settings first. | पहले सेटिंग में पार्टी पोर्टल चालू करें। |
+| `staff.alreadyActive` | This login is already active. | यह लॉगिन पहले से चालू है। |
+| `staff.plantLogin` | This email is a plant login. Use another email for the party. | यह ईमेल प्लांट का लॉगिन है। पार्टी के लिए दूसरा ईमेल इस्तेमाल करें। |
+| `staff.otherParty` | This email already signs in for another party. | यह ईमेल पहले से दूसरी पार्टी के लिए साइन इन करता है। |
+| `staff.alreadyGranted` | This party already sees this die. | यह पार्टी यह die पहले से देखती है। |
+| `staff.issueCertificate` | Issue test certificate | टेस्ट सर्टिफिकेट जारी करें |
+| `staff.reissueCertificate` | Issue again | फिर से जारी करें |
+| `staff.noCertificate` | Not issued yet | अभी जारी नहीं हुआ |
+| `staff.certificateIssued` | Certificate {number} revision {revision} issued | सर्टिफिकेट {number} रिविज़न {revision} जारी हुआ |
+| `staff.chemistry_pending` | Chemistry pending | केमिस्ट्री बाकी |
+| `staff.chemistry_partial` | Chemistry partly tested | केमिस्ट्री आंशिक जांची गई |
+| `staff.chemistry_ready` | Chemistry ready | केमिस्ट्री तैयार |
 
 ### errors (16)
 

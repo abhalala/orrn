@@ -32,6 +32,7 @@ import { backupRouter } from "./backup";
 import { deviceRouter, releaseRouter } from "./release";
 import { supportRouter } from "./support";
 import { transporterRouter } from "./transporter";
+import { portalRouter } from "./portal";
 
 export const appRouter = router({
   healthCheck: publicProcedure.query(() => {
@@ -77,5 +78,6 @@ export const appRouter = router({
   audit: auditRouter,
   backup: backupRouter,
   transporter: transporterRouter,
+  portal: portalRouter,
 });
 export type AppRouter = typeof appRouter;

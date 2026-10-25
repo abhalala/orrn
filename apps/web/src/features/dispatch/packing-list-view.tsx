@@ -1,6 +1,8 @@
 import { packingListModel, safeParsePackingListSnapshot } from "@orrn/documents/packing-list/model";
+import { readFloorSettings } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Checkbox } from "@orrn/ui/components/checkbox";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { UiLink } from "@orrn/ui/components/link";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -12,6 +14,7 @@ import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
 import { downloadPackingListPdf, downloadPackingListXlsx, printPackingList } from "@/shared/lib/exports";
+import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { EditDetailsSheet, type EditableDispatch } from "./dispatch-menu";
@@ -58,6 +61,15 @@ export function PackingListView({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const timeZone = useCompanyTimeZone();
+  // FP-PK-13: the optional kg-per-piece column is the plant's setting (off by default).
+  const { data: me } = useMe();
+  const showKgPerPiece = readFloorSettings(me?.company?.settings).packingList.kgPerPiece;
+  const setKgPerPiece = useMutation(
+    trpc.company.updateSettings.mutationOptions({
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() }),
+      onError: () => toast.error(t("packingList.kgPerPieceFailed")),
+    }),
+  );
   const byDispatch = useQuery({ ...trpc.packingList.byDispatch.queryOptions({ dispatchId: dispatchId ?? "" }), enabled: Boolean(dispatchId) });
   const byId = useQuery({ ...trpc.packingList.get.queryOptions({ id: listId ?? "" }), enabled: Boolean(listId) });
   const pl = listId ? byId : byDispatch;
@@ -75,9 +87,9 @@ export function PackingListView({
     if (!pl.data || !parsed?.success) return;
     setDownloading(kind);
     try {
-      if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone });
-      else if (kind === "xlsx") await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone });
-      else await printPackingList(parsed.data, pl.data.code, { timeZone });
+      if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
+      else if (kind === "xlsx") await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
+      else await printPackingList(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
     } catch (err) {
       console.error("packing list export failed", err);
       toast.error(t("packingList.downloadFailed"));
@@ -177,7 +189,7 @@ export function PackingListView({
         {folded ? (
           <FoldedNote code={data.code} combinedIntoId={data.combinedIntoId!} />
         ) : null}
-        {v2 ? <PlV2Body view={v2} code={data.code} /> : <LegacyBody model={model} code={data.code} />}
+        {v2 ? <PlV2Body view={v2} code={data.code} kgPerPiece={showKgPerPiece} /> : <LegacyBody model={model} code={data.code} kgPerPiece={showKgPerPiece} />}
         <RevisionsPanel listId={data.id} currentId={data.id} />
       </>
     );
@@ -225,6 +237,21 @@ export function PackingListView({
           </div>
         ) : null}
       </div>
+      {model ? (
+        <Can
+          do="settings.update"
+          fallback={showKgPerPiece ? <p className="m-0 text-[13px] text-muted-foreground">{t("packingList.kgPerPieceOn")}</p> : null}
+        >
+          <label className="inline-flex min-h-11 items-center gap-2 self-start text-[14px] font-medium" data-testid="kg-per-piece-toggle">
+            <Checkbox
+              checked={showKgPerPiece}
+              disabled={setKgPerPiece.isPending}
+              onCheckedChange={(on) => setKgPerPiece.mutate({ packingList: { kgPerPiece: on === true } })}
+            />
+            {t("packingList.kgPerPiece")}
+          </label>
+        </Can>
+      ) : null}
       {body}
       {data ? (
         <RegenerateDialog

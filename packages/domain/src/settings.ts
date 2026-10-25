@@ -115,7 +115,23 @@ export type FloorSettings = {
   dieRoom: { newCopyOnTrial: boolean };
   /** Continue the paper cast book (FP-FD-02, Q-FD-2): the month's first seq. null = start at 1. */
   castSeriesStart: CastSeriesStart | null;
+  /** Wave 2 (FP-OP-01, Q8): days from the order date to the expected date a new order starts with. */
+  orderLeadDays: number;
+  /**
+   * Wave 2 packing list: `kgPerPiece` is the optional kg-per-piece column (FP-PK-13, off by default);
+   * `scope` is what one packing list may carry (Q37): `one_so` one sales order, `one_customer` one
+   * customer with lines from several of their orders (default), `per_truck` several customers on one
+   * truck, each with its own packing list under the same vehicle.
+   */
+  packingList: { kgPerPiece: boolean; scope: PackingListScope };
 };
+
+export const PACKING_LIST_SCOPES = ["one_so", "one_customer", "per_truck"] as const;
+export type PackingListScope = (typeof PACKING_LIST_SCOPES)[number];
+
+/** Lead time a new sales order's expected date starts from (OWNER_QUESTIONS Q8 A: 15 days). */
+export const ORDER_LEAD_DAYS_DEFAULT = 15;
+export const ORDER_LEAD_DAYS_MAX = 120;
 
 /** `company.settings.castSeriesStart`: the month `YYYY-MM` whose first cast takes `start`. */
 export type CastSeriesStart = { period: string; start: number };
@@ -138,6 +154,8 @@ export const FLOOR_SETTINGS_DEFAULTS: FloorSettings = {
   letterhead: { legalName: null, gstin: null, address: null, phone: null },
   dieRoom: { newCopyOnTrial: true },
   castSeriesStart: null,
+  orderLeadDays: ORDER_LEAD_DAYS_DEFAULT,
+  packingList: { kgPerPiece: false, scope: "one_customer" },
 };
 
 // ---------------------------------------------------------------------------
@@ -257,6 +275,16 @@ export function readFloorSettings(raw: Record<string, unknown> | null | undefine
     letterhead: { legalName: nstr(lh.legalName), gstin: nstr(lh.gstin), address: nstr(lh.address), phone: nstr(lh.phone) },
     dieRoom: { newCopyOnTrial: bool(obj(s.dieRoom).newCopyOnTrial, d.dieRoom.newCopyOnTrial) },
     castSeriesStart: readCastSeriesStart(s.castSeriesStart),
+    orderLeadDays:
+      typeof s.orderLeadDays === "number" && Number.isInteger(s.orderLeadDays) && s.orderLeadDays >= 0 && s.orderLeadDays <= ORDER_LEAD_DAYS_MAX
+        ? s.orderLeadDays
+        : d.orderLeadDays,
+    packingList: {
+      kgPerPiece: bool(obj(s.packingList).kgPerPiece, d.packingList.kgPerPiece),
+      scope: (PACKING_LIST_SCOPES as readonly unknown[]).includes(obj(s.packingList).scope)
+        ? (obj(s.packingList).scope as PackingListScope)
+        : d.packingList.scope,
+    },
   };
 }
 

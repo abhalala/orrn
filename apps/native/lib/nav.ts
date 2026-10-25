@@ -7,14 +7,15 @@ import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
  * so the rules are unit-tested; `app/(tabs)/_layout.tsx` and
  * `components/tab-bar.tsx` render it.
  *
- * Three role-aware sets (spec E1, E2 "Native"):
+ * Four role-aware sets (spec E1, E2, E3 "Native"):
  *   floor    Today · Pack · [Scan] · Stock · Dispatch   (packer set, every other role)
  *   dieRoom  Today · Dies · [Scan] · Press · More       (die_room)
  *   office   Today · Dispatch · [Scan] · Orders · More  (office)
+ *   press    Today · Press · [Scan] · Dies · More       (press: line state, queue, downtime, handover; the station is the tablet)
  * `menu` is not a screen: pressing it opens More (the same screen the avatar opens).
  */
 export type TabName = "today" | "pack" | "scan" | "stock" | "dispatch" | "dies" | "press" | "orders" | "menu";
-export type TabSet = "floor" | "dieRoom" | "office";
+export type TabSet = "floor" | "dieRoom" | "office" | "press";
 export type NavModule = "bundles" | "dispatches" | "dies" | "press" | "orders";
 
 /** Feather glyph names (Feather is the stroke-2 set Lucide grew from). */
@@ -51,21 +52,25 @@ export const TAB_SETS: Record<TabSet, readonly TabName[]> = {
   floor: ["today", "pack", "scan", "stock", "dispatch"],
   dieRoom: ["today", "dies", "scan", "press", "menu"],
   office: ["today", "dispatch", "scan", "orders", "menu"],
+  press: ["today", "press", "scan", "dies", "menu"],
 };
 
-/** Which set a membership role gets: the die room and the office have their own, everyone else the packer set. */
+/** Which set a membership role gets: the die room, the office and the press have their own, everyone else the packer set. */
 export function tabSetFor(me: Pick<Me, "company"> | null | undefined): TabSet {
   const role = me?.company?.role;
   if (role === "die_room") return "dieRoom";
   if (role === "office") return "office";
+  if (role === "press") return "press";
   return "floor";
 }
 
-/** Tabs this person may see, in declared order. Today is always there. */
+/** Tabs this person may see, in their set's order (the bar draws them in this order; `placeScan` then centres Scan). Today is always there. */
 export function visibleTabs(me: Me | null | undefined): TabName[] {
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   const set = TAB_SETS[tabSetFor(me)];
-  return TAB_ROUTES.filter((tab) => {
+  const byName = new Map(TAB_ROUTES.map((tab) => [tab.name, tab]));
+  const inSetOrder = set.map((name) => byName.get(name)!).filter(Boolean);
+  return inSetOrder.filter((tab) => {
     if (tab.name === "today") return true;
     if (!me?.company) return false;
     if (!set.includes(tab.name)) return false;
@@ -77,6 +82,9 @@ export function visibleTabs(me: Me | null | undefined): TabName[] {
 
 /** Who may open the Dies screens from More: the die room's actions, or the masters people who see the board read-only (as on the web). */
 const DIE_READERS = ["die.card", "die.reading", "masters.publish"] as const satisfies readonly Action[];
+
+/** Who opens the Press screens from More when Press is not on their bar: the people who run or log presses. */
+const PRESS_READERS = ["press.run", "press.close"] as const satisfies readonly Action[];
 
 /**
  * Tabs this person can open but that are not on their bar: the packer set's owner, manager and admin
@@ -91,6 +99,8 @@ export function extraTabs(me: Me | null | undefined): TabName[] {
   const out: TabName[] = [];
   if (!onBar.has("dies") && moduleOn("dies") && canAny(me, DIE_READERS)) out.push("dies");
   if (!onBar.has("orders") && moduleOn("orders") && canAny(me, ["order.manage", "order.plan"])) out.push("orders");
+  // The people who run or log presses but have the packer bar (supervisor, manager, admin) read the lines from More.
+  if (!onBar.has("press") && moduleOn("press") && canAny(me, PRESS_READERS)) out.push("press");
   return out;
 }
 

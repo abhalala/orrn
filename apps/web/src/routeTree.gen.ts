@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TenantRouteImport } from './routes/_tenant'
 import { Route as PublicRouteImport } from './routes/_public'
+import { Route as PortalRouteImport } from './routes/_portal'
 import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as Char91__uiChar93RouteImport } from './routes/[__ui]'
@@ -50,6 +51,7 @@ import { Route as TenantDispatchIndexRouteImport } from './routes/_tenant/dispat
 import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index'
 import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/customers.index'
 import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
+import { Route as PortalPortalIndexRouteImport } from './routes/_portal/portal.index'
 import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
 import { Route as TenantVendorsIdRouteImport } from './routes/_tenant/vendors.$id'
 import { Route as TenantStoreReceiveRouteImport } from './routes/_tenant/store.receive'
@@ -85,6 +87,7 @@ import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
 import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
+import { Route as PortalPortalDiesRouteImport } from './routes/_portal/portal.dies'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
 import { Route as PlatformAdminSupportRouteImport } from './routes/_platform/admin.support'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
@@ -102,6 +105,8 @@ import { Route as TenantPreviewDieRoomIndexRouteImport } from './routes/_tenant/
 import { Route as TenantPreviewAgeingIndexRouteImport } from './routes/_tenant/preview.ageing.index'
 import { Route as TenantPressLinesIndexRouteImport } from './routes/_tenant/press.lines.index'
 import { Route as TenantOrdersPlanIndexRouteImport } from './routes/_tenant/orders.plan.index'
+import { Route as PortalPortalOrdersIndexRouteImport } from './routes/_portal/portal.orders.index'
+import { Route as PortalPortalDispatchesIndexRouteImport } from './routes/_portal/portal.dispatches.index'
 import { Route as PlatformAdminSpoolIndexRouteImport } from './routes/_platform/admin.spool.index'
 import { Route as PlatformAdminCompaniesIndexRouteImport } from './routes/_platform/admin.companies.index'
 import { Route as TenantStoreItemsIdRouteImport } from './routes/_tenant/store.items.$id'
@@ -130,6 +135,10 @@ import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.ru
 import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
 import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
 import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
+import { Route as PortalPortalOrdersNewRouteImport } from './routes/_portal/portal.orders.new'
+import { Route as PortalPortalOrdersIdRouteImport } from './routes/_portal/portal.orders.$id'
+import { Route as PortalPortalDispatchesIdRouteImport } from './routes/_portal/portal.dispatches.$id'
+import { Route as PortalPortalCertificateDispatchIdRouteImport } from './routes/_portal/portal.certificate.$dispatchId'
 import { Route as PlatformAdminCompaniesIdRouteImport } from './routes/_platform/admin.companies.$id'
 import { Route as TenantDiesCopiesCopyIdIndexRouteImport } from './routes/_tenant/dies.copies.$copyId.index'
 import { Route as TenantDiesIdBandsNewRouteImport } from './routes/_tenant/dies_.$id.bands.new'
@@ -141,6 +150,10 @@ const TenantRoute = TenantRouteImport.update({
 } as any)
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/_portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlatformRoute = PlatformRouteImport.update({
@@ -336,6 +349,11 @@ const TenantBundlesIndexRoute = TenantBundlesIndexRouteImport.update({
   path: '/bundles/',
   getParentRoute: () => TenantRoute,
 } as any)
+const PortalPortalIndexRoute = PortalPortalIndexRouteImport.update({
+  id: '/portal/',
+  path: '/portal/',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PlatformAdminIndexRoute = PlatformAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -511,6 +529,11 @@ const PublicInviteTokenRoute = PublicInviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => PublicRoute,
 } as any)
+const PortalPortalDiesRoute = PortalPortalDiesRouteImport.update({
+  id: '/portal/dies',
+  path: '/portal/dies',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PlatformAdminWaitlistRoute = PlatformAdminWaitlistRouteImport.update({
   id: '/admin/waitlist',
   path: '/admin/waitlist',
@@ -601,6 +624,17 @@ const TenantOrdersPlanIndexRoute = TenantOrdersPlanIndexRouteImport.update({
   path: '/orders/plan/',
   getParentRoute: () => TenantRoute,
 } as any)
+const PortalPortalOrdersIndexRoute = PortalPortalOrdersIndexRouteImport.update({
+  id: '/portal/orders/',
+  path: '/portal/orders/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPortalDispatchesIndexRoute =
+  PortalPortalDispatchesIndexRouteImport.update({
+    id: '/portal/dispatches/',
+    path: '/portal/dispatches/',
+    getParentRoute: () => PortalRoute,
+  } as any)
 const PlatformAdminSpoolIndexRoute = PlatformAdminSpoolIndexRouteImport.update({
   id: '/admin/spool/',
   path: '/admin/spool/',
@@ -757,6 +791,28 @@ const TenantOrdersPlanIdRoute = TenantOrdersPlanIdRouteImport.update({
   path: '/orders/plan/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const PortalPortalOrdersNewRoute = PortalPortalOrdersNewRouteImport.update({
+  id: '/portal/orders/new',
+  path: '/portal/orders/new',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPortalOrdersIdRoute = PortalPortalOrdersIdRouteImport.update({
+  id: '/portal/orders/$id',
+  path: '/portal/orders/$id',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPortalDispatchesIdRoute =
+  PortalPortalDispatchesIdRouteImport.update({
+    id: '/portal/dispatches/$id',
+    path: '/portal/dispatches/$id',
+    getParentRoute: () => PortalRoute,
+  } as any)
+const PortalPortalCertificateDispatchIdRoute =
+  PortalPortalCertificateDispatchIdRouteImport.update({
+    id: '/portal/certificate/$dispatchId',
+    path: '/portal/certificate/$dispatchId',
+    getParentRoute: () => PortalRoute,
+  } as any)
 const PlatformAdminCompaniesIdRoute =
   PlatformAdminCompaniesIdRouteImport.update({
     id: '/admin/companies/$id',
@@ -808,6 +864,7 @@ export interface FileRoutesByFullPath {
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/portal/dies': typeof PortalPortalDiesRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
@@ -843,6 +900,7 @@ export interface FileRoutesByFullPath {
   '/store/receive': typeof TenantStoreReceiveRoute
   '/vendors/$id': typeof TenantVendorsIdRoute
   '/admin/': typeof PlatformAdminIndexRoute
+  '/portal/': typeof PortalPortalIndexRoute
   '/bundles/': typeof TenantBundlesIndexRoute
   '/customers/': typeof TenantCustomersIndexRoute
   '/dies/': typeof TenantDiesIndexRoute
@@ -861,6 +919,10 @@ export interface FileRoutesByFullPath {
   '/store/': typeof TenantStoreIndexRoute
   '/vendors/': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/portal/certificate/$dispatchId': typeof PortalPortalCertificateDispatchIdRoute
+  '/portal/dispatches/$id': typeof PortalPortalDispatchesIdRoute
+  '/portal/orders/$id': typeof PortalPortalOrdersIdRoute
+  '/portal/orders/new': typeof PortalPortalOrdersNewRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -889,6 +951,8 @@ export interface FileRoutesByFullPath {
   '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool/': typeof PlatformAdminSpoolIndexRoute
+  '/portal/dispatches/': typeof PortalPortalDispatchesIndexRoute
+  '/portal/orders/': typeof PortalPortalOrdersIndexRoute
   '/orders/plan/': typeof TenantOrdersPlanIndexRoute
   '/press/lines/': typeof TenantPressLinesIndexRoute
   '/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
@@ -931,6 +995,7 @@ export interface FileRoutesByTo {
   '/admin/staff': typeof PlatformAdminStaffRoute
   '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/portal/dies': typeof PortalPortalDiesRoute
   '/invite/$token': typeof PublicInviteTokenRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
   '/customers/$id': typeof TenantCustomersIdRoute
@@ -966,6 +1031,7 @@ export interface FileRoutesByTo {
   '/store/receive': typeof TenantStoreReceiveRoute
   '/vendors/$id': typeof TenantVendorsIdRoute
   '/admin': typeof PlatformAdminIndexRoute
+  '/portal': typeof PortalPortalIndexRoute
   '/bundles': typeof TenantBundlesIndexRoute
   '/customers': typeof TenantCustomersIndexRoute
   '/dies': typeof TenantDiesIndexRoute
@@ -984,6 +1050,10 @@ export interface FileRoutesByTo {
   '/store': typeof TenantStoreIndexRoute
   '/vendors': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/portal/certificate/$dispatchId': typeof PortalPortalCertificateDispatchIdRoute
+  '/portal/dispatches/$id': typeof PortalPortalDispatchesIdRoute
+  '/portal/orders/$id': typeof PortalPortalOrdersIdRoute
+  '/portal/orders/new': typeof PortalPortalOrdersNewRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1012,6 +1082,8 @@ export interface FileRoutesByTo {
   '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool': typeof PlatformAdminSpoolIndexRoute
+  '/portal/dispatches': typeof PortalPortalDispatchesIndexRoute
+  '/portal/orders': typeof PortalPortalOrdersIndexRoute
   '/orders/plan': typeof TenantOrdersPlanIndexRoute
   '/press/lines': typeof TenantPressLinesIndexRoute
   '/preview/ageing': typeof TenantPreviewAgeingIndexRoute
@@ -1032,6 +1104,7 @@ export interface FileRoutesById {
   '/__ui': typeof Char91__uiChar93Route
   '/_authed': typeof AuthedRouteWithChildren
   '/_platform': typeof PlatformRouteWithChildren
+  '/_portal': typeof PortalRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_tenant': typeof TenantRouteWithChildren
   '/_authed/change-password': typeof AuthedChangePasswordRoute
@@ -1059,6 +1132,7 @@ export interface FileRoutesById {
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
   '/_platform/admin/support': typeof PlatformAdminSupportRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/_portal/portal/dies': typeof PortalPortalDiesRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
   '/_tenant/customers/$id': typeof TenantCustomersIdRoute
@@ -1094,6 +1168,7 @@ export interface FileRoutesById {
   '/_tenant/store/receive': typeof TenantStoreReceiveRoute
   '/_tenant/vendors/$id': typeof TenantVendorsIdRoute
   '/_platform/admin/': typeof PlatformAdminIndexRoute
+  '/_portal/portal/': typeof PortalPortalIndexRoute
   '/_tenant/bundles/': typeof TenantBundlesIndexRoute
   '/_tenant/customers/': typeof TenantCustomersIndexRoute
   '/_tenant/dies/': typeof TenantDiesIndexRoute
@@ -1112,6 +1187,10 @@ export interface FileRoutesById {
   '/_tenant/store/': typeof TenantStoreIndexRoute
   '/_tenant/vendors/': typeof TenantVendorsIndexRoute
   '/_platform/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/_portal/portal/certificate/$dispatchId': typeof PortalPortalCertificateDispatchIdRoute
+  '/_portal/portal/dispatches/$id': typeof PortalPortalDispatchesIdRoute
+  '/_portal/portal/orders/$id': typeof PortalPortalOrdersIdRoute
+  '/_portal/portal/orders/new': typeof PortalPortalOrdersNewRoute
   '/_tenant/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
   '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1140,6 +1219,8 @@ export interface FileRoutesById {
   '/_tenant/store/items/$id': typeof TenantStoreItemsIdRoute
   '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/_platform/admin/spool/': typeof PlatformAdminSpoolIndexRoute
+  '/_portal/portal/dispatches/': typeof PortalPortalDispatchesIndexRoute
+  '/_portal/portal/orders/': typeof PortalPortalOrdersIndexRoute
   '/_tenant/orders/plan/': typeof TenantOrdersPlanIndexRoute
   '/_tenant/press/lines/': typeof TenantPressLinesIndexRoute
   '/_tenant/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
@@ -1184,6 +1265,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/support'
     | '/admin/waitlist'
+    | '/portal/dies'
     | '/invite/$token'
     | '/bundles/$id'
     | '/customers/$id'
@@ -1219,6 +1301,7 @@ export interface FileRouteTypes {
     | '/store/receive'
     | '/vendors/$id'
     | '/admin/'
+    | '/portal/'
     | '/bundles/'
     | '/customers/'
     | '/dies/'
@@ -1237,6 +1320,10 @@ export interface FileRouteTypes {
     | '/store/'
     | '/vendors/'
     | '/admin/companies/$id'
+    | '/portal/certificate/$dispatchId'
+    | '/portal/dispatches/$id'
+    | '/portal/orders/$id'
+    | '/portal/orders/new'
     | '/orders/plan/$id'
     | '/pack/$id/labels'
     | '/press/lines/$id'
@@ -1265,6 +1352,8 @@ export interface FileRouteTypes {
     | '/store/items/$id'
     | '/admin/companies/'
     | '/admin/spool/'
+    | '/portal/dispatches/'
+    | '/portal/orders/'
     | '/orders/plan/'
     | '/press/lines/'
     | '/preview/ageing/'
@@ -1307,6 +1396,7 @@ export interface FileRouteTypes {
     | '/admin/staff'
     | '/admin/support'
     | '/admin/waitlist'
+    | '/portal/dies'
     | '/invite/$token'
     | '/bundles/$id'
     | '/customers/$id'
@@ -1342,6 +1432,7 @@ export interface FileRouteTypes {
     | '/store/receive'
     | '/vendors/$id'
     | '/admin'
+    | '/portal'
     | '/bundles'
     | '/customers'
     | '/dies'
@@ -1360,6 +1451,10 @@ export interface FileRouteTypes {
     | '/store'
     | '/vendors'
     | '/admin/companies/$id'
+    | '/portal/certificate/$dispatchId'
+    | '/portal/dispatches/$id'
+    | '/portal/orders/$id'
+    | '/portal/orders/new'
     | '/orders/plan/$id'
     | '/pack/$id/labels'
     | '/press/lines/$id'
@@ -1388,6 +1483,8 @@ export interface FileRouteTypes {
     | '/store/items/$id'
     | '/admin/companies'
     | '/admin/spool'
+    | '/portal/dispatches'
+    | '/portal/orders'
     | '/orders/plan'
     | '/press/lines'
     | '/preview/ageing'
@@ -1407,6 +1504,7 @@ export interface FileRouteTypes {
     | '/__ui'
     | '/_authed'
     | '/_platform'
+    | '/_portal'
     | '/_public'
     | '/_tenant'
     | '/_authed/change-password'
@@ -1434,6 +1532,7 @@ export interface FileRouteTypes {
     | '/_platform/admin/staff'
     | '/_platform/admin/support'
     | '/_platform/admin/waitlist'
+    | '/_portal/portal/dies'
     | '/_public/invite/$token'
     | '/_tenant/bundles/$id'
     | '/_tenant/customers/$id'
@@ -1469,6 +1568,7 @@ export interface FileRouteTypes {
     | '/_tenant/store/receive'
     | '/_tenant/vendors/$id'
     | '/_platform/admin/'
+    | '/_portal/portal/'
     | '/_tenant/bundles/'
     | '/_tenant/customers/'
     | '/_tenant/dies/'
@@ -1487,6 +1587,10 @@ export interface FileRouteTypes {
     | '/_tenant/store/'
     | '/_tenant/vendors/'
     | '/_platform/admin/companies/$id'
+    | '/_portal/portal/certificate/$dispatchId'
+    | '/_portal/portal/dispatches/$id'
+    | '/_portal/portal/orders/$id'
+    | '/_portal/portal/orders/new'
     | '/_tenant/orders/plan/$id'
     | '/_tenant/pack_/$id_/labels'
     | '/_tenant/press/lines/$id'
@@ -1515,6 +1619,8 @@ export interface FileRouteTypes {
     | '/_tenant/store/items/$id'
     | '/_platform/admin/companies/'
     | '/_platform/admin/spool/'
+    | '/_portal/portal/dispatches/'
+    | '/_portal/portal/orders/'
     | '/_tenant/orders/plan/'
     | '/_tenant/press/lines/'
     | '/_tenant/preview/ageing/'
@@ -1535,6 +1641,7 @@ export interface RootRouteChildren {
   Char91__uiChar93Route: typeof Char91__uiChar93Route
   AuthedRoute: typeof AuthedRouteWithChildren
   PlatformRoute: typeof PlatformRouteWithChildren
+  PortalRoute: typeof PortalRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   BSerialRoute: typeof BSerialRoute
@@ -1554,6 +1661,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PublicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_portal': {
+      id: '/_portal'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_platform': {
@@ -1829,6 +1943,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantBundlesIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_portal/portal/': {
+      id: '/_portal/portal/'
+      path: '/portal'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalPortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/_platform/admin/': {
       id: '/_platform/admin/'
       path: '/admin'
@@ -2074,6 +2195,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicInviteTokenRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_portal/portal/dies': {
+      id: '/_portal/portal/dies'
+      path: '/portal/dies'
+      fullPath: '/portal/dies'
+      preLoaderRoute: typeof PortalPortalDiesRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/_platform/admin/waitlist': {
       id: '/_platform/admin/waitlist'
       path: '/admin/waitlist'
@@ -2192,6 +2320,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/orders/plan/'
       preLoaderRoute: typeof TenantOrdersPlanIndexRouteImport
       parentRoute: typeof TenantRoute
+    }
+    '/_portal/portal/orders/': {
+      id: '/_portal/portal/orders/'
+      path: '/portal/orders'
+      fullPath: '/portal/orders/'
+      preLoaderRoute: typeof PortalPortalOrdersIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/dispatches/': {
+      id: '/_portal/portal/dispatches/'
+      path: '/portal/dispatches'
+      fullPath: '/portal/dispatches/'
+      preLoaderRoute: typeof PortalPortalDispatchesIndexRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/_platform/admin/spool/': {
       id: '/_platform/admin/spool/'
@@ -2389,6 +2531,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantOrdersPlanIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_portal/portal/orders/new': {
+      id: '/_portal/portal/orders/new'
+      path: '/portal/orders/new'
+      fullPath: '/portal/orders/new'
+      preLoaderRoute: typeof PortalPortalOrdersNewRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/orders/$id': {
+      id: '/_portal/portal/orders/$id'
+      path: '/portal/orders/$id'
+      fullPath: '/portal/orders/$id'
+      preLoaderRoute: typeof PortalPortalOrdersIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/dispatches/$id': {
+      id: '/_portal/portal/dispatches/$id'
+      path: '/portal/dispatches/$id'
+      fullPath: '/portal/dispatches/$id'
+      preLoaderRoute: typeof PortalPortalDispatchesIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/certificate/$dispatchId': {
+      id: '/_portal/portal/certificate/$dispatchId'
+      path: '/portal/certificate/$dispatchId'
+      fullPath: '/portal/certificate/$dispatchId'
+      preLoaderRoute: typeof PortalPortalCertificateDispatchIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/_platform/admin/companies/$id': {
       id: '/_platform/admin/companies/$id'
       path: '/admin/companies/$id'
@@ -2468,6 +2638,32 @@ const PlatformRouteChildren: PlatformRouteChildren = {
 const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
   PlatformRouteChildren,
 )
+
+interface PortalRouteChildren {
+  PortalPortalDiesRoute: typeof PortalPortalDiesRoute
+  PortalPortalIndexRoute: typeof PortalPortalIndexRoute
+  PortalPortalCertificateDispatchIdRoute: typeof PortalPortalCertificateDispatchIdRoute
+  PortalPortalDispatchesIdRoute: typeof PortalPortalDispatchesIdRoute
+  PortalPortalOrdersIdRoute: typeof PortalPortalOrdersIdRoute
+  PortalPortalOrdersNewRoute: typeof PortalPortalOrdersNewRoute
+  PortalPortalDispatchesIndexRoute: typeof PortalPortalDispatchesIndexRoute
+  PortalPortalOrdersIndexRoute: typeof PortalPortalOrdersIndexRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalPortalDiesRoute: PortalPortalDiesRoute,
+  PortalPortalIndexRoute: PortalPortalIndexRoute,
+  PortalPortalCertificateDispatchIdRoute:
+    PortalPortalCertificateDispatchIdRoute,
+  PortalPortalDispatchesIdRoute: PortalPortalDispatchesIdRoute,
+  PortalPortalOrdersIdRoute: PortalPortalOrdersIdRoute,
+  PortalPortalOrdersNewRoute: PortalPortalOrdersNewRoute,
+  PortalPortalDispatchesIndexRoute: PortalPortalDispatchesIndexRoute,
+  PortalPortalOrdersIndexRoute: PortalPortalOrdersIndexRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
 
 interface PublicRouteChildren {
   PublicContinueRoute: typeof PublicContinueRoute
@@ -2709,6 +2905,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91__uiChar93Route: Char91__uiChar93Route,
   AuthedRoute: AuthedRouteWithChildren,
   PlatformRoute: PlatformRouteWithChildren,
+  PortalRoute: PortalRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   BSerialRoute: BSerialRoute,

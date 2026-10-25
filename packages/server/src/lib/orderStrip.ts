@@ -43,9 +43,14 @@ export type LineStrip = {
   agedG: number;
   packedG: number;
   inStockG: number;
+  /** FP-OP-05: how many bundles and pieces make up "in stock" (available only). */
+  inStockBundles: number;
+  inStockPcs: number;
   /** Held for this line in the yard (FP-OP-17), kg and pieces. */
   heldG: number;
   heldPcs: number;
+  /** How many bundles are held for this line (the "Held" chip, FP-OP-17). */
+  heldBundles: number;
   /** Produced beyond ordered (the strip's "over" chip). */
   overG: number;
   planableG: number;
@@ -62,7 +67,7 @@ const L = salesOrderLine;
 const LC = sql`"sales_order_line"."company_id"`;
 const LI = sql`"sales_order_line"."id"`;
 
-function bundleSum(statuses: readonly string[]) {
+export function bundleSum(statuses: readonly string[]) {
   const list = sql.join(
     statuses.map((s) => sql.raw(`'${s}'`)),
     sql`, `,
@@ -70,18 +75,24 @@ function bundleSum(statuses: readonly string[]) {
   return sql<number>`(select coalesce(sum(b.weight_g), 0) from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status in (${list}))`;
 }
 
+/** Available bundles (count) or their pieces on the outer line: the "in stock" bundle count of FP-OP-05. */
+function availableCount(what: "n" | "pcs") {
+  const agg = what === "n" ? sql`count(*)` : sql`coalesce(sum(b.quantity), 0)`;
+  return sql<number>`(select ${agg} from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status = 'available')`;
+}
+
 /**
  * Bundles held for the outer line (FP-OP-17): kg or pieces, available + reserved. `yardOnly` keeps
  * the held bundles not ON this line (the part planableG still has to take off).
  */
-function heldSum(what: "g" | "pcs", yardOnly = false) {
-  const agg = what === "g" ? sql`sum(hb.weight_g)` : sql`sum(hb.quantity)`;
+export function heldSum(what: "g" | "pcs" | "n", yardOnly = false) {
+  const agg = what === "g" ? sql`sum(hb.weight_g)` : what === "pcs" ? sql`sum(hb.quantity)` : sql`count(*)`;
   const yard = yardOnly ? sql` and coalesce(hb.sales_order_line_id, '') <> ${LI}` : sql``;
   return sql<number>`(select coalesce(${agg}, 0) from bundle hb where hb.company_id = ${LC} and hb.held_for_line_id = ${LI} and hb.status in ('available', 'reserved')${yard})`;
 }
 
 /** Plan kg still ahead of the press for the outer line (optionally leaving one plan out). */
-function plannedExpr(excludePlanId?: string) {
+export function plannedExpr(excludePlanId?: string) {
   const exclude = excludePlanId ? sql` and pl.press_plan_id <> ${excludePlanId}` : sql``;
   return sql<number>`(select coalesce(sum(pl.kg_g), 0) from press_plan_line pl join press_plan p on p.id = pl.press_plan_id and p.company_id = pl.company_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI}${exclude} and (p.status = 'draft' or (p.status = 'released' and exists (select 1 from press_run r where r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id and r.status not in ('logged', 'voided')))))`;
 }
@@ -93,11 +104,11 @@ function plannedExpr(excludePlanId?: string) {
  * or the unnamed rows of a run that has some (rows saved before every row had to name one, I-3).
  */
 const unnamedG = sql`(case when exists (select 1 from press_run_line q where q.company_id = r.company_id and q.press_run_id = r.id) then (select coalesce(sum(q.good_g), 0) from press_run_line q where q.company_id = r.company_id and q.press_run_id = r.id and q.sales_order_line_id is null) else r.good_g end)`;
-const loggedExpr = sql<number>`((select coalesce(sum(rl.good_g), 0) from press_run_line rl join press_run rr on rr.id = rl.press_run_id and rr.company_id = rl.company_id where rl.company_id = ${LC} and rl.sales_order_line_id = ${LI} and rr.status = 'logged') + (select coalesce(sum((${unnamedG} * pl.kg_g) / (select sum(x.kg_g) from press_plan_line x where x.company_id = pl.company_id and x.press_plan_die_id = pl.press_plan_die_id)), 0) from press_plan_line pl join press_run r on r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI} and r.status = 'logged' and r.good_g is not null))`;
+export const loggedExpr = sql<number>`((select coalesce(sum(rl.good_g), 0) from press_run_line rl join press_run rr on rr.id = rl.press_run_id and rr.company_id = rl.company_id where rl.company_id = ${LC} and rl.sales_order_line_id = ${LI} and rr.status = 'logged') + (select coalesce(sum((${unnamedG} * pl.kg_g) / (select sum(x.kg_g) from press_plan_line x where x.company_id = pl.company_id and x.press_plan_die_id = pl.press_plan_die_id)), 0) from press_plan_line pl join press_run r on r.company_id = pl.company_id and r.press_plan_die_id = pl.press_plan_die_id where pl.company_id = ${LC} and pl.sales_order_line_id = ${LI} and r.status = 'logged' and r.good_g is not null))`;
 
-const producedExpr = sql<number>`(select coalesce(sum(b.weight_g), 0) from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status <> 'void')`;
+export const producedExpr = sql<number>`(select coalesce(sum(b.weight_g), 0) from bundle b where b.company_id = ${LC} and b.sales_order_line_id = ${LI} and b.status <> 'void')`;
 
-function dispatchedExpr(what: "g" | "pcs") {
+export function dispatchedExpr(what: "g" | "pcs") {
   const agg = what === "g" ? sql`sum(b.weight_g)` : sql`sum(b.quantity)`;
   return sql<number>`(select coalesce(${agg}, 0) from dispatch_item di join dispatch d on d.id = di.dispatch_id and d.company_id = di.company_id join bundle b on b.id = di.bundle_id and b.company_id = di.company_id where di.company_id = ${LC} and di.sales_order_line_id = ${LI} and d.status = 'completed' and d.deleted_at is null)`;
 }
@@ -130,8 +141,11 @@ export function stripOf(r: {
   loggedG: number;
   packedG: number;
   inStockG: number;
+  inStockBundles?: number;
+  inStockPcs?: number;
   heldG?: number;
   heldPcs?: number;
+  heldBundles?: number;
   heldYardG?: number;
 }): LineStrip {
   const agedG = 0;
@@ -148,8 +162,11 @@ export function stripOf(r: {
     agedG,
     packedG: r.packedG,
     inStockG: r.inStockG,
+    inStockBundles: r.inStockBundles ?? 0,
+    inStockPcs: r.inStockPcs ?? 0,
     heldG: r.heldG ?? 0,
     heldPcs: r.heldPcs ?? 0,
+    heldBundles: r.heldBundles ?? 0,
     overG: Math.max(0, r.producedG - r.orderedG),
     planableG: planableOf({
       orderedG: r.orderedG,
@@ -187,8 +204,11 @@ export async function lineStrips(
         loggedG: loggedExpr,
         packedG: bundleSum(["available", "reserved"]),
         inStockG: bundleSum(["available"]),
+        inStockBundles: availableCount("n"),
+        inStockPcs: availableCount("pcs"),
         heldG: heldSum("g"),
         heldPcs: heldSum("pcs"),
+        heldBundles: heldSum("n"),
         heldYardG: heldSum("g", true),
       })
       .from(L)
@@ -206,8 +226,11 @@ export async function lineStrips(
           loggedG: num(r.loggedG),
           packedG: num(r.packedG),
           inStockG: num(r.inStockG),
+          inStockBundles: num(r.inStockBundles),
+          inStockPcs: num(r.inStockPcs),
           heldG: num(r.heldG),
           heldPcs: num(r.heldPcs),
+          heldBundles: num(r.heldBundles),
           heldYardG: num(r.heldYardG),
         }),
       );
@@ -258,13 +281,32 @@ export function ymdOf(d: { year: number; month: number; day: number }): string {
   return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
 }
 
+/** Which date made an order late (Q7 A, FP-OP-18). */
+export type LateRule = "expected_date" | "order_date";
+
 /**
- * Days an order has been running late (FP-OP-18, the `orders.late` rule): confirmed / dispatching,
- * baki left, ordered more than LATE_AFTER_DAYS days before `today`; else null.
+ * Late (FP-OP-18, OWNER_QUESTIONS Q7 default A): a confirmed / dispatching order with baki left is
+ * late when its expected date has passed (`days` = days since that date); with no expected date,
+ * when it was ordered more than LATE_AFTER_DAYS days ago (`days` = days since the order date).
+ * `lib/orderBook.ts` evaluates the same rule in SQL; the two are tested to agree.
  */
-export function lateDaysOf(o: { status: string; orderDate: string; bakiG: number }, today: string): number | null {
+export function lateOf(
+  o: { status: string; orderDate: string; expectedDate?: string | null; bakiG: number },
+  today: string,
+): { days: number; rule: LateRule } | null {
   if (o.status !== "confirmed" && o.status !== "dispatching") return null;
   if (!(o.bakiG > 0)) return null;
+  if (o.expectedDate) {
+    return o.expectedDate < today ? { days: daysBetween(o.expectedDate, today), rule: "expected_date" } : null;
+  }
   if (!(o.orderDate < ymdMinusDays(today, LATE_AFTER_DAYS))) return null;
-  return daysBetween(o.orderDate, today);
+  return { days: daysBetween(o.orderDate, today), rule: "order_date" };
+}
+
+/** Days an order has been running late (see `lateOf`), else null. */
+export function lateDaysOf(
+  o: { status: string; orderDate: string; expectedDate?: string | null; bakiG: number },
+  today: string,
+): number | null {
+  return lateOf(o, today)?.days ?? null;
 }

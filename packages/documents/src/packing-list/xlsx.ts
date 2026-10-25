@@ -7,6 +7,7 @@ import {
   isPlSnapshotV2,
   PL_COLUMN_HEADINGS,
   plExtraColumns,
+  plKgPerPiece,
   plGroupTitle,
   plProfileLines,
   plRevisionText,
@@ -53,7 +54,7 @@ type Cell = string | number | null;
 const bundlesText = (n: number) => `${n} ${n === 1 ? "bundle" : "bundles"}`;
 
 /** v2: one "Packing list" sheet — header block, the 11 columns, group titles, subtotals, total. */
-function buildWorkbookV2(pl: V2Snapshot) {
+function buildWorkbookV2(pl: V2Snapshot, opts: PackingListModelOptions = {}) {
   const h = pl.header;
   const aoa: (string | number | null)[][] = [
     ["Packing list", plRevisionText(pl) ? `${h.plNumber} (${plRevisionText(pl)})` : h.plNumber],
@@ -79,7 +80,12 @@ function buildWorkbookV2(pl: V2Snapshot) {
   ];
   // FP-PK-13: optional Party no / Original SO columns after the 11, section subtotals, kinds.
   const extra = plExtraColumns(pl);
-  aoa.push([...PL_COLUMN_HEADINGS, ...(extra.partyNo ? ["Party no"] : []), ...(extra.originalSo ? ["Original SO"] : [])]);
+  aoa.push([
+    ...PL_COLUMN_HEADINGS,
+    ...(extra.partyNo ? ["Party no"] : []),
+    ...(extra.originalSo ? ["Original SO"] : []),
+    ...(opts.kgPerPiece ? ["kg/pc"] : []),
+  ]);
   const sectionAfter = plSectionSubtotalAfter(pl);
   pl.groups.forEach((g, gi) => {
     aoa.push([plGroupTitle(g, pl.groups)]);
@@ -98,6 +104,7 @@ function buildWorkbookV2(pl: V2Snapshot) {
         r.po ?? "",
         ...(extra.partyNo ? [plRowExtras(pl, r).partyNo] : []),
         ...(extra.originalSo ? [plRowExtras(pl, r).originalSo] : []),
+        ...(opts.kgPerPiece ? [plKgPerPiece(r) === "" ? null : +plKgPerPiece(r)] : []),
       ]);
     }
     aoa.push([null, plBundlesText(g.subtotal.bundles), null, null, +(g.subtotal.weightG / 1000).toFixed(3), null, null, g.subtotal.pcs]);
@@ -117,7 +124,7 @@ function buildWorkbookV2(pl: V2Snapshot) {
 }
 
 function buildWorkbook(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}) {
-  if (isPlSnapshotV2(pl)) return buildWorkbookV2(pl);
+  if (isPlSnapshotV2(pl)) return buildWorkbookV2(pl, opts);
   const { header, groups, totals } = packingListModel(pl, opts);
 
   const meta: Cell[][] = [

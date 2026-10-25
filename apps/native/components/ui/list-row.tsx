@@ -18,10 +18,12 @@ export type ListRowProps = {
   accessibilityLabel?: string;
   accessibilityHint?: string;
   className?: string;
+  /** Set inside a `radiogroup`: the row is a radio button, and this is whether it is the chosen one. */
+  radioChecked?: boolean;
 };
 
 /** A 56px+ tappable row in a card list. With `onPress` it is a button with a chevron. */
-export function ListRow({ title, subtitle, code, trailing, onPress, accessibilityLabel, accessibilityHint, className }: ListRowProps) {
+export function ListRow({ title, subtitle, code, trailing, onPress, accessibilityLabel, accessibilityHint, className, radioChecked }: ListRowProps) {
   const muted = useThemeColor("muted-foreground");
   const label = accessibilityLabel ?? [title, code, subtitle].filter(Boolean).join(", ");
   const content = (
@@ -44,7 +46,14 @@ export function ListRow({ title, subtitle, code, trailing, onPress, accessibilit
     );
   }
   return (
-    <PressableScale accessibilityRole="button" accessibilityLabel={label} accessibilityHint={accessibilityHint} onPress={onPress} className={classes}>
+    <PressableScale
+      accessibilityRole={radioChecked === undefined ? "button" : "radio"}
+      accessibilityState={radioChecked === undefined ? undefined : { checked: radioChecked }}
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
+      onPress={onPress}
+      className={classes}
+    >
       {content}
     </PressableScale>
   );

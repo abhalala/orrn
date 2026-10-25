@@ -69,6 +69,13 @@ async function queuedRun(p: Plant, over: Partial<typeof pressRun.$inferInsert> =
   return id;
 }
 
+/** Another press line of the plant (D29: a line holds at most two issued copies, so a third open issue needs its own line). */
+async function anotherLine(p: Plant, code: string) {
+  const id = crypto.randomUUID();
+  await env.db.insert(pressLine).values({ id, companyId: p.companyId, code, name: `Press ${code}` });
+  return id;
+}
+
 async function runRow(id: string) {
   const [row] = await env.db.select().from(pressRun).where(eq(pressRun.id, id));
   return row!;
@@ -153,7 +160,9 @@ describe("issue", () => {
     const ids: string[] = [];
     for (let i = 0; i < 3; i += 1) {
       const c = await copy(p);
-      ids.push((await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: p.lineId, pressRunId: await queuedRun(p) })).id);
+      // At most two issued copies per press line (D29): each copy on its own line.
+      const lineId = i === 0 ? p.lineId : await anotherLine(p, `P${i + 1}`);
+      ids.push((await p.dieRoom.dieInstance.issues.issue({ dieInstanceId: c.id, pressLineId: lineId, pressRunId: await queuedRun(p, { pressLineId: lineId }) })).id);
     }
     const first = await p.owner.dieInstance.issues.list({ limit: 2 });
     expect(first.items).toHaveLength(2);

@@ -8,13 +8,15 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
 import type { StatusTone } from "@orrn/domain";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
 
 import { sendOnce } from "@/features/dispatch/request-key";
-import { trpcClient } from "@/shared/utils/trpc";
+import { orderKgText } from "@/features/orders/format";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { Can } from "@/shared/components/can";
@@ -24,6 +26,7 @@ import { CameraScanner } from "./camera-scanner";
 import { createDeduper } from "./dedupe";
 import {
   addOutcome,
+  offBandText,
   renderScanMessage,
   resultOutcome,
   scanErrorKey,
@@ -176,7 +179,7 @@ function ScanInputs({
 
 type LineTone = "progress" | "success" | "neutral" | "error";
 
-type Line = { id: number; tone: LineTone; message: string; serial?: string; extra?: string };
+type Line = { id: number; tone: LineTone; message: string; serial?: string; extra?: string; /** Q36: the bundle is off its order line's weight (a warning, it was added). */ warn?: string };
 
 const LINE_ICON: Record<LineTone, ReactNode> = {
   progress: <Loader2 aria-hidden="true" className="mt-0.5 size-[18px] shrink-0 animate-spin text-muted-foreground" />,
@@ -229,6 +232,11 @@ function StatusRegion({ line }: { line: Line | null }) {
               </>
             ) : null}
             {line.extra ? <span className="sr-only">. {line.extra}</span> : null}
+            {line.warn ? (
+              <span data-scan-warning="" className="mt-0.5 block text-[14px] font-semibold text-tone-amber-ink">
+                {line.warn}
+              </span>
+            ) : null}
           </span>
         </span>
       ) : null}
@@ -349,6 +357,10 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
   const [speaking, setSpeaking] = useState(isSpeechOn);
   const seq = useRef(0);
   const countRef = useRef(0);
+  // FP-PK-17: a dispatch opened from a sales order shows that order's live baki here. The page behind
+  // reads the dispatch again after every add, so this follows each scan with no query of its own.
+  const dispatchRead = useQuery({ ...trpc.dispatch.getDispatch.queryOptions({ id: mode.dispatchId }), staleTime: Infinity });
+  const orderProgress = dispatchRead.data?.salesOrder;
   const modeRef = useRef(mode);
   modeRef.current = mode;
   // Scans are added one after another, in the order they were read, so a fast
@@ -397,6 +409,7 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
             tone: "success",
             message: noOrder ? t("scan.continuous.addedNoOrder", { serial: outcome.serial }) : t("scan.continuous.added", { serial: outcome.serial }),
             extra: t("scan.continuous.count", { count: countRef.current }),
+            warn: offBandText(t, report, outcome.serial) ?? undefined,
           });
           remember(outcome.serial, "added", { note: noOrder });
           addedReport = report;
@@ -498,6 +511,17 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
             </div>
 
             <CapacityBanner capacity={capacity} compact />
+
+            {orderProgress ? (
+              <p data-scan-order={orderProgress.number} aria-live="polite" className="m-0 rounded-card bg-surface-sunken px-3 py-2 text-[14px] leading-5">
+                {t("scan.continuous.orderBaki", {
+                  order: orderProgress.number,
+                  baki: orderKgText(orderProgress.progress.bakiG),
+                  left: orderKgText(orderProgress.progress.leftG),
+                })}
+                {orderProgress.progress.overG > 0 ? ` ${t("scan.continuous.orderOver", { kg: orderKgText(orderProgress.progress.overG) })}` : ""}
+              </p>
+            ) : null}
 
             <StatusLine ref={statusRef} line={line} />
 

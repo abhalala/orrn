@@ -141,6 +141,77 @@ export function moveStatements(
   return out;
 }
 
+/**
+ * One end of a move (BACKLOG 34): an order line of a customer, or null for plant stock. Names and
+ * numbers only (C46: no rates), so an approver and the order timeline can say what moves where.
+ */
+export type MoveEnd = { customerName: string; orderNumber: string; lineNo: number } | null;
+
+/** What a move carries for people: how many bundles, their kg, where from and where to. */
+export type ReallocateMove = {
+  count: number;
+  kgG: number;
+  /** Distinct sources, in bundle order (plant stock once, as null). */
+  from: MoveEnd[];
+  to: MoveEnd;
+  /** Per bundle (the approval only; the audit rows leave it out). */
+  bundles?: { serial: string; weightG: number; from: MoveEnd }[];
+};
+
+const endKey = (e: MoveEnd) => (e ? `${e.orderNumber}|${e.lineNo}` : "plant");
+
+/** The move summary from the bundles asked for and the target (null = plant stock). */
+export function reallocateMove(bundles: readonly { serial: string; weightG: number; from: MoveEnd }[], to: MoveEnd): Required<ReallocateMove> {
+  const from: MoveEnd[] = [];
+  const seen = new Set<string>();
+  for (const b of bundles) {
+    const key = endKey(b.from);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    from.push(b.from);
+  }
+  return {
+    count: bundles.length,
+    kgG: bundles.reduce((s, b) => s + b.weightG, 0),
+    from,
+    to,
+    bundles: bundles.map((b) => ({ serial: b.serial, weightG: b.weightG, from: b.from })),
+  };
+}
+
+/** The audit row's copy of a move: the figures and the two ends, without the bundle list. */
+export function moveForAudit(move: ReallocateMove): Omit<ReallocateMove, "bundles"> {
+  return { count: move.count, kgG: move.kgG, from: move.from, to: move.to };
+}
+
+function isEnd(v: unknown): v is NonNullable<MoveEnd> {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.customerName === "string" && typeof o.orderNumber === "string" && typeof o.lineNo === "number";
+}
+
+/** What the order timeline says about one `order.reallocate` row: always a count and kg; the ends when known. */
+export type TimelineMove = { count: number; kgG: number; from: MoveEnd[] | null; to: MoveEnd | undefined };
+
+/**
+ * Read an `order.reallocate` audit row's move (BACKLOG 34). Rows written since carry `move`; older
+ * rows carry `bundles`/`kgG` (request and applied-at-once) or only `moved` (an approval's
+ * decision; `asked` too on a refusal), so `fallback` (an applied batch's transfers) fills count
+ * and kg there.
+ */
+export function timelineMoveOf(meta: unknown, fallback: { count: number; kgG: number } | undefined): TimelineMove {
+  const m = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const move = m.move && typeof m.move === "object" ? (m.move as Record<string, unknown>) : null;
+  const from = move && Array.isArray(move.from) ? (move.from as unknown[]).map((e) => (isEnd(e) ? e : null)) : null;
+  const to = move ? (isEnd(move.to) ? move.to : move.to === null ? null : undefined) : undefined;
+  // An old refusal has only `moved` (0) and `asked`: it says what was asked.
+  const asked = m.status === "rejected" ? n(m.asked) : null;
+  const count = n(move?.count) ?? n(m.bundles) ?? fallback?.count ?? asked ?? n(m.moved) ?? 0;
+  const kgG = n(move?.kgG) ?? n(m.kgG) ?? fallback?.kgG ?? 0;
+  return { count, kgG, from, to };
+}
+
 /** What an `order_reallocate` request carries (C46: line ids, bundle ids and kg only; no rates). */
 export type ReallocateMeta = {
   bundleIds: string[];
@@ -156,6 +227,8 @@ export type ReallocateMeta = {
   orderIds: string[];
   /** The `die_owner_override` the requester named (C47), re-checked when the request is decided. */
   dieOwnerApprovalId?: string | null;
+  /** BACKLOG 34: serials, kg, from and to, for the approver (absent on requests made before it). */
+  move?: ReallocateMove;
 };
 
 /**
@@ -229,6 +302,12 @@ export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
         ),
     );
   }
+  // BACKLOG 34 / explorer H5: the decision's timeline row says what moved (approved: the bundles
+  // that really moved and their kg; rejected: what was asked), never "0 bundles, 0.000 kg".
+  const movedCount = sql`(select count(*) from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id})`;
+  const movedKg = sql`(select coalesce(sum(mb.weight_g), 0) from bundle_transfer t join bundle mb on mb.id = t.bundle_id and mb.company_id = t.company_id where t.company_id = ${companyId} and t.approval_id = ${row.id})`;
+  const shownCount = decision === "approved" ? movedCount : sql`json_array_length(${meta}, '$.bundleIds')`;
+  const shownKg = decision === "approved" ? movedKg : sql`coalesce(json_extract(${meta}, '$.kgG'), 0)`;
   // Keys follow audit_log's column order (insert-select rule).
   statements.push(
     db.insert(auditLog).select(
@@ -241,7 +320,7 @@ export const reallocateDecision: ApprovalApplier = (ctx, row, decision) => {
           action: sql<string>`'order.reallocate'`.as("action"),
           subjectType: sql<string>`'bundle_transfer'`.as("subject_type"),
           subjectId: sql<string>`${row.subjectId}`.as("subject_id"),
-          meta: sql<string>`json_object('status', ${decision === "approved" ? "applied" : "rejected"}, 'approvalId', ${row.id}, 'batchId', ${row.subjectId}, 'toLineId', ${toLine}, 'orderIds', json(coalesce(json_extract(${meta}, '$.orderIds'), '[]')), 'moved', (select count(*) from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id}), 'asked', json_array_length(${meta}, '$.bundleIds'))`.as(
+          meta: sql<string>`json_object('status', ${decision === "approved" ? "applied" : "rejected"}, 'approvalId', ${row.id}, 'batchId', ${row.subjectId}, 'toLineId', ${toLine}, 'orderIds', json(coalesce(json_extract(${meta}, '$.orderIds'), '[]')), 'moved', ${movedCount}, 'asked', json_array_length(${meta}, '$.bundleIds'), 'bundles', ${shownCount}, 'kgG', ${shownKg}, 'move', json_object('count', ${shownCount}, 'kgG', ${shownKg}, 'from', json(coalesce(json_extract(${meta}, '$.move.from'), '[]')), 'to', json(json_extract(${meta}, '$.move.to'))))`.as(
             "meta",
           ),
           at: sql<number>`${ctx.decidedAt.getTime()}`.as("at"),

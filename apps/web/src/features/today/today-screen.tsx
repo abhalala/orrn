@@ -190,7 +190,7 @@ export function TodayScreen() {
       {header}
       <TodayKpis data={data} />
       {data.pressedToday && canAny(me, ["press.run", "press.close"]) ? <TodayPressTile data={data.pressedToday} alerts={data.pressAlerts} /> : null}
-      <TodayTiles openCount={data.openDispatchCount} startIndex={3} />
+      <TodayTiles tiles={data.tiles} startIndex={3} />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (
         <ListsGrid pair={sections.dispatches && sections.sessions}>

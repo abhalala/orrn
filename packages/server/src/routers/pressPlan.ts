@@ -410,7 +410,7 @@ export const pressPlanRouter = router({
       for (const d of input.dies) {
         if (production && d.lines.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Add at least one order line" });
         if (!production && d.lines.length > 0) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "A trial or sample plan takes no order lines" });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Only a production plan takes order lines" });
         }
       }
       const sectionIds = input.dies.map((d) => d.sectionId);
@@ -789,6 +789,10 @@ export const pressPlanRouter = router({
       }
       if (input.add.length === 0 && input.remove.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Nothing to change" });
+      }
+      // FP-PR-23 (BACKLOG 41): only a production plan carries order lines (die trial, sample, other: dies only).
+      if (plan.purpose !== "production" && input.add.length > 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only a production plan takes order lines" });
       }
       const parts = await planParts(ctx.db, ctx.companyId, plan.id);
       const onPlan = new Set(parts.lines.map((l) => l.salesOrderLineId));

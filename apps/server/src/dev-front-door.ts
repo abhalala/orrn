@@ -23,6 +23,11 @@ export const devInviteInput = z.object({
   role: z.enum(companyRoles),
   /** Name of the company to invite into; a fresh one each time, so tests never change the seeded demo company. */
   companyName: z.string().trim().min(1).max(200).optional(),
+  /**
+   * Invite into this company (one a previous dev invite made) instead of a new one: a second
+   * member of an e2e throwaway plant (an office user beside its owner).
+   */
+  companyId: z.string().trim().min(1).max(64).optional(),
   /** An invite whose week has already run out (the expired-link screen). */
   expired: z.boolean().optional(),
 });
@@ -41,19 +46,27 @@ export async function createDevInvite(db: Db, input: z.infer<typeof devInviteInp
   const owner = await db.select({ id: user.id }).from(user).where(eq(user.email, DEV_ACCOUNTS.owner.email)).get();
   if (!owner) throw new Error("dev invite: run POST /dev/seed first");
 
-  const companyId = crypto.randomUUID();
-  const companyName = input.companyName ?? "Ravi Aluminium Works";
+  const existing = input.companyId
+    ? await db.select({ id: company.id, name: company.name }).from(company).where(eq(company.id, input.companyId)).get()
+    : null;
+  if (input.companyId && !existing) throw new Error("dev invite: no such company");
+  const companyId = existing?.id ?? crypto.randomUUID();
+  const companyName = existing?.name ?? input.companyName ?? "Ravi Aluminium Works";
   const token = crypto.randomUUID();
   const day = 24 * 60 * 60 * 1000;
   await atomicBatch(db, [
-    db.insert(company).values({
-      id: companyId,
-      name: companyName,
-      slug: `e2e-${companyId.slice(0, 8)}`,
-      status: "active",
-      settings: {},
-      modules: [],
-    }),
+    ...(existing
+      ? []
+      : [
+          db.insert(company).values({
+            id: companyId,
+            name: companyName,
+            slug: `e2e-${companyId.slice(0, 8)}`,
+            status: "active",
+            settings: {},
+            modules: [],
+          }),
+        ]),
     db.insert(invite).values({
       id: crypto.randomUUID(),
       companyId,
@@ -64,7 +77,7 @@ export async function createDevInvite(db: Db, input: z.infer<typeof devInviteInp
       invitedBy: owner.id,
     }),
   ]);
-  return { token, path: `/invite/${token}`, companyName };
+  return { token, path: `/invite/${token}`, companyName, companyId };
 }
 
 export const devMagicLinkInput = z.object({ email: z.string().trim().max(320).email() });

@@ -34,6 +34,15 @@ describe("packingListModel", () => {
     expect(r4101).toMatchObject({ cutLengthFt: 11.5, cutLengthIn: 138, kgPer12ft: 2.179, weightRange12ft: 2.1 });
   });
 
+  test("kg per piece is weight over pieces to the gram, null without pieces (FP-PK-13)", () => {
+    const rows = packingListModel(parsePackingListSnapshot(unlabelled)).groups.flatMap((g) => g.rows);
+    expect(rows.find((r) => r.bundleNo === "26I4086")!.kgPerPiece).toBe(2.523); // 50.455 kg / 20 pcs
+    const none = packingListModel(
+      parsePackingListSnapshot({ ...unlabelled, items: unlabelled.items.map((i) => ({ ...i, quantity: 0 })) }),
+    ).groups.flatMap((g) => g.rows);
+    expect(none.every((r) => r.kgPerPiece === null)).toBe(true);
+  });
+
   test("without packing group labels it groups by section, never by the packing session id", () => {
     const { groups } = packingListModel(parsePackingListSnapshot(unlabelled));
     expect(groups.map((g) => g.label)).toEqual(["14701 PATTI", "11250 ANGLE"]);

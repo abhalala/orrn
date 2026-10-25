@@ -50,6 +50,27 @@ export function statusTone(status: CopyStatus): StatusTone {
   }
 }
 
+/**
+ * The word next to a copy's percent (explorer W1 M3). The percent is against the band start, the
+ * position is the reading against the band by grams; when the copy is off its band the position
+ * chip says so ("Above band"), so the percent chip carries the number only. "+9.3% Near the edge"
+ * next to "Above band" read as two verdicts for one copy.
+ */
+export function percentWord(tone: DriftTone, position: BandPosition | null | undefined): DriftTone | null {
+  if (tone === "none") return null;
+  if (position === "above" || position === "below") return null;
+  return tone;
+}
+
+/**
+ * The percent chip's colour (review W2-FIXES-A m-5): the server's tone while the chip carries its
+ * word; neutral when it carries the number only (off its band), so colour is never the only signal.
+ * The position chip next to it carries the verdict and its colour.
+ */
+export function percentChipTone(tone: DriftTone, position: BandPosition | null | undefined): StatusTone {
+  return percentWord(tone, position) ? toneToChip(tone) : "neutral";
+}
+
 export function positionTone(position: BandPosition): StatusTone {
   switch (position) {
     case "in":

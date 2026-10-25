@@ -14,6 +14,7 @@ import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { StatusBlock } from "@/components/ui/status-block";
 import { PageHeader } from "@/components/ui/page-header";
 import { greetingKey, inStock, showStartHere, TILE_META, todayTiles, type TodayTile } from "@/features/today/today-model";
+import { hourIn, zoneOf } from "@/lib/format";
 import { useFormat } from "@/lib/use-format";
 import { useThemeColor } from "@/lib/theme";
 import { useMe } from "@/utils/me";
@@ -50,7 +51,7 @@ export default function TodayScreen() {
 
   return (
     <Screen onRefresh={() => void today.refetch()} refreshing={today.isRefetching}>
-      <PageHeader title={t(greetingKey(new Date().getHours()), { name: firstName })} size="md" />
+      <PageHeader title={t(greetingKey(hourIn(zoneOf(me.data?.company?.settings as { [key: string]: unknown } | null | undefined))), { name: firstName })} size="md" />
 
       {today.isPending ? <LoadingBlock /> : null}
       {today.isError && !data ? <ErrorBlock error={today.error} onRetry={() => void today.refetch()} retrying={today.isRefetching} /> : null}
