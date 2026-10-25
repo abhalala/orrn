@@ -427,7 +427,7 @@ export async function createSalesOrder(
 export const roleCan = (role: CompanyRole, action: Action) => can({ company: { role }, isPlatformAdmin: false, platformRole: null }, action);
 const canPrice = (role: CompanyRole) => roleCan(role, "order.price");
 
-const bookInput = z.object({
+export const bookInput = z.object({
   status: z.enum(salesOrderStatuses).optional(),
   /** Booking, confirmed and dispatching only. */
   openOnly: z.boolean().optional(),
@@ -444,7 +444,7 @@ const bookInput = z.object({
   late: z.boolean().optional(),
 });
 
-async function bookFilterOf(db: OrrnDb, companyId: string, input: z.infer<typeof bookInput>) {
+export async function bookFilterOf(db: OrrnDb, companyId: string, input: z.infer<typeof bookInput>) {
   const floor = await companyFloor(db, companyId);
   const today = ymdOf(zonedYmd(floor.timezone, clockNow().getTime()));
   const statuses: readonly SalesOrderStatus[] | undefined = input.status

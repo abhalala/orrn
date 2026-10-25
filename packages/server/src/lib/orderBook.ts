@@ -29,6 +29,7 @@
 import { sql, type SQL } from "drizzle-orm";
 
 import type { SalesOrderStatus } from "@orrn/db/schema/sales";
+import { bpPercent1 } from "@orrn/domain";
 
 import type { OrrnDb } from "./atomic";
 import {
@@ -137,8 +138,12 @@ export async function bookCities(db: OrrnDb, companyId: string): Promise<string[
 
 const OPEN = sql`('booking', 'confirmed', 'dispatching')`;
 
-/** The `fo` CTE chain: one row per order in the filter, with its kg segments. */
-function bookCte(companyId: string, f: BookFilter): SQL {
+/**
+ * The `fo` CTE chain: one row per order in the filter, with its kg segments. `rates` adds the
+ * rupee columns (ordered / dispatched / baki value in paise, lines with no rate) for the order
+ * summary report; callers pass it only for `order.price` holders while `priceOnSalesOrder` is on.
+ */
+function bookCte(companyId: string, f: BookFilter, opts: { rates?: boolean } = {}): SQL {
   const where: SQL[] = [sql`sales_order_line.company_id = ${companyId}`];
   if (f.statuses && f.statuses.length > 0) {
     where.push(sql`sales_order.status in (${sql.join(f.statuses.map((s) => sql`${s}`), sql`, `)})`);
@@ -177,6 +182,7 @@ function bookCte(companyId: string, f: BookFilter): SQL {
         ${plannedExpr()} as pl_g,
         max(0, ${loggedExpr} - ${producedExpr}) as r_g,
         ${producedExpr} as prod_g,
+        ${opts.rates ? sql`sales_order_line.rate_paise as rate_p,` : sql``}
         (select count(*) from bundle ab where ab.company_id = sales_order_line.company_id and ab.sales_order_line_id = sales_order_line.id and ab.status = 'available') as in_n,
         (select count(*) from bundle vb where vb.company_id = sales_order_line.company_id and vb.sales_order_line_id = sales_order_line.id and vb.status = 'reserved')
           + (select count(*) from bundle hb where hb.company_id = sales_order_line.company_id and hb.held_for_line_id = sales_order_line.id and hb.status in ('available', 'reserved') and coalesce(hb.sales_order_line_id, '') <> sales_order_line.id) as held_n
@@ -194,6 +200,14 @@ function bookCte(companyId: string, f: BookFilter): SQL {
         sum(hs) as held_g, sum(ps) as pressed_g, sum(ls) as planned_g, sum(o_g - ds - ss - hs - ps - ls) as rest_g,
         sum(max(0, d_g + a_g + v_g + h_g + r_g + pl_g - o_g)) as over_g, sum(prod_g) as produced_g,
         sum(max(o_g - d_g, 0)) as baki_g, sum(max(d_g - o_g, 0)) as excess_g, sum(in_n) as in_n, sum(held_n) as held_n
+        ${
+          opts.rates
+            ? sql`, sum(case when rate_p is null then 0 else cast(round(o_g * rate_p / 1000.0) as integer) end) as ordered_v,
+        sum(case when rate_p is null then 0 else cast(round(min(d_g, o_g) * rate_p / 1000.0) as integer) end) as dispatched_v,
+        sum(case when rate_p is null then 0 else cast(round(max(o_g - d_g, 0) * rate_p / 1000.0) as integer) end) as baki_v,
+        sum(case when rate_p is null then 1 else 0 end) as rate_missing`
+            : sql``
+        }
       from s3 group by oid
     ),
     fo as (
@@ -322,4 +336,95 @@ export async function bookTotals(db: OrrnDb, companyId: string, filter: BookFilt
     heldBundles: num(r?.held_n),
     dispatchedBp: dispatchedBpOf(dispatchedG, orderedG),
   };
+}
+
+/** Most summary rows one answer carries; past it the answer says `truncated` and the foot is still the strip. */
+export const BOOK_SUMMARY_LIMIT = 500;
+
+export const BOOK_SUMMARY_GROUPS = ["customer", "month"] as const;
+export type BookSummaryGroup = (typeof BOOK_SUMMARY_GROUPS)[number];
+
+/** Rupee figures of a summary row, in paise (only with `rates`). */
+export type BookSummaryRates = {
+  orderedValuePaise: number;
+  dispatchedValuePaise: number;
+  bakiValuePaise: number;
+  /** Lines with no rate (their kg count, their value does not). */
+  rateMissingLines: number;
+};
+
+export type BookSummaryRow = {
+  /** Customer id, or the order month `YYYY-MM`. */
+  key: string;
+  label: string;
+  orders: number;
+  openOrders: number;
+  lateOrders: number;
+  lines: number;
+  orderedG: number;
+  /** Dispatched kg counted up to ordered per line (the bar's and the strip's figure), so ordered - dispatched = baki. */
+  dispatchedG: number;
+  bakiG: number;
+  /** Dispatched beyond ordered, per line (kept out of `dispatchedG`). */
+  excessG: number;
+  /** Dispatched (capped per line) ÷ ordered, basis points half up. */
+  dispatchedBp: number;
+  /** `bpPercent1(dispatchedBp)`, e.g. "5.9". */
+  dispatchedPct: string;
+  rates?: BookSummaryRates;
+};
+
+/**
+ * The order book summed by party or by order month (W4-ANALYTICS `/reports/orders`), from the SAME
+ * `fo` CTE as the grid and the strip, so every summary row is the sum of its book rows and the
+ * summary's total is the strip (`bookTotals`). Rupee columns only with `rates`.
+ */
+export async function bookSummary(
+  db: OrrnDb,
+  companyId: string,
+  filter: BookFilter,
+  groupBy: BookSummaryGroup,
+  opts: { rates?: boolean; limit?: number } = {},
+): Promise<{ rows: BookSummaryRow[]; truncated: boolean }> {
+  const limit = opts.limit ?? BOOK_SUMMARY_LIMIT;
+  const key = groupBy === "customer" ? sql`customer_id` : sql`substr(order_date, 1, 7)`;
+  const label = groupBy === "customer" ? sql`max(customer_name)` : sql`substr(order_date, 1, 7)`;
+  const order = groupBy === "customer" ? sql`sum(ordered_g) desc, lower(max(customer_name)), k` : sql`k desc`;
+  const rateCols = opts.rates
+    ? sql`, coalesce(sum(ordered_v), 0) as ordered_v, coalesce(sum(dispatched_v), 0) as dispatched_v, coalesce(sum(baki_v), 0) as baki_v, coalesce(sum(rate_missing), 0) as rate_missing`
+    : sql``;
+  const rows = await db.all<Record<string, string | number | null>>(
+    sql`${bookCte(companyId, filter, { rates: opts.rates })} select ${key} as k, ${label} as label, count(*) as orders,
+      coalesce(sum(case when status in ${OPEN} then 1 else 0 end), 0) as open_orders, coalesce(sum(is_late), 0) as late_orders,
+      coalesce(sum(lines), 0) as lines, coalesce(sum(ordered_g), 0) as ordered_g, coalesce(sum(dispatched_g), 0) as dispatched_g, coalesce(sum(baki_g), 0) as baki_g, coalesce(sum(excess_g), 0) as excess_g ${rateCols}
+      from fo group by k order by ${order} limit ${limit + 1}`,
+  );
+  const truncated = rows.length > limit;
+  const mapped = rows.slice(0, limit).map((r) => {
+    const orderedG = num(r.ordered_g);
+    const row: BookSummaryRow = {
+      key: String(r.k ?? ""),
+      label: String(r.label ?? ""),
+      orders: num(r.orders),
+      openOrders: num(r.open_orders),
+      lateOrders: num(r.late_orders),
+      lines: num(r.lines),
+      orderedG,
+      dispatchedG: num(r.dispatched_g),
+      bakiG: num(r.baki_g),
+      excessG: num(r.excess_g),
+      dispatchedBp: dispatchedBpOf(num(r.dispatched_g), orderedG),
+      dispatchedPct: bpPercent1(dispatchedBpOf(num(r.dispatched_g), orderedG)),
+    };
+    if (opts.rates) {
+      row.rates = {
+        orderedValuePaise: num(r.ordered_v),
+        dispatchedValuePaise: num(r.dispatched_v),
+        bakiValuePaise: num(r.baki_v),
+        rateMissingLines: num(r.rate_missing),
+      };
+    }
+    return row;
+  });
+  return { rows: mapped, truncated };
 }

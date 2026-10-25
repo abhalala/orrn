@@ -109,9 +109,14 @@ export function rowsCsv(sheet: SheetRows, rowNumbers: readonly number[]): string
   );
 }
 
-/** Saves a CSV to the device. The BOM makes Excel read Hindi text as UTF-8. */
+/** The CSV as a file body. The BOM makes Excel read Hindi text as UTF-8. */
+export function csvBlob(csv: string): Blob {
+  return new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" });
+}
+
+/** Saves a CSV to the device (with the BOM, see `csvBlob`). */
 export function downloadCsv(filename: string, csv: string) {
-  const blob = new Blob(["﻿", csv], { type: "text/csv;charset=utf-8" });
+  const blob = csvBlob(csv);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

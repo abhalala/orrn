@@ -9,12 +9,13 @@ import { Select } from "@orrn/ui/components/select";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
+import { downloadCsv as saveCsvFile } from "../imports/templates";
 import { kgFromG, percentOfBp } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { ReportSearch } from "./search";
@@ -62,8 +63,26 @@ const COLUMN_KEYS = [
 const MONO = new Set(["runNo", "copy", "cast", "startedStopped"]);
 const RIGHT = new Set(["runningMin", "recovery"]);
 
-/** `/press/report`: logged runs, 17 columns, landscape; the same columns as the CSV. */
-export function ReportScreen({ search, onSearch }: { search: ReportSearch; onSearch: (next: ReportSearch) => void }) {
+/**
+ * `/press/report`: logged runs, 17 columns, landscape; the same columns as the CSV. `/reports/production`
+ * mounts the same screen with its own title and back link and adds the recovery summary as `children`
+ * (W4-ANALYTICS), so the 17 columns, filters, CSV and print stay one implementation.
+ */
+export function ReportScreen({
+  search,
+  onSearch,
+  title,
+  subtitle,
+  back,
+  children,
+}: {
+  search: ReportSearch;
+  onSearch: (next: ReportSearch) => void;
+  title?: string;
+  subtitle?: string;
+  back?: { to: string; label: string };
+  children?: ReactNode;
+}) {
   const { t } = useT();
   const { data: me } = useMe();
   const today = useQuery({ ...trpc.press.summary.queryOptions({}), meta: INLINE_ERROR_META });
@@ -91,15 +110,8 @@ export function ReportScreen({ search, onSearch }: { search: ReportSearch; onSea
     setDownloadError(false);
     try {
       const out = await trpcClient.press.report.query({ ...input, format: "csv" });
-      const blob = new Blob([out.csv ?? ""], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${t("press.report.csvName")}-${input.from}${input.to !== input.from ? `-${input.to}` : ""}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // The shared saver adds the UTF-8 BOM, so Excel reads Hindi names.
+      saveCsvFile(`${t("press.report.csvName")}-${input.from}${input.to !== input.from ? `-${input.to}` : ""}.csv`, out.csv ?? "");
     } catch {
       setDownloadError(true);
     } finally {
@@ -113,9 +125,9 @@ export function ReportScreen({ search, onSearch }: { search: ReportSearch; onSea
       <style>{PRINT_CSS}</style>
       <div className="press-no-print">
         <PageHeader
-          title={t("press.report.title")}
-          subtitle={t("press.report.subtitle")}
-          back={{ to: "/press", label: t("press.title") }}
+          title={title ?? t("press.report.title")}
+          subtitle={subtitle ?? t("press.report.subtitle")}
+          back={back ?? { to: "/press", label: t("press.title") }}
           actions={
             <>
               <Button variant="secondary" onClick={() => void downloadCsv()} disabled={downloading || !input} aria-busy={downloading}>
@@ -265,6 +277,7 @@ export function ReportScreen({ search, onSearch }: { search: ReportSearch; onSea
           ) : null}
         </>
       )}
+      {children}
     </>
   );
 }

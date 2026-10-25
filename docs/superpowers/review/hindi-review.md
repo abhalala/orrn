@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5258 screen strings in 48 groups, 16 guides with 292 strings.
+Counts: 5377 screen strings in 49 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
@@ -170,7 +170,7 @@ Counts: 5258 screen strings in 48 groups, 16 guides with 292 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (46)
+### nav (47)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -220,6 +220,7 @@ Counts: 5258 screen strings in 48 groups, 16 guides with 292 strings.
 | `adminBackups` | Backups | बैकअप |
 | `adminSupport` | Support | सपोर्ट |
 | `press` | Press | प्रेस |
+| `reports` | Reports | रिपोर्ट |
 
 ### auth (114)
 
@@ -5478,6 +5479,129 @@ Please check, Lalubhai:
 | `staff.chemistry_pending` | Chemistry pending | केमिस्ट्री बाकी |
 | `staff.chemistry_partial` | Chemistry partly tested | केमिस्ट्री आंशिक जांची गई |
 | `staff.chemistry_ready` | Chemistry ready | केमिस्ट्री तैयार |
+
+### reports (118)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `title` | Reports | रिपोर्ट |
+| `subtitle` | Production, die life, stock age and the order book. The server works out every figure. | प्रोडक्शन, die की लाइफ, स्टॉक की उम्र और ऑर्डर बुक। हर आंकड़ा सर्वर निकालता है। |
+| `csv` | Download CSV | CSV डाउनलोड करें |
+| `downloadFailed` | The CSV did not download. Try again. | CSV डाउनलोड नहीं हुई। फिर से कोशिश करें। |
+| `loadFailed` | The report did not load. | रिपोर्ट नहीं खुली। |
+| `from` | From | से |
+| `to` | To | तक |
+| `total` | Total | कुल |
+| `monthsShort` | Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec | जन॰,फ़र॰,मार्च,अप्रै॰,मई,जून,जुला॰,अग॰,सित॰,अक्टू॰,नव॰,दिस॰ |
+| `showMore` | Show more | और दिखाएं |
+| `clear` | Clear | हटाएं |
+| `noAccess` | Reports are for the office, managers, the accountant and supervisors. | रिपोर्ट ऑफिस, मैनेजर, अकाउंटेंट और सुपरवाइज़र के लिए हैं। |
+| `list.production` | Production | प्रोडक्शन |
+| `list.productionBody` | The press report, with recovery by die, press and shift. | प्रेस रिपोर्ट, die, प्रेस और शिफ्ट के हिसाब से रिकवरी के साथ। |
+| `list.dieLife` | Die life | Die की लाइफ |
+| `list.dieLifeBody` | What each die copy has pressed against its planned life. | हर die copy ने अपनी तय लाइफ में से कितना माल निकाला। |
+| `list.stockAge` | Stock age | स्टॉक की उम्र |
+| `list.stockAgeBody` | Bundles in the yard by days since packing, per party and plant stock. | यार्ड में पड़े bundle, पैकिंग से कितने दिन हुए, पार्टी और प्लांट स्टॉक के हिसाब से। |
+| `list.orders` | Order book | ऑर्डर बुक |
+| `list.ordersBody` | Ordered, dispatched, baki and late orders by party and by month. | पार्टी और महीने के हिसाब से ऑर्डर, dispatch, बाकी और लेट ऑर्डर। |
+| `production.title` | Production report | प्रोडक्शन रिपोर्ट |
+| `production.subtitle` | Logged runs of the production days, then recovery by die, press and shift. | प्रोडक्शन दिनों के लॉग हुए रन, फिर die, प्रेस और शिफ्ट के हिसाब से रिकवरी। |
+| `production.recoveryTitle` | Recovery | रिकवरी |
+| `production.recoveryNote` | Production runs only. Each row is its good kg over its billet kg, never an average of percents. | सिर्फ प्रोडक्शन रन। हर लाइन में उसका अच्छा kg भाग उसके बिलेट kg, प्रतिशतों का औसत नहीं। |
+| `production.groupBy` | Group by | किस हिसाब से |
+| `production.group.die` | Die | Die |
+| `production.group.copy` | Die copy | Die copy |
+| `production.group.press` | Press | प्रेस |
+| `production.group.shift` | Shift | शिफ्ट |
+| `production.runs` | Runs | रन |
+| `production.input` | Billets kg | बिलेट kg |
+| `production.good` | Good kg | अच्छा kg |
+| `production.scrap` | Butt, ends and rejects kg | बट, एंड और रिजेक्ट kg |
+| `production.recovery` | Recovery % | रिकवरी % |
+| `production.none` | None | कोई नहीं |
+| `production.empty` | No production runs logged in these days. | इन दिनों में कोई प्रोडक्शन रन लॉग नहीं हुआ। |
+| `production.chartTitle` | Recovery % | रिकवरी % |
+| `production.chartLabel` | Recovery percent by row | हर लाइन की रिकवरी प्रतिशत |
+| `production.csvName` | recovery | recovery |
+| `dieLife.title` | Die life | Die की लाइफ |
+| `dieLife.subtitle` | Die copies by the share of their planned life used. Pressed is the good kg of the copy's logged runs. | Die copy, तय लाइफ में से कितनी इस्तेमाल हुई उसके हिसाब से। निकाला हुआ माल copy के लॉग हुए रन का अच्छा kg है। |
+| `dieLife.copy` | Die copy | Die copy |
+| `dieLife.section` | Section | सेक्शन |
+| `dieLife.status` | Status | स्थिति |
+| `dieLife.life` | Life kg | लाइफ kg |
+| `dieLife.pressed` | Pressed kg | निकाला kg |
+| `dieLife.used` | Used | इस्तेमाल |
+| `dieLife.left` | Left kg | बाकी kg |
+| `dieLife.runs` | Runs | रन |
+| `dieLife.lastRun` | Last run | आखिरी रन |
+| `dieLife.noLife` | No life set | लाइफ तय नहीं |
+| `dieLife.reached` | Life reached | लाइफ पूरी |
+| `dieLife.usedPct` | {pct} % used | {pct} % इस्तेमाल |
+| `dieLife.withLifeOnly` | Only copies with a life set | सिर्फ वे copy जिनकी लाइफ तय है |
+| `dieLife.includeRetired` | Show retired copies | रिटायर copy भी दिखाएं |
+| `dieLife.counts` | {withLife} of {copies} copies have a life set: {reached} reached, {near} near. | {copies} में से {withLife} copy की लाइफ तय है: {reached} पूरी, {near} पूरी होने वाली। |
+| `dieLife.empty` | No die copies to show. | दिखाने के लिए कोई die copy नहीं। |
+| `dieLife.csvName` | die-life | die-life |
+| `dieLife.cardUsed` | Life: {pct} % used, {pressed} of {life} kg pressed | लाइफ: {pct} % इस्तेमाल, {life} kg में से {pressed} kg निकला |
+| `dieLife.cardNoLife` | No life set for this copy. Pressed so far: {pressed} kg | इस copy की लाइफ तय नहीं। अब तक निकला: {pressed} kg |
+| `dieLife.cardReached` | Life reached. Retire the copy or set a new life on the card. | लाइफ पूरी हो गई। copy रिटायर करें या कार्ड पर नई लाइफ डालें। |
+| `stockAge.title` | Stock age | स्टॉक की उम्र |
+| `stockAge.subtitle` | Available bundles in the yard by days since packing. Bundles held on a truck are left out. | यार्ड में पड़े available bundle, पैकिंग से कितने दिन हुए। ट्रक पर होल्ड bundle शामिल नहीं। |
+| `stockAge.asOf` | Days counted to {date} | {date} तक के दिन |
+| `stockAge.show` | Show | दिखाएं |
+| `stockAge.all` | All stock | सारा स्टॉक |
+| `stockAge.plantOnly` | Plant stock only | सिर्फ प्लांट स्टॉक |
+| `stockAge.party` | Party | पार्टी |
+| `stockAge.plantStock` | Plant stock | प्लांट स्टॉक |
+| `stockAge.noName` | Party not found | पार्टी नहीं मिली |
+| `stockAge.bucket0` | 0 to 7 days | 0 से 7 दिन |
+| `stockAge.bucket1` | 8 to 30 days | 8 से 30 दिन |
+| `stockAge.bucket2` | 31 to 90 days | 31 से 90 दिन |
+| `stockAge.bucket3` | Over 90 days | 90 दिन से ज़्यादा |
+| `stockAge.kg` | kg | kg |
+| `stockAge.bundles` | Bundles | Bundle |
+| `stockAge.bundleCount` | {count} {count:bundle\|bundles} | {count} bundle |
+| `stockAge.chartTitle` | Stock by age | उम्र के हिसाब से स्टॉक |
+| `stockAge.chartSubtitle` | Available kg in each age band | हर उम्र में available kg |
+| `stockAge.chartLabel` | Available kg by age | उम्र के हिसाब से available kg |
+| `stockAge.ageHeader` | Age | उम्र |
+| `stockAge.kgHeader` | kg | kg |
+| `stockAge.empty` | No available bundles in the yard. | यार्ड में कोई available bundle नहीं। |
+| `stockAge.csvName` | stock-age | stock-age |
+| `orders.title` | Order book report | ऑर्डर बुक रिपोर्ट |
+| `orders.subtitle` | The order book summed by party or by order month. Open orders unless you pick another status; the total is the order book strip for the same filter. | पार्टी या ऑर्डर महीने के हिसाब से ऑर्डर बुक का जोड़। जब तक दूसरी स्थिति न चुनें, खुले ऑर्डर दिखते हैं; कुल वही है जो इसी फ़िल्टर पर ऑर्डर बुक की पट्टी में है। |
+| `orders.groupBy` | Group by | किस हिसाब से |
+| `orders.byParty` | By party | पार्टी के हिसाब से |
+| `orders.byMonth` | By month | महीने के हिसाब से |
+| `orders.party` | Party | पार्टी |
+| `orders.month` | Order month | ऑर्डर महीना |
+| `orders.allParties` | All parties | सभी पार्टी |
+| `orders.status` | Status | स्थिति |
+| `orders.allStatuses` | All orders | सभी ऑर्डर |
+| `orders.statusOpen` | Open orders | खुले ऑर्डर |
+| `orders.statusClosed` | Closed orders | बंद ऑर्डर |
+| `orders.statusCancelled` | Cancelled orders | रद्द ऑर्डर |
+| `orders.truncated` | Showing the first {count} parties. The total row counts every party. | पहली {count} पार्टी दिख रही हैं। कुल की पंक्ति में हर पार्टी गिनी गई है। |
+| `orders.lateOnly` | Late orders only | सिर्फ लेट ऑर्डर |
+| `orders.orders` | Orders | ऑर्डर |
+| `orders.late` | Late | लेट |
+| `orders.ordered` | Ordered kg | ऑर्डर kg |
+| `orders.dispatched` | Dispatched kg | Dispatch kg |
+| `orders.baki` | Baki kg | बाकी kg |
+| `orders.dispatchedShare` | Dispatched % | Dispatch % |
+| `orders.showRates` | Show rupees | रुपये दिखाएं |
+| `orders.orderedValue` | Ordered Rs | ऑर्डर Rs |
+| `orders.dispatchedValue` | Dispatched Rs | Dispatch Rs |
+| `orders.bakiValue` | Baki Rs | बाकी Rs |
+| `orders.rateMissing` | {count} {count:line has\|lines have} no rate; their kg count, their rupees do not. | {count} लाइन में रेट नहीं; उनका kg गिना है, रुपये नहीं। |
+| `orders.empty` | No orders match. | कोई ऑर्डर नहीं मिला। |
+| `orders.chartTitle` | Ordered kg by month | महीने के हिसाब से ऑर्डर kg |
+| `orders.chartLabel` | Ordered kg per order month | हर ऑर्डर महीने का ऑर्डर kg |
+| `orders.monthHeader` | Month | महीना |
+| `orders.kgHeader` | kg | kg |
+| `orders.csvName` | order-book | order-book |
+| `todayTile.title` | Stock older than 90 days | 90 दिन से पुराना स्टॉक |
+| `todayTile.meta` | {kg} kg in the yard | यार्ड में {kg} kg |
 
 ### errors (16)
 

@@ -33,6 +33,7 @@ import { companyTimezone } from "../lib/dayWindow";
 import { lineTotals } from "../lib/orders";
 import { productionDayWindowFor } from "../lib/productionDay";
 import { isIsoDate } from "../lib/purchase";
+import { analyticsReportProcedures } from "./analyticsReports";
 import {
   addDays,
   addMonths,
@@ -239,6 +240,9 @@ async function timezoneOf(db: OrrnDb, companyId: string): Promise<string> {
 // ── router ───────────────────────────────────────────────────────────────────
 
 export const analyticsRouter = router({
+  // W4-ANALYTICS office reports (reports.read): recovery, dieLife, stockAge, orders.
+  ...analyticsReportProcedures,
+
   /**
    * One customer over the days from..to (inclusive): totals, a week or month series, top sections, cadence. First/last
    * dispatch, days since last and the 10 recent dispatches are all-time (not range-bound).
