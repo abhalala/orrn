@@ -151,6 +151,18 @@ Container heater element, Hydraulic oil) with a GRN each and three issues (GRN-1
    As `supervisor` close an empty or balanced cast; as `manager` open **Masters, Furnaces and Alloys** (limits editor),
    **Reports, Foundry yield**, and **Approvals** (a melt correction asked by foundry shows the melt's figures and a link).
    `/foundry/stock` lists billets on hand by alloy and cast.
+10. **Foundry on the phone** (W2-FD-N). Sign in as `foundry`: the bar is Today, Cast, Scan, Stock, More. **Cast** opens on the newest
+    open cast (cast 3, with its draft melt); the number, alloy, status and tail chip are large, and a row of cast numbers switches
+    between open casts. Open the draft: tap **Furnace and times** (Charging start and Casting end are the big pair, **Now** fills the
+    clock, **Show more** adds the other three), **Charge** (LOT-6 with its kg left, **All**), **Logs and dross** (the running
+    burn and yield sit at the top), then **Spectro**: take a photo of the printout with **Attach a file or photo**, or **Type the numbers**
+    with a reason (Fe 0.41 shows a fail). The list at the bottom says in the person's language what still stops **Lock melt**; each has
+    a button to the part that fixes it. Lock, and the cast's tail chip moves. **Stock** shows **Billet stock** first (kg on hand by
+    alloy, one card per cast; tap a card to open the cast). **Today** has the Foundry tile (open casts, drafts). Cast 1 is complete:
+    its locked melt opens read only, with **Ask for a correction**. Sign in as `supervisor`: the bar is the packer bar, **More** has
+    **Casts**; on an open cast with no draft melt **Close cast** counts the billets (pieces and kg), and a tail turns the chip amber and
+    asks for a reason. Switch the phone to Hindi: every word on these screens changes, plant words (cast, melt, billet, kanta, LDO,
+    spectro, dross) stay English.
 
 ## Ids that specs and tests rely on (do not rename)
 

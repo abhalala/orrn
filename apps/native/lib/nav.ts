@@ -12,14 +12,15 @@ import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
  *   dieRoom  Today · Dies · [Scan] · Press · More       (die_room)
  *   office   Today · Dispatch · [Scan] · Orders · More  (office)
  *   press    Today · Press · [Scan] · Dies · More       (press: line state, queue, downtime, handover; the station is the tablet)
+ *   foundry  Today · Cast · [Scan] · Stock · More       (foundry: casts, melts, spectro, billet stock; Close is for cast.close holders)
  * `menu` is not a screen: pressing it opens More (the same screen the avatar opens).
  */
-export type TabName = "today" | "pack" | "scan" | "stock" | "dispatch" | "dies" | "press" | "orders" | "menu";
-export type TabSet = "floor" | "dieRoom" | "office" | "press";
-export type NavModule = "bundles" | "dispatches" | "dies" | "press" | "orders";
+export type TabName = "today" | "pack" | "scan" | "stock" | "dispatch" | "dies" | "press" | "cast" | "orders" | "menu";
+export type TabSet = "floor" | "dieRoom" | "office" | "press" | "foundry";
+export type NavModule = "bundles" | "dispatches" | "dies" | "press" | "orders" | "foundry";
 
 /** Feather glyph names (Feather is the stroke-2 set Lucide grew from). */
-export type TabIcon = "home" | "package" | "maximize" | "layers" | "truck" | "disc" | "activity" | "file-text" | "menu";
+export type TabIcon = "home" | "package" | "maximize" | "layers" | "truck" | "disc" | "activity" | "droplet" | "file-text" | "menu";
 
 export type TabRoute = {
   name: TabName;
@@ -32,6 +33,9 @@ export type TabRoute = {
   modules?: readonly NavModule[];
 };
 
+/** Who works the foundry floor: opens casts, enters melts, closes a cast. */
+const CAST_PEOPLE = ["cast.enter", "melt.enter", "cast.close"] as const satisfies readonly Action[];
+
 /**
  * Every tab route, in the order the bar draws them before `placeScan` moves Scan
  * to the middle of what is visible. Hidden ones are `Tabs.Protected`.
@@ -40,10 +44,11 @@ export const TAB_ROUTES: readonly TabRoute[] = [
   { name: "today", labelKey: "nav.today", icon: "home", stack: true },
   { name: "pack", labelKey: "nav.pack", icon: "package", stack: true, requires: ["bundle.create"], modules: ["bundles"] },
   { name: "scan", labelKey: "nav.scan", icon: "maximize", stack: false, modules: ["bundles", "dies"] },
-  { name: "stock", labelKey: "nav.stock", icon: "layers", stack: true, modules: ["bundles"] },
+  { name: "stock", labelKey: "nav.stock", icon: "layers", stack: true, modules: ["bundles", "foundry"] },
   { name: "dispatch", labelKey: "nav.dispatch", icon: "truck", stack: true, modules: ["dispatches"] },
   { name: "dies", labelKey: "nav.dies", icon: "disc", stack: true, modules: ["dies"] },
   { name: "press", labelKey: "native.tabs.press", icon: "activity", stack: true, modules: ["press"] },
+  { name: "cast", labelKey: "foundry.casts.title", icon: "droplet", stack: true, requires: CAST_PEOPLE, modules: ["foundry"] },
   { name: "orders", labelKey: "nav.orders", icon: "file-text", stack: true, requires: ["order.manage"], modules: ["orders"] },
   { name: "menu", labelKey: "nav.more", icon: "menu", stack: false },
 ];
@@ -53,6 +58,7 @@ export const TAB_SETS: Record<TabSet, readonly TabName[]> = {
   dieRoom: ["today", "dies", "scan", "press", "menu"],
   office: ["today", "dispatch", "scan", "orders", "menu"],
   press: ["today", "press", "scan", "dies", "menu"],
+  foundry: ["today", "cast", "scan", "stock", "menu"],
 };
 
 /** Which set a membership role gets: the die room, the office and the press have their own, everyone else the packer set. */
@@ -61,6 +67,7 @@ export function tabSetFor(me: Pick<Me, "company"> | null | undefined): TabSet {
   if (role === "die_room") return "dieRoom";
   if (role === "office") return "office";
   if (role === "press") return "press";
+  if (role === "foundry") return "foundry";
   return "floor";
 }
 
@@ -86,6 +93,9 @@ const DIE_READERS = ["die.card", "die.reading", "masters.publish"] as const sati
 /** Who opens the Press screens from More when Press is not on their bar: the people who run or log presses. */
 const PRESS_READERS = ["press.run", "press.close"] as const satisfies readonly Action[];
 
+/** Who opens the Cast screens from More when Cast is not on their bar: the people who open casts and enter melts (the supervisor). */
+const CAST_ENTERERS = ["cast.enter", "melt.enter"] as const satisfies readonly Action[];
+
 /**
  * Tabs this person can open but that are not on their bar: the packer set's owner, manager and admin
  * reach Orders (order.manage / order.plan) and Dies (die.card / die.reading, or masters.publish for the read-only board) from More. They stay
@@ -101,6 +111,8 @@ export function extraTabs(me: Me | null | undefined): TabName[] {
   if (!onBar.has("orders") && moduleOn("orders") && canAny(me, ["order.manage", "order.plan"])) out.push("orders");
   // The people who run or log presses but have the packer bar (supervisor, manager, admin) read the lines from More.
   if (!onBar.has("press") && moduleOn("press") && canAny(me, PRESS_READERS)) out.push("press");
+  // The people who enter casts and melts but have the packer bar (supervisor) reach Cast from More.
+  if (!onBar.has("cast") && moduleOn("foundry") && canAny(me, CAST_ENTERERS)) out.push("cast");
   return out;
 }
 

@@ -2,7 +2,7 @@ import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
 
 import { Chip } from "@/components/ui/chip";
@@ -27,7 +27,7 @@ import { YardFilter } from "./yard-filter";
  * dispatched bundles are in neither, so they never count here. Search and
  * sort run on the loaded sections; "All bundles" opens the full list.
  */
-export function StockView() {
+export function StockView({ top }: { top?: ReactNode }) {
   const { t } = useT();
   const router = useRouter();
   const [yard, setYard] = useState<string | undefined>(undefined);
@@ -52,6 +52,7 @@ export function StockView() {
 
   return (
     <Screen onRefresh={onRefresh} refreshing={refreshing}>
+      {top}
       {loading && !failed ? (
         <LoadingBlock />
       ) : failed ? (

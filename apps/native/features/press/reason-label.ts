@@ -2,7 +2,7 @@ import type { Locale, MessageKey, Translate } from "@orrn/i18n";
 
 // Same rule as apps/web/src/features/press/reason-label.ts (W4-MASTERS review m-2): keep the two in step.
 
-export type ReasonCodeKind = "downtime" | "qc_reject" | "void" | "reprint" | "ageing_hold" | "ageing_rework" | "ageing_scrap" | "reallocate";
+export type ReasonCodeKind = "downtime" | "qc_reject" | "void" | "reprint" | "ageing_hold" | "ageing_rework" | "ageing_scrap" | "reallocate" | "cast_tail" | "melt_correct";
 
 /** The wording a plant typed for a code in another language (null / missing = none typed). */
 /** `standard`: a standard code still on its standard English wording (the server says; not renamed). */

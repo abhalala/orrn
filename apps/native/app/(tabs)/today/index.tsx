@@ -13,6 +13,7 @@ import { Screen } from "@/components/ui/screen";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 import { StatusBlock } from "@/components/ui/status-block";
 import { PageHeader } from "@/components/ui/page-header";
+import { FoundryToday } from "@/features/foundry/today-card";
 import { greetingKey, inStock, showStartHere, TILE_META, todayTiles, type TodayTile } from "@/features/today/today-model";
 import { hourIn, zoneOf } from "@/lib/format";
 import { useFormat } from "@/lib/use-format";
@@ -107,6 +108,8 @@ export default function TodayScreen() {
               </View>
             </View>
           ) : null}
+
+          <FoundryToday />
 
           {tiles.length > 0 ? (
             <View className="flex-row flex-wrap gap-3">
