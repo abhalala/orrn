@@ -51,6 +51,7 @@ import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/disp
 import { Route as TenantDispatchIndexRouteImport } from './routes/_tenant/dispatch.index'
 import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index'
 import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/customers.index'
+import { Route as TenantCastsIndexRouteImport } from './routes/_tenant/casts.index'
 import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
 import { Route as PortalPortalIndexRouteImport } from './routes/_portal/portal.index'
 import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
@@ -356,6 +357,11 @@ const TenantDiesIndexRoute = TenantDiesIndexRouteImport.update({
 const TenantCustomersIndexRoute = TenantCustomersIndexRouteImport.update({
   id: '/customers/',
   path: '/customers/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCastsIndexRoute = TenantCastsIndexRouteImport.update({
+  id: '/casts/',
+  path: '/casts/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantBundlesIndexRoute = TenantBundlesIndexRouteImport.update({
@@ -964,6 +970,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof PlatformAdminIndexRoute
   '/portal/': typeof PortalPortalIndexRoute
   '/bundles/': typeof TenantBundlesIndexRoute
+  '/casts/': typeof TenantCastsIndexRoute
   '/customers/': typeof TenantCustomersIndexRoute
   '/dies/': typeof TenantDiesIndexRoute
   '/dispatch/': typeof TenantDispatchIndexRoute
@@ -1104,6 +1111,7 @@ export interface FileRoutesByTo {
   '/admin': typeof PlatformAdminIndexRoute
   '/portal': typeof PortalPortalIndexRoute
   '/bundles': typeof TenantBundlesIndexRoute
+  '/casts': typeof TenantCastsIndexRoute
   '/customers': typeof TenantCustomersIndexRoute
   '/dies': typeof TenantDiesIndexRoute
   '/dispatch': typeof TenantDispatchIndexRoute
@@ -1250,6 +1258,7 @@ export interface FileRoutesById {
   '/_platform/admin/': typeof PlatformAdminIndexRoute
   '/_portal/portal/': typeof PortalPortalIndexRoute
   '/_tenant/bundles/': typeof TenantBundlesIndexRoute
+  '/_tenant/casts/': typeof TenantCastsIndexRoute
   '/_tenant/customers/': typeof TenantCustomersIndexRoute
   '/_tenant/dies/': typeof TenantDiesIndexRoute
   '/_tenant/dispatch/': typeof TenantDispatchIndexRoute
@@ -1392,6 +1401,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/portal/'
     | '/bundles/'
+    | '/casts/'
     | '/customers/'
     | '/dies/'
     | '/dispatch/'
@@ -1532,6 +1542,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/portal'
     | '/bundles'
+    | '/casts'
     | '/customers'
     | '/dies'
     | '/dispatch'
@@ -1677,6 +1688,7 @@ export interface FileRouteTypes {
     | '/_platform/admin/'
     | '/_portal/portal/'
     | '/_tenant/bundles/'
+    | '/_tenant/casts/'
     | '/_tenant/customers/'
     | '/_tenant/dies/'
     | '/_tenant/dispatch/'
@@ -2049,6 +2061,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/customers/'
       preLoaderRoute: typeof TenantCustomersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/casts/': {
+      id: '/_tenant/casts/'
+      path: '/casts'
+      fullPath: '/casts/'
+      preLoaderRoute: typeof TenantCastsIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/bundles/': {
@@ -2921,6 +2940,7 @@ interface TenantRouteChildren {
   TenantStoreReceiveRoute: typeof TenantStoreReceiveRoute
   TenantVendorsIdRoute: typeof TenantVendorsIdRoute
   TenantBundlesIndexRoute: typeof TenantBundlesIndexRoute
+  TenantCastsIndexRoute: typeof TenantCastsIndexRoute
   TenantCustomersIndexRoute: typeof TenantCustomersIndexRoute
   TenantDiesIndexRoute: typeof TenantDiesIndexRoute
   TenantDispatchIndexRoute: typeof TenantDispatchIndexRoute
@@ -3028,6 +3048,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantStoreReceiveRoute: TenantStoreReceiveRoute,
   TenantVendorsIdRoute: TenantVendorsIdRoute,
   TenantBundlesIndexRoute: TenantBundlesIndexRoute,
+  TenantCastsIndexRoute: TenantCastsIndexRoute,
   TenantCustomersIndexRoute: TenantCustomersIndexRoute,
   TenantDiesIndexRoute: TenantDiesIndexRoute,
   TenantDispatchIndexRoute: TenantDispatchIndexRoute,

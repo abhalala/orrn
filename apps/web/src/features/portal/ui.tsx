@@ -2,6 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Skeleton } from "@orrn/ui/components/skeleton";
+import { intlTag } from "@/shared/lib/intl-tag";
 
 import { portalErrorKey } from "./model";
 
@@ -42,7 +43,7 @@ export function dateText(value: string | Date | null | undefined, locale: string
   if (!value) return "";
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", {
+  return new Intl.DateTimeFormat(intlTag(locale), {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -54,7 +55,7 @@ export function dateText(value: string | Date | null | undefined, locale: string
 /** A plain `YYYY-MM-DD` book date. */
 export function bookDate(value: string | null | undefined, locale: string): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value ?? "";
-  return new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric", numberingSystem: "latn", timeZone: "UTC" }).format(
+  return new Intl.DateTimeFormat(intlTag(locale), { day: "numeric", month: "short", year: "numeric", numberingSystem: "latn", timeZone: "UTC" }).format(
     new Date(`${value}T12:00:00Z`),
   );
 }

@@ -71,6 +71,16 @@ Open work only. History (milestones M0 to M9, the plant waves W0 to W4) is in gi
 | Settings gaps | `orderLeadDays` has no settings screen (set with `company.updateSettings`); stale copy in `settings.modules.portalEnabledHint` and `settings.team.portalBody` says the portal opens later; spool.retryJob must not mark a job queued when the spool call failed (verify). | base 7 |
 | Small verify list | Pack minors from T20 (tile wording with a draft, cut-length print rule, 820 yard tile wrap, override Feet / Inches labels, PackBar toast lift, sign-out clears `orrn.packDraft`) and die-room minors m-6 (dead approver check), m-8 (self-approval assertion, duplicate-guard race test), m-10 (issuer / creator names, signed image URLs in `die.get`): check on the merged head and delete the row if already done. | base 2, 18 |
 
+## Gujarati (later, dedicated translation agent)
+
+Owner decision O8 (2026-10-25): Gujarati is last priority; floor work comes first. Nothing here blocks the pilot in English and Hindi.
+
+- BACKLOG 87, loanwords: decide and apply one rule for Dispatch, Die, Bundle, Press in hi and gu script (today hi writes "प्रेस" but "Die", "Dispatch", "Bundle" in Latin; gu keeps all four in Latin). A sweep script and the gu wording of the namespaces below are drafted in `.fp-build/drafts/gu-later/` (`sweep.py`, not applied). The quoted names in guides must stay equal to the dictionary values, so sweep dictionaries and guides together.
+- BACKLOG 90, press board, press queue and the whole store: `press.title`, `press.board`, `press.queue`, `press.late`, `press.linesPage`, `press.lines`, `press.summary` and `store` (about 295 strings) are English in gu. Drafts: `.fp-build/drafts/gu-later/press.ts` and `store.ts` (`gu-more/*`, add to `mergeGu` and `GU_FLOOR_NAMESPACES`, extend `GuMessages`). The "Press" nav label stays English in gu until the loanword rule lands.
+- The Today sweep from the owner walk-through: the "Stock older than 90 days / 0 kg in the yard" card, "Show table", "7 waiting", the "Night" shift chip (hi and gu).
+- Any W4-GU leftovers in `.fp-build/reports/gu-review-list.md` and `gu-review-list-web.md` (the 12 word choices come first).
+- The native-speaker review of all of it, then flip `GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS` (owner step, see above).
+
 ## Later (Next and Later rows of the specs)
 
 - FP-DR-20 share a section drawing with a party (signed expiring link, revocable, audit row) - re-pass 48.

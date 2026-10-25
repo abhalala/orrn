@@ -64,19 +64,21 @@ async function blockingAxeViolations(page: Page) {
 }
 
 test.describe("phone (390)", () => {
-  test("tab bar has Today, Pack, Scan, Stock, Dispatch with Scan raised in the middle", async ({ page }) => {
+  test("tab bar has Today, Pack, Scan, Stock, Dispatch, More with Scan raised", async ({ page }) => {
     await open(page, { width: 390 });
     const nav = mainNav(page);
     await expect(nav).toBeVisible();
     const items = nav.locator("a, button");
-    await expect(items).toHaveCount(5);
+    await expect(items).toHaveCount(6);
     await expect(items.nth(0)).toHaveAccessibleName("Today");
     await expect(items.nth(1)).toHaveAccessibleName("Pack");
     await expect(items.nth(2)).toHaveAccessibleName("Scan");
     await expect(items.nth(3)).toHaveAccessibleName("Stock");
     await expect(items.nth(4)).toHaveAccessibleName("Dispatch");
-    // Scan is a button (it opens the scanner), everything else is a router link.
+    await expect(items.nth(5)).toHaveAccessibleName("More");
+    // Scan and More are buttons (the scanner, the More sheet), everything else is a router link.
     await expect(items.nth(2)).toHaveJSProperty("tagName", "BUTTON");
+    await expect(items.nth(5)).toHaveJSProperty("tagName", "BUTTON");
     await expect(nav.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
     // Every tab is a comfortable thumb target.
     for (const box of await items.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()))) {
@@ -100,6 +102,27 @@ test.describe("phone (390)", () => {
     await expect(page).toHaveURL(/\/dies$/);
     await expect(sheet).toBeHidden();
   });
+
+  // BACKLOG 92: Orders, Press and Approvals are one tap from the tab bar, not behind the avatar.
+  for (const [role, links] of [
+    ["owner", ["Orders", "Press", "Approvals", "Reports"]],
+    ["manager", ["Orders", "Press", "Approvals"]],
+    ["office", ["Orders", "Approvals"]],
+  ] as const) {
+    test(`the More tab opens the office pages a ${role} may use (375)`, async ({ page }) => {
+      await open(page, { role, width: 375 });
+      const more = mainNav(page).getByRole("button", { name: "More", exact: true });
+      await expect(more).toBeVisible();
+      await more.click();
+      const sheet = page.getByRole("dialog", { name: "More" });
+      await expect(sheet).toBeVisible();
+      for (const name of links) await expect(sheet.getByRole("link", { name })).toBeVisible();
+      await sheet.getByRole("link", { name: links[0] }).click();
+      await expect(page).toHaveURL(/\/orders/);
+      await expect(sheet).toBeHidden();
+      await expectNoHorizontalScroll(page);
+    });
+  }
 
   test("moving between tabs never reloads the page", async ({ page }) => {
     await open(page, { width: 390 });
@@ -268,6 +291,18 @@ test.describe("iPad and laptop", () => {
     expect(box?.width).toBeGreaterThan(200);
   });
 
+  test("1280x900: the owner's whole sidebar, Masters to Audit, fits without a scroll (BACKLOG 106)", async ({ page }) => {
+    await open(page, { width: 1280, height: 900 });
+    const nav = mainNav(page);
+    const scroller = await nav.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+    expect(scroller.scrollHeight).toBeLessThanOrEqual(scroller.clientHeight);
+    for (const name of ["Masters", "Guides", "Settings", "Audit"]) {
+      const link = nav.getByRole("link", { name });
+      await expect(link).toBeVisible();
+      await expect(link).toBeInViewport({ ratio: 1 });
+    }
+  });
+
   test("landmarks: header, labelled nav, main with one h1", async ({ page }) => {
     await open(page, { width: 1280 });
     await expect(page.locator("main#main")).toHaveCount(1);
@@ -379,6 +414,7 @@ test.describe("Godseye", () => {
     const nav = mainNav(page);
     await expect(nav.getByRole("link", { name: "Companies" })).toBeVisible();
     await expect(nav.getByRole("button", { name: "Scan" })).toHaveCount(0);
+    await expect(nav.getByRole("button", { name: "More", exact: true })).toBeVisible();
   });
 });
 

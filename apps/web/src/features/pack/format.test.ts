@@ -44,4 +44,12 @@ describe("packedWhen (day word or d MMM, 24h time, company timezone)", () => {
     expect(r.time).toBe("11:30");
     expect(r.date).toMatch(/^28 /);
   });
+
+  test("Gujarati has a Gujarati month, never the English one (BACKLOG 87)", () => {
+    const r = packedWhen(new Date("2026-09-28T06:00:00Z"), { now, timeZone: IST, locale: "gu" });
+    expect(r.time).toBe("11:30");
+    expect(r.date).toMatch(/^28 [\u0A80-\u0AFF]+$/);
+    expect(r.date).not.toContain("Sep");
+    expect(packedWhen(new Date("2025-12-31T06:00:00Z"), { now, timeZone: IST, locale: "gu" }).date).toMatch(/^31 [\u0A80-\u0AFF]+ 2025$/);
+  });
 });

@@ -3,11 +3,10 @@
  * on the company's calendar). Calendar dates (`YYYY-MM-DD` from the analytics API) are formatted
  * as they are; instants are first placed on the company's calendar.
  */
+import { intlTag } from "@/shared/lib/intl-tag";
+
 import { todayIn } from "./period";
 
-function tag(locale: string): string {
-  return locale === "hi" ? "hi-IN" : "en-IN";
-}
 
 /**
  * "1 Apr" / "1 Sep 2025", assembled from explicit format parts (day, month, year) joined by a plain
@@ -15,7 +14,7 @@ function tag(locale: string): string {
  * some CLDR releases), so the screen never relies on its separators or on the English "Sept" spelling.
  */
 function format(at: Date, locale: string, timeZone: string, withYear: boolean): string {
-  const parts = new Intl.DateTimeFormat(tag(locale), {
+  const parts = new Intl.DateTimeFormat(intlTag(locale), {
     day: "numeric",
     month: "short",
     ...(withYear ? { year: "numeric" } : {}),
@@ -23,7 +22,7 @@ function format(at: Date, locale: string, timeZone: string, withYear: boolean): 
     numberingSystem: "latn",
   }).formatToParts(at);
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  const month = locale === "hi" ? part("month") : part("month").replace(/^Sept$/, "Sep");
+  const month = locale === "hi" || locale === "gu" ? part("month") : part("month").replace(/^Sept$/, "Sep");
   return [part("day"), month, withYear ? part("year") : ""].filter(Boolean).join(" ");
 }
 

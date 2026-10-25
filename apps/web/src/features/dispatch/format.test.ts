@@ -16,6 +16,10 @@ describe("formatDay", () => {
   test("Hindi month names keep Latin digits", () => {
     expect(formatDay("2026-10-04T00:00:00Z", { now: NOW, locale: "hi" })).toMatch(/^4 \S+$/);
   });
+  test("Gujarati month names keep Latin digits", () => {
+    const s = formatDay("2026-10-04T00:00:00Z", { now: NOW, locale: "gu" });
+    expect(s).toMatch(/^4 [\u0A80-\u0AFF]+$/);
+  });
   test("no date is null", () => {
     expect(formatDay(null, { now: NOW })).toBeNull();
     expect(formatDay("not a date", { now: NOW })).toBeNull();

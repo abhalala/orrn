@@ -30,7 +30,7 @@ One password for all (`ORRN_LOCAL_PASSWORD`). Emails are `{key}@orrn.local`. Eve
 | --- | --- | --- |
 | `owner` | owner | Everything; decides every approval; the only one who sees all settings |
 | `admin` | admin | Settings, members, devices, backups |
-| `manager` | manager | Approvals queue (4 waiting), closes orders, decides reallocations and late entries |
+| `manager` | manager | Approvals queue (3 waiting), closes orders, decides reallocations and late entries |
 | `office` | office | Orders and the press plan board, packing lists, portal grants (raised SO-1..SO-10) |
 | `accountant` | accountant | Prices on orders, the scrap purchase book and D/C notes |
 | `supervisor` | supervisor | Press station: log runs, close, queue, the stock count (CNT-1) |
@@ -59,12 +59,15 @@ and 12230, patti 14715, flat 14730, angle 11280, tubes 15204 and 15310). Each ha
 have a heavier band (the ladder). Drift is computed by the server: green (up to +8 % over the band start),
 amber (up to +10 %), red. Examples: 13090-1 green, 13090-2 amber, 13090-3 red on the heavy band, 14701-2
 red (a lift to the heavier band is waiting for a manager), 11250-2 red and **at nitriding** (with its log),
-12212-2 **at the die maker** (job DM-1 open), 12230 **owned by KD** (Royal asked for 12230-1: waiting),
+12212-2 **at the die maker** (job DM-1 open), 12230 **owned by KD** (Tejura & Sons' exception on 12230-1 is approved; Royal is refused),
 13090-11..19 **on trial**.
 
 **Masters:** presses P1 and P2, furnace F1 (6 t, 127 mm), alloys 6063 and 6061 with their limits, three
 transporters (one inactive), six yards, the default reason codes, shifts Day 08-20 and Night 20-08,
-standards solid IS 733 / hollow IS 1285 (CM/L left blank for the plant).
+standards solid IS 733, hollow and semi hollow IS 1285 (CM/L left blank for the plant). **Settings the seed fills:**
+a letterhead (legal name "Fourcubes Extrusions Pvt. Ltd. (Demo)", a format-valid dummy GSTIN `24AAACF4821J1ZV`, address, phone) and a support
+contact (name, phone, hours), all dummy. **Die life** is set on five copies (13090-1, 13090-2, 13090-3, 12230-1, 14701-1).
+The **spectro inbox** holds the simulator's file only; the collectors e2e adds and removes its own files (`POST /dev/spectro-file`).
 
 ### Orders (10): every state, figures that add up
 
@@ -124,14 +127,15 @@ connected) reporting **no scale** (`scale_configured = false`). A build per nati
 tablet, one support request, one succeeded backup run. **Store:** five items (Grain refiner, Degasser tablets, Silicon metal,
 Container heater element, Hydraulic oil) with a GRN each and three issues (GRN-1..5, MRS-1..3). Scrap purchase: 8 vendors, 10 lots, one short lot with an approved D/C note.
 
-### Approvals waiting (4)
+### Approvals waiting (3)
 
-`order_reallocate` (SO-7 to SO-9), `die_rerank` (lift 14701-2), `die_owner_override` (Royal on KD's 12230-1),
-`press_late_entry` (PR-9). The requester never decides their own.
+`order_reallocate` (SO-7 to SO-9), `die_rerank` (lift 14701-2), `press_late_entry` (PR-9). The requester never
+decides their own. The `die_owner_override` for Tejura & Sons on KD's 12230-1 is already approved (not waiting).
+`dev-seed-demo-plant.test.ts` reads this heading and fails when the number drifts from the seed.
 
 ## A ten minute walk
 
-1. **Today** as `owner`: packed today (30 bundles), 1 dispatch, pressed today (3 runs, recovery, 58 min stopped).
+1. **Today** as `owner`: packed today (30 bundles), 1 dispatch, pressed today (3 runs, recovery, 80 min stopped: an 18 min stop on P1 and a 62 min breakdown on P2; the 62 is cut short when the seed runs early in the production day).
 2. **Orders:** SO-1 is late; open SO-7 (dispatching, baki), its pending move, then SO-8 (held, "Dispatch from order").
 3. **Press** as `supervisor`: P2 has PR-10 running; PR-9 waits for `manager`; log a run.
 4. **Die room** as `dieroom`: the Tee ladder, 11250-2 at nitriding, 12212-2 at the maker, 14701-2 proposal.

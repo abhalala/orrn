@@ -108,7 +108,7 @@ for (const width of WIDTHS) {
       await open(page, "/dies", { role: "dieroom", width });
       await expect(page.getByText("13090").first()).toBeVisible();
       // Tee: the worst of green, amber and red is red. Channel has one green copy and an owner.
-      await expect(page.getByText("Over band").first()).toBeVisible();
+      await expect(page.getByText("Above band").first()).toBeVisible();
       await expect(page.getByText("KD Extrusion").first()).toBeVisible();
       await expect(page.getByText("In band").first()).toBeVisible();
       await expectClean(page);

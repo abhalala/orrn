@@ -1,10 +1,10 @@
 /**
  * Dates for the Pack screens (spec §2: `d MMM`, the year only when it isn't
- * the current one, 24h times, in the company timezone when set). Digits stay
- * Latin in Hindi too.
+ * the current one, 24h times, in the company timezone when set). The month is
+ * in the screen language (en, hi, gu); digits stay Latin.
  */
 
-const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+import { dayMonth } from "@/shared/lib/intl-tag";
 
 export type PackedWhen = {
   /** `today` / `yesterday` read as words; `date` shows `date`. */
@@ -52,25 +52,11 @@ export function packedWhen(
   const today = zoned(opts.now ?? new Date(), opts.timeZone);
   const diff = dayDiff(p, today);
 
-  let dayMonth: string;
-  if (opts.locale === "hi") {
-    try {
-      dayMonth = new Intl.DateTimeFormat("hi-IN", {
-        day: "numeric",
-        month: "short",
-        timeZone: opts.timeZone,
-        numberingSystem: "latn",
-      }).format(date);
-    } catch {
-      dayMonth = `${p.d} ${MONTHS_EN[p.m - 1]}`;
-    }
-  } else {
-    dayMonth = `${p.d} ${MONTHS_EN[p.m - 1]}`;
-  }
+  const label = dayMonth(date, opts.locale, opts.timeZone);
 
   return {
     day: diff === 0 ? "today" : diff === 1 ? "yesterday" : "date",
-    date: p.y === today.y ? dayMonth : `${dayMonth} ${p.y}`,
+    date: p.y === today.y ? label : dayMonth(date, opts.locale, opts.timeZone, true),
     time: `${p.hh}:${p.mm}`,
   };
 }

@@ -10,6 +10,7 @@ import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { Can } from "@/shared/components/can";
+import { ymdLabel } from "@/shared/lib/intl-tag";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -25,7 +26,7 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
   const header = (
     <PageHeader
       title={t("press.summary.title")}
-      subtitle={data ? `${t("press.summary.day")} ${data.productionDay}` : undefined}
+      subtitle={data ? `${t("press.summary.day")} ${ymdLabel(data.productionDay, locale)}` : undefined}
       back={{ to: "/press", label: t("press.title") }}
       actions={
         <Can do="reports.read">
@@ -74,14 +75,14 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
           <StatusBlock
             tone="green"
             title={t("press.summary.pressedToday")}
-            meta={[t("press.summary.runs") + ": " + data.runs, data.trialRuns > 0 ? t("press.summary.trials", { kg: kgFromG(data.trialKgG) }) : null].filter(Boolean).join(" · ")}
+            meta={[t("press.summary.runs") + ": " + data.runs, t("press.summary.pieces") + ": " + data.pcs, data.trialRuns > 0 ? t("press.summary.trials", { kg: kgFromG(data.trialKgG) }) : null].filter(Boolean).join(" · ")}
             value={gToKg(data.kgG)}
             unit={t("units.kg")}
             format={formatKgTotal}
             countUp={false}
           />
-          <StatusBlock tone="blue" title={t("press.summary.recovery")} meta={t("press.summary.pieces") + ": " + data.pcs} value={data.recoveryBp == null ? "—" : Number(percentOfBp(data.recoveryBp))} unit={data.recoveryBp == null ? undefined : "%"} format={(n) => n.toFixed(1)} countUp={false} />
-          <StatusBlock tone="amber" title={t("press.summary.downtime")} meta={`${t("press.summary.scrap")}: ${kgFromG(data.scrapG)} ${t("units.kg")}`} value={data.downtimeMin} unit={t("units.min")} countUp={false} />
+          <StatusBlock tone="blue" title={t("press.summary.recovery")} meta={`${t("press.summary.scrap")}: ${kgFromG(data.scrapG)} ${t("units.kg")}`} value={data.recoveryBp == null ? "—" : Number(percentOfBp(data.recoveryBp))} unit={data.recoveryBp == null ? undefined : "%"} format={(n) => n.toFixed(1)} countUp={false} />
+          <StatusBlock tone="amber" title={t("press.summary.downtime")} value={data.downtimeMin} unit={t("units.min")} countUp={false} />
         </div>
       )}
 

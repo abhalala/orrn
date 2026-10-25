@@ -321,6 +321,59 @@ describe("stock", () => {
     // Phantoms are still in the yard: the count only reported them.
     for (const p of report.phantom) expect(p.status).toBe("available");
   });
+
+  test("seed gaps the owner saw are filled honestly (BACKLOG 86, 97)", async () => {
+    const row = await env.d1.prepare("select settings from company where id = ?").bind(company).first<{ settings: string }>();
+    const settings = JSON.parse(row!.settings) as {
+      letterhead: { legalName: string; gstin: string; address: string; phone: string };
+      support: { name: string; phone: string; hours: string };
+      standards: Record<string, { standard: string }>;
+    };
+    // Letterhead: legal name, a format-valid dummy GSTIN, address, phone.
+    expect(settings.letterhead.legalName).toContain("Fourcubes");
+    expect(settings.letterhead.gstin).toMatch(/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/);
+    expect(settings.letterhead.address).not.toBe("");
+    expect(settings.letterhead.phone).not.toBe("");
+    expect(settings.support).toMatchObject({ name: expect.any(String), phone: expect.any(String), hours: expect.any(String) });
+    // Standards: the semi hollow entry is set beside solid and hollow.
+    expect(Object.keys(settings.standards).sort()).toEqual(["hollow", "semi", "solid"]);
+    expect(settings.standards.semi!.standard).not.toBe("");
+    // Die life is set on more than one copy, so the die-life report is not a one-row page.
+    expect(await count("die_instance", "company_id = ? and life_g is not null")).toBeGreaterThanOrEqual(4);
+    // The spectro inbox holds the simulator's file only: no test fixtures in a plant the owner opens.
+    const inbox = await env.d1.prepare("select file_name, simulated from spectro_inbox where company_id = ?").bind(company).all<{ file_name: string; simulated: number }>();
+    expect(inbox.results).toEqual([{ file_name: "simulated-6063.csv", simulated: 1 }]);
+  });
+
+  test("docs/DEMO_PLANT.md states what the seed holds: approvals waiting and the downtime stops (BACKLOG 107, L18)", async () => {
+    const doc = await Bun.file(new URL("../../../docs/DEMO_PLANT.md", import.meta.url)).text();
+    const waiting = Number(/### Approvals waiting \((\d+)\)/.exec(doc)?.[1]);
+    expect(waiting).toBe(await count("approval", "company_id = ? and status = 'pending'"));
+    expect(Number(/Approvals queue \((\d+) waiting\)/.exec(doc)?.[1])).toBe(waiting);
+    // Downtime: P1's stop is fixed; P2's is 62 minutes, cut short when the seed runs early in the production day.
+    const stops = await env.d1
+      .prepare("select (stopped_at - started_at) / 60000 min from press_downtime where company_id = ? order by id")
+      .bind(company)
+      .all<{ min: number }>();
+    const [p1, p2] = stops.results.map((r) => Number(r.min));
+    expect(p1).toBe(18);
+    expect(p2).toBeLessThanOrEqual(62);
+    expect(doc).toContain(`${p1} min stop on P1`);
+    expect(doc).toContain("62 min breakdown on P2");
+  });
+
+  test("the first packing session stays BG-000001 (the scan and redirect specs open BG-000001-B001); the opening row takes a later number", async () => {
+    expect(await count("bundle", "company_id = ? and serial = 'BG-000001-B001'")).toBe(1);
+  });
+
+  test("the stock count tile 'still missing' counts CNT-1's two phantoms (owner walk-through M4, BACKLOG 95)", async () => {
+    const report = (await owner().count.get({ sessionId: "dev-count-1" })).report;
+    const phantomG = report.phantom.reduce((sum, p) => sum + Number(p.weightG ?? 0), 0);
+    expect(report.phantom).toHaveLength(2);
+    const summary = await owner().count.phantomSummary();
+    expect(summary.lastCount).toMatchObject({ number: "CNT-1", phantom: 2 });
+    expect(summary.open).toEqual({ bundles: 2, weightG: phantomG });
+  });
 });
 
 describe("the owned die, the store and the backup", () => {

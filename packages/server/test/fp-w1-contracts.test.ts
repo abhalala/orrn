@@ -265,7 +265,11 @@ describe("dev seed: Wave 1 masters (idempotent)", () => {
       ["Day", 1, 480, 1200],
       ["Night", 2, 1200, 480],
     ]);
-    expect(floor.standards).toEqual({ solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } });
+    expect(floor.standards).toEqual({
+      solid: { standard: "IS 733", cml: "" },
+      hollow: { standard: "IS 1285", cml: "" },
+      semi: { standard: "IS 1285", cml: "" },
+    });
     expect(co!.modules).toEqual([...COMPANY_MODULES]);
     expect((await env.db.select({ code: pressLine.code }).from(pressLine).where(eq(pressLine.companyId, companyId))).map((l) => l.code).sort()).toEqual(["P1", "P2"]);
     expect(await env.db.select().from(transporter).where(eq(transporter.companyId, companyId))).toHaveLength(3);

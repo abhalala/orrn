@@ -1,15 +1,16 @@
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { ScanLine } from "lucide-react";
+import { Ellipsis, ScanLine } from "lucide-react";
 
 import type { ShellVariant } from "./more-menu";
 import { isItemActive, type NavItem } from "./nav-items";
 
 /**
- * Phone bottom bar (< 768px): Today · Pack · Scan · Stock · Dispatch for a
- * company, the admin pages for Godseye. Scan is a raised green button in the
- * middle; the rest are router links. Always visible, like native tab bars
+ * Phone bottom bar (< 768px): Today · Pack · Scan · Stock · Dispatch · More for a
+ * company, the admin pages and More for Godseye. Scan is a raised green button in the
+ * middle; More (BACKLOG 92) opens the sheet with the office pages the person may use
+ * (Orders, Press, Approvals, Reports...) so they do not hide behind the avatar; the rest are router links. Always visible, like native tab bars
  * (ruling R23); screens' sticky action bars sit above it via
  * `--shell-tabbar-offset`.
  */
@@ -18,16 +19,19 @@ export function TabBar({
   pathname,
   variant,
   onScan,
+  onMore,
 }: {
   items: readonly NavItem[];
   pathname: string;
   variant: ShellVariant;
   /** Set when Scan is available (tenant, bundles module on). */
   onScan?: () => void;
+  /** Set when the person has pages beyond the tabs (role-aware, from `visibleItems`): opens the More sheet. */
+  onMore?: () => void;
 }) {
   const { t } = useT();
   const scanAt = onScan ? Math.floor(items.length / 2) : -1;
-  const slots = items.length + (onScan ? 1 : 0);
+  const slots = items.length + (onScan ? 1 : 0) + (onMore ? 1 : 0);
 
   const tabs = items.map((item) => {
     const active = isItemActive(item, pathname);
@@ -84,6 +88,25 @@ export function TabBar({
           <span className="max-w-full truncate text-[11px] leading-4 font-semibold text-foreground">
             {t("nav.scan")}
           </span>
+        </button>
+      </li>,
+    );
+  }
+
+  if (onMore) {
+    tabs.push(
+      <li key="more" className="min-w-0">
+        <button
+          type="button"
+          onClick={onMore}
+          aria-haspopup="dialog"
+          data-slot="tab-more"
+          className="group flex h-[62px] w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-card pt-1.5 pb-1 text-muted-foreground transition-[color,scale] duration-[var(--dur-fast)] hover:text-foreground active:scale-[0.97]"
+        >
+          <span aria-hidden="true" className="flex h-8 w-14 items-center justify-center rounded-full">
+            <Ellipsis className="size-[22px]" strokeWidth={2} />
+          </span>
+          <span className="max-w-full truncate px-0.5 text-[11px] leading-4 font-medium">{t("nav.more")}</span>
         </button>
       </li>,
     );
