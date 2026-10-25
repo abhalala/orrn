@@ -803,7 +803,8 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
       poNumbers: ["OLD-PO-9", "PO-778"],
       invoiceNumber: null,
       invoiceDate: null,
-      shipDate: null,
+      // BACKLOG 80: no ship date entered, so the day the load left (the same day the list and the detail show).
+      shipDate: "2026-10-03",
     });
     // Groups: section A's order line, then section A's unlinked bundles, then section B.
     expect(snap.groups.map((g) => [g.sectionCode, g.orderNumber, g.lineNo, g.rows.length])).toEqual([

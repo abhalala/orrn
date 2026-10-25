@@ -533,7 +533,7 @@ test.describe("dispatch: owner tour figures (BACKLOG 80, 85)", () => {
     await start(page, "owner");
     for (const [id, status] of [["dev-dispatch-held", "reserved"], ["dev-dispatch-done-2", "completed"]] as const) {
       await visit(page, `/dispatch/${id}`);
-      const code = (await page.getByRole("heading", { level: 1 }).innerText()).trim();
+      const code = (await hero(page).locator("#dispatch-title").innerText()).trim();
       const heroKg = (await page.getByTestId("dispatch-kg").innerText()).trim();
       const when = (await hero(page).locator("p", { hasText: /^(Ship|Dispatched) / }).first().innerText()).trim().replace(/^(Ship|Dispatched)\s+/, "");
       await visit(page, `/dispatch?q=${code}&status=${status}`);

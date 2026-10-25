@@ -98,14 +98,18 @@ for (const width of WIDTHS) {
 
     test("Today's press tile links its alert chip to the list", async ({ page }) => {
       await open(page, "/today", width, "press");
-      // The open chip and the page's Open tab are one number (BACKLOG 81).
-      const openChip = page.getByTestId("today-press-alerts-open");
-      await expect(openChip).toBeVisible();
-      const openCount = Number(/(\d+)\s*$/.exec((await openChip.innerText()).trim())?.[1]);
-      expect(openCount).toBeGreaterThan(0);
-      await openChip.click();
-      await expect(page).toHaveURL(/\/press\/alerts$/);
-      await expect(page.getByRole("radio", { name: new RegExp(`^Open \\(${openCount}\\)`) })).toBeVisible();
+      // The open chip and the page's Open tab are one number (BACKLOG 81). Other widths acknowledge their own
+      // alert in parallel, so both are read again together until they settle on the same count.
+      await expect(async () => {
+        await page.goto("/today");
+        const openChip = page.getByTestId("today-press-alerts-open");
+        await expect(openChip).toBeVisible({ timeout: 3_000 });
+        const openCount = Number(/(\d+)\s*$/.exec((await openChip.innerText()).trim())?.[1]);
+        expect(openCount).toBeGreaterThan(0);
+        await openChip.click();
+        await expect(page).toHaveURL(/\/press\/alerts$/);
+        await expect(page.getByRole("radio", { name: new RegExp(`^Open \\(${openCount}\\)`) })).toBeVisible({ timeout: 3_000 });
+      }).toPass({ timeout: 20_000 });
       await open(page, "/today", width, "press");
       const chip = page.getByTestId("today-press-alerts-today");
       await expect(chip).toBeVisible();
