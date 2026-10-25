@@ -16,10 +16,11 @@ import { toast } from "sonner";
 import { BundlesStep } from "@/features/pack/bundles-step";
 import { DieStep, type DieOption } from "@/features/pack/die-step";
 import { lengthUnitOf, type RangeState } from "@/features/pack/pack-ui";
+import { partyRange } from "@/features/pack/party";
 import { labelRun } from "@/features/pack/print-labels";
 import { ReviewStep } from "@/features/pack/review-step";
-import { saveErrorKind, type SaveErrorKind } from "@/features/pack/save-error";
-import { reachableStep, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
+import { ownerNameOf, saveErrorKind, type SaveErrorKind } from "@/features/pack/save-error";
+import { newSessionKey, reachableStep, receiptRequestKey, toReceiptInput, usePackDraft, type PackStep } from "@/features/pack/use-pack-draft";
 import { sessionPrintQueue, useCanPrintLabels } from "@/features/pack/use-print-labels";
 import { useYards, writeLastYard } from "@/features/pack/use-yards";
 import { can, useMe } from "@/shared/lib/me";
@@ -70,7 +71,7 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
   const yardCode = yards.yards.find((y) => y.id === draft.defaults.locationId)?.code ?? null;
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [saveError, setSaveError] = useState<SaveErrorKind | null>(null);
+  const [saveError, setSaveError] = useState<{ kind: SaveErrorKind; ownerName?: string | null } | null>(null);
   const [popped, setPopped] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
   const [showRestored, setShowRestored] = useState(restored);
@@ -130,13 +131,20 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
     const input = toReceiptInput(draft, unit, { yardIds: yards.yardIds });
     if (!input || create.isPending) return;
     setSaveError(null);
+    // BACKLOG 50: one key per save of these bundles, kept in the draft so a retry (or a reload after a
+    // lost reply) replays the first save on the server instead of packing the bundles twice.
+    const sessionKey = draft.sessionKey ?? newSessionKey();
+    if (!draft.sessionKey) update((d) => ({ ...d, sessionKey }));
     try {
-      const res = await create.mutateAsync(input);
+      const res = await create.mutateAsync({ ...input, clientRequestId: receiptRequestKey(sessionKey, input) });
       finish();
       if (input.locationId) writeLastYard(companyId, input.locationId);
       setPopped(true);
-      announce(t("pack.new.saved"));
-      toast.success(t("pack.new.saved"));
+      // The customer's own bundle numbers (FP-PK-07), shown at once: the label carries them.
+      const range = partyRange(res.bundles);
+      const partyText = range ? (range.from === range.to ? t("pack.partyNo1", { number: range.from }) : t("pack.partyNos", range)) : null;
+      announce(partyText ? `${t("pack.new.saved")}. ${partyText}` : t("pack.new.saved"));
+      toast.success(t("pack.new.saved"), partyText ? { description: partyText } : undefined);
       void queryClient.invalidateQueries({ queryKey: trpc.bundle.pathKey() });
       void queryClient.invalidateQueries({ queryKey: trpc.dashboard.pathKey() });
       if (canPrint) {
@@ -158,7 +166,7 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
       // A yard retired or removed since the yards loaded: fresh yards move the packer back to step 1
       // by themselves when the chosen yard is gone.
       if (kind === "yard") yards.retry();
-      setSaveError(kind);
+      setSaveError({ kind, ownerName: kind === "owned" ? ownerNameOf(error) : null });
     }
   };
 
@@ -207,7 +215,7 @@ function PackFlow({ companyId, userId, settings }: { companyId: string; userId: 
         </h2>
 
         {step === 0 ? (
-          <DieStep draft={draft} update={update} unit={unit} yards={yards} onNext={() => goTo(1)} />
+          <DieStep draft={draft} update={update} unit={unit} yards={yards} settings={settings} onNext={() => goTo(1)} />
         ) : yards.loading ? (
           <div aria-busy="true" className="flex flex-col gap-3">
             <Skeleton className="h-12 rounded-card" />

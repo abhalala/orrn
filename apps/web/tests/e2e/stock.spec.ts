@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
-import { toPlantStock } from "./helpers/plant-stock";
+import { packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 
 /**
@@ -519,10 +519,8 @@ test.describe("Bundle page", () => {
 
   test("Add to dispatch lists the dispatches being built and adds with one tap", async ({ page }) => {
     await open(page, "/stock/bundles", { width: 390 });
-    const list = await trpcQuery<{ items: BundleRow[] }>(page, "bundle.listBundles", { status: "available", limit: 40 });
-    const target = list.items[list.items.length - 2]!;
-    // Stock for no order is refused by the scan (D12); plant stock is not.
-    await toPlantStock([target.serial]);
+    // Packed as "Plant stock" (D20): the add paths take it; stock for no order would be refused (D12).
+    const [target] = await packPlantStock(page, 1);
     let code: string | null = null;
     try {
       await page.goto(`/b/${target.serial}`);

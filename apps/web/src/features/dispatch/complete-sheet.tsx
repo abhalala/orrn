@@ -1,11 +1,15 @@
 import { formatKgTotal, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Field } from "@orrn/ui/components/field";
+import { TextArea } from "@orrn/ui/components/input";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useEffect, useRef, useState } from "react";
 
+import type { CapacityReport } from "@/features/scan/scan-outcome";
 import { trpcClient } from "@/shared/utils/trpc";
 
+import { CapacityBanner } from "./capacity-banner";
 import { dispatchNow } from "./dispatch-now";
 import { dispatchErrorText } from "./errors";
 import { groupItems, type DispatchItem } from "./group-items";
@@ -19,6 +23,8 @@ type Props = {
   onDispatched(): void;
   /** A failed run may still have held the stock: refresh the screen. */
   onRefresh(): void;
+  /** The truck's load against its capacity; over it, Dispatch asks why (FP-PK-12). */
+  capacity?: CapacityReport | null;
 };
 
 /**
@@ -26,27 +32,43 @@ type Props = {
  * From Building it holds the stock first (the server only completes a held
  * dispatch), then dispatches; the packing list is written in the same step.
  */
-export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh }: Props) {
+export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh, capacity }: Props) {
   const { t } = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState(false);
+  const over = capacity?.state === "over";
   // Held by this sheet a moment ago: a retry after a failed complete must not hold twice
   // (the refreshed status may not be back yet).
   const heldHere = useRef({ held: false });
   useEffect(() => {
-    if (open) heldHere.current = { held: false };
+    if (open) {
+      heldHere.current = { held: false };
+      setReason("");
+      setReasonError(false);
+    }
   }, [open]);
   const groups = groupItems(items);
   const weightG = items.reduce((s, i) => s + i.weightG, 0);
   const kg = formatKgTotal(weightG / 1000);
 
   const confirm = async () => {
+    // Over the truck's capacity needs a reason; the server refuses without it and audits it.
+    if (over && !reason.trim()) {
+      setReasonError(true);
+      return;
+    }
     setBusy(true);
     setError(undefined);
     try {
       await dispatchNow(dispatch.status, heldHere.current, {
         reserve: () => trpcClient.dispatch.reserve.mutate({ id: dispatch.id }),
-        complete: () => trpcClient.dispatch.complete.mutate({ id: dispatch.id }),
+        complete: () =>
+          trpcClient.dispatch.complete.mutate({
+            id: dispatch.id,
+            ...(over ? { capacityOverrideReason: reason.trim() } : {}),
+          }),
       });
       onOpenChange(false);
       onDispatched();
@@ -95,6 +117,27 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             </li>
           ))}
         </ul>
+        <CapacityBanner capacity={capacity} />
+        {over ? (
+          <Field
+            id="capacity-reason"
+            label={t("dispatch.capacity.overReason")}
+            hint={t("dispatch.capacity.overReasonHint")}
+            error={reasonError ? t("dispatch.capacity.reasonRequired") : undefined}
+          >
+            <TextArea
+              id="capacity-reason"
+              value={reason}
+              onChangeText={(v) => {
+                setReason(v);
+                if (v.trim()) setReasonError(false);
+              }}
+              rows={2}
+              maxLength={500}
+              aria-invalid={reasonError ? true : undefined}
+            />
+          </Field>
+        ) : null}
         {error ? (
           <p role="alert" className="m-0 text-[15px] font-medium text-destructive">
             {error}

@@ -1,28 +1,41 @@
 import { formatKg, formatKgTotal, formatLength, gToKg, lengthFromInput, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
+import { Chip } from "@orrn/ui/components/chip";
 import { NumberInput, TextInput } from "@orrn/ui/components/field";
+import { TextArea } from "@orrn/ui/components/input";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, Pencil } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, Pencil, Scale } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import type { DieOption } from "./die-step";
-import { lengthToInput, parsePieces, parseWeightG } from "./pack-math";
 import {
-  Measure,
-  PackBar,
-  RangeChip,
-  bundleRange,
-  formatK12,
-  formatRangeKg,
-  useVerdictWord,
-  type RangeState,
-} from "./pack-ui";
+  bandText,
+  driftChipTone,
+  driftText,
+  kg12Text,
+  positionKey,
+  positionTone,
+  type LineVerdict,
+} from "./line-preview";
+import { lengthToInput, parsePieces, parseWeightG } from "./pack-math";
+import { Measure, PackBar, formatRangeKg, type RangeState } from "./pack-ui";
+import { RejectsPanel } from "./rejects-panel";
+import {
+  gramsToFieldText,
+  gramsToKgText,
+  typedWeightNeedsReason,
+  weightProvenance,
+  type ScaleView,
+} from "./scale-view";
+import { useLinePreview, useLinesPreview, useScale } from "./use-pack-server";
 import {
   MAX_BUNDLES,
   addBundle,
+  addReject,
   removeBundle,
+  removeReject,
   replaceBundle,
   type DraftBundle,
   type PackDraft,
@@ -68,7 +81,6 @@ export function BundlesStep({
   announce,
 }: Props) {
   const { t } = useT();
-  const verdictWord = useVerdictWord();
   const uid = useId();
   const weightRef = useRef<HTMLInputElement | null>(null);
   const piecesRef = useRef<HTMLInputElement | null>(null);
@@ -84,6 +96,14 @@ export function BundlesStep({
   const [po, setPo] = useState("");
   const [errors, setErrors] = useState<{ weight?: string; pieces?: string; length?: string }>({});
   const [popped, setPopped] = useState<number | null>(null);
+  // The scale (FP-PK-02): the steady weight fills the field; typing over it, or typing with the scale
+  // silent, asks a reason. `filledFrom` is the steady grams the field was filled with.
+  const scale = useScale(true);
+  const [filledFrom, setFilledFrom] = useState<number | null>(null);
+  const [armed, setArmed] = useState(true);
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState(false);
+  const reasonRef = useRef<HTMLTextAreaElement | null>(null);
 
   const defaultLength = draft.defaults.lengthMm;
   const full = editIndex === null && draft.bundles.length >= MAX_BUNDLES;
@@ -112,17 +132,53 @@ export function BundlesStep({
     setLen({ mm: "", feet: "", inches: "" });
     setPo("");
     setErrors({});
+    setFilledFrom(null);
+    setReason("");
+    setReasonError(false);
   };
+
+  // A steady weight fills an empty weight field (or one still holding the last scale fill). After a
+  // bundle is saved it waits for the scale to settle on something new, so the same bundle is never
+  // filled twice.
+  const stable = scale.view.state === "stable" ? scale.view.grams : null;
+  const latest = useRef({ weight, filledFrom });
+  latest.current = { weight, filledFrom };
+  useEffect(() => {
+    if (stable === null) {
+      setArmed(true);
+      return;
+    }
+    if (editIndex !== null || !armed) return;
+    const { weight: w, filledFrom: f } = latest.current;
+    const holdsScaleFill = f !== null && w === gramsToFieldText(f);
+    if (w.trim() !== "" && !holdsScaleFill) return;
+    setWeight(gramsToFieldText(stable));
+    setFilledFrom(stable);
+    setErrors((x) => (x.weight ? { ...x, weight: undefined } : x));
+  }, [stable, armed, editIndex]);
 
   const overrideLengthTyped = override && (len.mm.trim() || len.feet.trim() || len.inches.trim());
   const overrideLength = overrideLengthTyped ? lengthFromInput({ unit, ...len }) : null;
   const liveLength = overrideLength ?? defaultLength;
   const liveWeightG = parseWeightG(weight);
   const livePieces = parsePieces(pieces);
-  const live =
-    liveWeightG !== null && livePieces !== null
-      ? bundleRange({ weightG: liveWeightG, pieces: livePieces, lengthMm: liveLength }, die)
-      : null;
+  // The verdict is the server's (kg/12 ft, band position, drift): nothing is worked out on this screen.
+  const live = useLinePreview({
+    dieId: draft.dieId,
+    dieInstanceId: draft.defaults.dieInstanceId,
+    lengthMm: liveLength,
+    weightG: liveWeightG,
+    pieces: livePieces,
+  });
+  const viewState = scale.view;
+  const typedOverScale = liveWeightG !== null && !(filledFrom !== null && filledFrom === liveWeightG);
+  const askReason = typedWeightNeedsReason(viewState) && typedOverScale;
+  // Verdicts for the saved bundles, one call.
+  const saved = useLinesPreview(
+    draft.dieId,
+    draft.defaults.dieInstanceId,
+    draft.bundles.map((b) => ({ lengthMm: b.lengthMm ?? defaultLength, weightG: b.weightG, pcs: b.pieces })),
+  );
 
   /** Validates the card; returns the bundle or null (errors shown, focus on the first bad field). */
   const readCard = (): DraftBundle | null => {
@@ -132,23 +188,34 @@ export function BundlesStep({
     if (weightG === null) next.weight = t("pack.new.weightRequired");
     if (pcs === null) next.pieces = t("pack.new.piecesRequired");
     if (overrideLengthTyped && overrideLength === null) next.length = t("pack.new.cutLengthRequired");
+    // A typed weight with a scale connected says why (D12); the server asks again at save.
+    const typedNeedsWhy = weightG !== null && typedWeightNeedsReason(viewState) && !(filledFrom !== null && filledFrom === weightG);
+    if (typedNeedsWhy && !reason.trim()) {
+      setReasonError(true);
+      if (!next.weight && !next.pieces && !next.length) reasonRef.current?.focus();
+    } else setReasonError(false);
     setErrors(next);
     if (next.weight) weightRef.current?.focus();
     else if (next.pieces) piecesRef.current?.focus();
-    if (weightG === null || pcs === null || next.length) return null;
+    if (weightG === null || pcs === null || next.length || (typedNeedsWhy && !reason.trim())) return null;
     const ownPo = override ? po.trim() : "";
+    // Provenance is sent only when a scale is connected; without one every weight is typed.
+    const prov = typedWeightNeedsReason(viewState)
+      ? weightProvenance({ weightG, filledFromG: filledFrom, lastStableG: scale.lastStableG })
+      : null;
     return {
       weightG,
       pieces: pcs,
       ...(overrideLength !== null && overrideLength !== defaultLength ? { lengthMm: overrideLength } : {}),
       ...(ownPo && ownPo !== (draft.defaults.po ?? "") ? { po: ownPo } : {}),
+      ...(prov ? { weightSource: prov.weightSource, ...(prov.scaleReadingG ? { scaleReadingG: prov.scaleReadingG } : {}) } : {}),
+      ...(prov?.weightSource === "manual" && reason.trim() ? { weightOverrideReason: reason.trim() } : {}),
     };
   };
 
   const save = (): boolean => {
     const b = readCard();
     if (!b) return false;
-    const r = bundleRange({ ...b, lengthMm: b.lengthMm ?? defaultLength }, die);
     if (editIndex !== null) {
       update((d) => replaceBundle(d, editIndex, b));
       announce(t("pack.new.bundleUpdated", { n: editIndex + 1 }));
@@ -156,17 +223,14 @@ export function BundlesStep({
     } else {
       const n = draft.bundles.length + 1;
       update((d) => addBundle(d, b));
-      announce(
-        t("pack.new.bundleSaved", {
-          n,
-          kg: formatKg(gToKg(b.weightG)),
-          pieces: b.pieces,
-          status: verdictWord(r.verdict, rangeState),
-        }),
-      );
+      // The saved sentence names the server's verdict for this bundle when it is on screen.
+      const word = live.verdict && positionKey(live.verdict.position) ? t(positionKey(live.verdict.position)!) : t("status.range.noRange");
+      announce(t("pack.new.bundleSaved", { n, kg: formatKg(gToKg(b.weightG)), pieces: b.pieces, status: word }));
       setPopped(n - 1);
     }
     resetCard();
+    // The bundle stays on the scale for a moment: wait for the next steady weight.
+    setArmed(false);
     focusWeight();
     return true;
   };
@@ -218,6 +282,9 @@ export function BundlesStep({
     setLen(lengthToInput(b.lengthMm ?? 0, unit));
     setPo(b.po ?? "");
     setErrors({});
+    setFilledFrom(b.weightSource === "scale" ? (b.scaleReadingG ?? null) : null);
+    setReason(b.weightOverrideReason ?? "");
+    setReasonError(false);
     requestAnimationFrame(focusWeight);
   };
 
@@ -241,6 +308,7 @@ export function BundlesStep({
     (acc, b) => ({ pieces: acc.pieces + b.pieces, weightG: acc.weightG + b.weightG }),
     { pieces: 0, weightG: 0 },
   );
+  const rejectPcs = (draft.rejects ?? []).reduce((s, r) => s + r.pcs, 0);
   const cardNumber = editIndex !== null ? editIndex + 1 : draft.bundles.length + 1;
   const overrideId = `${uid}-override`;
 
@@ -282,8 +350,7 @@ export function BundlesStep({
                   bundle={b}
                   unit={unit}
                   defaultLength={defaultLength}
-                  die={die}
-                  rangeState={rangeState}
+                  verdict={saved.verdicts[i] ?? null}
                   editing={editIndex === i}
                   popped={popped === i}
                   onEdit={() => startEdit(i)}
@@ -356,13 +423,35 @@ export function BundlesStep({
               enterKeyHint="next"
             />
             <LiveReadout
-              k={live?.k ?? null}
-              verdict={live?.verdict ?? null}
+              verdict={live.verdict}
+              loading={live.loading}
               rangeState={rangeState}
               die={die}
+              copyCode={null}
               className="col-span-2 md:col-span-1"
             />
           </div>
+
+          <ScaleStrip
+            view={viewState}
+            weightText={weight}
+            onUse={(grams) => {
+              setWeight(gramsToFieldText(grams));
+              setFilledFrom(grams);
+              setErrors((x) => ({ ...x, weight: undefined }));
+              setReasonError(false);
+            }}
+            filledFrom={filledFrom}
+            typed={askReason}
+            reason={reason}
+            reasonError={reasonError}
+            reasonRef={reasonRef}
+            onReason={(v) => {
+              setReason(v);
+              if (v.trim()) setReasonError(false);
+            }}
+            uid={uid}
+          />
 
           <div className="flex flex-col gap-3">
             <button
@@ -419,6 +508,15 @@ export function BundlesStep({
         </form>
       )}
 
+      <RejectsPanel
+        rejects={draft.rejects ?? []}
+        onAdd={(r) => {
+          update((d) => addReject(d, r));
+          announce(t("pack.reject.added", { count: r.pcs }));
+        }}
+        onRemove={(i) => update((d) => removeReject(d, i))}
+      />
+
       <PackBar
         summary={
           <div className="flex min-w-0 flex-col">
@@ -431,6 +529,7 @@ export function BundlesStep({
               </span>
               <Measure value={totals.pieces.toLocaleString("en-IN")} unit={t("units.pcs")} />
               <Measure value={formatKgTotal(gToKg(totals.weightG))} unit={t("units.kg")} />
+              {rejectPcs > 0 ? <Measure value={rejectPcs.toLocaleString("en-IN")} unit={t("pack.reject.unit")} /> : null}
             </span>
           </div>
         }
@@ -499,37 +598,47 @@ function BigNumberField({
 }
 
 /**
- * The card's one loud element: kg/12ft as it is typed, the colour IS the
- * verdict (green in range, amber outside it) and the word says it too.
- * Quiet until both weight and pieces read as numbers. Not a live region:
- * the verdict is announced once, when the bundle is saved.
+ * The card's one loud element: kg/12ft as it is typed, worked out by the server (`bundle.previewLine`).
+ * The colour IS the band position (green in the die's band, amber outside) and the word says it too;
+ * the drift chip is the percent against the band start. Quiet until weight and pieces read as
+ * numbers. Not a live region: the verdict is announced once, when the bundle is saved.
  */
 function LiveReadout({
-  k,
   verdict,
+  loading,
   rangeState,
   die,
+  copyCode,
   className,
 }: {
-  k: number | null;
-  verdict: "in" | "below" | "above" | null;
+  verdict: LineVerdict | null;
+  loading: boolean;
   rangeState: RangeState;
   die: DieOption | null;
+  copyCode: string | null;
   className?: string;
 }) {
   const { t } = useT();
-  const verdictWord = useVerdictWord();
-  const range = die
-    ? t("pack.new.liveRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })
-    : null;
-  const tone = k === null ? "idle" : verdict === "in" ? "green" : verdict ? "amber" : "neutral";
-  const Icon = verdict === "in" ? CheckCircle2 : AlertTriangle;
+  const key = verdict ? positionKey(verdict.position) : null;
+  const tone = verdict === null ? "idle" : verdict.position === "in" ? "green" : verdict.position ? "amber" : "neutral";
+  const Icon = verdict?.position === "in" ? CheckCircle2 : AlertTriangle;
+  const chip = verdict ? driftChipTone(verdict.driftTone) : null;
+  const drift = verdict ? driftText(verdict.driftPercentTenths) : null;
+  // The copy's band when the bundle names a copy, else the section's; the die range text until the server answers.
+  const range = verdict?.band
+    ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band) })
+    : die
+      ? t("pack.new.liveRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })
+      : null;
+  void copyCode;
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
       <span className="text-[14px] font-semibold leading-5">{t("units.kgPer12ft")}</span>
       <div
         data-slot="live-k12"
         data-tone={tone}
+        data-verdict={verdict ? (verdict.position ?? "none") : undefined}
+        data-loading={loading || undefined}
         className={cn(
           "flex min-h-16 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-input px-4 py-2 transition-colors duration-[var(--dur-base)]",
           tone === "idle" && "bg-surface-sunken text-muted-foreground",
@@ -540,22 +649,121 @@ function LiveReadout({
             "bg-[linear-gradient(160deg,var(--tone-amber-from),var(--tone-amber-to))] text-tone-amber-on shadow-block",
         )}
       >
-        {k === null ? (
-          <span className="text-[13px] leading-5 font-medium">{t("pack.new.liveIncomplete")}</span>
+        {verdict === null ? (
+          <span className="text-[13px] leading-5 font-medium">
+            {rangeState === "failed" ? t("pack.new.rangeUnknown") : t("pack.new.liveIncomplete")}
+          </span>
         ) : (
           <>
-            <span data-no-truncate="" className="font-mono text-[28px] font-semibold tracking-[-0.02em] tabular-nums">
-              {formatK12(k)}
+            <span data-no-truncate="" data-testid="live-k12-value" className="font-mono text-[28px] font-semibold tracking-[-0.02em] tabular-nums">
+              {kg12Text(verdict.kgPer12ftMilli) ?? ""}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[14px] font-bold">
-              {verdict ? <Icon aria-hidden="true" strokeWidth={2} className="size-[18px]" /> : null}
-              {verdictWord(verdict, rangeState)}
+              {key ? <Icon aria-hidden="true" strokeWidth={2} className="size-[18px]" /> : null}
+              {key ? t(key) : t("status.range.noRange")}
             </span>
           </>
         )}
       </div>
+      {verdict && chip && drift ? (
+        <p className="m-0 flex flex-wrap items-center gap-2 text-[13px] leading-5 text-muted-foreground" data-slot="drift">
+          <Chip tone={chip} data-testid="drift-chip" data-drift-tone={verdict.driftTone}>
+            {t("pack.new.drift", { percent: drift })}
+          </Chip>
+          <span>{t("pack.new.driftBasis")}</span>
+        </p>
+      ) : null}
       {range ? (
         <span className="text-[13px] leading-5 font-medium text-muted-foreground tabular-nums">{range}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The scale line under the weight: what the scale says, a button to take a steady weight, and (when
+ * a scale is connected and the weight was typed) why it was typed.
+ */
+function ScaleStrip({
+  view,
+  weightText,
+  onUse,
+  filledFrom,
+  typed,
+  reason,
+  reasonError,
+  reasonRef,
+  onReason,
+  uid,
+}: {
+  view: ScaleView;
+  weightText: string;
+  onUse(grams: number): void;
+  filledFrom: number | null;
+  typed: boolean;
+  reason: string;
+  reasonError: boolean;
+  reasonRef: React.RefObject<HTMLTextAreaElement | null>;
+  onReason(v: string): void;
+  uid: string;
+}) {
+  const { t } = useT();
+  if (view.state === "off") return null;
+  const usingScale = view.state === "stable" && filledFrom === view.grams && weightText === gramsToFieldText(view.grams);
+  const chip =
+    view.state === "stable" ? (
+      <Chip tone="green" data-testid="scale-chip" data-scale="stable">
+        {t("pack.scale.stable")} {gramsToKgText(view.grams)} {t("units.kg")}
+      </Chip>
+    ) : view.state === "waiting" ? (
+      <Chip tone="amber" data-testid="scale-chip" data-scale="waiting">
+        {t("pack.scale.waiting")}
+      </Chip>
+    ) : (
+      <Chip tone="amber" data-testid="scale-chip" data-scale="silent">
+        {t("pack.scale.stale")}
+      </Chip>
+    );
+  const reasonId = `${uid}-why`;
+  return (
+    <div data-slot="scale-strip" className="flex flex-col gap-3 rounded-input bg-surface-sunken p-3 sm:p-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="inline-flex items-center gap-2 text-[14px] font-semibold">
+          <Scale aria-hidden="true" className="size-4" strokeWidth={2} />
+          {t("pack.scale.title")}
+          {view.simulated ? <span className="text-[12px] font-medium text-muted-foreground">{t("pack.scale.simulated")}</span> : null}
+        </span>
+        <span aria-live="polite">{chip}</span>
+        {view.state === "stable" && !usingScale ? (
+          <Button variant="secondary" onClick={() => onUse(view.grams)} data-testid="use-scale">
+            {t("pack.scale.useScale")}
+          </Button>
+        ) : null}
+        {usingScale ? <span className="text-[13px] text-muted-foreground">{t("pack.scale.fromScale")}</span> : null}
+      </div>
+      {typed ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={reasonId} className="text-[14px] font-semibold leading-5">
+            {t("pack.scale.typedReason")}
+          </label>
+          <TextArea
+            id={reasonId}
+            ref={reasonRef}
+            value={reason}
+            onChangeText={onReason}
+            rows={2}
+            maxLength={500}
+            aria-invalid={reasonError ? true : undefined}
+            aria-describedby={reasonError ? `${reasonId}-error` : undefined}
+            placeholder={t("pack.scale.typedReasonHint")}
+          />
+          {reasonError ? (
+            <p id={`${reasonId}-error`} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+              <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
+              {t("pack.scale.reasonRequired")}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -633,8 +841,7 @@ function SavedRow({
   bundle,
   unit,
   defaultLength,
-  die,
-  rangeState,
+  verdict,
   editing,
   popped,
   onEdit,
@@ -643,15 +850,13 @@ function SavedRow({
   bundle: DraftBundle;
   unit: LengthUnit;
   defaultLength: number;
-  die: DieOption | null;
-  rangeState: RangeState;
+  verdict: LineVerdict | null;
   editing: boolean;
   popped: boolean;
   onEdit(): void;
 }) {
   const { t } = useT();
   const lengthMm = bundle.lengthMm ?? defaultLength;
-  const { k, verdict } = bundleRange({ ...bundle, lengthMm }, die);
   return (
     <button
       type="button"
@@ -680,13 +885,30 @@ function SavedRow({
             {t("pack.new.poValue", { po: bundle.po })}
           </span>
         ) : null}
-        {k !== null ? <Measure value={formatK12(k)} unit={t("units.kgPer12ft")} className="text-[14px]" /> : null}
+        {verdict?.kgPer12ftMilli != null ? (
+          <Measure value={kg12Text(verdict.kgPer12ftMilli) ?? ""} unit={t("units.kgPer12ft")} className="text-[14px]" />
+        ) : null}
+        {bundle.weightSource === "manual" && bundle.weightOverrideReason ? (
+          <span className="text-[13px] text-muted-foreground">{t("pack.scale.typed")}</span>
+        ) : null}
       </span>
       <span className="flex items-center gap-2">
-        <RangeChip verdict={verdict} state={rangeState} />
+        <VerdictChip verdict={verdict} />
         <Pencil aria-hidden="true" strokeWidth={2} className="hidden size-4 text-muted-foreground sm:block" />
       </span>
     </button>
+  );
+}
+
+/** The server's band position as a chip ("In range" / "Below range" / "Above range" / "No range set"). */
+export function VerdictChip({ verdict, className }: { verdict: { position: LineVerdict["position"] } | null; className?: string }) {
+  const { t } = useT();
+  if (!verdict) return <Skeleton aria-hidden="true" className={cn("inline-block h-6 w-20 rounded-full", className)} />;
+  const key = positionKey(verdict.position);
+  return (
+    <Chip tone={positionTone(verdict.position)} className={className} data-verdict={verdict.position ?? "none"}>
+      {key ? t(key) : t("status.range.noRange")}
+    </Chip>
   );
 }
 

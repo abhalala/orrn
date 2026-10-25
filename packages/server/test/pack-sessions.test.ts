@@ -94,7 +94,8 @@ describe("pack session totals leave void bundles out (RP11)", () => {
     const created = await operator.bundle.createReceipt({ dieId, unit: "inch", rows: [heavy, heavy, row] });
     const before = await operator.bundle.getGroup({ id: created.groupId });
     const voided = before.bundles.find((b) => b.weightG === 52_400)!;
-    await operator.bundle.transitionStatus({ id: voided.id, toStatus: "void", reason: "Weighed twice" });
+    // BACKLOG 51: the supervisor voids (the floor operator no longer holds bundle.void).
+    await env.caller({ role: "supervisor", companyId }).bundle.transitionStatus({ id: voided.id, toStatus: "void", reason: "Weighed twice" });
 
     const list = await operator.bundle.listGroups({ limit: 10, offset: 0 });
     const item = list.items.find((i) => i.id === created.groupId)!;

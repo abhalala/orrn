@@ -136,8 +136,8 @@ describe("copy rules", () => {
   test("no ALL-CAPS words except known acronyms (English, and Latin text inside Hindi)", () => {
     // HV (hardness), CR4/CR2/K2S (nitriding chemicals), FTR, CDR/DWG (die drawing files) and MB (file size) are
     // what the die room writes on its cards (FP-DR).
-    // CM (BIS CM/L licence) and PVD (a finish) are what the plant writes on paper (FP Wave 1).
-    const allowed = new Set(["PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001", "WB", "UB", "GRN", "MRS", "CM", "PVD", "HV", "CR4", "CR2", "K2S", "FTR", "CDR", "DWG", "MB"]);
+    // CM (BIS CM/L licence) and PVD (a finish) are what the plant writes on paper (FP Wave 1); A4 is the sticker sheet's paper.
+    const allowed = new Set(["A4", "PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001", "WB", "UB", "GRN", "MRS", "CM", "PVD", "HV", "CR4", "CR2", "K2S", "FTR", "CDR", "DWG", "MB"]);
     const offenders = all.flatMap((s) =>
       [...s.matchAll(/\b[A-Z][A-Z0-9]+\b/g)].map((m) => m[0]).filter((w) => !allowed.has(w)),
     );

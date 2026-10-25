@@ -1,4 +1,4 @@
-import { MM_PER_INCH, kgPer12ft, kgToG, parseDecimal, weightRange12ft, type LengthUnit } from "@orrn/domain";
+import { MM_PER_INCH, kgToG, parseDecimal, type LengthUnit } from "@orrn/domain";
 
 /**
  * Packing maths for the Pack screens. Weights are typed in kg and stored in
@@ -21,51 +21,6 @@ export function parseWeightG(text: string): number | null {
 export function parsePieces(text: string): number | null {
   const n = parseDecimal(text);
   if (n === null || !Number.isInteger(n) || n < 1 || n > MAX_PIECES) return null;
-  return n;
-}
-
-/** kg per 12 ft for one bundle, or null without pieces or length. */
-export function bundleKgPer12ft(b: { weightG: number; pieces: number; lengthMm: number }): number | null {
-  return kgPer12ft({ weightG: b.weightG, pieces: b.pieces, lengthMm: b.lengthMm });
-}
-
-export type RangeVerdict = "in" | "below" | "above";
-
-/**
- * Where a bundle sits against its die's weight range (kg / 12 ft, stored as
- * grams on the die, spec Q1). Compares the plant's billed band
- * (`weightRange12ft`, the "Weight range /12'" printed on the packing list),
- * so a bundle is amber only when it would bill outside the die's range.
- * Null when the die has no usable range.
- */
-export function rangeVerdict(kg12ft: number, die: { weightMinG: number; weightMaxG: number }): RangeVerdict | null {
-  const min = die.weightMinG / 1000;
-  const max = die.weightMaxG / 1000;
-  if (!Number.isFinite(kg12ft) || !(min > 0) || !(max > 0) || min > max) return null;
-  const band = weightRange12ft(kg12ft);
-  const EPS = 1e-6;
-  if (band < min - EPS) return "below";
-  if (band > max + EPS) return "above";
-  return "in";
-}
-
-/**
- * Bundles of a saved session whose billed band falls outside the die's range
- * (the session page's "N outside range" chip). Void bundles are out of the
- * session's figures (RP11) and are not counted.
- */
-export function countOutsideRange(
-  bundles: readonly { weightG: number; quantity: number; lengthMm: number; status: string }[],
-  die: { weightMinG: number; weightMaxG: number } | null | undefined,
-): number {
-  if (!die) return 0;
-  let n = 0;
-  for (const b of bundles) {
-    if (b.status === "void") continue;
-    const k = bundleKgPer12ft({ weightG: b.weightG, pieces: b.quantity, lengthMm: b.lengthMm });
-    const verdict = k === null ? null : rangeVerdict(k, die);
-    if (verdict === "below" || verdict === "above") n++;
-  }
   return n;
 }
 

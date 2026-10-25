@@ -163,7 +163,7 @@ test.describe("pack", () => {
     // Review and save, still keyboard only.
     await tabTo(page, page.getByRole("button", { name: "Review", exact: true }));
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { level: 2, name: "Review and save" })).toBeFocused();
+    await expect(page.getByRole("heading", { level: 2, name: "Review" })).toBeFocused();
     await expect(page.locator("[data-slot='pack-totals']")).toContainText("40");
     await expect(page.getByText("1 bundle is outside the die's range. Check it before saving.")).toBeVisible();
     await tabTo(page, page.getByRole("button", { name: "Save session" }));
@@ -312,13 +312,13 @@ test.describe("pack", () => {
     await expect(savedRows(page)).toHaveCount(1);
     await page.getByRole("link", { name: "Pack", exact: true }).first().click();
     await expect(page.locator("[data-slot='pack-draft']")).toContainText("Not saved");
-    await page.getByRole("link", { name: "Continue session" }).click();
+    await page.getByRole("link", { name: "Continue session", exact: true }).click();
     await expect(savedRows(page)).toHaveCount(1);
 
     // Discard asks first, then clears.
     await page.getByRole("button", { name: "Discard unsaved bundles" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Discard" }).click();
-    await expect(page.getByRole("heading", { level: 2, name: "Die and defaults" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Source" })).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem("orrn.packDraft"))).toBeNull();
   });
 
@@ -410,7 +410,7 @@ test.describe("pack", () => {
     await page.keyboard.type("11");
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Inches", { exact: true })).toBeFocused();
-    await expect(page.getByRole("heading", { level: 2, name: "Die and defaults" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Source" })).toBeVisible();
     await page.keyboard.type("6");
     await page.keyboard.press("Tab");
     await expect(yardTile(page, "Y1")).toBeFocused();
@@ -428,7 +428,7 @@ test.describe("pack", () => {
     await expect(page.locator("[data-slot='pack-totals']")).toBeVisible();
     await page.route("**/trpc/bundle.createReceipt*", (route) => route.abort("failed"));
     await page.getByRole("button", { name: "Save session" }).click();
-    const alert = page.getByRole("alert").filter({ hasText: "couldn't tell if the session saved" });
+    const alert = page.getByRole("alert").filter({ hasText: "didn't confirm the save" });
     await expect(alert).toBeInViewport({ ratio: 1 });
     const bar = page.locator("[data-slot='pack-bar']");
     const [a, b] = [await alert.boundingBox(), await bar.boundingBox()];

@@ -156,7 +156,7 @@ function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) 
     // The loader just fetched it; refetch when an action invalidates it.
     staleTime: 30_000,
   });
-  const { bundle, die, group, activeDispatch, events } = query.data;
+  const { bundle, die, group, activeDispatch, events, band, range12ft, location, dieCopy, cast, order, packedFor } = query.data;
   const timeline = useMemo(() => buildTimeline(events, bundle), [events, bundle]);
   const section = die ? [die.series, die.sectionCode].filter(Boolean).join(" ") : null;
 
@@ -184,6 +184,13 @@ function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) 
           bundle={bundle}
           die={die}
           group={group}
+          band={band}
+          range12ft={range12ft}
+          location={location}
+          dieCopy={dieCopy}
+          cast={cast}
+          order={order}
+          packedFor={packedFor}
           lengthUnit={lu.unit}
           packedAt={when(bundle.createdAt)}
         />

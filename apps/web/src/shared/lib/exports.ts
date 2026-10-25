@@ -31,3 +31,32 @@ export async function downloadPackingListXlsx(pl: PackingListSnapshot, code: str
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * Print the packing list from the browser: the same HTML the native print uses, in a hidden frame so
+ * no popup is needed. The HTML builder loads on click like the other exports.
+ */
+export async function printPackingList(pl: PackingListSnapshot, code: string, opts: ExportOptions = {}) {
+  const { buildPackingListHtml } = await import("@orrn/documents/packing-list");
+  const html = buildPackingListHtml(pl, code, undefined, opts);
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  document.body.appendChild(frame);
+  const done = new Promise<void>((resolve) => {
+    frame.onload = () => {
+      try {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      } finally {
+        // The print dialog is modal in most browsers; remove the frame once it is gone.
+        setTimeout(() => {
+          frame.remove();
+          resolve();
+        }, 1000);
+      }
+    };
+  });
+  frame.srcdoc = html;
+  await done;
+}

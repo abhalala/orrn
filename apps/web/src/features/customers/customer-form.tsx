@@ -24,6 +24,9 @@ export type StoredCustomer = {
   notes: string | null;
   billingAddress: Record<string, unknown> | null;
   shippingAddress: Record<string, unknown> | null;
+  /** The customer's own bundle numbers (FP-PK-07): null = the plant serial. */
+  bundleNumberPolicy?: "monthly" | "fy" | "lifelong" | null;
+  kgToleranceBp?: number | null;
 };
 
 type Draft = {

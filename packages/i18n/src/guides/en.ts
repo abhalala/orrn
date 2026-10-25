@@ -584,9 +584,9 @@ export const guidesEn: GuideBook = {
 
   "stock-count": {
     slug: "stock-count",
-    roles: ["owner", "admin", "manager", "supervisor"],
+    roles: ["owner", "admin", "manager", "supervisor", "office", "packer", "operator"],
     title: "Count the stock",
-    when: "Use this for the quarterly physical count, when every bundle in the yard is checked against what orrn holds.",
+    when: "Use this for a physical count: every bundle in the yard is checked against what orrn holds, yard by yard.",
     steps: [
       {
         title: "Stop packing and dispatch",
@@ -594,24 +594,24 @@ export const guidesEn: GuideBook = {
         body: "Tell the packers and the dispatch team to stop before the count starts. A bundle packed or sent out during the count will show as a mistake.",
       },
       {
-        title: "Take a fresh stock list",
-        body: "Ask the office to load today's stock list into the Stock Count tool on the office computer. orrn has no count screen yet, so the count runs in that tool and it never changes your stock.",
+        title: "Start the count",
+        body: "Open Stock, then \"Stock count\". Tick the yards you will count and press \"Start a count\". A count over every yard also checks bundles that have no yard.",
       },
       {
         title: "Scan every bundle",
-        body: "Walk the yard location by location. Scan each bundle's QR label. You can also type the printed bundle number. The tool tells you the result with a colour and a beep.",
+        body: "Pick the yard you are standing in, then scan each bundle's QR label. You can also type the printed bundle number, or press \"Paste codes\" to count a whole list. orrn answers each code at once.",
       },
       {
-        title: "Read the colours",
-        body: "Green means counted. Amber means you already scanned it. Red means the bundle is not in the stock list. Leave red and amber bundles where they are and note them.",
+        title: "Read the answers",
+        body: "Here means orrn agrees. Moved, Elsewhere and Not in stock mean orrn holds the bundle somewhere else or not at all. Unknown code means orrn has never seen that number. Leave those bundles where they are and note them.",
       },
       {
         title: "Chase what's missing",
-        body: "When the yard is done, open the list of bundles not found yet. Look again in the nearby locations before you give up on a bundle.",
+        body: "Before you close, the missing list shows every bundle orrn has in your yards that nobody scanned. Look again in the nearby yards before you give up on a bundle.",
       },
       {
-        title: "Save the result",
-        body: "Export the result as a CSV file and give it to the manager. Fix the differences in orrn only after the manager has agreed them. Then restart packing and dispatch.",
+        title: "Close and read the report",
+        body: "Press \"Close count\". The report shows what is missing, what was found out of place, and the difference by yard and by section. Closing does not change the stock: a manager decides what to void.",
       },
     ],
     problems: [
@@ -625,7 +625,7 @@ export const guidesEn: GuideBook = {
       },
       {
         title: "The count was interrupted",
-        fix: "The tool keeps your scans on that computer for the same stock list. Open it again on the same browser and carry on.",
+        fix: "Your scans stay in the count. Open it again from the list of counts in progress and carry on.",
       },
     ],
   },

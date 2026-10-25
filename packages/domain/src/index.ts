@@ -13,3 +13,4 @@ export * from "./shifts";
 export * from "./reasonCodes";
 export * from "./settings";
 export * from "./distribution";
+export * from "./labelContract";

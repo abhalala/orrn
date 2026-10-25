@@ -97,16 +97,6 @@ export function filterSections(rows: readonly SectionStock[], query: string): Se
   });
 }
 
-export function sectionTotals(rows: readonly SectionStock[]): {
-  available: StockAmount;
-  held: StockAmount;
-  sections: number;
-} {
-  const sum = (pick: (s: SectionStock) => StockAmount): StockAmount =>
-    rows.reduce((t, s) => ({ bundles: t.bundles + pick(s).bundles, weightG: t.weightG + pick(s).weightG }), NONE);
-  return { available: sum((s) => s.available), held: sum((s) => s.held), sections: rows.length };
-}
-
 export type SectionHeadline = {
   /** In stock: free bundles. Held: every bundle on the floor is reserved. None: nothing on the floor. */
   state: "inStock" | "held" | "none";
