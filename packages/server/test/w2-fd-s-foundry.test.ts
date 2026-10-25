@@ -361,6 +361,23 @@ describe("FD-14/15 cast close after a REAL logged press run (castPressReturnsSql
     expect(await p.as("manager").foundry.casts.close({ castId: c.id })).toMatchObject({ status: "closed", tailG: 0, approvalId: null });
   });
 
+  test("D22 with a real run: the press logs more billets than the cast made → billets short, reason and approval", async () => {
+    const p = await foundryPlant();
+    const lot = await p.lot(1_000);
+    const c = await p.as("foundry").foundry.casts.open({ alloy: "6063" });
+    const small = { inputs: [{ kind: "lot" as const, ref: lot.id, kgG: kg(305) }], logs: [{ pcs: 2, lengthMm: 6_000, kgG: kg(300) }], drossG: kg(4), feG: kg(1), chemicals: [], spectroReason: "Lab" };
+    const d = await p.as("foundry").foundry.melts.save(draft(p, c.id, lot.id, small));
+    await p.as("foundry").foundry.melts.lock({ meltId: d.id });
+    const r = await p.countingRun({ pcs: 100 });
+    await fillWorkedExample(p, r.runId, c.id, { planLineId: r.planLineIds[0] });
+    await p.as("supervisor").press.runs.close({ id: r.runId, clientMutationId: "close-short-01", billetShortReason: "Billets of cast 2 were mixed in" });
+    expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ producedG: kg(300), creditedG: kg(310.4), billetsOnHandG: -kg(10.4), shortG: kg(10.4), tailG: 0, needsReason: true, needsApproval: true });
+    await expect(p.as("manager").foundry.casts.close({ castId: c.id })).rejects.toMatchObject({ message: expect.stringContaining("more billets") });
+    const out = await p.as("manager").foundry.casts.close({ castId: c.id, reasonCodeId: await tailCode(p, "billets_short"), note: "Billets from cast 2 mixed in" });
+    expect(out).toMatchObject({ status: "closing", shortG: kg(10.4) });
+    expect(out.approvalId).toBeTruthy();
+  });
+
   test("casts.cancel: an empty cast opened by mistake; refused once it has a melt", async () => {
     const p = await foundryPlant();
     const lot = await p.lot(8_000);
