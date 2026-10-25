@@ -2,8 +2,10 @@
  * Die share links (FP-DR-20): a read-only, expiring, revocable page for ONE section, opened by a
  * party with no sign-in. The token is 32 random bytes (base64url, 43 characters), shown once at
  * create; only its SHA-256 is stored. Every public read is limited like the auth throttle: per client
- * IP before the lookup, per link after it (`auth_throttle`, fixed window). An unknown, revoked or
- * expired link all answer the same NOT_FOUND, so nothing says which links exist.
+ * IP before the lookup, per link after it (`auth_throttle`, fixed window; only a link that is still
+ * open is counted per link). An unknown, revoked or expired link all answer the same NOT_FOUND, so
+ * nothing says which links exist. IPv6 callers are keyed per address (/128); key them by /64 here if
+ * abuse from one network ever shows.
  */
 import { authThrottle } from "@orrn/db/schema/auth";
 import { clientIp, throttleHit } from "@orrn/auth/reset-throttle";
@@ -46,12 +48,18 @@ const tooBusy = () => new TRPCError({ code: "TOO_MANY_REQUESTS", message: SHARE_
 
 /** Counts one public read against the caller's IP (when the platform reports one); throws 429 over the limit. */
 export async function limitShareIp(db: OrrnDb, request: Request | null | undefined, nowMs: number): Promise<void> {
-  // Old windows are of no use; keep the table small (indexed on window_start).
-  await db.delete(authThrottle).where(and(like(authThrottle.key, "dieshare:%"), lt(authThrottle.windowStart, nowMs - 2 * SHARE_VIEW_LIMIT.windowMs)));
   const ip = clientIp(request?.headers);
   if (!ip) return;
   const ok = await throttleHit(db as never, `dieshare:i:${ip}`, nowMs, { max: SHARE_VIEW_LIMIT.perIp, windowMs: SHARE_VIEW_LIMIT.windowMs });
   if (!ok) throw tooBusy();
+}
+
+/**
+ * Old windows are of no use; keep the table small (indexed on window_start). Run after a successful
+ * read only, so a flood of refused requests costs one write each, not two.
+ */
+export async function sweepShareThrottle(db: OrrnDb, nowMs: number): Promise<void> {
+  await db.delete(authThrottle).where(and(like(authThrottle.key, "dieshare:%"), lt(authThrottle.windowStart, nowMs - 2 * SHARE_VIEW_LIMIT.windowMs)));
 }
 
 /** Counts one public read against this link; throws 429 over the limit. */

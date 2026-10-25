@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5696 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5697 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -3750,7 +3750,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (492)
+### dieRoom (493)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3806,6 +3806,7 @@ Please check, Lalubhai:
 | `share.page.noDrawing` | There is no drawing on this link now. | इस लिंक पर अब कोई ड्रॉइंग नहीं है। |
 | `share.page.notToScale` | Not to scale. Read the dimensions off the drawing. | स्केल के अनुसार नहीं है। नाप ड्रॉइंग से पढ़ें। |
 | `share.page.weight` | Weight per 12 ft | 12 ft का वज़न |
+| `share.page.range` | {min} to {max} | {min} से {max} |
 | `share.page.wall` | Wall | दीवार |
 | `share.page.alloy` | Alloy and temper | एलॉय और टेम्पर |
 | `share.page.tier` | Best tier | सबसे अच्छा टियर |

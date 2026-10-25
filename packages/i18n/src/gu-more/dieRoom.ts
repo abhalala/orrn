@@ -60,6 +60,7 @@ export const guDieRoom = {
         noDrawing: "આ લિંક પર હવે કોઈ ડ્રૉઇંગ નથી.",
         notToScale: "સ્કેલ પ્રમાણે નથી. માપ ડ્રૉઇંગમાંથી વાંચો.",
         weight: "12 ft નું વજન",
+        range: "{min} થી {max}",
         wall: "દીવાલ",
         alloy: "ઍલોય અને ટેમ્પર",
         tier: "શ્રેષ્ઠ ટિયર",

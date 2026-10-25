@@ -95,7 +95,6 @@ export function DieSharePage({ token }: { token: string }) {
                   {t("dieRoom.share.page.openDrawing")}
                 </a>
               </Button>
-              {drawing.filename ? <p className="m-0 font-mono text-[13px] break-all text-muted-foreground">{drawing.filename}</p> : null}
               <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.share.page.notToScale")}</p>
             </>
           ) : (
@@ -108,11 +107,11 @@ export function DieSharePage({ token }: { token: string }) {
         <dl className="m-0 grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="share-facts">
           <Fact label={t("dieRoom.share.page.weight")}>
             <span className="font-mono tabular-nums" data-testid="share-weight">
-              {kgText(main?.weightMinG ?? 0)} to {kgText(main?.weightMaxG ?? 0)} {t("units.kgPer12ft")}
+              {t("dieRoom.share.page.range", { min: kgText(main?.weightMinG ?? 0), max: kgText(main?.weightMaxG ?? 0) })} {t("units.kgPer12ft")}
             </span>
             {others.map((b, i) => (
               <span key={i} className="block font-mono text-[14px] font-medium tabular-nums text-muted-foreground">
-                {kgText(b.weightMinG)} to {kgText(b.weightMaxG)} {t("units.kgPer12ft")}
+                {t("dieRoom.share.page.range", { min: kgText(b.weightMinG), max: kgText(b.weightMaxG) })} {t("units.kgPer12ft")}
                 {wallText(b.wallTenthMm) ? ` · ${wallText(b.wallTenthMm)} ${t("units.mm")}` : ""}
               </span>
             ))}

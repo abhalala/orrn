@@ -32,11 +32,17 @@ import {
   SHARE_GONE,
   SHARE_MAX_DAYS,
   shareExpiry,
+  sweepShareThrottle,
 } from "../lib/dieShare";
 import { createId } from "../lib/id";
 import { webBaseUrl } from "../lib/webUrl";
 
-/** Who may send a drawing out: the die room (die.card) or masters holders, like the file editors. */
+/**
+ * Who may send a drawing out: the die room (die.card) or masters holders, like the file editors.
+ * `die.card` is the die room's floor role and the widest grant that lets a drawing leave the plant,
+ * which matches the spec's actor ("As the die room, I send ..."); every send is audited. If the owner
+ * wants floor staff out of it, add a dedicated `die.share` action and swap it in here.
+ */
 const shareEditorProcedure = anyActionProcedure("die.card", "masters.publish");
 
 const gone = () => new TRPCError({ code: "NOT_FOUND", message: SHARE_GONE });
@@ -51,7 +57,9 @@ export const dieShareRouter = router({
   /**
    * Make a link for one section's press drawing. `customerId` is the party it is for; a section owned
    * by a customer can only be shared with that owner, a plant-owned one with anyone (or no named
-   * party). The token comes back once and is never stored.
+   * party). The token comes back once and is never stored. Only the SECTION's owner is checked: the
+   * drawing belongs to the section, and a customer-owned copy (FP-DR-12) restricts what that copy may
+   * press for, not who may be sent the section's drawing.
    */
   create: shareEditorProcedure
     .input(
@@ -191,6 +199,10 @@ export const dieShareRouter = router({
    * the same NOT_FOUND "This link is no longer available". Limited per IP and per link. Returns the
    * section number, the drawing (a signed URL minted now, 10 minutes), the band(s) and best tier, and
    * the owner only when the link was made for that owner. No costs, stock, customers or copies.
+   * The owner rule and a deleted party are re-checked on every view. "Best tier" counts every copy
+   * that is not retired, `on_trial` included (the same as the customer portal).
+   * A revoke is not instant for a page already open: a drawing URL minted before it keeps working for
+   * its 10 minutes (`/files/dies` answers `private, max-age=600`); no new URL is minted after it.
    */
   view: publicProcedure.input(z.object({ token: z.string().min(1).max(200) })).mutation(async ({ ctx, input }) => {
     const nowMs = clockNow().getTime();
@@ -204,9 +216,10 @@ export const dieShareRouter = router({
       .where(eq(dieShare.tokenHash, tokenHash))
       .limit(1)
       .then((r) => r.map((x) => ({ ...x.die_share, companyName: x.company.name })));
-    // Only a link that exists is counted per link (a guess leaves no row behind; the IP limit covers guesses).
-    if (share) await limitShareLink(ctx.db, tokenHash, nowMs);
+    // Only a link that is open is counted per link (a guess leaves no row behind, the IP limit covers
+    // guesses, and a dead link answers "gone" however often it is tried).
     if (!share || shareStatus(share, nowMs) !== "active") throw gone();
+    await limitShareLink(ctx.db, tokenHash, nowMs);
 
     // Every read below is scoped by the share's own company: the link is the only authority.
     const [section] = await ctx.db
@@ -215,8 +228,21 @@ export const dieShareRouter = router({
       .where(and(eq(die.id, share.sectionId), eq(die.companyId, share.companyId), isNull(die.deletedAt)))
       .limit(1);
     if (!section) throw gone();
+    // The owner rule `create` enforces is checked again now: the section may have been handed to a
+    // customer since, and the link must not show that customer's drawing to another party (or to nobody).
+    if (section.ownerCustomerId && section.ownerCustomerId !== share.customerId) throw gone();
+    // A party deleted since the link was made is gone with it.
+    let party: { name: string } | null = null;
+    if (share.customerId) {
+      [party = null] = await ctx.db
+        .select({ name: customer.name })
+        .from(customer)
+        .where(and(eq(customer.id, share.customerId), eq(customer.companyId, share.companyId), isNull(customer.deletedAt)))
+        .limit(1);
+      if (!party) throw gone();
+    }
 
-    const [bandRows, [tierRow], [file], owner] = await Promise.all([
+    const [bandRows, [tierRow]] = await Promise.all([
       ctx.db
         .select({ wallTenthMm: dieBand.wallTenthMm, weightMinG: dieBand.weightMinG, weightMaxG: dieBand.weightMaxG, label: dieBand.label })
         .from(dieBand)
@@ -226,29 +252,16 @@ export const dieShareRouter = router({
         .select({ tier: sql<number | null>`min(${dieInstance.tierRank})` })
         .from(dieInstance)
         .where(and(eq(dieInstance.companyId, share.companyId), eq(dieInstance.sectionId, section.id), sql`${dieInstance.status} <> 'retired'`)),
-      section.drawingKey
-        ? ctx.db
-            .select({ filename: dieFile.filename })
-            .from(dieFile)
-            .where(and(eq(dieFile.companyId, share.companyId), eq(dieFile.sectionId, section.id), eq(dieFile.r2Key, section.drawingKey)))
-            .limit(1)
-        : Promise.resolve([] as { filename: string }[]),
-      // The owner is named only to the party the link was made for.
-      share.customerId && section.ownerCustomerId === share.customerId
-        ? ctx.db
-            .select({ name: customer.name })
-            .from(customer)
-            .where(and(eq(customer.id, share.customerId), eq(customer.companyId, share.companyId)))
-            .limit(1)
-            .then((r) => r[0]?.name ?? null)
-        : Promise.resolve(null),
     ]);
+    // The owner is named only to the party the link was made for (the rule above leaves no other case).
+    const owner = share.customerId && section.ownerCustomerId === share.customerId ? (party?.name ?? null) : null;
 
-    let drawing: { url: string; expiresAt: number; filename: string | null } | null = null;
+    // The uploaded file name is free text (it can carry a party's name): never sent out, only the section number shows.
+    let drawing: { url: string; expiresAt: number } | null = null;
     if (section.drawingKey) {
       try {
         const signed = await signDieFileUrl(ctx, share.companyId, section.drawingKey, nowMs);
-        drawing = { url: signed.url, expiresAt: signed.expiresAt, filename: file?.filename ?? null };
+        drawing = { url: signed.url, expiresAt: signed.expiresAt };
       } catch {
         // No signing key or no bucket on this stage: the page says there is no drawing, never an error.
         drawing = null;
@@ -259,6 +272,7 @@ export const dieShareRouter = router({
       .update(dieShare)
       .set({ viewCount: sql`${dieShare.viewCount} + 1`, lastViewedAt: new Date(nowMs) })
       .where(eq(dieShare.id, share.id));
+    await sweepShareThrottle(ctx.db, nowMs);
 
     return {
       from: share.companyName,

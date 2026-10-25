@@ -7,7 +7,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
-import { auditLog, authThrottle, company, die, dieInstance, dieShare } from "@orrn/db/schema";
+import { auditLog, authThrottle, company, customer, die, dieInstance, dieShare } from "@orrn/db/schema";
 import { and, eq, like } from "drizzle-orm";
 
 import { setClockForTests } from "../src/lib/clock";
@@ -248,7 +248,9 @@ describe("the public view", () => {
     expect(view.bands[0]).toEqual({ wallTenthMm: 12, weightMinG: 5_900, weightMaxG: 6_200, label: null, primary: true });
     expect(view.tier).toBeNull();
     expect(view.owner).toBeNull();
-    expect(view.drawing!.filename).toBe("12170-domal.pdf");
+    // The uploaded file name is free text and can carry a party's name: it never leaves the plant.
+    expect(Object.keys(view.drawing!).sort()).toEqual(["expiresAt", "url"]);
+    expect(JSON.stringify(view)).not.toContain("domal.pdf");
     expect(view.drawing!.expiresAt).toBe(t0.getTime() + 10 * 60 * 1000);
     // The URL is a genuine signed GET for the section's own key.
     const u = new URL(view.drawing!.url);
@@ -299,10 +301,53 @@ describe("the public view", () => {
     const party = await env.seedCustomer(q.companyId);
     const plain = await q.dieRoom.die.share.create({ sectionId: q.section, customerId: party });
     expect((await visitor().die.share.view({ token: plain.token })).owner).toBeNull();
-    // The section is handed to another owner after the link was made: the link no longer names them.
+  });
+
+  test("the owner rule is re-checked at view time: a section handed to another customer after the link was made is gone", async () => {
+    const q = await plant();
+    const party = await env.seedCustomer(q.companyId);
+    const plain = await q.dieRoom.die.share.create({ sectionId: q.section, customerId: party });
+    const open = await q.dieRoom.die.share.create({ sectionId: q.section });
+    await expect(visitor().die.share.view({ token: plain.token })).resolves.toBeDefined();
     const other = await env.seedCustomer(q.companyId);
     await env.db.update(die).set({ ownerCustomerId: other }).where(eq(die.id, q.section));
-    expect((await visitor().die.share.view({ token: plain.token })).owner).toBeNull();
+    // Both a link for another party and a link for nobody now show a customer's drawing: neither opens.
+    await expect(visitor().die.share.view({ token: plain.token })).rejects.toThrow(GONE);
+    await expect(visitor().die.share.view({ token: open.token })).rejects.toThrow(GONE);
+  });
+
+  test("the owner rule at view time lets the owner's own link through, before and after the hand-over", async () => {
+    const q = await plant();
+    const party = await env.seedCustomer(q.companyId);
+    const made = await q.dieRoom.die.share.create({ sectionId: q.section, customerId: party });
+    // The section is handed to the very party the link is for: still open, and now names them.
+    await env.db.update(die).set({ ownerCustomerId: party }).where(eq(die.id, q.section));
+    const view = await visitor().die.share.view({ token: made.token });
+    expect(view.owner).toMatch(/^Customer /);
+    expect(view.drawing).not.toBeNull();
+    // An owned section whose owner never changes keeps working for the owner's link.
+    const o = await plant({ ownerCustomer: true });
+    const mine = await o.dieRoom.die.share.create({ sectionId: o.section, customerId: o.owner! });
+    await env.db.update(die).set({ name: "Domal channel, renamed" }).where(eq(die.id, o.section));
+    expect((await visitor().die.share.view({ token: mine.token })).section.name).toBe("Domal channel, renamed");
+  });
+
+  test("a party deleted after the link was made: the link is gone", async () => {
+    const q = await plant();
+    const party = await env.seedCustomer(q.companyId);
+    const made = await q.dieRoom.die.share.create({ sectionId: q.section, customerId: party });
+    await expect(visitor().die.share.view({ token: made.token })).resolves.toBeDefined();
+    await env.db.update(customer).set({ deletedAt: new Date() }).where(eq(customer.id, party));
+    await expect(visitor().die.share.view({ token: made.token })).rejects.toThrow(GONE);
+  });
+
+  test("a copy on trial counts as a live copy for the best tier (same as the customer portal)", async () => {
+    const p = await plant();
+    await env.db.update(dieInstance).set({ tierRank: 3 }).where(eq(dieInstance.id, p.copy.id));
+    const trial = await p.dieRoom.dieInstance.create({ sectionId: p.section });
+    await env.db.update(dieInstance).set({ tierRank: 1, status: "on_trial" }).where(eq(dieInstance.id, trial.id));
+    const made = await p.dieRoom.die.share.create({ sectionId: p.section });
+    expect((await visitor().die.share.view({ token: made.token })).tier).toBe(1);
   });
 
   test("no press drawing now (removed after the link was made): the page still opens, with no drawing", async () => {
@@ -398,6 +443,32 @@ describe("rate limit", () => {
     for (let i = 0; i < share.SHARE_VIEW_LIMIT.perLink; i++) await visitor(`192.0.2.${i + 1}`).die.share.view({ token: a.token });
     await expect(visitor("192.0.2.200").die.share.view({ token: a.token })).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
     await expect(visitor("192.0.2.200").die.share.view({ token: b.token })).resolves.toBeDefined();
+  });
+
+  test("a revoked or expired link past its read limit answers the neutral gone, not 429", async () => {
+    const p = await plant();
+    setClockForTests(new Date("2026-11-02T09:00:00Z"));
+    const made = await p.dieRoom.die.share.create({ sectionId: p.section });
+    for (let i = 0; i < share.SHARE_VIEW_LIMIT.perLink; i++) await visitor(`192.0.3.${i + 1}`).die.share.view({ token: made.token });
+    await p.dieRoom.die.share.revoke({ id: made.id });
+    await expect(visitor("192.0.3.200").die.share.view({ token: made.token })).rejects.toThrow(GONE);
+    // Dead links are not counted at all.
+    const hash = await sha256(made.token);
+    const rows = await env.db.select().from(authThrottle).where(eq(authThrottle.key, `dieshare:t:${hash.slice(0, 32)}`));
+    expect(rows[0]!.hits).toBe(share.SHARE_VIEW_LIMIT.perLink);
+  });
+
+  test("old counter rows are swept after a successful read, not on every refused one", async () => {
+    const p = await plant();
+    const t0 = new Date("2026-11-03T06:00:00Z").getTime();
+    setClockForTests(new Date(t0));
+    const made = await p.dieRoom.die.share.create({ sectionId: p.section });
+    await env.db.insert(authThrottle).values({ key: "dieshare:i:old", hits: 1, windowStart: t0 - 3 * share.SHARE_VIEW_LIMIT.windowMs });
+    const oldRows = () => env.db.select().from(authThrottle).where(eq(authThrottle.key, "dieshare:i:old"));
+    await expect(visitor("198.51.100.50").die.share.view({ token: "nope" })).rejects.toThrow(GONE);
+    expect(await oldRows()).toHaveLength(1);
+    await visitor("198.51.100.50").die.share.view({ token: made.token });
+    expect(await oldRows()).toHaveLength(0);
   });
 
   test("the counters key on the IP and on a hash of the link, never the token; no readable IP is limited per link only", async () => {

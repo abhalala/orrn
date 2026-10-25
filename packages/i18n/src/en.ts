@@ -3811,6 +3811,7 @@ export const en = {
         noDrawing: "There is no drawing on this link now.",
         notToScale: "Not to scale. Read the dimensions off the drawing.",
         weight: "Weight per 12 ft",
+        range: "{min} to {max}",
         wall: "Wall",
         alloy: "Alloy and temper",
         tier: "Best tier",
