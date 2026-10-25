@@ -7,6 +7,7 @@ import {
   Building2,
   ClipboardCheck,
   Cylinder,
+  Factory,
   FlaskConical,
   House,
   Inbox,
@@ -27,7 +28,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavModule = "customers" | "dies" | "bundles" | "dispatches";
+export type NavModule = "customers" | "dies" | "bundles" | "dispatches" | "press";
 
 export type NavItem = {
   key: string;
@@ -62,9 +63,13 @@ const PURCHASE_READERS: readonly Action[] = ["purchase.receipt", "purchase.dcnot
  */
 const APPROVAL_PEOPLE: readonly Action[] = ["masters.publish", "purchase.dcnote", "die.rerank", "cast.close", "cast.enter"];
 
+/** The press: who runs it, who logs it, and who reads its report (FP-PR). The viewer's page shows nothing actionable. */
+const PRESS_PEOPLE: readonly Action[] = ["press.run", "press.close", "reports.read"];
+
 export const TENANT_MORE: readonly NavItem[] = [
   // FP-OP: customer POs and what is still to dispatch. The press plan (/orders/plan) is reached from here.
   { key: "orders", to: "/orders", labelKey: "nav.orders", icon: ListChecks, requires: ["order.manage", "order.plan"] },
+  { key: "press", to: "/press", labelKey: "nav.press", icon: Factory, requires: PRESS_PEOPLE, module: "press" },
   { key: "purchase", to: "/purchase", labelKey: "nav.purchase", icon: Scale, requires: PURCHASE_READERS },
   { key: "approvals", to: "/approvals", labelKey: "nav.approvals", icon: ClipboardCheck, requires: APPROVAL_PEOPLE },
   { key: "dies", to: "/dies", labelKey: "nav.dies", icon: Cylinder, module: "dies" },

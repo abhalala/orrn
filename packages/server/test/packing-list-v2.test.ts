@@ -294,7 +294,7 @@ describe("revision diff and analytics over revisions (I-2, I-5)", () => {
 describe("dev seed: W1-PK-S rows (idempotent)", () => {
   test("transporter, a PL with two revisions, party numbers for two customers with different policies", async () => {
     const { user, bundle, transporter } = await import("@orrn/db/schema");
-    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "staff"]) {
+    for (const key of ["owner", "operator", "viewer", "office", "dieroom", "supervisor", "press", "staff"]) {
       await env.db.insert(user).values({ id: `dev-user-${key}`, name: key, email: `${key}@orrn.local` }).onConflictDoNothing();
     }
     const seedPath = "../../../apps/server/src/dev-seed";
