@@ -32,3 +32,27 @@ export function reasonLabel(
   }
   return label || code;
 }
+
+/** One row of `press.reasons` (the plant's active codes of a kind, in its order). */
+export type ReasonRow = { code: string; label: string; requiresNote?: boolean | null; active?: boolean | null } & ReasonWording;
+
+/**
+ * Picker options from the plant's codes (W4-MASTERS review I-3): the server list, never a fixed one,
+ * so a retired code is gone and a code the plant added is there. `value` is the code.
+ */
+export function reasonOptions(
+  t: Translate,
+  kind: ReasonCodeKind,
+  rows: readonly ReasonRow[] | undefined,
+  locale?: Locale | string,
+): { value: string; label: string; requiresNote: boolean }[] {
+  return (rows ?? [])
+    .filter((r) => r.active !== false)
+    .map((r) => ({ value: r.code, label: reasonLabel(t, kind, r.code, r.label, r, locale), requiresNote: Boolean(r.requiresNote) || r.code === "other" }));
+}
+
+/** A saved code in the reader's language, using the plant's row when it is still listed. */
+export function reasonCodeText(t: Translate, kind: ReasonCodeKind, code: string, rows: readonly ReasonRow[] | undefined, locale?: Locale | string): string {
+  const row = rows?.find((r) => r.code === code);
+  return row ? reasonLabel(t, kind, code, row.label, row, locale) : reasonLabel(t, kind, code, code);
+}

@@ -25,7 +25,7 @@ import { downtimeNoteMissing, minutesBetween, pressError, type DowntimeReason } 
  * again" stops it. Server time is the record. A save that gets no answer is re-read, never repeated blind.
  */
 export function DowntimePanel({ pressLineId }: { pressLineId: string }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const format = useFormat();
   const ink = useThemeColor("foreground");
   const open = useQuery({ ...trpc.press.downtime.list.queryOptions({ pressLineId, openOnly: true, limit: 5 }), refetchInterval: 15_000 });
@@ -97,7 +97,7 @@ export function DowntimePanel({ pressLineId }: { pressLineId: string }) {
         {current ? (
           <>
             <View accessibilityLiveRegion="polite" className="gap-1 rounded-card bg-tone-red-tint p-3">
-              <Text className="font-sans-semibold text-base text-tone-red-ink">{reasonLabel(t, "downtime", current.reasonCode, current.reasonLabel)}</Text>
+              <Text className="font-sans-semibold text-base text-tone-red-ink">{reasonLabel(t, "downtime", current.reasonCode, current.reasonLabel, current, locale)}</Text>
               <Text className="font-sans text-sm text-tone-red-ink">
                 {t("native.press.downtimeSince", { time: format.time(current.startedAt) ?? "", minutes: minutesBetween(current.startedAt, Date.now()) })}
               </Text>
@@ -123,7 +123,7 @@ export function DowntimePanel({ pressLineId }: { pressLineId: string }) {
             return (
               <ListRow
                 key={r.id}
-                title={reasonLabel(t, "downtime", r.code, r.label)}
+                title={reasonLabel(t, "downtime", r.code, r.label, r, locale)}
                 className={cn(selected && "border-primary")}
                 radioChecked={selected}
                 trailing={selected ? <Feather name="check-circle" size={22} color={ink} importantForAccessibility="no" /> : undefined}

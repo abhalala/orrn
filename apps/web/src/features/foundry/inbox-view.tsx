@@ -9,7 +9,7 @@ import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/r
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Tabs } from "@orrn/ui/components/tabs";
 import type { AppRouter } from "@orrn/server/routers/index";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
-import { trpc } from "@/shared/utils/trpc";
+import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { INBOX_TABS, type InboxTab } from "./search";
 
@@ -53,7 +53,7 @@ export function InboxScreen({ tab, onTab }: { tab: InboxTab; onTab(tab: InboxTab
   const [attaching, setAttaching] = useState<InboxFile | null>(null);
   const [dismissing, setDismissing] = useState<InboxFile | null>(null);
 
-  const header = <PageHeader title={t("foundry.inbox.title")} subtitle={t("foundry.inbox.subtitle")} back={{ to: "/settings", label: t("settings.title") }} />;
+  const header = <PageHeader title={t("foundry.inbox.title")} subtitle={t("foundry.inbox.subtitle")} back={{ to: "/today", label: t("nav.today") }} />;
   if (showsQueryError(query)) {
     return (
       <>
@@ -147,13 +147,25 @@ function useRefreshInbox() {
   return () => void queryClient.invalidateQueries({ queryKey: trpc.foundry.spectroInbox.pathKey() });
 }
 
+/** Casts per page in the attach sheet's cast picker. */
+export const CAST_PAGE = 50;
+
 /** Cast, then one of its melts: the melt picker lists the melts of an existing cast (cancelled ones left out). */
 function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): void }) {
   const { t } = useT();
   const refresh = useRefreshInbox();
   const [castId, setCastId] = useState("");
   const [meltId, setMeltId] = useState("");
-  const casts = useQuery({ ...trpc.foundry.casts.list.queryOptions({ limit: 50, offset: 0 }), enabled: file !== null, meta: INLINE_ERROR_META });
+  // m-7: newest 50 first, then older pages on request, so any cast can be picked.
+  const casts = useInfiniteQuery({
+    queryKey: [...trpc.foundry.casts.list.queryKey(), "attach-pages"],
+    queryFn: ({ pageParam }) => trpcClient.foundry.casts.list.query({ limit: CAST_PAGE, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
+    enabled: file !== null,
+    meta: INLINE_ERROR_META,
+  });
+  const castItems = (casts.data?.pages ?? []).flatMap((p) => p.items);
   const cast = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id: castId }), enabled: file !== null && castId !== "", meta: INLINE_ERROR_META });
   const melts = (cast.data?.melts ?? []).filter((m) => m.status !== "cancelled");
   const picked = cast.data?.cast;
@@ -201,13 +213,20 @@ function AttachSheet({ file, onClose }: { file: InboxFile | null; onClose(): voi
             }}
           >
             <option value="">{t("foundry.inbox.attachSheet.castPick")}</option>
-            {(casts.data?.items ?? []).map((c) => (
+            {castItems.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.number} · {c.alloy}
               </option>
             ))}
           </NativeSelect>
         </Field>
+        {casts.hasNextPage ? (
+          <div>
+            <Button variant="secondary" loading={casts.isFetchingNextPage} onClick={() => void casts.fetchNextPage()} data-testid="inbox-more-casts">
+              {t("foundry.inbox.attachSheet.moreCasts")}
+            </Button>
+          </div>
+        ) : null}
         <Field label={t("foundry.inbox.attachSheet.melt")} hint={castId !== "" && cast.isSuccess && melts.length === 0 ? t("foundry.inbox.attachSheet.noMelts") : undefined}>
           <NativeSelect value={meltId} disabled={castId === "" || melts.length === 0} data-testid="inbox-melt" onChange={(e) => setMeltId(e.currentTarget.value)}>
             <option value="">{t("foundry.inbox.attachSheet.meltPick")}</option>

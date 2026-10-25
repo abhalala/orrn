@@ -512,7 +512,7 @@ const downtimeRouter = router({
   list: companyProcedure
     .input(z.object({ pressLineId: id.optional(), pressRunId: id.optional(), openOnly: z.boolean().optional(), limit: z.number().int().min(1).max(200).default(50) }))
     .query(async ({ ctx, input }) => {
-      return ctx.db
+      const rows = await ctx.db
         .select({
           id: pressDowntime.id,
           pressLineId: pressDowntime.pressLineId,
@@ -520,6 +520,9 @@ const downtimeRouter = router({
           reasonCodeId: pressDowntime.reasonCodeId,
           reasonCode: reasonCode.code,
           reasonLabel: reasonCode.label,
+          // I-2: the station shows the reason in the reader's language (typed wording, else built-in).
+          labelHi: reasonCode.labelHi,
+          labelGu: reasonCode.labelGu,
           note: pressDowntime.note,
           startedAt: pressDowntime.startedAt,
           stoppedAt: pressDowntime.stoppedAt,
@@ -536,6 +539,7 @@ const downtimeRouter = router({
         )
         .orderBy(desc(pressDowntime.startedAt))
         .limit(input.limit);
+      return rows.map((r) => ({ ...r, standard: hasStandardWording("downtime", r.reasonCode, r.reasonLabel) }));
     }),
 });
 

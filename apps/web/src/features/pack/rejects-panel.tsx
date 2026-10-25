@@ -5,45 +5,15 @@ import { Field, NumberInput } from "@orrn/ui/components/field";
 import { TextArea } from "@orrn/ui/components/input";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { cn } from "@orrn/ui/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, X } from "lucide-react";
 import { useId, useState } from "react";
 
-import { parsePieces, parseWeightG } from "./pack-math";
+import { reasonCodeText, reasonOptions } from "@/features/press/reason-label";
+import { trpc } from "@/shared/utils/trpc";
+
+import { EMPTY_REJECT, readReject, type RejectErrors, type RejectForm } from "./reject-form";
 import type { DraftReject } from "./use-pack-draft";
-
-/** The qc_reject codes a packer picks from (the plant's list; `other` needs a note). */
-/**
- * The seeded `qc_reject` reasons, by code (the labels come from i18n). Spelled out here: importing the
- * domain's default table would carry its English strings into the shared chunk the `/` page loads.
- */
-export const REJECT_CODES = ["dimension", "surface", "bend", "crack", "short_length", "other"] as const;
-
-export type RejectForm = { pcs: string; kg: string; reasonCode: string; note: string };
-export const EMPTY_REJECT: RejectForm = { pcs: "", kg: "", reasonCode: "", note: "" };
-
-export type RejectErrors = { pcs?: "pcs"; reason?: "reason"; note?: "note"; kg?: "kg" };
-
-/** Validates the reject form; returns the reject or what is wrong (field keys the screen words). */
-export function readReject(f: RejectForm): { ok: true; reject: DraftReject } | { ok: false; errors: RejectErrors } {
-  const pcs = parsePieces(f.pcs);
-  const errors: RejectErrors = {};
-  if (pcs === null) errors.pcs = "pcs";
-  if (!f.reasonCode) errors.reason = "reason";
-  if (f.reasonCode === "other" && !f.note.trim()) errors.note = "note";
-  const kgTyped = f.kg.trim() !== "";
-  const weightG = kgTyped ? parseWeightG(f.kg) : null;
-  if (kgTyped && weightG === null) errors.kg = "kg";
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return {
-    ok: true,
-    reject: {
-      pcs: pcs!,
-      ...(weightG !== null ? { weightG } : {}),
-      reasonCode: f.reasonCode,
-      ...(f.note.trim() ? { note: f.note.trim() } : {}),
-    },
-  };
-}
 
 /**
  * Rejects at pack (FP-PK-14): pieces taken out of the pile that are not a bundle. Weighed rejects
@@ -58,15 +28,20 @@ export function RejectsPanel({
   onAdd(r: DraftReject): void;
   onRemove(index: number): void;
 }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const id = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<RejectForm>(EMPTY_REJECT);
   const [errors, setErrors] = useState<RejectErrors>({});
+  // W4-MASTERS I-3: the plant's active qc_reject codes (Masters, Reason codes), never a fixed list.
+  const reasons = useQuery({ ...trpc.press.reasons.queryOptions({ kind: "qc_reject" }), staleTime: 5 * 60_000 });
+  const options = reasonOptions(t, "qc_reject", reasons.data, locale);
+  const picked = options.find((o) => o.value === form.reasonCode);
+  const needsNote = form.reasonCode === "other" || Boolean(picked?.requiresNote);
   const total = rejects.reduce((s, r) => s + r.pcs, 0);
 
   const add = () => {
-    const r = readReject(form);
+    const r = readReject(form, needsNote);
     if (!r.ok) {
       setErrors(r.errors);
       return;
@@ -104,7 +79,7 @@ export function RejectsPanel({
                 <span className="font-mono font-semibold tabular-nums">{t("pack.reject.saved", { count: r.pcs })}</span>
                 <span className="text-muted-foreground">
                   {" · "}
-                  {t(`reasons.qc_reject.${r.reasonCode}` as never)}
+                  {reasonCodeText(t, "qc_reject", r.reasonCode, reasons.data, locale)}
                   {r.weightG ? ` · ${formatKgTotal(gToKg(r.weightG))} ${t("units.kg")}` : ` · ${t("pack.reject.noWeight")}`}
                   {r.note ? ` · ${r.note}` : ""}
                 </span>
@@ -137,17 +112,17 @@ export function RejectsPanel({
               }}
             >
               <option value="">{t("pack.reject.pickReason")}</option>
-              {REJECT_CODES.map((c) => (
-                <option key={c} value={c}>
-                  {t(`reasons.qc_reject.${c}` as never)}
+              {options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
                 </option>
               ))}
             </NativeSelect>
           </Field>
         </div>
-        {form.reasonCode === "other" ? (
-          <Field label={t("common.note")} error={errors.note ? t("common.noteRequired") : undefined}>
-            <TextArea rows={2} value={form.note} onChangeText={(note) => setForm((f) => ({ ...f, note }))} maxLength={500} />
+        {needsNote ? (
+          <Field label={t("common.note")} id="reject-note" error={errors.note ? t(form.reasonCode === "other" ? "common.noteRequired" : "common.noteRequiredReason") : undefined}>
+            <TextArea id="reject-note" rows={2} value={form.note} onChangeText={(note) => setForm((f) => ({ ...f, note }))} maxLength={500} />
           </Field>
         ) : null}
         <div className="flex flex-wrap gap-2">

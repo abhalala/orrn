@@ -94,33 +94,28 @@ spoolRoutes.post("/webhooks/spool", async (c: HonoContext) => {
   if (data.job_id && event !== "printer_status_changed") {
     const spoolJobId = String(data.job_id);
 
-    // Find the print log entry for this spool job
-    const log = await db
-      .select()
-      .from(printLog)
-      .where(and(eq(printLog.companyId, deployment.companyId), eq(printLog.spoolJobId, spoolJobId)))
-      .get();
+    // Every print log row of this spool job: a retry answered as a duplicate records the first job's id
+    // too, so more than one row can share it (BACKLOG 44).
+    const updates: Record<string, unknown> = {};
+    switch (event) {
+      case "job_started":
+        updates.status = "sent";
+        break;
+      case "job_completed":
+        updates.status = "success";
+        if (data.duration_ms) updates.responseText = `Completed in ${data.duration_ms}ms`;
+        break;
+      case "job_failed":
+        updates.status = "failed";
+        updates.responseText = data.error_message ?? "Print job failed";
+        break;
+    }
 
-    if (log) {
-      const updates: Record<string, unknown> = {};
-
-      switch (event) {
-        case "job_started":
-          updates.status = "sent";
-          break;
-        case "job_completed":
-          updates.status = "success";
-          if (data.duration_ms) updates.responseText = `Completed in ${data.duration_ms}ms`;
-          break;
-        case "job_failed":
-          updates.status = "failed";
-          updates.responseText = data.error_message ?? "Print job failed";
-          break;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await db.update(printLog).set(updates).where(eq(printLog.id, log.id));
-      }
+    if (Object.keys(updates).length > 0) {
+      await db
+        .update(printLog)
+        .set(updates)
+        .where(and(eq(printLog.companyId, deployment.companyId), eq(printLog.spoolJobId, spoolJobId)));
     }
   }
 

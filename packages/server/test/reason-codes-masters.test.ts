@@ -87,7 +87,12 @@ describe("reasonCodes.rename and setActive", () => {
     await p.manager.reasonCodes.rename({ id, label: "Smudged print", labelHi: null, labelGu: "ધૂંધળું" });
     const row = (await p.manager.reasonCodes.list({ kind: "reprint" })).find((r) => r.id === id)!;
     expect(row).toMatchObject({ code: "smudged", label: "Smudged print", labelHi: null, labelGu: "ધૂંધળું" });
-    expect(await audits(p.companyId, "reason_code.rename")).toHaveLength(1);
+    const renamed = await audits(p.companyId, "reason_code.rename");
+    expect(renamed).toHaveLength(1);
+    // m-1: the audit says what the wording became: the cleared Hindi is null, not the old wording.
+    const meta = renamed[0]!.meta as { from: Record<string, unknown>; to: Record<string, unknown> };
+    expect(meta.from).toMatchObject({ label: "Smudged", labelHi: "धुंधला", labelGu: null });
+    expect(meta.to).toMatchObject({ label: "Smudged print", labelHi: null, labelGu: "ધૂંધળું" });
     // A seeded code can be renamed too; the key stays.
     const seeded = (await p.manager.reasonCodes.list({ kind: "downtime" })).find((r) => r.code === "power")!;
     expect(seeded.standard).toBe(true);

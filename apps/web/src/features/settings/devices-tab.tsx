@@ -17,7 +17,6 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { CollectorsCard } from "./collectors-card";
 import type { DeviceGate } from "./model";
 import { Note, usePlantSettings } from "./ui";
 
@@ -156,8 +155,6 @@ export function DevicesTab() {
           </ul>
         )}
       </section>
-
-      <CollectorsCard />
 
       <RenameDialog device={renaming} onClose={() => setRenaming(null)} />
       <RevokeDialog device={revoking} onClose={() => setRevoking(null)} />

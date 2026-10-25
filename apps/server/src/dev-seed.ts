@@ -1,6 +1,6 @@
 import { createAuth } from "@orrn/auth";
 import { atomicBatch, type createDb } from "@orrn/db";
-import { user } from "@orrn/db/schema/auth";
+import { authThrottle, user } from "@orrn/db/schema/auth";
 import { die } from "@orrn/db/schema/catalog";
 import { customer } from "@orrn/db/schema/customers";
 import { dispatch, dispatchItem, transporter, type DispatchStatus } from "@orrn/db/schema/dispatch";
@@ -122,6 +122,9 @@ const DEMO_SETTINGS = {
   standards: { solid: { standard: "IS 733", cml: "" }, hollow: { standard: "IS 1285", cml: "" } },
   // Wave 3: KD Extrusion's party login is seeded (dev-seed-portal.ts).
   portalEnabled: true,
+  // The collector seed has a locked melt (dev-melt-1); left automatic, that would make every pack
+  // session ask for a cast. The demo plant packs without one, as it did before that melt existed.
+  requireCastOnBundle: false,
 };
 
 /** Every module on, Wave 1 floor modules included (FP-PF-07). */
@@ -1409,7 +1412,31 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
   // specs never acknowledge the same one. Inbox files: two per width (one to attach, one to dismiss), plus a
   // simulated one that can only be dismissed. Their R2 objects do not exist: attach/dismiss never read them.
   const collectorMeltRows: (typeof melt.$inferInsert)[] = [
-    { id: "dev-melt-1", companyId: COMPANY_ID, serverSeq: nextSeq(), castId: "dev-press-cast-1", seq: 1, alloy: "6063", createdBy: ownerId } as typeof melt.$inferInsert,
+    // m-6: a locked melt reads like one: times in lock order (charging start, casting end) inside
+    // the cast's day, and its figures (2.6 t charged, the 2.4 t of billets the cast opened with).
+    {
+      id: "dev-melt-1",
+      companyId: COMPANY_ID,
+      serverSeq: nextSeq(),
+      castId: "dev-press-cast-1",
+      seq: 1,
+      alloy: "6063",
+      alloyId: "dev-alloy-6063",
+      furnaceId: "dev-furnace-f1",
+      status: "locked",
+      preheatStartAt: new Date(pastAt(2, 6)),
+      chargingStartAt: new Date(pastAt(2, 6.75)),
+      chargingEndAt: new Date(pastAt(2, 8.5)),
+      castingStartAt: new Date(pastAt(2, 9)),
+      castingEndAt: new Date(pastAt(2, 11)),
+      inputG: 2_600_000,
+      logsPcs: 40,
+      logsLengthMm: 6_000,
+      logsG: billetOpeningG,
+      drossG: 130_000,
+      returnsG: 70_000,
+      createdBy: ownerId,
+    } as typeof melt.$inferInsert,
   ];
   const alertAt = (minAgo: number) => new Date(now - minAgo * 60_000);
   const collectorAlertRows: (typeof pressAlert.$inferInsert)[] = [
@@ -1485,6 +1512,9 @@ export async function seedDevData(db: Db, opts: { password: string }): Promise<S
 
   const statements: Statement[] = [
     // Reset: children before parents (several FKs are RESTRICT).
+    // I-4: the password-reset throttle (5 per 15 min per address and per IP) would refuse the
+    // forgot-password e2e on a rerun inside the window. Dev seed only (the route is dev-gated).
+    db.delete(authThrottle),
     // Customer portal (Wave 3): certificates hold keys to dispatches and customers, grants to dies.
     db.delete(testCertificate).where(eq(testCertificate.companyId, COMPANY_ID)),
     db.delete(customerPortalSection).where(eq(customerPortalSection.companyId, COMPANY_ID)),

@@ -150,6 +150,9 @@ describe("reallocate checks", () => {
     expect(reallocateProblem({ ...base, mismatch: true, reasonCode: "length_mismatch" })).toBeNull();
     expect(reallocateProblem({ ...base, reasonCode: "other" })).toBe("common.noteRequired");
     expect(reallocateProblem({ ...base, reasonCode: "other", note: "why" })).toBeNull();
+    // W4-MASTERS I-3: a plant code set to need a note in Masters asks for one too.
+    expect(reallocateProblem({ ...base, reasonCode: "rush_order", requiresNote: true })).toBe("common.noteRequiredReason");
+    expect(reallocateProblem({ ...base, reasonCode: "rush_order" })).toBeNull();
   });
 });
 

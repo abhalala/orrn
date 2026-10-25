@@ -29,7 +29,7 @@ import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
 import { statusTone } from "./job-card";
 import { bannerOf, clockOf, elapsedText, kgFromG, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
-import { reasonLabel } from "./reason-label";
+import { reasonLabel, type ReasonWording } from "./reason-label";
 import { CountingPanel } from "./station-count";
 import type { RunDetail } from "./types";
 
@@ -628,7 +628,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
   const rows = data.downtime;
   const openRow = rows.find((r) => !r.stoppedAt);
   const pick = (reasons.data ?? []).find((r) => r.id === reasonId);
-  const label = (code: string, text: string, wording?: { labelHi?: string | null; labelGu?: string | null }) => reasonLabel(t, "downtime", code, text, wording, locale);
+  const label = (code: string, text: string, wording?: ReasonWording) => reasonLabel(t, "downtime", code, text, wording, locale);
   const minutes = (r: (typeof rows)[number]) => Math.max(0, Math.round(((r.stoppedAt ? new Date(r.stoppedAt).getTime() : Date.now()) - new Date(r.startedAt).getTime()) / 60_000));
 
   return (
@@ -653,7 +653,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
           {rows.map((r) => (
             <li key={r.id} data-open={!r.stoppedAt} className="flex flex-wrap items-baseline justify-between gap-2 text-[15px]">
-              <span className="font-medium">{label(r.reasonCode ?? "other", r.reasonLabel ?? "")}</span>
+              <span className="font-medium">{label(r.reasonCode ?? "other", r.reasonLabel ?? "", r)}</span>
               <span className="tabular-nums text-muted-foreground">
                 {r.stoppedAt ? t("press.console.downtimeMin", { min: minutes(r) }) : t("press.console.downtimeSince", { time: clockOf(r.startedAt, tz) })}
               </span>

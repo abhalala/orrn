@@ -2,12 +2,14 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { devInvite, uniqueEmail, type InviteRole } from "./helpers/front-door";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
  * Collector UIs (BACKLOG 46): the press alerts list with acknowledge, the Today chips that link to it,
- * the limits editor in Settings -> Devices, and the spectro inbox (attach to a melt of an existing cast,
- * dismiss with a reason; a simulated file only dismisses). The seed has five alerts (all ended; three
+ * the limits editor in Settings -> Standards, and the spectro inbox (attach to a melt of an existing cast,
+ * dismiss with a reason; a simulated file only dismisses). Review I-5: the limits editor lives in
+ * Settings -> Standards (managers reach it), and foundry reaches the inbox from Today. The seed has five alerts (all ended; three
  * unacknowledged, one per width), and seven spectro files (two per width and a simulated one) on the
  * closed cast with one melt. Each width works its own alert, file and limit, so parallel widths never meet.
  */
@@ -32,6 +34,26 @@ async function expectClean(page: Page) {
   await expectNoHorizontalScroll(page);
   const axe = await new AxeBuilder({ page }).include("main#main").exclude("[data-sonner-toaster]").analyze();
   expect(axe.violations.filter((v) => v.impact === "serious" || v.impact === "critical").map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+}
+
+/**
+ * A fresh member of the seeded plant with a role no seeded account has (manager, foundry): invited
+ * through the dev hook into the demo company, joined the real way, then on Today.
+ */
+async function joinAs(page: Page, role: InviteRole, width: number) {
+  await page.setViewportSize({ width, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  const email = uniqueEmail(`e2e-${role}`);
+  const { path } = await devInvite(page.context().request, { email, role, companyId: "dev-company-orrn" });
+  await page.goto(path);
+  await page.getByLabel("Your name").fill(role === "manager" ? "Nilesh Patel" : "Ramesh Solanki");
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(`E2e-${crypto.randomUUID().slice(0, 12)}`);
+  await page.getByRole("button", { name: "Create account and join" }).click();
+  await expect(page).toHaveURL(/\/welcome$/, { timeout: 30_000 });
+  await page.getByRole("button", { name: "Go to Today" }).click();
+  await expect(page).toHaveURL(/\/today$/);
+  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 30_000 });
 }
 
 /** The row or card that mentions `text` (phone cards are list items, wide screens table rows). */
@@ -83,8 +105,8 @@ for (const width of WIDTHS) {
   });
 
   test.describe(`limits editor at ${width}`, () => {
-    test("Settings, Devices: set an upper limit for every press, it is kept after a reload", async ({ page }) => {
-      await open(page, "/settings?tab=devices", width, "owner");
+    test("Settings, Standards: set an upper limit for every press, it is kept after a reload", async ({ page }) => {
+      await open(page, "/settings?tab=standards", width, "owner");
       const card = page.getByTestId("settings-collectors");
       await expect(card).toBeVisible();
       await expect(card.getByRole("link", { name: "Open the press alerts" })).toHaveAttribute("href", "/press/alerts");
@@ -112,7 +134,13 @@ for (const width of WIDTHS) {
       await expect(page.getByText("Limits saved").first()).toBeVisible();
     });
 
-    test("a role without users.manage does not get the Devices tab", async ({ page }) => {
+    test("a role without masters.publish reads the limits on Standards with nothing to save", async ({ page }) => {
+      await open(page, "/settings?tab=standards", width, "viewer");
+      const card = page.getByTestId("settings-collectors");
+      await expect(card).toBeVisible();
+      await expect(card.getByTestId("collectors-read-only")).toBeVisible();
+      await expect(card.getByRole("button", { name: "Save" })).toHaveCount(0);
+      // The Devices tab is still admin-only and no longer carries the card.
       await open(page, "/settings?tab=devices", width, "viewer");
       await expect(page.getByTestId("settings-collectors")).toHaveCount(0);
     });
@@ -174,6 +202,38 @@ for (const width of WIDTHS) {
     });
   });
 }
+
+test.describe("collector screens reach the roles that use them (review I-5)", () => {
+  test("a manager opens Settings, Standards and can edit the limits", async ({ page }) => {
+    await joinAs(page, "manager", 820);
+    await page.goto("/settings?tab=standards");
+    const card = page.getByTestId("settings-collectors");
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card.getByTestId("collectors-read-only")).toHaveCount(0);
+    await expect(card.getByTestId("band-pressure").getByLabel("Upper limit")).toBeEditable();
+    await expect(card.getByRole("link", { name: "Open the press alerts" })).toHaveAttribute("href", "/press/alerts");
+    await expectClean(page);
+  });
+
+  test("foundry opens the spectro inbox from Today and can attach or dismiss", async ({ page }) => {
+    await joinAs(page, "foundry", 375);
+    const chip = page.getByTestId("today-spectro-inbox-link");
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText("Spectro inbox");
+    await chip.click();
+    await expect(page).toHaveURL(/\/casts\/inbox$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Spectro inbox" })).toBeVisible();
+    await expect(rowWith(page, "simulated-6063.csv").getByRole("button", { name: "Dismiss" })).toBeVisible();
+    // Back goes to Today, where foundry came from.
+    await page.getByRole("link", { name: "Today" }).first().click();
+    await expect(page).toHaveURL(/\/today$/);
+  });
+
+  test("Today has no inbox chip for a role that does not enter casts", async ({ page }) => {
+    await open(page, "/today", 820, "operator");
+    await expect(page.getByTestId("today-spectro-inbox-link")).toHaveCount(0);
+  });
+});
 
 test("the alerts list and the inbox read in Hindi and Gujarati", async ({ page }) => {
   for (const [locale, title] of [["hi", "प्रेस अलर्ट"], ["gu", "પ્રેસ એલર્ટ"]] as const) {

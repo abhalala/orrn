@@ -297,6 +297,34 @@ test.describe("book and confirm", () => {
   });
 });
 
+test.describe("reallocate reasons come from Masters (W4-MASTERS review I-3)", () => {
+  test("the Move sheet offers a code the plant added and not a retired one", async ({ page }) => {
+    const tag = Date.now().toString(36);
+    const keptLabel = `E2E rush ${tag}`;
+    const goneLabel = `E2E retired ${tag}`;
+    await signInViaApi(page, "owner");
+    const kept = await trpcMutation<{ id: string; code: string }>(page, "reasonCodes.create", { kind: "reallocate", label: keptLabel });
+    const gone = await trpcMutation<{ id: string; code: string }>(page, "reasonCodes.create", { kind: "reallocate", label: goneLabel });
+    await trpcMutation(page, "reasonCodes.setActive", { id: gone.id, active: false });
+    try {
+      await open(page, { role: "office", width: 820, path: "/orders/dev-so-1" });
+      await settled(page);
+      await page.locator("[data-order-line='1']").getByRole("button", { name: "Move bundles" }).click();
+      const sheet = page.getByRole("dialog", { name: "Move to another order" });
+      await expect(sheet).toBeVisible();
+      const reason = sheet.getByLabel("Reason", { exact: true });
+      await expect(reason.locator("option", { hasText: keptLabel })).toHaveCount(1);
+      await expect(reason.locator("option", { hasText: goneLabel })).toHaveCount(0);
+      await expect(reason.locator("option", { hasText: "Customer asked" })).toHaveCount(1);
+      await reason.selectOption(kept.code);
+      await expect(reason).toHaveValue(kept.code);
+    } finally {
+      await signInViaApi(page, "owner");
+      await trpcMutation(page, "reasonCodes.setActive", { id: kept.id, active: false });
+    }
+  });
+});
+
 test.describe("reallocate", () => {
   test.describe.configure({ mode: "serial" });
 

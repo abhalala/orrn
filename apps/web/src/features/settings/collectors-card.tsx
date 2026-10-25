@@ -46,7 +46,7 @@ export function bandDraft(minText: string, maxText: string): { ok: true; min: nu
 const text = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n));
 
 /**
- * Collectors (Settings, Devices; FP-PR-22): the limits a press reading must stay inside, per press
+ * Collectors (Settings, Standards; FP-PR-22): the limits a press reading must stay inside, per press
  * and reading, or for every press. A reading outside raises an alert on Today and on /press/alerts.
  * Managers, admins and owners (`masters.publish`) set them; the card links to the alerts list and the
  * spectro inbox. Units: ram speed mm/s, temperatures °C, pressure bar.

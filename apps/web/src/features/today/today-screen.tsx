@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CloudOff } from "lucide-react";
 import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 
+import { TodaySpectroInbox } from "@/features/foundry/today-inbox";
 import { TodayPressTile } from "@/features/press/today-tile";
 import { Can } from "@/shared/components/can";
 import { canAny, useMe } from "@/shared/lib/me";
@@ -187,6 +188,9 @@ export function TodayScreen() {
       {header}
       <TodayKpis data={data} />
       {data.pressedToday && canAny(me, ["press.run", "press.close"]) ? <TodayPressTile data={data.pressedToday} alerts={data.pressAlerts} /> : null}
+      <Can do="cast.enter">
+        <TodaySpectroInbox />
+      </Can>
       <TodayTiles tiles={data.tiles} startIndex={3} />
       <PrintProblems failed={data.failedPrintJobs} />
       {sections.dispatches || sections.sessions ? (

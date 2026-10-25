@@ -215,7 +215,7 @@ export function handoverChanges(
 // Downtime
 // ---------------------------------------------------------------------------
 
-export type DowntimeReason = { id: string; code: string; label: string; requiresNote: boolean };
+export type DowntimeReason = { id: string; code: string; label: string; requiresNote: boolean; labelHi?: string | null; labelGu?: string | null; standard?: boolean };
 
 /** Whether the chosen reason still needs a note (`other`, or a reason the plant marked so) and it is missing. */
 export function downtimeNoteMissing(reason: Pick<DowntimeReason, "code" | "requiresNote"> | undefined, note: string): boolean {

@@ -10,11 +10,11 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5369 screen strings in 46 groups, 16 guides with 292 strings.
+Counts: 5371 screen strings in 46 groups, 16 guides with 292 strings.
 
 ## Screen strings
 
-### common (68)
+### common (69)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -80,6 +80,7 @@ Counts: 5369 screen strings in 46 groups, 16 guides with 292 strings.
 | `reason` | Reason | कारण |
 | `note` | Note | नोट |
 | `noteRequired` | Write a note when you pick Other. | अन्य चुनें तो नोट लिखें। |
+| `noteRequiredReason` | This reason needs a note. | इस कारण के साथ नोट लिखें। |
 | `other` | Other | अन्य |
 | `shift` | Shift | शिफ्ट |
 | `productionDay` | Production day | प्रोडक्शन का दिन |
@@ -4968,7 +4969,7 @@ Please check, Lalubhai:
 | `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 
-### foundry (107)
+### foundry (108)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5001,6 +5002,7 @@ Please check, Lalubhai:
 | `inbox.attachSheet.title` | Attach {file} | {file} जोड़ें |
 | `inbox.attachSheet.cast` | Cast | कास्ट |
 | `inbox.attachSheet.castPick` | Pick a cast | कास्ट चुनें |
+| `inbox.attachSheet.moreCasts` | Show older casts | पुरानी कास्ट दिखाएँ |
 | `inbox.attachSheet.melt` | Melt | मेल्ट |
 | `inbox.attachSheet.meltPick` | Pick a melt | मेल्ट चुनें |
 | `inbox.attachSheet.meltLabel` | Melt {seq} | मेल्ट {seq} |

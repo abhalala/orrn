@@ -177,7 +177,15 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
     ids,
     (part) =>
       db
-        .select({ runId: pressDowntime.pressRunId, code: reasonCode.code, label: reasonCode.label, startedAt: pressDowntime.startedAt, stoppedAt: pressDowntime.stoppedAt })
+        .select({
+          runId: pressDowntime.pressRunId,
+          code: reasonCode.code,
+          label: reasonCode.label,
+          labelHi: reasonCode.labelHi,
+          labelGu: reasonCode.labelGu,
+          startedAt: pressDowntime.startedAt,
+          stoppedAt: pressDowntime.stoppedAt,
+        })
         .from(pressDowntime)
         .innerJoin(reasonCode, and(eq(reasonCode.id, pressDowntime.reasonCodeId), eq(reasonCode.companyId, pressDowntime.companyId)))
         .where(and(eq(pressDowntime.companyId, companyId), inArray(pressDowntime.pressRunId, part))),
@@ -192,15 +200,18 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
     if (l.orderNumber && !v.orders.includes(l.orderNumber)) v.orders.push(l.orderNumber);
     linesBy.set(l.runId, v);
   }
-  const downBy = new Map<string, { min: number; codes: string[]; labels: string[] }>();
+  type DownReason = { code: string; label: string; labelHi: string | null; labelGu: string | null; standard: boolean };
+  const downBy = new Map<string, { min: number; codes: string[]; labels: string[]; reasons: DownReason[] }>();
   for (const d of downtime) {
     if (!d.runId) continue;
-    const v = downBy.get(d.runId) ?? { min: 0, codes: [], labels: [] };
+    const v = downBy.get(d.runId) ?? { min: 0, codes: [], labels: [], reasons: [] };
     v.min += minutes(d.startedAt, d.stoppedAt, nowMs);
     if (!v.codes.includes(d.code)) {
       v.codes.push(d.code);
       // m-9: the cell shows the reason's label (ORRN wording), the row keeps the codes.
       v.labels.push(d.label);
+      // I-2: the screen shows each reason in the reader's language.
+      v.reasons.push({ code: d.code, label: d.label, labelHi: d.labelHi, labelGu: d.labelGu, standard: hasStandardWording("downtime", d.code, d.label) });
     }
     downBy.set(d.runId, v);
   }
@@ -209,7 +220,7 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
   const rows = page.map((r) => {
     const b = billetBy.get(r.id) ?? { count: 0, kgG: 0 };
     const l = linesBy.get(r.id) ?? { cuts: [], pcs: 0, orders: [] };
-    const d = downBy.get(r.id) ?? { min: 0, codes: [], labels: [] };
+    const d = downBy.get(r.id) ?? { min: 0, codes: [], labels: [], reasons: [] as DownReason[] };
     const spanMin = r.startedAt && r.stoppedAt ? Math.max(0, Math.round((r.stoppedAt.getTime() - r.startedAt.getTime()) / 60_000)) : 0;
     const scrapG = num(r.discardG) + num(r.endsG) + num(r.rejectG);
     const purpose = r.purpose ?? "production";
@@ -255,6 +266,7 @@ export async function pressReport(db: OrrnDb, companyId: string, filter: PressRe
       runningMin: Math.max(0, spanMin - d.min),
       downtimeMin: d.min,
       downtimeCodes: d.codes,
+      downtimeReasons: d.reasons,
       goodG: num(r.goodG),
       pcs: l.pcs,
       inputG: num(r.inputG),
@@ -359,6 +371,8 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
       pressLineId: pressDowntime.pressLineId,
       code: reasonCode.code,
       label: reasonCode.label,
+      labelHi: reasonCode.labelHi,
+      labelGu: reasonCode.labelGu,
       startedAt: pressDowntime.startedAt,
       stoppedAt: pressDowntime.stoppedAt,
     })
@@ -366,13 +380,13 @@ export async function pressDaySummary(db: OrrnDb, companyId: string, day: string
     .innerJoin(reasonCode, and(eq(reasonCode.id, pressDowntime.reasonCodeId), eq(reasonCode.companyId, pressDowntime.companyId)))
     .where(and(eq(pressDowntime.companyId, companyId), gte(pressDowntime.startedAt, new Date(startMs)), lt(pressDowntime.startedAt, new Date(endMs))));
   const downByLine = new Map<string, number>();
-  const downByReason = new Map<string, { code: string; label: string; min: number }>();
+  const downByReason = new Map<string, { code: string; label: string; labelHi: string | null; labelGu: string | null; min: number }>();
   let downtimeMin = 0;
   for (const d of down) {
     const m = minutes(d.startedAt, d.stoppedAt, Math.min(nowMs, endMs));
     downtimeMin += m;
     downByLine.set(d.pressLineId, (downByLine.get(d.pressLineId) ?? 0) + m);
-    const r = downByReason.get(d.code) ?? { code: d.code, label: d.label, min: 0 };
+    const r = downByReason.get(d.code) ?? { code: d.code, label: d.label, labelHi: d.labelHi, labelGu: d.labelGu, min: 0 };
     r.min += m;
     downByReason.set(d.code, r);
   }

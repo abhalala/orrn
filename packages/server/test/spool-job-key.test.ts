@@ -24,8 +24,11 @@ type Stored = { id: number; key: string; body: string };
 const stored = new Map<string, Stored>();
 const posts: { job_key?: string; variables: Record<string, string> }[] = [];
 let nextId = 100;
-/** "lose-reply": the spool stores the job but the answer never arrives (502). */
-let mode: "normal" | "lose-reply" = "normal";
+/**
+ * "lose-reply": the spool stores the job but the answer never arrives (502).
+ * "down": the request never reaches the spool's job store (502, nothing stored or answered).
+ */
+let mode: "normal" | "lose-reply" | "down" = "normal";
 
 beforeAll(async () => {
   env = await createTestEnv();
@@ -41,6 +44,7 @@ beforeAll(async () => {
         return Response.json({ error: "Invalid or expired token" }, { status: 401 });
       }
       if (req.method !== "POST" || path !== "/api/jobs") return new Response("not found", { status: 404 });
+      if (mode === "down") return new Response("bad gateway", { status: 502 });
       const text = new TextDecoder().decode(raw);
       const body = JSON.parse(text) as { job_key?: string; variables: Record<string, string>; copies: number };
       posts.push(body);
@@ -166,6 +170,79 @@ describe("spool.printBundleLabel job key", () => {
     const r = await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });
     expect(r.spoolJobId).toBeGreaterThan(0);
     expect(posts.map((x) => x.job_key).slice(1)).toEqual([`bundle:${p.serial}:label:v1:attempt:2`, `bundle:${p.serial}:label:v1:attempt:2`]);
+  });
+
+  test("I-1(a): the spool failed the job (webhook job_failed); a Reprint is a new key and a label comes out", async () => {
+    const p = await plant();
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });
+    // The spool's job_failed webhook marks the row failed; its spool job id stays.
+    await env.db.update(printLog).set({ status: "failed", responseText: "jam" }).where(eq(printLog.bundleId, p.bundleId));
+    const r = await p.packer.spool.printBundleLabel({ bundleId: p.bundleId, reprint: true });
+    expect(posts.map((x) => x.job_key)).toEqual([`bundle:${p.serial}:label:v1:attempt:1`, `bundle:${p.serial}:label:v1:attempt:2`]);
+    expect(stored.size).toBe(2); // a second job was queued, not answered as a duplicate
+    expect(r.spoolJobId).not.toBe([...stored.values()][0]!.id);
+    expect((await p.logs()).map((l) => [l.attempt, l.status])).toEqual([
+      [1, "failed"],
+      [2, "sent"],
+    ]);
+  });
+
+  test("I-1(b): attempt 1 printed, a later plain print lost its reply (newest attempt-1 row failed); a Reprint is still a new key", async () => {
+    const p = await plant();
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });
+    mode = "down";
+    await expect(p.packer.spool.printBundleLabel({ bundleId: p.bundleId })).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+    mode = "normal";
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId, reprint: true });
+    expect(posts.map((x) => x.job_key).at(-1)).toBe(`bundle:${p.serial}:label:v1:attempt:2`);
+    expect(stored.size).toBe(2);
+    expect((await p.logs()).map((l) => [l.attempt, l.status])).toEqual([
+      [1, "sent"],
+      [1, "failed"],
+      [2, "sent"],
+    ]);
+  });
+
+  test("I-1: the first print's reply was lost; a retry without reprint reuses the key and nothing new is queued", async () => {
+    const p = await plant();
+    mode = "lose-reply";
+    await expect(p.packer.spool.printBundleLabel({ bundleId: p.bundleId })).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+    mode = "normal";
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });
+    expect(new Set(posts.map((x) => x.job_key))).toEqual(new Set([`bundle:${p.serial}:label:v1:attempt:1`]));
+    expect(stored.size).toBe(1);
+  });
+
+  test("I-1: a print that never reached the spool is not a label that went out; Reprint reuses attempt 1", async () => {
+    const p = await plant();
+    mode = "down";
+    await expect(p.packer.spool.printBundleLabel({ bundleId: p.bundleId })).rejects.toMatchObject({ code: "BAD_GATEWAY" });
+    mode = "normal";
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId, reprint: true });
+    expect(posts.at(-1)!.job_key).toBe(`bundle:${p.serial}:label:v1:attempt:1`);
+    expect(stored.size).toBe(1);
+  });
+
+  test("m-3: new label content under the same intent (other copies, a changed sales order) is a new attempt, not a 409", async () => {
+    const p = await plant();
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId });
+    const spy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await p.packer.spool.printBundleLabel({ bundleId: p.bundleId, copies: 3 });
+      expect(spy.mock.calls.some((c) => String(c[0]).includes("job_key_conflict"))).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+    // The same content again is a retry of that new intent.
+    await p.packer.spool.printBundleLabel({ bundleId: p.bundleId, copies: 3 });
+    expect(posts.map((x) => x.job_key)).toEqual([
+      `bundle:${p.serial}:label:v1:attempt:1`,
+      `bundle:${p.serial}:label:v1:attempt:2`,
+      `bundle:${p.serial}:label:v1:attempt:2`,
+    ]);
+    expect(stored.size).toBe(2);
+    expect((await p.logs()).every((l) => typeof l.payloadHash === "string" && l.payloadHash.length === 64)).toBe(true);
   });
 
   test("a changed label layout (template version) is a deliberately new print with its own key", async () => {

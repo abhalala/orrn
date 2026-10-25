@@ -1216,6 +1216,9 @@ test.describe("Godseye: app builds, backups, support, company", () => {
 });
 
 test.describe("forgot password", () => {
+  // I-4: a fresh address per run (and per width): the reset throttle counts per address, so a rerun
+  // inside its 15 minutes must not reuse the last run's address. /dev/seed also clears the throttle.
+  const RUN = Date.now().toString(36);
   for (const width of WIDTHS) {
     test(`${width}: the page renders and answers the same whether or not the address has an account`, async ({ page }) => {
       await openPublic(page, "/forgot-password", width);
@@ -1223,11 +1226,12 @@ test.describe("forgot password", () => {
       await shot(page, "forgot-password", width);
       expect(await blockingAxeViolations(page)).toEqual([]);
       await expectNoHorizontalScroll(page);
-      await page.getByTestId("forgot-email").fill("nobody.at.all@example.com");
+      const address = `nobody.${RUN}.${width}@example.com`;
+      await page.getByTestId("forgot-email").fill(address);
       await page.getByTestId("forgot-submit").click();
       const sent = page.getByTestId("forgot-sent");
       await expect(sent).toBeVisible();
-      await expect(sent).toContainText("If an account exists for nobody.at.all@example.com");
+      await expect(sent).toContainText(`If an account exists for ${address}`);
       await expect(sent.getByRole("link", { name: "Back to sign in" })).toBeVisible();
       expect(await blockingAxeViolations(page)).toEqual([]);
     });

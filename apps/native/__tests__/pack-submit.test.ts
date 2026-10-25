@@ -2,12 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { DEFAULT_REASON_CODES } from "@orrn/domain";
 import { en } from "@orrn/i18n/en";
 
 import { cardBundle, asksReason, typedCount } from "../features/pack/pack-card";
 import { DEFAULT_SOURCE, receiptPayload, type DraftBundle } from "../features/pack/pack-math";
-import { PACK_REFUSALS, packSaveText, readReject, receiptRequestKey, REJECT_CODES, saveErrorKind, validSessionKey, withRequestKey } from "../features/pack/pack-submit";
+import { PACK_REFUSALS, packSaveText, readReject, receiptRequestKey, saveErrorKind, validSessionKey, withRequestKey } from "../features/pack/pack-submit";
 import { partyNoLabel, partyRange } from "../features/pack/party";
 import { copyLocked, sourceBlockers, withPinnedLine, withPinOverride } from "../features/pack/source-gate";
 import { gramsToFieldText, scaleView, typedWeightNeedsReason, viewForReason, weightProvenance } from "../features/pack/scale-view";
@@ -133,8 +132,12 @@ describe("the receipt carries what the Source step chose (D20, D15)", () => {
     expect(p.rejects).toEqual([{ pcs: 3, weightG: 6_000, reasonCode: "bend" }]);
   });
 
-  test("the reject reasons are the seeded qc_reject codes, in order", () => {
-    expect([...REJECT_CODES] as string[]).toEqual(DEFAULT_REASON_CODES.qc_reject.map((r) => r.code));
+  test("W4-MASTERS I-3: the reject picker reads the plant's codes; a code set to need a note needs one", () => {
+    // No fixed list: the panel reads press.reasons({ kind: "qc_reject" }).
+    expect(read("apps/native/features/pack/rejects-panel.tsx")).toContain('press.reasons.queryOptions({ kind: "qc_reject" })');
+    expect(read("apps/native/features/pack/pack-submit.ts")).not.toContain("REJECT_CODES");
+    expect(readReject({ pcs: "2", kg: "", reasonCode: "die_line", note: "" })).toEqual({ ok: true, reject: { pcs: 2, reasonCode: "die_line" } });
+    expect(readReject({ pcs: "2", kg: "", reasonCode: "die_line", note: "" }, true)).toMatchObject({ ok: false, errors: { note: true } });
   });
 
   test("a reject needs pieces and a reason; Other needs a note; a typed weight must be real", () => {

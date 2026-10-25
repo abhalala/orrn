@@ -1,6 +1,7 @@
 import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Text, View } from "react-native";
 
@@ -9,24 +10,29 @@ import { Field } from "@/components/ui/field";
 import { NumberInput } from "@/components/ui/number-input";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { announce } from "@/lib/a11y";
-import { reasonLabel } from "@/features/press/reason-label";
+import { reasonCodeText, reasonOptions } from "@/features/press/reason-label";
+import { trpc } from "@/utils/trpc";
 
 import type { DraftReject } from "./pack-math";
-import { EMPTY_REJECT, readReject, REJECT_CODES, rejectPieces, type RejectErrors, type RejectForm } from "./pack-submit";
+import { EMPTY_REJECT, readReject, rejectPieces, type RejectErrors, type RejectForm } from "./pack-submit";
 
 /**
  * Rejects at pack (FP-PK-14): pieces taken out of the pile that are not a bundle. Weighed rejects post
  * their kg at plant scrap; pieces with no weight only leave the count. Saved with the session.
  */
 export function RejectsPanel({ rejects, onAdd, onRemove }: { rejects: readonly DraftReject[]; onAdd: (r: DraftReject) => void; onRemove: (index: number) => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<RejectForm>(EMPTY_REJECT);
   const [errors, setErrors] = useState<RejectErrors>({});
+  // W4-MASTERS I-3: the plant's active qc_reject codes (Masters, Reason codes), never a fixed list.
+  const reasons = useQuery({ ...trpc.press.reasons.queryOptions({ kind: "qc_reject" }), staleTime: 5 * 60_000 });
+  const options = reasonOptions(t, "qc_reject", reasons.data, locale);
+  const needsNote = form.reasonCode === "other" || Boolean(options.find((o) => o.value === form.reasonCode)?.requiresNote);
   const total = rejectPieces(rejects);
 
   const add = () => {
-    const r = readReject(form);
+    const r = readReject(form, needsNote);
     if (!r.ok) {
       setErrors(r.errors);
       return;
@@ -52,7 +58,7 @@ export function RejectsPanel({ rejects, onAdd, onRemove }: { rejects: readonly D
           <Text className="min-w-0 flex-1 font-sans text-[15px] text-ink">
             {[
               t("pack.reject.saved", { count: r.pcs }),
-              reasonLabel(t, "qc_reject", r.reasonCode, r.reasonCode),
+              reasonCodeText(t, "qc_reject", r.reasonCode, reasons.data, locale),
               r.weightG ? `${formatKgTotal(gToKg(r.weightG))} ${t("units.kg")}` : t("pack.reject.noWeight"),
               r.note ?? null,
             ]
@@ -71,9 +77,8 @@ export function RejectsPanel({ rejects, onAdd, onRemove }: { rejects: readonly D
           <View accessibilityRole="radiogroup" accessibilityLabel={t("pack.reject.reason")} className="gap-2">
             <Text className="font-sans-medium text-sm text-ink">{t("pack.reject.reason")}</Text>
             <View className="flex-row flex-wrap gap-2">
-              {REJECT_CODES.map((code) => {
+              {options.map(({ value: code, label }) => {
                 const selected = form.reasonCode === code;
-                const label = reasonLabel(t, "qc_reject", code, code);
                 return (
                   <PressableScale
                     key={code}
@@ -90,8 +95,8 @@ export function RejectsPanel({ rejects, onAdd, onRemove }: { rejects: readonly D
             </View>
             {errors.reason ? <Text className="font-sans text-sm text-destructive">{t("pack.reject.reasonRequired")}</Text> : null}
           </View>
-          {form.reasonCode === "other" ? (
-            <Field label={t("common.note")} value={form.note} onChangeText={(note) => setForm((f) => ({ ...f, note }))} multiline maxLength={500} error={errors.note ? t("common.noteRequired") : null} />
+          {needsNote ? (
+            <Field label={t("common.note")} value={form.note} onChangeText={(note) => setForm((f) => ({ ...f, note }))} multiline maxLength={500} error={errors.note ? t(form.reasonCode === "other" ? "common.noteRequired" : "common.noteRequiredReason") : null} />
           ) : null}
           <Button label={t("pack.reject.addLine")} onPress={add} />
         </View>

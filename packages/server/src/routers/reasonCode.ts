@@ -175,7 +175,13 @@ export const reasonCodeRouter = router({
             kind: row.kind,
             code: row.code,
             from: { label: row.label, labelHi: row.labelHi, labelGu: row.labelGu, requiresNote: row.requiresNote },
-            to: { label: input.label, labelHi: set.labelHi ?? row.labelHi, labelGu: set.labelGu ?? row.labelGu, requiresNote: set.requiresNote ?? row.requiresNote },
+            // m-1: a cleared translation (null) is recorded as cleared, not as the old wording.
+            to: {
+              label: input.label,
+              labelHi: input.labelHi !== undefined ? input.labelHi : row.labelHi,
+              labelGu: input.labelGu !== undefined ? input.labelGu : row.labelGu,
+              requiresNote: input.requiresNote ?? row.requiresNote,
+            },
           },
         }),
       ]);

@@ -16,6 +16,14 @@ import { SpoolClient, SpoolHttpError, spoolBaseUrl } from "../lib/spool-client";
 import { can } from "../lib/permissions";
 import { actionProcedure, companyProcedure, router } from "../index";
 
+/** What the spool compares under one job key (printer, template, variables, copies): sha-256 hex of sorted JSON. */
+async function labelPayloadHash(body: { printer_id: number; template_id: number; variables: Record<string, unknown>; copies: number }): Promise<string> {
+  const variables = Object.fromEntries(Object.entries(body.variables).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  const text = JSON.stringify({ c: body.copies, p: body.printer_id, t: body.template_id, v: variables });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * The spool's exactly-once key (orrn-spool docs/print-exactly-once.md): one per print intent,
  * `bundle:<serial>:label:v<template version>:attempt:<n>`. The spool accepts 1-200 characters from
@@ -391,18 +399,37 @@ export const spoolRouter = router({
       const copies = input.copies ?? profile.defaultCopies;
       Object.assign(variables, packVariables);
 
-      // BACKLOG 44: the print intent. The first print of a bundle at a label version is attempt 1; only an
-      // explicit reprint of a label that really went out moves it up. Anything else (a transport retry, a
-      // second tap, a reprint whose first try never reached the spool) reuses the latest attempt, hence the key.
+      // BACKLOG 44: the print intent. The first print of a bundle at a label version is attempt 1. The
+      // attempt moves up when a person asks for a reprint of a label that went out (ANY row of the latest
+      // attempt has a spool job id: the spool accepted that key, whatever its status became since), or
+      // when the label content differs from what that attempt already sent (another profile, copies, a
+      // changed sales order on the label): the spool would refuse that key as a conflict. Anything else
+      // (a transport retry, a second tap, a reprint whose first try never reached the spool) reuses the
+      // latest attempt, hence the key.
       const labelVersion = template.version;
+      const payloadHash = await labelPayloadHash({
+        printer_id: Number(profile.spoolPrinterId),
+        template_id: Number(template.spoolTemplateId),
+        variables,
+        copies,
+      });
+      const scope = and(eq(printLog.companyId, ctx.companyId!), eq(printLog.bundleId, bundleRow.id), eq(printLog.labelVersion, labelVersion));
       const [latest] = await ctx.db
-        .select({ attempt: printLog.attempt, status: printLog.status })
+        .select({ attempt: printLog.attempt })
         .from(printLog)
-        .where(and(eq(printLog.companyId, ctx.companyId!), eq(printLog.bundleId, bundleRow.id), eq(printLog.labelVersion, labelVersion)))
-        .orderBy(desc(printLog.attempt), desc(printLog.createdAt))
+        .where(scope)
+        .orderBy(desc(printLog.attempt))
         .limit(1);
-      const went = latest?.status === "sent" || latest?.status === "success";
-      const attempt = !latest ? 1 : input.reprint && went ? latest.attempt + 1 : latest.attempt;
+      let attempt = 1;
+      if (latest) {
+        const rows = await ctx.db
+          .select({ spoolJobId: printLog.spoolJobId, payloadHash: printLog.payloadHash })
+          .from(printLog)
+          .where(and(scope, eq(printLog.attempt, latest.attempt)));
+        const went = rows.some((r) => r.spoolJobId != null);
+        const changed = rows.some((r) => r.payloadHash != null && r.payloadHash !== payloadHash);
+        attempt = (input.reprint && went) || changed ? latest.attempt + 1 : latest.attempt;
+      }
       const jobKey = spoolJobKey(bundleRow.serial, labelVersion, attempt);
 
       await ctx.db.insert(printLog).values({
@@ -418,6 +445,7 @@ export const spoolRouter = router({
         attempt,
         labelVersion,
         jobKey,
+        payloadHash,
       });
 
       try {

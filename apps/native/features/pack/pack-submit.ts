@@ -47,20 +47,20 @@ export function withRequestKey<T extends object>(sessionKey: string, payload: T)
 // Rejects
 // ---------------------------------------------------------------------------
 
-/** The seeded `qc_reject` reasons a packer picks from; `other` needs a note. Checked against the domain table in the tests. */
-export const REJECT_CODES = ["dimension", "surface", "bend", "crack", "short_length", "other"] as const;
-
 export type RejectForm = { pcs: string; kg: string; reasonCode: string; note: string };
 export const EMPTY_REJECT: RejectForm = { pcs: "", kg: "", reasonCode: "", note: "" };
 export type RejectErrors = { pcs?: true; reason?: true; note?: true; kg?: true };
 
-/** Validates the reject form; returns the reject or what is wrong (field keys the screen words). */
-export function readReject(f: RejectForm): { ok: true; reject: DraftReject } | { ok: false; errors: RejectErrors } {
+/**
+ * Validates the reject form; returns the reject or what is wrong (field keys the screen words).
+ * `needsNote`: the picked code asks for a note (`other`, or a code the plant set so in Masters).
+ */
+export function readReject(f: RejectForm, needsNote = f.reasonCode === "other"): { ok: true; reject: DraftReject } | { ok: false; errors: RejectErrors } {
   const pcs = parsePieces(f.pcs);
   const errors: RejectErrors = {};
   if (pcs === null) errors.pcs = true;
   if (!f.reasonCode) errors.reason = true;
-  if (f.reasonCode === "other" && !f.note.trim()) errors.note = true;
+  if (f.reasonCode && needsNote && !f.note.trim()) errors.note = true;
   const kgTyped = f.kg.trim() !== "";
   const weightG = kgTyped ? parseWeightG(f.kg) : null;
   if (kgTyped && weightG === null) errors.kg = true;

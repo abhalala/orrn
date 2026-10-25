@@ -19,7 +19,7 @@ import type { SummarySearch } from "./search";
 
 /** `/press/summary`: the production day's three numbers, the stops longest first, shifts and late share. */
 export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onSearch: (next: SummarySearch) => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const query = useQuery({ ...trpc.press.summary.queryOptions(search.day ? { productionDay: search.day } : {}), meta: INLINE_ERROR_META });
   const data = query.data;
   const header = (
@@ -105,7 +105,7 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
             {data.downtimeByReason.map((r) => (
               <li key={r.code} className="min-w-0" data-reason={r.code}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <span className="text-[15px] font-medium">{reasonLabel(t, "downtime", r.code, r.label, r)}</span>
+                  <span className="text-[15px] font-medium">{reasonLabel(t, "downtime", r.code, r.label, r, locale)}</span>
                   <span className="tabular-nums">{t("press.summary.minutes", { min: r.min })}</span>
                 </div>
                 <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-sunken">

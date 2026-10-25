@@ -64,7 +64,7 @@ const RIGHT = new Set(["runningMin", "recovery"]);
 
 /** `/press/report`: logged runs, 17 columns, landscape; the same columns as the CSV. */
 export function ReportScreen({ search, onSearch }: { search: ReportSearch; onSearch: (next: ReportSearch) => void }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { data: me } = useMe();
   const today = useQuery({ ...trpc.press.summary.queryOptions({}), meta: INLINE_ERROR_META });
   const lines = useQuery(trpc.press.lines.list.queryOptions({ includeRetired: true }));
@@ -203,7 +203,7 @@ export function ReportScreen({ search, onSearch }: { search: ReportSearch; onSea
                       const cell = id === "orders" && row.trial ? t(`press.plan.purpose.${row.purpose}` as MessageKey) : row.cells[id];
                       const content =
                         id === "downtimeMin" && row.downtimeCodes.length > 0
-                          ? `${row.downtimeMin} (${row.downtimeCodes.map((c) => reasonLabel(t, "downtime", c, c)).join(", ")})`
+                          ? `${row.downtimeMin} (${row.downtimeReasons.map((c) => reasonLabel(t, "downtime", c.code, c.label, c, locale)).join(", ")})`
                           : cell;
                       return (
                         <td key={id} className={`px-2 py-2 tabular-nums ${id === "cutLengths" ? "min-w-[12rem]" : "whitespace-nowrap"} ${MONO.has(id) ? "font-mono" : ""} ${RIGHT.has(id) ? "text-right" : ""}`}>
