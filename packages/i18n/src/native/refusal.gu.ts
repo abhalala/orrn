@@ -1,5 +1,5 @@
 /**
- * Gujarati for native.refusal (W4-NATIVE-C). Plant words stay in Latin as in Hindi (die, press, bundle, dispatch, PO, kg).
+ * Gujarati for refusal (W4-NATIVE-C). Plant words stay in Latin as in Hindi (die, press, bundle, dispatch, PO, kg).
  * Needs a native-speaker review: see .fp-build/reports/gu-review-list.md.
  */
 export const refusalGu = {
@@ -122,7 +122,7 @@ export const refusalGu = {
     nothingLeftToPlan: "{order} ની લાઇન {n} પર પ્લાન કરવા કંઈ બચ્યું નથી.",
     askedMore: "{order} લાઇન {n}: {asked} kg માંગ્યા, પ્લાન માટે ફક્ત {left} kg બચ્યા છે.",
     addOneLine: "ઓછામાં ઓછી એક ઓર્ડર લાઇન ઉમેરો.",
-    trialNoLines: "ટ્રાયલ કે સેમ્પલ પ્લાનમાં ઓર્ડર લાઇન હોતી નથી.",
+    trialNoLines: "ફક્ત પ્રોડક્શન પ્લાનમાં ઓર્ડર લાઇન જોડાય છે. ટ્રાયલ કે સેમ્પલ પ્લાનમાં નહીં.",
     dieTwice: "એક die પ્લાનમાં બે વાર છે. તેની લાઇનો એક જ die નીચે રાખો.",
     lineTwicePlan: "એક ઓર્ડર લાઇન પ્લાનમાં બે વાર છે.",
     maxLines: "એક પ્લાનમાં વધુમાં વધુ {max} ઓર્ડર લાઇન.",
@@ -138,6 +138,8 @@ export const refusalGu = {
     alreadyOnPlan: "{order} ની લાઇન {n} પહેલેથી આ પ્લાન પર છે.",
     planNeedsLine: "પ્લાનમાં ઓછામાં ઓછી એક ઓર્ડર લાઇન જોઈએ. તેને બદલે પ્લાન રદ કરો.",
     maxDies: "એક પ્લાનમાં વધુમાં વધુ {max} die.",
+    alreadyDecided: "આ વિનંતી પર પહેલેથી નિર્ણય થઈ ગયો છે.",
+    ownRequest: "તમારી વિનંતી બીજું કોઈ મંજૂર કરશે.",
     unknown: "orrn એ આને નકાર્યું. વિગતો તપાસીને ફરી પ્રયાસ કરો.",
   },
 } as const;

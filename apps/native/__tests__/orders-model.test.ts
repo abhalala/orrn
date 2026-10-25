@@ -124,7 +124,7 @@ describe("confirm blockers become sentences (D11: the server enforces them)", ()
     expect(orderErrorLines(en, trpcError("FORBIDDEN", "This die belongs to KD Extrusion"))).toEqual(["This die belongs to KD Extrusion."]);
     expect(orderErrorLines(en, trpcError("BAD_REQUEST", "SO-4 line 2: 20.000 kg asked, only 12.000 kg is left to plan"))).toEqual(["SO-4 line 2: 20.000 kg asked, only 12.000 kg is left to plan."]);
     expect(orderErrorLines(hi, trpcError("BAD_REQUEST", "SO-4 line 2: 20.000 kg asked, only 12.000 kg is left to plan"))[0]).not.toContain("asked");
-    expect(orderErrorLines(en, trpcError("BAD_REQUEST", "Only 12.000 kg is left to plan"))).toEqual([en("native.refusal.unknown")]);
+    expect(orderErrorLines(en, trpcError("BAD_REQUEST", "Only 12.000 kg is left to plan"))).toEqual([en("refusal.unknown")]);
   });
 
   test("an answer that never came says to check first, never to just retry", () => {

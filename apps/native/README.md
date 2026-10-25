@@ -85,5 +85,5 @@ Sound is not asserted: the refusal text on screen is what the voice reads.
 
 ## Gujarati
 
-The Gujarati strings written for `native.press.*`, `native.pack.*`, `native.stock.*` and `native.refusal.*` have not
+The Gujarati strings written for `native.press.*`, `native.pack.*`, `native.stock.*` and `refusal.*` have not
 been read by a Gujarati speaker. They are listed in `.fp-build/reports/gu-review-list.md` for review.

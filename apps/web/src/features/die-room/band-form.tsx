@@ -54,7 +54,7 @@ export function NewBandPage({ id }: { id: string }) {
     onError: (error) => {
       const hit = conflictExisting(error);
       setExisting(hit);
-      setRefusal(hit ? null : refusalText(error, { forbidden: t("errors.forbidden"), generic: t("errors.generic") }));
+      setRefusal(hit ? null : refusalText(error, t));
     },
   });
 

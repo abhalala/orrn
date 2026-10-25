@@ -23,13 +23,19 @@ const enFlat = flatten(en as Tree);
 const guFlat = flatten(gu as unknown as Tree);
 
 describe("Gujarati: partial, floor namespaces complete", () => {
+  test("the floor list is real: every namespace in it exists in en", () => {
+    for (const ns of GU_FLOOR_NAMESPACES) {
+      expect({ ns, has: [...enFlat.keys()].some((k) => k === ns || k.startsWith(`${ns}.`)) }).toEqual({ ns, has: true });
+    }
+  });
+
   test("every gu key exists in en", () => {
     expect([...guFlat.keys()].filter((k) => !enFlat.has(k))).toEqual([]);
   });
 
   test("floor namespaces have every en key", () => {
     for (const ns of GU_FLOOR_NAMESPACES) {
-      const missing = [...enFlat.keys()].filter((k) => k.startsWith(`${ns}.`) && !guFlat.has(k));
+      const missing = [...enFlat.keys()].filter((k) => (k === ns || k.startsWith(`${ns}.`)) && !guFlat.has(k));
       expect({ ns, missing }).toEqual({ ns, missing: [] });
     }
   });
@@ -69,6 +75,9 @@ describe("Gujarati: partial, floor namespaces complete", () => {
   test("a missing gu key falls back to English", () => {
     const { t } = createI18n("gu");
     expect(t("pack.title")).toBe("પૅકિંગ");
-    expect(createI18n("gu").t("errors.notFound")).toBe(en.errors.notFound);
+    // An office-only key with no Gujarati answers in English (guides, admin, masters, the portal and so on, by design).
+    const office = [...enFlat].find(([k, v]) => !guFlat.has(k) && k.startsWith("masters.") && !/\{/.test(v));
+    expect(office).toBeDefined();
+    expect(t(office![0] as never)).toBe(office![1]);
   });
 });

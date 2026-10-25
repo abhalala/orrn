@@ -207,8 +207,8 @@ describe("refusal wording (BACKLOG 29: never the server's English)", () => {
 
   test("the server's sentences name the copy and are said from the dictionary", () => {
     expect(dieErrorText(en, err("BAD_REQUEST", "12170-2 is retired; it takes no readings"))).toBe("12170-2 is retired. It takes no readings.");
-    expect(dieErrorText(en, err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"))).toBe(en("native.refusal.changed"));
-    expect(dieErrorText(hi, err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"))).toBe(hi("native.refusal.changed"));
+    expect(dieErrorText(en, err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"))).toBe(en("refusal.changed"));
+    expect(dieErrorText(hi, err("CONFLICT", "12170-2 or PR-4 changed meanwhile; nothing was issued"))).toBe(hi("refusal.changed"));
   });
 
   test("an owned die names its owner; any other FORBIDDEN is the role wording", () => {
@@ -217,7 +217,7 @@ describe("refusal wording (BACKLOG 29: never the server's English)", () => {
   });
 
   test("a validation failure (JSON text) and unexpected errors are never shown raw", () => {
-    expect(dieErrorText(en, err("BAD_REQUEST", '[{"code":"too_small"}]'))).toBe(en("native.refusal.unknown"));
+    expect(dieErrorText(en, err("BAD_REQUEST", '[{"code":"too_small"}]'))).toBe(en("refusal.unknown"));
     expect(dieErrorText(en, err("INTERNAL_SERVER_ERROR", "boom"))).toBe(en("native.saveUnsureBody"));
     expect(dieErrorText(en, new Error("Network request failed"))).toBe(en("native.saveUnsureBody"));
   });

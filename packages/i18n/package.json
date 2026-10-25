@@ -9,6 +9,8 @@
     "./en-public": "./src/en-public.gen.ts",
     "./hi": "./src/hi.ts",
     "./gu": "./src/gu.ts",
+    "./refusal": "./src/refusal.ts",
+    "./refusal-sentences": "./src/refusal-sentences.ts",
     "./guides": "./src/guides/index.ts"
   },
   "scripts": {

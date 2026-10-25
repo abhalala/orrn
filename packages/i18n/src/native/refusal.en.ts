@@ -1,6 +1,6 @@
 /**
- * Native-only strings: what the phone says when orrn refuses a die room or orders write (W4-NATIVE-C).
- * Top-level keys become `native.<key>.*`. The sentences are matched in apps/native/lib/server-refusal.ts;
+ * What a refused die room, orders or approval write says, on the phone and in the browser (W4-NATIVE-C, W4-GU).
+ * Top-level `refusal.*`. The sentences are matched in packages/i18n/src/refusal.ts (shared by apps/native and apps/web);
  * every server sentence in the die room and orders routers has a key here, in hi and in gu.
  * `{state}` is a die copy status word, `{status}` an order or plan status word, both from the app's own dictionary.
  */
@@ -124,7 +124,7 @@ export const refusalEn = {
     nothingLeftToPlan: "Nothing is left to plan on {order} line {n}.",
     askedMore: "{order} line {n}: {asked} kg asked, only {left} kg is left to plan.",
     addOneLine: "Add at least one order line.",
-    trialNoLines: "A trial or sample plan takes no order lines.",
+    trialNoLines: "Only a production plan takes order lines. A trial or sample plan takes none.",
     dieTwice: "A die is on the plan twice. Put its lines under one die.",
     lineTwicePlan: "An order line is on the plan twice.",
     maxLines: "At most {max} order lines on a plan.",
@@ -140,6 +140,8 @@ export const refusalEn = {
     alreadyOnPlan: "{order} line {n} is already on this plan.",
     planNeedsLine: "A plan needs at least one order line. Cancel the plan instead.",
     maxDies: "At most {max} dies on a plan.",
+    alreadyDecided: "This request was already decided.",
+    ownRequest: "Someone else has to approve your request.",
     unknown: "orrn refused this. Check the details and try again.",
   },
 } as const;

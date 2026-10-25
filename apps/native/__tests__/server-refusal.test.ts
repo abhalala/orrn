@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { createI18n } from "@orrn/i18n";
+import { serverSentences } from "@orrn/i18n/refusal-sentences";
 import { en } from "@orrn/i18n/en";
 import { gu } from "@orrn/i18n/gu";
 import { hi } from "@orrn/i18n/hi";
@@ -11,180 +10,9 @@ import { blockerText } from "../features/orders/order-model";
 import { RequestTimeoutError } from "../lib/request-timeout";
 import { blockersOf, keyOf, mapSentence, SERVER_REFUSALS, serverRefusal, serverRefusalLines, type RefusalEntry } from "../lib/server-refusal";
 
-const REPO = join(import.meta.dir, "..", "..", "..");
-const SRC = (rel: string) => readFileSync(join(REPO, "packages/server/src", rel), "utf8");
-
 function lookup(dict: unknown, key: string): unknown {
   return key.split(".").reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : undefined), dict);
 }
-
-// ---------------------------------------------------------------------------
-// Reading the server's sentences out of its source
-// ---------------------------------------------------------------------------
-
-const PLACEHOLDER = "7";
-
-/** Past a `${ ... }` expression that starts after the `{`; returns the index of the closing `}`. */
-function skipInterpolation(src: string, from: number): number {
-  let depth = 1;
-  let i = from;
-  while (i < src.length) {
-    const c = src[i]!;
-    if (c === '"' || c === "'") i = skipQuoted(src, i);
-    else if (c === "`") i = skipTemplate(src, i).end;
-    else {
-      if (c === "{") depth++;
-      if (c === "}") {
-        depth--;
-        if (depth === 0) return i;
-      }
-      i++;
-    }
-  }
-  throw new Error("unterminated interpolation");
-}
-
-function skipQuoted(src: string, at: number): number {
-  const q = src[at]!;
-  let i = at + 1;
-  while (src[i] !== q) i += src[i] === "\\" ? 2 : 1;
-  return i + 1;
-}
-
-/** A template literal starting at the backtick: its text with every `${}` as the placeholder, and where it ends. */
-function skipTemplate(src: string, at: number): { text: string; end: number } {
-  let i = at + 1;
-  let text = "";
-  while (src[i] !== "`") {
-    if (src[i] === "\\") {
-      text += src[i + 1];
-      i += 2;
-    } else if (src[i] === "$" && src[i + 1] === "{") {
-      i = skipInterpolation(src, i + 2) + 1;
-      text += PLACEHOLDER;
-    } else text += src[i++];
-  }
-  return { text, end: i + 1 };
-}
-
-/** Every string literal of the expression that starts at `from`, up to its end (a depth-0 comma or closer). */
-function literalsOfExpression(src: string, from: number): string[] {
-  const out: string[] = [];
-  let depth = 0;
-  let i = from;
-  while (i < src.length) {
-    const c = src[i]!;
-    if (c === '"' || c === "'") {
-      const end = skipQuoted(src, i);
-      out.push(JSON.parse(c === '"' ? src.slice(i, end) : `"${src.slice(i + 1, end - 1).replace(/"/g, '\\"')}"`));
-      i = end;
-    } else if (c === "`") {
-      const t = skipTemplate(src, i);
-      out.push(t.text);
-      i = t.end;
-    } else if (c === "(" || c === "[" || c === "{") {
-      depth++;
-      i++;
-    } else if (c === ")" || c === "]" || c === "}") {
-      if (depth === 0) break;
-      depth--;
-      i++;
-    } else if (c === "," && depth === 0) break;
-    else i++;
-  }
-  return out;
-}
-
-/** `message: <expr>` in a file: every sentence the expression can produce. */
-function messageSentences(src: string): string[] {
-  const out: string[] = [];
-  for (const m of src.matchAll(/\bmessage:\s*/g)) {
-    const from = m.index! + m[0].length;
-    // `message: copyBusyMessage(instance, "sent to nitriding")` is a call: its sentence is composed (see composedSentences).
-    if (/^[A-Za-z_]\w*\(/.test(src.slice(from, from + 40))) continue;
-    out.push(...literalsOfExpression(src, from));
-  }
-  return out;
-}
-
-/** The string literals of the statement that starts at `startMarker`, up to its first `;` outside a literal. */
-function blockLiterals(src: string, startMarker: string): string[] {
-  const at = src.indexOf(startMarker);
-  expect({ marker: startMarker, found: at > -1 }).toEqual({ marker: startMarker, found: true });
-  const out: string[] = [];
-  let i = at;
-  while (i < src.length) {
-    const c = src[i]!;
-    if (c === '"') {
-      const e = skipQuoted(src, i);
-      out.push(JSON.parse(src.slice(i, e)));
-      i = e;
-    } else if (c === "`") {
-      const t = skipTemplate(src, i);
-      out.push(t.text);
-      i = t.end;
-    } else if (c === ";") break;
-    else i++;
-  }
-  return out;
-}
-
-/** The sentences the routers compose from a subject and a phrase held in a table or ternary. */
-function composedSentences(): string[] {
-  const issue = SRC("routers/dieIssue.ts");
-  const maker = SRC("routers/dieMaker.ts");
-  const inst = SRC("routers/dieInstance.ts");
-  const flow = SRC("routers/orderFlow.ts");
-  const phrases = [
-    ...blockLiterals(issue, "const STATUS_WORDS"),
-    ...blockLiterals(maker, "const where: Record<string, string>"),
-  ].filter((p) => /^is /.test(p) && p !== "is 7");
-  const busy = blockLiterals(inst, "const where: Record<string, string> = {\n    in_use").filter((p) => /^is /.test(p) && p !== "is 7").map((p) => `${p}; it cannot be sent to nitriding`);
-  const whyPhrases = blockLiterals(flow, "const why =").filter((p) => /^is /.test(p)).map((p) => `${PLACEHOLDER} ${p}`);
-  const holdWhy = blockLiterals(flow, "const why: Record").filter((p) => p.includes(PLACEHOLDER) && !p.startsWith("Line"));
-  return [...phrases.map((p) => `${PLACEHOLDER} ${p}`), ...busy.map((p) => `${PLACEHOLDER} ${p}`), ...whyPhrases, ...holdWhy];
-}
-
-const FILES = [
-  "routers/dieIssue.ts",
-  "routers/dieInstance.ts",
-  "routers/dieMaker.ts",
-  "routers/orderFlow.ts",
-  "routers/salesOrder.ts",
-  "routers/pressPlan.ts",
-  "lib/dieOwner.ts",
-  "lib/dieRoom.ts",
-  "lib/dieTrial.ts",
-  "lib/orderLines.ts",
-];
-
-/** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
-const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
-
-function serverSentences(): { file: string; text: string }[] {
-  const out: { file: string; text: string }[] = [];
-  for (const f of FILES) {
-    const src = SRC(f);
-    for (const text of messageSentences(src)) if (isSentence(text)) out.push({ file: f, text });
-    // requireActiveBand(db, company, section, band, "message")
-    for (const m of src.matchAll(/requireActiveBand\(/g)) {
-      const end = src.indexOf(");", m.index!);
-      const last = blockLiterals(src.slice(m.index!, end + 2), "requireActiveBand(").filter(isSentence).pop();
-      if (last) out.push({ file: f, text: last });
-    }
-  }
-  for (const text of composedSentences()) out.push({ file: "composed", text });
-  return out.flatMap((s) => realize(s.text).map((text) => ({ file: s.file, text })));
-}
-
-/** Where the server puts a status word the reader can only see as a placeholder, the words it can be. */
-const REALIZE: [RegExp, string[]][] = [
-  [/^This issue is already 7$/, ["This issue is already returned", "This issue is already cancelled"]],
-  [/^7 is 7; it cannot be set to 7 from there$/, ["7 is in use; it cannot be set to available from there", "7 is at nitriding; it cannot be set to on trial from there"]],
-  [/^7 is already 7$/, ["7 is already received", "7 is already cancelled"]],
-  [/^7 7 not held for 7 line 7$/, ["7 is not held for 7 line 7", "7, 7 are not held for 7 line 7"]],
-];
-const realize = (text: string): string[] => REALIZE.find(([re]) => re.test(text))?.[1] ?? [text];
 
 /** Sentences the phone is deliberately not given a key for, each with its reason. Nothing here may be reachable from a native screen. */
 const ALLOWED_UNMAPPED: { text: RegExp; why: string }[] = [
@@ -235,19 +63,18 @@ describe("every die room and orders refusal has a sentence in the person's langu
     for (const e of SERVER_REFUSALS) {
       const k = keyOf(e);
       for (const [name, dict] of [["en", en], ["hi", hi], ["gu", gu]] as const) {
-        if (name === "gu" && !k.startsWith("native.refusal.")) continue; // errors.* and orders.* are gu-by-fallback shared keys
         expect({ key: k, lang: name, text: typeof lookup(dict, k) }).toEqual({ key: k, lang: name, text: "string" });
       }
     }
   });
 
-  test("every native.refusal key is used by an entry (or the generic line), and no entry is shadowed by an earlier one", () => {
+  test("every refusal key is used by an entry (or the generic line), and no entry is shadowed by an earlier one", () => {
     const used = new Set<string>(SERVER_REFUSALS.map(keyOf));
-    used.add("native.refusal.unknown");
-    used.add("native.refusal.stillNeeds");
-    used.add("native.refusal.owned");
-    used.add("native.refusal.ownedOther");
-    const all = Object.keys((en as unknown as { native: { refusal: Record<string, string> } }).native.refusal).map((k) => `native.refusal.${k}`);
+    used.add("refusal.unknown");
+    used.add("refusal.stillNeeds");
+    used.add("refusal.owned");
+    used.add("refusal.ownedOther");
+    const all = Object.keys((en as unknown as { refusal: Record<string, string> }).refusal).map((k) => `refusal.${k}`);
     expect(all.filter((k) => !used.has(k))).toEqual([]);
   });
 
@@ -300,7 +127,7 @@ describe("what a person is told", () => {
 
   test("an owned die names its owner, from the server's meta first", () => {
     expect(serverRefusal(trpc("FORBIDDEN", "This die belongs to KD Extrusion", { ownerName: "KD Extrusion" }), LANGS.en)).toBe("This die belongs to KD Extrusion.");
-    expect(serverRefusal(trpc("FORBIDDEN", "This die belongs to KD Extrusion"), LANGS.hi)).toBe(LANGS.hi("native.refusal.owned", { name: "KD Extrusion" }));
+    expect(serverRefusal(trpc("FORBIDDEN", "This die belongs to KD Extrusion"), LANGS.hi)).toBe(LANGS.hi("refusal.owned", { name: "KD Extrusion" }));
     expect(serverRefusal(trpc("FORBIDDEN", "This die belongs to another customer"), LANGS.en)).toBe("This die belongs to another customer.");
     expect(serverRefusal(trpc("FORBIDDEN", "Missing permission die.issue"), LANGS.en)).toBe(LANGS.en("errors.forbidden"));
   });
@@ -309,17 +136,17 @@ describe("what a person is told", () => {
     for (const lang of ["en", "hi", "gu"] as const) {
       const t = LANGS[lang];
       const said = serverRefusal(trpc("BAD_REQUEST", "Some new English sentence the server learnt"), t);
-      expect(said).toBe(t("native.refusal.unknown"));
+      expect(said).toBe(t("refusal.unknown"));
       expect(said).not.toContain("Some new");
     }
     expect(serverRefusal(trpc("CONFLICT", "Brand new conflict"), LANGS.en)).toBe(LANGS.en("errors.conflict"));
     expect(serverRefusal(trpc("NOT_FOUND", "Brand new miss"), LANGS.en)).toBe(LANGS.en("errors.notFound"));
-    expect(serverRefusal(trpc("BAD_REQUEST", '[{"code":"too_small","message":"Required"}]'), LANGS.en)).toBe(LANGS.en("native.refusal.unknown"));
+    expect(serverRefusal(trpc("BAD_REQUEST", '[{"code":"too_small","message":"Required"}]'), LANGS.en)).toBe(LANGS.en("refusal.unknown"));
     expect(serverRefusal(trpc("INTERNAL_SERVER_ERROR", "boom"), LANGS.en)).toBe(LANGS.en("native.saveUnsureBody"));
   });
 
   test("a status word this build does not know falls to the generic line, not to English", () => {
-    expect(serverRefusal(trpc("BAD_REQUEST", "A paused order can't be closed"), LANGS.hi)).toBe(LANGS.hi("native.refusal.unknown"));
+    expect(serverRefusal(trpc("BAD_REQUEST", "A paused order can't be closed"), LANGS.hi)).toBe(LANGS.hi("refusal.unknown"));
   });
 
   test("an answer that never came says to check first, a lapsed session says to sign in", () => {
@@ -331,7 +158,7 @@ describe("what a person is told", () => {
     const lines = (t: (typeof LANGS)[keyof typeof LANGS]) =>
       serverRefusalLines(trpc("BAD_REQUEST", "Fill these before confirming: po_number, line_1_alloy, line_2_wat"), t, (c) => blockerText(c, t));
     expect(lines(LANGS.en).slice(0, 2)).toEqual(["Add the PO number.", "Line 1: add the alloy"]);
-    expect(lines(LANGS.en)[2]).toBe(LANGS.en("native.refusal.unknown")); // an unknown blocker code is not echoed
+    expect(lines(LANGS.en)[2]).toBe(LANGS.en("refusal.unknown")); // an unknown blocker code is not echoed
     expect(lines(LANGS.hi)[0]).toBe(LANGS.hi("orders.blockers.po_number"));
     const edit = serverRefusalLines(trpc("BAD_REQUEST", "This order is confirmed; it still needs: po_number"), LANGS.en, (c) => blockerText(c, LANGS.en));
     expect(edit).toEqual(["This order is Confirmed. It still needs:", "Add the PO number."]);

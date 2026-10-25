@@ -3241,6 +3241,8 @@ export const hi = {
     copyright: "© {year} orrn",
   },
 
+  /** What a refused die room, orders or approval write says (web and native share it: packages/i18n/src/refusal.ts). */
+  refusal: refusalHi.refusal,
   native: {
     scanHint: "बंडल लेबल स्कैन करने के लिए कैमरा खोलता है।",
     offlineTitle: "orrn से कनेक्ट नहीं हो पा रहा",
@@ -3267,7 +3269,6 @@ export const hi = {
     ...moreHi,
     ...diesHi,
     ...ordersHi,
-    ...refusalHi,
     ...platformHi,
     ...pressHi,
     ...stockHi,
@@ -4297,18 +4298,6 @@ export const hi = {
       listTitle: "लाइन {n} के लिए होल्ड",
       onDispatch: "{code} पर",
       releaseSelected: "{count} से होल्ड हटाएं",
-      refusal: {
-        on_dispatch: "{serial} dispatch {code} पर है। पहले उसे dispatch से हटाएं।",
-        held_elsewhere: "{serial} पहले से {order} लाइन {line} ({customer}) के लिए होल्ड है। पहले होल्ड हटाएं।",
-        held_elsewhere_bare: "{serial} पहले से किसी और ऑर्डर लाइन के लिए होल्ड है। पहले होल्ड हटाएं।",
-        other_line: "{serial} {order} लाइन {line} पर है। उसे Reallocate से ले जाएं।",
-        die_mismatch: "{serial} उस लाइन की die का नहीं है।",
-        pending: "{serial} reallocation की मंज़ूरी की राह देख रहा है।",
-        not_available: "{serial} यार्ड में नहीं है ({status})। सिर्फ यार्ड के bundle रोके जा सकते हैं।",
-        line_closed: "{order} {status} है। खुले ऑर्डर के लिए स्टॉक होल्ड करें।",
-        not_held: "{serials} {order} लाइन {line} के लिए होल्ड नहीं हैं।",
-        changed: "इस बीच कोई bundle या ऑर्डर बदल गया। फिर से लोड करके कोशिश करें।",
-      },
       refused: {
         line_closed: "ऑर्डर खुला नहीं है",
         not_available: "यार्ड में नहीं है",
@@ -4411,7 +4400,6 @@ export const hi = {
       releasedPlan: "लाइन {lines} प्रेस को भेजे गए प्लान पर है। इसके kg, पीस, लंबाई और die अभी नहीं बदल सकते।",
       belowDispatched: "लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा।",
     },
-    serverSaid: "सर्वर का जवाब: {message}",
     ownedBy: "यह die {name} की है।",
     form: {
       expectedHint: "ऑर्डर की तारीख से {days} दिन बाद से शुरू होता है। ग्राहक को जल्दी या देर से चाहिए तो बदलें।",

@@ -10,10 +10,12 @@ import {
 import {
   COMPANY_MODULES,
   FLOOR_SETTINGS_DEFAULTS,
+  GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS,
   castRequiredOnBundle,
   isModuleOn,
   validateThresholds,
   normalizeModules,
+  plantDefaultLocale,
   readFloorSettings,
   resolveStandard,
 } from "./settings";
@@ -188,5 +190,34 @@ describe("order lead days and the packing list column (W2-OPPK-W)", () => {
     for (const scope of ["one_so", "one_customer", "per_truck"] as const) expect(readFloorSettings({ packingList: { scope } }).packingList.scope).toBe(scope);
     expect(readFloorSettings({ packingList: { scope: "all" } }).packingList.scope).toBe("one_customer");
     expect(readFloorSettings({ packingList: { kgPerPiece: true } }).packingList).toEqual({ kgPerPiece: true, scope: "one_customer" });
+  });
+});
+
+describe("the plant's default language (PF §9-14): Gujarati for a Gujarat plant, behind one switch, OFF", () => {
+  const fourcubes = { letterhead: { gstin: "24ABCDE1234F1Z5" } };
+
+  test("the switch ships OFF: a plant that never chose a language keeps English", () => {
+    expect(GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS).toBe(false);
+    expect(plantDefaultLocale(fourcubes)).toBe("en");
+    expect(plantDefaultLocale({})).toBe("en");
+    expect(plantDefaultLocale(null)).toBe("en");
+    expect(readFloorSettings(fourcubes).locale).toBe("en");
+  });
+
+  test("switched ON, only a plant with a Gujarat GSTIN and no choice opens in Gujarati", () => {
+    expect(plantDefaultLocale(fourcubes, true)).toBe("gu");
+    expect(plantDefaultLocale({ letterhead: { gstin: " 24ABCDE1234F1Z5" } }, true)).toBe("gu");
+    expect(plantDefaultLocale({ letterhead: { gstin: "27ABCDE1234F1Z5" } }, true)).toBe("en");
+    expect(plantDefaultLocale({ letterhead: { gstin: null } }, true)).toBe("en");
+    expect(plantDefaultLocale({}, true)).toBe("en");
+  });
+
+  test("a language the owner chose always wins, switch or not", () => {
+    for (const on of [false, true]) {
+      expect(plantDefaultLocale({ ...fourcubes, locale: "en" }, on)).toBe("en");
+      expect(plantDefaultLocale({ ...fourcubes, locale: "hi" }, on)).toBe("hi");
+      expect(plantDefaultLocale({ locale: "gu" }, on)).toBe("gu");
+    }
+    expect(plantDefaultLocale({ ...fourcubes, locale: "fr" }, true)).toBe("gu");
   });
 });
