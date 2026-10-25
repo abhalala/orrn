@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5635 screen strings in 49 groups, 16 guides with 292 strings.
+Counts: 5635 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -6273,3 +6273,452 @@ Please check, Lalubhai:
 | Fix 2 | Sign in again. Anything you had not saved on the screen may need to be entered again. | दोबारा साइन इन करें। स्क्रीन पर जो सेव नहीं हुआ था उसे दोबारा डालना पड़ सकता है। |
 | Problem 3 | "Your account isn't in a company yet" | "आपका अकाउंट अभी किसी कंपनी में नहीं है" |
 | Fix 3 | You are signed in, but your admin has not added your email to the plant. Ask them to invite you. | आप साइन इन हैं, लेकिन आपके एडमिन ने आपका ईमेल प्लांट में नहीं जोड़ा है। उनसे इनवाइट भेजने को कहें। |
+
+### Book and confirm a sales order (`book-order`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Book and confirm a sales order | सेल्स ऑर्डर बुक करें और पक्का करें |
+| When | Use this when a customer sends a purchase order and you need its kg to stay on the books until they are dispatched. | जब ग्राहक का PO आए और उसका kg dispatch होने तक हिसाब में बना रहना चाहिए। |
+| Step 1 | Start the order | ऑर्डर शुरू करें |
+| Step 1 text | Open "Orders" and tap "New order". Search for the customer, then type the customer's PO number. The expected date starts a few days after the order date. Change it if the customer wants it sooner or later. | "ऑर्डर" खोलें और "नया ऑर्डर" दबाएं। ग्राहक खोजें, फिर ग्राहक का PO नंबर लिखें। उम्मीद की तारीख ऑर्डर की तारीख के कुछ दिन बाद से शुरू होती है। ग्राहक को जल्दी या देर से चाहिए तो बदल दें। |
+| Step 2 | Add the die and the lengths | Die और लंबाइयां डालें |
+| Step 2 text | Search the die by code or name. Under it, enter each cut length with its pieces or its kg. Press Enter in the pieces or kg box to add the next length. Tap "Add another die" for the next section. | Die को कोड या नाम से खोजें। उसके नीचे हर कट लंबाई के साथ पीस या kg डालें। अगली लंबाई जोड़ने के लिए पीस या kg के खाने में Enter दबाएं। अगले सेक्शन के लिए "एक और die जोड़ें" दबाएं। |
+| Step 3 | Read the figures orrn works out | orrn के निकाले आंकड़े पढ़ें |
+| Step 3 text | Type pieces and orrn gives the kg, or type kg and it gives the pieces. The weight comes from the copy's latest reading, or from the start of the die's band if the copy has none. You never work these out yourself. | पीस लिखें तो orrn kg बता देता है, kg लिखें तो पीस बता देता है। वज़न कॉपी की ताज़ा रीडिंग से आता है, और कॉपी में रीडिंग न हो तो die की रेंज की शुरुआत से। ये आंकड़े आपको खुद नहीं निकालने। |
+| Step 4 | Book it | बुक करें |
+| Step 4 text | Tap "Book order". The order is saved as "Booking" with its own sales order number. Nothing is promised to the floor yet. | "ऑर्डर बुक करें" दबाएं। ऑर्डर "बुकिंग" के रूप में अपने सेल्स ऑर्डर नंबर के साथ सेव होता है। फ्लोर से अभी कुछ वादा नहीं हुआ है। |
+| Step 5 | Put ready stock on a line | लाइन पर तैयार स्टॉक रखें |
+| Step 5 text | If bundles of that die are already in the yard, open the line and tap "Take ready stock". Plant stock and bundles on no order go on the line at once. Another customer's bundles wait for a manager. | उस die के bundle यार्ड में पहले से हों तो लाइन खोलें और "तैयार स्टॉक लें" दबाएं। प्लांट स्टॉक और बिना ऑर्डर वाले bundle उसी समय लाइन पर चले जाते हैं। दूसरे ग्राहक के bundle मैनेजर के इंतज़ार में रहते हैं। |
+| Step 6 | Confirm | पक्का करें |
+| Step 6 text | When the PO number and every line are complete, tap "Confirm order". If something is missing, orrn lists it. The order is now "Confirmed" and its lines can be planned for the press. | PO नंबर और हर लाइन पूरी हो जाए तो "ऑर्डर पक्का करें" दबाएं। कुछ छूटा हो तो orrn बता देता है। ऑर्डर अब "पक्का" है और उसकी लाइनें प्रेस के लिए प्लान हो सकती हैं। |
+| Problem 1 | It says the PO is already on another order | लिखा आ रहा है कि PO दूसरे ऑर्डर पर पहले से है |
+| Fix 1 | A PO number can be used once for each customer. Open the order it names. If it was booked twice by mistake, cancel the extra one with "Cancel order". | एक ग्राहक के लिए एक PO नंबर एक ही बार चल सकता है। जो ऑर्डर बताया गया है उसे खोलें। गलती से दो बार बुक हुआ हो तो फालतू वाले को "ऑर्डर रद्द करें" से रद्द करें। |
+| Problem 2 | The die belongs to another customer | Die किसी दूसरे ग्राहक की है |
+| Fix 2 | A die that belongs to one customer cannot be booked for another. Ask the die room who owns it, or pick the right customer. | एक ग्राहक की अपनी die दूसरे ग्राहक के लिए बुक नहीं हो सकती। die रूम से पूछें कि वो किसकी है, या सही ग्राहक चुनें। |
+| Problem 3 | I want to change a line after booking | बुकिंग के बाद लाइन बदलनी है |
+| Fix 3 | Open the order and tap "Edit lines". A line that is already on a released press plan keeps its kg, pieces, length and die. A line cannot go below what is already dispatched. | ऑर्डर खोलें और "लाइनें बदलें" दबाएं। जो लाइन रिलीज़ हो चुके प्रेस प्लान पर है, उसके kg, पीस, लंबाई और die नहीं बदलते। लाइन उससे कम नहीं हो सकती जितना dispatch हो चुका है। |
+
+### Hold yard stock for an order line (`hold-for-order`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Hold yard stock for an order line | ऑर्डर लाइन के लिए यार्ड का स्टॉक होल्ड करें |
+| When | Use this when finished bundles are lying in the yard and you want to keep them for one customer's order. | जब तैयार bundle यार्ड में पड़े हों और आप उन्हें एक ग्राहक के ऑर्डर के लिए रखना चाहते हों। |
+| Step 1 | Open the order | ऑर्डर खोलें |
+| Step 1 text | Open "Orders" and tap the order. Find the line you want the stock to go against. | "ऑर्डर" खोलें और ऑर्डर दबाएं। वो लाइन ढूंढें जिस पर स्टॉक लगाना है। |
+| Step 2 | Pick the bundles | Bundle चुनें |
+| Step 2 text | On that line tap "Hold stock". orrn lists yard bundles of the same die that are on no order, or already on this line. Tick the ones you want. A bundle with a different cut length can be held. orrn warns you and holds it anyway. | उस लाइन पर "स्टॉक होल्ड करें" दबाएं। orrn उसी die के यार्ड के वो bundle दिखाता है जो किसी ऑर्डर पर नहीं हैं, या इसी लाइन पर हैं। जो चाहिए उन पर निशान लगाएं। अलग कट लंबाई वाला bundle भी होल्ड हो सकता है। orrn चेतावनी देता है और फिर भी होल्ड कर देता है। |
+| Step 3 | Hold them | होल्ड करें |
+| Step 3 text | Confirm the hold. The bundles stay where they are in the yard. While they are held, no other customer's dispatch can take them. | होल्ड पक्का करें। Bundle यार्ड में वहीं रहते हैं जहां थे। होल्ड के दौरान कोई दूसरा ग्राहक अपने dispatch में इन्हें नहीं ले सकता। |
+| Step 4 | Check the line | लाइन देखें |
+| Step 4 text | The line shows a "Held bundles" list and a count with the kg held. The held kg also show on the order's balance figures. | लाइन पर "होल्ड bundle" की लिस्ट और होल्ड हुए kg की गिनती दिखती है। होल्ड के kg ऑर्डर के बैलेंस आंकड़ों में भी दिखते हैं। |
+| Step 5 | Release when plans change | प्लान बदले तो छोड़ें |
+| Step 5 text | In the "Held bundles" list tick the bundles and tap Release, or tap "Release all". The bundles are free stock again. | "होल्ड bundle" की लिस्ट में bundle चुनकर होल्ड हटाएं, या "सब होल्ड हटाएं" दबाएं। Bundle फिर खुला स्टॉक बन जाते हैं। |
+| Problem 1 | A bundle is not in the list | कोई bundle लिस्ट में नहीं है |
+| Fix 1 | Only bundles in the yard can be held. A bundle on a dispatch, held for another line, waiting for a move approval or of a different die is left out. The list says why. | सिर्फ यार्ड के bundle होल्ड हो सकते हैं। जो bundle dispatch पर है, किसी दूसरी लाइन के लिए होल्ड है, मूव की मंज़ूरी के इंतज़ार में है या दूसरी die का है, वो छूट जाता है। लिस्ट में वजह लिखी होती है। |
+| Problem 2 | A scan says the bundle is held for an order | स्कैन में लिखा आया कि bundle ऑर्डर के लिए होल्ड है |
+| Fix 2 | The bundle is held for another customer's line. Choose another bundle, or ask the office to release the hold. Do not force it onto the truck. | वो bundle किसी दूसरे ग्राहक की लाइन के लिए होल्ड है। दूसरा bundle चुनें, या ऑफिस से होल्ड हटवाएं। उसे ज़बरदस्ती ट्रक पर न डालें। |
+| Problem 3 | I held a bundle by mistake | गलती से bundle होल्ड हो गया |
+| Fix 3 | Release it from the "Held bundles" list. Voiding a held bundle, or closing or cancelling the order, also releases the hold. | "होल्ड bundle" की लिस्ट से उसका होल्ड हटा दें। होल्ड वाले bundle को रद्द करने से, या ऑर्डर बंद या रद्द करने से भी होल्ड हट जाता है। |
+
+### Move bundles to another order (`reallocate-bundles`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Move bundles to another order | Bundle को दूसरे ऑर्डर पर डालें |
+| When | Use this when finished bundles were packed for one order but should go to another order, or back to plant stock. | जब तैयार bundle एक ऑर्डर के लिए पैक हुए थे पर अब दूसरे ऑर्डर पर जाने चाहिए, या वापस प्लांट स्टॉक में। |
+| Step 1 | Open the line they are on | वो लाइन खोलें जिस पर वो हैं |
+| Step 1 text | Open the order the bundles are on, find the line and tap "Move bundles". | जिस ऑर्डर पर bundle हैं उसे खोलें, लाइन ढूंढें और "Bundle डालें" दबाएं। |
+| Step 2 | Choose where they go | कहां जाएंगे, चुनें |
+| Step 2 text | Under "Move to" pick the other order line. Pick "Plant stock" if the bundles are free again. Only bundles of the same die can go to an order line. | "कहां डालें" में दूसरी ऑर्डर लाइन चुनें। bundle फिर खुले हो जाएं तो "प्लांट स्टॉक" चुनें। ऑर्डर लाइन पर सिर्फ उसी die के bundle जा सकते हैं। |
+| Step 3 | Pick the bundles | Bundle चुनें |
+| Step 3 text | Tick the bundles to move, or tap "Select all". Only available bundles can move. A bundle on a truck or void is listed with the reason it cannot move. | जो bundle डालने हैं उन पर निशान लगाएं, या "सब चुनें" दबाएं। सिर्फ available bundle मूव होते हैं। ट्रक पर लगा या रद्द bundle वजह के साथ दिखता है कि वो क्यों नहीं जा सकता। |
+| Step 4 | Give a reason if the length differs | लंबाई अलग हो तो कारण दें |
+| Step 4 text | If the cut length is not the one on the new line, orrn warns you and asks for a "Reason". Pick one from the list or write a note. | कट लंबाई नई लाइन वाली न हो तो orrn चेतावनी देता है और "कारण" मांगता है। लिस्ट से चुनें या नोट लिखें। |
+| Step 5 | Move | डालें |
+| Step 5 text | Tap "Move". Moving to plant stock or to the same customer's other order happens at once. Moving to another customer's order waits for a manager, and the bundles stay where they are until it is approved. | "डालें" दबाएं। प्लांट स्टॉक में या उसी ग्राहक के दूसरे ऑर्डर पर मूव उसी समय हो जाता है। दूसरे ग्राहक के ऑर्डर पर मूव मैनेजर के इंतज़ार में रहता है, और मंज़ूरी तक bundle वहीं रहते हैं। |
+| Problem 1 | It says Waiting for a manager | लिखा है कि मैनेजर का इंतज़ार है |
+| Fix 1 | The move is to another customer's order. A manager, admin or owner approves it in "Approvals". The order timeline shows the request and, once decided, the move. | मूव दूसरे ग्राहक के ऑर्डर पर है। मैनेजर, एडमिन या मालिक इसे "मंज़ूरी" में पास करता है। ऑर्डर की टाइमलाइन में अनुरोध दिखता है और फैसले के बाद मूव। |
+| Problem 2 | A bundle cannot be moved | कोई bundle मूव नहीं हो रहा |
+| Fix 2 | It is dispatched, void, on a live dispatch, or already in a pending move. Remove it from the dispatch first, or wait for the approval. | वो dispatch हो चुका है, रद्द है, चालू dispatch पर है या पहले से किसी मूव की मंज़ूरी में है। उसे पहले dispatch से हटाएं, या मंज़ूरी का इंतज़ार करें। |
+| Problem 3 | The die belongs to a customer | Die किसी ग्राहक की अपनी है |
+| Fix 3 | A bundle of a customer's own die cannot go to another customer. Ask the die room whether an owner exception has been approved. | ग्राहक की अपनी die का bundle दूसरे ग्राहक पर नहीं जा सकता। die रूम से पूछें कि मालिकाना छूट मंज़ूर हुई है या नहीं। |
+
+### Plan the press and release it (`plan-press-run`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Plan the press and release it | प्रेस का प्लान बनाएं और रिलीज़ करें |
+| When | Use this when confirmed orders have kg still to make and the press needs its list for the next shift or day. | जब पक्के ऑर्डरों में बनाने के लिए kg बाकी हों और प्रेस को अगली शिफ्ट या दिन की लिस्ट चाहिए। |
+| Step 1 | Open the plan board | प्लान बोर्ड खोलें |
+| Step 1 text | Open "Orders" and tap "Press plan". This page works on a desktop or an 11-inch tablet. | "ऑर्डर" खोलें और "प्रेस प्लान" दबाएं। ये पेज डेस्कटॉप या 11 इंच के टैबलेट पर चलता है। |
+| Step 2 | Set the window and the press | समय और प्रेस तय करें |
+| Step 2 text | Set "Window starts" and "Window ends". A window is at most 24 hours. Pick the press under "Pick the press". | "समय शुरू" और "समय खत्म" भरें। समय अधिकतम 24 घंटे का होता है। "प्रेस चुनें" में प्रेस चुनें। |
+| Step 3 | Choose the lines | लाइनें चुनें |
+| Step 3 text | The open lines come grouped by die, so one die serves every customer that needs it. Add the lines you want. Leave the kg blank to plan all that is left, or type fewer kg. | खुली लाइनें die के हिसाब से इकट्ठी आती हैं, ताकि एक die सारे ज़रूरतमंद ग्राहकों के काम आए। जो लाइनें चाहिए जोड़ें। सारा बाकी प्लान करना हो तो kg खाली छोड़ें, वरना कम kg लिखें। |
+| Step 4 | Read the other customers | दूसरे ग्राहक देखें |
+| Step 4 text | When you add a die, orrn lists every other open line on it, with the customer, length and kg still to plan. Add them to press them in the same run. orrn only warns. It never blocks. | Die जोड़ते ही orrn उस पर बाकी हर खुली लाइन दिखाता है, ग्राहक, लंबाई और प्लान होने वाले kg के साथ। उन्हें जोड़ें तो वो उसी रन में दब जाएंगी। orrn सिर्फ चेतावनी देता है, रोकता कभी नहीं। |
+| Step 5 | Save the draft | ड्राफ़्ट सेव करें |
+| Step 5 text | Tap "Save draft plan". Reorder the dies with "Move earlier" and "Move later". Mark one "Mark urgent" if it must go first. | "ड्राफ़्ट प्लान सेव करें" दबाएं। Die का क्रम "पहले करें" और "बाद में करें" से बदलें। जो सबसे पहले जाना है उस पर "जल्दी करें" दबाएं। |
+| Step 6 | Release to the press | प्रेस को भेजें |
+| Step 6 text | Open the plan and tap "Release to press". Each die becomes one queued run on the press. The die room picks the copy when it issues the die. | प्लान खोलें और "प्रेस को भेजें" दबाएं। हर die प्रेस पर एक कतार वाला रन बन जाती है। कॉपी die रूम तब चुनता है जब वो die देता है। |
+| Problem 1 | It says More than the order can still take | लिखा है कि ऑर्डर जितना ले सकता है उससे ज़्यादा है |
+| Fix 1 | The line has less kg left to plan than you asked for. Another plan, a pack or a dispatch already used some. Lower the kg. | लाइन पर प्लान होने लायक kg आपके मांगे kg से कम हैं। कोई दूसरा प्लान, पैकिंग या dispatch उसमें से कुछ ले चुका है। kg घटाएं। |
+| Problem 2 | The die belongs to a customer | Die किसी ग्राहक की अपनी है |
+| Fix 2 | A die that belongs to one customer cannot take another customer's line. The line is marked. Plan it on its own, or ask the die room. | एक ग्राहक की अपनी die पर दूसरे ग्राहक की लाइन नहीं लग सकती। लाइन पर निशान लगा होता है। उसे अलग प्लान करें, या die रूम से पूछें। |
+| Problem 3 | I need to change a released plan | रिलीज़ हो चुका प्लान बदलना है |
+| Fix 3 | A draft can be edited. After release, the supervisor moves runs in the press queue, and a cut length can be taken back to planning with "Take back to planning". To stop the whole plan, tap "Cancel plan" before any die is issued. | ड्राफ़्ट बदला जा सकता है। रिलीज़ के बाद सुपरवाइज़र प्रेस की कतार में रन आगे-पीछे करता है, और कोई कट लंबाई "प्लानिंग में वापस लें" से वापस ली जा सकती है। पूरा प्लान रोकना हो तो कोई die देने से पहले "प्लान रद्द करें" दबाएं। |
+
+### Run the press at the station (`press-station-day`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Run the press at the station | स्टेशन पर प्रेस चलाएं |
+| When | Use this at the press tablet, from the moment the die is issued to the moment the run is logged. | प्रेस के टैबलेट पर, die मिलने से लेकर रन दर्ज होने तक। |
+| Step 1 | Open your run | अपना रन खोलें |
+| Step 1 text | Open "Press" and tap the press. Tap the run at the top of the queue. If it says the die is not issued, wait for the die room. Start stays locked until they hand it over. | "प्रेस" खोलें और प्रेस दबाएं। कतार में सबसे ऊपर वाला रन दबाएं। लिखा हो कि die नहीं मिली, तो die रूम का इंतज़ार करें। जब तक वो नहीं देते, शुरू बंद रहता है। |
+| Step 2 | Start and stop | शुरू और बंद |
+| Step 2 text | When the die is in and the billet goes in, tap "Start". orrn takes the time from the server clock, not from the tablet. If you stop and start again, tap "Stop" and "Resume". "Undo start" is there for a tap by mistake. | Die लग जाए और बिलेट अंदर जाए तो "शुरू करें" दबाएं। समय टैबलेट से नहीं, सर्वर की घड़ी से लिया जाता है। रोककर फिर चलाना हो तो "रोकें" और "फिर चालू करें" दबाएं। गलती से दब जाए तो "शुरू करना वापस लें" है। |
+| Step 3 | Count the run | रन गिनें |
+| Step 3 text | After the press stops, tap "Count & check". Step through the billets, the pieces for each cut length, the butt and ends, and the rejects. Type 0 for rejects when there were none. A blank is not a check. | प्रेस रुकने के बाद "गिनती और जाँच" दबाएं। बिलेट, हर कट लंबाई के पीस, बट और एंड, और रिजेक्ट एक-एक करके भरें। रिजेक्ट न हों तो 0 लिखें। खाली छोड़ना जाँच नहीं है। |
+| Step 4 | Read the figures | आंकड़े पढ़ें |
+| Step 4 text | Recovery and balance come from the server. If the billet stock shows less than you weighed, orrn still logs the weighed kg and asks why. The cast then shows the shortage for the foundry. | रिकवरी और बैलेंस सर्वर से आते हैं। बिलेट स्टॉक में आपके तौले हुए से कम दिखे तो भी orrn तौला हुआ kg दर्ज करता है और वजह पूछता है। फिर कास्ट पर फाउंड्री के लिए कमी दिखती है। |
+| Step 5 | Hand it to the supervisor | सुपरवाइज़र को दें |
+| Step 5 text | Everything you type is saved as you go. The supervisor taps "Log run" to finish it. Until then the run is not final. | आप जो भरते हैं वो साथ-साथ सेव होता जाता है। सुपरवाइज़र "रन दर्ज करें" दबाकर इसे पूरा करता है। तब तक रन आखिरी नहीं है। |
+| Step 6 | Change of man | प्रेस मैन बदले तो |
+| Step 6 text | If another press man takes over, use the handover and name the relief. The run keeps its start time. | दूसरा प्रेस मैन संभाले तो हैंडओवर में रिलीफ का नाम डालें। रन का शुरू समय वही रहता है। |
+| Problem 1 | Start is locked | शुरू बंद है |
+| Fix 1 | The die has not been issued to this run. Ask the die room to issue it. A die issued for another run or press does not unlock this one. | इस रन के लिए die नहीं दी गई है। die रूम से कहें कि दें। किसी दूसरे रन या प्रेस की die से ये नहीं खुलता। |
+| Problem 2 | It says the tablet clock differs from the server | लिखा है कि टैबलेट की घड़ी सर्वर से अलग है |
+| Fix 2 | More than 2 minutes apart. Start and stop still save. A supervisor confirms the times with "Ask a supervisor to confirm the times". | 2 मिनट से ज़्यादा का फर्क है। शुरू और बंद फिर भी सेव होते हैं। सुपरवाइज़र "सुपरवाइज़र से समय पक्का करने को कहें" से समय पक्का करता है। |
+| Problem 3 | Log run is greyed out | रन दर्ज करें दबता नहीं |
+| Fix 3 | Only the run's supervisor can log it, and the gates must pass. The close preview lists what is still missing. | सिर्फ रन का सुपरवाइज़र इसे दर्ज कर सकता है, और सारे गेट पास होने चाहिए। क्लोज़ प्रीव्यू में दिखता है कि क्या बाकी है। |
+| Problem 4 | A figure is wrong after logging | दर्ज करने के बाद कोई आंकड़ा गलत निकला |
+| Fix 4 | Tap "Request reopen" and say why. A manager decides. Do not log a second run to fix it. | "फिर खोलने का अनुरोध" दबाएं और वजह लिखें। मैनेजर फैसला करता है। उसे सुधारने के लिए दूसरा रन दर्ज न करें। |
+
+### Enter a run that was done on paper (`press-late-entry`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Enter a run that was done on paper | कागज़ पर हुआ रन बाद में भरें |
+| When | Use this when the tablet was not used and a run that has already stopped has to be put into orrn afterwards. | जब टैबलेट इस्तेमाल नहीं हुआ और रुक चुका रन orrn में बाद में डालना है। |
+| Step 1 | Open the press queue | प्रेस की कतार खोलें |
+| Step 1 text | Open "Press", tap the press and tap "Late entry". Only a run from the last 7 days can be entered late. Older runs are not accepted. | "प्रेस" खोलें, प्रेस दबाएं और "देर से एंट्री" दबाएं। सिर्फ पिछले 7 दिन का रन देर से भरा जा सकता है। उससे पुराने रन नहीं लिए जाते। |
+| Step 2 | Say which run | बताएं कौन सा रन |
+| Step 2 text | Pick "A run from the queue" if the plan was released, or "A run not in the queue". For a queued run, pick the die copy that was used. | प्लान रिलीज़ हुआ था तो "कतार का रन" चुनें, वरना "कतार से बाहर का रन"। कतार वाले रन के लिए वो die कॉपी चुनें जो लगी थी। |
+| Step 3 | Give the true times | असली समय डालें |
+| Step 3 text | Fill in "Started" and "Stopped" with the real times from the paper, the operator and the relief operator if any. The stop must be after the start and cannot be in the future. | कागज़ से असली समय "शुरू" और "बंद" में भरें, साथ में ऑपरेटर और रिलीफ ऑपरेटर हो तो वो भी। बंद का समय शुरू के बाद का हो और आगे का न हो। |
+| Step 4 | Say why it is late | देरी की वजह लिखें |
+| Step 4 text | Write the reason in "Why it is entered late". | "देर से क्यों भरा" में वजह लिखें। |
+| Step 5 | Enter the run | रन भरें |
+| Step 5 text | Tap "Enter the run". The run is marked "Entered late" and waits for a second person to approve. You cannot approve your own. | "रन भरें" दबाएं। रन पर "देर से भरा" का निशान लगता है और दूसरे आदमी की मंज़ूरी का इंतज़ार रहता है। अपना भरा आप खुद पास नहीं कर सकते। |
+| Step 6 | Count and log it | गिनें और दर्ज करें |
+| Step 6 text | Once approved, open the run and count it as usual, then log it. The late share of runs shows on the press summary. | मंज़ूरी के बाद रन खोलें, पहले जैसे गिनें और फिर दर्ज करें। देर से भरे रनों का हिस्सा प्रेस समरी में दिखता है। |
+| Problem 1 | It says the start is too long ago | लिखा है कि शुरू का समय बहुत पुराना है |
+| Fix 1 | Late entry is for the last 7 days only. For an older run, ask the manager how to correct the books. | देर से एंट्री सिर्फ पिछले 7 दिनों के लिए है। उससे पुराने रन के लिए मैनेजर से पूछें कि हिसाब कैसे ठीक होगा। |
+| Problem 2 | No die copy to pick | चुनने के लिए कोई die कॉपी नहीं है |
+| Fix 2 | Only copies of that run's die that are in the rack can be picked. A copy on trial is offered only for a die trial run. Ask the die room. | उस रन की die की सिर्फ वो कॉपियां चुनी जा सकती हैं जो रैक में हैं। ट्रायल वाली कॉपी सिर्फ die ट्रायल रन के लिए दिखती है। die रूम से पूछें। |
+| Problem 3 | The run is waiting and nothing happens | रन इंतज़ार में है और कुछ नहीं हो रहा |
+| Fix 3 | Ask a manager, a supervisor or the owner to open "Approvals" and decide it. You cannot approve your own. | मैनेजर, सुपरवाइज़र या मालिक से कहें कि "मंज़ूरी" खोलकर फैसला करें। अपना भरा आप पास नहीं कर सकते। |
+
+### Record a press stoppage (`press-downtime`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Record a press stoppage | प्रेस का रुकना दर्ज करें |
+| When | Use this whenever the press stops for something other than the end of a run, such as a breakdown, a die change or no billets. | जब भी प्रेस रन खत्म होने के अलावा किसी और वजह से रुके, जैसे खराबी, die बदलना या बिलेट न होना। |
+| Step 1 | Open the run | रन खोलें |
+| Step 1 text | Open "Press", tap the press and open the run in progress. | "प्रेस" खोलें, प्रेस दबाएं और चालू रन खोलें। |
+| Step 2 | Start the stoppage | रुकना शुरू करें |
+| Step 2 text | Tap "Press stopped". Pick the reason from the list. If none fits, pick Other and write a note. The time is taken from the server clock. | "प्रेस रुकी" दबाएं। लिस्ट से वजह चुनें। कोई वजह न बैठे तो Other चुनकर नोट लिखें। समय सर्वर की घड़ी से लिया जाता है। |
+| Step 3 | Fix the fault | खराबी ठीक करें |
+| Step 3 text | The stoppage stays open and the tablet shows how long it has been. Only one stoppage can be open on a press. | रुकना खुला रहता है और टैबलेट पर दिखता है कि कितनी देर हुई। एक प्रेस पर एक ही रुकना खुला हो सकता है। |
+| Step 4 | End the stoppage | रुकना खत्म करें |
+| Step 4 text | When the press runs again tap "Press running again". The minutes are saved against the reason. | प्रेस फिर चले तो "प्रेस फिर चालू" दबाएं। मिनट उस वजह के नाम सेव हो जाते हैं। |
+| Step 5 | Check it later | बाद में देखें |
+| Step 5 text | The stoppages of the day, longest first, are on the press summary. The supervisor uses them to see where the hours went. | दिन के रुकने, सबसे लंबे पहले, प्रेस समरी में हैं। सुपरवाइज़र उनसे देखता है कि घंटे कहां गए। |
+| Problem 1 | It says a stoppage is already running | लिखा है कि एक रुकना पहले से चल रहा है |
+| Fix 1 | Another one is open on this press. End it first with "Press running again". | इस प्रेस पर दूसरा खुला है। पहले उसे "प्रेस फिर चालू" से खत्म करें। |
+| Problem 2 | I cannot log the run | रन दर्ज नहीं हो रहा |
+| Fix 2 | An open stoppage blocks the close. End it, then count and log again. | खुला रुकना क्लोज़ रोक देता है। उसे खत्म करें, फिर गिनकर दोबारा दर्ज करें। |
+| Problem 3 | The reason I need is not in the list | जो वजह चाहिए वो लिस्ट में नहीं है |
+| Fix 3 | Pick Other and write a note. A manager can add the reason under reason codes. | Other चुनकर नोट लिखें। मैनेजर रीज़न कोड में नई वजह जोड़ सकता है। |
+
+### Add a die weight reading (`die-reading`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Add a die weight reading | Die की वज़न रीडिंग जोड़ें |
+| When | Use this after pressing, when you have weighed 12 ft off a die and want its wear recorded. | प्रेस के बाद, जब आपने die से 12 ft तौला हो और उसका घिसना दर्ज करना हो। |
+| Step 1 | Find the copy | कॉपी ढूंढें |
+| Step 1 text | Open "Dies", search the section, and open the copy you pressed with. | "Die" खोलें, सेक्शन खोजें और जिस कॉपी से प्रेस किया उसे खोलें। |
+| Step 2 | Weigh 12 ft | 12 ft तौलें |
+| Step 2 text | Cut 12 ft off the section from that die and weigh it on the bench scale. Write the weight in kg. | उस die से सेक्शन का 12 ft काटें और बेंच के कांटे पर तौलें। वज़न kg में लिख लें। |
+| Step 3 | Add the reading | रीडिंग जोड़ें |
+| Step 3 text | On the "Readings" tab tap "Add reading" and type the weight of 12 ft. orrn shows the band and the last reading under the box. | "रीडिंग" टैब पर "रीडिंग जोड़ें" दबाएं और 12 ft का वज़न लिखें। खाने के नीचे orrn रेंज और पिछली रीडिंग दिखाता है। |
+| Step 4 | Save and read the colour | सेव करें और रंग पढ़ें |
+| Step 4 text | Save it. The percent and the colour are worked out by orrn when you save. Green is in range. Amber and red mean the die is wearing and the drift is growing. | सेव करें। प्रतिशत और रंग सेव करते समय orrn निकालता है। हरा मतलब रेंज में। पीला और लाल मतलब die घिस रही है और फर्क बढ़ रहा है। |
+| Step 5 | Tell the die room | die रूम को बताएं |
+| Step 5 text | If the colour is red, tell the die room. A heavier copy may be needed, or the die may need correction. | रंग लाल हो तो die रूम को बताएं। भारी कॉपी चाहिए हो सकती है, या die को सुधारना पड़ सकता है। |
+| Problem 1 | I typed the wrong weight | गलत वज़न लिख दिया |
+| Fix 1 | A saved reading cannot be edited. Add a new correct reading. The newest one is the one orrn uses. | सेव हुई रीडिंग बदली नहीं जा सकती। सही नई रीडिंग जोड़ दें। orrn सबसे नई वाली इस्तेमाल करता है। |
+| Problem 2 | There is no Add reading button | रीडिंग जोड़ने का बटन नहीं है |
+| Fix 2 | A retired copy takes no readings and keeps its number. | बंद की हुई कॉपी पर रीडिंग नहीं ली जाती और उसका नंबर वही रहता है। |
+| Problem 3 | It says Trial weight. Not a drift reading. | लिखा है Trial weight. Not a drift reading. |
+| Fix 3 | That figure came from the die maker's trial. It is the starting weight and does not count as wear. | वो आंकड़ा die मेकर के ट्रायल का है। वो शुरुआती वज़न है, घिसना नहीं गिना जाता। |
+
+### Issue a die to the press and take it back (`die-issue-return`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Issue a die to the press and take it back | प्रेस को die दें और वापस लें |
+| When | Use this when a queued press run is waiting for its die, and again when the run is finished. | जब कतार वाला प्रेस रन अपनी die का इंतज़ार कर रहा हो, और फिर रन खत्म होने पर। |
+| Step 1 | Open the issue page | देने का पेज खोलें |
+| Step 1 text | Open "Dies" and tap "Issue and return". Pick the press run that is waiting. The run decides the press line. | "Die" खोलें और "प्रेस को दें और वापस लें" दबाएं। वो प्रेस रन चुनें जो इंतज़ार में है। प्रेस लाइन रन से तय होती है। |
+| Step 2 | Pick the copy | कॉपी चुनें |
+| Step 2 text | Pick a copy from the rack. orrn lists only copies of the run's section. A copy on trial goes only to a die trial run. A customer's own die goes only to that customer's runs. | रैक से कॉपी चुनें। orrn सिर्फ रन के सेक्शन की कॉपियां दिखाता है। ट्रायल वाली कॉपी सिर्फ die ट्रायल रन पर जाती है। ग्राहक की अपनी die सिर्फ उसी ग्राहक के रन पर जाती है। |
+| Step 3 | Issue it | दें |
+| Step 3 text | Tap "Issue". The copy is now on the press line and the run says "Die issued". The press can start. A line can hold the running die and one more die for the next run, heated in the oven. A third is refused. | "दें" दबाएं। कॉपी अब प्रेस लाइन पर है और रन पर "Die मिल गई" लिखा है। प्रेस शुरू हो सकती है। एक लाइन पर चलती die के साथ अगले रन की एक और die हो सकती है, जो ओवन में गरम होती है। तीसरी मना है। |
+| Step 4 | Take it back | वापस लें |
+| Step 4 text | When the run is finished and the die is out, find the copy under "On a press now" and tap "Take back". It goes back to the rack. | रन खत्म हो जाए और die निकल जाए तो "अभी प्रेस पर" में कॉपी ढूंढें और "वापस लें" दबाएं। वो रैक में लौट जाती है। |
+| Step 5 | Add the reading | रीडिंग जोड़ें |
+| Step 5 text | Weigh 12 ft and add a reading for the copy, so the card shows its wear. | 12 ft तौलें और कॉपी की रीडिंग जोड़ें, ताकि कार्ड पर उसका घिसना दिखे। |
+| Problem 1 | It says the die is still on the press | लिखा है कि die अभी प्रेस पर है |
+| Fix 1 | The run has the die in the press. Take it back after the die is out and the run is logged. | रन में die प्रेस के अंदर है। die निकलने और रन दर्ज होने के बाद उसे वापस लें। |
+| Problem 2 | I issued the wrong copy | गलत कॉपी दे दी |
+| Fix 2 | Before the press starts, tap "Cancel issue". The copy goes back to the rack and the run waits for a die again. | प्रेस शुरू होने से पहले "देना रद्द करें" दबाएं। कॉपी रैक में लौट जाती है और रन फिर die का इंतज़ार करता है। |
+| Problem 3 | No press run is waiting for this section | इस सेक्शन के लिए कोई प्रेस रन इंतज़ार में नहीं है |
+| Fix 3 | Ask the office to release the plan first. A die cannot be issued without a queued run. | ऑफिस से कहें कि पहले प्लान रिलीज़ करे। कतार वाले रन के बिना die नहीं दी जा सकती। |
+
+### Release a die copy that is on trial (`die-trial`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Release a die copy that is on trial | ट्रायल पर रखी die कॉपी को छोड़ें |
+| When | Use this when a new copy, or a copy back from the die maker, is on trial and has to be proved or released before it is used for orders. | जब नई कॉपी, या die मेकर से लौटी कॉपी, ट्रायल पर हो और ऑर्डर के काम आने से पहले उसे साबित करना या छोड़ना हो। |
+| Step 1 | Know why it is on trial | समझें कि ट्रायल पर क्यों है |
+| Step 1 text | A new copy and a copy back from the die maker start "On trial". It goes only to a die trial run, never to a customer order. | नई कॉपी और die मेकर से लौटी कॉपी "ट्रायल पर" शुरू होती है। वो सिर्फ die ट्रायल रन पर जाती है, ग्राहक के ऑर्डर पर कभी नहीं। |
+| Step 2 | See what is waiting | देखें क्या इंतज़ार में है |
+| Step 2 text | Open "Dies". Copies on trial have their own tile on the board. Open a copy to see its trial panel. | "Die" खोलें। ट्रायल वाली कॉपियों का बोर्ड पर अपना टाइल होता है। कॉपी खोलकर उसका ट्रायल पैनल देखें। |
+| Step 3 | Use a trial run if there is one | ट्रायल रन हो तो उसे इस्तेमाल करें |
+| Step 3 text | If a die trial run is waiting for this section, tap "Issue to a trial run", or use "Issue and return" and pick the trial run. The supervisor logs the run and says "Trial passed" or "Trial failed". | इस सेक्शन के लिए die ट्रायल रन इंतज़ार में हो तो "ट्रायल रन को दें" दबाएं, या "प्रेस को दें और वापस लें" से ट्रायल रन चुनें। सुपरवाइज़र रन दर्ज करता है और "ट्रायल पास" या "ट्रायल फेल" बताता है। |
+| Step 4 | After the trial | ट्रायल के बाद |
+| Step 4 text | A copy that passed becomes available when it comes back to the rack. A copy that failed stays on trial. | पास हुई कॉपी रैक में लौटते ही available हो जाती है। फेल हुई कॉपी ट्रायल पर ही रहती है। |
+| Step 5 | Or release it with a reason | या कारण लिखकर छोड़ें |
+| Step 5 text | A manager can tap "Release without a trial" and write why. The reason is kept in the audit trail. | मैनेजर "ट्रायल के बिना छोड़ें" दबाकर वजह लिख सकता है। वजह ऑडिट में रहती है। |
+| Problem 1 | The copy is still On trial after a good run | अच्छे रन के बाद भी कॉपी ट्रायल पर है |
+| Fix 1 | The run's trial result must be set to passed when it is logged. A reopened run puts the copy back on trial. | रन दर्ज करते समय ट्रायल का नतीजा पास भरा होना चाहिए। फिर से खोला गया रन कॉपी को वापस ट्रायल पर डाल देता है। |
+| Problem 2 | There is no trial run for this section | इस सेक्शन के लिए कोई ट्रायल रन नहीं है |
+| Fix 2 | orrn has no planning screen for a die trial yet, so a trial run is set up by orrn support. Until then a manager can use "Release without a trial" and write why. | die ट्रायल की प्लानिंग का अभी कोई स्क्रीन नहीं है, इसलिए ट्रायल रन orrn सपोर्ट लगाता है। तब तक मैनेजर "ट्रायल के बिना छोड़ें" से वजह लिखकर छोड़ सकता है। |
+| Problem 3 | I do not want new copies on trial | मुझे नई कॉपी ट्रायल पर नहीं चाहिए |
+| Fix 3 | The owner or the plant admin can switch "New copies start on trial" off on the die board. Do this only if the plant agrees. | मालिक या प्लांट एडमिन die बोर्ड पर "नई कॉपी ट्रायल से शुरू हो" बंद कर सकता है। ये तभी करें जब प्लांट राज़ी हो। |
+
+### Attach many drawings by file name (`bulk-drawings`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Attach many drawings by file name | फ़ाइल के नाम से कई ड्रॉइंग एक साथ जोड़ें |
+| When | Use this when the plant's drawing files are named by die or copy code and you want them on the right cards in one go. | जब प्लांट की ड्रॉइंग फ़ाइलों के नाम die या कॉपी कोड पर हों और आप उन्हें एक बार में सही कार्ड पर लगाना चाहें। |
+| Step 1 | Name the files | फ़ाइलों के नाम रखें |
+| Step 1 text | A file called 12170.pdf goes to die 12170. A file called 12170-1.cdr goes to copy 12170-1. A PDF becomes the press drawing only if the die has none. | 12170.pdf नाम की फ़ाइल die 12170 पर जाती है। 12170-1.cdr नाम की फ़ाइल कॉपी 12170-1 पर जाती है। PDF तभी प्रेस ड्रॉइंग बनती है जब die की कोई ड्रॉइंग न हो। |
+| Step 2 | Open the bulk page | बल्क पेज खोलें |
+| Step 2 text | Open "Dies", open the menu and tap "Attach drawings by file name". | "Die" खोलें, मेनू खोलें और "फ़ाइल के नाम से ड्रॉइंग जोड़ें" दबाएं। |
+| Step 3 | Pick the files | फ़ाइलें चुनें |
+| Step 3 text | Pick many files at once. orrn reads the file names and lists what it will attach, what is already there and what it could not match. | एक साथ कई फ़ाइलें चुनें। orrn फ़ाइलों के नाम पढ़कर बताता है कि क्या जुड़ेगा, क्या पहले से है और किसका मेल नहीं मिला। |
+| Step 4 | Attach | जोड़ें |
+| Step 4 text | Check the list and tap the attach button. The files go one at a time, with a count as they go. | लिस्ट देखें और जोड़ने वाला बटन दबाएं। फ़ाइलें एक-एक करके जाती हैं, साथ में गिनती दिखती है। |
+| Step 5 | Read the summary | सार पढ़ें |
+| Step 5 text | The summary says how many were saved, failed, already there and not matched. Fix the names of the unmatched files and run it again. | सार में लिखा होता है कि कितनी सेव हुईं, कितनी फेल हुईं, कितनी पहले से थीं और कितनी का मेल नहीं मिला। जिनका मेल नहीं मिला उनके नाम सुधारकर फिर चलाएं। |
+| Problem 1 | A file is Not attached | कोई फ़ाइल नहीं जुड़ी |
+| Fix 1 | The reason is written beside it. No die or copy has that code, the file type is not an image, PDF, CDR or DWG, or two dies share the section code. Attach that one from the die itself. | वजह उसके बगल में लिखी है। उस कोड की कोई die या कॉपी नहीं है, फ़ाइल का प्रकार इमेज, PDF, CDR या DWG नहीं है, या दो die का सेक्शन कोड एक है। उसे die से खुद जोड़ें। |
+| Problem 2 | Some files failed | कुछ फ़ाइलें फेल हो गईं |
+| Fix 2 | The connection dropped. Tap the retry button. The files already saved are not sent again. | कनेक्शन टूट गया था। फिर कोशिश वाला बटन दबाएं। जो सेव हो चुकी हैं वो दोबारा नहीं भेजी जातीं। |
+| Problem 3 | A file is too big | फ़ाइल बहुत बड़ी है |
+| Fix 3 | A PDF can be up to 25 MB, a CDR or DWG up to 40 MB and an image up to 8 MB. | PDF 25 MB तक, CDR या DWG 40 MB तक और इमेज 8 MB तक हो सकती है। |
+
+### Start a dispatch from a sales order (`dispatch-from-order`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Start a dispatch from a sales order | सेल्स ऑर्डर से dispatch शुरू करें |
+| When | Use this when a truck is loading for one sales order and you want to see what is left to send as you build the load. | जब ट्रक एक सेल्स ऑर्डर के लिए भर रहा हो और लोड बनाते समय आपको दिखना चाहिए कि कितना भेजना बाकी है। |
+| Step 1 | Start from the order | ऑर्डर से शुरू करें |
+| Step 1 text | Open "Dispatch" and tap "New dispatch". Tap "From sales order" and search the order by number, PO or customer. The order's customer becomes the dispatch's customer. | "Dispatch" खोलें और "नया dispatch" दबाएं। "सेल्स ऑर्डर से" दबाएं और ऑर्डर को नंबर, PO या ग्राहक से खोजें। ऑर्डर का ग्राहक ही dispatch का ग्राहक बन जाता है। |
+| Step 2 | Create it | बनाएं |
+| Step 2 text | Set the ship date if you know it and tap "Create dispatch". | शिप की तारीख पता हो तो डालें और "Dispatch बनाएं" दबाएं। |
+| Step 3 | Let orrn suggest bundles | orrn से bundle सुझवाएं |
+| Step 3 text | Tap "Suggest bundles". orrn lists this order's own stock first, then plant stock of the same die and length. Tick what you want, or add all that fit within the baki. | "Bundle सुझाएं" दबाएं। orrn पहले इसी ऑर्डर का स्टॉक दिखाता है, फिर उसी die और लंबाई का प्लांट स्टॉक। जो चाहिए चुनें, या बाकी में जितना समाए सब जोड़ दें। |
+| Step 4 | Or scan | या स्कैन करें |
+| Step 4 text | Scanning works as usual. Each bundle is linked to the order line it belongs to. The panel shows the baki now, what is on this load and what is left after it. | स्कैन पहले की तरह चलता है। हर bundle अपनी ऑर्डर लाइन से जुड़ जाता है। पैनल में अभी का बाकी, इस लोड का और इसके बाद बचा हुआ दिखता है। |
+| Step 5 | Watch the lines | लाइनें देखें |
+| Step 5 text | Each line shows its baki, the load and what is left. A line that goes past its baki says by how many kg. A bundle whose kg/12ft is far from the line's is marked, and you can still add it. | हर लाइन अपना बाकी, लोड और बचा हुआ दिखाती है। जो लाइन अपने बाकी से आगे निकल जाए वो बताती है कि कितने kg ज़्यादा हैं। जिस bundle का kg/12ft लाइन से बहुत अलग हो उस पर निशान लगता है, और फिर भी जोड़ा जा सकता है। |
+| Step 6 | Hold and dispatch | होल्ड और dispatch |
+| Step 6 text | Then "Hold stock" and "Dispatch" as in the other dispatch guide. The packing list comes out with the order and PO on each group. | फिर दूसरे dispatch गाइड की तरह "स्टॉक होल्ड करें" और "Dispatch करें"। पैकिंग लिस्ट में हर ग्रुप पर ऑर्डर और PO आता है। |
+| Problem 1 | A bundle is refused for being outside the order | Bundle को ऑर्डर से बाहर का कहकर मना किया |
+| Fix 1 | If the plant sends one sales order per packing list, a bundle on another order or of a die this order does not have is refused. Use a bundle of this order or plant stock of the same die. | प्लांट एक पैकिंग लिस्ट पर एक सेल्स ऑर्डर भेजता हो तो दूसरे ऑर्डर का bundle, या ऐसी die का bundle जो इस ऑर्डर में नहीं है, मना कर दिया जाता है। इस ऑर्डर का bundle लें, या उसी die का प्लांट स्टॉक। |
+| Problem 2 | More than the order is being sent | ऑर्डर से ज़्यादा जा रहा है |
+| Fix 2 | orrn allows a small tolerance on each line. Past it, completing the dispatch asks a manager to approve. Remove bundles or ask the manager. | orrn हर लाइन पर थोड़ी छूट देता है। उससे ऊपर dispatch पूरा करने पर मैनेजर की मंज़ूरी मांगी जाती है। Bundle हटाएं या मैनेजर से कहें। |
+| Problem 3 | A bundle is held for another order | Bundle किसी दूसरे ऑर्डर के लिए होल्ड है |
+| Fix 3 | It is held for another customer's line. Choose another bundle, or ask the office to release the hold. | वो किसी दूसरे ग्राहक की लाइन के लिए होल्ड है। दूसरा bundle चुनें, या ऑफिस से होल्ड हटवाएं। |
+
+### Set the truck, driver and capacity (`truck-capacity`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Set the truck, driver and capacity | ट्रक, ड्राइवर और क्षमता तय करें |
+| When | Use this before a truck leaves, so the vehicle is on the packing list and the load does not go over what the truck can carry. | ट्रक निकलने से पहले, ताकि गाड़ी पैकिंग लिस्ट पर आए और लोड ट्रक की क्षमता से ऊपर न जाए। |
+| Step 1 | Open the dispatch | Dispatch खोलें |
+| Step 1 text | Open "Dispatch" and tap the dispatch. Tap "Edit details". | "Dispatch" खोलें और dispatch दबाएं। "जानकारी बदलें" दबाएं। |
+| Step 2 | Fill the vehicle | गाड़ी भरें |
+| Step 2 text | Type the "Vehicle number", the driver and the driver's phone. Pick the transporter, or add one with "Add transporter". The vehicle number and driver print on the packing list. | "गाड़ी नंबर", ड्राइवर और ड्राइवर का फ़ोन लिखें। ट्रांसपोर्टर चुनें, या "ट्रांसपोर्टर जोड़ें" से नया डालें। गाड़ी नंबर और ड्राइवर पैकिंग लिस्ट पर छपते हैं। |
+| Step 3 | Set the capacity | क्षमता डालें |
+| Step 3 text | Type the "Truck capacity (kg)". The page shows how full the truck is as you add bundles. Leave it blank for no warning. | "गाड़ी की क्षमता (kg)" लिखें। bundle जोड़ते समय पेज दिखाता है कि ट्रक कितना भरा है। चेतावनी नहीं चाहिए तो खाली छोड़ें। |
+| Step 4 | Save | सेव करें |
+| Step 4 text | Tap "Save details". The capacity is a warning while you load. It does not stop you adding bundles. | "जानकारी सेव करें" दबाएं। क्षमता लोड करते समय सिर्फ चेतावनी है। वो bundle जोड़ने से नहीं रोकती। |
+| Step 5 | If it goes over | ऊपर चला जाए तो |
+| Step 5 text | When the load is over capacity, orrn asks you to say why before you can dispatch. The reason is kept with the dispatch. | लोड क्षमता से ऊपर हो तो dispatch करने से पहले orrn वजह लिखने को कहता है। वजह dispatch के साथ रहती है। |
+| Problem 1 | Several customers are on one truck | एक ट्रक पर कई ग्राहक हैं |
+| Fix 1 | If the plant allows it, tap "Add another customer to this truck". Each customer keeps its own packing list. The vehicle, driver and capacity belong to the truck, and the capacity counts the whole truck. | प्लांट इसकी छूट देता हो तो "इस ट्रक में एक और ग्राहक जोड़ें" दबाएं। हर ग्राहक की अपनी पैकिंग लिस्ट रहती है। गाड़ी, ड्राइवर और क्षमता ट्रक की होती है, और क्षमता में पूरा ट्रक गिना जाता है। |
+| Problem 2 | I changed the capacity after the dispatch | dispatch के बाद क्षमता बदल दी |
+| Fix 2 | The capacity this load went against stays as it was. orrn keeps it with the dispatch. | जिस क्षमता के सामने ये लोड गया था वो वैसी ही रहती है। orrn उसे dispatch के साथ रखता है। |
+| Problem 3 | The vehicle number looks different | गाड़ी का नंबर अलग दिख रहा है |
+| Fix 3 | orrn drops spaces and dashes and keeps only letters and digits, so a number typed with spaces is stored without them. | orrn खाली जगह और डैश हटा देता है और सिर्फ अक्षर व अंक रखता है, इसलिए खाली जगह के साथ लिखा नंबर बिना खाली जगह के सेव होता है। |
+
+### Correct a packing list with a new revision (`packing-list-revisions`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Correct a packing list with a new revision | पैकिंग लिस्ट सुधारें: नया रिवीज़न बनाएं |
+| When | Use this when a packing list that was already sent needs to change, for example a bundle was swapped or a weight was corrected. | जब भेजी जा चुकी पैकिंग लिस्ट में बदलाव करना हो, जैसे कोई bundle बदला या वज़न सुधारा गया। |
+| Step 1 | Open the packing list | पैकिंग लिस्ट खोलें |
+| Step 1 text | Open "Dispatch", open the completed dispatch and open its packing list. | "Dispatch" खोलें, पूरा हो चुका dispatch खोलें और उसकी पैकिंग लिस्ट खोलें। |
+| Step 2 | Look at what is sent | देखें क्या भेजा गया है |
+| Step 2 text | The list shows its revision number. A revision that was already sent stays readable and is marked "Sent earlier". | लिस्ट अपना रिवीज़न नंबर दिखाती है। जो रिवीज़न भेजा जा चुका है वो पढ़ा जा सकता है और उस पर "पहले भेजा गया" लिखा होता है। |
+| Step 3 | Make the revision | रिवीज़न बनाएं |
+| Step 3 text | Tap "Make a new revision" and confirm. orrn builds the list again from the bundles as they are now. The PL number does not change. | "नया संशोधन बनाएं" दबाएं और पक्का करें। orrn लिस्ट को bundle की अभी की हालत से फिर बनाता है। PL नंबर नहीं बदलता। |
+| Step 4 | Check what changed | बदलाव जांचें |
+| Step 4 text | The page lists the changes from the earlier revision: bundles added, removed or changed. Read them before you send. | पेज पिछले रिवीज़न से बदलावों की लिस्ट दिखाता है: कौन से bundle जुड़े, हटे या बदले। भेजने से पहले इन्हें पढ़ें। |
+| Step 5 | Print and send | प्रिंट करें और भेजें |
+| Step 5 text | Download the PDF or Excel as usual. Tell the customer that this revision replaces the one sent before. | PDF या Excel पहले की तरह डाउनलोड करें। ग्राहक को बता दें कि ये रिवीज़न पहले भेजे गए की जगह लेता है। |
+| Problem 1 | There is no Make a new revision button | नया रिवीज़न बनाने का बटन नहीं है |
+| Fix 1 | Only people who can complete a dispatch can make one. A list that was combined with others cannot be remade from its parts. | सिर्फ वो लोग बना सकते हैं जो dispatch पूरा कर सकते हैं। दूसरों से मिलाई गई लिस्ट अपने हिस्सों से दोबारा नहीं बनती। |
+| Problem 2 | The number on the list looks wrong | लिस्ट का कोई आंकड़ा गलत लग रहा है |
+| Fix 2 | Make sure the dispatch holds the right bundles first. A new revision reads the bundles as they are now, so a wrong bundle gives a wrong list. | पहले देखें कि dispatch में सही bundle हैं। नया रिवीज़न bundle को अभी की हालत में पढ़ता है, इसलिए गलत bundle से लिस्ट गलत ही बनेगी। |
+| Problem 3 | I need to see the old list | मुझे पुरानी लिस्ट देखनी है |
+| Fix 3 | Open "Revisions" and pick the earlier one. Nothing is deleted. | "रिवीज़न" खोलें और पहले वाला चुनें। कुछ मिटाया नहीं जाता। |
+
+### Combine packing lists into one (`combine-packing-lists`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Combine packing lists into one | कई पैकिंग लिस्ट एक में मिलाएं |
+| When | Use this when one customer's trucks went out on different days and they want one list for all of them. | जब एक ग्राहक के ट्रक अलग-अलग दिन गए हों और उन्हें सबकी एक ही लिस्ट चाहिए। |
+| Step 1 | Open one of the lists | कोई एक लिस्ट खोलें |
+| Step 1 text | Open "Dispatch", open a completed dispatch of the customer and open its packing list. | "Dispatch" खोलें, ग्राहक का पूरा हो चुका dispatch खोलें और उसकी पैकिंग लिस्ट खोलें। |
+| Step 2 | Start the combine | मिलाना शुरू करें |
+| Step 2 text | Tap "Combine lists". orrn shows the customer's other lists that are not already combined. | "लिस्ट मिलाएं" दबाएं। orrn ग्राहक की वो दूसरी लिस्ट दिखाता है जो अभी तक मिलाई नहीं गई हैं। |
+| Step 3 | Pick the lists | लिस्ट चुनें |
+| Step 3 text | Tick the lists to fold in. All must belong to the same customer and to completed dispatches. | जिन लिस्ट को जोड़ना है उन पर निशान लगाएं। सब एक ही ग्राहक की और पूरे हो चुके dispatch की होनी चाहिए। |
+| Step 4 | Combine | मिलाएं |
+| Step 4 text | Tap the combine button. The new list takes a new PL number. Each folded list keeps its own number and shows "Combined". | मिलाने वाला बटन दबाएं। नई लिस्ट को नया PL नंबर मिलता है। जोड़ी गई हर लिस्ट अपना नंबर रखती है और उस पर "मिलाया गया" दिखता है। |
+| Step 5 | Print it | प्रिंट करें |
+| Step 5 text | Download the PDF or Excel of the new list. It carries every bundle from the folded lists, grouped by order line. | नई लिस्ट का PDF या Excel डाउनलोड करें। उसमें जोड़ी गई सब लिस्ट के सारे bundle ऑर्डर लाइन के हिसाब से ग्रुप में होते हैं। |
+| Problem 1 | No other list to combine | मिलाने के लिए कोई दूसरी लिस्ट नहीं है |
+| Fix 1 | The customer has no other completed, uncombined list. Check that the other dispatch is completed. | ग्राहक की कोई और पूरी हुई, बिना मिलाई लिस्ट नहीं है। देखें कि दूसरा dispatch पूरा हुआ है या नहीं। |
+| Problem 2 | I combined the wrong lists | गलत लिस्ट मिल गईं |
+| Fix 2 | A combined list cannot be undone or remade from its parts. Ask a manager before you combine. | मिलाई हुई लिस्ट वापस नहीं की जा सकती और अपने हिस्सों से दोबारा नहीं बनती। मिलाने से पहले मैनेजर से पूछ लें। |
+| Problem 3 | A list is missing the vehicle | किसी लिस्ट में गाड़ी नहीं है |
+| Fix 3 | Each folded list kept its own header. Open the truck's own dispatch to correct a vehicle, then make a new revision of that list. | जोड़ी गई हर लिस्ट ने अपना हेडर रखा है। गाड़ी ठीक करने के लिए उस ट्रक का अपना dispatch खोलें, फिर उस लिस्ट का नया रिवीज़न बनाएं। |
+
+### Settle a closed stock count (`settle-count`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Settle a closed stock count | बंद हुई स्टॉक गिनती का निपटारा करें |
+| When | Use this after a count is closed, to deal with the bundles that were missing or found in the wrong yard. | गिनती बंद होने के बाद, जब गुम हुए या गलत यार्ड में मिले bundle का हिसाब करना हो। |
+| Step 1 | Open the closed count | बंद गिनती खोलें |
+| Step 1 text | Open "Stock", then "Stock count", and open the closed count under "Earlier counts". | "स्टॉक" खोलें, फिर "स्टॉक की गिनती", और "पिछली गिनतियां" में से बंद गिनती खोलें। |
+| Step 2 | Read the report | रिपोर्ट पढ़ें |
+| Step 2 text | The report shows what was missing, found and moved, and the difference by yard and by section. Bundles packed or moved during the count are not counted as missing. | रिपोर्ट में दिखता है कि क्या गुम है, क्या मिला और क्या अपनी जगह से हटा था, और यार्ड व सेक्शन के हिसाब से फर्क। गिनती के दौरान पैक या मूव हुए bundle गुम नहीं गिने जाते। |
+| Step 3 | Move what was found | जो मिला उसे मूव करें |
+| Step 3 text | For bundles found in another yard, use the move button. They go to the yard where they were seen, and the move is on the ledger. | दूसरे यार्ड में मिले bundle के लिए मूव बटन इस्तेमाल करें। वो उस यार्ड में चले जाते हैं जहां दिखे थे, और मूव लेजर में दर्ज होता है। |
+| Step 4 | Ask to void what is really gone | जो सच में गया उसे रद्द करवाएं |
+| Step 4 text | Look again in the nearby yards. For bundles that are truly missing, ask to void them. A manager is asked to approve. Until then they stay in stock. | आस-पास के यार्ड फिर देखें। जो bundle सच में गुम हैं उन्हें रद्द करने के लिए कहें। मैनेजर से मंज़ूरी मांगी जाती है। तब तक वो स्टॉक में रहते हैं। |
+| Step 5 | Check the number | आंकड़ा जांचें |
+| Step 5 text | The missing figure on Today and on "Stock count" falls as bundles are voided, found or cleared. | Today पर और "स्टॉक की गिनती" में गुम का आंकड़ा तब घटता है जब bundle रद्द होते हैं, मिलते हैं या साफ किए जाते हैं। |
+| Problem 1 | The bundle was seen in another count | Bundle किसी दूसरी गिनती में दिखा था |
+| Fix 1 | A bundle that another count saw is not missing. The report says where. Move it from that count instead of voiding it. | जो bundle किसी और गिनती ने देखा वो गुम नहीं है। रिपोर्ट बताती है कहां। उसे रद्द करने की जगह उसी गिनती से मूव करें। |
+| Problem 2 | The approval was refused | मंज़ूरी नामंज़ूर हो गई |
+| Fix 2 | The bundle was packed or moved after the count closed, so it is no longer missing. Nothing is voided. | गिनती बंद होने के बाद वो bundle पैक या मूव हुआ, इसलिए अब गुम नहीं है। कुछ रद्द नहीं होता। |
+| Problem 3 | Closing a count did not change the stock | गिनती बंद करने से स्टॉक नहीं बदला |
+| Fix 3 | That is right. Closing freezes the report. Only an approved void or a move changes the ledger. | यही सही है। बंद करने से सिर्फ रिपोर्ट जम जाती है। लेजर सिर्फ मंज़ूर रद्दीकरण या मूव से बदलता है। |
+
+### Give a customer a party login (`portal-login`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Give a customer a party login | ग्राहक को पार्टी लॉगिन दें |
+| When | Use this when a customer should see their own dies, book orders and see what was dispatched to them. | जब ग्राहक को अपनी die देखनी हों, ऑर्डर बुक करने हों और देखना हो कि उसे क्या भेजा गया। |
+| Step 1 | Turn the portal on | पोर्टल चालू करें |
+| Step 1 text | Open "Settings" and turn on "Party portal" in the switches. This is once for the plant. | "सेटिंग्स" खोलें और स्विच में "पार्टी पोर्टल" चालू करें। ये प्लांट के लिए एक बार करना है। |
+| Step 2 | Open the customer | ग्राहक खोलें |
+| Step 2 text | Open "Customers" and open the party. Find "Portal access". | "ग्राहक" खोलें और पार्टी को खोलें। "पोर्टल एक्सेस" ढूंढें। |
+| Step 3 | Give a login | लॉगिन दें |
+| Step 3 text | Tap "Give a login", type the party's email and tap "Give login". orrn makes an invite link that works for 7 days. | "लॉगिन दें" दबाएं, पार्टी का ईमेल लिखें और "लॉगिन दें" दबाएं। orrn 7 दिन चलने वाला इनवाइट लिंक बनाता है। |
+| Step 4 | Send the link | लिंक भेजें |
+| Step 4 text | Copy the invite link with "Copy link" and send it to the party. Email is not always reliable, so send the link yourself. | "लिंक कॉपी करें" से इनवाइट लिंक कॉपी करके पार्टी को भेजें। ईमेल हमेशा भरोसेमंद नहीं होता, इसलिए लिंक खुद भेजें। |
+| Step 5 | Open the dies | Die खोलें |
+| Step 5 text | Under "Dies the party sees" tap "Open a die" for each die the party may book. A die owned by another customer is never shown. | "पार्टी को दिखने वाले die" में हर उस die के लिए "Die खोलें" दबाएं जो पार्टी बुक कर सकती है। किसी दूसरे ग्राहक की die कभी नहीं दिखती। |
+| Step 6 | Turn it off if needed | ज़रूरत हो तो बंद करें |
+| Step 6 text | Tap "Turn off" to stop a login. "Turn on" brings it back with no new invite. | लॉगिन रोकने के लिए "बंद करें" दबाएं। "चालू करें" उसे बिना नए इनवाइट के लौटा देता है। |
+| Problem 1 | This email is a plant login | ये ईमेल प्लांट का लॉगिन है |
+| Fix 1 | A person cannot be staff and a party in the same plant. Use another email for the party. | एक ही प्लांट में कोई आदमी स्टाफ और पार्टी दोनों नहीं हो सकता। पार्टी के लिए दूसरा ईमेल इस्तेमाल करें। |
+| Problem 2 | The party sees no dies | पार्टी को कोई die नहीं दिखती |
+| Fix 2 | A party sees the dies it owns and those you open for it. Open the dies, and check the party portal switch. | पार्टी को अपनी die और वो die दिखती हैं जो आपने उसके लिए खोली हैं। die खोलें और पार्टी पोर्टल का स्विच देखें। |
+| Problem 3 | The party books an order | पार्टी ने ऑर्डर बुक किया |
+| Fix 3 | It arrives as "Booking" marked Portal. Open it, check the lines and confirm it like any other order. | वो "बुकिंग" बनकर आता है और उस पर "पोर्टल" लिखा होता है। उसे खोलें, लाइनें जांचें और बाकी ऑर्डर की तरह पक्का करें। |
+
+### Issue a test certificate (`issue-certificate`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Issue a test certificate | टेस्ट सर्टिफिकेट जारी करें |
+| When | Use this when a customer needs a test certificate for a dispatch that has gone out. | जब ग्राहक को ऐसे dispatch का टेस्ट सर्टिफिकेट चाहिए जो निकल चुका है। |
+| Step 1 | Open the dispatch | Dispatch खोलें |
+| Step 1 text | Open "Dispatch", and open the completed dispatch. | "Dispatch" खोलें, और पूरा हो चुका dispatch खोलें। |
+| Step 2 | Issue it | जारी करें |
+| Step 2 text | Tap "Issue test certificate". The certificate takes the next number and cites the casts behind the bundles with each cast's chemistry. | "टेस्ट सर्टिफिकेट जारी करें" दबाएं। सर्टिफिकेट को अगला नंबर मिलता है और उसमें bundle के पीछे की कास्ट और हर कास्ट की केमिस्ट्री आती है। |
+| Step 3 | Read the chemistry | केमिस्ट्री पढ़ें |
+| Step 3 text | Casts that have not been tested yet are shown as pending. orrn never invents a figure. | जिन कास्ट की जाँच नहीं हुई वो बाकी दिखती हैं। orrn कोई आंकड़ा अपने मन से नहीं भरता। |
+| Step 4 | The customer sees it | ग्राहक देखता है |
+| Step 4 text | If the customer has a party login, the certificate shows under the dispatch in their portal. It carries no rate. | ग्राहक के पास पार्टी लॉगिन हो तो सर्टिफिकेट उसके पोर्टल में dispatch के नीचे दिखता है। उसमें कोई रेट नहीं होता। |
+| Step 5 | Issue again | फिर से जारी करें |
+| Step 5 text | If something changed, tap "Issue again". The new revision keeps the same certificate number. | कुछ बदला हो तो "फिर से जारी करें" दबाएं। नया रिवीज़न वही सर्टिफिकेट नंबर रखता है। |
+| Problem 1 | Chemistry pending | केमिस्ट्री बाकी है |
+| Fix 1 | No spectrometer result is attached to the cast yet. The foundry attaches it. Issue again when it is there. | कास्ट के साथ अभी कोई स्पेक्ट्रोमीटर नतीजा नहीं जुड़ा। फाउंड्री उसे जोड़ती है। जुड़ने पर फिर से जारी करें। |
+| Problem 2 | Some bundles have no cast number | कुछ bundle पर कास्ट नंबर नहीं है |
+| Fix 2 | The certificate says how many. Those bundles were packed without a cast. | सर्टिफिकेट बताता है कितने। वो bundle बिना कास्ट के पैक हुए थे। |
+| Problem 3 | There is no button | बटन नहीं है |
+| Fix 3 | Only the office, a manager, an admin or the owner can issue it, or a person who can complete dispatches. | इसे सिर्फ ऑफिस, मैनेजर, एडमिन या मालिक जारी कर सकता है, या वो जो dispatch पूरा कर सकता है। |
+
+### Manage the reason codes (`reason-codes`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Manage the reason codes | रीज़न कोड संभालें |
+| When | Use this when the floor needs a new reason in a list, such as why a press stopped or why a bundle was voided. | जब फ्लोर को किसी लिस्ट में नई वजह चाहिए, जैसे प्रेस क्यों रुकी या bundle क्यों रद्द हुआ। |
+| Step 1 | Open the reasons | वजहें खोलें |
+| Step 1 text | Open "Masters" and the reason codes page. Pick the kind of reason: downtime, rejects, void, reprint or move to another order. | "मास्टर" और रीज़न कोड का पेज खोलें। वजह का प्रकार चुनें: रुकना, रिजेक्ट, रद्द, फिर से प्रिंट या दूसरे ऑर्डर पर डालना। |
+| Step 2 | Add a reason | वजह जोड़ें |
+| Step 2 text | Add the reason in English. Type the Hindi and Gujarati words too, so the floor sees it in their language. The key is made from the English words once and never changes. | वजह अंग्रेज़ी में जोड़ें। हिंदी और गुजराती शब्द भी लिखें, ताकि फ्लोर को अपनी भाषा में दिखे। कुंजी अंग्रेज़ी शब्दों से एक बार बनती है और कभी नहीं बदलती। |
+| Step 3 | Ask for a note if needed | ज़रूरत हो तो नोट मांगें |
+| Step 3 text | Switch on the note box for a reason that needs explaining. Other is fixed in every kind. It always asks for a note. | जिस वजह को समझाना ज़रूरी हो उस पर नोट का खाना चालू करें। Other हर प्रकार में तय है। वो हमेशा नोट मांगता है। |
+| Step 4 | Rename or retire | नाम बदलें या बंद करें |
+| Step 4 text | Renaming changes the words, not the key. A retired reason leaves the pickers but stays on old records. It can be turned on again. | नाम बदलने से शब्द बदलते हैं, कुंजी नहीं। बंद की हुई वजह चुनने की लिस्ट से हट जाती है पर पुराने रिकॉर्ड पर रहती है। उसे फिर चालू किया जा सकता है। |
+| Problem 1 | A standard reason shows in English | मानक वजह अंग्रेज़ी में दिख रही है |
+| Fix 1 | A reason you renamed shows the words you typed. Type the Hindi and Gujarati words for it. | जिस वजह का आपने नाम बदला वो आपके लिखे शब्द दिखाती है। उसके हिंदी और गुजराती शब्द भी लिखें। |
+| Problem 2 | I cannot rename Other | Other का नाम नहीं बदल सकता |
+| Fix 2 | Other is fixed so that there is always a way out. Add a more exact reason instead. | Other इसलिए तय है कि बाहर निकलने का रास्ता हमेशा रहे। उसकी जगह ज़्यादा सटीक वजह जोड़ें। |
+| Problem 3 | Nothing changes on the tablet | टैबलेट पर कुछ नहीं बदला |
+| Fix 3 | The list loads when the press page opens. Reload the page. | लिस्ट प्रेस पेज खुलते समय लोड होती है। पेज फिर से लोड करें। |

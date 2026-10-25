@@ -1,4 +1,5 @@
-import { COMPANY_ROLES, type CompanyRole, type GuideBook } from "./types";
+import { COMPANY_ROLES, type CompanyRole, type GuideBook, type GuideBookBase } from "./types";
+import { guidesEnFp } from "./en-fp";
 
 /**
  * SOP guides, English. Each describes orrn's own screens (spec §3). Button, tab
@@ -13,7 +14,7 @@ const FLOOR: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "packer
 const OFFICE: CompanyRole[] = ["owner", "admin", "manager", "office"];
 const EVERYONE: CompanyRole[] = [...COMPANY_ROLES];
 
-export const guidesEn: GuideBook = {
+const guidesEnBase: GuideBookBase = {
   "pack-session": {
     slug: "pack-session",
     roles: FLOOR,
@@ -716,3 +717,5 @@ export const guidesEn: GuideBook = {
     ],
   },
 };
+
+export const guidesEn: GuideBook = { ...guidesEnBase, ...guidesEnFp };

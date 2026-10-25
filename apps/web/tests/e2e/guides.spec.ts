@@ -7,7 +7,7 @@ import { signInViaApi, type LocalRole } from "./helpers/accounts";
 
 /**
  * Guides (Task 26): the library at /guides and one guide at /guides/$slug, in
- * English and Hindi, at phone, iPad and laptop widths. The expected words come
+ * English, Hindi and Gujarati (the floor guides; the rest read English in gu), at phone, iPad and laptop widths. The expected words come
  * from the same guide books the screen renders, so a reworded step doesn't
  * break the spec; the checks are that the page shows every step, switches
  * language, links only to screens the role can open, and fails honestly for a
@@ -15,7 +15,7 @@ import { signInViaApi, type LocalRole } from "./helpers/accounts";
  */
 
 const WIDTHS = [375, 820, 1280] as const;
-type Locale = "en" | "hi";
+type Locale = "en" | "hi" | "gu";
 
 async function open(page: Page, path: string, opts: { width: number; locale?: Locale; role?: LocalRole }) {
   await page.setViewportSize({ width: opts.width, height: 900 });
@@ -71,7 +71,7 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(getGuide("pack-session", "en").title);
     });
 
-    for (const locale of ["en", "hi"] as const) {
+    for (const locale of ["en", "hi", "gu"] as const) {
       test(`a guide shows its numbered steps in ${locale}`, async ({ page }) => {
         await open(page, "/guides/build-dispatch", { width, locale });
         const guide = getGuide("build-dispatch", locale);
@@ -102,7 +102,7 @@ for (const width of WIDTHS) {
 }
 
 test.describe("content", () => {
-  for (const locale of ["en", "hi"] as const) {
+  for (const locale of ["en", "hi", "gu"] as const) {
     test(`every guide renders its steps in ${locale}`, async ({ page }) => {
       await open(page, "/guides", { width: 390, locale });
       for (const slug of GUIDE_SLUGS) {
