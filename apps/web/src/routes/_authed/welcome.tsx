@@ -12,7 +12,7 @@ import { PasswordStep } from "@/features/auth/welcome/password-step";
 import { TwoFactorStep } from "@/features/auth/welcome/two-factor-step";
 import { leaveWelcome, welcomeSteps, welcomeTimeline } from "@/features/auth/welcome-steps";
 import { homeTarget } from "@/shared/lib/home";
-import { signOutAndReset } from "@/shared/lib/sign-out";
+import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { trpc } from "@/shared/utils/trpc";
 
 /**
@@ -36,6 +36,7 @@ export const Route = createFileRoute("/_authed/welcome")({
 function WelcomePage() {
   const { t } = useT();
   const navigate = useNavigate();
+  const signOut = useSignOutAndReset();
   const { me } = Route.useRouteContext();
   // Fixed for this visit: finishing a step must not reshuffle the stepper.
   const [stages] = useState(() => welcomeTimeline(welcomeSteps(me)));
@@ -64,7 +65,7 @@ function WelcomePage() {
             <Button
               variant="ghost"
               className="text-muted-foreground"
-              onClick={() => void signOutAndReset(() => void navigate({ to: "/login", replace: true }))}
+              onClick={() => signOut(() => void navigate({ to: "/login", replace: true }))}
             >
               {t("auth.signOut")}
             </Button>

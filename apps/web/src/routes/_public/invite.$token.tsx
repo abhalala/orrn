@@ -16,7 +16,7 @@ import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
 import { authClient } from "@/shared/lib/auth-client";
 import { homeTarget, type HomePath } from "@/shared/lib/home";
 import type { Me } from "@/shared/lib/me";
-import { signOutAndReset } from "@/shared/lib/sign-out";
+import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { isUnauthorized } from "@/shared/lib/session-errors";
 import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -93,6 +93,7 @@ function InvitePage() {
   const [acceptError, setAcceptError] = useState<MessageKey | null>(null);
   const finishSignIn = useFinishSignIn();
   const navigate = useNavigate();
+  const signOut = useSignOutAndReset();
   const accept = useMutation(trpc.invite.acceptByToken.mutationOptions());
   const heading = useRef<HTMLHeadingElement>(null);
   const viewChanged = useRef(false);
@@ -150,7 +151,7 @@ function InvitePage() {
             <Button
               size="lg"
               className="w-full"
-              onClick={() => void signOutAndReset(() => setView("create"))}
+              onClick={() => signOut(() => setView("create"))}
             >
               {t("auth.signOut")}
             </Button>
@@ -212,7 +213,7 @@ function InvitePage() {
               variant="secondary"
               className="w-full"
               disabled={accept.isPending}
-              onClick={() => void signOutAndReset(() => setView("create"))}
+              onClick={() => signOut(() => setView("create"))}
             >
               {t("auth.invite.otherAccount")}
             </Button>

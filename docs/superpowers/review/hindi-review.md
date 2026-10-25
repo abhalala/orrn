@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 5656 screen strings in 49 groups, 35 guides with 646 strings.
+Counts: 5667 screen strings in 49 groups, 35 guides with 646 strings.
 
 ## Screen strings
 
@@ -171,7 +171,7 @@ Counts: 5656 screen strings in 49 groups, 35 guides with 646 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (52)
+### nav (54)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -192,6 +192,8 @@ Counts: 5656 screen strings in 49 groups, 35 guides with 646 strings.
 | `settings` | Settings | सेटिंग्स |
 | `account` | Account | अकाउंट |
 | `signOut` | Sign out | साइन आउट |
+| `signOutOffline` | You are offline; sign-out needs a connection. You are still signed in. | आप ऑफ़लाइन हैं; साइन आउट के लिए कनेक्शन चाहिए। आप अभी भी साइन इन हैं। |
+| `signOutFailed` | Sign-out didn't go through. Check the connection and try again. You are still signed in. | साइन आउट नहीं हुआ। कनेक्शन देखकर फिर से कोशिश करें। आप अभी भी साइन इन हैं। |
 | `skipToContent` | Skip to content | मुख्य हिस्से पर जाएं |
 | `scanOrSearch` | Scan or search | स्कैन करें या खोजें |
 | `paletteHint` | Type a serial, dispatch code, die or customer | Serial, dispatch कोड, die या ग्राहक लिखें |
@@ -1843,7 +1845,7 @@ Counts: 5656 screen strings in 49 groups, 35 guides with 646 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (213)
+### settings (221)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1902,6 +1904,14 @@ Counts: 5656 screen strings in 49 groups, 35 guides with 646 strings.
 | `team.roleHints.viewer` | Can see everything. Can't change anything. | सब कुछ देख सकते हैं, कुछ बदल नहीं सकते। |
 | `team.sendInvite` | Send invite | इनवाइट भेजें |
 | `team.inviteSent` | Invite sent to {email} | {email} को इनवाइट भेज दिया |
+| `team.inviteLink.title` | Invite link for {email} | {email} के लिए इनवाइट लिंक |
+| `team.inviteLink.notSent` | The invite is saved, but the email did not go. Copy the link and send it by WhatsApp or your own mail. | इनवाइट सेव हो गया, पर ईमेल नहीं गया। लिंक कॉपी करके WhatsApp या अपने मेल से भेजें। |
+| `team.inviteLink.sent` | The email went to {email}. You can also send the link yourself. | ईमेल {email} पर गया। आप लिंक खुद भी भेज सकते हैं। |
+| `team.inviteLink.link` | Invite link | इनवाइट लिंक |
+| `team.inviteLink.copy` | Copy link | लिंक कॉपी करें |
+| `team.inviteLink.copied` | Link copied | लिंक कॉपी हो गया |
+| `team.inviteLink.expires` | It works once and expires on {date}. | यह एक बार चलेगा और {date} को खत्म होगा। |
+| `team.inviteLink.show` | Show link | लिंक दिखाएं |
 | `team.pending` | Pending invites | बाकी इनवाइट |
 | `team.expires` | Link works until {date} | लिंक {date} तक चलेगा |
 | `team.revoke` | Cancel invite | इनवाइट कैंसल करें |
@@ -4642,7 +4652,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (493)
+### press (494)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4927,6 +4937,7 @@ Please check, Lalubhai:
 | `console.outbox.keepOpen` | Saved on this tablet. They go to orrn in order when the connection is back. Keep this page open. | इस टैबलेट पर सेव है। कनेक्शन आते ही क्रम से orrn पर जाएँगे। यह पेज खुला रखें। |
 | `console.outbox.queued` | Offline. Saved on this tablet; it goes when the connection is back. | ऑफ़लाइन। इस टैबलेट पर सेव है; कनेक्शन आते ही जाएगा। |
 | `console.outbox.signOutLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet for you and go out when you sign in again. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर आपके लिए सेव रहेंगे और दोबारा साइन इन करने पर जाएँगे। |
+| `console.outbox.offlineLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet and go out when the connection is back. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर सेव रहेंगे और कनेक्शन आते ही जाएँगे। |
 | `console.outbox.plantLeft` | {count} {count:change\|changes} not sent yet. They stay saved on this tablet and go out when you are back in this plant. | {count} बदलाव अभी भेजे नहीं गए। वे इस टैबलेट पर सेव रहेंगे और इस प्लांट में लौटने पर जाएँगे। |
 | `console.outbox.behind` | Waiting behind a refused change. Saved on this tablet. | जिस बदलाव को orrn ने नहीं लिया, उसके पीछे इंतज़ार में। इस टैबलेट पर सेव है। |
 | `console.outbox.blocked` | Waiting behind a refused change ({count} {count:change\|changes}) | जिस बदलाव को orrn ने नहीं लिया, उसके पीछे इंतज़ार में ({count} बदलाव) |

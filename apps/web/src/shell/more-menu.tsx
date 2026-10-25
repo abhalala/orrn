@@ -19,7 +19,7 @@ import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from "react
 
 import { useTheme } from "@/shared/components/theme-provider";
 import { useMe, type Me } from "@/shared/lib/me";
-import { signOutAndReset } from "@/shared/lib/sign-out";
+import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 
 import { LanguageToggle } from "./language-toggle";
 import type { NavItem } from "./nav-items";
@@ -77,7 +77,8 @@ export function Avatar({ name, className }: { name: string | undefined; classNam
 
 function useSignOut() {
   const navigate = useNavigate();
-  return () => void signOutAndReset(() => void navigate({ to: "/" }));
+  const signOut = useSignOutAndReset();
+  return () => signOut(() => void navigate({ to: "/" }));
 }
 
 function showGodseyeLink(me: Me | undefined, variant: ShellVariant) {

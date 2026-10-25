@@ -426,6 +426,17 @@ test.describe("FP-PR-19 the outbox belongs to the person who queued it", () => {
     expect(keys[0]).toMatch(/^orrn\.press\.outbox\.[^.]+\.[^.]+$/);
     const userA = keys[0]!.split(".").at(-1)!;
 
+    // M2 (final explore): sign out while offline is refused in words (the session would live on at the
+    // server), the waiting change is counted without promising a sign-in, and A stays on the station.
+    await page.getByRole("button", { name: "Account and more" }).click();
+    await page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "Sign out" }).click();
+    await expect(page.getByText("You are offline; sign-out needs a connection. You are still signed in.")).toBeVisible();
+    await expect(page.getByText("1 change not sent yet. They stay saved on this tablet and go out when the connection is back.")).toBeVisible();
+    await expect(page.getByText("go out when you sign in again")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page).toHaveURL(new RegExp(`/press/runs/${run.id}$`));
+    await expect(page.locator("[data-outbox-banner]")).toHaveText("Offline: 1 change waiting");
+
     // The connection returns, but the server does not get A's Start yet (the request is held back).
     await page.route(/\/trpc\/press\.runs\.start/, (route) => route.abort());
     await context.setOffline(false);

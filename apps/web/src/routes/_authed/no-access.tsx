@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { homeTarget } from "@/shared/lib/home";
-import { signOutAndReset } from "@/shared/lib/sign-out";
+import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { trpc } from "@/shared/utils/trpc";
 
 /**
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/_authed/no-access")({
 function NoAccessPage() {
   const { t } = useT();
   const navigate = useNavigate();
+  const signOut = useSignOutAndReset();
   const { me } = Route.useRouteContext();
   const email = me.user.email;
 
@@ -66,7 +67,7 @@ function NoAccessPage() {
         <Button
           size="lg"
           className="h-auto min-h-14 w-full whitespace-normal py-3 text-center"
-          onClick={() => void signOutAndReset(() => void navigate({ to: "/login", replace: true }))}
+          onClick={() => signOut(() => void navigate({ to: "/login", replace: true }))}
         >
           {t("auth.noAccess.switchAccount")}
         </Button>

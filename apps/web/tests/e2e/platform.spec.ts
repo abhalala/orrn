@@ -499,6 +499,34 @@ test.describe("team", () => {
     await expect(ownerRow.getByTestId("member-remove")).toHaveCount(0);
   });
 
+  test("M3 (final explore): an invite whose email did not go opens its link to copy; it is saved and pending", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await open(page, "/settings?tab=team", { width: 375 });
+    const team = page.getByTestId("settings-team");
+    const email = `invite.${Date.now()}@test.orrn`;
+    await team.getByTestId("invite-open").click();
+    const sheet = page.getByRole("dialog", { name: "Invite a team member" });
+    await sheet.getByTestId("invite-email").fill(email);
+    await sheet.getByRole("button", { name: "Send invite" }).click();
+    // The local stack has no email provider: the link comes up at once, and nothing says "sent".
+    const dialog = page.getByRole("dialog", { name: `Invite link for ${email}` });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("status")).toHaveText("The invite is saved, but the email did not go. Copy the link and send it by WhatsApp or your own mail.");
+    const url = (await dialog.getByTestId("member-invite-url").textContent())!.trim();
+    expect(url).toMatch(/\/invite\/[0-9a-f-]{36}$/);
+    await expect(page.getByText(`Invite sent to ${email}`)).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Copy link" }).click();
+    await expect(page.getByText("Link copied")).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);
+    await expectNoHorizontalScroll(page);
+    await dialog.getByRole("button", { name: "Done" }).click();
+    // Saved and pending; revoke it so the list stays as it was.
+    const row = team.getByRole("row").filter({ hasText: email }).or(team.locator("li").filter({ hasText: email }));
+    await expect(row.first()).toBeVisible();
+    await team.getByRole("button", { name: `Cancel invite: ${email}` }).click();
+    await expect(team.getByText(email)).toHaveCount(0);
+  });
+
   test("viewer: no Change role, no Remove, no Invite", async ({ page }) => {
     await open(page, "/settings?tab=team", { role: "viewer", width: 375 });
     const team = page.getByTestId("settings-team");

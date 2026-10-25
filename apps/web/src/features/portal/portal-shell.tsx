@@ -12,7 +12,7 @@ import { LanguageToggle } from "@/shell/language-toggle";
 import { SkipLink } from "@/shell/skip-link";
 import { readStoredLocaleOrNull, storeLocale } from "@/shared/lib/locale";
 import { storePortalPlant } from "@/shared/lib/portal-plant";
-import { signOutAndReset } from "@/shared/lib/sign-out";
+import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient } from "@/shared/utils/trpc";
 
@@ -162,6 +162,7 @@ function AccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open
   const { t } = useT();
   const me = usePortalMe();
   const navigate = useNavigate();
+  const signOut = useSignOutAndReset();
   const plants = me.data?.plants ?? [];
 
   function switchPlant(companyId: string) {
@@ -198,7 +199,7 @@ function AccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open
         <Button
           variant="secondary"
           size="lg"
-          onClick={() => void signOutAndReset(() => void navigate({ to: "/login" }))}
+          onClick={() => signOut(() => void navigate({ to: "/login" }))}
         >
           <LogOut aria-hidden="true" strokeWidth={2} />
           {t("auth.signOut")}

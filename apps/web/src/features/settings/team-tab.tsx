@@ -12,7 +12,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppRouter } from "@orrn/server/routers/index";
 import type { inferRouterOutputs } from "@trpc/server";
-import { UserPlus } from "lucide-react";
+import { Copy, UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -41,6 +41,7 @@ export function TeamTab() {
   const members = useQuery(trpc.company.membersList.queryOptions());
   const invites = useQuery(trpc.invite.list.queryOptions());
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteLink, setInviteLink] = useState<InviteLinkView | null>(null);
   const [roleFor, setRoleFor] = useState<Member | null>(null);
   const [removing, setRemoving] = useState<Member | null>(null);
 
@@ -143,7 +144,8 @@ export function TeamTab() {
       <PortalLoginsSection />
 
       <Can do="member.invite">
-        <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} />
+        <InviteSheet open={inviteOpen} onOpenChange={setInviteOpen} onInvited={setInviteLink} />
+        <InviteLinkDialog link={inviteLink} onClose={() => setInviteLink(null)} />
       </Can>
       <Can do="member.updateRole">
         <RoleSheet member={roleFor} onClose={() => setRoleFor(null)} />
@@ -180,7 +182,60 @@ function RevokeInvite({ invite }: { invite: Invite }) {
   );
 }
 
-function InviteSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
+/** What `invite.create` hands back for the inviter to pass on (M3, final explore). */
+type InviteLinkView = { email: string; link: string; emailSent: boolean; expiresAt: Date | string };
+
+/**
+ * The invite link, to copy and send by hand. Shown at once when the email did not go (the invite
+ * is saved either way, and email is unreliable), and from the "Show link" toast when it did.
+ */
+function InviteLinkDialog({ link, onClose }: { link: InviteLinkView | null; onClose(): void }) {
+  const { t } = useT();
+  const when = useCompanyWhen();
+  return (
+    <Dialog
+      open={link !== null}
+      onOpenChange={(o) => !o && onClose()}
+      title={t("settings.team.inviteLink.title", { email: link?.email ?? "" })}
+      actions={<Button onClick={onClose}>{t("common.done")}</Button>}
+    >
+      {link ? (
+        <div className="flex min-w-0 flex-col gap-3" data-testid="member-invite-link">
+          <p
+            role="status"
+            className={
+              link.emailSent
+                ? "m-0 rounded-input bg-tone-green-tint px-3 py-2 text-[14px] font-semibold text-tone-green-ink"
+                : "m-0 rounded-input bg-tone-amber-tint px-3 py-2 text-[14px] font-semibold text-tone-amber-ink"
+            }
+          >
+            {link.emailSent ? t("settings.team.inviteLink.sent", { email: link.email }) : t("settings.team.inviteLink.notSent")}
+          </p>
+          <p className="m-0 text-[13px] font-medium text-muted-foreground">{t("settings.team.inviteLink.link")}</p>
+          <p className="m-0 rounded-input border border-border bg-surface-sunken px-3 py-2 font-mono text-[13px] [overflow-wrap:anywhere]" data-testid="member-invite-url">
+            {link.link}
+          </p>
+          <Button
+            variant="secondary"
+            className="self-start"
+            onClick={() => {
+              void navigator.clipboard
+                ?.writeText(link.link)
+                .then(() => toast.success(t("settings.team.inviteLink.copied")))
+                .catch(() => {});
+            }}
+          >
+            <Copy aria-hidden="true" strokeWidth={2} />
+            {t("settings.team.inviteLink.copy")}
+          </Button>
+          <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("settings.team.inviteLink.expires", { date: when(link.expiresAt) })}</p>
+        </div>
+      ) : null}
+    </Dialog>
+  );
+}
+
+function InviteSheet({ open, onOpenChange, onInvited }: { open: boolean; onOpenChange(open: boolean): void; onInvited(link: InviteLinkView): void }) {
   const { t } = useT();
   const { data: me } = useMe();
   const queryClient = useQueryClient();
@@ -191,8 +246,16 @@ function InviteSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open:
 
   const invite = useMutation(
     trpc.invite.create.mutationOptions({
-      onSuccess: (_, vars) => {
-        toast.success(t("settings.team.inviteSent", { email: vars.email.trim() }));
+      onSuccess: (res) => {
+        const view: InviteLinkView = { email: res.email, link: res.link, emailSent: res.emailSent, expiresAt: res.expiresAt };
+        // M3: "Invite sent" only when the email went; otherwise the link opens at once to copy.
+        if (res.emailSent) {
+          toast.success(t("settings.team.inviteSent", { email: res.email }), {
+            action: { label: t("settings.team.inviteLink.show"), onClick: () => onInvited(view) },
+          });
+        } else {
+          onInvited(view);
+        }
         void queryClient.invalidateQueries({ queryKey: trpc.invite.list.queryKey() });
         setEmail("");
         setError(undefined);

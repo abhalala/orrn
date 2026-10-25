@@ -243,7 +243,15 @@ test.describe("pack", () => {
     await savedRows(page).nth(0).click();
     await expect(page.getByRole("heading", { name: "Editing bundle 1" })).toBeVisible();
     await expect(weightField(page)).toHaveValue("50.1");
+    // BACKLOG 64: Weight takes focus with its text selected, so keystrokes replace it and never
+    // land in front of it ("21" + "50.1" read 2,150.1 kg); then the person moves to Pieces and
+    // the deferred focus leaves them there.
+    await expect(weightField(page)).toBeFocused();
+    await page.keyboard.type("50.25");
+    await expect(weightField(page)).toHaveValue("50.25");
     await piecesField(page).fill("21");
+    await expect(piecesField(page)).toBeFocused();
+    await expect(weightField(page)).toHaveValue("50.25");
     await page.getByRole("button", { name: "Save bundle" }).click();
     await expect(savedRows(page).nth(0)).toContainText("21");
 

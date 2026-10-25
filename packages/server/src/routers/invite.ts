@@ -63,6 +63,7 @@ export const inviteRouter = router({
 
       const inviteId = crypto.randomUUID();
       const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
 
       await atomicBatch(ctx.db, [
@@ -72,7 +73,7 @@ export const inviteRouter = router({
           email,
           role: input.role,
           tokenHash,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          expiresAt,
           invitedBy: ctx.session.user.id,
         }),
         auditInsert(ctx, {
@@ -85,19 +86,30 @@ export const inviteRouter = router({
 
       const inviteUrl = `${webBaseUrl()}/invite/${token}`;
 
-      await sendEmail({
-        to: email,
-        subject: "You've been invited to join a company on ORRN",
-        html: renderOrrnEmailHtml({
-          title: "Workspace Invitation",
-          description: `You have been invited to join a company workspace on ORRN-AL with the role of ${input.role.toUpperCase()}. Click the button below to accept the invitation and complete your account setup.`,
-          buttonText: "Accept Invitation",
-          buttonUrl: inviteUrl,
-          footerText: "If you did not expect this invitation, you can safely ignore this email. This invitation is valid for 7 days."
-        }),
-      });
+      // M3 (final explore): the invite is written; nothing after this throws. The email can fail
+      // (Resend, Oct 2026) or not be set up (local), so the inviter always gets the link to copy and
+      // send by WhatsApp or their own mail, the same way Godseye gets an owner's sign-in details.
+      let emailSent = false;
+      try {
+        const sent = await sendEmail({
+          to: email,
+          subject: "You've been invited to join a company on ORRN",
+          html: renderOrrnEmailHtml({
+            title: "Workspace Invitation",
+            description: `You have been invited to join a company workspace on ORRN-AL with the role of ${input.role.toUpperCase()}. Click the button below to accept the invitation and complete your account setup.`,
+            buttonText: "Accept Invitation",
+            buttonUrl: inviteUrl,
+            footerText: "If you did not expect this invitation, you can safely ignore this email. This invitation is valid for 7 days."
+          }),
+        });
+        // The mock sender (local, or no Resend key) logs instead of sending.
+        emailSent = sent.messageId !== "mock-message-id";
+      } catch (error) {
+        // Neutral log: no address, no link (the link is a live invite).
+        console.warn("Invite saved; its email did not go:", (error as Error)?.name ?? "Error");
+      }
 
-      return { success: true };
+      return { success: true, inviteId, email, role: input.role, link: inviteUrl, emailSent, expiresAt };
     }),
 
   revoke: actionProcedure("member.invite")
