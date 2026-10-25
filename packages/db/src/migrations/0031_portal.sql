@@ -67,7 +67,7 @@ CREATE TABLE `test_certificate` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `test_certificate_company_number_revision_unique` ON `test_certificate` (`company_id`,`number`,`revision`);--> statement-breakpoint
-CREATE INDEX `test_certificate_company_dispatch_idx` ON `test_certificate` (`company_id`,`dispatch_id`,`revision`);--> statement-breakpoint
+CREATE UNIQUE INDEX `test_certificate_company_dispatch_revision_unique` ON `test_certificate` (`company_id`,`dispatch_id`,`revision`);--> statement-breakpoint
 CREATE INDEX `test_certificate_company_customer_idx` ON `test_certificate` (`company_id`,`customer_id`);--> statement-breakpoint
 ALTER TABLE `invite` ADD `kind` text DEFAULT 'member' NOT NULL;--> statement-breakpoint
 ALTER TABLE `invite` ADD `customer_id` text;

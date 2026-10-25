@@ -83,24 +83,42 @@ describe("portal.orders.create", () => {
     expect(got.order).toMatchObject({ status: "booking", source: "portal" });
   }, SLOW);
 
-  test("rate, copy, tier, status, customer and basis are refused (BAD_REQUEST), nothing saved", async () => {
+  test("closed input: rate, copy, tier, status, customer, basis and any unknown key are BAD_REQUEST, nothing saved", async () => {
     const { p, party } = await setup({ priceOnSalesOrder: true });
     const base = { sectionId: p.dieA, cutLengthMm: 3_658, pcs: 10 };
-    const bad: unknown[] = [
-      { lines: [{ ...base, ratePaise: 42_500 }] },
-      { lines: [{ ...base, rate: 425 }] },
-      { lines: [base], ratePaise: 1 },
-      { lines: [{ ...base, dieInstanceId: "x" }] },
-      { lines: [{ ...base, tierRank: 1 }] },
-      { lines: [{ ...base, weightBasis: "copy_current" }] },
-      { lines: [base], status: "confirmed" },
-      { lines: [base], customerId: p.otherCustomer },
-      { lines: [{ sectionId: p.dieA, cutLengthMm: 3_658 }] },
+    const RATE = "The plant sets the rate. Send the order without a rate.";
+    // [input, the refusal names the rate (true) or "the plant picks this (key)"]
+    const bad: [string, unknown, true | string][] = [
+      ["line ratePaise", { lines: [{ ...base, ratePaise: 42_500 }] }, true],
+      ["line rate_paise", { lines: [{ ...base, rate_paise: 42_500 }] }, true],
+      ["line rate", { lines: [{ ...base, rate: 425 }] }, true],
+      ["line ratePerKgPaise", { lines: [{ ...base, ratePerKgPaise: 1 }] }, true],
+      ["line price", { lines: [{ ...base, price: 1 }] }, true],
+      ["order ratePaise", { lines: [base], ratePaise: 1 }, true],
+      ["line dieInstanceId", { lines: [{ ...base, dieInstanceId: "x" }] }, "dieInstanceId"],
+      ["line copy", { lines: [{ ...base, copy: "12170-2" }] }, "copy"],
+      ["line tier", { lines: [{ ...base, tier: 1 }] }, "tier"],
+      ["line tierRank", { lines: [{ ...base, tierRank: 1 }] }, "tierRank"],
+      ["line qtyBasis", { lines: [{ ...base, qtyBasis: "kg" }] }, "qtyBasis"],
+      ["line weightBasis", { lines: [{ ...base, weightBasis: "copy_current" }] }, "weightBasis"],
+      ["line basis", { lines: [{ ...base, basis: "copy_current" }] }, "basis"],
+      ["line bandStartMilli", { lines: [{ ...base, bandStartMilli: 2_000 }] }, "bandStartMilli"],
+      ["line finish", { lines: [{ ...base, finish: "anodised" }] }, "finish"],
+      ["line alloy", { lines: [{ ...base, alloy: "6061" }] }, "alloy"],
+      ["line temper", { lines: [{ ...base, temper: "T5" }] }, "temper"],
+      ["order status", { lines: [base], status: "confirmed" }, "status"],
+      ["order customerId", { lines: [base], customerId: p.otherCustomer }, "customerId"],
+      ["order source", { lines: [base], source: "office" }, "source"],
+      ["order orderDate", { lines: [base], orderDate: "2026-10-01" }, "orderDate"],
     ];
-    for (const input of bad) {
-      expect((await errOf(party.api.portal.orders.create(input as never))).code).toBe("BAD_REQUEST");
+    for (const [label, input, expected] of bad) {
+      const res = await errOf(party.api.portal.orders.create(input as never));
+      expect([label, res.code]).toEqual([label, "BAD_REQUEST"]);
+      if (expected === true) expect([label, res.message.includes(RATE)]).toEqual([label, true]);
+      else expect([label, res.message.includes(`the plant picks this (${expected})`)]).toEqual([label, true]);
     }
-    expect((await errOf(party.api.portal.orders.create({ lines: [{ ...base, ratePaise: 1 } as never] }))).message).toContain("rate");
+    // Neither pieces nor kg.
+    expect((await errOf(party.api.portal.orders.create({ lines: [{ sectionId: p.dieA, cutLengthMm: 3_658 }] }))).code).toBe("BAD_REQUEST");
     expect(await env.db.select().from(salesOrder).where(eq(salesOrder.companyId, p.companyId))).toHaveLength(0);
   }, SLOW);
 
@@ -188,21 +206,34 @@ describe("portal reads of orders", () => {
     // The office books one for this party with a rate, and one for another party.
     const mineOffice = await office.orders.create({
       customerId: p.customerId,
-      lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(300), pcs: 50, ratePaise: 42_500 }],
+      note: "rate 245 agreed by phone; slow payer",
+      lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(300), pcs: 50, ratePaise: 42_500, note: "rate 245 for this cut" }],
     });
     const theirs = await office.orders.create({ customerId: p.otherCustomer, lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, kgG: kg(100) }] });
-    const mineParty = await party.api.portal.orders.create({ lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, pcs: 20 }] });
+    const mineParty = await party.api.portal.orders.create({
+      note: "Deliver before Diwali",
+      lines: [{ sectionId: p.dieA, cutLengthMm: 3_658, pcs: 20, note: "Pack in 10s" }],
+    });
     const list = await party.api.portal.orders.list();
     expect(list.items.map((o) => o.id).sort()).toEqual([mineOffice.id, mineParty.id].sort());
     const got = await party.api.portal.orders.get({ id: mineOffice.id });
     expect(got.lines[0]).toMatchObject({ orderedG: kg(300), dispatchedG: 0, bakiG: kg(300) });
     expect(got.totals).toMatchObject({ orderedG: kg(300), bakiG: kg(300) });
+    // The office's own notes never reach the party (they can carry rates and internal remarks).
+    expect(got.note).toBeNull();
+    expect(got.lines[0]!.note).toBeNull();
+    expect((await office.orders.get({ id: mineOffice.id })).order.note).toContain("rate 245");
     const text = JSON.stringify([list, got]);
-    expect(text).not.toMatch(/rate|paise|42500/i);
+    expect(text).not.toMatch(/rate|paise|42500|slow payer/i);
     expect((await errOf(party.api.portal.orders.get({ id: theirs.id })))).toEqual({ code: "NOT_FOUND", message: "Not found" });
     const today = await party.api.portal.today();
     expect(today.openOrders).toBe(2);
     const partyGot = await party.api.portal.orders.get({ id: mineParty.id });
+    // A portal booking's notes are the party's own words: shown back.
+    expect(partyGot.note).toBe("Deliver before Diwali");
+    expect(partyGot.lines[0]!.note).toBe("Pack in 10s");
+    expect(list.items.find((o) => o.id === mineParty.id)?.note).toBe("Deliver before Diwali");
+    expect(list.items.find((o) => o.id === mineOffice.id)?.note).toBeNull();
     expect(today.bakiG).toBe(got.totals.bakiG + partyGot.totals.bakiG);
     expect(JSON.stringify(today)).not.toMatch(/rate|paise/i);
   }, SLOW);

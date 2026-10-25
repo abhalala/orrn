@@ -266,21 +266,40 @@ export async function assertSectionsVisible(
   }
 }
 
-/**
- * Remove every key that names a cast from a customer-facing snapshot (Q39: no cast numbers on the
- * customer PL) and the internal author id. Works on any JSON value; returns a copy. The test
- * certificate passes `keepCasts`: it cites casts and their chemistry (D28 / C30); rates and the
- * author id still go.
- */
-export function stripForParty(value: unknown, opts: { keepCasts?: boolean } = {}): unknown {
-  if (Array.isArray(value)) return value.map((v) => stripForParty(v, opts));
+/** Keys no party document carries: the internal author id and anything rate-like. */
+function isRateOrAuthorKey(k: string) {
+  return k === "generatedBy" || /^rate/i.test(k) || /paise$/i.test(k);
+}
+
+function stripKeys(value: unknown, drop: (k: string) => boolean): unknown {
+  if (Array.isArray(value)) return value.map((v) => stripKeys(v, drop));
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if ((!opts.keepCasts && /cast/i.test(k)) || k === "generatedBy" || /^rate/i.test(k) || /paise$/i.test(k)) continue;
-      out[k] = stripForParty(v, opts);
+      if (drop(k)) continue;
+      out[k] = stripKeys(v, drop);
     }
     return out;
   }
   return value;
+}
+
+/**
+ * The customer PACKING LIST as a party reads it: no key naming a cast (Q39), no author id, no rate,
+ * and no office free text or internal grouping ids (`notes`, `salesOrderLineId`, `groupId`: office
+ * notes commonly carry rates or internal remarks). Works on any JSON value; returns a copy.
+ */
+export function stripForParty(value: unknown): unknown {
+  return stripKeys(
+    value,
+    (k) => /cast/i.test(k) || isRateOrAuthorKey(k) || k === "notes" || k === "salesOrderLineId" || k === "groupId",
+  );
+}
+
+/**
+ * The TEST CERTIFICATE as a party reads it: only the author id and rate-like keys go. Cast numbers
+ * and per-cast chemistry stay: the certificate cites them (D28, C30; Q39 is the PL only).
+ */
+export function stripCertificateForParty(value: unknown): unknown {
+  return stripKeys(value, isRateOrAuthorKey);
 }

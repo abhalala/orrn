@@ -175,6 +175,22 @@ describe("portalProcedure refusals", () => {
     expect(await h.codeOf(p.as("office").portal.users.revoke({ id: party.portalUserId }))).toBe("BAD_REQUEST");
   }, SLOW);
 
+  test("a revoked login re-granted for a DIFFERENT party needs a fresh invite (no shortcut to active)", async () => {
+    const p = await h.portalPlant();
+    const party = await h.partyLogin(p);
+    await p.as("office").portal.users.revoke({ id: party.portalUserId });
+    const moved = await p.as("office").portal.users.grant({ customerId: p.otherCustomer, email: party.email });
+    expect(moved).toMatchObject({ id: party.portalUserId, status: "invited" });
+    expect(moved.inviteUrl).toContain("/invite/");
+    const [row] = await env.db.select().from(customerPortalUser).where(eq(customerPortalUser.id, party.portalUserId));
+    expect(row).toMatchObject({ status: "invited", customerId: p.otherCustomer, userId: null, acceptedAt: null });
+    // Until the new invite is accepted, the old account sees nothing (neither party).
+    expect(await h.codeOf(party.api.portal.today())).toBe("FORBIDDEN");
+    const token = moved.inviteUrl!.split("/invite/")[1]!;
+    expect(await env.callerForUser(party.userId).invite.acceptByToken({ token })).toEqual({ success: true, portal: true });
+    expect((await party.api.portal.me()).customer.id).toBe(p.otherCustomer);
+  }, SLOW);
+
   test("portal switched off: FORBIDDEN (grants kept); back on: works", async () => {
     const p = await h.portalPlant();
     const party = await h.partyLogin(p);
