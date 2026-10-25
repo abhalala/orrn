@@ -14,6 +14,13 @@ import Loader from "@/shared/components/loader";
 import { routeTree } from "./routeTree.gen";
 import { queryClient, registerSessionEndedHandler, trpc } from "@/shared/utils/trpc";
 
+/**
+ * BACKLOG 22: a person who asked the system for less motion gets no route cross-fade at all: no view
+ * transition is started (the CSS also stops the pseudo-element animations, but a started transition
+ * still captures and holds frames). Read now and kept in step if the setting changes.
+ */
+const reducedMotion = typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+
 const router = createRouter({
   routeTree,
   defaultPreload: "intent",
@@ -27,7 +34,7 @@ const router = createRouter({
    * `::view-transition-old(root)` and `::view-transition-new(root)` in
    * `packages/ui/src/styles/globals.css`. Older browsers fall back to no-op.
    */
-  defaultViewTransition: true,
+  defaultViewTransition: !reducedMotion?.matches,
   /**
    * Render a pending component only when a route loader takes longer than
    * 300ms. Below that, navigation feels instant and we just rely on the top
@@ -40,6 +47,10 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   },
+});
+
+reducedMotion?.addEventListener("change", (event) => {
+  router.update({ defaultViewTransition: !event.matches });
 });
 
 /** Layouts that sit behind a session guard; anything else (public pages, 404) never bounces to login. */
