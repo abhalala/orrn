@@ -220,3 +220,23 @@ describe("I-3: in stock means available only, the same on every stock tab", () =
     }
   }, SLOW);
 });
+
+describe("BACKLOG 16: the dispatch list opens on every open load, Building first", () => {
+  test("listDispatches({statuses}) lists draft then reserved, newest first within each; completed stays out", async () => {
+    setClock(NOON);
+    const p = await plant();
+    const [a, b] = await p.pack(p.dieA, [{ kg: 40 }, { kg: 41 }]);
+    const held1 = await p.held([a!]);
+    const draft1 = (await p.owner.dispatch.create({ customerId: p.customerId })).id;
+    const held2 = await p.held([b!]);
+    const draft2 = (await p.owner.dispatch.create({ customerId: p.customerId })).id;
+    const done = await p.held((await p.pack(p.dieA, [{ kg: 42 }]))!);
+    await p.owner.dispatch.complete({ id: done });
+    const open = await p.owner.dispatch.listDispatches({ statuses: ["draft", "reserved"], limit: 50 });
+    const ids = open.items.map((d) => d.id);
+    expect(open.total).toBe(4);
+    expect(new Set(ids.slice(0, 2))).toEqual(new Set([draft1, draft2]));
+    expect(new Set(ids.slice(2))).toEqual(new Set([held1, held2]));
+    expect(open.items.map((d) => d.status)).toEqual(["draft", "draft", "reserved", "reserved"]);
+  }, SLOW);
+});

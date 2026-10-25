@@ -457,7 +457,7 @@ describe("one band rule (D15): copy band when a copy is named, else the section'
 });
 
 /** A cast (October 2026), with one live melt when `withMelt`. */
-async function seedCast(companyId: string, number: string, seq: number, withMelt: boolean) {
+async function seedCast(companyId: string, number: string, seq: number, withMelt: boolean | "draft") {
   const id = crypto.randomUUID();
   await env.db.insert(cast).values({ id, companyId, number, period: "2026-10", year: 2026, month: 10, seq, alloy: "6063", openedAt: NOON });
   if (withMelt) {
@@ -467,6 +467,7 @@ async function seedCast(companyId: string, number: string, seq: number, withMelt
       castId: id,
       seq: 1,
       alloy: "6063",
+      ...(withMelt === "draft" ? { status: "draft" as const } : {}),
       preheatStartAt: NOON,
       chargingStartAt: NOON,
       chargingEndAt: NOON,
@@ -530,6 +531,18 @@ describe("createReceipt: snapshots and cast (I-5)", () => {
     await expect(
       q.owner.bundle.createReceipt({ dieId: q.dieA, unit: "pcs", locationId: q.yard, castId: live, rows: [row(10)] }),
     ).rejects.toThrow("Cast not found");
+  }, SLOW);
+
+  test("only a LOCKED melt counts: a cast with just a draft melt is refused at pack, a locked one is taken", async () => {
+    setClock(NOON);
+    const p = await plant({ settings: { requireCastOnBundle: true } });
+    const draft = await seedCast(p.companyId, "J9", 9, "draft");
+    await expect(
+      p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, castId: draft, rows: [row(10)] }),
+    ).rejects.toThrow("Cast J9 has no melt yet; pick another cast");
+    const locked = await seedCast(p.companyId, "J10", 10, true);
+    const res = await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, castId: locked, rows: [row(10)] });
+    expect(res.bundleCount).toBe(1);
   }, SLOW);
 });
 

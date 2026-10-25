@@ -43,6 +43,7 @@ import { can } from "../lib/permissions";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { allocateDocNumbers, allocatePartyBundleNumbers } from "../lib/docNumber";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
+import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import { resolvePlantScrap } from "../lib/foundry";
 import {
   ageingTablesExist,
@@ -112,6 +113,12 @@ const receiptInputSchema = z.object({
    * `order.manage` holder sends this (audited `bundle.receipt.pin_override`).
    */
   overridePin: z.boolean().optional(),
+  /**
+   * BACKLOG 50: one key per save. Sent again (a lost reply on yard Wi-Fi, Save tapped twice), the
+   * receipt answers its first result with `replayed: true` and packs nothing more; the same key with
+   * other bundles is a CONFLICT (`lib/requestReplay.ts`).
+   */
+  clientRequestId: clientRequestIdSchema.optional(),
   /** An approved `die_owner_override` the screen just got (FP-DR-13). */
   approvalId: z.string().min(1).max(64).optional(),
   /** The cast the billets came from; required while `requireCastOnBundle` is in effect. */
@@ -198,11 +205,19 @@ async function receiptCast(
   castId: string | undefined,
   requireSetting: boolean | null,
 ): Promise<string | null> {
+  // A melt counts once it is locked (W2 0028: a draft melt has posted nothing and makes no billets).
   const liveMelt = (castFilter?: string) =>
     db
       .select({ id: melt.id })
       .from(melt)
-      .where(and(eq(melt.companyId, companyId), isNull(melt.cancelledAt), castFilter ? eq(melt.castId, castFilter) : undefined))
+      .where(
+        and(
+          eq(melt.companyId, companyId),
+          eq(melt.status, "locked"),
+          isNull(melt.cancelledAt),
+          castFilter ? eq(melt.castId, castFilter) : undefined,
+        ),
+      )
       .limit(1);
   if (castId) {
     const [row] = await db
@@ -427,10 +442,50 @@ async function previewLines(
   }));
 }
 
+/** Packing order of serials (26J9 before 26J10; BG-…-B001 is fixed width). */
+const bySerial = (a: { serial: string }, b: { serial: string }) => a.serial.length - b.serial.length || (a.serial < b.serial ? -1 : a.serial > b.serial ? 1 : 0);
+
+/**
+ * BACKLOG 50: the first answer of a receipt sent again, read back from what it packed (same group,
+ * bundles in packing order, rejects). Nothing is written.
+ */
+async function receiptReplay(db: OrrnDb, companyId: string, groupId: string) {
+  const [group] = await db
+    .select({ code: bundleGroup.code })
+    .from(bundleGroup)
+    .where(and(eq(bundleGroup.id, groupId), eq(bundleGroup.companyId, companyId)))
+    .limit(1);
+  const rows = await db
+    .select({ id: bundle.id, serial: bundle.serial, partyNo: bundle.partyNo, kgPer12ftMilli: bundle.kgPer12ftMilli })
+    .from(bundle)
+    .where(and(eq(bundle.groupId, groupId), eq(bundle.companyId, companyId)));
+  const [rejects] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(packReject)
+    .where(and(eq(packReject.groupId, groupId), eq(packReject.companyId, companyId)));
+  rows.sort(bySerial);
+  return {
+    success: true,
+    replayed: true,
+    groupId,
+    code: group?.code ?? "",
+    bundleCount: rows.length,
+    bundles: rows,
+    rejectCount: Number(rejects?.n ?? 0),
+  };
+}
+
 export const bundleRouter = router({
   createReceipt: actionProcedure("bundle.pack")
     .input(receiptInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // BACKLOG 50: a save sent again answers the first one, before anything is read or numbered.
+      const { clientRequestId, ...content } = input;
+      let replay: Replay | null = clientRequestId
+        ? await openReplay(ctx.db, ctx.companyId, "bundle.receipt", clientRequestId, content)
+        : null;
+      if (replay?.priorSubjectId) return receiptReplay(ctx.db, ctx.companyId, replay.priorSubjectId);
+
       const dieRow = await ctx.db.query.die.findFirst({
         where: and(
           eq(die.id, input.dieId),
@@ -748,10 +803,12 @@ export const bundleRouter = router({
         auditInsert(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
+            ...(replay ? { id: replay.id } : {}),
             action: "bundle.receipt.create",
             subjectType: "bundle_group",
             subjectId: groupId,
             meta: {
+              ...replayMeta(replay, clientRequestId),
               code,
               dieId: input.dieId,
               count: bundleRows.length,
@@ -787,6 +844,11 @@ export const bundleRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        // An identical save landed first (the record's primary key): answer it, nothing more packed.
+        if (lostReplayRace(e, replay)) {
+          replay = await readReplay(ctx.db, ctx.companyId, replay!);
+          if (replay.priorSubjectId) return receiptReplay(ctx.db, ctx.companyId, replay.priorSubjectId);
+        }
         if (salesOrderLineId && isBatchAbort(e, "sales_order_line")) {
           throw new TRPCError({
             code: "CONFLICT",
@@ -809,6 +871,7 @@ export const bundleRouter = router({
 
       return {
         success: true,
+        replayed: false,
         groupId,
         code,
         bundleCount: bundleRows.length,

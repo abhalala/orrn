@@ -17,6 +17,8 @@ import { storeItem } from "@orrn/db/schema/store";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
+import { clientRequestIdSchema } from "../lib/importReplay";
+import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import type { Context } from "../context";
 import { atomicBatch, atomicBatchLast, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { now as clockNow } from "../lib/clock";
@@ -237,6 +239,27 @@ async function resolveCodes(db: OrrnDb, companyId: string, codes: string[]) {
   return { ids, notFound, ambiguous };
 }
 
+/**
+ * BACKLOG 50: the first answer of a move sent again, from its record and its ledger rows (one + row
+ * per bundle it moved). Nothing is written.
+ */
+async function moveReplay(db: OrrnDb, companyId: string, replay: Replay) {
+  const first = (replay.prior?.replay ?? {}) as { toLocationCode?: string; requested?: number; unchanged?: number };
+  const voucherId = replay.priorSubjectId!;
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(stockLedger)
+    .where(and(eq(stockLedger.companyId, companyId), eq(stockLedger.voucherType, "move"), eq(stockLedger.voucherId, voucherId), sql`${stockLedger.qtyG} > 0`));
+  const moved = Number(row?.n ?? 0);
+  return {
+    voucherId,
+    moved,
+    unchanged: (first.unchanged ?? 0) + Math.max(0, (first.requested ?? moved) - moved),
+    toLocationCode: first.toLocationCode ?? "",
+    replayed: true,
+  };
+}
+
 export const stockRouter = router({
   locations: locationsRouter,
 
@@ -253,10 +276,19 @@ export const stockRouter = router({
           codes: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
           toLocationId: z.string().min(1),
           reason: z.string().max(500).nullable().optional(),
+          /**
+           * BACKLOG 50: one key per move. Sent again after a lost reply it answers the first move with
+           * `replayed: true`; the same key with other bundles or another yard is a CONFLICT.
+           */
+          clientRequestId: clientRequestIdSchema.optional(),
         })
         .refine((v) => (v.bundleIds?.length ?? 0) + (v.codes?.length ?? 0) > 0, "Scan at least one bundle"),
     )
     .mutation(async ({ ctx, input }) => {
+      const { clientRequestId, ...content } = input;
+      let replay: Replay | null = clientRequestId ? await openReplay(ctx.db, ctx.companyId, "stock.move", clientRequestId, content) : null;
+      if (replay?.prior) return moveReplay(ctx.db, ctx.companyId, replay);
+
       const to = await ctx.db.query.location.findFirst({
         where: and(eq(location.id, input.toLocationId), eq(location.companyId, ctx.companyId)),
       });
@@ -303,7 +335,7 @@ export const stockRouter = router({
       const toMove = rows.filter((b) => b.locationId !== to.id);
       const unchanged = rows.length - toMove.length;
       if (toMove.length === 0) {
-        return { voucherId: null, moved: 0, unchanged, toLocationCode: to.code };
+        return { voucherId: null, moved: 0, unchanged, toLocationCode: to.code, replayed: false };
       }
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -326,10 +358,12 @@ export const stockRouter = router({
         auditInsertGuarded(
           auditCtx(ctx),
           {
+            ...(replay ? { id: replay.id } : {}),
             action: "stock.move",
             subjectType: "stock_move",
             subjectId: voucherId,
             meta: {
+              ...replayMeta(replay, clientRequestId, { toLocationCode: to.code, requested: toMove.length, unchanged }),
               toLocationId: to.id,
               toLocationCode: to.code,
               requested: toMove.length,
@@ -343,14 +377,29 @@ export const stockRouter = router({
       // What actually landed, counted inside the batch after the writes: bundles another request
       // changed meanwhile (moved, voided, dispatched) are skipped by the write-time predicate, and
       // this request's seq is unique. (A count after the batch could be skewed by a later request.)
-      const [landed] = await atomicBatchLast<{ n: number }>(ctx.db, [
-        ...statements,
-        ctx.db
-          .select({ n: sql<number>`count(*)` })
-          .from(bundle)
-          .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.serverSeq, seq), eq(bundle.locationId, to.id))),
-      ]);
+      let landed: { n: number } | undefined;
+      try {
+        [landed] = await atomicBatchLast<{ n: number }>(ctx.db, [
+          ...statements,
+          ctx.db
+            .select({ n: sql<number>`count(*)` })
+            .from(bundle)
+            .where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.serverSeq, seq), eq(bundle.locationId, to.id))),
+        ]);
+      } catch (e) {
+        // An identical move landed first (the record's primary key): answer it.
+        if (lostReplayRace(e, replay)) {
+          replay = await readReplay(ctx.db, ctx.companyId, replay!);
+          if (replay.prior) return moveReplay(ctx.db, ctx.companyId, replay);
+        }
+        throw e;
+      }
       const moved = Number(landed?.n ?? 0);
+      if (moved === 0 && replay) {
+        // Nothing of ours landed: an identical move may have moved them first.
+        replay = await readReplay(ctx.db, ctx.companyId, replay);
+        if (replay.prior) return moveReplay(ctx.db, ctx.companyId, replay);
+      }
       if (moved === 0) {
         // Nothing landed: say so plainly if the target stopped being a usable yard meanwhile.
         const [now] = await ctx.db
@@ -362,9 +411,9 @@ export const stockRouter = router({
         if (now.kind !== "yard") {
           throw new TRPCError({ code: "BAD_REQUEST", message: `Bundles go to a yard location, not ${to.code}` });
         }
-        return { voucherId: null, moved: 0, unchanged: unchanged + toMove.length, toLocationCode: to.code };
+        return { voucherId: null, moved: 0, unchanged: unchanged + toMove.length, toLocationCode: to.code, replayed: false };
       }
-      return { voucherId, moved, unchanged: unchanged + (toMove.length - moved), toLocationCode: to.code };
+      return { voucherId, moved, unchanged: unchanged + (toMove.length - moved), toLocationCode: to.code, replayed: false };
     }),
 
   /**

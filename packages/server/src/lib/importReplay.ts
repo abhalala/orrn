@@ -25,7 +25,14 @@ export const clientRequestIdSchema = z
   .max(64, "clientRequestId is too long")
   .regex(/^[A-Za-z0-9_-]+$/, "clientRequestId may use letters, digits, - and _ only");
 
-export type ImportReplayKind = "bundle.import" | "customer.import" | "die.import";
+export type ImportReplayKind =
+  | "bundle.import"
+  | "customer.import"
+  | "die.import"
+  // BACKLOG 50: floor writes, recorded by `lib/requestReplay.ts`.
+  | "bundle.receipt"
+  | "dispatch.add"
+  | "stock.move";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
