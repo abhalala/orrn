@@ -10,7 +10,8 @@ import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { useThemeColor } from "@/lib/theme";
-import { placeScan, TAB_ROUTES, type TabName } from "@/lib/nav";
+import { placeScan, TAB_ROUTES, visibleTabs, type TabName } from "@/lib/nav";
+import { useMe } from "@/utils/me";
 
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
@@ -105,7 +106,10 @@ function ScanButton({ label, focused, onPress }: { label: string; focused: boole
 export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) {
   const { t } = useT();
   const router = useRouter();
-  const order = placeScan(state.routes.map((r) => r.name as TabName));
+  const { data: me } = useMe();
+  // Routes the person can open from More (Orders, Dies) are in the navigator but not on the bar.
+  const onBar = new Set(visibleTabs(me));
+  const order = placeScan(state.routes.map((r) => r.name as TabName).filter((n) => onBar.has(n)));
 
   return (
     <View

@@ -119,3 +119,14 @@ describe("orders procedures", () => {
     expect(read("features/orders/orders-view.tsx")).not.toMatch(/plans\./);
   });
 });
+
+describe("hidden-but-reachable tabs (Orders and Dies from More)", () => {
+  test("the tabs layout opens every reachable route; the bar draws only the person's own set", () => {
+    expect(read("app/(tabs)/_layout.tsx")).toMatch(/new Set\(reachableTabs\(me\)\)/);
+    expect(read("components/tab-bar.tsx")).toMatch(/const onBar = new Set\(visibleTabs\(me\)\)/);
+  });
+
+  test("the Dies list reads the new latestReadAt column from the server", () => {
+    expect(read("features/dies/dies-view.tsx")).toMatch(/latestReadAt/);
+  });
+});

@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { placeScan, TAB_ROUTES, TAB_SETS, tabSetFor, visibleTabs } from "../lib/nav";
+import { moreRows } from "../features/more/more-rows";
+import { extraTabs, placeScan, reachableTabs, TAB_ROUTES, TAB_SETS, tabSetFor, visibleTabs } from "../lib/nav";
 
 function me(role: NonNullable<Me["company"]>["role"], modules: string[] = []): Me {
   return {
@@ -82,5 +83,56 @@ describe("role-aware tab sets (spec E1, E2 Native)", () => {
 
   test("signed out or no company is Today only, whatever the set", () => {
     expect(visibleTabs(null)).toEqual(["today"]);
+  });
+});
+
+describe("Orders and Dies from More for the packer-set roles", () => {
+  const rows = (role: NonNullable<Me["company"]>["role"], modules: string[] = []) => moreRows(me(role, modules)).map((r) => `${r.key}:${r.href}`);
+
+  test("owner holds every action: Orders and the die room's Dies join More, the bar stays the packer set", () => {
+    expect(extraTabs(me("owner"))).toEqual(["dies", "orders"]);
+    expect(reachableTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "orders"]);
+    expect(visibleTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch"]);
+    expect(rows("owner")).toEqual(["dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+  });
+
+  test("manager (order.manage, order.plan) gets Orders and keeps the read-only die list (no die.card or die.reading)", () => {
+    expect(extraTabs(me("manager"))).toEqual(["orders"]);
+    expect(rows("manager")).toEqual(["dies:/more/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+  });
+
+  test("admin holds neither order.manage nor die.card in the matrix: no extra rows", () => {
+    expect(extraTabs(me("admin"))).toEqual([]);
+    expect(rows("admin")).toEqual(["dies:/more/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+  });
+
+  test("press and supervisor hold die.reading: the Dies row opens the die room screens", () => {
+    expect(extraTabs(me("press"))).toEqual(["dies"]);
+    expect(extraTabs(me("supervisor"))).toEqual(["dies"]);
+    expect(rows("supervisor")[0]).toBe("dieRoom:/dies");
+  });
+
+  test("a packer or viewer holds none of them: More is unchanged", () => {
+    expect(extraTabs(me("packer"))).toEqual([]);
+    expect(extraTabs(me("viewer"))).toEqual([]);
+    expect(rows("packer")[0]).toBe("dies:/more/dies");
+  });
+
+  test("the die room and the office already have those tabs on the bar: no duplicate More rows", () => {
+    expect(extraTabs(me("die_room"))).toEqual([]);
+    expect(extraTabs(me("office"))).toEqual([]);
+    expect(rows("office")).not.toContain("orders:/orders");
+    expect(rows("die_room")).not.toContain("dieRoom:/dies");
+  });
+
+  test("company modules still apply: no orders module, no Orders row; no dies module, no die room row", () => {
+    expect(extraTabs(me("owner", ["bundles", "dispatches"]))).toEqual([]);
+    expect(extraTabs(me("owner", ["orders"]))).toEqual(["orders"]);
+    expect(extraTabs(me("owner", ["dies"]))).toEqual(["dies"]);
+  });
+
+  test("the extra tabs are routes (reachable) while the bar stays as it was; signed out has none", () => {
+    expect(extraTabs(null)).toEqual([]);
+    expect(reachableTabs(null)).toEqual(["today"]);
   });
 });

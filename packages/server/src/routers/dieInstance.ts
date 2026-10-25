@@ -250,6 +250,11 @@ export const dieInstanceRouter = router({
               where r.die_instance_id = ${dieInstance.id} and r.company_id = ${dieInstance.companyId}
               order by r.read_at desc limit 1
             )`,
+            /** When the latest reading was taken (ms), null for a copy never read. The phone's "no reading in 30 days". */
+            latestReadAt: sql<number | null>`(
+              select max(r.read_at) from die_weight_reading r
+              where r.die_instance_id = ${dieInstance.id} and r.company_id = ${dieInstance.companyId}
+            )`,
             sectionWeightMinG: die.weightMinG,
             sectionWeightMaxG: die.weightMaxG,
             band: {

@@ -4,7 +4,7 @@ import { Tabs } from "expo-router";
 import { TabBar } from "@/components/tab-bar";
 import { useDeviceRegister } from "@/lib/device-register";
 import { useThemeColor } from "@/lib/theme";
-import { TAB_ROUTES, visibleTabs } from "@/lib/nav";
+import { reachableTabs, TAB_ROUTES } from "@/lib/nav";
 import { useMe } from "@/utils/me";
 
 /**
@@ -20,7 +20,7 @@ export default function TabsLayout() {
   const { t } = useT();
   const { data: me } = useMe();
   const canvas = useThemeColor("background");
-  const visible = new Set(visibleTabs(me));
+  const visible = new Set(reachableTabs(me));
   useDeviceRegister(me?.company?.id);
 
   return (

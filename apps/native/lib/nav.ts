@@ -75,6 +75,28 @@ export function visibleTabs(me: Me | null | undefined): TabName[] {
   }).map((t) => t.name);
 }
 
+/**
+ * Tabs this person can open but that are not on their bar: the packer set's owner, manager and admin
+ * reach Orders (order.manage / order.plan) and Dies (die.card / die.reading) from More. They stay
+ * routes (not `Tabs.Protected`) so More can link to them; the bar draws only `visibleTabs`.
+ */
+export function extraTabs(me: Me | null | undefined): TabName[] {
+  if (!me?.company) return [];
+  const modules = (me.company.modules ?? []).map((m) => m.toLowerCase());
+  const moduleOn = (m: NavModule) => modules.length === 0 || modules.includes(m);
+  const onBar = new Set(visibleTabs(me));
+  const out: TabName[] = [];
+  if (!onBar.has("dies") && moduleOn("dies") && canAny(me, ["die.card", "die.reading"])) out.push("dies");
+  if (!onBar.has("orders") && moduleOn("orders") && canAny(me, ["order.manage", "order.plan"])) out.push("orders");
+  return out;
+}
+
+/** Every tab route this person may open: the bar's tabs plus `extraTabs`, in declared order. */
+export function reachableTabs(me: Me | null | undefined): TabName[] {
+  const set = new Set<TabName>([...visibleTabs(me), ...extraTabs(me)]);
+  return TAB_ROUTES.filter((t) => set.has(t.name)).map((t) => t.name);
+}
+
 /** Scan goes in the middle of the other visible tabs, like the web tab bar. */
 export function placeScan(names: readonly TabName[]): TabName[] {
   if (!names.includes("scan")) return [...names];
