@@ -85,6 +85,13 @@ export function foldKindTotals(
   return out;
 }
 
+/**
+ * BACKLOG 91: the two stock words, ONE meaning each, on every screen (Today, Stock, the stock-age chart and
+ * report, Top sections). "In stock" is a bundle with status `available`; "held" is a bundle `reserved` on a
+ * held dispatch. Orders' "Held for orders" is a different, wider figure and says so (AGENTS.md, Stock words).
+ */
+export const STOCK_STATUS = { inStock: "available", held: "reserved" } as const;
+
 export type StockSum = { bundles: number; pcs: number; weightG: number };
 
 /**
@@ -105,7 +112,7 @@ export async function stockPosition(db: OrrnDb, companyId: string, conditions: r
     })
     .from(bundle)
     .innerJoin(die, and(eq(die.id, bundle.dieId), eq(die.companyId, bundle.companyId)))
-    .where(and(eq(bundle.companyId, companyId), inArray(bundle.status, ["available", "reserved"]), ...conditions))
+    .where(and(eq(bundle.companyId, companyId), inArray(bundle.status, [STOCK_STATUS.inStock, STOCK_STATUS.held]), ...conditions))
     .groupBy(die.profileKind, bundle.status);
   const sum = (status: string): StockSum =>
     rows
@@ -116,8 +123,8 @@ export async function stockPosition(db: OrrnDb, companyId: string, conditions: r
         weightG: 0,
       });
   return {
-    inStock: sum("available"),
-    held: sum("reserved"),
-    kindTotals: foldKindTotals(rows.filter((r) => r.status === "available")),
+    inStock: sum(STOCK_STATUS.inStock),
+    held: sum(STOCK_STATUS.held),
+    kindTotals: foldKindTotals(rows.filter((r) => r.status === STOCK_STATUS.inStock)),
   };
 }

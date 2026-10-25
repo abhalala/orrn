@@ -16,7 +16,7 @@
  * - Weights are integer grams (`…KgG`); formatting is the client's job.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, ne, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import { die } from "@orrn/db/schema/catalog";
@@ -31,6 +31,7 @@ import { actionProcedure, router } from "../index";
 import { now } from "../lib/clock";
 import { companyTimezone, zonedWallMs } from "../lib/dayWindow";
 import { lineTotals } from "../lib/orders";
+import { STOCK_STATUS } from "../lib/stockFilters";
 import { productionDayWindowFor } from "../lib/productionDay";
 import { isIsoDate } from "../lib/purchase";
 import { analyticsReportProcedures } from "./analyticsReports";
@@ -572,7 +573,8 @@ export const analyticsRouter = router({
   }),
 
   /**
-   * In-stock bundles (available + reserved) by age = company calendar days from the pack date
+   * In-stock bundles (available only, BACKLOG 91: the Today KPI's and the Stock screen's figure; bundles
+   * held on a dispatch are not in it) by age = company calendar days from the pack date
    * (`bundle.created_at`) to today: 0–15, 16–30, 31–60, 60+ (61 and over), by kg and bundles; plus
    * the top 8 sections by kg and an "Other" row.
    */
@@ -581,7 +583,7 @@ export const analyticsRouter = router({
     const timezone = await timezoneOf(ctx.db, companyId);
     const nowMs = now().getTime();
     const today = localDate(timezone, nowMs);
-    const inStock = and(eq(bundle.companyId, companyId), inArray(bundle.status, ["available", "reserved"]));
+    const inStock = and(eq(bundle.companyId, companyId), eq(bundle.status, STOCK_STATUS.inStock));
     // Packed on or after local midnight of (today − N) ⇔ at most N calendar days old. The edges are
     // server-computed integers inlined as literals (the CASE appears in SELECT and GROUP BY).
     const edge = (days: number) => sql.raw(String(localMidnight(timezone, addDays(today, -days))));

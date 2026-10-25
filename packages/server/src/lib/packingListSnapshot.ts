@@ -21,7 +21,7 @@ import {
 } from "@orrn/domain";
 import { z } from "zod";
 
-import { companyTimezone, zonedYmd } from "./dayWindow";
+import { dispatchShipDay } from "./dispatchFigures";
 
 /** The 11 printed columns, in order. */
 export const PL_COLUMNS = [
@@ -325,10 +325,6 @@ export type PlBuildInput = {
   items: readonly PlItemInput[];
 };
 
-function ymdText(d: { year: number; month: number; day: number }): string {
-  return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
-}
-
 /** Company letterhead from `settings.letterhead` ({ legalName, gstin, address, phone }). */
 export function letterhead(settings: Record<string, unknown> | null): {
   legalName: string | null;
@@ -494,7 +490,8 @@ export function buildPlSnapshotV2(input: PlBuildInput): PlSnapshotV2 {
       poNumbers,
       invoiceNumber: input.dispatch.invoiceNumber,
       invoiceDate: input.dispatch.invoiceDate,
-      shipDate: input.dispatch.shipDate ? ymdText(zonedYmd(companyTimezone(input.company.settings), new Date(input.dispatch.shipDate).getTime())) : null,
+      // BACKLOG 80: the same ship day the dispatch list and detail show (lib/dispatchFigures).
+      shipDate: dispatchShipDay(input.dispatch, input.company.settings)?.ymd ?? null,
     },
     columns: [...PL_COLUMNS],
     groups: outGroups,

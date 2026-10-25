@@ -288,20 +288,26 @@ export function qcRows(rows: readonly QcDraft[]): { rows: { pcs: number; kgG: nu
 
 export type QueueCardLike = { id: string; status: string; urgent?: boolean };
 
-/** On the line = running / stopped / counting; waiting = queued / die_issued (the reorderable ones). */
-export function splitQueue<T extends QueueCardLike>(cards: readonly T[]): { onLine: T[]; waiting: T[] } {
-  const waiting = cards.filter((c) => (PRESS_QUEUE_REORDERABLE as readonly string[]).includes(c.status));
-  const onLine = cards.filter((c) => !(PRESS_QUEUE_REORDERABLE as readonly string[]).includes(c.status));
-  return { onLine, waiting };
+/**
+ * ONE rule for "on the line" (BACKLOG 82), used by the queue header, the /press card and the line board:
+ * ON THE LINE is the run that is running (a press has at most one); CLOSING is a run that has stopped or is
+ * being counted, still waiting to be logged; WAITING is queued / die_issued (the reorderable ones). A
+ * counting PR-9 never makes the line busy, so "On the line 2" next to a card that shows one run cannot happen.
+ */
+export const ON_LINE_STATUSES = ["running"] as const;
+export const CLOSING_STATUSES = ["stopped", "counting"] as const;
+
+export function splitQueue<T extends QueueCardLike>(cards: readonly T[]): { onLine: T[]; closing: T[]; waiting: T[] } {
+  const reorderable = PRESS_QUEUE_REORDERABLE as readonly string[];
+  const onLine = cards.filter((c) => (ON_LINE_STATUSES as readonly string[]).includes(c.status));
+  const closing = cards.filter((c) => (CLOSING_STATUSES as readonly string[]).includes(c.status));
+  const waiting = cards.filter((c) => reorderable.includes(c.status));
+  return { onLine, closing, waiting };
 }
 
-/**
- * The run a line board card leads with: the RUNNING run, even when a counting or stopped run sits
- * before it in queue order (a counting PR-9 must not hide the running PR-10); otherwise the first
- * run on the line. Later runs keep queue order.
- */
+/** The run a line card leads with: the running one, or nothing (closing runs are shown apart). */
 export function leadOnLine<T extends { status: string }>(onLine: readonly T[]): T | undefined {
-  return onLine.find((c) => c.status === "running") ?? onLine[0];
+  return onLine.find((c) => c.status === "running");
 }
 
 /** The 0-based target index in the waiting list for "up" / "down", or null at the ends. */

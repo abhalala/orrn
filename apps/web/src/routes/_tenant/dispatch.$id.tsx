@@ -24,8 +24,8 @@ import { DispatchMenu } from "@/features/dispatch/dispatch-menu";
 import { dispatchErrorText } from "@/features/dispatch/errors";
 import { GroupLabelSheet } from "@/features/dispatch/group-label-sheet";
 import { dispatchTotals, type DispatchItem, type ItemGroup } from "@/features/dispatch/group-items";
-import { HoldNote, ReleaseButton } from "@/features/dispatch/hold-step";
-import { useCan, useCompanyTimeZone, usePackingListScope } from "@/features/dispatch/hooks";
+import { HoldNote, PlPendingNote, ReleaseButton } from "@/features/dispatch/hold-step";
+import { useCan, usePackingListScope } from "@/features/dispatch/hooks";
 import { OrderPanel } from "@/features/dispatch/order-panel";
 import { ValueCard } from "@/features/dispatch/value-card";
 import { TruckPanel } from "@/features/dispatch/truck-panel";
@@ -111,7 +111,6 @@ function DispatchDetail({ data }: { data: DetailData }) {
   const queryClient = useQueryClient();
   const scan = useScan();
   const can = useCan();
-  const timeZone = useCompanyTimeZone();
   const { data: me } = useMe();
   const unit: LengthUnit = me?.company?.settings?.lengthUnit === "inch" ? "inch" : "mm";
   const { fresh, mark } = useFreshSerials();
@@ -120,7 +119,9 @@ function DispatchDetail({ data }: { data: DetailData }) {
   const status = d.status;
   const items = data.items as DispatchItem[];
   const customerName = data.customer?.name ?? "";
-  const totals = dispatchTotals(items);
+  // The live rows while the load is built; the server's whole-load sums (the list's own) once nothing can change.
+  const rowTotals = dispatchTotals(items);
+  const totals = status === "completed" || status === "cancelled" ? { ...rowTotals, bundles: data.totals.bundles, weightG: data.totals.weightG } : rowTotals;
   const actions = dispatchActions(status);
   const editable = status === "draft" || status === "reserved";
 
@@ -302,11 +303,9 @@ function DispatchDetail({ data }: { data: DetailData }) {
         code={d.code}
         status={status}
         customerName={customerName}
-        shipDate={d.shipDate}
-        completedAt={d.completedAt}
+        shipDay={data.shipDay}
         bundles={totals.bundles}
         weightG={totals.weightG}
-        timeZone={timeZone}
         celebrate={celebrate > 0}
       />
 
@@ -347,17 +346,21 @@ function DispatchDetail({ data }: { data: DetailData }) {
           <IssueCertificate dispatchId={d.id} />
         </>
       ) : (
-        <ItemsSection
-          items={items}
-          unit={unit}
-          dispatchStatus={status}
-          fresh={fresh}
-          removable={status === "draft"}
-          labelable={editable}
-          removing={removing}
-          onRemove={(item) => void remove(item)}
-          onEditLabel={setLabelGroup}
-        />
+        <>
+          {/* BACKLOG 85: no packing list yet; it is issued when the dispatch completes. */}
+          {editable ? <PlPendingNote held={status === "reserved"} /> : null}
+          <ItemsSection
+            items={items}
+            unit={unit}
+            dispatchStatus={status}
+            fresh={fresh}
+            removable={status === "draft"}
+            labelable={editable}
+            removing={removing}
+            onRemove={(item) => void remove(item)}
+            onEditLabel={setLabelGroup}
+          />
+        </>
       )}
 
       {editable && holdsActions ? (

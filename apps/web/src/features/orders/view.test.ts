@@ -63,9 +63,20 @@ describe("stripCells", () => {
       const t = createI18n(lang).t;
       expect(t(packed.labelKey)).not.toBe(t(inStock.labelKey));
     }
-    expect(createI18n("en").t(packed.labelKey)).toBe("Packed (incl. on a truck)");
+    expect(createI18n("en").t(packed.labelKey)).toBe("Packed (incl. dispatched)");
     expect(createI18n("en").t(inStock.labelKey)).toBe("In stock");
-    expect(createI18n("hi").t(packed.labelKey)).toBe("पैक (गाड़ी पर रखे सहित)");
+    expect(createI18n("hi").t(packed.labelKey)).toBe("पैक (Dispatch हुए सहित)");
+  });
+
+  test("BACKLOG 88: Pressed and Packed read the line funnel, so the strip never shows packed or dispatched above pressed", () => {
+    // SO-7 line 1 on the demo seed: 211.5 kg logged, all of it bundled, 603.659 kg already dispatched.
+    const funnel = { ...strip, pressedG: 0, packedG: 0, inStockG: 0, dispatchedG: 603_659, pressedAllG: 700_000, packedAllG: 700_000 };
+    const cells = stripCells(funnel);
+    const kg = (key: string) => Number(cells.find((c) => c.key === key)!.kg);
+    expect(kg("pressedG")).toBeGreaterThanOrEqual(kg("packedG"));
+    expect(kg("packedG")).toBeGreaterThanOrEqual(kg("dispatchedG"));
+    // An older server answer without the funnel keeps the old figures.
+    expect(stripCells(strip).find((c) => c.key === "pressedG")!.kg).toBe("0.000");
   });
 
   test("a settled baki is not flagged open", () => {

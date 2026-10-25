@@ -95,7 +95,7 @@ export const guOrders = {
       planned: "પ્લાન",
       pressed: "Press થયું",
       aged: "Ageing થયું",
-      packed: "પૅક (ગાડી પર મૂકેલા સહિત)",
+      packed: "પૅક (Dispatch થયેલા સહિત)",
       inStock: "સ્ટોકમાં",
       dispatched: "Dispatch થયું",
       baki: "બાકી",

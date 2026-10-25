@@ -129,7 +129,7 @@ test.describe("dispatch: build, hold, dispatch, packing list", () => {
 
     await page.getByRole("button", { name: "Dispatch", exact: true }).click();
     const confirm = page.getByRole("dialog", { name: /^Dispatch DSP-/ });
-    await expect(confirm).toContainText(`10 bundles · ${kgText(totalKg, 1)} kg`);
+    await expect(confirm).toContainText(`10 bundles · ${kgText(totalKg, 2)} kg`);
     await confirm.getByTestId("confirm-dispatch").click();
 
     await expect(hero(page)).toHaveAttribute("data-status", "completed");
@@ -233,7 +233,7 @@ test.describe("dispatch: review fixes (round 1)", () => {
 
     await page.getByRole("button", { name: "Dispatch", exact: true }).click();
     const confirm = page.getByRole("dialog", { name: `Dispatch ${d.code}` });
-    await expect(confirm).toContainText(`2 bundles · ${kgText(totalKg, 1)} kg`);
+    await expect(confirm).toContainText(`2 bundles · ${kgText(totalKg, 2)} kg`);
     await confirm.getByTestId("confirm-dispatch").click();
 
     await expect(hero(page)).toHaveAttribute("data-status", "completed");
@@ -511,6 +511,36 @@ test.describe("dispatch: packing list exports", () => {
       page.getByRole("button", { name: "Download Excel" }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
+  });
+});
+
+test.describe("dispatch: owner tour figures (BACKLOG 80, 85)", () => {
+  test("a held dispatch says its packing list comes when it completes and links to the reserved bundles; a dispatched one embeds the list", async ({ page }) => {
+    await start(page, "owner");
+    await visit(page, "/dispatch/dev-dispatch-held");
+    await expect(hero(page)).toHaveAttribute("data-status", "reserved");
+    await expect(page.getByTestId("pl-pending")).toContainText("The packing list is issued when the dispatch completes.");
+    await expect(page.getByRole("heading", { level: 2, name: "Packing list" })).toHaveCount(0);
+    await page.getByTestId("pl-pending-link").click();
+    await expect(page.getByRole("heading", { level: 2, name: "Bundles in this dispatch" })).toBeFocused();
+    // A dispatched one keeps the embedded list and has no such note.
+    await visit(page, "/dispatch/dev-dispatch-done-1");
+    await expect(page.getByRole("heading", { level: 2, name: "Packing list" })).toBeVisible();
+    await expect(page.getByTestId("pl-pending")).toHaveCount(0);
+  });
+
+  test("the list row and the detail hero show the same ship day and the same kg", async ({ page }) => {
+    await start(page, "owner");
+    for (const [id, status] of [["dev-dispatch-held", "reserved"], ["dev-dispatch-done-2", "completed"]] as const) {
+      await visit(page, `/dispatch/${id}`);
+      const code = (await page.getByRole("heading", { level: 1 }).innerText()).trim();
+      const heroKg = (await page.getByTestId("dispatch-kg").innerText()).trim();
+      const when = (await hero(page).locator("p", { hasText: /^(Ship|Dispatched) / }).first().innerText()).trim().replace(/^(Ship|Dispatched)\s+/, "");
+      await visit(page, `/dispatch?q=${code}&status=${status}`);
+      const row = page.locator("main#main").locator("tr, li").filter({ hasText: code }).first();
+      await expect(row).toContainText(heroKg);
+      await expect(row).toContainText(when);
+    }
   });
 });
 

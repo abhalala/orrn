@@ -20,7 +20,10 @@ import type { AlertsSearch } from "./search";
 
 type Alert = inferRouterOutputs<AppRouter>["press"]["collector"]["alerts"][number];
 
-/** The alert's state as the list shows it: open until its last out-of-band reading is old, then ended. */
+/**
+ * The row's chip: "Ongoing" while its last out-of-band reading is recent, "Ended" after, "Acknowledged" once
+ * someone has seen it. Not the same word as "Open", which is every alert not acknowledged yet (BACKLOG 81).
+ */
 export function alertState(a: Pick<Alert, "endedAt" | "acknowledgedAt">): "open" | "ended" | "acknowledged" {
   if (a.acknowledgedAt) return "acknowledged";
   return a.endedAt ? "ended" : "open";
@@ -39,6 +42,7 @@ export function AlertsScreen({ search, onSearch }: { search: AlertsSearch; onSea
   const queryClient = useQueryClient();
   const openOnly = search.show !== "all";
   const query = useQuery({ ...trpc.press.collector.alerts.queryOptions({ openOnly, limit: 100 }), meta: INLINE_ERROR_META });
+  const counts = useQuery({ ...trpc.press.collector.openAlertCount.queryOptions(), meta: INLINE_ERROR_META });
   const ack = useMutation(
     trpc.press.collector.acknowledgeAlert.mutationOptions({
       onSuccess: async () => {
@@ -155,10 +159,11 @@ export function AlertsScreen({ search, onSearch }: { search: AlertsSearch; onSea
           value={openOnly ? "open" : "all"}
           onChange={(v) => onSearch(v === "all" ? { show: "all" } : {})}
           options={[
-            { value: "open", label: t("press.alerts.showOpen") },
-            { value: "all", label: t("press.alerts.showAll") },
+            { value: "open", label: counts.data ? t("press.alerts.showOpenCount", { count: counts.data.open }) : t("press.alerts.showOpen") },
+            { value: "all", label: counts.data ? t("press.alerts.showAllCount", { count: counts.data.all }) : t("press.alerts.showAll") },
           ]}
         />
+        <p className="m-0 min-w-0 text-[14px] text-muted-foreground">{t("press.alerts.openRule")}</p>
       </div>
       <ResponsiveList
         rows={query.data ?? []}

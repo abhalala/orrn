@@ -91,9 +91,10 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
       ),
     [cards, search.section, search.copy, search.order],
   );
-  const { onLine, waiting } = splitQueue(filtered);
+  const { onLine, closing, waiting } = splitQueue(filtered);
   // The position among ALL waiting runs (a filter hides cards, it does not renumber the queue).
-  const allWaiting = splitQueue(cards).waiting;
+  const all = splitQueue(cards);
+  const allWaiting = all.waiting;
 
   const sections = uniqueBy(cards, (c) => c.sectionId).map((c) => ({ value: c.sectionId, label: `${c.sectionCode} ${c.sectionName}` }));
   const orders = uniqueBy(
@@ -158,11 +159,17 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
   return (
     <>
       {header}
-      <dl className="m-0 grid grid-cols-2 gap-3">
+      <dl className="m-0 grid grid-cols-3 gap-3">
         <div className="rounded-card bg-surface-sunken px-4 py-3">
           <dt className="text-xs font-medium text-muted-foreground">{t("press.queue.onLine")}</dt>
           <dd data-testid="queue-on-line-count" className="m-0 mt-1 font-mono text-[22px] font-semibold tabular-nums">
-            {splitQueue(cards).onLine.length}
+            {all.onLine.length}
+          </dd>
+        </div>
+        <div className="rounded-card bg-surface-sunken px-4 py-3">
+          <dt className="text-xs font-medium text-muted-foreground">{t("press.queue.closing")}</dt>
+          <dd data-testid="queue-closing-count" className="m-0 mt-1 font-mono text-[22px] font-semibold tabular-nums">
+            {all.closing.length}
           </dd>
         </div>
         <div className="rounded-card bg-surface-sunken px-4 py-3">
@@ -225,6 +232,18 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
               </h2>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {onLine.map((card) => (
+                  <JobCard key={card.id} card={card} formatLength={fmt} position={null} waitingCount={allWaiting.length} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {closing.length > 0 ? (
+            <section aria-labelledby="queue-closing" className="flex min-w-0 flex-col gap-3">
+              <h2 id="queue-closing" className="m-0 text-[15px] font-semibold">
+                {t("press.queue.closing")}
+              </h2>
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {closing.map((card) => (
                   <JobCard key={card.id} card={card} formatLength={fmt} position={null} waitingCount={allWaiting.length} />
                 ))}
               </div>

@@ -76,6 +76,9 @@ export type Strip = {
   pressedG: number;
   agedG: number;
   packedG: number;
+  /** BACKLOG 88: the line funnel (pressed >= packed incl. dispatched >= dispatched); absent on an older server answer. */
+  pressedAllG?: number;
+  packedAllG?: number;
   inStockG: number;
   dispatchedG: number;
   bakiG: number;
@@ -98,15 +101,23 @@ const CELLS: readonly { key: GramKey; pcs?: "orderedPcs" | "bakiPcs"; labelKey: 
 
 export type StripCell = { key: GramKey; labelKey: MessageKey; kg: string; pcs: string | null; open: boolean };
 
+/** Pressed and Packed read the line funnel (BACKLOG 88); the rest are the strip's own figure. */
+function stripGrams(strip: Strip, key: GramKey): number {
+  if (key === "pressedG") return strip.pressedAllG ?? strip.pressedG;
+  if (key === "packedG") return strip.packedAllG ?? strip.packedG;
+  return strip[key];
+}
+
 export function stripCells(strip: Strip): StripCell[] {
   return CELLS.map((cell) => {
     const pcs = cell.pcs ? strip[cell.pcs] : null;
+    const grams = stripGrams(strip, cell.key);
     return {
       key: cell.key,
       labelKey: cell.labelKey,
-      kg: orderKgText(strip[cell.key]),
+      kg: orderKgText(grams),
       pcs: pcs == null ? null : pcsText(pcs),
-      open: Boolean(cell.balance) && strip[cell.key] > 0,
+      open: Boolean(cell.balance) && grams > 0,
     };
   });
 }

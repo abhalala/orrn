@@ -308,8 +308,12 @@ for (const width of WIDTHS) {
       await owner.dispose();
       // The board leads with the RUNNING run (PR-10) even though the counting PR-9 comes before it in queue order.
       expect(p2Cards.map((c) => c.number)).toEqual(expect.arrayContaining(["PR-9", "PR-10"]));
-      const onPress = p2Cards.filter((c) => c.status !== "queued" && c.status !== "die_issued");
-      await expect(p2.getByTestId("line-on-line")).toHaveText((onPress.find((c) => c.status === "running") ?? onPress[0]!).number);
+      // BACKLOG 82: on the line = the one running run; counting / stopped runs are closing, on the card and in the queue header.
+      const running = p2Cards.filter((c) => c.status === "running");
+      const closing = p2Cards.filter((c) => c.status === "counting" || c.status === "stopped");
+      expect(running).toHaveLength(1);
+      await expect(p2.getByTestId("line-on-line")).toHaveText(running[0]!.number);
+      await expect(p2.getByTestId("line-closing")).toContainText(closing.map((c) => c.number).join(", "));
       await expect(p2.getByTestId("line-waiting")).toHaveText(String(waiting(p2Cards)));
       await expect(mine.getByTestId("line-waiting")).toHaveText("2");
       await expect(mine.getByTestId("line-on-line")).toHaveText("Nothing running");
@@ -317,6 +321,10 @@ for (const width of WIDTHS) {
       for (const word of ["Sample data", "Fixture", "FP-PR"]) await expect(page.getByText(word, { exact: false })).toHaveCount(0);
       await shot(page, width, "board");
       await clean(page);
+      // The P2 queue header counts the same split: one on the line (PR-10), the counting run closing.
+      await page.goto("/press/lines/dev-press-line-2");
+      await expect(page.getByTestId("queue-on-line-count")).toHaveText(String(running.length));
+      await expect(page.getByTestId("queue-closing-count")).toHaveText(String(closing.length));
       await context.close();
     });
 
@@ -327,6 +335,7 @@ for (const width of WIDTHS) {
       await expect(cards).toHaveCount(2);
       await expect(page.getByTestId("queue-waiting-count")).toHaveText("2");
       await expect(page.getByTestId("queue-on-line-count")).toHaveText("0");
+      await expect(page.getByTestId("queue-closing-count")).toHaveText("0");
       const ready = page.locator(`[data-slot="job-card"][data-run="${fx.ready.number}"]`);
       const queued = page.locator(`[data-slot="job-card"][data-run="${fx.queued.number}"]`);
       await expect(ready).toContainText(fx.readyOrder);

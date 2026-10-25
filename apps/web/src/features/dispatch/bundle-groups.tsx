@@ -1,4 +1,4 @@
-import { formatKg, formatKgTotal, formatLength, kgPer12ft, type DispatchStatus, type LengthUnit } from "@orrn/domain";
+import { formatKg, formatLength, kgPer12ft, type DispatchStatus, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button, IconButton } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -9,6 +9,7 @@ import { Tag, X } from "lucide-react";
 import { Can } from "@/shared/components/can";
 
 import { blockText, itemBlock, sortBlockedFirst } from "./blocked";
+import { dispatchKgText } from "./format";
 import { groupItems, type DispatchItem, type ItemGroup } from "./group-items";
 
 export type BundleGroupsProps = {
@@ -85,7 +86,7 @@ function GroupHeader({
         <p className="m-0 text-[13px] leading-5 text-muted-foreground break-words">
           {group.labelled ? `${group.dieLabel}. ` : ""}
           <span className="tabular-nums">
-            {t("dispatch.build.groupTotal", { bundles: group.bundles.length, kg: formatKgTotal(group.weightG / 1000) })}
+            {t("dispatch.build.groupTotal", { bundles: group.bundles.length, kg: dispatchKgText(group.weightG) })}
           </span>
         </p>
       </div>

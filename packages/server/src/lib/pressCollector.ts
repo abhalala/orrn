@@ -674,12 +674,13 @@ async function evaluateAlerts(db: OrrnDb, companyId: string, nodeId: string, fre
 }
 
 /**
- * Whether an alert is open as of `nowMs` (I-3): not ended, and its last out-of-band frame is within
- * ALERT_GAP_MS. An alert whose collector went quiet reads as ended at its last frame, even before a
- * later frame (or nothing at all) closes it in the table.
+ * OPEN (BACKLOG 81): ONE definition for every screen. An alert is open until someone acknowledges it,
+ * whether its reading is still out of band or has already ended. The Today chip, the alerts page ("Open"
+ * and its count), its "No open alerts" state and `openAlertCount` all use this. Whether the reading is
+ * still out of band is a separate fact, {@link alertEndedAt} ("Ongoing" or "Ended" on the row).
  */
-export function alertOpenSql(nowMs: number): SQL {
-  return and(isNull(pressAlert.endedAt), gte(pressAlert.lastAt, new Date(nowMs - ALERT_GAP_MS)))!;
+export function alertOpenSql(): SQL {
+  return isNull(pressAlert.acknowledgedAt);
 }
 
 /** The end shown for an alert as of `nowMs`: the stored end, or its last frame once the gap passed. */
@@ -689,19 +690,19 @@ export function alertEndedAt(row: { endedAt: Date | null; lastAt: Date }, nowMs:
 }
 
 /**
- * Today's chip (`dashboard.today.pressAlerts`): alerts open now (see {@link alertOpenSql}), alerts
+ * Today's chip (`dashboard.today.pressAlerts`): alerts open (unacknowledged, see {@link alertOpenSql}), alerts
  * that started since the production day began, and whether any of them came from a simulator. Null
  * when there are none, so a plant without a collector sees nothing.
  */
-export async function pressAlertsToday(db: OrrnDb, companyId: string, sinceMs: number, nowMs: number = Date.now()) {
+export async function pressAlertsToday(db: OrrnDb, companyId: string, sinceMs: number) {
   const [r] = await db
     .select({
-      open: sql<number>`coalesce(sum(case when ${alertOpenSql(nowMs)} then 1 else 0 end), 0)`,
+      open: sql<number>`coalesce(sum(case when ${alertOpenSql()} then 1 else 0 end), 0)`,
       today: sql<number>`coalesce(sum(case when ${pressAlert.startedAt} >= ${sinceMs} then 1 else 0 end), 0)`,
       simulated: sql<number>`coalesce(max(${pressAlert.simulated}), 0)`,
     })
     .from(pressAlert)
-    .where(and(eq(pressAlert.companyId, companyId), or(alertOpenSql(nowMs), gte(pressAlert.startedAt, new Date(sinceMs)))));
+    .where(and(eq(pressAlert.companyId, companyId), or(alertOpenSql(), gte(pressAlert.startedAt, new Date(sinceMs)))));
   const open = Number(r?.open ?? 0);
   const today = Number(r?.today ?? 0);
   if (open === 0 && today === 0) return null;
@@ -735,4 +736,17 @@ export async function purgeCollectorFrames(db: OrrnDb, nowMs: number = Date.now(
     }
   }
   return out;
+}
+
+/** The two counts the alerts page shows on its tabs: open (see {@link alertOpenSql}) and all. */
+export async function pressAlertCounts(db: OrrnDb, companyId: string) {
+  const [r] = await db
+    .select({
+      open: sql<number>`coalesce(sum(case when ${alertOpenSql()} then 1 else 0 end), 0)`,
+      all: sql<number>`count(*)`,
+      simulated: sql<number>`coalesce(max(case when ${alertOpenSql()} then ${pressAlert.simulated} else 0 end), 0)`,
+    })
+    .from(pressAlert)
+    .where(eq(pressAlert.companyId, companyId));
+  return { open: Number(r?.open ?? 0), all: Number(r?.all ?? 0), simulated: Number(r?.simulated ?? 0) > 0 };
 }
