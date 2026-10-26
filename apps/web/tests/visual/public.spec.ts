@@ -11,8 +11,7 @@ async function setTheme(page: import("@playwright/test").Page, theme: "light" | 
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
-  // Marketing page is GSAP animated; reduced motion swaps in static layouts
-  // so full-page screenshots are deterministic.
+  // Reduced motion keeps the material illustration static for deterministic screenshots.
   await page.emulateMedia({ reducedMotion: "reduce" });
   const theme = testInfo.project.name.includes("light") ? "light" : "dark";
   await page.goto("/");
@@ -25,7 +24,7 @@ test.describe("public marketing", () => {
     // the default 30 s runs out on a busy machine before any comparison fails.
     test.slow();
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: "Every bundle, accounted for." })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     // A long page: on touch projects the first full-page capture can still
     // carry the coarse-pointer control heights (Playwright resizes the page to
     // capture it), so give the stability check room for a third shot under load.

@@ -6,98 +6,110 @@ export const enPublic = {
     "language": "Language",
     "demoData": "Demo data"
   },
-  "units": {
-    "kg": "kg",
-    "kgPer12ft": "kg/12ft"
-  },
-  "status": {
-    "bundle": {
-      "available": "In stock",
-      "reserved": "Held"
-    },
-    "range": {
-      "inRange": "In range"
-    },
-    "printJob": {
-      "success": "Printed"
-    }
-  },
   "nav": {
-    "pack": "Pack",
-    "stock": "Stock",
-    "dispatch": "Dispatch",
     "skipToContent": "Skip to content"
-  },
-  "pack": {
-    "new": {
-      "weight": "Weight (kg)",
-      "pieces": "Pieces",
-      "saveBundle": "Save bundle",
-      "bundleNumber": "Bundle {n}"
-    }
-  },
-  "scan": {
-    "title": "Scan"
   },
   "packingList": {
     "title": "Packing list",
-    "plNo": "PL no",
-    "date": "Date",
-    "customer": "Customer",
     "totals": "{bundles} {bundles:bundle|bundles} · {kg} kg",
     "columns": {
-      "sr": "Sr",
       "bundleNo": "Bundle no",
       "weightKg": "Weight kg",
-      "pcs": "Pcs",
-      "kgPer12ft": "kg/12ft"
+      "pcs": "Pcs"
     }
   },
   "marketing": {
-    "headline": "Every bundle, accounted for.",
-    "sub": "orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock.",
+    "eyebrow": "Made for aluminium extrusion",
+    "headline": "orrn, india's first e2e extrusion harness",
+    "sub": "One connected record of your metal, from the scrap yard to the dispatch gate.",
     "requestAccess": "Request access",
     "signIn": "Sign in",
     "homeLabel": "orrn home",
-    "metaTitle": "orrn: every bundle, accounted for",
-    "visual": {
-      "bundles": "{count:bundle|bundles}",
-      "pieces": "{count} pcs",
-      "packingListReady": "Packing list ready"
-    },
+    "mainNav": "Main navigation",
+    "guides": "Guides",
+    "metaTitle": "orrn | India's first e2e extrusion harness",
     "flow": {
-      "title": "Pack. Stock. Dispatch.",
-      "pack": "Enter each bundle's weight and pieces, and print its label.",
-      "stock": "See what's in stock by section, in bundles and kg.",
-      "dispatch": "Scan bundles into a dispatch and print the packing list."
+      "title": "The metal changes. The thread stays.",
+      "body": "Seven handovers. One plant. Keep the work connected as material becomes a finished profile.",
+      "scrap": {
+        "name": "Scrap",
+        "title": "Know what came through the gate.",
+        "body": "Book a lot, record the weighbridge weight and settle the received quantity before it enters scrap stock.",
+        "record": "Purchase lot, weighment, received stock"
+      },
+      "cast": {
+        "name": "Cast",
+        "title": "Give every heat a history.",
+        "body": "Connect scrap inputs, alloy checks and billet output to the cast. Follow the metal forward without losing where it began.",
+        "record": "Melt inputs, spectro sample, billet stock"
+      },
+      "die": {
+        "name": "Die",
+        "title": "The right die, ready for its run.",
+        "body": "Keep each physical die's readings, ownership and nitriding history together. Issue a specific copy to the press.",
+        "record": "Die copy, weight readings, issue record"
+      },
+      "press": {
+        "name": "Press",
+        "title": "Make the shift legible.",
+        "body": "Bring the plan, die issue and billet use into the same run. Record output and rejects; let orrn calculate recovery.",
+        "record": "Press plan, run output, recovery"
+      },
+      "age": {
+        "name": "Age",
+        "title": "Carry quality through the oven.",
+        "body": "Track trolleys through ageing, record readings and hardness, and keep held material out of packing.",
+        "record": "Batch, oven readings, release decision"
+      },
+      "pack": {
+        "name": "Pack",
+        "title": "A bundle with an identity.",
+        "body": "Record pieces and weight, print a numbered label and place the bundle in stock. The next person scans the same number.",
+        "record": "Bundle number, pieces, weight, location"
+      },
+      "dispatch": {
+        "name": "Dispatch",
+        "title": "Close the loop at the gate.",
+        "body": "Scan the bundles that leave, prepare the packing list and keep the stock ledger in step with the dispatch.",
+        "record": "Scanned bundles, packing list, stock movement"
+      }
     },
     "floor": {
-      "title": "Built for the floor",
-      "buttons": "Big buttons and big numbers, easy to hit with gloves on.",
-      "hindi": "Hindi and English, one tap apart.",
-      "camera": "Scan labels with the phone camera.",
-      "devices": "Runs on a phone, a tablet or a laptop.",
-      "tryIt": "Try it on this page"
+      "title": "Different jobs. The same plant.",
+      "body": "The office plans in orders. The floor works in dies, trolleys and bundles. orrn connects those records.",
+      "planner": {
+        "role": "For the planner",
+        "title": "Plan against what is actually left.",
+        "body": "See order baki, allocate stock and build a press plan without treating already packed material as new production."
+      },
+      "operator": {
+        "role": "For the shift",
+        "title": "Keep the run, not a second notebook.",
+        "body": "Record the die, billets, output and stops against the press run. The next shift can read what happened."
+      },
+      "packer": {
+        "role": "For packing and dispatch",
+        "title": "Read the label. Find the bundle.",
+        "body": "Use the phone camera to scan a bundle. Keep its pieces, weight and yard location with its number."
+      },
+      "owner": {
+        "role": "For the plant owner",
+        "title": "Follow the work behind the number.",
+        "body": "Read recovery, stock and dispatch from the plant's records. Roles control who can change them; the audit log keeps the history."
+      },
+      "language": "English and Hindi, one tap apart. On a phone, a tablet or the office laptop."
     },
     "office": {
-      "title": "For the office",
-      "stock": "Stock by section, up to date as bundles are packed and dispatched.",
-      "packingList": "Packing lists with your company header, ready to print or send.",
-      "labels": "Labels print on your own printers over the plant network.",
-      "demoCompany": "Your company name",
+      "title": "The number on the bundle is only the beginning.",
+      "body": "A packing list brings the dispatched bundles together. Each number still belongs to the material your team packed.",
+      "note": "Illustrative packing list. The sample quantities are demo data, not plant results.",
       "demoCustomer": "Demo customer"
     },
-    "trust": {
-      "title": "Your data stays yours",
-      "separate": "Each company's data is kept apart from every other company.",
-      "audit": "Every change is logged with who made it and when.",
-      "roles": "Roles decide who can pack, dispatch or change settings."
-    },
     "cta": {
-      "title": "Try it on your floor",
-      "body": "Tell us about your plant and we'll get in touch."
+      "title": "Let's start with your plant.",
+      "body": "Tell us how your floor works. We'll talk through where orrn fits."
     },
-    "footer": "For aluminium extrusion plants",
+    "footer": "For aluminium extrusion plants.",
     "footerNav": "Footer",
     "copyright": "© {year} orrn"
   }

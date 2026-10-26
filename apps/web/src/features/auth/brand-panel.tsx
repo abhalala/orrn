@@ -55,10 +55,10 @@ export function BrandPanel({ className }: { className?: string }) {
         <div className="mt-auto flex flex-col gap-8">
           <div className="flex max-w-[34rem] flex-col gap-4">
             <p className="m-0 font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.04em] text-balance xl:text-[54px]">
-              {t("marketing.headline")}
+              {t("auth.brand.headline")}
             </p>
             <p className="m-0 max-w-[44ch] text-[16px] leading-6 font-medium xl:text-[17px] [@media(max-height:640px)]:hidden">
-              {t("marketing.sub")}
+              {t("auth.brand.sub")}
             </p>
           </div>
           <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0">
