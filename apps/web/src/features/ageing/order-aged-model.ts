@@ -6,14 +6,15 @@ export type OrderAgedLine = {
   heldPcs: number;
   releasedPcs: number;
   packedPcs: number;
+  remainingPcs: number;
 };
 
-export type AgedPartKey = "loaded" | "inOven" | "outUntested" | "held" | "released" | "packed";
+export type AgedPartKey = "loaded" | "inOven" | "outUntested" | "held" | "released" | "packed" | "remaining";
 
 /**
- * The chips under an order line: loaded always (when the line went to a trolley at all), then each stage that
- * holds pieces now, then packed. Empty when nothing of the line was ever loaded. Pure: the server's numbers
- * as they are.
+ * The chips under an order line: loaded and remaining always (when the line went to a trolley at all),
+ * plus stages that hold pieces and packed. Empty when nothing of the line was ever loaded.
+ * Pure: the server's numbers as they are; remaining also accounts for scrap and rework.
  */
 export function agedBreakdown(line: OrderAgedLine): { key: AgedPartKey; pcs: number; tone: "neutral" | "blue" | "amber" | "green" }[] {
   if (line.loadedPcs <= 0) return [];
@@ -23,5 +24,6 @@ export function agedBreakdown(line: OrderAgedLine): { key: AgedPartKey; pcs: num
   if (line.heldPcs > 0) parts.push({ key: "held", pcs: line.heldPcs, tone: "amber" });
   if (line.releasedPcs > 0) parts.push({ key: "released", pcs: line.releasedPcs, tone: "green" });
   if (line.packedPcs > 0) parts.push({ key: "packed", pcs: line.packedPcs, tone: "green" });
+  parts.push({ key: "remaining", pcs: line.remainingPcs, tone: "neutral" });
   return parts;
 }
