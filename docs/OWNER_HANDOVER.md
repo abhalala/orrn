@@ -1,28 +1,32 @@
 # Owner handover: what only the owner can do
 
-Written at the end of the FP build (`wt/FP` fbe18910, 2026-10-25). Everything an agent could build and test is built; what is
-left here needs the owner, a person at the plant, an account or a device. Nothing below is faked as done anywhere in the code:
-every device has a simulator and says so on screen. Open build work for agents is `TODO.md`; the promotion commands are
-`docs/DEPLOY_PROMOTION.md`; the demo plant to click through is `docs/DEMO_PLANT.md`.
+Updated during the FP continuation (2026-10-26 UTC). The feature inventory records implementation, not proof of
+production or device readiness. Current verification and deployment evidence are in `.fp-build/LEDGER.md` and
+`.fp-build/FINAL_REPORT.md`. Remaining work here needs an account, owner decision, plant data or a device;
+open product follow-ups are in `TODO.md`, and commands are in `docs/DEPLOY_PROMOTION.md`.
 
 Order that makes sense: 1 and 2 first (they unblock the dev site), then 4 to 7 with Dad and Lalu uncle, 3 when the plant says go.
 
-## 1. Cloudflare R2, then the dev deploy
+## 1. Cloudflare account, optional R2 and the dev deploy
 
 - **What:** the dev deploy of `b276f9cd` applied migrations 0010 to 0035 to the dev D1 and then stopped at the first R2 bucket
-  (`403 Forbidden [10000] Authentication error`). Dev still serves the old code (`39e9d462`) on the new schema.
-- **You do:** enable R2 on the Cloudflare account and give the API token of the `dev` GitHub environment (and later
-  `production`) "Workers R2 Storage: Edit"; or create `orrn-die-files-dev` and `orrn-backups-dev` by hand (they are
-  `adopt: true`, and the token still needs R2 rights to bind them). Then `gh run rerun 40210729245`, or push the next sha.
-- **Then:** the queued candidate is `fbe18910` (migrations 0036 to 0041, two data steps, both named in `docs/DEPLOY_PROMOTION.md`
-  section 0). Smoke dev with the list in section 3 of that file.
+  (`403 Forbidden [10000] Authentication error`). That failed run did not update the app; consult the final report for the latest deployment.
+- **Storage-free dev:** the dev workflow accepts the GitHub **dev environment** variable `ORRN_SKIP_R2=1`.
+  It omits drawing/backup bindings deliberately; their screens and APIs say storage is not configured.
+  Generic authentication failures are not silently interpreted as missing subscriptions.
+- **Enable storage:** use the intended ORRN account, enable R2 with approved billing, grant the dev token
+  Workers R2 Storage: Edit, remove the override and redeploy. Enabling the subscription does not attach Worker bindings.
+- **Candidate:** the continuation integrates through migration 0042, including the two data steps described in the promotion runbook.
 - **Pointers:** `docs/DEPLOY_PROMOTION.md` sections 0, 3 and 5; `docs/R2_BUCKETS.md`; `.fp-build/reports/promotion-20261025-0917.md`;
   `.fp-build/PROMOTE_QUEUE.md`.
 
 ## 2. Prod email
 
-Resend sends failed in Oct 2026 and invite and reset links depend on it. Godseye shows copyable sign-in details meanwhile.
-Fix the sender domain before the pilot. (`docs/DEPLOY_PROMOTION.md` section 1, item 2.)
+Resend remains the deployed provider; successful delivery is not established by the new optional Cloudflare sender seam.
+Installed Alchemy 0.91.2 cannot serialize the Email Sending binding, so Cloudflare `EMAIL` is deliberately unbound.
+Confirm Workers Paid/Email Sending entitlement and sending-domain DNS on the correct account, establish a supported
+deployment binding, then verify an authorized real inbox before switching. Godseye retains copyable sign-in details.
+See `docs/DEPLOY_PROMOTION.md`, “Transactional email readiness and handover”.
 
 ## 3. The prod go (explicit, every time)
 
