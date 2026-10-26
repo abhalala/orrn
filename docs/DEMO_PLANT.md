@@ -6,7 +6,7 @@ page says who logs in as what, what is in the plant, and what to show.
 
 The seed is idempotent (run it again and you get the same rows, same ids) and time-robust (everything
 that must read as "today" sits inside the current production day, 08:00 to 08:00 for the demo shifts,
-whatever the hour you run it; a test seeds at seven different moments, across a month and a financial
+whatever the hour you run it; a test seeds at nine different moments, including the exact shift boundary, across a month and a financial
 year). It never writes a secret: the one shared password is `vars.ORRN_LOCAL_PASSWORD` in
 `apps/server/wrangler.local.jsonc` (local only), and `/dev/seed` refuses to run off localhost.
 
@@ -91,7 +91,7 @@ held and baki always reconcile (a test checks `baki = max(0, ordered - dispatche
 
 Production day = 08:00 to 08:00. **P1:** PR-8 logged (the spec's worked example: 310.4 kg in, 234.2 kg good,
 75.5 %), PR-11 logged (rejects: 38 kg to QC, 71.5 %, a die remark), PR-1 die issued, PR-2 and PR-14 queued
-behind released plan PP-3. **P2:** PR-12 logged (a 62 minute container-heater stop), **PR-10 running now**
+behind released plan PP-3. **P2:** PR-12 logged (up to a 62 minute container-heater stop), **PR-10 running now**
 (angle 11250 on copy 11250-1), PR-13 queued (plan PP-4), **PR-9 a late entry waiting for approval**.
 PR-11 and PR-12 are the single runs of the early plans PP-5 (patti, Press 1) and PP-6 (flat, Press 2), 100 % pressed, so their kg show on the order lines and the phone plan view. PR-3, PR-4 (queued tee) and PR-5..PR-7 (die trial runs on PP-2) are the die room's. All billets come from
 cast `dev-press-cast-1`: its melt `dev-melt-1` charged 2,600 kg of LOT-6 and made 2,400 kg of logs (130 kg
@@ -145,7 +145,7 @@ decides their own. The `die_owner_override` for Tejura & Sons on KD's 12230-1 is
 
 ## A ten minute walk
 
-1. **Today** as `owner`: packed today (30 bundles), 1 dispatch, pressed today (3 runs, recovery, 80 min stopped: an 18 min stop on P1 and a 62 min breakdown on P2; the 62 is cut short when the seed runs early in the production day).
+1. **Today** as `owner`: packed today (30 bundles), 1 dispatch, pressed today (3 runs, recovery, up to 80 min stopped: up to 18 min on P1 and 62 min on P2). Both stops are shortened to fit their runs early in the production day; sub-minute durations can display as zero whole minutes. The seed regression uses a fixed midday clock; separate boundary scenarios cover 08:00 exactly and one second after.
 2. **Orders:** SO-1 is late; open SO-7 (dispatching, baki), its pending move, then SO-8 (held, "Dispatch from order").
 3. **Press** as `supervisor`: P2 has PR-10 running; PR-9 waits for `manager`; log a run.
 4. **Die room** as `dieroom`: the Tee ladder, 11250-2 at nitriding, 12212-2 at the maker, 14701-2 proposal.
