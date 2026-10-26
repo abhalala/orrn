@@ -214,7 +214,7 @@ export function ReportScreen({
               <thead>
                 <tr className="border-b border-border text-muted-foreground">
                   {COLUMN_KEYS.map(([id, key]) => (
-                    <th key={id} scope="col" className={`px-1 py-2 align-bottom font-medium leading-4 ${RIGHT.has(id) ? "text-right" : ""}`}>
+                    <th key={id} scope="col" className={`px-[3px] py-2 align-bottom font-medium leading-4 ${RIGHT.has(id) ? "text-right" : ""}`}>
                       {t(key)}
                     </th>
                   ))}
@@ -230,7 +230,7 @@ export function ReportScreen({
                           ? `${row.downtimeMin} (${row.downtimeReasons.map((c) => reasonLabel(t, "downtime", c.code, c.label, c, locale)).join(", ")})`
                           : cell;
                       return (
-                        <td key={id} className={`px-1 py-2 align-top tabular-nums ${WRAP.has(id) ? "break-words" : "whitespace-nowrap"} ${MONO.has(id) ? "font-mono" : ""} ${RIGHT.has(id) ? "text-right" : ""}`}>
+                        <td key={id} className={`px-[3px] py-2 align-top tabular-nums ${WRAP.has(id) ? "break-words" : "whitespace-nowrap"} ${MONO.has(id) ? "font-mono" : ""} ${RIGHT.has(id) ? "text-right" : ""}`}>
                           {content}
                           {id === "runNo" && row.lateEntry ? (
                             <span className="mt-1 block">
@@ -254,15 +254,15 @@ export function ReportScreen({
               </tbody>
               <tfoot>
                 <tr className="border-t border-border font-semibold" data-testid="press-report-totals">
-                  <td className="px-1 py-2" colSpan={13}>
+                  <td className="px-[3px] py-2" colSpan={13}>
                     {t("press.report.totals")}
                   </td>
-                  <td className="px-1 py-2 tabular-nums">{data.totals.downtimeMin}</td>
-                  <td className="px-1 py-2 tabular-nums">
+                  <td className="px-[3px] py-2 tabular-nums">{data.totals.downtimeMin}</td>
+                  <td className="px-[3px] py-2 tabular-nums">
                     {kgFromG(data.totals.goodG)} / {data.totals.pcs}
                   </td>
-                  <td className="whitespace-nowrap px-1 py-2 tabular-nums">{kgFromG(data.totals.scrapG)}</td>
-                  <td className="px-1 py-2 text-right font-mono tabular-nums">{percentOfBp(data.totals.recoveryBp)}</td>
+                  <td className="whitespace-nowrap px-[3px] py-2 tabular-nums">{kgFromG(data.totals.scrapG)}</td>
+                  <td className="px-[3px] py-2 text-right font-mono tabular-nums">{percentOfBp(data.totals.recoveryBp)}</td>
                 </tr>
               </tfoot>
             </table>
