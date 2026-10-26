@@ -21,7 +21,7 @@
 /** Cloudflare codes that mean "R2 is not enabled on this account" (403). */
 export const R2_NOT_ENABLED_CODES: ReadonlySet<number> = new Set([10042]);
 
-const NOT_ENABLED_TEXT = /enable R2|R2 is not enabled|not (?:enabled|subscribed)|subscription/i;
+const NOT_ENABLED_TEXT = /^(?:Please enable R2 through the Cloudflare Dashboard|R2 is not enabled(?: on this account| for this account)?|(?:This account is |You are )?not subscribed to R2|R2 subscription (?:is )?(?:not enabled|not active|missing|required))[.!]?$/i;
 
 type ApiErrorLike = { status?: unknown; errorData?: unknown };
 

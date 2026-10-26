@@ -138,6 +138,25 @@ drill into a scratch plant (`docs/RESTORE_DRILL.md`).
 | `SCALE_SIMULATOR` | local `.dev.vars` only | Never set on dev or production; the simulator refuses `NODE_ENV=production`. |
 | `OVEN_SIMULATOR`, `OVEN_SIMULATOR_PROFILE` | local `.dev.vars` only | Ageing oven curve (W3-AG-C). Never set on dev or production; refused when `NODE_ENV=production`. |
 
+### R2 is optional during subscription setup
+
+`optionalR2Bucket` skips each bucket on `ORRN_SKIP_R2=1` or a precise Cloudflare R2
+not-enabled/not-subscribed response (HTTP 403, code `10042`, or a 10000-series code explicitly
+naming the missing R2 subscription). Generic 403/auth, network and other provider failures still
+fail deployment. Each skipped bucket logs its name and disabled feature; `DIE_FILES` / `BACKUPS`
+are omitted, never bound to `undefined`. Skipping forgets the Alchemy resource state entry to avoid
+orphan deletion on finalize; it does not delete remote buckets or data.
+
+Without R2, die-file operations refuse the existing storage-not-set-up precondition (issued HTTP
+links return 503); Settings Backups says storage is not switched on and keeps historical runs.
+Manual backup/drill calls refuse `PRECONDITION_FAILED` without recording failed runs. The daily
+cron skips backup and orphan-file cleanup but **still purges collector frames in D1**.
+
+After the owner enables R2 on the intended account, remove `ORRN_SKIP_R2=1` if set and redeploy
+the same stage to create/adopt and attach the buckets. Confirm Settings and an upload/backup;
+enabling the subscription alone cannot add bindings to an already-deployed Worker.
+See `docs/R2_BUCKETS.md`. No deploy or subscription change is authorized by this runbook.
+
 Nothing else in the FP build needs a new Cloudflare resource: no queue, no extra database, no Durable Object.
 
 ## 6. Native: a new development build is required

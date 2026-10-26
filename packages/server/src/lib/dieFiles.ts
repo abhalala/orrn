@@ -120,6 +120,7 @@ export async function signDieFileUrl(
   now: number = Date.now(),
 ): Promise<{ url: string; expiresAt: number }> {
   if (!key.startsWith(`${companyId}/dies/`)) throw new TRPCError({ code: "NOT_FOUND", message: "File not found" });
+  dieFilesBucket();
   const exp = now + DIE_FILE_URL_TTL_MS;
   const sig = await signature(key, exp);
   const qs = new URLSearchParams({ key, exp: String(exp), sig });

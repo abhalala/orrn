@@ -262,8 +262,9 @@ export const dieShareRouter = router({
       try {
         const signed = await signDieFileUrl(ctx, share.companyId, section.drawingKey, nowMs);
         drawing = { url: signed.url, expiresAt: signed.expiresAt };
-      } catch {
-        // No signing key or no bucket on this stage: the page says there is no drawing, never an error.
+      } catch (error) {
+        if (!(error instanceof TRPCError) || error.code !== "PRECONDITION_FAILED") throw error;
+        // A public share omits the drawing when storage or signing is not configured.
         drawing = null;
       }
     }
