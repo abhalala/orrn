@@ -370,6 +370,11 @@ describe("die files: signed PUT upload, commit, signed GET, press drawing (FP-DR
     const pending = await p.dieRoom.dieInstance.files.beginUpload(img(p.sectionId));
     delete workersEnv.DIE_FILES;
     await expect(p.dieRoom.dieInstance.files.beginUpload(img(p.sectionId))).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(x.viewer.dieInstance.files.url({ id: xf.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED", message: "File storage is not set up for this plant yet",
+    });
+    await expect(p.dieRoom.dieInstance.files.commit({ uploadId: pending.uploadId })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(x.dieRoom.dieInstance.files.remove({ id: xf.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect((await files.handleDieFileUpload(putRequest(pending.uploadUrl, 10))).status).toBe(503);
     workersEnv.DIE_FILES = r2;
 

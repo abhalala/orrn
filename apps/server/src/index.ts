@@ -10,9 +10,7 @@ import { logger } from "hono/logger";
 
 import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
-import { runScheduledBackups } from "@orrn/server/lib/backup";
-import { purgeCollectorFrames } from "@orrn/server/lib/pressCollector";
-import { purgeOrphanDieFiles } from "@orrn/server/lib/dieFilesPurge";
+import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
 
 import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
@@ -140,29 +138,13 @@ app.get("/", (c) => {
 });
 
 /**
- * Cron (alchemy.run.ts `crons`): the daily per-company backup to R2 (FP-PF-12), then the press
- * collector frame retention purge (W4-COLLECTORS m-6: simulated 24 h, real 90 days), and the orphan die-file purge.
+ * Cron (alchemy.run.ts `crons`): the daily per-company backup to R2 (FP-PF-12), the orphan die-file
+ * purge (BACKLOG 18) and the press collector frame retention purge (W4-COLLECTORS m-6). Without the
+ * BACKUPS / DIE_FILES binding (R2 not enabled) those two steps log "skipped" and do nothing
+ * (lib/dailyCron.ts); the collector purge still runs.
  */
 async function scheduled(_controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
-  ctx.waitUntil(
-    runScheduledBackups(createDb(), new Date()).then(
-      (results) => console.log("backups", JSON.stringify(results)),
-      (error) => console.error("backups failed", error instanceof Error ? error.message : String(error)),
-    ),
-  );
-  // BACKLOG 18: die-file uploads begun and PUT but never committed (docs/R2_BUCKETS.md).
-  ctx.waitUntil(
-    purgeOrphanDieFiles(createDb()).then(
-      (purged) => console.log("orphan die files purged", JSON.stringify(purged)),
-      (error) => console.error("orphan die file purge failed", error instanceof Error ? error.message : String(error)),
-    ),
-  );
-  ctx.waitUntil(
-    purgeCollectorFrames(createDb()).then(
-      (purged) => console.log("collector frames purged", JSON.stringify(purged)),
-      (error) => console.error("collector purge failed", error instanceof Error ? error.message : String(error)),
-    ),
-  );
+  ctx.waitUntil(runDailyCron(createDb(), new Date()));
 }
 
 export default { fetch: app.fetch, scheduled };

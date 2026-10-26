@@ -12,10 +12,11 @@ import { cast } from "@orrn/db/schema/foundry";
 import { spoolDeployment } from "@orrn/db/schema/spool";
 import { and, eq, isNull } from "drizzle-orm";
 
-import { DEV_MASTER_KEY } from "./env-mock";
+import { DEV_MASTER_KEY, workersEnv } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 import { pressHelpers } from "./press-w2-fixture";
 
+import { runDailyCron } from "../src/lib/dailyCron";
 let env: TestEnv;
 let lib: typeof import("../src/lib/pressCollector");
 let node: typeof import("../src/lib/collectorNode");
@@ -623,6 +624,35 @@ describe("review round 1: D1 limits, per-frame refusal, retention, Q-09 both bas
     const res = await node.handlePressFramesRequest(env.db, { rawBody: tampered, authorization: `Bearer ${token}`, masterKey: DEV_MASTER_KEY, nowMs });
     expect(res.status).toBe(403);
     expect(await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, p.nodeId))).toHaveLength(0);
+  });
+
+  test("daily cron without R2 still purges expired collector frames without writing backup failures", async () => {
+    // Use the real cron and D1 retention path, not mocked step callbacks.
+    const p = await plant("no-r2-cron");
+    await p.post([frame(1, 10), frame(2, 20, { simulated: false })]);
+    const backups = workersEnv.BACKUPS;
+    const dieFiles = workersEnv.DIE_FILES;
+    delete workersEnv.BACKUPS;
+    delete workersEnv.DIE_FILES;
+    try {
+      const result = await runDailyCron(env.db, new Date(T0 + 86_400_000 + 60_000), { log: () => {}, error: () => {} });
+      expect(result.backups).toEqual({ ok: false, skipped: "not configured" });
+      expect(result.dieFiles).toEqual({ ok: false, skipped: "not configured" });
+      expect(result.collectorFrames.ok).toBe(true);
+      const left = await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, p.nodeId));
+      expect(left.map((f) => f.seq)).toEqual([2]);
+      // A configured bucket's provider outage is a failure, not a configuration skip.
+      workersEnv.DIE_FILES = { list: async () => { throw new Error("R2 list failed: 503"); } };
+      const outage = await runDailyCron(env.db, new Date(T0 + 91 * 86_400_000), { log: () => {}, error: () => {} });
+      expect(outage.dieFiles).toEqual({ ok: false, error: "R2 list failed: 503" });
+      expect(outage.collectorFrames.ok).toBe(true);
+      expect(await env.db.select().from(pressCollectorFrame).where(eq(pressCollectorFrame.nodeId, p.nodeId))).toHaveLength(0);
+    } finally {
+      if (backups === undefined) delete workersEnv.BACKUPS;
+      else workersEnv.BACKUPS = backups;
+      if (dieFiles === undefined) delete workersEnv.DIE_FILES;
+      else workersEnv.DIE_FILES = dieFiles;
+    }
   });
 
   test("the daily job purges simulated frames after 24 h and real frames after 90 days; summaries stay (m-6)", async () => {

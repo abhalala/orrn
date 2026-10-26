@@ -5880,6 +5880,7 @@ export const en = {
     },
     lastOk: "Last good backup",
     none: "No backup yet. The first one runs overnight.",
+    notConfigured: "Backups are not switched on for this plant yet. Ask ORRN support to enable storage.",
     lastAttempt: "Last try: {status}, {time}",
     size: "{mb} megabytes",
     drillTitle: "Restore drill",

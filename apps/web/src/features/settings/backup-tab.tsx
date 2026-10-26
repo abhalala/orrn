@@ -37,13 +37,14 @@ export function BackupTab() {
     <TabState query={status}>
       {status.data ? (
         <div className="flex min-w-0 flex-col gap-4" data-testid="settings-backup">
+          {!status.data.configured ? <Note>{t("backups.notConfigured")}</Note> : null}
           <Card>
             <CardHeader>
               <CardTitle>{t("backups.title")}</CardTitle>
               <CardDescription>{t("backups.cardHint")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Line label={t("backups.lastOk")} run={status.data.lastOk} none={t("backups.none")} when={when} testId="backup-last" />
+              <Line label={t("backups.lastOk")} run={status.data.lastOk} none={t(status.data.configured ? "backups.none" : "backups.notConfigured")} when={when} testId="backup-last" />
               {status.data.lastAttempt ? (
                 <p className="m-0 text-[15px] leading-6" data-testid="backup-attempt">
                   {t("backups.lastAttempt", {
@@ -61,13 +62,13 @@ export function BackupTab() {
               <CardDescription>{t("backups.drillBody")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Line label={t("backups.drillTitle")} run={status.data.lastDrill} none={t("backups.drillNone")} when={when} testId="backup-drill" />
-              <Note>{t("backups.runbook")}</Note>
+              <Line label={t("backups.drillTitle")} run={status.data.lastDrill} none={t(status.data.configured ? "backups.drillNone" : "backups.notConfigured")} when={when} testId="backup-drill" />
+              {status.data.configured ? <Note>{t("backups.runbook")}</Note> : null}
             </CardContent>
           </Card>
 
           <Can do="platform.backup.run">
-            <StaffRunner />
+            {status.data.configured ? <StaffRunner /> : null}
           </Can>
         </div>
       ) : null}

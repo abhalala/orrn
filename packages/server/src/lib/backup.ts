@@ -5,6 +5,7 @@ import * as schema from "@orrn/db/schema";
 import { backupRun, type BackupRunRow } from "@orrn/db/schema/platform";
 import { company } from "@orrn/db/schema/tenant";
 import { env } from "@orrn/env/server";
+import { TRPCError } from "@trpc/server";
 
 import type { Context } from "../context";
 import { atomicBatch, chunk, rowsPerStatement, type OrrnDb } from "./atomic";
@@ -34,6 +35,19 @@ export type BackupBucket = {
 
 export function backupBucket(): BackupBucket | null {
   return ((env as unknown as { BACKUPS?: BackupBucket }).BACKUPS ?? null) as BackupBucket | null;
+}
+
+/** The refusal when this stage has no BACKUPS binding (R2 not enabled yet, LEDGER D10/D36). */
+export const BACKUPS_NOT_SET_UP = "Backups are not set up for this plant yet";
+
+/**
+ * The bucket, or PRECONDITION_FAILED when this stage has none. A deploy without R2 leaves BACKUPS off the
+ * Worker (infra/optionalR2.ts): an export or a drill is refused before any backup_run row is written.
+ */
+function requireBackupBucket(bucket: BackupBucket | null | undefined): BackupBucket {
+  const b = bucket === undefined ? backupBucket() : bucket;
+  if (!b) throw new TRPCError({ code: "PRECONDITION_FAILED", message: BACKUPS_NOT_SET_UP });
+  return b;
 }
 
 /** Tables never exported: sessions, credentials, tokens, wrapped keys, and backup metadata itself. */
@@ -174,6 +188,7 @@ export async function runExport(
   opts: { companyId: string; kind: "scheduled" | "manual"; at: Date; bucket?: BackupBucket | null },
 ): Promise<BackupRunRow> {
   const { db } = actor;
+  const bucket = requireBackupBucket(opts.bucket);
   const id = createId(opts.at.getTime());
   const startedBy = actor.session?.user.id ?? null;
   await db.insert(backupRun).values({
@@ -185,9 +200,7 @@ export async function runExport(
     startedAt: opts.at,
     startedBy,
   });
-  const bucket = opts.bucket === undefined ? backupBucket() : opts.bucket;
   try {
-    if (!bucket) throw new Error("No backup bucket is bound (BACKUPS)");
     const payload = await exportCompanyPayload(db, opts.companyId, opts.at);
     const body = JSON.stringify(payload);
     const key = `backups/${opts.companyId}/${dateKey(opts.at)}/${id}.json`;
@@ -251,6 +264,7 @@ export async function runDrill(
   opts: { companyId: string; at: Date; sourceRunId?: string; bucket?: BackupBucket | null },
 ): Promise<BackupRunRow> {
   const { db } = actor;
+  const bucket = requireBackupBucket(opts.bucket);
   const source = opts.sourceRunId
     ? ((await db
         .select()
@@ -282,8 +296,6 @@ export async function runDrill(
   let stage = "read";
   try {
     if (!source?.r2Key) throw new Error("No successful export to restore");
-    const bucket = opts.bucket === undefined ? backupBucket() : opts.bucket;
-    if (!bucket) throw new Error("No backup bucket is bound (BACKUPS)");
     const object = await bucket.get(source.r2Key);
     if (!object) throw new Error("The export object is missing from the bucket");
     const payload = JSON.parse(await object.text()) as BackupPayload;
@@ -465,9 +477,12 @@ export async function discardOldDrillScratch(db: OrrnDb, at: Date): Promise<stri
 /**
  * The daily job (worker `scheduled`): one export per active company per IST day. A company that
  * already has a successful export for the day is skipped, so a retried cron does not double up.
- * Then drill scratch companies older than DRILL_SCRATCH_KEEP_DAYS are discarded.
+ * Then drill scratch companies older than DRILL_SCRATCH_KEEP_DAYS are discarded. Null, touching
+ * nothing, when this stage has no BACKUPS binding (R2 not enabled yet).
  */
 export async function runScheduledBackups(db: OrrnDb, at: Date, bucket?: BackupBucket | null) {
+  // No BACKUPS binding (R2 not enabled yet): nothing to write, no failed rows; the cron logs it.
+  if ((bucket === undefined ? backupBucket() : bucket) === null) return null;
   const companies = await db.select({ id: company.id }).from(company).where(eq(company.status, "active"));
   const day = dateKey(at);
   const results: { companyId: string; status: string }[] = [];

@@ -9,6 +9,30 @@ from `main` for the cron).
 | `die-files` (`DIE_FILES`) | Die drawings, photos, trial sheets under `{companyId}/dies/{sectionId}/{fileId}`; the spectro watcher's result files under `{companyId}/spectro/{inboxId}` | No. Read through a signed worker URL (10 minutes) | Orphan die-file purge below. Spectro files are kept (the inbox row points at them). |
 | `backups` (`BACKUPS`) | Daily per-company JSON export, `backups/{companyId}/{YYYY-MM-DD}/{runId}.json` | No | None. Never set `empty: true`. See `docs/RESTORE_DRILL.md`. |
 
+## Deploying before R2 is enabled
+
+R2 is optional: `optionalR2Bucket` probes the account before creating either Alchemy resource. An
+HTTP 403 with Cloudflare code `10042` (enable R2), or a 10000-series error explicitly saying R2
+is not enabled/subscribed, skips both buckets. `ORRN_SKIP_R2=1` explicitly skips without an R2 API
+call. Other authentication, permission, network and provider errors fail the deploy; a generic
+403 is not evidence of a missing subscription.
+
+Each skipped bucket produces a `[deploy] R2 bucket "…" not created: …` warning. Its Worker binding
+is omitted entirely. Its Alchemy state entry is forgotten, not the remote bucket: existing objects
+are not deleted. Do not use this flag as a bucket-deletion mechanism.
+
+Without `BACKUPS`, Settings says backups are not switched on, retains any previous backup history,
+and hides staff run/drill actions. Export and drill RPCs refuse `PRECONDITION_FAILED` before writing
+a run. Without `DIE_FILES`, die-file upload, commit, removal and signed-link RPCs refuse the existing
+storage-not-set-up precondition; previously issued HTTP upload/download links return 503. Public
+die shares omit unavailable drawings. The daily cron logs the missing R2 steps as skipped, writes
+no failed backup rows, and still performs collector-frame retention in D1.
+
+To restore these features, the owner enables R2 on the intended Cloudflare account, removes
+`ORRN_SKIP_R2=1` from the deployment environment, and redeploys the same stage. Both buckets are
+created or adopted and rebound; no runtime code change or migration is required. Check Settings
+and a real upload/backup after redeploy. This document does not authorize a deployment.
+
 ## Uncommitted die-file uploads (BACKLOG 18)
 
 A die file goes up in three steps: `files.beginUpload` (a 10-minute signed ticket), a `PUT /files/dies/upload`

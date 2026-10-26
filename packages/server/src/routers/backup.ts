@@ -2,11 +2,14 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { backupRun } from "@orrn/db/schema/platform";
 
+import { backupBucket } from "../lib/backup";
+
 import { actionProcedure, router } from "../index";
 
 /**
  * The plant's backup card (FP-PF-12; `settings.update`): the last export and the last drill. No
- * R2 key and no download: the plant cannot fetch or restore its own backup.
+ * R2 key and no download: the plant cannot fetch or restore its own backup. `configured` is false on a
+ * stage deployed without R2 (no BACKUPS binding): the card says backups are not switched on yet.
  */
 export const backupRouter = router({
   status: actionProcedure("settings.update").query(async ({ ctx }) => {
@@ -46,6 +49,7 @@ export const backupRouter = router({
       latest("drill"),
     ]);
     return {
+      configured: backupBucket() !== null,
       lastOk: view(lastOk),
       /** Shown when newer than the last Ok (a failed or running attempt). */
       lastAttempt: lastAttempt && lastAttempt.id !== lastOk?.id ? view(lastAttempt) : null,

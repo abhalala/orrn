@@ -135,7 +135,7 @@ describe("export", () => {
     await expect(env.caller({ role: "owner", companyId }).platform.backup.run({ companyId })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  test("failure: R2 error or no bucket -> failed run with a note; the previous Ok run and object stay", async () => {
+  test("failure: R2 error -> failed run with a note; the previous Ok run and object stay", async () => {
     const bucket = bindBucket();
     const { companyId } = await seedPlant();
     const ok = await staff().platform.backup.run({ companyId });
@@ -146,16 +146,37 @@ describe("export", () => {
     expect(failed).toMatchObject({ status: "failed", error: "R2 put failed: 503" });
     expect(bucket.objects.size).toBe(objects);
 
-    delete workersEnv.BACKUPS;
-    const unbound = await staff().platform.backup.run({ companyId });
-    expect(unbound).toMatchObject({ status: "failed" });
-    expect(unbound.error).toContain("No backup bucket");
-
     const status = await env.caller({ role: "admin", companyId }).backup.status();
+    expect(status.configured).toBe(true);
     expect(status.lastOk?.id).toBe(ok.id);
-    expect(status.lastAttempt).toMatchObject({ id: unbound.id, status: "failed" });
+    expect(status.lastAttempt).toMatchObject({ id: failed.id, status: "failed" });
     const okRow = await env.db.select().from(backupRun).where(eq(backupRun.id, ok.id)).get();
     expect(okRow!.status).toBe("succeeded");
+  });
+
+  test("no BACKUPS binding (R2 not enabled, D10/D36): export and drill refuse PRECONDITION_FAILED and write no run", async () => {
+    bindBucket();
+    const { companyId } = await seedPlant();
+    const ok = await staff().platform.backup.run({ companyId });
+
+    delete workersEnv.BACKUPS;
+    const before = await env.db.select().from(backupRun).where(eq(backupRun.companyId, companyId));
+    const notSetUp = { code: "PRECONDITION_FAILED", message: "Backups are not set up for this plant yet" };
+    await expect(staff().platform.backup.run({ companyId })).rejects.toMatchObject(notSetUp);
+    await expect(staff().platform.backup.drill({ companyId })).rejects.toMatchObject(notSetUp);
+    const after = await env.db.select().from(backupRun).where(eq(backupRun.companyId, companyId));
+    expect(after).toHaveLength(before.length);
+
+    // The plant's card says backups are not switched on; the last good backup still shows.
+    const status = await env.caller({ role: "owner", companyId }).backup.status();
+    expect(status).toMatchObject({ configured: false, lastOk: { id: ok.id }, lastAttempt: null });
+  });
+
+  test("the daily job with no BACKUPS binding does nothing: no runs, no failed rows", async () => {
+    const { companyId } = await seedPlant();
+    const { runScheduledBackups } = await import("../src/lib/backup");
+    expect(await runScheduledBackups(env.db, new Date())).toBeNull();
+    expect(await env.db.select().from(backupRun).where(eq(backupRun.companyId, companyId))).toHaveLength(0);
   });
 
   test("the daily job exports each active company once per IST day", async () => {
@@ -163,9 +184,9 @@ describe("export", () => {
     const { companyId } = await seedPlant();
     const { runScheduledBackups } = await import("../src/lib/backup");
     const at = new Date();
-    const first = await runScheduledBackups(env.db, at);
+    const first = (await runScheduledBackups(env.db, at))!;
     expect(first.find((r) => r.companyId === companyId)?.status).toBe("succeeded");
-    const second = await runScheduledBackups(env.db, at);
+    const second = (await runScheduledBackups(env.db, at))!;
     expect(second.find((r) => r.companyId === companyId)?.status).toBe("skipped");
     const runs = await env.db
       .select()
