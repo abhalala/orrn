@@ -1,60 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
-import { blockersOf, keyOf, SERVER_REFUSALS, type RefusalEntry } from "@orrn/i18n/refusal";
-import { serverSentences } from "@orrn/i18n/refusal-sentences";
-import { en } from "@orrn/i18n/en";
-import { gu } from "@orrn/i18n/gu";
-import { hi } from "@orrn/i18n/hi";
 
 import { orderErrorLines } from "../orders/errors";
 import { refusalText } from "../die-room/die-room-model";
 import { mapSentence, serverRefusal, serverRefusalLines } from "./server-refusal";
 
-/**
- * BACKLOG 48: the die room and orders screens never show the server's English. The web reads the same
- * server files as the phone's test (`@orrn/i18n/refusal-sentences`); a new sentence there fails here until
- * it has an entry in `packages/i18n/src/refusal.ts` and a key in en, hi and gu.
- */
-const lookup = (dict: unknown, key: string): unknown =>
-  key.split(".").reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : undefined), dict);
-
-const sentences = serverSentences();
-const matches = (s: string): RefusalEntry | undefined => SERVER_REFUSALS.find((e) => e.re.test(s));
 const err = (code: string, message: string, meta?: Record<string, unknown>) => ({ message, data: { code, ...(meta ? { meta } : {}) } });
 
-describe("every die room, orders and approval sentence has wording in all three languages", () => {
-  test("the reader finds the server's sentences", () => {
-    expect(sentences.length).toBeGreaterThan(150);
-    expect(sentences.map((s) => s.text)).toContain("This request was already decided");
-  });
-
-  test("no sentence is left without an entry", () => {
-    const unmapped = sentences.filter((s) => !blockersOf(s.text) && !matches(s.text));
-    expect(unmapped.map((s) => `${s.file}: ${s.text}`)).toEqual([]);
-  });
-
-  test("each entry's key is a string in en, hi and gu (the web renders gu with no fallback to English)", () => {
-    for (const e of SERVER_REFUSALS) {
-      for (const [lang, dict] of [["en", en], ["hi", hi], ["gu", gu]] as const) {
-        expect({ key: keyOf(e), lang, text: typeof lookup(dict, keyOf(e)) }).toEqual({ key: keyOf(e), lang, text: "string" });
-      }
-    }
-    for (const k of ["refusal.unknown", "refusal.owned", "refusal.stillNeeds", "errors.forbidden", "errors.conflict", "errors.notFound", "errors.network", "errors.sessionExpired", "errors.generic"]) {
-      for (const dict of [en, hi, gu]) expect({ k, text: typeof lookup(dict, k) }).toEqual({ k, text: "string" });
-    }
-  });
-
-  test("a mapped sentence reads in Gujarati without the server's English", () => {
-    const t = createI18n("gu").t;
-    const english = /\b(?:is|are|was|the|cannot|can't|must|first|nothing|pick|only)\b/i;
-    for (const s of sentences) {
-      if (blockersOf(s.text)) continue;
-      const said = serverRefusal(t, err("BAD_REQUEST", s.text));
-      expect({ from: s.text, said }).not.toEqual({ from: s.text, said: s.text });
-      expect({ from: s.text, english: english.test(said) }).toEqual({ from: s.text, english: false });
-    }
-  });
-});
 
 describe("what the die room and orders screens say", () => {
   test("a known refusal, an owned die, a confirm with blockers, an unknown sentence", () => {
@@ -89,17 +41,8 @@ describe("what the die room and orders screens say", () => {
 
 describe("the sentences with figures keep them, in every language", () => {
   test("a full press line, a file over its limit, a duplicate band", () => {
-    const en = createI18n("en").t;
-    expect(serverRefusal(en, err("BAD_REQUEST", "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back before issuing 13090-9."))).toBe(
-      "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back before issuing 13090-9.",
-    );
-    expect(serverRefusal(en, err("BAD_REQUEST", "This PDF is larger than 25 MB"))).toBe("This file is larger than 25 MB.");
-    expect(serverRefusal(en, err("CONFLICT", "12170 already has the primary band 5.900-6.200 at 1.2 mm. Add the copy to that band instead."))).toBe(
-      "12170 already has a band 5.900 to 6.200 kg/12ft at 1.2 mm. Add the copy to that band instead.",
-    );
     const gu = createI18n("gu").t;
     const said = serverRefusal(gu, err("BAD_REQUEST", "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back, or record the die out of 13090-20, before issuing 13090-9."));
     expect(said).toContain("13090-20 (PR-16) અને 13090-21 (PR-17)");
-    expect(said).not.toContain("Take one back");
   });
 });

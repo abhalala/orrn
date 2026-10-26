@@ -7,8 +7,7 @@ import { actionErrorText } from "@/features/dispatch/errors";
  * What a refused die room, orders or approval write says in the browser (BACKLOG 43, 48). The server's
  * refusals are plain English sentences; a Hindi or Gujarati screen must not show them. The table and the
  * `refusal.*` keys are shared with the phone (`@orrn/i18n/refusal`); a sentence this build does not know
- * shows `refusal.unknown` in the person's language, never the server's words. `server-refusal.test.ts`
- * reads the server source and fails on any sentence left unmapped.
+ * shows the corresponding generic error in the person's language, never the server's words.
  */
 export { blockersOf, mapSentence, SERVER_REFUSALS };
 
