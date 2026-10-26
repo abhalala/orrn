@@ -1031,6 +1031,17 @@ describe("ported from the satellite's reference branch (wt/W2-FD-S-omafranky @dd
 // ---------------------------------------------------------------------------
 
 describe("FINAL-FIXES-4 FD-02: a legacy code on an imported cast, and the cast book's start number", () => {
+  test.each(["K31", " k31 ", "K  31", "A1", "L99999", "26J1842", " 26j1842 ", "00A1", "99L99999"])(
+    "reserved generated code %s cannot become a legacy code or insert a cast",
+    async (legacyCode) => {
+      const p = await foundryPlant();
+      await expect(p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(await env.db.select({ id: cast.id }).from(cast).where(eq(cast.companyId, p.companyId))).toEqual([]);
+      expect((await p.as("viewer").foundry.casts.list({ number: legacyCode })).items).toEqual([]);
+      expect(await audits(p.companyId)).not.toContain("cast.open");
+    },
+  );
+
   test("open takes an optional legacy code: stored upper-case, unique per plant, shown by list/get/trace, found by the trace search", async () => {
     const p = await foundryPlant();
     const a = await p.as("foundry").foundry.casts.open({ alloy: "6063", legacyCode: " old-17/b " });
