@@ -13,7 +13,7 @@ deploy route: there is no local `.env`. D1 migrations are applied by Alchemy dur
 (`migrationsDir: "../db/src/migrations"` in `packages/server/src/infra/alchemy.run.ts`), in file order, before the Worker is
 updated.
 
-## 0. Where things stand (2026-10-25, end of the FP build)
+## 0. Deployment snapshot before continuation (2026-10-25)
 
 | Ref | Sha | What it is |
 |---|---|---|
@@ -22,7 +22,9 @@ updated.
 | `wt/FP` | `fbe18910` | The **candidate**: everything built (foundry, ageing, share link, explorer and owner-tour fixes, polish). Migrations to **0041**. Descends from `main` (`git merge-base --is-ancestor origin/main wt/FP` holds), so it goes to `main` as a fast-forward; `main` is not an ancestor of `redesign/c2` until section 2. Gates at that sha: types 11/11; server 3005/0; domain 358; i18n 64; web 1375/0; native 901 + types + expo android; build `/` 223.5 kB of 250; e2e A 317 (+10 skips), B 431, C 489, 0 failed; chain alone 37/37. |
 | `redesign/c2` | `08a3ead7` + uncommitted work | The owner's concepts checkout in `orrn/`. `wt/FP` was branched from it. Nothing in the FP build touched that working tree. |
 
-**What dev is running.** The push of `b276f9cd` started Deploy Dev (run 40210729245). Check-types passed and the `database`
+This table is historical, not the current promotion candidate. The continuation integrates FINAL-FIXES-4/5, docs, optional R2, the test sweep, transactional email handling and the cinematic homepage through migration **0042**. Current revision, checks and live deployment evidence are in `.fp-build/FINAL_REPORT.md` and `.fp-build/LEDGER.md`.
+
+**Last failed dev deployment before continuation.** The push of `b276f9cd` started Deploy Dev (run 40210729245). Check-types passed and the `database`
 resource **applied migrations 0010 to 0035 to the dev D1**; the next resource then failed:
 `Failed to create R2 bucket "orrn-die-files-dev" (403 Forbidden): [10000] Authentication error`. The Cloudflare API token in
 the `dev` GitHub environment has no R2 write permission (or the account has R2 off). Alchemy stopped there, so the Worker and
@@ -30,13 +32,13 @@ the web app were not deployed: **dev serves the old code (`39e9d462`) on a schem
 (the migrations only add; 0026 turns an old 4-key module list into "every module on"). Details: `.fp-build/reports/promotion-20261025-0917.md`.
 Look at the latest Deploy Dev run before you act on this table; it is a snapshot.
 
-**Blocked on the owner:** enable R2 on the Cloudflare account and give the dev and production tokens "Workers R2 Storage: Edit"
-(or create `orrn-die-files-dev` / `orrn-backups-dev` by hand; both are `adopt: true`, and the token still needs R2 rights to
-bind them). Prod fails the same way until its token has the same right. `gh run rerun 40210729245`, or the next push, resumes
-the deploy; migrations already applied are skipped.
+**Storage enablement still needs the intended account:** enable R2 and give the token Workers R2 Storage: Edit.
+The continuation can deploy **dev only without storage** by setting its explicit `ORRN_SKIP_R2` environment variable
+(section 5). It does not suppress generic authentication errors, change billing, or enable storage.
+Remove the override and redeploy once the approved subscription and token permissions are ready.
 
-**Queued for dev** (`.fp-build/PROMOTE_QUEUE.md`): `fbe18910`, which supersedes the earlier queued `cf7f3b77`. Migrations
-**0036 to 0041** land with it (see "Migrations 0036 to 0041" below). Port 3001 on the Mac belongs to an unrelated
+**Historical queued candidate** (`.fp-build/PROMOTE_QUEUE.md`): `fbe18910`, superseding `cf7f3b77`, added
+**0036 to 0041**. The continuation also adds **0042_cast_legacy_code** (additive, unique per plant). Port 3001 belongs to an unrelated
 long-running app. Do not kill it.
 
 ### The dev-only rule (D33)
