@@ -2,8 +2,10 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, request as pwRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, request as pwRequest, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
+import { gotoReady } from "./helpers/resilient";
+import { test } from "./helpers/test";
 import { signInViaApi, localPassword, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll, expectTableFitsFrame } from "../helpers/layout-guards";
@@ -74,9 +76,8 @@ async function openAs(
   const page = await context.newPage();
   if (opts.locale) await page.addInitScript((l) => localStorage.setItem("orrn.locale", l), opts.locale);
   await signInViaApi(page, role);
-  await page.goto(path);
-  // A cold Vite on a loaded machine can take longer than the 5 s default to paint.
-  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 25_000 });
+  // A cold Vite on a loaded machine can take longer than the 5 s default to paint (one reload if it stalls).
+  await gotoReady(page, path, page.locator("main#main h1").first(), 25_000);
   return { page, context };
 }
 
@@ -363,7 +364,7 @@ for (const width of WIDTHS) {
       await shot(page, width, "board");
       await clean(page);
       // The P2 queue header counts the same split: one on the line (PR-10), the counting run closing.
-      await page.goto("/press/lines/dev-press-line-2");
+      await gotoReady(page, "/press/lines/dev-press-line-2", page.getByTestId("queue-on-line-count"), 20_000);
       await expect(page.getByTestId("queue-on-line-count")).toHaveText(String(running.length));
       await expect(page.getByTestId("queue-closing-count")).toHaveText(String(closing.length));
       await context.close();

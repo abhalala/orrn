@@ -2,9 +2,11 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, type Page, type Route } from "@playwright/test";
 import * as XLSX from "xlsx";
 
+import { gotoReady } from "./helpers/resilient";
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
@@ -26,10 +28,9 @@ async function open(page: Page, opts: { width: number; scheme?: Scheme; role?: L
   await page.setViewportSize({ width: opts.width, height: opts.height ?? 900 });
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "owner");
-  await page.goto("/settings?tab=data");
   // A worker's first page pulls every module cold from Vite dev; on a loaded machine that alone
-  // takes longer than the 5 s default (blank "Loading" page, no h1), so the first paint gets 20 s.
-  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 20_000 });
+  // takes longer than the 5 s default (blank "Loading" page, no h1), so the first paint gets 20 s (one reload if it stalls).
+  await gotoReady(page, "/settings?tab=data", page.locator("main#main h1").first(), 20_000);
 }
 
 function csv(rows: (string | number)[][]): Buffer {

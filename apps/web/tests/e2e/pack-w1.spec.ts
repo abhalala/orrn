@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { mockScale, silent, steady, type MockReading } from "./helpers/mock-scale";
 import { ownerApi } from "./helpers/owner-api";
@@ -274,10 +275,14 @@ test.describe("pack: a booking order is offered last and marked (wave-2 M9)", ()
     await expect(ours).toContainText("Booking, not confirmed");
     await expect(ours).not.toContainText("Suggested");
     // Every line after the first booking one is a booking too: confirmed lines come first.
-    const marks = await orders.locator("label").evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
-    const firstBooking = marks.indexOf(true);
-    expect(firstBooking).toBeGreaterThan(0);
-    expect(marks.slice(firstBooking).every(Boolean)).toBe(true);
+    // Read the whole list again until it has settled: on a loaded machine the confirmed lines of the die can still be
+    // arriving when our own booking line is already on screen.
+    await expect(async () => {
+      const marks = await orders.locator("label").evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
+      const firstBooking = marks.indexOf(true);
+      expect(firstBooking).toBeGreaterThan(0);
+      expect(marks.slice(firstBooking).every(Boolean)).toBe(true);
+    }).toPass({ timeout: 20_000 });
     const suggested = orders.locator("label").filter({ hasText: "Suggested" });
     if ((await suggested.count()) > 0) await expect(suggested.first()).not.toContainText("Booking, not confirmed");
   });

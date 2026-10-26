@@ -1,6 +1,7 @@
 import { expect, request } from "@playwright/test";
 
 import { localPassword } from "./accounts";
+import "./resilient";
 import { API_URL, WEB_ORIGIN } from "./ports";
 
 /**
@@ -9,13 +10,9 @@ import { API_URL, WEB_ORIGIN } from "./ports";
  */
 export async function ownerApi() {
   const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
-  // The worker answers 503 for a moment while it reloads or is saturated by other specs: ask again (a wrong
-  // password is a 4xx and fails at once).
-  let signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
-  for (let attempt = 1; attempt <= 4 && signIn.status() >= 500; attempt += 1) {
-    await new Promise((done) => setTimeout(done, 500 * attempt));
-    signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
-  }
+  // The worker answers 503 for a moment while it reloads or is saturated by other specs, and drops sockets under load:
+  // helpers/resilient.ts asks again with a backoff (a wrong password is a 4xx and fails at once).
+  const signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
   expect(signIn.ok(), `owner sign-in returned ${signIn.status()}`).toBe(true);
   return {
     async query<T>(path: string, input: unknown): Promise<T> {

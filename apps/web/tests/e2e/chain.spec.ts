@@ -1,8 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { expect, request as pwRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, request as pwRequest, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
+import { gotoReady } from "./helpers/resilient";
+import { test } from "./helpers/test";
 import { localPassword, type LocalRole } from "./helpers/accounts";
 import { fillVehicleIfAsked } from "./helpers/dispatch-vehicle";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
@@ -119,9 +121,8 @@ async function openAs(browser: Browser, role: LocalRole, width: number, path: st
     data: { email: `${role}@orrn.local`, password: localPassword() },
   });
   expect(res.ok(), `sign-in as ${role} returned ${res.status()}`).toBe(true);
-  await page.goto(path);
-  // A cold Vite on a loaded machine can take longer than the 5 s default to paint.
-  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 30_000 });
+  // A cold Vite on a loaded machine can take longer than the 5 s default to paint (one reload if it stalls).
+  await gotoReady(page, path, page.locator("main#main h1").first(), 30_000);
   return { page, context };
 }
 
@@ -897,6 +898,8 @@ for (const width of WIDTHS) {
       const [b1, b2] = fx.bundles!;
       const { page, context } = await openAs(browser, "office", width, `/orders/${fx.order!.id}`);
       await settled(page);
+      // The order page loads its lines and bundles first: wait for the button instead of clicking into a half-drawn page.
+      await expect(page.locator("[data-dispatch-from-order]")).toBeVisible({ timeout: 30_000 });
       await page.locator("[data-dispatch-from-order]").click();
       await expect(page).toHaveURL(new RegExp(`/dispatch/new\\?salesOrderId=${fx.order!.id}`));
       await expect(page.locator("main#main")).toContainText(fx.order!.number);

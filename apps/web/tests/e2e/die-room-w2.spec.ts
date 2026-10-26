@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page, type Route } from "@playwright/test";
+import { expect, type Locator, type Page, type Route } from "@playwright/test";
 
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { ownPress, type OwnPress } from "./helpers/own-press";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";

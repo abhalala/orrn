@@ -43,7 +43,9 @@ done
 [ "${#files[@]}" -gt 0 ] || { echo "no test files match" >&2; exit 2; }
 
 run_one() {
-  local f="$1" log="$LOG_DIR/$(basename "$f").log" start end
+  # Two statements: in one `local`, "$f" in the log path would expand before f is set (empty under xargs -P).
+  local f="$1"
+  local log="$LOG_DIR/$(basename "$f").log" start end
   local flags=""
   [ -n "${TIMEOUT_MS:-}" ] && flags="--timeout $TIMEOUT_MS"
   start=$(date +%s)
@@ -57,8 +59,8 @@ run_one() {
   fi
   end=$(date +%s)
   local pass fail
-  pass=$(grep -E '^ *[0-9]+ pass' "$log" | tail -1 | awk '{print $1}')
-  fail=$(grep -E '^ *[0-9]+ fail' "$log" | tail -1 | awk '{print $1}')
+  pass=$(grep -a -E '^ *[0-9]+ pass' "$log" | tail -1 | awk '{print $1}')
+  fail=$(grep -a -E '^ *[0-9]+ fail' "$log" | tail -1 | awk '{print $1}')
   case "$code" in
     0) echo "PASS  $f  pass=${pass:-0} fail=${fail:-0} $((end - start))s" ;;
     100) echo "FLAKY $f  pass=${pass:-0} passed on retry (first run failed, see $log) $((end - start))s" ;;
@@ -78,7 +80,9 @@ fi
 
 total=$(wc -l <"$results" | tr -d ' ')
 npass=$(grep -c '^PASS' "$results"); nflaky=$(grep -c '^FLAKY' "$results"); nfail=$(grep -c '^FAIL' "$results")
-tests=$(grep -h -E '^(PASS|FLAKY)' "$results" | sed -E 's/.*pass=([0-9]+).*/\1/' | paste -sd+ - | bc 2>/dev/null || echo "?")
+tests=$(grep -h -E '^(PASS|FLAKY)' "$results" | sed -E 's/.*pass=([0-9]+).*/\1/' | awk '{ s += $1 } END { print s + 0 }')
+echo "--- slowest files"
+sed -E 's/^[A-Z]+ +([^ ]+) .* ([0-9]+)s( .*)?$/\2 \1/' "$results" | sort -rn | head -8 | awk '{ printf "  %4ss  %s\n", $1, $2 }'
 echo "---"
 echo "files=$total pass=$npass flaky=$nflaky fail=$nfail  (tests passed: ${tests:-0})  logs=$LOG_DIR"
 [ "$nfail" -eq 0 ]

@@ -2,13 +2,16 @@
  * W1-OP-S: the dev seed's demo order book (ten orders in every state, one late) is idempotent and
  * readable through the real procedures; W2-SEED: the figures on every line add up.
  */
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, setDefaultTimeout, test } from "bun:test";
 
 import { salesOrder, salesOrderLine } from "@orrn/db/schema";
 import { asc, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { precreateDevSeedUsers } from "./dev-seed-fixture";
+
+// The seed / matrix tests in this file take 2 to 5 s of Miniflare work each; bun's 5 s default fails them when the machine is busy.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 

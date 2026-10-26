@@ -1,8 +1,9 @@
 import { mkdirSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { API_URL as API, WEB_ORIGIN as ORIGIN } from "./helpers/ports";
 import { periodRange, trailingMonths } from "../../src/features/customers/period";

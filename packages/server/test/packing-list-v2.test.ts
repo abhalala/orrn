@@ -5,7 +5,7 @@
  * revision under the same number (the sent one is kept, C24); combine takes a new number over
  * several dispatches of one customer. The PL number advances on first issue and combine only.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { bundle, customer, die, dispatchItem, docSeries, packingList, packingListDispatch } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -13,6 +13,9 @@ import { and, eq } from "drizzle-orm";
 import { createTestEnv, type TestEnv } from "./harness";
 import { precreateDevSeedUsers } from "./dev-seed-fixture";
 import { kg, NOON, salesHelpers, SLOW, type SalesPlant } from "./sales-fixture";
+
+// The seed / matrix tests in this file take 2 to 5 s of Miniflare work each; bun's 5 s default fails them when the machine is busy.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;

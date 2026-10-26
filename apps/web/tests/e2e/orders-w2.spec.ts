@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { freshPlant, signInPlant } from "./helpers/fresh-plant";
 import { toPlantStock } from "./helpers/plant-stock";

@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
+import { gotoReady } from "./helpers/resilient";
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { mockLabelPrinting } from "./helpers/mock-printing";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
@@ -28,9 +30,8 @@ async function open(page: Page, path: string, opts: { width?: number; scheme?: S
   await page.setViewportSize({ width: opts.width ?? 1280, height: 900 });
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "operator");
-  await page.goto(path);
-  // A cold Vite (first test of a run on a loaded machine) can take longer than the 5 s default to paint.
-  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 20_000 });
+  // A cold Vite (first test of a run on a loaded machine) can take longer than the 5 s default to paint (one reload if it stalls).
+  await gotoReady(page, path, page.locator("main#main h1").first(), 20_000);
 }
 
 async function trpcQuery<T>(page: Page, path: string, input: unknown): Promise<T> {

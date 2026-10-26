@@ -2,8 +2,9 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, request as pwRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, request as pwRequest, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
+import { test } from "./helpers/test";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { localPassword, signInViaApi, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";

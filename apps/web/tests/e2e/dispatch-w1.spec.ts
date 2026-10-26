@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
+import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { fillVehicleIfAsked } from "./helpers/dispatch-vehicle";
 import { dieId, newCustomer, newOrder, ownerApi, packBundles, type OwnerApi } from "./helpers/owner-api";

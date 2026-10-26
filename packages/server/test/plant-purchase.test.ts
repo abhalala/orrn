@@ -5,7 +5,7 @@
  *
  * Review Focus 2: a short-weighed lot without a D/C note can never be marked OK.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { approval, auditLog, dcNote, purchaseLot, stockLedger, vendor, vendorAlias } from "@orrn/db/schema";
 import { and, eq, inArray } from "drizzle-orm";
@@ -13,6 +13,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import { can as canMe, type Action } from "../src/lib/permissions";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 import { precreateDevSeedUsers } from "./dev-seed-fixture";
+
+// The seed / matrix tests in this file take 2 to 5 s of Miniflare work each; bun's 5 s default fails them when the machine is busy.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;

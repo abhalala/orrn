@@ -3,7 +3,7 @@
  * never deletes), FP-PF-15 Today per role (viewer: four KPIs; rate slice needs priceOnSalesOrder +
  * order.price), FP-PF-10 team (13 roles, audit rows) and the idempotent dev seed rows.
  */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { auditLog, bundle, dispatch, dispatchItem, membership, salesOrder, salesOrderLine, supportRequest } from "@orrn/db/schema";
 import { companyRoles, type CompanyRole } from "@orrn/db/schema/tenant";
@@ -11,6 +11,9 @@ import { and, eq } from "drizzle-orm";
 
 import { can } from "../src/lib/permissions";
 import { createTestEnv, type TestEnv } from "./harness";
+
+// The seed / matrix tests in this file take 2 to 5 s of Miniflare work each; bun's 5 s default fails them when the machine is busy.
+setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let support: typeof import("../src/lib/support");
