@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7061 screen strings in 48 groups, 44 guides with 840 strings.
+Counts: 7068 screen strings in 48 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3049,10 +3049,11 @@ Counts: 7061 screen strings in 48 groups, 44 guides with 840 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### refusal (165)
+### refusal (166)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `requestReused` | This save was already used for a different request. Reload and try again. | यह सेव किसी दूसरे अनुरोध के लिए इस्तेमाल हो चुका है। फिर लोड करके दोबारा कोशिश करें। |
 | `notFoundDie` | That die was not found. Go back and open it again. | वह die नहीं मिली। वापस जाकर फिर खोलें। |
 | `notFoundIssue` | That die issue was not found. | वह die issue नहीं मिला। |
 | `notFoundRun` | That run was not found. | वह रन नहीं मिला। |
@@ -4831,7 +4832,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (503)
+### press (505)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5046,6 +5047,8 @@ Please check, Lalubhai:
 | `console.saveNext` | Save and next | सेव करें और आगे |
 | `console.castPick` | Cast the billets came from | बिलेट किस cast के हैं |
 | `console.castOnHand` | {kg} kg billet stock | {kg} kg बिलेट स्टॉक |
+| `console.castSpectroFail` | Spectro failed | स्पेक्ट्रो फेल |
+| `console.castSpectroFailNote` | The spectro on cast {cast} failed ({alloy}). Check with the foundry before these billets are pressed. | कास्ट {cast} ({alloy}) का स्पेक्ट्रो फेल हुआ है। ये बिलेट दबाने से पहले फाउंड्री से पूछ लें। |
 | `console.castNone` | No cast has billets in stock. | किसी cast के बिलेट स्टॉक में नहीं हैं। |
 | `console.castClosedChip` | Closed | बंद |
 | `console.weighedKg` | Weighed kg | तौला हुआ kg |
@@ -5339,7 +5342,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (600)
+### foundry (602)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5538,6 +5541,8 @@ Please check, Lalubhai:
 | `cast.tailChip.tail` | Tail {kg} kg | टेल {kg} kg |
 | `cast.tailChip.short` | Billets short {kg} kg | बिलेट कम {kg} kg |
 | `cast.tailChip.empty` | No melts yet | अभी कोई मेल्ट नहीं |
+| `cast.tailChip.pending` | Tail {kg} kg ({pct} %) waiting for approval | टेल {kg} kg ({pct} %), मंज़ूरी का इंतज़ार |
+| `cast.tailChip.pendingShort` | Billets short {kg} kg, waiting for approval | बिलेट कम {kg} kg, मंज़ूरी का इंतज़ार |
 | `cast.panel.title` | Billets | बिलेट |
 | `cast.panel.produced` | Made | बने |
 | `cast.panel.pressed` | Used by the press | प्रेस ने लिए |
@@ -6675,7 +6680,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (287)
+### audit (289)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6729,6 +6734,8 @@ Please check, Lalubhai:
 | `subjectTypes.cast` | Cast | कास्ट |
 | `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
 | `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
+| `subjectTypes.bundle_transfer` | Bundle transfer | बंडल ट्रांसफर |
+| `subjectTypes.sales_order_line` | Order line | ऑर्डर लाइन |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |

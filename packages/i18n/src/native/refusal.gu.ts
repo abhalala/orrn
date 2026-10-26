@@ -4,6 +4,7 @@
  */
 export const refusalGu = {
   refusal: {
+    requestReused: "આ સેવ બીજા અનુરોધ માટે વપરાઈ ગયું છે. ફરી લોડ કરીને પ્રયત્ન કરો.",
     notFoundDie: "તે die મળી નહીં. પાછા જઈને ફરી ખોલો.",
     notFoundIssue: "તે die issue મળ્યો નહીં.",
     notFoundRun: "તે રન મળ્યો નહીં.",
