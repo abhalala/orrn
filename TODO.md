@@ -6,6 +6,8 @@ Open work only, at `wt/FP` fbe18910 (2026-10-25, end of the FP build). History (
 
 ## State
 
+- Production promotion of the accepted dev revision `b432b923` is authorized. Deploy Production now requires an encrypted export and local-D1 migration rehearsal before Alchemy, followed by read-only preservation checks. The current live result is recorded by the latest production workflow run.
+
 - Integration validation: types 11/11; server 3,038; domain 360; i18n 64; web 1,387; native 903; documents 36; UI 107; `/` 188.9 kB gzip of 250. Browser A 451, B 432 plus the isolated masters file 27/27, C 355 (21 existing skips). Earlier foundry/count assertions were fixed; the B sign-in 503 remains visible above.
 
 - Every plant module is built end to end on the web, with the phone app for the floor roles: die room (with the share link), orders and planning, press (station, queue, report, collectors as simulators), foundry (casts, melts, spectro, count-based close, trace, certificate, yield), ageing (ovens, trolleys, recipes, batches, release, pack from a released line), pack, stock, dispatch from an order, packing list v2, stock count, platform (modules, shifts, thresholds, releases, backups, audit, support, approvals with live facts), customer portal, analytics and reports. 44 guides in en and hi; Gujarati for the floor.
