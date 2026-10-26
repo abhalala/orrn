@@ -7,7 +7,6 @@ import { mapSentence, serverRefusal, serverRefusalLines } from "./server-refusal
 
 const err = (code: string, message: string, meta?: Record<string, unknown>) => ({ message, data: { code, ...(meta ? { meta } : {}) } });
 
-
 describe("what the die room and orders screens say", () => {
   test("a known refusal, an owned die, a confirm with blockers, an unknown sentence", () => {
     for (const lang of ["en", "hi", "gu"] as const) {
@@ -39,8 +38,8 @@ describe("what the die room and orders screens say", () => {
   });
 });
 
-describe("the sentences with figures keep them, in every language", () => {
-  test("a full press line, a file over its limit, a duplicate band", () => {
+describe("refusal figures survive localization", () => {
+  test("press-line refusal retains its copy and run identifiers in Gujarati", () => {
     const gu = createI18n("gu").t;
     const said = serverRefusal(gu, err("BAD_REQUEST", "P1 already has 13090-20 (PR-16) and 13090-21 (PR-17). Take one back, or record the die out of 13090-20, before issuing 13090-9."));
     expect(said).toContain("13090-20 (PR-16) અને 13090-21 (PR-17)");

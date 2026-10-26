@@ -3,9 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Test support: the sentences the server's die room, orders and approval routers can raise, read out of
- * their source. Used by the refusal completeness tests of apps/native and apps/web (and packages/i18n):
- * a new sentence with no entry in `SERVER_REFUSALS` fails them until it is mapped. Never imported by app code.
+ * Test support for the foundry and ageing refusal registries. Reads their server sentences;
+ * never imported by app code. Web and native refusal tests exercise behavior directly.
  */
 const SRC = (rel: string) => readFileSync(join(import.meta.dir, "..", "..", "server", "src", rel), "utf8");
 
@@ -120,23 +119,6 @@ function blockLiterals(src: string, startMarker: string): string[] {
   return out;
 }
 
-/** The sentences the routers compose from a subject and a phrase held in a table or ternary. */
-function composedSentences(): string[] {
-  const issue = SRC("routers/dieIssue.ts");
-  const maker = SRC("routers/dieMaker.ts");
-  const inst = SRC("routers/dieInstance.ts");
-  const flow = SRC("routers/orderFlow.ts");
-  const phrases = [
-    ...blockLiterals(issue, "const STATUS_WORDS"),
-    ...blockLiterals(maker, "const where: Record<string, string>"),
-  ].filter((p) => /^is /.test(p) && p !== "is 7");
-  const busy = blockLiterals(inst, "const where: Record<string, string> = {\n    in_use").filter((p) => /^is /.test(p) && p !== "is 7").map((p) => `${p}; it cannot be sent to nitriding`);
-  const whyPhrases = blockLiterals(flow, "const why =").filter((p) => /^is /.test(p)).map((p) => `${PLACEHOLDER} ${p}`);
-  const holdWhy = blockLiterals(flow, "const why: Record").filter((p) => p.includes(PLACEHOLDER) && !p.startsWith("Line"));
-  // dieIssue.ts lineFullMessage(): "P1 already has A (PR-1) and B (PR-2). Take one back[, or record the die out of A,] before issuing C."
-  const lineFull = [`${PLACEHOLDER} already has ${PLACEHOLDER} (${PLACEHOLDER}) and ${PLACEHOLDER}. Take one back before issuing ${PLACEHOLDER}.`, `${PLACEHOLDER} already has ${PLACEHOLDER} (${PLACEHOLDER}) and ${PLACEHOLDER}. Take one back, or record the die out of ${PLACEHOLDER}, before issuing ${PLACEHOLDER}.`];
-  return [...lineFull, ...phrases.map((p) => `${PLACEHOLDER} ${p}`), ...busy.map((p) => `${PLACEHOLDER} ${p}`), ...whyPhrases, ...holdWhy];
-}
 
 export const FILES = [
   "routers/dieIssue.ts",
@@ -214,21 +196,6 @@ export function ageingSentences(): { file: string; text: string }[] {
 /** A sentence that is only placeholders and punctuation is a composite the blocks above spell out. */
 const isSentence = (s: string) => /\s/.test(s.trim()) && s.replace(new RegExp(PLACEHOLDER, "g"), "").replace(/[\s.,;:()]/g, "") !== "";
 
-export function serverSentences(): { file: string; text: string }[] {
-  const out: { file: string; text: string }[] = [];
-  for (const f of FILES) {
-    const src = SRC(f);
-    for (const text of messageSentences(src)) if (isSentence(text)) out.push({ file: f, text });
-    // requireActiveBand(db, company, section, band, "message")
-    for (const m of src.matchAll(/requireActiveBand\(/g)) {
-      const end = src.indexOf(");", m.index!);
-      const last = blockLiterals(src.slice(m.index!, end + 2), "requireActiveBand(").filter(isSentence).pop();
-      if (last) out.push({ file: f, text: last });
-    }
-  }
-  for (const text of composedSentences()) out.push({ file: "composed", text });
-  return out.flatMap((s) => realize(s.text).map((text) => ({ file: s.file, text })));
-}
 
 /** Where the server puts a status word the reader can only see as a placeholder, the words it can be. */
 const REALIZE: [RegExp, string[]][] = [

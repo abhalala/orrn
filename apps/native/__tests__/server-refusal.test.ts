@@ -6,7 +6,6 @@ import { blockerText } from "../features/orders/order-model";
 import { RequestTimeoutError } from "../lib/request-timeout";
 import { mapSentence, serverRefusal, serverRefusalLines } from "../lib/server-refusal";
 
-
 describe("what a person is told", () => {
   const trpc = (code: string, message: string, meta?: Record<string, unknown>) => ({ message, data: { code, httpStatus: code === "INTERNAL_SERVER_ERROR" ? 500 : 400, ...(meta ? { meta } : {}) } });
   const LANGS = { en: createI18n("en").t, hi: createI18n("hi").t, gu: createI18n("gu").t } as const;
