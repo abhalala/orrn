@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -11,7 +11,10 @@ export type TabsProps = {
   items: TabItem[];
   value: string;
   onValueChange: (value: string) => void;
+  /** Accessible name for the tab list. */
+  label?: string;
   className?: string;
+  /** The selected tab's panel. Without children the tabs act as a section switch only. */
   children?: ReactNode;
 };
 
@@ -26,9 +29,9 @@ function useOverflowEdges<T extends HTMLElement>(contentKey: string) {
     const next = { start: el.scrollLeft > 1, end: max - el.scrollLeft > 1 };
     setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
   }, []);
-  // Re-measure when the strip resizes or its segments change (count or
-  // labels, via `contentKey`). Without ResizeObserver (old browsers, tests)
-  // it measures once per content change and on scroll.
+  // Re-measure when the strip resizes or its tabs change (count or labels,
+  // via `contentKey`). Without ResizeObserver (old browsers, tests) it
+  // measures once per content change and on scroll.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -45,41 +48,91 @@ function useOverflowEdges<T extends HTMLElement>(contentKey: string) {
 const FADE = "24px";
 
 /**
- * C2 segmented control: a sunken pill track with the selected segment raised
- * on the surface. Keeps the simple `items`/`value`/`onValueChange` shape so
- * consumers don't have to change. Segments are toggle buttons
- * (`aria-pressed`), so keyboard users tab through them and press Enter/Space.
+ * Sections of one screen (Settings: Company, Team, Data). Real ARIA tabs:
+ * one tab stop, arrow keys move and select, Home/End jump. Underlined, so
+ * they never read as the `SegmentedControl` (which filters a list).
  */
-export function Tabs({ items, value, onValueChange, className, children }: TabsProps) {
-  const { ref, edges, onScroll } = useOverflowEdges<HTMLDivElement>(items.map((it) => it.id).join("|"));
-  // Fade the side(s) that have more segments, so a phone user can see the
-  // strip scrolls. Mask only, no layout change.
+export function Tabs({ items, value, onValueChange, label, className, children }: TabsProps) {
+  const uid = useId().replace(/:/g, "");
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const selectedIndex = Math.max(
+    0,
+    items.findIndex((it) => it.id === value),
+  );
+  const hasPanel = children !== undefined && children !== null;
+  const { ref: stripRef, edges, onScroll } = useOverflowEdges<HTMLDivElement>(items.map((it) => it.id).join("|"));
+  // Fade the side(s) that have more tabs, so a phone user can see the strip
+  // scrolls. Mask only, no layout change.
   const mask =
     edges.start || edges.end
       ? `linear-gradient(to right, ${edges.start ? "transparent" : "currentColor"} 0, currentColor ${edges.start ? FADE : "0"}, currentColor calc(100% - ${edges.end ? FADE : "0px"}), ${edges.end ? "transparent" : "currentColor"} 100%)`
       : undefined;
+
+  // Bring the selected tab into view inside the strip (a phone opens on `?tab=team` with Team
+  // scrolled off to the right). Moves the strip only, never the page.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const tab = refs.current[selectedIndex];
+    if (!strip || !tab || strip.scrollWidth <= strip.clientWidth) return;
+    const tabLeft = tab.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft;
+    const target = tabLeft - (strip.clientWidth - tab.offsetWidth) / 2;
+    const left = Math.max(0, Math.min(target, strip.scrollWidth - strip.clientWidth));
+    if (Math.abs(strip.scrollLeft - left) > 1) strip.scrollTo?.({ left });
+  }, [selectedIndex, stripRef]);
+
+  const move = (to: number) => {
+    const i = (to + items.length) % items.length;
+    const next = items[i];
+    if (!next) return;
+    onValueChange(next.id);
+    refs.current[i]?.focus();
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const keys: Record<string, number> = {
+      ArrowRight: i + 1,
+      ArrowLeft: i - 1,
+      Home: 0,
+      End: items.length - 1,
+    };
+    const to = keys[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    move(to);
+  };
+
   return (
-    <div className={cn("flex min-w-0 max-w-full flex-col gap-4", className)}>
-      {/* The track scrolls sideways when the segments outgrow a phone row;
-          it never widens the page. */}
+    <div className={cn("flex min-w-0 flex-col gap-5", className)}>
       <div
-        ref={ref}
+        ref={stripRef}
+        role="tablist"
+        aria-label={label}
         onScroll={onScroll}
         style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
-        className="flex min-w-0 max-w-full gap-1 self-start overflow-x-auto overscroll-x-contain rounded-full bg-surface-sunken p-1 [scrollbar-width:none] dark:bg-background dark:ring-1 dark:ring-border">
-        {items.map((it) => {
-          const active = value === it.id;
+        className="flex min-w-0 max-w-full gap-1 overflow-x-auto overscroll-x-contain border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {items.map((it, i) => {
+          const active = i === selectedIndex;
           return (
             <button
               key={it.id}
+              ref={(el) => {
+                refs.current[i] = el;
+              }}
+              id={`tab-${uid}-${it.id}`}
               type="button"
-              aria-pressed={active}
+              role="tab"
+              aria-selected={active}
+              aria-controls={hasPanel && active ? `tabpanel-${uid}` : undefined}
+              tabIndex={active ? 0 : -1}
               onClick={() => onValueChange(it.id)}
+              onKeyDown={(e) => onKeyDown(e, i)}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] sm:px-4 font-semibold transition-[background-color,color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.97] pointer-coarse:h-11",
+                "relative -mb-px inline-flex h-11 shrink-0 items-center gap-1.5 rounded-t-input px-3.5 text-[15px] font-semibold whitespace-nowrap transition-colors duration-[var(--dur-fast)] focus-visible:-outline-offset-2",
+                "after:absolute after:inset-x-2 after:bottom-0 after:h-[3px] after:origin-center after:rounded-full after:bg-foreground after:transition-transform after:duration-[var(--dur-base)] after:ease-[var(--ease-spring)]",
                 active
-                  ? "bg-card text-foreground shadow-sm dark:bg-popover"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "text-foreground after:scale-x-100"
+                  : "text-muted-foreground after:scale-x-0 hover:text-foreground",
               )}
             >
               {it.label}
@@ -87,7 +140,17 @@ export function Tabs({ items, value, onValueChange, className, children }: TabsP
           );
         })}
       </div>
-      {children}
+      {hasPanel ? (
+        <div
+          role="tabpanel"
+          id={`tabpanel-${uid}`}
+          aria-labelledby={`tab-${uid}-${items[selectedIndex]?.id ?? ""}`}
+          tabIndex={0}
+          className="min-w-0 focus-visible:outline-offset-4"
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

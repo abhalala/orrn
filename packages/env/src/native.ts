@@ -6,6 +6,11 @@ export const env = createEnv({
   client: {
     EXPO_PUBLIC_SERVER_URL: z.url(),
   },
-  runtimeEnv: process.env,
+  // Metro (babel-preset-expo) only inlines *literal* `process.env.EXPO_PUBLIC_X`
+  // reads. Passing `process.env` as a whole leaves it empty in release builds
+  // and `z.url()` then throws at startup (audit N2). Keep every key explicit.
+  runtimeEnv: {
+    EXPO_PUBLIC_SERVER_URL: process.env.EXPO_PUBLIC_SERVER_URL,
+  },
   emptyStringAsUndefined: true,
 });

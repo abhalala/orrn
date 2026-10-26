@@ -1,0 +1,38 @@
+// Local-only dev config. Deploys still go through Alchemy (packages/server/src/infra/alchemy.run.ts).
+// Usage: bun run dev:local:migrate && bun run dev:local   (then POST http://localhost:3000/dev/seed)
+// The values below are the single-checkout defaults (API 3000, web 3002). `bun run dev:local` runs
+// scripts/dev-local.ts, which overrides the port and the URL vars with --port / --var from
+// E2E_API_PORT / E2E_WEB_PORT so every git worktree gets its own pair (docs/LOCAL_DEV.md).
+{
+  "name": "orrn-server-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "orrn-local", "database_id": "local", "migrations_dir": "../../packages/db/src/migrations" }
+  ],
+  // Die files (FP-DR-07/13) and daily backups (FP-PF-12); local wrangler simulates the buckets on disk.
+  "r2_buckets": [
+    { "binding": "DIE_FILES", "bucket_name": "orrn-die-files-local" },
+    { "binding": "BACKUPS", "bucket_name": "orrn-backups-local" }
+  ],
+  "vars": {
+    "NODE_ENV": "development",
+    // W3-AG-S: the local oven curve for ageing.batches.simulate (refused when NODE_ENV=production).
+    "OVEN_SIMULATOR": "1",
+    "CORS_ORIGIN": "http://localhost:3002",
+    "CORS_ALLOWED_ORIGINS": "http://localhost:3002",
+    "WEB_PUBLIC_URL": "http://localhost:3002",
+    "BETTER_AUTH_SECRET": "local-dev-secret-not-for-production-0123456789",
+    "BETTER_AUTH_URL": "http://localhost:3000",
+    "ORRN_MASTER_KEY": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+    "RESEND_API_KEY": "",
+    "WEBHOOK_BASE_URL": "",
+    "COOKIE_DOMAIN": "",
+    "CF_API_TOKEN": "",
+    "CF_ACCOUNT_ID": "",
+    "CF_ZONE_ID_IN": "",
+    "ORRN_LOCAL_PASSWORD": "orrn-local-dev-only"
+  },
+  "dev": { "port": 3000 }
+}

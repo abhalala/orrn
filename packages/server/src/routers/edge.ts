@@ -15,7 +15,7 @@ import { wrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { createCnameRecord, createTunnel, deleteDnsRecord, deleteTunnel, findDnsRecord } from "../lib/cloudflare";
-import { companyProcedure, roleGuard, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 
 const EDGE_DOMAIN_SUFFIX = ".spool.orrn.in";
 
@@ -41,7 +41,7 @@ type EdgeNodeSummary = {
   updatedAt: Date;
 };
 
-const edgeManageProcedure = roleGuard("owner", "admin", "manager");
+const edgeManageProcedure = actionProcedure("edge.manage");
 const edgeRevokeSchema = z.object({ id: z.string().uuid() });
 
 export const edgeRouter = router({
@@ -65,6 +65,12 @@ export const edgeRouter = router({
         lastSyncAt: edgeNodeDeployment.lastSyncAt,
         lastErrorCode: edgeNodeDeployment.lastErrorCode,
         lastErrorMessage: edgeNodeDeployment.lastErrorMessage,
+        scaleConfigured: edgeNodeDeployment.scaleConfigured,
+        scaleSimulated: edgeNodeDeployment.scaleSimulated,
+        scaleLastFrameAt: edgeNodeDeployment.scaleLastFrameAt,
+        scaleReportedAt: edgeNodeDeployment.scaleReportedAt,
+        collectors: edgeNodeDeployment.collectors,
+        collectorsReportedAt: edgeNodeDeployment.collectorsReportedAt,
         createdAt: edgeNodeDeployment.createdAt,
         updatedAt: edgeNodeDeployment.updatedAt,
       })

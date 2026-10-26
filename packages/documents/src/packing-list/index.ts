@@ -1,3 +1,3 @@
-export type { PLSnapshot } from "./snapshot";
+export * from "./model";
 export { buildPackingListHtml } from "./html";
-export { buildPackingListXlsxBuffer, buildPackingListXlsxBase64 } from "./xlsx";
+export { XLSX_COLUMNS, buildPackingListXlsxBuffer, buildPackingListXlsxBase64 } from "./xlsx";

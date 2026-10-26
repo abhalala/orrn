@@ -6,10 +6,10 @@ import { atomicBatch } from "../lib/atomic";
 import { publicProcedure, router } from "../index";
 
 const submitWaitlistSchema = z.object({
-  companyName: z.string().min(1, "Company name is required"),
-  requesterName: z.string().min(1, "Your name is required"),
-  requesterEmail: z.string().email("Invalid email address"),
-  notes: z.string().optional(),
+  companyName: z.string().min(1, "Company name is required").max(500),
+  requesterName: z.string().min(1, "Your name is required").max(500),
+  requesterEmail: z.string().max(320).email("Invalid email address"),
+  notes: z.string().max(500).optional(),
 });
 
 function slugFromCompanyName(companyName: string): string {

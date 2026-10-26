@@ -1,6 +1,6 @@
-export type LengthUnit = "mm" | "inch";
+import { MM_PER_INCH, type LengthUnit } from "@orrn/domain";
 
-const MM_PER_INCH = 25.4;
+export type { LengthUnit };
 
 export function formatLength(mm: number, unit: LengthUnit): string {
   if (unit === "inch") {

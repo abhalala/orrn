@@ -1,0 +1,56 @@
+# Pack one bundle in the three steps (Source, Bundles, Review) and open the saved session.
+# NOT RUN ON A DEVICE: written against the screens, never executed (NATIVE-B). Needs the seed data (a die whose code starts with ${DIE_QUERY}):
+#   maestro test -e MAESTRO_EMAIL=owner@orrn.local -e MAESTRO_PASSWORD=orrn-local-dev-only -e DIE_QUERY=147 .maestro/flows/pack.yaml
+# The seed plant has one yard, so the yard is preselected; the cast and die copy pickers only show when the plant asks for them.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- tapOn: "Pack"
+- tapOn: "New packing session"
+# Step 1, Source: the die, what the bundles are for (Plant stock is the default), the cut length.
+- tapOn: "Search die code or section"
+- inputText: ${DIE_QUERY}
+- hideKeyboard
+- tapOn:
+    text: "Choose this die"
+    index: 0
+- assertVisible: "Plant stock"
+- tapOn: "Cut length (mm)"
+- inputText: "3658"
+- hideKeyboard
+- takeScreenshot: pack-source
+- tapOn: "Next"
+# Step 2, Bundles: kg per 12 ft and the band word come from the server.
+- tapOn: "Weight (kg)"
+- inputText: "45.5"
+- tapOn: "Pieces"
+- inputText: "12"
+- hideKeyboard
+- takeScreenshot: pack-bundle
+- tapOn: "Save bundle"
+- assertVisible: "Bundle 1"
+- tapOn: "Review"
+# Step 3, Review: save once; the party number (when the customer has one) shows on the saved card.
+- takeScreenshot: pack-review
+- tapOn: "Save session"
+- extendedWaitUntil:
+    visible: "Session saved"
+    timeout: 60000
+- assertVisible: "Pack another session"
+- takeScreenshot: pack-saved

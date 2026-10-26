@@ -144,6 +144,81 @@ export const tones: Record<ToneName, Tone> = {
 export const dangerText = { light: "#b91c1c", dark: "#f87171" } as const;
 
 /* -------------------------------------------------------------------------- */
+/* Chart palette (analytics addendum A3, dataviz skill)                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Categorical chart palette: series identity. Eight slots in a FIXED order,
+ * assigned in sequence and never cycled; a ninth series folds into "Other".
+ * Light and dark are the same eight hues, stepped for each surface (dark is
+ * selected, not flipped).
+ *
+ * Deliberately away from the status tones (green/blue/amber/red/violet stay
+ * reserved for status): slots 1-3 sit >= 15 OKLab Delta E from every status
+ * gradient stop, the rest >= 11. Validated with the dataviz skill's
+ * `validate_palette.js` (vendored in `packages/ui/scripts/`) in both modes;
+ * `charts/palette.test.ts` re-runs it, so a value can't drift unnoticed.
+ *
+ * Slot hues: 1 teal, 2 berry, 3 olive, 4 rose, 5 steel, 6 rust, 7 mint, 8 orchid.
+ * The first three also pass all-pairs (scatter, small multiples cap at 3).
+ * Light slots 3, 7 and 8 sit under 3:1 on the canvas, and slot 7 on white:
+ * the table view and the legend are the relief channel, always present.
+ */
+export const chartCategorical = {
+  light: ["#1f9aae", "#b12c90", "#9f9500", "#b7676e", "#2d76a5", "#ab6127", "#4da87f", "#c175ce"],
+  dark: ["#1fa1b6", "#b43493", "#9e9623", "#af6067", "#1f7eb6", "#b45e0d", "#4ba67d", "#b771c4"],
+} as const;
+
+/**
+ * Sequential ramp (magnitude): one hue (the slot 1 teal), light to dark.
+ * Heatmaps use all seven steps; the lightest may recede into the surface.
+ */
+export const chartSequential = {
+  100: "#d2f2f9",
+  200: "#9fddea",
+  300: "#63c4d7",
+  400: "#28aac0",
+  500: "#058da0",
+  600: "#057080",
+  700: "#005c69",
+} as const;
+
+/**
+ * Ordinal ramp (ordered buckets such as stock age or die tiers): five steps
+ * of the sequential hue, low to high. The near-surface end still clears 2:1,
+ * so light starts at step 300; dark flips the anchor (low = near the dark
+ * surface) and stops at step 700. Step 700 is set so it clears 2:1 on every
+ * dark surface a chart can sit on (canvas, card, sunken, the raised #1c1c20
+ * card of Godseye and popovers), checked in `charts/palette.test.ts`.
+ */
+export const chartOrdinal = {
+  light: [
+    chartSequential[300],
+    chartSequential[400],
+    chartSequential[500],
+    chartSequential[600],
+    chartSequential[700],
+  ],
+  dark: [
+    chartSequential[700],
+    chartSequential[600],
+    chartSequential[500],
+    chartSequential[400],
+    chartSequential[300],
+  ],
+} as const;
+
+/**
+ * Chart furniture per theme: gridlines (recessive hairline), the axis
+ * baseline (one step stronger), and the de-emphasis grey for "Other" and
+ * context marks (>= 3:1, it is still a mark).
+ */
+export const chartChrome = {
+  light: { grid: "#ecece7", axis: "#c4c4bd", other: "#85858b" },
+  dark: { grid: "#25252a", axis: "#46464d", other: "#7c7c84" },
+} as const;
+
+/* -------------------------------------------------------------------------- */
 /* Legacy-shaped exports (kept so existing imports don't break)               */
 /* -------------------------------------------------------------------------- */
 

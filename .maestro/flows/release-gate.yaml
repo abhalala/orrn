@@ -1,0 +1,34 @@
+# Platform: the release gate and More. Signed in, More shows the language switch (English, Hindi, Gujarati),
+# the version with its build number, and "Open on the web" for team, shifts and standards.
+#   maestro test -e APP_ID=in.orrn.app -e MAESTRO_EMAIL=... -e MAESTRO_PASSWORD=... .maestro/flows/release-gate.yaml
+# The Blocked screen needs a published release whose minimum build is above this build (Godseye, App builds);
+# turn the network off after one good launch to see the 24 hour offline grace.
+# UNTESTED on a device or simulator (written with the screens; run it before relying on it).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- assertVisible: "Forgot password?"
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+# Open build: the tabs appear. Blocked build: this wait times out on "orrn can't open on this phone".
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+- tapOn: "Account and more"
+- assertVisible: "Open on the web"
+- assertVisible: "Team"
+- assertVisible: "Shifts"
+- assertVisible: "Standards"
+- assertVisible: "ગુજરાતી"
+- takeScreenshot: more-platform

@@ -9,18 +9,22 @@ import {
   bundleStatusTones,
   dispatchStatusTones,
   roleTones,
+  tones,
   type StatusTone,
+  type ToneName,
 } from "../tokens";
 
 export type BadgeTone = "neutral" | "info" | "success" | "warning" | "danger" | "brand";
 
+const chipFor = (name: ToneName) => ({ bg: tones[name].light.tint, fg: tones[name].light.ink });
+
 const TONE_FALLBACKS: Record<BadgeTone, { bg: string; fg: string }> = {
-  neutral: { bg: "#e2e8f0", fg: "#1f2937" },
-  info: { bg: "#dbeafe", fg: "#1e3a8a" },
-  success: { bg: "#d1fae5", fg: "#064e3b" },
-  warning: { bg: "#fef3c7", fg: "#78350f" },
-  danger: { bg: "#fee2e2", fg: "#7f1d1d" },
-  brand: { bg: "#eef0ff", fg: "#3b4edd" },
+  neutral: chipFor("neutral"),
+  info: chipFor("blue"),
+  success: chipFor("green"),
+  warning: chipFor("amber"),
+  danger: chipFor("red"),
+  brand: chipFor("green"),
 };
 
 export type BadgeProps = ViewProps & {

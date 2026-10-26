@@ -71,6 +71,237 @@
       "when": 1780526263585,
       "tag": "0009_lonely_violations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791046793963,
+      "tag": "0010_plant_roles_approvals",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1791048305841,
+      "tag": "0011_rainy_marvex",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791048755667,
+      "tag": "0012_whole_mikhail_rasputin",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1791049502160,
+      "tag": "0013_locations_stock_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791051525914,
+      "tag": "0014_die_room",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1791052929596,
+      "tag": "0015_purchase",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1791056784711,
+      "tag": "0016_analytics_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1791057709830,
+      "tag": "0017_store",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791058651009,
+      "tag": "0018_store_cancel",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791064532455,
+      "tag": "0019_store_draw_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1791071722994,
+      "tag": "0020_foundry",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1792848740999,
+      "tag": "0021_sales_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1792849079078,
+      "tag": "0022_stock_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1792855111515,
+      "tag": "0023_fp_wave1",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1792858521757,
+      "tag": "0024_edge_scale_presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1792858600000,
+      "tag": "0025_platform_wave1",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1792870838656,
+      "tag": "0026_modules_all",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1792873325479,
+      "tag": "0027_order_hold",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1792877266469,
+      "tag": "0028_fp_wave2",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1792882666833,
+      "tag": "0029_die_trial",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1792886885807,
+      "tag": "0030_press_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1792896821756,
+      "tag": "0031_dispatch_sales_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1792906452746,
+      "tag": "0032_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1792914616777,
+      "tag": "0033_collectors",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1792914617777,
+      "tag": "0034_w4_masters",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1792914618777,
+      "tag": "0035_next_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1792934839644,
+      "tag": "0036_foundry",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1792934840644,
+      "tag": "0037_die_share",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1792934841644,
+      "tag": "0038_label_stale",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1792934842644,
+      "tag": "0039_ageing",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1792934843644,
+      "tag": "0040_ageing_2",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1792934844644,
+      "tag": "0041_ageing_3",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "6",
+      "when": 1792962376695,
+      "tag": "0042_cast_legacy_code",
+      "breakpoints": true
     }
   ]
 }

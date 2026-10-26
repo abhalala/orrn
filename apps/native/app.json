@@ -1,17 +1,80 @@
 {
   "expo": {
+    "name": "orrn",
+    "slug": "orrn",
     "scheme": "orrn",
-    "userInterfaceStyle": "automatic",
+    "version": "1.0.0",
     "orientation": "default",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon.png",
+    "ios": {
+      "bundleIdentifier": "in.orrn.app",
+      "supportsTablet": true,
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#f4f4f1",
+        "dark": {
+          "image": "./assets/images/splash-icon.png",
+          "backgroundColor": "#0c0c0e"
+        }
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "in.orrn.app",
+      "splash": {
+        "image": "./assets/images/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#f4f4f1",
+        "dark": {
+          "image": "./assets/images/splash-icon.png",
+          "backgroundColor": "#0c0c0e"
+        }
+      },
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#0c0c0e"
+      },
+      "versionCode": 1
+    },
+    "locales": {
+      "en": "./locales/en.json",
+      "hi": "./locales/hi.json",
+      "gu": "./locales/gu.json"
+    },
     "web": {
       "bundler": "metro"
     },
-    "name": "orrn",
-    "slug": "orrn",
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "./plugins/with-ios-scene-lifecycle",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": ["en", "hi", "gu"]
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "orrn uses the camera to scan bundle labels.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "releaseChannel": "production"
     }
   }
 }

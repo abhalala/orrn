@@ -2,45 +2,19 @@ import { expo } from "@better-auth/expo";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
 import { env } from "@orrn/env/server";
-import { trustedWebOrigins } from "./origins";
+import { trustedOriginsFor } from "./origins";
+import { createAuthMiddleware } from "better-auth/api";
+import { magicLinkGuardBody } from "./magic-link-guard";
+import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
+import { sendTransactionalEmail, type EmailOptions, type EmailEnvironment } from "./email-delivery";
 
-async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
-  if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
-    console.log("----------------------------------------");
-    console.log(`Mock Auth Email sent to: ${options.to}`);
-    console.log(`Subject: ${options.subject}`);
-    console.log(`Body:\n${options.html}`);
-    console.log("----------------------------------------");
-    return { success: true, messageId: "mock-message-id" };
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: "ORRN <no-reply@orrn.in>",
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to send auth email via Resend:", errorText);
-    throw new Error("Failed to send email");
-  }
-
-  const data = await res.json();
-  return { success: true, messageId: (data as any).id as string };
+export function sendAuthEmail(options: EmailOptions, environment: EmailEnvironment = env) {
+  return sendTransactionalEmail(environment, options, "Auth email");
 }
 
 function renderOrrnEmailHtml(options: {
@@ -103,23 +77,20 @@ function renderOrrnEmailHtml(options: {
   `;
 }
 
+// Reuse configuration only for the same binding environment. Never replace a cached instance's
+// environment while another request's email callback is awaiting a provider.
+let authInstances = new WeakMap<Env, ReturnType<typeof buildAuth>>();
+
 /**
- * Magic links requested with `metadata.captureKey` are not emailed here: the
- * caller takes the link with `takeCapturedMagicLink` and delivers it itself
- * (Godseye approvals email it and also show it, so it can be shared by hand).
+ * How the magic-link plugin stores its token in `verification.identifier`. Production keeps the
+ * default `"plain"`: Godseye writes owner links straight into `verification` with the plain token
+ * (routers/platform/waitlist.ts). The guard looks a token up both ways, so switching to `"hashed"`
+ * cannot open a bypass (tested). Never use a custom hasher: the guard could not find its rows.
  */
-const capturedMagicLinks = new Map<string, { url: string; token: string }>();
+type MagicLinkStoreToken = "plain" | "hashed";
 
-export function takeCapturedMagicLink(captureKey: string) {
-  const link = capturedMagicLinks.get(captureKey);
-  capturedMagicLinks.delete(captureKey);
-  return link;
-}
-
-let authSingleton: ReturnType<typeof buildAuth> | undefined;
-
-function buildAuth() {
-  const db = createDb();
+function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, environment: Env = env) {
+  const db = createDb(environment.DB);
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -127,21 +98,54 @@ function buildAuth() {
 
       schema: schema,
     }),
-    trustedOrigins: [
-      ...trustedWebOrigins({
-        corsOrigin: env.CORS_ORIGIN,
-        corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+    // Tested in packages/server/test/authTrustedOrigins.test.ts (production never trusts localhost).
+    trustedOrigins: trustedOriginsFor(environment),
+    // FP-PF-08: a magic link never signs in an account that has a password or a second factor,
+    // and the public `/sign-in/magic-link` request is refused outright (D14; no client asks for a
+    // link, Godseye issues owner links server-side). Tested in
+    // packages/server/test/platform-w1-auth.test.ts.
+    // BACKLOG 23: `/request-password-reset` is limited per address and per IP (reset-throttle.ts).
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === RESET_REQUEST_PATH) {
+          await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
+        }
+        return magicLinkGuardBody(db, ctx);
       }),
-      "orrn://",
-      ...(env.NODE_ENV === "development"
-        ? ["exp://", "exp://**", "exp://192.168.*.*:*/**", "http://localhost:8081"]
-        : []),
-    ],
+    },
     emailAndPassword: {
       enabled: true,
       password: {
         hash: hashPassword,
         verify: verifyPassword,
+      },
+      // Forgot password (backlog 9). `/request-password-reset` answers the same neutral message
+      // whether or not the address has an account, and this runs only for one that does. The
+      // email carries a live reset link (a credential): the sender logs its body only when an
+      // unconfigured development stack cannot send. The authenticator code is untouched: a reset
+      // sets the password, the next sign-in still asks for the code.
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url }) => {
+        // The answer must be the same whether or not the address has an account, so a failed send
+        // (Resend down, bad key) is swallowed here: it must never turn into a 500 that only a real
+        // account gets. The log names the recipient domain only, never the link or the address.
+        try {
+          await sendAuthEmail({
+            to: user.email,
+            subject: "Reset your ORRN password",
+            text: `Choose a new ORRN password: ${url}\n\nIf you did not ask for this, ignore this email. This link works for one hour.`,
+            html: renderOrrnEmailHtml({
+              title: "Reset your password",
+              description: "Someone asked to reset the password for your ORRN account. Click the button below to choose a new password.",
+              buttonText: "Choose a new password",
+              buttonUrl: url,
+              footerText: "If you did not ask for this, you can ignore this email; your password stays as it is. This link works for one hour.",
+            }),
+          }, environment);
+        } catch {
+          console.error(`reset email not sent (recipient domain ${user.email.split("@")[1] ?? "unknown"})`);
+        }
       },
     },
     // uncomment cookieCache setting when ready to deploy to Cloudflare using *.workers.dev domains
@@ -151,8 +155,8 @@ function buildAuth() {
     //     maxAge: 60,
     //   },
     // },
-    secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
+    secret: environment.BETTER_AUTH_SECRET,
+    baseURL: environment.BETTER_AUTH_URL,
     advanced: {
       defaultCookieAttributes: {
         sameSite: "none",
@@ -160,22 +164,25 @@ function buildAuth() {
         httpOnly: true,
       },
       crossSubDomainCookies: {
-        enabled: !!env.COOKIE_DOMAIN,
-        domain: env.COOKIE_DOMAIN || undefined,
+        enabled: !!environment.COOKIE_DOMAIN,
+        domain: environment.COOKIE_DOMAIN || undefined,
       },
     },
     plugins: [
       expo(),
       twoFactor(),
       magicLink({
-        sendMagicLink: async ({ email, url, token, metadata }) => {
-          if (typeof metadata?.captureKey === "string") {
-            capturedMagicLinks.set(metadata.captureKey, { url, token });
-            return;
-          }
+        // Every link requested here (the public endpoint) goes to the address by email and
+        // nowhere else. Godseye's owner links are written server-side (platform/waitlist.ts).
+        // D14: a link never creates an account. Accounts come only from an approved access request
+        // (Godseye) or an invite; verify for an unknown email gives no session and no user row.
+        disableSignUp: true,
+        storeToken: opts.magicLinkStoreToken ?? "plain",
+        sendMagicLink: async ({ email, url }) => {
           await sendAuthEmail({
             to: email,
             subject: "Your ORRN Magic Sign-In Link",
+            text: `Sign in to ORRN: ${url}\n\nIf you did not request this link, ignore this email. This link works for 15 minutes.`,
             html: renderOrrnEmailHtml({
               title: "Authorized Access Request",
               description: "You (or someone requesting access as you) requested a link to log in to your ORRN plant workspace. Click the button below to complete the authorization.",
@@ -183,17 +190,29 @@ function buildAuth() {
               buttonUrl: url,
               footerText: "If you did not request this link, you can safely ignore this email. This login link is only valid for 15 minutes."
             }),
-          });
+          }, environment);
         },
       }),
     ],
   });
 }
 
-export function createAuth() {
-  if (!authSingleton) {
-    authSingleton = buildAuth();
+/** Each cached instance and its callbacks belong to exactly one environment. */
+export function createAuth(environment: Env = env) {
+  let auth = authInstances.get(environment);
+  if (!auth) {
+    auth = buildAuth({}, environment);
+    authInstances.set(environment, auth);
   }
-  return authSingleton;
+  return auth;
 }
 
+/** Test hook for alternate magic-link token storage. */
+export function buildAuthForTests(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
+  return buildAuth(opts);
+}
+
+/** Tests mutate the mocked environment between D1 harnesses. */
+export function resetAuthForTests(): void {
+  authInstances = new WeakMap();
+}

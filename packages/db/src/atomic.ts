@@ -1,5 +1,6 @@
 import type { BatchItem } from "drizzle-orm/batch";
 
+import { chunk, rowsPerStatement } from "./chunk";
 import type { createDb } from "./index";
 
 export type OrrnDb = ReturnType<typeof createDb>;
@@ -25,14 +26,43 @@ export async function atomicBatch(
   await db.batch(statements as NonEmptyBatch);
 }
 
-/** Append chunked insert builders (e.g. large bundle receipt rows). */
-export function pushChunkedInserts<T>(
+/**
+ * Like {@link atomicBatch}, and returns the rows of the LAST statement, which must be a SELECT.
+ * It runs inside the batch, after every other statement, so it reports what this batch itself
+ * wrote and cannot be skewed by a request that lands after the batch (D1 runs a batch serially).
+ */
+export async function atomicBatchLast<Row>(
+  db: OrrnDb,
+  statements: readonly SqliteBatchItem[],
+): Promise<Row[]> {
+  if (statements.length === 0) {
+    return [];
+  }
+  const results = (await db.batch(statements as NonEmptyBatch)) as unknown as unknown[];
+  return (results[results.length - 1] ?? []) as Row[];
+}
+
+/**
+ * Append insert builders for `rows`, split so every statement stays under the
+ * D1 bound-parameter limit. The rows-per-statement count is derived from the
+ * widest row's column count, so callers never hard-code a chunk size.
+ *
+ * Every row must set the same columns (include `null` explicitly rather than
+ * omitting a key), otherwise the derived size can be wrong.
+ */
+export function pushChunkedInserts<T extends object>(
   out: SqliteBatchItem[],
-  build: (chunk: T[]) => SqliteBatchItem,
-  values: T[],
-  chunkSize: number,
+  build: (rows: T[]) => SqliteBatchItem,
+  rows: readonly T[],
 ): void {
-  for (let i = 0; i < values.length; i += chunkSize) {
-    out.push(build(values.slice(i, i + chunkSize)));
+  if (rows.length === 0) {
+    return;
+  }
+  let columns = 1;
+  for (const row of rows) {
+    columns = Math.max(columns, Object.keys(row).length);
+  }
+  for (const part of chunk(rows, rowsPerStatement(columns))) {
+    out.push(build(part));
   }
 }

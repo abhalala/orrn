@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
 export { atomicBatch, pushChunkedInserts, type OrrnDb } from "./atomic";
+export { chunk, D1_MAX_PARAMS, IN_LIST_CHUNK, mapInChunks, rowsPerStatement } from "./chunk";
 
 /**
  * Cloudflare D1 binding used by the API worker.
@@ -11,8 +12,8 @@ export { atomicBatch, pushChunkedInserts, type OrrnDb } from "./atomic";
  * Do not use `db.transaction()` — Drizzle issues SQL `BEGIN`, which D1 rejects.
  * Use `atomicBatch()` from `@orrn/db/atomic` (re-exported by `@orrn/server/lib/atomic`).
  */
-export function createDb() {
-  const db = drizzle(env.DB, { schema });
+export function createDb(binding: D1Database = env.DB) {
+  const db = drizzle(binding, { schema });
 
   db.transaction = () => {
     throw new Error(

@@ -12,7 +12,7 @@ import {
 export type BadgeTone = "neutral" | "info" | "success" | "warning" | "danger" | "brand";
 
 /** C2 chip classes: theme-aware tint + ink pairs (>= 4.5:1, see tokens.test.ts). */
-const PALETTE_CLASSES: Record<ToneName, string> = {
+export const PALETTE_CLASSES: Record<ToneName, string> = {
   neutral: "bg-tone-neutral-tint text-tone-neutral-ink",
   blue: "bg-tone-blue-tint text-tone-blue-ink",
   green: "bg-tone-green-tint text-tone-green-ink",

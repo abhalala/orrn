@@ -1,11 +1,12 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import alchemy, { Resource } from "alchemy";
-import { D1Database, Vite, Worker } from "alchemy/cloudflare";
+import alchemy, { Resource, Scope } from "alchemy";
+import { createCloudflareApi, D1Database, handleApiError, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
-import type { Scope } from "alchemy";
 import { config } from "dotenv";
+
+import { optionalR2Bucket } from "./optionalR2";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
 
@@ -134,6 +135,52 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+/**
+ * R2 is optional until the account has an R2 subscription (LEDGER D10/D36, infra/optionalR2.ts). Without
+ * it (403 / 10042) or with ORRN_SKIP_R2=1 a bucket is skipped with a loud warning and its binding is left
+ * off the Worker; die files and backups answer "not set up" and the cron skips them. Once R2 is enabled,
+ * re-deploy: the buckets are created or adopted (`adopt: true`) and attach.
+ */
+let r2ProbeOnce: Promise<void> | undefined;
+const r2Probe = () =>
+  (r2ProbeOnce ??= (async () => {
+    // `alchemy dev` makes Miniflare buckets and never calls Cloudflare.
+    if (Scope.current.local) return;
+    const api = await createCloudflareApi();
+    const response = await api.get(`/accounts/${api.accountId}/r2/buckets?per_page=1`);
+    if (!response.ok) await handleApiError(response, "list", "R2 buckets");
+  })());
+/** Drop a skipped bucket's alchemy state entry so finalize never treats it as an orphan to delete. */
+const forgetR2State = (id: string) => async () => {
+  const scope = Scope.current;
+  if (await scope.state.get(id)) await scope.state.delete(id);
+};
+
+/** Die drawings, photos and trial sheets (FP-DR-09, LEDGER D10): uploaded by signed PUT, read by signed GET. */
+const dieFiles = await optionalR2Bucket("die-files", {
+  feature: "die files",
+  probe: r2Probe,
+  forget: forgetR2State("die-files"),
+  create: () => R2Bucket("die-files", { adopt: true }),
+});
+
+/**
+ * FP-PF-12: daily per-company exports and restore drills (lib/backup.ts). Private: no public
+ * access, no custom domain; the plant never downloads it. Runbook: docs/RESTORE_DRILL.md.
+ *
+ * Delete protection: `delete: false` keeps the bucket and its objects if this resource is renamed,
+ * removed from this file or the stage is destroyed (alchemy only drops it from state). Never set
+ * `empty: true` here. Removing an old bucket is a manual step in the Cloudflare dashboard after
+ * the backups in it have been copied. The bucket and the `30 21 * * *` cron are config only until
+ * the next deploy from `main` (deploy-dev).
+ */
+const backups = await optionalR2Bucket("backups", {
+  feature: "backups",
+  probe: r2Probe,
+  forget: forgetR2State("backups"),
+  create: () => R2Bucket("backups", { adopt: true, delete: false }),
+});
+
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -168,7 +215,8 @@ export const web = await Vite("web", {
   bindings: webBindings,
   domains: [webDomain, ...webAliasDomains],
   script: spaFallbackScript,
-  dev: { domain: "localhost:3001" },
+  // Alchemy runs a bare `vite dev`, which binds web port 3002 (strict) or $E2E_WEB_PORT (docs/LOCAL_DEV.md).
+  dev: { domain: "localhost:3002" },
 });
 
 export const server = await Worker("server", {
@@ -176,8 +224,16 @@ export const server = await Worker("server", {
   entrypoint: "src/index.ts",
   compatibility: "node",
   adopt: true,
+  // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
+  crons: ["30 21 * * *"],
+  // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
+  // Keep Resend configured until tooling and the account's Email Sending setup are ready.
+  // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.
   bindings: {
     DB: db,
+    // Absent bucket = no key at all (never an `undefined` binding).
+    ...(dieFiles ? { DIE_FILES: dieFiles } : {}),
+    ...(backups ? { BACKUPS: backups } : {}),
     NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,

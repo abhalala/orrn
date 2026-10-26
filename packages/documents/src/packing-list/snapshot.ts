@@ -1,5 +1,21 @@
-/** Immutable packing list snapshot shape stored in D1 and used for client exports. */
+import type { PlGroup, PlRow, PlSnapshotV2 } from "@orrn/server/lib/packingListSnapshot";
+
+export type { PlGroup, PlRow, PlSnapshotV2 };
+
+/**
+ * Immutable packing list snapshot stored in D1 and used for client exports.
+ *
+ * @deprecated as a v1 parse target: parse stored snapshots with
+ * `parsePackingListSnapshot` (types.ts) and build rows with `packingListModel`
+ * (rows.ts); never show `totals.totalLengthM` (S12/W7).
+ *
+ * v1 keys (`dispatch`, `company`, `items`, `totals`, `generatedAt`) are on every snapshot. A v2
+ * snapshot (PL-8, `version: 2`) adds the real PL: `header` (letterhead, bill-to / ship-to, PL
+ * number, date, vehicle, driver, PO and invoice numbers), the 11 `columns`, rows `groups`ed by order
+ * line or section, and `summary` ("N bundles · X kg"). Check with `isPlSnapshotV2`.
+ */
 export type PLSnapshot = {
+  version?: 1 | 2;
   dispatch: {
     code: string;
     customer: {
@@ -30,4 +46,183 @@ export type PLSnapshot = {
     totalLengthM: number;
   };
   generatedAt: string;
+  header?: PlSnapshotV2["header"];
+  columns?: PlSnapshotV2["columns"];
+  groups?: PlSnapshotV2["groups"];
+  summary?: PlSnapshotV2["summary"];
 };
+
+type MaybeV2 = {
+  version?: number | null;
+  header?: PlSnapshotV2["header"] | null;
+  groups?: PlSnapshotV2["groups"] | null;
+  summary?: PlSnapshotV2["summary"] | null;
+};
+
+/** True when a snapshot (raw `PLSnapshot` or parsed `PackingListSnapshot`) carries the PL-8 v2 blocks. */
+export function isPlSnapshotV2<T extends MaybeV2>(
+  pl: T,
+): pl is T & { version: 2; header: PlSnapshotV2["header"]; groups: PlSnapshotV2["groups"]; summary: PlSnapshotV2["summary"] } {
+  return pl.version === 2 && Boolean(pl.header && pl.groups && pl.summary);
+}
+
+/** A safe file name for a PL number: "PL/2026-27/14" → "PL-2026-27-14" (slashes would make folders). */
+export function plFileName(code: string): string {
+  return code.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "packing-list";
+}
+
+/** Printed column headings, in order (the PL is a customer document, printed in English). */
+export const PL_COLUMN_HEADINGS = [
+  "Sr",
+  "Bundle no",
+  "Section",
+  "Item",
+  "Weight kg",
+  "Cut ft",
+  "Cut in",
+  "Pcs",
+  "kg/12ft",
+  "Range /12'",
+  "PO",
+] as const;
+
+const kg2 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * "25.50": kg with Indian grouping, to the 10 g, the same as every dispatch screen prints (`dispatchKgText`),
+ * so a total reads the same on the screen, the PDF and the HTML (review round 1, m1). The Excel keeps the exact
+ * gram as a number (a sum stays a sum) and only displays it to the 10 g.
+ */
+export function formatPlKg(weightG: number): string {
+  return kg2.format(weightG / 1000);
+}
+
+/** One printed row as the 11 cell texts. */
+export function plRowCells(r: PlRow): string[] {
+  return [
+    String(r.sr),
+    r.bundleNo,
+    r.section,
+    r.item,
+    formatPlKg(r.weightG),
+    String(r.cutFt),
+    String(r.cutIn),
+    String(r.pcs),
+    r.kgPer12ftMilli == null ? "—" : (r.kgPer12ftMilli / 1000).toFixed(3),
+    r.range12ft == null ? "—" : r.range12ft.toFixed(1),
+    r.po ?? "",
+  ];
+}
+
+/**
+ * "SO-12 / 1 · 12170 · Domal (Anodise) · PO 778" or "12170 · Domal" for bundles without a line. SO
+ * numbers repeat every FY: pass the PL's groups and a number that two periods share prints its
+ * period too ("SO-3 (2026-27) / 1").
+ */
+export function plGroupTitle(g: PlGroup, all: readonly PlGroup[] = []): string {
+  const shared =
+    g.orderNumber != null &&
+    all.some((o) => o.orderNumber === g.orderNumber && (o.orderPeriod ?? null) !== (g.orderPeriod ?? null));
+  const order = g.orderNumber ? `${g.orderNumber}${shared && g.orderPeriod ? ` (${g.orderPeriod})` : ""} / ${g.lineNo}` : null;
+  const parts = [order, g.sectionCode, g.item, g.poNumber ? `PO ${g.poNumber}` : null];
+  return parts.filter(Boolean).join(" · ");
+}
+
+/** "1 bundle", "157 bundles" (ruling PL8-R19). */
+export function bundlesText(n: number): string {
+  return `${n} ${n === 1 ? "bundle" : "bundles"}`;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+/** IST is UTC+05:30 all year (no DST): the plant's clock for snapshots made before `header.shipDate`. */
+const IST_OFFSET_MS = 330 * 60_000;
+
+/**
+ * The dispatch's ship date as printed ("05 Oct 2026"), or null when none was set. `shipYmd` is the
+ * snapshot's `header.shipDate` (the company's calendar day, review round 3 m-5); without it the
+ * instant is read on the plant's clock (IST). Formatted by hand, so neither the reader's timezone nor
+ * the runtime's Intl support (Hermes on native) can move the day.
+ */
+export function plShipDateText(shipDate: string | null | undefined, shipYmd?: string | null): string | null {
+  let ymd = shipYmd && /^\d{4}-\d{2}-\d{2}$/.test(shipYmd) ? shipYmd : null;
+  if (!ymd) {
+    if (!shipDate) return null;
+    const at = new Date(shipDate).getTime();
+    if (Number.isNaN(at)) return null;
+    ymd = new Date(at + IST_OFFSET_MS).toISOString().slice(0, 10);
+  }
+  const [y, m, d] = ymd.split("-");
+  return `${d} ${MONTHS[Number(m) - 1]} ${y}`;
+}
+
+/** FP-PK-13 extras a v2 snapshot may carry (absent on lists stored before them). */
+type V2Extras = {
+  header: PlSnapshotV2["header"];
+  groups: PlSnapshotV2["groups"];
+  print?: PlSnapshotV2["print"];
+  issue?: PlSnapshotV2["issue"];
+  rowInfo?: PlSnapshotV2["rowInfo"];
+  sections?: PlSnapshotV2["sections"];
+  profileSummary?: PlSnapshotV2["profileSummary"];
+};
+
+/** The party number and packed-for order line of a printed row ("" when the list predates them). */
+export function plRowExtras(pl: V2Extras, r: PlRow): { partyNo: string; originalSo: string } {
+  const info = pl.rowInfo?.[r.bundleNo];
+  return { partyNo: info?.partyNo ?? r.bundleNo, originalSo: info?.originalSo ?? "" };
+}
+
+/**
+ * FP-PK-13: grams per piece, rounded half up (= kg per piece to 3 decimals), or null without
+ * pieces. The one rule for every kg/pc figure (screen, PDF, HTML, Excel; review m-6).
+ */
+export function kgPerPieceG(weightG: number, pcs: number): number | null {
+  return pcs > 0 ? Math.floor((weightG * 2 + pcs) / (pcs * 2)) : null;
+}
+
+/** FP-PK-13: kg per piece of a printed row, "2.500", or "" without pieces. Optional column, off by default. */
+export function plKgPerPiece(r: Pick<PlRow, "weightG" | "pcs">): string {
+  const g = kgPerPieceG(r.weightG, r.pcs);
+  return g == null ? "" : (g / 1000).toFixed(3);
+}
+
+/**
+ * The optional columns after the 11 printed ones: "Party no" when any row's party number differs
+ * from its bundle number, "Original SO" when the list shows it and any row has one.
+ */
+export function plExtraColumns(pl: V2Extras): { partyNo: boolean; originalSo: boolean } {
+  const rows = pl.groups.flatMap((g) => g.rows);
+  return {
+    partyNo: rows.some((r) => plRowExtras(pl, r).partyNo !== r.bundleNo),
+    originalSo: (pl.print?.showOriginalSo ?? true) && rows.some((r) => Boolean(plRowExtras(pl, r).originalSo)),
+  };
+}
+
+const KIND_LABEL = { hollow: "Hollow", solid: "Solid", semi: "Semi-hollow" } as const;
+
+/** "Hollow 3 bundles · 75.000 kg" per profile kind with weight (zero kinds are not stored). */
+export function plProfileLines(pl: V2Extras): string[] {
+  return (pl.profileSummary ?? []).map((k) => `${KIND_LABEL[k.kind]} ${bundlesText(k.bundles)} · ${formatPlKg(k.weightG)} kg`);
+}
+
+/** Sections that span more than one group get their own subtotal line, keyed by the last group. */
+export function plSectionSubtotalAfter(pl: V2Extras): Map<number, NonNullable<PlSnapshotV2["sections"]>[number]> {
+  const out = new Map<number, NonNullable<PlSnapshotV2["sections"]>[number]>();
+  for (const sec of pl.sections ?? []) {
+    const idx = pl.groups.map((g, i) => (g.sectionCode === sec.sectionCode ? i : -1)).filter((i) => i >= 0);
+    if (idx.length > 1) out.set(idx[idx.length - 1]!, sec);
+  }
+  return out;
+}
+
+/** "Rev 2" for a regenerated list, "" for the first issue. */
+export function plRevisionText(pl: V2Extras): string {
+  const rev = pl.issue?.revision ?? 1;
+  return rev > 1 ? `Rev ${rev}` : "";
+}
+
+/** Every dispatch the list covers, joined ("DSP-000006, DSP-000007"). */
+export function plDispatchCodesText(pl: V2Extras): string {
+  const codes = pl.issue?.dispatchCodes;
+  return codes && codes.length > 0 ? codes.join(", ") : pl.header.dispatchCode;
+}

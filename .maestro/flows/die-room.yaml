@@ -1,0 +1,47 @@
+# Die room tabs: Dies tab lists copies needing attention, a card opens, a reading is keyed on the keypad.
+# Needs a die_room user and at least one seeded copy (dev seed: copy 14701-1):
+#   maestro test -e APP_ID=in.orrn.app -e MAESTRO_EMAIL=... -e MAESTRO_PASSWORD=... -e COPY=14701-1 .maestro/flows/die-room.yaml
+# UNTESTED on a device or simulator (written with the screens; run it before relying on it).
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible: "Sign in"
+    timeout: 30000
+- tapOn: "Email"
+- inputText: ${MAESTRO_EMAIL}
+- tapOn: "Password"
+- inputText: ${MAESTRO_PASSWORD}
+- hideKeyboard
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    visible: "Today"
+    timeout: 30000
+# The die room's tab set: Today, Dies, Scan, Press, More.
+- assertVisible: "Dies"
+- assertVisible: "Press"
+- assertVisible: "More"
+- tapOn: "Dies"
+- takeScreenshot: dies-attention
+- tapOn: "Find a copy"
+- inputText: ${COPY}
+- extendedWaitUntil:
+    visible: ${COPY}
+    timeout: 15000
+- tapOn: ${COPY}
+- extendedWaitUntil:
+    visible: "Add reading"
+    timeout: 15000
+- takeScreenshot: die-card
+# Key 5.967 on the pad and save. The percent and colour come back from the server.
+- tapOn: "5"
+- tapOn: "Decimal point"
+- tapOn: "9"
+- tapOn: "6"
+- tapOn: "7"
+- tapOn: "Save reading"
+- takeScreenshot: die-reading-saved

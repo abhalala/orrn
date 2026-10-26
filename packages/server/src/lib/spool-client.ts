@@ -8,6 +8,29 @@
 
 import { signSpoolRequest } from "./spool-crypto";
 
+/** A non-2xx answer from the spool, with its status and the body text (for `job_key_conflict` and the like). */
+export class SpoolHttpError extends Error {
+  constructor(
+    readonly method: string,
+    readonly path: string,
+    readonly status: number,
+    readonly bodyText: string,
+  ) {
+    super(`Spool ${method} ${path} failed: ${status} ${bodyText}`);
+    this.name = "SpoolHttpError";
+  }
+
+  /** The `error` code of a JSON body (`job_key_conflict`, `invalid_job_key`), or null. */
+  get code(): string | null {
+    try {
+      const body = JSON.parse(this.bodyText) as { error?: unknown };
+      return typeof body.error === "string" ? body.error : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 /** Spool API response types — mirrors the Go structs in orrn-spool. */
 
 export interface SpoolPrinter {
@@ -70,6 +93,35 @@ export interface SpoolPrinterStatus {
   error: string;
   media_error: string;
   is_online: boolean;
+}
+
+/**
+ * GET /scale/reading on orrn-spool (internal/scale). `grams` is absent when the reading is stale
+ * or there are no frames; `stable` is the spool's verdict under the spec rule (five frames within
+ * 20 g held 1 s, stale after 3 s, a steady 0 is not a weight).
+ */
+export interface SpoolScaleReading {
+  grams?: number;
+  stable: boolean;
+  ageMs?: number;
+  frames?: number;
+  reason?: string;
+  configured?: boolean;
+  simulated?: boolean;
+}
+
+/** Default budget for a scale poll: a pack screen polls often, so fail fast. */
+export const SCALE_READING_TIMEOUT_MS = 1500;
+
+/**
+ * Base URL for a node domain. Deployed nodes are reached over HTTPS through their tunnel; a
+ * loopback domain (a spool running on the developer's machine, or a test's fake spool) uses
+ * plain HTTP. A Worker cannot reach loopback in production, so this never downgrades a real node.
+ */
+export function spoolBaseUrl(nodeDomain: string): string {
+  const host = nodeDomain.replace(/:\d+$/, "").toLowerCase();
+  const loopback = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
+  return `${loopback ? "http" : "https"}://${nodeDomain}`;
 }
 
 export class SpoolClient {
@@ -145,8 +197,13 @@ export class SpoolClient {
     variables: Record<string, string>;
     copies: number;
     priority?: number;
-  }): Promise<{ id: number }> {
-    return this.post<{ id: number }>("/api/jobs", job);
+    /**
+     * Exactly-once key (orrn-spool docs/print-exactly-once.md): a repeat of the same label answers
+     * `200 { duplicate: true }` with the FIRST job's id; other content under the key is `409 job_key_conflict`.
+     */
+    job_key?: string;
+  }): Promise<{ id: number; duplicate?: boolean }> {
+    return this.post<{ id: number; duplicate?: boolean }>("/api/jobs", job);
   }
 
   async getJobStatus(jobId: number): Promise<SpoolJobStatus> {
@@ -161,6 +218,16 @@ export class SpoolClient {
     await this.postRaw(`/api/jobs/${jobId}/retry`, {});
   }
 
+  // ─── Scale ─────────────────────────────────────────────────────────────────
+
+  /**
+   * One reading from the node's weighing scale. Throws on timeout, network error or a non-2xx
+   * answer; callers turn that into `{ stable: false }`.
+   */
+  async scaleReading(options: { timeoutMs?: number } = {}): Promise<SpoolScaleReading> {
+    return this.get<SpoolScaleReading>("/scale/reading", options.timeoutMs ?? SCALE_READING_TIMEOUT_MS);
+  }
+
   // ─── Health ────────────────────────────────────────────────────────────────
 
   async health(): Promise<{ status: string; version: string }> {
@@ -169,12 +236,13 @@ export class SpoolClient {
 
   // ─── Internal ──────────────────────────────────────────────────────────────
 
-  private async get<T>(path: string): Promise<T> {
+  private async get<T>(path: string, timeoutMs?: number): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const token = await signSpoolRequest("GET", path, null, this.sharedSecret);
     const res = await fetch(url, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     });
     if (!res.ok) {
       throw new Error(`Spool GET ${path} failed: ${res.status} ${await res.text()}`);
@@ -195,7 +263,7 @@ export class SpoolClient {
       body: bodyBytes,
     });
     if (!res.ok) {
-      throw new Error(`Spool POST ${path} failed: ${res.status} ${await res.text()}`);
+      throw new SpoolHttpError("POST", path, res.status, await res.text());
     }
     return res.json() as Promise<T>;
   }

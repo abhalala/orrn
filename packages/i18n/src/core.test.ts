@@ -1,0 +1,97 @@
+import { describe, expect, test } from "bun:test";
+import { createI18n, interpolate, isLocale } from "./core";
+import { GUIDE_SLUGS, getGuide, listGuides } from "./guides";
+
+describe("createI18n", () => {
+  test("looks up dotted keys per locale", () => {
+    expect(createI18n("en").t("status.bundle.available")).toBe("In stock");
+    expect(createI18n("hi").t("status.bundle.available")).toBe("स्टॉक में");
+  });
+
+  test("fills variables", () => {
+    expect(createI18n("en").t("welcome.done.joinedTitle", { company: "Fourcubes" })).toBe("Welcome to Fourcubes");
+  });
+
+  test("picks the singular or plural word from count", () => {
+    const { t } = createI18n("en");
+    expect(t("units.bundles", { count: 1 })).toBe("1 bundle");
+    expect(t("units.bundles", { count: 0 })).toBe("0 bundles");
+    expect(t("units.bundlesKg", { bundles: 157, kg: "7,856.95" })).toBe("157 bundles · 7,856.95 kg");
+    expect(createI18n("hi").t("units.bundles", { count: 3 })).toBe("3 bundle");
+  });
+
+  test("Hindi verbs agree with count 1", () => {
+    const { t } = createI18n("hi");
+    expect(t("scan.continuous.count", { count: 1 })).toBe("1 जुड़ा");
+    expect(t("scan.continuous.count", { count: 5 })).toBe("5 जुड़े");
+    expect(t("dispatch.paste.added", { count: 1 })).toBe("1 जुड़ा");
+    expect(t("dispatch.paste.already", { count: 1 })).toBe("1 इस dispatch में पहले से है");
+    expect(t("dispatch.paste.already", { count: 2 })).toBe("2 इस dispatch में पहले से हैं");
+    expect(t("dispatch.paste.notFound", { count: 1 })).toBe("1 नहीं मिला");
+    expect(t("dispatch.paste.unavailable", { count: 1 })).toBe("1 उपलब्ध नहीं है");
+    expect(t("today.tiles.dispatchHint", { count: 1 })).toBe("1 खुला");
+    expect(t("today.tiles.dispatchHint", { count: 3 })).toBe("3 खुले");
+    expect(t("today.printProblemsCount", { count: 1 })).toBe("1 लेबल प्रिंट नहीं हुआ");
+    expect(t("pack.new.printFailed", { count: 4 })).toBe("4 लेबल प्रिंट नहीं हुए");
+    expect(t("settings.data.imported", { count: 1 })).toBe("1 लाइन इम्पोर्ट हो गई");
+    expect(t("settings.data.imported", { count: 12 })).toBe("12 लाइन इम्पोर्ट हो गईं");
+  });
+
+  test("falls back to the key when nothing matches", () => {
+    const { t } = createI18n("hi");
+    expect(t("no.such.key" as never)).toBe("no.such.key");
+  });
+});
+
+describe("interpolate", () => {
+  test("leaves unknown variables visible", () => {
+    expect(interpolate("Hello {name}", {})).toBe("Hello {name}");
+    expect(interpolate("Hello {name}")).toBe("Hello {name}");
+  });
+
+  test("renders a form template as {count} when the variable is missing", () => {
+    expect(interpolate("{count} {count:bundle|bundles}")).toBe("{count} {count}");
+    expect(interpolate("{count:जुड़ा|जुड़े}", { other: 1 })).toBe("{count}");
+  });
+});
+
+describe("isLocale", () => {
+  test("accepts only en and hi", () => {
+    expect(isLocale("en")).toBe(true);
+    expect(isLocale("hi")).toBe(true);
+    expect(isLocale("gu")).toBe(true);
+    expect(isLocale("fr")).toBe(false);
+    expect(isLocale(undefined)).toBe(false);
+  });
+});
+
+describe("guides", () => {
+  test("getGuide returns the locale's guide", () => {
+    expect(getGuide("pack-session", "en").title).toBe("Pack a session and print labels");
+    expect(getGuide("pack-session", "hi").slug).toBe("pack-session");
+  });
+
+  test("listGuides filters by role", () => {
+    // Counted from GUIDE_SLUGS so each screen task can add its guide without editing this line.
+    expect(listGuides("en")).toHaveLength(GUIDE_SLUGS.length);
+    const viewer = listGuides("en", "viewer").map((g) => g.slug);
+    expect(viewer).toEqual(["scan-bundle", "printer-trouble", "stock-by-die"]);
+    // Every guide but the one for orrn support staff.
+    expect(listGuides("en", "owner")).toHaveLength(GUIDE_SLUGS.length - 1);
+    expect(listGuides("en", "storekeeper").map((g) => g.slug)).toContain("store-entries");
+  });
+
+  test("guides for orrn support staff are listed only for platform admins", () => {
+    expect(listGuides("en", "owner").map((g) => g.slug)).not.toContain("approve-access-request");
+    expect(listGuides("en", undefined, true).map((g) => g.slug)).toEqual(["approve-access-request"]);
+    expect(listGuides("en", "owner", true)).toHaveLength(GUIDE_SLUGS.length);
+  });
+});
+
+describe("final explore L8: combine button plural", () => {
+  test("Combine 1 list / Combine 2 lists", () => {
+    const { en } = require("./en") as typeof import("./en");
+    expect(interpolate(en.packingList.v2.combineSubmit, { count: 1 })).toBe("Combine 1 list");
+    expect(interpolate(en.packingList.v2.combineSubmit, { count: 2 })).toBe("Combine 2 lists");
+  });
+});

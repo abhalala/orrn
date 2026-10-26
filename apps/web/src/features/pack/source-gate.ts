@@ -1,0 +1,135 @@
+import { castRequiredOnBundle, readFloorSettings } from "@orrn/domain";
+
+/**
+ * What the Source step still needs before Next (FP-PK-10, requireCastOnBundle). The server decides
+ * every one of these again at save; this only tells the packer early and in plain words.
+ */
+export type SourceChoice = {
+  /** The order line these bundles are packed for; none = not packed for an order. */
+  salesOrderLineId?: string;
+  dieInstanceId?: string;
+  castId?: string;
+  /** Label branding, default on. */
+  showLogo: boolean;
+  /** D15: the office packs on another copy than the line's pin (the server checks order.manage and audits). */
+  overridePin?: boolean;
+  /** W3-AG-W: the released trolley line the pieces come from; none = packed by hand. */
+  ageingRowId?: string;
+};
+
+export const DEFAULT_SOURCE: SourceChoice = { showLogo: true };
+
+export type OwnerDecisionLike =
+  | { ok: true }
+  | { ok: false; block: "pick_copy" | "no_copies" | "owned"; ownerName?: string | null };
+
+export type SourceBlocker =
+  | { kind: "cast" }
+  | { kind: "trolley" }
+  | { kind: "copy" }
+  | { kind: "noCopies"; ownerName: string | null }
+  | { kind: "owned"; ownerName: string | null };
+
+export function sourceBlockers(input: {
+  choice: SourceChoice;
+  castRequired: boolean;
+  owner: OwnerDecisionLike | null | undefined;
+  /** `settings.ageing.requireForPack` and at least one released trolley line for the section (the server refuses a hand pack then). */
+  trolleyRequired?: boolean;
+}): SourceBlocker[] {
+  const out: SourceBlocker[] = [];
+  if (input.trolleyRequired && !input.choice.ageingRowId) out.push({ kind: "trolley" });
+  if (input.castRequired && !input.choice.castId) out.push({ kind: "cast" });
+  const o = input.owner;
+  if (o && !o.ok) {
+    if (o.block === "pick_copy") out.push({ kind: "copy" });
+    else if (o.block === "no_copies") out.push({ kind: "noCopies", ownerName: o.ownerName ?? null });
+    else out.push({ kind: "owned", ownerName: o.ownerName ?? null });
+  }
+  return out;
+}
+
+/** The cast rule the screen shows: the plant's setting, else on once a melt has been locked. */
+export function castRequired(settings: unknown, liveCasts: number): boolean {
+  return castRequiredOnBundle(readFloorSettings(settings as Record<string, unknown> | null | undefined), liveCasts > 0);
+}
+
+/**
+ * Copies that can still be packed from: retired copies and copies at the maker are not offered, because the server
+ * refuses them (`bundle.ts`, m-13). A copy now at nitriding IS offered (Q63 A): it may have pressed the run that is packed
+ * hours later, so its current status does not matter; the picker shows the status as a chip. The phone does the same.
+ */
+export function packableCopy(status: string): boolean {
+  return status !== "retired" && status !== "at_maker";
+}
+
+/** Choosing another order line may change who owns the material: a copy chosen before stays only if still valid. */
+export function withLine(choice: SourceChoice, lineId: string | undefined): SourceChoice {
+  const { salesOrderLineId: _drop, ...rest } = choice;
+  return lineId ? { ...rest, salesOrderLineId: lineId } : rest;
+}
+
+export function withCopy(choice: SourceChoice, copyId: string | undefined): SourceChoice {
+  const { dieInstanceId: _drop, ...rest } = choice;
+  return copyId ? { ...rest, dieInstanceId: copyId } : rest;
+}
+
+export function withCast(choice: SourceChoice, castId: string | undefined): SourceChoice {
+  const { castId: _drop, ...rest } = choice;
+  return castId ? { ...rest, castId } : rest;
+}
+
+/**
+ * D15: choosing an order line that pins a die copy chooses that copy (the server refuses another
+ * one unless the office overrides). An unpinned line, or plant stock, keeps the copy as it was.
+ */
+export function withPinnedLine(choice: SourceChoice, lineId: string | undefined, pinnedCopyId: string | null): SourceChoice {
+  const { overridePin: _off, ...rest } = withLine(choice, lineId);
+  return pinnedCopyId ? { ...rest, dieInstanceId: pinnedCopyId } : rest;
+}
+
+/** The copy radios follow the pin unless the office chose to override it. */
+export function copyLocked(choice: SourceChoice, pinnedCopyId: string | null): boolean {
+  return Boolean(pinnedCopyId) && !choice.overridePin;
+}
+
+/** The office's override switch: off puts the pinned copy back. */
+export function withPinOverride(choice: SourceChoice, on: boolean, pinnedCopyId: string | null): SourceChoice {
+  const { overridePin: _drop, ...rest } = choice;
+  if (on) return { ...rest, overridePin: true };
+  return pinnedCopyId ? { ...rest, dieInstanceId: pinnedCopyId } : rest;
+}
+
+/** The trolley line the pieces come from (or none = by hand). */
+export function withAgeingRow(choice: SourceChoice, rowId: string | undefined): SourceChoice {
+  const { ageingRowId: _drop, ...rest } = choice;
+  return rowId ? { ...rest, ageingRowId: rowId } : rest;
+}
+
+/** Whether the plant makes the packer name a trolley line (`ageing.requireForPack`) and one is waiting. */
+export function trolleyRequired(settings: unknown, linesWaiting: number): boolean {
+  return readFloorSettings(settings as Record<string, unknown> | null | undefined).ageing.requireForPack && linesWaiting > 0;
+}
+
+/**
+ * BACKLOG 99: when only one source applies, it comes pre-picked. One open order line is the order; a line's pinned copy
+ * comes with it; with no pin, the one copy on the press (else the one packable copy) is the copy. Several lines, or several
+ * copies, stay the packer's choice, and plant stock is still one tap away. A choice already made is never touched.
+ */
+export function preselectSource(
+  choice: SourceChoice,
+  lines: readonly { lineId: string; pinnedCopyId?: string | null }[] | undefined,
+  copies: readonly { id: string; status: string }[] | undefined,
+): SourceChoice {
+  let next = choice;
+  if (!next.salesOrderLineId && lines && lines.length === 1) {
+    next = withPinnedLine(next, lines[0]!.lineId, lines[0]!.pinnedCopyId ?? null);
+  }
+  if (!next.dieInstanceId && copies) {
+    const packable = copies.filter((c) => packableCopy(c.status));
+    const onPress = packable.filter((c) => c.status === "in_use");
+    const only = onPress.length === 1 ? onPress[0] : packable.length === 1 ? packable[0] : undefined;
+    if (only) next = withCopy(next, only.id);
+  }
+  return next;
+}

@@ -1,34 +1,76 @@
 import type { AppRouter } from "@orrn/server/routers/index";
 import { env } from "@orrn/env/web";
-import { QueryCache, QueryClient } from "@tanstack/react-query";
-import { TRPCClientError, createTRPCClient, httpBatchLink } from "@trpc/client";
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
+import { createTRPCClient } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 
-import { getImpersonateCompanyId } from "../lib/impersonation";
+import { clearImpersonation, getImpersonation, hasStoredImpersonation } from "../lib/impersonation";
+import { readPortalPlant } from "../lib/portal-plant";
+import { buildTrpcLink } from "../lib/trpc-links";
+import {
+  isImpersonationForbidden,
+  isUnauthorized,
+  shouldRetryQuery,
+} from "../lib/session-errors";
+import { hasInlineError } from "../lib/query-errors";
+import { isAuthMeQueryKey } from "../lib/tenant-cache";
 
-function isAuthMeQueryKey(queryKey: unknown): boolean {
-  return (
-    Array.isArray(queryKey) &&
-    Array.isArray(queryKey[0]) &&
-    queryKey[0][0] === "auth" &&
-    queryKey[0][1] === "me"
-  );
-}
-
-function shouldToastQueryError(error: unknown, query: { queryKey: unknown }): boolean {
+function shouldToastQueryError(
+  error: unknown,
+  query: { queryKey: unknown; meta?: Record<string, unknown> },
+): boolean {
   if (isAuthMeQueryKey(query.queryKey)) {
     return false;
   }
-  if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
+  // The screen says it in its own words (inline error with Try again).
+  if (hasInlineError(query)) {
+    return false;
+  }
+  if (isUnauthorized(error) || isImpersonationForbidden(error)) {
     return false;
   }
   return true;
 }
 
-export const queryClient = new QueryClient({
+/**
+ * The router lives in main.tsx and imports this module, so it registers the
+ * "session ended" navigation here instead of being imported (no cycle).
+ */
+let onSessionEnded: (() => void) | null = null;
+export function registerSessionEndedHandler(handler: (() => void) | null) {
+  onSessionEnded = handler;
+}
+
+/**
+ * Global session recovery for every query and mutation (W2, W11):
+ * - UNAUTHORIZED: the session expired mid-use → /login?next=<current page>.
+ * - FORBIDDEN impersonation message: the grant expired or was revoked → drop
+ *   it and reload as the plain user.
+ */
+function handleSessionError(error: unknown) {
+  if (isImpersonationForbidden(error)) {
+    if (hasStoredImpersonation()) {
+      clearImpersonation();
+      queryClient.clear();
+      window.location.reload();
+    }
+    return;
+  }
+  if (isUnauthorized(error)) {
+    onSessionEnded?.();
+  }
+}
+
+export const queryClient: QueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: shouldRetryQuery,
+    },
+  },
   queryCache: new QueryCache({
     onError: (error, query) => {
+      handleSessionError(error);
       if (!shouldToastQueryError(error, query)) {
         return;
       }
@@ -40,24 +82,20 @@ export const queryClient = new QueryClient({
       });
     },
   }),
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      handleSessionError(error);
+    },
+  }),
 });
 
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [
-    httpBatchLink({
+    buildTrpcLink<AppRouter>({
       url: `${env.VITE_SERVER_URL}/trpc`,
-      fetch(url, options) {
-        const headers = new Headers(options?.headers);
-        const impersonateCompanyId = getImpersonateCompanyId();
-        if (impersonateCompanyId) {
-          headers.set("x-orrn-impersonate-company", impersonateCompanyId);
-        }
-        return fetch(url, {
-          ...options,
-          headers,
-          credentials: "include",
-        });
-      },
+      getImpersonation: () => getImpersonation()?.companyId ?? null,
+      // A party with logins in several plants names the one they read (party procedures only).
+      getPlant: readPortalPlant,
     }),
   ],
 });

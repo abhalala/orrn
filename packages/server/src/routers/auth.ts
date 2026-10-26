@@ -1,15 +1,17 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, ne } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
-import { account, user } from "@orrn/db/schema/auth";
+import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
+import { can } from "../lib/permissions";
+import { listActiveMemberships } from "../lib/tenantContext";
 import { authedProcedure, router } from "../index";
 
 /**
@@ -33,6 +35,15 @@ export const authRouter = router({
       .where(eq(user.id, userId))
       .get();
 
+    // A magic-link account (waitlist approval) has no credential password until
+    // the welcome stepper sets one; /login takes only email + password, so the
+    // stepper keeps asking until it exists (Task 17 fix round 1).
+    const credential = await ctx.db
+      .select({ id: account.id })
+      .from(account)
+      .where(and(eq(account.userId, userId), eq(account.providerId, "credential"), isNotNull(account.password)))
+      .get();
+
     const companyRow =
       ctx.membership && ctx.companyId
         ? (
@@ -52,6 +63,12 @@ export const authRouter = router({
           )[0] ?? null
         : null;
 
+    const memberships = (await listActiveMemberships(ctx.db, userId)).map((m) => ({
+      companyId: m.companyId,
+      name: m.name,
+      role: m.role,
+    }));
+
     return {
       user: {
         id: userId,
@@ -61,6 +78,7 @@ export const authRouter = router({
         onboardingCompleted: userRow?.onboardingCompleted ?? false,
         twoFactorEnabled: userRow?.twoFactorEnabled ?? false,
         mustChangePassword: userRow?.mustChangePassword ?? false,
+        hasPassword: Boolean(credential),
       },
       company:
         companyRow && ctx.role
@@ -75,6 +93,8 @@ export const authRouter = router({
               settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
             }
           : null,
+      /** Every active company this user belongs to, most recent first (spec P10). */
+      memberships,
       isPlatformAdmin: ctx.isPlatformAdmin,
       platformRole: ctx.platformRole,
       impersonation: ctx.impersonation
@@ -91,6 +111,24 @@ export const authRouter = router({
   setPassword: authedProcedure
     .input(z.object({ password: z.string().min(8) }))
     .mutation(async ({ ctx, input }) => {
+      // First password for a magic-link account only. Better Auth refuses a
+      // second one with a generic 500; say CONFLICT so the welcome stepper can
+      // move on instead of showing a crash (Task 17).
+      const existing = await ctx.db
+        .select({ id: account.id })
+        .from(account)
+        .where(
+          and(
+            eq(account.userId, ctx.session.user.id),
+            eq(account.providerId, "credential"),
+            isNotNull(account.password),
+          ),
+        )
+        .get();
+      if (existing) {
+        throw new TRPCError({ code: "CONFLICT", message: "A password is already set for this account" });
+      }
+
       const auth = createAuth();
       await auth.api.setPassword({
         body: {
@@ -121,12 +159,28 @@ export const authRouter = router({
    *
    * Bypasses Better Auth's `changePassword` (which would need the current
    * password) by writing directly to the credential row, then atomically
-   * clearing `must_change_password` and emitting an audit row.
+   * clearing `must_change_password`, revoking every other session of the user
+   * and emitting an audit row.
+   *
+   * Only callable while `must_change_password` is set: otherwise any stolen
+   * session could rotate the password without knowing the current one.
    */
   changeInitialPassword: authedProcedure
     .input(z.object({ newPassword: z.string().min(8) }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
+
+      const flagRow = await ctx.db
+        .select({ mustChangePassword: user.mustChangePassword })
+        .from(user)
+        .where(eq(user.id, userId))
+        .get();
+      if (!flagRow?.mustChangePassword) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Password change is not required for this account",
+        });
+      }
 
       const credential = await ctx.db
         .select({ id: account.id })
@@ -142,6 +196,7 @@ export const authRouter = router({
       }
 
       const hashed = await hashPassword(input.newPassword);
+      const currentSessionId = ctx.session.session?.id;
 
       await atomicBatch(ctx.db, [
         ctx.db
@@ -152,6 +207,13 @@ export const authRouter = router({
           .update(user)
           .set({ mustChangePassword: false })
           .where(eq(user.id, userId)),
+        // Revoke every other session (e.g. whoever knew the temporary
+        // password); keep the one performing the change.
+        currentSessionId
+          ? ctx.db
+              .delete(sessionTable)
+              .where(and(eq(sessionTable.userId, userId), ne(sessionTable.id, currentSessionId)))
+          : ctx.db.delete(sessionTable).where(eq(sessionTable.userId, userId)),
         auditInsert(ctx, {
           action: "auth.password_force_change",
           subjectType: "user",
@@ -165,14 +227,30 @@ export const authRouter = router({
   completeOnboarding: authedProcedure
     .input(
       z.object({
-        facilityLocation: z.string().min(1),
-        primaryContact: z.string().min(1),
-        timezone: z.string().min(1),
-        pressCount: z.number().int().min(0).default(0),
+        facilityLocation: z.string().trim().min(1).max(200).optional(),
+        primaryContact: z.string().trim().min(1).max(64).optional(),
+        timezone: z.string().trim().min(1).max(64).optional(),
+        pressCount: z.number().int().min(0).max(500).default(0),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id;
+
+      // Company fields (facility, contact, timezone, press count) are company
+      // settings: only roles that may update settings write them, and they
+      // must send them. Everyone else just marks their own onboarding done and
+      // may send nothing (the welcome stepper's last step); company inputs are
+      // ignored for them.
+      const canWriteCompany = Boolean(
+        ctx.companyId &&
+          can({ company: ctx.role ? { role: ctx.role } : null, isPlatformAdmin: false }, "settings.update"),
+      );
+      if (canWriteCompany && (!input.facilityLocation || !input.primaryContact || !input.timezone)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Location, contact phone and time zone are required",
+        });
+      }
 
       const statements: SqliteBatchItem[] = [
         ctx.db
@@ -181,7 +259,7 @@ export const authRouter = router({
           .where(eq(user.id, userId)),
       ];
 
-      if (ctx.companyId) {
+      if (canWriteCompany && ctx.companyId) {
         const currentCompany = await ctx.db
           .select()
           .from(company)
@@ -203,6 +281,12 @@ export const authRouter = router({
                 },
               })
               .where(eq(company.id, ctx.companyId)),
+            auditInsert(ctx, {
+              action: "settings.update",
+              subjectType: "company",
+              subjectId: ctx.companyId,
+              meta: { via: "onboarding" },
+            }),
           );
         }
       }

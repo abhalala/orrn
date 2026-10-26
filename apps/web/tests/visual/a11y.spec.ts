@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 const PAGES = [
   { path: "/", name: "landing" },
   { path: "/login", name: "login" },
-  { path: "/waitlist", name: "waitlist" },
+  { path: "/request-access", name: "request access" },
 ] as const;
 
 test.beforeEach(async ({ page }) => {

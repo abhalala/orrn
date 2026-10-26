@@ -1,25 +1,29 @@
 {
   "name": "web",
   "description": "Unified web app: marketing, ERP, and platform admin (orrn.in)",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && bun scripts/check-modulepreload.ts && bun scripts/check-route-budget.ts",
     "serve": "vite preview",
     "start": "vite",
     "check-types": "vite build && tsc --noEmit",
     "dev:bare": "vite dev",
-    "test:visual": "playwright test",
-    "test:visual:update": "playwright test --update-snapshots"
+    "test": "bun test src scripts",
+    "test:e2e": "playwright test --project=e2e",
+    "e2e:group": "bash scripts/e2e-group.sh",
+    "test:visual": "playwright test --project=desktop-dark --project=mobile-dark --project=desktop-light --project=mobile-light",
+    "test:visual:update": "playwright test --project=desktop-dark --project=mobile-dark --project=desktop-light --project=mobile-light --update-snapshots"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
-    "@hookform/resolvers": "^5.2.2",
     "@orrn/documents": "workspace:*",
+    "@orrn/domain": "workspace:*",
     "@orrn/env": "workspace:*",
+    "@orrn/i18n": "workspace:*",
     "@orrn/server": "workspace:*",
     "@orrn/ui": "workspace:*",
     "@react-pdf/renderer": "^4.5.1",
@@ -31,11 +35,9 @@
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "catalog:",
     "@types/qrcode": "^1.5.6",
-    "@types/xlsx": "^0.0.36",
+    "barcode-detector": "^3.2.2",
     "better-auth": "catalog:",
     "date-fns": "^4.2.1",
-    "dotenv": "catalog:",
-    "gsap": "^3.15.0",
     "lucide-react": "^1.8.0",
     "next-themes": "catalog:",
     "papaparse": "^5.5.3",
@@ -44,7 +46,8 @@
     "react-dom": "^19.2.5",
     "sonner": "^2.0.7",
     "xlsx": "^0.18.5",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zxing-wasm": "3.1.3"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

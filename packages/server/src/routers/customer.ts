@@ -1,21 +1,40 @@
-import { and, desc, eq, isNull, like } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
+import { BUNDLE_NUMBER_POLICIES } from "@orrn/domain";
 import { customer } from "@orrn/db/schema/customers";
-import { companyProcedure, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
 import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
+import { digitsOnly, likeContains, phoneDigits } from "../lib/search";
 
 const customerBaseSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  phone: z.string().nullable().optional(),
-  email: z.string().email().nullable().optional().or(z.literal("")),
+  name: z.string().min(1, "Name is required").max(500),
+  phone: z.string().max(500).nullable().optional(),
+  email: z.string().max(500).email().nullable().optional().or(z.literal("")),
   billingAddress: z.record(z.string(), z.unknown()).nullable().optional(),
   shippingAddress: z.record(z.string(), z.unknown()).nullable().optional(),
-  taxId: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  taxId: z.string().max(500).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+  /** Order kg tolerance in basis points (500 = 5 %); null = company default (PL-8, Review Focus 5). */
+  kgToleranceBp: z.number().int().min(0).max(10_000).nullable().optional(),
 });
+
+/**
+ * FP-PK-07 (C25): the customer's own bundle numbers. null = the company serial; monthly (26J12),
+ * fy (2026-27/12) or lifelong (4086). A change applies to bundles packed from then on; bundles
+ * already packed keep their party number (never renumbered).
+ */
+const bundleNumberPolicySchema = z.enum(BUNDLE_NUMBER_POLICIES).nullable().optional();
+
+/** Same cap as bundle.bulkImport: a larger import must be split into batches (D1 + Worker CPU). */
+const MAX_IMPORT_ROWS = 2000;
+
+const customerImportRows = z
+  .array(customerBaseSchema)
+  .max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches");
 
 type Customer = typeof customer.$inferSelect;
 
@@ -33,8 +52,16 @@ export const customerRouter = router({
         isNull(customer.deletedAt),
       ];
 
-      if (input.search) {
-        conditions.push(like(customer.name, `%${input.search}%`));
+      const search = input.search?.trim();
+      if (search) {
+        // Name, phone or GSTIN (what the list and the add-customer guide promise). LIKE is
+        // case-insensitive for ASCII, so a GSTIN typed in lower case still matches; % and _ in
+        // the term are matched literally. A term that looks like a phone number is also compared
+        // digits to digits, so "9825011234" finds "+91 98250 11234".
+        const digits = phoneDigits(search);
+        const matches = [likeContains(customer.name, search), likeContains(customer.phone, search), likeContains(customer.taxId, search)];
+        if (digits) matches.push(sql`${digitsOnly(customer.phone)} LIKE ${`%${digits}%`}`);
+        conditions.push(sql`(${sql.join(matches, sql` OR `)})`);
       }
 
       const result = await paginatedList<Customer>(ctx.db, {
@@ -63,7 +90,7 @@ export const customerRouter = router({
       );
     }),
 
-  create: companyProcedure
+  create: actionProcedure("customer.create")
     .input(customerBaseSchema)
     .mutation(async ({ ctx, input }) => {
       const { id } = await withAudit(
@@ -85,6 +112,7 @@ export const customerRouter = router({
             shippingAddress: input.shippingAddress,
             taxId: input.taxId,
             notes: input.notes,
+            kgToleranceBp: input.kgToleranceBp ?? null,
           }),
         ],
       );
@@ -92,10 +120,10 @@ export const customerRouter = router({
       return { success: true, id };
     }),
 
-  update: companyProcedure
-    .input(customerBaseSchema.extend({ id: z.string() }))
+  update: actionProcedure("customer.update")
+    .input(customerBaseSchema.extend({ id: z.string(), bundleNumberPolicy: bundleNumberPolicySchema }))
     .mutation(async ({ ctx, input }) => {
-      await scopedFindOrThrow<Customer>(
+      const existing = await scopedFindOrThrow<Customer>(
         ctx.db,
         customer,
         input.id,
@@ -109,12 +137,19 @@ export const customerRouter = router({
           action: "customer.update",
           subjectType: "customer",
           subjectId: input.id,
-          meta: { name: input.name },
+          meta: {
+            name: input.name,
+            ...(input.bundleNumberPolicy !== undefined && input.bundleNumberPolicy !== existing.bundleNumberPolicy
+              ? { bundleNumberPolicy: { from: existing.bundleNumberPolicy ?? null, to: input.bundleNumberPolicy } }
+              : {}),
+          },
         },
         ({ serverSeq }) => [
           ctx.db
             .update(customer)
             .set({
+              // undefined leaves the policy as it is; null returns to the company serial.
+              bundleNumberPolicy: input.bundleNumberPolicy,
               name: input.name,
               phone: input.phone,
               email: input.email || null,
@@ -122,6 +157,8 @@ export const customerRouter = router({
               shippingAddress: input.shippingAddress,
               taxId: input.taxId,
               notes: input.notes,
+              // undefined leaves the tolerance as it is; null returns to the company default.
+              kgToleranceBp: input.kgToleranceBp,
               serverSeq,
             })
             .where(and(eq(customer.id, input.id), eq(customer.companyId, ctx.companyId))),
@@ -131,7 +168,7 @@ export const customerRouter = router({
       return { success: true };
     }),
 
-  delete: companyProcedure
+  delete: actionProcedure("customer.delete")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await scopedFindOrThrow<Customer>(
@@ -164,14 +201,40 @@ export const customerRouter = router({
       return { success: true };
     }),
 
-  importCsv: companyProcedure
-    .input(z.array(customerBaseSchema))
-    .mutation(async ({ ctx, input }) => {
+  importCsv: actionProcedure("customer.import")
+    .input(
+      z.union([
+        customerImportRows,
+        // Same id, same rows: a resend answers `replayed` instead of adding the customers twice (lib/importReplay).
+        z.object({ rows: customerImportRows, clientRequestId: clientRequestIdSchema.optional() }),
+      ]),
+    )
+    .mutation(async ({ ctx, input: raw }) => {
+      const { rows: input, clientRequestId } = Array.isArray(raw) ? { rows: raw, clientRequestId: undefined } : raw;
       if (input.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No rows provided" });
       }
 
-      await withAudit(
+      const rowIds = clientRequestId
+        ? await requestRowIds(ctx.companyId, "customer.import", clientRequestId, input.length)
+        : null;
+      const landed = async (ids: string[]) =>
+        replayState(
+          ids,
+          (
+            await ctx.db
+              .select({ id: customer.id })
+              .from(customer)
+              .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.id, replayProbe(ids))))
+          ).map((r) => r.id),
+        );
+      if (rowIds) {
+        const state = await landed(rowIds);
+        if (state === "replayed") return { success: true, count: input.length, replayed: true };
+        if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
+      }
+
+      const racedReplay = await withAudit(
         ctx,
         {
           action: "customer.import",
@@ -179,8 +242,8 @@ export const customerRouter = router({
           meta: { count: input.length },
         },
         ({ serverSeq }) => {
-          const values = input.map((row) => ({
-            id: crypto.randomUUID(),
+          const values = input.map((row, i) => ({
+            id: rowIds?.[i] ?? crypto.randomUUID(),
             companyId: ctx.companyId,
             serverSeq,
             name: row.name,
@@ -190,19 +253,23 @@ export const customerRouter = router({
             shippingAddress: row.shippingAddress,
             taxId: row.taxId,
             notes: row.notes,
+            kgToleranceBp: row.kgToleranceBp ?? null,
           }));
 
           const statements: SqliteBatchItem[] = [];
-          pushChunkedInserts(
-            statements,
-            (chunk) => ctx.db.insert(customer).values(chunk),
-            values,
-            100,
-          );
+          pushChunkedInserts(statements, (rows) => ctx.db.insert(customer).values(rows), values);
           return statements;
         },
+      ).then(
+        () => false,
+        // An identical request landed a moment earlier: its ids are taken, so this batch rolled back.
+        async (error: unknown) => {
+          if (rowIds && (await landed(rowIds)) === "replayed") return true;
+          throw error;
+        },
       );
+      if (racedReplay) return { success: true, count: input.length, replayed: true };
 
-      return { success: true, count: input.length };
+      return { success: true, count: input.length, replayed: false };
     }),
 });

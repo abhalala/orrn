@@ -1,0 +1,38 @@
+/** Native-only strings for the die room screens (apps/native). Top-level keys become `native.<key>.*`. Keep en and hi identical in shape. */
+export const diesEn = {
+  dies: {
+    searchLabel: "Find a copy",
+    found: "{count} {count:copy|copies} found",
+    noMatch: "No copy matches",
+    attentionCount: "{count} {count:copy needs|copies need} attention",
+    filterLabel: "Why it needs attention",
+    partial: "Showing the first {count} copies. Search to find the others.",
+    showMore: "Show {count} more",
+    nothingTitle: "Nothing needs attention",
+    nothingBody: "Every copy is in its band, read this month and in the rack.",
+    reason: {
+      above_band: "Above band",
+      at_nitriding: "At nitriding",
+      at_maker: "At die maker",
+      on_trial: "On trial",
+      open_issue: "On a press",
+      stale_reading: "No reading in 30 days",
+      never_read: "No reading yet",
+    },
+    pad: {
+      point: "Decimal point",
+    },
+    saveReading: "Save reading",
+    chemicalsOnWeb: "Chemicals are written on the card on the web.",
+    addMakerOnWeb: "Add one on the web.",
+    issueTitle: "Issue {code}",
+    issueToRun: "Issue to {run}",
+    fileFailed: "The file didn't open. Try again.",
+    openFile: "Open",
+    readOnly: "These details are changed on the card on the web.",
+    waitingTitle: "Waiting for a die",
+    waitingEmpty: "No press run is waiting",
+    waitingEmptyBody: "Runs released from a press plan show here until a copy is issued.",
+    needsDie: "Needs a die",
+  },
+} as const;

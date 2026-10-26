@@ -1,237 +1,41 @@
-import { StatusBadge } from "@orrn/ui/components/badge";
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input } from "@orrn/ui/components/input";
-import { Label } from "@orrn/ui/components/label";
-import { PageHeader } from "@orrn/ui/components/page-header";
-import { Skeleton } from "@orrn/ui/components/skeleton";
-import { Truncate } from "@orrn/ui/components/truncate";
-import { Fact, FactList } from "@orrn/ui/components/fact-list";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { format } from "date-fns";
-import { useState } from "react";
-import { toast } from "sonner";
-import { ArrowRight } from "lucide-react";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 
-import { BundlePrintButton } from "@/shared/components/bundle-print-button";
-import { Can } from "@/shared/components/can";
-import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
-import { trpc } from "@/shared/utils/trpc";
-import { formatKg } from "@/shared/lib/weight";
+import { isNotFound } from "@/shared/lib/session-errors";
+import { bundleDetailPath } from "@/shared/lib/paths";
+import { trpcClient } from "@/shared/utils/trpc";
 
-const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
-type BundleStatus = (typeof bundleStatuses)[number];
-
+/**
+ * Old `/bundles/$id`: forwards to `/b/$serial`. Needs the server because the
+ * old URL carries the bundle's id and the new one its number (spec §3.2).
+ */
 export const Route = createFileRoute("/_tenant/bundles/$id")({
-  component: BundleDetailComponent,
-  beforeLoad: requireCompanyMe,
+  loader: async ({ params, location }) => {
+    let serial: string;
+    try {
+      // Plain client: a miss is this page's own message, not an error toast.
+      serial = (await trpcClient.bundle.getBundle.query({ id: params.id })).bundle.serial;
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      return null;
+    }
+    throw redirect({ href: `${bundleDetailPath({ serial })}${location.searchStr}`, replace: true });
+  },
+  component: BundleNotFound,
 });
 
-function BundleDetailComponent() {
-  const { id } = Route.useParams();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [reason, setReason] = useState("");
-  const lu = useLengthUnit();
-
-  const { data, isLoading } = useQuery({
-    ...trpc.bundle.getBundle.queryOptions({ id }),
-  });
-
-  const transitionMutation = useMutation({
-    ...trpc.bundle.transitionStatus.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Status updated");
-      setReason("");
-      queryClient.invalidateQueries({ queryKey: trpc.bundle.getBundle.queryKey({ id }) });
-      queryClient.invalidateQueries({ queryKey: trpc.bundle.listBundles.queryKey() });
-      queryClient.invalidateQueries({ queryKey: trpc.bundle.stockSummary.queryKey() });
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to update status");
-    },
-  });
-
-  if (isLoading) {
-    return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5" aria-busy="true" aria-label="Loading bundle">
-        <Skeleton className="h-9 w-56" />
-        <Skeleton className="h-48 w-full rounded-card" />
-      </div>
-    );
-  }
-  if (!data) return <EmptyState title="Bundle not found" description="This bundle may have been removed." />;
-
-  const { bundle, die, group, activeDispatch, events } = data;
-  const isAvailable = bundle.status === "available";
-  const isVoid = bundle.status === "void";
-  const canTransition = isAvailable || isVoid;
-  const targetStatus: BundleStatus | null = isAvailable ? "void" : isVoid ? "available" : null;
-
+function BundleNotFound() {
+  const { t } = useT();
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <PageHeader
-        eyebrow="Bundles"
-        title={bundle.serial}
-        description="Bundle detail, label printing, and status history."
-        actions={
-          <>
-            <Can do="spool.create_jobs">
-              <BundlePrintButton bundleId={bundle.id} label="Print label" size="default" />
-            </Can>
-            <Button
-            variant="outline"
-            onClick={() =>
-              navigate({ to: "/bundles", search: { status: "all", dieId: undefined, groupId: undefined } })
-            }
-          >
-            Back to list
-            </Button>
-          </>
-        }
-      />
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <CardTitle>Overview</CardTitle>
-            <StatusBadge kind="bundle" value={bundle.status} />
-          </div>
-        </CardHeader>
-        <FactList>
-          <Fact label="Die" wide>
-            {die ? (
-              <>
-                <span className="font-mono font-medium">
-                  {die.series} / {die.sectionCode}
-                </span>
-                {die.name ? <Truncate lines={2} className="text-sm text-muted-foreground">{die.name}</Truncate> : null}
-              </>
-            ) : (
-              "Not set"
-            )}
-          </Fact>
-          <Fact label="Packing session" mono>
-            {group ? (
-              <Link to="/receipts/$id" params={{ id: group.id }} className="hover:underline">
-                {group.code}
-              </Link>
-            ) : (
-              "Not set"
-            )}
-          </Fact>
-          <Fact label="Pieces">{bundle.quantity.toLocaleString()}</Fact>
-          <Fact label="Weight">{formatKg(bundle.weightG)}</Fact>
-          <Fact label="Length">{lu.formatLength(bundle.lengthMm)}</Fact>
-          <Fact label="PO" truncate>
-            {bundle.poNumber || group?.purchaseOrderRef || "None"}
-          </Fact>
-          <Fact label="Created">{format(new Date(bundle.createdAt), "PP p")}</Fact>
-        </FactList>
-      </Card>
-
-      {activeDispatch ? (
-        <Card>
-          <CardContent className="flex min-w-0 flex-wrap items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="m-0 text-[13px] font-medium text-muted-foreground">Active dispatch</p>
-              <div className="mt-1 flex min-w-0 items-center gap-2">
-                <Truncate mono className="text-[15px] font-semibold">
-                  {activeDispatch.code}
-                </Truncate>
-                <StatusBadge kind="dispatch" value={activeDispatch.status} size="sm" />
-              </div>
-            </div>
-            <Button asChild variant="outline" size="sm" className="max-sm:w-full">
-              <Link to="/dispatches/$id" params={{ id: activeDispatch.id }}>
-                View dispatch
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {canTransition && targetStatus ? (
-        <Can do="bundle.transition">
-          <Card>
-            <CardHeader>
-              <CardTitle>{isAvailable ? "Void this bundle" : "Restore this bundle"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {isAvailable
-                  ? "Voiding marks the bundle as no longer part of available stock. It can be restored later."
-                  : "Restoring returns the bundle to available stock."}
-              </p>
-              <div className="space-y-2">
-                <Label htmlFor="reason">Reason (optional)</Label>
-                <Input
-                  id="reason"
-                  value={reason}
-                  onChangeText={setReason}
-                  placeholder="e.g. damaged in handling"
-                />
-              </div>
-              <Button
-                className="w-full sm:w-auto"
-                variant={isAvailable ? "destructive" : "default"}
-                onClick={() =>
-                  transitionMutation.mutate({ id, toStatus: targetStatus, reason: reason || null })
-                }
-                disabled={transitionMutation.isPending}
-              >
-                {transitionMutation.isPending
-                  ? "Saving…"
-                  : isAvailable
-                    ? "Void bundle"
-                    : "Restore bundle"}
-              </Button>
-            </CardContent>
-          </Card>
-        </Can>
-      ) : (
-        <Card>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              This bundle is currently {bundle.status}. Status changes are managed by the dispatch flow.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Status history</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <EmptyState title="No history yet" description="Status transitions will appear here." />
-          ) : (
-            <ul className="space-y-3">
-              {events.map((ev) => (
-                <li
-                  key={ev.id}
-                  className="flex flex-wrap items-center justify-between gap-2 text-sm border-b border-border last:border-b-0 pb-3"
-                >
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <StatusBadge kind="bundle" value={ev.fromStatus ?? "available"} size="sm" />
-                    <ArrowRight size={14} className="text-muted-foreground" aria-hidden="true" />
-                    <span className="sr-only">to</span>
-                    <StatusBadge kind="bundle" value={ev.toStatus} size="sm" />
-                    {ev.reason ? <span className="min-w-0 break-words text-muted-foreground">Reason: {ev.reason}</span> : null}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {format(new Date(ev.at), "PP p")}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <EmptyState
+      title={t("errors.notFoundInCompany")}
+      action={
+        <Button asChild variant="secondary">
+          <Link to="/today">{t("errors.goToday")}</Link>
+        </Button>
+      }
+    />
   );
 }

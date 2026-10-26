@@ -16,7 +16,7 @@ import { cn } from "@orrn/ui/lib/utils";
  * styles.
  */
 const containerVariants = cva(
-  "flex-row items-center justify-center gap-2 rounded-md",
+  "flex-row items-center justify-center gap-2 rounded-full",
   {
     variants: {
       variant: {
@@ -28,11 +28,11 @@ const containerVariants = cva(
         link: "bg-transparent",
       },
       size: {
-        xs: "h-7 px-2",
-        sm: "h-8 px-3",
-        default: "h-9 px-4",
-        lg: "h-11 px-6",
-        icon: "h-9 w-9 p-0",
+        xs: "h-8 px-3",
+        sm: "h-10 px-4",
+        default: "h-11 px-5",
+        lg: "h-14 px-7",
+        icon: "h-11 w-11 p-0",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

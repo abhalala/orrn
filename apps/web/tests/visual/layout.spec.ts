@@ -6,13 +6,14 @@ import {
   collectClippedTextIssues,
   collectHorizontalScrollIssues,
   type LayoutIssue,
-} from "./layout-guards";
+} from "../helpers/layout-guards";
 
 /**
- * Layout guard sweep: every route, at phone, tablet and desktop widths, in the
- * project's colour scheme (light and dark projects). Fails on sideways scroll,
- * clipped text, text under a chip, wrapped slugs/codes, squeezed columns or
- * ellipsised key values.
+ * Layout guard sweep: every route of the C2 route map, at phone, tablet and
+ * desktop widths, in the project's colour scheme (light and dark projects).
+ * Fails on sideways scroll, clipped text, text under a chip or a cut-off
+ * `data-no-truncate` key value (guards: `tests/helpers/layout-guards.ts`,
+ * shared with the e2e project). Old URLs are redirect-only and not swept.
  *
  * Public pages run without a session. Signed-in routes need a running API and
  * two local test accounts (a company owner and a Godseye staff user), given as
@@ -54,33 +55,38 @@ function widthsFor(projectName: string): number[] {
   return projectName.startsWith("mobile") ? [375, 390] : [820, 1280, 1440, 1920];
 }
 
-const PUBLIC_ROUTES = ["/", "/login", "/waitlist", "/invite/not-a-real-token"];
+const PUBLIC_ROUTES = ["/", "/login", "/request-access", "/invite/not-a-real-token"];
 
 /** Static tenant routes; detail routes are discovered from the first list row. */
 const OWNER_ROUTES = [
-  "/dashboard",
+  "/today",
+  "/pack",
+  "/pack/new",
+  "/stock",
+  "/stock/bundles",
+  "/dispatch",
+  "/dispatch/new",
+  "/printing",
+  "/guides",
+  "/settings",
   "/customers",
   "/dies",
-  "/receipts",
-  "/receipts/new",
-  "/bundles",
-  "/stock",
-  "/dispatches",
-  "/dispatches/new",
-  "/spool",
-  "/settings/members",
-  // /change-password only renders for accounts flagged must-change-password;
-  // everyone else is redirected, so it is not part of this sweep.
 ];
+/**
+ * Detail routes discovered from the first list row. /pack/$id joins once
+ * its C2 screen links from a list.
+ */
 const OWNER_DETAILS: { list: string; pattern: RegExp }[] = [
   { list: "/customers", pattern: /^\/customers\/(?!new)[^/]+$/ },
   { list: "/dies", pattern: /^\/dies\/(?!new)[^/]+$/ },
-  { list: "/receipts", pattern: /^\/receipts\/(?!new)[^/]+$/ },
-  { list: "/bundles", pattern: /^\/bundles\/[^/]+$/ },
-  { list: "/dispatches", pattern: /^\/dispatches\/(?!new)[^/]+$/ },
+  // A section block on Sections (the view switch links /stock/bundles, which is a list, not a section).
+  { list: "/stock", pattern: /^\/stock\/(?!bundles$)[^/]+$/ },
+  // A bundle row on All bundles.
+  { list: "/stock/bundles", pattern: /^\/b\/[^/]+$/ },
+  { list: "/dispatch", pattern: /^\/dispatch\/(?!new)[^/]+$/ },
 ];
 
-const STAFF_ROUTES = ["/admin", "/admin/companies", "/admin/waitlist", "/admin/staff", "/admin/spool"];
+const STAFF_ROUTES = ["/admin", "/admin/companies", "/admin/requests", "/admin/staff"];
 const STAFF_DETAILS = [{ list: "/admin/companies", pattern: /^\/admin\/companies\/[^/]+$/ }];
 
 async function settle(page: Page) {
@@ -115,24 +121,6 @@ async function discover(page: Page, details: { list: string; pattern: RegExp }[]
   return found;
 }
 
-/** A packing list lives under a completed dispatch: find one through the list. */
-async function discoverPackingList(page: Page): Promise<string> {
-  await page.goto("/dispatches?status=completed");
-  await settle(page);
-  const dispatches = await page
-    .locator("main a[href]")
-    .evaluateAll((els) => els.map((el) => new URL((el as HTMLAnchorElement).href).pathname));
-  for (const href of [...new Set(dispatches.filter((h) => /^\/dispatches\/(?!new)[^/]+$/.test(h)))]) {
-    await page.goto(href);
-    await settle(page);
-    const pl = await page
-      .locator("main a[href*='/packing-lists/']")
-      .evaluateAll((els) => els.map((el) => new URL((el as HTMLAnchorElement).href).pathname));
-    if (pl[0]) return pl[0];
-  }
-  throw new Error("no completed dispatch with a packing list; complete one in the local data");
-}
-
 async function sweep(page: Page, routes: string[], widths: number[]) {
   const failures: string[] = [];
   for (const width of widths) {
@@ -154,7 +142,7 @@ async function sweep(page: Page, routes: string[], widths: number[]) {
       if (issues.length > 0) {
         failures.push(
           `${route} @ ${width}px [${test.info().project.name}]\n${issues
-            .map((i) => `  [${i.kind}] ${i.path}\n      "${i.text}" (${i.detail})`)
+            .map((i) => `  [${i.kind}] ${i.detail}`)
             .join("\n")}`,
         );
       }
@@ -182,8 +170,7 @@ test.describe("signed in", () => {
     test.setTimeout(600_000);
     await signIn(page, "owner");
     const details = await discover(page, OWNER_DETAILS);
-    const packingList = await discoverPackingList(page);
-    await sweep(page, [...OWNER_ROUTES, ...details, packingList], widthsFor(testInfo.project.name));
+    await sweep(page, [...OWNER_ROUTES, ...details], widthsFor(testInfo.project.name));
   });
 
   test("Godseye routes keep text and layout intact", async ({ page }, testInfo) => {

@@ -1,0 +1,43 @@
+import { useT } from "@orrn/i18n";
+import { cn } from "@orrn/ui/lib/utils";
+import { Link } from "@tanstack/react-router";
+
+/**
+ * Sections | Lengths | Bundles | Yards: the Stock views (spec §3 Stock). They are two
+ * pages, so this is a row of links with `aria-current`, drawn like the C2
+ * segmented control. Links, not a radio group: switching loads a page.
+ */
+export function StockViewSwitch({ current }: { current: "sections" | "lengths" | "bundles" | "yards" }) {
+  const { t } = useT();
+  const items = [
+    { key: "sections", to: "/stock", label: t("stock.sections") },
+    { key: "lengths", to: "/stock/lengths", label: t("stock.lengths") },
+    { key: "bundles", to: "/stock/bundles", label: t("stock.bundles") },
+    { key: "yards", to: "/stock/yards", label: t("stock.yards") },
+  ] as const;
+  return (
+    <nav aria-label={t("stock.view")} className="flex">
+      <ul className="m-0 flex w-full list-none rounded-full bg-surface-sunken p-1 sm:w-auto dark:bg-background dark:ring-1 dark:ring-border">
+        {items.map((item) => {
+          const active = item.key === current;
+          return (
+            <li key={item.key} className="flex min-w-0 flex-1 sm:flex-none">
+              <Link
+                to={item.to}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "animate-press inline-flex h-11 w-full min-w-0 items-center justify-center rounded-full px-1 max-sm:overflow-hidden max-sm:text-ellipsis max-sm:text-[13px] sm:px-5 sm:text-[15px] text-[15px] font-semibold whitespace-nowrap no-underline transition-[color,background-color,scale] duration-[var(--dur-fast)]",
+                  active
+                    ? "bg-card text-foreground shadow-sm dark:bg-surface-sunken dark:ring-1 dark:ring-control/40"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}

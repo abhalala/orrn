@@ -1,9 +1,22 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
 import type { Context } from "./context";
-import { can, type Action } from "./lib/permissions";
+import { errorMetaOf } from "./lib/errorMeta";
+import { assertModule, moduleForPath } from "./lib/moduleGate";
+import { PORTAL_REFUSALS, resolvePortalAccess } from "./lib/portal";
+import { COMPANY_HEADER, IMPERSONATE_HEADER } from "./lib/tenantContext";
+import { can, canAny, type Action } from "./lib/permissions";
+import { ScanRefusalError } from "./lib/scanRefusal";
 
-export const t = initTRPC.context<Context>().create();
+export const t = initTRPC.context<Context>().create({
+  // `TRPCMetaError.meta` (e.g. a duplicate band's `existing`) reaches the client as `error.data.meta`.
+  /** A dispatch add refusal (D12) carries its machine `{code, reason}` to clients as `data.refusal`. */
+  errorFormatter({ shape, error }) {
+    const meta = errorMetaOf(error);
+    const refusal = error.cause instanceof ScanRefusalError ? error.cause.refusal : null;
+    return { ...shape, data: { ...shape.data, refusal, ...(meta ? { meta } : {}) } };
+  },
+});
 
 export const router = t.router;
 
@@ -23,6 +36,12 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
       message: "Invalid, expired, or revoked impersonation grant",
     });
   }
+  if (ctx.companyHeaderRejected) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You don't have access to that plant",
+    });
+  }
   return next({
     ctx: {
       ...ctx,
@@ -33,12 +52,19 @@ export const authedProcedure = t.procedure.use(({ ctx, next }) => {
 
 export const protectedProcedure = authedProcedure;
 
-export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
+export const companyProcedure = authedProcedure.use(async ({ ctx, next, path, type }) => {
   if (!ctx.companyId || !ctx.membership || !ctx.role) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Company access required",
     });
+  }
+
+  // FP-PF-07: a mutation of a module that is off for this plant is refused at the router level
+  // (lib/moduleGate ROUTER_MODULE), whatever the role allows. Reads are not gated.
+  if (type === "mutation") {
+    const module = moduleForPath(path);
+    if (module) await assertModule({ db: ctx.db, companyId: ctx.companyId }, module);
   }
 
   return next({
@@ -50,6 +76,38 @@ export const companyProcedure = authedProcedure.use(({ ctx, next }) => {
     },
   });
 });
+
+/**
+ * Company procedure that also requires the caller's role to allow `action` in
+ * the permission matrix. The server is authoritative; hiding buttons is only a
+ * convenience. Use on every mutation that changes ops data.
+ */
+export function actionProcedure(action: Action) {
+  return companyProcedure.use(({ ctx, next }) => {
+    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+    if (!can(me, action)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You don't have permission to do that",
+      });
+    }
+    return next({ ctx });
+  });
+}
+
+/** Like {@link actionProcedure}, but any one of `actions` is enough (e.g. die.card OR masters.publish). */
+export function anyActionProcedure(...actions: readonly Action[]) {
+  return companyProcedure.use(({ ctx, next }) => {
+    const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+    if (!canAny(me, actions)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "You don't have permission to do that",
+      });
+    }
+    return next({ ctx });
+  });
+}
 
 export const platformProcedure = authedProcedure.use(({ ctx, next }) => {
   if (!ctx.isPlatformAdmin || !ctx.platformRole) {
@@ -100,3 +158,35 @@ export function roleGuard(...allowedRoles: Role[]) {
     return next({ ctx });
   });
 }
+
+/**
+ * Party portal procedure (FP-PF-01, C29; specs §E7 "Rules"). NOT a company role and no `can()`:
+ * session + an active `customer_portal_user` row + company active + `portalEnabled`, and the user
+ * holds no membership in that plant. Company AND customer come from the portal row, never from the
+ * input; `x-orrn-company` only picks among the party's own plants. Impersonation never enters the
+ * portal (a platform admin signs in as a demo party instead).
+ */
+export const portalProcedure = t.procedure.use(async ({ ctx, next }) => {
+  if (!ctx.session) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required", cause: "No session" });
+  }
+  if (ctx.impersonation || ctx.impersonationHeaderRejected || ctx.request.headers.get(IMPERSONATE_HEADER)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: PORTAL_REFUSALS.impersonation });
+  }
+  const portal = await resolvePortalAccess(ctx.db, {
+    userId: ctx.session.user.id,
+    companyHeader: ctx.request.headers.get(COMPANY_HEADER),
+  });
+  return next({
+    ctx: {
+      ...ctx,
+      session: ctx.session,
+      portal,
+      companyId: portal.companyId,
+      // A party is never a member: no role, no membership, no impersonation downstream.
+      membership: null,
+      role: null,
+      impersonation: null,
+    },
+  });
+});

@@ -2,17 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0c0c0e" media="(prefers-color-scheme: dark)" />
     <title>orrn</title>
     <script>
-      // Pre-paint theme: apply the saved choice (next-themes key) or the
-      // system preference before React mounts so there is no flash.
+      // Pre-paint theme and language: apply the saved choices (keys
+      // "orrn.theme" and "orrn.locale") or the system theme before React
+      // mounts, so there is no flash. A theme saved under the old key is
+      // carried over once.
       (function () {
         try {
-          var t = localStorage.getItem("vite-ui-theme");
+          var l = localStorage.getItem("orrn.locale");
+          if (l === "en" || l === "hi" || l === "gu") document.documentElement.lang = l;
+          var t = localStorage.getItem("orrn.theme");
+          var legacy = localStorage.getItem("vite-ui-theme");
+          if (!t && legacy) {
+            t = legacy;
+            localStorage.setItem("orrn.theme", legacy);
+          }
+          if (legacy !== null) localStorage.removeItem("vite-ui-theme");
           if (t !== "light" && t !== "dark") {
             t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
           }

@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
 import { die } from "@orrn/db/schema/catalog";
+import { cast } from "@orrn/db/schema/foundry";
 import { bundle, bundleGroup } from "@orrn/db/schema/inventory";
 import { labelTemplate, printLog, printerProfile, printStatuses } from "@orrn/db/schema/printing";
 import { spoolDeployment } from "@orrn/db/schema/spool";
@@ -11,9 +12,27 @@ import { unwrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { buildBundleLabelVariables } from "../lib/bundle-label";
-import { SpoolClient } from "../lib/spool-client";
+import { SpoolClient, SpoolHttpError, spoolBaseUrl } from "../lib/spool-client";
 import { can } from "../lib/permissions";
-import { companyProcedure, roleGuard, router } from "../index";
+import { actionProcedure, companyProcedure, router } from "../index";
+
+/** What the spool compares under one job key (printer, template, variables, copies): sha-256 hex of sorted JSON. */
+async function labelPayloadHash(body: { printer_id: number; template_id: number; variables: Record<string, unknown>; copies: number }): Promise<string> {
+  const variables = Object.fromEntries(Object.entries(body.variables).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  const text = JSON.stringify({ c: body.copies, p: body.printer_id, t: body.template_id, v: variables });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The spool's exactly-once key (orrn-spool docs/print-exactly-once.md): one per print intent,
+ * `bundle:<serial>:label:v<template version>:attempt:<n>`. The spool accepts 1-200 characters from
+ * A-Z a-z 0-9 . _ : / # @ = + ~ -, so any other character of a serial becomes `_`.
+ */
+export function spoolJobKey(serial: string, labelVersion: number, attempt: number): string {
+  return `bundle:${serial.replace(/[^A-Za-z0-9._:/#@=+~-]/g, "_")}:label:v${labelVersion}:attempt:${attempt}`.slice(0, 200);
+}
+import { loadPackLabelVariables } from "../lib/pack";
 
 /** Get the active spool deployment for the current company, or throw. */
 async function getActiveDeployment(ctx: { db: OrrnDb; companyId: string }) {
@@ -40,7 +59,7 @@ type ActiveSpoolDeployment = typeof spoolDeployment.$inferSelect;
 /** Create a SpoolClient from the deployment's wrapped secrets. */
 async function createSpoolClient(deployment: ActiveSpoolDeployment) {
   const sharedSecret = await unwrapSecret(deployment.sharedSecretWrapped, env.ORRN_MASTER_KEY);
-  return new SpoolClient(`https://${deployment.nodeDomain}`, sharedSecret);
+  return new SpoolClient(spoolBaseUrl(deployment.nodeDomain), sharedSecret);
 }
 
 export const spoolRouter = router({
@@ -59,7 +78,7 @@ export const spoolRouter = router({
       return client.listPrinters();
     }),
 
-  addPrinter: roleGuard("owner", "admin", "manager")
+  addPrinter: actionProcedure("spool.manage_printers")
     .input(
       z.object({
         name: z.string().min(1).max(255),
@@ -93,7 +112,7 @@ export const spoolRouter = router({
       return client.getPrinterStatus(input.printerId);
     }),
 
-  testPrinter: roleGuard("owner", "admin", "manager")
+  testPrinter: actionProcedure("spool.manage_printers")
     .input(z.object({ printerId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const deployment = await getActiveDeployment(ctx);
@@ -149,7 +168,7 @@ export const spoolRouter = router({
     return rows;
   }),
 
-  pushTemplate: roleGuard("owner", "admin", "manager")
+  pushTemplate: actionProcedure("spool.push_templates")
     .input(z.object({ templateId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const template = await ctx.db
@@ -202,7 +221,7 @@ export const spoolRouter = router({
 
   // ─── Print Jobs ──────────────────────────────────────────────────────────────
 
-  createJob: roleGuard("owner", "admin", "manager", "operator")
+  createJob: actionProcedure("spool.create_jobs")
     .input(
       z.object({
         profileId: z.string(),
@@ -288,13 +307,19 @@ export const spoolRouter = router({
       }
     }),
 
-  printBundleLabel: roleGuard("owner", "admin", "manager", "operator")
+  printBundleLabel: actionProcedure("spool.create_jobs")
     .input(
       z.object({
         bundleId: z.string(),
         profileId: z.string().optional(),
         layout: z.string().regex(/^x\d+$/).default("x0"),
         copies: z.number().int().min(1).max(100).optional(),
+        /**
+         * BACKLOG 44: true only when a person asks for ANOTHER label of a bundle already printed
+         * (the Reprint action). That is a new print intent (the spool job key's attempt + 1). Left
+         * out, the call is the same print again (a retry, a double tap) and cannot make a second label.
+         */
+        reprint: z.boolean().default(false),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -315,6 +340,8 @@ export const spoolRouter = router({
       const dieRow = await ctx.db.query.die.findFirst({
         where: and(eq(die.id, bundleRow.dieId), eq(die.companyId, ctx.companyId)),
       });
+      // FP-PK-04/05: QR, cast, sales order, standard, party number, logo flag.
+      const packVariables = await loadPackLabelVariables(ctx.db, ctx.companyId, bundleRow);
 
       const profile = input.profileId
         ? await ctx.db
@@ -352,11 +379,58 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Bundle label template is not pushed to spool yet" });
       }
 
-      const variables = buildBundleLabelVariables({ bundleRow, groupRow, dieRow: dieRow ?? null, layout: input.layout });
+      const castRow = bundleRow.castId
+        ? await ctx.db
+            .select({ number: cast.number })
+            .from(cast)
+            .where(and(eq(cast.id, bundleRow.castId), eq(cast.companyId, ctx.companyId!)))
+            .get()
+        : null;
+      const variables = buildBundleLabelVariables({
+        bundleRow,
+        groupRow,
+        dieRow: dieRow ?? null,
+        layout: input.layout,
+        castRow: castRow ?? null,
+      });
       const deployment = await getActiveDeployment(ctx);
       const client = await createSpoolClient(deployment);
       const printLogId = crypto.randomUUID();
       const copies = input.copies ?? profile.defaultCopies;
+      Object.assign(variables, packVariables);
+
+      // BACKLOG 44: the print intent. The first print of a bundle at a label version is attempt 1. The
+      // attempt moves up when a person asks for a reprint of a label that went out (ANY row of the latest
+      // attempt has a spool job id: the spool accepted that key, whatever its status became since), or
+      // when the label content differs from what that attempt already sent (another profile, copies, a
+      // changed sales order on the label): the spool would refuse that key as a conflict. Anything else
+      // (a transport retry, a second tap, a reprint whose first try never reached the spool) reuses the
+      // latest attempt, hence the key.
+      const labelVersion = template.version;
+      const payloadHash = await labelPayloadHash({
+        printer_id: Number(profile.spoolPrinterId),
+        template_id: Number(template.spoolTemplateId),
+        variables,
+        copies,
+      });
+      const scope = and(eq(printLog.companyId, ctx.companyId!), eq(printLog.bundleId, bundleRow.id), eq(printLog.labelVersion, labelVersion));
+      const [latest] = await ctx.db
+        .select({ attempt: printLog.attempt })
+        .from(printLog)
+        .where(scope)
+        .orderBy(desc(printLog.attempt))
+        .limit(1);
+      let attempt = 1;
+      if (latest) {
+        const rows = await ctx.db
+          .select({ spoolJobId: printLog.spoolJobId, payloadHash: printLog.payloadHash })
+          .from(printLog)
+          .where(and(scope, eq(printLog.attempt, latest.attempt)));
+        const went = rows.some((r) => r.spoolJobId != null);
+        const changed = rows.some((r) => r.payloadHash != null && r.payloadHash !== payloadHash);
+        attempt = (input.reprint && went) || changed ? latest.attempt + 1 : latest.attempt;
+      }
+      const jobKey = spoolJobKey(bundleRow.serial, labelVersion, attempt);
 
       await ctx.db.insert(printLog).values({
         id: printLogId,
@@ -368,7 +442,10 @@ export const spoolRouter = router({
         status: "queued",
         layout: input.layout,
         variables,
-        attempt: 1,
+        attempt,
+        labelVersion,
+        jobKey,
+        payloadHash,
       });
 
       try {
@@ -377,12 +454,20 @@ export const spoolRouter = router({
           template_id: Number(template.spoolTemplateId),
           variables,
           copies,
+          job_key: jobKey,
         });
+        // `duplicate: true` (HTTP 200): this label is already queued or printed under the key. That is
+        // success: the id recorded is the first job's, and nothing was queued again.
 
         await ctx.db
           .update(printLog)
           .set({ spoolJobId: String(result.id), status: "sent" })
           .where(eq(printLog.id, printLogId));
+        // The spool took the label with the bundle's current party number: no "needs reprint" now (I3).
+        await ctx.db
+          .update(bundle)
+          .set({ stickerStale: false })
+          .where(and(eq(bundle.id, bundleRow.id), eq(bundle.companyId, ctx.companyId!), eq(bundle.stickerStale, true)));
 
         return { id: printLogId, spoolJobId: result.id, variables };
       } catch (err) {
@@ -394,6 +479,15 @@ export const spoolRouter = router({
           })
           .where(eq(printLog.id, printLogId));
 
+        // The same key came back for different label content: orrn built the key wrong. Never a quiet
+        // success (a wrong label might be queued) and never retried; loud in the logs.
+        if (err instanceof SpoolHttpError && err.status === 409 && err.code === "job_key_conflict") {
+          console.error(`spool job_key_conflict (bug): key ${jobKey} was already used for a different label; print log ${printLogId}`);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "This label was already sent to the printer with different content. Ask support; nothing was printed again.",
+          });
+        }
         throw new TRPCError({
           code: "BAD_GATEWAY",
           message: `Failed to submit bundle label print: ${err instanceof Error ? err.message : String(err)}`,
@@ -425,6 +519,61 @@ export const spoolRouter = router({
       return rows;
     }),
 
+  /**
+   * The print queue screen: one page of jobs (newest first) with the printer
+   * and bundle each belongs to, plus a count per status. Read-only, scoped to
+   * the company, and it leaves out the label variables and the spool job id
+   * (the screen only needs a reason, a time and what the job is for).
+   */
+  queue: actionProcedure("spool.view_queue")
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
+        status: z.enum(printStatuses).optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const scope = eq(printLog.companyId, ctx.companyId);
+      const filtered = input.status ? and(scope, eq(printLog.status, input.status)) : scope;
+
+      const [rows, grouped] = await Promise.all([
+        ctx.db
+          .select({
+            id: printLog.id,
+            status: printLog.status,
+            attempt: printLog.attempt,
+            responseText: printLog.responseText,
+            layout: printLog.layout,
+            createdAt: printLog.createdAt,
+            updatedAt: printLog.updatedAt,
+            profileName: printerProfile.name,
+            bundleSerial: bundle.serial,
+          })
+          .from(printLog)
+          .innerJoin(
+            printerProfile,
+            and(eq(printerProfile.id, printLog.profileId), eq(printerProfile.companyId, ctx.companyId)),
+          )
+          .leftJoin(bundle, and(eq(bundle.id, printLog.bundleId), eq(bundle.companyId, ctx.companyId)))
+          .where(filtered)
+          .orderBy(desc(printLog.createdAt), desc(printLog.id))
+          .limit(input.limit)
+          .offset(input.offset),
+        ctx.db
+          .select({ status: printLog.status, n: count() })
+          .from(printLog)
+          .where(scope)
+          .groupBy(printLog.status),
+      ]);
+
+      const counts: Record<(typeof printStatuses)[number], number> = { queued: 0, sent: 0, success: 0, failed: 0 };
+      for (const g of grouped) counts[g.status] = g.n;
+      const total = input.status ? counts[input.status] : counts.queued + counts.sent + counts.success + counts.failed;
+
+      return { rows, total, counts };
+    }),
+
   getJobStatus: companyProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -441,7 +590,7 @@ export const spoolRouter = router({
       return row;
     }),
 
-  cancelJob: roleGuard("owner", "admin", "manager")
+  cancelJob: actionProcedure("spool.manage_jobs")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const row = await ctx.db
@@ -472,7 +621,7 @@ export const spoolRouter = router({
       return { success: true };
     }),
 
-  retryJob: roleGuard("owner", "admin", "manager")
+  retryJob: actionProcedure("spool.manage_jobs")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const row = await ctx.db
@@ -514,6 +663,12 @@ export const spoolRouter = router({
         spoolDomain: spoolDeployment.nodeDomain,
         spoolVersion: spoolDeployment.runtimeVersion,
         lastSeenAt: spoolDeployment.lastHeartbeatAt,
+        scaleConfigured: spoolDeployment.scaleConfigured,
+        scaleSimulated: spoolDeployment.scaleSimulated,
+        scaleLastFrameAt: spoolDeployment.scaleLastFrameAt,
+        scaleReportedAt: spoolDeployment.scaleReportedAt,
+        collectors: spoolDeployment.collectors,
+        collectorsReportedAt: spoolDeployment.collectorsReportedAt,
       })
       .from(spoolDeployment)
       .where(eq(spoolDeployment.companyId, ctx.companyId!))

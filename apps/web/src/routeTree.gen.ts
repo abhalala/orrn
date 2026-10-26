@@ -11,40 +11,164 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TenantRouteImport } from './routes/_tenant'
 import { Route as PublicRouteImport } from './routes/_public'
+import { Route as PortalRouteImport } from './routes/_portal'
 import { Route as PlatformRouteImport } from './routes/_platform'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as Char91__uiChar93RouteImport } from './routes/[__ui]'
 import { Route as PublicIndexRouteImport } from './routes/_public/index'
+import { Route as BSerialRouteImport } from './routes/b.$serial'
+import { Route as TenantTodayRouteImport } from './routes/_tenant/today'
+import { Route as TenantSettingsRouteImport } from './routes/_tenant/settings'
+import { Route as TenantPrintingRouteImport } from './routes/_tenant/printing'
 import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
-import { Route as PublicWelcomeRouteImport } from './routes/_public/welcome'
+import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
+import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
+import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-password'
+import { Route as PublicRequestAccessRouteImport } from './routes/_public/request-access'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
+import { Route as PublicForgotPasswordRouteImport } from './routes/_public/forgot-password'
+import { Route as PublicContinueRouteImport } from './routes/_public/continue'
+import { Route as AuthedWelcomeRouteImport } from './routes/_authed/welcome'
 import { Route as AuthedSetupCredentialsRouteImport } from './routes/_authed/setup-credentials'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedNoAccessRouteImport } from './routes/_authed/no-access'
 import { Route as AuthedChangePasswordRouteImport } from './routes/_authed/change-password'
+import { Route as TenantVendorsIndexRouteImport } from './routes/_tenant/vendors.index'
+import { Route as TenantStoreIndexRouteImport } from './routes/_tenant/store.index'
 import { Route as TenantStockIndexRouteImport } from './routes/_tenant/stock.index'
 import { Route as TenantSpoolIndexRouteImport } from './routes/_tenant/spool.index'
+import { Route as TenantReportsIndexRouteImport } from './routes/_tenant/reports.index'
 import { Route as TenantReceiptsIndexRouteImport } from './routes/_tenant/receipts.index'
+import { Route as TenantPurchaseIndexRouteImport } from './routes/_tenant/purchase.index'
+import { Route as TenantPreviewIndexRouteImport } from './routes/_tenant/preview.index'
+import { Route as TenantPressIndexRouteImport } from './routes/_tenant/press.index'
+import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
+import { Route as TenantOrdersIndexRouteImport } from './routes/_tenant/orders.index'
+import { Route as TenantMastersIndexRouteImport } from './routes/_tenant/masters.index'
+import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
+import { Route as TenantDispatchIndexRouteImport } from './routes/_tenant/dispatch.index'
 import { Route as TenantDiesIndexRouteImport } from './routes/_tenant/dies.index'
 import { Route as TenantCustomersIndexRouteImport } from './routes/_tenant/customers.index'
+import { Route as TenantCastsIndexRouteImport } from './routes/_tenant/casts.index'
 import { Route as TenantBundlesIndexRouteImport } from './routes/_tenant/bundles.index'
+import { Route as TenantAgeingIndexRouteImport } from './routes/_tenant/ageing.index'
+import { Route as PortalPortalIndexRouteImport } from './routes/_portal/portal.index'
 import { Route as PlatformAdminIndexRouteImport } from './routes/_platform/admin.index'
+import { Route as ShareDieTokenRouteImport } from './routes/share.die.$token'
+import { Route as TenantVendorsIdRouteImport } from './routes/_tenant/vendors.$id'
+import { Route as TenantStoreReceiveRouteImport } from './routes/_tenant/store.receive'
+import { Route as TenantStoreIssueRouteImport } from './routes/_tenant/store.issue'
+import { Route as TenantStoreExchangeRouteImport } from './routes/_tenant/store.exchange'
+import { Route as TenantStockYardsRouteImport } from './routes/_tenant/stock.yards'
+import { Route as TenantStockLengthsRouteImport } from './routes/_tenant/stock.lengths'
+import { Route as TenantStockBundlesRouteImport } from './routes/_tenant/stock.bundles'
+import { Route as TenantStockDieIdRouteImport } from './routes/_tenant/stock.$dieId'
 import { Route as TenantSettingsMembersRouteImport } from './routes/_tenant/settings.members'
+import { Route as TenantReportsStockAgeRouteImport } from './routes/_tenant/reports.stock-age'
+import { Route as TenantReportsProductionRouteImport } from './routes/_tenant/reports.production'
+import { Route as TenantReportsOrdersRouteImport } from './routes/_tenant/reports.orders'
+import { Route as TenantReportsFoundryYieldRouteImport } from './routes/_tenant/reports.foundry-yield'
+import { Route as TenantReportsDieLifeRouteImport } from './routes/_tenant/reports.die-life'
+import { Route as TenantReportsAgeingRouteImport } from './routes/_tenant/reports.ageing'
 import { Route as TenantReceiptsNewRouteImport } from './routes/_tenant/receipts.new'
 import { Route as TenantReceiptsIdRouteImport } from './routes/_tenant/receipts.$id'
+import { Route as TenantPurchaseNewRouteImport } from './routes/_tenant/purchase.new'
+import { Route as TenantPurchaseIdRouteImport } from './routes/_tenant/purchase.$id'
+import { Route as TenantPreviewComingSoonRouteImport } from './routes/_tenant/preview.coming-soon'
+import { Route as TenantPressSummaryRouteImport } from './routes/_tenant/press.summary'
+import { Route as TenantPressReportRouteImport } from './routes/_tenant/press.report'
+import { Route as TenantPressAlertsRouteImport } from './routes/_tenant/press.alerts'
 import { Route as TenantPackingListsIdRouteImport } from './routes/_tenant/packing-lists.$id'
+import { Route as TenantPackNewRouteImport } from './routes/_tenant/pack.new'
+import { Route as TenantPackIdRouteImport } from './routes/_tenant/pack.$id'
+import { Route as TenantOrdersNewRouteImport } from './routes/_tenant/orders.new'
+import { Route as TenantOrdersIdRouteImport } from './routes/_tenant/orders.$id'
+import { Route as TenantMastersTrolleysRouteImport } from './routes/_tenant/masters.trolleys'
+import { Route as TenantMastersScrapRouteImport } from './routes/_tenant/masters.scrap'
+import { Route as TenantMastersRecipesRouteImport } from './routes/_tenant/masters.recipes'
+import { Route as TenantMastersReasonsRouteImport } from './routes/_tenant/masters.reasons'
+import { Route as TenantMastersOvensRouteImport } from './routes/_tenant/masters.ovens'
+import { Route as TenantMastersLocationsRouteImport } from './routes/_tenant/masters.locations'
+import { Route as TenantMastersFurnacesRouteImport } from './routes/_tenant/masters.furnaces'
+import { Route as TenantMastersDiesRouteImport } from './routes/_tenant/masters.dies'
+import { Route as TenantMastersAlloysRouteImport } from './routes/_tenant/masters.alloys'
+import { Route as TenantGuidesSlugRouteImport } from './routes/_tenant/guides.$slug'
+import { Route as TenantFoundryStockRouteImport } from './routes/_tenant/foundry.stock'
 import { Route as TenantDispatchesNewRouteImport } from './routes/_tenant/dispatches.new'
 import { Route as TenantDispatchesIdRouteImport } from './routes/_tenant/dispatches.$id'
+import { Route as TenantDispatchNewRouteImport } from './routes/_tenant/dispatch.new'
+import { Route as TenantDispatchIdRouteImport } from './routes/_tenant/dispatch.$id'
+import { Route as TenantDiesMakersRouteImport } from './routes/_tenant/dies.makers'
+import { Route as TenantDiesIssuesRouteImport } from './routes/_tenant/dies.issues'
 import { Route as TenantDiesIdRouteImport } from './routes/_tenant/dies.$id'
 import { Route as TenantCustomersIdRouteImport } from './routes/_tenant/customers.$id'
+import { Route as TenantCastsNewRouteImport } from './routes/_tenant/casts.new'
+import { Route as TenantCastsInboxRouteImport } from './routes/_tenant/casts.inbox'
 import { Route as TenantBundlesIdRouteImport } from './routes/_tenant/bundles.$id'
+import { Route as TenantAgeingLoadRouteImport } from './routes/_tenant/ageing.load'
+import { Route as TenantAgeingHistoryRouteImport } from './routes/_tenant/ageing.history'
 import { Route as PublicInviteTokenRouteImport } from './routes/_public/invite.$token'
+import { Route as PortalPortalDiesRouteImport } from './routes/_portal/portal.dies'
 import { Route as PlatformAdminWaitlistRouteImport } from './routes/_platform/admin.waitlist'
+import { Route as PlatformAdminSupportRouteImport } from './routes/_platform/admin.support'
 import { Route as PlatformAdminStaffRouteImport } from './routes/_platform/admin.staff'
+import { Route as PlatformAdminRequestsRouteImport } from './routes/_platform/admin.requests'
+import { Route as PlatformAdminReleasesRouteImport } from './routes/_platform/admin.releases'
+import { Route as PlatformAdminBackupsRouteImport } from './routes/_platform/admin.backups'
+import { Route as TenantStoreItemsIndexRouteImport } from './routes/_tenant/store.items.index'
+import { Route as TenantStockCountIndexRouteImport } from './routes/_tenant/stock.count.index'
+import { Route as TenantPreviewPressIndexRouteImport } from './routes/_tenant/preview.press.index'
+import { Route as TenantPreviewPlatformIndexRouteImport } from './routes/_tenant/preview.platform.index'
+import { Route as TenantPreviewOrdersIndexRouteImport } from './routes/_tenant/preview.orders.index'
+import { Route as TenantPreviewFoundryIndexRouteImport } from './routes/_tenant/preview.foundry.index'
+import { Route as TenantPreviewFloorIndexRouteImport } from './routes/_tenant/preview.floor.index'
+import { Route as TenantPreviewDieRoomIndexRouteImport } from './routes/_tenant/preview.die-room.index'
+import { Route as TenantPreviewAgeingIndexRouteImport } from './routes/_tenant/preview.ageing.index'
+import { Route as TenantPressLinesIndexRouteImport } from './routes/_tenant/press.lines.index'
+import { Route as TenantOrdersPlanIndexRouteImport } from './routes/_tenant/orders.plan.index'
+import { Route as TenantCastsIdIndexRouteImport } from './routes/_tenant/casts.$id.index'
+import { Route as PortalPortalOrdersIndexRouteImport } from './routes/_portal/portal.orders.index'
+import { Route as PortalPortalDispatchesIndexRouteImport } from './routes/_portal/portal.dispatches.index'
 import { Route as PlatformAdminSpoolIndexRouteImport } from './routes/_platform/admin.spool.index'
 import { Route as PlatformAdminCompaniesIndexRouteImport } from './routes/_platform/admin.companies.index'
+import { Route as TenantStoreItemsIdRouteImport } from './routes/_tenant/store.items.$id'
+import { Route as TenantStockCountIdRouteImport } from './routes/_tenant/stock.count.$id'
+import { Route as TenantPreviewPressSummaryRouteImport } from './routes/_tenant/preview.press.summary'
+import { Route as TenantPreviewPressReportRouteImport } from './routes/_tenant/preview.press.report'
+import { Route as TenantPreviewPressConsoleRouteImport } from './routes/_tenant/preview.press.console'
+import { Route as TenantPreviewPlatformSettingsRouteImport } from './routes/_tenant/preview.platform.settings'
+import { Route as TenantPreviewPlatformPortalRouteImport } from './routes/_tenant/preview.platform.portal'
+import { Route as TenantPreviewPlatformDevicesRouteImport } from './routes/_tenant/preview.platform.devices'
+import { Route as TenantPreviewOrdersPlanRouteImport } from './routes/_tenant/preview.orders.plan'
+import { Route as TenantPreviewOrdersNewRouteImport } from './routes/_tenant/preview.orders.new'
+import { Route as TenantPreviewOrdersIdRouteImport } from './routes/_tenant/preview.orders.$id'
+import { Route as TenantPreviewFoundryStockRouteImport } from './routes/_tenant/preview.foundry.stock'
+import { Route as TenantPreviewFoundryCertificateRouteImport } from './routes/_tenant/preview.foundry.certificate'
+import { Route as TenantPreviewFoundryCastRouteImport } from './routes/_tenant/preview.foundry.cast'
+import { Route as TenantPreviewFloorStockRouteImport } from './routes/_tenant/preview.floor.stock'
+import { Route as TenantPreviewFloorListRouteImport } from './routes/_tenant/preview.floor.list'
+import { Route as TenantPreviewFloorDispatchRouteImport } from './routes/_tenant/preview.floor.dispatch'
+import { Route as TenantPreviewDieRoomMakerRouteImport } from './routes/_tenant/preview.die-room.maker'
+import { Route as TenantPreviewDieRoomLiftRouteImport } from './routes/_tenant/preview.die-room.lift'
+import { Route as TenantPreviewDieRoomCardRouteImport } from './routes/_tenant/preview.die-room.card'
+import { Route as TenantPreviewAgeingPageRouteImport } from './routes/_tenant/preview.ageing.$page'
+import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.runs.$id'
+import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
+import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
+import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
+import { Route as TenantCastsIdCertificateRouteImport } from './routes/_tenant/casts.$id.certificate'
+import { Route as TenantAgeingBatchIdRouteImport } from './routes/_tenant/ageing.batch.$id'
+import { Route as PortalPortalOrdersNewRouteImport } from './routes/_portal/portal.orders.new'
+import { Route as PortalPortalOrdersIdRouteImport } from './routes/_portal/portal.orders.$id'
+import { Route as PortalPortalDispatchesIdRouteImport } from './routes/_portal/portal.dispatches.$id'
+import { Route as PortalPortalCertificateDispatchIdRouteImport } from './routes/_portal/portal.certificate.$dispatchId'
 import { Route as PlatformAdminCompaniesIdRouteImport } from './routes/_platform/admin.companies.$id'
+import { Route as TenantDiesCopiesCopyIdIndexRouteImport } from './routes/_tenant/dies.copies.$copyId.index'
+import { Route as TenantDiesIdBandsNewRouteImport } from './routes/_tenant/dies_.$id.bands.new'
+import { Route as TenantDiesCopiesCopyIdLiftRouteImport } from './routes/_tenant/dies.copies.$copyId.lift'
+import { Route as TenantCastsIdMeltMeltIdRouteImport } from './routes/_tenant/casts.$id.melt.$meltId'
 
 const TenantRoute = TenantRouteImport.update({
   id: '/_tenant',
@@ -52,6 +176,10 @@ const TenantRoute = TenantRouteImport.update({
 } as any)
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/_portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlatformRoute = PlatformRouteImport.update({
@@ -62,30 +190,85 @@ const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91__uiChar93Route = Char91__uiChar93RouteImport.update({
+  id: '/__ui',
+  path: '/__ui',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => PublicRoute,
+} as any)
+const BSerialRoute = BSerialRouteImport.update({
+  id: '/b/$serial',
+  path: '/b/$serial',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TenantTodayRoute = TenantTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSettingsRoute = TenantSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPrintingRoute = TenantPrintingRouteImport.update({
+  id: '/printing',
+  path: '/printing',
+  getParentRoute: () => TenantRoute,
 } as any)
 const TenantDashboardRoute = TenantDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => TenantRoute,
 } as any)
-const PublicWelcomeRoute = PublicWelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
-  getParentRoute: () => PublicRoute,
+const TenantAuditRoute = TenantAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantApprovalsRoute = TenantApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => TenantRoute,
 } as any)
 const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
   id: '/waitlist',
   path: '/waitlist',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicResetPasswordRoute = PublicResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
+  id: '/request-access',
+  path: '/request-access',
+  getParentRoute: () => PublicRoute,
+} as any)
 const PublicLoginRoute = PublicLoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => PublicRoute,
+} as any)
+const PublicForgotPasswordRoute = PublicForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicContinueRoute = PublicContinueRouteImport.update({
+  id: '/continue',
+  path: '/continue',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AuthedWelcomeRoute = AuthedWelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedSetupCredentialsRoute = AuthedSetupCredentialsRouteImport.update({
   id: '/setup-credentials',
@@ -107,6 +290,16 @@ const AuthedChangePasswordRoute = AuthedChangePasswordRouteImport.update({
   path: '/change-password',
   getParentRoute: () => AuthedRoute,
 } as any)
+const TenantVendorsIndexRoute = TenantVendorsIndexRouteImport.update({
+  id: '/vendors/',
+  path: '/vendors/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStoreIndexRoute = TenantStoreIndexRouteImport.update({
+  id: '/store/',
+  path: '/store/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantStockIndexRoute = TenantStockIndexRouteImport.update({
   id: '/stock/',
   path: '/stock/',
@@ -117,14 +310,59 @@ const TenantSpoolIndexRoute = TenantSpoolIndexRouteImport.update({
   path: '/spool/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantReportsIndexRoute = TenantReportsIndexRouteImport.update({
+  id: '/reports/',
+  path: '/reports/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantReceiptsIndexRoute = TenantReceiptsIndexRouteImport.update({
   id: '/receipts/',
   path: '/receipts/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPurchaseIndexRoute = TenantPurchaseIndexRouteImport.update({
+  id: '/purchase/',
+  path: '/purchase/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewIndexRoute = TenantPreviewIndexRouteImport.update({
+  id: '/preview/',
+  path: '/preview/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressIndexRoute = TenantPressIndexRouteImport.update({
+  id: '/press/',
+  path: '/press/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackIndexRoute = TenantPackIndexRouteImport.update({
+  id: '/pack/',
+  path: '/pack/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantOrdersIndexRoute = TenantOrdersIndexRouteImport.update({
+  id: '/orders/',
+  path: '/orders/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersIndexRoute = TenantMastersIndexRouteImport.update({
+  id: '/masters/',
+  path: '/masters/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantGuidesIndexRoute = TenantGuidesIndexRouteImport.update({
+  id: '/guides/',
+  path: '/guides/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantDispatchesIndexRoute = TenantDispatchesIndexRouteImport.update({
   id: '/dispatches/',
   path: '/dispatches/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDispatchIndexRoute = TenantDispatchIndexRouteImport.update({
+  id: '/dispatch/',
+  path: '/dispatch/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantDiesIndexRoute = TenantDiesIndexRouteImport.update({
@@ -137,19 +375,110 @@ const TenantCustomersIndexRoute = TenantCustomersIndexRouteImport.update({
   path: '/customers/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantCastsIndexRoute = TenantCastsIndexRouteImport.update({
+  id: '/casts/',
+  path: '/casts/',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantBundlesIndexRoute = TenantBundlesIndexRouteImport.update({
   id: '/bundles/',
   path: '/bundles/',
   getParentRoute: () => TenantRoute,
+} as any)
+const TenantAgeingIndexRoute = TenantAgeingIndexRouteImport.update({
+  id: '/ageing/',
+  path: '/ageing/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const PortalPortalIndexRoute = PortalPortalIndexRouteImport.update({
+  id: '/portal/',
+  path: '/portal/',
+  getParentRoute: () => PortalRoute,
 } as any)
 const PlatformAdminIndexRoute = PlatformAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
   getParentRoute: () => PlatformRoute,
 } as any)
+const ShareDieTokenRoute = ShareDieTokenRouteImport.update({
+  id: '/share/die/$token',
+  path: '/share/die/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TenantVendorsIdRoute = TenantVendorsIdRouteImport.update({
+  id: '/vendors/$id',
+  path: '/vendors/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStoreReceiveRoute = TenantStoreReceiveRouteImport.update({
+  id: '/store/receive',
+  path: '/store/receive',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStoreIssueRoute = TenantStoreIssueRouteImport.update({
+  id: '/store/issue',
+  path: '/store/issue',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStoreExchangeRoute = TenantStoreExchangeRouteImport.update({
+  id: '/store/exchange',
+  path: '/store/exchange',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockYardsRoute = TenantStockYardsRouteImport.update({
+  id: '/stock/yards',
+  path: '/stock/yards',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockLengthsRoute = TenantStockLengthsRouteImport.update({
+  id: '/stock/lengths',
+  path: '/stock/lengths',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockBundlesRoute = TenantStockBundlesRouteImport.update({
+  id: '/stock/bundles',
+  path: '/stock/bundles',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockDieIdRoute = TenantStockDieIdRouteImport.update({
+  id: '/stock/$dieId',
+  path: '/stock/$dieId',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantSettingsMembersRoute = TenantSettingsMembersRouteImport.update({
-  id: '/settings/members',
-  path: '/settings/members',
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => TenantSettingsRoute,
+} as any)
+const TenantReportsStockAgeRoute = TenantReportsStockAgeRouteImport.update({
+  id: '/reports/stock-age',
+  path: '/reports/stock-age',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsProductionRoute = TenantReportsProductionRouteImport.update({
+  id: '/reports/production',
+  path: '/reports/production',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsOrdersRoute = TenantReportsOrdersRouteImport.update({
+  id: '/reports/orders',
+  path: '/reports/orders',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsFoundryYieldRoute =
+  TenantReportsFoundryYieldRouteImport.update({
+    id: '/reports/foundry-yield',
+    path: '/reports/foundry-yield',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantReportsDieLifeRoute = TenantReportsDieLifeRouteImport.update({
+  id: '/reports/die-life',
+  path: '/reports/die-life',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantReportsAgeingRoute = TenantReportsAgeingRouteImport.update({
+  id: '/reports/ageing',
+  path: '/reports/ageing',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantReceiptsNewRoute = TenantReceiptsNewRouteImport.update({
@@ -162,9 +491,114 @@ const TenantReceiptsIdRoute = TenantReceiptsIdRouteImport.update({
   path: '/receipts/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPurchaseNewRoute = TenantPurchaseNewRouteImport.update({
+  id: '/purchase/new',
+  path: '/purchase/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPurchaseIdRoute = TenantPurchaseIdRouteImport.update({
+  id: '/purchase/$id',
+  path: '/purchase/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewComingSoonRoute = TenantPreviewComingSoonRouteImport.update({
+  id: '/preview/coming-soon',
+  path: '/preview/coming-soon',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressSummaryRoute = TenantPressSummaryRouteImport.update({
+  id: '/press/summary',
+  path: '/press/summary',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressReportRoute = TenantPressReportRouteImport.update({
+  id: '/press/report',
+  path: '/press/report',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressAlertsRoute = TenantPressAlertsRouteImport.update({
+  id: '/press/alerts',
+  path: '/press/alerts',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackingListsIdRoute = TenantPackingListsIdRouteImport.update({
   id: '/packing-lists/$id',
   path: '/packing-lists/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackNewRoute = TenantPackNewRouteImport.update({
+  id: '/pack/new',
+  path: '/pack/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackIdRoute = TenantPackIdRouteImport.update({
+  id: '/pack/$id',
+  path: '/pack/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantOrdersNewRoute = TenantOrdersNewRouteImport.update({
+  id: '/orders/new',
+  path: '/orders/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantOrdersIdRoute = TenantOrdersIdRouteImport.update({
+  id: '/orders/$id',
+  path: '/orders/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersTrolleysRoute = TenantMastersTrolleysRouteImport.update({
+  id: '/masters/trolleys',
+  path: '/masters/trolleys',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersScrapRoute = TenantMastersScrapRouteImport.update({
+  id: '/masters/scrap',
+  path: '/masters/scrap',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersRecipesRoute = TenantMastersRecipesRouteImport.update({
+  id: '/masters/recipes',
+  path: '/masters/recipes',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersReasonsRoute = TenantMastersReasonsRouteImport.update({
+  id: '/masters/reasons',
+  path: '/masters/reasons',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersOvensRoute = TenantMastersOvensRouteImport.update({
+  id: '/masters/ovens',
+  path: '/masters/ovens',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersLocationsRoute = TenantMastersLocationsRouteImport.update({
+  id: '/masters/locations',
+  path: '/masters/locations',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersFurnacesRoute = TenantMastersFurnacesRouteImport.update({
+  id: '/masters/furnaces',
+  path: '/masters/furnaces',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersDiesRoute = TenantMastersDiesRouteImport.update({
+  id: '/masters/dies',
+  path: '/masters/dies',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMastersAlloysRoute = TenantMastersAlloysRouteImport.update({
+  id: '/masters/alloys',
+  path: '/masters/alloys',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantGuidesSlugRoute = TenantGuidesSlugRouteImport.update({
+  id: '/guides/$slug',
+  path: '/guides/$slug',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantFoundryStockRoute = TenantFoundryStockRouteImport.update({
+  id: '/foundry/stock',
+  path: '/foundry/stock',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantDispatchesNewRoute = TenantDispatchesNewRouteImport.update({
@@ -177,6 +611,26 @@ const TenantDispatchesIdRoute = TenantDispatchesIdRouteImport.update({
   path: '/dispatches/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantDispatchNewRoute = TenantDispatchNewRouteImport.update({
+  id: '/dispatch/new',
+  path: '/dispatch/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDispatchIdRoute = TenantDispatchIdRouteImport.update({
+  id: '/dispatch/$id',
+  path: '/dispatch/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesMakersRoute = TenantDiesMakersRouteImport.update({
+  id: '/dies/makers',
+  path: '/dies/makers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesIssuesRoute = TenantDiesIssuesRouteImport.update({
+  id: '/dies/issues',
+  path: '/dies/issues',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantDiesIdRoute = TenantDiesIdRouteImport.update({
   id: '/dies/$id',
   path: '/dies/$id',
@@ -187,9 +641,29 @@ const TenantCustomersIdRoute = TenantCustomersIdRouteImport.update({
   path: '/customers/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantCastsNewRoute = TenantCastsNewRouteImport.update({
+  id: '/casts/new',
+  path: '/casts/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCastsInboxRoute = TenantCastsInboxRouteImport.update({
+  id: '/casts/inbox',
+  path: '/casts/inbox',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantBundlesIdRoute = TenantBundlesIdRouteImport.update({
   id: '/bundles/$id',
   path: '/bundles/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantAgeingLoadRoute = TenantAgeingLoadRouteImport.update({
+  id: '/ageing/load',
+  path: '/ageing/load',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantAgeingHistoryRoute = TenantAgeingHistoryRouteImport.update({
+  id: '/ageing/history',
+  path: '/ageing/history',
   getParentRoute: () => TenantRoute,
 } as any)
 const PublicInviteTokenRoute = PublicInviteTokenRouteImport.update({
@@ -197,9 +671,19 @@ const PublicInviteTokenRoute = PublicInviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => PublicRoute,
 } as any)
+const PortalPortalDiesRoute = PortalPortalDiesRouteImport.update({
+  id: '/portal/dies',
+  path: '/portal/dies',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PlatformAdminWaitlistRoute = PlatformAdminWaitlistRouteImport.update({
   id: '/admin/waitlist',
   path: '/admin/waitlist',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminSupportRoute = PlatformAdminSupportRouteImport.update({
+  id: '/admin/support',
+  path: '/admin/support',
   getParentRoute: () => PlatformRoute,
 } as any)
 const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
@@ -207,6 +691,97 @@ const PlatformAdminStaffRoute = PlatformAdminStaffRouteImport.update({
   path: '/admin/staff',
   getParentRoute: () => PlatformRoute,
 } as any)
+const PlatformAdminRequestsRoute = PlatformAdminRequestsRouteImport.update({
+  id: '/admin/requests',
+  path: '/admin/requests',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminReleasesRoute = PlatformAdminReleasesRouteImport.update({
+  id: '/admin/releases',
+  path: '/admin/releases',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const PlatformAdminBackupsRoute = PlatformAdminBackupsRouteImport.update({
+  id: '/admin/backups',
+  path: '/admin/backups',
+  getParentRoute: () => PlatformRoute,
+} as any)
+const TenantStoreItemsIndexRoute = TenantStoreItemsIndexRouteImport.update({
+  id: '/store/items/',
+  path: '/store/items/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockCountIndexRoute = TenantStockCountIndexRouteImport.update({
+  id: '/stock/count/',
+  path: '/stock/count/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewPressIndexRoute = TenantPreviewPressIndexRouteImport.update({
+  id: '/preview/press/',
+  path: '/preview/press/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewPlatformIndexRoute =
+  TenantPreviewPlatformIndexRouteImport.update({
+    id: '/preview/platform/',
+    path: '/preview/platform/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewOrdersIndexRoute =
+  TenantPreviewOrdersIndexRouteImport.update({
+    id: '/preview/orders/',
+    path: '/preview/orders/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewFoundryIndexRoute =
+  TenantPreviewFoundryIndexRouteImport.update({
+    id: '/preview/foundry/',
+    path: '/preview/foundry/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewFloorIndexRoute = TenantPreviewFloorIndexRouteImport.update({
+  id: '/preview/floor/',
+  path: '/preview/floor/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewDieRoomIndexRoute =
+  TenantPreviewDieRoomIndexRouteImport.update({
+    id: '/preview/die-room/',
+    path: '/preview/die-room/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewAgeingIndexRoute =
+  TenantPreviewAgeingIndexRouteImport.update({
+    id: '/preview/ageing/',
+    path: '/preview/ageing/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPressLinesIndexRoute = TenantPressLinesIndexRouteImport.update({
+  id: '/press/lines/',
+  path: '/press/lines/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantOrdersPlanIndexRoute = TenantOrdersPlanIndexRouteImport.update({
+  id: '/orders/plan/',
+  path: '/orders/plan/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCastsIdIndexRoute = TenantCastsIdIndexRouteImport.update({
+  id: '/casts/$id/',
+  path: '/casts/$id/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const PortalPortalOrdersIndexRoute = PortalPortalOrdersIndexRouteImport.update({
+  id: '/portal/orders/',
+  path: '/portal/orders/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPortalDispatchesIndexRoute =
+  PortalPortalDispatchesIndexRouteImport.update({
+    id: '/portal/dispatches/',
+    path: '/portal/dispatches/',
+    getParentRoute: () => PortalRoute,
+  } as any)
 const PlatformAdminSpoolIndexRoute = PlatformAdminSpoolIndexRouteImport.update({
   id: '/admin/spool/',
   path: '/admin/spool/',
@@ -218,234 +793,1171 @@ const PlatformAdminCompaniesIndexRoute =
     path: '/admin/companies/',
     getParentRoute: () => PlatformRoute,
   } as any)
+const TenantStoreItemsIdRoute = TenantStoreItemsIdRouteImport.update({
+  id: '/store/items/$id',
+  path: '/store/items/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantStockCountIdRoute = TenantStockCountIdRouteImport.update({
+  id: '/stock/count/$id',
+  path: '/stock/count/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewPressSummaryRoute =
+  TenantPreviewPressSummaryRouteImport.update({
+    id: '/preview/press/summary',
+    path: '/preview/press/summary',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewPressReportRoute =
+  TenantPreviewPressReportRouteImport.update({
+    id: '/preview/press/report',
+    path: '/preview/press/report',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewPressConsoleRoute =
+  TenantPreviewPressConsoleRouteImport.update({
+    id: '/preview/press/console',
+    path: '/preview/press/console',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewPlatformSettingsRoute =
+  TenantPreviewPlatformSettingsRouteImport.update({
+    id: '/preview/platform/settings',
+    path: '/preview/platform/settings',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewPlatformPortalRoute =
+  TenantPreviewPlatformPortalRouteImport.update({
+    id: '/preview/platform/portal',
+    path: '/preview/platform/portal',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewPlatformDevicesRoute =
+  TenantPreviewPlatformDevicesRouteImport.update({
+    id: '/preview/platform/devices',
+    path: '/preview/platform/devices',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewOrdersPlanRoute = TenantPreviewOrdersPlanRouteImport.update({
+  id: '/preview/orders/plan',
+  path: '/preview/orders/plan',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewOrdersNewRoute = TenantPreviewOrdersNewRouteImport.update({
+  id: '/preview/orders/new',
+  path: '/preview/orders/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewOrdersIdRoute = TenantPreviewOrdersIdRouteImport.update({
+  id: '/preview/orders/$id',
+  path: '/preview/orders/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewFoundryStockRoute =
+  TenantPreviewFoundryStockRouteImport.update({
+    id: '/preview/foundry/stock',
+    path: '/preview/foundry/stock',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewFoundryCertificateRoute =
+  TenantPreviewFoundryCertificateRouteImport.update({
+    id: '/preview/foundry/certificate',
+    path: '/preview/foundry/certificate',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewFoundryCastRoute =
+  TenantPreviewFoundryCastRouteImport.update({
+    id: '/preview/foundry/cast',
+    path: '/preview/foundry/cast',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewFloorStockRoute = TenantPreviewFloorStockRouteImport.update({
+  id: '/preview/floor/stock',
+  path: '/preview/floor/stock',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewFloorListRoute = TenantPreviewFloorListRouteImport.update({
+  id: '/preview/floor/list',
+  path: '/preview/floor/list',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPreviewFloorDispatchRoute =
+  TenantPreviewFloorDispatchRouteImport.update({
+    id: '/preview/floor/dispatch',
+    path: '/preview/floor/dispatch',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewDieRoomMakerRoute =
+  TenantPreviewDieRoomMakerRouteImport.update({
+    id: '/preview/die-room/maker',
+    path: '/preview/die-room/maker',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewDieRoomLiftRoute =
+  TenantPreviewDieRoomLiftRouteImport.update({
+    id: '/preview/die-room/lift',
+    path: '/preview/die-room/lift',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewDieRoomCardRoute =
+  TenantPreviewDieRoomCardRouteImport.update({
+    id: '/preview/die-room/card',
+    path: '/preview/die-room/card',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantPreviewAgeingPageRoute = TenantPreviewAgeingPageRouteImport.update({
+  id: '/preview/ageing/$page',
+  path: '/preview/ageing/$page',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressRunsIdRoute = TenantPressRunsIdRouteImport.update({
+  id: '/press/runs/$id',
+  path: '/press/runs/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPressLinesIdRoute = TenantPressLinesIdRouteImport.update({
+  id: '/press/lines/$id',
+  path: '/press/lines/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackIdLabelsRoute = TenantPackIdLabelsRouteImport.update({
+  id: '/pack_/$id_/labels',
+  path: '/pack/$id/labels',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantOrdersPlanIdRoute = TenantOrdersPlanIdRouteImport.update({
+  id: '/orders/plan/$id',
+  path: '/orders/plan/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCastsIdCertificateRoute =
+  TenantCastsIdCertificateRouteImport.update({
+    id: '/casts/$id/certificate',
+    path: '/casts/$id/certificate',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantAgeingBatchIdRoute = TenantAgeingBatchIdRouteImport.update({
+  id: '/ageing/batch/$id',
+  path: '/ageing/batch/$id',
+  getParentRoute: () => TenantRoute,
+} as any)
+const PortalPortalOrdersNewRoute = PortalPortalOrdersNewRouteImport.update({
+  id: '/portal/orders/new',
+  path: '/portal/orders/new',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPortalOrdersIdRoute = PortalPortalOrdersIdRouteImport.update({
+  id: '/portal/orders/$id',
+  path: '/portal/orders/$id',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPortalDispatchesIdRoute =
+  PortalPortalDispatchesIdRouteImport.update({
+    id: '/portal/dispatches/$id',
+    path: '/portal/dispatches/$id',
+    getParentRoute: () => PortalRoute,
+  } as any)
+const PortalPortalCertificateDispatchIdRoute =
+  PortalPortalCertificateDispatchIdRouteImport.update({
+    id: '/portal/certificate/$dispatchId',
+    path: '/portal/certificate/$dispatchId',
+    getParentRoute: () => PortalRoute,
+  } as any)
 const PlatformAdminCompaniesIdRoute =
   PlatformAdminCompaniesIdRouteImport.update({
     id: '/admin/companies/$id',
     path: '/admin/companies/$id',
     getParentRoute: () => PlatformRoute,
   } as any)
+const TenantDiesCopiesCopyIdIndexRoute =
+  TenantDiesCopiesCopyIdIndexRouteImport.update({
+    id: '/dies/copies/$copyId/',
+    path: '/dies/copies/$copyId/',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantDiesIdBandsNewRoute = TenantDiesIdBandsNewRouteImport.update({
+  id: '/dies_/$id/bands/new',
+  path: '/dies/$id/bands/new',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDiesCopiesCopyIdLiftRoute =
+  TenantDiesCopiesCopyIdLiftRouteImport.update({
+    id: '/dies/copies/$copyId/lift',
+    path: '/dies/copies/$copyId/lift',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantCastsIdMeltMeltIdRoute = TenantCastsIdMeltMeltIdRouteImport.update({
+  id: '/casts/$id/melt/$meltId',
+  path: '/casts/$id/melt/$meltId',
+  getParentRoute: () => TenantRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
+  '/__ui': typeof Char91__uiChar93Route
   '/': typeof PublicIndexRoute
   '/change-password': typeof AuthedChangePasswordRoute
   '/no-access': typeof AuthedNoAccessRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
+  '/welcome': typeof AuthedWelcomeRoute
+  '/continue': typeof PublicContinueRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
+  '/request-access': typeof PublicRequestAccessRoute
+  '/reset-password': typeof PublicResetPasswordRoute
   '/waitlist': typeof PublicWaitlistRoute
-  '/welcome': typeof PublicWelcomeRoute
+  '/approvals': typeof TenantApprovalsRoute
+  '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/printing': typeof TenantPrintingRoute
+  '/settings': typeof TenantSettingsRouteWithChildren
+  '/today': typeof TenantTodayRoute
+  '/b/$serial': typeof BSerialRoute
+  '/admin/backups': typeof PlatformAdminBackupsRoute
+  '/admin/releases': typeof PlatformAdminReleasesRoute
+  '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/portal/dies': typeof PortalPortalDiesRoute
   '/invite/$token': typeof PublicInviteTokenRoute
+  '/ageing/history': typeof TenantAgeingHistoryRoute
+  '/ageing/load': typeof TenantAgeingLoadRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
+  '/casts/inbox': typeof TenantCastsInboxRoute
+  '/casts/new': typeof TenantCastsNewRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
+  '/dies/issues': typeof TenantDiesIssuesRoute
+  '/dies/makers': typeof TenantDiesMakersRoute
+  '/dispatch/$id': typeof TenantDispatchIdRoute
+  '/dispatch/new': typeof TenantDispatchNewRoute
   '/dispatches/$id': typeof TenantDispatchesIdRoute
   '/dispatches/new': typeof TenantDispatchesNewRoute
+  '/foundry/stock': typeof TenantFoundryStockRoute
+  '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/masters/alloys': typeof TenantMastersAlloysRoute
+  '/masters/dies': typeof TenantMastersDiesRoute
+  '/masters/furnaces': typeof TenantMastersFurnacesRoute
+  '/masters/locations': typeof TenantMastersLocationsRoute
+  '/masters/ovens': typeof TenantMastersOvensRoute
+  '/masters/reasons': typeof TenantMastersReasonsRoute
+  '/masters/recipes': typeof TenantMastersRecipesRoute
+  '/masters/scrap': typeof TenantMastersScrapRoute
+  '/masters/trolleys': typeof TenantMastersTrolleysRoute
+  '/orders/$id': typeof TenantOrdersIdRoute
+  '/orders/new': typeof TenantOrdersNewRoute
+  '/pack/$id': typeof TenantPackIdRoute
+  '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/press/alerts': typeof TenantPressAlertsRoute
+  '/press/report': typeof TenantPressReportRoute
+  '/press/summary': typeof TenantPressSummaryRoute
+  '/preview/coming-soon': typeof TenantPreviewComingSoonRoute
+  '/purchase/$id': typeof TenantPurchaseIdRoute
+  '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
   '/receipts/new': typeof TenantReceiptsNewRoute
+  '/reports/ageing': typeof TenantReportsAgeingRoute
+  '/reports/die-life': typeof TenantReportsDieLifeRoute
+  '/reports/foundry-yield': typeof TenantReportsFoundryYieldRoute
+  '/reports/orders': typeof TenantReportsOrdersRoute
+  '/reports/production': typeof TenantReportsProductionRoute
+  '/reports/stock-age': typeof TenantReportsStockAgeRoute
   '/settings/members': typeof TenantSettingsMembersRoute
+  '/stock/$dieId': typeof TenantStockDieIdRoute
+  '/stock/bundles': typeof TenantStockBundlesRoute
+  '/stock/lengths': typeof TenantStockLengthsRoute
+  '/stock/yards': typeof TenantStockYardsRoute
+  '/store/exchange': typeof TenantStoreExchangeRoute
+  '/store/issue': typeof TenantStoreIssueRoute
+  '/store/receive': typeof TenantStoreReceiveRoute
+  '/vendors/$id': typeof TenantVendorsIdRoute
+  '/share/die/$token': typeof ShareDieTokenRoute
   '/admin/': typeof PlatformAdminIndexRoute
+  '/portal/': typeof PortalPortalIndexRoute
+  '/ageing/': typeof TenantAgeingIndexRoute
   '/bundles/': typeof TenantBundlesIndexRoute
+  '/casts/': typeof TenantCastsIndexRoute
   '/customers/': typeof TenantCustomersIndexRoute
   '/dies/': typeof TenantDiesIndexRoute
+  '/dispatch/': typeof TenantDispatchIndexRoute
   '/dispatches/': typeof TenantDispatchesIndexRoute
+  '/guides/': typeof TenantGuidesIndexRoute
+  '/masters/': typeof TenantMastersIndexRoute
+  '/orders/': typeof TenantOrdersIndexRoute
+  '/pack/': typeof TenantPackIndexRoute
+  '/press/': typeof TenantPressIndexRoute
+  '/preview/': typeof TenantPreviewIndexRoute
+  '/purchase/': typeof TenantPurchaseIndexRoute
   '/receipts/': typeof TenantReceiptsIndexRoute
+  '/reports/': typeof TenantReportsIndexRoute
   '/spool/': typeof TenantSpoolIndexRoute
   '/stock/': typeof TenantStockIndexRoute
+  '/store/': typeof TenantStoreIndexRoute
+  '/vendors/': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/portal/certificate/$dispatchId': typeof PortalPortalCertificateDispatchIdRoute
+  '/portal/dispatches/$id': typeof PortalPortalDispatchesIdRoute
+  '/portal/orders/$id': typeof PortalPortalOrdersIdRoute
+  '/portal/orders/new': typeof PortalPortalOrdersNewRoute
+  '/ageing/batch/$id': typeof TenantAgeingBatchIdRoute
+  '/casts/$id/certificate': typeof TenantCastsIdCertificateRoute
+  '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
+  '/pack/$id/labels': typeof TenantPackIdLabelsRoute
+  '/press/lines/$id': typeof TenantPressLinesIdRoute
+  '/press/runs/$id': typeof TenantPressRunsIdRoute
+  '/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
+  '/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
+  '/preview/die-room/lift': typeof TenantPreviewDieRoomLiftRoute
+  '/preview/die-room/maker': typeof TenantPreviewDieRoomMakerRoute
+  '/preview/floor/dispatch': typeof TenantPreviewFloorDispatchRoute
+  '/preview/floor/list': typeof TenantPreviewFloorListRoute
+  '/preview/floor/stock': typeof TenantPreviewFloorStockRoute
+  '/preview/foundry/cast': typeof TenantPreviewFoundryCastRoute
+  '/preview/foundry/certificate': typeof TenantPreviewFoundryCertificateRoute
+  '/preview/foundry/stock': typeof TenantPreviewFoundryStockRoute
+  '/preview/orders/$id': typeof TenantPreviewOrdersIdRoute
+  '/preview/orders/new': typeof TenantPreviewOrdersNewRoute
+  '/preview/orders/plan': typeof TenantPreviewOrdersPlanRoute
+  '/preview/platform/devices': typeof TenantPreviewPlatformDevicesRoute
+  '/preview/platform/portal': typeof TenantPreviewPlatformPortalRoute
+  '/preview/platform/settings': typeof TenantPreviewPlatformSettingsRoute
+  '/preview/press/console': typeof TenantPreviewPressConsoleRoute
+  '/preview/press/report': typeof TenantPreviewPressReportRoute
+  '/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/stock/count/$id': typeof TenantStockCountIdRoute
+  '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool/': typeof PlatformAdminSpoolIndexRoute
+  '/portal/dispatches/': typeof PortalPortalDispatchesIndexRoute
+  '/portal/orders/': typeof PortalPortalOrdersIndexRoute
+  '/casts/$id/': typeof TenantCastsIdIndexRoute
+  '/orders/plan/': typeof TenantOrdersPlanIndexRoute
+  '/press/lines/': typeof TenantPressLinesIndexRoute
+  '/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
+  '/preview/die-room/': typeof TenantPreviewDieRoomIndexRoute
+  '/preview/floor/': typeof TenantPreviewFloorIndexRoute
+  '/preview/foundry/': typeof TenantPreviewFoundryIndexRoute
+  '/preview/orders/': typeof TenantPreviewOrdersIndexRoute
+  '/preview/platform/': typeof TenantPreviewPlatformIndexRoute
+  '/preview/press/': typeof TenantPreviewPressIndexRoute
+  '/stock/count/': typeof TenantStockCountIndexRoute
+  '/store/items/': typeof TenantStoreItemsIndexRoute
+  '/casts/$id/melt/$meltId': typeof TenantCastsIdMeltMeltIdRoute
+  '/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
+  '/dies/$id/bands/new': typeof TenantDiesIdBandsNewRoute
+  '/dies/copies/$copyId/': typeof TenantDiesCopiesCopyIdIndexRoute
 }
 export interface FileRoutesByTo {
+  '/__ui': typeof Char91__uiChar93Route
   '/': typeof PublicIndexRoute
   '/change-password': typeof AuthedChangePasswordRoute
   '/no-access': typeof AuthedNoAccessRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/setup-credentials': typeof AuthedSetupCredentialsRoute
+  '/welcome': typeof AuthedWelcomeRoute
+  '/continue': typeof PublicContinueRoute
+  '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
+  '/request-access': typeof PublicRequestAccessRoute
+  '/reset-password': typeof PublicResetPasswordRoute
   '/waitlist': typeof PublicWaitlistRoute
-  '/welcome': typeof PublicWelcomeRoute
+  '/approvals': typeof TenantApprovalsRoute
+  '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
+  '/printing': typeof TenantPrintingRoute
+  '/settings': typeof TenantSettingsRouteWithChildren
+  '/today': typeof TenantTodayRoute
+  '/b/$serial': typeof BSerialRoute
+  '/admin/backups': typeof PlatformAdminBackupsRoute
+  '/admin/releases': typeof PlatformAdminReleasesRoute
+  '/admin/requests': typeof PlatformAdminRequestsRoute
   '/admin/staff': typeof PlatformAdminStaffRoute
+  '/admin/support': typeof PlatformAdminSupportRoute
   '/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/portal/dies': typeof PortalPortalDiesRoute
   '/invite/$token': typeof PublicInviteTokenRoute
+  '/ageing/history': typeof TenantAgeingHistoryRoute
+  '/ageing/load': typeof TenantAgeingLoadRoute
   '/bundles/$id': typeof TenantBundlesIdRoute
+  '/casts/inbox': typeof TenantCastsInboxRoute
+  '/casts/new': typeof TenantCastsNewRoute
   '/customers/$id': typeof TenantCustomersIdRoute
   '/dies/$id': typeof TenantDiesIdRoute
+  '/dies/issues': typeof TenantDiesIssuesRoute
+  '/dies/makers': typeof TenantDiesMakersRoute
+  '/dispatch/$id': typeof TenantDispatchIdRoute
+  '/dispatch/new': typeof TenantDispatchNewRoute
   '/dispatches/$id': typeof TenantDispatchesIdRoute
   '/dispatches/new': typeof TenantDispatchesNewRoute
+  '/foundry/stock': typeof TenantFoundryStockRoute
+  '/guides/$slug': typeof TenantGuidesSlugRoute
+  '/masters/alloys': typeof TenantMastersAlloysRoute
+  '/masters/dies': typeof TenantMastersDiesRoute
+  '/masters/furnaces': typeof TenantMastersFurnacesRoute
+  '/masters/locations': typeof TenantMastersLocationsRoute
+  '/masters/ovens': typeof TenantMastersOvensRoute
+  '/masters/reasons': typeof TenantMastersReasonsRoute
+  '/masters/recipes': typeof TenantMastersRecipesRoute
+  '/masters/scrap': typeof TenantMastersScrapRoute
+  '/masters/trolleys': typeof TenantMastersTrolleysRoute
+  '/orders/$id': typeof TenantOrdersIdRoute
+  '/orders/new': typeof TenantOrdersNewRoute
+  '/pack/$id': typeof TenantPackIdRoute
+  '/pack/new': typeof TenantPackNewRoute
   '/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/press/alerts': typeof TenantPressAlertsRoute
+  '/press/report': typeof TenantPressReportRoute
+  '/press/summary': typeof TenantPressSummaryRoute
+  '/preview/coming-soon': typeof TenantPreviewComingSoonRoute
+  '/purchase/$id': typeof TenantPurchaseIdRoute
+  '/purchase/new': typeof TenantPurchaseNewRoute
   '/receipts/$id': typeof TenantReceiptsIdRoute
   '/receipts/new': typeof TenantReceiptsNewRoute
+  '/reports/ageing': typeof TenantReportsAgeingRoute
+  '/reports/die-life': typeof TenantReportsDieLifeRoute
+  '/reports/foundry-yield': typeof TenantReportsFoundryYieldRoute
+  '/reports/orders': typeof TenantReportsOrdersRoute
+  '/reports/production': typeof TenantReportsProductionRoute
+  '/reports/stock-age': typeof TenantReportsStockAgeRoute
   '/settings/members': typeof TenantSettingsMembersRoute
+  '/stock/$dieId': typeof TenantStockDieIdRoute
+  '/stock/bundles': typeof TenantStockBundlesRoute
+  '/stock/lengths': typeof TenantStockLengthsRoute
+  '/stock/yards': typeof TenantStockYardsRoute
+  '/store/exchange': typeof TenantStoreExchangeRoute
+  '/store/issue': typeof TenantStoreIssueRoute
+  '/store/receive': typeof TenantStoreReceiveRoute
+  '/vendors/$id': typeof TenantVendorsIdRoute
+  '/share/die/$token': typeof ShareDieTokenRoute
   '/admin': typeof PlatformAdminIndexRoute
+  '/portal': typeof PortalPortalIndexRoute
+  '/ageing': typeof TenantAgeingIndexRoute
   '/bundles': typeof TenantBundlesIndexRoute
+  '/casts': typeof TenantCastsIndexRoute
   '/customers': typeof TenantCustomersIndexRoute
   '/dies': typeof TenantDiesIndexRoute
+  '/dispatch': typeof TenantDispatchIndexRoute
   '/dispatches': typeof TenantDispatchesIndexRoute
+  '/guides': typeof TenantGuidesIndexRoute
+  '/masters': typeof TenantMastersIndexRoute
+  '/orders': typeof TenantOrdersIndexRoute
+  '/pack': typeof TenantPackIndexRoute
+  '/press': typeof TenantPressIndexRoute
+  '/preview': typeof TenantPreviewIndexRoute
+  '/purchase': typeof TenantPurchaseIndexRoute
   '/receipts': typeof TenantReceiptsIndexRoute
+  '/reports': typeof TenantReportsIndexRoute
   '/spool': typeof TenantSpoolIndexRoute
   '/stock': typeof TenantStockIndexRoute
+  '/store': typeof TenantStoreIndexRoute
+  '/vendors': typeof TenantVendorsIndexRoute
   '/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/portal/certificate/$dispatchId': typeof PortalPortalCertificateDispatchIdRoute
+  '/portal/dispatches/$id': typeof PortalPortalDispatchesIdRoute
+  '/portal/orders/$id': typeof PortalPortalOrdersIdRoute
+  '/portal/orders/new': typeof PortalPortalOrdersNewRoute
+  '/ageing/batch/$id': typeof TenantAgeingBatchIdRoute
+  '/casts/$id/certificate': typeof TenantCastsIdCertificateRoute
+  '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
+  '/pack/$id/labels': typeof TenantPackIdLabelsRoute
+  '/press/lines/$id': typeof TenantPressLinesIdRoute
+  '/press/runs/$id': typeof TenantPressRunsIdRoute
+  '/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
+  '/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
+  '/preview/die-room/lift': typeof TenantPreviewDieRoomLiftRoute
+  '/preview/die-room/maker': typeof TenantPreviewDieRoomMakerRoute
+  '/preview/floor/dispatch': typeof TenantPreviewFloorDispatchRoute
+  '/preview/floor/list': typeof TenantPreviewFloorListRoute
+  '/preview/floor/stock': typeof TenantPreviewFloorStockRoute
+  '/preview/foundry/cast': typeof TenantPreviewFoundryCastRoute
+  '/preview/foundry/certificate': typeof TenantPreviewFoundryCertificateRoute
+  '/preview/foundry/stock': typeof TenantPreviewFoundryStockRoute
+  '/preview/orders/$id': typeof TenantPreviewOrdersIdRoute
+  '/preview/orders/new': typeof TenantPreviewOrdersNewRoute
+  '/preview/orders/plan': typeof TenantPreviewOrdersPlanRoute
+  '/preview/platform/devices': typeof TenantPreviewPlatformDevicesRoute
+  '/preview/platform/portal': typeof TenantPreviewPlatformPortalRoute
+  '/preview/platform/settings': typeof TenantPreviewPlatformSettingsRoute
+  '/preview/press/console': typeof TenantPreviewPressConsoleRoute
+  '/preview/press/report': typeof TenantPreviewPressReportRoute
+  '/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/stock/count/$id': typeof TenantStockCountIdRoute
+  '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
   '/admin/spool': typeof PlatformAdminSpoolIndexRoute
+  '/portal/dispatches': typeof PortalPortalDispatchesIndexRoute
+  '/portal/orders': typeof PortalPortalOrdersIndexRoute
+  '/casts/$id': typeof TenantCastsIdIndexRoute
+  '/orders/plan': typeof TenantOrdersPlanIndexRoute
+  '/press/lines': typeof TenantPressLinesIndexRoute
+  '/preview/ageing': typeof TenantPreviewAgeingIndexRoute
+  '/preview/die-room': typeof TenantPreviewDieRoomIndexRoute
+  '/preview/floor': typeof TenantPreviewFloorIndexRoute
+  '/preview/foundry': typeof TenantPreviewFoundryIndexRoute
+  '/preview/orders': typeof TenantPreviewOrdersIndexRoute
+  '/preview/platform': typeof TenantPreviewPlatformIndexRoute
+  '/preview/press': typeof TenantPreviewPressIndexRoute
+  '/stock/count': typeof TenantStockCountIndexRoute
+  '/store/items': typeof TenantStoreItemsIndexRoute
+  '/casts/$id/melt/$meltId': typeof TenantCastsIdMeltMeltIdRoute
+  '/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
+  '/dies/$id/bands/new': typeof TenantDiesIdBandsNewRoute
+  '/dies/copies/$copyId': typeof TenantDiesCopiesCopyIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/__ui': typeof Char91__uiChar93Route
   '/_authed': typeof AuthedRouteWithChildren
   '/_platform': typeof PlatformRouteWithChildren
+  '/_portal': typeof PortalRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
   '/_tenant': typeof TenantRouteWithChildren
   '/_authed/change-password': typeof AuthedChangePasswordRoute
   '/_authed/no-access': typeof AuthedNoAccessRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/setup-credentials': typeof AuthedSetupCredentialsRoute
+  '/_authed/welcome': typeof AuthedWelcomeRoute
+  '/_public/continue': typeof PublicContinueRoute
+  '/_public/forgot-password': typeof PublicForgotPasswordRoute
   '/_public/login': typeof PublicLoginRoute
+  '/_public/request-access': typeof PublicRequestAccessRoute
+  '/_public/reset-password': typeof PublicResetPasswordRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
-  '/_public/welcome': typeof PublicWelcomeRoute
+  '/_tenant/approvals': typeof TenantApprovalsRoute
+  '/_tenant/audit': typeof TenantAuditRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
+  '/_tenant/printing': typeof TenantPrintingRoute
+  '/_tenant/settings': typeof TenantSettingsRouteWithChildren
+  '/_tenant/today': typeof TenantTodayRoute
+  '/b/$serial': typeof BSerialRoute
   '/_public/': typeof PublicIndexRoute
+  '/_platform/admin/backups': typeof PlatformAdminBackupsRoute
+  '/_platform/admin/releases': typeof PlatformAdminReleasesRoute
+  '/_platform/admin/requests': typeof PlatformAdminRequestsRoute
   '/_platform/admin/staff': typeof PlatformAdminStaffRoute
+  '/_platform/admin/support': typeof PlatformAdminSupportRoute
   '/_platform/admin/waitlist': typeof PlatformAdminWaitlistRoute
+  '/_portal/portal/dies': typeof PortalPortalDiesRoute
   '/_public/invite/$token': typeof PublicInviteTokenRoute
+  '/_tenant/ageing/history': typeof TenantAgeingHistoryRoute
+  '/_tenant/ageing/load': typeof TenantAgeingLoadRoute
   '/_tenant/bundles/$id': typeof TenantBundlesIdRoute
+  '/_tenant/casts/inbox': typeof TenantCastsInboxRoute
+  '/_tenant/casts/new': typeof TenantCastsNewRoute
   '/_tenant/customers/$id': typeof TenantCustomersIdRoute
   '/_tenant/dies/$id': typeof TenantDiesIdRoute
+  '/_tenant/dies/issues': typeof TenantDiesIssuesRoute
+  '/_tenant/dies/makers': typeof TenantDiesMakersRoute
+  '/_tenant/dispatch/$id': typeof TenantDispatchIdRoute
+  '/_tenant/dispatch/new': typeof TenantDispatchNewRoute
   '/_tenant/dispatches/$id': typeof TenantDispatchesIdRoute
   '/_tenant/dispatches/new': typeof TenantDispatchesNewRoute
+  '/_tenant/foundry/stock': typeof TenantFoundryStockRoute
+  '/_tenant/guides/$slug': typeof TenantGuidesSlugRoute
+  '/_tenant/masters/alloys': typeof TenantMastersAlloysRoute
+  '/_tenant/masters/dies': typeof TenantMastersDiesRoute
+  '/_tenant/masters/furnaces': typeof TenantMastersFurnacesRoute
+  '/_tenant/masters/locations': typeof TenantMastersLocationsRoute
+  '/_tenant/masters/ovens': typeof TenantMastersOvensRoute
+  '/_tenant/masters/reasons': typeof TenantMastersReasonsRoute
+  '/_tenant/masters/recipes': typeof TenantMastersRecipesRoute
+  '/_tenant/masters/scrap': typeof TenantMastersScrapRoute
+  '/_tenant/masters/trolleys': typeof TenantMastersTrolleysRoute
+  '/_tenant/orders/$id': typeof TenantOrdersIdRoute
+  '/_tenant/orders/new': typeof TenantOrdersNewRoute
+  '/_tenant/pack/$id': typeof TenantPackIdRoute
+  '/_tenant/pack/new': typeof TenantPackNewRoute
   '/_tenant/packing-lists/$id': typeof TenantPackingListsIdRoute
+  '/_tenant/press/alerts': typeof TenantPressAlertsRoute
+  '/_tenant/press/report': typeof TenantPressReportRoute
+  '/_tenant/press/summary': typeof TenantPressSummaryRoute
+  '/_tenant/preview/coming-soon': typeof TenantPreviewComingSoonRoute
+  '/_tenant/purchase/$id': typeof TenantPurchaseIdRoute
+  '/_tenant/purchase/new': typeof TenantPurchaseNewRoute
   '/_tenant/receipts/$id': typeof TenantReceiptsIdRoute
   '/_tenant/receipts/new': typeof TenantReceiptsNewRoute
+  '/_tenant/reports/ageing': typeof TenantReportsAgeingRoute
+  '/_tenant/reports/die-life': typeof TenantReportsDieLifeRoute
+  '/_tenant/reports/foundry-yield': typeof TenantReportsFoundryYieldRoute
+  '/_tenant/reports/orders': typeof TenantReportsOrdersRoute
+  '/_tenant/reports/production': typeof TenantReportsProductionRoute
+  '/_tenant/reports/stock-age': typeof TenantReportsStockAgeRoute
   '/_tenant/settings/members': typeof TenantSettingsMembersRoute
+  '/_tenant/stock/$dieId': typeof TenantStockDieIdRoute
+  '/_tenant/stock/bundles': typeof TenantStockBundlesRoute
+  '/_tenant/stock/lengths': typeof TenantStockLengthsRoute
+  '/_tenant/stock/yards': typeof TenantStockYardsRoute
+  '/_tenant/store/exchange': typeof TenantStoreExchangeRoute
+  '/_tenant/store/issue': typeof TenantStoreIssueRoute
+  '/_tenant/store/receive': typeof TenantStoreReceiveRoute
+  '/_tenant/vendors/$id': typeof TenantVendorsIdRoute
+  '/share/die/$token': typeof ShareDieTokenRoute
   '/_platform/admin/': typeof PlatformAdminIndexRoute
+  '/_portal/portal/': typeof PortalPortalIndexRoute
+  '/_tenant/ageing/': typeof TenantAgeingIndexRoute
   '/_tenant/bundles/': typeof TenantBundlesIndexRoute
+  '/_tenant/casts/': typeof TenantCastsIndexRoute
   '/_tenant/customers/': typeof TenantCustomersIndexRoute
   '/_tenant/dies/': typeof TenantDiesIndexRoute
+  '/_tenant/dispatch/': typeof TenantDispatchIndexRoute
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
+  '/_tenant/guides/': typeof TenantGuidesIndexRoute
+  '/_tenant/masters/': typeof TenantMastersIndexRoute
+  '/_tenant/orders/': typeof TenantOrdersIndexRoute
+  '/_tenant/pack/': typeof TenantPackIndexRoute
+  '/_tenant/press/': typeof TenantPressIndexRoute
+  '/_tenant/preview/': typeof TenantPreviewIndexRoute
+  '/_tenant/purchase/': typeof TenantPurchaseIndexRoute
   '/_tenant/receipts/': typeof TenantReceiptsIndexRoute
+  '/_tenant/reports/': typeof TenantReportsIndexRoute
   '/_tenant/spool/': typeof TenantSpoolIndexRoute
   '/_tenant/stock/': typeof TenantStockIndexRoute
+  '/_tenant/store/': typeof TenantStoreIndexRoute
+  '/_tenant/vendors/': typeof TenantVendorsIndexRoute
   '/_platform/admin/companies/$id': typeof PlatformAdminCompaniesIdRoute
+  '/_portal/portal/certificate/$dispatchId': typeof PortalPortalCertificateDispatchIdRoute
+  '/_portal/portal/dispatches/$id': typeof PortalPortalDispatchesIdRoute
+  '/_portal/portal/orders/$id': typeof PortalPortalOrdersIdRoute
+  '/_portal/portal/orders/new': typeof PortalPortalOrdersNewRoute
+  '/_tenant/ageing/batch/$id': typeof TenantAgeingBatchIdRoute
+  '/_tenant/casts/$id/certificate': typeof TenantCastsIdCertificateRoute
+  '/_tenant/orders/plan/$id': typeof TenantOrdersPlanIdRoute
+  '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
+  '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
+  '/_tenant/press/runs/$id': typeof TenantPressRunsIdRoute
+  '/_tenant/preview/ageing/$page': typeof TenantPreviewAgeingPageRoute
+  '/_tenant/preview/die-room/card': typeof TenantPreviewDieRoomCardRoute
+  '/_tenant/preview/die-room/lift': typeof TenantPreviewDieRoomLiftRoute
+  '/_tenant/preview/die-room/maker': typeof TenantPreviewDieRoomMakerRoute
+  '/_tenant/preview/floor/dispatch': typeof TenantPreviewFloorDispatchRoute
+  '/_tenant/preview/floor/list': typeof TenantPreviewFloorListRoute
+  '/_tenant/preview/floor/stock': typeof TenantPreviewFloorStockRoute
+  '/_tenant/preview/foundry/cast': typeof TenantPreviewFoundryCastRoute
+  '/_tenant/preview/foundry/certificate': typeof TenantPreviewFoundryCertificateRoute
+  '/_tenant/preview/foundry/stock': typeof TenantPreviewFoundryStockRoute
+  '/_tenant/preview/orders/$id': typeof TenantPreviewOrdersIdRoute
+  '/_tenant/preview/orders/new': typeof TenantPreviewOrdersNewRoute
+  '/_tenant/preview/orders/plan': typeof TenantPreviewOrdersPlanRoute
+  '/_tenant/preview/platform/devices': typeof TenantPreviewPlatformDevicesRoute
+  '/_tenant/preview/platform/portal': typeof TenantPreviewPlatformPortalRoute
+  '/_tenant/preview/platform/settings': typeof TenantPreviewPlatformSettingsRoute
+  '/_tenant/preview/press/console': typeof TenantPreviewPressConsoleRoute
+  '/_tenant/preview/press/report': typeof TenantPreviewPressReportRoute
+  '/_tenant/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/_tenant/stock/count/$id': typeof TenantStockCountIdRoute
+  '/_tenant/store/items/$id': typeof TenantStoreItemsIdRoute
   '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
   '/_platform/admin/spool/': typeof PlatformAdminSpoolIndexRoute
+  '/_portal/portal/dispatches/': typeof PortalPortalDispatchesIndexRoute
+  '/_portal/portal/orders/': typeof PortalPortalOrdersIndexRoute
+  '/_tenant/casts/$id/': typeof TenantCastsIdIndexRoute
+  '/_tenant/orders/plan/': typeof TenantOrdersPlanIndexRoute
+  '/_tenant/press/lines/': typeof TenantPressLinesIndexRoute
+  '/_tenant/preview/ageing/': typeof TenantPreviewAgeingIndexRoute
+  '/_tenant/preview/die-room/': typeof TenantPreviewDieRoomIndexRoute
+  '/_tenant/preview/floor/': typeof TenantPreviewFloorIndexRoute
+  '/_tenant/preview/foundry/': typeof TenantPreviewFoundryIndexRoute
+  '/_tenant/preview/orders/': typeof TenantPreviewOrdersIndexRoute
+  '/_tenant/preview/platform/': typeof TenantPreviewPlatformIndexRoute
+  '/_tenant/preview/press/': typeof TenantPreviewPressIndexRoute
+  '/_tenant/stock/count/': typeof TenantStockCountIndexRoute
+  '/_tenant/store/items/': typeof TenantStoreItemsIndexRoute
+  '/_tenant/casts/$id/melt/$meltId': typeof TenantCastsIdMeltMeltIdRoute
+  '/_tenant/dies/copies/$copyId/lift': typeof TenantDiesCopiesCopyIdLiftRoute
+  '/_tenant/dies_/$id/bands/new': typeof TenantDiesIdBandsNewRoute
+  '/_tenant/dies/copies/$copyId/': typeof TenantDiesCopiesCopyIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/__ui'
     | '/'
     | '/change-password'
     | '/no-access'
     | '/onboarding'
     | '/setup-credentials'
-    | '/login'
-    | '/waitlist'
     | '/welcome'
+    | '/continue'
+    | '/forgot-password'
+    | '/login'
+    | '/request-access'
+    | '/reset-password'
+    | '/waitlist'
+    | '/approvals'
+    | '/audit'
     | '/dashboard'
+    | '/printing'
+    | '/settings'
+    | '/today'
+    | '/b/$serial'
+    | '/admin/backups'
+    | '/admin/releases'
+    | '/admin/requests'
     | '/admin/staff'
+    | '/admin/support'
     | '/admin/waitlist'
+    | '/portal/dies'
     | '/invite/$token'
+    | '/ageing/history'
+    | '/ageing/load'
     | '/bundles/$id'
+    | '/casts/inbox'
+    | '/casts/new'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dies/issues'
+    | '/dies/makers'
+    | '/dispatch/$id'
+    | '/dispatch/new'
     | '/dispatches/$id'
     | '/dispatches/new'
+    | '/foundry/stock'
+    | '/guides/$slug'
+    | '/masters/alloys'
+    | '/masters/dies'
+    | '/masters/furnaces'
+    | '/masters/locations'
+    | '/masters/ovens'
+    | '/masters/reasons'
+    | '/masters/recipes'
+    | '/masters/scrap'
+    | '/masters/trolleys'
+    | '/orders/$id'
+    | '/orders/new'
+    | '/pack/$id'
+    | '/pack/new'
     | '/packing-lists/$id'
+    | '/press/alerts'
+    | '/press/report'
+    | '/press/summary'
+    | '/preview/coming-soon'
+    | '/purchase/$id'
+    | '/purchase/new'
     | '/receipts/$id'
     | '/receipts/new'
+    | '/reports/ageing'
+    | '/reports/die-life'
+    | '/reports/foundry-yield'
+    | '/reports/orders'
+    | '/reports/production'
+    | '/reports/stock-age'
     | '/settings/members'
+    | '/stock/$dieId'
+    | '/stock/bundles'
+    | '/stock/lengths'
+    | '/stock/yards'
+    | '/store/exchange'
+    | '/store/issue'
+    | '/store/receive'
+    | '/vendors/$id'
+    | '/share/die/$token'
     | '/admin/'
+    | '/portal/'
+    | '/ageing/'
     | '/bundles/'
+    | '/casts/'
     | '/customers/'
     | '/dies/'
+    | '/dispatch/'
     | '/dispatches/'
+    | '/guides/'
+    | '/masters/'
+    | '/orders/'
+    | '/pack/'
+    | '/press/'
+    | '/preview/'
+    | '/purchase/'
     | '/receipts/'
+    | '/reports/'
     | '/spool/'
     | '/stock/'
+    | '/store/'
+    | '/vendors/'
     | '/admin/companies/$id'
+    | '/portal/certificate/$dispatchId'
+    | '/portal/dispatches/$id'
+    | '/portal/orders/$id'
+    | '/portal/orders/new'
+    | '/ageing/batch/$id'
+    | '/casts/$id/certificate'
+    | '/orders/plan/$id'
+    | '/pack/$id/labels'
+    | '/press/lines/$id'
+    | '/press/runs/$id'
+    | '/preview/ageing/$page'
+    | '/preview/die-room/card'
+    | '/preview/die-room/lift'
+    | '/preview/die-room/maker'
+    | '/preview/floor/dispatch'
+    | '/preview/floor/list'
+    | '/preview/floor/stock'
+    | '/preview/foundry/cast'
+    | '/preview/foundry/certificate'
+    | '/preview/foundry/stock'
+    | '/preview/orders/$id'
+    | '/preview/orders/new'
+    | '/preview/orders/plan'
+    | '/preview/platform/devices'
+    | '/preview/platform/portal'
+    | '/preview/platform/settings'
+    | '/preview/press/console'
+    | '/preview/press/report'
+    | '/preview/press/summary'
+    | '/stock/count/$id'
+    | '/store/items/$id'
     | '/admin/companies/'
     | '/admin/spool/'
+    | '/portal/dispatches/'
+    | '/portal/orders/'
+    | '/casts/$id/'
+    | '/orders/plan/'
+    | '/press/lines/'
+    | '/preview/ageing/'
+    | '/preview/die-room/'
+    | '/preview/floor/'
+    | '/preview/foundry/'
+    | '/preview/orders/'
+    | '/preview/platform/'
+    | '/preview/press/'
+    | '/stock/count/'
+    | '/store/items/'
+    | '/casts/$id/melt/$meltId'
+    | '/dies/copies/$copyId/lift'
+    | '/dies/$id/bands/new'
+    | '/dies/copies/$copyId/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/__ui'
     | '/'
     | '/change-password'
     | '/no-access'
     | '/onboarding'
     | '/setup-credentials'
-    | '/login'
-    | '/waitlist'
     | '/welcome'
+    | '/continue'
+    | '/forgot-password'
+    | '/login'
+    | '/request-access'
+    | '/reset-password'
+    | '/waitlist'
+    | '/approvals'
+    | '/audit'
     | '/dashboard'
+    | '/printing'
+    | '/settings'
+    | '/today'
+    | '/b/$serial'
+    | '/admin/backups'
+    | '/admin/releases'
+    | '/admin/requests'
     | '/admin/staff'
+    | '/admin/support'
     | '/admin/waitlist'
+    | '/portal/dies'
     | '/invite/$token'
+    | '/ageing/history'
+    | '/ageing/load'
     | '/bundles/$id'
+    | '/casts/inbox'
+    | '/casts/new'
     | '/customers/$id'
     | '/dies/$id'
+    | '/dies/issues'
+    | '/dies/makers'
+    | '/dispatch/$id'
+    | '/dispatch/new'
     | '/dispatches/$id'
     | '/dispatches/new'
+    | '/foundry/stock'
+    | '/guides/$slug'
+    | '/masters/alloys'
+    | '/masters/dies'
+    | '/masters/furnaces'
+    | '/masters/locations'
+    | '/masters/ovens'
+    | '/masters/reasons'
+    | '/masters/recipes'
+    | '/masters/scrap'
+    | '/masters/trolleys'
+    | '/orders/$id'
+    | '/orders/new'
+    | '/pack/$id'
+    | '/pack/new'
     | '/packing-lists/$id'
+    | '/press/alerts'
+    | '/press/report'
+    | '/press/summary'
+    | '/preview/coming-soon'
+    | '/purchase/$id'
+    | '/purchase/new'
     | '/receipts/$id'
     | '/receipts/new'
+    | '/reports/ageing'
+    | '/reports/die-life'
+    | '/reports/foundry-yield'
+    | '/reports/orders'
+    | '/reports/production'
+    | '/reports/stock-age'
     | '/settings/members'
+    | '/stock/$dieId'
+    | '/stock/bundles'
+    | '/stock/lengths'
+    | '/stock/yards'
+    | '/store/exchange'
+    | '/store/issue'
+    | '/store/receive'
+    | '/vendors/$id'
+    | '/share/die/$token'
     | '/admin'
+    | '/portal'
+    | '/ageing'
     | '/bundles'
+    | '/casts'
     | '/customers'
     | '/dies'
+    | '/dispatch'
     | '/dispatches'
+    | '/guides'
+    | '/masters'
+    | '/orders'
+    | '/pack'
+    | '/press'
+    | '/preview'
+    | '/purchase'
     | '/receipts'
+    | '/reports'
     | '/spool'
     | '/stock'
+    | '/store'
+    | '/vendors'
     | '/admin/companies/$id'
+    | '/portal/certificate/$dispatchId'
+    | '/portal/dispatches/$id'
+    | '/portal/orders/$id'
+    | '/portal/orders/new'
+    | '/ageing/batch/$id'
+    | '/casts/$id/certificate'
+    | '/orders/plan/$id'
+    | '/pack/$id/labels'
+    | '/press/lines/$id'
+    | '/press/runs/$id'
+    | '/preview/ageing/$page'
+    | '/preview/die-room/card'
+    | '/preview/die-room/lift'
+    | '/preview/die-room/maker'
+    | '/preview/floor/dispatch'
+    | '/preview/floor/list'
+    | '/preview/floor/stock'
+    | '/preview/foundry/cast'
+    | '/preview/foundry/certificate'
+    | '/preview/foundry/stock'
+    | '/preview/orders/$id'
+    | '/preview/orders/new'
+    | '/preview/orders/plan'
+    | '/preview/platform/devices'
+    | '/preview/platform/portal'
+    | '/preview/platform/settings'
+    | '/preview/press/console'
+    | '/preview/press/report'
+    | '/preview/press/summary'
+    | '/stock/count/$id'
+    | '/store/items/$id'
     | '/admin/companies'
     | '/admin/spool'
+    | '/portal/dispatches'
+    | '/portal/orders'
+    | '/casts/$id'
+    | '/orders/plan'
+    | '/press/lines'
+    | '/preview/ageing'
+    | '/preview/die-room'
+    | '/preview/floor'
+    | '/preview/foundry'
+    | '/preview/orders'
+    | '/preview/platform'
+    | '/preview/press'
+    | '/stock/count'
+    | '/store/items'
+    | '/casts/$id/melt/$meltId'
+    | '/dies/copies/$copyId/lift'
+    | '/dies/$id/bands/new'
+    | '/dies/copies/$copyId'
   id:
     | '__root__'
+    | '/__ui'
     | '/_authed'
     | '/_platform'
+    | '/_portal'
     | '/_public'
     | '/_tenant'
     | '/_authed/change-password'
     | '/_authed/no-access'
     | '/_authed/onboarding'
     | '/_authed/setup-credentials'
+    | '/_authed/welcome'
+    | '/_public/continue'
+    | '/_public/forgot-password'
     | '/_public/login'
+    | '/_public/request-access'
+    | '/_public/reset-password'
     | '/_public/waitlist'
-    | '/_public/welcome'
+    | '/_tenant/approvals'
+    | '/_tenant/audit'
     | '/_tenant/dashboard'
+    | '/_tenant/printing'
+    | '/_tenant/settings'
+    | '/_tenant/today'
+    | '/b/$serial'
     | '/_public/'
+    | '/_platform/admin/backups'
+    | '/_platform/admin/releases'
+    | '/_platform/admin/requests'
     | '/_platform/admin/staff'
+    | '/_platform/admin/support'
     | '/_platform/admin/waitlist'
+    | '/_portal/portal/dies'
     | '/_public/invite/$token'
+    | '/_tenant/ageing/history'
+    | '/_tenant/ageing/load'
     | '/_tenant/bundles/$id'
+    | '/_tenant/casts/inbox'
+    | '/_tenant/casts/new'
     | '/_tenant/customers/$id'
     | '/_tenant/dies/$id'
+    | '/_tenant/dies/issues'
+    | '/_tenant/dies/makers'
+    | '/_tenant/dispatch/$id'
+    | '/_tenant/dispatch/new'
     | '/_tenant/dispatches/$id'
     | '/_tenant/dispatches/new'
+    | '/_tenant/foundry/stock'
+    | '/_tenant/guides/$slug'
+    | '/_tenant/masters/alloys'
+    | '/_tenant/masters/dies'
+    | '/_tenant/masters/furnaces'
+    | '/_tenant/masters/locations'
+    | '/_tenant/masters/ovens'
+    | '/_tenant/masters/reasons'
+    | '/_tenant/masters/recipes'
+    | '/_tenant/masters/scrap'
+    | '/_tenant/masters/trolleys'
+    | '/_tenant/orders/$id'
+    | '/_tenant/orders/new'
+    | '/_tenant/pack/$id'
+    | '/_tenant/pack/new'
     | '/_tenant/packing-lists/$id'
+    | '/_tenant/press/alerts'
+    | '/_tenant/press/report'
+    | '/_tenant/press/summary'
+    | '/_tenant/preview/coming-soon'
+    | '/_tenant/purchase/$id'
+    | '/_tenant/purchase/new'
     | '/_tenant/receipts/$id'
     | '/_tenant/receipts/new'
+    | '/_tenant/reports/ageing'
+    | '/_tenant/reports/die-life'
+    | '/_tenant/reports/foundry-yield'
+    | '/_tenant/reports/orders'
+    | '/_tenant/reports/production'
+    | '/_tenant/reports/stock-age'
     | '/_tenant/settings/members'
+    | '/_tenant/stock/$dieId'
+    | '/_tenant/stock/bundles'
+    | '/_tenant/stock/lengths'
+    | '/_tenant/stock/yards'
+    | '/_tenant/store/exchange'
+    | '/_tenant/store/issue'
+    | '/_tenant/store/receive'
+    | '/_tenant/vendors/$id'
+    | '/share/die/$token'
     | '/_platform/admin/'
+    | '/_portal/portal/'
+    | '/_tenant/ageing/'
     | '/_tenant/bundles/'
+    | '/_tenant/casts/'
     | '/_tenant/customers/'
     | '/_tenant/dies/'
+    | '/_tenant/dispatch/'
     | '/_tenant/dispatches/'
+    | '/_tenant/guides/'
+    | '/_tenant/masters/'
+    | '/_tenant/orders/'
+    | '/_tenant/pack/'
+    | '/_tenant/press/'
+    | '/_tenant/preview/'
+    | '/_tenant/purchase/'
     | '/_tenant/receipts/'
+    | '/_tenant/reports/'
     | '/_tenant/spool/'
     | '/_tenant/stock/'
+    | '/_tenant/store/'
+    | '/_tenant/vendors/'
     | '/_platform/admin/companies/$id'
+    | '/_portal/portal/certificate/$dispatchId'
+    | '/_portal/portal/dispatches/$id'
+    | '/_portal/portal/orders/$id'
+    | '/_portal/portal/orders/new'
+    | '/_tenant/ageing/batch/$id'
+    | '/_tenant/casts/$id/certificate'
+    | '/_tenant/orders/plan/$id'
+    | '/_tenant/pack_/$id_/labels'
+    | '/_tenant/press/lines/$id'
+    | '/_tenant/press/runs/$id'
+    | '/_tenant/preview/ageing/$page'
+    | '/_tenant/preview/die-room/card'
+    | '/_tenant/preview/die-room/lift'
+    | '/_tenant/preview/die-room/maker'
+    | '/_tenant/preview/floor/dispatch'
+    | '/_tenant/preview/floor/list'
+    | '/_tenant/preview/floor/stock'
+    | '/_tenant/preview/foundry/cast'
+    | '/_tenant/preview/foundry/certificate'
+    | '/_tenant/preview/foundry/stock'
+    | '/_tenant/preview/orders/$id'
+    | '/_tenant/preview/orders/new'
+    | '/_tenant/preview/orders/plan'
+    | '/_tenant/preview/platform/devices'
+    | '/_tenant/preview/platform/portal'
+    | '/_tenant/preview/platform/settings'
+    | '/_tenant/preview/press/console'
+    | '/_tenant/preview/press/report'
+    | '/_tenant/preview/press/summary'
+    | '/_tenant/stock/count/$id'
+    | '/_tenant/store/items/$id'
     | '/_platform/admin/companies/'
     | '/_platform/admin/spool/'
+    | '/_portal/portal/dispatches/'
+    | '/_portal/portal/orders/'
+    | '/_tenant/casts/$id/'
+    | '/_tenant/orders/plan/'
+    | '/_tenant/press/lines/'
+    | '/_tenant/preview/ageing/'
+    | '/_tenant/preview/die-room/'
+    | '/_tenant/preview/floor/'
+    | '/_tenant/preview/foundry/'
+    | '/_tenant/preview/orders/'
+    | '/_tenant/preview/platform/'
+    | '/_tenant/preview/press/'
+    | '/_tenant/stock/count/'
+    | '/_tenant/store/items/'
+    | '/_tenant/casts/$id/melt/$meltId'
+    | '/_tenant/dies/copies/$copyId/lift'
+    | '/_tenant/dies_/$id/bands/new'
+    | '/_tenant/dies/copies/$copyId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  Char91__uiChar93Route: typeof Char91__uiChar93Route
   AuthedRoute: typeof AuthedRouteWithChildren
   PlatformRoute: typeof PlatformRouteWithChildren
+  PortalRoute: typeof PortalRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
+  BSerialRoute: typeof BSerialRoute
+  ShareDieTokenRoute: typeof ShareDieTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -464,6 +1976,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_portal': {
+      id: '/_portal'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_platform': {
       id: '/_platform'
       path: ''
@@ -478,12 +1997,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/__ui': {
+      id: '/__ui'
+      path: '/__ui'
+      fullPath: '/__ui'
+      preLoaderRoute: typeof Char91__uiChar93RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public/': {
       id: '/_public/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof PublicIndexRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/b/$serial': {
+      id: '/b/$serial'
+      path: '/b/$serial'
+      fullPath: '/b/$serial'
+      preLoaderRoute: typeof BSerialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_tenant/today': {
+      id: '/_tenant/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof TenantTodayRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/settings': {
+      id: '/_tenant/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof TenantSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/printing': {
+      id: '/_tenant/printing'
+      path: '/printing'
+      fullPath: '/printing'
+      preLoaderRoute: typeof TenantPrintingRouteImport
+      parentRoute: typeof TenantRoute
     }
     '/_tenant/dashboard': {
       id: '/_tenant/dashboard'
@@ -492,12 +2046,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantDashboardRouteImport
       parentRoute: typeof TenantRoute
     }
-    '/_public/welcome': {
-      id: '/_public/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof PublicWelcomeRouteImport
-      parentRoute: typeof PublicRoute
+    '/_tenant/audit': {
+      id: '/_tenant/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof TenantAuditRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/approvals': {
+      id: '/_tenant/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof TenantApprovalsRouteImport
+      parentRoute: typeof TenantRoute
     }
     '/_public/waitlist': {
       id: '/_public/waitlist'
@@ -506,12 +2067,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicWaitlistRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/reset-password': {
+      id: '/_public/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof PublicResetPasswordRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/request-access': {
+      id: '/_public/request-access'
+      path: '/request-access'
+      fullPath: '/request-access'
+      preLoaderRoute: typeof PublicRequestAccessRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/login': {
       id: '/_public/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_public/forgot-password': {
+      id: '/_public/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof PublicForgotPasswordRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/continue': {
+      id: '/_public/continue'
+      path: '/continue'
+      fullPath: '/continue'
+      preLoaderRoute: typeof PublicContinueRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_authed/welcome': {
+      id: '/_authed/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof AuthedWelcomeRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/setup-credentials': {
       id: '/_authed/setup-credentials'
@@ -541,6 +2137,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedChangePasswordRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_tenant/vendors/': {
+      id: '/_tenant/vendors/'
+      path: '/vendors'
+      fullPath: '/vendors/'
+      preLoaderRoute: typeof TenantVendorsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/store/': {
+      id: '/_tenant/store/'
+      path: '/store'
+      fullPath: '/store/'
+      preLoaderRoute: typeof TenantStoreIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/stock/': {
       id: '/_tenant/stock/'
       path: '/stock'
@@ -555,6 +2165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantSpoolIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/reports/': {
+      id: '/_tenant/reports/'
+      path: '/reports'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof TenantReportsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/receipts/': {
       id: '/_tenant/receipts/'
       path: '/receipts'
@@ -562,11 +2179,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantReceiptsIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/purchase/': {
+      id: '/_tenant/purchase/'
+      path: '/purchase'
+      fullPath: '/purchase/'
+      preLoaderRoute: typeof TenantPurchaseIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/': {
+      id: '/_tenant/preview/'
+      path: '/preview'
+      fullPath: '/preview/'
+      preLoaderRoute: typeof TenantPreviewIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/': {
+      id: '/_tenant/press/'
+      path: '/press'
+      fullPath: '/press/'
+      preLoaderRoute: typeof TenantPressIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/pack/': {
+      id: '/_tenant/pack/'
+      path: '/pack'
+      fullPath: '/pack/'
+      preLoaderRoute: typeof TenantPackIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/orders/': {
+      id: '/_tenant/orders/'
+      path: '/orders'
+      fullPath: '/orders/'
+      preLoaderRoute: typeof TenantOrdersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/': {
+      id: '/_tenant/masters/'
+      path: '/masters'
+      fullPath: '/masters/'
+      preLoaderRoute: typeof TenantMastersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/guides/': {
+      id: '/_tenant/guides/'
+      path: '/guides'
+      fullPath: '/guides/'
+      preLoaderRoute: typeof TenantGuidesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/dispatches/': {
       id: '/_tenant/dispatches/'
       path: '/dispatches'
       fullPath: '/dispatches/'
       preLoaderRoute: typeof TenantDispatchesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dispatch/': {
+      id: '/_tenant/dispatch/'
+      path: '/dispatch'
+      fullPath: '/dispatch/'
+      preLoaderRoute: typeof TenantDispatchIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/dies/': {
@@ -583,12 +2256,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantCustomersIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/casts/': {
+      id: '/_tenant/casts/'
+      path: '/casts'
+      fullPath: '/casts/'
+      preLoaderRoute: typeof TenantCastsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/bundles/': {
       id: '/_tenant/bundles/'
       path: '/bundles'
       fullPath: '/bundles/'
       preLoaderRoute: typeof TenantBundlesIndexRouteImport
       parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ageing/': {
+      id: '/_tenant/ageing/'
+      path: '/ageing'
+      fullPath: '/ageing/'
+      preLoaderRoute: typeof TenantAgeingIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_portal/portal/': {
+      id: '/_portal/portal/'
+      path: '/portal'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalPortalIndexRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/_platform/admin/': {
       id: '/_platform/admin/'
@@ -597,11 +2291,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformAdminIndexRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/share/die/$token': {
+      id: '/share/die/$token'
+      path: '/share/die/$token'
+      fullPath: '/share/die/$token'
+      preLoaderRoute: typeof ShareDieTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_tenant/vendors/$id': {
+      id: '/_tenant/vendors/$id'
+      path: '/vendors/$id'
+      fullPath: '/vendors/$id'
+      preLoaderRoute: typeof TenantVendorsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/store/receive': {
+      id: '/_tenant/store/receive'
+      path: '/store/receive'
+      fullPath: '/store/receive'
+      preLoaderRoute: typeof TenantStoreReceiveRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/store/issue': {
+      id: '/_tenant/store/issue'
+      path: '/store/issue'
+      fullPath: '/store/issue'
+      preLoaderRoute: typeof TenantStoreIssueRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/store/exchange': {
+      id: '/_tenant/store/exchange'
+      path: '/store/exchange'
+      fullPath: '/store/exchange'
+      preLoaderRoute: typeof TenantStoreExchangeRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/yards': {
+      id: '/_tenant/stock/yards'
+      path: '/stock/yards'
+      fullPath: '/stock/yards'
+      preLoaderRoute: typeof TenantStockYardsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/lengths': {
+      id: '/_tenant/stock/lengths'
+      path: '/stock/lengths'
+      fullPath: '/stock/lengths'
+      preLoaderRoute: typeof TenantStockLengthsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/bundles': {
+      id: '/_tenant/stock/bundles'
+      path: '/stock/bundles'
+      fullPath: '/stock/bundles'
+      preLoaderRoute: typeof TenantStockBundlesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/$dieId': {
+      id: '/_tenant/stock/$dieId'
+      path: '/stock/$dieId'
+      fullPath: '/stock/$dieId'
+      preLoaderRoute: typeof TenantStockDieIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/settings/members': {
       id: '/_tenant/settings/members'
-      path: '/settings/members'
+      path: '/members'
       fullPath: '/settings/members'
       preLoaderRoute: typeof TenantSettingsMembersRouteImport
+      parentRoute: typeof TenantSettingsRoute
+    }
+    '/_tenant/reports/stock-age': {
+      id: '/_tenant/reports/stock-age'
+      path: '/reports/stock-age'
+      fullPath: '/reports/stock-age'
+      preLoaderRoute: typeof TenantReportsStockAgeRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/production': {
+      id: '/_tenant/reports/production'
+      path: '/reports/production'
+      fullPath: '/reports/production'
+      preLoaderRoute: typeof TenantReportsProductionRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/orders': {
+      id: '/_tenant/reports/orders'
+      path: '/reports/orders'
+      fullPath: '/reports/orders'
+      preLoaderRoute: typeof TenantReportsOrdersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/foundry-yield': {
+      id: '/_tenant/reports/foundry-yield'
+      path: '/reports/foundry-yield'
+      fullPath: '/reports/foundry-yield'
+      preLoaderRoute: typeof TenantReportsFoundryYieldRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/die-life': {
+      id: '/_tenant/reports/die-life'
+      path: '/reports/die-life'
+      fullPath: '/reports/die-life'
+      preLoaderRoute: typeof TenantReportsDieLifeRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/reports/ageing': {
+      id: '/_tenant/reports/ageing'
+      path: '/reports/ageing'
+      fullPath: '/reports/ageing'
+      preLoaderRoute: typeof TenantReportsAgeingRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/receipts/new': {
@@ -618,11 +2417,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantReceiptsIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/purchase/new': {
+      id: '/_tenant/purchase/new'
+      path: '/purchase/new'
+      fullPath: '/purchase/new'
+      preLoaderRoute: typeof TenantPurchaseNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/purchase/$id': {
+      id: '/_tenant/purchase/$id'
+      path: '/purchase/$id'
+      fullPath: '/purchase/$id'
+      preLoaderRoute: typeof TenantPurchaseIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/coming-soon': {
+      id: '/_tenant/preview/coming-soon'
+      path: '/preview/coming-soon'
+      fullPath: '/preview/coming-soon'
+      preLoaderRoute: typeof TenantPreviewComingSoonRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/summary': {
+      id: '/_tenant/press/summary'
+      path: '/press/summary'
+      fullPath: '/press/summary'
+      preLoaderRoute: typeof TenantPressSummaryRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/report': {
+      id: '/_tenant/press/report'
+      path: '/press/report'
+      fullPath: '/press/report'
+      preLoaderRoute: typeof TenantPressReportRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/alerts': {
+      id: '/_tenant/press/alerts'
+      path: '/press/alerts'
+      fullPath: '/press/alerts'
+      preLoaderRoute: typeof TenantPressAlertsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/packing-lists/$id': {
       id: '/_tenant/packing-lists/$id'
       path: '/packing-lists/$id'
       fullPath: '/packing-lists/$id'
       preLoaderRoute: typeof TenantPackingListsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/pack/new': {
+      id: '/_tenant/pack/new'
+      path: '/pack/new'
+      fullPath: '/pack/new'
+      preLoaderRoute: typeof TenantPackNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/pack/$id': {
+      id: '/_tenant/pack/$id'
+      path: '/pack/$id'
+      fullPath: '/pack/$id'
+      preLoaderRoute: typeof TenantPackIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/orders/new': {
+      id: '/_tenant/orders/new'
+      path: '/orders/new'
+      fullPath: '/orders/new'
+      preLoaderRoute: typeof TenantOrdersNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/orders/$id': {
+      id: '/_tenant/orders/$id'
+      path: '/orders/$id'
+      fullPath: '/orders/$id'
+      preLoaderRoute: typeof TenantOrdersIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/trolleys': {
+      id: '/_tenant/masters/trolleys'
+      path: '/masters/trolleys'
+      fullPath: '/masters/trolleys'
+      preLoaderRoute: typeof TenantMastersTrolleysRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/scrap': {
+      id: '/_tenant/masters/scrap'
+      path: '/masters/scrap'
+      fullPath: '/masters/scrap'
+      preLoaderRoute: typeof TenantMastersScrapRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/recipes': {
+      id: '/_tenant/masters/recipes'
+      path: '/masters/recipes'
+      fullPath: '/masters/recipes'
+      preLoaderRoute: typeof TenantMastersRecipesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/reasons': {
+      id: '/_tenant/masters/reasons'
+      path: '/masters/reasons'
+      fullPath: '/masters/reasons'
+      preLoaderRoute: typeof TenantMastersReasonsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/ovens': {
+      id: '/_tenant/masters/ovens'
+      path: '/masters/ovens'
+      fullPath: '/masters/ovens'
+      preLoaderRoute: typeof TenantMastersOvensRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/locations': {
+      id: '/_tenant/masters/locations'
+      path: '/masters/locations'
+      fullPath: '/masters/locations'
+      preLoaderRoute: typeof TenantMastersLocationsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/furnaces': {
+      id: '/_tenant/masters/furnaces'
+      path: '/masters/furnaces'
+      fullPath: '/masters/furnaces'
+      preLoaderRoute: typeof TenantMastersFurnacesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/dies': {
+      id: '/_tenant/masters/dies'
+      path: '/masters/dies'
+      fullPath: '/masters/dies'
+      preLoaderRoute: typeof TenantMastersDiesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/masters/alloys': {
+      id: '/_tenant/masters/alloys'
+      path: '/masters/alloys'
+      fullPath: '/masters/alloys'
+      preLoaderRoute: typeof TenantMastersAlloysRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/guides/$slug': {
+      id: '/_tenant/guides/$slug'
+      path: '/guides/$slug'
+      fullPath: '/guides/$slug'
+      preLoaderRoute: typeof TenantGuidesSlugRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/foundry/stock': {
+      id: '/_tenant/foundry/stock'
+      path: '/foundry/stock'
+      fullPath: '/foundry/stock'
+      preLoaderRoute: typeof TenantFoundryStockRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/dispatches/new': {
@@ -639,6 +2585,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantDispatchesIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/dispatch/new': {
+      id: '/_tenant/dispatch/new'
+      path: '/dispatch/new'
+      fullPath: '/dispatch/new'
+      preLoaderRoute: typeof TenantDispatchNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dispatch/$id': {
+      id: '/_tenant/dispatch/$id'
+      path: '/dispatch/$id'
+      fullPath: '/dispatch/$id'
+      preLoaderRoute: typeof TenantDispatchIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/makers': {
+      id: '/_tenant/dies/makers'
+      path: '/dies/makers'
+      fullPath: '/dies/makers'
+      preLoaderRoute: typeof TenantDiesMakersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/issues': {
+      id: '/_tenant/dies/issues'
+      path: '/dies/issues'
+      fullPath: '/dies/issues'
+      preLoaderRoute: typeof TenantDiesIssuesRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/dies/$id': {
       id: '/_tenant/dies/$id'
       path: '/dies/$id'
@@ -653,11 +2627,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantCustomersIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/casts/new': {
+      id: '/_tenant/casts/new'
+      path: '/casts/new'
+      fullPath: '/casts/new'
+      preLoaderRoute: typeof TenantCastsNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/casts/inbox': {
+      id: '/_tenant/casts/inbox'
+      path: '/casts/inbox'
+      fullPath: '/casts/inbox'
+      preLoaderRoute: typeof TenantCastsInboxRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/bundles/$id': {
       id: '/_tenant/bundles/$id'
       path: '/bundles/$id'
       fullPath: '/bundles/$id'
       preLoaderRoute: typeof TenantBundlesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ageing/load': {
+      id: '/_tenant/ageing/load'
+      path: '/ageing/load'
+      fullPath: '/ageing/load'
+      preLoaderRoute: typeof TenantAgeingLoadRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ageing/history': {
+      id: '/_tenant/ageing/history'
+      path: '/ageing/history'
+      fullPath: '/ageing/history'
+      preLoaderRoute: typeof TenantAgeingHistoryRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_public/invite/$token': {
@@ -667,11 +2669,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicInviteTokenRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_portal/portal/dies': {
+      id: '/_portal/portal/dies'
+      path: '/portal/dies'
+      fullPath: '/portal/dies'
+      preLoaderRoute: typeof PortalPortalDiesRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/_platform/admin/waitlist': {
       id: '/_platform/admin/waitlist'
       path: '/admin/waitlist'
       fullPath: '/admin/waitlist'
       preLoaderRoute: typeof PlatformAdminWaitlistRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/support': {
+      id: '/_platform/admin/support'
+      path: '/admin/support'
+      fullPath: '/admin/support'
+      preLoaderRoute: typeof PlatformAdminSupportRouteImport
       parentRoute: typeof PlatformRoute
     }
     '/_platform/admin/staff': {
@@ -680,6 +2696,125 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/staff'
       preLoaderRoute: typeof PlatformAdminStaffRouteImport
       parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/requests': {
+      id: '/_platform/admin/requests'
+      path: '/admin/requests'
+      fullPath: '/admin/requests'
+      preLoaderRoute: typeof PlatformAdminRequestsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/releases': {
+      id: '/_platform/admin/releases'
+      path: '/admin/releases'
+      fullPath: '/admin/releases'
+      preLoaderRoute: typeof PlatformAdminReleasesRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_platform/admin/backups': {
+      id: '/_platform/admin/backups'
+      path: '/admin/backups'
+      fullPath: '/admin/backups'
+      preLoaderRoute: typeof PlatformAdminBackupsRouteImport
+      parentRoute: typeof PlatformRoute
+    }
+    '/_tenant/store/items/': {
+      id: '/_tenant/store/items/'
+      path: '/store/items'
+      fullPath: '/store/items/'
+      preLoaderRoute: typeof TenantStoreItemsIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/count/': {
+      id: '/_tenant/stock/count/'
+      path: '/stock/count'
+      fullPath: '/stock/count/'
+      preLoaderRoute: typeof TenantStockCountIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/press/': {
+      id: '/_tenant/preview/press/'
+      path: '/preview/press'
+      fullPath: '/preview/press/'
+      preLoaderRoute: typeof TenantPreviewPressIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/platform/': {
+      id: '/_tenant/preview/platform/'
+      path: '/preview/platform'
+      fullPath: '/preview/platform/'
+      preLoaderRoute: typeof TenantPreviewPlatformIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/orders/': {
+      id: '/_tenant/preview/orders/'
+      path: '/preview/orders'
+      fullPath: '/preview/orders/'
+      preLoaderRoute: typeof TenantPreviewOrdersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/foundry/': {
+      id: '/_tenant/preview/foundry/'
+      path: '/preview/foundry'
+      fullPath: '/preview/foundry/'
+      preLoaderRoute: typeof TenantPreviewFoundryIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/floor/': {
+      id: '/_tenant/preview/floor/'
+      path: '/preview/floor'
+      fullPath: '/preview/floor/'
+      preLoaderRoute: typeof TenantPreviewFloorIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/die-room/': {
+      id: '/_tenant/preview/die-room/'
+      path: '/preview/die-room'
+      fullPath: '/preview/die-room/'
+      preLoaderRoute: typeof TenantPreviewDieRoomIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/ageing/': {
+      id: '/_tenant/preview/ageing/'
+      path: '/preview/ageing'
+      fullPath: '/preview/ageing/'
+      preLoaderRoute: typeof TenantPreviewAgeingIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/lines/': {
+      id: '/_tenant/press/lines/'
+      path: '/press/lines'
+      fullPath: '/press/lines/'
+      preLoaderRoute: typeof TenantPressLinesIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/orders/plan/': {
+      id: '/_tenant/orders/plan/'
+      path: '/orders/plan'
+      fullPath: '/orders/plan/'
+      preLoaderRoute: typeof TenantOrdersPlanIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/casts/$id/': {
+      id: '/_tenant/casts/$id/'
+      path: '/casts/$id'
+      fullPath: '/casts/$id/'
+      preLoaderRoute: typeof TenantCastsIdIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_portal/portal/orders/': {
+      id: '/_portal/portal/orders/'
+      path: '/portal/orders'
+      fullPath: '/portal/orders/'
+      preLoaderRoute: typeof PortalPortalOrdersIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/dispatches/': {
+      id: '/_portal/portal/dispatches/'
+      path: '/portal/dispatches'
+      fullPath: '/portal/dispatches/'
+      preLoaderRoute: typeof PortalPortalDispatchesIndexRouteImport
+      parentRoute: typeof PortalRoute
     }
     '/_platform/admin/spool/': {
       id: '/_platform/admin/spool/'
@@ -695,12 +2830,257 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlatformAdminCompaniesIndexRouteImport
       parentRoute: typeof PlatformRoute
     }
+    '/_tenant/store/items/$id': {
+      id: '/_tenant/store/items/$id'
+      path: '/store/items/$id'
+      fullPath: '/store/items/$id'
+      preLoaderRoute: typeof TenantStoreItemsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/stock/count/$id': {
+      id: '/_tenant/stock/count/$id'
+      path: '/stock/count/$id'
+      fullPath: '/stock/count/$id'
+      preLoaderRoute: typeof TenantStockCountIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/press/summary': {
+      id: '/_tenant/preview/press/summary'
+      path: '/preview/press/summary'
+      fullPath: '/preview/press/summary'
+      preLoaderRoute: typeof TenantPreviewPressSummaryRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/press/report': {
+      id: '/_tenant/preview/press/report'
+      path: '/preview/press/report'
+      fullPath: '/preview/press/report'
+      preLoaderRoute: typeof TenantPreviewPressReportRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/press/console': {
+      id: '/_tenant/preview/press/console'
+      path: '/preview/press/console'
+      fullPath: '/preview/press/console'
+      preLoaderRoute: typeof TenantPreviewPressConsoleRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/platform/settings': {
+      id: '/_tenant/preview/platform/settings'
+      path: '/preview/platform/settings'
+      fullPath: '/preview/platform/settings'
+      preLoaderRoute: typeof TenantPreviewPlatformSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/platform/portal': {
+      id: '/_tenant/preview/platform/portal'
+      path: '/preview/platform/portal'
+      fullPath: '/preview/platform/portal'
+      preLoaderRoute: typeof TenantPreviewPlatformPortalRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/platform/devices': {
+      id: '/_tenant/preview/platform/devices'
+      path: '/preview/platform/devices'
+      fullPath: '/preview/platform/devices'
+      preLoaderRoute: typeof TenantPreviewPlatformDevicesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/orders/plan': {
+      id: '/_tenant/preview/orders/plan'
+      path: '/preview/orders/plan'
+      fullPath: '/preview/orders/plan'
+      preLoaderRoute: typeof TenantPreviewOrdersPlanRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/orders/new': {
+      id: '/_tenant/preview/orders/new'
+      path: '/preview/orders/new'
+      fullPath: '/preview/orders/new'
+      preLoaderRoute: typeof TenantPreviewOrdersNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/orders/$id': {
+      id: '/_tenant/preview/orders/$id'
+      path: '/preview/orders/$id'
+      fullPath: '/preview/orders/$id'
+      preLoaderRoute: typeof TenantPreviewOrdersIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/foundry/stock': {
+      id: '/_tenant/preview/foundry/stock'
+      path: '/preview/foundry/stock'
+      fullPath: '/preview/foundry/stock'
+      preLoaderRoute: typeof TenantPreviewFoundryStockRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/foundry/certificate': {
+      id: '/_tenant/preview/foundry/certificate'
+      path: '/preview/foundry/certificate'
+      fullPath: '/preview/foundry/certificate'
+      preLoaderRoute: typeof TenantPreviewFoundryCertificateRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/foundry/cast': {
+      id: '/_tenant/preview/foundry/cast'
+      path: '/preview/foundry/cast'
+      fullPath: '/preview/foundry/cast'
+      preLoaderRoute: typeof TenantPreviewFoundryCastRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/floor/stock': {
+      id: '/_tenant/preview/floor/stock'
+      path: '/preview/floor/stock'
+      fullPath: '/preview/floor/stock'
+      preLoaderRoute: typeof TenantPreviewFloorStockRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/floor/list': {
+      id: '/_tenant/preview/floor/list'
+      path: '/preview/floor/list'
+      fullPath: '/preview/floor/list'
+      preLoaderRoute: typeof TenantPreviewFloorListRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/floor/dispatch': {
+      id: '/_tenant/preview/floor/dispatch'
+      path: '/preview/floor/dispatch'
+      fullPath: '/preview/floor/dispatch'
+      preLoaderRoute: typeof TenantPreviewFloorDispatchRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/die-room/maker': {
+      id: '/_tenant/preview/die-room/maker'
+      path: '/preview/die-room/maker'
+      fullPath: '/preview/die-room/maker'
+      preLoaderRoute: typeof TenantPreviewDieRoomMakerRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/die-room/lift': {
+      id: '/_tenant/preview/die-room/lift'
+      path: '/preview/die-room/lift'
+      fullPath: '/preview/die-room/lift'
+      preLoaderRoute: typeof TenantPreviewDieRoomLiftRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/die-room/card': {
+      id: '/_tenant/preview/die-room/card'
+      path: '/preview/die-room/card'
+      fullPath: '/preview/die-room/card'
+      preLoaderRoute: typeof TenantPreviewDieRoomCardRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/preview/ageing/$page': {
+      id: '/_tenant/preview/ageing/$page'
+      path: '/preview/ageing/$page'
+      fullPath: '/preview/ageing/$page'
+      preLoaderRoute: typeof TenantPreviewAgeingPageRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/runs/$id': {
+      id: '/_tenant/press/runs/$id'
+      path: '/press/runs/$id'
+      fullPath: '/press/runs/$id'
+      preLoaderRoute: typeof TenantPressRunsIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/press/lines/$id': {
+      id: '/_tenant/press/lines/$id'
+      path: '/press/lines/$id'
+      fullPath: '/press/lines/$id'
+      preLoaderRoute: typeof TenantPressLinesIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/pack_/$id_/labels': {
+      id: '/_tenant/pack_/$id_/labels'
+      path: '/pack/$id/labels'
+      fullPath: '/pack/$id/labels'
+      preLoaderRoute: typeof TenantPackIdLabelsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/orders/plan/$id': {
+      id: '/_tenant/orders/plan/$id'
+      path: '/orders/plan/$id'
+      fullPath: '/orders/plan/$id'
+      preLoaderRoute: typeof TenantOrdersPlanIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/casts/$id/certificate': {
+      id: '/_tenant/casts/$id/certificate'
+      path: '/casts/$id/certificate'
+      fullPath: '/casts/$id/certificate'
+      preLoaderRoute: typeof TenantCastsIdCertificateRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ageing/batch/$id': {
+      id: '/_tenant/ageing/batch/$id'
+      path: '/ageing/batch/$id'
+      fullPath: '/ageing/batch/$id'
+      preLoaderRoute: typeof TenantAgeingBatchIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_portal/portal/orders/new': {
+      id: '/_portal/portal/orders/new'
+      path: '/portal/orders/new'
+      fullPath: '/portal/orders/new'
+      preLoaderRoute: typeof PortalPortalOrdersNewRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/orders/$id': {
+      id: '/_portal/portal/orders/$id'
+      path: '/portal/orders/$id'
+      fullPath: '/portal/orders/$id'
+      preLoaderRoute: typeof PortalPortalOrdersIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/dispatches/$id': {
+      id: '/_portal/portal/dispatches/$id'
+      path: '/portal/dispatches/$id'
+      fullPath: '/portal/dispatches/$id'
+      preLoaderRoute: typeof PortalPortalDispatchesIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/_portal/portal/certificate/$dispatchId': {
+      id: '/_portal/portal/certificate/$dispatchId'
+      path: '/portal/certificate/$dispatchId'
+      fullPath: '/portal/certificate/$dispatchId'
+      preLoaderRoute: typeof PortalPortalCertificateDispatchIdRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/_platform/admin/companies/$id': {
       id: '/_platform/admin/companies/$id'
       path: '/admin/companies/$id'
       fullPath: '/admin/companies/$id'
       preLoaderRoute: typeof PlatformAdminCompaniesIdRouteImport
       parentRoute: typeof PlatformRoute
+    }
+    '/_tenant/dies/copies/$copyId/': {
+      id: '/_tenant/dies/copies/$copyId/'
+      path: '/dies/copies/$copyId'
+      fullPath: '/dies/copies/$copyId/'
+      preLoaderRoute: typeof TenantDiesCopiesCopyIdIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies_/$id/bands/new': {
+      id: '/_tenant/dies_/$id/bands/new'
+      path: '/dies/$id/bands/new'
+      fullPath: '/dies/$id/bands/new'
+      preLoaderRoute: typeof TenantDiesIdBandsNewRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/dies/copies/$copyId/lift': {
+      id: '/_tenant/dies/copies/$copyId/lift'
+      path: '/dies/copies/$copyId/lift'
+      fullPath: '/dies/copies/$copyId/lift'
+      preLoaderRoute: typeof TenantDiesCopiesCopyIdLiftRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/casts/$id/melt/$meltId': {
+      id: '/_tenant/casts/$id/melt/$meltId'
+      path: '/casts/$id/melt/$meltId'
+      fullPath: '/casts/$id/melt/$meltId'
+      preLoaderRoute: typeof TenantCastsIdMeltMeltIdRouteImport
+      parentRoute: typeof TenantRoute
     }
   }
 }
@@ -710,6 +3090,7 @@ interface AuthedRouteChildren {
   AuthedNoAccessRoute: typeof AuthedNoAccessRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedSetupCredentialsRoute: typeof AuthedSetupCredentialsRoute
+  AuthedWelcomeRoute: typeof AuthedWelcomeRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
@@ -717,13 +3098,18 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedNoAccessRoute: AuthedNoAccessRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedSetupCredentialsRoute: AuthedSetupCredentialsRoute,
+  AuthedWelcomeRoute: AuthedWelcomeRoute,
 }
 
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
 interface PlatformRouteChildren {
+  PlatformAdminBackupsRoute: typeof PlatformAdminBackupsRoute
+  PlatformAdminReleasesRoute: typeof PlatformAdminReleasesRoute
+  PlatformAdminRequestsRoute: typeof PlatformAdminRequestsRoute
   PlatformAdminStaffRoute: typeof PlatformAdminStaffRoute
+  PlatformAdminSupportRoute: typeof PlatformAdminSupportRoute
   PlatformAdminWaitlistRoute: typeof PlatformAdminWaitlistRoute
   PlatformAdminIndexRoute: typeof PlatformAdminIndexRoute
   PlatformAdminCompaniesIdRoute: typeof PlatformAdminCompaniesIdRoute
@@ -732,7 +3118,11 @@ interface PlatformRouteChildren {
 }
 
 const PlatformRouteChildren: PlatformRouteChildren = {
+  PlatformAdminBackupsRoute: PlatformAdminBackupsRoute,
+  PlatformAdminReleasesRoute: PlatformAdminReleasesRoute,
+  PlatformAdminRequestsRoute: PlatformAdminRequestsRoute,
   PlatformAdminStaffRoute: PlatformAdminStaffRoute,
+  PlatformAdminSupportRoute: PlatformAdminSupportRoute,
   PlatformAdminWaitlistRoute: PlatformAdminWaitlistRoute,
   PlatformAdminIndexRoute: PlatformAdminIndexRoute,
   PlatformAdminCompaniesIdRoute: PlatformAdminCompaniesIdRoute,
@@ -744,18 +3134,50 @@ const PlatformRouteWithChildren = PlatformRoute._addFileChildren(
   PlatformRouteChildren,
 )
 
+interface PortalRouteChildren {
+  PortalPortalDiesRoute: typeof PortalPortalDiesRoute
+  PortalPortalIndexRoute: typeof PortalPortalIndexRoute
+  PortalPortalCertificateDispatchIdRoute: typeof PortalPortalCertificateDispatchIdRoute
+  PortalPortalDispatchesIdRoute: typeof PortalPortalDispatchesIdRoute
+  PortalPortalOrdersIdRoute: typeof PortalPortalOrdersIdRoute
+  PortalPortalOrdersNewRoute: typeof PortalPortalOrdersNewRoute
+  PortalPortalDispatchesIndexRoute: typeof PortalPortalDispatchesIndexRoute
+  PortalPortalOrdersIndexRoute: typeof PortalPortalOrdersIndexRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalPortalDiesRoute: PortalPortalDiesRoute,
+  PortalPortalIndexRoute: PortalPortalIndexRoute,
+  PortalPortalCertificateDispatchIdRoute:
+    PortalPortalCertificateDispatchIdRoute,
+  PortalPortalDispatchesIdRoute: PortalPortalDispatchesIdRoute,
+  PortalPortalOrdersIdRoute: PortalPortalOrdersIdRoute,
+  PortalPortalOrdersNewRoute: PortalPortalOrdersNewRoute,
+  PortalPortalDispatchesIndexRoute: PortalPortalDispatchesIndexRoute,
+  PortalPortalOrdersIndexRoute: PortalPortalOrdersIndexRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
+
 interface PublicRouteChildren {
+  PublicContinueRoute: typeof PublicContinueRoute
+  PublicForgotPasswordRoute: typeof PublicForgotPasswordRoute
   PublicLoginRoute: typeof PublicLoginRoute
+  PublicRequestAccessRoute: typeof PublicRequestAccessRoute
+  PublicResetPasswordRoute: typeof PublicResetPasswordRoute
   PublicWaitlistRoute: typeof PublicWaitlistRoute
-  PublicWelcomeRoute: typeof PublicWelcomeRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicInviteTokenRoute: typeof PublicInviteTokenRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
+  PublicContinueRoute: PublicContinueRoute,
+  PublicForgotPasswordRoute: PublicForgotPasswordRoute,
   PublicLoginRoute: PublicLoginRoute,
+  PublicRequestAccessRoute: PublicRequestAccessRoute,
+  PublicResetPasswordRoute: PublicResetPasswordRoute,
   PublicWaitlistRoute: PublicWaitlistRoute,
-  PublicWelcomeRoute: PublicWelcomeRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicInviteTokenRoute: PublicInviteTokenRoute,
 }
@@ -763,54 +3185,276 @@ const PublicRouteChildren: PublicRouteChildren = {
 const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
 
+interface TenantSettingsRouteChildren {
+  TenantSettingsMembersRoute: typeof TenantSettingsMembersRoute
+}
+
+const TenantSettingsRouteChildren: TenantSettingsRouteChildren = {
+  TenantSettingsMembersRoute: TenantSettingsMembersRoute,
+}
+
+const TenantSettingsRouteWithChildren = TenantSettingsRoute._addFileChildren(
+  TenantSettingsRouteChildren,
+)
+
 interface TenantRouteChildren {
+  TenantApprovalsRoute: typeof TenantApprovalsRoute
+  TenantAuditRoute: typeof TenantAuditRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
+  TenantPrintingRoute: typeof TenantPrintingRoute
+  TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
+  TenantTodayRoute: typeof TenantTodayRoute
+  TenantAgeingHistoryRoute: typeof TenantAgeingHistoryRoute
+  TenantAgeingLoadRoute: typeof TenantAgeingLoadRoute
   TenantBundlesIdRoute: typeof TenantBundlesIdRoute
+  TenantCastsInboxRoute: typeof TenantCastsInboxRoute
+  TenantCastsNewRoute: typeof TenantCastsNewRoute
   TenantCustomersIdRoute: typeof TenantCustomersIdRoute
   TenantDiesIdRoute: typeof TenantDiesIdRoute
+  TenantDiesIssuesRoute: typeof TenantDiesIssuesRoute
+  TenantDiesMakersRoute: typeof TenantDiesMakersRoute
+  TenantDispatchIdRoute: typeof TenantDispatchIdRoute
+  TenantDispatchNewRoute: typeof TenantDispatchNewRoute
   TenantDispatchesIdRoute: typeof TenantDispatchesIdRoute
   TenantDispatchesNewRoute: typeof TenantDispatchesNewRoute
+  TenantFoundryStockRoute: typeof TenantFoundryStockRoute
+  TenantGuidesSlugRoute: typeof TenantGuidesSlugRoute
+  TenantMastersAlloysRoute: typeof TenantMastersAlloysRoute
+  TenantMastersDiesRoute: typeof TenantMastersDiesRoute
+  TenantMastersFurnacesRoute: typeof TenantMastersFurnacesRoute
+  TenantMastersLocationsRoute: typeof TenantMastersLocationsRoute
+  TenantMastersOvensRoute: typeof TenantMastersOvensRoute
+  TenantMastersReasonsRoute: typeof TenantMastersReasonsRoute
+  TenantMastersRecipesRoute: typeof TenantMastersRecipesRoute
+  TenantMastersScrapRoute: typeof TenantMastersScrapRoute
+  TenantMastersTrolleysRoute: typeof TenantMastersTrolleysRoute
+  TenantOrdersIdRoute: typeof TenantOrdersIdRoute
+  TenantOrdersNewRoute: typeof TenantOrdersNewRoute
+  TenantPackIdRoute: typeof TenantPackIdRoute
+  TenantPackNewRoute: typeof TenantPackNewRoute
   TenantPackingListsIdRoute: typeof TenantPackingListsIdRoute
+  TenantPressAlertsRoute: typeof TenantPressAlertsRoute
+  TenantPressReportRoute: typeof TenantPressReportRoute
+  TenantPressSummaryRoute: typeof TenantPressSummaryRoute
+  TenantPreviewComingSoonRoute: typeof TenantPreviewComingSoonRoute
+  TenantPurchaseIdRoute: typeof TenantPurchaseIdRoute
+  TenantPurchaseNewRoute: typeof TenantPurchaseNewRoute
   TenantReceiptsIdRoute: typeof TenantReceiptsIdRoute
   TenantReceiptsNewRoute: typeof TenantReceiptsNewRoute
-  TenantSettingsMembersRoute: typeof TenantSettingsMembersRoute
+  TenantReportsAgeingRoute: typeof TenantReportsAgeingRoute
+  TenantReportsDieLifeRoute: typeof TenantReportsDieLifeRoute
+  TenantReportsFoundryYieldRoute: typeof TenantReportsFoundryYieldRoute
+  TenantReportsOrdersRoute: typeof TenantReportsOrdersRoute
+  TenantReportsProductionRoute: typeof TenantReportsProductionRoute
+  TenantReportsStockAgeRoute: typeof TenantReportsStockAgeRoute
+  TenantStockDieIdRoute: typeof TenantStockDieIdRoute
+  TenantStockBundlesRoute: typeof TenantStockBundlesRoute
+  TenantStockLengthsRoute: typeof TenantStockLengthsRoute
+  TenantStockYardsRoute: typeof TenantStockYardsRoute
+  TenantStoreExchangeRoute: typeof TenantStoreExchangeRoute
+  TenantStoreIssueRoute: typeof TenantStoreIssueRoute
+  TenantStoreReceiveRoute: typeof TenantStoreReceiveRoute
+  TenantVendorsIdRoute: typeof TenantVendorsIdRoute
+  TenantAgeingIndexRoute: typeof TenantAgeingIndexRoute
   TenantBundlesIndexRoute: typeof TenantBundlesIndexRoute
+  TenantCastsIndexRoute: typeof TenantCastsIndexRoute
   TenantCustomersIndexRoute: typeof TenantCustomersIndexRoute
   TenantDiesIndexRoute: typeof TenantDiesIndexRoute
+  TenantDispatchIndexRoute: typeof TenantDispatchIndexRoute
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
+  TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
+  TenantMastersIndexRoute: typeof TenantMastersIndexRoute
+  TenantOrdersIndexRoute: typeof TenantOrdersIndexRoute
+  TenantPackIndexRoute: typeof TenantPackIndexRoute
+  TenantPressIndexRoute: typeof TenantPressIndexRoute
+  TenantPreviewIndexRoute: typeof TenantPreviewIndexRoute
+  TenantPurchaseIndexRoute: typeof TenantPurchaseIndexRoute
   TenantReceiptsIndexRoute: typeof TenantReceiptsIndexRoute
+  TenantReportsIndexRoute: typeof TenantReportsIndexRoute
   TenantSpoolIndexRoute: typeof TenantSpoolIndexRoute
   TenantStockIndexRoute: typeof TenantStockIndexRoute
+  TenantStoreIndexRoute: typeof TenantStoreIndexRoute
+  TenantVendorsIndexRoute: typeof TenantVendorsIndexRoute
+  TenantAgeingBatchIdRoute: typeof TenantAgeingBatchIdRoute
+  TenantCastsIdCertificateRoute: typeof TenantCastsIdCertificateRoute
+  TenantOrdersPlanIdRoute: typeof TenantOrdersPlanIdRoute
+  TenantPackIdLabelsRoute: typeof TenantPackIdLabelsRoute
+  TenantPressLinesIdRoute: typeof TenantPressLinesIdRoute
+  TenantPressRunsIdRoute: typeof TenantPressRunsIdRoute
+  TenantPreviewAgeingPageRoute: typeof TenantPreviewAgeingPageRoute
+  TenantPreviewDieRoomCardRoute: typeof TenantPreviewDieRoomCardRoute
+  TenantPreviewDieRoomLiftRoute: typeof TenantPreviewDieRoomLiftRoute
+  TenantPreviewDieRoomMakerRoute: typeof TenantPreviewDieRoomMakerRoute
+  TenantPreviewFloorDispatchRoute: typeof TenantPreviewFloorDispatchRoute
+  TenantPreviewFloorListRoute: typeof TenantPreviewFloorListRoute
+  TenantPreviewFloorStockRoute: typeof TenantPreviewFloorStockRoute
+  TenantPreviewFoundryCastRoute: typeof TenantPreviewFoundryCastRoute
+  TenantPreviewFoundryCertificateRoute: typeof TenantPreviewFoundryCertificateRoute
+  TenantPreviewFoundryStockRoute: typeof TenantPreviewFoundryStockRoute
+  TenantPreviewOrdersIdRoute: typeof TenantPreviewOrdersIdRoute
+  TenantPreviewOrdersNewRoute: typeof TenantPreviewOrdersNewRoute
+  TenantPreviewOrdersPlanRoute: typeof TenantPreviewOrdersPlanRoute
+  TenantPreviewPlatformDevicesRoute: typeof TenantPreviewPlatformDevicesRoute
+  TenantPreviewPlatformPortalRoute: typeof TenantPreviewPlatformPortalRoute
+  TenantPreviewPlatformSettingsRoute: typeof TenantPreviewPlatformSettingsRoute
+  TenantPreviewPressConsoleRoute: typeof TenantPreviewPressConsoleRoute
+  TenantPreviewPressReportRoute: typeof TenantPreviewPressReportRoute
+  TenantPreviewPressSummaryRoute: typeof TenantPreviewPressSummaryRoute
+  TenantStockCountIdRoute: typeof TenantStockCountIdRoute
+  TenantStoreItemsIdRoute: typeof TenantStoreItemsIdRoute
+  TenantCastsIdIndexRoute: typeof TenantCastsIdIndexRoute
+  TenantOrdersPlanIndexRoute: typeof TenantOrdersPlanIndexRoute
+  TenantPressLinesIndexRoute: typeof TenantPressLinesIndexRoute
+  TenantPreviewAgeingIndexRoute: typeof TenantPreviewAgeingIndexRoute
+  TenantPreviewDieRoomIndexRoute: typeof TenantPreviewDieRoomIndexRoute
+  TenantPreviewFloorIndexRoute: typeof TenantPreviewFloorIndexRoute
+  TenantPreviewFoundryIndexRoute: typeof TenantPreviewFoundryIndexRoute
+  TenantPreviewOrdersIndexRoute: typeof TenantPreviewOrdersIndexRoute
+  TenantPreviewPlatformIndexRoute: typeof TenantPreviewPlatformIndexRoute
+  TenantPreviewPressIndexRoute: typeof TenantPreviewPressIndexRoute
+  TenantStockCountIndexRoute: typeof TenantStockCountIndexRoute
+  TenantStoreItemsIndexRoute: typeof TenantStoreItemsIndexRoute
+  TenantCastsIdMeltMeltIdRoute: typeof TenantCastsIdMeltMeltIdRoute
+  TenantDiesCopiesCopyIdLiftRoute: typeof TenantDiesCopiesCopyIdLiftRoute
+  TenantDiesIdBandsNewRoute: typeof TenantDiesIdBandsNewRoute
+  TenantDiesCopiesCopyIdIndexRoute: typeof TenantDiesCopiesCopyIdIndexRoute
 }
 
 const TenantRouteChildren: TenantRouteChildren = {
+  TenantApprovalsRoute: TenantApprovalsRoute,
+  TenantAuditRoute: TenantAuditRoute,
   TenantDashboardRoute: TenantDashboardRoute,
+  TenantPrintingRoute: TenantPrintingRoute,
+  TenantSettingsRoute: TenantSettingsRouteWithChildren,
+  TenantTodayRoute: TenantTodayRoute,
+  TenantAgeingHistoryRoute: TenantAgeingHistoryRoute,
+  TenantAgeingLoadRoute: TenantAgeingLoadRoute,
   TenantBundlesIdRoute: TenantBundlesIdRoute,
+  TenantCastsInboxRoute: TenantCastsInboxRoute,
+  TenantCastsNewRoute: TenantCastsNewRoute,
   TenantCustomersIdRoute: TenantCustomersIdRoute,
   TenantDiesIdRoute: TenantDiesIdRoute,
+  TenantDiesIssuesRoute: TenantDiesIssuesRoute,
+  TenantDiesMakersRoute: TenantDiesMakersRoute,
+  TenantDispatchIdRoute: TenantDispatchIdRoute,
+  TenantDispatchNewRoute: TenantDispatchNewRoute,
   TenantDispatchesIdRoute: TenantDispatchesIdRoute,
   TenantDispatchesNewRoute: TenantDispatchesNewRoute,
+  TenantFoundryStockRoute: TenantFoundryStockRoute,
+  TenantGuidesSlugRoute: TenantGuidesSlugRoute,
+  TenantMastersAlloysRoute: TenantMastersAlloysRoute,
+  TenantMastersDiesRoute: TenantMastersDiesRoute,
+  TenantMastersFurnacesRoute: TenantMastersFurnacesRoute,
+  TenantMastersLocationsRoute: TenantMastersLocationsRoute,
+  TenantMastersOvensRoute: TenantMastersOvensRoute,
+  TenantMastersReasonsRoute: TenantMastersReasonsRoute,
+  TenantMastersRecipesRoute: TenantMastersRecipesRoute,
+  TenantMastersScrapRoute: TenantMastersScrapRoute,
+  TenantMastersTrolleysRoute: TenantMastersTrolleysRoute,
+  TenantOrdersIdRoute: TenantOrdersIdRoute,
+  TenantOrdersNewRoute: TenantOrdersNewRoute,
+  TenantPackIdRoute: TenantPackIdRoute,
+  TenantPackNewRoute: TenantPackNewRoute,
   TenantPackingListsIdRoute: TenantPackingListsIdRoute,
+  TenantPressAlertsRoute: TenantPressAlertsRoute,
+  TenantPressReportRoute: TenantPressReportRoute,
+  TenantPressSummaryRoute: TenantPressSummaryRoute,
+  TenantPreviewComingSoonRoute: TenantPreviewComingSoonRoute,
+  TenantPurchaseIdRoute: TenantPurchaseIdRoute,
+  TenantPurchaseNewRoute: TenantPurchaseNewRoute,
   TenantReceiptsIdRoute: TenantReceiptsIdRoute,
   TenantReceiptsNewRoute: TenantReceiptsNewRoute,
-  TenantSettingsMembersRoute: TenantSettingsMembersRoute,
+  TenantReportsAgeingRoute: TenantReportsAgeingRoute,
+  TenantReportsDieLifeRoute: TenantReportsDieLifeRoute,
+  TenantReportsFoundryYieldRoute: TenantReportsFoundryYieldRoute,
+  TenantReportsOrdersRoute: TenantReportsOrdersRoute,
+  TenantReportsProductionRoute: TenantReportsProductionRoute,
+  TenantReportsStockAgeRoute: TenantReportsStockAgeRoute,
+  TenantStockDieIdRoute: TenantStockDieIdRoute,
+  TenantStockBundlesRoute: TenantStockBundlesRoute,
+  TenantStockLengthsRoute: TenantStockLengthsRoute,
+  TenantStockYardsRoute: TenantStockYardsRoute,
+  TenantStoreExchangeRoute: TenantStoreExchangeRoute,
+  TenantStoreIssueRoute: TenantStoreIssueRoute,
+  TenantStoreReceiveRoute: TenantStoreReceiveRoute,
+  TenantVendorsIdRoute: TenantVendorsIdRoute,
+  TenantAgeingIndexRoute: TenantAgeingIndexRoute,
   TenantBundlesIndexRoute: TenantBundlesIndexRoute,
+  TenantCastsIndexRoute: TenantCastsIndexRoute,
   TenantCustomersIndexRoute: TenantCustomersIndexRoute,
   TenantDiesIndexRoute: TenantDiesIndexRoute,
+  TenantDispatchIndexRoute: TenantDispatchIndexRoute,
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
+  TenantGuidesIndexRoute: TenantGuidesIndexRoute,
+  TenantMastersIndexRoute: TenantMastersIndexRoute,
+  TenantOrdersIndexRoute: TenantOrdersIndexRoute,
+  TenantPackIndexRoute: TenantPackIndexRoute,
+  TenantPressIndexRoute: TenantPressIndexRoute,
+  TenantPreviewIndexRoute: TenantPreviewIndexRoute,
+  TenantPurchaseIndexRoute: TenantPurchaseIndexRoute,
   TenantReceiptsIndexRoute: TenantReceiptsIndexRoute,
+  TenantReportsIndexRoute: TenantReportsIndexRoute,
   TenantSpoolIndexRoute: TenantSpoolIndexRoute,
   TenantStockIndexRoute: TenantStockIndexRoute,
+  TenantStoreIndexRoute: TenantStoreIndexRoute,
+  TenantVendorsIndexRoute: TenantVendorsIndexRoute,
+  TenantAgeingBatchIdRoute: TenantAgeingBatchIdRoute,
+  TenantCastsIdCertificateRoute: TenantCastsIdCertificateRoute,
+  TenantOrdersPlanIdRoute: TenantOrdersPlanIdRoute,
+  TenantPackIdLabelsRoute: TenantPackIdLabelsRoute,
+  TenantPressLinesIdRoute: TenantPressLinesIdRoute,
+  TenantPressRunsIdRoute: TenantPressRunsIdRoute,
+  TenantPreviewAgeingPageRoute: TenantPreviewAgeingPageRoute,
+  TenantPreviewDieRoomCardRoute: TenantPreviewDieRoomCardRoute,
+  TenantPreviewDieRoomLiftRoute: TenantPreviewDieRoomLiftRoute,
+  TenantPreviewDieRoomMakerRoute: TenantPreviewDieRoomMakerRoute,
+  TenantPreviewFloorDispatchRoute: TenantPreviewFloorDispatchRoute,
+  TenantPreviewFloorListRoute: TenantPreviewFloorListRoute,
+  TenantPreviewFloorStockRoute: TenantPreviewFloorStockRoute,
+  TenantPreviewFoundryCastRoute: TenantPreviewFoundryCastRoute,
+  TenantPreviewFoundryCertificateRoute: TenantPreviewFoundryCertificateRoute,
+  TenantPreviewFoundryStockRoute: TenantPreviewFoundryStockRoute,
+  TenantPreviewOrdersIdRoute: TenantPreviewOrdersIdRoute,
+  TenantPreviewOrdersNewRoute: TenantPreviewOrdersNewRoute,
+  TenantPreviewOrdersPlanRoute: TenantPreviewOrdersPlanRoute,
+  TenantPreviewPlatformDevicesRoute: TenantPreviewPlatformDevicesRoute,
+  TenantPreviewPlatformPortalRoute: TenantPreviewPlatformPortalRoute,
+  TenantPreviewPlatformSettingsRoute: TenantPreviewPlatformSettingsRoute,
+  TenantPreviewPressConsoleRoute: TenantPreviewPressConsoleRoute,
+  TenantPreviewPressReportRoute: TenantPreviewPressReportRoute,
+  TenantPreviewPressSummaryRoute: TenantPreviewPressSummaryRoute,
+  TenantStockCountIdRoute: TenantStockCountIdRoute,
+  TenantStoreItemsIdRoute: TenantStoreItemsIdRoute,
+  TenantCastsIdIndexRoute: TenantCastsIdIndexRoute,
+  TenantOrdersPlanIndexRoute: TenantOrdersPlanIndexRoute,
+  TenantPressLinesIndexRoute: TenantPressLinesIndexRoute,
+  TenantPreviewAgeingIndexRoute: TenantPreviewAgeingIndexRoute,
+  TenantPreviewDieRoomIndexRoute: TenantPreviewDieRoomIndexRoute,
+  TenantPreviewFloorIndexRoute: TenantPreviewFloorIndexRoute,
+  TenantPreviewFoundryIndexRoute: TenantPreviewFoundryIndexRoute,
+  TenantPreviewOrdersIndexRoute: TenantPreviewOrdersIndexRoute,
+  TenantPreviewPlatformIndexRoute: TenantPreviewPlatformIndexRoute,
+  TenantPreviewPressIndexRoute: TenantPreviewPressIndexRoute,
+  TenantStockCountIndexRoute: TenantStockCountIndexRoute,
+  TenantStoreItemsIndexRoute: TenantStoreItemsIndexRoute,
+  TenantCastsIdMeltMeltIdRoute: TenantCastsIdMeltMeltIdRoute,
+  TenantDiesCopiesCopyIdLiftRoute: TenantDiesCopiesCopyIdLiftRoute,
+  TenantDiesIdBandsNewRoute: TenantDiesIdBandsNewRoute,
+  TenantDiesCopiesCopyIdIndexRoute: TenantDiesCopiesCopyIdIndexRoute,
 }
 
 const TenantRouteWithChildren =
   TenantRoute._addFileChildren(TenantRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  Char91__uiChar93Route: Char91__uiChar93Route,
   AuthedRoute: AuthedRouteWithChildren,
   PlatformRoute: PlatformRouteWithChildren,
+  PortalRoute: PortalRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
+  BSerialRoute: BSerialRoute,
+  ShareDieTokenRoute: ShareDieTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

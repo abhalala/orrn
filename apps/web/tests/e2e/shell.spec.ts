@@ -1,0 +1,510 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page } from "@playwright/test";
+
+import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
+
+/**
+ * The C2 app shell (Task 14): phone tab bar with a raised Scan, iPad icon
+ * rail, laptop sidebar with "Scan or search ⌘K", the More sheet, language and
+ * theme, landmarks and the command palette. Needs the local stack (this
+ * worktree's API + web ports, seeded accounts).
+ */
+
+const SEEDED_SERIAL = "BG-000001-B001";
+const BUNDLE_URL = new RegExp(`/b/${SEEDED_SERIAL}$`);
+const HOME = /\/today$/;
+
+type Scheme = "light" | "dark";
+
+async function open(
+  page: Page,
+  opts: { role?: LocalRole; width: number; scheme?: Scheme; path?: string; height?: number },
+) {
+  await page.setViewportSize({ width: opts.width, height: opts.height ?? 900 });
+  await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
+  await signInViaApi(page, opts.role ?? "owner");
+  await page.goto(opts.path ?? "/today");
+  await expect(page.locator("[data-slot='app-shell']")).toBeVisible();
+  await expect(page.locator("main#main h1").first()).toBeVisible();
+}
+
+/** The visible primary navigation: tab bar on phones, rail or sidebar from 768px. */
+function mainNav(page: Page) {
+  return page.getByRole("navigation", { name: "Main" });
+}
+
+/** Rewrites `auth.me` in every tRPC (batched) response so the company has these modules. */
+async function withModules(page: Page, modules: string[]) {
+  await page.route("**/trpc/**", async (route) => {
+    const url = new URL(route.request().url());
+    const procedures = decodeURIComponent(url.pathname.split("/trpc/")[1] ?? "").split(",");
+    const index = procedures.indexOf("auth.me");
+    if (index === -1) return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    const entry = Array.isArray(body) ? body[index] : body;
+    const data = entry?.result?.data;
+    const me = data?.json ?? data;
+    if (me?.company) me.company.modules = modules;
+    await route.fulfill({ response, json: body });
+  });
+}
+
+async function blockingAxeViolations(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+    .exclude(".TanStackRouterDevtools")
+    .exclude("[class*='tsqd-']")
+    .exclude("[data-sonner-toaster]")
+    .analyze();
+  return results.violations
+    .filter((v) => v.impact === "serious" || v.impact === "critical")
+    .map((v) => ({ id: v.id, help: v.help, targets: v.nodes.slice(0, 5).map((n) => n.target.join(" ")) }));
+}
+
+test.describe("phone (390)", () => {
+  test("tab bar has Today, Pack, Scan, Stock, Dispatch, More with Scan raised", async ({ page }) => {
+    await open(page, { width: 390 });
+    const nav = mainNav(page);
+    await expect(nav).toBeVisible();
+    const items = nav.locator("a, button");
+    await expect(items).toHaveCount(6);
+    await expect(items.nth(0)).toHaveAccessibleName("Today");
+    await expect(items.nth(1)).toHaveAccessibleName("Pack");
+    await expect(items.nth(2)).toHaveAccessibleName("Scan");
+    await expect(items.nth(3)).toHaveAccessibleName("Stock");
+    await expect(items.nth(4)).toHaveAccessibleName("Dispatch");
+    await expect(items.nth(5)).toHaveAccessibleName("More");
+    // Scan and More are buttons (the scanner, the More sheet), everything else is a router link.
+    await expect(items.nth(2)).toHaveJSProperty("tagName", "BUTTON");
+    await expect(items.nth(5)).toHaveJSProperty("tagName", "BUTTON");
+    await expect(nav.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
+    // Every tab is a comfortable thumb target.
+    for (const box of await items.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().toJSON()))) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("the avatar opens More with the office pages, language, theme and sign out", async ({ page }) => {
+    await open(page, { width: 390 });
+    await page.getByRole("button", { name: "Account and more" }).click();
+    const sheet = page.getByRole("dialog", { name: "More" });
+    await expect(sheet).toBeVisible();
+    for (const name of ["Dies", "Customers", "Printing", "Guides", "Settings"]) {
+      await expect(sheet.getByRole("link", { name })).toBeVisible();
+    }
+    await expect(sheet.getByRole("radiogroup", { name: "Language" })).toBeVisible();
+    await expect(sheet.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await sheet.getByRole("link", { name: "Dies" }).click();
+    await expect(page).toHaveURL(/\/dies$/);
+    await expect(sheet).toBeHidden();
+  });
+
+  // BACKLOG 92: Orders, Press and Approvals are one tap from the tab bar, not behind the avatar.
+  for (const [role, links] of [
+    ["owner", ["Orders", "Press", "Approvals", "Reports"]],
+    ["manager", ["Orders", "Press", "Approvals"]],
+    ["office", ["Orders", "Approvals"]],
+  ] as const) {
+    test(`the More tab opens the office pages a ${role} may use (375)`, async ({ page }) => {
+      await open(page, { role, width: 375 });
+      const more = mainNav(page).getByRole("button", { name: "More", exact: true });
+      await expect(more).toBeVisible();
+      await more.click();
+      const sheet = page.getByRole("dialog", { name: "More" });
+      await expect(sheet).toBeVisible();
+      for (const name of links) await expect(sheet.getByRole("link", { name })).toBeVisible();
+      await sheet.getByRole("link", { name: links[0] }).click();
+      await expect(page).toHaveURL(/\/orders/);
+      await expect(sheet).toBeHidden();
+      await expectNoHorizontalScroll(page);
+    });
+  }
+
+  test("moving between tabs never reloads the page", async ({ page }) => {
+    await open(page, { width: 390 });
+    const boot = await page.evaluate(() => (window as unknown as { __orrnBoot?: number }).__orrnBoot);
+    expect(boot).toBeTruthy();
+    await mainNav(page).getByRole("link", { name: "Stock" }).click();
+    await expect(page).toHaveURL(/\/stock(\?|$)/);
+    await expect(mainNav(page).getByRole("link", { name: "Stock" })).toHaveAttribute("aria-current", "page");
+    await mainNav(page).getByRole("link", { name: "Today" }).click();
+    await expect(page).toHaveURL(HOME);
+    expect(await page.evaluate(() => (window as unknown as { __orrnBoot?: number }).__orrnBoot)).toBe(boot);
+  });
+
+  test("the tab bar stays put after scrolling a long page", async ({ page }) => {
+    await open(page, { width: 390, height: 700, path: "/dies" });
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(1400);
+    await page.mouse.wheel(0, 1200);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(600);
+    const bar = page.locator("[data-slot='tab-bar']");
+    await expect(bar).toBeInViewport({ ratio: 1 });
+    const box = await bar.boundingBox();
+    expect(Math.round((box?.y ?? 0) + (box?.height ?? 0))).toBe(700);
+  });
+
+  test("the page is only as tall as its content, also after a long page", async ({ page }) => {
+    const extra = () =>
+      page.evaluate(() => {
+        const shell = document.querySelector("[data-slot='app-shell']")!.getBoundingClientRect().height;
+        return document.documentElement.scrollHeight - Math.max(shell, window.innerHeight);
+      });
+    await open(page, { width: 390, height: 700, path: "/dies" });
+    await page.waitForLoadState("networkidle");
+    expect(await extra()).toBeLessThanOrEqual(1);
+    await mainNav(page).getByRole("link", { name: "Today" }).click();
+    await expect(page).toHaveURL(HOME);
+    await page.waitForLoadState("networkidle");
+    expect(await extra()).toBeLessThanOrEqual(1);
+    // Nothing outside the shell adds height either.
+    const shellHeight = await page.evaluate(
+      () => document.querySelector("[data-slot='app-shell']")!.getBoundingClientRect().height,
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(
+      Math.max(shellHeight, 700) + 1,
+    );
+  });
+
+  test("a sticky action bar sits above the tab bar", async ({ page }) => {
+    await open(page, { width: 390, height: 700, path: "/guides" });
+    // The pattern flow screens use for their sticky bottom bar.
+    await page.evaluate(() => {
+      const host = document.querySelector("main#main > div")!;
+      const spacer = document.createElement("div");
+      spacer.style.height = "2000px";
+      const bar = document.createElement("div");
+      bar.dataset.testid = "sticky-bar";
+      bar.style.cssText = "position:sticky;bottom:var(--shell-tabbar-offset);height:56px;background:red;";
+      host.appendChild(spacer);
+      host.appendChild(bar);
+    });
+    const bar = await page.getByTestId("sticky-bar").boundingBox();
+    const tabs = await page.locator("[data-slot='tab-bar']").boundingBox();
+    expect(bar && tabs).toBeTruthy();
+    expect(bar!.y + bar!.height).toBeLessThanOrEqual(tabs!.y + 1);
+    expect(bar!.y + bar!.height).toBeGreaterThan(tabs!.y - 24);
+  });
+
+  test("Scan opens the scanner and a typed serial opens that bundle", async ({ page }) => {
+    await open(page, { width: 390 });
+    await mainNav(page).getByRole("button", { name: "Scan" }).click();
+    const sheet = page.getByRole("dialog", { name: "Scan" });
+    await expect(sheet).toBeVisible();
+    const field = sheet.getByLabel("Serial or label link");
+    await expect(field).toBeFocused();
+    await field.fill("bg-999999-z999");
+    await field.press("Enter");
+    await expect(sheet.getByText("Not found in this company")).toBeVisible();
+    await field.fill(SEEDED_SERIAL.toLowerCase());
+    await field.press("Enter");
+    await expect(page).toHaveURL(BUNDLE_URL);
+    await expect(sheet).toBeHidden();
+    await expect(page.getByText(SEEDED_SERIAL).first()).toBeVisible();
+  });
+
+  test("Hindi switches the shell instantly and sticks after a reload", async ({ page }) => {
+    await open(page, { width: 390 });
+    await page.getByRole("button", { name: "Account and more" }).click();
+    await page.getByRole("dialog", { name: "More" }).getByRole("radio", { name: "हिंदी" }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("navigation", { name: "मुख्य" }).getByRole("link", { name: "आज" })).toBeVisible();
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+    await expect(page.getByRole("navigation", { name: "मुख्य" }).getByRole("link", { name: "आज" })).toBeVisible();
+    await page.evaluate(() => localStorage.removeItem("orrn.locale"));
+  });
+
+  test("the theme override in More is stored and wins over the device", async ({ page }) => {
+    await open(page, { width: 390, scheme: "light" });
+    await page.getByRole("button", { name: "Account and more" }).click();
+    await page.getByRole("dialog", { name: "More" }).getByRole("radio", { name: "Dark" }).click();
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    expect(await page.evaluate(() => localStorage.getItem("orrn.theme"))).toBe("dark");
+    await page.reload();
+    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+  });
+});
+
+test.describe("roles and modules", () => {
+  test("a viewer has no Pack tab but still sees Stock", async ({ page }) => {
+    await open(page, { role: "viewer", width: 390 });
+    const nav = mainNav(page);
+    await expect(nav.getByRole("link", { name: "Stock" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Pack" })).toHaveCount(0);
+  });
+
+  test("Settings is only for people who manage the company or team (R24)", async ({ page }) => {
+    await open(page, { role: "operator", width: 390 });
+    await page.getByRole("button", { name: "Account and more" }).click();
+    const sheet = page.getByRole("dialog", { name: "More" });
+    await expect(sheet.getByRole("link", { name: "Guides" })).toBeVisible();
+    await expect(sheet.getByRole("link", { name: "Settings" })).toHaveCount(0);
+  });
+
+  test("viewers don't see Settings in the sidebar either", async ({ page }) => {
+    await open(page, { role: "viewer", width: 1280 });
+    await expect(mainNav(page).getByRole("link", { name: "Guides" })).toBeVisible();
+    await expect(mainNav(page).getByRole("link", { name: "Settings" })).toHaveCount(0);
+  });
+
+  test("a company with only the customers module hides Dies and Dispatch", async ({ page }) => {
+    await withModules(page, ["customers"]);
+    await open(page, { width: 1280 });
+    const nav = mainNav(page);
+    await expect(nav.getByRole("link", { name: "Customers" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "Dies" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Dispatch" })).toHaveCount(0);
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+});
+
+test.describe("iPad and laptop", () => {
+  test("820: icon rail, no tab bar", async ({ page }) => {
+    await open(page, { width: 820, height: 1180 });
+    const nav = mainNav(page);
+    await expect(nav).toBeVisible();
+    const box = await nav.boundingBox();
+    expect(box?.x).toBe(0);
+    expect(box?.width).toBeLessThan(120);
+    await expect(page.locator("[data-slot='tab-bar']")).toBeHidden();
+    await expect(nav.getByRole("link", { name: "Stock" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Scan" })).toBeVisible();
+  });
+
+  test("1280: sidebar with labels, the More group and Scan or search ⌘K", async ({ page }) => {
+    await open(page, { width: 1280 });
+    const nav = mainNav(page);
+    await expect(page.locator("[data-slot='tab-bar']")).toBeHidden();
+    const search = page.getByRole("button", { name: /Scan or search/ });
+    await expect(search).toBeVisible();
+    await expect(search).toContainText(/⌘K|Ctrl K/);
+    for (const name of ["Today", "Pack", "Stock", "Dispatch", "Dies", "Customers", "Printing", "Guides", "Settings"]) {
+      await expect(nav.getByRole("link", { name })).toBeVisible();
+    }
+    const box = await nav.boundingBox();
+    expect(box?.width).toBeGreaterThan(200);
+  });
+
+  test("1280x900: the owner's whole sidebar, Masters to Audit, fits without a scroll (BACKLOG 106)", async ({ page }) => {
+    await open(page, { width: 1280, height: 900 });
+    const nav = mainNav(page);
+    const scroller = await nav.evaluate((el) => ({ scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }));
+    expect(scroller.scrollHeight).toBeLessThanOrEqual(scroller.clientHeight);
+    for (const name of ["Masters", "Guides", "Settings", "Audit"]) {
+      const link = nav.getByRole("link", { name });
+      await expect(link).toBeVisible();
+      await expect(link).toBeInViewport({ ratio: 1 });
+    }
+  });
+
+  test("landmarks: header, labelled nav, main with one h1", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await expect(page.locator("main#main")).toHaveCount(1);
+    await expect(page.locator("main#main h1")).toHaveCount(1);
+    await expect(mainNav(page)).toHaveCount(1);
+  });
+
+  test("the skip link moves focus to main", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.keyboard.press("Tab");
+    const skip = page.getByRole("link", { name: "Skip to content" });
+    await expect(skip).toBeFocused();
+    await expect(skip).toBeInViewport();
+    await page.keyboard.press("Enter");
+    expect(await page.evaluate(() => document.activeElement?.closest("main")?.id)).toBe("main");
+  });
+
+  test("a route change moves focus to the new page's heading", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await mainNav(page).getByRole("link", { name: "Dies" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/dies$/);
+    await expect(page.locator("main#main h1")).toBeFocused();
+  });
+
+  test("⌘K with a serial and Enter opens that bundle", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.keyboard.press("ControlOrMeta+k");
+    const palette = page.getByRole("dialog", { name: "Scan or search" });
+    await expect(palette).toBeVisible();
+    const input = palette.getByRole("combobox");
+    await expect(input).toBeFocused();
+    await input.fill(SEEDED_SERIAL);
+    await expect(palette.getByRole("option").first()).toContainText(SEEDED_SERIAL);
+    await input.press("Enter");
+    await expect(page).toHaveURL(BUNDLE_URL);
+    await expect(palette).toBeHidden();
+  });
+
+  test("the palette finds pages and opens them with the keyboard", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.getByRole("button", { name: /Scan or search/ }).click();
+    const palette = page.getByRole("dialog", { name: "Scan or search" });
+    const input = palette.getByRole("combobox");
+    await input.fill("cust");
+    const option = palette.getByRole("option", { name: /Customers/ }).first();
+    await expect(option).toBeVisible();
+    // Arrow to the page result, then Enter.
+    for (let i = 0; i < 10; i += 1) {
+      const active = await input.getAttribute("aria-activedescendant");
+      if (active && (await palette.locator(`[id="${active}"]`).textContent())?.includes("Customers")) break;
+      await input.press("ArrowDown");
+    }
+    await input.press("Enter");
+    await expect(page).toHaveURL(/\/customers$/);
+  });
+
+  test("⌘K does nothing while another sheet is open", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.getByRole("button", { name: "Scan", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "Scan" })).toBeVisible();
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(page.getByRole("dialog", { name: "Scan or search" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Scan" })).toBeVisible();
+  });
+
+  test("/ opens the palette when not typing", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.locator("main#main h1").first().click();
+    await page.keyboard.press("/");
+    await expect(page.getByRole("dialog", { name: "Scan or search" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Scan or search" })).toBeHidden();
+  });
+
+  test("the account menu in the sidebar signs out", async ({ page }) => {
+    await open(page, { width: 1280 });
+    await page.getByRole("button", { name: /Local Owner/ }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+});
+
+test.describe("Godseye", () => {
+  test("uses the violet tone and the admin nav", async ({ page }) => {
+    await open(page, { role: "staff", width: 1280, path: "/admin" });
+    const nav = mainNav(page);
+    for (const name of ["Overview", "Companies", "Access requests", "Staff"]) {
+      await expect(nav.getByRole("link", { name })).toBeVisible();
+    }
+    await expect(nav.getByRole("link", { name: "Today" })).toHaveCount(0);
+    const active = nav.getByRole("link", { name: "Overview" });
+    await expect(active).toHaveAttribute("aria-current", "page");
+    const violet = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      probe.style.color = "var(--tone-violet-from)";
+      document.querySelector("[data-slot='app-shell']")?.appendChild(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    const bg = await active.evaluate((el) => getComputedStyle(el).backgroundImage + getComputedStyle(el).backgroundColor);
+    expect(bg).toContain(violet);
+    await expect(page.locator("[data-slot='app-shell']")).toHaveAttribute("data-variant", "godseye");
+  });
+
+  test("phone: admin tabs, no Scan", async ({ page }) => {
+    await open(page, { role: "staff", width: 390, path: "/admin" });
+    const nav = mainNav(page);
+    await expect(nav.getByRole("link", { name: "Companies" })).toBeVisible();
+    await expect(nav.getByRole("button", { name: "Scan" })).toHaveCount(0);
+    await expect(nav.getByRole("button", { name: "More", exact: true })).toBeVisible();
+  });
+});
+
+test.describe("layout and accessibility", () => {
+  for (const width of [375, 390, 820, 1280, 1440]) {
+    for (const scheme of ["light", "dark"] as const) {
+      test(`no sideways scroll or clipped text at ${width}px (${scheme})`, async ({ page }) => {
+        await open(page, { width, scheme });
+        await expectNoHorizontalScroll(page);
+        // The shell's own chrome (top bar, rail/sidebar, tab bar); screens have their own specs.
+        const chrome = page.locator("[data-shell-chrome]");
+        for (const part of await chrome.all()) {
+          if (await part.isVisible()) await expectNoClippedText(page, part);
+        }
+      });
+    }
+  }
+
+  // Axe runs on /guides: a C2 page, so findings are the shell's. Screens still
+  // stubbed are covered when their own tasks build them.
+  for (const width of [390, 1280]) {
+    for (const scheme of ["light", "dark"] as const) {
+      test(`axe: no serious or critical issues at ${width}px (${scheme})`, async ({ page }) => {
+        await open(page, { width, scheme, path: "/guides" });
+        expect(await blockingAxeViolations(page)).toEqual([]);
+      });
+
+      test(`axe: More and palette are clean at ${width}px (${scheme})`, async ({ page }) => {
+        await open(page, { width, scheme, path: "/guides" });
+        if (width < 1024) {
+          await page.getByRole("button", { name: "Account and more" }).click();
+          await expect(page.getByRole("dialog", { name: "More" })).toBeVisible();
+        } else {
+          await page.keyboard.press("ControlOrMeta+k");
+          await page.getByRole("dialog", { name: "Scan or search" }).getByRole("combobox").fill("BG-0");
+          await expect(page.getByRole("option").first()).toBeVisible();
+        }
+        expect(await blockingAxeViolations(page)).toEqual([]);
+      });
+    }
+  }
+
+  test("Godseye is clean at 390 and 1280", async ({ page }) => {
+    for (const width of [390, 1280]) {
+      await open(page, { role: "staff", width, path: "/admin" });
+      await expectNoHorizontalScroll(page);
+      expect(await blockingAxeViolations(page)).toEqual([]);
+    }
+  });
+});
+
+test.describe("route cross-fade honours prefers-reduced-motion (BACKLOG 22)", () => {
+  /** Counts the page's view transitions: the route cross-fade is one per navigation. */
+  async function countTransitions(page: Page) {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __vt: number };
+      w.__vt = 0;
+      const original = document.startViewTransition?.bind(document);
+      if (original) {
+        document.startViewTransition = ((cb?: unknown) => {
+          w.__vt += 1;
+          return original(cb as never);
+        }) as typeof document.startViewTransition;
+      }
+    });
+  }
+  const transitions = (page: Page) => page.evaluate(() => (window as unknown as { __vt: number }).__vt);
+
+  test("reduced motion: moving between screens starts no view transition", async ({ page }) => {
+    await countTransitions(page);
+    await open(page, { width: 1280 });
+    await mainNav(page).getByRole("link", { name: "Stock" }).first().click();
+    await expect(page).toHaveURL(/\/stock/);
+    await expect(page.locator("main#main h1").first()).toBeVisible();
+    expect(await transitions(page)).toBe(0);
+  });
+
+  test("no preference: the same move does cross-fade (the guard is the setting, not a removed feature)", async ({ page }) => {
+    await countTransitions(page);
+    await open(page, { width: 1280 });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.waitForFunction(() => !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    // Let the router's change listener run before the first move.
+    await page.evaluate(() => new Promise((r) => setTimeout(r, 100)));
+    // A router invalidation can skip the fade for one move, so look at a few moves, not one.
+    for (const [name, url] of [["Stock", /\/stock/], ["Today", /\/today/], ["Stock", /\/stock/]] as const) {
+      await mainNav(page).getByRole("link", { name }).first().click();
+      await expect(page).toHaveURL(url);
+      await expect(page.locator("main#main h1").first()).toBeVisible();
+    }
+    expect(await transitions(page)).toBeGreaterThan(0);
+  });
+});

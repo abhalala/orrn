@@ -9,7 +9,17 @@
  *
  * Signing format:
  *   Authorization: Bearer v1:<timestamp>:<hex(HMAC-SHA256(secret, method|path|timestamp|bodySha256))>
+ *   timestamp = Unix ms in base 36; path includes "?query" when there is one;
+ *   bodySha256 = hex SHA-256 of the body, or "" when there is no body.
+ *
+ * orrn-spool (Go, internal/api/middleware/orrn_hmac.go) verifies the same token with a ±5 min
+ * window and refuses a replayed token. Both repos test against the same vectors:
+ * packages/server/test/fixtures/spool-hmac-vectors.json ≡ orrn-spool
+ * internal/api/middleware/testdata/orrn_hmac_vectors.json.
  */
+
+/** Clock window orrn-spool allows either way; use it when verifying tokens the spool signed. */
+export const SPOOL_TOKEN_MAX_SKEW_MS = 5 * 60_000;
 
 /** Sign an outgoing request to orrn-spool. Returns the full Bearer token string. */
 export async function signSpoolRequest(
@@ -17,8 +27,9 @@ export async function signSpoolRequest(
   path: string,
   body: Uint8Array | null,
   sharedSecret: string,
+  nowMs: number = Date.now(),
 ): Promise<string> {
-  const timestamp = Date.now().toString(36);
+  const timestamp = nowMs.toString(36);
   const bodyHash = body ? await sha256Hex(body) : "";
   const message = `${method.toUpperCase()}|${path}|${timestamp}|${bodyHash}`;
   const signature = await hmacSha256Hex(sharedSecret, message);
@@ -33,6 +44,7 @@ export async function verifySpoolToken(
   token: string,
   sharedSecret: string,
   maxAgeMs = 30_000,
+  nowMs: number = Date.now(),
 ): Promise<boolean> {
   const parts = token.split(":");
   if (parts.length !== 3 || parts[0] !== "v1") return false;
@@ -42,7 +54,7 @@ export async function verifySpoolToken(
   const timestamp = parseInt(timestampStr, 36);
   if (Number.isNaN(timestamp)) return false;
 
-  const age = Date.now() - timestamp;
+  const age = nowMs - timestamp;
   if (age < -maxAgeMs || age > maxAgeMs) return false;
 
   const bodyHash = body ? await sha256Hex(body) : "";

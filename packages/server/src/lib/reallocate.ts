@@ -1,0 +1,498 @@
+/**
+ * Reallocating bundles between sales order lines, or to plant stock (FP-OP-08/09; ledger D6:
+ * `orders.reallocate` is the only transfer, no `bundle.transfer`; C8, C46, C47).
+ *
+ * - Same customer, or to plant stock: applied at once.
+ * - Another customer's bundles: an `order_reallocate` approval opens (subject = the request's
+ *   batch id); nothing moves until it is approved. Its applier (below) moves the bundles that are
+ *   still `available` and still on the line they were asked from; a rejection moves nothing.
+ * - `bundle_transfer` rows are append-only, written only when a move applies. The stock ledger is
+ *   never touched (a reallocation moves no kg between places).
+ * - The first move keeps the packed-for line (`bundle.packed_sales_order_line_id`), so the packing
+ *   list can still print the original order and PO (FP-OP-07).
+ */
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+
+import { approval } from "@orrn/db/schema/approval";
+import { auditLog } from "@orrn/db/schema/audit";
+import { customer } from "@orrn/db/schema/customers";
+import { bundle } from "@orrn/db/schema/inventory";
+import { bundleTransfer, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
+
+import type { ApprovalApplier } from "./approvalApply";
+import { chunk, mapInChunks, type OrrnDb, type SqliteBatchItem } from "./atomic";
+import { allocatePartyBundleNumbers } from "./docNumber";
+import { createId } from "./id";
+import { sqlUuid } from "./ledger";
+
+/** Bundle ids already waiting in a pending `order_reallocate` request (of this company). */
+export async function bundlesPendingReallocation(db: OrrnDb, companyId: string, bundleIds: readonly string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const part of chunk([...new Set(bundleIds)], 80)) {
+    const rows = await db
+      .select({ id: sql<string>`j.value` })
+      .from(sql`${approval} a, json_each(a.meta, '$.bundleIds') j`)
+      .where(
+        sql`a.company_id = ${companyId} and a.kind = 'order_reallocate' and a.status = 'pending' and j.value in (${sql.join(
+          part.map((id) => sql`${id}`),
+          sql`, `,
+        )})`,
+      );
+    for (const r of rows) out.add(r.id);
+  }
+  return out;
+}
+
+/** EXISTS-able SQL: the bundle `b` is in a pending reallocation request of the company. */
+export function pendingReallocationOf(companyId: string, bundleIdSql: SQL): SQL {
+  return sql`exists (select 1 from approval a, json_each(a.meta, '$.bundleIds') j where a.company_id = ${companyId} and a.kind = 'order_reallocate' and a.status = 'pending' and j.value = ${bundleIdSql})`;
+}
+
+/**
+ * C8 plant stock: no line on the bundle AND its latest transfer went to no line. (A bundle with no
+ * line and no transfer is legacy "unassigned".)
+ */
+export function isPlantStockSql(companyId: string, b: { id: SQL; line: SQL }): SQL {
+  return sql`(${b.line} is null and exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.bundle_id = ${b.id}) and (select t.to_sales_order_line_id from bundle_transfer t where t.company_id = ${companyId} and t.bundle_id = ${b.id} order by t.server_seq desc, t.created_at desc limit 1) is null)`;
+}
+
+/**
+ * The customer a plant-stock bundle came from: the customer of the line its latest transfer moved
+ * it from (null for legacy stock, or when that transfer came from no line). Review round 1 m-3.
+ */
+export function plantOriginCustomerSql(companyId: string, bundleIdSql: SQL): SQL {
+  return sql`(select o2.customer_id from bundle_transfer t2 join sales_order_line l2 on l2.id = t2.from_sales_order_line_id and l2.company_id = t2.company_id join sales_order o2 on o2.id = l2.sales_order_id and o2.company_id = l2.company_id where t2.company_id = ${companyId} and t2.bundle_id = ${bundleIdSql} and not exists (select 1 from bundle_transfer t3 where t3.company_id = t2.company_id and t3.bundle_id = t2.bundle_id and (t3.server_seq > t2.server_seq or (t3.server_seq = t2.server_seq and t3.created_at > t2.created_at))) limit 1)`;
+}
+
+export type TransferRow = {
+  bundleId: string;
+  fromLineId: string | null;
+  lengthMismatch: boolean;
+};
+
+/**
+ * The statements that move bundles now (same customer / plant stock). One UPDATE per from-line
+ * (each only lands while the bundle is still available on that line), the transfer rows, and the
+ * caller adds a count check (`batchAbortUnless`) so a bundle that changed meanwhile fails the call.
+ */
+export function moveStatements(
+  db: OrrnDb,
+  input: {
+    companyId: string;
+    seq: number;
+    batchId: string;
+    toLineId: string | null;
+    reason: string;
+    reasonCode: string | null;
+    userId: string;
+    at: Date;
+    rows: readonly TransferRow[];
+  },
+): SqliteBatchItem[] {
+  const out: SqliteBatchItem[] = [];
+  const byFrom = new Map<string | null, string[]>();
+  for (const r of input.rows) {
+    const list = byFrom.get(r.fromLineId) ?? [];
+    list.push(r.bundleId);
+    byFrom.set(r.fromLineId, list);
+  }
+  for (const [from, ids] of byFrom) {
+    for (const part of chunk(ids, 80)) {
+      out.push(
+        db
+          .update(bundle)
+          .set({
+            // The first move remembers the line the bundle was packed for (FP-OP-07).
+            packedSalesOrderLineId: sql`coalesce(${bundle.packedSalesOrderLineId}, ${bundle.salesOrderLineId})`,
+            salesOrderLineId: input.toLineId,
+            serverSeq: input.seq,
+          })
+          .where(
+            and(
+              eq(bundle.companyId, input.companyId),
+              inArray(bundle.id, part),
+              eq(bundle.status, "available"),
+              from === null ? sql`${bundle.salesOrderLineId} is null` : eq(bundle.salesOrderLineId, from),
+            ),
+          ),
+      );
+    }
+  }
+  // ~13 bound values per row: 7 rows per statement stays under D1's 100.
+  for (const part of chunk([...input.rows], 7)) {
+    out.push(
+      db.insert(bundleTransfer).values(
+        part.map((r) => ({
+          id: createId(),
+          companyId: input.companyId,
+          serverSeq: input.seq,
+          bundleId: r.bundleId,
+          fromSalesOrderLineId: r.fromLineId,
+          toSalesOrderLineId: input.toLineId,
+          batchId: input.batchId,
+          reason: input.reason,
+          reasonCode: input.reasonCode,
+          lengthMismatch: r.lengthMismatch,
+          approvalId: null,
+          createdBy: input.userId,
+          createdAt: input.at,
+        })),
+      ),
+    );
+  }
+  return out;
+}
+
+/**
+ * One end of a move (BACKLOG 34): an order line of a customer, or null for plant stock. Names and
+ * numbers only (C46: no rates), so an approver and the order timeline can say what moves where.
+ */
+export type MoveEnd = { customerName: string; orderNumber: string; lineNo: number } | null;
+
+/** What a move carries for people: how many bundles, their kg, where from and where to. */
+export type ReallocateMove = {
+  count: number;
+  kgG: number;
+  /** Distinct sources, in bundle order (plant stock once, as null). */
+  from: MoveEnd[];
+  to: MoveEnd;
+  /** Per bundle (the approval only; the audit rows leave it out). */
+  bundles?: { serial: string; weightG: number; from: MoveEnd }[];
+};
+
+const endKey = (e: MoveEnd) => (e ? `${e.orderNumber}|${e.lineNo}` : "plant");
+
+/** The move summary from the bundles asked for and the target (null = plant stock). */
+export function reallocateMove(bundles: readonly { serial: string; weightG: number; from: MoveEnd }[], to: MoveEnd): Required<ReallocateMove> {
+  const from: MoveEnd[] = [];
+  const seen = new Set<string>();
+  for (const b of bundles) {
+    const key = endKey(b.from);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    from.push(b.from);
+  }
+  return {
+    count: bundles.length,
+    kgG: bundles.reduce((s, b) => s + b.weightG, 0),
+    from,
+    to,
+    bundles: bundles.map((b) => ({ serial: b.serial, weightG: b.weightG, from: b.from })),
+  };
+}
+
+/** The audit row's copy of a move: the figures and the two ends, without the bundle list. */
+export function moveForAudit(move: ReallocateMove): Omit<ReallocateMove, "bundles"> {
+  return { count: move.count, kgG: move.kgG, from: move.from, to: move.to };
+}
+
+function isEnd(v: unknown): v is NonNullable<MoveEnd> {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.customerName === "string" && typeof o.orderNumber === "string" && typeof o.lineNo === "number";
+}
+
+/** What the order timeline says about one `order.reallocate` row: always a count and kg; the ends when known. */
+export type TimelineMove = { count: number; kgG: number; from: MoveEnd[] | null; to: MoveEnd | undefined };
+
+/**
+ * Read an `order.reallocate` audit row's move (BACKLOG 34). Rows written since carry `move`; older
+ * rows carry `bundles`/`kgG` (request and applied-at-once) or only `moved` (an approval's
+ * decision; `asked` too on a refusal), so `fallback` (an applied batch's transfers) fills count
+ * and kg there.
+ */
+export function timelineMoveOf(meta: unknown, fallback: { count: number; kgG: number } | undefined): TimelineMove {
+  const m = meta && typeof meta === "object" && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {};
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const move = m.move && typeof m.move === "object" ? (m.move as Record<string, unknown>) : null;
+  const from = move && Array.isArray(move.from) ? (move.from as unknown[]).map((e) => (isEnd(e) ? e : null)) : null;
+  const to = move ? (isEnd(move.to) ? move.to : move.to === null ? null : undefined) : undefined;
+  // An old refusal has only `moved` (0) and `asked`: it says what was asked.
+  const asked = m.status === "rejected" ? n(m.asked) : null;
+  const count = n(move?.count) ?? n(m.bundles) ?? fallback?.count ?? asked ?? n(m.moved) ?? 0;
+  const kgG = n(move?.kgG) ?? n(m.kgG) ?? fallback?.kgG ?? 0;
+  return { count, kgG, from, to };
+}
+
+/** What an `order_reallocate` request carries (C46: line ids, bundle ids and kg only; no rates). */
+export type ReallocateMeta = {
+  bundleIds: string[];
+  fromLineIds: string[];
+  toLineId: string;
+  kgG: number;
+  reason: string;
+  reasonCode: string | null;
+  /** Per bundle: the line it was asked from (null = plant / unassigned). */
+  items: { bundleId: string; fromLineId: string | null }[];
+  lengthMismatchBundleIds: string[];
+  /** Every order touched (from and to), for the order timeline. */
+  orderIds: string[];
+  /** The `die_owner_override` the requester named (C47), re-checked when the request is decided. */
+  dieOwnerApprovalId?: string | null;
+  /** BACKLOG 34: serials, kg, from and to, for the approver (absent on requests made before it). */
+  move?: ReallocateMove;
+};
+
+/**
+ * M4 (final explore): a bundle that goes to another customer takes that customer's party number
+ * (its own series under a bundle-number policy, else the serial), so the new customer's packing
+ * list never prints the first customer's number. The old number is kept in the move's audit row.
+ */
+export type PartyRenumber = { bundleId: string; serial: string; from: string | null; to: string };
+
+/** Bundle ids per party-number UPDATE: a CASE pair and an IN entry each (3 bound values) + scope. */
+const RENUMBER_CHUNK = 25;
+
+/** Bundles per read of `bundlePartyInfo` (the select carries ~8 scoped sub-selects besides the ids). */
+export const REALLOCATE_READ_CHUNK = 60;
+
+/** Each bundle's party number and the customer it belongs to now (its line's, else plant stock's origin). */
+export async function bundlePartyInfo(
+  db: OrrnDb,
+  companyId: string,
+  bundleIds: readonly string[],
+): Promise<{ id: string; serial: string; partyNo: string | null; customerId: string | null; status: string; lineId: string | null; dieId: string }[]> {
+  const rows = await mapInChunks(
+    [...new Set(bundleIds)],
+    (part) =>
+      db
+        .select({
+          id: bundle.id,
+          serial: bundle.serial,
+          partyNo: bundle.partyNo,
+          lineCustomerId: salesOrder.customerId,
+          originCustomerId: sql<string | null>`${plantOriginCustomerSql(companyId, sql`${bundle.id}`)}`,
+          lineId: bundle.salesOrderLineId,
+          status: bundle.status,
+          dieId: bundle.dieId,
+        })
+        .from(bundle)
+        .leftJoin(salesOrderLine, and(eq(salesOrderLine.id, bundle.salesOrderLineId), eq(salesOrderLine.companyId, companyId)))
+        .leftJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+        .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, part))),
+    REALLOCATE_READ_CHUNK,
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    serial: r.serial,
+    partyNo: r.partyNo,
+    customerId: r.lineCustomerId ?? (r.lineId ? null : r.originCustomerId),
+    status: r.status,
+    lineId: r.lineId,
+    dieId: r.dieId,
+  }));
+}
+
+/**
+ * The party numbers bundles take when they go to `targetCustomerId`. A bundle whose number is
+ * already that customer's keeps it. A customer with a policy gets a block of its own series
+ * (allocated now, in serial order); one without uses the serial.
+ */
+export async function partyRenumbersFor(
+  db: OrrnDb,
+  companyId: string,
+  bundles: readonly { id: string; serial: string; partyNo: string | null; customerId: string | null }[],
+  targetCustomerId: string,
+  at: Date,
+  userId: string | null,
+): Promise<PartyRenumber[]> {
+  const moving = bundles.filter((b) => b.customerId !== targetCustomerId).sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+  if (moving.length === 0) return [];
+  const [target] = await db
+    .select({ policy: customer.bundleNumberPolicy })
+    .from(customer)
+    .where(and(eq(customer.id, targetCustomerId), eq(customer.companyId, companyId)))
+    .limit(1);
+  const policy = target?.policy ?? null;
+  // A customer without a policy: the serial (no allocation, nothing to burn).
+  const plain = moving.map((b) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: b.serial }));
+  if (!policy) return plain.filter((r) => r.to !== (r.from ?? r.serial));
+  const block = await allocatePartyBundleNumbers(db, companyId, targetCustomerId, policy, at, moving.length, userId);
+  return moving.map((b, i) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: block.numbers[i]! }));
+}
+
+/**
+ * I3 (final explore round 1): bundles that go to plant stock take their serial back as the party number.
+ * A customer's own number must not travel into plant stock: a later scan onto another customer's load
+ * would print it on that customer's packing list. A bundle already numbered by its serial is left alone.
+ */
+export function partyRenumbersToPlant(bundles: readonly { id: string; serial: string; partyNo: string | null }[]): PartyRenumber[] {
+  return bundles
+    .filter((b) => b.partyNo !== null && b.partyNo !== b.serial)
+    .map((b) => ({ bundleId: b.id, serial: b.serial, from: b.partyNo, to: b.serial }))
+    .sort((a, b) => a.serial.localeCompare(b.serial, "en", { numeric: true }));
+}
+
+/**
+ * UPDATEs that write the new party numbers, each guarded by `landed` (an SQL condition on the
+ * `bundle` row: it moved in this batch). Chunked under D1's 100 bound values. Each renumbered bundle's
+ * printed sticker is now out of date, so it is flagged (`sticker_stale`) until its label is printed again.
+ */
+export function partyRenumberStatements(db: OrrnDb, companyId: string, renumbers: readonly PartyRenumber[], landed: SQL): SqliteBatchItem[] {
+  return chunk([...renumbers], RENUMBER_CHUNK).map((part) =>
+    db
+      .update(bundle)
+      .set({
+        partyNo: sql`case ${bundle.id} ${sql.join(
+          part.map((r) => sql`when ${r.bundleId} then ${r.to}`),
+          sql` `,
+        )} else ${bundle.partyNo} end`,
+        stickerStale: true,
+      })
+      .where(and(eq(bundle.companyId, companyId), inArray(bundle.id, part.map((r) => r.bundleId)), landed)),
+  );
+}
+
+/** What the audit row keeps of a renumbering: serial, old and new number. */
+export const renumbersForAudit = (renumbers: readonly PartyRenumber[]) => renumbers.map((r) => ({ bundleId: r.bundleId, serial: r.serial, from: r.from, to: r.to }));
+
+/**
+ * Before an `order_reallocate` decision batch (approved only): the party numbers the asked bundles
+ * take on the target customer. Numbers are allocated here; bundles that do not move keep theirs.
+ */
+export async function reallocatePrepare(
+  db: OrrnDb,
+  companyId: string,
+  row: { meta: Record<string, unknown> | null },
+  at: Date,
+  userId: string | null,
+): Promise<PartyRenumber[]> {
+  const meta = row.meta ?? {};
+  const ids = Array.isArray(meta.bundleIds) ? (meta.bundleIds as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  const toLineId = typeof meta.toLineId === "string" ? meta.toLineId : null;
+  if (ids.length === 0 || !toLineId) return [];
+  const [target] = await db
+    .select({ customerId: salesOrder.customerId, dieId: salesOrderLine.dieId, status: salesOrder.status })
+    .from(salesOrderLine)
+    .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+    .where(and(eq(salesOrderLine.id, toLineId), eq(salesOrderLine.companyId, companyId)))
+    .limit(1);
+  // Nothing lands on a closed order: no number is spent.
+  if (!target || !["booking", "confirmed", "dispatching"].includes(target.status)) return [];
+  // m3: numbers only for the bundles the decision will really move (the same tests as the applier's
+  // insert: still available, still on the line they were asked from, the target line's die), so a bundle
+  // that changed meanwhile leaves no gap in the customer's own series.
+  const askedFrom = new Map<string, string | null>();
+  if (Array.isArray(meta.items)) {
+    for (const it of meta.items as { bundleId?: unknown; fromLineId?: unknown }[]) {
+      if (it && typeof it.bundleId === "string") askedFrom.set(it.bundleId, typeof it.fromLineId === "string" ? it.fromLineId : null);
+    }
+  }
+  const info = (await bundlePartyInfo(db, companyId, ids)).filter(
+    (b) => b.status === "available" && b.dieId === target.dieId && (askedFrom.has(b.id) ? (askedFrom.get(b.id) ?? null) === b.lineId : true),
+  );
+  return partyRenumbersFor(db, companyId, info, target.customerId, at, userId);
+}
+
+/**
+ * `order_reallocate` decision (cross-customer move). Approved: each bundle still `available` and
+ * still on the line it was asked from moves to the target line (if that order is still open); a
+ * transfer row records it with this approval. Rejected: nothing moves. Both write an
+ * `order.reallocate` audit row naming the orders, so the order timelines show the outcome. Every
+ * statement is scoped to the company and guarded by "this decision landed".
+ */
+export const reallocateDecision: ApprovalApplier = (ctx, row, decision, prepared) => {
+  const renumbers = decision === "approved" && Array.isArray(prepared) ? (prepared as PartyRenumber[]) : [];
+  const { db, companyId, seq } = ctx;
+  const landed = sql`exists (select 1 from approval a where a.id = ${row.id} and a.company_id = ${companyId} and a.server_seq = ${seq} and a.status = ${decision})`;
+  const meta = sql`(select a.meta from approval a where a.id = ${row.id} and a.company_id = ${companyId})`;
+  const toLine = sql`json_extract(${meta}, '$.toLineId')`;
+  const B = (c: string) => sql`${sql.identifier("bundle")}.${sql.identifier(c)}`;
+  /** The die's owner (copy owner, else section owner) and the target line's customer. */
+  const owner = sql`coalesce((select di.owner_customer_id from die_instance di where di.id = ${B("die_instance_id")} and di.company_id = ${companyId}), (select dd.owner_customer_id from die dd where dd.id = ${B("die_id")} and dd.company_id = ${companyId}))`;
+  const targetCustomer = sql`(select o.customer_id from sales_order o where o.id = l.sales_order_id and o.company_id = ${companyId})`;
+  const statements: SqliteBatchItem[] = [];
+  if (decision === "approved") {
+    // Keys follow bundle_transfer's column order (insert-select rule).
+    statements.push(
+      db.insert(bundleTransfer).select(
+        db
+          .select({
+            id: sqlUuid.as("id"),
+            companyId: sql<string>`${companyId}`.as("company_id"),
+            serverSeq: sql<number>`${seq}`.as("server_seq"),
+            bundleId: sql<string>`${B("id")}`.as("bundle_id"),
+            fromSalesOrderLineId: sql<string | null>`${B("sales_order_line_id")}`.as("from_sales_order_line_id"),
+            toSalesOrderLineId: sql<string>`l.id`.as("to_sales_order_line_id"),
+            batchId: sql<string>`${row.subjectId}`.as("batch_id"),
+            reason: sql<string>`coalesce(json_extract(${meta}, '$.reason'), '')`.as("reason"),
+            reasonCode: sql<string | null>`json_extract(${meta}, '$.reasonCode')`.as("reason_code"),
+            lengthMismatch: sql<number>`case when ${B("length_mm")} <> l.cut_length_mm then 1 else 0 end`.as("length_mismatch"),
+            approvalId: sql<string>`${row.id}`.as("approval_id"),
+            createdBy: sql<string | null>`${ctx.userId}`.as("created_by"),
+            createdAt: sql<number>`${ctx.decidedAt.getTime()}`.as("created_at"),
+          })
+          .from(bundle)
+          .innerJoin(sql`json_each(${meta}, '$.items') j`, sql`json_extract(j.value, '$.bundleId') = ${B("id")}`)
+          .innerJoin(
+            sql`sales_order_line l`,
+            sql`l.id = ${toLine} and l.company_id = ${companyId} and l.die_id = ${B("die_id")} and exists (select 1 from sales_order o where o.id = l.sales_order_id and o.company_id = ${companyId} and o.status in ('booking', 'confirmed', 'dispatching'))`,
+          )
+          .where(
+            and(
+              eq(bundle.companyId, companyId),
+              eq(bundle.status, "available"),
+              sql`coalesce(${B("sales_order_line_id")}, '') = coalesce(json_extract(j.value, '$.fromLineId'), '')`,
+              // Review round 1 m-2: the owner gate runs again at the decision. An owned die's bundle
+              // moves only to its owner, or under a live (not closed) die_owner_override for the target
+              // customer (the one the requester named, when named).
+              sql`(${owner} is null or ${owner} = ${targetCustomer} or exists (select 1 from approval g where g.company_id = ${companyId} and g.kind = 'die_owner_override' and g.status = 'approved' and g.subject_id = ${B("die_instance_id")} and json_extract(g.meta, '$.attemptedCustomerId') = ${targetCustomer} and json_extract(g.meta, '$.closedAt') is null and (json_extract(${meta}, '$.dieOwnerApprovalId') is null or g.id = json_extract(${meta}, '$.dieOwnerApprovalId'))))`,
+              landed,
+            ),
+          ),
+      ),
+      db
+        .update(bundle)
+        .set({
+          packedSalesOrderLineId: sql`coalesce(${bundle.packedSalesOrderLineId}, ${bundle.salesOrderLineId})`,
+          salesOrderLineId: sql`(select t.to_sales_order_line_id from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = ${B("id")} and t.server_seq = ${seq})`,
+          serverSeq: seq,
+        })
+        .where(
+          and(
+            eq(bundle.companyId, companyId),
+            sql`exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = ${B("id")} and t.server_seq = ${seq})`,
+          ),
+        ),
+      // M4: the moved bundles take the new customer's party numbers (allocated by reallocatePrepare).
+      ...partyRenumberStatements(
+        db,
+        companyId,
+        renumbers,
+        sql`exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = ${B("id")} and t.server_seq = ${seq})`,
+      ),
+    );
+  }
+  // M4: the audit row keeps the old and new party numbers of the bundles that really moved.
+  const partyNosJson = JSON.stringify(renumbersForAudit(renumbers));
+  const partyNos = sql`(select json_group_array(json(j.value)) from json_each(${partyNosJson}) j where exists (select 1 from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id} and t.bundle_id = json_extract(j.value, '$.bundleId')))`;
+  // BACKLOG 34 / explorer H5: the decision's timeline row says what moved (approved: the bundles
+  // that really moved and their kg; rejected: what was asked), never "0 bundles, 0.000 kg".
+  const movedCount = sql`(select count(*) from bundle_transfer t where t.company_id = ${companyId} and t.approval_id = ${row.id})`;
+  const movedKg = sql`(select coalesce(sum(mb.weight_g), 0) from bundle_transfer t join bundle mb on mb.id = t.bundle_id and mb.company_id = t.company_id where t.company_id = ${companyId} and t.approval_id = ${row.id})`;
+  const shownCount = decision === "approved" ? movedCount : sql`json_array_length(${meta}, '$.bundleIds')`;
+  const shownKg = decision === "approved" ? movedKg : sql`coalesce(json_extract(${meta}, '$.kgG'), 0)`;
+  // Keys follow audit_log's column order (insert-select rule).
+  statements.push(
+    db.insert(auditLog).select(
+      db
+        .select({
+          id: sql<string>`${createId()}`.as("id"),
+          companyId: sql<string>`${companyId}`.as("company_id"),
+          actorId: sql<string | null>`${ctx.userId}`.as("actor_id"),
+          impersonatorId: sql<string | null>`null`.as("impersonator_id"),
+          action: sql<string>`'order.reallocate'`.as("action"),
+          subjectType: sql<string>`'bundle_transfer'`.as("subject_type"),
+          subjectId: sql<string>`${row.subjectId}`.as("subject_id"),
+          meta: sql<string>`json_object('status', ${decision === "approved" ? "applied" : "rejected"}, 'approvalId', ${row.id}, 'batchId', ${row.subjectId}, 'toLineId', ${toLine}, 'orderIds', json(coalesce(json_extract(${meta}, '$.orderIds'), '[]')), 'moved', ${movedCount}, 'asked', json_array_length(${meta}, '$.bundleIds'), 'bundles', ${shownCount}, 'kgG', ${shownKg}, 'move', json_object('count', ${shownCount}, 'kgG', ${shownKg}, 'from', json(coalesce(json_extract(${meta}, '$.move.from'), '[]')), 'to', json(json_extract(${meta}, '$.move.to'))), 'partyNos', json(${partyNos}))`.as(
+            "meta",
+          ),
+          at: sql<number>`${ctx.decidedAt.getTime()}`.as("at"),
+        })
+        .from(approval)
+        .where(and(eq(approval.id, row.id), eq(approval.companyId, companyId), landed))
+        .limit(1),
+    ),
+  );
+  return statements;
+};

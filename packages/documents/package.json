@@ -6,17 +6,36 @@
   "exports": {
     "./packing-list": {
       "default": "./src/packing-list/index.ts"
+    },
+    "./packing-list/model": {
+      "default": "./src/packing-list/model.ts"
+    },
+    "./stock-on-order": {
+      "default": "./src/stock-on-order/index.ts"
+    },
+    "./stock-on-order/model": {
+      "default": "./src/stock-on-order/model-entry.ts"
+    },
+    "./order-sheet": {
+      "default": "./src/order-sheet/index.ts"
+    },
+    "./order-sheet/model": {
+      "default": "./src/order-sheet/model-entry.ts"
     }
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
+    "@orrn/domain": "workspace:*",
     "@orrn/server": "workspace:*",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@orrn/config": "workspace:*",
+    "@types/bun": "^1.3.13",
     "typescript": "^6"
   }
 }

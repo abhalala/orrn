@@ -1,423 +1,118 @@
-# ORRN ERP Rebuild TODO
+# ORRN TODO
 
-This file is the source of truth for current implementation orchestration.
+Integration update (2026-10-25): completed FP, final documentation, optional R2, replay/foundry fixes, email provider, homepage and deterministic fixtures are consolidated for main through `wt/FP` 032d657b, with integration type, translation and report-fit fixes. Existing regression coverage is retained. Uncommitted work and subsequent test-removal changes remain separate; production promotion is not included.
 
-## Completed architecture migration: Simplification ✅
+Open work only, at `wt/FP` fbe18910 (2026-10-25, end of the FP build). History (milestones M0 to M9, the plant waves W0 to W4, the foundry and ageing lanes) is in git and in `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; what is built, row by row, is the status column of each FP spec in `docs/superpowers/specs/` (FD-02, FD-11, FD-19 and AG-15 are built by FINAL-FIXES-4; PK-06 and PF-18 remain deferred). Every item carries its backlog rank (`BL n`, from `.fp-build/BACKLOG.md`; where a rank repeats the band is named: `base` 1-29, `re-pass` 30-48, `arch` 50-57, `pl-flow` 61-70, `audit` the later 28-56 rows; ranks from 57 up to 114 are unique). The status column of `BACKLOG.md` was never kept in step; this file is the open list. FP ids (FP-XX-nn) are the rows of the specs. Keep it in step with the work: move an item out when it is done, add one when a decision creates work.
 
-### Scope
-Eliminate package and app boundaries that no longer carried independent
-ownership while preserving the product surface: marketing, tenant ERP,
-platform admin, native app, tRPC API, auth, D1 schema, and Alchemy deploy.
+## State
 
-### Deliverables
-- [x] 1. Merged `@orrn/design` tokens/config into `@orrn/ui`.
-- [x] 2. Merged `@orrn/api` and `@orrn/infra` into `@orrn/server`.
-- [x] 3. Dissolved `@orrn/web-shared` into `apps/web/src/shared`.
-- [x] 4. Merged `apps/web`, `apps/erp`, and `apps/admin` into one TanStack
-         Router app with `_public`, `_authed`, `_tenant`, and `_platform`
-         route groups.
-- [x] 5. Split the platform tRPC router into focused waitlist, companies,
-         impersonation, and staff modules.
-- [x] 6. Added reusable tRPC CRUD helpers and refactored the customer router as
-         the pilot call site.
-- [x] 7. Centralized the `Me` type and permission helpers in
-         `packages/server/src/lib/permissions.ts` for web and native.
-- [x] 8. Updated docs and repo guidance for the simplified package/domain
-         layout.
+- Integration validation: types 11/11; server 3,038; domain 360; i18n 64; web 1,387; native 903; documents 36; UI 107; `/` 188.9 kB gzip of 250. Browser A 451, B 432 plus the isolated masters file 27/27, C 355 (21 existing skips). Earlier foundry/count assertions were fixed; the B sign-in 503 remains visible above.
 
-### Validation
-- `bun run check-types` passes across all 7 turbo tasks.
+- Every plant module is built end to end on the web, with the phone app for the floor roles: die room (with the share link), orders and planning, press (station, queue, report, collectors as simulators), foundry (casts, melts, spectro, count-based close, trace, certificate, yield), ageing (ovens, trolleys, recipes, batches, release, pack from a released line), pack, stock, dispatch from an order, packing list v2, stock count, platform (modules, shifts, thresholds, releases, backups, audit, support, approvals with live facts), customer portal, analytics and reports. 44 guides in en and hi; Gujarati for the floor.
+- Gates at `wt/FP` fbe18910: types 11/11; server 3005/0; domain 358; i18n 64; web 1375/0; native 901 + types + expo android; build `/` 223.5 kB of 250; e2e A 317 (+10 skips), B 431, C 489, 0 failed.
+- FINAL-FIXES-4 removed `features/preview` and repointed `/preview/ageing*` to `/ageing` and `/reports/ageing`; migration 0042 adds the cast legacy code.
+- This integration advances `main` from b276f9cd through migration 0042. Check the latest Deploy Dev run for the live dev state. `prod` remains at c6cb44b3 (migration 0009); production promotion is separate. See `docs/DEPLOY_PROMOTION.md`.
+- Three things are not in this file because they are the owner's: the owner-only list is `docs/OWNER_HANDOVER.md`, device bring-up is its own section below (O9), and Gujarati is its own section below (O8).
 
----
+## Owner only (no agent can do these)
 
-## Active milestone: M9 Platform Admin Console + Impersonation Grants
+The list with pointers, defaults to confirm and the exact commands is `docs/OWNER_HANDOVER.md`. In short:
 
-### M9 Scope
-Platform-admin console for tenant management, time-boxed impersonation backed by
-`impersonation_grant`, and waitlist invite URLs that respect deployed web origin.
-Impersonation is web-only; native gets a read-only waitlist drawer entry.
+| Item | Detail | Rank |
+|---|---|---|
+| R2 and the dev deploy | Enable R2 on the Cloudflare account and give the dev and production tokens "Workers R2 Storage: Edit"; re-run Deploy Dev. Dev serves the old code until then. | - |
+| Prod go | Promote `main` to `prod` only on the owner's explicit go: `docs/DEPLOY_PROMOTION.md` sections 1 and 4. | - |
+| Prod email | Resend sends failed in Oct 2026; invite and reset links depend on it. Godseye shows copyable sign-in details meanwhile. | - |
+| Hardware | Scale indicator (Q5), TSC label printer template (Q31), press PLC (Q46), spectrometer (Q47), billet weighing cell, and the ageing oven controller (AG-17: the server route `POST /collector/ageing/readings` and `OVEN_SIMULATOR` exist; there is no orrn-spool oven collector, so the owner supplies controller make, protocol and network path). Simulators stand in for all of them. | base 11, audit 46 |
+| Spool repo | Merge `fp/scale-reader` and `fp/collectors` into orrn-spool `main` (Go 1.24 toolchain), install it on the packing PC. | base 10, audit 45 |
+| Real data | Section CSV, legacy bundles as unassigned (`legacy_bundle_map`), `castSeriesStart` (no screen: API or import only, see FD-02 below), die copies, drawings by file name (Q18), opening balances for the foundry's return streams, accounts for real people (plant admin = Dad, Q32), parallel run with FCMS. | re-pass 39, BL 72 |
+| Questions | Confirm or change the defaults taken: Q1-Q4, Q6-Q20, Q23, Q25, Q37, Q42-Q45 and the new Q49-Q63 (die share link, ageing, cast close count, write-off, duplicate reasons, "To log", nitriding copies at pack). | - |
+| Pilot and training | Packing bay 1 week, die room desk 1 week, press tablet 2 weeks after a cast exists. | - |
 
-### M9 Deliverables
-- [x] 1. `impersonation_grant` table + Drizzle migration `0003_yielding_leper_queen.sql`
-- [x] 2. `platform.companiesList` / `companiesGet` / `companiesSuspend` /
-         `companiesReactivate` (paginated, member counts)
-- [x] 3. `platform.impersonationCreateGrant` / `impersonationRevokeGrant` /
-         `impersonationListActive`
-- [x] 4. `createContext` validates grant before honouring
-         `x-orrn-impersonate-company`; rejects invalid header with 403 on authed
-         tRPC calls
-- [x] 5. Web: `/platform` index, `/platform/companies`, `/platform/companies/$id`
-         with suspend/reactivate + impersonate flow (`sessionStorage` header)
-- [x] 6. Web impersonation banner stop revokes grant + clears storage
-- [x] 7. Waitlist approve invite URL uses `env.CORS_ORIGIN` (not localhost)
-- [x] 8. Native: platform-admin-only read-only waitlist drawer screen
-- [x] 9. `AGENTS.md` grant-table impersonation rules
+## Native device bring-up (POST-FINAL, owner decision O9)
 
-### M9 API additions
-- `platform.companiesList({ limit, offset, search?, status? })`
-- `platform.companiesGet({ id })` — includes recent grants for company
-- `platform.companiesSuspend({ id })` / `companiesReactivate({ id })`
-- `platform.impersonationCreateGrant({ companyId, ttlMinutes?, reason? })`
-- `platform.impersonationRevokeGrant({ id })`
-- `platform.impersonationListActive()` — caller's non-revoked, unexpired grants
-- `auth.me.impersonation` now includes `grantId` + `expiresAt`
+The first task after the web is complete and dev is deployed; no agent time goes into SDKs or device builds before that. Native code parity continues per module (unit tests, types, expo export, `expo export --platform android` is green); nothing has run on a device. BL 108, base 5, audit 29.
 
-### M9 Schema additions
-- `impersonation_grant`: `id`, `platformAdminId`, `companyId`, `expiresAt`,
-  `revokedAt`, `reason`, `createdAt`; indexes on `(platformAdminId, expiresAt)`
-  and `companyId`
+- Toolchain: JDK 17 and the Android SDK on the Mac, or EAS credentials; `bunx expo run:android` for a development build; EAS production Android build; iOS and iPadOS through EAS and TestFlight (an Apple developer account). A new build is required: `expo-application`, `expo-crypto`, `expo-speech` were added in native passes A and B, and `expo-camera` carries the foundry spectro photo (`docs/DEPLOY_PROMOTION.md` section 6).
+- Run the 10 Maestro flows (`.maestro/flows`) on a real phone; none has ever been run.
+- Device-only checks: the foundry spectro photo (`expo-camera` capture near 2.2 MP re-encoded under 1 MB; the camera permission flow), haptics, spoken refusals (`expo-speech`), a label printed from the phone, the tablet layout of the press station on an 11-inch iPad or Android, the ageing station on a real phone.
+- Publish the build in Godseye under App builds so the release gate lets it in.
+- Phone gaps that need no device and can be built any time: typed routes, "Packed by" needs the user name from the API, hold and release UI for orders (OP-17 is web only), nitriding and maker lists, Scan-tab lot and stream scanning into the open foundry draft, chemicals and LDO dips editable on the phone, read-only furnace and alloy lists under More, spectro void, cast cancel and `melts.cancel` on the phone (BL 77).
 
-### M9 Testing
-- Platform admin creates 30-minute grant → tenant UI loads with banner
-- Expired/revoked grant + header → 403 on tenant mutations
-- Non-platform-admin cannot call grant endpoints
-- Waitlist approval email links to `https://dev.orrn.app/invite/...` on dev
-- Audit rows during impersonation include `impersonatorId`
+## Gujarati (later, dedicated translation agent)
 
----
+Owner decision O8 (2026-10-25): Gujarati is last priority; floor work comes first. en and hi parity is the gate and stays; existing gu stays; gu gaps do not count against the definition of done. Nothing here blocks the pilot in English and Hindi.
 
-## Completed milestone: M8 Packing List Snapshots & Client-side Exports ✅
+- BL 87, loanwords: decide and apply one rule for Dispatch, Die, Bundle, Press in hi and gu script (today hi writes "प्रेस" but "Die", "Dispatch", "Bundle" in Latin; gu keeps all four in Latin). A sweep script and the gu wording of the namespaces below are drafted in `.fp-build/drafts/gu-later/` (`sweep.py`, not applied). The quoted names in guides must stay equal to the dictionary values, so sweep dictionaries and guides together.
+- BL 90, press board, press queue and the whole store: `press.title`, `press.board`, `press.queue`, `press.late`, `press.linesPage`, `press.lines`, `press.summary` and `store` (about 295 strings) are English in gu. Drafts: `.fp-build/drafts/gu-later/press.ts` and `store.ts` (`gu-more/*`, add to `mergeGu` and `GU_FLOOR_NAMESPACES`, extend `GuMessages`). The "Press" nav label stays English in gu until the loanword rule lands.
+- The nine new guides (`open-cast`, `melt-entry`, `spectro-attach`, `cast-close-count`, `load-trolley`, `age-and-release`, `pack-from-trolley`, `die-share-link`, `approvals-review`) read English in gu; add them to `GUIDE_SLUGS_GU` with gu text (the foundry and ageing namespaces already have gu strings for every name they quote).
+- Foundry office parts (certificate, masters, yield report), the Today sweep from the owner walk-through (the "Stock older than 90 days / 0 kg in the yard" card, "Show table", "7 waiting", the "Night" shift chip in hi and gu), and any W4-GU leftovers in `.fp-build/reports/gu-review-list.md` and `gu-review-list-web.md` (the 12 word choices come first).
+- The native-speaker review of all of it, then flip `GUJARATI_DEFAULT_FOR_GUJARAT_PLANTS` (owner step). The Hindi review list is `docs/superpowers/review/hindi-review.md` (regenerate with `bun run --cwd packages/i18n export-review` after any dictionary or guide change).
 
-### M8 Scope
-Auto-generate an immutable packing list snapshot on every `dispatch.complete`,
-expose a manual Regenerate action, and provide client-side PDF + Excel downloads
-on web and a Share export on native. No new permission set — reuses `dispatch.*`.
+## Build backlog
 
-### M8 Deliverables
-- [x] 1. `packingList.ts` tRPC router (`create`, `get`, `byDispatch`, `list`,
-         `regenerate`). Snapshot written as Drizzle `mode:"json"` column —
-         Drizzle handles serialisation, no manual `JSON.stringify`.
-- [x] 2. `createPackingListInTx` helper exported from `packingList.ts` and
-         called inside the `dispatch.complete` transaction so the packing list
-         is always atomically present when a dispatch becomes `completed`.
-- [x] 3. `buildSnapshot` captures company, customer (full address/contact),
-         all dispatch items (joined bundle + die), and computed totals at
-         completion time. Snapshot is immutable; Regenerate deletes + recreates.
-- [x] 4. Packing list code format: `PL-{6-digit serverSeq}` (same rhythm as
-         `DSP-######`). Unique per-company via DB constraint.
-- [x] 5. `packingList.regenerate` permission added to `permissions.ts`; all
-         manager-and-above roles receive it; operators and viewers do not.
-- [x] 6. Web: `packing-lists.$id.tsx` — standalone packing list detail page
-         with totals, items table, Download PDF, Download Excel, Regenerate.
-- [x] 7. Web: `dispatches.$id.tsx` — `<PackingListSection>` card auto-shown for
-         completed dispatches; links to detail; inline PDF + Excel + Regenerate.
-- [x] 8. `apps/web/src/shared/lib/packingListPdf.tsx` — PDF template built with
-         `@react-pdf/renderer` (A4, company header, items table, totals,
-         footer). Lazy-imported to keep the initial bundle lean.
-- [x] 9. `apps/web/src/shared/lib/packingListXlsx.ts` — Excel workbook (Summary +
-         Items sheets) via SheetJS `xlsx`. Lazy-imported.
-- [x] 10. Native: `PackingListCard` component in dispatch detail, visible for
-          completed dispatches. "Share / Export" uses `Share.share()` from
-          `react-native` with a human-readable text summary.
+Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real gaps found by explorers, none blocks the pilot; **Later** = designed, not decided to build.
 
-### M8 API additions
-- `packingList.create({ dispatchId })` — manual trigger; errors if already exists
-- `packingList.get({ id })` — returns snapshot as parsed object
-- `packingList.byDispatch({ dispatchId })` — returns null if none yet
-- `packingList.list({ limit, offset })` — paginated list for company
-- `packingList.regenerate({ id })` — delete + recreate with fresh snapshot
+### Next
 
-### M8 Schema used
-- `packing_list` + `packing_list_line` tables existed from schema bootstrap.
-  No new migration needed.
+| Item | Detail | Rank |
+|---|---|---|
+| Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
+| Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
+| Late PL entry for line-down hours | `occurredAt` (at most 72 h back, never future) + reason + `late_entry` flag + second-person approval; dispatch timestamp and ledger `posted_at` use it; guide "When the internet is down" in en, hi, gu. Until then a paper PL is entered later at the time of entry (Q30). | arch 52 |
+| Bulk acknowledge | No "acknowledge all ended alerts" on `/press/alerts` (owner tour): add with `press.close` and an audit row. | BL 109 |
+| Ageing block for plants without the module | `dashboard.today().ageing` returns 0/0/0 for a plant without the ageing module (the tile is hidden client-side on web and phone); the server should omit the block. | BL 113 |
+| Pack phone Review | The "For order" line should sit above the sticky bar (owner tour 99, second half). | BL 111 |
+| Prod logs: email in a Better Auth message | Better Auth's own logger prints the address on "Reset Password: User not found" (PII in prod logs): custom logger or suppress. | BL 69 |
+| Purchase register columns | The register screens do not show `meltedKgG` and `remainingKgG` per lot (the server returns them). | BL 74 |
+| Collectors card wording | The Standards collectors card reuses Today's "Press alerts open: N" string; give it its own key. | BL 67 |
 
-### M8 Dependencies added
-- `apps/web`: `@react-pdf/renderer@4.5.1`, `xlsx@0.18.5`
+### Soon
 
-### M8 Testing
-- `dispatch.complete` → `packingList.byDispatch` returns new PL with correct code
-- Snapshot contains customer contact, all items (serial, die, dimensions),
-  totals that match item-level sum, `generatedAt` timestamp
-- `regenerate` produces new `PL-XXXXXX` code; old row is gone
-- PDF download: opens in browser PDF viewer with correct company/customer/items
-- Excel download: two sheets, totals match
-- Native Share: shares human-readable text summary with all bundle serials
-- Dev deploy verified at `dev.orrn.app` (Deploy Dev GHA success for `f19886c`)
+| Item | Detail | Rank |
+|---|---|---|
+| Replay for downtime, remarks and handover | `press.downtime.start/stop` take `clientMutationId` + `tappedAt` so downtime can be queued in the station outbox (the server stamps the resend time today, which is the wrong window); remarks and handover are not queued either. The 30-minute WAN-pull test of the outbox is owner. | BL 60 |
+| Renumber plant-stock bundles at dispatch | A plant-stock bundle scanned onto another customer's load keeps its plain serial. The fuller fix renumbers at add/scan and sets `sticker_stale` (the flag, the "Sticker needs reprint" badge and the move-time reset exist). | BL 76 |
+| Ageing load picker (web) | `availableLines` is capped at 100 with no paging; the capacity chip ignores pieces already on the trolley; the bundle picks drop silently when the search changes; the web sends `batchId` under one page-long key (a re-read can change the body under the same key). Align it to the phone's `loadBody()` / attempt pattern. Also not built: typed (manual) trolley lines and a device screen for the oven collector. | BL 112, W3-AG-N m-7 |
+| Review minors | Reprint can print nothing in one path; the approvals sheet and the phone review show a plant-added reason as its raw key; no server test for the D18 automatic `requireCastOnBundle` rule; reason pickers are empty while loading or offline. Check each on the head and delete the row if already done. | BL 63 |
+| Reprint reason, rejects on the saved session, seed ordering | Explorer lows L5 (reprint reason picker + server input), L6 (rejects on the saved session page), L11 (seed ordering CNT-1 / opening voucher / PP-2). | BL 71 |
+| Role-shaped Today | Die room and store get their own tile set (foundry and ageing have theirs). | BL 101 |
+| Owner question: parties see die drift and trial copies? | The portal leads with the customer's PO and invoice; whether it also shows die drift and trial copies to a party is the owner's call. | BL 103 |
+| Order timeline | List dispatches and invoices on the order timeline. | BL 104 |
+| One set of stock-age buckets | Today, Stock and the report use the same buckets or say how they differ. | BL 105 |
+| Explorer lows | L2-L18 of the owner walk-through that are still open (language card text, cast switch, held-dispatch rounding, PL columns, chart tooltip and curves, die life wording, ISO dates, approval card title, empty released plan, stock header lines, role nav noise, OK on a beyond-tolerance lot, public link without `?c=`, DSP gaps, date input format check, viewer export). | BL 107 |
+| Test health | One grouped B run returned 503 on local owner sign-in; the 27-test masters file passed alone without retries. Capture the response if it recurs. Die-room flow tests still leave on-trial copies: keep the flows and picker-count specs in separate groups. | BL 73, 64, 110, 114, 66 |
+| Test gaps | The approvals inbox as its own flow, `/audit` outside `platform.spec`, Maestro on a device. (Maker send / receive and nitriding are covered by `die-room-flows.spec.ts`.) | base 19 |
+| Settings gaps | `orderLeadDays` has no settings screen (set with `company.updateSettings`); `spool.retryJob` must not mark a job queued when the spool call failed (verify). | base 7 |
+| Small verify list | Pack minors from T20 (tile wording with a draft, cut-length print rule, 820 yard tile wrap, override Feet / Inches labels, PackBar toast lift, sign-out clears `orrn.packDraft`) and die-room minors m-6, m-8, m-10: check on the head and delete the row if already done. | base 2, 18 |
 
----
+### Later
 
-## Completed milestone: M7 SaaS Visual Rewrite ✅
-
-(Delivered before M8 — commits ff07099, 84d42e4, 6cb903c, b24f1d3, 3ddd9e4
-on branch m7-design-system. See git log for details.)
-
----
-
-## Completed milestone: M6 Multi-tenant Security & Role Awareness ✅
-
-### M6 Scope
-Make the client side as multi-tenant aware as the server already is: gate every
-authenticated route behind a session + company check, redirect platform admins
-into their own console, surface the active company + role in the header,
-silently hide actions the current role can't perform, clear the React Query
-cache on sign-out and company switch, and stub the impersonation banner that
-M9 will fully wire up. No visual rewrite — that's M7.
-
-### M6 Deliverables
-- [x] 1. New `auth.me` tRPC query in `packages/server/src/routers/auth.ts`,
-       registered in `packages/server/src/routers/index.ts`, returning
-       `{ user, company: { id, name, slug, status, plan, role } | null,
-       isPlatformAdmin, impersonation }`.
-- [x] 2. Role-capability matrix in `packages/server/src/lib/permissions.ts`
-       (actions for customer/die/receipt/bundle/dispatch/member/settings/
-       platform.*) plus pure `can(me, action)` / `canAny(me, actions)` helpers
-       reused by web and native.
-- [x] 3. Route guards on web via shared `apps/web/src/shared/lib/guards.ts`
-       (`requireSession`, `requireCompanyMe`, `requirePlatformAdmin`,
-       `loadMe`). Decision: kept the flat route layout (Option A) instead of
-       layout-group restructure to minimise router churn. Every authenticated
-       route now sets `beforeLoad: requireCompanyMe`; `/platform/*` uses
-       `requirePlatformAdmin`; `/login` accepts a `next` search param.
-- [x] 4. New `/no-access` page for signed-in users without an active company
-       membership, with a sign-out action that clears the QueryClient.
-- [x] 5. `<Can do="…">` component + `useMe()` hook on web
-       (`apps/web/src/shared/lib/me.ts`, `apps/web/src/shared/components/can.tsx`) and on
-       native (`apps/native/utils/me.ts`, `apps/native/components/can.tsx`).
-- [x] 6. Web shell (`apps/web/src/shared/components/app-shell.tsx`) filters nav links
-       by capability, shows company name + role badge, exposes the platform
-       link only for platform admins, and renders the impersonation banner.
-- [x] 7. Action gating across web screens: customers, dies, receipts,
-       bundles, dispatches, settings/members, platform/waitlist. Buttons are
-       wrapped in `<Can>` — never removed — so the server stays authoritative.
-- [x] 8. Native session + role gating: `apps/native/app/_layout.tsx` mounts
-       the impersonation banner and tenant cache guard;
-       `apps/native/app/(drawer)/_layout.tsx` hides Receipts/Members drawer
-       entries by capability. Mobile-only floors still see
-       Bundles/Dispatches/Stock.
-- [x] 9. Cache hygiene: `queryClient.clear()` on sign-out everywhere, plus a
-       `TenantCacheGuard` on web (and native parity) that drops non-`auth.me`
-       queries whenever the active `companyId` changes.
-- [x] 10. Impersonation stub: `x-orrn-impersonate-company` header is honoured
-        in `createContext` only for platform admins; impersonation info is
-        threaded into the tRPC context and into `writeAudit` so every audit
-        row records `impersonatorId`. Client banner (`ImpersonationBanner`)
-        renders on web + native and "Stop impersonating" drops the cached
-        `auth.me` so the next request runs without the header.
-
-### M6 API additions
-- `auth.me` query (authenticated; returns null `company` when the caller has no
-  active membership instead of throwing).
-
-### M6 Schema additions
-- None. `auditLog.impersonatorId` already existed in `packages/db/src/schema/
-  auth.ts`, so no Drizzle migration was generated.
-
-### M6 Skipped / simplified vs the plan
-- Route layout-groups (`_public/`, `_app/`, `_platform/`) — kept the flat
-  routes and applied per-file `beforeLoad: requireCompanyMe`. Same security
-  outcome; smaller diff; safer for the TanStack Router code-gen.
-- Native impersonation "Stop" button currently just clears the cached
-  `auth.me`. The actual `x-orrn-impersonate-company` header is only set by the
-  M9 admin console anyway; on native we never set it, so the banner is
-  effectively dormant on mobile.
-- No new audit migration — the `impersonatorId` column already exists from M0
-  and is now populated.
-
-### M6 Testing
-- `bun run check-types` passes (web/server/native + every shared package).
-- `auth.me` returns `UNAUTHORIZED` without cookies and the full
-  `{ user, company, isPlatformAdmin, impersonation }` shape with a valid
-  session. Tenant data is never returned for other companies.
-- Hitting any authenticated web route without a session redirects to
-  `/login?next=…`; after login the user is sent back to `next`.
-- Platform admins without a company membership land on `/platform/waitlist`
-  (or any `/platform/*` route) without being redirected to `/no-access`.
-- For a forced `viewer` role, action buttons across customers/dies/dispatches
-  disappear while read views still render.
-
-### M6 Follow-ups for M7
-- The header redesign is functional but still uses the existing shadcn shell.
-  The Tamagui-driven visual rewrite is M7's job.
-- Native still uses NativeWind classes for the impersonation banner; replace
-  with the shared `@orrn/ui` Tamagui primitives in M7.
-
-## Completed milestone: M5 Dispatch State Machine ✅
-
-### M5 Scope
-Atomic dispatch lifecycle (`draft -> reserved -> completed/cancelled`) with synchronized bundle status transitions (`available <-> reserved -> dispatched`), customer linkage, dispatch code auto-gen, Web/Native parity, and an audit-derived activity timeline. The bundle state machine in M4 stays intact: `reserved`/`dispatched` transitions are owned exclusively by the dispatch flow.
-
-### M5 Deliverables
-- [x] 1. Schema: `bundle_company_dispatch_idx` index + migration `0002_nebulous_zarda.sql`
-- [x] 2. Dispatch tRPC router (`create`, `listDispatches`, `getDispatch`, `update`, `addBundle`, `addBundlesBySerial`, `removeBundle`, `reserve`, `unreserve`, `complete`, `cancel`, `softDelete`) with atomic bundle transitions, audit, and sequence on every mutation
-- [x] 3. Bundle router: `getBundle` returns `activeDispatch` when status is `reserved` or `dispatched`
-- [x] 4. Web: `/dispatches`, `/dispatches/new`, `/dispatches/$id` with status-aware action bar, serial search + paste composers, items table, activity timeline. Bundle detail page links to active dispatch.
-- [x] 5. Native: `dispatches/index`, `dispatches/new`, `dispatches/[id]` with scan-serial workflow + status-aware actions and confirmations
-- [x] 6. Nav: web header now has `Dispatches`; native drawer has `Dispatches` (MaterialIcons local-shipping)
-- [x] 7. Auto-generated dispatch codes: `DSP-{6-digit serverSeq}` via existing `nextCompanySeq`
-
-### M5 API Additions
-- `dispatch.create({ customerId, shipDate?, notes? })` — draft + auto code
-- `dispatch.listDispatches({ search?, status?, customerId?, limit, offset })` — paginated with per-row item/quantity/weight aggregates
-- `dispatch.getDispatch({ id })` — header + items (joined to bundle/die) + recent audit events
-- `dispatch.update({ id, ... })` — only when status is `draft`
-- `dispatch.addBundle({ id, bundleId })` — only `draft`/`reserved`; reserves the new bundle atomically if dispatch is already reserved
-- `dispatch.addBundlesBySerial({ id, serials[] })` — bulk add via scan/paste workflow
-- `dispatch.removeBundle({ id, bundleId })` — only `draft`/`reserved`; releases the bundle atomically if dispatch is reserved
-- `dispatch.reserve({ id })` — `draft -> reserved` with bulk bundle `available -> reserved`
-- `dispatch.unreserve({ id })` — inverse of reserve
-- `dispatch.complete({ id })` — `reserved -> completed` with bulk bundle `reserved -> dispatched`, sets `completedBy/completedAt`
-- `dispatch.cancel({ id, reason? })` — `draft/reserved -> cancelled`; releases reserved bundles back to `available`
-- `dispatch.softDelete({ id })` — only `draft`/`cancelled`, sets `deletedAt`
-
-### M5 State Machines
-
-Dispatch:
-- `draft -> reserved | cancelled`
-- `reserved -> draft | completed | cancelled`
-- `completed` and `cancelled` are terminal
-
-Bundle (driven exclusively by dispatch actions in M5):
-- On `reserve` / `addBundle(reserved)` : `available -> reserved`, `currentDispatchId = dispatch.id`
-- On `unreserve` / `removeBundle(reserved)` / `cancel(from reserved)` : `reserved -> available`, `currentDispatchId = null`
-- On `complete` : `reserved -> dispatched`
-- M4's `bundle.transitionStatus` still only permits `available <-> void` — manual reserved/dispatched transitions are rejected
-
-### M5 Testing
-- Create dispatch + 3 bundles -> Reserve -> verify all bundles `reserved` + `currentDispatchId` set + 3 `bundle_status_event` rows with `dispatchId`
-- Unreserve -> bundles back to `available`, `currentDispatchId` cleared
-- Reserve -> Complete -> bundles `dispatched`, `dispatch.completedBy/At` populated
-- Adding a `reserved` bundle to a different dispatch -> 409 `Bundle not available`
-- `bundle.transitionStatus({ to: "reserved" })` -> 400 (M4 invariant preserved)
-- All routes derive `companyId` from server context; no cross-tenant disclosure
-
-## Completed milestone: M4 Bundles and Stock ✅
-
-### M4 Scope
-Production-Receipt-based bundle creation with auto-generated codes/serials, an M4-scope status state machine (`available` ↔ `void`), filterable bundle list/detail with status timeline, aggregated Stock view, and CSV/JSON bulk import via the receipt form. Web/Native parity throughout.
-
-### M4 Deliverables
-- [x] 1. Schema additions: `bundle_group.code` + 3 indexes + migration `0001_normal_gauntlet.sql`
-- [x] 2. Bundle tRPC router (`createReceipt`, `listGroups`, `getGroup`, `listBundles`, `getBundle`, `transitionStatus`, `stockSummary`)
-- [x] 3. Web: `/bundles`, `/bundles/$id`, `/receipts`, `/receipts/new`, `/receipts/$id`, `/stock`
-- [x] 4. Native: `bundles/index`, `bundles/[id]`, `receipts/index`, `receipts/new`, `receipts/[id]`, `stock/index`
-- [x] 5. Auto-generated codes: `bundleGroup.code = BG-{6-digit serverSeq}`; `bundle.serial = {groupCode}-B{3-digit row idx}`
-- [x] 6. State machine: M4 supports `available` ↔ `void`. Reserved/dispatched transitions reserved for M5.
-
-## Completed milestone: M0 Foundation ✅
-
-- [x] Resolve product and architecture ambiguities.
-- [x] Confirm stack: Bun/Turborepo, Vite React web, Expo native, Hono/tRPC Worker, Drizzle + D1, Better Auth, Tamagui, Alchemy.
-- [x] Confirm native app is in v1 scope with web parity.
-- [x] Confirm tenant-local-only native mirrors; no cross-tenant data is sent to web/native clients.
-- [x] Confirm no audit cron for now.
-- [x] Add tenant, role, audit, sync, printing, waitlist, and device schema foundations.
-- [x] Add tenant-aware tRPC context and procedure guards.
-- [x] Add AES-GCM helper for tenant secrets using Worker-bound master key.
-- [x] Replace shadcn UI foundation with Tamagui foundation for web + native parity.
-- [x] Add root-level developer guidance in `AGENTS.md`.
-- [x] Run typecheck/build validation.
-
-### M0 Deliverables
-
-**Database (D1/SQLite)**
-- 25 tables generated via Drizzle ORM
-- Tenant-scoped operational tables with `companyId` FK and composite indexes
-- Audit log with configurable retention per company
-- Sync metadata (device, mutation, company_sequence) for offline-first native
-- Printing metadata (label_template, printer_profile, print_log) for orrn-spool integration
-- Soft-delete support for dies, customers, dispatches; status-only for bundles
-
-**API Layer (tRPC v11)**
-- `companyProcedure` enforces tenant isolation and active company status
-- `platformProcedure` for platform-admin-only endpoints
-- `roleGuard(...roles)` middleware for fine-grained permissions
-- Context injects `db`, `companyId`, `role`, `membership`, `isPlatformAdmin`
-- Audit helper `writeAudit()` for every state-changing mutation
-- Sequence helper `nextCompanySeq()` for monotonic `serverSeq` per tenant
-
-**Crypto & Secrets**
-- AES-GCM wrap/unwrap utilities in `@orrn/crypto` for tenant secrets (spool API keys)
-- Master key bound to Worker via `ORRN_MASTER_KEY` secret
-
-**UI Foundation (Tamagui)**
-- Shared design system in `@orrn/ui` with tokens and Tamagui v4 config
-- Web: Vite plugin + generated CSS; Native: Babel plugin
-- Provider wrapper `OrrnUiProvider` injected at app roots
-- Existing shadcn components remain functional; new components use Tamagui primitives
-
-**Infra & Env**
-- Alchemy bindings updated: `ORRN_MASTER_KEY`, `RESEND_API_KEY`, `WEBHOOK_BASE_URL`, `NODE_ENV`
-- All packages have `check-types` scripts; full repo passes `bun run check-types`
-- Build passes: `bun run build` (web + server Worker)
+| Item | Detail | Rank |
+|---|---|---|
+| Dispatch header | Vehicle, driver, transporter and capacity entry exist on web ("Edit details") and the phone asks for the vehicle number before it completes (`vehicleGate`); missing: the confirm check "Vehicle and ship-to are correct", which waits for ship-to. | pl-flow 62 |
+| Ship-to per dispatch | "Same as bill-to" or a second customer address (unit 2, job worker) snapshotted into `header.shipTo`; needs a customer address list. | pl-flow 63, base 7 |
+| PL print polish | Footer "Not a tax invoice, generated from the locked snapshot of {PL} rev n" and "Page x of y", signature lines Packed by / Checked by / Driver received, group title with ordered kg/12ft and PO date, a Print button beside PDF, PDF named `{PL}_{customer}.pdf`. | pl-flow 65 |
+| Dispatch labels | On demand only, on a completed dispatch (Q38): a 100x50 template per bundle with PL no, n/N, party no, section, cut, pcs, kg/12ft, kg, customer, city, PO; "Reprint one"; A4 fallback. | pl-flow 66 |
+| Scan refusal wording | `dispatched` names the PL number and date, `void` names reason and date plus "keep it aside", a non-orrn code reads "Not an orrn bundle label" with "Type bundle number" and "Reprint this bundle's label" (en, hi, gu). | pl-flow 67 |
+| Rejected-scan log | Store each refused or needs-approval scan (code, outcome, reason, who, when), list with filters All / On PL / Needs OK / Rejected; review shows Removed and Rejected lines; refused rows never reach the snapshot. | pl-flow 68 |
+| Weak link at the bay | Phones queue scans and replay in order when the link is back ("N scans to sync" chip, offline banner); finalize, numbering and labels stay online; no plant box (Q41). | pl-flow 69 |
+| Scan to verify QR on the PL | A signed public link with PL number, revision, date, customer, bundle count and kg, no prices, no chemistry. | pl-flow 70 |
+| Device on audit rows | `writeAudit` records `deviceId` (native `device.register` id or spool node) and app version for floor writes. | arch 55 |
+| Customer alias | `customer_alias` like `vendor_alias`: legacy PL / order import and dispatch customer pick resolve through it, plus a merge flow (R-05). | arch 56 |
+| Rebuild port map | Table, column, enum and approval-kind names to SAD section 8.1 names, id format, DN = `dispatch.complete`, print status names, kept in `docs/superpowers/review/2026-10-03-architecture-digest.md` section 12 (no new file), updated at the end of each wave. | arch 57 |
+| Count-phantom void releases a hold | `approvalApply` `phantom_void` does not release an order hold the way a bundle void does (D17 gap). | base 24 |
+| Alloy and temper pick lists | FP-DR-14: free text with a datalist today. | re-pass 39 |
+| Auto-suggest bundles to target kg at pack | Teardown item for FP-PK-11; dispatch suggest exists, pack does not. | base 3 |
+| Ageing and foundry extras | A device screen for the oven collector (AG-17); casting cost beyond the cast page; Bluetooth label printer for a small plant (FP-PK-06, no printer at the plant); a station PIN (FP-PF-18, Q33 says own account on any phone). | AG-17, FD-20, PK-06, PF-18 |
+| Stock-age screen and rate slices | A dedicated stock-age screen beyond `/reports/stock-age` and the Today tile, rate slices of the reports behind `order.price`: only if the plant asks. | - |
 
 ## Locked product constraints
 
-- Shared D1 database with tenant-scoped operational tables.
-- `companyId` must come from authenticated server context, never from tenant API inputs.
-- Regular users belong to exactly one company.
-- Platform admins are separate from company users and can list, suspend, and time-box impersonate tenants.
-- Native offline sync is tenant-local and limited to floor-worker subset.
-- Workers should do bounded, indexed, short-lived work only.
-- PDF/xlsx exports are generated client-side from server-generated snapshots.
-- Printing goes through per-tenant LAN `orrn-spool` deployments.
-
-## Future milestones
-
-- M10: Printing via orrn-spool (per-tenant LAN deployment + webhooks).
-- M11: Audit log viewer + retention settings.
-- M12: Native offline-first sync (floor-worker subset).
-
-## Completed milestones
-
-### M3 Dies ✅
-
-#### M3 Scope
-Full CRUD capabilities and bulk import for Dies across Web and Native platforms, fully respecting tenant isolation rules.
-
-#### M3 Deliverables
-- [x] 1. Structured dimensions schema
-- [x] 2. Die API (tRPC) with duplicate validation
-- [x] 3. Die Web Views & Form
-- [x] 4. CSV/JSON Bulk Import & Resolution UI
-- [x] 5. Die Native Views & Form
-
-### M2 Customers ✅
-
-#### M2 Scope
-Full CRUD capabilities and bulk import for Customers across Web and Native platforms, fully respecting tenant isolation rules.
-
-#### M2 Deliverables
-- [x] 1. Auditing & Sequences
-- [x] 2. Customer API (tRPC)
-- [x] 3. Customer Web Views & Form
-- [x] 4. CSV Bulk Import UI
-- [x] 5. Customer Native Views & Form
-
-### M1 Implementation ✅
-Self-serve company onboarding flow: public waitlist form → platform-admin approval → owner invite email → member management UI.
-
-### M1 Deliverables
-- [x] 1. Public waitlist route (`/waitlist`) with form validation
-- [x] 2. Platform-admin waitlist review screen (`/platform/waitlist`) with approve/reject actions
-- [x] 3. Email adapter (pluggable: mock dev + Resend prod) for invite emails
-- [x] 4. Company creation atomic transaction (company + owner membership + invite)
-- [x] 5. Member management UI (list, change role, remove) under `/settings/members`
-- [x] 6. Invite accept flow (`/invite/:token`) with role assignment
-- [x] 7. Token-based invite flow implementation
-- [x] 8. Audit trail metadata built-in to schema operations
-
-### M1 Schema Additions
-- None (reuse existing `waitlist_request`, `company`, `membership`, `invite` tables)
-
-### M1 API Additions
-- `waitlist.submit` (public)
-- `platform.waitlist.list` / `approve` / `reject` (platform-admin only)
-- `company.invites.create` / `list` / `revoke` (owner/admin)
-- `invite.acceptByToken` (public, sets password)
-- `company.members.list` / `updateRole` / `remove` (owner/admin)
-
-### M1 UI Additions
-- Web: waitlist form, platform admin waitlist review, members settings
-- Native: members list (read-only), invite accept screen
-
-### M1 Email Templates
-- `invite_owner` (first user of new company)
-- `invite_member` (subsequent invites)
-- `waitlist_approved` (optional notification)
-
-### M1 Testing
-- Tenant isolation: ensure waitlist approval creates only the approved company
-- Role matrix: only owner can create invites; admin can manage members
-- Email delivery: mock in dev, Resend in prod
-
-Ready to start M1 implementation.
+- Shared D1 database with tenant-scoped operational tables; `companyId` comes from authenticated server context, never from tenant API inputs.
+- A person can belong to several plants: one membership per (user, plant), each with its own role; the plant switcher chooses (FP-PF-17). Platform admins are separate from company users and can list, suspend, and time-box impersonate tenants.
+- Native offline sync is tenant-local and limited to the floor-worker subset (not built; floor writes are online with replay keys, the press station keeps an outbox).
+- Workers do bounded, indexed, short-lived work only; at most 100 bound parameters per D1 statement.
+- PDF and xlsx exports are generated client-side from server-generated snapshots. Printing goes through per-tenant LAN `orrn-spool`.
+- Accounts stay outside ORRN (O1): no accounting, GST e-invoice or e-way bill, Tally export or invoicing in this product line; prices on orders are operational data.
+- Migrations after the head are additive and consecutive; a step that changes existing data is flagged for the promotion (`docs/DEPLOY_PROMOTION.md`).

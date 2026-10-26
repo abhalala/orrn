@@ -1,370 +1,72 @@
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent } from "@orrn/ui/components/card";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Input, TextArea } from "@orrn/ui/components/input";
 import { FormActions } from "@orrn/ui/components/form-actions";
-import { Label } from "@orrn/ui/components/label";
+import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { NativeSelect } from "@orrn/ui/components/native-select";
-import { useForm } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { toast } from "sonner";
-import { z } from "zod";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useId, useState } from "react";
 
+import { SectionDetail } from "@/features/die-room/section-detail";
+import { DieForm } from "@/features/dies/die-form";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
-import { trpc } from "@/shared/utils/trpc";
-
-const dieStatuses = ["active", "archived"] as const;
 
 export const Route = createFileRoute("/_tenant/dies/$id")({
-  component: DieFormComponent,
-  beforeLoad: requireCompanyMe,
+  component: DieRoute,
 });
 
-function DieFormComponent() {
+function DieRoute() {
   const { id } = Route.useParams();
+  // Keyed by id: the router reuses this component when only $id changes, and one die's open sheet
+  // or dialog must not carry over to the next.
+  return id === "new" ? <NewDie /> : <SectionDetail key={id} id={id} />;
+}
+
+function NewDie() {
+  const { t } = useT();
   const navigate = useNavigate();
-  const isNew = id === "new";
-  const lu = useLengthUnit();
+  const { unit } = useLengthUnit();
+  const formId = useId();
+  const [pending, setPending] = useState(false);
+  const back = { to: "/dies", label: t("nav.dies") };
 
-  const { data: die, isLoading } = useQuery({
-    ...trpc.die.get.queryOptions({ id }),
-    enabled: !isNew,
-  });
-
-  const createMutation = useMutation({
-    ...trpc.die.create.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Die created");
-      navigate({ to: "/dies" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to create die"),
-  });
-
-  const updateMutation = useMutation({
-    ...trpc.die.update.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Die updated");
-      navigate({ to: "/dies" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to update die"),
-  });
-
-  const deleteMutation = useMutation({
-    ...trpc.die.delete.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Die deleted");
-      navigate({ to: "/dies" });
-    },
-    onError: (error: any) => toast.error(error.message || "Failed to delete die"),
-  });
-
-  const form = useForm({
-    defaultValues: {
-      series: die?.series || "",
-      sectionCode: die?.sectionCode || "",
-      name: die?.name || "",
-      obliqueMm: die?.obliqueMm ?? undefined,
-      legMm: die?.legMm ?? undefined,
-      widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
-      thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
-      dimensions: {
-        widthMm: die?.widthMm ?? ((die?.dimensions?.widthMm as number | undefined) ?? undefined),
-        thicknessMm: die?.thicknessMm ?? ((die?.dimensions?.thicknessMm as number | undefined) ?? undefined),
-      },
-      weightMinG: die?.weightMinG || 0,
-      weightMaxG: die?.weightMaxG || 0,
-      status: die?.status || "active",
-      notes: die?.notes || "",
-    },
-    onSubmit: async ({ value }) => {
-      if (isNew) createMutation.mutate(value);
-      else updateMutation.mutate({ id, ...value });
-    },
-    validators: {
-      onSubmit: z.object({
-        series: z.string().min(1, "Series is required"),
-        sectionCode: z.string().min(1, "Section Code is required"),
-        name: z.string(),
-        obliqueMm: z.union([z.number(), z.undefined()]),
-        legMm: z.union([z.number(), z.undefined()]),
-        widthMm: z.union([z.number(), z.undefined()]),
-        thicknessMm: z.union([z.number(), z.undefined()]),
-        dimensions: z.any(),
-        weightMinG: z.number().min(0),
-        weightMaxG: z.number().min(0),
-        status: z.enum(dieStatuses),
-        notes: z.string(),
-      }),
-    },
-  });
-
-  if (!isNew && isLoading) return <div>Loading…</div>;
-  if (!isNew && !die) {
-    return <EmptyState title="Die not found" description="This die may have been removed." />;
-  }
-
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this die?")) {
-      deleteMutation.mutate({ id });
-    }
-  };
-
-  const fieldError = (errors: unknown[]) =>
-    errors.map((error: any) => (
-      <p key={error?.toString()} className="text-sm text-destructive">
-        {error?.toString()}
-      </p>
-    ));
-
+  // Reachable by URL or a shared link even when the list hides "New die": a role that can't add
+  // dies gets an explanation, not a form whose Save would be refused.
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <PageHeader
-        eyebrow="Dies"
-        title={isNew ? "New die" : die ? `${die.series} / ${die.sectionCode}` : "Edit die"}
-        actions={
-          !isNew && (
-            <Can do="die.delete">
-              <Button variant="destructive" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                Delete
+    <Can
+      do="die.create"
+      fallback={
+        <>
+          <PageHeader back={back} title={t("dies.form.titleNew")} />
+          <EmptyState
+            title={t("dies.form.cantAdd")}
+            action={
+              <Button asChild variant="secondary">
+                <Link to="/dies">{t("dies.detail.backToList")}</Link>
               </Button>
-            </Can>
-          )
-        }
-      />
-
-      <Card>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              form.handleSubmit();
-            }}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <form.Field name="series">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Series <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChangeText={field.handleChange}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
-
-              <form.Field name="sectionCode">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Section code <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChangeText={field.handleChange}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
-            </div>
-
-            <form.Field name="name">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Name</Label>
-                  <Input
-                    id={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChangeText={field.handleChange}
-                  />
-                </div>
-              )}
-            </form.Field>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <form.Field name="weightMinG">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Min weight (g) <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      type="number"
-                      value={String(field.state.value ?? "")}
-                      onBlur={field.handleBlur}
-                      onChangeText={(text) => field.handleChange(Number(text))}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
-
-              <form.Field name="weightMaxG">
-                {(field) => (
-                  <div className="space-y-2">
-                    <Label htmlFor={field.name}>
-                    Max weight (g) <span className="font-normal text-muted-foreground">(required)</span>
-                  </Label>
-                    <Input
-                      id={field.name}
-                      type="number"
-                      value={String(field.state.value ?? "")}
-                      onBlur={field.handleBlur}
-                      onChangeText={(text) => field.handleChange(Number(text))}
-                    />
-                    {fieldError(field.state.meta.errors)}
-                  </div>
-                )}
-              </form.Field>
-            </div>
-
-            <div className="space-y-2 rounded-card border border-border p-4">
-              <Label>Nexus die geometry ({lu.label})</Label>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <form.Field name="widthMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Width
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="thicknessMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Thickness
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="legMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Leg
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-                <form.Field name="obliqueMm">
-                  {(field) => (
-                    <div className="space-y-1">
-                      <Label htmlFor={field.name} className="text-xs text-muted-foreground">
-                        Oblique
-                      </Label>
-                      <Input
-                        id={field.name}
-                        type="number"
-                        value={field.state.value != null ? lu.formatLengthValue(field.state.value) : ""}
-                        onBlur={field.handleBlur}
-                        onChangeText={(text) => field.handleChange(text ? lu.parseLengthDecimal(text) : undefined)}
-                      />
-                    </div>
-                  )}
-                </form.Field>
-              </div>
-            </div>
-
-            <form.Field name="status">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Status</Label>
-                  <NativeSelect
-                    id={field.name}
-                    className="sm:max-w-[200px]"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value as any)}
-                  >
-                    {dieStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </div>
-              )}
-            </form.Field>
-
-            <form.Field name="notes">
-              {(field) => (
-                <div className="space-y-2">
-                  <Label htmlFor={field.name}>Notes</Label>
-                  <TextArea
-                    id={field.name}
-                    rows={4}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-
-            <FormActions className="pt-2">
-              <Button variant="outline" type="button" onClick={() => navigate({ to: "/dies" })}>
-                Cancel
-              </Button>
-              <Can do={isNew ? "die.create" : "die.update"}>
-                <form.Subscribe
-                  selector={(state) => ({
-                    canSubmit: state.canSubmit,
-                    isSubmitting: state.isSubmitting,
-                  })}
-                >
-                  {({ canSubmit }) => (
-                    <Button
-                      type="submit"
-                      disabled={!canSubmit || createMutation.isPending || updateMutation.isPending}
-                    >
-                      {createMutation.isPending || updateMutation.isPending ? "Saving…" : "Save die"}
-                    </Button>
-                  )}
-                </form.Subscribe>
-              </Can>
-            </FormActions>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            }
+          />
+        </>
+      }
+    >
+      <PageHeader back={back} title={t("dies.form.titleNew")} actions={<HowToButton slug="edit-die" />} />
+      <div className="flex w-full max-w-[720px] flex-col gap-5 rounded-card border border-border bg-card p-4 sm:p-6">
+        <DieForm
+          formId={formId}
+          unit={unit}
+          onPendingChange={setPending}
+          onSaved={(newId) => navigate({ to: "/dies/$id", params: { id: newId }, replace: true })}
+        />
+        <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+12px)]">
+          <Button variant="secondary" asChild>
+            <Link to="/dies">{t("common.cancel")}</Link>
+          </Button>
+          <Button type="submit" form={formId} loading={pending}>
+            {t("dies.form.submit")}
+          </Button>
+        </FormActions>
+      </div>
+    </Can>
   );
 }

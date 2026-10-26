@@ -10,6 +10,8 @@ import {
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
+import { TOAST_LIFT_VAR } from "../hooks/use-toast-lift";
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
@@ -18,11 +20,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <CircleCheckIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        info: <InfoIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        warning: <TriangleAlertIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        error: <OctagonXIcon className="size-[18px]" strokeWidth={2} aria-hidden="true" />,
+        loading: <Loader2Icon className="size-[18px] animate-spin" strokeWidth={2} aria-hidden="true" />,
       }}
       style={
         {
@@ -45,11 +47,18 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--error-border": "color-mix(in srgb, var(--tone-red-ink) 22%, transparent)",
         } as React.CSSProperties
       }
+      // A screen's sticky action bar lifts toasts above itself (`useToastLift` sets the
+      // variable), so a toast never hides the next action. Default offsets otherwise.
+      offset={{ bottom: `max(24px, var(${TOAST_LIFT_VAR}, 0px))` }}
+      mobileOffset={{ bottom: `max(16px, var(${TOAST_LIFT_VAR}, 0px))` }}
+      // Toasts never take focus; sonner announces them in a polite live region.
       toastOptions={{
         classNames: {
-          toast: "cn-toast font-sans shadow-md",
-          title: "font-semibold break-words",
-          description: "break-words",
+          toast: "cn-toast !rounded-card font-sans !text-[15px] shadow-md !gap-3 !px-4 !py-3.5",
+          title: "!font-semibold leading-snug break-words",
+          description: "!text-[14px] leading-snug break-words",
+          actionButton: "!rounded-full !font-semibold !h-9 !px-3.5",
+          cancelButton: "!rounded-full !font-semibold !h-9 !px-3.5",
         },
       }}
       {...props}

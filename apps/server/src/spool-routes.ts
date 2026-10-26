@@ -24,6 +24,7 @@ import {
   resolveSpoolRelease,
   type ResolvedSpoolRelease,
 } from "@orrn/server/lib/spool-release";
+import { handleNodeHeartbeat } from "@orrn/server/lib/edge-heartbeat";
 import { patchBinaryWithConfig, getDeliverableFilename, type Platform, type PackageConfig } from "@orrn/server/lib/spool-packager";
 
 const spoolRoutes = new Hono();
@@ -83,39 +84,38 @@ spoolRoutes.post("/webhooks/spool", async (c: HonoContext) => {
     return c.json({ error: "Invalid JSON payload" }, 400);
   }
 
-  // Update print_log based on event type
+  // Update print_log based on event type. A signed body without `data` used to crash the handler
+  // (500, so the spool retried forever); it is malformed, so say 400 (audit S18).
+  if (!payload || typeof payload !== "object" || !payload.data || typeof payload.data !== "object") {
+    return c.json({ error: "Missing data" }, 400);
+  }
   const { event, data } = payload;
 
   if (data.job_id && event !== "printer_status_changed") {
     const spoolJobId = String(data.job_id);
 
-    // Find the print log entry for this spool job
-    const log = await db
-      .select()
-      .from(printLog)
-      .where(and(eq(printLog.companyId, deployment.companyId), eq(printLog.spoolJobId, spoolJobId)))
-      .get();
+    // Every print log row of this spool job: a retry answered as a duplicate records the first job's id
+    // too, so more than one row can share it (BACKLOG 44).
+    const updates: Record<string, unknown> = {};
+    switch (event) {
+      case "job_started":
+        updates.status = "sent";
+        break;
+      case "job_completed":
+        updates.status = "success";
+        if (data.duration_ms) updates.responseText = `Completed in ${data.duration_ms}ms`;
+        break;
+      case "job_failed":
+        updates.status = "failed";
+        updates.responseText = data.error_message ?? "Print job failed";
+        break;
+    }
 
-    if (log) {
-      const updates: Record<string, unknown> = {};
-
-      switch (event) {
-        case "job_started":
-          updates.status = "sent";
-          break;
-        case "job_completed":
-          updates.status = "success";
-          if (data.duration_ms) updates.responseText = `Completed in ${data.duration_ms}ms`;
-          break;
-        case "job_failed":
-          updates.status = "failed";
-          updates.responseText = data.error_message ?? "Print job failed";
-          break;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await db.update(printLog).set(updates).where(eq(printLog.id, log.id));
-      }
+    if (Object.keys(updates).length > 0) {
+      await db
+        .update(printLog)
+        .set(updates)
+        .where(and(eq(printLog.companyId, deployment.companyId), eq(printLog.spoolJobId, spoolJobId)));
     }
   }
 
@@ -125,42 +125,13 @@ spoolRoutes.post("/webhooks/spool", async (c: HonoContext) => {
 // ─── Activation: Spool → ORRN (heartbeat + registration) ────────────────────
 
 spoolRoutes.post("/webhooks/spool/activate", async (c: HonoContext) => {
-  const body = await c.req.json<{
-    instance_id: string;
-    version?: string;
-  }>();
-
-  if (!body.instance_id) {
-    return c.json({ error: "Missing instance_id" }, 400);
-  }
-
-  const db = createDb();
-
-  const deployment = await db
-    .select()
-    .from(spoolDeployment)
-    .where(eq(spoolDeployment.instanceId, body.instance_id))
-    .get();
-
-  if (!deployment) {
-    return c.json({ error: "Unknown instance" }, 403);
-  }
-
-  if (deployment.status === "revoked") {
-    return c.json({ error: "Deployment revoked" }, 403);
-  }
-
-  // Update status and last seen
-  await db
-    .update(spoolDeployment)
-    .set({
-      status: "active",
-      lastHeartbeatAt: new Date(),
-      ...(body.version ? { runtimeVersion: body.version } : {}),
-    })
-    .where(eq(spoolDeployment.id, deployment.id));
-
-  return c.json({ status: "active", spool_domain: deployment.nodeDomain });
+  const rawBody = new Uint8Array(await c.req.raw.arrayBuffer());
+  const result = await handleNodeHeartbeat(createDb(), {
+    rawBody,
+    authorization: c.req.header("Authorization"),
+    masterKey: env.ORRN_MASTER_KEY,
+  });
+  return c.json(result.body, result.status);
 });
 
 // ─── Update Check: Spool → ORRN (auto-update) ──────────────────────────────

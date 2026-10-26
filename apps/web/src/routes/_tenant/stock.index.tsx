@@ -1,236 +1,225 @@
+import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card } from "@orrn/ui/components/card";
-import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { ListCard, stretchedLink } from "@orrn/ui/components/list-card";
-import { Input } from "@orrn/ui/components/input";
+import { Field, TextInput } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { Tabs } from "@orrn/ui/components/tabs";
-import { Toolbar } from "@orrn/ui/components/toolbar";
+import { SegmentedControl } from "@orrn/ui/components/segmented-control";
+import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 
-import { useLengthUnit } from "@/shared/lib/length";
-import { requireCompanyMe } from "@/shared/lib/guards";
+import { ChartsBoundary } from "@/features/stock/charts-boundary";
+import { SectionGrid, SectionGridSkeleton } from "@/features/stock/section-blocks";
+import { failedWithoutData } from "@/features/stock/section-page";
+import { filterSections, mergeSections, sectionLabel, sortSections, type SectionSort } from "@/features/stock/sections";
+import { StockFilterBar } from "@/features/stock/stock-filter-bar";
+import { stockFilterInput, validateStockFilter, withoutFilters } from "@/features/stock/stock-filters";
+import { StockTotals } from "@/features/stock/stock-totals";
+import { StockViewSwitch } from "@/features/stock/stock-view-switch";
+import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
-import { formatKgTotal, kgTotalValue, kgValue } from "@/shared/lib/weight";
 
-const bundleStatuses = ["available", "reserved", "dispatched", "void"] as const;
-type BundleStatus = (typeof bundleStatuses)[number];
+// The chart kit loads only for analytics roles, never in the entry chunk.
+const StockCharts = lazy(() => import("@/features/stock/stock-charts"));
+
+const SORT_KEY = "orrn.stock.sort";
+
+function readSort(): SectionSort {
+  try {
+    return localStorage.getItem(SORT_KEY) === "az" ? "az" : "kg";
+  } catch {
+    return "kg";
+  }
+}
 
 export const Route = createFileRoute("/_tenant/stock/")({
-  component: StockComponent,
-  validateSearch: (search: Record<string, unknown>) => ({
-    status: (search.status as BundleStatus | undefined) ?? "available",
-  }),
-  beforeLoad: requireCompanyMe,
+  validateSearch: (raw: Record<string, unknown>) => validateStockFilter(raw),
+  loader: ({ context }) => {
+    // Start both summaries while the route chunk loads; the screen shows its skeleton meanwhile.
+    void context.queryClient.prefetchQuery(trpc.bundle.stockSummary.queryOptions({ status: "available" }));
+    void context.queryClient.prefetchQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved" }));
+  },
+  component: StockSections,
 });
 
-type BundleStockRow = {
-  id: string;
-  serial: string;
-  poNumber: string | null;
-  dieSeries: string;
-  dieSectionCode: string;
-  groupCode: string;
-  quantity: number | string;
-  weightG: number | string;
-  lengthMm: number | string;
-  createdAt: string | number | Date;
-};
-
-type StockRow = {
-  dieId: string;
-  dieSeries: string;
-  dieSectionCode: string;
-  dieName: string | null;
-  bundleCount: number | string;
-  totalQuantity: number | string;
-  totalWeightG: number | string;
-  totalLengthMm: number | string;
-};
-
-function StockComponent() {
+/**
+ * `/stock`, Sections: one green block per section with bundles in stock
+ * (blue when all of them are held), from `bundle.stockSummary` for available
+ * and reserved stock merged per die. Search and sort run on the loaded
+ * sections. Owners and managers also see stock age and top sections, after
+ * the sections at every width: the blocks are what the screen is for.
+ */
+function StockSections() {
+  const { t } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const status: BundleStatus = search.status ?? "available";
-  const [serialSearch, setSerialSearch] = useState("");
-  const lu = useLengthUnit();
+  const filterInput = stockFilterInput(search);
+  const available = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "available", ...filterInput }));
+  const reserved = useQuery(trpc.bundle.stockSummary.queryOptions({ status: "reserved", ...filterInput }));
+  const [query, setQuery] = useState("");
+  const [sort, setSortState] = useState<SectionSort>(readSort);
 
-  const { data, isLoading } = useQuery({
-    ...trpc.bundle.stockSummary.queryOptions({ status }),
-  });
-  const { data: bundleData, isLoading: bundlesLoading } = useQuery({
-    ...trpc.bundle.listBundles.queryOptions({
-      status,
-      search: serialSearch || undefined,
-      limit: 100,
-      offset: 0,
-    }),
-  });
-
-  const items = (data?.items ?? []) as StockRow[];
-  const totals = data?.totals ?? {
-    bundleCount: 0,
-    totalQuantity: 0,
-    totalWeightG: 0,
-    totalLengthMm: 0,
+  const setSort = (next: SectionSort) => {
+    setSortState(next);
+    try {
+      localStorage.setItem(SORT_KEY, next);
+    } catch {
+      // Private mode: the choice holds for this visit.
+    }
   };
 
-  const columns: DataTableColumn<StockRow>[] = [
-    { id: "series", header: "Die", cell: (r) => r.dieSeries, sortable: true, sortValue: (r) => r.dieSeries },
-    { id: "section", header: "Section", cell: (r) => r.dieSectionCode },
-    { id: "name", header: "Name", cell: (r) => r.dieName || "Unnamed die", flex: 2 },
-    {
-      id: "bundles",
-      header: "Bundles",
-      align: "right",
-      cell: (r) => Number(r.bundleCount),
-    },
-    {
-      id: "qty",
-      header: "Quantity",
-      align: "right",
-      cell: (r) => Number(r.totalQuantity).toLocaleString(),
-    },
-    {
-      id: "weight",
-      header: "Weight (kg)",
-      align: "right",
-      cell: (r) => kgTotalValue(r.totalWeightG),
-    },
-    {
-      id: "length",
-      header: `Length (${lu.label})`,
-      align: "right",
-      cell: (r) => lu.formatLength(Number(r.totalLengthMm)),
-    },
-    {
-      id: "actions",
-      header: "",
-      align: "right",
-      cell: (r) => (
-        <Button asChild variant="ghost" size="sm">
-          <Link to="/bundles" search={{ status, dieId: r.dieId, groupId: undefined }}>
-            View bundles
-          </Link>
-        </Button>
-      ),
-    },
-  ];
+  const sections = useMemo(
+    () => (available.data && reserved.data ? mergeSections(available.data.items, reserved.data.items) : []),
+    [available.data, reserved.data],
+  );
+  const shown = useMemo(() => sortSections(filterSections(sections, query), sort), [sections, query, sort]);
+  const labels = useMemo(() => new Map(sections.map((s) => [s.dieId, sectionLabel(s)])), [sections]);
+  const labelFor = useCallback((dieId: string) => labels.get(dieId), [labels]);
 
-
-
-  const bundleColumns: DataTableColumn<BundleStockRow>[] = [
-    {
-      id: "serial",
-      header: "Serial",
-      flex: 1.4,
-      cell: (row) => (
-        <Link to="/bundles/$id" params={{ id: row.id }} className="font-mono hover:underline">
-          {row.serial}
-        </Link>
-      ),
-    },
-    { id: "die", header: "Die", cell: (row) => `${row.dieSeries} / ${row.dieSectionCode}` },
-    { id: "qty", header: "Pieces", align: "right", cell: (row) => Number(row.quantity).toLocaleString() },
-    { id: "weight", header: "Weight (kg)", align: "right", cell: (row) => kgValue(row.weightG) },
-    { id: "length", header: `Length (${lu.label})`, align: "right", cell: (row) => lu.formatLength(Number(row.lengthMm)) },
-    { id: "session", header: "Session", cell: (row) => <span className="font-mono">{row.groupCode}</span> },
-    { id: "po", header: "PO", cell: (row) => row.poNumber || "None" },
-  ];
+  const loading = available.isPending || reserved.isPending;
+  // A failed background refetch keeps the stock already on screen (React Query v5 keeps data).
+  const failed = failedWithoutData(available) || failedWithoutData(reserved);
+  const retry = () => {
+    void available.refetch();
+    void reserved.refetch();
+  };
+  const hasStock = sections.length > 0;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Stock"
-        description="Bundle-level stock lookup with die aggregates for operations."
+    <>
+      <PageHeader title={t("stock.title")} />
+      {/* In stock (available), held and hollow / solid / semi: the server's figures, the same as every tab (I-3). */}
+      {failed ? null : <StockTotals stock={available.data?.stock} loading={loading} />}
+
+      <StockViewSwitch current="sections" />
+      <StockFilterBar
+        filter={search}
+        onChange={(patch) => void navigate({ search: (prev) => ({ ...prev, ...patch }) })}
+        onClear={() => void navigate({ search: (prev) => withoutFilters(prev) })}
       />
 
-      <Toolbar>
-        <Tabs
-          value={status}
-          onValueChange={(v) => navigate({ search: { status: v as BundleStatus } })}
-          items={bundleStatuses.map((s) => ({
-            id: s,
-            label: s.charAt(0).toUpperCase() + s.slice(1),
-          }))}
-        />
-        <Input
-          placeholder="Search serial…"
-          value={serialSearch}
-          onChangeText={setSerialSearch}
-          aria-label="Search stock by serial"
-          className="sm:max-w-[260px]"
-        />
-      </Toolbar>
+      <section aria-labelledby="stock-sections-heading" className="flex min-w-0 flex-col gap-4">
+        <h2 id="stock-sections-heading" className="sr-only">
+          {t("stock.sections")}
+        </h2>
 
-      <section aria-label="Stock totals" className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        <SummaryCard label="Bundles" value={Number(totals.bundleCount).toLocaleString()} />
-        <SummaryCard label="Pieces" value={Number(totals.totalQuantity).toLocaleString()} />
-        <SummaryCard label="Weight (kg)" value={kgTotalValue(totals.totalWeightG)} />
-        <SummaryCard label={`Length (${lu.label})`} value={lu.formatLength(Number(totals.totalLengthMm))} />
+        {failed ? (
+          <div className="rounded-card border border-border bg-card">
+            <EmptyState
+              title={t("stock.loadError")}
+              action={
+                <Button variant="secondary" onClick={retry}>
+                  {t("common.retry")}
+                </Button>
+              }
+            />
+          </div>
+        ) : loading ? (
+          <div aria-busy="true" className="flex flex-col gap-4">
+            <span className="sr-only">{t("common.loading")}</span>
+            <Skeleton className="h-[72px] w-full rounded-card" />
+            <SectionGridSkeleton />
+          </div>
+        ) : !hasStock ? (
+          <div className="rounded-card border border-border bg-card">
+            <EmptyState
+              title={t("stock.empty")}
+              action={
+                <Can do="bundle.pack">
+                  <Button asChild>
+                    <Link to="/pack/new">{t("stock.emptyAction")}</Link>
+                  </Button>
+                </Can>
+              }
+            />
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <Field label={t("stock.searchSections")} className="md:max-w-sm md:flex-1">
+                <TextInput
+                  type="search"
+                  value={query}
+                  onChangeText={setQuery}
+                  autoComplete="off"
+                  enterKeyHint="search"
+                  data-testid="section-search"
+                />
+              </Field>
+              <div className="flex flex-col gap-1.5">
+                {/* Visible label; the group carries the same name for screen readers. */}
+                <span aria-hidden="true" className="text-[14px] font-semibold leading-5 text-foreground">
+                  {t("common.sort")}
+                </span>
+                <SegmentedControl
+                  label={t("common.sort")}
+                  value={sort}
+                  onChange={setSort}
+                  options={[
+                    { value: "kg", label: t("common.sortMostKg") },
+                    { value: "az", label: t("common.sortAZ") },
+                  ]}
+                />
+              </div>
+            </div>
+
+            <p aria-live="polite" className="sr-only">
+              {query.trim() ? t("stock.sectionsFound", { count: shown.length }) : ""}
+            </p>
+
+            {shown.length > 0 ? (
+              <SectionGrid sections={shown} label={t("stock.sections")} />
+            ) : (
+              <div className="rounded-card border border-border bg-card">
+                <EmptyState
+                  title={t("common.noResults", { query: query.trim() })}
+                  action={
+                    <Button variant="secondary" onClick={() => setQuery("")}>
+                      {t("stock.clearSearch")}
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+          </>
+        )}
       </section>
 
-      <h2 className="m-0 mb-3 text-base font-semibold tracking-[-0.01em] text-foreground">Bundles</h2>
-      <DataTable
-        rows={(bundleData?.items ?? []) as BundleStockRow[]}
-        rowKey={(row) => row.id}
-        columns={bundleColumns}
-        isLoading={bundlesLoading}
-        emptyState={<EmptyState title={`No ${status} bundles`} description="No bundle rows match this stock filter." />}
-      />
-
-      <h2 className="m-0 mb-3 text-base font-semibold tracking-[-0.01em] text-foreground">By die</h2>
-      <DataTable
-        rows={items}
-        rowKey={(r) => r.dieId}
-        columns={columns}
-        renderCard={(r) => (
-          <ListCard
-            mono
-            title={
-              <Link
-                to="/bundles"
-                search={{ status, dieId: r.dieId, groupId: undefined }}
-                className={stretchedLink}
-                aria-label={`${r.dieSeries} / ${r.dieSectionCode}: view bundles`}
-              >
-                {r.dieSeries} / {r.dieSectionCode}
-              </Link>
+      {/* After the sections at every width (ruling): on a laptop the charts used to push every block below the fold. */}
+      {hasStock ? (
+        <Can do="analytics.view">
+          <ChartsBoundary
+            fallback={
+              <div className="rounded-card border border-border bg-card" data-testid="stock-charts-failed">
+                <EmptyState
+                  title={t("stock.charts.loadFailed")}
+                  action={
+                    // A reload: browsers keep a failed module import, so importing again in place fails again.
+                    <Button variant="secondary" onClick={() => window.location.reload()}>
+                      {t("common.retry")}
+                    </Button>
+                  }
+                />
+              </div>
             }
-            titleText={`${r.dieSeries} / ${r.dieSectionCode}`}
-            subtitle={r.dieName || "Unnamed die"}
-            subtitleText={r.dieName ?? undefined}
-            facts={[
-              { label: "Bundles", value: Number(r.bundleCount).toLocaleString() },
-              { label: "Pieces", value: Number(r.totalQuantity).toLocaleString() },
-              { label: "Weight", value: formatKgTotal(r.totalWeightG) },
-            ]}
-            footer={<span>Total length {lu.formatLength(Number(r.totalLengthMm))}</span>}
-          />
-        )}
-        isLoading={isLoading}
-        emptyState={<EmptyState title={`No ${status} stock`} description="Nothing in this bucket yet." />}
-      />
-    </div>
+          >
+            <Suspense fallback={<ChartsFallback />}>
+              <StockCharts labelFor={labelFor} />
+            </Suspense>
+          </ChartsBoundary>
+        </Can>
+      ) : null}
+    </>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+/** Two chart-shaped placeholders while the chart kit chunk loads (no kit code here). */
+function ChartsFallback() {
   return (
-    <Card className="min-w-0 gap-1 p-4">
-      <p className="m-0 break-words text-[13px] font-medium text-muted-foreground">
-        {label}
-      </p>
-      {/* Key numbers are never ellipsised: smaller on phones and free to wrap. */}
-      <p
-        data-no-truncate=""
-        className="m-0 break-words font-display text-[22px] font-extrabold leading-tight tracking-[-0.03em] tabular-nums text-foreground sm:text-[26px]"
-      >
-        {value}
-      </p>
-    </Card>
+    <div aria-hidden="true" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Skeleton className="h-[318px] w-full rounded-card" />
+      <Skeleton className="h-[318px] w-full rounded-card" />
+    </div>
   );
 }

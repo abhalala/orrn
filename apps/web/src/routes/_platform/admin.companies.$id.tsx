@@ -1,344 +1,227 @@
-import { Badge } from "@orrn/ui/components/badge";
+import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@orrn/ui/components/card";
-import { DataTable, type DataTableColumn } from "@orrn/ui/components/data-table";
+import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Label } from "@orrn/ui/components/label";
 import { PageHeader } from "@orrn/ui/components/page-header";
-import { Select } from "@orrn/ui/components/select";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { Truncate } from "@orrn/ui/components/truncate";
+import { Tabs } from "@orrn/ui/components/tabs";
+import { UiLink } from "@orrn/ui/components/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { format } from "date-fns";
-import { useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
 
+import { CompanyAccessTab } from "@/features/admin/company-access-tab";
+import { CompanyAuditTab } from "@/features/admin/company-audit-tab";
+import { CompanyPlanTab } from "@/features/admin/company-plan-tab";
+import { CompanyPrintingTab } from "@/features/admin/company-printing-tab";
+import { formatDay } from "@/features/admin/format";
+import { companyAction, companyStatusKey, companyStatusTone } from "@/features/admin/status";
+import type { CompanyDetail } from "@/features/admin/types";
+import { ConfirmDialog, errorCode, errorText, Fact, LoadError, Panel } from "@/features/admin/ui";
 import { Can } from "@/shared/components/can";
-import { setImpersonateCompanyId } from "@/shared/lib/impersonation";
-import { requirePlatformAdmin } from "@/shared/lib/guards";
-import { queryClient, trpc } from "@/shared/utils/trpc";
+import { can, useMe } from "@/shared/lib/me";
+import { trpc } from "@/shared/utils/trpc";
 
-export const Route = createFileRoute("/_platform/admin/companies/$id")({
-  component: AdminCompanyDetailComponent,
-  beforeLoad: requirePlatformAdmin,
-});
+const TABS = ["plan", "printing", "access", "audit"] as const;
+type Tab = (typeof TABS)[number];
 
-type GrantRow = {
-  id: string;
-  platformAdminId: string;
-  expiresAt: Date | string | number;
-  revokedAt: Date | string | number | null;
-  reason: string | null;
-  createdAt: Date | string | number;
+const TAB_KEYS: Record<Tab, MessageKey> = {
+  plan: "admin.company.tabs.plan",
+  printing: "admin.company.tabs.printing",
+  access: "admin.company.tabs.access",
+  audit: "admin.company.tabs.audit",
 };
 
-function AdminCompanyDetailComponent() {
+const PLAN_KEYS: Record<string, MessageKey> = {
+  starter: "admin.plan.plans.starter",
+  growth: "admin.plan.plans.growth",
+  enterprise: "admin.plan.plans.enterprise",
+};
+
+export const Route = createFileRoute("/_platform/admin/companies/$id")({
+  component: AdminCompany,
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
+    tab: TABS.includes(search.tab as Tab) ? (search.tab as Tab) : undefined,
+  }),
+});
+
+/**
+ * One company in Godseye (spec §3): facts, suspend or reactivate, and the
+ * tabs Plan and modules, Printing (print stations, moved from /admin/spool)
+ * and Access (support sessions). The tab lives in `?tab=` so a link can open
+ * it (stopping a support session returns to `?tab=access`).
+ */
+function AdminCompany() {
+  const { t } = useT();
   const { id } = Route.useParams();
-  const qc = useQueryClient();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { data: me } = useMe();
+  const detail = useQuery(trpc.platform.companiesGet.queryOptions({ id }));
 
-  const { data, isLoading } = useQuery({
-    ...trpc.platform.companiesGet.queryOptions({ id }),
-  });
+  const tabs = TABS.filter((tab) => tab !== "printing" || can(me, "platform.spool.manage"));
+  const tab: Tab = search.tab && tabs.includes(search.tab) ? search.tab : "plan";
 
-  const suspendMutation = useMutation({
-    ...trpc.platform.companiesSuspend.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Company suspended");
-      qc.invalidateQueries({ queryKey: trpc.platform.companiesGet.queryKey({ id }) });
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to suspend"),
-  });
-
-  const reactivateMutation = useMutation({
-    ...trpc.platform.companiesReactivate.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Company reactivated");
-      qc.invalidateQueries({ queryKey: trpc.platform.companiesGet.queryKey({ id }) });
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to reactivate"),
-  });
-
-  const impersonateMutation = useMutation({
-    ...trpc.platform.impersonationCreateGrant.mutationOptions(),
-    onSuccess: (grant) => {
-      setImpersonateCompanyId(grant.companyId);
-      queryClient.clear();
-      toast.success("Impersonation grant created");
-      window.location.href = "/dashboard";
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to impersonate"),
-  });
-
-  const grantColumns = useMemo((): DataTableColumn<GrantRow>[] => {
-    return [
-      { id: "id", header: "Grant", flex: 1, cell: (row) => row.id.slice(0, 8) + "…" },
-      {
-        id: "created",
-        header: "Created",
-        flex: 0.8,
-        cell: (row) => format(new Date(row.createdAt), "PP p"),
-      },
-      {
-        id: "expires",
-        header: "Expires",
-        flex: 0.8,
-        cell: (row) => format(new Date(row.expiresAt), "PP p"),
-      },
-      {
-        id: "status",
-        header: "Status",
-        flex: 0.6,
-        cell: (row) =>
-          row.revokedAt ? (
-            <Badge tone="danger">Revoked</Badge>
-          ) : new Date(row.expiresAt).getTime() < Date.now() ? (
-            <Badge tone="neutral">Expired</Badge>
-          ) : (
-            <Badge tone="success">Active</Badge>
-          ),
-      },
-      { id: "reason", header: "Reason", flex: 1, cell: (row) => row.reason ?? "None" },
-    ];
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-5" aria-busy="true" aria-label="Loading company">
-        <Skeleton className="h-9 w-64" />
-        <Skeleton className="h-24 w-full rounded-card" />
-        <Skeleton className="h-56 w-full rounded-card" />
+  if (detail.isPending) return <DetailSkeleton />;
+  // Error panel only with nothing to show: a failed refetch keeps the last good data (showsLoadError).
+  if (!detail.data) {
+    return errorCode(detail.error) === "NOT_FOUND" ? (
+      <div className="flex flex-col gap-5">
+        <PageHeader title={t("admin.companies.title")} back={{ to: "/admin/companies", label: t("admin.company.back") }} />
+        <Panel>
+          <EmptyState
+            title={t("admin.company.notFound")}
+            action={
+              <Button asChild variant="secondary">
+                <UiLink to="/admin/companies">{t("admin.company.back")}</UiLink>
+              </Button>
+            }
+          />
+        </Panel>
+      </div>
+    ) : (
+      <div className="flex flex-col gap-5">
+        <PageHeader title={t("admin.companies.title")} back={{ to: "/admin/companies", label: t("admin.company.back") }} />
+        <LoadError message={t("admin.company.loadError")} onRetry={() => void detail.refetch()} />
       </div>
     );
   }
-  if (!data) {
-    return <EmptyState title="Company not found" />;
-  }
 
-  const c = data.company;
+  const company = detail.data.company;
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <PageHeader
-        eyebrow="Godseye · Companies"
-        title={c.name}
-        description={
-          <Truncate mono className="text-sm">
-            {c.slug}
-          </Truncate>
-        }
+        back={{ to: "/admin/companies", label: t("admin.company.back") }}
+        title={company.name}
         actions={
-          <>
-            <Button asChild variant="outline">
-              <Link to="/admin/companies" search={{ status: "all" }}>
-                Back to list
-              </Link>
-            </Button>
-            <Can do="platform.impersonate">
-              <Button
-                disabled={c.status !== "active" || impersonateMutation.isPending}
-                onClick={() =>
-                  impersonateMutation.mutate({ companyId: c.id, ttlMinutes: 30 })
-                }
-              >
-                Open support session
+          companyAction(company.status) === "review" ? (
+            // Never approved: it has no owner yet, so its request decides (approve or reject), not Reactivate.
+            <Can do="platform.waitlist.review">
+              <Button asChild variant="secondary">
+                <UiLink to="/admin/requests">{t("admin.company.reviewRequest")}</UiLink>
               </Button>
             </Can>
+          ) : (
             <Can do="platform.company.manage">
-              {c.status === "active" ? (
-                <Button
-                  variant="destructive"
-                  disabled={suspendMutation.isPending}
-                  onClick={() => suspendMutation.mutate({ id: c.id })}
-                >
-                  Suspend
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  disabled={reactivateMutation.isPending}
-                  onClick={() => reactivateMutation.mutate({ id: c.id })}
-                >
-                  Reactivate
-                </Button>
-              )}
+              <StatusAction company={company} />
             </Can>
-          </>
+          )
         }
       />
 
-      <Card>
-        <CardContent className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4 [&>div]:min-w-0">
-          <div>
-            <p className="text-muted-foreground text-xs">Status</p>
-            <Badge
-              tone={
-                c.status === "active"
-                  ? "success"
-                  : c.status === "suspended"
-                    ? "danger"
-                    : "neutral"
-              }
-            >
-              {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
-            </Badge>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Plan</p>
-            <p className="m-0 truncate capitalize">{c.plan ?? "None"}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Members</p>
-            <p>{c.memberCount}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Created</p>
-            <p>{format(new Date(c.createdAt), "PP")}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <Facts company={company} />
 
-      <PlanAndModulesForm
-        companyId={c.id}
-        initialPlan={c.plan}
-        initialModules={(c as any).modules || []}
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent impersonation grants</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            columns={grantColumns}
-            rows={data.recentGrants as GrantRow[]}
-            rowKey={(row) => row.id}
-            renderCard={(row) => {
-              const expired = new Date(row.expiresAt).getTime() < Date.now();
-              const status = row.revokedAt ? "Revoked" : expired ? "Expired" : "Active";
-              return (
-                <div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-background p-4">
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="m-0 font-mono text-sm font-semibold text-foreground">
-                        {row.id.slice(0, 8)}…
-                      </p>
-                      <p className="m-0 text-xs text-muted-foreground">
-                        Created {format(new Date(row.createdAt), "PP p")}
-                      </p>
-                    </div>
-                    <Badge tone={status === "Active" ? "success" : status === "Revoked" ? "danger" : "neutral"}>
-                      {status}
-                    </Badge>
-                  </div>
-                  <div className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
-                      <p className="m-0 text-xs font-medium text-muted-foreground">Expires</p>
-                      <p className="m-0 text-foreground">{format(new Date(row.expiresAt), "PP p")}</p>
-                    </div>
-                    <div>
-                      <p className="m-0 text-xs font-medium text-muted-foreground">Reason</p>
-                      <p className="m-0 break-words text-foreground">{row.reason ?? "None"}</p>
-                    </div>
-                  </div>
-                </div>
-              );
-            }}
-            emptyState={<EmptyState title="No grants yet" />}
-          />
-        </CardContent>
-      </Card>
+      <Tabs
+        label={t("admin.company.sections")}
+        items={tabs.map((item) => ({ id: item, label: t(TAB_KEYS[item]) }))}
+        value={tab}
+        onValueChange={(next) => void navigate({ search: { tab: next as Tab }, replace: true })}
+      >
+        {tab === "plan" ? <CompanyPlanTab company={company} /> : null}
+        {tab === "printing" ? <CompanyPrintingTab company={company} /> : null}
+        {tab === "access" ? <CompanyAccessTab detail={detail.data} /> : null}
+        {tab === "audit" ? <CompanyAuditTab companyId={company.id} /> : null}
+      </Tabs>
     </div>
   );
 }
 
-const PLAN_OPTIONS = [
-  { value: "starter", label: "Starter" },
-  { value: "growth", label: "Growth" },
-  { value: "enterprise", label: "Enterprise" },
-];
+function Facts({ company }: { company: CompanyDetail["company"] }) {
+  const { t, locale } = useT();
+  const planKey = company.plan ? PLAN_KEYS[company.plan] : undefined;
+  return (
+    <Panel aria-label={t("admin.company.facts")} className="px-5 py-4 sm:px-6">
+      {/* Phone: the status gets its own row ("Waiting for approval" never has to be cut), the rest share one. */}
+      <dl className="m-0 grid grid-cols-3 gap-x-4 gap-y-4 md:grid-cols-4">
+        <Fact label={t("admin.company.status")} className="col-span-3 md:col-span-1">
+          <Chip tone={companyStatusTone(company.status)} truncate={false}>{t(companyStatusKey(company.status))}</Chip>
+        </Fact>
+        <Fact label={t("admin.company.plan")}>
+          {planKey ? t(planKey) : company.plan ? <span className="font-mono">{company.plan}</span> : t("admin.company.noPlan")}
+        </Fact>
+        <Fact label={t("admin.company.members")}>
+          <span className="font-mono tabular-nums">{company.memberCount}</span>
+        </Fact>
+        <Fact label={t("admin.company.joined")}>{formatDay(company.createdAt, { locale })}</Fact>
+      </dl>
+      <p className="m-0 mt-4 border-t border-border pt-3 font-mono text-[13px] text-muted-foreground [overflow-wrap:anywhere]">
+        {company.slug}
+      </p>
+    </Panel>
+  );
+}
 
-const MODULES = [
-  { id: "customers", label: "Customers" },
-  { id: "dies", label: "Dies" },
-  { id: "bundles", label: "Bundles and production" },
-  { id: "dispatches", label: "Dispatch and packing lists" },
-];
-
-function PlanAndModulesForm({
-  companyId,
-  initialPlan,
-  initialModules,
-}: {
-  companyId: string;
-  initialPlan: string | null;
-  initialModules: string[];
-}) {
+function StatusAction({ company }: { company: CompanyDetail["company"] }) {
+  const { t } = useT();
   const qc = useQueryClient();
-  const [plan, setPlan] = useState(initialPlan || "starter");
-  const [activeModules, setActiveModules] = useState<string[]>(initialModules || []);
+  const [open, setOpen] = useState(false);
+  // Only for approved companies (the page shows "Review the request" for one that is waiting).
+  const suspending = companyAction(company.status) === "suspend";
 
-  const updateMutation = useMutation({
-    ...trpc.platform.updatePlanAndModules.mutationOptions(),
-    onSuccess: () => {
-      toast.success("Company plan and modules updated");
-      qc.invalidateQueries({ queryKey: trpc.platform.companiesGet.queryKey({ id: companyId }) });
+  const refresh = () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: trpc.platform.companiesGet.queryKey({ id: company.id }) }),
+      qc.invalidateQueries({ queryKey: trpc.platform.companiesList.queryKey() }),
+      qc.invalidateQueries({ queryKey: trpc.platform.overview.queryKey() }),
+    ]);
+
+  const suspend = useMutation({
+    ...trpc.platform.companiesSuspend.mutationOptions(),
+    onSuccess: async () => {
+      toast.success(t("admin.company.suspended"));
+      setOpen(false);
+      await refresh();
     },
-    onError: (e: any) => toast.error(e.message || "Failed to update"),
+    onError: (err) => toast.error(errorText(t, err)),
   });
-
-  const toggleModule = (modId: string) => {
-    setActiveModules((curr) =>
-      curr.includes(modId) ? curr.filter((m) => m !== modId) : [...curr, modId],
-    );
-  };
+  const reactivate = useMutation({
+    ...trpc.platform.companiesReactivate.mutationOptions(),
+    onSuccess: async () => {
+      toast.success(t("admin.company.reactivated"));
+      setOpen(false);
+      await refresh();
+    },
+    onError: (err) => toast.error(errorText(t, err)),
+  });
+  const pending = suspend.isPending || reactivate.isPending;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Plan and active modules</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="companyPlan">Billing plan</Label>
-          <Select id="companyPlan" value={plan} onValueChange={setPlan} options={PLAN_OPTIONS} className="w-full sm:w-60" />
-        </div>
+    <>
+      <Button variant="secondary" className={suspending ? "text-destructive" : undefined} onPress={() => setOpen(true)}>
+        {suspending ? t("admin.company.suspend") : t("admin.company.reactivate")}
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={
+          suspending
+            ? t("admin.company.suspendTitle", { company: company.name })
+            : t("admin.company.reactivateTitle", { company: company.name })
+        }
+        body={
+          suspending
+            ? t("admin.company.suspendBody", { company: company.name })
+            : t("admin.company.reactivateBody", { company: company.name })
+        }
+        confirmLabel={suspending ? t("admin.company.suspend") : t("admin.company.reactivate")}
+        tone={suspending ? "danger" : "primary"}
+        pending={pending}
+        onConfirm={() => (suspending ? suspend.mutate({ id: company.id }) : reactivate.mutate({ id: company.id }))}
+      />
+    </>
+  );
+}
 
-        <div className="space-y-2">
-          <Label>Active modules</Label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {MODULES.map((m) => {
-              const isChecked = activeModules.includes(m.id);
-              return (
-                <label
-                  key={m.id}
-                  className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-input border p-3 transition-colors ${
-                    isChecked
-                      ? "border-primary/60 bg-primary/10 text-foreground"
-                      : "border-border bg-background hover:bg-muted/40 text-muted-foreground"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleModule(m.id)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  <span className="min-w-0 text-sm font-medium">{m.label}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <Button
-          className="w-full sm:w-auto"
-          onClick={() => updateMutation.mutate({ companyId, plan, modules: activeModules })}
-          disabled={updateMutation.isPending}
-        >
-          {updateMutation.isPending ? "Saving…" : "Save changes"}
-        </Button>
-      </CardContent>
-    </Card>
+function DetailSkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-col gap-6">
+      <Skeleton className="h-11 w-32 rounded-full" />
+      <Skeleton className="h-10 w-2/3 max-w-80" />
+      <Skeleton className="h-[120px] rounded-card" />
+      <Skeleton className="h-11 w-full max-w-96" />
+      <Skeleton className="h-[260px] rounded-card" />
+    </div>
   );
 }

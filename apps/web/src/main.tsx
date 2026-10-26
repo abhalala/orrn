@@ -12,7 +12,14 @@ import ReactDOM from "react-dom/client";
 
 import Loader from "@/shared/components/loader";
 import { routeTree } from "./routeTree.gen";
-import { queryClient, trpc } from "@/shared/utils/trpc";
+import { queryClient, registerSessionEndedHandler, trpc } from "@/shared/utils/trpc";
+
+/**
+ * BACKLOG 22: a person who asked the system for less motion gets no route cross-fade at all: no view
+ * transition is started (the CSS also stops the pseudo-element animations, but a started transition
+ * still captures and holds frames). Read now and kept in step if the setting changes.
+ */
+const reducedMotion = typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
 
 const router = createRouter({
   routeTree,
@@ -27,7 +34,7 @@ const router = createRouter({
    * `::view-transition-old(root)` and `::view-transition-new(root)` in
    * `packages/ui/src/styles/globals.css`. Older browsers fall back to no-op.
    */
-  defaultViewTransition: true,
+  defaultViewTransition: !reducedMotion?.matches,
   /**
    * Render a pending component only when a route loader takes longer than
    * 300ms. Below that, navigation feels instant and we just rely on the top
@@ -40,6 +47,34 @@ const router = createRouter({
   Wrap: function WrapComponent({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   },
+});
+
+reducedMotion?.addEventListener("change", (event) => {
+  router.update({ ...router.options, defaultViewTransition: !event.matches });
+});
+
+/** Layouts that sit behind a session guard; anything else (public pages, 404) never bounces to login. */
+const GUARDED_LAYOUTS = new Set(["/_tenant", "/_platform", "/_authed"]);
+
+/**
+ * The session ended mid-use (UNAUTHORIZED from any query or mutation): go to
+ * /login and come back to this page afterwards. Only acts on a page rendered
+ * inside a guarded layout (derived from the route match, no hand-kept path
+ * list), and not while a navigation is pending (the route guard answers that
+ * one itself with its own redirect), so it can never fight a guard into a loop.
+ */
+let leavingForLogin = false;
+registerSessionEndedHandler(() => {
+  if (leavingForLogin || router.state.status === "pending") return;
+  if (!router.state.matches.some((m) => GUARDED_LAYOUTS.has(m.routeId))) return;
+  const { href } = router.state.location;
+  leavingForLogin = true;
+  void router
+    .navigate({ to: "/login", search: { next: href }, replace: true })
+    .then(() => queryClient.clear())
+    .finally(() => {
+      leavingForLogin = false;
+    });
 });
 
 function WebNotFoundPage() {
@@ -65,6 +100,14 @@ declare module "@tanstack/react-router" {
   }
 }
 
+declare global {
+  interface Window {
+    /** Set once per page load; e2e checks it survives navigation (no full reloads). */
+    __orrnBoot?: number;
+  }
+}
+window.__orrnBoot ??= Date.now();
+
 const rootElement = document.getElementById("app");
 
 if (!rootElement) {
@@ -73,5 +116,7 @@ if (!rootElement) {
 
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
+  // Dictionaries are fetched on demand on web; the root route's beforeLoad (ensureLocale) loads the
+  // saved language before the first page renders.
   root.render(<RouterProvider router={router} />);
 }
