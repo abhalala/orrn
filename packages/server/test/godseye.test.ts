@@ -540,7 +540,7 @@ describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
   }
 
   for (const failure of [
-    { label: "Resend answers an error", respond: async () => new Response("rate limited", { status: 429 }), error: "Failed to send email" },
+    { label: "Resend answers an error", respond: async () => new Response("rate limited", { status: 429 }), error: "Resend email send failed (HTTP 429)" },
     { label: "the network call throws", respond: async () => Promise.reject(new TypeError("fetch failed")), error: "fetch failed" },
   ]) {
     test(`(a) ${failure.label}: the approval stands and the details come back for copying`, async () => {
@@ -604,7 +604,8 @@ describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
     try {
       const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
       expect(fresh.emailSent).toBe(false);
-      expect(fresh.emailError).toBe("Failed to send email");
+      expect(fresh.emailError).toBe("Resend email send failed (HTTP 401)");
+      expect(fresh.emailError).not.toContain("bad key");
       expect(fresh.link).toStartWith("https://app.test/continue?token=");
       expect(fresh.text).toContain(fresh.link);
     } finally {
