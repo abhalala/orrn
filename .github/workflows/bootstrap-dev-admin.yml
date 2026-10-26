@@ -33,4 +33,10 @@ jobs:
           ADMIN_EMAIL: ${{ inputs.email }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: bun src/infra/scripts/bootstrap-super-admin.ts --stage dev "$ADMIN_EMAIL"
+        run: |
+          # The legacy script parses --stage= before --stage; email must never become an option.
+          if [[ "$ADMIN_EMAIL" == --* ]]; then
+            echo "::error::Email must not be a command-line option."
+            exit 2
+          fi
+          bun src/infra/scripts/bootstrap-super-admin.ts --stage dev "$ADMIN_EMAIL"

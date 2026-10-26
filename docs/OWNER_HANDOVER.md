@@ -27,6 +27,8 @@ Run it on `main` with the exact approved email. It uses only the GitHub `dev` en
 `bootstrap-super-admin.ts --stage dev` script; credentials stay in Actions. It neither creates an account
 nor resets a password. A missing account is an explicit failure, not a successful grant. This workflow
 cannot target production.
+An email beginning with `--` is rejected before invocation: the legacy script's `--stage=` parser must not
+interpret the email input as an option overriding the workflow's fixed dev stage.
 
 ## 2. Prod email
 
