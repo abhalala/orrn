@@ -15,6 +15,8 @@ export function MarketingFooter() {
         </div>
         <nav aria-label={t("marketing.footerNav")}>
           <Link to="/guides">{t("marketing.guides")}</Link>
+          <Link to="/privacy">{t("marketing.privacy")}</Link>
+          <Link to="/terms">{t("marketing.terms")}</Link>
           <Link to="/request-access">{t("marketing.requestAccess")}</Link>
           <Link to="/login">{t("marketing.signIn")}</Link>
         </nav>

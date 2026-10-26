@@ -20,7 +20,7 @@ export const enPublic = {
   },
   "marketing": {
     "eyebrow": "Made for aluminium extrusion",
-    "headline": "orrn, india's first e2e extrusion harness",
+    "headline": "orrn, India's first e2e extrusion harness",
     "sub": "One connected record of your metal, from the scrap yard to the dispatch gate.",
     "requestAccess": "Request access",
     "signIn": "Sign in",
@@ -28,89 +28,154 @@ export const enPublic = {
     "mainNav": "Main navigation",
     "guides": "Guides",
     "metaTitle": "orrn | India's first e2e extrusion harness",
+    "heroPlate": {
+      "fig": "Fig 00 · Extrusion line",
+      "title": "Press, run-out table and ageing oven",
+      "poseCharge": "01 Billet charge",
+      "posePress": "02 Press stroke",
+      "poseAge": "03 Ageing oven",
+      "keyRam": "Main ram and stem",
+      "keyPress": "Billet, container, die and roller table",
+      "keyOven": "Ageing oven and profile trolley"
+    },
+    "proof": {
+      "phantomValue": "62%",
+      "phantomLabel": "of bundles on the old stock list were already gone when the yard was counted by hand.",
+      "chainValue": "07",
+      "chainLabel": "plant stages linked in one record from scrap weighbridge to dispatch gate.",
+      "traceValue": "1 QR",
+      "traceLabel": "bundle identity from the packing scale to the customer packing list."
+    },
     "flow": {
+      "eyebrow": "The chain",
       "title": "The metal changes. The thread stays.",
-      "body": "Seven handovers. One plant. Keep the work connected as material becomes a finished profile.",
+      "body": "Seven handovers. One plant. As raw scrap becomes a finished architectural profile, every stage hands a verified record to the next.",
       "scrap": {
+        "fig": "Fig 01",
+        "plateTitle": "Weighbridge and kanta dial",
+        "readout": "Party 8,200 kg · Ours 8,185 kg",
         "name": "Scrap",
         "title": "Know what came through the gate.",
-        "body": "Book a lot, record the weighbridge weight and settle the received quantity before it enters scrap stock.",
+        "body": "Book a purchase lot, record the weighbridge kanta weight and settle deductions before material enters scrap stock.",
         "record": "Purchase lot, weighment, received stock"
       },
       "cast": {
+        "fig": "Fig 02",
+        "plateTitle": "Melting furnace and log rack",
+        "readout": "In 11,000 kg · 38 cast logs",
         "name": "Cast",
         "title": "Give every heat a history.",
-        "body": "Connect scrap inputs, alloy checks and billet output to the cast. Follow the metal forward without losing where it began.",
+        "body": "Connect scrap charges, alloy spectro checks and billet logs to the furnace heat so the metal never loses where it began.",
         "record": "Melt inputs, spectro sample, billet stock"
       },
       "die": {
+        "fig": "Fig 03",
+        "plateTitle": "Die rack and 12 ft checkweigher",
+        "readout": "Copy 12170-1 · 1.655 kg/12ft",
         "name": "Die",
         "title": "The right die, ready for its run.",
-        "body": "Keep each physical die's readings, ownership and nitriding history together. Issue a specific copy to the press.",
+        "body": "Keep each physical die copy, trial weight reading, customer ownership and nitriding cycle together before issuing to the press.",
         "record": "Die copy, weight readings, issue record"
       },
       "press": {
+        "fig": "Fig 04",
+        "plateTitle": "Extrusion press and run-out table",
+        "readout": "Ram stroke 80 · 8 profile lengths",
         "name": "Press",
         "title": "Make the shift legible.",
-        "body": "Bring the plan, die issue and billet use into the same run. Record output and rejects; let orrn calculate recovery.",
+        "body": "Bring the press plan, die issue and billet count into one run instead of typing shift sheets by hand. Record output and rejects while orrn calculates recovery.",
         "record": "Press plan, run output, recovery"
       },
       "age": {
+        "fig": "Fig 05",
+        "plateTitle": "Ageing oven and profile trolley",
+        "readout": "3-tier trolley · Soak and HV check",
         "name": "Age",
         "title": "Carry quality through the oven.",
-        "body": "Track trolleys through ageing, record readings and hardness, and keep held material out of packing.",
+        "body": "Track trolleys through the ageing cycle, log soak readings and hardness in HV, and keep held material out of packing.",
         "record": "Batch, oven readings, release decision"
       },
       "pack": {
+        "fig": "Fig 06",
+        "plateTitle": "Packing scale and thermal label printer",
+        "readout": "Bundle 26J4086 · 52.40 kg",
         "name": "Pack",
         "title": "A bundle with an identity.",
-        "body": "Record pieces and weight, print a numbered label and place the bundle in stock. The next person scans the same number.",
+        "body": "Record pieces and scale weight, print a numbered QR label on A4 or thermal stock, and place the bundle into a yard section.",
         "record": "Bundle number, pieces, weight, location"
       },
       "dispatch": {
+        "fig": "Fig 07",
+        "plateTitle": "Dispatch gate and outbound truck",
+        "readout": "4 bundles scanned · 206.3 kg",
         "name": "Dispatch",
         "title": "Close the loop at the gate.",
-        "body": "Scan the bundles that leave, prepare the packing list and keep the stock ledger in step with the dispatch.",
+        "body": "Scan bundles onto the truck so no bundle leaves without a customer, a numbered packing list and a matching stock movement.",
         "record": "Scanned bundles, packing list, stock movement"
       }
     },
     "floor": {
+      "eyebrow": "What gets easier, job by job",
       "title": "Different jobs. The same plant.",
-      "body": "The office plans in orders. The floor works in dies, trolleys and bundles. orrn connects those records.",
+      "body": "The office plans in orders and baki. The floor works in heats, dies, trolleys and bundles. orrn keeps every role on the same record.",
+      "foundry": {
+        "role": "For the foundry",
+        "title": "Trace every billet back to its heat.",
+        "body": "Log scrap charges, spectro samples and cast logs at the furnace so every billet batch carries its alloy and heat history to the press."
+      },
+      "dieRoom": {
+        "role": "For the die room",
+        "title": "Know which die copy ran and what it weighed.",
+        "body": "Track every copy, FTR trial, CDR or DWG drawing and nitriding bath in CR4, CR2 and K2S without hunting through paper registers."
+      },
       "planner": {
         "role": "For the planner",
         "title": "Plan against what is actually left.",
-        "body": "See order baki, allocate stock and build a press plan without treating already packed material as new production."
+        "body": "See live order baki, allocate existing yard stock and build press plans without scheduling material that is already packed."
       },
       "operator": {
-        "role": "For the shift",
+        "role": "For the press shift",
         "title": "Keep the run, not a second notebook.",
-        "body": "Record the die, billets, output and stops against the press run. The next shift can read what happened."
+        "body": "Record the issued die copy, billets consumed, output length and downtime stops against the press run so the next shift reads the truth."
       },
       "packer": {
-        "role": "For packing and dispatch",
-        "title": "Read the label. Find the bundle.",
-        "body": "Use the phone camera to scan a bundle. Keep its pieces, weight and yard location with its number."
+        "role": "For the packing table",
+        "title": "Weigh once. Label for good.",
+        "body": "Enter piece count and scale weight, print the bundle QR sticker and assign a yard rack so no bundle sits unmarked on the floor."
+      },
+      "gate": {
+        "role": "For dispatch and gate",
+        "title": "Never ship a bundle the ledger still counts.",
+        "body": "Scan each bundle with a phone camera as the truck loads. Dispatched bundles leave stock immediately and build a numbered PL."
       },
       "owner": {
         "role": "For the plant owner",
         "title": "Follow the work behind the number.",
-        "body": "Read recovery, stock and dispatch from the plant's records. Roles control who can change them; the audit log keeps the history."
+        "body": "Read recovery, stock age and dispatch from the floor's own entries. Role permissions guard changes, and the audit log keeps every edit."
       },
-      "language": "English and Hindi, one tap apart. On a phone, a tablet or the office laptop."
+      "language": "English and Hindi, one tap apart. On a phone in the yard, a tablet at the scale or the office laptop."
     },
     "office": {
+      "eyebrow": "Connected record",
       "title": "The number on the bundle is only the beginning.",
-      "body": "A packing list brings the dispatched bundles together. Each number still belongs to the material your team packed.",
+      "body": "When a bundle is scanned at dispatch, the packing list assembles itself from the floor's pack records. Every serial still points back to the press run, die copy and heat.",
       "note": "Illustrative packing list. The sample quantities are demo data, not plant results.",
-      "demoCustomer": "Demo customer"
+      "demoCustomer": "Fourcubes Extrusions (Demo)",
+      "demoMeta": "14701 Patti · 12 ft",
+      "printerTitle": "Thermal bundle label",
+      "scannerTitle": "Gate camera scan",
+      "exportPdf": "Download PDF",
+      "exportCsv": "Download CSV",
+      "exportQr": "QR PDF"
     },
     "cta": {
       "title": "Let's start with your plant.",
-      "body": "Tell us how your floor works. We'll talk through where orrn fits."
+      "body": "Tell us how your floor runs today, from weighbridge to dispatch gate. We'll walk through where orrn fits."
     },
-    "footer": "For aluminium extrusion plants.",
+    "footer": "For aluminium extrusion plants across India.",
     "footerNav": "Footer",
+    "privacy": "Privacy",
+    "terms": "Terms",
     "copyright": "© {year} orrn"
   }
 } as const;

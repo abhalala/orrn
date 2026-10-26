@@ -69,6 +69,15 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("contentinfo").getByRole("link", { name: "Guides" })).toHaveAttribute("href", "/guides");
   });
 
+  test("showcase technical plates, interactive press poses and seven plant roles render", async ({ page }) => {
+    await openMarketing(page);
+    const heroArt = page.locator("[data-marketing-hero] [data-extrusion-art]");
+    await expect(heroArt).toBeVisible();
+    await page.locator("[data-pose-pill=\"age\"]").click();
+    await expect(page.locator("[data-marketing-hero] .marketing-iso-plate")).toHaveAttribute("data-pose", "age");
+    await expect(page.locator("#floor article")).toHaveCount(7);
+  });
+
   test("sample product data is hidden from screen readers and visibly labelled", async ({ page }) => {
     await openMarketing(page);
     const visuals = page.locator("[data-demo-visual]");
@@ -147,6 +156,11 @@ test.describe("marketing page", () => {
       }).map((heading) => heading.textContent),
     );
     expect(tight).toEqual([]);
+    const heroLines = await page.locator(".marketing-hero h1").evaluate((heading) => {
+      const style = getComputedStyle(heading);
+      return heading.getBoundingClientRect().height / parseFloat(style.lineHeight);
+    });
+    expect(heroLines).toBeLessThanOrEqual(2.05);
   });
 
   test("reduced motion leaves all narrative content visible without running animations", async ({ page }) => {
@@ -221,6 +235,58 @@ test.describe("marketing page", () => {
     await page.keyboard.press("Tab");
     await expect(page.locator("[data-marketing-hero]").getByRole("link", { name: "Request access" })).toBeFocused();
   });
+});
+
+test.describe("legal pages", () => {
+  test("footer opens Privacy and Terms", async ({ page }) => {
+    await openMarketing(page);
+    await page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }).click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy policy");
+    await page.getByRole("contentinfo").getByRole("link", { name: "Terms" }).click();
+    await expect(page).toHaveURL(/\/terms$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Terms of service");
+  });
+
+  for (const path of ["/privacy", "/terms"]) {
+    test(`${path} has a localized document, section navigation and working skip link`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.locator("main h1")).toHaveCount(1);
+      await expect(page.locator("main article section")).toHaveCount(8);
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("Tab");
+      await expect(page.locator(".marketing-legal-nav a").first()).toBeFocused();
+      await page.getByRole("banner").getByRole("radio", { name: "हिंदी" }).click();
+      await expect(page.locator("html")).toHaveAttribute("lang", "hi");
+      await expect(page.locator("main h1")).toContainText(/[\u0900-\u097f]/);
+    });
+
+    for (const locale of ["en", "hi"] as const) {
+      for (const width of [375, 820, 1280]) {
+        test(`${path} has no sideways scroll or clipped text at ${width}px in ${locale}`, async ({ page }) => {
+          await page.setViewportSize({ width, height: 900 });
+          if (locale === "hi") await page.addInitScript(() => localStorage.setItem("orrn.locale", "hi"));
+          await page.goto(path);
+          await expect(page.locator("main h1")).toBeVisible();
+          expect(await collectHorizontalScrollIssues(page)).toEqual([]);
+          expect(await collectClippedTextIssues(page)).toEqual([]);
+        });
+      }
+    }
+
+    test(`${path} has no serious or critical axe violations`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(path);
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze();
+      const blocking = results.violations
+        .filter((violation) => violation.impact === "serious" || violation.impact === "critical")
+        .map((violation) => ({ id: violation.id, targets: violation.nodes.slice(0, 5).map((node) => node.target.join(" ")) }));
+      expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+    });
+  }
 });
 
 test.describe("session check", () => {

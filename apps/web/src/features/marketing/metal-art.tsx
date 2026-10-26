@@ -1,112 +1,388 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 
 export const PROCESS_STAGES = ["scrap", "cast", "die", "press", "age", "pack", "dispatch"] as const;
 export type ProcessStage = (typeof PROCESS_STAGES)[number];
 
-/** Original process illustrations, not product screenshots or measured plant data. */
-export function ExtrusionArt() {
-  const id = useId().replace(/:/g, "");
+export type BrandTone = "amber" | "red" | "blue" | "green";
+
+/**
+ * Each stage along the 7-step chain lights up with one of the four ORRN brand
+ * tones (matching the 4 tiles of OrrnMark in orrn-showcase).
+ */
+export const STAGE_TONE: Record<ProcessStage, BrandTone> = {
+  scrap: "amber",
+  cast: "red",
+  die: "blue",
+  press: "amber",
+  age: "red",
+  pack: "green",
+  dispatch: "blue",
+};
+
+export type KeyMark = "raised" | "flat" | "lit" | "dim" | "red" | "green" | "blue";
+
+type FigureLayer = { kind: "static"; svg: string } | { kind: "move"; id: string; svg: string };
+
+type FigureJson = {
+  name: string;
+  width: number;
+  height: number;
+  css: string;
+  layers: FigureLayer[];
+  axes: Record<string, [number, number]>;
+  meta: Record<string, unknown>;
+};
+
+type LayerPose = {
+  t?: number;
+  rotate?: number;
+  origin?: [number, number];
+  opacity?: number;
+};
+
+type FigurePose = Record<string, LayerPose>;
+
+type FigureName = "weighbridge" | "furnace" | "dieroom" | "press" | "pack" | "dispatch";
+
+const figureCache = new Map<FigureName, FigureJson>();
+const figurePromises = new Map<FigureName, Promise<FigureJson>>();
+
+function loadFigure(name: FigureName): Promise<FigureJson> {
+  const cached = figureCache.get(name);
+  if (cached) return Promise.resolve(cached);
+  const inflight = figurePromises.get(name);
+  if (inflight) return inflight;
+  const req = fetch(`/figures/${name}.json`)
+    .then((res) => {
+      if (!res.ok) throw new Error(`Failed to load figure ${name}`);
+      return res.json() as Promise<FigureJson>;
+    })
+    .then((json) => {
+      figureCache.set(name, json);
+      return json;
+    });
+  figurePromises.set(name, req);
+  return req;
+}
+
+function useFigure(name: FigureName): FigureJson | null {
+  const [fig, setFig] = useState<FigureJson | null>(() => figureCache.get(name) ?? null);
+  useEffect(() => {
+    let active = true;
+    const cached = figureCache.get(name);
+    if (cached) {
+      setFig(cached);
+      return;
+    }
+    loadFigure(name)
+      .then((loaded) => {
+        if (active) setFig(loaded);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [name]);
+  return fig;
+}
+
+const fine = (v: number) => Math.round(v * 1000) / 1000;
+
+export function layerTransform(
+  axis: [number, number] | undefined,
+  pose: LayerPose | undefined,
+): string | undefined {
+  if (!pose) return undefined;
+  const parts: string[] = [];
+  if (axis && pose.t) parts.push(`translate(${fine(axis[0] * pose.t)} ${fine(axis[1] * pose.t)})`);
+  if (pose.rotate) {
+    const [ox, oy] = pose.origin ?? [0, 0];
+    parts.push(`rotate(${fine(pose.rotate)} ${fine(ox)} ${fine(oy)})`);
+  }
+  return parts.length ? parts.join(" ") : undefined;
+}
+
+/** Scope SVG internal IDs (e.g. clipPath/radialGradient in press.json & furnace.json) per instance. */
+function scopeSvgIds(svg: string, uid: string): string {
+  return svg
+    .replace(/\bid="((?:pr|fu)-[^"]+)"/g, `id="${uid}-$1"`)
+    .replace(/url\(#((?:pr|fu)-[^)]+)\)/g, `url(#${uid}-$1)`);
+}
+
+/**
+ * 3D isometric legend swatch from orrn-showcase/figures/kit/kit/react/draw.tsx.
+ */
+export function Swatch({ mark }: { mark: KeyMark }) {
+  if (mark === "raised" || mark === "flat" || mark === "lit") {
+    return (
+      <svg className="iso-swatch" data-mark={mark} viewBox="0 0 16 10" aria-hidden="true" focusable="false">
+        <path d={mark === "flat" ? "M2 6.5 8 3.5 14 6.5 8 9.5Z" : "M2 4.5 8 1.5 14 4.5 14 6 8 9 2 6Z"} />
+        {mark === "flat" ? null : <path className="iso-swatch-crease" d="M2 4.5 8 7.5 14 4.5" />}
+      </svg>
+    );
+  }
   return (
-    <svg viewBox="0 0 1440 460" fill="none" focusable="false" className="marketing-extrusion">
-      <defs>
-        <linearGradient id={`${id}-heat`} x1="90" y1="130" x2="790" y2="310" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--tone-amber-to)" stopOpacity="0" />
-          <stop offset=".45" stopColor="var(--tone-amber-to)" />
-          <stop offset=".7" stopColor="var(--tone-amber-from)" />
-          <stop offset="1" stopColor="var(--foreground)" />
-        </linearGradient>
-        <linearGradient id={`${id}-steel`} x1="720" y1="160" x2="1120" y2="430" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--foreground)" />
-          <stop offset=".3" stopColor="var(--input)" />
-          <stop offset=".52" stopColor="var(--foreground)" />
-          <stop offset=".56" stopColor="var(--muted-foreground)" />
-          <stop offset="1" stopColor="var(--card)" />
-        </linearGradient>
-        <linearGradient id={`${id}-die`} x1="660" y1="80" x2="820" y2="350" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--input)" />
-          <stop offset=".4" stopColor="var(--card)" />
-          <stop offset="1" stopColor="var(--background)" />
-        </linearGradient>
-      </defs>
-      <g stroke="var(--border)" opacity=".65">
-        <path d="M0 385H1440M0 450 1440 335M160 460 850 80M520 460 1000 80M920 460 1160 80" />
-      </g>
-      <g className="marketing-molten">
-        <path d="M0 165C180 110 265 265 390 194S550 132 724 204L744 253C610 192 548 262 423 238S205 191 0 245Z" fill={`url(#${id}-heat)`} />
-        <path d="M30 192C240 153 270 239 401 212S574 184 725 226" stroke="var(--tone-amber-from)" strokeWidth="2" opacity=".8" />
-        <path d="M120 143C320 177 350 99 490 167S630 166 713 202" stroke="var(--tone-amber-to)" opacity=".4" />
-      </g>
-      <g>
-        <path d="M695 98 742 76C807 77 854 137 849 216S802 359 744 365L697 340Z" fill={`url(#${id}-die)`} stroke="var(--input)" />
-        <ellipse cx="700" cy="220" rx="92" ry="123" fill={`url(#${id}-die)`} stroke="var(--input)" />
-        <ellipse cx="700" cy="220" rx="67" ry="96" stroke="var(--muted-foreground)" opacity=".5" />
-        <path d="m675 189 33-10 26 22-10 18 17 16-26 29-38-9 5-23-17-18Z" fill="var(--background)" stroke="var(--tone-amber-to)" strokeWidth="2" />
-        <circle cx="675" cy="123" r="4" fill="var(--input)" /><circle cx="745" cy="154" r="4" fill="var(--input)" />
-        <circle cx="650" cy="300" r="4" fill="var(--input)" /><circle cx="752" cy="288" r="4" fill="var(--input)" />
-      </g>
-      <g className="marketing-profile">
-        <path d="m709 198 506 83 55 54-32 26-48-24-6 36-62 24-411-156 28-19Z" fill={`url(#${id}-steel)`} stroke="var(--muted-foreground)" />
-        <path d="m709 198 506 83-33 24-481-98M701 230l483 143M733 222l505 139M711 241l411 156" stroke="var(--foreground)" opacity=".6" />
-        <path d="m1215 281 55 54-32 26-48-24-6 36-62 24 9-40 36-18-22-24Z" fill="var(--card)" stroke="var(--foreground)" />
-        <path d="m1213 300 34 34-11 9-60-26-25 8 32 21-30 15-3 16 16-6 6-50 41 18" stroke="var(--muted-foreground)" strokeWidth="2" />
+    <svg className="iso-swatch" data-mark={mark} viewBox="0 0 16 10" aria-hidden="true" focusable="false">
+      <path d="M1.5 5h13" />
+    </svg>
+  );
+}
+
+/**
+ * The four-tile ORRN mark from orrn-showcase/src/ui/OrrnMark.tsx.
+ */
+const TILES = [
+  { x: 7, y: 7, fill: "var(--tone-red-from)", cls: "marketing-tile-0" },
+  { x: 17, y: 7, fill: "var(--tone-amber-from)", cls: "marketing-tile-1" },
+  { x: 7, y: 17, fill: "var(--tone-blue-from)", cls: "marketing-tile-2" },
+  { x: 17, y: 17, fill: "var(--tone-green-from)", cls: "marketing-tile-3" },
+] as const;
+
+export function OrrnMark({ size = 36 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      aria-hidden="true"
+      focusable="false"
+      className="marketing-orrn-mark"
+    >
+      <rect width={32} height={32} rx={9} fill="#141418" stroke="var(--border)" strokeWidth="1" />
+      {TILES.map((t) => (
+        <rect
+          key={t.cls}
+          className={`marketing-mark-tile ${t.cls}`}
+          x={t.x}
+          y={t.y}
+          width={8}
+          height={8}
+          rx={2.5}
+          fill={t.fill}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Computes the press & ageing oven pose using the exact kinematics from
+ * orrn-showcase/src/scenes/plant/poses.ts (R33: the ram drives the profile).
+ */
+export type PressPoseMode = "charge" | "press" | "age";
+
+export function computePressPose(mode: PressPoseMode): {
+  pose: FigurePose;
+  ram: number;
+  billet: number;
+  profile: number;
+  trolley: number;
+} {
+  const presets = {
+    charge: { ram: 24, billet: 20, profile: 0, trolley: 0, door: 0 },
+    press: { ram: 72, billet: 50, profile: 145, trolley: 18, door: 0 },
+    age: { ram: 80, billet: 50, profile: 203, trolley: 44, door: 64 },
+  } as const;
+  const p = presets[mode];
+  const segment = 29;
+  const pose: FigurePose = {
+    ram: { t: p.ram },
+    billet: { t: p.billet },
+    profile: { t: p.profile },
+    trolley: { t: p.trolley },
+    "oven-door": { t: p.door },
+  };
+  for (let i = 0; i < 8; i++) {
+    const id = `profile-${i + 1}`;
+    const start = i * segment;
+    const opacity = p.profile <= 0 ? 0 : p.profile >= start ? 1 : Math.max(0, (p.profile - (start - 3)) / 3);
+    pose[id] = { opacity };
+  }
+  return { pose, ram: p.ram, billet: p.billet, profile: p.profile, trolley: p.trolley };
+}
+
+/**
+ * Poses for each of the 7 stages in the chain, matching orrn-showcase Chapter 9.
+ */
+function stageFigureAndPose(stage: ProcessStage): { figureName: FigureName; pose: FigurePose } {
+  switch (stage) {
+    case "scrap":
+      return {
+        figureName: "weighbridge",
+        pose: {
+          truck: { t: 0 },
+          numerals: { opacity: 1 },
+          "needle-party": { rotate: 144, origin: [507.349, 188.582] },
+          "needle-ours": { rotate: 133.2, origin: [507.321, 188.582] },
+          "gap-arc": { opacity: 1 },
+        },
+      };
+    case "cast":
+      return {
+        figureName: "furnace",
+        pose: {
+          door: { t: 26 },
+          charge: { t: 0, opacity: 1 },
+          glow: { opacity: 1 },
+          logs: { t: 0, opacity: 1 },
+          dross: { opacity: 1 },
+        },
+      };
+    case "die":
+      return {
+        figureName: "dieroom",
+        pose: {
+          copy: { t: 0 },
+          band: { opacity: 1 },
+          piece: { t: 0 },
+          needle: { rotate: 37.125, origin: [525.955, 227.554] },
+        },
+      };
+    case "press":
+      return {
+        figureName: "press",
+        pose: computePressPose("press").pose,
+      };
+    case "age":
+      return {
+        figureName: "press",
+        pose: computePressPose("age").pose,
+      };
+    case "pack":
+      return {
+        figureName: "pack",
+        pose: {
+          bundle: { t: 0 },
+          sticker: { t: 10 },
+        },
+      };
+    case "dispatch":
+      return {
+        figureName: "dispatch",
+        pose: {
+          truck: { t: 0 },
+          beam: { opacity: 1 },
+        },
+      };
+  }
+}
+
+/**
+ * Synchronous isometric blueprint fallback while the figure JSON resolves.
+ */
+function BlueprintFallback({
+  width = 640,
+  height = 320,
+  extraProps,
+}: {
+  width?: number;
+  height?: number;
+  extraProps?: Record<string, string>;
+}) {
+  return (
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      fill="none"
+      focusable="false"
+      className="iso iso-svg marketing-extrusion"
+      {...extraProps}
+    >
+      <g stroke="var(--border)" strokeWidth="0.8">
+        <path d="M56 238 308 112 584 226 332 308Z" fill="#131316" />
+        <path d="M126 196 276 122 498 206 348 282Z" fill="#18181c" stroke="var(--input)" />
+        <path d="M168 176 268 128 364 166 264 214Z" fill="#1f1f24" stroke="var(--foreground)" strokeOpacity="0.45" />
+        <path d="M294 176 516 258" stroke="var(--tone-amber-from)" strokeWidth="1.5" />
       </g>
     </svg>
   );
 }
 
-export function ProcessArt({ stage }: { stage: ProcessStage }) {
-  const id = useId().replace(/:/g, "");
+/**
+ * Renders an orrn-showcase FigureJson as an isometric technical SVG.
+ */
+function IsoFigureSvg({
+  figure,
+  pose,
+  extraProps,
+}: {
+  figure: FigureJson;
+  pose: FigurePose;
+  extraProps?: Record<string, string>;
+}) {
+  const rawId = useId().replace(/:/g, "");
   return (
-    <svg viewBox="0 0 520 400" fill="none" focusable="false" data-process-art data-stage={stage}>
-      <defs>
-        <linearGradient id={`${id}-metal`} x1="100" y1="80" x2="360" y2="340" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--foreground)" /><stop offset=".3" stopColor="var(--input)" />
-          <stop offset=".52" stopColor="var(--foreground)" /><stop offset="1" stopColor="var(--card)" />
-        </linearGradient>
-        <linearGradient id={`${id}-hot`} x1="140" y1="70" x2="330" y2="320" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--tone-amber-from)" /><stop offset="1" stopColor="var(--tone-amber-to)" stopOpacity=".25" />
-        </linearGradient>
-      </defs>
-      <g stroke="var(--border)"><path d="m30 310 230-140 230 140-230 75Z" /><path d="M260 170V45M30 310v-85M490 310v-85" /></g>
-      <g data-metal-stage="scrap" fill={`url(#${id}-metal)`} stroke="var(--input)">
-        <path d="m100 245 86-76 39 12-51 75 43 22-58 27Z" /><path d="m210 170 57-58 55 38-19 41-43-23-22 31Z" />
-        <path d="m277 250 67-68 70 30-26 55-71 41-44-26 43-28Z" /><path d="m195 292 59-64 41 16-45 84Z" />
-      </g>
-      <g data-metal-stage="cast">
-        <path d="m162 100 95-39 70 33-36 66-94 21Z" fill={`url(#${id}-metal)`} stroke="var(--input)" />
-        <path d="M287 139c-24 60 31 66 6 122" stroke={`url(#${id}-hot)`} strokeWidth="12" />
-        <ellipse cx="265" cy="275" rx="91" ry="38" fill={`url(#${id}-hot)`} />
-        <path d="M174 275v40c0 50 182 50 182 0v-40" fill={`url(#${id}-metal)`} stroke="var(--input)" />
-        <ellipse cx="265" cy="275" rx="91" ry="38" stroke="var(--tone-amber-from)" />
-      </g>
-      <g data-metal-stage="die">
-        <path d="m238 90 47-15c126 16 126 232 0 250l-47-15" fill={`url(#${id}-metal)`} stroke="var(--input)" />
-        <ellipse cx="238" cy="200" rx="99" ry="112" fill={`url(#${id}-metal)`} stroke="var(--input)" />
-        <ellipse cx="238" cy="200" rx="75" ry="88" stroke="var(--muted-foreground)" />
-        <path d="m204 176 35-15 33 18-13 25 19 16-35 25-33-17 10-24-22-12Z" fill="var(--background)" stroke="var(--tone-amber-to)" strokeWidth="2" />
-      </g>
-      <g data-metal-stage="press" fill={`url(#${id}-metal)`} stroke="var(--input)">
-        <path d="m105 133 80-40 247 164-75 57Z" /><path d="m105 133 252 181v-37L105 99Z" />
-        <path d="m357 277 75-57v37l-75 57Z" fill="var(--card)" /><path d="m123 137 234 161 55-41M357 298v-21" stroke="var(--foreground)" />
-      </g>
-      <g data-metal-stage="age" stroke="var(--input)">
-        <path d="m100 160 150-79 173 94v139l-154 58-169-82Z" fill="var(--card)" />
-        <path d="m100 160 169 90 154-75M269 250v122" /><path d="m128 193 111 60v64l-111-54Z" fill={`url(#${id}-hot)`} />
-        <path d="m142 214 86 46m-86-24 86 46m-86-24 86 46" stroke="var(--foreground)" />
-        <path d="m310 220 76-31m-76 62 76-31m-76 62 76-31" />
-      </g>
-      <g data-metal-stage="pack" fill={`url(#${id}-metal)`} stroke="var(--input)">
-        <path d="m95 185 94-54 244 145-99 60Z" /><path d="m95 185 239 151v-42L95 143Z" />
-        <path d="m334 294 99-59v41l-99 60Z" fill="var(--card)" />
-        <path d="m174 140 238 145m-26-131-95 55v44m189-98-96 56v43" stroke="var(--foreground)" />
-        <path d="m243 249 43 28v35l-43-27Z" fill="var(--foreground)" />
-      </g>
-      <g data-metal-stage="dispatch" stroke="var(--input)">
-        <path d="m76 180 145-80 199 113-150 85Z" fill={`url(#${id}-metal)`} />
-        <path d="M76 180v56l194 115v-53M270 351l150-87v-51" fill="var(--card)" />
-        <path d="m124 161 194 113m-145-140 196 112M105 216l137 79" />
-        <path d="m323 123 36-21 61 35-36 22Z" fill="var(--tone-amber-to)" /><path d="m384 159 0 38 36-21v-39" fill={`url(#${id}-hot)`} />
-      </g>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="iso iso-svg marketing-extrusion"
+      viewBox={`0 0 ${figure.width} ${figure.height}`}
+      focusable="false"
+      {...extraProps}
+    >
+      <style>{figure.css}</style>
+      {figure.layers.map((layer, index) => {
+        const scoped = scopeSvgIds(layer.svg, rawId);
+        if (layer.kind === "static") {
+          return <g key={index} dangerouslySetInnerHTML={{ __html: scoped }} />;
+        }
+        const p = pose[layer.id];
+        const opacity = p?.opacity;
+        return (
+          <g
+            key={index}
+            data-part={layer.id}
+            transform={layerTransform(figure.axes[layer.id], p)}
+            opacity={opacity === undefined ? undefined : Math.max(0, Math.min(1, opacity))}
+            dangerouslySetInnerHTML={{ __html: scoped }}
+          />
+        );
+      })}
     </svg>
+  );
+}
+
+/**
+ * Hero centerpiece: The F4 Extrusion Press & Ageing Oven anatomy figure from
+ * orrn-showcase, framed inside an iso-plate with interactive pose controls.
+ */
+export function ExtrusionArt({
+  poseMode = "press",
+}: {
+  poseMode?: PressPoseMode;
+}) {
+  const figure = useFigure("press");
+  const { pose } = computePressPose(poseMode);
+  if (!figure) {
+    return <BlueprintFallback width={640} height={320} extraProps={{ "data-extrusion-art": "" }} />;
+  }
+  return (
+    <IsoFigureSvg
+      figure={figure}
+      pose={pose}
+      extraProps={{ "data-extrusion-art": "", "data-pose-mode": poseMode }}
+    />
+  );
+}
+
+/**
+ * Stage plate artwork for each of the 7 extrusion stages in #flow.
+ */
+export function ProcessArt({ stage }: { stage: ProcessStage }) {
+  const { figureName, pose } = stageFigureAndPose(stage);
+  const figure = useFigure(figureName);
+  if (!figure) {
+    return (
+      <BlueprintFallback
+        width={640}
+        height={340}
+        extraProps={{ "data-process-art": "", "data-stage": stage }}
+      />
+    );
+  }
+  return (
+    <IsoFigureSvg
+      figure={figure}
+      pose={pose}
+      extraProps={{ "data-process-art": "", "data-stage": stage }}
+    />
   );
 }
