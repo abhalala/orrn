@@ -90,7 +90,7 @@ const localInput = (ms: number) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-type Line = { pressRunLineId: string; pressRunNumber: string; sectionLabel: string; pcsLeft: number; alloy: string | null; temper: string | null; salesOrderLineId: string | null };
+type Line = { pressRunLineId: string; pressRunNumber: string; sectionLabel: string; lengthMm: number; pcsLeft: number; alloy: string | null; temper: string | null; salesOrderLineId: string | null };
 type Fx = { tag: string; oven: { id: string; code: string }; trolleys: { id: string; code: string }[]; recipeId: string; shiftId: string; lines: Line[]; batches: string[]; orderId: string; pressLineId: string; copyId: string };
 
 async function makeFixture(width: number): Promise<Fx> {
@@ -258,12 +258,12 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("heading", { level: 1, name: "Load a trolley" })).toBeVisible();
       await expect(page.locator('[data-slot="trolley-picker"]').getByRole("radio", { name: fx.trolleys[0]!.code })).toBeChecked();
       const line = fx.lines[0]!;
-      const box = page.getByRole("checkbox", { name: new RegExp(`${line.pressRunNumber} ${line.sectionLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
-      await box.check();
+      const pickedPressLine = page.locator(`[data-line="${line.pressRunNumber}"]`).filter({ hasText: `${line.lengthMm} mm` });
+      await pickedPressLine.getByRole("checkbox").check();
       // Pieces default to all that is left; a pick over the line is told so and not sent.
-      const pcs = page.locator(`[data-line="${line.pressRunNumber}"]`).first().getByTestId("line-pcs");
+      const pcs = pickedPressLine.getByTestId("line-pcs");
       await pcs.fill(String(line.pcsLeft + 1));
-      await expect(page.locator(`[data-line="${line.pressRunNumber}"]`).first()).toContainText(`Only ${line.pcsLeft} pieces`);
+      await expect(pickedPressLine).toContainText(`Only ${line.pcsLeft} pieces`);
       await pcs.fill("4");
       await expect(page.getByTestId("load-summary")).toContainText("1 line, 4 pcs");
       await clean(page);

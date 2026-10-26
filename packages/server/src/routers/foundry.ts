@@ -186,10 +186,7 @@ const legacyCodeInput = z
   .max(40)
   .optional()
   .transform((s) => (s === undefined || s.trim() === "" ? null : normalLegacy(s)))
-  .refine((s) => s === null || LEGACY_CODE.test(s), { message: "A legacy code is up to 20 letters, digits, spaces or - / . _" })
-  .refine((s) => s === null || (parseCastCode(s) === null && parseBundleNo(s) === null), {
-    message: "A legacy code cannot be a cast series code or bundle number",
-  });
+  .refine((s) => s === null || LEGACY_CODE.test(s), { message: "A legacy code is up to 20 letters, digits, spaces or - / . _" });
 /** The physical billet count at close (Q59-A): pieces and grams, both zero or both above zero. */
 const billetCount = z
   .object({
@@ -739,6 +736,9 @@ const castsRouter = router({
         .refine((v) => v.alloy !== undefined || v.alloyId !== undefined, { message: "Pick the alloy" }),
     )
     .mutation(async ({ ctx, input: raw }) => {
+      if (raw.legacyCode && (parseCastCode(raw.legacyCode) !== null || parseBundleNo(raw.legacyCode) !== null)) {
+        bad("A legacy code cannot be a cast series code or bundle number");
+      }
       // The alloy master row: picked by id, or found by the code (a plant with no master keeps the code only).
       let alloyId: string | null = null;
       let alloyCode: string;

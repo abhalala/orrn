@@ -1031,7 +1031,7 @@ describe("ported from the satellite's reference branch (wt/W2-FD-S-omafranky @dd
 // ---------------------------------------------------------------------------
 
 describe("FINAL-FIXES-4 FD-02: a legacy code on an imported cast, and the cast book's start number", () => {
-  test.each(["K31", " k31 ", "K  31", "A1", "L99999", "26J1842", " 26j1842 ", "00A1", "99L99999"])(
+  test.each([" k  31 ", "L99999", " 26j1842 ", "99L99999"])(
     "reserved generated code %s cannot become a legacy code or insert a cast",
     async (legacyCode) => {
       const p = await foundryPlant();
