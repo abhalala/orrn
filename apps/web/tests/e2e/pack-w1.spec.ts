@@ -283,7 +283,7 @@ test.describe("pack: a booking order is offered last and marked (wave-2 M9)", ()
       await page.locator("button[data-die]").filter({ hasText: section.sectionCode }).click();
       const orders = page.locator("[data-slot='order-picker']");
       const ours = orders.locator("label").filter({ hasText: name });
-      await expect(orders.locator("label")).toHaveCount(2);
+      await expect(orders.locator("label").filter({ hasText: `Confirmed ${section.sectionCode}` })).toBeVisible();
       await expect(ours).toBeVisible({ timeout: 15_000 });
       await expect(ours).toContainText("Booking, not confirmed");
       await expect(ours).not.toContainText("Suggested");

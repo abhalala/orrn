@@ -649,7 +649,7 @@ test.describe("final fixes 5 at 1280", () => {
     const lock = page.getByTestId("melt-lock");
     await expect(lock).toBeEnabled({ timeout: 30_000 });
     await lock.dblclick();
-    await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}`), { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}$`), { timeout: 30_000 });
     expect(locks).toEqual(["lock"]);
   });
 });
