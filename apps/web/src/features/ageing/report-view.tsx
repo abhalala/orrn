@@ -246,4 +246,3 @@ export function AgeingReport({ search, onSearch }: { search: AgeingReportSearch;
     </ReportsGate>
   );
 }
-

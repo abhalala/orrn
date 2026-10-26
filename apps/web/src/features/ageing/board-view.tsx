@@ -326,4 +326,3 @@ function HeldCard({ batch }: { batch: BatchSummary }) {
     </Panel>
   );
 }
-
