@@ -12,8 +12,8 @@ export { chunk, D1_MAX_PARAMS, IN_LIST_CHUNK, mapInChunks, rowsPerStatement } fr
  * Do not use `db.transaction()` — Drizzle issues SQL `BEGIN`, which D1 rejects.
  * Use `atomicBatch()` from `@orrn/db/atomic` (re-exported by `@orrn/server/lib/atomic`).
  */
-export function createDb() {
-  const db = drizzle(env.DB, { schema });
+export function createDb(binding: D1Database = env.DB) {
+  const db = drizzle(binding, { schema });
 
   db.transaction = () => {
     throw new Error(

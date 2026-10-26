@@ -1,11 +1,7 @@
-import { unsentEmailLog } from "@orrn/auth/unsent-email";
+import { sendTransactionalEmail, type EmailOptions } from "@orrn/auth/email-delivery";
 import { env } from "@orrn/env/server";
 
-export interface SendEmailOptions {
-  to: string;
-  subject: string;
-  html: string;
-}
+export type SendEmailOptions = EmailOptions;
 
 export function renderOrrnEmailHtml(options: {
   title: string;
@@ -67,33 +63,6 @@ export function renderOrrnEmailHtml(options: {
   `;
 }
 
-export async function sendEmail(options: SendEmailOptions) {
-  if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
-    // Never the body outside development: approval emails hold a live sign-in link.
-    console.log(unsentEmailLog(env.NODE_ENV, options));
-    return { success: true, messageId: "mock-message-id" };
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: "ORRN <no-reply@orrn.in>",
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to send email via Resend:", errorText);
-    throw new Error("Failed to send email");
-  }
-
-  const data = await res.json();
-  return { success: true, messageId: (data as any).id as string };
+export function sendEmail(options: SendEmailOptions) {
+  return sendTransactionalEmail(env, options);
 }

@@ -16,6 +16,8 @@ export interface CloudflareEnv {
   BETTER_AUTH_URL: string;
   ORRN_MASTER_KEY: string;
   RESEND_API_KEY: string;
+  /** Optional Email Sending binding; absent until supported deployment tooling and account setup. */
+  EMAIL?: SendEmail;
   WEBHOOK_BASE_URL: string;
   COOKIE_DOMAIN: string;
   CF_API_TOKEN: string;

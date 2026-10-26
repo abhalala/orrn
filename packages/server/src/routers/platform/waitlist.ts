@@ -150,9 +150,10 @@ async function issueOwnerSignIn(
   let emailSent = false;
   let emailError: string | null = null;
   try {
-    const result = await sendEmail({
+    await sendEmail({
       to: request.requesterEmail,
       subject,
+      text,
       html: renderOrrnEmailHtml({
         title: "Your workspace is ready",
         description: `Hi ${escapeHtml(request.requesterName)}, ${escapeHtml(intro)} ${action}`,
@@ -161,9 +162,7 @@ async function issueOwnerSignIn(
         footerText: footer,
       }),
     });
-    // The mock sender (local dev, or no Resend key) logs instead of sending.
-    emailSent = result.messageId !== "mock-message-id";
-    if (!emailSent) emailError = "Email sending is not set up on this server";
+    emailSent = true;
   } catch (error) {
     emailError = error instanceof Error ? error.message : "Failed to send email";
   }

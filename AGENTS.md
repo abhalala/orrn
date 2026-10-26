@@ -1210,8 +1210,13 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `scope: "kpis"` answer hides the lists. `/audit` is `audit.list` (cursor paging, filters in the
   URL; each row carries `subjectLabel`, the number, code or name of its subject from `lib/auditSubjects.ts`, this plant only, and the
   web shows "Packing list PL/2026-27/5" with a link to it and "Only this" (named with the subject for screen readers) for the filter, never the raw id: BACKLOG 100. Rule: only a hard-deleted subject has no label; a soft-deleted or archived one keeps its label and link, which is right for a log. A vendor or purchase lot link may lead to a page a non-purchase reader cannot open; that page refuses them); Godseye's company Audit tab uses `platform.companiesAudit` and shows the labels as plain text (`AuditRows linkSubjects={false}`): those screens would open the staff member's own plant, not the plant being audited. Forgot password is Better Auth's
-  `requestPasswordReset` / `resetPassword` (`sendResetPassword` in packages/auth: the email body is
-  logged only on a development stack, like magic links). The magic-link guard redirects a refused
+  `requestPasswordReset` / `resetPassword` (`sendResetPassword` in packages/auth). Auth and invitation
+  emails share `@orrn/auth/email-delivery`: optional real `EMAIL` binding first, otherwise Resend; a
+  provider failure is never retried through another provider. Missing providers throw (no mock
+  success); only an unconfigured development stack previews the unsent body. Production logs never
+  include link bodies or provider response bodies. Auth instances are cached by environment object,
+  with callbacks bound to that environment, not a shared mutable current-request variable.
+  `docs/DEPLOY_PROMOTION.md` records why Alchemy leaves Cloudflare Sending disabled. The magic-link guard redirects a refused
   link to `errorCallbackURL?error=ACCOUNT_USES_PASSWORD` when that URL is on a trusted origin
   (/continue shows the password message), else it answers 403. `gu` loads English with it, so a
   key gu lacks falls back to English instead of printing the key.

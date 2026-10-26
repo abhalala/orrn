@@ -187,6 +187,71 @@ describe("forgot password", () => {
     expect(login.status).toBe(200);
     expect(((await login.json()) as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
   });
+
+  test("cached auth instances keep overlapping reset sends on their own request environment", async () => {
+    const { createAuth } = await import("@orrn/auth");
+    const firstUser = await makeUser();
+    const secondUser = await makeUser();
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const deliveries: string[] = [];
+    const config: Env = {
+      DB: env.d1,
+      NODE_ENV: "production",
+      CORS_ORIGIN: "https://app.test",
+      CORS_ALLOWED_ORIGINS: "https://app.test",
+      WEB_PUBLIC_URL: "https://app.test",
+      BETTER_AUTH_URL: "https://api.test",
+      BETTER_AUTH_SECRET: "request-environment-test-secret-0123456789",
+      COOKIE_DOMAIN: "",
+      ORRN_MASTER_KEY: "",
+      RESEND_API_KEY: "",
+      WEBHOOK_BASE_URL: "",
+      CF_API_TOKEN: "",
+      CF_ACCOUNT_ID: "",
+      CF_ZONE_ID_IN: "",
+    };
+    const firstEnv: Env = {
+      ...config,
+      EMAIL: {
+        async send(message) {
+          deliveries.push(`first:${message.to}`);
+          entered.resolve();
+          await release.promise;
+          return { messageId: "first-message" };
+        },
+      },
+    };
+    const secondEnv: Env = {
+      ...config,
+      EMAIL: {
+        async send(message) {
+          deliveries.push(`second:${message.to}`);
+          return { messageId: "second-message" };
+        },
+      },
+    };
+    const firstAuth = createAuth(firstEnv);
+    const secondAuth = createAuth(secondEnv);
+    expect(createAuth(firstEnv)).toBe(firstAuth);
+    expect(createAuth(secondEnv)).toBe(secondAuth);
+    expect(firstAuth).not.toBe(secondAuth);
+    const resetRequest = (email: string) => new Request("https://api.test/api/auth/request-password-reset", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://app.test" },
+      body: JSON.stringify({ email, redirectTo: "https://app.test/reset-password" }),
+    });
+    const first = firstAuth.handler(resetRequest(firstUser.email));
+    try {
+      await entered.promise;
+      const second = await secondAuth.handler(resetRequest(secondUser.email));
+      expect(second.status).toBe(200);
+    } finally {
+      release.resolve();
+    }
+    expect((await first).status).toBe(200);
+    expect(deliveries).toEqual([`first:${firstUser.email}`, `second:${secondUser.email}`]);
+  });
 });
 
 describe("rate limit on /request-password-reset (BACKLOG 23)", () => {
