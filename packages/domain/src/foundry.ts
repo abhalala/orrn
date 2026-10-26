@@ -285,6 +285,31 @@ export function elementSymbol(key: string): string {
 }
 export const PPM_TOTAL = 1_000_000;
 
+/**
+ * The canonical element key of a stored spectro key, whatever its case ("Si", "FE", " mg " -> "si", "fe", "mg"), or
+ * null when it is not one of the nine elements. The seed, the spool watcher and a typed entry store different cases
+ * (final explore round 2, M1); every reader goes through this so "Si" and "si" are the same element.
+ */
+export function spectroElementKey(key: string): SpectroElementKey | null {
+  const k = key.trim().toLowerCase();
+  return (SPECTRO_ELEMENTS as readonly string[]).includes(k) ? (k as SpectroElementKey) : null;
+}
+
+/**
+ * A stored values map with its element keys made canonical (lowercase): `{ Si: 0.45 }` -> `{ si: 0.45 }`. Keys that are
+ * not one of the nine elements are kept as they are. When both "Si" and "si" are present the canonical key wins.
+ */
+export function normalizeSpectroValues<T>(values: Readonly<Record<string, T>> | null | undefined): Record<string, T> {
+  const out: Record<string, T> = {};
+  if (!values) return out;
+  for (const [k, v] of Object.entries(values)) {
+    const el = spectroElementKey(k);
+    if (el === null) out[k] = v;
+    else if (k === el || !(el in out)) out[el] = v;
+  }
+  return out;
+}
+
 export type SpectroPpm = Partial<Record<SpectroElementKey, number | null>>;
 export type SpectroLimit = { element: SpectroElementKey; minPpm: number | null; maxPpm: number | null };
 export type SpectroVerdict = "pass" | "fail" | "incomplete";

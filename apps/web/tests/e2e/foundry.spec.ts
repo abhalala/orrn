@@ -558,3 +558,98 @@ test.describe("the cast book starts where the paper book is (FP-FD-02)", () => {
   });
 });
 
+test.describe("final fixes 5 at 1280", () => {
+  test("M1: a spectro attached with symbol keys (Si, Fe) and the seed's own symbol-key rows fill the melt table and the certificate", async ({ page }) => {
+    const api = await ownerApi();
+    const cast = await openOwnCast(api);
+    const melt = await lockOwnMelt(api, cast.id);
+    await api.mutate("foundry.spectro.attach", {
+      meltId: melt.meltId,
+      fileName: "K.csv",
+      mime: "text/csv",
+      base64: "",
+      entryReason: "e2e symbol keys",
+      values: { Si: 0.42, Fe: 0.41, Cu: 0.02, Mn: 0.03, Mg: 0.52, Zn: 0.01, Ti: 0.02, Cr: 0.01 },
+    });
+    await api.dispose();
+    await open(page, `/casts/${cast.id}/certificate`, 1280, "manager");
+    const cert = page.getByTestId("cast-certificate");
+    await expect(page.getByTestId("cert-verdict")).toHaveText("Fail");
+    await expect(cert.locator("[data-element='si']")).toContainText("0.420");
+    await expect(cert.locator("[data-element='fe']")).toContainText("0.410");
+    await expect(cert.locator("[data-element='fe']")).toContainText("Outside");
+    // The seed's first cast was written by the watcher with symbol keys: its melt table is not all dashes.
+    await page.goto("/casts/dev-press-cast-1/certificate");
+    const seeded = page.getByTestId("cast-certificate");
+    await expect(seeded.locator("[data-element='si']")).toContainText("0.450");
+    await expect(seeded.locator("[data-element='mg']")).toContainText("0.520");
+  });
+
+  test("M3 and M4: a close waiting for approval says so with its tail, and a double click sends ONE close and ONE approve", async ({ page, browser }) => {
+    const api = await ownerApi();
+    const cast = await openOwnCast(api);
+    await lockOwnMelt(api, cast.id, { inKg: 120, logsKg: 100, drossKg: 4, feKg: 1 });
+    await api.dispose();
+    const sent: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && r.url().includes("foundry.casts.close")) sent.push("close");
+    });
+    await open(page, `/casts/${cast.id}`, 1280, "supervisor");
+    await page.getByTestId("close-cast").click();
+    await page.getByTestId("close-pcs").fill("3");
+    await page.getByTestId("close-kg").fill("90");
+    await expect(page.getByTestId("close-needs-approval")).toBeVisible();
+    await page.getByTestId("close-reason").selectOption({ index: 2 });
+    await page.getByTestId("close-confirm").dblclick();
+    await expect(page.getByTestId("closing-note")).toBeVisible();
+    await expect(page.getByTestId("tail-chip")).toBeVisible();
+    await expect(fig(page, "fig-tail")).toHaveText("10.0 kg");
+    expect(sent).toEqual(["close"]);
+
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const manager = await ctx.newPage();
+    const decided: string[] = [];
+    manager.on("request", (r) => {
+      if (r.method() === "POST" && r.url().includes("approval.decide")) decided.push("decide");
+    });
+    await open(manager, "/approvals", 1280, "manager");
+    const item = manager.locator("main#main").locator("li, tr").filter({ hasText: `Close cast ${cast.number}` }).first();
+    await item.getByRole("button", { name: "Review" }).click();
+    await expect(manager.getByTestId("foundry-summary")).toBeVisible();
+    await manager.getByRole("button", { name: "Approve", exact: true }).dblclick();
+    await expect(manager.locator("main#main").locator("li, tr").filter({ hasText: `Close cast ${cast.number}` })).toHaveCount(0);
+    expect(decided).toEqual(["decide"]);
+    await expect(manager.getByText("This request was already decided.")).toHaveCount(0);
+    await ctx.close();
+  });
+
+  test("M4: a double click on Lock melt sends one lock", async ({ page }) => {
+    const api = await ownerApi();
+    const cast = await openOwnCast(api);
+    const lot = await (await import("./helpers/own-foundry")).bigLot(api);
+    const furnaces = await api.query<{ items: { id: string; status: string }[] }>("foundry.furnaces.list", undefined);
+    const { yesterdayAt } = await import("./helpers/own-foundry");
+    const draft = await api.mutate<{ id: string }>("foundry.melts.save", {
+      castId: cast.id,
+      furnaceId: furnaces.items.find((f) => f.status === "active")?.id,
+      times: { chargingStart: yesterdayAt(1), chargingEnd: yesterdayAt(2), castingStart: yesterdayAt(3), castingEnd: yesterdayAt(4) },
+      inputs: [{ kind: "lot", ref: lot.id, kgG: 100_000 }],
+      logs: [{ pcs: 4, lengthMm: 3658, kgG: 95_000 }],
+      drossG: 3000,
+      feG: 1000,
+      spectroReason: "Spectro comes later (e2e)",
+      balanceNote: "Burn noted for the e2e",
+    });
+    await api.dispose();
+    const locks: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && r.url().includes("foundry.melts.lock")) locks.push("lock");
+    });
+    await open(page, `/casts/${cast.id}/melt/${draft.id}?step=spectro`, 1280, "foundry");
+    const lock = page.getByTestId("melt-lock");
+    await expect(lock).toBeEnabled({ timeout: 30_000 });
+    await lock.dblclick();
+    await expect(page).toHaveURL(new RegExp(`/casts/${cast.id}`), { timeout: 30_000 });
+    expect(locks).toEqual(["lock"]);
+  });
+});

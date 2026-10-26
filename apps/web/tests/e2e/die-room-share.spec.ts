@@ -74,11 +74,18 @@ for (const width of WIDTHS) {
       const sheet = page.getByTestId("share-sheet");
       await expect(sheet).toBeVisible();
       await expect(sheet.getByTestId("share-empty")).toBeVisible();
-      await page.getByTestId("share-create").click();
+      // M4 (final fixes 5): a double click makes ONE link.
+      const creates: string[] = [];
+      page.on("request", (r) => {
+        if (r.method() === "POST" && r.url().includes("die.share.create")) creates.push("create");
+      });
+      await page.getByTestId("share-create").dblclick();
       const linkBox = sheet.getByTestId("share-link");
       await expect(linkBox).toBeVisible();
       const link = (await linkBox.innerText()).trim();
       expect(link).toMatch(/\/share\/die\/[A-Za-z0-9_-]{43}$/);
+      expect(creates).toEqual(["create"]);
+      await expect(sheet.getByTestId("share-list").locator("li")).toHaveCount(1);
       await expect(sheet.getByTestId("share-copy")).toBeVisible();
       const row = sheet.getByTestId("share-list").locator("li").first();
       await expect(row).toContainText("Open");

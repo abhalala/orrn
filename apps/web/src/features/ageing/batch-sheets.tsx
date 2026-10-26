@@ -2,13 +2,14 @@ import { useT } from "@orrn/i18n";
 import { Dialog } from "@orrn/ui/components/dialog";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { reasonOptions } from "@/features/press/reason-label";
 import { kgFromG } from "@/features/press/model";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { useActionKey, useAgeingInvalidate, useDuration, useShifts, type Batch, type BatchRow, type Recipe } from "./hooks";
@@ -93,7 +94,7 @@ export function StartSheet({ open, onOpenChange, batch }: SheetProps) {
   const inError = tried && inAt && inMs === null ? t("ageing.start.timeInvalid") : undefined;
   const blocked = !ovenId || !recipeId || !shiftId;
 
-  const start = useMutation(
+  const start = useOnceMutation(
     trpc.ageing.batches.start.mutationOptions({
       onSuccess: async (res) => {
         key.reset();
@@ -187,7 +188,7 @@ export function TakeOutSheet({ open, onOpenChange, batch }: SheetProps) {
   }, [open]);
   const gasMilli = gasFromText(gas);
   const outMs = outAt ? msFromLocalInput(outAt) : null;
-  const out = useMutation(
+  const out = useOnceMutation(
     trpc.ageing.batches.out.mutationOptions({
       onSuccess: async () => {
         key.reset();
@@ -248,7 +249,7 @@ export function TempSheet({ open, onOpenChange, batch }: SheetProps) {
   }, [open]);
   const x10 = x10FromText(temp);
   const atMs = at ? msFromLocalInput(at) : null;
-  const save = useMutation(
+  const save = useOnceMutation(
     trpc.ageing.batches.temp.mutationOptions({
       onSuccess: async () => {
         key.reset();
@@ -320,7 +321,7 @@ export function HardnessSheet({ open, onOpenChange, batch, rowId }: SheetProps &
   const readings = hardnessReadings(texts);
   const median = readings ? previewMedianX10(readings) : null;
   const target = batch.rows.find((r) => r.id === row);
-  const save = useMutation(
+  const save = useOnceMutation(
     trpc.ageing.batches.hardness.mutationOptions({
       onSuccess: async (res) => {
         key.reset();
@@ -422,7 +423,7 @@ export function HoldSheet({ open, onOpenChange, batch, row }: SheetProps & { row
   }, [open]);
   const chosen = (reasons.data ?? []).find((r) => r.id === reasonId);
   const needsNote = Boolean(chosen && (chosen.requiresNote || chosen.code === "other"));
-  const hold = useMutation(
+  const hold = useOnceMutation(
     trpc.ageing.batches.hold.mutationOptions({
       onSuccess: async () => {
         toast.success(t("ageing.hold.done"));
@@ -468,7 +469,7 @@ export function HoldSheet({ open, onOpenChange, batch, row }: SheetProps & { row
 export function UnholdDialog({ row, onClose }: { row: BatchRow | null; onClose(): void }) {
   const { t } = useT();
   const invalidate = useAgeingInvalidate();
-  const unhold = useMutation(
+  const unhold = useOnceMutation(
     trpc.ageing.batches.unhold.mutationOptions({
       onSuccess: async () => {
         toast.success(t("ageing.unhold.done"));
@@ -524,7 +525,7 @@ export function DiscardSheet({ open, onOpenChange, batch, row }: SheetProps & { 
   const n = wholeFromText(pcs);
   const chosen = (reasons.data ?? []).find((r) => r.id === reasonId);
   const needsNote = Boolean(chosen && (chosen.requiresNote || chosen.code === "other"));
-  const discard = useMutation(
+  const discard = useOnceMutation(
     trpc.ageing.batches.discardRemaining.mutationOptions({
       onSuccess: async () => {
         toast.success(t("ageing.discard.done"));
@@ -597,7 +598,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
   const total = parsed.reduce((a, c) => a + (c.lengthMm ?? 0) * (c.pcs ?? 0), 0);
   const want = row ? row.pcs * row.lengthMm : 0;
   const sumOk = Math.abs(total - want) <= SPLIT_TOLERANCE_MM;
-  const split = useMutation(
+  const split = useOnceMutation(
     trpc.ageing.batches.split.mutationOptions({
       onSuccess: async () => {
         toast.success(t("ageing.split.done"));
@@ -657,7 +658,7 @@ export function OverrideSheet({ open, onOpenChange, batch }: SheetProps) {
       setTried(false);
     }
   }, [open]);
-  const ask = useMutation(
+  const ask = useOnceMutation(
     trpc.ageing.batches.requestOverride.mutationOptions({
       onSuccess: async () => {
         toast.success(t("ageing.override.sent"));
@@ -710,7 +711,7 @@ export function ReworkSheet({ open, onOpenChange, batch }: SheetProps) {
       setRecipeId("");
     }
   }, [open]);
-  const rework = useMutation(
+  const rework = useOnceMutation(
     trpc.ageing.batches.rework.mutationOptions({
       onSuccess: async (res) => {
         toast.success(t("ageing.rework.done", { number: res.successor.number }));
@@ -777,7 +778,7 @@ export function VoidSheet({ open, onOpenChange, batch }: SheetProps) {
   const needsReason = batch.status !== "loading";
   const chosen = (reasons.data ?? []).find((r) => r.id === reasonId);
   const needsNote = Boolean(chosen && (chosen.requiresNote || chosen.code === "other"));
-  const voidIt = useMutation(
+  const voidIt = useOnceMutation(
     trpc.ageing.batches.void.mutationOptions({
       onSuccess: async () => {
         toast.success(t("ageing.void.done", { number: batch.number }));

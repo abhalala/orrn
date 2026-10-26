@@ -101,3 +101,21 @@ describe("final explore L10: spectro values read as symbols", () => {
     expect(["si", "FE", "mg", "al", ""].map(elementSymbol)).toEqual(["Si", "Fe", "Mg", "Al", ""]);
   });
 });
+
+describe("final fixes 5 M1: spectro keys are one canonical key whatever the case", () => {
+  test("symbol or lowercase key reads as the same element; others are not elements", () => {
+    const { spectroElementKey } = require("./foundry") as typeof import("./foundry");
+    expect(["Si", "FE", " mg ", "al", "Zn"].map(spectroElementKey)).toEqual(["si", "fe", "mg", "al", "zn"]);
+    expect(["Ca", "", "silicon"].map(spectroElementKey)).toEqual([null, null, null]);
+  });
+  test("normalizeSpectroValues lowercases element keys, keeps other keys, canonical key wins", () => {
+    const { normalizeSpectroValues, spectroCheck } = require("./foundry") as typeof import("./foundry");
+    expect(normalizeSpectroValues({ Si: 0.45, Fe: 0.2, Ca: 0.01 })).toEqual({ si: 0.45, fe: 0.2, Ca: 0.01 });
+    expect(normalizeSpectroValues({ Si: 0.45, si: 0.5 })).toEqual({ si: 0.5 });
+    expect(normalizeSpectroValues({ si: 0.5, Si: 0.45 })).toEqual({ si: 0.5 });
+    expect(normalizeSpectroValues(null)).toEqual({});
+    // the judge reads the normalised map: symbol-case keys judge the same as lowercase
+    const sym = normalizeSpectroValues({ Si: 4500, Fe: 4100 });
+    expect(spectroCheck(sym, [{ element: "fe", minPpm: null, maxPpm: 3500 }]).readings.fe).toBe("fail");
+  });
+});

@@ -73,6 +73,8 @@ export const foundryHi = {
       tail: "टेल {kg} kg",
       short: "बिलेट कम {kg} kg",
       empty: "अभी कोई मेल्ट नहीं",
+      pending: "टेल {kg} kg ({pct} %), मंज़ूरी का इंतज़ार",
+      pendingShort: "बिलेट कम {kg} kg, मंज़ूरी का इंतज़ार",
     },
     panel: {
       title: "बिलेट",

@@ -9,17 +9,19 @@ import { NativeSelect } from "@orrn/ui/components/native-select";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Dialog } from "@orrn/ui/components/dialog";
 import { Sheet } from "@orrn/ui/components/sheet";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppRouter } from "@orrn/server/routers/index";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Copy, UserPlus } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { PortalLoginsSection } from "@/features/portal/staff-logins";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
+import { requestIdFor } from "@/features/dispatch/request-key";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { invitableRoles, isExpired, validEmail } from "./model";
@@ -160,7 +162,7 @@ export function TeamTab() {
 function RevokeInvite({ invite }: { invite: Invite }) {
   const { t } = useT();
   const queryClient = useQueryClient();
-  const revoke = useMutation(
+  const revoke = useOnceMutation(
     trpc.invite.revoke.mutationOptions({
       onSuccess: () => {
         toast.success(t("settings.team.revoked"));
@@ -244,7 +246,8 @@ function InviteSheet({ open, onOpenChange, onInvited }: { open: boolean; onOpenC
   const [role, setRole] = useState<CompanyRole>("viewer");
   const [error, setError] = useState<string | undefined>();
 
-  const invite = useMutation(
+  const request = useRef<{ id: string; body: string } | null>(null);
+  const invite = useOnceMutation(
     trpc.invite.create.mutationOptions({
       onSuccess: (res) => {
         const view: InviteLinkView = { email: res.email, link: res.link, emailSent: res.emailSent, expiresAt: res.expiresAt };
@@ -257,6 +260,7 @@ function InviteSheet({ open, onOpenChange, onInvited }: { open: boolean; onOpenC
           onInvited(view);
         }
         void queryClient.invalidateQueries({ queryKey: trpc.invite.list.queryKey() });
+        request.current = null;
         setEmail("");
         setError(undefined);
         onOpenChange(false);
@@ -272,7 +276,9 @@ function InviteSheet({ open, onOpenChange, onInvited }: { open: boolean; onOpenC
       return;
     }
     setError(undefined);
-    invite.mutate({ email: email.trim(), role });
+    // One replay key per request (final fixes 5, M4): the same invite sent again makes no second one.
+    request.current = requestIdFor(request.current, { email: email.trim().toLowerCase(), role });
+    invite.mutate({ email: email.trim(), role, clientMutationId: request.current.id });
   };
 
   return (
@@ -358,7 +364,7 @@ function RoleSheet({ member, onClose }: { member: Member | null; onClose(): void
     setForId(member.id);
     setRole(member.role as CompanyRole);
   }
-  const update = useMutation(
+  const update = useOnceMutation(
     trpc.company.membersUpdateRole.mutationOptions({
       onSuccess: () => {
         toast.success(t("settings.team.roleChanged"));
@@ -411,7 +417,7 @@ function RemoveDialog({ member, onClose }: { member: Member | null; onClose(): v
   if (member && member !== last) setLast(member);
   const shown = member ?? last;
   const name = shown ? shown.user.name || shown.user.email : "";
-  const remove = useMutation(
+  const remove = useOnceMutation(
     trpc.company.membersRemove.mutationOptions({
       onSuccess: () => {
         toast.success(t("settings.team.removed", { name }));

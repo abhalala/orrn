@@ -13,6 +13,8 @@ import { atomicBatch } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { sendEmail, renderOrrnEmailHtml } from "../lib/email";
 import { webBaseUrl } from "../lib/webUrl";
+import { errorText } from "../lib/pack";
+import { REPLAY_KEY_PATTERN, replayRowId, replayToken } from "../lib/replayToken";
 import { actionProcedure, companyProcedure, publicProcedure, router } from "../index";
 
 export const inviteRouter = router({
@@ -29,7 +31,18 @@ export const inviteRouter = router({
   }),
 
   create: actionProcedure("member.invite")
-    .input(z.object({ email: z.string().trim().max(320).email(), role: z.enum(companyRoles) }))
+    .input(
+      z.object({
+        email: z.string().trim().max(320).email(),
+        role: z.enum(companyRoles),
+        /**
+         * Replay key (final fixes 5, M4): a repeat of the same request (a double tap, a reply lost on the way) answers the
+         * FIRST invite and its link with `replayed: true` and makes no second one. Another email or role under the same
+         * key is a CONFLICT. The email is not sent again on a repeat.
+         */
+        clientMutationId: z.string().regex(REPLAY_KEY_PATTERN, "clientMutationId is 16 to 64 letters, digits, - or _").optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       // Emails are compared case-insensitively everywhere; store them lower-cased (audit S7).
       const email = input.email.toLowerCase();
@@ -39,6 +52,20 @@ export const inviteRouter = router({
           message: "Only an owner can invite another owner",
         });
       }
+      const keyed = input.clientMutationId ? { id: await replayRowId(ctx.companyId, "invite.create", input.clientMutationId), key: input.clientMutationId } : null;
+      const inviteReplay = async () => {
+        if (!keyed) return null;
+        const prior = await ctx.db.query.invite.findFirst({ where: and(eq(invite.id, keyed.id), eq(invite.companyId, ctx.companyId)) });
+        if (!prior) return null;
+        if (prior.email !== email || prior.role !== input.role) {
+          throw new TRPCError({ code: "CONFLICT", message: "This request id was already used for a different request." });
+        }
+        const link = `${webBaseUrl()}/invite/${await replayToken(ctx.companyId, "invite.create", keyed.key, "uuid")}`;
+        // The first call tried the email; whether it went is not kept, so a repeat says it did not and hands over the link.
+        return { success: true, inviteId: prior.id, email, role: input.role, link, emailSent: false, expiresAt: prior.expiresAt, replayed: true as const };
+      };
+      const again = await inviteReplay();
+      if (again) return again;
 
       const existingUser = await ctx.db.query.user.findFirst({
         where: sql`lower(${user.email}) = ${email}`,
@@ -61,11 +88,12 @@ export const inviteRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "This email is a party login here. Use another email for staff." });
       }
 
-      const inviteId = crypto.randomUUID();
-      const token = crypto.randomUUID();
+      const inviteId = keyed?.id ?? crypto.randomUUID();
+      const token = keyed ? await replayToken(ctx.companyId, "invite.create", keyed.key, "uuid") : crypto.randomUUID();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
       const tokenHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
 
+      try {
       await atomicBatch(ctx.db, [
         ctx.db.insert(invite).values({
           id: inviteId,
@@ -83,6 +111,14 @@ export const inviteRouter = router({
           meta: { email, role: input.role },
         }),
       ]);
+      } catch (e) {
+        // Two identical requests racing end on the row's primary key: the second answers the first invite.
+        if (keyed && /UNIQUE constraint failed: invite\.(id|token_hash)|PRIMARY KEY/i.test(errorText(e))) {
+          const won = await inviteReplay();
+          if (won) return won;
+        }
+        throw e;
+      }
 
       const inviteUrl = `${webBaseUrl()}/invite/${token}`;
 
@@ -109,7 +145,7 @@ export const inviteRouter = router({
         console.warn("Invite saved; its email did not go:", (error as Error)?.name ?? "Error");
       }
 
-      return { success: true, inviteId, email, role: input.role, link: inviteUrl, emailSent, expiresAt };
+      return { success: true, inviteId, email, role: input.role, link: inviteUrl, emailSent, expiresAt, replayed: false as const };
     }),
 
   revoke: actionProcedure("member.invite")

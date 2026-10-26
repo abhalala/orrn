@@ -1,11 +1,13 @@
 import { useT } from "@orrn/i18n";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Share, Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
 import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
+import { randomId } from "@/lib/random-id";
+import { replayKey, sendOnce, type ReplayAttempt } from "@/lib/replay-key";
 import { trpc } from "@/utils/trpc";
 
 import { dieErrorText } from "./errors";
@@ -23,11 +25,17 @@ export function SharePanel({ sectionId, section, ownerCustomerId }: { sectionId:
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const create = useMutation(trpc.die.share.create.mutationOptions());
+  const attempt = useRef<ReplayAttempt>(null);
 
   async function share() {
     setError(null);
     try {
-      const made = await create.mutateAsync({ sectionId, days: SHARE_DAYS, ...(ownerCustomerId ? { customerId: ownerCustomerId } : {}) });
+      // One replay key per request (final fixes 5, M4): a reply lost on Wi-Fi and a second tap make no second link.
+      const body = { sectionId, days: SHARE_DAYS, ...(ownerCustomerId ? { customerId: ownerCustomerId } : {}) };
+      const next = replayKey(attempt.current, body, randomId);
+      attempt.current = next.attempt;
+      const made = await sendOnce((clientMutationId) => create.mutateAsync({ ...body, clientMutationId }), next.id);
+      attempt.current = null;
       setLink(made.url);
       feedback.success();
       announce(t("dieRoom.share.sent", { section }));

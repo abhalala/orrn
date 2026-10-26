@@ -3,7 +3,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { kgFromG } from "@/features/press/model";
 import { reasonOptions } from "@/features/press/reason-label";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
@@ -67,7 +68,7 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
   const p = count.ok ? preview.data : undefined;
   // The answer in `p` is for the count on screen only when it settled, finished loading, and is the same count.
   const checking = count.ok && (settled.key !== key || preview.isFetching || preview.isPlaceholderData);
-  const close = useMutation(
+  const close = useOnceMutation(
     trpc.foundry.casts.close.mutationOptions({
       onSuccess: (res) => {
         toast.success(res.status === "closing" ? t("foundry.cast.close.sent", { number: res.number }) : t("foundry.cast.close.closed", { number: res.number }));
@@ -157,7 +158,8 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
             <Field label={t("foundry.cast.close.reason")} error={tried && issue === "reason" ? t("foundry.cast.close.reasonRequired") : undefined}>
               <FieldSelect value={reasonCode} onChange={(e) => setReasonCode(e.currentTarget.value)} data-testid="close-reason">
                 <option value="">{t("foundry.cast.close.reasonPick")}</option>
-                {options.map((o) => (
+                {/* L10: "Press used more billets than the store held" is only a reason when billets are short. */}
+                {options.filter((o) => o.value !== "billets_short" || p.shortG > 0).map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -190,7 +192,7 @@ export function CancelCastSheet({ open, onClose, castId, number }: { open: boole
   const refresh = useRefreshCast();
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
-  const cancel = useMutation(
+  const cancel = useOnceMutation(
     trpc.foundry.casts.cancel.mutationOptions({
       onSuccess: () => {
         toast.success(t("foundry.cast.cancel.done", { number }));

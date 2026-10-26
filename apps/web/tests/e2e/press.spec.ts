@@ -5,6 +5,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, request as pwRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 import { signInViaApi, localPassword, type LocalRole } from "./helpers/accounts";
+import { lockOwnMelt, openOwnCast } from "./helpers/own-foundry";
+import { ownerApi } from "./helpers/owner-api";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll, expectTableFitsFrame } from "../helpers/layout-guards";
 
@@ -1013,6 +1015,58 @@ test.describe("press as a manager (press.close without press.run) at 820", () =>
     await expect(page.getByTestId("logged-recovery")).toHaveText("75.5%");
     await expect(page.getByRole("button", { name: "Request reopen" })).toBeVisible();
     await clean(page);
+    await context.close();
+  });
+});
+
+test.describe("the cast picker warns of a failed spectro (final fixes 5, M2)", () => {
+  test.describe.configure({ mode: "serial" });
+  let fx: Fixture;
+  const created = newCreated();
+  test.beforeAll(async () => {
+    fx = await makeFixture(820, created);
+    const press = await apiAs("press");
+    try {
+      await press.m("press.runs.start", { id: fx.ready.id });
+      await press.m("press.runs.stop", { id: fx.ready.id });
+      await press.m("press.runs.count", { id: fx.ready.id });
+    } finally {
+      await press.dispose();
+    }
+  });
+  test.afterAll(async () => {
+    await cleanup(created);
+  });
+
+  test("a cast whose melt failed the spectro says so in the picker with its alloy, and picking it shows a note; a passing cast does not", async ({ browser }) => {
+    test.setTimeout(90_000);
+    const api = await ownerApi();
+    const bad = await openOwnCast(api);
+    const badMelt = await lockOwnMelt(api, bad.id);
+    await api.mutate("foundry.spectro.enter", {
+      meltId: badMelt.meltId,
+      valuesPpm: { si: 4200, fe: 4100, cu: 200, mn: 300, mg: 5200, zn: 100, ti: 200, cr: 100 },
+      entryReason: "e2e fail reading",
+    });
+    const good = await openOwnCast(api);
+    const goodMelt = await lockOwnMelt(api, good.id);
+    await api.mutate("foundry.spectro.enter", {
+      meltId: goodMelt.meltId,
+      valuesPpm: { si: 4500, fe: 1800, cu: 100, mn: 100, mg: 5200, zn: 100, ti: 100, cr: 100 },
+      entryReason: "e2e pass reading",
+    });
+    await api.dispose();
+    const { page, context } = await openAs(browser, "press", 820, `/press/runs/${fx.ready.id}`);
+    await expect(page.locator('[data-banner="counting"]')).toBeVisible();
+    await page.getByLabel("Cast the billets came from").click();
+    await expect(page.getByRole("option", { name: new RegExp(`^${bad.number} · `) })).toBeVisible();
+    await expect(page.getByRole("option", { name: new RegExp(`^${good.number} · `) })).toBeVisible();
+    await page.getByRole("option", { name: new RegExp(`^${bad.number} · `) }).click();
+    await expect(page.locator('[data-slot="cast-spectro-fail"]')).toBeVisible();
+    await expect(page.locator('[data-slot="cast-spectro-fail"]')).toContainText(bad.number);
+    await page.getByLabel("Cast the billets came from").click();
+    await page.getByRole("option", { name: new RegExp(`^${good.number} · `) }).click();
+    await expect(page.locator('[data-slot="cast-spectro-fail"]')).toHaveCount(0);
     await context.close();
   });
 });

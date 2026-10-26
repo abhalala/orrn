@@ -841,6 +841,8 @@ const guBase = {
       saveNext: "સેવ કરો અને આગળ",
       castPick: "બિલેટ કઈ cast ના છે",
       castOnHand: "{kg} kg બિલેટ સ્ટોક",
+      castSpectroFail: "સ્પેક્ટ્રો ફેલ",
+      castSpectroFailNote: "કાસ્ટ {cast} ({alloy}) નો સ્પેક્ટ્રો ફેલ થયો છે. આ બિલેટ દબાવતા પહેલાં ફાઉન્ડ્રીને પૂછી લો.",
       castNone: "કોઈ cast ના બિલેટ સ્ટોકમાં નથી.",
       castClosedChip: "બંધ",
       weighedKg: "તોલેલું kg",

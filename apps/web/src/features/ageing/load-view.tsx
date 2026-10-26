@@ -8,7 +8,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { PackBar } from "@/features/pack/pack-ui";
 import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { useAgeingInvalidate, useActionKey, type AvailableBundle, type AvailableLine } from "./hooks";
@@ -81,7 +82,7 @@ export function LoadScreen({ search }: { search: LoadSearch }) {
   const tooMany = totals.lines > AGEING_LOAD_MAX_ROWS;
   const ready = canLoad(totals, trolleyId) && !tooMany;
 
-  const load = useMutation(
+  const load = useOnceMutation(
     trpc.ageing.batches.load.mutationOptions({
       onSuccess: async (res) => {
         key.reset();

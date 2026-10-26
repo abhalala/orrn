@@ -10,7 +10,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Stepper } from "@orrn/ui/components/stepper";
 import type { AppRouter } from "@orrn/server/routers/index";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -21,6 +21,7 @@ import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict } from "./cast-view";
@@ -122,8 +123,8 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
   const [discarding, setDiscarding] = useState(false);
   const dirty = !sameForm(form, saved.current);
 
-  const saveMut = useMutation(trpc.foundry.melts.save.mutationOptions());
-  const lockMut = useMutation(trpc.foundry.melts.lock.mutationOptions());
+  const saveMut = useOnceMutation(trpc.foundry.melts.save.mutationOptions());
+  const lockMut = useOnceMutation(trpc.foundry.melts.lock.mutationOptions());
   // The gates always come from the server's preview of the SAVED draft; a spectro result, a save or a
   // discard refreshes it (they invalidate `foundry.melts`).
   const preview = useQuery({
@@ -336,7 +337,7 @@ function Readings({ meltId }: { meltId: string | null }) {
   const { t } = useT();
   const queryClient = useQueryClient();
   const q = useQuery({ ...trpc.foundry.readings.list.queryOptions({ meltId: meltId ?? "" }), enabled: meltId !== null, meta: INLINE_ERROR_META });
-  const sim = useMutation(
+  const sim = useOnceMutation(
     trpc.foundry.readings.simulate.mutationOptions({
       onSuccess: () => void queryClient.invalidateQueries({ queryKey: trpc.foundry.readings.pathKey() }),
     }),
@@ -370,7 +371,7 @@ function DiscardSheet({ open, onClose, meltId, castId }: { open: boolean; onClos
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
-  const discard = useMutation(
+  const discard = useOnceMutation(
     trpc.foundry.melts.discard.mutationOptions({
       onSuccess: () => {
         toast.success(t("foundry.melt.discard.done"));

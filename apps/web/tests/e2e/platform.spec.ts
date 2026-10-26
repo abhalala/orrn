@@ -513,7 +513,12 @@ test.describe("team", () => {
     await team.getByTestId("invite-open").click();
     const sheet = page.getByRole("dialog", { name: "Invite a team member" });
     await sheet.getByTestId("invite-email").fill(email);
-    await sheet.getByRole("button", { name: "Send invite" }).click();
+    // M4 (final fixes 5): a double click sends ONE invite.
+    const invites: string[] = [];
+    page.on("request", (r) => {
+      if (r.method() === "POST" && r.url().includes("invite.create")) invites.push("invite");
+    });
+    await sheet.getByRole("button", { name: "Send invite" }).dblclick();
     // The local stack has no email provider: the link comes up at once, and nothing says "sent".
     const dialog = page.getByRole("dialog", { name: `Invite link for ${email}` });
     await expect(dialog).toBeVisible();
@@ -521,6 +526,7 @@ test.describe("team", () => {
     const url = (await dialog.getByTestId("member-invite-url").textContent())!.trim();
     expect(url).toMatch(/\/invite\/[0-9a-f-]{36}$/);
     await expect(page.getByText(`Invite sent to ${email}`)).toHaveCount(0);
+    expect(invites).toEqual(["invite"]);
     await dialog.getByRole("button", { name: "Copy link" }).click();
     await expect(page.getByText("Link copied")).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(url);

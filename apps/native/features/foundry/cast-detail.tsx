@@ -16,7 +16,7 @@ import { useFormat } from "@/lib/use-format";
 import { trpc } from "@/utils/trpc";
 
 import { CloseSheet } from "./close-sheet";
-import { CAST_TONE, closeBlock, latestVerdict, lockedMeltTone, MELT_TONE, tailChip, verdictTone, type CastStatus, type MeltStatus } from "./foundry-model";
+import { CAST_TONE, closeBlock, closeoutView, latestVerdict, lockedMeltTone, MELT_TONE, bpText, tailChip, verdictTone, type CastStatus, type MeltStatus } from "./foundry-model";
 import type { MeltRow } from "./types";
 import { Figure, kgOf, Note, Section } from "./ui";
 
@@ -55,11 +55,16 @@ export function CastDetail({ id }: { id: string }) {
   if (!data) return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
 
   const c = data.cast;
-  const co = data.closeout;
+  // A close waiting for approval shows the tail it asked for, not the ledger's 0 (final fixes 5, M3).
+  const co = closeoutView(c.status, data.closeout, c);
   const status = c.status as CastStatus;
-  const chip = tailChip(co);
+  const chip = tailChip(co, c.status);
   const chipLabel =
-    chip.kind === "balanced"
+    chip.kind === "pending"
+      ? co.tailG !== 0
+        ? t("foundry.cast.tailChip.pending", { kg: kgOf(Math.abs(co.tailG)), pct: bpText(co.tailBp) })
+        : t("foundry.cast.tailChip.pendingShort", { kg: kgOf(co.shortG) })
+      : chip.kind === "balanced"
       ? t("foundry.cast.tailChip.balanced")
       : chip.kind === "empty"
         ? t("foundry.cast.tailChip.empty")
