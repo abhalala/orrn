@@ -168,6 +168,13 @@ test.describe("marketing page", () => {
         else await openMarketing(page);
         expect(await collectHorizontalScrollIssues(page)).toEqual([]);
         expect(await collectClippedTextIssues(page)).toEqual([]);
+        // A clipped header control can be hidden by page-level overflow without causing sideways scroll.
+        for (const control of await page.getByRole("banner").getByRole("radio").all()) {
+          const box = await control.boundingBox();
+          expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(0);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+        }
       });
     }
   }

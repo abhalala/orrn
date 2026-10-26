@@ -24,7 +24,7 @@
 .marketing-header-links { display: flex; align-items: center; justify-content: flex-end; gap: 2rem; margin-left: auto; }
 .marketing-header-links a, .marketing-footer nav a { display: inline-flex; min-height: 44px; align-items: center; color: var(--muted-foreground); font-size: .875rem; }
 .marketing-header-links a:hover, .marketing-footer nav a:hover { color: var(--foreground); }
-.marketing-language { flex-shrink: 0; background: var(--background); border: 1px solid var(--border); }
+.marketing-language { width: auto; flex-shrink: 0; background: var(--background); border: 1px solid var(--border); }
 .marketing-language button { min-height: 44px; }
 .marketing-language [data-slot] { max-width: 100%; }
 .marketing-hero { position: relative; padding-top: clamp(3rem, 7vw, 6rem); }

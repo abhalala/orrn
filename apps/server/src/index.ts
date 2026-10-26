@@ -146,4 +146,5 @@ async function scheduled(_controller: ScheduledController, _env: unknown, ctx: E
   ctx.waitUntil(runDailyCron(createDb(), new Date()));
 }
 
-export default { fetch: app.fetch, scheduled };
+const worker: ExportedHandler<Env> = { fetch: app.fetch, scheduled };
+export default worker;

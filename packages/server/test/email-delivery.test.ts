@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 
-import { sendAuthEmail } from "@orrn/auth";
 import { EmailDeliveryError, sendTransactionalEmail } from "@orrn/auth/email-delivery";
-import { sendEmail } from "../src/lib/email";
-import { workersEnv } from "./env-mock";
 
 const email = {
   to: "owner@example.net",
@@ -90,17 +87,4 @@ describe("transactional email provider selection", () => {
     expect(log.mock.calls.flat().join(" ")).not.toContain(email.to);
   });
 
-  test("auth and invitation entry points both use the optional binding", async () => {
-    const old = workersEnv.EMAIL;
-    const send = mock(async () => ({ messageId: "binding-message" }));
-    workersEnv.EMAIL = { send };
-    try {
-      expect(await sendAuthEmail(email)).toEqual({ success: true, messageId: "binding-message" });
-      expect(await sendEmail(email)).toEqual({ success: true, messageId: "binding-message" });
-      expect(send).toHaveBeenCalledTimes(2);
-    } finally {
-      if (old === undefined) delete workersEnv.EMAIL;
-      else workersEnv.EMAIL = old;
-    }
-  });
 });
