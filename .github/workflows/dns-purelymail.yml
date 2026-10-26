@@ -33,7 +33,7 @@ jobs:
               '{type:$t, name:$n, content:$c, ttl:3600, proxied:false} + (if $extra == "" then {} else ($extra | fromjson) end)')
             if [ -n "$id" ]; then
               curl -s -X PUT -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
-                "$API/$id" -d "$body" | jq -c '{success, errors, result: (.result | {type, name, content, priority}}'
+                "$API/$id" -d "$body" | jq -c '{success, errors, result: (.result | {type, name, content, priority})}'
             else
               curl -s -X POST -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
                 "$API" -d "$body" | jq -c '{success, errors, result: (.result | {type, name, content, priority})}'
