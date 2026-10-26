@@ -220,6 +220,36 @@ After the deploy: run the same smoke test on orrn.in with a real plant owner, th
 drill into a scratch plant (`docs/RESTORE_DRILL.md`). Real plant data (die copies, sections, legacy bundles, opening balances
 for return streams) is the owner's import work, not part of this promotion: see `docs/OWNER_HANDOVER.md`.
 
+### Automated production database gate
+
+The production workflow now runs `packages/server/scripts/production-safety.ts` before Alchemy.
+It resolves the database from the **currently deployed `api.orrn.in` Worker's `DB` binding**, reads its actual migration
+history, captures a Time Travel bookmark and exports the database. The export and recovery metadata are archived,
+encrypted with AES-256-GCM using a domain-separated key derived from the production `ORRN_MASTER_KEY`, and decrypted
+again to verify the archive checksum before upload. Only `backup.enc` is uploaded as
+`production-d1-before-<GitHub run id>` (30-day retention). This repository is public: never upload raw SQL, metadata,
+command logs or a decrypted archive. Keep the historical production master key available for recovery.
+
+The next step restores the export into **local D1 on the runner**, applies every pending SQL migration in order with
+Alchemy-compatible history rows, and checks every pre-existing table count and foreign keys. Unknown migration names,
+gaps, a nonempty melt before 0028, lost rows or invalid foreign keys stop the deployment before production writes.
+The guards themselves are tested against a populated 0009 fixture, including preservation of legacy oblique notes,
+stock weight and the old module-list upgrade. After Alchemy, read-only checks confirm all migrations are recorded,
+protected production document counts did not decrease and foreign keys still pass. Live traffic may add documents.
+
+For recovery, download the encrypted artifact into a private directory and obtain the **historical production master
+key through the existing secure credential store**, then run:
+
+```bash
+bun packages/server/scripts/production-safety.ts decrypt backup.enc backup.tar.gz
+# Extract only in a private directory: the archive contains production.sql, before.json and wrangler.json.
+tar -xzf backup.tar.gz
+```
+
+`before.json` records the database id, pre-deploy revision and Time Travel bookmark. A real restore is a separate,
+explicitly authorized operation against that database; do not replay SQL or run Time Travel blindly while live users
+may have added newer work. GitHub removes temporary plaintext files even when a workflow step fails.
+
 ## 5. Bindings and settings that must exist
 
 | What | Where | Notes |

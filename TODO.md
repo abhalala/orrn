@@ -4,6 +4,8 @@ Open work only, updated during the 2026-10-26 FP continuation. History is in git
 
 ## State
 
+- Production promotion: Deploy Production requires an encrypted export and local-D1 migration rehearsal before Alchemy, followed by read-only preservation checks. The 2026-10-26 promotion (this merge, through migration 0042) was authorized by the owner; the live result is recorded by the latest production workflow run and in `.fp-build/LEDGER.md`.
+- Integration validation at the pre-merge candidates: types 11/11; server 3,040 (123/123 files at `c8d667d8`); domain 360; documents 36; UI 107; web 1,382; native 891–896; `/` 189.2 kB gzip of 250; browser A 451, B 433, C accounted (see `docs/WORKLOG-2026-10-26.md`). Merged-candidate browser groups were not re-run (owner stop-work); that gap is logged, not hidden.
 - Every plant module is built end to end on the web, with the phone app for the floor roles: die room (with the share link), orders and planning, press (station, queue, report, collectors as simulators), foundry (casts, melts, spectro, count-based close, trace, certificate, yield), ageing (ovens, trolleys, recipes, batches, release, pack from a released line), pack, stock, dispatch from an order, packing list v2, stock count, platform (modules, shifts, thresholds, releases, backups, audit, support, approvals with live facts), customer portal, analytics and reports. 44 guides in en and hi; Gujarati for the floor.
 - Current verification is recorded in the build ledger/final report; historical gate counts are not proof of the current continuation.
 - FINAL-FIXES-4 removes `features/preview` and repoints `/preview/ageing*` to `/ageing` and `/reports/ageing`.
@@ -113,3 +115,19 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 - PDF and xlsx exports are generated client-side from server-generated snapshots. Printing goes through per-tenant LAN `orrn-spool`.
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice or e-way bill, Tally export or invoicing in this product line; prices on orders are operational data.
 - Migrations after the head are additive and consecutive; a step that changes existing data is flagged for the promotion (`docs/DEPLOY_PROMOTION.md`).
+
+⚠ 1 unresolved conflict detected
+- ours = HEAD
+- theirs = origin/prod
+NOTICE: Inspect a block by reading `conflict://<N>` (add `/ours` / `/theirs` / `/base` to render a single side). Resolve with `write({ path: "conflict://<N>", content })`, or bulk-resolve every registered conflict with `write({ path: "conflict://*", content })`. Writes replace ONLY the marker block (markers + all sides) — never repeat the lines before/after it; they stay in place.
+`content` shorthand: a line that is exactly `@ours` / `@theirs` / `@base` / `@both` expands to that recorded section. `@both` is ours-then-theirs with no separator — only for additive conflicts where each side adds something different; NEVER for competing edits of the same lines (pick a side or write the combined text). Lines that are not a token pass through verbatim, so `"// keep both\n@ours\n@theirs"` literally writes the comment, then ours, then theirs.
+Per-id bulk: `write({ path: "conflict://*", content: "1: @ours\n2: @theirs\n…" })` resolves each listed id with that side in ONE call — the cheapest way through many pick-one conflicts; unlisted ids stay registered.
+Resolve each block faithfully: keep one side (`@ours`/`@theirs`), or combine them when both intents apply — never invent content beyond the recorded sides, and never stack both sides of competing edits. Resolve several conflicts in a single turn by issuing multiple `write` calls at once; ids stay valid as earlier blocks are resolved.
+
+──── #15  L7-13 ────
+<<< ours
+(empty)
+>>> theirs
+- Production promotion of the accepted dev revision `b432b923` is authorized. Deploy Production now requires an encrypted export and local-D1 migration rehearsal before Alchemy, followed by read-only preservation checks. The current live result is recorded by the latest production workflow run.
+
+- Integration validation: types 11/11; server 3,038; domain 360; i18n 64; web 1,387; native 903; documents 36; UI 107; `/` 188.9 kB gzip of 250. Browser A 451, B 432 plus the isolated masters file 27/27, C 355 (21 existing skips). Earlier foundry/count assertions were fixed; the B sign-in 503 remains visible above.
