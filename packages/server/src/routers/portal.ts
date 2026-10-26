@@ -430,6 +430,7 @@ const usersRouter = router({
           to: email,
           // No party name in the subject: a run without an email provider logs the subject.
           subject: "Your ORRN party login",
+          text: `You can now see your dies, orders and dispatches for ${cust.name}.\n\nOpen the invitation: ${inviteUrl}\n\nIf you did not expect this email, ignore it. This link works for 7 days.`,
           html: renderOrrnEmailHtml({
             title: "Party portal invitation",
             description: `You can now see your dies, orders and dispatches for ${cust.name}. Open the link to set your password and sign in.`,
