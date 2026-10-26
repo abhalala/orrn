@@ -1,5 +1,7 @@
 # ORRN TODO
 
+Integration update (2026-10-25): the completed FP, final documentation and optional R2 branches are consolidated for main. Validation and push are in progress. Unfinished FINAL-FIXES-5, W4-TESTSWEEP-2 and local work remain separate; no production promotion is included.
+
 Open work only, at `wt/FP` fbe18910 (2026-10-25, end of the FP build). History (milestones M0 to M9, the plant waves W0 to W4, the foundry and ageing lanes) is in git and in `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; what is built, row by row, is the status column of each FP spec in `docs/superpowers/specs/` (132 of 138 rows Built; FD-02, FD-11, FD-19 and AG-15 Partial; PK-06 and PF-18 Deferred). Every item carries its backlog rank (`BL n`, from `.fp-build/BACKLOG.md`; where a rank repeats the band is named: `base` 1-29, `re-pass` 30-48, `arch` 50-57, `pl-flow` 61-70, `audit` the later 28-56 rows; ranks from 57 up to 114 are unique). The status column of `BACKLOG.md` was never kept in step; this file is the open list. FP ids (FP-XX-nn) are the rows of the specs. Keep it in step with the work: move an item out when it is done, add one when a decision creates work.
 
 ## State
@@ -53,11 +55,7 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 
 | Item | Detail | Rank |
 |---|---|---|
-| FD-02: cast book screen | No screen for `castSeriesStart` (where the cast series continues from the paper book) and no entry of a legacy cast code; today API or import only. FP-FD-02 is Partial until then. | audit-final-2 |
-| FD-11: open the spectro file | `foundry.spectro.file` has no caller: the attached file is never shown again on the melt sheet (web and phone). FP-FD-11 is Partial until then. | audit-final-2 |
-| AG-15: pieces on the order line | `ageing.forOrder` returns loaded, packed and remaining pieces per line, but no screen reads it; the order strip shows only the Aged kg cell. FP-AG-15 is Partial until then. | audit-final-2 |
 | Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
-| Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
 | Late PL entry for line-down hours | `occurredAt` (at most 72 h back, never future) + reason + `late_entry` flag + second-person approval; dispatch timestamp and ledger `posted_at` use it; guide "When the internet is down" in en, hi, gu. Until then a paper PL is entered later at the time of entry (Q30). | arch 52 |
 | Bulk acknowledge | No "acknowledge all ended alerts" on `/press/alerts` (owner tour): add with `press.close` and an audit row. | BL 109 |
@@ -65,7 +63,6 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 | Pack phone Review | The "For order" line should sit above the sticky bar (owner tour 99, second half). | BL 111 |
 | Prod logs: email in a Better Auth message | Better Auth's own logger prints the address on "Reset Password: User not found" (PII in prod logs): custom logger or suppress. | BL 69 |
 | Purchase register columns | The register screens do not show `meltedKgG` and `remainingKgG` per lot (the server returns them). | BL 74 |
-| Foundry yield per stream | `analytics.foundryYield` should split metal in by return stream so the report shows kg in per stream (FP-FD-19 is Partial until then). | BL 75 |
 | Collectors card wording | The Standards collectors card reuses Today's "Press alerts open: N" string; give it its own key. | BL 67 |
 
 ### Soon

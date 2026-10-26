@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7022 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7061 screen strings in 48 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -6618,7 +6618,7 @@ Please check, Lalubhai:
 | `actionFailed` | That didn't work. Try again. | यह नहीं हुआ। फिर कोशिश करें। |
 | `readOnly` | Only owners and admins can manage devices. | डिवाइस सिर्फ़ मालिक और एडमिन संभाल सकते हैं। |
 
-### backups (25)
+### backups (26)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6631,6 +6631,7 @@ Please check, Lalubhai:
 | `status.ok` | Done | हो गया |
 | `lastOk` | Last good backup | आखिरी सही बैकअप |
 | `none` | No backup yet. The first one runs overnight. | अभी कोई बैकअप नहीं। पहला रात में चलेगा। |
+| `notConfigured` | Backups are not switched on for this plant yet. Ask orrn support to enable storage. | इस प्लांट के बैकअप अभी चालू नहीं हैं। स्टोरेज चालू करने के लिए orrn सपोर्ट से कहें। |
 | `lastAttempt` | Last try: {status}, {time} | आखिरी कोशिश: {status}, {time} |
 | `size` | {mb} megabytes | {mb} मेगाबाइट |
 | `drillTitle` | Restore drill | रिस्टोर ड्रिल |
