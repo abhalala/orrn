@@ -83,6 +83,7 @@ export const foundryRefusalEn = {
   spectroChanged: "The spectro result changed. Check it and lock again.",
   billetStoreRetired: "The billet store {code} is retired. Reactivate it to post the count, or reject the close.",
   legacyShape: "A legacy code is up to 20 letters, digits, spaces or - / . _",
+  legacyReserved: "A legacy code cannot be a cast series code or bundle number. To continue the cast book, set its start number.",
   legacyTaken: "The legacy code {code} is already on cast {cast}.",
   castBookMonthUsed: "That month already has a cast. The book can only be continued before the first cast.",
 };

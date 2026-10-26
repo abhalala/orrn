@@ -8,6 +8,9 @@ import type { StatusTone } from "@orrn/domain";
 import {
   decidingSpectro,
   normalizeSpectroValues,
+  normalizeSerial,
+  parseBundleNo,
+  parseCastCode,
   percentToPpm,
   SPECTRO_ELEMENTS,
   spectroCheck,
@@ -59,12 +62,12 @@ export type TraceQuery = { kind: "cast"; number: string } | { kind: "bundle"; se
 
 /**
  * What the trace box searched for. A cast code is a month letter and a number (`K31`); a bundle
- * serial is longer (`26J1842`). Case is ignored; anything else is not a code.
+ * serial includes the year (`26J1842`). Uses the shared identifier rules, including five-digit sequences.
  */
 export function traceQuery(text: string): TraceQuery | null {
-  const s = text.trim().toUpperCase();
-  if (/^[A-L]\d{1,4}$/.test(s)) return { kind: "cast", number: s };
-  if (/^[0-9]{2}[A-L]\d{1,6}$/.test(s)) return { kind: "bundle", serial: s };
+  const s = normalizeSerial(text);
+  if (parseCastCode(s)) return { kind: "cast", number: s.replace(/\s+/g, "") };
+  if (parseBundleNo(s)?.year !== undefined) return { kind: "bundle", serial: s };
   return null;
 }
 
