@@ -29,8 +29,9 @@ deploy route: there is no local `.env`. D1 migrations are applied by Alchemy dur
    `production` GitHub environments (`ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `BETTER_AUTH_SECRET`, `CLOUDFLARE_*`,
    `ORRN_MASTER_KEY`, `RESEND_API_KEY`, `WEBHOOK_BASE_URL`). `ORRN_MASTER_KEY` is also what signs die-file URLs and spectro
    upload tickets: a stage without it refuses those uploads (503), it never uses an empty secret.
-2. Prod email works (Resend). It failed in Oct 2026 and invite and reset links depend on it; Godseye shows copyable sign-in
-   details meanwhile (memory `orrn-prod-email-failing`).
+2. Verify real email delivery before promotion. Resend remains the deployed provider; its October 2026 failure is not
+   repaired merely by adding the optional Cloudflare code path. Invite/reset/sign-in links depend on delivery; tenant
+   invitations and Godseye retain copyable links when delivery fails. See the email readiness section below.
 3. Take a D1 backup of production before the first FP deploy (Cloudflare dashboard, D1, the production database, Time Travel
    shows the restore point; or `bunx wrangler d1 export <production database name> --remote --output prod-before-fp.sql`
    from `apps/server`; find the physical name in the dashboard). The FP migrations are additive and there is no down
@@ -135,10 +136,75 @@ drill into a scratch plant (`docs/RESTORE_DRILL.md`).
 | Optional R2 lifecycle rule | Cloudflare dashboard | "Abort incomplete multipart uploads" after 1 day on `die-files` only; no "delete objects" rule on that bucket (`docs/R2_BUCKETS.md`, from the masters follow-ups). |
 | `ORRN_MASTER_KEY` | GitHub environment secret | Signs die-file URLs, spectro upload tickets and wraps spool secrets. |
 | `RESEND_API_KEY`, `WEBHOOK_BASE_URL` | GitHub environment | Invite, reset and sign-in emails; spool webhooks. |
+| Optional `EMAIL` Email Sending binding | Not enabled by current Alchemy configuration | Runtime prefers it when present, otherwise uses `RESEND_API_KEY`. Missing providers fail explicitly; they never report a mock delivery. See prerequisites below. |
 | `SCALE_SIMULATOR` | local `.dev.vars` only | Never set on dev or production; the simulator refuses `NODE_ENV=production`. |
 | `OVEN_SIMULATOR`, `OVEN_SIMULATOR_PROFILE` | local `.dev.vars` only | Ageing oven curve (W3-AG-C). Never set on dev or production; refused when `NODE_ENV=production`. |
 
 Nothing else in the FP build needs a new Cloudflare resource: no queue, no extra database, no Durable Object.
+
+### Transactional email readiness and handover
+
+Auth reset/magic-link mail and tenant, Godseye and party-portal invitations share the sender in
+`packages/auth/src/email-delivery.ts`. It calls the real structured Workers API:
+`EMAIL.send({ from: { email: "no-reply@orrn.in", name: "ORRN" }, to, subject, html, text })`,
+and uses its returned `messageId`. Installed `@cloudflare/workers-types` 4.20260518.1 supports this overload.
+Without `EMAIL`, it uses the existing Resend endpoint and configured `RESEND_API_KEY`. A failed Cloudflare send is **not**
+retried through Resend (delivery may already have been accepted); binding/network exceptions propagate, and Resend HTTP
+failures retain their status without logging provider response bodies.
+
+No provider is enabled or provisioned by this change. In particular, installed Alchemy 0.91.2 has neither a `send_email`
+binding type nor a serializer branch in `src/cloudflare/{bindings,worker-metadata}.ts`. Adding an object cast or an
+`EMAIL_ENABLED` variable would not wire a real binding. Alchemy and local Wrangler therefore intentionally contain no
+`EMAIL` binding; there is no working deployment opt-in in this revision. Do not add Email Routing resources or manually
+patch a deployed binding that a subsequent Alchemy deploy would remove.
+
+Before a separately authorized Cloudflare cutover, the owner must:
+
+1. Use the **correct ORRN Cloudflare account** and confirm Workers Paid plus Email Sending access. Account entitlement,
+   domain readiness and arbitrary-recipient sending have not been verified; the local Cloudflare login is not the ORRN
+   account. Do not treat a working Email Routing forward/verified destination as proof of transactional sending readiness.
+2. Onboard `orrn.in` under **Compute > Email Service > Email Sending**, not Email Routing. Review the sending domain's
+   `cf-bounce` MX/SPF, `cf-bounce._domainkey` DKIM and DMARC records; preserve existing inbound mail setup. Confirm the
+   sender `no-reply@orrn.in` can send to arbitrary intended tenant recipients under the account's Sending entitlement.
+3. Establish supported deployment-tool binding serialization in a separately reviewed change, without relying on a type
+   assertion or automatically provisioning external services. Only then add a per-stage explicit opt-in, default off, and
+   a real `send_email` binding named `EMAIL`. The official Wrangler declaration is
+   `"send_email": [{ "name": "EMAIL" }]`; it is documentation here, not an active project setting. Reconcile binding
+   restrictions with the account's Sending entitlement: the send-bindings reference still describes verified-destination
+   restrictions, while the product/pricing pages distinguish Paid arbitrary-recipient sending.
+4. Generate/check binding types for that deployment and, only with explicit owner approval, verify real delivery to an
+   owner-controlled mailbox before enabling the binding for tenant invitations or resets. Local simulated message IDs do
+   not prove delivery. No external email was sent during this recovery.
+
+Until then keep `EMAIL` absent and configure a valid Resend key whose verified sending domain authorizes
+`ORRN <no-reply@orrn.in>`. Configured providers are used even on development stages; leave both providers absent for
+local tests that must not send email. A missing provider throws on every stack. Development may preview an unsent body
+for local sign-in; production/test logs contain only domain/subject, never link bodies, addresses, API keys or provider
+response bodies. Password-reset responses still remain neutral to avoid revealing account existence. Invitations remain
+saved with copyable links; they only report `emailSent: true` after a provider accepts a message.
+
+Parent verification (not run in the email lane):
+
+```bash
+bun run --cwd packages/server check-types
+bun run --cwd apps/server check-types
+cd packages/server
+bun test test/email-delivery.test.ts test/email-log.test.ts test/auth-email-log.test.ts
+bun test test/auth-password-reset.test.ts test/platform-w1-auth.test.ts
+bun test test/final-explore-invite.test.ts test/godseye.test.ts
+```
+
+Also run the consolidated server/portal suite before promotion. Cloudflare account access, binding serialization,
+Workers-runtime binding execution and inbox delivery remain unverified; mocked provider boundary tests cannot establish
+any of those deployment prerequisites.
+
+Official references retrieved for this implementation:
+- [Email Sending Workers API](https://developers.cloudflare.com/email-service/api/send-emails/workers-api/)
+- [Email Service: Paid arbitrary-recipient sending versus Email Routing](https://developers.cloudflare.com/email-service/)
+- [Sending domain setup and DNS](https://developers.cloudflare.com/email-service/configuration/domains/)
+- [Send binding restrictions](https://developers.cloudflare.com/email-service/configuration/send-bindings/)
+- [Plan requirements](https://developers.cloudflare.com/email-service/platform/pricing/)
+
 
 ## 6. Native: a new development build is required
 

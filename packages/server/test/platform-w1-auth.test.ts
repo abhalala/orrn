@@ -22,7 +22,7 @@ let auth: ReturnType<AuthModule["createAuth"]>;
 beforeAll(async () => {
   env = await createTestEnv();
   const mod = await import("@orrn/auth");
-  // Another test file may have built the singleton against its own (now disposed) D1.
+  // The test environment is mutated between D1 harnesses.
   mod.resetAuthForTests();
   auth = mod.createAuth();
 });

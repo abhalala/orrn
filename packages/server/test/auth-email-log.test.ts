@@ -1,7 +1,4 @@
-/**
- * T17 I-1 / T27 I-2: with no Resend key, packages/auth must not print the
- * magic-link email (a live sign-in link) anywhere but a development stack.
- */
+/** Missing auth providers fail explicitly without leaking magic links in production logs. */
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import { sendAuthEmail } from "@orrn/auth";
@@ -31,7 +28,7 @@ afterEach(() => {
 async function logged(run: () => Promise<unknown>) {
   const spy = spyOn(console, "log").mockImplementation(() => {});
   try {
-    await run();
+    await expect(run()).rejects.toThrow("Email sending is not set up on this server");
     return spy.mock.calls.map((args) => args.map(String).join(" ")).join("\n");
   } finally {
     spy.mockRestore();
@@ -39,7 +36,7 @@ async function logged(run: () => Promise<unknown>) {
 }
 
 describe("packages/auth sendAuthEmail without an email provider", () => {
-  test("production prints only the recipient's domain and the subject, never the link or the address", async () => {
+  test("production rejects and prints only the recipient's domain and subject", async () => {
     useEnv({ NODE_ENV: "production", RESEND_API_KEY: undefined });
     const out = await logged(() => sendAuthEmail(EMAIL));
     expect(out).not.toContain("live-secret-token-123");
@@ -58,7 +55,7 @@ describe("packages/auth sendAuthEmail without an email provider", () => {
     }
   });
 
-  test("development prints the whole email, link included, so local sign-in works", async () => {
+  test("development previews the unsent email but does not report delivery", async () => {
     useEnv({ NODE_ENV: "development" });
     const out = await logged(() => sendAuthEmail(EMAIL));
     expect(out).toContain(LINK);

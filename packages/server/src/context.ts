@@ -22,7 +22,7 @@ export type CreateContextOptions = {
  */
 export async function createContext({ context }: CreateContextOptions) {
   const db = createDb();
-  const session = await createAuth().api.getSession({
+  const session = await createAuth(context.env).api.getSession({
     headers: context.req.raw.headers,
   });
 

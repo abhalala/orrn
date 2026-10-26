@@ -1,9 +1,6 @@
 /**
- * What a server may print when it does not send an email (no Resend key, or
- * the local dev stack, which never sends). Auth emails carry live sign-in
- * links, which are credentials, so the body is printed only on a development
- * stack (NODE_ENV=development: the local worker and the deployed dev stage).
- * Anywhere else only the recipient's domain and the subject are printed.
+ * A missing provider is a failed send on every stack. Only development may print a body to help
+ * local sign-in; elsewhere log just the domain and subject, never a live sign-in link or address.
  */
 export function unsentEmailLog(
   nodeEnv: string | undefined,
@@ -13,7 +10,7 @@ export function unsentEmailLog(
   if (nodeEnv === "development") {
     return [
       "----------------------------------------",
-      `Mock ${label} sent to: ${email.to}`,
+      `${label} not sent: no provider (to: ${email.to})`,
       `Subject: ${email.subject}`,
       `Body:\n${email.html}`,
       "----------------------------------------",

@@ -11,38 +11,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { magicLink } from "better-auth/plugins";
 import { hashPassword, verifyPassword } from "./password";
-import { unsentEmailLog } from "./unsent-email";
+import { sendTransactionalEmail, type EmailOptions, type EmailEnvironment } from "./email-delivery";
 
-/** Exported for tests (packages/server/test/auth-email-log.test.ts). */
-export async function sendAuthEmail(options: { to: string; subject: string; html: string }) {
-  if (env.NODE_ENV === "development" || !env.RESEND_API_KEY) {
-    // Never the body outside development: it holds a live sign-in link.
-    console.log(unsentEmailLog(env.NODE_ENV, options, "Auth email"));
-    return { success: true, messageId: "mock-message-id" };
-  }
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: "ORRN <no-reply@orrn.in>",
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Failed to send auth email via Resend:", errorText);
-    throw new Error("Failed to send email");
-  }
-
-  const data = await res.json();
-  return { success: true, messageId: (data as any).id as string };
+export function sendAuthEmail(options: EmailOptions, environment: EmailEnvironment = env) {
+  return sendTransactionalEmail(environment, options, "Auth email");
 }
 
 function renderOrrnEmailHtml(options: {
@@ -105,7 +77,9 @@ function renderOrrnEmailHtml(options: {
   `;
 }
 
-let authSingleton: ReturnType<typeof buildAuth> | undefined;
+// Reuse configuration only for the same binding environment. Never replace a cached instance's
+// environment while another request's email callback is awaiting a provider.
+let authInstances = new WeakMap<Env, ReturnType<typeof buildAuth>>();
 
 /**
  * How the magic-link plugin stores its token in `verification.identifier`. Production keeps the
@@ -115,8 +89,8 @@ let authSingleton: ReturnType<typeof buildAuth> | undefined;
  */
 type MagicLinkStoreToken = "plain" | "hashed";
 
-function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
-  const db = createDb();
+function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, environment: Env = env) {
+  const db = createDb(environment.DB);
 
   return betterAuth({
     database: drizzleAdapter(db, {
@@ -125,7 +99,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
       schema: schema,
     }),
     // Tested in packages/server/test/authTrustedOrigins.test.ts (production never trusts localhost).
-    trustedOrigins: trustedOriginsFor(env),
+    trustedOrigins: trustedOriginsFor(environment),
     // FP-PF-08: a magic link never signs in an account that has a password or a second factor,
     // and the public `/sign-in/magic-link` request is refused outright (D14; no client asks for a
     // link, Godseye issues owner links server-side). Tested in
@@ -147,9 +121,9 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
       },
       // Forgot password (backlog 9). `/request-password-reset` answers the same neutral message
       // whether or not the address has an account, and this runs only for one that does. The
-      // email carries a live reset link (a credential): `sendAuthEmail` prints its body only on a
-      // development stack. The authenticator code is untouched: a reset sets the password, the next
-      // sign-in still asks for the code.
+      // email carries a live reset link (a credential): the sender logs its body only when an
+      // unconfigured development stack cannot send. The authenticator code is untouched: a reset
+      // sets the password, the next sign-in still asks for the code.
       resetPasswordTokenExpiresIn: 60 * 60,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
@@ -160,6 +134,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
           await sendAuthEmail({
             to: user.email,
             subject: "Reset your ORRN password",
+            text: `Choose a new ORRN password: ${url}\n\nIf you did not ask for this, ignore this email. This link works for one hour.`,
             html: renderOrrnEmailHtml({
               title: "Reset your password",
               description: "Someone asked to reset the password for your ORRN account. Click the button below to choose a new password.",
@@ -167,7 +142,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
               buttonUrl: url,
               footerText: "If you did not ask for this, you can ignore this email; your password stays as it is. This link works for one hour.",
             }),
-          });
+          }, environment);
         } catch {
           console.error(`reset email not sent (recipient domain ${user.email.split("@")[1] ?? "unknown"})`);
         }
@@ -180,8 +155,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
     //     maxAge: 60,
     //   },
     // },
-    secret: env.BETTER_AUTH_SECRET,
-    baseURL: env.BETTER_AUTH_URL,
+    secret: environment.BETTER_AUTH_SECRET,
+    baseURL: environment.BETTER_AUTH_URL,
     advanced: {
       defaultCookieAttributes: {
         sameSite: "none",
@@ -189,8 +164,8 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
         httpOnly: true,
       },
       crossSubDomainCookies: {
-        enabled: !!env.COOKIE_DOMAIN,
-        domain: env.COOKIE_DOMAIN || undefined,
+        enabled: !!environment.COOKIE_DOMAIN,
+        domain: environment.COOKIE_DOMAIN || undefined,
       },
     },
     plugins: [
@@ -207,6 +182,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
           await sendAuthEmail({
             to: email,
             subject: "Your ORRN Magic Sign-In Link",
+            text: `Sign in to ORRN: ${url}\n\nIf you did not request this link, ignore this email. This link works for 15 minutes.`,
             html: renderOrrnEmailHtml({
               title: "Authorized Access Request",
               description: "You (or someone requesting access as you) requested a link to log in to your ORRN plant workspace. Click the button below to complete the authorization.",
@@ -214,29 +190,29 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
               buttonUrl: url,
               footerText: "If you did not request this link, you can safely ignore this email. This login link is only valid for 15 minutes."
             }),
-          });
+          }, environment);
         },
       }),
     ],
   });
 }
 
-export function createAuth() {
-  if (!authSingleton) {
-    authSingleton = buildAuth();
+/** Each cached instance and its callbacks belong to exactly one environment. */
+export function createAuth(environment: Env = env) {
+  let auth = authInstances.get(environment);
+  if (!auth) {
+    auth = buildAuth({}, environment);
+    authInstances.set(environment, auth);
   }
-  return authSingleton;
+  return auth;
 }
 
-/** Test hook: a separate instance (not the singleton) with a different magic-link token storage. */
+/** Test hook for alternate magic-link token storage. */
 export function buildAuthForTests(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}) {
   return buildAuth(opts);
 }
 
-/**
- * Test hook: drop the cached instance so the next `createAuth()` binds the current `env.DB`
- * (each server test file runs its own Miniflare D1 in one bun process).
- */
+/** Tests mutate the mocked environment between D1 harnesses. */
 export function resetAuthForTests(): void {
-  authSingleton = undefined;
+  authInstances = new WeakMap();
 }

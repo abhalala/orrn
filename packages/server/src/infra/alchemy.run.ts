@@ -194,6 +194,9 @@ export const server = await Worker("server", {
   adopt: true,
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
+  // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
+  // Keep Resend configured until tooling and the account's Email Sending setup are ready.
+  // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.
   bindings: {
     DB: db,
     DIE_FILES: dieFiles,

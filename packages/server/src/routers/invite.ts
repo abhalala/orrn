@@ -91,9 +91,10 @@ export const inviteRouter = router({
       // send by WhatsApp or their own mail, the same way Godseye gets an owner's sign-in details.
       let emailSent = false;
       try {
-        const sent = await sendEmail({
+        await sendEmail({
           to: email,
           subject: "You've been invited to join a company on ORRN",
+          text: `You have been invited to join an ORRN company workspace as ${input.role.toUpperCase()}.\n\nAccept the invitation: ${inviteUrl}\n\nIf you did not expect this invitation, ignore this email. This link works for 7 days.`,
           html: renderOrrnEmailHtml({
             title: "Workspace Invitation",
             description: `You have been invited to join a company workspace on ORRN-AL with the role of ${input.role.toUpperCase()}. Click the button below to accept the invitation and complete your account setup.`,
@@ -102,8 +103,7 @@ export const inviteRouter = router({
             footerText: "If you did not expect this invitation, you can safely ignore this email. This invitation is valid for 7 days."
           }),
         });
-        // The mock sender (local, or no Resend key) logs instead of sending.
-        emailSent = sent.messageId !== "mock-message-id";
+        emailSent = true;
       } catch (error) {
         // Neutral log: no address, no link (the link is a live invite).
         console.warn("Invite saved; its email did not go:", (error as Error)?.name ?? "Error");

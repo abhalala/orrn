@@ -21,8 +21,7 @@ import { seedDevData } from "./dev-seed";
 import { collectorRoutes } from "./collector-routes";
 import { spoolRoutes } from "./spool-routes";
 
-const app = new Hono();
-const auth = createAuth();
+const app = new Hono<{ Bindings: Env }>();
 
 app.use(logger());
 
@@ -50,7 +49,7 @@ app.use(
   }),
 );
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.on(["POST", "GET"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.raw));
 
 // Spool webhook and activation routes (non-tRPC)
 app.route("/", spoolRoutes);
