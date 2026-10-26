@@ -282,16 +282,17 @@ test.describe("pack: a booking order is offered last and marked (wave-2 M9)", ()
       await page.getByLabel("Search die code or section").fill(section.sectionCode);
       await page.locator("button[data-die]").filter({ hasText: section.sectionCode }).click();
       const orders = page.locator("[data-slot='order-picker']");
-      const ours = orders.locator("label").filter({ hasText: name });
-      await expect(orders.locator("label")).toHaveCount(2);
+      const orderChoices = orders.locator("label").filter({ hasText: section.sectionCode });
+      const ours = orderChoices.filter({ hasText: name });
+      await expect(orderChoices).toHaveCount(2);
       await expect(ours).toBeVisible({ timeout: 15_000 });
       await expect(ours).toContainText("Booking, not confirmed");
       await expect(ours).not.toContainText("Suggested");
-      const marks = await orders.locator("label").evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
+      const marks = await orderChoices.evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
       const firstBooking = marks.indexOf(true);
       expect(firstBooking).toBeGreaterThan(0);
       expect(marks.slice(firstBooking).every(Boolean)).toBe(true);
-      const suggested = orders.locator("label").filter({ hasText: "Suggested" });
+      const suggested = orderChoices.filter({ hasText: "Suggested" });
       if ((await suggested.count()) > 0) await expect(suggested.first()).not.toContainText("Booking, not confirmed");
     } finally {
       try {
