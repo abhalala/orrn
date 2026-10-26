@@ -25,6 +25,8 @@ import {
   meltLockGates,
   meltBalance,
   normalizeSpectroValues,
+  parseBundleNo,
+  parseCastCode,
   PPM_TOTAL,
   reasonNoteMissing,
   SPECTRO_ELEMENTS,
@@ -175,6 +177,7 @@ const optText = (max: number) =>
 /**
  * FINAL-FIXES-4 (FP-FD-02): the code an old cast carried on paper, free text of letters, digits, space and
  * `- / . _` (a hand-written book has `K31/b`, `OLD 17`). Stored upper case with single spaces, unique per plant.
+ * Generated cast and bundle numbers stay reserved, including numbers a future series may allocate.
  */
 const LEGACY_CODE = /^[A-Z0-9][A-Z0-9 ./_-]{0,19}$/;
 const normalLegacy = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
@@ -183,7 +186,10 @@ const legacyCodeInput = z
   .max(40)
   .optional()
   .transform((s) => (s === undefined || s.trim() === "" ? null : normalLegacy(s)))
-  .refine((s) => s === null || LEGACY_CODE.test(s), { message: "A legacy code is up to 20 letters, digits, spaces or - / . _" });
+  .refine((s) => s === null || LEGACY_CODE.test(s), { message: "A legacy code is up to 20 letters, digits, spaces or - / . _" })
+  .refine((s) => s === null || (parseCastCode(s) === null && parseBundleNo(s) === null), {
+    message: "A legacy code cannot be a cast series code or bundle number",
+  });
 /** The physical billet count at close (Q59-A): pieces and grams, both zero or both above zero. */
 const billetCount = z
   .object({
