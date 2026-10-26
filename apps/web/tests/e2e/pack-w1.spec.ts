@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { mockScale, silent, steady, type MockReading } from "./helpers/mock-scale";
+import { ownSection } from "./helpers/plant-stock";
 import { ownerApi } from "./helpers/owner-api";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
@@ -257,29 +258,54 @@ test.describe("pack: reject reasons come from Masters (W4-MASTERS review I-3)", 
 
 test.describe("pack: a booking order is offered last and marked (wave-2 M9)", () => {
   test("a booking line carries 'Booking, not confirmed', sits after confirmed lines and is never Suggested", async ({ page }) => {
-    await open(page, "/pack/new", { width: 820 });
-    const name = `Booking E2E ${Date.now() % 100_000}`;
+    await signInViaApi(page, "owner");
+    const section = await ownSection(page, "BKG");
+    const name = `Booking E2E ${section.sectionCode}`;
     const owner = await ownerApi();
-    const created = await owner.mutate<{ id: string }>("customer.create", { name });
-    const dies = await trpcQuery<{ items: { id: string }[] }>(page, "die.list", { search: DIE, limit: 5 });
-    await owner.mutate("orders.create", { customerId: created.id, poNumber: null, lines: [{ sectionId: dies.items[0]!.id, cutLengthMm: 3505, kgG: 500_000, pcs: null, finish: null }] });
-    await owner.dispose();
-    await page.reload();
-    await page.getByLabel("Search die code or section").fill(DIE);
-    // The searched die, not whatever row is first while the list still shows recent dies.
-    await page.locator("button[data-die]").filter({ hasText: DIE }).first().click();
-    const orders = page.locator("[data-slot='order-picker']");
-    const ours = orders.locator("label").filter({ hasText: name });
-    await expect(ours).toBeVisible({ timeout: 15_000 });
-    await expect(ours).toContainText("Booking, not confirmed");
-    await expect(ours).not.toContainText("Suggested");
-    // Every line after the first booking one is a booking too: confirmed lines come first.
-    const marks = await orders.locator("label").evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
-    const firstBooking = marks.indexOf(true);
-    expect(firstBooking).toBeGreaterThan(0);
-    expect(marks.slice(firstBooking).every(Boolean)).toBe(true);
-    const suggested = orders.locator("label").filter({ hasText: "Suggested" });
-    if ((await suggested.count()) > 0) await expect(suggested.first()).not.toContainText("Booking, not confirmed");
+    const orderIds: string[] = [];
+    try {
+      // Both states belong to this test's section; no other spec can close or pack away its confirmed line.
+      for (const booking of [false, true]) {
+        const customer = await owner.mutate<{ id: string }>("customer.create", { name: booking ? name : `Confirmed ${section.sectionCode}` });
+        const order = await owner.mutate<{ id: string }>("orders.create", {
+          customerId: customer.id,
+          poNumber: `${section.sectionCode}-${booking ? "booking" : "confirmed"}`,
+          lines: [{ sectionId: section.dieId, dieInstanceId: section.dieInstanceId, cutLengthMm: 3505, qtyBasis: "kg", kgG: 500_000, alloy: "6063", temper: "T6" }],
+        });
+        orderIds.push(order.id);
+        if (!booking) {
+          const got = await owner.query<{ order: { serverSeq: number } }>("orders.get", { id: order.id });
+          await owner.mutate("orders.confirm", { id: order.id, serverSeq: got.order.serverSeq });
+        }
+      }
+      await open(page, "/pack/new", { width: 820 });
+      await page.getByLabel("Search die code or section").fill(section.sectionCode);
+      await page.locator("button[data-die]").filter({ hasText: section.sectionCode }).click();
+      const orders = page.locator("[data-slot='order-picker']");
+      const ours = orders.locator("label").filter({ hasText: name });
+      await expect(orders.locator("label")).toHaveCount(2);
+      await expect(ours).toBeVisible({ timeout: 15_000 });
+      await expect(ours).toContainText("Booking, not confirmed");
+      await expect(ours).not.toContainText("Suggested");
+      const marks = await orders.locator("label").evaluateAll((els) => els.map((el) => (el.textContent ?? "").includes("Booking, not confirmed")));
+      const firstBooking = marks.indexOf(true);
+      expect(firstBooking).toBeGreaterThan(0);
+      expect(marks.slice(firstBooking).every(Boolean)).toBe(true);
+      const suggested = orders.locator("label").filter({ hasText: "Suggested" });
+      if ((await suggested.count()) > 0) await expect(suggested.first()).not.toContainText("Booking, not confirmed");
+    } finally {
+      try {
+        for (const id of orderIds) {
+          const got = await owner.query<{ order: { status: string; serverSeq: number } }>("orders.get", { id });
+          if (got.order.status === "booking") await owner.mutate("orders.confirm", { id, serverSeq: got.order.serverSeq });
+          await owner.mutate("orders.close", { id, reason: "e2e cleanup" });
+        }
+        await owner.mutate("dieInstance.update", { id: section.dieInstanceId, status: "retired" });
+        await owner.mutate("die.update", { id: section.dieId, series: "PATTI", sectionCode: section.sectionCode, weightMinG: 2400, weightMaxG: 2600, status: "archived" });
+      } finally {
+        await owner.dispose();
+      }
+    }
   });
 });
 

@@ -902,6 +902,8 @@ for (const width of WIDTHS) {
       const [b1, b2] = fx.bundles!;
       const { page, context } = await openAs(browser, "office", width, `/orders/${fx.order!.id}`);
       await settled(page);
+      // The order page loads its lines and bundles first: wait for the button instead of clicking into a half-drawn page.
+      await expect(page.locator("[data-dispatch-from-order]")).toBeVisible({ timeout: 30_000 });
       await page.locator("[data-dispatch-from-order]").click();
       await expect(page).toHaveURL(new RegExp(`/dispatch/new\\?salesOrderId=${fx.order!.id}`));
       await expect(page.locator("main#main")).toContainText(fx.order!.number);

@@ -462,7 +462,7 @@ test.describe("team", () => {
       // One row is mine ("You"), and it has no actions.
       const members = await team.getByRole("row").count();
       const rows = members > 0 ? members - 1 : await team.locator("li").count();
-      expect(await change.count()).toBeLessThan(rows);
+      await expect.poll(() => change.count()).toBeLessThan(rows);
       await expect(team.getByTestId("team-portal")).toContainText("party@orrn.local");
       await shot(page, "settings-team", width);
       await expectContained(page);

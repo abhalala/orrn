@@ -205,7 +205,7 @@ test.describe("identity is never colour alone", () => {
   test("rank movement is written in words, not only an arrow or a colour", async ({ page }) => {
     const section = await openCharts(page);
     const chips = card(section, "chart-leaders").locator("[data-slot='rank-movement']");
-    expect(await chips.count()).toBeGreaterThan(3);
+    await expect.poll(() => chips.count()).toBeGreaterThan(3);
     for (const text of await chips.allInnerTexts()) expect(text.trim()).toMatch(/^(Up \d+|Down \d+|Same|New)$/);
   });
 
@@ -328,6 +328,7 @@ test.describe("review round 1", () => {
     }) => {
       const section = await openCharts(page, { width });
       const c = card(section, "chart-leaders");
+      await expect.poll(() => c.locator("[data-slot='ranked-row']").count()).toBe(9); // top 8 + Other, once the chart has drawn
       const rows = await c.locator("[data-slot='ranked-row']").evaluateAll((els) =>
         els.map((el) => ({
           value: Number(el.getAttribute("data-value")),
