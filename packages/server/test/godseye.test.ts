@@ -540,8 +540,8 @@ describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
   }
 
   for (const failure of [
-    { label: "Resend answers an error", respond: async () => new Response("rate limited", { status: 429 }) },
-    { label: "the network call throws", respond: async () => Promise.reject(new TypeError("fetch failed")) },
+    { label: "Resend answers an error", respond: async () => new Response("rate limited", { status: 429 }), error: "Resend email send failed (HTTP 429)" },
+    { label: "the network call throws", respond: async () => Promise.reject(new TypeError("fetch failed")), error: "fetch failed" },
   ]) {
     test(`(a) ${failure.label}: the approval stands and the details come back for copying`, async () => {
       const { requestId, companyId, name } = await fileRequest();
@@ -564,12 +564,15 @@ describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
       expect(result.signInError).toBeNull();
       const signIn = result.signIn!;
       expect(signIn.emailSent).toBe(false);
+      expect(signIn.emailError).toBe(failure.error);
       const { owner, request } = await ownerOf(requestId);
       expect(signIn.to).toBe(request.requesterEmail);
       expect(signIn.companyName).toBe(name);
+      expect(signIn.subject).toBe(`Your ORRN workspace for ${name} is ready`);
       expect(signIn.link).toStartWith("https://app.test/continue?token=");
       // The copyable message carries the same link the staffer can paste into WhatsApp.
       expect(signIn.text).toContain(signIn.link);
+      expect(signIn.text).toContain("expires in 3 days");
 
       // Everything the approval writes is in place even though the email failed.
       const { company, membership, waitlistRequest } = await import("@orrn/db/schema/tenant");
@@ -601,6 +604,8 @@ describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
     try {
       const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
       expect(fresh.emailSent).toBe(false);
+      expect(fresh.emailError).toBe("Resend email send failed (HTTP 401)");
+      expect(fresh.emailError).not.toContain("bad key");
       expect(fresh.link).toStartWith("https://app.test/continue?token=");
       expect(fresh.text).toContain(fresh.link);
     } finally {

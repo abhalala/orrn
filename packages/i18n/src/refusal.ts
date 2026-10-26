@@ -229,6 +229,7 @@ export const SERVER_REFUSALS: readonly RefusalEntry[] = [
   { id: "onOtherOrder", re: new RegExp(`^${S} is on .*; move it with Reallocate instead$`), vars: (m) => ({ serial: m[1]! }) },
   { id: "notHeldFor", re: new RegExp(`^(.+) (?:is|are) not held for ${S} line (\\d+)$`), vars: (m) => ({ serials: m[1]!, order: m[2]!, n: m[3]! }) },
   { id: "savedAsBooking", re: /^A new order is saved as a booking\. Confirm it with Confirm once it is complete\.$/ },
+  { id: "requestReused", re: /^This request id was already used for a different request\.$/ },
   { id: "saveUsed", re: /^This save was already used for another order \((\S+)\)\. Reload the order screen and save again\.$/, vars: (m) => ({ code: m[1]! }) },
   {
     id: "editMoveStatus",

@@ -1,6 +1,7 @@
 /** Native-only strings: what the phone says when orrn refuses a die room or orders write (W4-NATIVE-C). Keep en and hi identical in shape. */
 export const refusalHi = {
   refusal: {
+    requestReused: "यह सेव किसी दूसरे अनुरोध के लिए इस्तेमाल हो चुका है। फिर लोड करके दोबारा कोशिश करें।",
     notFoundDie: "वह die नहीं मिली। वापस जाकर फिर खोलें।",
     notFoundIssue: "वह die issue नहीं मिला।",
     notFoundRun: "वह रन नहीं मिला।",

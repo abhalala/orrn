@@ -616,4 +616,3 @@ function Trail({ id, when }: { id: string; when: (at: string) => string }) {
     </Section>
   );
 }
-

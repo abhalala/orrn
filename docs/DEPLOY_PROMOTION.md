@@ -322,7 +322,7 @@ Official references retrieved for this implementation:
 - [Plan requirements](https://developers.cloudflare.com/email-service/platform/pricing/)
 
 
-## 6. Native: a new development build is required
+## 6. Native: a new development build is required (POST-FINAL, owner decision O9)
 
 Device bring-up comes after the web is complete and dev is deployed; no agent time goes into SDKs or device builds. What is
 needed when it starts: the phone app gained native modules in the FP passes: `expo-application` (build number for the release

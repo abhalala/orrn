@@ -3080,10 +3080,11 @@ Counts: 7099 screen strings in 48 groups, 44 guides with 840 strings.
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
-### refusal (165)
+### refusal (166)
 
 | Key | English | हिंदी |
 |---|---|---|
+| `requestReused` | This save was already used for a different request. Reload and try again. | यह सेव किसी दूसरे अनुरोध के लिए इस्तेमाल हो चुका है। फिर लोड करके दोबारा कोशिश करें। |
 | `notFoundDie` | That die was not found. Go back and open it again. | वह die नहीं मिली। वापस जाकर फिर खोलें। |
 | `notFoundIssue` | That die issue was not found. | वह die issue नहीं मिला। |
 | `notFoundRun` | That run was not found. | वह रन नहीं मिला। |
@@ -6667,7 +6668,7 @@ Please check, Lalubhai:
 | `status.ok` | Done | हो गया |
 | `lastOk` | Last good backup | आखिरी सही बैकअप |
 | `none` | No backup yet. The first one runs overnight. | अभी कोई बैकअप नहीं। पहला रात में चलेगा। |
-| `notConfigured` | Backups are not switched on for this plant yet. Ask ORRN support to enable storage. | इस प्लांट के बैकअप अभी चालू नहीं हैं। स्टोरेज चालू करने के लिए ORRN सपोर्ट से कहें। |
+| `notConfigured` | Backups are not switched on for this plant yet. Ask orrn support to enable storage. | इस प्लांट के बैकअप अभी चालू नहीं हैं। स्टोरेज चालू करने के लिए orrn सपोर्ट से कहें। |
 | `lastAttempt` | Last try: {status}, {time} | आखिरी कोशिश: {status}, {time} |
 | `size` | {mb} megabytes | {mb} मेगाबाइट |
 | `drillTitle` | Restore drill | रिस्टोर ड्रिल |

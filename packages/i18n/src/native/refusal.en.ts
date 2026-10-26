@@ -6,6 +6,7 @@
  */
 export const refusalEn = {
   refusal: {
+    requestReused: "This save was already used for a different request. Reload and try again.",
     notFoundDie: "That die was not found. Go back and open it again.",
     notFoundIssue: "That die issue was not found.",
     notFoundRun: "That run was not found.",
