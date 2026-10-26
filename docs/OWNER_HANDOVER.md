@@ -20,6 +20,14 @@ Order that makes sense: 1 and 2 first (they unblock the dev site), then 4 to 7 w
 - **Pointers:** `docs/DEPLOY_PROMOTION.md` sections 0, 3 and 5; `docs/R2_BUCKETS.md`; `.fp-build/reports/promotion-20261025-0917.md`;
   `.fp-build/PROMOTE_QUEUE.md`.
 
+### Dev platform administrator
+
+The manual **Bootstrap Dev Admin** GitHub workflow grants `super_admin` to an existing dev account.
+Run it on `main` with the exact approved email. It uses only the GitHub `dev` environment and the existing
+`bootstrap-super-admin.ts --stage dev` script; credentials stay in Actions. It neither creates an account
+nor resets a password. A missing account is an explicit failure, not a successful grant. This workflow
+cannot target production.
+
 ## 2. Prod email
 
 Resend remains the deployed provider; successful delivery is not established by the new optional Cloudflare sender seam.

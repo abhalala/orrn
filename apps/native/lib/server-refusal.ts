@@ -8,8 +8,7 @@ import { saveErrorText } from "./save-error";
  * What a refused die room or orders write says on the phone (BACKLOG 29 and 43). The mapping itself
  * (`SERVER_REFUSALS`, `refusal.*` keys) is shared with the web app and lives in `@orrn/i18n/refusal`;
  * this file adds the phone's own wording for a save that never answered. Re-exported here so the
- * screens and `__tests__/server-refusal.test.ts` keep one import path. The test reads the server
- * source and fails on any sentence left unmapped.
+ * screens and behavioral refusal tests keep one import path. Unknown messages use localized fallbacks.
  */
 export { blockersOf, bundleWord, keyOf, mapSentence, orderWord, planWord, SERVER_REFUSALS } from "@orrn/i18n/refusal";
 export type { Hit, RefusalEntry } from "@orrn/i18n/refusal";
