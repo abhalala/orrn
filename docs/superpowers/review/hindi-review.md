@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7099 screen strings in 48 groups, 44 guides with 840 strings.
+Counts: 7100 screen strings in 48 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
