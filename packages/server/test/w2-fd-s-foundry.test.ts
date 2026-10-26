@@ -10,6 +10,8 @@ import { and, eq } from "drizzle-orm";
 import { approval, auditLog, bundle, cast, company, location, melt, meltChemical, meltInput, meltReading, spectroResult, stockLedger, storeTxn } from "@orrn/db/schema";
 
 import { can as canMe, type Action } from "../src/lib/permissions";
+import { productionDayWindowFor } from "../src/lib/productionDay";
+import { addDays } from "../src/lib/zonedBuckets";
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
@@ -511,9 +513,9 @@ describe("FD-14/15 cast close after a REAL logged press run (castPressReturnsSql
     expect((await p.as("viewer").foundry.casts.get({ id: c.id })).closeout).toMatchObject({ billetsOnHandG: kg(4_800), adjustedG: -kg(39.6), tailG: kg(39.6) });
     expect((await p.as("viewer").foundry.stock.billets()).casts.find((x) => x.castId === c.id)).toMatchObject({ onHandG: kg(4_800), adjustedG: -kg(39.6), status: "closed" });
     expect((await p.as("viewer").foundry.casts.trace({ castId: c.id })).billets).toMatchObject({ onHandG: kg(4_800), adjustedG: -kg(39.6), tailG: kg(39.6), countedG: kg(4_800) });
-    // The plant day (Asia/Kolkata) runs ahead of UTC: after 18:30 UTC a row posted now is on the next plant day.
-    const today = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-    const from = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    // Report bounds are production days on the company's clock (including the hours before shift 1).
+    const today = (await productionDayWindowFor(env.db, p.companyId)).productionDay;
+    const from = addDays(today, -3);
     const y = await p.as("manager").analytics.foundryYield({ from, to: today, groupBy: "alloy" });
     expect(y.total).toMatchObject({ logsG: kg(5_150), tailAdjustG: -kg(39.6), netYieldBp: Math.round(((kg(5_150) - kg(39.6)) * 10_000) / kg(5_300)) });
     expect(y.rows.find((x) => x.key === "6063")).toMatchObject({ tailAdjustG: -kg(39.6) });
@@ -676,9 +678,9 @@ describe("FD-16/17 trace and cast-on-label; FD-19 yield; FD-20 cost", () => {
     expect(cost.perKgBilletPaise).toBe(Math.round(((3_000 * 18_500 + 2_000 * 12_050) * 1000) / kg(5_150)));
     await expect(p.as("foundry").foundry.casts.cost({ castId: c.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-    // The plant day (Asia/Kolkata) runs ahead of UTC: after 18:30 UTC a row posted now is on the next plant day.
-    const today = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-    const from = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    // Use the same company production-day window as the report, not a UTC or calendar date.
+    const today = (await productionDayWindowFor(env.db, p.companyId)).productionDay;
+    const from = addDays(today, -3);
     const byAlloy = await p.as("manager").analytics.foundryYield({ from, to: today, groupBy: "alloy" });
     expect(byAlloy.rows).toEqual([expect.objectContaining({ key: "6063", melts: 1, inputG: kg(5_300), logsG: kg(5_150), yieldBp: Math.round((5_150 * 10_000) / 5_300), ldoTenthIn: 25 })]);
     // r1 (m-9): FP-FD-19 reads LDO per tonne OF LOGS: 25 tenths over 5.15 t = 4.85 → 5.

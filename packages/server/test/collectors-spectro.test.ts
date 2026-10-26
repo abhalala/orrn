@@ -211,6 +211,7 @@ describe("foundry.spectroInbox", () => {
 
   test("conflicting element aliases cannot store failing chemistry with a passing verdict", async () => {
     const p = await plant();
+    await env.caller({ role: "manager", companyId: p.companyId }).foundry.alloys.seedDefaults();
     const id = await received(p, 40);
     await env.db.update(spectroInbox).set({
       valuesPpm: { Si: 4500, Fe: 4100, FE: 1800, Cu: 100, Mn: 100, Mg: 5500, Zn: 100, Ti: 100, Cr: 0 },

@@ -88,19 +88,18 @@ lists every column). The same PRAGMA pattern is in `0028_fp_wave2` and applied c
 
 ### What to do now, in order
 
-1. Owner: fix the R2 permission (above). Optional: create the dev buckets by hand.
-2. Re-run the failed Deploy Dev, or push `fbe18910` to `main` (below). Watch it apply 0036 to 0041.
+1. Either enable R2 with the required token scope, or explicitly set the **dev** GitHub environment variable `ORRN_SKIP_R2=1` while storage is unavailable. A generic 403 authentication error is never silently treated as a missing subscription.
+2. Push the verified integration SHA to `main` (below). The workflow passes that dev-only override to Alchemy and applies the pending migrations before updating the app.
 3. Smoke dev (section 3). The owner-only list is `docs/OWNER_HANDOVER.md`.
 4. Only then think about prod (sections 1 and 4).
 
 ## 1. Preconditions (owner)
 
-1. R2 works on the account and the `dev` and `production` tokens can write it (section 0). The infra items in "Bindings that
-   must exist" below are understood. Most are config in `alchemy.run.ts` that the deploy itself creates (the R2 buckets
-   adopt-or-create, the cron). Secrets and variables already exist in the `dev` and `production` GitHub environments
-   (`ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `BETTER_AUTH_SECRET`, `CLOUDFLARE_*`, `ORRN_MASTER_KEY`, `RESEND_API_KEY`,
-   `WEBHOOK_BASE_URL`). `ORRN_MASTER_KEY` is also what signs die-file URLs and spectro upload tickets: a stage without it
-   refuses those uploads (503), it never uses an empty secret.
+1. The infra items in "Bindings that must exist" below are understood. Most are config in `alchemy.run.ts` that the deploy
+   itself creates (the R2 buckets adopt-or-create, the cron). Secrets and variables already exist in the `dev` and
+   `production` GitHub environments (`ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `BETTER_AUTH_SECRET`, `CLOUDFLARE_*`,
+   `ORRN_MASTER_KEY`, `RESEND_API_KEY`, `WEBHOOK_BASE_URL`). `ORRN_MASTER_KEY` is also what signs die-file URLs and spectro
+   upload tickets: a stage without it refuses those uploads (503), it never uses an empty secret.
 2. Verify real email delivery before promotion. Resend remains the deployed provider; its October 2026 failure is not
    repaired merely by adding the optional Cloudflare code path. Invite/reset/sign-in links depend on delivery; tenant
    invitations and Godseye retain copyable links when delivery fails. See the email readiness section below.
@@ -234,6 +233,8 @@ naming the missing R2 subscription). Generic 403/auth, network and other provide
 fail deployment. Each skipped bucket logs its name and disabled feature; `DIE_FILES` / `BACKUPS`
 are omitted, never bound to `undefined`. Skipping forgets the Alchemy resource state entry to avoid
 orphan deletion on finalize; it does not delete remote buckets or data.
+
+The dev workflow reads `vars.ORRN_SKIP_R2`. Set the variable in the GitHub **dev environment**, not production, for an explicitly storage-free dev deployment. Remove it after subscription and token permissions are ready. This override disables drawing storage and backups; it does not repair invalid Cloudflare credentials.
 
 Without R2, die-file operations refuse the existing storage-not-set-up precondition (issued HTTP
 links return 503); Settings Backups says storage is not switched on and keeps historical runs.

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
+import "@/features/marketing/marketing.css";
 import { Cta } from "@/features/marketing/cta";
 import { Floor } from "@/features/marketing/floor";
 import { Flow } from "@/features/marketing/flow";
@@ -10,7 +11,6 @@ import { MarketingFooter } from "@/features/marketing/footer";
 import { Hero } from "@/features/marketing/hero";
 import { MarketingHeader } from "@/features/marketing/marketing-header";
 import { Office } from "@/features/marketing/office";
-import { Trust } from "@/features/marketing/trust";
 import { loadMe } from "@/shared/lib/guards";
 import { homeTarget } from "@/shared/lib/home";
 import { readStoredLocale } from "@/shared/lib/locale";
@@ -79,12 +79,12 @@ function useLocalizedHead() {
 }
 
 function MarketingPage() {
-  const { t } = useT();
+  const { t, locale } = useT();
   useLateSessionRedirect();
   useLocalizedHead();
   return (
     // `data-orrn-marketing` marks this route's chunk for the `/` JS budget (scripts/check-route-budget.ts).
-    <div data-orrn-marketing className="min-h-[100dvh] w-full bg-background text-foreground">
+    <div data-orrn-marketing data-locale={locale} className="marketing-page orrn-ink-panel min-h-[100dvh] w-full">
       <a
         href="#main"
         className="fixed left-3 top-3 z-50 -translate-y-24 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-primary-foreground no-underline focus-visible:translate-y-0"
@@ -97,7 +97,6 @@ function MarketingPage() {
         <Flow />
         <Floor />
         <Office />
-        <Trust />
         <Cta />
       </main>
       <MarketingFooter />
