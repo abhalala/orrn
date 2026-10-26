@@ -54,6 +54,22 @@ describe("foundry refusals (FOUNDRY_REFUSALS, foundry.refusal.*)", () => {
     }
   });
 
+  test("reserved legacy codes explain the series boundary in English and Hindi", () => {
+    const sentence = "A legacy code cannot be a cast series code or bundle number";
+    for (const lang of ["en", "hi"] as const) {
+      const t = createI18n(lang).t;
+      const hit = mapSentence(sentence, t);
+      expect(hit).not.toBeNull();
+      const said = t(hit!.key, hit!.vars);
+      if (lang === "hi") {
+        expect(said).toMatch(/[\u0900-\u097f]/);
+        expect(said).not.toBe(sentence);
+      } else {
+        expect(said).toContain("series");
+      }
+    }
+  });
+
   test("a worked sentence: the tail refusal names the kg and the cast", () => {
     const t = createI18n("en").t;
     const hit = mapSentence("41.6 kg of J3 billets is not explained; pick a reason", t)!;
