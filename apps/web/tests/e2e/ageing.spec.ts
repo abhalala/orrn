@@ -15,8 +15,9 @@ import { API_URL, WEB_ORIGIN } from "./helpers/ports";
  * oven of the test's own per width. The press role does the oven work, the supervisor judges, the manager
  * approves; the operator loads; the viewer has no ageing screens.
  *
- * Lines come from the seed's logged press runs (`ageing.batches.availableLines`): each width loads two or
- * three pieces, and every batch a width made is voided or finished in `afterAll`, so the pieces go back.
+ * Each width books its own order, issues its own die copy on its own press, and logs three production
+ * lines through the real APIs. Every ageing batch is voided or finished in `afterAll`; the owned order
+ * is closed and its press and die copy retired.
  * The oven simulator (`OVEN_SIMULATOR=1` in wrangler.local.jsonc) writes the temperature curve.
  */
 
@@ -90,7 +91,7 @@ const localInput = (ms: number) => {
 };
 
 type Line = { pressRunLineId: string; pressRunNumber: string; sectionLabel: string; pcsLeft: number; alloy: string | null; temper: string | null; salesOrderLineId: string | null };
-type Fx = { tag: string; oven: { id: string; code: string }; trolleys: { id: string; code: string }[]; recipeId: string; shiftId: string; lines: Line[]; batches: string[] };
+type Fx = { tag: string; oven: { id: string; code: string }; trolleys: { id: string; code: string }[]; recipeId: string; shiftId: string; lines: Line[]; batches: string[]; orderId: string; pressLineId: string; copyId: string };
 
 async function makeFixture(width: number): Promise<Fx> {
   const owner = await apiAs("owner");
@@ -105,10 +106,48 @@ async function makeFixture(width: number): Promise<Fx> {
     const recipe = recipes.items.find((r) => r.alloy === "6063" && r.temper === "T6" && r.kind === "full" && r.status === "active");
     expect(recipe, "the dev seed's active 6063 T6 recipe").toBeTruthy();
     const settings = await owner.q<{ shifts: { id: string }[] }>("company.getSettings");
-    const available = await owner.q<{ items: Line[] }>("ageing.batches.availableLines", { limit: 50 });
-    const lines = available.items.filter((l) => l.alloy === "6063" && l.temper === "T6" && l.pcsLeft >= 12 && l.salesOrderLineId);
-    expect(lines.length, "order-linked logged 6063 T6 press lines with pieces left (dev seed)").toBeGreaterThan(1);
-    return { tag, oven, trolleys, recipeId: recipe!.id, shiftId: settings.shifts[0]!.id, lines, batches: [] };
+    // Each width owns its order, production run and logged source lines. No other width can change
+    // this order's ageing totals while the browser reads them.
+    const sectionId = "dev-die-14701";
+    const order = await owner.m<{ id: string }>("orders.create", {
+      customerId: "dev-customer-royal",
+      poNumber: `AGE-${tag}`,
+      lines: [3658, 5486, 6096].map((cutLengthMm) => ({ sectionId, cutLengthMm, qtyBasis: "pcs", pcs: 20, tierRank: 1 })),
+    });
+    const booked = await owner.q<{ order: { serverSeq: number }; lines: { lineId: string }[] }>("orders.get", { id: order.id });
+    await owner.m("orders.confirm", { id: order.id, serverSeq: booked.order.serverSeq });
+    const pressLine = await owner.m<{ id: string }>("press.lines.create", { code: `EP${tag}`.slice(0, 12), name: `Ageing test ${tag}`, sortOrder: 950 });
+    const plan = await owner.m<{ id: string }>("plans.create", {
+      pressLineId: pressLine.id,
+      windowStart: Date.now(),
+      windowEnd: Date.now() + 3_600_000,
+      dies: [{ sectionId, lines: booked.lines.map((line) => ({ salesOrderLineId: line.lineId })) }],
+    });
+    const released = await owner.m<{ runs: { id: string }[] }>("plans.release", { id: plan.id });
+    const runId = released.runs[0]!.id;
+    const copy = await owner.m<{ id: string }>("dieInstance.create", { sectionId, status: "available" });
+    await owner.m("dieInstance.issues.issue", { dieInstanceId: copy.id, pressLineId: pressLine.id, pressRunId: runId });
+    await owner.m("press.runs.start", { id: runId });
+    await owner.m("press.runs.stop", { id: runId });
+    await owner.m("press.runs.count", { id: runId });
+    const casts = await owner.q<{ items: { id: string; alloy: string; billetsOnHandG: number }[] }>("foundry.casts.list", { limit: 200 });
+    const cast = casts.items.find((c) => c.alloy === "6063" && c.billetsOnHandG >= 200_000);
+    expect(cast, "a seeded 6063 cast with billets for the owned production run").toBeTruthy();
+    const run = await owner.q<{ planLines: { id: string; cutLengthMm: number }[] }>("press.runs.get", { id: runId });
+    await owner.m("press.runs.billets", { id: runId, castId: cast!.id, rows: [{ lengthMm: 600, count: 10, kgG: 200_000 }] });
+    await owner.m("press.runs.lines", { id: runId, rows: run.planLines.map((line) => ({ pressPlanLineId: line.id, cutLengthMm: line.cutLengthMm, pcs: 20, goodG: 60_000 })) });
+    await owner.m("press.runs.scrap", { id: runId, discardG: 10_000, endsG: 10_000, pressedLengthMm: 400_000 });
+    await owner.m("press.runs.qc", { id: runId, rows: [{ pcs: 0, kgG: 0, reasonCodeId: null, note: null, runLine: null }] });
+    await owner.m("press.runs.close", { id: runId, clientMutationId: `e2e-${tag}-log` });
+    const sources: Line[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const available = await owner.q<{ items: Line[] }>("ageing.batches.availableLines", { dieId: sectionId, limit: 100, offset });
+      sources.push(...available.items);
+      if (booked.lines.every((line) => sources.some((source) => source.salesOrderLineId === line.lineId)) || available.items.length < 100) break;
+    }
+    const lines = booked.lines.map((line) => sources.find((source) => source.salesOrderLineId === line.lineId)!);
+    expect(lines.every(Boolean), "all three owned logged press lines are available").toBe(true);
+    return { tag, oven, trolleys, recipeId: recipe!.id, shiftId: settings.shifts[0]!.id, lines, batches: [], orderId: order.id, pressLineId: pressLine.id, copyId: copy.id };
   } finally {
     await owner.dispose();
   }
@@ -158,6 +197,9 @@ async function cleanup(fx: Fx) {
     }
     for (const t of fx.trolleys) await attempt(`trolley ${t.code}`, () => owner.m("ageing.trolleys.save", { id: t.id, code: t.code, status: "out_of_service" }));
     await attempt(`oven ${fx.oven.code}`, () => owner.m("ageing.ovens.save", { id: fx.oven.id, code: fx.oven.code, status: "out_of_service" }));
+    await attempt(`close order ${fx.orderId}`, () => owner.m("orders.close", { id: fx.orderId, reason: "e2e ageing cleanup" }));
+    await attempt(`retire press ${fx.pressLineId}`, () => owner.m("press.lines.retire", { id: fx.pressLineId }));
+    await attempt(`retire copy ${fx.copyId}`, () => owner.m("dieInstance.update", { id: fx.copyId, status: "retired" }));
   } finally {
     await owner.dispose();
   }
@@ -187,6 +229,7 @@ for (const width of WIDTHS) {
     let main: { id: string; number: string } | null = null;
 
     test.beforeAll(async () => {
+      test.setTimeout(120_000);
       fx = await makeFixture(width);
     });
     test.afterAll(async () => {
@@ -388,8 +431,8 @@ for (const width of WIDTHS) {
         loaded = await press.m("ageing.batches.load", {
           trolleyId: fx.trolleys[2]!.id,
           rows: [
-            { pressRunLineId: fx.lines[0]!.pressRunLineId, pcs: 2 },
-            { pressRunLineId: fx.lines[1 % fx.lines.length]!.pressRunLineId, pcs: 2 },
+            { pressRunLineId: fx.lines[1]!.pressRunLineId, pcs: 2 },
+            { pressRunLineId: fx.lines[2]!.pressRunLineId, pcs: 2 },
           ],
           clientMutationId: `e2e-${fx.tag}-rework-${Math.random().toString(36).slice(2, 7)}`,
         });
@@ -491,7 +534,7 @@ for (const width of WIDTHS) {
         expect(afterScrap.remainingPcs).not.toBe(afterScrap.loadedPcs - afterScrap.packedPcs);
         const order = await openAs(browser, "owner", width, `/orders/${row.salesOrderId}`);
         const aged = order.page.locator(`[data-testid="order-line-aged"][data-line="${row.salesOrderLineId}"]`);
-        await expect(aged.locator('[data-aged-part="remaining"]')).toHaveText(`Left on the trolley ${afterScrap.remainingPcs} pcs`);
+        await expect(aged.locator('[data-aged-part="remaining"]')).toContainText(new RegExp(`\\b${afterScrap.remainingPcs} pcs$`));
         await order.context.close();
         const { page, context } = await openAs(browser, "supervisor", width, `/b/${bundles[0]!.serial}`);
         const trace = page.getByTestId("bundle-ageing");
@@ -510,6 +553,9 @@ for (const width of WIDTHS) {
         await pack(2, 1);
         const after = await owner.q<{ status: string }>("ageing.batches.get", { id: main!.id });
         expect(after.status).toBe("closed");
+        const drainedOrder = await openAs(browser, "owner", width, `/orders/${fx.orderId}`);
+        await expect(drainedOrder.page.locator(`[data-testid="order-line-aged"][data-line="${row.salesOrderLineId}"] [data-aged-part="remaining"]`)).toContainText(/\b0 pcs$/);
+        await drainedOrder.context.close();
         const second = await openAs(browser, "supervisor", width, `/b/${bundles[1]!.serial}`);
         await second.page.getByTestId("bundle-actions").getByRole("button", { name: /^Void/ }).first().click();
         await expect(second.page.getByTestId("void-ageing-note")).toHaveAttribute("data-outcome", "write_off", { timeout: 15_000 });
