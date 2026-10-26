@@ -1,0 +1,32 @@
+name: DNS Purelymail cleanup (wrong zone)
+
+# One-off (2026-10-26): the first Purelymail run used the dev environment,
+# whose CLOUDFLARE_ZONE_ID is the orrn.app zone, so records were created as
+# *.orrn.in.orrn.app. This deletes exactly those records from orrn.app.
+# The correct orrn.in records are added by dns-purelymail.yml from prod.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    name: Delete *.orrn.in.orrn.app records
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+    steps:
+      - name: Delete wrong-zone records
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/zones/$ZONE/dns_records"
+          curl -s -H "Authorization: Bearer $CF_TOKEN" "$API?per_page=100" \
+            | jq -r '.result[] | select(.name == "orrn.in.orrn.app" or (.name | endswith(".orrn.in.orrn.app"))) | .id' \
+            | while read -r id; do
+                curl -s -X DELETE -H "Authorization: Bearer $CF_TOKEN" "$API/$id" | jq -c '{success, errors}'
+              done
+          echo "--- remaining *.orrn.in.orrn.app (expect none)"
+          curl -s -H "Authorization: Bearer $CF_TOKEN" "$API?per_page=100" \
+            | jq -c '.result[] | select(.name == "orrn.in.orrn.app" or (.name | endswith(".orrn.in.orrn.app"))) | {type, name, content}'
+          echo "cleanup done"
