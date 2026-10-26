@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { openOwnCast, lockOwnMelt } from "./helpers/own-foundry";
 import { ownerApi } from "./helpers/owner-api";
@@ -214,6 +213,8 @@ for (const width of WIDTHS) {
       await expect(manager.getByTestId("foundry-live-note")).toHaveCount(0);
       await expect(manager.getByRole("link", { name: "Open melt" })).toHaveAttribute("href", `/casts/${cast.id}/melt/${melt.meltId}`);
       await manager.getByRole("button", { name: "Approve" }).click();
+      // "Approved" is also the tab label; wait for this request to leave Pending before closing the manager's context.
+      await expect(item).toHaveCount(0);
       await expect(manager.getByText("Approved").first()).toBeVisible();
       await managerContext.close();
 

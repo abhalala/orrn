@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { bigLot, lockOwnMelt, openOwnCast } from "./helpers/own-foundry";
 import { ownerApi } from "./helpers/owner-api";

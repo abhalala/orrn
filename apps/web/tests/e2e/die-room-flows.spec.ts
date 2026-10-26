@@ -1,6 +1,5 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi } from "./helpers/accounts";
 import { ownerApi, type OwnerApi } from "./helpers/owner-api";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";

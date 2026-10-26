@@ -1,8 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { gotoReady } from "./helpers/resilient";
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
@@ -41,8 +39,9 @@ async function open(page: Page, opts: { role?: LocalRole; width: number; scheme?
   await page.setViewportSize({ width: opts.width, height: opts.height ?? 900 });
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "owner");
-  // The first page of a cold Vite dev server can take longer than 5 s at high machine load (one reload if it stalls).
-  await gotoReady(page, "/today", page.locator("[data-slot='app-shell']"), 20_000);
+  await page.goto("/today");
+  // The first page of a cold Vite dev server can take longer than 5 s at high machine load.
+  await expect(page.locator("[data-slot='app-shell']")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("main#main h1")).toBeVisible();
 }
 

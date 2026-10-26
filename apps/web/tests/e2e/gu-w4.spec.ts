@@ -1,7 +1,6 @@
 import { gu } from "@orrn/i18n/gu";
-import { expect, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 

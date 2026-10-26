@@ -1,8 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { GUIDE_SLUGS, getGuide, listGuides } from "@orrn/i18n/guides";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 

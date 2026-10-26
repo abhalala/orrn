@@ -1,8 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { expectEventually } from "./helpers/resilient";
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { dieId, newCustomer, newOrder, ownerApi, packBundles } from "./helpers/owner-api";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
@@ -85,7 +83,7 @@ test.describe("stock: Yards tab, filters in the URL, same totals on every tab", 
       await expect(card).toContainText(`${y2.bundles.toLocaleString("en-IN")} bundles`);
       await expect(card.getByTestId("yard-kg")).toContainText("kg");
       // Every yard has a card, empty ones too.
-      await expectEventually(() => cards.locator("[data-yard]").count()).toBeGreaterThanOrEqual(api.yards.length);
+      await expect.poll(() => cards.locator("[data-yard]").count()).toBeGreaterThanOrEqual(api.yards.length);
 
       // The customer filter: the card shows only this customer's bundles, and it is in the URL.
       await page.goto(`/stock/yards?customer=${s.cust.id}`);

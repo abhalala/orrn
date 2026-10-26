@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi } from "./helpers/accounts";
 import { ownSection, packPlantStock } from "./helpers/plant-stock";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";

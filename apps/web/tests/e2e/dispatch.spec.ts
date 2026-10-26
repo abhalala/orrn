@@ -1,9 +1,8 @@
 import { mkdirSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { fillVehicleIfAsked } from "./helpers/dispatch-vehicle";
 import { ownSection, packPlantStock } from "./helpers/plant-stock";

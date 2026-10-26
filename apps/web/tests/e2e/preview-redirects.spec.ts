@@ -1,6 +1,5 @@
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 

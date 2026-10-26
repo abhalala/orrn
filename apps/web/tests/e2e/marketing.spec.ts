@@ -2,10 +2,8 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { expectEventually } from "./helpers/resilient";
-import { test } from "./helpers/test";
 import { MARKETING_BUDGET_GZIP, MARKETING_MARKER, measureRoute } from "../../scripts/route-budget";
 import { collectClippedTextIssues, collectHorizontalScrollIssues } from "../helpers/layout-guards";
 import { signInViaApi } from "./helpers/accounts";
@@ -223,7 +221,7 @@ test.describe("marketing page", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     // The flow demos are covered too, not only the hero picture.
-    await expectEventually(() => page.locator(FLOW_PARTS).count()).toBeGreaterThan(10);
+    expect(await page.locator(FLOW_PARTS).count()).toBeGreaterThan(10);
     expect(await unsettled(page, MOTION_PARTS)).toEqual([]);
   });
 
@@ -261,16 +259,7 @@ test.describe("marketing page", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    // pauseAt refuses a moment that has already passed, and on a loaded machine 50 ms can go by between reading the page's
-    // clock and the call: widen the lead until the pause lands (nothing plays before the scroll below anyway).
-    for (let lead = 250; ; lead *= 2) {
-      try {
-        await page.clock.pauseAt(await page.evaluate((ms) => Date.now() + ms, lead));
-        break;
-      } catch (error) {
-        if (lead >= 4_000) throw error;
-      }
-    }
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
     await page.locator("#flow [data-flow-list]").evaluate((el) => el.scrollIntoView({ block: "center" }));
     await expect(page.locator("#flow")).toHaveAttribute("data-played", "true", { timeout: 5000 });
 
@@ -395,8 +384,8 @@ test.describe("marketing page", () => {
     await page.setViewportSize({ width: 375, height: 900 });
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expectEventually(async () => (await boxesOf(page, "footer nav a")).length).toBe(2);
     const boxes = await boxesOf(page, "footer nav a");
+    expect(boxes.length).toBe(2);
     const gaps = boxes.slice(1).map((b, i) => {
       const a = boxes[i]!;
       const sameRow = a.top < b.bottom && b.top < a.bottom;

@@ -1,8 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { expectEventually } from "./helpers/resilient";
-import { test } from "./helpers/test";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
 /**
@@ -207,7 +205,7 @@ test.describe("identity is never colour alone", () => {
   test("rank movement is written in words, not only an arrow or a colour", async ({ page }) => {
     const section = await openCharts(page);
     const chips = card(section, "chart-leaders").locator("[data-slot='rank-movement']");
-    await expectEventually(() => chips.count()).toBeGreaterThan(3);
+    await expect.poll(() => chips.count()).toBeGreaterThan(3);
     for (const text of await chips.allInnerTexts()) expect(text.trim()).toMatch(/^(Up \d+|Down \d+|Same|New)$/);
   });
 
@@ -330,7 +328,7 @@ test.describe("review round 1", () => {
     }) => {
       const section = await openCharts(page, { width });
       const c = card(section, "chart-leaders");
-      await expectEventually(() => c.locator("[data-slot='ranked-row']").count()).toBe(9); // top 8 + Other, once the chart has drawn
+      await expect.poll(() => c.locator("[data-slot='ranked-row']").count()).toBe(9); // top 8 + Other, once the chart has drawn
       const rows = await c.locator("[data-slot='ranked-row']").evaluateAll((els) =>
         els.map((el) => ({
           value: Number(el.getAttribute("data-value")),

@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, signInViaForm, localPassword, type LocalRole } from "./helpers/accounts";
 import { API_URL as API, WEB_ORIGIN as ORIGIN } from "./helpers/ports";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";

@@ -1,6 +1,5 @@
-import { expect, request, type Browser, type Page } from "@playwright/test";
+import { expect, request, test, type Browser, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { ownerApi } from "./helpers/owner-api";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";

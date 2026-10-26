@@ -1,10 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { expectEventually } from "./helpers/resilient";
-import { test } from "./helpers/test";
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
 import { expectNoClippedText, expectNoHorizontalScroll } from "../helpers/layout-guards";
 
@@ -460,11 +458,11 @@ test.describe("team", () => {
       const team = page.getByTestId("settings-team");
       await expect(team.getByText("owner@orrn.local")).toBeVisible();
       const change = team.getByTestId("member-change-role");
-      await expectEventually(() => change.count()).toBeGreaterThan(0);
+      await expect.poll(() => change.count()).toBeGreaterThan(0);
       // One row is mine ("You"), and it has no actions.
       const members = await team.getByRole("row").count();
       const rows = members > 0 ? members - 1 : await team.locator("li").count();
-      await expectEventually(() => change.count()).toBeLessThan(rows);
+      await expect.poll(() => change.count()).toBeLessThan(rows);
       await expect(team.getByTestId("team-portal")).toContainText("party@orrn.local");
       await shot(page, "settings-team", width);
       await expectContained(page);

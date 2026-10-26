@@ -2,7 +2,7 @@
  * W1-PK-S dispatch: the §E6 scan order (FP-PK-11/15), owned-die block on add (FP-PK-10), transporter
  * master and vehicle capacity (FP-PK-12), and the dispatch ledger rows.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
 import { auditLog, bundle, customer, die, dispatch } from "@orrn/db/schema";
 import { TRPCError } from "@trpc/server";
@@ -13,9 +13,6 @@ import { ScanRefusalError } from "../src/lib/scanRefusal";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { kg, NOON, salesHelpers, SLOW, type SalesPlant } from "./sales-fixture";
-
-// The seed / matrix tests in this file take 2 to 5 s of Miniflare work each; bun's 5 s default fails them when the machine is busy.
-setDefaultTimeout(30_000);
 
 let env: TestEnv;
 let setClock: (at: Date | null) => void;

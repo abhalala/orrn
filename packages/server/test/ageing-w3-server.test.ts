@@ -14,9 +14,9 @@ import { spoolDeployment } from "@orrn/db/schema/spool";
 import { and, eq, sql } from "drizzle-orm";
 
 import { can, type Action } from "../src/lib/permissions";
+import { productionDayWindowFor } from "../src/lib/productionDay";
 import { DEV_MASTER_KEY, workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
-import { plantDay } from "./plant-day";
 import { fillWorkedExample, kg, pressHelpers, type PressPlant } from "./press-w2-fixture";
 
 setDefaultTimeout(120_000);
@@ -807,7 +807,7 @@ describe("reads around the plant", () => {
     const l = await loggedLine(p);
     const { batchId } = await cycled(p, { rows: [{ pressRunLineId: l.lineId, pcs: 10 }] });
     const day = (await p.owner.ageing.batches.get({ id: batchId })).productionDay!;
-    const today = plantDay();
+    const today = (await productionDayWindowFor(env.db, p.companyId)).productionDay;
     const from = day < today ? day : today;
     const rep = await p.as("office").reports.ageing({ from: "2026-01-01", to: "2099-12-31" });
     expect(rep.rows).toEqual([expect.objectContaining({ loadedPcs: 10, remainingPcs: 10, source: "press", pressRunNumber: expect.any(String) })]);

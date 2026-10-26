@@ -9,11 +9,11 @@
 #   bun run test:server:files                       # all files, JOBS=1 (serial, safest)
 #   JOBS=2 bun run test:server:files                # two files at a time
 #   bun run test:server:files -- plant-store press  # only files whose name contains one of the words
-#   RETRY=1 bun run test:server:files               # re-run a failed file once, alone, before calling it failed
+#   RETRY=1 bun run test:server:files               # diagnostic retry; FLAKY still exits non-zero
 #   TIMEOUT_MS=60000 bun run test:server:files      # per-test timeout override (files with setDefaultTimeout keep theirs)
 #
 # Output: one line per file, a summary, and per-file logs in $LOG_DIR (default /tmp/orrn-server-tests-<pid>).
-# Exit code is non-zero when any file still fails after its retry.
+# Exit code is non-zero when any file fails its first attempt, even if a diagnostic retry passes.
 #
 # Linux / ICU note: the server tests format no locale-dependent text, but the web unit tests do
 # (formatDay, formatInstantDay, instantDateText, companyClock). Those are now pinned to explicit
@@ -24,7 +24,7 @@ set -u
 cd "$(dirname "$0")/.."
 
 JOBS="${JOBS:-1}"
-RETRY="${RETRY:-1}"
+RETRY="${RETRY:-0}"
 LOG_DIR="${LOG_DIR:-/tmp/orrn-server-tests-$$}"
 mkdir -p "$LOG_DIR"
 
@@ -85,4 +85,4 @@ echo "--- slowest files"
 sed -E 's/^[A-Z]+ +([^ ]+) .* ([0-9]+)s( .*)?$/\2 \1/' "$results" | sort -rn | head -8 | awk '{ printf "  %4ss  %s\n", $1, $2 }'
 echo "---"
 echo "files=$total pass=$npass flaky=$nflaky fail=$nfail  (tests passed: ${tests:-0})  logs=$LOG_DIR"
-[ "$nfail" -eq 0 ]
+[ "$nfail" -eq 0 ] && [ "$nflaky" -eq 0 ]

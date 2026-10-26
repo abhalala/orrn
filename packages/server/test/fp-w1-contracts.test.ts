@@ -2,7 +2,7 @@
  * FP Wave 1 shared contracts: migration 0023 (tables, the oblique note move), new document
  * series and party bundle numbers, the die ownership gate, platform actions.
  */
-import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,9 +15,6 @@ import { and, eq } from "drizzle-orm";
 import { can, type Action } from "../src/lib/permissions";
 import { createTestEnv, type TestEnv } from "./harness";
 import { precreateDevSeedUsers } from "./dev-seed-fixture";
-
-// The seed / matrix tests in this file take 2 to 5 s of Miniflare work each; bun's 5 s default fails them when the machine is busy.
-setDefaultTimeout(30_000);
 
 let env: TestEnv;
 type DocNumbers = typeof import("../src/lib/docNumber");

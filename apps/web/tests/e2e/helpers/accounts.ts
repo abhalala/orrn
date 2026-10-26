@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 
 import { API_URL, WEB_ORIGIN } from "./ports";
-import "./resilient";
 
 /**
  * Local seed accounts (one per plant role, plus staff and party, `{role}@orrn.local`; see docs/DEMO_PLANT.md). The shared
@@ -51,10 +50,7 @@ export async function signInViaForm(page: Page, role: LocalRole) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
 
-/**
- * Start a signed-in browser context cookie without the UI (tests that are not about the login screen). Rides out a 5xx or a
- * dropped socket from a busy worker (helpers/resilient.ts); a wrong password still fails on the first answer.
- */
+/** Start a signed-in browser context cookie without the UI (tests that are not about the login screen). */
 export async function signInViaApi(page: Page, role: LocalRole) {
   const apiURL = API_URL;
   const origin = WEB_ORIGIN;

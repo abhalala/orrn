@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, request as pwRequest, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, request as pwRequest, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { localPassword, signInViaApi, type LocalRole } from "./helpers/accounts";
 import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 import { expectNoHorizontalScroll, expectTableFitsFrame } from "../helpers/layout-guards";

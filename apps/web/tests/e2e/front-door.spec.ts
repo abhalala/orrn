@@ -1,7 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { localPassword, signInViaApi, signInViaForm } from "./helpers/accounts";
 import { approvedOwnerMagicLink, devInvite, uniqueEmail } from "./helpers/front-door";

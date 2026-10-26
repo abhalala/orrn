@@ -1,7 +1,6 @@
 import { expect, request } from "@playwright/test";
 
 import { localPassword } from "./accounts";
-import "./resilient";
 import { API_URL, WEB_ORIGIN } from "./ports";
 
 /**
@@ -10,8 +9,7 @@ import { API_URL, WEB_ORIGIN } from "./ports";
  */
 export async function ownerApi() {
   const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
-  // The worker answers 503 for a moment while it reloads or is saturated by other specs, and drops sockets under load:
-  // helpers/resilient.ts asks again with a backoff (a wrong password is a 4xx and fails at once).
+  // Keep the first answer: retries here would hide an auth or worker failure from every consumer.
   const signIn = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "owner@orrn.local", password: localPassword() } });
   expect(signIn.ok(), `owner sign-in returned ${signIn.status()}`).toBe(true);
   return {

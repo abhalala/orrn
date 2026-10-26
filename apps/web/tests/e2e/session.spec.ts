@@ -1,6 +1,5 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { test } from "./helpers/test";
 import { signInViaApi, signInViaForm } from "./helpers/accounts";
 
 /**
