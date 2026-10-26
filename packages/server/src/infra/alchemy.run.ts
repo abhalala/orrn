@@ -1,11 +1,12 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import alchemy, { Resource } from "alchemy";
-import { D1Database, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
+import alchemy, { Resource, Scope } from "alchemy";
+import { createCloudflareApi, D1Database, handleApiError, R2Bucket, Vite, Worker } from "alchemy/cloudflare";
 import { CloudflareStateStore } from "alchemy/state";
-import type { Scope } from "alchemy";
 import { config } from "dotenv";
+
+import { optionalR2Bucket } from "./optionalR2";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
 
@@ -134,8 +135,34 @@ const db = await D1Database("database", {
   migrationsDir: "../db/src/migrations",
 });
 
+/**
+ * R2 is optional until the account has an R2 subscription (LEDGER D10/D36, infra/optionalR2.ts). Without
+ * it (403 / 10042) or with ORRN_SKIP_R2=1 a bucket is skipped with a loud warning and its binding is left
+ * off the Worker; die files and backups answer "not set up" and the cron skips them. Once R2 is enabled,
+ * re-deploy: the buckets are created or adopted (`adopt: true`) and attach.
+ */
+let r2ProbeOnce: Promise<void> | undefined;
+const r2Probe = () =>
+  (r2ProbeOnce ??= (async () => {
+    // `alchemy dev` makes Miniflare buckets and never calls Cloudflare.
+    if (Scope.current.local) return;
+    const api = await createCloudflareApi();
+    const response = await api.get(`/accounts/${api.accountId}/r2/buckets?per_page=1`);
+    if (!response.ok) await handleApiError(response, "list", "R2 buckets");
+  })());
+/** Drop a skipped bucket's alchemy state entry so finalize never treats it as an orphan to delete. */
+const forgetR2State = (id: string) => async () => {
+  const scope = Scope.current;
+  if (await scope.state.get(id)) await scope.state.delete(id);
+};
+
 /** Die drawings, photos and trial sheets (FP-DR-09, LEDGER D10): uploaded by signed PUT, read by signed GET. */
-const dieFiles = await R2Bucket("die-files", { adopt: true });
+const dieFiles = await optionalR2Bucket("die-files", {
+  feature: "die files",
+  probe: r2Probe,
+  forget: forgetR2State("die-files"),
+  create: () => R2Bucket("die-files", { adopt: true }),
+});
 
 /**
  * FP-PF-12: daily per-company exports and restore drills (lib/backup.ts). Private: no public
@@ -147,7 +174,12 @@ const dieFiles = await R2Bucket("die-files", { adopt: true });
  * the backups in it have been copied. The bucket and the `30 21 * * *` cron are config only until
  * the next deploy from `main` (deploy-dev).
  */
-const backups = await R2Bucket("backups", { adopt: true, delete: false });
+const backups = await optionalR2Bucket("backups", {
+  feature: "backups",
+  probe: r2Probe,
+  forget: forgetR2State("backups"),
+  create: () => R2Bucket("backups", { adopt: true, delete: false }),
+});
 
 
 const LegacySpoolReleasesBucket = Resource(
@@ -196,8 +228,9 @@ export const server = await Worker("server", {
   crons: ["30 21 * * *"],
   bindings: {
     DB: db,
-    DIE_FILES: dieFiles,
-    BACKUPS: backups,
+    // Absent bucket = no key at all (never an `undefined` binding).
+    ...(dieFiles ? { DIE_FILES: dieFiles } : {}),
+    ...(backups ? { BACKUPS: backups } : {}),
     NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,
