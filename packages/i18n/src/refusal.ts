@@ -4,11 +4,10 @@ import type { Translate, TranslateVars } from "./core";
 /**
  * What a refused die room, orders or approval write says, in the person's language (BACKLOG 29, 43, 48).
  * The server's refusals are plain English sentences; a Hindi or Gujarati phone or browser must not show
- * or speak them. Every sentence the die room and orders routers can raise is matched here and said from
- * the dictionary (`refusal.*`). A sentence this build does not know shows a generic line in the person's
- * language and never the server's words. Pure and shared: apps/native (lib/server-refusal.ts) and
- * apps/web (features/shared/server-refusal.ts) both read this table. `refusal-sentences.ts` (test
- * support) parses the server source and each app's test fails on any sentence left unmapped.
+ * or speak them. Known sentences are matched here and said from the dictionary (`refusal.*`).
+ * An unknown sentence uses the localized generic error for its code, never the server's words.
+ * Pure and shared: apps/native (lib/server-refusal.ts) and apps/web (features/shared/server-refusal.ts)
+ * both read this table.
  */
 
 export type RefusalEntry = {

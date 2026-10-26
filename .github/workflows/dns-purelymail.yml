@@ -1,0 +1,63 @@
+name: DNS Purelymail (orrn.in)
+
+# One-off, owner-requested (2026-10-26): add the Purelymail records for orrn.in
+# (ownership TXT, MX, SPF, 3x DKIM CNAME, DMARC CNAME, autoconfig CNAME,
+# autodiscover SRV). Dispatch-only; upserts by type+name so re-runs are safe.
+# Uses the production environment's Cloudflare token + CLOUDFLARE_ZONE_ID_IN (orrn.in zone; run from prod ref)
+# (the orrn.in zone). The workflow file lives on main; it is not part of any
+# deploy and changes no application code.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dns:
+    name: Upsert Purelymail records on orrn.in
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID_IN }}
+    steps:
+      - name: Upsert records
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4/zones/$ZONE/dns_records"
+          upsert() {
+            local type="$1" name="$2" content="$3" extra="${4:-}"
+            local existing id
+            existing=$(curl -s -H "Authorization: Bearer $CF_TOKEN" "$API?type=$type&name=$name")
+            # Match by content too: the root holds several TXT records, and
+            # keying on type+name alone would overwrite one with another.
+            id=$(echo "$existing" | jq -r --arg c "$content" '(.result[] | select(.content == $c) | .id) // empty')
+            local body
+            body=$(jq -n --arg t "$type" --arg n "$name" --arg c "$content" --arg extra "$extra" \
+              '{type:$t, name:$n, content:$c, ttl:3600, proxied:false} + (if $extra == "" then {} else ($extra | fromjson) end)')
+            if [ -n "$id" ]; then
+              curl -s -X PUT -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
+                "$API/$id" -d "$body" | jq -c '{success, errors, result: (.result | {type, name, content, priority})}'
+            else
+              curl -s -X POST -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' \
+                "$API" -d "$body" | jq -c '{success, errors, result: (.result | {type, name, content, priority})}'
+            fi
+          }
+          upsert TXT orrn.in 'purelymail_ownership_proof=58576ae5facb38cb6aad79e300bbc71bcd49a94fccfe5a02ce8df32a947779e9c2b5a4dc8045b1261e35f35f026ec50e71ab6efefae322517dca91d7dd84ebca'
+          upsert MX orrn.in 'mailserver.purelymail.com' '{"priority":50}'
+          upsert TXT orrn.in 'v=spf1 include:_spf.purelymail.com ~all'
+          upsert CNAME purelymail1._domainkey.orrn.in 'key1.dkimroot.purelymail.com'
+          upsert CNAME purelymail2._domainkey.orrn.in 'key2.dkimroot.purelymail.com'
+          upsert CNAME purelymail3._domainkey.orrn.in 'key3.dkimroot.purelymail.com'
+          upsert CNAME _dmarc.orrn.in 'dmarcroot.purelymail.com'
+          upsert CNAME autoconfig.orrn.in 'autoconfig.purelymail.com'
+          # SRV: content is derived from data by the API; send data instead.
+          existing=$(curl -s -H "Authorization: Bearer $CF_TOKEN" "$API?type=SRV&name=_autodiscover._tcp.orrn.in")
+          id=$(echo "$existing" | jq -r '.result[0].id // empty')
+          srv='{"type":"SRV","name":"_autodiscover._tcp.orrn.in","data":{"priority":0,"weight":0,"port":443,"target":"autodiscover.purelymail.com"},"ttl":3600}'
+          if [ -n "$id" ]; then
+            curl -s -X PUT -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' "$API/$id" -d "$srv" | jq -c '{success, errors, result: (.result | {type, name, content})}'
+          else
+            curl -s -X POST -H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json' "$API" -d "$srv" | jq -c '{success, errors, result: (.result | {type, name, content})}'
+          fi
+          echo "--- final state (this zone, mail-related)"
+          curl -s -H "Authorization: Bearer $CF_TOKEN" "$API?per_page=100" \
+            | jq -c '.result[] | select(.type=="MX" or .type=="SRV" or (.name|test("purelymail|_dmarc|autoconfig|_autodiscover")) or (.type=="TXT" and .name=="orrn.in")) | {type, name, content, priority}'

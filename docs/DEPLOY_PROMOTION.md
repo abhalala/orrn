@@ -52,7 +52,7 @@ long-running app. Do not kill it.
 - **Prod is an explicit go.** Nobody pushes `prod` until the owner says so in so many words. Never cut over prod from `wt/FP`
   or from a task branch; prod only ever receives `main`.
 
-### Migrations 0036 to 0041 (the candidate adds six)
+### Migrations 0036 to 0042 (the continuation adds seven)
 
 | File | Adds | Data step? |
 |---|---|---|
@@ -62,6 +62,7 @@ long-running app. Do not kill it.
 | `0039_ageing` | ovens, trolleys, recipes, batches, rows, temperature log, hardness | no |
 | `0040_ageing_2` | `ageing_temp_log.device_id`, the feed unique widened by it (a looser key, so no existing row can violate it), four indexes | no |
 | `0041_ageing_3` | `ageing_hardness.pass` nullable | **yes, see below** |
+| `0042_cast_legacy_code` | Legacy paper cast codes, unique per plant | no (additive) |
 
 The chain is consecutive and the snapshots chain (`0036` b2c4af85, `0037` f39c4256, `0038` 42dfa4ff, `0039` e2b87a1f, `0040`
 359c96a1, `0041` fb478748); `bun run db:generate` writes nothing.
@@ -102,9 +103,9 @@ lists every column). The same PRAGMA pattern is in `0028_fp_wave2` and applied c
    `production` GitHub environments (`ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `BETTER_AUTH_SECRET`, `CLOUDFLARE_*`,
    `ORRN_MASTER_KEY`, `RESEND_API_KEY`, `WEBHOOK_BASE_URL`). `ORRN_MASTER_KEY` is also what signs die-file URLs and spectro
    upload tickets: a stage without it refuses those uploads (503), it never uses an empty secret.
-2. Verify real email delivery before promotion. Resend remains the deployed provider; its October 2026 failure is not
+2. Verify real email delivery before **production** promotion. Resend remains the deployed provider; its October 2026 failure is not
    repaired merely by adding the optional Cloudflare code path. Invite/reset/sign-in links depend on delivery; tenant
-   invitations and Godseye retain copyable links when delivery fails. See the email readiness section below.
+   invitations and Godseye retain copyable links when delivery fails. Dev may be evaluated with this limitation explicitly recorded.
 3. Take a D1 backup of production before the first FP deploy (Cloudflare dashboard, D1, the production database, Time Travel
    shows the restore point; or `bunx wrangler d1 export <production database name> --remote --output prod-before-fp.sql`
    from `apps/server`; find the physical name in the dashboard). The FP migrations are additive apart from the two data steps
@@ -133,7 +134,7 @@ git stash push -u -m "concepts work before merging main"
 
 git fetch origin
 git switch redesign/c2                   # already on it
-git merge --no-ff origin/main -m "merge: main (FP plant build) into redesign/c2"
+git merge --no-ff "${GATED_SHA:?Set GATED_SHA to the immutable commit recorded in the current final report}" -m "merge: verified FP plant build into redesign/c2"
 
 # If you stashed: bring the concepts work back.
 git stash pop
@@ -142,8 +143,8 @@ git stash pop
 - `routeTree.gen.ts` is generated: if the merge or `git stash pop` conflicts in it, take either side and regenerate it with
   `bun run --cwd apps/web build`, then `git add` it.
 - `bun.lock` conflicts: take the main side, run `bun install`, commit the lockfile.
-- Migrations must stay chained and consecutive. If the concepts work added a migration, renumber it after the head (0041 or
-  later) and regenerate its snapshot (`bun run db:generate`); see the numbering map in `docs/LOCAL_DEV.md`.
+- Migrations must stay chained and consecutive. If the concepts work added a migration, renumber it after the current head
+  (0042 for this continuation) and regenerate its snapshot (`bun run db:generate`); see `docs/LOCAL_DEV.md`.
 - Prove the merged tree before anything else is built on it (in `orrn/`, not in `wt/FP`):
 
 ```bash
@@ -158,30 +159,32 @@ Use your own port pair for any e2e (`docs/LOCAL_DEV.md`), never 3001, and `unset
 
 ## 3. main: the dev deploy (automatic, dev only)
 
-`wt/FP` descends from `origin/main`, so main moves forward without a merge commit. Pushing it starts Deploy Dev. Use the
-sha, not a branch name, so you push exactly what was gated:
+`wt/FP` descends from `origin/main`, so main moves forward without a merge commit. Pushing it starts Deploy Dev.
+Set `GATED_SHA` to the immutable commit recorded in the current `.fp-build/FINAL_REPORT.md`, not a branch name
+or the historical candidate in section 0. The commands resolve it once and refuse a non-fast-forward:
 
 ```bash
-cd /Users/abhalala/Documents/business/fc/orrn
-git fetch origin
-git merge-base --is-ancestor origin/main fbe18910 && echo "fast-forward"   # must print it; otherwise stop
-git push origin fbe18910:main             # starts "Deploy Dev" (dev.orrn.app); refuses if it is not a fast-forward
+cd /Users/abhalala/Documents/business/fc/wt/FP
+git fetch origin main prod &&
+GATED_SHA="$(git rev-parse --verify "${GATED_SHA:?Set GATED_SHA from the current verified final report}^{commit}")" &&
+git merge-base --is-ancestor origin/main "$GATED_SHA" &&
+git push origin "$GATED_SHA:main"
 ```
 
-Watch the run in GitHub Actions (check-types, then Alchemy). It applies the migrations after the dev head (0036 to 0041 from
-the 0035 that dev holds now) to the dev D1, creates or adopts `die-files` and `backups`, attaches the cron `30 21 * * *`, and
-deploys the Worker and the web app. If it fails, fix forward; do not touch prod. A new green sha later is the same command
-with that sha, after the orchestrator's `PROMOTE <sha>` message names its gates and highest migration.
+Watch Deploy Dev in GitHub Actions (check-types, then Alchemy). It applies pending migrations through **0042**
+to dev D1 and attaches the cron `30 21 * * *`. With `ORRN_SKIP_R2=1`, it omits the storage resources/bindings;
+otherwise it creates or adopts them. It then deploys the Worker and web app. If it fails, fix forward; do not
+touch prod. A later green candidate uses the same procedure with its own immutable SHA and recorded gates.
 
 Smoke test dev.orrn.app before prod (dev has no `/dev/seed`: it refuses without the local-only `ORRN_LOCAL_PASSWORD`):
 
 1. Sign in as a plant owner (Godseye approval or an invite); `/today` loads and `/guides` lists the guides (44 slugs).
 2. Create a customer and a die with a copy; book and confirm an order; plan and release; issue a die; open the press
    station; pack a bundle; start a dispatch from the order; complete it; open the packing list.
-3. Godseye: the plant's modules (an old plant on the old 4-key list now reads every module on), Backups (one manual export
-   writes `backups/{companyId}/{date}/...json` into the `BACKUPS` bucket and an audit row), Settings > Devices.
-4. Upload a die drawing (needs `DIE_FILES` and `ORRN_MASTER_KEY`); make a share link for a section and open it in a private
-   window (`/share/die/<token>`), then revoke it.
+3. Godseye: modules, Backups and Settings > Devices. Storage-free dev must show storage off while retaining historical
+   backup runs. On an enabled stage, a manual export writes `backups/{companyId}/{date}/...json` and an audit row.
+4. On an enabled stage, upload a drawing (`DIE_FILES` and `ORRN_MASTER_KEY`), share it in a private window, then revoke it.
+   Storage-free dev must explicitly refuse unavailable storage; do not claim an upload/restore smoke passed there.
 5. Foundry: open a cast, save a melt draft, type spectro numbers with a reason, lock; close the cast on a billet count.
    Ageing: the Masters pages (oven, trolley, recipe), then a load, start and take-out. Neither needs a device.
 6. The cron: after 21:30 UTC check the worker log for the backup run and the line `orphan die files purged`.
@@ -191,16 +194,21 @@ Smoke test dev.orrn.app before prod (dev has no `/dev/seed`: it refuses without 
 Only with the preconditions in section 1 met and the go written down.
 
 ```bash
-cd /Users/abhalala/Documents/business/fc/orrn
-git fetch origin
-git switch prod
-git pull --ff-only origin prod
-git merge --no-ff <the main sha you smoked on dev> -m "chore: promote main to prod (FP plant build: die room, orders, press, foundry, ageing, pack, dispatch, portal, platform)"
-git push origin prod                      # starts "Deploy Production" (orrn.in), environment: production
+cd /Users/abhalala/Documents/business/fc/wt/FP
+git fetch origin main prod &&
+GATED_SHA="$(git rev-parse --verify "${GATED_SHA:?Set GATED_SHA to the exact main commit smoked on dev}^{commit}")" &&
+git merge-base --is-ancestor "$GATED_SHA" origin/main &&
+PROMOTE_DIR="../PROMOTE-${GATED_SHA:0:12}" &&
+git worktree add -b "promote/${GATED_SHA:0:12}" "$PROMOTE_DIR" origin/prod &&
+git -C "$PROMOTE_DIR" merge --no-ff "$GATED_SHA" -m "chore: promote main to prod (verified FP plant build)" &&
+git -C "$PROMOTE_DIR" diff --quiet "$GATED_SHA" HEAD &&
+git -C "$PROMOTE_DIR" push origin HEAD:prod
 ```
 
-Never cut over prod from `wt/FP` or from a task branch; prod only ever receives `main`. `deploy-prod.yml` is skipped for any
-ref other than `refs/heads/prod`. The deploy applies migrations 0010 to the head (0041) to the production D1:
+The tree-identity guard deliberately stops if the prod merge differs from the dev-smoked candidate. Resolve and verify
+those changes on dev before any production push; do not discard existing prod work or bypass the guard.
+Never cut over prod from a task branch: the candidate must already be on `main`. `deploy-prod.yml` is skipped for any
+ref other than `refs/heads/prod`. The deploy applies migrations 0010 through **0042** to production D1:
 
 - 0026 rewrites the old Godseye default module list `[customers, dies, bundles, dispatches]` to `[]` (every module on) so no
   existing plant loses a screen.
@@ -211,6 +219,36 @@ ref other than `refs/heads/prod`. The deploy applies migrations 0010 to the head
 After the deploy: run the same smoke test on orrn.in with a real plant owner, then take one manual backup and run one restore
 drill into a scratch plant (`docs/RESTORE_DRILL.md`). Real plant data (die copies, sections, legacy bundles, opening balances
 for return streams) is the owner's import work, not part of this promotion: see `docs/OWNER_HANDOVER.md`.
+
+### Automated production database gate
+
+The production workflow now runs `packages/server/scripts/production-safety.ts` before Alchemy.
+It resolves the database from the **currently deployed `api.orrn.in` Worker's `DB` binding**, reads its actual migration
+history, captures a Time Travel bookmark and exports the database. The export and recovery metadata are archived,
+encrypted with AES-256-GCM using a domain-separated key derived from the production `ORRN_MASTER_KEY`, and decrypted
+again to verify the archive checksum before upload. Only `backup.enc` is uploaded as
+`production-d1-before-<GitHub run id>` (30-day retention). This repository is public: never upload raw SQL, metadata,
+command logs or a decrypted archive. Keep the historical production master key available for recovery.
+
+The next step restores the export into **local D1 on the runner**, applies every pending SQL migration in order with
+Alchemy-compatible history rows, and checks every pre-existing table count and foreign keys. Unknown migration names,
+gaps, a nonempty melt before 0028, lost rows or invalid foreign keys stop the deployment before production writes.
+The guards themselves are tested against a populated 0009 fixture, including preservation of legacy oblique notes,
+stock weight and the old module-list upgrade. After Alchemy, read-only checks confirm all migrations are recorded,
+protected production document counts did not decrease and foreign keys still pass. Live traffic may add documents.
+
+For recovery, download the encrypted artifact into a private directory and obtain the **historical production master
+key through the existing secure credential store**, then run:
+
+```bash
+bun packages/server/scripts/production-safety.ts decrypt backup.enc backup.tar.gz
+# Extract only in a private directory: the archive contains production.sql, before.json and wrangler.json.
+tar -xzf backup.tar.gz
+```
+
+`before.json` records the database id, pre-deploy revision and Time Travel bookmark. A real restore is a separate,
+explicitly authorized operation against that database; do not replay SQL or run Time Travel blindly while live users
+may have added newer work. GitHub removes temporary plaintext files even when a workflow step fails.
 
 ## 5. Bindings and settings that must exist
 

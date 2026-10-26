@@ -100,6 +100,8 @@ describe("search", () => {
   test("the trace box tells a cast code from a bundle serial", () => {
     expect(traceQuery("k31")).toEqual({ kind: "cast", number: "K31" });
     expect(traceQuery(" 26J1842 ")).toEqual({ kind: "bundle", serial: "26J1842" });
+    expect(traceQuery("l99999")).toEqual({ kind: "cast", number: "L99999" });
+    expect(traceQuery("k  31")).toEqual({ kind: "cast", number: "K31" });
     expect(traceQuery("hello")).toBeNull();
     expect(traceQuery("")).toBeNull();
   });
@@ -108,6 +110,10 @@ describe("search", () => {
     expect(legacyQuery("hello")).toBe("HELLO");
     expect(legacyQuery("k31")).toBeNull();
     expect(legacyQuery("26J1842")).toBeNull();
+    expect(legacyQuery("l99999")).toBeNull();
+    expect(legacyQuery("k  31")).toBeNull();
+    expect(legacyQuery("K31/b")).toBe("K31/B");
+    expect(legacyQuery("OLD17")).toBe("OLD17");
     expect(legacyQuery("")).toBeNull();
     expect(legacyQuery("<b>")).toBeNull();
     expect(legacyQuery("x".repeat(21))).toBeNull();
