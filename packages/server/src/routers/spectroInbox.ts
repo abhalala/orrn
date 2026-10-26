@@ -76,8 +76,9 @@ export const spectroInboxRouter = router({
       if (!m) throw new TRPCError({ code: "NOT_FOUND", message: "Melt not found" });
       if (m.cancelledAt) throw new TRPCError({ code: "BAD_REQUEST", message: "This melt is cancelled" });
 
-      // W2-FD-S: the watcher's values are judged against the melt's alloy limits like a typed result.
-      const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, row.valuesPpm ?? {});
+      // Judge and store the same canonical values, including the duplicate-alias policy.
+      const valuesPpm = normalizeSpectroValues(row.valuesPpm);
+      const judged = await spectroJudge(ctx.db, ctx.companyId, { alloyId: m.alloyId, alloyCode: m.alloy }, valuesPpm);
 
       // Claim the row first so two people cannot attach the same file twice.
       const claimed = await ctx.db
@@ -102,7 +103,7 @@ export const spectroInboxRouter = router({
             sizeBytes: row.sizeBytes,
             dataBase64: "",
             fileKey: row.fileKey,
-            valuesPpm: normalizeSpectroValues(row.valuesPpm),
+            valuesPpm,
             ...judged,
             source: "import",
             createdBy: ctx.session.user.id,

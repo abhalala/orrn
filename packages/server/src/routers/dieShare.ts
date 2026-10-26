@@ -72,7 +72,7 @@ export const dieShareRouter = router({
         note: z.string().trim().max(200).optional(),
         /**
          * Replay key (final fixes 5, M4): a repeat of the same request (a double tap, a reply lost on the way) answers the
-         * FIRST link with `replayed: true` and makes no second one; the same key for another section, party or note is a CONFLICT.
+         * FIRST link with `replayed: true` and makes no second one; changed section, party, note or duration is a CONFLICT.
          */
         clientMutationId: z.string().regex(REPLAY_KEY_PATTERN, "clientMutationId is 16 to 64 letters, digits, - or _").optional(),
       }),
@@ -82,12 +82,12 @@ export const dieShareRouter = router({
       const shareReplay = async () => {
         if (!keyed) return null;
         const [prior] = await ctx.db
-          .select({ id: dieShare.id, sectionId: dieShare.sectionId, customerId: dieShare.customerId, note: dieShare.note, expiresAt: dieShare.expiresAt })
+          .select({ id: dieShare.id, sectionId: dieShare.sectionId, customerId: dieShare.customerId, note: dieShare.note, createdAt: dieShare.createdAt, expiresAt: dieShare.expiresAt })
           .from(dieShare)
           .where(and(eq(dieShare.id, keyed.id), eq(dieShare.companyId, ctx.companyId)))
           .limit(1);
         if (!prior) return null;
-        if (prior.sectionId !== input.sectionId || (prior.customerId ?? null) !== (input.customerId ?? null) || (prior.note ?? null) !== (input.note || null)) {
+        if (prior.sectionId !== input.sectionId || (prior.customerId ?? null) !== (input.customerId ?? null) || (prior.note ?? null) !== (input.note || null) || prior.expiresAt.getTime() !== shareExpiry(prior.createdAt.getTime(), input.days)) {
           throw new TRPCError({ code: "CONFLICT", message: "This request id was already used for a different request." });
         }
         const token = await replayToken(ctx.companyId, "die_share.create", keyed.key, "base64url");
@@ -123,35 +123,35 @@ export const dieShareRouter = router({
       const token = keyed ? await replayToken(ctx.companyId, "die_share.create", keyed.key, "base64url") : newShareToken();
       const id = keyed?.id ?? createId();
       try {
-      await atomicBatch(ctx.db, [
-        ctx.db.insert(dieShare).values({
-          id,
-          companyId: ctx.companyId,
-          sectionId: section.id,
-          customerId: party?.id ?? null,
-          tokenHash: await hashShareToken(token),
-          note: input.note || null,
-          expiresAt,
-          createdBy: ctx.session.user.id,
-          createdAt: now,
-        }),
-        auditInsert(auditCtx(ctx), {
-          action: "die_share.create",
-          subjectType: "die",
-          subjectId: section.id,
-          meta: {
-            shareId: id,
-            section: `${section.series} ${section.sectionCode}`,
+        await atomicBatch(ctx.db, [
+          ctx.db.insert(dieShare).values({
+            id,
+            companyId: ctx.companyId,
+            sectionId: section.id,
             customerId: party?.id ?? null,
-            party: party?.name ?? null,
-            fileId: file?.id ?? null,
-            filename: file?.filename ?? null,
-            days: input.days,
-            expiresAt: expiresAt.getTime(),
+            tokenHash: await hashShareToken(token),
             note: input.note || null,
-          },
-        }),
-      ]);
+            expiresAt,
+            createdBy: ctx.session.user.id,
+            createdAt: now,
+          }),
+          auditInsert(auditCtx(ctx), {
+            action: "die_share.create",
+            subjectType: "die",
+            subjectId: section.id,
+            meta: {
+              shareId: id,
+              section: `${section.series} ${section.sectionCode}`,
+              customerId: party?.id ?? null,
+              party: party?.name ?? null,
+              fileId: file?.id ?? null,
+              filename: file?.filename ?? null,
+              days: input.days,
+              expiresAt: expiresAt.getTime(),
+              note: input.note || null,
+            },
+          }),
+        ]);
       } catch (e) {
         // Two identical requests racing end on the row's primary key: the second answers the first link.
         if (keyed && /UNIQUE constraint failed: die_share\.(id|token_hash)|PRIMARY KEY/i.test(errorText(e))) {

@@ -209,6 +209,19 @@ describe("foundry.spectroInbox", () => {
     expect(await foundry.foundry.spectroInbox.list()).toEqual([]);
   });
 
+  test("conflicting element aliases cannot store failing chemistry with a passing verdict", async () => {
+    const p = await plant();
+    const id = await received(p, 40);
+    await env.db.update(spectroInbox).set({
+      valuesPpm: { Si: 4500, Fe: 4100, FE: 1800, Cu: 100, Mn: 100, Mg: 5500, Zn: 100, Ti: 100, Cr: 0 },
+    }).where(eq(spectroInbox.id, id));
+    const foundry = env.caller({ role: "foundry", companyId: p.companyId });
+    const out = await foundry.foundry.spectroInbox.attach({ id, meltId: p.meltId });
+    const result = await env.db.select().from(spectroResult).where(eq(spectroResult.id, out.spectroResultId)).get();
+    expect(result).toMatchObject({ valuesPpm: { fe: 4100 }, fePpm: 4100, verdict: "fail" });
+    expect(out.verdict).toBe("fail");
+  });
+
   test("a file still uploading cannot be attached; dismiss needs a reason; other roles are refused", async () => {
     const p = await plant();
     const pending = ((await p.ingest(csv(11))).body as { id: string }).id;

@@ -517,6 +517,13 @@ describe("final fixes 5 (M4): create takes a replay key; a repeat answers the fi
     expect(await env.db.select().from(dieShare).where(eq(dieShare.sectionId, p.section))).toHaveLength(1);
   });
 
+  test("a replay cannot silently preserve a longer sharing duration", async () => {
+    const p = await plant();
+    const request = { sectionId: p.section, clientMutationId: KEY };
+    await p.dieRoom.die.share.create({ ...request, days: 30 });
+    await expect(p.dieRoom.die.share.create({ ...request, days: 1 })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
   test("the same key for another party, section or note is a CONFLICT; a new key makes a second link; no key still makes a random one", async () => {
     const p = await plant();
     const party = await env.seedCustomer(p.companyId);
