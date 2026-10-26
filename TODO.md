@@ -1,13 +1,13 @@
 # ORRN TODO
 
-Open work only, at `wt/FP` fbe18910 (2026-10-25, end of the FP build). History (milestones M0 to M9, the plant waves W0 to W4, the foundry and ageing lanes) is in git and in `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; what is built, row by row, is the status column of each FP spec in `docs/superpowers/specs/` (132 of 138 rows Built; FD-02, FD-11, FD-19 and AG-15 Partial; PK-06 and PF-18 Deferred). Every item carries its backlog rank (`BL n`, from `.fp-build/BACKLOG.md`; where a rank repeats the band is named: `base` 1-29, `re-pass` 30-48, `arch` 50-57, `pl-flow` 61-70, `audit` the later 28-56 rows; ranks from 57 up to 114 are unique). The status column of `BACKLOG.md` was never kept in step; this file is the open list. FP ids (FP-XX-nn) are the rows of the specs. Keep it in step with the work: move an item out when it is done, add one when a decision creates work.
+Open work only, updated during the 2026-10-26 FP continuation. History is in git and `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; per-ID implementation status is in `docs/superpowers/specs/`, and current checks/release evidence are in `.fp-build/LEDGER.md` and `.fp-build/FINAL_REPORT.md`. PK-06 and PF-18 remain explicitly Deferred. Every item carries its original backlog rank where available; `BACKLOG.md` is historical, not the live open list. Remove an item only after its consumer-visible behavior is verified.
 
 ## State
 
 - Every plant module is built end to end on the web, with the phone app for the floor roles: die room (with the share link), orders and planning, press (station, queue, report, collectors as simulators), foundry (casts, melts, spectro, count-based close, trace, certificate, yield), ageing (ovens, trolleys, recipes, batches, release, pack from a released line), pack, stock, dispatch from an order, packing list v2, stock count, platform (modules, shifts, thresholds, releases, backups, audit, support, approvals with live facts), customer portal, analytics and reports. 44 guides in en and hi; Gujarati for the floor.
-- Gates at `wt/FP` fbe18910: types 11/11; server 3005/0; domain 358; i18n 64; web 1375/0; native 901 + types + expo android; build `/` 223.5 kB of 250; e2e A 317 (+10 skips), B 431, C 489, 0 failed.
+- Current verification is recorded in the build ledger/final report; historical gate counts are not proof of the current continuation.
 - FINAL-FIXES-4 removes `features/preview` and repoints `/preview/ageing*` to `/ageing` and `/reports/ageing`.
-- `main` is at b276f9cd (dev D1 at migration 0035; the dev deploy stopped at the R2 permission), `prod` at c6cb44b3 (migration 0009). The candidate is fbe18910 with migrations to 0041. See `docs/DEPLOY_PROMOTION.md`.
+- The continuation schema head is 0042. Dev can deploy without R2 using the explicit dev-only override; actual deployment state and immutable gated SHA are in the final report. Production requires a separate explicit go. See `docs/DEPLOY_PROMOTION.md`.
 - Three things are not in this file because they are the owner's: the owner-only list is `docs/OWNER_HANDOVER.md`, device bring-up is its own section below (O9), and Gujarati is its own section below (O8).
 
 ## Owner only (no agent can do these)
@@ -16,12 +16,12 @@ The list with pointers, defaults to confirm and the exact commands is `docs/OWNE
 
 | Item | Detail | Rank |
 |---|---|---|
-| R2 and the dev deploy | Enable R2 on the Cloudflare account and give the dev and production tokens "Workers R2 Storage: Edit"; re-run Deploy Dev. Dev serves the old code until then. | - |
+| R2 subscription and storage | For actual drawings/backups, enable approved R2 on the intended account, grant the stage token Workers R2 Storage: Edit and redeploy. Storage-free dev is independently deployable with `ORRN_SKIP_R2=1`; generic authentication errors are not silently ignored. | - |
 | Prod go | Promote `main` to `prod` only on the owner's explicit go: `docs/DEPLOY_PROMOTION.md` sections 1 and 4. | - |
-| Prod email | Resend sends failed in Oct 2026; invite and reset links depend on it. Godseye shows copyable sign-in details meanwhile. | - |
+| Prod email | Verify real delivery. Resend remains deployed; the optional Cloudflare sender is intentionally unbound until entitlement, DNS and supported deployment binding are ready. Copyable invite/sign-in details remain available where designed. | - |
 | Hardware | Scale indicator (Q5), TSC label printer template (Q31), press PLC (Q46), spectrometer (Q47), billet weighing cell, and the ageing oven controller (AG-17: the server route `POST /collector/ageing/readings` and `OVEN_SIMULATOR` exist; there is no orrn-spool oven collector, so the owner supplies controller make, protocol and network path). Simulators stand in for all of them. | base 11, audit 46 |
 | Spool repo | Merge `fp/scale-reader` and `fp/collectors` into orrn-spool `main` (Go 1.24 toolchain), install it on the packing PC. | base 10, audit 45 |
-| Real data | Section CSV, legacy bundles as unassigned (`legacy_bundle_map`), `castSeriesStart` (no screen: API or import only, see FD-02 below), die copies, drawings by file name (Q18), opening balances for the foundry's return streams, accounts for real people (plant admin = Dad, Q32), parallel run with FCMS. | re-pass 39, BL 72 |
+| Real data | Section CSV, legacy bundles as unassigned (`legacy_bundle_map`), cast book continuation in Settings > Standards > Cast numbers, die copies, drawings by file name (Q18), return-stream opening balances, accounts for real people (plant admin = Dad, Q32), parallel run with FCMS. | re-pass 39, BL 72 |
 | Questions | Confirm or change the defaults taken: Q1-Q4, Q6-Q20, Q23, Q25, Q37, Q42-Q45 and the new Q49-Q63 (die share link, ageing, cast close count, write-off, duplicate reasons, "To log", nitriding copies at pack). | - |
 | Pilot and training | Packing bay 1 week, die room desk 1 week, press tablet 2 weeks after a cast exists. | - |
 
@@ -53,9 +53,8 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 
 | Item | Detail | Rank |
 |---|---|---|
-| FD-02: cast book screen | No screen for `castSeriesStart` (where the cast series continues from the paper book) and no entry of a legacy cast code; today API or import only. FP-FD-02 is Partial until then. | audit-final-2 |
-| FD-11: open the spectro file | `foundry.spectro.file` has no caller: the attached file is never shown again on the melt sheet (web and phone). FP-FD-11 is Partial until then. | audit-final-2 |
-| AG-15: pieces on the order line | `ageing.forOrder` returns loaded, packed and remaining pieces per line, but no screen reads it; the order strip shows only the Aged kg cell. FP-AG-15 is Partial until then. | audit-final-2 |
+| FD-02: reserve generated namespaces | Cast-book settings and paper-code entry exist. Reject generated cast/bundle identifier formats as paper codes so search/trace cannot become ambiguous or route into the wrong lookup. | final inventory review |
+| AG-15: remaining trolley pieces | Order-line breakdown exists, but must show authoritative `remainingPcs`; loaded minus packed is wrong after scrap/rework. | final inventory review |
 | Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
 | Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
@@ -65,7 +64,6 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 | Pack phone Review | The "For order" line should sit above the sticky bar (owner tour 99, second half). | BL 111 |
 | Prod logs: email in a Better Auth message | Better Auth's own logger prints the address on "Reset Password: User not found" (PII in prod logs): custom logger or suppress. | BL 69 |
 | Purchase register columns | The register screens do not show `meltedKgG` and `remainingKgG` per lot (the server returns them). | BL 74 |
-| Foundry yield per stream | `analytics.foundryYield` should split metal in by return stream so the report shows kg in per stream (FP-FD-19 is Partial until then). | BL 75 |
 | Collectors card wording | The Standards collectors card reuses Today's "Press alerts open: N" string; give it its own key. | BL 67 |
 
 ### Soon
