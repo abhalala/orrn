@@ -4,7 +4,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { assertPreserved, decryptBackup, encryptBackup, pendingMigrations } from "./production-safety";
+import { assertPreserved, decryptBackup, encryptBackup, orderExportSql, pendingMigrations } from "./production-safety";
 
 const temporary = await mkdtemp(join(tmpdir(), "orrn-production-safety-test-"));
 const root = resolve(import.meta.dir, "../../..");
@@ -60,6 +60,9 @@ INSERT INTO die (id, company_id, series, section_code, weight_min_g, weight_max_
 INSERT INTO bundle_group (id, company_id, die_id, unit, code) VALUES ('release-group', 'release-company', 'release-die', 'mm', 'BG-000001');
 INSERT INTO bundle (id, company_id, group_id, die_id, serial, quantity, weight_g, length_mm) VALUES ('release-bundle', 'release-company', 'release-group', 'release-die', 'BG-000001-B001', 20, 50000, 3658);
 INSERT INTO dispatch (id, company_id, code, customer_id) VALUES ('release-dispatch', 'release-company', 'DSP-1', 'release-customer');
+CREATE TABLE d1_migrations_legacy (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, applied_at TEXT);
+INSERT INTO d1_migrations_legacy (name, applied_at) VALUES ('0000_polite_sabra.sql', '2026-10-01');
+DROP TABLE d1_migrations_legacy;
 CREATE TABLE d1_migrations (id TEXT PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL);
 ${baseline.map((name, i) => `INSERT INTO d1_migrations VALUES ('${String(i + 1).padStart(5, "0")}', '${name}', '2026-10-01');`).join("\n")}
 `;
@@ -67,13 +70,24 @@ ${baseline.map((name, i) => `INSERT INTO d1_migrations VALUES ('${String(i + 1).
     const names = db.query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name <> 'd1_migrations'").all();
     const counts = Object.fromEntries(names.map(({ name }) => [name, db.query<{ n: number }, []>(`SELECT count(*) AS n FROM "${name}"`).get()!.n]));
     db.close();
-    await writeFile(join(directory, "production.sql"), sql);
     await writeFile(join(directory, "before.json"), JSON.stringify({ counts, foreignKeyViolations: 0, migrations: baseline.map((name, i) => ({ id: String(i + 1), name })) }));
     await writeFile(join(directory, "wrangler.json"), JSON.stringify({ name: "orrn-release-test", compatibility_date: "2026-10-01", d1_databases: [{ binding: "DB", database_name: "release-test", database_id: "00000000-0000-0000-0000-000000000001" }] }));
     const fixtureEnv: NodeJS.ProcessEnv = { ...process.env, RUNNER_TEMP: temporary };
     delete fixtureEnv.CLOUDFLARE_API_TOKEN;
     delete fixtureEnv.CLOUDFLARE_ACCOUNT_ID;
     delete fixtureEnv.ORRN_MASTER_KEY;
+    const wranglerBin = join(root, "apps/server/node_modules/.bin/wrangler");
+    const sourceDir = join(temporary, "source-d1");
+    await mkdir(sourceDir);
+    await writeFile(join(sourceDir, "init.sql"), sql);
+    expect(Bun.spawnSync([wranglerBin, "d1", "execute", "DB", "--local", "--file", join(sourceDir, "init.sql"), "--config", join(directory, "wrangler.json"), "--yes"], { cwd: sourceDir, env: fixtureEnv, stdout: "pipe", stderr: "pipe" }).exitCode).toBe(0);
+    expect(Bun.spawnSync([wranglerBin, "d1", "export", "DB", "--local", "--output", join(directory, "production.sql"), "--config", join(directory, "wrangler.json")], { cwd: sourceDir, env: fixtureEnv, stdout: "pipe", stderr: "pipe" }).exitCode).toBe(0);
+    const rawExport = await readFile(join(directory, "production.sql"), "utf8");
+    expect(rawExport.indexOf('INSERT INTO "die"')).toBeLessThan(rawExport.indexOf("CREATE TABLE `company`"));
+    expect(rawExport).toContain("DELETE FROM sqlite_sequence;");
+    const orderedExport = orderExportSql(rawExport);
+    expect(orderedExport.indexOf("CREATE TABLE `company`")).toBeLessThan(orderedExport.indexOf('INSERT INTO "die"'));
+    expect(orderedExport).not.toContain("sqlite_sequence");
     const result = Bun.spawnSync([process.execPath, join(import.meta.dir, "production-safety.ts"), "rehearse"], { cwd: root, env: fixtureEnv, stdout: "pipe", stderr: "pipe", timeout: 180_000 });
     if (result.exitCode !== 0 && await Bun.file(join(directory, "private-command-error.log")).exists()) console.error(await readFile(join(directory, "private-command-error.log"), "utf8"));
     expect(new TextDecoder().decode(result.stderr)).toBe("");

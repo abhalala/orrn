@@ -77,6 +77,77 @@ async function tableCounts(read: (sql: string) => Promise<Row[]>, names: string[
   return counts;
 }
 
+/** Split a SQLite dump into individual top-level statements while respecting quotes and comments. */
+function splitSqlStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let start = 0;
+  let inTrigger = false;
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i]!;
+    if (ch === "\x27" || ch === "\"" || ch === "`") {
+      const quote = ch;
+      for (i++; i < sql.length; i++) {
+        if (sql[i] === quote) {
+          if (sql[i + 1] === quote) { i++; continue; }
+          break;
+        }
+      }
+      continue;
+    }
+    if (ch === "-" && sql[i + 1] === "-") {
+      for (i += 2; i < sql.length && sql[i] !== "\n"; i++);
+      continue;
+    }
+    if (ch === "/" && sql[i + 1] === "*") {
+      for (i += 2; i < sql.length && !(sql[i] === "*" && sql[i + 1] === "/"); i++);
+      i++;
+      continue;
+    }
+    if (!inTrigger && ch === ";") {
+      const statement = sql.slice(start, i + 1).trim();
+      if (statement) statements.push(statement);
+      start = i + 1;
+      continue;
+    }
+    if ((ch === "c" || ch === "C") && /^CREATE\s+(?:TEMP(?:ORARY)?\s+)?TRIGGER\b/i.test(sql.slice(start).trimStart())) {
+      inTrigger = true;
+    }
+    if (inTrigger && ch === ";" && /\bEND\s*;\s*$/i.test(sql.slice(start, i + 1))) {
+      const statement = sql.slice(start, i + 1).trim();
+      if (statement) statements.push(statement);
+      start = i + 1;
+      inTrigger = false;
+    }
+  }
+  const tail = sql.slice(start).trim();
+  if (tail) statements.push(tail);
+  return statements;
+}
+
+/**
+ * D1 exports each table followed immediately by its INSERT rows in sqlite_schema.rowid order.
+ * Tables created in 0000 (die, customer, bundle, dispatch) precede company (0002) after table
+ * rebuilds, and Alchemy migration-table upgrades can leave an empty sqlite_sequence table behind.
+ * Ordering CREATE TABLE statements before data rows lets local D1 prepare every foreign-key
+ * parent table before inserting child rows under PRAGMA defer_foreign_keys=TRUE.
+ */
+export function orderExportSql(sql: string): string {
+  const tables: string[] = [];
+  const data: string[] = [];
+  const sequenceData: string[] = [];
+  const other: string[] = [];
+  for (const statement of splitSqlStatements(sql)) {
+    const head = statement.replace(/^(?:--[^\n]*\n|\s+|\/\*[\s\S]*?\*\/)+/g, "");
+    if (/^PRAGMA\s+defer_foreign_keys\b/i.test(head)) continue;
+    if (/^CREATE\s+(?:TEMP(?:ORARY)?\s+)?TABLE\b/i.test(head)) tables.push(statement);
+    else if (/^(?:DELETE\s+FROM|INSERT\s+INTO)\s+["`\x27]?sqlite_sequence["`\x27]?\b/i.test(head)) sequenceData.push(statement);
+    else if (/^(?:INSERT|DELETE|UPDATE)\b/i.test(head)) data.push(statement);
+    else other.push(statement);
+  }
+  const hasAutoincrement = tables.some((statement) => /\bAUTOINCREMENT\b/i.test(statement));
+  return ["PRAGMA defer_foreign_keys=TRUE;", ...tables, ...data, ...(hasAutoincrement ? sequenceData : []), ...other].join("\n") + "\n";
+}
+
 /** Only names present in the reviewed checkout may be considered already applied. */
 export function pendingMigrations(files: string[], applied: string[]): string[] {
   const known = new Set(files);
@@ -174,8 +245,10 @@ async function backup(): Promise<void> {
   };
   assert(typeof (before.bookmark as { bookmark?: unknown }).bookmark === "string", "Time Travel returned no recovery bookmark");
   await writeFile(join(safetyDir(), "before.json"), JSON.stringify(before), { mode: 0o600 });
-  wrangler("Production database export", ["d1", "export", "DB", "--remote", "--skip-confirmation", "--output", join(safetyDir(), "production.sql")]);
-  assert((await stat(join(safetyDir(), "production.sql"))).size > 0, "Production export is empty");
+  const exportPath = join(safetyDir(), "production.sql");
+  wrangler("Production database export", ["d1", "export", "DB", "--remote", "--skip-confirmation", "--output", exportPath]);
+  assert((await stat(exportPath)).size > 0, "Production export is empty");
+  await writeFile(exportPath, orderExportSql(await readFile(exportPath, "utf8")), { mode: 0o600 });
   run("Backup archive", ["tar", "-czf", join(safetyDir(), "backup.tar.gz"), "-C", safetyDir(), "before.json", "wrangler.json", "production.sql"]);
   await encryptBackup(join(safetyDir(), "backup.tar.gz"), join(safetyDir(), "backup.enc"), required("ORRN_MASTER_KEY"));
   await decryptBackup(join(safetyDir(), "backup.enc"), join(safetyDir(), "verified.tar.gz"), required("ORRN_MASTER_KEY"));
@@ -189,7 +262,9 @@ async function rehearse(): Promise<void> {
   const files = (await readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort();
   const pending = pendingMigrations(files, before.migrations.map((migration) => migration.name));
   assert(!pending.includes("0028_fp_wave2.sql") || !before.counts.melt, "The melt rebuild is unsafe on an existing melt; cutover stopped");
-  wrangler("Restore production export to local D1", ["d1", "execute", "DB", "--local", "--persist-to", join(safetyDir(), "state"), "--file", join(safetyDir(), "production.sql"), "--yes"]);
+  const exportPath = join(safetyDir(), "production.sql");
+  await writeFile(exportPath, orderExportSql(await readFile(exportPath, "utf8")), { mode: 0o600 });
+  wrangler("Restore production export to local D1", ["d1", "execute", "DB", "--local", "--persist-to", join(safetyDir(), "state"), "--file", exportPath, "--yes"]);
   const copiedTables = (await local(tablesSql)).map((row) => String(row.name));
   const copied = await tableCounts(local, copiedTables);
   // The export may include writes made after the earlier remote read. Sessions can also expire.
