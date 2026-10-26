@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7022 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7098 screen strings in 48 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -232,7 +232,7 @@ Counts: 7022 screen strings in 49 groups, 44 guides with 840 strings.
 | `press` | Press | प्रेस |
 | `reports` | Reports | रिपोर्ट |
 
-### auth (114)
+### auth (116)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -271,6 +271,8 @@ Counts: 7022 screen strings in 49 groups, 44 guides with 840 strings.
 | `errors.tooMany` | Too many tries. Wait a minute, then try again. | बहुत बार कोशिश हो गई। एक मिनट रुकें, फिर कोशिश करें। |
 | `errors.twoFactorExpired` | That took too long. Sign in again with your password. | बहुत देर हो गई। अपने पासवर्ड से फिर से साइन इन करें। |
 | `brand.label` | How orrn works | orrn कैसे काम करता है |
+| `brand.headline` | Every bundle, accounted for. | हर bundle का पूरा हिसाब। |
+| `brand.sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
 | `brand.holdStep` | Hold | होल्ड |
 | `brand.pack` | Weight and pieces in, label out. | वज़न और पीस डालें, लेबल निकालें। |
 | `requestAccess.title` | Request access | एक्सेस मांगें |
@@ -3010,42 +3012,71 @@ Counts: 7022 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (34)
+### marketing (63)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `headline` | Every bundle, accounted for. | हर bundle का पूरा हिसाब। |
-| `sub` | orrn tracks each bundle from packing to dispatch, so the floor and the office see the same stock. | orrn हर bundle को पैकिंग से dispatch तक ट्रैक करता है, ताकि फ़्लोर और ऑफ़िस एक ही स्टॉक देखें। |
+| `eyebrow` | Made for aluminium extrusion | एल्युमिनियम extrusion के लिए |
+| `headline` | orrn, india's first e2e extrusion harness | orrn, भारत का पहला e2e extrusion harness |
+| `sub` | One connected record of your metal, from the scrap yard to the dispatch gate. | स्क्रैप यार्ड से dispatch गेट तक, आपके मेटल का एक जुड़ा हुआ रिकॉर्ड। |
 | `requestAccess` | Request access | एक्सेस मांगें |
 | `signIn` | Sign in | साइन इन करें |
 | `homeLabel` | orrn home | orrn होम |
-| `metaTitle` | orrn: every bundle, accounted for | orrn: हर bundle का पूरा हिसाब |
-| `visual.bundles` | {count:bundle\|bundles} | {count:bundle\|bundle} |
-| `visual.pieces` | {count} pcs | {count} पीस |
-| `visual.packingListReady` | Packing list ready | पैकिंग लिस्ट तैयार |
-| `flow.title` | Pack. Stock. Dispatch. | पैकिंग। स्टॉक। Dispatch। |
-| `flow.pack` | Enter each bundle's weight and pieces, and print its label. | हर bundle का वज़न और पीस डालें, और उसका लेबल प्रिंट करें। |
-| `flow.stock` | See what's in stock by section, in bundles and kg. | सेक्शन के हिसाब से स्टॉक देखें, bundle और kg में। |
-| `flow.dispatch` | Scan bundles into a dispatch and print the packing list. | Bundle स्कैन करके dispatch में डालें और पैकिंग लिस्ट प्रिंट करें। |
-| `floor.title` | Built for the floor | फ़्लोर के लिए बना |
-| `floor.buttons` | Big buttons and big numbers, easy to hit with gloves on. | बड़े बटन और बड़े नंबर, दस्ताने पहनकर भी आसानी से दबें। |
-| `floor.hindi` | Hindi and English, one tap apart. | हिंदी और English, एक टैप पर। |
-| `floor.camera` | Scan labels with the phone camera. | फ़ोन के कैमरे से लेबल स्कैन करें। |
-| `floor.devices` | Runs on a phone, a tablet or a laptop. | फ़ोन, टैबलेट या लैपटॉप पर चलता है। |
-| `floor.tryIt` | Try it on this page | इसी पेज पर आज़माएं |
-| `office.title` | For the office | ऑफ़िस के लिए |
-| `office.stock` | Stock by section, up to date as bundles are packed and dispatched. | सेक्शन के हिसाब से स्टॉक, हर पैकिंग और dispatch के साथ अपडेट। |
-| `office.packingList` | Packing lists with your company header, ready to print or send. | आपकी कंपनी के हेडर वाली पैकिंग लिस्ट, प्रिंट करने या भेजने के लिए तैयार। |
-| `office.labels` | Labels print on your own printers over the plant network. | प्लांट के नेटवर्क पर आपके अपने प्रिंटर से लेबल प्रिंट होते हैं। |
-| `office.demoCompany` | Your company name | आपकी कंपनी का नाम |
+| `mainNav` | Main navigation | मुख्य नेविगेशन |
+| `guides` | Guides | गाइड |
+| `metaTitle` | orrn \| India's first e2e extrusion harness | orrn \| भारत का पहला e2e extrusion harness |
+| `flow.title` | The metal changes. The thread stays. | मेटल बदलता है। उसका रिकॉर्ड साथ चलता है। |
+| `flow.body` | Seven handovers. One plant. Keep the work connected as material becomes a finished profile. | सात पड़ाव। एक प्लांट। कच्चे माल से तैयार प्रोफ़ाइल तक, हर काम का रिकॉर्ड जुड़ा रहे। |
+| `flow.scrap.name` | Scrap | स्क्रैप |
+| `flow.scrap.title` | Know what came through the gate. | गेट से आए माल का हिसाब रखें। |
+| `flow.scrap.body` | Book a lot, record the weighbridge weight and settle the received quantity before it enters scrap stock. | लॉट बुक करें, कांटे का वज़न दर्ज करें और स्क्रैप स्टॉक में जोड़ने से पहले प्राप्त मात्रा तय करें। |
+| `flow.scrap.record` | Purchase lot, weighment, received stock | खरीद लॉट, कांटा वज़न, प्राप्त स्टॉक |
+| `flow.cast.name` | Cast | Cast |
+| `flow.cast.title` | Give every heat a history. | हर heat का पूरा रिकॉर्ड। |
+| `flow.cast.body` | Connect scrap inputs, alloy checks and billet output to the cast. Follow the metal forward without losing where it began. | स्क्रैप इनपुट, alloy जांच और billet आउटपुट को cast से जोड़ें। मेटल आगे जाए, उसकी शुरुआत का रिकॉर्ड साथ रहे। |
+| `flow.cast.record` | Melt inputs, spectro sample, billet stock | Melt इनपुट, spectro sample, billet स्टॉक |
+| `flow.die.name` | Die | Die |
+| `flow.die.title` | The right die, ready for its run. | सही die, रन के लिए तैयार। |
+| `flow.die.body` | Keep each physical die's readings, ownership and nitriding history together. Issue a specific copy to the press. | हर असली die की रीडिंग, मालिक और nitriding का रिकॉर्ड एक जगह रखें। प्रेस को एक निश्चित कॉपी जारी करें। |
+| `flow.die.record` | Die copy, weight readings, issue record | Die कॉपी, वज़न रीडिंग, जारी करने का रिकॉर्ड |
+| `flow.press.name` | Press | प्रेस |
+| `flow.press.title` | Make the shift legible. | शिफ़्ट का काम साफ़ दिखे। |
+| `flow.press.body` | Bring the plan, die issue and billet use into the same run. Record output and rejects; let orrn calculate recovery. | प्लान, die issue और billet खपत को उसी रन में रखें। आउटपुट और रिजेक्ट दर्ज करें; recovery की गणना orrn करेगा। |
+| `flow.press.record` | Press plan, run output, recovery | प्रेस प्लान, रन आउटपुट, recovery |
+| `flow.age.name` | Age | Ageing |
+| `flow.age.title` | Carry quality through the oven. | ओवन तक क्वालिटी का हिसाब। |
+| `flow.age.body` | Track trolleys through ageing, record readings and hardness, and keep held material out of packing. | Ageing में ट्रॉलियों को ट्रैक करें, रीडिंग और hardness दर्ज करें और होल्ड किए माल को पैकिंग से रोकें। |
+| `flow.age.record` | Batch, oven readings, release decision | बैच, ओवन रीडिंग, रिलीज़ का फ़ैसला |
+| `flow.pack.name` | Pack | पैकिंग |
+| `flow.pack.title` | A bundle with an identity. | हर bundle की अपनी पहचान। |
+| `flow.pack.body` | Record pieces and weight, print a numbered label and place the bundle in stock. The next person scans the same number. | पीस और वज़न दर्ज करें, नंबर वाला लेबल प्रिंट करें और bundle को स्टॉक में रखें। अगला व्यक्ति वही नंबर स्कैन करेगा। |
+| `flow.pack.record` | Bundle number, pieces, weight, location | Bundle नंबर, पीस, वज़न, लोकेशन |
+| `flow.dispatch.name` | Dispatch | Dispatch |
+| `flow.dispatch.title` | Close the loop at the gate. | गेट पर हिसाब पूरा करें। |
+| `flow.dispatch.body` | Scan the bundles that leave, prepare the packing list and keep the stock ledger in step with the dispatch. | जाने वाले bundle स्कैन करें, पैकिंग लिस्ट बनाएं और dispatch के साथ स्टॉक लेजर भी अपडेट रखें। |
+| `flow.dispatch.record` | Scanned bundles, packing list, stock movement | स्कैन किए bundle, पैकिंग लिस्ट, स्टॉक मूवमेंट |
+| `floor.title` | Different jobs. The same plant. | काम अलग। प्लांट एक। |
+| `floor.body` | The office plans in orders. The floor works in dies, trolleys and bundles. orrn connects those records. | ऑफ़िस ऑर्डर में प्लान करता है। फ़्लोर die, ट्रॉली और bundle में काम करता है। orrn इन रिकॉर्ड को जोड़ता है। |
+| `floor.planner.role` | For the planner | प्लानर के लिए |
+| `floor.planner.title` | Plan against what is actually left. | जितना बाकी है, उतने का प्लान। |
+| `floor.planner.body` | See order baki, allocate stock and build a press plan without treating already packed material as new production. | ऑर्डर की baki देखें, स्टॉक आवंटित करें और प्रेस प्लान बनाएं। पैक हो चुके माल को दोबारा बनाने का प्लान न बने। |
+| `floor.operator.role` | For the shift | शिफ़्ट के लिए |
+| `floor.operator.title` | Keep the run, not a second notebook. | रन का रिकॉर्ड रखें, दूसरी नोटबुक नहीं। |
+| `floor.operator.body` | Record the die, billets, output and stops against the press run. The next shift can read what happened. | Die, billet, आउटपुट और रुकावटें उसी प्रेस रन में दर्ज करें। अगली शिफ़्ट पढ़ सके कि क्या हुआ था। |
+| `floor.packer.role` | For packing and dispatch | पैकिंग और dispatch के लिए |
+| `floor.packer.title` | Read the label. Find the bundle. | लेबल पढ़ें। Bundle ढूंढें। |
+| `floor.packer.body` | Use the phone camera to scan a bundle. Keep its pieces, weight and yard location with its number. | फ़ोन के कैमरे से bundle स्कैन करें। उसके नंबर के साथ पीस, वज़न और यार्ड लोकेशन रखें। |
+| `floor.owner.role` | For the plant owner | प्लांट मालिक के लिए |
+| `floor.owner.title` | Follow the work behind the number. | नंबर के पीछे का काम देखें। |
+| `floor.owner.body` | Read recovery, stock and dispatch from the plant's records. Roles control who can change them; the audit log keeps the history. | प्लांट के रिकॉर्ड से recovery, स्टॉक और dispatch देखें। रोल तय करते हैं कौन बदलाव कर सकता है; audit log में इतिहास रहता है। |
+| `floor.language` | English and Hindi, one tap apart. On a phone, a tablet or the office laptop. | English और हिंदी, एक टैप पर। फ़ोन, टैबलेट या ऑफ़िस के लैपटॉप पर। |
+| `office.title` | The number on the bundle is only the beginning. | Bundle का नंबर तो बस शुरुआत है। |
+| `office.body` | A packing list brings the dispatched bundles together. Each number still belongs to the material your team packed. | पैकिंग लिस्ट में dispatch के bundle एक साथ आते हैं। हर नंबर उस माल से जुड़ा रहता है जिसे आपकी टीम ने पैक किया। |
+| `office.note` | Illustrative packing list. The sample quantities are demo data, not plant results. | पैकिंग लिस्ट का उदाहरण। दिखाई गई मात्रा डेमो डेटा है, किसी प्लांट का नतीजा नहीं। |
 | `office.demoCustomer` | Demo customer | डेमो ग्राहक |
-| `trust.title` | Your data stays yours | आपका डेटा आपका ही रहता है |
-| `trust.separate` | Each company's data is kept apart from every other company. | हर कंपनी का डेटा बाकी कंपनियों से अलग रखा जाता है। |
-| `trust.audit` | Every change is logged with who made it and when. | हर बदलाव का रिकॉर्ड रहता है, किसने किया और कब। |
-| `trust.roles` | Roles decide who can pack, dispatch or change settings. | रोल तय करते हैं कि कौन पैकिंग, dispatch या सेटिंग्स बदल सकता है। |
-| `cta.title` | Try it on your floor | अपने फ़्लोर पर आज़माएं |
-| `cta.body` | Tell us about your plant and we'll get in touch. | अपने प्लांट के बारे में बताएं, हम संपर्क करेंगे। |
-| `footer` | For aluminium extrusion plants | एल्युमिनियम एक्सट्रूज़न प्लांट के लिए |
+| `cta.title` | Let's start with your plant. | आपके प्लांट से शुरू करें। |
+| `cta.body` | Tell us how your floor works. We'll talk through where orrn fits. | बताएं आपके फ़्लोर पर काम कैसे होता है। हम बात करेंगे कि orrn कहाँ काम आएगा। |
+| `footer` | For aluminium extrusion plants. | एल्युमिनियम extrusion प्लांट के लिए। |
 | `footerNav` | Footer | फ़ुटर |
 | `copyright` | © {year} orrn | © {year} orrn |
 
@@ -4831,7 +4862,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (503)
+### press (505)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5046,6 +5077,8 @@ Please check, Lalubhai:
 | `console.saveNext` | Save and next | सेव करें और आगे |
 | `console.castPick` | Cast the billets came from | बिलेट किस cast के हैं |
 | `console.castOnHand` | {kg} kg billet stock | {kg} kg बिलेट स्टॉक |
+| `console.castSpectroFail` | Spectro failed | स्पेक्ट्रो फेल |
+| `console.castSpectroFailNote` | The spectro on cast {cast} failed ({alloy}). Check with the foundry before these billets are pressed. | कास्ट {cast} ({alloy}) का स्पेक्ट्रो फेल हुआ है। ये बिलेट दबाने से पहले फाउंड्री से पूछ लें। |
 | `console.castNone` | No cast has billets in stock. | किसी cast के बिलेट स्टॉक में नहीं हैं। |
 | `console.castClosedChip` | Closed | बंद |
 | `console.weighedKg` | Weighed kg | तौला हुआ kg |
@@ -5339,7 +5372,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (600)
+### foundry (602)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5538,6 +5571,8 @@ Please check, Lalubhai:
 | `cast.tailChip.tail` | Tail {kg} kg | टेल {kg} kg |
 | `cast.tailChip.short` | Billets short {kg} kg | बिलेट कम {kg} kg |
 | `cast.tailChip.empty` | No melts yet | अभी कोई मेल्ट नहीं |
+| `cast.tailChip.pending` | Tail {kg} kg ({pct} %) waiting for approval | टेल {kg} kg ({pct} %), मंज़ूरी का इंतज़ार |
+| `cast.tailChip.pendingShort` | Billets short {kg} kg, waiting for approval | बिलेट कम {kg} kg, मंज़ूरी का इंतज़ार |
 | `cast.panel.title` | Billets | बिलेट |
 | `cast.panel.produced` | Made | बने |
 | `cast.panel.pressed` | Used by the press | प्रेस ने लिए |
@@ -6618,7 +6653,7 @@ Please check, Lalubhai:
 | `actionFailed` | That didn't work. Try again. | यह नहीं हुआ। फिर कोशिश करें। |
 | `readOnly` | Only owners and admins can manage devices. | डिवाइस सिर्फ़ मालिक और एडमिन संभाल सकते हैं। |
 
-### backups (25)
+### backups (26)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6631,6 +6666,7 @@ Please check, Lalubhai:
 | `status.ok` | Done | हो गया |
 | `lastOk` | Last good backup | आखिरी सही बैकअप |
 | `none` | No backup yet. The first one runs overnight. | अभी कोई बैकअप नहीं। पहला रात में चलेगा। |
+| `notConfigured` | Backups are not switched on for this plant yet. Ask ORRN support to enable storage. | इस प्लांट के बैकअप अभी चालू नहीं हैं। स्टोरेज चालू करने के लिए ORRN सपोर्ट से कहें। |
 | `lastAttempt` | Last try: {status}, {time} | आखिरी कोशिश: {status}, {time} |
 | `size` | {mb} megabytes | {mb} मेगाबाइट |
 | `drillTitle` | Restore drill | रिस्टोर ड्रिल |
@@ -6674,7 +6710,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (287)
+### audit (289)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6728,6 +6764,8 @@ Please check, Lalubhai:
 | `subjectTypes.cast` | Cast | कास्ट |
 | `subjectTypes.purchase_lot` | Purchase lot | खरीद का लॉट |
 | `subjectTypes.count_session` | Stock count | स्टॉक की गिनती |
+| `subjectTypes.bundle_transfer` | Bundle transfer | बंडल ट्रांसफर |
+| `subjectTypes.sales_order_line` | Order line | ऑर्डर लाइन |
 | `onlyThis` | Only this | सिर्फ़ यह |
 | `byStaff` | orrn support | orrn सपोर्ट |
 | `unknownActor` | System | सिस्टम |
