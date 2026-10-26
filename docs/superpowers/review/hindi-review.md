@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7098 screen strings in 48 groups, 44 guides with 840 strings.
+Counts: 7099 screen strings in 48 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -5372,7 +5372,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (602)
+### foundry (603)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5459,6 +5459,7 @@ Please check, Lalubhai:
 | `refusal.spectroChanged` | The spectro result changed. Check it and lock again. | स्पेक्ट्रो रिज़ल्ट बदल गया। उसे जाँचकर फिर से लॉक करें। |
 | `refusal.billetStoreRetired` | The billet store {code} is retired. Reactivate it to post the count, or reject the close. | बिलेट स्टोर {code} बंद है। गिनती दर्ज करने के लिए उसे फिर चालू करें, या क्लोज़ अस्वीकार करें। |
 | `refusal.legacyShape` | A legacy code is up to 20 letters, digits, spaces or - / . _ | पुराना कोड 20 अक्षर तक का होता है: अक्षर, अंक, खाली जगह या - / . _ |
+| `refusal.legacyReserved` | A legacy code cannot be a cast series code or bundle number. To continue the cast book, set its start number. | पुराना कोड कास्ट सीरीज़ का कोड या बंडल नंबर नहीं हो सकता। कास्ट की बही आगे चलाने के लिए उसका शुरुआती नंबर तय करें। |
 | `refusal.legacyTaken` | The legacy code {code} is already on cast {cast}. | पुराना कोड {code} कास्ट {cast} पर पहले से लगा है। |
 | `refusal.castBookMonthUsed` | That month already has a cast. The book can only be continued before the first cast. | उस महीने में कास्ट बन चुकी है। बही सिर्फ़ पहली कास्ट से पहले आगे बढ़ाई जा सकती है। |
 | `inbox.columns.file` | File | फ़ाइल |

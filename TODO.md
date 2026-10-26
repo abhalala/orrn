@@ -53,8 +53,6 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 
 | Item | Detail | Rank |
 |---|---|---|
-| FD-02: reserve generated namespaces | Cast-book settings and paper-code entry exist. Reject generated cast/bundle identifier formats as paper codes so search/trace cannot become ambiguous or route into the wrong lookup. | final inventory review |
-| AG-15: remaining trolley pieces | Order-line breakdown exists, but must show authoritative `remainingPcs`; loaded minus packed is wrong after scrap/rework. | final inventory review |
 | Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
 | Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
