@@ -11,6 +11,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Select } from "@orrn/ui/components/select";
 import { Stepper } from "@orrn/ui/components/stepper";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -129,10 +130,13 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
         .sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)
         .map((c) => ({
           value: c.id,
-          label: `${c.number} · ${t("press.console.castOnHand", { kg: kgFromG(c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { kg: kgFromG(c.billetsShortG) })}` : ""}`,
+          label: `${c.number} · ${c.alloy} · ${t("press.console.castOnHand", { kg: kgFromG(c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { kg: kgFromG(c.billetsShortG) })}` : ""}${c.spectroFailedMelts > 0 ? ` · ${t("press.console.castSpectroFail")}` : ""}`,
         })),
     [casts.data, draft.castId, t],
   );
+
+  /** The picked cast when its spectro failed (final fixes 5, M2: pressing it is the foundry's call, never silent). */
+  const pickedFail = (casts.data?.items ?? []).find((c) => c.id === draft.castId && c.spectroFailedMelts > 0);
 
   const fail = (e: unknown, retry: () => void) => {
     setError({ message: pressErrorText(t, e), retry });
@@ -321,6 +325,12 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
               options={castOptions}
             />
           </Field>
+          {pickedFail ? (
+            <div role="status" data-slot="cast-spectro-fail" className="flex min-w-0 items-start gap-2 rounded-card border border-border bg-tone-amber-tint p-3 text-[14px] font-medium text-tone-amber-ink">
+              <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0 break-words">{t("press.console.castSpectroFailNote", { cast: pickedFail.number, alloy: pickedFail.alloy })}</span>
+            </div>
+          ) : null}
           <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("press.console.billetsOnce")}</p>
           {draft.billets.map((row, i) => (
             <div key={row.key} className="grid grid-cols-1 gap-3 rounded-card bg-surface-sunken p-3 sm:grid-cols-3">

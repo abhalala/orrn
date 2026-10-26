@@ -7,6 +7,7 @@
 import type { StatusTone } from "@orrn/domain";
 import {
   decidingSpectro,
+  normalizeSpectroValues,
   percentToPpm,
   SPECTRO_ELEMENTS,
   spectroCheck,
@@ -95,10 +96,25 @@ export type Closeout = {
   draftMelts: number;
 };
 
-export type TailChip = { tone: StatusTone; kind: "balanced" | "tail" | "short" | "empty" };
+/**
+ * A cast in `closing` has asked for a close the manager has not decided: the ledger still shows no tail (the count
+ * adjustment posts with the approval), so the tail it asked for is the one stored on the cast row (final fixes 5, M3).
+ * Every other status reads the live close-out as it is.
+ */
+export function closeoutView<C extends Closeout>(
+  status: string,
+  co: C,
+  cast: { tailG: number | null; tailBp: number | null; closeSummary?: { shortG?: number | null } | null },
+): C {
+  if (status !== "closing" || cast.tailG === null) return co;
+  return { ...co, tailG: cast.tailG, tailBp: cast.tailBp, shortG: Math.max(co.shortG, cast.closeSummary?.shortG ?? 0), needsApproval: true };
+}
 
-/** The tail chip: green when every billet is accounted for, amber for a tail, red when billets are short. */
-export function tailChip(c: Pick<Closeout, "producedG" | "tailG" | "shortG" | "needsApproval" | "liveMelts">): TailChip {
+export type TailChip = { tone: StatusTone; kind: "balanced" | "tail" | "short" | "empty" | "pending" };
+
+/** The tail chip: green when every billet is accounted for, amber for a tail, red when billets are short or a close waits for approval. */
+export function tailChip(c: Pick<Closeout, "producedG" | "tailG" | "shortG" | "needsApproval" | "liveMelts">, status?: string): TailChip {
+  if (status === "closing" && (c.tailG !== 0 || c.shortG > 0)) return { tone: "red", kind: "pending" };
   if (c.shortG > 0) return { tone: "red", kind: "short" };
   if (c.liveMelts === 0 && c.producedG === 0) return { tone: "neutral", kind: "empty" };
   if (c.tailG === 0) return { tone: "green", kind: "balanced" };
@@ -186,8 +202,10 @@ export type SpectroRow = { element: SpectroElementKey; ppm: number | null; sourc
  */
 export function spectroRows(values: Partial<Record<string, number>>, limits: readonly SpectroLimit[]): { rows: SpectroRow[]; verdict: SpectroVerdict } | null {
   const ppm: Partial<Record<SpectroElementKey, number>> = {};
+  // Stored keys may be symbols ("Si", from the seed or the spool watcher) or lowercase: one canonical key (final fixes 5, M1).
+  const canonical = normalizeSpectroValues(values as Record<string, number | undefined>);
   for (const el of SPECTRO_ELEMENTS) {
-    const v = values[el];
+    const v = canonical[el];
     if (typeof v === "number") ppm[el] = Math.round(v * 10_000);
   }
   try {

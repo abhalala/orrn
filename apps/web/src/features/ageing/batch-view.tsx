@@ -7,7 +7,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { Stepper } from "@orrn/ui/components/stepper";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -18,6 +18,8 @@ import { reasonCodeText } from "@/features/press/reason-label";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { showsQueryError } from "@/shared/lib/query-errors";
+import { dayText } from "@/features/orders/format";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import {
@@ -205,7 +207,7 @@ function Links({ batch }: { batch: Batch }) {
 }
 
 function Facts({ batch, when }: { batch: Batch; when: (at: number) => string }) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const duration = useDuration();
   const { shifts } = useShifts();
   const shift = shifts.find((s) => s.id === batch.shiftId);
@@ -224,7 +226,7 @@ function Facts({ batch, when }: { batch: Batch; when: (at: number) => string }) 
         {batch.inAt ? <Fact label={t("ageing.field.inAt")} mono>{when(batch.inAt)}</Fact> : null}
         {batch.outAt ? <Fact label={t("ageing.field.outAt")} mono>{when(batch.outAt)}</Fact> : null}
         {shift ? <Fact label={t("ageing.field.shift")}>{shift.name}</Fact> : null}
-        {batch.productionDay ? <Fact label={t("ageing.field.day")} mono>{batch.productionDay}</Fact> : null}
+        {batch.productionDay ? <Fact label={t("ageing.field.day")}>{dayText(batch.productionDay, locale)}</Fact> : null}
         {batch.gasStartMilli !== null ? <Fact label={t("ageing.field.gasStart")} mono>{(batch.gasStartMilli / 1000).toFixed(3)}</Fact> : null}
         {batch.gasEndMilli !== null ? <Fact label={t("ageing.field.gasEnd")} mono>{(batch.gasEndMilli / 1000).toFixed(3)}</Fact> : null}
         {batch.gasUsedMilli !== null ? <Fact label={t("ageing.field.gasUsed")} mono>{(batch.gasUsedMilli / 1000).toFixed(3)}</Fact> : null}
@@ -315,7 +317,7 @@ function SoakAndReadings({ batch, when, onAdd }: { batch: Batch; when: (at: numb
   const band = snap ? { lowX10: snap.targetTempX10 - snap.toleranceX10, highX10: snap.targetTempX10 + snap.toleranceX10 } : null;
   const progress = soakProgress(batch.soakStartedAt, snap?.soakMin ?? null, batch.outAt ?? now);
   const canAdd = batch.status === "in_oven" || (batch.status === "out" && batch.outAt !== null && now - batch.outAt < 30 * 60_000);
-  const simulate = useMutation(
+  const simulate = useOnceMutation(
     trpc.ageing.batches.simulate.mutationOptions({
       onSuccess: async (res) => {
         toast.success(t("ageing.sim.done", { count: res.inserted }));
@@ -561,7 +563,7 @@ function ActionBar({ batch, action, onOpen }: { batch: Batch; action: NextAction
   const say = useRefusal();
   const [result, setResult] = useState<{ held: number; override: boolean } | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const release = useMutation(
+  const release = useOnceMutation(
     trpc.ageing.batches.release.mutationOptions({
       onSuccess: async (res) => {
         key.reset();

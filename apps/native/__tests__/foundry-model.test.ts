@@ -7,6 +7,7 @@ import {
   chooseCast,
   closeAdvice,
   closeBlock,
+  closeoutView,
   closeFormIssue,
   countedBillets,
   countKey,
@@ -343,5 +344,33 @@ describe("who sees the foundry on Stock and Today", () => {
     expect(showsFoundryToday(me("supervisor"))).toBe(true);
     expect(showsFoundryToday(me("manager"))).toBe(false);
     expect(showsFoundryToday(me("packer"))).toBe(false);
+  });
+});
+
+describe("final fixes 5: symbol-case spectro keys and a cast waiting for approval", () => {
+  const limits = ALLOY_LIMIT_SEEDS["6063"] ?? [];
+
+  test("M1: values keyed Si / Fe render in the table exactly like si / fe, and the verdict agrees", () => {
+    const sym = spectroRows({ Si: 0.45, Fe: 0.41, Cu: 0.01, Mn: 0.01, Mg: 0.52, Zn: 0.01, Ti: 0.01, Cr: 0.01 }, limits);
+    const low = spectroRows({ si: 0.45, fe: 0.41, cu: 0.01, mn: 0.01, mg: 0.52, zn: 0.01, ti: 0.01, cr: 0.01 }, limits);
+    expect(sym).toEqual(low);
+    expect(sym!.rows.find((r) => r.element === "si")!.ppm).toBe(4_500);
+    expect(sym!.rows.find((r) => r.element === "fe")!.ppm).toBe(4_100);
+    expect(sym!.verdict).toBe("fail");
+  });
+
+  test("M3: a closing cast shows the tail it asked for, waiting for approval, not the ledger's 0", () => {
+    const co = { producedG: 1_400_000, creditedG: 0, billetsOnHandG: 1_400_000, tailG: 0, tailBp: null, shortG: 0, needsReason: false, needsApproval: false, burnG: 0, bundlesG: 0, liveMelts: 1, draftMelts: 0 };
+    const cast = { tailG: 100_000, tailBp: 714, closeSummary: { shortG: 0 } };
+    const view = closeoutView("closing", co, cast);
+    expect(view).toMatchObject({ tailG: 100_000, tailBp: 714, needsApproval: true });
+    expect(tailChip(view, "closing")).toEqual({ tone: "red", kind: "pending" });
+    // Open and closed casts read the live close-out as it is.
+    expect(closeoutView("open", co, cast)).toBe(co);
+    expect(closeoutView("closed", co, cast)).toBe(co);
+    expect(tailChip(co, "open")).toEqual({ tone: "green", kind: "balanced" });
+    // Billets short while closing is pending too.
+    const short = closeoutView("closing", co, { tailG: 0, tailBp: 0, closeSummary: { shortG: 10_400 } });
+    expect(tailChip(short, "closing")).toEqual({ tone: "red", kind: "pending" });
   });
 });

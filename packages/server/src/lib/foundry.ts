@@ -16,7 +16,7 @@ import { castCloseCheck, type CastCloseCheck } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, sql, type SQL } from "drizzle-orm";
 
-import { melt, meltInput, returnStream, type ReturnStreamKind } from "@orrn/db/schema/foundry";
+import { melt, meltInput, returnStream, spectroResult, type ReturnStreamKind } from "@orrn/db/schema/foundry";
 import { bundle } from "@orrn/db/schema/inventory";
 import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 import { location, stockLedger, type LocationKind } from "@orrn/db/schema/stock";
@@ -336,6 +336,14 @@ export function castLiveMeltsSql(companyId: string, castId: SQL): SQL<number> {
 /** Draft melts of the cast (the stepper's open sheets; they block a close). */
 export function castDraftMeltsSql(companyId: string, castId: SQL): SQL<number> {
   return sql<number>`(select count(*) from ${melt} dm where dm.company_id = ${companyId} and dm.cast_id = ${castId} and dm.status = 'draft')`;
+}
+
+/**
+ * Live (locked, not cancelled) melts of the cast whose DECIDING spectro result judged `fail` (final fixes 5, M2: the press
+ * cast picker warns). Same deciding rule as the melt's lock gate: the latest live result with numbers, else the latest one.
+ */
+export function castSpectroFailedMeltsSql(companyId: string, castId: SQL): SQL<number> {
+  return sql<number>`(select count(*) from ${melt} fm where fm.company_id = ${companyId} and fm.cast_id = ${castId} and fm.status = 'locked' and fm.cancelled_at is null and (select fs.verdict from ${spectroResult} fs where fs.company_id = ${companyId} and fs.melt_id = fm.id and fs.voided_at is null order by case when (fs.values_ppm is not null and fs.values_ppm not in ('{}', '')) then 0 else 1 end, fs.created_at desc, fs.server_seq desc limit 1) = 'fail')`;
 }
 
 /** Billets of the cast still in stock, any location (ledger). Negative once the press logged more than the store held (D22). */

@@ -5,7 +5,7 @@ import { Field } from "@orrn/ui/components/field";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Sheet } from "@orrn/ui/components/sheet";
 import type { AppRouter } from "@orrn/server/routers/index";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useRef, useState } from "react";
@@ -16,6 +16,7 @@ import { kgFromG } from "@/features/press/model";
 import { reasonOptions } from "@/features/press/reason-label";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict, MeltChip } from "./cast-view";
@@ -151,7 +152,7 @@ function CancelMelt({ melt, castNumber }: { melt: MeltRow; castNumber: string })
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
-  const cancel = useMutation(
+  const cancel = useOnceMutation(
     trpc.foundry.melts.cancel.mutationOptions({
       onSuccess: () => {
         toast.success(t("foundry.melt.cancel.done", { n: melt.seq, number: castNumber }));
@@ -222,7 +223,7 @@ function Correction({ melt }: { melt: MeltRow }) {
   const mine = list.data?.items ?? [];
   const open = mine.find((a) => a.status === "pending" || (a.status === "approved" && (a.meta as { usedAt?: unknown } | null)?.usedAt == null));
   const requestId = useRef(crypto.randomUUID());
-  const correct = useMutation(
+  const correct = useOnceMutation(
     trpc.foundry.melts.correct.mutationOptions({
       onSuccess: (res) => {
         toast.success(t("foundry.melt.correction.done"));
@@ -265,7 +266,7 @@ function AskSheet({ meltId, open, onClose }: { meltId: string; open: boolean; on
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [tried, setTried] = useState(false);
-  const ask = useMutation(
+  const ask = useOnceMutation(
     trpc.foundry.melts.requestCorrection.mutationOptions({
       onSuccess: () => {
         toast.success(t("foundry.melt.correction.sent"));

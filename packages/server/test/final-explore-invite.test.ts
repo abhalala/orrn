@@ -106,3 +106,56 @@ describe("M3: invites survive a failed email", () => {
     }
   });
 });
+
+describe("final fixes 5 (M4): invite.create takes a replay key; a repeat answers the first invite", () => {
+  const KEY = "invite-key-000000001";
+
+  test("the same key and request twice: one row, one audit row, the same link, no second email, replayed true", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const email = `twice.${uid()}@test.orrn`;
+    useEnv({ NODE_ENV: "production", RESEND_API_KEY: "re_test_key" });
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation((async () => Response.json({ id: "msg_1" })) as unknown as typeof fetch);
+    try {
+      const first = await owner.invite.create({ email, role: "operator", clientMutationId: KEY });
+      const again = await owner.invite.create({ email: email.toUpperCase(), role: "operator", clientMutationId: KEY });
+      expect(first).toMatchObject({ emailSent: true, replayed: false });
+      expect(again).toMatchObject({ inviteId: first.inviteId, link: first.link, replayed: true, emailSent: false });
+      expect(new Date(again.expiresAt).getTime()).toBe(new Date(first.expiresAt).getTime());
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+    const rows = await env.db.select().from(invite).where(and(eq(invite.companyId, companyId), eq(invite.email, email)));
+    expect(rows).toHaveLength(1);
+    expect(await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, companyId), eq(auditLog.action, "member.invite")))).toHaveLength(1);
+    // The link is the row's: its token hashes to the stored hash.
+    const link = (await owner.invite.create({ email, role: "operator", clientMutationId: KEY })).link;
+    expect(rows[0]!.tokenHash).toBe(await sha256(link.split("/invite/")[1]!));
+  });
+
+  test("two identical requests at once end on one row", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const email = `race.${uid()}@test.orrn`;
+    const [a, b] = await Promise.all([
+      owner.invite.create({ email, role: "viewer", clientMutationId: "invite-race-0000001" }),
+      owner.invite.create({ email, role: "viewer", clientMutationId: "invite-race-0000001" }),
+    ]);
+    expect(a.link).toBe(b.link);
+    expect(await env.db.select().from(invite).where(and(eq(invite.companyId, companyId), eq(invite.email, email)))).toHaveLength(1);
+  });
+
+  test("the same key for another email or role is a CONFLICT; a call without a key still makes a random link", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const email = `conflict.${uid()}@test.orrn`;
+    const first = await owner.invite.create({ email, role: "viewer", clientMutationId: KEY });
+    await expect(owner.invite.create({ email: `other.${uid()}@test.orrn`, role: "viewer", clientMutationId: KEY })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(owner.invite.create({ email, role: "operator", clientMutationId: KEY })).rejects.toMatchObject({ code: "CONFLICT" });
+    const keyless = await owner.invite.create({ email: `plain.${uid()}@test.orrn`, role: "viewer" });
+    expect(keyless.link).not.toBe(first.link);
+    expect(keyless.replayed).toBe(false);
+    await expect(owner.invite.create({ email, role: "viewer", clientMutationId: "short" })).rejects.toThrow();
+  });
+});

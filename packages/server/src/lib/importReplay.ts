@@ -45,7 +45,10 @@ export type ImportReplayKind =
   | "ageing.start"
   | "ageing.out"
   | "ageing.hardness"
-  | "ageing.release";
+  | "ageing.release"
+  // Final fixes 5 (M4): links handed out once; see lib/replayToken.ts.
+  | "die_share.create"
+  | "invite.create";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 

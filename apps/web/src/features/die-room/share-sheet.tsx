@@ -6,11 +6,13 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { Check, Copy, Send } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { requestIdFor } from "@/features/dispatch/request-key";
+import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -56,16 +58,18 @@ function Body({ onOpenChange, sectionId }: { onOpenChange(open: boolean): void; 
   const owner = data?.ownerCustomerId ? { id: data.ownerCustomerId, name: data.ownerName ?? "" } : null;
   const hasDrawing = Boolean(data?.drawingKey);
 
-  const create = useMutation({
+  const request = useRef<{ id: string; body: string } | null>(null);
+  const create = useOnceMutation({
     ...trpc.die.share.create.mutationOptions(),
     onSuccess: async (res) => {
+      request.current = null;
       setMade({ link: shareLink(window.location.origin, res.path) });
       setError(null);
       await refresh();
     },
     onError: (e) => setError(refusal(e)),
   });
-  const revoke = useMutation({
+  const revoke = useOnceMutation({
     ...trpc.die.share.revoke.mutationOptions(),
     onSuccess: async () => {
       setRevoking(null);
@@ -80,12 +84,15 @@ function Body({ onOpenChange, sectionId }: { onOpenChange(open: boolean): void; 
 
   const submit = () => {
     setError(null);
-    create.mutate({
+    const body = {
       sectionId,
       days,
       ...((owner ?? party)?.id ? { customerId: (owner ?? party)!.id } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
-    });
+    };
+    // One replay key per request (final fixes 5, M4): the same form sent again after an unsure answer makes no second link.
+    request.current = requestIdFor(request.current, body);
+    create.mutate({ ...body, clientMutationId: request.current.id });
   };
 
   const label = data ? sectionLabel(data) : "";

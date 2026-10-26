@@ -485,3 +485,65 @@ describe("rate limit", () => {
     expect(keys.filter((k) => /^dieshare:i:(null|undefined|unknown)?$/.test(k))).toHaveLength(0);
   });
 });
+
+describe("final fixes 5 (M4): create takes a replay key; a repeat answers the first link", () => {
+  const KEY = "share-key-0000000001";
+
+  test("the same key and request twice (a double tap, a lost reply): one row, one audit row, the same link, replayed true; the link views", async () => {
+    const p = await plant();
+    const first = await p.dieRoom.die.share.create({ sectionId: p.section, days: 5, note: "quote", clientMutationId: KEY });
+    const again = await p.dieRoom.die.share.create({ sectionId: p.section, days: 5, note: "quote", clientMutationId: KEY });
+    expect(first.replayed).toBe(false);
+    expect(again).toMatchObject({ id: first.id, token: first.token, url: first.url, replayed: true });
+    expect(again.expiresAt.getTime()).toBe(first.expiresAt.getTime());
+    expect(await env.db.select().from(dieShare).where(eq(dieShare.sectionId, p.section))).toHaveLength(1);
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "die_share.create")));
+    expect(audits).toHaveLength(1);
+    // Only the hash is stored; the token is derived from the key, so it still opens the drawing.
+    const [row] = await env.db.select().from(dieShare).where(eq(dieShare.id, first.id));
+    expect(row!.tokenHash).toBe(await sha256(first.token));
+    expect(first.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    await expect(visitor().die.share.view({ token: again.token })).resolves.toMatchObject({ section: expect.anything() });
+  });
+
+  test("two identical requests at once end on one row and both answer the same link", async () => {
+    const p = await plant();
+    const [a, b] = await Promise.all([
+      p.dieRoom.die.share.create({ sectionId: p.section, clientMutationId: "share-race-00000001" }),
+      p.dieRoom.die.share.create({ sectionId: p.section, clientMutationId: "share-race-00000001" }),
+    ]);
+    expect(a.token).toBe(b.token);
+    expect(a.id).toBe(b.id);
+    expect(await env.db.select().from(dieShare).where(eq(dieShare.sectionId, p.section))).toHaveLength(1);
+  });
+
+  test("a replay cannot silently preserve a longer sharing duration", async () => {
+    const p = await plant();
+    const request = { sectionId: p.section, clientMutationId: KEY };
+    await p.dieRoom.die.share.create({ ...request, days: 30 });
+    await expect(p.dieRoom.die.share.create({ ...request, days: 1 })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
+  test("the same key for another party, section or note is a CONFLICT; a new key makes a second link; no key still makes a random one", async () => {
+    const p = await plant();
+    const party = await env.seedCustomer(p.companyId);
+    await p.dieRoom.die.share.create({ sectionId: p.section, clientMutationId: KEY });
+    await expect(p.dieRoom.die.share.create({ sectionId: p.section, customerId: party, clientMutationId: KEY })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(p.dieRoom.die.share.create({ sectionId: p.section, note: "other", clientMutationId: KEY })).rejects.toMatchObject({ code: "CONFLICT" });
+    const second = await p.dieRoom.die.share.create({ sectionId: p.section, clientMutationId: "share-key-0000000002" });
+    const plain = await p.dieRoom.die.share.create({ sectionId: p.section });
+    expect(second.replayed).toBe(false);
+    expect(plain.replayed).toBe(false);
+    expect(await env.db.select().from(dieShare).where(eq(dieShare.sectionId, p.section))).toHaveLength(3);
+  });
+
+  test("a key is per plant: another plant's identical key makes its own link; a key too short is refused", async () => {
+    const p = await plant();
+    const q = await plant();
+    const a = await p.dieRoom.die.share.create({ sectionId: p.section, clientMutationId: KEY });
+    const b = await q.dieRoom.die.share.create({ sectionId: q.section, clientMutationId: KEY });
+    expect(b.id).not.toBe(a.id);
+    expect(b.token).not.toBe(a.token);
+    await expect(p.dieRoom.die.share.create({ sectionId: p.section, clientMutationId: "short" })).rejects.toThrow();
+  });
+});

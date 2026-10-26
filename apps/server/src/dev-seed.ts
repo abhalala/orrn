@@ -1263,6 +1263,10 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   // press_late_entry approval (requested by the operator, so the owner can decide it).
   const castPeriod = docPeriod("cast", new Date(now), DEMO_SETTINGS.timezone);
   const castMonth = Number(castPeriod.slice(5));
+  // L2 (final explore round 2): "today at 06:00" is in the future when the seed runs before 06:45; a cast opened or a melt
+  // started later than now makes a later close read closedAt before openedAt. Clamp both to the clock the seed runs on.
+  const earlyToday = Math.min(pastAt(0, 6), now - 3_600_000);
+  const earlyChargeToday = Math.max(earlyToday, Math.min(pastAt(0, 6.75), now - 1_800_000));
   const castRows: (typeof cast.$inferInsert)[] = [
     {
       id: "dev-press-cast-1",
@@ -1315,7 +1319,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       alloy: "6063",
       alloyId: "dev-alloy-6063",
       status: "open",
-      openedAt: new Date(pastAt(0, 6)),
+      openedAt: new Date(earlyToday),
       createdBy: ownerId,
     },
   ];
@@ -1668,8 +1672,8 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
       alloyId: "dev-alloy-6063",
       furnaceId: "dev-furnace-f1",
       status: "draft",
-      preheatStartAt: new Date(pastAt(0, 6)),
-      chargingStartAt: new Date(pastAt(0, 6.75)),
+      preheatStartAt: new Date(earlyToday),
+      chargingStartAt: new Date(earlyChargeToday),
       inputG: 1_500_000,
       createdBy: ownerId,
     } as typeof melt.$inferInsert,

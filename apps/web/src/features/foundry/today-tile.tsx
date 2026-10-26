@@ -11,14 +11,14 @@ import { TodaySpectroInbox } from "./today-inbox";
 
 /**
  * Today's Foundry tile for the people who enter casts (cast.enter): open casts, melts in progress
- * (drafts) and spectro files waiting for a melt. Figures come from the list of open casts and the inbox; the
+ * (drafts) and spectro files waiting for a melt. Figures come from the list of open casts and the inbox (a simulated file can only be dismissed, so it is not counted as waiting: final fixes 5, L9); the
  * spectro chip below keeps its own link to the inbox.
  */
 export function TodayFoundryTile() {
   const { t } = useT();
   const casts = useQuery({ ...trpc.foundry.casts.list.queryOptions({ status: "open", limit: 200, offset: 0 }), meta: INLINE_ERROR_META });
   const inbox = useQuery({ ...trpc.foundry.spectroInbox.list.queryOptions(), meta: INLINE_ERROR_META });
-  const n = todayCounts(casts.data, inbox.data?.length ?? 0);
+  const n = todayCounts(casts.data, (inbox.data ?? []).filter((r) => !r.simulated).length);
   return (
     <section aria-labelledby="today-foundry" data-testid="today-foundry" className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">

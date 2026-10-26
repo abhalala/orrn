@@ -408,10 +408,16 @@ for (const width of WIDTHS) {
       await expect(sup.page.getByTestId("rework-open")).toBeVisible({ timeout: 15_000 });
       await sup.page.getByTestId("rework-open").click();
       await sup.page.getByTestId("rework-form").getByTestId("rework-trolley").selectOption({ value: fx.trolleys[4]!.id });
-      await sup.page.getByTestId("rework-form-submit").click();
+      // M4 (final fixes 5): a double click on Age again sends ONE request and shows no error.
+      const reworks: string[] = [];
+      sup.page.on("request", (r) => {
+        if (r.method() === "POST" && r.url().includes("ageing.batches.rework")) reworks.push("rework");
+      });
+      await sup.page.getByTestId("rework-form-submit").dblclick();
       await sup.page.waitForURL((u) => u.pathname.startsWith("/ageing/batch/") && !u.pathname.endsWith(loaded.id), { timeout: 20_000 });
       const successor = new URL(sup.page.url()).pathname.split("/").pop()!;
       fx.batches.push(successor);
+      expect(reworks).toEqual(["rework"]);
       await expect(sup.page.getByTestId("batch-links")).toContainText("earlier batch");
       await expect(sup.page.getByTestId("action-start")).toBeVisible();
       await shot(sup.page, width, "batch-successor");

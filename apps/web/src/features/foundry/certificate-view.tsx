@@ -1,3 +1,4 @@
+import { elementSymbol, normalizeSpectroValues } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -86,7 +87,7 @@ export function CertificateScreen({ id }: { id: string }) {
     sectionCodes: [],
     alBalance: bestResult?.alSource === "balance",
     elements: bestResult
-      ? Object.entries(bestResult.values ?? {}).map(([k, v]) => ({ element: ELEMENT_LABEL[k as keyof typeof ELEMENT_LABEL] ?? k.toUpperCase(), ppm: Math.round((v as number) * 10_000), pct: ppmPercentText(Math.round((v as number) * 10_000)) }))
+      ? Object.entries(normalizeSpectroValues(bestResult.values)).map(([k, v]) => ({ element: ELEMENT_LABEL[k as keyof typeof ELEMENT_LABEL] ?? elementSymbol(k), ppm: Math.round((v as number) * 10_000), pct: ppmPercentText(Math.round((v as number) * 10_000)) }))
       : [],
   };
   const furnaceCodes = [...new Set(live.map((m) => furnaces.data?.items.find((f) => f.id === m.furnaceId)?.code).filter(Boolean))];

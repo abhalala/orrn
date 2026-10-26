@@ -4,7 +4,7 @@
  * correction share it). Moved out of `routers/foundry.ts` so the melt stepper (`foundryMelt.ts`)
  * and the masters can use them without an import cycle.
  */
-import { spectroCheck, SpectroRefusal, SPECTRO_ELEMENTS, type SpectroElementKey, type SpectroPpm } from "@orrn/domain";
+import { spectroCheck, spectroElementKey, SpectroRefusal, type SpectroPpm } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
@@ -257,8 +257,8 @@ export async function spectroJudge(
     : [];
   const ppm: SpectroPpm = {};
   for (const [k, v] of Object.entries(valuesPpm)) {
-    const el = k.toLowerCase() as SpectroElementKey;
-    if ((SPECTRO_ELEMENTS as readonly string[]).includes(el)) ppm[el] = v;
+    const el = spectroElementKey(k);
+    if (el) ppm[el] = v;
   }
   let check: ReturnType<typeof spectroCheck>;
   try {

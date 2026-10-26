@@ -25,6 +25,9 @@ const SUBJECT_PATHS: Readonly<Record<string, (id: string) => string>> = {
 
 export const AUDIT_SUBJECT_TYPES = Object.keys(SUBJECT_PATHS);
 
+/** Subject types with words but no screen of their own (final fixes 5, L15: they stayed English in Hindi). */
+const WORDS_ONLY = ["bundle_transfer", "sales_order_line"] as const;
+
 /** The screen for a subject, or null when the type has none. */
 export function subjectPath(subjectType: string, subjectId: string | null): string | null {
   if (!subjectId) return null;
@@ -34,7 +37,7 @@ export function subjectPath(subjectType: string, subjectId: string | null): stri
 
 /** The i18n key for a subject type's words, or null when it has none (`humanKey` of the type is shown instead). */
 export function subjectTypeKey(subjectType: string): MessageKey | null {
-  return SUBJECT_PATHS[subjectType] ? (`audit.subjectTypes.${subjectType}` as MessageKey) : null;
+  return SUBJECT_PATHS[subjectType] || (WORDS_ONLY as readonly string[]).includes(subjectType) ? (`audit.subjectTypes.${subjectType}` as MessageKey) : null;
 }
 
 /** "Packing list" for `packing_list` when no translation exists. */
