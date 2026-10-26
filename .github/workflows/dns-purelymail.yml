@@ -27,7 +27,9 @@ jobs:
             local type="$1" name="$2" content="$3" extra="${4:-}"
             local existing id
             existing=$(curl -s -H "Authorization: Bearer $CF_TOKEN" "$API?type=$type&name=$name")
-            id=$(echo "$existing" | jq -r '.result[0].id // empty')
+            # Match by content too: the root holds several TXT records, and
+            # keying on type+name alone would overwrite one with another.
+            id=$(echo "$existing" | jq -r --arg c "$content" '(.result[] | select(.content == $c) | .id) // empty')
             local body
             body=$(jq -n --arg t "$type" --arg n "$name" --arg c "$content" --arg extra "$extra" \
               '{type:$t, name:$n, content:$c, ttl:3600, proxied:false} + (if $extra == "" then {} else ($extra | fromjson) end)')
