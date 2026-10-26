@@ -3,7 +3,7 @@ name: DNS Purelymail (orrn.in)
 # One-off, owner-requested (2026-10-26): add the Purelymail records for orrn.in
 # (ownership TXT, MX, SPF, 3x DKIM CNAME, DMARC CNAME, autoconfig CNAME,
 # autodiscover SRV). Dispatch-only; upserts by type+name so re-runs are safe.
-# Uses the production environment's Cloudflare token + CLOUDFLARE_ZONE_ID_IN
+# Uses the dev environment's Cloudflare token + CLOUDFLARE_ZONE_ID
 # (the orrn.in zone). The workflow file lives on main; it is not part of any
 # deploy and changes no application code.
 
@@ -14,10 +14,10 @@ jobs:
   dns:
     name: Upsert Purelymail records on orrn.in
     runs-on: ubuntu-latest
-    environment: production
+    environment: dev
     env:
       CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID_IN }}
+      ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
     steps:
       - name: Upsert records
         run: |
