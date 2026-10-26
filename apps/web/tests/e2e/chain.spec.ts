@@ -424,9 +424,8 @@ async function cleanup(created: Created) {
         if (s) await owner.m("die.update", { id, series: s.series, sectionCode: s.sectionCode, weightMinG: s.weightMinG, weightMaxG: s.weightMaxG, status: "archived" });
       });
     }
-    // The cast stays open, as portal.spec's do: its close-out would ask for a reason today (see the report's
-    // findings: `foundry.casts.close` does not credit the billets the press consumed), and a reason opens an
-    // approval in the plant's inbox.
+    // The cast stays open, as portal.spec's do: closing it takes a physical billet count and a tail above 3 %
+    // opens a cast_close approval in the plant's inbox. The count and close are covered by foundry.spec.
   } finally {
     await owner.dispose();
   }

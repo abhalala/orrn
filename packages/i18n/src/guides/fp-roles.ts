@@ -33,3 +33,18 @@ export const CERTIFICATE: CompanyRole[] = ["owner", "admin", "manager", "office"
 export const COUNT_SETTLE: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "office"];
 /** packingList.regenerate and combine. */
 export const PL_REVISE: CompanyRole[] = ["owner", "admin", "manager", "office", "supervisor"];
+
+/** cast.enter and melt.enter: open a cast, enter and lock a melt, attach spectro. */
+export const FOUNDRY_ENTER: CompanyRole[] = ["owner", "supervisor", "foundry"];
+/** cast.close: count the billets and close a cast. */
+export const CAST_CLOSE: CompanyRole[] = ["owner", "admin", "manager", "supervisor"];
+/** ageing.load and ageing.record: load a trolley, log readings, take it out, record hardness. */
+export const AGEING_FLOOR: CompanyRole[] = ["owner", "supervisor", "press", "operator"];
+/** The ageing floor plus ageing.release (supervisor, manager): the whole take-out, test and release job. */
+export const AGEING_QC: CompanyRole[] = ["owner", "manager", "supervisor", "press", "operator"];
+/** bundle.pack. */
+export const PACK_FLOOR: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "packer", "operator"];
+/** die.card or masters.publish: make a share link for a die drawing. */
+export const DIE_SHARE: CompanyRole[] = ["owner", "admin", "manager", "die_room"];
+/** Everyone who can decide an approval request (owner, admin, manager; the supervisor for press times and late entries; foundry for a cast close). */
+export const APPROVERS: CompanyRole[] = ["owner", "admin", "manager", "supervisor", "foundry"];

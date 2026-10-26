@@ -1,10 +1,17 @@
 import {
+  AGEING_FLOOR,
+  AGEING_QC,
+  APPROVERS,
+  CAST_CLOSE,
   COUNT_SETTLE,
   CERTIFICATE,
   DIE_ROOM,
+  DIE_SHARE,
   DISPATCH_OFFICE,
+  FOUNDRY_ENTER,
   MASTERS,
   ORDER_OFFICE,
+  PACK_FLOOR,
   PL_OFFICE,
   PL_REVISE,
   PORTAL,
@@ -171,6 +178,10 @@ export const guidesEnFp: GuideBookFp = {
       {
         title: "Set the window and the press",
         body: "Set \"Window starts\" and \"Window ends\". A window is at most 24 hours. Pick the press under \"Pick the press\".",
+      },
+      {
+        title: "A trial or sample plan",
+        body: "For a die trial or a sample set \"Purpose\" to \"Die trial\" or \"Sample\" (the default is \"Production\"). \"A trial or sample needs no order line.\" Use \"Add die\", pick the section, and write the planned kg or pieces if you like. Each die becomes one queued run.",
       },
       {
         title: "Choose the lines",
@@ -466,7 +477,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "There is no trial run for this section",
-        fix: "orrn has no planning screen for a die trial yet, so a trial run is set up by orrn support. Until then a manager can use \"Release without a trial\" and write why.",
+        fix: "Plan one. Open \"Press plan\", tap \"New plan\", set \"Purpose\" to \"Die trial\", \"Add die\" and pick the section and, if you like, the copy on trial. A trial plan needs no order line. Release it to the press. If it cannot wait, a manager can use \"Release without a trial\" and write why.",
       },
       {
         title: "I do not want new copies on trial",
@@ -835,7 +846,7 @@ export const guidesEnFp: GuideBookFp = {
     steps: [
       {
         title: "Open the reasons",
-        body: "Open \"Masters\" and the reason codes page. Pick the kind of reason: downtime, rejects, void, reprint or move to another order.",
+        body: "Open \"Masters\" and the reason codes page. Pick the kind of reason: downtime, rejects, void, reprint, the ageing holds and scrap, move to another order, die work, a melt correction or a cast close-out.",
       },
       {
         title: "Add a reason",
@@ -860,8 +871,446 @@ export const guidesEnFp: GuideBookFp = {
         fix: "Other is fixed so that there is always a way out. Add a more exact reason instead.",
       },
       {
+        title: "It says a reason with these words already exists",
+        fix: "Two live reasons of one kind cannot have the same words. Retire the old one first, or give the new one different words.",
+      },
+      {
         title: "Nothing changes on the tablet",
         fix: "The list loads when the press page opens. Reload the page.",
+      },
+    ],
+  },
+  "open-cast": {
+    slug: "open-cast",
+    roles: FOUNDRY_ENTER,
+    title: "Open a cast",
+    when: "Use this when the foundry starts a new campaign of melts under one cast number.",
+    steps: [
+      {
+        title: "Open the casts",
+        body: "Open \"Casts\" under \"Foundry\". On the phone it is the Cast tab.",
+      },
+      {
+        title: "Start a new cast",
+        body: "Tap \"Open cast\" and pick the alloy this cast is for. The number comes from the plant's series, so you do not type one.",
+      },
+      {
+        title: "Check the furnace",
+        body: "The furnace chips show the furnace each melt will use. With one furnace it is already picked.",
+      },
+      {
+        title: "See it open",
+        body: "The cast opens with its number in the title. Tap \"New melt\" to start the first melt.",
+      },
+      {
+        title: "Keep it open across days",
+        body: "A cast stays open for many melts and many days. Close it only when its billets are counted: see \"Close a cast on a billet count\".",
+      },
+    ],
+    problems: [
+      {
+        title: "No alloy or no furnace is listed",
+        fix: "A manager adds them under \"Masters\", in \"Alloys\" and \"Furnaces\". An alloy with its limits is needed before a spectro result can be judged.",
+      },
+      {
+        title: "I opened the wrong cast",
+        fix: "A cast with no melt and no billets can be removed with \"Cancel cast\" and a reason. The number is not given back. Once it has a melt, close it instead.",
+      },
+      {
+        title: "The number does not continue the paper book",
+        fix: "The owner sets where the cast series starts when the plant goes live. Ask the owner or orrn support to set it.",
+      },
+    ],
+  },
+  "melt-entry": {
+    slug: "melt-entry",
+    roles: FOUNDRY_ENTER,
+    title: "Enter and lock a melt",
+    when: "Use this for one furnace cycle: the metal charged, the chemicals, the logs that came out and the lock that posts them to stock.",
+    steps: [
+      {
+        title: "Start a draft",
+        body: "Open the cast and tap \"New melt\". A draft posts nothing, so you can save it and come back.",
+      },
+      {
+        title: "Furnace and times",
+        body: "In \"Furnace and times\" pick the furnace and write the five times. \"Now\" fills the clock. A time after midnight rolls to the next day by itself; \"Next day\" sets it by hand.",
+      },
+      {
+        title: "Charge the metal",
+        body: "In \"Charge\" pick each scrap lot and write its kg, or tap \"All\" for what is left in the lot. Metal taken back from the return streams goes in the same step.",
+      },
+      {
+        title: "Chemicals and LDO",
+        body: "In \"Chemicals and LDO\" pick each store item with what was open and used. Close works out by itself. Write the LDO tank dips in inches.",
+      },
+      {
+        title: "Logs and dross",
+        body: "In \"Logs and dross\" write one line for each length that came out: pieces, length and the weighed kg. Add dross and iron. The balance at the top shows burn and yield as you type; the saved figures are the server's.",
+      },
+      {
+        title: "Save the draft",
+        body: "Tap \"Save draft\" after each part. If the screen says the melt changed since you opened it, tap \"Load the saved melt\" and carry on from there.",
+      },
+      {
+        title: "Lock it",
+        body: "Open \"Spectro and lock\", read the list under \"Before you can lock\" (each line has \"Go there\"), then tap \"Lock melt\". Stock and the store move only now.",
+      },
+    ],
+    problems: [
+      {
+        title: "Lock melt stays off",
+        fix: "Read the list under \"Before you can lock\". Each missing part has a \"Go there\" button. Save the draft first so the list is current.",
+      },
+      {
+        title: "More came out than went in, or the burn is high",
+        fix: "Write the reason in \"Why the balance is off\". A burn above 3 percent, or more out than in, needs it.",
+      },
+      {
+        title: "The melt was locked with a wrong figure",
+        fix: "A locked melt is not edited. Tap \"Ask for a correction\"; when a manager approves, the melt opens again as a draft. If nobody needs it corrected, use \"Cancel melt\". It is refused once the press has used the billets.",
+      },
+      {
+        title: "The charge says a stream has less metal than I took",
+        fix: "The stream has no stock yet. The owner enters its opening balance once, in \"Return streams\" on the billet stock page.",
+      },
+    ],
+  },
+  "spectro-attach": {
+    slug: "spectro-attach",
+    roles: FOUNDRY_ENTER,
+    title: "Attach the spectro result to a melt",
+    when: "Use this after the sample is read on the spectrometer, to put the result on the melt before you lock it.",
+    steps: [
+      {
+        title: "Save the draft first",
+        body: "A spectro result goes on a saved melt. Tap \"Save draft\" if you have not.",
+      },
+      {
+        title: "Pick how it arrives",
+        body: "In \"Spectro and lock\", tap \"Attach from inbox\" if the spectro computer sent a file, or \"Attach a file or photo\" for a PDF, a photo or a text or CSV file under 700 kB.",
+      },
+      {
+        title: "Or type the numbers",
+        body: "Tap \"Type the numbers\", write each element in percent and leave empty what was not measured. Say why in \"Why are the numbers typed?\", then \"Save numbers\".",
+      },
+      {
+        title: "Read the verdict",
+        body: "orrn judges the numbers against the limits of the alloy: \"Pass\", \"Fail\" or \"Incomplete\" when fewer than eight elements are given. The numbers are the record. A file is only the evidence.",
+      },
+      {
+        title: "If it fails",
+        body: "The metal is already cast, so the melt can still lock. Write the reason in \"Why lock without a spectro pass?\". It stays on the melt and shows on the certificate.",
+      },
+      {
+        title: "A wrong result",
+        body: "On a draft melt tap \"Void\" on the result and say why, then attach the right one.",
+      },
+    ],
+    problems: [
+      {
+        title: "A photo is on the melt but there is no verdict",
+        fix: "A photo has no numbers and never decides. Type the numbers too, with a reason. The latest result that has numbers is the one that counts.",
+      },
+      {
+        title: "It says the alloy changed and asks for a new sample",
+        fix: "The result was judged for another alloy. Take a new sample, or write why you cannot.",
+      },
+      {
+        title: "The file in the inbox can only be dismissed",
+        fix: "A file marked simulated comes from a test setup. It is never attached to a real melt.",
+      },
+    ],
+  },
+  "cast-close-count": {
+    slug: "cast-close-count",
+    roles: CAST_CLOSE,
+    title: "Close a cast on a billet count",
+    when: "Use this when a cast is finished and you can count and weigh the billets of it that are left in the yard.",
+    steps: [
+      {
+        title: "Clear the drafts",
+        body: "Lock or discard every draft melt of the cast. A draft blocks the close.",
+      },
+      {
+        title: "Count and weigh",
+        body: "Count the billets of this cast still in the yard and weigh them together. Pieces and kg go together: both zero or both above zero.",
+      },
+      {
+        title: "Write the count",
+        body: "Open the cast, tap \"Close cast\" and write \"Billets counted (pieces)\" and \"Billets counted (kg)\".",
+      },
+      {
+        title: "Read the tail",
+        body: "The sheet shows the ledger, your count and the tail between them. If they match it says every billet is accounted for.",
+      },
+      {
+        title: "Say why if they differ",
+        body: "Pick a reason in \"Why the billets do not add up\". Other needs a note. The ledger moves to your count when the cast closes.",
+      },
+      {
+        title: "A large tail needs a second person",
+        body: "A tail above 3 percent of the billets made, or billets short, shows \"Send for approval\". The cast shows \"Waiting for approval\" until another person decides it in \"Approvals\".",
+      },
+    ],
+    problems: [
+      {
+        title: "I cannot approve my own close",
+        fix: "A second person decides it: a manager, an admin, the owner or the foundry. Ask one of them to open \"Approvals\" and the \"Cast close\" request.",
+      },
+      {
+        title: "The count finds more billets than the ledger",
+        fix: "That also needs a reason. Check the count and the weight, then pick the nearest reason or write a note.",
+      },
+      {
+        title: "The press still needs billets of this cast",
+        fix: "The counted billets stay in stock after the close, and the press may use a closed cast. Nothing is lost.",
+      },
+    ],
+  },
+  "load-trolley": {
+    slug: "load-trolley",
+    roles: AGEING_FLOOR,
+    title: "Load a trolley for the oven",
+    when: "Use this when cut lengths from the press are ready to go into the ageing oven.",
+    steps: [
+      {
+        title: "Open the loader",
+        body: "Open \"Ageing\" and tap \"Load trolley\". On the phone it is under More.",
+      },
+      {
+        title: "Pick the trolley",
+        body: "Pick a free trolley. If every trolley carries a batch, close or void one, or ask a manager to add a trolley under \"Masters\".",
+      },
+      {
+        title: "Pick the lines",
+        body: "Under \"Logged press lines\" write the pieces for each line; the field starts with all that is left. Or choose \"Whole bundles\" for packed bundles that need ageing.",
+      },
+      {
+        title: "Check the summary",
+        body: "The summary shows lines, pieces and kg. A capacity warning says the trolley is full but does not stop you.",
+      },
+      {
+        title: "Load and start",
+        body: "Tap \"Load trolley\". Open the batch and tap \"Start\": pick the oven and the recipe, read the gas meter before the door closes, and write the time if it went in earlier (12 hours back at most).",
+      },
+      {
+        title: "Log the temperature",
+        body: "While it is in the oven tap \"Add reading\" at least every 15 minutes. Each reading counts for at most 15 minutes of soak, so a longer gap counts as no reading.",
+      },
+    ],
+    problems: [
+      {
+        title: "A press line is not listed",
+        fix: "Only logged press runs can be loaded. Log the run first. The alloy and temper of the line must also match the recipe.",
+      },
+      {
+        title: "A bundle will not load",
+        fix: "A bundle must be in stock, not on another batch and not aged already.",
+      },
+      {
+        title: "I started the wrong recipe",
+        fix: "Before the oven, void the batch while it is still loading. Once it is in the oven, take it out and record what happened.",
+      },
+    ],
+  },
+  "age-and-release": {
+    slug: "age-and-release",
+    roles: AGEING_QC,
+    title: "Take out, test and release a batch",
+    when: "Use this when the soak is done and the trolley has to come out, be tested and be released to pack.",
+    steps: [
+      {
+        title: "Take it out",
+        body: "Add a last reading, then tap \"Take out\" on the batch and read the gas meter. A batch cannot come out with no reading. Readings close 30 minutes after it is out.",
+      },
+      {
+        title: "Record hardness",
+        body: "Tap \"Record hardness\". For each line write the samples the recipe asks for with its method. The server works out the median, and only that method decides the line.",
+      },
+      {
+        title: "Read the soak verdict",
+        body: "The verdict panel says whether the soak was met, under-aged or over-aged. A gap of more than 15 minutes between readings counts as no reading.",
+      },
+      {
+        title: "Release",
+        body: "A supervisor or manager taps \"Release\". Lines that passed can be packed. Lines that failed are held, each with its reason.",
+      },
+      {
+        title: "Deal with a held line",
+        body: "A line that failed on hardness clears with \"Test again\". \"Hold\" stops a line that looks wrong, and \"Clear hold\" lets it go.",
+      },
+      {
+        title: "Ask for approval",
+        body: "If a batch failed but should go, tap \"Ask for approval\" and say why. A manager decides it in \"Approvals\". Then the supervisor taps \"Release\" again: approving alone releases nothing.",
+      },
+      {
+        title: "Age again or discard",
+        body: "On the web, held pieces can go to a new batch with \"Age again\", or leave with \"Discard the rest\". \"Void\" cancels a batch that never went wrong. These are not on the phone.",
+      },
+    ],
+    problems: [
+      {
+        title: "Release says some lines are held",
+        fix: "Open each held line and read its reason. A hardness below the recipe or an over-aged soak needs a retest, \"Age again\" or an approval.",
+      },
+      {
+        title: "I cannot void the batch",
+        fix: "A batch cannot be voided while it is in the oven, or after pieces were packed, aged again or discarded.",
+      },
+      {
+        title: "A reading is refused",
+        fix: "The time is before the batch went in, in the future, or more than 30 minutes after it came out.",
+      },
+    ],
+  },
+  "pack-from-trolley": {
+    slug: "pack-from-trolley",
+    roles: PACK_FLOOR,
+    title: "Pack from a released trolley line",
+    when: "Use this when aged metal has been released and you pack it into bundles.",
+    steps: [
+      {
+        title: "Open Pack",
+        body: "Open \"Pack\", start a session and pick the die as usual.",
+      },
+      {
+        title: "Choose the source",
+        body: "In \"Source\" pick \"Trolley\" for aged metal. \"No trolley\" packs by hand.",
+      },
+      {
+        title: "Pick the trolley line",
+        body: "Under \"Trolley line\" pick a line. Only released lines with pieces left are listed. The order, die copy, cast and cut length fill in from it.",
+      },
+      {
+        title: "Enter pieces and weight",
+        body: "Write the pieces and take the weight from the scale. The pieces cannot pass what is left on the line.",
+      },
+      {
+        title: "Rejects",
+        body: "Damaged pieces are set aside as rejects with a reason. They leave the line too.",
+      },
+      {
+        title: "Save and print",
+        body: "Save the bundle and print its label. The bundle page shows \"Aged\" and links to its batch.",
+      },
+    ],
+    problems: [
+      {
+        title: "My line is not in the list",
+        fix: "A line still in the oven, waiting for the test or held is not listed. Only released lines with pieces left are.",
+      },
+      {
+        title: "It says only some pieces are left on the line",
+        fix: "Another bundle took the rest. Pack fewer pieces or pick another line.",
+      },
+      {
+        title: "It says this plant packs from a trolley line",
+        fix: "\"Pack names a trolley\" is on in Settings. Pick a line, or ask a manager to switch it off if hand packing is allowed.",
+      },
+      {
+        title: "Dispatch refuses a bundle",
+        fix: "When \"Dispatch aged metal only\" is on, a bundle that is not aged, is still in ageing or is held cannot be added to a dispatch.",
+      },
+      {
+        title: "I voided a bundle",
+        fix: "While its batch is open the pieces go back to the trolley line. Once the batch is closed they are written off as loose aged stock and the batch does not reopen.",
+      },
+    ],
+  },
+  "die-share-link": {
+    slug: "die-share-link",
+    roles: DIE_SHARE,
+    title: "Share a die drawing with a customer",
+    when: "Use this when a customer or a die maker needs to see the press drawing and weight band of a section, without an account.",
+    steps: [
+      {
+        title: "Open the section",
+        body: "Open \"Dies\" and the section, then tap \"Share\" on the section page or in the die card menu.",
+      },
+      {
+        title: "Check the drawing",
+        body: "The link shows the press drawing. If the die has none, add one on the Files tab first.",
+      },
+      {
+        title: "Say who it is for",
+        body: "Pick a \"Party\" if the link is for one customer. A die that belongs to a customer can be shared only with that customer. A note is for you only.",
+      },
+      {
+        title: "Choose how long",
+        body: "Set \"Link stays open for\": 7 days by default, at most 30.",
+      },
+      {
+        title: "Create and copy",
+        body: "Tap \"Create link\" and copy it at once with \"Copy link\". It cannot be shown again. On the phone the share sheet opens.",
+      },
+      {
+        title: "Check or stop it later",
+        body: "\"Links sent\" lists each link with its status and how many times it was opened. Tap \"Revoke\" to stop one.",
+      },
+    ],
+    problems: [
+      {
+        title: "The customer sees that the link is no longer available",
+        fix: "It expired or was revoked, or the die changed owner. Make a new link.",
+      },
+      {
+        title: "I lost the link",
+        fix: "It cannot be shown again. Revoke it and create another.",
+      },
+      {
+        title: "I revoked it but the drawing still opens",
+        fix: "A drawing address that was already opened lasts up to 10 minutes. No new one is made after the revoke.",
+      },
+      {
+        title: "Can I see who opened it",
+        fix: "No. orrn counts the opens and the last time, not who. The page shows no stock, cost or customer.",
+      },
+    ],
+  },
+  "approvals-review": {
+    slug: "approvals-review",
+    roles: APPROVERS,
+    title: "Review and decide an approval",
+    when: "Use this when a request is waiting for a second person: a late press run, a move of bundles, a tier change, a cast close or a melt correction.",
+    steps: [
+      {
+        title: "Open the list",
+        body: "Open \"Approvals\". \"Waiting\" shows what needs a decision. The \"Kind\" filter narrows it.",
+      },
+      {
+        title: "Open a request",
+        body: "Tap \"Review\". The sheet says who asked and shows their words under \"Their note\".",
+      },
+      {
+        title: "Read the facts",
+        body: "Below the note are the facts as they are now: \"Where the bundles are now\" for a move, \"The run\" for a late entry, \"The copy now\" for a tier change and \"Figures\" for a cast close. Approve stays off until they load.",
+      },
+      {
+        title: "Check what changed",
+        body: "If the order closed, bundles moved, the run changed or the copy changed after the ask, the sheet says so. Decide on what it shows now, not on what was asked.",
+      },
+      {
+        title: "Approve or reject",
+        body: "Tap \"Approve\". Or write why and tap \"Reject\"; a rejection needs a note so the problem can be fixed.",
+      },
+    ],
+    problems: [
+      {
+        title: "I cannot approve my own request",
+        fix: "A second person decides it. Ask another approver or the owner.",
+      },
+      {
+        title: "Approve is off",
+        fix: "The live figures did not load. Check the connection and open the sheet again. Reject stays open.",
+      },
+      {
+        title: "It says nothing will move, or the cast is no longer waiting",
+        fix: "The thing changed after the ask, for example the order closed or the request was already decided. Reject it, or ask for it again.",
+      },
+      {
+        title: "The purchase figures are hidden",
+        fix: "Only people who read purchase figures can decide a debit or credit note. Ask one of them.",
       },
     ],
   },

@@ -10,7 +10,7 @@
  * - loggedG   = good kg of LOGGED runs' run lines naming the order line (FP-PR-16); runs logged
  *               without run lines share their good kg over the plan die's lines by kg.
  * - pressedG  = max(0, logged − aged − produced) (press log never reduces baki).
- * - agedG     = 0 until ageing rows exist (Wave 2/3, `ageing.forOrder`).
+ * - agedG     = theoretical kg still on live trolley rows of the line (`agedExpr` in lib/ageing.ts), capped at logged − produced.
  * - packedG   = linked bundles available + reserved; inStockG = available only.
  * - heldG     = bundles held for the line (FP-OP-17, `bundle.held_for_line_id`), available + reserved
  *               ("held in yard"; heldPcs their pieces). Holding moves nothing: a held bundle still

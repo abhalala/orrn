@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7060 screen strings in 48 groups, 35 guides with 646 strings.
+Counts: 7022 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -7775,14 +7775,16 @@ Please check, Lalubhai:
 | Step 1 text | Open "Orders" and tap "Press plan". This page works on a desktop or an 11-inch tablet. | "ऑर्डर" खोलें और "प्रेस प्लान" दबाएं। ये पेज डेस्कटॉप या 11 इंच के टैबलेट पर चलता है। |
 | Step 2 | Set the window and the press | समय और प्रेस तय करें |
 | Step 2 text | Set "Window starts" and "Window ends". A window is at most 24 hours. Pick the press under "Pick the press". | "समय शुरू" और "समय खत्म" भरें। समय अधिकतम 24 घंटे का होता है। "प्रेस चुनें" में प्रेस चुनें। |
-| Step 3 | Choose the lines | लाइनें चुनें |
-| Step 3 text | The open lines come grouped by die, so one die serves every customer that needs it. Add the lines you want. Leave the kg blank to plan all that is left, or type fewer kg. | खुली लाइनें die के हिसाब से इकट्ठी आती हैं, ताकि एक die सारे ज़रूरतमंद ग्राहकों के काम आए। जो लाइनें चाहिए जोड़ें। सारा बाकी प्लान करना हो तो kg खाली छोड़ें, वरना कम kg लिखें। |
-| Step 4 | Read the other customers | दूसरे ग्राहक देखें |
-| Step 4 text | When you add a die, orrn lists every other open line on it, with the customer, length and kg still to plan. Add them to press them in the same run. orrn only warns. It never blocks. | Die जोड़ते ही orrn उस पर बाकी हर खुली लाइन दिखाता है, ग्राहक, लंबाई और प्लान होने वाले kg के साथ। उन्हें जोड़ें तो वो उसी रन में दब जाएंगी। orrn सिर्फ चेतावनी देता है, रोकता कभी नहीं। |
-| Step 5 | Save the draft | ड्राफ़्ट सेव करें |
-| Step 5 text | Tap "Save draft plan". Reorder the dies with "Move earlier" and "Move later". Mark one "Mark urgent" if it must go first. | "ड्राफ़्ट प्लान सेव करें" दबाएं। Die का क्रम "पहले करें" और "बाद में करें" से बदलें। जो सबसे पहले जाना है उस पर "जल्दी करें" दबाएं। |
-| Step 6 | Release to the press | प्रेस को भेजें |
-| Step 6 text | Open the plan and tap "Release to press". Each die becomes one queued run on the press. The die room picks the copy when it issues the die. | प्लान खोलें और "प्रेस को भेजें" दबाएं। हर die प्रेस पर एक कतार वाला रन बन जाती है। कॉपी die रूम तब चुनता है जब वो die देता है। |
+| Step 3 | A trial or sample plan | ट्रायल या सैंपल का प्लान |
+| Step 3 text | For a die trial or a sample set "Purpose" to "Die trial" or "Sample" (the default is "Production"). "A trial or sample needs no order line." Use "Add die", pick the section, and write the planned kg or pieces if you like. Each die becomes one queued run. | Die ट्रायल या सैंपल के लिए "किस लिए" में "Die ट्रायल" या "सैंपल" चुनें (आम तौर पर "प्रोडक्शन" रहता है)। "ट्रायल या सैंपल के लिए ऑर्डर लाइन नहीं चाहिए।" "Die जोड़ें" से सेक्शन चुनें और चाहें तो प्लान किए kg या पीस लिखें। हर die एक कतार वाला रन बन जाता है। |
+| Step 4 | Choose the lines | लाइनें चुनें |
+| Step 4 text | The open lines come grouped by die, so one die serves every customer that needs it. Add the lines you want. Leave the kg blank to plan all that is left, or type fewer kg. | खुली लाइनें die के हिसाब से इकट्ठी आती हैं, ताकि एक die सारे ज़रूरतमंद ग्राहकों के काम आए। जो लाइनें चाहिए जोड़ें। सारा बाकी प्लान करना हो तो kg खाली छोड़ें, वरना कम kg लिखें। |
+| Step 5 | Read the other customers | दूसरे ग्राहक देखें |
+| Step 5 text | When you add a die, orrn lists every other open line on it, with the customer, length and kg still to plan. Add them to press them in the same run. orrn only warns. It never blocks. | Die जोड़ते ही orrn उस पर बाकी हर खुली लाइन दिखाता है, ग्राहक, लंबाई और प्लान होने वाले kg के साथ। उन्हें जोड़ें तो वो उसी रन में दब जाएंगी। orrn सिर्फ चेतावनी देता है, रोकता कभी नहीं। |
+| Step 6 | Save the draft | ड्राफ़्ट सेव करें |
+| Step 6 text | Tap "Save draft plan". Reorder the dies with "Move earlier" and "Move later". Mark one "Mark urgent" if it must go first. | "ड्राफ़्ट प्लान सेव करें" दबाएं। Die का क्रम "पहले करें" और "बाद में करें" से बदलें। जो सबसे पहले जाना है उस पर "जल्दी करें" दबाएं। |
+| Step 7 | Release to the press | प्रेस को भेजें |
+| Step 7 text | Open the plan and tap "Release to press". Each die becomes one queued run on the press. The die room picks the copy when it issues the die. | प्लान खोलें और "प्रेस को भेजें" दबाएं। हर die प्रेस पर एक कतार वाला रन बन जाती है। कॉपी die रूम तब चुनता है जब वो die देता है। |
 | Problem 1 | It says More than the order can still take | लिखा है कि ऑर्डर जितना ले सकता है उससे ज़्यादा है |
 | Fix 1 | The line has less kg left to plan than you asked for. Another plan, a pack or a dispatch already used some. Lower the kg. | लाइन पर प्लान होने लायक kg आपके मांगे kg से कम हैं। कोई दूसरा प्लान, पैकिंग या dispatch उसमें से कुछ ले चुका है। kg घटाएं। |
 | Problem 2 | The die belongs to a customer | Die किसी ग्राहक की अपनी है |
@@ -7930,7 +7932,7 @@ Please check, Lalubhai:
 | Problem 1 | The copy is still On trial after a good run | अच्छे रन के बाद भी कॉपी ट्रायल पर है |
 | Fix 1 | The run's trial result must be set to passed when it is logged. A reopened run puts the copy back on trial. | रन दर्ज करते समय ट्रायल का नतीजा पास भरा होना चाहिए। फिर से खोला गया रन कॉपी को वापस ट्रायल पर डाल देता है। |
 | Problem 2 | There is no trial run for this section | इस सेक्शन के लिए कोई ट्रायल रन नहीं है |
-| Fix 2 | orrn has no planning screen for a die trial yet, so a trial run is set up by orrn support. Until then a manager can use "Release without a trial" and write why. | die ट्रायल की प्लानिंग का अभी कोई स्क्रीन नहीं है, इसलिए ट्रायल रन orrn सपोर्ट लगाता है। तब तक मैनेजर "ट्रायल के बिना छोड़ें" से वजह लिखकर छोड़ सकता है। |
+| Fix 2 | Plan one. Open "Press plan", tap "New plan", set "Purpose" to "Die trial", "Add die" and pick the section and, if you like, the copy on trial. A trial plan needs no order line. Release it to the press. If it cannot wait, a manager can use "Release without a trial" and write why. | प्लान बनाएं। "प्रेस प्लान" खोलें, "नया प्लान" दबाएं, "किस लिए" में "Die ट्रायल" चुनें, "Die जोड़ें" से सेक्शन और चाहें तो ट्रायल वाली कॉपी चुनें। ट्रायल प्लान में ऑर्डर लाइन नहीं लगती। उसे प्रेस को भेजें। इंतज़ार न हो सके तो मैनेजर "ट्रायल के बिना छोड़ें" से वजह लिखकर छोड़ सकता है। |
 | Problem 3 | I do not want new copies on trial | मुझे नई कॉपी ट्रायल पर नहीं चाहिए |
 | Fix 3 | The owner or the plant admin can switch "New copies start on trial" off on the die board. Do this only if the plant agrees. | मालिक या प्लांट एडमिन die बोर्ड पर "नई कॉपी ट्रायल से शुरू हो" बंद कर सकता है। ये तभी करें जब प्लांट राज़ी हो। |
 
@@ -8129,7 +8131,7 @@ Please check, Lalubhai:
 | Title | Manage the reason codes | रीज़न कोड संभालें |
 | When | Use this when the floor needs a new reason in a list, such as why a press stopped or why a bundle was voided. | जब फ्लोर को किसी लिस्ट में नई वजह चाहिए, जैसे प्रेस क्यों रुकी या bundle क्यों रद्द हुआ। |
 | Step 1 | Open the reasons | वजहें खोलें |
-| Step 1 text | Open "Masters" and the reason codes page. Pick the kind of reason: downtime, rejects, void, reprint or move to another order. | "मास्टर" और रीज़न कोड का पेज खोलें। वजह का प्रकार चुनें: रुकना, रिजेक्ट, रद्द, फिर से प्रिंट या दूसरे ऑर्डर पर डालना। |
+| Step 1 text | Open "Masters" and the reason codes page. Pick the kind of reason: downtime, rejects, void, reprint, the ageing holds and scrap, move to another order, die work, a melt correction or a cast close-out. | "मास्टर" और रीज़न कोड का पेज खोलें। वजह का प्रकार चुनें: रुकना, रिजेक्ट, रद्द, फिर से प्रिंट, एजिंग के होल्ड और स्क्रैप, दूसरे ऑर्डर पर डालना, die का काम, मेल्ट सुधार या कास्ट का हिसाब। |
 | Step 2 | Add a reason | वजह जोड़ें |
 | Step 2 text | Add the reason in English. Type the Hindi and Gujarati words too, so the floor sees it in their language. The key is made from the English words once and never changes. | वजह अंग्रेज़ी में जोड़ें। हिंदी और गुजराती शब्द भी लिखें, ताकि फ्लोर को अपनी भाषा में दिखे। कुंजी अंग्रेज़ी शब्दों से एक बार बनती है और कभी नहीं बदलती। |
 | Step 3 | Ask for a note if needed | ज़रूरत हो तो नोट मांगें |
@@ -8140,5 +8142,242 @@ Please check, Lalubhai:
 | Fix 1 | A reason you renamed shows the words you typed. Type the Hindi and Gujarati words for it. | जिस वजह का आपने नाम बदला वो आपके लिखे शब्द दिखाती है। उसके हिंदी और गुजराती शब्द भी लिखें। |
 | Problem 2 | I cannot rename Other | Other का नाम नहीं बदल सकता |
 | Fix 2 | Other is fixed so that there is always a way out. Add a more exact reason instead. | Other इसलिए तय है कि बाहर निकलने का रास्ता हमेशा रहे। उसकी जगह ज़्यादा सटीक वजह जोड़ें। |
-| Problem 3 | Nothing changes on the tablet | टैबलेट पर कुछ नहीं बदला |
-| Fix 3 | The list loads when the press page opens. Reload the page. | लिस्ट प्रेस पेज खुलते समय लोड होती है। पेज फिर से लोड करें। |
+| Problem 3 | It says a reason with these words already exists | कहता है इन्हीं शब्दों की वजह पहले से है |
+| Fix 3 | Two live reasons of one kind cannot have the same words. Retire the old one first, or give the new one different words. | एक प्रकार में दो चालू वजहों के शब्द एक जैसे नहीं हो सकते। पहले पुरानी को बंद करें, या नई के शब्द अलग रखें। |
+| Problem 4 | Nothing changes on the tablet | टैबलेट पर कुछ नहीं बदला |
+| Fix 4 | The list loads when the press page opens. Reload the page. | लिस्ट प्रेस पेज खुलते समय लोड होती है। पेज फिर से लोड करें। |
+
+### Open a cast (`open-cast`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Open a cast | कास्ट खोलें |
+| When | Use this when the foundry starts a new campaign of melts under one cast number. | जब फाउंड्री एक कास्ट नंबर के नीचे मेल्ट की नई लड़ी शुरू करे। |
+| Step 1 | Open the casts | कास्ट खोलें |
+| Step 1 text | Open "Casts" under "Foundry". On the phone it is the Cast tab. | "फाउंड्री" के नीचे "कास्ट" खोलें। फ़ोन पर यह Cast टैब है। |
+| Step 2 | Start a new cast | नया कास्ट शुरू करें |
+| Step 2 text | Tap "Open cast" and pick the alloy this cast is for. The number comes from the plant's series, so you do not type one. | "कास्ट खोलें" दबाएं और इस कास्ट का अलॉय चुनें। नंबर प्लांट की सीरीज़ से अपने आप आता है, इसलिए खुद नहीं लिखना। |
+| Step 3 | Check the furnace | फर्नेस देखें |
+| Step 3 text | The furnace chips show the furnace each melt will use. With one furnace it is already picked. | फर्नेस के चिप बताते हैं कि हर मेल्ट किस फर्नेस पर चलेगी। एक ही फर्नेस हो तो वो पहले से चुनी होती है। |
+| Step 4 | See it open | खुला हुआ कास्ट देखें |
+| Step 4 text | The cast opens with its number in the title. Tap "New melt" to start the first melt. | कास्ट अपने नंबर के साथ खुल जाता है। पहली मेल्ट शुरू करने के लिए "नई मेल्ट" दबाएं। |
+| Step 5 | Keep it open across days | कई दिन खुला रखें |
+| Step 5 text | A cast stays open for many melts and many days. Close it only when its billets are counted: see "Close a cast on a billet count". | कास्ट कई मेल्ट और कई दिन खुला रहता है। उसे तभी बंद करें जब उसके बिलेट गिन लिए हों: "बिलेट गिनकर कास्ट बंद करें" देखें। |
+| Problem 1 | No alloy or no furnace is listed | अलॉय या फर्नेस लिस्ट में नहीं है |
+| Fix 1 | A manager adds them under "Masters", in "Alloys" and "Furnaces". An alloy with its limits is needed before a spectro result can be judged. | मैनेजर उन्हें "मास्टर" में "अलॉय" और "फर्नेस" से जोड़ता है। स्पेक्ट्रो नतीजा परखने से पहले अलॉय की लिमिट भरी होनी चाहिए। |
+| Problem 2 | I opened the wrong cast | मैंने गलत कास्ट खोल दिया |
+| Fix 2 | A cast with no melt and no billets can be removed with "Cancel cast" and a reason. The number is not given back. Once it has a melt, close it instead. | जिस कास्ट में कोई मेल्ट और बिलेट नहीं है उसे वजह लिखकर "कास्ट रद्द करें" से हटा सकते हैं। नंबर वापस नहीं मिलता। मेल्ट आ गई हो तो उसे बंद करें। |
+| Problem 3 | The number does not continue the paper book | नंबर कागज़ की बही से आगे नहीं बढ़ता |
+| Fix 3 | The owner sets where the cast series starts when the plant goes live. Ask the owner or orrn support to set it. | प्लांट चालू होते समय मालिक तय करता है कि कास्ट सीरीज़ कहां से शुरू हो। मालिक या orrn सपोर्ट से कहें। |
+
+### Enter and lock a melt (`melt-entry`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Enter and lock a melt | मेल्ट भरें और लॉक करें |
+| When | Use this for one furnace cycle: the metal charged, the chemicals, the logs that came out and the lock that posts them to stock. | फर्नेस के एक चक्कर के लिए: डाला गया मेटल, केमिकल, निकले लॉग, और वो लॉक जो सब स्टॉक में चढ़ाता है। |
+| Step 1 | Start a draft | ड्राफ़्ट शुरू करें |
+| Step 1 text | Open the cast and tap "New melt". A draft posts nothing, so you can save it and come back. | कास्ट खोलकर "नई मेल्ट" दबाएं। ड्राफ़्ट कुछ पोस्ट नहीं करता, इसलिए सेव करके बाद में लौट सकते हैं। |
+| Step 2 | Furnace and times | फर्नेस और समय |
+| Step 2 text | In "Furnace and times" pick the furnace and write the five times. "Now" fills the clock. A time after midnight rolls to the next day by itself; "Next day" sets it by hand. | "फर्नेस और समय" में फर्नेस चुनें और पांचों समय लिखें। "अभी" घड़ी भर देता है। आधी रात के बाद का समय अपने आप अगले दिन चला जाता है; "अगला दिन" से हाथ से भी कर सकते हैं। |
+| Step 3 | Charge the metal | मेटल चार्ज करें |
+| Step 3 text | In "Charge" pick each scrap lot and write its kg, or tap "All" for what is left in the lot. Metal taken back from the return streams goes in the same step. | "चार्ज" में हर स्क्रैप लॉट चुनकर उसका kg लिखें, या लॉट में जो बचा है उसके लिए "सभी" दबाएं। "रिटर्न स्ट्रीम" से वापस लिया मेटल भी इसी स्टेप में जाता है। |
+| Step 4 | Chemicals and LDO | केमिकल और LDO |
+| Step 4 text | In "Chemicals and LDO" pick each store item with what was open and used. Close works out by itself. Write the LDO tank dips in inches. | "केमिकल और LDO" में हर स्टोर आइटम चुनें और कितना खुला था और कितना लगा लिखें। बंद अपने आप निकल आता है। LDO टैंक की डिप इंच में लिखें। |
+| Step 5 | Logs and dross | लॉग और ड्रॉस |
+| Step 5 text | In "Logs and dross" write one line for each length that came out: pieces, length and the weighed kg. Add dross and iron. The balance at the top shows burn and yield as you type; the saved figures are the server's. | "लॉग और ड्रॉस" में निकली हर लंबाई की एक लाइन लिखें: पीस, लंबाई और तौला हुआ kg। ड्रॉस और आयरन जोड़ें। ऊपर का हिसाब लिखते समय बर्न और यील्ड दिखाता है; सेव होने वाले आँकड़े सर्वर के होते हैं। |
+| Step 6 | Save the draft | ड्राफ़्ट सेव करें |
+| Step 6 text | Tap "Save draft" after each part. If the screen says the melt changed since you opened it, tap "Load the saved melt" and carry on from there. | हर हिस्से के बाद "ड्राफ़्ट सेव करें" दबाएं। स्क्रीन कहे कि खोलने के बाद मेल्ट बदल गई, तो "सेव की हुई मेल्ट खोलें" दबाकर वहीं से आगे बढ़ें। |
+| Step 7 | Lock it | लॉक करें |
+| Step 7 text | Open "Spectro and lock", read the list under "Before you can lock" (each line has "Go there"), then tap "Lock melt". Stock and the store move only now. | "स्पेक्ट्रो और लॉक" खोलें, "लॉक करने से पहले" की लिस्ट पढ़ें (हर लाइन पर "वहाँ जाएं" है), फिर "मेल्ट लॉक करें" दबाएं। स्टॉक और स्टोर अभी ही हिलते हैं। |
+| Problem 1 | Lock melt stays off | मेल्ट लॉक करें बटन बंद है |
+| Fix 1 | Read the list under "Before you can lock". Each missing part has a "Go there" button. Save the draft first so the list is current. | "लॉक करने से पहले" की लिस्ट पढ़ें। हर बाकी हिस्से पर "वहाँ जाएं" बटन है। पहले ड्राफ़्ट सेव करें ताकि लिस्ट ताज़ा रहे। |
+| Problem 2 | More came out than went in, or the burn is high | अंदर से ज़्यादा निकला, या बर्न ज़्यादा है |
+| Fix 2 | Write the reason in "Why the balance is off". A burn above 3 percent, or more out than in, needs it. | "हिसाब क्यों नहीं मिला" में वजह लिखें। 3 प्रतिशत से ऊपर का बर्न, या अंदर से ज़्यादा बाहर, इसके बिना नहीं चलता। |
+| Problem 3 | The melt was locked with a wrong figure | मेल्ट गलत आँकड़े के साथ लॉक हो गई |
+| Fix 3 | A locked melt is not edited. Tap "Ask for a correction"; when a manager approves, the melt opens again as a draft. If nobody needs it corrected, use "Cancel melt". It is refused once the press has used the billets. | लॉक की हुई मेल्ट में बदलाव नहीं होता। "सुधार माँगें" दबाएं; मैनेजर मंज़ूर करे तो मेल्ट फिर ड्राफ़्ट बनकर खुलती है। सुधार की ज़रूरत न हो तो "मेल्ट रद्द करें" इस्तेमाल करें। बिलेट प्रेस में लग चुके हों तो यह नहीं होता। |
+| Problem 4 | The charge says a stream has less metal than I took | चार्ज कहता है स्ट्रीम में मेरे लिए मेटल से कम है |
+| Fix 4 | The stream has no stock yet. The owner enters its opening balance once, in "Return streams" on the billet stock page. | स्ट्रीम का अभी कोई स्टॉक नहीं है। मालिक उसका शुरुआती बैलेंस एक बार बिलेट स्टॉक पेज पर "रिटर्न स्ट्रीम" में भरता है। |
+
+### Attach the spectro result to a melt (`spectro-attach`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Attach the spectro result to a melt | मेल्ट पर स्पेक्ट्रो नतीजा जोड़ें |
+| When | Use this after the sample is read on the spectrometer, to put the result on the melt before you lock it. | जब सैंपल स्पेक्ट्रोमीटर पर पढ़ा जा चुका हो और मेल्ट लॉक करने से पहले उसका नतीजा उस पर चढ़ाना हो। |
+| Step 1 | Save the draft first | पहले ड्राफ़्ट सेव करें |
+| Step 1 text | A spectro result goes on a saved melt. Tap "Save draft" if you have not. | स्पेक्ट्रो नतीजा सेव की हुई मेल्ट पर जाता है। सेव न किया हो तो "ड्राफ़्ट सेव करें" दबाएं। |
+| Step 2 | Pick how it arrives | चुनें कि नतीजा कैसे आया |
+| Step 2 text | In "Spectro and lock", tap "Attach from inbox" if the spectro computer sent a file, or "Attach a file or photo" for a PDF, a photo or a text or CSV file under 700 kB. | "स्पेक्ट्रो और लॉक" में स्पेक्ट्रो कंप्यूटर ने फ़ाइल भेजी हो तो "इनबॉक्स से जोड़ें" दबाएं, वरना 700 kB से छोटी PDF, फ़ोटो या टेक्स्ट या CSV फ़ाइल के लिए "फ़ाइल या फ़ोटो जोड़ें"। |
+| Step 3 | Or type the numbers | या आँकड़े लिखें |
+| Step 3 text | Tap "Type the numbers", write each element in percent and leave empty what was not measured. Say why in "Why are the numbers typed?", then "Save numbers". | "आँकड़े लिखें" दबाएं, हर तत्व प्रतिशत में लिखें और जो नापा नहीं उसे खाली छोड़ें। "आँकड़े हाथ से क्यों लिखे?" में वजह बताएं, फिर "आँकड़े सेव करें"। |
+| Step 4 | Read the verdict | नतीजा पढ़ें |
+| Step 4 text | orrn judges the numbers against the limits of the alloy: "Pass", "Fail" or "Incomplete" when fewer than eight elements are given. The numbers are the record. A file is only the evidence. | orrn आँकड़ों को अलॉय की लिमिट से परखता है: "पास", "फेल", या आठ से कम तत्व दिए हों तो "अधूरा"। आँकड़े ही रिकॉर्ड हैं। फ़ाइल सिर्फ़ सबूत है। |
+| Step 5 | If it fails | फेल हो तो |
+| Step 5 text | The metal is already cast, so the melt can still lock. Write the reason in "Why lock without a spectro pass?". It stays on the melt and shows on the certificate. | मेटल पहले ही ढल चुका है, इसलिए मेल्ट फिर भी लॉक हो सकती है। "स्पेक्ट्रो पास हुए बिना लॉक क्यों?" में वजह लिखें। वो मेल्ट पर रहती है और सर्टिफ़िकेट पर दिखती है। |
+| Step 6 | A wrong result | गलत नतीजा |
+| Step 6 text | On a draft melt tap "Void" on the result and say why, then attach the right one. | ड्राफ़्ट मेल्ट पर नतीजे का "रद्द" दबाकर वजह लिखें, फिर सही नतीजा जोड़ें। |
+| Problem 1 | A photo is on the melt but there is no verdict | मेल्ट पर फ़ोटो है पर कोई नतीजा नहीं दिखता |
+| Fix 1 | A photo has no numbers and never decides. Type the numbers too, with a reason. The latest result that has numbers is the one that counts. | फ़ोटो में आँकड़े नहीं होते और वो कभी तय नहीं करती। आँकड़े भी वजह के साथ लिखें। आँकड़ों वाला सबसे ताज़ा नतीजा ही गिना जाता है। |
+| Problem 2 | It says the alloy changed and asks for a new sample | कहता है अलॉय बदल गया और नया सैंपल माँगता है |
+| Fix 2 | The result was judged for another alloy. Take a new sample, or write why you cannot. | नतीजा किसी दूसरे अलॉय के लिए परखा गया था। नया सैंपल लें, या लिखें कि क्यों नहीं ले सकते। |
+| Problem 3 | The file in the inbox can only be dismissed | इनबॉक्स की फ़ाइल सिर्फ़ हटाई जा सकती है |
+| Fix 3 | A file marked simulated comes from a test setup. It is never attached to a real melt. | सिमुलेटेड लिखी फ़ाइल टेस्ट सेटअप से आती है। उसे असली मेल्ट पर कभी नहीं जोड़ा जाता। |
+
+### Close a cast on a billet count (`cast-close-count`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Close a cast on a billet count | बिलेट गिनकर कास्ट बंद करें |
+| When | Use this when a cast is finished and you can count and weigh the billets of it that are left in the yard. | जब कास्ट पूरा हो गया हो और यार्ड में बचे उसके बिलेट गिनकर तौले जा सकें। |
+| Step 1 | Clear the drafts | ड्राफ़्ट साफ़ करें |
+| Step 1 text | Lock or discard every draft melt of the cast. A draft blocks the close. | कास्ट की हर ड्राफ़्ट मेल्ट लॉक करें या हटाएं। ड्राफ़्ट होने पर कास्ट बंद नहीं होता। |
+| Step 2 | Count and weigh | गिनें और तौलें |
+| Step 2 text | Count the billets of this cast still in the yard and weigh them together. Pieces and kg go together: both zero or both above zero. | यार्ड में इस कास्ट के बचे बिलेट गिनें और साथ में तौलें। पीस और kg साथ चलते हैं: दोनों शून्य या दोनों शून्य से ऊपर। |
+| Step 3 | Write the count | गिनती लिखें |
+| Step 3 text | Open the cast, tap "Close cast" and write "Billets counted (pieces)" and "Billets counted (kg)". | कास्ट खोलें, "कास्ट बंद करें" दबाएं और "गिने बिलेट (पीस)" और "गिने बिलेट (kg)" लिखें। |
+| Step 4 | Read the tail | टेल पढ़ें |
+| Step 4 text | The sheet shows the ledger, your count and the tail between them. If they match it says every billet is accounted for. | शीट लेजर, आपकी गिनती और दोनों के बीच का टेल दिखाती है। मिल जाए तो लिखा आता है कि हर बिलेट का हिसाब है। |
+| Step 5 | Say why if they differ | फ़र्क हो तो वजह बताएं |
+| Step 5 text | Pick a reason in "Why the billets do not add up". Other needs a note. The ledger moves to your count when the cast closes. | "बिलेट का हिसाब क्यों नहीं मिला" में वजह चुनें। Other के लिए नोट चाहिए। कास्ट बंद होते ही लेजर आपकी गिनती पर आ जाता है। |
+| Step 6 | A large tail needs a second person | बड़े टेल के लिए दूसरा व्यक्ति चाहिए |
+| Step 6 text | A tail above 3 percent of the billets made, or billets short, shows "Send for approval". The cast shows "Waiting for approval" until another person decides it in "Approvals". | बने बिलेट के 3 प्रतिशत से ऊपर का टेल, या बिलेट कम पड़ना, "मंज़ूरी के लिए भेजें" दिखाता है। जब तक दूसरा व्यक्ति "मंज़ूरी" में तय न करे, कास्ट "मंज़ूरी बाकी" दिखता है। |
+| Problem 1 | I cannot approve my own close | मैं अपना ही बंद करना मंज़ूर नहीं कर सकता |
+| Fix 1 | A second person decides it: a manager, an admin, the owner or the foundry. Ask one of them to open "Approvals" and the "Cast close" request. | दूसरा व्यक्ति तय करता है: मैनेजर, एडमिन, मालिक या फाउंड्री। उनमें से किसी से "मंज़ूरी" में "कास्ट बंद करना" का अनुरोध खोलने को कहें। |
+| Problem 2 | The count finds more billets than the ledger | गिनती में लेजर से ज़्यादा बिलेट मिले |
+| Fix 2 | That also needs a reason. Check the count and the weight, then pick the nearest reason or write a note. | इसके लिए भी वजह चाहिए। गिनती और तौल जांचें, फिर सबसे नज़दीकी वजह चुनें या नोट लिखें। |
+| Problem 3 | The press still needs billets of this cast | प्रेस को इस कास्ट के बिलेट अब भी चाहिए |
+| Fix 3 | The counted billets stay in stock after the close, and the press may use a closed cast. Nothing is lost. | गिने हुए बिलेट बंद करने के बाद भी स्टॉक में रहते हैं और प्रेस बंद कास्ट का भी इस्तेमाल कर सकती है। कुछ नहीं खोता। |
+
+### Load a trolley for the oven (`load-trolley`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Load a trolley for the oven | ओवन के लिए ट्रॉली लोड करें |
+| When | Use this when cut lengths from the press are ready to go into the ageing oven. | जब प्रेस से कटी लंबाइयां एजिंग ओवन में जाने को तैयार हों। |
+| Step 1 | Open the loader | लोडर खोलें |
+| Step 1 text | Open "Ageing" and tap "Load trolley". On the phone it is under More. | "एजिंग" खोलकर "ट्रॉली लोड करें" दबाएं। फ़ोन पर यह More के अंदर है। |
+| Step 2 | Pick the trolley | ट्रॉली चुनें |
+| Step 2 text | Pick a free trolley. If every trolley carries a batch, close or void one, or ask a manager to add a trolley under "Masters". | कोई खाली ट्रॉली चुनें। हर ट्रॉली पर बैच हो तो एक को बंद या रद्द करें, या मैनेजर से "मास्टर" में ट्रॉली जुड़वाएं। |
+| Step 3 | Pick the lines | लाइनें चुनें |
+| Step 3 text | Under "Logged press lines" write the pieces for each line; the field starts with all that is left. Or choose "Whole bundles" for packed bundles that need ageing. | "दर्ज की गई प्रेस लाइनें" में हर लाइन के पीस लिखें; खाना बचे हुए सब पीस से शुरू होता है। या एजिंग चाहिए ऐसे पैक बंडल के लिए "पूरे बंडल" चुनें। |
+| Step 4 | Check the summary | सार देखें |
+| Step 4 text | The summary shows lines, pieces and kg. A capacity warning says the trolley is full but does not stop you. | सार में लाइनें, पीस और kg दिखते हैं। क्षमता की चेतावनी बताती है कि ट्रॉली भर गई है, पर रोकती नहीं। |
+| Step 5 | Load and start | लोड करें और शुरू करें |
+| Step 5 text | Tap "Load trolley". Open the batch and tap "Start": pick the oven and the recipe, read the gas meter before the door closes, and write the time if it went in earlier (12 hours back at most). | "ट्रॉली लोड करें" दबाएं। बैच खोलकर "शुरू करें" दबाएं: ओवन और रेसिपी चुनें, दरवाज़ा बंद होने से पहले गैस मीटर पढ़ें, और पहले गया हो तो समय लिखें (ज़्यादा से ज़्यादा 12 घंटे पीछे)। |
+| Step 6 | Log the temperature | तापमान दर्ज करें |
+| Step 6 text | While it is in the oven tap "Add reading" at least every 15 minutes. Each reading counts for at most 15 minutes of soak, so a longer gap counts as no reading. | ओवन में रहते समय कम से कम हर 15 मिनट पर "रीडिंग जोड़ें" दबाएं। हर रीडिंग ज़्यादा से ज़्यादा 15 मिनट की सोक गिनती है, इसलिए लंबा अंतर बिना रीडिंग माना जाता है। |
+| Problem 1 | A press line is not listed | प्रेस की एक लाइन लिस्ट में नहीं है |
+| Fix 1 | Only logged press runs can be loaded. Log the run first. The alloy and temper of the line must also match the recipe. | सिर्फ़ दर्ज हो चुके प्रेस रन लोड हो सकते हैं। पहले रन दर्ज करें। लाइन का अलॉय और टेम्पर रेसिपी से भी मिलना चाहिए। |
+| Problem 2 | A bundle will not load | बंडल लोड नहीं हो रहा |
+| Fix 2 | A bundle must be in stock, not on another batch and not aged already. | बंडल स्टॉक में होना चाहिए, किसी दूसरे बैच पर नहीं और पहले से एजिंग हुआ नहीं। |
+| Problem 3 | I started the wrong recipe | मैंने गलत रेसिपी शुरू कर दी |
+| Fix 3 | Before the oven, void the batch while it is still loading. Once it is in the oven, take it out and record what happened. | ओवन में जाने से पहले, जब तक बैच लोडिंग में है, उसे रद्द करें। ओवन में जाने के बाद उसे निकालें और जो हुआ वो दर्ज करें। |
+
+### Take out, test and release a batch (`age-and-release`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Take out, test and release a batch | बैच निकालें, जांचें और छोड़ें |
+| When | Use this when the soak is done and the trolley has to come out, be tested and be released to pack. | जब सोक पूरा हो गया हो और ट्रॉली को निकालना, जांचना और पैक के लिए छोड़ना हो। |
+| Step 1 | Take it out | बाहर निकालें |
+| Step 1 text | Add a last reading, then tap "Take out" on the batch and read the gas meter. A batch cannot come out with no reading. Readings close 30 minutes after it is out. | आख़िरी रीडिंग जोड़ें, फिर बैच पर "बाहर निकालें" दबाएं और गैस मीटर पढ़ें। बिना रीडिंग बैच बाहर नहीं आता। निकलने के 30 मिनट बाद रीडिंग बंद हो जाती हैं। |
+| Step 2 | Record hardness | हार्डनेस भरें |
+| Step 2 text | Tap "Record hardness". For each line write the samples the recipe asks for with its method. The server works out the median, and only that method decides the line. | "हार्डनेस भरें" दबाएं। हर लाइन के लिए रेसिपी जितने सैंपल उसकी विधि से लिखें। मीडियन सर्वर निकालता है, और सिर्फ़ वही विधि लाइन तय करती है। |
+| Step 3 | Read the soak verdict | सोक का नतीजा पढ़ें |
+| Step 3 text | The verdict panel says whether the soak was met, under-aged or over-aged. A gap of more than 15 minutes between readings counts as no reading. | नतीजे का पैनल बताता है कि सोक पूरा हुआ, कम पका या ज़्यादा पका। दो रीडिंग के बीच 15 मिनट से लंबा अंतर बिना रीडिंग गिना जाता है। |
+| Step 4 | Release | छोड़ें |
+| Step 4 text | A supervisor or manager taps "Release". Lines that passed can be packed. Lines that failed are held, each with its reason. | सुपरवाइज़र या मैनेजर "छोड़ें" दबाता है। पास हुई लाइनें पैक हो सकती हैं। फेल हुई लाइनें अपनी वजह के साथ होल्ड रहती हैं। |
+| Step 5 | Deal with a held line | होल्ड लाइन संभालें |
+| Step 5 text | A line that failed on hardness clears with "Test again". "Hold" stops a line that looks wrong, and "Clear hold" lets it go. | हार्डनेस में फेल लाइन "फिर जांचें" से साफ़ होती है। गलत लगती लाइन को "होल्ड करें" रोकता है, और "होल्ड हटाएं" उसे जाने देता है। |
+| Step 6 | Ask for approval | मंज़ूरी मांगें |
+| Step 6 text | If a batch failed but should go, tap "Ask for approval" and say why. A manager decides it in "Approvals". Then the supervisor taps "Release" again: approving alone releases nothing. | बैच फेल हुआ पर जाना चाहिए, तो "मंज़ूरी मांगें" दबाकर वजह लिखें। मैनेजर "मंज़ूरी" में तय करता है। फिर सुपरवाइज़र दोबारा "छोड़ें" दबाता है: सिर्फ़ मंज़ूरी से कुछ नहीं छूटता। |
+| Step 7 | Age again or discard | फिर से एजिंग या फेंकें |
+| Step 7 text | On the web, held pieces can go to a new batch with "Age again", or leave with "Discard the rest". "Void" cancels a batch that never went wrong. These are not on the phone. | वेब पर होल्ड पीस "फिर से एजिंग" से नए बैच में जा सकते हैं, या "बाकी फेंकें" से हट सकते हैं। जो बैच कभी बिगड़ा नहीं उसे "रद्द" रद्द करता है। ये फ़ोन पर नहीं हैं। |
+| Problem 1 | Release says some lines are held | छोड़ने पर कुछ लाइनें होल्ड बताईं |
+| Fix 1 | Open each held line and read its reason. A hardness below the recipe or an over-aged soak needs a retest, "Age again" or an approval. | हर होल्ड लाइन खोलकर उसकी वजह पढ़ें। रेसिपी से कम हार्डनेस या ज़्यादा पका सोक हो तो दोबारा जांच, "फिर से एजिंग" या मंज़ूरी चाहिए। |
+| Problem 2 | I cannot void the batch | मैं बैच रद्द नहीं कर पा रहा |
+| Fix 2 | A batch cannot be voided while it is in the oven, or after pieces were packed, aged again or discarded. | ओवन में रहते, या पीस पैक, दोबारा एजिंग या फेंके जाने के बाद बैच रद्द नहीं होता। |
+| Problem 3 | A reading is refused | रीडिंग नहीं ली जा रही |
+| Fix 3 | The time is before the batch went in, in the future, or more than 30 minutes after it came out. | समय बैच के अंदर जाने से पहले का है, भविष्य का है, या बैच निकलने के 30 मिनट से ज़्यादा बाद का है। |
+
+### Pack from a released trolley line (`pack-from-trolley`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Pack from a released trolley line | छोड़ी हुई ट्रॉली लाइन से पैक करें |
+| When | Use this when aged metal has been released and you pack it into bundles. | जब एजिंग हो चुका माल छोड़ा जा चुका हो और उसे बंडलों में पैक करना हो। |
+| Step 1 | Open Pack | पैकिंग खोलें |
+| Step 1 text | Open "Pack", start a session and pick the die as usual. | "पैकिंग" खोलें, सेशन शुरू करें और हमेशा की तरह die चुनें। |
+| Step 2 | Choose the source | स्रोत चुनें |
+| Step 2 text | In "Source" pick "Trolley" for aged metal. "No trolley" packs by hand. | "स्रोत" में एजिंग वाले माल के लिए "ट्रॉली" चुनें। "ट्रॉली नहीं" हाथ से पैक करता है। |
+| Step 3 | Pick the trolley line | ट्रॉली लाइन चुनें |
+| Step 3 text | Under "Trolley line" pick a line. Only released lines with pieces left are listed. The order, die copy, cast and cut length fill in from it. | "ट्रॉली लाइन" में एक लाइन चुनें। सिर्फ़ छोड़ी हुई और पीस बचे वाली लाइनें दिखती हैं। ऑर्डर, die कॉपी, कास्ट और कट लंबाई उसी से भर जाते हैं। |
+| Step 4 | Enter pieces and weight | पीस और वज़न भरें |
+| Step 4 text | Write the pieces and take the weight from the scale. The pieces cannot pass what is left on the line. | पीस लिखें और वज़न तराज़ू से लें। पीस लाइन में बचे पीस से ज़्यादा नहीं हो सकते। |
+| Step 5 | Rejects | रिजेक्ट |
+| Step 5 text | Damaged pieces are set aside as rejects with a reason. They leave the line too. | टूटे पीस वजह के साथ रिजेक्ट में अलग रखें। वो भी लाइन से निकल जाते हैं। |
+| Step 6 | Save and print | सेव करें और प्रिंट करें |
+| Step 6 text | Save the bundle and print its label. The bundle page shows "Aged" and links to its batch. | बंडल सेव करके उसका लेबल प्रिंट करें। बंडल पेज पर "एजिंग हो चुकी" दिखता है और उसके बैच का लिंक होता है। |
+| Problem 1 | My line is not in the list | मेरी लाइन लिस्ट में नहीं है |
+| Fix 1 | A line still in the oven, waiting for the test or held is not listed. Only released lines with pieces left are. | ओवन में, जांच के इंतज़ार में या होल्ड लाइन नहीं दिखती। सिर्फ़ छोड़ी हुई और पीस बचे वाली लाइनें दिखती हैं। |
+| Problem 2 | It says only some pieces are left on the line | कहता है लाइन में कुछ ही पीस बचे हैं |
+| Fix 2 | Another bundle took the rest. Pack fewer pieces or pick another line. | बाकी किसी दूसरे बंडल ने ले लिए। कम पीस पैक करें या दूसरी लाइन चुनें। |
+| Problem 3 | It says this plant packs from a trolley line | कहता है यह प्लांट ट्रॉली लाइन से पैक करता है |
+| Fix 3 | "Pack names a trolley" is on in Settings. Pick a line, or ask a manager to switch it off if hand packing is allowed. | सेटिंग में "पैक में ट्रॉली चुनना ज़रूरी" चालू है। लाइन चुनें, या हाथ से पैक की इजाज़त हो तो मैनेजर से उसे बंद कराएं। |
+| Problem 4 | Dispatch refuses a bundle | डिस्पैच बंडल लेने से मना करता है |
+| Fix 4 | When "Dispatch aged metal only" is on, a bundle that is not aged, is still in ageing or is held cannot be added to a dispatch. | "सिर्फ़ एजिंग हुआ माल डिस्पैच करें" चालू हो तो जो बंडल एजिंग हुआ नहीं, एजिंग में है या होल्ड है, वो डिस्पैच में नहीं जुड़ सकता। |
+| Problem 5 | I voided a bundle | मैंने बंडल रद्द कर दिया |
+| Fix 5 | While its batch is open the pieces go back to the trolley line. Once the batch is closed they are written off as loose aged stock and the batch does not reopen. | बैच खुला हो तो पीस ट्रॉली लाइन पर लौट जाते हैं। बैच बंद हो चुका हो तो वो खुला एजिंग स्टॉक बनकर राइट-ऑफ़ होते हैं और बैच दोबारा नहीं खुलता। |
+
+### Share a die drawing with a customer (`die-share-link`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Share a die drawing with a customer | ग्राहक को die का ड्रॉइंग भेजें |
+| When | Use this when a customer or a die maker needs to see the press drawing and weight band of a section, without an account. | जब किसी ग्राहक या die मेकर को बिना अकाउंट के सेक्शन का प्रेस ड्रॉइंग और वज़न का दायरा दिखाना हो। |
+| Step 1 | Open the section | सेक्शन खोलें |
+| Step 1 text | Open "Dies" and the section, then tap "Share" on the section page or in the die card menu. | "Die" और सेक्शन खोलें, फिर सेक्शन पेज पर या die कार्ड के मेनू में "शेयर करें" दबाएं। |
+| Step 2 | Check the drawing | ड्रॉइंग देखें |
+| Step 2 text | The link shows the press drawing. If the die has none, add one on the Files tab first. | लिंक प्रेस ड्रॉइंग दिखाता है। die में न हो तो पहले Files टैब पर जोड़ें। |
+| Step 3 | Say who it is for | बताएं किसके लिए है |
+| Step 3 text | Pick a "Party" if the link is for one customer. A die that belongs to a customer can be shared only with that customer. A note is for you only. | लिंक एक ग्राहक के लिए हो तो "पार्टी" चुनें। ग्राहक की अपनी die सिर्फ़ उसी ग्राहक से शेयर होती है। नोट सिर्फ़ आपके लिए है। |
+| Step 4 | Choose how long | कितने दिन, तय करें |
+| Step 4 text | Set "Link stays open for": 7 days by default, at most 30. | "लिंक कितने दिन खुला रहे" तय करें: आम तौर पर 7 दिन, ज़्यादा से ज़्यादा 30। |
+| Step 5 | Create and copy | बनाएं और कॉपी करें |
+| Step 5 text | Tap "Create link" and copy it at once with "Copy link". It cannot be shown again. On the phone the share sheet opens. | "लिंक बनाएं" दबाएं और तुरंत "लिंक कॉपी करें" से कॉपी करें। वो दोबारा नहीं दिखाया जा सकता। फ़ोन पर शेयर शीट खुलती है। |
+| Step 6 | Check or stop it later | बाद में देखें या रोकें |
+| Step 6 text | "Links sent" lists each link with its status and how many times it was opened. Tap "Revoke" to stop one. | "भेजे गए लिंक" में हर लिंक अपनी स्थिति और कितनी बार खुला के साथ दिखता है। किसी को रोकने के लिए "बंद करें" दबाएं। |
+| Problem 1 | The customer sees that the link is no longer available | ग्राहक को दिखता है कि लिंक अब उपलब्ध नहीं है |
+| Fix 1 | It expired or was revoked, or the die changed owner. Make a new link. | वो पूरा हो गया या बंद कर दिया गया, या die का मालिक बदल गया। नया लिंक बनाएं। |
+| Problem 2 | I lost the link | मैंने लिंक खो दिया |
+| Fix 2 | It cannot be shown again. Revoke it and create another. | वो दोबारा नहीं दिखाया जा सकता। उसे बंद करें और नया बनाएं। |
+| Problem 3 | I revoked it but the drawing still opens | मैंने बंद किया पर ड्रॉइंग अब भी खुल रहा है |
+| Fix 3 | A drawing address that was already opened lasts up to 10 minutes. No new one is made after the revoke. | पहले से खुला ड्रॉइंग का पता 10 मिनट तक चलता है। बंद करने के बाद कोई नया नहीं बनता। |
+| Problem 4 | Can I see who opened it | क्या दिख सकता है कि किसने खोला |
+| Fix 4 | No. orrn counts the opens and the last time, not who. The page shows no stock, cost or customer. | नहीं। orrn सिर्फ़ खुलने की गिनती और आख़िरी समय रखता है, कौन नहीं। पेज पर स्टॉक, कीमत या ग्राहक नहीं दिखते। |
+
+### Review and decide an approval (`approvals-review`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | Review and decide an approval | मंज़ूरी का अनुरोध जांचें और तय करें |
+| When | Use this when a request is waiting for a second person: a late press run, a move of bundles, a tier change, a cast close or a melt correction. | जब कोई अनुरोध दूसरे व्यक्ति का इंतज़ार कर रहा हो: देर से दर्ज प्रेस रन, बंडल का तबादला, टियर बदलाव, कास्ट बंद करना या मेल्ट सुधार। |
+| Step 1 | Open the list | लिस्ट खोलें |
+| Step 1 text | Open "Approvals". "Waiting" shows what needs a decision. The "Kind" filter narrows it. | "मंज़ूरी" खोलें। "इंतज़ार में" वो दिखाता है जिसका फ़ैसला बाकी है। "किस्म" फ़िल्टर लिस्ट छोटी करता है। |
+| Step 2 | Open a request | अनुरोध खोलें |
+| Step 2 text | Tap "Review". The sheet says who asked and shows their words under "Their note". | "जांचें" दबाएं। शीट बताती है किसने माँगा और उनके शब्द "उनका नोट" में दिखाती है। |
+| Step 3 | Read the facts | तथ्य पढ़ें |
+| Step 3 text | Below the note are the facts as they are now: "Where the bundles are now" for a move, "The run" for a late entry, "The copy now" for a tier change and "Figures" for a cast close. Approve stays off until they load. | नोट के नीचे वो तथ्य हैं जो अभी सच हैं: तबादले के लिए "बंडल अभी कहां हैं", देर की एंट्री के लिए "रन", टियर बदलाव के लिए "कॉपी अभी" और कास्ट बंद करने के लिए "आँकड़े"। जब तक वो लोड न हों, मंज़ूर करें बंद रहता है। |
+| Step 4 | Check what changed | देखें क्या बदला |
+| Step 4 text | If the order closed, bundles moved, the run changed or the copy changed after the ask, the sheet says so. Decide on what it shows now, not on what was asked. | माँगने के बाद ऑर्डर बंद हो गया हो, बंडल हिल गए हों, रन बदला हो या कॉपी बदली हो तो शीट वो बताती है। जो माँगा गया था उस पर नहीं, जो अभी दिख रहा है उस पर फ़ैसला करें। |
+| Step 5 | Approve or reject | मंज़ूर या नामंज़ूर करें |
+| Step 5 text | Tap "Approve". Or write why and tap "Reject"; a rejection needs a note so the problem can be fixed. | "मंज़ूर करें" दबाएं। या वजह लिखकर "नामंज़ूर करें" दबाएं; नामंज़ूरी में नोट चाहिए ताकि गड़बड़ी सुधारी जा सके। |
+| Problem 1 | I cannot approve my own request | मैं अपना ही अनुरोध मंज़ूर नहीं कर सकता |
+| Fix 1 | A second person decides it. Ask another approver or the owner. | दूसरा व्यक्ति तय करता है। किसी दूसरे मंज़ूर करने वाले या मालिक से कहें। |
+| Problem 2 | Approve is off | मंज़ूर करें बंद है |
+| Fix 2 | The live figures did not load. Check the connection and open the sheet again. Reject stays open. | ताज़ा आँकड़े लोड नहीं हुए। कनेक्शन जांचें और शीट फिर खोलें। नामंज़ूर करें खुला रहता है। |
+| Problem 3 | It says nothing will move, or the cast is no longer waiting | कहता है कुछ नहीं हिलेगा, या कास्ट अब इंतज़ार में नहीं है |
+| Fix 3 | The thing changed after the ask, for example the order closed or the request was already decided. Reject it, or ask for it again. | माँगने के बाद चीज़ बदल गई, जैसे ऑर्डर बंद हो गया या अनुरोध पर पहले ही फ़ैसला हो चुका। उसे नामंज़ूर करें, या दोबारा माँगें। |
+| Problem 4 | The purchase figures are hidden | खरीद के आँकड़े छिपे हैं |
+| Fix 4 | Only people who read purchase figures can decide a debit or credit note. Ask one of them. | डेबिट या क्रेडिट नोट पर वही तय कर सकते हैं जो खरीद के आँकड़े पढ़ सकते हैं। उनमें से किसी से कहें। |
