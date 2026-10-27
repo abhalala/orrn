@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { ExtrusionArt, OrrnMark, Swatch, type PressPoseMode } from "./metal-art";
+import { ExtrusionArt, Swatch, type PressPoseMode } from "./metal-art";
 
 const POSES: readonly { id: PressPoseMode; key: "poseCharge" | "posePress" | "poseAge" }[] = [
   { id: "charge", key: "poseCharge" },
@@ -19,7 +19,7 @@ export function Hero() {
       <div className="marketing-container marketing-hero-layout">
         <div className="marketing-hero-copy">
           <div className="marketing-eyebrow-row">
-            <OrrnMark size={28} />
+            <span aria-hidden="true" className="orrn-mark marketing-logo-sm" />
             <p className="marketing-eyebrow">{t("marketing.eyebrow")}</p>
           </div>
           <h1 id="hero-title">{t("marketing.headline")}</h1>

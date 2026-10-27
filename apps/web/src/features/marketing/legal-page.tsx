@@ -1,6 +1,6 @@
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Link } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { MarketingFooter } from "./footer";
 import { MarketingHeader } from "./marketing-header";
@@ -36,11 +36,23 @@ export function LegalPage({ page }: { page: LegalPageKind }) {
   const { t, locale } = useT();
   const title = t(`legal.${page}.metaTitle`);
   const description = t(`legal.${page}.intro`);
-
+  const [activeSection, setActiveSection] = useState("");
   useEffect(() => {
     document.title = title;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
   }, [title, description]);
+
+  useEffect(() => {
+    const sections = document.querySelectorAll("[data-orrn-legal] .marketing-legal-section");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) if (entry.isIntersecting) setActiveSection(entry.target.id);
+      },
+      { rootMargin: "-20% 0px -65% 0px" },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [page]);
 
   return (
     <div data-orrn-legal={page} data-locale={locale} className="marketing-page orrn-ink-panel min-h-[100dvh] w-full">
@@ -60,16 +72,20 @@ export function LegalPage({ page }: { page: LegalPageKind }) {
           </header>
           <div className="marketing-legal-layout">
             <nav className="marketing-legal-nav" aria-label={t(`legal.${page}.nav`)}>
-              {SECTIONS[page].map(({ id, title }) => (
-                <a key={id} href={`#${id}`}>
+              {SECTIONS[page].map(({ id, title }, index) => (
+                <a key={id} href={`#${id}`} aria-current={activeSection === id ? "location" : undefined}>
+                  <span aria-hidden="true">{`0${index + 1}`}</span>
                   {t(title)}
                 </a>
               ))}
             </nav>
             <article>
-              {SECTIONS[page].map(({ id, title, body }) => (
+              {SECTIONS[page].map(({ id, title, body }, index) => (
                 <section key={id} id={id} className="marketing-legal-section" aria-labelledby={`${id}-title`}>
-                  <h2 id={`${id}-title`}>{t(title)}</h2>
+                  <h2 id={`${id}-title`}>
+                    <span aria-hidden="true">{`0${index + 1}`}</span>
+                    {t(title)}
+                  </h2>
                   <p>{t(body)}</p>
                 </section>
               ))}

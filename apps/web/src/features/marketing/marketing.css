@@ -57,6 +57,10 @@
   letter-spacing: normal;
 }
 
+.marketing-page[data-locale="hi"] * {
+  letter-spacing: normal !important;
+}
+
 /* Tone mapping from the 4 tiles of OrrnMark */
 [data-tone="amber"],
 [data-active-tone="amber"] {
@@ -98,11 +102,26 @@
   flex-shrink: 0;
 }
 
-.marketing-brand span {
+.marketing-brand .orrn-mark {
+  width: 32px;
+  height: 32px;
+}
+
+.marketing-brand span:not(.orrn-mark) {
   font-family: var(--font-display);
   font-size: 1.85rem;
   font-weight: 750;
   letter-spacing: -0.055em;
+}
+
+.marketing-logo-sm {
+  width: 28px;
+  height: 28px;
+}
+
+.marketing-logo-lg {
+  width: 48px;
+  height: 48px;
 }
 
 .marketing-header-links {
@@ -142,33 +161,8 @@
   max-width: 100%;
 }
 
-/* OrrnMark 4-tile entrance from orrn-showcase Ch0Open */
-.marketing-orrn-mark {
-  display: block;
-  flex-shrink: 0;
-  overflow: visible;
-}
-
-.marketing-mark-tile {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: marketing-tile-pop 650ms var(--ease-pop) both;
-}
-
-.marketing-tile-0 { animation-delay: 40ms; }
-.marketing-tile-1 { animation-delay: 110ms; }
-.marketing-tile-2 { animation-delay: 180ms; }
-.marketing-tile-3 { animation-delay: 250ms; }
-
-@keyframes marketing-tile-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.35);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.marketing-mobile-action {
+  display: none;
 }
 
 /* Hero */
@@ -323,8 +317,7 @@
 .marketing-pose-pills > button {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0.25rem 0.7rem;
+  min-height: 44px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--background);
@@ -344,7 +337,19 @@
 
 .marketing-plate-stage {
   position: relative;
+  display: grid;
+  align-items: center;
+  aspect-ratio: 8 / 5;
   padding-block: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+.marketing-plate-stage > div {
+  height: 100%;
+}
+
+.marketing-plate-stage .marketing-extrusion {
+  height: 100%;
+  max-height: 100%;
 }
 
 .marketing-extrusion {
@@ -421,21 +426,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Plant Proof Strip */
-.marketing-proof-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
-  margin-top: 1.5rem;
-}
-
-.marketing-proof-item {
-  padding: 1.35rem 1.5rem;
-  border-radius: 18px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-top: 2px solid var(--stage-accent);
-}
 
 .marketing-proof-value {
   display: block;
@@ -502,6 +492,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  min-height: 44px;
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -543,6 +534,17 @@
   justify-content: center;
   border-top: 1px solid var(--border);
   scroll-margin-top: 3rem;
+  transition: opacity 300ms var(--ease-out-quart);
+}
+
+@media (min-width: 1024px) {
+  .marketing-process-list > li {
+    opacity: 0.82;
+  }
+
+  .marketing-process-list > li[data-current="true"] {
+    opacity: 1;
+  }
 }
 
 .marketing-process-list > li:first-child {
@@ -607,48 +609,68 @@
   border-block: 1px solid var(--border);
 }
 
-.marketing-job-list {
-  margin-top: 3.5rem;
-}
-
-.marketing-job {
+.marketing-role-ledger {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr);
-  gap: 2.5rem;
-  padding-block: 2.25rem;
-  border-top: 1px solid var(--border);
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.5fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  margin-top: 3.5rem;
+  align-items: start;
 }
 
-.marketing-job-meta {
+.marketing-role-tabs {
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-  padding-top: 0.35rem;
+  flex-direction: column;
 }
 
-.marketing-job-num {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--stage-accent);
-}
-
-.marketing-job-role {
+.marketing-role-tabs > button {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 48px;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  background: transparent;
   color: var(--muted-foreground);
-  font-size: 0.95rem;
-  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: color 200ms var(--ease-out-quart), padding 200ms var(--ease-out-quart);
 }
 
-.marketing-job h3 {
-  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
+.marketing-role-tabs > button:last-child {
+  border-bottom: 1px solid var(--border);
 }
 
-.marketing-job-content > p {
+.marketing-role-tabs > button > span {
+  color: var(--stage-accent);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.marketing-role-tabs > button[aria-pressed="true"] {
+  padding-left: 0.75rem;
+  border-top-color: var(--stage-accent);
+  color: var(--foreground);
+}
+
+.marketing-role-panel {
+  min-height: 18rem;
+  padding-block: 2.5rem;
+  border-top: 2px solid var(--stage-accent);
+  animation: marketing-role-enter 500ms var(--ease-out-quart) both;
+}
+
+
+.marketing-role-panel h3 {
+  font-size: clamp(2rem, 3.8vw, 3.75rem);
+  line-height: 1.04;
+}
+
+.marketing-role-panel > p {
+  max-width: 36rem;
+  margin-top: 1.25rem !important;
   color: var(--muted-foreground);
   font-size: 1rem;
   line-height: 1.78;
-  margin-top: 0.85rem;
-  max-width: 36rem;
 }
 
 .marketing-floor-note {
@@ -880,26 +902,21 @@
 .marketing-export-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  font-size: 0.73rem;
-  font-weight: 500;
   color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.marketing-export-pill + .marketing-export-pill {
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
 }
 
 .marketing-export-pill > i {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--input);
+  display: none;
 }
-
-.marketing-export-pill[data-tone="red"] > i { background: var(--tone-red-from); }
-.marketing-export-pill[data-tone="green"] > i { background: var(--tone-green-from); }
-.marketing-export-pill[data-tone="neutral"] > i { background: var(--tone-amber-from); }
 
 /* Closing CTA */
 .marketing-cta {
@@ -987,8 +1004,8 @@
   .marketing-header-inner { min-height: 5rem; justify-content: space-between; gap: 0.5rem; }
   .marketing-header-links { display: none; }
   .marketing-brand { gap: 0.35rem; }
-  .marketing-brand span { font-size: 1.6rem; }
-  .marketing-brand img { width: 30px; height: 30px; }
+  .marketing-brand span:not(.orrn-mark) { font-size: 1.6rem; }
+  .marketing-brand .orrn-mark { width: 32px; height: 32px; }
   .marketing-language button { padding-inline: 0.6rem; font-size: 0.75rem; }
   .marketing-hero { padding-top: 2.25rem; }
   .marketing-hero h1 { margin-top: 1.25rem; font-size: clamp(2.25rem, 8.2vw, 3.6rem); }
@@ -1000,7 +1017,6 @@
   .marketing-stage-body { max-width: none; }
   .marketing-job { grid-template-columns: 1fr; gap: 0.75rem; padding-block: 1.85rem; }
   .marketing-job-list { margin-top: 2.5rem; }
-  .marketing-job-meta { padding: 0; }
   .marketing-record { padding-block: 5rem; gap: 2.5rem; }
   .marketing-bundle-sticker { flex-direction: column; align-items: flex-start; }
   .marketing-cta { padding-top: 1rem; }
@@ -1031,7 +1047,7 @@
   font-size: clamp(3rem, 4.4vw, 4.75rem);
 }
 
-@media (min-width: 1101px) {
+@media (min-width: 1024px) {
   .marketing-page[data-locale="hi"] .marketing-hero h1 {
     font-size: clamp(2.6rem, 3.5vw, 4rem);
   }
@@ -1048,25 +1064,68 @@
 }
 
 .marketing-metal-scene {
+  position: relative;
+  isolation: isolate;
   min-width: 0;
   margin-top: 0;
-  animation: marketing-hero-enter 900ms 120ms var(--ease-out-quart) both;
+  margin-left: -2rem;
+  animation: marketing-scene-enter 1100ms 100ms var(--ease-out-quart) both;
+}
+
+.marketing-metal-scene::before {
+  position: absolute;
+  z-index: -1;
+  inset: 8% -8%;
+  background: radial-gradient(ellipse at 32% 52%, color-mix(in srgb, var(--tone-amber-from) 13%, transparent), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+.marketing-hero .marketing-plate-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "fig pills"
+    "title pills";
+  align-items: center;
+  column-gap: 1.5rem;
+  row-gap: 0.4rem;
+}
+
+.marketing-hero .marketing-plate-fig {
+  grid-area: fig;
+}
+
+.marketing-hero .marketing-plate-title {
+  grid-area: title;
+  justify-self: start;
+  max-width: 18rem;
+  text-align: left;
+}
+
+.marketing-hero .marketing-pose-pills {
+  grid-area: pills;
+  align-self: center;
+  margin-left: 0;
 }
 
 .marketing-hero .marketing-iso-plate {
-  border-radius: 28px;
-  padding: clamp(0.75rem, 1.5vw, 1.15rem);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.07),
-    0 32px 80px -40px rgb(0 0 0 / 0.8);
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .marketing-hero .marketing-plate-stage {
+  aspect-ratio: 16 / 10;
   padding-block: 0.5rem;
 }
 
 .marketing-hero .marketing-extrusion {
-  max-height: 22rem;
+  max-height: 100%;
+  filter: drop-shadow(0 24px 36px rgb(0 0 0 / 0.45));
 }
 
 .marketing-hero .marketing-plate-footer {
@@ -1141,7 +1200,12 @@
 .marketing-legal-main {
   flex: 1;
   padding-block: clamp(4rem, 8vw, 7rem);
-  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.marketing-page) {
+    scroll-behavior: smooth;
+  }
 }
 
 .marketing-legal-header {
@@ -1188,12 +1252,24 @@
 .marketing-legal-nav a {
   display: flex;
   align-items: center;
-  min-height: 40px;
+  gap: 0.75rem;
+  min-height: 44px;
   padding-block: 0.45rem;
   color: var(--muted-foreground);
   font-size: 0.85rem;
   line-height: 1.4;
   transition: color 220ms var(--ease-out-quart), transform 220ms var(--ease-out-quart);
+}
+
+.marketing-legal-nav a > span,
+.marketing-legal-section h2 > span {
+  color: var(--stage-accent);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.marketing-legal-nav a[aria-current="location"] {
+  color: var(--foreground);
 }
 
 .marketing-legal-nav a:hover {
@@ -1215,6 +1291,11 @@
   font-size: clamp(1.55rem, 2.5vw, 2.15rem);
   line-height: 1.2;
   letter-spacing: -0.025em;
+}
+
+.marketing-legal-section h2 > span {
+  display: block;
+  margin-bottom: 0.65rem;
 }
 
 .marketing-legal-section p {
@@ -1256,7 +1337,31 @@
   }
 }
 
-@media (max-width: 1100px) {
+@keyframes marketing-scene-enter {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translateX(48px);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateX(0);
+  }
+}
+
+@keyframes marketing-role-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1023px) {
   .marketing-hero-layout {
     grid-template-columns: 1fr;
     min-height: 0;
@@ -1282,6 +1387,7 @@
 
   .marketing-metal-scene {
     margin-top: 1rem;
+    margin-left: 0;
   }
 
   .marketing-legal-layout {
@@ -1295,6 +1401,75 @@
     padding-top: 2.5rem;
   }
 
+  .marketing-page {
+    padding-bottom: 5rem;
+  }
+
+  .marketing-mobile-action {
+    position: fixed;
+    right: 1rem;
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    z-index: 40;
+    display: inline-flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0.8rem 1.25rem;
+    border-radius: 999px;
+    background: var(--foreground);
+    color: var(--background);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+    font-size: 0.9rem;
+    font-weight: 650;
+  }
+
+  .marketing-hero .marketing-plate-header {
+    display: block;
+  }
+
+  .marketing-hero .marketing-plate-fig {
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+
+  .marketing-pose-pills {
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+    margin-left: 0;
+  }
+
+  .marketing-pose-pills > button {
+    min-height: 44px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.66rem;
+    white-space: nowrap;
+  }
+
+  .marketing-role-ledger {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .marketing-role-tabs {
+    flex-direction: row;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .marketing-role-tabs > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .marketing-role-tabs > button:last-child {
+    border-bottom: 0;
+  }
+
+  .marketing-role-panel {
+    min-height: 0;
+  }
+
   .marketing-hero-layout {
     gap: 2.5rem;
   }
@@ -1302,6 +1477,10 @@
   .marketing-hero h1 {
     max-width: 12em;
     font-size: clamp(2.55rem, 11vw, 3.8rem);
+  }
+
+  .marketing-page[data-locale="hi"] .marketing-hero h1 {
+    font-size: clamp(1.7rem, 7.6vw, 2.15rem);
   }
 
   .marketing-hero-bottom {

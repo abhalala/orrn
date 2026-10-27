@@ -1,14 +1,12 @@
 import { useT } from "@orrn/i18n";
 import { Link } from "@tanstack/react-router";
 
-import { OrrnMark } from "./metal-art";
-
 export function Cta() {
   const { t } = useT();
   return (
     <section data-marketing-cta aria-labelledby="cta-title" className="marketing-container marketing-cta">
       <div className="marketing-cta-mark" aria-hidden="true">
-        <OrrnMark size={48} />
+        <span className="orrn-mark marketing-logo-lg" />
         <span className="marketing-cta-line" />
       </div>
       <h2 id="cta-title">{t("marketing.cta.title")}</h2>

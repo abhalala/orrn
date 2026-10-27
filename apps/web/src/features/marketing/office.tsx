@@ -79,7 +79,6 @@ export function Office() {
         <p className="marketing-eyebrow">{t("marketing.office.eyebrow")}</p>
         <h2 id="office-title">{t("marketing.office.title")}</h2>
         <p>{t("marketing.office.body")}</p>
-        <p className="marketing-record-note">{t("marketing.office.note")}</p>
       </div>
       <div className="marketing-sheet-shell">
         <div data-demo-visual aria-hidden="true" className="marketing-sheet">

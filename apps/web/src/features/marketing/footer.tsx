@@ -8,7 +8,7 @@ export function MarketingFooter() {
       <div className="marketing-footer-top">
         <div>
           <Link to="/" className="marketing-brand" aria-label={t("marketing.homeLabel")}>
-            <img src="/favicon.svg" alt="" width="32" height="32" />
+            <span aria-hidden="true" className="orrn-mark" />
             <span aria-hidden="true">{t("common.appName")}</span>
           </Link>
           <p>{t("marketing.footer")}</p>

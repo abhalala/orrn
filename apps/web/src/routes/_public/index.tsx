@@ -1,6 +1,6 @@
 import { createI18n, useT } from "@orrn/i18n";
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import "@/features/marketing/marketing.css";
@@ -17,29 +17,7 @@ import { readStoredLocale } from "@/shared/lib/locale";
 import type { Me } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-/**
- * How long `/` waits for the session check before it shows the page signed
- * out. A healthy API answers well inside it, so signed-in people still never
- * see the page; a slow or cold one no longer holds a first visitor on the
- * loading screen (the answer still redirects when it arrives, see
- * useLateSessionRedirect).
- */
-const SESSION_WAIT_MS = 1500;
-
-const sessionWait = () => new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), SESSION_WAIT_MS));
-
 export const Route = createFileRoute("/_public/")({
-  /**
-   * Signed-in people skip the marketing page: redirect in beforeLoad so they
-   * never see a flash of it. An unreachable API counts as signed out, and so
-   * does one that has not answered within SESSION_WAIT_MS.
-   */
-  beforeLoad: async ({ context }) => {
-    const me = await Promise.race([loadMe(context.queryClient), sessionWait()]);
-    if (me?.user) {
-      throw redirect({ to: homeTarget(me) });
-    }
-  },
   head: () => {
     const { t } = createI18n(readStoredLocale());
     return {
@@ -49,11 +27,7 @@ export const Route = createFileRoute("/_public/")({
   component: MarketingPage,
 });
 
-/**
- * The session check that missed SESSION_WAIT_MS keeps running and fills the
- * `auth.me` cache; this watches that entry (without fetching) and sends a
- * signed-in person home when the answer lands.
- */
+/** The background session check fills `auth.me`; this sends a signed-in person home when it lands. */
 function useLateSessionRedirect() {
   const navigate = useNavigate();
   const { data } = useQuery({ ...trpc.auth.me.queryOptions(), enabled: false });
@@ -80,8 +54,13 @@ function useLocalizedHead() {
 
 function MarketingPage() {
   const { t, locale } = useT();
+  const queryClient = useQueryClient();
   useLateSessionRedirect();
   useLocalizedHead();
+
+  useEffect(() => {
+    void loadMe(queryClient).catch(() => undefined);
+  }, [queryClient]);
   return (
     // `data-orrn-marketing` marks this route's chunk for the `/` JS budget (scripts/check-route-budget.ts).
     <div data-orrn-marketing data-locale={locale} className="marketing-page orrn-ink-panel min-h-[100dvh] w-full">

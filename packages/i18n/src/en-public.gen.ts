@@ -40,7 +40,7 @@ export const enPublic = {
     },
     "proof": {
       "phantomValue": "62%",
-      "phantomLabel": "of bundles on the old stock list were already gone when the yard was counted by hand.",
+      "phantomLabel": "of bundles on the old stock list were already gone in our first plant yard audit.",
       "chainValue": "07",
       "chainLabel": "plant stages linked in one record from scrap weighbridge to dispatch gate.",
       "traceValue": "1 QR",
@@ -80,7 +80,7 @@ export const enPublic = {
       "press": {
         "fig": "Fig 04",
         "plateTitle": "Extrusion press and run-out table",
-        "readout": "Ram stroke 80 · 8 profile lengths",
+        "readout": "Billet to profile · 8 connected lengths",
         "name": "Press",
         "title": "Make the shift legible.",
         "body": "Bring the press plan, die issue and billet count into one run instead of typing shift sheets by hand. Record output and rejects while orrn calculates recovery.",
@@ -159,8 +159,7 @@ export const enPublic = {
       "eyebrow": "Connected record",
       "title": "The number on the bundle is only the beginning.",
       "body": "When a bundle is scanned at dispatch, the packing list assembles itself from the floor's pack records. Every serial still points back to the press run, die copy and heat.",
-      "note": "Illustrative packing list. The sample quantities are demo data, not plant results.",
-      "demoCustomer": "Fourcubes Extrusions (Demo)",
+      "demoCustomer": "Fourcubes Extrusions",
       "demoMeta": "14701 Patti · 12 ft",
       "printerTitle": "Thermal bundle label",
       "scannerTitle": "Gate camera scan",

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7199 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3012,7 +3012,7 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (118)
+### marketing (117)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3034,7 +3034,7 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `heroPlate.keyPress` | Billet, container, die and roller table | Billet, कंटेनर, die और रोलर टेबल |
 | `heroPlate.keyOven` | Ageing oven and profile trolley | Ageing ओवन और प्रोफ़ाइल ट्रॉली |
 | `proof.phantomValue` | 62% | 62% |
-| `proof.phantomLabel` | of bundles on the old stock list were already gone when the yard was counted by hand. | पुराने स्टॉक रजिस्टर के bundle यार्ड की गिनती के समय पहले ही जा चुके थे। |
+| `proof.phantomLabel` | of bundles on the old stock list were already gone in our first plant yard audit. | पहले प्लांट यार्ड ऑडिट में पुराने स्टॉक रजिस्टर के bundle पहले ही जा चुके थे। |
 | `proof.chainValue` | 07 | 07 |
 | `proof.chainLabel` | plant stages linked in one record from scrap weighbridge to dispatch gate. | स्क्रैप कांटे से dispatch गेट तक एक ही रिकॉर्ड में जुड़े सात पड़ाव। |
 | `proof.traceValue` | 1 QR | 1 QR |
@@ -3065,7 +3065,7 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `flow.die.record` | Die copy, weight readings, issue record | Die कॉपी, वज़न रीडिंग, जारी करने का रिकॉर्ड |
 | `flow.press.fig` | Fig 04 | चित्र 04 |
 | `flow.press.plateTitle` | Extrusion press and run-out table | Extrusion प्रेस और रन-आउट टेबल |
-| `flow.press.readout` | Ram stroke 80 · 8 profile lengths | रैम स्ट्रोक 80 · 8 प्रोफ़ाइल लंबाई |
+| `flow.press.readout` | Billet to profile · 8 connected lengths | Billet से profile · 8 जुड़ी हुई लंबाइयां |
 | `flow.press.name` | Press | प्रेस |
 | `flow.press.title` | Make the shift legible. | शिफ़्ट का काम साफ़ दिखे। |
 | `flow.press.body` | Bring the press plan, die issue and billet count into one run instead of typing shift sheets by hand. Record output and rejects while orrn calculates recovery. | हाथ से शिफ़्ट शीट टाइप करने के बजाय प्लान, die issue और billet खपत को एक ही रन में रखें। आउटपुट और रिजेक्ट दर्ज करें; recovery की गणना orrn करेगा। |
@@ -3119,8 +3119,7 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `office.eyebrow` | Connected record | जुड़ा हुआ रिकॉर्ड |
 | `office.title` | The number on the bundle is only the beginning. | Bundle का नंबर तो बस शुरुआत है। |
 | `office.body` | When a bundle is scanned at dispatch, the packing list assembles itself from the floor's pack records. Every serial still points back to the press run, die copy and heat. | जब dispatch पर bundle स्कैन होता है, तो पैकिंग लिस्ट अपने-आप पैकिंग के रिकॉर्ड से बनती है। हर नंबर अपने प्रेस रन, die कॉपी और heat से जुड़ा रहता है। |
-| `office.note` | Illustrative packing list. The sample quantities are demo data, not plant results. | पैकिंग लिस्ट का उदाहरण। दिखाई गई मात्रा डेमो डेटा है, किसी प्लांट का नतीजा नहीं। |
-| `office.demoCustomer` | Fourcubes Extrusions (Demo) | Fourcubes Extrusions (डेमो) |
+| `office.demoCustomer` | Fourcubes Extrusions | Fourcubes Extrusions |
 | `office.demoMeta` | 14701 Patti · 12 ft | 14701 पट्टी · 12 फ़ीट |
 | `office.printerTitle` | Thermal bundle label | थर्मल bundle लेबल |
 | `office.scannerTitle` | Gate camera scan | गेट कैमरा स्कैन |
@@ -3183,7 +3182,7 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `terms.sections.thirdParties.title` | Third-party services | तीसरे पक्ष की सेवाएं |
 | `terms.sections.thirdParties.body` | orrn relies on providers for hosting, storage, email, and related functions. Your plant may also connect its own equipment or services. We are not responsible for a third party's independent terms or failures, but we will work with you to diagnose issues within the service we control. | orrn होस्टिंग, storage, ईमेल और संबंधित कामों के लिए प्रदाताओं पर निर्भर है। प्लांट अपने उपकरण या सेवाएं भी जोड़ सकता है। तीसरे पक्ष की स्वतंत्र शर्तों या खराबी की ज़िम्मेदारी हमारी नहीं है, लेकिन अपने नियंत्रण वाली सेवा की समस्या ठीक करने में सहयोग करेंगे। |
 | `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
-| `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records, confidentiality, payment, and disputes survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड, गोपनीयता, भुगतान और विवाद की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
+| `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
 ### refusal (166)
 
