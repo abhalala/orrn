@@ -41,7 +41,7 @@ export const operationsDense: LabelDocument = {
   ],
 };
 
-export const legacyPolished: LabelDocument = {
+export const polishedLabel: LabelDocument = {
   version: 1,
   page,
   elements: [
@@ -64,7 +64,7 @@ export const legacyPolished: LabelDocument = {
   ],
 };
 
-export const compactCurrent: LabelDocument = {
+export const compactLabel: LabelDocument = {
   version: 1,
   page,
   elements: [

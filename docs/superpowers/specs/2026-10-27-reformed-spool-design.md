@@ -24,9 +24,11 @@ The default built-in label is **B — Operations dense**. It preserves the polis
 - weight per 12 ft, weight per cut, and total weight;
 - aligned columns and clear field labels.
 
-**A — Legacy polished** and **C — Compact current** remain alternate built-ins. Built-ins are cloned into tenant drafts; they are not changed or published automatically in production.
+**A — Polished classic** and **C — Compact label** remain alternate built-ins. Built-ins are cloned into tenant drafts; they are not changed or published automatically in production.
 
 The photographs are layout references only, not dimensional evidence. Final geometry requires a physical TA220 proof with a ruler and scanner.
+
+There is no `compat.layout_map` or `fcms-layout-*` default. Built-ins and configuration are ORRN-native. Legacy inspiration never redirects production labels.
 
 ## 3. Non-goals
 
