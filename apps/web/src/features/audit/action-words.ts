@@ -190,6 +190,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "press_run.undo_start",
   "press_run.urgent",
   "press_run.void",
+  "printer.device_action",
   "purchase_lot.cancel",
   "purchase_lot.create",
   "purchase_lot.ok",

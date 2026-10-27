@@ -6221,6 +6221,7 @@ export const hi = {
       press_run__undo_start: "प्रेस रन की शुरुआत वापस ली",
       press_run__urgent: "प्रेस रन की जल्दी बदली",
       press_run__void: "प्रेस रन void किया",
+      printer__device_action: "प्रिंटर व्यवस्थापक क्रिया",
       purchase_lot__cancel: "स्क्रैप लॉट रद्द किया",
       purchase_lot__create: "स्क्रैप लॉट आया",
       purchase_lot__ok: "स्क्रैप लॉट OK किया",
