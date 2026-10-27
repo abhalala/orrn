@@ -7,7 +7,15 @@ import { company } from "./tenant";
 
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
 
-export const printStatuses = ["queued", "sent", "success", "failed"] as const;
+export const printStatuses = [
+  "queued",
+  "accepted",
+  "sent",
+  "success",
+  "failed",
+  "outcome_unknown",
+  "cancelled",
+] as const;
 export const labelTemplateKinds = ["bundle"] as const;
 
 export const labelTemplate = sqliteTable(
@@ -21,6 +29,8 @@ export const labelTemplate = sqliteTable(
     name: text("name").notNull(),
     kind: text("kind", { enum: labelTemplateKinds }).notNull().default("bundle"),
     schema: text("schema", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    draftSchema: text("draft_schema", { mode: "json" }).$type<Record<string, unknown>>(),
+    draftUpdatedAt: integer("draft_updated_at", { mode: "timestamp_ms" }),
     variables: text("variables", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
     spoolTemplateId: text("spool_template_id"),
     spoolPushedAt: integer("spool_pushed_at", { mode: "timestamp_ms" }),
@@ -45,6 +55,7 @@ export const printerProfile = sqliteTable(
     serverSeq: integer("server_seq").notNull().default(0),
     name: text("name").notNull(),
     spoolPrinterId: text("spool_printer_id").notNull(),
+    deploymentId: text("deployment_id"),
     templateId: text("template_id")
       .notNull()
       .references(() => labelTemplate.id, { onDelete: "restrict" }),
@@ -77,6 +88,9 @@ export const printLog = sqliteTable(
     requestedBy: text("requested_by").references(() => user.id, { onDelete: "set null" }),
     spoolJobId: text("spool_job_id"),
     status: text("status", { enum: printStatuses }).notNull().default("queued"),
+    deploymentId: text("deployment_id"),
+    copies: integer("copies").notNull().default(1),
+    commandId: text("command_id"),
     layout: text("layout"),
     variables: text("variables", { mode: "json" }).$type<Record<string, unknown>>(),
     payloadHash: text("payload_hash"),

@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
@@ -7,17 +7,25 @@ import { die } from "@orrn/db/schema/catalog";
 import { cast } from "@orrn/db/schema/foundry";
 import { bundle, bundleGroup } from "@orrn/db/schema/inventory";
 import { labelTemplate, printLog, printerProfile, printStatuses } from "@orrn/db/schema/printing";
+import type { LabelDocument } from "@orrn/domain";
 import { spoolDeployment } from "@orrn/db/schema/spool";
 import { unwrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
 import { buildBundleLabelVariables } from "../lib/bundle-label";
 import { SpoolClient, SpoolHttpError, spoolBaseUrl } from "../lib/spool-client";
+import {
+  enqueueEdgeCancelCommand,
+  enqueueEdgePrintCommand,
+  retryEdgePrintCommand,
+  enqueueEdgeTestPrintCommand,
+} from "../lib/edge-v1";
 import { can } from "../lib/permissions";
+import { cloneLabelDraft, createLabelDraft, getLabelDocument, listLabelDocuments, publishLabelDraft, updateLabelDraft } from "../lib/label-documents";
 import { actionProcedure, companyProcedure, router } from "../index";
 
-/** What the spool compares under one job key (printer, template, variables, copies): sha-256 hex of sorted JSON. */
-async function labelPayloadHash(body: { printer_id: number; template_id: number; variables: Record<string, unknown>; copies: number }): Promise<string> {
+/** Hash the frozen identifiers and label content; V1 uses string IDs while legacy keeps numeric IDs. */
+async function labelPayloadHash(body: { printer_id: number | string; template_id: number | string; variables: Record<string, unknown>; copies: number }): Promise<string> {
   const variables = Object.fromEntries(Object.entries(body.variables).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   const text = JSON.stringify({ c: body.copies, p: body.printer_id, t: body.template_id, v: variables });
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -63,6 +71,23 @@ async function createSpoolClient(deployment: ActiveSpoolDeployment) {
 }
 
 export const spoolRouter = router({
+  labelDocuments: router({
+    list: companyProcedure.query(async ({ ctx }) => listLabelDocuments(ctx.db, ctx.companyId)),
+    get: companyProcedure.input(z.object({ templateId: z.string().uuid() })).query(async ({ ctx, input }) => getLabelDocument(ctx.db, ctx.companyId, input.templateId)),
+    createDraft: actionProcedure("spool.push_templates")
+      .input(z.object({ name: z.string().trim().min(1).max(255), document: z.custom<LabelDocument>() }))
+      .mutation(async ({ ctx, input }) => createLabelDraft(ctx.db, ctx.companyId, input.name, input.document)),
+    updateDraft: actionProcedure("spool.push_templates")
+      .input(z.object({ templateId: z.string().uuid(), document: z.custom<LabelDocument>() }))
+      .mutation(async ({ ctx, input }) => updateLabelDraft(ctx.db, ctx.companyId, input.templateId, input.document)),
+    clone: actionProcedure("spool.push_templates")
+      .input(z.object({ templateId: z.string().uuid(), name: z.string().trim().min(1).max(255) }))
+      .mutation(async ({ ctx, input }) => cloneLabelDraft(ctx.db, ctx.companyId, input.templateId, input.name)),
+    publish: actionProcedure("spool.push_templates")
+      .input(z.object({ templateId: z.string().uuid() }))
+      .mutation(async ({ ctx, input }) => publishLabelDraft(ctx.db, ctx.companyId, input.templateId)),
+  }),
+
   // ─── Printers ────────────────────────────────────────────────────────────────
 
   listPrinters: companyProcedure
@@ -74,6 +99,9 @@ export const spoolRouter = router({
     })
     .query(async ({ ctx }) => {
       const deployment = await getActiveDeployment(ctx);
+      if (deployment.installId !== null || Array.isArray(deployment.reportedPrinters)) {
+        return deployment.reportedPrinters ?? [];
+      }
       const client = await createSpoolClient(deployment);
       return client.listPrinters();
     }),
@@ -116,6 +144,15 @@ export const spoolRouter = router({
     .input(z.object({ printerId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const deployment = await getActiveDeployment(ctx);
+      if (deployment.installId !== null) {
+        const cmd = await enqueueEdgeTestPrintCommand(ctx.db, {
+          companyId: ctx.companyId!,
+          deploymentId: deployment.id,
+          printerId: String(input.printerId),
+          requestedBy: ctx.session!.user.id,
+        });
+        return { success: true, commandId: cmd.commandId };
+      }
       const client = await createSpoolClient(deployment);
       await client.testPrint(input.printerId);
       return { success: true };
@@ -154,6 +191,7 @@ export const spoolRouter = router({
         id: printerProfile.id,
         name: printerProfile.name,
         spoolPrinterId: printerProfile.spoolPrinterId,
+        deploymentId: printerProfile.deploymentId,
         templateId: printerProfile.templateId,
         templateName: labelTemplate.name,
         templateKind: labelTemplate.kind,
@@ -182,6 +220,20 @@ export const spoolRouter = router({
       }
 
       const deployment = await getActiveDeployment(ctx);
+      if (deployment.installId !== null || deployment.enrollmentIssuedAt !== null) {
+        await ctx.db.batch([
+          ctx.db
+            .update(labelTemplate)
+            .set({ spoolPushedAt: new Date() })
+            .where(eq(labelTemplate.id, input.templateId)),
+          ctx.db
+            .update(spoolDeployment)
+            .set({ configVersion: sql`${spoolDeployment.configVersion} + 1` })
+            .where(eq(spoolDeployment.id, deployment.id)),
+        ]);
+        return { success: true };
+      }
+
       const client = await createSpoolClient(deployment);
 
       const schema = template.schema as Record<string, unknown>;
@@ -231,33 +283,75 @@ export const spoolRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Look up the printer profile
       const profile = await ctx.db
         .select()
         .from(printerProfile)
         .where(and(eq(printerProfile.id, input.profileId), eq(printerProfile.companyId, ctx.companyId!)))
         .get();
-
       if (!profile) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Printer profile not found" });
       }
 
-      // Look up the template
       const template = await ctx.db
         .select()
         .from(labelTemplate)
-        .where(eq(labelTemplate.id, profile.templateId))
+        .where(and(eq(labelTemplate.id, profile.templateId), eq(labelTemplate.companyId, ctx.companyId!)))
         .get();
-
-      if (!template || !template.spoolTemplateId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Template not pushed to spool yet" });
+      if (!template) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Template not found" });
       }
 
-      const deployment = await getActiveDeployment(ctx);
-      const client = await createSpoolClient(deployment);
+      const deployment = profile.deploymentId
+        ? await ctx.db
+            .select()
+            .from(spoolDeployment)
+            .where(
+              and(
+                eq(spoolDeployment.id, profile.deploymentId),
+                eq(spoolDeployment.companyId, ctx.companyId!),
+                eq(spoolDeployment.status, "active"),
+              ),
+            )
+            .get()
+        : await getActiveDeployment(ctx);
+      if (!deployment) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No active spool deployment for this printer profile" });
+      }
+      if (deployment.installId === null && deployment.enrollmentIssuedAt !== null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ORRN Edge node enrollment is incomplete" });
+      }
 
-      // Create the print log entry first
       const printLogId = crypto.randomUUID();
+      if (deployment.installId !== null) {
+        const jobKey = `print:${printLogId}:label:v${template.version}:attempt:1`;
+        const payloadHash = await labelPayloadHash({
+          printer_id: profile.spoolPrinterId,
+          template_id: template.id,
+          variables: input.variables,
+          copies: input.copies,
+        });
+        const enqueued = await enqueueEdgePrintCommand(ctx.db, {
+          companyId: ctx.companyId!,
+          deploymentId: deployment.id,
+          templateId: template.id,
+          profileId: profile.id,
+          bundleId: input.bundleId ?? null,
+          requestedBy: ctx.session!.user.id,
+          jobKey,
+          payloadHash,
+          copies: input.copies,
+          labelVersion: template.version,
+          attempt: 1,
+          variables: input.variables,
+          printLogId,
+        });
+        return { id: enqueued.printLogId, commandId: enqueued.commandId, spoolJobId: null };
+      }
+
+      if (!template.spoolTemplateId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Template not pushed to spool yet" });
+      }
+      const client = await createSpoolClient(deployment);
       await ctx.db.insert(printLog).values({
         id: printLogId,
         companyId: ctx.companyId!,
@@ -266,12 +360,14 @@ export const spoolRouter = router({
         profileId: profile.id,
         requestedBy: ctx.session!.user.id,
         status: "queued",
+        deploymentId: deployment.id,
+        copies: input.copies,
         layout: "x0",
         variables: input.variables,
         attempt: 1,
+        labelVersion: template.version,
       });
 
-      // Submit to spool
       try {
         const result = await client.createJob({
           printer_id: Number(profile.spoolPrinterId),
@@ -279,27 +375,16 @@ export const spoolRouter = router({
           variables: input.variables,
           copies: input.copies,
         });
-
-        // Update print log with spool job ID and status
         await ctx.db
           .update(printLog)
-          .set({
-            spoolJobId: String(result.id),
-            status: "sent",
-          })
+          .set({ spoolJobId: String(result.id), status: "sent" })
           .where(eq(printLog.id, printLogId));
-
-        return { id: printLogId, spoolJobId: result.id };
+        return { id: printLogId, commandId: null, spoolJobId: result.id };
       } catch (err) {
-        // Mark as failed
         await ctx.db
           .update(printLog)
-          .set({
-            status: "failed",
-            responseText: err instanceof Error ? err.message : String(err),
-          })
+          .set({ status: "failed", responseText: err instanceof Error ? err.message : String(err) })
           .where(eq(printLog.id, printLogId));
-
         throw new TRPCError({
           code: "BAD_GATEWAY",
           message: `Failed to submit print job: ${err instanceof Error ? err.message : String(err)}`,
@@ -375,8 +460,8 @@ export const spoolRouter = router({
         .from(labelTemplate)
         .where(and(eq(labelTemplate.id, profile.templateId), eq(labelTemplate.companyId, ctx.companyId!)))
         .get();
-      if (!template || !template.spoolTemplateId) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Bundle label template is not pushed to spool yet" });
+      if (!template) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Bundle label template not found" });
       }
 
       const castRow = bundleRow.castId
@@ -393,8 +478,31 @@ export const spoolRouter = router({
         layout: input.layout,
         castRow: castRow ?? null,
       });
-      const deployment = await getActiveDeployment(ctx);
-      const client = await createSpoolClient(deployment);
+      const deployment = profile.deploymentId
+        ? await ctx.db
+            .select()
+            .from(spoolDeployment)
+            .where(
+              and(
+                eq(spoolDeployment.id, profile.deploymentId),
+                eq(spoolDeployment.companyId, ctx.companyId!),
+                eq(spoolDeployment.status, "active"),
+              ),
+            )
+            .get()
+        : await getActiveDeployment(ctx);
+
+      if (!deployment) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No active spool deployment for this printer profile" });
+      }
+      if (deployment.installId === null && deployment.enrollmentIssuedAt !== null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ORRN Edge node enrollment is incomplete" });
+      }
+      if (deployment.installId === null && !template.spoolTemplateId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Bundle label template is not pushed to spool yet" });
+      }
+
+
       const printLogId = crypto.randomUUID();
       const copies = input.copies ?? profile.defaultCopies;
       Object.assign(variables, packVariables);
@@ -407,9 +515,10 @@ export const spoolRouter = router({
       // (a transport retry, a second tap, a reprint whose first try never reached the spool) reuses the
       // latest attempt, hence the key.
       const labelVersion = template.version;
+      const isEdgeV1Node = deployment.installId !== null;
       const payloadHash = await labelPayloadHash({
-        printer_id: Number(profile.spoolPrinterId),
-        template_id: Number(template.spoolTemplateId),
+        printer_id: isEdgeV1Node ? profile.spoolPrinterId : Number(profile.spoolPrinterId),
+        template_id: isEdgeV1Node ? template.id : Number(template.spoolTemplateId),
         variables,
         copies,
       });
@@ -432,6 +541,27 @@ export const spoolRouter = router({
       }
       const jobKey = spoolJobKey(bundleRow.serial, labelVersion, attempt);
 
+      if (isEdgeV1Node) {
+        const enqueued = await enqueueEdgePrintCommand(ctx.db, {
+          companyId: ctx.companyId!,
+          deploymentId: deployment.id,
+          templateId: template.id,
+          profileId: profile.id,
+          bundleId: bundleRow.id,
+          requestedBy: ctx.session!.user.id,
+          jobKey,
+          payloadHash,
+          copies,
+          labelVersion,
+          attempt,
+          layout: input.layout,
+          variables,
+          printLogId,
+        });
+        return { id: enqueued.printLogId, commandId: enqueued.commandId, spoolJobId: null, variables };
+      }
+
+      const client = await createSpoolClient(deployment);
       await ctx.db.insert(printLog).values({
         id: printLogId,
         companyId: ctx.companyId!,
@@ -440,6 +570,8 @@ export const spoolRouter = router({
         profileId: profile.id,
         requestedBy: ctx.session!.user.id,
         status: "queued",
+        deploymentId: deployment.id,
+        copies,
         layout: input.layout,
         variables,
         attempt,
@@ -469,7 +601,7 @@ export const spoolRouter = router({
           .set({ stickerStale: false })
           .where(and(eq(bundle.id, bundleRow.id), eq(bundle.companyId, ctx.companyId!), eq(bundle.stickerStale, true)));
 
-        return { id: printLogId, spoolJobId: result.id, variables };
+        return { id: printLogId, commandId: null, spoolJobId: result.id, variables };
       } catch (err) {
         await ctx.db
           .update(printLog)
@@ -567,11 +699,22 @@ export const spoolRouter = router({
           .groupBy(printLog.status),
       ]);
 
-      const counts: Record<(typeof printStatuses)[number], number> = { queued: 0, sent: 0, success: 0, failed: 0 };
-      for (const g of grouped) counts[g.status] = g.n;
-      const total = input.status ? counts[input.status] : counts.queued + counts.sent + counts.success + counts.failed;
+      const allCounts: Record<(typeof printStatuses)[number], number> = {
+        queued: 0,
+        accepted: 0,
+        sent: 0,
+        success: 0,
+        failed: 0,
+        outcome_unknown: 0,
+        cancelled: 0,
+      };
+      for (const g of grouped) allCounts[g.status] = g.n;
+      const total = input.status
+        ? allCounts[input.status]
+        : printStatuses.reduce((sum, status) => sum + allCounts[status], 0);
 
-      return { rows, total, counts };
+      return { rows, total, counts: allCounts };
+
     }),
 
   getJobStatus: companyProcedure
@@ -603,13 +746,38 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Print job not found" });
       }
 
-      if (row.spoolJobId) {
-        const deployment = await getActiveDeployment(ctx);
+      const deployment = row.deploymentId
+        ? await ctx.db
+            .select()
+            .from(spoolDeployment)
+            .where(and(eq(spoolDeployment.id, row.deploymentId), eq(spoolDeployment.companyId, ctx.companyId!)))
+            .get()
+        : row.spoolJobId
+          ? await getActiveDeployment(ctx)
+          : null;
+      if (row.deploymentId && !deployment) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Print node not found" });
+      }
+
+      if (deployment && deployment.installId !== null) {
+        const command = await enqueueEdgeCancelCommand(ctx.db, {
+          companyId: ctx.companyId!,
+          deploymentId: deployment.id,
+          printLogId: row.id,
+          agentJobId: row.spoolJobId,
+          jobKey: row.jobKey,
+          reason: "Cancelled by user",
+        });
+        // Cancellation is unresolved until the node acknowledges it or reports the job state.
+        return { success: true, commandId: command.commandId };
+      }
+
+      if (deployment && row.spoolJobId) {
         const client = await createSpoolClient(deployment);
         try {
           await client.cancelJob(Number(row.spoolJobId));
         } catch {
-          // Best effort — the job may have already completed
+          // Legacy cancellation remains best effort.
         }
       }
 
@@ -618,7 +786,7 @@ export const spoolRouter = router({
         .set({ status: "failed", responseText: "Cancelled by user" })
         .where(eq(printLog.id, input.id));
 
-      return { success: true };
+      return { success: true, commandId: null };
     }),
 
   retryJob: actionProcedure("spool.manage_jobs")
@@ -634,13 +802,35 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Print job not found" });
       }
 
-      if (row.spoolJobId) {
-        const deployment = await getActiveDeployment(ctx);
+      const deployment = row.deploymentId
+        ? await ctx.db
+            .select()
+            .from(spoolDeployment)
+            .where(and(eq(spoolDeployment.id, row.deploymentId), eq(spoolDeployment.companyId, ctx.companyId!)))
+            .get()
+        : row.spoolJobId
+          ? await getActiveDeployment(ctx)
+          : null;
+      if (row.deploymentId && !deployment) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Print node not found" });
+      }
+
+      if (deployment && deployment.installId !== null) {
+        const retried = await retryEdgePrintCommand(ctx.db, {
+          companyId: ctx.companyId!,
+          deploymentId: deployment.id,
+          printLogId: row.id,
+          requestedBy: ctx.session!.user.id,
+        });
+        return { success: true, id: retried.printLogId, commandId: retried.commandId, jobKey: retried.jobKey };
+      }
+
+      if (deployment && row.spoolJobId) {
         const client = await createSpoolClient(deployment);
         try {
           await client.retryJob(Number(row.spoolJobId));
         } catch {
-          // Best effort
+          // Legacy retry remains best effort.
         }
       }
 
@@ -649,7 +839,7 @@ export const spoolRouter = router({
         .set({ status: "queued", attempt: row.attempt + 1 })
         .where(eq(printLog.id, input.id));
 
-      return { success: true };
+      return { success: true, id: null, commandId: null, jobKey: null };
     }),
 
   // ─── Deployment Status ──────────────────────────────────────────────────────
