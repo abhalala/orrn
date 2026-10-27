@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Tabs } from "@orrn/ui/components/tabs";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 
 import { LabelsTab } from "@/features/printing/labels-tab";
 import {
@@ -39,9 +39,12 @@ export const Route = createFileRoute("/_tenant/printing")({
  */
 function PrintingPage() {
   const { t } = useT();
+  const location = useLocation();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/printing" });
   const tab = search.tab ?? "queue";
+
+  if (location.pathname.startsWith("/printing/templates/")) return <Outlet />;
 
   return (
     <>
@@ -70,6 +73,7 @@ function PrintingPage() {
         {tab === "printers" ? <PrintersTab /> : null}
         {tab === "labels" ? <LabelsTab /> : null}
       </Tabs>
+      <Outlet />
     </>
   );
 }
