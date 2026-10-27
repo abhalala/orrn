@@ -132,6 +132,68 @@ export const spoolRouter = router({
       });
     }),
 
+  updatePrinterPreferences: actionProcedure("spool.manage_printers")
+    .input(z.object({
+      profileId: z.string().uuid(),
+      mediaType: z.enum(["gap", "black_mark", "continuous"]),
+      mediaWidthMm: z.number().positive().max(300),
+      mediaHeightMm: z.number().positive().max(300),
+      gapMm: z.number().min(0).max(50),
+      dpi: z.union([z.literal(203), z.literal(300), z.literal(600)]),
+      speedInSec: z.number().int().min(1).max(12),
+      density: z.number().int().min(0).max(15),
+      cutterEnabled: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await ctx.db.select().from(printerProfile)
+        .where(and(eq(printerProfile.id, input.profileId), eq(printerProfile.companyId, ctx.companyId!), isNull(printerProfile.deletedAt)))
+        .get();
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Printer profile not found" });
+      const deployment = await getActiveDeployment(ctx);
+      const now = new Date();
+      const preferences = {
+        mediaType: input.mediaType,
+        mediaWidthMm: input.mediaWidthMm,
+        mediaHeightMm: input.mediaHeightMm,
+        gapMm: input.gapMm,
+        dpi: input.dpi,
+        speedInSec: input.speedInSec,
+        density: input.density,
+        cutterEnabled: input.cutterEnabled,
+        updatedAt: now,
+      };
+      const isEdge = deployment.installId !== null || deployment.enrollmentIssuedAt !== null;
+      if (!isEdge) {
+        await ctx.db.update(printerProfile).set(preferences).where(eq(printerProfile.id, profile.id));
+      } else {
+        const desired = deployment.desiredPrinters ?? [];
+        let found = false;
+        const printers = desired.map((printer) => {
+          if (printer.printerId !== profile.spoolPrinterId) return printer;
+          found = true;
+          return {
+            ...printer,
+            labelWidthMm: input.mediaWidthMm,
+            labelHeightMm: input.mediaHeightMm,
+            gapMm: input.gapMm,
+            dpi: input.dpi,
+            mediaType: input.mediaType,
+            speedInSec: input.speedInSec,
+            density: input.density,
+            cutterEnabled: input.cutterEnabled,
+          };
+        });
+        if (!found) throw new TRPCError({ code: "BAD_REQUEST", message: "Printer is not in the node desired configuration" });
+        await ctx.db.batch([
+          ctx.db.update(printerProfile).set(preferences).where(eq(printerProfile.id, profile.id)),
+          ctx.db.update(spoolDeployment).set({ desiredPrinters: printers, configVersion: sql`${spoolDeployment.configVersion} + 1`, updatedAt: now }).where(eq(spoolDeployment.id, deployment.id)),
+        ]);
+      }
+      const updated = await ctx.db.select().from(printerProfile).where(eq(printerProfile.id, profile.id)).get();
+      if (!updated) throw new TRPCError({ code: "NOT_FOUND", message: "Printer profile not found after update" });
+      return updated;
+    }),
+
   getPrinterStatus: companyProcedure
     .input(z.object({ printerId: z.number() }))
     .query(async ({ ctx, input }) => {

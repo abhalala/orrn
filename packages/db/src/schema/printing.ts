@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 import { user } from "./auth";
 import { bundle } from "./inventory";
@@ -60,6 +60,19 @@ export const printerProfile = sqliteTable(
       .notNull()
       .references(() => labelTemplate.id, { onDelete: "restrict" }),
     defaultCopies: integer("default_copies").notNull().default(1),
+    mediaType: text("media_type"),
+    mediaWidthMm: real("media_width_mm"),
+    mediaHeightMm: real("media_height_mm"),
+    gapMm: real("gap_mm"),
+    dpi: integer("dpi"),
+    speedInSec: integer("speed_in_sec"),
+    density: integer("density"),
+    cutterEnabled: integer("cutter_enabled", { mode: "boolean" }).notNull().default(false),
+    macAddress: text("mac_address"),
+    verifiedHost: text("verified_host"),
+    verifiedPort: integer("verified_port"),
+    discoveredFeatures: text("discovered_features", { mode: "json" }).$type<string[]>(),
+    capabilitiesVerifiedAt: integer("capabilities_verified_at", { mode: "timestamp_ms" }),
     notes: text("notes"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).default(nowMs).$onUpdate(() => new Date()).notNull(),
