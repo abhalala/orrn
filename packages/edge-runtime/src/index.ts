@@ -126,8 +126,22 @@ export const releaseSemverSchema = z
   .trim()
   .regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, "Release version must be explicit semver (never dev)");
 
-export const edgeCommandKinds = ["print_job", "test_print", "cancel_job"] as const;
+export const edgeCommandKinds = ["print_job", "test_print", "cancel_job", "device_action"] as const;
 export type EdgeCommandKind = (typeof edgeCommandKinds)[number];
+
+export const edgeDeviceActionPayloadSchema = z.object({
+  printerId: z.string().min(1).max(64),
+  requestedBy: z.string().nullable().optional(),
+  action: z.enum(["calibrate", "set_cutter", "set_rtc", "download_font"]),
+  enabled: z.boolean().optional(),
+  rtc: z.string().datetime().optional(),
+  fontBase64: z.string().max(1_500_000).optional(),
+}).superRefine((payload, ctx) => {
+  if (payload.action === "set_cutter" && payload.enabled === undefined) ctx.addIssue({ code: "custom", message: "enabled is required" });
+  if (payload.action === "set_rtc" && !payload.rtc) ctx.addIssue({ code: "custom", message: "rtc is required" });
+  if (payload.action === "download_font" && !payload.fontBase64) ctx.addIssue({ code: "custom", message: "fontBase64 is required" });
+});
+export type EdgeDeviceActionPayload = z.infer<typeof edgeDeviceActionPayloadSchema>;
 
 export const edgeCommandStates = ["queued", "leased", "accepted", "rejected"] as const;
 export type EdgeCommandState = (typeof edgeCommandStates)[number];
@@ -190,6 +204,7 @@ export const edgeDesiredPrintersSchema = z
   .refine((list) => new Set(list.map((p) => p.printerId)).size === list.length, "printerId must be unique");
 
 export const edgePrinterCapabilitiesSchema = z.object({
+  model: z.string().max(64).optional(),
   macAddress: z.string().regex(/^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/).optional(),
   host: z.string().min(1).max(253),
   port: z.number().int().min(1).max(65535),
@@ -282,6 +297,7 @@ export const edgeEventKinds = [
   "offline_reprint",
   "test_print_result",
   "printer_endpoint_verified",
+  "device_action_result",
 ] as const;
 export type EdgeEventKind = (typeof edgeEventKinds)[number];
 

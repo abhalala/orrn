@@ -16,11 +16,13 @@ import { buildBundleLabelVariables } from "../lib/bundle-label";
 import { SpoolClient, SpoolHttpError, spoolBaseUrl } from "../lib/spool-client";
 import {
   enqueueEdgeCancelCommand,
+  enqueueEdgeDeviceActionCommand,
   enqueueEdgePrintCommand,
   retryEdgePrintCommand,
   enqueueEdgeTestPrintCommand,
 } from "../lib/edge-v1";
 import { can } from "../lib/permissions";
+import { writeAudit } from "../lib/audit";
 import { cloneLabelDraft, createLabelDraft, getLabelDocument, listLabelDocuments, publishLabelDraft, updateLabelDraft } from "../lib/label-documents";
 import { actionProcedure, companyProcedure, router } from "../index";
 
@@ -218,6 +220,44 @@ export const spoolRouter = router({
       const client = await createSpoolClient(deployment);
       await client.testPrint(input.printerId);
       return { success: true };
+    }),
+
+  deviceAction: actionProcedure("spool.manage_printers")
+    .input(z.object({
+      profileId: z.string().uuid(),
+      action: z.enum(["calibrate", "set_cutter", "set_rtc", "download_font"]),
+      enabled: z.boolean().optional(),
+      rtc: z.string().datetime().optional(),
+      fontBase64: z.string().max(1_500_000).optional(),
+    }).superRefine((input, ctx) => {
+      if (input.action === "set_cutter" && input.enabled === undefined) ctx.addIssue({ code: "custom", message: "enabled is required" });
+      if (input.action === "set_rtc" && !input.rtc) ctx.addIssue({ code: "custom", message: "rtc is required" });
+      if (input.action === "download_font" && !input.fontBase64) ctx.addIssue({ code: "custom", message: "fontBase64 is required" });
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await ctx.db.select().from(printerProfile)
+        .where(and(eq(printerProfile.id, input.profileId), eq(printerProfile.companyId, ctx.companyId!), isNull(printerProfile.deletedAt)))
+        .get();
+      if (!profile) throw new TRPCError({ code: "NOT_FOUND", message: "Printer profile not found" });
+      const deployment = await getActiveDeployment(ctx);
+      if (deployment.installId === null) throw new TRPCError({ code: "BAD_REQUEST", message: "Device actions require an ORRN Edge V1 node" });
+      if (!(deployment.desiredPrinters ?? []).some((printer) => printer.printerId === profile.spoolPrinterId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Printer is not in the node desired configuration" });
+      }
+      const command = await enqueueEdgeDeviceActionCommand(ctx.db, {
+        companyId: ctx.companyId!,
+        deploymentId: deployment.id,
+        printerId: profile.spoolPrinterId,
+        requestedBy: ctx.session!.user.id,
+        action: { action: input.action, enabled: input.enabled, rtc: input.rtc, fontBase64: input.fontBase64 },
+      });
+      await writeAudit(ctx, {
+        action: "printer.device_action",
+        subjectType: "printer_profile",
+        subjectId: profile.id,
+        meta: { action: input.action, commandId: command.commandId, deploymentId: deployment.id },
+      });
+      return { success: true, commandId: command.commandId };
     }),
 
   // ─── Templates ──────────────────────────────────────────────────────────────

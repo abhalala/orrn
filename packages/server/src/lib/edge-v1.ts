@@ -14,7 +14,9 @@ import {
   type EdgeConfigResponse,
   edgeConfirmCredentialRequestSchema,
   type EdgeDesiredPrinter,
+  type EdgeDeviceActionPayload,
   edgeDesiredPrintersSchema,
+  edgeDeviceActionPayloadSchema,
   type EdgeEnrollResponse,
   edgeEnrollRequestSchema,
   type EdgeEventItem,
@@ -837,6 +839,45 @@ export async function enqueueEdgeTestPrintCommand(
   return { commandId };
 }
 
+export async function enqueueEdgeDeviceActionCommand(
+  db: OrrnDb,
+  input: {
+    companyId: string;
+    deploymentId: string;
+    printerId: string;
+    requestedBy?: string | null;
+    action: Omit<EdgeDeviceActionPayload, "printerId" | "requestedBy">;
+    nowMs?: number;
+  },
+): Promise<{ commandId: string }> {
+  const now = new Date(input.nowMs ?? Date.now());
+  const commandId = crypto.randomUUID();
+  const payload = edgeDeviceActionPayloadSchema.parse({
+    ...input.action,
+    printerId: input.printerId,
+    requestedBy: input.requestedBy ?? null,
+  });
+  await db.insert(edgeCommand).values({
+    id: commandId,
+    companyId: input.companyId,
+    deploymentId: input.deploymentId,
+    kind: "device_action",
+    payloadJson: JSON.stringify(payload),
+    jobKey: null,
+    payloadHash: null,
+    printLogId: null,
+    state: "queued",
+    leaseId: null,
+    leaseExpiresAt: null,
+    deliveryCount: 0,
+    resolvedAt: null,
+    resolutionJson: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  return { commandId };
+}
+
 /**
  * Enqueues a `cancel_job` command for a job on a deployment.
  */
@@ -1541,6 +1582,22 @@ export async function ingestEdgeEventBatch(
           )),
         );
       }
+    } else if (ev.kind === "device_action_result") {
+      const commandId = typeof ev.payload.commandId === "string" ? ev.payload.commandId : ev.aggregateId;
+      const state = typeof ev.payload.state === "string" ? ev.payload.state : "unknown";
+      const reason = typeof ev.payload.reason === "string" ? ev.payload.reason : null;
+      statements.push(
+        db.update(edgeCommand).set({
+          resolutionJson: JSON.stringify({ state, reason, eventId: ev.eventId }),
+          resolvedAt: new Date(ev.occurredAt),
+          updatedAt: now,
+        }).where(and(
+          eq(edgeCommand.id, commandId),
+          eq(edgeCommand.companyId, input.companyId),
+          eq(edgeCommand.deploymentId, input.deploymentId),
+          eq(edgeCommand.kind, "device_action"),
+        )),
+      );
     } else if (ev.kind === "offline_reprint") {
       const sourceJobKey = typeof ev.payload.sourceJobKey === "string" ? ev.payload.sourceJobKey : null;
       const reprintJobKey =
