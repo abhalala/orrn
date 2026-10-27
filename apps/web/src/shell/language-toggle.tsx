@@ -6,13 +6,13 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
  * can't read the current language still finds theirs. The provider in
  * `__root.tsx` saves the choice and updates `<html lang>`.
  */
-export function LanguageToggle({ className }: { className?: string }) {
+export function LanguageToggle({ className, locales = LOCALES }: { className?: string; locales?: readonly Locale[] }) {
   const { t, locale, setLocale } = useT();
   return (
     <SegmentedControl<Locale>
       label={t("common.language")}
       value={locale}
-      options={LOCALES.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))}
+      options={locales.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))}
       onChange={setLocale}
       className={className}
     />

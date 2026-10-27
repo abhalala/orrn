@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7100 screen strings in 48 groups, 44 guides with 840 strings.
+Counts: 7199 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3012,12 +3012,12 @@ Counts: 7100 screen strings in 48 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (63)
+### marketing (117)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `eyebrow` | Made for aluminium extrusion | एल्युमिनियम extrusion के लिए |
-| `headline` | orrn, india's first e2e extrusion harness | orrn, भारत का पहला e2e extrusion harness |
+| `eyebrow` | Made for aluminium extrusion | एल्युमिनियम extrusion के लिए बना |
+| `headline` | orrn, India's first e2e extrusion harness | orrn, भारत का पहला e2e extrusion harness |
 | `sub` | One connected record of your metal, from the scrap yard to the dispatch gate. | स्क्रैप यार्ड से dispatch गेट तक, आपके मेटल का एक जुड़ा हुआ रिकॉर्ड। |
 | `requestAccess` | Request access | एक्सेस मांगें |
 | `signIn` | Sign in | साइन इन करें |
@@ -3025,60 +3025,164 @@ Counts: 7100 screen strings in 48 groups, 44 guides with 840 strings.
 | `mainNav` | Main navigation | मुख्य नेविगेशन |
 | `guides` | Guides | गाइड |
 | `metaTitle` | orrn \| India's first e2e extrusion harness | orrn \| भारत का पहला e2e extrusion harness |
+| `heroPlate.fig` | Fig 00 · Extrusion line | चित्र 00 · Extrusion लाइन |
+| `heroPlate.title` | Press, run-out table and ageing oven | प्रेस, रन-आउट टेबल और ageing ओवन |
+| `heroPlate.poseCharge` | 01 Billet charge | 01 Billet चार्ज |
+| `heroPlate.posePress` | 02 Press stroke | 02 प्रेस स्ट्रोक |
+| `heroPlate.poseAge` | 03 Ageing oven | 03 Ageing ओवन |
+| `heroPlate.keyRam` | Main ram and stem | मुख्य रैम और स्टेम |
+| `heroPlate.keyPress` | Billet, container, die and roller table | Billet, कंटेनर, die और रोलर टेबल |
+| `heroPlate.keyOven` | Ageing oven and profile trolley | Ageing ओवन और प्रोफ़ाइल ट्रॉली |
+| `proof.phantomValue` | 62% | 62% |
+| `proof.phantomLabel` | of bundles on the old stock list were already gone in our first plant yard audit. | पहले प्लांट यार्ड ऑडिट में पुराने स्टॉक रजिस्टर के bundle पहले ही जा चुके थे। |
+| `proof.chainValue` | 07 | 07 |
+| `proof.chainLabel` | plant stages linked in one record from scrap weighbridge to dispatch gate. | स्क्रैप कांटे से dispatch गेट तक एक ही रिकॉर्ड में जुड़े सात पड़ाव। |
+| `proof.traceValue` | 1 QR | 1 QR |
+| `proof.traceLabel` | bundle identity from the packing scale to the customer packing list. | पैकिंग कांटे से ग्राहक की पैकिंग लिस्ट तक हर bundle की अपनी पहचान। |
+| `flow.eyebrow` | The chain | पूरा सिलसिला |
 | `flow.title` | The metal changes. The thread stays. | मेटल बदलता है। उसका रिकॉर्ड साथ चलता है। |
-| `flow.body` | Seven handovers. One plant. Keep the work connected as material becomes a finished profile. | सात पड़ाव। एक प्लांट। कच्चे माल से तैयार प्रोफ़ाइल तक, हर काम का रिकॉर्ड जुड़ा रहे। |
+| `flow.body` | Seven handovers. One plant. As raw scrap becomes a finished architectural profile, every stage hands a verified record to the next. | सात पड़ाव। एक प्लांट। कच्चे स्क्रैप से तैयार प्रोफ़ाइल बनने तक हर पड़ाव अपना पक्का रिकॉर्ड अगले पड़ाव को देता है। |
+| `flow.scrap.fig` | Fig 01 | चित्र 01 |
+| `flow.scrap.plateTitle` | Weighbridge and kanta dial | धर्मकांटा और कांटा डायल |
+| `flow.scrap.readout` | Party 8,200 kg · Ours 8,185 kg | पार्टी 8,200 kg · हमारा 8,185 kg |
 | `flow.scrap.name` | Scrap | स्क्रैप |
 | `flow.scrap.title` | Know what came through the gate. | गेट से आए माल का हिसाब रखें। |
-| `flow.scrap.body` | Book a lot, record the weighbridge weight and settle the received quantity before it enters scrap stock. | लॉट बुक करें, कांटे का वज़न दर्ज करें और स्क्रैप स्टॉक में जोड़ने से पहले प्राप्त मात्रा तय करें। |
+| `flow.scrap.body` | Book a purchase lot, record the weighbridge kanta weight and settle deductions before material enters scrap stock. | खरीद लॉट बुक करें, कांटे का वज़न दर्ज करें और स्क्रैप स्टॉक में जोड़ने से पहले कटौती व प्राप्त मात्रा तय करें। |
 | `flow.scrap.record` | Purchase lot, weighment, received stock | खरीद लॉट, कांटा वज़न, प्राप्त स्टॉक |
+| `flow.cast.fig` | Fig 02 | चित्र 02 |
+| `flow.cast.plateTitle` | Melting furnace and log rack | भट्ठी और cast लॉग रैक |
+| `flow.cast.readout` | In 11,000 kg · 38 cast logs | इनपुट 11,000 kg · 38 cast लॉग |
 | `flow.cast.name` | Cast | Cast |
 | `flow.cast.title` | Give every heat a history. | हर heat का पूरा रिकॉर्ड। |
-| `flow.cast.body` | Connect scrap inputs, alloy checks and billet output to the cast. Follow the metal forward without losing where it began. | स्क्रैप इनपुट, alloy जांच और billet आउटपुट को cast से जोड़ें। मेटल आगे जाए, उसकी शुरुआत का रिकॉर्ड साथ रहे। |
+| `flow.cast.body` | Connect scrap charges, alloy spectro checks and billet logs to the furnace heat so the metal never loses where it began. | स्क्रैप इनपुट, alloy spectro जांच और billet आउटपुट को भट्ठी की heat से जोड़ें ताकि मेटल की शुरुआत का हिसाब कभी न छूटे। |
 | `flow.cast.record` | Melt inputs, spectro sample, billet stock | Melt इनपुट, spectro sample, billet स्टॉक |
+| `flow.die.fig` | Fig 03 | चित्र 03 |
+| `flow.die.plateTitle` | Die rack and 12 ft checkweigher | Die रैक और 12 फ़ीट वज़न टेबल |
+| `flow.die.readout` | Copy 12170-1 · 1.655 kg/12ft | कॉपी 12170-1 · 1.655 kg/12ft |
 | `flow.die.name` | Die | Die |
 | `flow.die.title` | The right die, ready for its run. | सही die, रन के लिए तैयार। |
-| `flow.die.body` | Keep each physical die's readings, ownership and nitriding history together. Issue a specific copy to the press. | हर असली die की रीडिंग, मालिक और nitriding का रिकॉर्ड एक जगह रखें। प्रेस को एक निश्चित कॉपी जारी करें। |
+| `flow.die.body` | Keep each physical die copy, trial weight reading, customer ownership and nitriding cycle together before issuing to the press. | हर असली die कॉपी की वज़न रीडिंग, ग्राहक का नाम और nitriding का रिकॉर्ड एक जगह रखें और प्रेस को निश्चित कॉपी जारी करें। |
 | `flow.die.record` | Die copy, weight readings, issue record | Die कॉपी, वज़न रीडिंग, जारी करने का रिकॉर्ड |
+| `flow.press.fig` | Fig 04 | चित्र 04 |
+| `flow.press.plateTitle` | Extrusion press and run-out table | Extrusion प्रेस और रन-आउट टेबल |
+| `flow.press.readout` | Billet to profile · 8 connected lengths | Billet से profile · 8 जुड़ी हुई लंबाइयां |
 | `flow.press.name` | Press | प्रेस |
 | `flow.press.title` | Make the shift legible. | शिफ़्ट का काम साफ़ दिखे। |
-| `flow.press.body` | Bring the plan, die issue and billet use into the same run. Record output and rejects; let orrn calculate recovery. | प्लान, die issue और billet खपत को उसी रन में रखें। आउटपुट और रिजेक्ट दर्ज करें; recovery की गणना orrn करेगा। |
+| `flow.press.body` | Bring the press plan, die issue and billet count into one run instead of typing shift sheets by hand. Record output and rejects while orrn calculates recovery. | हाथ से शिफ़्ट शीट टाइप करने के बजाय प्लान, die issue और billet खपत को एक ही रन में रखें। आउटपुट और रिजेक्ट दर्ज करें; recovery की गणना orrn करेगा। |
 | `flow.press.record` | Press plan, run output, recovery | प्रेस प्लान, रन आउटपुट, recovery |
+| `flow.age.fig` | Fig 05 | चित्र 05 |
+| `flow.age.plateTitle` | Ageing oven and profile trolley | Ageing ओवन और प्रोफ़ाइल ट्रॉली |
+| `flow.age.readout` | 3-tier trolley · Soak and HV check | 3-टियर ट्रॉली · ओवन और HV जांच |
 | `flow.age.name` | Age | Ageing |
 | `flow.age.title` | Carry quality through the oven. | ओवन तक क्वालिटी का हिसाब। |
-| `flow.age.body` | Track trolleys through ageing, record readings and hardness, and keep held material out of packing. | Ageing में ट्रॉलियों को ट्रैक करें, रीडिंग और hardness दर्ज करें और होल्ड किए माल को पैकिंग से रोकें। |
+| `flow.age.body` | Track trolleys through the ageing cycle, log soak readings and hardness in HV, and keep held material out of packing. | Ageing में ट्रॉलियों को ट्रैक करें, ओवन रीडिंग और HV में hardness दर्ज करें, और होल्ड किए माल को पैकिंग से बाहर रखें। |
 | `flow.age.record` | Batch, oven readings, release decision | बैच, ओवन रीडिंग, रिलीज़ का फ़ैसला |
+| `flow.pack.fig` | Fig 06 | चित्र 06 |
+| `flow.pack.plateTitle` | Packing scale and thermal label printer | पैकिंग कांटा और थर्मल लेबल प्रिंटर |
+| `flow.pack.readout` | Bundle 26J4086 · 52.40 kg | Bundle 26J4086 · 52.40 kg |
 | `flow.pack.name` | Pack | पैकिंग |
 | `flow.pack.title` | A bundle with an identity. | हर bundle की अपनी पहचान। |
-| `flow.pack.body` | Record pieces and weight, print a numbered label and place the bundle in stock. The next person scans the same number. | पीस और वज़न दर्ज करें, नंबर वाला लेबल प्रिंट करें और bundle को स्टॉक में रखें। अगला व्यक्ति वही नंबर स्कैन करेगा। |
+| `flow.pack.body` | Record pieces and scale weight, print a numbered QR label on A4 or thermal stock, and place the bundle into a yard section. | पीस और वज़न दर्ज करें, A4 या थर्मल रोल पर नंबर वाला QR लेबल प्रिंट करें और bundle को यार्ड सेक्शन में रखें। |
 | `flow.pack.record` | Bundle number, pieces, weight, location | Bundle नंबर, पीस, वज़न, लोकेशन |
+| `flow.dispatch.fig` | Fig 07 | चित्र 07 |
+| `flow.dispatch.plateTitle` | Dispatch gate and outbound truck | Dispatch गेट और बाहर जाने वाली गाड़ी |
+| `flow.dispatch.readout` | 4 bundles scanned · 206.3 kg | 4 bundle स्कैन · 206.3 kg |
 | `flow.dispatch.name` | Dispatch | Dispatch |
 | `flow.dispatch.title` | Close the loop at the gate. | गेट पर हिसाब पूरा करें। |
-| `flow.dispatch.body` | Scan the bundles that leave, prepare the packing list and keep the stock ledger in step with the dispatch. | जाने वाले bundle स्कैन करें, पैकिंग लिस्ट बनाएं और dispatch के साथ स्टॉक लेजर भी अपडेट रखें। |
+| `flow.dispatch.body` | Scan bundles onto the truck so no bundle leaves without a customer, a numbered packing list and a matching stock movement. | गाड़ी लोड होते समय जाने वाले bundle स्कैन करें ताकि बिना ग्राहक, पैकिंग लिस्ट नंबर और स्टॉक एंट्री के कोई माल बाहर न जाए। |
 | `flow.dispatch.record` | Scanned bundles, packing list, stock movement | स्कैन किए bundle, पैकिंग लिस्ट, स्टॉक मूवमेंट |
+| `floor.eyebrow` | What gets easier, job by job | हर काम में क्या आसान होता है |
 | `floor.title` | Different jobs. The same plant. | काम अलग। प्लांट एक। |
-| `floor.body` | The office plans in orders. The floor works in dies, trolleys and bundles. orrn connects those records. | ऑफ़िस ऑर्डर में प्लान करता है। फ़्लोर die, ट्रॉली और bundle में काम करता है। orrn इन रिकॉर्ड को जोड़ता है। |
+| `floor.body` | The office plans in orders and baki. The floor works in heats, dies, trolleys and bundles. orrn keeps every role on the same record. | ऑफ़िस ऑर्डर और baki में प्लान करता है। फ़्लोर heat, die, ट्रॉली और bundle में काम करता है। orrn हर रोल को एक ही रिकॉर्ड पर रखता है। |
+| `floor.foundry.role` | For the foundry | फ़ाउंड्री के लिए |
+| `floor.foundry.title` | Trace every billet back to its heat. | हर billet को उसकी heat से जोड़ें। |
+| `floor.foundry.body` | Log scrap charges, spectro samples and cast logs at the furnace so every billet batch carries its alloy and heat history to the press. | भट्ठी पर स्क्रैप चार्ज, spectro सैंपल और cast लॉग दर्ज करें ताकि हर billet बैच के साथ उसका alloy और heat रिकॉर्ड प्रेस तक जाए। |
+| `floor.dieRoom.role` | For the die room | Die रूम के लिए |
+| `floor.dieRoom.title` | Know which die copy ran and what it weighed. | जानें कौन-सी die कॉपी चली और उसका वज़न क्या था। |
+| `floor.dieRoom.body` | Track every copy, FTR trial, CDR or DWG drawing and nitriding bath in CR4, CR2 and K2S without hunting through paper registers. | रजिस्टर पलटे बिना हर कॉपी, FTR ट्रायल, CDR या DWG ड्रॉइंग और CR4, CR2 व K2S में nitriding का पूरा इतिहास रखें। |
 | `floor.planner.role` | For the planner | प्लानर के लिए |
 | `floor.planner.title` | Plan against what is actually left. | जितना बाकी है, उतने का प्लान। |
-| `floor.planner.body` | See order baki, allocate stock and build a press plan without treating already packed material as new production. | ऑर्डर की baki देखें, स्टॉक आवंटित करें और प्रेस प्लान बनाएं। पैक हो चुके माल को दोबारा बनाने का प्लान न बने। |
-| `floor.operator.role` | For the shift | शिफ़्ट के लिए |
+| `floor.planner.body` | See live order baki, allocate existing yard stock and build press plans without scheduling material that is already packed. | ऑर्डर की असली baki देखें, यार्ड का स्टॉक आवंटित करें और प्रेस प्लान बनाएं ताकि पैक हो चुके माल को दोबारा न बनाना पड़े। |
+| `floor.operator.role` | For the press shift | प्रेस शिफ़्ट के लिए |
 | `floor.operator.title` | Keep the run, not a second notebook. | रन का रिकॉर्ड रखें, दूसरी नोटबुक नहीं। |
-| `floor.operator.body` | Record the die, billets, output and stops against the press run. The next shift can read what happened. | Die, billet, आउटपुट और रुकावटें उसी प्रेस रन में दर्ज करें। अगली शिफ़्ट पढ़ सके कि क्या हुआ था। |
-| `floor.packer.role` | For packing and dispatch | पैकिंग और dispatch के लिए |
-| `floor.packer.title` | Read the label. Find the bundle. | लेबल पढ़ें। Bundle ढूंढें। |
-| `floor.packer.body` | Use the phone camera to scan a bundle. Keep its pieces, weight and yard location with its number. | फ़ोन के कैमरे से bundle स्कैन करें। उसके नंबर के साथ पीस, वज़न और यार्ड लोकेशन रखें। |
+| `floor.operator.body` | Record the issued die copy, billets consumed, output length and downtime stops against the press run so the next shift reads the truth. | जारी की गई die कॉपी, लगे हुए billet, आउटपुट और रुकावटें उसी प्रेस रन में दर्ज करें ताकि अगली शिफ़्ट पूरा काम पढ़ सके। |
+| `floor.packer.role` | For the packing table | पैकिंग टेबल के लिए |
+| `floor.packer.title` | Weigh once. Label for good. | एक बार तौलें। पक्की पहचान दें। |
+| `floor.packer.body` | Enter piece count and scale weight, print the bundle QR sticker and assign a yard rack so no bundle sits unmarked on the floor. | पीस और कांटे का वज़न दर्ज करें, bundle का QR स्टिकर प्रिंट करें और यार्ड रैक चुनें ताकि कोई भी bundle बिना नंबर के न रहे। |
+| `floor.gate.role` | For dispatch and gate | Dispatch और गेट के लिए |
+| `floor.gate.title` | Never ship a bundle the ledger still counts. | जो माल चला गया, वह स्टॉक में न दिखे। |
+| `floor.gate.body` | Scan each bundle with a phone camera as the truck loads. Dispatched bundles leave stock immediately and build a numbered PL. | गाड़ी लोड करते समय फ़ोन कैमरे से हर bundle स्कैन करें। गया हुआ माल तुरंत स्टॉक से घटता है और नंबर वाली PL तैयार होती है। |
 | `floor.owner.role` | For the plant owner | प्लांट मालिक के लिए |
 | `floor.owner.title` | Follow the work behind the number. | नंबर के पीछे का काम देखें। |
-| `floor.owner.body` | Read recovery, stock and dispatch from the plant's records. Roles control who can change them; the audit log keeps the history. | प्लांट के रिकॉर्ड से recovery, स्टॉक और dispatch देखें। रोल तय करते हैं कौन बदलाव कर सकता है; audit log में इतिहास रहता है। |
-| `floor.language` | English and Hindi, one tap apart. On a phone, a tablet or the office laptop. | English और हिंदी, एक टैप पर। फ़ोन, टैबलेट या ऑफ़िस के लैपटॉप पर। |
+| `floor.owner.body` | Read recovery, stock age and dispatch from the floor's own entries. Role permissions guard changes, and the audit log keeps every edit. | फ़्लोर के अपने रिकॉर्ड से recovery, स्टॉक और dispatch देखें। रोल तय करते हैं कौन बदलाव कर सकता है, और audit log हर बदलाव रखता है। |
+| `floor.language` | English and Hindi, one tap apart. On a phone in the yard, a tablet at the scale or the office laptop. | English और हिंदी, एक टैप पर। यार्ड में फ़ोन पर, कांटे पर टैबलेट में या ऑफ़िस के लैपटॉप पर। |
+| `office.eyebrow` | Connected record | जुड़ा हुआ रिकॉर्ड |
 | `office.title` | The number on the bundle is only the beginning. | Bundle का नंबर तो बस शुरुआत है। |
-| `office.body` | A packing list brings the dispatched bundles together. Each number still belongs to the material your team packed. | पैकिंग लिस्ट में dispatch के bundle एक साथ आते हैं। हर नंबर उस माल से जुड़ा रहता है जिसे आपकी टीम ने पैक किया। |
-| `office.note` | Illustrative packing list. The sample quantities are demo data, not plant results. | पैकिंग लिस्ट का उदाहरण। दिखाई गई मात्रा डेमो डेटा है, किसी प्लांट का नतीजा नहीं। |
-| `office.demoCustomer` | Demo customer | डेमो ग्राहक |
+| `office.body` | When a bundle is scanned at dispatch, the packing list assembles itself from the floor's pack records. Every serial still points back to the press run, die copy and heat. | जब dispatch पर bundle स्कैन होता है, तो पैकिंग लिस्ट अपने-आप पैकिंग के रिकॉर्ड से बनती है। हर नंबर अपने प्रेस रन, die कॉपी और heat से जुड़ा रहता है। |
+| `office.demoCustomer` | Fourcubes Extrusions | Fourcubes Extrusions |
+| `office.demoMeta` | 14701 Patti · 12 ft | 14701 पट्टी · 12 फ़ीट |
+| `office.printerTitle` | Thermal bundle label | थर्मल bundle लेबल |
+| `office.scannerTitle` | Gate camera scan | गेट कैमरा स्कैन |
+| `office.exportPdf` | Download PDF | PDF डाउनलोड |
+| `office.exportCsv` | Download CSV | CSV डाउनलोड |
+| `office.exportQr` | QR PDF | QR PDF |
 | `cta.title` | Let's start with your plant. | आपके प्लांट से शुरू करें। |
-| `cta.body` | Tell us how your floor works. We'll talk through where orrn fits. | बताएं आपके फ़्लोर पर काम कैसे होता है। हम बात करेंगे कि orrn कहाँ काम आएगा। |
-| `footer` | For aluminium extrusion plants. | एल्युमिनियम extrusion प्लांट के लिए। |
+| `cta.body` | Tell us how your floor runs today, from weighbridge to dispatch gate. We'll walk through where orrn fits. | बताएं आपके फ़्लोर पर कांटे से लेकर dispatch गेट तक काम कैसे होता है। हम बात करेंगे कि orrn कहाँ काम आएगा। |
+| `footer` | For aluminium extrusion plants across India. | भारत भर के एल्युमिनियम extrusion प्लांट के लिए। |
 | `footerNav` | Footer | फ़ुटर |
+| `privacy` | Privacy | प्राइवेसी |
+| `terms` | Terms | शर्तें |
 | `copyright` | © {year} orrn | © {year} orrn |
+
+### legal (45)
+
+| Key | English | हिंदी |
+|---|---|---|
+| `contact.title` | Questions about this document | इस दस्तावेज़ के बारे में सवाल |
+| `contact.body` | Send your question and plant name through the access form. We will route it to the person handling your account. | एक्सेस फ़ॉर्म में अपना सवाल और प्लांट का नाम भेजें। हम उसे आपके खाते को संभालने वाले व्यक्ति तक पहुंचाएंगे। |
+| `contact.action` | Contact orrn | orrn से संपर्क करें |
+| `privacy.metaTitle` | Privacy \| orrn | प्राइवेसी \| orrn |
+| `privacy.title` | Privacy policy | प्राइवेसी नीति |
+| `privacy.nav` | Privacy sections | प्राइवेसी के भाग |
+| `privacy.updated` | Last updated 26 October 2026 | अंतिम अपडेट 26 अक्टूबर 2026 |
+| `privacy.intro` | This policy explains what orrn stores, why we use it, and the choices you have when you use the website, web app, or mobile app. | यह नीति बताती है कि orrn क्या जानकारी रखता है, हम उसे क्यों उपयोग करते हैं, और वेबसाइट, वेब ऐप या मोबाइल ऐप उपयोग करते समय आपके पास क्या विकल्प हैं। |
+| `privacy.sections.information.title` | Information you give us | आपकी दी हुई जानकारी |
+| `privacy.sections.information.body` | We keep account details such as your name, email address, password credentials, company memberships, and role. We also keep the access requests and support messages you send us. Passwords are handled by the authentication service and are not stored as readable text. | हम आपका नाम, ईमेल पता, पासवर्ड की सुरक्षित जानकारी, कंपनी की सदस्यता और रोल जैसी खाता जानकारी रखते हैं। आपके एक्सेस अनुरोध और सपोर्ट संदेश भी रखते हैं। पासवर्ड authentication सेवा से संभलता है और पढ़ने योग्य टेक्स्ट में सहेजा नहीं जाता। |
+| `privacy.sections.operations.title` | Plant records | प्लांट के रिकॉर्ड |
+| `privacy.sections.operations.body` | Your company enters operational records such as customers, suppliers, dies, casts, press runs, stock, bundles, dispatches, documents, and audit history. This information belongs to your company. We process it to provide the service and do not sell it or use it for advertising. | आपकी कंपनी ग्राहक, सप्लायर, die, cast, press run, स्टॉक, bundle, dispatch, दस्तावेज़ और audit इतिहास जैसे रिकॉर्ड डालती है। यह जानकारी आपकी कंपनी की है। हम इसे सेवा देने के लिए संसाधित करते हैं, बेचते नहीं और विज्ञापन के लिए उपयोग नहीं करते। |
+| `privacy.sections.use.title` | How we use information | जानकारी का उपयोग |
+| `privacy.sections.use.body` | We use information to sign you in, apply your permissions, show the correct company records, maintain traceability, deliver service messages, prevent misuse, diagnose faults, and improve the product. We do not use your plant records to train public machine-learning models. | हम जानकारी का उपयोग साइन इन, अनुमतियां लागू करने, सही कंपनी के रिकॉर्ड दिखाने, traceability बनाए रखने, सेवा संदेश भेजने, दुरुपयोग रोकने, खराबी ठीक करने और उत्पाद सुधारने के लिए करते हैं। प्लांट रिकॉर्ड को सार्वजनिक machine-learning मॉडल सिखाने के लिए उपयोग नहीं करते। |
+| `privacy.sections.hosting.title` | Hosting and service providers | होस्टिंग और सेवा प्रदाता |
+| `privacy.sections.hosting.body` | orrn runs on Cloudflare infrastructure and uses service providers for functions such as hosting, database storage, file storage, and transactional email. These providers process information only to supply their part of the service. Their own terms and data locations may apply. | orrn, Cloudflare infrastructure पर चलता है और होस्टिंग, database भंडारण, file भंडारण और transactional ईमेल के लिए सेवा प्रदाताओं का उपयोग करता है। ये प्रदाता जानकारी केवल अपनी सेवा देने के लिए संसाधित करते हैं। उनकी अपनी शर्तें और डेटा स्थान लागू हो सकते हैं। |
+| `privacy.sections.devices.title` | Your devices and plant equipment | आपके डिवाइस और प्लांट उपकरण |
+| `privacy.sections.devices.body` | The app may store your language, theme, selected company, and unfinished offline press entries on your device. A plant printer or collector may process records locally so the plant can print labels and capture readings. Keep shared devices secure and sign out when you finish. | ऐप आपके डिवाइस पर भाषा, थीम, चुनी हुई कंपनी और अधूरे offline press रिकॉर्ड रख सकता है। प्लांट का printer या collector लेबल और रीडिंग के लिए रिकॉर्ड स्थानीय रूप से संसाधित कर सकता है। साझा डिवाइस सुरक्षित रखें और काम पूरा होने पर साइन आउट करें। |
+| `privacy.sections.sharing.title` | When information is shared | जानकारी कब साझा होती है |
+| `privacy.sections.sharing.body` | We share information with the people and companies you authorise, with service providers that operate orrn, and when law or a valid legal request requires it. We may also share information to protect users, investigate abuse, or complete a business transfer with appropriate safeguards. | हम जानकारी आपके अधिकृत लोगों और कंपनियों, orrn चलाने वाले सेवा प्रदाताओं, और कानून या वैध कानूनी अनुरोध की ज़रूरत होने पर साझा करते हैं। उपयोगकर्ताओं की सुरक्षा, दुरुपयोग की जांच या उपयुक्त सुरक्षा के साथ व्यावसायिक हस्तांतरण के लिए भी जानकारी साझा हो सकती है। |
+| `privacy.sections.retention.title` | Retention and security | रिकॉर्ड की अवधि और सुरक्षा |
+| `privacy.sections.retention.body` | We keep account and plant records while the account is active and afterward only as needed for support, audit, legal duties, dispute resolution, and backup cycles. We use access controls and audit records to protect information, but no online service can promise absolute security. | खाता चालू रहने तक रिकॉर्ड रखते हैं। उसके बाद केवल सपोर्ट, audit, कानूनी दायित्व, विवाद और backup चक्र की ज़रूरत तक रखते हैं। जानकारी की सुरक्षा के लिए access control और audit रिकॉर्ड उपयोग करते हैं, लेकिन कोई ऑनलाइन सेवा पूर्ण सुरक्षा का वादा नहीं कर सकती। |
+| `privacy.sections.choices.title` | Your choices and cookies | आपके विकल्प और cookies |
+| `privacy.sections.choices.body` | You can ask to access, correct, export, or delete eligible information through your company administrator or our contact form. Required session cookies keep you signed in. Local storage remembers preferences and offline work. orrn does not use these tools for advertising cookies. | कंपनी administrator या संपर्क फ़ॉर्म से आप योग्य जानकारी देखने, सुधारने, export करने या हटाने का अनुरोध कर सकते हैं। ज़रूरी session cookies साइन इन बनाए रखती हैं। Local storage पसंद और offline काम याद रखता है। orrn इनका उपयोग विज्ञापन cookies के लिए नहीं करता। |
+| `terms.metaTitle` | Terms \| orrn | शर्तें \| orrn |
+| `terms.title` | Terms of service | सेवा की शर्तें |
+| `terms.nav` | Terms sections | शर्तों के भाग |
+| `terms.updated` | Last updated 26 October 2026 | अंतिम अपडेट 26 अक्टूबर 2026 |
+| `terms.intro` | These terms govern access to orrn. By using the service, you agree to use it lawfully, protect your account, and respect the plant records entrusted to you. | ये शर्तें orrn के उपयोग पर लागू होती हैं। सेवा उपयोग करके आप कानूनी उपयोग, खाते की सुरक्षा और प्लांट रिकॉर्ड की ज़िम्मेदारी स्वीकार करते हैं। |
+| `terms.sections.agreement.title` | The agreement | समझौता |
+| `terms.sections.agreement.body` | These terms apply to everyone who accesses orrn. If you use it for a company, you confirm that you may accept these terms for that company. A signed order or separate written agreement may add commercial terms. That agreement controls if it conflicts with these terms. | ये शर्तें orrn उपयोग करने वाले हर व्यक्ति पर लागू होती हैं। कंपनी के लिए उपयोग करने पर आप पुष्टि करते हैं कि आप कंपनी की ओर से शर्तें स्वीकार कर सकते हैं। हस्ताक्षरित order या अलग लिखित समझौते में व्यावसायिक शर्तें जुड़ सकती हैं। मतभेद होने पर वह समझौता लागू होगा। |
+| `terms.sections.accounts.title` | Accounts and permissions | खाते और अनुमतियां |
+| `terms.sections.accounts.body` | Keep your sign-in details private and give each person their own account. Company administrators control memberships and roles. You are responsible for activity under your account and for telling us promptly if you suspect unauthorised access. | साइन इन जानकारी निजी रखें और हर व्यक्ति को अलग खाता दें। कंपनी administrator सदस्यता और रोल तय करते हैं। खाते से होने वाली गतिविधि की ज़िम्मेदारी आपकी है। बिना अनुमति उपयोग का संदेह हो तो तुरंत हमें बताएं। |
+| `terms.sections.plantData.title` | Your plant records | आपके प्लांट के रिकॉर्ड |
+| `terms.sections.plantData.body` | Your company keeps ownership of the records it enters. You give orrn permission to host, copy, process, and display those records only as needed to provide and protect the service. You are responsible for having the right to enter customer, supplier, employee, and operational data. | कंपनी के डाले गए रिकॉर्ड का स्वामित्व उसके पास रहता है। सेवा देने और सुरक्षित रखने के लिए आप orrn को रिकॉर्ड host, copy, process और display करने की अनुमति देते हैं। ग्राहक, सप्लायर, कर्मचारी और परिचालन डेटा डालने का अधिकार होना आपकी ज़िम्मेदारी है। |
+| `terms.sections.use.title` | Acceptable use | उचित उपयोग |
+| `terms.sections.use.body` | Do not probe or disrupt the service, bypass permissions, upload malicious code, misuse another company's data, or use orrn for unlawful activity. Do not copy or resell the service except through a written agreement. We may restrict activity that threatens the service or its users. | सेवा की जांच या खराबी पैदा न करें, अनुमतियां न टालें, हानिकारक code न डालें, दूसरी कंपनी के डेटा का दुरुपयोग न करें और गैरकानूनी काम न करें। लिखित समझौते के बिना सेवा की नकल या resale न करें। सेवा या उपयोगकर्ताओं को खतरे में डालने वाली गतिविधि सीमित की जा सकती है। |
+| `terms.sections.service.title` | Operating the service | सेवा का परिचालन |
+| `terms.sections.service.body` | We may improve, add, or remove product functions as the service develops. We aim to preserve records and give reasonable notice before a material reduction. Features that depend on plant hardware, collectors, printers, or internet access also depend on your own setup and maintenance. | सेवा के विकास के साथ हम सुविधाएं सुधार, जोड़ या हटा सकते हैं। रिकॉर्ड बचाने और बड़े बदलाव से पहले उचित सूचना देने का लक्ष्य रखते हैं। प्लांट hardware, collector, printer या internet पर निर्भर सुविधाओं के लिए आपके setup और रखरखाव भी ज़रूरी हैं। |
+| `terms.sections.commercial.title` | Plans and payment | प्लान और भुगतान |
+| `terms.sections.commercial.body` | Any price, billing period, included capacity, and payment schedule must be stated in an order or separate written agreement. Access requests do not create a paid subscription. Taxes and third-party charges are handled as stated in the applicable commercial agreement. | कीमत, billing अवधि, शामिल capacity और भुगतान की समयसीमा order या अलग लिखित समझौते में बताई जाएगी। एक्सेस अनुरोध से paid subscription नहीं बनता। Taxes और तीसरे पक्ष के शुल्क लागू व्यावसायिक समझौते के अनुसार होंगे। |
+| `terms.sections.thirdParties.title` | Third-party services | तीसरे पक्ष की सेवाएं |
+| `terms.sections.thirdParties.body` | orrn relies on providers for hosting, storage, email, and related functions. Your plant may also connect its own equipment or services. We are not responsible for a third party's independent terms or failures, but we will work with you to diagnose issues within the service we control. | orrn होस्टिंग, storage, ईमेल और संबंधित कामों के लिए प्रदाताओं पर निर्भर है। प्लांट अपने उपकरण या सेवाएं भी जोड़ सकता है। तीसरे पक्ष की स्वतंत्र शर्तों या खराबी की ज़िम्मेदारी हमारी नहीं है, लेकिन अपने नियंत्रण वाली सेवा की समस्या ठीक करने में सहयोग करेंगे। |
+| `terms.sections.availability.title` | Availability and termination | उपलब्धता और समाप्ति |
+| `terms.sections.availability.body` | The service is provided without a promise of uninterrupted availability. Planned maintenance, provider faults, and network failures can affect access. You may stop using orrn, and we may suspend access for breach or risk. Provisions about records and payment survive termination. | बिना रुकावट उपलब्धता का वादा नहीं किया जाता। Maintenance, प्रदाता की खराबी और network समस्या से उपयोग प्रभावित हो सकता है। आप orrn उपयोग बंद कर सकते हैं। उल्लंघन या जोखिम पर हम एक्सेस स्थगित कर सकते हैं। रिकॉर्ड और भुगतान की शर्तें समाप्ति के बाद भी लागू रहेंगी। |
 
 ### refusal (166)
 
