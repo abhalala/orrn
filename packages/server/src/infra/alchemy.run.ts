@@ -242,6 +242,10 @@ export const server = await Worker("server", {
     BETTER_AUTH_URL: betterAuthUrl,
     ORRN_MASTER_KEY: process.env.ORRN_MASTER_KEY ?? devMasterKey,
     RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
+    // Purelymail SMTP (system@orrn.in) is the primary outward sender when its
+    // password is configured (production GitHub environment); Resend remains
+    // the fallback for stages without it. See packages/auth/src/smtp.ts.
+    PURELYMAIL_SMTP_PASSWORD: process.env.PURELYMAIL_SMTP_PASSWORD ?? "",
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     COOKIE_DOMAIN: cookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",

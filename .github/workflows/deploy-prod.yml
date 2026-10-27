@@ -30,6 +30,7 @@ jobs:
       CLOUDFLARE_ZONE_ID_IN: ${{ secrets.CLOUDFLARE_ZONE_ID_IN }}
       ORRN_MASTER_KEY: ${{ secrets.ORRN_MASTER_KEY }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      PURELYMAIL_SMTP_PASSWORD: ${{ secrets.PURELYMAIL_SMTP_PASSWORD }}
       WEBHOOK_BASE_URL: ${{ vars.WEBHOOK_BASE_URL }}
       API_DOMAIN: api.orrn.in
       VITE_SERVER_URL: https://api.orrn.in
