@@ -90,6 +90,7 @@
         "@orrn/crypto": "workspace:*",
         "@orrn/db": "workspace:*",
         "@orrn/domain": "workspace:*",
+        "@orrn/edge-runtime": "workspace:*",
         "@orrn/env": "workspace:*",
         "@orrn/server": "workspace:*",
         "@trpc/server": "catalog:",
@@ -100,8 +101,8 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@cloudflare/workers-types": "catalog:",
         "@orrn/config": "workspace:*",
+        "@types/bun": "^1.3.13",
         "@types/node": "^22.13.14",
         "alchemy": "catalog:",
         "tsdown": "^0.21.9",

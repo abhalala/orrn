@@ -45,7 +45,7 @@ async function rewrite<T>(page: Page, procedure: string, edit: (data: T) => void
 type QueuePayload = {
   rows: Record<string, unknown>[];
   total: number;
-  counts: { queued: number; sent: number; success: number; failed: number };
+  counts: { queued: number; accepted: number; sent: number; success: number; failed: number; outcome_unknown: number; cancelled: number };
 };
 
 const FAILED_JOB = {
@@ -64,7 +64,7 @@ const withFailedJob = (page: Page) =>
   rewrite<QueuePayload>(page, "spool.queue", (q) => {
     q.rows = [FAILED_JOB];
     q.total = 1;
-    q.counts = { queued: 0, sent: 0, success: 3, failed: 1 };
+    q.counts = { queued: 0, accepted: 0, sent: 0, success: 3, failed: 1, outcome_unknown: 0, cancelled: 0 };
   });
 
 async function blockingAxeViolations(page: Page) {

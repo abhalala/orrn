@@ -14,6 +14,8 @@ export * from "./reasonCodes";
 export * from "./settings";
 export * from "./distribution";
 export * from "./labelContract";
+export * from "./label-document";
+export * from "./builtin-labels";
 export * from "./planView";
 export * from "./dispatchVehicle";
 export * from "./ageing";

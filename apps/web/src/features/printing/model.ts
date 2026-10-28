@@ -9,7 +9,7 @@ import type { StatusTone } from "@orrn/domain";
 export const PRINT_TABS = ["queue", "printers", "labels"] as const;
 export type PrintTab = (typeof PRINT_TABS)[number];
 
-export const PRINT_STATUSES = ["queued", "sent", "success", "failed"] as const;
+export const PRINT_STATUSES = ["queued", "accepted", "sent", "success", "failed", "outcome_unknown", "cancelled"] as const;
 export type PrintStatus = (typeof PRINT_STATUSES)[number];
 
 export const PRINT_PAGE_SIZE = 25;
@@ -34,15 +34,19 @@ export function printJobTone(status: PrintStatus): StatusTone {
     case "sent":
       return "blue";
     case "queued":
+    case "accepted":
       return "amber";
     case "failed":
+    case "outcome_unknown":
       return "red";
+    case "cancelled":
+      return "neutral";
   }
 }
 
-/** Only a failed job is sent again; the server resets it to waiting. */
+/** A retry is a new linked attempt, including after an ambiguous or cancelled attempt. */
 export function canRetry(status: PrintStatus): boolean {
-  return status === "failed";
+  return status === "failed" || status === "outcome_unknown" || status === "sent" || status === "cancelled";
 }
 
 export type NodeStatus = "pending" | "active" | "offline" | "revoked";
@@ -62,9 +66,14 @@ export function nodeTone(status: NodeStatus): StatusTone {
 
 export type QueueCounts = Record<PrintStatus, number>;
 
-/** What needs a person: failed jobs, and jobs still waiting to leave orrn. */
-export function queueSummary(counts: QueueCounts): { failed: number; waiting: number; clear: boolean } {
-  return { failed: counts.failed, waiting: counts.queued, clear: counts.failed === 0 && counts.queued === 0 };
+/** What needs a person: failed or ambiguous jobs, and jobs still waiting to leave orrn. */
+export function queueSummary(counts: QueueCounts): { failed: number; waiting: number; unknown: number; clear: boolean } {
+  return {
+    failed: counts.failed,
+    waiting: counts.queued,
+    unknown: counts.outcome_unknown,
+    clear: counts.failed === 0 && counts.queued === 0 && counts.outcome_unknown === 0,
+  };
 }
 
 /** A typed bundle number, trimmed. Empty means nothing to open. */

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7199 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -6816,7 +6816,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (289)
+### audit (290)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7070,6 +7070,7 @@ Please check, Lalubhai:
 | `actions.press_run__undo_start` | Press run start undone | प्रेस रन की शुरुआत वापस ली |
 | `actions.press_run__urgent` | Press run urgency changed | प्रेस रन की जल्दी बदली |
 | `actions.press_run__void` | Press run voided | प्रेस रन void किया |
+| `actions.printer__device_action` | Printer administrator action | प्रिंटर व्यवस्थापक क्रिया |
 | `actions.purchase_lot__cancel` | Scrap lot cancelled | स्क्रैप लॉट रद्द किया |
 | `actions.purchase_lot__create` | Scrap lot received | स्क्रैप लॉट आया |
 | `actions.purchase_lot__ok` | Scrap lot marked OK | स्क्रैप लॉट OK किया |

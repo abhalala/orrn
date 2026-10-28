@@ -137,6 +137,7 @@ import { Route as PlatformAdminSpoolIndexRouteImport } from './routes/_platform/
 import { Route as PlatformAdminCompaniesIndexRouteImport } from './routes/_platform/admin.companies.index'
 import { Route as TenantStoreItemsIdRouteImport } from './routes/_tenant/store.items.$id'
 import { Route as TenantStockCountIdRouteImport } from './routes/_tenant/stock.count.$id'
+import { Route as TenantPrintingTemplatesTemplateIdRouteImport } from './routes/_tenant/printing.templates.$templateId'
 import { Route as TenantPreviewPressSummaryRouteImport } from './routes/_tenant/preview.press.summary'
 import { Route as TenantPreviewPressReportRouteImport } from './routes/_tenant/preview.press.report'
 import { Route as TenantPreviewPressConsoleRouteImport } from './routes/_tenant/preview.press.console'
@@ -815,6 +816,12 @@ const TenantStockCountIdRoute = TenantStockCountIdRouteImport.update({
   path: '/stock/count/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantPrintingTemplatesTemplateIdRoute =
+  TenantPrintingTemplatesTemplateIdRouteImport.update({
+    id: '/templates/$templateId',
+    path: '/templates/$templateId',
+    getParentRoute: () => TenantPrintingRoute,
+  } as any)
 const TenantPreviewPressSummaryRoute =
   TenantPreviewPressSummaryRouteImport.update({
     id: '/preview/press/summary',
@@ -1024,7 +1031,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
-  '/printing': typeof TenantPrintingRoute
+  '/printing': typeof TenantPrintingRouteWithChildren
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
@@ -1141,6 +1148,7 @@ export interface FileRoutesByFullPath {
   '/preview/press/console': typeof TenantPreviewPressConsoleRoute
   '/preview/press/report': typeof TenantPreviewPressReportRoute
   '/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/printing/templates/$templateId': typeof TenantPrintingTemplatesTemplateIdRoute
   '/stock/count/$id': typeof TenantStockCountIdRoute
   '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
@@ -1183,7 +1191,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
   '/dashboard': typeof TenantDashboardRoute
-  '/printing': typeof TenantPrintingRoute
+  '/printing': typeof TenantPrintingRouteWithChildren
   '/settings': typeof TenantSettingsRouteWithChildren
   '/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
@@ -1300,6 +1308,7 @@ export interface FileRoutesByTo {
   '/preview/press/console': typeof TenantPreviewPressConsoleRoute
   '/preview/press/report': typeof TenantPreviewPressReportRoute
   '/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/printing/templates/$templateId': typeof TenantPrintingTemplatesTemplateIdRoute
   '/stock/count/$id': typeof TenantStockCountIdRoute
   '/store/items/$id': typeof TenantStoreItemsIdRoute
   '/admin/companies': typeof PlatformAdminCompaniesIndexRoute
@@ -1347,7 +1356,7 @@ export interface FileRoutesById {
   '/_tenant/approvals': typeof TenantApprovalsRoute
   '/_tenant/audit': typeof TenantAuditRoute
   '/_tenant/dashboard': typeof TenantDashboardRoute
-  '/_tenant/printing': typeof TenantPrintingRoute
+  '/_tenant/printing': typeof TenantPrintingRouteWithChildren
   '/_tenant/settings': typeof TenantSettingsRouteWithChildren
   '/_tenant/today': typeof TenantTodayRoute
   '/b/$serial': typeof BSerialRoute
@@ -1465,6 +1474,7 @@ export interface FileRoutesById {
   '/_tenant/preview/press/console': typeof TenantPreviewPressConsoleRoute
   '/_tenant/preview/press/report': typeof TenantPreviewPressReportRoute
   '/_tenant/preview/press/summary': typeof TenantPreviewPressSummaryRoute
+  '/_tenant/printing/templates/$templateId': typeof TenantPrintingTemplatesTemplateIdRoute
   '/_tenant/stock/count/$id': typeof TenantStockCountIdRoute
   '/_tenant/store/items/$id': typeof TenantStoreItemsIdRoute
   '/_platform/admin/companies/': typeof PlatformAdminCompaniesIndexRoute
@@ -1626,6 +1636,7 @@ export interface FileRouteTypes {
     | '/preview/press/console'
     | '/preview/press/report'
     | '/preview/press/summary'
+    | '/printing/templates/$templateId'
     | '/stock/count/$id'
     | '/store/items/$id'
     | '/admin/companies/'
@@ -1785,6 +1796,7 @@ export interface FileRouteTypes {
     | '/preview/press/console'
     | '/preview/press/report'
     | '/preview/press/summary'
+    | '/printing/templates/$templateId'
     | '/stock/count/$id'
     | '/store/items/$id'
     | '/admin/companies'
@@ -1949,6 +1961,7 @@ export interface FileRouteTypes {
     | '/_tenant/preview/press/console'
     | '/_tenant/preview/press/report'
     | '/_tenant/preview/press/summary'
+    | '/_tenant/printing/templates/$templateId'
     | '/_tenant/stock/count/$id'
     | '/_tenant/store/items/$id'
     | '/_platform/admin/companies/'
@@ -2882,6 +2895,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantStockCountIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/printing/templates/$templateId': {
+      id: '/_tenant/printing/templates/$templateId'
+      path: '/templates/$templateId'
+      fullPath: '/printing/templates/$templateId'
+      preLoaderRoute: typeof TenantPrintingTemplatesTemplateIdRouteImport
+      parentRoute: typeof TenantPrintingRoute
+    }
     '/_tenant/preview/press/summary': {
       id: '/_tenant/preview/press/summary'
       path: '/preview/press/summary'
@@ -3227,6 +3247,19 @@ const PublicRouteChildren: PublicRouteChildren = {
 const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
 
+interface TenantPrintingRouteChildren {
+  TenantPrintingTemplatesTemplateIdRoute: typeof TenantPrintingTemplatesTemplateIdRoute
+}
+
+const TenantPrintingRouteChildren: TenantPrintingRouteChildren = {
+  TenantPrintingTemplatesTemplateIdRoute:
+    TenantPrintingTemplatesTemplateIdRoute,
+}
+
+const TenantPrintingRouteWithChildren = TenantPrintingRoute._addFileChildren(
+  TenantPrintingRouteChildren,
+)
+
 interface TenantSettingsRouteChildren {
   TenantSettingsMembersRoute: typeof TenantSettingsMembersRoute
 }
@@ -3243,7 +3276,7 @@ interface TenantRouteChildren {
   TenantApprovalsRoute: typeof TenantApprovalsRoute
   TenantAuditRoute: typeof TenantAuditRoute
   TenantDashboardRoute: typeof TenantDashboardRoute
-  TenantPrintingRoute: typeof TenantPrintingRoute
+  TenantPrintingRoute: typeof TenantPrintingRouteWithChildren
   TenantSettingsRoute: typeof TenantSettingsRouteWithChildren
   TenantTodayRoute: typeof TenantTodayRoute
   TenantAgeingHistoryRoute: typeof TenantAgeingHistoryRoute
@@ -3366,7 +3399,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantApprovalsRoute: TenantApprovalsRoute,
   TenantAuditRoute: TenantAuditRoute,
   TenantDashboardRoute: TenantDashboardRoute,
-  TenantPrintingRoute: TenantPrintingRoute,
+  TenantPrintingRoute: TenantPrintingRouteWithChildren,
   TenantSettingsRoute: TenantSettingsRouteWithChildren,
   TenantTodayRoute: TenantTodayRoute,
   TenantAgeingHistoryRoute: TenantAgeingHistoryRoute,

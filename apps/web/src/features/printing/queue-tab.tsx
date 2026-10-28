@@ -96,7 +96,17 @@ export function QueueTab({
     {
       key: "status",
       header: t("printing.queue.status"),
-      cell: (job) => <Chip tone={printJobTone(job.status)}>{t(`status.printJob.${job.status}`)}</Chip>,
+      cell: (job) => (
+        <Chip tone={printJobTone(job.status)}>
+          {job.status === "accepted"
+            ? "Accepted"
+            : job.status === "outcome_unknown"
+              ? "Outcome unknown"
+              : job.status === "cancelled"
+                ? "Cancelled"
+                : t(`status.printJob.${job.status}`)}
+        </Chip>
+      ),
     },
     {
       key: "when",
@@ -107,7 +117,7 @@ export function QueueTab({
       key: "error",
       header: t("printing.queue.error"),
       cell: (job) =>
-        job.status === "failed" ? (
+        job.status === "failed" || job.status === "outcome_unknown" || job.status === "cancelled" ? (
           <span className="flex min-w-0 flex-col gap-0.5 break-words">
             <span>{job.responseText?.trim() || t("printing.queueExtra.noReason")}</span>
             {job.attempt > 1 ? (
@@ -158,6 +168,7 @@ export function QueueTab({
           {summary.clear
             ? t("printing.queueExtra.summaryClear")
             : t("printing.queueExtra.summary", { failed: summary.failed, waiting: summary.waiting })}
+          {summary.unknown > 0 ? ` Outcome unknown: ${summary.unknown}.` : null}
         </p>
       ) : null}
 
@@ -187,7 +198,15 @@ export function QueueTab({
               ) : tone ? (
                 <span aria-hidden="true" className={cn("size-2 shrink-0 rounded-full", DOT[tone])} />
               ) : null}
-              {opt ? t(`status.printJob.${opt}`) : t("printing.queueExtra.all")}
+              {opt === "accepted"
+                ? "Accepted"
+                : opt === "outcome_unknown"
+                  ? "Outcome unknown"
+                  : opt === "cancelled"
+                    ? "Cancelled"
+                    : opt
+                      ? t(`status.printJob.${opt}`)
+                      : t("printing.queueExtra.all")}
               {n !== null ? <span className="font-mono tabular-nums">{n.toLocaleString("en-IN")}</span> : null}
             </button>
           );

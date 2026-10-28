@@ -2,6 +2,28 @@
 
 Open work only, updated during the 2026-10-26 FP continuation. History is in git and `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; per-ID implementation status is in `docs/superpowers/specs/`, and current checks/release evidence are in `.fp-build/LEDGER.md` and `.fp-build/FINAL_REPORT.md`. PK-06 and PF-18 remain explicitly Deferred. Every item carries its original backlog rank where available; `BACKLOG.md` is historical, not the live open list. Remove an item only after its consumer-visible behavior is verified.
 
+## Top priority — Infinity Portal (owner decision, 2026-10-27)
+
+The owner has ranked this above every item in the Build backlog below. Full design, feature list
+(F1–F11), chat history and handoff for the next agent:
+`docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md` (companion:
+`docs/superpowers/specs/2026-10-14-orrn-agent-tools-design.md`).
+
+What: a Universal Ingest Portal (`/ingest`; the owner calls it the Infinity Portal) that accepts
+any file (XLSX/CSV/PDF/images/SQL/JSON) plus a free-text prompt, stores every file forever as a
+compressed AI-indexed artifact (R2 raw + canonical digest, SHA-256 dedup), **auto-detects which
+period in history each file's output belongs to**, **auto-merges the same real-world entities
+across files**, stages validated rows (`ready/ambiguous/refused`) for human review, and commits
+them idempotently through the existing domain mutations with full provenance
+(`audit_log.sourceArtifactId` → source file + row). It turns a plant's missing past (FCMS
+exports, baki workbooks, paper registers, Tally/WhatsApp sheets) into meaningful ERP data.
+
+**Wave 1 (first build):** R2 `ingest_artifact` vault + dedup + AI digest + prompt-driven
+XLSX/CSV staging UI for Masters & aliases, Die room history, pre-cutover bundles +
+`legacy_bundle_map`, and the open order book (baki). The AI never writes live tables directly;
+a person approves every batch. Model names/prices cited in the spec's chat history must be
+re-verified before wiring the hybrid router.
+
 ## State
 
 - Production promotion: Deploy Production requires an encrypted export and local-D1 migration rehearsal before Alchemy, followed by read-only preservation checks. The 2026-10-26 promotion (this merge, through migration 0042) was authorized by the owner; the live result is recorded by the latest production workflow run and in `.fp-build/LEDGER.md`.
@@ -55,6 +77,7 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 
 | Item | Detail | Rank |
 |---|---|---|
+| **Infinity Portal Wave 1** | Top priority — see the "Top priority" section above. Build the `ingest_artifact` vault + AI digest + XLSX/CSV staging for masters, dies, bundles, baki; spec `docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md`. | owner 2026-10-27 |
 | Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
 | Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |

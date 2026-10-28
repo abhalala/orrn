@@ -1,4 +1,9 @@
-import { defaultEdgeCapabilities, type EdgeCapability, edgeNodeStatuses } from "@orrn/edge-runtime";
+import {
+  defaultEdgeCapabilities,
+  type EdgeCapability,
+  type EdgeDesiredPrinter,
+  edgeNodeStatuses,
+} from "@orrn/edge-runtime";
 import { relations, sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
@@ -62,6 +67,18 @@ export const edgeNodeDeployment = sqliteTable(
     fingerprint: text("fingerprint"),
     enrollmentTokenHash: text("enrollment_token_hash"),
     enrollmentIssuedAt: integer("enrollment_issued_at", { mode: "timestamp_ms" }),
+    enrollmentExpiresAt: integer("enrollment_expires_at", { mode: "timestamp_ms" }),
+    enrollmentUsedAt: integer("enrollment_used_at", { mode: "timestamp_ms" }),
+    installId: text("install_id"),
+    credentialVersion: integer("credential_version").notNull().default(1),
+    pendingCredentialVersion: integer("pending_credential_version"),
+    pendingSecretHash: text("pending_secret_hash"),
+    pendingSecretWrapped: text("pending_secret_wrapped"),
+    configVersion: integer("config_version").notNull().default(1),
+    appliedConfigVersion: integer("applied_config_version").notNull().default(0),
+    reportedPrinters: text("reported_printers", { mode: "json" }).$type<Array<Record<string, unknown>>>(),
+    /** Desired printers for this node; every change bumps `configVersion`. */
+    desiredPrinters: text("desired_printers", { mode: "json" }).$type<EdgeDesiredPrinter[]>(),
     /** Latest known runtime version, updated on heartbeat. */
     runtimeVersion: text("spool_version"),
     /** Last successful heartbeat from the node runtime. */
@@ -116,3 +133,99 @@ export const spoolDeploymentStatuses = edgeNodeStatuses;
 export type SpoolDeploymentStatus = EdgeNodeStatus;
 export const spoolDeployment = edgeNodeDeployment;
 export const spoolDeploymentRelations = edgeNodeDeploymentRelations;
+
+export const edgeCommand = sqliteTable(
+  "edge_command",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    deploymentId: text("deployment_id")
+      .notNull()
+      .references(() => edgeNodeDeployment.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    jobKey: text("job_key"),
+    payloadHash: text("payload_hash"),
+    printLogId: text("print_log_id"),
+    state: text("state").notNull().default("queued"),
+    leaseId: text("lease_id"),
+    leaseExpiresAt: integer("lease_expires_at", { mode: "timestamp_ms" }),
+    deliveryCount: integer("delivery_count").notNull().default(0),
+    resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+    resolutionJson: text("resolution_json"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(nowMs)
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("edge_command_deployment_state_idx").on(table.deploymentId, table.state, table.createdAt),
+    index("edge_command_company_job_key_idx").on(table.companyId, table.jobKey),
+  ],
+);
+
+export const edgeEventReceipt = sqliteTable(
+  "edge_event_receipt",
+  {
+    eventId: text("event_id").notNull(),
+    deploymentId: text("deployment_id")
+      .notNull()
+      .references(() => edgeNodeDeployment.id, { onDelete: "cascade" }),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    responseJson: text("response_json").notNull(),
+    receivedAt: integer("received_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    uniqueIndex("edge_event_receipt_deployment_event_unique").on(table.deploymentId, table.eventId),
+  ],
+);
+
+export const edgeSnapshot = sqliteTable(
+  "edge_snapshot",
+  {
+    id: text("id").primaryKey(),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    section: text("section").notNull(),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    contentSha256: text("content_sha256").notNull(),
+    recordCount: integer("record_count").notNull().default(0),
+    chunkCount: integer("chunk_count").notNull().default(1),
+    complete: integer("complete", { mode: "boolean" }).notNull().default(false),
+    generatedAt: integer("generated_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    index("edge_snapshot_company_section_idx").on(table.companyId, table.section, table.generatedAt),
+  ],
+);
+
+export const edgeSnapshotChunk = sqliteTable(
+  "edge_snapshot_chunk",
+  {
+    id: text("id").primaryKey(),
+    snapshotId: text("snapshot_id")
+      .notNull()
+      .references(() => edgeSnapshot.id, { onDelete: "cascade" }),
+    companyId: text("company_id")
+      .notNull()
+      .references(() => company.id, { onDelete: "cascade" }),
+    section: text("section").notNull(),
+    sequence: integer("sequence").notNull(),
+    sha256: text("sha256").notNull(),
+    recordCount: integer("record_count").notNull().default(0),
+    byteLength: integer("byte_length").notNull().default(0),
+    payloadJson: text("payload_json").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (table) => [
+    uniqueIndex("edge_snapshot_chunk_snapshot_seq_unique").on(table.snapshotId, table.sequence),
+    index("edge_snapshot_chunk_company_section_idx").on(table.companyId, table.section),
+  ],
+);

@@ -5,7 +5,7 @@
  * 1. Webhook callbacks from spool instances (job status updates)
  * 2. Activation heartbeats from spool instances
  * 3. Update check requests from spool instances
- * 4. Signed download URLs for spool deliverables (GitHub binary + trailer patching)
+ * 4. Signed legacy spool downloads and immutable ORRN Edge release redirects
  */
 
 import { and, eq } from "drizzle-orm";
@@ -25,6 +25,7 @@ import {
   type ResolvedSpoolRelease,
 } from "@orrn/server/lib/spool-release";
 import { handleNodeHeartbeat } from "@orrn/server/lib/edge-heartbeat";
+import { resolveEdgeReleaseArtifact } from "@orrn/server/lib/edge-release";
 import { patchBinaryWithConfig, getDeliverableFilename, type Platform, type PackageConfig } from "@orrn/server/lib/spool-packager";
 
 const spoolRoutes = new Hono();
@@ -235,6 +236,10 @@ spoolRoutes.get("/api/spool/deployments/:id/download/:platform", async (c: HonoC
   if (!deployment || deployment.status === "revoked") {
     return c.json({ error: "Deployment not found or revoked" }, 404);
   }
+  if (deployment.installId !== null || deployment.enrollmentIssuedAt !== null) {
+    return c.json({ error: "ORRN Edge releases are immutable; use the Edge node download path." }, 400);
+  }
+
 
   let release: ResolvedSpoolRelease;
   let binaryData: Uint8Array;
@@ -312,7 +317,47 @@ spoolRoutes.get("/api/edge/update-check", async (c: HonoContext) => {
 
 spoolRoutes.get("/api/edge/nodes/:id/download/:platform", async (c: HonoContext) => {
   const { id, platform } = c.req.param();
-  return forwardAlias(c, `/api/spool/deployments/${id}/download/${platform}`);
+  const token = c.req.query("token");
+  if (!token || !id || !platform) {
+    return c.json({ error: "Missing required parameters" }, 400);
+  }
+  if (platform !== "linux-amd64" && platform !== "linux-arm64" && platform !== "windows-amd64") {
+    return c.json({ error: "Invalid ORRN Edge platform" }, 400);
+  }
+  if (!(await verifyDownloadToken(id, platform, token, env.ORRN_MASTER_KEY))) {
+    return c.json({ error: "Invalid or expired download token" }, 403);
+  }
+
+  const deployment = await createDb().select().from(spoolDeployment).where(eq(spoolDeployment.id, id)).get();
+  if (
+    !deployment ||
+    deployment.status === "revoked" ||
+    (deployment.installId === null && deployment.enrollmentIssuedAt === null)
+  ) {
+    return c.json({ error: "Edge deployment not found or revoked" }, 404);
+  }
+  const version = c.req.query("version") ?? deployment.runtimeVersion;
+  if (!version) {
+    return c.json({ error: "An explicit ORRN Edge release version is required" }, 400);
+  }
+
+  try {
+    const release = await resolveEdgeReleaseArtifact(version, platform);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: release.artifact.url,
+        "Cache-Control": "no-store",
+        "X-Edge-Release-Version": release.version,
+        "X-Edge-Artifact-Sha256": release.artifact.sha256,
+      },
+    });
+  } catch (error) {
+    return c.json(
+      { error: error instanceof Error ? error.message : "Failed to resolve ORRN Edge release" },
+      502,
+    );
+  }
 });
 
 export { spoolRoutes };

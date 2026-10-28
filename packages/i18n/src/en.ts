@@ -6387,6 +6387,7 @@ export const en = {
       press_run__undo_start: "Press run start undone",
       press_run__urgent: "Press run urgency changed",
       press_run__void: "Press run voided",
+      printer__device_action: "Printer administrator action",
       purchase_lot__cancel: "Scrap lot cancelled",
       purchase_lot__create: "Scrap lot received",
       purchase_lot__ok: "Scrap lot marked OK",

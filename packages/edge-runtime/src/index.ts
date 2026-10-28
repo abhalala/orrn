@@ -120,3 +120,284 @@ export function buildLocalEdgePaths(rootDir: string, nodeSlug: string): LocalEdg
 export function isOfflineCapableOperation(op: EdgeMutationOperation): boolean {
   return edgeMutationOperationKeys.includes(op);
 }
+
+export const releaseSemverSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, "Release version must be explicit semver (never dev)");
+
+export const edgeCommandKinds = ["print_job", "test_print", "cancel_job", "device_action"] as const;
+export type EdgeCommandKind = (typeof edgeCommandKinds)[number];
+
+export const edgeDeviceActionPayloadSchema = z.object({
+  printerId: z.string().min(1).max(64),
+  requestedBy: z.string().nullable().optional(),
+  action: z.enum(["calibrate", "set_cutter", "set_rtc", "download_font"]),
+  enabled: z.boolean().optional(),
+  rtc: z.string().datetime().optional(),
+  fontBase64: z.string().max(1_500_000).optional(),
+}).superRefine((payload, ctx) => {
+  if (payload.action === "set_cutter" && payload.enabled === undefined) ctx.addIssue({ code: "custom", message: "enabled is required" });
+  if (payload.action === "set_rtc" && !payload.rtc) ctx.addIssue({ code: "custom", message: "rtc is required" });
+  if (payload.action === "download_font" && !payload.fontBase64) ctx.addIssue({ code: "custom", message: "fontBase64 is required" });
+});
+export type EdgeDeviceActionPayload = z.infer<typeof edgeDeviceActionPayloadSchema>;
+
+export const edgeCommandStates = ["queued", "leased", "accepted", "rejected"] as const;
+export type EdgeCommandState = (typeof edgeCommandStates)[number];
+
+export const edgeJobStates = [
+  "accepted",
+  "device_open",
+  "transmitting",
+  "sent",
+  "failed_retryable",
+  "failed_final",
+  "outcome_unknown",
+  "cancelled",
+] as const;
+export type EdgeJobState = (typeof edgeJobStates)[number];
+
+export const edgeEnrollRequestSchema = z.object({
+  enrollmentToken: z.string().trim().min(24).max(256),
+  agentVersion: releaseSemverSchema,
+  os: z.enum(["windows", "linux"]),
+  arch: z.enum(["amd64", "arm64"]),
+  installId: z.string().uuid(),
+});
+export type EdgeEnrollRequest = z.infer<typeof edgeEnrollRequestSchema>;
+
+export const edgeEnrollResponseSchema = z.object({
+  protocolVersion: z.literal(1),
+  deploymentId: z.string().uuid(),
+  instanceId: z.string().uuid(),
+  nodeName: z.string(),
+  siteLabel: z.string(),
+  apiOrigin: z.string().url(),
+  nodeSecret: z.string().min(32),
+  credentialVersion: z.number().int().positive(),
+  configVersion: z.number().int().positive(),
+});
+export type EdgeEnrollResponse = z.infer<typeof edgeEnrollResponseSchema>;
+
+/** One printer in a node's desired config; the agent prints raw TSPL to host:port. */
+export const edgeDesiredPrinterSchema = z.object({
+  printerId: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(128),
+  host: z.string().trim().min(1).max(253),
+  port: z.number().int().min(1).max(65535).default(9100),
+  paused: z.boolean().default(false),
+  labelWidthMm: z.number().positive().max(300).optional(),
+  labelHeightMm: z.number().positive().max(300).optional(),
+  gapMm: z.number().min(0).max(50).optional(),
+  dpi: z.union([z.literal(203), z.literal(300), z.literal(600)]).optional(),
+  mediaType: z.enum(["gap", "black_mark", "continuous"]).optional(),
+  speedInSec: z.number().int().min(1).max(12).optional(),
+  density: z.number().int().min(0).max(15).optional(),
+  cutterEnabled: z.boolean().optional(),
+});
+export type EdgeDesiredPrinter = z.infer<typeof edgeDesiredPrinterSchema>;
+
+export const edgeDesiredPrintersSchema = z
+  .array(edgeDesiredPrinterSchema)
+  .max(32)
+  .refine((list) => new Set(list.map((p) => p.printerId)).size === list.length, "printerId must be unique");
+
+export const edgePrinterCapabilitiesSchema = z.object({
+  model: z.string().max(64).optional(),
+  macAddress: z.string().regex(/^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/).optional(),
+  host: z.string().min(1).max(253),
+  port: z.number().int().min(1).max(65535),
+  features: z.array(z.string().min(1).max(64)).max(64),
+  mediaType: z.string().max(32).optional(),
+  mediaWidthMm: z.number().positive().max(300).optional(),
+  mediaHeightMm: z.number().positive().max(300).optional(),
+  gapMm: z.number().min(0).max(50).optional(),
+  dpi: z.number().int().positive().max(1200).optional(),
+  speedInSec: z.number().int().positive().max(20).optional(),
+  density: z.number().int().min(0).max(30).optional(),
+  cutter: z.boolean().optional(),
+  verifiedAt: z.string().datetime(),
+});
+export type EdgePrinterCapabilities = z.infer<typeof edgePrinterCapabilitiesSchema>;
+
+export const edgePollPrinterReportSchema = z.object({
+  printerId: z.string().min(1).max(64),
+  name: z.string().min(1).max(128),
+  ipAddress: z.string().min(1).max(128),
+  port: z.number().int().min(1).max(65535),
+  status: z.enum(["online", "offline", "error", "paused", "unknown"]),
+  canPrint: z.boolean(),
+  lastSeenAt: z.string().datetime().nullable(),
+  lastError: z.string().max(512).nullable(),
+  capabilities: edgePrinterCapabilitiesSchema.optional(),
+});
+export type EdgePollPrinterReport = z.infer<typeof edgePollPrinterReportSchema>;
+
+export const edgePollRequestSchema = z.object({
+  limit: z.number().int().min(1).max(10).default(10),
+  appliedConfigVersion: z.number().int().min(0).default(0),
+  activeCredentialVersion: z.number().int().min(1).default(1),
+  printers: z.array(edgePollPrinterReportSchema).max(32).optional(),
+});
+export type EdgePollRequest = z.infer<typeof edgePollRequestSchema>;
+
+export const edgeLeasedCommandSchema = z.object({
+  commandId: z.string().uuid(),
+  leaseId: z.string().uuid(),
+  leaseExpiresAt: z.string().datetime(),
+  kind: z.enum(edgeCommandKinds),
+  jobKey: z.string().nullable(),
+  payloadHash: z.string().nullable(),
+  deliveryCount: z.number().int().positive(),
+  payload: z.record(z.string(), z.unknown()),
+});
+export type EdgeLeasedCommand = z.infer<typeof edgeLeasedCommandSchema>;
+
+export const edgePollResponseSchema = z.object({
+  protocolVersion: z.literal(1),
+  configVersion: z.number().int().positive(),
+  pendingCredentialVersion: z.number().int().positive().nullable(),
+  commands: z.array(edgeLeasedCommandSchema),
+});
+export type EdgePollResponse = z.infer<typeof edgePollResponseSchema>;
+
+export const edgeCommandResolutions = [
+  "accepted",
+  "already_accepted",
+  "cancelled",
+  "already_cancelled",
+  "job_key_conflict",
+  "job_not_found",
+  "transmission_started",
+  "job_not_cancellable",
+  "invalid_payload",
+] as const;
+export type EdgeCommandResolution = (typeof edgeCommandResolutions)[number];
+
+export const edgeCommandAckRequestSchema = z.object({
+  commandId: z.string().uuid(),
+  leaseId: z.string().uuid(),
+  outcome: z.enum(["accepted", "rejected"]),
+  resolution: z.enum(edgeCommandResolutions),
+  agentJobId: z.string().min(1).max(64).nullable(),
+  detail: z.string().max(512).nullable().default(null),
+});
+export type EdgeCommandAckRequest = z.infer<typeof edgeCommandAckRequestSchema>;
+
+export const edgeConfirmCredentialRequestSchema = z.object({
+  credentialVersion: z.number().int().positive(),
+});
+export type EdgeConfirmCredentialRequest = z.infer<typeof edgeConfirmCredentialRequestSchema>;
+
+export const edgeEventKinds = [
+  "job_state_changed",
+  "command_resolved",
+  "config_applied",
+  "offline_reprint",
+  "test_print_result",
+  "printer_endpoint_verified",
+  "device_action_result",
+] as const;
+export type EdgeEventKind = (typeof edgeEventKinds)[number];
+
+export const edgePrinterEndpointVerifiedPayloadSchema = z.object({
+  printerId: z.string().min(1).max(64),
+  host: z.string().min(1).max(253),
+  port: z.number().int().min(1).max(65535),
+  macAddress: z.string().regex(/^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/),
+  model: z.enum(["TA220", "TE200"]),
+  verifiedAt: z.string().datetime(),
+});
+
+export const edgeEventItemSchema = z.object({
+  eventId: z.string().uuid(),
+  aggregateId: z.string().min(1).max(128),
+  sequence: z.number().int().positive(),
+  kind: z.enum(edgeEventKinds),
+  occurredAt: z.string().datetime(),
+  payload: z.record(z.string(), z.unknown()),
+});
+export type EdgeEventItem = z.infer<typeof edgeEventItemSchema>;
+
+export const edgeEventsBatchRequestSchema = z.object({
+  events: z.array(edgeEventItemSchema).min(1).max(50),
+});
+export type EdgeEventsBatchRequest = z.infer<typeof edgeEventsBatchRequestSchema>;
+
+export const edgeConfigResponseSchema = z.object({
+  protocolVersion: z.literal(1),
+  configSchemaVersion: z.literal(1),
+  deploymentId: z.string().uuid(),
+  instanceId: z.string().uuid(),
+  nodeName: z.string(),
+  siteLabel: z.string(),
+  configVersion: z.number().int().positive(),
+  credentialVersion: z.number().int().positive(),
+  pendingCredentialVersion: z.number().int().positive().optional(),
+  pendingSecret: z.string().min(32).optional(),
+  printers: z.array(z.record(z.string(), z.unknown())),
+  profiles: z.array(z.record(z.string(), z.unknown())),
+  templates: z.array(z.record(z.string(), z.unknown())),
+});
+export type EdgeConfigResponse = z.infer<typeof edgeConfigResponseSchema>;
+
+export const edgeSnapshotSections = [
+  "stock",
+  "orders",
+  "dies",
+  "print_status",
+  "company_format",
+] as const;
+export type EdgeSnapshotSection = (typeof edgeSnapshotSections)[number];
+
+export const edgeSnapshotChunkDescriptorSchema = z.object({
+  sequence: z.number().int().nonnegative(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  recordCount: z.number().int().nonnegative(),
+  byteLength: z.number().int().nonnegative(),
+});
+export type EdgeSnapshotChunkDescriptor = z.infer<typeof edgeSnapshotChunkDescriptorSchema>;
+
+export const edgeSnapshotSectionDescriptorSchema = z.object({
+  section: z.enum(edgeSnapshotSections),
+  snapshotId: z.string().min(1),
+  generatedAt: z.string().datetime(),
+  contentSha256: z.string().regex(/^[0-9a-f]{64}$/),
+  recordCount: z.number().int().nonnegative(),
+  chunkCount: z.number().int().positive(),
+  complete: z.boolean(),
+  chunks: z.array(edgeSnapshotChunkDescriptorSchema),
+});
+export type EdgeSnapshotSectionDescriptor = z.infer<typeof edgeSnapshotSectionDescriptorSchema>;
+
+export const edgeSnapshotManifestSchema = z.object({
+  protocolVersion: z.literal(1),
+  cacheSchemaVersion: z.literal(1),
+  companyId: z.string().min(1),
+  minAgentVersion: releaseSemverSchema,
+  generatedAt: z.string().datetime(),
+  sections: z.array(edgeSnapshotSectionDescriptorSchema),
+});
+export type EdgeSnapshotManifest = z.infer<typeof edgeSnapshotManifestSchema>;
+
+export const edgeSnapshotRecordItemSchema = z.object({
+  entityId: z.string().min(1),
+  sortKey: z.string(),
+  dto: z.record(z.string(), z.unknown()),
+});
+export type EdgeSnapshotRecordItem = z.infer<typeof edgeSnapshotRecordItemSchema>;
+
+export const edgeSnapshotChunkPayloadSchema = z.object({
+  protocolVersion: z.literal(1),
+  cacheSchemaVersion: z.literal(1),
+  companyId: z.string().min(1),
+  section: z.enum(edgeSnapshotSections),
+  snapshotId: z.string().min(1),
+  sequence: z.number().int().nonnegative(),
+  recordCount: z.number().int().nonnegative(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  records: z.array(edgeSnapshotRecordItemSchema),
+  summaries: z.array(z.record(z.string(), z.unknown())),
+});
+export type EdgeSnapshotChunkPayload = z.infer<typeof edgeSnapshotChunkPayloadSchema>;
