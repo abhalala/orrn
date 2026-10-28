@@ -34,6 +34,8 @@ import {
   CopyPlus,
   Eye,
   Grid3x3,
+  ImageIcon,
+  ImagePlus,
   Keyboard,
   Minus,
   MoreHorizontal,
@@ -48,7 +50,7 @@ import {
   Type,
   Undo2,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
@@ -57,6 +59,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { LabelPreview } from "./label-artwork";
 import { LabelCanvas, RULER_PX, STAGE_PAD_PX } from "./label-canvas";
 import { ElementInspector, PageInspector } from "./label-inspector";
+import { useTracingPhoto } from "./label-photo-store";
 import { useLabelSample } from "./use-label-sample";
 import { FIELD_CATALOG, VARIABLE_LABELS, elementBounds, elementName, elementShape, previewIssues, resolveContent, type LabelValues } from "./label-metrics";
 import {
@@ -81,6 +84,9 @@ import {
   type Alignment,
   type LabelEditorState,
 } from "./label-studio-model";
+
+// Its own chunk: the photo crop and straightening load only when someone adds a tracing photo.
+const TracingPhotoDialog = lazy(() => import("./label-tracing-photo-dialog"));
 
 const builtins: Array<{ name: string; note: string; document: LabelDocument }> = [
   { name: "Operations dense", note: "Every field, aligned columns", document: operationsDense },
@@ -151,6 +157,10 @@ export function LabelStudio({ templateId }: { templateId: string }) {
   const [preview, setPreview] = useState(false);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [tab, setTab] = useState<PanelTab>("properties");
+  const tracing = useTracingPhoto(templateId);
+  const [underlay, setUnderlay] = useState(true);
+  const [underlayOpacity, setUnderlayOpacity] = useState(0.5);
+  const [tracingOpen, setTracingOpen] = useState(false);
   const viewport = useElementWidth<HTMLDivElement>();
 
   useEffect(() => {
@@ -306,6 +316,9 @@ export function LabelStudio({ templateId }: { templateId: string }) {
                 <DropdownMenuItem disabled={clone.isPending} onSelect={() => clone.mutate({ templateId, name: `${query.data.name} copy` })}>
                   <CopyPlus aria-hidden="true" className="size-4" /> Clone template
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setTracingOpen(true)}>
+                  <ImagePlus aria-hidden="true" className="size-4" /> {tracing.photo ? "Replace tracing photo" : "Add tracing photo"}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Start from a built-in</DropdownMenuLabel>
                 {builtins.map((builtin) => (
@@ -331,7 +344,7 @@ export function LabelStudio({ templateId }: { templateId: string }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-9 gap-1 px-2.5">
-                  <Plus aria-hidden="true" /> Add <ChevronDown aria-hidden="true" className="size-3.5 opacity-60" />
+                  <Plus aria-hidden="true" /> <span className="max-2xl:sr-only">Add</span> <ChevronDown aria-hidden="true" className="size-3.5 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-60">
@@ -374,7 +387,7 @@ export function LabelStudio({ templateId }: { templateId: string }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-9 gap-1 px-2.5" disabled={selectedIds.length === 0}>
-                  <AlignStartVertical aria-hidden="true" /> Align <ChevronDown aria-hidden="true" className="size-3.5 opacity-60" />
+                  <AlignStartVertical aria-hidden="true" /> <span className="max-2xl:sr-only">Align</span> <ChevronDown aria-hidden="true" className="size-3.5 opacity-60" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -399,6 +412,7 @@ export function LabelStudio({ templateId }: { templateId: string }) {
             <Tool label="Duplicate" icon={<CopyPlus />} onClick={() => apply(duplicateElements(state, selectedIds))} disabled={selectedIds.length === 0} />
             <Tool label="Delete" icon={<Trash2 />} onClick={() => apply(deleteElements(state, selectedIds))} disabled={selectedIds.length === 0} />
             <div className="ml-auto flex items-center gap-1">
+              {tracing.photo ? <Tool label="Photo underlay" icon={<ImageIcon />} pressed={underlay} onClick={() => setUnderlay(!underlay)} /> : null}
               <Tool label="Snap to 0.5 mm grid" icon={<Grid3x3 />} pressed={snap} onClick={() => setSnap(!snap)} />
               <Tool label="Print preview" icon={<Eye />} pressed={preview} onClick={() => setPreview(!preview)} />
               <ShortcutsMenu />
@@ -427,6 +441,7 @@ export function LabelStudio({ templateId }: { templateId: string }) {
                 onCursor={setCursor}
                 onMove={(ids, dx, dy) => apply(moveElements(state, ids, dx, dy))}
                 onResize={(id, update) => apply(updateElement(state, id, (element) => ({ ...element, ...update })))}
+                underlay={tracing.photo && underlay ? { href: tracing.photo, opacity: underlayOpacity } : null}
               />
             )}
           </div>
@@ -485,6 +500,20 @@ export function LabelStudio({ templateId }: { templateId: string }) {
                     {selectedIds.length > 1 ? `${selectedIds.length} elements selected. Use Align to line them up.` : "Select an element on the label to edit it. These are the label stock settings."}
                   </p>
                   <PageInspector page={document.page} onChange={(update) => apply(updatePage(state, update))} />
+                  {tracing.photo ? (
+                    <TracingPhotoPanel
+                      shown={underlay}
+                      opacity={underlayOpacity}
+                      onShownChange={setUnderlay}
+                      onOpacityChange={setUnderlayOpacity}
+                      onRemove={() =>
+                        void tracing
+                          .remove()
+                          .then(() => toast.success("Tracing photo removed"))
+                          .catch(() => toast.error("Couldn't remove the tracing photo"))
+                      }
+                    />
+                  ) : null}
                 </div>
               )
             ) : null}
@@ -514,6 +543,25 @@ export function LabelStudio({ templateId }: { templateId: string }) {
           </Tabs>
         </aside>
       </div>
+      {tracingOpen ? (
+        <Suspense fallback={null}>
+          <TracingPhotoDialog
+            open={tracingOpen}
+            onOpenChange={setTracingOpen}
+            page={document.page}
+            onSave={async (dataUrl) => {
+              try {
+                await tracing.save(dataUrl);
+              } catch {
+                toast.error("Couldn't keep the photo in this browser");
+                return;
+              }
+              setUnderlay(true);
+              toast.success("Tracing photo added");
+            }}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
@@ -530,6 +578,62 @@ const SHORTCUTS: Array<[string, string]> = [
   ["Move without guides", "Hold Alt"],
   ["Clear selection", "Esc"],
 ];
+
+function TracingPhotoPanel({
+  shown,
+  opacity,
+  onShownChange,
+  onOpacityChange,
+  onRemove,
+}: {
+  shown: boolean;
+  opacity: number;
+  onShownChange: (shown: boolean) => void;
+  onOpacityChange: (opacity: number) => void;
+  onRemove: () => void;
+}) {
+  const percent = Math.round(opacity * 100);
+  return (
+    <section aria-labelledby="tracing-photo-title" className="flex flex-col gap-3 border-t border-border pt-4">
+      <div className="flex flex-col gap-1">
+        <h3 id="tracing-photo-title" className="m-0 text-[13px] font-semibold text-foreground">
+          Tracing photo
+        </h3>
+        <p className="m-0 text-xs leading-4 text-muted-foreground">Shown under the label while you edit, never printed. Kept in this browser only.</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor="tracing-photo-opacity" className="text-[13px] font-medium text-muted-foreground">
+            Photo opacity
+          </label>
+          <span aria-hidden="true" className="font-mono text-[13px] tabular-nums text-foreground">
+            {percent}%
+          </span>
+        </div>
+        <input
+          id="tracing-photo-opacity"
+          type="range"
+          min={10}
+          max={100}
+          step={5}
+          value={percent}
+          aria-valuetext={`${percent}%`}
+          disabled={!shown}
+          onChange={(event) => onOpacityChange(Number(event.target.value) / 100)}
+          className="h-11 w-full cursor-pointer accent-foreground disabled:cursor-not-allowed disabled:opacity-50 sm:h-9"
+        />
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={() => onShownChange(!shown)}>
+          {shown ? "Hide photo" : "Show photo"}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onRemove}>
+          Remove photo
+        </Button>
+      </div>
+    </section>
+  );
+}
 
 function ShortcutsMenu() {
   return (

@@ -1,29 +1,43 @@
+import type { BarcodeFormat } from "barcode-detector/ponyfill";
+
 /** QR on the bundle label, Code 128 on older labels and supplier tags. */
 export const SCAN_FORMATS = ["qr_code", "code_128"] as const;
 
-export type Detector = { detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]> };
+export type DetectedBarcode = {
+  rawValue: string;
+  format: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+};
+
+export type Detector = { detect(source: HTMLVideoElement | HTMLCanvasElement): Promise<DetectedBarcode[]> };
 
 type NativeDetectorClass = {
   new (options: { formats: string[] }): Detector;
   getSupportedFormats?: () => Promise<string[]>;
 };
 
-let pending: Promise<Detector> | null = null;
+const pending = new Map<string, Promise<Detector>>();
 
 /**
- * The barcode reader for the camera: the browser's own `BarcodeDetector`
- * when it reads QR (Chrome on Android, macOS), else the `barcode-detector`
- * ponyfill (ZXing in WebAssembly; iPhone and iPad Safari). The ponyfill and
- * its ~1 MB wasm load only on that path, and the wasm is served from this
- * app rather than the library's default CDN, so a plant on a shaky or
- * filtered connection still scans. One instance is shared.
+ * The barcode reader: the browser's own `BarcodeDetector` when it reads QR
+ * (Chrome on Android, macOS), else the `barcode-detector` ponyfill (ZXing in
+ * WebAssembly; iPhone and iPad Safari). The ponyfill and its ~1 MB wasm load
+ * only on that path, and the wasm is served from this app rather than the
+ * library's default CDN, so a plant on a shaky or filtered connection still
+ * scans. The camera reads `SCAN_FORMATS`; importing a label from a photo
+ * asks for every printable code. One instance per format list is shared.
  */
-export function loadDetector(): Promise<Detector> {
-  pending ??= create().catch((error: unknown) => {
-    pending = null;
-    throw error;
-  });
-  return pending;
+export function loadDetector(formats: readonly string[] = SCAN_FORMATS): Promise<Detector> {
+  const key = formats.join(",");
+  let loading = pending.get(key);
+  if (!loading) {
+    loading = create(formats).catch((error: unknown) => {
+      pending.delete(key);
+      throw error;
+    });
+    pending.set(key, loading);
+  }
+  return loading;
 }
 
 /** Dev-only test seam: `window.__orrnDetector = "fail-load" | "fail-detect"` forces a broken reader. */
@@ -35,14 +49,14 @@ function forcedFailure(): Detector | null {
   return null;
 }
 
-async function create(): Promise<Detector> {
+async function create(wanted: readonly string[]): Promise<Detector> {
   const forced = forcedFailure();
   if (forced) return forced;
   const Native = (globalThis as { BarcodeDetector?: NativeDetectorClass }).BarcodeDetector;
   if (Native) {
     try {
       const supported = (await Native.getSupportedFormats?.()) ?? [];
-      const formats = SCAN_FORMATS.filter((f) => supported.includes(f));
+      const formats = wanted.filter((f) => supported.includes(f));
       if (formats.includes("qr_code")) return new Native({ formats });
     } catch {
       // Fall through to the ponyfill.
@@ -61,5 +75,7 @@ async function create(): Promise<Detector> {
     },
     fireImmediately: true,
   });
-  return new BarcodeDetector({ formats: [...SCAN_FORMATS] });
+  // Callers pass ZXing's own format names (SCAN_FORMATS, the photo import's PHOTO_CODE_FORMATS).
+  const formats = [...wanted] as BarcodeFormat[];
+  return new BarcodeDetector({ formats });
 }

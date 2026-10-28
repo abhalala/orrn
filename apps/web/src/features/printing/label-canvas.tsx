@@ -146,6 +146,7 @@ export function LabelCanvas({
   onMove,
   onResize,
   onCursor,
+  underlay,
 }: {
   document: LabelDocument;
   values: LabelValues;
@@ -159,6 +160,8 @@ export function LabelCanvas({
   onMove: (ids: string[], dxMm: number, dyMm: number) => void;
   onResize: (id: string, update: ResizeUpdate) => void;
   onCursor?: (point: Point | null) => void;
+  /** A photo drawn on the label under the elements while editing (never printed). */
+  underlay?: { href: string; opacity: number } | null;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   // Focus that follows a pointer press must not reselect (it would undo a Shift-click).
@@ -328,6 +331,18 @@ export function LabelCanvas({
             style={{ filter: "drop-shadow(0 0.3px 0.4px rgb(12 12 14 / 0.12)) drop-shadow(0 1.6px 3px rgb(12 12 14 / 0.08))" }}
             onPointerDown={startMarquee}
           />
+          {underlay ? (
+            <image
+              data-testid="tracing-photo"
+              href={underlay.href}
+              width={widthMm}
+              height={heightMm}
+              preserveAspectRatio="none"
+              opacity={underlay.opacity}
+              clipPath="url(#studio-label-clip)"
+              pointerEvents="none"
+            />
+          ) : null}
           {snap ? <rect width={widthMm} height={heightMm} fill="url(#studio-grid-major)" clipPath="url(#studio-label-clip)" pointerEvents="none" /> : null}
 
           {placed.map(({ element, shape: baseShape }) => {

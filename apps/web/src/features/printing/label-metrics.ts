@@ -21,6 +21,17 @@ export const dots = (mm: number) => Math.round((mm * DPI) / 25.4);
 export const mmFromDots = (value: number) => (value * 25.4) / DPI;
 export const round2 = (value: number) => Math.round(value * 100) / 100;
 
+/** Common TA220 roll sizes; the first is the plant's current bundle label. */
+export const STOCK_SIZES = [
+  { label: "102.25 × 76.2 mm (4 × 3 in)", widthMm: 102.25, heightMm: 76.2 },
+  { label: "100 × 75 mm", widthMm: 100, heightMm: 75 },
+  { label: "100 × 50 mm", widthMm: 100, heightMm: 50 },
+  { label: "101.6 × 152.4 mm (4 × 6 in)", widthMm: 101.6, heightMm: 152.4 },
+  { label: "76.2 × 50.8 mm (3 × 2 in)", widthMm: 76.2, heightMm: 50.8 },
+  { label: "50 × 25 mm", widthMm: 50, heightMm: 25 },
+  { label: "38 × 25 mm", widthMm: 38, heightMm: 25 },
+] as const;
+
 /** Same rounding as the agent's `fontScale`. */
 export function fontScale(sizeMm: number | undefined): number {
   return Math.max(1, Math.floor((sizeMm ?? 3) / 3 + 0.5));
@@ -77,7 +88,7 @@ export function resolveContent(element: LabelElement, values: LabelValues): stri
 
 export type QrMatrix = { size: number; dark: (row: number, column: number) => boolean };
 
-function qrMatrix(content: string, level: LabelElement["level"]): QrMatrix | null {
+export function qrMatrix(content: string, level: LabelElement["level"]): QrMatrix | null {
   if (!content) return null;
   try {
     const { modules } = QRCode.create(content, { errorCorrectionLevel: level ?? "M" });
@@ -101,7 +112,7 @@ const ENCODERS: Record<string, string> = {
 };
 
 /** Bar pattern ("1" = bar module), or null when the symbology cannot encode the value. */
-function barPattern(symbology: string | undefined, content: string): string | null {
+export function barPattern(symbology: string | undefined, content: string): string | null {
   const encoder = barcodes[ENCODERS[symbology ?? ""] ?? ""];
   if (!encoder || !content) return null;
   try {
