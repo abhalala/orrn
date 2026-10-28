@@ -57,5 +57,9 @@ sleep. The desktop table guard still requires every column to fit within its fra
 not merely 90% of a cell. Approval tests wait for their own pending request to disappear: the always-visible
 "Approved" tab is not evidence that the decision has finished. Keep the original assertions when making these waits.
 
+Navigation waits must distinguish the final page from its nested editor: a cast-detail URL pattern ends at the
+cast id, rather than also matching `/casts/:id/melt/:meltId`. Picker assertions identify the test's own orders;
+the pack order picker also contains the independent Plant stock choice, which is not a sales-order row.
+
 Retain the first failure and its artifacts when diagnosing load. A later pass alone is not proof that the first
 failure was environmental; inspect the fixture ownership and the failed behavior before changing product code.

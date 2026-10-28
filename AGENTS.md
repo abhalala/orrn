@@ -1407,6 +1407,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 
 ## Orchestration notes
 
+- Production deploys first capture a Time Travel bookmark and encrypted D1 export, upload only the encrypted artifact, and rehearse pending migrations against that export in local D1 (`packages/server/scripts/production-safety.ts`). Never skip these workflow steps or publish plaintext production data. A failure stops before Alchemy; after deployment the workflow verifies migration history, protected document counts and foreign keys.
 - Keep root `TODO.md` updated when changing milestone scope or status (open work only, with its backlog rank).
 - Keep this file updated when durable conventions or project constraints change.
 - Do not add an audit pruning Worker cron unless explicitly requested.

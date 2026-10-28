@@ -25,6 +25,8 @@ import {
   meltLockGates,
   meltBalance,
   normalizeSpectroValues,
+  parseBundleNo,
+  parseCastCode,
   PPM_TOTAL,
   reasonNoteMissing,
   SPECTRO_ELEMENTS,
@@ -175,6 +177,7 @@ const optText = (max: number) =>
 /**
  * FINAL-FIXES-4 (FP-FD-02): the code an old cast carried on paper, free text of letters, digits, space and
  * `- / . _` (a hand-written book has `K31/b`, `OLD 17`). Stored upper case with single spaces, unique per plant.
+ * Generated cast and bundle numbers stay reserved, including numbers a future series may allocate.
  */
 const LEGACY_CODE = /^[A-Z0-9][A-Z0-9 ./_-]{0,19}$/;
 const normalLegacy = (s: string) => s.trim().replace(/\s+/g, " ").toUpperCase();
@@ -733,6 +736,9 @@ const castsRouter = router({
         .refine((v) => v.alloy !== undefined || v.alloyId !== undefined, { message: "Pick the alloy" }),
     )
     .mutation(async ({ ctx, input: raw }) => {
+      if (raw.legacyCode && (parseCastCode(raw.legacyCode) !== null || parseBundleNo(raw.legacyCode) !== null)) {
+        bad("A legacy code cannot be a cast series code or bundle number");
+      }
       // The alloy master row: picked by id, or found by the code (a plant with no master keeps the code only).
       let alloyId: string | null = null;
       let alloyCode: string;

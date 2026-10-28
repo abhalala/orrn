@@ -37,16 +37,7 @@ async function open(page: Page, path: string, opts: { width: number; role?: Loca
   await page.emulateMedia({ colorScheme: opts.scheme ?? "light", reducedMotion: "reduce" });
   await signInViaApi(page, opts.role ?? "owner");
   await page.goto(path);
-  // A cold first load on a busy machine can take a while; the page itself is what is tested.
-  const heading = page.locator("main#main h1").first();
-  try {
-    await expect(heading).toBeVisible({ timeout: 15_000 });
-  } catch {
-    // The first dev-server load of a route can stall past 15 s when other gates share the machine (a blank
-    // page, no h1): ask once more before calling it a failure. A page that really is broken fails here too.
-    await page.reload();
-    await expect(heading).toBeVisible({ timeout: 30_000 });
-  }
+  await expect(page.locator("main#main h1").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function trpcQuery<T>(page: Page, path: string, input: unknown): Promise<T> {

@@ -11,7 +11,7 @@ import { agedBreakdown } from "./order-aged-model";
 /**
  * Under an order line's balance strip (FP-AG-15): where the line's pieces are on the ageing side, from
  * `ageing.forOrder` (the server counts them): loaded onto trolleys, in the oven, out and not tested, held,
- * released and waiting to be packed, packed. Shows nothing for a line that never went to a trolley, and
+ * released and waiting to be packed, packed, and still on trolleys. Shows nothing for a line that never went to a trolley, and
  * nothing for a person who may not read ageing figures. One request serves every line of the order.
  */
 export function OrderLineAged({ salesOrderId, lineId }: { salesOrderId: string; lineId: string }) {
@@ -35,7 +35,7 @@ function Breakdown({ salesOrderId, lineId }: { salesOrderId: string; lineId: str
         {parts.map((p) => (
           <li key={p.key} data-aged-part={p.key}>
             <Chip tone={p.tone} truncate={false}>
-              {t(`ageing.forOrder.${p.key}`)} {t("ageing.forOrder.pcs", { pcs: p.pcs })}
+              {t(p.key === "remaining" ? "ageing.field.remaining" : `ageing.forOrder.${p.key}`)} {t("ageing.forOrder.pcs", { pcs: p.pcs })}
             </Chip>
           </li>
         ))}

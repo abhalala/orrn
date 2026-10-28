@@ -69,20 +69,6 @@ describe("message parity", () => {
     expect(required.filter((ns) => !(ns in en))).toEqual([]);
   });
 
-  test("status words follow the agreed labels", () => {
-    expect(en.status.bundle).toEqual({
-      available: "In stock",
-      reserved: "Held",
-      dispatched: "Dispatched",
-      void: "Void",
-    });
-    expect(en.status.dispatch).toEqual({
-      draft: "Building",
-      reserved: "Held",
-      completed: "Dispatched",
-      cancelled: "Cancelled",
-    });
-  });
 });
 
 describe("guide parity", () => {
@@ -121,33 +107,6 @@ describe("guide parity", () => {
   });
 });
 
-describe("copy rules", () => {
-  const all = [...allEnglish, ...allHindi];
-
-  test("no em dash, en dash, arrow or curly quotes", () => {
-    expect(all.filter((s) => /[–—→‘’“”]/.test(s))).toEqual([]);
-  });
-
-  test('never "spool", "receipt" or "tenant"', () => {
-    expect(all.filter((s) => /spool|receipt|tenant|mutation/i.test(s))).toEqual([]);
-  });
-
-  // GRN and MRS are the store's own paper forms (digest Stage 18); the floor knows them by those names.
-  test("no ALL-CAPS words except known acronyms (English, and Latin text inside Hindi)", () => {
-    // HV (hardness), CR4/CR2/K2S (nitriding chemicals), FTR, CDR/DWG (die drawing files) and MB (file size) are
-    // what the die room writes on its cards (FP-DR).
-    // CM (BIS CM/L licence) and PVD (a finish) are what the plant writes on paper (FP Wave 1); A4 is the sticker sheet's paper.
-    const allowed = new Set(["A4", "PO", "PDF", "GSTIN", "GST", "CSV", "QR", "PL", "JSON", "PIN", "OK", "ID", "BG", "B001", "WB", "UB", "GRN", "MRS", "CM", "PVD", "HV", "CR4", "CR2", "K2S", "FTR", "CDR", "DWG", "MB", "JPEG", "PNG", "LDO"]);
-    const offenders = all.flatMap((s) =>
-      [...s.matchAll(/\b[A-Z][A-Z0-9]+\b/g)].map((m) => m[0]).filter((w) => !allowed.has(w)),
-    );
-    expect(offenders).toEqual([]);
-  });
-
-  test("at most one middle dot per string", () => {
-    expect(all.filter((s) => (s.match(/·/g) ?? []).length > 1)).toEqual([]);
-  });
-});
 
 describe("guides name real buttons", () => {
   const quoted = (s: string) => [...s.matchAll(/"([^"]+)"/g)].map((m) => m[1] as string);

@@ -1,17 +1,37 @@
 # ORRN TODO
 
-Integration update (2026-10-25): completed FP, final documentation, optional R2, replay/foundry fixes, email provider, homepage and deterministic fixtures are consolidated for main through `wt/FP` 032d657b, with integration type, translation and report-fit fixes. Existing regression coverage is retained. Uncommitted work and subsequent test-removal changes remain separate; production promotion is not included.
+Open work only, updated during the 2026-10-26 FP continuation. History is in git and `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; per-ID implementation status is in `docs/superpowers/specs/`, and current checks/release evidence are in `.fp-build/LEDGER.md` and `.fp-build/FINAL_REPORT.md`. PK-06 and PF-18 remain explicitly Deferred. Every item carries its original backlog rank where available; `BACKLOG.md` is historical, not the live open list. Remove an item only after its consumer-visible behavior is verified.
 
-Open work only, at `wt/FP` fbe18910 (2026-10-25, end of the FP build). History (milestones M0 to M9, the plant waves W0 to W4, the foundry and ageing lanes) is in git and in `docs/superpowers/plans/2026-10-24-orrn-fp-integration.md`; what is built, row by row, is the status column of each FP spec in `docs/superpowers/specs/` (FD-02, FD-11, FD-19 and AG-15 are built by FINAL-FIXES-4; PK-06 and PF-18 remain deferred). Every item carries its backlog rank (`BL n`, from `.fp-build/BACKLOG.md`; where a rank repeats the band is named: `base` 1-29, `re-pass` 30-48, `arch` 50-57, `pl-flow` 61-70, `audit` the later 28-56 rows; ranks from 57 up to 114 are unique). The status column of `BACKLOG.md` was never kept in step; this file is the open list. FP ids (FP-XX-nn) are the rows of the specs. Keep it in step with the work: move an item out when it is done, add one when a decision creates work.
+## Top priority — Infinity Portal (owner decision, 2026-10-27)
+
+The owner has ranked this above every item in the Build backlog below. Full design, feature list
+(F1–F11), chat history and handoff for the next agent:
+`docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md` (companion:
+`docs/superpowers/specs/2026-10-14-orrn-agent-tools-design.md`).
+
+What: a Universal Ingest Portal (`/ingest`; the owner calls it the Infinity Portal) that accepts
+any file (XLSX/CSV/PDF/images/SQL/JSON) plus a free-text prompt, stores every file forever as a
+compressed AI-indexed artifact (R2 raw + canonical digest, SHA-256 dedup), **auto-detects which
+period in history each file's output belongs to**, **auto-merges the same real-world entities
+across files**, stages validated rows (`ready/ambiguous/refused`) for human review, and commits
+them idempotently through the existing domain mutations with full provenance
+(`audit_log.sourceArtifactId` → source file + row). It turns a plant's missing past (FCMS
+exports, baki workbooks, paper registers, Tally/WhatsApp sheets) into meaningful ERP data.
+
+**Wave 1 (first build):** R2 `ingest_artifact` vault + dedup + AI digest + prompt-driven
+XLSX/CSV staging UI for Masters & aliases, Die room history, pre-cutover bundles +
+`legacy_bundle_map`, and the open order book (baki). The AI never writes live tables directly;
+a person approves every batch. Model names/prices cited in the spec's chat history must be
+re-verified before wiring the hybrid router.
 
 ## State
 
-- Integration validation: types 11/11; server 3,038; domain 360; i18n 64; web 1,387; native 903; documents 36; UI 107; `/` 188.9 kB gzip of 250. Browser A 451, B 432 plus the isolated masters file 27/27, C 355 (21 existing skips). Earlier foundry/count assertions were fixed; the B sign-in 503 remains visible above.
-
+- Production promotion: Deploy Production requires an encrypted export and local-D1 migration rehearsal before Alchemy, followed by read-only preservation checks. The 2026-10-26 promotion (this merge, through migration 0042) was authorized by the owner; the live result is recorded by the latest production workflow run and in `.fp-build/LEDGER.md`.
+- Integration validation at the pre-merge candidates: types 11/11; server 3,040 (123/123 files at `c8d667d8`); domain 360; documents 36; UI 107; web 1,382; native 891–896; `/` 189.2 kB gzip of 250; browser A 451, B 433, C accounted (see `docs/WORKLOG-2026-10-26.md`). Merged-candidate browser groups were not re-run (owner stop-work); that gap is logged, not hidden.
 - Every plant module is built end to end on the web, with the phone app for the floor roles: die room (with the share link), orders and planning, press (station, queue, report, collectors as simulators), foundry (casts, melts, spectro, count-based close, trace, certificate, yield), ageing (ovens, trolleys, recipes, batches, release, pack from a released line), pack, stock, dispatch from an order, packing list v2, stock count, platform (modules, shifts, thresholds, releases, backups, audit, support, approvals with live facts), customer portal, analytics and reports. 44 guides in en and hi; Gujarati for the floor.
-- Gates at `wt/FP` fbe18910: types 11/11; server 3005/0; domain 358; i18n 64; web 1375/0; native 901 + types + expo android; build `/` 223.5 kB of 250; e2e A 317 (+10 skips), B 431, C 489, 0 failed.
-- FINAL-FIXES-4 removed `features/preview` and repointed `/preview/ageing*` to `/ageing` and `/reports/ageing`; migration 0042 adds the cast legacy code.
-- This integration advances `main` from b276f9cd through migration 0042. Check the latest Deploy Dev run for the live dev state. `prod` remains at c6cb44b3 (migration 0009); production promotion is separate. See `docs/DEPLOY_PROMOTION.md`.
+- Current verification is recorded in the build ledger/final report; historical gate counts are not proof of the current continuation.
+- FINAL-FIXES-4 removes `features/preview` and repoints `/preview/ageing*` to `/ageing` and `/reports/ageing`.
+- The continuation schema head is 0042. Dev can deploy without R2 using the explicit dev-only override; actual deployment state and immutable gated SHA are in the final report. Production requires a separate explicit go. See `docs/DEPLOY_PROMOTION.md`.
 - Three things are not in this file because they are the owner's: the owner-only list is `docs/OWNER_HANDOVER.md`, device bring-up is its own section below (O9), and Gujarati is its own section below (O8).
 
 ## Owner only (no agent can do these)
@@ -20,12 +40,12 @@ The list with pointers, defaults to confirm and the exact commands is `docs/OWNE
 
 | Item | Detail | Rank |
 |---|---|---|
-| R2 and the dev deploy | Enable R2 on the Cloudflare account and give the dev and production tokens "Workers R2 Storage: Edit"; re-run Deploy Dev. Dev serves the old code until then. | - |
+| R2 subscription and storage | For actual drawings/backups, enable approved R2 on the intended account, grant the stage token Workers R2 Storage: Edit and redeploy. Storage-free dev is independently deployable with `ORRN_SKIP_R2=1`; generic authentication errors are not silently ignored. | - |
 | Prod go | Promote `main` to `prod` only on the owner's explicit go: `docs/DEPLOY_PROMOTION.md` sections 1 and 4. | - |
-| Prod email | Resend sends failed in Oct 2026; invite and reset links depend on it. Godseye shows copyable sign-in details meanwhile. | - |
+| Prod email | Verify real delivery. Resend remains deployed; the optional Cloudflare sender is intentionally unbound until entitlement, DNS and supported deployment binding are ready. Copyable invite/sign-in details remain available where designed. | - |
 | Hardware | Scale indicator (Q5), TSC label printer template (Q31), press PLC (Q46), spectrometer (Q47), billet weighing cell, and the ageing oven controller (AG-17: the server route `POST /collector/ageing/readings` and `OVEN_SIMULATOR` exist; there is no orrn-spool oven collector, so the owner supplies controller make, protocol and network path). Simulators stand in for all of them. | base 11, audit 46 |
 | Spool repo | Merge `fp/scale-reader` and `fp/collectors` into orrn-spool `main` (Go 1.24 toolchain), install it on the packing PC. | base 10, audit 45 |
-| Real data | Section CSV, legacy bundles as unassigned (`legacy_bundle_map`), `castSeriesStart` (no screen: API or import only, see FD-02 below), die copies, drawings by file name (Q18), opening balances for the foundry's return streams, accounts for real people (plant admin = Dad, Q32), parallel run with FCMS. | re-pass 39, BL 72 |
+| Real data | Section CSV, legacy bundles as unassigned (`legacy_bundle_map`), cast book continuation in Settings > Standards > Cast numbers, die copies, drawings by file name (Q18), return-stream opening balances, accounts for real people (plant admin = Dad, Q32), parallel run with FCMS. | re-pass 39, BL 72 |
 | Questions | Confirm or change the defaults taken: Q1-Q4, Q6-Q20, Q23, Q25, Q37, Q42-Q45 and the new Q49-Q63 (die share link, ageing, cast close count, write-off, duplicate reasons, "To log", nitriding copies at pack). | - |
 | Pilot and training | Packing bay 1 week, die room desk 1 week, press tablet 2 weeks after a cast exists. | - |
 
@@ -57,7 +77,9 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 
 | Item | Detail | Rank |
 |---|---|---|
+| **Infinity Portal Wave 1** | Top priority — see the "Top priority" section above. Build the `ingest_artifact` vault + AI digest + XLSX/CSV staging for masters, dies, bundles, baki; spec `docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md`. | owner 2026-10-27 |
 | Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
+| Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
 | Late PL entry for line-down hours | `occurredAt` (at most 72 h back, never future) + reason + `late_entry` flag + second-person approval; dispatch timestamp and ledger `posted_at` use it; guide "When the internet is down" in en, hi, gu. Until then a paper PL is entered later at the time of entry (Q30). | arch 52 |
 | Bulk acknowledge | No "acknowledge all ended alerts" on `/press/alerts` (owner tour): add with `press.close` and an audit row. | BL 109 |
@@ -81,7 +103,7 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 | Order timeline | List dispatches and invoices on the order timeline. | BL 104 |
 | One set of stock-age buckets | Today, Stock and the report use the same buckets or say how they differ. | BL 105 |
 | Explorer lows | L2-L18 of the owner walk-through that are still open (language card text, cast switch, held-dispatch rounding, PL columns, chart tooltip and curves, die life wording, ISO dates, approval card title, empty released plan, stock header lines, role nav noise, OK on a beyond-tolerance lot, public link without `?c=`, DSP gaps, date input format check, viewer export). | BL 107 |
-| Test health | One grouped B run returned 503 on local owner sign-in; the 27-test masters file passed alone without retries. Capture the response if it recurs. Die-room flow tests still leave on-trial copies: keep the flows and picker-count specs in separate groups. | BL 73, 64, 110, 114, 66 |
+| Test health | `chain.spec` @1280 press-plan step flaked once (planned 7,493,835 vs 8,000,000 g); `pack.spec:227` weight caret; `w2-fd-s-foundry` 'a REAL tail' uses a UTC day vs the production day; the press report table fits 1280 at 941 of 943 px (`expectTableFitsFrame`, fragile); `die-room-flows` leaves on_trial copies it cannot retire. W4-TESTSWEEP-2 owns the first four; drop each row when its merge lands. | BL 73, 64, 110, 114, 66 |
 | Test gaps | The approvals inbox as its own flow, `/audit` outside `platform.spec`, Maestro on a device. (Maker send / receive and nitriding are covered by `die-room-flows.spec.ts`.) | base 19 |
 | Settings gaps | `orderLeadDays` has no settings screen (set with `company.updateSettings`); `spool.retryJob` must not mark a job queued when the spool call failed (verify). | base 7 |
 | Small verify list | Pack minors from T20 (tile wording with a draft, cut-length print rule, 820 yard tile wrap, override Feet / Inches labels, PackBar toast lift, sign-out clears `orrn.packDraft`) and die-room minors m-6, m-8, m-10: check on the head and delete the row if already done. | base 2, 18 |
@@ -116,3 +138,19 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 - PDF and xlsx exports are generated client-side from server-generated snapshots. Printing goes through per-tenant LAN `orrn-spool`.
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice or e-way bill, Tally export or invoicing in this product line; prices on orders are operational data.
 - Migrations after the head are additive and consecutive; a step that changes existing data is flagged for the promotion (`docs/DEPLOY_PROMOTION.md`).
+
+⚠ 1 unresolved conflict detected
+- ours = HEAD
+- theirs = origin/prod
+NOTICE: Inspect a block by reading `conflict://<N>` (add `/ours` / `/theirs` / `/base` to render a single side). Resolve with `write({ path: "conflict://<N>", content })`, or bulk-resolve every registered conflict with `write({ path: "conflict://*", content })`. Writes replace ONLY the marker block (markers + all sides) — never repeat the lines before/after it; they stay in place.
+`content` shorthand: a line that is exactly `@ours` / `@theirs` / `@base` / `@both` expands to that recorded section. `@both` is ours-then-theirs with no separator — only for additive conflicts where each side adds something different; NEVER for competing edits of the same lines (pick a side or write the combined text). Lines that are not a token pass through verbatim, so `"// keep both\n@ours\n@theirs"` literally writes the comment, then ours, then theirs.
+Per-id bulk: `write({ path: "conflict://*", content: "1: @ours\n2: @theirs\n…" })` resolves each listed id with that side in ONE call — the cheapest way through many pick-one conflicts; unlisted ids stay registered.
+Resolve each block faithfully: keep one side (`@ours`/`@theirs`), or combine them when both intents apply — never invent content beyond the recorded sides, and never stack both sides of competing edits. Resolve several conflicts in a single turn by issuing multiple `write` calls at once; ids stay valid as earlier blocks are resolved.
+
+──── #15  L7-13 ────
+<<< ours
+(empty)
+>>> theirs
+- Production promotion of the accepted dev revision `b432b923` is authorized. Deploy Production now requires an encrypted export and local-D1 migration rehearsal before Alchemy, followed by read-only preservation checks. The current live result is recorded by the latest production workflow run.
+
+- Integration validation: types 11/11; server 3,038; domain 360; i18n 64; web 1,387; native 903; documents 36; UI 107; `/` 188.9 kB gzip of 250. Browser A 451, B 432 plus the isolated masters file 27/27, C 355 (21 existing skips). Earlier foundry/count assertions were fixed; the B sign-in 503 remains visible above.

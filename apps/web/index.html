@@ -28,6 +28,12 @@
           }
           document.documentElement.classList.add(t);
           document.documentElement.style.colorScheme = t;
+          if (/^\/(?:privacy|terms)?$/.test(window.location.pathname)) {
+            document.documentElement.style.backgroundColor = "#0c0c0e";
+            document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
+              meta.setAttribute("content", "#0c0c0e");
+            });
+          }
         } catch (e) {}
       })();
     </script>

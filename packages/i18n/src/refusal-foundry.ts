@@ -60,6 +60,7 @@ export const FOUNDRY_REFUSALS: readonly RefusalEntry[] = [
   { id: "fd_spectroChanged", key: "foundry.refusal.spectroChanged", re: /^The spectro result changed; check it and lock again$/ },
   { id: "fd_billetStoreRetired", key: "foundry.refusal.billetStoreRetired", re: new RegExp(`^The billet store ${S} is retired; reactivate it to post the count, or reject the close$`), vars: (m) => ({ code: m[1]! }) },
   { id: "fd_legacyShape", key: "foundry.refusal.legacyShape", re: /^A legacy code is up to 20 letters, digits, spaces or - \/ \. _$/ },
+  { id: "fd_legacyReserved", key: "foundry.refusal.legacyReserved", re: /^A legacy code cannot be a cast series code or bundle number$/ },
   { id: "fd_legacyTaken", key: "foundry.refusal.legacyTaken", re: new RegExp(`^The legacy code (.+) is already on cast ${S}$`), vars: (m) => ({ code: m[1]!, cast: m[2]! }) },
   { id: "fd_castBookMonthUsed", key: "foundry.refusal.castBookMonthUsed", re: /^That month already has a cast; the book can only be continued before the first cast$/ },
   { id: "fd_oneElement", key: "foundry.refusal.oneElement", re: /^Enter at least one element$/ },

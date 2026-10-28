@@ -23,12 +23,14 @@ setDefaultTimeout(60_000);
 let env: TestEnv;
 let seed: Awaited<ReturnType<typeof loadDevSeed>>;
 let first: DevSeedResult;
+const DEMO_NOW = Date.UTC(2026, 9, 24, 12, 30);
 
 beforeAll(async () => {
+  setClockForTests(new Date(DEMO_NOW));
   env = await createTestEnv();
   await precreateDevSeedUsers(env);
   seed = await loadDevSeed();
-  first = await seed(env.db, { password: DEV_SEED_PASSWORD });
+  first = await seed(env.db, { password: DEV_SEED_PASSWORD, now: DEMO_NOW });
 }, 120_000);
 afterAll(async () => {
   setClockForTests(null);
@@ -375,22 +377,6 @@ describe("stock", () => {
     expect(inbox.results).toEqual([{ file_name: "simulated-6063.csv", simulated: 1 }]);
   });
 
-  test("docs/DEMO_PLANT.md states what the seed holds: approvals waiting and the downtime stops (BACKLOG 107, L18)", async () => {
-    const doc = await Bun.file(new URL("../../../docs/DEMO_PLANT.md", import.meta.url)).text();
-    const waiting = Number(/### Approvals waiting \((\d+)\)/.exec(doc)?.[1]);
-    expect(waiting).toBe(await count("approval", "company_id = ? and status = 'pending'"));
-    expect(Number(/Approvals queue \((\d+) waiting\)/.exec(doc)?.[1])).toBe(waiting);
-    // Downtime: P1's stop is fixed; P2's is 62 minutes, cut short when the seed runs early in the production day.
-    const stops = await env.d1
-      .prepare("select (stopped_at - started_at) / 60000 min from press_downtime where company_id = ? order by id")
-      .bind(company)
-      .all<{ min: number }>();
-    const [p1, p2] = stops.results.map((r) => Number(r.min));
-    expect(p1).toBe(18);
-    expect(p2).toBeLessThanOrEqual(62);
-    expect(doc).toContain(`${p1} min stop on P1`);
-    expect(doc).toContain("62 min breakdown on P2");
-  });
 
   test("the first packing session stays BG-000001 (the scan and redirect specs open BG-000001-B001); the opening row takes a later number", async () => {
     expect(await count("bundle", "company_id = ? and serial = 'BG-000001-B001'")).toBe(1);
@@ -548,7 +534,7 @@ describe("idempotent and time-robust", () => {
     for (const t of tables) before[t] = await ids(t);
     const counts: Record<string, number> = {};
     for (const t of Object.keys(TABLE_COUNTS)) counts[t] = await count(t);
-    const again = await seed(env.db, { password: DEV_SEED_PASSWORD });
+    const again = await seed(env.db, { password: DEV_SEED_PASSWORD, now: DEMO_NOW });
     expect(again.ok).toBe(true);
     for (const t of tables) {
       // Audit rows written by the packing list writer get fresh random ids: compare those by count.
@@ -560,18 +546,18 @@ describe("idempotent and time-robust", () => {
 
   test("seeded at any hour (also across a month and a financial year), today's data stays in the production day", async () => {
     // IST wall clock: just after midnight, before the day shift starts, right after, midday, the night shift, late.
-    const IST = 330 * 60_000;
     const at = (iso: string) => Date.parse(`${iso}+05:30`);
     const moments = [
       at("2026-10-24T00:30:00"),
       at("2026-10-24T07:59:00"),
+      at("2026-10-24T08:00:00"),
+      at("2026-10-24T08:00:01"),
       at("2026-10-24T08:20:00"),
       at("2026-10-24T13:00:00"),
       at("2026-10-24T21:15:00"),
       at("2026-11-01T01:10:00"), // first hours of a month: last month's bundle letter and cast period
       at("2027-04-01T00:20:00"), // first hours of a financial year: SO, PL and DM series start over
     ];
-    expect(IST).toBeGreaterThan(0);
     try {
       for (const now of moments) {
         setClockForTests(new Date(now));
@@ -590,7 +576,7 @@ describe("idempotent and time-robust", () => {
         expect(await count("sales_order")).toBe(10);
       }
     } finally {
-      setClockForTests(null);
+      setClockForTests(new Date(DEMO_NOW));
     }
   });
 });

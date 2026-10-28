@@ -24,8 +24,10 @@ import { Route as TenantDashboardRouteImport } from './routes/_tenant/dashboard'
 import { Route as TenantAuditRouteImport } from './routes/_tenant/audit'
 import { Route as TenantApprovalsRouteImport } from './routes/_tenant/approvals'
 import { Route as PublicWaitlistRouteImport } from './routes/_public/waitlist'
+import { Route as PublicTermsRouteImport } from './routes/_public/terms'
 import { Route as PublicResetPasswordRouteImport } from './routes/_public/reset-password'
 import { Route as PublicRequestAccessRouteImport } from './routes/_public/request-access'
+import { Route as PublicPrivacyRouteImport } from './routes/_public/privacy'
 import { Route as PublicLoginRouteImport } from './routes/_public/login'
 import { Route as PublicForgotPasswordRouteImport } from './routes/_public/forgot-password'
 import { Route as PublicContinueRouteImport } from './routes/_public/continue'
@@ -241,6 +243,11 @@ const PublicWaitlistRoute = PublicWaitlistRouteImport.update({
   path: '/waitlist',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicTermsRoute = PublicTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => PublicRoute,
+} as any)
 const PublicResetPasswordRoute = PublicResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -249,6 +256,11 @@ const PublicResetPasswordRoute = PublicResetPasswordRouteImport.update({
 const PublicRequestAccessRoute = PublicRequestAccessRouteImport.update({
   id: '/request-access',
   path: '/request-access',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicPrivacyRoute = PublicPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => PublicRoute,
 } as any)
 const PublicLoginRoute = PublicLoginRouteImport.update({
@@ -1011,8 +1023,10 @@ export interface FileRoutesByFullPath {
   '/continue': typeof PublicContinueRoute
   '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
+  '/privacy': typeof PublicPrivacyRoute
   '/request-access': typeof PublicRequestAccessRoute
   '/reset-password': typeof PublicResetPasswordRoute
+  '/terms': typeof PublicTermsRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
@@ -1169,8 +1183,10 @@ export interface FileRoutesByTo {
   '/continue': typeof PublicContinueRoute
   '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
+  '/privacy': typeof PublicPrivacyRoute
   '/request-access': typeof PublicRequestAccessRoute
   '/reset-password': typeof PublicResetPasswordRoute
+  '/terms': typeof PublicTermsRoute
   '/waitlist': typeof PublicWaitlistRoute
   '/approvals': typeof TenantApprovalsRoute
   '/audit': typeof TenantAuditRoute
@@ -1332,8 +1348,10 @@ export interface FileRoutesById {
   '/_public/continue': typeof PublicContinueRoute
   '/_public/forgot-password': typeof PublicForgotPasswordRoute
   '/_public/login': typeof PublicLoginRoute
+  '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/request-access': typeof PublicRequestAccessRoute
   '/_public/reset-password': typeof PublicResetPasswordRoute
+  '/_public/terms': typeof PublicTermsRoute
   '/_public/waitlist': typeof PublicWaitlistRoute
   '/_tenant/approvals': typeof TenantApprovalsRoute
   '/_tenant/audit': typeof TenantAuditRoute
@@ -1493,8 +1511,10 @@ export interface FileRouteTypes {
     | '/continue'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/request-access'
     | '/reset-password'
+    | '/terms'
     | '/waitlist'
     | '/approvals'
     | '/audit'
@@ -1651,8 +1671,10 @@ export interface FileRouteTypes {
     | '/continue'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/request-access'
     | '/reset-password'
+    | '/terms'
     | '/waitlist'
     | '/approvals'
     | '/audit'
@@ -1813,8 +1835,10 @@ export interface FileRouteTypes {
     | '/_public/continue'
     | '/_public/forgot-password'
     | '/_public/login'
+    | '/_public/privacy'
     | '/_public/request-access'
     | '/_public/reset-password'
+    | '/_public/terms'
     | '/_public/waitlist'
     | '/_tenant/approvals'
     | '/_tenant/audit'
@@ -2080,6 +2104,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicWaitlistRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/terms': {
+      id: '/_public/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof PublicTermsRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/reset-password': {
       id: '/_public/reset-password'
       path: '/reset-password'
@@ -2092,6 +2123,13 @@ declare module '@tanstack/react-router' {
       path: '/request-access'
       fullPath: '/request-access'
       preLoaderRoute: typeof PublicRequestAccessRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/privacy': {
+      id: '/_public/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PublicPrivacyRouteImport
       parentRoute: typeof PublicRoute
     }
     '/_public/login': {
@@ -3184,8 +3222,10 @@ interface PublicRouteChildren {
   PublicContinueRoute: typeof PublicContinueRoute
   PublicForgotPasswordRoute: typeof PublicForgotPasswordRoute
   PublicLoginRoute: typeof PublicLoginRoute
+  PublicPrivacyRoute: typeof PublicPrivacyRoute
   PublicRequestAccessRoute: typeof PublicRequestAccessRoute
   PublicResetPasswordRoute: typeof PublicResetPasswordRoute
+  PublicTermsRoute: typeof PublicTermsRoute
   PublicWaitlistRoute: typeof PublicWaitlistRoute
   PublicIndexRoute: typeof PublicIndexRoute
   PublicInviteTokenRoute: typeof PublicInviteTokenRoute
@@ -3195,8 +3235,10 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicContinueRoute: PublicContinueRoute,
   PublicForgotPasswordRoute: PublicForgotPasswordRoute,
   PublicLoginRoute: PublicLoginRoute,
+  PublicPrivacyRoute: PublicPrivacyRoute,
   PublicRequestAccessRoute: PublicRequestAccessRoute,
   PublicResetPasswordRoute: PublicResetPasswordRoute,
+  PublicTermsRoute: PublicTermsRoute,
   PublicWaitlistRoute: PublicWaitlistRoute,
   PublicIndexRoute: PublicIndexRoute,
   PublicInviteTokenRoute: PublicInviteTokenRoute,
