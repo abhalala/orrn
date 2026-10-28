@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7367 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7431 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -1790,7 +1790,7 @@ Counts: 7367 screen strings in 49 groups, 44 guides with 840 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (253)
+### printing (317)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2022,6 +2022,70 @@ Counts: 7367 screen strings in 49 groups, 44 guides with 840 strings.
 | `library.starters.shipping.note` | 4 × 6 in with a scannable bundle | 4 × 6 इंच, स्कैन होने वाले bundle के साथ |
 | `library.starters.blank.name` | Blank label | खाली लेबल |
 | `library.starters.blank.note` | Only the bundle number | सिर्फ़ bundle नंबर |
+| `library.photo.modeLibrary` | Design library | डिज़ाइन लाइब्रेरी |
+| `library.photo.modePhoto` | Photo of a label | लेबल की फ़ोटो |
+| `library.photo.defaultName` | Label from photo | फ़ोटो से लेबल |
+| `library.photo.privacy` | The photo stays on this device. Codes and text are read here and nothing is uploaded. | फ़ोटो इसी डिवाइस पर रहती है। कोड और लिखावट यहीं पढ़े जाते हैं, कुछ भी अपलोड नहीं होता। |
+| `library.photo.dropTitle` | Drop a photo or scan of a label | लेबल की फ़ोटो या स्कैन यहाँ छोड़ें |
+| `library.photo.dropHint` | JPEG, PNG or WebP up to 15 MB. Shoot it flat, in even light. | JPEG, PNG या WebP, 15 MB तक। सीधी और बराबर रोशनी में खींचें। |
+| `library.photo.choose` | Choose a photo | फ़ोटो चुनें |
+| `library.photo.takePhoto` | Take a photo | फ़ोटो खींचें |
+| `library.photo.tooLarge` | This photo is larger than 15 MB. Use a smaller one. | यह फ़ोटो 15 MB से बड़ी है। छोटी फ़ोटो लें। |
+| `library.photo.heic` | HEIC photos can't be read in this browser. Set the camera to Most compatible, or share the photo as JPEG. | HEIC फ़ोटो इस ब्राउज़र में नहीं पढ़ी जा सकती। कैमरा में Most compatible चुनें, या फ़ोटो JPEG में भेजें। |
+| `library.photo.unreadable` | This file isn't a photo this browser can read. | यह फ़ाइल ऐसी फ़ोटो नहीं है जिसे यह ब्राउज़र पढ़ सके। |
+| `library.photo.cropTitle` | Line up the corners | कोने मिलाएँ |
+| `library.photo.cropHint` | Drag each corner onto a corner of the label. The thick edge is the top. | हर कोने को लेबल के कोने पर खींचें। मोटी किनारी लेबल का ऊपरी हिस्सा है। |
+| `library.photo.cornerHint` | Arrow keys move the corner, Shift moves it further. | तीर वाली कुंजियों से कोना खिसकता है, Shift के साथ ज़्यादा। |
+| `library.photo.corners.topLeft` | Top left corner | ऊपर बायाँ कोना |
+| `library.photo.corners.topRight` | Top right corner | ऊपर दायाँ कोना |
+| `library.photo.corners.bottomRight` | Bottom right corner | नीचे दायाँ कोना |
+| `library.photo.corners.bottomLeft` | Bottom left corner | नीचे बायाँ कोना |
+| `library.photo.photoAlt` | Your photo with the label corners | लेबल के कोनों के साथ आपकी फ़ोटो |
+| `library.photo.rotateLeft` | Turn left | बाएँ घुमाएँ |
+| `library.photo.rotateRight` | Turn right | दाएँ घुमाएँ |
+| `library.photo.findLabel` | Find the label again | लेबल फिर से ढूँढें |
+| `library.photo.straightened` | Straightened label | सीधा किया गया लेबल |
+| `library.photo.stock` | Label stock | लेबल रोल |
+| `library.photo.custom` | Custom size | अपना साइज़ |
+| `library.photo.width` | Width (mm) | चौड़ाई (mm) |
+| `library.photo.height` | Height (mm) | ऊँचाई (mm) |
+| `library.photo.closest` | Closest stock to this crop: {size} | इस कटाई से सबसे मिलता रोल: {size} |
+| `library.photo.sizeInvalid` | Use a width of 5 to 112 mm and a height of 5 to 500 mm. | चौड़ाई 5 से 112 mm और ऊँचाई 5 से 500 mm रखें। |
+| `library.photo.otherPhoto` | Choose another photo | दूसरी फ़ोटो चुनें |
+| `library.photo.read` | Read the label | लेबल पढ़ें |
+| `library.photo.readingCodes` | Looking for QR codes and barcodes | QR कोड और बारकोड ढूँढ रहे हैं |
+| `library.photo.readingText` | Reading text, {percent}% | लिखावट पढ़ रहे हैं, {percent}% |
+| `library.photo.readFailed` | Couldn't read the label: {message} | लेबल नहीं पढ़ा जा सका: {message} |
+| `library.photo.reviewTitle` | Check what was found | जो मिला उसे जाँचें |
+| `library.photo.photoBoxes` | Your photo with what was found | जो मिला उसके साथ आपकी फ़ोटो |
+| `library.photo.result` | Label made from the photo | फ़ोटो से बना लेबल |
+| `library.photo.noIssues` | Prints cleanly with the sample bundle. | नमूना bundle के साथ साफ़ छपता है। |
+| `library.photo.found` | {count} {count:item\|items} found | {count} {count:चीज़\|चीज़ें} मिलीं |
+| `library.photo.include` | Use {text} | {text} लें |
+| `library.photo.fieldFor` | What {text} prints | {text} में क्या छपेगा |
+| `library.photo.fixed` | Fixed text | तय लिखावट |
+| `library.photo.kinds.qrcode` | QR code | QR कोड |
+| `library.photo.kinds.barcode` | Barcode | बारकोड |
+| `library.photo.kinds.caption` | Caption | शीर्षक |
+| `library.photo.kinds.value` | Field | फ़ील्ड |
+| `library.photo.kinds.text` | Text | लिखावट |
+| `library.photo.nothingFound` | Nothing readable was found. Try a sharper photo in even light, or start from a design. | कुछ पढ़ने लायक नहीं मिला। बराबर रोशनी में साफ़ फ़ोटो लें, या किसी डिज़ाइन से शुरू करें। |
+| `library.photo.nothingIncluded` | Use at least one item. | कम से कम एक चीज़ लें। |
+| `library.photo.backToCorners` | Back to corners | कोनों पर वापस |
+| `library.photo.fields.serialNumber` | Bundle number | Bundle नंबर |
+| `library.photo.fields.qr` | QR address | QR पता |
+| `library.photo.fields.quantity` | Pieces | नग |
+| `library.photo.fields.length` | Cut length | कट लंबाई |
+| `library.photo.fields.poNumber` | PO number | PO नंबर |
+| `library.photo.fields.seriesName` | Series | सिरीज़ |
+| `library.photo.fields.weight` | Total weight | कुल वज़न |
+| `library.photo.fields.weight12ft` | Weight per 12 ft | 12 फ़ुट का वज़न |
+| `library.photo.fields.weight_each` | Weight per cut | हर कट का वज़न |
+| `library.photo.fields.cast` | Cast | कास्ट |
+| `library.photo.fields.salesOrder` | Sales order | सेल्स ऑर्डर |
+| `library.photo.fields.standard` | BIS standard | BIS मानक |
+| `library.photo.fields.cml` | CML number | CML नंबर |
+| `library.photo.fields.partyNo` | Party bundle number | पार्टी bundle नंबर |
 | `scale.title` | Scale | कांटा |
 | `scale.connected` | Sending weights | वज़न आ रहा है |
 | `scale.idle` | No weight coming in | वज़न नहीं आ रहा |

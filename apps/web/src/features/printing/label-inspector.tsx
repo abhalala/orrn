@@ -4,7 +4,7 @@ import { NativeSelect } from "@orrn/ui/components/native-select";
 import { cn } from "@orrn/ui/lib/utils";
 import { useEffect, useId, useState, type ReactNode } from "react";
 
-import { FIELD_CATALOG, VARIABLE_LABELS, dots, elementName, elementShape, mmFromDots, round2, type LabelValues } from "./label-metrics";
+import { FIELD_CATALOG, STOCK_SIZES, VARIABLE_LABELS, dots, elementName, elementShape, mmFromDots, round2, type LabelValues } from "./label-metrics";
 
 function Row({ label, htmlFor, hint, children, className }: { label: string; htmlFor: string; hint?: string; children: ReactNode; className?: string }) {
   return (
@@ -122,17 +122,6 @@ function SourceField({ element, values, onChange }: { element: LabelElement; val
     </>
   );
 }
-
-/** Common TA220 roll sizes; the first is the plant's current bundle label. */
-const STOCK_SIZES = [
-  { label: "102.25 × 76.2 mm (4 × 3 in)", widthMm: 102.25, heightMm: 76.2 },
-  { label: "100 × 75 mm", widthMm: 100, heightMm: 75 },
-  { label: "100 × 50 mm", widthMm: 100, heightMm: 50 },
-  { label: "101.6 × 152.4 mm (4 × 6 in)", widthMm: 101.6, heightMm: 152.4 },
-  { label: "76.2 × 50.8 mm (3 × 2 in)", widthMm: 76.2, heightMm: 50.8 },
-  { label: "50 × 25 mm", widthMm: 50, heightMm: 25 },
-  { label: "38 × 25 mm", widthMm: 38, heightMm: 25 },
-] as const;
 
 function TextCommitInput({ id, value, onCommit }: { id: string; value: string; onCommit: (value: string) => void }) {
   const [text, setText] = useState(value);
