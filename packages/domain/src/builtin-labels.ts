@@ -1,76 +1,88 @@
 import type { LabelDocument, LabelElement } from "./label-document";
 
+/**
+ * Built-in bundle labels, laid out against what the TE200/TA220 actually prints: TSPL font "3" is a
+ * 16 × 24 dot cell (2 × 3 mm at 203 dpi) multiplied by a whole number, so text is 3 mm (×1) or 6 mm
+ * (×2) tall, and a QR is modules × cell dots with no added quiet zone. Keep orrn-spool's
+ * `internal/core/builtin_labels.go` identical.
+ */
 const page: LabelDocument["page"] = { widthMm: 102.25, heightMm: 76.2, gapMm: 2, dpi: 203, speedInSec: 5, density: 8, direction: 0 };
 
-function text(id: string, xMm: number, yMm: number, fontSizeMm: number, variable?: LabelElement["variable"], content?: string, align: LabelElement["align"] = "left"): LabelElement {
-  return { id, type: "text", xMm, yMm, rotation: 0, variable, content, font: "Sans Serif", fontSizeMm, align };
+type TextSource = { variable: NonNullable<LabelElement["variable"]> } | { content: string };
+
+function text(id: string, xMm: number, yMm: number, fontSizeMm: 3 | 6, source: TextSource): LabelElement {
+  return { id, type: "text", xMm, yMm, rotation: 0, ...source, font: "Sans Serif", fontSizeMm, align: "left" };
 }
 
-function qr(id: string, xMm: number, yMm: number, sizeMm: number): LabelElement {
-  return { id, type: "qrcode", xMm, yMm, widthMm: sizeMm, heightMm: sizeMm, rotation: 0, variable: "qr", model: 2, mask: "auto", mode: "auto", cellMm: 1, quietZoneMm: 2 };
+/** 6-dot cells: a 33-module tenant QR address prints 24.8 mm square. */
+function qr(id: string, xMm: number, yMm: number): LabelElement {
+  return { id, type: "qrcode", xMm, yMm, widthMm: 25, heightMm: 25, rotation: 0, variable: "qr", level: "M", model: 2, mask: "auto", mode: "auto", cellMm: 0.75, quietZoneMm: 2 };
 }
 
 function serialBarcode(id: string, xMm: number, yMm: number, heightMm: number): LabelElement {
   return { id, type: "barcode", xMm, yMm, heightMm, rotation: 0, variable: "serialNumber", symbology: "128", narrow: 2, wide: 2, humanReadable: true, quietZoneMm: 2 };
 }
 
+const header = [text("serial", 4, 4, 6, { variable: "serialNumber" }), qr("qr", 74, 3)];
+
+const measures = [
+  text("quantity-label", 4, 13, 3, { content: "Quantity" }),
+  text("quantity", 4, 17, 6, { variable: "quantity" }),
+  text("length-label", 38, 13, 3, { content: "Cut length" }),
+  text("length", 38, 17, 6, { variable: "length" }),
+  text("weight12-label", 4, 27, 3, { content: "Weight / 12ft" }),
+  text("weight12", 4, 31, 3, { variable: "weight12ft" }),
+  text("weight-each-label", 38, 27, 3, { content: "Weight / cut" }),
+  text("weight-each", 38, 31, 3, { variable: "weight_each" }),
+  text("po-label", 4, 38, 3, { content: "PO" }),
+  text("po", 4, 42, 3, { variable: "poNumber" }),
+];
+
+const total = [
+  text("total-label", 56, 58, 3, { content: "Total weight" }),
+  text("total", 56, 62, 6, { variable: "weight" }),
+];
+
+/** B: the default. Every operational field in aligned columns, serial and QR on top. */
 export const operationsDense: LabelDocument = {
   version: 1,
   page,
   elements: [
-    text("serial", 4, 4, 7, "serialNumber"),
-    qr("qr", 76, 4, 22),
-    text("quantity-label", 4, 13, 2.2, undefined, "Quantity"),
-    text("quantity", 4, 16.5, 4.2, "quantity", undefined),
-    text("length-label", 4, 24, 2.2, undefined, "Cut Length"),
-    text("length", 4, 27.5, 4.2, "length"),
-    text("po-label", 4, 34, 2.2, undefined, "PO"),
-    text("po", 4, 37, 3, "poNumber"),
-    text("weight12-label", 58, 13, 2.2, undefined, "Weight / 12ft", "right"),
-    text("weight12", 58, 16.5, 4.2, "weight12ft", "right"),
-    text("weight-each-label", 58, 24, 2.2, undefined, "Weight / cut", "right"),
-    text("weight-each", 58, 27.5, 4.2, "weight_each", "right"),
-    text("series-label", 4, 46, 2.2, undefined, "Series Name"),
-    text("series", 4, 49, 3, "seriesName"),
-    text("cast", 4, 55, 2.4, "cast"),
-    text("sales-order", 4, 59, 2.4, "salesOrder"),
-    text("bis", 4, 63, 2.2, "standard"),
-    text("cml", 4, 66, 2.2, "cml"),
-    text("total-label", 58, 61, 2.2, undefined, "Total Weight", "right"),
-    text("total", 58, 65, 4.5, "weight", "right"),
+    ...header,
+    ...measures,
+    text("sales-order-label", 38, 38, 3, { content: "Sales order" }),
+    text("sales-order", 38, 42, 3, { variable: "salesOrder" }),
+    text("cast-label", 74, 38, 3, { content: "Cast" }),
+    text("cast", 74, 42, 3, { variable: "cast" }),
+    text("series-label", 4, 49, 3, { content: "Series" }),
+    text("series", 4, 53, 3, { variable: "seriesName" }),
+    text("bis", 4, 60, 3, { variable: "standard" }),
+    text("cml", 4, 64, 3, { variable: "cml" }),
+    ...total,
   ],
 };
 
+/** A: the classic hierarchy without order, cast and BIS rows. */
 export const polishedLabel: LabelDocument = {
   version: 1,
   page,
   elements: [
-    text("serial", 4, 4, 7, "serialNumber"),
-    qr("qr", 76, 4, 22),
-    text("quantity-label", 4, 13, 2.2, undefined, "Quantity"),
-    text("quantity", 4, 16.5, 4.2, "quantity"),
-    text("length-label", 4, 24, 2.2, undefined, "Cut Length"),
-    text("length", 4, 27.5, 4.2, "length"),
-    text("po-label", 4, 34, 2.2, undefined, "PO"),
-    text("po", 4, 37, 3, "poNumber"),
-    text("weight12-label", 58, 13, 2.2, undefined, "Weight / 12ft", "right"),
-    text("weight12", 58, 16.5, 4.2, "weight12ft", "right"),
-    text("weight-each-label", 58, 24, 2.2, undefined, "Weight / cut", "right"),
-    text("weight-each", 58, 27.5, 4.2, "weight_each", "right"),
-    text("series-label", 4, 52, 2.2, undefined, "Series Name"),
-    text("series", 4, 55, 3, "seriesName"),
-    text("total-label", 58, 61, 2.2, undefined, "Total Weight", "right"),
-    text("total", 58, 65, 4.5, "weight", "right"),
+    ...header,
+    ...measures,
+    text("series-label", 4, 49, 3, { content: "Series" }),
+    text("series", 4, 53, 3, { variable: "seriesName" }),
+    ...total,
   ],
 };
 
+/** C: serial, scannable Code 128, series and weight. */
 export const compactLabel: LabelDocument = {
   version: 1,
   page,
   elements: [
-    text("serial", 4, 4, 5.5, "serialNumber"),
-    serialBarcode("serial-barcode", 4, 14, 14),
-    text("series", 4, 34, 2.8, "seriesName"),
-    text("weight", 4, 40, 3, "weight"),
+    text("serial", 4, 4, 6, { variable: "serialNumber" }),
+    serialBarcode("serial-barcode", 4, 13, 12),
+    text("series", 4, 33, 3, { variable: "seriesName" }),
+    text("weight", 4, 39, 6, { variable: "weight" }),
   ],
 };

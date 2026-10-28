@@ -1,40 +1,51 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
-import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
+import { Printer, RotateCw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { trpc } from "@/shared/utils/trpc";
 
-import { collectorRowsOf, nodeTone, scaleRowOf } from "./model";
+import { labelDocumentFromSchema } from "./label-studio-model";
+import { PRINT_COMPUTER_REFRESH_MS } from "./print-computer";
+import { PrinterCard, type PrinterDesign } from "./printers-card";
+import { PrintComputerSection } from "./printers-computer";
+import { preferencesDraft, printerReportOf } from "./printers-model";
+import { PrinterSettingsSheet } from "./printers-settings-sheet";
+import { useLabelSample } from "./use-label-sample";
 
 /**
- * Print computers (`edge.overview`) and the label printers set up for the
- * plant (`spool.listProfiles`). A node shows its stored status and the time
- * of its last heartbeat, nothing more: paper, ribbon and power are not
- * reported, and the page says so.
+ * Printers: the print computer as it last reported (`edge.overview`), then each label printer
+ * (`spool.listProfiles`) with its status from the computer's printer report (`spool.listPrinters`) and the label it
+ * prints, drawn from its published design with the newest bundle's values. Nothing here is a live check.
  */
 export function PrintersTab() {
   const { t } = useT();
   const when = useCompanyWhen();
-  const nodes = useQuery(trpc.edge.overview.queryOptions());
+  const nodes = useQuery({ ...trpc.edge.overview.queryOptions(), refetchInterval: PRINT_COMPUTER_REFRESH_MS });
   const profiles = useQuery(trpc.spool.listProfiles.queryOptions());
+  // No active print computer answers NOT_FOUND: every printer then reads "Not reported", which is the truth.
+  const reports = useQuery({ ...trpc.spool.listPrinters.queryOptions(), retry: false, refetchInterval: PRINT_COMPUTER_REFRESH_MS, meta: { inlineError: true } });
+  const documents = useQuery(trpc.spool.labelDocuments.list.queryOptions());
+  const sample = useLabelSample();
+  const [settingsFor, setSettingsFor] = useState<string | null>(null);
 
-  if (nodes.isPending || profiles.isPending) {
-    return (
-      <div className="flex flex-col gap-3" aria-busy="true">
-        <Skeleton className="h-28 w-full rounded-card" />
-        <Skeleton className="h-20 w-full rounded-card" />
-      </div>
-    );
-  }
+  const designs = useMemo(() => {
+    const byId = new Map<string, PrinterDesign>();
+    for (const row of documents.data ?? []) {
+      byId.set(row.id, row.schema ? { kind: "ready", document: labelDocumentFromSchema(row.schema), version: row.version } : { kind: "missing" });
+    }
+    return byId;
+  }, [documents.data]);
+
+  if (nodes.isPending || profiles.isPending) return <PrintersSkeleton />;
 
   if (nodes.isError || profiles.isError) {
     return (
-      <div className="rounded-card border border-border bg-card">
+      <div className="rounded-card border border-border bg-card" role="alert">
         <EmptyState
           title={t("printing.loadFailed")}
           action={
@@ -45,6 +56,7 @@ export function PrintersTab() {
                 void profiles.refetch();
               }}
             >
+              <RotateCw aria-hidden="true" strokeWidth={2} />
               {t("common.retry")}
             </Button>
           }
@@ -59,171 +71,91 @@ export function PrintersTab() {
   if (nodeRows.length === 0 && profileRows.length === 0) {
     return (
       <div className="rounded-card border border-border bg-card">
-        <EmptyState title={t("printing.notSetUpTitle")} body={t("printing.notSetUpBody")} />
+        <EmptyState icon={<Printer aria-hidden="true" strokeWidth={2} />} title={t("printing.notSetUpTitle")} body={t("printing.notSetUpBody")} />
       </div>
     );
   }
 
+  const designFor = (templateId: string): PrinterDesign =>
+    documents.isPending ? { kind: "loading" } : (designs.get(templateId) ?? { kind: "missing" });
+  const editing = profileRows.find((profile) => profile.id === settingsFor) ?? null;
+  const editingDesign = editing ? designFor(editing.templateId) : null;
+
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("printing.nodes.hint")}</p>
+    <div className="flex min-w-0 flex-col gap-7">
+      <PrintComputerSection nodes={nodeRows} when={when} nowMs={Date.now()} />
 
-      <section aria-labelledby="print-nodes" className="flex min-w-0 flex-col gap-3">
-        <h2 id="print-nodes" className="m-0 text-[17px] font-semibold">
-          {t("printing.nodes.title")}
-        </h2>
-        {nodeRows.length === 0 ? (
-          <div className="rounded-card border border-border bg-card">
-            <EmptyState title={t("printing.printers.empty")} />
-          </div>
-        ) : (
-          <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2">
-            {nodeRows.map((node) => (
-              <li key={node.id} className="min-w-0" data-testid="print-node">
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                      <CardTitle className="min-w-0 break-words">{node.nodeName}</CardTitle>
-                      <Chip tone={nodeTone(node.status)}>{t(`status.printSetup.${node.status}`)}</Chip>
-                    </div>
-                    <CardDescription>{t("printing.nodes.site", { site: node.siteLabel })}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="m-0 text-[15px]">
-                      {node.lastHeartbeatAt
-                        ? t("printing.printers.lastSeen", { time: when(node.lastHeartbeatAt) })
-                        : t("printing.nodes.neverSeen")}
-                    </p>
-                    {node.runtimeVersion ? (
-                      <p className="m-0 text-[13px] text-muted-foreground">
-                        {t("printing.nodes.version", { version: node.runtimeVersion })}
-                      </p>
-                    ) : null}
-                    <ScaleRow node={node} when={when} />
-                    <CollectorsRow node={node} when={when} />
-                    {node.lastErrorMessage ? (
-                      <p className="m-0 text-[13px] break-words text-muted-foreground">
-                        {t("printing.nodes.lastError", { message: node.lastErrorMessage })}
-                      </p>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="print-profiles" className="flex min-w-0 flex-col gap-3">
-        <h2 id="print-profiles" className="m-0 text-[17px] font-semibold">
-          {t("printing.nodes.profiles")}
-        </h2>
+      <section aria-labelledby="label-printers-heading" className="flex min-w-0 flex-col gap-3">
+        <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <h2 id="label-printers-heading" className="m-0 text-[17px] font-semibold">
+            {t("printing.printers.title")}
+          </h2>
+          {profileRows.length > 0 ? (
+            <span className="text-[13px] text-muted-foreground">{t("printing.printers.count", { count: profileRows.length })}</span>
+          ) : null}
+        </div>
         {profileRows.length === 0 ? (
           <div className="rounded-card border border-border bg-card">
-            <EmptyState title={t("printing.nodes.profilesEmpty")} />
+            <EmptyState icon={<Printer aria-hidden="true" strokeWidth={2} />} title={t("printing.printers.empty")} body={t("printing.printers.emptyBody")} />
           </div>
         ) : (
-          <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 md:grid-cols-2">
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {profileRows.map((profile) => (
-              <li key={profile.id} className="min-w-0" data-testid="print-profile">
-                <Card className="h-full">
-                  <CardHeader>
-                    <CardTitle className="break-words">{profile.name}</CardTitle>
-                    <CardDescription>{t("printing.nodes.template", { name: profile.templateName })}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="m-0 text-[15px]">{t("printing.nodes.copies", { count: profile.defaultCopies })}</p>
-                  </CardContent>
-                </Card>
-              </li>
+              <PrinterCard
+                key={profile.id}
+                profile={profile}
+                report={printerReportOf(reports.data, profile.spoolPrinterId)}
+                design={designFor(profile.templateId)}
+                sample={sample}
+                when={when}
+                onOpenSettings={() => setSettingsFor(profile.id)}
+              />
             ))}
           </ul>
         )}
       </section>
+
+      <p className="m-0 max-w-[68ch] text-[13px] leading-5 text-muted-foreground">{t("printing.nodes.hint")}</p>
+
+      {editing ? (
+        <PrinterSettingsSheet
+          key={editing.id}
+          profile={editing}
+          initial={preferencesDraft(editing, editingDesign?.kind === "ready" ? editingDesign.document.page : null)}
+          onClose={() => setSettingsFor(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
-/** The scale beside the printer (FP-PK-02): configured, simulated, connected, and when its last frame came. */
-function ScaleRow({
-  node,
-  when,
-}: {
-  node: Parameters<typeof scaleRowOf>[0];
-  when: (d: Date | string | number) => string;
-}) {
-  const { t } = useT();
-  const row = scaleRowOf(node);
+/** Shaped like the page: the status block, what is attached to it, then a printer with its label. */
+function PrintersSkeleton() {
   return (
-    <div data-slot="scale-row" data-scale={row.kind} className="mt-2 flex min-w-0 flex-col gap-1 border-t border-border pt-2">
-      <p className="m-0 flex flex-wrap items-center gap-2 text-[15px] font-semibold">
-        {t("printing.scale.title")}
-        {row.kind === "connected" ? <Chip tone="green">{t("printing.scale.connected")}</Chip> : null}
-        {row.kind === "idle" ? <Chip tone="amber">{t("printing.scale.idle")}</Chip> : null}
-        {row.kind === "none" ? <Chip tone="neutral">{t("printing.scale.none")}</Chip> : null}
-        {row.kind === "unknown" ? <Chip tone="neutral">{t("printing.scale.unknown")}</Chip> : null}
-        {row.kind === "connected" || row.kind === "idle" ? (
-          <>
-            <Chip tone="neutral">{t("printing.scale.configured")}</Chip>
-            {row.simulated ? <Chip tone="blue">{t("printing.scale.simulated")}</Chip> : null}
-          </>
-        ) : null}
-      </p>
-      <p className="m-0 text-[13px] text-muted-foreground">
-        {row.kind === "connected"
-          ? t("printing.scale.lastFrame", { time: when(row.lastFrameAt) })
-          : row.kind === "idle"
-            ? t("printing.scale.noFrame", { time: when(row.reportedAt) })
-            : row.kind === "none"
-              ? t("printing.scale.noneHint")
-              : t("printing.scale.unknownHint")}
-      </p>
-    </div>
-  );
-}
-
-/**
- * Press collectors and spectro watchers on this print computer (W4-COLLECTORS), as the node last
- * reported them: simulated ones say so, and nothing here claims a live connection.
- */
-function CollectorsRow({
-  node,
-  when,
-}: {
-  node: Parameters<typeof collectorRowsOf>[0];
-  when: (d: Date | string | number) => string;
-}) {
-  const { t } = useT();
-  const rows = collectorRowsOf(node);
-  if (rows.kind === "unknown") return null;
-  return (
-    <div data-slot="collectors-row" className="mt-2 flex min-w-0 flex-col gap-1 border-t border-border pt-2">
-      <p className="m-0 text-[15px] font-semibold">{t("printing.collectors.title")}</p>
-      {rows.kind === "none" ? <p className="m-0 text-[13px] text-muted-foreground">{t("printing.collectors.none")}</p> : null}
-      {rows.kind === "list"
-        ? rows.items.map((item) => (
-            <div key={item.key} data-collector={item.kind} data-state={item.state} className="flex min-w-0 flex-col gap-1">
-              <p className="m-0 flex flex-wrap items-center gap-2 text-[14px]">
-                <span className="font-semibold">
-                  {item.kind === "press" ? t("printing.collectors.press", { line: item.line ?? "?" }) : t("printing.collectors.spectro")}
-                </span>
-                {item.state === "sending" ? <Chip tone="green">{t("printing.collectors.sending")}</Chip> : null}
-                {item.state === "watching" ? <Chip tone="green">{t("printing.collectors.watching")}</Chip> : null}
-                {item.state === "quiet" ? <Chip tone="amber">{t("printing.collectors.quiet")}</Chip> : null}
-                {item.state === "not_configured" ? <Chip tone="neutral">{t("printing.collectors.notConfigured")}</Chip> : null}
-                {item.simulated ? <Chip tone="blue">{t("printing.collectors.simulated")}</Chip> : null}
-              </p>
-              <p className="m-0 text-[13px] break-words text-muted-foreground">
-                {item.lastFrameAt ? t("printing.collectors.lastFrame", { time: when(item.lastFrameAt) }) : t("printing.collectors.noFrame", { time: when(rows.reportedAt) })}
-                {item.backlog > 0 ? ` · ${t("printing.collectors.backlog", { count: item.backlog })}` : ""}
-              </p>
-              {item.simulated ? <p className="m-0 text-[13px] text-muted-foreground">{t("printing.collectors.simulatedHint")}</p> : null}
-              {item.lastError ? (
-                <p className="m-0 text-[13px] break-words text-muted-foreground">{t("printing.collectors.error", { message: item.lastError })}</p>
-              ) : null}
+    <div className="flex min-w-0 flex-col gap-7" aria-busy="true">
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-5 w-36 rounded-full" />
+        <Skeleton className="h-44 w-full rounded-[22px]" />
+        <Skeleton className="h-16 w-full rounded-card" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-5 w-32 rounded-full" />
+        <div className="grid grid-cols-1 overflow-hidden rounded-card border border-border bg-card lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+          <div className="flex flex-col gap-4 p-5">
+            <Skeleton className="h-5 w-40 rounded-full" />
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <div className="grid grid-cols-2 gap-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
-          ))
-        : null}
+          </div>
+          <div className="bg-surface-sunken p-5">
+            <Skeleton className="aspect-[4/3] w-full max-w-[22rem] rounded-[3px]" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

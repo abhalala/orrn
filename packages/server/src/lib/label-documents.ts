@@ -34,6 +34,9 @@ export async function listLabelDocuments(db: OrrnDb, companyId: string) {
       draftSchema: labelTemplate.draftSchema,
       draftUpdatedAt: labelTemplate.draftUpdatedAt,
       createdAt: labelTemplate.createdAt,
+      updatedAt: labelTemplate.updatedAt,
+      spoolTemplateId: labelTemplate.spoolTemplateId,
+      spoolPushedAt: labelTemplate.spoolPushedAt,
     })
     .from(labelTemplate)
     .where(and(eq(labelTemplate.companyId, companyId), isNull(labelTemplate.deletedAt)))

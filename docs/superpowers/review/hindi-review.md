@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7367 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -1790,7 +1790,7 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `itemForm.restored` | {name} is back in use | {name} फिर से चालू है |
 | `itemForm.retireBlocked` | {qty} {unit} is still in the store. Issue it or cancel its entries before retiring the item. | स्टोर में अभी {qty} {unit} है। सामान बंद करने से पहले इसे दें या इसकी एंट्री रद्द करें। |
 
-### printing (86)
+### printing (253)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1798,63 +1798,230 @@ Counts: 7200 screen strings in 49 groups, 44 guides with 840 strings.
 | `tabs.queue` | Queue | कतार |
 | `tabs.printers` | Printers | प्रिंटर |
 | `tabs.labels` | Labels | लेबल |
-| `queue.empty` | Nothing waiting to print. | प्रिंट के लिए कुछ बाकी नहीं है। |
 | `queue.label` | Label | लेबल |
+| `queue.design` | Label design | लेबल डिज़ाइन |
 | `queue.printer` | Printer | प्रिंटर |
+| `queue.copies` | Copies | कॉपी |
 | `queue.status` | Status | स्टेटस |
+| `queue.attempt` | Attempt {n} | कोशिश {n} |
 | `queue.when` | When | कब |
-| `queue.error` | Error | गड़बड़ी |
+| `queue.actions` | Actions | काम |
 | `queue.retry` | Retry | फिर से भेजें |
-| `queue.cancel` | Cancel job | जॉब कैंसल करें |
+| `queue.retryFor` | Send label {label} again | लेबल {label} फिर से भेजें |
 | `queue.retried` | Sent again | फिर से भेज दिया |
-| `printers.empty` | No printers connected yet. | अभी कोई प्रिंटर नहीं जुड़ा है। |
-| `printers.name` | Printer | प्रिंटर |
-| `printers.status` | Status | स्टेटस |
+| `queue.retryFailed` | Couldn't send it again. Try once more, or see how to fix the printer. | फिर से नहीं भेज सके। एक बार और कोशिश करें, या प्रिंटर ठीक करने का तरीका देखें। |
+| `queue.cancel` | Cancel | कैंसल करें |
+| `queue.cancelFor` | Cancel label {label} | लेबल {label} कैंसल करें |
+| `queue.cancelled` | Print job cancelled | प्रिंट जॉब कैंसल हो गया |
+| `queue.cancelSent` | Cancel sent to the print computer | कैंसल करने की बात प्रिंट कंप्यूटर को भेज दी |
+| `queue.cancelFailed` | Couldn't cancel the job. Try again. | जॉब कैंसल नहीं हुआ। फिर कोशिश करें। |
+| `queue.noBundle` | No bundle | कोई bundle नहीं |
+| `queue.noDesign` | Not recorded | दर्ज नहीं |
+| `queue.noReason` | No reason was recorded. | कोई वजह दर्ज नहीं हुई। |
+| `queue.all` | All | सभी |
+| `queue.filterLabel` | Show jobs | जॉब दिखाएं |
+| `queue.statuses.queued` | Waiting | इंतज़ार में |
+| `queue.statuses.accepted` | With print computer | प्रिंट कंप्यूटर के पास |
+| `queue.statuses.sent` | Sent to printer | प्रिंटर को भेजा |
+| `queue.statuses.success` | Printed | प्रिंट हो गया |
+| `queue.statuses.failed` | Failed | फ़ेल |
+| `queue.statuses.outcome_unknown` | Outcome unknown | पता नहीं प्रिंट हुआ या नहीं |
+| `queue.statuses.cancelled` | Cancelled | कैंसल |
+| `queue.emptyTitle` | No print jobs yet | अभी कोई प्रिंट जॉब नहीं |
+| `queue.emptyBody` | Labels show up here once a bundle is packed and its label goes to a printer. | bundle पैक होने और उसका लेबल प्रिंटर को जाने पर यहाँ दिखेगा। |
+| `queue.emptyFilteredTitle` | No jobs with this status | इस स्टेटस का कोई जॉब नहीं |
+| `queue.emptyFilteredBody` | Pick another status above, or show every job. | ऊपर कोई और स्टेटस चुनें, या सारे जॉब देखें। |
+| `queue.showAll` | Show all jobs | सारे जॉब दिखाएं |
+| `summary.label` | Printing overview | प्रिंटिंग की झलक |
+| `summary.retry` | Needs a retry | फिर से भेजना है |
+| `summary.waiting` | Waiting to print | प्रिंट के इंतज़ार में |
+| `summary.sent` | Sent to printer | प्रिंटर को भेजे |
+| `summary.printed` | Printed | प्रिंट हुए |
+| `summary.computer` | Print computer | प्रिंट कंप्यूटर |
+| `summary.online` | Online | चालू |
+| `summary.offline` | Offline | बंद |
+| `summary.never` | Never connected | कभी नहीं जुड़ा |
+| `summary.notSetUp` | Not set up | सेट नहीं है |
+| `summary.reported` | Reported {time} | {time} पर रिपोर्ट आई |
+| `summary.offlineSince` | Since {time} | {time} से |
+| `summary.neverHint` | Not installed or switched off | लगा नहीं है या बंद है |
+| `summary.notSetUpHint` | Ask the orrn team to set one up | सेट करवाने के लिए orrn टीम से कहें |
+| `summary.countsFailed` | Couldn't load the counts. | गिनती लोड नहीं हुई। |
+| `summary.computerFailed` | Couldn't load its state | हालत लोड नहीं हुई |
+| `printers.title` | Label printers | लेबल प्रिंटर |
+| `printers.count` | {count} {count:printer\|printers} | {count} प्रिंटर |
+| `printers.empty` | No label printer yet | अभी कोई लेबल प्रिंटर नहीं है |
+| `printers.emptyBody` | The orrn team adds label printers when they set up the print computer. Ask them to add one. | प्रिंट कंप्यूटर सेट करते समय orrn टीम लेबल प्रिंटर जोड़ती है। उनसे एक जोड़ने को कहें। |
+| `printers.state.ready` | Ready | तैयार |
+| `printers.state.paused` | Paused | रुका हुआ |
+| `printers.state.offline` | Offline | बंद |
+| `printers.state.error` | Error | गड़बड़ी |
+| `printers.state.unknown` | Not reported | रिपोर्ट नहीं आई |
 | `printers.lastSeen` | Last seen {time} | आखिरी बार {time} पर दिखा |
-| `labels.push` | Send label design to printers | लेबल डिज़ाइन प्रिंटर को भेजें |
-| `labels.pushed` | Label design sent | लेबल डिज़ाइन भेज दिया |
+| `printers.notReported` | Not reported yet | अभी रिपोर्ट नहीं आई |
+| `printers.model` | Model | मॉडल |
+| `printers.address` | Address | पता |
+| `printers.copies` | Copies | कॉपी |
+| `printers.copiesValue` | {count} per label | हर लेबल की {count} |
+| `printers.locked` | Locked to | इससे जुड़ा |
+| `printers.notLocked` | Not locked yet | अभी जुड़ा नहीं |
+| `printers.lockedHint` | Prints only to the printer with this hardware address. Checked {time}. | सिर्फ़ इसी हार्डवेयर पते वाले प्रिंटर पर प्रिंट होता है। {time} पर जाँचा गया। |
+| `printers.lastProblem` | Last problem: {message} | आखिरी गड़बड़ी: {message} |
+| `printers.prints` | Prints | यह प्रिंट करता है |
+| `printers.designVersion` | v{version} | v{version} |
+| `printers.previewTitle` | The {name} label as it prints, with bundle {serial} | {name} लेबल जैसा प्रिंट होगा, bundle {serial} के साथ |
+| `printers.previewExample` | The {name} label as it prints, with example values | {name} लेबल जैसा प्रिंट होगा, उदाहरण के मानों के साथ |
+| `printers.sampleBundle` | Shown with bundle {serial}. | Bundle {serial} के साथ दिखाया गया। |
+| `printers.sampleExample` | Shown with example values. Pack a bundle to see real ones. | उदाहरण के मानों के साथ दिखाया गया। असली मान देखने के लिए एक bundle पैक करें। |
+| `printers.designMissing` | This label design can't be shown. Open it under Labels to check it. | यह लेबल डिज़ाइन दिखाया नहीं जा सकता। लेबल में खोलकर जाँचें। |
+| `printers.designEmpty` | Nothing is on this label yet, so it prints blank. | इस लेबल पर अभी कुछ नहीं है, इसलिए यह खाली छपेगा। |
+| `printers.editDesign` | Edit label design | लेबल डिज़ाइन बदलें |
+| `printers.editDesignFor` | Edit label design {name} | लेबल डिज़ाइन बदलें {name} |
+| `printers.actionsFor` | Printer actions for {name} | {name} के प्रिंटर काम |
+| `printers.sent` | Sent to the print computer. The printer does it when the print computer next checks in. | प्रिंट कंप्यूटर को भेजा गया। प्रिंट कंप्यूटर की अगली रिपोर्ट पर प्रिंटर यह करेगा। |
+| `printers.testPrint` | Print a test label | टेस्ट लेबल प्रिंट करें |
+| `printers.setClock` | Set the printer clock | प्रिंटर की घड़ी सेट करें |
+| `printers.calibrate.open` | Calibrate label size | लेबल का साइज़ नापें |
+| `printers.calibrate.title` | Calibrate {name}? | {name} को कैलिब्रेट करें? |
+| `printers.calibrate.body` | The printer feeds a few labels to measure their size and gap. Those labels are wasted. | साइज़ और गैप नापने के लिए प्रिंटर कुछ लेबल आगे बढ़ाता है। वे लेबल बेकार हो जाते हैं। |
+| `printers.calibrate.confirm` | Calibrate | कैलिब्रेट करें |
+| `printers.font.open` | Load a font | फ़ॉन्ट डालें |
+| `printers.font.title` | Load a font onto {name} | {name} पर फ़ॉन्ट डालें |
+| `printers.font.body` | The printer keeps the font in its memory and replaces a font with the same name. | प्रिंटर फ़ॉन्ट को अपनी मेमोरी में रखता है और उसी नाम वाले फ़ॉन्ट को बदल देता है। |
+| `printers.font.field` | Font file | फ़ॉन्ट फ़ाइल |
+| `printers.font.hint` | A TrueType font (.ttf) up to 1 MB. | TrueType फ़ॉन्ट (.ttf), 1 MB तक। |
+| `printers.font.required` | Choose a font file. | फ़ॉन्ट फ़ाइल चुनें। |
+| `printers.font.tooBig` | This file is larger than 1 MB. Choose a smaller font. | यह फ़ाइल 1 MB से बड़ी है। छोटा फ़ॉन्ट चुनें। |
+| `printers.font.unreadable` | Couldn't read this file. Choose it again. | यह फ़ाइल पढ़ी नहीं जा सकी। फिर से चुनें। |
+| `printers.font.confirm` | Load font | फ़ॉन्ट डालें |
+| `printers.settings.open` | Printer settings | प्रिंटर सेटिंग |
+| `printers.settings.title` | Settings for {name} | {name} की सेटिंग |
+| `printers.settings.body` | Saved settings go to the print computer and apply to every label after its next check-in. | सेव की गई सेटिंग प्रिंट कंप्यूटर को जाती है और उसकी अगली रिपोर्ट के बाद हर लेबल पर लागू होती है। |
+| `printers.settings.media` | Label stock | लेबल रोल |
+| `printers.settings.mediaType.gap` | Gaps | गैप वाले |
+| `printers.settings.mediaType.black_mark` | Black mark | काला निशान |
+| `printers.settings.mediaType.continuous` | Continuous | लगातार |
+| `printers.settings.width` | Label width | लेबल की चौड़ाई |
+| `printers.settings.height` | Label height | लेबल की ऊँचाई |
+| `printers.settings.gap` | Gap | गैप |
+| `printers.settings.gapHint` | Space between labels. 0 for a continuous roll. | लेबलों के बीच की जगह। लगातार रोल के लिए 0। |
+| `printers.settings.dpi` | Resolution | रेज़ोल्यूशन |
+| `printers.settings.dpiValue` | {dpi} dpi | {dpi} dpi |
+| `printers.settings.speed` | Speed | स्पीड |
+| `printers.settings.speedHint` | Inches per second, 1 to 12. | इंच प्रति सेकंड, 1 से 12। |
+| `printers.settings.density` | Darkness | गहराई |
+| `printers.settings.densityHint` | 0 to 15. Higher prints darker. | 0 से 15। ज़्यादा पर गहरा प्रिंट। |
+| `printers.settings.cutter` | Cutter | कटर |
+| `printers.settings.cutterHint` | Cut after every label. | हर लेबल के बाद काटें। |
+| `printers.settings.on` | On | चालू |
+| `printers.settings.off` | Off | बंद |
+| `printers.settings.save` | Save settings | सेटिंग सेव करें |
+| `printers.settings.saved` | Printer settings saved. | प्रिंटर सेटिंग सेव हुई। |
+| `printers.settings.invalid.size` | Enter a size above 0 and up to 300 mm. | 0 से ज़्यादा और 300 mm तक का साइज़ डालें। |
+| `printers.settings.invalid.gap` | Enter a gap from 0 to 50 mm. | 0 से 50 mm तक का गैप डालें। |
+| `printers.settings.invalid.speed` | Enter a whole number from 1 to 12. | 1 से 12 तक की पूरी संख्या डालें। |
+| `printers.settings.invalid.density` | Enter a whole number from 0 to 15. | 0 से 15 तक की पूरी संख्या डालें। |
+| `printers.errors.noComputer` | No print computer is connected, so the printer can't get this. | कोई प्रिंट कंप्यूटर जुड़ा नहीं है, इसलिए प्रिंटर तक यह नहीं पहुँचेगा। |
+| `printers.errors.notSupported` | This printer or print computer can't take that. Ask the orrn team. | यह प्रिंटर या प्रिंट कंप्यूटर यह नहीं ले सकता। orrn टीम से कहें। |
+| `printers.errors.forbidden` | You can't change printers. Ask a manager. | आप प्रिंटर नहीं बदल सकते। मैनेजर से कहें। |
+| `printers.errors.failed` | Couldn't send that. Check your connection and try again. | भेजा नहीं जा सका। कनेक्शन देखकर फिर कोशिश करें। |
 | `advanced.title` | Advanced | एडवांस |
 | `advanced.variables` | Label data (JSON) | लेबल डेटा (JSON) |
 | `advanced.submit` | Send print job | प्रिंट जॉब भेजें |
 | `notSetUpTitle` | Label printing isn't set up | लेबल प्रिंटिंग सेट नहीं है |
 | `notSetUpBody` | Ask the orrn team to set up label printing for your plant. | अपने प्लांट के लिए लेबल प्रिंटिंग सेट करवाने के लिए orrn टीम से कहें। |
 | `restricted` | You can see the queue. Ask a manager to change printers or labels. | आप कतार देख सकते हैं। प्रिंटर या लेबल बदलने के लिए मैनेजर से कहें। |
-| `subtitle` | Labels waiting to print, and the print computers at your plant. | प्रिंट होने के लिए रुके लेबल और आपके प्लांट के प्रिंट कंप्यूटर। |
+| `subtitle` | Print jobs, label printers and label designs for your plant. | आपके प्लांट के प्रिंट जॉब, लेबल प्रिंटर और लेबल डिज़ाइन। |
 | `loadFailed` | Couldn't load printing. Check your connection and try again. | प्रिंटिंग लोड नहीं हुई। कनेक्शन देखकर फिर कोशिश करें। |
 | `computerBanner.neverTitle` | The print computer has never connected | प्रिंट कंप्यूटर अभी तक जुड़ा नहीं है |
 | `computerBanner.neverBody` | {waiting} {waiting:label is\|labels are} waiting. Nothing prints until the print computer is installed, switched on and online. Ask the orrn team for help. | {waiting} लेबल इंतज़ार में हैं और कुछ प्रिंट नहीं होगा। प्लांट में प्रिंट कंप्यूटर लगाएँ, चालू करें और इंटरनेट से जोड़ें, या orrn टीम से मदद लें। |
 | `computerBanner.offlineTitle` | The print computer has been offline since {time} | प्रिंट कंप्यूटर {time} से बंद है |
 | `computerBanner.offlineBody` | {waiting} {waiting:label is\|labels are} waiting. Check that the print computer is switched on and online. They print once it reports in. | {waiting} लेबल इंतज़ार में हैं। देखें कि प्लांट का प्रिंट कंप्यूटर चालू है और इंटरनेट से जुड़ा है। जुड़ते ही लेबल अपने आप प्रिंट हो जाएँगे। |
-| `queueExtra.all` | All | सभी |
-| `queueExtra.emptyFiltered` | No jobs with this status. | इस स्टेटस का कोई जॉब नहीं है। |
-| `queueExtra.noReason` | No reason was recorded. | कोई वजह दर्ज नहीं हुई। |
-| `queueExtra.attempt` | Attempt {n} | कोशिश {n} |
-| `queueExtra.retryFor` | Send label {label} again | लेबल {label} फिर से भेजें |
-| `queueExtra.retryFailed` | Couldn't send it again. Try once more, or see how to fix the printer. | फिर से नहीं भेज सके। एक बार और कोशिश करें, या प्रिंटर ठीक करने का तरीका देखें। |
-| `queueExtra.noBundle` | No bundle | कोई bundle नहीं |
-| `queueExtra.summary` | {failed} failed, {waiting} waiting | {failed} फ़ेल, {waiting} इंतज़ार में |
-| `queueExtra.summaryClear` | Nothing failed or waiting. | कुछ भी फ़ेल या इंतज़ार में नहीं है। |
-| `queueExtra.filterLabel` | Show jobs | जॉब दिखाएं |
-| `nodes.title` | Print computers | प्रिंट कंप्यूटर |
-| `nodes.hint` | Shows when each print computer last reported in. Whether a printer has paper or ribbon is not reported here. | हर प्रिंट कंप्यूटर ने आखिरी बार कब रिपोर्ट किया, यह दिखता है। प्रिंटर में कागज़ या रिबन है या नहीं, यह यहाँ नहीं बताया जाता। |
+| `nodes.title` | Print computer | प्रिंट कंप्यूटर |
+| `nodes.hint` | Everything here is what the print computer last reported. Paper and ribbon levels are not reported. | यहाँ सब कुछ वही है जो प्रिंट कंप्यूटर ने आखिरी बार बताया। कागज़ और रिबन की जानकारी नहीं आती। |
+| `nodes.none` | No print computer is set up yet. Ask the orrn team to install one. | अभी कोई प्रिंट कंप्यूटर सेट नहीं है। लगवाने के लिए orrn टीम से कहें। |
+| `nodes.others` | Other print computers | दूसरे प्रिंट कंप्यूटर |
+| `nodes.state.online` | Online | चालू |
+| `nodes.state.offline` | Offline | बंद |
+| `nodes.state.never` | Not connected yet | अभी जुड़ा नहीं |
+| `nodes.state.revoked` | Turned off | हटाया गया |
+| `nodes.stateBody.online` | Reporting in. Labels print as they arrive. | रिपोर्ट आ रही है। लेबल आते ही प्रिंट होते हैं। |
+| `nodes.stateBody.offline` | Labels wait until it reports in again. Check that it is switched on and online. | दोबारा रिपोर्ट आने तक लेबल इंतज़ार करेंगे। देखें कि यह चालू है और इंटरनेट से जुड़ा है। |
+| `nodes.stateBody.never` | Labels wait until it connects. Install the print computer and switch it on, or ask the orrn team. | जुड़ने तक लेबल इंतज़ार करेंगे। प्रिंट कंप्यूटर लगाकर चालू करें, या orrn टीम से कहें। |
+| `nodes.stateBody.revoked` | This print computer was turned off and no longer prints. | यह प्रिंट कंप्यूटर हटा दिया गया है और अब प्रिंट नहीं करता। |
+| `nodes.lastSeenTerm` | Last report | आखिरी रिपोर्ट |
+| `nodes.lastSeen` | Last seen {time} | आखिरी बार {time} पर दिखा |
 | `nodes.neverSeen` | Has not reported in yet | अभी तक रिपोर्ट नहीं आई |
+| `nodes.versionTerm` | Version | वर्ज़न |
 | `nodes.version` | Version {version} | वर्ज़न {version} |
+| `nodes.notReported` | Not reported | रिपोर्ट नहीं आई |
+| `nodes.siteTerm` | Site | जगह |
 | `nodes.lastError` | Last error: {message} | आखिरी गड़बड़ी: {message} |
-| `nodes.site` | Site: {site} | जगह: {site} |
-| `nodes.profiles` | Label printers | लेबल प्रिंटर |
-| `nodes.profilesEmpty` | No label printer is set up yet. | अभी कोई लेबल प्रिंटर सेट नहीं है। |
-| `nodes.copies` | {count} {count:copy\|copies} per label | हर लेबल की {count} {count:कॉपी\|कॉपियाँ} |
-| `nodes.template` | Label design: {name} | लेबल डिज़ाइन: {name} |
 | `reprint.title` | Reprint a label | लेबल दोबारा प्रिंट करें |
-| `reprint.body` | Enter the bundle number. orrn opens the bundle, where Reprint label sends the label to the printer. | Bundle नंबर लिखें। orrn bundle खोलता है, वहाँ "लेबल दोबारा प्रिंट" से लेबल प्रिंटर को जाता है। |
+| `reprint.body` | Opens the bundle, where Reprint label sends it to the printer. | Bundle खुलता है, वहाँ "लेबल दोबारा प्रिंट" से लेबल प्रिंटर को जाता है। |
 | `reprint.field` | Bundle number | Bundle नंबर |
 | `reprint.open` | Open bundle | Bundle खोलें |
 | `reprint.required` | Enter a bundle number. | Bundle नंबर लिखें। |
 | `designs.title` | Label designs | लेबल डिज़ाइन |
-| `designs.empty` | No label design yet. | अभी कोई लेबल डिज़ाइन नहीं है। |
 | `designs.sent` | Sent {time} | {time} पर भेजा |
-| `designs.notSent` | Not sent to the print computer yet | प्रिंट कंप्यूटर को अभी नहीं भेजा |
 | `designs.pushFailed` | Couldn't send the label design. Check that the print computer is connected. | लेबल डिज़ाइन नहीं भेज सके। देखें कि प्रिंट कंप्यूटर जुड़ा है। |
+| `library.intro` | What the label printers print on each bundle. | हर bundle पर लेबल प्रिंटर क्या छापते हैं। |
+| `library.sampleBundle` | Previews show bundle {serial}. | प्रीव्यू में bundle {serial} दिख रहा है। |
+| `library.sampleExample` | Previews show example values until a bundle is packed. | पहला bundle पैक होने तक प्रीव्यू में उदाहरण वाले मान दिखते हैं। |
+| `library.count` | {count} {count:design\|designs} | {count} {count:डिज़ाइन\|डिज़ाइन} |
+| `library.newLabel` | New label | नया लेबल |
+| `library.searchLabel` | Search label designs | लेबल डिज़ाइन खोजें |
+| `library.searchPlaceholder` | Search by name | नाम से खोजें |
+| `library.noMatch` | No label design matches "{query}". | "{query}" से कोई लेबल डिज़ाइन नहीं मिला। |
+| `library.clearSearch` | Clear search | खोज हटाएँ |
+| `library.emptyTitle` | No label designs yet | अभी कोई लेबल डिज़ाइन नहीं |
+| `library.emptyBody` | Start from a ready-made design and adjust it in the studio. | तैयार डिज़ाइन से शुरू करें और स्टूडियो में बदलें। |
+| `library.emptyReadOnly` | Ask a manager to add the first label design. | पहला लेबल डिज़ाइन जोड़ने के लिए मैनेजर से कहें। |
+| `library.published` | Published v{version} | प्रकाशित v{version} |
+| `library.draftChanges` | Draft changes | ड्राफ़्ट में बदलाव |
+| `library.notSent` | Not sent to print computer | प्रिंट कंप्यूटर को नहीं भेजा |
+| `library.outdated` | Newer version not sent | नया वर्ज़न नहीं भेजा |
+| `library.usedBy` | Used by {names} | {names} में लगा है |
+| `library.unused` | No label printer uses it yet | अभी कोई लेबल प्रिंटर इसे नहीं लेता |
+| `library.warnings` | {count} print {count:warning\|warnings} | प्रिंट की {count} {count:चेतावनी\|चेतावनियाँ} |
+| `library.warningsHint` | Open the design to see what would print badly. | क्या ठीक से नहीं छपेगा, यह देखने के लिए डिज़ाइन खोलें। |
+| `library.preview` | Preview of {name} | {name} का प्रीव्यू |
+| `library.emptyDesign` | Nothing on this label yet | इस लेबल पर अभी कुछ नहीं है |
+| `library.edit` | Edit label | लेबल बदलें |
+| `library.send` | Send | भेजें |
+| `library.sendLong` | Send to print computer | प्रिंट कंप्यूटर को भेजें |
+| `library.sentToast` | {name} sent to the print computer | {name} प्रिंट कंप्यूटर को भेजा |
+| `library.more` | More actions for {name} | {name} के और काम |
+| `library.duplicate` | Duplicate | कॉपी बनाएँ |
+| `library.copyName` | {name} copy | {name} कॉपी |
+| `library.duplicateFailed` | Couldn't make a copy. Try again. | कॉपी नहीं बन सकी। फिर से कोशिश करें। |
+| `library.download` | Download design file | डिज़ाइन फ़ाइल डाउनलोड करें |
+| `library.newTitle` | New label | नया लेबल |
+| `library.newBody` | Name it and pick a starting design. You lay it out in the studio next. | नाम दें और शुरुआती डिज़ाइन चुनें। उसके बाद स्टूडियो में सजाएँ। |
+| `library.name` | Name | नाम |
+| `library.nameHint` | Printers and people pick the design by this name. | प्रिंटर और लोग इसी नाम से डिज़ाइन चुनते हैं। |
+| `library.nameRequired` | Enter a name. | नाम लिखें। |
+| `library.nameTooLong` | Keep the name under 255 characters. | नाम 255 अक्षरों से छोटा रखें। |
+| `library.nameTaken` | A label design already has this name. | इस नाम का लेबल डिज़ाइन पहले से है। |
+| `library.startFrom` | Start from | किससे शुरू करें |
+| `library.create` | Create and open studio | बनाएँ और स्टूडियो खोलें |
+| `library.createFailed` | Couldn't create the label design: {message} | लेबल डिज़ाइन नहीं बना: {message} |
+| `library.starters.operationsDense.name` | Operations dense | पूरा ब्योरा |
+| `library.starters.operationsDense.note` | Every field in aligned columns | हर फ़ील्ड सीधे कॉलम में |
+| `library.starters.polished.name` | Polished classic | साफ़ क्लासिक |
+| `library.starters.polished.note` | Serial, QR, measures and total | सीरियल, QR, माप और कुल |
+| `library.starters.compact.name` | Compact | छोटा |
+| `library.starters.compact.note` | Serial, Code 128, series and weight | सीरियल, Code 128, सिरीज़ और वज़न |
+| `library.starters.dispatchWeight.name` | Dispatch weight | Dispatch वज़न |
+| `library.starters.dispatchWeight.note` | Total weight as large as it fits | कुल वज़न जितना बड़ा आ सके |
+| `library.starters.party.name` | Customer label | ग्राहक लेबल |
+| `library.starters.party.note` | Party number and QR first | पहले पार्टी नंबर और QR |
+| `library.starters.rackTag.name` | Rack tag | रैक टैग |
+| `library.starters.rackTag.note` | Small tag for racks and bundles | रैक और bundle के लिए छोटा टैग |
+| `library.starters.shipping.name` | Shipping label | शिपिंग लेबल |
+| `library.starters.shipping.note` | 4 × 6 in with a scannable bundle | 4 × 6 इंच, स्कैन होने वाले bundle के साथ |
+| `library.starters.blank.name` | Blank label | खाली लेबल |
+| `library.starters.blank.note` | Only the bundle number | सिर्फ़ bundle नंबर |
 | `scale.title` | Scale | कांटा |
 | `scale.connected` | Sending weights | वज़न आ रहा है |
 | `scale.idle` | No weight coming in | वज़न नहीं आ रहा |
@@ -7693,7 +7860,7 @@ Please check, Lalubhai:
 | Step 5 | Still stuck | फिर भी नहीं हुआ |
 | Step 5 text | Note the reason shown on the failed job and send it to the orrn team. | फ़ेल जॉब पर लिखा कारण नोट करें और orrn टीम को भेजें। |
 | Problem 1 | Labels come out blank | लेबल खाली निकल रहे हैं |
-| Fix 1 | Check the label roll is loaded the right way round. If it still happens, ask a manager to tap "Send label design to printers" on the "Labels" tab. | देखें कि लेबल रोल सही तरफ़ से लगा है। फिर भी हो तो मैनेजर से "लेबल" टैब पर "लेबल डिज़ाइन प्रिंटर को भेजें" दबाने को कहें। |
+| Fix 1 | Check the label roll is loaded the right way round. If it still happens, ask a manager to tap "Send" on the label design in the "Labels" tab. | देखें कि लेबल रोल सही तरफ़ से लगा है। फिर भी हो तो मैनेजर से "लेबल" टैब में लेबल डिज़ाइन पर "भेजें" दबाने को कहें। |
 | Problem 2 | It says "Label printing isn't set up" | "लेबल प्रिंटिंग सेट नहीं है" लिखा आया |
 | Fix 2 | Label printing hasn't been set up for your company yet. Ask the orrn team. | आपकी कंपनी के लिए लेबल प्रिंटिंग अभी सेट नहीं हुई है। orrn टीम से कहें। |
 | Problem 3 | There's no "Retry" button | "फिर से भेजें" का बटन नहीं है |

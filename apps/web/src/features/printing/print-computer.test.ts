@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { PRINT_COMPUTER_STALE_MS, printComputerBanner } from "./print-computer";
+import { PRINT_COMPUTER_STALE_MS, printComputerBanner, printComputerState } from "./print-computer";
 
 describe("print computer banner (BACKLOG 102)", () => {
   const NOW = Date.parse("2026-10-25T16:00:00Z");
@@ -44,6 +44,33 @@ describe("print computer banner (BACKLOG 102)", () => {
       kind: "offline",
       nodeName: "Second",
       since: newer,
+    });
+  });
+});
+
+describe("print computer state (summary strip)", () => {
+  const NOW = Date.parse("2026-10-25T16:00:00Z");
+  const ago = (ms: number) => new Date(NOW - ms);
+
+  test("none set up, never connected, online with its newest fresh report, or offline since the newest report", () => {
+    expect(printComputerState([], NOW)).toEqual({ kind: "none" });
+    expect(printComputerState([{ status: "revoked", lastHeartbeatAt: ago(1_000), nodeName: "Old" }], NOW)).toEqual({ kind: "none" });
+    expect(printComputerState([{ status: "pending", lastHeartbeatAt: null, nodeName: "New" }], NOW)).toEqual({ kind: "never", nodeName: "New" });
+    const fresh = ago(30_000);
+    expect(
+      printComputerState(
+        [
+          { status: "offline", lastHeartbeatAt: ago(10_000), nodeName: "Spare" },
+          { status: "active", lastHeartbeatAt: fresh, nodeName: "Packing bay PC" },
+        ],
+        NOW,
+      ),
+    ).toEqual({ kind: "online", nodeName: "Packing bay PC", at: fresh });
+    const stale = ago(PRINT_COMPUTER_STALE_MS + 1);
+    expect(printComputerState([{ status: "active", lastHeartbeatAt: stale.toISOString(), nodeName: "Packing bay PC" }], NOW)).toEqual({
+      kind: "offline",
+      nodeName: "Packing bay PC",
+      since: stale,
     });
   });
 });

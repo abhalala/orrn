@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  canCancel,
   canRetry,
   collectorRowsOf,
   nodeTone,
@@ -8,9 +9,10 @@ import {
   parsePrintStatus,
   parsePrintTab,
   printJobTone,
-  queueSummary,
+  printSummary,
   reprintTarget,
   scaleRowOf,
+  statusFilters,
 } from "./model";
 
 describe("printing model", () => {
@@ -38,6 +40,11 @@ describe("printing model", () => {
     for (const s of ["queued", "accepted", "success"] as const) expect(canRetry(s)).toBe(false);
   });
 
+  test("only jobs that have not reached the printer can be cancelled", () => {
+    for (const s of ["queued", "accepted"] as const) expect(canCancel(s)).toBe(true);
+    for (const s of ["sent", "success", "failed", "outcome_unknown", "cancelled"] as const) expect(canCancel(s)).toBe(false);
+  });
+
   test("tones", () => {
     expect(printJobTone("failed")).toBe("red");
     expect(printJobTone("success")).toBe("green");
@@ -48,10 +55,27 @@ describe("printing model", () => {
     expect(nodeTone("revoked")).toBe("neutral");
   });
 
-  test("summary keeps unknown outcomes visible", () => {
-    expect(queueSummary({ queued: 2, accepted: 1, sent: 5, success: 40, failed: 1, outcome_unknown: 3, cancelled: 2 })).toEqual({ failed: 1, waiting: 2, unknown: 3, clear: false });
-    expect(queueSummary({ queued: 0, accepted: 0, sent: 3, success: 9, failed: 0, outcome_unknown: 0, cancelled: 0 }).clear).toBe(true);
-    expect(queueSummary({ queued: 0, accepted: 0, sent: 3, success: 9, failed: 0, outcome_unknown: 1, cancelled: 0 }).clear).toBe(false);
+  test("summary strip counts what needs a person and opens the status that holds it", () => {
+    const counts = { queued: 2, accepted: 1, sent: 5, success: 40, failed: 1, outcome_unknown: 3, cancelled: 2 };
+    expect(printSummary(counts)).toEqual([
+      { key: "retry", count: 4, status: "failed", tone: "red" },
+      { key: "waiting", count: 3, status: "queued", tone: "amber" },
+      { key: "sent", count: 5, status: "sent", tone: "blue" },
+      { key: "printed", count: 40, status: "success", tone: "green" },
+    ]);
+    const onlyAmbiguous = printSummary({ queued: 0, accepted: 2, sent: 0, success: 0, failed: 0, outcome_unknown: 1, cancelled: 0 });
+    expect(onlyAmbiguous.map((item) => [item.key, item.status, item.tone])).toEqual([
+      ["retry", "outcome_unknown", "red"],
+      ["waiting", "accepted", "amber"],
+      ["sent", "sent", "neutral"],
+      ["printed", "success", "neutral"],
+    ]);
+  });
+
+  test("status filters show statuses with jobs, plus the active one", () => {
+    const counts = { queued: 2, accepted: 0, sent: 0, success: 9, failed: 1, outcome_unknown: 0, cancelled: 0 };
+    expect(statusFilters(counts, undefined)).toEqual(["queued", "success", "failed"]);
+    expect(statusFilters(counts, "cancelled")).toEqual(["queued", "success", "failed", "cancelled"]);
   });
 
   test("reprint target is the trimmed bundle number", () => {

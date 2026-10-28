@@ -442,7 +442,7 @@ const guidesEnBase: GuideBookBase = {
     problems: [
       {
         title: "Labels come out blank",
-        fix: "Check the label roll is loaded the right way round. If it still happens, ask a manager to tap \"Send label design to printers\" on the \"Labels\" tab.",
+        fix: "Check the label roll is loaded the right way round. If it still happens, ask a manager to tap \"Send\" on the label design in the \"Labels\" tab.",
       },
       {
         title: "It says \"Label printing isn't set up\"",

@@ -87,4 +87,20 @@ describe("tenant label drafts and publishing", () => {
     await expect(admin.spool.labelDocuments.createDraft({ name: "Bad", document: invalid })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await env.db.select().from(labelTemplate).where(eq(labelTemplate.companyId, companyId)).all()).toHaveLength(0);
   });
+
+  test("preview values are a real bundle's print variables and never cross tenants", async () => {
+    const { companyId } = await env.seedCompany();
+    const other = await env.seedCompany();
+    const viewer = env.caller({ role: "viewer", companyId });
+    expect(await viewer.spool.labelDocuments.sample({})).toBeNull();
+
+    const [bundle] = await env.seedBundles(companyId, await env.seedDie(companyId), 1);
+    const [foreign] = await env.seedBundles(other.companyId, await env.seedDie(other.companyId), 1);
+    const sample = await viewer.spool.labelDocuments.sample({ serial: bundle!.serial });
+    expect(sample?.serial).toBe(bundle!.serial);
+    expect(sample?.variables).toMatchObject({ serialNumber: bundle!.serial, quantity: "10", weight: "25 kg" });
+    expect(sample?.variables.qr).toContain(`/b/${bundle!.serial}`);
+    expect((await viewer.spool.labelDocuments.sample({}))?.serial).toBe(bundle!.serial);
+    await expect(viewer.spool.labelDocuments.sample({ serial: foreign!.serial })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
 });
