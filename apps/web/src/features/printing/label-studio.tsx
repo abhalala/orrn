@@ -18,6 +18,7 @@ import {
   duplicateElement,
   moveElement,
   newLabelEditor,
+  labelDocumentFromSchema,
   redo,
   rotateElement,
   selectElement,
@@ -40,7 +41,7 @@ export function LabelStudio({ templateId }: { templateId: string }) {
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
-    if (query.data) setState(newLabelEditor(query.data.schema as unknown as LabelDocument));
+    if (query.data) setState(newLabelEditor(labelDocumentFromSchema(query.data.draftSchema ?? query.data.schema)));
   }, [query.data]);
 
   const updateDraft = useMutation(trpc.spool.labelDocuments.updateDraft.mutationOptions({
@@ -61,8 +62,8 @@ export function LabelStudio({ templateId }: { templateId: string }) {
     onError: (error) => toast.error(error.message),
   }));
 
-  if (query.isPending || !state) return <p className="text-sm text-muted-foreground">Loading label studio…</p>;
   if (query.isError) return <p role="alert" className="text-sm text-destructive">{query.error.message}</p>;
+  if (query.isPending || !state) return <p className="text-sm text-muted-foreground">Loading label studio…</p>;
 
   const selected = state.document.elements.find((element) => state.selectedIds.includes(element.id));
   const apply = (next: LabelEditorState) => setState(next);

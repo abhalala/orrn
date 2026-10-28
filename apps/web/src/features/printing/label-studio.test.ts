@@ -6,6 +6,7 @@ import {
   alignElements,
   deleteElement,
   duplicateElement,
+  labelDocumentFromSchema,
   moveElement,
   newLabelEditor,
   redo,
@@ -15,6 +16,23 @@ import {
 } from "./label-studio-model";
 
 describe("label studio editor state", () => {
+  test("converts legacy dot-based templates without losing geometry or variables", () => {
+    const document = labelDocumentFromSchema({
+      name: "Bundle",
+      width_mm: 102.25,
+      height_mm: 76.2,
+      gap_mm: 3,
+      dpi: 203,
+      elements: [
+        { type: "text", x: 20, y: 20, content: "{{serial}}", font: "3" },
+        { type: "barcode", x: 20, y: 80, content: "{{serial}}", symbology: "128", height: 60, narrow: 2, wide: 2 },
+      ],
+    });
+    expect(document.page).toEqual({ widthMm: 102.25, heightMm: 76.2, gapMm: 3, dpi: 203, speedInSec: 5, density: 8, direction: 0 });
+    expect(document.elements[0]).toMatchObject({ xMm: 20 * 25.4 / 203, yMm: 20 * 25.4 / 203, font: "Sans Serif", content: "{{serialNumber}}" });
+    expect(document.elements[1]).toMatchObject({ heightMm: 60 * 25.4 / 203, quietZoneMm: 2, humanReadable: true, content: "{{serialNumber}}" });
+  });
+
   test("moves, rotates, duplicates, deletes, and reapplies history", () => {
     let state = newLabelEditor(operationsDense);
     state = moveElement(state, "serial", 1.25, 0);

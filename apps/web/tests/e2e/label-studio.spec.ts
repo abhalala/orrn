@@ -50,6 +50,51 @@ test("owner edits, duplicates, undoes, and publishes a dense label", async ({ pa
   await expect(page.getByText("Template published")).toBeVisible();
 });
 
+test("opens a legacy dot-based template instead of crashing", async ({ page }) => {
+  await signInViaApi(page, "owner");
+  const templateId = crypto.randomUUID();
+  await page.route("**/trpc/**", async (route) => {
+    if (!route.request().url().includes("spool.labelDocuments.get")) return route.fallback();
+    const response = await route.fetch();
+    const body = await response.json();
+    const legacy = {
+      id: templateId,
+      companyId: "dev-company-orrn",
+      serverSeq: 1,
+      name: "Legacy bundle",
+      kind: "bundle",
+      variables: {},
+      version: 1,
+      schema: {
+        name: "Bundle",
+        width_mm: 102.25,
+        height_mm: 76.2,
+        gap_mm: 3,
+        dpi: 203,
+        elements: [{ type: "text", x: 20, y: 20, content: "{{serial}}", font: "3" }],
+      },
+      draftSchema: null,
+      draftUpdatedAt: null,
+      spoolTemplateId: null,
+      spoolPushedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+    };
+    if (Array.isArray(body)) {
+      const index = decodeURIComponent(new URL(route.request().url()).pathname.split("/trpc/")[1] ?? "").split(",").indexOf("spool.labelDocuments.get");
+      body[index] = { result: { data: legacy } };
+      await route.fulfill({ response, json: body });
+    } else {
+      await route.fulfill({ response, json: { result: { data: legacy } } });
+    }
+  });
+  await page.goto(`/printing/templates/${templateId}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Label Studio" })).toBeVisible();
+  await expect(page.getByTestId("element-element-0")).toContainText("serialNumber");
+  await expect(page.getByText("Something went wrong!")).toHaveCount(0);
+});
+
 test("server rejects an invalid document instead of publishing it", async ({ page }) => {
   await signInViaApi(page, "owner");
   const invalid = structuredClone(operationsDense);
