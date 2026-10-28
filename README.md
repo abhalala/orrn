@@ -14,6 +14,17 @@
 - **API:** `api.orrn.in`
 - **Print Spool Companion:** [orrn-spool](https://github.com/abhalala/orrn-spool)
 
+### Outbound-only Edge V1
+
+This branch adds `/api/edge/v1/*`, company-bound one-time enrollment, overlapping
+credential rotation, durable print commands/events and sanitized read-cache
+snapshots. Enrolled V1 nodes use explicit profile routing and immutable
+versioned artifacts; legacy tunnel stations retain their existing transport.
+See [the staged Fourcubes cutover guide](docs/FOURCUBES_CUTOVER.md) before applying
+migrations or installing an agent. Local implementation/tests are not a
+production migration: the verified Agni pilot currently uses the separate
+legacy spool and HTTPS relay.
+
 ---
 
 ## What It Does

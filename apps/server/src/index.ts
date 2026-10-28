@@ -18,6 +18,7 @@ import { devSpectroInput, runDevSpectro } from "./dev-spectro";
 import { seedDevData } from "./dev-seed";
 import { collectorRoutes } from "./collector-routes";
 import { spoolRoutes } from "./spool-routes";
+import { edgeV1Routes } from "./edge-v1-routes";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -53,6 +54,7 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.ra
 app.route("/", spoolRoutes);
 // Press collector frames and spectro watcher files from orrn-spool nodes (node-signed).
 app.route("/", collectorRoutes);
+app.route("/", edgeV1Routes);
 
 if (env.NODE_ENV === "development") {
   app.post("/dev/seed", async (c) => {

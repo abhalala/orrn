@@ -13,6 +13,14 @@ import { buildDockerInstallScript } from "../../lib/spool-install-script";
 import { signDownloadToken } from "../../lib/spool-crypto";
 import { getDeliverableFilename } from "../../lib/spool-packager";
 import { resolveSpoolReleaseTag } from "../../lib/spool-release";
+import { resolveEdgeReleaseArtifact } from "../../lib/edge-release";
+import {
+  createEdgeEnrollmentNode,
+  issueEdgeEnrollmentToken,
+  setEdgeNodePrinters,
+  stageEdgeSecretRotation,
+} from "../../lib/edge-v1";
+import { edgeDesiredPrintersSchema, releaseSemverSchema } from "@orrn/edge-runtime";
 import { platformGuard } from "../../index";
 
 const SPOOL_DOMAIN_SUFFIX = ".spool.orrn.in";
@@ -64,6 +72,8 @@ export const spoolProcedures = {
           spoolDomain: spoolDeployment.nodeDomain,
           spoolVersion: spoolDeployment.runtimeVersion,
           lastSeenAt: spoolDeployment.lastHeartbeatAt,
+          installId: spoolDeployment.installId,
+          enrollmentIssuedAt: spoolDeployment.enrollmentIssuedAt,
           createdAt: spoolDeployment.createdAt,
           updatedAt: spoolDeployment.updatedAt,
           companyName: company.name,
@@ -257,7 +267,7 @@ export const spoolProcedures = {
       return { success: true };
     }),
 
-  /** Regenerate the shared secret for a deployment. Invalidates the old one. */
+  /** Legacy secrets rotate immediately; enrolled V1 nodes stage a non-stranding overlapping rotation. */
   spoolDeploymentRegenerateSecret: platformGuard("platform.spool.manage")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -274,6 +284,18 @@ export const spoolProcedures = {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot regenerate secret for a revoked deployment" });
       }
 
+      if (row.installId !== null || row.enrollmentIssuedAt !== null) {
+        const staged = await stageEdgeSecretRotation(ctx.db, {
+          deploymentId: row.id,
+          masterKey: env.ORRN_MASTER_KEY,
+        });
+        return {
+          sharedSecret: staged.pendingSecret,
+          pendingCredentialVersion: staged.pendingCredentialVersion,
+          overlap: true,
+        };
+      }
+
       const newSecret = crypto.randomUUID() + "-" + crypto.randomUUID();
       const newHash = await hashSha256(newSecret);
       const newWrapped = await wrapSecret(newSecret, env.ORRN_MASTER_KEY);
@@ -283,7 +305,7 @@ export const spoolProcedures = {
         .set({ sharedSecretHash: newHash, sharedSecretWrapped: newWrapped })
         .where(eq(spoolDeployment.id, input.id));
 
-      return { sharedSecret: newSecret };
+      return { sharedSecret: newSecret, pendingCredentialVersion: null, overlap: false };
     }),
 
   spoolDeploymentDockerInstallScript: platformGuard("platform.spool.manage")
@@ -301,6 +323,13 @@ export const spoolProcedures = {
       if (row.status === "revoked") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot generate install script for a revoked deployment" });
       }
+      if (row.installId !== null || row.enrollmentIssuedAt !== null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "ORRN Edge uses enrollment and an immutable release download, not a legacy secret-bearing install script",
+        });
+      }
+
 
       const sharedSecret = await unwrapSecret(row.sharedSecretWrapped, env.ORRN_MASTER_KEY);
       const cfTunnelToken = await unwrapSecret(row.cfTunnelTokenWrapped, env.ORRN_MASTER_KEY);
@@ -328,7 +357,8 @@ export const spoolProcedures = {
   spoolDeploymentDownloadUrl: platformGuard("platform.spool.manage")
     .input(z.object({
       id: z.string(),
-      platform: z.enum(["linux-amd64", "darwin-amd64", "darwin-arm64", "windows-amd64"] as const),
+      platform: z.enum(["linux-amd64", "linux-arm64", "darwin-amd64", "darwin-arm64", "windows-amd64", "docker"] as const),
+      version: releaseSemverSchema.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const row = await ctx.db
@@ -344,11 +374,166 @@ export const spoolProcedures = {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot download deliverable for a revoked deployment" });
       }
 
+      if (row.installId !== null || row.enrollmentIssuedAt !== null) {
+        if (input.platform !== "linux-amd64" && input.platform !== "linux-arm64" && input.platform !== "windows-amd64" && input.platform !== "docker") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Unsupported ORRN Edge platform" });
+        }
+        const version = input.version ?? row.runtimeVersion;
+        if (!version) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Select an explicit ORRN Edge release version" });
+        }
+        try {
+          const release = await resolveEdgeReleaseArtifact(version, input.platform === "docker" ? "linux-amd64" : input.platform);
+          return {
+            downloadUrl: input.platform === "docker" ? release.dockerImage : release.artifact.url,
+            filename: input.platform === "docker" ? "orrn-edge-docker" : release.artifact.filename,
+            sha256: input.platform === "docker" ? null : release.artifact.sha256,
+            releaseVersion: release.version,
+            manifestUrl: release.manifestUrl,
+            dockerImage: input.platform === "docker" ? release.dockerImage : null,
+          };
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_GATEWAY",
+            message: error instanceof Error ? error.message : "Failed to resolve the ORRN Edge release",
+          });
+        }
+      }
+      if (input.platform === "linux-arm64" || input.platform === "docker") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Docker and Linux ARM64 are available only for ORRN Edge nodes" });
+      }
+
+
       // Generate a short-lived download token signed with ORRN_MASTER_KEY
       const token = await signDownloadToken(input.id, input.platform, env.ORRN_MASTER_KEY);
       const downloadUrl = `${env.BETTER_AUTH_URL}/api/spool/deployments/${input.id}/download/${input.platform}?token=${token}`;
 
-      return { downloadUrl, filename: getDeliverableFilename(row.subdomain, input.platform) };
+      return {
+        downloadUrl,
+        filename: getDeliverableFilename(row.subdomain, input.platform),
+        sha256: null,
+        releaseVersion: null,
+        manifestUrl: null,
+        dockerImage: null,
+      };
+    }),
+
+  /** Create a new outbound-only Edge V1 node and return a 15-minute single-use enrollment token (no Cloudflare API calls). */
+  edgeNodeCreate: platformGuard("platform.spool.manage")
+    .input(
+      z.object({
+        companyId: z.string().min(1).max(64),
+        nodeName: z.string().trim().min(2).max(64).default("Primary edge node"),
+        siteLabel: z.string().trim().min(2).max(64).default("Main facility"),
+        subdomain: z
+          .string()
+          .min(3)
+          .max(63)
+          .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, "Subdomain must be a valid DNS label")
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const targetCompany = await ctx.db
+        .select({ id: company.id, name: company.name, status: company.status })
+        .from(company)
+        .where(eq(company.id, input.companyId))
+        .get();
+
+      if (!targetCompany) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      }
+      if (targetCompany.status !== "active") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Company must be active to create an edge node" });
+      }
+
+      if (input.subdomain) {
+        const existing = await ctx.db
+          .select({ id: spoolDeployment.id })
+          .from(spoolDeployment)
+          .where(eq(spoolDeployment.subdomain, input.subdomain))
+          .get();
+        if (existing) {
+          throw new TRPCError({ code: "CONFLICT", message: "Subdomain already in use" });
+        }
+      }
+
+      return createEdgeEnrollmentNode(ctx.db, {
+        companyId: input.companyId,
+        nodeName: input.nodeName,
+        siteLabel: input.siteLabel,
+        subdomain: input.subdomain,
+        masterKey: env.ORRN_MASTER_KEY,
+      });
+    }),
+
+  /** Re-issue a 15-minute single-use enrollment token for an existing Edge node. */
+  edgeNodeIssueEnrollmentToken: platformGuard("platform.spool.manage")
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select()
+        .from(spoolDeployment)
+        .where(eq(spoolDeployment.id, input.id))
+        .get();
+
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Deployment not found" });
+      }
+      if (row.status === "revoked") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot issue enrollment token for a revoked deployment" });
+      }
+      if (row.installId === null && row.enrollmentIssuedAt === null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Legacy deployments cannot be converted to ORRN Edge enrollment" });
+      }
+
+      return issueEdgeEnrollmentToken(ctx.db, { deploymentId: row.id });
+    }),
+
+  /** Stage a non-stranding overlapping secret rotation for an Edge V1 node. */
+  edgeNodeRotateSecret: platformGuard("platform.spool.manage")
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select()
+        .from(spoolDeployment)
+        .where(eq(spoolDeployment.id, input.id))
+        .get();
+
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Deployment not found" });
+      }
+      if (row.status === "revoked") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot rotate secret for a revoked deployment" });
+      }
+      if (row.installId === null && row.enrollmentIssuedAt === null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Legacy deployments cannot use ORRN Edge rotation" });
+      }
+
+      return stageEdgeSecretRotation(ctx.db, {
+        deploymentId: row.id,
+        masterKey: env.ORRN_MASTER_KEY,
+      });
+    }),
+
+  /** Replace an Edge V1 node's desired printers; the agent applies the new config version on its next poll. */
+  edgeNodeSetPrinters: platformGuard("platform.spool.manage")
+    .input(z.object({ id: z.string(), printers: edgeDesiredPrintersSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await ctx.db
+        .select({ id: spoolDeployment.id, status: spoolDeployment.status })
+        .from(spoolDeployment)
+        .where(eq(spoolDeployment.id, input.id))
+        .get();
+
+      if (!row) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Deployment not found" });
+      }
+      if (row.status === "revoked") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Cannot configure printers on a revoked deployment" });
+      }
+
+      return setEdgeNodePrinters(ctx.db, { deploymentId: row.id, printers: input.printers });
     }),
 };
 

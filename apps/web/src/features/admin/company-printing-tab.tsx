@@ -1,4 +1,6 @@
 import { useT, type MessageKey } from "@orrn/i18n";
+import type { AppRouter } from "@orrn/server/routers/index";
+import type { inferRouterOutputs } from "@trpc/server";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -16,11 +18,11 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { formatAgo, formatDay } from "./format";
 import { freeStationName, inactiveReason, printingKey, printingTone, validateStationName } from "./status";
-import type { CreatedDeployment, DeploymentRow } from "./types";
+import type { DeploymentRow } from "./types";
 import { ConfirmDialog, CopyField, errorCode, errorText, Fact, LoadError, Panel, useLastValue } from "./ui";
 
-/** The print station address suffix. The server builds the real one; this is only the live preview. */
-const ADDRESS_SUFFIX = ".spool.orrn.in";
+/** New nodes use outbound-only enrollment and keep their legacy-looking address only as an identifier. */
+const ADDRESS_SUFFIX = ".edge.orrn.in";
 
 const PLATFORMS = [
   { value: "darwin-arm64", key: "admin.printing.platforms.darwinArm64" },
@@ -28,7 +30,19 @@ const PLATFORMS = [
   { value: "linux-amd64", key: "admin.printing.platforms.linuxAmd64" },
   { value: "windows-amd64", key: "admin.printing.platforms.windowsAmd64" },
 ] as const satisfies readonly { value: string; key: MessageKey }[];
-type DownloadPlatform = (typeof PLATFORMS)[number]["value"];
+const EDGE_PLATFORMS = [
+  { value: "linux-amd64", key: "admin.printing.platforms.linuxAmd64" },
+  { value: "linux-arm64", key: null },
+  { value: "windows-amd64", key: "admin.printing.platforms.windowsAmd64" },
+  { value: "docker", key: null },
+] as const satisfies readonly { value: string; key: MessageKey | null }[];
+type DownloadPlatform = (typeof PLATFORMS)[number]["value"] | "linux-arm64" | "docker";
+type DownloadResult = inferRouterOutputs<AppRouter>["platform"]["spoolDeploymentDownloadUrl"];
+type CreatedEdgeNode = inferRouterOutputs<AppRouter>["platform"]["edgeNodeCreate"];
+
+function isEdgeV1(row: DeploymentRow): boolean {
+  return row.installId !== null || row.enrollmentIssuedAt !== null;
+}
 
 export type PrintingCompany = { id: string; name: string; slug: string; status: string };
 
@@ -156,10 +170,12 @@ function StationCard({ row, onAction }: { row: DeploymentRow; onAction(action: A
 
       <Can do="platform.spool.manage">
       <div className="grid grid-cols-1 gap-2 border-t border-border pt-4 min-[420px]:grid-cols-2 lg:flex lg:flex-wrap">
-        <Button variant="secondary" onPress={() => onAction({ kind: "install", row })}>
-          <TerminalSquare aria-hidden="true" strokeWidth={2} />
-          {t("admin.printing.installScript")}
-        </Button>
+        {!isEdgeV1(row) ? (
+          <Button variant="secondary" onPress={() => onAction({ kind: "install", row })}>
+            <TerminalSquare aria-hidden="true" strokeWidth={2} />
+            {t("admin.printing.installScript")}
+          </Button>
+        ) : null}
         <Button variant="secondary" onPress={() => onAction({ kind: "downloads", row })}>
           <Download aria-hidden="true" strokeWidth={2} />
           {t("admin.printing.downloads")}
@@ -281,10 +297,10 @@ function SetupSheet({
     if (open) setName(freeStationName(company.slug, taken));
   }
   const [error, setError] = useState<string | undefined>();
-  const [created, setCreated] = useState<CreatedDeployment | null>(null);
+  const [created, setCreated] = useState<CreatedEdgeNode | null>(null);
 
   const create = useMutation({
-    ...trpc.platform.spoolDeploymentCreate.mutationOptions(),
+    ...trpc.platform.edgeNodeCreate.mutationOptions(),
     onSuccess: async (result) => {
       // No toast here: it would sit over the sheet's Done button. The sheet says it instead.
       setCreated(result);
@@ -359,10 +375,9 @@ function SetupSheet({
             <CircleCheck aria-hidden="true" className="size-5 shrink-0" strokeWidth={2} />
             {t("admin.printing.created")}
           </p>
-          <CopyField label={t("admin.printing.address")} value={created.spoolDomain} />
+          <CopyField label={t("admin.printing.address")} value={created.nodeDomain} />
           <CopyField label={t("admin.printing.instanceId")} value={created.instanceId} />
-          <CopyField label={t("admin.printing.sharedSecret")} value={created.sharedSecret} />
-          <CopyField label={t("admin.printing.tunnelToken")} value={created.cfTunnelToken} />
+          <CopyField label="One-time enrollment token" value={created.enrollmentToken} />
         </div>
       ) : (
         <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-3">
@@ -417,7 +432,9 @@ function RotateDialog({ action, onClose }: { action: Action | null; onClose(): v
         open={row !== null}
         onOpenChange={(open) => (open ? undefined : onClose())}
         title={shown ? <AddressSentence messageKey="admin.printing.rotateTitle" address={shown.spoolDomain} /> : ""}
-        body={t("admin.printing.rotateBody")}
+        body={shown && isEdgeV1(shown)
+          ? "The current secret keeps working until the node confirms the new one. This stages an overlapping rotation without interrupting printing."
+          : t("admin.printing.rotateBody")}
         confirmLabel={t("admin.printing.rotateSecret")}
         pending={rotate.isPending}
         onConfirm={() => row && rotate.mutate({ id: row.id })}
@@ -487,16 +504,28 @@ function DownloadsSheet({ action, onClose }: { action: Action | null; onClose():
   const row = action?.kind === "downloads" ? action.row : null;
   const shown = useLastValue(row);
   const [platform, setPlatform] = useState<DownloadPlatform>("darwin-arm64");
+  const [version, setVersion] = useState(row?.spoolVersion ?? "1.0.0");
+  const [versionRow, setVersionRow] = useState(row?.id ?? null);
+  const [result, setResult] = useState<DownloadResult | null>(null);
+  if ((row?.id ?? null) !== versionRow) {
+    setVersionRow(row?.id ?? null);
+    setVersion(row?.spoolVersion ?? "1.0.0");
+    setResult(null);
+  }
+  const edge = shown !== null && isEdgeV1(shown);
+  const selectedPlatform: DownloadPlatform = edge && platform.startsWith("darwin") ? "linux-amd64" : platform;
   const download = useMutation({
     ...trpc.platform.spoolDeploymentDownloadUrl.mutationOptions(),
     onSuccess: (result) => {
-      const a = document.createElement("a");
-      a.href = result.downloadUrl;
-      a.download = result.filename;
-      a.rel = "noopener";
-      a.click();
+      setResult(result);
+      if (!result.dockerImage) {
+        const a = document.createElement("a");
+        a.href = result.downloadUrl;
+        a.download = result.filename;
+        a.rel = "noopener";
+        a.click();
+      }
       toast.success(t("admin.printing.downloadStarted"));
-      onClose();
     },
     onError: (err) => toast.error(errorText(t, err)),
   });
@@ -517,7 +546,15 @@ function DownloadsSheet({ action, onClose }: { action: Action | null; onClose():
           <Button
             loading={download.isPending}
             className="pointer-coarse:h-14"
-            onPress={() => row && download.mutate({ id: row.id, platform })}
+            onPress={() => {
+              if (!row) return;
+              setResult(null);
+              download.mutate(
+                isEdgeV1(row)
+                  ? { id: row.id, platform: selectedPlatform, version }
+                  : { id: row.id, platform: selectedPlatform },
+              );
+            }}
           >
             <Download aria-hidden="true" strokeWidth={2} />
             {t("admin.printing.download")}
@@ -528,14 +565,28 @@ function DownloadsSheet({ action, onClose }: { action: Action | null; onClose():
       <div className="flex flex-col gap-5">
         {shown ? (
           <p className="m-0 text-[15px] leading-6 text-muted-foreground">
-            <AddressSentence messageKey="admin.printing.downloadsBody" address={shown.spoolDomain} />
+            {edge
+              ? "Download an immutable ORRN Edge release. No credential is embedded; enrollment is stored separately in node.json."
+              : <AddressSentence messageKey="admin.printing.downloadsBody" address={shown.spoolDomain} />}
           </p>
+        ) : null}
+        {edge ? (
+          <Field label={t("admin.printing.version")} hint="Explicit immutable release version, for example 1.0.0.">
+            <TextInput
+              value={version}
+              onChange={(event) => setVersion(event.target.value.trim())}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="font-mono"
+            />
+          </Field>
         ) : null}
         <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
           <legend className="mb-2 p-0 text-[14px] font-semibold text-foreground">{t("admin.printing.computer")}</legend>
-          {PLATFORMS.map((p) => {
+          {(edge ? EDGE_PLATFORMS : PLATFORMS).map((p) => {
             const id = `${groupId}-${p.value}`;
-            const checked = platform === p.value;
+            const checked = selectedPlatform === p.value;
             return (
               <label
                 key={p.value}
@@ -551,14 +602,33 @@ function DownloadsSheet({ action, onClose }: { action: Action | null; onClose():
                   name={groupId}
                   value={p.value}
                   checked={checked}
-                  onChange={() => setPlatform(p.value)}
+                  onChange={() => {
+                    setPlatform(p.value);
+                    setResult(null);
+                  }}
                   className="size-[18px] accent-[var(--primary)]"
                 />
-                {t(p.key)}
+                {p.value === "docker" ? "Docker (AMD64 / ARM64)" : p.key ? t(p.key) : "Linux ARM64 / Raspberry Pi"}
               </label>
             );
           })}
         </fieldset>
+        {edge && result ? (
+          <div className="flex flex-col gap-3 rounded-input border border-border bg-surface-sunken p-4">
+            {result.sha256 ? <CopyField label="SHA-256" value={result.sha256} /> : null}
+            {result.dockerImage ? <CopyField label="Docker image" value={result.dockerImage} /> : null}
+            <CopyField
+              label="Install command"
+              value={
+                result.dockerImage
+                  ? `ORRN_EDGE_IMAGE=${result.dockerImage} ORRN_ENROLL_TOKEN_FILE=/secure/enrollment-token ORRN_EDGE_FALLBACK_PORT=8080 TZ=UTC docker compose up -d`
+                  : selectedPlatform === "windows-amd64"
+                    ? `${result.filename} install --api-origin https://api.orrn.in`
+                    : `ORRN_EDGE_VERSION=${result.releaseVersion} ORRN_EDGE_URL=${result.downloadUrl} ORRN_EDGE_SHA256=${result.sha256} ORRN_ENROLL_TOKEN_FILE=/secure/enrollment-token sudo -E bash packaging/linux/install.sh`
+              }
+            />
+          </div>
+        ) : null}
       </div>
     </Sheet>
   );

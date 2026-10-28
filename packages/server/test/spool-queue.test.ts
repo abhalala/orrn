@@ -32,7 +32,7 @@ async function seedPrinter(companyId: string, name = "Packing bay") {
   return { templateId, profileId };
 }
 
-type Status = "queued" | "sent" | "success" | "failed";
+type Status = "queued" | "accepted" | "sent" | "success" | "failed" | "outcome_unknown" | "cancelled";
 const job = (
   companyId: string,
   refs: { templateId: string; profileId: string },
@@ -54,13 +54,16 @@ describe("spool.queue", () => {
       job(companyId, refs, "queued", base + 2000),
       job(companyId, refs, "sent", base + 3000),
       job(companyId, refs, "failed", base + 4000),
+      job(companyId, refs, "accepted", base + 5000),
+      job(companyId, refs, "outcome_unknown", base + 6000),
+      job(companyId, refs, "cancelled", base + 7000),
     ]);
 
     const viewer = env.caller({ role: "viewer", companyId });
     const all = await viewer.spool.queue({});
-    expect(all.total).toBe(5);
-    expect(all.counts).toEqual({ queued: 1, sent: 1, success: 1, failed: 2 });
-    expect(all.rows.map((r) => r.status)).toEqual(["failed", "sent", "queued", "failed", "success"]);
+    expect(all.total).toBe(8);
+    expect(all.counts).toEqual({ queued: 1, accepted: 1, sent: 1, success: 1, failed: 2, outcome_unknown: 1, cancelled: 1 });
+    expect(all.rows.map((r) => r.status)).toEqual(["cancelled", "outcome_unknown", "accepted", "failed", "sent", "queued", "failed", "success"]);
     expect(all.rows.every((r) => r.profileName === "Packing bay")).toBe(true);
 
     const failed = await viewer.spool.queue({ status: "failed" });
@@ -73,15 +76,20 @@ describe("spool.queue", () => {
     expect(Object.keys(failed.rows[0]!)).not.toContain("variables");
     expect(Object.keys(failed.rows[0]!)).not.toContain("spoolJobId");
 
-    const page = await viewer.spool.queue({ limit: 2, offset: 4 });
-    expect(page.rows.length).toBe(1);
-    expect(page.total).toBe(5);
+    const unknown = await viewer.spool.queue({ status: "outcome_unknown" });
+    expect(unknown.total).toBe(1);
+    expect(unknown.rows.map((row) => row.status)).toEqual(["outcome_unknown"]);
+    expect(unknown.counts.outcome_unknown).toBe(1);
+
+    const page = await viewer.spool.queue({ limit: 2, offset: 6 });
+    expect(page.rows.length).toBe(2);
+    expect(page.total).toBe(8);
   });
 
   test("an empty plant returns an empty queue with zero counts", async () => {
     const { companyId } = await env.seedCompany();
     const res = await env.caller({ role: "owner", companyId }).spool.queue({});
-    expect(res).toEqual({ rows: [], total: 0, counts: { queued: 0, sent: 0, success: 0, failed: 0 } });
+    expect(res).toEqual({ rows: [], total: 0, counts: { queued: 0, accepted: 0, sent: 0, success: 0, failed: 0, outcome_unknown: 0, cancelled: 0 } });
   });
 
   test("another plant's jobs are never listed or counted", async () => {

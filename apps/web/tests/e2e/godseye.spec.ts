@@ -148,7 +148,7 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   const companyUrl = new URL(page.url());
   const companyPath = companyUrl.pathname;
 
-  // 3. Printing tab: set up a print station; the secrets show once.
+  // 3. Printing tab: create an outbound-only node; its one-time enrollment token shows once.
   await page.getByRole("tab", { name: "Printing" }).click();
   await expect(page).toHaveURL(/tab=printing/);
   await expect(page.getByText("Label printing isn't set up")).toBeVisible();
@@ -157,15 +157,15 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
   // The suggested name comes from the company's short name (unique per run: it carries the tag).
   const station = await sheet.getByLabel("Station name").inputValue();
   expect(station).toBe(`e2e-godseye-${tag}`);
-  await expect(sheet).toContainText(`${station}.spool.orrn.in`);
+  await expect(sheet).toContainText(`${station}.edge.orrn.in`);
   await sheet.getByRole("button", { name: "Set up print station" }).click();
   const secrets = page.getByRole("dialog", { name: "Copy these now" });
   await expect(secrets).toBeVisible();
-  for (const label of ["Address", "Instance ID", "Shared secret", "Tunnel token"]) {
+  for (const label of ["Address", "Instance ID", "One-time enrollment token"]) {
     await expect(secrets.getByRole("button", { name: `Copy ${label}` })).toBeVisible();
   }
   await secrets.getByRole("button", { name: "Done" }).click();
-  const stationCard = page.getByRole("article", { name: `${station}.spool.orrn.in` });
+  const stationCard = page.getByRole("article", { name: `${station}.edge.orrn.in` });
   await expect(stationCard).toBeVisible();
   await expect(stationCard.getByText("Waiting to connect")).toBeVisible();
   await expectNoClippedText(page, page.locator("main#main"));
@@ -173,22 +173,20 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
 
   // Rotate the secret: confirm first, then the new one shows once, in a sheet.
   await stationCard.getByRole("button", { name: "Rotate secret" }).click();
-  const rotateDialog = page.getByRole("dialog", { name: `Rotate the secret for ${station}.spool.orrn.in?` });
+  const rotateDialog = page.getByRole("dialog", { name: `Rotate the secret for ${station}.edge.orrn.in?` });
   await rotateDialog.getByRole("button", { name: "Rotate secret" }).click();
   const rotated = page.getByRole("dialog", { name: "Secret rotated" });
   await expect(rotated.getByRole("button", { name: "Copy New shared secret" })).toBeVisible();
   await rotated.getByRole("button", { name: "Done" }).click();
   await expect(rotated).toHaveCount(0);
-  // Install script: confirm, and the file downloads.
-  await stationCard.getByRole("button", { name: "Install script" }).click();
-  const download = page.waitForEvent("download");
-  await page.getByRole("dialog", { name: "Download the install script" }).getByRole("button", { name: "Download script" }).click();
-  expect((await download).suggestedFilename()).toBe(`install-${station}-docker.sh`);
-  await expect(page.getByText("Install script downloaded")).toBeVisible();
+  // V1 uses enrollment and immutable downloads, never a secret-bearing legacy install script.
+  await expect(stationCard.getByRole("button", { name: "Install script" })).toHaveCount(0);
   // App downloads: a sheet with the computer picker.
   await stationCard.getByRole("button", { name: "Downloads" }).click();
   const downloads = page.getByRole("dialog", { name: "Download the print station app" });
-  await expect(downloads.getByRole("radio", { name: "Mac with Apple chip" })).toBeChecked();
+  await expect(downloads.getByRole("radio", { name: "Linux", exact: true })).toBeChecked();
+  await expect(downloads.getByRole("radio", { name: "Linux ARM64 / Raspberry Pi" })).toBeVisible();
+  await expect(downloads.getByRole("radio", { name: "Docker (AMD64 / ARM64)" })).toBeVisible();
   await downloads.getByRole("button", { name: "Cancel" }).click();
   await expect(downloads).toHaveCount(0);
   // A second station is offered a name no station has used yet.
@@ -243,8 +241,8 @@ test("approve a request, set up label printing, impersonate and stop", async ({ 
 
   // 6. Tidy up: turn the print station off again.
   await page.getByRole("tab", { name: "Printing" }).click();
-  await page.getByRole("article", { name: `${station}.spool.orrn.in` }).getByRole("button", { name: "Turn off label printing" }).click();
-  await page.getByRole("dialog", { name: `Turn off ${station}.spool.orrn.in?` }).getByRole("button", { name: "Turn off" }).click();
+  await page.getByRole("article", { name: `${station}.edge.orrn.in` }).getByRole("button", { name: "Turn off label printing" }).click();
+  await page.getByRole("dialog", { name: `Turn off ${station}.edge.orrn.in?` }).getByRole("button", { name: "Turn off" }).click();
   await expect(page.getByText("Label printing turned off")).toBeVisible();
   await expect(page.getByText("Label printing isn't set up")).toBeVisible();
 });

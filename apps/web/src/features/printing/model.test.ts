@@ -19,6 +19,9 @@ describe("printing model", () => {
     expect(parsePrintTab("data")).toBe("queue");
     expect(parsePrintTab(undefined)).toBe("queue");
     expect(parsePrintStatus("failed")).toBe("failed");
+    expect(parsePrintStatus("accepted")).toBe("accepted");
+    expect(parsePrintStatus("outcome_unknown")).toBe("outcome_unknown");
+    expect(parsePrintStatus("cancelled")).toBe("cancelled");
     expect(parsePrintStatus("done")).toBeUndefined();
   });
 
@@ -30,21 +33,25 @@ describe("printing model", () => {
     expect(parsePage("x")).toBeUndefined();
   });
 
-  test("only a failed job can be sent again", () => {
-    expect(canRetry("failed")).toBe(true);
-    for (const s of ["queued", "sent", "success"] as const) expect(canRetry(s)).toBe(false);
+  test("terminal and ambiguous jobs can be retried as new attempts", () => {
+    for (const s of ["failed", "outcome_unknown", "sent", "cancelled"] as const) expect(canRetry(s)).toBe(true);
+    for (const s of ["queued", "accepted", "success"] as const) expect(canRetry(s)).toBe(false);
   });
 
   test("tones", () => {
     expect(printJobTone("failed")).toBe("red");
     expect(printJobTone("success")).toBe("green");
+    expect(printJobTone("accepted")).toBe("amber");
+    expect(printJobTone("outcome_unknown")).toBe("red");
+    expect(printJobTone("cancelled")).toBe("neutral");
     expect(nodeTone("offline")).toBe("red");
     expect(nodeTone("revoked")).toBe("neutral");
   });
 
-  test("summary counts failed and waiting only", () => {
-    expect(queueSummary({ queued: 2, sent: 5, success: 40, failed: 1 })).toEqual({ failed: 1, waiting: 2, clear: false });
-    expect(queueSummary({ queued: 0, sent: 3, success: 9, failed: 0 }).clear).toBe(true);
+  test("summary keeps unknown outcomes visible", () => {
+    expect(queueSummary({ queued: 2, accepted: 1, sent: 5, success: 40, failed: 1, outcome_unknown: 3, cancelled: 2 })).toEqual({ failed: 1, waiting: 2, unknown: 3, clear: false });
+    expect(queueSummary({ queued: 0, accepted: 0, sent: 3, success: 9, failed: 0, outcome_unknown: 0, cancelled: 0 }).clear).toBe(true);
+    expect(queueSummary({ queued: 0, accepted: 0, sent: 3, success: 9, failed: 0, outcome_unknown: 1, cancelled: 0 }).clear).toBe(false);
   });
 
   test("reprint target is the trimmed bundle number", () => {
