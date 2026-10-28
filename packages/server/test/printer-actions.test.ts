@@ -48,3 +48,28 @@ test("administrator device actions are authorized, durable, audited, and receive
   const completed = await env.db.select().from(edgeCommand).where(eq(edgeCommand.id, result.commandId)).get();
   expect(JSON.parse(completed!.resolutionJson!)).toMatchObject({ state: "sent" });
 });
+
+test("a test print reaches an Edge printer by its string id; the legacy spool refuses a non-numeric id", async () => {
+  const { companyId } = await env.seedCompany();
+  const edgeId = crypto.randomUUID();
+  await env.db.insert(spoolDeployment).values({
+    id: edgeId, companyId, instanceId: crypto.randomUUID(), installId: crypto.randomUUID(), status: "active",
+    subdomain: `tp-${edgeId.slice(0, 8)}`, nodeDomain: `tp-${edgeId.slice(0, 8)}.spool.orrn.in`,
+    cfTunnelTokenWrapped: await wrapSecret("tunnel", DEV_MASTER_KEY), sharedSecretHash: "hash", sharedSecretWrapped: await wrapSecret("secret", DEV_MASTER_KEY),
+    desiredPrinters: [{ printerId: "tsc-1", name: "Packing", host: "10.0.0.40", port: 9100, paused: false }],
+  });
+  await expect(env.caller({ role: "viewer", companyId }).spool.testPrinter({ printerId: "tsc-1" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  const result = await env.caller({ role: "admin", companyId }).spool.testPrinter({ printerId: "tsc-1" });
+  const command = await env.db.select().from(edgeCommand).where(eq(edgeCommand.id, result.commandId!)).get();
+  expect(command?.kind).toBe("test_print");
+  expect(JSON.parse(command!.payloadJson)).toMatchObject({ printerId: "tsc-1" });
+
+  const legacy = await env.seedCompany();
+  const legacyId = crypto.randomUUID();
+  await env.db.insert(spoolDeployment).values({
+    id: legacyId, companyId: legacy.companyId, instanceId: crypto.randomUUID(), status: "active",
+    subdomain: `lg-${legacyId.slice(0, 8)}`, nodeDomain: `lg-${legacyId.slice(0, 8)}.spool.orrn.in`,
+    cfTunnelTokenWrapped: await wrapSecret("tunnel", DEV_MASTER_KEY), sharedSecretHash: "hash", sharedSecretWrapped: await wrapSecret("secret", DEV_MASTER_KEY),
+  });
+  await expect(env.caller({ role: "admin", companyId: legacy.companyId }).spool.testPrinter({ printerId: "tsc-1" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});

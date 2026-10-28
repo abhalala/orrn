@@ -72,6 +72,36 @@ async function createSpoolClient(deployment: ActiveSpoolDeployment) {
   return new SpoolClient(spoolBaseUrl(deployment.nodeDomain), sharedSecret);
 }
 
+/** Every label variable of one bundle, exactly as a print of it would send them. */
+async function bundleLabelVariablesFor(db: OrrnDb, companyId: string, bundleRow: typeof bundle.$inferSelect, layout: string) {
+  const groupRow = await db.query.bundleGroup.findFirst({
+    where: and(eq(bundleGroup.id, bundleRow.groupId), eq(bundleGroup.companyId, companyId)),
+  });
+  if (!groupRow) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Bundling session not found" });
+  }
+  const dieRow = await db.query.die.findFirst({
+    where: and(eq(die.id, bundleRow.dieId), eq(die.companyId, companyId)),
+  });
+  // FP-PK-04/05: QR, cast, sales order, standard, party number, logo flag.
+  const packVariables = await loadPackLabelVariables(db, companyId, bundleRow);
+  const castRow = bundleRow.castId
+    ? await db
+        .select({ number: cast.number })
+        .from(cast)
+        .where(and(eq(cast.id, bundleRow.castId), eq(cast.companyId, companyId)))
+        .get()
+    : null;
+  const variables = buildBundleLabelVariables({
+    bundleRow,
+    groupRow,
+    dieRow: dieRow ?? null,
+    layout,
+    castRow: castRow ?? null,
+  });
+  return { ...variables, ...packVariables };
+}
+
 export const spoolRouter = router({
   labelDocuments: router({
     list: companyProcedure.query(async ({ ctx }) => listLabelDocuments(ctx.db, ctx.companyId)),
@@ -88,6 +118,22 @@ export const spoolRouter = router({
     publish: actionProcedure("spool.push_templates")
       .input(z.object({ templateId: z.string().uuid() }))
       .mutation(async ({ ctx, input }) => publishLabelDraft(ctx.db, ctx.companyId, input.templateId)),
+    /** A real bundle's label values for previews: the given serial, else the newest bundle; null when the company has none. */
+    sample: companyProcedure
+      .input(z.object({ serial: z.string().trim().min(1).max(64).optional() }))
+      .query(async ({ ctx, input }) => {
+        const bundleRow = await ctx.db.query.bundle.findFirst({
+          where: input.serial
+            ? and(eq(bundle.companyId, ctx.companyId), eq(bundle.serial, input.serial))
+            : eq(bundle.companyId, ctx.companyId),
+          orderBy: desc(bundle.createdAt),
+        });
+        if (!bundleRow) {
+          if (input.serial) throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
+          return null;
+        }
+        return { serial: bundleRow.serial, variables: await bundleLabelVariablesFor(ctx.db, ctx.companyId, bundleRow, "x0") };
+      }),
   }),
 
   // ─── Printers ────────────────────────────────────────────────────────────────
@@ -205,7 +251,8 @@ export const spoolRouter = router({
     }),
 
   testPrinter: actionProcedure("spool.manage_printers")
-    .input(z.object({ printerId: z.number() }))
+    // Edge printer ids are strings ("tsc-1"); the legacy spool numbers its printers.
+    .input(z.object({ printerId: z.union([z.number().int(), z.string().trim().min(1).max(64)]) }))
     .mutation(async ({ ctx, input }) => {
       const deployment = await getActiveDeployment(ctx);
       if (deployment.installId !== null) {
@@ -216,6 +263,9 @@ export const spoolRouter = router({
           requestedBy: ctx.session!.user.id,
         });
         return { success: true, commandId: cmd.commandId };
+      }
+      if (typeof input.printerId !== "number") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This print computer numbers its printers; send the printer's number" });
       }
       const client = await createSpoolClient(deployment);
       await client.testPrint(input.printerId);
@@ -298,6 +348,18 @@ export const spoolRouter = router({
         templateName: labelTemplate.name,
         templateKind: labelTemplate.kind,
         defaultCopies: printerProfile.defaultCopies,
+        mediaType: printerProfile.mediaType,
+        mediaWidthMm: printerProfile.mediaWidthMm,
+        mediaHeightMm: printerProfile.mediaHeightMm,
+        gapMm: printerProfile.gapMm,
+        dpi: printerProfile.dpi,
+        speedInSec: printerProfile.speedInSec,
+        density: printerProfile.density,
+        cutterEnabled: printerProfile.cutterEnabled,
+        macAddress: printerProfile.macAddress,
+        verifiedHost: printerProfile.verifiedHost,
+        verifiedPort: printerProfile.verifiedPort,
+        capabilitiesVerifiedAt: printerProfile.capabilitiesVerifiedAt,
         createdAt: printerProfile.createdAt,
       })
       .from(printerProfile)
@@ -339,8 +401,10 @@ export const spoolRouter = router({
       const client = await createSpoolClient(deployment);
 
       const schema = template.schema as Record<string, unknown>;
-      const widthMm = (schema.width_mm as number) ?? 100;
-      const heightMm = (schema.height_mm as number) ?? 50;
+      // Versioned documents carry their size in `page`; legacy schemas at the top level.
+      const page = typeof schema.page === "object" && schema.page !== null ? (schema.page as { widthMm?: unknown; heightMm?: unknown }) : {};
+      const widthMm = typeof page.widthMm === "number" ? page.widthMm : typeof schema.width_mm === "number" ? schema.width_mm : 100;
+      const heightMm = typeof page.heightMm === "number" ? page.heightMm : typeof schema.height_mm === "number" ? schema.height_mm : 50;
 
       if (template.spoolTemplateId) {
         // Update existing template on spool
@@ -350,6 +414,7 @@ export const spoolRouter = router({
           width_mm: widthMm,
           height_mm: heightMm,
         });
+        await ctx.db.update(labelTemplate).set({ spoolPushedAt: new Date() }).where(eq(labelTemplate.id, input.templateId));
       } else {
         // Push new template to spool
         const result = await client.pushTemplate({
@@ -517,18 +582,7 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Bundle not found" });
       }
 
-      const groupRow = await ctx.db.query.bundleGroup.findFirst({
-        where: and(eq(bundleGroup.id, bundleRow.groupId), eq(bundleGroup.companyId, ctx.companyId)),
-      });
-      if (!groupRow) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Bundling session not found" });
-      }
-
-      const dieRow = await ctx.db.query.die.findFirst({
-        where: and(eq(die.id, bundleRow.dieId), eq(die.companyId, ctx.companyId)),
-      });
-      // FP-PK-04/05: QR, cast, sales order, standard, party number, logo flag.
-      const packVariables = await loadPackLabelVariables(ctx.db, ctx.companyId, bundleRow);
+      const variables = await bundleLabelVariablesFor(ctx.db, ctx.companyId!, bundleRow, input.layout);
 
       const profile = input.profileId
         ? await ctx.db
@@ -566,20 +620,6 @@ export const spoolRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Bundle label template not found" });
       }
 
-      const castRow = bundleRow.castId
-        ? await ctx.db
-            .select({ number: cast.number })
-            .from(cast)
-            .where(and(eq(cast.id, bundleRow.castId), eq(cast.companyId, ctx.companyId!)))
-            .get()
-        : null;
-      const variables = buildBundleLabelVariables({
-        bundleRow,
-        groupRow,
-        dieRow: dieRow ?? null,
-        layout: input.layout,
-        castRow: castRow ?? null,
-      });
       const deployment = profile.deploymentId
         ? await ctx.db
             .select()
@@ -607,7 +647,6 @@ export const spoolRouter = router({
 
       const printLogId = crypto.randomUUID();
       const copies = input.copies ?? profile.defaultCopies;
-      Object.assign(variables, packVariables);
 
       // BACKLOG 44: the print intent. The first print of a bundle at a label version is attempt 1. The
       // attempt moves up when a person asks for a reprint of a label that went out (ANY row of the latest
@@ -783,6 +822,8 @@ export const spoolRouter = router({
             updatedAt: printLog.updatedAt,
             profileName: printerProfile.name,
             bundleSerial: bundle.serial,
+            copies: printLog.copies,
+            templateName: labelTemplate.name,
           })
           .from(printLog)
           .innerJoin(
@@ -790,6 +831,7 @@ export const spoolRouter = router({
             and(eq(printerProfile.id, printLog.profileId), eq(printerProfile.companyId, ctx.companyId)),
           )
           .leftJoin(bundle, and(eq(bundle.id, printLog.bundleId), eq(bundle.companyId, ctx.companyId)))
+          .leftJoin(labelTemplate, and(eq(labelTemplate.id, printLog.templateId), eq(labelTemplate.companyId, ctx.companyId)))
           .where(filtered)
           .orderBy(desc(printLog.createdAt), desc(printLog.id))
           .limit(input.limit)
@@ -816,7 +858,6 @@ export const spoolRouter = router({
         : printStatuses.reduce((sum, status) => sum + allCounts[status], 0);
 
       return { rows, total, counts: allCounts };
-
     }),
 
   getJobStatus: companyProcedure

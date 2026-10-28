@@ -24,6 +24,9 @@ import { guFoundry } from "./gu-more/foundry";
 import { guGuides } from "./gu-more/guides";
 import { guNative } from "./gu-more/native";
 import { guOrders } from "./gu-more/orders";
+import { guPrintingLabels } from "./gu-more/printing-labels";
+import { guPrintingPrinters } from "./gu-more/printing-printers";
+import { guPrintingQueue } from "./gu-more/printing-queue";
 import { guSettings } from "./gu-more/settings";
 import { guShell } from "./gu-more/shell";
 import { foundryRefusalGu } from "./native/foundry-refusal.gu";
@@ -1838,6 +1841,9 @@ export const gu = mergeGu(
   guSettings,
   guShell,
   guPressBoard,
+  guPrintingLabels,
+  guPrintingPrinters,
+  guPrintingQueue,
 ) as typeof guBase &
   typeof guAgeingWeb &
   typeof guApprovals &
@@ -1853,4 +1859,7 @@ export const gu = mergeGu(
   typeof guOrders &
   typeof guSettings &
   typeof guShell &
-  typeof guPressBoard satisfies GuMessages;
+  typeof guPressBoard &
+  typeof guPrintingLabels &
+  typeof guPrintingPrinters &
+  typeof guPrintingQueue satisfies GuMessages;

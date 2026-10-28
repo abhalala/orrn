@@ -99,13 +99,21 @@ test.describe("printing", () => {
       const tabs = page.getByRole("tablist", { name: "Printing" });
       for (const name of ["Queue", "Printers", "Labels"]) await expect(tabs.getByRole("tab", { name })).toBeVisible();
       await expect(tabs.getByRole("tab", { name: "Queue" })).toHaveAttribute("aria-selected", "true");
-      // The demo plant has two labels waiting for the printer that has not connected yet.
-      await expect(page.getByTestId("queue-summary")).toHaveText("0 failed, 2 waiting");
+      // The demo plant has two labels waiting for the printer that has not connected yet: the summary strip says so.
+      const summary = page.getByTestId("printing-summary");
+      await expect(summary.locator("[data-summary='waiting']")).toHaveText(/Waiting to print\s*2$/);
+      await expect(summary.locator("[data-summary='retry']")).toHaveText(/Needs a retry\s*0$/);
+      await expect(summary.locator("[data-summary='computer']")).toHaveAttribute("data-state", "never");
+      await expect(summary.locator("[data-summary='computer']")).toContainText("Never connected");
       const main = page.locator("main#main");
       for (const serial of ["BG-000008-B013", "BG-000008-B014"]) await expect(main.getByRole("link", { name: serial })).toBeVisible();
       await expect(main.getByText("Packing bay").first()).toBeVisible();
       await expect(main.getByText("Waiting", { exact: true }).first()).toBeVisible();
-      await expect(page.getByText("Nothing waiting to print.")).toHaveCount(0);
+      await expect(page.getByText("No print jobs yet")).toHaveCount(0);
+      // Waiting labels have not reached the printer: an owner can cancel them, and nothing offers a retry yet.
+      await expect(main.getByTestId("cancel-job")).toHaveCount(2);
+      await expect(main.getByTestId("retry-job")).toHaveCount(0);
+      await expect(page.getByTestId("printing-restricted")).toHaveCount(0);
       // BACKLOG 102: the print computer has never connected, so the waiting labels come with a warning and what to do.
       const banner = page.getByTestId("print-computer-banner");
       await expect(banner).toHaveAttribute("data-kind", "never");
@@ -124,10 +132,10 @@ test.describe("printing", () => {
         await route.fulfill({ json: batched ? [result] : result });
       });
       await open(page, "/printing", { width });
-      await expect(page.getByTestId("queue-summary")).toHaveText("1 failed, 0 waiting");
+      await expect(page.getByTestId("printing-summary").locator("[data-summary='retry']")).toHaveText(/Needs a retry\s*1$/);
       const main = page.locator("main#main");
-      await expect(main.getByText("Printer did not answer")).toBeVisible();
-      await expect(main.getByText("Attempt 2")).toBeVisible();
+      await expect(main.getByTestId("job-reason")).toHaveText("Printer did not answer");
+      await expect(main.getByTestId("job-attempt")).toHaveText("Attempt 2");
       await expect(main.getByRole("link", { name: "26I4086" })).toHaveAttribute("href", "/b/26I4086");
       await expectContained(page);
       await main.getByTestId("retry-job").click();
@@ -135,13 +143,14 @@ test.describe("printing", () => {
       expect(retried[0]).toContain("job-failed-1");
     });
 
-    test(`viewer ${width}: sees the failed job but not Retry`, async ({ page }) => {
+    test(`viewer ${width}: sees the failed job but not Retry or Cancel`, async ({ page }) => {
       await withFailedJob(page);
       await open(page, "/printing", { role: "viewer", width });
       const main = page.locator("main#main");
       await expect(main.getByText("Printer did not answer")).toBeVisible();
       await expect(main.getByTestId("retry-job")).toHaveCount(0);
-      await expect(main.getByText("You can see the queue. Ask a manager to change printers or labels.")).toBeVisible();
+      await expect(main.getByTestId("cancel-job")).toHaveCount(0);
+      await expect(page.getByTestId("printing-restricted")).toHaveText("You can see the queue. Ask a manager to change printers or labels.");
       await expectContained(page);
     });
   }
@@ -150,8 +159,14 @@ test.describe("printing", () => {
     await withFailedJob(page);
     await open(page, "/printing", { width: 1280 });
     const main = page.locator("main#main");
-    await main.getByRole("button", { name: /^Failed/ }).click();
+    // Only statuses that have jobs get a chip.
+    const filters = main.getByTestId("queue-filters");
+    await expect(filters.getByRole("button")).toHaveText([/^All\s*4$/, /^Printed\s*3$/, /^Failed\s*1$/]);
+    await filters.getByRole("button", { name: /^Failed/ }).click();
     await expect(page).toHaveURL(/status=failed/);
+    await expect(filters.getByRole("button", { name: /^Failed/ })).toHaveAttribute("aria-pressed", "true");
+    // The router marks the summary item for the filter on screen as the current page.
+    await expect(page.getByTestId("printing-summary").locator("[data-summary='retry']")).toHaveAttribute("aria-current", "page");
     await main.getByRole("tab", { name: "Printers" }).click();
     await expect(page).toHaveURL(/tab=printers/);
     // One print computer that has not connected and reports no scale, and the label printer: nothing invented.
@@ -160,8 +175,49 @@ test.describe("printing", () => {
     await expect(node).toContainText("Packing bay node");
     await expect(node).toContainText("Has not reported in yet");
     await expect(node).toContainText("No scale");
-    await expect(main.getByRole("heading", { name: "Packing bay", level: 4, exact: true })).toBeVisible();
+    await expect(main.getByRole("heading", { name: "Packing bay", level: 3, exact: true })).toBeVisible();
     await expect(main.getByText("Label printing isn't set up")).toHaveCount(0);
+  });
+
+  test("summary items open the queue on their status, or Printers, from any tab", async ({ page }) => {
+    await withFailedJob(page);
+    await open(page, "/printing?tab=labels", { width: 820 });
+    const summary = page.getByTestId("printing-summary");
+    await summary.locator("[data-summary='retry']").click();
+    await expect(page).toHaveURL(/\/printing\?status=failed$/);
+    await expect(page.getByRole("tab", { name: "Queue" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("job-reason")).toHaveText("Printer did not answer");
+    await summary.locator("[data-summary='printed']").click();
+    await expect(page).toHaveURL(/status=success$/);
+    await summary.locator("[data-summary='computer']").click();
+    await expect(page).toHaveURL(/tab=printers$/);
+    await expect(page.getByRole("tab", { name: "Printers" })).toHaveAttribute("aria-selected", "true");
+    await expect(summary.locator("[data-summary='computer']")).toHaveAttribute("aria-current", "page");
+  });
+
+  test("an empty filter says so and shows every job again", async ({ page }) => {
+    await open(page, "/printing?status=cancelled", { width: 375 });
+    const main = page.locator("main#main");
+    await expect(main.getByText("No jobs with this status")).toBeVisible();
+    await main.getByRole("button", { name: "Show all jobs" }).click();
+    await expect(page).toHaveURL(/\/printing$/);
+    await expect(main.getByRole("link", { name: "BG-000008-B013" })).toBeVisible();
+    await expectContained(page);
+  });
+
+  test("Cancel stops a waiting job", async ({ page }) => {
+    const cancelled: string[] = [];
+    await page.route("**/trpc/spool.cancelJob**", async (route) => {
+      cancelled.push(route.request().postData() ?? "");
+      const batched = new URL(route.request().url()).searchParams.has("batch");
+      const result = { result: { data: { success: true, commandId: null } } };
+      await route.fulfill({ json: batched ? [result] : result });
+    });
+    await open(page, "/printing", { width: 1280 });
+    const main = page.locator("main#main");
+    await main.getByRole("button", { name: "Cancel label BG-000008-B013" }).click();
+    await expect.poll(() => cancelled.length).toBe(1);
+    await expect(page.locator("[data-sonner-toast]").filter({ hasText: "Print job cancelled" })).toBeVisible();
   });
 
   test("labels waiting while the print computer stopped reporting in: offline since its last report (BACKLOG 102)", async ({ page }) => {
@@ -243,6 +299,124 @@ test.describe("printing", () => {
       await expectContained(page);
     });
   }
+
+  for (const width of WIDTHS) {
+    test(`owner ${width}: Printers leads with the print computer and shows the label each printer prints`, async ({ page }) => {
+      await open(page, "/printing?tab=printers", { width });
+      const main = page.locator("main#main");
+      await expect(main.getByRole("heading", { level: 2, name: "Print computer" })).toBeVisible();
+      const node = main.getByTestId("print-node");
+      await expect(node).toHaveAttribute("data-state", "never");
+      await expect(node.getByRole("heading", { level: 3, name: "Packing bay node" })).toBeVisible();
+      await expect(node).toContainText("Not connected yet");
+      await expect(node).toContainText("Has not reported in yet");
+      await expect(main.getByRole("heading", { level: 2, name: "Label printers" })).toBeVisible();
+      const printer = main.getByTestId("print-profile").filter({ hasText: "Packing bay" }).first();
+      await expect(printer.getByRole("heading", { level: 3, name: "Packing bay", exact: true })).toBeVisible();
+      // No print computer has reported, so the printer's status is said as not reported, never guessed.
+      await expect(printer).toHaveAttribute("data-state", "unknown");
+      await expect(printer.getByText("Not reported", { exact: true })).toBeVisible();
+      await expect(printer.getByRole("img", { name: /label as it prints/ })).toBeVisible();
+      await expect(printer.getByRole("link", { name: /^Edit label design/ })).toHaveAttribute("href", /\/printing\/templates\/.+/);
+      await expect(printer.getByRole("button", { name: "Printer actions for Packing bay" })).toBeVisible();
+      await expectContained(page);
+    });
+
+    test(`viewer ${width}: Printers shows the same printer and label without the actions`, async ({ page }) => {
+      await open(page, "/printing?tab=printers", { role: "viewer", width });
+      const printer = page.getByTestId("print-profile").filter({ hasText: "Packing bay" }).first();
+      await expect(printer.getByRole("img", { name: /label as it prints/ })).toBeVisible();
+      await expect(printer.getByTestId("printer-actions")).toHaveCount(0);
+      await expect(printer.getByRole("link", { name: /^Edit label design/ })).toHaveCount(0);
+      await expectContained(page);
+    });
+  }
+
+  test("a reported printer shows its status, model, address and the hardware address it is locked to, in light and dark", async ({ page }) => {
+    const verifiedAt = new Date(Date.now() - 60_000).toISOString();
+    await page.route("**/trpc/**", async (route) => {
+      const procedures = procedureOf(route.request().url());
+      const index = procedures.indexOf("spool.listPrinters");
+      if (index === -1) return route.fallback();
+      const response = await route.fetch();
+      const body = await response.json();
+      const report = [
+        {
+          printerId: "dev-printer-1",
+          name: "Packing bay",
+          ipAddress: "192.168.1.50",
+          port: 9100,
+          status: "online",
+          canPrint: true,
+          lastSeenAt: verifiedAt,
+          lastError: null,
+          capabilities: { model: "TA220", macAddress: "00:1b:82:4c:9a:10", host: "192.168.1.50", port: 9100, features: [], verifiedAt },
+        },
+      ];
+      const entry = { result: { data: report } };
+      await route.fulfill({ response, status: 200, json: Array.isArray(body) ? body.map((e: unknown, i: number) => (i === index ? entry : e)) : entry });
+    });
+    await open(page, "/printing?tab=printers", { width: 1280 });
+    const printer = page.getByTestId("print-profile").filter({ hasText: "Packing bay" }).first();
+    await expect(printer).toHaveAttribute("data-state", "ready");
+    await expect(printer.getByText("Ready", { exact: true })).toBeVisible();
+    await expect(printer).toContainText("TA220");
+    await expect(printer).toContainText("192.168.1.50:9100");
+    await expect(printer).toContainText("00:1b:82:4c:9a:10");
+    await expectContained(page);
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    await expectContained(page);
+  });
+
+  test("owner: the printer menu sends a test label, calibrates after a confirm, and saves checked settings", async ({ page }) => {
+    const calls: Record<string, string[]> = { "spool.testPrinter": [], "spool.deviceAction": [], "spool.updatePrinterPreferences": [] };
+    for (const procedure of Object.keys(calls)) {
+      await page.route(`**/trpc/${procedure}**`, async (route) => {
+        calls[procedure]!.push(route.request().postData() ?? "");
+        const batched = new URL(route.request().url()).searchParams.has("batch");
+        const result = { result: { data: procedure === "spool.updatePrinterPreferences" ? { id: "p" } : { success: true, commandId: "c1" } } };
+        await route.fulfill({ json: batched ? [result] : result });
+      });
+    }
+    await open(page, "/printing?tab=printers", { width: 820 });
+    const actions = page.getByRole("button", { name: "Printer actions for Packing bay" });
+
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Print a test label" }).click();
+    await expect.poll(() => calls["spool.testPrinter"]!.length).toBe(1);
+    expect(calls["spool.testPrinter"]![0]).toContain("dev-printer-1");
+    await expect(page.getByText("Sent to the print computer.", { exact: false })).toBeVisible();
+
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Calibrate label size" }).click();
+    const confirm = page.getByRole("dialog", { name: "Calibrate Packing bay?" });
+    await expect(confirm).toContainText("Those labels are wasted.");
+    expect(calls["spool.deviceAction"]).toHaveLength(0);
+    await confirm.getByRole("button", { name: "Calibrate" }).click();
+    await expect.poll(() => calls["spool.deviceAction"]!.length).toBe(1);
+    expect(calls["spool.deviceAction"]![0]).toContain("calibrate");
+    await expect(confirm).toHaveCount(0);
+
+    await actions.click();
+    await page.getByRole("menuitem", { name: "Printer settings" }).click();
+    const sheet = page.getByRole("dialog", { name: "Settings for Packing bay" });
+    await expect(sheet).toBeVisible();
+    const width = sheet.getByLabel("Label width");
+    await width.fill("");
+    await sheet.getByRole("button", { name: "Save settings" }).click();
+    await expect(sheet.getByText("Enter a size above 0 and up to 300 mm.")).toBeVisible();
+    expect(calls["spool.updatePrinterPreferences"]).toHaveLength(0);
+    await width.fill("102");
+    await sheet.getByRole("radio", { name: "Black mark" }).click();
+    await sheet.getByRole("switch", { name: "Cutter" }).click();
+    await sheet.getByRole("button", { name: "Save settings" }).click();
+    await expect.poll(() => calls["spool.updatePrinterPreferences"]!.length).toBe(1);
+    const saved = calls["spool.updatePrinterPreferences"]![0]!;
+    expect(saved).toContain('"mediaWidthMm":102');
+    expect(saved).toContain('"mediaType":"black_mark"');
+    expect(saved).toContain('"cutterEnabled":true');
+    await expect(sheet).toHaveCount(0);
+  });
 
   for (const width of WIDTHS) {
     test(`owner ${width}: Labels has the reprint entry, which opens the bundle`, async ({ page }) => {

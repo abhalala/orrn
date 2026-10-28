@@ -40,6 +40,7 @@ This runbook documents the staged production migration for Fourcubes plant label
    - Scan B and A QR codes and confirm they resolve to the expected bundle URL. Scan C's Code 128 barcode and confirm the exact bundle serial. Check serial, party/PO, and human-readable values against the source bundle.
    - Count physical labels: B must produce two and C must produce three. Check the second and third copies for identical content and alignment.
    - Record the printer MAC, verified endpoint, profile/media settings, operator, date, and photograph/reference for each observed label. Leave any unobserved field **pending**.
+   - Compare each physical label with the Label Studio print preview for the same bundle (Studio → Sample → load that bundle number). The preview draws TSPL font "3" cells, real QR modules and Code 128 bars at 203 dpi; record any mismatch in position or size. The built-in B/A/C geometry was re-laid out on 2026-10-28 so nothing overlaps the QR or runs off the label, and the earlier B layout was never printed, so this check is against the new geometry.
    - Confirm `bundle.stickerStale` clears only upon durable `accepted` acknowledgement.
 
 ---

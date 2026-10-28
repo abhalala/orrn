@@ -38,6 +38,7 @@
     "barcode-detector": "^3.2.2",
     "better-auth": "catalog:",
     "date-fns": "^4.2.1",
+    "jsbarcode": "^3.12.1",
     "lucide-react": "^1.8.0",
     "next-themes": "catalog:",
     "papaparse": "^5.5.3",
