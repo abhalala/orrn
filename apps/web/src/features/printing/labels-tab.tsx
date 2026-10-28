@@ -2,11 +2,12 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { EmptyState } from "@orrn/ui/components/empty-state";
+import { UiLink } from "@orrn/ui/components/link";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Printer, Send } from "lucide-react";
+import { Pencil, Printer, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -132,7 +133,13 @@ function Designs() {
                   </CardDescription>
                 </CardHeader>
                 <Can do="spool.push_templates">
-                  <CardContent>
+                  <CardContent className="flex flex-wrap gap-2">
+                    <Button asChild variant="secondary" className="self-start">
+                      <UiLink to={`/printing/templates/${template.id}`}>
+                        <Pencil aria-hidden="true" strokeWidth={2} />
+                        Edit label
+                      </UiLink>
+                    </Button>
                     <Button
                       variant="secondary"
                       className="self-start"

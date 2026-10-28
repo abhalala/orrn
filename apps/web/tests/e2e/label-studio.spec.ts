@@ -26,8 +26,9 @@ async function createDraft(page: Page, document = operationsDense) {
 
 test("owner edits, duplicates, undoes, and publishes a dense label", async ({ page }) => {
   await signInViaApi(page, "owner");
-  const draft = await createDraft(page);
-  await page.goto(`/printing/templates/${draft.id}`);
+  await createDraft(page);
+  await page.goto("/printing?tab=labels");
+  await page.getByRole("link", { name: "Edit label" }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: "Label Studio" })).toBeVisible();
   await expect(page.getByTestId("element-serial")).toBeVisible();
 
