@@ -1,173 +1,144 @@
 import { useT } from "@orrn/i18n";
+import { Link } from "@tanstack/react-router";
+import { useRef, useState, type KeyboardEvent } from "react";
 
-import { DEMO_BUNDLE, DEMO_PACKING_LIST, demoKg, demoTotalKg } from "./demo-data";
+import { BundleLabel } from "./bundle-label";
+import { DEMO_PACKING_LIST, DEMO_TRACE, demoKg, demoTotalKg } from "./demo-data";
 import { DemoLabel } from "./demo-label";
 
-const QR_MODULES = 25;
+const VIEWS = ["label", "list", "scan"] as const;
+type View = (typeof VIEWS)[number];
+const TAB_KEY = { label: "tabLabel", list: "tabList", scan: "tabScan" } as const;
 
-/** Seeded FNV-1a PRNG from orrn-showcase/src/ui/BundleLabel.tsx so a serial always draws the same QR matrix. */
-function seeded(text: string) {
-  let h = 2166136261;
-  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-  return () => {
-    h = Math.imul(h ^ (h >>> 15), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    h ^= h >>> 16;
-    return (h >>> 0) / 4294967296;
-  };
-}
-
-const inFinder = (x: number, y: number, n: number) =>
-  (x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8);
-
-const finderOn = (x: number, y: number) => {
-  const d = Math.max(Math.abs(x - 3), Math.abs(y - 3));
-  return d === 3 || d <= 1;
-};
-
-function qrPath(text: string, n = QR_MODULES): string {
-  const rnd = seeded(text);
-  let d = "";
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      let on = false;
-      if (inFinder(x, y, n)) {
-        const fx = x >= n - 8 ? x - (n - 7) : x;
-        const fy = y >= n - 8 ? y - (n - 7) : y;
-        on = fx >= 0 && fy >= 0 && fx <= 6 && fy <= 6 && finderOn(fx, fy);
-      } else if (y === 6) {
-        on = x % 2 === 0;
-      } else if (x === 6) {
-        on = y % 2 === 0;
-      } else {
-        on = rnd() < 0.5;
-      }
-      if (on) d += `M${x} ${y}h1v1h-1z`;
-    }
-  }
-  return d;
-}
-
-const DEMO_QR_PATH = qrPath(DEMO_BUNDLE.serial);
-
-/** Viewfinder corner bracket from orrn-showcase/src/scenes/parts/ch5-camera.tsx. */
-function ScanCorner({ pos }: { pos: "tl" | "tr" | "br" | "bl" }) {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 44 44"
-      className={`marketing-scan-corner marketing-scan-corner-${pos}`}
-      focusable="false"
-    >
-      <path
-        d="M3 41V15A12 12 0 0 1 15 3h26"
-        fill="none"
-        stroke="var(--tone-green-from)"
-        strokeWidth="6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
+/** One bundle seen three ways: the label at the scale, the packing list it joins, and the gate scan. */
 export function Office() {
   const { t } = useT();
+  const [view, setView] = useState<View>("list");
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+    if (step === 0) return;
+    event.preventDefault();
+    const next = (index + step + VIEWS.length) % VIEWS.length;
+    setView(VIEWS[next]!);
+    tabs.current[next]?.focus();
+  }
+
   return (
-    <section id="office" className="marketing-container marketing-record" aria-labelledby="office-title">
-      <div className="marketing-record-copy">
-        <p className="marketing-eyebrow">{t("marketing.office.eyebrow")}</p>
-        <h2 id="office-title">{t("marketing.office.title")}</h2>
-        <p>{t("marketing.office.body")}</p>
+    <section id="office" className="marketing-office" aria-labelledby="office-title">
+      <div className="marketing-plate" data-reveal>
+        <div id="marketing-office-panel" role="tabpanel" aria-labelledby={`marketing-tab-${view}`} className="marketing-plate-inner">
+          {view === "label" ? <BundleLabel className="marketing-plate-label" /> : null}
+          {view === "list" ? <PackingList /> : null}
+          {view === "scan" ? <GateScan /> : null}
+        </div>
       </div>
-      <div className="marketing-sheet-shell">
-        <div data-demo-visual aria-hidden="true" className="marketing-sheet">
-          <div className="marketing-sheet-top">
-            <span className="marketing-sheet-wordmark">{t("common.appName")}</span>
-            <DemoLabel />
-          </div>
-
-          {/* Thermal bundle sticker with camera scan lock from orrn-showcase Ch4 & Ch5 */}
-          <div className="marketing-bundle-sticker">
-            <ScanCorner pos="tl" />
-            <ScanCorner pos="tr" />
-            <ScanCorner pos="br" />
-            <ScanCorner pos="bl" />
-            <div className="marketing-sticker-main">
-              <div className="marketing-sticker-meta">
-                <span>{t("marketing.office.printerTitle")}</span>
-                <span className="marketing-sticker-chip">{t("marketing.office.scannerTitle")}</span>
-              </div>
-              <p className="marketing-sticker-serial">{DEMO_BUNDLE.serial}</p>
-              <p className="marketing-sticker-spec">
-                {`${t("marketing.office.demoMeta")} · ${DEMO_BUNDLE.pieces} ${t("packingList.columns.pcs")} · ${demoKg(DEMO_BUNDLE)} kg`}
-              </p>
-            </div>
-            <div className="marketing-sticker-qr">
-              <svg
-                width="76"
-                height="76"
-                viewBox={`-1 -1 ${QR_MODULES + 2} ${QR_MODULES + 2}`}
-                shapeRendering="crispEdges"
-                focusable="false"
-              >
-                <rect x="-1" y="-1" width={QR_MODULES + 2} height={QR_MODULES + 2} rx="1.5" fill="#f4f4f1" />
-                <path d={DEMO_QR_PATH} fill="#0c0c0e" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Assembled Packing List Sheet from orrn-showcase Ch7 */}
-          <div className="marketing-sheet-header">
-            <div>
-              <p className="marketing-sheet-title">{t("packingList.title")}</p>
-              <p className="marketing-sheet-customer">{t("marketing.office.demoCustomer")}</p>
-            </div>
-            <span className="marketing-sheet-meta">{t("marketing.office.demoMeta")}</span>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">{t("packingList.columns.bundleNo")}</th>
-                <th scope="col">{t("packingList.columns.pcs")}</th>
-                <th scope="col">{t("packingList.columns.weightKg")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DEMO_PACKING_LIST.map((bundle) => (
-                <tr key={bundle.serial}>
-                  <td>{bundle.serial}</td>
-                  <td>{bundle.pieces}</td>
-                  <td>{demoKg(bundle)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p className="marketing-sheet-total">
-            {t("packingList.totals", {
-              bundles: DEMO_PACKING_LIST.length,
-              kg: demoTotalKg(DEMO_PACKING_LIST),
-            })}
-          </p>
-
-          <div className="marketing-export-pills">
-            <span className="marketing-export-pill" data-tone="red">
-              <i />
-              {t("marketing.office.exportPdf")}
-            </span>
-            <span className="marketing-export-pill" data-tone="green">
-              <i />
-              {t("marketing.office.exportCsv")}
-            </span>
-            <span className="marketing-export-pill" data-tone="neutral">
-              <i />
-              {t("marketing.office.exportQr")}
-            </span>
-          </div>
+      <div className="marketing-office-copy" data-reveal>
+        <div role="tablist" aria-label={t("marketing.office.views")} className="marketing-tabs">
+          {VIEWS.map((id, index) => (
+            <button
+              key={id}
+              ref={(element) => {
+                tabs.current[index] = element;
+              }}
+              id={`marketing-tab-${id}`}
+              type="button"
+              role="tab"
+              aria-selected={view === id}
+              aria-controls="marketing-office-panel"
+              tabIndex={view === id ? 0 : -1}
+              onClick={() => setView(id)}
+              onKeyDown={(event) => onKeyDown(event, index)}
+            >
+              {t(`marketing.office.${TAB_KEY[id]}`)}
+            </button>
+          ))}
+        </div>
+        <div>
+          <h2 id="office-title" className="marketing-heading">
+            {t("marketing.office.title")}
+          </h2>
+          <p className="marketing-office-body">{t("marketing.office.body")}</p>
+        </div>
+        <div className="marketing-cells">
+          <Link className="marketing-cell" data-fill="paper" to="/request-access">
+            {t("marketing.requestAccess")}
+          </Link>
+          <Link className="marketing-cell" data-fill="surface" to="/guides">
+            {t("marketing.guides")}
+          </Link>
         </div>
       </div>
     </section>
+  );
+}
+
+function PackingList() {
+  const { t } = useT();
+  return (
+    <div data-ui data-demo-visual aria-hidden="true" className="marketing-sheet">
+      <div className="marketing-sheet-top">
+        <div>
+          <p className="marketing-sheet-title">{t("packingList.title")}</p>
+          <p>{t("marketing.office.demoCustomer")}</p>
+        </div>
+        <DemoLabel />
+      </div>
+      <p className="marketing-sheet-meta">{t("marketing.office.demoMeta")}</p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{t("packingList.columns.bundleNo")}</th>
+            <th scope="col">{t("packingList.columns.pcs")}</th>
+            <th scope="col">{t("packingList.columns.weightKg")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {DEMO_PACKING_LIST.map((bundle) => (
+            <tr key={bundle.serial}>
+              <td>{bundle.serial}</td>
+              <td>{bundle.pieces}</td>
+              <td>{demoKg(bundle)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="marketing-sheet-total">
+        {t("packingList.totals", { bundles: DEMO_PACKING_LIST.length, kg: demoTotalKg(DEMO_PACKING_LIST) })}
+      </p>
+      <p className="marketing-sheet-exports">
+        <span>{t("marketing.office.exportPdf")}</span>
+        <span>{t("marketing.office.exportCsv")}</span>
+      </p>
+    </div>
+  );
+}
+
+function GateScan() {
+  const { t } = useT();
+  return (
+    <div data-ui data-demo-visual aria-hidden="true" className="marketing-scan">
+      <div className="marketing-sheet-top">
+        <p className="marketing-sheet-title">{t("marketing.office.scanTitle")}</p>
+        <DemoLabel />
+      </div>
+      <ul className="marketing-scan-rows">
+        {DEMO_PACKING_LIST.map((bundle, index) => (
+          <li key={bundle.serial}>
+            <i />
+            <b>{bundle.serial}</b>
+            <span>{`${demoKg(bundle)} kg`}</span>
+            <span>{t("marketing.office.scanned")}</span>
+            {index === 0 ? (
+              <small>{`${t("marketing.label.heat")} ${DEMO_TRACE.heat} · ${t("marketing.label.die")} ${DEMO_TRACE.die} · ${t("marketing.office.pressRun")} ${DEMO_TRACE.run}`}</small>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      <p className="marketing-sheet-total">
+        {t("packingList.totals", { bundles: DEMO_PACKING_LIST.length, kg: demoTotalKg(DEMO_PACKING_LIST) })}
+      </p>
+    </div>
   );
 }

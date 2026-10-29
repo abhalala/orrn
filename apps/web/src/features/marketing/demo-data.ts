@@ -14,6 +14,9 @@ function bundle(seq: number, kg: number, pieces: number): DemoBundle {
 /** First row of the illustrative packing list. */
 export const DEMO_BUNDLE = bundle(4086, 52.4, 21);
 
+/** Sample trace the label and gate scan show for {@link DEMO_BUNDLE}: its heat, alloy, die copy and press run. */
+export const DEMO_TRACE = { heat: "H-1142", alloy: "6063", die: "12170-1", run: "R-0418" } as const;
+
 /** Rows of the illustrative packing list. */
 export const DEMO_PACKING_LIST: DemoBundle[] = [
   DEMO_BUNDLE,

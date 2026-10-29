@@ -69,59 +69,41 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("contentinfo").getByRole("link", { name: "Guides" })).toHaveAttribute("href", "/guides");
   });
 
-  test("showcase technical plates, interactive press poses and seven plant roles render", async ({ page }) => {
+  test("the held frame shows the stage in the middle of the screen", async ({ page }) => {
     await openMarketing(page);
-    const heroArt = page.locator("[data-marketing-hero] [data-extrusion-art]");
-    await expect(heroArt).toBeVisible();
-    await page.locator("[data-pose-pill=\"age\"]").click();
-    await expect(page.locator("[data-marketing-hero] .marketing-iso-plate")).toHaveAttribute("data-pose", "age");
-    await expect(page.locator("#floor .marketing-role-tabs > button")).toHaveCount(7);
-    await page.locator("#floor").getByRole("button", { name: "For the plant owner" }).click();
-    await expect(page.locator("#floor article")).toHaveCount(1);
-    await expect(page.locator("#floor article h3")).toBeVisible();
+    const active = page.locator('.marketing-frame[data-active="true"]');
+    await expect(active).toHaveCount(1);
+    await expect(active).toHaveAttribute("data-frame-for", "hero");
+    for (const stage of ["die", "pack", "dispatch", "scrap"]) {
+      await page.locator(`[data-flow-step="${stage}"]`).evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await expect(active).toHaveCount(1);
+      await expect(active).toHaveAttribute("data-frame-for", stage);
+    }
   });
 
-  test("stage selection keeps the plate, record and geometry synchronized", async ({ page }) => {
+  test("the stock-list slider recalculates the bundles that may be gone", async ({ page }) => {
     await openMarketing(page);
-    await page.locator("#flow").scrollIntoViewIfNeeded();
-    const plate = page.locator(".marketing-process-figure .marketing-plate-stage");
-    const initialHeight = await plate.evaluate((element) => element.getBoundingClientRect().height);
-    await page.getByRole("button", { name: "06 Pack", exact: true }).click();
-    await expect(page.locator("[data-flow-step=\"pack\"]")).toHaveAttribute("data-current", "true");
-    await expect(page.locator("[data-flow-step=\"pack\"]")).toBeInViewport({ ratio: 0.6 });
-    await expect(page.locator(".marketing-process-figure [data-process-art]")).toHaveAttribute("data-stage", "pack");
-    expect(await plate.evaluate((element) => element.getBoundingClientRect().height)).toBe(initialHeight);
+    const slider = page.locator("#audit").getByRole("slider", { name: "Bundles on your stock list" });
+    const figure = page.locator("#audit .marketing-figure span").first();
+    await slider.fill("3000");
+    await expect(figure).toHaveText("1,860");
+    await slider.fill("100");
+    await expect(figure).toHaveText("62");
+    await slider.fill("5000");
+    await expect(figure).toHaveText("3,100");
   });
 
-  test("process artwork loads near the viewport, avoids stale stages and retries failures", async ({ page }) => {
-    const figures: string[] = [];
-    page.on("request", (request) => {
-      const match = /\/figures\/([a-z]+)\.json/.exec(request.url());
-      if (match) figures.push(match[1]!);
-    });
-    const pressResponse = page.waitForResponse((response) => response.url().endsWith("/figures/press.json"));
+  test("the bundle views switch by click and by arrow keys", async ({ page }) => {
     await openMarketing(page);
-    await pressResponse;
-    expect(figures).toEqual(["press"]);
-
-    let failCast = true;
-    await page.route("**/figures/furnace.json", async (route) => {
-      if (failCast) await route.abort();
-      else await route.continue();
-    });
-    await page.locator("#flow").scrollIntoViewIfNeeded();
-    const desktopArt = page.locator(".marketing-process-figure [data-process-art]");
-    await expect(desktopArt).toHaveAttribute("data-stage", "scrap");
-    await expect(desktopArt).toHaveAttribute("data-loaded", "true");
-
-    await page.getByRole("button", { name: "02 Cast", exact: true }).click();
-    await expect(desktopArt).toHaveAttribute("data-stage", "cast");
-    await expect(desktopArt).not.toHaveAttribute("data-loaded", "true");
-    await page.getByRole("button", { name: "03 Die", exact: true }).click();
-    failCast = false;
-    await page.getByRole("button", { name: "02 Cast", exact: true }).click();
-    await expect(desktopArt).toHaveAttribute("data-stage", "cast");
-    await expect(desktopArt).toHaveAttribute("data-loaded", "true");
+    const views = page.locator("#office").getByRole("tablist");
+    await views.getByRole("tab", { name: "Gate scan" }).click();
+    await expect(views.getByRole("tab", { name: "Gate scan" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#office").getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "marketing-tab-scan");
+    await page.keyboard.press("ArrowRight");
+    await expect(views.getByRole("tab", { name: "Bundle label" })).toBeFocused();
+    await expect(views.getByRole("tab", { name: "Bundle label" })).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(views.getByRole("tab", { name: "Gate scan" })).toHaveAttribute("aria-selected", "true");
   });
 
   test("sample product data is hidden from screen readers and visibly labelled", async ({ page }) => {
@@ -130,7 +112,8 @@ test.describe("marketing page", () => {
     expect(await visuals.count()).toBeGreaterThan(0);
     for (const visual of await visuals.all()) {
       await expect(visual).toHaveAttribute("aria-hidden", "true");
-      await expect(visual.getByText("Demo data", { exact: true })).toBeVisible();
+      // Inactive stage frames are hidden whole; every label a visitor can see carries the disclosure.
+      if (await visual.isVisible()) await expect(visual.getByText("Demo data", { exact: true })).toBeVisible();
     }
   });
 
@@ -157,15 +140,13 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
-  test("mobile keeps a conversion action and full-size pose controls in reach", async ({ page }) => {
+  test("mobile keeps a conversion action in reach", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await openMarketing(page);
     const action = page.locator(".marketing-mobile-action");
     await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/request-access");
-    for (const button of await page.locator(".marketing-pose-pills > button").all()) {
-      expect(await button.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    }
+    expect(await action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     await page.locator("#floor").scrollIntoViewIfNeeded();
     await expect(action).toBeVisible();
     await action.click();
