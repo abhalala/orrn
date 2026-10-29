@@ -20,10 +20,16 @@ import {
   edgeSnapshotSections,
 } from "@orrn/edge-runtime";
 
-export const EDGE_SNAPSHOT_CACHE_TTL_MS = 60_000;
+/**
+ * A complete section is reused for this long before the next manifest rebuilds it. Rebuilding every
+ * section inside one request outran the agent's 15 s manifest timeout on a large plant; ten minutes is
+ * still fresh for fallback reads, and every rebuilt section is kept even when the request is cut short.
+ */
+export const EDGE_SNAPSHOT_CACHE_TTL_MS = 10 * 60_000;
 export const EDGE_SNAPSHOT_MAX_CHUNK_BYTES = 900 * 1024; // <= 1 MiB UTF-8 JSON per chunk
 export const EDGE_SNAPSHOT_MIN_RETENTION_MS = 24 * 60 * 60_000;
-export const EDGE_SNAPSHOT_MIN_AGENT_VERSION = "1.0.0";
+/** `-0` admits 1.0.0 pre-releases (pilot builds); under semver they sort below plain 1.0.0. */
+export const EDGE_SNAPSHOT_MIN_AGENT_VERSION = "1.0.0-0";
 
 async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));

@@ -136,7 +136,7 @@ describe("edge v1 sanitized snapshots", () => {
       }
     }
 
-    // Within 60s without forceRebuild, cached manifest returns the same snapshotIds
+    // Within the cache TTL and without forceRebuild, the cached manifest returns the same snapshotIds
     const cachedManifest = await buildOrGetCompanySnapshotManifest(env.db, {
       companyId,
       forceRebuild: false,
