@@ -26,8 +26,13 @@ import {
  * still fresh for fallback reads, and every rebuilt section is kept even when the request is cut short.
  */
 export const EDGE_SNAPSHOT_CACHE_TTL_MS = 10 * 60_000;
-export const EDGE_SNAPSHOT_MAX_CHUNK_BYTES = 900 * 1024; // <= 1 MiB UTF-8 JSON per chunk
-export const EDGE_SNAPSHOT_MIN_RETENTION_MS = 24 * 60 * 60_000;
+/**
+ * Chunk rows are stored in D1 and travel through the encrypted backup and the migration rehearsal, which
+ * replay each row as one SQL statement; 900 KiB rows stalled that rehearsal. 64 KiB keeps every row small.
+ */
+export const EDGE_SNAPSHOT_MAX_CHUNK_BYTES = 64 * 1024;
+/** Older generations (beyond the newest two) are only kept long enough for an in-flight download. */
+export const EDGE_SNAPSHOT_MIN_RETENTION_MS = 60 * 60_000;
 /** `-0` admits 1.0.0 pre-releases (pilot builds); under semver they sort below plain 1.0.0. */
 export const EDGE_SNAPSHOT_MIN_AGENT_VERSION = "1.0.0-0";
 
@@ -784,9 +789,8 @@ async function pruneOldSnapshotsForSection(
     .orderBy(desc(edgeSnapshot.generatedAt), desc(edgeSnapshot.id))
     .all();
 
-  if (completed.length <= retainLatestCount) return;
-
-  const keepIds = new Set(completed.slice(0, retainLatestCount).map((r) => r.id));
+  // Also runs with two or fewer complete generations: requests cut short leave incomplete rows behind.
+  const keepIds = completed.slice(0, retainLatestCount).map((r) => r.id);
   const cutoff = new Date(nowMs - EDGE_SNAPSHOT_MIN_RETENTION_MS);
 
   await db
@@ -795,7 +799,7 @@ async function pruneOldSnapshotsForSection(
       and(
         eq(edgeSnapshot.companyId, companyId),
         eq(edgeSnapshot.section, section),
-        notInArray(edgeSnapshot.id, [...keepIds]),
+        keepIds.length > 0 ? notInArray(edgeSnapshot.id, keepIds) : undefined,
         lte(edgeSnapshot.generatedAt, cutoff),
       ),
     );
@@ -803,7 +807,7 @@ async function pruneOldSnapshotsForSection(
 
 /**
  * Builds or returns the cached company snapshot manifest across all 5 sections.
- * Caches complete snapshots for 60s unless `forceRebuild: true`.
+ * Reuses complete sections for `EDGE_SNAPSHOT_CACHE_TTL_MS` unless `forceRebuild: true`.
  */
 export async function buildOrGetCompanySnapshotManifest(
   db: OrrnDb,
