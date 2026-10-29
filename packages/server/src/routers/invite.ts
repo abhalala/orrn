@@ -141,8 +141,12 @@ export const inviteRouter = router({
         });
         emailSent = true;
       } catch (error) {
-        // Neutral log: no address, no link (the link is a live invite).
-        console.warn("Invite saved; its email did not go:", (error as Error)?.name ?? "Error");
+        // Neutral log: no address, no link (the link is a live invite). Provider, SMTP code and our own
+        // message (never the server's reply) say which mail path failed.
+        const failure = error instanceof Error ? error : new Error(String(error));
+        const provider = "provider" in failure ? String(failure.provider) : "unknown";
+        const status = "status" in failure ? String(failure.status) : "";
+        console.warn("Invite saved; its email did not go:", failure.name, provider, status, failure.message);
       }
 
       return { success: true, inviteId, email, role: input.role, link: inviteUrl, emailSent, expiresAt, replayed: false as const };
