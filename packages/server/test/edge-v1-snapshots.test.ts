@@ -157,6 +157,27 @@ describe("edge v1 sanitized snapshots", () => {
     expect(stockSection.recordCount).toBe(0);
   });
 
+  test("stock carries only bundles still in the plant, while totals still count every status", async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId);
+    const inPlant = await env.seedBundles(companyId, dieId, 2);
+    const gone = await env.seedBundles(companyId, dieId, 3, "dispatched");
+    const manifest = await buildOrGetCompanySnapshotManifest(env.db, { companyId, forceRebuild: true });
+    const stock = manifest.sections.find((s) => s.section === "stock")!;
+    expect(stock.recordCount).toBe(2);
+    const chunk = await getSnapshotChunkForNode(env.db, { companyId, snapshotId: stock.snapshotId, sequence: 0 });
+    expect(chunk.ok).toBe(true);
+    if (!chunk.ok) return;
+    const serials = chunk.body.records.map((record) => (record.dto as { serial: string }).serial).sort();
+    expect(serials).toEqual(inPlant.map((b) => b.serial).sort());
+    expect(serials).not.toContain(gone[0]!.serial);
+    expect(chunk.body.summaries[0]).toMatchObject({
+      totalBundles: 5,
+      inPlantBundles: 2,
+      statusTotals: { available: { count: 2 }, dispatched: { count: 3 } },
+    });
+  });
+
   test("hashes the complete canonical wire documents without digest self-reference", async () => {
     const { companyId } = await env.seedCompany();
     const manifest = await buildOrGetCompanySnapshotManifest(env.db, { companyId, forceRebuild: true });
