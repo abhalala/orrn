@@ -72,20 +72,16 @@ export function LegalPage({ page }: { page: LegalPageKind }) {
           </header>
           <div className="marketing-legal-layout">
             <nav className="marketing-legal-nav" aria-label={t(`legal.${page}.nav`)}>
-              {SECTIONS[page].map(({ id, title }, index) => (
+              {SECTIONS[page].map(({ id, title }) => (
                 <a key={id} href={`#${id}`} aria-current={activeSection === id ? "location" : undefined}>
-                  <span aria-hidden="true">{`0${index + 1}`}</span>
                   {t(title)}
                 </a>
               ))}
             </nav>
             <article>
-              {SECTIONS[page].map(({ id, title, body }, index) => (
+              {SECTIONS[page].map(({ id, title, body }) => (
                 <section key={id} id={id} className="marketing-legal-section" aria-labelledby={`${id}-title`}>
-                  <h2 id={`${id}-title`}>
-                    <span aria-hidden="true">{`0${index + 1}`}</span>
-                    {t(title)}
-                  </h2>
+                  <h2 id={`${id}-title`}>{t(title)}</h2>
                   <p>{t(body)}</p>
                 </section>
               ))}

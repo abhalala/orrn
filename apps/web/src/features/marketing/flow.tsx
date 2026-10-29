@@ -2,127 +2,135 @@ import { useT } from "@orrn/i18n";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { useEffect, useRef, useState } from "react";
 
-import { PROCESS_STAGES, ProcessArt, STAGE_TONE, type ProcessStage } from "./metal-art";
+import { BundleLabel } from "./bundle-label";
+import { Hero } from "./hero";
+import { PHOTOS, STAGE_PHOTO, STAGES, type Stage } from "./media";
+import { StagePhoto } from "./stage-photo";
 
-export function Flow() {
-  const { t } = useT();
-  const root = useRef<HTMLElement>(null);
-  const [stage, setStage] = useState<ProcessStage>("scrap");
+type Frame = "hero" | Stage;
+
+/**
+ * The hero and the seven-stage chain scroll in the left column while one
+ * sticky frame on the right shows the stage in view: the furnace pour, then
+ * scrap, billets, the die, the press, profiles, the label and the gate. On
+ * phones each stage carries its own picture instead.
+ */
+export function Story() {
   const wide = useMediaQuery(breakpoints.desktop);
+  const root = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<Frame>("hero");
 
   useEffect(() => {
-    if (!root.current || typeof IntersectionObserver === "undefined") return;
-    // Only stage boundaries update React. Scrolling itself never renders or reads layout.
+    if (!wide || !root.current || typeof IntersectionObserver === "undefined") return;
+    // A line across the middle of the viewport: whichever block it crosses owns the frame.
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setStage(entry.target.getAttribute("data-flow-step") as ProcessStage);
-          }
+          if (entry.isIntersecting) setActive((entry.target as HTMLElement).dataset.frame as Frame);
         }
       },
-      { rootMargin: "-42% 0px -48% 0px" },
+      { rootMargin: "-50% 0px -50% 0px" },
     );
-    root.current.querySelectorAll("[data-flow-step]").forEach((element) => observer.observe(element));
+    root.current.querySelectorAll("[data-frame]").forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, []);
-
-  const activeTone = STAGE_TONE[stage];
-
-  function selectStage(step: ProcessStage) {
-    setStage(step);
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    root.current
-      ?.querySelector(`[data-flow-step="${step}"]`)
-      ?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "center" });
-  }
+  }, [wide]);
 
   return (
-    <section
-      ref={root}
-      id="flow"
-      data-active-tone={activeTone}
-      className="marketing-container marketing-flow"
-      aria-labelledby="flow-title"
-    >
-      <div className="marketing-section-heading">
-        <p className="marketing-eyebrow">{t("marketing.flow.eyebrow")}</p>
-        <h2 id="flow-title">{t("marketing.flow.title")}</h2>
-        <p>{t("marketing.flow.body")}</p>
+    <div ref={root} className="marketing-story">
+      <div className="marketing-story-flow">
+        <Hero wide={wide} />
+        <Chain wide={wide} />
       </div>
-      <div className="marketing-flow-layout">
-        {wide ? (
-          <div className="marketing-process-figure">
-            <div className="marketing-iso-plate iso" data-tone={activeTone} aria-hidden="true">
-              <div className="marketing-plate-header">
-                <span className="marketing-plate-fig">{t(`marketing.flow.${stage}.fig`)}</span>
-                <span className="marketing-plate-title">{t(`marketing.flow.${stage}.plateTitle`)}</span>
-              </div>
-              <div className="marketing-plate-stage">
-                <ProcessArt stage={stage} />
-              </div>
-              <div className="marketing-plate-footer">
-                <span className="marketing-plate-readout">{t(`marketing.flow.${stage}.readout`)}</span>
-              </div>
-            </div>
-            <div className="marketing-process-track">
-              {PROCESS_STAGES.map((step, index) => (
-                <button
-                  key={step}
-                  type="button"
-                  data-current={step === stage}
-                  data-tone={STAGE_TONE[step]}
-                  aria-pressed={step === stage}
-                  onClick={() => selectStage(step)}
-                >
-                  <b className="marketing-track-num">{`0${index + 1}`}</b>
-                  {t(`marketing.flow.${step}.name`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <ol role="list" className="marketing-process-list">
-          {PROCESS_STAGES.map((step, index) => {
-            const stepTone = STAGE_TONE[step];
-            return (
-              <li
-                key={step}
-                data-flow-step={step}
-                data-current={step === stage}
-                aria-current={step === stage ? "step" : undefined}
-                data-tone={stepTone}
-              >
-                {wide ? null : (
-                  <div className="marketing-mobile-process" aria-hidden="true">
-                    <div className="marketing-iso-plate iso" data-tone={stepTone}>
-                      <div className="marketing-plate-header">
-                        <span className="marketing-plate-fig">{t(`marketing.flow.${step}.fig`)}</span>
-                        <span className="marketing-plate-title">{t(`marketing.flow.${step}.plateTitle`)}</span>
-                      </div>
-                      <div className="marketing-plate-stage">
-                        <ProcessArt stage={step} />
-                      </div>
-                      <div className="marketing-plate-footer">
-                        <span className="marketing-plate-readout">{t(`marketing.flow.${step}.readout`)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div className="marketing-stage-header">
-                  <span className="marketing-stage-index" aria-hidden="true">
-                    {`0${index + 1}`}
-                  </span>
-                  <p className="marketing-stage-name">{t(`marketing.flow.${step}.name`)}</p>
-                </div>
-                <h3>{t(`marketing.flow.${step}.title`)}</h3>
-                <p className="marketing-stage-body">{t(`marketing.flow.${step}.body`)}</p>
-                <p className="marketing-stage-record">{t(`marketing.flow.${step}.record`)}</p>
-              </li>
-            );
-          })}
-        </ol>
+      {wide ? <StageFrames active={active} /> : null}
+    </div>
+  );
+}
+
+function Chain({ wide }: { wide: boolean }) {
+  const { t } = useT();
+  return (
+    <section id="flow" className="marketing-chain" aria-labelledby="flow-title">
+      <div className="marketing-chain-intro" data-reveal>
+        <h2 id="flow-title" className="marketing-heading">
+          {t("marketing.chain.title")}
+        </h2>
+        <p className="marketing-lead">{t("marketing.chain.body")}</p>
       </div>
+      <ol role="list" className="marketing-stages">
+        {STAGES.map((stage) => (
+          <li key={stage} data-frame={stage} data-flow-step={stage} className="marketing-stage">
+            <div className="marketing-stage-copy" data-reveal>
+              <h3 className="marketing-stage-name">{t(`marketing.chain.${stage}.name`)}</h3>
+              <p className="marketing-lead">{t(`marketing.chain.${stage}.title`)}</p>
+              <p className="marketing-stage-body">{t(`marketing.chain.${stage}.body`)}</p>
+              <p className="marketing-stage-record">
+                <i aria-hidden="true" />
+                <span>
+                  {t("marketing.chain.recorded")}: {t(`marketing.chain.${stage}.record`)}
+                </span>
+              </p>
+            </div>
+            {wide ? null : <StageMedia stage={stage} sizes="100vw" />}
+          </li>
+        ))}
+      </ol>
     </section>
+  );
+}
+
+function StageMedia({ stage, sizes }: { stage: Stage; sizes: string }) {
+  const { t } = useT();
+  if (stage === "pack") {
+    return (
+      <figure className="marketing-photo marketing-photo-label">
+        <BundleLabel />
+        <figcaption>{t("marketing.chain.pack.caption")}</figcaption>
+      </figure>
+    );
+  }
+  return (
+    <StagePhoto
+      photo={STAGE_PHOTO[stage]}
+      sizes={sizes}
+      alt={t(`marketing.chain.${stage}.alt`)}
+      caption={t(`marketing.chain.${stage}.caption`)}
+    />
+  );
+}
+
+const FRAMES: readonly Frame[] = ["hero", ...STAGES];
+
+function StageFrames({ active }: { active: Frame }) {
+  const { t } = useT();
+  // Mount each picture once the frame before it has shown, so the page does not fetch all eight at once.
+  const [reached, setReached] = useState(0);
+  const activeIndex = FRAMES.indexOf(active);
+  if (activeIndex > reached) setReached(activeIndex);
+  return (
+    <div className="marketing-frames">
+      <div className="marketing-frames-inner">
+        {FRAMES.map((frame, index) => (
+          <div
+            key={frame}
+            className="marketing-frame"
+            data-frame-for={frame}
+            data-active={frame === active}
+            aria-hidden={frame !== active}
+          >
+            {index > Math.max(reached, activeIndex) + 1 ? null : frame === "hero" ? (
+              <StagePhoto
+                photo={PHOTOS.furnace}
+                sizes="50vw"
+                alt={t("marketing.chain.heroAlt")}
+                caption={t("marketing.chain.heroCaption")}
+                priority
+              />
+            ) : (
+              <StageMedia stage={frame} sizes="50vw" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

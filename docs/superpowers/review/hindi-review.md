@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7431 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3243,88 +3243,95 @@ Counts: 7431 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (117)
+### marketing (127)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `eyebrow` | Made for aluminium extrusion | एल्युमिनियम extrusion के लिए बना |
-| `headline` | orrn, India's first e2e extrusion harness | orrn, भारत का पहला e2e extrusion harness |
-| `sub` | One connected record of your metal, from the scrap yard to the dispatch gate. | स्क्रैप यार्ड से dispatch गेट तक, आपके मेटल का एक जुड़ा हुआ रिकॉर्ड। |
+| `headline1` | Trace any bundle | हर bundle का हिसाब, |
+| `headline2` | to its heat. | उसकी heat तक। |
+| `sub` | orrn is plant software for aluminium extruders in India. Scrap, heats, dies, press runs and bundles stay on one record, from the weighbridge to the dispatch gate. | orrn भारत के एल्युमिनियम extrusion प्लांट का सॉफ़्टवेयर है। स्क्रैप, heat, die, प्रेस रन और bundle, धर्मकांटे से dispatch गेट तक एक ही रिकॉर्ड पर रहते हैं। |
 | `requestAccess` | Request access | एक्सेस मांगें |
 | `signIn` | Sign in | साइन इन करें |
 | `homeLabel` | orrn home | orrn होम |
 | `mainNav` | Main navigation | मुख्य नेविगेशन |
 | `guides` | Guides | गाइड |
-| `metaTitle` | orrn \| India's first e2e extrusion harness | orrn \| भारत का पहला e2e extrusion harness |
-| `heroPlate.fig` | Fig 00 · Extrusion line | चित्र 00 · Extrusion लाइन |
-| `heroPlate.title` | Press, run-out table and ageing oven | प्रेस, रन-आउट टेबल और ageing ओवन |
-| `heroPlate.poseCharge` | 01 Billet charge | 01 Billet चार्ज |
-| `heroPlate.posePress` | 02 Press stroke | 02 प्रेस स्ट्रोक |
-| `heroPlate.poseAge` | 03 Ageing oven | 03 Ageing ओवन |
-| `heroPlate.keyRam` | Main ram and stem | मुख्य रैम और स्टेम |
-| `heroPlate.keyPress` | Billet, container, die and roller table | Billet, कंटेनर, die और रोलर टेबल |
-| `heroPlate.keyOven` | Ageing oven and profile trolley | Ageing ओवन और प्रोफ़ाइल ट्रॉली |
-| `proof.phantomValue` | 62% | 62% |
-| `proof.phantomLabel` | of bundles on the old stock list were already gone in our first plant yard audit. | पहले प्लांट यार्ड ऑडिट में पुराने स्टॉक रजिस्टर के bundle पहले ही जा चुके थे। |
-| `proof.chainValue` | 07 | 07 |
-| `proof.chainLabel` | plant stages linked in one record from scrap weighbridge to dispatch gate. | स्क्रैप कांटे से dispatch गेट तक एक ही रिकॉर्ड में जुड़े सात पड़ाव। |
-| `proof.traceValue` | 1 QR | 1 QR |
-| `proof.traceLabel` | bundle identity from the packing scale to the customer packing list. | पैकिंग कांटे से ग्राहक की पैकिंग लिस्ट तक हर bundle की अपनी पहचान। |
-| `flow.eyebrow` | The chain | पूरा सिलसिला |
-| `flow.title` | The metal changes. The thread stays. | मेटल बदलता है। उसका रिकॉर्ड साथ चलता है। |
-| `flow.body` | Seven handovers. One plant. As raw scrap becomes a finished architectural profile, every stage hands a verified record to the next. | सात पड़ाव। एक प्लांट। कच्चे स्क्रैप से तैयार प्रोफ़ाइल बनने तक हर पड़ाव अपना पक्का रिकॉर्ड अगले पड़ाव को देता है। |
-| `flow.scrap.fig` | Fig 01 | चित्र 01 |
-| `flow.scrap.plateTitle` | Weighbridge and kanta dial | धर्मकांटा और कांटा डायल |
-| `flow.scrap.readout` | Party 8,200 kg · Ours 8,185 kg | पार्टी 8,200 kg · हमारा 8,185 kg |
-| `flow.scrap.name` | Scrap | स्क्रैप |
-| `flow.scrap.title` | Know what came through the gate. | गेट से आए माल का हिसाब रखें। |
-| `flow.scrap.body` | Book a purchase lot, record the weighbridge kanta weight and settle deductions before material enters scrap stock. | खरीद लॉट बुक करें, कांटे का वज़न दर्ज करें और स्क्रैप स्टॉक में जोड़ने से पहले कटौती व प्राप्त मात्रा तय करें। |
-| `flow.scrap.record` | Purchase lot, weighment, received stock | खरीद लॉट, कांटा वज़न, प्राप्त स्टॉक |
-| `flow.cast.fig` | Fig 02 | चित्र 02 |
-| `flow.cast.plateTitle` | Melting furnace and log rack | भट्ठी और cast लॉग रैक |
-| `flow.cast.readout` | In 11,000 kg · 38 cast logs | इनपुट 11,000 kg · 38 cast लॉग |
-| `flow.cast.name` | Cast | Cast |
-| `flow.cast.title` | Give every heat a history. | हर heat का पूरा रिकॉर्ड। |
-| `flow.cast.body` | Connect scrap charges, alloy spectro checks and billet logs to the furnace heat so the metal never loses where it began. | स्क्रैप इनपुट, alloy spectro जांच और billet आउटपुट को भट्ठी की heat से जोड़ें ताकि मेटल की शुरुआत का हिसाब कभी न छूटे। |
-| `flow.cast.record` | Melt inputs, spectro sample, billet stock | Melt इनपुट, spectro sample, billet स्टॉक |
-| `flow.die.fig` | Fig 03 | चित्र 03 |
-| `flow.die.plateTitle` | Die rack and 12 ft checkweigher | Die रैक और 12 फ़ीट वज़न टेबल |
-| `flow.die.readout` | Copy 12170-1 · 1.655 kg/12ft | कॉपी 12170-1 · 1.655 kg/12ft |
-| `flow.die.name` | Die | Die |
-| `flow.die.title` | The right die, ready for its run. | सही die, रन के लिए तैयार। |
-| `flow.die.body` | Keep each physical die copy, trial weight reading, customer ownership and nitriding cycle together before issuing to the press. | हर असली die कॉपी की वज़न रीडिंग, ग्राहक का नाम और nitriding का रिकॉर्ड एक जगह रखें और प्रेस को निश्चित कॉपी जारी करें। |
-| `flow.die.record` | Die copy, weight readings, issue record | Die कॉपी, वज़न रीडिंग, जारी करने का रिकॉर्ड |
-| `flow.press.fig` | Fig 04 | चित्र 04 |
-| `flow.press.plateTitle` | Extrusion press and run-out table | Extrusion प्रेस और रन-आउट टेबल |
-| `flow.press.readout` | Billet to profile · 8 connected lengths | Billet से profile · 8 जुड़ी हुई लंबाइयां |
-| `flow.press.name` | Press | प्रेस |
-| `flow.press.title` | Make the shift legible. | शिफ़्ट का काम साफ़ दिखे। |
-| `flow.press.body` | Bring the press plan, die issue and billet count into one run instead of typing shift sheets by hand. Record output and rejects while orrn calculates recovery. | हाथ से शिफ़्ट शीट टाइप करने के बजाय प्लान, die issue और billet खपत को एक ही रन में रखें। आउटपुट और रिजेक्ट दर्ज करें; recovery की गणना orrn करेगा। |
-| `flow.press.record` | Press plan, run output, recovery | प्रेस प्लान, रन आउटपुट, recovery |
-| `flow.age.fig` | Fig 05 | चित्र 05 |
-| `flow.age.plateTitle` | Ageing oven and profile trolley | Ageing ओवन और प्रोफ़ाइल ट्रॉली |
-| `flow.age.readout` | 3-tier trolley · Soak and HV check | 3-टियर ट्रॉली · ओवन और HV जांच |
-| `flow.age.name` | Age | Ageing |
-| `flow.age.title` | Carry quality through the oven. | ओवन तक क्वालिटी का हिसाब। |
-| `flow.age.body` | Track trolleys through the ageing cycle, log soak readings and hardness in HV, and keep held material out of packing. | Ageing में ट्रॉलियों को ट्रैक करें, ओवन रीडिंग और HV में hardness दर्ज करें, और होल्ड किए माल को पैकिंग से बाहर रखें। |
-| `flow.age.record` | Batch, oven readings, release decision | बैच, ओवन रीडिंग, रिलीज़ का फ़ैसला |
-| `flow.pack.fig` | Fig 06 | चित्र 06 |
-| `flow.pack.plateTitle` | Packing scale and thermal label printer | पैकिंग कांटा और थर्मल लेबल प्रिंटर |
-| `flow.pack.readout` | Bundle 26J4086 · 52.40 kg | Bundle 26J4086 · 52.40 kg |
-| `flow.pack.name` | Pack | पैकिंग |
-| `flow.pack.title` | A bundle with an identity. | हर bundle की अपनी पहचान। |
-| `flow.pack.body` | Record pieces and scale weight, print a numbered QR label on A4 or thermal stock, and place the bundle into a yard section. | पीस और वज़न दर्ज करें, A4 या थर्मल रोल पर नंबर वाला QR लेबल प्रिंट करें और bundle को यार्ड सेक्शन में रखें। |
-| `flow.pack.record` | Bundle number, pieces, weight, location | Bundle नंबर, पीस, वज़न, लोकेशन |
-| `flow.dispatch.fig` | Fig 07 | चित्र 07 |
-| `flow.dispatch.plateTitle` | Dispatch gate and outbound truck | Dispatch गेट और बाहर जाने वाली गाड़ी |
-| `flow.dispatch.readout` | 4 bundles scanned · 206.3 kg | 4 bundle स्कैन · 206.3 kg |
-| `flow.dispatch.name` | Dispatch | Dispatch |
-| `flow.dispatch.title` | Close the loop at the gate. | गेट पर हिसाब पूरा करें। |
-| `flow.dispatch.body` | Scan bundles onto the truck so no bundle leaves without a customer, a numbered packing list and a matching stock movement. | गाड़ी लोड होते समय जाने वाले bundle स्कैन करें ताकि बिना ग्राहक, पैकिंग लिस्ट नंबर और स्टॉक एंट्री के कोई माल बाहर न जाए। |
-| `flow.dispatch.record` | Scanned bundles, packing list, stock movement | स्कैन किए bundle, पैकिंग लिस्ट, स्टॉक मूवमेंट |
-| `floor.eyebrow` | What gets easier, job by job | हर काम में क्या आसान होता है |
+| `navChain` | How it works | कैसे काम करता है |
+| `navFloor` | For your team | आपकी टीम के लिए |
+| `metaTitle` | orrn \| India's first end-to-end software for extrusion plants | orrn \| extrusion प्लांट के लिए भारत का पहला end-to-end सॉफ़्टवेयर |
+| `label.title` | Thermal bundle label | थर्मल bundle लेबल |
+| `label.profile` | Profile | प्रोफ़ाइल |
+| `label.pieces` | Pieces | पीस |
+| `label.weight` | Weight | वज़न |
+| `label.heat` | Heat | Heat |
+| `label.die` | Die copy | Die कॉपी |
+| `chain.title` | The metal changes. The record stays. | मेटल बदलता है। रिकॉर्ड वही रहता है। |
+| `chain.body` | Seven handovers in one plant. As scrap becomes a finished profile, each stage passes a checked record to the next. | एक प्लांट में सात पड़ाव। स्क्रैप से तैयार प्रोफ़ाइल बनने तक हर पड़ाव जांचा हुआ रिकॉर्ड अगले को सौंपता है। |
+| `chain.recorded` | Recorded | दर्ज होता है |
+| `chain.heroCaption` | A furnace pour in Guwahati, Assam | गुवाहाटी, असम में भट्ठी से ढलता मेटल |
+| `chain.heroAlt` | Molten metal pouring from a ladle in a dark plant hall, sparks across the floor | अंधेरे प्लांट हॉल में लैडल से गिरता पिघला मेटल, फ़र्श पर चिंगारियां |
+| `chain.scrap.name` | Scrap | स्क्रैप |
+| `chain.scrap.title` | Know what came through the gate. | गेट से आए माल का हिसाब रखें। |
+| `chain.scrap.body` | Book a purchase lot, record the weighbridge kanta weight and settle deductions before material enters scrap stock. | खरीद लॉट बुक करें, कांटे का वज़न दर्ज करें और स्क्रैप स्टॉक में जोड़ने से पहले कटौती व प्राप्त मात्रा तय करें। |
+| `chain.scrap.record` | Purchase lot, weighment, received stock | खरीद लॉट, कांटा वज़न, प्राप्त स्टॉक |
+| `chain.scrap.caption` | Aluminium scrap in a collection bin | कलेक्शन बिन में एल्युमिनियम स्क्रैप |
+| `chain.scrap.alt` | A bin heaped with shredded aluminium scrap | कटे हुए एल्युमिनियम स्क्रैप से भरा बिन |
+| `chain.cast.name` | Cast | Cast |
+| `chain.cast.title` | Give every heat a history. | हर heat का पूरा रिकॉर्ड। |
+| `chain.cast.body` | Connect scrap charges, alloy spectro checks and billet logs to the furnace heat, so every billet shows the heat it came from. | स्क्रैप इनपुट, alloy spectro जांच और billet आउटपुट को भट्ठी की heat से जोड़ें, ताकि हर billet पर दिखे कि वह किस heat से आया। |
+| `chain.cast.record` | Melt inputs, spectro sample, billet stock | Melt इनपुट, spectro sample, billet स्टॉक |
+| `chain.cast.caption` | Aluminium billets, numbered in chalk | चॉक से नंबर लिखे एल्युमिनियम billet |
+| `chain.cast.alt` | Stacked aluminium billets seen end on, each numbered in chalk | सामने से दिखते एल्युमिनियम billet का ढेर, हर एक पर चॉक से नंबर |
+| `chain.die.name` | Die | Die |
+| `chain.die.title` | The right die, ready for its run. | सही die, रन के लिए तैयार। |
+| `chain.die.body` | Keep each physical die copy, trial weight reading, customer ownership and nitriding cycle together before issuing to the press. | हर असली die कॉपी की वज़न रीडिंग, ग्राहक का नाम और nitriding का रिकॉर्ड एक जगह रखें और प्रेस को निश्चित कॉपी जारी करें। |
+| `chain.die.record` | Die copy, weight readings, issue record | Die कॉपी, वज़न रीडिंग, जारी करने का रिकॉर्ड |
+| `chain.die.caption` | The face of an aluminium extrusion die | एल्युमिनियम extrusion die का सामने का हिस्सा |
+| `chain.die.alt` | A round steel extrusion die with four T-shaped openings | चार T आकार के छेद वाली गोल स्टील extrusion die |
+| `chain.press.name` | Press | प्रेस |
+| `chain.press.title` | One run for the whole shift. | पूरी शिफ़्ट एक रन में। |
+| `chain.press.body` | Put the press plan, die issue and billet count in one run instead of typing shift sheets by hand. Enter output and rejects, and orrn works out recovery. | हाथ से शिफ़्ट शीट टाइप करने के बजाय प्लान, die issue और billet खपत को एक ही रन में रखें। आउटपुट और रिजेक्ट दर्ज करें, orrn recovery निकाल देता है। |
+| `chain.press.record` | Press plan, run output, recovery | प्रेस प्लान, रन आउटपुट, recovery |
+| `chain.press.caption` | A hydraulic extrusion press, dies in front | हाइड्रॉलिक extrusion प्रेस, सामने die |
+| `chain.press.alt` | A blue hydraulic aluminium extrusion press on a plant floor, with dies and profiles in front | प्लांट फ़्लोर पर नीली हाइड्रॉलिक एल्युमिनियम extrusion प्रेस, सामने die और प्रोफ़ाइल |
+| `chain.age.name` | Age | Ageing |
+| `chain.age.title` | Hold bad batches before packing. | खराब बैच पैकिंग से पहले रोकें। |
+| `chain.age.body` | Track trolleys through the ageing cycle, log soak readings and hardness in HV, and keep held material out of packing. | Ageing में ट्रॉलियों को ट्रैक करें, ओवन रीडिंग और HV में hardness दर्ज करें, और होल्ड किए माल को पैकिंग से बाहर रखें। |
+| `chain.age.record` | Batch, oven readings, release decision | बैच, ओवन रीडिंग, रिलीज़ का फ़ैसला |
+| `chain.age.caption` | Extruded aluminium sections | Extrude किए एल्युमिनियम सेक्शन |
+| `chain.age.alt` | Three cut aluminium extrusions showing their slotted cross-sections | कटे हुए तीन एल्युमिनियम extrusion, जिनमें खांचेदार क्रॉस-सेक्शन दिखता है |
+| `chain.pack.name` | Pack | पैकिंग |
+| `chain.pack.title` | Every bundle gets a number. | हर bundle को नंबर मिलता है। |
+| `chain.pack.body` | Record pieces and scale weight, print a numbered QR label on A4 or thermal stock, and place the bundle into a yard section. | पीस और वज़न दर्ज करें, A4 या थर्मल रोल पर नंबर वाला QR लेबल प्रिंट करें और bundle को यार्ड सेक्शन में रखें। |
+| `chain.pack.record` | Bundle number, pieces, weight, location | Bundle नंबर, पीस, वज़न, लोकेशन |
+| `chain.pack.caption` | A bundle label, printed at the packing scale | पैकिंग कांटे पर छपा bundle लेबल |
+| `chain.dispatch.name` | Dispatch | Dispatch |
+| `chain.dispatch.title` | Nothing leaves without a scan. | बिना स्कैन कुछ बाहर नहीं जाता। |
+| `chain.dispatch.body` | Scan bundles onto the truck so no bundle leaves without a customer, a numbered packing list and a matching stock movement. | गाड़ी लोड होते समय जाने वाले bundle स्कैन करें ताकि बिना ग्राहक, पैकिंग लिस्ट नंबर और स्टॉक एंट्री के कोई माल बाहर न जाए। |
+| `chain.dispatch.record` | Scanned bundles, packing list, stock movement | स्कैन किए bundle, पैकिंग लिस्ट, स्टॉक मूवमेंट |
+| `chain.dispatch.caption` | A truck lane onto a weighbridge | धर्मकांटे की ओर जाती ट्रक लेन |
+| `chain.dispatch.alt` | A road lane leading trucks onto a weighbridge, with a barrier and signs | धर्मकांटे पर ट्रक ले जाने वाली सड़क लेन, बैरियर और साइन बोर्ड के साथ |
+| `audit.title` | How many bundles are on your list? | आपकी लिस्ट में कितने bundle हैं? |
+| `audit.control` | Bundles on your stock list | स्टॉक लिस्ट के bundle |
+| `audit.unit` | may already be gone | शायद जा चुके हैं |
+| `audit.working` | In our first plant yard audit, 62% of the bundles on the stock list had already left. Your yard will differ. orrn counts yours bundle by bundle, at the gate. | हमारे पहले प्लांट यार्ड ऑडिट में स्टॉक लिस्ट के 62% bundle पहले ही जा चुके थे। आपका यार्ड अलग होगा। orrn गेट पर आपका हर bundle गिनता है। |
+| `record.title` | Seven registers. One record. | सात रजिस्टर। एक रिकॉर्ड। |
+| `record.body` | The office plans in orders and baki. The floor works in heats, dies, trolleys and bundles. orrn keeps both on the same record. | ऑफ़िस ऑर्डर और baki में प्लान करता है। फ़्लोर heat, die, ट्रॉली और bundle में काम करता है। orrn दोनों को एक ही रिकॉर्ड पर रखता है। |
+| `record.inName` | Today | आज |
+| `record.inBody` | Kanta slips, melt registers, die books, shift sheets and phone photos, each kept at a different desk. | कांटा पर्ची, melt रजिस्टर, die बुक, शिफ़्ट शीट और फ़ोन की फ़ोटो, हर एक अलग डेस्क पर। |
+| `record.coreName` | orrn | orrn |
+| `record.coreBody` | One record for every heat, die copy, press run and bundle, entered where the work is done. | हर heat, die कॉपी, प्रेस रन और bundle का एक रिकॉर्ड, वहीं दर्ज जहां काम होता है। |
+| `record.outName` | Out | नतीजा |
+| `record.outBody` | Packing lists, recovery and a stock count that matches the yard, read from the floor's own entries. | पैकिंग लिस्ट, recovery और यार्ड से मेल खाती स्टॉक गिनती, फ़्लोर की अपनी एंट्री से। |
 | `floor.title` | Different jobs. The same plant. | काम अलग। प्लांट एक। |
-| `floor.body` | The office plans in orders and baki. The floor works in heats, dies, trolleys and bundles. orrn keeps every role on the same record. | ऑफ़िस ऑर्डर और baki में प्लान करता है। फ़्लोर heat, die, ट्रॉली और bundle में काम करता है। orrn हर रोल को एक ही रिकॉर्ड पर रखता है। |
+| `floor.body` | Each desk enters its own work, in English or Hindi, on a phone in the yard, a tablet at the scale or the office laptop. | हर डेस्क अपना काम खुद दर्ज करती है, English या हिंदी में, यार्ड में फ़ोन पर, कांटे पर टैबलेट में या ऑफ़िस के लैपटॉप पर। |
+| `floor.ui.heat` | Heat | Heat |
+| `floor.ui.alloyCheck` | 6063 · spectro passed | 6063 · spectro पास |
+| `floor.ui.perLength` | kg per 12 ft | kg प्रति 12 फ़ीट |
+| `floor.ui.baki` | Baki | Baki |
+| `floor.ui.billets` | Billets | Billet |
+| `floor.ui.scanned` | Scanned | स्कैन हुआ |
+| `floor.ui.scanCount` | 4 of 4 | 4 में से 4 |
+| `floor.ui.recovery` | Recovery | Recovery |
 | `floor.foundry.role` | For the foundry | फ़ाउंड्री के लिए |
 | `floor.foundry.title` | Trace every billet back to its heat. | हर billet को उसकी heat से जोड़ें। |
 | `floor.foundry.body` | Log scrap charges, spectro samples and cast logs at the furnace so every billet batch carries its alloy and heat history to the press. | भट्ठी पर स्क्रैप चार्ज, spectro सैंपल और cast लॉग दर्ज करें ताकि हर billet बैच के साथ उसका alloy और heat रिकॉर्ड प्रेस तक जाए। |
@@ -3336,7 +3343,7 @@ Counts: 7431 screen strings in 49 groups, 44 guides with 840 strings.
 | `floor.planner.body` | See live order baki, allocate existing yard stock and build press plans without scheduling material that is already packed. | ऑर्डर की असली baki देखें, यार्ड का स्टॉक आवंटित करें और प्रेस प्लान बनाएं ताकि पैक हो चुके माल को दोबारा न बनाना पड़े। |
 | `floor.operator.role` | For the press shift | प्रेस शिफ़्ट के लिए |
 | `floor.operator.title` | Keep the run, not a second notebook. | रन का रिकॉर्ड रखें, दूसरी नोटबुक नहीं। |
-| `floor.operator.body` | Record the issued die copy, billets consumed, output length and downtime stops against the press run so the next shift reads the truth. | जारी की गई die कॉपी, लगे हुए billet, आउटपुट और रुकावटें उसी प्रेस रन में दर्ज करें ताकि अगली शिफ़्ट पूरा काम पढ़ सके। |
+| `floor.operator.body` | Record the issued die copy, billets consumed, output length and downtime stops against the press run, so the next shift sees what actually ran. | जारी की गई die कॉपी, लगे हुए billet, आउटपुट और रुकावटें उसी प्रेस रन में दर्ज करें, ताकि अगली शिफ़्ट देख सके कि असल में क्या चला। |
 | `floor.packer.role` | For the packing table | पैकिंग टेबल के लिए |
 | `floor.packer.title` | Weigh once. Label for good. | एक बार तौलें। पक्की पहचान दें। |
 | `floor.packer.body` | Enter piece count and scale weight, print the bundle QR sticker and assign a yard rack so no bundle sits unmarked on the floor. | पीस और कांटे का वज़न दर्ज करें, bundle का QR स्टिकर प्रिंट करें और यार्ड रैक चुनें ताकि कोई भी bundle बिना नंबर के न रहे। |
@@ -3346,17 +3353,19 @@ Counts: 7431 screen strings in 49 groups, 44 guides with 840 strings.
 | `floor.owner.role` | For the plant owner | प्लांट मालिक के लिए |
 | `floor.owner.title` | Follow the work behind the number. | नंबर के पीछे का काम देखें। |
 | `floor.owner.body` | Read recovery, stock age and dispatch from the floor's own entries. Role permissions guard changes, and the audit log keeps every edit. | फ़्लोर के अपने रिकॉर्ड से recovery, स्टॉक और dispatch देखें। रोल तय करते हैं कौन बदलाव कर सकता है, और audit log हर बदलाव रखता है। |
-| `floor.language` | English and Hindi, one tap apart. On a phone in the yard, a tablet at the scale or the office laptop. | English और हिंदी, एक टैप पर। यार्ड में फ़ोन पर, कांटे पर टैबलेट में या ऑफ़िस के लैपटॉप पर। |
-| `office.eyebrow` | Connected record | जुड़ा हुआ रिकॉर्ड |
-| `office.title` | The number on the bundle is only the beginning. | Bundle का नंबर तो बस शुरुआत है। |
-| `office.body` | When a bundle is scanned at dispatch, the packing list assembles itself from the floor's pack records. Every serial still points back to the press run, die copy and heat. | जब dispatch पर bundle स्कैन होता है, तो पैकिंग लिस्ट अपने-आप पैकिंग के रिकॉर्ड से बनती है। हर नंबर अपने प्रेस रन, die कॉपी और heat से जुड़ा रहता है। |
+| `office.title` | The packing list writes itself. | पैकिंग लिस्ट अपने-आप बनती है। |
+| `office.body` | Scan bundles at the gate and orrn builds the packing list from the floor's pack records. Every bundle number still points back to its press run, die copy and heat. | गेट पर bundle स्कैन करें और पैकिंग लिस्ट फ़्लोर के पैकिंग रिकॉर्ड से बन जाती है। हर नंबर अपने प्रेस रन, die कॉपी और heat से जुड़ा रहता है। |
+| `office.views` | Views of one bundle | एक bundle के तीन रूप |
+| `office.tabLabel` | Bundle label | Bundle लेबल |
+| `office.tabList` | Packing list | पैकिंग लिस्ट |
+| `office.tabScan` | Gate scan | गेट स्कैन |
 | `office.demoCustomer` | Fourcubes Extrusions | Fourcubes Extrusions |
 | `office.demoMeta` | 14701 Patti · 12 ft | 14701 पट्टी · 12 फ़ीट |
-| `office.printerTitle` | Thermal bundle label | थर्मल bundle लेबल |
-| `office.scannerTitle` | Gate camera scan | गेट कैमरा स्कैन |
+| `office.scanTitle` | Gate 2 · truck loading | गेट 2 · गाड़ी लोडिंग |
+| `office.scanned` | Scanned | स्कैन हुआ |
+| `office.pressRun` | Press run | प्रेस रन |
 | `office.exportPdf` | Download PDF | PDF डाउनलोड |
 | `office.exportCsv` | Download CSV | CSV डाउनलोड |
-| `office.exportQr` | QR PDF | QR PDF |
 | `cta.title` | Let's start with your plant. | आपके प्लांट से शुरू करें। |
 | `cta.body` | Tell us how your floor runs today, from weighbridge to dispatch gate. We'll walk through where orrn fits. | बताएं आपके फ़्लोर पर कांटे से लेकर dispatch गेट तक काम कैसे होता है। हम बात करेंगे कि orrn कहाँ काम आएगा। |
 | `footer` | For aluminium extrusion plants across India. | भारत भर के एल्युमिनियम extrusion प्लांट के लिए। |
@@ -3364,6 +3373,7 @@ Counts: 7431 screen strings in 49 groups, 44 guides with 840 strings.
 | `privacy` | Privacy | प्राइवेसी |
 | `terms` | Terms | शर्तें |
 | `copyright` | © {year} orrn | © {year} orrn |
+| `credits` | Photographs via Wikimedia Commons: | फ़ोटो Wikimedia Commons से: |
 
 ### legal (45)
 
