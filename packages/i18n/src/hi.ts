@@ -3643,6 +3643,8 @@ export const hi = {
     homeLabel: "orrn होम",
     mainNav: "मुख्य नेविगेशन",
     guides: "गाइड",
+    navChain: "कैसे काम करता है",
+    navFloor: "आपकी टीम के लिए",
     metaTitle: "orrn | extrusion प्लांट के लिए भारत का पहला end-to-end सॉफ़्टवेयर",
     label: {
       title: "थर्मल bundle लेबल",

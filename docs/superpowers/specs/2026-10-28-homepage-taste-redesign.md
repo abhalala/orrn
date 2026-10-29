@@ -30,6 +30,10 @@ The stock-list slider (`audit.tsx`): the visitor sets the bundles on their list 
 
 Hero lines rise in a mask, then the sentence, actions and label (done by about 1.2 s). The sticky frame fades the outgoing photo in 320 ms and brings in the next over 1.1 s. Sections enter once on screens 768px and wider. Every hidden state sits under `prefers-reduced-motion: no-preference`; reduced motion shows the final state.
 
+## Navigation
+
+A plain ink bar: wordmark, "How it works" (#flow), "For your team" (#floor), Guides, Sign in, the language switch and Request access. From 768px wide it stays at the top, anchors land below it, and the section in view carries the amber square used by the tabs and the legal contents. Below 1024px the section links and Guides drop out (they stay in the footer); on a phone the bar scrolls away and Request access is a fixed button.
+
 ## Pictures
 
 Wikimedia Commons, credited in the homepage footer (`media.ts` holds titles, authors, licences and source pages). None shows an orrn customer's plant.

@@ -3651,6 +3651,8 @@ export const en = {
     homeLabel: "orrn home",
     mainNav: "Main navigation",
     guides: "Guides",
+    navChain: "How it works",
+    navFloor: "For your team",
     metaTitle: "orrn | India's first end-to-end software for extrusion plants",
     label: {
       title: "Thermal bundle label",

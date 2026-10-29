@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7439 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3243,7 +3243,7 @@ Counts: 7439 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (125)
+### marketing (127)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3255,6 +3255,8 @@ Counts: 7439 screen strings in 49 groups, 44 guides with 840 strings.
 | `homeLabel` | orrn home | orrn होम |
 | `mainNav` | Main navigation | मुख्य नेविगेशन |
 | `guides` | Guides | गाइड |
+| `navChain` | How it works | कैसे काम करता है |
+| `navFloor` | For your team | आपकी टीम के लिए |
 | `metaTitle` | orrn \| India's first end-to-end software for extrusion plants | orrn \| extrusion प्लांट के लिए भारत का पहला end-to-end सॉफ़्टवेयर |
 | `label.title` | Thermal bundle label | थर्मल bundle लेबल |
 | `label.profile` | Profile | प्रोफ़ाइल |

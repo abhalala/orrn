@@ -81,6 +81,18 @@ test.describe("marketing page", () => {
     }
   });
 
+  test("section links land below the bar and mark the section in view", async ({ page }) => {
+    await openMarketing(page);
+    const nav = page.getByRole("banner").getByRole("navigation");
+    await nav.getByRole("link", { name: "For your team" }).click();
+    await expect(nav.getByRole("link", { name: "For your team" })).toHaveAttribute("aria-current", "location");
+    await expect(nav.getByRole("link", { name: "How it works" })).not.toHaveAttribute("aria-current", "location");
+    const bar = await page.getByRole("banner").evaluate((element) => element.getBoundingClientRect().bottom);
+    await expect.poll(() => page.locator("#floor").evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(bar);
+    await page.locator('[data-flow-step="press"]').evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await expect(nav.getByRole("link", { name: "How it works" })).toHaveAttribute("aria-current", "location");
+  });
+
   test("the stock-list slider recalculates the bundles that may be gone", async ({ page }) => {
     await openMarketing(page);
     const slider = page.locator("#audit").getByRole("slider", { name: "Bundles on your stock list" });

@@ -42,6 +42,7 @@
   --m-font: "General Sans", "Geist Variable", "Noto Sans Devanagari", system-ui, sans-serif;
   --m-edge: clamp(16px, 1.7vw, 24px);
   --m-gap: 12px;
+  --m-bar: 72px;
   --m-section: clamp(6rem, 11vw, 11rem);
   --m-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
   --m-body: clamp(1.0625rem, 1rem + 0.25vw, 1.1875rem);
@@ -196,15 +197,21 @@
   }
 }
 
-/* Header: wordmark, two links, language, one action */
+/* A plain bar: it stays at the top on wider screens so the section links are always in reach. */
 .marketing-header {
-  position: relative;
-  z-index: 2;
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  min-height: 72px;
+  min-height: var(--m-bar);
   padding-inline: var(--m-edge);
+  background: var(--m-ink);
+}
+
+.marketing-page :where(section[id]) {
+  scroll-margin-top: calc(var(--m-bar) + 1rem);
 }
 
 .marketing-header-inner {
@@ -237,15 +244,32 @@
 .marketing-header-links a {
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
   min-height: 44px;
   color: var(--m-muted);
   font-size: var(--m-small);
   font-weight: 500;
+  white-space: nowrap;
   transition: color 180ms ease;
 }
 
-.marketing-header-links a:hover {
+.marketing-header-links a:hover,
+.marketing-header-links a[aria-current="location"] {
   color: var(--m-paper);
+}
+
+/* The section in view carries the same amber square as the active tab and legal section. */
+.marketing-header-links a[data-section]::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: -16px;
+  background: transparent;
+  transition: background-color 180ms ease;
+}
+
+.marketing-header-links a[aria-current="location"]::before {
+  background: var(--m-accent);
 }
 
 .marketing-page .marketing-language {
@@ -293,7 +317,7 @@
 
 .marketing-card {
   display: flex;
-  min-height: calc(100svh - 72px - var(--m-edge));
+  min-height: calc(100svh - var(--m-bar) - var(--m-edge));
   flex-direction: column;
   padding: 0 clamp(1.5rem, 3vw, 3rem) clamp(1.5rem, 3vw, 3rem);
   background: var(--m-paper);
@@ -517,8 +541,8 @@
 
 .marketing-frames-inner {
   position: sticky;
-  top: var(--m-edge);
-  height: calc(100svh - 2 * var(--m-edge));
+  top: var(--m-bar);
+  height: calc(100svh - var(--m-bar) - var(--m-edge));
   margin-top: 0;
   overflow: clip;
   background: var(--m-surface);
@@ -1297,7 +1321,7 @@
 
 .marketing-legal-nav {
   position: sticky;
-  top: 2rem;
+  top: calc(var(--m-bar) + 1.5rem);
   display: grid;
   gap: 0.15rem;
 }
@@ -1336,7 +1360,7 @@
   display: grid;
   gap: 1rem;
   padding-bottom: 4rem;
-  scroll-margin-top: 2rem;
+  scroll-margin-top: calc(var(--m-bar) + 1.5rem);
 }
 
 .marketing-legal-section h2 {
@@ -1515,6 +1539,10 @@
 }
 
 @media (max-width: 1023px) {
+  .marketing-header-links [data-section] {
+    display: none;
+  }
+
   .marketing-story {
     display: block;
   }
@@ -1612,15 +1640,12 @@
   }
 
   .marketing-header {
+    position: relative;
     gap: 0.75rem;
   }
 
   .marketing-header-links {
-    display: none;
-  }
-
-  .marketing-page .marketing-language {
-    margin-left: auto;
+    gap: 1rem;
   }
 
   .marketing-brand {
