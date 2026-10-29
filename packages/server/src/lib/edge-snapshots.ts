@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, lte, notInArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, isNull, lte, notInArray, sum } from "drizzle-orm";
 
 import type { OrrnDb } from "@orrn/db";
 import { die } from "@orrn/db/schema/catalog";
@@ -81,8 +81,15 @@ type BuiltSectionData = {
   summaries: Array<Record<string, unknown>>;
 };
 
+/**
+ * Bundles that left the plant (dispatched) or were voided are history, not stock: a plant with years of
+ * dispatches would otherwise ship every bundle ever made to the node on every rebuild (Fourcubes: 81,602
+ * of 83,797). They still count in the status totals, which come from one aggregate query.
+ */
+const OUT_OF_PLANT_STATUSES = ["dispatched", "void"] as const;
+
 async function buildStockSection(db: OrrnDb, companyId: string): Promise<BuiltSectionData> {
-  const [bundles, dies, locations, groups] = await db.batch([
+  const [bundles, dies, locations, groups, totals] = await db.batch([
     db
       .select({
         id: bundle.id,
@@ -104,7 +111,7 @@ async function buildStockSection(db: OrrnDb, companyId: string): Promise<BuiltSe
         updatedAt: bundle.updatedAt,
       })
       .from(bundle)
-      .where(eq(bundle.companyId, companyId))
+      .where(and(eq(bundle.companyId, companyId), notInArray(bundle.status, [...OUT_OF_PLANT_STATUSES])))
       .orderBy(asc(bundle.serial)),
     db
       .select({
@@ -134,6 +141,11 @@ async function buildStockSection(db: OrrnDb, companyId: string): Promise<BuiltSe
       })
       .from(bundleGroup)
       .where(eq(bundleGroup.companyId, companyId)),
+    db
+      .select({ status: bundle.status, count: count(), weightG: sum(bundle.weightG), pieces: sum(bundle.quantity) })
+      .from(bundle)
+      .where(eq(bundle.companyId, companyId))
+      .groupBy(bundle.status),
   ]);
 
   const dieMap = new Map(dies.map((d) => [d.id, d]));
@@ -141,17 +153,14 @@ async function buildStockSection(db: OrrnDb, companyId: string): Promise<BuiltSe
   const groupMap = new Map(groups.map((g) => [g.id, g]));
 
   const statusTotals: Record<string, { count: number; weightG: number; pieces: number }> = {};
+  for (const row of totals) {
+    statusTotals[row.status] = { count: row.count, weightG: Number(row.weightG ?? 0), pieces: Number(row.pieces ?? 0) };
+  }
 
   const records: EdgeSnapshotRecordItem[] = bundles.map((b) => {
     const d = dieMap.get(b.dieId);
     const loc = b.locationId ? locMap.get(b.locationId) : undefined;
     const grp = groupMap.get(b.groupId);
-
-    const bucket = statusTotals[b.status] ?? { count: 0, weightG: 0, pieces: 0 };
-    bucket.count += 1;
-    bucket.weightG += b.weightG;
-    bucket.pieces += b.quantity;
-    statusTotals[b.status] = bucket;
 
     let bandVerdict: "in_band" | "under" | "over" | "unknown" = "unknown";
     if (d && b.kgPer12ftMilli != null) {
@@ -196,7 +205,8 @@ async function buildStockSection(db: OrrnDb, companyId: string): Promise<BuiltSe
   const summaries: Array<Record<string, unknown>> = [
     {
       kind: "stock_summary",
-      totalBundles: bundles.length,
+      totalBundles: totals.reduce((total, row) => total + row.count, 0),
+      inPlantBundles: bundles.length,
       statusTotals,
       locations: locations.map((l) => ({
         id: l.id,
@@ -283,7 +293,7 @@ async function buildOrdersSection(db: OrrnDb, companyId: string): Promise<BuiltS
         status: bundle.status,
       })
       .from(bundle)
-      .where(eq(bundle.companyId, companyId)),
+      .where(and(eq(bundle.companyId, companyId), isNotNull(bundle.salesOrderLineId))),
     db
       .select({
         id: dispatch.id,
@@ -297,7 +307,7 @@ async function buildOrdersSection(db: OrrnDb, companyId: string): Promise<BuiltS
         salesOrderLineId: dispatchItem.salesOrderLineId,
       })
       .from(dispatchItem)
-      .where(eq(dispatchItem.companyId, companyId)),
+      .where(and(eq(dispatchItem.companyId, companyId), isNotNull(dispatchItem.salesOrderLineId))),
   ]);
 
   const customerMap = new Map(customers.map((c) => [c.id, c]));
