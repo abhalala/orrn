@@ -123,7 +123,7 @@ export const inviteRouter = router({
       const inviteUrl = `${webBaseUrl()}/invite/${token}`;
 
       // M3 (final explore): the invite is written; nothing after this throws. The email can fail
-      // (Resend, Oct 2026) or not be set up (local), so the inviter always gets the link to copy and
+      // (Purelymail refused or unreachable) or not be set up (local), so the inviter always gets the link to copy and
       // send by WhatsApp or their own mail, the same way Godseye gets an owner's sign-in details.
       let emailSent = false;
       try {

@@ -32,7 +32,7 @@ interpret the email input as an option overriding the workflow's fixed dev stage
 
 ## 2. Prod email
 
-Resend remains the deployed provider; successful delivery is not established by the new optional Cloudflare sender seam.
+Purelymail SMTP (`system@orrn.in`) is the only outward sender; `PURELYMAIL_SMTP_PASSWORD` is required in production.
 Installed Alchemy 0.91.2 cannot serialize the Email Sending binding, so Cloudflare `EMAIL` is deliberately unbound.
 Confirm Workers Paid/Email Sending entitlement and sending-domain DNS on the correct account, establish a supported
 deployment binding, then verify an authorized real inbox before switching. Godseye retains copyable sign-in details.

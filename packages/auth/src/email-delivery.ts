@@ -16,7 +16,6 @@ export interface EmailEnvironment {
   EMAIL?: SendEmail;
   /** Purelymail SMTP password for `system@orrn.in`; when set, SMTP is the primary sender. */
   PURELYMAIL_SMTP_PASSWORD?: string;
-  RESEND_API_KEY?: string;
   NODE_ENV?: string;
   /** Test hook: replaces the Workers socket transport for Purelymail SMTP. */
   SMTP_TRANSPORT?: () => Promise<SmtpTransport>;
@@ -26,7 +25,7 @@ export interface EmailEnvironment {
 export class EmailDeliveryError extends Error {
   constructor(
     message: string,
-    readonly provider: "cloudflare" | "purelymail" | "resend" | "none",
+    readonly provider: "cloudflare" | "purelymail" | "none",
     readonly status?: number,
   ) {
     super(message);
@@ -78,27 +77,6 @@ export async function sendTransactionalEmail(
     }
   }
 
-  if (!environment.RESEND_API_KEY) {
-    console.log(unsentEmailLog(environment.NODE_ENV, options, label));
-    throw new EmailDeliveryError("Email sending is not set up on this server", "none");
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${environment.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({ from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`, ...options }),
-  });
-  if (!response.ok) {
-    // Provider bodies can contain addresses, credentials or links. Retain the HTTP status, not
-    // an unsafe body in logs or a public error. Network and binding exceptions propagate intact.
-    throw new EmailDeliveryError(`Resend email send failed (HTTP ${response.status})`, "resend", response.status);
-  }
-  const result: { id?: string } = await response.json();
-  if (typeof result.id !== "string" || !result.id) {
-    throw new EmailDeliveryError("Resend returned no email message ID", "resend", response.status);
-  }
-  return { success: true, messageId: result.id };
+  console.log(unsentEmailLog(environment.NODE_ENV, options, label));
+  throw new EmailDeliveryError("Email sending is not set up on this server", "none");
 }

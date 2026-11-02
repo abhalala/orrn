@@ -72,7 +72,7 @@ type IssueCtx = {
 /**
  * Issues a one-time sign-in link for an approved company's owner, tries to
  * email it, and always returns the same message so Godseye can show it for
- * copying when the email cannot be sent (Resend failed for the Fourcubes
+ * copying when the email cannot be sent (the provider failed for the Fourcubes
  * approval on 23 Oct 2026).
  *
  * Callers must have checked `platform.waitlist.signInLink` and that the owner

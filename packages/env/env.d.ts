@@ -15,7 +15,6 @@ export interface CloudflareEnv {
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
   ORRN_MASTER_KEY: string;
-  RESEND_API_KEY: string;
   /** Purelymail SMTP password for system@orrn.in (production secret; absent/empty = SMTP sender off). */
   PURELYMAIL_SMTP_PASSWORD?: string;
   /** Optional Email Sending binding; absent until supported deployment tooling and account setup. */

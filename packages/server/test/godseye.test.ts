@@ -3,7 +3,7 @@
  * company list printing filter, grant authors, plan/module validation, and
  * the local-stack print station stub (no Cloudflare calls on the local worker).
  */
-import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
 
 import type { Context } from "../src/context";
 import { createTestEnv, type PlatformStaffRole, type TestEnv } from "./harness";
@@ -530,33 +530,43 @@ describe("owner sign-in links (review T27 C-1, I-1)", () => {
  * Both on top of the FP posture (audited server-side links, no public link requests).
  */
 describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
-  /** Resend switched on (production, key set) with `fetch` answering as `respond` does. */
-  function resendFails(respond: () => Promise<Response>) {
-    useEnv({ NODE_ENV: "production", RESEND_API_KEY: "re_test_key" });
-    return spyOn(globalThis, "fetch").mockImplementation((async (input: RequestInfo | URL) => {
-      expect(String(input instanceof Request ? input.url : input)).toBe("https://api.resend.com/emails");
-      return respond();
-    }) as typeof fetch);
+  /** Purelymail SMTP switched on (production, password set) with the transport answering `replies`, or failing to connect. */
+  function purelymailFails(replies: string[] | Error) {
+    const transport = mock(async () => {
+      if (replies instanceof Error) throw replies;
+      const script = [...replies];
+      return { readLine: async () => script.shift() ?? "421 closed", write: async () => {}, startTls: async () => {}, close: () => {} };
+    });
+    useEnv({ NODE_ENV: "production", PURELYMAIL_SMTP_PASSWORD: "smtp-test-pass" });
+    workersEnv.SMTP_TRANSPORT = transport;
+    return transport;
   }
+  afterEach(() => {
+    delete workersEnv.SMTP_TRANSPORT;
+  });
 
   for (const failure of [
-    { label: "Resend answers an error", respond: async () => new Response("rate limited", { status: 429 }), error: "Resend email send failed (HTTP 429)" },
-    { label: "the network call throws", respond: async () => Promise.reject(new TypeError("fetch failed")), error: "fetch failed" },
+    {
+      label: "Purelymail refuses the recipient",
+      replies: ["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "235 ok", "250 from", "550 no such user"],
+      error: "Purelymail email send failed (SMTP RCPT refused (550))",
+    },
+    { label: "the SMTP connection throws", replies: new TypeError("connect failed"), error: "connect failed" },
   ]) {
     test(`(a) ${failure.label}: the approval stands and the details come back for copying`, async () => {
       const { requestId, companyId, name } = await fileRequest();
-      const fetchSpy = resendFails(failure.respond);
+      const transport = purelymailFails(failure.replies);
       const errors = spyOn(console, "error").mockImplementation(() => {});
       let result: Awaited<ReturnType<ReturnType<TestEnv["caller"]>["platform"]["waitlistApprove"]>>;
       try {
         result = await env.caller({ platformRole: "super_admin" }).platform.waitlistApprove({ id: requestId });
-        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        expect(transport).toHaveBeenCalledTimes(1);
         // No live link reaches the logs on the failure path.
         const printed = errors.mock.calls.flat().map(String).join("\n");
         expect(printed).not.toContain("/continue?token=");
       } finally {
         errors.mockRestore();
-        fetchSpy.mockRestore();
+        delete workersEnv.SMTP_TRANSPORT;
       }
 
       expect(result.success).toBe(true);
@@ -599,18 +609,18 @@ describe("hotfix fix/waitlist-signin-details on the merged behaviour", () => {
     const { requestId } = await fileRequest();
     const staff = env.caller({ platformRole: "admin" });
     await staff.platform.waitlistApprove({ id: requestId });
-    const fetchSpy = resendFails(async () => new Response("bad key", { status: 401 }));
+    purelymailFails(["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "535 auth failed"]);
     const errors = spyOn(console, "error").mockImplementation(() => {});
     try {
       const fresh = await staff.platform.waitlistSignInDetails({ id: requestId });
       expect(fresh.emailSent).toBe(false);
-      expect(fresh.emailError).toBe("Resend email send failed (HTTP 401)");
-      expect(fresh.emailError).not.toContain("bad key");
+      expect(fresh.emailError).toBe("Purelymail email send failed (SMTP AUTH refused (535))");
+      expect(fresh.emailError).not.toContain(btoa("smtp-test-pass"));
       expect(fresh.link).toStartWith("https://app.test/continue?token=");
       expect(fresh.text).toContain(fresh.link);
     } finally {
       errors.mockRestore();
-      fetchSpy.mockRestore();
+      delete workersEnv.SMTP_TRANSPORT;
     }
   });
 

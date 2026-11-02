@@ -128,7 +128,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         // The answer must be the same whether or not the address has an account, so a failed send
-        // (Resend down, bad key) is swallowed here: it must never turn into a 500 that only a real
+        // (Purelymail refused or unreachable, password unset) is swallowed here: it must never turn into a 500 that only a real
         // account gets. The log names the recipient domain only, never the link or the address.
         try {
           await sendAuthEmail({

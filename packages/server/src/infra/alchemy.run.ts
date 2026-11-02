@@ -25,6 +25,15 @@ const zoneName = "orrn.app";
 const stage = process.env.ALCHEMY_STAGE ?? "production";
 const isDevStage = stage === "dev";
 
+// Purelymail SMTP (system@orrn.in) is the only outward mail sender (orrn.in's SPF/DKIM/DMARC
+// authorise nothing else). Production refuses to deploy without it rather than shipping a server
+// that silently cannot send invites or password resets.
+const smtpPassword = process.env.PURELYMAIL_SMTP_PASSWORD?.trim() ?? "";
+if (!isDevStage && !smtpPassword) {
+  throw new Error("PURELYMAIL_SMTP_PASSWORD is required for production: invite and password-reset email cannot be sent without it.");
+}
+console.log(`SMTP      -> ${smtpPassword ? `Purelymail password present (${smtpPassword.length} chars)` : "not configured (emails log only)"}`);
+
 const zoneIdApp = process.env.CLOUDFLARE_ZONE_ID_APP ?? process.env.CLOUDFLARE_ZONE_ID;
 const zoneIdIn = process.env.CLOUDFLARE_ZONE_ID_IN;
 
@@ -227,7 +236,7 @@ export const server = await Worker("server", {
   // 21:30 UTC = 03:00 IST, after the night shift's last pack: one backup per active company.
   crons: ["30 21 * * *"],
   // EMAIL intentionally absent: installed Alchemy 0.91.2 cannot serialize send_email bindings.
-  // Keep Resend configured until tooling and the account's Email Sending setup are ready.
+  // Purelymail SMTP is the sender until then (packages/auth/src/smtp.ts).
   // See docs/DEPLOY_PROMOTION.md; never provision Email Routing as a substitute.
   bindings: {
     DB: db,
@@ -241,11 +250,8 @@ export const server = await Worker("server", {
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: betterAuthUrl,
     ORRN_MASTER_KEY: process.env.ORRN_MASTER_KEY ?? devMasterKey,
-    RESEND_API_KEY: process.env.RESEND_API_KEY ?? "",
-    // Purelymail SMTP (system@orrn.in) is the primary outward sender when its
-    // password is configured (production GitHub environment); Resend remains
-    // the fallback for stages without it. See packages/auth/src/smtp.ts.
-    PURELYMAIL_SMTP_PASSWORD: process.env.PURELYMAIL_SMTP_PASSWORD ?? "",
+    // Encrypted secret binding, never plain text (it was readable in the dashboard before).
+    ...(smtpPassword ? { PURELYMAIL_SMTP_PASSWORD: alchemy.secret(smtpPassword) } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     COOKIE_DOMAIN: cookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",

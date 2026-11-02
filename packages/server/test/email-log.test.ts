@@ -40,7 +40,7 @@ async function logged(run: () => Promise<unknown>) {
 
 describe("packages/server sendEmail without an email provider", () => {
   test("production rejects and prints only the recipient's domain and subject", async () => {
-    useEnv({ NODE_ENV: "production", RESEND_API_KEY: undefined });
+    useEnv({ NODE_ENV: "production", PURELYMAIL_SMTP_PASSWORD: undefined });
     const out = await logged(() => sendEmail(EMAIL));
     expect(out).not.toContain("live-secret-token-123");
     expect(out).not.toContain("/continue?token");
@@ -52,7 +52,7 @@ describe("packages/server sendEmail without an email provider", () => {
 
   test("any stack that is not development (test, unset) is treated like production", async () => {
     for (const nodeEnv of ["test", undefined]) {
-      useEnv({ NODE_ENV: nodeEnv, RESEND_API_KEY: undefined });
+      useEnv({ NODE_ENV: nodeEnv, PURELYMAIL_SMTP_PASSWORD: undefined });
       const out = await logged(() => sendEmail(EMAIL));
       expect(out).not.toContain("live-secret-token-123");
     }
