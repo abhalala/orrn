@@ -14,7 +14,7 @@
     "CORS_ALLOWED_ORIGINS",
     "WEB_PUBLIC_URL",
     "ORRN_MASTER_KEY",
-    "RESEND_API_KEY",
+    "PURELYMAIL_SMTP_PASSWORD",
     "WEBHOOK_BASE_URL",
     "WEB_DOMAIN",
     "API_DOMAIN",
@@ -30,30 +30,49 @@
     "VISUAL_WEB_PORT",
     "E2E_WORKERS",
     "PLAYWRIGHT_BASE_URL",
-    "PLAYWRIGHT_SKIP_WEBSERVER"
+    "PLAYWRIGHT_SKIP_WEBSERVER",
+    "ORRN_SKIP_R2",
+    "CLOUDFLARE_ACCOUNT_ID"
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": [
+        "^lint"
+      ]
     },
     "check-types": {
-      "dependsOn": ["^check-types"]
+      "dependsOn": [
+        "^check-types"
+      ]
     },
     "test": {
-      "dependsOn": ["^check-types"],
+      "dependsOn": [
+        "^check-types"
+      ],
       "cache": false
     },
     "test:visual": {
-      "dependsOn": ["^check-types"],
+      "dependsOn": [
+        "^check-types"
+      ],
       "cache": false
     },
     "test:visual:update": {
-      "dependsOn": ["^check-types"],
+      "dependsOn": [
+        "^check-types"
+      ],
       "cache": false
     },
     "dev": {
