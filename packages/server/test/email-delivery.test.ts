@@ -14,38 +14,42 @@ const email = {
 
 afterEach(() => mock.restore());
 
+/** Scripted Purelymail SMTP conversation for the `SMTP_TRANSPORT` test hook. */
+function smtp(replies: string[], written: string[] = []) {
+  return async () => ({
+    readLine: async () => replies.shift()!,
+    write: async (text: string) => { written.push(text); },
+    startTls: async () => {},
+    close: () => {},
+  });
+}
+const OK = ["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "235 ok", "250 from", "250 to", "354 data", "250 queued"];
+
 describe("transactional email provider selection", () => {
-  test("a Cloudflare binding takes precedence over a configured Resend key", async () => {
+  test("a Cloudflare binding takes precedence over Purelymail SMTP", async () => {
     const send = mock(async () => ({ messageId: "cf-message" }));
-    const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Resend must not run"));
-    const result = await sendTransactionalEmail({ EMAIL: { send }, RESEND_API_KEY: "resend-key", NODE_ENV: "production" }, email);
+    const transport = mock(smtp([...OK]));
+    const result = await sendTransactionalEmail({ EMAIL: { send }, PURELYMAIL_SMTP_PASSWORD: "smtp-pass", SMTP_TRANSPORT: transport, NODE_ENV: "production" }, email);
     expect(result).toEqual({ success: true, messageId: "cf-message" });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({ from: { email: "system@orrn.in", name: "ORRN" }, ...email });
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
   });
 
-  test("Cloudflare send exceptions retain their code and identity and do not trigger Resend", async () => {
+  test("Cloudflare send exceptions retain their code and identity and do not fall through to SMTP", async () => {
     const error = Object.assign(new Error("sender is not verified"), { code: "E_SENDER_NOT_VERIFIED" });
     const send = mock(async () => { throw error; });
-    const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Resend must not run"));
-    await expect(sendTransactionalEmail({ EMAIL: { send }, RESEND_API_KEY: "resend-key" }, email)).rejects.toBe(error);
+    const transport = mock(smtp([...OK]));
+    await expect(sendTransactionalEmail({ EMAIL: { send }, PURELYMAIL_SMTP_PASSWORD: "smtp-pass", SMTP_TRANSPORT: transport }, email)).rejects.toBe(error);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
   });
 
-  test("Purelymail SMTP takes precedence over Resend when its password is set", async () => {
-    const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Resend must not run"));
-    const replies = ["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "235 ok", "250 from", "250 to", "354 data", "250 queued"];
+  test("without a binding, Purelymail SMTP sends from system@orrn.in without any HTTP call", async () => {
+    const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network must not run"));
     const written: string[] = [];
-    const transport = {
-      readLine: async () => replies.shift()!,
-      write: async (text: string) => { written.push(text); },
-      startTls: async () => {},
-      close: () => {},
-    };
     const result = await sendTransactionalEmail(
-      { PURELYMAIL_SMTP_PASSWORD: "smtp-pass", RESEND_API_KEY: "resend-key", SMTP_TRANSPORT: async () => transport },
+      { PURELYMAIL_SMTP_PASSWORD: "smtp-pass", NODE_ENV: "production", SMTP_TRANSPORT: smtp([...OK], written) },
       email,
     );
     expect(result.messageId).toContain("@orrn.in");
@@ -54,65 +58,30 @@ describe("transactional email provider selection", () => {
     expect(written.join("")).toContain("RCPT TO:<owner@example.net>");
   });
 
-  test("a Purelymail refusal is reported as purelymail and never falls through to Resend", async () => {
-    const fetchSpy = spyOn(globalThis, "fetch").mockRejectedValue(new Error("Resend must not run"));
-    const replies = ["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "535 auth failed"];
-    const transport = {
-      readLine: async () => replies.shift()!,
-      write: async () => {},
-      startTls: async () => {},
-      close: () => {},
-    };
-    await expect(
-      sendTransactionalEmail({ PURELYMAIL_SMTP_PASSWORD: "bad-pass", RESEND_API_KEY: "resend-key", SMTP_TRANSPORT: async () => transport }, email),
-    ).rejects.toMatchObject({ provider: "purelymail", status: 535 });
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  test("without a binding, Resend sends the existing sender and returns its real ID", async () => {
-    const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ id: "resend-message" }));
-    const result = await sendTransactionalEmail({ RESEND_API_KEY: "resend-key", NODE_ENV: "production" }, email);
-    expect(result).toEqual({ success: true, messageId: "resend-message" });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0]!;
-    expect(url).toBe("https://api.resend.com/emails");
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toEqual({ "Content-Type": "application/json", Authorization: "Bearer resend-key" });
-    expect(JSON.parse(String(init?.body))).toEqual({ from: "ORRN <system@orrn.in>", ...email });
+  test("a Purelymail refusal surfaces provider purelymail and its code, without secrets or links", async () => {
+    const log = spyOn(console, "log").mockImplementation(() => {});
+    let failure: unknown;
+    try {
+      await sendTransactionalEmail(
+        { PURELYMAIL_SMTP_PASSWORD: "bad-pass", NODE_ENV: "production", SMTP_TRANSPORT: smtp(["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "535 auth failed"]) },
+        email,
+      );
+    } catch (error) { failure = error; }
+    expect(failure).toBeInstanceOf(EmailDeliveryError);
+    expect(failure).toMatchObject({ provider: "purelymail", status: 535 });
+    expect(String(failure)).not.toContain("secret-token");
+    expect(String(failure)).not.toContain("bad-pass");
+    expect(log).not.toHaveBeenCalled();
   });
 
   test("configured providers also send on development stacks instead of returning mock success", async () => {
     const send = mock(async () => ({ messageId: "dev-real-provider" }));
     expect(await sendTransactionalEmail({ NODE_ENV: "development", EMAIL: { send } }, email)).toEqual({ success: true, messageId: "dev-real-provider" });
-    const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ id: "dev-resend" }));
-    expect(await sendTransactionalEmail({ NODE_ENV: "development", RESEND_API_KEY: "dev-key" }, email)).toEqual({ success: true, messageId: "dev-resend" });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-  });
-
-  test("Resend failures retain HTTP status without logging a sensitive provider body", async () => {
-    const fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(new Response(`${email.html} resend-key`, { status: 429 }));
-    const log = spyOn(console, "log").mockImplementation(() => {});
-    const errorLog = spyOn(console, "error").mockImplementation(() => {});
-    let failure: unknown;
-    try { await sendTransactionalEmail({ RESEND_API_KEY: "resend-key", NODE_ENV: "production" }, email); } catch (error) { failure = error; }
-    expect(failure).toBeInstanceOf(EmailDeliveryError);
-    expect(failure).toMatchObject({ provider: "resend", status: 429 });
-    expect(String(failure)).not.toContain("secret-token");
-    expect(String(failure)).not.toContain("resend-key");
-    expect(log).not.toHaveBeenCalled();
-    expect(errorLog).not.toHaveBeenCalled();
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-  });
-
-  test("Resend network exceptions propagate intact", async () => {
-    const error = new TypeError("network unavailable");
-    spyOn(globalThis, "fetch").mockRejectedValue(error);
-    await expect(sendTransactionalEmail({ RESEND_API_KEY: "resend-key" }, email)).rejects.toBe(error);
+    const result = await sendTransactionalEmail({ NODE_ENV: "development", PURELYMAIL_SMTP_PASSWORD: "dev-pass", SMTP_TRANSPORT: smtp([...OK]) }, email);
+    expect(result.messageId).toContain("@orrn.in");
   });
 
   test("a provider response with no message ID is not reported as delivery", async () => {
-    spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
-    await expect(sendTransactionalEmail({ RESEND_API_KEY: "resend-key" }, email)).rejects.toThrow("Resend returned no email message ID");
     await expect(sendTransactionalEmail({ EMAIL: { send: async () => ({ messageId: "" }) } }, email)).rejects.toThrow("Cloudflare returned no email message ID");
   });
 

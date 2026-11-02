@@ -81,7 +81,7 @@ describe("forgot password", () => {
 
   test("only a real account gets a reset token, and the email body is not logged outside development", async () => {
     workersEnv.NODE_ENV = "production";
-    delete workersEnv.RESEND_API_KEY;
+    delete workersEnv.PURELYMAIL_SMTP_PASSWORD;
     const before = (await resetTokens()).length;
     const stranger = await request(`ghost.${crypto.randomUUID().slice(0, 8)}@test.orrn`);
     expect((await resetTokens()).length).toBe(before);
@@ -101,12 +101,12 @@ describe("forgot password", () => {
 
   test("a failed send answers exactly like an unknown address: no 500, no link or address in the log", async () => {
     workersEnv.NODE_ENV = "production";
-    workersEnv.RESEND_API_KEY = "re_test_key";
-    const realFetch = globalThis.fetch;
-    const fail = spyOn(globalThis, "fetch").mockImplementation(((input: unknown, init?: unknown) => {
-      if (String(input).includes("api.resend.com")) return Promise.resolve(new Response("down", { status: 500 }));
-      return realFetch(input as never, init as never);
-    }) as never);
+    workersEnv.PURELYMAIL_SMTP_PASSWORD = "smtp-test-pass";
+    // Purelymail refuses the message at DATA (a full refusal path, nothing delivered).
+    workersEnv.SMTP_TRANSPORT = async () => {
+      const replies = ["220 hi", "250 ehlo", "220 tls", "250 ehlo", "334 u", "334 p", "235 ok", "250 from", "250 to", "554 rejected"];
+      return { readLine: async () => replies.shift() ?? "421 closed", write: async () => {}, startTls: async () => {}, close: () => {} };
+    };
     const err = spyOn(console, "error").mockImplementation(() => {});
     try {
       const real = await makeUser();
@@ -123,9 +123,9 @@ describe("forgot password", () => {
       const mine = (await resetTokens()).filter((t) => t.userId === real.id);
       for (const t of mine) expect(logged).not.toContain(t.token);
     } finally {
-      fail.mockRestore();
       err.mockRestore();
-      delete workersEnv.RESEND_API_KEY;
+      delete workersEnv.PURELYMAIL_SMTP_PASSWORD;
+      delete workersEnv.SMTP_TRANSPORT;
       workersEnv.NODE_ENV = "test";
     }
   });
@@ -205,7 +205,6 @@ describe("forgot password", () => {
       BETTER_AUTH_SECRET: "request-environment-test-secret-0123456789",
       COOKIE_DOMAIN: "",
       ORRN_MASTER_KEY: "",
-      RESEND_API_KEY: "",
       WEBHOOK_BASE_URL: "",
       CF_API_TOKEN: "",
       CF_ACCOUNT_ID: "",
