@@ -116,11 +116,17 @@ async function readReply(transport: SmtpTransport): Promise<{ code: number; text
   return { code, text: lines.join("\n") };
 }
 
-async function expect(transport: SmtpTransport, command: string | null, codes: number[]): Promise<{ code: number; text: string }> {
+/** `name` is what an error may show; credential lines pass "AUTH" so their base64 never leaves this module. */
+async function expect(
+  transport: SmtpTransport,
+  command: string | null,
+  codes: number[],
+  name = command ? command.split(" ")[0] : "greeting",
+): Promise<{ code: number; text: string }> {
   if (command !== null) await transport.write(`${command}\r\n`);
   const reply = await readReply(transport);
   if (!codes.includes(reply.code)) {
-    throw new SmtpError(`SMTP ${command ? command.split(" ")[0] : "greeting"} refused (${reply.code})`, reply.code);
+    throw new SmtpError(`SMTP ${name} refused (${reply.code})`, reply.code);
   }
   return reply;
 }
@@ -138,8 +144,8 @@ export async function sendSmtpMail(
     await transport.startTls();
     await expect(transport, "EHLO orrn.in", [250]);
     await expect(transport, "AUTH LOGIN", [334]);
-    await expect(transport, base64Utf8(credentials.user), [334]);
-    await expect(transport, base64Utf8(credentials.password), [235]);
+    await expect(transport, base64Utf8(credentials.user), [334], "AUTH");
+    await expect(transport, base64Utf8(credentials.password), [235], "AUTH");
     await expect(transport, `MAIL FROM:<${mail.from}>`, [250]);
     await expect(transport, `RCPT TO:<${mail.to}>`, [250, 251]);
     await expect(transport, "DATA", [354]);

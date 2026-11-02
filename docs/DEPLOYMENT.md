@@ -50,7 +50,7 @@ Triggered on push to `main` via `.github/workflows/deploy-dev.yml`.
 | `ALCHEMY_STATE_TOKEN`  | Alchemy remote state token       |
 | `BETTER_AUTH_SECRET`   | Auth signing secret (dev)        |
 | `ORRN_MASTER_KEY`      | Base64 32-byte tenant crypto key |
-| `RESEND_API_KEY`       | Optional email                   |
+| `PURELYMAIL_SMTP_PASSWORD` | Purelymail SMTP password for `system@orrn.in` (the only email sender; required in production) |
 | `WEBHOOK_BASE_URL`     | Optional var                     |
 
 

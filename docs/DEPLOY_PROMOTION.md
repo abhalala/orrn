@@ -101,11 +101,11 @@ lists every column). The same PRAGMA pattern is in `0028_fp_wave2` and applied c
 1. The infra items in "Bindings that must exist" below are understood. Most are config in `alchemy.run.ts` that the deploy
    itself creates (the R2 buckets adopt-or-create, the cron). Secrets and variables already exist in the `dev` and
    `production` GitHub environments (`ALCHEMY_PASSWORD`, `ALCHEMY_STATE_TOKEN`, `BETTER_AUTH_SECRET`, `CLOUDFLARE_*`,
-   `ORRN_MASTER_KEY`, `RESEND_API_KEY`, `WEBHOOK_BASE_URL`). `ORRN_MASTER_KEY` is also what signs die-file URLs and spectro
+   `ORRN_MASTER_KEY`, `PURELYMAIL_SMTP_PASSWORD`, `WEBHOOK_BASE_URL`). `ORRN_MASTER_KEY` is also what signs die-file URLs and spectro
    upload tickets: a stage without it refuses those uploads (503), it never uses an empty secret.
-2. Verify real email delivery before **production** promotion. Resend remains the deployed provider; its October 2026 failure is not
-   repaired merely by adding the optional Cloudflare code path. Invite/reset/sign-in links depend on delivery; tenant
-   invitations and Godseye retain copyable links when delivery fails. Dev may be evaluated with this limitation explicitly recorded.
+2. Verify real email delivery before **production** promotion. Purelymail SMTP (`system@orrn.in`) is the only outward
+   sender (`orrn.in` SPF authorizes Purelymail only, DMARC `p=reject`); `PURELYMAIL_SMTP_PASSWORD` is required in production.
+   Invite/reset/sign-in links depend on delivery; tenant invitations and Godseye retain copyable links when delivery fails.
 3. Take a D1 backup of production before the first FP deploy (Cloudflare dashboard, D1, the production database, Time Travel
    shows the restore point; or `bunx wrangler d1 export <production database name> --remote --output prod-before-fp.sql`
    from `apps/server`; find the physical name in the dashboard). The FP migrations are additive apart from the two data steps
@@ -259,8 +259,8 @@ may have added newer work. GitHub removes temporary plaintext files even when a 
 | Cron `30 21 * * *` UTC (03:00 IST) | `crons` on the `server` Worker | One backup per active plant per IST day, removal of drill scratch plants older than 7 days, the orphan die-file purge, collector frame retention (simulated 24 h, real 90 days). |
 | Optional R2 lifecycle rule | Cloudflare dashboard | "Abort incomplete multipart uploads" after 1 day on `die-files` only; no "delete objects" rule on that bucket (`docs/R2_BUCKETS.md`, from the masters follow-ups). |
 | `ORRN_MASTER_KEY` | GitHub environment secret | Signs die-file URLs, spectro upload tickets and wraps spool secrets. |
-| `RESEND_API_KEY`, `WEBHOOK_BASE_URL` | GitHub environment | Invite, reset and sign-in emails; spool webhooks. |
-| Optional `EMAIL` Email Sending binding | Not enabled by current Alchemy configuration | Runtime prefers it when present, otherwise uses `RESEND_API_KEY`. Missing providers fail explicitly; they never report a mock delivery. See prerequisites below. |
+| `PURELYMAIL_SMTP_PASSWORD`, `WEBHOOK_BASE_URL` | GitHub environment | Invite, reset and sign-in emails (required in production); spool webhooks. |
+| Optional `EMAIL` Email Sending binding | Not enabled by current Alchemy configuration | Runtime prefers it when present, otherwise uses Purelymail SMTP. Missing providers fail explicitly; they never report a mock delivery. See prerequisites below. |
 | `SCALE_SIMULATOR` | local `.dev.vars` only | Never set on dev or production; the simulator refuses `NODE_ENV=production`. |
 | `OVEN_SIMULATOR`, `OVEN_SIMULATOR_PROFILE` | `wrangler.local.jsonc` / local `.dev.vars` only | Ageing oven curve (W3-AG-C). Never set on dev or production; refused when `NODE_ENV=production`. |
 | `FOUNDRY_SIMULATOR` | local `.dev.vars` only | Furnace curve for `foundry.readings.simulate`. Never set on dev or production. |
@@ -292,11 +292,12 @@ Nothing else in the FP build needs a new Cloudflare resource: no queue, no extra
 
 Auth reset/magic-link mail and tenant, Godseye and party-portal invitations share the sender in
 `packages/auth/src/email-delivery.ts`. It calls the real structured Workers API:
-`EMAIL.send({ from: { email: "no-reply@orrn.in", name: "ORRN" }, to, subject, html, text })`,
+`EMAIL.send({ from: { email: "system@orrn.in", name: "ORRN" }, to, subject, html, text })`,
 and uses its returned `messageId`. Installed `@cloudflare/workers-types` 4.20260518.1 supports this overload.
-Without `EMAIL`, it uses the existing Resend endpoint and configured `RESEND_API_KEY`. A failed Cloudflare send is **not**
-retried through Resend (delivery may already have been accepted); binding/network exceptions propagate, and Resend HTTP
-failures retain their status without logging provider response bodies.
+Without `EMAIL`, it sends through Purelymail SMTP (`packages/auth/src/smtp.ts`) as `system@orrn.in` with
+`PURELYMAIL_SMTP_PASSWORD`; that is the only other sender. A failed send is **not** retried through another provider
+(delivery may already have been accepted); binding/network exceptions propagate, and SMTP refusals retain their reply code
+(provider `purelymail`) without logging server replies or credentials.
 
 No provider is enabled or provisioned by this change. In particular, installed Alchemy 0.91.2 has neither a `send_email`
 binding type nor a serializer branch in `src/cloudflare/{bindings,worker-metadata}.ts`. Adding an object cast or an
@@ -322,8 +323,8 @@ Before a separately authorized Cloudflare cutover, the owner must:
    owner-controlled mailbox before enabling the binding for tenant invitations or resets. Local simulated message IDs do
    not prove delivery. No external email was sent during this recovery.
 
-Until then keep `EMAIL` absent and configure a valid Resend key whose verified sending domain authorizes
-`ORRN <no-reply@orrn.in>`. Configured providers are used even on development stages; leave both providers absent for
+Until then keep `EMAIL` absent and set `PURELYMAIL_SMTP_PASSWORD` (required in production). Configured providers are used
+even on development stages; leave both providers absent for
 local tests that must not send email. A missing provider throws on every stack. Development may preview an unsent body
 for local sign-in; production/test logs contain only domain/subject, never link bodies, addresses, API keys or provider
 response bodies. Password-reset responses still remain neutral to avoid revealing account existence. Invitations remain
