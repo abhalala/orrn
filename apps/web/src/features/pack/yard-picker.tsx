@@ -58,6 +58,7 @@ export function YardPicker({
     <fieldset
       data-slot="yard-picker"
       aria-describedby={describedBy}
+      aria-invalid={error ? true : undefined}
       className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
     >
       <legend className="mb-1.5 p-0 text-[14px] leading-5 font-semibold">{t("pack.new.yard")}</legend>
@@ -103,6 +104,7 @@ export function YardPicker({
                   onChange={() => onChange(y.id)}
                   onKeyDown={(e) => onKeyDown(e, y.id)}
                   aria-describedby={describedBy}
+                  aria-invalid={error ? true : undefined}
                   className="sr-only"
                 />
                 {checked ? (
@@ -128,7 +130,7 @@ export function YardPicker({
         {t("pack.new.yardHint")}
       </p>
       {error ? (
-        <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+        <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
           {error}
         </p>

@@ -38,7 +38,7 @@ export function ChoiceRadios({
   const errorId = `${id}-error`;
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
   return (
-    <fieldset data-slot={slot} aria-describedby={describedBy} className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+    <fieldset data-slot={slot} aria-describedby={describedBy} aria-invalid={error ? true : undefined} className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
       <legend className="mb-1.5 p-0 text-[14px] leading-5 font-semibold">{legend}</legend>
       <div className="flex flex-col gap-2">
         {choices.map((c) => {
@@ -62,6 +62,7 @@ export function ChoiceRadios({
                 checked={checked}
                 disabled={c.disabled}
                 aria-label={c.ariaLabel}
+                aria-invalid={error ? true : undefined}
                 onChange={() => onChange(c.value)}
                 className="sr-only"
               />
@@ -88,7 +89,7 @@ export function ChoiceRadios({
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+        <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
           {error}
         </p>
