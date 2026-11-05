@@ -4,6 +4,6 @@ import { cn } from "@orrn/ui/lib/utils";
 
 /** TextArea wired to its surrounding Field (label, hint, error), like TextInput. */
 export function FieldTextArea(props: TextAreaProps) {
-  const a11y = useFieldControl({ id: props.id, "aria-describedby": props["aria-describedby"] });
+  const a11y = useFieldControl({ id: props.id, "aria-describedby": props["aria-describedby"], "aria-invalid": props["aria-invalid"] });
   return <TextArea {...props} {...a11y} className={cn("min-h-[88px] text-[15px] pointer-coarse:text-base", props.className)} />;
 }
