@@ -346,6 +346,7 @@ function PressLines({
                     suffix={t("units.pcs")}
                     aria-label={t("ageing.load.piecesOf", { name })}
                     aria-invalid={pick.error ? true : undefined}
+                    aria-describedby={pick.error ? `line-pcs-error-${line.pressRunLineId}` : undefined}
                     className="h-12"
                     data-testid="line-pcs"
                   />
@@ -353,7 +354,7 @@ function PressLines({
               ) : null}
             </div>
             {pick.error ? (
-              <p role="alert" className="mt-2 mb-0 text-[13px] font-medium text-destructive">
+              <p id={`line-pcs-error-${line.pressRunLineId}`} role="alert" className="mt-2 mb-0 text-[13px] font-medium text-destructive">
                 {pick.error === "over" ? t("ageing.refusal.overLine", { n: line.pcsLeft }) : t("ageing.load.piecesInvalid")}
               </p>
             ) : null}

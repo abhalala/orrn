@@ -638,7 +638,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
           {t("ageing.split.addCut")}
         </Button>
       </div>
-      <p className={sumOk || !valid ? "m-0 text-[13px] text-muted-foreground" : "m-0 text-[13px] font-medium text-destructive"} data-testid="split-sum">
+      <p role={tried && valid && !sumOk ? "alert" : undefined} className={sumOk || !valid ? "m-0 text-[13px] text-muted-foreground" : "m-0 text-[13px] font-medium text-destructive"} data-testid="split-sum">
         {t("ageing.split.sum", { total, want })}
       </p>
       {tried && !valid ? <p role="alert" className="m-0 text-[13px] font-medium text-destructive">{t("ageing.split.invalid")}</p> : null}
