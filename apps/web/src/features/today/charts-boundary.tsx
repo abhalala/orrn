@@ -9,6 +9,7 @@ function ChartsFailed() {
   return (
     <section
       data-testid="today-charts-failed"
+      role="alert"
       aria-label={t("today.trendsHeading")}
       className="min-w-0 rounded-card border border-border bg-card"
     >
