@@ -208,7 +208,7 @@ export function SpectroPanel({
           <input ref={fileRef} type="file" accept={FILE_TYPES.join(",")} hidden aria-hidden="true" tabIndex={-1} data-testid="spectro-file-input" onChange={(e) => { void pick(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }} />
         </div>
       </Can>
-      {fileError ? <Note tone="red">{t(fileError === "size" ? "foundry.spectro.fileTooBig" : "foundry.spectro.fileType")}</Note> : null}
+      {fileError ? <Note tone="red" role="alert">{t(fileError === "size" ? "foundry.spectro.fileTooBig" : "foundry.spectro.fileType")}</Note> : null}
       <ErrorLine error={attachFile.error} />
       {results.length === 0 ? (
         <p className="m-0 text-[15px] font-medium" data-testid="spectro-none">{t("foundry.spectro.noneYet")}</p>
@@ -346,8 +346,8 @@ function TypeSheet({ meltId, limits, open, onClose, onAdded }: { meltId: string;
             </Field>
           ))}
         </div>
-        {tried && !parsed.ok && parsed.reason === "none" ? <Note tone="red">{t("foundry.spectro.enterOne")}</Note> : null}
-        {tried && !parsed.ok && parsed.reason === "over" ? <Note tone="red">{t("foundry.spectro.overMillion")}</Note> : null}
+        {tried && !parsed.ok && parsed.reason === "none" ? <Note tone="red" role="alert">{t("foundry.spectro.enterOne")}</Note> : null}
+        {tried && !parsed.ok && parsed.reason === "over" ? <Note tone="red" role="alert">{t("foundry.spectro.overMillion")}</Note> : null}
         {preview ? (
           <p className="m-0 flex items-center gap-2 text-[14px]" data-testid="spectro-preview">
             {t("foundry.spectro.previewIs")} <Chip tone={verdictTone(preview)}>{t(`foundry.spectro.verdict.${preview}`)}</Chip>
