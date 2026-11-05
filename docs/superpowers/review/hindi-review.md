@@ -3312,8 +3312,8 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `chain.dispatch.alt` | A road lane leading trucks onto a weighbridge, with a barrier and signs | धर्मकांटे पर ट्रक ले जाने वाली सड़क लेन, बैरियर और साइन बोर्ड के साथ |
 | `audit.title` | How many bundles are on your list? | आपकी लिस्ट में कितने bundle हैं? |
 | `audit.control` | Bundles on your stock list | स्टॉक लिस्ट के bundle |
-| `audit.unit` | may already be gone | शायद जा चुके हैं |
-| `audit.working` | When we counted the first plant's yard against its stock list, 62% of the bundles on the list were not there. Your yard will differ. In orrn a bundle leaves stock when it is scanned onto the truck, so the list and the yard stay the same thing. | पहले प्लांट का यार्ड जब स्टॉक लिस्ट से मिलाया, तो लिस्ट के 62% bundle यार्ड में थे ही नहीं। आपका यार्ड अलग होगा। orrn में bundle गाड़ी पर स्कैन होते ही स्टॉक से निकलता है, इसलिए लिस्ट और यार्ड एक ही चीज़ रहते हैं। |
+| `audit.unit` | may not be in the yard | शायद यार्ड में नहीं हैं |
+| `audit.working` | When we counted the first plant's yard against its stock list, 62% of the bundles on the list were not there. Your yard will differ. In orrn a bundle leaves stock when it is scanned onto the truck, so the list and the yard match. | पहले प्लांट का यार्ड जब स्टॉक लिस्ट से मिलाया, तो लिस्ट के 62% bundle यार्ड में थे ही नहीं। आपका यार्ड अलग होगा। orrn में bundle गाड़ी पर स्कैन होते ही स्टॉक से निकलता है, इसलिए लिस्ट और यार्ड मेल खाते हैं। |
 | `record.title` | Seven registers. One record. | सात रजिस्टर। एक रिकॉर्ड। |
 | `record.body` | The office thinks in orders and baki. The floor thinks in heats, dies, trolleys and bundles. In orrn they are one record, so the baki the office sees is the pieces the floor actually packed. | ऑफ़िस ऑर्डर और baki में सोचता है। फ़्लोर heat, die, ट्रॉली और bundle में। orrn में दोनों एक ही रिकॉर्ड हैं, इसलिए ऑफ़िस को जो baki दिखती है वही पीस फ़्लोर ने सच में पैक किए हैं। |
 | `record.inName` | Today | आज |

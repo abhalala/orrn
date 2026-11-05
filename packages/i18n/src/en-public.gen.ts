@@ -103,8 +103,8 @@ export const enPublic = {
     "audit": {
       "title": "How many bundles are on your list?",
       "control": "Bundles on your stock list",
-      "unit": "may already be gone",
-      "working": "When we counted the first plant's yard against its stock list, 62% of the bundles on the list were not there. Your yard will differ. In orrn a bundle leaves stock when it is scanned onto the truck, so the list and the yard stay the same thing."
+      "unit": "may not be in the yard",
+      "working": "When we counted the first plant's yard against its stock list, 62% of the bundles on the list were not there. Your yard will differ. In orrn a bundle leaves stock when it is scanned onto the truck, so the list and the yard match."
     },
     "record": {
       "title": "Seven registers. One record.",
