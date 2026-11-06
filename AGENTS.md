@@ -1196,6 +1196,13 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   owner links straight into `verification`. A link never signs in an account that has a password
   or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
   never configure a custom token hasher.
+- **No public sign-up (security review 2026-11-04, HIGH 3).** Over HTTP, `/sign-up/email` needs `inviteToken`, the token
+  of a live invite (not accepted, revoked or expired) for exactly that email (`packages/auth/src/sign-up-guard.ts`); the
+  web and native invite pages send it, and e2e makes accounts from `/dev/invite` tokens. In-process
+  `auth.api.signUpEmail` (Godseye staff, the dev seed) carries no request and passes. An invite sign-up is
+  `emailVerified: false`. Waitlist approval gives `owner` only to a proven mailbox: an existing account with
+  `emailVerified: false` is refused with CONFLICT and nothing is written. A finished password reset (`onPasswordReset`)
+  or Godseye's own sign-in link proves the mailbox (`packages/server/test/auth-signup-invite.test.ts`).
 - **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
   `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
   new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or

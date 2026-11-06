@@ -7,7 +7,7 @@ import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { inviteAcceptOutcome, isExistingAccount, signInErrorKey } from "@/features/auth/auth-errors";
+import { inviteAcceptOutcome, inviteSignUpRefusal, isExistingAccount, signInErrorKey } from "@/features/auth/auth-errors";
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
 import { PasswordField } from "@/features/auth/password-field";
@@ -231,7 +231,9 @@ function InvitePage() {
           </div>
         ) : (
           <CreateAccountForm
+            inviteToken={token}
             acceptError={acceptError}
+            onExpired={() => setView("expired")}
             onExisting={(email) => {
               setSignInEmail(email);
               setView("signIn");
@@ -247,11 +249,17 @@ function InvitePage() {
 type CreateErrors = Partial<Record<"name" | "email" | "password", MessageKey>>;
 
 function CreateAccountForm({
+  inviteToken,
   acceptError,
+  onExpired,
   onExisting,
   onCreated,
 }: {
+  /** The server makes an account only for the invited email, from a live invite (sign-up-guard.ts). */
+  inviteToken: string;
   acceptError: MessageKey | null;
+  /** The invite died while the form was open (expired, used or revoked). */
+  onExpired(): void;
   onExisting(email: string): void;
   onCreated(name: string): Promise<void>;
 }) {
@@ -283,9 +291,18 @@ function CreateAccountForm({
 
     setPending(true);
     try {
-      const { error } = await authClient.signUp.email({ name: trimmedName, email: trimmedEmail, password });
+      // `inviteToken` is read by the server's invite check (packages/auth/src/sign-up-guard.ts); Better
+      // Auth's client types list only its own fields, so the body is a named object, not a literal.
+      const body = { name: trimmedName, email: trimmedEmail, password, inviteToken };
+      const { error } = await authClient.signUp.email(body);
       if (error) {
         if (isExistingAccount(error)) return onExisting(trimmedEmail);
+        const refused = inviteSignUpRefusal(error);
+        if (refused === "expired") return onExpired();
+        if (refused === "wrongEmail") {
+          setErrors({ email: "auth.invite.wrongEmailTitle" });
+          return emailRef.current?.focus();
+        }
         if (error.code === "PASSWORD_TOO_SHORT") {
           setErrors({ password: "auth.validation.passwordShort" });
           return passwordRef.current?.focus();

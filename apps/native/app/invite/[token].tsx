@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { ScreenTitle } from "@/components/ui/screen-title";
 import { LoadingBlock } from "@/components/ui/state";
-import { inviteAcceptOutcome, inviteProbeResult, isExistingAccount, type InviteOutcome } from "@/features/invite/invite-flow";
+import { inviteAcceptOutcome, inviteProbeResult, inviteSignUpRefusal, isExistingAccount, type InviteOutcome } from "@/features/invite/invite-flow";
 import { announce } from "@/lib/a11y";
 import { authClient } from "@/lib/auth-client";
 import { feedback } from "@/lib/feedback";
@@ -207,8 +207,17 @@ function SignedOutInvite({ token }: { token: string }) {
     setBusy(true);
     try {
       const cleanEmail = email.trim();
-      const created = await authClient.signUp.email({ email: cleanEmail, password, name: name.trim() });
+      // The server makes an account only for the invited email, from a live invite (sign-up-guard.ts).
+      // Better Auth's client types list only its own fields, so the body is a named object.
+      const body = { email: cleanEmail, password, name: name.trim(), inviteToken: token };
+      const created = await authClient.signUp.email(body);
       if (created.error) {
+        const refused = inviteSignUpRefusal(created.error);
+        if (refused === "expired") {
+          setCheck("expired");
+          return;
+        }
+        if (refused === "wrongEmail") return fail(t("native.invite.wrongEmail"));
         if (!isExistingAccount(created.error)) {
           const status = created.error.status;
           return fail(t(status === 429 ? "native.tooManyTries" : !status ? "errors.network" : "errors.generic"));

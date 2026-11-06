@@ -1,10 +1,12 @@
 import { expo } from "@better-auth/expo";
 import { createDb } from "@orrn/db";
 import * as schema from "@orrn/db/schema/auth";
+import { eq } from "drizzle-orm";
 import { env } from "@orrn/env/server";
 import { trustedOriginsFor } from "./origins";
 import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
+import { signUpGuardBody } from "./sign-up-guard";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -113,8 +115,12 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // link, Godseye issues owner links server-side). Tested in
     // packages/server/test/platform-w1-auth.test.ts.
     // BACKLOG 23: `/request-password-reset` is limited per address and per IP (reset-throttle.ts).
+    // Security review 2026-11-04 (HIGH 3): no public sign-up. An HTTP `/sign-up/email` needs a live
+    // invite for that email (sign-up-guard.ts); server code still creates accounts in-process.
+    // Tested in packages/server/test/auth-signup-invite.test.ts.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        await signUpGuardBody(db, ctx);
         if (ctx.path === RESET_REQUEST_PATH) {
           await limitPasswordReset(db, { email: (ctx.body as { email?: unknown } | undefined)?.email, headers: ctx.request?.headers ?? ctx.headers });
         }
@@ -134,6 +140,12 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
       // sets the password, the next sign-in still asks for the code.
       resetPasswordTokenExpiresIn: 60 * 60,
       revokeSessionsOnPasswordReset: true,
+      // The reset link went only to the account's address, so finishing it proves the mailbox
+      // (security review 2026-11-04, HIGH 3). Waitlist approval gives the owner role only to an
+      // address proved this way or by Godseye's own sign-in link (routers/platform/waitlist.ts).
+      onPasswordReset: async ({ user }) => {
+        await db.update(schema.user).set({ emailVerified: true }).where(eq(schema.user.id, user.id));
+      },
       sendResetPassword: async ({ user, url }) => {
         // The answer must be the same whether or not the address has an account, so a failed send
         // (Purelymail refused or unreachable, password unset) is swallowed here: it must never turn into a 500 that only a real

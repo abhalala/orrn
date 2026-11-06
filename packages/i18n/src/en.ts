@@ -3593,6 +3593,7 @@ export const en = {
       hasPassword: "This owner already signs in with a password; ask them to use Forgot password.",
       approvedHasPassword: "Approved. This owner already signs in with a password; ask them to use Forgot password.",
       approvedAskAdmin: "Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below.",
+      unverifiedAccount: "Not approved. An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again.",
       details: {
         sentTitle: "Sign-in email sent",
         notSentTitle: "Email could not be sent",
