@@ -130,6 +130,13 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
             <Skeleton className="h-14 w-full rounded-card" />
             <Skeleton className="h-14 w-full rounded-card" />
           </div>
+        ) : results.isError ? (
+          <div role="status" className="flex flex-col items-start gap-2">
+            <p className="m-0 text-[14px] text-destructive">{t("errors.generic")}</p>
+            <Button variant="secondary" onClick={() => void results.refetch()}>
+              {t("common.retry")}
+            </Button>
+          </div>
         ) : items.length === 0 ? (
           <p className="m-0 text-[14px] text-muted-foreground">{t("dispatch.build.searchEmpty", { query })}</p>
         ) : (

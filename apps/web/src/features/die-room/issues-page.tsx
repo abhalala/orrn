@@ -95,6 +95,9 @@ function IssueForm() {
   // The run knows its line: the person cannot pick another one (the server would refuse it).
   const lockedLine = chosenRun?.pressLineId ?? null;
   const chosenLine = lockedLine ?? (lineId || lineOptions[0]?.value || "");
+  const copyError = !copyId && error === t("dieRoom.issues.pickCopy") ? error : undefined;
+  const runError = copyId && !chosenRun && error === t("dieRoom.issues.pickRun") ? error : undefined;
+  const lineError = !chosenLine && error === t("dieRoom.issues.pickLine") ? error : undefined;
 
   return (
     <Card data-testid="issue-form">
@@ -112,6 +115,7 @@ function IssueForm() {
             valueLabel={copy?.code}
             statuses={["available", "on_trial"]}
             placeholder={t("dieRoom.issues.pickCopy")}
+            error={copyError}
             onChange={(c) => {
               setCopy(c);
               setRunId("");
@@ -130,7 +134,7 @@ function IssueForm() {
                 {onTrial ? t("dieRoom.issues.noTrialRun") : t("dieRoom.issues.noRun")}
               </p>
             ) : (
-              <Field label={t("dieRoom.issues.run")}>
+              <Field label={t("dieRoom.issues.run")} error={runError}>
                 <Select
                   value={chosenRun?.id ?? ""}
                   onValueChange={(v) => {
@@ -143,7 +147,7 @@ function IssueForm() {
               </Field>
             )
           ) : null}
-          <Field label={t("dieRoom.issue.line")} hint={lockedLine ? t("dieRoom.issues.lineFromRun") : undefined}>
+          <Field label={t("dieRoom.issue.line")} hint={lockedLine ? t("dieRoom.issues.lineFromRun") : undefined} error={lineError}>
             <Select
               value={chosenLine}
               onValueChange={setLineId}
@@ -156,7 +160,7 @@ function IssueForm() {
             <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
           </Field>
           {error ? (
-            <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+            <p role="alert" className={copyError || runError || lineError ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
               {error}
             </p>
           ) : null}
@@ -221,14 +225,16 @@ function OpenIssues() {
         {t("dieRoom.issues.open")}
       </h2>
       {open.isError ? (
-        <EmptyState
-          title={t("dieRoom.issues.loadFailed")}
-          action={
-            <Button variant="secondary" onClick={() => open.refetch()}>
-              {t("common.retry")}
-            </Button>
-          }
-        />
+        <div role="alert">
+          <EmptyState
+            title={t("dieRoom.issues.loadFailed")}
+            action={
+              <Button variant="secondary" onClick={() => open.refetch()}>
+                {t("common.retry")}
+              </Button>
+            }
+          />
+        </div>
       ) : open.isSuccess && open.data.items.length === 0 ? (
         <EmptyState title={t("dieRoom.issues.noneOpen")} body={t("dieRoom.issues.noneOpenBody")} />
       ) : (
@@ -425,11 +431,11 @@ function OwnerCheck() {
                   </p>
                 ) : (
                   <Can do={["order.manage", "order.plan", "press.run", "bundle.pack", "dispatch.create"]}>
-                    <Field label={t("dieRoom.owner.whyLabel")}>
+                    <Field label={t("dieRoom.owner.whyLabel")} error={error === t("dieRoom.owner.whyRequired") ? error : undefined}>
                       <FieldTextArea value={note} onChangeText={setNote} rows={2} maxLength={500} />
                     </Field>
                     {error ? (
-                      <p role="alert" className="m-0 text-[14px] font-medium">
+                      <p role="alert" className={error === t("dieRoom.owner.whyRequired") ? "sr-only" : "m-0 text-[14px] font-medium"}>
                         {error}
                       </p>
                     ) : null}

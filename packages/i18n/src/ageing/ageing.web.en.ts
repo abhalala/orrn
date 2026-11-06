@@ -271,7 +271,7 @@ export const ageingWebEn = {
         oven: "Oven",
       },
       anyShift: "Any shift",
-      badRange: "From must be on or before to.",
+      badRange: "The From date must be on or before the To date.",
       shown: "{from} to {to} of {total}",
       prev: "Previous",
       next: "Next",

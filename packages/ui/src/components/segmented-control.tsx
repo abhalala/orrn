@@ -5,7 +5,8 @@ import { cn } from "@orrn/ui/lib/utils";
 export type SegmentedControlProps<T extends string> = {
   value: T;
   // NoInfer: `T` comes from `value`, so string-literal state types survive.
-  options: { value: NoInfer<T>; label: string }[];
+  /** `lang` marks an option written in another language than the page (WCAG 3.1.2), e.g. the language names. */
+  options: { value: NoInfer<T>; label: string; lang?: string }[];
   onChange(v: NoInfer<T>): void;
   /** Accessible name for the group, e.g. "Show". Recommended. */
   label?: string;
@@ -122,6 +123,7 @@ export function SegmentedControl<T extends string>({
             }}
             type="button"
             role="radio"
+            lang={opt.lang}
             aria-checked={active}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(opt.value)}

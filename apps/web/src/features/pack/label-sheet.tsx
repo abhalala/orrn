@@ -170,7 +170,7 @@ export function LabelSheet({ groupId, only }: { groupId: string; only?: string }
       {sheet.isPending ? (
         <Skeleton className="h-[480px] w-full rounded-card" />
       ) : missing ? (
-        <div className="label-no-print rounded-card border border-border bg-card">
+        <div role="alert" className="label-no-print rounded-card border border-border bg-card">
           <EmptyState title={isNotFound(sheet.error) ? t("pack.detail.notFound") : t("pack.detail.loadFailed")} />
         </div>
       ) : labels.length === 0 ? (

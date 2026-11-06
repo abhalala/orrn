@@ -217,19 +217,21 @@ export function PlanDetailPage({ id }: { id: string }) {
         ) : null}
 
         {warnings.length > 0 ? (
-          <section data-plan-warnings="" className="flex flex-col gap-1 rounded-card border border-border bg-surface-sunken px-4 py-3">
+          <section role="status" data-plan-warnings="" className="flex flex-col gap-1 rounded-card border border-border bg-surface-sunken px-4 py-3">
             <h2 className="m-0 text-[14px] font-semibold">{t("orders.plan.warningsTitle")}</h2>
-            {warnings.map((w) => (
-              <p key={w.lineId} data-plan-warning={w.orderNumber} className="m-0 text-[14px] leading-5">
-                {t("orders.plan.otherParty", {
-                  die: w.sectionCode,
-                  customer: w.customerName,
-                  order: w.orderNumber,
-                  length: label(w.cutLengthMm),
-                  kg: orderKgText(w.planableG),
-                })}
-              </p>
-            ))}
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
+              {warnings.map((w) => (
+                <li key={w.lineId} data-plan-warning={w.orderNumber} className="text-[14px] leading-5">
+                  {t("orders.plan.otherParty", {
+                    die: w.sectionCode,
+                    customer: w.customerName,
+                    order: w.orderNumber,
+                    length: label(w.cutLengthMm),
+                    kg: orderKgText(w.planableG),
+                  })}
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
 

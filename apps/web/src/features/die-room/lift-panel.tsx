@@ -77,14 +77,16 @@ export function LiftPage({ copyId }: { copyId: string }) {
     return (
       <>
         <PageHeader back={{ to: "/dies", label: t("nav.dies") }} title={t("dieRoom.lift.title")} />
-        <EmptyState
-          title={t("dieRoom.card.notFound")}
-          action={
-            <Button asChild variant="secondary">
-              <Link to="/dies">{t("dies.detail.backToList")}</Link>
-            </Button>
-          }
-        />
+        <div role="alert">
+          <EmptyState
+            title={t("dieRoom.card.notFound")}
+            action={
+              <Button asChild variant="secondary">
+                <Link to="/dies">{t("dies.detail.backToList")}</Link>
+              </Button>
+            }
+          />
+        </div>
       </>
     );
   }
@@ -192,14 +194,17 @@ export function LiftPage({ copyId }: { copyId: string }) {
               <Field label={t("dieRoom.lift.targetBand")}>
                 <Select value={chosen} onValueChange={setTarget} options={targets} />
               </Field>
-              <Field label={t("dieRoom.lift.rankAfter")} hint={t("common.optional")}>
+              <Field label={t("dieRoom.lift.rankAfter")} hint={t("common.optional")} error={error === t("dieRoom.tier.rankInvalid") ? error : undefined}>
                 <NumberInput value={rankText} onValueChange={setRank} decimal={false} />
               </Field>
-              <Field label={t("common.reason")}>
+              <Field label={t("common.reason")} error={error === t("dieRoom.tier.reasonRequired") ? error : undefined}>
                 <FieldTextArea value={reason} onChangeText={setReason} rows={3} maxLength={500} />
               </Field>
               {error ? (
-                <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+                <p
+                  role="alert"
+                  className={error === t("dieRoom.tier.rankInvalid") || error === t("dieRoom.tier.reasonRequired") ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}
+                >
                   {error}
                 </p>
               ) : null}

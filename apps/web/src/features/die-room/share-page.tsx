@@ -46,7 +46,7 @@ export function DieSharePage({ token }: { token: string }) {
     const failure = shareFailure(view.error);
     return (
       <Frame>
-        <div role="status" className="flex flex-col gap-3" data-testid={`share-${failure}`}>
+        <div role={failure === "gone" ? "status" : "alert"} className="flex flex-col gap-3" data-testid={`share-${failure}`}>
           <h1 className="m-0 font-display text-[28px] leading-tight font-extrabold tracking-[-0.03em]">
             {t(failure === "gone" ? "dieRoom.share.page.goneTitle" : failure === "busy" ? "dieRoom.share.page.busyTitle" : "dieRoom.share.page.errorTitle")}
           </h1>

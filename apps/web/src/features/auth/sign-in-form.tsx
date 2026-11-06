@@ -11,6 +11,7 @@ import { CodeField } from "./code-field";
 import { FormAlert } from "./form-alert";
 import { PasswordField } from "./password-field";
 import { useFinishSignIn } from "./use-finish-sign-in";
+import { usePageTitle } from "./use-page-title";
 
 /** Loose shape check only; the server is the judge. */
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -154,6 +155,10 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
   };
 
   const credentialsWrong = formError === "auth.login.wrongCredentials";
+  // The alert names neither field, so both point at it (WCAG 3.3.1, 1.3.1).
+  const alertId = `${bodyId}-alert`;
+  const stepTitle = mode === "password" ? t("auth.login.title") : mode === "totp" ? t("auth.totp.title") : t("auth.totp.backupTitle");
+  usePageTitle(heading ? stepTitle : null);
 
   return (
     <div data-slot="sign-in-form" className="flex w-full min-w-0 flex-col gap-6">
@@ -187,6 +192,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
                 spellCheck={false}
                 value={email}
                 aria-invalid={credentialsWrong || undefined}
+                aria-describedby={credentialsWrong ? alertId : undefined}
                 onChange={(e) => setEmail(e.currentTarget.value)}
               />
             </Field>
@@ -199,6 +205,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
               onValueChange={setPassword}
               // The alert can't say which of the two is wrong, so both fields say so.
               invalid={credentialsWrong}
+              describedBy={credentialsWrong ? alertId : undefined}
               error={fieldErrors.password && t(fieldErrors.password)}
             />
             <Link
@@ -247,7 +254,7 @@ export function SignInForm({ next, defaultEmail = "", onSignedIn, heading = true
           </label>
         ) : null}
 
-        {formError ? <FormAlert>{t(formError)}</FormAlert> : null}
+        {formError ? <FormAlert id={alertId}>{t(formError)}</FormAlert> : null}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">
           {mode === "password"

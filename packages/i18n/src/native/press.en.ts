@@ -56,7 +56,7 @@ export const pressEn = {
       notMember: "That person is not on this plant's team.",
       operatorRole: "The operator must be someone who runs the press.",
       supervisorRole: "The supervisor must be someone who can log runs.",
-      changed: "This changed meanwhile and was not saved. Pull down to reload.",
+      changed: "This changed while you were working, so your change was not saved. Pull down to reload.",
       handoverClosed: "{number} is closed, so its people can't change.",
       notFound: "That press or run isn't in this company.",
     },

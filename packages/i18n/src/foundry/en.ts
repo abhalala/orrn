@@ -62,7 +62,7 @@ export const foundryEn = {
     loadFailed: "The alloys did not load. Check the connection and try again.",
     opened: "Cast {number} is open",
     legacy: "Legacy code",
-    legacyHint: "Optional. The code an old cast has in the paper book, so it can be found by it later. Each code is used once.",
+    legacyHint: "Optional. Enter the old cast's paper-book code so you can find it later. Each code can be used only once.",
     legacyPlaceholder: "for example old-17",
   },
   cast: {
@@ -342,7 +342,7 @@ export const foundryEn = {
     },
     correction: {
       title: "Correct this melt",
-      body: "A locked melt is not edited. Ask for a correction. When an approver agrees, the melt is reversed and opens again as a draft.",
+      body: "You cannot edit a locked melt. Ask for a correction. Approval reverses the melt and reopens it as a draft.",
       ask: "Ask for a correction",
       askTitle: "Ask to correct this melt",
       reason: "What is wrong",

@@ -24,9 +24,12 @@ export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElemen
   return <div data-slot="card-header" className={cn("flex flex-col gap-1", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
+/** A card's heading level. Default h2: a card sits under the page's h1, and h4 straight after h1 skips two levels. */
+type CardHeadingLevel = "h2" | "h3" | "h4";
+
+export function CardTitle({ className, as: Heading = "h2", ...props }: HTMLAttributes<HTMLHeadingElement> & { as?: CardHeadingLevel }) {
   return (
-    <h4
+    <Heading
       data-slot="card-title"
       className={cn("m-0 text-base font-semibold leading-snug tracking-[-0.01em]", className)}
       {...props}
@@ -69,19 +72,21 @@ export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElemen
 }
 
 export type CardSectionProps = HTMLAttributes<HTMLDivElement> & {
+  /** Heading level of the title; default h2 (see CardTitle). */
+  titleAs?: CardHeadingLevel;
   title?: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
 };
 
-export function CardSection({ title, description, actions, className, children, ...rest }: CardSectionProps) {
+export function CardSection({ title, titleAs: Heading = "h2", description, actions, className, children, ...rest }: CardSectionProps) {
   return (
     <div className={cn("flex flex-col gap-3", className)} {...rest}>
       {(title || actions) && (
         <div className="flex items-center gap-3">
           <div className="flex flex-1 flex-col gap-0.5">
-            {title ? <h4 className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{title}</h4> : null}
+            {title ? <Heading className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{title}</Heading> : null}
             {description ? <p className="m-0 text-[13px] text-muted-foreground">{description}</p> : null}
           </div>
           {actions}

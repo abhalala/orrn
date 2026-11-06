@@ -105,12 +105,13 @@ export function PrintCard({ card }: { card: CardData }) {
 
       <h2 className="m-0 mt-5 text-[14px] font-semibold">{t("dieRoom.print.readings")}</h2>
       <table className="mt-1 w-full border-collapse text-[12px]">
+        <caption className="sr-only">{t("dieRoom.print.readings")}</caption>
         <thead>
           <tr>
-            <th className={cell}>{t("dieRoom.print.date")}</th>
-            <th className={cell}>{t("units.kgPer12ft")}</th>
-            <th className={cell}>%</th>
-            <th className={cell}>{t("dieRoom.issues.run")}</th>
+            <th scope="col" className={cell}>{t("dieRoom.print.date")}</th>
+            <th scope="col" className={cell}>{t("units.kgPer12ft")}</th>
+            <th scope="col" className={cell}>%</th>
+            <th scope="col" className={cell}>{t("dieRoom.issues.run")}</th>
           </tr>
         </thead>
         <tbody>
@@ -127,10 +128,11 @@ export function PrintCard({ card }: { card: CardData }) {
 
       <h2 className="m-0 mt-5 text-[14px] font-semibold">{t("dieRoom.tabs.nitriding")}</h2>
       <table className="mt-1 w-full border-collapse text-[12px]">
+        <caption className="sr-only">{t("dieRoom.tabs.nitriding")}</caption>
         <thead>
           <tr>
-            <th className={cell}>{t("dieRoom.print.date")}</th>
-            <th className={cell}>{t("dieRoom.card.hardness")}</th>
+            <th scope="col" className={cell}>{t("dieRoom.print.date")}</th>
+            <th scope="col" className={cell}>{t("dieRoom.card.hardness")}</th>
           </tr>
         </thead>
         <tbody>

@@ -165,6 +165,7 @@ export function AgeingReport({ search, onSearch }: { search: AgeingReportSearch;
           {groups.length > 0 ? (
             <ReportTableFrame label={t("ageing.report.groupBy")}>
               <table className="report-table w-full border-collapse text-left text-[13px] leading-5" data-testid="ageing-groups">
+                <caption className="sr-only">{t("ageing.report.groupBy")}</caption>
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th scope="col" className={TH}>{t(`ageing.report.group.${group ?? "none"}`)}</th>
@@ -194,6 +195,7 @@ export function AgeingReport({ search, onSearch }: { search: AgeingReportSearch;
             // Wide report: a focusable, scrollable frame (the list kit's own scroller is not keyboard reachable).
             <ReportTableFrame label={t("ageing.report.title")}>
               <table className="report-table w-full border-collapse text-left text-[13px] leading-5" data-testid="ageing-report-table">
+                <caption className="sr-only">{t("ageing.report.title")}</caption>
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     {columns.map((c) => (

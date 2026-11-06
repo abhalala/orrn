@@ -2,11 +2,12 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
 import { resetRedirectUrl } from "@/features/auth/password-reset";
+import { usePageTitle } from "@/features/auth/use-page-title";
 import { authClient } from "@/shared/lib/auth-client";
 
 export const Route = createFileRoute("/_public/forgot-password")({
@@ -27,6 +28,13 @@ function ForgotPasswordPage() {
   const [error, setError] = useState<"invalid" | "failed" | null>(null);
   const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const sentHeading = useRef<HTMLHeadingElement>(null);
+  usePageTitle(sentTo ? t("auth.forgot.sentTitle") : t("auth.forgot.title"));
+
+  // The form is replaced by the answer: put focus on its heading so it is read out.
+  useEffect(() => {
+    if (sentTo) sentHeading.current?.focus();
+  }, [sentTo]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +68,9 @@ function ForgotPasswordPage() {
       {sentTo ? (
         <div className="flex flex-col gap-6" data-testid="forgot-sent">
           <div className="flex flex-col gap-2">
-            <h1 className="orrn-auth-title">{t("auth.forgot.sentTitle")}</h1>
+            <h1 ref={sentHeading} tabIndex={-1} className="orrn-auth-title">
+              {t("auth.forgot.sentTitle")}
+            </h1>
             <p className="m-0 text-[15px] leading-6 text-muted-foreground" role="status">
               {t("auth.forgot.sentBody", { email: sentTo })}
             </p>

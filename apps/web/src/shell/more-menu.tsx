@@ -15,7 +15,8 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronRight, Eye, LogOut } from "lucide-react";
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { forwardRef, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { useTheme } from "@/shared/components/theme-provider";
 import { useMe, type Me } from "@/shared/lib/me";
@@ -208,13 +209,29 @@ export function AccountMenu({ variant }: { variant: ShellVariant }) {
   const { theme, setTheme } = useTheme();
   const signOut = useSignOut();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
   return (
-    <DropdownMenu>
+    // Non-modal: a modal Radix menu marks the whole app frame aria-hidden while it still holds focusable controls
+    // (axe aria-hidden-focus). A non-modal menu would let the click that closes it reach the page underneath, so a
+    // transparent backdrop takes that click instead (the whole pointerdown, pointerup, click lands on it). Escape
+    // and Tab still close the menu.
+    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <AccountTrigger name={me?.user.name} place={place} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-60">
+      {open
+        ? createPortal(
+            <div aria-hidden="true" data-menu-backdrop="" className="fixed inset-0 z-40" onClick={() => setOpen(false)} />,
+            document.body,
+          )
+        : null}
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-60"
+        onPointerDownOutside={(event) => event.preventDefault()}
+      >
         <DropdownMenuLabel className="flex min-w-0 flex-col gap-0.5 py-2">
           <span className="truncate text-[13px] text-muted-foreground" title={me?.user.email}>
             {t("nav.signedInAs", { email: me?.user.email ?? "" })}

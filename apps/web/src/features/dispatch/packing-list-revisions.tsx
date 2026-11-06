@@ -45,7 +45,17 @@ export function RevisionsPanel({ listId, currentId }: { listId: string; currentI
   const when = useCompanyWhen();
   const rev = useQuery(trpc.packingList.revisions.queryOptions({ id: listId }));
   if (rev.isPending) return <Skeleton className="h-24 w-full rounded-card" />;
-  if (rev.isError || !rev.data) return null;
+  if (rev.isError) {
+    return (
+      <div role="alert" className="flex flex-col items-start gap-2">
+        <p className="m-0 text-[14px] text-destructive">{t("errors.generic")}</p>
+        <Button variant="secondary" onClick={() => void rev.refetch()}>
+          {t("common.retry")}
+        </Button>
+      </div>
+    );
+  }
+  if (!rev.data) return null;
   const revisions = [...rev.data.revisions].reverse();
   // A single revision with nothing to compare: nothing to list.
   if (revisions.length <= 1 && !revisions[0]?.combinedIntoId) return null;
@@ -279,6 +289,13 @@ export function CombineSheet({
     >
       {lists.isPending ? (
         <Skeleton className="h-24 w-full rounded-card" />
+      ) : lists.isError ? (
+        <div role="alert" className="flex flex-col items-start gap-2">
+          <p className="m-0 text-[14px] text-destructive">{t("errors.generic")}</p>
+          <Button variant="secondary" onClick={() => void lists.refetch()}>
+            {t("common.retry")}
+          </Button>
+        </div>
       ) : others.length === 0 ? (
         <EmptyState className="py-8" title={t("packingList.v2.combineNone")} />
       ) : (

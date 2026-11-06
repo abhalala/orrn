@@ -115,7 +115,7 @@ const guidesEnBase: GuideBookBase = {
       },
       {
         title: "Allow the camera",
-        body: "The first time, orrn asks to use the camera. Allow it. orrn only uses it to read labels.",
+        body: "Allow camera access when orrn asks. orrn uses the camera only to read labels.",
       },
       {
         title: "Point at the label",
@@ -298,11 +298,11 @@ const guidesEnBase: GuideBookBase = {
       },
       {
         title: "Set the status",
-        body: "\"Active\" dies show in Pack. \"Archived\" dies are hidden from Pack but keep all their bundles and history.",
+        body: "Choose \"Active\" to show the die in Pack, or \"Archived\" to hide it. An archived die keeps all its bundles and history.",
       },
       {
         title: "Add measurements if you have them",
-        body: "Width, thickness, oblique and leg are under \"Advanced\". They are optional.",
+        body: "Open \"Advanced\" to add width, thickness, oblique and leg. They are optional.",
       },
       {
         title: "Save",
@@ -608,7 +608,7 @@ const guidesEnBase: GuideBookBase = {
       },
       {
         title: "Chase what's missing",
-        body: "Before you close, the missing list shows every bundle orrn has in your yards that nobody scanned. Look again in the nearby yards before you give up on a bundle.",
+        body: "Review the missing list before you close. It shows every bundle orrn has in your yards that nobody scanned. Look again in the nearby yards before you give up on a bundle.",
       },
       {
         title: "Close and read the report",

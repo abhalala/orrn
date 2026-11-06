@@ -101,20 +101,22 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
     return (
       <>
         <PageHeader back={back} title={t("dieRoom.card.title")} />
-        <EmptyState
-          title={missing ? t("dieRoom.card.notFound") : t("dieRoom.card.loadFailed")}
-          action={
-            missing ? (
-              <Button asChild variant="secondary">
-                <Link to="/dies">{t("dies.detail.backToList")}</Link>
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => query.refetch()}>
-                {t("common.retry")}
-              </Button>
-            )
-          }
-        />
+        <div role="alert">
+          <EmptyState
+            title={missing ? t("dieRoom.card.notFound") : t("dieRoom.card.loadFailed")}
+            action={
+              missing ? (
+                <Button asChild variant="secondary">
+                  <Link to="/dies">{t("dies.detail.backToList")}</Link>
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => query.refetch()}>
+                  {t("common.retry")}
+                </Button>
+              )
+            }
+          />
+        </div>
       </>
     );
   }

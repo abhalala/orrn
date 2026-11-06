@@ -47,8 +47,7 @@ export function TransitionDialog({
   const [error, setError] = useState<string | null>(null);
   /** Anything else that stopped the change: shown for the whole dialog. */
   const [failure, setFailure] = useState<string | null>(null);
-  /** Said by a live line when focus is already in the field (moving focus there would say nothing). */
-  const [announce, setAnnounce] = useState("");
+  /** Moves focus to the Reason field once its error has rendered. */
   const [focusRequest, setFocusRequest] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const voiding = to === "void";
@@ -58,7 +57,6 @@ export function TransitionDialog({
       setReason("");
       setError(null);
       setFailure(null);
-      setAnnounce("");
     }
   }, [open]);
 
@@ -75,17 +73,12 @@ export function TransitionDialog({
     setFailure(null);
     if (voiding && !text) {
       const message = t("bundle.reasonRequired");
+      // The field's error line is a polite live region: it says what is missing when focus is already there.
       setError(message);
-      if (document.activeElement === inputRef.current) {
-        setAnnounce(message);
-      } else {
-        setAnnounce("");
-        setFocusRequest((n) => n + 1);
-      }
+      if (document.activeElement !== inputRef.current) setFocusRequest((n) => n + 1);
       return;
     }
     setError(null);
-    setAnnounce("");
     transition.mutate(
       { id: bundleId, toStatus: to, reason: text || null },
       {
@@ -151,19 +144,13 @@ export function TransitionDialog({
           <TextInput
             ref={inputRef}
             value={reason}
-            onChangeText={(next) => {
-              setReason(next);
-              setAnnounce("");
-            }}
+            onChangeText={setReason}
             maxLength={REASON_MAX}
             autoComplete="off"
             aria-required={voiding || undefined}
             data-testid="transition-reason"
           />
         </Field>
-        <p aria-live="polite" className="sr-only">
-          {announce}
-        </p>
       </form>
     </Dialog>
   );

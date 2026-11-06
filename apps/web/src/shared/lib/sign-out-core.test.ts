@@ -51,7 +51,7 @@ describe("sign out (M2)", () => {
     expect(flushLease("c1", "packer")).not.toBeNull();
     expect(mem.has(outboxKey("c1", "packer"))).toBe(true);
     const en = createI18n("en");
-    expect(en.t(SIGN_OUT_REFUSAL.offline)).toBe("You are offline; sign-out needs a connection. You are still signed in.");
+    expect(en.t(SIGN_OUT_REFUSAL.offline)).toBe("You are offline. Connect to sign out. You are still signed in.");
     expect(en.t("press.console.outbox.offlineLeft", { count: 1 })).toBe("1 change not sent yet. They stay saved on this tablet and go out when the connection is back.");
     for (const locale of ["hi", "gu"] as const) {
       expect(createI18n(locale).t(SIGN_OUT_REFUSAL.offline)).not.toBe(en.t(SIGN_OUT_REFUSAL.offline));

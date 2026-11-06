@@ -342,14 +342,16 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
           page={{ offset, limit: PAGE, onChange: onPage }}
           empty={
             copyList.isError ? (
-              <EmptyState
-                title={t("dieRoom.board.loadFailed")}
-                action={
-                  <Button variant="secondary" onClick={() => copyList.refetch()}>
-                    {t("common.retry")}
-                  </Button>
-                }
-              />
+              <div role="alert">
+                <EmptyState
+                  title={t("dieRoom.board.loadFailed")}
+                  action={
+                    <Button variant="secondary" onClick={() => copyList.refetch()}>
+                      {t("common.retry")}
+                    </Button>
+                  }
+                />
+              </div>
             ) : offset > 0 ? (
               <EmptyState
                 title={t("dies.pageEmpty")}
@@ -387,14 +389,16 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
           page={{ offset, limit: PAGE, onChange: onPage }}
           empty={
             sectionList.isError ? (
-              <EmptyState
-                title={t("dieRoom.board.loadFailed")}
-                action={
-                  <Button variant="secondary" onClick={() => sectionList.refetch()}>
-                    {t("common.retry")}
-                  </Button>
-                }
-              />
+              <div role="alert">
+                <EmptyState
+                  title={t("dieRoom.board.loadFailed")}
+                  action={
+                    <Button variant="secondary" onClick={() => sectionList.refetch()}>
+                      {t("common.retry")}
+                    </Button>
+                  }
+                />
+              </div>
             ) : offset > 0 ? (
               <EmptyState
                 title={t("dies.pageEmpty")}

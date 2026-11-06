@@ -355,7 +355,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             return (
               <Card key={line.lineId} data-order-line={line.lineNo}>
                 <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-                  <CardTitle>
+                  <CardTitle as="h3">
                     {t("orders.detail.lineShort", { n: line.lineNo })} · {dieTitle({ sectionCode: line.sectionCode, sectionName: line.sectionName, series: line.series })}
                   </CardTitle>
                   <Can do="order.reallocate">

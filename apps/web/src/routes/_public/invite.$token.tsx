@@ -13,6 +13,7 @@ import { FormAlert } from "@/features/auth/form-alert";
 import { PasswordField } from "@/features/auth/password-field";
 import { SignInForm } from "@/features/auth/sign-in-form";
 import { useFinishSignIn } from "@/features/auth/use-finish-sign-in";
+import { usePageTitle } from "@/features/auth/use-page-title";
 import { authClient } from "@/shared/lib/auth-client";
 import { homeTarget, type HomePath } from "@/shared/lib/home";
 import type { Me } from "@/shared/lib/me";
@@ -132,9 +133,19 @@ function InvitePage() {
   }
 
   const signedInEmail = me.data?.user.email;
+  const deadLink = view === "expired" || view === "wrongEmail" || (signedOut && probe.data === "dead");
+  usePageTitle(
+    deadLink
+      ? view === "wrongEmail"
+        ? t("auth.invite.wrongEmailTitle")
+        : t("auth.invite.expiredTitle")
+      : party
+        ? t("portal.invite.title")
+        : t("auth.invite.genericTitle"),
+  );
   const home = me.data ? homeTarget(me.data as Me) : null;
 
-  if (view === "expired" || view === "wrongEmail" || (signedOut && probe.data === "dead")) {
+  if (deadLink) {
     const expired = view !== "wrongEmail";
     return (
       <AuthFrame brand>
