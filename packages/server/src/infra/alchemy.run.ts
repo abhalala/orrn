@@ -53,7 +53,9 @@ let apiZoneId: string;
 let corsOrigin: string;
 let corsAllowedOrigins: string;
 let webPublicUrl: string;
-let cookieDomain: string;
+// The parent domain the auth cookies were scoped to before 2026-11-04. Only used to clear those old
+// cookies (lib/legacyCookies.ts); auth cookies are host-only on the API host now.
+let legacyCookieDomain: string;
 
 if (isDevStage) {
   const appZone = requireZone(zoneIdApp, "CLOUDFLARE_ZONE_ID or CLOUDFLARE_ZONE_ID_APP");
@@ -66,7 +68,7 @@ if (isDevStage) {
   webPublicUrl = process.env.VITE_PUBLIC_URL ?? `https://${webHost}`;
   corsOrigin = process.env.CORS_ORIGIN ?? webPublicUrl;
   corsAllowedOrigins = process.env.CORS_ALLOWED_ORIGINS ?? webPublicUrl;
-  cookieDomain = `.${zoneName}`;
+  legacyCookieDomain = `.${zoneName}`;
 } else {
   const inZone = requireZone(zoneIdIn, "CLOUDFLARE_ZONE_ID_IN");
 
@@ -80,7 +82,7 @@ if (isDevStage) {
   webPublicUrl = "https://orrn.in";
   corsOrigin = webPublicUrl;
   corsAllowedOrigins = webPublicUrl;
-  cookieDomain = ".orrn.in";
+  legacyCookieDomain = ".orrn.in";
 }
 
 const apiUrl = `https://${apiDomain}`;
@@ -253,7 +255,7 @@ export const server = await Worker("server", {
     // Encrypted secret binding, never plain text (it was readable in the dashboard before).
     ...(smtpPassword ? { PURELYMAIL_SMTP_PASSWORD: alchemy.secret(smtpPassword) } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
-    COOKIE_DOMAIN: cookieDomain,
+    LEGACY_COOKIE_DOMAIN: legacyCookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",
     CF_ACCOUNT_ID: process.env.CF_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
     CF_ZONE_ID_IN: process.env.CF_ZONE_ID_IN ?? process.env.CLOUDFLARE_ZONE_ID_IN ?? process.env.CLOUDFLARE_ZONE_ID ?? "",

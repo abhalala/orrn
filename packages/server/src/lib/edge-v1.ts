@@ -7,6 +7,7 @@ import { labelTemplate, printerProfile, printLog, type PrintStatus } from "@orrn
 import { edgeCommand, edgeEventReceipt, spoolDeployment } from "@orrn/db/schema/spool";
 import { company } from "@orrn/db/schema/tenant";
 import {
+  type EdgeCapability,
   type EdgeCommandAckRequest,
   edgeCommandAckRequestSchema,
   type EdgeCommandKind,
@@ -22,6 +23,7 @@ import {
   type EdgeEventItem,
   edgeEventsBatchRequestSchema,
   type EdgeLeasedCommand,
+  type EdgeNodeEnrollmentInput,
   type EdgePollPrinterReport,
   type EdgePollResponse,
   edgePrinterEndpointVerifiedPayloadSchema,
@@ -81,6 +83,11 @@ export type CreateEdgeEnrollmentNodeInput = {
   subdomain?: string;
   masterKey: string;
   nowMs?: number;
+  /** What a tenant enrolment says about the node; the node reports the rest when it enrols. */
+  runtimeFlavor?: EdgeNodeEnrollmentInput["runtimeFlavor"];
+  runtimePlatform?: string | null;
+  capabilities?: EdgeCapability[];
+  fingerprint?: string | null;
 };
 
 export type CreateEdgeEnrollmentNodeResult = {
@@ -143,6 +150,10 @@ export async function createEdgeEnrollmentNode(
     configVersion: 1,
     appliedConfigVersion: 0,
     reportedPrinters: [],
+    ...(input.runtimeFlavor ? { runtimeFlavor: input.runtimeFlavor } : {}),
+    ...(input.runtimePlatform ? { runtimePlatform: input.runtimePlatform } : {}),
+    ...(input.capabilities ? { capabilities: input.capabilities } : {}),
+    ...(input.fingerprint ? { fingerprint: input.fingerprint } : {}),
   });
 
   return {

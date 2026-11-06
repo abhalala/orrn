@@ -89,6 +89,14 @@ let authInstances = new WeakMap<Env, ReturnType<typeof buildAuth>>();
  */
 type MagicLinkStoreToken = "plain" | "hashed";
 
+/** Better Auth's default cookie prefix; the native client matches cookies on it (prefixes stripped). */
+const AUTH_COOKIE_PREFIX = "better-auth";
+
+/** `__Host-better-auth` on an https API, `better-auth` on a local http one (a browser refuses `__Host-` over http). */
+export function hostCookiePrefix(baseUrl: string | undefined): string {
+  return (baseUrl ?? "").startsWith("https://") ? `__Host-${AUTH_COOKIE_PREFIX}` : AUTH_COOKIE_PREFIX;
+}
+
 function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, environment: Env = env) {
   const db = createDb(environment.DB);
 
@@ -157,16 +165,25 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
     // },
     secret: environment.BETTER_AUTH_SECRET,
     baseURL: environment.BETTER_AUTH_URL,
+    // Security review 2026-11-04 (CRITICAL 1): auth cookies are host-only on the API host. They
+    // never carry a Domain attribute, so no other `*.orrn.in` host (a plant's `*.spool.orrn.in`
+    // tunnel included) ever receives them. On an https API the names carry the `__Host-` prefix,
+    // which a browser refuses with a Domain attribute, so no subdomain can set or toss one either.
+    // Better Auth's own `__Secure-` prefix is switched off because the `__Host-` prefix replaces
+    // it; the Secure attribute stays on every cookie. A local http API keeps the plain names.
+    // The SPA on orrn.in still reaches api.orrn.in with credentials (same site). Old
+    // `__Secure-better-auth.*` cookies are cleared by lib/legacyCookies.ts in @orrn/server.
+    // Tested in packages/server/test/auth-session-cookie.test.ts.
     advanced: {
+      useSecureCookies: false,
+      cookiePrefix: hostCookiePrefix(environment.BETTER_AUTH_URL),
       defaultCookieAttributes: {
         sameSite: "none",
         secure: true,
         httpOnly: true,
+        path: "/",
       },
-      crossSubDomainCookies: {
-        enabled: !!environment.COOKIE_DOMAIN,
-        domain: environment.COOKIE_DOMAIN || undefined,
-      },
+      crossSubDomainCookies: { enabled: false },
     },
     plugins: [
       expo(),

@@ -12,6 +12,7 @@ import { resolveCorsOrigin } from "@orrn/server/lib/corsOrigin";
 import { canRunDevSeed } from "@orrn/server/lib/devSeedGate";
 import { runDailyCron } from "@orrn/server/lib/dailyCron";
 import { dieFileSigningReady, handleDieFileUpload, verifyDieFileUrl } from "@orrn/server/lib/dieFiles";
+import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 
 import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
 import { devSpectroInput, runDevSpectro } from "./dev-spectro";
@@ -36,6 +37,9 @@ app.use("*", async (c, next) => {
   await next();
   c.header("Strict-Transport-Security", "max-age=31536000");
 });
+
+// Old Domain=.orrn.in auth cookies: cleared and their sessions ended on the next request (lib/legacyCookies.ts).
+app.use("*", legacyCookieCleanup({ legacyDomain: () => env.LEGACY_COOKIE_DOMAIN, db: () => createDb() }));
 
 app.use(
   "/*",

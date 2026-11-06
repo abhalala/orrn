@@ -5,19 +5,23 @@ import {
   type EdgeCapability,
 } from "@orrn/edge-runtime";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
 import { edgeNodeDeployment } from "@orrn/db/schema/spool";
 import { company } from "@orrn/db/schema/tenant";
-import { wrapSecret } from "@orrn/crypto";
 import { env } from "@orrn/env/server";
 
-import { createCnameRecord, createTunnel, deleteDnsRecord, deleteTunnel, findDnsRecord } from "../lib/cloudflare";
+import { deleteDnsRecord, deleteTunnel, findDnsRecord } from "../lib/cloudflare";
+import { createEdgeEnrollmentNode } from "../lib/edge-v1";
 import { actionProcedure, companyProcedure, router } from "../index";
 
-const EDGE_DOMAIN_SUFFIX = ".spool.orrn.in";
+/** Live (not revoked) edge nodes a plant may hold, any kind, Godseye's included (security review 2026-11-04). */
+export const MAX_EDGE_NODES_PER_COMPANY = 5;
+
+/** Where the node exchanges its one-time enrolment code for its node secret (apps/server/src/edge-v1-routes.ts). */
+const EDGE_ENROLL_EXCHANGE_PATH = "/api/edge/v1/enroll";
 
 type EdgeNodeSummary = {
   id: string;
@@ -85,6 +89,13 @@ export const edgeRouter = router({
     };
   }),
 
+  /**
+   * Security review 2026-11-04 (CRITICAL 1). A tenant enrolment makes an outbound-only ORRN Edge
+   * node: no Cloudflare Tunnel, no DNS record, and no secret in the answer. The caller gets a
+   * 15-minute single-use enrolment code that the node exchanges at POST /api/edge/v1/enroll for its
+   * node secret (lib/edge-v1.ts). The node's address is ORRN's to choose (`input.subdomain` is
+   * ignored), and a plant holds at most MAX_EDGE_NODES_PER_COMPANY live nodes.
+   */
   enroll: edgeManageProcedure.input(edgeNodeEnrollmentInputSchema).mutation(async ({ ctx, input }) => {
     const targetCompany = await ctx.db
       .select({ id: company.id, name: company.name, status: company.status })
@@ -99,83 +110,39 @@ export const edgeRouter = router({
       throw new TRPCError({ code: "BAD_REQUEST", message: "Company must be active to enroll an edge node" });
     }
 
-    const subdomain = input.subdomain ?? (await buildUniqueSubdomain(ctx.db, targetCompany.name, input.nodeName));
-    const existing = await ctx.db
-      .select({ id: edgeNodeDeployment.id })
-      .from(edgeNodeDeployment)
-      .where(eq(edgeNodeDeployment.subdomain, subdomain))
-      .get();
-    if (existing) {
-      throw new TRPCError({ code: "CONFLICT", message: "Subdomain already in use" });
-    }
+    if ((await liveNodeCount(ctx.db, ctx.companyId)) >= MAX_EDGE_NODES_PER_COMPANY) throw nodeCapError();
 
-    const sharedSecret = `${crypto.randomUUID()}-${crypto.randomUUID()}`;
-    const sharedSecretHash = await hashSha256(sharedSecret);
-    const sharedSecretWrapped = await wrapSecret(sharedSecret, env.ORRN_MASTER_KEY);
-    const instanceId = crypto.randomUUID();
-    const tunnelName = `edge-${subdomain}`;
-
-    let cfTunnelId: string;
-    let cfTunnelToken: string;
-    try {
-      const tunnel = await createTunnel(tunnelName);
-      cfTunnelId = tunnel.id;
-      cfTunnelToken = tunnel.token;
-    } catch (error) {
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: `Failed to create Cloudflare Tunnel: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    }
-
-    try {
-      await createCnameRecord(subdomain, cfTunnelId);
-    } catch (error) {
-      try {
-        await deleteTunnel(cfTunnelId);
-      } catch {
-        // Best effort rollback.
-      }
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: `Failed to create DNS record: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    }
-
-    const cfTunnelTokenWrapped = await wrapSecret(cfTunnelToken, env.ORRN_MASTER_KEY);
-    const nodeDomain = `${subdomain}${EDGE_DOMAIN_SUFFIX}`;
-    const deploymentId = crypto.randomUUID();
     const capabilities = dedupeCapabilities(input.capabilities);
-    const now = new Date();
-
-    await ctx.db.insert(edgeNodeDeployment).values({
-      id: deploymentId,
+    const created = await createEdgeEnrollmentNode(ctx.db, {
       companyId: ctx.companyId,
-      instanceId,
-      status: "pending",
       nodeName: input.nodeName,
       siteLabel: input.siteLabel,
-      subdomain,
-      nodeDomain,
-      cfTunnelId,
-      cfTunnelTokenWrapped,
-      sharedSecretHash,
-      sharedSecretWrapped,
+      masterKey: env.ORRN_MASTER_KEY,
       runtimeFlavor: input.runtimeFlavor,
       runtimePlatform: input.runtimePlatform ?? null,
       capabilities,
       fingerprint: input.fingerprint ?? null,
     });
 
+    // Two enrolments at once can both pass the check above. Each counts again after its own insert
+    // and takes its row back when the plant is over the cap, so the cap always holds.
+    if ((await liveNodeCount(ctx.db, ctx.companyId)) > MAX_EDGE_NODES_PER_COMPANY) {
+      await ctx.db
+        .delete(edgeNodeDeployment)
+        .where(and(eq(edgeNodeDeployment.id, created.deploymentId), eq(edgeNodeDeployment.companyId, ctx.companyId)));
+      throw nodeCapError();
+    }
+
+    const now = new Date();
     const deployment: EdgeNodeSummary = {
-      id: deploymentId,
+      id: created.deploymentId,
       companyId: ctx.companyId,
-      instanceId,
+      instanceId: created.instanceId,
       nodeName: input.nodeName,
       siteLabel: input.siteLabel,
       status: "pending",
-      subdomain,
-      nodeDomain,
+      subdomain: created.subdomain,
+      nodeDomain: created.nodeDomain,
       runtimeFlavor: input.runtimeFlavor,
       runtimePlatform: input.runtimePlatform ?? null,
       runtimeVersion: null,
@@ -191,24 +158,11 @@ export const edgeRouter = router({
 
     return {
       deployment,
-      config: {
-        deploymentId,
-        instanceId,
-        companyId: ctx.companyId,
-        nodeName: input.nodeName,
-        siteLabel: input.siteLabel,
-        subdomain,
-        nodeDomain,
-        runtimeFlavor: input.runtimeFlavor,
-        runtimePlatform: input.runtimePlatform ?? null,
-        sharedSecret,
-        cfTunnelToken,
+      enrollment: {
+        enrollmentToken: created.enrollmentToken,
+        enrollmentExpiresAt: created.enrollmentExpiresAt,
+        exchangePath: EDGE_ENROLL_EXCHANGE_PATH,
         orrnServerUrl: env.BETTER_AUTH_URL,
-        capabilities,
-        runtimeVersion: null,
-        heartbeatPath: "/webhooks/edge/heartbeat",
-        webhookPath: "/webhooks/edge/print-events",
-        updateCheckPath: "/api/edge/update-check",
       },
     };
   }),
@@ -252,42 +206,20 @@ export const edgeRouter = router({
   }),
 });
 
-async function hashSha256(input: string) {
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+async function liveNodeCount(db: OrrnDb, companyId: string): Promise<number> {
+  const row = await db
+    .select({ n: count() })
+    .from(edgeNodeDeployment)
+    .where(and(eq(edgeNodeDeployment.companyId, companyId), ne(edgeNodeDeployment.status, "revoked")))
+    .get();
+  return row?.n ?? 0;
 }
 
-function slugify(input: string) {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
-
-async function buildUniqueSubdomain(db: OrrnDb, companyName: string, nodeName: string) {
-  const companyPart = slugify(companyName) || "orrn";
-  const nodePart = slugify(nodeName) || "edge";
-  const base = `${companyPart}-${nodePart}`.slice(0, 63);
-
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const suffix = attempt === 0 ? "" : `-${attempt + 1}`;
-    const candidate = `${base.slice(0, 63 - suffix.length)}${suffix}`;
-    const existing = await db
-      .select({ id: edgeNodeDeployment.id })
-      .from(edgeNodeDeployment)
-      .where(eq(edgeNodeDeployment.subdomain, candidate))
-      .get();
-    if (!existing) {
-      return candidate;
-    }
-  }
-
-  return `${base.slice(0, 54)}-${crypto.randomUUID().slice(0, 8)}`;
+function nodeCapError() {
+  return new TRPCError({
+    code: "BAD_REQUEST",
+    message: `This plant already has ${MAX_EDGE_NODES_PER_COMPANY} print computers. Remove one before adding another.`,
+  });
 }
 
 function dedupeCapabilities(capabilities: readonly EdgeCapability[]) {
