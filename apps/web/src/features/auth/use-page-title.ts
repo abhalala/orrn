@@ -8,7 +8,9 @@ import { useEffect } from "react";
  */
 export function usePageTitle(title: string | null) {
   const { t } = useT();
-  const full = title ? `${title} | ${t("common.appName")}` : null;
+  const app = t("common.appName");
+  // A heading that already names the app ("Join your team on orrn") is not suffixed twice.
+  const full = title ? (title.toLowerCase().includes(app.toLowerCase()) ? title : `${title} | ${app}`) : null;
   useEffect(() => {
     if (full) document.title = full;
   }, [full]);

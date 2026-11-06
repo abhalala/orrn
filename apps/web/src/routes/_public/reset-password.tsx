@@ -120,6 +120,7 @@ function ResetPasswordPage() {
         />
         <PasswordField
           label={t("auth.reset.confirm")}
+          toggleLabel={t("auth.login.showPasswordAgain")}
           autoComplete="new-password"
           value={confirm}
           onValueChange={setConfirm}

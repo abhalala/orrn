@@ -178,7 +178,10 @@ export const enPublic = {
       "scanned": "Scanned",
       "pressRun": "Press run",
       "exportPdf": "Download PDF",
-      "exportCsv": "Download Excel"
+      "exportCsv": "Download Excel",
+      "srLabel": "Sample bundle label. It carries the bundle number, QR code, profile, length, pieces, weight, heat and die copy.",
+      "srList": "Sample packing list for one customer: four bundles with their numbers, pieces and weights, and the total.",
+      "srScan": "Sample gate scan: a bundle scanned onto the truck, with its heat, die copy and press run."
     },
     "cta": {
       "title": "Tell us how your plant runs.",

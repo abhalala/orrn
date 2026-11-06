@@ -9,6 +9,8 @@ import { DemoLabel } from "./demo-label";
 const VIEWS = ["label", "list", "scan"] as const;
 type View = (typeof VIEWS)[number];
 const TAB_KEY = { label: "tabLabel", list: "tabList", scan: "tabScan" } as const;
+/** What each sample shows, said to screen readers (the sample itself is aria-hidden demo data). */
+const SR_KEY = { label: "srLabel", list: "srList", scan: "srScan" } as const;
 
 /** One bundle seen three ways: the label at the scale, the packing list it joins, and the gate scan. */
 export function Office() {
@@ -30,6 +32,7 @@ export function Office() {
     <section id="office" className="marketing-office" aria-labelledby="office-title">
       <div className="marketing-plate" data-reveal>
         <div id="marketing-office-panel" role="tabpanel" aria-labelledby={`marketing-tab-${view}`} className="marketing-plate-inner">
+          <p className="sr-only">{t(`marketing.office.${SR_KEY[view]}`)}</p>
           {view === "label" ? <BundleLabel className="marketing-plate-label" /> : null}
           {view === "list" ? <PackingList /> : null}
           {view === "scan" ? <GateScan /> : null}

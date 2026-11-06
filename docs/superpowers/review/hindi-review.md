@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7445 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -232,7 +232,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `press` | Press | प्रेस |
 | `reports` | Reports | रिपोर्ट |
 
-### auth (116)
+### auth (117)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -246,6 +246,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `login.newHere` | New to orrn? | orrn पर नए हैं? |
 | `login.requestAccess` | Request access | एक्सेस मांगें |
 | `login.showPassword` | Show password | पासवर्ड दिखाएं |
+| `login.showPasswordAgain` | Show repeated password | दोहराया पासवर्ड दिखाएं |
 | `login.forgot` | Forgot password? | पासवर्ड भूल गए? |
 | `totp.title` | Enter your code | अपना कोड डालें |
 | `totp.body` | Open your authenticator app and type the 6-digit code for orrn. | अपना authenticator ऐप खोलें और orrn वाला 6 अंकों का कोड लिखें। |
@@ -3243,7 +3244,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (127)
+### marketing (130)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3366,6 +3367,9 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `office.pressRun` | Press run | प्रेस रन |
 | `office.exportPdf` | Download PDF | PDF डाउनलोड |
 | `office.exportCsv` | Download Excel | Excel डाउनलोड |
+| `office.srLabel` | Sample bundle label. It carries the bundle number, QR code, profile, length, pieces, weight, heat and die copy. | नमूना bundle लेबल। इस पर bundle नंबर, QR कोड, प्रोफ़ाइल, लंबाई, पीस, वज़न, heat और die कॉपी छपती है। |
+| `office.srList` | Sample packing list for one customer: four bundles with their numbers, pieces and weights, and the total. | एक ग्राहक की नमूना पैकिंग लिस्ट: चार bundle, उनके नंबर, पीस और वज़न, और कुल जोड़। |
+| `office.srScan` | Sample gate scan: a bundle scanned onto the truck, with its heat, die copy and press run. | नमूना गेट स्कैन: गाड़ी पर चढ़ता एक bundle, उसकी heat, die कॉपी और प्रेस रन के साथ। |
 | `cta.title` | Tell us how your plant runs. | बताएं आपका प्लांट कैसे चलता है। |
 | `cta.body` | How many presses, and how the paper moves today, from the kanta to the gate. We'll show you orrn on your own flow and say plainly where it fits and where it does not yet. | कितनी प्रेस हैं, और आज काग़ज़ कांटे से गेट तक कैसे चलता है। हम orrn आपके ही फ़्लो पर दिखाएंगे और साफ़ बताएंगे कि कहां फ़िट है और कहां अभी नहीं। |
 | `footer` | For aluminium extrusion plants across India. | भारत भर के एल्युमिनियम extrusion प्लांट के लिए। |

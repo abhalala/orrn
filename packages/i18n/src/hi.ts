@@ -259,6 +259,7 @@ export const hi = {
       newHere: "orrn पर नए हैं?",
       requestAccess: "एक्सेस मांगें",
       showPassword: "पासवर्ड दिखाएं",
+      showPasswordAgain: "दोहराया पासवर्ड दिखाएं",
       forgot: "पासवर्ड भूल गए?",
     },
     totp: {
@@ -3795,6 +3796,9 @@ export const hi = {
       pressRun: "प्रेस रन",
       exportPdf: "PDF डाउनलोड",
       exportCsv: "Excel डाउनलोड",
+      srLabel: "नमूना bundle लेबल। इस पर bundle नंबर, QR कोड, प्रोफ़ाइल, लंबाई, पीस, वज़न, heat और die कॉपी छपती है।",
+      srList: "एक ग्राहक की नमूना पैकिंग लिस्ट: चार bundle, उनके नंबर, पीस और वज़न, और कुल जोड़।",
+      srScan: "नमूना गेट स्कैन: गाड़ी पर चढ़ता एक bundle, उसकी heat, die कॉपी और प्रेस रन के साथ।",
     },
     cta: {
       title: "बताएं आपका प्लांट कैसे चलता है।",
