@@ -76,7 +76,7 @@ held and baki always reconcile (a test checks `baki = max(0, ordered - dispatche
 
 | Order | Customer | State | What it shows |
 | --- | --- | --- | --- |
-| SO-1 | KD | confirmed, **late** (25 d) | PO-4471; line 1 patti by pieces with 2 bundles packed; line 2 angle by kg (1,280 kg) |
+| SO-1 | KD | confirmed, **late** (25 d) | PO-4471; line 1 patti by pieces with 2 bundles packed; line 2 angle by kg (800 kg, nothing dispatched); the order totals 1,280 kg (480 kg on line 1, 800 kg on line 2) |
 | SO-2 | Royal | confirmed | 18 ft tee on the band-start basis (no reading on the copy yet) |
 | SO-3 | KD | booking | no PO yet: the confirm checklist |
 | SO-4 | KD | booking, **from the portal** | placed by `party` |

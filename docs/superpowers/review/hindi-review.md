@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7445 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7382 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3244,140 +3244,77 @@ Counts: 7445 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (130)
+### marketing (67)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `headline1` | Every bundle, | हर bundle की |
-| `headline2` | back to its heat. | heat का पता। |
-| `sub` | orrn is plant software for aluminium extruders in India. Scrap, heats, dies, press runs and bundles sit on one record, from the weighbridge in to the truck out. | orrn भारत के एल्युमिनियम extrusion प्लांट का सॉफ़्टवेयर है। स्क्रैप, heat, die, प्रेस रन और bundle, कांटे पर आने से लेकर गाड़ी में जाने तक, एक ही रिकॉर्ड पर रहते हैं। |
-| `requestAccess` | Request access | एक्सेस मांगें |
-| `signIn` | Sign in | साइन इन करें |
+| `metaTitle` | orrn \| plant software for aluminium extrusion plants in India | orrn \| भारत के एल्युमिनियम एक्सट्रूज़न प्लांट के लिए सॉफ़्टवेयर |
+| `metaDescription` | Plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once, and the office reads orders and baki from the same record. | भारत के एल्युमिनियम एक्सट्रूज़न प्लांट के लिए सॉफ़्टवेयर। फ़्लोर पर हर स्टेज अपनी एंट्री एक बार करता है, और ऑफ़िस उसी रिकॉर्ड से ऑर्डर और baki पढ़ता है। |
 | `homeLabel` | orrn home | orrn होम |
 | `mainNav` | Main navigation | मुख्य नेविगेशन |
-| `guides` | Guides | गाइड |
-| `navChain` | How it works | कैसे काम करता है |
+| `navFlow` | How it works | कैसे काम करता है |
 | `navFloor` | For your team | आपकी टीम के लिए |
-| `metaTitle` | orrn \| Plant software for aluminium extruders in India | orrn \| भारत के एल्युमिनियम extrusion प्लांट का सॉफ़्टवेयर |
-| `label.title` | Thermal bundle label | थर्मल bundle लेबल |
-| `label.profile` | Profile | प्रोफ़ाइल |
-| `label.pieces` | Pieces | पीस |
-| `label.weight` | Weight | वज़न |
-| `label.heat` | Heat | Heat |
-| `label.die` | Die copy | Die कॉपी |
-| `chain.title` | The metal changes. The record stays. | मेटल बदलता है। रिकॉर्ड वही रहता है। |
-| `chain.body` | Scrap comes in over the weighbridge and a bundle leaves on a truck. In between, the metal changes hands seven times. At each handover orrn writes down what was weighed, poured, pressed or packed, and the next stage starts from that entry. | स्क्रैप धर्मकांटे से अंदर आता है और bundle गाड़ी में बाहर जाता है। बीच में माल सात बार हाथ बदलता है। हर बार orrn लिख लेता है कि क्या तौला, क्या ढला, क्या दबा, क्या पैक हुआ, और अगला काम उसी एंट्री से शुरू होता है। |
-| `chain.recorded` | Recorded | दर्ज होता है |
-| `chain.heroCaption` | A furnace pour in Guwahati, Assam | गुवाहाटी, असम में भट्ठी से ढलता मेटल |
-| `chain.heroAlt` | Molten metal pouring from a ladle in a dark plant hall, sparks across the floor | अंधेरे प्लांट हॉल में लैडल से गिरता पिघला मेटल, फ़र्श पर चिंगारियां |
-| `chain.scrap.name` | Scrap | स्क्रैप |
-| `chain.scrap.title` | Book it at the kanta weight. | कांटे के वज़न पर लॉट बुक करें। |
-| `chain.scrap.body` | Book each purchase lot at the weighbridge weight. Settle the bori and any kg difference with a debit or credit note. Only then does the lot count as scrap stock. | हर खरीद लॉट धर्मकांटे के वज़न पर बुक करें। बोरी और kg के फ़र्क़ का हिसाब डेबिट या क्रेडिट नोट से करें। उसके बाद ही लॉट स्क्रैप स्टॉक में गिना जाता है। |
-| `chain.scrap.record` | Purchase lot, kanta weight, received stock | खरीद लॉट, कांटा वज़न, प्राप्त स्टॉक |
-| `chain.scrap.caption` | Aluminium scrap in a collection bin | कलेक्शन बिन में एल्युमिनियम स्क्रैप |
-| `chain.scrap.alt` | A bin heaped with shredded aluminium scrap | कटे हुए एल्युमिनियम स्क्रैप से भरा बिन |
-| `chain.cast.name` | Cast | Cast |
-| `chain.cast.title` | Which heat did this billet come from? | यह billet किस heat से आया? |
-| `chain.cast.body` | Charge the furnace from booked lots, attach the spectro result and log the billets cast. The heat number follows every billet to the press, and the alloy check is on record before the first one is loaded. | बुक किए लॉट से भट्ठी चार्ज करें, spectro का रिज़ल्ट लगाएं और ढले billet की गिनती दर्ज करें। heat नंबर हर billet के साथ प्रेस तक जाता है, और पहला billet चढ़ने से पहले alloy की जांच रिकॉर्ड पर होती है। |
-| `chain.cast.record` | Melt charge, spectro result, billets cast | Melt चार्ज, spectro रिज़ल्ट, ढले billet |
-| `chain.cast.caption` | Aluminium billets, numbered in chalk | चॉक से नंबर लिखे एल्युमिनियम billet |
-| `chain.cast.alt` | Stacked aluminium billets seen end on, each numbered in chalk | सामने से दिखते एल्युमिनियम billet का ढेर, हर एक पर चॉक से नंबर |
-| `chain.die.name` | Die | Die |
-| `chain.die.title` | Know which copy went to the press. | पता रहे कौन-सी कॉपी प्रेस पर गई। |
-| `chain.die.body` | A section has several copies and they are not the same die. orrn keeps each copy's trial, its weight per 12 ft, whose die it is and when it last came back from nitriding, then issues one named copy to the press. | एक सेक्शन की कई कॉपी होती हैं और हर कॉपी अलग die है। orrn हर कॉपी का ट्रायल, 12 फ़ीट का वज़न, किसकी die है और पिछली बार nitriding से कब लौटी, सब रखता है, और प्रेस को एक तय कॉपी जारी करता है। |
-| `chain.die.record` | Die copy, weight reading, issue and return | Die कॉपी, वज़न रीडिंग, जारी और वापसी |
-| `chain.die.caption` | The face of an aluminium extrusion die | एल्युमिनियम extrusion die का सामने का हिस्सा |
-| `chain.die.alt` | A round steel extrusion die with four T-shaped openings | चार T आकार के छेद वाली गोल स्टील extrusion die |
-| `chain.press.name` | Press | प्रेस |
-| `chain.press.title` | One run, not a shift sheet. | एक रन, शिफ़्ट शीट नहीं। |
-| `chain.press.body` | The operator opens a run against the plan and the issued die copy, counts billets in, and enters output and rejects at the end. Recovery comes out of those numbers. Nobody retypes a shift sheet in the office. | ऑपरेटर प्लान और जारी die कॉपी पर रन खोलता है, billet गिनकर चढ़ाता है और आख़िर में आउटपुट और रिजेक्ट भरता है। recovery उन्हीं आंकड़ों से निकलती है। ऑफ़िस में कोई शिफ़्ट शीट दोबारा नहीं टाइप करता। |
-| `chain.press.record` | Press plan, run output, recovery | प्रेस प्लान, रन आउटपुट, recovery |
-| `chain.press.caption` | A hydraulic extrusion press, dies in front | हाइड्रॉलिक extrusion प्रेस, सामने die |
-| `chain.press.alt` | A blue hydraulic aluminium extrusion press on a plant floor, with dies and profiles in front | प्लांट फ़्लोर पर नीली हाइड्रॉलिक एल्युमिनियम extrusion प्रेस, सामने die और प्रोफ़ाइल |
-| `chain.age.name` | Age | Ageing |
-| `chain.age.title` | Held batches stay out of packing. | होल्ड बैच पैकिंग तक नहीं पहुंचता। |
-| `chain.age.body` | Load the trolley, run the oven on its recipe, log the soak readings and the hardness in HV. Pack draws from released rows, and a held batch stays on its trolley until someone with the right to release it does. | ट्रॉली लोड करें, ओवन उसकी रेसिपी पर चलाएं, soak रीडिंग और HV में hardness दर्ज करें। पैकिंग रिलीज़ हुई लाइनों से ही माल लेती है, और होल्ड बैच ट्रॉली पर तब तक रहता है जब तक रिलीज़ का हक़ रखने वाला उसे छोड़ न दे। |
-| `chain.age.record` | Batch, oven readings, release decision | बैच, ओवन रीडिंग, रिलीज़ का फ़ैसला |
-| `chain.age.caption` | Extruded aluminium sections | Extrude किए एल्युमिनियम सेक्शन |
-| `chain.age.alt` | Three cut aluminium extrusions showing their slotted cross-sections | कटे हुए तीन एल्युमिनियम extrusion, जिनमें खांचेदार क्रॉस-सेक्शन दिखता है |
-| `chain.pack.name` | Pack | पैकिंग |
-| `chain.pack.title` | Every bundle gets a number. | हर bundle को नंबर मिलता है। |
-| `chain.pack.body` | At the scale it is pieces, weight, print. The label carries the bundle number, a QR code, the heat and the die copy, on a thermal roll or an A4 sticker sheet. Then the bundle gets a yard section, so the stock list says where it is. | कांटे पर बस पीस, वज़न, प्रिंट। लेबल पर bundle नंबर, QR कोड, heat और die कॉपी छपती है, थर्मल रोल पर या A4 स्टिकर शीट पर। फिर bundle को यार्ड सेक्शन मिलता है, ताकि स्टॉक लिस्ट बताए कि वह कहां रखा है। |
-| `chain.pack.record` | Bundle number, pieces, weight, location | Bundle नंबर, पीस, वज़न, लोकेशन |
-| `chain.pack.caption` | A bundle label, printed at the packing scale | पैकिंग कांटे पर छपा bundle लेबल |
-| `chain.dispatch.name` | Dispatch | Dispatch |
-| `chain.dispatch.title` | Nothing leaves without a scan. | बिना स्कैन कुछ बाहर नहीं जाता। |
-| `chain.dispatch.body` | Scan each bundle as it goes on the truck. A bundle held for another customer, already dispatched or still in ageing is refused on the spot. What loaded becomes the packing list, and stock drops the moment the dispatch completes. | गाड़ी में चढ़ते हर bundle को स्कैन करें। दूसरे ग्राहक के लिए रोका हुआ, पहले ही dispatch हुआ या अभी ageing में पड़ा bundle वहीं मना हो जाता है। जो चढ़ा वही पैकिंग लिस्ट बनती है, और dispatch पूरा होते ही स्टॉक घट जाता है। |
-| `chain.dispatch.record` | Scanned bundles, packing list, stock movement | स्कैन किए bundle, पैकिंग लिस्ट, स्टॉक मूवमेंट |
-| `chain.dispatch.caption` | A truck lane onto a weighbridge | धर्मकांटे की ओर जाती ट्रक लेन |
-| `chain.dispatch.alt` | A road lane leading trucks onto a weighbridge, with a barrier and signs | धर्मकांटे पर ट्रक ले जाने वाली सड़क लेन, बैरियर और साइन बोर्ड के साथ |
-| `audit.title` | How many bundles are on your list? | आपकी लिस्ट में कितने bundle हैं? |
-| `audit.control` | Bundles on your stock list | स्टॉक लिस्ट के bundle |
-| `audit.unit` | may not be in the yard | शायद यार्ड में नहीं हैं |
-| `audit.working` | When we counted the first plant's yard against its stock list, 62% of the bundles on the list were not there. Your yard will differ. In orrn a bundle leaves stock when it is scanned onto the truck, so the list and the yard match. | पहले प्लांट का यार्ड जब स्टॉक लिस्ट से मिलाया, तो लिस्ट के 62% bundle यार्ड में थे ही नहीं। आपका यार्ड अलग होगा। orrn में bundle गाड़ी पर स्कैन होते ही स्टॉक से निकलता है, इसलिए लिस्ट और यार्ड मेल खाते हैं। |
-| `record.title` | Seven registers. One record. | सात रजिस्टर। एक रिकॉर्ड। |
-| `record.body` | The office thinks in orders and baki. The floor thinks in heats, dies, trolleys and bundles. In orrn they are one record, so the baki the office sees is the pieces the floor actually packed. | ऑफ़िस ऑर्डर और baki में सोचता है। फ़्लोर heat, die, ट्रॉली और bundle में। orrn में दोनों एक ही रिकॉर्ड हैं, इसलिए ऑफ़िस को जो baki दिखती है वही पीस फ़्लोर ने सच में पैक किए हैं। |
-| `record.inName` | Today | आज |
-| `record.inBody` | Kanta slips, the melt register, the die book, shift sheets, a stock list in Excel and spectro photos on somebody's phone. Each one at a different desk. | कांटा पर्ची, melt रजिस्टर, die बुक, शिफ़्ट शीट, Excel की स्टॉक लिस्ट और किसी के फ़ोन में spectro की फ़ोटो। हर एक अलग डेस्क पर। |
-| `record.coreName` | orrn | orrn |
-| `record.coreBody` | One record per heat, die copy, press run and bundle, typed once by the person doing the work, at the furnace, the press or the scale. | हर heat, die कॉपी, प्रेस रन और bundle का एक रिकॉर्ड, एक बार लिखा, उसी के हाथ से जो काम कर रहा है, भट्ठी, प्रेस या कांटे पर। |
-| `record.outName` | Out | नतीजा |
-| `record.outBody` | Packing lists, recovery per run and a stock list that matches the yard, all read off those same entries. Nothing is compiled by hand at month end. | पैकिंग लिस्ट, हर रन की recovery और यार्ड से मेल खाती स्टॉक लिस्ट, सब उन्हीं एंट्री से। महीने के आख़िर में हाथ से कुछ नहीं जोड़ना पड़ता। |
-| `floor.title` | Different jobs. The same plant. | काम अलग। प्लांट एक। |
-| `floor.body` | Everyone enters their own work where they stand: a phone in the yard, a tablet at the scale, the laptop in the office. Floor screens come in English, Hindi and Gujarati. What a person can see or change depends on their role. | हर कोई अपना काम वहीं दर्ज करता है जहां खड़ा है: यार्ड में फ़ोन पर, कांटे पर टैबलेट में, ऑफ़िस में लैपटॉप पर। फ़्लोर की स्क्रीन English, हिंदी और गुजराती में हैं। कौन क्या देख या बदल सकता है, यह उसके रोल से तय होता है। |
-| `floor.ui.heat` | Heat | Heat |
-| `floor.ui.alloyCheck` | 6063 · spectro passed | 6063 · spectro पास |
-| `floor.ui.perLength` | kg per 12 ft | kg प्रति 12 फ़ीट |
-| `floor.ui.baki` | Baki | Baki |
-| `floor.ui.billets` | Billets | Billet |
-| `floor.ui.scanned` | Scanned | स्कैन हुआ |
-| `floor.ui.scanCount` | 4 of 4 | 4 में से 4 |
-| `floor.ui.recovery` | Recovery | Recovery |
-| `floor.foundry.role` | For the foundry | फ़ाउंड्री के लिए |
-| `floor.foundry.title` | Every billet carries its heat number. | हर billet पर उसका heat नंबर। |
-| `floor.foundry.body` | Open the cast, log the charge, attach the spectro, close with the billet count. The phone does all of it at the furnace. The press sees the heat and the alloy before it loads the first billet. | cast खोलें, चार्ज लिखें, spectro लगाएं, billet गिनकर बंद करें। यह सब फ़ोन से भट्ठी पर ही होता है। पहला billet चढ़ाने से पहले प्रेस को heat और alloy दिख जाता है। |
-| `floor.dieRoom.role` | For the die room | Die रूम के लिए |
-| `floor.dieRoom.title` | Know which die copy ran and what it weighed. | जानें कौन-सी die कॉपी चली और उसका वज़न क्या था। |
-| `floor.dieRoom.body` | Each copy has its own card: trial result, weight per 12 ft, drawing, where it is right now and when it last came back from nitriding. Issue and return are logged against the press run, so a missing copy is a question with an answer. | हर कॉपी का अपना कार्ड: ट्रायल का नतीजा, 12 फ़ीट का वज़न, ड्रॉइंग, अभी कहां है और पिछली बार nitriding से कब लौटी। जारी और वापसी प्रेस रन पर दर्ज होती है, तो गुम कॉपी का सवाल बिना जवाब नहीं रहता। |
-| `floor.planner.role` | For the planner | प्लानर के लिए |
-| `floor.planner.title` | Plan against what is actually left. | जितना बाकी है, उतने का प्लान। |
-| `floor.planner.body` | Order baki moves as bundles are packed and dispatched. Hold yard stock against a line before you plan the run, so the press does not make what is already lying in the yard. | Bundle पैक और dispatch होते ही ऑर्डर की baki बदल जाती है। रन प्लान करने से पहले यार्ड का स्टॉक लाइन पर होल्ड करें, ताकि प्रेस वह न बनाए जो यार्ड में पहले से पड़ा है। |
-| `floor.operator.role` | For the press shift | प्रेस शिफ़्ट के लिए |
-| `floor.operator.title` | Keep the run, not a second notebook. | रन का रिकॉर्ड रखें, दूसरी नोटबुक नहीं। |
-| `floor.operator.body` | The issued die copy, billets used, output and every stop go on the run while it happens. The next shift opens the same run and sees what actually ran, not what someone remembered at the end. | जारी die कॉपी, लगे billet, आउटपुट और हर रुकावट रन पर उसी वक़्त दर्ज होती है। अगली शिफ़्ट वही रन खोलती है और देखती है कि सच में क्या चला, न कि किसी को आख़िर में क्या याद रहा। |
-| `floor.packer.role` | For the packing table | पैकिंग टेबल के लिए |
-| `floor.packer.title` | Weigh once. Label for good. | एक बार तौलें। पक्की पहचान दें। |
-| `floor.packer.body` | Pieces, scale weight, print. The sticker carries the number and the QR code, and the bundle gets a yard section before the next one is on the scale. No bundle sits on the floor without a number. | पीस, कांटे का वज़न, प्रिंट। स्टिकर पर नंबर और QR कोड, और अगला bundle कांटे पर आने से पहले इसे यार्ड सेक्शन मिल जाता है। कोई bundle बिना नंबर के फ़र्श पर नहीं रहता। |
-| `floor.gate.role` | For dispatch and gate | Dispatch और गेट के लिए |
-| `floor.gate.title` | Scan it on, or it does not go. | स्कैन हुआ तो गया, वरना नहीं। |
-| `floor.gate.body` | Scan each bundle with the phone as it goes on the truck. The wrong customer's bundle is refused on the spot. When the truck is done, the PL is already written and stock already shows those bundles gone. | गाड़ी में चढ़ते हर bundle को फ़ोन से स्कैन करें। ग़लत ग्राहक का bundle वहीं मना हो जाता है। गाड़ी भरते ही PL बनी हुई मिलती है और स्टॉक में वे bundle पहले ही निकले दिखते हैं। |
-| `floor.owner.role` | For the plant owner | प्लांट मालिक के लिए |
-| `floor.owner.title` | See the run behind every number. | हर नंबर के पीछे का रन देखें। |
-| `floor.owner.body` | Recovery, stock age and dispatch come straight from the floor's entries, not from a report someone prepared for you. Roles decide who may change what, and the audit log keeps every edit with a name and a time. | recovery, स्टॉक की उम्र और dispatch सीधे फ़्लोर की एंट्री से आते हैं, किसी की बनाई रिपोर्ट से नहीं। कौन क्या बदल सकता है यह रोल तय करता है, और audit log हर बदलाव नाम और वक़्त के साथ रखता है। |
-| `office.title` | The packing list writes itself. | पैकिंग लिस्ट अपने-आप बनती है। |
-| `office.body` | The gate scans the bundles and the packing list is those scans: numbers, pieces, weights, total. Open any line later and it still leads back to the press run, the die copy and the heat. | गेट पर bundle स्कैन होते हैं और वही स्कैन पैकिंग लिस्ट है: नंबर, पीस, वज़न, टोटल। बाद में कोई भी लाइन खोलें, वह अब भी अपने प्रेस रन, die कॉपी और heat तक ले जाती है। |
-| `office.views` | Views of one bundle | एक bundle के तीन रूप |
-| `office.tabLabel` | Bundle label | Bundle लेबल |
-| `office.tabList` | Packing list | पैकिंग लिस्ट |
-| `office.tabScan` | Gate scan | गेट स्कैन |
-| `office.demoCustomer` | Fourcubes Extrusions | Fourcubes Extrusions |
-| `office.demoMeta` | 14701 Patti · 12 ft | 14701 पट्टी · 12 फ़ीट |
-| `office.scanTitle` | Gate 2 · truck loading | गेट 2 · गाड़ी लोडिंग |
-| `office.scanned` | Scanned | स्कैन हुआ |
-| `office.pressRun` | Press run | प्रेस रन |
-| `office.exportPdf` | Download PDF | PDF डाउनलोड |
-| `office.exportCsv` | Download Excel | Excel डाउनलोड |
-| `office.srLabel` | Sample bundle label. It carries the bundle number, QR code, profile, length, pieces, weight, heat and die copy. | नमूना bundle लेबल। इस पर bundle नंबर, QR कोड, प्रोफ़ाइल, लंबाई, पीस, वज़न, heat और die कॉपी छपती है। |
-| `office.srList` | Sample packing list for one customer: four bundles with their numbers, pieces and weights, and the total. | एक ग्राहक की नमूना पैकिंग लिस्ट: चार bundle, उनके नंबर, पीस और वज़न, और कुल जोड़। |
-| `office.srScan` | Sample gate scan: a bundle scanned onto the truck, with its heat, die copy and press run. | नमूना गेट स्कैन: गाड़ी पर चढ़ता एक bundle, उसकी heat, die कॉपी और प्रेस रन के साथ। |
-| `cta.title` | Tell us how your plant runs. | बताएं आपका प्लांट कैसे चलता है। |
-| `cta.body` | How many presses, and how the paper moves today, from the kanta to the gate. We'll show you orrn on your own flow and say plainly where it fits and where it does not yet. | कितनी प्रेस हैं, और आज काग़ज़ कांटे से गेट तक कैसे चलता है। हम orrn आपके ही फ़्लो पर दिखाएंगे और साफ़ बताएंगे कि कहां फ़िट है और कहां अभी नहीं। |
-| `footer` | For aluminium extrusion plants across India. | भारत भर के एल्युमिनियम extrusion प्लांट के लिए। |
+| `signIn` | Sign in | साइन इन करें |
+| `requestAccess` | Request access | एक्सेस मांगें |
+| `headline` | One record, from the kanta to the truck. | कांटे से गाड़ी तक, एक ही रिकॉर्ड। |
+| `sub` | orrn is plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once. The office reads orders and baki from the same record. | orrn भारत के एल्युमिनियम एक्सट्रूज़न प्लांट के लिए बना सॉफ़्टवेयर है। फ़्लोर पर हर स्टेज अपनी एंट्री एक बार करता है। ऑफ़िस उसी रिकॉर्ड से ऑर्डर और baki पढ़ता है। |
+| `note` | Runs in the browser on a phone, a tablet or a laptop. Screens in English and Hindi, and the floor screens in Gujarati too. | फ़ोन, टैबलेट या लैपटॉप के ब्राउज़र में चलता है। स्क्रीन अंग्रेज़ी और हिंदी में हैं, और फ़्लोर की स्क्रीन गुजराती में भी। |
+| `hero.caption` | Your team scans the QR on a bundle label and sees this page. | आपकी टीम bundle लेबल का QR स्कैन करके यह पेज देखती है। |
+| `hero.alt` | Demo data. The page for bundle 26J4086, dispatched in DSP-000412: 52.40 kg in 21 pieces, cut length 3658 mm, 2.495 kg per 12 ft, section 12170 Domal, die copy 12170-1, cast J14, packed on 30 October. | डेमो डेटा। Bundle 26J4086 का पेज, dispatch DSP-000412 में गया: 21 पीस में 52.40 kg, कट लंबाई 3658 mm, 2.495 kg/12ft, सेक्शन 12170 Domal, die कॉपी 12170-1, cast J14, 30 अक्टूबर को पैक हुआ। |
+| `flow.title` | Seven stages, one record. | सात स्टेज, एक रिकॉर्ड। |
+| `flow.body` | Scrap comes in over the kanta. A bundle leaves on a truck. A later stage reads each code again. | स्क्रैप कांटे से अंदर आता है। Bundle गाड़ी में बाहर जाता है। हर कोड को आगे का कोई स्टेज फिर से पढ़ता है। |
+| `flow.colStage` | Stage | स्टेज |
+| `flow.colCode` | Example code | उदाहरण कोड |
+| `flow.colWhat` | What the floor enters | फ़्लोर क्या दर्ज करता है |
+| `flow.scrap.name` | Scrap | स्क्रैप |
+| `flow.scrap.body` | Book each lot at the kanta weight, next to the party's weight. A debit note takes the bori off. | हर लॉट कांटे के वज़न पर बुक करें, पार्टी के वज़न के साथ। बोरी का वज़न डेबिट नोट से कटता है। |
+| `flow.cast.name` | Cast | Cast |
+| `flow.cast.body` | Lock each melt of the cast with its spectro result. Close the cast on a billet count. | Cast के हर melt को उसके स्पेक्ट्रो नतीजे के साथ लॉक करें। Cast को billet गिनकर बंद करें। |
+| `flow.die.name` | Die copy | Die कॉपी |
+| `flow.die.body` | Take readings on each die copy. orrn works out the drift on every reading. | हर die कॉपी की रीडिंग लें। हर रीडिंग पर orrn drift निकालता है। |
+| `flow.press.name` | Press | प्रेस |
+| `flow.press.body` | Start and stop the run at the press. Count billets in, good kg and rejects out. | प्रेस पर रन शुरू और बंद करें। अंदर गए billet, अच्छा kg और रिजेक्ट गिनें। |
+| `flow.age.name` | Ageing | एजिंग |
+| `flow.age.body` | Run the trolley on its recipe. Pack takes only released batches. | Trolley को उसकी recipe पर चलाएं। पैकिंग सिर्फ़ release हुए बैच लेती है। |
+| `flow.pack.name` | Pack | पैकिंग |
+| `flow.pack.body` | Weigh the bundle at the scale. Print its label once. | Bundle को कांटे पर तौलें। उसका लेबल एक बार छापें। |
+| `flow.dispatch.name` | Dispatch | Dispatch |
+| `flow.dispatch.body` | Scan each bundle onto the truck. The scans make the packing list. | गाड़ी पर चढ़ते हर bundle को स्कैन करें। स्कैन से पैकिंग लिस्ट बनती है। |
+| `flow.after` | Bundle 26J4086 is bundle 4,086 of October 2026. Each plant keeps its own number book. | Bundle 26J4086 अक्टूबर 2026 का 4,086वां bundle है। हर प्लांट की अपनी नंबर बुक होती है। |
+| `truck.title` | The scans at the truck decide what leaves stock. | गाड़ी पर हुए स्कैन तय करते हैं कि स्टॉक से क्या बाहर जाएगा। |
+| `truck.body1` | Scan each bundle as it goes onto the truck. orrn checks each scan in one fixed order. Of its 13 answers, 10 refuse the bundle, for example when it is void or packed for another customer. A bundle still in ageing is refused too. | गाड़ी पर चढ़ते हर bundle को स्कैन करें। orrn हर स्कैन को एक तय क्रम में जांचता है। उसके 13 जवाबों में से 10 में bundle नहीं जुड़ता, जैसे जब वह रद्द हो या किसी दूसरे ग्राहक के लिए पैक हुआ हो। जो bundle अभी एजिंग में है, वह भी नहीं जुड़ता। |
+| `truck.body2` | Stock drops when the dispatch completes. At that moment the packing list takes its number from the plant's own book, once. | Dispatch पूरा होते ही स्टॉक घटता है। उसी समय पैकिंग लिस्ट प्लांट की अपनी नंबर बुक से एक बार नंबर लेती है। |
+| `truck.count` | On 30 June 2026 the first plant counted its yard against its old system. Of the 1,721 bundles on the old list, 1,071 were not in the yard. orrn's stock count shows missing bundles like these before the count closes. | 30 जून 2026 को पहले प्लांट ने अपना यार्ड पुराने सिस्टम की लिस्ट से मिलाकर गिना। लिस्ट के 1,721 bundle में से 1,071 यार्ड में नहीं थे। orrn में स्टॉक गिनती बंद होने से पहले ही ऐसे गायब bundle दिख जाते हैं। |
+| `truck.caption` | The phone at the truck. | गाड़ी के पास फ़ोन। |
+| `truck.alt` | Demo data. The phone scan sheet for dispatch DSP-000412. Three bundles added, 156.40 kg. Bundle 26J4062 refused, packed for another customer. Bundle 26J4055 refused, held for dispatch DSP-000409. | डेमो डेटा। Dispatch DSP-000412 की फ़ोन स्कैन शीट। तीन bundle जुड़े, 156.40 kg। Bundle 26J4062 नहीं जुड़ा, किसी दूसरे ग्राहक के लिए पैक हुआ। Bundle 26J4055 नहीं जुड़ा, dispatch DSP-000409 के लिए होल्ड पर। |
+| `numbers.title` | The server does the sums. | हिसाब सर्वर करता है। |
+| `numbers.body` | No screen works out a number. Recovery, baki and drift come from what the floor entered. | कोई स्क्रीन खुद हिसाब नहीं लगाती। Recovery, baki और drift फ़्लोर की एंट्री से निकलते हैं। |
+| `numbers.caption` | Recovery is good kg over billet kg, summed over the runs. It is never an average of percents. Baki is ordered minus dispatched, and it never goes below zero. | Recovery यानी अच्छा kg बटा billet kg, सभी रन को जोड़कर। यह प्रतिशतों का औसत कभी नहीं होता। Baki यानी ऑर्डर घटा dispatch, और यह शून्य से नीचे कभी नहीं जाता। |
+| `numbers.alt` | Demo data. Press run PR-418 took 310.4 kg of billets and made 234.2 kg good, recovery 75.5 %. Order SO-1 line 2, angle, 25 days late, baki 800 kg. | डेमो डेटा। प्रेस रन PR-418 में 310.4 kg billet गए और 234.2 kg अच्छा माल बना, recovery 75.5 %। ऑर्डर SO-1 लाइन 2, angle, 25 दिन लेट, baki 800 kg। |
+| `numbers.rule1Title` | Nobody edits stock. | स्टॉक की एंट्री कोई एडिट नहीं करता। |
+| `numbers.rule1` | A correction is a new entry with the opposite sign. It names the entry it cancels. | सुधार उल्टे साइन वाली नई एंट्री होती है। उसमें लिखा होता है कि वह कौन सी एंट्री काटती है। |
+| `numbers.rule2Title` | Twelve changes need a second person. | बारह बदलावों के लिए दूसरा व्यक्ति चाहिए। |
+| `numbers.rule2` | A die tier change and a cast close with a tail over 3 % are two of them. The person who asks never approves, the owner included. | Die का tier बदलना और 3 % से ज़्यादा tail के साथ cast बंद करना इनमें से दो हैं। मांगने वाला खुद कभी मंज़ूरी नहीं देता, मालिक भी नहीं। |
+| `floor.title` | One refusal, three languages. | एक इनकार, तीन भाषाएं। |
+| `floor.body1` | Each person gets one of 13 roles, for example packer or die room. The role decides the screens. The server checks every change against it. | हर व्यक्ति को 13 में से एक रोल मिलता है, जैसे पैकर या डाई रूम। रोल तय करता है कि कौन सी स्क्रीन दिखेंगी। सर्वर हर बदलाव को रोल से जांचता है। |
+| `floor.body2` | orrn has 44 step-by-step guides in English and Hindi. Nine of them are in Gujarati too. | orrn के 44 कदम दर कदम गाइड अंग्रेज़ी और हिंदी में हैं। उनमें से 9 गुजराती में भी हैं। |
+| `floor.langEn` | English | अंग्रेज़ी |
+| `floor.langHi` | Hindi | हिंदी |
+| `floor.langGu` | Gujarati | गुजराती |
+| `floor.refusedEn` | Not added | Not added |
+| `floor.reasonEn` | Packed for another customer | Packed for another customer |
+| `floor.refusedHi` | नहीं जुड़ा | नहीं जुड़ा |
+| `floor.reasonHi` | किसी दूसरे ग्राहक के लिए पैक हुआ | किसी दूसरे ग्राहक के लिए पैक हुआ |
+| `floor.refusedGu` | ન ઉમેરાયું | ન ઉમેરાયું |
+| `floor.reasonGu` | બીજા ગ્રાહક માટે પૅક થયું | બીજા ગ્રાહક માટે પૅક થયું |
+| `floor.caption` | The same refusal at the scanner, word for word from the app. | स्कैनर पर वही इनकार, ऐप के शब्दों में। |
+| `close.title` | Tell us about your plant. | अपने प्लांट के बारे में बताएं। |
+| `close.body` | Send your company name and the number of extrusion lines you run. We write back to set up your company on orrn. The first plant will run orrn beside its old system once its own data is in. | अपनी कंपनी का नाम और एक्सट्रूज़न लाइनों की संख्या भेजें। हम जवाब में लिखेंगे और orrn पर आपकी कंपनी सेट करेंगे। पहला प्लांट अपना डेटा आ जाने के बाद orrn को अपने पुराने सिस्टम के साथ चलाएगा। |
 | `footerNav` | Footer | फ़ुटर |
+| `guides` | Guides | गाइड |
 | `privacy` | Privacy | प्राइवेसी |
 | `terms` | Terms | शर्तें |
-| `copyright` | © {year} orrn | © {year} orrn |
-| `credits` | Photographs via Wikimedia Commons: | फ़ोटो Wikimedia Commons से: |
+| `copyright` | © {year} orrn.in | © {year} orrn.in |
 
 ### legal (45)
 

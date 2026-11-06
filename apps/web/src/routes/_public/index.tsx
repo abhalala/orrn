@@ -1,18 +1,17 @@
 import { createI18n, useT } from "@orrn/i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import "@/features/marketing/marketing.css";
-import { Audit } from "@/features/marketing/audit";
 import { Cta } from "@/features/marketing/cta";
-import { Floor } from "@/features/marketing/floor";
-import { Story } from "@/features/marketing/flow";
 import { MarketingFooter } from "@/features/marketing/footer";
+import { Hero } from "@/features/marketing/hero";
+import { Languages } from "@/features/marketing/languages";
 import { MarketingHeader } from "@/features/marketing/marketing-header";
-import { Office } from "@/features/marketing/office";
-import { ManyIntoOne } from "@/features/marketing/record";
-import { useReveal } from "@/features/marketing/use-reveal";
+import { Numbers } from "@/features/marketing/numbers";
+import { Stages } from "@/features/marketing/stages";
+import { Truck } from "@/features/marketing/truck";
 import { loadMe } from "@/shared/lib/guards";
 import { homeTarget } from "@/shared/lib/home";
 import { readStoredLocale } from "@/shared/lib/locale";
@@ -23,7 +22,7 @@ export const Route = createFileRoute("/_public/")({
   head: () => {
     const { t } = createI18n(readStoredLocale());
     return {
-      meta: [{ title: t("marketing.metaTitle") }, { name: "description", content: t("marketing.sub") }],
+      meta: [{ title: t("marketing.metaTitle") }, { name: "description", content: t("marketing.metaDescription") }],
     };
   },
   component: MarketingPage,
@@ -47,7 +46,7 @@ function useLateSessionRedirect() {
 function useLocalizedHead() {
   const { t } = useT();
   const title = t("marketing.metaTitle");
-  const description = t("marketing.sub");
+  const description = t("marketing.metaDescription");
   useEffect(() => {
     document.title = title;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
@@ -57,17 +56,15 @@ function useLocalizedHead() {
 function MarketingPage() {
   const { t, locale } = useT();
   const queryClient = useQueryClient();
-  const page = useRef<HTMLDivElement>(null);
   useLateSessionRedirect();
   useLocalizedHead();
-  useReveal(page);
 
   useEffect(() => {
     void loadMe(queryClient).catch(() => undefined);
   }, [queryClient]);
   return (
     // `data-orrn-marketing` marks this route's chunk for the `/` JS budget (scripts/check-route-budget.ts).
-    <div ref={page} data-orrn-marketing data-locale={locale} className="marketing-page orrn-ink-panel min-h-[100dvh] w-full">
+    <div data-orrn-marketing data-locale={locale} className="marketing-page min-h-[100dvh] w-full">
       <a
         href="#main"
         className="fixed left-3 top-3 z-50 -translate-y-24 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-primary-foreground no-underline focus-visible:translate-y-0"
@@ -76,14 +73,14 @@ function MarketingPage() {
       </a>
       <MarketingHeader />
       <main id="main" tabIndex={-1}>
-        <Story />
-        <Audit />
-        <ManyIntoOne />
-        <Floor />
-        <Office />
+        <Hero />
+        <Stages />
+        <Truck />
+        <Numbers />
+        <Languages />
         <Cta />
       </main>
-      <MarketingFooter credits />
+      <MarketingFooter />
     </div>
   );
 }

@@ -1,5 +1,7 @@
 # Homepage redesign (taste-skill v2, Emil Kowalski motion)
 
+Superseded on 2026-11-06 by `2026-11-06-homepage-quiet-paper.md`.
+
 ## Direction
 
 - Dealt with `design-taste-frontend` v2: direction `one-motif`, seed 408732773, sector saas, tone technical, `--keep palette`.

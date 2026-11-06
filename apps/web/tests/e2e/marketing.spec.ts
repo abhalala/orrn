@@ -69,18 +69,6 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("contentinfo").getByRole("link", { name: "Guides" })).toHaveAttribute("href", "/guides");
   });
 
-  test("the held frame shows the stage in the middle of the screen", async ({ page }) => {
-    await openMarketing(page);
-    const active = page.locator('.marketing-frame[data-active="true"]');
-    await expect(active).toHaveCount(1);
-    await expect(active).toHaveAttribute("data-frame-for", "hero");
-    for (const stage of ["die", "pack", "dispatch", "scrap"]) {
-      await page.locator(`[data-flow-step="${stage}"]`).evaluate((element) => element.scrollIntoView({ block: "center" }));
-      await expect(active).toHaveCount(1);
-      await expect(active).toHaveAttribute("data-frame-for", stage);
-    }
-  });
-
   test("section links land below the bar and mark the section in view", async ({ page }) => {
     await openMarketing(page);
     const nav = page.getByRole("banner").getByRole("navigation");
@@ -91,31 +79,6 @@ test.describe("marketing page", () => {
     await expect.poll(() => page.locator("#floor").evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(bar);
     await page.locator('[data-flow-step="press"]').evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
     await expect(nav.getByRole("link", { name: "How it works" })).toHaveAttribute("aria-current", "location");
-  });
-
-  test("the stock-list slider recalculates the bundles that may be gone", async ({ page }) => {
-    await openMarketing(page);
-    const slider = page.locator("#audit").getByRole("slider", { name: "Bundles on your stock list" });
-    const figure = page.locator("#audit .marketing-figure span").first();
-    await slider.fill("3000");
-    await expect(figure).toHaveText("1,860");
-    await slider.fill("100");
-    await expect(figure).toHaveText("62");
-    await slider.fill("5000");
-    await expect(figure).toHaveText("3,100");
-  });
-
-  test("the bundle views switch by click and by arrow keys", async ({ page }) => {
-    await openMarketing(page);
-    const views = page.locator("#office").getByRole("tablist");
-    await views.getByRole("tab", { name: "Gate scan" }).click();
-    await expect(views.getByRole("tab", { name: "Gate scan" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator("#office").getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "marketing-tab-scan");
-    await page.keyboard.press("ArrowRight");
-    await expect(views.getByRole("tab", { name: "Bundle label" })).toBeFocused();
-    await expect(views.getByRole("tab", { name: "Bundle label" })).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(views.getByRole("tab", { name: "Gate scan" })).toHaveAttribute("aria-selected", "true");
   });
 
   test("sample product data is hidden from screen readers and visibly labelled", async ({ page }) => {
@@ -152,21 +115,22 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
-  test("mobile keeps a conversion action in reach", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 });
-    await openMarketing(page);
-    const action = page.locator(".marketing-mobile-action");
-    await expect(action).toHaveAttribute("href", "/request-access");
-    // At the top the hero's own Request access is in reach, so the floating copy steps aside instead of
-    // covering the hero text; it comes back once the hero button scrolls away.
-    await expect(action).toHaveCSS("opacity", "0");
-    await expect(action).toHaveCSS("pointer-events", "none");
-    expect(await action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    await page.locator("#floor").scrollIntoViewIfNeeded();
-    await expect(action).toBeVisible();
-    await expect(action).toHaveCSS("opacity", "1");
-    await action.click();
-    await expect(page).toHaveURL(/\/request-access$/);
+  test.describe("on a phone", () => {
+    // A touch context: the header's controls grow to 44 px under (pointer: coarse), which Chromium
+    // reports only on a context's first document, so the viewport is set here and not per test.
+    test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+
+    test("the sticky header keeps Request access in reach", async ({ page }) => {
+      await openMarketing(page);
+      const action = page.getByRole("banner").getByRole("link", { name: "Request access" });
+      await expect(action).toHaveAttribute("href", "/request-access");
+      // The bar is the only copy of the action on a phone; the hero's button scrolls away, the bar's stays.
+      await page.locator("#floor").scrollIntoViewIfNeeded();
+      await expect(action).toBeInViewport();
+      expect(await action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+      await action.click();
+      await expect(page).toHaveURL(/\/request-access$/);
+    });
   });
 
   test("English renders from public strings even when the full dictionary is unavailable", async ({ page }) => {
@@ -224,7 +188,7 @@ test.describe("marketing page", () => {
       }).map((heading) => heading.textContent),
     );
     expect(tight).toEqual([]);
-    const heroLines = await page.locator(".marketing-hero h1").evaluate((heading) => {
+    const heroLines = await page.locator("[data-marketing-hero] h1").evaluate((heading) => {
       const style = getComputedStyle(heading);
       return heading.getBoundingClientRect().height / parseFloat(style.lineHeight);
     });

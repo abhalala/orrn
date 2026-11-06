@@ -1,58 +1,87 @@
 import { useT } from "@orrn/i18n";
 import { Link } from "@tanstack/react-router";
-import type { CSSProperties } from "react";
 
-import { BarcodeStrip, BundleLabel } from "./bundle-label";
-import { PHOTOS } from "./media";
-import { StagePhoto } from "./stage-photo";
+import { DemoTag } from "./demo-tag";
 
 /**
- * The first screen is the label orrn prints for a bundle: a paper card with
- * the barcode strip across its top, the page title, and the sample label
- * fields. On a phone the furnace photograph comes first and the card
- * overlaps its foot; on wider screens the photograph is the sticky frame
- * beside it (see `Story`).
+ * The bundle page a QR on a label opens, drawn with the fields that page really
+ * has (`bundle-facts.tsx`). Its codes come back in the stage list and the scan
+ * sheet: bundle 26J4086, die copy 12170-1, cast J14, dispatch DSP-000412.
+ * 52.40 kg over 21 pieces at 12 ft is 2.495 kg per 12 ft. The labels stay
+ * English because the screen is a picture of the app; the hero's sr-only
+ * caption carries the words in the page language.
  */
-export function Hero({ wide }: { wide: boolean }) {
+const FIELDS = [
+  { label: "Weight", value: "52.40 kg", code: true },
+  { label: "Pieces", value: "21", code: true },
+  { label: "Cut length", value: "3658 mm", code: true },
+  { label: "kg/12ft", value: "2.495", code: true },
+  { label: "Section", value: "12170 Domal", code: false },
+  { label: "Die copy", value: "12170-1", code: true },
+  { label: "Cast", value: "J14", code: true },
+  { label: "Packed", value: "30 Oct", code: false },
+] as const;
+
+function BundlePage() {
+  return (
+    <div className="marketing-shot" data-demo-visual aria-hidden="true" lang="en">
+      <DemoTag />
+      <div className="marketing-app-top">
+        <span className="orrn-mark" />
+        <span className="marketing-code">orrn.in/b/26J4086</span>
+      </div>
+      <div className="marketing-bundle-title">
+        <b>
+          Bundle <span className="marketing-code">26J4086</span>
+        </b>
+        <span className="marketing-chip">Dispatched</span>
+      </div>
+      <p className="marketing-bundle-sub">
+        In dispatch <span className="marketing-code">DSP-000412</span>
+      </p>
+      <dl className="marketing-fields">
+        {FIELDS.map((field) => (
+          <div key={field.label}>
+            <dt>{field.label}</dt>
+            <dd>{field.code ? <span className="marketing-code">{field.value}</span> : field.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/** The first screen: what orrn is, for whom, the two actions, and the record. */
+export function Hero() {
   const { t } = useT();
   return (
-    <section data-marketing-hero data-frame="hero" aria-labelledby="hero-title" className="marketing-hero">
-      {wide ? null : (
-        <StagePhoto
-          className="marketing-hero-photo"
-          photo={PHOTOS.furnace}
-          sizes="100vw"
-          alt={t("marketing.chain.heroAlt")}
-          caption={t("marketing.chain.heroCaption")}
-          priority
-        />
-      )}
-      <div className="marketing-card">
-        <BarcodeStrip className="marketing-barcode marketing-card-bars" />
-        <p className="marketing-card-mark" aria-hidden="true">
-          <span className="orrn-mark" />
-          <span>{t("common.appName")}</span>
-        </p>
-        <h1 id="hero-title" className="marketing-display">
-          <span className="marketing-line">
-            <span style={{ "--i": 0 } as CSSProperties}>{t("marketing.headline1")}</span>
-          </span>{" "}
-          <span className="marketing-line">
-            <span style={{ "--i": 1 } as CSSProperties}>{t("marketing.headline2")}</span>
-          </span>
-        </h1>
-        <p className="marketing-card-sub">{t("marketing.sub")}</p>
-        <div className="marketing-actions">
-          <Link className="marketing-button" data-tone="ink" to="/request-access">
-            {t("marketing.requestAccess")}
-          </Link>
-          <Link className="marketing-text-link" to="/login">
-            {t("marketing.signIn")}
-          </Link>
+    <section data-marketing-hero aria-labelledby="hero-title" className="marketing-hero">
+      <div className="marketing-wrap">
+        <h1 id="hero-title">{t("marketing.headline")}</h1>
+        <div className="marketing-grid">
+          <div className="marketing-copy">
+            <p className="marketing-lead">{t("marketing.sub")}</p>
+            <div className="marketing-actions">
+              <Link className="marketing-button" to="/request-access">
+                {t("marketing.requestAccess")}
+              </Link>
+              <Link className="marketing-button marketing-button-quiet" to="/login">
+                {t("marketing.signIn")}
+              </Link>
+            </div>
+            <p className="marketing-note marketing-small">{t("marketing.note")}</p>
+          </div>
+          <figure className="marketing-proof">
+            <BundlePage />
+            <figcaption>
+              {/* The sr-only line reads the hidden screen and begins "Demo data."; the visible caption is
+                  the one sentence that says how a person reaches this page, so it is read too. */}
+              <span className="sr-only">{t("marketing.hero.alt")}</span>
+              <span>{t("marketing.hero.caption")}</span>
+            </figcaption>
+          </figure>
         </div>
-        <BundleLabel className="marketing-card-label" />
       </div>
     </section>
   );
 }
-

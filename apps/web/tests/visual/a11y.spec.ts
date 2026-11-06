@@ -137,42 +137,10 @@ test.describe("landing page keyboard", () => {
       expect(stop.shadowColour, `"${stop.label}" has no second ring tone`).not.toBe("");
       expect(stop.shadowColour, `"${stop.label}" ring tones are the same colour`).not.toBe(stop.outlineColour);
     }
-    // Skip link, header, CTAs, slider, tabs, board links, footer and credits.
-    expect(seen.size).toBeGreaterThan(20);
-  });
-
-  test("office tabs: one tab stop, arrows, Home and End move and select", async ({ page }) => {
-    await open(page, "/");
-    const tabs = page.getByRole("tab");
-    await expect(tabs).toHaveCount(3);
-    await expect(page.getByRole("tab", { selected: true })).toHaveCount(1);
-    expect(await tabs.evaluateAll((all) => all.filter((t) => (t as HTMLElement).tabIndex === 0).length)).toBe(1);
-
-    await page.getByRole("tab", { selected: true }).focus();
-    await page.keyboard.press("Home");
-    await expect(tabs.first()).toBeFocused();
-    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("End");
-    await expect(tabs.last()).toBeFocused();
-    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowRight");
-    await expect(tabs.first()).toBeFocused();
-
-    // The sample in the panel is illustrative and hidden from readers by design (marketing.spec.ts pins it);
-    // the panel carries no control, so it is not a tab stop either.
-    await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", /marketing-tab-/);
-    expect(await page.getByRole("tabpanel").getAttribute("tabindex")).toBeNull();
-  });
-
-  test("audit slider has a name and a value", async ({ page }) => {
-    await open(page, "/");
-    const slider = page.getByRole("slider");
-    await expect(slider).toHaveCount(1);
-    await expect(slider).toHaveAccessibleName(/\S/);
-    await slider.focus();
-    const before = await slider.inputValue();
-    await page.keyboard.press("ArrowRight");
-    expect(await slider.inputValue()).not.toBe(before);
+    // Skip link, brand, the language switch (one radiogroup with a roving tabindex, so one stop), Sign in and
+    // Request access in the bar, the two hero actions, the two close actions, the footer brand and its three
+    // links make 13 on a phone; the two section links from 900 px make 15 on a desktop.
+    expect(seen.size).toBeGreaterThanOrEqual(page.viewportSize()!.width >= 900 ? 15 : 13);
   });
 
   test("the page has no mobile menu to trap focus: header controls stay reachable and in view", async ({ page }) => {
@@ -197,7 +165,8 @@ test.describe("landing page keyboard", () => {
     await open(page, "/");
     const hidden = await page.evaluate(() => {
       const bad: string[] = [];
-      for (const el of document.querySelectorAll<HTMLElement>("[data-reveal] > *, .marketing-card *")) {
+      // No entrance hooks remain, so the whole of main is checked: nothing may wait at opacity 0 or animate.
+      for (const el of document.querySelectorAll<HTMLElement>("main *")) {
         const cs = getComputedStyle(el);
         if (cs.opacity !== "1" && cs.display !== "none") bad.push(`${el.tagName}.${el.className}`);
         if (cs.animationName !== "none" && parseFloat(cs.animationDuration) > 0) bad.push(`animating ${el.tagName}.${el.className}`);
@@ -207,16 +176,15 @@ test.describe("landing page keyboard", () => {
     expect(hidden).toEqual([]);
   });
 
-  test("images: informative ones have alt, decorative ones are hidden from readers", async ({ page }) => {
+  test("images: every img has alt", async ({ page }) => {
     await open(page, "/");
+    // The page ships no img today; the rule holds for any that arrives later.
     const bad = await page.evaluate(() =>
       [...document.querySelectorAll("img")]
         .filter((img) => !img.hasAttribute("alt"))
         .map((img) => img.src.slice(-40)),
     );
     expect(bad).toEqual([]);
-    // The yard photograph beside the closing tile is decoration.
-    expect(await page.locator("img[alt='']").count()).toBeGreaterThan(0);
   });
 });
 

@@ -55,7 +55,7 @@ export function LegalPage({ page }: { page: LegalPageKind }) {
   }, [page]);
 
   return (
-    <div data-orrn-legal={page} data-locale={locale} className="marketing-page orrn-ink-panel min-h-[100dvh] w-full">
+    <div data-orrn-legal={page} data-locale={locale} className="marketing-page min-h-[100dvh] w-full">
       <a
         href="#main"
         className="fixed left-3 top-3 z-50 -translate-y-24 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-primary-foreground no-underline focus-visible:translate-y-0"
@@ -64,7 +64,7 @@ export function LegalPage({ page }: { page: LegalPageKind }) {
       </a>
       <MarketingHeader />
       <main id="main" tabIndex={-1} className="marketing-legal-main">
-        <div className="marketing-container">
+        <div className="marketing-wrap">
           <header className="marketing-legal-header">
             <p className="marketing-legal-updated">{t(`legal.${page}.updated`)}</p>
             <h1>{t(`legal.${page}.title`)}</h1>
