@@ -5812,7 +5812,7 @@ Please check, Lalubhai:
 | `inbox.columns.when` | When | कब |
 | `inbox.columns.status` | Status | स्थिति |
 | `inbox.title` | Spectro inbox | स्पेक्ट्रो इनबॉक्स |
-| `inbox.subtitle` | Result files the spectrometer computer sent. Nothing is attached by itself: pick the melt each file belongs to. | स्पेक्ट्रोमीटर कंप्यूटर से आई नतीजों की फ़ाइलें। कुछ अपने आप नहीं जुड़ता: हर फ़ाइल के लिए मेल्ट खुद चुनें। |
+| `inbox.subtitle` | Result files from the spectrometer computer. Pick the melt for each file. orrn never attaches it automatically. | स्पेक्ट्रोमीटर कंप्यूटर से आई नतीजों की फ़ाइलें। कुछ अपने आप नहीं जुड़ता: हर फ़ाइल के लिए मेल्ट खुद चुनें। |
 | `inbox.tabs.label` | Files | फ़ाइलें |
 | `inbox.tabs.waiting` | Waiting | इंतज़ार में |
 | `inbox.tabs.arriving` | Arriving | आ रही हैं |
@@ -5827,7 +5827,7 @@ Please check, Lalubhai:
 | `inbox.instrument` | Instrument {name} | मशीन {name} |
 | `inbox.uploaded` | Received {time} | {time} पर मिली |
 | `inbox.simulated` | Simulated | सिम्युलेटर |
-| `inbox.simulatedHint` | Demo data from the simulator. It can only be dismissed. | सिम्युलेटर का डेमो डेटा। इसे सिर्फ़ हटाया जा सकता है। |
+| `inbox.simulatedHint` | Demo data from the simulator. You can only dismiss it. | सिम्युलेटर का डेमो डेटा। इसे सिर्फ़ हटाया जा सकता है। |
 | `inbox.status.uploading` | Arriving | आ रही है |
 | `inbox.status.pending_review` | Waiting | इंतज़ार में |
 | `inbox.status.attached` | Attached | जुड़ी |
@@ -5864,7 +5864,7 @@ Please check, Lalubhai:
 | `today.spectro` | Spectro waiting | स्पेक्ट्रो इंतज़ार में |
 | `today.spectroMeta` | Files to attach to a melt | मेल्ट से जोड़ने वाली फ़ाइलें |
 | `casts.title` | Casts | कास्ट |
-| `casts.subtitle` | Every cast, newest first. A cast is a campaign: several melts under one number. | हर कास्ट, नई पहले। कास्ट एक अभियान है: एक नंबर के नीचे कई मेल्ट। |
+| `casts.subtitle` | Every cast, newest first. A cast groups several melts under one number. | हर कास्ट, नई पहले। कास्ट एक अभियान है: एक नंबर के नीचे कई मेल्ट। |
 | `casts.open` | Open cast | कास्ट खोलें |
 | `casts.filter.label` | Status | स्थिति |
 | `casts.filter.all` | All | सब |
@@ -5906,7 +5906,7 @@ Please check, Lalubhai:
 | `newCast.loadFailed` | The alloys did not load. Check the connection and try again. | अलॉय नहीं आए। कनेक्शन देखकर फिर कोशिश करें। |
 | `newCast.opened` | Cast {number} is open | कास्ट {number} खुल गई |
 | `newCast.legacy` | Legacy code | पुराना कोड |
-| `newCast.legacyHint` | Optional. The code an old cast has in the paper book, so it can be found by it later. Each code is used once. | वैकल्पिक। पुरानी कास्ट का कागज़ी बही वाला कोड, ताकि बाद में उसी से मिल सके। हर कोड एक ही बार लगता है। |
+| `newCast.legacyHint` | Optional. Enter the old cast's paper-book code so you can find it later. Each code can be used only once. | वैकल्पिक। पुरानी कास्ट का कागज़ी बही वाला कोड, ताकि बाद में उसी से मिल सके। हर कोड एक ही बार लगता है। |
 | `newCast.legacyPlaceholder` | for example old-17 | जैसे old-17 |
 | `cast.heading` | Cast {number} | कास्ट {number} |
 | `cast.alloyIs` | Alloy {alloy} | अलॉय {alloy} |
@@ -5951,7 +5951,7 @@ Please check, Lalubhai:
 | `cast.close.askButton` | Send for approval | मंज़ूरी के लिए भेजें |
 | `cast.close.clean` | The count matches the ledger. Every billet is accounted for. | गिनती खाते से मिलती है। हर बिलेट का हिसाब पूरा है। |
 | `cast.close.countTitle` | Count the billets left | बचे हुए बिलेट गिनें |
-| `cast.close.countHint` | Count the billets of this cast still in the yard and weigh them. The tail is worked out from your count. | इस कास्ट के जो बिलेट अभी यार्ड में हैं, गिनकर तौलें। टेल आपकी गिनती से निकलती है। |
+| `cast.close.countHint` | Count the billets of this cast still in the yard and weigh them. The server works out the tail from your count. | इस कास्ट के जो बिलेट अभी यार्ड में हैं, गिनकर तौलें। टेल आपकी गिनती से निकलती है। |
 | `cast.close.pcs` | Billets counted (pieces) | गिने बिलेट (पीस) |
 | `cast.close.kg` | Billets counted (kg) | गिने बिलेट (kg) |
 | `cast.close.pcsInvalid` | Write the number of billets, 0 if none. | बिलेट की संख्या लिखें, न हों तो 0। |
@@ -5976,7 +5976,7 @@ Please check, Lalubhai:
 | `cast.close.sent` | Close of cast {number} sent for approval | कास्ट {number} का क्लोज़ मंज़ूरी के लिए भेजा गया |
 | `cast.cancel.button` | Cancel cast | कास्ट रद्द करें |
 | `cast.cancel.title` | Cancel cast {number} | कास्ट {number} रद्द करें |
-| `cast.cancel.body` | Only a cast with no melt and no billets can be cancelled. The number is not given back. | सिर्फ़ वही कास्ट रद्द होती है जिसमें न कोई मेल्ट है न बिलेट। नंबर वापस नहीं आता। |
+| `cast.cancel.body` | You can cancel only a cast with no melts or billets. orrn does not reuse its number. | सिर्फ़ वही कास्ट रद्द होती है जिसमें न कोई मेल्ट है न बिलेट। नंबर वापस नहीं आता। |
 | `cast.cancel.reason` | Why is it cancelled? | रद्द क्यों? |
 | `cast.cancel.reasonRequired` | Give a reason. | कारण लिखें। |
 | `cast.cancel.confirm` | Cancel cast | कास्ट रद्द करें |
@@ -6004,7 +6004,7 @@ Please check, Lalubhai:
 | `cast.cost.perKg` | Per kg of billet | बिलेट के प्रति kg |
 | `cast.cost.lotsKg` | Scrap lots kg | स्क्रैप लॉट kg |
 | `cast.cost.notCosted` | Not costed | लागत नहीं निकली |
-| `cast.cost.missingRate` | A lot has no rate, so the cost is not worked out. | किसी लॉट का रेट नहीं है, इसलिए लागत नहीं निकली। |
+| `cast.cost.missingRate` | A lot has no rate, so orrn cannot work out the cost. | किसी लॉट का रेट नहीं है, इसलिए लागत नहीं निकली। |
 | `cast.cost.streams` | Metal returned from streams ({kg} kg) carries no rate. | स्ट्रीम से लौटे मेटल ({kg} kg) का कोई रेट नहीं होता। |
 | `cast.cost.loadFailed` | The cost did not load. | लागत नहीं आई। |
 | `melt.title` | Melt | मेल्ट |
@@ -6058,7 +6058,7 @@ Please check, Lalubhai:
 | `melt.charge.overCapacity` | More metal than the furnace holds. | फर्नेस की क्षमता से ज़्यादा मेटल। |
 | `melt.charge.nearCapacity` | Near the furnace limit. | फर्नेस की सीमा के पास। |
 | `melt.chem.title` | Chemicals from the store | स्टोर से केमिकल |
-| `melt.chem.hint` | Each chemical used leaves the store when the melt is locked. Close is open less used. | मेल्ट लॉक होने पर इस्तेमाल हुआ हर केमिकल स्टोर से निकलता है। क्लोज़ = ओपन घटा इस्तेमाल। |
+| `melt.chem.hint` | Locking the melt takes each chemical used out of the store. Close is open less used. | मेल्ट लॉक होने पर इस्तेमाल हुआ हर केमिकल स्टोर से निकलता है। क्लोज़ = ओपन घटा इस्तेमाल। |
 | `melt.chem.item` | Chemical | केमिकल |
 | `melt.chem.pick` | Pick from the store | स्टोर से चुनें |
 | `melt.chem.other` | Not in the store (type its name) | स्टोर में नहीं (नाम लिखें) |
@@ -6127,7 +6127,7 @@ Please check, Lalubhai:
 | `melt.issue.tooMany` | Too many charge lines. | चार्ज की लाइनें बहुत ज़्यादा हैं। |
 | `melt.discard.button` | Discard draft | ड्राफ़्ट हटाएं |
 | `melt.discard.title` | Discard this draft? | यह ड्राफ़्ट हटाएं? |
-| `melt.discard.body` | Nothing was posted, so nothing is reversed. The draft is gone. | कुछ पोस्ट नहीं हुआ था, इसलिए कुछ पलटना नहीं है। ड्राफ़्ट चला जाएगा। |
+| `melt.discard.body` | The draft posted nothing, so there is nothing to reverse. Discarding removes it. | कुछ पोस्ट नहीं हुआ था, इसलिए कुछ पलटना नहीं है। ड्राफ़्ट चला जाएगा। |
 | `melt.discard.reason` | Reason (optional) | कारण (ज़रूरी नहीं) |
 | `melt.discard.confirm` | Discard draft | ड्राफ़्ट हटाएं |
 | `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
@@ -6136,7 +6136,7 @@ Please check, Lalubhai:
 | `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
 | `melt.spectroNeedsSample` | The alloy changed. A new sample is needed for {alloy}, or write why it is not. | अलॉय बदल गया। {alloy} के लिए नया सैंपल चाहिए, या लिखें कि क्यों नहीं। |
 | `melt.cancel.title` | Cancel this melt | यह मेल्ट रद्द करें |
-| `melt.cancel.body` | Use this for a melt locked by mistake, when nobody needs it corrected. The kg and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। kg और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
+| `melt.cancel.body` | Use this for a melt locked by mistake when nobody needs a correction. Cancelling reverses the kg and store draws but keeps the melt number as cancelled. You cannot cancel after the press uses its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। kg और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
 | `melt.cancel.button` | Cancel melt | मेल्ट रद्द करें |
 | `melt.cancel.sheetTitle` | Cancel melt {n} of {number} | {number} की मेल्ट {n} रद्द करें |
 | `melt.cancel.reason` | Why is it cancelled? | रद्द क्यों की? |
@@ -6150,7 +6150,7 @@ Please check, Lalubhai:
 | `melt.sheet.alloyReason` | Alloy note: {note} | अलॉय की टिप्पणी: {note} |
 | `melt.sheet.spectroReason` | Spectro note: {note} | स्पेक्ट्रो की टिप्पणी: {note} |
 | `melt.correction.title` | Correct this melt | इस मेल्ट को सुधारें |
-| `melt.correction.body` | A locked melt is not edited. Ask for a correction. When an approver agrees, the melt is reversed and opens again as a draft. | लॉक मेल्ट बदली नहीं जाती। सुधार माँगें। मंज़ूरी देने वाले के हाँ करने पर मेल्ट पलट दी जाती है और ड्राफ़्ट बनकर फिर खुलती है। |
+| `melt.correction.body` | You cannot edit a locked melt. Ask for a correction. Approval reverses the melt and reopens it as a draft. | लॉक मेल्ट बदली नहीं जाती। सुधार माँगें। मंज़ूरी देने वाले के हाँ करने पर मेल्ट पलट दी जाती है और ड्राफ़्ट बनकर फिर खुलती है। |
 | `melt.correction.ask` | Ask for a correction | सुधार माँगें |
 | `melt.correction.askTitle` | Ask to correct this melt | इस मेल्ट का सुधार माँगें |
 | `melt.correction.reason` | What is wrong | क्या गलत है |
@@ -6231,14 +6231,14 @@ Please check, Lalubhai:
 | `stock.onHand` | On hand | हाथ में |
 | `stock.loadFailed` | The billet stock did not load. Check the connection and try again. | बिलेट स्टॉक नहीं आया। कनेक्शन देखकर फिर कोशिश करें। |
 | `stock.streams.title` | Return streams | रिटर्न स्ट्रीम |
-| `stock.streams.hint` | Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds, so a new plant states what it holds now. | प्लांट स्क्रैप, ड्रॉस और बाकी स्ट्रीम जिनसे मेल्ट मेटल लेती है। मेल्ट स्ट्रीम में जितना है उससे ज़्यादा नहीं ले सकती, इसलिए नया प्लांट अभी का स्टॉक बताता है। |
+| `stock.streams.hint` | Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds. Enter what a new plant holds now. | प्लांट स्क्रैप, ड्रॉस और बाकी स्ट्रीम जिनसे मेल्ट मेटल लेती है। मेल्ट स्ट्रीम में जितना है उससे ज़्यादा नहीं ले सकती, इसलिए नया प्लांट अभी का स्टॉक बताता है। |
 | `stock.streams.balance` | {kg} kg | {kg} kg |
 | `stock.streams.open` | Set opening balance | ओपनिंग बैलेंस डालें |
 | `stock.streams.sheetTitle` | Opening balance of {name} | {name} का ओपनिंग बैलेंस |
 | `stock.streams.kg` | Kg held now | अभी हाथ में kg |
 | `stock.streams.kgInvalid` | Write the kg as a number above zero. | kg अंक में, शून्य से ऊपर लिखें। |
 | `stock.streams.note` | Note (optional) | टिप्पणी (ज़रूरी नहीं) |
-| `stock.streams.once` | This is posted once for each stream. Later stock moves through melts and the press. | यह हर स्ट्रीम के लिए एक बार डलता है। इसके बाद स्टॉक मेल्ट और प्रेस से हिलता है। |
+| `stock.streams.once` | Post this once for each stream. Later stock moves through melts and the press. | यह हर स्ट्रीम के लिए एक बार डलता है। इसके बाद स्टॉक मेल्ट और प्रेस से हिलता है। |
 | `stock.streams.save` | Post opening balance | ओपनिंग बैलेंस डालें |
 | `stock.streams.saved` | Opening balance posted | ओपनिंग बैलेंस डल गया |
 | `stock.streams.posted` | Opening balance posted | ओपनिंग बैलेंस डल चुका |
@@ -6256,7 +6256,7 @@ Please check, Lalubhai:
 | `cert.noBundles` | No bundle names this cast yet. | अभी किसी बंडल पर यह कास्ट नहीं लिखी। |
 | `cert.footer` | Printed {date}. Staff copy, not a tax invoice. | {date} को प्रिंट। स्टाफ़ कॉपी, टैक्स इनवॉइस नहीं। |
 | `masters.furnaces` | Furnaces | फर्नेस |
-| `masters.furnacesSubtitle` | Each furnace has a capacity. A melt cannot be locked above it. | हर फर्नेस की एक क्षमता है। उससे ऊपर मेल्ट लॉक नहीं होती। |
+| `masters.furnacesSubtitle` | Each furnace has a capacity. You cannot lock a melt above it. | हर फर्नेस की एक क्षमता है। उससे ऊपर मेल्ट लॉक नहीं होती। |
 | `masters.alloys` | Alloys | अलॉय |
 | `masters.alloysSubtitle` | The elements and limits a spectro result is judged against. | वे तत्व और सीमाएं जिनसे स्पेक्ट्रो नतीजा जाँचा जाता है। |
 | `masters.addFurnace` | Add furnace | फर्नेस जोड़ें |
@@ -6301,7 +6301,7 @@ Please check, Lalubhai:
 | `masters.limitOrder` | The minimum is above the maximum. | न्यूनतम अधिकतम से ऊपर है। |
 | `masters.loadFailed` | The list did not load. Check the connection and try again. | सूची नहीं आई। कनेक्शन देखकर फिर कोशिश करें। |
 | `yield.title` | Foundry yield | फाउंड्री यील्ड |
-| `yield.subtitle` | Locked melts only, by production day, alloy or furnace. A draft cannot improve the month. | सिर्फ़ लॉक मेल्ट, उत्पादन दिन, अलॉय या फर्नेस के हिसाब से। ड्राफ़्ट महीने को बेहतर नहीं दिखा सकता। |
+| `yield.subtitle` | Locked melts only, by production day, alloy or furnace. Drafts do not count. | सिर्फ़ लॉक मेल्ट, उत्पादन दिन, अलॉय या फर्नेस के हिसाब से। ड्राफ़्ट महीने को बेहतर नहीं दिखा सकता। |
 | `yield.groupBy` | Group by | ऐसे बाँटें |
 | `yield.group.day` | Day | दिन |
 | `yield.group.alloy` | Alloy | अलॉय |
@@ -6647,7 +6647,7 @@ Please check, Lalubhai:
 | `hardness.sample` | Sample {n} | नमूना {n} |
 | `hardness.invalid` | Type each sample as a number with one decimal at most. | हर नमूना अधिकतम एक दशमलव वाली संख्या में लिखें। |
 | `hardness.median` | Median {value} | माध्य {value} |
-| `hardness.otherMethod` | Only {method} decides the line. Other methods are kept, not counted. | लाइन का फ़ैसला सिर्फ़ {method} से होता है। दूसरी विधि रखी जाती है, गिनी नहीं जाती। |
+| `hardness.otherMethod` | Only {method} decides the line. Other methods stay on record but do not count. | लाइन का फ़ैसला सिर्फ़ {method} से होता है। दूसरी विधि रखी जाती है, गिनी नहीं जाती। |
 | `hardness.forLine` | {pcs} pcs on this line. | इस लाइन पर {pcs} पीस। |
 | `hardness.save` | Save hardness | कठोरता सेव करें |
 | `hardness.saved` | {section}: median {median}, {result}. | {section}: माध्य {median}, {result}। |
@@ -6655,7 +6655,7 @@ Please check, Lalubhai:
 | `hardness.untested` | Not tested | जांच नहीं हुई |
 | `hold.titleLine` | Hold {section} | {section} होल्ड करें |
 | `hold.titleBatch` | Hold {number} | {number} होल्ड करें |
-| `hold.subtitle` | Held pieces stay off the pack list until they are cleared. | होल्ड का माल हटाए जाने तक पैक की सूची से बाहर रहता है। |
+| `hold.subtitle` | Clear the hold to put held pieces back on the pack list. | होल्ड का माल हटाए जाने तक पैक की सूची से बाहर रहता है। |
 | `hold.reason` | Reason | कारण |
 | `hold.pick` | Pick a reason | कारण चुनें |
 | `hold.reasonRequired` | Pick a reason. | कारण चुनें। |
@@ -6663,12 +6663,12 @@ Please check, Lalubhai:
 | `hold.noteRequired` | Say what is wrong. | क्या गड़बड़ है, लिखें। |
 | `hold.done` | Held. | होल्ड कर दिया। |
 | `unhold.title` | Clear the hold on {section} | {section} का होल्ड हटाएं |
-| `unhold.body` | The line goes back to where it was. A failed test clears with a retest or an approval. | लाइन वापस पहले जैसी हो जाती है। फ़ेल जांच दोबारा जांच या मंज़ूरी से हटती है। |
+| `unhold.body` | The line returns to its previous state. A failed test needs a retest or approval to clear. | लाइन वापस पहले जैसी हो जाती है। फ़ेल जांच दोबारा जांच या मंज़ूरी से हटती है। |
 | `unhold.done` | Hold cleared. | होल्ड हट गया। |
 | `discard.title` | Discard the rest of {section} | {section} का बचा माल फेंकें |
 | `discard.left` | {pcs} pcs left on this line. | इस लाइन पर {pcs} पीस बचे हैं। |
 | `discard.kg` | About {kg} kg | लगभग {kg} kg |
-| `discard.hint` | Discarded pieces leave {number} and are not packed. | फेंके गए पीस {number} से निकल जाते हैं और पैक नहीं होते। |
+| `discard.hint` | Discarding removes pieces from {number} and keeps them out of packing. | फेंके गए पीस {number} से निकल जाते हैं और पैक नहीं होते। |
 | `discard.done` | Pieces discarded. | पीस फेंक दिए गए। |
 | `split.title` | Split {section} | {section} को बांटें |
 | `split.body` | {pcs} pcs at {mm} mm, {total} mm in all. | {mm} mm के {pcs} पीस, कुल {total} mm। |
@@ -6695,17 +6695,17 @@ Please check, Lalubhai:
 | `rework.trolleyHint` | Leave as is to use the same trolley. | वही ट्रॉली रखने के लिए जैसा है वैसा छोड़ें। |
 | `rework.sameTrolley` | Same trolley | वही ट्रॉली |
 | `rework.recipe` | Recipe | रेसिपी |
-| `rework.recipeHint` | The top-up recipe for this alloy is used when you pick none. | कुछ न चुनें तो इस एलॉय की टॉप-अप रेसिपी लगती है। |
+| `rework.recipeHint` | If you pick none, orrn uses the top-up recipe for this alloy. | कुछ न चुनें तो इस एलॉय की टॉप-अप रेसिपी लगती है। |
 | `rework.defaultRecipe` | Top-up recipe | टॉप-अप रेसिपी |
 | `rework.done` | Opened {number}. | {number} खुला। |
 | `void.title` | Void {number} | {number} रद्द करें |
 | `void.bodyLoading` | Nothing went in the oven. The pieces go back to their press lines. | ओवन में कुछ नहीं गया। पीस अपनी प्रेस लाइन पर लौट जाते हैं। |
-| `void.bodyAfter` | Say why this batch is voided. A batch with pieces already moved or packed cannot be voided. | बताएं यह बैच क्यों रद्द हो रहा है। जिस बैच से पीस हट चुके या पैक हो चुके हों वह रद्द नहीं होता। |
+| `void.bodyAfter` | Say why you are voiding this batch. You cannot void a batch with pieces already moved or packed. | बताएं यह बैच क्यों रद्द हो रहा है। जिस बैच से पीस हट चुके या पैक हो चुके हों वह रद्द नहीं होता। |
 | `void.bodyRework` | This undoes the rework. The pieces go back to the first batch, held again. | इससे दोबारा एजिंग रद्द होती है। पीस पहले बैच में लौटते हैं, फिर से होल्ड पर। |
 | `void.done` | {number} voided. | {number} रद्द हुआ। |
 | `batch.title` | Ageing batch | एजिंग बैच |
 | `batch.lines` | Lines | लाइनें |
-| `batch.linesHint` | Pieces left are the server's count. | बचे पीस सर्वर की गिनती हैं। |
+| `batch.linesHint` | The server counts the pieces left. | बचे पीस सर्वर की गिनती हैं। |
 | `batch.more` | More | और |
 | `batch.actions` | Actions | कार्रवाई |
 | `batch.addMore` | Add more lines | और लाइनें जोड़ें |
@@ -6723,7 +6723,7 @@ Please check, Lalubhai:
 | `verdict.below` | Below the band | बैंड से नीचे |
 | `verdict.unknown` | No reading | रीडिंग नहीं |
 | `verdict.unknownHint` | Log a reading at least every 15 minutes. | कम से कम हर 15 मिनट में रीडिंग लिखें। |
-| `verdict.say.ok` | The soak was met. | सोक पूरा हुआ। |
+| `verdict.say.ok` | The batch met the soak requirement. | सोक पूरा हुआ। |
 | `verdict.say.under_aged` | Short by {short} at temperature. | तापमान पर {short} कम रहा। |
 | `verdict.say.over_aged` | Too long at temperature ({over}) or above the band for {above}. | तापमान पर ज़्यादा देर ({over}) या बैंड से ऊपर {above}। |
 | `verdict.say.no_readings` | No readings were logged. | कोई रीडिंग दर्ज नहीं हुई। |
@@ -6748,7 +6748,7 @@ Please check, Lalubhai:
 | `report.group.day` | Day | दिन |
 | `report.group.oven` | Oven | ओवन |
 | `report.anyShift` | Any shift | कोई भी शिफ़्ट |
-| `report.badRange` | From must be on or before to. | शुरू की तारीख़ आख़िरी तारीख़ से पहले या वही होनी चाहिए। |
+| `report.badRange` | The From date must be on or before the To date. | शुरू की तारीख़ आख़िरी तारीख़ से पहले या वही होनी चाहिए। |
 | `report.shown` | {from} to {to} of {total} | {total} में से {from} से {to} |
 | `report.prev` | Previous | पिछला |
 | `report.next` | Next | अगला |
@@ -6905,7 +6905,7 @@ Please check, Lalubhai:
 | `standards.solid` | Solid | सॉलिड |
 | `standards.hollow` | Hollow | हॉलो |
 | `standards.semi` | Semi hollow | सेमी हॉलो |
-| `standards.semiFallback` | Left blank, semi hollow uses the solid one. | खाली छोड़ें तो सेमी हॉलो में सॉलिड वाला लगेगा। |
+| `standards.semiFallback` | If left blank, semi hollow uses the solid standard. | खाली छोड़ें तो सेमी हॉलो में सॉलिड वाला लगेगा। |
 | `modules.title` | Modules | मॉड्यूल |
 | `modules.hint` | Turn off what the plant doesn't use. | जो प्लांट में नहीं चलता उसे बंद करें। |
 | `modules.names.customers` | Customers | ग्राहक |
@@ -6941,7 +6941,7 @@ Please check, Lalubhai:
 | `collectors.intro` | The limits a press reading must stay inside. A reading outside them raises an alert on Today and on the press alerts list. | प्रेस की रीडिंग जिस सीमा के अंदर रहनी चाहिए। सीमा से बाहर जाने पर आज के पेज और प्रेस अलर्ट सूची में अलर्ट आता है। |
 | `collectors.line` | Press | प्रेस |
 | `collectors.allLines` | Every press | हर प्रेस |
-| `collectors.allLinesHint` | Used for a press that has no limits of its own. | उस प्रेस के लिए जिसकी अपनी सीमा नहीं है। |
+| `collectors.allLinesHint` | orrn uses these limits for a press that has none of its own. | उस प्रेस के लिए जिसकी अपनी सीमा नहीं है। |
 | `collectors.metric` | Reading | रीडिंग |
 | `collectors.min` | Lower limit | निचली सीमा |
 | `collectors.max` | Upper limit | ऊपरी सीमा |
@@ -7018,10 +7018,10 @@ Please check, Lalubhai:
 | `size` | {mb} megabytes | {mb} मेगाबाइट |
 | `drillTitle` | Restore drill | रिस्टोर ड्रिल |
 | `drillNone` | No restore drill yet. orrn runs one every quarter. | अभी कोई रिस्टोर ड्रिल नहीं हुई। orrn हर तिमाही एक चलाता है। |
-| `drillBody` | A drill restores the latest backup into a scratch copy and compares the counts of customers, dies, bundles and dispatches. Your live data is not touched. | ड्रिल में ताज़ा बैकअप को एक अलग कॉपी में बहाल करके ग्राहक, die, bundle और dispatch की गिनती मिलाई जाती है। आपका असली डेटा नहीं छुआ जाता। |
+| `drillBody` | A drill restores the latest backup into a scratch copy and compares the counts of customers, dies, bundles and dispatches. It does not touch your live data. | ड्रिल में ताज़ा बैकअप को एक अलग कॉपी में बहाल करके ग्राहक, die, bundle और dispatch की गिनती मिलाई जाती है। आपका असली डेटा नहीं छुआ जाता। |
 | `drillLast` | Last drill: {status}, {time} | आखिरी ड्रिल: {status}, {time} |
-| `runbook` | Ask orrn support to run the restore drill. It is done every quarter. | रीस्टोर ड्रिल चलवाने के लिए orrn सपोर्ट से कहें। यह हर तिमाही होती है। |
-| `cardHint` | Status only. There is no download: the plant can't fetch or restore its own backup. | सिर्फ़ स्थिति दिखती है। डाउनलोड नहीं है: प्लांट अपना बैकअप खुद नहीं ले या बहाल कर सकता। |
+| `runbook` | Ask orrn support to run the quarterly restore drill. | रीस्टोर ड्रिल चलवाने के लिए orrn सपोर्ट से कहें। यह हर तिमाही होती है। |
+| `cardHint` | Status only. The plant cannot download or restore its own backup. | सिर्फ़ स्थिति दिखती है। डाउनलोड नहीं है: प्लांट अपना बैकअप खुद नहीं ले या बहाल कर सकता। |
 | `staffTitle` | For orrn staff | orrn स्टाफ़ के लिए |
 | `runNow` | Back up now | अभी बैकअप लें |
 | `runDrill` | Run restore drill | रिस्टोर ड्रिल चलाएं |
@@ -7119,7 +7119,7 @@ Please check, Lalubhai:
 | `details` | Details | जानकारी |
 | `showMore` | Show older entries | पुरानी एंट्री दिखाएं |
 | `loadingMore` | Loading | लोड हो रहा है |
-| `since` | Showing entries since {date}. Older ones are kept. | {date} से एंट्री दिख रही हैं। पुरानी रखी हुई हैं। |
+| `since` | Showing entries since {date}. orrn keeps older entries. | {date} से एंट्री दिख रही हैं। पुरानी रखी हुई हैं। |
 | `empty` | Nothing matches these filters | इन फ़िल्टर से कुछ नहीं मिला |
 | `emptyBody` | Try a wider range of dates or clear a filter. | तारीखों की सीमा बढ़ाएं या कोई फ़िल्टर हटाएं। |
 | `emptyNone` | Nothing has been recorded yet | अभी कुछ दर्ज नहीं हुआ |
@@ -7474,8 +7474,8 @@ Please check, Lalubhai:
 | `certificate.verdict.pass` | Passed | पास |
 | `certificate.verdict.fail` | Failed | फ़ेल |
 | `certificate.verdict.incomplete` | Incomplete | अधूरा |
-| `certificate.chemistryPending` | Chemistry pending: the plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन कास्ट की जांच अभी नहीं की है। |
-| `certificate.chemistryPartial` | Chemistry for {tested} of {total} bundles that name a cast. The rest are not tested yet. | कास्ट वाले {total} बंडल में से {tested} की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
+| `certificate.chemistryPending` | Chemistry pending. The plant has not tested these casts yet. | केमिस्ट्री बाकी: प्लांट ने इन कास्ट की जांच अभी नहीं की है। |
+| `certificate.chemistryPartial` | Chemistry is ready for {tested} of {total} bundles that name a cast. The rest still need testing. | कास्ट वाले {total} बंडल में से {tested} की केमिस्ट्री। बाकी की जांच अभी नहीं हुई। |
 | `certificate.noCastBundles` | {n} bundles have no cast number | {n} बंडल पर कास्ट नंबर नहीं है |
 | `certificate.noCastBundlesOne` | 1 bundle has no cast number | 1 बंडल पर कास्ट नंबर नहीं है |
 | `certificate.castsFailed` | {n} casts failed chemistry | {n} कास्ट केमिस्ट्री में फ़ेल हुए |
@@ -7610,7 +7610,7 @@ Please check, Lalubhai:
 | `dieLife.cardNoLife` | No life set for this copy. Pressed so far: {pressed} kg | इस copy की लाइफ तय नहीं। अब तक निकला: {pressed} kg |
 | `dieLife.cardReached` | Life reached. Retire the copy or set a new life on the card. | लाइफ पूरी हो गई। copy रिटायर करें या कार्ड पर नई लाइफ डालें। |
 | `stockAge.title` | Stock age | स्टॉक की उम्र |
-| `stockAge.subtitle` | Available bundles in the yard by days since packing. Bundles held on a truck are left out. | यार्ड में पड़े available bundle, पैकिंग से कितने दिन हुए। ट्रक पर होल्ड bundle शामिल नहीं। |
+| `stockAge.subtitle` | Available bundles in the yard by days since packing. Bundles held on a truck do not appear. | यार्ड में पड़े available bundle, पैकिंग से कितने दिन हुए। ट्रक पर होल्ड bundle शामिल नहीं। |
 | `stockAge.asOf` | Days counted to {date} | {date} तक के दिन |
 | `stockAge.show` | Show | दिखाएं |
 | `stockAge.all` | All stock | सारा स्टॉक |
@@ -7633,7 +7633,7 @@ Please check, Lalubhai:
 | `stockAge.empty` | No available bundles in the yard. | यार्ड में कोई available bundle नहीं। |
 | `stockAge.csvName` | stock-age | stock-age |
 | `orders.title` | Order book report | ऑर्डर बुक रिपोर्ट |
-| `orders.subtitle` | The order book summed by party or by order month. Open orders unless you pick another status; the total is the order book strip for the same filter. | पार्टी या ऑर्डर महीने के हिसाब से ऑर्डर बुक का जोड़। जब तक दूसरी स्थिति न चुनें, खुले ऑर्डर दिखते हैं; कुल वही है जो इसी फ़िल्टर पर ऑर्डर बुक की पट्टी में है। |
+| `orders.subtitle` | Totals by party or order month. Open orders appear unless you pick another status. The total matches the order book strip for the same filter. | पार्टी या ऑर्डर महीने के हिसाब से ऑर्डर बुक का जोड़। जब तक दूसरी स्थिति न चुनें, खुले ऑर्डर दिखते हैं; कुल वही है जो इसी फ़िल्टर पर ऑर्डर बुक की पट्टी में है। |
 | `orders.groupBy` | Group by | किस हिसाब से |
 | `orders.byParty` | By party | पार्टी के हिसाब से |
 | `orders.byMonth` | By month | महीने के हिसाब से |
@@ -7693,7 +7693,7 @@ Please check, Lalubhai:
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Label sheet | लेबल शीट |
-| `subtitle` | Stickers for the browser to print on A4, for when no label printer is connected. | ब्राउज़र से A4 पर छापने के स्टिकर, जब कोई लेबल प्रिंटर जुड़ा न हो। |
+| `subtitle` | Print A4 stickers in the browser when no label printer is connected. | ब्राउज़र से A4 पर छापने के स्टिकर, जब कोई लेबल प्रिंटर जुड़ा न हो। |
 | `print` | Print | प्रिंट करें |
 | `perPage` | Stickers per page | हर पन्ने पर स्टिकर |
 | `size10` | 10 per page | हर पन्ने पर 10 |

@@ -638,7 +638,7 @@ test.describe("backup, help and about", () => {
       await open(page, "/settings?tab=backup", { width });
       const backup = page.getByTestId("settings-backup");
       await expect(backup.getByRole("heading", { name: "Restore drill" })).toBeVisible();
-      await expect(backup.getByText("Ask orrn support to run the restore drill. It is done every quarter.")).toBeVisible();
+      await expect(backup.getByText("Ask orrn support to run the quarterly restore drill.")).toBeVisible();
       // No repo path or file name on a plant screen.
       await expect(backup).not.toContainText(/docs\/|\.md\b/);
       await expect(backup.getByTestId("backup-last")).toBeVisible();
