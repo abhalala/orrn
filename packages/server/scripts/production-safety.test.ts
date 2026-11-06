@@ -4,7 +4,9 @@ import { mkdtemp, readFile, readdir, rm, writeFile, mkdir } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { assertPreserved, decryptBackup, encryptBackup, orderExportSql, pendingMigrations } from "./production-safety";
+import { wrapSecret } from "@orrn/crypto";
+
+import { assertMasterKeyOpens, assertPreserved, decryptBackup, encryptBackup, orderExportSql, pendingMigrations } from "./production-safety";
 
 const temporary = await mkdtemp(join(tmpdir(), "orrn-production-safety-test-"));
 const root = resolve(import.meta.dir, "../../..");
@@ -23,6 +25,26 @@ describe("production release guards", () => {
     expect(() => assertPreserved({ bundle: 2 }, {})).toThrow();
     expect(() => assertPreserved({ bundle: 2 }, { bundle: 3 })).toThrow();
     expect(() => assertPreserved({ bundle: 2 }, { bundle: 3 }, true)).not.toThrow();
+  });
+
+  // Review fix (2026-11-05): a deploy key that differs from the one that wrapped production's node
+  // secrets deploys fine and then strands every node. The rehearsal stops before production writes.
+  test("the deploy key must open production's wrapped node secrets", async () => {
+    const key = Buffer.alloc(32, 7).toString("base64");
+    const other = Buffer.alloc(32, 9).toString("base64");
+    const wrapped = [await wrapSecret("nsec_one", key), await wrapSecret("nsec_two", key)];
+    expect(await assertMasterKeyOpens(wrapped, key)).toEqual({ checked: 2, opened: 2 });
+    await expect(assertMasterKeyOpens(wrapped, other)).rejects.toThrow("opens none of the 2");
+    await expect(assertMasterKeyOpens(wrapped, undefined)).rejects.toThrow("ORRN_MASTER_KEY is required");
+    // Nothing wrapped yet (a database with no nodes): nothing to check, and no key needed.
+    expect(await assertMasterKeyOpens([], undefined)).toEqual({ checked: 0, opened: 0 });
+    // One older row the key cannot open does not stop the deploy; the count says so.
+    expect(await assertMasterKeyOpens([...wrapped, await wrapSecret("nsec_old", other)], key)).toEqual({ checked: 3, opened: 2 });
+    // The message never carries a secret.
+    const failure = await assertMasterKeyOpens(wrapped, other).catch((error: Error) => error.message);
+    expect(failure).not.toContain(key);
+    expect(failure).not.toContain(other);
+    expect(failure).not.toContain("nsec_");
   });
 
   test("encrypted backup restores exactly and rejects tampering and the wrong historical key", async () => {
@@ -51,6 +73,10 @@ describe("production release guards", () => {
     const files = (await readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort();
     const baseline = files.filter((name) => Number(name.slice(0, 4)) <= 9);
     const db = new Database(":memory:");
+    // The deploy key check (assertMasterKeyOpens) runs on this copy: one node secret wrapped with the fixture's key.
+    const fixtureKey = Buffer.alloc(32, 5).toString("base64");
+    const nodeSecret = await wrapSecret("nsec_release_fixture", fixtureKey);
+    const tunnelToken = await wrapSecret("release-fixture-tunnel", fixtureKey);
     let sql = "";
     for (const file of baseline) { const part = await readFile(join(migrationsDir, file), "utf8"); db.exec(part); sql += `${part}\n`; }
     const fixture = `
@@ -60,6 +86,7 @@ INSERT INTO die (id, company_id, series, section_code, weight_min_g, weight_max_
 INSERT INTO bundle_group (id, company_id, die_id, unit, code) VALUES ('release-group', 'release-company', 'release-die', 'mm', 'BG-000001');
 INSERT INTO bundle (id, company_id, group_id, die_id, serial, quantity, weight_g, length_mm) VALUES ('release-bundle', 'release-company', 'release-group', 'release-die', 'BG-000001-B001', 20, 50000, 3658);
 INSERT INTO dispatch (id, company_id, code, customer_id) VALUES ('release-dispatch', 'release-company', 'DSP-1', 'release-customer');
+INSERT INTO spool_deployment (id, company_id, instance_id, status, subdomain, spool_domain, cf_tunnel_token_wrapped, shared_secret_hash, shared_secret_wrapped) VALUES ('release-node', 'release-company', 'release-instance', 'active', 'release-node', 'release-node.spool.orrn.in', '${tunnelToken}', 'x', '${nodeSecret}');
 CREATE TABLE d1_migrations_legacy (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, applied_at TEXT);
 INSERT INTO d1_migrations_legacy (name, applied_at) VALUES ('0000_polite_sabra.sql', '2026-10-01');
 DROP TABLE d1_migrations_legacy;
@@ -75,7 +102,7 @@ ${baseline.map((name, i) => `INSERT INTO d1_migrations VALUES ('${String(i + 1).
     const fixtureEnv: NodeJS.ProcessEnv = { ...process.env, RUNNER_TEMP: temporary };
     delete fixtureEnv.CLOUDFLARE_API_TOKEN;
     delete fixtureEnv.CLOUDFLARE_ACCOUNT_ID;
-    delete fixtureEnv.ORRN_MASTER_KEY;
+    fixtureEnv.ORRN_MASTER_KEY = fixtureKey;
     const wranglerBin = join(root, "apps/server/node_modules/.bin/wrangler");
     const sourceDir = join(temporary, "source-d1");
     await mkdir(sourceDir);
@@ -93,6 +120,7 @@ ${baseline.map((name, i) => `INSERT INTO d1_migrations VALUES ('${String(i + 1).
     expect(new TextDecoder().decode(result.stderr)).toBe("");
     expect(result.exitCode).toBe(0);
     expect(new TextDecoder().decode(result.stdout)).toContain("Every existing table's row count and foreign-key integrity were preserved");
+    expect(new TextDecoder().decode(result.stdout)).toContain("ORRN_MASTER_KEY opened 1 of 1 wrapped node secrets on the production copy.");
     const checked = Bun.spawnSync([join(root, "apps/server/node_modules/.bin/wrangler"), "d1", "execute", "DB", "--local", "--persist-to", join(directory, "state"), "--config", join(directory, "wrangler.json"), "--command", "SELECT (SELECT notes FROM die WHERE id='release-die') AS notes, (SELECT modules FROM company WHERE id='release-company') AS modules, (SELECT weight_g FROM bundle WHERE id='release-bundle') AS grams", "--json"], { cwd: root, env: fixtureEnv, stdout: "pipe", stderr: "pipe" });
     expect(checked.exitCode).toBe(0);
     const row = JSON.parse(new TextDecoder().decode(checked.stdout))[0].results[0];
