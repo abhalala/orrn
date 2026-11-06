@@ -1269,7 +1269,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   before any page but English `/` renders; `t()` stays synchronous. A new locale (gu) goes in
   `LOCALES` (core.ts), `dictionaries.ts` and the `LOADERS` of `dictionaries.web.ts`. Never import a
   locale file, `@orrn/i18n/en`, `@orrn/i18n/hi` or `@orrn/i18n/guides` from a route or shared web
-  code. A new `t()` on the marketing page needs its key in `public-keys.ts` plus
+  code. A new `t()` on the homepage (`/`) needs its key in `public-keys.ts` plus
   `bun run --cwd packages/i18n gen:public` (tests fail until then).
   `apps/web/scripts/check-route-budget.ts` fails the build when Hindi, the full English or guide
   text reaches the `/` closure.
