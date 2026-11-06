@@ -7,7 +7,11 @@ import "@/features/marketing/marketing.css";
 import { Cta } from "@/features/marketing/cta";
 import { MarketingFooter } from "@/features/marketing/footer";
 import { Hero } from "@/features/marketing/hero";
+import { Languages } from "@/features/marketing/languages";
 import { MarketingHeader } from "@/features/marketing/marketing-header";
+import { Numbers } from "@/features/marketing/numbers";
+import { Stages } from "@/features/marketing/stages";
+import { Truck } from "@/features/marketing/truck";
 import { loadMe } from "@/shared/lib/guards";
 import { homeTarget } from "@/shared/lib/home";
 import { readStoredLocale } from "@/shared/lib/locale";
@@ -70,15 +74,10 @@ function MarketingPage() {
       <MarketingHeader />
       <main id="main" tabIndex={-1}>
         <Hero />
-        {/*
-          TODO(home2): the four middle sections come in the next stage, in this order, between Hero and Cta:
-          <Stages /> (section#flow, DIRECTION 6.3), <Truck /> (section#truck, 6.4),
-          <Numbers /> (section#numbers, 6.5), <Languages /> (section#floor, 6.6).
-          Each is a `section.marketing-section` with `aria-labelledby`, a `.marketing-wrap.marketing-grid`
-          holding `.marketing-copy` and `.marketing-proof`. marketing.css already carries their rules
-          (.marketing-stages, .marketing-phone and .marketing-scan, .marketing-sums and .marketing-rules,
-          .marketing-trio). The header's section observer watches #flow and #floor.
-        */}
+        <Stages />
+        <Truck />
+        <Numbers />
+        <Languages />
         <Cta />
       </main>
       <MarketingFooter />
