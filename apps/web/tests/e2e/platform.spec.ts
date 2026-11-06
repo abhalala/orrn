@@ -522,7 +522,7 @@ test.describe("team", () => {
     // The local stack has no email provider: the link comes up at once, and nothing says "sent".
     const dialog = page.getByRole("dialog", { name: `Invite link for ${email}` });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("status")).toHaveText("The invite is saved, but the email did not go. Copy the link and send it by WhatsApp or your own mail.");
+    await expect(dialog.getByRole("status")).toHaveText("orrn saved the invite but couldn't send the email. Copy the link and send it by WhatsApp or your own mail.");
     const url = (await dialog.getByTestId("member-invite-url").textContent())!.trim();
     expect(url).toMatch(/\/invite\/[0-9a-f-]{36}$/);
     await expect(page.getByText(`Invite sent to ${email}`)).toHaveCount(0);

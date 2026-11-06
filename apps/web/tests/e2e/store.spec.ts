@@ -394,7 +394,7 @@ test.describe("store entries", () => {
     await page.getByRole("button", { name: "Receive", exact: true }).click();
     // Not "Not saved": it was saved, only the answer was lost.
     await expect(page.getByRole("alert")).toHaveText(
-      "orrn didn't confirm this save, so it may have gone through. Tap Receive again to check: the same entry is never saved twice.",
+      "orrn didn't confirm this save. It may have gone through. Tap Receive again to check. The same entry is never saved twice.",
     );
     expect((await entriesOf(page, item.id)).filter((e) => e.kind === "grn")).toHaveLength(1);
 
@@ -469,7 +469,7 @@ test.describe("store entries", () => {
     await issue.click();
     const alert = page.getByRole("alert");
     await expect(alert).toHaveText(
-      "orrn didn't confirm this save, so it may have gone through. Tap Issue again to check: the same entry is never saved twice.",
+      "orrn didn't confirm this save. It may have gone through. Tap Issue again to check. The same entry is never saved twice.",
     );
     const [first] = (await entriesOf(page, item.id)).filter((e) => e.kind === "mrs");
     expect(first, "the lost request was saved").toBeTruthy();
