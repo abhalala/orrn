@@ -29,15 +29,8 @@ export function Office() {
   return (
     <section id="office" className="marketing-office" aria-labelledby="office-title">
       <div className="marketing-plate" data-reveal>
-        {/* The panel holds no control, so it takes focus itself (APG tabs); its sample is read, not hidden. */}
-        <div
-          id="marketing-office-panel"
-          role="tabpanel"
-          tabIndex={0}
-          aria-labelledby={`marketing-tab-${view}`}
-          className="marketing-plate-inner"
-        >
-          {view === "label" ? <BundleLabel className="marketing-plate-label" readable /> : null}
+        <div id="marketing-office-panel" role="tabpanel" aria-labelledby={`marketing-tab-${view}`} className="marketing-plate-inner">
+          {view === "label" ? <BundleLabel className="marketing-plate-label" /> : null}
           {view === "list" ? <PackingList /> : null}
           {view === "scan" ? <GateScan /> : null}
         </div>
@@ -85,7 +78,7 @@ export function Office() {
 function PackingList() {
   const { t } = useT();
   return (
-    <div data-ui data-demo-visual className="marketing-sheet">
+    <div data-ui data-demo-visual aria-hidden="true" className="marketing-sheet">
       <div className="marketing-sheet-top">
         <div>
           <p className="marketing-sheet-title">{t("packingList.title")}</p>
@@ -95,7 +88,6 @@ function PackingList() {
       </div>
       <p className="marketing-sheet-meta">{t("marketing.office.demoMeta")}</p>
       <table>
-        <caption className="sr-only">{t("packingList.title")}</caption>
         <thead>
           <tr>
             <th scope="col">{t("packingList.columns.bundleNo")}</th>
@@ -116,7 +108,7 @@ function PackingList() {
       <p className="marketing-sheet-total">
         {t("packingList.totals", { bundles: DEMO_PACKING_LIST.length, kg: demoTotalKg(DEMO_PACKING_LIST) })}
       </p>
-      <p aria-hidden="true" className="marketing-sheet-exports">
+      <p className="marketing-sheet-exports">
         <span>{t("marketing.office.exportPdf")}</span>
         <span>{t("marketing.office.exportCsv")}</span>
       </p>
@@ -127,7 +119,7 @@ function PackingList() {
 function GateScan() {
   const { t } = useT();
   return (
-    <div data-ui data-demo-visual className="marketing-scan">
+    <div data-ui data-demo-visual aria-hidden="true" className="marketing-scan">
       <div className="marketing-sheet-top">
         <p className="marketing-sheet-title">{t("marketing.office.scanTitle")}</p>
         <DemoLabel />

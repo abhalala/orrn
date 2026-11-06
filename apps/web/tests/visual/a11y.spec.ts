@@ -141,7 +141,7 @@ test.describe("landing page keyboard", () => {
     expect(seen.size).toBeGreaterThan(20);
   });
 
-  test("office tabs: one tab stop, arrows, Home and End move and select, panel is focusable", async ({ page }) => {
+  test("office tabs: one tab stop, arrows, Home and End move and select", async ({ page }) => {
     await open(page, "/");
     const tabs = page.getByRole("tab");
     await expect(tabs).toHaveCount(3);
@@ -158,18 +158,10 @@ test.describe("landing page keyboard", () => {
     await page.keyboard.press("ArrowRight");
     await expect(tabs.first()).toBeFocused();
 
-    // The panel sits before the tab list in the page, so a Tab from the slider reaches it, then the tab.
-    await page.getByRole("slider").focus();
-    await page.keyboard.press("Tab");
-    const panel = page.getByRole("tabpanel");
-    await expect(panel).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(page.getByRole("tab", { selected: true })).toBeFocused();
-    // The sample is read out, not hidden: the packing list is a real table.
-    await page.getByRole("tab").nth(1).click();
-    await expect(panel.getByRole("table")).toBeVisible();
-    await expect(panel.locator("th[scope=col]")).toHaveCount(3);
-    expect(await panel.locator("table caption").count()).toBe(1);
+    // The sample in the panel is illustrative and hidden from readers by design (marketing.spec.ts pins it);
+    // the panel carries no control, so it is not a tab stop either.
+    await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", /marketing-tab-/);
+    expect(await page.getByRole("tabpanel").getAttribute("tabindex")).toBeNull();
   });
 
   test("audit slider has a name and a value", async ({ page }) => {

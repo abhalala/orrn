@@ -86,14 +86,13 @@ export function BarcodeStrip({ className, bars = 64 }: { className?: string; bar
 }
 
 /**
- * The thermal label orrn prints at the packing scale, with sample values, visibly marked as demo
- * data. Hidden from screen readers where a caption or the page already says what it is (the hero
- * card, the pack stage); `readable` exposes the fields where the label is the content (the office tabs).
+ * The thermal label orrn prints at the packing scale, with sample values.
+ * Hidden from screen readers and visibly marked as demo data.
  */
-export function BundleLabel({ className, readable = false }: { className?: string; readable?: boolean }) {
+export function BundleLabel({ className }: { className?: string }) {
   const { t } = useT();
   return (
-    <div data-ui data-demo-visual aria-hidden={readable ? undefined : true} className={`marketing-label ${className ?? ""}`}>
+    <div data-ui data-demo-visual aria-hidden="true" className={`marketing-label ${className ?? ""}`}>
       <div className="marketing-label-top">
         <span className="marketing-label-title">{t("marketing.label.title")}</span>
         <DemoLabel />
