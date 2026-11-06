@@ -18,11 +18,6 @@ export const PUBLIC_KEYS = [
   "common.language",
   "marketing",
   "nav.skipToContent",
-  "packingList.columns.bundleNo",
-  "packingList.columns.pcs",
-  "packingList.columns.weightKg",
-  "packingList.title",
-  "packingList.totals",
 ] as const;
 
 export type MessageTree = { readonly [key: string]: string | MessageTree };
