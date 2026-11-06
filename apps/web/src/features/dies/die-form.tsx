@@ -74,8 +74,8 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
     const code = error.data?.code;
     if (code === "CONFLICT") {
       const key: MessageKey = error.message === DELETED_DIE_CODE_MESSAGE ? "dies.form.codeTaken" : "dies.form.duplicate";
+      // The field's error line is a polite live region and says it; the form line would say it twice.
       setErrors({ sectionCode: key });
-      setAnnounce(t(key));
       focusField(formId, "sectionCode");
       return;
     }
