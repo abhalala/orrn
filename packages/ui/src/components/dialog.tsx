@@ -31,7 +31,7 @@ export function Dialog({
   maxWidth = 480,
 }: DialogProps) {
   const { t } = useT();
-  const returnFocus = useReturnFocus();
+  const returnFocus = useReturnFocus(open);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>

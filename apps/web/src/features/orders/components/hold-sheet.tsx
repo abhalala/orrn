@@ -166,7 +166,7 @@ export function HoldStockSheet({
           ) : (
             <StockList items={items} formatLength={formatLength} selected={selected} onToggle={toggle} />
           )}
-          {tooMany ? <p className="m-0 text-[13px] leading-5 text-destructive">{t("orders.hold.tooMany", { max: MAX_HOLD_BUNDLES })}</p> : null}
+          {tooMany ? <p role="alert" className="m-0 text-[13px] leading-5 text-destructive">{t("orders.hold.tooMany", { max: MAX_HOLD_BUNDLES })}</p> : null}
           <Field label={t("common.note")}>
             <FieldTextArea value={note} onChangeText={setNote} rows={2} />
           </Field>

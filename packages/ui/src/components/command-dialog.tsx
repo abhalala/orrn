@@ -22,7 +22,7 @@ export type CommandDialogProps = {
  * The caller renders the combobox input and the result list inside.
  */
 export function CommandDialog({ open, onOpenChange, label, children, className }: CommandDialogProps) {
-  const returnFocus = useReturnFocus();
+  const returnFocus = useReturnFocus(open);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>

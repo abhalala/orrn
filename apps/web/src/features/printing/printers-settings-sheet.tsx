@@ -119,8 +119,8 @@ export function PrinterSettingsSheet({
           <Field label={t("printing.printers.settings.gap")} hint={t("printing.printers.settings.gapHint")} error={errorFor("gapMm")}>
             <NumberInput value={draft.gapMm} onValueChange={(v) => set("gapMm", v)} suffix={mm} />
           </Field>
-          <Field label={t("printing.printers.settings.dpi")}>
-            <NativeSelect value={String(draft.dpi)} onChange={(e) => set("dpi", Number(e.currentTarget.value) as PrinterDpi)}>
+          <Field id={`${formId}-dpi`} label={t("printing.printers.settings.dpi")}>
+            <NativeSelect id={`${formId}-dpi`} value={String(draft.dpi)} onChange={(e) => set("dpi", Number(e.currentTarget.value) as PrinterDpi)}>
               {PRINTER_DPIS.map((dpi) => (
                 <option key={dpi} value={dpi}>
                   {t("printing.printers.settings.dpiValue", { dpi })}

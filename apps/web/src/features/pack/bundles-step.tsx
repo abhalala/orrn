@@ -596,7 +596,7 @@ function BigNumberField({
         className="h-16 text-[28px] font-semibold tracking-[-0.01em] pointer-coarse:h-16"
       />
       {error ? (
-        <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium leading-5 text-destructive">
+        <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium leading-5 text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
           <span>{error}</span>
         </p>
@@ -766,7 +766,7 @@ function ScaleStrip({
             placeholder={t("pack.scale.typedReasonHint")}
           />
           {reasonError ? (
-            <p id={`${reasonId}-error`} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+            <p id={`${reasonId}-error`} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
               <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
               {t("pack.scale.reasonRequired")}
             </p>
@@ -835,7 +835,7 @@ function OverrideLength({
         />
       )}
       {error ? (
-        <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+        <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
           {error}
         </p>

@@ -142,20 +142,22 @@ export function SectionDetail({ id }: { id: string }) {
     return (
       <>
         <PageHeader back={back} title={t("nav.dies")} />
-        <EmptyState
-          title={missing ? t("dies.detail.notFound") : t("dies.detail.loadFailed")}
-          action={
-            missing ? (
-              <Button asChild variant="secondary">
-                <Link to="/dies">{t("dies.detail.backToList")}</Link>
-              </Button>
-            ) : (
-              <Button variant="secondary" onClick={() => query.refetch()}>
-                {t("common.retry")}
-              </Button>
-            )
-          }
-        />
+        <div role="alert">
+          <EmptyState
+            title={missing ? t("dies.detail.notFound") : t("dies.detail.loadFailed")}
+            action={
+              missing ? (
+                <Button asChild variant="secondary">
+                  <Link to="/dies">{t("dies.detail.backToList")}</Link>
+                </Button>
+              ) : (
+                <Button variant="secondary" onClick={() => query.refetch()}>
+                  {t("common.retry")}
+                </Button>
+              )
+            }
+          />
+        </div>
       </>
     );
   }
@@ -285,7 +287,7 @@ export function SectionDetail({ id }: { id: string }) {
             <Card key={band.id ?? "primary"} className="min-w-0" data-testid={`band-${band.id ?? "primary"}`}>
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <CardTitle>
+                  <CardTitle as="h3">
                     <span className="font-mono tabular-nums">
                       {bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}
                     </span>
@@ -552,7 +554,7 @@ function AddCopySheet({
           submit();
         }}
       >
-        <Field label={t("dieRoom.section.tierOptional")}>
+        <Field label={t("dieRoom.section.tierOptional")} error={error === t("dieRoom.tier.rankInvalid") ? error : undefined}>
           <NumberInput value={tier} onValueChange={setTier} decimal={false} />
         </Field>
         {options.length > 1 ? (
@@ -577,7 +579,7 @@ function AddCopySheet({
           </p>
         ) : null}
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={error === t("dieRoom.tier.rankInvalid") ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}

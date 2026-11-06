@@ -279,7 +279,7 @@ test.describe("dies", () => {
     await page.getByLabel("Min weight (kg/12ft)").fill("2.4");
     await page.getByLabel("Max weight (kg/12ft)").fill("2.6");
     await page.getByRole("button", { name: "Save die" }).click();
-    // Shown under Section code (and said once in the form's polite live region).
+    // Shown under Section code (and said once, by that field's polite live region).
     await expect(page.locator("[id$='-sectionCode-error']")).toHaveText("This code belongs to a deleted die. Use a different code.");
     await expect(page.getByLabel("Section code")).toHaveAttribute("aria-invalid", "true");
     await expect(page).toHaveURL(/\/dies\/new$/);

@@ -29,8 +29,8 @@ export function ErrorLine({ error, fallbackKey = "foundry.common.failed", classN
   );
 }
 
-/** A plain sentence in a tinted box (info / warning), never an error role. */
-export function Note({ tone = "neutral", children, testId }: { tone?: "neutral" | "amber" | "red" | "green"; children: ReactNode; testId?: string }) {
+/** A plain sentence in a tinted box. Validation messages can opt into an alert role. */
+export function Note({ tone = "neutral", children, testId, role }: { tone?: "neutral" | "amber" | "red" | "green"; children: ReactNode; testId?: string; role?: "status" | "alert" }) {
   const toneClass =
     tone === "amber"
       ? "bg-tone-amber-tint text-tone-amber-ink"
@@ -40,7 +40,7 @@ export function Note({ tone = "neutral", children, testId }: { tone?: "neutral" 
           ? "bg-tone-green-tint text-tone-green-ink"
           : "bg-surface-sunken text-foreground";
   return (
-    <p className={cn("m-0 rounded-card px-4 py-3 text-[14px] leading-5 break-words", toneClass)} data-testid={testId}>
+    <p role={role} className={cn("m-0 rounded-card px-4 py-3 text-[14px] leading-5 break-words", toneClass)} data-testid={testId}>
       {children}
     </p>
   );

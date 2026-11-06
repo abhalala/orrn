@@ -131,7 +131,7 @@ export function PackingListView({
     );
   } else if (failedFirstLoad(pl)) {
     body = (
-      <div className="rounded-card border border-border bg-card">
+      <div role="alert" className="rounded-card border border-border bg-card">
         <EmptyState
           title={dispatchErrorText(t, pl.error)}
           action={
@@ -179,7 +179,7 @@ export function PackingListView({
     );
   } else if (!model) {
     body = (
-      <div className="rounded-card border border-border bg-card">
+      <div role="alert" className="rounded-card border border-border bg-card">
         <EmptyState title={t("packingList.loadError")} action={regenButton ?? undefined} />
       </div>
     );

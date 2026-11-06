@@ -123,6 +123,9 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
     send.mutate({ dieInstanceId: card.instance.id, ...(hardness ? { hardness } : {}), ...input });
   };
 
+  const errorChemical = CHEMICALS.find((c) => error === t("dieRoom.nitriding.chemInvalid", { name: t(`dieRoom.nitriding.chem.${c}`) }));
+  const hardnessError = error === t("dieRoom.nitriding.hvInvalid") ? error : undefined;
+
   return (
     <Sheet
       open={open}
@@ -141,14 +144,19 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("dieRoom.nitriding.hvLabel")} hint={t("common.optional")}>
+        <Field label={t("dieRoom.nitriding.hvLabel")} hint={t("common.optional")} error={hardnessError}>
           <NumberInput value={hv} onValueChange={setHv} decimal={false} />
         </Field>
         {CHEMICALS.map((c) => {
           const o = parseGrams(draft[c].open);
           const u = parseGrams(draft[c].used);
           return (
-            <fieldset key={c} className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+            <fieldset
+              key={c}
+              aria-describedby={errorChemical === c ? `nitriding-${c}-error` : undefined}
+              aria-invalid={errorChemical === c ? true : undefined}
+              className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0"
+            >
               <legend className="mb-1 text-[14px] font-semibold">{t(`dieRoom.nitriding.chem.${c}`)}</legend>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("dieRoom.nitriding.open")}>
@@ -163,11 +171,16 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
                   {t("dieRoom.nitriding.closeLine", { open: grams(o), used: grams(u), close: grams(o - u) })}
                 </p>
               ) : null}
+              {errorChemical === c ? (
+                <p id={`nitriding-${c}-error`} className="m-0 text-[13px] font-medium text-destructive">
+                  {error}
+                </p>
+              ) : null}
             </fieldset>
           );
         })}
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={hardnessError || errorChemical ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}
@@ -222,11 +235,11 @@ function BackSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("dieRoom.nitriding.hvAfter")} hint={t("common.optional")}>
+        <Field label={t("dieRoom.nitriding.hvAfter")} hint={t("common.optional")} error={error === t("dieRoom.nitriding.hvInvalid") ? error : undefined}>
           <NumberInput value={hv} onValueChange={setHv} decimal={false} />
         </Field>
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={error === t("dieRoom.nitriding.hvInvalid") ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}

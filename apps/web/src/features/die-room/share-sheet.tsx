@@ -119,6 +119,13 @@ function Body({ onOpenChange, sectionId }: { onOpenChange(open: boolean): void; 
         <div className="flex flex-col gap-5" data-testid="share-sheet">
           {section.isPending ? (
             <Skeleton className="h-24 rounded-card" />
+          ) : section.isError ? (
+            <div role="alert" className="flex flex-col items-start gap-2">
+              <p className="m-0 text-[14px] text-destructive">{t("dieRoom.card.loadFailed")}</p>
+              <Button variant="secondary" onClick={() => section.refetch()}>
+                {t("common.retry")}
+              </Button>
+            </div>
           ) : data && !hasDrawing ? (
             <p role="status" className="m-0 rounded-card border border-border bg-tone-amber-tint p-3 text-[14px] leading-6">
               {t("dieRoom.share.noDrawing")}

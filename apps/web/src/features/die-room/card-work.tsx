@@ -135,8 +135,15 @@ function WorkSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("dieRoom.work.kind")} id="work-kind">
-          <NativeSelect id="work-kind" value={draft.kindId} onChange={(e) => pick(e.currentTarget.value)} data-testid="work-kind">
+        <Field label={t("dieRoom.work.kind")} id="work-kind" error={error === t("dieRoom.work.kind") ? error : undefined}>
+          <NativeSelect
+            id="work-kind"
+            value={draft.kindId}
+            onChange={(e) => pick(e.currentTarget.value)}
+            aria-describedby={error === t("dieRoom.work.kind") ? "work-kind-error" : undefined}
+            aria-invalid={error === t("dieRoom.work.kind") ? true : undefined}
+            data-testid="work-kind"
+          >
             <option value="" disabled>
               {t("dieRoom.work.kind")}
             </option>
@@ -147,13 +154,13 @@ function WorkSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
             ))}
           </NativeSelect>
         </Field>
-        <Field label={t("dieRoom.work.day")} id="work-day">
+        <Field label={t("dieRoom.work.day")} id="work-day" error={error === t("dieRoom.work.dayInvalid") ? error : undefined}>
           <TextInput id="work-day" type="date" max={today} value={draft.day} onChange={(e) => setDraft((d) => ({ ...d, day: e.currentTarget.value }))} />
         </Field>
-        <Field label={t("dieRoom.work.hv")} hint={t("common.optional")}>
+        <Field label={t("dieRoom.work.hv")} hint={t("common.optional")} error={error === t("dieRoom.work.hvInvalid") ? error : undefined}>
           <NumberInput value={draft.hv} onValueChange={(v) => setDraft((d) => ({ ...d, hv: v }))} decimal={false} />
         </Field>
-        <Field label={t("dieRoom.work.note")} hint={draft.requiresNote || draft.code === "other" ? undefined : t("common.optional")}>
+        <Field label={t("dieRoom.work.note")} hint={draft.requiresNote || draft.code === "other" ? undefined : t("common.optional")} error={error === t("dieRoom.work.noteRequired") ? error : undefined}>
           <FieldTextArea value={draft.note} maxLength={500} onChange={(e) => setDraft((d) => ({ ...d, note: e.currentTarget.value }))} data-testid="work-note" />
         </Field>
         {draft.code === "correct" ? (
@@ -174,7 +181,7 @@ function WorkSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
           </div>
         ) : null}
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={Object.values(ERROR_KEYS).some((key) => error === t(key)) ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}

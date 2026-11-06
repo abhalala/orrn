@@ -271,7 +271,7 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
         ) : null}
       </div>
       {error ? (
-        <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+        <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
           {error}
         </p>
@@ -433,7 +433,7 @@ function ChosenDie({
             <Skeleton className="mt-1 h-4 w-48" />
           </>
         ) : failed || !die ? (
-          <p className="m-0 text-[14px] font-medium text-destructive">{t("pack.new.diesFailed")}</p>
+          <p role="alert" className="m-0 text-[14px] font-medium text-destructive">{t("pack.new.diesFailed")}</p>
         ) : (
           <>
             <p className="m-0 flex flex-wrap items-baseline gap-x-2.5">
@@ -636,7 +636,7 @@ function DefaultsForm({
               {t("pack.new.cutLengthHintInch")}
             </p>
             {lengthError ? (
-              <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
+              <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium text-destructive">
                 <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
                 {lengthError}
               </p>
