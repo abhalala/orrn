@@ -15,6 +15,7 @@ export const guAuth = {
       newHere: "orrn પર નવા છો?",
       requestAccess: "એક્સેસ માંગો",
       showPassword: "પાસવર્ડ બતાવો",
+      showPasswordAgain: "ફરી લખેલો પાસવર્ડ બતાવો",
       forgot: "પાસવર્ડ ભૂલી ગયા?",
     },
     totp: {

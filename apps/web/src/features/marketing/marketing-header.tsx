@@ -11,6 +11,48 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+/**
+ * Whether the hero card or one of the page's own "Request access" buttons is on screen. On phones the
+ * floating action is then faded out, so it never sits over the hero text or next to the button it repeats.
+ */
+function useInlineActionInView(pathname: string): boolean {
+  const [inView, setInView] = useState(true);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const main = document.querySelector("main");
+    const visible = new Set<Element>();
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) visible.add(entry.target);
+        else visible.delete(entry.target);
+      }
+      setInView(visible.size > 0);
+    });
+    // The story re-renders once it knows the screen width, which replaces the hero: look again
+    // whenever main's content changes so the observer never watches a detached node.
+    let frame = 0;
+    const scan = () => {
+      frame = 0;
+      observer.disconnect();
+      visible.clear();
+      const targets = main?.querySelectorAll("[data-marketing-hero], a[href='/request-access']") ?? [];
+      targets.forEach((target) => observer.observe(target));
+      if (targets.length === 0) setInView(false);
+    };
+    scan();
+    const mutations = new MutationObserver(() => {
+      if (!frame) frame = requestAnimationFrame(scan);
+    });
+    if (main) mutations.observe(main, { childList: true, subtree: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      mutations.disconnect();
+      observer.disconnect();
+    };
+  }, [pathname]);
+  return inView;
+}
+
 /** Which homepage section crosses the middle of the screen, for the bar's current-section mark. */
 function useCurrentSection(enabled: boolean): SectionId | null {
   const [current, setCurrent] = useState<SectionId | null>(null);
@@ -39,8 +81,10 @@ function useCurrentSection(enabled: boolean): SectionId | null {
 
 export function MarketingHeader() {
   const { t, locale, setLocale } = useT();
-  const onHome = useLocation({ select: (location) => location.pathname === "/" });
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const onHome = pathname === "/";
   const current = useCurrentSection(onHome);
+  const inlineActionInView = useInlineActionInView(pathname);
 
   useEffect(() => {
     // Public marketing and legal copy currently ships in English and Hindi only.
@@ -83,7 +127,7 @@ export function MarketingHeader() {
           <Link to="/login">{t("marketing.signIn")}</Link>
         </nav>
         <LanguageToggle className="marketing-language" locales={["en", "hi"]} />
-        <Link to="/request-access" className="marketing-mobile-action">
+        <Link to="/request-access" className="marketing-mobile-action" data-tucked={inlineActionInView || undefined}>
           {t("marketing.requestAccess")}
         </Link>
       </div>

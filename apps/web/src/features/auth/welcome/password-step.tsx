@@ -118,6 +118,7 @@ export function PasswordStep({
         <PasswordField
           ref={confirmRef}
           label={t("welcome.password.confirmPassword")}
+          toggleLabel={t("auth.login.showPasswordAgain")}
           autoComplete="new-password"
           value={confirm}
           onValueChange={setConfirm}
