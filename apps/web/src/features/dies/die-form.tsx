@@ -172,9 +172,9 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
       </div>
 
       <section aria-labelledby={`${formId}-shape`} className="flex min-w-0 flex-col gap-4 border-t border-border pt-4" data-testid="die-form-shape">
-        <h3 id={`${formId}-shape`} className="m-0 text-[15px] leading-6 font-semibold">
+        <h2 id={`${formId}-shape`} className="m-0 text-[15px] leading-6 font-semibold">
           {t("dies.form.shapeSection")}
-        </h3>
+        </h2>
         <div className="flex min-w-0 flex-col gap-1.5">
           <span className="text-[14px] leading-5 font-semibold">{t("dieRoom.card.profileKind")}</span>
           <SegmentedControl

@@ -67,6 +67,7 @@ export function CustomerPicker({ value, onChange, error, allowNew = true }: Prop
           placeholder={t("dispatch.new.customerSearch")}
         />
       </Field>
+      <p role="alert" className="sr-only">{error}</p>
       {allowNew ? (
         <Can do="customer.create">
           <Button variant="ghost" className="self-start px-3" onClick={() => setCreating(true)} aria-haspopup="dialog">
@@ -170,6 +171,7 @@ function NewCustomerSheet({
       }
     >
       <form id="new-customer-form" onSubmit={submit} className="flex flex-col gap-4 pt-1" noValidate>
+        <p role="alert" className="sr-only">{[error, phoneError].filter(Boolean).join(". ")}</p>
         <Field label={t("dispatch.new.customerName")} error={error}>
           <TextInput value={name} onChangeText={setName} autoComplete="organization" autoFocus required />
         </Field>

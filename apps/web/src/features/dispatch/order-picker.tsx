@@ -25,7 +25,8 @@ export function OrderPicker({ value, onChange, error }: { value: PickedOrder | n
   });
   const label = value?.number ? `${value.number} · ${value.customerName}` : known.data ? `${known.data.order.number} · ${known.data.order.customerName}` : undefined;
   return (
-    <Field label={t("dispatch.fromOrder.order")} hint={t("dispatch.fromOrder.hint")} error={error}>
+    <>
+      <Field label={t("dispatch.fromOrder.order")} hint={t("dispatch.fromOrder.hint")} error={error}>
       <Combobox<string>
         value={value?.id ?? null}
         valueLabel={label}
@@ -49,6 +50,8 @@ export function OrderPicker({ value, onChange, error }: { value: PickedOrder | n
         }}
         placeholder={t("dispatch.fromOrder.search")}
       />
-    </Field>
+      </Field>
+      <p role="alert" className="sr-only">{error}</p>
+    </>
   );
 }

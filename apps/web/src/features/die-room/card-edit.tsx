@@ -107,10 +107,10 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
         }}
       >
         <div className="grid grid-cols-2 gap-3">
-          <Field label={t("dieRoom.card.cavities")}>
+          <Field label={t("dieRoom.card.cavities")} error={error === t("dieRoom.card.fieldsInvalid") && intOrNull(cavities) === undefined ? error : undefined}>
             <NumberInput value={cavities} onValueChange={setCavities} decimal={false} />
           </Field>
-          <Field label={t("dieRoom.card.hardness")}>
+          <Field label={t("dieRoom.card.hardness")} error={error === t("dieRoom.card.fieldsInvalid") && intOrNull(hardness) === undefined ? error : undefined}>
             <NumberInput value={hardness} onValueChange={setHardness} decimal={false} />
           </Field>
           <Field label={t("dieRoom.card.bolster")}>
@@ -126,7 +126,7 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
             <TextInput value={sub} onChangeText={setSub} maxLength={40} />
           </Field>
         </div>
-        <Field label={t("dieRoom.card.lifeKg")} hint={t("dieRoom.card.lifeHint")}>
+        <Field label={t("dieRoom.card.lifeKg")} hint={t("dieRoom.card.lifeHint")} error={error === t("dieRoom.card.fieldsInvalid") && life.trim() !== "" && parseWholeKgToGrams(life) === null ? error : undefined}>
           <NumberInput value={life} onValueChange={setLife} decimal={false} suffix={t("units.kg")} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
@@ -147,7 +147,7 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
           <TextInput value={notes} onChangeText={setNotes} maxLength={500} />
         </Field>
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={error === t("dieRoom.card.fieldsInvalid") ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}

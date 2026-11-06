@@ -2,7 +2,6 @@ import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput } from "@orrn/ui/components/field";
-import { TextArea } from "@orrn/ui/components/input";
 import { NativeSelect } from "@orrn/ui/components/native-select";
 import { cn } from "@orrn/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +9,7 @@ import { ChevronDown, X } from "lucide-react";
 import { useId, useState } from "react";
 
 import { reasonCodeText, reasonOptions } from "@/features/press/reason-label";
+import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { trpc } from "@/shared/utils/trpc";
 
 import { EMPTY_REJECT, readReject, type RejectErrors, type RejectForm } from "./reject-form";
@@ -39,6 +39,15 @@ export function RejectsPanel({
   const picked = options.find((o) => o.value === form.reasonCode);
   const needsNote = form.reasonCode === "other" || Boolean(picked?.requiresNote);
   const total = rejects.reduce((s, r) => s + r.pcs, 0);
+  const errorAnnouncement = errors.pcs
+    ? t("pack.new.piecesRequired")
+    : errors.kg
+      ? t("pack.new.weightRequired")
+      : errors.reason
+        ? t("pack.reject.reasonRequired")
+        : errors.note
+          ? t(form.reasonCode === "other" ? "common.noteRequired" : "common.noteRequiredReason")
+          : "";
 
   const add = () => {
     const r = readReject(form, needsNote);
@@ -84,7 +93,7 @@ export function RejectsPanel({
                   {r.note ? ` · ${r.note}` : ""}
                 </span>
               </span>
-              <Button variant="ghost" size="sm" onClick={() => onRemove(i)} aria-label={t("pack.reject.remove", { n: i + 1 })}>
+              <Button variant="ghost" size="sm" className="size-11 shrink-0" onClick={() => onRemove(i)} aria-label={t("pack.reject.remove", { n: i + 1 })}>
                 <X aria-hidden="true" strokeWidth={2} />
               </Button>
             </li>
@@ -94,6 +103,7 @@ export function RejectsPanel({
 
       {open ? (
       <div id={`${id}-form`} className="flex flex-col gap-3 rounded-input bg-surface-sunken p-3 sm:p-4">
+        <p role="alert" className="sr-only">{errorAnnouncement}</p>
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("pack.reject.hint")}</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label={t("pack.reject.piecesLabel")} error={errors.pcs ? t("pack.new.piecesRequired") : undefined}>
@@ -105,6 +115,8 @@ export function RejectsPanel({
           <Field label={t("pack.reject.reason")} id="reject-reason" error={errors.reason ? t("pack.reject.reasonRequired") : undefined}>
             <NativeSelect
               id="reject-reason"
+              aria-describedby={errors.reason ? "reject-reason-error" : undefined}
+              aria-invalid={errors.reason ? true : undefined}
               value={form.reasonCode}
               onChange={(e) => {
                 const reasonCode = e.currentTarget.value;
@@ -122,7 +134,7 @@ export function RejectsPanel({
         </div>
         {needsNote ? (
           <Field label={t("common.note")} id="reject-note" error={errors.note ? t(form.reasonCode === "other" ? "common.noteRequired" : "common.noteRequiredReason") : undefined}>
-            <TextArea id="reject-note" rows={2} value={form.note} onChangeText={(note) => setForm((f) => ({ ...f, note }))} maxLength={500} />
+            <FieldTextArea id="reject-note" rows={2} value={form.note} onChangeText={(note) => setForm((f) => ({ ...f, note }))} maxLength={500} />
           </Field>
         ) : null}
         <div className="flex flex-wrap gap-2">

@@ -141,7 +141,7 @@ export function TodayScreen() {
     return (
       <>
         {header}
-        <div className="rounded-card border border-border bg-card">
+        <div role="alert" className="rounded-card border border-border bg-card">
           <EmptyState
             title={t("today.loadErrorTitle")}
             body={t("today.loadErrorBody")}

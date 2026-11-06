@@ -34,6 +34,7 @@ export function CopyPicker({
   statuses,
   sectionId,
   placeholder,
+  error,
 }: {
   label: string;
   value: string | null;
@@ -44,6 +45,7 @@ export function CopyPicker({
   /** Only copies of this die (a late entry for a queued run names a copy of the run's die). */
   sectionId?: string;
   placeholder: string;
+  error?: string;
 }) {
   const { t } = useT();
   const seen = useRef(new Map<string, PickedCopy>());
@@ -68,7 +70,7 @@ export function CopyPicker({
   const shown = first.data?.items.length ?? 0;
 
   return (
-    <Field label={label} hint={total > shown ? t("common.showingOf", { shown, total }) : undefined}>
+    <Field label={label} hint={total > shown ? t("common.showingOf", { shown, total }) : undefined} error={error}>
       <Combobox<string>
         value={value}
         valueLabel={valueLabel}

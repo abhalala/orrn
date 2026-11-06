@@ -1,12 +1,12 @@
 import { vehicleGate, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Field } from "@orrn/ui/components/field";
-import { Input, TextArea } from "@orrn/ui/components/input";
+import { Field, TextInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { useEffect, useRef, useState } from "react";
 
 import type { CapacityReport } from "@/features/scan/scan-outcome";
+import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { trpcClient } from "@/shared/utils/trpc";
 
 import { CapacityBanner } from "./capacity-banner";
@@ -70,6 +70,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
     // Over the truck's capacity needs a reason; the server refuses without it and audits it.
     if (over && !reason.trim()) {
       setReasonError(true);
+      document.getElementById("capacity-reason")?.focus();
       return;
     }
     setBusy(true);
@@ -138,7 +139,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             hint={t("dispatch.vehicleNeeded")}
             error={vehicleError === "missing" ? t("dispatch.vehicleMissing") : vehicleError === "invalid" ? t("dispatch.header.vehicleHint") : undefined}
           >
-            <Input
+            <TextInput
               id="dispatch-vehicle"
               value={vehicle}
               onChangeText={(v) => {
@@ -165,7 +166,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             hint={t("dispatch.capacity.overReasonHint")}
             error={reasonError ? t("dispatch.capacity.reasonRequired") : undefined}
           >
-            <TextArea
+            <FieldTextArea
               id="capacity-reason"
               value={reason}
               onChangeText={(v) => {

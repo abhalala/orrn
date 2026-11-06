@@ -106,6 +106,7 @@ export function GroupLabelSheet({ group, dispatchId, onOpenChange, onSaved }: Pr
       }
     >
       <form id="group-label-form" onSubmit={submit} className="flex flex-col gap-3 pt-1" noValidate>
+        <p role="alert" className="sr-only">{error}</p>
         <Field label={t("dispatch.build.groupLabel")} hint={t("dispatch.build.labelHint")} error={error}>
           <TextInput
             value={value}
