@@ -7,13 +7,28 @@ import { useRef } from "react";
  * result on `Dialog.Content`: it remembers what had focus when the dialog
  * opened and puts focus back there when it closes. When that element is no
  * longer on the page, focus goes to the page's h1 instead of <body>.
+ * Pass `open` so the opener is read before the dialog's children can take focus.
  */
-export function useReturnFocus() {
+export function useReturnFocus(open?: boolean) {
   const previous = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  const remember = () => {
+    const active = document.activeElement;
+    previous.current = active instanceof HTMLElement && active !== document.body ? active : null;
+  };
+  // Read the opener while the dialog is being rendered open, before its children mount. A child with `autoFocus`
+  // (a scan field) takes focus during that commit, so by the time Radix's `onOpenAutoFocus` runs the opener is
+  // already gone and focus would fall to the page heading on close. Writing a ref here is idempotent (StrictMode safe).
+  if (open === true && !wasOpen.current) {
+    wasOpen.current = true;
+    remember();
+  } else if (open === false) {
+    wasOpen.current = false;
+  }
   return {
     onOpenAutoFocus: () => {
-      const active = document.activeElement;
-      previous.current = active instanceof HTMLElement && active !== document.body ? active : null;
+      // Dialogs opened without the `open` argument still record here.
+      if (open === undefined) remember();
     },
     onCloseAutoFocus: (event: Event) => {
       const el = previous.current;

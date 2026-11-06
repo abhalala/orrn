@@ -210,7 +210,9 @@ export function AccountMenu({ variant }: { variant: ShellVariant }) {
   const navigate = useNavigate();
 
   return (
-    <DropdownMenu>
+    // Non-modal: a modal Radix menu marks the whole app frame aria-hidden while it still holds focusable controls
+    // (axe aria-hidden-focus). A menu does not need to trap focus; Escape and outside clicks still close it.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <AccountTrigger name={me?.user.name} place={place} />
       </DropdownMenuTrigger>

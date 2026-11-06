@@ -21,6 +21,7 @@ type FieldContextValue = {
   id: string;
   describedBy: string | undefined;
   invalid: boolean;
+  required: boolean;
 };
 
 const FieldContext = createContext<FieldContextValue | null>(null);
@@ -29,6 +30,7 @@ type ControlA11yProps = {
   id?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: boolean | "true" | "false" | "grammar" | "spelling";
+  "aria-required"?: boolean | "true" | "false";
 };
 
 /**
@@ -43,6 +45,7 @@ export function useFieldControl(own: ControlA11yProps = {}, extraDescribedBy?: s
     id: own.id ?? field?.id,
     "aria-describedby": describedBy || undefined,
     "aria-invalid": own["aria-invalid"] ?? (field?.invalid ? true : undefined),
+    "aria-required": own["aria-required"] ?? (field?.required ? true : undefined),
   };
 }
 
@@ -51,13 +54,15 @@ export type FieldProps = {
   hint?: string;
   /** What went wrong and how to fix it. Sets aria-invalid on the control. */
   error?: string;
+  /** The control must be filled in: sets aria-required on it and marks the label with an asterisk. */
+  required?: boolean;
   children: ReactNode;
   className?: string;
   /** Use a specific id for the control (default: generated). */
   id?: string;
 };
 
-export function Field({ label, hint, error, children, className, id: idProp }: FieldProps) {
+export function Field({ label, hint, error, required = false, children, className, id: idProp }: FieldProps) {
   const generated = useId();
   const id = idProp ?? `field-${generated.replace(/:/g, "")}`;
   const hintId = hint ? `${id}-hint` : undefined;
@@ -65,10 +70,15 @@ export function Field({ label, hint, error, children, className, id: idProp }: F
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error) }}>
+    <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error), required }}>
       <div data-slot="field" className={cn("flex min-w-0 flex-col gap-1.5", className)}>
         <label htmlFor={id} className="text-[14px] font-semibold leading-5 text-foreground">
           {label}
+          {required ? (
+            <span aria-hidden="true" className="ml-0.5 text-destructive">
+              *
+            </span>
+          ) : null}
         </label>
         {children}
         {hint ? (
@@ -76,12 +86,15 @@ export function Field({ label, hint, error, children, className, id: idProp }: F
             {hint}
           </p>
         ) : null}
-        {error ? (
-          <p id={errorId} className="m-0 flex items-start gap-1.5 text-[13px] font-medium leading-5 text-destructive">
-            <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
-            <span>{error}</span>
-          </p>
-        ) : null}
+        {/* The live region stays in the tree, so an error that appears after a submit is announced; empty, it takes no space. */}
+        <div id={errorId} aria-live="polite" className="empty:-mt-1.5">
+          {error ? (
+            <p className="m-0 flex items-start gap-1.5 text-[13px] font-medium leading-5 text-destructive">
+              <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
+              <span>{error}</span>
+            </p>
+          ) : null}
+        </div>
       </div>
     </FieldContext.Provider>
   );

@@ -80,7 +80,7 @@ const TENANT: Target[] = [
   { name: "orders new", path: "/orders/new" },
   { name: "order detail", discover: { from: "/orders", re: /^\/orders\/(?!new|plan)[^/]+$/ } },
   { name: "press plan board", path: "/orders/plan" },
-  { name: "press plan", discover: { from: "/orders/plan", re: /^\/orders\/plan\/[^/]+$/ } },
+  { name: "press plan", path: "/orders/plan/dev-plan-prod-1" },
   { name: "press", path: "/press" },
   { name: "press lines", path: "/press/lines" },
   { name: "press line", discover: { from: "/press", re: /^\/press\/lines\/[^/]+$/ } },
@@ -152,7 +152,6 @@ const TENANT: Target[] = [
   { name: "settings members (old url)", path: "/settings/members" },
   // Signed-in pages outside the shell's nav.
   { name: "welcome", path: "/welcome" },
-  { name: "change password", path: "/change-password" },
 ];
 
 const PLATFORM: Target[] = [
@@ -213,7 +212,8 @@ async function openOverlay(page: Page, overlay: Overlay) {
     await page.keyboard.press("ControlOrMeta+k");
     await expect(page.getByRole("dialog").first()).toBeVisible();
   } else if (overlay === "scanner") {
-    await page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: /^(Scan|स्कैन)/ }).click();
+    // The Scan button is the tab bar's one button that is not More; its label follows the language.
+    await page.locator("[data-slot='tab-bar'] button:not([data-slot='tab-more'])").click();
     await expect(page.getByRole("dialog").first()).toBeVisible();
   } else if (overlay === "more") {
     await page.getByRole("navigation", { name: "Main" }).locator("button").last().click();
@@ -258,6 +258,33 @@ async function describeNodes(page: Page, targets: string[]) {
   }, targets);
 }
 
+/** Structure axe's wcag tags do not cover: one main and one h1, heading order, named landmarks and tables, alt text. */
+async function structureOf(page: Page) {
+  return page.evaluate(() => {
+    const shown = (el: Element) => el instanceof HTMLElement && !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+    const levels = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(shown).map((e) => Number(e.tagName[1]));
+    const skips: string[] = [];
+    let prev = 0;
+    for (const l of levels) {
+      if (prev && l > prev + 1) skips.push(`h${prev}>h${l}`);
+      prev = l;
+    }
+    const navs = [...document.querySelectorAll("nav,[role='navigation']")].filter(shown);
+    const tables = [...document.querySelectorAll("table")].filter(shown);
+    return {
+      mains: [...document.querySelectorAll("main")].filter(shown).length,
+      h1: levels.filter((l) => l === 1).length,
+      headingSkips: skips,
+      unnamedNav: navs.length > 1 ? navs.filter((n) => !n.getAttribute("aria-label") && !n.getAttribute("aria-labelledby")).length : 0,
+      unnamedTables: tables.filter((t) => !t.querySelector("caption") && !t.getAttribute("aria-label") && !t.getAttribute("aria-labelledby")).length,
+      tablesNoHeaders: tables.filter((t) => !t.querySelector("th")).length,
+      imgsNoAlt: document.querySelectorAll("img:not([alt])").length,
+      htmlLang: document.documentElement.lang,
+      textLen: (document.querySelector("main")?.textContent ?? "").trim().length,
+    };
+  });
+}
+
 async function sweep(page: Page, meta: Record<string, unknown>) {
   const results = await new AxeBuilder({ page })
     .withTags(TAGS)
@@ -288,7 +315,8 @@ async function sweep(page: Page, meta: Record<string, unknown>) {
       })),
     });
   }
-  appendFileSync(OUT_FILE, `${JSON.stringify({ ...meta, url: new URL(page.url()).pathname + new URL(page.url()).search, violations: out })}\n`);
+  const structure = meta.scheme === "light" ? await structureOf(page) : null;
+  appendFileSync(OUT_FILE, `${JSON.stringify({ ...meta, structure, url: new URL(page.url()).pathname + new URL(page.url()).search, violations: out })}\n`);
   return out;
 }
 

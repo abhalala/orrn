@@ -37,7 +37,7 @@ export type SheetProps = {
  */
 export function Sheet({ open, onOpenChange, title, children, footer, description, className, dismissible = true }: SheetProps) {
   const { t } = useT();
-  const returnFocus = useReturnFocus();
+  const returnFocus = useReturnFocus(open);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>

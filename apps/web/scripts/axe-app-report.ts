@@ -3,7 +3,7 @@
  * a JSON file and a markdown summary, grouped by source folder (`shell`, `shared/components`, `features/<name>`)
  * with rule id, impact, count, an example selector and the file the violation traces to.
  *
- *   bun scripts/axe-app-report.ts <out-basename>
+ *   bun scripts/axe-app-report.ts <out-basename> [notes.md appended to the markdown]
  *   bun scripts/axe-app-report.ts /abs/path/axe-app-baseline        -> axe-app-baseline.json + axe-app-baseline.md
  *
  * Tracing is a heuristic (ancestor `data-slot`, the region a node sits in, and the route file's feature import).
@@ -16,6 +16,7 @@ import { join, resolve } from "node:path";
 const webRoot = resolve(import.meta.dirname, "..");
 const input = join(webRoot, "test-results/a11y-app/results.jsonl");
 const outBase = process.argv[2];
+const notesFile = process.argv[3];
 if (!outBase) {
   console.error("usage: bun scripts/axe-app-report.ts <out-basename>");
   process.exit(2);
@@ -37,6 +38,7 @@ type Row = {
   scheme: string;
   overlay: string | null;
   url: string;
+  structure?: { mains: number; h1: number; headingSkips: string[]; unnamedNav: number; unnamedTables: number; tablesNoHeaders: number; imgsNoAlt: number; htmlLang: string; textLen: number } | null;
   violations: Violation[];
 };
 
@@ -110,6 +112,10 @@ function classify(row: Row, n: Node): { folder: string; file: string } {
   const featureFolder = route?.feature ? `features/${route.feature}` : route ? `routes (${route.file.replace("src/routes/", "")})` : "unmapped";
   const featureFile = route?.page ? `apps/web/${route.page} (via ${route.file})` : route ? `apps/web/${route.file}` : "unknown";
 
+  // aria-hidden on the whole app frame while a Radix menu or dialog is open.
+  if (/^<div[^>]*data-slot="app-shell"/.test(n.html)) {
+    return { folder: "shell", file: row.overlay === "palette" ? "apps/web/src/shell/command-palette.tsx" : row.overlay ? "apps/web/src/shell/more-menu.tsx" : "apps/web/src/shell/app-shell.tsx" };
+  }
   if (n.region === "toast") return { folder: "shared/components", file: "packages/ui/src/components/sonner.tsx" };
   if (n.region === "shell" || n.slots.some((s) => s === "side-nav" || s === "tab-bar" || s === "tab-more")) {
     const slot = n.slots.find((s) => SHELL_FILE[s]);
@@ -125,8 +131,12 @@ function classify(row: Row, n: Node): { folder: string; file: string } {
     return { folder: featureFolder, file: featureFile };
   }
   if (n.slots.includes("page-header")) return { folder: "shared/components", file: "packages/ui/src/components/page-header.tsx" };
-  const slot = n.slots.find((s) => SHARED_SLOTS.has(s));
-  if (slot && n.slots[0] === slot) return { folder: "shared/components", file: SHARED_FILE[slot]! };
+  // Shared only when the element itself is a shared component and no feature component sits between it and the
+  // shell (a feature that restyles a shared Button owns the problem). The nearest slot being shared is not enough:
+  // a link in a feature's cell is inside `responsive-list` but is the feature's link.
+  const own = /^<[^>]*?\sdata-slot="([^"]+)"/.exec(n.html)?.[1];
+  const featureSlot = n.slots.slice(own ? 1 : 0).some((s) => s !== "app-shell" && !SHARED_SLOTS.has(s));
+  if (own && SHARED_SLOTS.has(own) && !featureSlot) return { folder: "shared/components", file: SHARED_FILE[own]! };
   if (route && /^src\/routes\/_(tenant|platform|portal|authed)\.tsx$/.test(route.file)) return { folder: "shell", file: `apps/web/${route.file}` };
   return { folder: featureFolder, file: featureFile };
 }
@@ -174,6 +184,30 @@ function folderRank(f: string) {
   return f === "shell" ? 0 : f === "shared/components" ? 1 : f.startsWith("features/") ? 2 : 3;
 }
 
+
+// ---- structure checks (not axe) ------------------------------------------------------------------------------
+type StructureRow = { folder: string; page: string; context: string; problems: string[] };
+const structureRows: StructureRow[] = [];
+for (const row of rows) {
+  const st = row.structure;
+  if (!st) continue;
+  const pathname = new URL(row.url, "http://x").pathname;
+  const problems: string[] = [];
+  if (st.mains !== 1) problems.push(`${st.mains} main landmarks`);
+  if (st.h1 !== 1) problems.push(`${st.h1} h1`);
+  if (st.headingSkips.length) problems.push(`heading skip ${[...new Set(st.headingSkips)].join(", ")}`);
+  if (st.unnamedNav) problems.push(`${st.unnamedNav} unnamed nav`);
+  if (st.unnamedTables) problems.push(`${st.unnamedTables} table(s) without a name`);
+  if (st.tablesNoHeaders) problems.push(`${st.tablesNoHeaders} table(s) without th`);
+  if (st.imgsNoAlt) problems.push(`${st.imgsNoAlt} img without alt`);
+  if (st.htmlLang !== row.locale) problems.push(`html lang "${st.htmlLang}" but ${row.locale}`);
+  if (st.textLen < 20) problems.push(`main has ${st.textLen} characters of text (empty or still loading?)`);
+  if (!problems.length) continue;
+  const route = routeFor(pathname);
+  const folder = route?.feature ? `features/${route.feature}` : route?.file.includes("_platform") || route?.file.includes("_portal") ? "shell (layout route)" : "shell";
+  structureRows.push({ folder, page: pathname, context: `${row.viewport} ${row.locale}${row.overlay ? ` +${row.overlay}` : ""}`, problems });
+}
+
 const contexts = new Set(rows.map((r) => `${r.viewport}/${r.locale}/${r.scheme}`));
 const pagesSeen = new Set(rows.map((r) => `${r.role}:${r.url}`));
 const totals: Record<string, number> = {};
@@ -185,6 +219,7 @@ const json = {
   pages: pagesSeen.size,
   contexts: [...contexts].sort(),
   totalsByImpact: totals,
+  structureProblems: structureRows,
   folders: Object.fromEntries(
     folders.map((f) => [
       f,
@@ -231,5 +266,18 @@ for (const f of folders) {
   md.push("");
 }
 if (list.length === 0) md.push("No violations.", "");
+if (structureRows.length) {
+  md.push("## Structure checks (not axe)", "", "One main, one h1, heading order, named navs and tables, img alt, `<html lang>`, empty pages. Light theme, one row per page and context.", "");
+  const byFolder = new Map<string, StructureRow[]>();
+  for (const r of structureRows) byFolder.set(r.folder, [...(byFolder.get(r.folder) ?? []), r]);
+  for (const f of [...byFolder.keys()].sort((a, b) => folderRank(a) - folderRank(b) || a.localeCompare(b))) {
+    md.push(`### ${f}`, "", "| Page | Context | Problems |", "|---|---|---|");
+    for (const r of byFolder.get(f)!) md.push(`| ${r.page} | ${r.context} | ${r.problems.join("; ")} |`);
+    md.push("");
+  }
+} else if (rows.some((r) => r.structure)) {
+  md.push("## Structure checks (not axe)", "", "No problems found.", "");
+}
+if (notesFile) md.push(readFileSync(notesFile, "utf8").trimEnd(), "");
 writeFileSync(`${outBase}.md`, `${md.join("\n")}\n`);
 console.log(`wrote ${outBase}.json and ${outBase}.md: ${list.length} rows, ${JSON.stringify(totals)}`);
