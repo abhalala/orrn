@@ -17,6 +17,24 @@ function base64ToBytes(value: string) {
   return bytes;
 }
 
+/**
+ * The all-zero key local dev uses (apps/server/wrangler.local.jsonc). It is in the source, so it is
+ * public: never valid outside development (security review 2026-11-04).
+ */
+export const PUBLIC_DEV_MASTER_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+/** True for a missing or blank key and for any spelling of the all-zero key. */
+export function isUnsafeMasterKey(masterKey: string | null | undefined): boolean {
+  const normalized = masterKey?.trim() ?? "";
+  if (!normalized) return true;
+  try {
+    const decoded = base64ToBytes(normalized);
+    return decoded.byteLength === 32 && decoded.every((byte) => byte === 0);
+  } catch {
+    return false;
+  }
+}
+
 async function importAesKey(masterKey: string) {
   const normalized = masterKey.trim();
   if (!normalized) {

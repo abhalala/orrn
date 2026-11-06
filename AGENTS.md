@@ -1423,6 +1423,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Keep root `TODO.md` updated when changing milestone scope or status (open work only, with its backlog rank).
 - Keep this file updated when durable conventions or project constraints change.
 - Do not add an audit pruning Worker cron unless explicitly requested.
+- `ORRN_MASTER_KEY` fails closed (security review 2026-11-04): outside the dev stage `alchemy.run.ts` refuses a missing
+  key or the public all-zero dev key (`infra/masterKey.ts`) and binds it with `alchemy.secret`; a production Worker
+  that still finds such a key answers 503 to every request (`lib/masterKeyGate.ts`, `test/infra-master-key.test.ts`).
 - Never push, deploy or merge to `main`/`prod` from a task worktree. Promotion is `docs/DEPLOY_PROMOTION.md`: green `wt/FP` shas reach `main` (dev only) through the peer session the owner named (D33), and `prod` moves only on the owner's explicit go. What only the owner can do is listed in `docs/OWNER_HANDOVER.md`; what is still to build is `TODO.md`.
 - Migrations after the head are additive and strictly consecutive; a step that changes existing data is named in the PROMOTE message and in `docs/DEPLOY_PROMOTION.md` (today `0038` retires duplicate live reason codes, `0041` rebuilds `ageing_hardness` and `0046` ends every session once, for the host-only cookie of security review 2026-11-04).
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice / e-way bill, Tally export or invoicing inside the app. Prices on orders and dispatch value are optional operational data.
