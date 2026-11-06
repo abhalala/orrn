@@ -9,7 +9,7 @@ export const diesEn = {
     partial: "Showing the first {count} copies. Search to find the others.",
     showMore: "Show {count} more",
     nothingTitle: "Nothing needs attention",
-    nothingBody: "Every copy is in its band, read this month and in the rack.",
+    nothingBody: "Every copy is in its band and in the rack, with a reading this month.",
     reason: {
       above_band: "Above band",
       at_nitriding: "At nitriding",

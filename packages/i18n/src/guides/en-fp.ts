@@ -180,7 +180,7 @@ export const guidesEnFp: GuideBookFp = {
         body: "Set \"Window starts\" and \"Window ends\". A window is at most 24 hours. Pick the press under \"Pick the press\".",
       },
       {
-        title: "A trial or sample plan",
+        title: "Plan a trial or sample",
         body: "For a die trial or a sample set \"Purpose\" to \"Die trial\" or \"Sample\" (the default is \"Production\"). \"A trial or sample needs no order line.\" Use \"Add die\", pick the section, and write the planned kg or pieces if you like. Each die becomes one queued run.",
       },
       {
@@ -1138,7 +1138,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Deal with a held line",
-        body: "A line that failed on hardness clears with \"Test again\". \"Hold\" stops a line that looks wrong, and \"Clear hold\" lets it go.",
+        body: "Tap \"Test again\" to clear a line that failed on hardness. Use \"Hold\" to stop a line that looks wrong, and \"Clear hold\" to let it go.",
       },
       {
         title: "Ask for approval",
@@ -1187,8 +1187,8 @@ export const guidesEnFp: GuideBookFp = {
         body: "Write the pieces and take the weight from the scale. The pieces cannot pass what is left on the line.",
       },
       {
-        title: "Rejects",
-        body: "Damaged pieces are set aside as rejects with a reason. They leave the line too.",
+        title: "Record the rejects",
+        body: "Set damaged pieces aside and enter them as rejects with a reason. They leave the line too.",
       },
       {
         title: "Save and print",

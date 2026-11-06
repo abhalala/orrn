@@ -281,7 +281,7 @@ test.describe("import sheet", () => {
     await expect(stage(page)).toHaveAttribute("data-stage", "review");
     await expect(page.locator("[data-slot='import-counts']")).toHaveAttribute("aria-label", "0 rows ready. 4 rows with problems.");
     await expect(
-      sheet.getByText("This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again."),
+      sheet.getByText("This row was already imported from an earlier copy of this file. Its row number and values match, so orrn won't add it again."),
     ).toBeVisible();
     await expect(sheet.getByRole("button", { name: /^Import \d+ row/ })).toHaveCount(0);
 
@@ -370,7 +370,7 @@ test.describe("import sheet", () => {
     // Never the server's own text.
     await expect(failed).toContainText("orrn's server ran into a problem.");
     await expect(failed).not.toContainText("D1_ERROR");
-    await expect(failed).toContainText("Try again: rows that were already saved are not added twice.");
+    await expect(failed).toContainText("Try again. orrn doesn't add saved rows twice.");
     // Nothing in the failed state starts the file over.
     await expect(sheet.getByRole("button", { name: "Choose another file" })).toHaveCount(0);
     await expect(sheet.getByRole("button", { name: "Download rows not saved" })).toHaveCount(0);
