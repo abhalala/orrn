@@ -24,7 +24,7 @@ export const moreEn = {
     twoFactor: "This account asks for a code at sign in. Sign in first, then open the invite link again.",
     goSignIn: "Go to sign in",
     signedInTitle: "Join as {email}",
-    signedInBody: "You are signed in. Accept the invite to join this team with this account.",
+    signedInBody: "Accept the invite to join this team with your signed-in account.",
     accept: "Join the team",
     joining: "Joining",
     joined: "You joined the team.",

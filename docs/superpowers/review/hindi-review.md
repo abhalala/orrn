@@ -3604,7 +3604,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `offlineTitle` | Can't reach orrn | orrn से कनेक्ट नहीं हो पा रहा |
 | `offlineBody` | Check the phone's internet connection, then try again. | फ़ोन का इंटरनेट कनेक्शन जांचें, फिर से कोशिश करें। |
 | `setPasswordTitle` | Set your own password first | पहले अपना पासवर्ड बनाएं |
-| `setPasswordBody` | Your account has a temporary password. Open orrn.in in your phone's browser or on a computer, sign in and set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
+| `setPasswordBody` | Your account has a temporary password. Open orrn.in in your phone's browser or on a computer. Sign in, set a new password, then come back here. | आपके अकाउंट में अभी अस्थायी पासवर्ड है। फ़ोन के ब्राउज़र में या कंप्यूटर पर orrn.in खोलें, साइन इन करके नया पासवर्ड बनाएं, फिर यहाँ वापस आएं। |
 | `staffTitle` | Godseye is on the web | Godseye वेब पर है |
 | `staffBody` | Staff accounts don't belong to a plant. Open orrn on a computer to use Godseye. | स्टाफ अकाउंट किसी प्लांट का हिस्सा नहीं होते। Godseye इस्तेमाल करने के लिए कंप्यूटर पर orrn खोलें। |
 | `checkAgain` | Check again | फिर से जांचें |
@@ -3624,7 +3624,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `pack.showMore` | Show more sessions | और सेशन दिखाएं |
 | `pack.notFound` | This session isn't in this company. | यह सेशन इस कंपनी में नहीं है। |
 | `pack.packedAt` | Packed {when} | पैक हुआ {when} |
-| `pack.voidNote` | Void bundles are shown here but not counted in the totals. | Void bundle यहां दिखते हैं, पर कुल में नहीं गिने जाते। |
+| `pack.voidNote` | Void bundles appear here but do not count in the totals. | Void bundle यहां दिखते हैं, पर कुल में नहीं गिने जाते। |
 | `pack.bundlesTitle` | Bundles in this session | इस सेशन के bundle |
 | `pack.stepOf` | Step {n} of {total}: {name} | चरण {n} / {total}: {name} |
 | `pack.pickDie` | Choose a die | Die चुनें |
@@ -3741,7 +3741,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `invite.twoFactor` | This account asks for a code at sign in. Sign in first, then open the invite link again. | इस अकाउंट में साइन इन पर कोड लगता है। पहले साइन इन करें, फिर इनवाइट लिंक दोबारा खोलें। |
 | `invite.goSignIn` | Go to sign in | साइन इन पर जाएं |
 | `invite.signedInTitle` | Join as {email} | {email} से जुड़ें |
-| `invite.signedInBody` | You are signed in. Accept the invite to join this team with this account. | आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें। |
+| `invite.signedInBody` | Accept the invite to join this team with your signed-in account. | आप साइन इन हैं। इस अकाउंट से टीम में जुड़ने के लिए इनवाइट स्वीकार करें। |
 | `invite.accept` | Join the team | टीम से जुड़ें |
 | `invite.joining` | Joining | जुड़ रहे हैं |
 | `invite.joined` | You joined the team. | आप टीम से जुड़ गए। |
@@ -3756,7 +3756,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `dies.partial` | Showing the first {count} copies. Search to find the others. | पहली {count} कॉपी दिख रही हैं। बाकी खोजने के लिए सर्च करें। |
 | `dies.showMore` | Show {count} more | {count} और दिखाएं |
 | `dies.nothingTitle` | Nothing needs attention | किसी पर ध्यान की जरूरत नहीं |
-| `dies.nothingBody` | Every copy is in its band, read this month and in the rack. | हर कॉपी अपने बैंड में है, इस महीने नापी गई है और रैक में है। |
+| `dies.nothingBody` | Every copy is in its band and in the rack, with a reading this month. | हर कॉपी अपने बैंड में है, इस महीने नापी गई है और रैक में है। |
 | `dies.reason.above_band` | Above band | बैंड से ऊपर |
 | `dies.reason.at_nitriding` | At nitriding | नाइट्राइडिंग पर |
 | `dies.reason.at_maker` | At die maker | डाई मेकर के पास |
@@ -3766,13 +3766,13 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `dies.reason.never_read` | No reading yet | अभी रीडिंग नहीं |
 | `dies.pad.point` | Decimal point | दशमलव बिंदु |
 | `dies.saveReading` | Save reading | रीडिंग सेव करें |
-| `dies.chemicalsOnWeb` | Chemicals are written on the card on the web. | केमिकल वेब पर कार्ड में लिखे जाते हैं। |
+| `dies.chemicalsOnWeb` | Enter chemicals on the web card. | केमिकल वेब पर कार्ड में लिखे जाते हैं। |
 | `dies.addMakerOnWeb` | Add one on the web. | वेब पर जोड़ें। |
 | `dies.issueTitle` | Issue {code} | {code} इश्यू करें |
 | `dies.issueToRun` | Issue to {run} | {run} के लिए इश्यू करें |
 | `dies.fileFailed` | The file didn't open. Try again. | फाइल नहीं खुली। फिर कोशिश करें। |
 | `dies.openFile` | Open | खोलें |
-| `dies.readOnly` | These details are changed on the card on the web. | ये जानकारी वेब पर कार्ड में बदली जाती है। |
+| `dies.readOnly` | Change these details on the web card. | ये जानकारी वेब पर कार्ड में बदली जाती है। |
 | `dies.waitingTitle` | Waiting for a die | डाई का इंतजार |
 | `dies.waitingEmpty` | No press run is waiting | कोई प्रेस रन इंतजार में नहीं है |
 | `dies.waitingEmptyBody` | Runs released from a press plan show here until a copy is issued. | प्रेस प्लान से रिलीज हुए रन कॉपी इश्यू होने तक यहां दिखते हैं। |
@@ -3802,7 +3802,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `web.backup` | Backup | बैकअप |
 | `press.linesHeading` | Press lines | Press लाइनें |
 | `press.noLines` | No press is set up yet. Ask the office to add one. | अभी कोई press सेट नहीं है। office से जुड़वाएं। |
-| `press.stationNote` | Start, stop and counting are done on the tablet at the press. This phone shows what is happening. | Start, stop और गिनती press के पास वाले टैबलेट पर होती है। यह फोन बस दिखाता है कि क्या चल रहा है। |
+| `press.stationNote` | Use the tablet at the press to start, stop and count. This phone shows what is happening. | Start, stop और गिनती press के पास वाले टैबलेट पर होती है। यह फोन बस दिखाता है कि क्या चल रहा है। |
 | `press.lineIdle` | Idle | खाली |
 | `press.lineRunning` | Running {number} | {number} चल रहा है |
 | `press.lineQueued` | {count} {count:run\|runs} waiting | {count} रन इंतज़ार में |
@@ -3854,7 +3854,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `press.errors.notMember` | That person is not on this plant's team. | वह व्यक्ति इस प्लांट की टीम में नहीं है। |
 | `press.errors.operatorRole` | The operator must be someone who runs the press. | ऑपरेटर कोई ऐसा होना चाहिए जो press चलाता हो। |
 | `press.errors.supervisorRole` | The supervisor must be someone who can log runs. | सुपरवाइज़र कोई ऐसा होना चाहिए जो रन लॉग कर सके। |
-| `press.errors.changed` | This changed meanwhile and was not saved. Pull down to reload. | यह इस बीच बदल गया और सेव नहीं हुआ। नीचे खींचकर फिर लोड करें। |
+| `press.errors.changed` | This changed while you were working, so your change was not saved. Pull down to reload. | यह इस बीच बदल गया और सेव नहीं हुआ। नीचे खींचकर फिर लोड करें। |
 | `press.errors.handoverClosed` | {number} is closed, so its people can't change. | {number} बंद है, इसलिए इसके लोग नहीं बदल सकते। |
 | `press.errors.notFound` | That press or run isn't in this company. | वह press या रन इस कंपनी में नहीं है। |
 | `stock.yard` | Yard | यार्ड |
@@ -4062,7 +4062,7 @@ Please check, Lalubhai:
 | `detail.noteKg` | {kg} kg | {kg} kg |
 | `detail.noteBori` | Bori {kg} kg | बोरी {kg} kg |
 | `detail.stockTitle` | Scrap stock | स्क्रैप स्टॉक |
-| `detail.stockNone` | Goes into scrap stock when it is marked OK. | OK होने पर स्क्रैप स्टॉक में जाएगा। |
+| `detail.stockNone` | Marking the lot OK puts it into scrap stock. | OK होने पर स्क्रैप स्टॉक में जाएगा। |
 | `detail.stockNever` | This lot never went into stock. | यह लॉट कभी स्टॉक में नहीं आया। |
 | `detail.stockIn` | {kg} kg in at {location} | {location} में {kg} kg आया |
 | `detail.stockOut` | {kg} kg out at {location} | {location} से {kg} kg गया |
@@ -4072,7 +4072,7 @@ Please check, Lalubhai:
 | `detail.markedOk` | Marked OK. {kg} kg in scrap stock at {location}. | OK हो गया। {location} में {kg} kg स्क्रैप स्टॉक में। |
 | `detail.weigh` | Enter our kanta weight | हमारे कांटे का वज़न डालें |
 | `detail.editWeights` | Edit weights | वज़न बदलें |
-| `detail.weightsLocked` | A note on the weight is open, so the weights are locked. | वज़न पर नोट खुला है, इसलिए वज़न नहीं बदलेगा। |
+| `detail.weightsLocked` | The open weight note locks these weights. | वज़न पर नोट खुला है, इसलिए वज़न नहीं बदलेगा। |
 | `detail.saveWeights` | Save weights | वज़न सेव करें |
 | `detail.weightsSaved` | Weights saved | वज़न सेव हो गया |
 | `detail.raiseNote` | Raise D/C note | D/C नोट बनाएं |
@@ -4197,10 +4197,10 @@ Please check, Lalubhai:
 | `late.good` | Good kg | अच्छा kg |
 | `late.recovery` | Recovery | रिकवरी |
 | `late.notCounted` | Not counted yet | अभी गिना नहीं |
-| `late.runError` | The run's figures didn't load. Approve waits until the run loads; Reject is open. | रन के आंकड़े लोड नहीं हुए। रन लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
+| `late.runError` | The run's figures didn't load. Approve stays off until the run loads. Reject is open. | रन के आंकड़े लोड नहीं हुए। रन लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
 | `late.changed` | The request asked for {times}. The run above is what you approve. | अनुरोध में {times} मांगा था। ऊपर का रन ही मंज़ूर होगा। |
 | `openRun` | Open run | रन खोलें |
-| `facts.error` | The current figures didn't load. Approve waits until they load; Reject is open. | अभी के आंकड़े लोड नहीं हुए। लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
+| `facts.error` | The current figures didn't load. Approve stays off until they load. Reject is open. | अभी के आंकड़े लोड नहीं हुए। लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
 | `facts.moveTitle` | Where the bundles are now | बंडल अभी कहां हैं |
 | `facts.moveCount` | {count} of {total} would move ({kg} kg) | {total} में से {count} जाएंगे ({kg} kg) |
 | `facts.skipped` | {count} changed since the request and stay where they are. | {count} अनुरोध के बाद बदल गए और जहां हैं वहीं रहेंगे। |
@@ -4224,7 +4224,7 @@ Please check, Lalubhai:
 | `facts.above` | above the band | बैंड से ऊपर |
 | `facts.below` | below the band | बैंड से नीचे |
 | `facts.inside` | inside the band | बैंड के अंदर |
-| `facts.changedSince` | The copy changed after this was asked: it is now tier {tier} on {band}. Check before you approve. | यह मांगने के बाद कॉपी बदल गई: अब {band} पर टियर {tier} है। मंज़ूर करने से पहले देख लें। |
+| `facts.changedSince` | The copy changed after this request. It is now tier {tier} on {band}. Check before you approve. | यह मांगने के बाद कॉपी बदल गई: अब {band} पर टियर {tier} है। मंज़ूर करने से पहले देख लें। |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
@@ -4244,7 +4244,7 @@ Please check, Lalubhai:
 | `approved` | Approved | मंज़ूर किया |
 | `rejected` | Rejected | नामंज़ूर किया |
 | `note` | Note | नोट |
-| `noteHint` | Say why when you reject, so it can be fixed. | नामंज़ूर करें तो वजह लिखें, ताकि ठीक हो सके। |
+| `noteHint` | Say why when you reject so the requester can fix it. | नामंज़ूर करें तो वजह लिखें, ताकि ठीक हो सके। |
 | `rejectNeedsNote` | Write why you are rejecting it. | नामंज़ूर करने की वजह लिखें। |
 | `own` | Someone else has to approve your request. | आपकी रिक्वेस्ट कोई और मंज़ूर करेगा। |
 | `viewOnly` | A manager approves this. | इसे मैनेजर मंज़ूर करते हैं। |
@@ -4321,7 +4321,7 @@ Please check, Lalubhai:
 | `share.madeBy` | By {name} | {name} ने बनाया |
 | `share.revoke` | Revoke | बंद करें |
 | `share.revokeTitle` | Revoke this link? | यह लिंक बंद करें? |
-| `share.revokeBody` | The page stops working at once. Anyone who has the link sees that it is no longer available. | पेज तुरंत काम करना बंद कर देगा। लिंक रखने वाले को दिखेगा कि यह अब उपलब्ध नहीं है। |
+| `share.revokeBody` | The page stops working at once for anyone with the link. | पेज तुरंत काम करना बंद कर देगा। लिंक रखने वाले को दिखेगा कि यह अब उपलब्ध नहीं है। |
 | `share.revokedToast` | Link revoked | लिंक बंद कर दिया |
 | `share.more` | Show more | और दिखाएं |
 | `share.page.sharedBy` | Shared by {name} | {name} की ओर से |
@@ -4559,7 +4559,7 @@ Please check, Lalubhai:
 | `trial.issueToTrial` | Issue to a trial run | ट्रायल रन को दें |
 | `trial.release` | Release without a trial | ट्रायल के बिना छोड़ें |
 | `trial.releaseTitle` | Release {code} without a trial? | {code} को ट्रायल के बिना छोड़ें? |
-| `trial.releaseBody` | The copy becomes available for production. Your reason is kept in the audit trail. | कॉपी प्रोडक्शन के लिए उपलब्ध हो जाएगी। आपकी वजह ऑडिट रिकॉर्ड में रहेगी। |
+| `trial.releaseBody` | The copy becomes available for production. orrn keeps your reason in the audit trail. | कॉपी प्रोडक्शन के लिए उपलब्ध हो जाएगी। आपकी वजह ऑडिट रिकॉर्ड में रहेगी। |
 | `trial.reasonRequired` | Write why. A few words are enough. | वजह लिखें। कुछ शब्द काफ़ी हैं। |
 | `trial.releaseConfirm` | Release | छोड़ें |
 | `trial.releasedToast` | {code} is available | {code} उपलब्ध है |
@@ -4660,7 +4660,7 @@ Please check, Lalubhai:
 | `reading.last` | kg per 12 ft. Last reading {kg}. | kg/12ft। पिछली रीडिंग {kg}। |
 | `reading.weight` | Weight of 12 ft | 12 ft का वज़न |
 | `reading.bandHint` | Band {band}. | बैंड {band}। |
-| `reading.serverFigures` | The percent and colour are worked out when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
+| `reading.serverFigures` | The server works out the percent and colour when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
 | `reading.backspace` | Backspace | मिटाएं |
 | `reading.saved` | {code}: {kg} kg/12ft saved | {code}: {kg} kg/12ft सेव हुआ |
 | `reading.empty` | No readings yet | अभी कोई रीडिंग नहीं |
@@ -4731,7 +4731,7 @@ Please check, Lalubhai:
 | `lift.noOtherBand` | This die has no other band. Add one first. | इस die का कोई दूसरा बैंड नहीं है। पहले एक जोड़ें। |
 | `lift.dieRoomOnly` | Only the die room asks for a move. | बदलाव सिर्फ़ die रूम मांगता है। |
 | `lift.submit` | Ask for approval | मंज़ूरी मांगें |
-| `issues.noTrialRun` | No die trial run is waiting for this section. A copy on trial goes only to a die trial run: release one in the plan first. | इस सेक्शन के लिए कोई die ट्रायल रन इंतज़ार में नहीं। ट्रायल वाली कॉपी सिर्फ़ die ट्रायल रन पर जाती है: पहले प्लान में एक छोड़ें। |
+| `issues.noTrialRun` | No die trial run is waiting for this section. A copy on trial needs a die trial run. Release one in the plan first. | इस सेक्शन के लिए कोई die ट्रायल रन इंतज़ार में नहीं। ट्रायल वाली कॉपी सिर्फ़ die ट्रायल रन पर जाती है: पहले प्लान में एक छोड़ें। |
 | `issues.trialNote` | This copy is on trial. It goes only to a die trial run. | यह कॉपी ट्रायल पर है। यह सिर्फ़ die ट्रायल रन पर जाती है। |
 | `issues.trialRun` | Die trial | Die ट्रायल |
 | `issues.pickRun` | Pick a press run | प्रेस रन चुनें |
@@ -4919,7 +4919,7 @@ Please check, Lalubhai:
 | `hold.released` | {count} {count:bundle\|bundles} released | {count} bundle से होल्ड हटा |
 | `hold.button` | Hold stock | स्टॉक होल्ड करें |
 | `hold.sheetTitle` | Hold stock for line {n} | लाइन {n} के लिए स्टॉक होल्ड करें |
-| `hold.hint` | Yard bundles of this die on no order, or on this line. They stay where they are; while held, no other customer's dispatch can take them. | इस die के यार्ड bundle जो किसी ऑर्डर पर नहीं हैं, या इसी लाइन पर हैं। वे जहां हैं वहीं रहते हैं; होल्ड रहने तक किसी और ग्राहक का dispatch उन्हें नहीं ले सकता। |
+| `hold.hint` | Yard bundles of this die, either on no order or on this line. They stay where they are. No other customer's dispatch can take them while held. | इस die के यार्ड bundle जो किसी ऑर्डर पर नहीं हैं, या इसी लाइन पर हैं। वे जहां हैं वहीं रहते हैं; होल्ड रहने तक किसी और ग्राहक का dispatch उन्हें नहीं ले सकता। |
 | `hold.none` | No yard bundles of this die can be held for this line. | इस die का कोई यार्ड bundle इस लाइन के लिए होल्ड नहीं किया जा सकता। |
 | `hold.submit` | Hold {count} {count:bundle\|bundles} | {count} bundle होल्ड करें |
 | `hold.heldDone` | Held {count} {count:bundle\|bundles} ({kg} kg) | {count} bundle होल्ड किए ({kg} kg) |
@@ -5048,7 +5048,7 @@ Please check, Lalubhai:
 | `form.basisBandStart` | Band start | बैंड की शुरुआत |
 | `form.basisUsingCopy` | Using {milli} kg/12ft, the latest weight of copy {copy}. | {milli} kg/12ft ले रहे हैं, कॉपी {copy} का ताज़ा वज़न। |
 | `form.basisUsingBand` | Using {milli} kg/12ft, the start of the die's band. | {milli} kg/12ft ले रहे हैं, die के बैंड की शुरुआत। |
-| `form.noReading` | No weight reading on the copy yet; band start used. | कॉपी का अभी कोई वज़न नहीं है; बैंड की शुरुआत ली गई। |
+| `form.noReading` | The copy has no weight reading yet, so orrn uses the band start. | कॉपी का अभी कोई वज़न नहीं है; बैंड की शुरुआत ली गई। |
 | `form.quoteLine` | {pcs} pcs come to {kg} kg. | {pcs} पीस = {kg} kg। |
 | `form.impliedLine` | {pcs} pcs weigh {implied} kg. You typed {kg} kg. | {pcs} पीस का वज़न {implied} kg है। आपने {kg} kg डाला। |
 | `form.minusPiece` | -1 piece | -1 पीस |
@@ -5305,7 +5305,7 @@ Please check, Lalubhai:
 | `console.downtime` | Downtime | रुकावट |
 | `console.downtimeStart` | Press stopped | प्रेस रुकी |
 | `console.downtimeStop` | Press running again | प्रेस फिर चालू |
-| `console.downtimeOffline` | You are offline. A downtime row needs a connection; tap again when it is back. | आप ऑफ़लाइन हैं। डाउनटाइम के लिए कनेक्शन चाहिए; कनेक्शन आने पर फिर दबाएं। |
+| `console.downtimeOffline` | You are offline. Downtime needs a connection. Tap again when it is back. | आप ऑफ़लाइन हैं। डाउनटाइम के लिए कनेक्शन चाहिए; कनेक्शन आने पर फिर दबाएं। |
 | `console.downtimeOpen` | Close the downtime first. | पहले रुकावट बंद करें। |
 | `console.lateEntry` | Entered late | बाद में भरा |
 | `console.lateEntryAsk` | Ask approval for a late entry | बाद में भरने की मंज़ूरी मांगें |
@@ -5349,9 +5349,9 @@ Please check, Lalubhai:
 | `console.errors.lateWindow` | A late entry must be from the last {days} days. | देर से भरी एंट्री पिछले {days} दिनों की ही हो सकती है। |
 | `console.errors.lateStopped` | A late entry is for a run that has already stopped. | देर से भरी एंट्री उस रन की होती है जो रुक चुका है। |
 | `console.errors.stopAfterStart` | The stop time must be after the start time. | रुकने का समय शुरू के समय के बाद का होना चाहिए। |
-| `console.errors.dieElsewhere` | The die issued is for another run or press. Ask the die room. | जारी की गई die किसी और रन या प्रेस के लिए है। Die रूम से पूछें। |
+| `console.errors.dieElsewhere` | The die is issued to another run or press. Ask the die room. | जारी की गई die किसी और रन या प्रेस के लिए है। Die रूम से पूछें। |
 | `console.errors.stateNow` | {number} is {state} now, so this was not saved. Reload the page. | {number} अभी "{state}" है, इसलिए यह सेव नहीं हुआ। पेज फिर से खोलें। |
-| `console.errors.changedLogging` | {number} changed while it was being logged. Reload and log again. | {number} दर्ज होते समय बदल गया। पेज फिर से खोलकर दोबारा दर्ज करें। |
+| `console.errors.changedLogging` | {number} changed while you were logging it. Reload and log again. | {number} दर्ज होते समय बदल गया। पेज फिर से खोलकर दोबारा दर्ज करें। |
 | `console.errors.billetsLeft` | Only {kg} kg of this cast is left in the billet store now. Check the billets and log again. | बिलेट स्टोर में इस cast का अब सिर्फ़ {kg} kg बचा है। बिलेट जाँचें और दोबारा दर्ज करें। |
 | `console.errors.changedMeanwhile` | This changed while you were working. Reload and try again. | आपके काम करते समय यह बदल गया। पेज फिर से खोलकर दोबारा कोशिश करें। |
 | `console.errors.alreadySaved` | This was already saved. | यह पहले ही सेव हो चुका है। |
@@ -5397,7 +5397,7 @@ Please check, Lalubhai:
 | `console.drawing` | Drawing | ड्रॉइंग |
 | `console.drawingNone` | No drawing on file for this section. | इस सेक्शन की ड्रॉइंग फ़ाइल में नहीं है। |
 | `console.handover` | Handover | हैंडओवर |
-| `console.handoverBody` | The press man changes. The run keeps its start time. | प्रेस वाला बदलता है। रन का शुरू का समय वही रहता है। |
+| `console.handoverBody` | Another operator takes over. The run keeps its start time. | प्रेस वाला बदलता है। रन का शुरू का समय वही रहता है। |
 | `console.handoverRelief` | Takes over as relief | रिलीफ में कौन आया |
 | `console.handoverSupervisor` | Supervisor | सुपरवाइज़र |
 | `console.handoverNobody` | Nobody | कोई नहीं |
@@ -5458,7 +5458,7 @@ Please check, Lalubhai:
 | `console.voidWhy` | Why void this run? Nothing was pressed, so it moves no stock. | यह रन रद्द क्यों करना है? कुछ प्रेस नहीं हुआ, इसलिए कोई स्टॉक नहीं हिलेगा। |
 | `console.balanceLabel` | Balance | बैलेंस |
 | `console.addReject` | Add another reject | एक और रिजेक्ट जोड़ें |
-| `console.previewNote` | Not saved. These figures are the server's; they are saved when the run is logged. | सेव नहीं हुआ। ये आँकड़े सर्वर के हैं और रन दर्ज होने पर सेव होते हैं। |
+| `console.previewNote` | Not saved. The server works out these figures and saves them when you log the run. | सेव नहीं हुआ। ये आँकड़े सर्वर के हैं और रन दर्ज होने पर सेव होते हैं। |
 | `console.recoveryNow` | Recovery | रिकवरी |
 | `console.balanceOk` | Balance {kg} kg | बैलेंस {kg} kg |
 | `console.gatesTitle` | Before this run can be logged | रन दर्ज होने से पहले |
@@ -5489,7 +5489,7 @@ Please check, Lalubhai:
 | `console.busy` | Another run is running on this press. Stop it first. | इस प्रेस पर दूसरा रन चल रहा है। पहले उसे रोकें। |
 | `console.stoppedBannerChip` | Stopped | रुका हुआ |
 | `console.startFailed` | The run did not start. | रन शुरू नहीं हुआ। |
-| `console.outbox.notesNeedConnection` | Offline, the remarks and the die reading cannot be saved. Clear them or wait for the connection, then log the run. | ऑफ़लाइन में रिमार्क और डाई रीडिंग सेव नहीं हो सकते। उन्हें हटाएँ या कनेक्शन का इंतज़ार करें, फिर रन लॉग करें। |
+| `console.outbox.notesNeedConnection` | You cannot save remarks or a die reading offline. Clear them or wait for a connection, then log the run. | ऑफ़लाइन में रिमार्क और डाई रीडिंग सेव नहीं हो सकते। उन्हें हटाएँ या कनेक्शन का इंतज़ार करें, फिर रन लॉग करें। |
 | `console.outbox.offline` | Offline: {count} {count:change\|changes} waiting | ऑफ़लाइन: {count} बदलाव बाकी |
 | `console.outbox.waiting` | {count} {count:change\|changes} waiting to send | {count} बदलाव भेजने बाकी |
 | `console.outbox.sending` | Sending {count} {count:change\|changes} | {count} बदलाव भेज रहे हैं |
@@ -5569,8 +5569,8 @@ Please check, Lalubhai:
 | `queue.loadFailed` | The queue did not load. Check the connection and try again. | कतार नहीं खुली। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `queue.noMatch` | No job matches these filters. | इन फ़िल्टर से कोई काम नहीं मिला। |
 | `late.title` | Run entered late | देर से भरा रन |
-| `late.body` | For a run that already stopped and was never entered on the tablet. A manager approves it before it can be logged. | ऐसे रन के लिए जो रुक चुका है और टैबलेट पर नहीं भरा गया। दर्ज होने से पहले मैनेजर मंज़ूर करता है। |
-| `late.window` | Only a run from the last {days} days can be entered late. Older runs are not accepted. | सिर्फ़ पिछले {days} दिनों का रन देर से भरा जा सकता है। इससे पुराने रन स्वीकार नहीं होते। |
+| `late.body` | Use this for a run that stopped but was not entered on the tablet. A manager must approve it before you can log it. | ऐसे रन के लिए जो रुक चुका है और टैबलेट पर नहीं भरा गया। दर्ज होने से पहले मैनेजर मंज़ूर करता है। |
+| `late.window` | Enter only a run from the last {days} days. orrn does not accept older runs. | सिर्फ़ पिछले {days} दिनों का रन देर से भरा जा सकता है। इससे पुराने रन स्वीकार नहीं होते। |
 | `late.tooOld` | The start is more than {days} days ago. A late entry must be from the last {days} days. | शुरू का समय {days} दिन से ज़्यादा पुराना है। देर से भरी एंट्री पिछले {days} दिनों की ही हो सकती है। |
 | `late.line` | Press | प्रेस |
 | `late.source` | Which run | कौन सा रन |
@@ -5607,7 +5607,7 @@ Please check, Lalubhai:
 | `linesPage.tonnageHint` | Optional | वैकल्पिक |
 | `linesPage.saved` | Saved. | सेव हो गया। |
 | `linesPage.retireConfirmTitle` | Retire {code}? | {code} बंद करें? |
-| `linesPage.retireConfirmBody` | It stays in old reports. A press with an open run cannot be retired. | पुरानी रिपोर्ट में यह रहेगा। खुले रन वाला प्रेस बंद नहीं होता। |
+| `linesPage.retireConfirmBody` | It stays in old reports. You cannot retire a press with an open run. | पुरानी रिपोर्ट में यह रहेगा। खुले रन वाला प्रेस बंद नहीं होता। |
 | `linesPage.back` | Press | प्रेस |
 | `report.title` | Press report | प्रेस रिपोर्ट |
 | `report.runNo` | Run no | रन नंबर |
