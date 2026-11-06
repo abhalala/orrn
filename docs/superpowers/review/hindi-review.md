@@ -1630,8 +1630,8 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `noItemsInCategory` | No items in this category | इस किस्म का कोई सामान नहीं है |
 | `addItem` | Add item | सामान जोड़ें |
 | `noLocation` | Set up the central store first | पहले सेंट्रल स्टोर बनाएं |
-| `noLocationBody` | Ask your manager or admin to add a location of the kind Store in Masters, Locations. Until then nothing can be received or issued. | मैनेजर या एडमिन से कहें कि मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
-| `noLocationBodyPublisher` | Add a location of the kind Store in Masters, Locations. Until then nothing can be received or issued. | मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
+| `noLocationBody` | Ask your manager or admin to add a Store location in Masters, Locations. You can't receive or issue items until then. | मैनेजर या एडमिन से कहें कि मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
+| `noLocationBodyPublisher` | Add a Store location in Masters, Locations. You can't receive or issue items until then. | मास्टर, लोकेशन में Store किस्म की लोकेशन जोड़ें। तब तक न माल लिया जा सकता है, न दिया जा सकता है। |
 | `loadFailed` | The store did not load. Check the connection and try again. | स्टोर लोड नहीं हुआ। कनेक्शन देखें और फिर से कोशिश करें। |
 | `noAccess` | The store is for the storekeeper | स्टोर स्टोरकीपर के लिए है |
 | `noAccessBody` | Ask your plant admin if you need to see or change the store. | स्टोर देखना या बदलना हो तो प्लांट एडमिन से पूछें। |
@@ -1641,7 +1641,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `recent` | Recent entries | हाल की एंट्री |
 | `entries` | Entries | एंट्री |
 | `noEntries` | No entries yet | अभी कोई एंट्री नहीं है |
-| `noEntriesBody` | Deliveries received and items issued show here. | आई हुई डिलीवरी और दिया हुआ माल यहां दिखेगा। |
+| `noEntriesBody` | Entries appear here when you receive deliveries or issue items. | आई हुई डिलीवरी और दिया हुआ माल यहां दिखेगा। |
 | `showMore` | Show older entries | पुरानी एंट्री दिखाएं |
 | `showingLatest` | Showing the latest {max} entries. | सबसे नई {max} एंट्री दिख रही हैं। |
 | `kind.grn` | Received | माल आया |
@@ -1698,7 +1698,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `form.qty.tooBig` | One entry can hold at most 1,00,000. Split it into two entries. | एक एंट्री में ज़्यादा से ज़्यादा 1,00,000 आ सकता है। इसे दो एंट्री में बांटें। |
 | `form.qty.short` | Only {qty} {unit} in the store. Issue less, or receive the delivery first. | स्टोर में सिर्फ़ {qty} {unit} है। कम दें, या पहले डिलीवरी लें। |
 | `form.failed` | Not saved. {reason} | सेव नहीं हुआ। {reason} |
-| `form.unknownOutcome` | orrn didn't confirm this save, so it may have gone through. Tap {action} again to check: the same entry is never saved twice. | orrn ने इस सेव की पुष्टि नहीं की, हो सकता है यह सेव हो गया हो। जांचने के लिए फिर से {action} दबाएं, एक ही एंट्री दो बार सेव नहीं होती। |
+| `form.unknownOutcome` | orrn didn't confirm this save. It may have gone through. Tap {action} again to check. The same entry is never saved twice. | orrn ने इस सेव की पुष्टि नहीं की, हो सकता है यह सेव हो गया हो। जांचने के लिए फिर से {action} दबाएं, एक ही एंट्री दो बार सेव नहीं होती। |
 | `form.backToStore` | Back to store | स्टोर पर वापस |
 | `form.notInList` | Not in the list? | लिस्ट में नहीं है? |
 | `form.allItems` | Items | सामान |
@@ -1707,8 +1707,8 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `errors.requestReused` | This entry changed while it was being saved. Check the register, then enter it again. | सेव होते समय यह एंट्री बदल गई। रजिस्टर देखें, फिर से दर्ज करें। |
 | `errors.short` | The store has less than this now. Check what is in the store and change the quantity. | स्टोर में अब इससे कम है। स्टोर में कितना है देखें और मात्रा बदलें। |
 | `errors.retireWithStock` | Only an empty item can be retired. Issue what is left, or cancel its entries, first. | सिर्फ़ खाली सामान बंद हो सकता है। पहले बचा हुआ माल दें, या उसकी एंट्री रद्द करें। |
-| `errors.unitLocked` | The unit can't change: this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
-| `errors.cancelDrawn` | This entry can't be cancelled: some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
+| `errors.unitLocked` | The unit can't change because this item already has entries. | इकाई नहीं बदल सकती: इस सामान की एंट्री हो चुकी है। |
+| `errors.cancelDrawn` | You can't cancel this entry because some of what it brought in has been issued since. Cancel those issues first. | यह एंट्री रद्द नहीं हो सकती: इससे आया माल बाद में दिया जा चुका है। पहले वे एंट्री रद्द करें। |
 | `errors.cancelItemRetired` | This item is retired. Bring it back into use first, then cancel the entry. | यह सामान बंद है। पहले इसे फिर से चालू करें, फिर एंट्री रद्द करें। |
 | `errors.cancelLocationRetired` | The store location of this entry is retired. Ask your manager or admin to bring it back, then cancel the entry. | इस एंट्री की स्टोर लोकेशन बंद है। मैनेजर या एडमिन से उसे चालू करवाएं, फिर एंट्री रद्द करें। |
 | `errors.alreadyCancelled` | This entry is already cancelled. | यह एंट्री पहले ही रद्द हो चुकी है। |
@@ -1716,8 +1716,8 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `errors.itemRetired` | This item is retired. Bring it back into use in Store items first. | यह सामान बंद है। पहले स्टोर का सामान में इसे फिर से चालू करें। |
 | `errors.itemChanged` | This item was changed meanwhile. Open it again. | इस बीच यह सामान बदल गया। इसे फिर से खोलें। |
 | `errors.storeChanged` | The store changed while saving. Try again. | सेव होते समय स्टोर बदल गया। फिर से कोशिश करें। |
-| `errors.noLocation` | The central store is not set up yet. Ask your manager or admin to add a location of the kind Store. | सेंट्रल स्टोर अभी बना नहीं है। मैनेजर या एडमिन से Store किस्म की लोकेशन जुड़वाएं। |
-| `errors.manyStores` | There is more than one store location. Ask your manager or admin to retire the extra ones. | एक से ज़्यादा स्टोर लोकेशन हैं। मैनेजर या एडमिन से फालतू वाली बंद करवाएं। |
+| `errors.noLocation` | The central store is not set up yet. Ask your manager or admin to add a Store location. | सेंट्रल स्टोर अभी बना नहीं है। मैनेजर या एडमिन से Store किस्म की लोकेशन जुड़वाएं। |
+| `errors.manyStores` | More than one store location exists. Ask your manager or admin to retire the extra ones. | एक से ज़्यादा स्टोर लोकेशन हैं। मैनेजर या एडमिन से फालतू वाली बंद करवाएं। |
 | `errors.nameInvalid` | Use letters or digits in the name. | नाम में अक्षर या अंक लिखें। |
 | `errors.notFound` | This item or entry is not here any more. Go back to the store and pick it again. | यह सामान या एंट्री अब यहां नहीं है। स्टोर पर वापस जाकर फिर से चुनें। |
 | `errors.refused` | The store did not accept this. Check the entry and try again. | स्टोर ने यह नहीं लिया। एंट्री जांचें और फिर से कोशिश करें। |
@@ -1828,7 +1828,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `queue.statuses.outcome_unknown` | Outcome unknown | पता नहीं प्रिंट हुआ या नहीं |
 | `queue.statuses.cancelled` | Cancelled | कैंसल |
 | `queue.emptyTitle` | No print jobs yet | अभी कोई प्रिंट जॉब नहीं |
-| `queue.emptyBody` | Labels show up here once a bundle is packed and its label goes to a printer. | bundle पैक होने और उसका लेबल प्रिंटर को जाने पर यहाँ दिखेगा। |
+| `queue.emptyBody` | Print jobs appear here once a bundle is packed and its label goes to a printer. | bundle पैक होने और उसका लेबल प्रिंटर को जाने पर यहाँ दिखेगा। |
 | `queue.emptyFilteredTitle` | No jobs with this status | इस स्टेटस का कोई जॉब नहीं |
 | `queue.emptyFilteredBody` | Pick another status above, or show every job. | ऊपर कोई और स्टेटस चुनें, या सारे जॉब देखें। |
 | `queue.showAll` | Show all jobs | सारे जॉब दिखाएं |
@@ -1878,7 +1878,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `printers.editDesign` | Edit label design | लेबल डिज़ाइन बदलें |
 | `printers.editDesignFor` | Edit label design {name} | लेबल डिज़ाइन बदलें {name} |
 | `printers.actionsFor` | Printer actions for {name} | {name} के प्रिंटर काम |
-| `printers.sent` | Sent to the print computer. The printer does it when the print computer next checks in. | प्रिंट कंप्यूटर को भेजा गया। प्रिंट कंप्यूटर की अगली रिपोर्ट पर प्रिंटर यह करेगा। |
+| `printers.sent` | Sent to the print computer. The job prints after the computer's next check-in. | प्रिंट कंप्यूटर को भेजा गया। प्रिंट कंप्यूटर की अगली रिपोर्ट पर प्रिंटर यह करेगा। |
 | `printers.testPrint` | Print a test label | टेस्ट लेबल प्रिंट करें |
 | `printers.setClock` | Set the printer clock | प्रिंटर की घड़ी सेट करें |
 | `printers.calibrate.open` | Calibrate label size | लेबल का साइज़ नापें |
@@ -1938,7 +1938,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `computerBanner.offlineTitle` | The print computer has been offline since {time} | प्रिंट कंप्यूटर {time} से बंद है |
 | `computerBanner.offlineBody` | {waiting} {waiting:label is\|labels are} waiting. Check that the print computer is switched on and online. They print once it reports in. | {waiting} लेबल इंतज़ार में हैं। देखें कि प्लांट का प्रिंट कंप्यूटर चालू है और इंटरनेट से जुड़ा है। जुड़ते ही लेबल अपने आप प्रिंट हो जाएँगे। |
 | `nodes.title` | Print computer | प्रिंट कंप्यूटर |
-| `nodes.hint` | Everything here is what the print computer last reported. Paper and ribbon levels are not reported. | यहाँ सब कुछ वही है जो प्रिंट कंप्यूटर ने आखिरी बार बताया। कागज़ और रिबन की जानकारी नहीं आती। |
+| `nodes.hint` | The print computer last reported these details. It does not report paper or ribbon levels. | यहाँ सब कुछ वही है जो प्रिंट कंप्यूटर ने आखिरी बार बताया। कागज़ और रिबन की जानकारी नहीं आती। |
 | `nodes.none` | No print computer is set up yet. Ask the orrn team to install one. | अभी कोई प्रिंट कंप्यूटर सेट नहीं है। लगवाने के लिए orrn टीम से कहें। |
 | `nodes.others` | Other print computers | दूसरे प्रिंट कंप्यूटर |
 | `nodes.state.online` | Online | चालू |
@@ -1958,7 +1958,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `nodes.siteTerm` | Site | जगह |
 | `nodes.lastError` | Last error: {message} | आखिरी गड़बड़ी: {message} |
 | `reprint.title` | Reprint a label | लेबल दोबारा प्रिंट करें |
-| `reprint.body` | Opens the bundle, where Reprint label sends it to the printer. | Bundle खुलता है, वहाँ "लेबल दोबारा प्रिंट" से लेबल प्रिंटर को जाता है। |
+| `reprint.body` | Opens the bundle. Use Reprint label there to send it to the printer. | Bundle खुलता है, वहाँ "लेबल दोबारा प्रिंट" से लेबल प्रिंटर को जाता है। |
 | `reprint.field` | Bundle number | Bundle नंबर |
 | `reprint.open` | Open bundle | Bundle खोलें |
 | `reprint.required` | Enter a bundle number. | Bundle नंबर लिखें। |
@@ -2025,7 +2025,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `library.photo.modeLibrary` | Design library | डिज़ाइन लाइब्रेरी |
 | `library.photo.modePhoto` | Photo of a label | लेबल की फ़ोटो |
 | `library.photo.defaultName` | Label from photo | फ़ोटो से लेबल |
-| `library.photo.privacy` | The photo stays on this device. Codes and text are read here and nothing is uploaded. | फ़ोटो इसी डिवाइस पर रहती है। कोड और लिखावट यहीं पढ़े जाते हैं, कुछ भी अपलोड नहीं होता। |
+| `library.photo.privacy` | The photo stays on this device. Your browser reads the codes and text. Nothing is uploaded. | फ़ोटो इसी डिवाइस पर रहती है। कोड और लिखावट यहीं पढ़े जाते हैं, कुछ भी अपलोड नहीं होता। |
 | `library.photo.dropTitle` | Drop a photo or scan of a label | लेबल की फ़ोटो या स्कैन यहाँ छोड़ें |
 | `library.photo.dropHint` | JPEG, PNG or WebP up to 15 MB. Shoot it flat, in even light. | JPEG, PNG या WebP, 15 MB तक। सीधी और बराबर रोशनी में खींचें। |
 | `library.photo.choose` | Choose a photo | फ़ोटो चुनें |
@@ -2035,7 +2035,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `library.photo.unreadable` | This file isn't a photo this browser can read. | यह फ़ाइल ऐसी फ़ोटो नहीं है जिसे यह ब्राउज़र पढ़ सके। |
 | `library.photo.cropTitle` | Line up the corners | कोने मिलाएँ |
 | `library.photo.cropHint` | Drag each corner onto a corner of the label. The thick edge is the top. | हर कोने को लेबल के कोने पर खींचें। मोटी किनारी लेबल का ऊपरी हिस्सा है। |
-| `library.photo.cornerHint` | Arrow keys move the corner, Shift moves it further. | तीर वाली कुंजियों से कोना खिसकता है, Shift के साथ ज़्यादा। |
+| `library.photo.cornerHint` | Arrow keys move the corner. Hold Shift to move it further. | तीर वाली कुंजियों से कोना खिसकता है, Shift के साथ ज़्यादा। |
 | `library.photo.corners.topLeft` | Top left corner | ऊपर बायाँ कोना |
 | `library.photo.corners.topRight` | Top right corner | ऊपर दायाँ कोना |
 | `library.photo.corners.bottomRight` | Bottom right corner | नीचे दायाँ कोना |
@@ -2098,7 +2098,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `scale.noneHint` | This print computer has no scale connected. | इस प्रिंट कंप्यूटर पर कांटा नहीं जुड़ा है। |
 | `scale.unknownHint` | This print computer has not said whether a scale is connected yet. | इस प्रिंट कंप्यूटर ने अभी बताया नहीं कि कांटा जुड़ा है या नहीं। |
 | `collectors.title` | Press and spectro collectors | प्रेस और स्पेक्ट्रो कलेक्टर |
-| `collectors.none` | This print computer runs no collector. | इस प्रिंट कंप्यूटर पर कोई कलेक्टर नहीं चल रहा। |
+| `collectors.none` | No collector runs on this print computer. | इस प्रिंट कंप्यूटर पर कोई कलेक्टर नहीं चल रहा। |
 | `collectors.press` | Press {line} | प्रेस {line} |
 | `collectors.spectro` | Spectro files | स्पेक्ट्रो फ़ाइलें |
 | `collectors.sending` | Sending | भेज रहा है |
@@ -2118,10 +2118,10 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 |---|---|---|
 | `ageing.title` | Ageing | एजिंग |
 | `ageing.intro` | How strict the plant is about aged metal. | एजिंग वाले माल को लेकर प्लांट कितना सख़्त है। |
-| `ageing.requireForPackHint` | Pack refuses a hand pack of a section that has released trolley pieces. | जिस सेक्शन के छोड़े हुए ट्रॉली पीस हों, उसका हाथ से पैक नहीं होता। |
+| `ageing.requireForPackHint` | Pack refuses hand packing for a section with released trolley pieces. | जिस सेक्शन के छोड़े हुए ट्रॉली पीस हों, उसका हाथ से पैक नहीं होता। |
 | `ageing.manualLoadHint` | Lines typed by hand, with no press log behind them. | हाथ से लिखी लाइनें, जिनके पीछे प्रेस लॉग नहीं। |
 | `ageing.splitHint` | A trolley line can be cut into other lengths before it is packed. | पैक से पहले ट्रॉली लाइन को दूसरी लंबाइयों में बांटा जा सकता है। |
-| `ageing.fromToday` | Turning this on starts today. Bundles packed before today still go. | इसे चालू करने पर आज से लागू। आज से पहले पैक बंडल जा सकते हैं। |
+| `ageing.fromToday` | This applies to bundles packed from today. Earlier bundles still go. | इसे चालू करने पर आज से लागू। आज से पहले पैक बंडल जा सकते हैं। |
 | `ageing.since` | Required for bundles packed from {day}. Earlier bundles still go. | {day} से पैक बंडलों के लिए ज़रूरी। पहले के बंडल जा सकते हैं। |
 | `ageing.saved` | Ageing settings saved. | एजिंग सेटिंग सेव हुईं। |
 | `ageing.saveFailed` | Could not save. Try again. | सेव नहीं हो सका। फिर कोशिश करें। |
@@ -2181,7 +2181,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `team.sendInvite` | Send invite | इनवाइट भेजें |
 | `team.inviteSent` | Invite sent to {email} | {email} को इनवाइट भेज दिया |
 | `team.inviteLink.title` | Invite link for {email} | {email} के लिए इनवाइट लिंक |
-| `team.inviteLink.notSent` | The invite is saved, but the email did not go. Copy the link and send it by WhatsApp or your own mail. | इनवाइट सेव हो गया, पर ईमेल नहीं गया। लिंक कॉपी करके WhatsApp या अपने मेल से भेजें। |
+| `team.inviteLink.notSent` | orrn saved the invite but couldn't send the email. Copy the link and send it by WhatsApp or your own mail. | इनवाइट सेव हो गया, पर ईमेल नहीं गया। लिंक कॉपी करके WhatsApp या अपने मेल से भेजें। |
 | `team.inviteLink.sent` | The email went to {email}. You can also send the link yourself. | ईमेल {email} पर गया। आप लिंक खुद भी भेज सकते हैं। |
 | `team.inviteLink.link` | Invite link | इनवाइट लिंक |
 | `team.inviteLink.copy` | Copy link | लिंक कॉपी करें |
@@ -2222,7 +2222,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `shifts.position` | Shift {seq} | शिफ्ट {seq} |
 | `shifts.remove` | Remove shift {name} | शिफ्ट {name} हटाएं |
 | `shifts.applies` | A change applies from the next read. A press run that is open keeps the shift it started in. | बदलाव अगली बार पढ़ने से लागू होता है। चल रहा प्रेस रन अपनी शुरू वाली शिफ्ट में ही रहता है। |
-| `shifts.covered` | The shifts cover 24 hours with no overlap. Touching ends are fine. | शिफ्ट पूरे 24 घंटे ढकती हैं, दोहरा समय नहीं है। जुड़े हुए सिरे ठीक हैं। |
+| `shifts.covered` | The shifts cover 24 hours without overlap. One shift can start when another ends. | शिफ्ट पूरे 24 घंटे ढकती हैं, दोहरा समय नहीं है। जुड़े हुए सिरे ठीक हैं। |
 | `shifts.save` | Save shifts | शिफ्ट सेव करें |
 | `shifts.saved` | Shifts saved | शिफ्ट सेव हो गईं |
 | `shifts.saveFailed` | Couldn't save the shifts. Try again. | शिफ्ट सेव नहीं हुईं। फिर कोशिश करें। |
@@ -2230,7 +2230,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `shifts.undo` | Undo changes | बदलाव वापस लें |
 | `shifts.readOnly` | Only owners and admins can change shifts. | शिफ्ट सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
 | `shifts.nowIn` | Now: {name} | अभी: {name} |
-| `standards.intro` | Printed on the label and the test certificate for the die's profile kind. A blank CM/L prints no licence line. | डाई के प्रोफ़ाइल प्रकार के हिसाब से लेबल और टेस्ट सर्टिफिकेट पर छपता है। CM/L खाली हो तो लाइसेंस की लाइन नहीं छपती। |
+| `standards.intro` | orrn prints these on the label and test certificate for the die's profile kind. Leave CM/L blank to omit the licence line. | डाई के प्रोफ़ाइल प्रकार के हिसाब से लेबल और टेस्ट सर्टिफिकेट पर छपता है। CM/L खाली हो तो लाइसेंस की लाइन नहीं छपती। |
 | `standards.designationHint` | Up to 40 characters. | ज़्यादा से ज़्यादा 40 अक्षर। |
 | `standards.cmlHint` | Blank prints no licence line. | खाली हो तो लाइसेंस की लाइन नहीं छपती। |
 | `standards.semiSolid` | Left blank, semi hollow prints the solid designation and licence. | खाली छोड़ें तो सेमी हॉलो पर सॉलिड वाला स्टैंडर्ड और लाइसेंस छपेगा। |
@@ -2239,7 +2239,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `standards.saveFailed` | Couldn't save the standards. Try again. | स्टैंडर्ड सेव नहीं हुए। फिर कोशिश करें। |
 | `standards.readOnly` | Only owners and admins can change standards. | स्टैंडर्ड सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
 | `castBook.title` | Cast numbers | कास्ट नंबर |
-| `castBook.intro` | Continue the numbers of your paper cast book. The first cast of the month you pick takes the number you enter, then the numbers count on. Set it before that month's first cast. | अपनी कागज़ी कास्ट बही के नंबर आगे बढ़ाएं। चुने हुए महीने की पहली कास्ट आपका लिखा नंबर लेती है, फिर नंबर आगे गिनते हैं। उस महीने की पहली कास्ट से पहले लगाएं। |
+| `castBook.intro` | Continue your paper cast book's numbers. The first cast in the chosen month takes your number. Later casts count on from there. Set this before that month's first cast. | अपनी कागज़ी कास्ट बही के नंबर आगे बढ़ाएं। चुने हुए महीने की पहली कास्ट आपका लिखा नंबर लेती है, फिर नंबर आगे गिनते हैं। उस महीने की पहली कास्ट से पहले लगाएं। |
 | `castBook.month` | Month | महीना |
 | `castBook.start` | Cast number series starts at | कास्ट नंबर सीरीज़ यहां से शुरू |
 | `castBook.startHint` | The number the first cast of that month gets. The cast code is the month letter and this number. | उस महीने की पहली कास्ट को यह नंबर मिलता है। कास्ट कोड महीने का अक्षर और यह नंबर होता है। |
@@ -2250,7 +2250,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `castBook.clear` | Start at 1 again | फिर 1 से शुरू करें |
 | `castBook.cleared` | Cast numbers start at 1 again | कास्ट नंबर फिर 1 से शुरू होंगे |
 | `castBook.invalid` | Pick a month and a number from 1 to 99999. | महीना और 1 से 99999 के बीच का नंबर चुनें। |
-| `castBook.saveFailed` | Could not save the cast numbers. If that month already has a cast, the book can no longer move there. | कास्ट नंबर सेव नहीं हुए। उस महीने में कास्ट बन चुकी हो तो बही वहां आगे नहीं खिसक सकती। |
+| `castBook.saveFailed` | Couldn't save the cast numbers. You can't change the start after that month's first cast. | कास्ट नंबर सेव नहीं हुए। उस महीने में कास्ट बन चुकी हो तो बही वहां आगे नहीं खिसक सकती। |
 | `castBook.readOnly` | Only a manager or the admin can change the cast numbers. | कास्ट नंबर सिर्फ़ मैनेजर या एडमिन बदल सकते हैं। |
 | `thresholds.title` | Thresholds | सीमाएं |
 | `thresholds.intro` | The limits the screens colour by. Type a percent. A change applies from the next request. | स्क्रीन इन सीमाओं से रंग तय करती हैं। प्रतिशत में लिखें। बदलाव अगले अनुरोध से लागू होता है। |
@@ -2266,7 +2266,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `thresholds.recoveryNone` | No colour | कोई रंग नहीं |
 | `thresholds.recoveryValue` | green {green}, amber {amber} | हरा {green}, अंबर {amber} |
 | `thresholds.balance` | Press balance warning | प्रेस बैलेंस चेतावनी |
-| `thresholds.balanceHint` | A run whose unaccounted kg is above this share of its billet kg is flagged when it closes. | जिस रन का बिना हिसाब का kg उसके बिलेट kg के इस हिस्से से ऊपर हो, बंद होते समय उस पर निशान लगता है। |
+| `thresholds.balanceHint` | orrn flags a closing run when its unaccounted kg exceeds this share of its billet kg. | जिस रन का बिना हिसाब का kg उसके बिलेट kg के इस हिस्से से ऊपर हो, बंद होते समय उस पर निशान लगता है। |
 | `thresholds.balanceWarn` | Warn above (%) | इससे ऊपर चेतावनी (%) |
 | `thresholds.save` | Save thresholds | सीमाएं सेव करें |
 | `thresholds.saved` | Thresholds saved | सीमाएं सेव हो गईं |
@@ -2284,11 +2284,11 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `modules.on` | On | चालू |
 | `modules.off` | Off | बंद |
 | `modules.dieBands` | Die bands | Die बैंड |
-| `modules.dieBandsHint` | Off hides the band and the band-start basis. The stored grams are not rewritten. | बंद करने पर बैंड और बैंड-शुरुआत वाला आधार छिप जाता है। सेव ग्राम नहीं बदलते। |
+| `modules.dieBandsHint` | Off hides the band and the band-start basis. orrn keeps the stored grams. | बंद करने पर बैंड और बैंड-शुरुआत वाला आधार छिप जाता है। सेव ग्राम नहीं बदलते। |
 | `modules.priceOnSalesOrder` | Price on the sales order | सेल्स ऑर्डर पर कीमत |
-| `modules.priceOnSalesOrderHint` | On shows the rate per kg to staff who hold the price action. The party portal never shows a rate. | चालू हो तो कीमत वाली कार्रवाई वाले स्टाफ़ को प्रति kg रेट दिखता है। पार्टी पोर्टल पर रेट कभी नहीं दिखता। |
+| `modules.priceOnSalesOrderHint` | On shows the rate per kg only to staff with price access. The party portal never shows a rate. | चालू हो तो कीमत वाली कार्रवाई वाले स्टाफ़ को प्रति kg रेट दिखता है। पार्टी पोर्टल पर रेट कभी नहीं दिखता। |
 | `modules.dieRequired` | Die required on order lines | ऑर्डर लाइन पर die ज़रूरी |
-| `modules.dieRequiredHint` | On: confirming an order needs a die copy or a tier. Off: it may go ahead on the section alone. | चालू: ऑर्डर पक्का करने के लिए die कॉपी या टियर चाहिए। बंद: सिर्फ़ सेक्शन पर भी आगे बढ़ सकता है। |
+| `modules.dieRequiredHint` | When on, you need a die copy or a tier to confirm an order. When off, the section alone is enough. | चालू: ऑर्डर पक्का करने के लिए die कॉपी या टियर चाहिए। बंद: सिर्फ़ सेक्शन पर भी आगे बढ़ सकता है। |
 | `modules.portalEnabled` | Party portal | पार्टी पोर्टल |
 | `modules.portalEnabledHint` | Parties with a login see their orders, dispatches and certificates at /portal. | लॉगिन वाली पार्टियां अपने ऑर्डर, डिस्पैच और सर्टिफ़िकेट /portal पर देखती हैं। |
 | `modules.requireCast` | Cast number on bundles | Bundle पर कास्ट नंबर |
@@ -2318,7 +2318,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `about.help` | Open Help | मदद खोलें |
 | `about.guides` | Guides | गाइड |
 | `about.releaseNotes` | What changed | क्या बदला |
-| `about.releaseNotesHint` | The last app builds and what each one changed. The same text the app shows when it asks for an update. | ऐप के पिछले बिल्ड और हर एक में क्या बदला। यही लिखावट ऐप अपडेट माँगते समय दिखाता है। |
+| `about.releaseNotesHint` | Recent app builds and their changes. The app shows this text when it asks for an update. | ऐप के पिछले बिल्ड और हर एक में क्या बदला। यही लिखावट ऐप अपडेट माँगते समय दिखाता है। |
 | `about.releaseNotesNone` | No app builds have been published yet. | अभी तक कोई ऐप बिल्ड जारी नहीं हुआ। |
 | `about.releaseBuild` | {platform} {version} (build {build}) | {platform} {version} (बिल्ड {build}) |
 | `about.releaseMandatory` | Update required | अपडेट ज़रूरी |
@@ -2326,7 +2326,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `about.platformName.ios` | iPhone | iPhone |
 | `about.platformName.web` | Web | वेब |
 | `printing.packingList.title` | What one packing list carries | एक packing list में क्या जाएगा |
-| `printing.packingList.hint` | How a dispatch is built. Changing it does not touch dispatches already started. | dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता। |
+| `printing.packingList.hint` | orrn uses this to build dispatches. Dispatches already started don't change. | dispatch कैसे बनता है। बदलने से शुरू हो चुके dispatch पर असर नहीं पड़ता। |
 | `printing.packingList.failed` | Could not save the setting. Try again. | सेटिंग सेव नहीं हुई। फिर कोशिश करें। |
 | `printing.packingList.readOnly` | Set by the plant's owner or admin. | प्लांट के owner या admin तय करते हैं। |
 | `printing.packingList.scope.one_so.label` | One order | एक ऑर्डर |
@@ -2344,7 +2344,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `printing.copies` | {count} {count:copy\|copies} per label | हर लेबल की {count} {count:कॉपी\|कॉपियाँ} |
 | `printing.template` | Label design: {name} | लेबल डिज़ाइन: {name} |
 | `printing.open` | Open printing | प्रिंटिंग खोलें |
-| `printing.hint` | Printers and label designs are set up by the orrn team. | प्रिंटर और लेबल डिज़ाइन orrn टीम सेट करती है। |
+| `printing.hint` | The orrn team sets up printers and label designs. | प्रिंटर और लेबल डिज़ाइन orrn टीम सेट करती है। |
 | `data.title` | Data | डेटा |
 | `data.importBundles` | Import old bundles | पुराने bundle इम्पोर्ट करें |
 | `data.importDies` | Import dies | Die इम्पोर्ट करें |
@@ -2356,7 +2356,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `data.rowProblem` | Row {row}: {reason} | लाइन {row}: {reason} |
 | `data.submit` | Import {count} {count:row\|rows} | {count} लाइन इम्पोर्ट करें |
 | `data.imported` | {count} {count:row\|rows} imported | {count} लाइन इम्पोर्ट हो {count:गई\|गईं} |
-| `data.bundlesBody` | Stock on your shelves from before orrn. Dies not in orrn yet are added for you. | orrn से पहले से रैक पर रखा स्टॉक। जो die orrn में नहीं हैं, वे अपने आप जुड़ जाते हैं। |
+| `data.bundlesBody` | Stock already on your shelves from before orrn. orrn adds any missing dies. | orrn से पहले से रैक पर रखा स्टॉक। जो die orrn में नहीं हैं, वे अपने आप जुड़ जाते हैं। |
 | `data.diesBody` | Series, section code and the weight range per 12 ft. | Series, section code और 12 ft का वज़न रेंज। |
 | `data.customersBody` | Names, phone numbers, email and GSTIN. | नाम, फ़ोन नंबर, ईमेल और GSTIN। |
 | `data.noAccess` | Your role can't import data. Ask an owner or admin if you need it. | आपके रोल से डेटा इम्पोर्ट नहीं होता। ज़रूरत हो तो owner या admin से कहें। |
@@ -2381,11 +2381,11 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `columns.required` | Needed | ज़रूरी |
 | `columns.optional` | Optional | चाहें तो |
 | `columns.unitRule` | Put the unit in the column name: Length (mm), Length (in), Length (ft), Weight (kg) or Weight (g). | कॉलम के नाम में यूनिट लिखें: Length (mm), Length (in), Length (ft), Weight (kg) या Weight (g)। |
-| `columns.lengthFallbackMm` | A length column with no unit is read in mm, your company setting. | बिना यूनिट वाला length कॉलम mm में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। |
-| `columns.lengthFallbackInch` | A length column with no unit is read in inches, your company setting. 11 ft 6 in also works. | बिना यूनिट वाला length कॉलम इंच में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। 11 ft 6 in भी चलता है। |
-| `columns.weightFallback` | A weight column with no unit is read in kg. | बिना यूनिट वाला weight कॉलम kg में पढ़ा जाता है। |
+| `columns.lengthFallbackMm` | orrn reads a length column without a unit in mm, your company setting. | बिना यूनिट वाला length कॉलम mm में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। |
+| `columns.lengthFallbackInch` | orrn reads a length column without a unit in inches, your company setting. 11 ft 6 in also works. | बिना यूनिट वाला length कॉलम इंच में पढ़ा जाता है, जो आपकी कंपनी की सेटिंग है। 11 ft 6 in भी चलता है। |
+| `columns.weightFallback` | orrn reads a weight column without a unit in kg. | बिना यूनिट वाला weight कॉलम kg में पढ़ा जाता है। |
 | `columns.sample` | Download sample sheet | सैंपल शीट डाउनलोड करें |
-| `legacyDies` | Dies not in orrn yet are added for you, marked legacy. Check their weight range on the Dies page afterwards. | जो die orrn में नहीं हैं, वे legacy निशान के साथ अपने आप जुड़ते हैं। बाद में Dies पेज पर उनका वज़न रेंज जांच लें। |
+| `legacyDies` | orrn adds missing dies and marks them legacy. Check their weight range on the Dies page afterwards. | जो die orrn में नहीं हैं, वे legacy निशान के साथ अपने आप जुड़ते हैं। बाद में Dies पेज पर उनका वज़न रेंज जांच लें। |
 | `reading` | Reading {name} | {name} पढ़ रहे हैं |
 | `checking` | Checking these dies against orrn | ये die orrn से मिला रहे हैं |
 | `readFailed` | orrn couldn't read this file. Save it as CSV or Excel (.xlsx) and choose it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे CSV या Excel (.xlsx) में सेव करके फिर चुनें। |
@@ -2426,7 +2426,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `existing.label` | Dies already in orrn | जो die पहले से orrn में हैं |
 | `existing.skip` | Leave as they are | जैसे हैं वैसे रहने दें |
 | `existing.update` | Update from this sheet | इस शीट से अपडेट करें |
-| `existing.help` | Only the columns in this sheet change. Empty cells, and columns the sheet doesn't have, keep what orrn has. | सिर्फ़ इस शीट के कॉलम बदलते हैं। खाली सेल और जो कॉलम शीट में नहीं हैं, उनमें orrn का डेटा वैसा ही रहता है। |
+| `existing.help` | orrn changes only the columns in this sheet. Empty cells and missing columns keep their current values. | सिर्फ़ इस शीट के कॉलम बदलते हैं। खाली सेल और जो कॉलम शीट में नहीं हैं, उनमें orrn का डेटा वैसा ही रहता है। |
 | `nothingReady` | No rows are ready to import. Fix the rows with problems and choose the file again. | कोई लाइन इम्पोर्ट के लिए तैयार नहीं है। दिक्कत वाली लाइनें ठीक करके फ़ाइल फिर चुनें। |
 | `saving` | Saving {done} of {total} rows | {total} में से {done} लाइन सेव हुईं |
 | `keepOpen` | Keep this open until it finishes. | पूरा होने तक इसे खुला रखें। |
@@ -2438,11 +2438,11 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `failed.savedUpTo` | Saved {done} of {total} rows, up to row {row}. | {total} में से {done} लाइन सेव हुईं, लाइन {row} तक। |
 | `failed.nothingSaved` | No rows were saved. | कोई लाइन सेव नहीं हुई। |
 | `failed.unknown` | orrn can't tell yet if {count} {count:row\|rows} from row {from} to row {to} {count:was\|were} saved. | orrn अभी पक्का नहीं बता सकता कि लाइन {from} से लाइन {to} तक की {count} लाइन सेव हुईं या नहीं। |
-| `failed.unknownHelp` | Try again: rows that were already saved are not added twice. | फिर कोशिश करें: जो लाइनें सेव हो चुकी हैं, वे दोबारा नहीं जुड़ेंगी। |
+| `failed.unknownHelp` | Try again. orrn doesn't add saved rows twice. | फिर कोशिश करें: जो लाइनें सेव हो चुकी हैं, वे दोबारा नहीं जुड़ेंगी। |
 | `failed.refusedRows` | Nothing from row {from} on was saved. | लाइन {from} से आगे कुछ सेव नहीं हुआ। |
 | `failed.refusedHelp` | Download the rows not saved, fix them and import that file. Don't import this whole file again. | जो लाइनें सेव नहीं हुईं, उन्हें डाउनलोड करें, ठीक करें और वही फ़ाइल इम्पोर्ट करें। यह पूरी फ़ाइल दोबारा इम्पोर्ट न करें। |
 | `confirmClose.title` | Close this import? | यह इम्पोर्ट बंद करें? |
-| `confirmClose.unknown` | {count} {count:row is\|rows are} not saved for sure. To finish later, choose this same file again without changing it: rows already saved are skipped. | {count} लाइन पक्का सेव नहीं {count:हुई\|हुईं}। बाद में पूरा करने के लिए यही फ़ाइल बिना बदले फिर चुनें: जो लाइनें सेव हो चुकी हैं, वे छोड़ दी जाएंगी। |
+| `confirmClose.unknown` | {count} {count:row is\|rows are} not saved for sure. To finish later, choose this same file again without changing it. orrn skips rows already saved. | {count} लाइन पक्का सेव नहीं {count:हुई\|हुईं}। बाद में पूरा करने के लिए यही फ़ाइल बिना बदले फिर चुनें: जो लाइनें सेव हो चुकी हैं, वे छोड़ दी जाएंगी। |
 | `confirmClose.refused` | {count} {count:row was\|rows were} not saved. Download {count:it\|them} first, so you can fix {count:it\|them} and import only {count:that row\|those rows}. | {count} लाइन सेव नहीं {count:हुई\|हुईं}। पहले {count:उसे\|उन्हें} डाउनलोड करें, ताकि ठीक करके सिर्फ़ {count:वही लाइन\|वही लाइनें} इम्पोर्ट कर सकें। |
 | `confirmClose.keepOpen` | Keep open | खुला रखें |
 | `confirmClose.close` | Close anyway | फिर भी बंद करें |
@@ -2486,14 +2486,14 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `reason.dieDeleted` | This die was deleted in orrn, so bundles can't be added to it. | यह die orrn में डिलीट हो चुकी है, इसलिए इसमें bundle नहीं जुड़ सकते। |
 | `reason.lengthRange` | {column} reads as {length}, too long or too short for a bundle. Check the unit in the column name. | {column} {length} पढ़ा गया, जो bundle के लिए बहुत लंबा या बहुत छोटा है। कॉलम के नाम में यूनिट जांचें। |
 | `reason.weightRange` | {column} reads as {weight}, too heavy to be right. Check the unit in the column name. | {column} {weight} पढ़ा गया, जो सही होने के लिए बहुत ज़्यादा है। कॉलम के नाम में यूनिट जांचें। |
-| `reason.alreadyImported` | This row (same row number, same values) was already imported from an earlier copy of this file, so it is not added again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
+| `reason.alreadyImported` | This row was already imported from an earlier copy of this file. Its row number and values match, so orrn won't add it again. | यह लाइन (वही लाइन नंबर, वही वैल्यू) इस फ़ाइल की पहले की कॉपी से इम्पोर्ट हो चुकी है, इसलिए दोबारा नहीं जोड़ी गई। |
 
 ### masters (253)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `reasons.title` | Reason codes | कारण कोड |
-| `reasons.subtitle` | Why a press stopped, a bundle was voided or a label was printed again. These are the choices people pick from. | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा। लोग इन्हीं में से चुनते हैं। |
+| `reasons.subtitle` | Reasons for a stopped press, a voided bundle or a reprinted label. | प्रेस क्यों रुका, बंडल क्यों रद्द हुआ या लेबल दोबारा क्यों छपा। लोग इन्हीं में से चुनते हैं। |
 | `reasons.kindsLabel` | Kind of reason | कारण का प्रकार |
 | `reasons.add` | Add reason | कारण जोड़ें |
 | `reasons.columns.label` | Reason | कारण |
@@ -2505,12 +2505,12 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `reasons.noteYes` | Asks for a note | नोट मांगता है |
 | `reasons.noteNo` | No note | नोट नहीं |
 | `reasons.fixed` | Fixed | तय |
-| `reasons.fixedHint` | Other is always there, always asks for a note and always comes last. It cannot be changed. | 'अन्य' हमेशा रहता है, हमेशा नोट मांगता है और हमेशा आखिर में आता है। इसे बदला नहीं जा सकता। |
+| `reasons.fixedHint` | Other always asks for a note and comes last. You can't change or remove it. | 'अन्य' हमेशा रहता है, हमेशा नोट मांगता है और हमेशा आखिर में आता है। इसे बदला नहीं जा सकता। |
 | `reasons.empty` | No reasons of this kind | इस प्रकार का कोई कारण नहीं |
 | `reasons.form.addTitle` | Add a reason | कारण जोड़ें |
 | `reasons.form.editTitle` | Edit {name} | {name} बदलें |
 | `reasons.form.english` | English wording | अंग्रेज़ी शब्द |
-| `reasons.form.englishHint` | The key is made from this when the reason is added. Renaming never changes the key. | कारण जोड़ते समय इसी से कोड बनता है। नाम बदलने पर कोड नहीं बदलता। |
+| `reasons.form.englishHint` | orrn makes the key from this when you add the reason. Renaming never changes the key. | कारण जोड़ते समय इसी से कोड बनता है। नाम बदलने पर कोड नहीं बदलता। |
 | `reasons.form.hindi` | Hindi wording | हिंदी शब्द |
 | `reasons.form.gujarati` | Gujarati wording | गुजराती शब्द |
 | `reasons.form.translationHint` | Leave blank to use the built-in wording, or the English. | खाली छोड़ें तो बना-बनाया शब्द दिखेगा, या अंग्रेज़ी। |
@@ -2549,7 +2549,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `hub.furnacesHint` | The foundry's furnaces and how much one melt may hold | फाउंड्री की फर्नेस और एक मेल्ट में कितना आ सकता है |
 | `hub.furnacesNoun` | {count:furnace\|furnaces} | {count:फर्नेस\|फर्नेस} |
 | `hub.alloys` | Alloys | अलॉय |
-| `hub.alloysHint` | The alloys cast and the element limits a spectro result is judged by | ढाले जाने वाले अलॉय और वे तत्व-सीमाएं जिनसे स्पेक्ट्रो नतीजा जाँचा जाता है |
+| `hub.alloysHint` | The alloys the plant casts and the element limits orrn uses to judge spectro results | ढाले जाने वाले अलॉय और वे तत्व-सीमाएं जिनसे स्पेक्ट्रो नतीजा जाँचा जाता है |
 | `hub.alloysNoun` | {count:alloy\|alloys} | {count:अलॉय\|अलॉय} |
 | `hub.ovens` | Ageing ovens | एजिंग ओवन |
 | `hub.ovensHint` | The ovens, their size and whether they are in service | ओवन, उनकी क्षमता और चालू हैं या नहीं |
@@ -2587,7 +2587,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `seeded` | {count} {count:entry\|entries} added | {count} {count:चीज़\|चीज़ें} जुड़ीं |
 | `seededNone` | Every standard entry is already here | सभी स्टैंडर्ड चीज़ें पहले से हैं |
 | `errors.generic` | Couldn't save. Check the connection and try again. | सेव नहीं हुआ। इंटरनेट जांचें और फिर से कोशिश करें। |
-| `errors.changed` | Someone changed this a moment ago. Close it, open it again and retry. | किसी ने अभी इसे बदला है। इसे बंद करके फिर खोलें और दोबारा करें। |
+| `errors.changed` | Someone just changed this. Close and reopen it, then try again. | किसी ने अभी इसे बदला है। इसे बंद करके फिर खोलें और दोबारा करें। |
 | `errors.forbidden` | Your role can't change this list. Ask a manager. | आपका रोल यह लिस्ट नहीं बदल सकता। मैनेजर से पूछें। |
 | `errors.notFound` | This entry is gone. Reload the list. | यह चीज़ अब नहीं है। लिस्ट दोबारा लोड करें। |
 | `errors.nameRequired` | Give it a name. | नाम डालें। |
@@ -2596,7 +2596,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `locations.add` | Add location | जगह जोड़ें |
 | `locations.seed` | Add the plant's locations | प्लांट की जगहें जोड़ें |
 | `locations.seedTitle` | Add the plant's locations? | प्लांट की जगहें जोड़ें? |
-| `locations.seedBody` | This adds yards 1 to 6, the billet store, the scrap store, the central store and plant scrap, skipping any you already have. After this, packing asks which yard each bundle goes to. | इससे यार्ड 1 से 6, बिलेट स्टोर, स्क्रैप स्टोर, सेंट्रल स्टोर और प्लांट स्क्रैप जुड़ेंगे, जो पहले से हैं वे छोड़ दिए जाएंगे। इसके बाद पैकिंग में हर bundle का यार्ड पूछा जाएगा। |
+| `locations.seedBody` | This adds any missing locations: yards 1 to 6, the billet store, the scrap store, the central store and plant scrap. Packing then asks which yard each bundle goes to. | इससे यार्ड 1 से 6, बिलेट स्टोर, स्क्रैप स्टोर, सेंट्रल स्टोर और प्लांट स्क्रैप जुड़ेंगे, जो पहले से हैं वे छोड़ दिए जाएंगे। इसके बाद पैकिंग में हर bundle का यार्ड पूछा जाएगा। |
 | `locations.empty` | No locations yet | अभी कोई जगह नहीं है |
 | `locations.emptyBody` | Add the plant's yards and stores in one go, or add your own. | प्लांट के यार्ड और स्टोर एक बार में जोड़ें, या अपनी जगहें जोड़ें। |
 | `locations.columns.code` | Code | कोड |
@@ -2623,7 +2623,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `locations.form.name` | Name | नाम |
 | `locations.form.nameRequired` | Give the location a name. | जगह का नाम डालें। |
 | `locations.form.kind` | Kind | किस्म |
-| `locations.form.kindHint` | Bundles go only to yards. The kind changes only while the location is empty. | Bundle सिर्फ़ यार्ड में जाते हैं। किस्म तभी बदलती है जब जगह खाली हो। |
+| `locations.form.kindHint` | Bundles go only to yards. You can change the kind only while the location is empty. | Bundle सिर्फ़ यार्ड में जाते हैं। किस्म तभी बदलती है जब जगह खाली हो। |
 | `locations.form.save` | Save location | जगह सेव करें |
 | `locations.form.retire` | Retire location | जगह बंद करें |
 | `locations.form.retireHint` | A retired location leaves every picker. Only an empty location can be retired. | बंद जगह किसी लिस्ट में नहीं आती। सिर्फ़ खाली जगह बंद हो सकती है। |
@@ -2654,7 +2654,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `scrap.form.gradeAddTitle` | Add grade | ग्रेड जोड़ें |
 | `scrap.form.gradeEditTitle` | Edit grade {code} | ग्रेड {code} बदलें |
 | `scrap.form.name` | Name | नाम |
-| `scrap.form.nameHint` | As the purchase book writes it. | जैसा खरीद बुक में लिखा जाता है। |
+| `scrap.form.nameHint` | Use the name in the purchase book. | जैसा खरीद बुक में लिखा जाता है। |
 | `scrap.form.recovery` | Expected recovery (%) | अनुमानित रिकवरी (%) |
 | `scrap.form.recoveryHint` | Metal you expect back from 100 kg of it. Leave blank if you don't know yet. | 100 kg में से कितना मेटल वापस मिलने की उम्मीद है। पता न हो तो खाली छोड़ें। |
 | `scrap.form.recoveryInvalid` | Use a number from 0 to 100, with at most two decimals. | 0 से 100 तक का नंबर डालें, दशमलव के बाद ज़्यादा से ज़्यादा दो अंक। |
@@ -2662,7 +2662,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `scrap.form.gradeCodeHint` | Up to 8 letters, digits, + or -, like A+. | 8 तक अक्षर, अंक, + या -, जैसे A+। |
 | `scrap.form.gradeCodeRequired` | Give the grade a code. | ग्रेड का कोड डालें। |
 | `scrap.form.gradeCodeInvalid` | Use up to 8 letters, digits, + or -. | 8 तक अक्षर, अंक, + या - डालें। |
-| `scrap.form.gradeCodeFixed` | The grade itself stays as it is: lots already carry it. | ग्रेड का कोड नहीं बदलता: लॉट पर पहले से लिखा है। |
+| `scrap.form.gradeCodeFixed` | Lots already carry this grade, so it can't change. | ग्रेड का कोड नहीं बदलता: लॉट पर पहले से लिखा है। |
 | `scrap.form.gradeName` | Description | मतलब |
 | `scrap.form.gradeNameHint` | Optional. What this grade means at the kanta. | चाहें तो। कांटे पर इस ग्रेड का क्या मतलब है। |
 | `scrap.form.save` | Save | सेव करें |
@@ -2685,14 +2685,14 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `streams.form.codeHint` | Letters, digits and dashes. It can't change later. | अक्षर, अंक और डैश। बाद में नहीं बदलेगा। |
 | `streams.form.codeRequired` | Give the stream a code. | स्ट्रीम का कोड डालें। |
 | `streams.form.codeInvalid` | Use up to 20 letters, digits and dashes. | 20 तक अक्षर, अंक और डैश डालें। |
-| `streams.form.codeFixed` | The code and kind stay as they are: the stock book uses them. | कोड और किस्म नहीं बदलते: स्टॉक बुक इन्हें इस्तेमाल करती है। |
+| `streams.form.codeFixed` | The stock book uses the code and kind, so they can't change. | कोड और किस्म नहीं बदलते: स्टॉक बुक इन्हें इस्तेमाल करती है। |
 | `streams.form.name` | Name | नाम |
 | `streams.form.kind` | Kind | किस्म |
 | `streams.form.kindHint` | Goes back in: the furnace melts it again. By-product: it leaves the melt, like dross. | भट्टी में वापस: भट्टी इसे फिर से पिघलाती है। बाय-प्रोडक्ट: पिघलाने में अलग निकलता है, जैसे ड्रॉस। |
 | `streams.form.save` | Save stream | स्ट्रीम सेव करें |
 | `streams.errors.taken` | A return stream with that code or name is already in the list. | इस कोड या नाम की रिटर्न स्ट्रीम लिस्ट में पहले से है। |
 | `dieCopies.title` | Die copies | Die कॉपी |
-| `dieCopies.subtitle` | Every physical die of every section: its tier, status and latest weight. | हर सेक्शन की हर असली die: उसका टियर, स्टेटस और ताज़ा वज़न। |
+| `dieCopies.subtitle` | Every physical die of every section, with its tier, status and latest weight. | हर सेक्शन की हर असली die: उसका टियर, स्टेटस और ताज़ा वज़न। |
 | `dieCopies.add` | Add die copy | Die कॉपी जोड़ें |
 | `dieCopies.empty` | No die copies yet | अभी कोई die कॉपी नहीं है |
 | `dieCopies.emptyBody` | Add the first copy of a section. Its code is the section code and a number, like 12170-1. | किसी सेक्शन की पहली कॉपी जोड़ें। उसका कोड सेक्शन कोड और एक नंबर होता है, जैसे 12170-1। |
@@ -2739,7 +2739,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `dieCopies.form.tier` | First tier | पहला टियर |
 | `dieCopies.form.tierHint` | Only when you add the copy. Later changes go to a manager for approval. | सिर्फ़ कॉपी जोड़ते समय। बाद में बदलाव मैनेजर की मंज़ूरी से होता है। |
 | `dieCopies.form.tierInvalid` | Use a whole number from 1 to 99. | 1 से 99 तक का पूरा नंबर डालें। |
-| `dieCopies.form.tierLocked` | Tier changes are proposed from the die room and approved by a manager. | टियर का बदलाव die रूम से भेजा जाता है और मैनेजर मंज़ूर करते हैं। |
+| `dieCopies.form.tierLocked` | The die room proposes tier changes. A manager approves them. | टियर का बदलाव die रूम से भेजा जाता है और मैनेजर मंज़ूर करते हैं। |
 | `dieCopies.form.status` | Status | स्टेटस |
 | `dieCopies.form.notes` | Notes | नोट |
 | `dieCopies.form.save` | Save die copy | Die कॉपी सेव करें |
@@ -2751,7 +2751,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Vendors | पार्टियां |
-| `subtitle` | Who sells us scrap. Lots, rates and D/C notes hang off these names. | कौन हमें स्क्रैप बेचता है। लॉट, रेट और D/C नोट इन्हीं नामों से जुड़े हैं। |
+| `subtitle` | The people who sell us scrap, with their lots, rates and D/C notes. | कौन हमें स्क्रैप बेचता है। लॉट, रेट और D/C नोट इन्हीं नामों से जुड़े हैं। |
 | `add` | Add vendor | पार्टी जोड़ें |
 | `merge` | Merge vendors | पार्टियां मिलाएं |
 | `search` | Search vendors | पार्टी खोजें |
@@ -2848,7 +2848,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `mergeSheet.keepHint` | Only a confirmed vendor can be kept. | सिर्फ़ पक्की पार्टी रखी जा सकती है। |
 | `mergeSheet.keepRequired` | Choose the vendor to keep. | रखने वाली पार्टी चुनें। |
 | `mergeSheet.search` | Find duplicates | डुप्लिकेट खोजें |
-| `mergeSheet.searchHint` | Started from the name. Change it to find other spellings. | नाम से शुरू किया है। दूसरे नाम खोजने के लिए बदलें। |
+| `mergeSheet.searchHint` | The search starts with the vendor's name. Change it to find other spellings. | नाम से शुरू किया है। दूसरे नाम खोजने के लिए बदलें। |
 | `mergeSheet.noMatches` | No other vendors match {query}. | {query} से कोई दूसरी पार्टी नहीं मिली। |
 | `mergeSheet.typeToSearch` | Type a name to find duplicates. | डुप्लिकेट खोजने के लिए नाम लिखें। |
 | `mergeSheet.picked` | {count} {count:duplicate\|duplicates} picked | {count} डुप्लिकेट चुने |
@@ -2872,7 +2872,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Guides | गाइड |
-| `subtitle` | Step by step help for each job in orrn. | orrn के हर काम के लिए कदम दर कदम मदद। |
+| `subtitle` | Help for each job in orrn. | orrn के हर काम के लिए कदम दर कदम मदद। |
 | `howTo` | How to | कैसे करें |
 | `when` | When to use this | कब इस्तेमाल करें |
 | `steps` | Steps | कदम |
@@ -2907,7 +2907,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `overview.waiting` | Waiting for review | जांच बाकी |
 | `overview.waitingEmpty` | No requests waiting. | कोई रिक्वेस्ट बाकी नहीं है। |
 | `overview.recent` | Recent companies | हाल की कंपनियां |
-| `overview.recentEmpty` | Approved requests become companies here. | मंज़ूर रिक्वेस्ट यहां कंपनी बनकर दिखती हैं। |
+| `overview.recentEmpty` | Approved access requests appear here as companies. | मंज़ूर रिक्वेस्ट यहां कंपनी बनकर दिखती हैं। |
 | `overview.viewAll` | View all | सब देखें |
 | `overview.viewAllRequests` | View all access requests | सब देखें: एक्सेस रिक्वेस्ट |
 | `overview.viewAllCompanies` | View all companies | सब देखें: कंपनियां |
@@ -2972,8 +2972,8 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `releases.build` | Build number | बिल्ड नंबर |
 | `releases.buildHint` | Must be higher than the last build on this platform. | इस प्लेटफ़ॉर्म के पिछले बिल्ड से बड़ा होना चाहिए। |
 | `releases.minBuild` | Minimum build | न्यूनतम बिल्ड |
-| `releases.minBuildHint` | Leave blank to keep the current minimum ({current}). Raising it blocks older builds. Not above the build number. | खाली छोड़ें तो मौजूदा न्यूनतम ({current}) बना रहता है। इसे बढ़ाने पर पुराने बिल्ड रुक जाते हैं। बिल्ड नंबर से ऊपर नहीं। |
-| `releases.mandatory` | Mandatory: raise the floor for older builds too | ज़रूरी: पुराने बिल्ड के लिए भी सीमा ऊपर करें |
+| `releases.minBuildHint` | Leave blank to keep the current minimum ({current}). Raising it blocks older builds. It can't exceed the build number. | खाली छोड़ें तो मौजूदा न्यूनतम ({current}) बना रहता है। इसे बढ़ाने पर पुराने बिल्ड रुक जाते हैं। बिल्ड नंबर से ऊपर नहीं। |
+| `releases.mandatory` | Mandatory: require older builds to update too | ज़रूरी: पुराने बिल्ड के लिए भी सीमा ऊपर करें |
 | `releases.mandatoryYes` | Mandatory | ज़रूरी |
 | `releases.mandatoryNo` | Optional | वैकल्पिक |
 | `releases.mandatorySwitch` | Mandatory: {version} | ज़रूरी: {version} |
@@ -3047,7 +3047,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `support.close` | Close without a reply | बिना जवाब बंद करें |
 | `support.replied` | Reply sent | जवाब भेज दिया |
 | `support.closed` | Request closed | अनुरोध बंद हो गया |
-| `support.conflict` | Someone else answered or closed this request. It has been reloaded. | किसी और ने इसका जवाब दे दिया या इसे बंद कर दिया। इसे फिर लोड किया गया है। |
+| `support.conflict` | Someone else answered or closed this request. orrn reloaded it. | किसी और ने इसका जवाब दे दिया या इसे बंद कर दिया। इसे फिर लोड किया गया है। |
 | `support.failed` | That didn't send. Try again. | यह नहीं गया। फिर कोशिश करें। |
 | `support.earlierReply` | Reply sent {time} | जवाब {time} को भेजा गया |
 | `support.readOnly` | Your role can read requests but not answer them. | आपकी भूमिका अनुरोध पढ़ सकती है, जवाब नहीं दे सकती। |
@@ -3106,7 +3106,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `printing.create` | Set up print station | प्रिंट स्टेशन सेट करें |
 | `printing.created` | Print station set up | प्रिंट स्टेशन सेट हो गया |
 | `printing.secretsTitle` | Copy these now | इन्हें अभी कॉपी करें |
-| `printing.secretsBody` | They are shown only once. The print station needs them to connect. | ये सिर्फ़ एक बार दिखेंगे। प्रिंट स्टेशन को जुड़ने के लिए इनकी ज़रूरत है। |
+| `printing.secretsBody` | orrn shows them only once. The print station needs them to connect. | ये सिर्फ़ एक बार दिखेंगे। प्रिंट स्टेशन को जुड़ने के लिए इनकी ज़रूरत है। |
 | `printing.instanceId` | Instance ID | इंस्टेंस ID |
 | `printing.sharedSecret` | Shared secret | शेयर्ड सीक्रेट |
 | `printing.tunnelToken` | Tunnel token | टनल टोकन |
@@ -3143,7 +3143,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `printing.stationsLabel` | Print stations | प्रिंट स्टेशन |
 | `access.impersonate` | Impersonate | कंपनी के रूप में खोलें |
 | `access.title` | Open {company} as support | {company} को सपोर्ट के रूप में खोलें |
-| `access.body` | You see orrn as their owner would. Every change is recorded with your name. | आप orrn को उनके मालिक की तरह देखेंगे। हर बदलाव आपके नाम से दर्ज होगा। |
+| `access.body` | You see orrn as their owner would. orrn records every change with your name. | आप orrn को उनके मालिक की तरह देखेंगे। हर बदलाव आपके नाम से दर्ज होगा। |
 | `access.reasonLabel` | Reason (optional) | वजह (ज़रूरी नहीं) |
 | `access.reasonHint` | Shown in the session list below. | नीचे सेशन लिस्ट में दिखेगी। |
 | `access.durationLabel` | Session length (minutes) | सेशन कितनी देर (मिनट) |
@@ -3183,25 +3183,25 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `requests.noNotes` | No notes | कोई नोट नहीं |
 | `requests.approve` | Approve | मंज़ूर करें |
 | `requests.approveTitle` | Approve {company}? | {company} को मंज़ूर करें? |
-| `requests.approveBody` | This creates the company and emails a sign-in link to {email}. If the email can't be sent, you get the details to send yourself. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। ईमेल न जा पाए तो खुद भेजने के लिए डिटेल मिल जाएंगी। |
+| `requests.approveBody` | orrn creates the company and emails a sign-in link to {email}. If the email fails, you get the details to send yourself. | इससे कंपनी बनेगी और {email} पर साइन इन लिंक ईमेल होगा। ईमेल न जा पाए तो खुद भेजने के लिए डिटेल मिल जाएंगी। |
 | `requests.approved` | Request approved | रिक्वेस्ट मंज़ूर हो गई |
 | `requests.reject` | Reject | नामंज़ूर करें |
 | `requests.rejectTitle` | Reject {company}? | {company} को नामंज़ूर करें? |
-| `requests.rejectBody` | The request is closed. {email} is not emailed. | रिक्वेस्ट बंद हो जाएगी। {email} को ईमेल नहीं जाएगा। |
+| `requests.rejectBody` | orrn closes the request and does not email {email}. | रिक्वेस्ट बंद हो जाएगी। {email} को ईमेल नहीं जाएगा। |
 | `requests.rejected` | Request rejected | रिक्वेस्ट नामंज़ूर हो गई |
 | `requests.alreadyHandled` | Someone already handled this request. The list is up to date now. | यह रिक्वेस्ट पहले ही निपटा दी गई है। लिस्ट अब ताज़ा है। |
 | `requests.loadError` | Requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर कोशिश करें। |
 | `requests.listLabel` | Waiting requests | बाकी रिक्वेस्ट |
 | `requests.approvedSent` | Approved. Sign-in email sent to {email}. | मंज़ूर हो गई। साइन इन ईमेल {email} पर गया। |
-| `requests.approvedNoLink` | Approved, but no sign-in link was made. Use Get sign-in details below to try again. | मंज़ूर हो गई, पर साइन इन लिंक नहीं बना। नीचे "साइन इन डिटेल लें" से फिर कोशिश करें। |
+| `requests.approvedNoLink` | Approved, but orrn couldn't make a sign-in link. Use Get sign-in details below to try again. | मंज़ूर हो गई, पर साइन इन लिंक नहीं बना। नीचे "साइन इन डिटेल लें" से फिर कोशिश करें। |
 | `requests.showEmail` | Show email | ईमेल देखें |
 | `requests.awaitingTitle` | Approved, password not set yet | मंज़ूर, पासवर्ड अभी नहीं बना |
 | `requests.awaitingBody` | If the email did not arrive or the link stopped working, get a fresh sign-in link and send it yourself. | ईमेल न पहुंचा हो या लिंक काम न कर रहा हो, तो नया साइन इन लिंक लेकर खुद भेजें। |
 | `requests.awaitingLabel` | Approved owners without a password | बिना पासवर्ड वाले मंज़ूर मालिक |
 | `requests.getDetails` | Get sign-in details | साइन इन डिटेल लें |
-| `requests.hasPassword` | This owner already signs in with a password; ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
-| `requests.approvedHasPassword` | Approved. This owner already signs in with a password; ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
-| `requests.approvedAskAdmin` | Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
+| `requests.hasPassword` | This owner already signs in with a password. Ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedHasPassword` | Approved. This owner already signs in with a password. Ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
+| `requests.approvedAskAdmin` | Approved. Your role can't send sign-in links. Ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
 | `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
 | `requests.details.notSentTitle` | Email could not be sent | ईमेल नहीं जा सका |
 | `requests.details.body` | Send this to {name} on WhatsApp or from your own email. The link works once and expires {date}. | यह {name} को WhatsApp पर या अपने ईमेल से भेजें। लिंक एक बार चलता है और {date} को खत्म हो जाएगा। |
