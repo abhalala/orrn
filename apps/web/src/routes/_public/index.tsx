@@ -1,18 +1,13 @@
 import { createI18n, useT } from "@orrn/i18n";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import "@/features/marketing/marketing.css";
-import { Audit } from "@/features/marketing/audit";
 import { Cta } from "@/features/marketing/cta";
-import { Floor } from "@/features/marketing/floor";
-import { Story } from "@/features/marketing/flow";
 import { MarketingFooter } from "@/features/marketing/footer";
+import { Hero } from "@/features/marketing/hero";
 import { MarketingHeader } from "@/features/marketing/marketing-header";
-import { Office } from "@/features/marketing/office";
-import { ManyIntoOne } from "@/features/marketing/record";
-import { useReveal } from "@/features/marketing/use-reveal";
 import { loadMe } from "@/shared/lib/guards";
 import { homeTarget } from "@/shared/lib/home";
 import { readStoredLocale } from "@/shared/lib/locale";
@@ -57,17 +52,15 @@ function useLocalizedHead() {
 function MarketingPage() {
   const { t, locale } = useT();
   const queryClient = useQueryClient();
-  const page = useRef<HTMLDivElement>(null);
   useLateSessionRedirect();
   useLocalizedHead();
-  useReveal(page);
 
   useEffect(() => {
     void loadMe(queryClient).catch(() => undefined);
   }, [queryClient]);
   return (
     // `data-orrn-marketing` marks this route's chunk for the `/` JS budget (scripts/check-route-budget.ts).
-    <div ref={page} data-orrn-marketing data-locale={locale} className="marketing-page orrn-ink-panel min-h-[100dvh] w-full">
+    <div data-orrn-marketing data-locale={locale} className="marketing-page min-h-[100dvh] w-full">
       <a
         href="#main"
         className="fixed left-3 top-3 z-50 -translate-y-24 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-primary-foreground no-underline focus-visible:translate-y-0"
@@ -76,14 +69,19 @@ function MarketingPage() {
       </a>
       <MarketingHeader />
       <main id="main" tabIndex={-1}>
-        <Story />
-        <Audit />
-        <ManyIntoOne />
-        <Floor />
-        <Office />
+        <Hero />
+        {/*
+          TODO(home2): the four middle sections come in the next stage, in this order, between Hero and Cta:
+          <Stages /> (section#flow, DIRECTION 6.3), <Truck /> (section#truck, 6.4),
+          <Numbers /> (section#numbers, 6.5), <Languages /> (section#floor, 6.6).
+          Each is a `section.marketing-section` with `aria-labelledby`, a `.marketing-wrap.marketing-grid`
+          holding `.marketing-copy` and `.marketing-proof`. marketing.css already carries their rules
+          (.marketing-stages, .marketing-phone and .marketing-scan, .marketing-sums and .marketing-rules,
+          .marketing-trio). The header's section observer watches #flow and #floor.
+        */}
         <Cta />
       </main>
-      <MarketingFooter credits />
+      <MarketingFooter />
     </div>
   );
 }

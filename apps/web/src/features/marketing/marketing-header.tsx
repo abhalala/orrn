@@ -6,52 +6,10 @@ import { LanguageToggle } from "@/shell/language-toggle";
 
 /** Homepage sections the bar links to, in page order. */
 const SECTIONS = [
-  { id: "flow", label: "navChain" },
+  { id: "flow", label: "navFlow" },
   { id: "floor", label: "navFloor" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
-
-/**
- * Whether the hero card or one of the page's own "Request access" buttons is on screen. On phones the
- * floating action is then faded out, so it never sits over the hero text or next to the button it repeats.
- */
-function useInlineActionInView(pathname: string): boolean {
-  const [inView, setInView] = useState(true);
-  useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const main = document.querySelector("main");
-    const visible = new Set<Element>();
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) visible.add(entry.target);
-        else visible.delete(entry.target);
-      }
-      setInView(visible.size > 0);
-    });
-    // The story re-renders once it knows the screen width, which replaces the hero: look again
-    // whenever main's content changes so the observer never watches a detached node.
-    let frame = 0;
-    const scan = () => {
-      frame = 0;
-      observer.disconnect();
-      visible.clear();
-      const targets = main?.querySelectorAll("[data-marketing-hero], a[href='/request-access']") ?? [];
-      targets.forEach((target) => observer.observe(target));
-      if (targets.length === 0) setInView(false);
-    };
-    scan();
-    const mutations = new MutationObserver(() => {
-      if (!frame) frame = requestAnimationFrame(scan);
-    });
-    if (main) mutations.observe(main, { childList: true, subtree: true });
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      mutations.disconnect();
-      observer.disconnect();
-    };
-  }, [pathname]);
-  return inView;
-}
 
 /** Which homepage section crosses the middle of the screen, for the bar's current-section mark. */
 function useCurrentSection(enabled: boolean): SectionId | null {
@@ -79,57 +37,55 @@ function useCurrentSection(enabled: boolean): SectionId | null {
   return current;
 }
 
+/**
+ * The sticky bar: brand, two section anchors from 900 px, the language switch,
+ * Sign in and Request access. The switch is the app's own `LanguageToggle`;
+ * below 480 px marketing.css shows it as EN and a short Devanagari label while
+ * the accessible names stay "English" and "हिंदी".
+ */
 export function MarketingHeader() {
   const { t, locale, setLocale } = useT();
   const pathname = useLocation({ select: (location) => location.pathname });
   const onHome = pathname === "/";
   const current = useCurrentSection(onHome);
-  const inlineActionInView = useInlineActionInView(pathname);
 
   useEffect(() => {
-    // Public marketing and legal copy currently ships in English and Hindi only.
+    // Public marketing and legal copy ships in English and Hindi only.
     if (locale === "gu") setLocale("en");
   }, [locale, setLocale]);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    const themeColors = Array.from(document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'));
-    root.style.backgroundColor = "#0c0c0e";
-    for (const meta of themeColors) meta.content = "#0c0c0e";
-    return () => {
-      root.style.backgroundColor = "";
-      for (const meta of themeColors) meta.content = meta.media.includes("light") ? "#f4f4f1" : "#0c0c0e";
-    };
-  }, []);
   return (
     <header className="marketing-header">
-      <div className="marketing-container marketing-header-inner">
+      <div className="marketing-wrap marketing-header-inner">
         <Link to="/" className="marketing-brand" aria-label={t("marketing.homeLabel")}>
           <span aria-hidden="true" className="orrn-mark" />
-          <span aria-hidden="true">{t("common.appName")}</span>
+          <span aria-hidden="true" className="marketing-brand-word">
+            {t("common.appName")}
+          </span>
         </Link>
-        <nav className="marketing-header-links" aria-label={t("marketing.mainNav")}>
+        <nav className="marketing-nav" aria-label={t("marketing.mainNav")}>
           {SECTIONS.map(({ id, label }) =>
             // On the homepage a plain anchor scrolls in place; elsewhere the router opens the homepage at the section.
             onHome ? (
-              <a key={id} href={`#${id}`} data-section aria-current={current === id ? "location" : undefined}>
+              <a key={id} href={`#${id}`} aria-current={current === id ? "location" : undefined}>
                 {t(`marketing.${label}`)}
               </a>
             ) : (
-              <Link key={id} to="/" hash={id} data-section>
+              <Link key={id} to="/" hash={id}>
                 {t(`marketing.${label}`)}
               </Link>
             ),
           )}
-          <Link to="/guides" data-section>
-            {t("marketing.guides")}
-          </Link>
-          <Link to="/login">{t("marketing.signIn")}</Link>
         </nav>
-        <LanguageToggle className="marketing-language" locales={["en", "hi"]} />
-        <Link to="/request-access" className="marketing-mobile-action" data-tucked={inlineActionInView || undefined}>
-          {t("marketing.requestAccess")}
-        </Link>
+        <div className="marketing-header-end">
+          <LanguageToggle className="marketing-language" locales={["en", "hi"]} />
+          <Link to="/login" className="marketing-signin">
+            {t("marketing.signIn")}
+          </Link>
+          <Link to="/request-access" className="marketing-button marketing-button-sm">
+            {t("marketing.requestAccess")}
+          </Link>
+        </div>
       </div>
     </header>
   );
