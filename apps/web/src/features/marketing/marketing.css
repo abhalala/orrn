@@ -99,10 +99,11 @@
   box-shadow: 0 0 0 2px var(--m-ink);
 }
 
-/* Fixed header (wide screens) and the floating action (phones) must not cover a focused control. */
-html:has(.marketing-page) {
-  scroll-padding-top: calc(var(--m-bar) + 1rem);
-  scroll-padding-bottom: 6rem;
+/* A focused control must not sit under the sticky bar (wide screens) or the floating action
+   (phones): keep room around it when the browser scrolls it into view (WCAG 2.4.11). */
+.marketing-page :is(a, button, input, [tabindex]):not(main) {
+  scroll-margin-top: calc(var(--m-bar) + 1rem);
+  scroll-margin-bottom: 6rem;
 }
 
 /* The main landmark takes focus from the skip link; a ring would frame the whole page, so it has none. */
