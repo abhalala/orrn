@@ -25,6 +25,18 @@ describe("Better Auth trustedOrigins (packages/auth buildAuth)", () => {
     }
   });
 
+  // Review fix (2026-11-05): CORS compares canonical origins, and Better Auth compares its list with
+  // `===`. A configured `https://orrn.app/` or `HTTPS://Orrn.App` must reach both as the browser's form.
+  test("configured origins reach Better Auth in the browser's form, the same list CORS accepts", async () => {
+    const { isAllowedWebOrigin } = await import("@orrn/auth/origins");
+    const config = { NODE_ENV: "production", CORS_ORIGIN: `${WEB}/`, CORS_ALLOWED_ORIGINS: "https://orrn.app/, HTTPS://Orrn.App" };
+    const origins = trustedOriginsFor(config);
+    expect(origins).toEqual([WEB, APEX, "orrn://"]);
+    for (const origin of [WEB, APEX]) {
+      expect(isAllowedWebOrigin(origin, { corsOrigin: config.CORS_ORIGIN, corsAllowedOrigins: config.CORS_ALLOWED_ORIGINS })).toBe(true);
+    }
+  });
+
   test("development adds the any-port localhost patterns, so every worktree's web port can sign in", () => {
     const origins = trustedOriginsFor({ NODE_ENV: "development", CORS_ORIGIN: "http://localhost:3002" });
     for (const pattern of DEV_LOCAL_TRUSTED_ORIGINS) expect(origins).toContain(pattern);

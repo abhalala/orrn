@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
 
 import { expectNoHorizontalScroll } from "../helpers/layout-guards";
 import { localPassword, signInViaApi, signInViaForm } from "./helpers/accounts";
@@ -14,17 +14,27 @@ import { totp } from "./helpers/totp";
 
 const unique = uniqueEmail;
 
-/** An account in no company yet, made through the public sign-up. */
+/**
+ * An account in no company yet: made from an invite that is never accepted (there is no public
+ * sign-up; the server needs a live invite for the email, security review 2026-11-04).
+ */
+async function signUpUnjoined(request: APIRequestContext, name: string, email: string, password: string) {
+  const invite = await request.post(`${API}/dev/invite`, { data: { email, role: "viewer", companyName: `Unjoined ${email}` } });
+  expect(invite.ok(), `/dev/invite returned ${invite.status()}`).toBe(true);
+  const { path } = (await invite.json()) as { path: string };
+  const res = await request.post(`${API}/api/auth/sign-up/email`, {
+    headers: { origin: ORIGIN },
+    data: { name, email, password, inviteToken: path.split("/").pop() },
+  });
+  expect(res.ok(), `sign-up returned ${res.status()}`).toBe(true);
+}
+
 async function createLooseAccount(browser: Browser, name: string) {
   const email = unique("loose");
   const password = `Loose-${crypto.randomUUID().slice(0, 12)}`;
   const ctx = await browser.newContext();
   try {
-    const res = await ctx.request.post(`${API}/api/auth/sign-up/email`, {
-      headers: { origin: ORIGIN },
-      data: { name, email, password },
-    });
-    expect(res.ok(), `sign-up returned ${res.status()}`).toBe(true);
+    await signUpUnjoined(ctx.request, name, email, password);
   } finally {
     await ctx.close();
   }
@@ -428,11 +438,7 @@ test.describe("welcome", () => {
 test.describe("no access", () => {
   test("an account in no company sees its email and can switch accounts", async ({ page }) => {
     const email = unique("nobody");
-    const res = await page.context().request.post(`${API}/api/auth/sign-up/email`, {
-      headers: { origin: ORIGIN },
-      data: { name: "Kiran Shah", email, password: `Kiran-${crypto.randomUUID().slice(0, 12)}` },
-    });
-    expect(res.ok(), `sign-up returned ${res.status()}`).toBe(true);
+    await signUpUnjoined(page.context().request, "Kiran Shah", email, `Kiran-${crypto.randomUUID().slice(0, 12)}`);
 
     await page.goto("/today");
     await expect(page).toHaveURL(/\/no-access$/);

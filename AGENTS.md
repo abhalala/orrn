@@ -52,6 +52,10 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Every read, update, delete, export, search, count, sync pull, and join must be scoped by `companyId`.
 - Prefer composite tenant indexes such as `(companyId, id)`, `(companyId, status)`, and `(companyId, serverSeq)`.
 - Return generic `Not found` errors instead of revealing that a row exists in another tenant.
+- Auth cookies are host-only `__Host-better-auth.*` cookies on the API host (security review 2026-11-04). Never set a
+  cookie `Domain` or turn on `crossSubDomainCookies`: every `*.orrn.in` host, plant tunnels included, would receive
+  every session. `lib/legacyCookies.ts` clears the old `__Secure-better-auth.*` ones and ends their sessions
+  (`packages/server/test/auth-session-cookie.test.ts`).
 - Do not sync or cache cross-tenant data in web or native clients.
 - Every authenticated route (web + native) must enforce a session check and an
   active company membership check. Use the shared `requireCompanyMe` /
@@ -1192,6 +1196,13 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   owner links straight into `verification`. A link never signs in an account that has a password
   or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
   never configure a custom token hasher.
+- **No public sign-up (security review 2026-11-04, HIGH 3).** Over HTTP, `/sign-up/email` needs `inviteToken`, the token
+  of a live invite (not accepted, revoked or expired) for exactly that email (`packages/auth/src/sign-up-guard.ts`); the
+  web and native invite pages send it, and e2e makes accounts from `/dev/invite` tokens. In-process
+  `auth.api.signUpEmail` (Godseye staff, the dev seed) carries no request and passes. An invite sign-up is
+  `emailVerified: false`. Waitlist approval gives `owner` only to a proven mailbox: an existing account with
+  `emailVerified: false` is refused with CONFLICT and nothing is written. A finished password reset (`onPasswordReset`)
+  or Godseye's own sign-in link proves the mailbox (`packages/server/test/auth-signup-invite.test.ts`).
 - **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
   `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
   new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or
@@ -1380,7 +1391,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Platform admins create/revoke/rotate deployments via `platform.spool.*` tRPC routes.
 - Tenant users interact via `spool.*` tRPC routes (printers, templates, jobs).
 - Deliverables are platform-specific archives (zip/tar.gz) with pre-embedded config.yaml containing secrets.
-- The `@orrn/server/lib/cloudflare.ts` client provisions CF Tunnels and DNS CNAMEs for `<subdomain>.spool.orrn.in`.
+- The `@orrn/server/lib/cloudflare.ts` client provisions CF Tunnels and DNS CNAMEs for `<subdomain>.spool.orrn.in`, for Godseye's legacy spool path (`platform.spool.*`) only.
+- **Tenant enrolment never gets a tunnel (security review 2026-11-04, CRITICAL 1).** `edge.enroll` (owner, admin, manager) makes an outbound-only ORRN Edge node: no Cloudflare call, no DNS record, no tunnel token and no node secret in the answer. It returns a 15-minute single-use enrolment code that the node exchanges at `POST /api/edge/v1/enroll` for its node secret. The node's address is ORRN's (`input.subdomain` is ignored), and a plant holds at most `MAX_EDGE_NODES_PER_COMPANY` (5) live nodes of any kind; a concurrent enrolment that lands over the cap takes its row back. A row still `pending` whose code expired before any node used it holds no place, so abandoned tries never lock a plant out; enrolled nodes and pre-Edge-V1 rows (no code) do (`packages/server/test/edge-tenant-enroll.test.ts`).
 - The `@orrn/server/lib/spool-client.ts` SpoolClient class wraps all spool API calls with auto-signing.
 - **Print exactly once.** `print_log.id` and `job_key = bundle:<serial>:label:v<template version>:attempt:<n>` identify a label job. The spool stores UNIQUE(job key) and a repeat POST answers the first job (`docs/print-exactly-once.md` in orrn-spool); a 200 `duplicate: true` is success, a 409 `job_key_conflict` is logged as a bug and refused. `attempt` rises only for `reprint: true` on a bundle whose latest attempt really went out; a transport retry, a double tap or a reprint that never reached the spool reuses it.
 - **Scale.** `scale.reading` (`bundle.pack`) polls the node's `/scale/reading` through the signed client; a typed weight needs a reason whenever the node reports a scale (D12, `weightNeedsReason`). `SCALE_SIMULATOR=1` in `apps/server/.dev.vars` (never in production) lets `scale.reading` answer from a deterministic cycle; the Go spool has `--scale-sim`. The real indicator make, frame and baud are owner-only (Q5).
@@ -1411,6 +1423,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Keep root `TODO.md` updated when changing milestone scope or status (open work only, with its backlog rank).
 - Keep this file updated when durable conventions or project constraints change.
 - Do not add an audit pruning Worker cron unless explicitly requested.
+- `ORRN_MASTER_KEY` fails closed (security review 2026-11-04): outside the dev stage `alchemy.run.ts` refuses a missing
+  key or the public all-zero dev key (`infra/masterKey.ts`) and binds it with `alchemy.secret`; a production Worker
+  that still finds such a key answers 503 to every request (`lib/masterKeyGate.ts`, `test/infra-master-key.test.ts`).
 - Never push, deploy or merge to `main`/`prod` from a task worktree. Promotion is `docs/DEPLOY_PROMOTION.md`: green `wt/FP` shas reach `main` (dev only) through the peer session the owner named (D33), and `prod` moves only on the owner's explicit go. What only the owner can do is listed in `docs/OWNER_HANDOVER.md`; what is still to build is `TODO.md`.
-- Migrations after the head are additive and strictly consecutive; a step that changes existing data is named in the PROMOTE message and in `docs/DEPLOY_PROMOTION.md` (today `0038` retires duplicate live reason codes and `0041` rebuilds `ageing_hardness`).
+- Migrations after the head are additive and strictly consecutive; a step that changes existing data is named in the PROMOTE message and in `docs/DEPLOY_PROMOTION.md` (today `0038` retires duplicate live reason codes, `0041` rebuilds `ageing_hardness` and `0046` ends every session once, for the host-only cookie of security review 2026-11-04).
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice / e-way bill, Tally export or invoicing inside the app. Prices on orders and dispatch value are optional operational data.

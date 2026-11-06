@@ -49,6 +49,17 @@ export function isExistingAccount(error: AuthClientError): boolean {
   return code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL" || code === "USER_ALREADY_EXISTS";
 }
 
+/**
+ * Sign-up refused by the server's invite check (packages/auth/src/sign-up-guard.ts): the invite is
+ * dead (expired, used, revoked) or is for another email. Null for any other error.
+ */
+export function inviteSignUpRefusal(error: AuthClientError): "expired" | "wrongEmail" | null {
+  const { code } = parts(error);
+  if (code === "SIGN_UP_INVITE_EMAIL_MISMATCH") return "wrongEmail";
+  if (code === "SIGN_UP_INVITE_NOT_VALID" || code === "SIGN_UP_NEEDS_INVITE") return "expired";
+  return null;
+}
+
 /** What the invite page shows when `invite.acceptByToken` fails. */
 export type InviteAcceptOutcome = "wrongEmail" | "expired" | "failed";
 

@@ -7,8 +7,9 @@ import { isDevLocalOrigin } from "./devOrigins";
  *
  * Returns the origin to echo in Access-Control-Allow-Origin. An origin that is not allowed (or no
  * Origin header at all) gets the one configured web origin, which the browser then rejects for any
- * other page. Production allows only CORS_ORIGIN / CORS_ALLOWED_ORIGINS; localhost origins on any
- * port are added only when NODE_ENV is "development".
+ * other page. Production allows only the exact origins in CORS_ORIGIN / CORS_ALLOWED_ORIGINS (no
+ * subdomains, no http twin; security review 2026-11-04); localhost origins on any port are added
+ * only when NODE_ENV is "development".
  */
 export function resolveCorsOrigin(
   env: { NODE_ENV?: string; CORS_ORIGIN: string; CORS_ALLOWED_ORIGINS?: string },

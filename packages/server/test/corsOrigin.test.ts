@@ -110,3 +110,51 @@ describe("CORS through the middleware", () => {
     expect(resolveCorsOrigin(dev, "")).toBe(dev.CORS_ORIGIN);
   });
 });
+
+/**
+ * Security review 2026-11-04, HIGH 2: the API echoed any `http(s)://*.orrn.in` origin with credentials
+ * (the scheme was stripped, then a host suffix match). Only the exact configured origins pass now:
+ * scheme, host and port, no subdomains, no http twin.
+ */
+describe("exact-origin allow-list (HIGH 2)", () => {
+  const APEX = "https://orrn.in";
+  const live = { NODE_ENV: "production", CORS_ORIGIN: APEX, CORS_ALLOWED_ORIGINS: APEX };
+
+  test("subdomains, plant tunnels, the http twin and lookalikes are refused", async () => {
+    const { isAllowedWebOrigin } = await import("@orrn/auth/origins");
+    for (const origin of [
+      "http://x.orrn.in",
+      "https://x.orrn.in",
+      "https://x.spool.orrn.in",
+      "https://godseye.spool.orrn.in",
+      "https://api.orrn.in",
+      "https://www.orrn.in",
+      "http://orrn.in",
+      "https://orrn.in:8443",
+      "https://orrn.in.evil.example",
+      "https://evilorrn.in",
+      "null",
+    ]) {
+      expect({ origin, allowed: isAllowedWebOrigin(origin, { corsOrigin: live.CORS_ORIGIN, corsAllowedOrigins: live.CORS_ALLOWED_ORIGINS }) }).toEqual({
+        origin,
+        allowed: false,
+      });
+      const res = await appFor(live).request("/", { headers: { Origin: origin } });
+      expect(res.headers.get("access-control-allow-origin")).toBe(APEX);
+    }
+  });
+
+  test("the configured origins pass exactly, with credentials", async () => {
+    const extra = { ...live, CORS_ALLOWED_ORIGINS: `${APEX}, https://orrn.app/` };
+    for (const origin of [APEX, "https://orrn.app"]) {
+      const res = await appFor(extra).request("/", { headers: { Origin: origin } });
+      expect(res.headers.get("access-control-allow-origin")).toBe(origin);
+      expect(res.headers.get("access-control-allow-credentials")).toBe("true");
+    }
+  });
+
+  test("a subdomain of the configured web host is refused too (the old suffix rule)", async () => {
+    expect(await allowOrigin(prod, "https://x.app.orrn.in")).toBe(WEB);
+    expect(await allowOrigin(prod, "http://app.orrn.in")).toBe(WEB);
+  });
+});

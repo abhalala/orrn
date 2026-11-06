@@ -6,6 +6,7 @@ import { createCloudflareApi, D1Database, handleApiError, R2Bucket, Vite, Worker
 import { CloudflareStateStore } from "alchemy/state";
 import { config } from "dotenv";
 
+import { deployMasterKey } from "./masterKey";
 import { optionalR2Bucket } from "./optionalR2";
 
 const infraDir = dirname(fileURLToPath(import.meta.url));
@@ -20,10 +21,13 @@ const app = await alchemy("orrn", {
     }),
 });
 
-const devMasterKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 const zoneName = "orrn.app";
 const stage = process.env.ALCHEMY_STAGE ?? "production";
 const isDevStage = stage === "dev";
+
+// Security review 2026-11-04 (MEDIUM 4): outside the dev stage a missing ORRN_MASTER_KEY, or the
+// public all-zero dev key, stops the deploy here (infra/masterKey.ts). Bound as a secret below.
+const masterKey = deployMasterKey({ isDevStage, value: process.env.ORRN_MASTER_KEY });
 
 // Purelymail SMTP (system@orrn.in) is the only outward mail sender (orrn.in's SPF/DKIM/DMARC
 // authorise nothing else). Production refuses to deploy without it rather than shipping a server
@@ -53,7 +57,9 @@ let apiZoneId: string;
 let corsOrigin: string;
 let corsAllowedOrigins: string;
 let webPublicUrl: string;
-let cookieDomain: string;
+// The parent domain the auth cookies were scoped to before 2026-11-04. Only used to clear those old
+// cookies (lib/legacyCookies.ts); auth cookies are host-only on the API host now.
+let legacyCookieDomain: string;
 
 if (isDevStage) {
   const appZone = requireZone(zoneIdApp, "CLOUDFLARE_ZONE_ID or CLOUDFLARE_ZONE_ID_APP");
@@ -66,7 +72,7 @@ if (isDevStage) {
   webPublicUrl = process.env.VITE_PUBLIC_URL ?? `https://${webHost}`;
   corsOrigin = process.env.CORS_ORIGIN ?? webPublicUrl;
   corsAllowedOrigins = process.env.CORS_ALLOWED_ORIGINS ?? webPublicUrl;
-  cookieDomain = `.${zoneName}`;
+  legacyCookieDomain = `.${zoneName}`;
 } else {
   const inZone = requireZone(zoneIdIn, "CLOUDFLARE_ZONE_ID_IN");
 
@@ -80,7 +86,7 @@ if (isDevStage) {
   webPublicUrl = "https://orrn.in";
   corsOrigin = webPublicUrl;
   corsAllowedOrigins = webPublicUrl;
-  cookieDomain = ".orrn.in";
+  legacyCookieDomain = ".orrn.in";
 }
 
 const apiUrl = `https://${apiDomain}`;
@@ -249,11 +255,12 @@ export const server = await Worker("server", {
     WEB_PUBLIC_URL: webPublicUrl,
     BETTER_AUTH_SECRET: alchemy.secret.env.BETTER_AUTH_SECRET!,
     BETTER_AUTH_URL: betterAuthUrl,
-    ORRN_MASTER_KEY: process.env.ORRN_MASTER_KEY ?? devMasterKey,
+    // Encrypted secret binding, never plain text: it signs links and wraps every node secret.
+    ORRN_MASTER_KEY: alchemy.secret(masterKey),
     // Encrypted secret binding, never plain text (it was readable in the dashboard before).
     ...(smtpPassword ? { PURELYMAIL_SMTP_PASSWORD: alchemy.secret(smtpPassword) } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
-    COOKIE_DOMAIN: cookieDomain,
+    LEGACY_COOKIE_DOMAIN: legacyCookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",
     CF_ACCOUNT_ID: process.env.CF_ACCOUNT_ID ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "",
     CF_ZONE_ID_IN: process.env.CF_ZONE_ID_IN ?? process.env.CLOUDFLARE_ZONE_ID_IN ?? process.env.CLOUDFLARE_ZONE_ID ?? "",
