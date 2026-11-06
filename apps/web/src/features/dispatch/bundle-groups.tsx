@@ -92,7 +92,7 @@ function GroupHeader({
       </div>
       {labelable && onEditLabel ? (
         <Can do="dispatch.addBundle">
-          <Button variant="ghost" size="sm" className="-mr-2 shrink-0" aria-haspopup="dialog" onClick={() => onEditLabel(group)}>
+          <Button variant="ghost" size="sm" className="-mr-2 min-h-11 shrink-0" aria-haspopup="dialog" onClick={() => onEditLabel(group)}>
             <Tag aria-hidden="true" strokeWidth={2} />
             {group.labelled ? t("dispatch.build.changeLabel") : t("dispatch.build.setLabel")}
             <span className="sr-only">: {group.labelled ? group.dieLabel : group.label}</span>
@@ -108,7 +108,7 @@ function RemoveButton({ item, removing, onRemove, className }: { item: DispatchI
   return (
     <Can do="dispatch.addBundle">
       <IconButton
-        className={className}
+        className={cn("size-11", className)}
         label={t("dispatch.build.removeBundle", { serial: item.serial })}
         icon={<X strokeWidth={2} />}
         loading={removing === item.bundleId}
