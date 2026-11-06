@@ -40,9 +40,7 @@ export function TransportFieldset({
     <div data-slot="transport-fields" className="flex min-w-0 flex-col gap-5">
       <TransporterPicker value={value.transporterId} onChange={(transporterId) => set({ transporterId })} />
       {show.capacity ? (
-        <>
-          <p role="alert" className="sr-only">{capacityError}</p>
-          <Field
+        <Field
           label={t("dispatch.capacity.label")}
           hint={capacityLocked ? t("dispatch.capacity.locked") : t("dispatch.capacity.hint")}
           error={capacityError}
@@ -56,7 +54,6 @@ export function TransportFieldset({
             enterKeyHint="next"
           />
         </Field>
-        </>
       ) : null}
       {show.vehicle ? (
         <Field label={t("dispatch.header.vehicleNo")} hint={t("dispatch.header.vehicleHint")} className="sm:max-w-[260px]">

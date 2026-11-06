@@ -39,15 +39,6 @@ export function RejectsPanel({
   const picked = options.find((o) => o.value === form.reasonCode);
   const needsNote = form.reasonCode === "other" || Boolean(picked?.requiresNote);
   const total = rejects.reduce((s, r) => s + r.pcs, 0);
-  const errorAnnouncement = errors.pcs
-    ? t("pack.new.piecesRequired")
-    : errors.kg
-      ? t("pack.new.weightRequired")
-      : errors.reason
-        ? t("pack.reject.reasonRequired")
-        : errors.note
-          ? t(form.reasonCode === "other" ? "common.noteRequired" : "common.noteRequiredReason")
-          : "";
 
   const add = () => {
     const r = readReject(form, needsNote);
@@ -103,7 +94,6 @@ export function RejectsPanel({
 
       {open ? (
       <div id={`${id}-form`} className="flex flex-col gap-3 rounded-input bg-surface-sunken p-3 sm:p-4">
-        <p role="alert" className="sr-only">{errorAnnouncement}</p>
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("pack.reject.hint")}</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label={t("pack.reject.piecesLabel")} error={errors.pcs ? t("pack.new.piecesRequired") : undefined}>

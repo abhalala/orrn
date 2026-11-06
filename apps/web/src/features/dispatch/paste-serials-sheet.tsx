@@ -106,11 +106,9 @@ export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: P
       ? t("dispatch.paste.adding", { done: phase.done, total: phase.total })
       : phase.kind === "report"
         ? reportSummary(t, phase.result)
-        : error
-          ? error
-          : serials.length > 0
-            ? t("dispatch.paste.found", { count: serials.length })
-            : "";
+        : serials.length > 0
+          ? t("dispatch.paste.found", { count: serials.length })
+          : "";
 
   return (
     <Sheet

@@ -203,7 +203,7 @@ export function TakeStockSheet({
           </Field>
 
           {problem && selected.size > 0 ? (
-            <p role="alert" className="m-0 text-[13px] leading-5 text-muted-foreground">{t(problem, { max: MAX_REALLOCATE_BUNDLES })}</p>
+            <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t(problem, { max: MAX_REALLOCATE_BUNDLES })}</p>
           ) : null}
           {errors.length > 0 ? (
             <div role="alert" className="flex flex-col gap-1">
