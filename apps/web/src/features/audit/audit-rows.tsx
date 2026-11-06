@@ -87,7 +87,7 @@ export function AuditRows({
         const name = r.subjectLabel ?? null;
         const head = name ? (
           path ? (
-            <RouterLink to={path} className="font-semibold underline decoration-control underline-offset-4 hover:decoration-foreground break-words" data-audit-subject-link="">
+            <RouterLink to={path} className="inline-flex min-h-6 items-center font-semibold underline decoration-control underline-offset-4 hover:decoration-foreground break-words" data-audit-subject-link="">
               {name}
             </RouterLink>
           ) : (
