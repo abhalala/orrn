@@ -12,7 +12,7 @@ export function LanguageToggle({ className, locales = LOCALES }: { className?: s
     <SegmentedControl<Locale>
       label={t("common.language")}
       value={locale}
-      options={locales.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))}
+      options={locales.map((l) => ({ value: l, label: LOCALE_NAMES[l], lang: l }))}
       onChange={setLocale}
       className={className}
     />

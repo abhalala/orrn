@@ -294,7 +294,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(op
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} label={t("nav.scanOrSearch")}>
-      <div className="flex items-center gap-3 border-b border-border px-4">
+      <div className="flex items-center gap-3 border-b border-border px-4 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-solid focus-within:outline-ring">
         <Search aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
         <input
           role="combobox"
@@ -356,7 +356,8 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(op
                     onClick={() => choose(r)}
                     className={cn(
                       "flex min-h-12 cursor-pointer items-center gap-3 rounded-input px-3 py-2",
-                      isActive ? "bg-accent text-accent-foreground" : "text-foreground",
+                      // Focus stays in the input (aria-activedescendant), so the active row carries its own 3:1 outline, not just a tint.
+                      isActive ? "bg-accent text-accent-foreground outline-2 -outline-offset-2 outline-solid outline-ring" : "text-foreground",
                     )}
                   >
                     <span

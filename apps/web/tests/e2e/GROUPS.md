@@ -1,13 +1,13 @@
 # e2e groups A / B / C
 
-The 45 spec files run in three groups, one after another on one port pair, never together. Each group starts or
+The 46 spec files run in three groups, one after another on one port pair, never together. Each group starts or
 reuses the API + web pair and seeds once through `e2e-setup`. The script defaults to two workers. Membership was
 rebalanced from the original alphabetical thirds using the saved per-spec durations: preview-redirects, redirects
 and ui-kit moved from C to A. Keep the long store, platform, press and chain flows distributed across the groups.
 
 | Group | Spec files | Saved wall time, runs 1 / 2 |
 |---|---|---|
-| A | catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, preview-redirects, redirects, ui-kit | 351 s / 285 s |
+| A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, preview-redirects, redirects, ui-kit | 351 s / 285 s |
 | B | die-room-flows, foundry, foundry-masters, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 276 s (failed) / 272 s |
 | C | ageing-masters, ageing, chain, collectors, next-rows, orders-plan-purpose, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s |
 
@@ -16,6 +16,10 @@ saved them in `/tmp/W4-TESTSWEEP-2/final-summary.txt` and `final-{1,2}-{A,B,C}.j
 baseline wall times were A 258 s, B 300 s, C 356 s (`base-summary.txt`). The rebalanced first B run failed at the
 foundry correction's `correct-now` assertion; the second run does not erase that failure. Those runs also used the
 subsequently removed retry/warmup helpers, so their green results do not establish the reviewed code is passing.
+
+`a11y-app` is the signed-in axe sweep (every nav screen, desktop and 375 px, light and dark, en plus hi for Today, Pack, Scan and
+Dispatch). It has no saved wall time yet (about 10 minutes on two workers). It writes every violation to
+`test-results/a11y-app/results.jsonl`; `bun scripts/axe-app-report.ts` turns that into the grouped report.
 
 A new spec goes here and into `apps/web/scripts/e2e-group.sh`. The script keeps the three membership lists in one
 place and warns about a spec in none of them. Specs create the data they change and assert on their own rows

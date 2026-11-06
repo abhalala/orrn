@@ -70,7 +70,7 @@ export function Select({
               <SelectPrimitive.Item
                 key={opt.value}
                 value={opt.value}
-                className="relative flex min-h-10 w-full cursor-default select-none items-center rounded-input py-2 pl-8 pr-3 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50 pointer-coarse:min-h-11"
+                className="relative flex min-h-10 w-full cursor-default select-none items-center rounded-input py-2 pl-8 pr-3 text-sm outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring focus:bg-accent focus:text-accent-foreground data-[state=checked]:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50 pointer-coarse:min-h-11"
               >
                 <span className="absolute left-2.5 flex size-4 items-center justify-center">
                   <SelectPrimitive.ItemIndicator>
