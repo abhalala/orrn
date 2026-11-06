@@ -116,15 +116,17 @@ export function AddToDispatchSheet({
           ))}
         </div>
       ) : drafts.isError ? (
-        <EmptyState
-          className="py-8"
-          title={t("bundle.dispatchesLoadError")}
-          action={
-            <Button variant="secondary" onClick={() => void drafts.refetch()}>
-              {t("common.retry")}
-            </Button>
-          }
-        />
+        <div role="alert">
+          <EmptyState
+            className="py-8"
+            title={t("bundle.dispatchesLoadError")}
+            action={
+              <Button variant="secondary" onClick={() => void drafts.refetch()}>
+                {t("common.retry")}
+              </Button>
+            }
+          />
+        </div>
       ) : items.length === 0 ? (
         <EmptyState
           className="py-8"
