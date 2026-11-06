@@ -151,7 +151,9 @@ For each custom hostname, point to the Worker route Alchemy prints after deploy 
   `Domain`: every `*.orrn.in` host, plant-run `*.spool.orrn.in` tunnels included, would receive every session (security
   review 2026-11-04, `packages/server/test/auth-session-cookie.test.ts`). `LEGACY_COOKIE_DOMAIN` only clears the old
   `Domain=.orrn.in` cookies.
-- `CORS_ALLOWED_ORIGINS` should include only additional web origins when a stage needs them
+- CORS is an exact allow-list: `CORS_ORIGIN` plus `CORS_ALLOWED_ORIGINS`, each a full origin (`https://orrn.in`). There is no
+  subdomain rule and no http twin, because the API answers these origins with credentials (security review 2026-11-04,
+  `packages/server/test/corsOrigin.test.ts`). Add an origin only when a stage really serves the web app there.
 
 Waitlist / magic-link invites use `WEB_PUBLIC_URL` (`https://orrn.in` in prod).
 

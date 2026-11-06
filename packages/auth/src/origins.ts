@@ -1,6 +1,6 @@
 /**
- * Web origins allowed for CORS and Better Auth `trustedOrigins`.
- * `CORS_ALLOWED_ORIGINS` covers extra apex hosts (e.g. orrn.app when API cookies use .orrn.in).
+ * Web origins allowed for CORS and Better Auth `trustedOrigins`: `CORS_ORIGIN` plus the
+ * comma-separated `CORS_ALLOWED_ORIGINS`, each a full origin (`https://orrn.in`). Nothing else.
  */
 export function parseOriginList(...parts: (string | undefined)[]): string[] {
   const set = new Set<string>();
@@ -14,16 +14,28 @@ export function parseOriginList(...parts: (string | undefined)[]): string[] {
   return [...set];
 }
 
+/** `https://orrn.in/` and `HTTPS://Orrn.in` as the browser sends them (`https://orrn.in`); other text unchanged. */
+function canonicalWebOrigin(entry: string): string {
+  if (!/^https?:\/\//i.test(entry)) return entry;
+  try {
+    return new URL(entry).origin;
+  } catch {
+    return entry;
+  }
+}
+
+/**
+ * Exact match only (security review 2026-11-04, HIGH 2): scheme, host and port must equal one
+ * configured origin. There is no subdomain rule and no http twin, because the API answers these
+ * origins with credentials: any `*.orrn.in` host (a plant's `*.spool.orrn.in` tunnel, or an
+ * http page a network attacker serves) would otherwise read and write the API as the visitor.
+ */
 export function isAllowedWebOrigin(
   origin: string,
   config: { corsOrigin: string; corsAllowedOrigins?: string },
 ): boolean {
-  const explicit = parseOriginList(config.corsOrigin, config.corsAllowedOrigins);
-  if (explicit.includes(origin)) return true;
-
-  const baseHost = config.corsOrigin.replace(/^https?:\/\//, "");
-  const originHost = origin.replace(/^https?:\/\//, "");
-  return originHost === baseHost || originHost.endsWith(`.${baseHost}`);
+  if (!origin) return false;
+  return parseOriginList(config.corsOrigin, config.corsAllowedOrigins).some((entry) => canonicalWebOrigin(entry) === origin);
 }
 
 export function trustedWebOrigins(config: {
