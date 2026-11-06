@@ -136,6 +136,56 @@ describe("tenant edge.enroll (CRITICAL 1)", () => {
     await expect(manager.edge.enroll(enrollInput)).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
+  // Review fix (2026-11-05): a code that expired before any node used it can never enrol, so it must
+  // not hold one of the plant's places. Enrolled nodes and pre-Edge-V1 rows (no code at all) still do.
+  test("codes that expired unused free their place; enrolled and legacy nodes keep theirs", async () => {
+    const { MAX_EDGE_NODES_PER_COMPANY } = await import("../src/routers/edge");
+    const { exchangeEdgeEnrollmentToken } = await import("../src/lib/edge-v1");
+    const { wrapSecret } = await import("@orrn/crypto");
+    const { companyId } = await env.seedCompany();
+    const manager = env.caller({ role: "manager", companyId });
+    const expireAllCodes = () =>
+      env.db.update(spoolDeployment).set({ enrollmentExpiresAt: new Date(Date.now() - 60_000) }).where(eq(spoolDeployment.companyId, companyId));
+
+    // Five tries that were never finished, then the codes run out.
+    for (let i = 0; i < MAX_EDGE_NODES_PER_COMPANY; i += 1) await manager.edge.enroll(enrollInput);
+    await expect(manager.edge.enroll(enrollInput)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expireAllCodes();
+
+    // One node that did enrol; its code expiring later changes nothing.
+    const enrolled = await manager.edge.enroll(enrollInput);
+    const exchanged = await exchangeEdgeEnrollmentToken(env.db, {
+      enrollmentToken: enrolled.enrollment.enrollmentToken,
+      agentVersion: "1.0.0",
+      os: "linux",
+      arch: "amd64",
+      installId: crypto.randomUUID(),
+      apiOrigin: "https://api.test",
+      masterKey: DEV_MASTER_KEY,
+    });
+    expect(exchanged.ok).toBe(true);
+    await expireAllCodes();
+
+    // A node from before Edge V1: no enrolment code, still pending.
+    const legacyId = crypto.randomUUID();
+    await env.db.insert(spoolDeployment).values({
+      id: legacyId,
+      companyId,
+      instanceId: crypto.randomUUID(),
+      status: "pending",
+      subdomain: `legacy-${legacyId.slice(0, 8)}`,
+      nodeDomain: `legacy-${legacyId.slice(0, 8)}.spool.orrn.in`,
+      cfTunnelId: crypto.randomUUID(),
+      cfTunnelTokenWrapped: await wrapSecret("old-token", DEV_MASTER_KEY),
+      sharedSecretHash: "x",
+      sharedSecretWrapped: await wrapSecret("old-secret", DEV_MASTER_KEY),
+    });
+
+    // Enrolled + legacy hold two places, so three more fit and the next is refused.
+    for (let i = 0; i < MAX_EDGE_NODES_PER_COMPANY - 2; i += 1) await manager.edge.enroll(enrollInput);
+    await expect(manager.edge.enroll(enrollInput)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
   test("concurrent enrolments never push a plant past the cap", async () => {
     const { MAX_EDGE_NODES_PER_COMPANY } = await import("../src/routers/edge");
     const { companyId } = await env.seedCompany();

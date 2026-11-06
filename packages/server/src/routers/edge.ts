@@ -5,7 +5,7 @@ import {
   type EdgeCapability,
 } from "@orrn/edge-runtime";
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { z } from "zod";
 
 import type { OrrnDb } from "@orrn/db";
@@ -125,7 +125,8 @@ export const edgeRouter = router({
     });
 
     // Two enrolments at once can both pass the check above. Each counts again after its own insert
-    // and takes its row back when the plant is over the cap, so the cap always holds.
+    // and takes its row back when the plant is over the cap, so the cap always holds. A code that
+    // expired unused does not count (liveNodeCount).
     if ((await liveNodeCount(ctx.db, ctx.companyId)) > MAX_EDGE_NODES_PER_COMPANY) {
       await ctx.db
         .delete(edgeNodeDeployment)
@@ -206,11 +207,31 @@ export const edgeRouter = router({
   }),
 });
 
+/**
+ * Nodes that hold one of the plant's places: every row that is not revoked, except an enrolment that
+ * was never finished and whose code has expired (still `pending`, code unused, no installation, expiry
+ * past). Nobody can enrol with such a code, so it must not lock a plant out after a few abandoned tries
+ * (review fix 2026-11-05). A row with no code at all (made before Edge V1) still counts. Godseye can
+ * issue a fresh code for an expired row (`platform.edgeNodeIssueEnrollmentToken`); its own actions are
+ * not capped.
+ */
 async function liveNodeCount(db: OrrnDb, companyId: string): Promise<number> {
   const row = await db
     .select({ n: count() })
     .from(edgeNodeDeployment)
-    .where(and(eq(edgeNodeDeployment.companyId, companyId), ne(edgeNodeDeployment.status, "revoked")))
+    .where(
+      and(
+        eq(edgeNodeDeployment.companyId, companyId),
+        ne(edgeNodeDeployment.status, "revoked"),
+        or(
+          ne(edgeNodeDeployment.status, "pending"),
+          isNotNull(edgeNodeDeployment.enrollmentUsedAt),
+          isNotNull(edgeNodeDeployment.installId),
+          isNull(edgeNodeDeployment.enrollmentExpiresAt),
+          gte(edgeNodeDeployment.enrollmentExpiresAt, new Date()),
+        ),
+      ),
+    )
     .get();
   return row?.n ?? 0;
 }
