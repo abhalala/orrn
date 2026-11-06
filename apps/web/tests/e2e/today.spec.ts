@@ -361,6 +361,7 @@ test.describe("empty plant", () => {
     await expect(steps.nth(2)).toContainText("After a die is added");
     await expect(checklist.getByRole("link", { name: "Connect a label printer" })).toHaveAttribute("href", "/printing");
     await expect(checklist).toContainText("0 of 4 done");
+    await expect(checklist).toContainText("A few things to set up before the floor starts using orrn.");
     await expect(numbers(page)).toHaveCount(0);
     await expect(page.getByTestId("today-open-dispatches")).toHaveCount(0);
     await expect(page.locator("[data-chart-kit]")).toHaveCount(0);

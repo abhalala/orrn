@@ -459,6 +459,7 @@ test.describe("dispatch: roles", () => {
     for (const id of ["dev-dispatch-draft", "dev-dispatch-held"]) {
       await visit(page, `/dispatch/${id}`);
       await expect(hero(page)).toBeVisible();
+      await expect(page.getByText("You can see this dispatch. Changes are made by the office.")).toBeVisible();
       for (const name of ["Scan bundles", "Paste serials", "Search to add", "Hold stock", "Release", "More actions", /^Remove /, /^Set label/]) {
         await expect(page.getByRole("button", { name })).toHaveCount(0);
       }
@@ -538,6 +539,7 @@ test.describe("dispatch: owner tour figures (BACKLOG 80, 85)", () => {
     await start(page, "owner");
     await visit(page, "/dispatch/dev-dispatch-held");
     await expect(hero(page)).toHaveAttribute("data-status", "reserved");
+    await expect(page.getByTestId("pl-pending")).toContainText("The packing list is issued when the dispatch completes.");
     await expect(page.getByRole("heading", { level: 2, name: "Packing list" })).toHaveCount(0);
     await page.getByTestId("pl-pending-link").click();
     await expect(page.getByRole("heading", { level: 2, name: "Bundles in this dispatch" })).toBeFocused();

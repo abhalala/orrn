@@ -535,7 +535,7 @@ test.describe("import sheet", () => {
     await chooseFile(page, bands);
     await sheet.getByRole("radio", { name: "Update from this sheet" }).click();
     await expect(
-      sheet.getByText("orrn changes only the columns in this sheet. Empty cells and missing columns keep their current values."),
+      sheet.getByText("Only the columns in this sheet change. Empty cells, and columns the sheet doesn't have, keep what orrn has."),
     ).toBeVisible();
     // A new file starts again from the safe choice.
     await sheet.getByRole("button", { name: "Choose another file" }).click();

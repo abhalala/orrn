@@ -3,7 +3,7 @@ export const pressEn = {
   press: {
     linesHeading: "Press lines",
     noLines: "No press is set up yet. Ask the office to add one.",
-    stationNote: "Use the tablet at the press to start, stop and count. This phone shows what is happening.",
+    stationNote: "Start, stop and counting are done on the tablet at the press. This phone shows what is happening.",
     lineIdle: "Idle",
     lineRunning: "Running {number}",
     lineQueued: "{count} {count:run|runs} waiting",

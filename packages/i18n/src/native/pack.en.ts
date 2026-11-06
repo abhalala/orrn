@@ -6,7 +6,7 @@ export const packEn = {
     showMore: "Show more sessions",
     notFound: "This session isn't in this company.",
     packedAt: "Packed {when}",
-    voidNote: "Void bundles appear here but do not count in the totals.",
+    voidNote: "Void bundles are shown here but not counted in the totals.",
     bundlesTitle: "Bundles in this session",
     stepOf: "Step {n} of {total}: {name}",
     pickDie: "Choose a die",
