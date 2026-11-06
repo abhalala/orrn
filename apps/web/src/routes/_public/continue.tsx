@@ -5,6 +5,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
+import { usePageTitle } from "@/features/auth/use-page-title";
 
 /** `?error=` the API sends back when it refuses a link for an account that signs in with a password (packages/auth magic-link-guard). */
 const REFUSED_ERROR = "ACCOUNT_USES_PASSWORD";
@@ -33,6 +34,7 @@ function ContinuePage() {
   // authenticator code, so a link can never sign it in (FP-PF-08).
   const refused = error === REFUSED_ERROR;
   const broken = Boolean(error) || !token;
+  usePageTitle(refused ? t("auth.continue.refusedTitle") : broken ? t("auth.continue.brokenTitle") : t("auth.continue.title"));
 
   const proceed = () => {
     if (!token) return;

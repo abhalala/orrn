@@ -9,6 +9,8 @@ import { DemoLabel } from "./demo-label";
 const VIEWS = ["label", "list", "scan"] as const;
 type View = (typeof VIEWS)[number];
 const TAB_KEY = { label: "tabLabel", list: "tabList", scan: "tabScan" } as const;
+/** What each sample shows, said to screen readers (the sample itself is aria-hidden demo data). */
+const SR_KEY = { label: "srLabel", list: "srList", scan: "srScan" } as const;
 
 /** One bundle seen three ways: the label at the scale, the packing list it joins, and the gate scan. */
 export function Office() {
@@ -17,10 +19,11 @@ export function Office() {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const jump = event.key === "Home" ? 0 : event.key === "End" ? VIEWS.length - 1 : null;
     const step = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-    if (step === 0) return;
+    if (step === 0 && jump === null) return;
     event.preventDefault();
-    const next = (index + step + VIEWS.length) % VIEWS.length;
+    const next = jump ?? (index + step + VIEWS.length) % VIEWS.length;
     setView(VIEWS[next]!);
     tabs.current[next]?.focus();
   }
@@ -29,6 +32,7 @@ export function Office() {
     <section id="office" className="marketing-office" aria-labelledby="office-title">
       <div className="marketing-plate" data-reveal>
         <div id="marketing-office-panel" role="tabpanel" aria-labelledby={`marketing-tab-${view}`} className="marketing-plate-inner">
+          <p className="sr-only">{t(`marketing.office.${SR_KEY[view]}`)}</p>
           {view === "label" ? <BundleLabel className="marketing-plate-label" /> : null}
           {view === "list" ? <PackingList /> : null}
           {view === "scan" ? <GateScan /> : null}

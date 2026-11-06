@@ -156,11 +156,15 @@ test.describe("marketing page", () => {
     await page.setViewportSize({ width: 375, height: 812 });
     await openMarketing(page);
     const action = page.locator(".marketing-mobile-action");
-    await expect(action).toBeVisible();
     await expect(action).toHaveAttribute("href", "/request-access");
+    // At the top the hero's own Request access is in reach, so the floating copy steps aside instead of
+    // covering the hero text; it comes back once the hero button scrolls away.
+    await expect(action).toHaveCSS("opacity", "0");
+    await expect(action).toHaveCSS("pointer-events", "none");
     expect(await action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     await page.locator("#floor").scrollIntoViewIfNeeded();
     await expect(action).toBeVisible();
+    await expect(action).toHaveCSS("opacity", "1");
     await action.click();
     await expect(page).toHaveURL(/\/request-access$/);
   });

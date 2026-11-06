@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
 import { composeRequestNotes } from "@/features/auth/request-notes";
+import { usePageTitle } from "@/features/auth/use-page-title";
 import { trpc } from "@/shared/utils/trpc";
 
 /** Loose shape check only; the server is the judge. */
@@ -50,6 +51,7 @@ function RequestAccessPage() {
     requesterEmail: useRef<HTMLInputElement>(null),
   };
   const successHeading = useRef<HTMLHeadingElement>(null);
+  usePageTitle(sentTo ? t("auth.requestAccess.successTitle") : t("auth.requestAccess.title"));
 
   const submit = useMutation({
     ...trpc.waitlist.submit.mutationOptions(),

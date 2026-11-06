@@ -2,6 +2,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import type { ReactNode } from "react";
 
 import { LanguageToggle } from "@/shell/language-toggle";
+import { SkipLink } from "@/shell/skip-link";
 
 import { BrandPanel, BrandStrip, Wordmark } from "./brand-panel";
 
@@ -25,7 +26,7 @@ export type AuthFrameProps = {
  * the language toggle on top (one tap to Hindi before signing in), one
  * centred column. On laptops with `brand`, the left half is the brand panel.
  *
- * DOM order is header, main, then the panel, so keyboard and screen-reader
+ * The skip link is the first stop and moves focus into `main`. DOM order is header, main, then the panel, so keyboard and screen-reader
  * users reach the form first; CSS puts the panel on the left.
  */
 export function AuthFrame({ children, brand = false, width = "form", footer }: AuthFrameProps) {
@@ -36,6 +37,7 @@ export function AuthFrame({ children, brand = false, width = "form", footer }: A
         brand && "lg:grid lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]",
       )}
     >
+      <SkipLink />
       <div className="flex min-h-[100dvh] min-w-0 flex-col">
         <header className="flex items-center justify-between gap-3 px-4 pt-3 pb-2 sm:px-6">
           <Wordmark className={cn(brand && "lg:invisible")} />

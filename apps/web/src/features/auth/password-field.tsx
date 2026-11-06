@@ -12,7 +12,11 @@ export type PasswordFieldProps = {
   error?: string;
   /** Mark the field invalid when the error is shown elsewhere (the sign-in alert). */
   invalid?: boolean;
+  /** Id of the alert that explains `invalid`, read with the field. */
+  describedBy?: string;
   id?: string;
+  /** Name of the show/hide toggle when a form has two password fields; defaults to "Show password". */
+  toggleLabel?: string;
   name?: string;
   disabled?: boolean;
 };
@@ -25,7 +29,7 @@ export type PasswordFieldProps = {
  * state, so screen readers don't hear the state twice.
  */
 export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(function PasswordField(
-  { label, value, onValueChange, autoComplete, hint, error, invalid, id, name, disabled },
+  { label, value, onValueChange, autoComplete, hint, error, invalid, describedBy, id, toggleLabel, name, disabled },
   ref,
 ) {
   const { t } = useT();
@@ -45,14 +49,15 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
           disabled={disabled}
           onChange={(e) => onValueChange(e.currentTarget.value)}
           aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           className="pr-12"
         />
         <button
           type="button"
           onClick={() => setShown((s) => !s)}
           aria-pressed={shown}
-          aria-label={t("auth.login.showPassword")}
-          title={t("auth.login.showPassword")}
+          aria-label={toggleLabel ?? t("auth.login.showPassword")}
+          title={toggleLabel ?? t("auth.login.showPassword")}
           disabled={disabled}
           className="animate-press absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:text-foreground disabled:opacity-50"
         >
