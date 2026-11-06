@@ -167,10 +167,10 @@ function BandRow({ metric, lineId, row, fallback }: { metric: CollectorMetric; l
         ) : null}
       </p>
       <Field label={t("devices.collectors.min")}>
-        <TextInput inputMode="decimal" autoComplete="off" value={min} className="font-mono tabular-nums" data-testid={`band-${metric}-min`} onChange={(e) => setMin(e.currentTarget.value)} disabled={!editable} />
+        <TextInput inputMode="decimal" autoComplete="off" value={min} className="font-mono tabular-nums" data-testid={`band-${metric}-min`} onChange={(e) => setMin(e.currentTarget.value)} disabled={!editable} aria-invalid={!draft.ok && (min.trim() !== "" || max.trim() !== "") ? true : undefined} aria-describedby={!draft.ok && (min.trim() !== "" || max.trim() !== "") ? `band-${metric}-error` : undefined} />
       </Field>
       <Field label={t("devices.collectors.max")}>
-        <TextInput inputMode="decimal" autoComplete="off" value={max} className="font-mono tabular-nums" data-testid={`band-${metric}-max`} onChange={(e) => setMax(e.currentTarget.value)} disabled={!editable} />
+        <TextInput inputMode="decimal" autoComplete="off" value={max} className="font-mono tabular-nums" data-testid={`band-${metric}-max`} onChange={(e) => setMax(e.currentTarget.value)} disabled={!editable} aria-invalid={!draft.ok && (min.trim() !== "" || max.trim() !== "") ? true : undefined} aria-describedby={!draft.ok && (min.trim() !== "" || max.trim() !== "") ? `band-${metric}-error` : undefined} />
       </Field>
       <label className="flex min-h-11 items-center gap-2 text-[15px]">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.currentTarget.checked)} className="size-5 accent-[var(--color-foreground)]" disabled={!editable} />
@@ -182,7 +182,7 @@ function BandRow({ metric, lineId, row, fallback }: { metric: CollectorMetric; l
         </Button>
       </Can>
       {!draft.ok && (min.trim() !== "" || max.trim() !== "") ? (
-        <p role="alert" className="col-span-full m-0 text-[13px] text-tone-red-ink">
+        <p id={`band-${metric}-error`} role="alert" className="col-span-full m-0 text-[13px] text-tone-red-ink">
           {t("devices.collectors.invalid")}
         </p>
       ) : null}

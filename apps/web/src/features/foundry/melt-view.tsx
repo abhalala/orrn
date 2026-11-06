@@ -279,7 +279,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
         )}
       </div>
       <ErrorLine error={saveMut.error ?? lockMut.error} />
-      {issue ? <Note tone="red" testId="form-issue">{t(`foundry.melt.issue.${issue.code}`)}</Note> : null}
+      {issue ? <Note tone="red" role="alert" testId="form-issue">{t(`foundry.melt.issue.${issue.code}`)}</Note> : null}
       <FormActions className="max-sm:bottom-[calc(var(--shell-tabbar-offset)+0.75rem)]">
         {index > 0 ? (
           <Button variant="secondary" size="lg" onClick={() => go(STEPS[index - 1]!)} data-testid="melt-back">
