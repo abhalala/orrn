@@ -23,7 +23,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `saving` | Saving | सेव हो रहा है |
 | `saved` | Saved | सेव हो गया |
 | `cancel` | Cancel | रहने दें |
-| `showingOf` | Showing {shown} of {total}, type to find | {total} में से {shown} दिख रहे हैं, ढूंढने के लिए लिखें |
+| `showingOf` | Showing {shown} of {total}. Type to find more. | {total} में से {shown} दिख रहे हैं, ढूंढने के लिए लिखें |
 | `close` | Close | बंद करें |
 | `back` | Back | वापस |
 | `next` | Next | आगे |
@@ -194,7 +194,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `settings` | Settings | सेटिंग्स |
 | `account` | Account | अकाउंट |
 | `signOut` | Sign out | साइन आउट |
-| `signOutOffline` | You are offline; sign-out needs a connection. You are still signed in. | आप ऑफ़लाइन हैं; साइन आउट के लिए कनेक्शन चाहिए। आप अभी भी साइन इन हैं। |
+| `signOutOffline` | You are offline. Connect to sign out. You are still signed in. | आप ऑफ़लाइन हैं; साइन आउट के लिए कनेक्शन चाहिए। आप अभी भी साइन इन हैं। |
 | `signOutFailed` | Sign-out didn't go through. Check the connection and try again. You are still signed in. | साइन आउट नहीं हुआ। कनेक्शन देखकर फिर से कोशिश करें। आप अभी भी साइन इन हैं। |
 | `skipToContent` | Skip to content | मुख्य हिस्से पर जाएं |
 | `scanOrSearch` | Scan or search | स्कैन करें या खोजें |
@@ -459,14 +459,14 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `sessionsTodayHeading` | Packing sessions today | आज के पैकिंग सेशन |
 | `noSessionsToday` | Nothing packed yet today | आज अभी कुछ पैक नहीं हुआ |
 | `sessionVoided` | All bundles void | सारे bundle रद्द |
-| `noSessionsTodayBody` | Each packing session shows up here as it is saved. | हर पैकिंग सेशन सेव होते ही यहां दिखेगा। |
+| `noSessionsTodayBody` | Saved packing sessions show here. | हर पैकिंग सेशन सेव होते ही यहां दिखेगा। |
 | `allSessions` | All sessions | सभी सेशन |
 | `printProblemsCount` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
 | `printProblemsBody` | Check the printer, then print them again from Printing. | प्रिंटर देखें, फिर प्रिंटिंग से दोबारा प्रिंट करें। |
 | `openPrinting` | Open printing | प्रिंटिंग खोलें |
 | `loadErrorTitle` | Today's numbers didn't load | आज के आंकड़े लोड नहीं हुए |
 | `loadErrorBody` | Check the connection and try again. | इंटरनेट देखें और फिर से कोशिश करें। |
-| `refreshFailed` | Couldn't refresh. Showing the numbers from {time}. | रीफ़्रेश नहीं हुआ। {time} तक के आंकड़े दिख रहे हैं। |
+| `refreshFailed` | Couldn't refresh. These numbers are from {time}. | रीफ़्रेश नहीं हुआ। {time} तक के आंकड़े दिख रहे हैं। |
 | `chartsErrorTitle` | Charts didn't load | चार्ट लोड नहीं हुए |
 | `chartsErrorBody` | Reload the page to load them again. | चार्ट फिर से लाने के लिए पेज दोबारा लोड करें। |
 | `reloadPage` | Reload page | पेज दोबारा लोड करें |
@@ -478,7 +478,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `trend.dispatched` | Dispatched | Dispatch हुआ |
 | `trend.dateHeader` | Date | तारीख |
 | `trend.emptyTitle` | Nothing packed or dispatched in 90 days | 90 दिन में कुछ पैक या dispatch नहीं हुआ |
-| `trend.emptyBody` | Each day's kg shows up here once bundles are packed or dispatched. | Bundle पैक या dispatch होते ही हर दिन का kg यहां दिखेगा। |
+| `trend.emptyBody` | Pack or dispatch bundles to see daily kg here. | Bundle पैक या dispatch होते ही हर दिन का kg यहां दिखेगा। |
 | `ageing.title` | Stock age | स्टॉक की उम्र |
 | `ageing.subtitle` | kg in stock by days since packing | पैकिंग से अब तक के दिनों के हिसाब से स्टॉक का kg |
 | `ageing.label` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग से दिनों के हिसाब से kg |
@@ -493,9 +493,9 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `ageing.over60` | Over 60 days | 60 दिन से ज़्यादा |
 | `ageing.over60Short` | 60+ | 60+ |
 | `ageing.emptyTitle` | Nothing in stock | स्टॉक में कुछ नहीं |
-| `ageing.emptyBody` | Packed bundles show up here by how long they have been waiting. | पैक हुए bundle यहां दिखेंगे, कितने दिन से रखे हैं उसके हिसाब से। |
+| `ageing.emptyBody` | Packed bundles appear here by days since packing. | पैक हुए bundle यहां दिखेंगे, कितने दिन से रखे हैं उसके हिसाब से। |
 | `startHere.title` | Start here | यहां से शुरू करें |
-| `startHere.body` | A few things to set up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये कुछ काम कर लें। |
+| `startHere.body` | Set these up before the floor starts using orrn. | फ़्लोर पर orrn चलाने से पहले ये कुछ काम कर लें। |
 | `startHere.bodyWaiting` | Your admin is setting orrn up. Today's numbers show here once the first bundles are packed. | एडमिन orrn सेट कर रहे हैं। पहले bundle पैक होते ही आज के आंकड़े यहां दिखेंगे। |
 | `startHere.addDie` | Add a die | Die जोड़ें |
 | `startHere.addCustomer` | Add a customer | ग्राहक जोड़ें |
@@ -574,7 +574,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `whenDate` | {date}, {time} | {date}, {time} |
 | `unknownPacker` | Not known | पता नहीं |
 | `draft.chip` | Not saved | सेव नहीं हुआ |
-| `draft.body` | {count} {count:bundle\|bundles} entered in this tab and not saved yet. | इस टैब में डाले गए {count} bundle अभी सेव नहीं {count:हुआ\|हुए}। |
+| `draft.body` | {count} {count:bundle\|bundles} entered in this tab but not saved. | इस टैब में डाले गए {count} bundle अभी सेव नहीं {count:हुआ\|हुए}। |
 | `draft.resume` | Continue session | सेशन जारी रखें |
 | `columns.session` | Session | सेशन |
 | `columns.die` | Die | Die |
@@ -618,7 +618,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `new.noPo` | No PO | PO नहीं |
 | `new.poValue` | PO {po} | PO {po} |
 | `new.change` | Change | बदलें |
-| `new.defaultsHint` | Every bundle in this session uses this cut length and PO unless you change it on that bundle. | इस सेशन के हर bundle में यही कट लंबाई और PO लगेगा, जब तक आप उस bundle पर इसे न बदलें। |
+| `new.defaultsHint` | Each bundle uses this cut length and PO unless you change them for that bundle. | इस सेशन के हर bundle में यही कट लंबाई और PO लगेगा, जब तक आप उस bundle पर इसे न बदलें। |
 | `new.weight` | Weight (kg) | वज़न (kg) |
 | `new.pieces` | Pieces | पीस |
 | `new.weightRequired` | Enter the weight in kg, for example 52.40. | वज़न kg में डालें, जैसे 52.40. |
@@ -639,7 +639,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `new.bundleRemoved` | Bundle {n} removed. | Bundle {n} हट गया। |
 | `new.savedBundles` | Bundles in this session | इस सेशन के bundle |
 | `new.noBundlesYet` | No bundles yet. Enter the first bundle's weight and pieces. | अभी कोई bundle नहीं है। पहले bundle का वज़न और पीस डालें। |
-| `new.maxReached` | This session has {max} bundles, the most one session can hold. Review and save it, then start another. | इस सेशन में {max} bundle हैं, एक सेशन में इससे ज़्यादा नहीं आ सकते। इसे जांचकर सेव करें, फिर नया सेशन शुरू करें। |
+| `new.maxReached` | This session has the maximum {max} bundles. Review and save it, then start another. | इस सेशन में {max} bundle हैं, एक सेशन में इससे ज़्यादा नहीं आ सकते। इसे जांचकर सेव करें, फिर नया सेशन शुरू करें। |
 | `new.runningTotal` | Running total | अब तक का कुल |
 | `new.review` | Review | जांचें |
 | `new.totalBundles` | Bundles | Bundle |
@@ -651,17 +651,17 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `new.saveOnly` | Save session | सेशन सेव करें |
 | `new.saved` | Session saved | सेशन सेव हो गया |
 | `new.saveFailed` | The session didn't save. Your bundles are still here, so try again. | सेशन सेव नहीं हुआ। आपके bundle अभी भी यहां हैं, फिर से कोशिश करें। |
-| `new.saveUnsure` | orrn didn't confirm the save. Tap Save again: the same bundles are never packed twice. | orrn से सेव का जवाब नहीं आया। फिर से सेव दबाएं: वही bundle दो बार पैक नहीं होंगे। |
+| `new.saveUnsure` | orrn didn't confirm the save. Tap Save again. The same bundles are never packed twice. | orrn से सेव का जवाब नहीं आया। फिर से सेव दबाएं: वही bundle दो बार पैक नहीं होंगे। |
 | `new.openPack` | Open Pack | पैकिंग खोलें |
 | `new.rangeUnknown` | Range not loaded | रेंज लोड नहीं हुई |
-| `new.rangeFailed` | The die's range didn't load, so bundles can't be checked against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
+| `new.rangeFailed` | The die's range didn't load, so orrn can't check the bundles against it. | Die की रेंज लोड नहीं हुई, इसलिए bundle की जांच रेंज से नहीं हो सकती। |
 | `new.printingProgress` | Printing {done} of {total} | प्रिंट: {total} में से {done} |
 | `new.printFailed` | {count} {count:label\|labels} didn't print | {count} लेबल प्रिंट नहीं {count:हुआ\|हुए} |
 | `new.retryFailed` | Retry failed labels | फ़ेल हुए लेबल फिर से प्रिंट करें |
 | `new.draftKept` | Your unsaved bundles are still here. | आपके बिना सेव किए bundle अभी भी यहां हैं। |
 | `new.discardDraft` | Discard unsaved bundles | बिना सेव किए bundle हटा दें |
 | `new.discardTitle` | Discard unsaved bundles? | बिना सेव किए bundle हटा दें? |
-| `new.discardBody` | The {count} {count:bundle\|bundles} you entered will be cleared. This can't be undone. | आपके डाले {count} bundle हट जाएंगे। यह वापस नहीं होगा। |
+| `new.discardBody` | orrn will clear the {count} {count:bundle\|bundles} you entered. This can't be undone. | आपके डाले {count} bundle हट जाएंगे। यह वापस नहीं होगा। |
 | `new.discard` | Discard | हटा दें |
 | `new.forbidden` | Your role can't pack bundles. Ask an admin if you need it. | आपका रोल bundle पैक नहीं कर सकता। ज़रूरत हो तो एडमिन से कहें। |
 | `new.liveBand` | Band {band} | बैंड {band} |
@@ -731,7 +731,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `reject.pcs` | Pieces | पीस |
 | `reject.kg` | kg | kg |
 | `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
-| `reject.hint` | Reject pieces leave the pile and are not a bundle. Kg, if you enter it, posts at plant scrap. | रिजेक्ट पीस ढेर से हट जाते हैं और bundle नहीं होते। kg डालें तो वह प्लांट स्क्रैप में जाता है। |
+| `reject.hint` | Rejected pieces leave the pile and do not become a bundle. If you enter kg, orrn posts it to plant scrap. | रिजेक्ट पीस ढेर से हट जाते हैं और bundle नहीं होते। kg डालें तो वह प्लांट स्क्रैप में जाता है। |
 | `reject.kgHint` | Leave blank if the pieces were not weighed. | पीस तौले नहीं गए हों तो खाली छोड़ें। |
 | `reject.reason` | Reason | कारण |
 | `reject.pickReason` | Pick a reason | कारण चुनें |
@@ -754,7 +754,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `source.noTrolley` | No trolley | ट्रॉली नहीं |
 | `source.noTrolleyHint` | Pack by hand. | हाथ से पैक करें। |
 | `source.trolleyLine` | Trolley line | ट्रॉली लाइन |
-| `source.trolleyLineHint` | Only released lines with pieces left are listed. | केवल छोड़ी गई और पीस बचे वाली लाइनें दिखती हैं। |
+| `source.trolleyLineHint` | The list shows only released lines with pieces left. | केवल छोड़ी गई और पीस बचे वाली लाइनें दिखती हैं। |
 | `source.trolleyRequired` | This plant packs from a trolley line. Pick one. | यह प्लांट ट्रॉली लाइन से पैक करता है। एक चुनें। |
 | `source.trolleyLeft` | {pcs} pcs left | {pcs} पीस बचे |
 | `source.trolleyCut` | {mm} mm | {mm} mm |
@@ -922,7 +922,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `yards` | Yards | यार्ड |
 | `lengthsLabel` | Stock by section and cut length | सेक्शन और कट लंबाई के हिसाब से स्टॉक |
 | `lengthsEmpty` | No stock matches these filters. | इन फ़िल्टर से कोई स्टॉक नहीं मिला। |
-| `yardsEmpty` | No yards to show. Yards are set up in Masters. | दिखाने के लिए कोई यार्ड नहीं। यार्ड मास्टर्स में बनते हैं। |
+| `yardsEmpty` | No yards to show. Set up yards in Masters. | दिखाने के लिए कोई यार्ड नहीं। यार्ड मास्टर्स में बनते हैं। |
 | `noYard` | No yard | यार्ड नहीं |
 | `yardEmpty` | Empty | खाली |
 | `yardLine` | {bundles} {bundles:bundle\|bundles} · {sections} {sections:section\|sections} | {bundles} bundle · {sections} सेक्शन |
@@ -949,11 +949,11 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `count.start` | Start a count | गिनती शुरू करें |
 | `count.startTitle` | Start a count | गिनती शुरू करें |
 | `count.yardsLegend` | Yards to count | गिनने के यार्ड |
-| `count.everyYardHint` | Every yard is counted, so bundles with no yard are expected too. | सारे यार्ड गिने जाएंगे, इसलिए बिना यार्ड वाले bundle भी गिनती में माने जाएंगे। |
-| `count.someYardsHint` | Only these yards are counted. Bundles with no yard are left out. | सिर्फ ये यार्ड गिने जाएंगे। बिना यार्ड वाले bundle छोड़ दिए जाते हैं। |
+| `count.everyYardHint` | The count covers every yard, including bundles with no yard. | सारे यार्ड गिने जाएंगे, इसलिए बिना यार्ड वाले bundle भी गिनती में माने जाएंगे। |
+| `count.someYardsHint` | The count covers only these yards. It leaves out bundles with no yard. | सिर्फ ये यार्ड गिने जाएंगे। बिना यार्ड वाले bundle छोड़ दिए जाते हैं। |
 | `count.noYards` | No yards are set up yet. | अभी कोई यार्ड नहीं बना है। |
 | `count.pickYards` | Pick the yards to count. | गिनने के यार्ड चुनें। |
-| `count.yardBusy` | One of these yards is already being counted. Open that count, or pick another yard. | इनमें से एक यार्ड की गिनती पहले से चल रही है। वह गिनती खोलें, या दूसरा यार्ड चुनें। |
+| `count.yardBusy` | Another count already includes one of these yards. Open that count, or pick another yard. | इनमें से एक यार्ड की गिनती पहले से चल रही है। वह गिनती खोलें, या दूसरा यार्ड चुनें। |
 | `count.started` | {number} started | {number} शुरू हुई |
 | `count.openCounts` | Counts in progress | चल रही गिनतियां |
 | `count.noneOpen` | No count is in progress. | कोई गिनती नहीं चल रही। |
@@ -998,13 +998,13 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `count.match.ambiguous` | Several bundles | कई bundle |
 | `count.close` | Close count | गिनती बंद करें |
 | `count.closeTitle` | Close {number}? | {number} बंद करें? |
-| `count.closeBody` | Closing freezes the report. {count} {count:bundle is\|bundles are} missing so far. The stock is not changed. | बंद करने पर रिपोर्ट पक्की हो जाती है। अब तक {count} bundle गायब {count:है\|हैं}। स्टॉक नहीं बदलता। |
+| `count.closeBody` | Closing freezes the report. {count} {count:bundle is\|bundles are} missing so far. Stock stays unchanged. | बंद करने पर रिपोर्ट पक्की हो जाती है। अब तक {count} bundle गायब {count:है\|हैं}। स्टॉक नहीं बदलता। |
 | `count.closeAnyway` | Close anyway | फिर भी बंद करें |
-| `count.unscannedWarn` | A yard in this count has no scan at all, so closing reports all its bundles missing. Scan it, or close anyway. | इस गिनती के एक यार्ड में कोई स्कैन नहीं हुआ, इसलिए बंद करने पर उसके सारे bundle गायब गिने जाएंगे। उसे स्कैन करें, या फिर भी बंद करें। |
+| `count.unscannedWarn` | A yard in this count has no scans. Closing reports all its bundles missing. Scan it, or close anyway. | इस गिनती के एक यार्ड में कोई स्कैन नहीं हुआ, इसलिए बंद करने पर उसके सारे bundle गायब गिने जाएंगे। उसे स्कैन करें, या फिर भी बंद करें। |
 | `count.closed` | {number} closed | {number} बंद हुई |
 | `count.cancel` | Cancel count | गिनती रद्द करें |
 | `count.cancelTitle` | Cancel {number}? | {number} रद्द करें? |
-| `count.cancelBody` | The scans are kept out of any report and the yards can be counted again. | स्कैन किसी रिपोर्ट में नहीं जाएंगे और यार्ड फिर से गिने जा सकेंगे। |
+| `count.cancelBody` | orrn excludes the scans from every report. You can count the yards again. | स्कैन किसी रिपोर्ट में नहीं जाएंगे और यार्ड फिर से गिने जा सकेंगे। |
 | `count.cancelReason` | Why cancel it | रद्द क्यों कर रहे हैं |
 | `count.cancelReasonRequired` | Say why the count is cancelled. | गिनती रद्द करने का कारण लिखें। |
 | `count.cancelled` | {number} cancelled | {number} रद्द हुई |
@@ -1014,7 +1014,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `count.phantomReport` | Missing bundles | गायब bundle |
 | `count.missingNow` | Missing so far | अब तक गायब |
 | `count.askVoid` | Ask to void {count} missing | {count} गायब को void करने को कहें |
-| `count.voidAsked` | A manager is asked to void them. | मैनेजर से void करने को कहा गया। |
+| `count.voidAsked` | orrn asks a manager to void them. | मैनेजर से void करने को कहा गया। |
 | `count.moveFound` | Move {count} to where they were seen | {count} को वहां ले जाएं जहां दिखे |
 | `count.movedDone` | Moved to where they were seen. | जहां दिखे वहां ले जाए गए। |
 | `count.resolution.void_requested` | Void asked | void मांगा गया |
@@ -1100,7 +1100,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `scope.one_customer` | This plant sends one customer per packing list. | यह प्लांट एक packing list में एक ग्राहक भेजता है। |
 | `scope.per_truck` | This plant can put several customers on one truck, each with its own packing list. | यह प्लांट एक ट्रक में कई ग्राहक भेज सकता है, हर एक की अपनी packing list। |
 | `truck.title` | On this truck | इस ट्रक में |
-| `truck.hint` | Vehicle, driver and transporter are the truck's. Each customer keeps its own packing list. | गाड़ी, ड्राइवर और ट्रांसपोर्टर ट्रक के हैं। हर ग्राहक की अपनी packing list रहती है। |
+| `truck.hint` | Vehicle, driver and transporter belong to the truck. Each customer keeps its own packing list. | गाड़ी, ड्राइवर और ट्रांसपोर्टर ट्रक के हैं। हर ग्राहक की अपनी packing list रहती है। |
 | `truck.pick` | Same truck as | इसी ट्रक में |
 | `truck.none` | A truck of its own | अलग ट्रक |
 | `truck.option` | {code}, {customer}, {vehicle} | {code}, {customer}, {vehicle} |
@@ -1128,11 +1128,11 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `order.others` | {count} {count:bundle goes\|bundles go} to other orders of this customer: {orders} | {count} bundle इस ग्राहक के दूसरे ऑर्डर पर जा रहे {count:है\|हैं}: {orders} |
 | `suggest.button` | Suggest bundles | Bundle सुझाएं |
 | `suggest.title` | Suggest bundles | Bundle सुझाएं |
-| `suggest.intro` | This order's stock first, then plant stock of the same die and length. | पहले इस ऑर्डर का स्टॉक, फिर उसी die और लंबाई का प्लांट स्टॉक। |
+| `suggest.intro` | This order's stock comes first, then plant stock with the same die and length. | पहले इस ऑर्डर का स्टॉक, फिर उसी die और लंबाई का प्लांट स्टॉक। |
 | `suggest.left` | Left to send after this load: {kg} kg | इस लोड के बाद भेजना बाकी: {kg} kg |
 | `suggest.added` | Added {count} {count:bundle\|bundles} | {count} bundle जुड़े |
 | `suggest.nothingAdded` | Nothing was added | कुछ नहीं जुड़ा |
-| `suggest.empty` | No bundles to suggest. Nothing of this order lies in the yard, and no plant stock matches its dies and lengths. | सुझाने के लिए कोई bundle नहीं। इस ऑर्डर का कुछ यार्ड में नहीं है और प्लांट स्टॉक में इसकी die और लंबाई का कुछ नहीं। |
+| `suggest.empty` | No bundles to suggest. This order has no stock in the yard, and no plant stock matches its dies and lengths. | सुझाने के लिए कोई bundle नहीं। इस ऑर्डर का कुछ यार्ड में नहीं है और प्लांट स्टॉक में इसकी die और लंबाई का कुछ नहीं। |
 | `suggest.addAll` | Add {count} that fit ({kg} kg) | {count} जोड़ें जो समाएं ({kg} kg) |
 | `suggest.order` | This order's stock | इस ऑर्डर का स्टॉक |
 | `suggest.plant` | Plant stock, same die and length | प्लांट स्टॉक, वही die और लंबाई |
@@ -1190,13 +1190,13 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `detail.shipOn` | Ship {date} | {date} को भेजना है |
 | `detail.noShipDate` | No ship date | भेजने की तारीख तय नहीं |
 | `detail.dispatchedOn` | Dispatched {date} | {date} को dispatch हुआ |
-| `detail.plWhenComplete` | The packing list is issued when the dispatch completes. | Dispatch पूरा होने पर packing list जारी होती है। |
+| `detail.plWhenComplete` | orrn issues the packing list when the dispatch completes. | Dispatch पूरा होने पर packing list जारी होती है। |
 | `detail.plSeeReserved` | See the reserved bundles | रिज़र्व किए bundle देखें |
 | `detail.plSeeBundles` | See the bundles on this dispatch | इस dispatch के bundle देखें |
 | `detail.editDetails` | Edit details | जानकारी बदलें |
 | `detail.saveDetails` | Save details | जानकारी सेव करें |
 | `detail.detailsSaved` | Details saved | जानकारी सेव हो गई |
-| `detail.viewOnly` | You can see this dispatch. Changes are made by the office. | आप यह dispatch देख सकते हैं। बदलाव ऑफ़िस करता है। |
+| `detail.viewOnly` | You can view this dispatch. Only the office can change it. | आप यह dispatch देख सकते हैं। बदलाव ऑफ़िस करता है। |
 | `detail.justDispatched` | {code} dispatched | {code} dispatch हो गया |
 | `steps.build` | Build | बनाएं |
 | `steps.hold` | Hold | होल्ड |
@@ -1230,7 +1230,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `build.groupNamed` | Group {label} | ग्रुप {label} |
 | `build.searchTitle` | Search to add | खोज कर जोड़ें |
 | `build.searchLabel` | Serial or PO | Serial या PO |
-| `build.searchHint` | Only bundles in stock are listed. | सिर्फ़ स्टॉक वाले bundle दिखते हैं। |
+| `build.searchHint` | The list shows only bundles in stock. | सिर्फ़ स्टॉक वाले bundle दिखते हैं। |
 | `build.searchStart` | Type part of a serial or PO number. | Serial या PO नंबर का कुछ हिस्सा टाइप करें। |
 | `build.searchEmpty` | No bundle in stock matches "{query}". | "{query}" से स्टॉक में कोई bundle नहीं मिला। |
 | `build.add` | Add | जोड़ें |
@@ -1261,7 +1261,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `dispatchAction` | Dispatch | Dispatch करें |
 | `confirmTitle` | Dispatch {code}? | {code} dispatch करें? |
 | `confirmBody` | {bundles} {bundles:bundle\|bundles} · {kg} kg for {customer}. You can't add or remove bundles after this. | {customer} के लिए {bundles} bundle · {kg} kg। इसके बाद bundle जोड़ या हटा नहीं सकेंगे। |
-| `vehicleNeeded` | The packing list and the e-way bill name the truck. It is saved on the dispatch. | पैकिंग लिस्ट और ई-वे बिल में गाड़ी का नंबर आता है। यह dispatch पर सेव होगा। |
+| `vehicleNeeded` | The packing list and e-way bill name the truck. orrn saves the vehicle on the dispatch. | पैकिंग लिस्ट और ई-वे बिल में गाड़ी का नंबर आता है। यह dispatch पर सेव होगा। |
 | `vehicleMissing` | Add the vehicle number before you dispatch. | Dispatch से पहले गाड़ी का नंबर डालें। |
 | `vehicleOn` | On vehicle {vehicle} | गाड़ी {vehicle} पर |
 | `confirm` | Dispatch | Dispatch करें |
@@ -1288,14 +1288,14 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `capacity.hint` | Leave it blank for no warning. | चेतावनी न चाहिए तो खाली छोड़ें। |
 | `capacity.invalid` | Enter the capacity in kg, for example 9000. | क्षमता kg में डालें, जैसे 9000। |
 | `capacity.loaded` | {loaded} of {capacity} kg | {capacity} kg में से {loaded} kg |
-| `capacity.locked` | The capacity this load went against stays as it was. | जिस क्षमता पर यह लोड गया, वह वैसी ही रहती है। |
+| `capacity.locked` | The capacity used for this load stays unchanged. | जिस क्षमता पर यह लोड गया, वह वैसी ही रहती है। |
 | `capacity.overReasonHint` | Say why this truck goes over its capacity. It is kept with the dispatch. | बताएं कि यह ट्रक अपनी क्षमता से ज़्यादा क्यों जा रहा है। यह डिस्पैच के साथ सेव रहता है। |
 | `capacity.reasonRequired` | Say why before you dispatch. | डिस्पैच से पहले कारण लिखें। |
 | `value.title` | Value | मूल्य |
 | `value.priced` | {kg} kg priced at the order rate | {kg} kg ऑर्डर रेट पर |
 | `value.missing` | {count} {count:bundle has\|bundles have} no rate on the order line ({kg} kg) | {count} bundle की ऑर्डर लाइन पर रेट नहीं है ({kg} kg) |
 | `value.complete` | Every bundle has a rate | हर bundle पर रेट है |
-| `value.note` | From the rate on each order line, on weighed kg. Not a tax invoice. | हर ऑर्डर लाइन के रेट से, तौले गए kg पर। यह टैक्स इनवॉइस नहीं है। |
+| `value.note` | orrn uses each order line's rate and weighed kg. This is not a tax invoice. | हर ऑर्डर लाइन के रेट से, तौले गए kg पर। यह टैक्स इनवॉइस नहीं है। |
 | `transporter.label` | Transporter | ट्रांसपोर्टर |
 | `transporter.add` | Add transporter | ट्रांसपोर्टर जोड़ें |
 | `transporter.none` | No transporter | कोई ट्रांसपोर्टर नहीं |
@@ -1343,7 +1343,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `share` | Share | शेयर करें |
 | `regenerate` | Regenerate | फिर से बनाएं |
 | `regenerateTitle` | Regenerate the packing list? | पैकिंग लिस्ट फिर से बनाएं? |
-| `regenerateBody` | orrn builds it again from the bundles in this dispatch as they are now. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
+| `regenerateBody` | orrn rebuilds it from the dispatch's current bundles. | orrn इस dispatch के bundle की अभी की जानकारी से इसे फिर से बनाएगा। |
 | `regenerated` | Packing list regenerated | पैकिंग लिस्ट फिर से बन गई |
 | `dispatch` | Dispatch | Dispatch |
 | `gstin` | GSTIN | GSTIN |
@@ -1351,7 +1351,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `rowsLabel` | Packing list rows | पैकिंग लिस्ट की लाइनें |
 | `groupNamed` | Group {label} | ग्रुप {label} |
 | `groupTotalOf` | Total {label} | {label} का कुल |
-| `loadError` | This packing list couldn't be read. Regenerate it to build it again. | यह पैकिंग लिस्ट पढ़ी नहीं जा सकी। इसे फिर से बनाएं। |
+| `loadError` | orrn could not read this packing list. Regenerate it to rebuild it. | यह पैकिंग लिस्ट पढ़ी नहीं जा सकी। इसे फिर से बनाएं। |
 | `missing` | This dispatch has no packing list yet. | इस dispatch की पैकिंग लिस्ट अभी नहीं बनी। |
 | `make` | Make packing list | पैकिंग लिस्ट बनाएं |
 | `made` | Packing list made | पैकिंग लिस्ट बन गई |
@@ -1386,13 +1386,13 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `v2.sectionTotal` | Total {section} | कुल {section} |
 | `v2.thisList` | This list | यह लिस्ट |
 | `v2.regenerateTitle` | Make a new revision? | नया रिवीज़न बनाएं? |
-| `v2.regenerateBody` | The revision already sent is kept. orrn builds the list again from the bundles as they are now and calls it revision {n}. The PL number {code} stays. | जो रिवीज़न भेजा जा चुका है वह रखा जाता है। orrn अभी के bundle से लिस्ट फिर बनाता है और उसे रिवीज़न {n} कहता है। PL नंबर {code} वही रहता है। |
+| `v2.regenerateBody` | orrn keeps the revision already sent. It rebuilds the list from the current bundles as revision {n}. PL number {code} stays the same. | जो रिवीज़न भेजा जा चुका है वह रखा जाता है। orrn अभी के bundle से लिस्ट फिर बनाता है और उसे रिवीज़न {n} कहता है। PL नंबर {code} वही रहता है। |
 | `v2.regenerated` | Revision {n} made | रिवीज़न {n} बन गया |
 | `v2.brandingHint` | Off hides the logo and tagline. The legal company name still prints. | बंद करने पर लोगो और टैगलाइन हट जाते हैं। कंपनी का कानूनी नाम फिर भी छपता है। |
 | `v2.originalSoHint` | Shows the order each bundle was packed for. | हर bundle जिस ऑर्डर के लिए पैक हुआ, वह दिखाता है। |
 | `v2.combineTitle` | Combine packing lists | पैकिंग लिस्ट मिलाएं |
-| `v2.combineBody` | Pick the lists of {customer} to fold into one list. It takes a new PL number; the folded lists keep theirs. | {customer} की जो लिस्ट एक में मिलानी हैं, चुनें। नई लिस्ट को नया PL नंबर मिलता है; मिलाई गई लिस्ट अपना नंबर रखती हैं। |
-| `v2.combineNone` | No other packing list of this customer to combine. | इस ग्राहक की मिलाने लायक कोई और पैकिंग लिस्ट नहीं है। |
+| `v2.combineBody` | Pick {customer}'s lists to combine into one. The combined list gets a new PL number. The original lists keep theirs. | {customer} की जो लिस्ट एक में मिलानी हैं, चुनें। नई लिस्ट को नया PL नंबर मिलता है; मिलाई गई लिस्ट अपना नंबर रखती हैं। |
+| `v2.combineNone` | This customer has no other packing lists to combine. | इस ग्राहक की मिलाने लायक कोई और पैकिंग लिस्ट नहीं है। |
 | `v2.combineSubmit` | Combine {count} {count:list\|lists} | {count} लिस्ट मिलाएं |
 | `v2.combined` | Combined into {code} | {code} में मिलाया |
 | `v2.field.weightG` | weight | वज़न |
@@ -8389,7 +8389,7 @@ Please check, Lalubhai:
 | Problem 1 | Several customers are on one truck | एक ट्रक पर कई ग्राहक हैं |
 | Fix 1 | If the plant allows it, tap "Add another customer to this truck". Each customer keeps its own packing list. The vehicle, driver and capacity belong to the truck, and the capacity counts the whole truck. | प्लांट इसकी छूट देता हो तो "इस ट्रक में एक और ग्राहक जोड़ें" दबाएं। हर ग्राहक की अपनी पैकिंग लिस्ट रहती है। गाड़ी, ड्राइवर और क्षमता ट्रक की होती है, और क्षमता में पूरा ट्रक गिना जाता है। |
 | Problem 2 | I changed the capacity after the dispatch | dispatch के बाद क्षमता बदल दी |
-| Fix 2 | The capacity this load went against stays as it was. orrn keeps it with the dispatch. | जिस क्षमता के सामने ये लोड गया था वो वैसी ही रहती है। orrn उसे dispatch के साथ रखता है। |
+| Fix 2 | The capacity used for this load stays unchanged. orrn keeps it with the dispatch. | जिस क्षमता के सामने ये लोड गया था वो वैसी ही रहती है। orrn उसे dispatch के साथ रखता है। |
 | Problem 3 | The vehicle number looks different | गाड़ी का नंबर अलग दिख रहा है |
 | Fix 3 | orrn drops spaces and dashes and keeps only letters and digits, so a number typed with spaces is stored without them. | orrn खाली जगह और डैश हटा देता है और सिर्फ अक्षर व अंक रखता है, इसलिए खाली जगह के साथ लिखा नंबर बिना खाली जगह के सेव होता है। |
 
@@ -8698,7 +8698,7 @@ Please check, Lalubhai:
 | Step 2 | Choose the source | स्रोत चुनें |
 | Step 2 text | In "Source" pick "Trolley" for aged metal. "No trolley" packs by hand. | "स्रोत" में एजिंग वाले माल के लिए "ट्रॉली" चुनें। "ट्रॉली नहीं" हाथ से पैक करता है। |
 | Step 3 | Pick the trolley line | ट्रॉली लाइन चुनें |
-| Step 3 text | Under "Trolley line" pick a line. Only released lines with pieces left are listed. The order, die copy, cast and cut length fill in from it. | "ट्रॉली लाइन" में एक लाइन चुनें। सिर्फ़ छोड़ी हुई और पीस बचे वाली लाइनें दिखती हैं। ऑर्डर, die कॉपी, कास्ट और कट लंबाई उसी से भर जाते हैं। |
+| Step 3 text | Under "Trolley line" pick a line. The list shows only released lines with pieces left. The order, die copy, cast and cut length fill in from it. | "ट्रॉली लाइन" में एक लाइन चुनें। सिर्फ़ छोड़ी हुई और पीस बचे वाली लाइनें दिखती हैं। ऑर्डर, die कॉपी, कास्ट और कट लंबाई उसी से भर जाते हैं। |
 | Step 4 | Enter pieces and weight | पीस और वज़न भरें |
 | Step 4 text | Write the pieces and take the weight from the scale. The pieces cannot pass what is left on the line. | पीस लिखें और वज़न तराज़ू से लें। पीस लाइन में बचे पीस से ज़्यादा नहीं हो सकते। |
 | Step 5 | Rejects | रिजेक्ट |

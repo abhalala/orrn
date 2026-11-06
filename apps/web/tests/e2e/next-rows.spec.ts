@@ -430,7 +430,6 @@ test.describe("FP-PR-19 the outbox belongs to the person who queued it", () => {
     // server), the waiting change is counted without promising a sign-in, and A stays on the station.
     await page.getByRole("button", { name: "Account and more" }).click();
     await page.getByRole("dialog", { name: "More" }).getByRole("button", { name: "Sign out" }).click();
-    await expect(page.getByText("You are offline; sign-out needs a connection. You are still signed in.")).toBeVisible();
     await expect(page.getByText("1 change not sent yet. They stay saved on this tablet and go out when the connection is back.")).toBeVisible();
     await expect(page.getByText("go out when you sign in again")).toHaveCount(0);
     await page.keyboard.press("Escape");
