@@ -584,6 +584,9 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
     { len: "", pcs: "" },
   ]);
   const [tried, setTried] = useState(false);
+  // The totals at the last submit that failed on the sum, said once as an alert; any edit to a cut clears it, so
+  // the live sum line below never speaks on each keystroke.
+  const [sumMiss, setSumMiss] = useState<{ total: number; want: number } | null>(null);
   useEffect(() => {
     if (open) {
       setCuts([
@@ -593,6 +596,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
       setTried(false);
     }
   }, [open, row?.id]);
+  useEffect(() => setSumMiss(null), [cuts]);
   const parsed = cuts.map((c) => ({ lengthMm: wholeFromText(c.len), pcs: wholeFromText(c.pcs) }));
   const valid = parsed.every((c) => c.lengthMm && c.pcs);
   const total = parsed.reduce((a, c) => a + (c.lengthMm ?? 0) * (c.pcs ?? 0), 0);
@@ -619,6 +623,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
       testId="split-form"
       onSubmit={() => {
         setTried(true);
+        if (row && valid && !sumOk) setSumMiss({ total, want });
         if (!row || !valid || !sumOk) return;
         split.mutate({ rowId: row.id, cuts: parsed.map((c) => ({ lengthMm: c.lengthMm!, pcs: c.pcs! })) });
       }}
@@ -638,9 +643,14 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
           {t("ageing.split.addCut")}
         </Button>
       </div>
-      <p role={tried && valid && !sumOk ? "alert" : undefined} className={sumOk || !valid ? "m-0 text-[13px] text-muted-foreground" : "m-0 text-[13px] font-medium text-destructive"} data-testid="split-sum">
+      <p className={sumOk || !valid ? "m-0 text-[13px] text-muted-foreground" : "m-0 text-[13px] font-medium text-destructive"} data-testid="split-sum">
         {t("ageing.split.sum", { total, want })}
       </p>
+      {sumMiss ? (
+        <p role="alert" className="sr-only">
+          {t("ageing.split.sum", sumMiss)}
+        </p>
+      ) : null}
       {tried && !valid ? <p role="alert" className="m-0 text-[13px] font-medium text-destructive">{t("ageing.split.invalid")}</p> : null}
       <p className="m-0 text-[13px] text-muted-foreground">{t("ageing.split.hint", { number: batch.number })}</p>
     </FormSheet>

@@ -285,7 +285,7 @@ export function SectionDetail({ id }: { id: string }) {
             <Card key={band.id ?? "primary"} className="min-w-0" data-testid={`band-${band.id ?? "primary"}`}>
               <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <CardTitle>
+                  <CardTitle as="h3">
                     <span className="font-mono tabular-nums">
                       {bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}
                     </span>

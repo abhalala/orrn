@@ -65,7 +65,7 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
   };
 
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"

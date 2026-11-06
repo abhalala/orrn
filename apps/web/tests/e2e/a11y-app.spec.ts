@@ -444,6 +444,22 @@ test.describe("shell semantics and keyboard", () => {
     await expect(trigger).toBeFocused();
   });
 
+  test("account menu: a click outside closes it and does not reach the page", async ({ page }) => {
+    await openToday(page, 1280);
+    const url = page.url();
+    const trigger = page.locator("[data-slot='side-nav'] button").last();
+    await trigger.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    // Click where a Today link sits: the backdrop must take the click.
+    const target = page.locator("main a[href]").first();
+    await expect(target).toBeVisible();
+    const box = (await target.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByRole("menu")).toBeHidden();
+    await expect(page.locator("[data-menu-backdrop]")).toHaveCount(0);
+    expect(page.url()).toBe(url);
+  });
+
   test("phone More sheet: focus moves in, stays in on Tab, Escape returns it to More", async ({ page }) => {
     await openToday(page, 375);
     const more = page.getByRole("navigation", { name: "Main" }).getByRole("button", { name: "More", exact: true });
