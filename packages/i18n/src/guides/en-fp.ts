@@ -610,7 +610,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "I changed the capacity after the dispatch",
-        fix: "The capacity this load went against stays as it was. orrn keeps it with the dispatch.",
+        fix: "The capacity used for this load stays unchanged. orrn keeps it with the dispatch.",
       },
       {
         title: "The vehicle number looks different",
@@ -1180,7 +1180,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Pick the trolley line",
-        body: "Under \"Trolley line\" pick a line. Only released lines with pieces left are listed. The order, die copy, cast and cut length fill in from it.",
+        body: "Under \"Trolley line\" pick a line. The list shows only released lines with pieces left. The order, die copy, cast and cut length fill in from it.",
       },
       {
         title: "Enter pieces and weight",
