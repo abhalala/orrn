@@ -74,9 +74,10 @@ export function Hero() {
           <figure className="marketing-proof">
             <BundlePage />
             <figcaption>
-              {/* The readable caption sits outside the hidden screen and begins "Demo data." */}
+              {/* The sr-only line reads the hidden screen and begins "Demo data."; the visible caption is
+                  the one sentence that says how a person reaches this page, so it is read too. */}
               <span className="sr-only">{t("marketing.hero.alt")}</span>
-              <span aria-hidden="true">{t("marketing.hero.caption")}</span>
+              <span>{t("marketing.hero.caption")}</span>
             </figcaption>
           </figure>
         </div>

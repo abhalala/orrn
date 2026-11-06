@@ -269,6 +269,11 @@
   color: var(--m-muted);
   font-size: 0.8125rem;
   font-weight: 500;
+  /* The app control animates outline-color with its label colour, so the ring faded in
+     from the label's colour over 150 ms and the checked radio showed a canvas ring in
+     its first frames. The ring colour rests on ink; only the label colours animate. */
+  outline-color: var(--ink);
+  transition-property: color, background-color;
 }
 
 .marketing-page .marketing-language button[aria-checked="true"] {
@@ -430,7 +435,16 @@
 
 .marketing-grid {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s6);
+}
+
+/* One column holds its width under 1.4.12 text spacing: the hero card's nowrap address
+   and codes shrink or spill inside the card instead of widening the column and pushing
+   the lead past the 320 px edge. */
+.marketing-grid > *,
+.marketing-shot {
+  min-width: 0;
 }
 
 @media (min-width: 64rem) {
@@ -682,6 +696,19 @@
   }
 }
 
+/* From 1024 to 1279 px the proof side is about 560 px, so the first two columns give up
+   some room and the sentence column keeps to two or three lines. */
+@media (min-width: 64rem) and (max-width: 79.99rem) {
+  #flow .marketing-grid > .marketing-proof {
+    grid-column: 6 / span 7;
+  }
+
+  .marketing-stages-head,
+  .marketing-stages li {
+    grid-template-columns: 6rem 7rem 1fr;
+  }
+}
+
 .marketing-after {
   margin-top: var(--s4);
 }
@@ -738,6 +765,12 @@
 .marketing-scan li[data-refused] .marketing-scan-why {
   color: var(--m-no-ink);
   font-weight: 500;
+}
+
+/* A code inside the reason line (Held for DSP-000409) sits at the size of the words around it. */
+.marketing-scan .marketing-scan-why .marketing-code {
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .marketing-scan li[data-refused] .marketing-chip[data-state="no"] {

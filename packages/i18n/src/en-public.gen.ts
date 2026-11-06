@@ -27,7 +27,7 @@ export const enPublic = {
     },
     "flow": {
       "title": "Seven stages, one record.",
-      "body": "Scrap comes in over the kanta. A bundle leaves on a truck. In between, a later stage reads each code again: the run reads the die copy and the cast, the truck scan reads the bundle.",
+      "body": "Scrap comes in over the kanta. A bundle leaves on a truck. A later stage reads each code again.",
       "colStage": "Stage",
       "colCode": "Example code",
       "colWhat": "What the floor enters",
@@ -63,8 +63,8 @@ export const enPublic = {
     },
     "truck": {
       "title": "The scans at the truck decide what leaves stock.",
-      "body1": "Scan each bundle as it goes onto the truck. orrn checks each scan in one fixed order and gives one of 13 answers. 10 of them refuse the bundle, for example when it is void or packed for another customer. orrn also refuses a bundle that is still in ageing.",
-      "body2": "Stock drops when the dispatch completes. At that moment the packing list takes its number from the plant's own number book, once.",
+      "body1": "Scan each bundle as it goes onto the truck. orrn checks each scan in one fixed order. Of its 13 answers, 10 refuse the bundle, for example when it is void or packed for another customer. A bundle still in ageing is refused too.",
+      "body2": "Stock drops when the dispatch completes. At that moment the packing list takes its number from the plant's own book, once.",
       "count": "On 30 June 2026 the first plant counted its yard against its old system. Of the 1,721 bundles on the old list, 1,071 were not in the yard. orrn's stock count shows missing bundles like these before the count closes.",
       "caption": "The phone at the truck.",
       "alt": "Demo data. The phone scan sheet for dispatch DSP-000412. Three bundles added, 156.40 kg. Bundle 26J4062 refused, packed for another customer. Bundle 26J4055 refused, held for dispatch DSP-000409."
@@ -76,13 +76,13 @@ export const enPublic = {
       "alt": "Demo data. Press run PR-418 took 310.4 kg of billets and made 234.2 kg good, recovery 75.5 %. Order SO-1 line 2, angle, 25 days late, baki 800 kg.",
       "rule1Title": "Nobody edits stock.",
       "rule1": "A correction is a new entry with the opposite sign. It names the entry it cancels.",
-      "rule2Title": "12 changes need a second person.",
+      "rule2Title": "Twelve changes need a second person.",
       "rule2": "A die tier change and a cast close with a tail over 3 % are two of them. The person who asks never approves, the owner included."
     },
     "floor": {
       "title": "One refusal, three languages.",
       "body1": "Each person gets one of 13 roles, for example packer or die room. The role decides the screens. The server checks every change against it.",
-      "body2": "orrn has 44 step-by-step guides in English and Hindi. 9 of them are in Gujarati too.",
+      "body2": "orrn has 44 step-by-step guides in English and Hindi. Nine of them are in Gujarati too.",
       "langEn": "English",
       "langHi": "Hindi",
       "langGu": "Gujarati",
@@ -96,7 +96,7 @@ export const enPublic = {
     },
     "close": {
       "title": "Tell us about your plant.",
-      "body": "Send your company name and the number of extrusion lines you run. We write back to set up your company on orrn. The first plant will run orrn beside its old system once the plant's own data is loaded."
+      "body": "Send your company name and the number of extrusion lines you run. We write back to set up your company on orrn. The first plant will run orrn beside its old system once its own data is in."
     },
     "footerNav": "Footer",
     "guides": "Guides",
