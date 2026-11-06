@@ -60,7 +60,14 @@ export function MakersPage() {
           <h2 id="makers-list" className="m-0 text-[17px] leading-6 font-semibold">
             {t("dieRoom.maker.makers")}
           </h2>
-          {makers.isSuccess && makers.data.length === 0 ? (
+          {makers.isError ? (
+            <div role="alert" className="flex flex-col items-start gap-2">
+              <p className="m-0 text-[14px] text-destructive">{t("errors.generic")}</p>
+              <Button variant="secondary" onClick={() => makers.refetch()}>
+                {t("common.retry")}
+              </Button>
+            </div>
+          ) : makers.isSuccess && makers.data.length === 0 ? (
             <EmptyState title={t("dieRoom.makers.empty")} body={t("dieRoom.makers.emptyBody")} />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
@@ -84,7 +91,14 @@ export function MakersPage() {
           <h2 id="makers-jobs" className="m-0 text-[17px] leading-6 font-semibold">
             {t("dieRoom.makers.withMakers")}
           </h2>
-          {jobs.isSuccess && jobs.data.items.length === 0 ? (
+          {jobs.isError ? (
+            <div role="alert" className="flex flex-col items-start gap-2">
+              <p className="m-0 text-[14px] text-destructive">{t("errors.generic")}</p>
+              <Button variant="secondary" onClick={() => jobs.refetch()}>
+                {t("common.retry")}
+              </Button>
+            </div>
+          ) : jobs.isSuccess && jobs.data.items.length === 0 ? (
             <EmptyState title={t("dieRoom.makers.noJobs")} body={t("dieRoom.makers.noJobsBody")} />
           ) : (
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
@@ -179,7 +193,7 @@ function AddMakerSheet({ open, onOpenChange }: { open: boolean; onOpenChange(ope
           submit();
         }}
       >
-        <Field label={t("dieRoom.makers.name")}>
+        <Field label={t("dieRoom.makers.name")} error={error === t("dieRoom.makers.nameRequired") ? error : undefined}>
           <TextInput value={name} onChangeText={setName} maxLength={120} autoComplete="off" />
         </Field>
         <Field label={t("dieRoom.makers.city")} hint={t("common.optional")}>
@@ -189,7 +203,7 @@ function AddMakerSheet({ open, onOpenChange }: { open: boolean; onOpenChange(ope
           <TextInput value={phone} onChangeText={setPhone} maxLength={30} inputMode="tel" autoComplete="off" />
         </Field>
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={error === t("dieRoom.makers.nameRequired") ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}

@@ -28,14 +28,16 @@ export function RunsPanel({ copyId }: { copyId: string }) {
         loading={runs.isPending}
         empty={
           runs.isError ? (
-            <EmptyState
-              title={t("dieRoom.runs.loadFailed")}
-              action={
-                <Button variant="secondary" onClick={() => runs.refetch()}>
-                  {t("common.retry")}
-                </Button>
-              }
-            />
+            <div role="alert">
+              <EmptyState
+                title={t("dieRoom.runs.loadFailed")}
+                action={
+                  <Button variant="secondary" onClick={() => runs.refetch()}>
+                    {t("common.retry")}
+                  </Button>
+                }
+              />
+            </div>
           ) : (
             <EmptyState title={t("dieRoom.runs.empty")} body={t("dieRoom.runs.emptyBody")} />
           )

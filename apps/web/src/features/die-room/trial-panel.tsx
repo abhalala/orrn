@@ -90,11 +90,11 @@ export function TrialPanel({ card }: { card: CardData }) {
           </>
         }
       >
-        <Field label={t("common.reason")}>
+        <Field label={t("common.reason")} error={error === t("dieRoom.trial.reasonRequired") ? error : undefined}>
           <FieldTextArea value={reason} onChangeText={setReason} rows={3} maxLength={500} />
         </Field>
         {error ? (
-          <p role="alert" className="m-0 mt-2 text-[14px] leading-5 font-medium text-destructive">
+          <p role="alert" className={error === t("dieRoom.trial.reasonRequired") ? "sr-only" : "m-0 mt-2 text-[14px] leading-5 font-medium text-destructive"}>
             {error}
           </p>
         ) : null}

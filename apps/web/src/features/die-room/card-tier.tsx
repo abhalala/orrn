@@ -149,14 +149,17 @@ function ProposeSheet({ open, onOpenChange, card }: { open: boolean; onOpenChang
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("dieRoom.tier.rankLabel")}>
+        <Field label={t("dieRoom.tier.rankLabel")} error={error === t("dieRoom.tier.rankInvalid") ? error : undefined}>
           <NumberInput value={rank} onValueChange={setRank} decimal={false} />
         </Field>
-        <Field label={t("common.reason")}>
+        <Field label={t("common.reason")} error={error === t("dieRoom.tier.reasonRequired") ? error : undefined}>
           <FieldTextArea value={reason} onChangeText={setReason} rows={3} maxLength={500} />
         </Field>
         {error ? (
-          <p role="alert" className="m-0 text-[14px] leading-5 font-medium text-destructive">
+          <p
+            role="alert"
+            className={error === t("dieRoom.tier.rankInvalid") || error === t("dieRoom.tier.reasonRequired") ? "sr-only" : "m-0 text-[14px] leading-5 font-medium text-destructive"}
+          >
             {error}
           </p>
         ) : null}

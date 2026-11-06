@@ -71,14 +71,16 @@ export function NewBandPage({ id }: { id: string }) {
     return (
       <>
         <PageHeader back={{ to: "/dies", label: t("nav.dies") }} title={t("dieRoom.band.title")} />
-        <EmptyState
-          title={t("dies.detail.notFound")}
-          action={
-            <Button asChild variant="secondary">
-              <Link to="/dies">{t("dies.detail.backToList")}</Link>
-            </Button>
-          }
-        />
+        <div role="alert">
+          <EmptyState
+            title={t("dies.detail.notFound")}
+            action={
+              <Button asChild variant="secondary">
+                <Link to="/dies">{t("dies.detail.backToList")}</Link>
+              </Button>
+            }
+          />
+        </div>
       </>
     );
   }
