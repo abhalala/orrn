@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7442 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -2887,7 +2887,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `notFoundTitle` | We don't have that guide | यह गाइड हमारे पास नहीं है |
 | `notFoundBody` | The link may be old or mistyped. Pick a guide from the list. | लिंक पुराना या गलत हो सकता है। लिस्ट से कोई गाइड चुनें। |
 
-### admin (351)
+### admin (352)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -3202,6 +3202,7 @@ Counts: 7441 screen strings in 49 groups, 44 guides with 840 strings.
 | `requests.hasPassword` | This owner already signs in with a password; ask them to use Forgot password. | यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
 | `requests.approvedHasPassword` | Approved. This owner already signs in with a password; ask them to use Forgot password. | मंज़ूर हो गई। यह मालिक पहले से पासवर्ड से साइन इन करते हैं; उनसे "पासवर्ड भूल गए" इस्तेमाल करने को कहें। |
 | `requests.approvedAskAdmin` | Approved. Your role cannot send sign-in links: ask an admin to get the sign-in details below. | मंज़ूर हो गई। आपका रोल साइन इन लिंक नहीं भेज सकता: किसी एडमिन से नीचे की साइन इन डिटेल लेने को कहें। |
+| `requests.unverifiedAccount` | Not approved. An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again. | मंज़ूर नहीं हुई। इस ईमेल पर पहले से एक अकाउंट है, पर उसने कभी साबित नहीं किया कि यह मेलबॉक्स उसका है। मांगने वाले से उसी पते से "पासवर्ड भूल गए" इस्तेमाल करने को कहें, फिर दोबारा मंज़ूर करें। |
 | `requests.details.sentTitle` | Sign-in email sent | साइन इन ईमेल चला गया |
 | `requests.details.notSentTitle` | Email could not be sent | ईमेल नहीं जा सका |
 | `requests.details.body` | Send this to {name} on WhatsApp or from your own email. The link works once and expires {date}. | यह {name} को WhatsApp पर या अपने ईमेल से भेजें। लिंक एक बार चलता है और {date} को खत्म हो जाएगा। |
