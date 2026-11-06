@@ -1686,6 +1686,26 @@
     font-size: var(--m-body);
   }
 
+  /* While the hero or one of the page's own Request access buttons is on screen the floating copy steps
+     aside, so it never covers the hero text. Like a skip link it comes back when it takes keyboard focus. */
+  .marketing-mobile-action[data-tucked]:not(:focus-visible) {
+    opacity: 0;
+    transform: translateY(0.75rem);
+    pointer-events: none;
+  }
+
+  .marketing-mobile-action {
+    transition:
+      opacity var(--dur-fast, 160ms) ease-out,
+      transform var(--dur-fast, 160ms) ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marketing-mobile-action {
+      transition: none;
+    }
+  }
+
   .marketing-card {
     margin-inline: var(--m-edge);
     padding: 0 1.25rem 1.25rem;
