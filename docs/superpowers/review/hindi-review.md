@@ -7767,7 +7767,7 @@ Please check, Lalubhai:
 | Step 1 | Open Scan | स्कैन खोलें |
 | Step 1 text | On a phone, tap "Scan" in the middle of the bottom bar. On a laptop, click "Scan or search", or press Ctrl+K (Cmd+K on a Mac). | फ़ोन पर नीचे वाली पट्टी के बीच में "स्कैन" दबाएं। लैपटॉप पर "स्कैन करें या खोजें" पर क्लिक करें, या Ctrl+K दबाएं (Mac पर Cmd+K)। |
 | Step 2 | Allow the camera | कैमरा चालू करने दें |
-| Step 2 text | The first time, orrn asks to use the camera. Allow it. orrn only uses it to read labels. | पहली बार orrn कैमरा इस्तेमाल करने की इजाज़त मांगेगा। इजाज़त दे दें। orrn कैमरे से सिर्फ़ लेबल पढ़ता है। |
+| Step 2 text | Allow camera access when orrn asks. orrn uses the camera only to read labels. | पहली बार orrn कैमरा इस्तेमाल करने की इजाज़त मांगेगा। इजाज़त दे दें। orrn कैमरे से सिर्फ़ लेबल पढ़ता है। |
 | Step 3 | Point at the label | लेबल की तरफ़ कैमरा करें |
 | Step 3 text | Hold the QR code or barcode inside the frame. In a dark spot, turn on the torch. | QR कोड या बारकोड को फ़्रेम के अंदर रखें। अंधेरी जगह पर टॉर्च चालू करें। |
 | Step 4 | Read the result | नतीजा देखें |
@@ -7863,9 +7863,9 @@ Please check, Lalubhai:
 | Step 3 | Set the weight range | वज़न रेंज डालें |
 | Step 3 text | Enter the min and max weight in kg for one 12 ft length. Pack uses this range for the green or amber kg/12ft chip. | 12 ft लंबाई का कम से कम और ज़्यादा से ज़्यादा वज़न kg में डालें। पैकिंग में kg/12ft का हरा या पीला निशान इसी रेंज से आता है। |
 | Step 4 | Set the status | स्टेटस चुनें |
-| Step 4 text | "Active" dies show in Pack. "Archived" dies are hidden from Pack but keep all their bundles and history. | "चालू" die पैकिंग में दिखते हैं। "बंद" die पैकिंग में नहीं दिखते, पर उनके सारे bundle और इतिहास रहते हैं। |
+| Step 4 text | Choose "Active" to show the die in Pack, or "Archived" to hide it. An archived die keeps all its bundles and history. | "चालू" die पैकिंग में दिखते हैं। "बंद" die पैकिंग में नहीं दिखते, पर उनके सारे bundle और इतिहास रहते हैं। |
 | Step 5 | Add measurements if you have them | नाप हों तो डालें |
-| Step 5 text | Width, thickness, oblique and leg are under "Advanced". They are optional. | चौड़ाई, मोटाई, oblique और लेग "एडवांस" में हैं। ये ज़रूरी नहीं हैं। |
+| Step 5 text | Open "Advanced" to add width, thickness, oblique and leg. They are optional. | चौड़ाई, मोटाई, oblique और लेग "एडवांस" में हैं। ये ज़रूरी नहीं हैं। |
 | Step 6 | Save | सेव करें |
 | Step 6 text | Tap "Save die". The die's page opens with its weight band and measurements. | "Die सेव करें" दबाएं। Die का पेज खुलेगा, उस पर वज़न की रेंज और नाप दिखते हैं। |
 | Problem 1 | It says the code belongs to a deleted die | लिखा आया कि कोड एक डिलीट हुए die का है |
@@ -8028,7 +8028,7 @@ Please check, Lalubhai:
 | Step 4 | Read the answers | जवाब पढ़ें |
 | Step 4 text | Here means orrn agrees. Moved, Elsewhere and Not in stock mean orrn holds the bundle somewhere else or not at all. Unknown code means orrn has never seen that number. Leave those bundles where they are and note them. | यहीं है मतलब orrn सहमत है। खिसका हुआ, कहीं और और स्टॉक में नहीं का मतलब है कि orrn में bundle कहीं और है या है ही नहीं। पहचाना नहीं गया मतलब वह नंबर orrn ने कभी देखा नहीं। ऐसे bundle को वहीं रहने दें और नोट बनाएं। |
 | Step 5 | Chase what's missing | जो नहीं मिला उसे ढूंढें |
-| Step 5 text | Before you close, the missing list shows every bundle orrn has in your yards that nobody scanned. Look again in the nearby yards before you give up on a bundle. | बंद करने से पहले, गायब की लिस्ट में आपके यार्ड के वे सारे bundle दिखते हैं जो orrn में हैं पर किसी ने स्कैन नहीं किए। किसी bundle को छोड़ने से पहले आसपास के यार्ड में दोबारा देखें। |
+| Step 5 text | Review the missing list before you close. It shows every bundle orrn has in your yards that nobody scanned. Look again in the nearby yards before you give up on a bundle. | बंद करने से पहले, गायब की लिस्ट में आपके यार्ड के वे सारे bundle दिखते हैं जो orrn में हैं पर किसी ने स्कैन नहीं किए। किसी bundle को छोड़ने से पहले आसपास के यार्ड में दोबारा देखें। |
 | Step 6 | Close and read the report | बंद करें और रिपोर्ट पढ़ें |
 | Step 6 text | Press "Close count". The report shows what is missing, what was found out of place, and the difference by yard and by section. Closing does not change the stock: a manager decides what to void. | "गिनती बंद करें" दबाएं। रिपोर्ट में दिखता है क्या गायब है, क्या गलत जगह मिला, और यार्ड व सेक्शन के हिसाब से फ़र्क। बंद करने से स्टॉक नहीं बदलता: क्या void करना है, यह मैनेजर तय करता है। |
 | Problem 1 | A bundle has no QR label | Bundle पर QR लेबल नहीं है |
@@ -8165,7 +8165,7 @@ Please check, Lalubhai:
 | Step 1 text | Open "Orders" and tap "Press plan". This page works on a desktop or an 11-inch tablet. | "ऑर्डर" खोलें और "प्रेस प्लान" दबाएं। ये पेज डेस्कटॉप या 11 इंच के टैबलेट पर चलता है। |
 | Step 2 | Set the window and the press | समय और प्रेस तय करें |
 | Step 2 text | Set "Window starts" and "Window ends". A window is at most 24 hours. Pick the press under "Pick the press". | "समय शुरू" और "समय खत्म" भरें। समय अधिकतम 24 घंटे का होता है। "प्रेस चुनें" में प्रेस चुनें। |
-| Step 3 | A trial or sample plan | ट्रायल या सैंपल का प्लान |
+| Step 3 | Plan a trial or sample | ट्रायल या सैंपल का प्लान |
 | Step 3 text | For a die trial or a sample set "Purpose" to "Die trial" or "Sample" (the default is "Production"). "A trial or sample needs no order line." Use "Add die", pick the section, and write the planned kg or pieces if you like. Each die becomes one queued run. | Die ट्रायल या सैंपल के लिए "किस लिए" में "Die ट्रायल" या "सैंपल" चुनें (आम तौर पर "प्रोडक्शन" रहता है)। "ट्रायल या सैंपल के लिए ऑर्डर लाइन नहीं चाहिए।" "Die जोड़ें" से सेक्शन चुनें और चाहें तो प्लान किए kg या पीस लिखें। हर die एक कतार वाला रन बन जाता है। |
 | Step 4 | Choose the lines | लाइनें चुनें |
 | Step 4 text | The open lines come grouped by die, so one die serves every customer that needs it. Add the lines you want. Leave the kg blank to plan all that is left, or type fewer kg. | खुली लाइनें die के हिसाब से इकट्ठी आती हैं, ताकि एक die सारे ज़रूरतमंद ग्राहकों के काम आए। जो लाइनें चाहिए जोड़ें। सारा बाकी प्लान करना हो तो kg खाली छोड़ें, वरना कम kg लिखें। |
@@ -8679,7 +8679,7 @@ Please check, Lalubhai:
 | Step 4 | Release | छोड़ें |
 | Step 4 text | A supervisor or manager taps "Release". Lines that passed can be packed. Lines that failed are held, each with its reason. | सुपरवाइज़र या मैनेजर "छोड़ें" दबाता है। पास हुई लाइनें पैक हो सकती हैं। फेल हुई लाइनें अपनी वजह के साथ होल्ड रहती हैं। |
 | Step 5 | Deal with a held line | होल्ड लाइन संभालें |
-| Step 5 text | A line that failed on hardness clears with "Test again". "Hold" stops a line that looks wrong, and "Clear hold" lets it go. | हार्डनेस में फेल लाइन "फिर जांचें" से साफ़ होती है। गलत लगती लाइन को "होल्ड करें" रोकता है, और "होल्ड हटाएं" उसे जाने देता है। |
+| Step 5 text | Tap "Test again" to clear a line that failed on hardness. Use "Hold" to stop a line that looks wrong, and "Clear hold" to let it go. | हार्डनेस में फेल लाइन "फिर जांचें" से साफ़ होती है। गलत लगती लाइन को "होल्ड करें" रोकता है, और "होल्ड हटाएं" उसे जाने देता है। |
 | Step 6 | Ask for approval | मंज़ूरी मांगें |
 | Step 6 text | If a batch failed but should go, tap "Ask for approval" and say why. A manager decides it in "Approvals". Then the supervisor taps "Release" again: approving alone releases nothing. | बैच फेल हुआ पर जाना चाहिए, तो "मंज़ूरी मांगें" दबाकर वजह लिखें। मैनेजर "मंज़ूरी" में तय करता है। फिर सुपरवाइज़र दोबारा "छोड़ें" दबाता है: सिर्फ़ मंज़ूरी से कुछ नहीं छूटता। |
 | Step 7 | Age again or discard | फिर से एजिंग या फेंकें |
@@ -8705,8 +8705,8 @@ Please check, Lalubhai:
 | Step 3 text | Under "Trolley line" pick a line. Only released lines with pieces left are listed. The order, die copy, cast and cut length fill in from it. | "ट्रॉली लाइन" में एक लाइन चुनें। सिर्फ़ छोड़ी हुई और पीस बचे वाली लाइनें दिखती हैं। ऑर्डर, die कॉपी, कास्ट और कट लंबाई उसी से भर जाते हैं। |
 | Step 4 | Enter pieces and weight | पीस और वज़न भरें |
 | Step 4 text | Write the pieces and take the weight from the scale. The pieces cannot pass what is left on the line. | पीस लिखें और वज़न तराज़ू से लें। पीस लाइन में बचे पीस से ज़्यादा नहीं हो सकते। |
-| Step 5 | Rejects | रिजेक्ट |
-| Step 5 text | Damaged pieces are set aside as rejects with a reason. They leave the line too. | टूटे पीस वजह के साथ रिजेक्ट में अलग रखें। वो भी लाइन से निकल जाते हैं। |
+| Step 5 | Record the rejects | रिजेक्ट |
+| Step 5 text | Set damaged pieces aside and enter them as rejects with a reason. They leave the line too. | टूटे पीस वजह के साथ रिजेक्ट में अलग रखें। वो भी लाइन से निकल जाते हैं। |
 | Step 6 | Save and print | सेव करें और प्रिंट करें |
 | Step 6 text | Save the bundle and print its label. The bundle page shows "Aged" and links to its batch. | बंडल सेव करके उसका लेबल प्रिंट करें। बंडल पेज पर "एजिंग हो चुकी" दिखता है और उसके बैच का लिंक होता है। |
 | Problem 1 | My line is not in the list | मेरी लाइन लिस्ट में नहीं है |
