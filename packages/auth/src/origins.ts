@@ -35,14 +35,19 @@ export function isAllowedWebOrigin(
   config: { corsOrigin: string; corsAllowedOrigins?: string },
 ): boolean {
   if (!origin) return false;
-  return parseOriginList(config.corsOrigin, config.corsAllowedOrigins).some((entry) => canonicalWebOrigin(entry) === origin);
+  return trustedWebOrigins(config).includes(origin);
 }
 
+/**
+ * The configured web origins in the browser's form, once each. CORS (`isAllowedWebOrigin`) and Better
+ * Auth `trustedOrigins` read this same list; Better Auth compares an entry with `===`, so a raw
+ * `https://orrn.in/` there would pass CORS and then fail every `/api/auth/*` POST.
+ */
 export function trustedWebOrigins(config: {
   corsOrigin: string;
   corsAllowedOrigins?: string;
 }): string[] {
-  return parseOriginList(config.corsOrigin, config.corsAllowedOrigins);
+  return [...new Set(parseOriginList(config.corsOrigin, config.corsAllowedOrigins).map(canonicalWebOrigin))];
 }
 
 /**
