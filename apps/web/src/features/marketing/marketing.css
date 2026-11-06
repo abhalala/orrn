@@ -90,9 +90,25 @@
   color: var(--m-ink);
 }
 
-.marketing-page :is(a, button, input):focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 4px;
+/* Two-tone ring: a paper outline over a 2px ink gap-fill. Whatever the control or the ground
+   is (paper card, ink bar, amber tile, photograph), one tone reads against it and the two
+   tones read against each other, so the ring is always at least 3:1 (WCAG 1.4.11, 2.4.7). */
+.marketing-page :is(a, button, input, [tabindex]:not(main)):focus-visible {
+  outline: 2px solid var(--m-paper);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--m-ink);
+}
+
+/* A focused control must not sit under the sticky bar (wide screens) or the floating action
+   (phones): keep room around it when the browser scrolls it into view (WCAG 2.4.11). */
+.marketing-page :is(a, button, input, [tabindex]):not(main) {
+  scroll-margin-top: calc(var(--m-bar) + 1rem);
+  scroll-margin-bottom: 6rem;
+}
+
+/* The main landmark takes focus from the skip link; a ring would frame the whole page, so it has none. */
+.marketing-page main:focus-visible {
+  outline: none;
 }
 
 .marketing-page [data-tone="red"] { --tone: var(--tone-red-from); }
@@ -1541,6 +1557,12 @@
 @media (max-width: 1023px) {
   .marketing-header-links [data-section] {
     display: none;
+  }
+
+  /* The card overlaps the photograph's foot here, so the caption sits at the top, not under the barcode. */
+  .marketing-hero-photo figcaption {
+    top: var(--m-gap);
+    bottom: auto;
   }
 
   .marketing-story {

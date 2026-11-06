@@ -1,12 +1,13 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
 import { newPasswordError, parseResetSearch, resetLinkBroken, type ResetSearch } from "@/features/auth/password-reset";
 import { PasswordField } from "@/features/auth/password-field";
+import { usePageTitle } from "@/features/auth/use-page-title";
 import { authClient } from "@/shared/lib/auth-client";
 
 export const Route = createFileRoute("/_public/reset-password")({
@@ -31,6 +32,16 @@ function ResetPasswordPage() {
   const [pending, setPending] = useState(false);
   const [phase, setPhase] = useState<Phase>("form");
   const [failed, setFailed] = useState(false);
+  const outcomeHeading = useRef<HTMLHeadingElement>(null);
+  const refusedView = phase === "refused" || resetLinkBroken(search);
+  usePageTitle(
+    phase === "done" ? t("auth.reset.doneTitle") : refusedView ? t("auth.reset.badTitle") : t("auth.reset.title"),
+  );
+
+  // The form is replaced by its outcome: put focus on that heading so it is read out.
+  useEffect(() => {
+    if (phase !== "form") outcomeHeading.current?.focus();
+  }, [phase]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -60,7 +71,9 @@ function ResetPasswordPage() {
       <AuthFrame brand>
         <div className="flex flex-col gap-6" data-testid="reset-done">
           <div className="flex flex-col gap-2">
-            <h1 className="orrn-auth-title">{t("auth.reset.doneTitle")}</h1>
+            <h1 ref={outcomeHeading} tabIndex={-1} className="orrn-auth-title">
+              {t("auth.reset.doneTitle")}
+            </h1>
             <p className="m-0 text-[15px] leading-6 text-muted-foreground" role="status">
               {t("auth.reset.doneBody")}
             </p>
@@ -73,12 +86,14 @@ function ResetPasswordPage() {
     );
   }
 
-  if (phase === "refused" || resetLinkBroken(search)) {
+  if (refusedView) {
     return (
       <AuthFrame brand>
         <div className="flex flex-col gap-6" data-testid="reset-broken">
           <div className="flex flex-col gap-2">
-            <h1 className="orrn-auth-title">{t("auth.reset.badTitle")}</h1>
+            <h1 ref={outcomeHeading} tabIndex={-1} className="orrn-auth-title">
+              {t("auth.reset.badTitle")}
+            </h1>
             <p className="m-0 text-[15px] leading-6 text-muted-foreground">{t("auth.reset.badBody")}</p>
           </div>
           <Button asChild size="lg" className="w-full">

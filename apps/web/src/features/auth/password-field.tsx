@@ -12,6 +12,8 @@ export type PasswordFieldProps = {
   error?: string;
   /** Mark the field invalid when the error is shown elsewhere (the sign-in alert). */
   invalid?: boolean;
+  /** Id of the alert that explains `invalid`, read with the field. */
+  describedBy?: string;
   id?: string;
   name?: string;
   disabled?: boolean;
@@ -25,7 +27,7 @@ export type PasswordFieldProps = {
  * state, so screen readers don't hear the state twice.
  */
 export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(function PasswordField(
-  { label, value, onValueChange, autoComplete, hint, error, invalid, id, name, disabled },
+  { label, value, onValueChange, autoComplete, hint, error, invalid, describedBy, id, name, disabled },
   ref,
 ) {
   const { t } = useT();
@@ -45,6 +47,7 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
           disabled={disabled}
           onChange={(e) => onValueChange(e.currentTarget.value)}
           aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
           className="pr-12"
         />
         <button
