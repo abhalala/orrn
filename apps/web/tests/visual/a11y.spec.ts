@@ -140,7 +140,7 @@ test.describe("landing page keyboard", () => {
     // Skip link, brand, the language switch (one radiogroup with a roving tabindex, so one stop), Sign in and
     // Request access in the bar, the two hero actions, the two close actions, the footer brand and its three
     // links make 13 on a phone; the two section links from 900 px make 15 on a desktop.
-    expect(seen.size).toBeGreaterThanOrEqual(13);
+    expect(seen.size).toBeGreaterThanOrEqual(page.viewportSize()!.width >= 900 ? 15 : 13);
   });
 
   test("the page has no mobile menu to trap focus: header controls stay reachable and in view", async ({ page }) => {

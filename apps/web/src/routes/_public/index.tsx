@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_public/")({
   head: () => {
     const { t } = createI18n(readStoredLocale());
     return {
-      meta: [{ title: t("marketing.metaTitle") }, { name: "description", content: t("marketing.sub") }],
+      meta: [{ title: t("marketing.metaTitle") }, { name: "description", content: t("marketing.metaDescription") }],
     };
   },
   component: MarketingPage,
@@ -46,7 +46,7 @@ function useLateSessionRedirect() {
 function useLocalizedHead() {
   const { t } = useT();
   const title = t("marketing.metaTitle");
-  const description = t("marketing.sub");
+  const description = t("marketing.metaDescription");
   useEffect(() => {
     document.title = title;
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);

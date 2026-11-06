@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7383 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7382 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -3244,73 +3244,72 @@ Counts: 7383 screen strings in 49 groups, 44 guides with 840 strings.
 | `staff.loadError` | Staff didn't load. Check the connection and try again. | स्टाफ़ लोड नहीं हुआ। कनेक्शन देखें और फिर कोशिश करें। |
 | `staff.listLabel` | Staff accounts | स्टाफ़ अकाउंट |
 
-### marketing (68)
+### marketing (67)
 
 | Key | English | हिंदी |
 |---|---|---|
-| `metaTitle` | orrn \| plant software for aluminium extrusion plants in India | orrn \| भारत के एल्युमिनियम extrusion प्लांट का सॉफ़्टवेयर |
+| `metaTitle` | orrn \| plant software for aluminium extrusion plants in India | orrn \| भारत के एल्युमिनियम एक्सट्रूज़न प्लांट के लिए सॉफ़्टवेयर |
+| `metaDescription` | Plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once, and the office reads orders and baki from the same record. | भारत के एल्युमिनियम एक्सट्रूज़न प्लांट के लिए सॉफ़्टवेयर। फ़्लोर पर हर स्टेज अपनी एंट्री एक बार करता है, और ऑफ़िस उसी रिकॉर्ड से ऑर्डर और baki पढ़ता है। |
 | `homeLabel` | orrn home | orrn होम |
 | `mainNav` | Main navigation | मुख्य नेविगेशन |
 | `navFlow` | How it works | कैसे काम करता है |
 | `navFloor` | For your team | आपकी टीम के लिए |
-| `langShortEn` | EN | EN |
-| `langShortHi` | हि | हि |
 | `signIn` | Sign in | साइन इन करें |
 | `requestAccess` | Request access | एक्सेस मांगें |
 | `headline` | One record, from the kanta to the truck. | कांटे से गाड़ी तक, एक ही रिकॉर्ड। |
-| `sub` | orrn is plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once. The office reads orders and baki from the same record. | orrn भारत के एल्युमिनियम extrusion प्लांट का सॉफ़्टवेयर है। फ़्लोर पर हर चरण अपनी एंट्री एक बार करता है। ऑफ़िस उसी रिकॉर्ड से ऑर्डर और baki पढ़ता है। |
-| `note` | Runs in the browser on a phone, a tablet or a laptop. Screens in English and Hindi, and the floor screens in Gujarati too. | फ़ोन, टैबलेट या लैपटॉप के ब्राउज़र में चलता है। स्क्रीन English और हिंदी में हैं, और फ़्लोर की स्क्रीन गुजराती में भी। |
+| `sub` | orrn is plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once. The office reads orders and baki from the same record. | orrn भारत के एल्युमिनियम एक्सट्रूज़न प्लांट के लिए बना सॉफ़्टवेयर है। फ़्लोर पर हर स्टेज अपनी एंट्री एक बार करता है। ऑफ़िस उसी रिकॉर्ड से ऑर्डर और baki पढ़ता है। |
+| `note` | Runs in the browser on a phone, a tablet or a laptop. Screens in English and Hindi, and the floor screens in Gujarati too. | फ़ोन, टैबलेट या लैपटॉप के ब्राउज़र में चलता है। स्क्रीन अंग्रेज़ी और हिंदी में हैं, और फ़्लोर की स्क्रीन गुजराती में भी। |
 | `hero.caption` | Your team scans the QR on a bundle label and sees this page. | आपकी टीम bundle लेबल का QR स्कैन करके यह पेज देखती है। |
-| `hero.alt` | Demo data. The page for bundle 26J4086, dispatched in DSP-000412: 52.40 kg in 21 pieces, cut length 3658 mm, 2.495 kg per 12 ft, section 12170 Domal, die copy 12170-1, cast J14, packed on 30 October. | Demo data. bundle 26J4086 का पेज, dispatch DSP-000412 में गया: 21 पीस में 52.40 kg, कट लंबाई 3658 mm, 12 ft पर 2.495 kg, section 12170 Domal, die कॉपी 12170-1, cast J14, 30 अक्टूबर को पैक हुआ। |
-| `flow.title` | Seven stages, one record. | सात चरण, एक रिकॉर्ड। |
-| `flow.body` | Scrap comes in over the kanta. A bundle leaves on a truck. A later stage reads each code again. | स्क्रैप कांटे से अंदर आता है। bundle गाड़ी में बाहर जाता है। आगे का कोई चरण हर कोड को फिर से पढ़ता है। |
-| `flow.colStage` | Stage | चरण |
+| `hero.alt` | Demo data. The page for bundle 26J4086, dispatched in DSP-000412: 52.40 kg in 21 pieces, cut length 3658 mm, 2.495 kg per 12 ft, section 12170 Domal, die copy 12170-1, cast J14, packed on 30 October. | डेमो डेटा। Bundle 26J4086 का पेज, dispatch DSP-000412 में गया: 21 पीस में 52.40 kg, कट लंबाई 3658 mm, 2.495 kg/12ft, सेक्शन 12170 Domal, die कॉपी 12170-1, cast J14, 30 अक्टूबर को पैक हुआ। |
+| `flow.title` | Seven stages, one record. | सात स्टेज, एक रिकॉर्ड। |
+| `flow.body` | Scrap comes in over the kanta. A bundle leaves on a truck. In between, a later stage reads each code again: the run reads the die copy and the cast, the truck scan reads the bundle. | स्क्रैप कांटे से अंदर आता है। Bundle गाड़ी में बाहर जाता है। बीच में आगे का कोई स्टेज हर कोड फिर से पढ़ता है: रन die कॉपी और cast पढ़ता है, गाड़ी का स्कैन bundle पढ़ता है। |
+| `flow.colStage` | Stage | स्टेज |
 | `flow.colCode` | Example code | उदाहरण कोड |
 | `flow.colWhat` | What the floor enters | फ़्लोर क्या दर्ज करता है |
-| `flow.scrap.name` | Scrap | स्क्रैप |
+| `flow.scrap.name` | Scrap | Scrap |
 | `flow.scrap.body` | Book each lot at the kanta weight, next to the party's weight. A debit note takes the bori off. | हर लॉट कांटे के वज़न पर बुक करें, पार्टी के वज़न के साथ। बोरी का वज़न डेबिट नोट से कटता है। |
 | `flow.cast.name` | Cast | Cast |
-| `flow.cast.body` | Lock each melt of the cast with its spectro result. Close the cast on a billet count. | cast के हर melt को उसके spectro नतीजे के साथ लॉक करें। cast को billet गिनकर बंद करें। |
-| `flow.die.name` | Die copy | Die कॉपी |
+| `flow.cast.body` | Lock each melt of the cast with its spectro result. Close the cast on a billet count. | Cast के हर melt को उसके स्पेक्ट्रो नतीजे के साथ लॉक करें। Cast को billet गिनकर बंद करें। |
+| `flow.die.name` | Die copy | Die copy |
 | `flow.die.body` | Take readings on each die copy. orrn works out the drift on every reading. | हर die कॉपी की रीडिंग लें। हर रीडिंग पर orrn drift निकालता है। |
-| `flow.press.name` | Press | प्रेस |
+| `flow.press.name` | Press | Press |
 | `flow.press.body` | Start and stop the run at the press. Count billets in, good kg and rejects out. | प्रेस पर रन शुरू और बंद करें। अंदर गए billet, अच्छा kg और रिजेक्ट गिनें। |
 | `flow.age.name` | Ageing | Ageing |
-| `flow.age.body` | Run the trolley on its recipe. Pack takes only released batches. | trolley को उसकी recipe पर चलाएं। पैकिंग सिर्फ़ release हुए batch लेती है। |
-| `flow.pack.name` | Pack | पैक |
-| `flow.pack.body` | Weigh the bundle at the scale. Print its label once. | bundle को कांटे पर तौलें। उसका लेबल एक बार छापें। |
+| `flow.age.body` | Run the trolley on its recipe. Pack takes only released batches. | Trolley को उसकी recipe पर चलाएं। पैकिंग सिर्फ़ release हुए बैच लेती है। |
+| `flow.pack.name` | Pack | Pack |
+| `flow.pack.body` | Weigh the bundle at the scale. Print its label once. | Bundle को कांटे पर तौलें। उसका लेबल एक बार छापें। |
 | `flow.dispatch.name` | Dispatch | Dispatch |
 | `flow.dispatch.body` | Scan each bundle onto the truck. The scans make the packing list. | गाड़ी पर चढ़ते हर bundle को स्कैन करें। स्कैन से पैकिंग लिस्ट बनती है। |
 | `flow.after` | Bundle 26J4086 is bundle 4,086 of October 2026. Each plant keeps its own number book. | Bundle 26J4086 अक्टूबर 2026 का 4,086वां bundle है। हर प्लांट की अपनी नंबर बुक होती है। |
 | `truck.title` | The scans at the truck decide what leaves stock. | गाड़ी पर हुए स्कैन तय करते हैं कि स्टॉक से क्या बाहर जाएगा। |
-| `truck.body1` | Scan each bundle as it goes onto the truck. orrn checks each scan in one fixed order. Of its 13 answers, 10 refuse the bundle, for example when it is void or packed for another customer. A bundle still in ageing is refused too. | गाड़ी पर चढ़ते हर bundle को स्कैन करें। orrn हर स्कैन को एक तय क्रम में जांचता है। उसके 13 जवाबों में से 10 bundle को मना करते हैं, जैसे जब वह रद्द हो या किसी दूसरे ग्राहक के लिए पैक हुआ हो। जो bundle अभी ageing में है, वह भी मना होता है। |
-| `truck.body2` | Stock drops when the dispatch completes. At that moment the packing list takes its number from the plant's own book, once. | dispatch पूरा होते ही स्टॉक घटता है। उसी समय पैकिंग लिस्ट प्लांट की अपनी बुक से एक बार नंबर लेती है। |
-| `truck.count` | On 30 June 2026 the first plant counted its yard against its old system. Of the 1,721 bundles on the old list, 1,071 were not in the yard. orrn's stock count shows missing bundles like these before the count closes. | 30 जून 2026 को पहले प्लांट ने अपना यार्ड पुराने सिस्टम की लिस्ट से मिलाकर गिना। लिस्ट के 1,721 bundle में से 1,071 यार्ड में नहीं थे। orrn की स्टॉक गिनती बंद होने से पहले ऐसे गायब bundle दिखाती है। |
+| `truck.body1` | Scan each bundle as it goes onto the truck. orrn checks each scan in one fixed order and gives one of 13 answers. 10 of them refuse the bundle, for example when it is void or packed for another customer. orrn also refuses a bundle that is still in ageing. | गाड़ी पर चढ़ते हर bundle को स्कैन करें। orrn हर स्कैन को एक तय क्रम में जांचता है और 13 जवाबों में से एक देता है। उनमें से 10 bundle को मना करते हैं, जैसे जब वह रद्द हो या किसी दूसरे ग्राहक के लिए पैक हुआ हो। जो bundle अभी ageing में है, उसे भी orrn मना करता है। |
+| `truck.body2` | Stock drops when the dispatch completes. At that moment the packing list takes its number from the plant's own number book, once. | Dispatch पूरा होते ही स्टॉक घटता है। उसी समय पैकिंग लिस्ट प्लांट की अपनी नंबर बुक से एक बार नंबर लेती है। |
+| `truck.count` | On 30 June 2026 the first plant counted its yard against its old system. Of the 1,721 bundles on the old list, 1,071 were not in the yard. orrn's stock count shows missing bundles like these before the count closes. | 30 जून 2026 को पहले प्लांट ने अपना यार्ड पुराने सिस्टम की लिस्ट से मिलाकर गिना। लिस्ट के 1,721 bundle में से 1,071 यार्ड में नहीं थे। orrn में स्टॉक गिनती बंद होने से पहले ही ऐसे गायब bundle दिख जाते हैं। |
 | `truck.caption` | The phone at the truck. | गाड़ी के पास फ़ोन। |
-| `truck.alt` | Demo data. The phone scan sheet for dispatch DSP-000412. Three bundles added, 156.40 kg. Bundle 26J4062 refused, packed for another customer. Bundle 26J4055 refused, held for dispatch DSP-000409. | Demo data. dispatch DSP-000412 की फ़ोन स्कैन शीट। तीन bundle जुड़े, 156.40 kg। bundle 26J4062 नहीं जुड़ा, किसी दूसरे ग्राहक के लिए पैक हुआ। bundle 26J4055 नहीं जुड़ा, dispatch DSP-000409 के लिए होल्ड पर। |
+| `truck.alt` | Demo data. The phone scan sheet for dispatch DSP-000412. Three bundles added, 156.40 kg. Bundle 26J4062 refused, packed for another customer. Bundle 26J4055 refused, held for dispatch DSP-000409. | डेमो डेटा। Dispatch DSP-000412 की फ़ोन स्कैन शीट। तीन bundle जुड़े, 156.40 kg। Bundle 26J4062 नहीं जुड़ा, किसी दूसरे ग्राहक के लिए पैक हुआ। Bundle 26J4055 नहीं जुड़ा, dispatch DSP-000409 के लिए होल्ड पर। |
 | `numbers.title` | The server does the sums. | हिसाब सर्वर करता है। |
-| `numbers.body` | No screen works out a number. Recovery, baki and drift come from what the floor entered. | कोई स्क्रीन खुद हिसाब नहीं लगाती। recovery, baki और drift फ़्लोर की एंट्री से निकलते हैं। |
-| `numbers.caption` | Recovery is good kg over billet kg, summed over the runs. It is never an average of percents. Baki is ordered minus dispatched, and it never goes below zero. | recovery यानी अच्छा kg भाग billet kg, सभी रन का जोड़। यह प्रतिशतों का औसत कभी नहीं होता। baki यानी ऑर्डर घटा dispatch, और यह शून्य से नीचे कभी नहीं जाता। |
-| `numbers.alt` | Demo data. Press run PR-418 took 310.4 kg of billets and made 234.2 kg good, recovery 75.5 %. Order SO-1 line 2, angle, 25 days late, baki 800 kg. | Demo data. प्रेस रन PR-418 में 310.4 kg billet गए और 234.2 kg अच्छा माल बना, recovery 75.5 %। ऑर्डर SO-1 लाइन 2, angle, 25 दिन लेट, baki 800 kg। |
+| `numbers.body` | No screen works out a number. Recovery, baki and drift come from what the floor entered. | कोई स्क्रीन खुद हिसाब नहीं लगाती। Recovery, baki और drift फ़्लोर की एंट्री से निकलते हैं। |
+| `numbers.caption` | Recovery is good kg over billet kg, summed over the runs. It is never an average of percents. Baki is ordered minus dispatched, and it never goes below zero. | Recovery यानी अच्छा kg बटा billet kg, सभी रन को जोड़कर। यह प्रतिशतों का औसत कभी नहीं होता। Baki यानी ऑर्डर घटा dispatch, और यह शून्य से नीचे कभी नहीं जाता। |
+| `numbers.alt` | Demo data. Press run PR-418 took 310.4 kg of billets and made 234.2 kg good, recovery 75.5 %. Order SO-1 line 2, angle, 25 days late, baki 800 kg. | डेमो डेटा। प्रेस रन PR-418 में 310.4 kg billet गए और 234.2 kg अच्छा माल बना, recovery 75.5 %। ऑर्डर SO-1 लाइन 2, angle, 25 दिन लेट, baki 800 kg। |
 | `numbers.rule1Title` | Nobody edits stock. | स्टॉक की एंट्री कोई एडिट नहीं करता। |
 | `numbers.rule1` | A correction is a new entry with the opposite sign. It names the entry it cancels. | सुधार उल्टे चिह्न वाली नई एंट्री होती है। वह उस एंट्री का नाम लेती है जिसे वह काटती है। |
-| `numbers.rule2Title` | Twelve changes need a second person. | बारह बदलावों के लिए दूसरा व्यक्ति चाहिए। |
-| `numbers.rule2` | A die tier change and a cast close with a tail over 3 % are two of them. The person who asks never approves, the owner included. | die का tier बदलना और 3 % से ज़्यादा tail के साथ cast बंद करना इनमें से दो हैं। मांगने वाला खुद कभी मंज़ूरी नहीं देता, मालिक भी नहीं। |
-| `floor.title` | One refusal, three languages. | एक मनाही, तीन भाषाएं। |
-| `floor.body1` | Each person gets one of 13 roles, for example packer or die room. The role decides the screens. The server checks every change against it. | हर व्यक्ति को 13 में से एक रोल मिलता है, जैसे packer या die room। रोल तय करता है कि कौन सी स्क्रीन दिखेंगी। सर्वर हर बदलाव को रोल से जांचता है। |
-| `floor.body2` | orrn has 44 step-by-step guides in English and Hindi. Nine of them are in Gujarati too. | orrn में English और हिंदी में 44 step-by-step गाइड हैं। उनमें से 9 गुजराती में भी हैं। |
-| `floor.langEn` | English | English |
+| `numbers.rule2Title` | 12 changes need a second person. | 12 बदलावों के लिए दूसरा व्यक्ति चाहिए। |
+| `numbers.rule2` | A die tier change and a cast close with a tail over 3 % are two of them. The person who asks never approves, the owner included. | Die का tier बदलना और 3 % से ज़्यादा tail के साथ cast बंद करना इनमें से दो हैं। मांगने वाला खुद कभी मंज़ूरी नहीं देता, मालिक भी नहीं। |
+| `floor.title` | One refusal, three languages. | एक इनकार, तीन भाषाएं। |
+| `floor.body1` | Each person gets one of 13 roles, for example packer or die room. The role decides the screens. The server checks every change against it. | हर व्यक्ति को 13 में से एक रोल मिलता है, जैसे पैकर या डाई रूम। रोल तय करता है कि कौन सी स्क्रीन दिखेंगी। सर्वर हर बदलाव को रोल से जांचता है। |
+| `floor.body2` | orrn has 44 step-by-step guides in English and Hindi. 9 of them are in Gujarati too. | orrn के 44 गाइड अंग्रेज़ी और हिंदी में हैं, हर एक कदम दर कदम। उनमें से 9 गुजराती में भी हैं। |
+| `floor.langEn` | English | अंग्रेज़ी |
 | `floor.langHi` | Hindi | हिंदी |
-| `floor.langGu` | Gujarati | ગુજરાતી |
+| `floor.langGu` | Gujarati | गुजराती |
 | `floor.refusedEn` | Not added | Not added |
 | `floor.reasonEn` | Packed for another customer | Packed for another customer |
 | `floor.refusedHi` | नहीं जुड़ा | नहीं जुड़ा |
 | `floor.reasonHi` | किसी दूसरे ग्राहक के लिए पैक हुआ | किसी दूसरे ग्राहक के लिए पैक हुआ |
 | `floor.refusedGu` | ન ઉમેરાયું | ન ઉમેરાયું |
 | `floor.reasonGu` | બીજા ગ્રાહક માટે પૅક થયું | બીજા ગ્રાહક માટે પૅક થયું |
-| `floor.caption` | The same refusal at the scanner, word for word from the app. | स्कैनर पर वही मनाही, ऐप के शब्दों में। |
+| `floor.caption` | The same refusal at the scanner, word for word from the app. | स्कैनर पर वही इनकार, ऐप के शब्दों में। |
 | `close.title` | Tell us about your plant. | अपने प्लांट के बारे में बताएं। |
-| `close.body` | Send your company name and the number of extrusion lines you run. We write back to set up your company on orrn. The first plant will run orrn beside its old system once its own data is in. | अपनी कंपनी का नाम और extrusion लाइनों की गिनती भेजें। orrn पर आपकी कंपनी सेट करने के लिए हम जवाब देंगे। पहला प्लांट अपना डेटा डलने के बाद orrn को अपने पुराने सिस्टम के साथ चलाएगा। |
+| `close.body` | Send your company name and the number of extrusion lines you run. We write back to set up your company on orrn. The first plant will run orrn beside its old system once the plant's own data is loaded. | अपनी कंपनी का नाम और एक्सट्रूज़न लाइनों की संख्या भेजें। हम जवाब में लिखेंगे और orrn पर आपकी कंपनी सेट करेंगे। पहला प्लांट अपना डेटा डलने के बाद orrn को अपने पुराने सिस्टम के साथ चलाएगा। |
 | `footerNav` | Footer | फ़ुटर |
 | `guides` | Guides | गाइड |
 | `privacy` | Privacy | प्राइवेसी |

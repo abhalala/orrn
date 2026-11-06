@@ -44,9 +44,10 @@ function ScanSheet() {
       <div className="marketing-app-top">
         <b>Dispatch</b>
       </div>
-      <h3>
+      {/* A div, not a heading: the sheet is hidden from the accessibility tree, so an h3 here would be a stray level in the DOM outline. */}
+      <div className="marketing-phone-title">
         Scanning into <span className="marketing-code">DSP-000412</span>
-      </h3>
+      </div>
       <ul className="marketing-scan">
         {ROWS.map((row) => (
           <li key={row.code} data-refused={row.ok ? undefined : ""}>

@@ -19,7 +19,7 @@ const ROWS = [
 
 /** For your team (#floor): roles and languages, shown with real strings. */
 export function Languages() {
-  const { t, locale } = useT();
+  const { t } = useT();
   return (
     <section id="floor" aria-labelledby="floor-title" className="marketing-section">
       <div className="marketing-wrap marketing-grid">
@@ -32,10 +32,8 @@ export function Languages() {
           <ul className="marketing-trio">
             {ROWS.map((row) => (
               <li key={row.lang}>
-                {/* The Hindi dictionary names Gujarati in Gujarati script, so that one label is tagged too. */}
-                <span className="marketing-trio-lang" lang={locale === "hi" && row.lang === "gu" ? "gu" : undefined}>
-                  {t(`marketing.floor.${row.name}`)}
-                </span>
+                {/* The language names are written in the page language (English, Hindi, Gujarati; अंग्रेज़ी, हिंदी, गुजराती), so they need no lang of their own. */}
+                <span className="marketing-trio-lang">{t(`marketing.floor.${row.name}`)}</span>
                 <span className="marketing-trio-say" lang={row.lang}>
                   <StatusChip state="no">{t(`marketing.floor.${row.refused}`)}</StatusChip>
                   {t(`marketing.floor.${row.reason}`)}

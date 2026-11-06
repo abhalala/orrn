@@ -305,11 +305,15 @@
     white-space: nowrap;
   }
 
+  /* The plain line is for browsers without the alt-text form (Safari before 17.4, Firefox before 128),
+     which drop the whole declaration otherwise and would show two empty pills. */
   .marketing-page .marketing-language button::after {
+    content: "EN";
     content: "EN" / "";
   }
 
   .marketing-page .marketing-language button[lang="hi"]::after {
+    content: "\0939\093F";
     content: "\0939\093F" / "";
   }
 }
@@ -335,6 +339,13 @@
 
   .marketing-page .marketing-language button {
     height: 2.75rem;
+  }
+
+  /* Short Hindi footer words (शर्तें is 19 px wide) get a 44 px wide target of their own. */
+  .marketing-footer nav a {
+    justify-content: center;
+    min-width: 2.75rem;
+    padding: 0 0.5rem;
   }
 }
 
@@ -404,6 +415,11 @@
 
 .marketing-page[data-locale="hi"] h2 {
   font-size: clamp(1.5rem, 1.2rem + 1.1vw, 2.125rem);
+}
+
+/* The Hindi h2 rule above outranks .marketing-close h2, so the close gets its own step up here. */
+.marketing-page[data-locale="hi"] .marketing-close h2 {
+  font-size: clamp(1.75rem, 1.3rem + 1.7vw, 2.75rem);
 }
 
 /* Sections: a left rail for the claim, the right side for the proof. */
@@ -681,9 +697,13 @@
   padding-left: 0.25rem;
 }
 
-.marketing-phone h3 {
+/* A div, not an h3: the sheet is aria-hidden, so a heading here would be a stray level in the outline. */
+.marketing-phone-title {
   margin: var(--s4) 0 var(--s4) 0.25rem;
   font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
 }
 
 .marketing-scan li {
@@ -821,6 +841,21 @@
   .marketing-sums,
   .marketing-rules {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Between 1024 and 1280 the cards are narrow enough that "Press run PR-418" wraps under the tag while
+   "SO-1 line 2" does not, and the dl rows fall out of line. Here the tag sits on its own row above the
+   head in both cards, so the heads are one height. */
+@media (min-width: 64rem) and (max-width: 79.99rem) {
+  .marketing-sum .marketing-demo {
+    position: static;
+    display: inline-block;
+    margin-bottom: var(--s3);
+  }
+
+  .marketing-sum .marketing-sum-head {
+    padding-right: 0;
   }
 }
 
