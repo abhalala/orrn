@@ -21,7 +21,7 @@ export const foundryEn = {
   },
   casts: {
     title: "Casts",
-    subtitle: "Every cast, newest first. A cast is a campaign: several melts under one number.",
+    subtitle: "Every cast, newest first. A cast groups several melts under one number.",
     open: "Open cast",
     filter: { label: "Status", all: "All" },
     status: {
@@ -62,7 +62,7 @@ export const foundryEn = {
     loadFailed: "The alloys did not load. Check the connection and try again.",
     opened: "Cast {number} is open",
     legacy: "Legacy code",
-    legacyHint: "Optional. The code an old cast has in the paper book, so it can be found by it later. Each code is used once.",
+    legacyHint: "Optional. Enter the old cast's paper-book code so you can find it later. Each code can be used only once.",
     legacyPlaceholder: "for example old-17",
   },
   cast: {
@@ -116,7 +116,7 @@ export const foundryEn = {
       askButton: "Send for approval",
       clean: "The count matches the ledger. Every billet is accounted for.",
       countTitle: "Count the billets left",
-      countHint: "Count the billets of this cast still in the yard and weigh them. The tail is worked out from your count.",
+      countHint: "Count the billets of this cast still in the yard and weigh them. The server works out the tail from your count.",
       pcs: "Billets counted (pieces)",
       kg: "Billets counted (kg)",
       pcsInvalid: "Write the number of billets, 0 if none.",
@@ -143,7 +143,7 @@ export const foundryEn = {
     cancel: {
       button: "Cancel cast",
       title: "Cancel cast {number}",
-      body: "Only a cast with no melt and no billets can be cancelled. The number is not given back.",
+      body: "You can cancel only a cast with no melts or billets. orrn does not reuse its number.",
       reason: "Why is it cancelled?",
       reasonRequired: "Give a reason.",
       confirm: "Cancel cast",
@@ -175,7 +175,7 @@ export const foundryEn = {
       perKg: "Per kg of billet",
       lotsKg: "Scrap lots kg",
       notCosted: "Not costed",
-      missingRate: "A lot has no rate, so the cost is not worked out.",
+      missingRate: "A lot has no rate, so orrn cannot work out the cost.",
       streams: "Metal returned from streams ({kg} kg) carries no rate.",
       loadFailed: "The cost did not load.",
     },
@@ -230,7 +230,7 @@ export const foundryEn = {
     },
     chem: {
       title: "Chemicals from the store",
-      hint: "Each chemical used leaves the store when the melt is locked. Close is open less used.",
+      hint: "Locking the melt takes each chemical used out of the store. Close is open less used.",
       item: "Chemical",
       pick: "Pick from the store",
       other: "Not in the store (type its name)",
@@ -311,7 +311,7 @@ export const foundryEn = {
     discard: {
       button: "Discard draft",
       title: "Discard this draft?",
-      body: "Nothing was posted, so nothing is reversed. The draft is gone.",
+      body: "The draft posted nothing, so there is nothing to reverse. Discarding removes it.",
       reason: "Reason (optional)",
       confirm: "Discard draft",
       done: "Draft discarded",
@@ -324,7 +324,7 @@ export const foundryEn = {
     spectroNeedsSample: "The alloy changed. A new sample is needed for {alloy}, or write why it is not.",
     cancel: {
       title: "Cancel this melt",
-      body: "Use this for a melt locked by mistake, when nobody needs it corrected. The kg and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets.",
+      body: "Use this for a melt locked by mistake when nobody needs a correction. Cancelling reverses the kg and store draws but keeps the melt number as cancelled. You cannot cancel after the press uses its billets.",
       button: "Cancel melt",
       sheetTitle: "Cancel melt {n} of {number}",
       reason: "Why is it cancelled?",
@@ -342,7 +342,7 @@ export const foundryEn = {
     },
     correction: {
       title: "Correct this melt",
-      body: "A locked melt is not edited. Ask for a correction. When an approver agrees, the melt is reversed and opens again as a draft.",
+      body: "You cannot edit a locked melt. Ask for a correction. Approval reverses the melt and reopens it as a draft.",
       ask: "Ask for a correction",
       askTitle: "Ask to correct this melt",
       reason: "What is wrong",
@@ -427,14 +427,14 @@ export const foundryEn = {
     loadFailed: "The billet stock did not load. Check the connection and try again.",
     streams: {
       title: "Return streams",
-      hint: "Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds, so a new plant states what it holds now.",
+      hint: "Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds. Enter what a new plant holds now.",
       balance: "{kg} kg",
       open: "Set opening balance",
       sheetTitle: "Opening balance of {name}",
       kg: "Kg held now",
       kgInvalid: "Write the kg as a number above zero.",
       note: "Note (optional)",
-      once: "This is posted once for each stream. Later stock moves through melts and the press.",
+      once: "Post this once for each stream. Later stock moves through melts and the press.",
       save: "Post opening balance",
       saved: "Opening balance posted",
       posted: "Opening balance posted",
@@ -457,7 +457,7 @@ export const foundryEn = {
   },
   masters: {
     furnaces: "Furnaces",
-    furnacesSubtitle: "Each furnace has a capacity. A melt cannot be locked above it.",
+    furnacesSubtitle: "Each furnace has a capacity. You cannot lock a melt above it.",
     alloys: "Alloys",
     alloysSubtitle: "The elements and limits a spectro result is judged against.",
     addFurnace: "Add furnace",
@@ -503,7 +503,7 @@ export const foundryEn = {
   },
   yield: {
     title: "Foundry yield",
-    subtitle: "Locked melts only, by production day, alloy or furnace. A draft cannot improve the month.",
+    subtitle: "Locked melts only, by production day, alloy or furnace. Drafts do not count.",
     groupBy: "Group by",
     group: { day: "Day", alloy: "Alloy", furnace: "Furnace" },
     melts: "Melts",
