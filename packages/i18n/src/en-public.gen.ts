@@ -10,93 +10,195 @@ export const enPublic = {
     "skipToContent": "Skip to content"
   },
   "marketing": {
-    "metaTitle": "orrn | plant software for aluminium extrusion plants in India",
-    "metaDescription": "Plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once, and the office reads orders and baki from the same record.",
+    "metaTitle": "Aluminium extrusion plant software | orrn",
+    "metaDescription": "orrn is plant software for aluminium extrusion plants in India. The floor enters each stage once, and the office reads orders and baki from the same record.",
     "homeLabel": "orrn home",
     "mainNav": "Main navigation",
     "navFlow": "How it works",
     "navFloor": "For your team",
+    "navFaq": "FAQ",
     "signIn": "Sign in",
     "requestAccess": "Request access",
-    "headline": "One record, from the kanta to the truck.",
-    "sub": "orrn is plant software for aluminium extrusion plants in India. Each stage on the floor makes its entry once. The office reads orders and baki from the same record.",
-    "note": "Runs in the browser on a phone, a tablet or a laptop. Screens in English and Hindi, and the floor screens in Gujarati too.",
-    "hero": {
-      "caption": "Your team scans the QR on a bundle label and sees this page.",
-      "alt": "Demo data. The page for bundle 26J4086, dispatched in DSP-000412: 52.40 kg in 21 pieces, cut length 3658 mm, 2.495 kg per 12 ft, section 12170 Domal, die copy 12170-1, cast J14, packed on 30 October."
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "menuLabel": "Menu",
+    "themeLabel": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "notFound": {
+      "title": "This page does not exist.",
+      "body": "The link may be old, or the page may have moved.",
+      "backHome": "Back to home"
     },
-    "flow": {
-      "title": "Seven stages, one record.",
-      "body": "Scrap comes in over the kanta. A bundle leaves on a truck. A later stage reads each code again.",
-      "colStage": "Stage",
-      "colCode": "Example code",
-      "colWhat": "What the floor enters",
-      "scrap": {
-        "name": "Scrap",
-        "body": "Book each lot at the kanta weight, next to the party's weight. A debit note takes the bori off."
+    "hero": {
+      "line1": "Every bundle traced",
+      "line2": "from cast to truck.",
+      "line3": "Nothing typed twice.",
+      "sub": "orrn is plant software for aluminium extrusion plants in India. The floor enters each stage once, and the office reads orders and baki from the same record.",
+      "helper": "Three required fields. We write back to set up your company on orrn.",
+      "proofFigure": "1,071",
+      "proof": "On 30 June 2026 the first plant counted its yard against its old system. Of the 1,721 bundles on the old list, 1,071 were not in the yard.",
+      "caption": "Today for the owner on a laptop, and a dispatch on a phone.",
+      "alt": "Demo data. Today for the owner on a laptop: 1,554.3 kg packed, 30 bundles, 809.8 kg dispatched and 3,849.6 kg in stock, then 684.5 kg pressed in 3 runs at 75.5 % recovery. A phone shows dispatch DSP-000029 for Shivam Bhavnagar, building, 6 bundles, 303.66 kg, on step 1 of 3, with Scan bundles."
+    },
+    "record": {
+      "title": "Five registers, one yard that does not match.",
+      "body": "Each stage keeps its own book. Spectro results arrive as photos on someone's phone. The office types it all together again, and the stock list drifts away from the yard.",
+      "oldTitle": "Today, on paper and in Excel",
+      "oldBody": "Five books, five places, one person to join them.",
+      "newTitle": "In orrn, one record",
+      "newBody": "Each stage writes its entry once. A later stage reads its code again.",
+      "caption": "Example codes. Each plant keeps its own number book.",
+      "kanta": "Kanta slip",
+      "melt": "Melt sheet",
+      "press": "Press register",
+      "die": "Die room book",
+      "packing": "Packing list",
+      "atKanta": "At the weighbridge",
+      "inFoundry": "In the foundry",
+      "atPress": "At the press",
+      "inDieRoom": "In the die room",
+      "inOffice": "Typed in the office",
+      "scrap": "Scrap",
+      "cast": "Cast",
+      "dieCopy": "Die copy",
+      "pressStage": "Press",
+      "ageing": "Ageing",
+      "pack": "Pack",
+      "dispatch": "Dispatch"
+    },
+    "benefits": {
+      "title": "The record does the checks.",
+      "body": "Every picture here is a real orrn screen with the demo plant's data.",
+      "dispatch": {
+        "eyebrow": "Dispatch, on a phone",
+        "title": "Only the right bundles leave on the truck.",
+        "body": "The packer scans each bundle onto the load. orrn refuses 10 kinds of wrong bundle, for example a void bundle or one packed for another customer.",
+        "alt": "Demo data. Dispatch DSP-000029 on a phone, with its six scanned bundles, each with its weight, pieces and kg per 12 ft. Total 6 bundles, 303.66 kg."
       },
-      "cast": {
-        "name": "Cast",
-        "body": "Lock each melt of the cast with its spectro result. Close the cast on a billet count."
+      "orders": {
+        "eyebrow": "Orders, on a laptop",
+        "title": "Baki without a calculator.",
+        "body": "The server works out baki as ordered minus dispatched, and it never goes below zero. A move of bundles to another customer's order waits for a manager.",
+        "alt": "Demo data. Order SO-7 for KD Extrusion on a laptop. An amber panel waits for a manager to move 2 bundles, 94.674 kg, to SO-9 Tejura & Sons. The balance shows 2,360.000 kg ordered, 1,683.864 kg produced, 995.179 kg dispatched and 1,364.821 kg baki."
       },
       "die": {
-        "name": "Die copy",
-        "body": "Take readings on each die copy. orrn works out the drift on every reading."
+        "eyebrow": "Die room, on a laptop",
+        "title": "Each die copy keeps its own weight record.",
+        "body": "A copy such as 13090-1 has its own band and readings. orrn works out the drift on every reading and marks a copy that runs above its band.",
+        "alt": "Demo data. Tee 13090 on a laptop in the die room. A green note says run 13090-1 first at 2.760 kg per 12 ft, in band. Copy 13090-2 is above band at +9.3 %, and copy 13090-3 is above band at +10.3 %."
       },
+      "floor": {
+        "eyebrow": "Today, on the packer's phone",
+        "title": "Screens your floor can read.",
+        "body": "Floor screens come in Hindi and Gujarati. Each person gets one of 13 roles, and the role decides the screens. There are 44 step by step guides for the daily jobs.",
+        "alt": "Demo data. Today on the packer's phone, with large tiles for kg packed, bundles, kg dispatched and stock, and a green Scan button in the bottom bar.",
+        "languagesLabel": "Languages"
+      }
+    },
+    "tagline": {
+      "label": "What orrn does",
+      "line1": "Each stage enters",
+      "line2": "its work once.",
+      "line3": "Everyone reads",
+      "line4": "the same record."
+    },
+    "flow": {
+      "title": "How a day runs on orrn.",
+      "body": "Three steps, from the press to the office. Each one is a screen your team already has in its pocket.",
       "press": {
-        "name": "Press",
-        "body": "Start and stop the run at the press. Count billets in, good kg and rejects out."
-      },
-      "age": {
-        "name": "Ageing",
-        "body": "Run the trolley on its recipe. Pack takes only released batches."
-      },
-      "pack": {
-        "name": "Pack",
-        "body": "Weigh the bundle at the scale. Print its label once."
+        "title": "Enter it at the stage.",
+        "body": "The press operator starts and stops the run on the press station. The packer weighs each bundle and prints its label once. The foundry locks each melt. A spectro pass goes on the lock. Without a pass, the lock keeps a written reason.",
+        "caption": "Press station for run PR-10.",
+        "alt": "Demo data. Press station PR-10 on a phone. The run is running, started at 08:00, with a large timer, Stop, Undo start and Handover. Die copy 11250-1."
       },
       "dispatch": {
-        "name": "Dispatch",
-        "body": "Scan each bundle onto the truck. The scans make the packing list."
+        "title": "Scan it at the truck.",
+        "body": "A phone camera or a barcode gun reads each label. Stock drops when the dispatch completes. The packing list takes its number from your own book then.",
+        "caption": "The scan sheet, with the camera or a typed serial.",
+        "alt": "Demo data. The scan sheet on a phone, with Turn on camera and a field for a serial or a label link."
       },
-      "after": "Bundle 26J4086 is bundle 4,086 of October 2026. Each plant keeps its own number book."
+      "office": {
+        "title": "Read it from the same record.",
+        "body": "Scan any label and the bundle page opens with its weight, die copy and cast. Orders show baki per line. Reports show recovery, die life and stock age from the rows the floor wrote.",
+        "caption": "Bundle BG-000008-B014, in stock.",
+        "alt": "Demo data. Bundle BG-000008-B014 on a phone, in stock. Angle 11250, 48.43 kg, 24 pieces, 12 ft, 2.018 kg per 12 ft in range, drift +0.9 %, die copy 11250-1, cast K1."
+      }
     },
-    "truck": {
-      "title": "The scans at the truck decide what leaves stock.",
-      "body1": "Scan each bundle as it goes onto the truck. orrn checks each scan in one fixed order. Of its 13 answers, 10 refuse the bundle, for example when it is void or packed for another customer. A bundle still in ageing is refused too.",
-      "body2": "Stock drops when the dispatch completes. At that moment the packing list takes its number from the plant's own book, once.",
-      "count": "On 30 June 2026 the first plant counted its yard against its old system. Of the 1,721 bundles on the old list, 1,071 were not in the yard. orrn's stock count shows missing bundles like these before the count closes.",
-      "caption": "The phone at the truck.",
-      "alt": "Demo data. The phone scan sheet for dispatch DSP-000412. Three bundles added, 156.40 kg. Bundle 26J4062 refused, packed for another customer. Bundle 26J4055 refused, held for dispatch DSP-000409."
+    "proof": {
+      "title": "Made around the first plant's own codes.",
+      "body": "The cast code is the one the foundry already writes on paper. The packing list uses the plant's own book prefix. orrn lays out labels for the plant's current 102.25 by 76.20 mm label stock.",
+      "caption": "Stock by section, with each section's band in kg per 12 ft.",
+      "alt": "Demo data. Stock by section on a laptop. 74 bundles and 3,849.6 kg in stock, 10 held. Each section shows kg, the weight band in kg per 12 ft and the bundle count, such as Angle 11250 with 21 bundles.",
+      "roles": "roles. The role decides the screens a person sees.",
+      "actions": "plant actions. The server checks each change against the role.",
+      "approvals": "kinds of change need a second person, the owner included.",
+      "refusals": "kinds of wrong bundle are refused at the scan.",
+      "guides": "step by step guides in English and Hindi.",
+      "languages": "languages. Gujarati covers the floor screens."
     },
-    "numbers": {
-      "title": "The server does the sums.",
-      "body": "No screen works out a number. Recovery, baki and drift come from what the floor entered.",
-      "caption": "Recovery is good kg over billet kg, summed over the runs. It is never an average of percents. Baki is ordered minus dispatched, and it never goes below zero.",
-      "alt": "Demo data. Press run PR-418 took 310.4 kg of billets and made 234.2 kg good, recovery 75.5 %. Order SO-1 line 2, angle, 25 days late, baki 800 kg.",
-      "rule1Title": "Nobody edits stock.",
-      "rule1": "A correction is a new entry with the opposite sign. It names the entry it cancels.",
-      "rule2Title": "Twelve changes need a second person.",
-      "rule2": "A die tier change and a cast close with a tail over 3 % are two of them. The person who asks never approves, the owner included."
+    "faq": {
+      "title": "Questions before you request access.",
+      "q1": {
+        "q": "Do we have to stop using our registers?",
+        "a": "No. orrn runs beside your old system until your own data is in. You decide when the registers stop."
+      },
+      "q2": {
+        "q": "Does orrn make GST invoices or replace Tally?",
+        "a": "No. orrn does no accounting and makes no tax invoice or e way bill. Keep Tally. Each dispatch keeps the invoice number and date from Tally, and the monthly sales register exports as CSV. The packing list is not a tax invoice."
+      },
+      "q3": {
+        "q": "Can the floor work in Hindi or Gujarati?",
+        "a": "Yes. Every screen is in English and Hindi. The floor screens are in Gujarati too, for example pack, scan, dispatch, the press station and the die room. There are 44 guides in English and Hindi, and 9 of them are in Gujarati."
+      },
+      "q4": {
+        "q": "What devices do we need?",
+        "a": "A phone, a tablet or a laptop with a browser. The press station works best on an 11 inch tablet. A phone camera or a barcode gun reads the labels."
+      },
+      "q5": {
+        "q": "Which label printer does orrn use?",
+        "a": "orrn writes labels in TSPL for a TSC TA220 or TE200 at 203 dpi. A double tap or a retry prints once, and orrn logs every attempt. With no label printer set up, the browser can print an A4 sticker sheet."
+      },
+      "q6": {
+        "q": "Who sees our numbers?",
+        "a": "Each plant is its own company on orrn. A person's role decides which screens they see, and the server checks every change against it. A customer with a portal login sees only its own orders, its own dispatches, and the sections and die copies the plant shows it. It can book an order when a section is open to it. Packing lists leave out cast numbers. Test certificates keep them. Prices on order lines never reach the customer portal."
+      },
+      "q7": {
+        "q": "Can someone change a figure after the fact?",
+        "a": "Nobody edits a stock entry. A correction is a new entry with the opposite sign, and it names the entry it cancels. Twelve kinds of change need a second person, and the person who asks never approves, the owner included. The audit log shows who wrote what, and when."
+      },
+      "q8": {
+        "q": "What happens if the internet goes down?",
+        "a": "Entries need the internet. The press station on the tablet keeps its run entries in the browser. Remarks and the die reading on the log-run step need the connection. Keep the press station open. It sends the saved entries in order when the link is back. A retry on a bad link never saves twice."
+      },
+      "q9": {
+        "q": "What does orrn cost?",
+        "a": "Pricing is set per plant. Requesting access needs no card."
+      },
+      "q10": {
+        "q": "What happens after I request access?",
+        "a": "We write back to set up your company on orrn. If you pick a date and time on the form, we confirm it by email and show you orrn then."
+      }
     },
-    "floor": {
-      "title": "One refusal, three languages.",
-      "body1": "Each person gets one of 13 roles, for example packer or die room. The role decides the screens. The server checks every change against it.",
-      "body2": "orrn has 44 step-by-step guides in English and Hindi. Nine of them are in Gujarati too.",
-      "langEn": "English",
-      "langHi": "Hindi",
-      "langGu": "Gujarati",
-      "refusedEn": "Not added",
-      "reasonEn": "Packed for another customer",
-      "refusedHi": "नहीं जुड़ा",
-      "reasonHi": "किसी दूसरे ग्राहक के लिए पैक हुआ",
-      "refusedGu": "ન ઉમેરાયું",
-      "reasonGu": "બીજા ગ્રાહક માટે પૅક થયું",
-      "caption": "The same refusal at the scanner, word for word from the app."
+    "keep": {
+      "title": "Keep your registers until you trust it.",
+      "old": {
+        "title": "Runs beside your old system",
+        "body": "orrn runs beside your registers until your own data is in. You decide when they stop."
+      },
+      "price": {
+        "title": "Price set per plant",
+        "body": "No price list is published. Requesting access needs no card."
+      },
+      "exports": {
+        "title": "Your numbers export",
+        "body": "Packing lists download as PDF and Excel. The sales register exports as CSV."
+      }
     },
     "close": {
       "title": "Tell us about your plant.",
-      "body": "Send your company name and the number of extrusion lines you run. We write back to set up your company on orrn. The first plant will run orrn beside its old system once its own data is in."
+      "body": "Send your company name, your name and your work email. We write back to set up your company on orrn.",
+      "helper": "Extrusion lines and a date and time are optional. If you pick a date and time, we confirm it by email."
     },
     "footerNav": "Footer",
     "guides": "Guides",

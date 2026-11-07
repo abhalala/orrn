@@ -1,39 +1,29 @@
 import { describe, expect, test } from "bun:test";
 
 import { en } from "./en";
-import { gu } from "./gu";
 import { hi } from "./hi";
 
-/**
- * The homepage's "One refusal, three languages" figure shows the scanner's
- * refusal in English, Hindi and Gujarati. The route may not import a locale
- * file (the / budget check fails on any), so the three pairs are copied into
- * marketing.floor.* in both dictionaries. This test keeps the copies equal to
- * the strings the scanner really shows, so a copy edit in scan.continuous
- * cannot leave the homepage quoting words the app no longer says.
- */
-describe("marketing.floor quotes the scanner word for word", () => {
-  const sources = {
-    refusedEn: en.scan.continuous.result.rejected,
-    reasonEn: en.scan.continuous.wrongCustomerOther,
-    refusedHi: hi.scan.continuous.result.rejected,
-    reasonHi: hi.scan.continuous.wrongCustomerOther,
-    refusedGu: gu.scan.continuous.result.rejected,
-    reasonGu: gu.scan.continuous.wrongCustomerOther,
-  } as const;
-
-  for (const [key, expected] of Object.entries(sources)) {
-    test(`en.ts marketing.floor.${key} equals its scan.continuous source`, () => {
-      expect<string>(en.marketing.floor[key as keyof typeof sources]).toBe(expected);
+describe("marketing product facts", () => {
+  for (const [locale, messages] of Object.entries({ en: en.marketing, hi: hi.marketing })) {
+    test(`${locale} keeps the anonymous yard count and its source`, () => {
+      expect(messages.hero.proofFigure).toBe("1,071");
+      expect(messages.hero.proof).toContain("1,721");
+      expect(messages.hero.proof).toContain("1,071");
+      expect(messages.hero.proof).toContain("30");
+      expect(messages.hero.proof).not.toContain("FourCubes");
     });
 
-    test(`hi.ts marketing.floor.${key} equals its scan.continuous source`, () => {
-      expect<string>(hi.marketing.floor[key as keyof typeof sources]).toBe(expected);
+    test(`${locale} says access needs no card and publishes no price`, () => {
+      expect(messages.faq.q9.a).not.toContain("{{pricing}}");
+      expect(messages.faq.q9.a).not.toMatch(/₹|\$/);
+      expect(messages.keep.price.body).not.toMatch(/₹|\$/);
+    });
+
+    test(`${locale} keeps the role and guide counts together`, () => {
+      expect(messages.benefits.floor.body).toContain("13");
+      expect(messages.benefits.floor.body).toContain("44");
+      expect(messages.proof.roles.length).toBeGreaterThan(0);
+      expect(messages.proof.guides.length).toBeGreaterThan(0);
     });
   }
-
-  test("the three languages differ from one another", () => {
-    expect(new Set([sources.reasonEn, sources.reasonHi, sources.reasonGu]).size).toBe(3);
-    expect(new Set([sources.refusedEn, sources.refusedHi, sources.refusedGu]).size).toBe(3);
-  });
 });

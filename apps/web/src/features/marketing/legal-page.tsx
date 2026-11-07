@@ -58,7 +58,7 @@ export function LegalPage({ page }: { page: LegalPageKind }) {
     <div data-orrn-legal={page} data-locale={locale} className="marketing-page min-h-[100dvh] w-full">
       <a
         href="#main"
-        className="fixed left-3 top-3 z-50 -translate-y-24 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-primary-foreground no-underline focus-visible:translate-y-0"
+        className="fixed left-3 top-3 z-[60] -translate-y-24 rounded-full bg-primary px-5 py-3 text-[15px] font-semibold text-primary-foreground no-underline focus-visible:translate-y-0"
       >
         {t("nav.skipToContent")}
       </a>

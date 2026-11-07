@@ -22,6 +22,7 @@ const PAGES = [
   { path: "/invite/test-token", name: "invite" },
   { path: "/privacy", name: "privacy" },
   { path: "/terms", name: "terms" },
+  { path: "/this-page-does-not-exist", name: "not found" },
 ] as const;
 
 const SITE_TITLE = "ORRN: multi-company ERP for manufactured inventory ops";
@@ -80,6 +81,42 @@ test.describe("page titles (2.4.2)", () => {
 });
 
 test.describe("landing page keyboard", () => {
+  test("mobile menu releases background content when resized to desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await open(page, "/");
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.locator("main")).toHaveAttribute("inert", "");
+    await expect(page.locator('a[href="#main"]')).toHaveAttribute("inert", "");
+    // Reverse tabbing must not reach the skip link while its target is inert.
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await page.evaluate(() => document.activeElement?.matches('a[href="#main"]'))).toBe(false);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.locator("#marketing-menu")).toHaveAttribute("hidden", "");
+    await expect(page.locator("main")).not.toHaveAttribute("inert", "");
+    await expect(page.getByRole("contentinfo")).not.toHaveAttribute("inert", "");
+    await expect(page.locator('a[href="#main"]')).not.toHaveAttribute("inert", "");
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+    await page.locator('a[href="#main"]').focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("main#main")).toBeFocused();
+  });
+
+  test("hero heading stays painted in forced colors", async ({ page }) => {
+    await page.emulateMedia({ forcedColors: "active" });
+    await open(page, "/");
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    const paint = await heading.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { fill: style.getPropertyValue("-webkit-text-fill-color"), color: style.color };
+    });
+    expect(paint.fill).toBe(paint.color);
+    expect(paint.fill).not.toBe("rgba(0, 0, 0, 0)");
+    expect(paint.fill).not.toBe("transparent");
+  });
+
   test("skip link is the first stop and moves focus into main", async ({ page }) => {
     await open(page, "/");
     await page.keyboard.press("Tab");
@@ -143,22 +180,43 @@ test.describe("landing page keyboard", () => {
     expect(seen.size).toBeGreaterThanOrEqual(page.viewportSize()!.width >= 900 ? 15 : 13);
   });
 
-  test("the page has no mobile menu to trap focus: header controls stay reachable and in view", async ({ page }) => {
+  test("header controls and the mobile menu keep focus reachable and in view", async ({ page }) => {
     await open(page, "/");
     const header = page.locator("header.marketing-header");
-    const controls = [
-      header.getByRole("link", { name: "Sign in" }),
-      header.getByRole("radio", { name: "English" }),
-      header.getByRole("link", { name: "Request access" }),
-    ];
-    for (const control of controls) {
+    await header.getByRole("radio", { name: "English" }).focus();
+    await expect(header.getByRole("radio", { name: "English" })).toBeFocused();
+    await expect(header.getByRole("radio", { name: "English" })).toBeInViewport();
+    await expect(header.getByRole("radiogroup")).toHaveAccessibleName(/\S/);
+    await expect(header.getByRole("radio", { checked: true })).toHaveCount(1);
+
+    if (page.viewportSize()!.width >= 900) {
+      for (const control of [
+        header.getByRole("link", { name: "Sign in" }),
+        header.getByRole("link", { name: "Request access" }),
+      ]) {
+        await control.focus();
+        await expect(control).toBeFocused();
+        await expect(control).toBeInViewport();
+      }
+      return;
+    }
+
+    const toggle = header.getByRole("button", { name: "Open menu" });
+    await toggle.focus();
+    await expect(toggle).toBeInViewport();
+    await toggle.click();
+    const menu = page.locator("#marketing-menu");
+    for (const control of [
+      menu.getByRole("link", { name: "Sign in" }),
+      menu.getByRole("link", { name: "Request access" }),
+    ]) {
       await control.focus();
       await expect(control).toBeFocused();
       await expect(control).toBeInViewport();
     }
-    // The language switch is one radio group: a name, one checked radio.
-    await expect(header.getByRole("radiogroup")).toHaveAccessibleName(/\S/);
-    await expect(header.getByRole("radio", { checked: true })).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(toggle).toBeFocused();
+    await expect(menu).toBeHidden();
   });
 
   test("with reduced motion nothing waits to be revealed", async ({ page }) => {
@@ -178,7 +236,7 @@ test.describe("landing page keyboard", () => {
 
   test("images: every img has alt", async ({ page }) => {
     await open(page, "/");
-    // The page ships no img today; the rule holds for any that arrives later.
+    // Product shots have localized alt text; decorative shots use an empty alt.
     const bad = await page.evaluate(() =>
       [...document.querySelectorAll("img")]
         .filter((img) => !img.hasAttribute("alt"))
@@ -203,7 +261,7 @@ test.describe("reflow, zoom and text spacing", () => {
     });
   }
 
-  for (const path of ["/", "/login", "/request-access", "/privacy"]) {
+  for (const path of ["/", "/login", "/request-access", "/privacy", "/this-page-does-not-exist"]) {
     test(`${path} survives the text spacing override (1.4.12)`, async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 800 });
       await open(page, path);
@@ -291,7 +349,7 @@ test.describe("front-door forms", () => {
   });
 
   test("front-door pages open with a skip link that moves focus into main", async ({ page }) => {
-    for (const path of ["/login", "/request-access", "/forgot-password"]) {
+    for (const path of ["/login", "/request-access", "/forgot-password", "/this-page-does-not-exist"]) {
       await open(page, path);
       await page.keyboard.press("Tab");
       const skip = page.locator('a[href="#main"]');
