@@ -25,10 +25,32 @@ test.describe("public marketing", () => {
     test.slow();
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // Full-page capture does not itself scroll. Visit each frame as a reader
+    // would, then decode its images before returning to the top; `complete`
+    // alone can produce stable screenshots of blank, not-yet-painted frames.
+    for (const visual of await page.locator("[data-demo-visual]").all()) {
+      await visual.scrollIntoViewIfNeeded();
+      await expect
+        .poll(() => visual.locator("img").evaluateAll((images) =>
+          images.every((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0),
+        ))
+        .toBe(true);
+      await visual.locator("img").evaluateAll((images) =>
+        Promise.all(images.map((image) => image instanceof HTMLImageElement ? image.decode() : Promise.resolve())),
+      );
+    }
+    await page.locator("h1").scrollIntoViewIfNeeded();
     // A long page: on touch projects the first full-page capture can still
     // carry the coarse-pointer control heights (Playwright resizes the page to
     // capture it), so give the stability check room for a third shot under load.
     await expect(page).toHaveScreenshot("landing.png", { fullPage: true, timeout: 20_000 });
+  });
+
+  test("branded not found layout", async ({ page }) => {
+    await page.goto("/this-page-does-not-exist");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
+    await expect(page).toHaveScreenshot("not-found.png", { fullPage: true });
   });
 });
 
