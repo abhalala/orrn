@@ -90,7 +90,7 @@ The full design brief for screen work lives in the redesign spec (`docs/superpow
 6. **Buttons.** Primary = ink pill (`variant="default"`; black on light, off-white on dark). Secondary = surface pill with hairline (`outline`). Destructive = red tone. Default height 44px, `lg` 56px for primary touch actions; compact sizes grow to 44px on coarse pointers.
 7. **Focus.** Global `:focus-visible` ring: 2px `--ring` (ink) with 2px offset. Inside ink panels the ring flips to off-white automatically.
 8. **Copy.** Sentence case; no ALL-CAPS labels or tracked eyebrows; no em or en dashes; no arrows appended to buttons; plain floor words.
-9. **Motion.** `pop` on success, `rise` once on first load, `press` (scale 0.97) on pressables. Transform and opacity only, no ambient loops, everything off under `prefers-reduced-motion`. GSAP only in the marketing chunk (IntersectionObserver/ScrollTrigger, never a scroll listener).
+9. **Motion.** `pop` on success, `rise` once on first load, `press` (scale 0.97) on pressables. Transform and opacity only, no ambient loops, everything off under `prefers-reduced-motion`. The homepage has no entrance animation and no reveal observer; its only observer sets `aria-current` on the section links.
 
 ## Tokens in code
 
@@ -122,7 +122,7 @@ Legacy class names (`.orrn-glass`, `.orrn-glow`, `.orrn-gradient-text`) still ex
 - Don't use Tailwind palette colours (`bg-blue-500`, `text-red-600`). Use semantic or tone classes.
 - Don't delete the cache cleaning hooks (`TenantCacheGuard` and `queryClient.clear()`) during login/logout.
 - Don't accept `companyId` in API client parameters; resolve it on the server from auth context.
-- Don't load GSAP outside the public marketing chunk. Three.js is not used.
+- Don't add GSAP or Three.js. Neither is a dependency; the homepage dropped GSAP with its reveal animations.
 - Don't nest a `<button>` inside a link (`SidebarItem` renders a non-interactive element when it has no `onPress`).
 
 ---
@@ -131,7 +131,7 @@ Legacy class names (`.orrn-glass`, `.orrn-glow`, `.orrn-gradient-text`) still ex
 
 | Surface | Route group | Shell | Accent |
 |---|---|---|---|
-| Marketing | `_public` | standalone, light canvas, colour-block composition | Tones + ink pills |
+| Marketing | `_public` | standalone, follows the theme (light canvas, dark under `html.dark`) | None. Colour only in the brand mark and in status chips inside product screens; buttons are ink |
 | Auth/Onboarding | `_authed`, `/login` | `AuthScreen`: flat canvas, white card, display-type h1 | Ink |
 | Tenant ERP | `_tenant` | `AppShell` (ink sidebar + status bar + mobile nav) | Ink |
 | Godseye (platform admin) | `_platform` | `StaffShell` + `.godseye` class | Violet tone |

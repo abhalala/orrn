@@ -64,21 +64,19 @@ test.describe("marketing page", () => {
     );
     expect(levels.length).toBeGreaterThan(1);
     for (let i = 1; i < levels.length; i++) expect(levels[i]! - levels[i - 1]!).toBeLessThanOrEqual(1);
-    const chain = page.locator("#flow").getByRole("list");
+    const chain = page.locator("#record").locator("ol").first();
     await expect(chain.getByRole("listitem")).toHaveCount(7);
-    await expect(page.getByRole("contentinfo").getByRole("link", { name: "Guides" })).toHaveAttribute("href", "/guides");
-  });
-
-  test("the held frame shows the stage in the middle of the screen", async ({ page }) => {
-    await openMarketing(page);
-    const active = page.locator('.marketing-frame[data-active="true"]');
-    await expect(active).toHaveCount(1);
-    await expect(active).toHaveAttribute("data-frame-for", "hero");
-    for (const stage of ["die", "pack", "dispatch", "scrap"]) {
-      await page.locator(`[data-flow-step="${stage}"]`).evaluate((element) => element.scrollIntoView({ block: "center" }));
-      await expect(active).toHaveCount(1);
-      await expect(active).toHaveAttribute("data-frame-for", stage);
+    await expect(page.locator("#faq")).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("navigation").getByRole("link", { name: "FAQ" })).toHaveAttribute(
+      "href",
+      "#faq",
+    );
+    await expect(page.locator("#flow [data-flow-step]")).toHaveCount(3);
+    for (const step of ["press", "dispatch", "office"] as const) {
+      await expect(page.locator(`#flow [data-flow-step="${step}"]`)).toBeVisible();
     }
+    await expect(page.locator("#faq details")).toHaveCount(10);
+    await expect(page.getByRole("contentinfo").getByRole("link", { name: "Guides" })).toHaveAttribute("href", "/guides");
   });
 
   test("section links land below the bar and mark the section in view", async ({ page }) => {
@@ -89,43 +87,66 @@ test.describe("marketing page", () => {
     await expect(nav.getByRole("link", { name: "How it works" })).not.toHaveAttribute("aria-current", "location");
     const bar = await page.getByRole("banner").evaluate((element) => element.getBoundingClientRect().bottom);
     await expect.poll(() => page.locator("#floor").evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(bar);
-    await page.locator('[data-flow-step="press"]').evaluate((element) => element.scrollIntoView({ block: "center", behavior: "instant" }));
+    await page.locator('#flow [data-flow-step="press"]').evaluate((element) =>
+      element.scrollIntoView({ block: "center", behavior: "instant" }),
+    );
     await expect(nav.getByRole("link", { name: "How it works" })).toHaveAttribute("aria-current", "location");
+    await page.locator('#flow [data-flow-step="dispatch"]').evaluate((element) =>
+      element.scrollIntoView({ block: "center", behavior: "instant" }),
+    );
+    await expect(nav.getByRole("link", { name: "How it works" })).toHaveAttribute("aria-current", "location");
+    await nav.getByRole("link", { name: "FAQ" }).click();
+    await expect(nav.getByRole("link", { name: "FAQ" })).toHaveAttribute("aria-current", "location");
+    await expect(nav.getByRole("link", { name: "How it works" })).not.toHaveAttribute("aria-current", "location");
+    await expect.poll(() => page.locator("#faq").evaluate((element) => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(bar);
   });
 
-  test("the stock-list slider recalculates the bundles that may be gone", async ({ page }) => {
+  test("Open Graph, Twitter and FAQPage JSON-LD match the visible English copy", async ({ page }) => {
     await openMarketing(page);
-    const slider = page.locator("#audit").getByRole("slider", { name: "Bundles on your stock list" });
-    const figure = page.locator("#audit .marketing-figure span").first();
-    await slider.fill("3000");
-    await expect(figure).toHaveText("1,860");
-    await slider.fill("100");
-    await expect(figure).toHaveText("62");
-    await slider.fill("5000");
-    await expect(figure).toHaveText("3,100");
+    const title = await page.title();
+    const description = await page.locator('meta[name="description"]').getAttribute("content");
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", title);
+    await expect(page.locator('meta[property="og:description"]')).toHaveAttribute("content", description!);
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", "https://orrn.in/og.png");
+    await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
+    const faq = await page.locator("#faq details").evaluateAll((items) =>
+      items.map((item) => ({
+        question: (item.querySelector("summary")?.textContent ?? "").replace(/\s+/g, " ").trim(),
+        answer: (item.querySelector("summary ~ p, summary ~ .answer")?.textContent ?? "")
+          .replace(/\s+/g, " ")
+          .trim(),
+      })),
+    );
+    expect(faq).toHaveLength(10);
+    for (const row of faq) {
+      expect(row.question.length).toBeGreaterThan(0);
+      expect(row.answer.length).toBeGreaterThan(0);
+    }
+    const schema = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!) as {
+      "@type": string;
+      mainEntity: { name: string; acceptedAnswer: { text: string } }[];
+    };
+    expect(schema["@type"]).toBe("FAQPage");
+    expect(schema.mainEntity).toHaveLength(10);
+    for (let i = 0; i < 10; i++) {
+      expect(schema.mainEntity[i]!.name).toBe(faq[i]!.question);
+      expect(schema.mainEntity[i]!.acceptedAnswer.text).toBe(faq[i]!.answer);
+    }
   });
 
-  test("the bundle views switch by click and by arrow keys", async ({ page }) => {
-    await openMarketing(page);
-    const views = page.locator("#office").getByRole("tablist");
-    await views.getByRole("tab", { name: "Gate scan" }).click();
-    await expect(views.getByRole("tab", { name: "Gate scan" })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator("#office").getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "marketing-tab-scan");
-    await page.keyboard.press("ArrowRight");
-    await expect(views.getByRole("tab", { name: "Bundle label" })).toBeFocused();
-    await expect(views.getByRole("tab", { name: "Bundle label" })).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(views.getByRole("tab", { name: "Gate scan" })).toHaveAttribute("aria-selected", "true");
-  });
-
-  test("sample product data is hidden from screen readers and visibly labelled", async ({ page }) => {
+  test("sample product shots stay accessible and carry a Demo data label", async ({ page }) => {
     await openMarketing(page);
     const visuals = page.locator("[data-demo-visual]");
     expect(await visuals.count()).toBeGreaterThan(0);
     for (const visual of await visuals.all()) {
-      await expect(visual).toHaveAttribute("aria-hidden", "true");
-      // Inactive stage frames are hidden whole; every label a visitor can see carries the disclosure.
-      if (await visual.isVisible()) await expect(visual.getByText("Demo data", { exact: true })).toBeVisible();
+      await expect(visual).not.toHaveAttribute("aria-hidden", "true");
+      if (await visual.isVisible()) {
+        await expect(visual.getByText("Demo data", { exact: true })).toBeVisible();
+        for (const image of await visual.locator("img").all()) {
+          const alt = await image.getAttribute("alt");
+          expect(alt?.trim().length).toBeGreaterThan(0);
+        }
+      }
     }
   });
 
@@ -152,21 +173,45 @@ test.describe("marketing page", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   });
 
-  test("mobile keeps a conversion action in reach", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 });
-    await openMarketing(page);
-    const action = page.locator(".marketing-mobile-action");
-    await expect(action).toHaveAttribute("href", "/request-access");
-    // At the top the hero's own Request access is in reach, so the floating copy steps aside instead of
-    // covering the hero text; it comes back once the hero button scrolls away.
-    await expect(action).toHaveCSS("opacity", "0");
-    await expect(action).toHaveCSS("pointer-events", "none");
-    expect(await action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    await page.locator("#floor").scrollIntoViewIfNeeded();
-    await expect(action).toBeVisible();
-    await expect(action).toHaveCSS("opacity", "1");
-    await action.click();
-    await expect(page).toHaveURL(/\/request-access$/);
+  test.describe("on a phone", () => {
+    // A touch context: the header's controls grow to 44 px under (pointer: coarse), which Chromium
+    // reports only on a context's first document, so the viewport is set here and not per test.
+    test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
+
+    test("the sticky header keeps Request access in reach", async ({ page }) => {
+      await openMarketing(page);
+      // The compact bar's action appears after the hero's own button scrolls away.
+      await page.locator("#floor").scrollIntoViewIfNeeded();
+      const action = page.getByRole("banner").getByRole("link", { name: "Request access" });
+      await expect(action).toHaveAttribute("href", "/request-access");
+      await expect(action).toBeInViewport();
+      expect(await action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+      await action.click();
+      await expect(page).toHaveURL(/\/request-access$/);
+    });
+
+    test("the full height menu toggles, closes on Escape and its section links work", async ({ page }) => {
+      await openMarketing(page);
+      const toggle = page.getByRole("banner").getByRole("button", { name: /menu$/ });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      const panelId = await toggle.getAttribute("aria-controls");
+      expect(panelId).toBeTruthy();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await expect(toggle).toHaveAttribute("aria-label", /Close menu/);
+      const menu = page.locator(`#${panelId}`);
+      await menu.getByRole("link", { name: "How it works" }).click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.locator("#flow")).toBeInViewport();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Escape");
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(toggle).toBeFocused();
+      await toggle.click();
+      await menu.getByRole("link", { name: "FAQ" }).click();
+      await expect(page.locator("#faq")).toBeInViewport();
+    });
   });
 
   test("English renders from public strings even when the full dictionary is unavailable", async ({ page }) => {
@@ -224,7 +269,7 @@ test.describe("marketing page", () => {
       }).map((heading) => heading.textContent),
     );
     expect(tight).toEqual([]);
-    const heroLines = await page.locator(".marketing-hero h1").evaluate((heading) => {
+    const heroLines = await page.locator("[data-marketing-hero] h1").evaluate((heading) => {
       const style = getComputedStyle(heading);
       return heading.getBoundingClientRect().height / parseFloat(style.lineHeight);
     });

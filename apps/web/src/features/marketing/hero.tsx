@@ -1,58 +1,132 @@
 import { useT } from "@orrn/i18n";
 import { Link } from "@tanstack/react-router";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
-import { BarcodeStrip, BundleLabel } from "./bundle-label";
-import { PHOTOS } from "./media";
-import { StagePhoto } from "./stage-photo";
+import { DemoTag } from "./demo-tag";
 
-/**
- * The first screen is the label orrn prints for a bundle: a paper card with
- * the barcode strip across its top, the page title, and the sample label
- * fields. On a phone the furnace photograph comes first and the card
- * overlaps its foot; on wider screens the photograph is the sticky frame
- * beside it (see `Story`).
- */
-export function Hero({ wide }: { wide: boolean }) {
+type Crop = { sw: number; x: number; y: number; cw: number; ch: number; h: number };
+
+function cropStyle(crop: Crop) {
+  return {
+    "--sw": crop.sw,
+    "--x": crop.x,
+    "--y": crop.y,
+    "--cw": crop.cw,
+    "--ch": crop.ch,
+  } as CSSProperties;
+}
+
+export function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M40 128h176M144 56l72 72-72 72" />
+    </svg>
+  );
+}
+
+function CropImage({ crop, src, alt, darkSrc, eager = false }: { crop: Crop; src: string; alt: string; darkSrc?: string; eager?: boolean }) {
+  const image = (source: string, className: string) => (
+    <img
+      className={className}
+      src={source}
+      width={crop.sw}
+      height={crop.h}
+      alt={alt}
+      loading={eager ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : "auto"}
+    />
+  );
+  return (
+    <div className="marketing-crop" style={cropStyle(crop)}>
+      {image(src, darkSrc ? "marketing-only-light" : "")}
+      {darkSrc ? image(darkSrc, "marketing-only-dark") : null}
+    </div>
+  );
+}
+
+export function RequestAccessLink({ className = "marketing-button" }: { className?: string }) {
   const { t } = useT();
   return (
-    <section data-marketing-hero data-frame="hero" aria-labelledby="hero-title" className="marketing-hero">
-      {wide ? null : (
-        <StagePhoto
-          className="marketing-hero-photo"
-          photo={PHOTOS.furnace}
-          sizes="100vw"
-          alt={t("marketing.chain.heroAlt")}
-          caption={t("marketing.chain.heroCaption")}
-          priority
+    <Link className={className} to="/request-access">
+      {t("marketing.requestAccess")}
+      <ArrowIcon />
+    </Link>
+  );
+}
+
+export function SignInLink() {
+  const { t } = useT();
+  return <Link className="marketing-text-link" to="/login">{t("marketing.signIn")}</Link>;
+}
+
+function HeroVisual() {
+  const { t } = useT();
+  return (
+    <figure className="marketing-hero-stage" data-demo-visual>
+      <div className="marketing-laptop">
+        <CropImage
+          crop={{ sw: 1440, x: 0, y: 138, cw: 1440, ch: 674, h: 900 }}
+          src="/marketing/owner-today-1440.webp"
+          darkSrc="/marketing/owner-today-dark-1440.webp"
+          alt={t("marketing.hero.alt")}
+          eager
         />
-      )}
-      <div className="marketing-card">
-        <BarcodeStrip className="marketing-barcode marketing-card-bars" />
-        <p className="marketing-card-mark" aria-hidden="true">
-          <span className="orrn-mark" />
-          <span>{t("common.appName")}</span>
-        </p>
-        <h1 id="hero-title" className="marketing-display">
-          <span className="marketing-line">
-            <span style={{ "--i": 0 } as CSSProperties}>{t("marketing.headline1")}</span>
-          </span>{" "}
-          <span className="marketing-line">
-            <span style={{ "--i": 1 } as CSSProperties}>{t("marketing.headline2")}</span>
-          </span>
-        </h1>
-        <p className="marketing-card-sub">{t("marketing.sub")}</p>
-        <div className="marketing-actions">
-          <Link className="marketing-button" data-tone="ink" to="/request-access">
-            {t("marketing.requestAccess")}
-          </Link>
-          <Link className="marketing-text-link" to="/login">
-            {t("marketing.signIn")}
-          </Link>
-        </div>
-        <BundleLabel className="marketing-card-label" />
       </div>
+      <div className="marketing-phone">
+        <CropImage
+          crop={{ sw: 390, x: 0, y: 56, cw: 390, ch: 788, h: 844 }}
+          src="/marketing/packer-dispatch-build-390.webp"
+          alt={t("marketing.benefits.dispatch.alt")}
+          eager
+        />
+      </div>
+      <figcaption className="marketing-screen-caption">
+        <DemoTag />
+        <span>{t("marketing.hero.caption")}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+export function Hero() {
+  const { t } = useT();
+  return (
+    <section data-marketing-hero aria-labelledby="hero-title" className="marketing-hero">
+      <div className="marketing-wrap marketing-hero-copy">
+        <h1 id="hero-title">
+          <span className="marketing-hero-line">{t("marketing.hero.line1")}</span>{" "}
+          <span className="marketing-hero-line">{t("marketing.hero.line2")}</span>{" "}
+          <span className="marketing-hero-line">{t("marketing.hero.line3")}</span>
+        </h1>
+        <p className="marketing-hero-sub">{t("marketing.hero.sub")}</p>
+        <div className="marketing-actions">
+          <span id="hero-cta"><RequestAccessLink /></span>
+          <SignInLink />
+        </div>
+        <p className="marketing-helper">{t("marketing.hero.helper")}</p>
+        <div className="marketing-proof-line">
+          <span className="marketing-proof-figure">{t("marketing.hero.proofFigure")}</span>
+          <p>{t("marketing.hero.proof")}</p>
+        </div>
+      </div>
+      <div className="marketing-wrap"><HeroVisual /></div>
     </section>
   );
 }
 
+export function SectionHead({ title, body, id }: { title: string; body?: string; id: string }) {
+  return (
+    <div className="marketing-section-head" data-reveal>
+      <h2 id={id}>{title}</h2>
+      {body ? <p>{body}</p> : null}
+    </div>
+  );
+}
+
+export function PlusIcon(): ReactNode {
+  return (
+    <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" strokeWidth="16" strokeLinecap="round" aria-hidden="true">
+      <path d="M40 128h176M128 40v176" />
+    </svg>
+  );
+}

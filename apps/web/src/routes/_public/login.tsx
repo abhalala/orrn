@@ -1,10 +1,24 @@
-import { useT } from "@orrn/i18n";
+import { createI18n, useT } from "@orrn/i18n";
 import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { AuthFrame } from "@/features/auth/auth-frame";
 import { SignInForm } from "@/features/auth/sign-in-form";
+import { readStoredLocale } from "@/shared/lib/locale";
 
 export const Route = createFileRoute("/_public/login")({
+  head: () => {
+    const { t } = createI18n(readStoredLocale());
+    return {
+      meta: [
+        { title: t("auth.login.title") },
+        { name: "description", content: t("auth.login.subtitle") },
+        { name: "robots", content: "noindex" },
+        { property: "og:title", content: t("auth.login.title") },
+        { property: "og:description", content: t("auth.login.subtitle") },
+        { property: "og:image", content: "https://orrn.in/og.png" },
+      ],
+    };
+  },
   component: LoginPage,
   // Plain check (no zod): route options sit in the entry chunk every page loads.
   validateSearch: (search: Record<string, unknown>): { next?: string } =>

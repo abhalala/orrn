@@ -22,6 +22,7 @@ const PAGES = [
   { path: "/invite/test-token", name: "invite" },
   { path: "/privacy", name: "privacy" },
   { path: "/terms", name: "terms" },
+  { path: "/this-page-does-not-exist", name: "not found" },
 ] as const;
 
 const SITE_TITLE = "ORRN: multi-company ERP for manufactured inventory ops";
@@ -80,6 +81,42 @@ test.describe("page titles (2.4.2)", () => {
 });
 
 test.describe("landing page keyboard", () => {
+  test("mobile menu releases background content when resized to desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await open(page, "/");
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.locator("main")).toHaveAttribute("inert", "");
+    await expect(page.locator('a[href="#main"]')).toHaveAttribute("inert", "");
+    // Reverse tabbing must not reach the skip link while its target is inert.
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await page.evaluate(() => document.activeElement?.matches('a[href="#main"]'))).toBe(false);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.locator("#marketing-menu")).toHaveAttribute("hidden", "");
+    await expect(page.locator("main")).not.toHaveAttribute("inert", "");
+    await expect(page.getByRole("contentinfo")).not.toHaveAttribute("inert", "");
+    await expect(page.locator('a[href="#main"]')).not.toHaveAttribute("inert", "");
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+    await page.locator('a[href="#main"]').focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("main#main")).toBeFocused();
+  });
+
+  test("hero heading stays painted in forced colors", async ({ page }) => {
+    await page.emulateMedia({ forcedColors: "active" });
+    await open(page, "/");
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    const paint = await heading.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { fill: style.getPropertyValue("-webkit-text-fill-color"), color: style.color };
+    });
+    expect(paint.fill).toBe(paint.color);
+    expect(paint.fill).not.toBe("rgba(0, 0, 0, 0)");
+    expect(paint.fill).not.toBe("transparent");
+  });
+
   test("skip link is the first stop and moves focus into main", async ({ page }) => {
     await open(page, "/");
     await page.keyboard.press("Tab");
@@ -137,67 +174,57 @@ test.describe("landing page keyboard", () => {
       expect(stop.shadowColour, `"${stop.label}" has no second ring tone`).not.toBe("");
       expect(stop.shadowColour, `"${stop.label}" ring tones are the same colour`).not.toBe(stop.outlineColour);
     }
-    // Skip link, header, CTAs, slider, tabs, board links, footer and credits.
-    expect(seen.size).toBeGreaterThan(20);
+    // Skip link, brand, the language switch (one radiogroup with a roving tabindex, so one stop), Sign in and
+    // Request access in the bar, the two hero actions, the two close actions, the footer brand and its three
+    // links make 13 on a phone; the two section links from 900 px make 15 on a desktop.
+    expect(seen.size).toBeGreaterThanOrEqual(page.viewportSize()!.width >= 900 ? 15 : 13);
   });
 
-  test("office tabs: one tab stop, arrows, Home and End move and select", async ({ page }) => {
-    await open(page, "/");
-    const tabs = page.getByRole("tab");
-    await expect(tabs).toHaveCount(3);
-    await expect(page.getByRole("tab", { selected: true })).toHaveCount(1);
-    expect(await tabs.evaluateAll((all) => all.filter((t) => (t as HTMLElement).tabIndex === 0).length)).toBe(1);
-
-    await page.getByRole("tab", { selected: true }).focus();
-    await page.keyboard.press("Home");
-    await expect(tabs.first()).toBeFocused();
-    await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("End");
-    await expect(tabs.last()).toBeFocused();
-    await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowRight");
-    await expect(tabs.first()).toBeFocused();
-
-    // The sample in the panel is illustrative and hidden from readers by design (marketing.spec.ts pins it);
-    // the panel carries no control, so it is not a tab stop either.
-    await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", /marketing-tab-/);
-    expect(await page.getByRole("tabpanel").getAttribute("tabindex")).toBeNull();
-  });
-
-  test("audit slider has a name and a value", async ({ page }) => {
-    await open(page, "/");
-    const slider = page.getByRole("slider");
-    await expect(slider).toHaveCount(1);
-    await expect(slider).toHaveAccessibleName(/\S/);
-    await slider.focus();
-    const before = await slider.inputValue();
-    await page.keyboard.press("ArrowRight");
-    expect(await slider.inputValue()).not.toBe(before);
-  });
-
-  test("the page has no mobile menu to trap focus: header controls stay reachable and in view", async ({ page }) => {
+  test("header controls and the mobile menu keep focus reachable and in view", async ({ page }) => {
     await open(page, "/");
     const header = page.locator("header.marketing-header");
-    const controls = [
-      header.getByRole("link", { name: "Sign in" }),
-      header.getByRole("radio", { name: "English" }),
-      header.getByRole("link", { name: "Request access" }),
-    ];
-    for (const control of controls) {
+    await header.getByRole("radio", { name: "English" }).focus();
+    await expect(header.getByRole("radio", { name: "English" })).toBeFocused();
+    await expect(header.getByRole("radio", { name: "English" })).toBeInViewport();
+    await expect(header.getByRole("radiogroup")).toHaveAccessibleName(/\S/);
+    await expect(header.getByRole("radio", { checked: true })).toHaveCount(1);
+
+    if (page.viewportSize()!.width >= 900) {
+      for (const control of [
+        header.getByRole("link", { name: "Sign in" }),
+        header.getByRole("link", { name: "Request access" }),
+      ]) {
+        await control.focus();
+        await expect(control).toBeFocused();
+        await expect(control).toBeInViewport();
+      }
+      return;
+    }
+
+    const toggle = header.getByRole("button", { name: "Open menu" });
+    await toggle.focus();
+    await expect(toggle).toBeInViewport();
+    await toggle.click();
+    const menu = page.locator("#marketing-menu");
+    for (const control of [
+      menu.getByRole("link", { name: "Sign in" }),
+      menu.getByRole("link", { name: "Request access" }),
+    ]) {
       await control.focus();
       await expect(control).toBeFocused();
       await expect(control).toBeInViewport();
     }
-    // The language switch is one radio group: a name, one checked radio.
-    await expect(header.getByRole("radiogroup")).toHaveAccessibleName(/\S/);
-    await expect(header.getByRole("radio", { checked: true })).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(toggle).toBeFocused();
+    await expect(menu).toBeHidden();
   });
 
   test("with reduced motion nothing waits to be revealed", async ({ page }) => {
     await open(page, "/");
     const hidden = await page.evaluate(() => {
       const bad: string[] = [];
-      for (const el of document.querySelectorAll<HTMLElement>("[data-reveal] > *, .marketing-card *")) {
+      // No entrance hooks remain, so the whole of main is checked: nothing may wait at opacity 0 or animate.
+      for (const el of document.querySelectorAll<HTMLElement>("main *")) {
         const cs = getComputedStyle(el);
         if (cs.opacity !== "1" && cs.display !== "none") bad.push(`${el.tagName}.${el.className}`);
         if (cs.animationName !== "none" && parseFloat(cs.animationDuration) > 0) bad.push(`animating ${el.tagName}.${el.className}`);
@@ -207,16 +234,15 @@ test.describe("landing page keyboard", () => {
     expect(hidden).toEqual([]);
   });
 
-  test("images: informative ones have alt, decorative ones are hidden from readers", async ({ page }) => {
+  test("images: every img has alt", async ({ page }) => {
     await open(page, "/");
+    // Product shots have localized alt text; decorative shots use an empty alt.
     const bad = await page.evaluate(() =>
       [...document.querySelectorAll("img")]
         .filter((img) => !img.hasAttribute("alt"))
         .map((img) => img.src.slice(-40)),
     );
     expect(bad).toEqual([]);
-    // The yard photograph beside the closing tile is decoration.
-    expect(await page.locator("img[alt='']").count()).toBeGreaterThan(0);
   });
 });
 
@@ -235,7 +261,7 @@ test.describe("reflow, zoom and text spacing", () => {
     });
   }
 
-  for (const path of ["/", "/login", "/request-access", "/privacy"]) {
+  for (const path of ["/", "/login", "/request-access", "/privacy", "/this-page-does-not-exist"]) {
     test(`${path} survives the text spacing override (1.4.12)`, async ({ page }) => {
       await page.setViewportSize({ width: 375, height: 800 });
       await open(page, path);
@@ -323,7 +349,7 @@ test.describe("front-door forms", () => {
   });
 
   test("front-door pages open with a skip link that moves focus into main", async ({ page }) => {
-    for (const path of ["/login", "/request-access", "/forgot-password"]) {
+    for (const path of ["/login", "/request-access", "/forgot-password", "/this-page-does-not-exist"]) {
       await open(page, path);
       await page.keyboard.press("Tab");
       const skip = page.locator('a[href="#main"]');

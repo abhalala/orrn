@@ -1,4 +1,4 @@
-import { useT, type MessageKey } from "@orrn/i18n";
+import { createI18n, useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput, TextInput, useFieldControl } from "@orrn/ui/components/field";
 import { TextArea } from "@orrn/ui/components/input";
@@ -11,6 +11,7 @@ import { AuthFrame } from "@/features/auth/auth-frame";
 import { FormAlert } from "@/features/auth/form-alert";
 import { composeRequestNotes } from "@/features/auth/request-notes";
 import { usePageTitle } from "@/features/auth/use-page-title";
+import { readStoredLocale } from "@/shared/lib/locale";
 import { trpc } from "@/shared/utils/trpc";
 
 /** Loose shape check only; the server is the judge. */
@@ -19,6 +20,19 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const NOTES_MAX = 400;
 
 export const Route = createFileRoute("/_public/request-access")({
+  head: () => {
+    const { t } = createI18n(readStoredLocale());
+    return {
+      meta: [
+        { title: t("auth.requestAccess.title") },
+        { name: "description", content: t("auth.requestAccess.subtitle") },
+        { property: "og:title", content: t("auth.requestAccess.title") },
+        { property: "og:description", content: t("auth.requestAccess.subtitle") },
+        { property: "og:image", content: "https://orrn.in/og.png" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+    };
+  },
   // Marketing links still say which button was pressed (a demo or the
   // waitlist). Both land on this one form; the walkthrough slot is optional.
   validateSearch: (search: Record<string, unknown>): { mode?: "demo" | "waitlist" } =>
