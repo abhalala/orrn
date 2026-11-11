@@ -33,18 +33,20 @@
     "set-staff-password": "bun --env-file=.env src/infra/scripts/set-staff-password.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.3.0",
     "@orrn/auth": "workspace:*",
     "@orrn/crypto": "workspace:*",
     "@orrn/db": "workspace:*",
     "@orrn/domain": "workspace:*",
+    "@orrn/edge-runtime": "workspace:*",
     "@orrn/env": "workspace:*",
+    "@orrn/ingest": "workspace:*",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "alchemy": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
-    "zod": "catalog:",
-    "@orrn/edge-runtime": "workspace:*"
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@better-auth/utils": "0.4.0",
