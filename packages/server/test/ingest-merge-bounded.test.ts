@@ -222,6 +222,56 @@ describe("bounded write steps (B-new-2)", () => {
     expect(last.state).toBe("done");
   }, 300_000);
 
+  test(`a vendors step and a vendor aliases step on a plant of 1,100 vendors and 1,000 aliases read at most ${STEP_ROWS_READ_MAX} rows`, async () => {
+    const { companyId } = await env.seedCompany();
+    const { vendor, vendorAlias } = await import("@orrn/db/schema/purchase");
+    const { nameKey } = await import("../src/lib/purchase");
+    // The plant's masters, straight into D1: 1,100 vendors, 1,000 of them with an alias.
+    const live = Array.from({ length: 1_100 }, (_, i) => ({ id: `${companyId}-v${i}`, companyId, name: `Plant Vendor ${i}`, nameKey: nameKey(`Plant Vendor ${i}`) }));
+    const aliases = live.slice(0, 1_000).map((v, i) => ({ id: `${v.id}-a`, companyId, vendorId: v.id, alias: `PV ${i}`, aliasKey: nameKey(`PV ${i}`) }));
+    const inserts = [
+      ...Array.from({ length: Math.ceil(live.length / 15) }, (_, i) => env.db.insert(vendor).values(live.slice(i * 15, i * 15 + 15))),
+      ...Array.from({ length: Math.ceil(aliases.length / 15) }, (_, i) => env.db.insert(vendorAlias).values(aliases.slice(i * 15, i * 15 + 15))),
+    ];
+    await env.db.batch(inserts as unknown as Parameters<typeof env.db.batch>[0]);
+    // One vendors chunk (20 new vendors, one already in orrn) and one vendor aliases chunk (20 aliases).
+    await seedCandidate(env, companyId, "vendors", Array.from({ length: 20 }, (_, i) => ({ values: { name: i === 0 ? "PLANT VENDOR 7." : `New Vendor ${i}` } })));
+    await seedCandidate(
+      env,
+      companyId,
+      "vendor_aliases",
+      Array.from({ length: 20 }, (_, i) => ({ values: { vendor: "Plant Vendor 1050", alias: i === 0 ? "plant vendor 1050" : `NV ${i}`, _ids: { vendor: live[1_050]!.id } } })),
+    );
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    tally.rows = 0;
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    const plan: number[] = [tally.rows];
+    while (last.state === "planning") {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      plan.push(tally.rows);
+    }
+    expect(last.chunksTotal).toBe(2);
+    const reads: number[] = [];
+    for (let i = 0; i < 2; i += 1) {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    expect(last.chunksWritten).toBe(2);
+    if (process.env.DEBUG_READS) console.log("VENDOR PLAN READS", plan, "STEP READS", reads);
+    for (const n of [...plan, ...reads]) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX);
+    // The name already in orrn is recorded against it, not added again (plan D7).
+    const { and, eq } = await import("drizzle-orm");
+    expect(await env.db.select({ id: vendor.id }).from(vendor).where(eq(vendor.companyId, companyId))).toHaveLength(1_119);
+    expect(await env.db.select({ id: vendorAlias.id }).from(vendorAlias).where(and(eq(vendorAlias.companyId, companyId), eq(vendorAlias.vendorId, live[1_050]!.id)))).toHaveLength(19);
+  }, 120_000);
+
   test(`recording a written chunk sends one statement per order or per ${RECORD_ROWS_PER_STATEMENT} rows, not one per row (Bm7)`, async () => {
     const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
     const customerId = await env.seedCustomer(companyId);

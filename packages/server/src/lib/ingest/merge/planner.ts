@@ -333,7 +333,7 @@ export async function rowPlanHold(ctx: IngestCtx, target: IngestTarget, rows: re
   if (!isAlias(target)) return null;
   const creates = rows.filter((r) => r.state === "ready_create" && r.owner && !r.owner.startsWith("pending:"));
   if (creates.length === 0) return null;
-  const owners = await aliasNameOwners(ctx, target);
+  const owners = await aliasNameOwners(ctx, target, creates.map((r) => text(r.alias) ?? ""));
   for (const r of creates) {
     const refusal = aliasRefusal(r.rowIndex, text(r.alias) ?? "", r.owner!, owners);
     if (refusal) return hold(refusal, "CONFLICT");

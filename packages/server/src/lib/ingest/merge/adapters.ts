@@ -15,9 +15,9 @@ import type { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
-import { customer } from "@orrn/db/schema/customers";
+import { customer, customerAlias } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
-import { vendor } from "@orrn/db/schema/purchase";
+import { vendor, vendorAlias } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
 import type { IngestTarget } from "@orrn/db/schema/ingest";
 
@@ -25,9 +25,10 @@ import { mapInChunks } from "../../atomic";
 import { assertModule } from "../../moduleGate";
 import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
-import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection, serverNameKey } from "../resolvers";
+import { loadSections, resolveName, resolveSection, serverNameKey, type NameIndex } from "../resolvers";
 import type { IngestCtx } from "../types";
 import {
+  companyNotIndexed,
   failureOf,
   fileRowsIn,
   LINES_PER_ORDER,
@@ -230,6 +231,90 @@ async function sectionFor(args: AdapterArgs, row: StagedRow, cache: Map<string, 
 }
 
 // ---------------------------------------------------------------------------
+// names already in orrn, read by key (B-new-2)
+// ---------------------------------------------------------------------------
+
+/** The name keys of these texts: unique, no blanks. */
+export function nameKeysOf(texts: readonly string[]): string[] {
+  return [...new Set(texts.map((t) => serverNameKey(t)).filter(Boolean))];
+}
+
+/** A name index (resolvers.ts) of these live records and alias keys. */
+function indexOf(records: readonly { id: string; name: string; key: string }[], aliases: readonly { id: string; key: string }[]): NameIndex {
+  const labels = new Map(records.map((r) => [r.id, r.name]));
+  const entries = records.map((r) => ({ id: r.id, key: r.key, label: r.name }));
+  for (const a of aliases) if (labels.has(a.id)) entries.push({ id: a.id, key: a.key, label: labels.get(a.id)! });
+  return { entries, labels };
+}
+
+/**
+ * The live customers whose name or alias has the key of one of `names`, as a name index. Aliases
+ * are read by `customer_alias_company_key_unique`, 90 keys at a time. Customer names have no key
+ * column, so every live customer's name is read: that read grows with the plant, not the run
+ * (see the report: it needs a `name_key` column on `customer`). Only keys of `names` go into the
+ * index, so `resolveName` gives the same exact hits as over the whole table.
+ */
+export async function customerIndexFor(ctx: IngestCtx, names: readonly string[]): Promise<NameIndex> {
+  const keys = new Set(nameKeysOf(names));
+  if (keys.size === 0) return indexOf([], []);
+  const records = (
+    await ctx.db
+      .select({ id: customer.id, name: customer.name })
+      .from(customer)
+      .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)))
+  )
+    .map((c) => ({ ...c, key: serverNameKey(c.name) }))
+    .filter((c) => keys.has(c.key));
+  const aliases = await mapInChunks([...keys], (part) =>
+    ctx.db
+      .select({ id: customerAlias.customerId, key: customerAlias.aliasKey })
+      .from(customerAlias)
+      .where(and(eq(customerAlias.companyId, ctx.companyId), inArray(customerAlias.aliasKey, part))),
+  );
+  const known = new Set(records.map((r) => r.id));
+  const owners = await mapInChunks([...new Set(aliases.map((a) => a.id))].filter((id) => !known.has(id)), (part) =>
+    ctx.db
+      .select({ id: customer.id, name: customer.name })
+      .from(customer)
+      .where(and(companyNotIndexed(customer.companyId, ctx.companyId), inArray(customer.id, part), isNull(customer.deletedAt))),
+  );
+  return indexOf([...records, ...owners.map((o) => ({ ...o, key: serverNameKey(o.name) }))], aliases);
+}
+
+/** Live vendors by name key: the partial unique index `vendor_company_name_key_unique`. */
+const LIVE_VENDOR = sql`${vendor.status} <> 'merged'`;
+
+/**
+ * The live vendors whose name or alias has the key of one of `names`, as a name index: read by
+ * `vendor_company_name_key_unique` and `vendor_alias_company_key_unique`, 90 keys at a time,
+ * never the whole vendor table. Same exact hits as `loadVendorIndex` for these names.
+ */
+export async function vendorIndexFor(ctx: IngestCtx, names: readonly string[]): Promise<NameIndex> {
+  const keys = nameKeysOf(names);
+  if (keys.length === 0) return indexOf([], []);
+  const records = await mapInChunks(keys, (part) =>
+    ctx.db
+      .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+      .from(vendor)
+      .where(and(eq(vendor.companyId, ctx.companyId), LIVE_VENDOR, inArray(vendor.nameKey, part))),
+  );
+  const aliases = await mapInChunks(keys, (part) =>
+    ctx.db
+      .select({ id: vendorAlias.vendorId, key: vendorAlias.aliasKey })
+      .from(vendorAlias)
+      .where(and(eq(vendorAlias.companyId, ctx.companyId), inArray(vendorAlias.aliasKey, part))),
+  );
+  const known = new Set(records.map((r) => r.id));
+  const owners = await mapInChunks([...new Set(aliases.map((a) => a.id))].filter((id) => !known.has(id)), (part) =>
+    ctx.db
+      .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+      .from(vendor)
+      .where(and(companyNotIndexed(vendor.companyId, ctx.companyId), inArray(vendor.id, part), LIVE_VENDOR)),
+  );
+  return indexOf([...records, ...owners], aliases);
+}
+
+// ---------------------------------------------------------------------------
 // customers (10): customer.importCsv; updates through customer.update
 // ---------------------------------------------------------------------------
 
@@ -270,7 +355,7 @@ const customers: Adapter = async (args) => {
   }
   return oneCall(async (sent) => {
     // A name added since the dry run (or by this chunk before a crash) is not added again (plan D7).
-    const index = await loadCustomerIndex(ctx);
+    const index = await customerIndexFor(ctx, rows.map((row) => text(valuesOf(row).name) ?? ""));
     const written: Written[] = [];
     const send: StagedRow[] = [];
     for (const row of rows) {
@@ -308,12 +393,38 @@ export type NameOwner = { id: string; name: string };
 
 /**
  * The live customer or vendor each name key belongs to, for the alias targets (B13). The planner
- * checks a whole candidate with it before any chunk is written; each adapter checks again.
+ * checks a whole candidate with it before any chunk is written; each adapter checks again. With
+ * `aliases`, only the keys of those texts are looked up (B-new-2): vendors by
+ * `vendor_company_name_key_unique` and the status index, 90 keys at a time. Customer names have no
+ * key column, so the customer side still reads every live customer's name (see customerIndexFor).
  */
-export async function aliasNameOwners(ctx: IngestCtx, target: "customer_aliases" | "vendor_aliases"): Promise<Map<string, NameOwner>> {
+export async function aliasNameOwners(
+  ctx: IngestCtx,
+  target: "customer_aliases" | "vendor_aliases",
+  aliases?: readonly string[],
+): Promise<Map<string, NameOwner>> {
   const out = new Map<string, NameOwner>();
+  const keys = aliases ? new Set(nameKeysOf(aliases)) : null;
+  if (keys?.size === 0) return out;
   if (target === "vendor_aliases") {
-    const names = await ctx.db.select({ id: vendor.id, name: vendor.name, key: vendor.nameKey }).from(vendor).where(eq(vendor.companyId, ctx.companyId));
+    const all = () => ctx.db.select({ id: vendor.id, name: vendor.name, key: vendor.nameKey }).from(vendor).where(eq(vendor.companyId, ctx.companyId));
+    const names = keys
+      ? [
+          // Live vendors first, then merged ones (which keep their names), as the whole-table read did.
+          ...(await mapInChunks([...keys], (part) =>
+            ctx.db
+              .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+              .from(vendor)
+              .where(and(eq(vendor.companyId, ctx.companyId), LIVE_VENDOR, inArray(vendor.nameKey, part))),
+          )),
+          ...(await mapInChunks([...keys], (part) =>
+            ctx.db
+              .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+              .from(vendor)
+              .where(and(eq(vendor.companyId, ctx.companyId), eq(vendor.status, "merged"), inArray(vendor.nameKey, part))),
+          )),
+        ]
+      : await all();
     for (const n of names) if (n.key && !out.has(n.key)) out.set(n.key, { id: n.id, name: n.name });
     return out;
   }
@@ -323,7 +434,7 @@ export async function aliasNameOwners(ctx: IngestCtx, target: "customer_aliases"
     .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
   for (const c of names) {
     const k = serverNameKey(c.name);
-    if (k && !out.has(k)) out.set(k, c);
+    if (k && (!keys || keys.has(k)) && !out.has(k)) out.set(k, c);
   }
   return out;
 }
@@ -348,7 +459,7 @@ const customerAliases: Adapter = async (args) => {
     const list = rows.map((row) => ({ row, customerId: refOf(row, "customer", refs)!, alias: text(valuesOf(row).alias) ?? "" }));
     // customer.addAliases refuses the whole call for a name that is another customer's. The planner
     // holds such a candidate before any chunk is written (B13); this is the backstop.
-    const owners = await aliasNameOwners(ctx, "customer_aliases");
+    const owners = await aliasNameOwners(ctx, "customer_aliases", list.map((l) => l.alias));
     for (const { row, customerId, alias } of list) {
       const refusal = aliasRefusal(row.rowIndex, alias, customerId, owners);
       if (refusal) throw new TRPCError({ code: "CONFLICT", message: refusal });
@@ -395,7 +506,7 @@ const vendors: Adapter = async (args) => {
       return { rowId: row.id, committedType: "vendor", committedId: row.matchId! };
     });
   }
-  const index = await loadVendorIndex(ctx);
+  const index = await vendorIndexFor(ctx, rows.map((row) => text(valuesOf(row).name) ?? ""));
   return perRow(args, rows, async (row) => {
     const v = valuesOf(row);
     // A name added since the dry run is not added again (plan D7).
@@ -434,7 +545,7 @@ const vendorAliases: Adapter = async (args) => {
   // A name of another vendor is refused by vendor.addAlias. The planner holds such a candidate
   // before any chunk is written (B13); this is the backstop. The vendor's own name adds nothing: it
   // is recorded against the vendor, as for customers.
-  const nameOwner = await aliasNameOwners(ctx, "vendor_aliases");
+  const nameOwner = await aliasNameOwners(ctx, "vendor_aliases", rows.map((row) => text(valuesOf(row).alias) ?? ""));
   try {
     for (const row of rows) {
       const refusal = aliasRefusal(row.rowIndex, text(valuesOf(row).alias) ?? "", refOf(row, "vendor", refs), nameOwner);
