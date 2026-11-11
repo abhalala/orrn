@@ -16,7 +16,7 @@
  * the row `active` without creating a membership. Later sign-ins are email + password; no TOTP is
  * asked of a party (PF §9-2).
  */
-import { readFloorSettings } from "@orrn/domain";
+import { documentPrefs, readFloorSettings, readUnitSettings } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -717,6 +717,8 @@ export const portalRouter = router({
       locale: ctx.portal.floor.locale,
       dieBands: ctx.portal.floor.dieBands,
       lengthUnit: ctx.portal.settings.lengthUnit === "inch" ? ("inch" as const) : ("mm" as const),
+      /** Units and formats for the party's screens: the plant's choice for now (no customer layer yet). */
+      units: documentPrefs(readUnitSettings(ctx.portal.settings), "portal"),
       /** Calendar zone for the dates a party reads (packing list date, order dates). */
       timeZone: typeof ctx.portal.settings.timezone === "string" && ctx.portal.settings.timezone ? ctx.portal.settings.timezone : "Asia/Kolkata",
       sections: sections.map((s) => ({ id: s.id, series: s.series, sectionCode: s.sectionCode, name: s.name })),

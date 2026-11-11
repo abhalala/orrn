@@ -12,7 +12,11 @@ import {
   MAX_STANDARD_TEXT,
   PACKING_LIST_SCOPES,
   SETTINGS_LOCALES,
+  offeredUnitProblems,
   readFloorSettings,
+  readUnitSettings,
+  screenPrefs,
+  validatePlantUnitSettings,
   validateShifts,
   validateThresholds,
   type Shift,
@@ -99,6 +103,12 @@ export const companyRouter = router({
     .input(
       z.object({
         lengthUnit: z.enum(["mm", "inch"]).optional(),
+        /**
+         * The plant's unit and format choices (units layer, slice b): weight, length and section weight
+         * units, number grouping, date order, clock. Top-level keys sent replace the stored ones; the merged
+         * block is checked by `validatePlantUnitSettings` and the first-release list.
+         */
+        units: z.record(z.string(), z.unknown()).optional(),
         timezone: z
           .string()
           .max(100)
@@ -224,6 +234,23 @@ export const companyRouter = router({
 
       const patch: Record<string, unknown> = {};
       if (input.lengthUnit !== undefined) patch.lengthUnit = input.lengthUnit;
+      if (input.units !== undefined) {
+        // Merge over what the plant has today (the legacy `lengthUnit` counts as a stored length choice).
+        const current = readUnitSettings(row.settings);
+        const checked = validatePlantUnitSettings({ ...current, ...input.units });
+        const problems = checked.ok ? offeredUnitProblems(checked.settings) : checked.errors;
+        if (!checked.ok || problems.length > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Unit settings refused: ${problems.join("; ")}` });
+        }
+        patch.units = checked.settings;
+        // Native builds in the field read `lengthUnit`; keep it true to the length choice.
+        const length = checked.settings.units?.length;
+        if (length) patch.lengthUnit = length === "ft_in" ? "inch" : "mm";
+      } else if (input.lengthUnit !== undefined && row.settings?.units !== undefined) {
+        // The Company tab still switches mm and inch: carry it into the stored length choice.
+        const current = readUnitSettings(row.settings);
+        patch.units = { ...current, units: { ...current.units, length: input.lengthUnit === "inch" ? "ft_in" : "mm" }, v: 1 };
+      }
       if (input.timezone !== undefined) patch.timezone = input.timezone;
       if (input.plSeries !== undefined) patch.plSeries = input.plSeries;
       if (input.dcTolerancePct !== undefined) patch.dcTolerancePct = input.dcTolerancePct;
@@ -378,6 +405,9 @@ export const companyRouter = router({
     return {
       ...floor,
       lengthUnit: raw.lengthUnit === "inch" ? ("inch" as const) : ("mm" as const),
+      /** The plant's own unit choices (what the Units tab edits) and the set every screen uses. */
+      units: readUnitSettings(raw),
+      resolvedUnits: screenPrefs(readUnitSettings(raw)),
       timezone: day.timezone,
       bundleNumbering: raw.bundleNumbering === "plant" ? ("plant" as const) : ("legacy" as const),
       plSeries: (raw.plSeries ?? null) as { prefix: string; start: number } | null,

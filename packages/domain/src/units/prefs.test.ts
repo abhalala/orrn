@@ -134,6 +134,20 @@ describe("validateUnitPrefs refuses on write", () => {
     expect(bad({ precision: { "gold.screen": 1 } })[0]).toContain("precision");
     expect(bad("x")[0]).toContain("object");
   });
+  test("a bad date, currency or a non-object block is refused, not dropped (slice b)", () => {
+    const bad = (x: unknown) => {
+      const r = validateUnitPrefs(x);
+      return r.ok ? [] : r.errors;
+    };
+    expect(bad({ date: { order: "ydm" } })[0]).toContain("date.order");
+    expect(bad({ date: { month: "long" } })[0]).toContain("date.month");
+    expect(bad({ date: "dmy" })[0]).toContain("date must be an object");
+    expect(bad({ currency: { symbol: "$" } })[0]).toContain("currency.symbol");
+    expect(bad({ currency: { compact: "western" } })[0]).toContain("currency.compact");
+    expect(bad({ number: "indian" })[0]).toContain("number must be an object");
+    // The tolerant reader still drops them without a word.
+    expect(readUserPrefs({ date: { order: "ydm" }, number: "indian" })).toEqual({});
+  });
   test("over 2 kB is refused", () => {
     const big = { units: { mass: "kg" }, pad: "x".repeat(3000) };
     const r = validateUnitPrefs(big);

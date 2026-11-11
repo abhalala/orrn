@@ -101,17 +101,21 @@ function readLayer(raw: unknown, errors: string[] | null): UnitPrefs {
     if (m) n.group = m; else if (raw.number.group !== undefined) bad("bad number.group");
     if (n.decimal && (n.group ?? "") === n.decimal) bad("decimal mark and group mark must differ");
     if (Object.keys(n).length) out.number = n;
-  }
+  } else if (raw.number !== undefined) bad("number must be an object");
   if (isObj(raw.currency)) {
     const symbol = pick(["₹", "Rs", "INR"] as const, raw.currency.symbol);
     const compact = pick(["indian", "international"] as const, raw.currency.compact);
+    if (raw.currency.symbol !== undefined && !symbol) bad("bad currency.symbol");
+    if (raw.currency.compact !== undefined && !compact) bad("bad currency.compact");
     if (symbol || compact) out.currency = { ...(symbol ? { symbol } : {}), ...(compact ? { compact } : {}) };
-  }
+  } else if (raw.currency !== undefined) bad("currency must be an object");
   if (isObj(raw.date)) {
     const order = pick(["dmy", "mdy", "ymd"] as const, raw.date.order);
     const month = pick(["short", "numeric"] as const, raw.date.month);
+    if (raw.date.order !== undefined && !order) bad("bad date.order");
+    if (raw.date.month !== undefined && !month) bad("bad date.month");
     if (order || month) out.date = { ...(order ? { order } : {}), ...(month ? { month } : {}) };
-  }
+  } else if (raw.date !== undefined) bad("date must be an object");
   const clock = pick(["h23", "h12"] as const, raw.clock);
   if (clock) out.clock = clock;
   else if (raw.clock !== undefined) bad("clock must be h23 or h12");
