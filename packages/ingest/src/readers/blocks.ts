@@ -117,20 +117,26 @@ function startsNewBlock(row: readonly string[], recent: readonly string[][], wid
   return false;
 }
 
-/** A cell that reads like a title or letterhead, not a column name: a colon label, a date or a year. */
-const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\b(?:19|20)\d{2}\b/;
+/** A cell that reads like a title or letterhead, not a column name: a colon label or a full date. */
+const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/;
+/** A bare year. It marks a title only when the cell is not a group label (C-new-1: "Apr 2025" over "Kg | Pcs"). */
+const YEAR_MARK = /\b(?:19|20)\d{2}\b/;
 
 /**
  * Is the header-like row at `h` a title above the real header (C15)? Only when it carries a title mark and the next
- * non-blank row is header-like with more cells. A group-label row of a two-row header has no such mark.
+ * non-blank row is header-like with more cells. A bare year counts only when its cell does not head a group: the
+ * cell to its right is blank and the row below fills that column. A group-label row of a two-row header is not a title.
  */
 function isTitleAbove(rows: readonly string[][], h: number): number {
   const row = rows[h]!;
-  if (!row.some((c) => c !== "" && TITLE_MARK.test(c))) return -1;
   let k = h + 1;
   while (k < rows.length && nonBlank(rows[k]!) === 0) k++;
   if (k >= rows.length) return -1;
-  return isHeaderLike(rows[k]!) && nonBlank(rows[k]!) > nonBlank(row) ? k : -1;
+  const below = rows[k]!;
+  const groupLabel = (i: number) => (row[i + 1] ?? "") === "" && (below[i + 1] ?? "") !== "";
+  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !groupLabel(i))));
+  if (!marked) return -1;
+  return isHeaderLike(below) && nonBlank(below) > nonBlank(row) ? k : -1;
 }
 
 export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { sheetName?: string | null } = {}): ReadBlock[] {
