@@ -11,10 +11,13 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { bandTitle, parseKgToMilli, refusalText } from "./die-room-model";
 import { PlantInput } from "@/shared/components/plant-input";
-import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { followsPlant, keypadStep, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
+/** What the keypad may build up: three digits and three places in kg per 12 ft; a little more room in a finer unit (kg per metre, lb per foot). */
+const KG12_TEXT = /^\d{0,3}(\.\d{0,3})?$/;
+const PLANT_TEXT = /^\d{0,4}(\.\d{0,4})?$/;
 const KEYS = ["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "back"] as const;
 
 /**
@@ -40,7 +43,11 @@ export function ReadingPad({
   const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
+  // `text` is the draft in kg per 12 ft (what the model reads). `typed` is what the person sees, in the plant's unit; on a plant
+  // that already reads kg per 12 ft the two are the same text.
   const [text, setText] = useState("");
+  const [typed, setTyped] = useState("");
+  const native = followsPlant(fmt, SECTION_KG12);
   const [error, setError] = useState<string | null>(null);
   const parsed = parseKgToMilli(text);
   // BACKLOG 47: one request id per reading. Save tapped twice, or sent again after a lost reply, is
@@ -57,6 +64,7 @@ export function ReadingPad({
       ]);
       toast.success(t("dieRoom.reading.saved", { code, kg: sectionText(fmt, r.kgPer12ftMilli) }));
       setText("");
+      setTyped("");
       setError(null);
       onOpenChange(false);
     },
@@ -65,16 +73,16 @@ export function ReadingPad({
 
   const push = (key: string) => {
     setError(null);
-    setText((prev) => {
-      if (key === "back") return prev.slice(0, -1);
-      if (key === "." && prev.includes(".")) return prev;
-      const next = prev + key;
-      return /^\d{0,3}(\.\d{0,3})?$/.test(next) ? next : prev;
-    });
+    // The keypad edits the text in the plant's unit (2.5 on a kg per metre plant is 2.5 kg/m); the draft follows from it.
+    const step = keypadStep(fmt, SECTION_KG12, native ? text : typed, key, native ? KG12_TEXT : PLANT_TEXT);
+    if (!step) return;
+    if (!native) setTyped(step.typed);
+    setText(step.draft);
   };
 
   const close = () => {
     setText("");
+    setTyped("");
     setError(null);
     onOpenChange(false);
   };
@@ -115,9 +123,11 @@ export function ReadingPad({
         <Field label={t("dieRoom.reading.weight")} hint={sectionUnit(fmt)}>
           <PlantInput spec={SECTION_KG12}
             value={text}
+            typed={typed}
+            onTypedChange={setTyped}
             onValueChange={(v) => {
               setError(null);
-              if (/^\d{0,3}(\.\d{0,3})?$/.test(v)) setText(v);
+              if (!native || KG12_TEXT.test(v)) setText(v);
             }}
             className="font-mono text-[28px]"
             data-testid="reading-value"

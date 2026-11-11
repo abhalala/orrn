@@ -13,6 +13,13 @@ export type PlantInputProps = Omit<NumberInputProps, "suffix"> & {
   /** Which quantity this box takes and which unit the form's draft text is in. */
   spec: EntrySpec;
   ref?: Ref<HTMLInputElement>;
+  /**
+   * For a form that edits the text itself (an on-screen keypad): the text as the person sees it, in the plant's unit.
+   * Give both props or neither. The box then shows `typed`, reports every change through `onTypedChange` as well as
+   * `onValueChange`, and works out the refusal sentence from `typed`.
+   */
+  typed?: string;
+  onTypedChange?: (typed: string) => void;
 };
 
 /**
@@ -21,25 +28,28 @@ export type PlantInputProps = Omit<NumberInputProps, "suffix"> & {
  * form model reads (so the model and its checks run on canonical values, unchanged). For a plant whose unit already is
  * the draft's unit it is the plain `NumberInput`, so nothing changes for a plant that changed nothing.
  */
-export function PlantInput({ spec, value, onValueChange, decimal, ...rest }: PlantInputProps) {
+export function PlantInput({ spec, value, onValueChange, decimal, typed, onTypedChange, ...rest }: PlantInputProps) {
   const fmt = useFmt();
   const { t } = useT();
   const unit = fmt.unitOf(kindOf(spec));
   const suffix = unit.composite ? "ft in" : unit.symbol;
   const native = followsPlant(fmt, spec);
-  const [text, setText] = useState(() => draftToTyped(fmt, spec, value));
-  const [problem, setProblem] = useState<ParseProblem | "kind" | null>(null);
+  const controlled = typed !== undefined && onTypedChange !== undefined;
+  const [ownText, setText] = useState(() => draftToTyped(fmt, spec, value));
+  const [ownProblem, setProblem] = useState<ParseProblem | "kind" | null>(null);
+  const text = controlled ? typed : ownText;
+  const problem = controlled ? (native ? null : typedToDraft(fmt, spec, typed).problem) : ownProblem;
   const emitted = useRef(value);
   const seen = useRef(fmt.key);
 
   useEffect(() => {
-    if (native) return;
+    if (native || controlled) return;
     if (value === emitted.current && seen.current === fmt.key) return;
     emitted.current = value;
     seen.current = fmt.key;
     setText(draftToTyped(fmt, spec, value));
     setProblem(null);
-  }, [native, value, fmt, spec]);
+  }, [native, controlled, value, fmt, spec]);
 
   if (native) {
     // The draft is in the box's own unit (grams for a nitriding box, inches for a gauge), so that is the word beside it.
@@ -47,7 +57,8 @@ export function PlantInput({ spec, value, onValueChange, decimal, ...rest }: Pla
   }
 
   const change = (next: string) => {
-    setText(next);
+    if (controlled) onTypedChange(next);
+    else setText(next);
     const step = typedToDraft(fmt, spec, next);
     emitted.current = step.draft;
     setProblem(step.problem);

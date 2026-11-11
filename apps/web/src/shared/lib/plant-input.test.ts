@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
-import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, typedToDraft, WALL_MM } from "./plant-input";
+import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, keypadStep, typedToDraft, WALL_MM } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -119,5 +119,38 @@ describe("draft helpers", () => {
     expect(canonicalToDraft(MASS_KG, 12500)).toBe("12.5");
     expect(canonicalToDraft(MASS_G, 250)).toBe("250");
     expect(canonicalToDraft(LENGTH_FT, 3810)).toBe("12.5");
+  });
+});
+
+describe("an on-screen keypad edits the text in the plant's unit", () => {
+  const LIMIT = /^\d{0,4}(\.\d{0,4})?$/;
+  const press = (f: ReturnType<typeof fmtOf>, keys: string[]) => {
+    let typed = "";
+    let draft = "";
+    for (const k of keys) {
+      const step = keypadStep(f, SECTION_KG12, typed, k, LIMIT);
+      if (step) ({ typed, draft } = step);
+    }
+    return { typed, draft };
+  };
+  test("kg per metre: 2 . 5 is 2.5 kg/m, which is 9.144 kg per 12 ft (it was 2.5 kg per 12 ft)", () => {
+    const f = fmtOf({ units: { linear_mass: "kg_m" } });
+    const r = press(f, ["2", ".", "5"]);
+    expect(r).toEqual({ typed: "2.5", draft: "9.144" });
+    expect(draftToCanonical(SECTION_KG12, r.draft)).toBe(9144);
+  });
+  test("pounds per foot: 1 . 2 5 is 1.25 lb/ft", () => {
+    const f = fmtOf({ units: { linear_mass: "lb_ft" } });
+    const r = press(f, ["1", ".", "2", "5"]);
+    expect(r.typed).toBe("1.25");
+    expect(draftToCanonical(SECTION_KG12, r.draft)).toBe(Math.round(1.25 * 5443.10844));
+  });
+  test("back removes the last character of the typed text; a refused (too fine) text gives a blank draft", () => {
+    const f = fmtOf({ units: { linear_mass: "kg_m" } });
+    expect(press(f, ["2", ".", "5", "back"])).toEqual({ typed: "2.", draft: "7.315" });
+    expect(press(f, ["2", ".", "5", "0", "0", "1"]).draft).toBe("");
+  });
+  test("a plant that changed nothing: the typed text and the draft are the same", () => {
+    expect(press(fmtOf(), ["2", ".", "5"])).toEqual({ typed: "2.5", draft: "2.5" });
   });
 });

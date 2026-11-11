@@ -90,3 +90,19 @@ export function typedToDraft(fmt: Fmt, spec: EntrySpec, text: string): TypedStep
   if (!r.ok) return { draft: "", value: null, problem: r.problem };
   return { draft: canonicalToDraft(spec, r.value), value: r.value, problem: null };
 }
+
+/**
+ * One press of an on-screen keypad. `current` is the text the person sees in the plant's unit (on a plant whose unit already
+ * is the draft's unit, that is the draft). The key edits that text, never the draft, so "2 . 5" on a kg per metre plant is
+ * 2.5 kg/m. `limit` says what text may be built up (digits and places). Null when the key adds nothing.
+ */
+export function keypadStep(fmt: Fmt, spec: EntrySpec, current: string, key: string, limit: RegExp): { typed: string; draft: string } | null {
+  let typed: string;
+  if (key === "back") typed = current.slice(0, -1);
+  else if (key === "." && current.includes(".")) return null;
+  else {
+    typed = current + key;
+    if (!limit.test(typed)) return null;
+  }
+  return { typed, draft: typedToDraft(fmt, spec, typed).draft };
+}
