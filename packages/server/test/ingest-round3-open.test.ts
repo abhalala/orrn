@@ -105,3 +105,53 @@ describe("X-new-5: a stuck part of the derived new customers list has a way out"
     expect(names.results.map((n) => n.name)).toEqual(["Bharat Metals"]);
   });
 });
+
+describe("minor 2: a stored 'owner merges' does not answer the rates question when pricing is off", () => {
+  test("the question stays open and approve refuses", async () => {
+    const p = await plant(env);
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    const headers = [...ORDER_HEADERS, "Rate (paise/kg)"];
+    const fields = [...ORDER_FIELDS, { field: "rate", steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "paise/kg" }] }];
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("orders", headers, fields, ["customer", "poNumber", "orderDate"]), "Rated");
+    const { candidates } = await upload(p.owner, [{ headers, rows: [["Acme Traders", "PO-1", "01/10/2025", "R", "5100", "3658", "", "300", "25000"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    // Answered "owner merges" while rates were on; rates were turned off after.
+    const { ingestAnswer } = await import("@orrn/db/schema/ingest");
+    await env.db.insert(ingestAnswer).values({ id: `a_${id}`, companyId: p.companyId, candidateId: id, questionCode: "rates_hidden", subject: "", answer: "owner_merges", answeredBy: p.users.owner.id });
+    const c = await p.owner.ingest.candidate.get({ candidateId: id });
+    const q = c.questions.find((x) => x.code === "rates_hidden")!;
+    expect(q.answer).toBe("owner_merges");
+    expect(q.open).toBe(true);
+    expect(c.openQuestions).toBeGreaterThan(0);
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow();
+  });
+});
+
+describe("minor 3: a magnitude answer that names a unit already tried leaves the question open", () => {
+  test("12 in mm, then cm (still too short), then mm again: the cm question stays open and approve refuses", async () => {
+    const p = await plant(env);
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("orders", ORDER_HEADERS, ORDER_FIELDS, ["customer", "poNumber", "orderDate"]), "Orders");
+    const { candidates } = await upload(p.owner, [{ headers: ORDER_HEADERS, rows: [["Acme Traders", "PO-1", "01/10/2025", "R", "5100", "12", "", "300"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.filter((q) => q.code === "magnitude_check" && q.open).map((q) => q.subject)).toEqual(["cutLength|mm|below"]);
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "magnitude_check", subject: "cutLength|mm|below", answer: "cm", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.filter((q) => q.code === "magnitude_check" && q.open).map((q) => q.subject)).toEqual(["cutLength|cm|below"]);
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "magnitude_check", subject: "cutLength|cm|below", answer: "mm", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    const q = c.questions.find((x) => x.code === "magnitude_check" && x.subject === "cutLength|cm|below")!;
+    expect(q.answer).toBe("mm");
+    expect(q.open).toBe(true);
+    expect((await rowsOf(p.owner, id))[0]!.state).toBe("ambiguous");
+    expect(c.openQuestions).toBeGreaterThan(0);
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow();
+  });
+});
