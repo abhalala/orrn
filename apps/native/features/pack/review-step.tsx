@@ -2,7 +2,6 @@ import { formatKg, formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Text, View } from "react-native";
 
-import { Button } from "@/components/ui/button";
 import { reasonLabel } from "@/features/press/reason-label";
 
 import { typedCount } from "./pack-card";
@@ -31,10 +30,7 @@ export type ReviewStepProps = {
   source: SourceSummary;
   bundles: DraftBundle[];
   rejects: DraftReject[];
-  saving: boolean;
   problem: SaveProblem | null;
-  onSave: () => void;
-  onBack: () => void;
 };
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -107,8 +103,7 @@ export function ReviewStep(p: ReviewStepProps) {
         </View>
       ) : null}
 
-      <Button size="lg" label={t("pack.new.saveOnly")} loading={p.saving} loadingLabel={t("common.saving")} onPress={p.onSave} />
-      <Button variant="ghost" label={t("native.pack.editBundles")} disabled={p.saving} onPress={p.onBack} />
+      <View testID="pack-review-bottom-clearance" className="h-40" />
     </View>
   );
 }

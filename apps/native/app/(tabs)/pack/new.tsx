@@ -9,6 +9,7 @@ import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Screen } from "@/components/ui/screen";
+import { ActionBar } from "@/features/dispatch/action-bar";
 import { BundlesStep } from "@/features/pack/bundles-step";
 import { DieStep } from "@/features/pack/die-step";
 import { DRAFT_VERSION, type PackDraft } from "@/features/pack/draft-store";
@@ -216,8 +217,9 @@ export default function NewPackSessionScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("pack.new.title") }} />
-      <Screen>
-        <Can do="bundle.create" fallback={<EmptyState title={t("errors.forbidden")} />}>
+      <View className="flex-1 bg-canvas">
+        <Screen>
+          <Can do="bundle.create" fallback={<EmptyState title={t("errors.forbidden")} />}>
           {offered ? (
             <View accessibilityLiveRegion="polite" className="gap-3 rounded-card border border-hairline bg-surface-sunken p-4">
               <Text className="font-sans-semibold text-base text-ink">{t("pack.new.draftKept")}</Text>
@@ -293,16 +295,20 @@ export default function NewPackSessionScreen() {
                   source={summary}
                   bundles={bundles}
                   rejects={rejects}
-                  saving={create.isPending}
                   problem={problem}
-                  onSave={() => void save()}
-                  onBack={() => setStep(1)}
                 />
               ) : null}
             </>
           ) : null}
-        </Can>
-      </Screen>
+          </Can>
+        </Screen>
+        {step === 2 && die && defaultLengthMm !== null ? (
+          <ActionBar>
+            <Button size="lg" testID="pack-review-save" label={t("pack.new.saveOnly")} loading={create.isPending} loadingLabel={t("common.saving")} onPress={() => void save()} />
+            <Button variant="ghost" testID="pack-review-edit" label={t("native.pack.editBundles")} disabled={create.isPending} onPress={() => setStep(1)} />
+          </ActionBar>
+        ) : null}
+      </View>
     </>
   );
 }
