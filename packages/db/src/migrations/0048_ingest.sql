@@ -253,3 +253,6 @@ CREATE INDEX `ingest_staged_row_company_key_idx` ON `ingest_staged_row` (`compan
 CREATE INDEX `ingest_staged_row_company_order_key_idx` ON `ingest_staged_row` (`company_id`,`order_key`);--> statement-breakpoint
 ALTER TABLE `customer` ADD `name_key` text;--> statement-breakpoint
 CREATE INDEX `customer_company_name_key_idx` ON `customer` (`company_id`,`name_key`);
+--> statement-breakpoint
+ALTER TABLE `ingest_staged_row` ADD `name_key` text;--> statement-breakpoint
+CREATE INDEX `ingest_staged_row_company_name_key_idx` ON `ingest_staged_row` (`company_id`,`name_key`);

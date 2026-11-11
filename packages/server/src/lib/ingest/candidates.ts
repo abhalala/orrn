@@ -1027,9 +1027,9 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   if (vaultReady() && artifact.vaultState !== "stored") {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The original file is not saved yet. Upload the same file again, then approve." });
   }
-  // Refusals that are out of date (rule 2): a section a row was refused for exists now.
-  if (c.target === "orders" || c.target === "die_copies") {
-    const stale = await staleRefusal(ctx, c.id);
+  // Refusals that are out of date (rule 2): a section or customer a row was refused for exists now.
+  if (c.target === "orders" || c.target === "die_copies" || c.target === "customer_aliases") {
+    const stale = await staleRefusal(ctx, c.id, c.target);
     if (stale) throw new TRPCError({ code: "PRECONDITION_FAILED", message: stale });
   }
   // An orders sheet the planner cannot read in one step is refused here with the planner's words.

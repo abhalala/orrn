@@ -305,6 +305,11 @@ export const ingestStagedRow = sqliteTable(
      * same order in another file.
      */
     orderKey: text("order_key"),
+    /**
+     * Customers only: the name key of the customer the row adds (server lib/purchase nameKey).
+     * Indexed so an aliases sheet of the same upload finds a customer another sheet adds (rule 2).
+     */
+    nameKey: text("name_key"),
     updatedAt: updatedAtCol(),
   },
   (t) => [
@@ -313,6 +318,7 @@ export const ingestStagedRow = sqliteTable(
     index("ingest_staged_row_committed_idx").on(t.companyId, t.committedType, t.committedId),
     index("ingest_staged_row_company_key_idx").on(t.companyId, t.rowKey),
     index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey),
+    index("ingest_staged_row_company_name_key_idx").on(t.companyId, t.nameKey),
   ],
 );
 

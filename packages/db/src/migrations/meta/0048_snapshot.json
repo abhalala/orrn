@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "664340c6-a148-466d-9542-c0c5d866d7ff",
+  "id": "87e93cc4-c702-4495-81da-db7587470f67",
   "prevId": "3182b154-d8c0-4805-9d6d-c1922cf3622a",
   "tables": {
     "ageing_batch": {
@@ -12145,6 +12145,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "integer",
@@ -12193,6 +12200,14 @@
           "columns": [
             "company_id",
             "order_key"
+          ],
+          "isUnique": false
+        },
+        "ingest_staged_row_company_name_key_idx": {
+          "name": "ingest_staged_row_company_name_key_idx",
+          "columns": [
+            "company_id",
+            "name_key"
           ],
           "isUnique": false
         }

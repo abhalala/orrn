@@ -174,3 +174,61 @@ describe("S3-4: an order book approved while its die sheet waits on an answer", 
     expect(await countOf(env, "sales_order_line", p.companyId)).toBe(2);
   });
 });
+
+describe("S3-7: an aliases sheet may use a customer a customers sheet of the same upload adds", () => {
+  for (const first of ["customers", "aliases"] as const) {
+    test(`the ${first} sheet checked first: one customer and one alias are written`, async () => {
+      const p = await plant(env);
+      await learnLayout(env, p.companyId, p.users.owner.id, layout("customers", ["Party name", "City"], [{ field: "name", steps: trim }, { field: "city", steps: trim }], ["name"]), "Parties");
+      await learnLayout(
+        env,
+        p.companyId,
+        p.users.owner.id,
+        layout("customer_aliases", ["Party", "Also called"], [{ field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] }, { field: "alias", steps: trim }], ["alias"]),
+        "Aliases",
+      );
+      const { candidates } = await upload(p.owner, [
+        { name: "Parties", headers: ["Party name", "City"], rows: [["Nova Metals", "Rajkot"]] },
+        { name: "Aliases", headers: ["Party", "Also called"], rows: [["Nova Metals", "Nova"]] },
+      ]);
+      const [cu, al] = [candidates[0]!.id, candidates[1]!.id];
+      if (first === "customers") {
+        await pump(p.owner, cu);
+        await pump(p.owner, al);
+      } else {
+        await pump(p.owner, al);
+        // Not found yet, and approve says why it must wait.
+        expect((await rowsOf(p.owner, al)).map((r) => r.reasons)).toEqual([["not_found:customer"]]);
+        await pump(p.owner, cu);
+        // The customers sheet finished with Nova Metals: the aliases sheet is checked again (rule 2).
+        await pump(p.owner, al);
+      }
+      expect((await rowsOf(p.owner, al)).map((r) => r.state)).toEqual(["ready_create"]);
+      expect(await tryApprove(p.owner, cu)).toBe("approved");
+      expect(await tryApprove(p.owner, al)).toBe("approved");
+      expect((await mergeOnce(p.owner)).state).toBe("done");
+      expect(await countOf(env, "customer", p.companyId)).toBe(1);
+      expect(await countOf(env, "customer_alias", p.companyId)).toBe(1);
+    });
+  }
+
+  test("approve refuses an aliases sheet whose refused customer a customers sheet now adds, or still checks", async () => {
+    const p = await plant(env);
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("customers", ["Party name", "City"], [{ field: "name", steps: trim }, { field: "city", steps: trim }], ["name"]), "Parties");
+    await learnLayout(
+      env,
+      p.companyId,
+      p.users.owner.id,
+      layout("customer_aliases", ["Party", "Also called"], [{ field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] }, { field: "alias", steps: trim }], ["alias"]),
+      "Aliases",
+    );
+    const { candidates } = await upload(p.owner, [
+      { name: "Aliases", headers: ["Party", "Also called"], rows: [["Nova Metals", "Nova"]] },
+      { name: "Parties", headers: ["Party name", "City"], rows: [["Nova Metals", "Rajkot"]] },
+    ]);
+    const [al] = [candidates[0]!.id];
+    await pump(p.owner, al);
+    // The customers sheet is not checked yet: its names are not known, so the aliases sheet waits.
+    expect(await tryApprove(p.owner, al)).toBe("REFUSED: A customers sheet of this plant is still being checked. Finish it first, then check this sheet again.");
+  });
+});

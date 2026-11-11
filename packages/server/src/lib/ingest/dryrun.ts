@@ -53,6 +53,7 @@ import {
   aliasNameOwners,
   checkReason,
   handStatusCheck,
+  liveCustomersByKey,
   loadOrderLineSchema,
   newCopyCheck,
   orderLineCheck,
@@ -286,6 +287,8 @@ type PageLive = {
   nameOwners?: Map<string, NameOwner>;
   /** Sections a ready or approved die sheet of the plant will create, by staged row key (X-new-4). */
   pendingSections?: { rowKey: string; series: string; code: string }[];
+  /** Customers a ready or approved customers sheet of the plant will add, by name key (rule 2, S3-7). */
+  pendingCustomers?: Map<string, string>;
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
@@ -377,6 +380,7 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
     live.customerAliasKeys = new Map(hits.map((h) => [h.key, h.id]));
   }
   if (target === "customer_aliases" || target === "vendor_aliases") live.nameOwners = await aliasNameOwners(ctx, target);
+  if (target === "customer_aliases") live.pendingCustomers = await loadPendingCustomers(ctx, rows.map((v) => nameKey(str(v.customer))));
   if (target === "vendor_aliases") {
     const keys = rows.map((v) => nameKey(str(v.alias))).filter(Boolean);
     const hits = await mapInChunks([...new Set(keys)], (part) =>
@@ -419,6 +423,58 @@ async function loadPendingSections(ctx: IngestCtx, codes: readonly string[]): Pr
   return rows;
 }
 
+/**
+ * Customers a customers sheet of the plant will add when it merges, by name key: `ready_create` rows
+ * of a customers candidate that is ready or approved (rule 2, S3-7). Customers merge before
+ * customer aliases, so an alias row pointing at one (`pending:<rowKey>`) finds the new customer at
+ * chunk time; if that sheet is not merged first, the merge holds the aliases candidate. Read on
+ * `ingest_staged_row_company_name_key_idx`, 90 keys a statement. The first row by key wins.
+ */
+async function loadPendingCustomers(ctx: IngestCtx, keys: readonly string[]): Promise<Map<string, string>> {
+  const wanted = [...new Set(keys)].filter(Boolean);
+  const out = new Map<string, string>();
+  if (wanted.length === 0) return out;
+  const rows = await mapInChunks(wanted, (part) =>
+    ctx.db
+      .select({ rowKey: ingestStagedRow.rowKey, key: ingestStagedRow.nameKey })
+      .from(ingestStagedRow)
+      .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
+      .where(
+        and(
+          eq(ingestStagedRow.companyId, ctx.companyId),
+          inArray(ingestStagedRow.nameKey, part),
+          eq(ingestCandidate.target, "customers"),
+          inArray(ingestCandidate.state, ["ready", "approved"]),
+          eq(ingestStagedRow.state, "ready_create"),
+          eq(ingestStagedRow.mergeState, "open"),
+        ),
+      ),
+  );
+  for (const r of rows.sort((a, b) => (a.rowKey < b.rowKey ? -1 : a.rowKey > b.rowKey ? 1 : 0))) {
+    if (r.key && !out.has(r.key)) out.set(r.key, r.rowKey);
+  }
+  return out;
+}
+
+/** A candidate's refused `not_found:customer` alias rows: each row's index and customer name key. */
+async function customerNotFoundRows(ctx: IngestCtx, candidateIds: readonly string[]) {
+  if (candidateIds.length === 0) return [];
+  const rows = await mapInChunks([...candidateIds], (part) =>
+    ctx.db
+      .select({ candidateId: ingestStagedRow.candidateId, rowIndex: ingestStagedRow.rowIndex, name: sql<string | null>`json_extract(${ingestStagedRow.values}, '$.customer')` })
+      .from(ingestStagedRow)
+      .where(
+        and(
+          inArray(ingestStagedRow.candidateId, part),
+          eq(ingestStagedRow.state, "refused"),
+          eq(ingestStagedRow.mergeState, "open"),
+          sql`${ingestStagedRow.reasons} like '%"not_found:customer"%'`,
+        ),
+      ),
+  );
+  return rows.map((r) => ({ ...r, key: nameKey(str(r.name)) }));
+}
+
 /** Section keys (upper case, trimmed) of a candidate's refused `section_unknown` rows, with each row's index. */
 async function sectionUnknownRows(ctx: IngestCtx, candidateIds: readonly string[]) {
   if (candidateIds.length === 0) return [];
@@ -443,26 +499,39 @@ async function sectionUnknownRows(ctx: IngestCtx, candidateIds: readonly string[
 }
 
 /**
- * Rule 2: a die sheet finished its dry run with new sections. Every orders or die copies candidate of
- * the plant that is ready or still checking, and has rows refused for one of those sections, goes
- * back to checking from its first such row. A held one is left as it is: approve refuses it until it
- * is checked again (`staleRefusal`).
+ * Rule 2: a die sheet finished its dry run with new sections, or a customers sheet with new
+ * customers. Every candidate of the plant that is ready or still checking, and has rows refused for
+ * one of them (orders and die copies for a section, customer aliases for a customer), goes back to
+ * checking from its first such row. A held one is left as it is: approve refuses it until it is
+ * checked again (`staleRefusal`).
  */
-export async function dependentsAgain(ctx: IngestCtx, diesCandidateId: string, at: Date): Promise<SqliteBatchItem[]> {
+export async function dependentsAgain(ctx: IngestCtx, madeBy: Pick<CandidateRow, "id" | "target">, at: Date): Promise<SqliteBatchItem[]> {
   const V = ingestStagedRow.values;
+  const isDies = madeBy.target === "dies";
   const made = await ctx.db
-    .select({ code: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))` })
+    .select({
+      key: isDies ? sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))` : sql<string>`coalesce(${ingestStagedRow.nameKey}, '')`,
+    })
     .from(ingestStagedRow)
-    .where(and(eq(ingestStagedRow.candidateId, diesCandidateId), eq(ingestStagedRow.state, "ready_create"), eq(ingestStagedRow.mergeState, "open")));
-  const codes = new Set(made.map((m) => m.code).filter(Boolean));
-  if (codes.size === 0) return [];
+    .where(and(eq(ingestStagedRow.candidateId, madeBy.id), eq(ingestStagedRow.state, "ready_create"), eq(ingestStagedRow.mergeState, "open")));
+  const keys = new Set(made.map((m) => m.key).filter(Boolean));
+  if (keys.size === 0) return [];
   const others = await ctx.db
     .select({ id: ingestCandidate.id, dryCursor: ingestCandidate.dryCursor, state: ingestCandidate.state })
     .from(ingestCandidate)
-    .where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.target, ["orders", "die_copies"]), inArray(ingestCandidate.state, ["ready", "processing"])));
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        inArray(ingestCandidate.target, isDies ? ["orders", "die_copies"] : ["customer_aliases"]),
+        inArray(ingestCandidate.state, ["ready", "processing"]),
+      ),
+    );
+  const refused = isDies
+    ? (await sectionUnknownRows(ctx, others.map((o) => o.id))).map((r) => ({ candidateId: r.candidateId, rowIndex: r.rowIndex, key: r.code }))
+    : await customerNotFoundRows(ctx, others.map((o) => o.id));
   const first = new Map<string, number>();
-  for (const r of await sectionUnknownRows(ctx, others.map((o) => o.id))) {
-    if (!codes.has(r.code)) continue;
+  for (const r of refused) {
+    if (!keys.has(r.key)) continue;
     first.set(r.candidateId, Math.min(first.get(r.candidateId) ?? r.rowIndex, r.rowIndex));
   }
   return others
@@ -484,7 +553,8 @@ export async function dependentsAgain(ctx: IngestCtx, diesCandidateId: string, a
  * Rule 2, at approve: the words when a row was refused for a section that is now in orrn, or that a
  * ready or approved die sheet of the plant adds. Null when the refusals still stand.
  */
-export async function staleRefusal(ctx: IngestCtx, candidateId: string): Promise<string | null> {
+export async function staleRefusal(ctx: IngestCtx, candidateId: string, target: IngestTarget): Promise<string | null> {
+  if (target === "customer_aliases") return staleCustomerRefusal(ctx, candidateId);
   const rows = await sectionUnknownRows(ctx, [candidateId]);
   const codes = [...new Set(rows.map((r) => r.code).filter(Boolean))];
   if (codes.length === 0) return null;
@@ -496,7 +566,65 @@ export async function staleRefusal(ctx: IngestCtx, candidateId: string): Promise
   // A die sheet that adds the section but is not done yet: a row waiting on an answer, a sheet still
   // being checked, or one held. Approving now would drop these rows for good (S3-4).
   const waiting = await unfinishedDieSections(ctx, codes.filter((k) => !known.has(k)));
-  return waiting ? `A die sheet of this plant that is still being checked adds section ${waiting}. Finish it first, then check this sheet again.` : null;
+  if (waiting) return `A die sheet of this plant that is still being checked adds section ${waiting}. Finish it first, then check this sheet again.`;
+  return (await sheetStillReading(ctx, "dies")) ? "A die sheet of this plant is still being checked. Finish it first, then check this sheet again." : null;
+}
+
+/**
+ * Whether a sheet of this target in the plant has not finished its dry run, so its rows cannot be
+ * looked at by name or code yet. The derived new customers list of an order book is left out.
+ */
+async function sheetStillReading(ctx: IngestCtx, target: "dies" | "customers"): Promise<boolean> {
+  const [hit] = await ctx.db
+    .select({ id: ingestCandidate.id })
+    .from(ingestCandidate)
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        eq(ingestCandidate.target, target),
+        inArray(ingestCandidate.state, ["processing", "needs_shape", "needs_confirm"]),
+        isNull(ingestCandidate.parentId),
+      ),
+    )
+    .limit(1);
+  return !!hit;
+}
+
+/**
+ * Rule 2 for customers, at approve (S3-7): an alias row refused because its customer was not found,
+ * when that customer is now in orrn or in a ready or approved customers sheet ("Check this sheet
+ * again"), or is on a row of a customers sheet that is not done yet, or such a sheet is still being
+ * checked ("Finish it first").
+ */
+async function staleCustomerRefusal(ctx: IngestCtx, candidateId: string): Promise<string | null> {
+  const rows = await customerNotFoundRows(ctx, [candidateId]);
+  const keys = [...new Set(rows.map((r) => r.key).filter(Boolean))];
+  if (keys.length === 0) return null;
+  const nameOf = (k: string) => str(rows.find((r) => r.key === k)?.name).trim();
+  const live = new Set((await liveCustomersByKey(ctx, keys)).map((c) => c.key));
+  const pending = await loadPendingCustomers(ctx, keys.filter((k) => !live.has(k)));
+  const hit = keys.find((k) => live.has(k) || pending.has(k));
+  if (hit) return `Check this sheet again: ${nameOf(hit)} is now in orrn or in a customers sheet of this plant, so rows refused for it may import now.`;
+  const open = keys.filter((k) => !live.has(k));
+  const waiting = await mapInChunks(open, (part) =>
+    ctx.db
+      .select({ key: ingestStagedRow.nameKey })
+      .from(ingestStagedRow)
+      .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
+      .where(
+        and(
+          eq(ingestStagedRow.companyId, ctx.companyId),
+          inArray(ingestStagedRow.nameKey, part),
+          eq(ingestCandidate.target, "customers"),
+          notInArray(ingestCandidate.state, ["discarded", "merged"]),
+          notInArray(ingestStagedRow.state, ["refused", "skipped"]),
+          eq(ingestStagedRow.mergeState, "open"),
+        ),
+      )
+      .limit(1),
+  );
+  if (waiting[0]?.key) return `A customers sheet of this plant that is still being checked adds ${nameOf(waiting[0].key)}. Finish it first, then check this sheet again.`;
+  return (await sheetStillReading(ctx, "customers")) ? "A customers sheet of this plant is still being checked. Finish it first, then check this sheet again." : null;
 }
 
 /**
@@ -635,8 +763,14 @@ export function classifyRow(values: Values, cx: ClassifyCtx): RowOutcome {
   if (t === "customer_aliases" || t === "vendor_aliases") {
     const field = t === "customer_aliases" ? "customer" : "vendor";
     const index = (t === "customer_aliases" ? cx.live.customers : cx.live.vendors)!;
-    const r = pick(resolveName(index, str(values[field])), cx);
+    let r = pick(resolveName(index, str(values[field])), cx);
     if (r.kind === "ambiguous") return amb(values, field, r.options, reasons, "ambiguous");
+    // A customer a customers sheet of the plant adds first is that customer (rule 2, S3-7).
+    const pendingRow = r.kind === "none" && t === "customer_aliases" ? cx.live.pendingCustomers?.get(nameKey(str(values[field]))) : undefined;
+    if (pendingRow) {
+      r = { kind: "match", id: `pending:${pendingRow}`, label: str(values[field]) };
+      reasons.push("customer_pending:customer");
+    }
     if (r.kind === "none") return { state: "refused", values, reasons: [`not_found:${field}`], matchId: null, diff: null };
     ids[field] = r.id;
     const owner = (t === "customer_aliases" ? cx.live.customerAliasKeys : cx.live.vendorAliasKeys)?.get(nameKey(str(values.alias)));
@@ -1270,6 +1404,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
           rowIndex: next++,
           raw: [d.name],
           values: { name: d.name, _ids: {} },
+          nameKey: key,
           entered: null,
           state: decision === "skip" ? ("skipped" as const) : ("ready_create" as const),
           reasons: null,
@@ -1324,6 +1459,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
           matchId: r.decision === "use_match" ? r.matchId : out.matchId,
           diff: out.diff,
           orderKey: c.target === "orders" ? (identityOf(r, out)?.key ?? null) : null,
+          nameKey: c.target === "customers" ? nameKey(str(out.values?.name)) || null : null,
           updatedAt: at,
         })
         .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),
@@ -1390,9 +1526,9 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     }
     // The sheet's values are parsed now: guess the period again with them (A24).
     if (c.target === "orders" || c.target === "bundles") await refreshArtifactPeriod(ctx, artifact);
-    // New sections other sheets were refused for: those sheets check again (rule 2, X-new-4).
-    if (c.target === "dies") {
-      const again = await dependentsAgain(ctx, c.id, now());
+    // New sections or customers other sheets were refused for: those sheets check again (rule 2).
+    if (c.target === "dies" || c.target === "customers") {
+      const again = await dependentsAgain(ctx, c, now());
       if (again.length) await ctx.db.batch(again as never);
     }
   }
