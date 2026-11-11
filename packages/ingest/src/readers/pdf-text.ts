@@ -736,16 +736,23 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
   });
   // A header with no rows under it (a footer read as a header) is no table. Its lines are listed.
   const kept: ReadBlock[] = [];
+  const lostPages = new Set<number>();
   for (const b of out) {
     const m = meta.get(b)!;
     if (b.rows.length === 0) {
       const end = Math.max(b.guess.headerRow + b.headerRows - 1, b.guess.lastDataRow ?? -1);
       for (let n = m.regionStart; n <= end; n++) rowWarnings.push({ code: "not_placed", row: n, page: m.page + 1 });
-      continue;
     }
+  }
+  for (const w of rowWarnings) if (w.page !== undefined && !covered.has(w.page - 1)) lostPages.add(w.page);
+  for (const b of out) {
+    const m = meta.get(b)!;
+    if (b.rows.length === 0) continue;
     const reasons = new Set<UnsureReason>(unsureReasons({ hasTitle: b.title !== null, topRow: m.topRow, headerRows: b.headerRows, headers: b.headers, rows: b.rows }));
     for (const p of m.pages) {
       const pi = info[p]!;
+      // A line left on this page or the next one may be a row of this table.
+      if (lostPages.has(p + 1) || lostPages.has(p + 2)) reasons.add("line_not_placed");
       if (pi.blocks.size > 1) reasons.add("more_tables");
       if (pi.unplaced > 0) reasons.add("line_not_placed");
       if (pi.cols) reasons.add("columns_not_shared");
@@ -754,9 +761,21 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     if (m.fallback) reasons.add("columns_not_shared");
     if (b.warnings.some((w) => w.code === "footer_left_out")) reasons.add("rows_left_out");
     b.reasons = UNSURE_REASONS.filter((r) => reasons.has(r));
-    b.confidence = b.reasons.length === 0 ? "sure" : "unsure";
     kept.push(b);
   }
+  // A table that repeats most column names of an earlier one may be its continuation: which it is, is a guess.
+  const names = (b: ReadBlock) => new Set(b.headers.filter((h) => h !== "").map(squash));
+  kept.forEach((b, i) => {
+    for (const a of kept.slice(0, i)) {
+      const x = names(a);
+      const y = names(b);
+      const shared = [...y].filter((h) => x.has(h)).length;
+      if (shared * 2 >= Math.min(x.size, y.size) && shared > 0) {
+        for (const z of [a, b]) if (!z.reasons.includes("more_tables")) z.reasons = UNSURE_REASONS.filter((r) => r === "more_tables" || z.reasons.includes(r));
+      }
+    }
+  });
+  for (const b of kept) b.confidence = b.reasons.length === 0 ? "sure" : "unsure";
   const blocks = [...kept, ...(hinted?.blocks ?? [])].sort((a, b) => (a.guess.page ?? 0) - (b.guess.page ?? 0) || a.guess.headerRow - b.guess.headerRow);
   const seen = new Set<string>();
   const listed = rowWarnings.filter((w) => {
@@ -840,12 +859,12 @@ function readPdfByHints(
     const warnings: RowWarning[] = [];
     for (let n = h + headerRows; n < first; n++) warnings.push({ code: "skipped_by_hint", row: n, page: p + 1 });
 
-    // The row pitch of the data: the median gap between two multi-cell lines next to each other.
+    // The row pitch of the data: the median gap above a multi-cell line (a new row starts there, after the header,
+    // after a row or after the wrapped line of one).
+    const seq = first === h + headerRows ? [headLines[headLines.length - 1]!, ...dataLines] : dataLines;
     const gaps: number[] = [];
-    for (let k = 1; k < dataLines.length; k++) {
-      const a = dataLines[k - 1]!;
-      const b = dataLines[k]!;
-      if (a.cells.length >= 2 && b.cells.length >= 2) gaps.push(Math.abs(a.y - b.y));
+    for (let k = 1; k < seq.length; k++) {
+      if (seq[k]!.cells.length >= 2) gaps.push(Math.abs(seq[k - 1]!.y - seq[k]!.y));
     }
     const pitch = median(gaps, height * 1.5);
     const rows: string[][] = [];
