@@ -32,13 +32,16 @@ import {
 } from "./model";
 import { parseDieLifeSearch, parseOrdersReportSearch, parseProductionSearch, parseStockAgeSearch } from "./search";
 
+/** The unit words a string may carry; a screen outside the plant provider (and this stub) reads them in kg, kg/12ft and mm. */
+const UNIT_DEFAULTS: Record<string, string> = { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm" };
+
 /** English `t` over the real dictionary (with `{var}` and `{count:a|b}`), so a missing key fails here. */
 function t(key: MessageKey, vars: Record<string, unknown> = {}): string {
   const raw = key.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], en);
   if (typeof raw !== "string") throw new Error(`missing ${key}`);
   return raw
     .replace(/\{(\w+):([^|}]*)\|([^}]*)\}/g, (_, v, one, other) => (Number(vars[v]) === 1 ? one : other))
-    .replace(/\{(\w+)\}/g, (_, v) => String(vars[v] ?? `{${v}}`));
+    .replace(/\{(\w+)\}/g, (_, v) => String(vars[v] ?? UNIT_DEFAULTS[v] ?? `{${v}}`));
 }
 
 const recovery: RecoveryData = {

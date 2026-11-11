@@ -135,7 +135,7 @@ export function SourceExtras({
       ariaLabel: `${r.trolleyCode} ${r.batchNumber}`,
       detail: [
         r.dieInstanceCode ? `${r.sectionLabel} · ${r.dieInstanceCode}` : r.sectionLabel,
-        t("pack.source.trolleyCut", { mm: r.cutLengthMm }),
+        t("pack.source.trolleyCut", { mm: fmt.q("bundle.length", r.cutLengthMm) }),
         r.castCode ? t("pack.source.trolleyCast", { cast: r.castCode }) : null,
         r.salesOrderNumber ? `${r.salesOrderNumber}${r.customerName ? ` · ${r.customerName}` : ""}` : null,
       ]

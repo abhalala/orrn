@@ -41,12 +41,13 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
   const query = useQuery({ ...trpc.analytics.foundryYield.queryOptions({ from, to, groupBy: group }), meta: INLINE_ERROR_META });
   const d = query.data;
   const label = (key: string) => (group === "alloy" || group === "furnace" ? key : key);
+  const kt = (key: Parameters<typeof t>[0]) => t(key, { massUnit: "kg" });
   const csv = () =>
     d
       ? {
           name: csvFileName(t("foundry.yield.csvName"), from, to),
           text: toCsv(
-            [t(`foundry.yield.group.${group}`), t("foundry.yield.melts"), t("foundry.yield.in"), t("foundry.yield.fromLots"), t("foundry.yield.fromStreams"), t("foundry.yield.logs"), t("foundry.yield.dross"), t("foundry.yield.fe"), t("foundry.yield.burn"), t("foundry.yield.yield"), t("foundry.yield.ldo")],
+            [kt(`foundry.yield.group.${group}`), kt("foundry.yield.melts"), kt("foundry.yield.in"), kt("foundry.yield.fromLots"), kt("foundry.yield.fromStreams"), kt("foundry.yield.logs"), kt("foundry.yield.dross"), kt("foundry.yield.fe"), kt("foundry.yield.burn"), kt("foundry.yield.yield"), kt("foundry.yield.ldo")],
             d.rows.map((r) => [r.key, r.melts, (r.inputG / 1000).toFixed(3), (r.lotsG / 1000).toFixed(3), (r.streamsG / 1000).toFixed(3), (r.logsG / 1000).toFixed(3), (r.drossG / 1000).toFixed(3), (r.feG / 1000).toFixed(3), r.burnBp === null ? "" : bpText(r.burnBp), r.yieldBp === null ? "" : bpText(r.yieldBp), r.ldoPerTonneTenthIn === null ? "" : ldoText(r.ldoPerTonneTenthIn)]),
           ),
         }

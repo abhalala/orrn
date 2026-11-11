@@ -34,7 +34,7 @@ export const guNative = {
       pickDie: "Die પસંદ કરો",
       dieSheetTitle: "Die પસંદ કરો",
       dieLoadError: "Die લોડ ન થઈ. ફરી પ્રયત્ન કરો.",
-      cutLengthMm: "કટ લંબાઈ (mm)",
+      cutLengthMm: "કટ લંબાઈ ({lengthUnit})",
       cutLengthError: "શૂન્યથી વધુ કટ લંબાઈ લખો.",
       yard: "યાર્ડની જગ્યા",
       yardHint: "આ bundle ક્યાં રખાશે.",

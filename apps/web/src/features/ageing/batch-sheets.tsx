@@ -582,6 +582,7 @@ const SPLIT_TOLERANCE_MM = 25;
 
 export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { row: BatchRow | null }) {
   const { t } = useT();
+  const fmt = useFmt();
   const invalidate = useAgeingInvalidate();
   const [cuts, setCuts] = useState<{ len: string; pcs: string }[]>([
     { len: "", pcs: "" },
@@ -620,7 +621,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
       open={open}
       onOpenChange={onOpenChange}
       title={t("ageing.split.title", { section: row?.sectionLabel ?? "" })}
-      description={row ? t("ageing.split.body", { pcs: row.pcs, mm: row.lengthMm, total: want }) : undefined}
+      description={row ? t("ageing.split.body", { pcs: row.pcs, mm: fmt.q("bundle.length", row.lengthMm), total: fmt.q("bundle.length", want) }) : undefined}
       busy={split.isPending}
       error={split.error}
       submitLabel={t("ageing.action.split")}
@@ -648,11 +649,11 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
         </Button>
       </div>
       <p className={sumOk || !valid ? "m-0 text-[13px] text-muted-foreground" : "m-0 text-[13px] font-medium text-destructive"} data-testid="split-sum">
-        {t("ageing.split.sum", { total, want })}
+        {t("ageing.split.sum", { total: fmt.q("bundle.length", total), want: fmt.q("bundle.length", want) })}
       </p>
       {sumMiss ? (
         <p role="alert" className="sr-only">
-          {t("ageing.split.sum", sumMiss)}
+          {t("ageing.split.sum", { total: fmt.q("bundle.length", sumMiss.total), want: fmt.q("bundle.length", sumMiss.want) })}
         </p>
       ) : null}
       {tried && !valid ? <p role="alert" className="m-0 text-[13px] font-medium text-destructive">{t("ageing.split.invalid")}</p> : null}

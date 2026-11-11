@@ -330,7 +330,7 @@ function PressLines({
                   </span>
                   <span className="text-[13px] leading-5 text-muted-foreground">
                     {[
-                      t("ageing.load.lineLength", { mm: line.lengthMm }),
+                      t("ageing.load.lineLength", { mm: fmt.q("bundle.length", line.lengthMm) }),
                       t("ageing.load.lineLeft", { pcs: line.pcsLeft, kg: kgGrouped1(fmt, line.kgLeftG) }),
                       line.castCode ? t("ageing.load.lineCast", { cast: line.castCode }) : null,
                       [line.alloy, line.temper].filter(Boolean).join(" "),
@@ -422,7 +422,7 @@ function Bundles({
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="font-mono text-[15px] font-semibold">{b.serial}</span>
                     <span className="text-[13px] leading-5 text-muted-foreground">
-                      {[b.sectionLabel, t("ageing.load.lineLength", { mm: b.lengthMm }), `${b.pcs} ${t("units.pcs")} · ${kgGrouped1(fmt, b.weightG)} ${massUnit(fmt)}`, b.castCode, [b.alloy, b.temper].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
+                      {[b.sectionLabel, t("ageing.load.lineLength", { mm: fmt.q("bundle.length", b.lengthMm) }), `${b.pcs} ${t("units.pcs")} · ${kgGrouped1(fmt, b.weightG)} ${massUnit(fmt)}`, b.castCode, [b.alloy, b.temper].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                 </label>

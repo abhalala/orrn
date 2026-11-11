@@ -69,7 +69,7 @@ export const guPressBoard = {
   reports: {
     todayTile: {
       title: "90 દિવસથી જૂનો સ્ટોક",
-      meta: "યાર્ડમાં {kg} kg",
+      meta: "યાર્ડમાં {kg} {massUnit}",
     },
   },
   charts: {

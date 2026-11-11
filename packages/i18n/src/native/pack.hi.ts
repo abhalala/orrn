@@ -12,7 +12,7 @@ export const packHi = {
     pickDie: "Die चुनें",
     dieSheetTitle: "Die चुनें",
     dieLoadError: "Die लोड नहीं हुए। फिर कोशिश करें।",
-    cutLengthMm: "कट लंबाई (mm)",
+    cutLengthMm: "कट लंबाई ({lengthUnit})",
     cutLengthError: "शून्य से ज़्यादा कट लंबाई लिखें।",
     yard: "यार्ड की जगह",
     yardHint: "ये bundle कहां रखे जाएंगे।",

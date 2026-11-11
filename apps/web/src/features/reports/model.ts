@@ -20,6 +20,9 @@ export type OrdersRow = OrdersData["rows"][number];
 
 type T = (key: MessageKey, vars?: TranslateVars) => string;
 
+/** Exports stay in kg, mm and kg per 12 ft whatever the plant shows on screen (units in the headers, numbers in those units). */
+const exportWords = (t: T): T => (key, vars) => t(key, { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm", ...vars });
+
 const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const KG0 = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
 const RS = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -75,6 +78,8 @@ export function recoveryLabel(r: { label: string; detail: string | null }, group
 }
 
 export function recoveryCsv(data: RecoveryData, t: T): string {
+  const T = t;
+  t = exportWords(T);
   const group = data.groupBy as RecoveryGroup;
   const header = [
     t(`reports.production.group.${group}`),
@@ -119,6 +124,8 @@ export function lifeHeader(item: Pick<DieLifeItem, "state" | "usedPct" | "produc
 }
 
 export function dieLifeCsv(items: readonly DieLifeItem[], t: T, statusLabel: (s: string) => string): string {
+  const T = t;
+  t = exportWords(T);
   const header = [
     t("reports.dieLife.copy"),
     t("reports.dieLife.section"),
@@ -161,6 +168,8 @@ export function stockAgeBars(data: StockAgeData, t: T) {
 }
 
 export function stockAgeCsv(data: StockAgeData, t: T): string {
+  const T = t;
+  t = exportWords(T);
   const header = [
     t("reports.stockAge.party"),
     ...AGE_BUCKET_KEYS.flatMap((k) => [`${t(k)} ${t("reports.stockAge.kg")}`, `${t(k)} ${t("reports.stockAge.bundles")}`]),
@@ -188,6 +197,8 @@ export function ordersRowName(r: Pick<OrdersRow, "key" | "label">, group: "custo
 }
 
 export function ordersCsv(data: OrdersData, t: T, withRates: boolean): string {
+  const T = t;
+  t = exportWords(T);
   const group = data.groupBy;
   const months = monthNames(t);
   const header = [

@@ -155,7 +155,7 @@ describe("the short-stock hint states D22 (review r1 I-2)", () => {
     const hint = (dict: unknown, key: string) => dig(dict, `press.console.${key}`) as string;
     expect(hint(en, "shortStock")).toContain("logged with the weighed {massUnit}");
     expect(hint(en, "shortStock")).toContain("billets short by {short} {massUnit}");
-    expect(hint(en, "shortStockNoFigure")).toContain("logged with the weighed kg");
+    expect(hint(en, "shortStockNoFigure")).toContain("logged with the weighed {massUnit}");
     for (const dict of [en, hi, gu]) {
       for (const key of ["shortStock", "shortStockNoFigure"]) expect(hint(dict, key)).not.toMatch(/\bposts?\b/);
       expect(hint(dict, "shortStock")).toContain("{kg}");

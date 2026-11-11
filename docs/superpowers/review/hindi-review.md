@@ -38,7 +38,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `search` | Search | खोजें |
 | `filter` | Filter | फ़िल्टर |
 | `sort` | Sort | क्रम से लगाएं |
-| `sortMostKg` | Most kg | सबसे ज़्यादा kg |
+| `sortMostKg` | Most {massUnit} | सबसे ज़्यादा {massUnit} |
 | `sortAZ` | A to Z | A से Z |
 | `all` | All | सभी |
 | `loading` | Loading | लोड हो रहा है |
@@ -92,9 +92,9 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 
 | Key | English | हिंदी |
 |---|---|---|
-| `kg` | kg | kg |
+| `kg` | {massUnit} | {massUnit} |
 | `g` | g | g |
-| `kgPer12ft` | kg/12ft | kg/12ft |
+| `kgPer12ft` | {sectionUnit} | {sectionUnit} |
 | `pcs` | pcs | pcs |
 | `mm` | mm | mm |
 | `inch` | in | in |
@@ -492,16 +492,16 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `reloadPage` | Reload page | पेज दोबारा लोड करें |
 | `trendsHeading` | Trends | रुझान |
 | `trend.title` | Packed and dispatched | पैक और dispatch |
-| `trend.subtitle` | kg per day, last 90 days, today so far | रोज़ का kg, पिछले 90 दिन, आज अब तक |
-| `trend.label` | Packed and dispatched, kg per day | पैक और dispatch, रोज़ का kg |
+| `trend.subtitle` | {massUnit} per day, last 90 days, today so far | रोज़ का {massUnit}, पिछले 90 दिन, आज अब तक |
+| `trend.label` | Packed and dispatched, {massUnit} per day | पैक और dispatch, रोज़ का {massUnit} |
 | `trend.packed` | Packed | पैक हुआ |
 | `trend.dispatched` | Dispatched | Dispatch हुआ |
 | `trend.dateHeader` | Date | तारीख |
 | `trend.emptyTitle` | Nothing packed or dispatched in 90 days | 90 दिन में कुछ पैक या dispatch नहीं हुआ |
-| `trend.emptyBody` | Each day's kg shows up here once bundles are packed or dispatched. | Bundle पैक या dispatch होते ही हर दिन का kg यहां दिखेगा। |
+| `trend.emptyBody` | Each day's {massUnit} shows up here once bundles are packed or dispatched. | Bundle पैक या dispatch होते ही हर दिन का {massUnit} यहां दिखेगा। |
 | `ageing.title` | Stock age | स्टॉक की उम्र |
-| `ageing.subtitle` | kg in stock by days since packing | पैकिंग से अब तक के दिनों के हिसाब से स्टॉक का kg |
-| `ageing.label` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग से दिनों के हिसाब से kg |
+| `ageing.subtitle` | {massUnit} in stock by days since packing | पैकिंग से अब तक के दिनों के हिसाब से स्टॉक का {massUnit} |
+| `ageing.label` | Stock age, {massUnit} by days since packing | स्टॉक की उम्र, पैकिंग से दिनों के हिसाब से {massUnit} |
 | `ageing.ageHeader` | Age | उम्र |
 | `ageing.valueHeader` | In stock | स्टॉक में |
 | `ageing.upTo15` | 0-15 days | 0-15 दिन |
@@ -531,11 +531,11 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `calendarDate` | Calendar date {date} | कैलेंडर की तारीख {date} |
 | `beforeStart` | Before {time} still counts for the day before. | {time} से पहले का समय पिछले दिन में गिना जाता है। |
 | `clockNow` | Clock {time} | घड़ी {time} |
-| `kpi.packed` | kg packed | पैक हुआ kg |
+| `kpi.packed` | {massUnit} packed | पैक हुआ {massUnit} |
 | `kpi.packedMeta` | This production day | प्रोडक्शन का यह दिन |
 | `kpi.bundles` | Bundles | Bundle |
 | `kpi.bundlesMeta` | Packed this production day | प्रोडक्शन के इस दिन पैक हुए |
-| `kpi.dispatched` | kg dispatched | Dispatch हुआ kg |
+| `kpi.dispatched` | {massUnit} dispatched | Dispatch हुआ {massUnit} |
 | `kpi.dispatchedMeta` | Left stock this production day | प्रोडक्शन के इस दिन स्टॉक से गया |
 | `kpi.stock` | In stock, whole plant | पूरे प्लांट का स्टॉक |
 | `kpi.stockMeta` | {count} {count:bundle\|bundles} now | अभी {count} bundle |
@@ -600,7 +600,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `columns.die` | Die | Die |
 | `columns.section` | Section | सेक्शन |
 | `columns.bundles` | Bundles | Bundle |
-| `columns.kg` | kg | kg |
+| `columns.kg` | {massUnit} | {massUnit} |
 | `columns.packedBy` | Packed by | किसने पैक किया |
 | `columns.when` | When | कब |
 | `columns.po` | PO | PO |
@@ -614,7 +614,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `new.recentDies` | Recent | हाल के |
 | `new.allDies` | All dies | सारे die |
 | `new.diesShowing` | Showing {shown} of {total} dies. Type a code to find the rest. | {total} में से {shown} die दिख रहे हैं। बाकी के लिए कोड टाइप करें। |
-| `new.dieRange` | Range {min} to {max} kg/12ft | रेंज {min} से {max} kg/12ft |
+| `new.dieRange` | Range {min} to {max} {sectionUnit} | रेंज {min} से {max} {sectionUnit} |
 | `new.noDies` | No dies match. Check the code, or add the die first. | कोई die नहीं मिला। कोड जांचें, या पहले die जोड़ें। |
 | `new.noDiesYet` | No dies yet. Add the die before packing. | अभी कोई die नहीं है। पैकिंग से पहले die जोड़ें। |
 | `new.addDie` | Add a die | Die जोड़ें |
@@ -626,7 +626,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `new.cutLength` | Cut length | कट लंबाई |
 | `new.cutLengthFeet` | Feet | फ़ुट |
 | `new.cutLengthInches` | Inches | इंच |
-| `new.cutLengthMm` | Cut length (mm) | कट लंबाई (mm) |
+| `new.cutLengthMm` | Cut length ({lengthUnit}) | कट लंबाई ({lengthUnit}) |
 | `new.cutLengthHintInch` | Feet and inches, for example 11 ft 6 in. | फ़ुट और इंच, जैसे 11 ft 6 in. |
 | `new.cutLengthHintMm` | In millimetres, for example 3658. | मिलीमीटर में, जैसे 3658. |
 | `new.cutLengthRequired` | Enter the cut length. | कट लंबाई डालें। |
@@ -639,9 +639,9 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `new.poValue` | PO {po} | PO {po} |
 | `new.change` | Change | बदलें |
 | `new.defaultsHint` | Every bundle in this session uses this cut length and PO unless you change it on that bundle. | इस सेशन के हर bundle में यही कट लंबाई और PO लगेगा, जब तक आप उस bundle पर इसे न बदलें। |
-| `new.weight` | Weight (kg) | वज़न (kg) |
+| `new.weight` | Weight ({massUnit}) | वज़न ({massUnit}) |
 | `new.pieces` | Pieces | पीस |
-| `new.weightRequired` | Enter the weight in kg, for example 52.40. | वज़न kg में डालें, जैसे 52.40. |
+| `new.weightRequired` | Enter the weight in {massUnit}, for example 52.40. | वज़न {massUnit} में डालें, जैसे 52.40. |
 | `new.piecesRequired` | Enter the pieces as a whole number. | पीस पूरे नंबर में डालें। |
 | `new.saveBundle` | Save bundle | Bundle सेव करें |
 | `new.differentLengthPo` | Different length or PO | अलग लंबाई या PO |
@@ -652,7 +652,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `new.editingBundle` | Editing bundle {n} | Bundle {n} बदल रहे हैं |
 | `new.removeBundle` | Remove bundle | Bundle हटाएं |
 | `new.bundleNumber` | Bundle {n} | Bundle {n} |
-| `new.liveIncomplete` | Enter weight and pieces to see kg/12ft. | kg/12ft देखने के लिए वज़न और पीस डालें। |
+| `new.liveIncomplete` | Enter weight and pieces to see {sectionUnit}. | {sectionUnit} देखने के लिए वज़न और पीस डालें। |
 | `new.liveRange` | Die range {min} to {max} | Die रेंज {min} से {max} |
 | `new.bundleSaved` | Bundle {n} saved: {kg} {massUnit}, {pieces} {pieces:piece\|pieces}, {status}. | Bundle {n} सेव हुआ: {kg} {massUnit}, {pieces} पीस, {status}। |
 | `new.bundleUpdated` | Bundle {n} updated. | Bundle {n} बदल गया। |
@@ -664,7 +664,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `new.review` | Review | जांचें |
 | `new.totalBundles` | Bundles | Bundle |
 | `new.totalPieces` | Pieces | पीस |
-| `new.totalKg` | kg | kg |
+| `new.totalKg` | {massUnit} | {massUnit} |
 | `new.outOfRange` | {count} {count:bundle is\|bundles are} outside the die's range. Check {count:it\|them} before saving. | {count} bundle die की रेंज से बाहर {count:है\|हैं}। सेव करने से पहले {count:इसे\|इन्हें} जांचें। |
 | `new.backToBundles` | Back to bundles | Bundle पर वापस |
 | `new.saveAndPrint` | Save and print labels | सेव करें और लेबल प्रिंट करें |
@@ -749,9 +749,9 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `reject.title` | Rejects | रिजेक्ट |
 | `reject.add` | Add reject | रिजेक्ट जोड़ें |
 | `reject.pcs` | Pieces | पीस |
-| `reject.kg` | kg | kg |
+| `reject.kg` | {massUnit} | {massUnit} |
 | `reject.saved` | {count} {count:piece\|pieces} rejected | {count} पीस रिजेक्ट |
-| `reject.hint` | Rejected pieces leave the pile and do not become a bundle. If you enter kg, orrn posts it to plant scrap. | रिजेक्ट पीस ढेर से हट जाते हैं और bundle नहीं होते। kg डालें तो वह प्लांट स्क्रैप में जाता है। |
+| `reject.hint` | Rejected pieces leave the pile and do not become a bundle. If you enter {massUnit}, orrn posts it to plant scrap. | रिजेक्ट पीस ढेर से हट जाते हैं और bundle नहीं होते। {massUnit} डालें तो वह प्लांट स्क्रैप में जाता है। |
 | `reject.kgHint` | Leave blank if the pieces were not weighed. | पीस तौले नहीं गए हों तो खाली छोड़ें। |
 | `reject.reason` | Reason | कारण |
 | `reject.pickReason` | Pick a reason | कारण चुनें |
@@ -760,7 +760,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `reject.remove` | Remove reject {n} | रिजेक्ट {n} हटाएं |
 | `reject.added` | Reject added: {count} {count:piece\|pieces} | रिजेक्ट जुड़ा: {count} पीस |
 | `reject.atScrap` | {kg} {massUnit} at plant scrap | प्लांट स्क्रैप में {kg} {massUnit} |
-| `reject.noWeight` | no weight, so no kg row | वज़न नहीं, इसलिए kg की एंट्री नहीं |
+| `reject.noWeight` | no weight, so no {massUnit} row | वज़न नहीं, इसलिए {massUnit} की एंट्री नहीं |
 | `reject.unit` | pcs rejected | पीस रिजेक्ट |
 | `reject.piecesLabel` | Reject pieces | रिजेक्ट पीस |
 | `dieOwnedOther` | This die belongs to another customer | यह die किसी दूसरे ग्राहक की है |
@@ -777,7 +777,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `source.trolleyLineHint` | Only released lines with pieces left are listed. | केवल छोड़ी गई और पीस बचे वाली लाइनें दिखती हैं। |
 | `source.trolleyRequired` | This plant packs from a trolley line. Pick one. | यह प्लांट ट्रॉली लाइन से पैक करता है। एक चुनें। |
 | `source.trolleyLeft` | {pcs} pcs left | {pcs} पीस बचे |
-| `source.trolleyCut` | {mm} mm | {mm} mm |
+| `source.trolleyCut` | {mm} | {mm} |
 | `source.trolleyCast` | Cast {cast} | कास्ट {cast} |
 | `source.forOrderHint` | Packing does not change baki. Dispatch does. | पैकिंग से बाकी नहीं बदलता। डिस्पैच से बदलता है। |
 | `source.plantStock` | Plant stock | प्लांट स्टॉक |
@@ -827,12 +827,12 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `torchOff` | Turn torch off | टॉर्च बंद करें |
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
 | `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
-| `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Added. A manager has to approve it. | {kg} kg/12ft, {order} में {line}। जोड़ दिया। मैनेजर की मंज़ूरी चाहिए। |
+| `continuous.offBand` | {kg} {sectionUnit}, {order} says {line}. Added. A manager has to approve it. | {kg} {sectionUnit}, {order} में {line}। जोड़ दिया। मैनेजर की मंज़ूरी चाहिए। |
 | `continuous.overTolerance` | Over +{pct}% on {order} line {line}. A manager has to approve it before Dispatch. | {order} लाइन {line} पर +{pct}% से ज़्यादा। Dispatch से पहले मैनेजर की मंज़ूरी चाहिए। |
 | `continuous.outsideOrder` | This packing list is for {order} only | यह packing list सिर्फ़ {order} की है |
 | `continuous.outsideOrderPlain` | This packing list is for one sales order only | यह packing list सिर्फ़ एक sales order की है |
-| `continuous.orderBaki` | {order}: baki {baki} kg, {left} kg left after this load | {order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा |
-| `continuous.orderOver` | {kg} kg over the baki. | बाकी से {kg} kg ज़्यादा। |
+| `continuous.orderBaki` | {order}: baki {baki} {massUnit}, {left} {massUnit} left after this load | {order}: बाकी {baki} {massUnit}, इस लोड के बाद {left} {massUnit} बचा |
+| `continuous.orderOver` | {kg} {massUnit} over the baki. | बाकी से {kg} {massUnit} ज़्यादा। |
 | `continuous.title` | Scanning into {code} | {code} में स्कैन हो रहा है |
 | `continuous.added` | Added {serial} | {serial} जुड़ गया |
 | `continuous.count` | {count} added | {count} {count:जुड़ा\|जुड़े} |
@@ -897,14 +897,14 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `block.band` | {band} {sectionUnit} | {band} {sectionUnit} |
 | `block.kg` | {kg} {massUnit} | {kg} {massUnit} |
 | `charts.ageTitle` | Stock age | स्टॉक कितना पुराना |
-| `charts.ageSubtitle` | kg in stock, by days since packing | स्टॉक में kg, पैकिंग के बाद के दिनों के हिसाब से |
-| `charts.ageLabel` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग के बाद के दिनों के हिसाब से kg |
+| `charts.ageSubtitle` | {massUnit} in stock, by days since packing | स्टॉक में {massUnit}, पैकिंग के बाद के दिनों के हिसाब से |
+| `charts.ageLabel` | Stock age, {massUnit} by days since packing | स्टॉक की उम्र, पैकिंग के बाद के दिनों के हिसाब से {massUnit} |
 | `charts.ageHeader` | Age | उम्र |
 | `charts.kgHeader` | {massUnit} | {massUnit} |
 | `charts.bucket` | {range} days | {range} दिन |
 | `charts.topTitle` | Top sections | सबसे ज़्यादा स्टॉक वाले सेक्शन |
-| `charts.topSubtitle` | kg in stock per section, top 8 and the rest | हर सेक्शन का स्टॉक में kg, टॉप 8 और बाकी |
-| `charts.topLabel` | Sections by kg in stock | स्टॉक में kg के हिसाब से सेक्शन |
+| `charts.topSubtitle` | {massUnit} in stock per section, top 8 and the rest | हर सेक्शन का स्टॉक में {massUnit}, टॉप 8 और बाकी |
+| `charts.topLabel` | Sections by {massUnit} in stock | स्टॉक में {massUnit} के हिसाब से सेक्शन |
 | `charts.otherSections` | Other sections | बाकी सेक्शन |
 | `charts.loadFailed` | Charts didn't load. Check the connection, then try again. | चार्ट लोड नहीं हुए। इंटरनेट देखें, फिर दोबारा कोशिश करें। |
 | `section.title` | Section {code} | सेक्शन {code} |
@@ -912,7 +912,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `section.emptyAll` | No bundles packed for this section yet. | इस सेक्शन का अभी कोई bundle पैक नहीं हुआ। |
 | `section.nothingOnFloor` | Nothing on the floor | फ़्लोर पर कुछ नहीं |
 | `section.heroUnit` | {count:bundle\|bundles} | {count:bundle\|bundle} |
-| `section.band` | Weight range {band} kg/12ft | वज़न रेंज {band} kg/12ft |
+| `section.band` | Weight range {band} {sectionUnit} | वज़न रेंज {band} {sectionUnit} |
 | `section.dieDetails` | Die details | Die की जानकारी |
 | `section.bundlesLabel` | Bundles of {section} | {section} के bundle |
 | `list.title` | All bundles | सारे bundle |
@@ -1056,7 +1056,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `facts.weight` | Weight | वज़न |
 | `facts.pieces` | Pieces | पीस |
 | `facts.cutLength` | Cut length | कट लंबाई |
-| `facts.kgPer12ft` | kg/12ft | kg/12ft |
+| `facts.kgPer12ft` | {sectionUnit} | {sectionUnit} |
 | `facts.weightRange` | Weight range /12' | वज़न रेंज /12' |
 | `facts.die` | Die | Die |
 | `facts.section` | Section | सेक्शन |
@@ -1128,7 +1128,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `truck.noVehicle` | no vehicle yet | गाड़ी अभी नहीं |
 | `truck.add` | Add another customer to this truck | इस ट्रक में एक और ग्राहक जोड़ें |
 | `truck.item` | {code}, {customer} | {code}, {customer} |
-| `offBand.chip` | {kg} kg/12ft, the order says {line} | {kg} kg/12ft, ऑर्डर में {line} |
+| `offBand.chip` | {kg} {sectionUnit}, the order says {line} | {kg} {sectionUnit}, ऑर्डर में {line} |
 | `offBand.pending` | Waiting for approval | मंज़ूरी बाकी |
 | `offBand.approved` | Approved | मंज़ूर |
 | `offBand.rejected` | Rejected: take it off | नामंज़ूर: इसे हटाएं |
@@ -1157,7 +1157,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
 | `late.loadChangedOld` | The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves. | मैनेजर के यह समय मंज़ूर करने के बाद बंडल बदल गए। माल वैसा ही करें जैसा मंज़ूर हुआ था, या गाड़ी निकलने के समय पर Dispatch करें। |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
-| `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
+| `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} {massUnit} over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} {massUnit} ज़्यादा |
 | `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
 | `overTolerance.approved` | A manager approved these figures. | मैनेजर ने ये आंकड़े मंज़ूर किए। |
 | `overTolerance.unasked` | Pressing Dispatch asks a manager to approve. | Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी। |
@@ -1169,26 +1169,26 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `fromOrder.order` | Sales order | सेल्स ऑर्डर |
 | `fromOrder.hint` | The order's customer becomes the dispatch's customer. | ऑर्डर का ग्राहक ही dispatch का ग्राहक बन जाता है। |
 | `fromOrder.search` | Search by number, PO or customer | नंबर, PO या ग्राहक से खोजें |
-| `fromOrder.baki` | Baki {kg} kg | बाकी {kg} kg |
+| `fromOrder.baki` | Baki {kg} {massUnit} | बाकी {kg} {massUnit} |
 | `fromOrder.required` | Pick the sales order. | सेल्स ऑर्डर चुनें। |
 | `order.title` | Order {number} | ऑर्डर {number} |
 | `order.baki` | Baki now | अभी बाकी |
 | `order.onLoad` | On this load | इस लोड में |
 | `order.left` | Left after this load | इस लोड के बाद बाकी |
 | `order.done` | Order complete with this load | इस लोड से ऑर्डर पूरा |
-| `order.over` | {kg} kg over the baki | बाकी से {kg} kg ज़्यादा |
+| `order.over` | {kg} {massUnit} over the baki | बाकी से {kg} {massUnit} ज़्यादा |
 | `order.lines` | Lines of this order | इस ऑर्डर की लाइनें |
 | `order.lineShort` | Line {n}, die {die} | लाइन {n}, die {die} |
-| `order.lineFigures` | Baki {baki}, load {load}, left {left} kg | बाकी {baki}, लोड {load}, बचा {left} kg |
+| `order.lineFigures` | Baki {baki}, load {load}, left {left} {massUnit} | बाकी {baki}, लोड {load}, बचा {left} {massUnit} |
 | `order.others` | {count} {count:bundle goes\|bundles go} to other orders of this customer: {orders} | {count} bundle इस ग्राहक के दूसरे ऑर्डर पर जा रहे {count:है\|हैं}: {orders} |
 | `suggest.button` | Suggest bundles | Bundle सुझाएं |
 | `suggest.title` | Suggest bundles | Bundle सुझाएं |
 | `suggest.intro` | This order's stock first, then plant stock of the same die and length. | पहले इस ऑर्डर का स्टॉक, फिर उसी die और लंबाई का प्लांट स्टॉक। |
-| `suggest.left` | Left to send after this load: {kg} kg | इस लोड के बाद भेजना बाकी: {kg} kg |
+| `suggest.left` | Left to send after this load: {kg} {massUnit} | इस लोड के बाद भेजना बाकी: {kg} {massUnit} |
 | `suggest.added` | Added {count} {count:bundle\|bundles} | {count} bundle जुड़े |
 | `suggest.nothingAdded` | Nothing was added | कुछ नहीं जुड़ा |
 | `suggest.empty` | No bundles to suggest. This order has no stock in the yard, and no plant stock matches its dies and lengths. | सुझाने के लिए कोई bundle नहीं। इस ऑर्डर का कुछ यार्ड में नहीं है और प्लांट स्टॉक में इसकी die और लंबाई का कुछ नहीं। |
-| `suggest.addAll` | Add {count} that fit ({kg} kg) | {count} जोड़ें जो समाएं ({kg} kg) |
+| `suggest.addAll` | Add {count} that fit ({kg} {massUnit}) | {count} जोड़ें जो समाएं ({kg} {massUnit}) |
 | `suggest.order` | This order's stock | इस ऑर्डर का स्टॉक |
 | `suggest.plant` | Plant stock, same die and length | प्लांट स्टॉक, वही die और लंबाई |
 | `suggest.forLine` | line {n} | लाइन {n} |
@@ -1204,7 +1204,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `columns.customer` | Customer | ग्राहक |
 | `columns.shipDate` | Ship date | भेजने की तारीख |
 | `columns.bundles` | Bundles | Bundle |
-| `columns.kg` | kg | kg |
+| `columns.kg` | {massUnit} | {massUnit} |
 | `columns.status` | Status | स्टेटस |
 | `empty` | No dispatches here. | यहां कोई dispatch नहीं है। |
 | `emptyBuilding` | Nothing is being built. Start a new dispatch. | अभी कुछ नहीं बन रहा। नया dispatch शुरू करें। |
@@ -1221,8 +1221,8 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `listLabel` | Dispatches | Dispatch |
 | `loadError` | Dispatches didn't load. Check the connection and try again. | Dispatch लोड नहीं हुए। इंटरनेट देखें और फिर से कोशिश करें। |
 | `volume.title` | Dispatch volume | Dispatch मात्रा |
-| `volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
-| `volume.label` | Dispatch volume, kg per month | Dispatch मात्रा, हर महीने kg |
+| `volume.subtitle` | {massUnit} dispatched per month, last 12 months | हर महीने dispatch हुआ {massUnit}, पिछले 12 महीने |
+| `volume.label` | Dispatch volume, {massUnit} per month | Dispatch मात्रा, हर महीने {massUnit} |
 | `volume.month` | Month | महीना |
 | `volume.kg` | Dispatched | Dispatch हुआ |
 | `new.title` | New dispatch | नया dispatch |
@@ -1260,7 +1260,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `build.pasteSerials` | Paste serials | Serial पेस्ट करें |
 | `build.searchAdd` | Search to add | खोज कर जोड़ें |
 | `build.empty` | No bundles yet. Scan a label to add the first one. | अभी कोई bundle नहीं है। पहला bundle जोड़ने के लिए लेबल स्कैन करें। |
-| `build.groupTotal` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
+| `build.groupTotal` | {bundles} {bundles:bundle\|bundles} · {kg} {massUnit} | {bundles} bundle · {kg} {massUnit} |
 | `build.groupLabel` | Packing group label | पैकिंग ग्रुप लेबल |
 | `build.removeBundle` | Remove {serial} | {serial} हटाएं |
 | `build.removed` | Removed {serial} | {serial} हटा दिया |
@@ -1268,10 +1268,10 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `build.added` | Added {serial} | {serial} जुड़ा |
 | `build.bundlesIn` | Bundles in this dispatch | इस dispatch के bundle |
 | `build.colBundle` | Bundle no | Bundle नंबर |
-| `build.colWeight` | Weight kg | वज़न kg |
+| `build.colWeight` | Weight {massUnit} | वज़न {massUnit} |
 | `build.colPcs` | Pcs | पीस |
 | `build.colLength` | Cut length | कट लंबाई |
-| `build.colKg12` | kg/12ft | kg/12ft |
+| `build.colKg12` | {sectionUnit} | {sectionUnit} |
 | `build.colActions` | Actions | काम |
 | `build.setLabel` | Set label | लेबल लगाएं |
 | `build.changeLabel` | Change label | लेबल बदलें |
@@ -1315,7 +1315,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `released` | Stock released | होल्ड हट गया |
 | `dispatchAction` | Dispatch | Dispatch करें |
 | `confirmTitle` | Dispatch {code}? | {code} dispatch करें? |
-| `confirmBody` | {bundles} {bundles:bundle\|bundles} · {kg} kg for {customer}. You can't add or remove bundles after this. | {customer} के लिए {bundles} bundle · {kg} kg। इसके बाद bundle जोड़ या हटा नहीं सकेंगे। |
+| `confirmBody` | {bundles} {bundles:bundle\|bundles} · {kg} {massUnit} for {customer}. You can't add or remove bundles after this. | {customer} के लिए {bundles} bundle · {kg} {massUnit}। इसके बाद bundle जोड़ या हटा नहीं सकेंगे। |
 | `vehicleNeeded` | The packing list and e-way bill name the truck. orrn saves the vehicle on the dispatch. | पैकिंग लिस्ट और ई-वे बिल में गाड़ी का नंबर आता है। यह dispatch पर सेव होगा। |
 | `vehicleMissing` | Add the vehicle number before you dispatch. | Dispatch से पहले गाड़ी का नंबर डालें। |
 | `vehicleOn` | On vehicle {vehicle} | गाड़ी {vehicle} पर |
@@ -1339,22 +1339,22 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
 | `errors.overdraw` | This load is more than the order allows. A manager has to approve it first. Your note went with the request. | यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया। |
 | `errors.lateEntry` | A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved. | गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद उसी समय के साथ Dispatch फिर दबाएं। |
-| `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
+| `capacity.label` | Truck capacity ({massUnit}) | गाड़ी की क्षमता ({massUnit}) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |
-| `capacity.over` | {kg} kg over capacity | क्षमता से {kg} kg ज़्यादा |
+| `capacity.over` | {kg} {massUnit} over capacity | क्षमता से {kg} {massUnit} ज़्यादा |
 | `capacity.overReason` | Why load over capacity | क्षमता से ज़्यादा क्यों लोड किया |
 | `capacity.hint` | Leave it blank for no warning. | चेतावनी न चाहिए तो खाली छोड़ें। |
-| `capacity.invalid` | Enter the capacity in kg, for example 9000. | क्षमता kg में डालें, जैसे 9000। |
-| `capacity.loaded` | {loaded} of {capacity} kg | {capacity} kg में से {loaded} kg |
+| `capacity.invalid` | Enter the capacity in {massUnit}, for example 9000. | क्षमता {massUnit} में डालें, जैसे 9000। |
+| `capacity.loaded` | {loaded} of {capacity} {massUnit} | {capacity} {massUnit} में से {loaded} {massUnit} |
 | `capacity.locked` | The capacity this load went against stays as it was. | जिस क्षमता पर यह लोड गया, वह वैसी ही रहती है। |
 | `capacity.overReasonHint` | Say why this truck goes over its capacity. It is kept with the dispatch. | बताएं कि यह ट्रक अपनी क्षमता से ज़्यादा क्यों जा रहा है। यह डिस्पैच के साथ सेव रहता है। |
 | `capacity.reasonRequired` | Say why before you dispatch. | डिस्पैच से पहले कारण लिखें। |
 | `value.title` | Value | मूल्य |
-| `value.priced` | {kg} kg priced at the order rate | {kg} kg ऑर्डर रेट पर |
-| `value.missing` | {count} {count:bundle has\|bundles have} no rate on the order line ({kg} kg) | {count} bundle की ऑर्डर लाइन पर रेट नहीं है ({kg} kg) |
+| `value.priced` | {kg} {massUnit} priced at the order rate | {kg} {massUnit} ऑर्डर रेट पर |
+| `value.missing` | {count} {count:bundle has\|bundles have} no rate on the order line ({kg} {massUnit}) | {count} bundle की ऑर्डर लाइन पर रेट नहीं है ({kg} {massUnit}) |
 | `value.complete` | Every bundle has a rate | हर bundle पर रेट है |
-| `value.note` | From the rate on each order line, on weighed kg. Not a tax invoice. | हर ऑर्डर लाइन के रेट से, तौले गए kg पर। यह टैक्स इनवॉइस नहीं है। |
+| `value.note` | From the rate on each order line, on weighed {massUnit}. Not a tax invoice. | हर ऑर्डर लाइन के रेट से, तौले गए {massUnit} पर। यह टैक्स इनवॉइस नहीं है। |
 | `transporter.label` | Transporter | ट्रांसपोर्टर |
 | `transporter.add` | Add transporter | ट्रांसपोर्टर जोड़ें |
 | `transporter.none` | No transporter | कोई ट्रांसपोर्टर नहीं |
@@ -1390,7 +1390,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `columns.cutLengthFt` | Cut length ft | कट लंबाई ft |
 | `columns.cutLengthIn` | Cut length in | कट लंबाई in |
 | `columns.pcs` | Pcs | पीस |
-| `columns.kgPer12ft` | kg/12ft | kg/12ft |
+| `columns.kgPer12ft` | {sectionUnit} | {sectionUnit} |
 | `columns.weightRange` | Weight range /12' | वज़न रेंज /12' |
 | `columns.section` | Section | सेक्शन |
 | `columns.po` | PO | PO |
@@ -1511,16 +1511,16 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `form.series` | Series | सीरीज़ |
 | `form.sectionCode` | Section code | सेक्शन कोड |
 | `form.name` | Name | नाम |
-| `form.weightMin` | Min weight (kg/12ft) | कम से कम वज़न (kg/12ft) |
-| `form.weightMax` | Max weight (kg/12ft) | ज़्यादा से ज़्यादा वज़न (kg/12ft) |
-| `form.rangeHint` | Weight of one 12 ft length, in kg. | 12 ft लंबाई का वज़न, kg में। |
+| `form.weightMin` | Min weight ({sectionUnit}) | कम से कम वज़न ({sectionUnit}) |
+| `form.weightMax` | Max weight ({sectionUnit}) | ज़्यादा से ज़्यादा वज़न ({sectionUnit}) |
+| `form.rangeHint` | Weight of one 12 ft length, in {massUnit}. | 12 ft लंबाई का वज़न, {massUnit} में। |
 | `form.rangeOrder` | Max weight can't be less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम नहीं हो सकता। |
 | `form.status` | Status | स्टेटस |
 | `form.statusHint` | Archived dies don't show in Pack. | बंद die पैकिंग में नहीं दिखते। |
 | `form.notes` | Notes | नोट |
 | `form.advanced` | Advanced | एडवांस |
 | `form.advancedHint` | Width, thickness and leg. All optional. | चौड़ाई, मोटाई और लेग। सब ज़रूरी नहीं। |
-| `form.measureHintMm` | In mm. | mm में। |
+| `form.measureHintMm` | In {lengthUnit}. | {lengthUnit} में। |
 | `form.measureHintInch` | In inches, like 0.125 for 1/8 in. | इंच में, जैसे 1/8 in के लिए 0.125। |
 | `form.width` | Width | चौड़ाई |
 | `form.thickness` | Thickness | मोटाई |
@@ -1553,23 +1553,23 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `columns.phone` | Phone | फ़ोन |
 | `columns.gstin` | GSTIN | GSTIN |
 | `columns.city` | City | शहर |
-| `columns.kg` | Dispatched (kg) | Dispatch हुआ (kg) |
+| `columns.kg` | Dispatched ({massUnit}) | Dispatch हुआ ({massUnit}) |
 | `empty` | No customers yet. | अभी कोई ग्राहक नहीं है। |
 | `emptyBody` | Add a customer before their first dispatch. | पहले dispatch से पहले ग्राहक जोड़ें। |
 | `emptyAction` | Add a customer | ग्राहक जोड़ें |
 | `importCsv` | Import CSV | CSV इम्पोर्ट करें |
 | `pageEmpty` | Nothing on this page. | इस पेज पर कुछ नहीं है। |
 | `firstPage` | Go to the first page | पहले पेज पर जाएं |
-| `kgFailed` | The dispatched kg didn't load. | Dispatch हुआ kg लोड नहीं हुआ। |
+| `kgFailed` | The dispatched {massUnit} didn't load. | Dispatch हुआ {massUnit} लोड नहीं हुआ। |
 | `period.label` | Period | समय |
 | `period.month` | This month | इस महीने |
 | `period.quarter` | This quarter | इस तिमाही |
 | `period.fy` | This year | इस साल |
 | `period.range` | {from} to {to} | {from} से {to} |
 | `leaderboard.title` | Who is leading | सबसे आगे कौन |
-| `leaderboard.subtitle` | kg dispatched per customer. {total} kg in all. | हर ग्राहक को dispatch हुआ kg। कुल {total} kg। |
-| `leaderboard.subtitleShort` | kg dispatched per customer. | हर ग्राहक को dispatch हुआ kg। |
-| `leaderboard.label` | Customers by kg dispatched | dispatch हुए kg के हिसाब से ग्राहक |
+| `leaderboard.subtitle` | {massUnit} dispatched per customer. {total} {massUnit} in all. | हर ग्राहक को dispatch हुआ {massUnit}। कुल {total} {massUnit}। |
+| `leaderboard.subtitleShort` | {massUnit} dispatched per customer. | हर ग्राहक को dispatch हुआ {massUnit}। |
+| `leaderboard.label` | Customers by {massUnit} dispatched | dispatch हुए {massUnit} के हिसाब से ग्राहक |
 | `leaderboard.otherShare` | Other customers ({share}) | बाकी ग्राहक ({share}) |
 | `leaderboard.valueHeader` | Dispatched | Dispatch हुआ |
 | `form.titleNew` | New customer | नया ग्राहक |
@@ -1617,18 +1617,18 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `detail.kpi.dispatches` | Dispatches | Dispatch |
 | `detail.kpi.avgLoad` | Average load | औसत लोड |
 | `detail.kpi.share` | Share of all dispatches | सभी dispatch में हिस्सा |
-| `detail.kpi.shareOf` | of {total} kg in all | कुल {total} kg में से |
-| `detail.kpi.perDispatch` | kg per dispatch | kg हर dispatch |
+| `detail.kpi.shareOf` | of {total} {massUnit} in all | कुल {total} {massUnit} में से |
+| `detail.kpi.perDispatch` | {massUnit} per dispatch | {massUnit} हर dispatch |
 | `detail.kpi.analyticsFailed` | These numbers didn't load. | ये आंकड़े लोड नहीं हुए। |
 | `detail.kpi.shareFailed` | The total didn't load. | कुल आंकड़ा लोड नहीं हुआ। |
 | `detail.volume.title` | Monthly volume | हर महीने का माल |
-| `detail.volume.subtitle` | kg dispatched per month, last 12 months | हर महीने dispatch हुआ kg, पिछले 12 महीने |
-| `detail.volume.label` | kg dispatched per month | हर महीने dispatch हुआ kg |
+| `detail.volume.subtitle` | {massUnit} dispatched per month, last 12 months | हर महीने dispatch हुआ {massUnit}, पिछले 12 महीने |
+| `detail.volume.label` | {massUnit} dispatched per month | हर महीने dispatch हुआ {massUnit} |
 | `detail.volume.month` | Month | महीना |
 | `detail.volume.value` | Dispatched | Dispatch हुआ |
 | `detail.sections.title` | What they buy | क्या खरीदते हैं |
-| `detail.sections.subtitle` | Top sections by kg dispatched in this period | इस समय में kg के हिसाब से टॉप सेक्शन |
-| `detail.sections.label` | Sections by kg dispatched | dispatch हुए kg के हिसाब से सेक्शन |
+| `detail.sections.subtitle` | Top sections by {massUnit} dispatched in this period | इस समय में {massUnit} के हिसाब से टॉप सेक्शन |
+| `detail.sections.label` | Sections by {massUnit} dispatched | dispatch हुए {massUnit} के हिसाब से सेक्शन |
 | `detail.sections.other` | Other sections | बाकी सेक्शन |
 | `detail.sections.otherShare` | Other sections ({share}) | बाकी सेक्शन ({share}) |
 | `detail.sections.valueHeader` | Dispatched | Dispatch हुआ |
@@ -1638,7 +1638,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `detail.recent.date` | Date | तारीख |
 | `detail.recent.status` | Status | स्टेटस |
 | `detail.recent.bundles` | Bundles | Bundle |
-| `detail.recent.kg` | kg | kg |
+| `detail.recent.kg` | {massUnit} | {massUnit} |
 | `detail.openOrders.title` | Open orders | बाकी ऑर्डर |
 | `detail.openOrders.ordered` | Ordered | ऑर्डर हुआ |
 | `detail.openOrders.dispatched` | Dispatched | Dispatch हुआ |
@@ -1716,7 +1716,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `categories.gas` | Gas | गैस |
 | `categories.spare` | Spare | स्पेयर |
 | `categories.other` | Other | दूसरा |
-| `unitShort.kg` | kg | kg |
+| `unitShort.kg` | {massUnit} | {massUnit} |
 | `unitShort.litre` | L | L |
 | `unitShort.piece` | pcs | pcs |
 | `unitShort.metre` | m | m |
@@ -2501,7 +2501,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `unit.mm` | mm | mm |
 | `unit.in` | inches | इंच |
 | `unit.ft` | feet | फ़ुट |
-| `unit.kg` | kg | kg |
+| `unit.kg` | {massUnit} | {massUnit} |
 | `unit.g` | grams | ग्राम |
 | `unit.m` | metres | मीटर |
 | `preview.heading` | First rows, as orrn will save them | पहली लाइनें, जैसे orrn सेव करेगा |
@@ -2699,7 +2699,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `locations.kind.wip` | Work in progress | काम चालू |
 | `locations.holdsEmpty` | Empty | खाली |
 | `locations.holdsBundles` | {count} {count:bundle\|bundles} | {count} bundle |
-| `locations.holdsKg` | {kg} kg | {kg} kg |
+| `locations.holdsKg` | {kg} {massUnit} | {kg} {massUnit} |
 | `locations.holdsItems` | {count} store {count:item\|items} | स्टोर के {count} सामान |
 | `locations.form.addTitle` | Add location | जगह जोड़ें |
 | `locations.form.editTitle` | Edit location {code} | जगह {code} बदलें |
@@ -2793,7 +2793,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `dieCopies.columns.copy` | Copy | कॉपी |
 | `dieCopies.columns.section` | Section | सेक्शन |
 | `dieCopies.columns.tier` | Tier | टियर |
-| `dieCopies.columns.latest` | Latest kg/12ft | ताज़ा kg/12ft |
+| `dieCopies.columns.latest` | Latest {sectionUnit} | ताज़ा {sectionUnit} |
 | `dieCopies.columns.supplier` | Supplier | सप्लायर |
 | `dieCopies.columns.status` | Status | स्टेटस |
 | `dieCopies.tier` | Tier {rank} | टियर {rank} |
@@ -2813,15 +2813,15 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `dieCopies.form.sectionRequired` | Choose the section this die makes. | यह die कौन सा सेक्शन बनाती है, चुनें। |
 | `dieCopies.form.sectionFixed` | Section {code}. The section and the copy number never change. | सेक्शन {code}। सेक्शन और कॉपी नंबर कभी नहीं बदलते। |
 | `dieCopies.form.supplier` | Supplier | सप्लायर |
-| `dieCopies.form.trial` | Trial kg/12ft | ट्रायल kg/12ft |
+| `dieCopies.form.trial` | Trial {sectionUnit} | ट्रायल {sectionUnit} |
 | `dieCopies.form.trialHint` | Weight per 12 ft from the trial run. | ट्रायल रन में 12 ft का वज़न। |
 | `dieCopies.form.trialInvalid` | Use a weight above 0 and up to 500, with at most three decimals. | 0 से ऊपर और 500 तक का वज़न डालें, दशमलव के बाद ज़्यादा से ज़्यादा तीन अंक। |
 | `dieCopies.form.hardness` | Hardness | हार्डनेस |
 | `dieCopies.form.hardnessHint` | As tested. A whole number. | जांच में आई। पूरा नंबर। |
 | `dieCopies.form.hardnessInvalid` | Use a whole number from 1 to 5,000. | 1 से 5,000 तक का पूरा नंबर डालें। |
-| `dieCopies.form.life` | Expected life (kg) | अनुमानित लाइफ़ (kg) |
-| `dieCopies.form.lifeHint` | Kg this die should press before it is retired. | बंद करने से पहले यह die कितने kg प्रेस करे। |
-| `dieCopies.form.lifeInvalid` | Use a whole number of kg, above 0. | kg का पूरा नंबर डालें, 0 से ऊपर। |
+| `dieCopies.form.life` | Expected life ({massUnit}) | अनुमानित लाइफ़ ({massUnit}) |
+| `dieCopies.form.lifeHint` | {massUnit} this die should press before it is retired. | बंद करने से पहले यह die कितने {massUnit} प्रेस करे। |
+| `dieCopies.form.lifeInvalid` | Use a whole number of {massUnit}, above 0. | {massUnit} का पूरा नंबर डालें, 0 से ऊपर। |
 | `dieCopies.form.ftr` | FTR | FTR |
 | `dieCopies.form.ftrHint` | As written on the die card. | जैसा die कार्ड पर लिखा है। |
 | `dieCopies.form.tier` | First tier | पहला टियर |
@@ -3727,7 +3727,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `pack.pickDie` | Choose a die | Die चुनें |
 | `pack.dieSheetTitle` | Choose a die | Die चुनें |
 | `pack.dieLoadError` | The dies didn't load. Try again. | Die लोड नहीं हुए। फिर कोशिश करें। |
-| `pack.cutLengthMm` | Cut length (mm) | कट लंबाई (mm) |
+| `pack.cutLengthMm` | Cut length ({lengthUnit}) | कट लंबाई ({lengthUnit}) |
 | `pack.cutLengthError` | Enter a cut length above zero. | शून्य से ज़्यादा कट लंबाई लिखें। |
 | `pack.yard` | Yard location | यार्ड की जगह |
 | `pack.yardHint` | Where these bundles will be kept. | ये bundle कहां रखे जाएंगे। |
@@ -4036,8 +4036,8 @@ Please check, Lalubhai:
 | `list.lot` | Lot | लॉट |
 | `list.vendor` | Vendor | पार्टी |
 | `list.material` | Material | माल |
-| `list.party` | Party kg | पार्टी kg |
-| `list.ours` | Our kg | हमारा kg |
+| `list.party` | Party {massUnit} | पार्टी {massUnit} |
+| `list.ours` | Our {massUnit} | हमारा {massUnit} |
 | `list.difference` | Difference | फ़र्क |
 | `list.status` | Status | स्थिति |
 | `list.emptyTitle` | No lots yet | अभी कोई लॉट नहीं |
@@ -4048,23 +4048,23 @@ Please check, Lalubhai:
 | `list.error` | The lots didn't load. Check the connection and try again. | लॉट लोड नहीं हुए। कनेक्शन देखें और फिर से कोशिश करें। |
 | `material` | {item}, grade {grade} | {item}, ग्रेड {grade} |
 | `diff.even` | Same weight | वज़न बराबर |
-| `diff.over` | {kg} kg over | {kg} kg ज़्यादा |
-| `diff.within` | {kg} kg short, within {pct} | {kg} kg कम, {pct} के अंदर |
-| `diff.short` | {kg} kg short, beyond {pct} | {kg} kg कम, {pct} से ज़्यादा |
+| `diff.over` | {kg} {massUnit} over | {kg} {massUnit} ज़्यादा |
+| `diff.within` | {kg} {massUnit} short, within {pct} | {kg} {massUnit} कम, {pct} के अंदर |
+| `diff.short` | {kg} {massUnit} short, beyond {pct} | {kg} {massUnit} कम, {pct} से ज़्यादा |
 | `diff.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
 | `diffWord.even` | Same weight | वज़न बराबर |
 | `diffWord.over` | Over | ज़्यादा |
 | `diffWord.within` | Short, within {pct} | कम, {pct} के अंदर |
 | `diffWord.short` | Short, beyond {pct} | कम, {pct} से ज़्यादा |
 | `diffWord.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
-| `tolerance` | Tolerance {kg} kg ({pct}) | छूट {kg} kg ({pct}) |
+| `tolerance` | Tolerance {kg} {massUnit} ({pct}) | छूट {kg} {massUnit} ({pct}) |
 | `charts.rateTitle` | Rate paid | दिया गया रेट |
 | `charts.rateSubtitle` | Average ₹ per kg by month for the most bought items, this month so far | सबसे ज़्यादा खरीदे माल का महीने वार औसत ₹ प्रति kg, इस महीने अब तक |
 | `charts.rateLabel` | Rate paid, rupees per kg by month | दिया गया रेट, महीने वार रुपये प्रति kg |
 | `charts.month` | Month | महीना |
-| `charts.vendorTitle` | Kg bought by vendor | पार्टी वार खरीदा kg |
-| `charts.vendorSubtitle` | Party kg in the last 6 months, top 8 and the rest | पिछले 6 महीने का पार्टी kg, टॉप 8 और बाकी |
-| `charts.vendorLabel` | Vendors by kg bought | खरीदे kg के हिसाब से पार्टियां |
+| `charts.vendorTitle` | {massUnit} bought by vendor | पार्टी वार खरीदा {massUnit} |
+| `charts.vendorSubtitle` | Party {massUnit} in the last 6 months, top 8 and the rest | पिछले 6 महीने का पार्टी {massUnit}, टॉप 8 और बाकी |
+| `charts.vendorLabel` | Vendors by {massUnit} bought | खरीदे {massUnit} के हिसाब से पार्टियां |
 | `charts.bought` | Bought | खरीदा |
 | `charts.otherVendors` | Other vendors | बाकी पार्टियां |
 | `charts.truncated` | These charts count only the first 2,000 lots of the 6 months, so the latest weeks are missing. | ये चार्ट 6 महीनों के पहले 2,000 लॉट ही गिनते हैं, इसलिए सबसे नए हफ़्ते छूट गए हैं। |
@@ -4094,24 +4094,24 @@ Please check, Lalubhai:
 | `new.origin` | Origin | कहां से |
 | `new.originHint` | Where the scrap comes from, like local or Dubai. | स्क्रैप कहां से आया, जैसे लोकल या दुबई। |
 | `new.dross` | Dross (%) | ड्रॉस (%) |
-| `new.party` | Party kanta (kg) | पार्टी का कांटा (kg) |
+| `new.party` | Party kanta ({massUnit}) | पार्टी का कांटा ({massUnit}) |
 | `new.partyHint` | The weight on the party's slip. | पार्टी की पर्ची पर लिखा वज़न। |
-| `new.fc` | Our kanta (kg) | हमारा कांटा (kg) |
+| `new.fc` | Our kanta ({massUnit}) | हमारा कांटा ({massUnit}) |
 | `new.fcHint` | Leave it empty if the truck is not weighed here yet. | गाड़ी यहां अभी नहीं तौली तो खाली छोड़ें। |
 | `new.difference` | Difference | फ़र्क |
 | `new.noteTitle` | Debit note | डेबिट नोट |
-| `new.noteBody` | {kg} kg short, more than {pct}. The lot can't go OK until a debit note covers at least {min} kg. | {kg} kg कम, {pct} से ज़्यादा। जब तक डेबिट नोट कम से कम {min} kg नहीं ढकता, लॉट OK नहीं होगा। |
+| `new.noteBody` | {kg} {massUnit} short, more than {pct}. The lot can't go OK until a debit note covers at least {min} {massUnit}. | {kg} {massUnit} कम, {pct} से ज़्यादा। जब तक डेबिट नोट कम से कम {min} {massUnit} नहीं ढकता, लॉट OK नहीं होगा। |
 | `new.raiseNote` | Raise the debit note now | डेबिट नोट अभी बनाएं |
-| `new.noteKg` | Kg to debit | डेबिट करने वाले kg |
-| `new.noteKgHint` | At least {min} kg. | कम से कम {min} kg। |
-| `new.noteKgRange` | From {min} kg up to the short, {max} kg. | {min} kg से कमी तक, {max} kg। |
-| `new.noteKgMax` | Up to the short still open, {max} kg. | बची हुई कमी तक, {max} kg। |
+| `new.noteKg` | {massUnit} to debit | डेबिट करने वाले {massUnit} |
+| `new.noteKgHint` | At least {min} {massUnit}. | कम से कम {min} {massUnit}। |
+| `new.noteKgRange` | From {min} {massUnit} up to the short, {max} {massUnit}. | {min} {massUnit} से कमी तक, {max} {massUnit}। |
+| `new.noteKgMax` | Up to the short still open, {max} {massUnit}. | बची हुई कमी तक, {max} {massUnit}। |
 | `new.summaryNote` | Debit note | डेबिट नोट |
 | `new.fixCount` | {count} {count:thing\|things} to fix on this step | इस कदम पर {count} {count:चीज़\|चीज़ें} ठीक करनी हैं |
 | `new.saveUnsure` | orrn didn't answer, so the lot may have saved. Check the lot list before you save it again. | orrn से जवाब नहीं आया, हो सकता है लॉट सेव हो गया हो। दोबारा सेव करने से पहले लॉट की सूची देखें। |
 | `new.openLots` | Open lots | लॉट देखें |
 | `new.mastersError` | The scrap items didn't load. Check the connection and try again. | स्क्रैप आइटम लोड नहीं हुए। कनेक्शन देखें और फिर से कोशिश करें। |
-| `new.bori` | Bori deduction (kg) | बोरी कटौती (kg) |
+| `new.bori` | Bori deduction ({massUnit}) | बोरी कटौती ({massUnit}) |
 | `new.boriHint` | Weight of the bags, when the party is charged for them. | बोरियों का वज़न, अगर पार्टी से काटना है। |
 | `new.noteText` | Note for the manager | मैनेजर के लिए नोट |
 | `new.noteOffice` | The office raises the debit note before this lot can go OK. | लॉट OK होने से पहले ऑफ़िस डेबिट नोट बनाएगा। |
@@ -4156,17 +4156,17 @@ Please check, Lalubhai:
 | `detail.noteType.credit` | Credit note | क्रेडिट नोट |
 | `detail.noteReason.weight` | Weight | वज़न |
 | `detail.noteReason.grade` | Grade | ग्रेड |
-| `detail.noteKg` | {kg} kg | {kg} kg |
-| `detail.noteBori` | Bori {kg} kg | बोरी {kg} kg |
+| `detail.noteKg` | {kg} {massUnit} | {kg} {massUnit} |
+| `detail.noteBori` | Bori {kg} {massUnit} | बोरी {kg} {massUnit} |
 | `detail.stockTitle` | Scrap stock | स्क्रैप स्टॉक |
 | `detail.stockNone` | Goes into scrap stock when it is marked OK. | OK होने पर स्क्रैप स्टॉक में जाएगा। |
 | `detail.stockNever` | This lot never went into stock. | यह लॉट कभी स्टॉक में नहीं आया। |
-| `detail.stockIn` | {kg} kg in at {location} | {location} में {kg} kg आया |
-| `detail.stockOut` | {kg} kg out at {location} | {location} से {kg} kg गया |
+| `detail.stockIn` | {kg} {massUnit} in at {location} | {location} में {kg} {massUnit} आया |
+| `detail.stockOut` | {kg} {massUnit} out at {location} | {location} से {kg} {massUnit} गया |
 | `detail.markUnload` | Mark unloading | उतराई चालू करें |
 | `detail.markedUnload` | Marked unloading | उतराई चालू की |
 | `detail.markOk` | Mark OK | OK करें |
-| `detail.markedOk` | Marked OK. {kg} kg in scrap stock at {location}. | OK हो गया। {location} में {kg} kg स्क्रैप स्टॉक में। |
+| `detail.markedOk` | Marked OK. {kg} {massUnit} in scrap stock at {location}. | OK हो गया। {location} में {kg} {massUnit} स्क्रैप स्टॉक में। |
 | `detail.weigh` | Enter our kanta weight | हमारे कांटे का वज़न डालें |
 | `detail.editWeights` | Edit weights | वज़न बदलें |
 | `detail.weightsLocked` | A note on the weight is open, so the weights are locked. | वज़न पर नोट खुला है, इसलिए वज़न नहीं बदलेगा। |
@@ -4177,16 +4177,16 @@ Please check, Lalubhai:
 | `detail.noteSheetBody` | A manager approves it before it counts. | मैनेजर की मंज़ूरी के बाद ही गिना जाएगा। |
 | `detail.type` | Type | किस्म |
 | `detail.reason` | Reason | वजह |
-| `detail.kgDiff` | Kg difference | kg का फ़र्क |
+| `detail.kgDiff` | {massUnit} difference | {massUnit} का फ़र्क |
 | `detail.amountOptional` | Amount (₹) | रकम (₹) |
 | `detail.amountHint` | Leave it empty to use kg times the lot's rate. | खाली छोड़ें तो kg गुणा लॉट का रेट लगेगा। |
 | `detail.sendNote` | Send for approval | मंज़ूरी के लिए भेजें |
 | `detail.noteSent` | Note {number} sent for approval | नोट {number} मंज़ूरी के लिए भेजा |
 | `detail.blockedWeigh` | Weigh the truck on our kanta before marking it OK. | OK करने से पहले गाड़ी हमारे कांटे पर तौलें। |
-| `detail.blockedShort` | {kg} kg short, beyond {pct}. A debit note must cover at least {min} kg before OK. | {kg} kg कम, {pct} से ज़्यादा। OK से पहले डेबिट नोट कम से कम {min} kg ढके। |
-| `detail.blockedShortOffice` | {kg} kg short, beyond {pct}. Ask the office to raise a debit note for at least {min} kg. | {kg} kg कम, {pct} से ज़्यादा। ऑफ़िस से कम से कम {min} kg का डेबिट नोट बनवाएं। |
-| `detail.okShortWithoutNote` | In stock, but {kg} kg short, beyond {pct}, and no live debit note covers it. Raise one for at least {min} kg. | स्टॉक में है, पर {kg} kg कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। कम से कम {min} kg का नोट बनाएं। |
-| `detail.okShortOffice` | In stock, but {kg} kg short, beyond {pct}, and no live debit note covers it. Ask the office to raise one for at least {min} kg. | स्टॉक में है, पर {kg} kg कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। ऑफ़िस से कम से कम {min} kg का नोट बनवाएं। |
+| `detail.blockedShort` | {kg} {massUnit} short, beyond {pct}. A debit note must cover at least {min} {massUnit} before OK. | {kg} {massUnit} कम, {pct} से ज़्यादा। OK से पहले डेबिट नोट कम से कम {min} {massUnit} ढके। |
+| `detail.blockedShortOffice` | {kg} {massUnit} short, beyond {pct}. Ask the office to raise a debit note for at least {min} {massUnit}. | {kg} {massUnit} कम, {pct} से ज़्यादा। ऑफ़िस से कम से कम {min} {massUnit} का डेबिट नोट बनवाएं। |
+| `detail.okShortWithoutNote` | In stock, but {kg} {massUnit} short, beyond {pct}, and no live debit note covers it. Raise one for at least {min} {massUnit}. | स्टॉक में है, पर {kg} {massUnit} कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। कम से कम {min} {massUnit} का नोट बनाएं। |
+| `detail.okShortOffice` | In stock, but {kg} {massUnit} short, beyond {pct}, and no live debit note covers it. Ask the office to raise one for at least {min} {massUnit}. | स्टॉक में है, पर {kg} {massUnit} कम है, {pct} से ज़्यादा, और कोई चालू डेबिट नोट इसे नहीं ढकता। ऑफ़िस से कम से कम {min} {massUnit} का नोट बनवाएं। |
 | `detail.coveredBy` | The short is covered by {notes}. | कमी {notes} से ढकी है। |
 | `detail.noteCovers` | The debit notes cover the short. The lot can go OK. | डेबिट नोट कमी को ढकते हैं। लॉट OK हो सकता है। |
 | `detail.store` | Scrap store | स्क्रैप स्टोर |
@@ -4206,12 +4206,12 @@ Please check, Lalubhai:
 | `errors.rateHigh` | That rate is above ₹10,000 per kg. Check it. | यह रेट ₹10,000 प्रति kg से ज़्यादा है। जांच लें। |
 | `errors.dross` | Enter dross as a percent from 0 to 100. | ड्रॉस 0 से 100 के बीच प्रतिशत में डालें। |
 | `errors.origin` | Keep the origin under 80 characters. | कहां से 80 अक्षर से कम रखें। |
-| `errors.party` | Enter the weight on the party's slip in kg. | पार्टी की पर्ची का वज़न kg में डालें। |
-| `errors.fc` | Enter our kanta weight in kg, or leave it empty. | हमारे कांटे का वज़न kg में डालें, या खाली छोड़ें। |
+| `errors.party` | Enter the weight on the party's slip in {massUnit}. | पार्टी की पर्ची का वज़न {massUnit} में डालें। |
+| `errors.fc` | Enter our kanta weight in {massUnit}, or leave it empty. | हमारे कांटे का वज़न {massUnit} में डालें, या खाली छोड़ें। |
 | `errors.tooHeavy` | That is more than 100 tonnes. Check the weight. | यह 100 टन से ज़्यादा है। वज़न जांच लें। |
 | `errors.noteTooSmall` | The note must cover at least the short beyond the tolerance. | नोट कम से कम छूट से ज़्यादा वाली कमी ढके। |
 | `errors.noteTooBig` | The note can't be more than the party weight. | नोट पार्टी के वज़न से ज़्यादा नहीं हो सकता। |
-| `errors.noteOverShort` | A weight debit can't be more than the short. Lower the kg. | वज़न का डेबिट कमी से ज़्यादा नहीं हो सकता। kg कम करें। |
+| `errors.noteOverShort` | A weight debit can't be more than the short. Lower the {massUnit}. | वज़न का डेबिट कमी से ज़्यादा नहीं हो सकता। {massUnit} कम करें। |
 | `errors.bori` | The bori deduction must be less than our kanta weight. | बोरी कटौती हमारे कांटे के वज़न से कम हो। |
 | `errors.date` | Pick the lot date. | लॉट की तारीख चुनें। |
 | `errors.vehicle` | Keep the vehicle number under 20 characters. | गाड़ी नंबर 20 अक्षर से कम रखें। |
@@ -4253,16 +4253,16 @@ Please check, Lalubhai:
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
 | `subject.dieRerank` | Copy {code}, tier {from} to {to} | कॉपी {code}, टियर {from} से {to} |
 | `subject.dieRerankNew` | Copy {code}, set tier {to} | कॉपी {code}, टियर {to} करें |
-| `subject.reallocate` | {count} {count:bundle\|bundles}, {kg} kg: {from} to {to} | {count} bundle, {kg} kg: {from} से {to} को |
+| `subject.reallocate` | {count} {count:bundle\|bundles}, {kg} {massUnit}: {from} to {to} | {count} bundle, {kg} {massUnit}: {from} से {to} को |
 | `subject.dieLift` | Copy {code}: {from} to {to} | कॉपी {code}: {from} से {to} |
 | `subject.dieLiftRank` | Copy {code}, tier {fromRank} to {toRank}: {from} to {to} | कॉपी {code}, टियर {fromRank} से {toRank}: {from} से {to} |
 | `subject.lateEntry` | Run {number} on {line}, entered late | {line} पर रन {number}, बाद में भरा गया |
 | `subject.lateEntryNoLine` | Run {number}, entered late | रन {number}, बाद में भरा गया |
 | `subject.generic` | {ref} | {ref} |
-| `subject.castClose` | Close cast {number}, tail {kg} kg | कास्ट {number} बंद करें, टेल {kg} kg |
+| `subject.castClose` | Close cast {number}, tail {kg} {massUnit} | कास्ट {number} बंद करें, टेल {kg} {massUnit} |
 | `subject.castCloseBare` | Close cast {number} | कास्ट {number} बंद करें |
 | `subject.meltCorrect` | Correct melt {seq} of cast {number} | कास्ट {number} की मेल्ट {seq} सुधारें |
-| `subject.offBand` | {serial} on {code}: {kg} kg/12ft, {order} line {line} says {lineKg} | {code} पर {serial}: {kg} kg/12ft, {order} लाइन {line} में {lineKg} |
+| `subject.offBand` | {serial} on {code}: {kg} {sectionUnit}, {order} line {line} says {lineKg} | {code} पर {serial}: {kg} {sectionUnit}, {order} लाइन {line} में {lineKg} |
 | `subject.lateDispatch` | {code}, entered late | {code}, देर से भरा |
 | `foundry.title` | Figures | आँकड़े |
 | `foundry.produced` | Billets made | बने बिलेट |
@@ -4275,8 +4275,8 @@ Please check, Lalubhai:
 | `foundry.adjust` | Ledger moves by | खाता इतना हिलेगा |
 | `foundry.now` | Now | अभी |
 | `foundry.atRequest` | When it was asked | माँगते समय |
-| `foundry.usedSince` | The press used {kg} kg of the billets since the request. | माँग के बाद प्रेस ने {kg} kg बिलेट काम में लिए। |
-| `foundry.addedSince` | {kg} kg more billets are on hand than at the request. | माँग के समय से {kg} kg बिलेट ज़्यादा हाथ में हैं। |
+| `foundry.usedSince` | The press used {kg} {massUnit} of the billets since the request. | माँग के बाद प्रेस ने {kg} {massUnit} बिलेट काम में लिए। |
+| `foundry.addedSince` | {kg} {massUnit} more billets are on hand than at the request. | माँग के समय से {kg} {massUnit} बिलेट ज़्यादा हाथ में हैं। |
 | `foundry.castMoved` | This cast is no longer waiting to close. | यह कास्ट अब बंद होने के इंतज़ार में नहीं है। |
 | `foundry.meltMoved` | This melt is no longer locked. | यह मेल्ट अब लॉक नहीं है। |
 | `foundry.wait` | Approve waits until the figures load. Reject is open. | आँकड़े आने तक मंज़ूर बंद है। नामंज़ूर खुला है। |
@@ -4294,8 +4294,8 @@ Please check, Lalubhai:
 | `late.duration` | Running time | चलने का समय |
 | `late.shift` | Production day | प्रोडक्शन का दिन |
 | `late.shiftValue` | {day}, shift {shift} | {day}, शिफ़्ट {shift} |
-| `late.kgIn` | Kg in | अंदर गया kg |
-| `late.good` | Good kg | अच्छा kg |
+| `late.kgIn` | {massUnit} in | अंदर गया {massUnit} |
+| `late.good` | Good {massUnit} | अच्छा {massUnit} |
 | `late.recovery` | Recovery | रिकवरी |
 | `late.notCounted` | Not counted yet | अभी गिना नहीं |
 | `late.runError` | The run's figures didn't load. Approve stays off until the run loads. Reject is open. | रन के आंकड़े लोड नहीं हुए। रन लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
@@ -4303,7 +4303,7 @@ Please check, Lalubhai:
 | `openRun` | Open run | रन खोलें |
 | `facts.error` | The current figures didn't load. Approve stays off until they load. Reject is open. | अभी के आंकड़े लोड नहीं हुए। लोड होने तक मंज़ूर बंद है; नामंज़ूर खुला है। |
 | `facts.moveTitle` | Where the bundles are now | बंडल अभी कहां हैं |
-| `facts.moveCount` | {count} of {total} would move ({kg} kg) | {total} में से {count} जाएंगे ({kg} kg) |
+| `facts.moveCount` | {count} of {total} would move ({kg} {massUnit}) | {total} में से {count} जाएंगे ({kg} {massUnit}) |
 | `facts.skipped` | {count} changed since the request and stay where they are. | {count} अनुरोध के बाद बदल गए और जहां हैं वहीं रहेंगे। |
 | `facts.closed` | That order is closed. Nothing will move. | वह ऑर्डर बंद है। कुछ नहीं जाएगा। |
 | `facts.partySeries` | Moved bundles take {customer}'s next party numbers. | जाने वाले बंडलों को {customer} के अगले पार्टी नंबर मिलेंगे। |
@@ -4320,7 +4320,7 @@ Please check, Lalubhai:
 | `facts.bandValue` | {from} to {to} | {from} से {to} |
 | `facts.bandNow` | {band} (now) | {band} (अभी) |
 | `facts.reading` | Last reading | आखिरी रीडिंग |
-| `facts.readingValue` | {kg} kg per 12 ft, {when} | {kg} kg प्रति 12 ft, {when} |
+| `facts.readingValue` | {kg} {sectionUnit}, {when} | {kg} {sectionUnit}, {when} |
 | `facts.readingNone` | No reading yet | अभी कोई रीडिंग नहीं |
 | `facts.above` | above the band | बैंड से ऊपर |
 | `facts.below` | below the band | बैंड से नीचे |
@@ -4329,9 +4329,9 @@ Please check, Lalubhai:
 | `facts.offBandTitle` | The bundle now | Bundle अभी |
 | `facts.offBandBundle` | Bundle | Bundle |
 | `facts.offBandOn` | {serial} on {code} | {code} पर {serial} |
-| `facts.offBandWeight` | Bundle kg/12ft | Bundle का kg/12ft |
+| `facts.offBandWeight` | Bundle {sectionUnit} | Bundle का {sectionUnit} |
 | `facts.offBandLine` | Order line | ऑर्डर लाइन |
-| `facts.offBandLineValue` | {order} line {line}, {kg} kg/12ft | {order} लाइन {line}, {kg} kg/12ft |
+| `facts.offBandLineValue` | {order} line {line}, {kg} {sectionUnit} | {order} लाइन {line}, {kg} {sectionUnit} |
 | `facts.offBandNoLine` | Not on an order line now | अभी किसी ऑर्डर लाइन पर नहीं |
 | `facts.offBandGone` | This bundle is no longer on the dispatch. Approving changes nothing. | यह bundle अब dispatch पर नहीं है। मंज़ूर करने से कुछ नहीं बदलेगा। |
 | `facts.offBandMoved` | The bundle is on another order line now. Approving covers only the line it was asked for. | Bundle अब दूसरी ऑर्डर लाइन पर है। मंज़ूरी सिर्फ़ उसी लाइन के लिए है जिसके लिए मांगी गई थी। |
@@ -4340,7 +4340,7 @@ Please check, Lalubhai:
 | `facts.lateLoad` | On the dispatch when asked | मंज़ूरी मांगते समय डिस्पैच पर |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
-| `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
+| `move.count` | {count} {count:bundle\|bundles}, {kg} {massUnit} | {count} bundle, {kg} {massUnit} |
 | `move.from` | From | कहां से |
 | `move.to` | To | कहां को |
 | `move.reason` | Reason | कारण |
@@ -4373,14 +4373,14 @@ Please check, Lalubhai:
 | `ours` | Our kanta | हमारा कांटा |
 | `short` | Short | कमी |
 | `tolerance` | Tolerance | छूट |
-| `kgDiff` | Kg in this note | इस नोट के kg |
+| `kgDiff` | {massUnit} in this note | इस नोट के {massUnit} |
 | `bori` | Bori deduction | बोरी कटौती |
 | `amount` | Amount | रकम |
 | `rate` | Rate | रेट |
 | `covers` | Covers the short beyond {pct} | {pct} से ज़्यादा वाली कमी ढकता है |
 | `notCovers` | Does not cover the short beyond {pct} | {pct} से ज़्यादा वाली कमी नहीं ढकता |
-| `overShort` | This note is {kg} kg more than the short. Check it before approving. | यह नोट कमी से {kg} kg ज़्यादा है। मंज़ूर करने से पहले जांचें। |
-| `overShortWithOthers` | With the lot's other weight notes, this comes to {kg} kg more than the short. Check it before approving. | लॉट के बाकी वज़न वाले नोट मिलाकर यह कमी से {kg} kg ज़्यादा है। मंज़ूर करने से पहले जांचें। |
+| `overShort` | This note is {kg} {massUnit} more than the short. Check it before approving. | यह नोट कमी से {kg} {massUnit} ज़्यादा है। मंज़ूर करने से पहले जांचें। |
+| `overShortWithOthers` | With the lot's other weight notes, this comes to {kg} {massUnit} more than the short. Check it before approving. | लॉट के बाकी वज़न वाले नोट मिलाकर यह कमी से {kg} {massUnit} ज़्यादा है। मंज़ूर करने से पहले जांचें। |
 | `moreError` | More requests didn't load. Press Show more to try again. | और रिक्वेस्ट लोड नहीं हुईं। फिर से कोशिश के लिए और दिखाएं दबाएं। |
 | `otherNotes` | Other notes on this lot | इस लॉट के बाकी नोट |
 | `figuresHidden` | Your role can't see the purchase figures. | आपके रोल को खरीद के आंकड़े नहीं दिखते। |
@@ -4479,7 +4479,7 @@ Please check, Lalubhai:
 | `status.on_trial` | On trial | ट्रायल पर |
 | `bands.title` | Bands | बैंड |
 | `bands.add` | Add band | बैंड जोड़ें |
-| `bands.wall` | Wall (mm) | दीवार (mm) |
+| `bands.wall` | Wall ({lengthUnit}) | दीवार ({lengthUnit}) |
 | `bands.range` | {min} to {max} kg/12ft | {min} से {max} kg/12ft |
 | `bands.label` | Label | नाम |
 | `bands.retire` | Retire band | बैंड बंद करें |
@@ -4518,7 +4518,7 @@ Please check, Lalubhai:
 | `card.hardness` | Hardness (HV) | कठोरता (HV) |
 | `card.supplier` | Supplier | सप्लायर |
 | `card.ftr` | FTR | FTR |
-| `card.lifeLine` | Life {produced} of {life} kg | लाइफ {produced} / {life} kg |
+| `card.lifeLine` | Life {produced} of {life} {massUnit} | लाइफ {produced} / {life} {massUnit} |
 | `card.lifeReached` | Life reached | लाइफ पूरी |
 | `card.onPress` | On a press. | प्रेस पर है। |
 | `card.edit` | Edit card | कार्ड बदलें |
@@ -4526,7 +4526,7 @@ Please check, Lalubhai:
 | `card.saved` | Card saved | कार्ड सेव हुआ |
 | `card.fieldsInvalid` | Check the numbers: whole numbers from 1. | संख्याएं देखें: 1 से शुरू पूरी संख्या। |
 | `card.lifeKg` | Life | लाइफ |
-| `card.lifeHint` | Whole kg this copy should make. Reaching it warns; it never blocks. | इस कॉपी से कितने kg बनने चाहिए। पूरी होने पर चेतावनी आती है, रुकावट नहीं। |
+| `card.lifeHint` | Whole {massUnit} this copy should make. Reaching it warns; it never blocks. | इस कॉपी से कितने {massUnit} बनने चाहिए। पूरी होने पर चेतावनी आती है, रुकावट नहीं। |
 | `card.retire` | Retire copy | कॉपी बंद करें |
 | `card.retireTitle` | Retire {code}? | {code} बंद करें? |
 | `card.retireBody` | A retired copy takes no readings and keeps its number. | बंद कॉपी में रीडिंग नहीं चढ़ती, उसका नंबर वही रहता है। |
@@ -4605,8 +4605,8 @@ Please check, Lalubhai:
 | `maker.addMakerLink` | Add one | एक जोड़ें |
 | `maker.sentToast` | {number}: {code} sent | {number}: {code} भेजी |
 | `maker.receiveTitle` | Receive {number} | {number} वापस लें |
-| `maker.trialSet` | Trial weight is already {kg} kg/12ft. It stays. | ट्रायल वज़न पहले से {kg} kg/12ft है। वही रहेगा। |
-| `maker.trialHint` | kg per 12 ft. This is not a drift reading. | kg/12ft। यह बढ़त की रीडिंग नहीं है। |
+| `maker.trialSet` | Trial weight is already {kg} {sectionUnit}. It stays. | ट्रायल वज़न पहले से {kg} {sectionUnit} है। वही रहेगा। |
+| `maker.trialHint` | {sectionUnit}. This is not a drift reading. | {sectionUnit}। यह बढ़त की रीडिंग नहीं है। |
 | `maker.receivedToast` | {number}: {code} is back in the rack | {number}: {code} रैक में वापस |
 | `owner.title` | Owner | मालिक |
 | `owner.belongsTo` | This die belongs to {name} | यह die {name} की है |
@@ -4748,7 +4748,7 @@ Please check, Lalubhai:
 | `board.noCopiesInStateBody` | Clear the tile to see every die. | सभी die देखने के लिए टाइल हटाएं। |
 | `section.copyAddedTrial` | {code} added, on trial | {code} जुड़ी, ट्रायल पर |
 | `section.startsOnTrial` | A new copy starts on trial until a trial passes or a manager releases it. | नई कॉपी ट्रायल से शुरू होती है, जब तक ट्रायल पास न हो या मैनेजर उसे छोड़ न दे। |
-| `section.useFirst` | Run {code} first: {kg} kg/12ft, in band. | पहले {code} चलाएं: {kg} kg/12ft, बैंड में। |
+| `section.useFirst` | Run {code} first: {kg} {sectionUnit}, in band. | पहले {code} चलाएं: {kg} {sectionUnit}, बैंड में। |
 | `section.bandsAndCopies` | Bands and copies | बैंड और कॉपी |
 | `section.emptyCopiesBody` | The copy number is given when you add one. | कॉपी जोड़ते समय उसका नंबर अपने आप मिलता है। |
 | `section.cavityCount` | {count} cavities | {count} कैविटी |
@@ -4764,23 +4764,23 @@ Please check, Lalubhai:
 | `band.min` | Min | कम से कम |
 | `band.max` | Max | ज़्यादा से ज़्यादा |
 | `band.wallInvalid` | Enter the wall in millimetres, like 1.2. | दीवार मिलीमीटर में लिखें, जैसे 1.2। |
-| `band.kgInvalid` | Enter kg per 12 ft with up to three decimals, like 5.967. | kg/12ft तीन दशमलव तक लिखें, जैसे 5.967। |
+| `band.kgInvalid` | Enter {sectionUnit} with up to three decimals, like 5.967. | {sectionUnit} तीन दशमलव तक लिखें, जैसे 5.967। |
 | `band.useExisting` | Add the copy to that band instead. | कॉपी को उसी बैंड में जोड़ें। |
 | `band.save` | Save band | बैंड सेव करें |
 | `band.saved` | Band saved | बैंड सेव हुआ |
 | `band.cantAdd` | Your role can't add bands. Ask a manager or admin. | आपका रोल बैंड नहीं जोड़ सकता। मैनेजर या एडमिन से कहें। |
 | `reading.add` | Add reading | रीडिंग जोड़ें |
 | `reading.title` | Reading for {code} | {code} की रीडिंग |
-| `reading.noneYet` | kg per 12 ft. No reading yet. | kg/12ft। अभी कोई रीडिंग नहीं। |
-| `reading.last` | kg per 12 ft. Last reading {kg}. | kg/12ft। पिछली रीडिंग {kg}। |
+| `reading.noneYet` | {sectionUnit}. No reading yet. | {sectionUnit}। अभी कोई रीडिंग नहीं। |
+| `reading.last` | {sectionUnit}. Last reading {kg}. | {sectionUnit}। पिछली रीडिंग {kg}। |
 | `reading.weight` | Weight of 12 ft | 12 ft का वज़न |
 | `reading.bandHint` | Band {band}. | बैंड {band}। |
 | `reading.serverFigures` | The percent and colour are worked out when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
 | `reading.backspace` | Backspace | मिटाएं |
-| `reading.saved` | {code}: {kg} kg/12ft saved | {code}: {kg} kg/12ft सेव हुआ |
+| `reading.saved` | {code}: {kg} {sectionUnit} saved | {code}: {kg} {sectionUnit} सेव हुआ |
 | `reading.empty` | No readings yet | अभी कोई रीडिंग नहीं |
 | `reading.emptyBody` | Weigh 12 ft off this die and add the weight. | इस die से 12 ft तौलकर वज़न जोड़ें। |
-| `reading.trendLabel` | Readings, kg per 12 ft | रीडिंग, kg/12ft |
+| `reading.trendLabel` | Readings, {sectionUnit} | रीडिंग, {sectionUnit} |
 | `reading.bench` | Bench | बेंच |
 | `reading.trialNote` | Trial weight. Not a drift reading. | ट्रायल वज़न। बढ़त की रीडिंग नहीं। |
 | `runs.label` | Press runs | प्रेस रन |
@@ -4790,11 +4790,11 @@ Please check, Lalubhai:
 | `runs.run` | Run | रन |
 | `runs.day` | Day | दिन |
 | `runs.shiftSeq` | shift {seq} | शिफ़्ट {seq} |
-| `runs.input` | In (kg) | अंदर (kg) |
-| `runs.output` | Out (kg) | बाहर (kg) |
+| `runs.input` | In ({massUnit}) | अंदर ({massUnit}) |
+| `runs.output` | Out ({massUnit}) | बाहर ({massUnit}) |
 | `runs.recovery` | Recovery | रिकवरी |
 | `runs.reading` | Reading | रीडिंग |
-| `runs.accumulated` | Total made (kg) | अब तक बना (kg) |
+| `runs.accumulated` | Total made ({massUnit}) | अब तक बना ({massUnit}) |
 | `runs.remark` | Remark | टिप्पणी |
 | `nitriding.send` | Send to nitriding | नाइट्राइडिंग पर भेजें |
 | `nitriding.back` | Back from nitriding | नाइट्राइडिंग से वापस |
@@ -4893,7 +4893,7 @@ Please check, Lalubhai:
 | Key | English | हिंदी |
 |---|---|---|
 | `book.bar.column` | Where it stands | कहां तक पहुंचा |
-| `book.bar.label` | {number}: kg by stage | {number}: स्टेज के हिसाब से kg |
+| `book.bar.label` | {number}: {massUnit} by stage | {number}: स्टेज के हिसाब से {massUnit} |
 | `book.bar.dispatchedPct` | {pct}% dispatched | {pct}% dispatch हुआ |
 | `book.bar.baki` | Baki {kg} {massUnit} | बाकी {kg} {massUnit} |
 | `book.bar.nothingPlanned` | Nothing planned yet | अभी कुछ प्लान नहीं |
@@ -4948,7 +4948,7 @@ Please check, Lalubhai:
 | `phonePlan.none` | No released plan | कोई रिलीज़ प्लान नहीं |
 | `phonePlan.noneBody` | A plan shows here once it is released to the press. | प्रेस को रिलीज़ होने के बाद प्लान यहाँ दिखेगा। |
 | `phonePlan.planTotal` | {pressed} of {planned} {massUnit} pressed ({pct}%) | {planned} में से {pressed} {massUnit} प्रेस हुआ ({pct}%) |
-| `phonePlan.kgLine` | {pressed} of {planned} kg | {planned} में से {pressed} kg |
+| `phonePlan.kgLine` | {pressed} of {planned} {massUnit} | {planned} में से {pressed} {massUnit} |
 | `phonePlan.pcsLine` | {pressed} of {planned} pcs | {planned} में से {pressed} pcs |
 | `phonePlan.notStarted` | Not started | शुरू नहीं हुआ |
 | `phonePlan.urgent` | Urgent | अर्जेंट |
@@ -4979,7 +4979,7 @@ Please check, Lalubhai:
 | `line.tierOrBetter` | Tier {rank} or better | टियर {rank} या बेहतर |
 | `line.cutLength` | Cut length | कट लंबाई |
 | `line.pcs` | Pieces | पीस |
-| `line.kg` | kg | kg |
+| `line.kg` | {massUnit} | {massUnit} |
 | `line.basis` | kg/12ft | kg/12ft |
 | `line.finish` | Finish | फ़िनिश |
 | `line.alloy` | Alloy | अलॉय |
@@ -5012,7 +5012,7 @@ Please check, Lalubhai:
 | `blockers.no_lines` | Add at least one line. | कम से कम एक लाइन जोड़ें। |
 | `blockers.line` | Line {n}: {problem} | लाइन {n}: {problem} |
 | `blockers.pcs` | add pieces | पीस डालें |
-| `blockers.kg` | add kg | kg डालें |
+| `blockers.kg` | add {massUnit} | {massUnit} डालें |
 | `blockers.length` | add the cut length | कट लंबाई डालें |
 | `blockers.alloy` | add the alloy | अलॉय डालें |
 | `blockers.temper` | add the temper | टेम्पर डालें |
@@ -5064,8 +5064,8 @@ Please check, Lalubhai:
 | `noPo` | No PO yet | अभी PO नहीं |
 | `late` | Late, {days} days | लेट, {days} दिन |
 | `list.status` | Status | स्थिति |
-| `list.ordered` | Ordered kg | ऑर्डर kg |
-| `list.baki` | Baki kg | बाकी kg |
+| `list.ordered` | Ordered {massUnit} | ऑर्डर {massUnit} |
+| `list.baki` | Baki {massUnit} | बाकी {massUnit} |
 | `empty.title` | No orders yet | अभी कोई ऑर्डर नहीं |
 | `empty.body` | Book a customer's PO to start an order. | ग्राहक का PO बुक करके ऑर्डर शुरू करें। |
 | `empty.noMatch` | No orders match | कोई ऑर्डर नहीं मिला |
@@ -5122,7 +5122,7 @@ Please check, Lalubhai:
 | `edit.title` | Edit order | ऑर्डर बदलें |
 | `edit.saved` | Order saved | ऑर्डर सेव हुआ |
 | `edit.linesTitle` | Edit the lines | लाइनें बदलें |
-| `edit.linesHint` | Pieces or kg, length, die and copy. A line on a released press plan keeps its figures. | पीस या kg, लंबाई, die और कॉपी। प्रेस को भेजे गए प्लान की लाइन के आंकड़े नहीं बदलते। |
+| `edit.linesHint` | Pieces or {massUnit}, length, die and copy. A line on a released press plan keeps its figures. | पीस या {massUnit}, लंबाई, die और कॉपी। प्रेस को भेजे गए प्लान की लाइन के आंकड़े नहीं बदलते। |
 | `edit.linesSaved` | Lines saved | लाइनें सेव हुईं |
 | `edit.releasedPlan` | Line {lines} is on a released press plan. Its kg, pieces, length and die can't change now. | लाइन {lines} प्रेस को भेजे गए प्लान पर है। इसके kg, पीस, लंबाई और die अभी नहीं बदल सकते। |
 | `edit.belowDispatched` | Line {line}: {dispatched} kg is already dispatched, more than the new {kg} kg. | लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा। |
@@ -5140,7 +5140,7 @@ Please check, Lalubhai:
 | `form.block.removeLength` | Remove length {n} | लंबाई {n} हटाएं |
 | `form.block.subtotal` | This die: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} {massUnit} | यह die: {lines} लंबाई, {pcs} पीस, {kg} {massUnit} |
 | `form.block.share` | {pct}% of the order | ऑर्डर का {pct}% |
-| `form.block.enterHint` | Press Enter in pieces or kg to add the next length. Shift and Enter add another die. | अगली लंबाई जोड़ने के लिए पीस या kg में Enter दबाएं। Shift और Enter से एक और die जुड़ती है। |
+| `form.block.enterHint` | Press Enter in pieces or {massUnit} to add the next length. Shift and Enter add another die. | अगली लंबाई जोड़ने के लिए पीस या {massUnit} में Enter दबाएं। Shift और Enter से एक और die जुड़ती है। |
 | `form.block.more` | Alloy, temper, finish and weight basis | अलॉय, टेम्पर, फ़िनिश और वज़न का आधार |
 | `form.subtitle` | Book a customer's PO. Confirm it on the order once the PO number and every line are complete. | ग्राहक का PO बुक करें। PO नंबर और हर लाइन पूरी होने पर ऑर्डर पर पक्का करें। |
 | `form.party` | Customer and PO | ग्राहक और PO |
@@ -5174,7 +5174,7 @@ Please check, Lalubhai:
 | `form.errors.customer` | Pick the customer. | ग्राहक चुनें। |
 | `form.errors.die` | Pick the die. | Die चुनें। |
 | `form.errors.length` | Enter the cut length. | कट लंबाई डालें। |
-| `form.errors.qty` | Enter pieces or kg. | पीस या kg डालें। |
+| `form.errors.qty` | Enter pieces or {massUnit}. | पीस या {massUnit} डालें। |
 | `stock.title` | Stock for this die and length | इस die और लंबाई का स्टॉक |
 | `stock.hint` | Bundles of this die that are already made. Book the order, then use Take ready stock on its line to put them on it. | इस die के बने हुए bundle। ऑर्डर बुक करें, फिर उसकी लाइन पर "तैयार स्टॉक लें" से इन्हें उस पर डालें। |
 | `stock.takeTitle` | Ready stock for line {n} | लाइन {n} के लिए तैयार स्टॉक |
@@ -5198,16 +5198,16 @@ Please check, Lalubhai:
 | `timeline.close` | Order closed | ऑर्डर बंद हुआ |
 | `timeline.cancel` | Order cancelled | ऑर्डर रद्द हुआ |
 | `timeline.weightRefresh` | Weight basis refreshed | वज़न आधार ताज़ा किया |
-| `timeline.reallocatePending` | {count} {count:bundle\|bundles}, {kg} kg, asked to move. Waiting for a manager. | {count} bundle, {kg} kg डालने की मांग। मैनेजर का इंतज़ार। |
-| `timeline.reallocateApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved | {count} bundle, {kg} kg डाले गए |
+| `timeline.reallocatePending` | {count} {count:bundle\|bundles}, {kg} {massUnit}, asked to move. Waiting for a manager. | {count} bundle, {kg} {massUnit} डालने की मांग। मैनेजर का इंतज़ार। |
+| `timeline.reallocateApplied` | {count} {count:bundle\|bundles}, {kg} {massUnit}, moved | {count} bundle, {kg} {massUnit} डाले गए |
 | `timeline.reallocateRejected` | The move of {count} {count:bundle\|bundles} was refused | {count} bundle डालना मना किया गया |
-| `timeline.moveApplied` | {count} {count:bundle\|bundles}, {kg} kg, moved from {from} to {to} | {count} bundle, {kg} kg, {from} से {to} को ले जाए गए |
-| `timeline.movePending` | {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to}, asked. Waiting for a manager. | {count} bundle, {kg} kg, {from} से {to} को, मांगा गया। मैनेजर का इंतज़ार। |
-| `timeline.moveRejected` | The move of {count} {count:bundle\|bundles}, {kg} kg, from {from} to {to} was refused | {count} bundle, {kg} kg, {from} से {to} को ले जाना मना किया गया |
+| `timeline.moveApplied` | {count} {count:bundle\|bundles}, {kg} {massUnit}, moved from {from} to {to} | {count} bundle, {kg} {massUnit}, {from} से {to} को ले जाए गए |
+| `timeline.movePending` | {count} {count:bundle\|bundles}, {kg} {massUnit}, from {from} to {to}, asked. Waiting for a manager. | {count} bundle, {kg} {massUnit}, {from} से {to} को, मांगा गया। मैनेजर का इंतज़ार। |
+| `timeline.moveRejected` | The move of {count} {count:bundle\|bundles}, {kg} {massUnit}, from {from} to {to} was refused | {count} bundle, {kg} {massUnit}, {from} से {to} को ले जाना मना किया गया |
 | `timeline.plantStock` | plant stock | प्लांट स्टॉक |
-| `timeline.hold` | {count} {count:bundle\|bundles}, {kg} kg, held for line {line} | {count} bundle, {kg} kg, लाइन {line} के लिए होल्ड |
-| `timeline.release` | Hold on line {line} ended: {count} {count:bundle\|bundles}, {kg} kg | लाइन {line} का होल्ड हटा: {count} bundle, {kg} kg |
-| `timeline.releaseDispatched` | {count} held {count:bundle\|bundles}, {kg} kg, left on {code} | होल्ड के {count} bundle, {kg} kg, {code} पर गए |
+| `timeline.hold` | {count} {count:bundle\|bundles}, {kg} {massUnit}, held for line {line} | {count} bundle, {kg} {massUnit}, लाइन {line} के लिए होल्ड |
+| `timeline.release` | Hold on line {line} ended: {count} {count:bundle\|bundles}, {kg} {massUnit} | लाइन {line} का होल्ड हटा: {count} bundle, {kg} {massUnit} |
+| `timeline.releaseDispatched` | {count} held {count:bundle\|bundles}, {kg} {massUnit}, left on {code} | होल्ड के {count} bundle, {kg} {massUnit}, {code} पर गए |
 | `timeline.planCreate` | Press plan {number} drafted | प्रेस प्लान {number} बना |
 | `timeline.planRelease` | Press plan {number} released to the press | प्रेस प्लान {number} प्रेस को भेजा गया |
 | `timeline.planCancel` | Press plan {number} cancelled | प्रेस प्लान {number} रद्द हुआ |
@@ -5262,7 +5262,7 @@ Please check, Lalubhai:
 | `plan.moreLines` | More open lines than shown. Narrow by customer or search. | दिखाई गई से ज़्यादा खुली लाइनें हैं। ग्राहक या खोज से छांटें। |
 | `plan.added` | Added to the plan | प्लान में जोड़ा |
 | `plan.removed` | Taken off the plan | प्लान से हटाया |
-| `plan.lineKg` | kg for {order} | {order} के लिए kg |
+| `plan.lineKg` | {massUnit} for {order} | {order} के लिए {massUnit} |
 | `plan.lineKgHint` | Blank = all that is left to plan | खाली = जितना प्लान होना बाकी है सब |
 | `plan.pressLine` | Press | प्रेस |
 | `plan.pickPressLine` | Pick the press | प्रेस चुनें |
@@ -5274,12 +5274,12 @@ Please check, Lalubhai:
 | `plan.trial.copyPlaceholder` | Pick a copy (optional) | कॉपी चुनें (वैकल्पिक) |
 | `plan.trial.copyHintTrial` | Only copies on trial can go to a die trial. The die room issues the copy to the run. | Die ट्रायल पर सिर्फ़ ट्रायल वाली कॉपी जा सकती है। Die room कॉपी को रन पर जारी करता है। |
 | `plan.trial.copyHint` | The die room issues the copy to the run. | Die room कॉपी को रन पर जारी करता है। |
-| `plan.trial.kg` | Planned kg | प्लान किया kg |
+| `plan.trial.kg` | Planned {massUnit} | प्लान किया {massUnit} |
 | `plan.trial.pcs` | Planned pieces | प्लान किए पीस |
 | `plan.trial.qtyHint` | Optional. Kept in the plan note for the die room and the press. | वैकल्पिक। Die room और प्रेस के लिए प्लान के नोट में रहता है। |
 | `plan.trial.note` | Note | नोट |
 | `plan.trial.needDie` | Pick the die. | Die चुनें। |
-| `plan.trial.badKg` | Enter a kg figure, or leave it blank. | kg की संख्या लिखें, या खाली छोड़ें। |
+| `plan.trial.badKg` | Enter a {massUnit} figure, or leave it blank. | {massUnit} की संख्या लिखें, या खाली छोड़ें। |
 | `plan.trial.badPcs` | Enter whole pieces, or leave it blank. | पूरे पीस लिखें, या खाली छोड़ें। |
 | `plan.released` | Plan released to the press | प्लान प्रेस को भेजा गया |
 | `plan.cancelled` | Plan cancelled | प्लान रद्द हुआ |
@@ -5389,11 +5389,11 @@ Please check, Lalubhai:
 | `console.cast` | Cast | कास्ट |
 | `console.shift` | Shift | शिफ्ट |
 | `console.productionDay` | Day | दिन |
-| `console.good` | Good kg | अच्छा kg |
-| `console.reject` | Reject kg | रिजेक्ट kg |
-| `console.ends` | Ends kg | टुकड़े kg |
-| `console.discard` | Butt kg | बट kg |
-| `console.input` | Billet kg | बिलेट kg |
+| `console.good` | Good {massUnit} | अच्छा {massUnit} |
+| `console.reject` | Reject {massUnit} | रिजेक्ट {massUnit} |
+| `console.ends` | Ends {massUnit} | टुकड़े {massUnit} |
+| `console.discard` | Butt {massUnit} | बट {massUnit} |
+| `console.input` | Billet {massUnit} | बिलेट {massUnit} |
 | `console.recovery` | Recovery | रिकवरी |
 | `console.balance` | Balance {kg} kg | बाकी {kg} kg |
 | `console.balanceWarn` | Billets and output differ by more than {pct}%. | बिलेट और माल में {pct}% से ज़्यादा फ़र्क है। |
@@ -5440,14 +5440,14 @@ Please check, Lalubhai:
 | `console.gates.no_cast` | Pick the cast the billets came from | बिलेट जिस कास्ट के हैं, वह चुनें |
 | `console.gates.no_billets` | Enter the billets used | लगे हुए बिलेट भरें |
 | `console.gates.too_many_billets` | At most 10 billet rows on a run | एक रन में ज़्यादा से ज़्यादा 10 बिलेट लाइन |
-| `console.gates.billet_row_invalid` | Every billet row needs a count and its kg | हर बिलेट लाइन में गिनती और kg चाहिए |
+| `console.gates.billet_row_invalid` | Every billet row needs a count and its {massUnit} | हर बिलेट लाइन में गिनती और {massUnit} चाहिए |
 | `console.gates.billet_cast_mismatch` | Add a billet row of the run's cast | रन के कास्ट की एक बिलेट लाइन डालें |
-| `console.gates.no_input` | The billets weigh nothing; enter their kg | बिलेट का वज़न शून्य है; उनका kg भरें |
+| `console.gates.no_input` | The billets weigh nothing; enter their {massUnit} | बिलेट का वज़न शून्य है; उनका {massUnit} भरें |
 | `console.gates.no_lines` | Enter the pieces by cut length | कट लंबाई के हिसाब से पीस भरें |
-| `console.gates.line_without_kg` | A cut length with pieces needs its kg | जिस कट लंबाई में पीस हैं, उसका kg भरें |
+| `console.gates.line_without_kg` | A cut length with pieces needs its {massUnit} | जिस कट लंबाई में पीस हैं, उसका {massUnit} भरें |
 | `console.gates.line_invalid` | A cut length row is not valid | एक कट लंबाई लाइन सही नहीं है |
-| `console.gates.no_good` | Enter the good pieces and their kg | अच्छे पीस और उनका kg भरें |
-| `console.gates.good_over_input` | Good kg is more than the billets that went in | अच्छा kg लगे हुए बिलेट से ज़्यादा है |
+| `console.gates.no_good` | Enter the good pieces and their {massUnit} | अच्छे पीस और उनका {massUnit} भरें |
+| `console.gates.good_over_input` | Good {massUnit} is more than the billets that went in | अच्छा {massUnit} लगे हुए बिलेट से ज़्यादा है |
 | `console.gates.pieces_over_pressed_length` | The pieces are longer in total than the pressed length | पीस की कुल लंबाई प्रेस हुई लंबाई से ज़्यादा है |
 | `console.gates.no_qc` | Enter the rejects (0 when there were none) | रिजेक्ट भरें (न हों तो 0) |
 | `console.gates.qc_row_invalid` | A reject row is not valid | एक रिजेक्ट लाइन सही नहीं है |
@@ -5486,7 +5486,7 @@ Please check, Lalubhai:
 | `console.errors.copyElsewhere` | {code} is not available for this run right now. | {code} अभी इस रन के लिए उपलब्ध नहीं है। |
 | `console.errors.lineExists` | There is already a press {code}. | {code} नाम का प्रेस पहले से है। |
 | `console.errors.retired` | {code} is retired. | {code} बंद हो चुकी है। |
-| `console.kgInvalid` | Type the kg as a number, for example 12.5. | kg को संख्या में लिखें, जैसे 12.5। |
+| `console.kgInvalid` | Type the {massUnit} as a number, for example 12.5. | {massUnit} को संख्या में लिखें, जैसे 12.5। |
 | `console.ok` | OK | ठीक है |
 | `console.draftStale` | Another device saved newer figures for this run. These are the saved figures. | किसी दूसरे डिवाइस ने इस रन के नए आंकड़े सेव किए हैं। ये सेव किए हुए आंकड़े हैं। |
 | `console.lockedBody` | The die room issues the die. Start opens when it does. | Die रूम die जारी करता है। तब "शुरू करें" खुलेगा। |
@@ -5518,10 +5518,10 @@ Please check, Lalubhai:
 | `console.handoverNobody` | Nobody | कोई नहीं |
 | `console.handoverDone` | Saved. | सेव हो गया। |
 | `console.readingTitle` | Die weight | Die वज़न |
-| `console.readingLabel` | Kg per 12 ft | kg प्रति 12 ft |
+| `console.readingLabel` | {sectionUnit} | {sectionUnit} |
 | `console.readingSave` | Save reading | रीडिंग सेव करें |
 | `console.readingSaved` | Reading saved. | रीडिंग सेव हो गई। |
-| `console.readingLast` | Last reading {kg} kg per 12 ft | पिछली रीडिंग {kg} kg प्रति 12 ft |
+| `console.readingLast` | Last reading {kg} {sectionUnit} | पिछली रीडिंग {kg} {sectionUnit} |
 | `console.readingNone` | No reading yet for this die. | इस die की अभी कोई रीडिंग नहीं है। |
 | `console.downtimeReason` | Why it stopped | क्यों रुका |
 | `console.downtimeNote` | Note | टिप्पणी |
@@ -5542,10 +5542,10 @@ Please check, Lalubhai:
 | `console.castSpectroFailNote` | The spectro on cast {cast} failed ({alloy}). Check with the foundry before these billets are pressed. | कास्ट {cast} ({alloy}) का स्पेक्ट्रो फेल हुआ है। ये बिलेट दबाने से पहले फाउंड्री से पूछ लें। |
 | `console.castNone` | No cast has billets in stock. | किसी cast के बिलेट स्टॉक में नहीं हैं। |
 | `console.castClosedChip` | Closed | बंद |
-| `console.weighedKg` | Weighed kg | तौला हुआ kg |
+| `console.weighedKg` | Weighed {massUnit} | तौला हुआ {massUnit} |
 | `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
 | `console.shortStock` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show billets short by {short} {massUnit}. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट {short} {massUnit} कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
-| `console.shortStockNoFigure` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.shortStockNoFigure` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
 | `console.pressedLength` | Pressed length | प्रेस की लंबाई |
 | `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
 | `console.pcsOrdered` | Released {pcs} pcs | भेजे गए {pcs} पीस |
@@ -5626,7 +5626,7 @@ Please check, Lalubhai:
 | `console.outbox.kind.resume` | Resume | फिर चालू |
 | `console.outbox.kind.undoStart` | Undo start | शुरू वापस |
 | `console.outbox.kind.billets` | Billets | बिलेट |
-| `console.outbox.kind.lines` | Pieces and kg | पीस और kg |
+| `console.outbox.kind.lines` | Pieces and {massUnit} | पीस और {massUnit} |
 | `console.outbox.kind.scrap` | Butt and ends | बट और एंड |
 | `console.outbox.kind.qc` | Rejects | रिजेक्ट |
 | `console.outbox.kind.close` | Log run | रन लॉग |
@@ -5739,8 +5739,8 @@ Please check, Lalubhai:
 | `report.startedStopped` | Started to stopped | शुरू से बंद तक |
 | `report.runningMin` | Running min | चलने के मिनट |
 | `report.downtimeMin` | Downtime min | रुकावट के मिनट |
-| `report.good` | Good kg and pcs | अच्छा kg और पीस |
-| `report.scrap` | Butt, ends and rejects kg | बट, एंड और रिजेक्ट kg |
+| `report.good` | Good {massUnit} and pcs | अच्छा {massUnit} और पीस |
+| `report.scrap` | Butt, ends and rejects {massUnit} | बट, एंड और रिजेक्ट {massUnit} |
 | `report.recovery` | Recovery % | रिकवरी % |
 | `report.csv` | Download CSV | CSV डाउनलोड करें |
 | `report.empty` | No logged runs in this period. | इस समय में कोई रन दर्ज नहीं। |
@@ -5905,11 +5905,11 @@ Please check, Lalubhai:
 | `refusal.addLogs` | Add the logs that came out. | जो लॉग निकले, जोड़ें। |
 | `refusal.chargingStart` | Write the charging start time. | चार्जिंग शुरू का समय लिखें। |
 | `refusal.castingEnd` | Write the casting end time, after the charging start. | कास्टिंग खत्म का समय लिखें, चार्जिंग शुरू के बाद का। |
-| `refusal.overCapacity` | More metal than the furnace holds. Check the kg. | फ़र्नेस की क्षमता से ज़्यादा धातु। kg जाँचें। |
-| `refusal.balanceReason` | The kg in and out do not match. Write why in the balance note. | अंदर और बाहर का kg नहीं मिलता। बैलेंस नोट में कारण लिखें। |
+| `refusal.overCapacity` | More metal than the furnace holds. Check the {massUnit}. | फ़र्नेस की क्षमता से ज़्यादा धातु। {massUnit} जाँचें। |
+| `refusal.balanceReason` | The {massUnit} in and out do not match. Write why in the balance note. | अंदर और बाहर का {massUnit} नहीं मिलता। बैलेंस नोट में कारण लिखें। |
 | `refusal.spectroReason` | Spectro has not passed. Write why the melt is locked anyway. | स्पेक्ट्रो पास नहीं हुआ। फिर भी लॉक करने का कारण लिखें। |
 | `refusal.alloyReason` | This melt's alloy differs from the cast's. Write why. | इस मेल्ट का अलॉय कास्ट से अलग है। कारण लिखें। |
-| `refusal.lineTooLarge` | A line is above 100 t. Check the kg. | एक लाइन 100 t से ऊपर है। kg जाँचें। |
+| `refusal.lineTooLarge` | A line is above 100 t. Check the {massUnit}. | एक लाइन 100 t से ऊपर है। {massUnit} जाँचें। |
 | `refusal.spectroOver` | The eight elements add up to more than 100 %. Check the values. | आठों तत्व मिलकर 100 % से ज़्यादा हैं। मान जाँचें। |
 | `refusal.spectroPpm` | Spectro values must be whole ppm from 0 to 1,000,000. | स्पेक्ट्रो मान 0 से 1,000,000 तक पूरे ppm में लिखें। |
 | `refusal.castCountOver` | The count finds {kg} kg more billets of {cast} than the ledger. Pick a reason. | गिनती में {cast} के बिलेट लेजर से {kg} kg ज़्यादा मिले। कारण चुनें। |
@@ -6030,11 +6030,11 @@ Please check, Lalubhai:
 | `cast.notFound` | That cast was not found. | वह कास्ट नहीं मिली। |
 | `cast.loadFailed` | The cast did not load. Check the connection and try again. | कास्ट नहीं आई। कनेक्शन देखकर फिर कोशिश करें। |
 | `cast.tailChip.balanced` | Every billet accounted for | हर बिलेट का हिसाब पूरा |
-| `cast.tailChip.tail` | Tail {kg} kg | टेल {kg} kg |
-| `cast.tailChip.short` | Billets short {kg} kg | बिलेट कम {kg} kg |
+| `cast.tailChip.tail` | Tail {kg} {massUnit} | टेल {kg} {massUnit} |
+| `cast.tailChip.short` | Billets short {kg} {massUnit} | बिलेट कम {kg} {massUnit} |
 | `cast.tailChip.empty` | No melts yet | अभी कोई मेल्ट नहीं |
-| `cast.tailChip.pending` | Tail {kg} kg ({pct} %) waiting for approval | टेल {kg} kg ({pct} %), मंज़ूरी का इंतज़ार |
-| `cast.tailChip.pendingShort` | Billets short {kg} kg, waiting for approval | बिलेट कम {kg} kg, मंज़ूरी का इंतज़ार |
+| `cast.tailChip.pending` | Tail {kg} {massUnit} ({pct} %) waiting for approval | टेल {kg} {massUnit} ({pct} %), मंज़ूरी का इंतज़ार |
+| `cast.tailChip.pendingShort` | Billets short {kg} {massUnit}, waiting for approval | बिलेट कम {kg} {massUnit}, मंज़ूरी का इंतज़ार |
 | `cast.panel.title` | Billets | बिलेट |
 | `cast.panel.produced` | Made | बने |
 | `cast.panel.pressed` | Used by the press | प्रेस ने लिए |
@@ -6068,18 +6068,18 @@ Please check, Lalubhai:
 | `cast.close.countTitle` | Count the billets left | बचे हुए बिलेट गिनें |
 | `cast.close.countHint` | Count the billets of this cast still in the yard and weigh them. The tail is worked out from your count. | इस कास्ट के जो बिलेट अभी यार्ड में हैं, गिनकर तौलें। टेल आपकी गिनती से निकलती है। |
 | `cast.close.pcs` | Billets counted (pieces) | गिने बिलेट (पीस) |
-| `cast.close.kg` | Billets counted (kg) | गिने बिलेट (kg) |
+| `cast.close.kg` | Billets counted ({massUnit}) | गिने बिलेट ({massUnit}) |
 | `cast.close.pcsInvalid` | Write the number of billets, 0 if none. | बिलेट की संख्या लिखें, न हों तो 0। |
-| `cast.close.kgInvalid` | Write the weight in kg, 0 if none. | वज़न kg में लिखें, न हो तो 0। |
-| `cast.close.together` | Pieces and kg go together: both zero or both above zero. | पीस और kg साथ चलते हैं: दोनों शून्य या दोनों शून्य से ऊपर। |
+| `cast.close.kgInvalid` | Write the weight in {massUnit}, 0 if none. | वज़न {massUnit} में लिखें, न हो तो 0। |
+| `cast.close.together` | Pieces and {massUnit} go together: both zero or both above zero. | पीस और {massUnit} साथ चलते हैं: दोनों शून्य या दोनों शून्य से ऊपर। |
 | `cast.close.ledgerOnHand` | On hand by the ledger | खाते के हिसाब से हाथ में |
 | `cast.close.counted` | Counted | गिने |
-| `cast.close.adjust` | The ledger moves by {kg} kg to match the count | गिनती से मिलाने के लिए खाता {kg} kg हिलेगा |
+| `cast.close.adjust` | The ledger moves by {kg} {massUnit} to match the count | गिनती से मिलाने के लिए खाता {kg} {massUnit} हिलेगा |
 | `cast.close.adjustNone` | No change to the ledger | खाते में कोई बदलाव नहीं |
 | `cast.close.tailIs` | Tail {kg} kg | टेल {kg} kg |
-| `cast.close.countOver` | The count finds {kg} kg more billets than the ledger. | गिनती में खाते से {kg} kg बिलेट ज़्यादा निकले। |
+| `cast.close.countOver` | The count finds {kg} {massUnit} more billets than the ledger. | गिनती में खाते से {kg} {massUnit} बिलेट ज़्यादा निकले। |
 | `cast.close.waitingCount` | Write the count to see the tail. | टेल देखने के लिए गिनती लिखें। |
-| `cast.close.short` | The press used {kg} kg more billets than the store held. | प्रेस ने स्टोर में जितने थे उससे {kg} kg बिलेट ज़्यादा लिए। |
+| `cast.close.short` | The press used {kg} {massUnit} more billets than the store held. | प्रेस ने स्टोर में जितने थे उससे {kg} {massUnit} बिलेट ज़्यादा लिए। |
 | `cast.close.needsApproval` | A tail this size needs a second person to approve before the cast closes. | इतनी टेल पर कास्ट बंद करने से पहले दूसरे व्यक्ति की मंज़ूरी चाहिए। |
 | `cast.close.reason` | Why the billets do not add up | बिलेट का हिसाब क्यों नहीं मिला |
 | `cast.close.reasonPick` | Pick a reason | कारण चुनें |
@@ -6100,13 +6100,13 @@ Please check, Lalubhai:
 | `cast.trace.lots` | Scrap lots in | आए हुए स्क्रैप लॉट |
 | `cast.trace.noLots` | No scrap lot has gone into this cast yet. | इस कास्ट में अभी कोई स्क्रैप लॉट नहीं गया। |
 | `cast.trace.melts` | Melts | मेल्ट |
-| `cast.trace.inLogs` | in {inKg} kg, logs {logs} kg | डाला {inKg} kg, लॉग {logs} kg |
+| `cast.trace.inLogs` | in {inKg} {massUnit}, logs {logs} {massUnit} | डाला {inKg} {massUnit}, लॉग {logs} {massUnit} |
 | `cast.trace.lockedWith` | locked with spectro {verdict} | स्पेक्ट्रो {verdict} के साथ लॉक हुई |
 | `cast.trace.mixed` | Mixed run | मिली-जुली रन |
 | `cast.trace.otherCast` | this cast's billets only; the run's bundles carry the run's own cast | सिर्फ़ इस कास्ट के बिलेट; रन के बंडल रन की अपनी कास्ट के हैं |
-| `cast.trace.adjusted` | count at close moved the ledger by {kg} kg | बंद करते समय की गिनती से खाता {kg} kg हिला |
+| `cast.trace.adjusted` | count at close moved the ledger by {kg} {massUnit} | बंद करते समय की गिनती से खाता {kg} {massUnit} हिला |
 | `cast.trace.billets` | Billets | बिलेट |
-| `cast.trace.billetsLine` | made {produced} kg, used {pressed} kg, on hand {onHand} kg | बने {produced} kg, प्रेस ने लिए {pressed} kg, हाथ में {onHand} kg |
+| `cast.trace.billetsLine` | made {produced} {massUnit}, used {pressed} {massUnit}, on hand {onHand} {massUnit} | बने {produced} {massUnit}, प्रेस ने लिए {pressed} {massUnit}, हाथ में {onHand} {massUnit} |
 | `cast.trace.runs` | Press runs | प्रेस रन |
 | `cast.trace.noRuns` | The press has not used this cast yet. | प्रेस ने इस कास्ट से अभी कुछ नहीं लिया। |
 | `cast.trace.bundles` | Bundles | बंडल |
@@ -6117,10 +6117,10 @@ Please check, Lalubhai:
 | `cast.cost.title` | Charge cost | चार्ज की लागत |
 | `cast.cost.total` | Cost of the scrap charged | डाले गए स्क्रैप की लागत |
 | `cast.cost.perKg` | Per kg of billet | बिलेट के प्रति kg |
-| `cast.cost.lotsKg` | Scrap lots kg | स्क्रैप लॉट kg |
+| `cast.cost.lotsKg` | Scrap lots {massUnit} | स्क्रैप लॉट {massUnit} |
 | `cast.cost.notCosted` | Not costed | लागत नहीं निकली |
 | `cast.cost.missingRate` | A lot has no rate, so the cost is not worked out. | किसी लॉट का रेट नहीं है, इसलिए लागत नहीं निकली। |
-| `cast.cost.streams` | Metal returned from streams ({kg} kg) carries no rate. | स्ट्रीम से लौटे मेटल ({kg} kg) का कोई रेट नहीं होता। |
+| `cast.cost.streams` | Metal returned from streams ({kg} {massUnit}) carries no rate. | स्ट्रीम से लौटे मेटल ({kg} {massUnit}) का कोई रेट नहीं होता। |
 | `cast.cost.loadFailed` | The cost did not load. | लागत नहीं आई। |
 | `melt.title` | Melt | मेल्ट |
 | `melt.new` | New melt | नई मेल्ट |
@@ -6159,17 +6159,17 @@ Please check, Lalubhai:
 | `melt.charge.lots` | Scrap lots | स्क्रैप लॉट |
 | `melt.charge.lot` | Lot | लॉट |
 | `melt.charge.lotPick` | Pick a lot | लॉट चुनें |
-| `melt.charge.noLots` | No lot has kg left to charge. | किसी लॉट में डालने लायक kg नहीं बचा। |
+| `melt.charge.noLots` | No lot has {massUnit} left to charge. | किसी लॉट में डालने लायक {massUnit} नहीं बचा। |
 | `melt.charge.kg` | Kg | Kg |
-| `melt.charge.left` | {kg} kg left | {kg} kg बचा |
-| `melt.charge.over` | More than the {kg} kg left in this lot | इस लॉट में बचे {kg} kg से ज़्यादा |
+| `melt.charge.left` | {kg} {massUnit} left | {kg} {massUnit} बचा |
+| `melt.charge.over` | More than the {kg} {massUnit} left in this lot | इस लॉट में बचे {kg} {massUnit} से ज़्यादा |
 | `melt.charge.all` | All | सब |
 | `melt.charge.addLot` | Add lot | लॉट जोड़ें |
 | `melt.charge.streams` | Return streams | रिटर्न स्ट्रीम |
 | `melt.charge.stream` | Stream | स्ट्रीम |
 | `melt.charge.streamPick` | Pick a stream | स्ट्रीम चुनें |
 | `melt.charge.addStream` | Add stream | स्ट्रीम जोड़ें |
-| `melt.charge.total` | Charged {kg} kg | चार्ज {kg} kg |
+| `melt.charge.total` | Charged {kg} {massUnit} | चार्ज {kg} {massUnit} |
 | `melt.charge.overCapacity` | More metal than the furnace holds. | फर्नेस की क्षमता से ज़्यादा मेटल। |
 | `melt.charge.nearCapacity` | Near the furnace limit. | फर्नेस की सीमा के पास। |
 | `melt.chem.title` | Chemicals from the store | स्टोर से केमिकल |
@@ -6194,7 +6194,7 @@ Please check, Lalubhai:
 | `melt.ldo.end` | End | अंत |
 | `melt.ldo.used` | LDO used {inches} in | LDO इस्तेमाल {inches} इंच |
 | `melt.out.logs` | Logs out | निकले लॉग |
-| `melt.out.logsHint` | One line for each length that came out. Weigh the kg. | हर लंबाई की एक लाइन। kg तौलकर लिखें। |
+| `melt.out.logsHint` | One line for each length that came out. Weigh the {massUnit}. | हर लंबाई की एक लाइन। {massUnit} तौलकर लिखें। |
 | `melt.out.pcs` | Pieces | पीस |
 | `melt.out.length` | Log length | लॉग की लंबाई |
 | `melt.out.billetLength` | Billet length | बिलेट की लंबाई |
@@ -6210,9 +6210,9 @@ Please check, Lalubhai:
 | `melt.out.balanceNote` | Why the balance is off | हिसाब क्यों नहीं मिला |
 | `melt.out.burnHigh` | The burn is above 3 percent. Say why. | बर्न 3 प्रतिशत से ऊपर है। कारण लिखें। |
 | `melt.out.moreOut` | More came out than went in. Say why. | डाले से ज़्यादा निकला। कारण लिखें। |
-| `melt.balance.in` | In {kg} kg | डाला {kg} kg |
-| `melt.balance.out` | Out {kg} kg | निकला {kg} kg |
-| `melt.balance.burn` | Burn {kg} kg ({pct}%) | बर्न {kg} kg ({pct}%) |
+| `melt.balance.in` | In {kg} {massUnit} | डाला {kg} {massUnit} |
+| `melt.balance.out` | Out {kg} {massUnit} | निकला {kg} {massUnit} |
+| `melt.balance.burn` | Burn {kg} {massUnit} ({pct}%) | बर्न {kg} {massUnit} ({pct}%) |
 | `melt.balance.yield` | Yield {pct}% | यील्ड {pct}% |
 | `melt.balance.yieldLabel` | Yield | यील्ड |
 | `melt.spectroReason` | Why lock without a spectro pass? | स्पेक्ट्रो पास हुए बिना लॉक क्यों? |
@@ -6229,15 +6229,15 @@ Please check, Lalubhai:
 | `melt.gates.fix` | Go there | वहाँ जाएं |
 | `melt.issue.date` | Write the melt date. | मेल्ट की तारीख लिखें। |
 | `melt.issue.time` | A time is not a clock time. Write it like 14:20. | समय घड़ी जैसा नहीं है। 14:20 की तरह लिखें। |
-| `melt.issue.kg` | Write the kg as a number. | kg अंक में लिखें। |
-| `melt.issue.kgTooLarge` | A line is above 100 t. Check the kg. | एक लाइन 100 टन से ऊपर है। kg जाँचें। |
+| `melt.issue.kg` | Write the {massUnit} as a number. | {massUnit} अंक में लिखें। |
+| `melt.issue.kgTooLarge` | A line is above 100 t. Check the {massUnit}. | एक लाइन 100 टन से ऊपर है। {massUnit} जाँचें। |
 | `melt.issue.lot` | Pick the lot for this line. | इस लाइन के लिए लॉट चुनें। |
 | `melt.issue.stream` | Pick the stream for this line. | इस लाइन के लिए स्ट्रीम चुनें। |
-| `melt.issue.duplicateLot` | This lot is on another line. Put its kg on one line. | यह लॉट दूसरी लाइन में है। उसका kg एक लाइन में रखें। |
-| `melt.issue.duplicateStream` | This stream is on another line. Put its kg on one line. | यह स्ट्रीम दूसरी लाइन में है। उसका kg एक लाइन में रखें। |
+| `melt.issue.duplicateLot` | This lot is on another line. Put its {massUnit} on one line. | यह लॉट दूसरी लाइन में है। उसका {massUnit} एक लाइन में रखें। |
+| `melt.issue.duplicateStream` | This stream is on another line. Put its {massUnit} on one line. | यह स्ट्रीम दूसरी लाइन में है। उसका {massUnit} एक लाइन में रखें। |
 | `melt.issue.chemical` | Write what the chemical is and the open and used quantities. | केमिकल क्या है और ओपन व इस्तेमाल की मात्रा लिखें। |
 | `melt.issue.chemicalClose` | Close must be open less used. | क्लोज़ = ओपन घटा इस्तेमाल होना चाहिए। |
-| `melt.issue.log` | A log line needs pieces, length and kg. | लॉग लाइन में पीस, लंबाई और kg चाहिए। |
+| `melt.issue.log` | A log line needs pieces, length and {massUnit}. | लॉग लाइन में पीस, लंबाई और {massUnit} चाहिए। |
 | `melt.issue.ldo` | Write the dip as inches, for example 42.5. | डिप इंच में लिखें, जैसे 42.5। |
 | `melt.issue.tooMany` | Too many charge lines. | चार्ज की लाइनें बहुत ज़्यादा हैं। |
 | `melt.discard.button` | Discard draft | ड्राफ़्ट हटाएं |
@@ -6248,17 +6248,17 @@ Please check, Lalubhai:
 | `melt.discard.done` | Draft discarded | ड्राफ़्ट हटा दिया |
 | `melt.reload.button` | Load the saved melt | सेव की हुई मेल्ट खोलें |
 | `melt.reload.hint` | This melt changed since you opened it, or the last save did not reach the server. Load the saved melt to carry on. What you typed here is replaced. | यह मेल्ट आपके खोलने के बाद बदल गई, या पिछला सेव सर्वर तक नहीं पहुँचा। आगे बढ़ने के लिए सेव की हुई मेल्ट खोलें। यहाँ जो आपने लिखा है वह बदल जाएगा। |
-| `melt.cancelledNote` | This melt is cancelled. Its kg were reversed. | यह मेल्ट रद्द है। इसके kg वापस कर दिए गए। |
+| `melt.cancelledNote` | This melt is cancelled. Its {massUnit} were reversed. | यह मेल्ट रद्द है। इसके {massUnit} वापस कर दिए गए। |
 | `melt.spectroNeedsSample` | The alloy changed. A new sample is needed for {alloy}, or write why it is not. | अलॉय बदल गया। {alloy} के लिए नया सैंपल चाहिए, या लिखें कि क्यों नहीं। |
 | `melt.cancel.title` | Cancel this melt | यह मेल्ट रद्द करें |
-| `melt.cancel.body` | Use this for a melt locked by mistake, when nobody needs it corrected. The kg and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। kg और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
+| `melt.cancel.body` | Use this for a melt locked by mistake, when nobody needs it corrected. The {massUnit} and the store draws are reversed and the melt keeps its number as cancelled. It is refused once the press has used its billets. | गलती से लॉक हुई मेल्ट के लिए, जब सुधार की ज़रूरत न हो। {massUnit} और स्टोर की निकासी वापस हो जाती है और मेल्ट अपने नंबर के साथ रद्द दिखती है। प्रेस ने इसके बिलेट काम में ले लिए हों तो यह नहीं होगा। |
 | `melt.cancel.button` | Cancel melt | मेल्ट रद्द करें |
 | `melt.cancel.sheetTitle` | Cancel melt {n} of {number} | {number} की मेल्ट {n} रद्द करें |
 | `melt.cancel.reason` | Why is it cancelled? | रद्द क्यों की? |
 | `melt.cancel.reasonRequired` | Give a reason. | कारण लिखें। |
 | `melt.cancel.confirm` | Cancel melt | मेल्ट रद्द करें |
 | `melt.cancel.done` | Melt {n} of {number} is cancelled | {number} की मेल्ट {n} रद्द हो गई |
-| `melt.correctedNote` | This melt was corrected. A newer melt took its place and its kg were reversed. | यह मेल्ट सुधारी गई थी। नई मेल्ट ने इसकी जगह ली और इसके kg वापस कर दिए गए। |
+| `melt.correctedNote` | This melt was corrected. A newer melt took its place and its {massUnit} were reversed. | यह मेल्ट सुधारी गई थी। नई मेल्ट ने इसकी जगह ली और इसके {massUnit} वापस कर दिए गए। |
 | `melt.correctsNote` | This draft corrects melt {n}. | यह ड्राफ़्ट मेल्ट {n} को सुधारता है। |
 | `melt.sheet.figures` | Figures | आँकड़े |
 | `melt.sheet.balanceNote` | Balance note: {note} | हिसाब की टिप्पणी: {note} |
@@ -6336,28 +6336,28 @@ Please check, Lalubhai:
 | `spectro.voidReason` | Why is it void? | क्यों रद्द? |
 | `spectro.voidConfirm` | Void result | नतीजा रद्द करें |
 | `stock.title` | Billet stock | बिलेट स्टॉक |
-| `stock.subtitle` | Billets in the store by alloy and cast. The kg is the store ledger. | स्टोर के बिलेट अलॉय और कास्ट के हिसाब से। kg स्टोर का खाता है। |
+| `stock.subtitle` | Billets in the store by alloy and cast. The {massUnit} is the store ledger. | स्टोर के बिलेट अलॉय और कास्ट के हिसाब से। {massUnit} स्टोर का खाता है। |
 | `stock.showFinished` | Show finished casts | पूरी हो चुकी कास्ट दिखाएं |
 | `stock.finished` | Finished casts | पूरी हो चुकी कास्ट |
 | `stock.empty` | No billets in stock. | स्टॉक में कोई बिलेट नहीं। |
-| `stock.total` | {kg} kg of billets in stock | स्टॉक में {kg} kg बिलेट |
-| `stock.adjusted` | includes {kg} kg from the counts at close | इसमें बंद करते समय की गिनती से {kg} kg शामिल |
-| `stock.alloyLine` | {kg} kg in {casts} {casts:cast\|casts} | {casts} कास्ट में {kg} kg |
+| `stock.total` | {kg} {massUnit} of billets in stock | स्टॉक में {kg} {massUnit} बिलेट |
+| `stock.adjusted` | includes {kg} {massUnit} from the counts at close | इसमें बंद करते समय की गिनती से {kg} {massUnit} शामिल |
+| `stock.alloyLine` | {kg} {massUnit} in {casts} {casts:cast\|casts} | {casts} कास्ट में {kg} {massUnit} |
 | `stock.onHand` | On hand | हाथ में |
 | `stock.loadFailed` | The billet stock did not load. Check the connection and try again. | बिलेट स्टॉक नहीं आया। कनेक्शन देखकर फिर कोशिश करें। |
 | `stock.streams.title` | Return streams | रिटर्न स्ट्रीम |
 | `stock.streams.hint` | Plant scrap, dross and the other streams a melt takes metal from. A melt cannot take more than the stream holds, so a new plant states what it holds now. | प्लांट स्क्रैप, ड्रॉस और बाकी स्ट्रीम जिनसे मेल्ट मेटल लेती है। मेल्ट स्ट्रीम में जितना है उससे ज़्यादा नहीं ले सकती, इसलिए नया प्लांट अभी का स्टॉक बताता है। |
-| `stock.streams.balance` | {kg} kg | {kg} kg |
+| `stock.streams.balance` | {kg} {massUnit} | {kg} {massUnit} |
 | `stock.streams.open` | Set opening balance | ओपनिंग बैलेंस डालें |
 | `stock.streams.sheetTitle` | Opening balance of {name} | {name} का ओपनिंग बैलेंस |
-| `stock.streams.kg` | Kg held now | अभी हाथ में kg |
-| `stock.streams.kgInvalid` | Write the kg as a number above zero. | kg अंक में, शून्य से ऊपर लिखें। |
+| `stock.streams.kg` | {massUnit} held now | अभी हाथ में {massUnit} |
+| `stock.streams.kgInvalid` | Write the {massUnit} as a number above zero. | {massUnit} अंक में, शून्य से ऊपर लिखें। |
 | `stock.streams.note` | Note (optional) | टिप्पणी (ज़रूरी नहीं) |
 | `stock.streams.once` | This is posted once for each stream. Later stock moves through melts and the press. | यह हर स्ट्रीम के लिए एक बार डलता है। इसके बाद स्टॉक मेल्ट और प्रेस से हिलता है। |
 | `stock.streams.save` | Post opening balance | ओपनिंग बैलेंस डालें |
 | `stock.streams.saved` | Opening balance posted | ओपनिंग बैलेंस डल गया |
 | `stock.streams.posted` | Opening balance posted | ओपनिंग बैलेंस डल चुका |
-| `stock.streams.confirm` | Post {kg} kg as the opening balance of {name}? It cannot be changed later. | {name} का ओपनिंग बैलेंस {kg} kg डालें? बाद में इसे बदला नहीं जा सकता। |
+| `stock.streams.confirm` | Post {kg} {massUnit} as the opening balance of {name}? It cannot be changed later. | {name} का ओपनिंग बैलेंस {kg} {massUnit} डालें? बाद में इसे बदला नहीं जा सकता। |
 | `stock.streams.confirmSave` | Yes, post it | हाँ, डालें |
 | `stock.streams.retired` | Retired | बंद |
 | `cert.title` | Test certificate | टेस्ट सर्टिफ़िकेट |
@@ -6385,10 +6385,10 @@ Please check, Lalubhai:
 | `masters.nameRequired` | Write a name. | नाम लिखें। |
 | `masters.note` | Note | टिप्पणी |
 | `masters.capacity` | Capacity | क्षमता |
-| `masters.capacityKg` | Capacity (kg) | क्षमता (kg) |
+| `masters.capacityKg` | Capacity ({massUnit}) | क्षमता ({massUnit}) |
 | `masters.capacityHint` | The most metal one melt may hold. | एक मेल्ट में अधिकतम इतना मेटल। |
-| `masters.capacityInvalid` | Write the capacity in kg. | क्षमता kg में लिखें। |
-| `masters.billetDia` | Billet size (mm) | बिलेट साइज़ (mm) |
+| `masters.capacityInvalid` | Write the capacity in {massUnit}. | क्षमता {massUnit} में लिखें। |
+| `masters.billetDia` | Billet size ({lengthUnit}) | बिलेट साइज़ ({lengthUnit}) |
 | `masters.diaInvalid` | Write a whole number of mm from 25 to 500. | 25 से 500 के बीच पूरा mm लिखें। |
 | `masters.status` | Status | स्थिति |
 | `masters.state.active` | Active | चालू |
@@ -6422,10 +6422,10 @@ Please check, Lalubhai:
 | `yield.group.alloy` | Alloy | अलॉय |
 | `yield.group.furnace` | Furnace | फर्नेस |
 | `yield.melts` | Melts | मेल्ट |
-| `yield.in` | Metal in kg | डाला मेटल kg |
-| `yield.logs` | Logs kg | लॉग kg |
-| `yield.dross` | Dross kg | ड्रॉस kg |
-| `yield.fe` | Iron kg | आयरन kg |
+| `yield.in` | Metal in {massUnit} | डाला मेटल {massUnit} |
+| `yield.logs` | Logs {massUnit} | लॉग {massUnit} |
+| `yield.dross` | Dross {massUnit} | ड्रॉस {massUnit} |
+| `yield.fe` | Iron {massUnit} | आयरन {massUnit} |
 | `yield.burn` | Burn % | बर्न % |
 | `yield.yield` | Yield % | यील्ड % |
 | `yield.ldo` | LDO in per tonne of logs | प्रति टन लॉग LDO |
@@ -6433,12 +6433,12 @@ Please check, Lalubhai:
 | `yield.source` | Source | स्रोत |
 | `yield.lots` | Scrap lots | स्क्रैप लॉट |
 | `yield.share` | Share of metal in % | डाले धातु में हिस्सा % |
-| `yield.fromLots` | From lots kg | लॉट से kg |
-| `yield.fromStreams` | From return streams kg | रिटर्न स्ट्रीम से kg |
-| `yield.bySourceNote` | Kg charged into the locked melts of these days: scrap lots, and each return stream (plant scrap, ingot, dross and the rest). | इन दिनों के लॉक मेल्ट में डाले गए kg: स्क्रैप लॉट और हर रिटर्न स्ट्रीम (प्लांट स्क्रैप, इंगट, ड्रॉस वगैरह)। |
+| `yield.fromLots` | From lots {massUnit} | लॉट से {massUnit} |
+| `yield.fromStreams` | From return streams {massUnit} | रिटर्न स्ट्रीम से {massUnit} |
+| `yield.bySourceNote` | {massUnit} charged into the locked melts of these days: scrap lots, and each return stream (plant scrap, ingot, dross and the rest). | इन दिनों के लॉक मेल्ट में डाले गए {massUnit}: स्क्रैप लॉट और हर रिटर्न स्ट्रीम (प्लांट स्क्रैप, इंगट, ड्रॉस वगैरह)। |
 | `yield.empty` | No locked melts in these days. | इन दिनों में कोई लॉक मेल्ट नहीं। |
 | `yield.note` | LDO is inches of tank dip per tonne of logs made, not litres. | LDO प्रति टन बने लॉग पर टंकी की डिप के इंच हैं, लीटर नहीं। |
-| `yield.tailAdjust` | Billet count adjustments at cast close in these days: {kg} kg. Net yield after them: {pct}%. | इन दिनों कास्ट बंद करते समय बिलेट गिनती से हुए बदलाव: {kg} kg। उनके बाद नेट यील्ड: {pct}%। |
+| `yield.tailAdjust` | Billet count adjustments at cast close in these days: {kg} {massUnit}. Net yield after them: {pct}%. | इन दिनों कास्ट बंद करते समय बिलेट गिनती से हुए बदलाव: {kg} {massUnit}। उनके बाद नेट यील्ड: {pct}%। |
 | `yield.csvName` | foundry-yield | foundry-yield |
 
 ### ageing (463)
@@ -6537,7 +6537,7 @@ Please check, Lalubhai:
 | `field.kind` | Cycle | साइकिल |
 | `field.code` | Code | कोड |
 | `field.name` | Name | नाम |
-| `field.capacityKg` | Capacity (kg) | क्षमता (kg) |
+| `field.capacityKg` | Capacity ({massUnit}) | क्षमता ({massUnit}) |
 | `field.maxTemp` | Highest temperature (°C) | सबसे ज़्यादा तापमान (°C) |
 | `field.meterUnit` | Gas meter unit | गैस मीटर इकाई |
 | `field.target` | Set temperature (°C) | सेट तापमान (°C) |
@@ -6564,7 +6564,7 @@ Please check, Lalubhai:
 | `field.held` | Held | होल्ड |
 | `field.scrap` | Discarded | फेंका |
 | `field.reworked` | Sent to age again | फिर एजिंग को भेजा |
-| `field.theoreticalKg` | Theoretical kg on the rack | रैक पर अनुमानित kg |
+| `field.theoreticalKg` | Theoretical {massUnit} on the rack | रैक पर अनुमानित {massUnit} |
 | `field.cutLength` | Cut length | कट लंबाई |
 | `field.pieces` | Pieces | पीस |
 | `field.cast` | Cast | कास्ट |
@@ -6678,7 +6678,7 @@ Please check, Lalubhai:
 | `loadFailed` | The ageing screen did not load. | एजिंग स्क्रीन लोड नहीं हुई। |
 | `noAccess` | You cannot do this here. | आप यहां यह नहीं कर सकते। |
 | `noAccessLoad` | Loading a trolley is for the press, the supervisor and the operator. | ट्रॉली लोड करना प्रेस, सुपरवाइज़र और ऑपरेटर का काम है। |
-| `pcsKg` | {pcs} pcs, {kg} kg | {pcs} पीस, {kg} kg |
+| `pcsKg` | {pcs} pcs, {kg} {massUnit} | {pcs} पीस, {kg} {massUnit} |
 | `stage.load` | Load | लोड |
 | `stage.oven` | In the oven | ओवन में |
 | `stage.out` | Take out | बाहर निकालें |
@@ -6704,7 +6704,7 @@ Please check, Lalubhai:
 | `floor.trolleys` | Trolleys | ट्रॉलियां |
 | `floor.empty` | Empty | खाली |
 | `floor.free` | Free | खाली है |
-| `floor.capacity` | Capacity {kg} kg | क्षमता {kg} kg |
+| `floor.capacity` | Capacity {kg} {massUnit} | क्षमता {kg} {massUnit} |
 | `floor.onTrolley` | Trolley {trolley} | ट्रॉली {trolley} |
 | `floor.lastTemp` | Last reading | आखिरी रीडिंग |
 | `floor.soakOf` | Soak time, recipe {total} | सोक समय, रेसिपी {total} |
@@ -6726,15 +6726,15 @@ Please check, Lalubhai:
 | `load.addTo` | Add to {number} | {number} में जोड़ें |
 | `load.openBatch` | Open {number} | {number} खोलें |
 | `load.linesLabel` | Logged press lines | दर्ज की गई प्रेस लाइनें |
-| `load.lineLength` | {mm} mm | {mm} mm |
-| `load.lineLeft` | {pcs} pcs, {kg} kg left | {pcs} पीस, {kg} kg बचे |
+| `load.lineLength` | {mm} | {mm} |
+| `load.lineLeft` | {pcs} pcs, {kg} {massUnit} left | {pcs} पीस, {kg} {massUnit} बचे |
 | `load.lineCast` | Cast {cast} | कास्ट {cast} |
 | `load.piecesOf` | Pieces of {name} | {name} के पीस |
 | `load.piecesInvalid` | Type a whole number of pieces. | पीस की पूरी संख्या लिखें। |
 | `load.bundleSearch` | Find a bundle | बंडल ढूंढें |
 | `load.bundlesHint` | Packed bundles that are not on a trolley yet. | पैक हो चुके बंडल जो अभी किसी ट्रॉली पर नहीं हैं। |
 | `load.noBundles` | No bundle to load. | लोड करने के लिए कोई बंडल नहीं। |
-| `load.summary` | {lines} {lines:line\|lines}, {pcs} pcs, {kg} kg | {lines} {lines:लाइन\|लाइनें}, {pcs} पीस, {kg} kg |
+| `load.summary` | {lines} {lines:line\|lines}, {pcs} pcs, {kg} {massUnit} | {lines} {lines:लाइन\|लाइनें}, {pcs} पीस, {kg} {massUnit} |
 | `load.submit` | Load trolley | ट्रॉली लोड करें |
 | `load.loaded` | Trolley loaded as {number}. | ट्रॉली {number} के रूप में लोड हुई। |
 | `start.title` | Start {number} | {number} शुरू करें |
@@ -6782,14 +6782,14 @@ Please check, Lalubhai:
 | `unhold.done` | Hold cleared. | होल्ड हट गया। |
 | `discard.title` | Discard the rest of {section} | {section} का बचा माल फेंकें |
 | `discard.left` | {pcs} pcs left on this line. | इस लाइन पर {pcs} पीस बचे हैं। |
-| `discard.kg` | About {kg} kg | लगभग {kg} kg |
+| `discard.kg` | About {kg} {massUnit} | लगभग {kg} {massUnit} |
 | `discard.hint` | Discarded pieces leave {number} and are not packed. | फेंके गए पीस {number} से निकल जाते हैं और पैक नहीं होते। |
 | `discard.done` | Pieces discarded. | पीस फेंक दिए गए। |
 | `split.title` | Split {section} | {section} को बांटें |
-| `split.body` | {pcs} pcs at {mm} mm, {total} mm in all. | {mm} mm के {pcs} पीस, कुल {total} mm। |
+| `split.body` | {pcs} pcs at {mm}, {total} in all. | {mm} के {pcs} पीस, कुल {total}। |
 | `split.cutLength` | Cut {n} length | कट {n} की लंबाई |
 | `split.addCut` | Add a cut | कट जोड़ें |
-| `split.sum` | Cuts add up to {total} mm of {want} mm. | कट मिलकर {total} mm हैं, चाहिए {want} mm। |
+| `split.sum` | Cuts add up to {total} of {want}. | कट मिलकर {total} हैं, चाहिए {want}। |
 | `split.invalid` | Type a length and pieces for every cut. | हर कट की लंबाई और पीस लिखें। |
 | `split.hint` | The cuts must add up to the loaded length within 25 mm. {number} keeps the first cut on this line. | कट मिलकर लोड की लंबाई के 25 mm के भीतर होने चाहिए। {number} में पहला कट इसी लाइन पर रहता है। |
 | `split.done` | Line split. | लाइन बांट दी गई। |
@@ -7498,7 +7498,7 @@ Please check, Lalubhai:
 | `dies.subtitle` | Dies the plant has opened for you, and the ones you own. | प्लांट ने जो die आपके लिए खोले हैं, और जो आपके अपने हैं। |
 | `dies.empty` | The plant has not opened any die for you yet. | प्लांट ने अभी आपके लिए कोई die नहीं खोला है। |
 | `dies.copy` | Copy | कॉपी |
-| `dies.latest` | Latest kg/12ft | ताज़ा kg/12ft |
+| `dies.latest` | Latest {sectionUnit} | ताज़ा {sectionUnit} |
 | `dies.noReading` | No reading yet | अभी कोई रीडिंग नहीं |
 | `dies.noCopies` | No copy of this die yet | इस die की अभी कोई कॉपी नहीं |
 | `dies.band` | Band | बैंड |
@@ -7524,7 +7524,7 @@ Please check, Lalubhai:
 | `orders.feet` | Feet | फ़ुट |
 | `orders.inches` | Inches | इंच |
 | `orders.pieces` | Pieces | पीस |
-| `orders.kg` | kg | kg |
+| `orders.kg` | {massUnit} | {massUnit} |
 | `orders.piecesOrKg` | Order by | ऑर्डर का तरीका |
 | `orders.note` | Note | नोट |
 | `orders.lineNote` | Note for this line | इस लाइन का नोट |
@@ -7555,7 +7555,7 @@ Please check, Lalubhai:
 | `orders.status.cancelled` | Cancelled | रद्द |
 | `orders.errors.section` | Pick a die. | Die चुनें। |
 | `orders.errors.length` | Enter the cut length. | कट लंबाई भरें। |
-| `orders.errors.qty` | Enter a whole number of pieces, or the kg. | पीस की पूरी संख्या या kg भरें। |
+| `orders.errors.qty` | Enter a whole number of pieces, or the {massUnit}. | पीस की पूरी संख्या या {massUnit} भरें। |
 | `orders.errors.dieClosed` | That die is no longer open for you. Go back and pick another die. | यह Die अब आपके लिए खुला नहीं है। वापस जाकर दूसरा Die चुनें। |
 | `orders.errors.noLines` | Add at least one line. | कम से कम एक लाइन जोड़ें। |
 | `orders.errors.tooManyLines` | An order can have at most 20 lines. Place the rest as a second order. | एक ऑर्डर में ज़्यादा से ज़्यादा 20 लाइन हो सकती हैं। बाकी दूसरे ऑर्डर में दें। |
@@ -7572,7 +7572,7 @@ Please check, Lalubhai:
 | `dispatches.plNo` | PL no | PL नंबर |
 | `dispatches.vehicle` | Vehicle | गाड़ी |
 | `dispatches.bundlesLabel` | Bundles | बंडल |
-| `dispatches.weight` | kg | kg |
+| `dispatches.weight` | {massUnit} | {massUnit} |
 | `dispatches.totals` | {bundles} bundles, {pcs} pcs, {kg} {massUnit} | {bundles} बंडल, {pcs} पीस, {kg} {massUnit} |
 | `dispatches.noPl` | The packing list is not ready yet. | पैकिंग लिस्ट अभी तैयार नहीं है। |
 | `dispatches.downloadPl` | Download packing list | पैकिंग लिस्ट डाउनलोड करें |
@@ -7688,16 +7688,16 @@ Please check, Lalubhai:
 | `production.title` | Production report | प्रोडक्शन रिपोर्ट |
 | `production.subtitle` | Logged runs of the production days, then recovery by die, press and shift. | प्रोडक्शन दिनों के लॉग हुए रन, फिर die, प्रेस और शिफ्ट के हिसाब से रिकवरी। |
 | `production.recoveryTitle` | Recovery | रिकवरी |
-| `production.recoveryNote` | Production runs only. Each row is its good kg over its billet kg, never an average of percents. | सिर्फ प्रोडक्शन रन। हर लाइन में उसका अच्छा kg भाग उसके बिलेट kg, प्रतिशतों का औसत नहीं। |
+| `production.recoveryNote` | Production runs only. Each row is its good {massUnit} over its billet {massUnit}, never an average of percents. | सिर्फ प्रोडक्शन रन। हर लाइन में उसका अच्छा {massUnit} भाग उसके बिलेट {massUnit}, प्रतिशतों का औसत नहीं। |
 | `production.groupBy` | Group by | किस हिसाब से |
 | `production.group.die` | Die | Die |
 | `production.group.copy` | Die copy | Die copy |
 | `production.group.press` | Press | प्रेस |
 | `production.group.shift` | Shift | शिफ्ट |
 | `production.runs` | Runs | रन |
-| `production.input` | Billets kg | बिलेट kg |
-| `production.good` | Good kg | अच्छा kg |
-| `production.scrap` | Butt, ends and rejects kg | बट, एंड और रिजेक्ट kg |
+| `production.input` | Billets {massUnit} | बिलेट {massUnit} |
+| `production.good` | Good {massUnit} | अच्छा {massUnit} |
+| `production.scrap` | Butt, ends and rejects {massUnit} | बट, एंड और रिजेक्ट {massUnit} |
 | `production.recovery` | Recovery % | रिकवरी % |
 | `production.none` | None | कोई नहीं |
 | `production.empty` | No production runs logged in these days. | इन दिनों में कोई प्रोडक्शन रन लॉग नहीं हुआ। |
@@ -7705,14 +7705,14 @@ Please check, Lalubhai:
 | `production.chartLabel` | Recovery percent by row | हर लाइन की रिकवरी प्रतिशत |
 | `production.csvName` | recovery | recovery |
 | `dieLife.title` | Die life | Die की लाइफ |
-| `dieLife.subtitle` | Die copies by the share of their planned life used. Pressed is the good kg of the copy's logged runs. | Die copy, तय लाइफ में से कितनी इस्तेमाल हुई उसके हिसाब से। निकाला हुआ माल copy के लॉग हुए रन का अच्छा kg है। |
+| `dieLife.subtitle` | Die copies by the share of their planned life used. Pressed is the good {massUnit} of the copy's logged runs. | Die copy, तय लाइफ में से कितनी इस्तेमाल हुई उसके हिसाब से। निकाला हुआ माल copy के लॉग हुए रन का अच्छा {massUnit} है। |
 | `dieLife.copy` | Die copy | Die copy |
 | `dieLife.section` | Section | सेक्शन |
 | `dieLife.status` | Status | स्थिति |
-| `dieLife.life` | Life kg | लाइफ kg |
-| `dieLife.pressed` | Pressed kg | निकाला kg |
+| `dieLife.life` | Life {massUnit} | लाइफ {massUnit} |
+| `dieLife.pressed` | Pressed {massUnit} | निकाला {massUnit} |
 | `dieLife.used` | Used | इस्तेमाल |
-| `dieLife.left` | Left kg | बाकी kg |
+| `dieLife.left` | Left {massUnit} | बाकी {massUnit} |
 | `dieLife.runs` | Runs | रन |
 | `dieLife.lastRun` | Last run | आखिरी रन |
 | `dieLife.noLife` | No life set | लाइफ तय नहीं |
@@ -7723,8 +7723,8 @@ Please check, Lalubhai:
 | `dieLife.counts` | {withLife} of {copies} copies have a life set: {reached} reached, {near} near. | {copies} में से {withLife} copy की लाइफ तय है: {reached} पूरी, {near} पूरी होने वाली। |
 | `dieLife.empty` | No die copies to show. | दिखाने के लिए कोई die copy नहीं। |
 | `dieLife.csvName` | die-life | die-life |
-| `dieLife.cardUsed` | Life: {pct} % used, {pressed} of {life} kg pressed | लाइफ: {pct} % इस्तेमाल, {life} kg में से {pressed} kg निकला |
-| `dieLife.cardNoLife` | No life set for this copy. Pressed so far: {pressed} kg | इस copy की लाइफ तय नहीं। अब तक निकला: {pressed} kg |
+| `dieLife.cardUsed` | Life: {pct} % used, {pressed} of {life} {massUnit} pressed | लाइफ: {pct} % इस्तेमाल, {life} {massUnit} में से {pressed} {massUnit} निकला |
+| `dieLife.cardNoLife` | No life set for this copy. Pressed so far: {pressed} {massUnit} | इस copy की लाइफ तय नहीं। अब तक निकला: {pressed} {massUnit} |
 | `dieLife.cardReached` | Life reached. Retire the copy or set a new life on the card. | लाइफ पूरी हो गई। copy रिटायर करें या कार्ड पर नई लाइफ डालें। |
 | `stockAge.title` | Stock age | स्टॉक की उम्र |
 | `stockAge.subtitle` | Available bundles in the yard by days since packing. Bundles held on a truck are left out. | यार्ड में पड़े available bundle, पैकिंग से कितने दिन हुए। ट्रक पर होल्ड bundle शामिल नहीं। |
@@ -7739,14 +7739,14 @@ Please check, Lalubhai:
 | `stockAge.bucket1` | 8 to 30 days | 8 से 30 दिन |
 | `stockAge.bucket2` | 31 to 90 days | 31 से 90 दिन |
 | `stockAge.bucket3` | Over 90 days | 90 दिन से ज़्यादा |
-| `stockAge.kg` | kg | kg |
+| `stockAge.kg` | {massUnit} | {massUnit} |
 | `stockAge.bundles` | Bundles | Bundle |
 | `stockAge.bundleCount` | {count} {count:bundle\|bundles} | {count} bundle |
 | `stockAge.chartTitle` | Stock by age | उम्र के हिसाब से स्टॉक |
-| `stockAge.chartSubtitle` | Available kg in each age band | हर उम्र में available kg |
-| `stockAge.chartLabel` | Available kg by age | उम्र के हिसाब से available kg |
+| `stockAge.chartSubtitle` | Available {massUnit} in each age band | हर उम्र में available {massUnit} |
+| `stockAge.chartLabel` | Available {massUnit} by age | उम्र के हिसाब से available {massUnit} |
 | `stockAge.ageHeader` | Age | उम्र |
-| `stockAge.kgHeader` | kg | kg |
+| `stockAge.kgHeader` | {massUnit} | {massUnit} |
 | `stockAge.empty` | No available bundles in the yard. | यार्ड में कोई available bundle नहीं। |
 | `stockAge.csvName` | stock-age | stock-age |
 | `orders.title` | Order book report | ऑर्डर बुक रिपोर्ट |
@@ -7766,23 +7766,23 @@ Please check, Lalubhai:
 | `orders.lateOnly` | Late orders only | सिर्फ लेट ऑर्डर |
 | `orders.orders` | Orders | ऑर्डर |
 | `orders.late` | Late | लेट |
-| `orders.ordered` | Ordered kg | ऑर्डर kg |
-| `orders.dispatched` | Dispatched kg | Dispatch kg |
-| `orders.baki` | Baki kg | बाकी kg |
+| `orders.ordered` | Ordered {massUnit} | ऑर्डर {massUnit} |
+| `orders.dispatched` | Dispatched {massUnit} | Dispatch {massUnit} |
+| `orders.baki` | Baki {massUnit} | बाकी {massUnit} |
 | `orders.dispatchedShare` | Dispatched % | Dispatch % |
 | `orders.showRates` | Show rupees | रुपये दिखाएं |
 | `orders.orderedValue` | Ordered Rs | ऑर्डर Rs |
 | `orders.dispatchedValue` | Dispatched Rs | Dispatch Rs |
 | `orders.bakiValue` | Baki Rs | बाकी Rs |
-| `orders.rateMissing` | {count} {count:line has\|lines have} no rate; their kg count, their rupees do not. | {count} लाइन में रेट नहीं; उनका kg गिना है, रुपये नहीं। |
+| `orders.rateMissing` | {count} {count:line has\|lines have} no rate; their {massUnit} count, their rupees do not. | {count} लाइन में रेट नहीं; उनका {massUnit} गिना है, रुपये नहीं। |
 | `orders.empty` | No orders match. | कोई ऑर्डर नहीं मिला। |
-| `orders.chartTitle` | Ordered kg by month | महीने के हिसाब से ऑर्डर kg |
-| `orders.chartLabel` | Ordered kg per order month | हर ऑर्डर महीने का ऑर्डर kg |
+| `orders.chartTitle` | Ordered {massUnit} by month | महीने के हिसाब से ऑर्डर {massUnit} |
+| `orders.chartLabel` | Ordered {massUnit} per order month | हर ऑर्डर महीने का ऑर्डर {massUnit} |
 | `orders.monthHeader` | Month | महीना |
-| `orders.kgHeader` | kg | kg |
+| `orders.kgHeader` | {massUnit} | {massUnit} |
 | `orders.csvName` | order-book | order-book |
 | `todayTile.title` | Stock older than 90 days | 90 दिन से पुराना स्टॉक |
-| `todayTile.meta` | {kg} kg in the yard | यार्ड में {kg} kg |
+| `todayTile.meta` | {kg} {massUnit} in the yard | यार्ड में {kg} {massUnit} |
 
 ### errors (16)
 
