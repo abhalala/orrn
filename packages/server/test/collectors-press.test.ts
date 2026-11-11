@@ -636,10 +636,24 @@ describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
     const openNow = await viewer.press.collector.alerts({ openOnly: true, limit: 10 });
     expect(openNow.map((x) => x.lineCode).sort()).toEqual(["P1", "P2"]);
     expect(openNow.find((x) => x.lineCode === "P2")!.endedAt).toBeNull();
-    // Bulk acknowledge closes the derived-ended quiet one, but leaves the fresh one open.
-    await expect(env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1, more: false });
+    // Acknowledging the quiet one closes it: it leaves the open list and the count.
+    await env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeAlert({ id: quiet!.id });
     expect((await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).map((x) => x.lineCode)).toEqual(["P2"]);
     expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, all: 2, simulated: true });
+  });
+
+  test("bulk acknowledge includes an alert ended by the five-minute gap rule", async () => {
+    const p = await plant("quiet-bulk-secret");
+    await env.caller({ role: "owner", companyId: p.companyId }).press.collector.setThreshold({ pressLineId: null, metric: "pressure", min: null, max: 200 });
+    const now = Date.now();
+    const raw = { ...frame(1, 0, { pressureBar: 230 }), at: new Date(now - 6 * 60_000).toISOString() };
+    await p.post([raw], { nowMs: now });
+    const viewer = env.caller({ role: "viewer", companyId: p.companyId });
+    const [quiet] = await viewer.press.collector.alerts({ openOnly: true, limit: 10 });
+    expect(quiet!.endedAt).toEqual(new Date(now - 6 * 60_000));
+
+    await expect(env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1, more: false });
+    expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 0, all: 1, simulated: false });
   });
 
   test("changing a band ends the alerts opened under the old one (m-10)", async () => {
