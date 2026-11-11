@@ -186,8 +186,12 @@ export type Fmt = {
   key: string;
   /** The resolved number style (grouping and marks), for callers that read text with `convertText` or `parseAmount`. */
   style: NumberStyle;
+  /** The plant clock's zone and the screen language, for callers that need the year of an instant or a language's own joiner. */
+  zone: string;
+  locale: "en" | "hi" | "gu";
   q(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context): string;
-  n(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context): string;
+  /** `trim` drops trailing zeros of the fraction ("12.5" for "12.500"), as the purchase and die screens do. */
+  n(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context, opts?: { trim?: boolean }): string;
   unitOf(kind: Kind): UnitDef;
   header(caption: string, kind: Kind): string;
   entryText(field: QuantityField | FieldId, value: number): string;
@@ -196,7 +200,8 @@ export type Fmt = {
   compact(value: number): string;
   date(at: number | string, opts?: { year?: boolean }): string;
   time(at: number): string;
-  day(ymd: string): string;
+  /** A production day (no zone shift). `year` defaults to true. */
+  day(ymd: string, opts?: { year?: boolean }): string;
 };
 
 const memo = new Map<string, Fmt>();
@@ -225,7 +230,7 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
     const c = prefs.currency.symbol;
     return `${c}${c === "₹" ? "" : " "}${num}${unit.symbol.slice(1)}`;
   };
-  const text = (field: QuantityField | FieldId, value: number | null | undefined, ctx: Context, withUnit: boolean): string => {
+  const text = (field: QuantityField | FieldId, value: number | null | undefined, ctx: Context, withUnit: boolean, trim = false): string => {
     if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY_TEXT;
     const f = resolveField(field);
     const unit = unitFor(f.kind);
@@ -233,7 +238,7 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
       const grid = ctx === "entry" ? 16 : prefs.inchGrid;
       return formatFtIn(value, grid, styleFor(ctx, f.kind), { fraction: ctx === "entry" });
     }
-    const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx, f.kind));
+    const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx, f.kind), { trim });
     if (!withUnit || num === EMPTY_TEXT) return num;
     if (f.kind === "money" || f.kind === "money_per_mass") return withCurrency(num, unit);
     return unit.symbol === "%" ? `${num}%` : `${num} ${unit.symbol}`;
@@ -241,8 +246,10 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
   return {
     key,
     style: prefs.number,
+    zone: env.timeZone,
+    locale: env.locale,
     q: (field, value, ctx = "screen") => text(field, value, ctx, true),
-    n: (field, value, ctx = "screen") => text(field, value, ctx, false),
+    n: (field, value, ctx = "screen", opts = {}) => text(field, value, ctx, false, opts.trim === true),
     unitOf: unitFor,
     header(caption, kind) {
       return `${caption} (${currency(unitFor(kind).symbol)})`;
@@ -281,10 +288,10 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
       const h = z.hh % 12 === 0 ? 12 : z.hh % 12;
       return `${h}:${p2(z.mm)} ${z.hh < 12 ? "am" : "pm"}`;
     },
-    day(ymd) {
+    day(ymd, opts = {}) {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
       if (!m) return EMPTY_TEXT;
-      return assembleDate(prefs, env, Number(m[1]), Number(m[2]), Number(m[3]), true);
+      return assembleDate(prefs, env, Number(m[1]), Number(m[2]), Number(m[3]), opts.year !== false);
     },
   };
 }
