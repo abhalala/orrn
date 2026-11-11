@@ -128,6 +128,8 @@ export class SqlReader {
   private capture: string | null = null;
   private finished = false;
   private rowsInStatement = 0;
+  /** The MySQL client statement end, changed by `DELIMITER ;;` around stored routines. */
+  private delimiter = ";";
   /** Statement column position to table column index, when this statement's list differs from the table's. */
   private colMap: number[] | null = null;
 
@@ -274,6 +276,18 @@ export class SqlReader {
     }
     const kw = m[1]!.toUpperCase();
     this.advanceTo(p);
+    if (kw === "DELIMITER") {
+      const nl = b.indexOf("\n", p);
+      if (nl === -1 && !final) return false;
+      this.delimiter = b.slice(p + 9, nl === -1 ? b.length : nl).trim() || ";";
+      this.advanceTo(nl === -1 ? b.length : nl + 1);
+      return true;
+    }
+    // Between DELIMITER x and DELIMITER ; only routine and trigger bodies appear: never data (C36).
+    if (this.delimiter !== ";") {
+      this.beginSkip(false);
+      return true;
+    }
     try {
       if (kw === "INSERT" || kw === "REPLACE") return this.beginInsert(final);
       if (kw === "COPY") return this.beginCopy(final);
@@ -846,6 +860,16 @@ export class SqlReader {
           else if (i + 1 >= b.length && !final) break;
           else s.quote = null;
         }
+      } else if (this.delimiter !== ";" && ch === this.delimiter[0]) {
+        if (b.startsWith(this.delimiter, i)) {
+          this.captureText(b.slice(this.pos, i));
+          this.advanceTo(i + this.delimiter.length);
+          this.endSkip();
+          return true;
+        }
+        if (!final && i + this.delimiter.length > b.length) break;
+      } else if (this.delimiter !== ";" && ch === ";") {
+        // A semicolon inside a routine body does not end it.
       } else if (!final && (ch === "-" || ch === "/") && i + 1 >= b.length) {
         break;
       } else if (!final && ch === "$" && i + 64 > b.length) {

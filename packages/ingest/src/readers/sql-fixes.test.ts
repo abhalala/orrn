@@ -143,3 +143,20 @@ describe("C32: Postgres E'' escapes split across chunks", () => {
   });
 });
 
+describe("C36: statements inside MySQL routine bodies are not data", () => {
+  test("DELIMITER ;; with a procedure body holding an INSERT", () => {
+    const sql = [
+      "-- MySQL dump",
+      "INSERT INTO `t` VALUES (1,'a');",
+      "DELIMITER ;;",
+      "CREATE DEFINER=`x`@`%` PROCEDURE `p`() BEGIN SELECT 1; INSERT INTO audit VALUES (v_id, now()); END ;;",
+      "DELIMITER ;",
+      "INSERT INTO `t` VALUES (2,'b');",
+      "",
+    ].join("\n");
+    each(sql, (r) => {
+      expect(r.tables.map((t) => t.name)).toEqual(["t"]);
+      expect(r.tables[0]!.rows).toEqual([["1", "a"], ["2", "b"]]);
+    });
+  });
+});
