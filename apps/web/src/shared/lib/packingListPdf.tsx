@@ -4,8 +4,8 @@
  * click, so the renderer (~1.4 MB) stays out of every page chunk (W3).
  *
  * Same header, columns, groups and totals as the screen, the Excel sheet and
- * the native print (`packingListModel`). English only, like the plant's
- * paper PL. Print colours are plain greys (a document, not the app UI).
+ * the native print (`packingListModel`). New footer, signature and group-detail
+ * text follows the selected language. Print colours are plain greys.
  */
 import {
   packingListModel,

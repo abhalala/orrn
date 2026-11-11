@@ -1093,7 +1093,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   grams per piece half up (`kgPerPieceG`).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
-- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR.
+- Not built (BACKLOG 61, 63, 64, 66, 68-70, still open; 67, the refusal wording, is partly done): per-dispatch ship-to, dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR.
 
 ## Stock count (phantom report)
 
