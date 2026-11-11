@@ -956,7 +956,11 @@ export function settleMagnitude(
   raw: readonly string[],
   answers: AnswerSet,
   compileWith: (units: Record<string, UnitId>) => CompiledRecipe,
+  keepFlag?: (f: MagnitudeFlag) => boolean,
 ): { applied: ApplyRow; waiting: MagnitudeFlag[]; notes: string[] } {
+  // Flags of fields left out by choice (rates) are dropped on the first read and on every re-read.
+  const kept = (x: ApplyRow): ApplyRow => (keepFlag && x.state === "ok" ? { ...x, flags: x.flags.filter(keepFlag) } : x);
+  a = kept(a);
   if (a.state !== "ok" || a.flags.length === 0) return { applied: a, waiting: [], notes: [] };
   const units: Record<string, UnitId> = {};
   const notes = new Set<string>();
@@ -979,7 +983,7 @@ export function settleMagnitude(
       } else waiting.push(f);
     }
     if (!reread) return { applied: cur, waiting, notes: [...notes] };
-    cur = applyRow(compileWith(units), raw, a.rowIndex);
+    cur = kept(applyRow(compileWith(units), raw, a.rowIndex));
     if (cur.state !== "ok") return { applied: cur, waiting: [], notes: [...notes] };
   }
 }
@@ -1118,11 +1122,9 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     };
     // Rates left out by choice are deleted from the row (classifyRow), so their flags go too (X-new-2).
     const dropRateFlags = c.target === "orders" && answers.ratesLeftOut === true;
-    const applyOne = (r: Staged) => {
-      const a = applyRow(compiled, r.raw, r.rowIndex);
-      return dropRateFlags ? { ...a, flags: a.flags.filter((f) => !RATE_FIELDS.includes(f.field)) } : a;
-    };
-    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyOne(r), r.raw, answers, compileWith) }));
+    // Every read of a row goes through it, the re-reads of settleMagnitude too (X-new-2).
+    const keepFlag = dropRateFlags ? (f: MagnitudeFlag) => !RATE_FIELDS.includes(f.field) : undefined;
+    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyRow(compiled, r.raw, r.rowIndex), r.raw, answers, compileWith, keepFlag) }));
     const live = await loadPageLive(
       ctx,
       c.target,

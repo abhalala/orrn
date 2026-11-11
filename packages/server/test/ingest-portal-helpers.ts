@@ -122,22 +122,17 @@ export async function countOf(env: TestEnv, table: string, companyId: string) {
 export const trim = [{ op: "trim" as const }];
 
 export const ORDER_HEADERS = ["Party", "PO", "Date", "Series", "Section", "Cut (mm)", "Pcs", "Baki (kg)"];
-export const orderLayout = () =>
-  layout(
-    "orders",
-    ORDER_HEADERS,
-    [
-      { field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
-      { field: "poNumber", steps: trim },
-      { field: "orderDate", steps: [{ op: "date", format: "dmy" }] },
-      { field: "series", steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
-      { field: "sectionCode", steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
-      { field: "cutLength", steps: [{ op: "number", kind: "length", unit: "mm" }] },
-      { field: "pcs", steps: [{ op: "number", kind: "count", unit: "pcs" }] },
-      { field: "bakiKg", steps: [{ op: "number", kind: "mass", unit: "kg" }] },
-    ],
-    ["customer", "poNumber", "orderDate"],
-  );
+export const ORDER_FIELDS: { field: string; steps: Recipe["fields"][number]["steps"] }[] = [
+  { field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+  { field: "poNumber", steps: trim },
+  { field: "orderDate", steps: [{ op: "date", format: "dmy" }] },
+  { field: "series", steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+  { field: "sectionCode", steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+  { field: "cutLength", steps: [{ op: "number", kind: "length", unit: "mm" }] },
+  { field: "pcs", steps: [{ op: "number", kind: "count", unit: "pcs" }] },
+  { field: "bakiKg", steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+];
+export const orderLayout = () => layout("orders", ORDER_HEADERS, ORDER_FIELDS, ["customer", "poNumber", "orderDate"]);
 
 export const DIE_HEADERS = ["Series", "Section", "Min (kg/12ft)", "Max (kg/12ft)"];
 export const dieLayout = () =>
