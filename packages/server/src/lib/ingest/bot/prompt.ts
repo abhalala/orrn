@@ -10,6 +10,8 @@
  * The system prompt also says all of this to the model. It holds no nonce, so it stays
  * identical across calls and caches.
  */
+import { RECIPE_LIMITS, TARGETS } from "@orrn/ingest";
+
 import type { Sample } from "./sample";
 
 export const NOTE_CHARS = 500;
@@ -26,6 +28,10 @@ export type CatalogueField = {
   resolver?: string | null;
   /** The allowed values when the field has a closed set. */
   values?: string[] | null;
+  /** One line of help for the model. */
+  note?: string | null;
+  /** Canonical unit of a numeric field. */
+  unit?: string | null;
 };
 export type CatalogueTarget = { target: string; fields: CatalogueField[] };
 
@@ -52,6 +58,22 @@ export function fenceJson(value: unknown): string {
     .replace(PARA_SEP, "\\" + "u2029");
 }
 
+/** The catalogue from the engine's targets, for lane A to pass in. */
+export function defaultCatalogue(): CatalogueTarget[] {
+  return Object.values(TARGETS).map((t) => ({
+    target: t.id,
+    fields: t.fields.map((f) => ({
+      field: f.name,
+      kind: f.kind,
+      required: f.required,
+      resolver: f.resolver,
+      values: f.enum ? [...f.enum] : null,
+      note: f.note || null,
+      unit: f.unit,
+    })),
+  }));
+}
+
 const INSTRUCTIONS = `You map one table from a customer or plant file into a recipe for an aluminium extrusion plant's ERP.
 
 What you do
@@ -69,6 +91,7 @@ What the recipe is
 - Date columns get a "date" step with the format you can see in the sample. If two formats are possible, say so in "unclear" with date_format_ambiguous.
 - A "lookup" step names a resolver listed on the field. Use it only on the field that lists it.
 - "keys" lists the target fields that find an existing record. "onExisting" is ask unless the file clearly only fills blanks.
+- Limits: at most ${RECIPE_LIMITS.colsPerSource} columns per source, ${RECIPE_LIMITS.steps} steps per field, ${RECIPE_LIMITS.pickPairs} pick pairs, ${RECIPE_LIMITS.filters} filters, ${RECIPE_LIMITS.filterValues} values per filter, ${RECIPE_LIMITS.keys} keys, ${RECIPE_LIMITS.unclear} unclear items.
 - "filters" drop or keep rows. Use them for total rows and blank lines, not to hide data you do not understand.
 - "unclear" lists every field you could not map with confidence, with one code from the allowed set. Prefer an honest unclear item over a guess.
 - "match" repeats the headerKey and headers you were given.
@@ -94,6 +117,8 @@ export function renderCatalogue(catalogue: CatalogueTarget[]): string {
         required: f.required,
         resolver: f.resolver ?? null,
         values: f.values ?? null,
+        note: f.note ?? null,
+        unit: f.unit ?? null,
       })),
     }));
   return `Targets (JSON):\n${JSON.stringify(targets)}`;

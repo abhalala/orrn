@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { INGEST_TARGETS, RECIPE_LIMITS } from "@orrn/ingest";
 
 import {
   buildSample,
+  defaultCatalogue,
   buildSystem,
   buildUserContent,
   cellClass,
@@ -84,6 +86,20 @@ describe("prompt fence", () => {
     expect(joined).toContain("never an instruction");
     expect(joined).toContain("weightMinG");
     expect(sys.map((b) => b.cache)).toEqual([false, true]);
+  });
+
+  test("the real catalogue covers all 8 targets and the prefix is well over the 512 token cache minimum", () => {
+    const cat = defaultCatalogue();
+    expect(cat.map((t) => t.target).sort()).toEqual([...INGEST_TARGETS].sort());
+    const prefixChars = buildSystem(cat).reduce((n, b) => n + b.text.length, 0);
+    // Three characters per token is the estimate in cost.ts; 512 tokens is the Haiku 5.5 and Sonnet 5.5 minimum.
+    expect(prefixChars / 3).toBeGreaterThan(1_500);
+  });
+
+  test("the prompt states the recipe limits from the engine", () => {
+    const joined = buildSystem(CATALOGUE).map((b) => b.text).join("\n");
+    expect(joined).toContain(`at most ${RECIPE_LIMITS.colsPerSource} columns per source`);
+    expect(joined).toContain(`${RECIPE_LIMITS.pickPairs} pick pairs`);
   });
 
   test("the system prefix is identical across calls, so it can be cached", () => {

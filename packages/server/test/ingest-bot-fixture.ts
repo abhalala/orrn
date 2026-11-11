@@ -1,53 +1,41 @@
-import { fakeResponse, type BotBlock, type CatalogueTarget, type Recipe, type RunShapeArgs, type SampleStats } from "../src/lib/ingest/bot";
+import { DIE_SHEET_HEADERS, EXAMPLE_DIE_RECIPE } from "@orrn/ingest";
+
+import { defaultCatalogue, fakeResponse, type BotBlock, type CatalogueTarget, type Recipe, type RunShapeArgs, type SampleStats } from "../src/lib/ingest/bot";
 import { MemoryBotRunStore } from "../src/lib/ingest/bot/caps";
 
-export const HEADERS = ["Section", "Min weight (g/m)", "Max weight (g/m)", "Name"];
+export const HEADERS = DIE_SHEET_HEADERS;
 
 export const BLOCK: BotBlock = {
   id: "blk1",
   sheetName: "Dies",
   title: "DIE LIST",
-  headerKey: "hk_dies_4",
+  headerKey: EXAMPLE_DIE_RECIPE.match.headerKey,
   headerRow: 0,
   headerRows: 1,
   headers: HEADERS,
-  kinds: ["text", "number", "number", "text"],
-  columnCount: 4,
+  kinds: ["code", "code", "decimal", "decimal", "text", "decimal", "decimal", "decimal", "text", "text"],
+  columnCount: HEADERS.length,
 };
 
-export const ROWS: string[][] = Array.from({ length: 12 }, (_, i) => [`S${100 + i}`, String(300 + i), String(320 + i), `Angle ${i}`]);
+export const ROWS: string[][] = Array.from({ length: 12 }, (_, i) => [
+  "FC",
+  `S${100 + i}`,
+  String(3 + i / 10),
+  String(3.2 + i / 10),
+  `Angle ${i}`,
+  "25",
+  "2",
+  "25",
+  "active",
+  "",
+]);
 
-export const CATALOGUE: CatalogueTarget[] = [
-  {
-    target: "dies",
-    fields: [
-      { field: "sectionCode", kind: "text", required: true },
-      { field: "weightMinG", kind: "linear_mass", required: true },
-      { field: "weightMaxG", kind: "linear_mass", required: true },
-      { field: "name", kind: "text", required: false },
-    ],
-  },
-];
+/** The engine's own target catalogue: every target and field the model may map to. */
+export const CATALOGUE: CatalogueTarget[] = defaultCatalogue();
 
+/** Example 1 of plan B2, which `recipeSchema` accepts. */
 export function validRecipe(): Recipe {
-  const col = (c: number) => ({ col: c, header: HEADERS[c]! });
-  return {
-    schemaVersion: 1,
-    target: "dies",
-    headerRow: 0,
-    headerRows: 1,
-    match: { headerKey: "hk_dies_4", headers: HEADERS },
-    fields: [
-      { field: "sectionCode", source: { kind: "columns", cols: [col(0)] }, steps: [{ op: "trim" }] },
-      { field: "weightMinG", source: { kind: "columns", cols: [col(1)] }, steps: [{ op: "number", kind: "linear_mass", unit: "g/m" }] },
-      { field: "weightMaxG", source: { kind: "columns", cols: [col(2)] }, steps: [{ op: "number", kind: "linear_mass", unit: "g/m" }] },
-      { field: "name", source: { kind: "columns", cols: [col(3)] }, steps: [] },
-    ],
-    filters: [],
-    keys: ["sectionCode"],
-    onExisting: "ask",
-    unclear: [],
-  };
+  return structuredClone(EXAMPLE_DIE_RECIPE);
 }
 
 export const recipeAnswer = (r: Recipe = validRecipe()) => ({ result: { kind: "recipe", recipe: r } });

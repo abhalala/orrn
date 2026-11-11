@@ -5,12 +5,11 @@
  * is thrown away. Bounds (3 cols, 6 steps, and so on) are not here. The SDK strips min and max
  * from the schema it sends, so `validateRecipe` (plan B2) enforces them after parsing.
  */
+import { recipeSchema } from "@orrn/ingest";
 import * as z from "zod/v4";
 
-import { recipeSchema } from "./recipe-local";
-
-export { recipeSchema, INGEST_TARGETS } from "./recipe-local";
-export type { Recipe } from "./recipe-local";
+export { recipeSchema, INGEST_TARGETS } from "@orrn/ingest";
+export type { Recipe } from "@orrn/ingest";
 
 export const NO_TARGET_REASONS = ["not_a_table", "summary_only", "unsupported_target", "unreadable"] as const;
 export type NoTargetReason = (typeof NO_TARGET_REASONS)[number];
