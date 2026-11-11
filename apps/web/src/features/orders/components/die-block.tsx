@@ -21,6 +21,7 @@ import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
 import { useFmt } from "@/shared/lib/fmt";
 import { countText, kgGrouped3, lengthIsMetres, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { FeetInchesGroup } from "@/shared/components/feet-inches-group";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
@@ -361,7 +362,7 @@ function LengthRow({
           hint={unit === "inch" ? t("orders.form.lengthHintInch") : t(lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm")}
         >
           {unit === "inch" ? (
-            <div className="flex min-w-0 flex-wrap gap-2">
+            <FeetInchesGroup label={t("orders.line.cutLength")}>
               <div className="min-w-[7rem] flex-1">
                 <NumberInput
                   ref={lengthRef}
@@ -375,7 +376,7 @@ function LengthRow({
               <div className="min-w-[7rem] flex-1">
                 <NumberInput value={row.inches} onValueChange={(inches) => onChange({ inches })} suffix={t("units.inch")} aria-label={t("orders.form.inches")} />
               </div>
-            </div>
+            </FeetInchesGroup>
           ) : (
             <PlantInput spec={LENGTH_MM} ref={lengthRef} value={row.mm} onValueChange={(v) => onChange({ mm: v })} decimal={false} aria-label={t("orders.line.cutLength")} />
           )}

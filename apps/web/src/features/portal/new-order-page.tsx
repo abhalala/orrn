@@ -27,6 +27,7 @@ import {
   type PortalLineDraft,
 } from "./model";
 import { PortalError, PortalSkeleton } from "./ui";
+import { FeetInchesGroup } from "@/shared/components/feet-inches-group";
 import { PlantInput } from "@/shared/components/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { lengthIsMetres } from "@/shared/lib/fmt-text";
@@ -168,14 +169,14 @@ export function PortalNewOrderPage() {
               </Field>
               <Field label={t("portal.orders.cutLength")} error={p.length ? t(p.length) : undefined} hint={unit === "inch" ? t("portal.orders.lengthHintInch") : t(lengthIsMetres(fmt) ? "portal.orders.lengthHintMetres" : "portal.orders.lengthHintMm")}>
                 {unit === "inch" ? (
-                  <div className="flex min-w-0 flex-wrap gap-2">
+                  <FeetInchesGroup label={t("portal.orders.cutLength")}>
                     <div className="min-w-[7rem] flex-1">
                       <NumberInput value={line.feet} onValueChange={(feet) => patch(line.key, { feet })} suffix={t("units.ft")} decimal={false} aria-label={t("portal.orders.feet")} />
                     </div>
                     <div className="min-w-[7rem] flex-1">
                       <NumberInput value={line.inches} onValueChange={(inches) => patch(line.key, { inches })} suffix={t("units.inch")} aria-label={t("portal.orders.inches")} />
                     </div>
-                  </div>
+                  </FeetInchesGroup>
                 ) : (
                   <PlantInput spec={LENGTH_MM} value={line.mm} onValueChange={(mm) => patch(line.key, { mm })} decimal={false} aria-label={t("portal.orders.cutLength")} />
                 )}
