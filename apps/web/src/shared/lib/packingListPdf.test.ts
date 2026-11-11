@@ -4,7 +4,7 @@ import { inflateSync } from "node:zlib";
 
 import { buildPackingListPdfBlob } from "./packingListPdf";
 
-function snapshot(rowCount: number) {
+function snapshot(rowCount: number, groupCount = 1) {
   const rows = Array.from({ length: rowCount }, (_, i) => ({
     sr: i + 1,
     bundleNo: `26J${4000 + i}`,
@@ -18,6 +18,23 @@ function snapshot(rowCount: number) {
     range12ft: 2.5,
     po: null,
   }));
+  const groupSize = Math.ceil(rowCount / groupCount);
+  const groups = Array.from({ length: groupCount }, (_, i) => {
+    const groupRows = rows.slice(i * groupSize, (i + 1) * groupSize);
+    return {
+      key: `line-${i + 1}`,
+      salesOrderLineId: `line-${i + 1}`,
+      orderNumber: "SO-4",
+      orderPeriod: "2026-27",
+      lineNo: i + 1,
+      sectionCode: "12170",
+      item: "Domal",
+      finish: null,
+      poNumber: null,
+      rows: groupRows,
+      subtotal: { bundles: groupRows.length, pcs: groupRows.length * 10, weightG: groupRows.length * 25_000 },
+    };
+  });
   return {
     version: 2,
     dispatch: { code: "DSP-000090", customer: { name: "Shivam" }, shipDate: null, notes: null, completedAt: null },
@@ -40,21 +57,7 @@ function snapshot(rowCount: number) {
       invoiceDate: null,
     },
     columns: ["sr", "bundleNo", "section", "item", "weightKg", "cutFt", "cutIn", "pcs", "kgPer12ft", "range12ft", "po"],
-    groups: [
-      {
-        key: "line-1",
-        salesOrderLineId: "line-1",
-        orderNumber: "SO-4",
-        orderPeriod: "2026-27",
-        lineNo: 1,
-        sectionCode: "12170",
-        item: "Domal",
-        finish: null,
-        poNumber: null,
-        rows,
-        subtotal: { bundles: rowCount, pcs: rowCount * 10, weightG: rowCount * 25_000 },
-      },
-    ],
+    groups,
     summary: { bundles: rowCount, pcs: rowCount * 10, weightG: rowCount * 25_000, text: `${rowCount} bundles · 2,250.00 kg` },
     issue: { revision: 3, dispatchCodes: ["DSP-000090"], branding: { show: false, tagline: null, logoUrl: null } },
   };
@@ -100,6 +103,23 @@ describe("packing list PDF print polish", () => {
     const signed = pages.filter((page) => labels.every((label) => page.includes(label)));
     expect(signed).toHaveLength(1);
     expect(signed[0]).toContain(`Page ${total} of ${total}`);
+  });
+
+  test("around a page break the signatures stay with the grand total and no page is header-only", async () => {
+    for (const rowCount of [88, 89, 90, 91, 92]) {
+      const blob = await buildPackingListPdfBlob(parsePackingListSnapshot(snapshot(rowCount, 4)), "PL/2026-27/90");
+      const pages = pdfTextStreams(await blob.arrayBuffer()).filter((text) => text.includes("Not a tax invoice."));
+      const signed = pages.filter((page) => page.includes("Packed by"));
+      expect(signed, `${rowCount} rows`).toHaveLength(1);
+      expect(signed[0], `${rowCount} rows`).toContain("Total");
+      expect(signed[0], `${rowCount} rows`).toContain("Checked by");
+      expect(signed[0], `${rowCount} rows`).toContain("Driver received");
+      const kg = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(rowCount * 25);
+      expect(signed[0], `${rowCount} rows`).toContain(kg);
+      for (const page of pages) {
+        if (!page.includes("26J")) expect(page, `${rowCount} rows`).toContain("Total");
+      }
+    }
   });
 
   test("the paper stays English when the caller supplies Hindi print text", async () => {

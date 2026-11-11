@@ -162,25 +162,27 @@ function PackingListDoc({ model, code, kgPerPiece }: { model: PackingListModel; 
             </View>
           </View>
         ))}
-        <View style={s.grand} wrap={false}>
-          <Text style={s.cSr} />
-          <Text style={s.cBundle}>{bundlesText(totals.bundles)}</Text>
-          <Text style={kgPerPiece ? s.cItemNarrow : s.cItem}>Total</Text>
-          <Text style={s.cKg}>{kg(totals.weightKg)}</Text>
-          <Text style={s.cFt} />
-          <Text style={s.cIn} />
-          <Text style={s.cPcs}>{totals.pieces}</Text>
-          <Text style={s.cK12} />
-          <Text style={s.cRange} />
-          {kgPerPiece ? <Text style={s.cKgPc} /> : null}
-        </View>
-        <View style={s.signatures} wrap={false}>
-          {plSignatureLabels().map((label) => (
-            <View key={label} style={s.signature}>
-              <Text>{label}</Text>
-              <View style={s.signatureLine} />
-            </View>
-          ))}
+        <View wrap={false}>
+          <View style={s.grand} wrap={false}>
+            <Text style={s.cSr} />
+            <Text style={s.cBundle}>{bundlesText(totals.bundles)}</Text>
+            <Text style={kgPerPiece ? s.cItemNarrow : s.cItem}>Total</Text>
+            <Text style={s.cKg}>{kg(totals.weightKg)}</Text>
+            <Text style={s.cFt} />
+            <Text style={s.cIn} />
+            <Text style={s.cPcs}>{totals.pieces}</Text>
+            <Text style={s.cK12} />
+            <Text style={s.cRange} />
+            {kgPerPiece ? <Text style={s.cKgPc} /> : null}
+          </View>
+          <View style={s.signatures} wrap={false}>
+            {plSignatureLabels().map((label) => (
+              <View key={label} style={s.signature}>
+                <Text>{label}</Text>
+                <View style={s.signatureLine} />
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={s.footer} fixed>
@@ -367,14 +369,16 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
               : null}
           </View>
         ))}
-        {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
-        <View style={v2s.signatures} wrap={false}>
-          {plSignatureLabels().map((label) => (
-            <View key={label} style={v2s.signature}>
-              <Text>{label}</Text>
-              <View style={v2s.signatureLine} />
-            </View>
-          ))}
+        <View wrap={false}>
+          {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
+          <View style={v2s.signatures} wrap={false}>
+            {plSignatureLabels().map((label) => (
+              <View key={label} style={v2s.signature}>
+                <Text>{label}</Text>
+                <View style={v2s.signatureLine} />
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={v2s.footer} fixed>

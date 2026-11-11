@@ -139,6 +139,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
     .notes { border: 1px solid #ddd; padding: 6px; margin-bottom: 10px; white-space: pre-wrap; }
     .total { margin-top: 10px; text-align: right; font-size: 13px; font-weight: bold; }
     .kinds { margin-top: 8px; display: flex; gap: 16px; justify-content: flex-end; font-size: 10px; }
+    .closing { break-inside: avoid; page-break-inside: avoid; }
     .logo { max-height: 36px; max-width: 160px; margin-bottom: 4px; }
     .signatures { margin-top: 32px; display: flex; gap: 24px; break-inside: avoid; page-break-inside: avoid; }
     .signature { flex: 1; }
@@ -183,9 +184,11 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
   </table>
-  ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
-  <div class="total">${escapeHtml(pl.summary.text)}</div>
-  <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${e(label)}<div class="signature-line"></div></div>`).join("")}</div>
+  <div class="closing">
+    ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
+    <div class="total">${escapeHtml(pl.summary.text)}</div>
+    <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${e(label)}<div class="signature-line"></div></div>`).join("")}</div>
+  </div>
 </body>
 </html>`;
 }
@@ -264,6 +267,7 @@ export function buildPackingListHtml(
     tr.sub td { font-weight: bold; background: #fafafa; }
     tr.grand td { font-weight: bold; font-size: 12px; border-top: 2px solid #111; }
     .notes { margin: 0 0 12px; }
+    .closing { break-inside: avoid; page-break-inside: avoid; }
     .signatures { margin-top: 32px; display: flex; gap: 24px; break-inside: avoid; page-break-inside: avoid; }
     .signature { flex: 1; }
     .signature-line { height: 20px; border-bottom: 1px solid #111; }
@@ -287,11 +291,14 @@ export function buildPackingListHtml(
         <th class="n">Pcs</th><th class="n">kg/12ft</th><th class="n">Weight range /12'</th>
       </tr>
     </thead>
-    <tbody>${body}
-      <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
-    </tbody>
+    <tbody>${body}</tbody>
   </table>
-  <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${escapeHtml(label)}<div class="signature-line"></div></div>`).join("")}</div>
+  <div class="closing">
+    <table><tbody>
+      <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
+    </tbody></table>
+    <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${escapeHtml(label)}<div class="signature-line"></div></div>`).join("")}</div>
+  </div>
 </body>
 </html>`;
 }

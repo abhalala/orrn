@@ -108,11 +108,11 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(html).toContain('@bottom-right { content: "Page " counter(page) " of " counter(pages);');
   });
 
-  test("the three signature lines follow the totals in one unbreakable block", () => {
+  test("the grand total and three signature lines share one unbreakable wrapper", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(v2()), "PL/2026-27/7");
     for (const label of ["Packed by", "Checked by", "Driver received"]) expect(html).toContain(label);
-    expect(html).toContain("break-inside: avoid");
-    expect(html.indexOf("Packed by")).toBeGreaterThan(html.indexOf("4 bundles · 85.000 kg"));
+    expect(html).toContain(".closing { break-inside: avoid; page-break-inside: avoid; }");
+    expect(html).toMatch(/<div class="closing">[\s\S]*4 bundles · 85.000 kg[\s\S]*Packed by/);
     expect(html).not.toContain("Receiver's signature");
   });
 

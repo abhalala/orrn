@@ -25,11 +25,11 @@ describe("packing list html (native print)", () => {
     expect(html).toContain('@bottom-right { content: "Page " counter(page) " of " counter(pages);');
   });
 
-  test("signature labels stay in one unbreakable block after the table", () => {
+  test("the grand total and signature labels share one unbreakable wrapper", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
     for (const label of ["Packed by", "Checked by", "Driver received"]) expect(html).toContain(label);
-    expect(html).toContain("break-inside: avoid");
-    expect(html.indexOf("Packed by")).toBeGreaterThan(html.indexOf("</table>"));
+    expect(html).toContain(".closing { break-inside: avoid; page-break-inside: avoid; }");
+    expect(html).toMatch(/<div class="closing">[\s\S]*<tr class="grand">[\s\S]*Packed by/);
   });
 
   test("PDF names use the PL number and customer, replace unsafe characters and stay bounded", () => {
