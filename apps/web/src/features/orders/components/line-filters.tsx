@@ -4,9 +4,10 @@ import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
 import { Field } from "@orrn/ui/components/field";
 
-import { orderKgText, pcsText } from "../format";
 import { LINE_STAGES, lineFilterActive, NO_LINE_FILTER, type LineFilterState, type LineStage } from "../line-filter";
 import { FieldSelect } from "./controls";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /** The line filters of a long order (FP-OP-05): die, cut length, stage, has baki, and the totals of what is shown. */
 export function LineFilters({
@@ -26,6 +27,7 @@ export function LineFilters({
   total: number;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <div data-line-filters="" className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-3" role="search" aria-label={t("orders.detail.filter.label")}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -68,7 +70,7 @@ export function LineFilters({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p data-line-filter-totals="" className="m-0 font-mono text-[13px] tabular-nums" aria-live="polite">
-          {t("orders.detail.filter.shown", { shown: shown.lines, total })} · {pcsText(shown.orderedPcs)} {t("units.pcs")} · {orderKgText(shown.orderedG)} {t("units.kg")}
+          {t("orders.detail.filter.shown", { shown: shown.lines, total })} · {countText(fmt, shown.orderedPcs)} {t("units.pcs")} · {kgGrouped3(fmt, shown.orderedG)} {massUnit(fmt)}
           {shown.pcsMissing > 0 ? ` · ${t("orders.detail.filter.pcsMissing", { n: shown.pcsMissing })}` : ""}
         </p>
         {lineFilterActive(value) ? (

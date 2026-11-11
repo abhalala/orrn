@@ -5,7 +5,8 @@ import { Chip } from "@orrn/ui/components/chip";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 
-import { orderKgText, pcsText } from "../format";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 export type StockItem = {
   id: string;
@@ -87,6 +88,7 @@ export function StockList({
   selected?: ReadonlySet<string>;
   onToggle?(id: string, on: boolean): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <>
@@ -103,7 +105,7 @@ export function StockList({
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] font-medium leading-5">
                       <span className="font-mono tabular-nums">{row.serial}</span>
                       <span className="font-mono tabular-nums">
-                        {orderKgText(row.weightG)} {t("units.kg")} · {pcsText(row.pcs)} {t("units.pcs")}
+                        {kgGrouped3(fmt, row.weightG)} {massUnit(fmt)} · {countText(fmt, row.pcs)} {t("units.pcs")}
                       </span>
                     </span>
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5 text-muted-foreground">

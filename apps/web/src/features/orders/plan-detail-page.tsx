@@ -26,14 +26,17 @@ import { PlanPrintButtons } from "./components/print-buttons";
 import { PhonePlan } from "./components/phone-plan";
 import { ReasonSheet } from "./components/reason-sheet";
 import { orderErrorLines } from "./errors";
-import { dayTimeText, orderKgText } from "./format";
+import { dayTimeText } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import { BiggerScreenNote, PLAN_STATUS_TONE } from "./plan-board-page";
 import { dieTitle } from "./view";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 type Warning = { lineId: string; sectionCode: string; customerName: string; orderNumber: string; cutLengthMm: number; planableG: number };
 
 export function PlanDetailPage({ id }: { id: string }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const zone = useCompanyTimeZone();
   const queryClient = useQueryClient();
@@ -222,12 +225,12 @@ export function PlanDetailPage({ id }: { id: string }) {
             <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {warnings.map((w) => (
                 <li key={w.lineId} data-plan-warning={w.orderNumber} className="text-[14px] leading-5">
-                  {t("orders.plan.otherParty", {
+                  {t("orders.plan.otherParty", { massUnit: massUnit(fmt),
                     die: w.sectionCode,
                     customer: w.customerName,
                     order: w.orderNumber,
                     length: label(w.cutLengthMm),
-                    kg: orderKgText(w.planableG),
+                    kg: kgGrouped3(fmt, w.planableG),
                   })}
                 </li>
               ))}
@@ -269,7 +272,7 @@ export function PlanDetailPage({ id }: { id: string }) {
                               {l.poNumber ? ` · ${l.poNumber}` : ""}
                             </p>
                             <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-                              {l.orderNumber} · {label(l.cutLengthMm)} · {orderKgText(l.kgG)} {t("units.kg")}
+                              {l.orderNumber} · {label(l.cutLengthMm)} · {kgGrouped3(fmt, l.kgG)} {massUnit(fmt)}
                             </p>
                           </div>
                           {draft && lines.length > 1 ? (
@@ -329,7 +332,7 @@ export function PlanDetailPage({ id }: { id: string }) {
                   .filter((l) => l.pressPlanDieId === d.id)
                   .map((l) => (
                     <li key={l.id} className="text-[14px] leading-5">
-                      {l.customerName} · {l.orderNumber} · {label(l.cutLengthMm)} · {orderKgText(l.kgG)} {t("units.kg")}
+                      {l.customerName} · {l.orderNumber} · {label(l.cutLengthMm)} · {kgGrouped3(fmt, l.kgG)} {massUnit(fmt)}
                     </li>
                   ))}
               </ul>

@@ -15,9 +15,11 @@ import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
 
-import { dayTimeText, orderKgText } from "../format";
+import { dayTimeText } from "../format";
 import { useCompanyTimeZone } from "../hooks";
 import { DIE_STATE_TONE, dieStateKey, pressedBarWidth, pressedPctText, pressedVsPlanned } from "../phone-plan-view";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 export function PhonePlan({ planId }: { planId?: string }) {
   return (
@@ -36,6 +38,7 @@ function CanPlan({ planId }: { planId?: string }) {
 }
 
 function PhonePlanBody({ planId }: { planId?: string }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const zone = useCompanyTimeZone();
   const { unit } = useLengthUnit();
@@ -56,7 +59,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
           <CardTitle>{t("press.summary.pressedToday")}</CardTitle>
         </CardHeader>
         <dl className="grid grid-cols-2 gap-3 px-4 pb-4 text-sm">
-          <Tile label={t("press.summary.title")} value={t("press.summary.kg", { kg: orderKgText(summary.kgG) })} />
+          <Tile label={t("press.summary.title")} value={t("press.summary.kg", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, summary.kgG) })} />
           <Tile label={t("press.summary.runs")} value={String(summary.runs)} />
           <Tile label={t("press.summary.recovery")} value={summary.runs > 0 && summary.recoveryBp !== null ? `${pressedPctText(summary.recoveryBp)}%` : "–"} />
           <Tile label={t("press.summary.downtime")} value={t("press.summary.minutes", { min: summary.downtimeMin })} />
@@ -68,7 +71,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
                 <span className="truncate">
                   {l.code} · {l.name}
                 </span>
-                <span className="shrink-0 tabular-nums">{t("press.summary.shiftRow", { runs: l.runs, kg: orderKgText(l.kgG) })}</span>
+                <span className="shrink-0 tabular-nums">{t("press.summary.shiftRow", { massUnit: massUnit(fmt), runs: l.runs, kg: kgGrouped3(fmt, l.kgG) })}</span>
               </li>
             ))}
           </ul>
@@ -91,7 +94,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
                 {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
               </p>
               <p className="text-sm tabular-nums">
-                {t("orders.phonePlan.planTotal", { pressed: orderKgText(p.pressedG), planned: orderKgText(p.plannedG), pct: pressedPctText(p.pressedBp) })}
+                {t("orders.phonePlan.planTotal", { massUnit: massUnit(fmt), pressed: kgGrouped3(fmt, p.pressedG), planned: kgGrouped3(fmt, p.plannedG), pct: pressedPctText(p.pressedBp) })}
               </p>
             </CardHeader>
             <ul className="flex flex-col divide-y divide-border">

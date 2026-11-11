@@ -3,7 +3,7 @@
  * sends ONE side (pieces or kg); the other side, the basis and the implied kg come back from
  * `orders.quote` / `orders.create` and are only displayed (FP-OP-03/04).
  */
-import { kgToG, lengthFromInput, MM_PER_INCH, parseDecimal, type LengthUnit } from "@orrn/domain";
+import { kgToG, lengthFromInput, MM_PER_INCH, parseDecimal, toCanonical, type LengthUnit } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 
 import { kgFieldText, rateText } from "./format";
@@ -77,6 +77,15 @@ export function parseKgG(text: string): number | null {
   return g >= 1 ? g : null;
 }
 
+/**
+ * Paise per kg from typed rupees, exact: "1.005" is 101 (half away from zero), not the 100 that
+ * `Math.round(1.005 * 100)` gave. Null for text that is not a plain non-negative number, as before.
+ */
+export function ratePaiseOf(text: string): number | null {
+  const r = toCanonical("order.rate", text, "inr_kg", { mode: "round" });
+  return r.ok ? r.value : null;
+}
+
 export type QuoteArgs = {
   /** A saved line: quoted on the basis it was locked with (`orders.quote` `lineId`). */
   lineId?: string;
@@ -138,7 +147,7 @@ export function toLineInput(d: LineDraft, unit: LengthUnit, withRate: boolean) {
   const { dieInstanceId, tierRank } = copyChoiceInput(d.copy);
   const alloy = (d.alloy ?? "").trim();
   const temper = (d.temper ?? "").trim();
-  const rate = withRate ? parseDecimal(d.rate) : null;
+  const ratePaise = withRate ? ratePaiseOf(d.rate) : null;
   return {
     sectionId: args.sectionId,
     cutLengthMm: args.cutLengthMm,
@@ -151,7 +160,7 @@ export function toLineInput(d: LineDraft, unit: LengthUnit, withRate: boolean) {
     ...(alloy ? { alloy } : {}),
     ...(temper ? { temper } : {}),
     finish: d.finish === "none" ? null : d.finish,
-    ...(rate != null ? { ratePaise: Math.round(rate * 100) } : {}),
+    ...(ratePaise != null ? { ratePaise } : {}),
   };
 }
 

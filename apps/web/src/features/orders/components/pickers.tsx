@@ -6,8 +6,9 @@ import { useMemo, useRef } from "react";
 
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { milliText } from "../format";
 import { dieTitle } from "../view";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 export type Picked = { id: string; label: string };
 
@@ -83,6 +84,7 @@ export type CopyChoice = {
 /** The copies of a die as choices: the die room picks, a pinned copy, or "tier N or better". */
 export function useCopyChoices(sectionId: string | null): { choices: CopyChoice[]; loading: boolean } {
   const { t } = useT();
+  const fmt = useFmt();
   const copies = useQuery({
     ...trpc.dieInstance.list.queryOptions({ sectionId: sectionId ?? "", limit: 200 }),
     enabled: sectionId != null,
@@ -97,7 +99,7 @@ export function useCopyChoices(sectionId: string | null): { choices: CopyChoice[
         label: [
           t("orders.line.copyCode", { code: c.code }),
           c.tierRank != null ? t("orders.line.tierShort", { rank: c.tierRank }) : null,
-          milli != null ? `${milliText(milli)} ${t("units.kgPer12ft")}` : null,
+          milli != null ? `${sectionText(fmt, milli)} ${sectionUnit(fmt)}` : null,
         ]
           .filter(Boolean)
           .join(" · "),

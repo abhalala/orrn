@@ -1,12 +1,39 @@
 import { describe, expect, test } from "bun:test";
 
-import { cutLengthMm, draftFromLine, lengthInputOf, lineProblems, newLine, parseKgG, parsePieces, quoteArgs, toLineEditInput, toLineInput, type LineDraft } from "./line-model";
+import { cutLengthMm, draftFromLine, lengthInputOf, lineProblems, newLine, parseKgG, parsePieces, quoteArgs, ratePaiseOf, toLineEditInput, toLineInput, type LineDraft } from "./line-model";
 
 const base = (patch: Partial<LineDraft>): LineDraft => ({
   ...newLine("k"),
   die: { id: "die-1", label: "14701 Patti" },
   feet: "18",
   ...patch,
+});
+
+describe("rate entry is exact (units layer slice b)", () => {
+  test("regression: 1.005 per kg is 101 paise; the float product gave 100", () => {
+    expect(Math.round(1.005 * 100)).toBe(100);
+    expect(ratePaiseOf("1.005")).toBe(101);
+    expect(ratePaiseOf("201.5")).toBe(20_150);
+    expect(ratePaiseOf("0.285")).toBe(29); // float: 28.499999999999996
+    expect(Math.round(0.285 * 100)).toBe(28);
+  });
+  test("what parsed before still parses, and junk is still null", () => {
+    for (const [text, paise] of [["12,345.5", 1_234_550], [".5", 50], ["5.", 500], ["0", 0], [" 201 ", 20_100]] as const) {
+      expect(ratePaiseOf(text)).toBe(paise);
+    }
+    for (const text of ["", "abc", "12abc", "-1", "1e3"]) expect(ratePaiseOf(text)).toBeNull();
+  });
+  test("over a seeded range it equals the exact decimal arithmetic", () => {
+    let seed = 99;
+    const next = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < 5000; i++) {
+      const whole = Math.floor(next() * 5000);
+      const frac = String(Math.floor(next() * 1000)).padStart(3, "0");
+      // whole.frac rupees, three decimals: paise = whole*100 + round-half-up(frac/10)
+      const want = whole * 100 + Math.floor((Number(frac) + 5) / 10);
+      expect(ratePaiseOf(`${whole}.${frac}`)).toBe(want);
+    }
+  });
 });
 
 describe("line input", () => {

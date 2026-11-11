@@ -11,6 +11,8 @@ import { CopyPicker, type PickedCopy } from "@/features/die-room/pickers";
 import { SectionPicker } from "@/features/masters/die-copy-sheet";
 
 import { copyStatusesFor, type PlanPurpose, type TrialProblems } from "./plan-purpose";
+import { useFmt } from "@/shared/lib/fmt";
+import { massUnit } from "@/shared/lib/fmt-text";
 
 export type TrialDraft = {
   section: { id: string; label: string } | null;
@@ -32,6 +34,7 @@ export function PlanTrialForm({
   problems: TrialProblems;
   onChange(next: TrialDraft): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <Card data-trial-form={purpose}>

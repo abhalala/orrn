@@ -34,14 +34,14 @@ import {
   withBookFilter,
   type Bar,
   type BookSearch,
-  type BookShow,
-} from "./book-view";
+  type BookShow } from "./book-view";
 import { BookStrip } from "./components/book-strip";
 import { BookExportButton } from "./components/print-buttons";
 import { OrderBar } from "./components/order-bar";
-import { listKgText } from "./format";
 import { useDebounced } from "./hooks";
 import { STATUS_TONE, type OrderStatus } from "./view";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 type Scope = "open" | "late" | "closed" | "cancelled";
 const OPEN_STATUSES = ["booking", "confirmed", "dispatching"] as const;
@@ -69,6 +69,7 @@ type Row = {
 
 export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(next: BookSearch): void }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const [text, setText] = useState(search.q ?? "");
   const typed = useDebounced(text.trim(), 300);
   const set = (patch: Partial<Record<keyof BookSearch, string | number | undefined>>) => onSearch(withBookFilter(search, patch));
@@ -173,7 +174,7 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
       header: t("orders.list.ordered"),
       align: "end",
       hideOnPhone: true,
-      cell: (o) => <span className="font-mono tabular-nums">{listKgText(o.orderedG)}</span>,
+      cell: (o) => <span className="font-mono tabular-nums">{kgGrouped1(fmt, o.orderedG)}</span>,
     },
   ];
 

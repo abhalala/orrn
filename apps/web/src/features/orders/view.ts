@@ -6,6 +6,8 @@
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey, Translate } from "@orrn/i18n";
 
+import type { Fmt } from "@orrn/domain";
+import { countText, kgGrouped3 } from "@/shared/lib/fmt-text";
 import { orderKgText, pcsText } from "./format";
 
 export type OrderStatus = "booking" | "confirmed" | "dispatching" | "closed" | "cancelled";
@@ -103,7 +105,8 @@ export function stripGrams(strip: Strip, key: StripGramKey): number {
   return strip[key];
 }
 
-export function stripCells(strip: Strip): StripCell[] {
+/** With the plant's `fmt` the figures are in its weight unit and style; without, today's kg text (the default set gives the same). */
+export function stripCells(strip: Strip, fmt?: Fmt): StripCell[] {
   return STRIP_CELLS.map((cell) => {
     const grams = stripGrams(strip, cell.key);
     const inStock = cell.key === "inStockG";
@@ -111,8 +114,8 @@ export function stripCells(strip: Strip): StripCell[] {
     return {
       key: cell.key,
       labelKey: cell.labelKey,
-      kg: orderKgText(grams),
-      pcs: pcs == null ? null : pcsText(pcs),
+      kg: fmt ? kgGrouped3(fmt, grams) : orderKgText(grams),
+      pcs: pcs == null ? null : fmt ? countText(fmt, pcs) : pcsText(pcs),
       bundles: inStock ? (strip.inStockBundles ?? null) : null,
       open: Boolean(cell.balance) && grams > 0,
     };

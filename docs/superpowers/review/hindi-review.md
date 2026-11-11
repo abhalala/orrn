@@ -4887,9 +4887,9 @@ Please check, Lalubhai:
 | `book.bar.column` | Where it stands | कहां तक पहुंचा |
 | `book.bar.label` | {number}: kg by stage | {number}: स्टेज के हिसाब से kg |
 | `book.bar.dispatchedPct` | {pct}% dispatched | {pct}% dispatch हुआ |
-| `book.bar.baki` | Baki {kg} kg | बाकी {kg} kg |
+| `book.bar.baki` | Baki {kg} {massUnit} | बाकी {kg} {massUnit} |
 | `book.bar.nothingPlanned` | Nothing planned yet | अभी कुछ प्लान नहीं |
-| `book.bar.over` | {kg} kg over the order | ऑर्डर से {kg} kg ज़्यादा |
+| `book.bar.over` | {kg} {massUnit} over the order | ऑर्डर से {kg} {massUnit} ज़्यादा |
 | `book.due` | Due {date} | देय {date} |
 | `book.strip.label` | Order book totals | ऑर्डर बुक का कुल |
 | `book.strip.orders` | Open orders | खुले ऑर्डर |
@@ -4939,7 +4939,7 @@ Please check, Lalubhai:
 | `stockOn.failed` | Could not make the file. Try again. | फ़ाइल नहीं बन पाई। फिर कोशिश करें। |
 | `phonePlan.none` | No released plan | कोई रिलीज़ प्लान नहीं |
 | `phonePlan.noneBody` | A plan shows here once it is released to the press. | प्रेस को रिलीज़ होने के बाद प्लान यहाँ दिखेगा। |
-| `phonePlan.planTotal` | {pressed} of {planned} kg pressed ({pct}%) | {planned} में से {pressed} kg प्रेस हुआ ({pct}%) |
+| `phonePlan.planTotal` | {pressed} of {planned} {massUnit} pressed ({pct}%) | {planned} में से {pressed} {massUnit} प्रेस हुआ ({pct}%) |
 | `phonePlan.kgLine` | {pressed} of {planned} kg | {planned} में से {pressed} kg |
 | `phonePlan.pcsLine` | {pressed} of {planned} pcs | {planned} में से {pressed} pcs |
 | `phonePlan.notStarted` | Not started | शुरू नहीं हुआ |
@@ -4993,7 +4993,7 @@ Please check, Lalubhai:
 | `dispatched` | Dispatched | Dispatch हुआ |
 | `baki` | Baki | बाकी |
 | `planable` | Can still plan | अभी प्लान हो सकता है |
-| `over` | Over by {kg} kg | {kg} kg ज़्यादा |
+| `over` | Over by {kg} {massUnit} | {kg} {massUnit} ज़्यादा |
 | `confirm` | Confirm order | ऑर्डर पक्का करें |
 | `close` | Close order | ऑर्डर बंद करें |
 | `cancel` | Cancel order | ऑर्डर रद्द करें |
@@ -5029,10 +5029,10 @@ Please check, Lalubhai:
 | `hold.hint` | Yard bundles of this die, either on no order or on this line. They stay where they are. No other customer's dispatch can take them while held. | इस die के यार्ड bundle जो किसी ऑर्डर पर नहीं हैं, या इसी लाइन पर हैं। वे जहां हैं वहीं रहते हैं; होल्ड रहने तक किसी और ग्राहक का dispatch उन्हें नहीं ले सकता। |
 | `hold.none` | No yard bundles of this die can be held for this line. | इस die का कोई यार्ड bundle इस लाइन के लिए होल्ड नहीं किया जा सकता। |
 | `hold.submit` | Hold {count} {count:bundle\|bundles} | {count} bundle होल्ड करें |
-| `hold.heldDone` | Held {count} {count:bundle\|bundles} ({kg} kg) | {count} bundle होल्ड किए ({kg} kg) |
+| `hold.heldDone` | Held {count} {count:bundle\|bundles} ({kg} {massUnit}) | {count} bundle होल्ड किए ({kg} {massUnit}) |
 | `hold.alreadyList` | Already held: {serials} | पहले से होल्ड: {serials} |
 | `hold.lengthWarning` | {serial} is {length}; the line is {lineLength}. Held anyway. | {serial} की लंबाई {length} है; लाइन {lineLength} की है। फिर भी होल्ड किया। |
-| `hold.chip` | Held: {count} {count:bundle\|bundles} · {kg} kg | होल्ड: {count} bundle · {kg} kg |
+| `hold.chip` | Held: {count} {count:bundle\|bundles} · {kg} {massUnit} | होल्ड: {count} bundle · {kg} {massUnit} |
 | `hold.list` | Held bundles | होल्ड bundle |
 | `hold.listTitle` | Held for line {n} | लाइन {n} के लिए होल्ड |
 | `hold.onDispatch` | On {code} | {code} पर |
@@ -5082,9 +5082,9 @@ Please check, Lalubhai:
 | `closed` | Order closed | ऑर्डर बंद हो गया |
 | `cancelled` | Order cancelled | ऑर्डर रद्द हो गया |
 | `toConfirm` | To confirm this order | ऑर्डर पक्का करने के लिए |
-| `closeBakiHint` | {kg} kg is still to dispatch. Say why you are closing it. | {kg} kg अभी dispatch होना बाकी है। बंद करने का कारण लिखें। |
+| `closeBakiHint` | {kg} {massUnit} is still to dispatch. Say why you are closing it. | {kg} {massUnit} अभी dispatch होना बाकी है। बंद करने का कारण लिखें। |
 | `pending.title` | Waiting for a manager | मैनेजर का इंतज़ार |
-| `pending.line` | {count} {count:bundle\|bundles}, {kg} kg, to {order} {customer} | {count} bundle, {kg} kg, {order} {customer} को |
+| `pending.line` | {count} {count:bundle\|bundles}, {kg} {massUnit}, to {order} {customer} | {count} bundle, {kg} {massUnit}, {order} {customer} को |
 | `detail.dispatch` | Dispatch | Dispatch |
 | `detail.filter.label` | Filter the lines | लाइनें छांटें |
 | `detail.filter.die` | Die | Die |
@@ -5099,9 +5099,9 @@ Please check, Lalubhai:
 | `detail.lines` | Lines | लाइनें |
 | `detail.lineShort` | Line {n} | लाइन {n} |
 | `detail.moveBundles` | Move bundles | Bundle डालें |
-| `detail.basisLineBare` | Weight basis {milli} kg/12ft. | वज़न आधार {milli} kg/12ft। |
-| `detail.basisLine` | Weight basis {milli} kg/12ft ({basis}). | वज़न आधार {milli} kg/12ft ({basis})। |
-| `detail.implied` | {pcs} pcs weigh {implied} kg at that basis. | इस आधार पर {pcs} पीस का वज़न {implied} kg। |
+| `detail.basisLineBare` | Weight basis {milli} {sectionUnit}. | वज़न आधार {milli} {sectionUnit}। |
+| `detail.basisLine` | Weight basis {milli} {sectionUnit} ({basis}). | वज़न आधार {milli} {sectionUnit} ({basis})। |
+| `detail.implied` | {pcs} pcs weigh {implied} {massUnit} at that basis. | इस आधार पर {pcs} पीस का वज़न {implied} {massUnit}। |
 | `detail.rate` | Rs {rate}/kg | Rs {rate}/kg |
 | `detail.timeline` | Timeline | टाइमलाइन |
 | `detail.timelineEmpty` | Nothing has happened yet. | अभी कुछ नहीं हुआ। |
@@ -5120,7 +5120,7 @@ Please check, Lalubhai:
 | `edit.belowDispatched` | Line {line}: {dispatched} kg is already dispatched, more than the new {kg} kg. | लाइन {line}: {dispatched} kg पहले ही dispatch हो चुका है, नए {kg} kg से ज़्यादा। |
 | `ownedBy` | This die belongs to {name}. | यह die {name} की है। |
 | `form.expectedHint` | Starts {days} {days:day\|days} after the order date. Change it if the customer wants it sooner or later. | ऑर्डर की तारीख से {days} दिन बाद से शुरू होता है। ग्राहक को जल्दी या देर से चाहिए तो बदलें। |
-| `form.orderTotal` | This order: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} kg | यह ऑर्डर: {lines} लंबाई, {pcs} पीस, {kg} kg |
+| `form.orderTotal` | This order: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} {massUnit} | यह ऑर्डर: {lines} लंबाई, {pcs} पीस, {kg} {massUnit} |
 | `form.block.title` | Die {n} | Die {n} |
 | `form.block.remove` | Remove die {n} | Die {n} हटाएं |
 | `form.block.lengths` | Cut lengths | कट लंबाइयां |
@@ -5130,7 +5130,7 @@ Please check, Lalubhai:
 | `form.block.copy` | Copy | कॉपी |
 | `form.block.copyLength` | Copy length {n} | लंबाई {n} की कॉपी |
 | `form.block.removeLength` | Remove length {n} | लंबाई {n} हटाएं |
-| `form.block.subtotal` | This die: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} kg | यह die: {lines} लंबाई, {pcs} पीस, {kg} kg |
+| `form.block.subtotal` | This die: {lines} {lines:length\|lengths}, {pcs} pcs, {kg} {massUnit} | यह die: {lines} लंबाई, {pcs} पीस, {kg} {massUnit} |
 | `form.block.share` | {pct}% of the order | ऑर्डर का {pct}% |
 | `form.block.enterHint` | Press Enter in pieces or kg to add the next length. Shift and Enter add another die. | अगली लंबाई जोड़ने के लिए पीस या kg में Enter दबाएं। Shift और Enter से एक और die जुड़ती है। |
 | `form.block.more` | Alloy, temper, finish and weight basis | अलॉय, टेम्पर, फ़िनिश और वज़न का आधार |
@@ -5153,16 +5153,16 @@ Please check, Lalubhai:
 | `form.weightBasis` | Weight basis | वज़न आधार |
 | `form.basisCurrent` | Current | ताज़ा |
 | `form.basisBandStart` | Band start | बैंड की शुरुआत |
-| `form.basisUsingCopy` | Using {milli} kg/12ft, the latest weight of copy {copy}. | {milli} kg/12ft ले रहे हैं, कॉपी {copy} का ताज़ा वज़न। |
-| `form.basisUsingBand` | Using {milli} kg/12ft, the start of the die's band. | {milli} kg/12ft ले रहे हैं, die के बैंड की शुरुआत। |
+| `form.basisUsingCopy` | Using {milli} {sectionUnit}, the latest weight of copy {copy}. | {milli} {sectionUnit} ले रहे हैं, कॉपी {copy} का ताज़ा वज़न। |
+| `form.basisUsingBand` | Using {milli} {sectionUnit}, the start of the die's band. | {milli} {sectionUnit} ले रहे हैं, die के बैंड की शुरुआत। |
 | `form.noReading` | The copy has no weight reading yet, so orrn uses the band start. | कॉपी का अभी कोई वज़न नहीं है; बैंड की शुरुआत ली गई। |
-| `form.quoteLine` | {pcs} pcs come to {kg} kg. | {pcs} पीस = {kg} kg। |
-| `form.impliedLine` | {pcs} pcs weigh {implied} kg. You typed {kg} kg. | {pcs} पीस का वज़न {implied} kg है। आपने {kg} kg डाला। |
+| `form.quoteLine` | {pcs} pcs come to {kg} {massUnit}. | {pcs} पीस = {kg} {massUnit}। |
+| `form.impliedLine` | {pcs} pcs weigh {implied} {massUnit}. You typed {kg} {massUnit}. | {pcs} पीस का वज़न {implied} {massUnit} है। आपने {kg} {massUnit} डाला। |
 | `form.minusPiece` | -1 piece | -1 पीस |
 | `form.plusPiece` | +1 piece | +1 पीस |
 | `form.quoteFailed` | Could not work out the other side. Check the die and the length. | दूसरी तरफ़ का हिसाब नहीं निकला। Die और लंबाई देखें। |
 | `form.quoting` | Working out… | हिसाब लग रहा है… |
-| `form.basisLocked` | Using {milli} kg/12ft, locked when this line was booked. | {milli} kg/12ft ले रहे हैं, जो लाइन बुक होते समय तय हुआ। |
+| `form.basisLocked` | Using {milli} {sectionUnit}, locked when this line was booked. | {milli} {sectionUnit} ले रहे हैं, जो लाइन बुक होते समय तय हुआ। |
 | `form.errors.customer` | Pick the customer. | ग्राहक चुनें। |
 | `form.errors.die` | Pick the die. | Die चुनें। |
 | `form.errors.length` | Enter the cut length. | कट लंबाई डालें। |
@@ -5173,7 +5173,7 @@ Please check, Lalubhai:
 | `stock.takeHint` | Plant stock and bundles not on an order go on this line at once. Another customer's bundles wait for a manager. | प्लांट स्टॉक और बिना ऑर्डर के bundle तुरंत इस लाइन पर आते हैं। दूसरे ग्राहक के bundle मैनेजर की मंज़ूरी के बाद। |
 | `stock.putOnLine` | Put on this line | इस लाइन पर डालें |
 | `stock.noneToTake` | No ready stock of this die to take. | इस die का लेने लायक तैयार स्टॉक नहीं है। |
-| `stock.prompt` | Ready stock of this die: {count} {count:bundle\|bundles}, {kg} kg. | इस die का तैयार स्टॉक: {count} bundle, {kg} kg। |
+| `stock.prompt` | Ready stock of this die: {count} {count:bundle\|bundles}, {kg} {massUnit}. | इस die का तैयार स्टॉक: {count} bundle, {kg} {massUnit}। |
 | `stock.promptNone` | No ready stock of this die. | इस die का तैयार स्टॉक नहीं है। |
 | `stock.open` | See stock | स्टॉक देखें |
 | `stock.none` | No ready stock for this die. | इस die का तैयार स्टॉक नहीं है। |
@@ -5220,7 +5220,7 @@ Please check, Lalubhai:
 | `plan.biggerBody` | The press plan needs a desktop or an 11-inch tablet. Open it there to plan. | प्रेस प्लान के लिए डेस्कटॉप या 11 इंच का टैबलेट चाहिए। प्लान वहीं खोलें। |
 | `plan.recent` | Plans | प्लान |
 | `plan.noPlans` | No press plans yet. | अभी कोई प्रेस प्लान नहीं। |
-| `plan.summary` | {dies} {dies:die\|dies}, {kg} kg | {dies} die, {kg} kg |
+| `plan.summary` | {dies} {dies:die\|dies}, {kg} {massUnit} | {dies} die, {kg} {massUnit} |
 | `plan.from` | Window starts | समय शुरू |
 | `plan.to` | Window ends | समय खत्म |
 | `plan.windowHint` | A window is at most 24 hours. | एक प्लान का समय ज़्यादा से ज़्यादा 24 घंटे। |
@@ -5236,7 +5236,7 @@ Please check, Lalubhai:
 | `plan.allCustomers` | All customers | सभी ग्राहक |
 | `plan.nothingLeft` | Nothing left to plan | प्लान करने को कुछ नहीं |
 | `plan.nothingLeftBody` | Open lines are in stock or already on a plan. | खुली लाइनें स्टॉक में हैं या पहले से किसी प्लान में हैं। |
-| `plan.planable` | {kg} kg to plan | {kg} kg प्लान हो सकता है |
+| `plan.planable` | {kg} {massUnit} to plan | {kg} {massUnit} प्लान हो सकता है |
 | `plan.addLine` | Add {order} to the plan | {order} को प्लान में जोड़ें |
 | `plan.draftDies` | Dies in run order | चलने के क्रम में die |
 | `plan.chooseLines` | Choose lines | लाइनें चुनें |
@@ -5244,11 +5244,11 @@ Please check, Lalubhai:
 | `plan.markUrgent` | Mark urgent | जल्दी करें |
 | `plan.moveEarlier` | Move earlier | पहले करें |
 | `plan.moveLater` | Move later | बाद में करें |
-| `plan.otherParty` | {die} is also open for {customer} on {order} ({length}): {kg} kg still to plan. | {die} पर {customer} का {order} ({length}) भी खुला है: {kg} kg प्लान होना बाकी। |
+| `plan.otherParty` | {die} is also open for {customer} on {order} ({length}): {kg} {massUnit} still to plan. | {die} पर {customer} का {order} ({length}) भी खुला है: {kg} {massUnit} प्लान होना बाकी। |
 | `plan.otherLinesTitle` | Other open lines on these dies | इन die पर दूसरी खुली लाइनें |
 | `plan.otherLinesBody` | Add them to press them in the same run. | इन्हें जोड़ें तो एक ही रन में दबेंगी। |
 | `plan.otherLinesNone` | No other open line on these dies. | इन die पर कोई और खुली लाइन नहीं। |
-| `plan.planableBoth` | {kg} kg, {pcs} pcs to plan | {kg} kg, {pcs} पीस प्लान होना बाकी |
+| `plan.planableBoth` | {kg} {massUnit}, {pcs} pcs to plan | {kg} {massUnit}, {pcs} पीस प्लान होना बाकी |
 | `plan.addAllOfSo` | Add all of {order} | {order} की सब लाइनें जोड़ें |
 | `plan.draftFooter` | {dies} {dies:die\|dies}, {lines} {lines:line\|lines} | {dies} die, {lines} लाइन |
 | `plan.moreLines` | More open lines than shown. Narrow by customer or search. | दिखाई गई से ज़्यादा खुली लाइनें हैं। ग्राहक या खोज से छांटें। |
@@ -5308,7 +5308,7 @@ Please check, Lalubhai:
 | `reasonNeeded` | Pick a reason or write a note. | कारण चुनें या नोट लिखें। |
 | `pickBundles` | Pick the bundles to move. | डालने के लिए bundle चुनें। |
 | `waiting` | Waiting for a manager | मैनेजर का इंतज़ार |
-| `waitingBody` | {count} {count:bundle\|bundles}, {kg} kg, stay where they are until a manager approves. | {count} bundle, {kg} kg मैनेजर की मंज़ूरी तक जहां हैं वहीं रहेंगे। |
+| `waitingBody` | {count} {count:bundle\|bundles}, {kg} {massUnit}, stay where they are until a manager approves. | {count} bundle, {kg} {massUnit} मैनेजर की मंज़ूरी तक जहां हैं वहीं रहेंगे। |
 | `openRequest` | See the request | मांग देखें |
 | `refused.dispatched` | Already dispatched | पहले ही dispatch हो चुका |
 | `refused.void` | Void | रद्द |
@@ -5806,7 +5806,7 @@ Please check, Lalubhai:
 | `summary.downtime` | Downtime | रुकावट |
 | `summary.byLine` | By press | प्रेस के हिसाब से |
 | `summary.noRuns` | No runs logged today. | आज कोई रन दर्ज नहीं। |
-| `summary.kg` | {kg} kg | {kg} kg |
+| `summary.kg` | {kg} {massUnit} | {kg} {massUnit} |
 | `summary.minutes` | {min} min | {min} मिनट |
 | `summary.day` | Production day | उत्पादन दिन |
 | `summary.dayHint` | The production day opens with the first shift, not at midnight. | उत्पादन दिन पहली शिफ़्ट से खुलता है, आधी रात से नहीं। |
@@ -5822,7 +5822,7 @@ Please check, Lalubhai:
 | `summary.report` | Open the press report | प्रेस रिपोर्ट खोलें |
 | `summary.previous` | Earlier day | पिछला दिन |
 | `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
-| `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
+| `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} {massUnit} | {runs} रन, {kg} {massUnit} |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
 ### foundry (603)

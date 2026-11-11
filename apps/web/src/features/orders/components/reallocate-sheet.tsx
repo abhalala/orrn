@@ -17,8 +17,9 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "../errors";
 import { FieldSelect } from "./controls";
-import { orderKgText, pcsText } from "../format";
 import { isMovable, lengthMismatches, reallocateProblem } from "../view";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 export type ReallocateSource = {
   lineId: string;
@@ -49,6 +50,7 @@ export function ReallocateSheet({
   formatLength(mm: number): string;
 }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [destination, setDestination] = useState<string>("plant");
@@ -159,7 +161,7 @@ export function ReallocateSheet({
                 {t("reallocate.waiting")}
               </Chip>
               <p className="m-0 text-[15px] font-medium leading-6">
-                {t("reallocate.waitingBody", { count: done.count, kg: orderKgText(done.kgG) })}
+                {t("reallocate.waitingBody", { massUnit: massUnit(fmt), count: done.count, kg: kgGrouped3(fmt, done.kgG) })}
               </p>
               <Button variant="secondary" asChild className="self-start">
                 <Link to="/approvals" search={{ kind: "order_reallocate" }}>
@@ -208,7 +210,7 @@ export function ReallocateSheet({
                       <span className="flex min-w-0 flex-1 flex-col">
                         <span className="font-mono text-[14px] font-medium tabular-nums">{b.serial}</span>
                         <span className="text-[13px] text-muted-foreground">
-                          {orderKgText(b.weightG)} {t("units.kg")} · {pcsText(b.pcs)} {t("units.pcs")} · {formatLength(b.lengthMm)}
+                          {kgGrouped3(fmt, b.weightG)} {massUnit(fmt)} · {countText(fmt, b.pcs)} {t("units.pcs")} · {formatLength(b.lengthMm)}
                         </span>
                       </span>
                     </label>

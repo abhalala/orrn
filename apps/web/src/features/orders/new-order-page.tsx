@@ -39,12 +39,12 @@ import {
   setBlockDie,
   todayYmd,
   NO_TOTALS,
-  type DieBlock,
-} from "./die-blocks";
+  type DieBlock } from "./die-blocks";
 import { orderErrorLines } from "./errors";
-import { orderKgText, pcsText } from "./format";
 import { useCompanyTimeZone, useFloor, useShowRates } from "./hooks";
 import { toLineInput } from "./line-model";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 let seq = 0;
 const nextKey = (p: string) => `${p}-${(seq += 1)}`;
@@ -73,6 +73,7 @@ export function NewOrderPage() {
 }
 
 function NewOrderForm() {
+  const fmt = useFmt();
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -200,7 +201,7 @@ function NewOrderForm() {
         </Button>
         {order.lines > 0 ? (
           <p data-order-total="" className="m-0 font-mono text-[15px] font-semibold tabular-nums" aria-live="polite">
-            {t("orders.form.orderTotal", { lines: order.lines, pcs: pcsText(order.pcs), kg: orderKgText(order.kgG) })}
+            {t("orders.form.orderTotal", { massUnit: massUnit(fmt), lines: order.lines, pcs: countText(fmt, order.pcs), kg: kgGrouped3(fmt, order.kgG) })}
             {order.pending ? ` ${t("orders.form.quoting")}` : ""}
           </p>
         ) : null}

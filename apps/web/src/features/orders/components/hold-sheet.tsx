@@ -14,9 +14,10 @@ import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "../errors";
-import { orderKgText, pcsText } from "../format";
 import { holdableItems } from "../view";
 import { StockList } from "./stock-sheet";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 export type HoldTarget = {
   lineId: string;
@@ -75,6 +76,7 @@ export function HoldStockSheet({
   target: HoldTarget;
   formatLength(mm: number): string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -103,7 +105,7 @@ export function HoldStockSheet({
     onSuccess: async (res) => {
       setErrors([]);
       setDone({ held: res.held, alreadyHeld: res.alreadyHeld, kgG: res.kgG, warnings: res.warnings });
-      toast.success(t("orders.hold.heldDone", { count: res.held.length, kg: orderKgText(res.kgG) }));
+      toast.success(t("orders.hold.heldDone", { massUnit: massUnit(fmt), count: res.held.length, kg: kgGrouped3(fmt, res.kgG) }));
       await refreshAfterHold(queryClient);
     },
     onError: (error) => setErrors(orderErrorLines(t, error)),
@@ -142,7 +144,7 @@ export function HoldStockSheet({
     <Sheet open={open} onOpenChange={onOpenChange} title={t("orders.hold.sheetTitle", { n: target.lineNo })} description={t("orders.hold.hint")} footer={footer}>
       {done ? (
         <div role="status" data-hold-result="" className="flex flex-col gap-2">
-          <p className="m-0 text-[15px] font-medium leading-6">{t("orders.hold.heldDone", { count: done.held.length, kg: orderKgText(done.kgG) })}</p>
+          <p className="m-0 text-[15px] font-medium leading-6">{t("orders.hold.heldDone", { massUnit: massUnit(fmt), count: done.held.length, kg: kgGrouped3(fmt, done.kgG) })}</p>
           {done.alreadyHeld.length > 0 ? <p className="m-0 text-[14px] leading-5 text-muted-foreground">{t("orders.hold.alreadyList", { serials: done.alreadyHeld.join(", ") })}</p> : null}
           {done.warnings.map((w) => (
             <p key={w.serial} data-hold-length-warning="" className="m-0 text-[14px] font-medium leading-5 text-tone-amber-ink">
@@ -192,6 +194,7 @@ export function HeldSheet({
   target: HoldTarget;
   formatLength(mm: number): string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -264,7 +267,7 @@ export function HeldSheet({
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="font-mono text-[14px] font-semibold [overflow-wrap:anywhere]">{b.serial}</span>
                   <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
-                    {formatLength(b.lengthMm)} · {pcsText(b.pcs)} {t("units.pcs")} · {orderKgText(b.weightG)} {t("units.kg")}
+                    {formatLength(b.lengthMm)} · {countText(fmt, b.pcs)} {t("units.pcs")} · {kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}
                   </span>
                 </span>
                 {b.dispatchCode ? (

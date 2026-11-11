@@ -11,13 +11,16 @@ import { useRef, useState } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { kgFieldText, milliText, orderKgText, pcsText } from "../format";
+import { pcsText } from "../format";
 import { useDebounced } from "../hooks";
 import { cutLengthMm, lineProblems, quoteArgs, sameQuoteArgs, type Finish, type LineDraft, type LineProblems, type WeightBasis } from "../line-model";
 import { QUICK_FEET } from "../view";
 import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { kgFieldText } from "../format";
 
 /**
  * One line of the new-order form. The person types ONE side (pieces or kg); the other side, the
@@ -51,6 +54,7 @@ export function LineEditor({
   stockPrompt?: boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const [stockOpen, setStockOpen] = useState(false);
   const { choices } = useCopyChoices(line.die?.id ?? null);
   const mm = cutLengthMm(line, unit);
@@ -228,16 +232,16 @@ export function LineEditor({
           <div className="flex min-w-0 flex-col gap-2" data-quote="">
             <p className="m-0 text-[14px] leading-5 text-muted-foreground">
               {q.locked
-                ? t("orders.form.basisLocked", { milli: milliText(q.basisMilli) })
+                ? t("orders.form.basisLocked", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli) })
                 : q.weightBasis === "copy_current"
-                  ? t("orders.form.basisUsingCopy", { milli: milliText(q.basisMilli), copy: q.copyCode ?? "" })
-                  : t("orders.form.basisUsingBand", { milli: milliText(q.basisMilli) })}
+                  ? t("orders.form.basisUsingCopy", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli), copy: q.copyCode ?? "" })
+                  : t("orders.form.basisUsingBand", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli) })}
               {!q.locked && q.weightBasis === "band_start" && q.copyMilli == null ? ` ${t("orders.form.noReading")}` : ""}
             </p>
             {line.basis === "kg" ? (
               <>
                 <p className="m-0 text-[14px] leading-5">
-                  {t("orders.form.impliedLine", { pcs: pcsText(q.pcs), implied: orderKgText(q.impliedG), kg: orderKgText(q.kgG) })}
+                  {t("orders.form.impliedLine", { massUnit: massUnit(fmt), pcs: countText(fmt, q.pcs), implied: kgGrouped3(fmt, q.impliedG), kg: kgGrouped3(fmt, q.kgG) })}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -254,7 +258,7 @@ export function LineEditor({
               </>
             ) : (
               <p className="m-0 text-[14px] leading-5">
-                {t("orders.form.quoteLine", { pcs: pcsText(q.pcs), kg: orderKgText(q.kgG) })}
+                {t("orders.form.quoteLine", { massUnit: massUnit(fmt), pcs: countText(fmt, q.pcs), kg: kgGrouped3(fmt, q.kgG) })}
               </p>
             )}
           </div>
@@ -268,7 +272,7 @@ export function LineEditor({
           <div className="flex min-w-0 flex-col items-start gap-2 rounded-card border border-border bg-surface-sunken px-3 py-3">
             <p className="m-0 text-[14px] leading-5" data-stock-prompt="">
               {stock.data && stock.data.readyBundles > 0
-                ? t("orders.stock.prompt", { count: stock.data.readyBundles, kg: orderKgText(stock.data.readyG) })
+                ? t("orders.stock.prompt", { massUnit: massUnit(fmt), count: stock.data.readyBundles, kg: kgGrouped3(fmt, stock.data.readyG) })
                 : t("orders.stock.promptNone")}
             </p>
             <Button variant="secondary" onClick={() => setStockOpen(true)}>

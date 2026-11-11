@@ -26,7 +26,7 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "./errors";
-import { dayText, dayTimeText, orderKgText } from "./format";
+import { dayText, dayTimeText } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import {
   addPlanLine,
@@ -45,13 +45,14 @@ import {
   windowState,
   windowWords,
   type DraftDie,
-  type PlanView,
-} from "./view";
+  type PlanView } from "./view";
 import { OtherLines } from "./components/other-lines";
 import { PhonePlan } from "./components/phone-plan";
 import { parseKgG } from "./line-model";
 import { isTrialPurpose, PLAN_PURPOSES, trialDraftProblems, trialPlanInput, type PlanPurpose } from "./plan-purpose";
 import { EMPTY_TRIAL, PlanTrialForm, type TrialDraft } from "./plan-trial-form";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 type DraftLineInfo = {
   lineId: string;
@@ -122,6 +123,7 @@ function PlanList() {
 }
 
 function PlanListPage({ offset, first, onMore }: { offset: number; first: boolean; onMore?: (next: number) => void }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const zone = useCompanyTimeZone();
   const plans = useQuery(trpc.plans.list.queryOptions({ limit: PLAN_PAGE, offset }));
@@ -162,7 +164,7 @@ function PlanListPage({ offset, first, onMore }: { offset: number; first: boolea
                   {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
                 </span>
                 <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
-                  {t("orders.plan.summary", { dies: p.dies, kg: orderKgText(p.kgG) })}
+                  {t("orders.plan.summary", { massUnit: massUnit(fmt), dies: p.dies, kg: kgGrouped3(fmt, p.kgG) })}
                 </span>
               </Link>
             </li>
@@ -180,6 +182,7 @@ function PlanListPage({ offset, first, onMore }: { offset: number; first: boolea
 
 function PlanBuilder() {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { unit } = useLengthUnit();
@@ -348,7 +351,7 @@ function PlanBuilder() {
             {l.poNumber ? ` · ${l.poNumber}` : ""}
           </p>
           <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-            {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.planableG) })}
+            {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, l.planableG) })}
           </p>
         </div>
         <div className="w-[9rem]">
@@ -357,7 +360,7 @@ function PlanBuilder() {
               value={kgText}
               onValueChange={(v) => setLineKg((cur) => ({ ...cur, [lineId]: v }))}
               suffix={t("units.kg")}
-              placeholder={orderKgText(l.planableG)}
+              placeholder={kgGrouped3(fmt, l.planableG)}
               aria-label={t("orders.plan.lineKg", { order: l.orderNumber })}
             />
           </Field>
@@ -537,7 +540,7 @@ function PlanBuilder() {
                             {l.poNumber ? ` · ${l.poNumber}` : ""}
                           </p>
                           <p className="m-0 font-mono text-[13px] leading-5 tabular-nums text-muted-foreground">
-                            {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.strip.planableG) })}
+                            {label(l.cutLengthMm)} · {t("orders.plan.planable", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, l.strip.planableG) })}
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
