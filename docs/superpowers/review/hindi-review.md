@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2171,7 +2171,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (273)
+### settings (274)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2223,6 +2223,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `units.sampleNumber` | Number | संख्या |
 | `units.sampleDate` | Date and time | तारीख़ और समय |
 | `units.papersNote` | Packing lists, labels and certificates keep their own units for now. A setting for them is coming. | पैकिंग लिस्ट, लेबल और सर्टिफ़िकेट अभी अपनी इकाइयों में ही रहते हैं। उनके लिए सेटिंग आने वाली है। |
+| `units.phoneNote` | The phone app keeps showing and taking kg, mm and kg per 12 ft until its own release. Use the web for these units. | फ़ोन ऐप अपने अगले रिलीज़ तक kg, mm और kg प्रति 12 ft में ही दिखाता और लेता है। ये इकाइयाँ वेब पर इस्तेमाल करें। |
 | `units.save` | Save units | इकाइयाँ सेव करें |
 | `units.saved` | Units saved | इकाइयाँ सेव हो गईं |
 | `units.saveFailed` | Couldn't save the units. Try again. | इकाइयाँ सेव नहीं हुईं। फिर कोशिश करें। |

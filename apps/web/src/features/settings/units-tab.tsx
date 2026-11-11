@@ -146,6 +146,11 @@ function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; timezone: s
             </FormActions>
           </form>
         </Can>
+        <CardContent>
+          <p className="m-0 text-[13px] leading-5 text-muted-foreground" data-testid="settings-units-phone">
+            {t("settings.units.phoneNote")}
+          </p>
+        </CardContent>
       </Card>
 
       <Card data-testid="settings-units-preview">

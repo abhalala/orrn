@@ -2488,6 +2488,7 @@ export const en = {
       sampleNumber: "Number",
       sampleDate: "Date and time",
       papersNote: "Packing lists, labels and certificates keep their own units for now. A setting for them is coming.",
+      phoneNote: "The phone app keeps showing and taking kg, mm and kg per 12 ft until its own release. Use the web for these units.",
       save: "Save units",
       saved: "Units saved",
       saveFailed: "Couldn't save the units. Try again.",
