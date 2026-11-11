@@ -28,6 +28,20 @@ export function normalizeHeader(h: string): string {
   return t.replace(/[^\p{L}\p{M}\p{N}/]+/gu, " ").trim();
 }
 
+/** A word that only names a unit, a count or a sign, alone or glued to a number ("12ft"). */
+const UNIT_WORD =
+  /^(?:\d+(?:\.\d+)?)?(?:kg|kgs|kilo|kilos|kilogram|kilograms|g|gm|gms|gram|grams|ton|tons|mt|m|mm|cm|mtr|ft|in|inch|inches|pc|pcs|piece|pieces|no|nos|inr|rs|%|#|\+|-)$/;
+
+/**
+ * Is a normalized header only unit words (round 6, B-R5-2)? "kg", "pcs", "kg/12ft", "%" and a blank are; a name with
+ * any other word or a bare number ("Weight kg", "12 ft", "12") is a real name. A layout is trusted by `chooseHeader`
+ * only through two real names.
+ */
+export function isUnitOnlyName(normalized: string): boolean {
+  if (normalized === "" || /^_\d+$/.test(normalized)) return true;
+  return normalized.split(/[\s/]+/).filter((t) => t !== "").every((t) => UNIT_WORD.test(t));
+}
+
 /**
  * How many leading columns count. Trailing columns with no header and no cell under them are dropped.
  */
