@@ -68,6 +68,8 @@ export function overdrawExtras(over: ReturnType<typeof overdrawLines>, note: str
 export function completeRefusalText(t: Translate, error: unknown): string | null {
   const e = (error && typeof error === "object" ? error : {}) as { message?: unknown; data?: { code?: unknown } | null };
   if (typeof e.message !== "string") return null;
+  // Check N6: an order line was saved while Dispatch ran; pressing again works.
+  if (e.data?.code === "CONFLICT") return /^The order was edited while you pressed Dispatch/i.test(e.message) ? t("dispatch.errors.orderEdited") : null;
   if (e.data?.code === "BAD_REQUEST") {
     // Arch 52: the server's own refusals of a late time (the sheet checks the same rule first).
     if (/in the future/i.test(e.message)) return t("dispatch.late.future");

@@ -1454,6 +1454,7 @@ export const en = {
       offBandRejected: "A bundle was rejected for the order weight. Take it off this dispatch, then try again.",
       overdraw: "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
       lateEntry: "A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved.",
+      orderEdited: "The order was edited while you pressed Dispatch. Press Dispatch again.",
     },
     capacity: {
       label: "Truck capacity (kg)",

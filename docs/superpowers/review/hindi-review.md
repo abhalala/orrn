@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7510 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1094,7 +1094,7 @@ Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (251)
+### dispatch (252)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1320,6 +1320,7 @@ Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
 | `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
 | `errors.overdraw` | This load is more than the order allows. A manager has to approve it first. Your note went with the request. | यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया। |
 | `errors.lateEntry` | A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved. | गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद उसी समय के साथ Dispatch फिर दबाएं। |
+| `errors.orderEdited` | The order was edited while you pressed Dispatch. Press Dispatch again. | Dispatch दबाते समय ऑर्डर बदला गया। Dispatch फिर दबाएं। |
 | `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |

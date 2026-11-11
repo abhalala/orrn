@@ -343,6 +343,8 @@ function linkedLinesSeqSql(companyId: string, dispatchId: string): SQL {
   return sql`(select coalesce(max(sl.server_seq), 0) from dispatch_item sdi join sales_order_line sl on sl.id = sdi.sales_order_line_id and sl.company_id = ${companyId} where sdi.company_id = ${companyId} and sdi.dispatch_id = ${dispatchId})`;
 }
 
+export const ORDER_EDITED = "The order was edited while you pressed Dispatch. Press Dispatch again.";
+
 async function linkedLinesSeq(db: OrrnDb, companyId: string, dispatchId: string): Promise<number> {
   const [row] = await db.select({ seq: sql<number>`${linkedLinesSeqSql(companyId, dispatchId)}` }).from(company).where(eq(company.id, companyId));
   return Number(row?.seq ?? 0);
@@ -3196,6 +3198,10 @@ export const dispatchRouter = router({
             code: "PRECONDITION_FAILED",
             message: `Loaded ${kgText(nowCapacity.loadedG)} kg is ${kgText(nowCapacity.overG)} kg over the vehicle's ${kgText(nowCapacity.capacityG ?? 0)} kg. Give a reason to complete.`,
           });
+        }
+        // Check N6: an order line saved while completing (review 6's guard) that put no row off band.
+        if ((await linkedLinesSeq(ctx.db, ctx.companyId, d.id)) > linesSeqAtRead) {
+          throw new TRPCError({ code: "CONFLICT", message: ORDER_EDITED });
         }
         throw new TRPCError({ code: "CONFLICT", message: "Bundles on this dispatch changed. Reload and try again." });
       }

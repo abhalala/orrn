@@ -279,5 +279,24 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     const rows = await offBandRows(p.companyId);
     expect(rows.map((r) => [r.status, r.meta.lineMilli])).toEqual([["pending", 12_300]]);
   }, SLOW);
+
+  test("check N6: an order line edited during Complete with no row off band says the order was edited; pressing again completes", async () => {
+    const { p, id, ok, lineId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [ok] });
+    await p.owner.dispatch.reserve({ id });
+    // The office saves the order (a new server_seq) without changing the kg/12ft.
+    env.beforeNextBatch(() =>
+      env.db
+        .update(salesOrderLine)
+        .set({ note: "Edited while dispatching", serverSeq: sql`${salesOrderLine.serverSeq} + 1000000` })
+        .where(eq(salesOrderLine.id, lineId)),
+    );
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "The order was edited while you pressed Dispatch. Press Dispatch again.",
+    });
+    expect(await offBandRows(p.companyId)).toEqual([]);
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
 });
 
