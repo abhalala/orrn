@@ -39,9 +39,9 @@ import {
 import { reasonLabel } from "./reason-label";
 import type { RunDetail } from "./types";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_IN, LENGTH_MM, MASS_KG, PRESSED_IN, PRESSED_MM } from "@/shared/lib/plant-input";
+import { LENGTH_IN, LENGTH_MM, MASS_KG, PRESSED_IN, PRESSED_MM, SECTION_KG12 } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, massUnit, sectionText } from "@/shared/lib/fmt-text";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -544,9 +544,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             <Can do="die.reading">
               <Field
                 label={t("press.console.readingTitle")}
-                hint={data.copy.kgPer12ftMilli ? t("press.console.readingLast", { kg: (data.copy.kgPer12ftMilli / 1000).toFixed(3) }) : t("press.console.readingNone")}
+                hint={data.copy.kgPer12ftMilli ? t("press.console.readingLast", { kg: sectionText(fmt, data.copy.kgPer12ftMilli) }) : t("press.console.readingNone")}
               >
-                <NumberInput value={draft.readingText} onValueChange={(readingText) => patch({ readingText })} suffix={t("press.console.readingLabel")} />
+                <PlantInput spec={SECTION_KG12} value={draft.readingText} onValueChange={(readingText) => patch({ readingText })} />
               </Field>
             </Can>
           ) : null}

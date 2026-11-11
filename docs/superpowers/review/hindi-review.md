@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7560 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -5325,7 +5325,7 @@ Please check, Lalubhai:
 | `refused.held` | Held on {code} | {code} पर होल्ड |
 | `refused.die_mismatch` | Different die | दूसरी die |
 
-### press (505)
+### press (504)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5520,7 +5520,6 @@ Please check, Lalubhai:
 | `console.handoverNobody` | Nobody | कोई नहीं |
 | `console.handoverDone` | Saved. | सेव हो गया। |
 | `console.readingTitle` | Die weight | Die वज़न |
-| `console.readingLabel` | {sectionUnit} | {sectionUnit} |
 | `console.readingSave` | Save reading | रीडिंग सेव करें |
 | `console.readingSaved` | Reading saved. | रीडिंग सेव हो गई। |
 | `console.readingLast` | Last reading {kg} {sectionUnit} | पिछली रीडिंग {kg} {sectionUnit} |

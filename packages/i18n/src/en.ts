@@ -5828,7 +5828,6 @@ export const en = {
       handoverNobody: "Nobody",
       handoverDone: "Saved.",
       readingTitle: "Die weight",
-      readingLabel: "{sectionUnit}",
       readingSave: "Save reading",
       readingSaved: "Reading saved.",
       readingLast: "Last reading {kg} {sectionUnit}",

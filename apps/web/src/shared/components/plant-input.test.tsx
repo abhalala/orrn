@@ -3,11 +3,11 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { screenPrefs } from "@orrn/domain";
+import { formatterFor, screenPrefs } from "@orrn/domain";
 import { NumberInput } from "@orrn/ui/components/field";
 
 import { FmtProvider } from "@/shared/lib/fmt";
-import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, WALL_MM, WHOLE_KG } from "@/shared/lib/plant-input";
+import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, typedToDraft, WALL_MM, WHOLE_KG } from "@/shared/lib/plant-input";
 
 import { PlantInput } from "./plant-input";
 
@@ -137,5 +137,21 @@ describe("the forms that take a weight, length or section weight", () => {
   });
   test("no other form was added without being on the list", () => {
     expect([...used.keys()].filter((f) => !FORMS.includes(f) && !f.includes("shared/components")).sort()).toEqual([]);
+  });
+});
+
+describe("the press count's die reading box takes the plant's section unit", () => {
+  const src = readFileSync(join(import.meta.dir, "../../features/press/station-count.tsx"), "utf8");
+  test("it is a PlantInput on the section weight, and no plain box wears the section unit word", () => {
+    expect(src).toContain("<PlantInput spec={SECTION_KG12} value={draft.readingText}");
+    expect(src).not.toContain("press.console.readingLabel");
+    // the last reading in the hint is written by the plant formatter, not as milli / 1000
+    expect(src).not.toContain("data.copy.kgPer12ftMilli / 1000");
+  });
+  test("0.441 typed on a pound per foot plant is kept as 2.4 kg per 12 ft, which saveNotes sends as 2400", () => {
+    const step = typedToDraft(formatterFor(screenPrefs({ units: { linear_mass: "lb_ft" } }), { locale: "en", timeZone: "Asia/Kolkata" }), SECTION_KG12, "0.441");
+    expect(step.problem).toBeNull();
+    expect(Math.round(Number(step.draft) * 1000)).toBe(2400);
+    expect(step.value).toBe(2400);
   });
 });

@@ -5815,7 +5815,6 @@ export const hi = {
       handoverNobody: "कोई नहीं",
       handoverDone: "सेव हो गया।",
       readingTitle: "Die वज़न",
-      readingLabel: "{sectionUnit}",
       readingSave: "रीडिंग सेव करें",
       readingSaved: "रीडिंग सेव हो गई।",
       readingLast: "पिछली रीडिंग {kg} {sectionUnit}",

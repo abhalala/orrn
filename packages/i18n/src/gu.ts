@@ -823,7 +823,6 @@ const guBase = {
       handoverNobody: "કોઈ નહીં",
       handoverDone: "સેવ થયું.",
       readingTitle: "Die વજન",
-      readingLabel: "{sectionUnit}",
       readingSave: "રીડિંગ સેવ કરો",
       readingSaved: "રીડિંગ સેવ થઈ.",
       readingLast: "છેલ્લી રીડિંગ {kg} {sectionUnit}",
