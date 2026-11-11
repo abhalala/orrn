@@ -106,7 +106,14 @@ export async function offBandRows(db: OrrnDb, companyId: string, dispatchId: str
 }
 
 /** An item's requests, newest first. */
-type ItemRequest = { id: string; status: "pending" | "approved" | "rejected"; lineId: string | null };
+type ItemRequest = {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  lineId: string | null;
+  /** The bundle's and the line's kg/12ft the request was asked with (review finding 2). */
+  bundleMilli: number | null;
+  lineMilli: number | null;
+};
 
 async function requestsOf(db: OrrnDb, companyId: string, itemIds: readonly string[]): Promise<Map<string, ItemRequest[]>> {
   const out = new Map<string, ItemRequest[]>();
@@ -121,11 +128,17 @@ async function requestsOf(db: OrrnDb, companyId: string, itemIds: readonly strin
   rows.sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
   for (const r of rows) {
     const lineId = typeof r.meta?.lineId === "string" ? r.meta.lineId : null;
+    const milli = (v: unknown) => (typeof v === "number" ? v : null);
     const list = out.get(r.subjectId) ?? [];
-    list.push({ id: r.id, status: r.status, lineId });
+    list.push({ id: r.id, status: r.status, lineId, bundleMilli: milli(r.meta?.bundleMilli), lineMilli: milli(r.meta?.lineMilli) });
     out.set(r.subjectId, list);
   }
   return out;
+}
+
+/** Whether a request was asked with the kg/12ft the row has now. */
+function sameFigures(q: Pick<ItemRequest, "bundleMilli" | "lineMilli">, r: Pick<OffBandRow, "bundleMilli" | "lineMilli">): boolean {
+  return q.bundleMilli === r.bundleMilli && q.lineMilli === r.lineMilli;
 }
 
 /** Each off-band row with where it stands for the line it is on NOW, and any pending request asked for another line. */
@@ -139,7 +152,10 @@ export async function offBandStates(db: OrrnDb, companyId: string, rows: readonl
   );
   return rows.map((r) => {
     const list = requests.get(r.itemId) ?? [];
-    const forLine = list.find((q) => q.lineId === r.lineId) ?? null;
+    const newest = list.find((q) => q.lineId === r.lineId) ?? null;
+    // Review finding 2: an approval covers the weights it was given for. Once the line's (or the
+    // bundle's) kg/12ft changed, the row is not approved any more and Complete asks again.
+    const forLine = newest?.status === "approved" && !sameFigures(newest, r) ? null : newest;
     const stale = list.find((q) => q.status === "pending" && q.lineId !== r.lineId) ?? null;
     return { ...r, status: forLine?.status ?? "none", approvalId: forLine?.id ?? null, stalePendingId: stale?.id ?? null };
   });

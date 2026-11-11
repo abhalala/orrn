@@ -1272,7 +1272,7 @@ export const guidesEnFp: GuideBookFp = {
     slug: "approvals-review",
     roles: APPROVERS,
     title: "Review and decide an approval",
-    when: "Use this when a request is waiting for a second person: a late press run, a move of bundles, a tier change, a cast close or a melt correction.",
+    when: "Use this when a request is waiting for a second person: a late press run, a move of bundles, a tier change, a cast close, a melt correction, or a dispatch with a bundle off its order weight, more than the order, or a packing list entered late.",
     steps: [
       {
         title: "Open the list",
@@ -1284,7 +1284,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Read the facts",
-        body: "Below the note are the facts as they are now: \"Where the bundles are now\" for a move, \"The run\" for a late entry, \"The copy now\" for a tier change and \"Figures\" for a cast close. Approve stays off until they load.",
+        body: "Below the note are the facts as they are now: \"Where the bundles are now\" for a move, \"The run\" for a late entry, \"The copy now\" for a tier change, \"Figures\" for a cast close, \"The bundle now\" for a bundle off its order weight, and \"Truck left\" with \"On the dispatch when asked\" for a late packing list. Approve stays off until they load.",
       },
       {
         title: "Check what changed",
@@ -1311,6 +1311,10 @@ export const guidesEnFp: GuideBookFp = {
       {
         title: "The purchase figures are hidden",
         fix: "Only people who read purchase figures can decide a debit or credit note. Ask one of them.",
+      },
+      {
+        title: "A dispatch request shows a note from someone else",
+        fix: "The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. Neither of them can approve; the one who presses Dispatch may be you.",
       },
     ],
   },
@@ -1342,7 +1346,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Dispatch again",
-        body: "Open the dispatch and tap \"Dispatch\" again with the same time and reason. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
+        body: "Open the dispatch and tap \"Dispatch\". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
       },
     ],
     problems: [
@@ -1356,7 +1360,15 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "I typed another time after asking",
-        fix: "A new time asks again and the old request is withdrawn. Ask the manager to approve the new one.",
+        fix: "Tap \"Use another time\" in the sheet. A new time asks again and the old request is withdrawn. Ask the manager to approve the new one.",
+      },
+      {
+        title: "I added or took off bundles after the approval",
+        fix: "The approval covers the bundles on the dispatch when it was asked. Tap \"Dispatch\" to ask again. After 72 hours that is not possible: put the load back as it was approved, or dispatch it at the time it leaves.",
+      },
+      {
+        title: "Stock for that day still shows the bundles",
+        fix: "When the packing was also entered late, the bundles leave stock just after their packing entry. Stock at the end of the day the truck left can still show them, while the dispatch register shows the load on that day. From the next day both agree, and nothing is counted twice.",
       },
     ],
   },

@@ -2,7 +2,7 @@ import { dispatchActions, dispatchTone, vehicleGate } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Switch, Text, View } from "react-native";
 
 import { Can } from "@/components/can";
@@ -27,8 +27,8 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
-import { completeRefusalText, offBandNote, offBandStops, overdrawLines } from "@/features/dispatch/off-band";
-import { lateCheck, lateExtras, lateStartDate, type LateCheck } from "@/features/dispatch/late-entry";
+import { completeRefusalText, offBandNote, offBandStops, overdrawExtras, overdrawLines } from "@/features/dispatch/off-band";
+import { LATE_STATUS_KEY, lateCheck, lateExtras, lateStart, lockedCheck, type LateCheck } from "@/features/dispatch/late-entry";
 import { kgTotal } from "@/features/dispatch/format";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
@@ -92,6 +92,8 @@ export default function DispatchDetailScreen() {
   // Why the load goes over the truck's capacity: asked at Dispatch, kept with the dispatch (FP-PK-12).
   const [overReason, setOverReason] = useState("");
   const [overTried, setOverTried] = useState(false);
+  // pl-flow 61: why more than the order goes; sent with Complete while a line is over (web parity).
+  const [overdrawNote, setOverdrawNote] = useState("");
   // BACKLOG 62: no vehicle in the header, so the Dispatch sheet asks for it and saves it first.
   const [vehicle, setVehicle] = useState("");
   const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
@@ -102,10 +104,29 @@ export default function DispatchDetailScreen() {
   const [lateTime, setLateTime] = useState("");
   const [lateReason, setLateReason] = useState("");
   const [lateError, setLateError] = useState<Extract<LateCheck, { kind: "error" }> | null>(null);
+  // Review 5: locked to the time already asked for until "Use another time".
+  const [lateLocked, setLateLocked] = useState(false);
   const [banner, setBanner] = useState<{ title: string; body: string } | null>(null);
   const [justDispatched, setJustDispatched] = useState(false);
   // Remembers that the hold went through, so a retry after a failed complete does not hold twice (ruling T22).
   const held = useRef({ held: false });
+  // Review 5: the time already asked for (waiting or approved) fills the sheet and locks it.
+  const lateAsk = detail.data?.lateEntry ?? null;
+  const fillLate = () => {
+    const start = lateStart(lateAsk, timeZone);
+    setLate(start.late);
+    setLateDate(start.date);
+    setLateTime(start.time);
+    setLateReason(start.reason);
+    setLateError(null);
+    setLateLocked(start.locked);
+  };
+  // Again while the sheet is open, when a press opens the request or a manager decides it.
+  const askKey = lateAsk ? `${lateAsk.approvalId}:${lateAsk.status}` : "";
+  useEffect(() => {
+    if (sheet === "dispatch" && lateAsk) fillLate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the ask itself changes
+  }, [askKey]);
 
   const refresh = () => {
     void queryClient.invalidateQueries(trpc.dispatch.pathFilter());
@@ -119,13 +140,10 @@ export default function DispatchDetailScreen() {
     if (next === "dispatch") {
       setOverReason("");
       setOverTried(false);
+      setOverdrawNote("");
       setVehicle("");
       setVehicleError(null);
-      setLate(false);
-      setLateDate(lateStartDate(timeZone));
-      setLateTime("");
-      setLateReason("");
-      setLateError(null);
+      fillLate();
     }
     setSheet(next);
   };
@@ -226,7 +244,7 @@ export default function DispatchDetailScreen() {
       setOverTried(true);
       return;
     }
-    const lateSend = late ? lateCheck(lateDate, lateTime, lateReason, timeZone, Date.now()) : null;
+    const lateSend = !late ? null : lateLocked && lateAsk ? lockedCheck(lateAsk) : lateCheck(lateDate, lateTime, lateReason, timeZone, Date.now());
     if (lateSend?.kind === "error") {
       setLateError(lateSend);
       feedback.error();
@@ -238,7 +256,8 @@ export default function DispatchDetailScreen() {
       if (gate.kind === "save") await saveVehicle.mutateAsync({ id: d.id, vehicleNo: gate.vehicleNo });
       await dispatchNow(d.status, held.current, {
         reserve: () => reserve.mutateAsync({ id: d.id }),
-        complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason), ...lateExtras(lateSend) }),
+        complete: () =>
+          complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason), ...overdrawExtras(overOrder, overdrawNote), ...lateExtras(lateSend) }),
       });
       setJustDispatched(true);
       closeSheet();
@@ -565,6 +584,17 @@ export default function DispatchDetailScreen() {
             maxLength={500}
           />
         ) : null}
+        {overOrder ? (
+          <Field
+            label={t("dispatch.overTolerance.noteLabel")}
+            hint={t("dispatch.overTolerance.noteHint")}
+            value={overdrawNote}
+            onChangeText={setOverdrawNote}
+            multiline
+            maxLength={500}
+            testID="overdraw-note"
+          />
+        ) : null}
         <View className="min-h-12 flex-row items-center justify-between gap-3">
           <Text className="flex-1 text-[15px] font-medium text-foreground">{t("dispatch.late.toggle")}</Text>
           <Switch
@@ -579,8 +609,33 @@ export default function DispatchDetailScreen() {
         </View>
         {late ? (
           <>
+            {lateLocked && lateAsk ? (
+              <View
+                className={`gap-2 rounded-card p-4 ${lateAsk.status === "approved" ? "bg-tone-green-tint" : "bg-tone-amber-tint"}`}
+                testID="late-locked"
+              >
+                <Text className={`text-[15px] font-semibold ${lateAsk.status === "approved" ? "text-tone-green-ink" : "text-tone-amber-ink"}`}>
+                  {t(LATE_STATUS_KEY[lateAsk.status], { when: `${format.day(lateAsk.occurredAt)} ${format.time(lateAsk.occurredAt)}` })}
+                </Text>
+                <Button
+                  label={t("dispatch.late.useAnother")}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => {
+                    setLateLocked(false);
+                    setLateTime("");
+                    setLateReason("");
+                    setLateError(null);
+                  }}
+                  testID="late-use-another"
+                />
+              </View>
+            ) : lateAsk ? (
+              <Text className="text-[14px] text-muted-foreground">{t("dispatch.late.anotherAsks")}</Text>
+            ) : null}
             <Field
               label={t("dispatch.late.date")}
+              editable={!lateLocked}
               value={lateDate}
               onChangeText={(v) => {
                 setLateDate(v);
@@ -596,6 +651,7 @@ export default function DispatchDetailScreen() {
               label={t("dispatch.late.clock")}
               hint={t("dispatch.late.clockHint")}
               error={lateError?.field === "time" ? t(lateError.key) : null}
+              editable={!lateLocked}
               value={lateTime}
               onChangeText={(v) => {
                 setLateTime(v);
@@ -611,6 +667,7 @@ export default function DispatchDetailScreen() {
               label={t("dispatch.late.reason")}
               hint={t("dispatch.late.reasonHint")}
               error={lateError?.field === "reason" ? t(lateError.key) : null}
+              editable={!lateLocked}
               value={lateReason}
               onChangeText={(v) => {
                 setLateReason(v);
