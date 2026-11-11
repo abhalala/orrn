@@ -98,6 +98,13 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(plProfileLines(pl as never)).toHaveLength(2);
   });
 
+  test("the print footer names the snapshot PL number and revision", () => {
+    const pl = parsePackingListSnapshot(v2());
+    const html = buildPackingListHtml(pl, "ANOTHER-PL");
+    expect(html).toContain("Not a tax invoice. Generated from the locked snapshot of PL/2026-27/7 rev 2.");
+    expect(html).toContain("position: fixed");
+  });
+
   test("branding off hides logo and tagline, never the legal name; original SO can be turned off", () => {
     const pl = parsePackingListSnapshot(
       v2({ issue: { revision: 1, dispatchCodes: ["DSP-000006"], branding: { show: false, tagline: null, logoUrl: null } }, print: { showBranding: false, showOriginalSo: false } }),

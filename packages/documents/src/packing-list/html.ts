@@ -15,6 +15,7 @@ import {
   plDispatchCodesText,
   plSectionSubtotalAfter,
   plShipDateText,
+  plLockedSnapshotFooter,
   type PlSnapshotV2,
 } from "./snapshot";
 import type { PackingListSnapshot } from "./types";
@@ -106,7 +107,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
   <meta charset="utf-8" />
   <title>${e(h.plNumber)}</title>
   <style>
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #111; padding: 24px; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #111; padding: 24px 24px 54px; }
     h1 { font-size: 16px; margin: 0; }
     .muted { color: #555; }
     .top { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #111; padding-bottom: 8px; }
@@ -125,7 +126,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
     .total { margin-top: 10px; text-align: right; font-size: 13px; font-weight: bold; }
     .kinds { margin-top: 8px; display: flex; gap: 16px; justify-content: flex-end; font-size: 10px; }
     .logo { max-height: 36px; max-width: 160px; margin-bottom: 4px; }
-    .footer { margin-top: 18px; font-size: 8px; color: #999; display: flex; justify-content: space-between; }
+    .footer { position: fixed; bottom: 16px; left: 24px; right: 24px; font-size: 8px; color: #999; display: flex; justify-content: space-between; background: #fff; }
   </style>
 </head>
 <body>
@@ -168,7 +169,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
   </table>
   ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
   <div class="total">${escapeHtml(pl.summary.text)}</div>
-  <div class="footer"><span>${e(h.company.name)} · ${e(h.plNumber)}</span><span>Receiver's signature ____________________</span></div>
+  <div class="footer"><span>${e(plLockedSnapshotFooter(h.plNumber, pl.issue?.revision ?? 1, opts.printText))}</span><span>Receiver's signature ____________________</span></div>
 </body>
 </html>`;
 }
@@ -225,7 +226,7 @@ export function buildPackingListHtml(
   <meta charset="utf-8" />
   <title>${escapeHtml(code)}</title>
   <style>
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #111; padding: 28px; }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #111; padding: 28px 28px 58px; }
     h1 { font-size: 18px; margin: 0; }
     h2 { font-size: 12px; color: #555; margin: 4px 0 0; font-weight: normal; }
     .header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
@@ -240,6 +241,7 @@ export function buildPackingListHtml(
     tr.sub td { font-weight: bold; background: #fafafa; }
     tr.grand td { font-weight: bold; font-size: 12px; border-top: 2px solid #111; }
     .notes { margin: 0 0 12px; }
+    .footer { position: fixed; bottom: 18px; left: 28px; right: 28px; font-size: 8px; color: #555; background: #fff; }
   </style>
 </head>
 <body>
@@ -264,6 +266,7 @@ export function buildPackingListHtml(
       <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
     </tbody>
   </table>
+  <div class="footer">${escapeHtml(plLockedSnapshotFooter(code, 1, opts.printText))}</div>
 </body>
 </html>`;
 }

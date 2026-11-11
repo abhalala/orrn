@@ -1,6 +1,6 @@
 import { MM_PER_INCH, kgPer12ft, weightRange12ft } from "@orrn/domain";
 
-import { kgPerPieceG } from "./snapshot";
+import { kgPerPieceG, type PackingListPrintText } from "./snapshot";
 import type { PackingListSnapshot, PackingListSnapshotItem } from "./types";
 
 /** kg per piece (3 decimals) by the one rule, `kgPerPieceG` (review m-6). */
@@ -79,6 +79,7 @@ export type PackingListModelOptions = {
    * `packingList.kgPerPiece`, off by default). Range/12' stays the plant column (Q3).
    */
   kgPerPiece?: boolean;
+  printText?: Partial<PackingListPrintText>;
 };
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;

@@ -7,7 +7,14 @@
  * the native print (`packingListModel`). English only, like the plant's
  * paper PL. Print colours are plain greys (a document, not the app UI).
  */
-import { packingListModel, plKgPerPiece, type PackingListModel, type PackingListSnapshot } from "@orrn/documents/packing-list/model";
+import {
+  packingListModel,
+  plKgPerPiece,
+  plLockedSnapshotFooter,
+  type PackingListModel,
+  type PackingListModelOptions,
+  type PackingListSnapshot,
+} from "@orrn/documents/packing-list/model";
 import { Document, Font, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 
 import { plViewOf, type PlGroupView, type PlView } from "@/features/dispatch/pl-model";
@@ -73,7 +80,7 @@ function TableHead({ kgPerPiece }: { kgPerPiece: boolean }) {
   );
 }
 
-function PackingListDoc({ model, code, kgPerPiece }: { model: PackingListModel; code: string; kgPerPiece: boolean }) {
+function PackingListDoc({ model, code, kgPerPiece, printText }: { model: PackingListModel; code: string; kgPerPiece: boolean; printText?: PackingListModelOptions["printText"] }) {
   const { header, groups, totals } = model;
   const meta: [string, string][] = [
     ["PL no", code],
@@ -163,9 +170,7 @@ function PackingListDoc({ model, code, kgPerPiece }: { model: PackingListModel; 
         </View>
 
         <View style={s.footer} fixed>
-          <Text>
-            {header.companyName}, {code}
-          </Text>
+          <Text>{plLockedSnapshotFooter(code, 1, printText)}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -228,7 +233,7 @@ function columnsOf(view: PlView, kgPerPiece = false): Col[] {
   ];
 }
 
-function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; code: string; kgPerPiece?: boolean }) {
+function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view: PlView; code: string; kgPerPiece?: boolean; printText?: PackingListModelOptions["printText"] }) {
   const cols = columnsOf(view, kgPerPiece);
   const total = cols.reduce((n, c) => n + c.w, 0);
   const cell = (c: Col) => ({ width: `${(c.w / total) * 100}%`, textAlign: c.end ? ("right" as const) : ("left" as const), paddingRight: 3 });
@@ -348,10 +353,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
         {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
 
         <View style={v2s.footer} fixed>
-          <Text>
-            {view.company.legalName ?? view.company.name}, {code}
-            {view.revision > 1 ? ` (Rev ${view.revision})` : ""}
-          </Text>
+          <Text>{plLockedSnapshotFooter(view.plNumber, view.revision, printText)}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -360,14 +362,14 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
 }
 
 /** Render and save the packing list as `<code>.pdf`. */
-export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: { timeZone?: string; kgPerPiece?: boolean } = {}) {
+export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}) {
   const view = plViewOf(pl);
   const kgPerPiece = opts.kgPerPiece === true;
   const blob = await pdf(
     view ? (
-      <PackingListDocV2 view={view} code={code} kgPerPiece={kgPerPiece} />
+      <PackingListDocV2 view={view} code={code} kgPerPiece={kgPerPiece} printText={opts.printText} />
     ) : (
-      <PackingListDoc model={packingListModel(pl, opts)} code={code} kgPerPiece={kgPerPiece} />
+      <PackingListDoc model={packingListModel(pl, opts)} code={code} kgPerPiece={kgPerPiece} printText={opts.printText} />
     ),
   ).toBlob();
   const url = URL.createObjectURL(blob);

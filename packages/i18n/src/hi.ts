@@ -1589,6 +1589,7 @@ export const hi = {
     po: "PO",
     invoice: "इनवॉइस",
     print: "प्रिंट",
+    lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} rev {revision} के लॉक किए गए स्नैपशॉट से बनाई गई।",
   },
 
   dies: {

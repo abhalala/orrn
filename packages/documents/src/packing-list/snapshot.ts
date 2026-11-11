@@ -71,6 +71,14 @@ export function plFileName(code: string): string {
   return code.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "packing-list";
 }
 
+export type PackingListPrintText = {
+  lockedSnapshotFooter: (code: string, revision: number) => string;
+};
+
+export function plLockedSnapshotFooter(code: string, revision: number, text?: Partial<PackingListPrintText>): string {
+  return text?.lockedSnapshotFooter?.(code, revision) ?? `Not a tax invoice. Generated from the locked snapshot of ${code} rev ${revision}.`;
+}
+
 /** Printed column headings, in order (the PL is a customer document, printed in English). */
 export const PL_COLUMN_HEADINGS = [
   "Sr",

@@ -15,6 +15,11 @@ describe("packing list html (native print)", () => {
     expect(html.toLowerCase()).not.toContain("total len");
   });
 
+  test("the footer names the PL number and first revision", () => {
+    const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
+    expect(html).toContain("Not a tax invoice. Generated from the locked snapshot of PL-0007 rev 1.");
+  });
+
   test("labelled groups name their section", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(labelled), "PL-0008");
     expect(html).toContain("A: 14701 PATTI");

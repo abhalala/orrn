@@ -1597,6 +1597,7 @@ export const en = {
     po: "PO",
     invoice: "Invoice",
     print: "Print",
+    lockedSnapshotFooter: "Not a tax invoice. Generated from the locked snapshot of {code} rev {revision}.",
   },
 
   dies: {
