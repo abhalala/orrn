@@ -722,3 +722,20 @@ describe("A16: section codes match live dies whatever their case", () => {
     expect(row.matchId).toBe(dieId);
   });
 });
+
+describe("A17: a column meaning answer is never stored without effect", () => {
+  test("naming another field is refused; confirming the mapped field closes the question", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe({ unclear: [{ field: "rate", code: "unit_unknown" }, { field: "customer", code: "column_meaning_unclear" }] }), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.find((q) => q.code === "column_meaning_unclear")?.open).toBe(true);
+    await expect(
+      p.owner.ingest.answer.set({ candidateId: id, questionCode: "column_meaning_unclear", subject: "customer", answer: { field: "poNumber" }, expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/column mapping/);
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "column_meaning_unclear", subject: "customer", answer: { field: "customer" }, expectSeq: c.serverSeq });
+    expect(c.questions.find((q) => q.code === "column_meaning_unclear")?.open).toBe(false);
+  });
+});

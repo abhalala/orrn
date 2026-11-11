@@ -806,6 +806,11 @@ export async function setAnswer(
   if (!questions.some((q) => q.code === input.questionCode && q.subject === input.subject)) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This import does not ask that" });
   }
+  if (input.questionCode === "column_meaning_unclear" && answer !== input.subject) {
+    // The only answer that changes nothing is "the mapped column is right". Another column is a new
+    // layout, made in the column mapping, so an answer is never stored without effect (A17).
+    throw new TRPCError({ code: "BAD_REQUEST", message: "To use another column for this, change it in the column mapping" });
+  }
   if (input.questionCode === "unit_unknown" && c.recipe) {
     const recipe = parseRecipe(c.recipe);
     const field = recipe.fields.find((f) => f.field === input.subject);
