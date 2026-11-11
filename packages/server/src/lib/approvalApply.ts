@@ -9,11 +9,13 @@ import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 import { location } from "@orrn/db/schema/stock";
 import { dcNote, purchaseLot } from "@orrn/db/schema/purchase";
 
+import type { Context } from "../context";
 import type { OrrnDb, SqliteBatchItem } from "./atomic";
 import { stillPhantomOfLine } from "./count";
 import { billetStoreRetiredMessage, boriMeltedMessage, castTailAdjustRow, dcNoteOverdrawAbort, foundryAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 import { ageingOverrideDecision } from "./ageing";
+import { holdsOf, releaseOnVoidStatement } from "./orderHold";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { reallocateDecision, reallocatePrepare } from "./reallocate";
 
@@ -26,6 +28,8 @@ export type ApplyCtx = {
   /** This decision's company sequence; the decided approval row carries it. */
   seq: number;
   decidedAt: Date;
+  session?: Context["session"];
+  impersonation?: Context["impersonation"];
 };
 
 export type ApprovalApplier = (
@@ -36,6 +40,35 @@ export type ApprovalApplier = (
   prepared?: unknown,
 ) => SqliteBatchItem[];
 
+async function phantomVoidHoldRelease(
+  ctx: ApplyCtx,
+  row: { id: string },
+  decision: "approved" | "rejected",
+): Promise<SqliteBatchItem[]> {
+  if (decision === "rejected") return [];
+  const lines = await ctx.db
+    .select({ bundleId: countLine.bundleId })
+    .from(countLine)
+    .where(
+      and(
+        eq(countLine.companyId, ctx.companyId),
+        eq(countLine.approvalId, row.id),
+        eq(countLine.kind, "phantom"),
+        eq(countLine.resolution, "void_requested"),
+      ),
+    );
+  const bundleIds = lines.map((line) => line.bundleId).filter((bundleId): bundleId is string => Boolean(bundleId));
+  const holds = await holdsOf(ctx.db, ctx.companyId, bundleIds);
+  const auditCtx = { db: ctx.db, companyId: ctx.companyId, session: ctx.session ?? null, impersonation: ctx.impersonation ?? null };
+  return [...holds.values()].map((hold) =>
+    releaseOnVoidStatement(
+      auditCtx,
+      hold,
+      and(eq(bundle.companyId, ctx.companyId), eq(bundle.id, hold.bundleId), eq(bundle.status, "void"), eq(bundle.serverSeq, ctx.seq)),
+    ),
+  );
+}
+
 /**
  * Async work a kind needs before its decision batch (numbers to allocate, rows to read). The
  * result is handed to its applier. Order reallocation allocates the target customer's party
@@ -45,6 +78,7 @@ export const APPROVAL_PREPARERS: Partial<
   Record<ApprovalKind, (ctx: ApplyCtx, row: { id: string; subjectId: string; meta: Record<string, unknown> | null }, decision: "approved" | "rejected") => Promise<unknown>>
 > = {
   order_reallocate: (ctx, row, decision) => (decision === "approved" ? reallocatePrepare(ctx.db, ctx.companyId, row, ctx.decidedAt, ctx.userId) : Promise.resolve([])),
+  phantom_void: phantomVoidHoldRelease,
 };
 
 /**
@@ -158,7 +192,7 @@ const dcNoteDecision: ApprovalApplier = (ctx, row, decision) => {
  * landed", so a losing approver (or an approval forged onto another company's count) changes
  * nothing.
  */
-const phantomVoidDecision: ApprovalApplier = (ctx, row, decision) => {
+const phantomVoidDecision: ApprovalApplier = (ctx, row, decision, prepared) => {
   const { db, companyId, seq, userId } = ctx;
   const landed = decisionLanded(ctx, row.id, decision);
   const requestedLines = and(
@@ -183,7 +217,7 @@ const phantomVoidDecision: ApprovalApplier = (ctx, row, decision) => {
   return [
     db
       .update(bundle)
-      .set({ status: "void", serverSeq: seq })
+      .set({ status: "void", heldForLineId: null, heldAt: null, serverSeq: seq })
       .where(and(eq(bundle.companyId, companyId), eq(bundle.status, "available"), stillPhantom, landed)),
     phantomVoidRows({ db, companyId, userId, seq, postedAt: ctx.decidedAt }, { approvalId: row.id }),
     // Keys follow bundle_status_event's column order (insert-select rule).
@@ -220,6 +254,7 @@ const phantomVoidDecision: ApprovalApplier = (ctx, row, decision) => {
       .update(countLine)
       .set({ resolution: "cleared", resolvedAt: ctx.decidedAt, resolvedBy: userId, serverSeq: seq })
       .where(and(requestedLines, landed)),
+    ...((prepared ?? []) as SqliteBatchItem[]),
   ];
 };
 
