@@ -22,8 +22,12 @@ export type SalesOrderStatus = (typeof salesOrderStatuses)[number];
 /** Statuses whose lines still take bundles (pack suggestion, dispatch link, baki report). */
 export const openSalesOrderStatuses = ["booking", "confirmed", "dispatching"] as const;
 
-/** `office` or `portal` (C29: portal rows are created in booking only). */
-export const salesOrderSources = ["office", "portal"] as const;
+/**
+ * Where an order was booked: `office`, `portal` (C29: portal rows are created in booking only) or
+ * `ingest` (written by the Infinity Portal merge from a file). A text column with no CHECK, so a
+ * new value needs no migration.
+ */
+export const salesOrderSources = ["office", "portal", "ingest"] as const;
 /** Line finish (C20: an alloy such as 6061 is never a finish). */
 export const salesOrderFinishes = ["none", "anodise", "pvd"] as const;
 /** Which side the clerk committed on a line. */

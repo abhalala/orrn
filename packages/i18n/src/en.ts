@@ -5148,6 +5148,7 @@ export const en = {
     source: {
       office: "Office",
       portal: "Portal",
+      ingest: "Imported from a file",
       label: "Booked from",
     },
     status: {

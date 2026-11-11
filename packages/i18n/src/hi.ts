@@ -5136,6 +5136,7 @@ export const hi = {
     source: {
       office: "ऑफ़िस",
       portal: "पोर्टल",
+      ingest: "फ़ाइल से इम्पोर्ट हुआ",
       label: "कहां से बुक हुआ",
     },
     status: {

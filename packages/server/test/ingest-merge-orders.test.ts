@@ -75,7 +75,7 @@ describe("orders", () => {
     const { orders, lines } = await orderRows(companyId);
     expect(orders).toHaveLength(2);
     const b17 = orders.find((o) => o.note === "Old order no. B-17")!;
-    expect(b17).toMatchObject({ customerId, orderDate: "2025-10-31", source: "office" });
+    expect(b17).toMatchObject({ customerId, orderDate: "2025-10-31", source: "ingest" });
     expect(lines.filter((l) => l.salesOrderId === b17.id).map((l) => [l.cutLengthMm, l.kgG]).sort()).toEqual([
       [3658, 250_000],
       [4877, 250_000],

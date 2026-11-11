@@ -291,7 +291,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             <Fact label={t("orders.poNumber")} value={order.poNumber || t("orders.noPo")} mono={Boolean(order.poNumber)} />
             <Fact label={t("orders.orderDate")} value={bookDateText(order.orderDate, locale)} />
             {order.expectedDate ? <Fact label={t("orders.expectedDate")} value={bookDateText(order.expectedDate, locale)} /> : null}
-            <Fact label={t("orders.source.label")} value={t(`orders.source.${order.source === "portal" ? "portal" : "office"}`)} />
+            <Fact label={t("orders.source.label")} value={t(`orders.source.${order.source === "portal" || order.source === "ingest" ? order.source : "office"}`)} />
             {order.note ? <Fact label={t("common.note")} value={order.note} /> : null}
             {order.closeReason ? <Fact label={t("orders.closeReason")} value={order.closeReason} /> : null}
             {order.cancelReason ? <Fact label={t("orders.cancelReason")} value={order.cancelReason} /> : null}
