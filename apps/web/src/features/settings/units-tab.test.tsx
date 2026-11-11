@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { PLANT_UNIT_CHOICES, readUnitSettings, validatePlantUnitSettings } from "@orrn/domain";
 import { createI18n, I18nProvider } from "@orrn/i18n";
 
-import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, previewFor, type UnitsDraft } from "./units-model";
+import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, previewFor, rebaseDraft, type UnitsDraft } from "./units-model";
 import { PreviewList } from "./units-preview";
 
 const ENV = { locale: "en", timeZone: "Asia/Kolkata" } as const;
@@ -49,6 +49,30 @@ describe("save payload", () => {
     expect(draftDirty(saved, { ...saved })).toBe(false);
     expect(draftDirty(saved, { ...saved, mass: "lb" })).toBe(true);
     expect(draftDirty(saved, { ...saved, clock: "h12" })).toBe(true);
+  });
+});
+
+describe("an open tab and a changed plant (another admin, a second tab)", () => {
+  const kg = draftFromSettings(none);
+  const lb: UnitsDraft = { ...kg, mass: "lb" };
+  test("a draft nobody touched follows the new saved choices, so Save does not light up with nothing changed", () => {
+    expect(rebaseDraft(kg, kg, lb)).toEqual(lb);
+    expect(draftDirty(rebaseDraft(kg, kg, lb), lb)).toBe(false);
+  });
+  test("a stale draft would have sent the old weight back: after the rebase only the clock change differs", () => {
+    const draft = rebaseDraft(kg, kg, lb);
+    const edited = { ...draft, clock: "h12" as const };
+    expect(draftDirty(edited, lb)).toBe(true);
+    expect(edited.mass).toBe("lb");
+  });
+  test("a draft the person edited is kept", () => {
+    const mine: UnitsDraft = { ...kg, clock: "h12" };
+    expect(rebaseDraft(mine, kg, lb)).toBe(mine);
+  });
+  test("nothing changed on the server: the draft is left alone", () => {
+    const mine: UnitsDraft = { ...kg, clock: "h12" };
+    expect(rebaseDraft(mine, kg, { ...kg })).toBe(mine);
+    expect(rebaseDraft(kg, kg, { ...kg })).toBe(kg);
   });
 });
 

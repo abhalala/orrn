@@ -47,6 +47,15 @@ export function draftDirty(a: UnitsDraft, b: UnitsDraft): boolean {
 }
 
 /**
+ * The saved choices changed under an open tab (another admin, a second tab, this tab's own save): a draft the person had not
+ * touched follows them, so Save does not light up with nothing changed and a later save cannot send the old choices back.
+ * A draft the person has edited is kept as it is.
+ */
+export function rebaseDraft(draft: UnitsDraft, was: UnitsDraft, now: UnitsDraft): UnitsDraft {
+  return draftDirty(was, now) && !draftDirty(draft, was) ? now : draft;
+}
+
+/**
  * What `company.updateSettings({ units })` takes. Top-level keys sent replace the stored ones, so each block
  * carries the keys the form does not edit (decimal and group marks, month style) over from the plant.
  */

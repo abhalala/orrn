@@ -14,7 +14,7 @@ import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, previewFor, type UnitsDraft } from "./units-model";
+import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, previewFor, rebaseDraft, type UnitsDraft } from "./units-model";
 import { TabState, usePlantSettings } from "./ui";
 import { Fact, PreviewList } from "./units-preview";
 
@@ -37,6 +37,12 @@ export function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; time
   const { t, locale } = useT();
   const saved = useMemo(() => draftFromSettings(plant), [plant]);
   const [draft, setDraft] = useState<UnitsDraft>(saved);
+  const [seen, setSeen] = useState<UnitsDraft>(saved);
+  if (seen !== saved) {
+    // The plant's saved set changed (a refetch after another admin's save, or this tab's own): see `rebaseDraft`.
+    setSeen(saved);
+    setDraft((d) => rebaseDraft(d, seen, saved));
+  }
   const dirty = draftDirty(draft, saved);
   const preview = useMemo(() => previewFor(draft, plant, { locale, timeZone: timezone }), [draft, plant, locale, timezone]);
   const queryClient = useQueryClient();
