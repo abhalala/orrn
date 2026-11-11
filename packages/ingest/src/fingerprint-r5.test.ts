@@ -63,16 +63,28 @@ function name(r: () => number): string {
 const bare = (s: string) => s.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, "");
 
 describe("5.1: the normaliser", () => {
-  test("Latin text normalises exactly as before (5,000 random ASCII names and every unit form)", () => {
+  // Round 6 (owner's decision): the signs + - % # are kept and the count words "Nos" and "Pcs" no longer fold
+  // together. This test pinned that all Latin text normalises as in round 4; it now pins that Latin text with none
+  // of those signs or count words normalises as before, and that the changed names are exactly the ones the owner
+  // named.
+  const changed = (s: string) => /[+%#-]/.test(s) || /(?<![a-z0-9])(?:pc|pieces?|nos|kilograms?)(?![a-z0-9])/.test(s.normalize("NFKC").toLowerCase());
+  test("Latin text with no sign and no count word normalises exactly as before (5,000 random ASCII names and every unit form)", () => {
     const r = rng(7);
     const ascii = range(0x20, 0x7e);
+    let kept = 0;
     for (let i = 0; i < 5000; i++) {
       const s = Array.from({ length: 1 + Math.floor(r() * 20) }, () => ascii[Math.floor(r() * ascii.length)]).join("");
+      if (changed(s)) continue;
+      kept++;
       expect(normalizeHeader(s)).toBe(before(s));
     }
-    for (const s of ["Wt (Kgs)", "Kg.", "Rs.", "₹ Rate", "Length 12'", "Pcs.", "NOS", "Bundle No.", "Min weight (kg/12ft)", "S.No", "Party Name:"]) {
+    expect(kept).toBeGreaterThan(2500);
+    for (const s of ["Wt (Kgs)", "Kg.", "Rs.", "₹ Rate", "Length 12'", "Pcs.", "Bundle No.", "Min weight (kg/12ft)", "S.No", "Party Name:", "Sr-No"]) {
       expect(normalizeHeader(s)).toBe(before(s));
     }
+    // The names round 6 changes, and how.
+    expect(["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)"].map(normalizeHeader)).toEqual(["no", "pcs", "tol +", "rate %", "order #", "kg -"]);
+    expect(["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)"].map(before)).toEqual(["pcs", "pieces", "tol", "rate", "order", "kg"]);
   });
 
   test("Hindi and Gujarati names stay names, and joiners are dropped", () => {

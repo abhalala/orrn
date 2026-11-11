@@ -1048,6 +1048,8 @@ export function sqlTablesToBlocks(tables: readonly SqlTable[]): ReadBlock[] {
       headerRows: 1 as const,
       headers: t.columns,
       rows: t.rows,
+      // A dump's columns are all named: the width is the column count, or a wider row's.
+      width: t.rows.reduce((w, r) => Math.max(w, r.length), t.columns.length),
       firstDataSheetRow: 1,
       // A dump names its columns: nothing is guessed. Row 0 of the preview is the column list.
       preview: [{ row: 0, cells: [...t.columns] }, ...t.rows.slice(0, PREVIEW_ROWS - 1).map((r, i) => ({ row: i + 1, cells: [...r] }))],

@@ -7,10 +7,10 @@
  */
 import { BUILTIN_HOLES } from "./builtins";
 import type { BuiltinHole } from "./builtins/types";
-import { fingerprint } from "./fingerprint";
+import { headerKey, inferKinds, isUnitOnlyName, normalizeHeaders, usedWidth, type Fingerprint } from "./fingerprint";
 import { candidatesFor, recipeColumns, type FitCandidate, type LearnedHole } from "./fit";
 import { cellKind } from "./cells";
-import { combineHeaders, isHeaderLike } from "./readers/blocks";
+import { combineHeaders, isHeaderLike, regionWidth } from "./readers/blocks";
 import type { PreviewRow } from "./readers/types";
 import type { IngestTarget } from "./states";
 
@@ -18,6 +18,14 @@ import type { IngestTarget } from "./states";
 export type HeaderInput = {
   preview: readonly PreviewRow[];
   guess: { headerRow: number; headerRows?: 1 | 2 };
+  /**
+   * The block's region width (`ReadBlock.width`). The names are padded to it, so a blank header cell matches an
+   * approved unnamed column by position even when that column is filled only below the preview (round 6, M-R5-2).
+   */
+  width?: number;
+  /** A whole block's names and rows. When given, the width is counted from them and `width` is not used. */
+  headers?: readonly string[];
+  rows?: readonly (readonly string[])[];
 };
 
 /** The layouts to fit against. `learned`: the plant's approved layouts, newest first. `builtins`: default all of them. */
@@ -105,7 +113,8 @@ function namedColumns(c: FitCandidate): number {
   return recipeColumns(c.recipe).length - c.diff.renamed.length;
 }
 
-type PickFit = { exact: FitCandidate | null; near: FitCandidate | null };
+/** `trusted`: the exact fit names two real columns (`isUnitOnlyName`), so it may be trusted. */
+type PickFit = { exact: FitCandidate | null; trusted: boolean; near: FitCandidate | null };
 
 /**
  * The fits of one pick. Needs a data row under it in the preview. Exact: the names, padded to the widest data row,
@@ -113,8 +122,8 @@ type PickFit = { exact: FitCandidate | null; near: FitCandidate | null };
  * best near fit of a one-row pick whose data rows are mostly not wider than it on either side, with
  * `NEAR_NAMED_MIN` columns found by their own name. A near fit only names a layout in the question.
  */
-function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, holes: HeaderHoles): PickFit {
-  const none: PickFit = { exact: null, near: null };
+function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, holes: HeaderHoles, regionWidth = 0): PickFit {
+  const none: PickFit = { exact: null, trusted: false, near: null };
   const names = namesFor(preview, at, headerRows);
   if (!names) return none;
   const dataRows = preview
@@ -123,16 +132,23 @@ function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, 
     .map((p) => p.cells.map((c) => c.trim()))
     .filter((r) => filled(r) > 0);
   if (dataRows.length === 0) return none;
-  const width = Math.max(names.length, ...dataRows.map((r) => lastFilledCell(r) + 1));
-  const padded = [...names, ...Array<string>(width - names.length).fill("")];
-  const fp = fingerprint({ headers: padded, rows: dataRows, headerRow: preview[at]!.row, headerRows });
+  const seen = Math.max(names.length, ...dataRows.map((r) => lastFilledCell(r) + 1));
+  // Trailing columns blank in the names and the preview drop, unless the block's region is that wide (M-R5-2): a
+  // column filled only below the preview is still a column of the block.
+  const width = Math.max(usedWidth([...names, ...Array<string>(seen - names.length).fill("")], dataRows), regionWidth);
+  const padded = [...names, ...Array<string>(Math.max(0, width - names.length)).fill("")].slice(0, width);
+  const normalized = normalizeHeaders(padded, width);
+  const fp: Fingerprint = { headers: padded, normalized, columnCount: width, kinds: inferKinds(dataRows, width), headerKey: headerKey(normalized), headerRow: preview[at]!.row, headerRows };
   const learned = (holes.learned ?? []).filter((h) => (h.recipe.headerRows ?? 1) === headerRows);
   const builtins = headerRows === 1 ? (holes.builtins ?? BUILTIN_HOLES) : [];
   const all = candidatesFor(fp, learned, builtins);
   // A built-in layout has no unnamed column: a blank name over data is never an exact built-in fit.
   const unnamed = padded.slice(0, fp.columnCount).some((c) => c === "");
   const exact = all.find((c) => c.fit === "exact" && c.learned) ?? (unnamed ? null : all.find((c) => c.fit === "exact")) ?? null;
-  if (headerRows === 2) return { exact, near: null };
+  // Round 6 (B-R5-2): an exact fit is trusted only through two real names, not blank and not only unit words. A
+  // layout of a blank and "Kg | Pcs" would trust a units row under any header.
+  const realNames = fp.normalized.filter((nm) => !isUnitOnlyName(nm)).length;
+  if (headerRows === 2) return { exact, trusted: exact !== null && realNames >= 2, near: null };
   const last = lastFilledCell(names);
   const first = firstFilledCell(names);
   const wider = dataRows.filter((r) => lastFilledCell(r) > last || (firstFilledCell(r) !== -1 && firstFilledCell(r) < first)).length;
@@ -145,7 +161,7 @@ function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, 
       if (!near || nearer(c, near)) near = c;
     }
   }
-  return { exact, near };
+  return { exact, trusted: exact !== null && realNames >= 2, near };
 }
 
 /** More columns found by their own name, then the higher score. */
@@ -167,8 +183,8 @@ const resemblance = (p: PreviewRow, headerRows: 1 | 2, c: FitCandidate): HeaderR
 
 /**
  * The header to trust, or the question to ask (PORTAL-RULES-3 section 5.1). Every preview row is tried as a one-row
- * header and, with the row under it, as a two-row header. Only an exact fit is trusted, and the top-most one wins
- * (M1). An exact fit below the guess is trusted only when no filled row sits between the guess's header rows and it:
+ * header and, with the row under it, as a two-row header. Only an exact fit is trusted, through a layout with two
+ * real names (not blank, not only unit words; round 6, B-R5-2), and the top-most one wins (M1). An exact fit below the guess is trusted only when no filled row sits between the guess's header rows and it:
  * otherwise it may be a second table under the first, and the answer is "ask". One above the guess is trusted only
  * when no blank row sits between it and the guess (rows of a table above, shown around a split, are not its header). A preview with a gap in its row numbers
  * left rows out (a long letterhead, M6), and the answer is "ask" too. `ask` carries the guess and the preview rows of
@@ -178,6 +194,8 @@ const resemblance = (p: PreviewRow, headerRows: 1 | 2, c: FitCandidate): HeaderR
  */
 export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): HeaderChoice {
   const preview = input.preview;
+  // The region's width (M-R5-2): counted from the block's own rows when it has them, else the width it reports.
+  const width = input.headers && input.rows ? regionWidth(input.headers, input.rows) : (input.width ?? 0);
   const guess: HeaderPick = { headerRow: input.guess.headerRow, headerRows: input.guess.headerRows ?? 1 };
   const guessAt = preview.findIndex((p) => p.row === guess.headerRow);
   const gap = preview.some((p, i) => i > 0 && p.page === preview[i - 1]!.page && p.row > preview[i - 1]!.row + 1);
@@ -198,9 +216,9 @@ export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): Heade
   let near: { at: number; headerRows: 1 | 2; fit: FitCandidate } | null = null;
   for (let at = 0; at < preview.length; at++) {
     for (const rows of [1, 2] as const) {
-      const f = fitsFor(preview, at, rows, holes);
+      const f = fitsFor(preview, at, rows, holes, width);
       if (f.exact) {
-        if (!gap && !blocked(at, rows)) {
+        if (f.trusted && !gap && !blocked(at, rows)) {
           if (!trusted) trusted = { at, headerRows: rows, fit: f.exact };
         } else if (!untrusted) untrusted = resemblance(preview[at]!, rows, f.exact);
       }

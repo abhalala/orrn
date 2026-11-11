@@ -18,7 +18,11 @@ export const HEADER_TEXT_SHARE = 0.6;
  * hands one over, is written without float noise: a whole number as it is, any other at 15 significant digits, so
  * 12.299999999999999 is "12.3" and 0.1 + 0.2 is "0.3". What a person saw ("007", "18%", "12.30") only the file's
  * formatted text gives, so the web hands that over as a string. Excel dates arrive as Date objects: they become
- * `YYYY-MM-DD` (UTC), or with the time when there is one.
+ * `YYYY-MM-DD`, or `YYYY-MM-DDTHH:MM:SS` when there is a time. A date is never shifted by the time zone of the
+ * machine that reads it (round 6): a Date at UTC midnight is that UTC date (libraries that build dates in UTC), a Date
+ * at local midnight is that local date (SheetJS, which the web uses, builds them in local time). Any other Date is
+ * written with its UTC clock. One case stays open: a time that is exactly local midnight in UTC (18:30 UTC in India)
+ * from a UTC library reads as the next date. Handing over the formatted text avoids it.
  */
 export function toCellText(v: MatrixCell): string {
   if (v === null || v === undefined) return "";
@@ -31,7 +35,12 @@ export function toCellText(v: MatrixCell): string {
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
   if (Number.isNaN(v.getTime())) return "";
   const iso = v.toISOString();
-  return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso.slice(0, 19);
+  if (iso.endsWith("T00:00:00.000Z")) return iso.slice(0, 10);
+  if (v.getHours() === 0 && v.getMinutes() === 0 && v.getSeconds() === 0 && v.getMilliseconds() === 0) {
+    const two = (x: number) => String(x).padStart(2, "0");
+    return `${String(v.getFullYear()).padStart(4, "0")}-${two(v.getMonth() + 1)}-${two(v.getDate())}`;
+  }
+  return iso.slice(0, 19);
 }
 
 const nonBlank = (row: readonly string[]) => row.filter((c) => c !== "").length;
@@ -313,22 +322,6 @@ export function checkHintShape(h: BlockHints): void {
 /** The first raw row of a block's region: its title, or its header. Not `preview[0]`, which may show rows above. */
 export const regionStartOf = (b: ReadBlock) => b.guess.headerRow - b.headerRow;
 
-/**
- * The last filled row of rows `from` to `to`, stopping at a run of two or more blank rows (PORTAL-RULES-3 section 5.2):
- * a single blank row is ignored. `from - 1` when there is none.
- */
-export function regionEnd(rows: readonly string[][], from: number, to: number): number {
-  let last = from - 1;
-  let blanks = 0;
-  for (let r = from; r <= to; r++) {
-    if (nonBlank(rows[r]!) > 0) {
-      last = r;
-      blanks = 0;
-    } else if (++blanks >= 2) break;
-  }
-  return last;
-}
-
 /** Rows to show around a guessed split: this many filled rows above it and rows from the next block's start. */
 export const SPLIT_CONTEXT_ROWS = 2;
 
@@ -369,8 +362,10 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
 /**
  * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7, rule 5.2).
  * The rest of the sheet keeps the guess, so a hint for one table does not swallow or drop another:
- * - A hinted block without a last data row ends before the next hinted header, or at the last filled row before two
- *   or more blank rows, or at the end of the sheet. A single blank row never ends it: a row after one is a row (B5).
+ * - A hinted block without a last data row runs to the last filled row before the next hinted header, or before the
+ *   end of the sheet. Blank rows never end it, however many (B5; round 6, M-R5-1): the person said where the table
+ *   starts, so every row below it is a row of it until the next table they named. Nothing after the header is left
+ *   outside every block.
  * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
  *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
  *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
@@ -390,12 +385,17 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     const h = hint.headerRow;
     const headerRows = hint.headerRows ?? 1;
     if (h < 0 || h + headerRows > n) throw new HintError("hint_out_of_range", `header row ${h} is not in the sheet`);
+    // A header with no name in it is not a header (H5): blank header rows are a hint error, not blank column names.
+    if (rows.slice(h, h + headerRows).every((r) => nonBlank(r) === 0)) throw new HintError("hint_out_of_range", `header row ${h} is blank`);
     if (h <= prevLast) throw new HintError("hint_overlap", `header row ${h} is inside the block above`);
     const next = hints[x + 1];
     if (next && next.headerRow < h + headerRows) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the header above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
-    const last = hint.lastDataRow ?? Math.max(first - 1, regionEnd(rows, first, next ? next.headerRow - 1 : n - 1));
+    // A first data row the person named must be a row of the sheet (H12). With none named, a header on the last row
+    // is a block with no rows.
+    if (hint.firstDataRow != null && first >= n) throw new HintError("hint_out_of_range", `first data row ${first} is not in the sheet`);
+    const last = hint.lastDataRow ?? Math.max(first - 1, lastFilled(rows as string[][], first, next ? next.headerRow - 1 : n - 1));
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
     spans.push({ hint, h, headerRows, first, last });
@@ -635,8 +635,19 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
 export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: FindBlocksOptions = {}): SheetRead {
   const rows = matrix.map((r) => r.map(toCellText));
   const sheetName = opts.sheetName ?? null;
-  if (opts.hints && opts.hints.length > 0) return readByHints(rows, opts.hints, sheetName);
-  return guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
+  const read = opts.hints && opts.hints.length > 0 ? readByHints(rows, opts.hints, sheetName) : guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
+  return { blocks: read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows) })), warnings: read.warnings };
+}
+
+/** The widest of `headers` and `rows`, each counted to its last filled cell (round 6, M-R5-2). */
+export function regionWidth(headers: readonly string[], rows: readonly (readonly string[])[]): number {
+  const to = (r: readonly string[]) => {
+    for (let c = r.length - 1; c >= 0; c--) if ((r[c] ?? "").trim() !== "") return c + 1;
+    return 0;
+  };
+  let w = to(headers);
+  for (const r of rows) w = Math.max(w, to(r));
+  return w;
 }
 
 /** The blocks of `readSheet`. */

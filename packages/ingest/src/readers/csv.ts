@@ -8,14 +8,19 @@ import type { BlockHints, ReadBlock } from "./types";
 export type CsvDelimiter = "," | ";" | "\t" | "|";
 
 /**
- * The delimiter that splits the first lines evenly, header included (M7). Quoted text is ignored, and so is a comma
- * between two digits ("1,200", "12,5"). A tie goes to tab, then semicolon, then pipe, then comma. Comma when nothing
- * is clear.
+ * The delimiter that splits the first lines evenly, header included (M7). Quoted text is ignored.
+ * Round 6 (M-R5-4): the delimiter that gives every line, from the first line that holds it to the end of the sample,
+ * the same count wins, so a remark with a semicolon or a pipe does not make it the delimiter. Of those, the one that
+ * starts highest wins (a title line above the table holds none, C35), then the larger count, then tab, semicolon,
+ * pipe, comma. A comma between two digits ("1,200", "12,5") is skipped only when counting it leaves the lines uneven.
+ * A last line the sample cut short is left out of that test. With no even delimiter, the most consistent count wins
+ * as before; comma when nothing is clear.
  */
 export function detectDelimiter(sample: string): CsvDelimiter {
   const lines: string[] = [];
   let cur = "";
   let inQ = false;
+  let cutShort = false;
   for (const ch of sample) {
     if (ch === '"') inQ = !inQ;
     if (!inQ && (ch === "\n" || ch === "\r")) {
@@ -24,21 +29,43 @@ export function detectDelimiter(sample: string): CsvDelimiter {
       if (lines.length >= 8) break;
     } else cur += ch;
   }
-  if (cur.trim() !== "" && lines.length < 8) lines.push(cur);
-  let best: CsvDelimiter = ",";
-  let bestScore = 0;
+  if (cur.trim() !== "" && lines.length < 8) {
+    lines.push(cur);
+    cutShort = true;
+  }
   const digit = (ch: string | undefined) => ch !== undefined && ch >= "0" && ch <= "9";
-  for (const d of ["\t", ";", "|", ","] as const) {
-    const counts = lines.map((l) => {
+  const countsOf = (d: CsvDelimiter, skipDigits: boolean) =>
+    lines.map((l) => {
       let c = 0;
       let q = false;
       for (let i = 0; i < l.length; i++) {
         const ch = l[i]!;
         if (ch === '"') q = !q;
-        else if (!q && ch === d && !(d === "," && digit(l[i - 1]) && digit(l[i + 1]))) c++;
+        else if (!q && ch === d && !(skipDigits && digit(l[i - 1]) && digit(l[i + 1]))) c++;
       }
       return c;
     });
+  /** The first line that holds the delimiter and its count, when every line from there has that count. */
+  const even = (counts: number[]): { start: number; count: number } | null => {
+    const checked = cutShort && counts.length > 2 ? counts.slice(0, -1) : counts;
+    const start = checked.findIndex((c) => c > 0);
+    if (start === -1 || checked.length - start < 2) return null;
+    const count = checked[start]!;
+    return checked.slice(start).every((c) => c === count) ? { start, count } : null;
+  };
+  const order = ["\t", ";", "|", ","] as const;
+  let pick: { d: CsvDelimiter; start: number; count: number } | null = null;
+  for (const d of order) {
+    const e = even(countsOf(d, false)) ?? (d === "," ? even(countsOf(d, true)) : null);
+    if (!e) continue;
+    if (!pick || e.start < pick.start || (e.start === pick.start && e.count > pick.count)) pick = { d, ...e };
+  }
+  if (pick) return pick.d;
+
+  let best: CsvDelimiter = ",";
+  let bestScore = 0;
+  for (const d of order) {
+    const counts = countsOf(d, d === ",");
     // Score over the lines that hold the delimiter, so a title line above the table does not hide it (C35).
     const used = counts.filter((c) => c > 0);
     if (used.length === 0) continue;
