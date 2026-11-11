@@ -27,7 +27,7 @@ import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 
-import { customer, customerAlias, die, dieInstance, salesOrder, vendor, vendorAlias } from "@orrn/db/schema";
+import { customer, customerAlias, die, dieInstance, salesOrder, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
   ingestAnswer,
   ingestCandidate,
@@ -764,7 +764,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       if (dup) values._dupKey = dup;
       outcomes.set(r.id, out);
     }
-    if (c.target === "orders") await matchLiveOrders(ctx, outcomes);
+    if (c.target === "orders") await matchLiveOrders(ctx, recipe, editable, outcomes);
     await markDuplicates(ctx, c.id, input.expectCursor, editable, outcomes);
   }
 
@@ -989,14 +989,22 @@ const OLD_ORDER_NOTE = /^Old order no\. (.+)$/;
 
 /**
  * Orders already in orrn (A5): an order line whose party has a live, not cancelled order with the same
- * PO (any date), or with no PO the same date and old order number, is unchanged with the live order as
- * its match. The merge would otherwise create the order again. The old order number is the one the
+ * PO (any date), or with no PO the same old order number, matches that order. With a date column the
+ * old order number must also have the same date. With no date column the order date is the file's
+ * as-of date, which moves with every file, so it is left out. The old order number is the one the
  * merge writes into the order's note ("Old order no. X").
+ *
+ * A matched line is unchanged only when the live order has a line for the same section and cut
+ * length (any cut length when the file has none). Any other line of a matched order is a conflict
+ * with `order_line_new`, so a person decides; it is never dropped silently (A-new-1).
  */
-async function matchLiveOrders(ctx: IngestCtx, outcomes: Map<string, RowOutcome>): Promise<void> {
-  const open = [...outcomes.values()].filter((o) => o.state === "ready_create" && o.values);
+async function matchLiveOrders(ctx: IngestCtx, recipe: Recipe, rows: readonly Staged[], outcomes: Map<string, RowOutcome>): Promise<void> {
+  const byDate = !periodRequired(recipe);
+  const open = rows
+    .map((r) => ({ r, out: outcomes.get(r.id)! }))
+    .filter(({ out }) => out.state === "ready_create" && out.values);
   const customerOf = (o: RowOutcome) => ((o.values!._ids ?? {}) as Record<string, string>).customer ?? "";
-  const customerIds = [...new Set(open.map(customerOf).filter((id) => id && !id.startsWith("pending:")))];
+  const customerIds = [...new Set(open.map(({ out }) => customerOf(out)).filter((id) => id && !id.startsWith("pending:")))];
   if (customerIds.length === 0) return;
   const live = await mapInChunks(customerIds, (part) =>
     ctx.db
@@ -1006,22 +1014,46 @@ async function matchLiveOrders(ctx: IngestCtx, outcomes: Map<string, RowOutcome>
   );
   const byPo = new Map<string, string>();
   const byOldNo = new Map<string, string>();
+  const oldKey = (customerId: string, orderDate: string, old: string) => (byDate ? `${customerId}|${orderDate}|${old}` : `${customerId}|${old}`);
   for (const o of live) {
     const po = (o.poNumber ?? "").trim().toLowerCase();
     if (po) byPo.set(`${o.customerId}|${po}`, o.id);
     const old = OLD_ORDER_NOTE.exec((o.note ?? "").trim())?.[1]?.trim().toLowerCase();
-    if (old) byOldNo.set(`${o.customerId}|${o.orderDate}|${old}`, o.id);
+    if (old) byOldNo.set(oldKey(o.customerId, o.orderDate, old), o.id);
   }
-  for (const out of open) {
+  const hits: { r: Staged; out: RowOutcome; orderId: string }[] = [];
+  for (const { r, out } of open) {
     const v = out.values!;
     const cust = customerOf(out);
     const po = str(v.poNumber).trim().toLowerCase();
     const old = str(v.oldOrderNo).trim().toLowerCase();
-    const hit = po ? byPo.get(`${cust}|${po}`) : old ? byOldNo.get(`${cust}|${str(v.orderDate)}|${old}`) : undefined;
-    if (!hit) continue;
-    out.state = "unchanged";
-    out.matchId = hit;
-    out.reasons = [...out.reasons, "order_exists"];
+    const orderId = po ? byPo.get(`${cust}|${po}`) : old ? byOldNo.get(oldKey(cust, str(v.orderDate), old)) : undefined;
+    if (orderId) hits.push({ r, out, orderId });
+  }
+  if (hits.length === 0) return;
+  const lines = await mapInChunks([...new Set(hits.map((h) => h.orderId))], (part) =>
+    ctx.db
+      .select({ orderId: salesOrderLine.salesOrderId, dieId: salesOrderLine.dieId, cutLengthMm: salesOrderLine.cutLengthMm })
+      .from(salesOrderLine)
+      .where(and(eq(salesOrderLine.companyId, ctx.companyId), inArray(salesOrderLine.salesOrderId, part))),
+  );
+  const onOrder = (orderId: string, v: Values) => {
+    const dieId = ((v._ids ?? {}) as Record<string, string>).sectionCode ?? "";
+    if (!dieId || dieId.startsWith("pending:")) return false;
+    const cut = v.cutLength === null || v.cutLength === undefined || v.cutLength === "" ? null : Number(v.cutLength);
+    return lines.some((l) => l.orderId === orderId && l.dieId === dieId && (cut === null || l.cutLengthMm === cut));
+  };
+  for (const { r, out, orderId } of hits) {
+    out.matchId = orderId;
+    if (onOrder(orderId, out.values!)) {
+      out.state = "unchanged";
+      out.reasons = [...out.reasons, "order_exists"];
+      continue;
+    }
+    out.state = "conflict";
+    out.reasons = [...out.reasons, "order_line_new"];
+    // The person's choice for this line: leave it out (keep_live). Skip is applied before this.
+    if (r.decision === "keep_live") out.state = "unchanged";
   }
 }
 

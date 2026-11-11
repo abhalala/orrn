@@ -258,19 +258,28 @@ describe("A4, A10: a file whose read failed can be read again", () => {
   });
 });
 
-describe("A5: an order book matches the plant's live orders", () => {
-  const ratedBaki = (poColumn = false) =>
+describe("A5, A-new-1: an order book matches the plant's live orders", () => {
+  const ratedBaki = (poColumn = false, undated = false) =>
     bakiRecipe({
       fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => {
         if (f.field === "rate") return { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] };
         if (f.field === "oldOrderNo" && poColumn) return { ...f, field: "poNumber" };
+        if (f.field === "orderDate" && undated) return { field: "orderDate", source: { kind: "period_as_of" as const }, steps: [] };
         return f;
       }),
       unclear: [],
     });
 
-  async function liveOrder(companyId: string, customerId: string, set: { poNumber?: string | null; note?: string | null; orderDate: string }) {
-    const { salesOrder } = await import("@orrn/db/schema");
+  type Live = { poNumber?: string | null; note?: string | null; orderDate: string };
+
+  /** A live order of Acme with one line for DOMAL 12170, as an earlier merge of the same book left it. */
+  async function liveOrder(companyId: string, customerId: string, set: Live) {
+    const { die, salesOrder, salesOrderLine } = await import("@orrn/db/schema");
+    const dies: Record<string, string> = {};
+    for (const code of ["12170", "12171"]) {
+      dies[code] = `die_${randomUUID()}`;
+      await env.db.insert(die).values({ id: dies[code], companyId, series: "DOMAL", sectionCode: code, weightMinG: 6000, weightMaxG: 6200 } as never);
+    }
     const id = `so_${randomUUID()}`;
     await env.db.insert(salesOrder).values({
       id,
@@ -282,39 +291,81 @@ describe("A5: an order book matches the plant's live orders", () => {
       orderDate: set.orderDate,
       note: set.note ?? null,
     } as never);
+    await env.db.insert(salesOrderLine).values({
+      id: `sol_${randomUUID()}`,
+      companyId,
+      salesOrderId: id,
+      lineNo: 1,
+      dieId: dies["12170"]!,
+      cutLengthMm: 3660,
+      kgG: 500_000,
+    } as never);
     return id;
   }
 
-  async function orderSheet(poColumn: boolean, live: { poNumber?: string | null; note?: string | null; orderDate: string }) {
+  async function orderSheet(live: Live, opts: { poColumn?: boolean; undated?: boolean; rows?: string[][] } = {}) {
     const p = await plant();
     const acme = await p.owner.customer.create({ name: "Acme Traders" });
     const orderId = await liveOrder(p.companyId, acme.id, live);
-    await learnLayout(p.companyId, p.users.owner.id, ratedBaki(poColumn), "Baki");
-    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    await learnLayout(p.companyId, p.users.owner.id, ratedBaki(opts.poColumn, opts.undated), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: opts.rows ?? [BAKI_ROW] }]);
     const id = candidates[0]!.id;
+    if (opts.undated) await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-11-30" });
     await pump(p.owner, id);
-    // The section is not in orrn: say it is an old die, so the row can be created or matched.
-    let c = await p.owner.ingest.candidate.get({ candidateId: id });
-    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
-    await pump(p.owner, id);
-    const row = (await p.owner.ingest.rows.list({ candidateId: id })).items[0]!;
-    return { p, orderId, row };
+    const rows = (await p.owner.ingest.rows.list({ candidateId: id })).items.sort((a, b) => a.rowIndex - b.rowIndex);
+    return { p, id, orderId, row: rows[0]!, rows };
   }
 
   test("same party and PO as a live order: unchanged, matched to it", async () => {
-    const { orderId, row } = await orderSheet(true, { poNumber: "ob-1", orderDate: "2025-09-01" });
+    const { orderId, row } = await orderSheet({ poNumber: "ob-1", orderDate: "2025-09-01" }, { poColumn: true });
     expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
     expect(row.reasons).toContain("order_exists");
   });
 
   test("no PO: same party, date and old order number as a live order is unchanged", async () => {
-    const { orderId, row } = await orderSheet(false, { note: "Old order no. OB-1", orderDate: "2025-10-01" });
+    const { orderId, row } = await orderSheet({ note: "Old order no. OB-1", orderDate: "2025-10-01" });
     expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
   });
 
   test("a different old order number is still a new order", async () => {
-    const { row } = await orderSheet(false, { note: "Old order no. OB-2", orderDate: "2025-10-01" });
+    const { row } = await orderSheet({ note: "Old order no. OB-2", orderDate: "2025-10-01" });
     expect(row.state).toBe("ready_create");
+  });
+
+  test("with a date column, the same old order number on another date is a new order", async () => {
+    const { row } = await orderSheet({ note: "Old order no. OB-1", orderDate: "2025-09-15" });
+    expect(row.state).toBe("ready_create");
+  });
+
+  test("no date column: the as-of date moves each file, so party and old order number alone match", async () => {
+    // Last month's book was merged with its as-of date; this book's as-of date is 2025-11-30.
+    const { orderId, row } = await orderSheet({ note: "Old order no. OB-1", orderDate: "2025-10-31" }, { undated: true });
+    expect(row.values?.orderDate).toBe("2025-11-30");
+    expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
+    expect(row.reasons).toContain("order_exists");
+  });
+
+  test("a new line on a live order is a conflict for a person, never unchanged", async () => {
+    const newLine = [...BAKI_ROW];
+    newLine[4] = "DOMAL 12171";
+    const { p, id, orderId, rows } = await orderSheet({ poNumber: "OB-1", orderDate: "2025-09-01" }, { poColumn: true, rows: [BAKI_ROW, newLine] });
+    expect(rows[0]).toMatchObject({ state: "unchanged", matchId: orderId });
+    expect(rows[1]).toMatchObject({ state: "conflict", matchId: orderId });
+    expect(rows[1]!.reasons).toContain("order_line_new");
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.state).toBe("ready");
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    // The merge cannot add a line to a live order, so the file's version is refused.
+    await expect(
+      p.owner.ingest.rows.decide({ candidateId: id, rowIds: [rows[1]!.id], decision: "keep_file", expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/not on the order in orrn/);
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [rows[1]!.id], decision: "keep_live", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    const after = (await p.owner.ingest.rows.list({ candidateId: id })).items.sort((a, b) => a.rowIndex - b.rowIndex);
+    expect(after[1]).toMatchObject({ state: "unchanged", matchId: orderId });
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c.state).toBe("approved");
   });
 });
 
