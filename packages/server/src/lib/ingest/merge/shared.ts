@@ -74,6 +74,21 @@ export const MESSAGE_MAX = 300;
 export const CHUNK_MARK = "ingest_merge_chunk";
 
 /**
+ * Where a chunk sits in its run's `seq` (B-new-2). A planned or sent chunk has a seq of at least
+ * this; it is planned there in merge order. A finished chunk (written or failed, including the empty
+ * chunks planning records) moves below it, to the next free seq from 0, so finished chunks are
+ * numbered 0, 1, 2 in the order they finished. The write step then finds the next chunk with one
+ * read on `ingest_merge_chunk_run_seq_unique` (`seq >= SEQ_PLANNED_FROM`), and never walks the
+ * chunks finished before it. A run never holds a billion chunks.
+ */
+export const SEQ_PLANNED_FROM = 1_000_000_000;
+
+/** The next free finished seq of a run (see SEQ_PLANNED_FROM), as SQL for an insert or update. */
+export function finishedSeq(runId: string): SQL {
+  return sql`(select coalesce(max(f.seq), -1) + 1 from ingest_merge_chunk f where f.run_id = ${runId} and f.seq < ${SEQ_PLANNED_FROM})`;
+}
+
+/**
  * The tenant filter `company_id = ?` written so SQLite never takes it as the index (a unary plus).
  * Use it next to a primary key `IN` list. With no ANALYZE statistics SQLite guesses 10 rows for one
  * company and would walk the company's whole index instead of the listed ids: for 50 ids of a

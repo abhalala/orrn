@@ -25,7 +25,7 @@
  *   else is planned.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, inArray, isNull, lt, max, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 
 import {
@@ -48,7 +48,19 @@ import type { IngestCtx, MergeStepOut } from "../types";
 import { ADAPTERS } from "./adapters";
 import { callerFor } from "./caller";
 import { chunkIdOf, planPage } from "./planner";
-import { CHUNK_MARK, companyNotIndexed, failureOf, MESSAGE_MAX, pendingKeys, type ChunkFailure, type ChunkRow, type StagedRow, type Written } from "./shared";
+import {
+  CHUNK_MARK,
+  companyNotIndexed,
+  failureOf,
+  finishedSeq,
+  MESSAGE_MAX,
+  pendingKeys,
+  SEQ_PLANNED_FROM,
+  type ChunkFailure,
+  type ChunkRow,
+  type StagedRow,
+  type Written,
+} from "./shared";
 
 const ACTIVE: MergeRunState[] = ["planning", "running"];
 /**
@@ -205,27 +217,18 @@ export async function stepMerge(ctx: IngestCtx, input: { runId: string; expectCu
 
 async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Promise<void> {
   // A stuck chunk moved in from an earlier run is resent first, while nothing else of its candidate
-  // is queued, so its range holds exactly its own rows (B-new-1).
-  const [resend] = await ctx.db
+  // is queued, so its range holds exactly its own rows (B-new-1). It was moved to the top of the
+  // planned chunks, so only the top one is read.
+  const [top] = await ctx.db
     .select()
     .from(ingestMergeChunk)
-    .where(
-      and(
-        eq(ingestMergeChunk.runId, run.id),
-        eq(ingestMergeChunk.companyId, ctx.companyId),
-        inArray(ingestMergeChunk.state, ["planned", "sent"]),
-        eq(ingestMergeChunk.errorCode, STUCK_CODE),
-      ),
-    )
-    .orderBy(asc(ingestMergeChunk.seq))
+    .where(and(eq(ingestMergeChunk.runId, run.id), gte(ingestMergeChunk.seq, SEQ_PLANNED_FROM), eq(ingestMergeChunk.companyId, ctx.companyId)))
+    .orderBy(desc(ingestMergeChunk.seq))
     .limit(1);
-  if (resend) return writeChunk(ctx, run, expectCursor, resend);
-
-  const [top] = await ctx.db
-    .select({ seq: max(ingestMergeChunk.seq) })
-    .from(ingestMergeChunk)
-    .where(and(eq(ingestMergeChunk.runId, run.id), eq(ingestMergeChunk.companyId, ctx.companyId)));
-  const firstSeq = (top?.seq ?? -1) + 1;
+  if (top && top.errorCode === STUCK_CODE && (top.state === "planned" || top.state === "sent")) {
+    return writeChunk(ctx, run, expectCursor, top);
+  }
+  const firstSeq = top ? top.seq + 1 : SEQ_PLANNED_FROM;
 
   // A stuck chunk of a candidate merging again moves into this run before anything is planned. It
   // keeps its id (its replay key) and its STUCK_CODE, which marks it for the resend above.
@@ -273,7 +276,8 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
       runId: run.id,
       candidateId: page.candidateId,
       target: candidate.target!,
-      seq: firstSeq,
+      // Finished when recorded: below the planned chunks (SEQ_PLANNED_FROM).
+      seq: finishedSeq(run.id),
       rowFrom: -1,
       rowTo: -1,
       rowCount: 0,
@@ -352,7 +356,16 @@ async function writeStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Pro
   const [chunk] = await ctx.db
     .select()
     .from(ingestMergeChunk)
-    .where(and(eq(ingestMergeChunk.runId, run.id), eq(ingestMergeChunk.companyId, ctx.companyId), inArray(ingestMergeChunk.state, ["planned", "sent"])))
+    // Only planned and sent chunks sit at SEQ_PLANNED_FROM and above: one read, however many
+    // chunks the run has finished (B-new-2).
+    .where(
+      and(
+        eq(ingestMergeChunk.runId, run.id),
+        gte(ingestMergeChunk.seq, SEQ_PLANNED_FROM),
+        eq(ingestMergeChunk.companyId, ctx.companyId),
+        inArray(ingestMergeChunk.state, ["planned", "sent"]),
+      ),
+    )
     .orderBy(asc(ingestMergeChunk.seq))
     .limit(1);
   if (!chunk) return finish(ctx, run, expectCursor);
@@ -438,7 +451,7 @@ function stuckStatements(ctx: IngestCtx, run: RunRow, chunk: ChunkRow, others: r
   return [
     ctx.db
       .update(ingestMergeChunk)
-      .set({ state: "failed", errorCode: STUCK_CODE, errorMessage: STUCK_MESSAGE })
+      .set({ state: "failed", errorCode: STUCK_CODE, errorMessage: STUCK_MESSAGE, seq: finishedSeq(run.id) })
       .where(
         and(
           eq(ingestMergeChunk.id, chunk.id),
@@ -658,7 +671,7 @@ async function recordChunk(
   const mine = and(eq(ingestMergeChunk.id, chunk.id), eq(ingestMergeChunk.companyId, ctx.companyId), eq(ingestMergeChunk.state, "sent"), eq(ingestMergeChunk.sentAt, chunk.sentAt!));
   if (!failure) {
     statements.push(
-      ctx.db.update(ingestMergeChunk).set({ state: "written", writtenAt: at, errorCode: null, errorMessage: null }).where(mine),
+      ctx.db.update(ingestMergeChunk).set({ state: "written", writtenAt: at, errorCode: null, errorMessage: null, seq: finishedSeq(run.id) }).where(mine),
       ingestAbortUnlessChanged(ctx.db),
       ...advance(ctx, run.id, expectCursor, { chunksWritten: sql`${ingestMergeRun.chunksWritten} + 1` }),
     );
@@ -670,7 +683,10 @@ async function recordChunk(
   const later = await laterPlanned(ctx, run.id, chunk);
   const writtenIds = new Set(written.map((w) => w.rowId));
   statements.push(
-    ctx.db.update(ingestMergeChunk).set({ state: "failed", errorCode: failure.code, errorMessage: failure.message.slice(0, MESSAGE_MAX) }).where(mine),
+    ctx.db
+      .update(ingestMergeChunk)
+      .set({ state: "failed", errorCode: failure.code, errorMessage: failure.message.slice(0, MESSAGE_MAX), seq: finishedSeq(run.id) })
+      .where(mine),
     ingestAbortUnlessChanged(ctx.db),
     ...requeue(ctx, rows.filter((r) => !writtenIds.has(r.id)).map((r) => r.id)),
     ...deleteChunks(ctx, later),

@@ -6,6 +6,8 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
+import type { IngestTarget } from "@orrn/db/schema/ingest";
+
 import { createTestEnv, type TestEnv } from "./harness";
 import { apiFor, candidateRow, contextFor, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 
@@ -28,6 +30,14 @@ afterAll(async () => {
  * 24,210 rows for the first step.
  */
 export const STEP_ROWS_READ_MAX = 1_000;
+
+/**
+ * How many more rows the last write step of a run may read than its first. A step reads its own
+ * chunk, never the chunks written before it: before this fix the last step of a 500-chunk run read
+ * about 250 rows more than the first (half a row per earlier chunk), which passes 1,000 rows near
+ * 5,000 chunks (a 50,000-line book).
+ */
+export const STEP_GROWTH_MAX = 20;
 
 /** Rows recorded per statement when each row was written to its own record (Bm7). */
 const RECORD_ROWS_PER_STATEMENT = 30;
@@ -99,33 +109,20 @@ function counting(d1: D1Database, tally: Tally): D1Database {
   });
 }
 
-/** Staged order rows straight into D1, 8 rows per insert (under 100 bound parameters). */
-async function seedOrderBook(companyId: string, customerId: string, dieId: string): Promise<string> {
-  const seeded = await seedCandidate(env, companyId, "orders", []);
+/** Staged rows straight into D1, 8 rows per insert (under 100 bound parameters). */
+async function seedBulk(companyId: string, target: IngestTarget, total: number, valuesAt: (i: number) => Record<string, unknown>): Promise<string> {
+  const seeded = await seedCandidate(env, companyId, target, []);
   const { ingestStagedRow } = await import("@orrn/db/schema/ingest");
-  const rows = Array.from({ length: ROWS }, (_, i) => {
-    const order = i % ORDERS;
-    const lineNo = Math.floor(i / ORDERS);
-    return {
-      id: `b${seeded.candidateId}-${i}`,
-      companyId,
-      rowKey: `k${seeded.candidateId}-${i}`,
-      candidateId: seeded.candidateId,
-      rowIndex: i,
-      raw: [],
-      values: {
-        customer: "Party",
-        oldOrderNo: `O-${order}`,
-        orderDate: "2025-10-31",
-        series: "R",
-        sectionCode: "8100",
-        cutLength: 3000 + lineNo * 100,
-        bakiKg: 250_000,
-        _ids: { customer: customerId, sectionCode: dieId },
-      },
-      state: "ready_create" as const,
-    };
-  });
+  const rows = Array.from({ length: total }, (_, i) => ({
+    id: `b${seeded.candidateId}-${i}`,
+    companyId,
+    rowKey: `k${seeded.candidateId}-${i}`,
+    candidateId: seeded.candidateId,
+    rowIndex: i,
+    raw: [],
+    values: valuesAt(i),
+    state: "ready_create" as const,
+  }));
   const inserts = [];
   for (let i = 0; i < rows.length; i += 8) inserts.push(env.db.insert(ingestStagedRow).values(rows.slice(i, i + 8)));
   for (let i = 0; i < inserts.length; i += 100) {
@@ -133,6 +130,24 @@ async function seedOrderBook(companyId: string, customerId: string, dieId: strin
     await env.db.batch(part as unknown as Parameters<typeof env.db.batch>[0]);
   }
   return seeded.candidateId;
+}
+
+/**
+ * An order book. Row i is on order `i % orders`, so the orders interleave over the whole sheet;
+ * with `orders` equal to `rows` every order has one line.
+ */
+async function seedOrderBook(companyId: string, customerId: string, dieId: string, opts: { rows?: number; orders?: number } = {}): Promise<string> {
+  const orderCount = opts.orders ?? ORDERS;
+  return seedBulk(companyId, "orders", opts.rows ?? ROWS, (i) => ({
+    customer: "Party",
+    oldOrderNo: `O-${i % orderCount}`,
+    orderDate: "2025-10-31",
+    series: "R",
+    sectionCode: "8100",
+    cutLength: 3000 + Math.floor(i / orderCount) * 100,
+    bakiKg: 250_000,
+    _ids: { customer: customerId, sectionCode: dieId },
+  }));
 }
 
 describe("bounded write steps (B-new-2)", () => {
@@ -173,6 +188,39 @@ describe("bounded write steps (B-new-2)", () => {
     expect(await env.db.select({ id: salesOrderLine.id }).from(salesOrderLine).where(eq(salesOrderLine.companyId, companyId))).toHaveLength(150);
     await api.ingest.merge.stop({ runId });
   }, 120_000);
+
+  test(`the last write step of a 500-chunk run reads no more than the first one (at most ${STEP_GROWTH_MAX} rows more)`, async () => {
+    const { companyId } = await env.seedCompany();
+    const api0 = await apiFor(await contextFor(env, companyId, "admin"));
+    const v = await api0.vendor.create({ name: "Mahadev Scrap" });
+    // 10,000 vendor aliases, 20 a chunk: 500 chunks. Each is the vendor's own name, so a chunk adds
+    // nothing and calls no procedure: the step's reads are the runner's own.
+    await seedBulk(companyId, "vendor_aliases", 10_000, () => ({ vendor: "Mahadev Scrap", alias: "Mahadev Scrap", _ids: { vendor: v.id } }));
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    while (last.state === "planning") last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+    expect(last.chunksTotal).toBe(500);
+
+    const reads: number[] = [];
+    while (last.chunksWritten < last.chunksTotal) {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    expect(last.chunksFailed).toBe(0);
+    expect(reads).toHaveLength(500);
+    if (process.env.DEBUG_READS) console.log("FIRST, LAST STEP READS", reads[0], reads.at(-1), Math.max(...reads));
+    for (const n of reads) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX);
+    // The step finds its chunk without walking the 499 chunks written before it.
+    expect(reads.at(-1)!).toBeLessThanOrEqual(reads[0]! + STEP_GROWTH_MAX);
+    last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+    expect(last.state).toBe("done");
+  }, 300_000);
 
   test(`recording a written chunk sends one statement per order or per ${RECORD_ROWS_PER_STATEMENT} rows, not one per row (Bm7)`, async () => {
     const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });

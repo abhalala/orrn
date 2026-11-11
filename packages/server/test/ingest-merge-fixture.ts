@@ -168,7 +168,8 @@ export async function auditRows(env: TestEnv, companyId: string, action: string)
  */
 export async function rewindToCrash(env: TestEnv, runId: string, candidateId: string, opts: { sentAgoMs?: number } = {}): Promise<number> {
   const { ingestCandidate, ingestMergeChunk, ingestMergeRun, ingestStagedRow } = await import("@orrn/db/schema/ingest");
-  const { and, eq } = await import("drizzle-orm");
+  const { and, eq, sql } = await import("drizzle-orm");
+  const { SEQ_PLANNED_FROM } = await import("../src/lib/ingest/merge/shared");
   const [run] = await env.db.select().from(ingestMergeRun).where(eq(ingestMergeRun.id, runId));
   const cursor = run!.cursor - 2;
   await env.db
@@ -177,7 +178,8 @@ export async function rewindToCrash(env: TestEnv, runId: string, candidateId: st
     .where(eq(ingestMergeRun.id, runId));
   await env.db
     .update(ingestMergeChunk)
-    .set({ state: "sent", writtenAt: null, sentAt: new Date(Date.now() - (opts.sentAgoMs ?? 120_000)) })
+    // A sent chunk sits among the planned ones (SEQ_PLANNED_FROM); only a finished chunk moves below.
+    .set({ state: "sent", writtenAt: null, sentAt: new Date(Date.now() - (opts.sentAgoMs ?? 120_000)), seq: sql`${ingestMergeChunk.seq} + ${SEQ_PLANNED_FROM}` })
     .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.candidateId, candidateId)));
   // A queued row carries its chunk's mark (CHUNK_MARK, B-new-2) until it is written.
   const { CHUNK_MARK } = await import("../src/lib/ingest/merge/shared");
