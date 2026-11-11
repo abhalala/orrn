@@ -484,3 +484,28 @@ describe("A27: the D1 bot run store", () => {
     ]);
   });
 });
+
+describe("A9: a bot or editor layout stores normalized headers, so a variant near-fits", () => {
+  test("bot layout approved; the next file with one extra column is a near fit, not a new bot call", async () => {
+    const p = await plant();
+    setShapeClientForTests(new FakeShapeClient([khataAnswer()]));
+    const { candidates } = await upload(p.admin, [KHATA]);
+    const c = candidates[0]!;
+    await p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq });
+    await pump(p.admin, c.id);
+    const ready = await p.admin.ingest.candidate.get({ candidateId: c.id });
+    expect(ready.recipe).toMatchObject({ match: { headers: ["khata", "gaam"] } });
+    await p.admin.ingest.candidate.approve({ candidateId: c.id, expectSeq: ready.serverSeq });
+    const next = await upload(p.admin, [{ headers: ["Khata", "Gaam", "Mobile"], rows: [["Chetak", "Morbi", "98"]] }]);
+    expect(next.candidates[0]).toMatchObject({ fit: "near", state: "needs_confirm", target: "customers" });
+  });
+
+  test("shape.save with raw headers in match is stored normalized", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [KHATA]);
+    const c = candidates[0]!;
+    const recipe = (khataAnswer().json as { result: { recipe: Recipe } }).result.recipe;
+    const saved = await p.admin.ingest.shape.save({ candidateId: c.id, recipe, holeName: "Khata", expectSeq: c.serverSeq });
+    expect(saved.recipe).toMatchObject({ match: { headers: ["khata", "gaam"] } });
+  });
+});

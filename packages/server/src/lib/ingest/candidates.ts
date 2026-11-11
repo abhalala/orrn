@@ -12,6 +12,7 @@ import {
   unitsFor,
   fingerprint,
   fitBlock,
+  normalizeHeaders,
   recipeSchema,
   validateRecipe,
   type FitResult,
@@ -424,6 +425,14 @@ async function draftVersion(
   return { statements, versionId };
 }
 
+/**
+ * The recipe as stored: its match is the block's header key and normalized headers, never what a
+ * model or the editor wrote, so the next file of this shape fits exactly or near (A9).
+ */
+function withBlockMatch(recipe: Recipe, block: BlockRow): Recipe {
+  return { ...recipe, match: { headerKey: block.headerKey, headers: normalizeHeaders(block.headers, block.columnCount) } };
+}
+
 function layoutName(c: CandidateRow, block: BlockRow, fallback: string): string {
   void c;
   return (block.sheetName || fallback).slice(0, 100);
@@ -447,7 +456,7 @@ export async function confirmNear(
   const block = await loadBlock(ctx, c.blockId);
   const builtin = c.holeRef ? findBuiltin(c.holeRef) : null;
   const artifact = await loadArtifact(ctx, c.artifactId);
-  const { statements, versionId } = await draftVersion(ctx, c, { ...recipe, match: { ...recipe.match, headerKey: block.headerKey } }, {
+  const { statements, versionId } = await draftVersion(ctx, c, withBlockMatch(recipe, block), {
     name: builtin ? layoutName(c, block, artifact.fileName) : layoutName(c, block, artifact.fileName),
     madeBy: "person",
     headerKey: block.headerKey,
@@ -478,7 +487,7 @@ export async function saveShape(
   }
   await assertTargetFree(ctx, c, recipe.target);
   const madeBy = c.fit === "bot" ? "bot_edited" : "person";
-  const stored = { ...recipe, match: { ...recipe.match, headerKey: block.headerKey } };
+  const stored = withBlockMatch(recipe, block);
   const { statements, versionId } = await draftVersion(ctx, c, stored, { name: input.holeName, madeBy, headerKey: block.headerKey });
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, {
@@ -577,7 +586,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
       .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, c.blockId), eq(ingestCandidate.target, recipe.target), ne(ingestCandidate.id, c.id)))
       .limit(1);
     if (free.length === 0) {
-      const stored = { ...recipe, match: { ...recipe.match, headerKey: block.headerKey } };
+      const stored = withBlockMatch(recipe, block);
       const { statements, versionId } = await draftVersion(ctx, c, stored, {
         name: layoutName(c, block, artifact.fileName),
         madeBy: "bot",
