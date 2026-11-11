@@ -306,3 +306,32 @@ describe("rate limit on /request-password-reset (BACKLOG 23)", () => {
     expect(await throttleHit(db, key, t0 + RESET_LIMIT.windowMs + 1)).toBe(true);
   });
 });
+
+describe("auth log redaction", () => {
+  test("redacts addresses in messages and nested arguments", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    const redacted = redactAuthLog({
+      message: "Reset Password: User not found person@example.com",
+      nested: ["Second.Person+tag@example.co.uk", 42],
+    });
+    expect(redacted).toEqual({
+      message: "Reset Password: User not found [redacted email]",
+      nested: ["[redacted email]", 42],
+    });
+  });
+
+  test("Better Auth does not print an unknown reset address", async () => {
+    const error = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const email = `unknown.${crypto.randomUUID().slice(0, 8)}@test.orrn`;
+      const res = await post("request-password-reset", { email, redirectTo: "https://app.test/reset-password" });
+      expect(res.status).toBe(200);
+      const logged = error.mock.calls.map((args) => args.map((arg) => typeof arg === "string" ? arg : JSON.stringify(arg)).join(" ")).join("\n");
+      expect(logged).toContain("Reset Password: User not found");
+      expect(logged).toContain("[redacted email]");
+      expect(logged).not.toContain(email);
+    } finally {
+      error.mockRestore();
+    }
+  });
+});
