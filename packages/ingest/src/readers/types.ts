@@ -11,6 +11,13 @@ export type PreviewRow = { row: number; page?: number; cells: string[] };
 export const PREVIEW_ROWS = 12;
 
 /**
+ * When the window moves down (a long title, or rows of numbers only further down), the first rows of the region are
+ * shown too, so a preview may hold `PREVIEW_ROWS + PREVIEW_HEAD_ROWS` rows. A preview with a gap in its row numbers
+ * left rows out, and `chooseHeader` then asks (PORTAL-RULES-3 section 5.1, M6).
+ */
+export const PREVIEW_HEAD_ROWS = 3;
+
+/**
  * Hints for one block. With hints a reader does not guess: the block follows them exactly. Row numbers are raw rows:
  * for a sheet or CSV the 0-based row of the sheet, for a PDF the 0-based line on the page (the numbers in `preview`).
  * - `headerRow`: the raw row that holds the column names (the top one when the header has two rows).
@@ -38,8 +45,8 @@ export type BlockHints = {
  * - `skipped_by_hint`: a row between the header and the hinted first data row.
  * - `after_last_row`: a row after the hinted last data row that no other block takes.
  * - `kept_as_title`: a row above the header, kept in the block's title, not in its rows. It may be data.
- * - `columns_not_matched` (PDF hints): two cells of the line fell under one header cell, so the page does not give one
- *   column per header cell there. The cells are joined in that column; the row is kept. Check the table or pick again.
+ * - `columns_not_matched`: no longer given since round 5; a PDF row in doubt is a `RowDoubt` in `doubts`. Kept so
+ *   stored reads still parse.
  */
 export type RowWarning = {
   code: "not_placed" | "footer_left_out" | "title_repeated" | "skipped_by_hint" | "after_last_row" | "kept_as_title" | "columns_not_matched";
@@ -47,6 +54,25 @@ export type RowWarning = {
   /** 1-based page, for PDF only. */
   page?: number;
 };
+
+/**
+ * Doubt about how a PDF line was split into the block's columns (PORTAL-RULES-3 section 5.3). The row is kept, and the
+ * dry run stages it as "check this row against the file" instead of ready.
+ * - `crosses_column`: an item crosses the edge of its column by more than a quarter of its width.
+ * - `cells_joined`: two items of the line fell in one column and are not one phrase; they are joined with a space.
+ * - `cells_close`: two items closer than two average character widths fell in different columns.
+ * - `few_columns`: the line fills fewer than half the columns.
+ * - `off_column`: a cell does not line up with its column: a value under a blank header cell put in a named
+ *   neighbour's column, or a remark past the edge of the table. Not one of the four kinds the rule names; added so
+ *   those rows are never silent either.
+ */
+export type DoubtCode = "crosses_column" | "cells_joined" | "cells_close" | "few_columns" | "off_column";
+
+/**
+ * A row of `rows` the reader is not sure it split right. `row` is the index in `rows`; `line` the raw row (for PDF the
+ * page line, the number in the preview) the doubt was found on, and `page` its 1-based page. One entry per code.
+ */
+export type RowDoubt = { row: number; code: DoubtCode; line: number; page?: number };
 
 /**
  * A table found in a file: what every reader returns (PORTAL-RULES-3 section 4.1).
@@ -71,7 +97,7 @@ export type ReadBlock = {
   rows: string[][];
   /** Row of the sheet where the first data row sits, 0-based. Row `i` of `rows` is sheet row `firstDataSheetRow + i`. */
   firstDataSheetRow: number;
-  /** At most `PREVIEW_ROWS` raw rows of the block's region, before any header was applied. */
+  /** Raw rows of the block's region, before any header was applied: `PREVIEW_ROWS`, plus `PREVIEW_HEAD_ROWS` when the window moved. */
   preview: PreviewRow[];
   /** The header the rows were read under, as hints in raw row numbers: the reader's guess, or the hints it was given. */
   guess: BlockHints;
@@ -79,6 +105,8 @@ export type ReadBlock = {
   hints: BlockHints | null;
   /** Rows of this block's region that are not in `rows`. */
   warnings: RowWarning[];
+  /** Rows of `rows` whose split into columns is in doubt (PDF only; sheets, CSV and SQL give none). */
+  doubts: RowDoubt[];
 };
 
 /** What a spreadsheet library hands over for a cell. No library objects: only these plain values. */

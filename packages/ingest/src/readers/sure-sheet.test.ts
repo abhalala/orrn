@@ -71,9 +71,12 @@ describe("preview: the raw rows of the region, before any header", () => {
     expect(b!.preview[1]).toEqual({ row: 1, cells: ["", "Min", "Max", ""] });
   });
 
-  test("the second table's preview starts after the first table", () => {
+  // Round 5, rule 5.2: a guessed split shows the rows around it in both previews. This pinned the second preview
+  // starting after the first table; it now pins the last row of the first table and the blank row before it.
+  test("the second table's preview shows the end of the first table, then its own rows", () => {
     const blocks = findBlocks([["Series", "Section", "Qty"], ["R", "2105", 4], [], ["Pending"], ["Party", "Section", "Qty"], ["Om", "2105", 7]]);
-    expect(blocks[1]!.preview.map((p) => p.row)).toEqual([3, 4, 5]);
+    expect(blocks[1]!.preview.map((p) => p.row)).toEqual([1, 2, 3, 4, 5]);
+    expect(blocks[0]!.preview.map((p) => p.row)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(blocks[1]!.guess.headerRow).toBe(4);
   });
 

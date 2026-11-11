@@ -7,7 +7,11 @@ import type { BlockHints, ReadBlock } from "./types";
 
 export type CsvDelimiter = "," | ";" | "\t" | "|";
 
-/** The delimiter that splits the first lines evenly. Quoted text is ignored. Comma when nothing is clear. */
+/**
+ * The delimiter that splits the first lines evenly, header included (M7). Quoted text is ignored, and so is a comma
+ * between two digits ("1,200", "12,5"). A tie goes to tab, then semicolon, then pipe, then comma. Comma when nothing
+ * is clear.
+ */
 export function detectDelimiter(sample: string): CsvDelimiter {
   const lines: string[] = [];
   let cur = "";
@@ -23,13 +27,15 @@ export function detectDelimiter(sample: string): CsvDelimiter {
   if (cur.trim() !== "" && lines.length < 8) lines.push(cur);
   let best: CsvDelimiter = ",";
   let bestScore = 0;
-  for (const d of [",", ";", "\t", "|"] as const) {
+  const digit = (ch: string | undefined) => ch !== undefined && ch >= "0" && ch <= "9";
+  for (const d of ["\t", ";", "|", ","] as const) {
     const counts = lines.map((l) => {
       let c = 0;
       let q = false;
-      for (const ch of l) {
+      for (let i = 0; i < l.length; i++) {
+        const ch = l[i]!;
         if (ch === '"') q = !q;
-        else if (!q && ch === d) c++;
+        else if (!q && ch === d && !(d === "," && digit(l[i - 1]) && digit(l[i + 1]))) c++;
       }
       return c;
     });

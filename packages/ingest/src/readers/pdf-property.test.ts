@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { pdfMismatch } from "./trust-helpers";
 import { readPdfText, type TextItem } from "./pdf-text";
 
 // Generated pages: tables with known columns at random x positions and row pitches, with titles, footers, wrapped
@@ -211,11 +212,18 @@ describe("pdf reader, generated tables", () => {
         warned++;
         // Even with a warning, no cell may hold two generated values.
         const known = new Set(c.tables.flatMap((t) => [...t.headers, ...t.rows.flat()]));
-        for (const b of r.blocks) for (const row of b.rows) for (const cell of row) if (cell !== "") expect(known.has(cell), `${c.label}: ${cell}`).toBe(true);
+        // Round 5: a row that carries a doubt may hold joined values (rule 5.3); it is staged as "check this row".
+        for (const b of r.blocks) {
+          const marked = new Set(b.doubts.map((d) => d.row));
+          b.rows.forEach((row, i) => {
+            if (!marked.has(i)) for (const cell of row) if (cell !== "") expect(known.has(cell), `${c.label}: ${cell}`).toBe(true);
+          });
+        }
         continue;
       }
-      const got = r.blocks.map((b) => ({ title: b.title, headers: b.headers, rows: b.rows }));
-      expect(got, c.label).toEqual(c.tables);
+      // Rule 5.5: exact, or every wrong row carries a doubt (round 5; was strict equality of the rows).
+      expect(r.blocks.map((b) => [b.title, b.headers]), c.label).toEqual(c.tables.map((t) => [t.title, t.headers]));
+      r.blocks.forEach((b, k) => expect(pdfMismatch(b, c.tables[k]!), c.label).toBeNull());
       exact++;
     }
     expect(exact + warned).toBe(600);

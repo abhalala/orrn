@@ -16,7 +16,7 @@ import { chooseHeader, type HeaderHoles } from "../header";
 import { combineHeaders, finishShape, readSheet, toCellText } from "./blocks";
 import { readCsv } from "./csv";
 import { readPdfText, type TextItem } from "./pdf-text";
-import { layoutOf } from "./trust-helpers";
+import { layoutOf, pdfMismatch } from "./trust-helpers";
 import type { BlockHints, MatrixCell, ReadBlock } from "./types";
 
 type Rand = () => number;
@@ -280,7 +280,9 @@ describe("round 4 acceptance property", () => {
 
       const pdf = toPdf(g, seed);
       const read = readPdfText(pdf.pages, { hints: pdf.truths.map((t) => t.hint) });
-      expect(read.blocks.map(view), `${label} pdf ${JSON.stringify(pdf.truths.map((t) => t.hint))}`).toEqual(pdf.truths.map(viewTruth));
+      // Rule 5.5: exact, or every wrong row carries a doubt (round 5; was strict equality, see sure-property-pdf).
+      expect(read.blocks.length, label).toBe(pdf.truths.length);
+      read.blocks.forEach((b, k) => expect(pdfMismatch(b, pdf.truths[k]!), `${label} pdf ${JSON.stringify(pdf.truths.map((t) => t.hint))}`).toBeNull());
       const pdfLearned: HeaderHoles = { learned: pdf.truths.map((t, k) => layoutOf(t.headers, `t${k}`)) };
       for (const b of readPdfText(pdf.pages).blocks) {
         expect(wrongFit(b, pdf.truths, {}), `${label} pdf guess`).toBeNull();

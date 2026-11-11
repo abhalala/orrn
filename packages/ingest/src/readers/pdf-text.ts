@@ -6,8 +6,8 @@
  * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `readSheet` like a sheet.
  */
 import { cellKind, inferKind } from "../cells";
-import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isWord, previewStart, readSheet, TITLE_MARK } from "./blocks";
-import { PREVIEW_ROWS, type BlockHints, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
+import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isValueCell, isWord, previewIndices, readSheet, regionStartOf, TITLE_MARK } from "./blocks";
+import { type BlockHints, type DoubtCode, type PreviewRow, type ReadBlock, type RowDoubt, type RowWarning } from "./types";
 
 export type TextItem = {
   str: string;
@@ -29,7 +29,10 @@ export type PdfTextOptions = {
   hints?: readonly BlockHints[] | null;
 };
 
-type Cell = { text: string; x0: number; x1: number };
+/** A text item as placed on the page. */
+type Part = { text: string; x0: number; x1: number };
+/** Items on one line close enough to read as one cell. `parts`: the items it was merged from, left to right. */
+type Cell = { text: string; x0: number; x1: number; parts?: Part[] };
 /** A line of text on the page; `n` is its 0-based line number, the raw row number of a PDF page. */
 type Line = { y: number; cells: Cell[]; n: number };
 type Col = [number, number];
@@ -227,11 +230,13 @@ function pageLines(itemsIn: readonly TextItem[], opts: PdfTextOptions): { lines:
     const cells: Cell[] = [];
     for (const it of current) {
       const last = cells[cells.length - 1];
+      const part: Part = { text: it.str, x0: it.x, x1: it.x + it.width };
       if (last && it.x - last.x1 <= gap) {
         const space = it.x - last.x1 > charWidth * 0.2 && !last.text.endsWith(" ") && !it.str.startsWith(" ") ? " " : "";
         last.text += space + it.str;
         last.x1 = Math.max(last.x1, it.x + it.width);
-      } else cells.push({ text: it.str, x0: it.x, x1: it.x + it.width });
+        last.parts!.push(part);
+      } else cells.push({ text: it.str, x0: it.x, x1: it.x + it.width, parts: [part] });
     }
     for (const c of cells) c.text = c.text.replace(/\s+/g, " ").trim();
     const kept = cells.filter((c) => !PAGE_MARK.test(c.text));
@@ -586,18 +591,260 @@ function placeAbove(pre: readonly Line[], rows: readonly LayoutRow[], cols: Col[
 
 /**
  * Raw rows of a PDF page for a preview: lines `from` to `to`, each as its cells, with the 1-based `page`, at most
- * `PREVIEW_ROWS`. A long title moves the window down to the header (`previewStart`).
+ * the window `previewIndices` gives.
  */
 function linesPreview(lines: readonly Line[], from: number, to: number, page: number, header: number, headerRows: number): PreviewRow[] {
-  const out: PreviewRow[] = [];
-  for (let n = previewStart(Math.max(from, 0), header, headerRows); n <= to && n < lines.length && out.length < PREVIEW_ROWS; n++) {
-    out.push({ row: n, page, cells: lines[n]!.cells.map((c) => c.text) });
+  const end = Math.min(to + 1, lines.length);
+  const hasValue = (n: number) => lines[n]!.cells.some((c) => isValueCell(c.text));
+  return previewIndices(Math.max(from, 0), end, header, headerRows, hasValue).map((n) => ({ row: n, page, cells: lines[n]!.cells.map((c) => c.text) }));
+}
+
+/** Where a guessed PDF block's region starts, for the lines listed when it holds no rows. */
+type BlockMeta = { regionStart: number; page: number; headEnd: number };
+/** The page lines of one row of a guessed block: 0-based page, first and last line (a wrapped line makes them differ). */
+type RowSrc = { p: number; line: number; last: number };
+
+// ---------------------------------------------------------------- columns from the header (rule 5.3)
+
+const partsOf = (c: Cell): Part[] => c.parts ?? [{ text: c.text, x0: c.x0, x1: c.x1 }];
+
+/** Two parts of one cell joined as `pageLines` joins items: a space when they do not touch. */
+function joinParts(left: string, leftX1: number, p: Part, charWidth: number): string {
+  const space = p.x0 - leftX1 > charWidth * 0.2 && !left.endsWith(" ") && !p.text.startsWith(" ") ? " " : "";
+  return (left + space + p.text).replace(/\s+/g, " ").trim();
+}
+
+/** The columns of a header: one band per header cell, from the midpoint with its left neighbour to the one with its right. */
+type Bands = { anchors: Col[]; edges: number[]; charWidth: number };
+
+/** A line's cells as spans, split where two items of a cell sit more than one character apart ("Rate" and "Vehicle", M5). */
+function headSpans(l: Line, charWidth: number): Col[] {
+  const out: Col[] = [];
+  for (const c of l.cells) {
+    let open: Col | null = null;
+    for (const p of partsOf(c)) {
+      if (open && p.x0 - open[1] <= charWidth) open[1] = Math.max(open[1], p.x1);
+      else {
+        open = [p.x0, p.x1];
+        out.push(open);
+      }
+    }
   }
   return out;
 }
 
-/** Where a guessed PDF block's region starts, for the lines listed when it holds no rows. */
-type BlockMeta = { regionStart: number; page: number };
+/**
+ * The bands of a header (PORTAL-RULES-3 section 5.3). The header's cells, left to right: the cells of its bottom line,
+ * and cells of a line above that sit over no cell below (a name such as "Party" whose bottom cell is blank). The edge
+ * between two bands is the midpoint between the nearest edges of their header cells; the first and last bands run to
+ * the page edges. This holds for left-aligned, right-aligned and centred headers alike.
+ */
+function bandsOf(headLines: readonly Line[], charWidth: number): Bands {
+  const bottom = headSpans(headLines[headLines.length - 1]!, charWidth);
+  const anchors: Col[] = [...bottom];
+  for (const l of headLines.slice(0, -1)) {
+    for (const sp of headSpans(l, charWidth)) if (!bottom.some((b) => sp[0] < b[1] && sp[1] > b[0])) anchors.push(sp);
+  }
+  anchors.sort((a, b) => a[0] - b[0]);
+  const edges = anchors.slice(1).map((a, k) => (anchors[k]![1] + a[0]) / 2);
+  return { anchors, edges, charWidth };
+}
+
+const bandOf = (b: Bands, x: number) => {
+  let k = 0;
+  while (k < b.edges.length && x >= b.edges[k]!) k++;
+  return k;
+};
+
+/** Where a cell of a line was placed: its band and its x extent. */
+type Span = { band: number; x0: number; x1: number };
+type Placed = { cells: string[]; doubts: DoubtCode[]; spans: Span[] };
+
+/**
+ * A line's items in the bands: each item goes to the band that holds its horizontal centre. `head`: a header line,
+ * where an item over a header cell names that cell's band (a group name over several names the first). `row`: a data
+ * line, with the doubts of rule 5.3 that one line shows. `fold`: the wrapped rest of a row, checked only for crossing.
+ *
+ * When two cells of a data line fall in one band and the band next to the outer one is empty on that line, the outer
+ * cell moves there: a number right-aligned at the end of a wide column can sit past the midpoint to a short
+ * left-aligned name (R4-5). The line still carries `cells_joined`, so the move is never silent.
+ */
+function placeOnBands(l: Line, b: Bands, mode: "head" | "row" | "fold"): Placed {
+  const n = b.anchors.length;
+  const doubts = new Set<DoubtCode>();
+  // Groups: the parts of one cell that fall in one band, left to right.
+  type Group = { band: number; cell: Cell; parts: Part[] };
+  const groups: Group[] = [];
+  for (const c of l.cells) {
+    for (const p of partsOf(c)) {
+      const mid = (p.x0 + p.x1) / 2;
+      const over = mode === "head" ? b.anchors.findIndex(([a, z]) => p.x0 < z && p.x1 > a) : -1;
+      const k = over !== -1 ? over : bandOf(b, mid);
+      if (mode !== "head") {
+        const lo = k === 0 ? -Infinity : b.edges[k - 1]!;
+        const hi = k === n - 1 ? Infinity : b.edges[k]!;
+        const w = p.x1 - p.x0;
+        if (lo - p.x0 > w / 4 || p.x1 - hi > w / 4) doubts.add("crosses_column");
+      }
+      // Parts of one cell are one phrase only when they sit at most one character apart (as `headSpans` splits a
+      // header): two values 8 points apart were merged into one cell by `pageLines`, but are two cells here.
+      const last = groups[groups.length - 1];
+      const lastX1 = last ? last.parts[last.parts.length - 1]!.x1 : -Infinity;
+      if (last && last.band === k && last.cell === c && p.x0 - lastX1 <= b.charWidth) last.parts.push(p);
+      else groups.push({ band: k, cell: c, parts: [p] });
+    }
+  }
+  if (mode === "row") {
+    const used = (k: number) => groups.some((g) => g.band === k);
+    for (let k = 0; k < n; k++) {
+      const inBand = groups.filter((g) => g.band === k);
+      if (inBand.length < 2) continue;
+      doubts.add("cells_joined");
+      if (k > 0 && !used(k - 1)) inBand[0]!.band = k - 1;
+      else if (k < n - 1 && !used(k + 1)) inBand[inBand.length - 1]!.band = k + 1;
+    }
+  }
+  const cells = Array<string>(n).fill("");
+  const spans: Span[] = [];
+  let prev: { band: number; x1: number } | null = null;
+  for (const g of groups) {
+    let text = "";
+    let x1 = -Infinity;
+    for (const p of g.parts) {
+      text = text === "" ? p.text.trim() : joinParts(text, x1, p, b.charWidth);
+      x1 = p.x1;
+    }
+    cells[g.band] = cells[g.band] === "" ? text : `${cells[g.band]} ${text}`;
+    spans.push({ band: g.band, x0: g.parts[0]!.x0, x1 });
+    if (mode === "row" && prev && prev.band !== g.band && g.parts[0]!.x0 - prev.x1 < b.charWidth * 2) doubts.add("cells_close");
+    prev = { band: g.band, x1 };
+  }
+  if (mode === "row" && n >= 2 && cells.filter((x) => x !== "").length * 2 < n) doubts.add("few_columns");
+  return { cells, doubts: [...doubts], spans };
+}
+
+/**
+ * Which placed lines hold a cell that does not line up with its column: a value under a blank header cell put in the
+ * band of a named neighbour, or a remark past the edge of the table (`off_column`). In each band the cells of the
+ * block's lines are grouped by a shared left or right edge (within half a character). A cell lines up when it
+ * overlaps the band's header cell, when its group holds a cell that does, or when the band has one group only (a
+ * right-aligned number past a short left-aligned name lines up with the numbers above and below it).
+ */
+function offColumn(placed: readonly Placed[], b: Bands): Set<number> {
+  const out = new Set<number>();
+  const tol = b.charWidth / 2;
+  for (let k = 0; k < b.anchors.length; k++) {
+    const [a, z] = b.anchors[k]!;
+    const cells: { line: number; x0: number; x1: number; head: boolean }[] = [];
+    placed.forEach((pl, i) => {
+      for (const sp of pl.spans) if (sp.band === k) cells.push({ line: i, x0: sp.x0, x1: sp.x1, head: sp.x0 < z && sp.x1 > a });
+    });
+    if (cells.length === 0) continue;
+    const root = cells.map((_, i) => i);
+    const find = (i: number): number => (root[i] === i ? i : (root[i] = find(root[i]!)));
+    // Sorting by each edge joins neighbours in one pass per edge.
+    for (const edge of ["x0", "x1"] as const) {
+      const order = cells.map((_, i) => i).sort((p, q) => cells[p]![edge] - cells[q]![edge]);
+      for (let j = 1; j < order.length; j++) {
+        if (cells[order[j]!]![edge] - cells[order[j - 1]!]![edge] <= tol) root[find(order[j]!)] = find(order[j - 1]!);
+      }
+    }
+    const good = new Set(cells.map((c, i) => (c.head ? find(i) : -1)).filter((r) => r !== -1));
+    const groups = new Set(cells.map((_, i) => find(i)));
+    if (good.size === 0 && groups.size === 1) continue;
+    cells.forEach((c, i) => {
+      if (!c.head && !good.has(find(i))) out.add(c.line);
+    });
+  }
+  return out;
+}
+
+/** A wrapped line's cells added to the row above it, column by column. */
+function foldInto(row: string[], cells: readonly string[]): void {
+  cells.forEach((c, k) => {
+    if (c !== "") row[k] = row[k] === "" ? c : `${row[k]} ${c}`;
+  });
+}
+
+/** The header names of header lines in the bands: one line as is, two lines combined as a sheet combines them. */
+function headersOnBands(headLines: readonly Line[], b: Bands): string[] {
+  const placed = headLines.map((l) => placeOnBands(l, b, "head").cells);
+  return placed.slice(1).reduce((top, next) => combineHeaders(top, next), placed[0]!);
+}
+
+/** Preview rows as the block's cells (M4): header lines as header names, every other line by the bands. */
+function previewOnBands(preview: readonly PreviewRow[], linesOf: (page: number) => readonly Line[], b: Bands, head: { page: number; from: number; to: number }): PreviewRow[] {
+  return preview.map((pr) => {
+    const l = linesOf(pr.page ?? 1)[pr.row];
+    if (!l) return pr;
+    const isHead = pr.page === head.page && pr.row >= head.from && pr.row <= head.to;
+    return { ...pr, cells: placeOnBands(l, b, isHead ? "head" : "row").cells };
+  });
+}
+
+/** One row of a banded block: its first line, and wrapped lines folded into it. */
+type BandRowSource = { lines: { line: Line; page: number }[] } | null;
+
+/**
+ * Rows from their lines in the bands, with every doubt on its row: the doubts of each line, and `off_column` for a
+ * line with a cell that does not line up with its column (`offColumn`, over all lines of the block).
+ */
+function rowsOnBands(sources: readonly BandRowSource[], b: Bands): { rows: string[][]; doubts: RowDoubt[] } {
+  const n = b.anchors.length;
+  const placed: Placed[] = [];
+  const at: { row: number; line: number; page: number }[] = [];
+  const doubts: RowDoubt[] = [];
+  const rows = sources.map((src, r) => {
+    if (!src) return Array<string>(n).fill("");
+    let row: string[] = [];
+    src.lines.forEach(({ line, page }, k) => {
+      const pl = placeOnBands(line, b, k === 0 ? "row" : "fold");
+      if (k === 0) row = pl.cells;
+      else foldInto(row, pl.cells);
+      placed.push(pl);
+      at.push({ row: r, line: line.n, page });
+      for (const code of pl.doubts) doubts.push({ row: r, code, line: line.n, page });
+    });
+    return row;
+  });
+  for (const i of offColumn(placed, b)) doubts.push({ row: at[i]!.row, code: "off_column", line: at[i]!.line, page: at[i]!.page });
+  // One entry per row and code, in row order.
+  const seen = new Set<string>();
+  const unique = doubts
+    .sort((x, y) => x.row - y.row || x.line - y.line)
+    .filter((d) => {
+      const key = `${d.row}:${d.code}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  return { rows, doubts: unique };
+}
+
+/**
+ * A guessed block's columns from its header (rule 5.3): the guess decides which lines are the header and which are
+ * rows; the header's cells then give the columns, and each row's lines are placed in them, with doubt marked on the
+ * row. The preview is given in the same columns.
+ */
+function bandGuessed(b: ReadBlock, m: BlockMeta, srcs: readonly (RowSrc | null)[], pageOf: (q: number) => { lines: Line[]; charWidth: number }): void {
+  const { lines, charWidth } = pageOf(m.page);
+  const headFrom = b.guess.headerRow;
+  const headLines = lines.slice(headFrom, m.headEnd + 1);
+  if (headLines.length === 0) return;
+  const bands = bandsOf(headLines, charWidth);
+  const sources: BandRowSource[] = srcs.map((sr) => {
+    if (!sr) return null;
+    const ls = pageOf(sr.p).lines;
+    const out: { line: Line; page: number }[] = [];
+    for (let n = sr.line; n <= sr.last; n++) out.push({ line: ls[n]!, page: sr.p + 1 });
+    return { lines: out };
+  });
+  const placed = rowsOnBands(sources, bands);
+  b.headers = headersOnBands(headLines, bands);
+  b.rows = placed.rows;
+  b.doubts = placed.doubts;
+  b.preview = previewOnBands(b.preview, (pg) => pageOf(pg - 1).lines, bands, { page: m.page + 1, from: headFrom, to: m.headEnd });
+}
 
 /**
  * Pages of text items to blocks. A table that continues on the next page is one block: the header repeated at the top
@@ -615,9 +862,13 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
   /** The column x spans of the run a block came from. */
   const blockCols = new Map<ReadBlock, readonly (readonly [number, number])[]>();
   const meta = new Map<ReadBlock, BlockMeta>();
+  /** For each guessed block, the page lines of each of its rows (null for a blank row), to place them by the header. */
+  const rowSrc = new Map<ReadBlock, (RowSrc | null)[]>();
+  const pageLinesOf = new Map<number, { lines: Line[]; charWidth: number }>();
   pages.forEach((items, p) => {
     if (covered.has(p)) return;
     const page = layoutPage(items, opts);
+    pageLinesOf.set(p, { lines: page.lines, charWidth: page.charWidth });
     /** The blocks of this page, for footers listed under the last of them. */
     const onPage: ReadBlock[] = [];
     const lost = (line: number) => rowWarnings.push({ code: "not_placed", row: line, page: p + 1 });
@@ -668,6 +919,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
           const placed = cols && cells ? placeByX(cells, cols, width, page.charWidth) : flat.length === width ? flat : null;
           if (placed) {
             prev.rows.push(placed);
+            rowSrc.get(prev)?.push({ p, line: src.line, last: src.last });
             appended++;
             touch(prev, src.last);
           } else {
@@ -762,25 +1014,33 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
           for (let n = at.line; n <= at.last; n++) listed.push({ ...w, row: n, page: p + 1 });
         }
         b.warnings = listed;
+        const srcs = b.rows.map((_, i): RowSrc | null => {
+          const at = src[first + i];
+          return at && at.line >= 0 ? { p, line: at.line, last: at.last } : null;
+        });
         // After the header the reader makes no judgement (rule 4.1): a footer, a total or a signature under the rows is a
         // row. Only trailing blank rows are cut.
-        while (b.rows.length > 0 && nonBlankCells(b.rows[b.rows.length - 1]!) === 0) b.rows.pop();
+        while (b.rows.length > 0 && nonBlankCells(b.rows[b.rows.length - 1]!) === 0) {
+          b.rows.pop();
+          srcs.pop();
+        }
         // The guess in page lines, so the web can show it on the preview and give it back as hints.
         const headLine = src[g.headerRow]!.line;
         const headEnd = src[g.headerRow + b.headerRows - 1]!.last;
         const lastIdx = first + b.rows.length - 1;
         const firstLine = src[first]?.line ?? headEnd + 1;
         const lastLine = lastIdx >= first ? src[lastIdx]!.last : firstLine - 1;
-        const regionStart = bi === 0 && titleLines > 0 ? pre[0]!.n : (src[b.preview[0]?.row ?? g.headerRow]?.line ?? headLine);
+        const regionStart = bi === 0 && titleLines > 0 ? pre[0]!.n : (src[regionStartOf(b)]?.line ?? headLine);
         b.guess = { page: p + 1, headerRow: headLine, headerRows: b.headerRows, firstDataRow: firstLine, lastDataRow: lastLine, lastPage: p + 1 };
         b.preview = linesPreview(page.lines, regionStart, Math.max(lastLine, headEnd), p + 1, headLine, headEnd - headLine + 1);
         b.firstDataSheetRow += segStart + skipped;
-        meta.set(b, { regionStart, page: p });
+        meta.set(b, { regionStart, page: p, headEnd });
         if (seg.cols) blockCols.set(b, seg.cols);
         const last = [...out].reverse().find((x) => x.rows.length > 0);
         const sameHeader = last && found === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
         if (last && sameHeader) {
           last.rows.push(...b.rows);
+          rowSrc.get(last)?.push(...srcs);
           last.warnings.push(...b.warnings);
           touch(last, b.rows.length > 0 ? lastLine : -1);
           // A new title above a header that joins the table above has nowhere to go: report it.
@@ -791,6 +1051,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         } else {
           out.push(b);
           onPage.push(b);
+          rowSrc.set(b, srcs);
         }
         found++;
       });
@@ -810,6 +1071,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
   for (const b of out) {
     const m = meta.get(b)!;
     if (b.rows.length > 0) {
+      bandGuessed(b, m, rowSrc.get(b) ?? [], (q) => pageLinesOf.get(q)!);
       kept.push(b);
       continue;
     }
@@ -833,51 +1095,11 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
 const lineKey = (cells: readonly string[]) => cells.map(squash).join("|");
 
 /**
- * The columns of a hinted header: one per header cell (R4-5). For two header rows, the cells of the bottom line and the
- * top cells over no bottom cell (a name such as "Party" whose bottom cell is blank). Sorted left to right.
- */
-function headerAnchors(headLines: readonly Line[]): Col[] {
-  const bottom = headLines[headLines.length - 1]!.cells;
-  const spans: Col[] = bottom.map((c) => [c.x0, c.x1]);
-  if (headLines.length === 2) {
-    for (const c of headLines[0]!.cells) if (!bottom.some((b) => c.x0 < b.x1 && c.x1 > b.x0)) spans.push([c.x0, c.x1]);
-  }
-  return spans.sort((a, b) => a[0] - b[0]);
-}
-
-/**
- * Which header column a cell of a hinted block goes to. The column whose header cell it overlaps, when it overlaps one;
- * else the last header cell that starts at or left of the cell's edge: its right edge for a number (values are often
- * right-aligned past a short left-aligned name), its left edge for anything else. A cell left of every header cell
- * goes to the first column. A cell that is not a number and starts well right of the last header cell is `extra`: a
- * column with no name, as a ragged row of a sheet.
- */
-function anchorOf(anchors: readonly Col[], c: Cell, charWidth: number): number | "extra" {
-  const over: number[] = [];
-  anchors.forEach(([a, b], k) => {
-    if (c.x0 < b && c.x1 > a) over.push(k);
-  });
-  if (over.length === 1) return over[0]!;
-  const kind = cellKind(c.text);
-  const number = kind === "int" || kind === "decimal";
-  const last = anchors[anchors.length - 1]!;
-  if (over.length === 0 && !number && c.x0 > last[1] + charWidth * 4) return "extra";
-  const edge = number ? c.x1 : c.x0;
-  let k = 0;
-  anchors.forEach(([a], x) => {
-    if (a <= edge + charWidth * 0.5) k = x;
-  });
-  return k;
-}
-
-/**
  * Follow PDF hints exactly. The region of a hint runs from its header line to its last data line, on its page or on
- * to `lastPage`. Its columns are the header's cells, one each (`headerAnchors`), plus columns with no name: where cells
- * under no header cell would share a column with another cell of their line (a blank header cell), and for cells far
- * right of the table. Every line is one row, except that a one-cell line closer than three quarters of the row
- * pitch to the line above is the rest of a cell above (a wrapped line). Every cell goes to a column by `anchorOf`; when
- * two cells of a line go to one column they are joined and the line is listed as `columns_not_matched`. On later pages
- * a header line repeated there and the lines above it are listed and skipped. Nothing else is decided.
+ * to `lastPage`. Its columns are exactly the header's cells (`bandsOf`, rule 5.3). Every line is one row, except that
+ * a one-cell line closer than three quarters of the row pitch to the line above is the rest of a cell above (a wrapped
+ * line). Every item goes to the band of its centre; a row in doubt is listed in `doubts`. On later pages a header line
+ * repeated there and the lines above it are listed and skipped. Nothing else is decided.
  */
 function readPdfByHints(
   pages: readonly (readonly TextItem[])[],
@@ -928,66 +1150,9 @@ function readPdfByHints(
     const headLines = lines.slice(h, h + headerRows);
     const pEnd = lp === p ? last : lines.length - 1;
     const dataLines = lines.slice(first, pEnd + 1);
-    const anchors = headerAnchors(headLines);
-    const overlaps = (span: Col, c: Cell) => c.x0 < span[1] && c.x1 > span[0];
-    const regionLines = [...dataLines];
-    for (let q = p + 1; q <= lp; q++) regionLines.push(...linesOf(q).lines.slice(0, q === lp ? last + 1 : undefined));
-    // Columns with no name: a column whose header cell is blank (cells under no header cell that would share a column
-    // with another cell of their line), and cells that start well right of the table. Their spans become columns.
-    const orphans: Col[] = [];
-    for (const l of regionLines) {
-      const by = new Map<number, Cell[]>();
-      for (const c of l.cells) {
-        const k = anchorOf(anchors, c, charWidth);
-        if (k === "extra") orphans.push([c.x0, c.x1]);
-        else by.set(k, [...(by.get(k) ?? []), c]);
-      }
-      // Of the cells that share a header column, the one over the header cell (else the leftmost) keeps it.
-      for (const cs of by.values()) {
-        if (cs.length < 2) continue;
-        const keep = cs.find((c) => anchors.some((sp) => overlaps(sp, c))) ?? cs.reduce((m, c) => (c.x0 < m.x0 ? c : m));
-        for (const c of cs) if (c !== keep && !anchors.some((sp) => overlaps(sp, c))) orphans.push([c.x0, c.x1]);
-      }
-    }
-    const gapCols = mergeSpans(orphans, charWidth);
-    type Column = { span: Col; anchor: number | null };
-    const columns: Column[] = [...anchors.map((span, anchor) => ({ span, anchor })), ...gapCols.map((span) => ({ span, anchor: null }))].sort((a, b) => a.span[0] - b.span[0]);
-    const cols = columns.map((c) => c.span);
-    const ofAnchor = (k: number) => columns.findIndex((c) => c.anchor === k);
-    const columnFor = (c: Cell): number => {
-      const over = anchors.filter((sp) => overlaps(sp, c)).length;
-      if (over === 0) {
-        const g = columns.findIndex((col) => col.anchor === null && overlaps(col.span, c));
-        if (g !== -1) return g;
-      }
-      const k = anchorOf(anchors, c, charWidth);
-      return k !== "extra" ? ofAnchor(k) : columns.length - 1;
-    };
+    const bands = bandsOf(headLines, charWidth);
     const warnings: RowWarning[] = lines.slice(start, h).map((l) => ({ code: "kept_as_title" as const, row: l.n, page: p + 1 }));
-    /** The line's cells in the columns; two cells in one column are joined and the line is listed (q: 0-based page). */
-    const placeLine = (l: Line, q: number | null) => {
-      const cells = Array<string>(cols.length).fill("");
-      let clash = false;
-      for (const c of l.cells) {
-        const k = columnFor(c);
-        if (cells[k] !== "") clash = true;
-        cells[k] = cells[k] === "" ? c.text : `${cells[k]} ${c.text}`;
-      }
-      if (clash && q !== null) warnings.push({ code: "columns_not_matched", row: l.n, page: q + 1 });
-      return cells;
-    };
-    /** A header line's cells in the columns: a top cell over several columns names the first of them. */
-    const placeHead = (l: Line) => {
-      const cells = Array<string>(cols.length).fill("");
-      for (const c of l.cells) {
-        const k = anchors.findIndex((sp) => overlaps(sp, c));
-        const at = k !== -1 ? ofAnchor(k) : columnFor(c);
-        cells[at] = cells[at] === "" ? c.text : `${cells[at]} ${c.text}`;
-      }
-      return cells;
-    };
-    const top = placeHead(headLines[0]!);
-    const headers = headerRows === 2 ? combineHeaders(top, placeHead(headLines[1]!)) : top;
+    const headers = headersOnBands(headLines, bands);
     for (let n = h + headerRows; n < first; n++) warnings.push({ code: "skipped_by_hint", row: n, page: p + 1 });
 
     // The row pitch of the data: the median gap above a multi-cell line (a new row starts there, after the header,
@@ -1003,20 +1168,19 @@ function readPdfByHints(
       if (seq[k - 1]!.cells.length >= 2) pairs.push(Math.abs(seq[k - 1]!.y - seq[k]!.y));
     }
     const pitch = median(pairs, median(gaps, height * 1.5));
-    const rows: string[][] = [];
+    const sources: { lines: { line: Line; page: number }[] }[] = [];
     const addLines = (ls: readonly Line[], q: number) => {
       let above: Line | null = null;
       /** The first line of the current row: a wrapped line sits before the next row would start. */
       let rowStart: Line | null = null;
       for (const l of ls) {
-        const prevRow = rows[rows.length - 1];
+        const prevRow = sources[sources.length - 1];
         if (l.cells.length === 1 && above && rowStart && prevRow && Math.abs(above.y - l.y) < pitch * 0.75 && Math.abs(rowStart.y - l.y) < pitch * 0.9) {
-          const k = columnFor(l.cells[0]!);
-          prevRow[k] = prevRow[k] === "" ? l.cells[0]!.text : `${prevRow[k]} ${l.cells[0]!.text}`;
+          prevRow.lines.push({ line: l, page: q + 1 });
           above = l;
           continue;
         }
-        rows.push(placeLine(l, q));
+        sources.push({ lines: [{ line: l, page: q + 1 }] });
         above = l;
         rowStart = l;
       }
@@ -1035,6 +1199,7 @@ function readPdfByHints(
       addLines(ql.slice(from, qEnd + 1), q);
     }
     if (!(next && next.p === lp)) for (let n = last + 1; n < lpLines.length; n++) warnings.push({ code: "after_last_row", row: n, page: lp + 1 });
+    const { rows, doubts } = rowsOnBands(sources, bands);
     const shaped = finishShape(headers, rows);
     blocks.push({
       sheetName: `Page ${p + 1}`,
@@ -1044,10 +1209,11 @@ function readPdfByHints(
       headers: shaped.headers,
       rows: shaped.rows,
       firstDataSheetRow: first,
-      preview: linesPreview(lines, start, Math.max(pEnd, h + headerRows - 1), p + 1, h, headerRows),
+      preview: previewOnBands(linesPreview(lines, start, Math.max(pEnd, h + headerRows - 1), p + 1, h, headerRows), (pg) => linesOf(pg - 1).lines, bands, { page: p + 1, from: h, to: h + headerRows - 1 }),
       guess: { page: p + 1, headerRow: h, headerRows, firstDataRow: first, lastDataRow: last, lastPage: lp + 1 },
       hints: { ...hint },
       warnings,
+      doubts,
     });
     prevEnd = { p: lp, line: last };
   });

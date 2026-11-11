@@ -8,16 +8,26 @@
 import { cellKind, inferKind } from "../cells";
 import { parseDate } from "../dates";
 import { usedWidth } from "../fingerprint";
-import { PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
+import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export const HEADER_SEARCH_ROWS = 20;
 export const HEADER_TEXT_SHARE = 0.6;
 
-/** Excel dates arrive as Date objects: they become `YYYY-MM-DD` (UTC), or with the time when there is one. */
+/**
+ * A cell as text (PORTAL-RULES-3 section 5.4). Text passes through as it is, never coerced. A number, when a matrix
+ * hands one over, is written without float noise: a whole number as it is, any other at 15 significant digits, so
+ * 12.299999999999999 is "12.3" and 0.1 + 0.2 is "0.3". What a person saw ("007", "18%", "12.30") only the file's
+ * formatted text gives, so the web hands that over as a string. Excel dates arrive as Date objects: they become
+ * `YYYY-MM-DD` (UTC), or with the time when there is one.
+ */
 export function toCellText(v: MatrixCell): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v.replace(/ /g, " ").trim();
-  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
+  if (typeof v === "number") {
+    if (!Number.isFinite(v)) return "";
+    if (Object.is(v, -0)) return "0";
+    return Number.isInteger(v) ? String(v) : String(Number(v.toPrecision(15)));
+  }
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
   if (Number.isNaN(v.getTime())) return "";
   const iso = v.toISOString();
@@ -239,21 +249,40 @@ export function couldBeHeader(row: readonly string[], next: readonly string[] | 
 /** Rows kept above the header when a long title moves the preview window down (R4-7). */
 export const PREVIEW_ABOVE_HEADER = 3;
 
-/**
- * Where a preview of rows `from` to `to` (exclusive) starts: at `from`, unless the header (`header`, `headerRows`) and
- * the two rows under it would not fit in `PREVIEW_ROWS` rows from there. Then `PREVIEW_ABOVE_HEADER` rows above the
- * header, so the person sees the guess, what sits above it and the first rows under it.
- */
-export function previewStart(from: number, header: number, headerRows: number): number {
-  if (header + headerRows + 2 <= from + PREVIEW_ROWS) return from;
-  return Math.max(from, header - PREVIEW_ABOVE_HEADER);
+/** A cell a person would read as a value: a number or a date. */
+export function isValueCell(c: string): boolean {
+  const k = cellKind(c);
+  return k === "int" || k === "decimal" || k === "date";
 }
 
-/** At most `PREVIEW_ROWS` raw rows of rows `from` to `to` (exclusive), with their row numbers; see `previewStart`. */
+/**
+ * Which rows of `from` to `end` (exclusive) a preview shows (PORTAL-RULES-3 section 5.1, M6). The first
+ * `PREVIEW_ROWS` rows, when they hold the guessed header and two rows under it and, when the region has rows with
+ * numbers or dates, one of them under the header. Otherwise the window moves to `PREVIEW_ABOVE_HEADER` rows above the
+ * header, or above the row before the first row with values when the guess has none under it in the first window, and
+ * the first `PREVIEW_HEAD_ROWS` rows of the region come first. A moved window leaves a gap in the row numbers.
+ */
+export function previewIndices(from: number, end: number, header: number, headerRows: number, hasValue: (r: number) => boolean): number[] {
+  const range = (a: number, b: number) => Array.from({ length: Math.max(0, b - a) }, (_, i) => a + i);
+  if (end - from <= PREVIEW_ROWS) return range(from, end);
+  let focus = header;
+  if (header + headerRows + 2 <= from + PREVIEW_ROWS) {
+    const under = range(header + headerRows, from + PREVIEW_ROWS);
+    if (under.some(hasValue)) return range(from, from + PREVIEW_ROWS);
+    const first = range(from + PREVIEW_ROWS, end).find(hasValue);
+    if (first === undefined) return range(from, from + PREVIEW_ROWS);
+    focus = first - 1;
+  }
+  const start = Math.max(from + PREVIEW_HEAD_ROWS, focus - PREVIEW_ABOVE_HEADER);
+  if (start <= from + PREVIEW_HEAD_ROWS) return range(from, Math.min(end, from + PREVIEW_HEAD_ROWS + PREVIEW_ROWS));
+  return [...range(from, from + PREVIEW_HEAD_ROWS), ...range(start, Math.min(end, start + PREVIEW_ROWS))];
+}
+
+/** The raw rows of rows `from` to `to` (exclusive) a preview shows, with their row numbers; see `previewIndices`. */
 export function previewRows(rows: readonly (readonly string[])[], from: number, to: number, header = from, headerRows = 1): PreviewRow[] {
-  const out: PreviewRow[] = [];
-  for (let r = previewStart(from, header, headerRows); r < Math.min(to, rows.length) && out.length < PREVIEW_ROWS; r++) out.push({ row: r, cells: [...rows[r]!] });
-  return out;
+  const end = Math.min(to, rows.length);
+  const hasValue = (r: number) => rows[r]!.some(isValueCell);
+  return previewIndices(from, end, header, headerRows, hasValue).map((r) => ({ row: r, cells: [...rows[r]!] }));
 }
 
 /** A hint that cannot be followed: out of the sheet, overlapping another, or with rows in the wrong order. */
@@ -279,6 +308,36 @@ export function checkHintShape(h: BlockHints): void {
   if (!optional(h.firstDataRow)) throw new HintError("hint_out_of_range", "the first data row is not a row number");
   if (h.lastDataRow !== null && !optional(h.lastDataRow)) throw new HintError("hint_out_of_range", "the last data row is not a row number");
   if (!optional(h.page) || !optional(h.lastPage)) throw new HintError("hint_out_of_range", "the page is not a page number");
+}
+
+/** The first raw row of a block's region: its title, or its header. Not `preview[0]`, which may show rows above. */
+export const regionStartOf = (b: ReadBlock) => b.guess.headerRow - b.headerRow;
+
+/**
+ * The last filled row of rows `from` to `to`, stopping at a run of two or more blank rows (PORTAL-RULES-3 section 5.2):
+ * a single blank row is ignored. `from - 1` when there is none.
+ */
+export function regionEnd(rows: readonly string[][], from: number, to: number): number {
+  let last = from - 1;
+  let blanks = 0;
+  for (let r = from; r <= to; r++) {
+    if (nonBlank(rows[r]!) > 0) {
+      last = r;
+      blanks = 0;
+    } else if (++blanks >= 2) break;
+  }
+  return last;
+}
+
+/** Rows to show around a guessed split: this many filled rows above it and rows from the next block's start. */
+export const SPLIT_CONTEXT_ROWS = 2;
+
+/** `preview` with rows `from` to `to` added, in row order, each row once. */
+function withRows(preview: readonly PreviewRow[], rows: readonly (readonly string[])[], from: number, to: number): PreviewRow[] {
+  const have = new Set(preview.map((p) => p.row));
+  const out = [...preview];
+  for (let r = Math.max(0, from); r <= Math.min(to, rows.length - 1); r++) if (!have.has(r)) out.push({ row: r, cells: [...rows[r]!] });
+  return out.sort((a, b) => a.row - b.row);
 }
 
 /** One sheet read: its blocks, and rows that no block took. */
@@ -308,10 +367,10 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
 }
 
 /**
- * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7). The rest of
- * the sheet keeps the guess, so a hint for one table does not swallow or drop another:
- * - A hinted block without a last data row ends before the next hinted header or before the next block the guess
- *   found, whichever comes first.
+ * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7, rule 5.2).
+ * The rest of the sheet keeps the guess, so a hint for one table does not swallow or drop another:
+ * - A hinted block without a last data row ends before the next hinted header, or at the last filled row before two
+ *   or more blank rows, or at the end of the sheet. A single blank row never ends it: a row after one is a row (B5).
  * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
  *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
  *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
@@ -323,7 +382,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
   for (const h of hintsIn) checkHintShape(h);
   const hints = [...hintsIn].sort((a, b) => a.headerRow - b.headerRow);
   const full = guessRange(rows, 0, n, sheetName).blocks;
-  const regionOf = (b: ReadBlock) => [b.preview[0]?.row ?? b.guess.headerRow, Math.max(b.guess.lastDataRow ?? -1, b.guess.headerRow + b.headerRows - 1)] as const;
+  const regionOf = (b: ReadBlock) => [regionStartOf(b), Math.max(b.guess.lastDataRow ?? -1, b.guess.headerRow + b.headerRows - 1)] as const;
   type Span = { hint: BlockHints; h: number; headerRows: 1 | 2; first: number; last: number };
   const spans: Span[] = [];
   let prevLast = -1;
@@ -336,8 +395,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     if (next && next.headerRow < h + headerRows) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the header above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
-    const stop = full.map((b) => regionOf(b)[0]).find((g) => g > Math.max(h + headerRows - 1, first - 1));
-    const last = hint.lastDataRow ?? Math.min(next ? next.headerRow - 1 : n - 1, stop !== undefined ? stop - 1 : n - 1);
+    const last = hint.lastDataRow ?? Math.max(first - 1, regionEnd(rows, first, next ? next.headerRow - 1 : n - 1));
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
     spans.push({ hint, h, headerRows, first, last });
@@ -423,6 +481,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       guess: { headerRow: h, headerRows, firstDataRow: first, lastDataRow: end },
       hints: { ...hint },
       warnings: blockWarnings,
+      doubts: [],
     };
     blocks.push(block);
     prevHinted = block;
@@ -443,6 +502,8 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
   const blocks: ReadBlock[] = [];
   const warnings: RowWarning[] = [];
   let pos = from;
+  // The block above a guessed split, and the last filled row before the split.
+  let split: { block: ReadBlock; lastData: number } | null = null;
 
   while (pos < n) {
     let h = -1;
@@ -531,6 +592,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
         end = i;
         break;
       }
+      // A blank row inside one block; the rows after it are rows of this table.
       if (j >= n) break;
       for (let b = i; b < j; b++) data.push(rows[b]!);
       i = j;
@@ -550,9 +612,18 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
       guess: { headerRow: h, headerRows, firstDataRow: dataStart, lastDataRow: dataStart + data.length - 1 },
       hints: null,
       warnings: blockWarnings,
+      doubts: [],
     };
+    // A guessed split (rule 5.2): both previews show the last rows above it and the first rows of the block below.
+    if (split) {
+      const above = Math.max(split.block.guess.firstDataRow ?? 0, split.lastData - SPLIT_CONTEXT_ROWS + 1);
+      split.block.preview = withRows(split.block.preview, rows, above, start + SPLIT_CONTEXT_ROWS);
+      block.preview = withRows(block.preview, rows, above, start - 1);
+      split = null;
+    }
     blocks.push(block);
     if (end === n) break;
+    split = { block, lastData: lastFilled(rows as string[][], dataStart, end - 1) };
   }
   return { blocks, warnings };
 }

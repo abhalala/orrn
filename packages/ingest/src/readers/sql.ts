@@ -1054,5 +1054,6 @@ export function sqlTablesToBlocks(tables: readonly SqlTable[]): ReadBlock[] {
       guess: { headerRow: 0, headerRows: 1 as const, firstDataRow: 1, lastDataRow: t.rows.length },
       hints: null,
       warnings: [],
+      doubts: [],
     }));
 }

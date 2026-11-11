@@ -40,12 +40,15 @@ describe("R4-5: a hinted PDF header owns one column per header cell", () => {
     ]);
   });
 
-  test("values under no header cell, between two named columns, are a column with no name (a blank header cell)", () => {
+  // Round 5, rule 5.3: the columns are exactly the header's cells. This pinned a column with no name for values under
+  // a blank header cell; it now pins the header's three columns, the value joined into the next band, and the row marked.
+  test("values under no header cell, between two named columns, join a named column and the row is marked", () => {
     const page = [...L(800, [["Party", 50, "l"], ["Section", 170, "l"], ["Kg", 340, "l"]]), ...L(785, [["Om", 50, "l"], ["R 2105", 170, "l"], ["12", 320, "r"], ["1200", 400, "r"]])];
     const r = readPdfText([page], { hints: [{ page: 1, headerRow: 0 }] });
-    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
-    expect(r.blocks[0]!.rows).toEqual([["Om", "R 2105", "12", "1200"]]);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([["Om", "R 2105", "12 1200"]]);
     expect(r.blocks[0]!.warnings).toEqual([]);
+    expect(r.blocks[0]!.doubts).toContainEqual({ row: 0, code: "cells_joined", line: 1, page: 1 });
   });
 
   test("when two cells of a line fall under one header cell, the block says so", () => {
@@ -53,16 +56,20 @@ describe("R4-5: a hinted PDF header owns one column per header cell", () => {
     const r = readPdfText([page], { hints: [{ page: 1, headerRow: 0 }] });
     expect(r.blocks[0]!.headers).toEqual(["Party name here", "Kg"]);
     expect(r.blocks[0]!.rows).toEqual([["Om Metals", "1200"]]);
-    expect(r.blocks[0]!.warnings).toEqual([{ code: "columns_not_matched", row: 1, page: 1 }]);
+    // Round 5, rule 5.3: a row in doubt is marked in `doubts`. This pinned the round 4 warning `columns_not_matched`.
+    expect(r.blocks[0]!.warnings).toEqual([]);
+    expect(r.blocks[0]!.doubts.map((d) => [d.row, d.code])).toContainEqual([0, "cells_joined"]);
   });
 
-  test("a remark far right of the last header cell is a column with no name, as a ragged sheet row", () => {
+  // Round 5, rule 5.3: the last band runs to the page edge, never a column with no name. This pinned an unnamed fourth
+  // column; it now pins the remark in the last band.
+  test("a remark far right of the last header cell is in the last column", () => {
     const page = [...L(800, [["Name", 50, "l"], ["Phone", 200, "l"], ["City", 300, "l"]]), ...L(785, [["Asha", 50, "l"], ["9898", 200, "l"], ["Surat", 300, "l"]]), ...L(770, [["Zenith", 50, "l"], ["closed", 420, "l"]])];
     const r = readPdfText([page], { hints: [{ page: 1, headerRow: 0 }] });
-    expect(r.blocks[0]!.headers).toEqual(["Name", "Phone", "City", ""]);
+    expect(r.blocks[0]!.headers).toEqual(["Name", "Phone", "City"]);
     expect(r.blocks[0]!.rows).toEqual([
-      ["Asha", "9898", "Surat", ""],
-      ["Zenith", "", "", "closed"],
+      ["Asha", "9898", "Surat"],
+      ["Zenith", "", "closed"],
     ]);
   });
 });
