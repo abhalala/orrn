@@ -174,3 +174,43 @@ describe("fingerprint of block then apply stays consistent", () => {
     expect(fp.columnCount).toBe(2);
   });
 });
+
+describe("C7: order line quantities", () => {
+  const recipe = structuredClone(EXAMPLE_BAKI_RECIPE);
+  const row = (ord: string, disp: string, baki: string, extra: Partial<Record<number, string>> = {}) => {
+    const r = ["1", "Om Metals", "PO-12", "14/10/2025", "T 4012", "1.8", ord, disp, baki, "210", ""];
+    for (const [i, v] of Object.entries(extra)) r[Number(i)] = v!;
+    return applyRecipe(recipe, [r], { units: { rate: "inr/kg" }, currentYear: 2026 })[0]!;
+  };
+
+  test("over-dispatched with no baki is refused, not staged as a negative line", () => {
+    const r = row("1000", "1050", "");
+    expect(r.state).toBe("refused");
+    expect(r.refusals).toEqual([{ field: "dispatchedKg", code: "over_dispatched" }]);
+  });
+
+  test("baki 0 is a closed order and is refused", () => {
+    const r = row("1000", "1000", "0");
+    expect(r.state).toBe("refused");
+    expect(r.refusals).toEqual([{ field: "bakiKg", code: "not_positive" }]);
+  });
+
+  test("fully dispatched with no baki is refused", () => {
+    const r = row("1000", "1000", "");
+    expect(r.refusals).toEqual([{ field: "dispatchedKg", code: "not_positive" }]);
+  });
+
+  test("no quantity and no pieces is refused; pieces alone are enough", () => {
+    expect(row("", "", "").refusals).toEqual([{ field: "orderedKg", code: "no_quantity" }]);
+    const withPcs = structuredClone(recipe);
+    withPcs.fields.push({ field: "pcs", source: { kind: "columns", cols: [{ col: 10, header: "Remarks" }] }, steps: [{ op: "number", kind: "count", unit: "pcs" }] });
+    withPcs.fields = withPcs.fields.filter((f) => f.field !== "note");
+    const r = applyRecipe(withPcs, [["1", "Om Metals", "PO-12", "14/10/2025", "T 4012", "1.8", "", "", "", "210", "40"]], { units: { rate: "inr/kg" } })[0]!;
+    expect(r.state).toBe("ok");
+  });
+
+  test("a normal open line passes", () => {
+    expect(row("1000", "200", "800").state).toBe("ok");
+    expect(row("1000", "200", "").state).toBe("ok");
+  });
+});
