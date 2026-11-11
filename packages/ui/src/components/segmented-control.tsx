@@ -108,7 +108,8 @@ export function SegmentedControl<T extends string>({
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute top-1 bottom-1 left-0 rounded-full bg-card shadow-sm dark:bg-surface-sunken dark:ring-1 dark:ring-control/40",
+          // The ring is the second cue for the selected segment: the fill alone is 1.2:1 against the track (WCAG 1.4.11), the ring is above 3:1 in both themes.
+          "pointer-events-none absolute top-1 bottom-1 left-0 rounded-full bg-card shadow-sm ring-1 ring-foreground/50 dark:bg-surface-sunken",
           settled && "transition-[transform,width] duration-[var(--dur-base)] ease-[var(--ease-spring)]",
           !thumb && "opacity-0",
         )}

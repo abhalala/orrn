@@ -396,6 +396,16 @@
     overflow-x: hidden;
   }
 
+  /* A focused control is never left under the phone chrome (WCAG 2.4.11): the header and one sticky line at the top,
+     the 73px tab bar at the bottom. The tab bar height is the shell's --shell-tabbar-offset, written out here because
+     that variable lives on the shell, not on html. A screen with its own sticky bar overrides the bottom value inline. */
+  @media (max-width: 767.98px) {
+    html {
+      scroll-padding-top: calc(3.5rem + env(safe-area-inset-top) + 56px);
+      scroll-padding-bottom: calc(73px + env(safe-area-inset-bottom) + 16px);
+    }
+  }
+
   body {
     /* `hidden` first is the Safari < 16 fallback (clip is ignored there). */
     overflow-x: hidden;

@@ -1,6 +1,6 @@
 import { useT } from "@orrn/i18n";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { cn } from "@orrn/ui/lib/utils";
 
@@ -32,12 +32,35 @@ export type ResponsiveListColumn<T> = {
    * and a row whose cell is empty (null) leaves the pair out on a phone.
    */
   headerHidden?: boolean;
+  /**
+   * A fixed width for the column in the table (a Tailwind width class, `w-24`). Any column with a width makes the table
+   * `table-fixed`: columns keep their x position, so several groups line up, and the headers may wrap onto two lines.
+   * The one column without a width takes the rest.
+   */
+  width?: string;
+  /** Let the header text wrap onto a second line instead of holding the column open (a long header over a number). */
+  wrapHeader?: boolean;
+  /**
+   * Pin the column to the left edge while the table scrolls sideways (a row number, so a wide table keeps its anchor).
+   * Only the first column should use it.
+   */
+  sticky?: boolean;
+  /** In the stacked phone row, leave the label/value pair out when this row's cell is empty (null). */
+  hideWhenEmpty?: boolean;
 };
+
+/** A group of rows under a full-width heading, inside the same card and under the same column header. */
+export type ResponsiveListSection<T> = { key: string; heading: ReactNode; rows: T[] };
 
 export type ResponsiveListPage = { offset: number; limit: number; onChange(offset: number): void };
 
 export type ResponsiveListProps<T> = {
-  rows: T[];
+  rows?: T[];
+  /**
+   * Groups in one card. Each section shows its `heading` as a full-width row, then its rows. The table header shows
+   * once at the top. When this is set `rows` is ignored. No paging.
+   */
+  sections?: ResponsiveListSection<T>[];
   columns: ResponsiveListColumn<T>[];
   /**
    * Makes each row one link: the first column's content becomes the link and
@@ -73,6 +96,9 @@ const LIFT_INTERACTIVE = "orrn-row-lift";
 /** Phone rows: same lift, but only inside the label/value grid (the title holds the row link). */
 const LIFT_INTERACTIVE_REST = "orrn-row-lift-dl";
 
+/** A pinned column: an opaque card background so the cells that scroll under it do not show through. */
+const STICKY_CELL = "sticky left-0 z-[1] bg-card";
+
 const STRETCHED_LINK =
   "no-underline outline-none after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring focus-visible:after:outline-solid";
 
@@ -83,7 +109,8 @@ const STRETCHED_LINK =
  * the two is in the DOM, so screen readers never meet the rows twice.
  */
 export function ResponsiveList<T>({
-  rows,
+  rows: rowsProp,
+  sections,
   columns,
   rowHref,
   total,
@@ -96,11 +123,94 @@ export function ResponsiveList<T>({
 }: ResponsiveListProps<T>) {
   const { t } = useT();
   const wide = useMediaQuery(breakpoints.desktop);
+  const rows = sections ? sections.flatMap((section) => section.rows) : (rowsProp ?? []);
   const firstLoad = loading && rows.length === 0;
   const isEmpty = !loading && rows.length === 0;
+  const fixed = columns.some((col) => col.width);
   const keyOf = (row: T, i: number) => rowKey?.(row) ?? String(i);
   const [first, ...rest] = columns;
   const phoneColumns = rest.filter((c) => !c.hideOnPhone);
+
+  const tableRow = (row: T, i: number) => {
+    const href = rowHref?.(row);
+    return (
+      <tr
+        key={keyOf(row, i)}
+        className={cn(
+          "relative border-b border-border last:border-0",
+          href && "transition-colors duration-[var(--dur-fast)] hover:bg-surface-sunken/70",
+        )}
+      >
+        {columns.map((col, c) => (
+          <td
+            key={col.key}
+            className={cn(
+              "h-[52px] px-4 py-2 align-middle break-words first:pl-5 last:pr-5",
+              col.align === "end" && "text-right whitespace-nowrap tabular-nums",
+              col.sticky && STICKY_CELL,
+              href && c > 0 && LIFT_INTERACTIVE,
+            )}
+          >
+            {c === 0 && href ? (
+              <UiLink to={href} className={cn("font-semibold text-foreground", STRETCHED_LINK)}>
+                {col.cell(row)}
+              </UiLink>
+            ) : (
+              col.cell(row)
+            )}
+          </td>
+        ))}
+      </tr>
+    );
+  };
+
+  const stackedRow = (row: T, i: number) => {
+    const href = rowHref?.(row);
+    return (
+      <li
+        key={keyOf(row, i)}
+        className={cn(
+          "relative flex min-h-16 items-center gap-3 px-4 py-3.5",
+          href &&
+            "animate-press transition-[background-color,scale] duration-[var(--dur-fast)] active:bg-surface-sunken has-[a:focus-visible]:bg-surface-sunken/60",
+        )}
+      >
+        <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", href && LIFT_INTERACTIVE_REST)}>
+          <div className="min-w-0 text-[15px] font-semibold text-foreground break-words">
+            {href ? (
+              <UiLink to={href} className={cn("text-inherit", STRETCHED_LINK)}>
+                {first?.cell(row)}
+              </UiLink>
+            ) : (
+              first?.cell(row)
+            )}
+          </div>
+          {phoneColumns.length ? (
+            <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 md:grid-cols-4">
+              {phoneColumns.map((col) => {
+                const content = col.cell(row);
+                const empty = content === null || content === undefined || content === false;
+                // An empty cell leaves no label-only pair: an actions column with nothing, a count not known yet.
+                if ((col.headerHidden || col.hideWhenEmpty) && empty) return null;
+                return (
+                  <div key={col.key} className={cn("flex min-w-0 flex-col", (col.phoneWide || col.headerHidden) && "col-span-2")}>
+                    <dt
+                      // A hidden label is sr-only. A shown one wraps: `title` is not there on touch (WCAG 1.4.4, 1.4.10).
+                      className={col.headerHidden ? "sr-only" : "text-[12px] leading-4 font-medium break-words text-muted-foreground"}
+                    >
+                      {col.header}
+                    </dt>
+                    <dd className="m-0 min-w-0 text-[14px] text-foreground tabular-nums break-words">{content}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+          ) : null}
+        </div>
+        {href ? <ChevronRight aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" /> : null}
+      </li>
+    );
+  };
 
   let body: ReactNode;
   if (isEmpty) {
@@ -109,7 +219,14 @@ export function ResponsiveList<T>({
     body = (
       <div className="overflow-hidden rounded-card border border-border bg-card">
         <div className="relative overflow-x-auto">
-          <table aria-label={label} aria-busy={loading || undefined} className="w-full border-collapse text-[14px]">
+          <table aria-label={label} aria-busy={loading || undefined} className={cn("w-full border-collapse text-[14px]", fixed && "table-fixed")}>
+            {fixed ? (
+              <colgroup>
+                {columns.map((col) => (
+                  <col key={col.key} className={col.width} />
+                ))}
+              </colgroup>
+            ) : null}
             <thead>
               <tr className="border-b border-border">
                 {columns.map((col) => (
@@ -117,8 +234,10 @@ export function ResponsiveList<T>({
                     key={col.key}
                     scope="col"
                     className={cn(
-                      "h-11 px-4 text-[13px] font-semibold whitespace-nowrap text-muted-foreground first:pl-5 last:pr-5",
+                      "h-11 px-4 text-[13px] font-semibold text-muted-foreground first:pl-5 last:pr-5",
+                      col.width || col.wrapHeader ? "leading-4 break-words" : "whitespace-nowrap",
                       col.align === "end" ? "text-right" : "text-left",
+                      col.sticky && STICKY_CELL,
                     )}
                   >
                     {col.headerHidden ? <span className="sr-only">{col.header}</span> : col.header}
@@ -126,49 +245,32 @@ export function ResponsiveList<T>({
                 ))}
               </tr>
             </thead>
-            <tbody className={cn(loading && !firstLoad && "opacity-60 transition-opacity")}>
-              {firstLoad
-                ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
-                    <tr key={i} aria-hidden="true" className="border-b border-border last:border-0">
-                      {columns.map((col) => (
-                        <td key={col.key} className="h-[52px] px-4 first:pl-5 last:pr-5">
-                          <Skeleton className={cn("h-4", col.align === "end" ? "ml-auto w-14" : "w-3/4")} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                : rows.map((row, i) => {
-                    const href = rowHref?.(row);
-                    return (
-                      <tr
-                        key={keyOf(row, i)}
-                        className={cn(
-                          "relative border-b border-border last:border-0",
-                          href && "transition-colors duration-[var(--dur-fast)] hover:bg-surface-sunken/70",
-                        )}
-                      >
-                        {columns.map((col, c) => (
-                          <td
-                            key={col.key}
-                            className={cn(
-                              "h-[52px] px-4 py-2 align-middle break-words first:pl-5 last:pr-5",
-                              col.align === "end" && "text-right whitespace-nowrap tabular-nums",
-                              href && c > 0 && LIFT_INTERACTIVE,
-                            )}
-                          >
-                            {c === 0 && href ? (
-                              <UiLink to={href} className={cn("font-semibold text-foreground", STRETCHED_LINK)}>
-                                {col.cell(row)}
-                              </UiLink>
-                            ) : (
-                              col.cell(row)
-                            )}
+            {sections ? (
+              sections.map((section) => (
+                <tbody key={section.key} className="border-t border-border first:border-t-0">
+                  <tr className="border-b border-border bg-surface-sunken/60">
+                    <td colSpan={columns.length} className="px-5 py-3">
+                      {section.heading}
+                    </td>
+                  </tr>
+                  {section.rows.map((row, i) => tableRow(row, i))}
+                </tbody>
+              ))
+            ) : (
+              <tbody className={cn(loading && !firstLoad && "opacity-60 transition-opacity")}>
+                {firstLoad
+                  ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                      <tr key={i} aria-hidden="true" className="border-b border-border last:border-0">
+                        {columns.map((col) => (
+                          <td key={col.key} className="h-[52px] px-4 first:pl-5 last:pr-5">
+                            <Skeleton className={cn("h-4", col.align === "end" ? "ml-auto w-14" : "w-3/4")} />
                           </td>
                         ))}
                       </tr>
-                    );
-                  })}
-            </tbody>
+                    ))
+                  : rows.map((row, i) => tableRow(row, i))}
+              </tbody>
+            )}
           </table>
         </div>
       </div>
@@ -183,65 +285,21 @@ export function ResponsiveList<T>({
           loading && !firstLoad && "opacity-60 transition-opacity",
         )}
       >
-        {firstLoad
-          ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
-              <li key={i} aria-hidden="true" className="flex flex-col gap-2.5 px-4 py-3.5">
-                <Skeleton className="h-4 w-2/3" />
-                <Skeleton className="h-3.5 w-1/2" />
-              </li>
+        {sections
+          ? sections.map((section) => (
+              <Fragment key={section.key}>
+                <li className="bg-surface-sunken/60 px-4 py-3">{section.heading}</li>
+                {section.rows.map((row, i) => stackedRow(row, i))}
+              </Fragment>
             ))
-          : rows.map((row, i) => {
-              const href = rowHref?.(row);
-              return (
-                <li
-                  key={keyOf(row, i)}
-                  className={cn(
-                    "relative flex min-h-16 items-center gap-3 px-4 py-3.5",
-                    href &&
-                      "animate-press transition-[background-color,scale] duration-[var(--dur-fast)] active:bg-surface-sunken has-[a:focus-visible]:bg-surface-sunken/60",
-                  )}
-                >
-                  <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5", href && LIFT_INTERACTIVE_REST)}>
-                    <div className="min-w-0 text-[15px] font-semibold text-foreground break-words">
-                      {href ? (
-                        <UiLink to={href} className={cn("text-inherit", STRETCHED_LINK)}>
-                          {first?.cell(row)}
-                        </UiLink>
-                      ) : (
-                        first?.cell(row)
-                      )}
-                    </div>
-                    {phoneColumns.length ? (
-                      <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3 md:grid-cols-4">
-                        {phoneColumns.map((col) => {
-                          const content = col.cell(row);
-                          // An actions column with nothing for this row: no empty, label-only pair.
-                          if (col.headerHidden && (content === null || content === undefined || content === false)) return null;
-                          return (
-                            <div
-                              key={col.key}
-                              className={cn("flex min-w-0 flex-col", (col.phoneWide || col.headerHidden) && "col-span-2")}
-                            >
-                              <dt
-                                // A hidden label is sr-only, never `truncate` too: its 1 px box would read as shortened text.
-                                className={col.headerHidden ? "sr-only" : "truncate text-[12px] font-medium text-muted-foreground"}
-                                title={col.headerHidden ? undefined : col.header}
-                              >
-                                {col.header}
-                              </dt>
-                              <dd className="m-0 min-w-0 text-[14px] text-foreground tabular-nums break-words">{content}</dd>
-                            </div>
-                          );
-                        })}
-                      </dl>
-                    ) : null}
-                  </div>
-                  {href ? (
-                    <ChevronRight aria-hidden="true" strokeWidth={2} className="size-5 shrink-0 text-muted-foreground" />
-                  ) : null}
+          : firstLoad
+            ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                <li key={i} aria-hidden="true" className="flex flex-col gap-2.5 px-4 py-3.5">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3.5 w-1/2" />
                 </li>
-              );
-            })}
+              ))
+            : rows.map((row, i) => stackedRow(row, i))}
       </ul>
     );
   }

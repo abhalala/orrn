@@ -18,6 +18,11 @@ export type ChipProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
    * `ResponsiveListColumn.phoneWide`).
    */
   truncate?: boolean;
+  /**
+   * `false` leaves out the leading dot, for a chip whose content carries its own mark (a check icon). One mark per
+   * chip: the word is still there, so colour is never the only signal.
+   */
+  dot?: boolean;
 };
 
 /**
@@ -26,7 +31,7 @@ export type ChipProps = Omit<HTMLAttributes<HTMLSpanElement>, "children"> & {
  * still reads as a status in greyscale. It never shrinks next to text
  * (`shrink-0`); the text beside it takes `min-w-0 flex-1`.
  */
-export function Chip({ tone, children, className, title, truncate = true, ...rest }: ChipProps) {
+export function Chip({ tone, children, className, title, truncate = true, dot = true, ...rest }: ChipProps) {
   return (
     <span
       data-slot="chip"
@@ -41,7 +46,7 @@ export function Chip({ tone, children, className, title, truncate = true, ...res
       title={title ?? (typeof children === "string" ? children : undefined)}
       {...rest}
     >
-      <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" />
+      {dot ? <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-current" /> : null}
       <span className={truncate ? "truncate" : undefined}>{children}</span>
     </span>
   );
