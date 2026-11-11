@@ -4,7 +4,7 @@
  * the columns of a run of multi-cell lines come from projecting the cells onto the x axis. The resulting matrix goes
  * through `findBlocks` like a sheet.
  */
-import { findBlocks } from "./blocks";
+import { findBlocks, isHeaderLike } from "./blocks";
 import type { ReadBlock } from "./types";
 
 export type TextItem = {
@@ -108,20 +108,52 @@ export function textItemsToMatrix(itemsIn: readonly TextItem[], opts: PdfTextOpt
   return matrix;
 }
 
+export type PdfTextRead = {
+  blocks: ReadBlock[];
+  /** A page with text that gave no table and no rows (`page 3: text but no table`). No cell text is quoted. */
+  warnings: string[];
+};
+
+const nonBlankCells = (r: readonly string[]) => r.filter((c) => c !== "").length;
+
 /**
- * Pages of text items to blocks. A table that continues on the next page with the same header is one block; the header
- * repeated at the top of the next page is dropped.
+ * Pages of text items to blocks. A table that continues on the next page is one block: the header repeated at the top
+ * of the next page is dropped, and data rows at the top of a page with no header join the table above (C16).
  */
-export function readPdfTextBlocks(pages: readonly (readonly TextItem[])[], opts: PdfTextOptions = {}): ReadBlock[] {
+export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTextOptions = {}): PdfTextRead {
   const out: ReadBlock[] = [];
+  const warnings: string[] = [];
   pages.forEach((items, p) => {
-    const blocks = findBlocks(textItemsToMatrix(items, opts), { sheetName: `Page ${p + 1}` });
+    const matrix = textItemsToMatrix(items, opts);
+    const prev = [...out].reverse().find((b) => b.rows.length > 0);
+    let rest = matrix;
+    let appended = 0;
+    if (p > 0 && prev) {
+      // Rows above the first header-like row continue the table of the page before.
+      let h = matrix.findIndex((r) => isHeaderLike(r));
+      if (h === -1) h = matrix.length;
+      const width = prev.headers.length;
+      for (const r of matrix.slice(0, h)) {
+        // A lone short line (a page number, a footer) is noise; a row of another width is not this table.
+        if (nonBlankCells(r) < 2 || Math.abs(r.length - width) > 1) continue;
+        prev.rows.push(r.length >= width ? r.slice(0, width) : [...r, ...Array<string>(width - r.length).fill("")]);
+        appended++;
+      }
+      rest = matrix.slice(h);
+    }
+    const blocks = findBlocks(rest, { sheetName: `Page ${p + 1}` });
     blocks.forEach((b, k) => {
-      const prev = out[out.length - 1];
-      const sameHeader = prev && k === 0 && prev.headers.length === b.headers.length && prev.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
-      if (prev && sameHeader) prev.rows.push(...b.rows);
+      const last = [...out].reverse().find((x) => x.rows.length > 0);
+      const sameHeader = last && k === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
+      if (last && sameHeader) last.rows.push(...b.rows);
       else out.push(b);
     });
+    if (items.some((i) => i.str.trim() !== "") && blocks.length === 0 && appended === 0) warnings.push(`page ${p + 1}: text but no table`);
   });
-  return out;
+  return { blocks: out, warnings };
+}
+
+/** Pages of text items to blocks; see `readPdfText`, which also returns the warnings. */
+export function readPdfTextBlocks(pages: readonly (readonly TextItem[])[], opts: PdfTextOptions = {}): ReadBlock[] {
+  return readPdfText(pages, opts).blocks;
 }
