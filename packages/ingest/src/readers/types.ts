@@ -11,6 +11,13 @@ export type PreviewRow = { row: number; page?: number; cells: string[] };
 export const PREVIEW_ROWS = 12;
 
 /**
+ * When the window moves down (a long title, or rows of numbers only further down), the first rows of the region are
+ * shown too, so a preview may hold `PREVIEW_ROWS + PREVIEW_HEAD_ROWS` rows. A preview with a gap in its row numbers
+ * left rows out, and `chooseHeader` then asks (PORTAL-RULES-3 section 5.1, M6).
+ */
+export const PREVIEW_HEAD_ROWS = 3;
+
+/**
  * Hints for one block. With hints a reader does not guess: the block follows them exactly. Row numbers are raw rows:
  * for a sheet or CSV the 0-based row of the sheet, for a PDF the 0-based line on the page (the numbers in `preview`).
  * - `headerRow`: the raw row that holds the column names (the top one when the header has two rows).
@@ -71,7 +78,7 @@ export type ReadBlock = {
   rows: string[][];
   /** Row of the sheet where the first data row sits, 0-based. Row `i` of `rows` is sheet row `firstDataSheetRow + i`. */
   firstDataSheetRow: number;
-  /** At most `PREVIEW_ROWS` raw rows of the block's region, before any header was applied. */
+  /** Raw rows of the block's region, before any header was applied: `PREVIEW_ROWS`, plus `PREVIEW_HEAD_ROWS` when the window moved. */
   preview: PreviewRow[];
   /** The header the rows were read under, as hints in raw row numbers: the reader's guess, or the hints it was given. */
   guess: BlockHints;

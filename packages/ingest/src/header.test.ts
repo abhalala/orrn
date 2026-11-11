@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { chooseHeader, type HeaderInput } from "./header";
 import type { LearnedHole } from "./fit";
 import { EXAMPLE_BAKI_RECIPE, BAKI_SHEET_HEADERS } from "./recipe-fixtures";
+import { layoutOf } from "./readers/trust-helpers";
 
 /** A preview from raw rows, numbered from `from`. */
 function input(rows: string[][], guess: number, headerRows: 1 | 2 = 1, from = 0): HeaderInput {
@@ -47,10 +48,13 @@ describe("chooseHeader: a row that fits", () => {
     expect(r).toMatchObject({ kind: "fits", headerRow: 0, headerRows: 1 });
   });
 
-  test("a two-row header fits as two rows", () => {
+  // Round 5, rule 5.1 (M2): a two-row header fits only as an exact fit of an approved two-row layout. This pinned a
+  // built-in fit as two rows; now it pins "ask", and "fits" once the plant has approved the two-row layout.
+  test("a two-row header asks, and fits as two rows once the two-row layout is approved", () => {
     const rows = [["Series", "Section code", "Weight (kg/12ft)", ""], ["", "", "Min", "Max"], ...DIE_ROWS];
-    const r = chooseHeader(input(rows, 0, 1));
-    expect(r).toMatchObject({ kind: "fits", headerRow: 0, headerRows: 2 });
+    expect(chooseHeader(input(rows, 0, 1)).kind).toBe("ask");
+    const two = layoutOf(["Series", "Section code", "Weight (kg/12ft) Min", "Weight (kg/12ft) Max"], "dies-two", 2);
+    expect(chooseHeader(input(rows, 0, 1), { learned: [two] })).toMatchObject({ kind: "fits", headerRow: 0, headerRows: 2 });
   });
 
   test("an approved layout of the plant fits, and beats a built-in near fit", () => {
@@ -61,17 +65,23 @@ describe("chooseHeader: a row that fits", () => {
     if (r.kind === "fits") expect(r.fit.learned).toBe(true);
   });
 
-  test("the guess wins a tie with another row of the same layout", () => {
+  // Round 5, rule 5.1 (M1): the top-most exact fit wins. This pinned "the guess wins a tie"; now the top row wins,
+  // and an exact row below the guess's data rows is asked about.
+  test("two rows of the same layout: the top-most wins, and a lower one under the guess's rows asks", () => {
     const rows = [CUSTOMER_HEADER, ...CUSTOMER_ROWS, CUSTOMER_HEADER, ...CUSTOMER_ROWS];
-    expect(chooseHeader(input(rows, 3))).toMatchObject({ kind: "fits", headerRow: 3 });
+    expect(chooseHeader(input(rows, 3))).toMatchObject({ kind: "fits", headerRow: 0 });
     expect(chooseHeader(input(rows, 0))).toMatchObject({ kind: "fits", headerRow: 0 });
   });
 
-  test("exact beats near: a near guess loses to an exact row", () => {
-    // Row 0 fits customers with two extra columns (near); row 3 fits dies exactly.
+  // Round 5, rule 5.1: a near fit is never trusted. This pinned an exact row below a near guess as the fit; the exact
+  // row sits under the guess's own rows, so it may be a second table, and the answer is "ask" naming it.
+  test("a near guess over an exact row lower down: ask, naming the exact row", () => {
     const rows = [["Name", "Phone", "Received", "Issued"], ["Om Metals", "1", "2", "3"], [], DIE_HEADER, ...DIE_ROWS];
     const r = chooseHeader(input(rows, 0));
-    expect(r).toMatchObject({ kind: "fits", headerRow: 3 });
+    expect(r.kind).toBe("ask");
+    if (r.kind !== "ask") return;
+    expect(r.resembles).toMatchObject({ headerRow: 3, fit: "exact", target: "dies" });
+    expect(r.candidates[0]).toEqual({ headerRow: 3, headerRows: 1 });
   });
 });
 
@@ -104,6 +114,6 @@ describe("chooseHeader: nothing fits", () => {
 
   test("an empty preview asks with no candidates but the guess", () => {
     const r = chooseHeader({ preview: [], guess: { headerRow: 0 } });
-    expect(r).toEqual({ kind: "ask", guess: { headerRow: 0, headerRows: 1 }, candidates: [] });
+    expect(r).toEqual({ kind: "ask", guess: { headerRow: 0, headerRows: 1 }, candidates: [], resembles: null });
   });
 });

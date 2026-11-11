@@ -8,7 +8,7 @@
 import { cellKind, inferKind } from "../cells";
 import { parseDate } from "../dates";
 import { usedWidth } from "../fingerprint";
-import { PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
+import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export const HEADER_SEARCH_ROWS = 20;
 export const HEADER_TEXT_SHARE = 0.6;
@@ -239,21 +239,40 @@ export function couldBeHeader(row: readonly string[], next: readonly string[] | 
 /** Rows kept above the header when a long title moves the preview window down (R4-7). */
 export const PREVIEW_ABOVE_HEADER = 3;
 
-/**
- * Where a preview of rows `from` to `to` (exclusive) starts: at `from`, unless the header (`header`, `headerRows`) and
- * the two rows under it would not fit in `PREVIEW_ROWS` rows from there. Then `PREVIEW_ABOVE_HEADER` rows above the
- * header, so the person sees the guess, what sits above it and the first rows under it.
- */
-export function previewStart(from: number, header: number, headerRows: number): number {
-  if (header + headerRows + 2 <= from + PREVIEW_ROWS) return from;
-  return Math.max(from, header - PREVIEW_ABOVE_HEADER);
+/** A cell a person would read as a value: a number or a date. */
+export function isValueCell(c: string): boolean {
+  const k = cellKind(c);
+  return k === "int" || k === "decimal" || k === "date";
 }
 
-/** At most `PREVIEW_ROWS` raw rows of rows `from` to `to` (exclusive), with their row numbers; see `previewStart`. */
+/**
+ * Which rows of `from` to `end` (exclusive) a preview shows (PORTAL-RULES-3 section 5.1, M6). The first
+ * `PREVIEW_ROWS` rows, when they hold the guessed header and two rows under it and, when the region has rows with
+ * numbers or dates, one of them under the header. Otherwise the window moves to `PREVIEW_ABOVE_HEADER` rows above the
+ * header, or above the row before the first row with values when the guess has none under it in the first window, and
+ * the first `PREVIEW_HEAD_ROWS` rows of the region come first. A moved window leaves a gap in the row numbers.
+ */
+export function previewIndices(from: number, end: number, header: number, headerRows: number, hasValue: (r: number) => boolean): number[] {
+  const range = (a: number, b: number) => Array.from({ length: Math.max(0, b - a) }, (_, i) => a + i);
+  if (end - from <= PREVIEW_ROWS) return range(from, end);
+  let focus = header;
+  if (header + headerRows + 2 <= from + PREVIEW_ROWS) {
+    const under = range(header + headerRows, from + PREVIEW_ROWS);
+    if (under.some(hasValue)) return range(from, from + PREVIEW_ROWS);
+    const first = range(from + PREVIEW_ROWS, end).find(hasValue);
+    if (first === undefined) return range(from, from + PREVIEW_ROWS);
+    focus = first - 1;
+  }
+  const start = Math.max(from + PREVIEW_HEAD_ROWS, focus - PREVIEW_ABOVE_HEADER);
+  if (start <= from + PREVIEW_HEAD_ROWS) return range(from, Math.min(end, from + PREVIEW_HEAD_ROWS + PREVIEW_ROWS));
+  return [...range(from, from + PREVIEW_HEAD_ROWS), ...range(start, Math.min(end, start + PREVIEW_ROWS))];
+}
+
+/** The raw rows of rows `from` to `to` (exclusive) a preview shows, with their row numbers; see `previewIndices`. */
 export function previewRows(rows: readonly (readonly string[])[], from: number, to: number, header = from, headerRows = 1): PreviewRow[] {
-  const out: PreviewRow[] = [];
-  for (let r = previewStart(from, header, headerRows); r < Math.min(to, rows.length) && out.length < PREVIEW_ROWS; r++) out.push({ row: r, cells: [...rows[r]!] });
-  return out;
+  const end = Math.min(to, rows.length);
+  const hasValue = (r: number) => rows[r]!.some(isValueCell);
+  return previewIndices(from, end, header, headerRows, hasValue).map((r) => ({ row: r, cells: [...rows[r]!] }));
 }
 
 /** A hint that cannot be followed: out of the sheet, overlapping another, or with rows in the wrong order. */

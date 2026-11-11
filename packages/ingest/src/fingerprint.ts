@@ -15,12 +15,17 @@ const UNIT_TOKENS: [RegExp, string][] = [
   [/(?<![a-z0-9])(?:rs\.|rs|inr)(?![a-z0-9])|₹/g, "inr"],
 ];
 
-/** NFKC and lower case, unit tokens canonical, every run outside [a-z0-9/] one space, trimmed. Blank stays "". */
+/**
+ * NFKC and lower case, unit tokens canonical, every run of other characters one space, trimmed. Blank stays "".
+ * Letters, their marks and digits of every script are kept, so a Hindi or Gujarati name is a name, never a blank
+ * (PORTAL-RULES-3 section 5.1, B2). Invisible format characters (the joiners Indian scripts use) are dropped. Two
+ * names give one key only when they differ by case, spaces, punctuation or a unit word ("Kgs" and "kg").
+ */
 export function normalizeHeader(h: string): string {
-  let t = h.normalize("NFKC").toLowerCase();
+  let t = h.normalize("NFKC").replace(/\p{Cf}/gu, "").toLowerCase();
   t = t.replace(/'/g, " ft ");
   for (const [re, to] of UNIT_TOKENS) t = t.replace(re, (m) => (m === "₹" ? " inr " : to));
-  return t.replace(/[^a-z0-9/]+/g, " ").trim();
+  return t.replace(/[^\p{L}\p{M}\p{N}/]+/gu, " ").trim();
 }
 
 /**

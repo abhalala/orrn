@@ -6,8 +6,8 @@
  * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `readSheet` like a sheet.
  */
 import { cellKind, inferKind } from "../cells";
-import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isWord, previewStart, readSheet, TITLE_MARK } from "./blocks";
-import { PREVIEW_ROWS, type BlockHints, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
+import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isValueCell, isWord, previewIndices, readSheet, TITLE_MARK } from "./blocks";
+import { type BlockHints, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export type TextItem = {
   str: string;
@@ -586,14 +586,12 @@ function placeAbove(pre: readonly Line[], rows: readonly LayoutRow[], cols: Col[
 
 /**
  * Raw rows of a PDF page for a preview: lines `from` to `to`, each as its cells, with the 1-based `page`, at most
- * `PREVIEW_ROWS`. A long title moves the window down to the header (`previewStart`).
+ * the window `previewIndices` gives.
  */
 function linesPreview(lines: readonly Line[], from: number, to: number, page: number, header: number, headerRows: number): PreviewRow[] {
-  const out: PreviewRow[] = [];
-  for (let n = previewStart(Math.max(from, 0), header, headerRows); n <= to && n < lines.length && out.length < PREVIEW_ROWS; n++) {
-    out.push({ row: n, page, cells: lines[n]!.cells.map((c) => c.text) });
-  }
-  return out;
+  const end = Math.min(to + 1, lines.length);
+  const hasValue = (n: number) => lines[n]!.cells.some((c) => isValueCell(c.text));
+  return previewIndices(Math.max(from, 0), end, header, headerRows, hasValue).map((n) => ({ row: n, page, cells: lines[n]!.cells.map((c) => c.text) }));
 }
 
 /** Where a guessed PDF block's region starts, for the lines listed when it holds no rows. */

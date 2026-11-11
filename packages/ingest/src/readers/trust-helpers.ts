@@ -8,7 +8,7 @@ import { chooseHeader, type HeaderChoice, type HeaderHoles } from "../header";
 import type { ReadBlock } from "./types";
 
 /** An approved layout of the plant whose column names are exactly these headers (no fields: only the names count). */
-export function layoutOf(headers: readonly string[], id = "t"): LearnedHole {
+export function layoutOf(headers: readonly string[], id = "t", headerRows: 1 | 2 = 1): LearnedHole {
   const normalized = normalizeHeaders(headers);
   return {
     holeId: id,
@@ -19,7 +19,7 @@ export function layoutOf(headers: readonly string[], id = "t"): LearnedHole {
       schemaVersion: 1,
       target: "customers",
       headerRow: 0,
-      headerRows: 1,
+      headerRows,
       match: { headerKey: headerKey(normalized), headers: normalized },
       fields: [],
       filters: [],
