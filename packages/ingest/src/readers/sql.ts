@@ -42,7 +42,28 @@ export type SqlReaderOptions = {
   /** Column names from a schema-only dump, pushed as text before the data. Not needed: `push` it like any chunk. */
 };
 
-type Ident = { name: string; schema: string | null };
+/** `quoted`: the name was in quotes, so its case counts. An unquoted name folds to lower case, as Postgres does. */
+type Ident = { name: string; schema: string | null; quoted?: boolean };
+
+/** Table key: schema and name. A dump may hold public.log and audit.log, or "Orders" and orders. */
+function identKey(id: Ident): string {
+  return `${(id.schema ?? "").toLowerCase()}\u0000${id.quoted ? id.name : id.name.toLowerCase()}`;
+}
+
+/**
+ * The key a statement's table name refers to in `map`. The exact schema and name first. A name with no schema, or
+ * with a schema where only a schema-less entry exists, takes the one entry with that name, when there is one.
+ */
+function findKey(map: ReadonlyMap<string, unknown>, id: Ident): string | null {
+  const exact = identKey(id);
+  if (map.has(exact)) return exact;
+  const name = exact.slice(exact.indexOf("\u0000") + 1);
+  const hits = [...map.keys()].filter((k) => {
+    const [schema, n] = k.split("\u0000") as [string, string];
+    return n === name && (id.schema === null || schema === "");
+  });
+  return hits.length === 1 ? hits[0]! : null;
+}
 
 type SkipState = {
   quote: "'" | '"' | "`" | null;
@@ -277,7 +298,7 @@ export class SqlReader {
   }
 
   /** A bare word or a quoted identifier. */
-  private readIdent(b: string, p: number): { value: string; end: number } | null {
+  private readIdent(b: string, p: number): { value: string; end: number; quoted?: boolean } | null {
     if (p >= b.length) throw new Incomplete();
     const c = b[p]!;
     if (c === '"' || c === "`" || c === "[") {
@@ -292,7 +313,7 @@ export class SqlReader {
             i += 2;
             continue;
           }
-          return { value: out, end: i + 1 };
+          return { value: out, end: i + 1, quoted: true };
         }
         out += b[i];
         i++;
@@ -306,11 +327,13 @@ export class SqlReader {
 
   private readQualifiedName(b: string, p: number): { ident: Ident; end: number } | null {
     const parts: string[] = [];
+    let quoted = false;
     let i = p;
     for (;;) {
       const id = this.readIdent(b, i);
       if (!id) return null;
       parts.push(id.value);
+      quoted = id.quoted === true;
       i = this.skipSpace(b, id.end);
       if (b[i] === ".") {
         i = this.skipSpace(b, i + 1);
@@ -320,7 +343,7 @@ export class SqlReader {
     }
     const name = parts[parts.length - 1]!;
     const schema = parts.length > 1 ? parts[parts.length - 2]! : null;
-    return { ident: { name, schema }, end: i };
+    return { ident: { name, schema, quoted }, end: i };
   }
 
   private readColumnList(b: string, p: number): { cols: string[]; end: number } {
@@ -398,10 +421,12 @@ export class SqlReader {
   }
 
   private tableFor(ident: Ident, cols: string[] | null, source: "insert" | "copy"): SqlTable {
-    const key = ident.name.toLowerCase();
-    let t = this.tables.get(key);
+    let key = findKey(this.tables, ident);
+    let t = key === null ? undefined : this.tables.get(key);
     if (!t) {
-      const declared = this.declared.get(key);
+      key = identKey(ident);
+      const dk = findKey(this.declared, ident);
+      const declared = dk === null ? undefined : this.declared.get(dk);
       t = {
         name: ident.name,
         schema: ident.schema,
@@ -833,9 +858,9 @@ export class SqlReader {
         /* not a column definition */
       }
     }
-    const key = ident.ident.name.toLowerCase();
-    this.declared.set(key, { ident: ident.ident, columns });
-    const t = this.tables.get(key);
+    this.declared.set(identKey(ident.ident), { ident: ident.ident, columns });
+    const tk = findKey(this.tables, ident.ident);
+    const t = tk === null ? undefined : this.tables.get(tk);
     if (t && t.columns.length === 0) t.columns = columns;
   }
 }
@@ -891,10 +916,12 @@ export function parseSql(text: string, opts: SqlReaderOptions & { chunkSize?: nu
 
 /** Tables as blocks: the table name is the sheet name, the columns are the header. Empty tables are left out. */
 export function sqlTablesToBlocks(tables: readonly SqlTable[]): ReadBlock[] {
-  return tables
-    .filter((t) => t.rows.length > 0)
+  const kept = tables.filter((t) => t.rows.length > 0);
+  // Two tables with one bare name (public.log, audit.log) are told apart by their schema.
+  const shared = (t: SqlTable) => kept.filter((x) => x.name.toLowerCase() === t.name.toLowerCase()).length > 1;
+  return kept
     .map((t) => ({
-      sheetName: t.name,
+      sheetName: t.schema && shared(t) ? `${t.schema}.${t.name}` : t.name,
       title: null,
       headerRow: 0,
       headerRows: 1 as const,
