@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { approve, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+import { comesBefore } from "../src/lib/ingest/orderid";
 
 let env: TestEnv;
 
@@ -118,6 +119,31 @@ describe("S4-1 and rule 4.2: a PO joins the numbered order that carries it, acro
     const cb = await p.owner.ingest.candidate.get({ candidateId: b });
     expect(cb.state).toBe("held");
     expect(cb.reasonDetail).toContain("book.xlsx (A)");
+  });
+
+  test("sheets of one upload come in sheet order, so the later sheet is always the one held", async () => {
+    const p = await setup();
+    const names = ["A", "B", "C", "D", "E", "F"];
+    // A Worker's clock does not move while code runs: every sheet of one upload gets the same time.
+    const realNow = Date.now;
+    const frozen = realNow();
+    Date.now = () => frozen;
+    let candidates: { id: string }[];
+    try {
+      ({ candidates } = await upload(
+        p.owner,
+        names.map((name, i) => ({ name, headers: BOOK, rows: [R(String(50 + i), "PO-9", "31/10/2025", "5100")] })),
+      ));
+    } finally {
+      Date.now = realNow;
+    }
+    const at = await Promise.all(
+      candidates.map(async (c) => {
+        const r = await env.d1.prepare("select created_at as t, id from ingest_candidate where id = ?").bind(c.id).first<{ t: number; id: string }>();
+        return { createdAt: new Date(r!.t), id: r!.id };
+      }),
+    );
+    for (let i = 1; i < at.length; i++) expect(comesBefore(at[i - 1]!, at[i]!)).toBe(true);
   });
 
   test("T2: order 41 with PO-9 in sheet A and order 42 with PO-9 in sheet B: a conflict naming both, nothing written for either", async () => {

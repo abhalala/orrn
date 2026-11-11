@@ -239,7 +239,9 @@ export async function putBlocks(
         fitScore: fit.fit === "none" ? null : fit.score,
         fitDiff: fitDiffJson(fit),
         state: stateForFit(fit),
-        createdAt: at,
+        // One millisecond a sheet: the sheets of one upload keep their order, so the merge always
+        // holds the later sheet (comesBefore). A Worker's clock does not move while code runs.
+        createdAt: new Date(at.getTime() + b.ordinal),
         updatedAt: at,
       }),
     );
