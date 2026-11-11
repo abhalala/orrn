@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7928 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7931 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -7535,7 +7535,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (304)
+### audit (307)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7732,10 +7732,13 @@ Please check, Lalubhai:
 | `actions.foundry__reading__add` | Furnace temperature added | फर्नेस का तापमान जोड़ा |
 | `actions.foundry__reading__simulate` | Furnace curve simulated (demo) | फर्नेस का सिमुलेटेड कर्व चलाया (डेमो) |
 | `actions.foundry__spectro__void` | Spectro result voided | स्पेक्ट्रो नतीजा रद्द किया |
+| `actions.ingest__artifact__reread` | File read again for import | इम्पोर्ट की फ़ाइल दोबारा पढ़ी |
 | `actions.ingest__artifact__upload` | File uploaded for import | इम्पोर्ट के लिए फ़ाइल डाली |
 | `actions.ingest__candidate__approve` | Import approved | इम्पोर्ट मंज़ूर किया |
 | `actions.ingest__candidate__discard` | Import discarded | इम्पोर्ट हटाया |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
+| `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
+| `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |
 | `actions.ingest__hole__save` | Import layout saved | इम्पोर्ट का लेआउट सेव किया |
 | `actions.ingest__merge__finish` | Import merge finished | इम्पोर्ट मर्ज पूरा हुआ |
 | `actions.ingest__merge__start` | Import merge started | इम्पोर्ट मर्ज शुरू हुआ |
