@@ -58,9 +58,19 @@ export function overdrawLines(state: OverdrawState | undefined): { lines: { line
 /** A refused Complete in the floor's words when it is about the dispatch rules; null for anything else. */
 export function completeRefusalText(t: Translate, error: unknown): string | null {
   const e = (error && typeof error === "object" ? error : {}) as { message?: unknown; data?: { code?: unknown } | null };
-  if (e.data?.code !== "PRECONDITION_FAILED" || typeof e.message !== "string") return null;
+  if (typeof e.message !== "string") return null;
+  if (e.data?.code === "BAD_REQUEST") {
+    // Arch 52: the server's own refusals of a late time (the sheet checks the same rule first).
+    if (/in the future/i.test(e.message)) return t("dispatch.late.future");
+    if (/at most 72 hours/i.test(e.message)) return t("dispatch.late.tooOld");
+    if (/reason the packing list is entered late/i.test(e.message)) return t("dispatch.late.noReason");
+    if (/needs the time the truck left/i.test(e.message)) return t("dispatch.late.noTime");
+    return null;
+  }
+  if (e.data?.code !== "PRECONDITION_FAILED") return null;
   if (/rejected for the order line/i.test(e.message)) return t("dispatch.errors.offBandRejected");
   if (/off the order line/i.test(e.message)) return t("dispatch.errors.offBand");
   if (/^Over the order balance/i.test(e.message)) return t("dispatch.errors.overdraw");
+  if (/^Entered late/i.test(e.message)) return t("dispatch.errors.lateEntry");
   return null;
 }

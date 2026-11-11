@@ -25,6 +25,7 @@ import { dispatchErrorText } from "@/features/dispatch/errors";
 import { GroupLabelSheet } from "@/features/dispatch/group-label-sheet";
 import { dispatchTotals, type DispatchItem, type ItemGroup } from "@/features/dispatch/group-items";
 import { HoldNote, PlPendingNote, ReleaseButton } from "@/features/dispatch/hold-step";
+import { LateEntryNote } from "@/features/dispatch/late-entry-note";
 import { offBandNote, offBandStops } from "@/features/dispatch/off-band";
 import { useCan, usePackingListScope } from "@/features/dispatch/hooks";
 import { OrderPanel } from "@/features/dispatch/order-panel";
@@ -348,6 +349,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
 
       {status === "completed" ? (
         <>
+          <LateEntryNote dispatch={d} />
           <PackingListView dispatchId={d.id} dispatch={d} customerName={customerName} focusTitle={celebrate > 0} />
           <IssueCertificate dispatchId={d.id} />
         </>

@@ -39,6 +39,9 @@ export const approvalKinds = [
   // subject = dispatch item id; meta { dispatchId, dispatchCode, itemId, bundleId, serial, lineId,
   // orderNumber, lineNo, bundleMilli, lineMilli, diffMilli }. No applier: dispatch.complete reads it.
   "dispatch_off_band",
+  // arch 52: a dispatch completed later at the time the truck left (line down); subject = dispatch id;
+  // meta { dispatchId, dispatchCode, occurredAt, reason }. No applier: dispatch.complete reads it.
+  "dispatch_late_entry",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 

@@ -149,6 +149,26 @@ describe("approvalSubject", () => {
     expect(approvalSubject(row({ kind: "melt_correct", subjectId: "m/../x", meta: { castId: "cast-9" } })).href).toBeNull();
   });
 
+  test("dispatch_late_entry (arch 52): the dispatch, opens it; the review sheet reads the time the truck left", async () => {
+    const { lateDispatchOf, lateHours } = await import("./approval-view");
+    const meta = { dispatchId: "d-7", dispatchCode: "D-0007", occurredAt: Date.UTC(2026, 10, 10, 1, 0), reason: "Line down" };
+    expect(approvalSubject(row({ kind: "dispatch_late_entry", subjectId: "d-7", meta }))).toEqual({
+      kindKey: "approvals.kind.dispatch_late_entry",
+      titleKey: "approvals.subject.lateDispatch",
+      vars: { code: "D-0007" },
+      href: "/dispatch/d-7",
+      openKey: "approvals.openDispatch",
+    });
+    const { t } = createI18n("en");
+    expect(t("approvals.subject.lateDispatch", { code: "D-0007" })).toBe("D-0007, entered late");
+    expect(approvalSubject(row({ kind: "dispatch_late_entry", subjectId: "a/../b", meta: { ...meta, dispatchId: "a/../b" } })).href).toBeNull();
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta })).toEqual({ occurredAt: meta.occurredAt });
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: {} })).toBeNull();
+    expect(lateDispatchOf({ kind: "dispatch_off_band", meta })).toBeNull();
+    expect(lateHours(meta.occurredAt, meta.occurredAt + 5 * 3_600_000 + 10 * 60_000)).toBe(5);
+    expect(lateHours(meta.occurredAt, meta.occurredAt - 60_000)).toBe(0);
+  });
+
   test("dispatch_off_band (Q36): the bundle, its dispatch and both weights; opens the dispatch; reads live facts", () => {
     const meta = { dispatchId: "d-7", dispatchCode: "D-0007", serial: "26J2", orderNumber: "SO-14", lineNo: 2, bundleMilli: 12_498, lineMilli: 12_000 };
     expect(approvalSubject(row({ kind: "dispatch_off_band", subjectId: "item-1", meta }))).toEqual({

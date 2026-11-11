@@ -223,6 +223,18 @@ export function lateEntryOf(row: Pick<ApprovalForView, "subjectId" | "meta">): L
   };
 }
 
+/** The time a `dispatch_late_entry` request asks to record as the truck leaving (null on a malformed row). */
+export function lateDispatchOf(row: Pick<ApprovalForView, "kind" | "meta">): { occurredAt: number } | null {
+  if (row.kind !== "dispatch_late_entry") return null;
+  const at = num(row.meta?.occurredAt);
+  return at === null ? null : { occurredAt: at };
+}
+
+/** Whole hours between the truck leaving and the request (never below 0). */
+export function lateHours(occurredAt: number, askedAt: number): number {
+  return Math.max(0, Math.round((askedAt - occurredAt) / 3_600_000));
+}
+
 function zonedParts(at: number, timeZone: string): { day: string; month: string; hour: string; minute: string } {
   const fmt = (tz: string | undefined) =>
     new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at));
@@ -358,6 +370,17 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
       kindKey,
       titleKey: "approvals.subject.offBand",
       vars: { serial: text(m.serial), code: text(m.dispatchCode), kg: milli(m.bundleMilli), order: text(m.orderNumber), line: text(m.lineNo), lineKg: milli(m.lineMilli) },
+      href: dispatchId ? `/dispatch/${dispatchId}` : null,
+      openKey: dispatchId ? "approvals.openDispatch" : null,
+    };
+  }
+  if (row.kind === "dispatch_late_entry") {
+    // Arch 52: a packing list entered after the line came back; the time it asks for is in the review sheet.
+    const dispatchId = safeId(m.dispatchId) ?? safeId(row.subjectId);
+    return {
+      kindKey,
+      titleKey: "approvals.subject.lateDispatch",
+      vars: { code: text(m.dispatchCode) },
       href: dispatchId ? `/dispatch/${dispatchId}` : null,
       openKey: dispatchId ? "approvals.openDispatch" : null,
     };

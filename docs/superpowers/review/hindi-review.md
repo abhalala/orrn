@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7481 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7501 screen strings in 49 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -1094,7 +1094,7 @@ Counts: 7481 screen strings in 49 groups, 44 guides with 840 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (230)
+### dispatch (245)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1117,6 +1117,20 @@ Counts: 7481 screen strings in 49 groups, 44 guides with 840 strings.
 | `offBand.waiting` | {count} {count:bundle waits\|bundles wait} for a manager to approve the weight. Dispatch opens when each one is decided. | {count} bundle का वज़न मैनेजर की मंज़ूरी का इंतज़ार कर रहा है। हर एक पर फ़ैसला होने के बाद dispatch खुलेगा। |
 | `offBand.rejectedNote` | {count} {count:bundle was\|bundles were} rejected for the order weight. Take {count:it\|them} off this dispatch first. | {count} bundle ऑर्डर के वज़न के लिए नामंज़ूर हुए। पहले {count:इसे\|इन्हें} इस dispatch से हटाएं। |
 | `offBand.unasked` | {count} {count:bundle is\|bundles are} off the order weight. Pressing Dispatch asks a manager to approve. | {count} bundle ऑर्डर के वज़न से हटकर हैं। Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी। |
+| `late.toggle` | The truck left earlier (the line or the internet was down) | गाड़ी पहले निकल गई थी (लाइन या इंटरनेट बंद था) |
+| `late.time` | When the truck left | गाड़ी कब निकली |
+| `late.timeHint` | On the plant's clock. Up to 72 hours back. | प्लांट की घड़ी से। 72 घंटे तक पीछे। |
+| `late.date` | Date the truck left | गाड़ी निकलने की तारीख |
+| `late.clock` | Time the truck left | गाड़ी निकलने का समय |
+| `late.clockHint` | 24 hour clock, for example 14:30. Up to 72 hours back. | 24 घंटे की घड़ी, जैसे 14:30। 72 घंटे तक पीछे। |
+| `late.reason` | Why is it entered late? | देर से क्यों भर रहे हैं? |
+| `late.reasonHint` | A manager approves this time before the packing list is made. | पैकिंग लिस्ट बनने से पहले मैनेजर यह समय मंज़ूर करेंगे। |
+| `late.future` | That time is in the future. Check the date and time. | यह समय आगे का है। तारीख और समय जांचें। |
+| `late.tooOld` | A late packing list can go back at most 72 hours. | देर से भरी पैकिंग लिस्ट ज़्यादा से ज़्यादा 72 घंटे पीछे जा सकती है। |
+| `late.noReason` | Write why it is entered late. | देर से भरने की वजह लिखें। |
+| `late.noTime` | Enter the date and time the truck left. | गाड़ी निकलने की तारीख और समय भरें। |
+| `late.chip` | Entered late | देर से भरा |
+| `late.left` | Left at {when}: {reason} | {when} पर निकली: {reason} |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
 | `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
 | `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
@@ -1299,6 +1313,7 @@ Counts: 7481 screen strings in 49 groups, 44 guides with 840 strings.
 | `errors.offBand` | Some bundles are off the order weight. A manager has to approve them before this dispatch can go. | कुछ bundle ऑर्डर के वज़न से हटकर हैं। यह dispatch जाने से पहले मैनेजर को मंज़ूर करना होगा। |
 | `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
 | `errors.overdraw` | This load is more than the order allows. A manager has to approve it first. Your note went with the request. | यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया। |
+| `errors.lateEntry` | A manager has to approve the time the truck left. Press Dispatch again once it is approved. | गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद Dispatch फिर दबाएं। |
 | `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |
@@ -4149,7 +4164,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (160)
+### approvals (164)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4177,6 +4192,7 @@ Please check, Lalubhai:
 | `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
 | `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
 | `kind.dispatch_off_band` | Bundle off the order weight | ऑर्डर के वज़न से हटा bundle |
+| `kind.dispatch_late_entry` | Packing list entered late | देर से भरी पैकिंग लिस्ट |
 | `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
@@ -4192,6 +4208,7 @@ Please check, Lalubhai:
 | `subject.castCloseBare` | Close cast {number} | कास्ट {number} बंद करें |
 | `subject.meltCorrect` | Correct melt {seq} of cast {number} | कास्ट {number} की मेल्ट {seq} सुधारें |
 | `subject.offBand` | {serial} on {code}: {kg} kg/12ft, {order} line {line} says {lineKg} | {code} पर {serial}: {kg} kg/12ft, {order} लाइन {line} में {lineKg} |
+| `subject.lateDispatch` | {code}, entered late | {code}, देर से भरा |
 | `foundry.title` | Figures | आँकड़े |
 | `foundry.produced` | Billets made | बने बिलेट |
 | `foundry.metalIn` | Metal in | डाला मेटल |
@@ -4263,6 +4280,8 @@ Please check, Lalubhai:
 | `facts.offBandNoLine` | Not on an order line now | अभी किसी ऑर्डर लाइन पर नहीं |
 | `facts.offBandGone` | This bundle is no longer on the dispatch. Approving changes nothing. | यह bundle अब dispatch पर नहीं है। मंज़ूर करने से कुछ नहीं बदलेगा। |
 | `facts.offBandMoved` | The bundle is on another order line now. Approving covers only the line it was asked for. | Bundle अब दूसरी ऑर्डर लाइन पर है। मंज़ूरी सिर्फ़ उसी लाइन के लिए है जिसके लिए मांगी गई थी। |
+| `facts.lateLeft` | Truck left | गाड़ी निकली |
+| `facts.lateLeftValue` | {when}, entered {hours} h later | {when}, {hours} घंटे बाद भरा |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
@@ -7096,7 +7115,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (291)
+### audit (292)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7266,6 +7285,7 @@ Please check, Lalubhai:
 | `actions.dispatch__linkItem` | Dispatch bundle put on an order line | Dispatch का बंडल ऑर्डर लाइन पर रखा |
 | `actions.dispatch__overdraw__request` | Dispatch over the order asked | ऑर्डर से ज़्यादा dispatch के लिए कहा |
 | `actions.dispatch__off_band__request` | Approval asked for bundles off the order weight | ऑर्डर के वज़न से हटे bundle के लिए मंज़ूरी मांगी |
+| `actions.dispatch__late_entry__request` | Approval asked for a packing list entered late | देर से भरी पैकिंग लिस्ट के लिए मंज़ूरी मांगी |
 | `actions.dispatch__relink` | Dispatch bundles moved to another line | Dispatch के बंडल दूसरी लाइन पर रखे |
 | `actions.dispatch__removeBundle` | Bundle taken off a dispatch | बंडल dispatch से हटाया |
 | `actions.dispatch__reserve` | Dispatch reserved | Dispatch रिज़र्व किया |
@@ -8807,3 +8827,28 @@ Please check, Lalubhai:
 | Fix 3 | The thing changed after the ask, for example the order closed or the request was already decided. Reject it, or ask for it again. | माँगने के बाद चीज़ बदल गई, जैसे ऑर्डर बंद हो गया या अनुरोध पर पहले ही फ़ैसला हो चुका। उसे नामंज़ूर करें, या दोबारा माँगें। |
 | Problem 4 | The purchase figures are hidden | खरीद के आँकड़े छिपे हैं |
 | Fix 4 | Only people who read purchase figures can decide a debit or credit note. Ask one of them. | डेबिट या क्रेडिट नोट पर वही तय कर सकते हैं जो खरीद के आँकड़े पढ़ सकते हैं। उनमें से किसी से कहें। |
+
+### When the internet is down (`internet-down`)
+
+| Part | English | हिंदी |
+|---|---|---|
+| Title | When the internet is down | जब इंटरनेट बंद हो |
+| When | Use this when a truck has to leave while orrn cannot be reached, because the line or the internet is down. The packing list is entered afterwards at the time the truck left. | जब लाइन या इंटरनेट बंद होने से orrn नहीं खुल रहा और गाड़ी निकलनी है। पैकिंग लिस्ट बाद में उसी समय से भरी जाती है जब गाड़ी निकली। |
+| Step 1 | Write it on paper | कागज़ पर लिखें |
+| Step 1 text | While orrn cannot be reached, fill the paper packing list as usual: the bundle serials, the vehicle number and the time the truck left. Leave the labels on the bundles. | जब तक orrn नहीं खुलता, कागज़ की पैकिंग लिस्ट हमेशा की तरह भरें: bundle के serial, गाड़ी नंबर और गाड़ी निकलने का समय। लेबल bundle पर ही रहने दें। |
+| Step 2 | Build the dispatch when it is back | इंटरनेट आने पर dispatch बनाएं |
+| Step 2 text | Once the internet is back, open "Dispatch", open or start the dispatch for that party and scan or paste the serials from the paper. | इंटरनेट आने पर "Dispatch" खोलें, उस पार्टी का dispatch खोलें या शुरू करें और कागज़ से serial स्कैन या पेस्ट करें। |
+| Step 3 | Say when the truck left | गाड़ी कब निकली बताएं |
+| Step 3 text | Tap "Dispatch". In the sheet, turn on "The truck left earlier (the line or the internet was down)" and fill "When the truck left" from the paper. On the phone, fill "Date the truck left" and "Time the truck left". It can go back at most 72 hours. | "Dispatch करें" दबाएं। शीट में "गाड़ी पहले निकल गई थी (लाइन या इंटरनेट बंद था)" चालू करें और कागज़ से "गाड़ी कब निकली" भरें। फ़ोन पर "गाड़ी निकलने की तारीख" और "गाड़ी निकलने का समय" भरें। ज़्यादा से ज़्यादा 72 घंटे पीछे जा सकते हैं। |
+| Step 4 | Say why | वजह बताएं |
+| Step 4 text | Write the reason in "Why is it entered late?" and tap "Dispatch". The sheet says a manager has to approve the time. Nothing moves yet. | "देर से क्यों भर रहे हैं?" में वजह लिखें और "Dispatch करें" दबाएं। शीट बताती है कि समय मैनेजर को मंज़ूर करना है। अभी कुछ नहीं हिलता। |
+| Step 5 | Get the time approved | समय मंज़ूर करवाएं |
+| Step 5 text | A manager, an admin or the owner opens "Approvals", taps "Review" and checks the time against the paper. You cannot approve your own. | मैनेजर, एडमिन या मालिक "मंज़ूरी" खोलकर "देखें और तय करें" दबाते हैं और समय कागज़ से मिलाते हैं। अपनी मांग आप खुद मंज़ूर नहीं कर सकते। |
+| Step 6 | Dispatch again | फिर से dispatch करें |
+| Step 6 text | Open the dispatch and tap "Dispatch" again with the same time and reason. The packing list is made at the time the truck left and the dispatch shows "Entered late". | dispatch खोलें और उसी समय और वजह के साथ फिर "Dispatch करें" दबाएं। पैकिंग लिस्ट गाड़ी निकलने के समय से बनती है और dispatch पर "देर से भरा" दिखता है। |
+| Problem 1 | It says the time is more than 72 hours back | लिखा है कि समय 72 घंटे से ज़्यादा पीछे है |
+| Fix 1 | A late packing list can go back 72 hours only. For an older load, ask the manager how to correct the books. | देर से भरी पैकिंग लिस्ट सिर्फ़ 72 घंटे पीछे जा सकती है। पुराने लोड के लिए मैनेजर से पूछें कि खाते कैसे ठीक करें। |
+| Problem 2 | It says the time is in the future | लिखा है कि समय आगे का है |
+| Fix 2 | Check the date and the 24 hour time. The time is on the plant's clock, not the phone's. | तारीख और 24 घंटे वाला समय जांचें। समय प्लांट की घड़ी से है, फ़ोन की घड़ी से नहीं। |
+| Problem 3 | I typed another time after asking | मांगने के बाद दूसरा समय भरा |
+| Fix 3 | A new time asks again and the old request is withdrawn. Ask the manager to approve the new one. | नया समय फिर से मांग भेजता है और पुरानी मांग वापस हो जाती है। मैनेजर से नई मांग मंज़ूर करवाएं। |

@@ -1218,6 +1218,22 @@ export const hi = {
       rejectedNote: "{count} bundle ऑर्डर के वज़न के लिए नामंज़ूर हुए। पहले {count:इसे|इन्हें} इस dispatch से हटाएं।",
       unasked: "{count} bundle ऑर्डर के वज़न से हटकर हैं। Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी।",
     },
+    late: {
+      toggle: "गाड़ी पहले निकल गई थी (लाइन या इंटरनेट बंद था)",
+      time: "गाड़ी कब निकली",
+      timeHint: "प्लांट की घड़ी से। 72 घंटे तक पीछे।",
+      date: "गाड़ी निकलने की तारीख",
+      clock: "गाड़ी निकलने का समय",
+      clockHint: "24 घंटे की घड़ी, जैसे 14:30। 72 घंटे तक पीछे।",
+      reason: "देर से क्यों भर रहे हैं?",
+      reasonHint: "पैकिंग लिस्ट बनने से पहले मैनेजर यह समय मंज़ूर करेंगे।",
+      future: "यह समय आगे का है। तारीख और समय जांचें।",
+      tooOld: "देर से भरी पैकिंग लिस्ट ज़्यादा से ज़्यादा 72 घंटे पीछे जा सकती है।",
+      noReason: "देर से भरने की वजह लिखें।",
+      noTime: "गाड़ी निकलने की तारीख और समय भरें।",
+      chip: "देर से भरा",
+      left: "{when} पर निकली: {reason}",
+    },
     overTolerance: {
       title: "ऑर्डर से ज़्यादा",
       line: "{order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा",
@@ -1423,6 +1439,7 @@ export const hi = {
       offBand: "कुछ bundle ऑर्डर के वज़न से हटकर हैं। यह dispatch जाने से पहले मैनेजर को मंज़ूर करना होगा।",
       offBandRejected: "एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें।",
       overdraw: "यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया।",
+      lateEntry: "गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद Dispatch फिर दबाएं।",
     },
     capacity: {
       label: "गाड़ी की क्षमता (kg)",
@@ -4288,6 +4305,7 @@ export const hi = {
       press_late_entry: "बाद में भरा गया प्रेस रन",
       melt_correct: "लॉक किया melt सुधारना",
       dispatch_off_band: "ऑर्डर के वज़न से हटा bundle",
+      dispatch_late_entry: "देर से भरी पैकिंग लिस्ट",
     },
     subject: {
       ageingOverride: "मंज़ूरी पर {number} छोड़ें",
@@ -4305,6 +4323,7 @@ export const hi = {
       castCloseBare: "कास्ट {number} बंद करें",
       meltCorrect: "कास्ट {number} की मेल्ट {seq} सुधारें",
       offBand: "{code} पर {serial}: {kg} kg/12ft, {order} लाइन {line} में {lineKg}",
+      lateDispatch: "{code}, देर से भरा",
     },
     foundry: {
       title: "आँकड़े",
@@ -4384,6 +4403,8 @@ export const hi = {
       offBandNoLine: "अभी किसी ऑर्डर लाइन पर नहीं",
       offBandGone: "यह bundle अब dispatch पर नहीं है। मंज़ूर करने से कुछ नहीं बदलेगा।",
       offBandMoved: "Bundle अब दूसरी ऑर्डर लाइन पर है। मंज़ूरी सिर्फ़ उसी लाइन के लिए है जिसके लिए मांगी गई थी।",
+      lateLeft: "गाड़ी निकली",
+      lateLeftValue: "{when}, {hours} घंटे बाद भरा",
     },
     move: {
       title: "क्या जा रहा है",
@@ -6617,6 +6638,7 @@ export const hi = {
       dispatch__linkItem: "Dispatch का बंडल ऑर्डर लाइन पर रखा",
       dispatch__overdraw__request: "ऑर्डर से ज़्यादा dispatch के लिए कहा",
       dispatch__off_band__request: "ऑर्डर के वज़न से हटे bundle के लिए मंज़ूरी मांगी",
+      dispatch__late_entry__request: "देर से भरी पैकिंग लिस्ट के लिए मंज़ूरी मांगी",
       dispatch__relink: "Dispatch के बंडल दूसरी लाइन पर रखे",
       dispatch__removeBundle: "बंडल dispatch से हटाया",
       dispatch__reserve: "Dispatch रिज़र्व किया",

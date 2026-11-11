@@ -3,6 +3,7 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { Sheet } from "@orrn/ui/components/sheet";
+import type { MessageKey } from "@orrn/i18n";
 import { useEffect, useRef, useState } from "react";
 
 import type { CapacityReport } from "@/features/scan/scan-outcome";
@@ -13,6 +14,8 @@ import { CapacityBanner } from "./capacity-banner";
 import { dispatchNow } from "./dispatch-now";
 import { dispatchErrorText } from "./errors";
 import { groupItems, type DispatchItem } from "./group-items";
+import { useCompanyTimeZone } from "./hooks";
+import { lateBounds, lateCheck } from "./late-entry";
 import { overdrawView, overLineText, type OverdrawState } from "./over-tolerance";
 import { dispatchKgText } from "./format";
 
@@ -49,6 +52,12 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   const over = capacity?.state === "over";
   const overOrder = overdrawView(overdraw ?? null);
   const [overdrawNote, setOverdrawNote] = useState("");
+  // Arch 52: the line or the internet was down; the paper packing list is entered at the time the truck left.
+  const tz = useCompanyTimeZone();
+  const [late, setLate] = useState(false);
+  const [lateTime, setLateTime] = useState("");
+  const [lateReason, setLateReason] = useState("");
+  const [lateError, setLateError] = useState<{ field: "time" | "reason"; key: MessageKey } | null>(null);
   // Held by this sheet a moment ago: a retry after a failed complete must not hold twice
   // (the refreshed status may not be back yet).
   const heldHere = useRef({ held: false });
@@ -60,6 +69,10 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
       setVehicle("");
       setVehicleError(null);
       setOverdrawNote("");
+      setLate(false);
+      setLateTime("");
+      setLateReason("");
+      setLateError(null);
     }
   }, [open]);
   const groups = groupItems(items);
@@ -79,6 +92,12 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
       document.getElementById("capacity-reason")?.focus();
       return;
     }
+    const lateSend = late ? lateCheck(lateTime, lateReason, tz, Date.now()) : null;
+    if (lateSend?.kind === "error") {
+      setLateError({ field: lateSend.field, key: lateSend.key });
+      document.getElementById(lateSend.field === "time" ? "late-time" : "late-reason")?.focus();
+      return;
+    }
     setBusy(true);
     setError(undefined);
     try {
@@ -91,6 +110,8 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             ...(over ? { capacityOverrideReason: reason.trim() } : {}),
             // pl-flow 61: the reason for sending more than the order goes with the request.
             ...(overOrder && overdrawNote.trim() ? { overdrawNote: overdrawNote.trim() } : {}),
+            // Arch 52: the time the truck left and why; a second person approves that exact time.
+            ...(lateSend?.kind === "ok" ? { occurredAt: lateSend.occurredAt, lateReason: lateSend.reason } : {}),
           }),
       });
       onOpenChange(false);
@@ -198,6 +219,52 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             <p className="m-0 text-[14px] text-tone-amber-ink">{t(overOrder.statusKey)}</p>
             <Field id="overdraw-note" label={t("dispatch.overTolerance.noteLabel")} hint={t("dispatch.overTolerance.noteHint")}>
               <FieldTextArea id="overdraw-note" value={overdrawNote} onChangeText={setOverdrawNote} rows={2} maxLength={500} data-testid="overdraw-note" />
+            </Field>
+          </div>
+        ) : null}
+        <label className="-my-1 flex min-h-11 cursor-pointer items-center gap-3 self-start text-[15px] font-medium">
+          <input
+            type="checkbox"
+            checked={late}
+            onChange={(e) => {
+              const checked = e.currentTarget.checked;
+              setLate(checked);
+              setLateError(null);
+            }}
+            className="size-5 accent-[var(--color-foreground)]"
+            data-testid="late-entry-toggle"
+          />
+          {t("dispatch.late.toggle")}
+        </label>
+        {late ? (
+          <div data-late-entry="" className="flex flex-col gap-3">
+            <Field id="late-time" label={t("dispatch.late.time")} hint={t("dispatch.late.timeHint")} error={lateError?.field === "time" ? t(lateError.key) : undefined}>
+              <TextInput
+                id="late-time"
+                type="datetime-local"
+                value={lateTime}
+                {...lateBounds(tz, Date.now())}
+                onChange={(e) => {
+                  setLateTime(e.currentTarget.value);
+                  setLateError(null);
+                }}
+                aria-invalid={lateError?.field === "time" ? true : undefined}
+                data-testid="late-time"
+              />
+            </Field>
+            <Field id="late-reason" label={t("dispatch.late.reason")} hint={t("dispatch.late.reasonHint")} error={lateError?.field === "reason" ? t(lateError.key) : undefined}>
+              <FieldTextArea
+                id="late-reason"
+                value={lateReason}
+                onChangeText={(v) => {
+                  setLateReason(v);
+                  setLateError(null);
+                }}
+                rows={2}
+                maxLength={500}
+                aria-invalid={lateError?.field === "reason" ? true : undefined}
+                data-testid="late-reason"
+              />
             </Field>
           </div>
         ) : null}

@@ -330,6 +330,7 @@ describe("approvals", () => {
       press_late_entry: ["owner", "supervisor", "manager"],
       melt_correct: ["owner", "admin", "manager"],
       dispatch_off_band: ["owner", "admin", "manager"],
+      dispatch_late_entry: ["owner", "admin", "manager"],
     });
   });
 

@@ -69,6 +69,7 @@ export const APPROVAL_KIND_MODULE: Readonly<Record<ApprovalKind, CompanyModule>>
   press_late_entry: "press",
   melt_correct: "foundry",
   dispatch_off_band: "dispatches",
+  dispatch_late_entry: "dispatches",
 };
 
 const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);

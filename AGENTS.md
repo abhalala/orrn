@@ -236,6 +236,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `die_rerank` | owner, admin, manager | applies the tier change (`die_tier_change`) |
   | `dispatch_overdraw` | owner, admin, manager | no applier, by design: `dispatch.complete` reads the status |
   | `dispatch_off_band` | owner, admin, manager | no applier, by design: subject = the dispatch item; `dispatch.complete` reads it (Q36, see Dispatch) |
+  | `dispatch_late_entry` | owner, admin, manager | no applier, by design: subject = the dispatch; `dispatch.complete` with the same `occurredAt` reads it and names it in `late_entry_approval_id` (arch 52, see Dispatch) |
   | `phantom_void` | owner, admin, manager | voids a count's still-missing phantoms with reversal rows (one request per count) |
   | `die_owner_override` | owner, admin, manager | the approved row is the grant: `assertDieAllowed` reads it until `meta.closedAt` is set by `dieInstance.closeOwnerOverride`; approval stamps `meta.grantedAt`, a rejection writes nothing |
   | `order_reallocate` | owner, admin, manager | moves another customer's bundles (re-runs the owner gate at the decision) |
@@ -958,6 +959,22 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   Complete with the same figures leaves that request as it is; its `overdrawNote` (the web Complete
   sheet's "Why send more than the order?") fills the request's note only while it has none, never
   replacing one.
+- **Late packing list (arch 52, Q30).** When the line or the internet was down, `dispatch.complete`
+  takes `occurredAt` (epoch ms, the time the truck left) and `lateReason`: at most 72 h back, never in
+  the future (2 min skew), a reason of 3 to 500 characters (`lateDispatchGate` in
+  `packages/domain/src/dispatchLate.ts`, the same check in the web and phone Complete sheets). The first
+  press opens a `dispatch_late_entry` request (subject = the dispatch, meta `{ dispatchId, dispatchCode,
+  occurredAt, reason }`, note = the reason, audit `dispatch.late_entry.request`) and refuses
+  PRECONDITION_FAILED "Entered late: ..."; nothing is held or posted. An approval covers only the exact
+  `occurredAt` it was asked for; another time withdraws a waiting ask ("Withdrawn: asked again with
+  another time.") and asks again. Once approved, Complete writes `completed_at` = `occurredAt`, the
+  ledger `posted_at` = `occurredAt` (still clamped to just after the bundle's last ledger row, so a
+  bundle packed after that time posts just after its pack), sets `late_entry`, `late_entry_reason` and
+  `late_entry_approval_id` (migration `0048_dispatch_late_entry`), guards the UPDATE on the approval
+  still being approved, and puts `lateEntry` in the `dispatch.complete` audit meta. Cancel or delete
+  withdraws a waiting ask. The completed dispatch shows "Entered late" with the time and reason; the
+  approvals review sheet shows the time the truck left and how many hours later it was asked. Guide
+  "When the internet is down" (`internet-down`) in en, hi and gu.
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
@@ -1049,7 +1066,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   grams per piece half up (`kgPerPieceG`).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
-- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
+- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR.
 
 ## Stock count (phantom report)
 

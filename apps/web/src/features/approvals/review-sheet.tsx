@@ -43,7 +43,9 @@ import {
   decideState,
   durationText,
   hasLiveFacts,
+  lateDispatchOf,
   lateEntryOf,
+  lateHours,
   lateWindowText,
   plantTimeText,
   moveEndText,
@@ -107,6 +109,9 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
   // H1: a late entry shows the run (press, copy, the typed start and stop, kg in and good) before anyone decides.
   const late = current?.kind === "press_late_entry" ? lateEntryOf(current) : null;
+  // Arch 52: a late packing list shows the time the truck left and how long after it was entered.
+  const lateDispatch = current ? lateDispatchOf(current) : null;
+  const tz = useCompanyTimeZone();
   const lateRun = useQuery({
     ...trpc.press.runs.get.queryOptions({ id: late?.runId ?? "" }),
     enabled: open && late !== null && late.runId !== null,
@@ -219,6 +224,17 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         ) : null}
 
         {foundry.length > 0 ? <FoundryFigures rows={foundry} title={isFoundryLive ? t("approvals.foundry.atRequest") : undefined} /> : null}
+
+        {lateDispatch ? (
+          <Block title={t("approvals.facts.lateLeft")}>
+            <p className="m-0 text-[15px] font-medium" data-testid="late-dispatch-time">
+              {t("approvals.facts.lateLeftValue", {
+                when: plantTimeText(lateDispatch.occurredAt, tz),
+                hours: lateHours(lateDispatch.occurredAt, new Date(current.createdAt).getTime()),
+              })}
+            </p>
+          </Block>
+        ) : null}
 
         {late ? <LateEntryFigures late={late} run={lateRun.data} loading={lateRun.isLoading} error={showsQueryError(lateRun)} /> : null}
 

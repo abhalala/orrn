@@ -3,7 +3,7 @@ import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Switch, Text, View } from "react-native";
 
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
 import { completeRefusalText, offBandNote, offBandStops, overdrawLines } from "@/features/dispatch/off-band";
+import { lateCheck, lateExtras, lateStartDate, type LateCheck } from "@/features/dispatch/late-entry";
 import { kgTotal } from "@/features/dispatch/format";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
@@ -94,6 +95,13 @@ export default function DispatchDetailScreen() {
   // BACKLOG 62: no vehicle in the header, so the Dispatch sheet asks for it and saves it first.
   const [vehicle, setVehicle] = useState("");
   const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
+  // Arch 52: the truck left while the line or the internet was down; entered at that time.
+  const timeZone = format.zone;
+  const [late, setLate] = useState(false);
+  const [lateDate, setLateDate] = useState("");
+  const [lateTime, setLateTime] = useState("");
+  const [lateReason, setLateReason] = useState("");
+  const [lateError, setLateError] = useState<Extract<LateCheck, { kind: "error" }> | null>(null);
   const [banner, setBanner] = useState<{ title: string; body: string } | null>(null);
   const [justDispatched, setJustDispatched] = useState(false);
   // Remembers that the hold went through, so a retry after a failed complete does not hold twice (ruling T22).
@@ -113,6 +121,11 @@ export default function DispatchDetailScreen() {
       setOverTried(false);
       setVehicle("");
       setVehicleError(null);
+      setLate(false);
+      setLateDate(lateStartDate(timeZone));
+      setLateTime("");
+      setLateReason("");
+      setLateError(null);
     }
     setSheet(next);
   };
@@ -213,13 +226,19 @@ export default function DispatchDetailScreen() {
       setOverTried(true);
       return;
     }
+    const lateSend = late ? lateCheck(lateDate, lateTime, lateReason, timeZone, Date.now()) : null;
+    if (lateSend?.kind === "error") {
+      setLateError(lateSend);
+      feedback.error();
+      return;
+    }
     setBusy(true);
     setSheetError(null);
     try {
       if (gate.kind === "save") await saveVehicle.mutateAsync({ id: d.id, vehicleNo: gate.vehicleNo });
       await dispatchNow(d.status, held.current, {
         reserve: () => reserve.mutateAsync({ id: d.id }),
-        complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason) }),
+        complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason), ...lateExtras(lateSend) }),
       });
       setJustDispatched(true);
       closeSheet();
@@ -437,6 +456,16 @@ export default function DispatchDetailScreen() {
             ))}
           </View>
 
+          {d.status === "completed" && d.lateEntry && d.completedAt ? (
+            // Arch 52: entered after the line came back, at the time the truck left.
+            <View className="flex-row flex-wrap items-center gap-2" testID="late-entry-note">
+              <Chip tone="amber" label={t("dispatch.late.chip")} />
+              <Text className="min-w-0 flex-1 font-sans text-sm text-muted-foreground">
+                {t("dispatch.late.left", { when: `${format.day(d.completedAt)} ${format.time(d.completedAt)}`, reason: d.lateEntryReason ?? "" })}
+              </Text>
+            </View>
+          ) : null}
+
           {d.status === "completed" ? (
             plQuery.isPending ? (
               <LoadingBlock />
@@ -535,6 +564,63 @@ export default function DispatchDetailScreen() {
             multiline
             maxLength={500}
           />
+        ) : null}
+        <View className="min-h-12 flex-row items-center justify-between gap-3">
+          <Text className="flex-1 text-[15px] font-medium text-foreground">{t("dispatch.late.toggle")}</Text>
+          <Switch
+            accessibilityLabel={t("dispatch.late.toggle")}
+            value={late}
+            onValueChange={(on) => {
+              setLate(on);
+              setLateError(null);
+            }}
+            testID="late-entry-toggle"
+          />
+        </View>
+        {late ? (
+          <>
+            <Field
+              label={t("dispatch.late.date")}
+              value={lateDate}
+              onChangeText={(v) => {
+                setLateDate(v);
+                setLateError(null);
+              }}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+              mono
+              testID="late-date"
+            />
+            <Field
+              label={t("dispatch.late.clock")}
+              hint={t("dispatch.late.clockHint")}
+              error={lateError?.field === "time" ? t(lateError.key) : null}
+              value={lateTime}
+              onChangeText={(v) => {
+                setLateTime(v);
+                setLateError(null);
+              }}
+              placeholder="14:30"
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              mono
+              testID="late-time"
+            />
+            <Field
+              label={t("dispatch.late.reason")}
+              hint={t("dispatch.late.reasonHint")}
+              error={lateError?.field === "reason" ? t(lateError.key) : null}
+              value={lateReason}
+              onChangeText={(v) => {
+                setLateReason(v);
+                setLateError(null);
+              }}
+              multiline
+              maxLength={500}
+              testID="late-reason"
+            />
+          </>
         ) : null}
       </ConfirmSheet>
       <ConfirmSheet

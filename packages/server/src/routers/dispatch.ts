@@ -17,7 +17,16 @@ import { bundle, bundleStatusEvent } from "@orrn/db/schema/inventory";
 import { packingList } from "@orrn/db/schema/packing";
 import { openSalesOrderStatuses, salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { company } from "@orrn/db/schema/tenant";
-import { bundleKgPer12ftMilli, capacityCheck, DISPATCH_TRANSITIONS, dispatchValue, normalizeSerial, offLineBand } from "@orrn/domain";
+import {
+  bundleKgPer12ftMilli,
+  capacityCheck,
+  DISPATCH_TRANSITIONS,
+  dispatchValue,
+  LATE_REASON_MAX,
+  lateDispatchGate,
+  normalizeSerial,
+  offLineBand,
+} from "@orrn/domain";
 
 import type { Context } from "../context";
 import { actionProcedure, companyProcedure, router } from "../index";
@@ -327,6 +336,51 @@ function offBandMessage(states: readonly OffBandState[]): string {
     parts.push(`${rejected.join(", ")} ${rejected.length === 1 ? "was" : "were"} rejected for the order line. Take ${rejected.length === 1 ? "it" : "them"} off the dispatch or link ${rejected.length === 1 ? "it" : "them"} to a line that fits.`);
   }
   return parts.join(" ");
+}
+
+/**
+ * arch 52: the approval of a late dispatch time. Approved for exactly this time: its id. Otherwise the
+ * request is opened (a waiting one for another time is withdrawn, "Withdrawn: asked again with
+ * another time.") or left as it is, and the caller refuses. Meta: time and reason only.
+ */
+async function askLateEntry(
+  ctx: OverdrawCtx,
+  d: { id: string; code: string },
+  occurredAt: number,
+  reason: string,
+): Promise<{ approvedId: string | null }> {
+  const rows = await ctx.db
+    .select({ id: approval.id, status: approval.status, meta: approval.meta })
+    .from(approval)
+    .where(and(eq(approval.companyId, ctx.companyId), eq(approval.kind, "dispatch_late_entry"), eq(approval.subjectId, d.id)))
+    .orderBy(desc(approval.createdAt));
+  const forTime = rows.filter((r) => r.meta?.occurredAt === occurredAt);
+  const approved = forTime.find((r) => r.status === "approved");
+  if (approved) return { approvedId: approved.id };
+  if (forTime.some((r) => r.status === "pending")) return { approvedId: null };
+  const stale = rows.find((r) => r.status === "pending");
+  const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+  const meta = { dispatchId: d.id, dispatchCode: d.code, occurredAt, reason: reason.trim() };
+  const statements: SqliteBatchItem[] = [];
+  if (stale) {
+    statements.push(
+      ctx.db
+        .update(approval)
+        .set({ status: "rejected", decidedAt: clockNow(), note: "Withdrawn: asked again with another time.", serverSeq: seq })
+        .where(and(eq(approval.id, stale.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending"))),
+    );
+  }
+  statements.push(
+    requestApprovalInsert(ctx, { kind: "dispatch_late_entry", subjectId: d.id, serverSeq: seq, requestNote: reason.trim(), meta }).statement,
+    auditInsert(ctx, { action: "dispatch.late_entry.request", subjectType: "dispatch", subjectId: d.id, meta: { ...meta, ...(stale ? { replaces: stale.id } : {}) } }),
+  );
+  try {
+    await atomicBatch(ctx.db, statements);
+  } catch (e) {
+    // A concurrent Complete opened its request first: that one stands.
+    if (!/UNIQUE constraint failed: approval\./.test(errorChain(e))) throw e;
+  }
+  return { approvedId: null };
 }
 
 /**
@@ -699,6 +753,7 @@ function withdrawOverdrawRequests(db: OrrnDb, companyId: string, dispatchId: str
         or(
           and(eq(approval.kind, "dispatch_overdraw"), eq(approval.subjectId, dispatchId)),
           and(eq(approval.kind, "dispatch_off_band"), sql`json_extract(${approval.meta}, '$.dispatchId') = ${dispatchId}`),
+          and(eq(approval.kind, "dispatch_late_entry"), eq(approval.subjectId, dispatchId)),
         ),
         eq(approval.status, "pending"),
         guard,
@@ -2682,9 +2737,25 @@ export const dispatchRouter = router({
         overdrawNote: z.string().trim().max(500).optional(),
         /** FP-PK-12: required to complete a dispatch loaded over its vehicle capacity. */
         capacityOverrideReason: z.string().trim().min(1).max(500).optional(),
+        /**
+         * arch 52: the time the truck really left (epoch ms), for a packing list entered late because
+         * the line or the internet was down. At most 72 h back, never in the future; needs `lateReason`
+         * and a second person's approval (`dispatch_late_entry`) of exactly this time.
+         */
+        occurredAt: z.number().int().positive().optional(),
+        lateReason: z.string().trim().max(LATE_REASON_MAX).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // arch 52: the window and the reason first, before anything is read or asked.
+      if (input.occurredAt !== undefined) {
+        const gate = lateDispatchGate(input.occurredAt, input.lateReason ?? "", clockNow().getTime());
+        if (gate.kind === "future") throw new TRPCError({ code: "BAD_REQUEST", message: "The dispatch time can't be in the future." });
+        if (gate.kind === "tooOld") throw new TRPCError({ code: "BAD_REQUEST", message: "A late packing list can go back at most 72 hours." });
+        if (gate.kind === "noReason") throw new TRPCError({ code: "BAD_REQUEST", message: "Give the reason the packing list is entered late." });
+      } else if (input.lateReason) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "A late reason needs the time the truck left." });
+      }
       const d = await ctx.db.query.dispatch.findFirst({
         where: and(
           eq(dispatch.id, input.id),
@@ -2778,6 +2849,11 @@ export const dispatchRouter = router({
         await auditRelink(ctx, d.id, "complete", await relinkLanded(ctx.db, ctx.companyId, d.id, relink));
       }
 
+      // arch 52: a late entry's time is asked of a second person now (so it goes out with any other
+      // request this Complete opens), and refused at the end until approved.
+      const late =
+        input.occurredAt !== undefined ? await askLateEntry(ctx, d, input.occurredAt, input.lateReason!) : null;
+
       // Q36 decided: every off-band row approved for the line it is on now (asked here when nobody had).
       await refuseOffBand(ctx, d, await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, d.id)));
 
@@ -2788,8 +2864,16 @@ export const dispatchRouter = router({
         await refuseOverdraw(ctx, d, overdraw, toleranceBp, input.overdrawNote);
       }
 
+      if (late && !late.approvedId) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Entered late: a second person has to approve the dispatch time before this dispatch can complete.",
+        });
+      }
+
       const userId = ctx.session.user.id;
-      const completedAt = clockNow();
+      // arch 52: a late entry completes at the time the truck left (the ledger posts then too).
+      const completedAt = late ? new Date(input.occurredAt!) : clockNow();
       // The PL number is assigned here, once (spec P7 PL book); never client-side.
       const plNumber = d.plNumber ?? (await nextDocNumber(ctx.db, ctx.companyId, "pl", completedAt, userId)).number;
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
@@ -2815,6 +2899,7 @@ export const dispatchRouter = router({
             completedAt,
             plNumber,
             capacityOverrideReason,
+            ...(late ? { lateEntry: true, lateEntryReason: input.lateReason!.trim(), lateEntryApprovalId: late.approvedId } : {}),
             serverSeq: seq,
           })
           .where(
@@ -2826,6 +2911,9 @@ export const dispatchRouter = router({
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
               sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
               withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
+              late?.approvedId
+                ? sql`exists (select 1 from approval la where la.id = ${late.approvedId} and la.company_id = ${ctx.companyId} and la.status = 'approved')`
+                : undefined,
               sql`not ${dispatchHasForeignHoldSql(ctx.companyId, d.id, d.customerId)}`,
             ),
           ),
@@ -2944,7 +3032,11 @@ export const dispatchRouter = router({
             action: "dispatch.complete",
             subjectType: "dispatch",
             subjectId: d.id,
-            meta: { itemCount: items.length, plNumber },
+            meta: {
+              itemCount: items.length,
+              plNumber,
+              ...(late ? { lateEntry: { occurredAt: input.occurredAt, reason: input.lateReason!.trim(), approvalId: late.approvedId } } : {}),
+            },
           },
         ),
       );

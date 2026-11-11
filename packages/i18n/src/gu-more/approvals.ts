@@ -30,6 +30,7 @@ export const guApprovals = {
       press_late_entry: "પછીથી ભરેલો press રન",
       melt_correct: "લૉક થયેલ melt સુધારવો",
       dispatch_off_band: "ઓર્ડરના વજનથી અલગ bundle",
+      dispatch_late_entry: "મોડી ભરેલી પેકિંગ લિસ્ટ",
     },
     subject: {
       dcDebit: "{lot} પર ડેબિટ નોટ {number}",
@@ -46,6 +47,7 @@ export const guApprovals = {
       castCloseBare: "Cast {number} બંધ કરો",
       meltCorrect: "Cast {number} નો melt {seq} સુધારો",
       offBand: "{code} પર {serial}: {kg} kg/12ft, {order} લાઇન {line} માં {lineKg}",
+      lateDispatch: "{code}, મોડું ભરેલું",
     },
     foundry: {
       title: "આંકડા",
@@ -125,6 +127,8 @@ export const guApprovals = {
       offBandNoLine: "હવે કોઈ ઓર્ડર લાઇન પર નથી",
       offBandGone: "આ bundle હવે dispatch પર નથી. મંજૂર કરવાથી કંઈ બદલાશે નહીં.",
       offBandMoved: "Bundle હવે બીજી ઓર્ડર લાઇન પર છે. મંજૂરી ફક્ત એ લાઇન માટે છે જેના માટે માંગી હતી.",
+      lateLeft: "ગાડી નીકળી",
+      lateLeftValue: "{when}, {hours} કલાક પછી ભર્યું",
     },
     move: {
       title: "શું જાય છે",

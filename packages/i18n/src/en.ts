@@ -1226,6 +1226,22 @@ export const en = {
       rejectedNote: "{count} {count:bundle was|bundles were} rejected for the order weight. Take {count:it|them} off this dispatch first.",
       unasked: "{count} {count:bundle is|bundles are} off the order weight. Pressing Dispatch asks a manager to approve.",
     },
+    late: {
+      toggle: "The truck left earlier (the line or the internet was down)",
+      time: "When the truck left",
+      timeHint: "On the plant's clock. Up to 72 hours back.",
+      date: "Date the truck left",
+      clock: "Time the truck left",
+      clockHint: "24 hour clock, for example 14:30. Up to 72 hours back.",
+      reason: "Why is it entered late?",
+      reasonHint: "A manager approves this time before the packing list is made.",
+      future: "That time is in the future. Check the date and time.",
+      tooOld: "A late packing list can go back at most 72 hours.",
+      noReason: "Write why it is entered late.",
+      noTime: "Enter the date and time the truck left.",
+      chip: "Entered late",
+      left: "Left at {when}: {reason}",
+    },
     overTolerance: {
       title: "More than the order",
       line: "Over +{pct}% on {order} line {line}: {kg} kg over",
@@ -1431,6 +1447,7 @@ export const en = {
       offBand: "Some bundles are off the order weight. A manager has to approve them before this dispatch can go.",
       offBandRejected: "A bundle was rejected for the order weight. Take it off this dispatch, then try again.",
       overdraw: "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
+      lateEntry: "A manager has to approve the time the truck left. Press Dispatch again once it is approved.",
     },
     capacity: {
       label: "Truck capacity (kg)",
@@ -4300,6 +4317,7 @@ export const en = {
       press_late_entry: "Press run entered late",
       melt_correct: "Correct a locked melt",
       dispatch_off_band: "Bundle off the order weight",
+      dispatch_late_entry: "Packing list entered late",
     },
     subject: {
       ageingOverride: "Release {number} on approval",
@@ -4317,6 +4335,7 @@ export const en = {
       castCloseBare: "Close cast {number}",
       meltCorrect: "Correct melt {seq} of cast {number}",
       offBand: "{serial} on {code}: {kg} kg/12ft, {order} line {line} says {lineKg}",
+      lateDispatch: "{code}, entered late",
     },
     foundry: {
       title: "Figures",
@@ -4396,6 +4415,8 @@ export const en = {
       offBandNoLine: "Not on an order line now",
       offBandGone: "This bundle is no longer on the dispatch. Approving changes nothing.",
       offBandMoved: "The bundle is on another order line now. Approving covers only the line it was asked for.",
+      lateLeft: "Truck left",
+      lateLeftValue: "{when}, entered {hours} h later",
     },
     move: {
       title: "What moves",
@@ -6629,6 +6650,7 @@ export const en = {
       dispatch__linkItem: "Dispatch bundle put on an order line",
       dispatch__overdraw__request: "Dispatch over the order asked",
       dispatch__off_band__request: "Approval asked for bundles off the order weight",
+      dispatch__late_entry__request: "Approval asked for a packing list entered late",
       dispatch__relink: "Dispatch bundles moved to another line",
       dispatch__removeBundle: "Bundle taken off a dispatch",
       dispatch__reserve: "Dispatch reserved",
