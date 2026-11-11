@@ -1283,7 +1283,7 @@ export const en = {
       order: "Sales order",
       hint: "The order's customer becomes the dispatch's customer.",
       search: "Search by number, PO or customer",
-      baki: "Baki {kg} {massUnit}",
+      baki: "Baki {kg} kg",
       required: "Pick the sales order.",
     },
     order: {
