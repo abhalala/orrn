@@ -278,7 +278,8 @@ describe("pdf reader property: sure means right, hints mean right", () => {
     let seed = 1;
     for (const f of PDF_FEATURES) for (let k = 0; k < 60; k++) cases.push(generatePdf(seed++, [f]));
     for (let k = 0; k < 300; k++) cases.push(generatePdf(seed++, [PDF_FEATURES[k % 11]!, PDF_FEATURES[(k * 4 + 3) % 11]!]));
-    for (let k = 0; k < 1500; k++) cases.push(generatePdf(seed++));
+    // R3-3 made a continuation page with no header of its own unsure; more cases keep the sure count above the floor.
+    for (let k = 0; k < 2000; k++) cases.push(generatePdf(seed++));
     let sure = 0;
     for (const c of cases) {
       const label = `${c.features.join(",")} seed`;

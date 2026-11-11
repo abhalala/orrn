@@ -209,10 +209,10 @@ function isMonthStart(s: string): boolean {
  * years (2024, 2025), month dates (1 Apr, 1 May) or column numbers (1, 2, 3). It could when a cell is a plain column
  * name (`COLUMN_WORDS`), or when it holds a number or a
  * date and every one is a year or a month start, or when two or more whole numbers rise left to right, by one each
- * time or with the last at most three times the first. A serial column (the next row holds the value plus one) is
- * data and is left out of the rising test.
+ * time or (with `sameSize`) with the last at most three times the first and at most 10000. A serial column (the next row holds the value plus one, or
+ * the row `before` it the value minus one) is data and is left out of the rising test.
  */
-export function couldBeHeader(row: readonly string[], next: readonly string[] | undefined): boolean {
+export function couldBeHeader(row: readonly string[], next: readonly string[] | undefined, before?: readonly string[], sameSize = true): boolean {
   if (row.some((v) => COLUMN_WORDS.has(v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()))) return true;
   const nums: { v: string; i: number }[] = [];
   row.forEach((v, i) => {
@@ -220,13 +220,15 @@ export function couldBeHeader(row: readonly string[], next: readonly string[] | 
   });
   if (nums.length === 0) return false;
   if (nums.every(({ v }) => (cellKind(v) === "int" && YEAR_RANGE(Number(v.replace(/,/g, "")))) || (cellKind(v) === "date" && isMonthStart(v)))) return true;
-  const ints = nums.filter(({ v, i }) => !(cellKind(v) === "int" && next !== undefined && Number(next[i]) === Number(v) + 1));
+  const serial = (v: string, i: number) => (next !== undefined && Number(next[i]) === Number(v) + 1) || (before !== undefined && Number(before[i]) === Number(v) - 1);
+  const ints = nums.filter(({ v, i }) => !(cellKind(v) === "int" && serial(v, i)));
   if (ints.length < 2 || ints.some(({ v }) => cellKind(v) !== "int")) return false;
   const vals = ints.map(({ v }) => Number(v.replace(/,/g, "")));
   if (!vals.every((v, k) => k === 0 || v > vals[k - 1]!)) return false;
   // Column names that are numbers count up by one (1, 2, 3) or stay of one size (lengths 8 to 20 ft). A quantity
   // next to a weight (12 | 1200) does not.
-  return vals.every((v, k) => k === 0 || v === vals[k - 1]! + 1) || vals[vals.length - 1]! <= 3 * vals[0]!;
+  if (vals.every((v, k) => k === 0 || v === vals[k - 1]! + 1)) return true;
+  return sameSize && vals[vals.length - 1]! <= 3 * vals[0]! && vals[vals.length - 1]! <= 10000;
 }
 
 /** What the confidence check needs to know about one block. */

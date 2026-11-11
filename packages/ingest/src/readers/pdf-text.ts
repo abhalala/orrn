@@ -3,10 +3,10 @@
  * object crosses this line. Items are grouped into lines by their y and merged into cells by the gaps between them.
  * A table is a run of multi-cell lines; its columns come from projecting the cells of those lines onto the x axis.
  * One-cell lines never widen a column: they are placed into a column or folded into the cell above afterwards, and a
- * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `findBlocks` like a sheet.
+ * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `readSheet` like a sheet.
  */
 import { cellKind, inferKind } from "../cells";
-import { checkHintShape, combineHeaders, findBlocks, finishShape, HintError,isHeaderLike, isWord, TITLE_MARK, unsureReasons } from "./blocks";
+import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isWord, readSheet, TITLE_MARK, unsureReasons } from "./blocks";
 import { PREVIEW_ROWS, UNSURE_REASONS, type BlockHints, type PreviewRow, type ReadBlock, type RowWarning, type UnsureReason } from "./types";
 
 export type TextItem = {
@@ -505,6 +505,24 @@ function placeByX(cells: readonly Cell[], cols: readonly (readonly [number, numb
   return row;
 }
 
+/**
+ * Does a line placed under the columns of the table above read like one of its rows (R3-3)? Not when it could be a
+ * header (see `couldBeHeader`), when a word sits in a column of numbers or dates, or a number in a column of words.
+ * A line that does not place is reported elsewhere, so it does not decide here.
+ */
+function continuesTable(prev: ReadBlock, placed: string[] | null, next: string[] | undefined): boolean {
+  if (!placed) return true;
+  // Numbers of one size are common in data rows; only the stronger signs refuse a continuation.
+  if (couldBeHeader(placed, next, prev.rows[prev.rows.length - 1], false)) return false;
+  return placed.every((v, k) => {
+    if (v === "") return true;
+    const kind = inferKind(prev.rows.map((r) => r[k] ?? ""));
+    const own = cellKind(v);
+    if ((kind === "int" || kind === "decimal" || kind === "date") && isWord(v)) return false;
+    return !(kind === "text" && (own === "int" || own === "decimal"));
+  });
+}
+
 /** Page lines of a matrix row: first and last line (a folded line makes them differ); -1 for a blank row. */
 type Src = { line: number; last: number };
 const srcOf = (r: LayoutRow): Src => ({ line: r.line, last: r.last });
@@ -556,7 +574,7 @@ function linesPreview(lines: readonly Line[], from: number, to: number): Preview
 
 /** What the confidence check of a guessed PDF block needs from each page it touches. */
 type PageInfo = { blocks: Set<ReadBlock>; unplaced: number; cols: boolean; oneCell: boolean };
-type BlockMeta = { pages: Set<number>; topRow: string[]; fallback: boolean; regionStart: number; page: number };
+type BlockMeta = { pages: Set<number>; topRow: string[]; fallback: boolean; regionStart: number; page: number; continued: boolean };
 
 /**
  * Pages of text items to blocks. A table that continues on the next page is one block: the header repeated at the top
@@ -595,6 +613,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     let found = 0;
     let misplaced = 0;
     let unplaced = 0;
+    let leftover = 0;
     let offset = 0;
     page.segments.forEach((seg, s) => {
       if (seg.oneCell) pi.oneCell = true;
@@ -611,6 +630,18 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         // above on this page when its run broke off (a run with no header of its own).
         let h = rows.findIndex((r) => isHeaderLike(r.cells));
         if (h === -1) h = rows.length;
+        // The first line to continue must read like a row of the table above, not like a header of a new one (R3-3).
+        if (h > 0) {
+          const cands = [...pre.map((l) => l.cells), ...rows.slice(0, h).flatMap((r) => (r.pos ? [r.pos] : []))].filter((c) => c.length >= 2);
+          const colsAbove = blockCols.get(prev);
+          const placeLine = (cells: readonly Cell[] | undefined) => (cells && colsAbove ? placeByX(cells, colsAbove, prev.headers.length, page.charWidth) : null);
+          if (!continuesTable(prev, placeLine(cands[0]), placeLine(cands[1]) ?? undefined)) {
+            h = 0;
+            // The table above may still go on here: which it is, is a guess.
+            const pm = meta.get(prev);
+            if (pm) pm.continued = true;
+          }
+        }
         // The page title repeated above a continuation is not a row and not a new title. It is listed, not dropped.
         if (s === 0) {
           pre = pre.filter((l) => {
@@ -626,6 +657,8 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
           if (placed) {
             prev.rows.push(placed);
             appended++;
+            const pm = meta.get(prev);
+            if (pm) pm.continued = true;
             touch(prev, src.last);
             if (lone) pi.oneCell = true;
           } else {
@@ -652,7 +685,8 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       const preText = pre.map(lineText);
       let matrix = rows.map((r) => r.cells);
       let src = rows.map(srcOf);
-      let blocks = findBlocks(matrix, { sheetName, noHeaderGuess: true });
+      let read = readSheet(matrix, { sheetName, noHeaderGuess: true });
+      let blocks = read.blocks;
       let titleLines = 0;
       let fallback = false;
       if (blocks.length > 0 && preText.length > 0) {
@@ -670,10 +704,41 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         matrix = placed.matrix;
         src = placed.src;
         fallback = true;
-        blocks = findBlocks(matrix, { sheetName, noHeaderGuess: true });
+        read = readSheet(matrix, { sheetName, noHeaderGuess: true });
+        blocks = read.blocks;
       }
       // No line looks like a header: the first line of two or more cells is the guess, and the block is unsure (R3-5).
-      if (blocks.length === 0) blocks = findBlocks(matrix, { sheetName });
+      if (blocks.length === 0) {
+        read = readSheet(matrix, { sheetName });
+        blocks = read.blocks;
+      }
+      // Lines of this run that no block took: listed and counted, so the page's blocks are unsure (R3-3).
+      const leftOver = new Set<number>(blocks.length > 0 ? read.warnings.map((w) => w.row) : []);
+      if (blocks.length === 0) {
+        // A signature or a note under a table on this page is left out on purpose and listed with that table (C17).
+        const above = [...pi.blocks].pop();
+        const isFooter = (text: string) => above !== undefined && FOOTER.test(text);
+        for (const l of pre) {
+          if (isFooter(lineText(l))) above!.warnings.push({ code: "footer_left_out", row: l.n, page: p + 1 });
+          else leftOver.add(-1 - l.n);
+        }
+        matrix.forEach((cells, k) => {
+          const at = src[k];
+          if (at && at.line >= 0 && at.line === at.last && isFooter(cells.filter((c) => c !== "").join(" "))) above!.warnings.push({ code: "footer_left_out", row: at.line, page: p + 1 });
+          else leftOver.add(k);
+        });
+      }
+      for (const k of leftOver) {
+        if (k < 0) {
+          lost(-1 - k);
+          leftover++;
+          continue;
+        }
+        const at = src[k];
+        if (!at || at.line < 0) continue;
+        for (let n = at.line; n <= at.last; n++) lost(n);
+        leftover++;
+      }
       blocks.forEach((b, bi) => {
         const g = b.guess;
         const first = g.firstDataRow!;
@@ -707,7 +772,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         b.guess = { page: p + 1, headerRow: headLine, headerRows: b.headerRows, firstDataRow: firstLine, lastDataRow: lastLine, lastPage: p + 1 };
         b.preview = linesPreview(page.lines, regionStart, Math.max(lastLine, headEnd));
         b.firstDataSheetRow += segStart + skipped;
-        meta.set(b, { pages: new Set([p]), topRow, fallback, regionStart, page: p });
+        meta.set(b, { pages: new Set([p]), topRow, fallback, regionStart, page: p, continued: false });
         if (seg.cols) blockCols.set(b, seg.cols);
         const last = [...out].reverse().find((x) => x.rows.length > 0);
         const sameHeader = last && found === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
@@ -727,6 +792,8 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         found++;
       });
     });
+    // A page with text but no table says so once; on a page with a table, lines no block took are counted.
+    if (found > 0 || appended > 0) unplaced += leftover;
     pi.unplaced = misplaced + unplaced;
     if (misplaced > 0) warnings.push(`page ${p + 1}: ${plural(misplaced, "row", "rows")} did not line up with the table above`);
     if (unplaced > 0) warnings.push(`page ${p + 1}: ${plural(unplaced, "line", "lines")} could not be placed`);
@@ -761,6 +828,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       if (pi.oneCell) reasons.add("one_cell_line");
     }
     if (m.fallback) reasons.add("columns_not_shared");
+    if (m.continued) reasons.add("continued_without_header");
     if (b.warnings.some((w) => w.code === "footer_left_out")) reasons.add("rows_left_out");
     b.reasons = UNSURE_REASONS.filter((r) => reasons.has(r));
     kept.push(b);
