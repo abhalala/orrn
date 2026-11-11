@@ -25,7 +25,8 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { foundryError, gateSentences, gateStep, isStaleMelt } from "./errors";
 import { draftWithKey, firstSaveKey, type FirstSave } from "./first-save";
 import { latestVerdict, lockState, verdictTone } from "./foundry-model";
-import { blankForm, figuresOf, formFromMelt, sameForm, saveInputOf, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
+import { blankForm, figuresOf, formFromMelt, sameForm, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
+import { phoneMeltInputOf } from "./phone-quantities";
 import { todayIn } from "./melt-times";
 import { Accordion, Balance, ChargeSection, ChemicalsSection, OutputSection, TimesSection, type AlloyOpt, type FurnaceOpt, type Lot, type StoreItem, type Stream } from "./melt-sections";
 import { meltWebPath } from "@/lib/web-link";
@@ -166,7 +167,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   /** Saves the form; null when something on it cannot be sent or the server refused. */
   const save = async (): Promise<DraftView | null> => {
     await adoptEarlierDraft();
-    const r = saveInputOf(form, {
+    const r = phoneMeltInputOf(form, {
       castId,
       ...(meltIdRef.current ? { meltId: meltIdRef.current } : {}),
       ...(seqRef.current !== undefined ? { expectedServerSeq: seqRef.current } : {}),

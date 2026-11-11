@@ -310,6 +310,7 @@ export const guFoundry = {
         duplicateStream: "આ stream બીજી લાઇનમાં છે. તેના kg એક લાઇનમાં રાખો.",
         chemical: "Chemical શું છે અને open તથા વપરાયેલું જથ્થો લખો.",
         chemicalClose: "Close = open બાદ વપરાયેલું હોવું જોઈએ.",
+        decimalComma: "દશાંશ માટે પૉઇન્ટ લખો, જેમ કે 2.5.",
         log: "Log લાઇનમાં પીસ, લંબાઈ અને kg જોઈએ.",
         ldo: "Dip ઇંચમાં લખો, જેમ કે 42.5.",
         tooMany: "Charge ની લાઇનો બહુ વધુ છે.",

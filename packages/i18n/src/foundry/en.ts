@@ -304,6 +304,7 @@ export const foundryEn = {
       duplicateStream: "This stream is on another line. Put its kg on one line.",
       chemical: "Write what the chemical is and the open and used quantities.",
       chemicalClose: "Close must be open less used.",
+      decimalComma: "Use a point for decimals, for example 2.5.",
       log: "A log line needs pieces, length and kg.",
       ldo: "Write the dip as inches, for example 42.5.",
       tooMany: "Too many charge lines.",

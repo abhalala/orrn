@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7511 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7512 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -5786,7 +5786,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} kg | {runs} रन, {kg} kg |
 | `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
 
-### foundry (603)
+### foundry (604)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6190,6 +6190,7 @@ Please check, Lalubhai:
 | `melt.issue.duplicateStream` | This stream is on another line. Put its kg on one line. | यह स्ट्रीम दूसरी लाइन में है। उसका kg एक लाइन में रखें। |
 | `melt.issue.chemical` | Write what the chemical is and the open and used quantities. | केमिकल क्या है और ओपन व इस्तेमाल की मात्रा लिखें। |
 | `melt.issue.chemicalClose` | Close must be open less used. | क्लोज़ = ओपन घटा इस्तेमाल होना चाहिए। |
+| `melt.issue.decimalComma` | Use a point for decimals, for example 2.5. | दशमलव के लिए बिंदु लिखें, जैसे 2.5। |
 | `melt.issue.log` | A log line needs pieces, length and kg. | लॉग लाइन में पीस, लंबाई और kg चाहिए। |
 | `melt.issue.ldo` | Write the dip as inches, for example 42.5. | डिप इंच में लिखें, जैसे 42.5। |
 | `melt.issue.tooMany` | Too many charge lines. | चार्ज की लाइनें बहुत ज़्यादा हैं। |

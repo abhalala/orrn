@@ -30,6 +30,7 @@ import {
   type MeltForm,
 } from "./melt-form";
 import { nowTimeIn, resolveMeltTimes, type MeltTimeKey } from "./melt-times";
+import { hasValidDigitGrouping } from "./phone-quantities";
 import { kgOf, Note } from "./ui";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
@@ -329,8 +330,8 @@ export function ChemicalsSection({ form, patch, issue, storeItems }: SectionProp
         {form.chemicals.map((c, i) => {
           const other = c.storeItemId === "" && c.unit !== "";
           const item = active.find((x) => x.id === c.storeItemId);
-          const open = qtyToMilli(c.openText);
-          const used = qtyToMilli(c.usedText);
+          const open = hasValidDigitGrouping(c.openText) ? qtyToMilli(c.openText) : null;
+          const used = hasValidDigitGrouping(c.usedText) ? qtyToMilli(c.usedText) : null;
           const close = open !== null && used !== null ? open - used : null;
           const marked = issue?.step === "chemicals" && issue.line === i && issue.code !== "ldo";
           const set = (next: Partial<typeof c>) => patch({ chemicals: form.chemicals.map((x) => (x.key === c.key ? { ...x, ...next } : x)) });
@@ -360,8 +361,8 @@ export function ChemicalsSection({ form, patch, issue, storeItems }: SectionProp
                 </View>
               ) : null}
               <View className="flex-row gap-2">
-                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.open")} value={c.openText} onChangeText={(openText) => set({ openText, closeText: "" })} error={marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : null} />
-                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.used")} value={c.usedText} onChangeText={(usedText) => set({ usedText, closeText: "" })} />
+                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.open")} value={c.openText} onChangeText={(openText) => set({ openText, closeText: "" })} error={!hasValidDigitGrouping(c.openText) ? t("foundry.melt.issue.decimalComma") : marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : null} />
+                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.used")} value={c.usedText} onChangeText={(usedText) => set({ usedText, closeText: "" })} error={!hasValidDigitGrouping(c.usedText) ? t("foundry.melt.issue.decimalComma") : marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : null} />
                 <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.close")} value={close === null ? "" : String(close / 1000)} editable={false} error={marked && issue!.code === "chemicalClose" ? t("foundry.melt.issue.chemicalClose") : null} />
               </View>
               <RemoveButton onPress={() => patch({ chemicals: form.chemicals.filter((x) => x.key !== c.key) })} />
@@ -388,7 +389,7 @@ export function ChemicalsSection({ form, patch, issue, storeItems }: SectionProp
               unit={t("units.inch")}
               value={form.ldo[k]}
               onChangeText={(value) => patch({ ldo: { ...form.ldo, [k]: value } })}
-              error={issue?.code === "ldo" && form.ldo[k].trim() !== "" ? t("foundry.melt.issue.ldo") : null}
+              error={!hasValidDigitGrouping(form.ldo[k]) ? t("foundry.melt.issue.decimalComma") : issue?.code === "ldo" && form.ldo[k].trim() !== "" ? t("foundry.melt.issue.ldo") : null}
             />
           ))}
         </View>
