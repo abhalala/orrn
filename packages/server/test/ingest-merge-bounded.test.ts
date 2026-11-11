@@ -297,6 +297,73 @@ describe("bounded write steps (B-new-2)", () => {
     expect(await env.db.select({ id: vendorAlias.id }).from(vendorAlias).where(and(eq(vendorAlias.companyId, companyId), eq(vendorAlias.vendorId, live[1_050]!.id)))).toHaveLength(19);
   }, 120_000);
 
+  test(`a customers step and a customer aliases step on a plant of 1,100 customers and 1,000 aliases read at most ${STEP_ROWS_READ_MAX} rows`, async () => {
+    const { companyId } = await env.seedCompany();
+    const { customer, customerAlias } = await import("@orrn/db/schema/customers");
+    const { nameKey } = await import("../src/lib/purchase");
+    // The plant's masters, straight into D1: 1,100 customers, 1,000 of them with an alias.
+    const live = Array.from({ length: 1_100 }, (_, i) => ({ id: `${companyId}-c${i}`, companyId, name: `Plant Party ${i}`, nameKey: nameKey(`Plant Party ${i}`) }));
+    const aliases = live.slice(0, 1_000).map((c, i) => ({ id: `${c.id}-a`, companyId, customerId: c.id, alias: `PP ${i}`, aliasKey: nameKey(`PP ${i}`) }));
+    const inserts = [
+      ...Array.from({ length: Math.ceil(live.length / 15) }, (_, i) => env.db.insert(customer).values(live.slice(i * 15, i * 15 + 15))),
+      ...Array.from({ length: Math.ceil(aliases.length / 15) }, (_, i) => env.db.insert(customerAlias).values(aliases.slice(i * 15, i * 15 + 15))),
+    ];
+    await env.db.batch(inserts as unknown as Parameters<typeof env.db.batch>[0]);
+    // One customers chunk (20 new names, one already in orrn) and one customer aliases chunk (20 aliases).
+    await seedCandidate(env, companyId, "customers", Array.from({ length: 20 }, (_, i) => ({ values: { name: i === 0 ? "PLANT PARTY 7." : `New Party ${i}` } })));
+    await seedCandidate(
+      env,
+      companyId,
+      "customer_aliases",
+      Array.from({ length: 20 }, (_, i) => ({ values: { customer: "Plant Party 1050", alias: i === 0 ? "plant party 1050" : `NP ${i}`, _ids: { customer: live[1_050]!.id } } })),
+    );
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    tally.rows = 0;
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    const plan: number[] = [tally.rows];
+    while (last.state === "planning") {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      plan.push(tally.rows);
+    }
+    expect(last.chunksTotal).toBe(2);
+    const reads: number[] = [];
+    for (let i = 0; i < 2; i += 1) {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    expect(last.chunksWritten).toBe(2);
+    if (process.env.DEBUG_READS) console.log("CUSTOMER PLAN READS", plan, "STEP READS", reads);
+    for (const n of [...plan, ...reads]) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX);
+    const { and, eq } = await import("drizzle-orm");
+    expect(await env.db.select({ id: customer.id }).from(customer).where(eq(customer.companyId, companyId))).toHaveLength(1_119);
+    expect(await env.db.select({ id: customerAlias.id }).from(customerAlias).where(and(eq(customerAlias.companyId, companyId), eq(customerAlias.customerId, live[1_050]!.id)))).toHaveLength(19);
+  }, 120_000);
+
+  test("customers made before the name key existed are found by name, and their keys are filled in", async () => {
+    const { companyId } = await env.seedCompany();
+    const { customer } = await import("@orrn/db/schema/customers");
+    const { eq } = await import("drizzle-orm");
+    await env.db.insert(customer).values({ id: `${companyId}-old`, companyId, name: "Old Party Traders" });
+    await seedCandidate(env, companyId, "customers", [{ values: { name: "OLD PARTY TRADERS" } }, { values: { name: "Fresh Party" } }]);
+    const api = await apiFor(await contextFor(env, companyId, "admin"));
+    const { runId } = await api.ingest.merge.start();
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    for (let i = 0; (last.state === "planning" || last.state === "running") && i < 20; i += 1) last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+    expect(last.state).toBe("done");
+    const rows = await env.db.select({ name: customer.name, key: customer.nameKey }).from(customer).where(eq(customer.companyId, companyId));
+    expect(rows.map((r) => [r.name, r.key]).sort()).toEqual([
+      ["Fresh Party", "freshparty"],
+      ["Old Party Traders", "oldpartytraders"],
+    ]);
+  }, 60_000);
+
   // Opening a row costs about 3 rows read (the mark index, the row, the index entry it leaves), so a
   // step that opens one 500-row bundles chunk cannot stay under 1,000. The bound is one chunk: at
   // most STEP_ROWS_READ_MAX plus 3 reads per row of one chunk, the same for every step, however long

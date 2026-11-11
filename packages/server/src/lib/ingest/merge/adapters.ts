@@ -31,6 +31,7 @@ import {
   aliasRefusal,
   handStatusRefusal,
   LIVE_VENDOR,
+  liveCustomersByKey,
   nameKeysOf,
   orderLineOf,
   type OrderLine,
@@ -254,23 +255,15 @@ function indexOf(records: readonly { id: string; name: string; key: string }[], 
 }
 
 /**
- * The live customers whose name or alias has the key of one of `names`, as a name index. Aliases
- * are read by `customer_alias_company_key_unique`, 90 keys at a time. Customer names have no key
- * column, so every live customer's name is read: that read grows with the plant, not the run
- * (see the report: it needs a `name_key` column on `customer`). Only keys of `names` go into the
- * index, so `resolveName` gives the same exact hits as over the whole table.
+ * The live customers whose name or alias has the key of one of `names`, as a name index. Names by
+ * `customer_company_name_key_idx` and aliases by `customer_alias_company_key_unique`, 90 keys a
+ * statement (B-new-2, liveCustomersByKey). Only keys of `names` go into the index, so `resolveName`
+ * gives the same exact hits as over the whole table.
  */
 export async function customerIndexFor(ctx: IngestCtx, names: readonly string[]): Promise<NameIndex> {
   const keys = new Set(nameKeysOf(names));
   if (keys.size === 0) return indexOf([], []);
-  const records = (
-    await ctx.db
-      .select({ id: customer.id, name: customer.name })
-      .from(customer)
-      .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)))
-  )
-    .map((c) => ({ ...c, key: serverNameKey(c.name) }))
-    .filter((c) => keys.has(c.key));
+  const records = await liveCustomersByKey(ctx, [...keys]);
   const aliases = await mapInChunks([...keys], (part) =>
     ctx.db
       .select({ id: customerAlias.customerId, key: customerAlias.aliasKey })

@@ -160,6 +160,52 @@ export function nameKeysOf(texts: readonly string[]): string[] {
 /** Live vendors by name key: the partial unique index `vendor_company_name_key_unique`. */
 export const LIVE_VENDOR = sql`${vendor.status} <> 'merged'`;
 
+/** Customers with no name key, filled in per call (made before `customer.name_key` existed). */
+const KEY_FILL_MAX = 500;
+
+/**
+ * Live (not deleted) customers whose name has one of these keys, read by
+ * `customer_company_name_key_idx`, 90 keys a statement (B-new-2). Customers made before the key
+ * column existed have none: each call fills in up to 500 of them first. While more are left, the
+ * call reads every live customer instead, so no name is ever missed.
+ */
+export async function liveCustomersByKey(ctx: Pick<IngestCtx, "db" | "companyId">, keys: readonly string[]): Promise<{ id: string; name: string; key: string }[]> {
+  const wanted = [...new Set(keys)].filter(Boolean);
+  if (wanted.length === 0) return [];
+  const missing = await ctx.db
+    .select({ id: customer.id, name: customer.name })
+    .from(customer)
+    .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.nameKey)))
+    .limit(KEY_FILL_MAX + 1);
+  if (missing.length > 0) {
+    const fill = missing.slice(0, KEY_FILL_MAX);
+    // 3 bound values a row: 30 rows a statement.
+    const statements = [];
+    for (let i = 0; i < fill.length; i += 30) {
+      const part = fill.slice(i, i + 30);
+      statements.push(
+        ctx.db
+          .update(customer)
+          .set({ nameKey: sql`case ${customer.id} ${sql.join(part.map((c) => sql`when ${c.id} then ${serverNameKey(c.name)}`), sql` `)} end` })
+          .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.id, part.map((c) => c.id)), isNull(customer.nameKey))),
+      );
+    }
+    await ctx.db.batch(statements as never);
+    if (missing.length > KEY_FILL_MAX) {
+      const want = new Set(wanted);
+      const all = await ctx.db.select({ id: customer.id, name: customer.name }).from(customer).where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
+      return all.map((c) => ({ ...c, key: serverNameKey(c.name) })).filter((c) => want.has(c.key));
+    }
+  }
+  const rows = await mapInChunks(wanted, (part) =>
+    ctx.db
+      .select({ id: customer.id, name: customer.name, key: customer.nameKey })
+      .from(customer)
+      .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.nameKey, part), isNull(customer.deletedAt))),
+  );
+  return rows.map((r) => ({ id: r.id, name: r.name, key: r.key ?? serverNameKey(r.name) }));
+}
+
 /**
  * The live customer or vendor each name key belongs to, for the alias targets (B13). The dry run and
  * the planner check a whole candidate with it; each adapter checks again. With `aliases`, only the
@@ -195,13 +241,15 @@ export async function aliasNameOwners(
     for (const n of names) if (n.key && !out.has(n.key)) out.set(n.key, { id: n.id, name: n.name });
     return out;
   }
-  const names = await ctx.db
-    .select({ id: customer.id, name: customer.name })
-    .from(customer)
-    .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
+  // With alias texts: only those keys, by `customer_company_name_key_idx` (B-new-2).
+  const names = keys
+    ? await liveCustomersByKey(ctx, [...keys])
+    : (await ctx.db
+        .select({ id: customer.id, name: customer.name })
+        .from(customer)
+        .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)))).map((c) => ({ ...c, key: serverNameKey(c.name) }));
   for (const c of names) {
-    const k = serverNameKey(c.name);
-    if (k && (!keys || keys.has(k)) && !out.has(k)) out.set(k, c);
+    if (c.key && (!keys || keys.has(c.key)) && !out.has(c.key)) out.set(c.key, { id: c.id, name: c.name });
   }
   return out;
 }

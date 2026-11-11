@@ -5,9 +5,10 @@ import { TRPCError } from "@trpc/server";
 import { BUNDLE_NUMBER_POLICIES } from "@orrn/domain";
 import { customer, customerAlias } from "@orrn/db/schema/customers";
 import { actionProcedure, companyProcedure, router } from "../index";
-import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
+import { liveCustomersByKey } from "../lib/ingest/merge/rowchecks";
 import { nameKey } from "../lib/purchase";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
@@ -112,6 +113,8 @@ export const customerRouter = router({
             companyId: ctx.companyId,
             serverSeq,
             name: input.name,
+            // The import finds customers by this key (Infinity Portal, B-new-2).
+            nameKey: nameKey(input.name),
             phone: input.phone,
             email: input.email || null,
             billingAddress: input.billingAddress,
@@ -158,6 +161,7 @@ export const customerRouter = router({
               // undefined leaves the policy as it is; null returns to the company serial.
               bundleNumberPolicy: input.bundleNumberPolicy,
               name: input.name,
+              ...(input.name !== undefined ? { nameKey: nameKey(input.name) } : {}),
               phone: input.phone,
               email: input.email || null,
               billingAddress: input.billingAddress,
@@ -256,6 +260,7 @@ export const customerRouter = router({
             companyId: ctx.companyId,
             serverSeq,
             name: row.name,
+            nameKey: nameKey(row.name),
             phone: row.phone,
             email: row.email || null,
             billingAddress: row.billingAddress,
@@ -307,22 +312,28 @@ export const customerRouter = router({
         ? await requestRowIds(ctx.companyId, "customer.alias", input.clientRequestId, rows.length)
         : rows.map(() => crypto.randomUUID());
 
+      // Only the rows' customers and keys are read, 90 a statement, never the whole plant (B-new-2).
+      const keys = [...new Set(rows.map((r) => r.key))];
       const plan = async () => {
-        const live = await ctx.db
-          .select({ id: customer.id, name: customer.name })
-          .from(customer)
-          .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
-        const nameOf = new Map(live.map((c) => [c.id, c.name]));
+        const named = await liveCustomersByKey(ctx, keys);
         const nameOwner = new Map<string, string>();
-        for (const c of live) {
-          const k = nameKey(c.name);
-          if (k && !nameOwner.has(k)) nameOwner.set(k, c.id);
-        }
-        const existing = await ctx.db
-          .select({ id: customerAlias.id, key: customerAlias.aliasKey, customerId: customerAlias.customerId })
-          .from(customerAlias)
-          .where(eq(customerAlias.companyId, ctx.companyId));
+        for (const c of named) if (!nameOwner.has(c.key)) nameOwner.set(c.key, c.id);
+        const existing = await mapInChunks(keys, (part) =>
+          ctx.db
+            .select({ id: customerAlias.id, key: customerAlias.aliasKey, customerId: customerAlias.customerId })
+            .from(customerAlias)
+            .where(and(eq(customerAlias.companyId, ctx.companyId), inArray(customerAlias.aliasKey, part))),
+        );
         const aliasOwner = new Map(existing.map((a) => [a.key, a]));
+        const nameOf = new Map(named.map((c) => [c.id, c.name]));
+        const others = [...new Set([...rows.map((r) => r.customerId), ...existing.map((a) => a.customerId)])].filter((id) => !nameOf.has(id));
+        const live = await mapInChunks(others, (part) =>
+          ctx.db
+            .select({ id: customer.id, name: customer.name })
+            .from(customer)
+            .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.id, part), isNull(customer.deletedAt))),
+        );
+        for (const c of live) nameOf.set(c.id, c.name);
         const ids: string[] = [];
         const inserts: (typeof customerAlias.$inferInsert)[] = [];
         const fresh = new Map<string, { id: string; customerId: string }>();
