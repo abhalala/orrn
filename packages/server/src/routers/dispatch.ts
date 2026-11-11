@@ -383,6 +383,8 @@ export type AddBundlesReport = {
   replayed?: boolean;
   /** Q36: added bundles more than 0.1 kg/12ft off the weight of the order line they were linked to. */
   warnings?: OffBandWarning[];
+  /** pl-flow 61: lines this add took past ordered + tolerance (a dispatch_overdraw request is open for them). */
+  overTolerance?: OverToleranceLine[];
 };
 
 /** `dispatch.scan`: the add report plus one result per code and the vehicle capacity after it. */
@@ -539,6 +541,25 @@ async function refuseOverdraw(
   toleranceBp: number,
   note: string | undefined,
 ): Promise<never> {
+  await askOverdraw(ctx, d, lines, toleranceBp, note, { repeatAudit: true });
+  throw new TRPCError({ code: "PRECONDITION_FAILED", message: overdrawMessage(lines) });
+}
+
+/**
+ * The request half of `refuseOverdraw`, also run right after an add that takes a line past ordered +
+ * tolerance (tolerance at scan, pl-flow 61), so the manager sees it before anyone presses Complete.
+ * Same figures leave the pending request as it is; the one change allowed is a note filling an
+ * EMPTY request note (the scan asks without one, the Complete sheet sends the reason), never a
+ * rewrite of a note or a figure. `repeatAudit: false` (the scan) writes no "asked again" row.
+ */
+async function askOverdraw(
+  ctx: OverdrawCtx,
+  d: { id: string; code: string },
+  lines: OverdrawLine[],
+  toleranceBp: number,
+  note: string | undefined,
+  opts: { repeatAudit: boolean },
+): Promise<void> {
   const over = lines.filter((l) => !l.covered);
   const meta = {
     dispatchId: d.id,
@@ -557,7 +578,7 @@ async function refuseOverdraw(
     })),
   };
   const [pending] = await ctx.db
-    .select({ id: approval.id, meta: approval.meta })
+    .select({ id: approval.id, meta: approval.meta, requestNote: approval.requestNote })
     .from(approval)
     .where(
       and(
@@ -605,18 +626,61 @@ async function refuseOverdraw(
       if (!/UNIQUE constraint failed: approval\./.test(errorChain(e))) throw e;
     }
   } else {
-    // Same figures: the pending request stays exactly as the approver sees it, but the history still
-    // shows who asked again and why (correctness m-2); the note is not added to the request.
-    await atomicBatch(ctx.db, [
-      auditInsert(ctx, {
-        action: "dispatch.overdraw.request",
-        subjectType: "dispatch",
-        subjectId: d.id,
-        meta: { repeat: true, requestId: pending.id, note: note ?? null },
-      }),
-    ]);
+    // Same figures: the pending request's figures stay exactly as the approver sees them, but the
+    // history still shows who asked again and why (correctness m-2). A note fills the request's note
+    // only while it has none (asked at the scan without one); a note already there is never replaced.
+    const statements: SqliteBatchItem[] = [];
+    if (note && !pending.requestNote) {
+      statements.push(
+        ctx.db
+          .update(approval)
+          .set({ requestNote: note })
+          .where(and(eq(approval.id, pending.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending"), isNull(approval.requestNote))),
+      );
+    }
+    if (opts.repeatAudit) {
+      statements.push(
+        auditInsert(ctx, {
+          action: "dispatch.overdraw.request",
+          subjectType: "dispatch",
+          subjectId: d.id,
+          meta: { repeat: true, requestId: pending.id, note: note ?? null },
+        }),
+      );
+    }
+    if (statements.length > 0) await atomicBatch(ctx.db, statements);
   }
-  throw new TRPCError({ code: "PRECONDITION_FAILED", message: overdrawMessage(lines) });
+}
+
+/** A line an add took past ordered + tolerance (pl-flow 61): the scan says "Over +5% on line n". */
+export type OverToleranceLine = {
+  lineId: string;
+  orderNumber: string;
+  lineNo: number;
+  toleranceBp: number;
+  limitG: number;
+  totalG: number;
+  overG: number;
+};
+
+/**
+ * Tolerance at scan (pl-flow 61): after an add, the lines it linked to that are now past ordered +
+ * tolerance without an approval. With `ask` (a fresh add, not a replay) the dispatch_overdraw request
+ * is opened now, naming every line over (the same figures Complete would ask for).
+ */
+async function overToleranceAfterAdd(
+  ctx: OverdrawCtx,
+  d: { id: string; code: string; customerId: string },
+  touched: ReadonlySet<string>,
+  opts: { ask: boolean },
+): Promise<OverToleranceLine[]> {
+  if (touched.size === 0) return [];
+  const toleranceBp = await dispatchTolerance(ctx.db, ctx.companyId, d.customerId);
+  const lines = await dispatchOverdraw(ctx.db, ctx.companyId, d.id, toleranceBp);
+  const over = lines.filter((l) => !l.covered && touched.has(l.lineId));
+  if (over.length === 0) return [];
+  if (opts.ask) await askOverdraw(ctx, d, lines, toleranceBp, undefined, { repeatAudit: false });
+  return over.map((l) => ({ lineId: l.lineId, orderNumber: l.orderNumber, lineNo: l.lineNo, toleranceBp, limitG: l.limitG, totalG: l.totalG, overG: l.overG }));
 }
 
 /**
@@ -925,7 +989,7 @@ export function dispatchCapacity(loadedG: number, capacityG: number | null) {
 async function addReplay(ctx: ScanCtx, dispatchId: string, prior: Record<string, unknown>): Promise<ScanReport> {
   const first = prior.replay as { results: ScanResult[]; added: string[]; linked: LinkedBundle[]; warnings?: OffBandWarning[] };
   const [d] = await ctx.db
-    .select({ capacityG: dispatch.vehicleCapacityG })
+    .select({ capacityG: dispatch.vehicleCapacityG, code: dispatch.code, customerId: dispatch.customerId })
     .from(dispatch)
     .where(and(eq(dispatch.id, dispatchId), eq(dispatch.companyId, ctx.companyId)))
     .limit(1);
@@ -935,6 +999,10 @@ async function addReplay(ctx: ScanCtx, dispatchId: string, prior: Record<string,
     added: first.added,
     linked: first.linked,
     warnings: first.warnings ?? [],
+    // Read again, never asked again: a repeat writes nothing.
+    overTolerance: d
+      ? await overToleranceAfterAdd(ctx, { id: dispatchId, code: d.code, customerId: d.customerId }, new Set(first.linked.map((l) => l.salesOrderLineId)), { ask: false })
+      : [],
     capacity: dispatchCapacity(await dispatchLoadG(ctx.db, ctx.companyId, dispatchId), d?.capacityG ?? null),
     replayed: true,
   };
@@ -1104,6 +1172,7 @@ async function addByCodes(
     report.added = toAdd.map((b) => b.serial);
     report.linked = await landedLinks(ctx.db, ctx.companyId, d.id, new Map(toAdd.map((b) => [b.id, b.serial])), picks);
     report.warnings = offBandWarnings(toAdd, picks);
+    report.overTolerance = await overToleranceAfterAdd(ctx, d, new Set(report.linked.map((l) => l.salesOrderLineId)), { ask: true });
     report.capacity = dispatchCapacity(await dispatchLoadG(ctx.db, ctx.companyId, d.id), d.vehicleCapacityG);
     return report;
   };
@@ -2254,6 +2323,7 @@ export const dispatchRouter = router({
           alreadyInDispatch: [] as string[],
           linked: await landedLinks(ctx.db, ctx.companyId, d.id, new Map([[b.id, b.serial]]), picks),
           ...(offBandWarnings([b], picks).length > 0 ? { warnings: offBandWarnings([b], picks) } : {}),
+          overTolerance: await overToleranceAfterAdd(ctx, d, new Set([...picks.values()].map((l) => l.lineId)), { ask: true }),
         };
       };
 

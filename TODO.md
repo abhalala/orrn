@@ -79,7 +79,6 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 |---|---|---|
 | **Infinity Portal Wave 1** | Top priority — see the "Top priority" section above. Build the `ingest_artifact` vault + AI digest + XLSX/CSV staging for masters, dies, bundles, baki; spec `docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md`. | owner 2026-10-27 |
 | Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
-| Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
 | Late PL entry for line-down hours | `occurredAt` (at most 72 h back, never future) + reason + `late_entry` flag + second-person approval; dispatch timestamp and ledger `posted_at` use it; guide "When the internet is down" in en, hi, gu. Until then a paper PL is entered later at the time of entry (Q30). | arch 52 |
 | Bulk acknowledge | No "acknowledge all ended alerts" on `/press/alerts` (owner tour): add with `press.close` and an audit row. | BL 109 |
 | Ageing block for plants without the module | `dashboard.today().ageing` returns 0/0/0 for a plant without the ageing module (the tile is hidden client-side on web and phone); the server should omit the block. | BL 113 |

@@ -27,11 +27,11 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
-import { completeRefusalText, offBandNote, offBandStops } from "@/features/dispatch/off-band";
+import { completeRefusalText, offBandNote, offBandStops, overdrawLines } from "@/features/dispatch/off-band";
+import { kgTotal } from "@/features/dispatch/format";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
 import { dispatchNow } from "@/features/dispatch/dispatch-now";
-import { kgTotal } from "@/features/dispatch/format";
 import { GroupCard } from "@/features/dispatch/group-card";
 import { dispatchTotals, groupItems, type ItemGroup } from "@/features/dispatch/group-items";
 import { LabelSheet } from "@/features/dispatch/label-sheet";
@@ -161,6 +161,8 @@ export default function DispatchDetailScreen() {
   const actions = dispatchActions(d.status);
   // Q36 decided: off-band rows waiting or rejected hold Dispatch (Hold stock stays open).
   const offNote = offBandNote(detail.data.offBand);
+  // pl-flow 61: lines past ordered + tolerance, in amber (a manager is asked at the scan or at Dispatch).
+  const overOrder = overdrawLines(detail.data.overdraw);
   const live = items.filter((i) => i.status !== "void");
   const voided = items.filter((i) => i.status === "void");
   const groups = groupItems(items);
@@ -370,6 +372,16 @@ export default function DispatchDetailScreen() {
           {d.status !== "completed" && offNote ? (
             <View accessibilityLiveRegion="polite" testID="dispatch-off-band-note" className="rounded-card bg-tone-amber-tint p-4">
               <Text className="font-sans text-[15px] leading-6 text-tone-amber-ink">{t(offNote.key, { count: offNote.count })}</Text>
+            </View>
+          ) : null}
+          {d.status !== "completed" && overOrder ? (
+            <View accessibilityLiveRegion="polite" testID="dispatch-over-tolerance" className="gap-1 rounded-card bg-tone-amber-tint p-4">
+              {overOrder.lines.map((l) => (
+                <Text key={l.lineId} className="font-sans-semibold text-[15px] text-tone-amber-ink">
+                  {t("dispatch.overTolerance.line", { pct: l.pct, order: l.orderNumber, line: l.lineNo, kg: kgTotal(l.overG) })}
+                </Text>
+              ))}
+              <Text className="font-sans text-[15px] leading-6 text-tone-amber-ink">{t(overOrder.statusKey)}</Text>
             </View>
           ) : null}
 

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7481 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -784,7 +784,7 @@ Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
 | `source.logoHint` | Off hides the logo on the label. The company name still prints. | बंद करने पर लेबल से लोगो हट जाता है। कंपनी का नाम फिर भी छपता है। |
 | `source.cannotContinue` | Fix the points above before you go on. | आगे जाने से पहले ऊपर की बातें ठीक करें। |
 
-### scan (60)
+### scan (61)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -809,6 +809,7 @@ Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
 | `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
 | `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Added. A manager has to approve it. | {kg} kg/12ft, {order} में {line}। जोड़ दिया। मैनेजर की मंज़ूरी चाहिए। |
+| `continuous.overTolerance` | Over +{pct}% on {order} line {line}. A manager has to approve it before Dispatch. | {order} लाइन {line} पर +{pct}% से ज़्यादा। Dispatch से पहले मैनेजर की मंज़ूरी चाहिए। |
 | `continuous.outsideOrder` | This packing list is for {order} only | यह packing list सिर्फ़ {order} की है |
 | `continuous.outsideOrderPlain` | This packing list is for one sales order only | यह packing list सिर्फ़ एक sales order की है |
 | `continuous.orderBaki` | {order}: baki {baki} kg, {left} kg left after this load | {order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा |
@@ -1093,7 +1094,7 @@ Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (222)
+### dispatch (230)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1116,6 +1117,13 @@ Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
 | `offBand.waiting` | {count} {count:bundle waits\|bundles wait} for a manager to approve the weight. Dispatch opens when each one is decided. | {count} bundle का वज़न मैनेजर की मंज़ूरी का इंतज़ार कर रहा है। हर एक पर फ़ैसला होने के बाद dispatch खुलेगा। |
 | `offBand.rejectedNote` | {count} {count:bundle was\|bundles were} rejected for the order weight. Take {count:it\|them} off this dispatch first. | {count} bundle ऑर्डर के वज़न के लिए नामंज़ूर हुए। पहले {count:इसे\|इन्हें} इस dispatch से हटाएं। |
 | `offBand.unasked` | {count} {count:bundle is\|bundles are} off the order weight. Pressing Dispatch asks a manager to approve. | {count} bundle ऑर्डर के वज़न से हटकर हैं। Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी। |
+| `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
+| `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
+| `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
+| `overTolerance.approved` | A manager approved these figures. | मैनेजर ने ये आंकड़े मंज़ूर किए। |
+| `overTolerance.unasked` | Pressing Dispatch asks a manager to approve. | Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी। |
+| `overTolerance.noteLabel` | Why send more than the order? | ऑर्डर से ज़्यादा क्यों भेज रहे हैं? |
+| `overTolerance.noteHint` | The manager reads this before approving. | मंज़ूर करने से पहले मैनेजर इसे पढ़ेंगे। |
 | `fromOrder.start` | Start from | शुरू करें |
 | `fromOrder.byCustomer` | Customer | ग्राहक से |
 | `fromOrder.tab` | From sales order | सेल्स ऑर्डर से |
@@ -1290,6 +1298,7 @@ Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
 | `errors.moved` | This dispatch has moved on. Reload to see where it is now. | यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें। |
 | `errors.offBand` | Some bundles are off the order weight. A manager has to approve them before this dispatch can go. | कुछ bundle ऑर्डर के वज़न से हटकर हैं। यह dispatch जाने से पहले मैनेजर को मंज़ूर करना होगा। |
 | `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
+| `errors.overdraw` | This load is more than the order allows. A manager has to approve it first. Your note went with the request. | यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया। |
 | `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |

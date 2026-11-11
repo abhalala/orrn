@@ -883,6 +883,7 @@ export const hi = {
     unrecognised: "यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें।",
     continuous: {
       offBand: "{kg} kg/12ft, {order} में {line}। जोड़ दिया। मैनेजर की मंज़ूरी चाहिए।",
+      overTolerance: "{order} लाइन {line} पर +{pct}% से ज़्यादा। Dispatch से पहले मैनेजर की मंज़ूरी चाहिए।",
       outsideOrder: "यह packing list सिर्फ़ {order} की है",
       outsideOrderPlain: "यह packing list सिर्फ़ एक sales order की है",
       orderBaki: "{order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा",
@@ -1217,6 +1218,15 @@ export const hi = {
       rejectedNote: "{count} bundle ऑर्डर के वज़न के लिए नामंज़ूर हुए। पहले {count:इसे|इन्हें} इस dispatch से हटाएं।",
       unasked: "{count} bundle ऑर्डर के वज़न से हटकर हैं। Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी।",
     },
+    overTolerance: {
+      title: "ऑर्डर से ज़्यादा",
+      line: "{order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा",
+      pending: "इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है।",
+      approved: "मैनेजर ने ये आंकड़े मंज़ूर किए।",
+      unasked: "Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी।",
+      noteLabel: "ऑर्डर से ज़्यादा क्यों भेज रहे हैं?",
+      noteHint: "मंज़ूर करने से पहले मैनेजर इसे पढ़ेंगे।",
+    },
     fromOrder: {
       start: "शुरू करें",
       byCustomer: "ग्राहक से",
@@ -1412,6 +1422,7 @@ export const hi = {
       moved: "यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें।",
       offBand: "कुछ bundle ऑर्डर के वज़न से हटकर हैं। यह dispatch जाने से पहले मैनेजर को मंज़ूर करना होगा।",
       offBandRejected: "एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें।",
+      overdraw: "यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया।",
     },
     capacity: {
       label: "गाड़ी की क्षमता (kg)",

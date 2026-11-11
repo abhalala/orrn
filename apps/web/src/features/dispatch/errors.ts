@@ -43,6 +43,8 @@ export function dispatchErrorText(t: Translate, error: unknown): string {
       // Q36 decided: off-band rows refused at Complete (rejected rows named first, they need someone to act).
       if (/rejected for the order line/i.test(message)) return t("dispatch.errors.offBandRejected");
       if (/off the order line/i.test(message)) return t("dispatch.errors.offBand");
+      // Review Focus 5 / pl-flow 61: over ordered + tolerance; the request (and the note) went to a manager.
+      if (/^Over the order balance/i.test(message)) return t("dispatch.errors.overdraw");
       return actionErrorText(t, error);
     default:
       return actionErrorText(t, error);

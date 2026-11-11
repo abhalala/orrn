@@ -151,9 +151,12 @@ describe("PL8 r0 defects", () => {
     const manager = p.as("manager");
     const d = await p.held(serials.slice(0, 2), p.customerId, office);
     await expect(office.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    await office.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d, serials: [serials[2]!] });
+    // Tolerance at scan (pl-flow 61): new figures are asked when the add lands, so the person whose add
+    // re-asks (here the manager) is the requester of the new request.
+    await manager.dispatch.addBundlesBySerial({ allowUnassigned: true, id: d, serials: [serials[2]!] });
     await expect(manager.dispatch.complete({ id: d })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     const pending = await pendingOverdraw(p.companyId, d);
+    expect(pending[0]!.requestedBy).toBe(p.users.manager.id);
     expect(pending).toHaveLength(1);
     for (const req of pending) {
       await expect(manager.approval.decide({ id: req.id, decision: "approved" })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -162,6 +165,8 @@ describe("PL8 r0 defects", () => {
     expect((await dispatchRow(d)).status).toBe("reserved");
     // Another approver (the owner) can approve what the manager asked for, and then it completes.
     await p.owner.approval.decide({ id: pending[0]!.id, decision: "approved" });
+    // Q36: the 1,000 kg bundle is also off its line's kg/12ft; another approver clears that row too.
+    await p.approveOffBand(d);
     await manager.dispatch.complete({ id: d });
     expect((await p.lineOf(o.lineIds[0]!)).dispatchedG).toBe(kg(1120));
   }, SLOW);

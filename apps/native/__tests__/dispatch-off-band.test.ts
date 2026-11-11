@@ -43,3 +43,33 @@ describe("Q36 off-band rows on the phone's dispatch screen (parity with web)", (
     expect(completeRefusalText(t, err("off the order line", "CONFLICT"))).toBeNull();
   });
 });
+
+describe("pl-flow 61 tolerance at scan on the phone (parity with web)", () => {
+  test("the scan line says both reasons a manager is needed, only for the added bundle", async () => {
+    const { addWarningText, tolerancePct } = await import("../features/scan/outcome");
+    expect(tolerancePct(500)).toBe("5");
+    const report = {
+      linked: [{ serial: "26J2", salesOrderLineId: "l1", orderNumber: "SO-4", lineNo: 2 }],
+      overTolerance: [{ lineId: "l1", orderNumber: "SO-4", lineNo: 2, toleranceBp: 500, limitG: 1, totalG: 2, overG: 1 }],
+      warnings: [{ serial: "26J2", orderNumber: "SO-4", lineNo: 2, bundleMilli: 12_498, lineMilli: 12_000, diffMilli: 498 }],
+    };
+    expect(addWarningText(t, report, "26J2")).toBe(
+      "12.498 kg/12ft, SO-4 says 12.000. Added. A manager has to approve it. Over +5% on SO-4 line 2. A manager has to approve it before Dispatch.",
+    );
+    expect(addWarningText(t, report, "26J3")).toBeNull();
+  });
+
+  test("the dispatch screen lists uncovered lines and where the ask stands; Complete's overdraw refusal in words", async () => {
+    const { overdrawLines } = await import("../features/dispatch/off-band");
+    const line = { lineId: "l1", orderNumber: "SO-4", lineNo: 2, overG: 30_000, covered: false };
+    expect(overdrawLines({ toleranceBp: 500, lines: [line, { ...line, lineId: "l2", covered: true }], approval: { status: "pending" } })).toEqual({
+      lines: [{ lineId: "l1", orderNumber: "SO-4", lineNo: 2, overG: 30_000, pct: "5" }],
+      statusKey: "dispatch.overTolerance.pending",
+    });
+    expect(overdrawLines({ toleranceBp: 500, lines: [line], approval: null })?.statusKey).toBe("dispatch.overTolerance.unasked");
+    expect(overdrawLines(null)).toBeNull();
+    expect(completeRefusalText(t, { message: "Over the order balance: SO-4 line 2 by 30 kg.", data: { code: "PRECONDITION_FAILED" } })).toBe(
+      "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
+    );
+  });
+});

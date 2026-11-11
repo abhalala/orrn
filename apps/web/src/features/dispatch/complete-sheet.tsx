@@ -13,6 +13,7 @@ import { CapacityBanner } from "./capacity-banner";
 import { dispatchNow } from "./dispatch-now";
 import { dispatchErrorText } from "./errors";
 import { groupItems, type DispatchItem } from "./group-items";
+import { overdrawView, overLineText, type OverdrawState } from "./over-tolerance";
 import { dispatchKgText } from "./format";
 
 type Props = {
@@ -26,6 +27,8 @@ type Props = {
   onRefresh(): void;
   /** The truck's load against its capacity; over it, Dispatch asks why (FP-PK-12). */
   capacity?: CapacityReport | null;
+  /** Lines past ordered + tolerance (pl-flow 61): listed in amber, with a note for the manager. */
+  overdraw?: OverdrawState;
 };
 
 /**
@@ -33,7 +36,7 @@ type Props = {
  * From Building it holds the stock first (the server only completes a held
  * dispatch), then dispatches; the packing list is written in the same step.
  */
-export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh, capacity }: Props) {
+export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh, capacity, overdraw }: Props) {
   const { t } = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -44,6 +47,8 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
   const needsVehicle = !dispatch.vehicleNo?.trim();
   const over = capacity?.state === "over";
+  const overOrder = overdrawView(overdraw ?? null);
+  const [overdrawNote, setOverdrawNote] = useState("");
   // Held by this sheet a moment ago: a retry after a failed complete must not hold twice
   // (the refreshed status may not be back yet).
   const heldHere = useRef({ held: false });
@@ -54,6 +59,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
       setReasonError(false);
       setVehicle("");
       setVehicleError(null);
+      setOverdrawNote("");
     }
   }, [open]);
   const groups = groupItems(items);
@@ -83,6 +89,8 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
           trpcClient.dispatch.complete.mutate({
             id: dispatch.id,
             ...(over ? { capacityOverrideReason: reason.trim() } : {}),
+            // pl-flow 61: the reason for sending more than the order goes with the request.
+            ...(overOrder && overdrawNote.trim() ? { overdrawNote: overdrawNote.trim() } : {}),
           }),
       });
       onOpenChange(false);
@@ -178,6 +186,20 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
               aria-invalid={reasonError ? true : undefined}
             />
           </Field>
+        ) : null}
+        {overOrder ? (
+          <div data-over-tolerance="" className="flex flex-col gap-3 rounded-card bg-tone-amber-tint p-4">
+            <p className="m-0 text-[15px] font-semibold text-tone-amber-ink">{t("dispatch.overTolerance.title")}</p>
+            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[14px] text-tone-amber-ink">
+              {overOrder.lines.map((l) => (
+                <li key={l.lineId}>{overLineText(t, l)}</li>
+              ))}
+            </ul>
+            <p className="m-0 text-[14px] text-tone-amber-ink">{t(overOrder.statusKey)}</p>
+            <Field id="overdraw-note" label={t("dispatch.overTolerance.noteLabel")} hint={t("dispatch.overTolerance.noteHint")}>
+              <FieldTextArea id="overdraw-note" value={overdrawNote} onChangeText={setOverdrawNote} rows={2} maxLength={500} data-testid="overdraw-note" />
+            </Field>
+          </div>
         ) : null}
         {error ? (
           <p role="alert" className="m-0 text-[15px] font-medium text-destructive">

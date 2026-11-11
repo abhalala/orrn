@@ -891,6 +891,7 @@ export const en = {
     unrecognised: "That isn't a bundle serial or label link. Check it and try again.",
     continuous: {
       offBand: "{kg} kg/12ft, {order} says {line}. Added. A manager has to approve it.",
+      overTolerance: "Over +{pct}% on {order} line {line}. A manager has to approve it before Dispatch.",
       outsideOrder: "This packing list is for {order} only",
       outsideOrderPlain: "This packing list is for one sales order only",
       orderBaki: "{order}: baki {baki} kg, {left} kg left after this load",
@@ -1225,6 +1226,15 @@ export const en = {
       rejectedNote: "{count} {count:bundle was|bundles were} rejected for the order weight. Take {count:it|them} off this dispatch first.",
       unasked: "{count} {count:bundle is|bundles are} off the order weight. Pressing Dispatch asks a manager to approve.",
     },
+    overTolerance: {
+      title: "More than the order",
+      line: "Over +{pct}% on {order} line {line}: {kg} kg over",
+      pending: "A manager has been asked to approve these figures.",
+      approved: "A manager approved these figures.",
+      unasked: "Pressing Dispatch asks a manager to approve.",
+      noteLabel: "Why send more than the order?",
+      noteHint: "The manager reads this before approving.",
+    },
     fromOrder: {
       start: "Start from",
       byCustomer: "Customer",
@@ -1420,6 +1430,7 @@ export const en = {
       moved: "This dispatch has moved on. Reload to see where it is now.",
       offBand: "Some bundles are off the order weight. A manager has to approve them before this dispatch can go.",
       offBandRejected: "A bundle was rejected for the order weight. Take it off this dispatch, then try again.",
+      overdraw: "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
     },
     capacity: {
       label: "Truck capacity (kg)",

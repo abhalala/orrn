@@ -289,7 +289,8 @@ describe("scan suggestion and links, single-scan path", () => {
     expect(named("order.create")).toHaveLength(1);
     expect(named("order.update")).toHaveLength(1);
     expect(named("dispatch.linkItem")).toHaveLength(2);
-    expect(named("dispatch.overdraw.request")).toHaveLength(1);
+    // Tolerance at scan (pl-flow 61): asked when the add passed the limit, asked again (same figures) at Complete.
+    expect(named("dispatch.overdraw.request")).toHaveLength(2);
     expect(named("dispatch.complete")[0]!.meta).toMatchObject({ plNumber: done.plNumber });
   }, SLOW);
 });

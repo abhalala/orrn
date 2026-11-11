@@ -431,6 +431,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
             onRefresh={() => void refresh()}
             onDispatched={onDispatched}
             capacity={data.capacity}
+            overdraw={data.overdraw}
           />
         </Can>
       ) : null}

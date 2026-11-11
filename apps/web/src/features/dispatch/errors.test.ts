@@ -33,6 +33,9 @@ describe("dispatchErrorText", () => {
       ),
     ).toBe("A bundle was rejected for the order weight. Take it off this dispatch, then try again.");
     expect(dispatchErrorText(t, err("PRECONDITION_FAILED", "Loaded 9 kg is 1 kg over"))).toBe("Something went wrong. Try again.");
+    expect(dispatchErrorText(t, err("PRECONDITION_FAILED", "Over the order balance: SO-4 line 2 by 30.00 kg (limit 1050.00 kg). A manager has to approve before this dispatch can complete."))).toBe(
+      "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
+    );
   });
 });
 

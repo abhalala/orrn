@@ -1,4 +1,4 @@
-import type { StatusTone } from "@orrn/domain";
+import { tolerancePercentText, type StatusTone } from "@orrn/domain";
 import type { MessageKey, Translate } from "@orrn/i18n";
 
 /**
@@ -34,11 +34,33 @@ export function offBandStops(summary: OffBandSummary | null | undefined): boolea
   return summary?.blocked === true;
 }
 
+/** The order-line overdraw state `dispatch.getDispatch` returns while a dispatch can change. */
+export type OverdrawState = {
+  toleranceBp: number;
+  lines: { lineId: string; orderNumber: string; lineNo: number; overG: number; covered: boolean }[];
+  approval: { status: "pending" | "approved" | "rejected" } | null;
+} | null;
+
+/**
+ * pl-flow 61 (web parity, `over-tolerance.ts`): the lines past ordered + tolerance with no approval
+ * covering them, and where the ask stands. Null when nothing is over.
+ */
+export function overdrawLines(state: OverdrawState | undefined): { lines: { lineId: string; orderNumber: string; lineNo: number; overG: number; pct: string }[]; statusKey: MessageKey } | null {
+  if (!state) return null;
+  const over = state.lines.filter((l) => !l.covered);
+  if (over.length === 0) return null;
+  return {
+    lines: over.map((l) => ({ lineId: l.lineId, orderNumber: l.orderNumber, lineNo: l.lineNo, overG: l.overG, pct: tolerancePercentText(state.toleranceBp) })),
+    statusKey: state.approval?.status === "pending" ? "dispatch.overTolerance.pending" : "dispatch.overTolerance.unasked",
+  };
+}
+
 /** A refused Complete in the floor's words when it is about the dispatch rules; null for anything else. */
 export function completeRefusalText(t: Translate, error: unknown): string | null {
   const e = (error && typeof error === "object" ? error : {}) as { message?: unknown; data?: { code?: unknown } | null };
   if (e.data?.code !== "PRECONDITION_FAILED" || typeof e.message !== "string") return null;
   if (/rejected for the order line/i.test(e.message)) return t("dispatch.errors.offBandRejected");
   if (/off the order line/i.test(e.message)) return t("dispatch.errors.offBand");
+  if (/^Over the order balance/i.test(e.message)) return t("dispatch.errors.overdraw");
   return null;
 }

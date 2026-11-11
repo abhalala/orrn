@@ -335,7 +335,11 @@ describe("minor findings", () => {
       .select({ meta: auditLog.meta })
       .from(auditLog)
       .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "dispatch.overdraw.request"), eq(auditLog.subjectId, d)));
-    expect(asks.map((a) => (a.meta as { note: string | null }).note).sort()).toEqual(["customer wants the full lorry", "first ask"]);
+    // Tolerance at scan (pl-flow 61): the add asked first, without a note; the supervisor's note filled
+    // the empty request note; the office's second ask is recorded and changes nothing.
+    const notes = asks.map((a) => (a.meta as { note: string | null }).note);
+    expect(notes.filter((n) => n === null)).toHaveLength(1);
+    expect(notes.filter((n): n is string => n !== null).sort()).toEqual(["customer wants the full lorry", "first ask"]);
     expect(asks.some((a) => (a.meta as { repeat?: boolean; requestId?: string }).repeat === true && (a.meta as { requestId?: string }).requestId === req!.id)).toBe(true);
     void approval;
   }, SLOW);

@@ -949,6 +949,15 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `batchAbortUnless`, so a concurrent completion or a late link cannot slip through. A request left
   open becomes `rejected` with note "Withdrawn: …" when the dispatch completes within limits, is
   cancelled or is deleted (ruling PL8-R6).
+- **Tolerance at scan (pl-flow 61).** Every add path (scan, paste, search, one bundle) reads the
+  overdraw after its batch lands: a line this add linked to that is now past ordered + tolerance with no
+  approval is reported as `overTolerance[]` (`{ lineId, orderNumber, lineNo, toleranceBp, limitG,
+  totalG, overG }`; web and phone say "Over +5% on SO-n line n" in amber) and the `dispatch_overdraw`
+  request is opened then (`askOverdraw`, the same figures Complete would ask for, requested by whoever
+  added; no "asked again" audit row from a scan). A replay re-reads `overTolerance` and asks nothing.
+  Complete with the same figures leaves that request as it is; its `overdrawNote` (the web Complete
+  sheet's "Why send more than the order?") fills the request's note only while it has none, never
+  replacing one.
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
@@ -1040,7 +1049,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   grams per piece half up (`kgPerPieceG`).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
-- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): amber "over tolerance" at scan time with an early `dispatch_overdraw` request, per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
+- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
 
 ## Stock count (phantom report)
 

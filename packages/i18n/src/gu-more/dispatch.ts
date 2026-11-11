@@ -36,6 +36,15 @@ export const guDispatch = {
       rejectedNote: "{count} bundle ઓર્ડરના વજન માટે નામંજૂર થયા. પહેલાં {count:તેને|તેમને} આ dispatch માંથી કાઢો.",
       unasked: "{count} bundle ઓર્ડરના વજનથી અલગ છે. Dispatch દબાવતાં મેનેજર પાસે મંજૂરી માંગાશે.",
     },
+    overTolerance: {
+      title: "ઓર્ડરથી વધુ",
+      line: "{order} લાઇન {line} પર +{pct}% થી વધુ: {kg} kg વધુ",
+      pending: "આ આંકડા માટે મેનેજર પાસે મંજૂરી માંગી છે.",
+      approved: "મેનેજરે આ આંકડા મંજૂર કર્યા.",
+      unasked: "Dispatch દબાવતાં મેનેજર પાસે મંજૂરી માંગાશે.",
+      noteLabel: "ઓર્ડરથી વધુ કેમ મોકલો છો?",
+      noteHint: "મંજૂર કરતાં પહેલાં મેનેજર આ વાંચશે.",
+    },
     fromOrder: {
       start: "શરૂ કરો",
       byCustomer: "ગ્રાહકથી",
