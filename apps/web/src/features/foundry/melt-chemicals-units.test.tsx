@@ -57,3 +57,26 @@ describe("melt sheet chemicals", () => {
     expect(html).not.toContain(">kg<");
   });
 });
+
+describe("an Other chemical typed in the kilogram unit (units sweep 3)", () => {
+  const other = (prefs: ReturnType<typeof screenPrefs> | undefined) => {
+    const f = blankForm("2026-10-24", "furnace-1");
+    f.chemicals = [{ key: "o", storeItemId: "", name: "Dye", unit: "kg", openText: "40", usedText: "12.5", closeText: "" }];
+    return renderToStaticMarkup(
+      <I18nProvider locale="en">
+        <FmtProvider prefs={prefs} timeZone="Asia/Kolkata">
+          <ChemicalsStep form={f} patch={() => {}} issue={null} storeItems={ITEMS} />
+        </FmtProvider>
+      </I18nProvider>,
+    );
+  };
+  test("on a pound plant the unit list says lb for the kilogram unit, beside a box that takes lb", () => {
+    const html = other(screenPrefs({ units: { mass: "lb" } }));
+    expect(html).toMatch(/<option value="kg"[^>]*>lb<\/option>/);
+    expect(html).not.toMatch(/<option value="kg"[^>]*>kg<\/option>/);
+    expect(html).toContain('value="88.18"');
+  });
+  test("a plant that reads kg keeps the word kg in the list", () => {
+    expect(other(undefined)).toMatch(/<option value="kg"[^>]*>kg<\/option>/);
+  });
+});

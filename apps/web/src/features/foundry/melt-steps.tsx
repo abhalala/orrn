@@ -293,7 +293,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                     <FieldSelect value={c.unit} onChange={(e) => set({ unit: e.currentTarget.value })}>
                       {CHEMICAL_UNITS.map((u) => (
                         <option key={u} value={u}>
-                          {u}
+                          {u === "kg" ? massUnit(fmt) : u}
                         </option>
                       ))}
                     </FieldSelect>
