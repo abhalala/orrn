@@ -13,11 +13,21 @@ import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, type BlockHints, type MatrixCell, type
 export const HEADER_SEARCH_ROWS = 20;
 export const HEADER_TEXT_SHARE = 0.6;
 
-/** Excel dates arrive as Date objects: they become `YYYY-MM-DD` (UTC), or with the time when there is one. */
+/**
+ * A cell as text (PORTAL-RULES-3 section 5.4). Text passes through as it is, never coerced. A number, when a matrix
+ * hands one over, is written without float noise: a whole number as it is, any other at 15 significant digits, so
+ * 12.299999999999999 is "12.3" and 0.1 + 0.2 is "0.3". What a person saw ("007", "18%", "12.30") only the file's
+ * formatted text gives, so the web hands that over as a string. Excel dates arrive as Date objects: they become
+ * `YYYY-MM-DD` (UTC), or with the time when there is one.
+ */
 export function toCellText(v: MatrixCell): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v.replace(/ /g, " ").trim();
-  if (typeof v === "number") return Number.isFinite(v) ? String(v) : "";
+  if (typeof v === "number") {
+    if (!Number.isFinite(v)) return "";
+    if (Object.is(v, -0)) return "0";
+    return Number.isInteger(v) ? String(v) : String(Number(v.toPrecision(15)));
+  }
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
   if (Number.isNaN(v.getTime())) return "";
   const iso = v.toISOString();
