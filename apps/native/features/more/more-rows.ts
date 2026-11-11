@@ -50,7 +50,7 @@ const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.di
 export function showsFoundryMasters(me: Pick<Me, "company"> | null | undefined): boolean {
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   const moduleOn = modules.length === 0 || modules.includes("foundry");
-  return moduleOn && canAny(me as Me, ["cast.enter", "cast.close", "melt.enter", "masters.draft", "masters.publish"]);
+  return moduleOn && canAny(me as Me, ["masters.publish"]);
 }
 
 export function showsDieWorkLists(me: Pick<Me, "company"> | null | undefined): boolean {

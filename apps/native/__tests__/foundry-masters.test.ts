@@ -18,12 +18,15 @@ function me(role: NonNullable<Me["company"]>["role"], modules: string[] = ["foun
 }
 
 describe("foundry masters under More", () => {
-  test("foundry and masters roles see both read-only lists", () => {
-    for (const role of ["foundry", "supervisor", "manager", "office"] as const) {
+  test("only masters publishers see both read-only lists", () => {
+    for (const role of ["owner", "admin", "manager"] as const) {
       expect({ role, rows: moreRows(me(role)).filter((r) => r.key === "furnaces" || r.key === "alloys").map((r) => r.key) }).toEqual({ role, rows: ["furnaces", "alloys"] });
     }
-    expect(moreRows(me("foundry")).find((r) => r.key === "furnaces")?.href).toBe("/more/furnaces");
-    expect(moreRows(me("foundry")).find((r) => r.key === "alloys")?.href).toBe("/more/alloys");
+    for (const role of ["foundry", "supervisor", "office"] as const) {
+      expect(moreRows(me(role)).some((r) => r.key === "furnaces" || r.key === "alloys")).toBe(false);
+    }
+    expect(moreRows(me("manager")).find((r) => r.key === "furnaces")?.href).toBe("/more/furnaces");
+    expect(moreRows(me("manager")).find((r) => r.key === "alloys")?.href).toBe("/more/alloys");
   });
 
   test("other roles and plants without foundry do not see the rows", () => {

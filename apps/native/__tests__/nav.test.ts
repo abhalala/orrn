@@ -137,7 +137,7 @@ describe("Orders and Dies from More for the packer-set roles", () => {
 
   test("supervisor holds die.reading and press.run: Press and the Dies row that opens the die room screens join More; the press role has both on its bar", () => {
     expect(extraTabs(me("supervisor"))).toEqual(["dies", "press", "cast"]);
-    expect(rows("supervisor").slice(0, 6)).toEqual(["ageing:/more/ageing", "furnaces:/more/furnaces", "alloys:/more/alloys", "press:/press", "cast:/cast", "dieRoom:/dies"]);
+    expect(rows("supervisor").slice(0, 4)).toEqual(["ageing:/more/ageing", "press:/press", "cast:/cast", "dieRoom:/dies"]);
     expect(extraTabs(me("press"))).toEqual([]);
     expect(rows("press")).not.toContain("dieRoom:/dies");
   });
