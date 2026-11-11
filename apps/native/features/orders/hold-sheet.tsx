@@ -76,7 +76,7 @@ function SelectableRow({ selected, onToggle, children, label }: { selected: bool
       onPress={onToggle}
       className="min-h-14 flex-row items-center gap-3 rounded-card border border-hairline bg-surface px-3 py-3"
     >
-      <View className={`h-6 w-6 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary" : "border-control bg-surface"}`}>
+      <View className={`h-6 w-6 items-center justify-center rounded-input border ${selected ? "border-primary bg-primary" : "border-control bg-surface"}`}>
         {selected ? <Feather name="check" size={18} color={check} /> : null}
       </View>
       {children}
