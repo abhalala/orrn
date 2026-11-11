@@ -162,11 +162,48 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     expect(await headerByOf(put.blocks[0]!.blockId)).toBe("reader");
   });
 
-  test("the preview is at most 12 rows of at most 200 cells of at most 200 characters", async () => {
+  test("rule 5.1: a near fit is never trusted; ask names the layout it resembles and puts that row first", async () => {
+    const p = await plant(env);
+    await learnLayout(env, p.companyId, p.users.owner.id, bookLayout(), "Book");
+    const { artifactId } = await begin(p.owner);
+    const near = ["Party", "Order no", "PO", "Date", "Series", "Section", "Cut (mm)", "Bakee (kg)"];
+    const preview = [PREVIEW[0]!, { row: 1, cells: near }, ...PREVIEW.slice(2)];
+    const put = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ headers: near, preview })] });
+    expect(put.header[0]).toMatchObject({
+      ordinal: 0,
+      answer: "ask",
+      guess: { headerRow: 1, headerRows: 1 },
+      resembles: { name: "Book", target: "orders", fit: "near", headerRow: 1, headerRows: 1 },
+    });
+    expect((put.header[0] as { candidates: { headerRow: number; headerRows: number }[] }).candidates[0]).toEqual({ headerRow: 1, headerRows: 1 });
+    expect(put.blocks).toEqual([]);
+  });
+
+  test("rule 5.1: a preview of 15 rows with a gap asks; a header far down the sheet can be picked", async () => {
+    const p = await plant(env);
+    await learnLayout(env, p.companyId, p.users.owner.id, bookLayout(), "Book");
+    const { artifactId } = await begin(p.owner);
+    const head = [0, 1, 2].map((row) => ({ row, cells: ["Fourcubes Extrusions", `note ${row}`, ""] }));
+    const around = [
+      ...Array.from({ length: 8 }, (_, i) => ({ row: 4991 + i, cells: ["", `note ${4991 + i}`, ""] })),
+      { row: 4999, cells: BOOK },
+      ...DATA.map((cells, i) => ({ row: 5000 + i, cells })),
+    ];
+    const preview = [...head, ...around];
+    expect(preview).toHaveLength(15);
+    const put = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ headerRow: 4999, preview })] });
+    // The window moved (a gap after row 2), so the true header may lie outside it: always ask (M6).
+    expect(put.header[0]).toMatchObject({ ordinal: 0, answer: "ask", resembles: { name: "Book", fit: "exact", headerRow: 4999 } });
+    const { artifactId: second } = await begin(p.owner);
+    const picked = await p.owner.ingest.artifact.putBlocks({ artifactId: second, blocks: [block({ headerRow: 4999, preview, hint: { headerRow: 4999, headerRows: 1 } })] });
+    expect(picked.header[0]).toMatchObject({ answer: "keep", by: "person" });
+  });
+
+  test("the preview is at most 15 rows of at most 200 cells of at most 200 characters", async () => {
     const p = await plant(env);
     const { artifactId } = await begin(p.owner);
-    const rows13 = Array.from({ length: 13 }, (_, i) => ({ row: i, cells: ["a", "b"] }));
-    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: rows13 })] })).rejects.toThrow();
+    const rows16 = Array.from({ length: 16 }, (_, i) => ({ row: i, cells: ["a", "b"] }));
+    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: rows16 })] })).rejects.toThrow();
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: [{ row: 0, cells: ["x".repeat(201)] }] })] })).rejects.toThrow();
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: [{ row: 0, cells: Array.from({ length: 201 }, () => "a") }] })] })).rejects.toThrow();
   });

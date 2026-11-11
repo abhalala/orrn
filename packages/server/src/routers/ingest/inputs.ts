@@ -1,5 +1,6 @@
 /** Zod inputs of the `ingest` router (plan B5). Bounds are plan A9. */
 import { z } from "zod";
+import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS } from "@orrn/ingest";
 
 import { ARTIFACT_KINDS, CANDIDATE_STATES, INGEST_TARGETS, QUESTION_CODES, ROW_DECISIONS, ROW_STATES } from "@orrn/db/schema/ingest";
 
@@ -36,11 +37,17 @@ const row = z
   .max(L.columnsPerBlock)
   .refine((r) => new TextEncoder().encode(JSON.stringify(r)).length <= ROW_JSON_MAX, "A row is too long");
 
+/**
+ * The highest raw row a reader may report: a sheet has at most 1,048,576 rows, and a PDF line number is
+ * smaller. A reread or picked header may be anywhere in the region, so the header and preview rows use it.
+ */
+const RAW_ROW_MAX = 1_048_576;
+
 export const blockInput = z.object({
   ordinal: z.number().int().min(0).max(L.blocksPerFile - 1),
   sheetName: z.string().max(200).nullable(),
   title: z.string().max(500).nullable(),
-  headerRow: z.number().int().min(0).max(1000),
+  headerRow: z.number().int().min(0).max(RAW_ROW_MAX),
   headerRows: z.number().int().min(1).max(2),
   headers: z.array(cell).min(1).max(L.columnsPerBlock),
   rowCount: z.number().int().min(0).max(L.stagedRowsPerBlock),
@@ -49,19 +56,19 @@ export const blockInput = z.object({
   headerKey: z.string().max(100).optional(),
   sample: z.array(row).max(L.sampleRowsPerBlock),
   dateColumns: z.array(z.number().int().min(0).max(L.columnsPerBlock)).max(L.columnsPerBlock).optional(),
-  /** Rule 4.1: the raw rows the header is checked on (at most 12 rows, 200 cells, 200 characters). */
+  /** Rules 4.1 and 5.1: the raw rows the header is checked on (at most 15 rows: the first 3 of the region and 12 around the header; 200 cells, 200 characters). */
   preview: z
     .array(
       z.object({
-        row: z.number().int().min(0).max(L.stagedRowsPerBlock),
+        row: z.number().int().min(0).max(RAW_ROW_MAX),
         page: z.number().int().min(1).max(10_000).optional(),
         cells: z.array(z.string().max(200)).max(200),
       }),
     )
-    .max(12)
+    .max(PREVIEW_ROWS + PREVIEW_HEAD_ROWS)
     .optional(),
   /** The header row a person picked on the preview; trusted. */
-  hint: z.object({ headerRow: z.number().int().min(0).max(1000), headerRows: z.union([z.literal(1), z.literal(2)]) }).optional(),
+  hint: z.object({ headerRow: z.number().int().min(0).max(RAW_ROW_MAX), headerRows: z.union([z.literal(1), z.literal(2)]) }).optional(),
 });
 
 export const putBlocksInput = z.object({

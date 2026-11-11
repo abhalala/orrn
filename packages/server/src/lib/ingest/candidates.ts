@@ -189,7 +189,11 @@ function settleHeader(b: BlockInput, learned: readonly LearnedHole[]): { by: Hea
   if (!b.preview) return { by: "reader" };
   const guess = { headerRow: b.headerRow, headerRows: (b.headerRows === 2 ? 2 : 1) as 1 | 2 };
   const choice = chooseHeader({ preview: b.preview, guess }, { learned });
-  if (choice.kind === "ask") return { ordinal: b.ordinal, answer: "ask", guess: choice.guess, candidates: choice.candidates };
+  if (choice.kind === "ask") {
+    const r = choice.resembles;
+    const resembles = r ? { headerRow: r.headerRow, headerRows: r.headerRows, name: r.name, target: r.target, fit: r.fit } : null;
+    return { ordinal: b.ordinal, answer: "ask", guess: choice.guess, candidates: choice.candidates, resembles };
+  }
   if (choice.headerRow === guess.headerRow && choice.headerRows === guess.headerRows) return { by: "fit" };
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
 }

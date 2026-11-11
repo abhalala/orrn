@@ -121,7 +121,14 @@ export type HeaderBy = "reader" | "fit" | "person";
 export type HeaderAnswer =
   | { ordinal: number; answer: "keep"; by: HeaderBy; blockId: string }
   | { ordinal: number; answer: "reread"; headerRow: number; headerRows: 1 | 2 }
-  | { ordinal: number; answer: "ask"; guess: HeaderPickIn; candidates: HeaderPickIn[] };
+  | { ordinal: number; answer: "ask"; guess: HeaderPickIn; candidates: HeaderPickIn[]; resembles: HeaderResemblesOut | null };
+
+/**
+ * Rule 5.1: the row that looks like a known layout but is not trusted, and that layout, so the screen
+ * can say "This looks like <name>. Is row <headerRow> the column names?". It is `candidates[0]`.
+ * `fit` is "near" (some columns differ) or "exact" (an exact fit the server still may not trust alone).
+ */
+export type HeaderResemblesOut = { headerRow: number; headerRows: 1 | 2; name: string; target: IngestTarget; fit: "exact" | "near" };
 
 export type CandidateCounts = {
   total: number;
