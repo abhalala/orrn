@@ -257,7 +257,7 @@ describe("packing lists per customer, and the reallocation scan outcome", () => 
     const [s] = await p.pack(p.dieA, [{ kg: 40 }], a.lineIds[0]);
     const res = await p.as("office").orders.reallocate({ bundleIds: await idsOf(p.companyId, [s!]), toLineId: b.lineIds[0]!, reason: "Party B is short" });
     expect(res.status).toBe("pending");
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const scan = await p.as("operator").dispatch.scan({ id, serials: [s!] });
     expect(scan.results.map((r) => r.outcome)).toEqual(["reallocation_pending"]);
     expect(scan.refused.map((r) => r.code)).toEqual(["reallocation_pending"]);

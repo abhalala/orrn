@@ -223,7 +223,7 @@ describe("baki math", () => {
     expect(l).toMatchObject({ orderedG: kg(1000), orderedPcs: 50, producedG: kg(600), producedPcs: 30, dispatchedG: 0, bakiG: kg(1000), bakiPcs: 50 });
 
     // Draft, reserved and cancelled dispatches do not count as dispatched.
-    const draft = await p.owner.dispatch.create({ customerId: p.customerId });
+    const draft = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: draft.id, serials: [forLine[2]!] });
     const d = await p.held([forLine[0]!, forLine[1]!]);
     expect((await p.lineOf(lineId)).dispatchedG).toBe(0);
@@ -479,7 +479,7 @@ describe("order line suggested per bundle, and links", () => {
     const packedForNewer = await p.pack(p.dieA, [{ kg: 100 }], newer.lineIds[0]);
     const a = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }, { kg: 100 }]);
     const b = await p.pack(p.dieB, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: [...packedForNewer, ...a, ...b] });
     const byLine = new Map(report.linked.map((l) => [l.serial, l.salesOrderLineId]));
     expect(byLine.get(packedForNewer[0]!)).toBe(newer.lineIds[0]); // packed for it
@@ -514,7 +514,7 @@ describe("order line suggested per bundle, and links", () => {
   test("race: the floor's unlink that read 'no open line' refuses when the order reopens before it lands", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 100 }]) });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(o.lineIds[0]!);
@@ -534,7 +534,7 @@ describe("order line suggested per bundle, and links", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }, { kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true, id, serials });
     expect(report.added).toHaveLength(2);
@@ -554,7 +554,7 @@ describe("order line suggested per bundle, and links", () => {
   test("without an open line of this customer for the section the bundle stays unlinked", async () => {
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect(report.linked).toEqual([]);
     expect((await itemsOf(id))[0]!.lineId).toBeNull();
@@ -569,7 +569,7 @@ describe("order line suggested per bundle, and links", () => {
     const other = await plant();
     const foreign = await other.order([{ dieId: other.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     const packer = p.as("packer");
@@ -593,7 +593,7 @@ describe("order line suggested per bundle, and links", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -606,7 +606,7 @@ describe("order line suggested per bundle, and links", () => {
   test("race: a dispatch edit that loses to a reserve reports a conflict instead of success", async () => {
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     env.beforeNextBatch(() => p.owner.dispatch.reserve({ id }));
     await expect(p.owner.dispatch.update({ id, notes: "late note" })).rejects.toMatchObject({ code: "CONFLICT" });
@@ -619,7 +619,7 @@ describe("order line suggested per bundle, and links", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -640,7 +640,7 @@ describe("order line suggested per bundle, and links", () => {
     const a = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const b = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }], a.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: b.lineIds[0]! });
@@ -715,7 +715,7 @@ describe("pack against an order line", () => {
 describe("dispatch header and invoice link", () => {
   test("the gate sets vehicle, driver and transporter; invoice fields need invoice.link", async () => {
     const p = await plant();
-    const { id } = await p.as("packer").dispatch.create({ customerId: p.customerId });
+    const { id } = await p.as("packer").dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.as("packer").dispatch.update({ id, vehicleNo: " gj 05 ab 1234 ", driverName: "Ramesh", driverPhone: "+91 98250 11111", transporter: "Shree Logistics" });
     expect(await dispatchRow(id)).toMatchObject({ vehicleNo: "GJ05AB1234", driverName: "Ramesh", driverPhone: "+91 98250 11111", transporter: "Shree Logistics" });
     await expect(p.as("packer").dispatch.update({ id, invoiceNumber: "FC/1021" })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -748,7 +748,7 @@ describe("dispatch header and invoice link", () => {
 
   test("a cancelled dispatch takes no header edits", async () => {
     const p = await plant();
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.cancel({ id });
     await expect(p.owner.dispatch.update({ id, vehicleNo: "GJ01" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   }, SLOW);
@@ -766,7 +766,7 @@ describe("packing list v2: snapshot shape and number assigned once", () => {
     const forA = await p.pack(p.dieA, [{ kg: 25.5, pcs: 10, mm: 3_658 }, { kg: 24.25, pcs: 10, mm: 3_658 }], o.lineIds[0]);
     const forB = await p.pack(p.dieB, [{ kg: 40, pcs: 8, mm: 4_877, po: "BUNDLE-PO" }], o.lineIds[1]);
     const loose = await p.pack(p.dieA, [{ kg: 30, pcs: 12, mm: 3_505, po: "OLD-PO-9" }]); // no line, kept unlinked below
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.update({ id, vehicleNo: "GJ05AB1234", driverName: "Ramesh", driverPhone: "9825011111", transporter: "Shree" });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: [...forB, ...forA, ...loose] });
     const looseItem = (await itemsOf(id)).find((i) => i.serial === loose[0]);
@@ -917,7 +917,7 @@ describe("tenant isolation", () => {
     await expect(p.owner.orders.get({ id: theirs.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
     await expect(saveOrder(p.owner, { id: theirs.id, poNumber: "x" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     const s = await other.pack(other.dieA, [{ kg: 10 }]);
-    const { id } = await other.owner.dispatch.create({ customerId: other.customerId });
+    const { id } = await other.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: other.customerId });
     await other.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: s });
     const [item] = await itemsOf(id);
     await expect(p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null })).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -983,7 +983,7 @@ describe("permission matrix", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     for (const role of ROLES) {

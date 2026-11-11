@@ -37,7 +37,7 @@ async function setup(): Promise<{ p: OpPlant; id: string; serials: string[]; lin
   await p.copy(s, { milli: 12_000 });
   const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(1_000) }]);
   const serials = await p.pack(s, Array.from({ length: 9 }, () => ({ kg: 120 })), o.lineIds[0]);
-  const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+  const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
   return { p, id, serials, lineId: o.lineIds[0]!, number: o.number };
 }
 

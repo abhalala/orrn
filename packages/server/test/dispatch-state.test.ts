@@ -42,11 +42,11 @@ async function itemCount(dispatchId: string) {
 describe("dispatch and bundle state predicates", () => {
   test("addBundle of a bundle held by another dispatch is refused with its code", async () => {
     const { api, customerId, bundles } = await setup(2);
-    const a = await api.dispatch.create({ customerId });
+    const a = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: a.id, bundleId: bundles[0]!.id });
     await api.dispatch.reserve({ id: a.id });
 
-    const b = await api.dispatch.create({ customerId });
+    const b = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await expect(api.dispatch.addBundle({ allowUnassigned: true,  id: b.id, bundleId: bundles[0]!.id })).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: `Bundle is held by ${a.code}`,
@@ -57,11 +57,11 @@ describe("dispatch and bundle state predicates", () => {
   test("removeBundle from dispatch B does not free dispatch A's reservation", async () => {
     const { companyId, api, customerId, bundles } = await setup(2);
     const [x, y] = bundles;
-    const a = await api.dispatch.create({ customerId });
+    const a = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: a.id, bundleId: x!.id });
     await api.dispatch.reserve({ id: a.id });
 
-    const b = await api.dispatch.create({ customerId });
+    const b = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: b.id, bundleId: y!.id });
     await api.dispatch.reserve({ id: b.id });
     // Simulate the residual concurrent-add race (audit S6): B also lists X.
@@ -85,7 +85,7 @@ describe("dispatch and bundle state predicates", () => {
 
     test(`rescanning an already-added bundle on a ${label} dispatch is calm (addBundle)`, async () => {
       const { api, customerId, bundles } = await setup(1);
-      const d = await api.dispatch.create({ customerId });
+      const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
       await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
       if (held) await api.dispatch.reserve({ id: d.id });
 
@@ -98,7 +98,7 @@ describe("dispatch and bundle state predicates", () => {
 
     test(`rescanning an already-added bundle on a ${label} dispatch is calm (addBundlesBySerial)`, async () => {
       const { api, customerId, bundles } = await setup(1);
-      const d = await api.dispatch.create({ customerId });
+      const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
       await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d.id, serials: [bundles[0]!.serial] });
       if (held) await api.dispatch.reserve({ id: d.id });
 
@@ -110,7 +110,7 @@ describe("dispatch and bundle state predicates", () => {
 
   test("two concurrent scans of the same bundle add it once and neither errors", async () => {
     const { api, customerId, bundles } = await setup(2);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[1]!.id });
     await api.dispatch.reserve({ id: d.id });
 
@@ -130,12 +130,12 @@ describe("dispatch and bundle state predicates", () => {
     const { api, customerId, bundles } = await setup(6);
     const [fresh, quoted, already, heldElsewhere, voided, lower] = bundles;
 
-    const other = await api.dispatch.create({ customerId });
+    const other = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: other.id, bundleId: heldElsewhere!.id });
     await api.dispatch.reserve({ id: other.id });
     await api.bundle.transitionStatus({ id: voided!.id, toStatus: "void" });
 
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: already!.id });
     await api.dispatch.reserve({ id: d.id });
 
@@ -177,12 +177,12 @@ describe("dispatch and bundle state predicates", () => {
   test("addBundlesBySerial reports a dispatched bundle with a structured reason", async () => {
     const { api, customerId, bundles } = await setup(2);
     const [shipped, other] = bundles;
-    const done = await api.dispatch.create({ customerId });
+    const done = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: done.id, bundleId: shipped!.id });
     await api.dispatch.reserve({ id: done.id });
     await api.dispatch.complete({ id: done.id });
 
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     const res = await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d.id, serials: [shipped!.serial, other!.serial] });
     expect(res.added).toEqual([other!.serial]);
     expect(res.unavailable).toEqual([
@@ -196,7 +196,7 @@ describe("dispatch and bundle state predicates", () => {
     const dieId = await env.seedDie(companyId, { name: 'Patti 1" x 1/8"' });
     const customerId = await env.seedCustomer(companyId);
     const [b] = await env.seedBundles(companyId, dieId, 1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: b!.id });
     const res = await api.dispatch.getDispatch({ id: d.id });
     expect(res.items[0]).toMatchObject({ serial: b!.serial, dieName: 'Patti 1" x 1/8"' });
@@ -205,8 +205,8 @@ describe("dispatch and bundle state predicates", () => {
   test("getDispatch names the other dispatch holding a bundle (Hold stock would be refused)", async () => {
     const { api, customerId, bundles } = await setup(2);
     const [x, y] = bundles;
-    const a = await api.dispatch.create({ customerId });
-    const b = await api.dispatch.create({ customerId });
+    const a = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
+    const b = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     // Both drafts list X while it is still in stock; then A holds it.
     await api.dispatch.addBundle({ allowUnassigned: true,  id: a.id, bundleId: x!.id });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: b.id, bundleId: x!.id });
@@ -225,12 +225,12 @@ describe("dispatch and bundle state predicates", () => {
 
   test("getDispatch never names another company's dispatch as the holder", async () => {
     const { companyId, api, customerId, bundles } = await setup(1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
     // A foreign dispatch id written onto our bundle (cross-wired data): never resolved.
     const other = await env.seedCompany();
     const otherApi = env.caller({ role: "owner", companyId: other.companyId });
-    const foreign = await otherApi.dispatch.create({ customerId: await env.seedCustomer(other.companyId) });
+    const foreign = await otherApi.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: await env.seedCustomer(other.companyId) });
     await env.db
       .update(bundle)
       .set({ status: "reserved", currentDispatchId: foreign.id })
@@ -242,7 +242,7 @@ describe("dispatch and bundle state predicates", () => {
 
   test("addBundlesBySerial with nothing addable writes nothing and does not throw", async () => {
     const { api, customerId } = await setup(0);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     const before = await dispatchRow(d.id);
     const res = await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d.id, serials: ["MISSING-1"] });
     expect(res).toEqual({ added: [], alreadyInDispatch: [], notFound: ["MISSING-1"], unavailable: [], linked: [] });
@@ -251,7 +251,7 @@ describe("dispatch and bundle state predicates", () => {
 
   test("complete after cancel is refused", async () => {
     const { api, customerId, bundles } = await setup(1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
     await api.dispatch.reserve({ id: d.id });
     await api.dispatch.cancel({ id: d.id });
@@ -263,7 +263,7 @@ describe("dispatch and bundle state predicates", () => {
 
   test("cancel after complete is refused", async () => {
     const { api, customerId, bundles } = await setup(1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
     await api.dispatch.reserve({ id: d.id });
     await api.dispatch.complete({ id: d.id });
@@ -275,7 +275,7 @@ describe("dispatch and bundle state predicates", () => {
 
   test("softDelete of a held dispatch asks to release the stock first", async () => {
     const { api, customerId, bundles } = await setup(1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
     await api.dispatch.reserve({ id: d.id });
 
@@ -288,7 +288,7 @@ describe("dispatch and bundle state predicates", () => {
 
   test("transitionStatus void of a reserved bundle is refused", async () => {
     const { api, customerId, bundles } = await setup(1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
     await api.dispatch.reserve({ id: d.id });
 
@@ -303,21 +303,21 @@ describe("dispatch and bundle state predicates", () => {
 
   test("dispatch.update can clear notes with null", async () => {
     const { api, customerId } = await setup(0);
-    const d = await api.dispatch.create({ customerId, notes: "call before delivery" });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId, notes: "call before delivery" });
     await api.dispatch.update({ id: d.id, notes: null });
     expect((await dispatchRow(d.id)).notes).toBeNull();
   });
 
   test("dispatch.update leaves notes alone when omitted", async () => {
     const { api, customerId } = await setup(0);
-    const d = await api.dispatch.create({ customerId, notes: "keep me" });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId, notes: "keep me" });
     await api.dispatch.update({ id: d.id, shipDate: null });
     expect((await dispatchRow(d.id)).notes).toBe("keep me");
   });
 
   test("setItemGroupLabel on a bundle not in the dispatch is NOT_FOUND", async () => {
     const { api, customerId, bundles } = await setup(2);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
 
     await expect(
@@ -356,7 +356,7 @@ describe("race orderings never strand a reserved bundle", () => {
 
   async function heldDispatch(n = 2) {
     const fx = await setup(n);
-    const d = await fx.api.dispatch.create({ customerId: fx.customerId });
+    const d = await fx.api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: fx.customerId });
     await fx.api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: fx.bundles[0]!.id });
     await fx.api.dispatch.reserve({ id: d.id });
     return { ...fx, d };
@@ -419,7 +419,7 @@ describe("race orderings never strand a reserved bundle", () => {
 
   test("reserve reads, softDelete lands, reserve writes", async () => {
     const { companyId, api, customerId, bundles } = await setup(2);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d.id, serials: bundles.map((b) => b.serial) });
     env.beforeNextBatch(() => api.dispatch.softDelete({ id: d.id }));
     await api.dispatch.reserve({ id: d.id });
@@ -433,7 +433,7 @@ describe("race orderings never strand a reserved bundle", () => {
 
   test("reserve reads, cancel lands, reserve writes", async () => {
     const { companyId, api, customerId, bundles } = await setup(2);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d.id, serials: bundles.map((b) => b.serial) });
     env.beforeNextBatch(() => api.dispatch.cancel({ id: d.id }));
     await api.dispatch.reserve({ id: d.id });
@@ -445,7 +445,7 @@ describe("race orderings never strand a reserved bundle", () => {
 
   test("cancel of a draft reads, reserve lands, cancel writes", async () => {
     const { companyId, api, customerId, bundles } = await setup(2);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d.id, serials: bundles.map((b) => b.serial) });
     env.beforeNextBatch(() => api.dispatch.reserve({ id: d.id }));
     await api.dispatch.cancel({ id: d.id });
@@ -457,7 +457,7 @@ describe("race orderings never strand a reserved bundle", () => {
 
   test("softDelete of a draft reads, reserve lands, softDelete writes", async () => {
     const { companyId, api, customerId, bundles } = await setup(1);
-    const d = await api.dispatch.create({ customerId });
+    const d = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await api.dispatch.addBundle({ allowUnassigned: true,  id: d.id, bundleId: bundles[0]!.id });
     env.beforeNextBatch(() => api.dispatch.reserve({ id: d.id }));
     await api.dispatch.softDelete({ id: d.id });

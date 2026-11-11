@@ -154,7 +154,7 @@ describe("orders.hold: refusals", () => {
 
     // On a live (draft) dispatch.
     const [onDraft] = await p.pack(s, [{ kg: 100 }], la);
-    const { id: draft } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: draft } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ id: draft, serials: [onDraft!] });
     const draftCode = (await dispatchRow(draft)).code;
     await expect(p.owner.orders.hold({ lineId: la, bundleIds: await idsOf(p, [onDraft!]) })).rejects.toMatchObject(
@@ -212,7 +212,7 @@ describe("orders.hold: refusals", () => {
     const p = await opPlant();
     const { s, la } = await setup(p);
     const yard = await p.pack(s, [{ kg: 100 }, { kg: 100 }]);
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     env.beforeNextBatch(() => p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true, id: d, serials: [yard[1]!] }));
     await expect(p.owner.orders.hold({ lineId: la, bundleIds: await idsOf(p, yard) })).rejects.toMatchObject({ code: "CONFLICT" });
     expect((await rowsOf(p, yard)).map((r) => r.heldForLineId)).toEqual([null, null]);
@@ -300,7 +300,7 @@ describe("dispatch: held for SO-n", () => {
     const name = await customerName(p.customerId);
     const reason = `Held for ${a.number} (${name})`;
 
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true, id: d, serials: yard });
     expect(report.added).toEqual([yard[1]!]);
     expect(report.unavailable).toEqual([
@@ -321,7 +321,7 @@ describe("dispatch: held for SO-n", () => {
     const { s, a, la } = await setup(p);
     const yard = await p.pack(s, [{ kg: 100 }]);
     const [id] = await idsOf(p, yard);
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     env.beforeNextBatch(() => p.owner.orders.hold({ lineId: la, bundleIds: [id!] }));
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true, id: d, serials: yard });
     expect(report.added).toEqual([]);
@@ -335,7 +335,7 @@ describe("dispatch: held for SO-n", () => {
     const yard = await p.pack(s, [{ kg: 300 }]);
     await p.owner.orders.hold({ lineId: la, bundleIds: await idsOf(p, yard) });
 
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ id: d, serials: yard });
     expect(report.added).toEqual(yard);
     expect(report.linked).toMatchObject([{ serial: yard[0], salesOrderLineId: la, orderNumber: a.number }]);
@@ -381,7 +381,7 @@ describe("dispatch.scan (one classifier, W1-PK-S lib/scan.ts)", () => {
     const name = await customerName(p.customerId);
 
     // Another customer: held_for_order (§E6: after `held`, before `unassigned`), never added.
-    const { id: other } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id: other } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     const refused = await p.as("packer").dispatch.scan({ id: other, serials: [yard[0]!] });
     expect(refused.added).toEqual([]);
     expect(refused.results).toMatchObject([{ outcome: "held_for_order", orderNumber: a.number, customerName: name }]);
@@ -392,7 +392,7 @@ describe("dispatch.scan (one classifier, W1-PK-S lib/scan.ts)", () => {
 
     // This customer: the scan never lifts `unassigned`, but a bundle held for this customer's open line
     // counts as assigned and links to the held line; the unheld one stays refused as unassigned.
-    const { id: mine } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: mine } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.as("packer").dispatch.scan({ id: mine, serials: yard });
     expect(report.added).toEqual([yard[0]!]);
     expect(report.results.map((r) => r.outcome)).toEqual(["added", "unassigned"]);

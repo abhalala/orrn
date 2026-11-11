@@ -213,7 +213,8 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
      * (D12 `allowUnassigned`, since most fixtures pack plant stock with no order line).
      */
     async function held(serials: string[], cust = customerId, api: Api = owner) {
-      const { id } = await api.dispatch.create({ customerId: cust });
+      // BACKLOG 70: dispatch.complete refuses with no vehicle number; every fixture dispatch has one.
+      const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: cust });
       for (let i = 0; i < serials.length; i += 100) {
         await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100), ...(api === owner ? { allowUnassigned: true } : {}) });
       }

@@ -68,7 +68,7 @@ describe("I-1 D20: pack source Plant stock", () => {
     const p = await plant();
     const plantRes = await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, source: "plant_stock", rows: rows(40) });
     const legacy = await p.owner.bundle.createReceipt({ dieId: p.dieA, unit: "pcs", locationId: p.yard, rows: rows(41) });
-    const { id } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     const scan = await p.as("operator").dispatch.scan({ id, serials: [plantRes.bundles[0]!.serial, legacy.bundles[0]!.serial] });
     expect(scan.results.map((r) => r.outcome)).toEqual(["added", "unassigned"]);
   }, SLOW);
@@ -227,9 +227,9 @@ describe("BACKLOG 16: the dispatch list opens on every open load, Building first
     const p = await plant();
     const [a, b] = await p.pack(p.dieA, [{ kg: 40 }, { kg: 41 }]);
     const held1 = await p.held([a!]);
-    const draft1 = (await p.owner.dispatch.create({ customerId: p.customerId })).id;
+    const draft1 = (await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId })).id;
     const held2 = await p.held([b!]);
-    const draft2 = (await p.owner.dispatch.create({ customerId: p.customerId })).id;
+    const draft2 = (await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId })).id;
     const done = await p.held((await p.pack(p.dieA, [{ kg: 42 }]))!);
     await p.owner.dispatch.complete({ id: done });
     const open = await p.owner.dispatch.listDispatches({ statuses: ["draft", "reserved"], limit: 50 });

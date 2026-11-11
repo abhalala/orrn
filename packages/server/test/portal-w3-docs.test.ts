@@ -97,7 +97,7 @@ describe("dispatches", () => {
     const mine = await shipped(p, [10, 12]);
     const theirs = await shipped(p, [9], p.otherCustomer);
     const held = await p.held(await p.pack(p.dieA, [{ kg: 5 }]));
-    const draft = (await p.owner.dispatch.create({ customerId: p.customerId })).id;
+    const draft = (await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId })).id;
     const list = await party.api.portal.dispatches.list();
     expect(list.items.map((d) => d.id)).toEqual([mine.d]);
     expect(list.items[0]).toMatchObject({ bundles: 2, weightG: kg(22), hasPackingList: true, hasCertificate: false });

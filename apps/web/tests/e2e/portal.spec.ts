@@ -119,7 +119,8 @@ async function dispatchWithCast(browser: Browser): Promise<{ dispatchId: string;
       locationId: places.items.find((l) => l.code === "Y1")!.id,
       rows: [{ quantity: 10, weightG: 30_000, lengthMm: 3658 }],
     });
-    const made = await trpcMutate<{ id: string }>(owner, "dispatch.create", { customerId: kd.id });
+    // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+    const made = await trpcMutate<{ id: string }>(owner, "dispatch.create", { customerId: kd.id, vehicleNo: "GJ05AB1234" });
     await trpcMutate(owner, "dispatch.addBundlesBySerial", { id: made.id, serials: receipt.bundles.map((b) => b.serial), allowUnassigned: true });
     await trpcMutate(owner, "dispatch.reserve", { id: made.id });
     await trpcMutate(owner, "dispatch.complete", { id: made.id });

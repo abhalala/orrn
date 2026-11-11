@@ -117,7 +117,8 @@ describe("complete: effects stay inside this dispatch", () => {
     const h1 = plSchema.parse((await plRow(d1))!.snapshot).header;
     const h2 = plSchema.parse((await plRow(d2))!.snapshot).header;
     expect(h1).toMatchObject({ vehicleNo: "GJ01AA0001", invoiceNumber: "INV-1", invoiceDate: "2026-10-03" });
-    expect(h2).toMatchObject({ vehicleNo: null, invoiceNumber: null, invoiceDate: null });
+    // BACKLOG 70: d2 completed with the fixture's vehicle; the correction to d1 leaves it as it was.
+    expect(h2).toMatchObject({ vehicleNo: "GJ05AB1234", invoiceNumber: null, invoiceDate: null });
   }, SLOW);
 });
 
@@ -243,7 +244,7 @@ describe("scan suggestion and links, single-scan path", () => {
       .from(bundle)
       .where(eq(bundle.companyId, p.companyId))
       .orderBy(asc(bundle.serial));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const r1 = await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: ids[0]!.id });
     expect(r1.linked).toEqual([{ serial: serials[0]!, salesOrderLineId: l1, orderNumber: first.number, lineNo: 1 }]);
     const r2 = await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: ids[1]!.id });
@@ -252,7 +253,7 @@ describe("scan suggestion and links, single-scan path", () => {
     expect(r3.linked.map((l) => l.salesOrderLineId)).toEqual([l2]); // 100 + 100 already here use up the first order
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([l1, l1, l2]);
     // A second dispatch does not see the first one's draft items as pending: its scan is judged on its own.
-    const other = await p.owner.dispatch.create({ customerId: p.customerId });
+    const other = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const extra = await p.pack(p.dieA, [{ kg: 10 }]);
     const [eb] = await env.db.select({ id: bundle.id }).from(bundle).where(and(eq(bundle.companyId, p.companyId), eq(bundle.serial, extra[0]!)));
     expect((await p.owner.dispatch.addBundle({ allowUnassigned: true,  id: other.id, bundleId: eb!.id })).linked.map((l) => l.salesOrderLineId)).toEqual([l1]);
@@ -266,7 +267,7 @@ describe("scan suggestion and links, single-scan path", () => {
     const otherSection = await p.order([{ dieId: p.dieB, kg: 500 }]);
     const target = await p.order([{ dieId: p.dieA, kg: 500 }]);
     const serials = await p.pack(p.dieA, [{ kg: 50 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect(report.linked).toEqual([{ serial: serials[0]!, salesOrderLineId: target.lineIds[0]!, orderNumber: target.number, lineNo: 1 }]);
     expect([closed, theirs, otherSection].map((o) => o.lineIds[0])).not.toContain(report.linked[0]!.salesOrderLineId);
@@ -353,7 +354,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     // Write time: a bundle gets linked after the cancel read the order.
     const o2 = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const s = await p.pack(p.dieA, [{ kg: 10 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: s });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -366,7 +367,7 @@ describe("orders.update: tenant isolation and write-time guards", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }, { dieId: p.dieB, kg: 500 }]);
     const s = await p.pack(p.dieA, [{ kg: 10 }]); // packed for no line
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: s });
     expect(report.linked[0]!.salesOrderLineId).toBe(o.lineIds[0]!);
     const [l1, l2] = o.lineIds as [string, string];
@@ -433,7 +434,7 @@ describe("orders.create: dates and retired master data", () => {
     expect((await p.owner.orders.balance({})).lines.map((l) => l.orderId)).toEqual([early.id, late.id]);
     // and the scan suggests the early one
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect(report.linked[0]!.orderNumber).toBe(early.number);
   }, SLOW);
@@ -501,7 +502,7 @@ describe("linkItem and dispatch.update write-time guards", () => {
   test("[D21] changing the customer of a dispatch with linked items says why", async () => {
     const p = await plant();
     await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 10 }]) });
     expect((await itemsOf(id))[0]!.lineId).not.toBeNull();
     await expect(p.owner.dispatch.update({ id, customerId: p.otherCustomer })).rejects.toMatchObject({
@@ -957,16 +958,17 @@ describe("dispatch.update and linkItem: write-time status and sync", () => {
     const p = await plant();
     const d = await p.held(await p.pack(p.dieA, [{ kg: 10 }]));
     env.beforeNextBatch(() => p.owner.dispatch.cancel({ id: d }));
-    await expect(p.owner.dispatch.update({ id: d, vehicleNo: "GJ05AB1234" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(p.owner.dispatch.update({ id: d, vehicleNo: "GJ05AB9999" })).rejects.toMatchObject({ code: "CONFLICT" });
     const row = await dispatchRow(d);
     expect(row.status).toBe("cancelled");
-    expect(row.vehicleNo).toBeNull();
+    // BACKLOG 70: held with the fixture's vehicle; the refused edit wrote nothing.
+    expect(row.vehicleNo).toBe("GJ05AB1234");
   }, SLOW);
 
   test("[E08] linking an item bumps the dispatch's sync sequence so offline clients pull the change", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 10 }]) });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -1127,7 +1129,7 @@ describe("write-time guards that need a race to show", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     env.beforeNextBatch(() =>
       saveOrder(p.owner, { id: o.id, lines: [{ id: o.lineIds[0]!, sectionId: p.dieB, cutLengthMm: 3_658, kgG: kg(1000) }] }),
     );
@@ -1141,7 +1143,7 @@ describe("write-time guards that need a race to show", () => {
     const p = await plant();
     await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     env.beforeNextBatch(() => p.owner.dispatch.update({ id, customerId: p.otherCustomer }));
     const report = await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect(report.added).toEqual(serials);

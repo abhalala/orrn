@@ -1,5 +1,5 @@
 /**
- * W2-OPPK-W (FP-PK-17): dispatch from a sales order. `dispatch.create({ salesOrderId })` fixes the
+ * W2-OPPK-W (FP-PK-17): dispatch from a sales order. `dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId })` fixes the
  * party, the dispatch keeps its order, `getDispatch` shows the order's live baki against what is
  * loaded, a scan prefers the order's own line, and `dispatch.suggestBundles` lists the order's
  * bundles first, then plant stock of the same die and length, leaving out whatever a scan would
@@ -47,7 +47,7 @@ describe("dispatch.create from a sales order", () => {
     await p.copy(s, { milli: 12_000 });
     const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(1_000) }], { customerId: p.otherCustomer });
 
-    const made = await p.as("office").dispatch.create({ salesOrderId: o.id });
+    const made = await p.as("office").dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
     const got = await p.owner.dispatch.getDispatch({ id: made.id });
     expect(got.dispatch).toMatchObject({ customerId: p.otherCustomer, salesOrderId: o.id, status: "draft" });
     expect(got.customer?.id).toBe(p.otherCustomer);
@@ -59,28 +59,28 @@ describe("dispatch.create from a sales order", () => {
     expect(audit!.meta).toMatchObject({ salesOrderId: o.id, orderNumber: o.number, customerId: p.otherCustomer });
 
     // The same party named is fine; another party is not.
-    await expect(p.owner.dispatch.create({ salesOrderId: o.id, customerId: p.otherCustomer })).resolves.toMatchObject({ success: true });
-    await expect(p.owner.dispatch.create({ salesOrderId: o.id, customerId: p.customerId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id, customerId: p.otherCustomer })).resolves.toMatchObject({ success: true });
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id, customerId: p.customerId })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.owner.dispatch.create({})).rejects.toMatchObject({ code: "BAD_REQUEST", message: "Customer is required" });
     await expect(p.owner.dispatch.create({ salesOrderId: "nope" })).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     // A closed or cancelled order has nothing left to send; a booking can still be opened from.
     const closed = await p.confirmedOrder([{ sectionId: s, kgG: kg(100) }]);
     await closeOrder(p.owner, closed.id);
-    await expect(p.owner.dispatch.create({ salesOrderId: closed.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: closed.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     const gone = await p.confirmedOrder([{ sectionId: s, kgG: kg(100) }]);
     await cancelOrder(p.owner, gone.id);
-    await expect(p.owner.dispatch.create({ salesOrderId: gone.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: gone.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
     // Another plant's order is not found.
     const q = await opPlant();
     const qs = await q.section();
     await q.copy(qs, { milli: 12_000 });
     const foreign = await q.confirmedOrder([{ sectionId: qs, kgG: kg(100) }]);
-    await expect(p.owner.dispatch.create({ salesOrderId: foreign.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: foreign.id })).rejects.toMatchObject({ code: "NOT_FOUND" });
 
     // Who may: dispatch.create holders only; the customer cannot be moved afterwards.
-    await expect(p.as("viewer").dispatch.create({ salesOrderId: o.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(p.as("viewer").dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(p.owner.dispatch.update({ id: made.id, customerId: p.customerId })).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: expect.stringContaining("opened from a sales order"),
@@ -89,7 +89,7 @@ describe("dispatch.create from a sales order", () => {
     const listed = (await p.owner.dispatch.listDispatches({ customerId: p.otherCustomer })).items.find((i) => i.id === made.id);
     expect(listed).toMatchObject({ salesOrderId: o.id, salesOrderNumber: o.number });
     // An ordinary dispatch has none.
-    const plain = await p.owner.dispatch.create({ customerId: p.customerId });
+    const plain = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     expect((await p.owner.dispatch.getDispatch({ id: plain.id })).salesOrder).toBeNull();
   }, SLOW);
 
@@ -102,7 +102,7 @@ describe("dispatch.create from a sales order", () => {
       { sectionId: s, kgG: kg(300), mm: FT18 },
     ]);
     const serials = await p.pack(s, [{ kg: 120 }, { kg: 120 }, { kg: 120 }], o.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
 
     const before = (await p.owner.dispatch.getDispatch({ id })).salesOrder!.progress;
     expect(before).toMatchObject({ orderedG: kg(1_300), bakiG: kg(1_300), onDispatchG: 0, leftG: kg(1_300), overG: 0 });
@@ -122,7 +122,7 @@ describe("dispatch.create from a sales order", () => {
     // Completed: baki is the order's own (240 kg gone), and nothing counts twice as "on dispatch".
     const done = (await p.owner.dispatch.getDispatch({ id })).salesOrder!.progress;
     expect(done).toMatchObject({ bakiG: kg(1_060), onDispatchG: 0, leftG: kg(1_060) });
-    const next = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const next = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
     expect((await p.owner.dispatch.getDispatch({ id: next.id })).salesOrder!.progress).toMatchObject({ bakiG: kg(1_060), leftG: kg(1_060) });
   }, SLOW);
 
@@ -136,12 +136,12 @@ describe("dispatch.create from a sales order", () => {
     const [viaOrder] = await p.pack(s, [{ kg: 120 }]);
 
     // Control: an ordinary dispatch takes the oldest open line (the existing rule).
-    const ordinary = await p.owner.dispatch.create({ customerId: p.customerId });
+    const ordinary = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ id: ordinary.id, serials: [plain!], allowUnassigned: true });
     expect((await itemsOf(ordinary.id))[0]!.lineId).toBe(older.lineIds[0]!);
 
     // From the newer order: that order's line, whatever the age.
-    const fromOrder = await p.owner.dispatch.create({ salesOrderId: newer.id });
+    const fromOrder = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: newer.id });
     const rep = await p.owner.dispatch.addBundlesBySerial({ id: fromOrder.id, serials: [viaOrder!], allowUnassigned: true });
     expect(rep.linked).toEqual([expect.objectContaining({ serial: viaOrder, orderNumber: newer.number })]);
     expect((await itemsOf(fromOrder.id))[0]!.lineId).toBe(newer.lineIds[0]!);
@@ -172,12 +172,12 @@ describe("dispatch.suggestBundles", () => {
     await p.owner.orders.hold({ lineId: sibling.lineIds[0]!, bundleIds: await idsOf(p, heldElsewhere) });
     const ownedDie = await p.pack(s2, [{ kg: 90 }], o.lineIds[1]); // fine until the die becomes someone else's
     const onOther = await p.pack(s, [{ kg: 95 }], o.lineIds[0]);
-    const other = await p.owner.dispatch.create({ customerId: p.customerId });
+    const other = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ id: other.id, serials: onOther });
     await p.owner.dispatch.reserve({ id: other.id }); // reserved on another dispatch
     await setSectionOwner(env, s2, p.otherCustomer);
 
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
     const res = await p.owner.dispatch.suggestBundles({ id });
 
     const serials = res.items.map((i) => i.serial);
@@ -213,12 +213,12 @@ describe("dispatch.suggestBundles", () => {
     await p.copy(s, { milli: 12_000 });
     const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(1_000) }]);
     await p.pack(s, [{ kg: 120 }]); // on no line, never moved: legacy / unassigned
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
 
     expect((await p.as("office").dispatch.suggestBundles({ id })).items).toEqual([]);
     expect((await p.as("packer").dispatch.suggestBundles({ id })).items).toEqual([]);
 
-    const plain = await p.owner.dispatch.create({ customerId: p.customerId });
+    const plain = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await expect(p.owner.dispatch.suggestBundles({ id: plain.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await expect(p.as("viewer").dispatch.suggestBundles({ id })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await p.owner.dispatch.cancel({ id });
@@ -234,7 +234,7 @@ describe("dispatch.suggestBundles", () => {
     const yard = await plantStock(p, s, [{ kg: 100 }], other.lineIds[0]!);
     const held = await plantStock(p, s, [{ kg: 100 }], other.lineIds[0]!);
     await p.owner.orders.hold({ lineId: o.lineIds[0]!, bundleIds: await idsOf(p, held) });
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
     const res = await p.owner.dispatch.suggestBundles({ id });
     // Held for this line = the order's own, listed first; the free plant bundle follows.
     expect(res.items.map((i) => [i.serial, i.group, i.held])).toEqual([
@@ -258,7 +258,7 @@ describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 eit
       ...(await p.pack(s, [{ kg: 125 }], o.lineIds[0])),
       ...(await p.pack(s, [{ kg: 110 }], o.lineIds[0])),
     ] as [string, string, string, string];
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
 
     const rep = await p.owner.dispatch.scan({ id, serials: [ok, edge, heavy, light] });
     expect(rep.added.sort()).toEqual([ok, edge, heavy, light].sort());
@@ -299,7 +299,7 @@ describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 eit
     const s = await p.section({ weightMinG: 11_800, weightMaxG: 12_600 });
     await p.copy(s, { milli: 12_000 });
     const [far] = await p.pack(s, [{ kg: 150 }]); // 15 kg/12ft: far off any band, on no line
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [far!], allowUnassigned: true });
     expect(rep.added).toEqual([far!]);
     expect(rep.warnings ?? []).toEqual([]);
@@ -321,7 +321,7 @@ describe("Q37: what one packing list may carry (company setting packingList.scop
     const [y] = await p.pack(s, [{ kg: 120 }], b.lineIds[0]);
     // A cast number on the bundles stays internal.
     await env.db.update(bundle).set({ castId: "cast-secret-K31" }).where(and(eq(bundle.companyId, p.companyId), inArray(bundle.serial, [x!, y!])));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [x!, y!] });
     expect(rep.added.sort()).toEqual([x!, y!].sort());
     expect(new Set(rep.linked.map((l) => l.orderNumber))).toEqual(new Set([a.number, b.number]));
@@ -336,7 +336,7 @@ describe("Q37: what one packing list may carry (company setting packingList.scop
     // Dispatch labels are an action on a completed dispatch, never printed by completing it.
     expect((await env.db.select({ n: count() }).from(printLog).where(eq(printLog.companyId, p.companyId)))[0]!.n).toBe(before);
     // Not a truck plant: a truck of several customers is refused.
-    const other = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const other = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     await expect(p.owner.dispatch.create({ customerId: p.customerId, truckOf: other.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   }, SLOW);
 
@@ -354,11 +354,11 @@ describe("Q37: what one packing list may carry (company setting packingList.scop
     const [otherDie] = await p.pack(t, [{ kg: 120 }]); // on no line, a die the order has no line for
     const [plain] = await p.pack(s, [{ kg: 120 }]); // on no line, a die the order does have a line for
 
-    await expect(p.owner.dispatch.create({ customerId: p.customerId })).rejects.toMatchObject({
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId })).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: expect.stringContaining("one sales order per packing list"),
     });
-    const { id } = await p.owner.dispatch.create({ salesOrderId: a.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: a.id });
     const rep = await p.owner.dispatch.addBundlesBySerial({ id, serials: [mine!, theirs!, otherDie!, plain!], allowUnassigned: true });
     expect(rep.added.sort()).toEqual([mine!, plain!].sort());
     expect(rep.unavailable.map((r) => [r.serial, r.code]).sort()).toEqual(
@@ -388,7 +388,7 @@ describe("Q37: what one packing list may carry (company setting packingList.scop
     const [x] = await p.pack(s, [{ kg: 120 }], a.lineIds[0]);
     const [y] = await p.pack(s, [{ kg: 120 }], b.lineIds[0]);
 
-    const first = await p.owner.dispatch.create({ customerId: p.customerId });
+    const first = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.update({ id: first.id, vehicleNo: "gj 05 ab 1234", driverName: "Ramesh", driverPhone: "+91 98250 00000", transporter: "Shree Roadlines", vehicleCapacityG: kg(200) });
     // A second customer joins the truck: its own dispatch, the truck's vehicle.
     const second = await p.owner.dispatch.create({ customerId: p.otherCustomer, truckOf: first.id });
@@ -453,7 +453,7 @@ describe("review r1: suggest and add agree on the line (die AND cut length); one
     ]);
     const short = await plantStock(p, s, [{ kg: 100 }], sibling.lineIds[0]!);
     const long = await plantStock(p, s, [{ kg: 150, mm: FT18 }, { kg: 150, mm: FT18 }], sibling.lineIds[0]!);
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
 
     // The suggestion names the line of the bundle's own length.
     const res = await p.owner.dispatch.suggestBundles({ id });
@@ -486,7 +486,7 @@ describe("review r1: suggest and add agree on the line (die AND cut length); one
     const newer = await q.confirmedOrder([{ sectionId: qs, kgG: kg(1_000), mm: FT18 }]);
     const [l18] = await q.pack(qs, [{ kg: 150, mm: FT18 }], newer.lineIds[0]);
     await q.owner.orders.reallocate({ bundleIds: await idsOf(q, [l18!]), toLineId: null, reason: "to plant" });
-    const plain = await q.owner.dispatch.create({ customerId: q.customerId });
+    const plain = await q.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: q.customerId });
     await q.owner.dispatch.scan({ id: plain.id, serials: [l18!] });
     expect((await itemsOf(plain.id))[0]!.lineId).toBe(newer.lineIds[0]!);
     expect(older.lineIds).toHaveLength(1);
@@ -500,7 +500,7 @@ describe("review r1: suggest and add agree on the line (die AND cut length); one
     const sibling = await p.confirmedOrder([{ sectionId: s, kgG: kg(5_000) }]); // same party, older, lots of room
     const o = await p.confirmedOrder([{ sectionId: s, kgG: kg(200) }]);
     const plant = await plantStock(p, s, [{ kg: 100 }, { kg: 100 }, { kg: 100 }], sibling.lineIds[0]!);
-    const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
 
     // Two fill the 200 kg line; the suggestions stop offering plant stock past it.
     const sug = await p.owner.dispatch.suggestBundles({ id });
@@ -531,7 +531,7 @@ describe("review r1: suggest and add agree on the line (die AND cut length); one
   test("m-4: a truck sibling cannot be switched to a customer already on the truck", async () => {
     const p = await opPlant();
     await p.owner.company.updateSettings({ packingList: { scope: "per_truck" } });
-    const first = await p.owner.dispatch.create({ customerId: p.customerId });
+    const first = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const second = await p.owner.dispatch.create({ customerId: p.otherCustomer, truckOf: first.id });
     await expect(p.owner.dispatch.update({ id: second.id, customerId: p.customerId })).rejects.toMatchObject({
       code: "BAD_REQUEST",

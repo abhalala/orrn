@@ -72,5 +72,7 @@ export function completeRefusalText(t: Translate, error: unknown): string | null
   if (/off the order line/i.test(e.message)) return t("dispatch.errors.offBand");
   if (/^Over the order balance/i.test(e.message)) return t("dispatch.errors.overdraw");
   if (/^Entered late/i.test(e.message)) return t("dispatch.errors.lateEntry");
+  // BACKLOG 70: no vehicle number (the sheet asks first; this is a header cleared meanwhile).
+  if (/^No vehicle number/i.test(e.message)) return t("dispatch.vehicleMissing");
   return null;
 }

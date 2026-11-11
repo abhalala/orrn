@@ -37,7 +37,7 @@ async function setup(): Promise<{ p: OpPlant; id: string; ok: string; heavy: str
   await p.copy(s, { milli: 12_000 });
   const o = await p.confirmedOrder([{ sectionId: s, pcs: 100 }]);
   const [ok, heavy] = [...(await p.pack(s, [{ kg: 120 }], o.lineIds[0])), ...(await p.pack(s, [{ kg: 125 }], o.lineIds[0]))] as [string, string];
-  const { id } = await p.owner.dispatch.create({ salesOrderId: o.id });
+  const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
   return { p, id, ok, heavy, lineId: o.lineIds[0]!, sectionId: s };
 }
 

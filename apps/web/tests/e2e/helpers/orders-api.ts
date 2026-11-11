@@ -129,7 +129,8 @@ export async function packFor(_page: Page, lineId: string, weightsKg: number[], 
 
 /** Sends bundles on a dispatch opened from the order, held and completed. */
 export async function dispatchNow(_page: Page, orderId: string, serials: string[]): Promise<{ id: string; code: string }> {
-  const made = await om<{ id: string; code: string }>("dispatch.create", { salesOrderId: orderId });
+  // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+  const made = await om<{ id: string; code: string }>("dispatch.create", { salesOrderId: orderId, vehicleNo: "GJ05AB1234" });
   await om("dispatch.addBundlesBySerial", { id: made.id, serials });
   await om("dispatch.reserve", { id: made.id });
   await om("dispatch.complete", { id: made.id });

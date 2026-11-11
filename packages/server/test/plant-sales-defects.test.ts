@@ -179,7 +179,7 @@ describe("PL8 r0 defects", () => {
     expect((await p.lineOf(o.lineIds[0]!)).producedG).toBe(kg(300));
     // D12: the scan refuses another customer's bundle, so it leaves for them only by a customer
     // change on the dispatch after the scan (the other customer has no open order: unlinked).
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ id: d, serials: s });
     await p.owner.dispatch.linkItem({ itemId: (await itemsOf(d))[0]!.id, salesOrderLineId: null });
     await p.owner.dispatch.update({ id: d, customerId: p.otherCustomer });
@@ -195,17 +195,18 @@ describe("PL8 r0 defects", () => {
     const p = await plant();
     const d = await p.held(await p.pack(p.dieA, [{ kg: 10 }]));
     env.beforeNextBatch(() => p.owner.dispatch.complete({ id: d }));
-    await expect(p.as("packer").dispatch.update({ id: d, vehicleNo: "GJ05AB1234" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(p.as("packer").dispatch.update({ id: d, vehicleNo: "GJ05AB9999" })).rejects.toMatchObject({ code: "CONFLICT" });
     const row = await dispatchRow(d);
     expect(row.status).toBe("completed");
-    expect(row.vehicleNo).toBeNull();
+    // BACKLOG 70: it completed with the fixture's vehicle; the refused edit wrote nothing.
+    expect(row.vehicleNo).toBe("GJ05AB1234");
   }, SLOW);
 
   // correctness M-2: linkItem re-checks the line's section at write time.
   test("[correctness M-2] a link that read the line as this section refuses when the line's section changes first", async () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 10 }]) });
     const [item] = await itemsOf(id);
     await p.owner.dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });

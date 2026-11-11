@@ -59,7 +59,7 @@ describe("I-1 only a deliberate unlink of a linked item marks it", () => {
     setClock(NOON);
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 500 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBeNull();
@@ -82,7 +82,7 @@ describe("I-1 only a deliberate unlink of a linked item marks it", () => {
     setClock(NOON);
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 500 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     await p.as("operator").dispatch.linkItem({ itemId: item!.id, salesOrderLineId: null });
@@ -104,7 +104,7 @@ describe("I-1 only a deliberate unlink of a linked item marks it", () => {
     setClock(NOON);
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: await p.pack(p.dieA, [{ kg: 100 }]) });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(o.lineIds[0]!);
@@ -121,7 +121,7 @@ describe("I-1 only a deliberate unlink of a linked item marks it", () => {
     setClock(NOON);
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [loose] = await itemsOf(id);
     const office = p.as("office");
@@ -172,7 +172,7 @@ describe("m-3 the relink audit lists only links that landed", () => {
     setClock(NOON);
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     await p.owner.dispatch.reserve({ id });
@@ -187,7 +187,7 @@ describe("m-3 the relink audit lists only links that landed", () => {
     setClock(NOON);
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     await p.owner.dispatch.reserve({ id });
@@ -202,7 +202,7 @@ describe("m-3 the relink audit lists only links that landed", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true, id, serials });
     env.beforeNextBatch(() => closeOrder(p.owner, o.id));
     await p.owner.dispatch.update({ id, customerId: p.customerId });
@@ -256,7 +256,7 @@ describe("m-5 ship date on the company clock", () => {
   test("the completed PL prints the ship date of the company's day", async () => {
     setClock(NOON);
     const p = await plant();
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.customerId, shipDate: Date.parse("2026-10-04T20:00:00.000Z") });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, shipDate: Date.parse("2026-10-04T20:00:00.000Z") });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id: d, serials: await p.pack(p.dieA, [{ kg: 10 }]) });
     await p.owner.dispatch.reserve({ id: d });
     await p.owner.dispatch.complete({ id: d });

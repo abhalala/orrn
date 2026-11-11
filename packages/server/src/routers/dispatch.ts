@@ -454,6 +454,15 @@ export type ScanReport = AddBundlesReport & {
 /** Vehicle capacity in grams (FP-PK-12): up to 100 t; null = no warning. */
 const capacityG = z.number().int().positive().max(100_000_000).nullable().optional();
 
+/** Vehicle number; spaces and dashes are dropped and letters upper-cased (" gj 05 ab 1234" → "GJ05AB1234"). */
+const vehicleNoSchema = z
+  .string()
+  .max(30)
+  .nullable()
+  .optional()
+  .transform((v) => (v == null ? v : v.replace(/[\s-]+/g, "").toUpperCase() || null))
+  .refine((v) => v == null || /^[A-Z0-9]{2,15}$/.test(v), "Vehicle number: letters and digits only");
+
 const createInput = z.object({
   /** Required unless `salesOrderId` is given: the order's party is the dispatch's party. */
   customerId: z.string().min(1, "Customer is required").optional(),
@@ -469,6 +478,11 @@ const createInput = z.object({
   /** Transporter master (FP-PK-11); its name is snapshotted on the dispatch. */
   transporterId: z.string().min(1).max(64).nullable().optional(),
   vehicleCapacityG: capacityG,
+  /**
+   * BACKLOG 70: the vehicle number, when it is known at the start (`dispatch.complete` refuses
+   * without one). Ignored with `truckOf`: the truck's vehicle is the dispatch's.
+   */
+  vehicleNo: vehicleNoSchema,
   /**
    * BACKLOG 47: one key per call. Sent again after a lost reply, the create answers the first
    * dispatch with `replayed: true`; the same key with other content is a CONFLICT.
@@ -503,13 +517,7 @@ const updateInput = z.object({
   // Header (spec P12). Editable until the dispatch is cancelled; after completion only by
   // dispatch.complete holders, and the stored PL header follows.
   /** Vehicle number; spaces and dashes are dropped and letters upper-cased (" gj 05 ab 1234" → "GJ05AB1234"). */
-  vehicleNo: z
-    .string()
-    .max(30)
-    .nullable()
-    .optional()
-    .transform((v) => (v == null ? v : v.replace(/[\s-]+/g, "").toUpperCase() || null))
-    .refine((v) => v == null || /^[A-Z0-9]{2,15}$/.test(v), "Vehicle number: letters and digits only"),
+  vehicleNo: vehicleNoSchema,
   driverName: optText(100),
   driverPhone: optText(20).refine((v) => v == null || /^[+0-9 ()-]{6,20}$/.test(v), "Phone: digits, spaces, + ( ) -"),
   transporter: optText(120),
@@ -536,6 +544,9 @@ async function transporterFor(db: OrrnDb, companyId: string, id: string | null |
   if (!row.active) throw new TRPCError({ code: "BAD_REQUEST", message: `Transporter ${row.name} is retired` });
   return row;
 }
+
+/** BACKLOG 70: `dispatch.complete` refuses a dispatch with no vehicle number. */
+export const NO_VEHICLE = "No vehicle number: add it before this dispatch can complete.";
 
 const HEADER_FIELDS = ["vehicleNo", "driverName", "driverPhone", "transporter"] as const;
 const INVOICE_FIELDS = ["invoiceNumber", "invoiceDate"] as const;
@@ -1374,6 +1385,7 @@ export const dispatchRouter = router({
                 transporterId: transporterRow?.id ?? null,
                 transporterName: transporterRow?.name ?? null,
                 vehicleCapacityG: input.vehicleCapacityG ?? null,
+                vehicleNo: input.vehicleNo ?? null,
               }),
           createdBy: userId,
         }),
@@ -2779,6 +2791,9 @@ export const dispatchRouter = router({
           message: "Cannot complete an empty dispatch",
         });
       }
+      // BACKLOG 70: the packing list and the e-way bill name the truck. No vehicle, no dispatch
+      // (read here, and in the completing UPDATE below for a header cleared meanwhile).
+      if (!d.vehicleNo?.trim()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: NO_VEHICLE });
 
       const bundleIds = items.map((i) => i.bundleId);
       const bundles = await mapInChunks(bundleIds, (ids) =>
@@ -2905,6 +2920,7 @@ export const dispatchRouter = router({
           .where(
             and(
               dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed")),
+              sql`trim(coalesce(${dispatch.vehicleNo}, '')) <> ''`,
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               // Q36: a row that became off band after the read (a link) opened a request: not now.
               noPendingOffBandSql(ctx.companyId, d.id),
@@ -3056,6 +3072,7 @@ export const dispatchRouter = router({
             message: `This dispatch changed while completing${now ? ` (now ${now.status})` : ""}. Reload and check it.`,
           });
         }
+        if (!now.vehicleNo?.trim()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: NO_VEHICLE });
         await refuseOffBand(ctx, d, await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, d.id)));
         const again = await dispatchOverdraw(ctx.db, ctx.companyId, d.id, toleranceBp);
         if (again.some((l) => !l.covered)) {

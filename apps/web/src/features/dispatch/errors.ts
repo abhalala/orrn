@@ -50,6 +50,8 @@ export function dispatchErrorText(t: Translate, error: unknown): string {
       if (/off the order line/i.test(message)) return t("dispatch.errors.offBand");
       // Review Focus 5 / pl-flow 61: over ordered + tolerance; the request (and the note) went to a manager.
       if (/^Over the order balance/i.test(message)) return t("dispatch.errors.overdraw");
+      // BACKLOG 70: no vehicle number (the sheet asks first; this is a header cleared meanwhile).
+      if (/^No vehicle number/i.test(message)) return t("dispatch.vehicleMissing");
       // Arch 52: a late packing list waits for a second person to approve the time.
       if (/^Entered late/i.test(message)) return t("dispatch.errors.lateEntry");
       return actionErrorText(t, error);

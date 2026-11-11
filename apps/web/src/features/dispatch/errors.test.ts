@@ -62,6 +62,14 @@ describe("dispatchErrorText: late packing list (arch 52)", () => {
   });
 });
 
+describe("dispatchErrorText: no vehicle number (BACKLOG 70)", () => {
+  test("the server's refusal asks for the vehicle number", () => {
+    expect(dispatchErrorText(t, err("PRECONDITION_FAILED", "No vehicle number: add it before this dispatch can complete."))).toBe(
+      "Add the vehicle number before you dispatch.",
+    );
+  });
+});
+
 describe("isConflict", () => {
   test("only a CONFLICT from the server", () => {
     expect(isConflict(err("CONFLICT", "Packing list already exists for this dispatch"))).toBe(true);
