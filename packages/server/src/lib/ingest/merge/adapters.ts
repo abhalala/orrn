@@ -26,8 +26,9 @@ import {
   failureOf,
   LINES_PER_ORDER,
   num,
+  orderKeyOf,
   refOf,
-  runsOf,
+  rowsRequestId,
   text,
   valuesOf,
   type Adapter,
@@ -432,20 +433,27 @@ const bundles: Adapter = async (args) => {
 
 type OrderGroup = { key: string; rows: StagedRow[] };
 
-/** Rows of a chunk grouped into orders: customer + (PO or old order number) + date; 100 lines at most. */
-export function orderGroups(rows: readonly StagedRow[], refs: Map<string, string>): OrderGroup[] {
+/**
+ * Rows of a chunk grouped into orders (orderKeyOf). One group is one order: it is never cut, so one
+ * PO never becomes two orders (B1, B5). Planning holds a candidate with an order above 100 lines;
+ * this check is the backstop.
+ */
+export function orderGroups(rows: readonly StagedRow[]): OrderGroup[] {
   const groups = new Map<string, StagedRow[]>();
   for (const row of rows) {
-    const v = valuesOf(row);
-    const customer = refOf(row, "customer", refs) ?? text(v.customer) ?? "";
-    const key = [customer, text(v.poNumber) ?? text(v.oldOrderNo) ?? "", text(v.orderDate) ?? ""].join("\u001f");
+    const key = orderKeyOf(valuesOf(row));
     const list = groups.get(key);
     if (list) list.push(row);
     else groups.set(key, [row]);
   }
   const out: OrderGroup[] = [];
   for (const [key, list] of groups) {
-    runsOf(list, LINES_PER_ORDER).forEach((part, n) => out.push({ key: n === 0 ? key : `${key}\u001f${n}`, rows: part }));
+    if (list.length > LINES_PER_ORDER) {
+      const v = valuesOf(list[0]!);
+      const name = text(v.poNumber) ? `PO ${text(v.poNumber)}` : `The order on file row ${list[0]!.rowIndex + 1}`;
+      throw new TRPCError({ code: "BAD_REQUEST", message: `${name} has ${list.length} lines. An order takes ${LINES_PER_ORDER} lines at most.` });
+    }
+    out.push({ key, rows: list });
   }
   return out;
 }
@@ -467,12 +475,12 @@ const orders: Adapter = async (args) => {
 
   let groups: OrderGroup[];
   try {
-    groups = orderGroups(rows, refs);
+    groups = orderGroups(rows);
   } catch (e) {
     return { written: [], failure: failureOf(e) };
   }
   const written: Written[] = [];
-  for (const [g, group] of groups.entries()) {
+  for (const group of groups) {
     try {
       const first = valuesOf(group.rows[0]!);
       const customerId = refOf(group.rows[0]!, "customer", refs);
@@ -504,7 +512,8 @@ const orders: Adapter = async (args) => {
         ...(text(first.orderDate) ? { orderDate: text(first.orderDate)! } : {}),
         note: notes || null,
         lines,
-        clientRequestId: `${args.chunk.id}-${g}`,
+        // From the order's own rows, so a resend from any chunk or run carries the same key (B8).
+        clientRequestId: await rowsRequestId(group.rows.map((r) => r.id)),
       });
       const source = args.sourceOf(group.rows);
       const made = await createSalesOrder({ ...ctx, ingestSource: source }, input, { canPrice, source: "ingest" });

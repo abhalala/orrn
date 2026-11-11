@@ -43,7 +43,7 @@ import type { IngestSource } from "../source";
 import type { IngestCtx, MergeStepOut } from "../types";
 import { ADAPTERS } from "./adapters";
 import { callerFor } from "./caller";
-import { planPage } from "./planner";
+import { chunkIdOf, pickOrderRows, planPage } from "./planner";
 import { failureOf, MESSAGE_MAX, pendingKeys, type ChunkFailure, type StagedRow, type Written } from "./shared";
 
 const ACTIVE: MergeRunState[] = ["planning", "running"];
@@ -192,6 +192,49 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
     await guardedBatch(ctx.db, advance(ctx, run.id, expectCursor, { state: "running" }, { active: true }), OTHER_TAB);
     return;
   }
+  if (page.hold || page.empty) {
+    const candidate = await loadCandidate(ctx, page.candidateId);
+    const at = now();
+    const marker = {
+      id: page.hold ? page.hold.chunkId : page.empty!,
+      companyId: ctx.companyId,
+      runId: run.id,
+      candidateId: page.candidateId,
+      target: candidate.target!,
+      seq: firstSeq,
+      rowFrom: -1,
+      rowTo: -1,
+      rowCount: 0,
+      state: page.hold ? ("failed" as const) : ("written" as const),
+      attempts: 0,
+      errorCode: page.hold ? page.hold.failure.code : null,
+      errorMessage: page.hold ? page.hold.failure.message : null,
+      sentAt: null,
+      writtenAt: page.hold ? null : at,
+    };
+    const { id: _id, companyId: _c, ...again } = marker;
+    const insert = ctx.db.insert(ingestMergeChunk).values(marker).onConflictDoUpdate({ target: ingestMergeChunk.id, set: again });
+    if (page.hold) {
+      // Held before anything of it was written (B1, B5). Its rows were never queued.
+      await guardedBatch(
+        ctx.db,
+        [
+          insert,
+          ...holdStatements(ctx, run, page.candidateId, marker.id, page.hold.failure, at),
+          ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`${ingestMergeRun.chunksTotal} + 1`, chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1` }, { active: true }),
+        ],
+        OTHER_TAB,
+      );
+    } else {
+      await guardedBatch(
+        ctx.db,
+        // The empty chunk only lists the candidate in the run; it is not counted as a part.
+        [insert, ...advance(ctx, run.id, expectCursor, {}, { active: true })],
+        OTHER_TAB,
+      );
+    }
+    return;
+  }
   await guardedBatch(
     ctx.db,
     [...page.statements, ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`${ingestMergeRun.chunksTotal} + ${page.chunks.length}` }, { active: true })],
@@ -241,7 +284,7 @@ async function writeStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Pro
   if (!chunk) return finish(ctx, run, expectCursor);
 
   const candidate = await loadCandidate(ctx, chunk.candidateId);
-  const rows: StagedRow[] = await ctx.db
+  const inRange: StagedRow[] = await ctx.db
     .select()
     .from(ingestStagedRow)
     .where(
@@ -254,6 +297,8 @@ async function writeStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Pro
       ),
     )
     .orderBy(asc(ingestStagedRow.rowIndex));
+  // Orders chunks of one component may share a range: take this chunk's whole orders.
+  const rows = chunk.target === "orders" ? pickOrderRows(inRange, chunk.rowCount) : inRange;
 
   // A candidate held since this chunk was planned, or a chunk with nothing left: drop it.
   if (candidate.state !== "merging" || rows.length === 0 || !candidate.target) {
@@ -277,7 +322,12 @@ async function writeStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Pro
   const { refs, missing } = await resolveRefs(ctx, pendingKeys(rows));
   let written: Written[] = [];
   let failure: ChunkFailure | null = null;
-  if (missing) {
+  // The rows must be the ones the chunk was planned with (its id hashes them).
+  const planned =
+    (await chunkIdOf({ candidateId: candidate.id, target: candidate.target, holeRef: candidate.holeRef, rowFrom: chunk.rowFrom, rowTo: chunk.rowTo, rowIds: rows.map((r) => r.id) })) === chunk.id;
+  if (!planned) {
+    failure = { code: "CONFLICT", message: "The rows of this part changed after the merge was planned. Run the merge again.", reason: "merge_failed" };
+  } else if (missing) {
     failure = { code: "DEPENDENCY_HELD", message: missing.name.slice(0, MESSAGE_MAX), reason: "dependency_held" };
   } else {
     const base: IngestSource = {
@@ -395,6 +445,18 @@ async function recordChunk(
     statements.push(ctx.db.delete(ingestMergeChunk).where(and(eq(ingestMergeChunk.companyId, ctx.companyId), inArray(ingestMergeChunk.id, part))));
   }
   statements.push(
+    ...holdStatements(ctx, run, candidateId, chunk.id, failure, at),
+    ...advance(ctx, run.id, expectCursor, {
+      chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1`,
+      chunksTotal: sql`max(${ingestMergeRun.chunksTotal} - ${later.length}, 0)`,
+    }),
+  );
+  await guardedBatch(ctx.db, statements, OTHER_TAB);
+}
+
+/** Hold a merging candidate with the failure: its queued rows open again, an audit row. */
+function holdStatements(ctx: IngestCtx, run: RunRow, candidateId: string, chunkId: string, failure: ChunkFailure, at: Date): SqliteBatchItem[] {
+  return [
     ctx.db
       .update(ingestStagedRow)
       .set({ mergeState: "open" })
@@ -416,14 +478,9 @@ async function recordChunk(
       action: "ingest.candidate.hold",
       subjectType: "ingest_candidate",
       subjectId: candidateId,
-      meta: { reason: failure.reason, detail: failure.message.slice(0, MESSAGE_MAX), code: failure.code, runId: run.id, chunkId: chunk.id },
+      meta: { reason: failure.reason, detail: failure.message.slice(0, MESSAGE_MAX), code: failure.code, runId: run.id, chunkId },
     }),
-    ...advance(ctx, run.id, expectCursor, {
-      chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1`,
-      chunksTotal: sql`max(${ingestMergeRun.chunksTotal} - ${later.length}, 0)`,
-    }),
-  );
-  await guardedBatch(ctx.db, statements, OTHER_TAB);
+  ];
 }
 
 async function finish(ctx: IngestCtx, run: RunRow, expectCursor: number): Promise<void> {
@@ -479,7 +536,7 @@ export async function stopMerge(ctx: IngestCtx, input: { runId: string }): Promi
       .where(and(eq(ingestMergeChunk.runId, run.id), eq(ingestMergeChunk.companyId, ctx.companyId), eq(ingestMergeChunk.state, "planned"))),
     ctx.db
       .update(ingestMergeRun)
-      .set({ chunksTotal: sql`(select count(*) from ingest_merge_chunk c where c.run_id = ${run.id})` })
+      .set({ chunksTotal: sql`(select count(*) from ingest_merge_chunk c where c.run_id = ${run.id} and not (c.row_count = 0 and c.state = 'written'))` })
       .where(and(eq(ingestMergeRun.id, run.id), eq(ingestMergeRun.companyId, ctx.companyId))),
   ];
   for (const m of merging) {

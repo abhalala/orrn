@@ -208,6 +208,20 @@ describe("the run", () => {
     await (await adminApi(other.companyId)).ingest.merge.start();
   });
 
+  test("a candidate whose rows were all unchanged is listed by merge.get as merged with nothing written", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const same = await seedCandidate(env, companyId, "customers", [{ state: "unchanged", values: { name: "Same Alu" } }]);
+    const fresh = await seedCandidate(env, companyId, "customers", [{ values: { name: "Fresh Alu" } }]);
+    const res = await mergeAll(api);
+    expect(res.state).toBe("done");
+    const view = await api.ingest.merge.get({ runId: res.runId });
+    const listed = new Map(view.candidates.map((c) => [c.candidateId, c]));
+    expect(listed.get(same.candidateId)).toMatchObject({ state: "merged", rowsWritten: 0 });
+    expect(listed.get(fresh.candidateId)).toMatchObject({ state: "merged", rowsWritten: 1 });
+    expect(view.failedChunks).toHaveLength(0);
+  });
+
   test("nothing approved: start is refused", async () => {
     const { companyId } = await env.seedCompany();
     await seedCandidate(env, companyId, "customers", [{ values: { name: "Ready Only" } }], { state: "ready" });

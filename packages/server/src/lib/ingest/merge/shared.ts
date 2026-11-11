@@ -121,9 +121,35 @@ export function failureOf(e: unknown): ChunkFailure {
   return { code, message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" };
 }
 
-/** Split `items` into runs of at most `size`. */
-export function runsOf<T>(items: readonly T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
+export async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The replay key of one call that writes the given staged rows: `ing-` plus 40 hex of sha256 of
+ * the sorted row ids. It depends on the rows only, never on the chunk or the row's place in it, so
+ * a resend from any later chunk or run carries the same key (B8).
+ */
+export async function rowsRequestId(rowIds: readonly string[]): Promise<string> {
+  return `ing-${(await sha256Hex(["rows", ...[...rowIds].sort()].join("|"))).slice(0, 40)}`;
+}
+
+/** SQLite's `trim()` (spaces only) and `lower()` (ASCII only), so the key below matches ORDER_GROUP_SQL. */
+const sqlTrim = (s: string) => s.replace(/^ +| +$/g, "");
+const sqlLower = (s: string) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+const sqlText = (v: unknown): string | null => (v === null || v === undefined ? null : typeof v === "string" ? v : String(v));
+
+/**
+ * The order a staged row belongs to. With a PO: customer + PO (case and outer spaces ignored); the
+ * order date is not part of it, because one PO is one order. Without a PO: customer + old order
+ * number + order date. The customer is the raw `_ids.customer` (a `pending:` key stays as it is).
+ * Must give the same key as ORDER_GROUP_SQL in planner.ts.
+ */
+export function orderKeyOf(values: Values): string {
+  const ids = (values._ids ?? {}) as Record<string, unknown>;
+  const customer = sqlText(ids.customer) ?? sqlText(values.customer) ?? "";
+  const po = sqlTrim(sqlText(values.poNumber) ?? "");
+  if (po !== "") return `${customer}\u001fpo:${sqlLower(po)}`;
+  return `${customer}\u001fold:${sqlTrim(sqlText(values.oldOrderNo) ?? "")}\u001f${sqlText(values.orderDate) ?? ""}`;
 }

@@ -163,3 +163,78 @@ describe("orders", () => {
     expect(c.reasonDetail).toContain("lines.0.cutLengthMm");
   });
 });
+
+describe("one order is never sent as two (B1, B5)", () => {
+  test("an order of 150 lines on one PO is held before anything of the candidate is written", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const rows = [
+      line(customerId, dieId, { poNumber: "PO-SMALL", pcs: 10 }),
+      ...Array.from({ length: 150 }, (_, i) => line(customerId, dieId, { poNumber: "PO-77", pcs: 10, cutLength: 1000 + i })),
+    ];
+    const seeded = await seedCandidate(env, companyId, "orders", rows);
+    const res = await mergeAll(await api(companyId, "admin"));
+    expect(res.state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c.state).toBe("held");
+    expect(c.reasonDetail).toBe("PO PO-77 has 150 lines. An order takes 100 lines at most. Split it in the file or skip some rows.");
+    expect((await orderRows(companyId)).orders).toHaveLength(0);
+    expect(new Set((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState))).toEqual(new Set(["open"]));
+  });
+
+  test("one PO on two order dates is held before any write; PO case and outer spaces do not split it", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const seeded = await seedCandidate(env, companyId, "orders", [
+      line(customerId, dieId, { poNumber: "PO-5", orderDate: "2025-10-01", pcs: 1 }),
+      line(customerId, dieId, { poNumber: " po-5", orderDate: "2025-10-02", pcs: 1 }),
+    ]);
+    expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c.state).toBe("held");
+    expect(c.reasonDetail).toContain("PO PO-5 has more than one order date in the file");
+    expect((await orderRows(companyId)).orders).toHaveLength(0);
+
+    // The same PO in two spellings on one date is one order.
+    const again = await plant();
+    await seedCandidate(env, again.companyId, "orders", [
+      line(again.customerId, again.dieId, { poNumber: "PO-6", pcs: 1 }),
+      line(again.customerId, again.dieId, { poNumber: "po-6 ", pcs: 1, cutLength: 2000 }),
+    ]);
+    expect((await mergeAll(await api(again.companyId, "admin"))).state).toBe("done");
+    const made = await orderRows(again.companyId);
+    expect(made.orders).toHaveLength(1);
+    expect(made.lines).toHaveLength(2);
+  });
+
+  test("12 interleaved orders with POs (sorted by section) become 12 whole orders", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    // Row i belongs to order i % 12: every order spans the whole sheet.
+    const rows = Array.from({ length: 36 }, (_, i) => line(customerId, dieId, { poNumber: `PO-${i % 12}`, pcs: 5, cutLength: 1000 + i }));
+    const seeded = await seedCandidate(env, companyId, "orders", rows);
+    const res = await mergeAll(await api(companyId, "admin"));
+    expect(res.state).toBe("done");
+    expect(res.chunksWritten).toBe(2);
+    const { orders, lines } = await orderRows(companyId);
+    expect(orders).toHaveLength(12);
+    for (const o of orders) expect(lines.filter((l) => l.salesOrderId === o.id)).toHaveLength(3);
+    const staged = await stagedRows(env, seeded.candidateId);
+    expect(staged.every((r) => r.mergeState === "written")).toBe(true);
+    // Rows of one PO point at one order.
+    for (let p = 0; p < 12; p += 1) expect(new Set(staged.filter((_, i) => i % 12 === p).map((r) => r.committedId)).size).toBe(1);
+  });
+
+  test("a PO already on a live order holds the candidate before any of its orders is written", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const owner = await api(companyId, "owner");
+    await owner.orders.create({ customerId, poNumber: "PO-LIVE", lines: [{ sectionId: dieId, cutLengthMm: 3658, kgG: 1000 }] });
+    const seeded = await seedCandidate(env, companyId, "orders", [
+      line(customerId, dieId, { poNumber: "PO-NEW", pcs: 1 }),
+      line(customerId, dieId, { poNumber: "po-live", pcs: 1 }),
+    ]);
+    expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c.state).toBe("held");
+    expect(c.reasonDetail).toMatch(/^PO po-live is already on .+ for this customer/);
+    expect((await orderRows(companyId)).orders).toHaveLength(1);
+  });
+});
+

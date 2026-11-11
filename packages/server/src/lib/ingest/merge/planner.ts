@@ -7,9 +7,14 @@
  * - Rows per chunk follow the plan A5 table. Targets whose updates go through another procedure
  *   than their creates start a new chunk when the row kind changes, so a chunk is all creates or
  *   all updates.
- * - Orders: rows of one order (customer + PO or old order number + date) stay in one chunk when the
- *   orders do not interleave; at most 10 orders per chunk. Interleaved orders past that cap are cut
- *   at a row boundary, and an order cut that way becomes two orders.
+ * - Orders: one order (orderKeyOf) is never cut. Whole orders pack at most 10 per chunk. Orders
+ *   that interleave in the file form one component; a component above 10 orders is packed 10
+ *   whole orders at a time in order of their first row, so chunk ranges may overlap. The write
+ *   step picks the chunk's orders back out of its range (pickOrderRows) and checks the chunk id.
+ * - Before any order is written, an orders candidate is held when an order has more than 100
+ *   lines, when one PO has two order dates, or when its PO is already on a live order (B1, B5).
+ * - A candidate with nothing open to write gets one empty chunk, already written, so the run
+ *   lists it (merged with nothing written).
  * - The chunk id is the call's clientRequestId: `ing-` plus 40 hex of
  *   sha256(candidateId|target|holeRef|rowFrom|rowTo|sha256(rowIds)). Same rows, same id.
  */
@@ -17,21 +22,28 @@ import { TARGET_ORDER } from "@orrn/ingest";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { ingestCandidate, ingestMergeChunk, ingestStagedRow, type IngestTarget } from "@orrn/db/schema/ingest";
+import { salesOrder } from "@orrn/db/schema/sales";
 
-import { chunk as chunkList, type SqliteBatchItem } from "../../atomic";
+import { chunk as chunkList, mapInChunks, type SqliteBatchItem } from "../../atomic";
 import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
-import { CHUNK_ROWS, LINES_PER_ORDER, ORDERS_PER_CHUNK, SPLIT_UPDATES } from "./shared";
+import {
+  CHUNK_ROWS,
+  LINES_PER_ORDER,
+  MESSAGE_MAX,
+  ORDERS_PER_CHUNK,
+  orderKeyOf,
+  rowsRequestId,
+  sha256Hex,
+  SPLIT_UPDATES,
+  type ChunkFailure,
+  type StagedRow,
+} from "./shared";
 
 /** Open rows read per planning step for one candidate (orders read the whole candidate). */
 export const PLAN_PAGE_ROWS = 2000;
 
 const READY = ["ready_create", "ready_update"] as const;
-
-async function sha256Hex(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 export async function chunkIdOf(input: {
   candidateId: string;
@@ -86,12 +98,14 @@ export function cutRuns(target: IngestTarget, rows: readonly PlanRow[]): PlanRow
 
 /**
  * Orders: group rows by order key; join groups whose row spans overlap into components; pack whole
- * components into chunks of at most 10 orders. A component above the cap is cut by rows.
+ * components into chunks of at most 10 orders. A component above the cap is packed 10 whole orders
+ * at a time, in order of each order's first row. An order is never cut.
  */
 export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
+  const keyOf = (r: PlanRow) => r.group ?? `row:${r.rowIndex}`;
   const span = new Map<string, { from: number; to: number }>();
   for (const r of rows) {
-    const g = r.group ?? `row:${r.rowIndex}`;
+    const g = keyOf(r);
     const s = span.get(g);
     if (s) s.to = r.rowIndex;
     else span.set(g, { from: r.rowIndex, to: r.rowIndex });
@@ -101,7 +115,7 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
   let cur: PlanRow[] = [];
   let reach = -1;
   for (const r of rows) {
-    const s = span.get(r.group ?? `row:${r.rowIndex}`)!;
+    const s = span.get(keyOf(r))!;
     if (cur.length > 0 && r.rowIndex > reach) {
       components.push(cur);
       cur = [];
@@ -111,17 +125,7 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
   }
   if (cur.length) components.push(cur);
 
-  const orderCount = (part: readonly PlanRow[]) => {
-    // An order above 100 lines is sent as several orders (plan A5: 100 lines at most per order).
-    const lines = new Map<string, number>();
-    for (const r of part) {
-      const g = r.group ?? `row:${r.rowIndex}`;
-      lines.set(g, (lines.get(g) ?? 0) + 1);
-    }
-    let n = 0;
-    for (const c of lines.values()) n += Math.ceil(c / LINES_PER_ORDER);
-    return n;
-  };
+  const orderCount = (part: readonly PlanRow[]) => new Set(part.map(keyOf)).size;
 
   const out: PlanRow[][] = [];
   let pack: PlanRow[] = [];
@@ -132,26 +136,17 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
   for (const comp of components) {
     if (orderCount(comp) > ORDERS_PER_CHUNK) {
       flush();
-      // Cut by rows: start a new chunk when one more row would make an 11th order.
-      let part: PlanRow[] = [];
-      let lines = new Map<string, number>();
-      let orders = 0;
+      // Whole orders, 10 at a time, in order of their first row (Map keeps insertion order).
+      const byOrder = new Map<string, PlanRow[]>();
       for (const r of comp) {
-        const g = r.group ?? `row:${r.rowIndex}`;
-        const had = lines.get(g) ?? 0;
-        const more = had % LINES_PER_ORDER === 0 ? 1 : 0;
-        if (part.length > 0 && orders + more > ORDERS_PER_CHUNK) {
-          out.push(part);
-          part = [];
-          lines = new Map();
-          orders = 0;
-        }
-        const now = lines.get(g) ?? 0;
-        if (now % LINES_PER_ORDER === 0) orders += 1;
-        lines.set(g, now + 1);
-        part.push(r);
+        const list = byOrder.get(keyOf(r));
+        if (list) list.push(r);
+        else byOrder.set(keyOf(r), [r]);
       }
-      if (part.length) out.push(part);
+      const orders = [...byOrder.values()];
+      for (let i = 0; i < orders.length; i += ORDERS_PER_CHUNK) {
+        out.push(orders.slice(i, i + ORDERS_PER_CHUNK).flat().sort((a, b) => a.rowIndex - b.rowIndex));
+      }
       continue;
     }
     if (pack.length > 0 && orderCount(pack) + orderCount(comp) > ORDERS_PER_CHUNK) flush();
@@ -161,27 +156,140 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
   return out;
 }
 
-/** The order key of a staged row: customer + (PO or old order number) + order date. */
-export const ORDER_GROUP_SQL = sql<string>`coalesce(json_extract(${ingestStagedRow.values}, '$._ids.customer'), json_extract(${ingestStagedRow.values}, '$.customer'), '') || char(31) || coalesce(nullif(json_extract(${ingestStagedRow.values}, '$.poNumber'), ''), nullif(json_extract(${ingestStagedRow.values}, '$.oldOrderNo'), ''), '') || char(31) || coalesce(json_extract(${ingestStagedRow.values}, '$.orderDate'), '')`;
+/**
+ * The rows of an orders chunk, picked from the queued rows of its range: whole orders in order of
+ * their first row until `rowCount` rows. Orders of earlier chunks are written by then, so what is
+ * left in the range starts with this chunk's orders. The caller checks the chunk id.
+ */
+export function pickOrderRows(rows: readonly StagedRow[], rowCount: number): StagedRow[] {
+  const byOrder = new Map<string, StagedRow[]>();
+  for (const r of [...rows].sort((a, b) => a.rowIndex - b.rowIndex)) {
+    const k = orderKeyOf((r.values ?? {}) as Record<string, unknown>);
+    const list = byOrder.get(k);
+    if (list) list.push(r);
+    else byOrder.set(k, [r]);
+  }
+  const out: StagedRow[] = [];
+  for (const list of byOrder.values()) {
+    if (out.length >= rowCount) break;
+    out.push(...list);
+  }
+  return out.sort((a, b) => a.rowIndex - b.rowIndex);
+}
+
+/** The order key of a staged row. Must give the same key as `orderKeyOf` in shared.ts. */
+const V = ingestStagedRow.values;
+export const ORDER_GROUP_SQL = sql<string>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'), '') || char(31) || case when trim(coalesce(json_extract(${V}, '$.poNumber'), '')) <> '' then 'po:' || lower(trim(json_extract(${V}, '$.poNumber'))) else 'old:' || trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')) || char(31) || coalesce(json_extract(${V}, '$.orderDate'), '') end`;
 
 export type PlanStep =
   | { done: true }
-  | { done: false; candidateId: string; chunks: PlannedChunk[]; statements: SqliteBatchItem[] };
+  | {
+      done: false;
+      candidateId: string;
+      chunks: PlannedChunk[];
+      statements: SqliteBatchItem[];
+      /** Hold the candidate before anything of it is written, with this empty failed chunk. */
+      hold?: { chunkId: string; failure: ChunkFailure };
+      /** Nothing to write: record this empty chunk as written. */
+      empty?: string;
+    };
+
+/** The id of an empty chunk (a hold found at planning, or a candidate with nothing to write). */
+export async function markerChunkId(runId: string, candidateId: string, kind: "hold" | "empty"): Promise<string> {
+  return `ing-${(await sha256Hex([kind, runId, candidateId].join("|"))).slice(0, 40)}`;
+}
+
+type OrderPlanRow = PlanRow & { customer: string | null; po: string | null; poText: string | null; orderDate: string | null; oldNo: string | null };
+
+const hold = (message: string): ChunkFailure => ({ code: "BAD_REQUEST", message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" });
 
 /**
- * Plan one page: the first merging candidate (in merge order) that still has open ready rows. The
- * caller adds the cursor guard and the run counters to `statements` and runs them in one batch.
+ * Orders a merge must not send (B1, B5): an order above 100 lines, one PO on two order dates, or
+ * a PO already on a live order that this order's own replay key did not make. Found before any
+ * order of the candidate is written.
+ */
+export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[]): Promise<ChunkFailure | null> {
+  const groups = new Map<string, OrderPlanRow[]>();
+  for (const r of rows) {
+    const k = r.group ?? `row:${r.rowIndex}`;
+    const list = groups.get(k);
+    if (list) list.push(r);
+    else groups.set(k, [r]);
+  }
+  const name = (r: OrderPlanRow) => (r.poText ? `PO ${r.poText}` : r.oldNo ? `Old order ${r.oldNo}` : `The order on file row ${r.rowIndex + 1}`);
+  for (const list of groups.values()) {
+    const first = list[0]!;
+    if (list.length > LINES_PER_ORDER) {
+      return hold(`${name(first)} has ${list.length} lines. An order takes ${LINES_PER_ORDER} lines at most. Split it in the file or skip some rows.`);
+    }
+    const dates = [...new Set(list.map((r) => r.orderDate ?? ""))];
+    if (first.po && dates.length > 1) {
+      return hold(`${name(first)} has more than one order date in the file (${dates.filter(Boolean).slice(0, 3).join(", ")}). One PO is one order. Fix the dates or skip rows.`);
+    }
+  }
+  // POs already on a live order of the same customer.
+  const withPo = [...groups.values()].filter((l) => l[0]!.po && l[0]!.customer && !l[0]!.customer.startsWith("pending:"));
+  if (withPo.length === 0) return null;
+  const customers = [...new Set(withPo.map((l) => l[0]!.customer!))];
+  const live = await mapInChunks(customers, (part) =>
+    ctx.db
+      .select({ customerId: salesOrder.customerId, po: sql<string>`lower(trim(${salesOrder.poNumber}))`, number: salesOrder.number, requestId: salesOrder.clientRequestId })
+      .from(salesOrder)
+      .where(
+        and(
+          eq(salesOrder.companyId, ctx.companyId),
+          inArray(salesOrder.customerId, part),
+          sql`${salesOrder.poNumber} is not null`,
+          sql`${salesOrder.status} <> 'cancelled'`,
+        ),
+      ),
+  );
+  if (live.length === 0) return null;
+  const taken = new Map<string, { number: string; requestId: string | null }[]>();
+  for (const o of live) {
+    const k = `${o.customerId}|${o.po}`;
+    taken.set(k, [...(taken.get(k) ?? []), o]);
+  }
+  for (const list of withPo) {
+    const first = list[0]!;
+    const hits = taken.get(`${first.customer}|${first.po}`);
+    if (!hits) continue;
+    // The order this very group made before a crash is not a clash: its resend answers replayed.
+    const mine = await rowsRequestId(list.map((r) => r.id));
+    const other = hits.find((h) => h.requestId !== mine);
+    if (other) return hold(`PO ${first.poText} is already on ${other.number} for this customer. Skip these rows or cancel that order first.`);
+  }
+  return null;
+}
+
+/**
+ * Plan one page: the first merging candidate (in merge order) that still has open ready rows, or
+ * that has no chunk in this run yet. The caller adds the cursor guard and the run counters to
+ * `statements` and runs them in one batch.
  */
 export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number): Promise<PlanStep> {
+  const seen = new Set(
+    (
+      await ctx.db
+        .selectDistinct({ id: ingestMergeChunk.candidateId })
+        .from(ingestMergeChunk)
+        .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.companyId, ctx.companyId)))
+    ).map((x) => x.id),
+  );
   for (const c of await mergingCandidates(ctx)) {
     if (!c.target) continue;
     const isOrders = c.target === "orders";
-    const rows: PlanRow[] = await ctx.db
+    const rows = await ctx.db
       .select({
         id: ingestStagedRow.id,
         rowIndex: ingestStagedRow.rowIndex,
         state: ingestStagedRow.state,
         group: isOrders ? ORDER_GROUP_SQL : sql<string | null>`null`,
+        customer: isOrders ? sql<string | null>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'))` : sql<string | null>`null`,
+        po: isOrders ? sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')` : sql<string | null>`null`,
+        poText: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')` : sql<string | null>`null`,
+        orderDate: isOrders ? sql<string | null>`json_extract(${V}, '$.orderDate')` : sql<string | null>`null`,
+        oldNo: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')` : sql<string | null>`null`,
       })
       .from(ingestStagedRow)
       .where(
@@ -194,7 +302,16 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
       )
       .orderBy(asc(ingestStagedRow.rowIndex))
       .limit(isOrders ? 50_000 : PLAN_PAGE_ROWS);
-    if (rows.length === 0) continue;
+    if (rows.length === 0) {
+      if (seen.has(c.id)) continue;
+      // Nothing to write (every row unchanged, skipped or written before): one empty chunk, written.
+      return { done: false, candidateId: c.id, chunks: [], statements: [], empty: await markerChunkId(runId, c.id, "empty") };
+    }
+
+    if (isOrders) {
+      const failure = await orderPlanHold(ctx, rows);
+      if (failure) return { done: false, candidateId: c.id, chunks: [], statements: [], hold: { chunkId: await markerChunkId(runId, c.id, "hold"), failure } };
+    }
 
     const runs = isOrders ? cutOrderRuns(rows) : cutRuns(c.target, rows);
     const chunks: PlannedChunk[] = [];
@@ -204,7 +321,6 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
       const rowTo = run.at(-1)!.rowIndex;
       chunks.push({ id: await chunkIdOf({ candidateId: c.id, target: c.target, holeRef: c.holeRef, rowFrom, rowTo, rowIds }), rowFrom, rowTo, rowIds });
     }
-
     const statements: SqliteBatchItem[] = [];
     chunks.forEach((ch, i) => {
       const values = {
