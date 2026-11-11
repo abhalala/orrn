@@ -99,6 +99,14 @@ describe("parseLengthText", () => {
       expect([t, len(t)]).toEqual([t, "150 in*"]);
     }
   });
+  test("inches written with two apostrophes (a phone keyboard) are inches, alone or after feet", () => {
+    expect(len("6''")).toBe("6 in*");
+    expect(len("6.5''")).toBe("13/2 in*");
+    expect(len("1/4''")).toBe("1/4 in*");
+    expect(len("12'6''")).toBe("150 in*");
+    expect(len("12' 6 1/4''")).toBe("601/4 in*");
+    expect(len("12'")).toBe("12 ft*");
+  });
   test("fractions of an inch", () => {
     expect(len("11 ft 6 1/4 in")).toBe("553/4 in*");
     expect(len("11' 6 1/4\"")).toBe("553/4 in*");
