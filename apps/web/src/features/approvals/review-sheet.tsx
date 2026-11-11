@@ -231,7 +231,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
           <Block title={t("approvals.facts.lateLeft")}>
             <p className="m-0 text-[15px] font-medium" data-testid="late-dispatch-time">
               {t("approvals.facts.lateLeftValue", {
-                when: plantTimeText(lateDispatch.occurredAt, tz),
+                when: plantTimeText(fmt, lateDispatch.occurredAt, tz),
                 hours: lateHours(lateDispatch.occurredAt, new Date(current.createdAt).getTime()),
               })}
             </p>
@@ -508,7 +508,7 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
     t("approvals.facts.reading"),
     v.readingKg === null || v.readAt === null
       ? t("approvals.facts.readingNone")
-      : `${t("approvals.facts.readingValue", { kg: v.readingKg, when: plantTimeText(v.readAt, tz) })}${v.position ? `, ${t(`approvals.facts.${v.position}`)}` : ""}`,
+      : `${t("approvals.facts.readingValue", { kg: v.readingKg, when: plantTimeText(fmt, v.readAt, tz) })}${v.position ? `, ${t(`approvals.facts.${v.position}`)}` : ""}`,
   ]);
   return (
     <Block title={t("approvals.facts.tierTitle")}>
@@ -555,7 +555,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
   if (run?.run.sectionCode) rows.push([t("approvals.late.die"), `${run.run.sectionCode}${run.run.sectionName ? ` ${run.run.sectionName}` : ""}`, "die"]);
   rows.push([t("approvals.late.copy"), copyCode ?? "-", "copy"]);
   if (startedAt !== null && stoppedAt !== null) {
-    rows.push([t("approvals.late.times"), lateWindowText(startedAt, stoppedAt, tz), "times"]);
+    rows.push([t("approvals.late.times"), lateWindowText(fmt, startedAt, stoppedAt, tz), "times"]);
     rows.push([t("approvals.late.duration"), durationText(startedAt, stoppedAt), "duration"]);
   }
   // L6: the day as a person says it ("25 Oct"), not the ISO date.
@@ -575,7 +575,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
       </dl>
       {askedDiffers ? (
         <p className="m-0 text-[14px] text-muted-foreground" data-testid="late-entry-differs">
-          {t("approvals.late.changed", { times: lateWindowText(late.startedAt!, late.stoppedAt!, tz) })}
+          {t("approvals.late.changed", { times: lateWindowText(fmt, late.startedAt!, late.stoppedAt!, tz) })}
         </p>
       ) : null}
       {error ? <p className="m-0 text-[14px] text-destructive">{t("approvals.late.runError")}</p> : null}

@@ -6,7 +6,7 @@
  * ids.
  */
 import type { Fmt } from "@orrn/domain";
-import { kgGrouped3, massUnit, sectionText } from "@/shared/lib/fmt-text";
+import { dayClockText, kgGrouped3, massUnit, pinned, sectionText, windowText } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { MoveFacts, OffBandFacts, TierFacts } from "@orrn/server/lib/approvalFacts";
@@ -258,34 +258,17 @@ export function lateHours(occurredAt: number, askedAt: number): number {
   return Math.max(0, Math.round((askedAt - occurredAt) / 3_600_000));
 }
 
-function zonedParts(at: number, timeZone: string): { day: string; month: string; hour: string; minute: string } {
-  const fmt = (tz: string | undefined) =>
-    new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at));
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = fmt(timeZone);
-  } catch {
-    parts = fmt(undefined);
-  }
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  return { day: get("day"), month: get("month"), hour: get("hour"), minute: get("minute") };
-}
-
 /**
- * "24 Oct 21:00" in the plant's time zone (not the device's), built from parts so the wording is
- * the same on every ICU.
+ * "24 Oct 21:00" in the plant's time zone (not the device's), in English month names as the approvals have always
+ * read, with the plant's date order and clock. `tz` is the plant zone the screen already holds.
  */
-export function plantTimeText(at: number, timeZone: string): string {
-  const p = zonedParts(at, timeZone);
-  return `${p.day} ${p.month} ${p.hour}:${p.minute}`;
+export function plantTimeText(fmt: Fmt, at: number, tz?: string): string {
+  return dayClockText(pinned(fmt, { zone: tz, locale: "en" }), at);
 }
 
 /** "24 Oct 21:00 to 23:00", or both dates when the run crosses midnight. */
-export function lateWindowText(startedAt: number, stoppedAt: number, timeZone: string): string {
-  const a = zonedParts(startedAt, timeZone);
-  const b = zonedParts(stoppedAt, timeZone);
-  const sameDay = a.day === b.day && a.month === b.month;
-  return `${a.day} ${a.month} ${a.hour}:${a.minute} to ${sameDay ? "" : `${b.day} ${b.month} `}${b.hour}:${b.minute}`;
+export function lateWindowText(fmt: Fmt, startedAt: number, stoppedAt: number, tz?: string): string {
+  return windowText(pinned(fmt, { zone: tz, locale: "en" }), startedAt, stoppedAt);
 }
 
 /** "2 h 05 min" between two instants. */

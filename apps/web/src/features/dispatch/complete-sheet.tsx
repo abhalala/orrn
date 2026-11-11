@@ -268,7 +268,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
                 data-status={locked.status}
               >
                 <p className="m-0 text-[15px] font-semibold">
-                  {t(LATE_STATUS_KEY[locked.status], { when: plantTimeText(locked.occurredAt, tz) })}
+                  {t(LATE_STATUS_KEY[locked.status], { when: plantTimeText(fmt, locked.occurredAt, tz) })}
                 </p>
                 <Button
                   variant="secondary"

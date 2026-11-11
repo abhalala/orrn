@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
+import { dflt } from "../../../test-support/date-seeds";
+
 import {
   APPROVAL_TONE,
   approvalSubject,
@@ -515,11 +517,11 @@ describe("H1 (final explore): a late entry request says what is approved", () =>
 
   test("times are the plant's clock, whatever the device's zone; a run past midnight names both days", async () => {
     const { lateWindowText, durationText, plantTimeText } = await import("./approval-view");
-    expect(lateWindowText(meta.startedAt, meta.stoppedAt, "Asia/Kolkata")).toBe("24 Oct 21:00 to 23:05");
+    expect(lateWindowText(dflt(), meta.startedAt, meta.stoppedAt, "Asia/Kolkata")).toBe("24 Oct 21:00 to 23:05");
     expect(durationText(meta.startedAt, meta.stoppedAt)).toBe("2 h 05 min");
     expect(durationText(0, 40 * 60_000)).toBe("40 min");
-    expect(lateWindowText(Date.UTC(2026, 9, 24, 17, 30), Date.UTC(2026, 9, 24, 19, 0), "Asia/Kolkata")).toBe("24 Oct 23:00 to 25 Oct 00:30");
-    expect(plantTimeText(meta.startedAt, "Asia/Kolkata")).toBe("24 Oct 21:00");
+    expect(lateWindowText(dflt(), Date.UTC(2026, 9, 24, 17, 30), Date.UTC(2026, 9, 24, 19, 0), "Asia/Kolkata")).toBe("24 Oct 23:00 to 25 Oct 00:30");
+    expect(plantTimeText(dflt(), meta.startedAt, "Asia/Kolkata")).toBe("24 Oct 21:00");
   });
 });
 

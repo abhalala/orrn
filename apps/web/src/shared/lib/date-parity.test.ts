@@ -12,8 +12,10 @@ import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { windowWords } from "@/features/orders/view";
 
+import * as oldApproval from "../../../test-support/legacy/approval-view";
+import { lateWindowText, plantTimeText } from "@/features/approvals/approval-view";
 import * as oldPurchase from "../../../test-support/legacy/purchase-format";
-import { dflt, IST_ZONE, instants, NOW, ymdOf } from "../../../test-support/date-seeds";
+import { dflt, IST_ZONE, instants, mulberry, NOW, ymdOf } from "../../../test-support/date-seeds";
 import { bookDateText, bookDayText, instantText } from "./fmt-text";
 
 const SEEDS = instants(7, 2000);
@@ -53,6 +55,21 @@ describe("purchase book dates and instants", () => {
       for (const zone of [IST_ZONE, "America/New_York", "UTC"]) {
         for (const at of SEEDS) {
           expect(instantText(dflt(loc, zone), at, NOW)).toBe(oldPurchase.instantDateText(at, loc, zone, NOW));
+        }
+      }
+    }
+  });
+});
+
+describe("approvals time text", () => {
+  test("plantTimeText and lateWindowText: '24 Oct 21:00', '24 Oct 21:00 to 23:05', English whatever the screen language", () => {
+    const r = mulberry(31);
+    for (const loc of ["en", "hi"] as const) {
+      for (const zone of [IST_ZONE, "America/New_York"]) {
+        for (const at of SEEDS) {
+          expect(plantTimeText(dflt(loc), at, zone)).toBe(oldApproval.plantTimeText(at, zone));
+          const stop = at + Math.floor(r() * 30 * 3600_000);
+          expect(lateWindowText(dflt(loc), at, stop, zone)).toBe(oldApproval.lateWindowText(at, stop, zone));
         }
       }
     }
