@@ -2,7 +2,7 @@ import Feather from "@expo/vector-icons/Feather";
 import { MAX_HOLD_BUNDLES } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { useLengthUnit } from "@/utils/length";
 import { trpc } from "@/utils/trpc";
 
 import { holdableItems, orderErrorLines, orderKgText, pcsText } from "./order-model";
+import { claimWrite, selectionInItems } from "./write-selection";
 
 export type HoldTarget = {
   lineId: string;
@@ -135,10 +136,19 @@ export function HoldStockSheet({ target, onClose }: { target: HoldTarget; onClos
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
   const [done, setDone] = useState<HoldDone | null>(null);
+  const writing = useRef(false);
   const stock = useQuery(trpc.orders.matchStock.queryOptions({ sectionId: target.sectionId, cutLengthMm: target.cutLengthMm, customerId: target.customerId, limit: 100 }));
   const hold = useMutation(trpc.orders.hold.mutationOptions());
-  const items = holdableItems(stock.data?.items ?? [], target.lineId);
-  const tooMany = selected.size > MAX_HOLD_BUNDLES;
+  const items = useMemo(() => holdableItems(stock.data?.items ?? [], target.lineId), [stock.data?.items, target.lineId]);
+  const currentSelected = selectionInItems(selected, items);
+  const tooMany = currentSelected.size > MAX_HOLD_BUNDLES;
+
+  useEffect(() => {
+    setSelected((current) => {
+      const next = selectionInItems(current, items);
+      return next.size === current.size ? current : next;
+    });
+  }, [items]);
 
   const toggle = (id: string) => {
     setSelected((current) => {
@@ -150,9 +160,10 @@ export function HoldStockSheet({ target, onClose }: { target: HoldTarget; onClos
   };
 
   const submit = async () => {
+    if (currentSelected.size === 0 || !claimWrite(writing)) return;
     setErrors([]);
     try {
-      const result = await hold.mutateAsync({ lineId: target.lineId, bundleIds: [...selected], ...(note.trim() ? { note: note.trim() } : {}) });
+      const result = await hold.mutateAsync({ lineId: target.lineId, bundleIds: [...currentSelected], ...(note.trim() ? { note: note.trim() } : {}) });
       setDone({ held: result.held, alreadyHeld: result.alreadyHeld, kgG: result.kgG, warnings: result.warnings });
       feedback.success();
       announce(t("orders.hold.heldDone", { count: result.held.length, kg: orderKgText(result.kgG) }));
@@ -161,6 +172,8 @@ export function HoldStockSheet({ target, onClose }: { target: HoldTarget; onClos
       feedback.error();
       setErrors(orderErrorLines(t, error));
       await refreshAfterHold(queryClient);
+    } finally {
+      writing.current = false;
     }
   };
 
@@ -180,12 +193,12 @@ export function HoldStockSheet({ target, onClose }: { target: HoldTarget; onClos
         </View>
       ) : (
         <>
-          {stock.isPending ? <LoadingBlock /> : stock.isError ? <Text accessibilityRole="alert" className="font-sans text-sm text-destructive">{t("errors.generic")}</Text> : items.length === 0 ? <Text className="font-sans text-sm text-ink-muted">{t("orders.hold.none")}</Text> : <StockList items={items} selected={selected} onToggle={toggle} />}
+          {stock.isPending ? <LoadingBlock /> : stock.isError ? <Text accessibilityRole="alert" className="font-sans text-sm text-destructive">{t("errors.generic")}</Text> : items.length === 0 ? <Text className="font-sans text-sm text-ink-muted">{t("orders.hold.none")}</Text> : <StockList items={items} selected={currentSelected} onToggle={toggle} />}
           {tooMany ? <Text accessibilityRole="alert" className="font-sans text-[13px] text-destructive">{t("orders.hold.tooMany", { max: MAX_HOLD_BUNDLES })}</Text> : null}
           <Field label={t("common.note")} value={note} onChangeText={setNote} multiline maxLength={500} />
           <Errors lines={errors} />
           <Button variant="secondary" label={t("common.cancel")} onPress={onClose} />
-          <Button size="lg" testID="hold-stock-submit" label={t("orders.hold.submit", { count: selected.size })} loading={hold.isPending} loadingLabel={t("common.saving")} disabled={selected.size === 0 || tooMany} onPress={() => void submit()} />
+          <Button size="lg" testID="hold-stock-submit" label={t("orders.hold.submit", { count: currentSelected.size })} loading={hold.isPending} loadingLabel={t("common.saving")} disabled={currentSelected.size === 0 || tooMany} onPress={() => void submit()} />
         </>
       )}
     </Sheet>
@@ -200,7 +213,15 @@ export function HeldSheet({ target, onClose }: { target: HoldTarget; onClose: ()
   const [errors, setErrors] = useState<string[]>([]);
   const holds = useQuery(trpc.orders.holds.queryOptions({ lineId: target.lineId, limit: 200 }));
   const release = useMutation(trpc.orders.release.mutationOptions());
-  const items = holds.data?.items ?? [];
+  const items = useMemo(() => holds.data?.items ?? [], [holds.data?.items]);
+  const currentSelected = selectionInItems(selected, items);
+
+  useEffect(() => {
+    setSelected((current) => {
+      const next = selectionInItems(current, items);
+      return next.size === current.size ? current : next;
+    });
+  }, [items]);
 
   const submit = async (bundleIds: string[] | null) => {
     setErrors([]);
@@ -244,7 +265,7 @@ export function HeldSheet({ target, onClose }: { target: HoldTarget; onClose: ()
       <Button variant="secondary" label={t("common.done")} onPress={onClose} />
       {items.length > 0 ? (
         <>
-          <Button variant="secondary" testID="release-selected" label={t("orders.hold.releaseSelected", { count: selected.size })} loading={release.isPending} disabled={selected.size === 0} onPress={() => void submit([...selected])} />
+          <Button variant="secondary" testID="release-selected" label={t("orders.hold.releaseSelected", { count: currentSelected.size })} loading={release.isPending} disabled={currentSelected.size === 0} onPress={() => void submit([...currentSelected])} />
           <Button size="lg" testID="release-all" label={t("orders.hold.releaseAll")} loading={release.isPending} onPress={() => void submit(null)} />
         </>
       ) : null}
