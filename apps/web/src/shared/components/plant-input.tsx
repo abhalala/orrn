@@ -148,6 +148,8 @@ function FreeTextBox({ text, onText, suffix, invalid, className, id, ref, ...res
     <div data-slot="number-input" className="relative min-w-0">
       <Input
         ref={ref}
+        // The accepted forms are shown before any error (a caller's own placeholder wins).
+        placeholder="12 ft 6 in"
         {...(input as object)}
         type="text"
         inputMode="text"

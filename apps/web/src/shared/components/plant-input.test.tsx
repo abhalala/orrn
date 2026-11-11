@@ -178,6 +178,11 @@ describe("the box and its refusal are tied together for a screen reader", () => 
     const unitId = /aria-describedby="pack-len-error (plant-input-unit-[^" ]+)"/.exec(html)?.[1];
     expect(html).toContain(`<span id="${unitId}"`);
   });
+  test("a feet and inches box shows the form it takes before anything is typed", () => {
+    const html = render({ units: { length: "ft_in" } }, <PlantInput spec={LENGTH_MM} value="" onValueChange={noop} aria-label="L" />);
+    expect(html).toContain('placeholder="12 ft 6 in"');
+    expect(render({ units: { length: "ft_in" } }, <PlantInput spec={LENGTH_MM} value="" placeholder="3 ft" onValueChange={noop} aria-label="L" />)).toContain('placeholder="3 ft"');
+  });
   test("a refused feet and inches text names its sentence in aria-describedby too", () => {
     const html = render({ units: { length: "ft_in" } }, <PlantInput spec={LENGTH_MM} value="" typed="12 ft 6.33 in" onTypedChange={noop} onValueChange={noop} aria-label="L" />);
     const id = /<p id="([^"]+)"[^>]*>Too fine/.exec(html)?.[1];
