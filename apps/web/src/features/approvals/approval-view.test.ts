@@ -149,6 +149,15 @@ describe("approvalSubject", () => {
     expect(approvalSubject(row({ kind: "melt_correct", subjectId: "m/../x", meta: { castId: "cast-9" } })).href).toBeNull();
   });
 
+  test("review 3: a note typed by someone other than the requester is named under its author", async () => {
+    const { noteAuthorName } = await import("./approval-view");
+    expect(noteAuthorName({ requestedBy: "packer", meta: { noteById: "office" }, noteByName: "Office Ola" })).toBe("Office Ola");
+    expect(noteAuthorName({ requestedBy: "packer", meta: { noteById: "packer" }, noteByName: "Packer Pia" })).toBeNull();
+    expect(noteAuthorName({ requestedBy: "packer", meta: {}, noteByName: null })).toBeNull();
+    const { t } = createI18n("en");
+    expect(t("approvals.noteFrom", { name: "Office Ola" })).toBe("Note from Office Ola");
+  });
+
   test("dispatch_late_entry (arch 52): the dispatch, opens it; the review sheet reads the time the truck left", async () => {
     const { lateDispatchOf, lateHours } = await import("./approval-view");
     const meta = { dispatchId: "d-7", dispatchCode: "D-0007", occurredAt: Date.UTC(2026, 10, 10, 1, 0), reason: "Line down" };
@@ -164,6 +173,11 @@ describe("approvalSubject", () => {
     expect(approvalSubject(row({ kind: "dispatch_late_entry", subjectId: "a/../b", meta: { ...meta, dispatchId: "a/../b" } })).href).toBeNull();
     expect(lateDispatchOf({ kind: "dispatch_late_entry", meta })).toEqual({ occurredAt: meta.occurredAt });
     expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: {} })).toBeNull();
+    // Review 7: the load it was asked for, when the request pinned one.
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: { ...meta, bundles: 6, weightG: 720_500 } })).toEqual({
+      occurredAt: meta.occurredAt,
+      load: { bundles: 6, weightG: 720_500 },
+    });
     expect(lateDispatchOf({ kind: "dispatch_off_band", meta })).toBeNull();
     expect(lateHours(meta.occurredAt, meta.occurredAt + 5 * 3_600_000 + 10 * 60_000)).toBe(5);
     expect(lateHours(meta.occurredAt, meta.occurredAt - 60_000)).toBe(0);

@@ -434,6 +434,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
             onDispatched={onDispatched}
             capacity={data.capacity}
             overdraw={data.overdraw}
+            lateEntry={data.lateEntry}
           />
         </Can>
       ) : null}

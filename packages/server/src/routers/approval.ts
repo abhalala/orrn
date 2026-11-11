@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 
@@ -16,6 +16,8 @@ import { nextCompanySeq } from "../lib/sequence";
 import { companyProcedure, router } from "../index";
 
 const requester = alias(user, "approval_requester");
+/** Review finding 3: who wrote the request's note when it is not the requester (meta.noteById). */
+const noteAuthor = alias(user, "approval_note_author");
 
 /** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */
 const PURCHASE_READ_ACTIONS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
@@ -60,6 +62,7 @@ export const approvalRouter = router({
           meta: approval.meta,
           requestedBy: approval.requestedBy,
           requestedByName: requester.name,
+          noteByName: noteAuthor.name,
           decidedBy: approval.decidedBy,
           decidedByName: decider.name,
           decidedAt: approval.decidedAt,
@@ -68,6 +71,7 @@ export const approvalRouter = router({
         })
         .from(approval)
         .leftJoin(requester, eq(requester.id, approval.requestedBy))
+        .leftJoin(noteAuthor, sql`${noteAuthor.id} = json_extract(${approval.meta}, '$.noteById')`)
         .leftJoin(decider, eq(decider.id, approval.decidedBy))
         .where(where)
         .orderBy(desc(approval.createdAt), desc(approval.id))

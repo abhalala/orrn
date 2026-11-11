@@ -72,4 +72,15 @@ describe("pl-flow 61 tolerance at scan on the phone (parity with web)", () => {
       "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
     );
   });
+
+  test("pl-flow 61 (web parity): the Dispatch sheet's note goes with Complete only while a line is over and something is written", async () => {
+    const { overdrawExtras, overdrawLines } = await import("../features/dispatch/off-band");
+    const line = { lineId: "l1", orderNumber: "SO-4", lineNo: 2, overG: 30_000, covered: false };
+    const over = overdrawLines({ toleranceBp: 500, lines: [line], approval: null });
+    expect(overdrawExtras(over, "  Party asked for the full truck ")).toEqual({ overdrawNote: "Party asked for the full truck" });
+    expect(overdrawExtras(over, "   ")).toEqual({});
+    expect(overdrawExtras(overdrawLines({ toleranceBp: 500, lines: [{ ...line, covered: true }], approval: null }), "note")).toEqual({});
+    expect(overdrawExtras(null, "note")).toEqual({});
+  });
 });
+

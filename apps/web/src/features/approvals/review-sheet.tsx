@@ -29,6 +29,7 @@ import { useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { dayText } from "@/features/orders/format";
+import { dispatchKgText } from "@/features/dispatch/format";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
@@ -44,6 +45,7 @@ import {
   durationText,
   hasLiveFacts,
   lateDispatchOf,
+  noteAuthorName,
   lateEntryOf,
   lateHours,
   lateWindowText,
@@ -210,7 +212,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         </div>
 
         {current.requestNote ? (
-          <Block title={t("approvals.theirNote")}>
+          <Block title={noteAuthorName(current) ? t("approvals.noteFrom", { name: noteAuthorName(current)! }) : t("approvals.theirNote")}>
             <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[15px] break-words">{current.requestNote}</p>
           </Block>
         ) : null}
@@ -232,6 +234,13 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
                 when: plantTimeText(lateDispatch.occurredAt, tz),
                 hours: lateHours(lateDispatch.occurredAt, new Date(current.createdAt).getTime()),
               })}
+            </p>
+          </Block>
+        ) : null}
+        {lateDispatch?.load ? (
+          <Block title={t("approvals.facts.lateLoad")}>
+            <p className="m-0 text-[15px] font-medium tabular-nums" data-testid="late-dispatch-load">
+              {t("units.bundlesKg", { bundles: lateDispatch.load.bundles, kg: dispatchKgText(lateDispatch.load.weightG) })}
             </p>
           </Block>
         ) : null}

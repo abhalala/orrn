@@ -129,6 +129,7 @@ export const guApprovals = {
       offBandMoved: "Bundle હવે બીજી ઓર્ડર લાઇન પર છે. મંજૂરી ફક્ત એ લાઇન માટે છે જેના માટે માંગી હતી.",
       lateLeft: "ગાડી નીકળી",
       lateLeftValue: "{when}, {hours} કલાક પછી ભર્યું",
+      lateLoad: "મંજૂરી માંગી ત્યારે ડિસ્પેચ પર",
     },
     move: {
       title: "શું જાય છે",
@@ -159,6 +160,7 @@ export const guApprovals = {
     openLot: "લૉટ ખોલો",
     openDie: "Die ખોલો",
     theirNote: "તેમની નોંધ",
+    noteFrom: "{name} ની નોંધ",
     decisionNote: "નિર્ણયની નોંધ",
     figures: "આંકડા",
     party: "પાર્ટીનો કાંટો",

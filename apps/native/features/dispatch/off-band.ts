@@ -55,6 +55,15 @@ export function overdrawLines(state: OverdrawState | undefined): { lines: { line
   };
 }
 
+/**
+ * pl-flow 61 (web parity, `complete-sheet.tsx`): the note for the manager goes with Complete only while a
+ * line is over ordered + tolerance and something was written. The server fills the request's note only
+ * while it has none.
+ */
+export function overdrawExtras(over: ReturnType<typeof overdrawLines>, note: string): { overdrawNote?: string } {
+  return over && note.trim() ? { overdrawNote: note.trim() } : {};
+}
+
 /** A refused Complete in the floor's words when it is about the dispatch rules; null for anything else. */
 export function completeRefusalText(t: Translate, error: unknown): string | null {
   const e = (error && typeof error === "object" ? error : {}) as { message?: unknown; data?: { code?: unknown } | null };
@@ -63,6 +72,8 @@ export function completeRefusalText(t: Translate, error: unknown): string | null
     // Arch 52: the server's own refusals of a late time (the sheet checks the same rule first).
     if (/in the future/i.test(e.message)) return t("dispatch.late.future");
     if (/at most 72 hours/i.test(e.message)) return t("dispatch.late.tooOld");
+    // Review 7: approved for another load, and too late to ask again.
+    if (/bundles changed after a manager approved/i.test(e.message)) return t("dispatch.late.loadChangedOld");
     if (/reason the packing list is entered late/i.test(e.message)) return t("dispatch.late.noReason");
     if (/needs the time the truck left/i.test(e.message)) return t("dispatch.late.noTime");
     return null;

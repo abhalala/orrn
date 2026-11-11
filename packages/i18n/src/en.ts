@@ -1266,6 +1266,12 @@ export const en = {
       noTime: "Enter the date and time the truck left.",
       chip: "Entered late",
       left: "Left at {when}: {reason}",
+      waitingFor: "Waiting for a manager to approve {when}. Press Dispatch again once it is approved.",
+      approvedFor: "A manager approved {when}. Press Dispatch to make the packing list.",
+      useAnother: "Use another time",
+      anotherAsks: "Another time asks a manager again.",
+      loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again.",
+      loadChangedOld: "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.",
     },
     overTolerance: {
       title: "More than the order",
@@ -1472,7 +1478,7 @@ export const en = {
       offBand: "Some bundles are off the order weight. A manager has to approve them before this dispatch can go.",
       offBandRejected: "A bundle was rejected for the order weight. Take it off this dispatch, then try again.",
       overdraw: "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
-      lateEntry: "A manager has to approve the time the truck left. Press Dispatch again once it is approved.",
+      lateEntry: "A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved.",
     },
     capacity: {
       label: "Truck capacity (kg)",
@@ -4474,6 +4480,7 @@ export const en = {
       offBandMoved: "The bundle is on another order line now. Approving covers only the line it was asked for.",
       lateLeft: "Truck left",
       lateLeftValue: "{when}, entered {hours} h later",
+      lateLoad: "On the dispatch when asked",
     },
     move: {
       title: "What moves",
@@ -4505,6 +4512,7 @@ export const en = {
     openLot: "Open lot",
     openDie: "Open die",
     theirNote: "Their note",
+    noteFrom: "Note from {name}",
     decisionNote: "Decision note",
     figures: "Figures",
     party: "Party kanta",

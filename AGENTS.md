@@ -248,6 +248,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `press_reopen` | owner, admin, manager | reopens a logged run with reversal postings |
   | `press_late_entry` | owner, supervisor, manager | approved: the run's `late_entry_approval_id` names it and the close gate passes (billets still debit the cast); rejected: the late run is voided and a copy it held goes back to the rack |
   | `ageing_override` | owner, admin, manager | approved: stamps `ageing_batch.override_approval_id` (batch still held, guarded on status held/released); the supervisor's next `ageing.batches.release` then releases the soak/hardness rejects. Approving never releases by itself |
+- **Two people on every dispatch request (lead, 2026-11-10).** `dispatch_overdraw` and `dispatch_off_band` are requested by the person whose scan (or add) opened them, or by whoever pressed Complete when Complete opened them. The approver must be a different person holding an approver role (`approval.decide` refuses the requester). The person who presses Dispatch MAY be the approver: the scanner and the approver are then the two people. A note typed at Complete that fills a scanner's request keeps its author in `meta.noteById`; `approval.list` names that person as `noteByName`, and the approvals screens show "Note from {name}" when it is not the requester. Pinned by the "review 3" tests in `dispatch-tolerance-scan.test.ts` and `dispatch-off-band.test.ts`.
 - A hook runs in the decision's own batch, scopes its statements by company and guards them with `decisionLanded`. A hook that can refuse adds its own batch abort and an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails. A kind with an effect adds its hook to `APPROVAL_APPLIERS`; a kind without one says so in this table.
 - **Prepare step.** Work that needs reads or allocation (party numbers, for one) cannot run inside the batch, so a kind may add an `APPROVAL_PREPARERS` entry (`lib/approvalApply.ts`). `approval.decide` runs it for the kind after the request is read and before the decision batch, and hands the result to the applier as `prepared`. A prepare step must spend only what the applier will really use (`order_reallocate` allocates party numbers only for bundles still available on the line they were asked from, so the customer's series has no gap); anything it allocates and the batch then refuses is lost, which the numbering convention (`allocateDocNumbers`) accepts as a residual gap.
 - **Live facts.** The review sheet shows the FACTS of the thing a request touches, not only the requester's note, and Approve stays disabled until they load (Reject is open). The request's own meta is the snapshot (second); `approval.facts` (`lib/approvalFacts.ts`, open to every role like `list`, ids/names/kg/numbers only) is what is true now (first). `press_late_entry` reads the run (`press.runs.get`), `order_reallocate` reads each bundle (still available on the asked line, who would move, who takes a new party number, whether the target order is still open), `die_rerank` reads the copy now (tier, band, last reading against the band, and a flag when the copy changed after the ask). A tier request that changes nothing is refused when it is made (`planTierChange` `nothing_changes`), so a title never reads "tier 2 to 2"; a band lift names both bands. A new kind whose meta cannot stay true adds its facts to `loadApprovalFacts` and to `FACT_KINDS` in `approval-view.ts`.
@@ -970,15 +971,27 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   press opens a `dispatch_late_entry` request (subject = the dispatch, meta `{ dispatchId, dispatchCode,
   occurredAt, reason }`, note = the reason, audit `dispatch.late_entry.request`) and refuses
   PRECONDITION_FAILED "Entered late: ..."; nothing is held or posted. An approval covers only the exact
-  `occurredAt` it was asked for; another time withdraws a waiting ask ("Withdrawn: asked again with
-  another time.") and asks again. Once approved, Complete writes `completed_at` = `occurredAt`, the
+  `occurredAt` it was asked for and the load in its meta (`bundles`, `weightG`, review 7); another time
+  withdraws a waiting ask ("Withdrawn: asked again with another time.") and asks again, and so does a
+  changed load ("Withdrawn: the bundles on the dispatch changed."). The 72 h window is measured only
+  when a new request would open: an approved time stands after the 72 hours (review 1); past them a
+  changed load is refused ("The bundles changed after a manager approved this time. ..."). The
+  dispatch stores the approved request's reason, never the one typed on the second press (review 4).
+  `getDispatch` returns `lateEntry` `{ status: pending|approved|changed, occurredAt, reason,
+  approvalId }` for a building or held dispatch, and both Complete sheets fill and lock the time and
+  reason from it until "Use another time" (review 5). Once approved, Complete writes `completed_at` = `occurredAt`, the
   ledger `posted_at` = `occurredAt` (still clamped to just after the bundle's last ledger row, so a
   bundle packed after that time posts just after its pack), sets `late_entry`, `late_entry_reason` and
   `late_entry_approval_id` (migration `0047_dispatch_late_entry`), guards the UPDATE on the approval
   still being approved, and puts `lateEntry` in the `dispatch.complete` audit meta. Cancel or delete
   withdraws a waiting ask. The completed dispatch shows "Entered late" with the time and reason; the
-  approvals review sheet shows the time the truck left and how many hours later it was asked. Guide
-  "When the internet is down" (`internet-down`) in en, hi and gu.
+  approvals review sheet shows the time the truck left, how many hours later it was asked and the
+  bundles and kg it was asked for. Guide "When the internet is down" (`internet-down`) in en, hi and gu.
+  Known split (review 8, by design): when the packing was also entered late, the ledger clamps each
+  dispatch row to just after its pack row (entry time), while `dispatchShipDay` reads `completed_at`
+  (the late time). The dispatch register then shows the load on day D and stock at the end of D still
+  holds it; from D+1 they agree, nothing is counted twice and the ledger stays balanced per bundle. The
+  guide says so ("Stock for that day still shows the bundles").
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
@@ -1033,7 +1046,12 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   top-level `offBand` `{ pending, rejected, unasked, approved, blocked }`; web and phone hold Dispatch
   (not Hold stock) while `blocked` and say why. `approval.facts` shows the row as it is now (gone, moved,
   or the line and both weights). A bundle with no line has nothing to compare with. Pack's D15 band is
-  separate and untouched.
+  separate and untouched. Review fixes (2026-11-10): an approval counts only while the bundle's and the
+  line's kg/12ft equal the figures in its meta (`sameFigures` in `offBandStates`), so a line edited after
+  it asks again; the completing UPDATE also requires the linked lines' newest `server_seq` unchanged
+  since the off-band read (`linkedLinesSeqSql`), so a line edited during Complete fails the write and
+  the abort asks; `linkItem` back to a line already approved with the same figures asks nothing; and
+  `getDispatch`'s `offBand` counts cover every item even past the 500 rows it lists.
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
 - The off-band chip and the capacity fill are computed by the server on every read (`getDispatch`); the web draws them and sums nothing.

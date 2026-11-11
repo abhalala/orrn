@@ -35,6 +35,7 @@ import {
   decideState,
   isApprovalKind,
   nextApprovalsOffset,
+  noteAuthorName,
   splitCodes,
   subjectCodes,
   type ApprovalForView,
@@ -236,7 +237,10 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
         {asked}, <time dateTime={new Date(item.createdAt).toISOString()}>{instantDateText(item.createdAt, locale, tz)}</time>
       </p>
       {item.requestNote ? (
-        <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[14px] break-words">{item.requestNote}</p>
+        <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[14px] break-words">
+          {noteAuthorName(item) ? <span className="font-semibold">{t("approvals.noteFrom", { name: noteAuthorName(item)! })}: </span> : null}
+          {item.requestNote}
+        </p>
       ) : null}
       {item.status !== "pending" ? (
         <p className="m-0 text-[14px] break-words">
