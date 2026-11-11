@@ -12,8 +12,7 @@ export type ReadProgress = {
 
 export type WorkerRequest =
   | { id: number; type: "hash"; file: File }
-  | { id: number; type: "read"; file: File; kind: ArtifactKind; limits: { maxRawRows: number; maxColumns: number; maxBlocks: number } }
-  | { id: number; type: "cancel" };
+  | { id: number; type: "read"; file: File; kind: ArtifactKind };
 
 /** A block as read: what `putBlocks` sends, plus the rows that follow it in `putRows` and the canonical file. */
 export type ReadBlock = { input: BlockInput; rows: string[][] };

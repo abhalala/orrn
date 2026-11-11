@@ -1,29 +1,47 @@
 import type { ArtifactKind, IngestLimits } from "./types";
 
-/** Plan A9. The browser checks these before it reads or sends; the server checks them again. */
-export const MAX_FILES = 20;
-export const MAX_BLOCKS = 50;
-export const MAX_COLUMNS = 200;
-export const MAX_RAW_ROWS = 200_000;
-export const MAX_STAGED_ROWS_PER_BLOCK = 50_000;
-export const OPEN_STAGED_ROWS = 300_000;
-export const CELL_MAX_CHARS = 200;
-/** `putRows` takes 500 rows at most (plan A1). */
-export const ROWS_PER_CALL = 500;
-/** `putBlocks` takes 50 blocks at most. */
-export const BLOCKS_PER_CALL = 50;
+const MB = 1024 * 1024;
 
-export const MAX_MB = { sheet: 20, csv: 50, sql: 100, pdf: 25, image: 10 } as const;
-
+/**
+ * Plan A9. The same numbers as `INGEST_LIMITS` on the server, which `ingest.status` also returns. The type is
+ * the server's, so a number added there fails the build here until it is copied.
+ */
 export const DEFAULT_LIMITS: IngestLimits = {
-  maxFiles: MAX_FILES,
-  maxBlocks: MAX_BLOCKS,
-  maxColumns: MAX_COLUMNS,
-  maxRawRows: MAX_RAW_ROWS,
-  maxStagedRowsPerBlock: MAX_STAGED_ROWS_PER_BLOCK,
-  openStagedRows: OPEN_STAGED_ROWS,
-  maxMb: { ...MAX_MB },
+  maxFileBytes: {
+    sheet: 20 * MB,
+    csv: 50 * MB,
+    sql: 100 * MB,
+    pdf_text: 25 * MB,
+    pdf_scan: 25 * MB,
+    image: 10 * MB,
+  },
+  filesPerUpload: 20,
+  blocksPerFile: 50,
+  columnsPerBlock: 200,
+  rawRowsPerFile: 200_000,
+  stagedRowsPerBlock: 50_000,
+  openRowsPerPlant: 300_000,
+  cellChars: 200,
+  rawBytesPerRow: 4096,
+  rowsPerPut: 500,
+  sampleRowsPerBlock: 200,
+  dryRunRowsPerStep: 200,
+  rowsPerPage: 100,
+  decideRowsPerCall: 200,
+  noteChars: 500,
 };
+
+export const MAX_FILES = DEFAULT_LIMITS.filesPerUpload;
+export const MAX_BLOCKS = DEFAULT_LIMITS.blocksPerFile;
+export const MAX_COLUMNS = DEFAULT_LIMITS.columnsPerBlock;
+export const MAX_RAW_ROWS = DEFAULT_LIMITS.rawRowsPerFile;
+export const CELL_MAX_CHARS = DEFAULT_LIMITS.cellChars;
+/** `putRows` takes 500 rows at most (plan A1). */
+export const ROWS_PER_CALL = DEFAULT_LIMITS.rowsPerPut;
+/** `putBlocks` takes 50 blocks at most. */
+export const BLOCKS_PER_CALL = DEFAULT_LIMITS.blocksPerFile;
+/** `rows.list` pages. */
+export const ROWS_PER_PAGE = DEFAULT_LIMITS.rowsPerPage;
 
 /** What the file is, from its name and type. A PDF is `pdf_text` until the reader finds no text layer. */
 export type DetectedKind = { kind: ArtifactKind; limitMb: number } | null;
@@ -37,11 +55,7 @@ const EXT_KIND: Record<string, ArtifactKind> = {
 };
 
 export function limitMbFor(kind: ArtifactKind, limits: IngestLimits = DEFAULT_LIMITS): number {
-  if (kind === "sheet") return limits.maxMb.sheet;
-  if (kind === "csv") return limits.maxMb.csv;
-  if (kind === "sql") return limits.maxMb.sql;
-  if (kind === "image") return limits.maxMb.image;
-  return limits.maxMb.pdf;
+  return limits.maxFileBytes[kind] / MB;
 }
 
 export function detectFileKind(name: string, contentType?: string | null, limits: IngestLimits = DEFAULT_LIMITS): DetectedKind {
@@ -74,7 +88,7 @@ export function fileSizeProblem(
 ): FileProblem | null {
   const found = detectFileKind(file.name, file.type, limits);
   if (!found) return { key: "ingest.read.failed" };
-  if (file.size > found.limitMb * 1024 * 1024) {
+  if (file.size > found.limitMb * MB) {
     return { key: "ingest.drop.tooBig", vars: { name: file.name, limit: found.limitMb } };
   }
   return null;
@@ -82,7 +96,7 @@ export function fileSizeProblem(
 
 /** Why a read file is refused (too many rows), or null. */
 export function rowCountProblem(name: string, rawRows: number, limits: IngestLimits = DEFAULT_LIMITS): FileProblem | null {
-  if (rawRows > limits.maxRawRows) return { key: "ingest.drop.tooManyRows", vars: { name } };
+  if (rawRows > limits.rawRowsPerFile) return { key: "ingest.drop.tooManyRows", vars: { name } };
   return null;
 }
 

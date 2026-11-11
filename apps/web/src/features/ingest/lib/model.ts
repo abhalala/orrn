@@ -1,15 +1,16 @@
 import { CANDIDATE_STATES, ROW_STATES } from "./types";
 import type {
   CandidateCounts,
-  CandidateQuestion,
   CandidateState,
   CandidateSummary,
+  FitDiff,
+  IngestQuestion,
   IngestTarget,
   MergeRunState,
   QuestionCode,
   RowDecision,
   RowState,
-  StagedRow,
+  StagedRowView,
 } from "./types";
 
 /** Look of a chip. The screen maps a tone to its own colours; never raw colour here. */
@@ -134,7 +135,7 @@ export function rowStateKey(state: RowState): string | null {
 }
 
 /** A row that still needs a person: ambiguous or conflict with no decision. */
-export function rowNeedsDecision(row: Pick<StagedRow, "state" | "decision">): boolean {
+export function rowNeedsDecision(row: Pick<StagedRowView, "state" | "decision">): boolean {
   return (row.state === "ambiguous" || row.state === "conflict") && row.decision === null;
 }
 
@@ -145,13 +146,13 @@ export type StateCount = { state: Exclude<RowState, "pending">; key: string; ton
 /** The filter chips of a candidate: one per row state with at least one row, in fixed order. */
 export function rowStateCounts(counts: CandidateCounts): StateCount[] {
   const by: Record<Exclude<RowState, "pending">, number> = {
-    ready_create: counts.rowsCreate,
-    ready_update: counts.rowsUpdate,
-    unchanged: counts.rowsUnchanged,
-    ambiguous: counts.rowsAmbiguous,
-    conflict: counts.rowsConflict,
-    refused: counts.rowsRefused,
-    skipped: counts.rowsSkipped,
+    ready_create: counts.create,
+    ready_update: counts.update,
+    unchanged: counts.unchanged,
+    ambiguous: counts.ambiguous,
+    conflict: counts.conflict,
+    refused: counts.refused,
+    skipped: counts.skipped,
   };
   const order: Exclude<RowState, "pending">[] = [
     "ambiguous", "conflict", "refused", "ready_create", "ready_update", "unchanged", "skipped",
@@ -163,38 +164,35 @@ export function rowStateCounts(counts: CandidateCounts): StateCount[] {
 
 /** Rows a merge would write: new rows plus rows that fill blanks. */
 export function writableRows(counts: CandidateCounts): number {
-  return counts.rowsCreate + counts.rowsUpdate;
+  return counts.create + counts.update;
 }
 
-/** Rows the dry run has classified so far. `rowsTotal` is null until the rows are all put. */
+/** Rows the dry run has classified so far. */
 export function classifiedRows(counts: CandidateCounts): number {
-  return (
-    counts.rowsCreate + counts.rowsUpdate + counts.rowsUnchanged + counts.rowsAmbiguous +
-    counts.rowsConflict + counts.rowsRefused + counts.rowsSkipped
-  );
+  return counts.create + counts.update + counts.unchanged + counts.ambiguous + counts.conflict + counts.refused + counts.skipped;
 }
 
-/** 0 to 1, or null when the total is not known yet. */
+/** 0 to 1, or null when the total is not known yet (no rows counted). */
 export function dryRunProgress(counts: CandidateCounts): number | null {
-  if (counts.rowsTotal === null || counts.rowsTotal <= 0) return null;
-  return Math.min(1, classifiedRows(counts) / counts.rowsTotal);
+  if (counts.total <= 0) return null;
+  return Math.min(1, classifiedRows(counts) / counts.total);
 }
 
 /** Sums of the approved candidates, for the "Merge {count} approved" button. */
 export function approvedSummary(candidates: readonly CandidateSummary[]): { count: number; rows: number } {
   const approved = candidates.filter((c) => c.state === "approved");
-  return { count: approved.length, rows: approved.reduce((sum, c) => sum + writableRows(c), 0) };
+  return { count: approved.length, rows: approved.reduce((sum, c) => sum + writableRows(c.counts), 0) };
 }
 
 export type ActionName = "approve" | "hold" | "discard";
 
 /** What buttons a candidate offers. Approve and merge are for people holding `ingest.merge`. */
 export function allowedActions(
-  c: Pick<CandidateSummary, "state" | "openQuestions" | "rowsWritten">,
+  c: Pick<CandidateSummary, "state" | "openQuestions"> & { counts: Pick<CandidateCounts, "written"> },
   can: { merge: boolean; upload: boolean },
 ): Record<ActionName, boolean> {
-  const open = c.openQuestions ?? 0;
-  const noWrite = c.rowsWritten === 0;
+  const open = c.openQuestions;
+  const noWrite = c.counts.written === 0;
   return {
     approve: can.merge && c.state === "ready" && open === 0,
     hold: (can.merge || can.upload) && (c.state === "ready" || c.state === "approved"),
@@ -238,13 +236,13 @@ const QUESTION_VARS: Record<QuestionCode, string[]> = {
   new_customers: ["count"],
 };
 
-export function questionView(q: CandidateQuestion): QuestionView {
+export function questionView(q: IngestQuestion): QuestionView {
   const vars: Record<string, string | number> = {};
-  for (const name of QUESTION_VARS[q.code]) vars[name] = q.context[name] ?? "";
+  for (const name of QUESTION_VARS[q.code]) vars[name] = q.params[name] ?? "";
   let control: QuestionControl;
   switch (q.code) {
     case "unit_unknown":
-      control = { kind: "unit", field: String(q.context.field ?? q.subject), unitKind: q.context.kind === undefined ? null : String(q.context.kind) };
+      control = { kind: "unit", field: String(q.params.field ?? q.subject), unitKind: q.params.kind === undefined ? null : String(q.params.kind) };
       break;
     case "date_format_ambiguous":
       control = { kind: "choice", options: [{ value: "dmy", label: "dd/mm/yyyy" }, { value: "mdy", label: "mm/dd/yyyy" }] };
@@ -269,14 +267,14 @@ export function questionView(q: CandidateQuestion): QuestionView {
     key: `ingest.q.${q.code}`,
     vars,
     control,
-    answered: q.answer !== null && q.answer !== undefined,
+    answered: !q.open,
     answer: q.answer ?? null,
-    rows: q.rows,
+    rows: typeof q.params.rows === "number" ? q.params.rows : 0,
   };
 }
 
 /** Unanswered questions first, then answered ones, each in the server's order. */
-export function questionList(questions: readonly CandidateQuestion[]): QuestionView[] {
+export function questionList(questions: readonly IngestQuestion[]): QuestionView[] {
   const views = questions.map(questionView);
   return [...views.filter((v) => !v.answered), ...views.filter((v) => v.answered)];
 }
@@ -294,16 +292,15 @@ export type DecisionOption = {
 };
 
 /** The menu of one row. A refused or finished row has none. */
-export function decisionOptions(row: Pick<StagedRow, "state" | "matchId" | "matchOptions" | "mergeState">): DecisionOption[] {
+export function decisionOptions(row: Pick<StagedRowView, "state" | "options" | "mergeState">): DecisionOption[] {
   if (row.mergeState === "written") return [];
   const skip: DecisionOption = { decision: "skip", key: "ingest.decide.skip" };
   switch (row.state) {
     case "ambiguous": {
-      const matches = row.matchOptions ?? [];
-      const picks = matches.map((m) => ({
+      const picks = row.options.map((m) => ({
         decision: "use_match" as const,
         key: "ingest.decide.useMatch",
-        vars: { name: m.name },
+        vars: { name: m.label },
         matchId: m.id,
       }));
       return [...picks, { decision: "create_new", key: "ingest.decide.createNew" }, skip];
@@ -324,7 +321,7 @@ export function decisionOptions(row: Pick<StagedRow, "state" | "matchId" | "matc
 
 /** Fields of a conflict row where the file and orrn differ, for the "show both" card. */
 export function diffEntries(
-  diff: StagedRow["diff"],
+  diff: StagedRowView["diff"],
 ): { field: string; live: string; file: string }[] {
   if (!diff) return [];
   const show = (v: unknown) => (v === null || v === undefined || v === "" ? "" : String(v));
@@ -332,9 +329,9 @@ export function diffEntries(
 }
 
 /** Rates are hidden for people without `order.price`: the screen shows `ingest.rate.hidden`. */
-export function rateCell(row: Pick<StagedRow, "rate" | "rateHidden">): { hidden: true } | { hidden: false; value: number | null } {
+export function rateCell(row: Pick<StagedRowView, "rate" | "rateHidden">): { hidden: true } | { hidden: false; value: number | null } {
   if (row.rateHidden) return { hidden: true };
-  return { hidden: false, value: row.rate ?? null };
+  return { hidden: false, value: row.rate };
 }
 
 /** The reason line of a held or failed candidate: dictionary key and variables from `reasonCode`. */
@@ -365,5 +362,25 @@ export function canMergeAll(approvedCount: number, activeRunId: string | null, c
 export function helperOffer(c: Pick<CandidateSummary, "state" | "botAttempts">, botReady: boolean): "auto" | "off" | "none" {
   if (c.state !== "needs_shape") return "none";
   if (!botReady) return "off";
-  return (c.botAttempts ?? 0) < 4 ? "auto" : "none";
+  return c.botAttempts < 4 ? "auto" : "none";
+}
+
+/** Reads a stored fit diff safely: unknown or missing parts become empty lists. */
+export function fitDiffView(raw: unknown): FitDiff {
+  const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  const renamed = Array.isArray(obj.renamed)
+    ? obj.renamed.flatMap((r) => {
+        const o = (r ?? {}) as Record<string, unknown>;
+        const from = typeof o.old === "string" ? o.old : typeof o.from === "string" ? o.from : null;
+        const to = typeof o.new === "string" ? o.new : typeof o.to === "string" ? o.to : null;
+        return from !== null && to !== null ? [{ old: from, new: to }] : [];
+      })
+    : [];
+  return {
+    name: typeof obj.name === "string" ? obj.name : typeof obj.holeName === "string" ? obj.holeName : null,
+    renamed,
+    extra: strings(obj.extra),
+    missing: strings(obj.missing),
+  };
 }

@@ -46,14 +46,16 @@ export type PumpOutcome<R> =
 
 export type PumpSpec<R> = {
   /** The stored cursor to send first (from the last read of the candidate or run). */
-  cursor: number | null;
-  step: (expectCursor: number | null) => Promise<R>;
-  cursorOf: (result: R) => number | null;
+  cursor: number;
+  step: (expectCursor: number) => Promise<R>;
+  cursorOf: (result: R) => number;
   isDone: (result: R) => boolean;
   onStep?: (result: R) => void;
   signal?: AbortSignal;
   retries?: number;
   sleep?: (ms: number) => Promise<void>;
+  /** Steps in a row that may return the same cursor, not done, before the pump reports `STALLED`. Off when unset. */
+  maxStalls?: number;
 };
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -65,6 +67,7 @@ export async function runPump<R>(spec: PumpSpec<R>): Promise<PumpOutcome<R>> {
   let cursor = spec.cursor;
   let last: R | null = null;
   let failures = 0;
+  let stalls = 0;
   for (;;) {
     if (spec.signal?.aborted) return { kind: "aborted", last };
     let result: R;
@@ -84,11 +87,18 @@ export async function runPump<R>(spec: PumpSpec<R>): Promise<PumpOutcome<R>> {
     last = result;
     spec.onStep?.(result);
     if (spec.isDone(result)) return { kind: "done", last: result };
-    cursor = spec.cursorOf(result);
+    const next = spec.cursorOf(result);
+    if (spec.maxStalls !== undefined) {
+      stalls = next === cursor ? stalls + 1 : 0;
+      if (stalls >= spec.maxStalls) {
+        return { kind: "error", error: Object.assign(new Error("The step did not move"), { data: { code: "STALLED" } }), last };
+      }
+    }
+    cursor = next;
   }
 }
 
-export type PumpRead = { cursor: number | null; running: boolean };
+export type PumpRead = { cursor: number; running: boolean };
 
 export type DriveSpec<R> = Omit<PumpSpec<R>, "cursor"> & {
   /** Reads the stored state: used to start, and to watch another tab. */
@@ -104,15 +114,19 @@ export type DriveOutcome<R> =
   | { kind: "error"; error: unknown; last: R | null };
 
 /**
- * `runPump` from the stored cursor; on CONFLICT it watches the stored state every `pollMs`. If the state stops
- * running the other tab finished the work. If the cursor does not move for `stalePolls` polls the other tab is
- * gone and this tab steps from the stored cursor.
+ * `runPump` from the stored cursor; on CONFLICT it first looks once at the stored cursor: if it moved past the
+ * one this tab sent, the move may be this tab's own earlier step (a step that finished after its tab effect was
+ * cancelled), so the pump tries again from the stored cursor. A second CONFLICT means another tab is stepping:
+ * the pump watches the stored state every `pollMs`. If the state stops running the other tab finished the work.
+ * If the cursor does not move for `stalePolls` polls the other tab is gone and this tab steps from the stored
+ * cursor.
  */
 export async function drivePump<R>(spec: DriveSpec<R>): Promise<DriveOutcome<R>> {
   const sleep = spec.sleep ?? realSleep;
   const pollMs = spec.pollMs ?? POLL_MS;
   const stalePolls = spec.stalePolls ?? STALE_POLLS;
   let last: R | null = null;
+  let fastRetry = 1;
   for (;;) {
     if (spec.signal?.aborted) return { kind: "aborted", last };
     let stored: PumpRead;
@@ -122,7 +136,15 @@ export async function drivePump<R>(spec: DriveSpec<R>): Promise<DriveOutcome<R>>
       return { kind: "error", error, last };
     }
     if (!stored.running) return { kind: "done", last };
-    const outcome = await runPump<R>({ ...spec, cursor: stored.cursor });
+    let sent = stored.cursor;
+    const outcome = await runPump<R>({
+      ...spec,
+      cursor: stored.cursor,
+      step: (expectCursor) => {
+        sent = expectCursor;
+        return spec.step(expectCursor);
+      },
+    });
     if (outcome.last) last = outcome.last;
     if (outcome.kind === "done") {
       spec.onOtherTab?.(false);
@@ -131,9 +153,22 @@ export async function drivePump<R>(spec: DriveSpec<R>): Promise<DriveOutcome<R>>
     if (outcome.kind === "aborted") return { kind: "aborted", last };
     if (outcome.kind === "error") return { kind: "error", error: outcome.error, last };
 
-    // CONFLICT: another tab holds the cursor. Watch it.
+    // CONFLICT. One quick look: did the cursor move past what we sent?
+    if (fastRetry > 0) {
+      fastRetry -= 1;
+      let now: PumpRead;
+      try {
+        now = await spec.read();
+      } catch (error) {
+        return { kind: "error", error, last };
+      }
+      if (!now.running) return { kind: "done", last };
+      if (now.cursor !== sent) continue;
+    }
+
+    // Another tab holds the cursor. Watch it.
     spec.onOtherTab?.(true);
-    let seen: number | null | undefined;
+    let seen: number | undefined;
     let still = 0;
     for (;;) {
       await sleep(pollMs);
@@ -161,4 +196,47 @@ export async function drivePump<R>(spec: DriveSpec<R>): Promise<DriveOutcome<R>>
     spec.onOtherTab?.(false);
     // Take over: the loop reads the stored cursor again and steps.
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The bot retry pump (plan A1, B6): `shape.make` is one model call; `next` says whether to call again.
+// ---------------------------------------------------------------------------------------------
+
+export type BotCall = { outcome: string; attempt: number; model: string; next: "retry" | "escalate" | "manual" | "done" };
+
+export type BotOutcomeKind = "done" | "capped" | "gaveUp" | "conflict" | "error" | "aborted";
+
+/** Most model calls one click may make: 4 per block (plan B6). */
+export const BOT_MAX_CALLS = 4;
+
+/**
+ * Calls `make` until the server says `done` or `manual`. `getSeq` returns the candidate's current `serverSeq`
+ * before each call. `next: "retry"` or `"escalate"` calls again; `manual` ends with `capped` when the last
+ * outcome was `capped`, else `gaveUp`.
+ */
+export async function runBotPump(spec: {
+  getSeq: () => Promise<number>;
+  make: (expectSeq: number) => Promise<BotCall>;
+  onCall?: (call: BotCall) => void;
+  signal?: AbortSignal;
+  maxCalls?: number;
+}): Promise<{ kind: BotOutcomeKind; last: BotCall | null; error?: unknown }> {
+  let last: BotCall | null = null;
+  const max = spec.maxCalls ?? BOT_MAX_CALLS;
+  for (let calls = 0; calls < max; calls += 1) {
+    if (spec.signal?.aborted) return { kind: "aborted", last };
+    let result: BotCall;
+    try {
+      result = await spec.make(await spec.getSeq());
+    } catch (error) {
+      if (spec.signal?.aborted) return { kind: "aborted", last };
+      if (isConflict(error)) return { kind: "conflict", last };
+      return { kind: "error", last, error };
+    }
+    last = result;
+    spec.onCall?.(result);
+    if (result.next === "done") return { kind: "done", last };
+    if (result.next === "manual") return { kind: result.outcome === "capped" ? "capped" : "gaveUp", last };
+  }
+  return { kind: "gaveUp", last };
 }

@@ -2,21 +2,30 @@ import { describe, expect, test } from "bun:test";
 
 import {
   allowedActions, approvedSummary, candidatePollMs, candidateTone, canMergeAll, classifiedRows, decisionOptions,
-  diffEntries, dryRunProgress, fitKeyOf, groupCandidates, groupOf, helperOffer, isRunningCandidate, isRunningRun,
+  diffEntries, dryRunProgress, fitDiffView, fitKeyOf, groupCandidates, groupOf, helperOffer, isRunningCandidate, isRunningRun,
   POLL_MS, questionList, questionView, rateCell, reasonLine, rowNeedsDecision, rowStateCounts, rowStateKey, rowTone,
   runPollMs, writableRows,
 } from "./model";
-import { CANDIDATE_STATES, ROW_STATES, type CandidateCounts, type CandidateState, type CandidateSummary } from "./types";
+import {
+  CANDIDATE_STATES, ROW_STATES, type CandidateCounts, type CandidateState, type CandidateSummary, type IngestQuestion,
+} from "./types";
 
 const counts = (over: Partial<CandidateCounts> = {}): CandidateCounts => ({
-  rowsTotal: 100, rowsCreate: 0, rowsUpdate: 0, rowsUnchanged: 0, rowsAmbiguous: 0, rowsConflict: 0,
-  rowsRefused: 0, rowsSkipped: 0, rowsWritten: 0, ...over,
+  total: 100, create: 0, update: 0, unchanged: 0, ambiguous: 0, conflict: 0, refused: 0, skipped: 0, written: 0, ...over,
 });
 
-const candidate = (over: Partial<CandidateSummary> = {}): CandidateSummary => ({
-  id: "c1", artifactId: "a1", blockId: "b1", parentId: null, target: "dies", holeRef: null, fit: "exact", fitScore: 950,
-  state: "ready", reasonCode: null, reasonDetail: null, serverSeq: 1, dryCursor: null, openQuestions: 0,
-  botAttempts: 0, recipeLocked: false, ...counts(), ...over,
+const candidate = (over: Partial<CandidateSummary> & { counts?: Partial<CandidateCounts> } = {}): CandidateSummary => {
+  const { counts: c, ...rest } = over;
+  return {
+    id: "c1", artifactId: "a1", blockId: "b1", parentId: null, target: "dies", holeRef: null, holeName: null,
+    fit: "exact", fitScore: 950, state: "ready", reasonCode: null, reasonDetail: null, serverSeq: 1, dryCursor: 0,
+    counts: counts(c), openQuestions: 0, botAttempts: 0, recipeLocked: false, fileName: "dies.csv", sheetName: null,
+    blockOrdinal: 0, updatedAt: 0, ...rest,
+  };
+};
+
+const question = (over: Partial<IngestQuestion>): IngestQuestion => ({
+  code: "unit_unknown", subject: "", params: {}, answer: null, open: true, ...over,
 });
 
 describe("candidate states", () => {
@@ -81,7 +90,7 @@ describe("rows", () => {
     }
   });
   test("filter chips show only states with rows, problems first", () => {
-    const chips = rowStateCounts(counts({ rowsCreate: 200, rowsRefused: 3, rowsAmbiguous: 6, rowsUnchanged: 0 }));
+    const chips = rowStateCounts(counts({ create: 200, refused: 3, ambiguous: 6, unchanged: 0 }));
     expect(chips.map((c) => [c.state, c.count])).toEqual([["ambiguous", 6], ["refused", 3], ["ready_create", 200]]);
     expect(chips[0]!.key).toBe("ingest.row.ambiguous");
   });
@@ -92,20 +101,19 @@ describe("rows", () => {
     expect(rowNeedsDecision({ state: "ready_create", decision: null })).toBe(false);
   });
   test("counts: writable, classified, progress", () => {
-    const c = counts({ rowsTotal: 200, rowsCreate: 50, rowsUpdate: 10, rowsUnchanged: 20, rowsAmbiguous: 5, rowsRefused: 15 });
+    const c = counts({ total: 200, create: 50, update: 10, unchanged: 20, ambiguous: 5, refused: 15 });
     expect(writableRows(c)).toBe(60);
     expect(classifiedRows(c)).toBe(100);
     expect(dryRunProgress(c)).toBe(0.5);
-    expect(dryRunProgress(counts({ rowsTotal: null }))).toBeNull();
-    expect(dryRunProgress(counts({ rowsTotal: 0 }))).toBeNull();
-    expect(dryRunProgress(counts({ rowsTotal: 10, rowsCreate: 30 }))).toBe(1);
+    expect(dryRunProgress(counts({ total: 0 }))).toBeNull();
+    expect(dryRunProgress(counts({ total: 10, create: 30 }))).toBe(1);
   });
 });
 
 describe("decision menu", () => {
-  const base = { matchId: null, mergeState: "open" as const };
+  const base = { options: [] as { id: string; label: string }[], mergeState: "open" as const };
   test("ambiguous: one entry per match, then add as new, then skip", () => {
-    const opts = decisionOptions({ ...base, state: "ambiguous", matchOptions: [{ id: "x", name: "Shree Metals" }, { id: "y", name: "Shri Metal" }] });
+    const opts = decisionOptions({ ...base, state: "ambiguous", options: [{ id: "x", label: "Shree Metals" }, { id: "y", label: "Shri Metal" }] });
     expect(opts.map((o) => o.decision)).toEqual(["use_match", "use_match", "create_new", "skip"]);
     expect(opts[0]).toMatchObject({ key: "ingest.decide.useMatch", vars: { name: "Shree Metals" }, matchId: "x" });
   });
@@ -133,35 +141,46 @@ describe("decision menu", () => {
   test("a hidden rate is never a value", () => {
     expect(rateCell({ rate: null, rateHidden: true })).toEqual({ hidden: true });
     expect(rateCell({ rate: 21500, rateHidden: false })).toEqual({ hidden: false, value: 21500 });
-    expect(rateCell({})).toEqual({ hidden: false, value: null });
+    expect(rateCell({ rate: null, rateHidden: false })).toEqual({ hidden: false, value: null });
   });
 });
 
 describe("questions", () => {
   test("each code maps to its B10 key and variables", () => {
-    const view = questionView({ code: "unit_unknown", subject: "rate", answer: null, context: { field: "Rate", kind: "price_per_mass" }, rows: 40 });
+    const view = questionView(question({ code: "unit_unknown", subject: "rate", params: { field: "Rate", kind: "price_per_mass", rows: 40 } }));
     expect(view.key).toBe("ingest.q.unit_unknown");
     expect(view.vars).toEqual({ field: "Rate" });
     expect(view.control).toEqual({ kind: "unit", field: "Rate", unitKind: "price_per_mass" });
     expect(view.answered).toBe(false);
+    expect(view.rows).toBe(40);
 
-    expect(questionView({ code: "date_format_ambiguous", subject: "orderDate", answer: null, context: { sample: "03/04/2025" }, rows: 9 }).vars)
+    expect(questionView(question({ code: "date_format_ambiguous", subject: "orderDate", params: { sample: "03/04/2025" } })).vars)
       .toEqual({ sample: "03/04/2025" });
-    expect(questionView({ code: "create_legacy_die", subject: "R 2105", answer: null, context: { code: "R 2105" }, rows: 3 }).control).toEqual({ kind: "yesNo" });
-    expect(questionView({ code: "new_customers", subject: "", answer: null, context: { count: 12 }, rows: 12 }).vars).toEqual({ count: 12 });
-    expect(questionView({ code: "period_needed", subject: "", answer: null, context: {}, rows: 0 }).control).toEqual({ kind: "period" });
-    expect(questionView({ code: "column_meaning_unclear", subject: "X", answer: null, context: { name: "Misc" }, rows: 0 }).control).toEqual({ kind: "column" });
+    expect(questionView(question({ code: "create_legacy_die", subject: "R 2105", params: { code: "R 2105" } })).control).toEqual({ kind: "yesNo" });
+    expect(questionView(question({ code: "new_customers", params: { count: 12 } })).vars).toEqual({ count: 12 });
+    expect(questionView(question({ code: "period_needed" })).control).toEqual({ kind: "period" });
+    expect(questionView(question({ code: "column_meaning_unclear", subject: "X", params: { name: "Misc" } })).control).toEqual({ kind: "column" });
   });
   test("a missing variable becomes empty text, not undefined", () => {
-    expect(questionView({ code: "create_legacy_die", subject: "x", answer: null, context: {}, rows: 0 }).vars).toEqual({ code: "" });
+    expect(questionView(question({ code: "create_legacy_die", subject: "x" })).vars).toEqual({ code: "" });
   });
   test("unanswered questions come first", () => {
     const list = questionList([
-      { code: "period_needed", subject: "", answer: { fy: "2025-26" }, context: {}, rows: 0 },
-      { code: "unit_unknown", subject: "rate", answer: null, context: { field: "Rate" }, rows: 4 },
+      question({ code: "period_needed", answer: { fy: "2025-26" }, open: false }),
+      question({ code: "unit_unknown", subject: "rate", params: { field: "Rate" } }),
     ]);
     expect(list.map((q) => q.code)).toEqual(["unit_unknown", "period_needed"]);
     expect(list[1]!.answered).toBe(true);
+  });
+});
+
+describe("fit diff", () => {
+  test("reads a stored diff and survives a bad one", () => {
+    expect(fitDiffView({ name: "Dies sheet", renamed: [{ old: "Wt", new: "Weight" }], extra: ["Notes 2"], missing: [] })).toEqual({
+      name: "Dies sheet", renamed: [{ old: "Wt", new: "Weight" }], extra: ["Notes 2"], missing: [],
+    });
+    expect(fitDiffView(null)).toEqual({ name: null, renamed: [], extra: [], missing: [] });
+    expect(fitDiffView({ renamed: [{ nope: 1 }], extra: [1, "A"] })).toEqual({ name: null, renamed: [], extra: ["A"], missing: [] });
   });
 });
 
@@ -175,7 +194,7 @@ describe("actions and merge button", () => {
   test("discard is refused once a row is written, while merging, and when already done", () => {
     const can = { merge: true, upload: true };
     expect(allowedActions(candidate(), can).discard).toBe(true);
-    expect(allowedActions(candidate({ rowsWritten: 1 }), can).discard).toBe(false);
+    expect(allowedActions(candidate({ counts: { written: 1 } }), can).discard).toBe(false);
     expect(allowedActions(candidate({ state: "merging" }), can).discard).toBe(false);
     expect(allowedActions(candidate({ state: "merged" }), can).discard).toBe(false);
     expect(allowedActions(candidate({ state: "discarded" }), can).discard).toBe(false);
@@ -187,9 +206,9 @@ describe("actions and merge button", () => {
   });
   test("approved summary and the merge button", () => {
     const list = [
-      candidate({ id: "1", state: "approved", rowsCreate: 10, rowsUpdate: 2 }),
-      candidate({ id: "2", state: "approved", rowsCreate: 5 }),
-      candidate({ id: "3", state: "ready", rowsCreate: 99 }),
+      candidate({ id: "1", state: "approved", counts: { create: 10, update: 2 } }),
+      candidate({ id: "2", state: "approved", counts: { create: 5 } }),
+      candidate({ id: "3", state: "ready", counts: { create: 99 } }),
     ];
     expect(approvedSummary(list)).toEqual({ count: 2, rows: 17 });
     expect(canMergeAll(2, null, true)).toBe(true);
@@ -201,7 +220,7 @@ describe("actions and merge button", () => {
     expect(helperOffer({ state: "needs_shape", botAttempts: 0 }, true)).toBe("auto");
     expect(helperOffer({ state: "needs_shape", botAttempts: 3 }, true)).toBe("auto");
     expect(helperOffer({ state: "needs_shape", botAttempts: 4 }, true)).toBe("none");
-    expect(helperOffer({ state: "needs_shape", botAttempts: null }, false)).toBe("off");
+    expect(helperOffer({ state: "needs_shape", botAttempts: 0 }, false)).toBe("off");
     expect(helperOffer({ state: "ready", botAttempts: 0 }, true)).toBe("none");
   });
 });

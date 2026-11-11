@@ -7,9 +7,10 @@ Plan: `docs/superpowers/plans/2026-11-10-infinity-portal-wave1.md` (B5 procedure
 All strings are dictionary keys from `packages/i18n/src/ingest/{en,hi}.ts`, used as `t("ingest.…")`. Helpers
 return a key and its variables, never text.
 
-Status of the contract: types, signatures and keys below are final. The first commit has the signatures; bodies
-land after it. A body that is not built yet throws `<name> is not built yet`. Pure helpers in `model.ts`,
-`limits.ts` and `pump.ts` are built from the start.
+Status of the contract: types, signatures and keys below are final. Every shape that crosses the wire is the
+router's own type (`@orrn/server/lib/ingest/types`, exported from `./types`), so `candidate.counts.create`,
+`candidate.holeName`, `row.options` and the rest are exactly what lane A returns. Counts are nested:
+`candidate.counts = { total, create, update, unchanged, ambiguous, conflict, refused, skipped, written }`.
 
 ## The reading rule
 
@@ -25,7 +26,7 @@ while the thing they read is in a running state: candidate `processing` or `merg
 |---|---|---|
 | `useIngestStatus()` | `{ botReady, vaultReady, limits, activeRunId, botToday }` | `vaultReady` false: show `ingest.vault.off`. `botReady` false: show `ingest.helper.off`. `activeRunId` set: show the "merge running" link to `/ingest/merge/$runId`. |
 | `useCandidates(state?)` | `CandidateSummary[]` | All pages of the plant, newest first. Group them with `groupCandidates`. |
-| `useCandidate(id)` | `CandidateDetail` | Counts, `fitDiff`, `questions`, `serverSeq`, `reasonCode`. |
+| `useCandidate(id)` | `CandidateDetail` | Counts, `fitDiff` (read it with `fitDiffView`), `questions`, `block` (headers, sample, `readBy`, `modelChecked`), `period`, `rowsMissing`, `serverSeq`, `reasonCode`. |
 | `useRows(id, { state?, page })` | `{ items: StagedRow[], hasNext }` | 100 per page. A row with `rateHidden` shows `ingest.rate.hidden`. |
 | `useArtifact(id)` | `ArtifactDetail` | Blocks, period, vault state, candidates. |
 | `useMergeRun(id)` | `MergeRunDetail` | Per-candidate results. |
@@ -49,7 +50,7 @@ cursor. Phases for all pumps: `idle`, `running`, `otherTab`, `done`, `error`.
 
 | Hook | Arguments | Returns | Keys |
 |---|---|---|---|
-| `useDryRunPump(candidateId, { enabled? })` | candidate id | `{ phase, cursor, counts, progress, error, retry }` | `running`: a bar from `progress` (0 to 1, null when unknown) and `ingest.state.processing`. `otherTab`: `ingest.merge.otherTab`. `error`: the shared "could not load" state with `retry`. |
+| `useDryRunPump(candidateId, { enabled? })` | candidate id | `{ phase, state, cursor, counts, progress, rowsMissing, error, retry }` | `running`: a bar from `progress` (0 to 1, null when unknown) and `ingest.state.processing`. While `rowsMissing > 0` another tab is still sending rows: show `ingest.read.uploading` and wait, the pump does not step. `otherTab`: `ingest.merge.otherTab`. `error`: the shared "could not load" state with `retry`. |
 | `useDryRunQueue(ids, { enabled? })` | candidate ids | `{ activeId, phase, byId }` | One dry run at a time, for the index screen after an upload. |
 | `useMergePump(runId)` | run id | `{ phase, run, results, chunksTotal, chunksWritten, chunksFailed, error, retry, stop }` | `running`: `ingest.merge.running` with `n = chunksWritten + chunksFailed + 1` (capped at total) and `total = chunksTotal`. `otherTab`: `ingest.merge.otherTab`. `done`: `ingest.merge.done` with `created` and `updated` from `run`. Holds: `ingest.merge.holds` with `count`. `stop()` is `ingest.merge.stop`. |
 | `useStartMerge()` | none | `{ start(), pending, error }` | `start()` resolves `{ runId, joined }`. If a run was already active, `joined` is true and `runId` is that run: open it. Button text is `ingest.action.mergeAll` with `count = approvedSummary(...).count`. |
@@ -72,7 +73,7 @@ has a `step`:
 | `saving` | `ingest.read.uploading` |
 | `sending` | bar from `item.sent` (rows sent of total) |
 | `done` | link to `/ingest/files/$artifactId` and the file's candidates; if `item.notStored`, `ingest.vault.off` |
-| `seenBefore` | `ingest.drop.seenBefore` with `date = item.seenOn`; link to the artifact |
+| `seenBefore` | `ingest.drop.seenBefore` with `date = item.seenOn` (ms; format it with the plant's date helper); link to the artifact |
 | `refused` | `t(item.problem.key, item.problem.vars)`. These are `ingest.drop.tooBig`, `ingest.drop.tooManyRows`, `ingest.drop.openLimit` |
 | `failed` | `ingest.read.failed`; the Retry button calls `retry(id)` |
 
@@ -94,7 +95,8 @@ Check a file before adding it with `fileSizeProblem(file, limits)` if you want t
 | `canMergeAll(count, activeRunId, canMerge)` | Whether the merge button is on |
 | `helperOffer(candidate, botReady)` | `auto`, `off` or `none` for the needs_shape card |
 | `questionList(questions)` | `QuestionView[]`: `key`, `vars`, `control`, `answered`. Unanswered first |
-| `decisionOptions(row)` | The row menu: `key`, `vars`, `decision`, `matchId` |
+| `decisionOptions(row)` | The row menu: `key`, `vars`, `decision`, `matchId` (from `row.options`, one `ingest.decide.useMatch` per live record) |
+| `fitDiffView(candidate.fitDiff)` | `{ name, renamed: [{ old, new }], extra, missing }`, safe on any stored shape |
 | `diffEntries(row.diff)` | `{ field, live, file }` for the "show both" card of a conflict |
 | `rateCell(row)` | `{ hidden: true }` or `{ hidden: false, value }` |
 | `reasonLine(code, detail)` | `{ key, vars }` for a held or failed candidate; `key` is null when only the detail can be shown |
@@ -105,7 +107,8 @@ Check a file before adding it with `fileSizeProblem(file, limits)` if you want t
 `period` (financial year and as-of date, saved with `confirmPeriod`, not `answer`), `yesNo`, `column`.
 Answer shapes sent to `answer(...)`: `unit_unknown` `{ unit }`, `date_format_ambiguous` `"dmy"` or `"mdy"`,
 `rates_hidden` `"leave_out"`, `column_meaning_unclear` `{ field }`, `create_legacy_die` and `new_customers`
-`true` or `false`. These are my reading of plan B7 and are checked against the server when lane A merges.
+`true` or `false`. The router takes `answer` as `unknown`, so these are my reading of plan B7 until lane A's
+`answer.set` is built; if its real shapes differ I change the helpers, not the screens.
 
 ## Which key goes with which state (review screen, plan B9)
 

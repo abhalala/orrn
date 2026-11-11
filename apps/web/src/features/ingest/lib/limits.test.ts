@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  ACCEPT_FILES, BLOCKS_PER_CALL, chunk, clipCell, detectFileKind, fileSizeProblem, MAX_FILES, ROWS_PER_CALL,
+  ACCEPT_FILES, DEFAULT_LIMITS, BLOCKS_PER_CALL, chunk, clipCell, detectFileKind, fileSizeProblem, MAX_FILES, ROWS_PER_CALL,
   rowCountProblem, rowPages, takeFiles, totalRows,
 } from "./limits";
 
@@ -27,6 +27,16 @@ describe("file kinds", () => {
     expect(detectFileKind("a.sql")?.limitMb).toBe(100);
     expect(detectFileKind("a.pdf")?.limitMb).toBe(25);
     expect(detectFileKind("a.png")?.limitMb).toBe(10);
+  });
+  test("the default limits are the plan A9 numbers", () => {
+    expect(DEFAULT_LIMITS.filesPerUpload).toBe(20);
+    expect(DEFAULT_LIMITS.blocksPerFile).toBe(50);
+    expect(DEFAULT_LIMITS.columnsPerBlock).toBe(200);
+    expect(DEFAULT_LIMITS.rawRowsPerFile).toBe(200_000);
+    expect(DEFAULT_LIMITS.stagedRowsPerBlock).toBe(50_000);
+    expect(DEFAULT_LIMITS.openRowsPerPlant).toBe(300_000);
+    expect(DEFAULT_LIMITS.cellChars).toBe(200);
+    expect(DEFAULT_LIMITS.rowsPerPut).toBe(500);
   });
   test("accept string names every extension", () => {
     for (const ext of [".xlsx", ".csv", ".sql", ".pdf", ".jpg"]) expect(ACCEPT_FILES).toContain(ext);
