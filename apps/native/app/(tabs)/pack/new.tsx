@@ -9,7 +9,7 @@ import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Screen } from "@/components/ui/screen";
-import { ActionBar } from "@/features/dispatch/action-bar";
+import { PackReviewActionBar } from "@/features/pack/review-action-bar";
 import { BundlesStep } from "@/features/pack/bundles-step";
 import { DieStep } from "@/features/pack/die-step";
 import { DRAFT_VERSION, type PackDraft } from "@/features/pack/draft-store";
@@ -165,7 +165,7 @@ export default function NewPackSessionScreen() {
     } catch (error) {
       const text = packSaveText(t, error);
       feedback.error();
-      announce(`${text.title}. ${text.body}`);
+      announce(`${text.title}. ${text.body}`, { shownInLiveRegion: true });
       setProblem(text);
       // A refusal about the Source step sends the packer back to it.
       if (text.kind === "cast" || text.kind === "copy" || text.kind === "owned" || text.kind === "order" || text.kind === "pin" || text.kind === "retired") setStep(0);
@@ -295,7 +295,6 @@ export default function NewPackSessionScreen() {
                   source={summary}
                   bundles={bundles}
                   rejects={rejects}
-                  problem={problem}
                 />
               ) : null}
             </>
@@ -303,10 +302,7 @@ export default function NewPackSessionScreen() {
           </Can>
         </Screen>
         {step === 2 && die && defaultLengthMm !== null ? (
-          <ActionBar>
-            <Button size="lg" testID="pack-review-save" label={t("pack.new.saveOnly")} loading={create.isPending} loadingLabel={t("common.saving")} onPress={() => void save()} />
-            <Button variant="ghost" testID="pack-review-edit" label={t("native.pack.editBundles")} disabled={create.isPending} onPress={() => setStep(1)} />
-          </ActionBar>
+          <PackReviewActionBar saving={create.isPending} problem={problem} onSave={() => void save()} onBack={() => setStep(1)} />
         ) : null}
       </View>
     </>

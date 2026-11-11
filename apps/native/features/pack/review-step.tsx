@@ -30,7 +30,6 @@ export type ReviewStepProps = {
   source: SourceSummary;
   bundles: DraftBundle[];
   rejects: DraftReject[];
-  problem: SaveProblem | null;
 };
 
 function Fact({ label, value }: { label: string; value: string }) {
@@ -95,13 +94,6 @@ export function ReviewStep(p: ReviewStepProps) {
           </Text>
         ))}
       </View>
-
-      {p.problem ? (
-        <View accessibilityLiveRegion="polite" className="gap-1 rounded-card bg-tone-red-tint p-4">
-          <Text className="font-sans-semibold text-base text-tone-red-ink">{p.problem.title}</Text>
-          {p.problem.body ? <Text className="font-sans text-[15px] leading-6 text-tone-red-ink">{p.problem.body}</Text> : null}
-        </View>
-      ) : null}
 
       <View testID="pack-review-bottom-clearance" className="h-40" />
     </View>
