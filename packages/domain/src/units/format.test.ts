@@ -271,6 +271,24 @@ describe("dates and times", () => {
     expect(f.date(Number.NaN)).toBe("-");
     expect(formatterFor(ORRN_DEFAULT_PREFS, { locale: "en", timeZone: "Not/AZone" }).date(at)).toBe("-");
   });
+  test("the long date for a greeting follows the plant's order", () => {
+    const f = formatterFor(ORRN_DEFAULT_PREFS, IST);
+    expect(f.longDate(at)).toBe("Wednesday, 11 November");
+    expect(formatterFor(screenPrefs({ date: { order: "mdy" } }), IST).longDate(at)).toBe("Wednesday, November 11");
+    expect(formatterFor(screenPrefs({ date: { order: "dmy", month: "numeric" } }), IST).longDate(at)).toBe("Wednesday, 11/11");
+    expect(f.longDate(Number.NaN)).toBe("-");
+    expect(formatterFor(ORRN_DEFAULT_PREFS, { locale: "hi", timeZone: "Asia/Kolkata" }).longDate(at)).toMatch(/^\D+, 11 \D+$/);
+  });
+  test("in() keeps the plant's style and swaps the zone or the language", () => {
+    const f = formatterFor(screenPrefs({ date: { order: "mdy" }, clock: "h12" }), IST);
+    const ny = f.in({ timeZone: "America/New_York" });
+    expect(ny.date(at)).toBe("Nov 10, 2026");
+    expect(ny.time(at)).toBe("2:00 pm");
+    expect(f.in({})).toBe(f);
+    expect(f.in({ locale: "hi" }).zone).toBe("Asia/Kolkata");
+    expect(f.in({ locale: "hi" }).locale).toBe("hi");
+    expect(f.in({ locale: "hi" }).in({ locale: "en" })).toBe(f);
+  });
   test("the other languages give a month name but Latin digits", () => {
     const hi = formatterFor(ORRN_DEFAULT_PREFS, { locale: "hi", timeZone: "Asia/Kolkata" });
     expect(hi.date(at)).toMatch(/^11 \D+ 2026$/);

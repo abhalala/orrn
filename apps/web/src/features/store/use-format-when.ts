@@ -5,7 +5,7 @@ import { useCallback } from "react";
 
 import { useMe } from "@/shared/lib/me";
 
-import { DEFAULT_TIMEZONE, formatWhen } from "./format";
+import { DEFAULT_TIMEZONE } from "./format";
 
 /** The company's timezone from settings, else the plant default. */
 export function useCompanyTimeZone(): string {

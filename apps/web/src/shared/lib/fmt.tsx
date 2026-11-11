@@ -2,6 +2,8 @@ import { formatterFor, ORRN_DEFAULT_PREFS, type Fmt, type ResolvedPrefs } from "
 import { I18nVarsProvider, useT } from "@orrn/i18n";
 import { createContext, createElement, useContext, useMemo, type ReactNode } from "react";
 
+import { isValidZone } from "./plant-calendar";
+
 /**
  * The plant's units and formats for every screen (units layer, slice b).
  *
@@ -17,7 +19,8 @@ const FmtContext = createContext<FmtState>({ prefs: ORRN_DEFAULT_PREFS, timeZone
 
 export function FmtProvider({ prefs, timeZone, children }: { prefs?: ResolvedPrefs | null; timeZone?: string | null; children: ReactNode }) {
   const value = useMemo<FmtState>(
-    () => ({ prefs: prefs ?? ORRN_DEFAULT_PREFS, timeZone: timeZone || DEFAULT_PLANT_ZONE }),
+    // A zone `Intl` does not know would turn every date into a dash: the plant's default clock stands in.
+    () => ({ prefs: prefs ?? ORRN_DEFAULT_PREFS, timeZone: timeZone && isValidZone(timeZone) ? timeZone : DEFAULT_PLANT_ZONE }),
     [prefs, timeZone],
   );
   // The plant's unit words reach every t() call below: {massUnit}, {sectionUnit}, {lengthUnit}.

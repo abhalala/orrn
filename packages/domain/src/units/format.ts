@@ -162,21 +162,28 @@ function zoned(at: number, zone: string): { y: number; m: number; d: number; hh:
   }
 }
 
-function monthName(locale: FormatEnv["locale"], m: number): string {
-  const f = dtf(`m|${locale}`, () => new Intl.DateTimeFormat(LOCALE_TAG[locale], { timeZone: "UTC", month: "short" }));
-  return f.format(Date.UTC(2024, m - 1, 15));
+function monthName(locale: FormatEnv["locale"], m: number, width: "short" | "long" = "short"): string {
+  const f = dtf(`m${width}|${locale}`, () => new Intl.DateTimeFormat(LOCALE_TAG[locale], { timeZone: "UTC", month: width }));
+  const name = f.format(Date.UTC(2024, m - 1, 15));
+  // Some ICU builds write the English short September as "Sept"; the screens have always written "Sep".
+  return locale === "en" && width === "short" ? name.replace(/^Sept$/, "Sep") : name;
+}
+
+function weekdayName(locale: FormatEnv["locale"], y: number, m: number, d: number): string {
+  const f = dtf(`w|${locale}`, () => new Intl.DateTimeFormat(LOCALE_TAG[locale], { timeZone: "UTC", weekday: "long" }));
+  return f.format(Date.UTC(y, m - 1, d));
 }
 
 const p2 = (n: number) => String(n).padStart(2, "0");
 
-function assembleDate(prefs: ResolvedPrefs, env: FormatEnv, y: number, m: number, d: number, withYear: boolean): string {
+function assembleDate(prefs: ResolvedPrefs, env: FormatEnv, y: number, m: number, d: number, withYear: boolean, width: "short" | "long" = "short"): string {
   const { order, month } = prefs.date;
   if (month === "numeric") {
     if (order === "ymd") return withYear ? `${y}-${p2(m)}-${p2(d)}` : `${p2(m)}-${p2(d)}`;
     const [a, b] = order === "dmy" ? [p2(d), p2(m)] : [p2(m), p2(d)];
     return withYear ? `${a}/${b}/${y}` : `${a}/${b}`;
   }
-  const name = monthName(env.locale, m);
+  const name = monthName(env.locale, m, width);
   if (order === "dmy") return withYear ? `${d} ${name} ${y}` : `${d} ${name}`;
   if (order === "mdy") return withYear ? `${name} ${d}, ${y}` : `${name} ${d}`;
   return withYear ? `${y} ${name} ${d}` : `${name} ${d}`;
@@ -210,6 +217,13 @@ export type Fmt = {
   wholeMass(grams: number): string;
   /** A production day (no zone shift). `year` defaults to true. */
   day(ymd: string, opts?: { year?: boolean }): string;
+  /** "Saturday, 3 October": the weekday and the day with the month written in full, no year, in the plant's date order. */
+  longDate(at: number): string;
+  /**
+   * The same plant style on another clock or in another language: `in({ zone })` for a screen that reads a fixed zone,
+   * `in({ locale: "en" })` for a text that has always been English. Built once per pair, like `formatterFor`.
+   */
+  in(env: Partial<FormatEnv>): Fmt;
 };
 
 const memo = new Map<string, Fmt>();
@@ -319,6 +333,12 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
       if (!m) return EMPTY_TEXT;
       return assembleDate(prefs, env, Number(m[1]), Number(m[2]), Number(m[3]), opts.year !== false);
     },
+    longDate(at) {
+      const z = zoned(at, env.timeZone);
+      if (!z) return EMPTY_TEXT;
+      return `${weekdayName(env.locale, z.y, z.m, z.d)}, ${assembleDate(prefs, env, z.y, z.m, z.d, false, "long")}`;
+    },
+    in: (other) => formatterFor(prefs, { locale: other.locale ?? env.locale, timeZone: other.timeZone ?? env.timeZone }),
   };
 }
 

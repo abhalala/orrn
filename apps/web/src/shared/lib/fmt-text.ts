@@ -18,6 +18,8 @@
 import type { Fmt } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
 
+import { isValidZone, yearInZone as yearIn } from "./plant-calendar";
+
 /** `formatKg(kg)`: two decimals, Indian grouping (the old band wording). */
 const TWO_DECIMALS = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -60,20 +62,6 @@ export const lengthUnitText = (fmt: Fmt): string => {
 /** A weight with its unit, for a value that stands alone: "1,280.000 kg". Three decimals in kg, two in lb. */
 export const kgWithUnit = (fmt: Fmt, grams: number): string => fmt.q(MASS, grams, "screen");
 
-const yearCache = new Map<string, Intl.DateTimeFormat>();
-function yearIn(zone: string, at: number): string {
-  let f = yearCache.get(zone);
-  if (!f) {
-    try {
-      f = new Intl.DateTimeFormat("en", { year: "numeric", timeZone: zone });
-    } catch {
-      f = new Intl.DateTimeFormat("en", { year: "numeric" });
-    }
-    yearCache.set(zone, f);
-  }
-  return f.format(at);
-}
-
 /**
  * "3 Oct, 14:20", or "31 Dec 2025, 11:30" outside the current year (the stock, purchase and store "when"):
  * the plant's date order and clock, in the plant's zone. `now` is only for tests.
@@ -81,7 +69,7 @@ function yearIn(zone: string, at: number): string {
 export function whenText(fmt: Fmt, at: string | number | Date, now: number = Date.now()): string {
   const ms = at instanceof Date ? at.getTime() : typeof at === "number" ? at : new Date(at).getTime();
   if (!Number.isFinite(ms)) return "";
-  const sameYear = yearIn(fmt.zone, ms) === yearIn(fmt.zone, now);
+  const sameYear = yearIn(ms, fmt.zone) === yearIn(now, fmt.zone);
   return `${fmt.date(ms, { year: !sameYear })}, ${fmt.time(ms)}`;
 }
 
@@ -109,6 +97,73 @@ export function dayTimeText(fmt: Fmt, at: string | number | Date): string {
   const ms = at instanceof Date ? at.getTime() : typeof at === "number" ? at : new Date(at).getTime();
   if (!Number.isFinite(ms)) return "";
   return `${fmt.date(ms, { year: false })}${dateTimeJoiner(fmt.locale)}${fmt.time(ms)}`;
+}
+
+const msOf = (at: string | number | Date): number => (at instanceof Date ? at.getTime() : typeof at === "number" ? at : new Date(at).getTime());
+
+/**
+ * The plant's style on a fixed clock or in a fixed language: for the few screens that read their own zone
+ * (the die room reads IST) or have always written English month names. An unknown zone keeps the plant's own.
+ */
+export function pinned(fmt: Fmt, env: { zone?: string | null; locale?: Fmt["locale"] }): Fmt {
+  const zone = env.zone && isValidZone(env.zone) ? env.zone : undefined;
+  return fmt.in({ ...(zone ? { timeZone: zone } : {}), ...(env.locale ? { locale: env.locale } : {}) });
+}
+
+/** "24 Oct 2026": the calendar day of an instant on the plant clock, always with the year. Empty for a date that is not one. */
+export function dateText(fmt: Fmt, at: string | number | Date | null | undefined): string {
+  if (at === null || at === undefined || at === "") return "";
+  const ms = msOf(at);
+  return Number.isFinite(ms) ? fmt.date(ms) : "";
+}
+
+/** "14:05" or "2:05 pm": the time of an instant on the plant clock. Empty for a time that is not one. */
+export function clockText(fmt: Fmt, at: string | number | Date | null | undefined): string {
+  if (at === null || at === undefined || at === "") return "";
+  const ms = msOf(at);
+  return Number.isFinite(ms) ? fmt.time(ms) : "";
+}
+
+/** "24 Oct 21:00": day and time with a plain space, no year (the approvals' facts). */
+export function dayClockText(fmt: Fmt, at: string | number | Date): string {
+  const ms = msOf(at);
+  return `${fmt.date(ms, { year: false })} ${fmt.time(ms)}`;
+}
+
+/** "24 Oct 21:00 to 23:00", or both days when the stretch crosses midnight (the late-entry request). */
+export function windowText(fmt: Fmt, startedAt: number, stoppedAt: number): string {
+  const a = fmt.date(startedAt, { year: false });
+  const b = fmt.date(stoppedAt, { year: false });
+  return `${a} ${fmt.time(startedAt)} to ${a === b ? "" : `${b} `}${fmt.time(stoppedAt)}`;
+}
+
+/** "3 Oct 2026": a `YYYY-MM-DD` book date. Anything else comes back as given. */
+export function bookDateText(fmt: Fmt, ymd: string): string {
+  const t = fmt.day(ymd);
+  return t === "-" ? ymd : t;
+}
+
+/** A book date for lists: "4 Oct" inside the year of `today`, "30 Dec 2025" outside it. */
+export function bookDayText(fmt: Fmt, ymd: string, today: string): string {
+  const t = fmt.day(ymd, { year: ymd.slice(0, 4) !== today.slice(0, 4) });
+  return t === "-" ? ymd : t;
+}
+
+/**
+ * "3 Oct at 14:00" (English), "3 अक्तू, 14:00" (Hindi): an instant on the plant clock with the year only outside the
+ * plant's current year (purchase, approvals). `now` is only for tests.
+ */
+export function instantText(fmt: Fmt, at: string | number | Date, now: number = Date.now()): string {
+  const ms = msOf(at);
+  const sameYear = yearIn(ms, fmt.zone) === yearIn(now, fmt.zone);
+  return `${fmt.date(ms, { year: !sameYear })}${fmt.locale === "hi" ? ", " : " at "}${fmt.time(ms)}`;
+}
+
+/** A ship day from the server's `shipDay.ymd`: "4 Oct", with the year outside the current year (UTC, as it always was). */
+export function shipDayText(fmt: Fmt, ymd: string | null | undefined, now: Date = new Date()): string | null {
+  if (!ymd) return null;
+  const t = fmt.day(ymd, { year: ymd.slice(0, 4) !== String(now.getUTCFullYear()) });
+  return t === "-" ? null : t;
 }
 
 /** "25 Oct": a calendar day with no year and no zone shift. */

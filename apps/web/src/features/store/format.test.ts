@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatWhen } from "./format";
+import { formatWhen } from "../../../test-support/legacy/store-format";
 
 // 4 Oct 2026, 09:30 in the plant (IST).
 const NOW = Date.parse("2026-10-04T04:00:00Z");

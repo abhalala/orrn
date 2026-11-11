@@ -14,7 +14,8 @@ import { kgText as reportsKgText, kgWholeText, rupeeText as reportsRupeeText } f
 import { measurementText } from "@/features/dies/die-display";
 import { formatBand, kgPerMetreText, wallMmText } from "@/features/die-room/die-room-model";
 import { formatQty } from "@/features/store/store-qty";
-import { formatKgBand, formatWhen } from "@/features/stock/format";
+import { formatKgBand } from "@/features/stock/format";
+import { formatWhen } from "../../../test-support/legacy/stock-format";
 import { kg12Text } from "@/features/pack/line-preview";
 import { formatRupees } from "@/features/today/today-model";
 
