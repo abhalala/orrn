@@ -21,3 +21,6 @@ export {
   uploadOneFile, ticketUrl, gzipJsonl, problemFromError, UploadPutError,
   type UploadItem, type UploadStep, type UploadReader, type UploadClientDeps,
 } from "./upload";
+export * from "./recipe-builder";
+export * from "./errors";
+export * from "./refusals";
