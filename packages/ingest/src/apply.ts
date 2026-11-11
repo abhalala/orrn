@@ -79,7 +79,24 @@ export type CompiledRecipe = {
   periodAsOf: string | null;
 };
 
-const TOTAL = /^(grand\s+)?total\b/i;
+const TOTAL = /^(?:grand\s+|sub[\s-]?)?total\b/i;
+
+/** Fields that hold a party or record name: a real name may start with "Total". */
+const NAME_RESOLVERS = new Set(["customer_by_name", "vendor_by_name"]);
+const isNameField = (p: FieldPlan) => p.def !== undefined && (NAME_RESOLVERS.has(p.def.resolver ?? "") || p.def.name === "name" || p.def.name === "alias");
+
+/**
+ * Is this a total row (C26)? The first non-blank cell starts with Total, Grand total or Sub total. When that cell
+ * sits in a name column, the row is a total only if every other text column the recipe reads is blank: "Total
+ * Interiors | Rajkot" is a customer.
+ */
+function isTotalRow(c: CompiledRecipe, row: readonly string[]): boolean {
+  const at = row.findIndex((x) => x.trim() !== "");
+  if (at === -1 || !TOTAL.test(row[at]!.trim())) return false;
+  const plan = c.plans.find((p) => p.cols.includes(at));
+  if (!plan || !isNameField(plan)) return true;
+  return c.plans.every((p) => p === plan || p.def?.kind !== "text" || p.cols.every((col) => (row[col] ?? "").trim() === ""));
+}
 
 export function compileRecipe(recipe: Recipe, opts: ApplyOptions = {}): CompiledRecipe {
   const target = TARGETS[recipe.target];
@@ -123,7 +140,7 @@ export function applyRow(c: CompiledRecipe, row: readonly string[], rowIndex: nu
   const firstCell = row.find((x) => x.trim() !== "");
   if (firstCell === undefined) return emptyRow(rowIndex, "blank");
 
-  if (TOTAL.test(firstCell.trim())) {
+  if (isTotalRow(c, row)) {
     const out = emptyRow(rowIndex, "refused");
     out.refusals.push({ field: null, code: "total_row" });
     return out;

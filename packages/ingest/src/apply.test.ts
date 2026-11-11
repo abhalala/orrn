@@ -224,3 +224,33 @@ describe("C24: the entered text is the cell as the file had it", () => {
     expect(r.entered.weightMinG).toEqual({ text: "2.2-2.4", unit: "kg/12ft" });
   });
 });
+
+describe("C26: total rows", () => {
+  const customers: Recipe = {
+    schemaVersion: 1,
+    target: "customers",
+    headerRow: 0,
+    headerRows: 1,
+    match: { headerKey: "", headers: [] },
+    fields: [
+      { field: "name", source: { kind: "columns", cols: [{ col: 0, header: "Name" }] }, steps: [{ op: "trim" }] },
+      { field: "city", source: { kind: "columns", cols: [{ col: 1, header: "City" }] }, steps: [{ op: "trim" }] },
+    ],
+    filters: [],
+    keys: [],
+    onExisting: "ask",
+    unclear: [],
+  };
+
+  test("a party named 'Total Interiors' with a city is a real row", () => {
+    const r = applyRecipe(customers, [["Total Interiors", "Rajkot"]])[0]!;
+    expect(r.state).toBe("ok");
+    expect(r.values.name).toBe("Total Interiors");
+  });
+
+  test("'Sub Total' in a baki sheet is a total row", () => {
+    const r = applyRecipe(EXAMPLE_BAKI_RECIPE, [["", "Sub Total", "", "", "", "", "7600", "1200", "6400", "", ""]], { units: { rate: "inr/kg" } })[0]!;
+    expect(r.state).toBe("refused");
+    expect(r.refusals).toEqual([{ field: null, code: "total_row" }]);
+  });
+});
