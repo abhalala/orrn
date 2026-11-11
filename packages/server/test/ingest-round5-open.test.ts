@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { approve, layout, learnLayout, mergeOnce, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+import { approve, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -179,5 +179,53 @@ describe("S4-1 and rule 4.2: a PO joins the numbered order that carries it, acro
     expect(rows.map((r) => r.state)).toEqual(["conflict"]);
     expect(rows[0]!.reasons).toContain("po_on_live_order:poNumber");
     expect(rows[0]!.reasons).not.toContain("order_line_new");
+  });
+});
+
+describe("S4-4 and rule 4.3: approve waits only on a sheet that may matter, and names it", () => {
+  async function bookPlant() {
+    const p = await plant(env);
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    await learnLayout(env, p.companyId, p.users.owner.id, dieLayout(), "Dies");
+    await learnLayout(env, p.companyId, p.users.owner.id, orderLayout(), "Orders");
+    return p;
+  }
+  const BOOK_ROWS = [
+    ["Acme Traders", "PO-1", "01/10/2025", "R", "5100", "3658", "", "300"],
+    // A typo: letter O for zero. No die sheet anywhere holds 51OO.
+    ["Acme Traders", "PO-1", "01/10/2025", "R", "51OO", "3658", "", "300"],
+  ];
+
+  test("T6: an unread die sheet of another upload that does not hold the code never blocks the order book", async () => {
+    const p = await bookPlant();
+    await upload(p.owner, [{ name: "Old dies", headers: DIE_HEADERS, rows: [["R", "7000", "2.0", "2.4"]] }], "old-dies.xlsx");
+    const O = await upload(p.owner, [{ name: "Book", headers: ORDER_HEADERS, rows: BOOK_ROWS }], "book.xlsx");
+    const o = O.candidates[0]!.id;
+    await pump(p.owner, o);
+    expect((await rowsOf(p.owner, o)).map((r) => r.state)).toEqual(["ready_create", "refused"]);
+    expect(await tryApprove(p.owner, o)).toBe("approved");
+  });
+
+  test("an unread die sheet of another upload whose rows hold the code blocks, naming its file and sheet", async () => {
+    const p = await bookPlant();
+    await upload(p.owner, [{ name: "Old dies", headers: DIE_HEADERS, rows: [["R", "51OO", "2.0", "2.4"]] }], "old-dies.xlsx");
+    const O = await upload(p.owner, [{ name: "Book", headers: ORDER_HEADERS, rows: BOOK_ROWS }], "book.xlsx");
+    const o = O.candidates[0]!.id;
+    await pump(p.owner, o);
+    expect(await tryApprove(p.owner, o)).toBe(
+      "REFUSED: old-dies.xlsx (Old dies) is still being checked and may add section 51OO. Finish it or discard it, then check this sheet again.",
+    );
+  });
+
+  test("an unread die sheet of the same upload blocks, naming it", async () => {
+    const p = await bookPlant();
+    const { candidates } = await upload(p.owner, [
+      { name: "Dies", headers: DIE_HEADERS, rows: [["R", "7000", "2.0", "2.4"]] },
+      { name: "Book", headers: ORDER_HEADERS, rows: BOOK_ROWS },
+    ]);
+    const o = candidates[1]!.id;
+    await pump(p.owner, o);
+    expect(await tryApprove(p.owner, o)).toBe("REFUSED: book.xlsx (Dies) of this upload is still being checked. Finish it first, then check this sheet again.");
   });
 });

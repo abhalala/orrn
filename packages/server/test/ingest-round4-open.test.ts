@@ -160,7 +160,8 @@ describe("S3-4: an order book approved while its die sheet waits on an answer", 
     expect(dc.questions.some((q) => q.code === "magnitude_check" && q.open)).toBe(true);
     await pump(p.owner, book);
     expect((await rowsOf(p.owner, book)).map((r) => r.state)).toEqual(["refused", "refused"]);
-    expect(await tryApprove(p.owner, book)).toBe("REFUSED: A die sheet of this plant that is still being checked adds section 9100. Finish it first, then check this sheet again.");
+    // Rule 4.3: the words name the file and sheet the order book waits on.
+    expect(await tryApprove(p.owner, book)).toBe("REFUSED: book.xlsx (Dies) adds section 9100 and is still being checked. Finish it first, then check this sheet again.");
     for (const q of dc.questions.filter((x) => x.open)) {
       dc = await p.owner.ingest.candidate.get({ candidateId: dies });
       await p.owner.ingest.answer.set({ candidateId: dies, questionCode: q.code, subject: q.subject, answer: "kg/ft", expectSeq: dc.serverSeq });
@@ -232,6 +233,7 @@ describe("S3-7: an aliases sheet may use a customer a customers sheet of the sam
     const [al] = [candidates[0]!.id];
     await pump(p.owner, al);
     // The customers sheet is not checked yet: its names are not known, so the aliases sheet waits.
-    expect(await tryApprove(p.owner, al)).toBe("REFUSED: A customers sheet of this plant is still being checked. Finish it first, then check this sheet again.");
+    // Rule 4.3: the words name the file and sheet the aliases sheet waits on.
+    expect(await tryApprove(p.owner, al)).toBe("REFUSED: book.xlsx (Parties) of this upload is still being checked. Finish it first, then check this sheet again.");
   });
 });

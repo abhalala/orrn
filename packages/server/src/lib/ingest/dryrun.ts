@@ -34,6 +34,8 @@ import { and, asc, eq, gte, inArray, isNull, notInArray, or, sql, type SQL } fro
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
   ingestAnswer,
+  ingestArtifact,
+  ingestBlock,
   ingestCandidate,
   ingestStagedRow,
   type IngestTarget,
@@ -61,6 +63,7 @@ import {
 } from "./merge/rowchecks";
 import { companyFloor } from "../orderLines";
 import {
+  fileAndSheet,
   groupFyOf,
   liveOrderKey,
   liveOrdersOf,
@@ -403,13 +406,13 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
  * pointing at one of them (`pending:<rowKey>`) finds the new section at chunk time; if that die sheet
  * is not merged first, the merge holds the row's candidate (dependency_held) instead of writing it.
  */
-async function loadPendingSections(ctx: IngestCtx, codes: readonly string[]): Promise<{ rowKey: string; series: string; code: string }[]> {
+async function loadPendingSections(ctx: IngestCtx, codes: readonly string[]): Promise<{ rowKey: string; series: string; code: string; candidateId: string }[]> {
   if (codes.length === 0) return [];
   const V = ingestStagedRow.values;
   const code = sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))`;
   const rows = await mapInChunks([...codes], (part) =>
     ctx.db
-      .select({ rowKey: ingestStagedRow.rowKey, series: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.series'), '')))`, code })
+      .select({ rowKey: ingestStagedRow.rowKey, series: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.series'), '')))`, code, candidateId: ingestStagedRow.candidateId })
       .from(ingestStagedRow)
       .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
       .where(
@@ -552,34 +555,63 @@ export async function dependentsAgain(ctx: IngestCtx, madeBy: Pick<CandidateRow,
     );
 }
 
+/** A sheet another sheet waits on, named as the words name it: "old-dies.xlsx (Old dies)". */
+async function sheetName(ctx: IngestCtx, candidateId: string): Promise<string> {
+  const [hit] = await ctx.db
+    .select({ fileName: ingestArtifact.fileName, sheetName: ingestBlock.sheetName })
+    .from(ingestCandidate)
+    .innerJoin(ingestArtifact, eq(ingestArtifact.id, ingestCandidate.artifactId))
+    .innerJoin(ingestBlock, eq(ingestBlock.id, ingestCandidate.blockId))
+    .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId)))
+    .limit(1);
+  return hit ? fileAndSheet(hit) : "Another sheet";
+}
+
 /**
- * Rule 2, at approve: the words when a row was refused for a section that is now in orrn, or that a
- * ready or approved die sheet of the plant adds. Null when the refusals still stand.
+ * Rule 2 and 4.3, at approve: the words when a row was refused for a section that is now in orrn or
+ * in a die sheet, or that a die sheet still being checked holds or may hold. Null when the
+ * refusals still stand. A sheet is waited on only when it is of the same upload, or holds one of
+ * the refused codes, or has rows not read yet that may hold one. An unrelated or abandoned sheet
+ * elsewhere in the plant never blocks. Every refusal names the file and sheet it waits on.
  */
-export async function staleRefusal(ctx: IngestCtx, candidateId: string, target: IngestTarget): Promise<string | null> {
-  if (target === "customer_aliases") return staleCustomerRefusal(ctx, candidateId);
+export async function staleRefusal(ctx: IngestCtx, candidateId: string, target: IngestTarget, artifactId: string): Promise<string | null> {
+  if (target === "customer_aliases") return staleCustomerRefusal(ctx, candidateId, artifactId);
   const rows = await sectionUnknownRows(ctx, [candidateId]);
   const codes = [...new Set(rows.map((r) => r.code).filter(Boolean))];
   if (codes.length === 0) return null;
   const live = await loadSections(ctx, codes);
   const known = new Set(live.map((x) => x.sectionCode.trim().toUpperCase()));
-  const pending = await loadPendingSections(ctx, codes.filter((k) => !known.has(k)));
-  const hit = codes.find((k) => known.has(k) || pending.some((x) => x.code === k));
-  if (hit) return `Check this sheet again: section ${hit} is now in orrn or in a die sheet of this plant, so rows refused for it may import now.`;
+  const inOrrn = codes.find((k) => known.has(k));
+  if (inOrrn) return `Check this sheet again: section ${inOrrn} is now in orrn, so rows refused for it may import now.`;
+  const pending = await loadPendingSections(ctx, codes);
+  const inSheet = pending.find((x) => codes.includes(x.code));
+  if (inSheet) return `Check this sheet again: section ${inSheet.code} is in ${await sheetName(ctx, inSheet.candidateId)}, so rows refused for it may import now.`;
   // A die sheet that adds the section but is not done yet: a row waiting on an answer, a sheet still
   // being checked, or one held. Approving now would drop these rows for good (S3-4).
-  const waiting = await unfinishedDieSections(ctx, codes.filter((k) => !known.has(k)));
-  if (waiting) return `A die sheet of this plant that is still being checked adds section ${waiting}. Finish it first, then check this sheet again.`;
-  return (await sheetStillReading(ctx, "dies")) ? "A die sheet of this plant is still being checked. Finish it first, then check this sheet again." : null;
+  const waiting = await unfinishedDieSections(ctx, codes);
+  if (waiting) return `${await sheetName(ctx, waiting.candidateId)} adds section ${waiting.code} and is still being checked. Finish it first, then check this sheet again.`;
+  const unread = await sheetStillReading(ctx, "dies", artifactId, codes);
+  return unread ? unreadWords(unread, `section ${unread.key ?? codes[0]}`) : null;
+}
+
+type Unread = { name: string; sameUpload: boolean; key: string | null };
+
+function unreadWords(u: Unread, thing: string): string {
+  return u.sameUpload
+    ? `${u.name} of this upload is still being checked. Finish it first, then check this sheet again.`
+    : `${u.name} is still being checked and may add ${thing}. Finish it or discard it, then check this sheet again.`;
 }
 
 /**
- * Whether a sheet of this target in the plant has not finished its dry run, so its rows cannot be
- * looked at by name or code yet. The derived new customers list of an order book is left out.
+ * A sheet of this target whose dry run has not finished, so its rows cannot be looked at by name or
+ * code yet (rule 4.3): one of the same upload, or one of another upload whose rows not read yet
+ * hold one of `texts` somewhere in their cells (it may add that thing). Any other sheet does not
+ * count, so an unrelated or abandoned sheet never blocks. The derived new customers list of an
+ * order book is left out. Rows not read are those from the dry run cursor on.
  */
-async function sheetStillReading(ctx: IngestCtx, target: "dies" | "customers"): Promise<boolean> {
-  const [hit] = await ctx.db
-    .select({ id: ingestCandidate.id })
+async function sheetStillReading(ctx: IngestCtx, target: "dies" | "customers", artifactId: string, texts: readonly string[]): Promise<Unread | null> {
+  const open = await ctx.db
+    .select({ id: ingestCandidate.id, artifactId: ingestCandidate.artifactId, dryCursor: ingestCandidate.dryCursor, state: ingestCandidate.state })
     .from(ingestCandidate)
     .where(
       and(
@@ -589,29 +621,62 @@ async function sheetStillReading(ctx: IngestCtx, target: "dies" | "customers"): 
         isNull(ingestCandidate.parentId),
       ),
     )
-    .limit(1);
-  return !!hit;
+    .orderBy(asc(ingestCandidate.createdAt));
+  const same = open.find((o) => o.artifactId === artifactId);
+  if (same) return { name: await sheetName(ctx, same.id), sameUpload: true, key: null };
+  const words = [...new Set(texts.map((t) => t.trim()).filter(Boolean))];
+  for (const o of open) {
+    const from = o.state === "processing" ? o.dryCursor : 0;
+    for (const part of chunk(words, 40)) {
+      const [hit] = await ctx.db
+        .select({ raw: sql<string>`${ingestStagedRow.raw}` })
+        .from(ingestStagedRow)
+        .where(
+          and(
+            eq(ingestStagedRow.candidateId, o.id),
+            gte(ingestStagedRow.rowIndex, from),
+            or(...part.map((w) => sql`${ingestStagedRow.raw} like ${`%${w.replace(/[%_]/g, "")}%`}`)),
+          ),
+        )
+        .limit(1);
+      if (hit) {
+        const raw = String(hit.raw).toUpperCase();
+        return { name: await sheetName(ctx, o.id), sameUpload: false, key: part.find((w) => raw.includes(w.toUpperCase())) ?? null };
+      }
+    }
+  }
+  return null;
 }
 
 /**
- * Rule 2 for customers, at approve (S3-7): an alias row refused because its customer was not found,
- * when that customer is now in orrn or in a ready or approved customers sheet ("Check this sheet
- * again"), or is on a row of a customers sheet that is not done yet, or such a sheet is still being
- * checked ("Finish it first").
+ * Rule 2 and 4.3 for customers, at approve (S3-7): an alias row refused because its customer was
+ * not found, when that customer is now in orrn or in a ready or approved customers sheet ("Check
+ * this sheet again"), or is on a row of a customers sheet that is not done yet, or a customers sheet
+ * of the same upload is still being checked, or one of another upload may hold the name ("Finish
+ * it first"). Each refusal names the file and sheet.
  */
-async function staleCustomerRefusal(ctx: IngestCtx, candidateId: string): Promise<string | null> {
+async function staleCustomerRefusal(ctx: IngestCtx, candidateId: string, artifactId: string): Promise<string | null> {
   const rows = await customerNotFoundRows(ctx, [candidateId]);
   const keys = [...new Set(rows.map((r) => r.key).filter(Boolean))];
   if (keys.length === 0) return null;
   const nameOf = (k: string) => str(rows.find((r) => r.key === k)?.name).trim();
   const live = new Set((await liveCustomersByKey(ctx, keys)).map((c) => c.key));
-  const pending = await loadPendingCustomers(ctx, keys.filter((k) => !live.has(k)));
-  const hit = keys.find((k) => live.has(k) || pending.has(k));
-  if (hit) return `Check this sheet again: ${nameOf(hit)} is now in orrn or in a customers sheet of this plant, so rows refused for it may import now.`;
-  const open = keys.filter((k) => !live.has(k));
-  const waiting = await mapInChunks(open, (part) =>
+  const inOrrn = keys.find((k) => live.has(k));
+  if (inOrrn) return `Check this sheet again: ${nameOf(inOrrn)} is now in orrn, so rows refused for it may import now.`;
+  const pending = await loadPendingCustomers(ctx, keys);
+  const inSheet = keys.find((k) => pending.has(k));
+  if (inSheet) {
+    const [owner] = await ctx.db
+      .select({ candidateId: ingestStagedRow.candidateId })
+      .from(ingestStagedRow)
+      .where(and(eq(ingestStagedRow.companyId, ctx.companyId), eq(ingestStagedRow.rowKey, pending.get(inSheet)!)))
+      .limit(1);
+    const where = owner ? await sheetName(ctx, owner.candidateId) : "a customers sheet of this plant";
+    return `Check this sheet again: ${nameOf(inSheet)} is in ${where}, so rows refused for it may import now.`;
+  }
+  const waiting = await mapInChunks(keys, (part) =>
     ctx.db
-      .select({ key: ingestStagedRow.nameKey })
+      .select({ key: ingestStagedRow.nameKey, candidateId: ingestStagedRow.candidateId })
       .from(ingestStagedRow)
       .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
       .where(
@@ -626,8 +691,9 @@ async function staleCustomerRefusal(ctx: IngestCtx, candidateId: string): Promis
       )
       .limit(1),
   );
-  if (waiting[0]?.key) return `A customers sheet of this plant that is still being checked adds ${nameOf(waiting[0].key)}. Finish it first, then check this sheet again.`;
-  return (await sheetStillReading(ctx, "customers")) ? "A customers sheet of this plant is still being checked. Finish it first, then check this sheet again." : null;
+  if (waiting[0]?.key) return `${await sheetName(ctx, waiting[0].candidateId)} adds ${nameOf(waiting[0].key)} and is still being checked. Finish it first, then check this sheet again.`;
+  const unread = await sheetStillReading(ctx, "customers", artifactId, keys.map(nameOf));
+  return unread ? unreadWords(unread, unread.key ?? nameOf(keys[0]!)) : null;
 }
 
 /**
@@ -635,13 +701,13 @@ async function staleCustomerRefusal(ctx: IngestCtx, candidateId: string): Promis
  * has on a row that is not refused or skipped and is not yet a ready row of a ready or approved
  * sheet (those are `loadPendingSections`). Read by section code, 90 a statement.
  */
-async function unfinishedDieSections(ctx: IngestCtx, codes: readonly string[]): Promise<string | null> {
+async function unfinishedDieSections(ctx: IngestCtx, codes: readonly string[]): Promise<{ code: string; candidateId: string } | null> {
   if (codes.length === 0) return null;
   const V = ingestStagedRow.values;
   const code = sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))`;
   const rows = await mapInChunks([...codes], (part) =>
     ctx.db
-      .select({ code })
+      .select({ code, candidateId: ingestStagedRow.candidateId })
       .from(ingestStagedRow)
       .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
       .where(
@@ -656,7 +722,7 @@ async function unfinishedDieSections(ctx: IngestCtx, codes: readonly string[]): 
       )
       .limit(1),
   );
-  return rows[0]?.code ?? null;
+  return rows[0] ? { code: rows[0].code, candidateId: rows[0].candidateId } : null;
 }
 
 type ClassifyCtx = {

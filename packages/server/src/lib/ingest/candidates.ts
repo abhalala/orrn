@@ -1034,7 +1034,7 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   }
   // Refusals that are out of date (rule 2): a section or customer a row was refused for exists now.
   if (c.target === "orders" || c.target === "die_copies" || c.target === "customer_aliases") {
-    const stale = await staleRefusal(ctx, c.id, c.target);
+    const stale = await staleRefusal(ctx, c.id, c.target, c.artifactId);
     if (stale) throw new TRPCError({ code: "PRECONDITION_FAILED", message: stale });
   }
   // An orders sheet the planner cannot read in one step is refused here with the planner's words.
