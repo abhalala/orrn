@@ -23,7 +23,8 @@ import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isForbidden } from "./errors";
-import { bookDayText, slashBreaks } from "./format";
+import { bookDayText } from "@/shared/lib/fmt-text";
+import { slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
 import { LOT_FILTERS, isLotFilter, type LotFilter } from "./lot-filter";
@@ -51,7 +52,7 @@ type LotRow = {
 };
 
 export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: LotFilter): void }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const tolBp = useToleranceBp();
   const today = useCompanyToday();
@@ -91,7 +92,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
       cell: (l) => (
         <span className="flex flex-col">
           <span className="font-mono whitespace-nowrap">{l.number}</span>
-          <span className="text-[13px] font-normal whitespace-nowrap text-muted-foreground">{bookDayText(l.lotDate, locale, today)}</span>
+          <span className="text-[13px] font-normal whitespace-nowrap text-muted-foreground">{bookDayText(fmt, l.lotDate, today)}</span>
         </span>
       ),
     },

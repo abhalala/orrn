@@ -30,7 +30,8 @@ import { Can } from "@/shared/components/can";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { saveMayHaveLanded } from "./errors";
-import { bookDateText, pctText, slashBreaks } from "./format";
+import { bookDateText } from "@/shared/lib/fmt-text";
+import { pctText, slashBreaks } from "./format";
 import { kgTextToG, readKanta, type KantaReading } from "./kanta";
 import {
   BILL_BOOKS,
@@ -836,7 +837,7 @@ function Summary({
         ] as [string, ReactNode][])
       : []),
     [t("purchase.detail.billBook"), t(`purchase.billBooks.${draft.billBook}`)],
-    [t("purchase.new.date"), draft.date ? bookDateText(draft.date, locale) : none],
+    [t("purchase.new.date"), draft.date ? bookDateText(fmt, draft.date) : none],
   ];
   return (
     <section className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4">

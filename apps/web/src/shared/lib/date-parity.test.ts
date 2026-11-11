@@ -12,7 +12,12 @@ import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { windowWords } from "@/features/orders/view";
 
-import { dflt, IST_ZONE } from "../../../test-support/date-seeds";
+import * as oldPurchase from "../../../test-support/legacy/purchase-format";
+import { dflt, IST_ZONE, instants, NOW, ymdOf } from "../../../test-support/date-seeds";
+import { bookDateText, bookDayText, instantText } from "./fmt-text";
+
+const SEEDS = instants(7, 2000);
+const LOCALES = ["en", "hi"] as const;
 
 describe("orders plan window", () => {
   test("the window words take the plant's clock when the screen hands its formatter, and the 24 hour text without one", () => {
@@ -25,5 +30,31 @@ describe("orders plan window", () => {
     const twelve = formatterFor(screenPrefs({ clock: "h12" }), { locale: "en", timeZone: IST_ZONE });
     expect(windowWords(start, end, IST_ZONE, day, twelve).from.time).toBe("8:00 am");
     expect(windowWords(start, end, IST_ZONE, day, twelve).to).toMatchObject({ day: "tomorrow", time: "8:00 am", date: "2026-10-26" });
+  });
+});
+
+describe("purchase book dates and instants", () => {
+  test("bookDateText: '3 Oct 2026' in English and Hindi", () => {
+    for (const loc of LOCALES) for (const at of SEEDS) expect(bookDateText(dflt(loc), ymdOf(at))).toBe(oldPurchase.bookDateText(ymdOf(at), loc));
+    expect(bookDateText(dflt(), "soon")).toBe("soon");
+  });
+  test("bookDayText: no year inside the year of today, the year outside it", () => {
+    for (const loc of LOCALES) {
+      for (const at of SEEDS) {
+        for (const today of ["2026-10-04", "2025-01-02", "2024-12-31"]) {
+          expect(bookDayText(dflt(loc), ymdOf(at), today)).toBe(oldPurchase.bookDayText(ymdOf(at), loc, today));
+        }
+      }
+    }
+    expect(bookDayText(dflt(), "soon", "2026-10-04")).toBe("soon");
+  });
+  test("instantText: '3 Oct at 14:00', 'at' in English and a comma in Hindi, the year outside the plant's year", () => {
+    for (const loc of LOCALES) {
+      for (const zone of [IST_ZONE, "America/New_York", "UTC"]) {
+        for (const at of SEEDS) {
+          expect(instantText(dflt(loc, zone), at, NOW)).toBe(oldPurchase.instantDateText(at, loc, zone, NOW));
+        }
+      }
+    }
   });
 });

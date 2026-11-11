@@ -27,7 +27,8 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { APPROVAL_TONE } from "../approvals/approval-view";
 import { isForbidden, isStaleRefusal } from "./errors";
-import { bookDateText, pctText, slashBreaks } from "./format";
+import { bookDateText } from "@/shared/lib/fmt-text";
+import { pctText, slashBreaks } from "./format";
 import { readKantaG, type KantaReading } from "./kanta";
 import { CancelLotDialog, NoteSheet, StoreSheet, WeightsSheet, useInvalidatePurchase } from "./lot-sheets";
 import { useLotPerms } from "./lot-ui";
@@ -86,7 +87,7 @@ type LotData = inferRouterOutputs<AppRouter>["purchase"]["lots"]["get"];
 
 function LotDetail({ data }: { data: LotData }) {
   const fmt = useFmt();
-  const { t, locale } = useT();
+  const { t } = useT();
   const perms = useLotPerms();
   const invalidate = useInvalidatePurchase();
   const queryClient = useQueryClient();
@@ -263,7 +264,7 @@ function LotDetail({ data }: { data: LotData }) {
     <>
       <PageHeader
         title={lot.number}
-        subtitle={bookDateText(lot.lotDate, locale)}
+        subtitle={bookDateText(fmt, lot.lotDate)}
         back={{ to: "/purchase", label: t("purchase.title") }}
         actions={<HowToButton slug="weigh-scrap-lot" />}
       />
@@ -452,7 +453,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 
 function FactsCard({ data }: { data: LotData }) {
   const fmt = useFmt();
-  const { t, locale } = useT();
+  const { t } = useT();
   const { lot } = data;
   const notSet = t("purchase.detail.notSet");
   const rows: [string, ReactNode, boolean?][] = [
@@ -471,7 +472,7 @@ function FactsCard({ data }: { data: LotData }) {
     [t("purchase.detail.vehicleNo"), lot.vehicleNo || notSet, Boolean(lot.vehicleNo)],
     [t("purchase.detail.origin"), lot.origin || notSet],
     [t("purchase.detail.dross"), lot.drossBp === null ? notSet : pctText(lot.drossBp), lot.drossBp !== null],
-    [t("purchase.detail.date"), bookDateText(lot.lotDate, locale)],
+    [t("purchase.detail.date"), bookDateText(fmt, lot.lotDate)],
   ];
   return (
     <Card title={t("purchase.detail.facts")}>
