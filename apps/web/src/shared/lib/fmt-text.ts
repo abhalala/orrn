@@ -200,8 +200,13 @@ export const dayOf = dayText;
  */
 export const paperT = (t: Translate): Translate => (key, vars) => t(key, { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm", ...vars });
 
-/** Wall thickness from tenths of a mm, with its unit word ("1.2 mm"). */
-export const wallWithUnit = (fmt: Fmt, tenthMm: number, withUnit = true): string => fmt.wall(tenthMm, withUnit);
+/**
+ * Wall thickness from tenths of a mm, with its unit word ("1.2 mm"). A die wall is a small dimension that every plant,
+ * feet and inches ones too (the legacy inch plants), has always read in mm, so a feet and inches plant keeps "1.2 mm";
+ * a plant on metres follows its length unit.
+ */
+export const wallWithUnit = (fmt: Fmt, tenthMm: number, withUnit = true): string =>
+  fmt.unitOf("length").composite ? `${(tenthMm / 10).toFixed(1)}${withUnit ? " mm" : ""}` : fmt.wall(tenthMm, withUnit);
 /** A die width, thickness or leg as the die screens write it. */
 export const geometryWithUnit = (fmt: Fmt, mm: number): string => fmt.geometry(mm);
 /** The second section weight beside the first (kg per metre beside kg per 12 ft). */

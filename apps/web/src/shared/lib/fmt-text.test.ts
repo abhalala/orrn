@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { formatKg, formatKgTotal, formatterFor, gToKg, kgPerMetre, screenPrefs } from "@orrn/domain";
+import { formatKg, formatKgTotal, formatterFor, gToKg, kgPerMetre, readUnitSettings, screenPrefs } from "@orrn/domain";
 
 import { kgText as dieKgText } from "@/features/dies/die-model";
 import { kgGroupedText, milliKgText } from "@/features/die-room/die-room-model";
@@ -13,7 +13,7 @@ import { kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText as o
 import { kgText as purchaseKgText } from "@/features/purchase/format";
 import { kgText as reportsKgText, kgWholeText, rupeeText as reportsRupeeText } from "@/features/reports/model";
 import { measurementText } from "@/features/dies/die-display";
-import { formatBand, kgPerMetreText, wallMmText } from "@/features/die-room/die-room-model";
+import { bandTitle, formatBand, kgPerMetreText, wallMmText } from "@/features/die-room/die-room-model";
 import { formatQty } from "@/features/store/store-qty";
 import { formatKgBand } from "@/features/stock/format";
 import { formatWhen } from "../../../test-support/legacy/stock-format";
@@ -232,6 +232,27 @@ describe("more shapes under the default set", () => {
       const mm = Math.floor(r() * 6000) / (i % 2 ? 10 : 1);
       expect(geometryWithUnit(fmt, mm)).toBe(measurementText(mm, "mm", { mm: "mm", inch: "in" }));
     }
+  });
+  // A die wall is a small dimension: it stays in mm for a plant on feet and inches, the legacy inch plants included (they read
+  // "1.2 mm" before the units layer). Only the cut length and the die measures follow feet and inches.
+  test("a feet and inches plant, legacy or chosen, still reads a die wall in mm, character for character", () => {
+    const legacy = formatterFor(screenPrefs(readUnitSettings({ lengthUnit: "inch" })), IST);
+    const chosen = formatterFor(screenPrefs({ units: { length: "ft_in" } }), IST);
+    const r = mulberry(21);
+    for (let i = 0; i < N; i++) {
+      const tenth = 1 + Math.floor(r() * 400);
+      for (const f of [legacy, chosen]) {
+        expect(wallWithUnit(f, tenth)).toBe(`${wallMmText(tenth)} mm`);
+        expect(wallWithUnit(f, tenth, false)).toBe(wallMmText(tenth));
+        expect(bandTitle({ wallTenthMm: tenth, weightMinG: 5_900, weightMaxG: 6_200 }, "mm", "kg/12ft", f)).toBe(
+          bandTitle({ wallTenthMm: tenth, weightMinG: 5_900, weightMaxG: 6_200 }, "mm", "kg/12ft"),
+        );
+      }
+    }
+  });
+  test("a feet and inches plant still reads a die measure in inches, as it did before", () => {
+    const chosen = formatterFor(screenPrefs({ units: { length: "ft_in" } }), IST);
+    expect(geometryWithUnit(chosen, 254)).toBe("10 in");
   });
   test("the second section weight: kg per metre beside kg per 12 ft", () => {
     const r = mulberry(14);

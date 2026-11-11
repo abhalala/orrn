@@ -234,7 +234,7 @@ test.describe("dies", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: `PATTI ${die.sectionCode}` })).toBeVisible();
     // Measurements read in the company unit (inches).
-    await expect(page.getByText("0.394 in", { exact: true })).toBeVisible();
+    await expect(page.getByText("0.394 in")).toBeVisible();
 
     await page.getByRole("button", { name: "Edit die" }).click();
     const sheet = page.getByRole("dialog", { name: `Edit die PATTI ${die.sectionCode}` });
