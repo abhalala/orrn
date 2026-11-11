@@ -377,3 +377,22 @@ describe("die copies of an old section (B10)", () => {
     );
   });
 });
+
+describe("die copy statuses an import may not set (B12)", () => {
+  test("a copy in use is refused before any copy of the chunk is made", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3600" });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      { values: { series: "R", sectionCode: "3600", makerDieNo: "US-1", status: "available", _ids: { sectionCode: dieId } } },
+      { values: { series: "R", sectionCode: "3600", makerDieNo: "US-2", status: "in_use", _ids: { sectionCode: dieId } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe(
+      "File row 2: status in_use cannot come from a file. Use available, at_nitriding or retired, or skip the row.",
+    );
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    expect(await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, dieId))).toHaveLength(0);
+  });
+});

@@ -7,6 +7,7 @@
  * A multi-call chunk stops at the first refused call: rows written before it are kept as written,
  * and the refusal holds the candidate. A one-call chunk either writes every row or none.
  */
+import { DIE_COPY_HAND_STATUSES } from "@orrn/domain";
 import { orderLineGrams } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -479,10 +480,30 @@ const COPY_UPDATE: Record<string, [string, (v: unknown) => unknown]> = {
   status: ["status", text],
 };
 
+/**
+ * A copy's status as an import may set it (B12). `in_use`, `at_maker` and `on_trial` are written
+ * only by die issue, maker jobs and trials, and dieInstance refuses them from a person.
+ */
+function assertHandStatus(rows: readonly StagedRow[], update: boolean): void {
+  for (const row of rows) {
+    const status = text(update ? patchOf(row).status : valuesOf(row).status);
+    if (status === null || (DIE_COPY_HAND_STATUSES as readonly string[]).includes(status)) continue;
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `File row ${row.rowIndex + 1}: status ${status} cannot come from a file. Use available, at_nitriding or retired, or skip the row.`,
+    });
+  }
+}
+
 const dieCopies: Adapter = async (args) => {
   const { ctx, rows } = args;
   const k = chunkKind(rows);
   if ("failure" in k) return k.failure;
+  try {
+    assertHandStatus(rows, k.kind === "update");
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
   if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       if (!(await updatedBefore(ctx, "die_instance.update", "die_instance", row))) {
