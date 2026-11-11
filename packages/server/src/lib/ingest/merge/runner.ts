@@ -742,7 +742,7 @@ function holdStatements(ctx: IngestCtx, run: RunRow, candidateId: string, chunkI
 
 async function finish(ctx: IngestCtx, run: RunRow, expectCursor: number): Promise<void> {
   const merging = await ctx.db
-    .select({ id: ingestCandidate.id })
+    .select({ id: ingestCandidate.id, target: ingestCandidate.target })
     .from(ingestCandidate)
     .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.state, "merging")));
   const fresh = await loadRun(ctx, run.id);
@@ -767,6 +767,12 @@ async function finish(ctx: IngestCtx, run: RunRow, expectCursor: number): Promis
     ...advance(ctx, run.id, expectCursor, { state, finishedAt: at }, { active: true }),
   );
   await guardedBatch(ctx.db, statements, OTHER_TAB);
+  // A sheet whose rows named a merged order book checks again: the live-data rule applies now (item 3).
+  const { othersAgainAfter } = await import("../dryrun");
+  for (const m of merging) {
+    const again = await othersAgainAfter(ctx, m, "merged", at);
+    if (again.length) await ctx.db.batch(again as never);
+  }
 }
 
 // ---------------------------------------------------------------------------

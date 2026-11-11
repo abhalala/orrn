@@ -85,6 +85,7 @@ import {
   staleRefusal,
   undecidedRows,
   CHECK_AGAINST_FILE,
+  othersAgainAfter,
   openDoubts,
   openDoubtWhere,
 } from "./dryrun";
@@ -1371,6 +1372,9 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
     ingestAbortUnlessChanged(ctx.db),
     auditInsert(ctx, { action: "ingest.candidate.discard", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state } }),
   ]);
+  // Sheets that waited on this one check again at once (item 3).
+  const again = await othersAgainAfter(ctx, c, "discarded", now());
+  if (again.length) await ctx.db.batch(again as never);
   return candidateDetail(ctx, c.id);
 }
 

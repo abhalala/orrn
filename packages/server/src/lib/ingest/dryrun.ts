@@ -556,6 +556,69 @@ export async function dependentsAgain(ctx: IngestCtx, madeBy: Pick<CandidateRow,
     );
 }
 
+/**
+ * Item 3 (round 5): sheets that wait on a sheet that is gone check again at once, so no person has
+ * to press "Check again" or keep_file:
+ * - an order book whose rows name the gone sheet in `order_in_other_file` or `po_on_two_orders`
+ *   (the gone sheet was discarded, or merged: the live-data rule then applies);
+ * - when the gone sheet was discarded, a sheet whose rows use a customer or section it would add.
+ * Each re-runs from its first such row, like `dependentsAgain`.
+ */
+export async function othersAgainAfter(ctx: IngestCtx, gone: Pick<CandidateRow, "id" | "target">, how: "discarded" | "merged", at: Date): Promise<SqliteBatchItem[]> {
+  const R = ingestStagedRow;
+  const first = new Map<string, number>();
+  const seen = new Map<string, { id: string; dryCursor: number; state: CandidateRow["state"] }>();
+  const consider = async (targets: IngestTarget[], cond: SQL) => {
+    const others = await ctx.db
+      .select({ id: ingestCandidate.id, dryCursor: ingestCandidate.dryCursor, state: ingestCandidate.state })
+      .from(ingestCandidate)
+      .where(
+        and(
+          eq(ingestCandidate.companyId, ctx.companyId),
+          inArray(ingestCandidate.target, targets),
+          inArray(ingestCandidate.state, ["ready", "held", "processing"]),
+          sql`${ingestCandidate.id} <> ${gone.id}`,
+        ),
+      );
+    if (others.length === 0) return;
+    const hits = await mapInChunks(
+      others.map((o) => o.id),
+      (part) =>
+        ctx.db
+          .select({ candidateId: R.candidateId, n: sql<number>`min(${R.rowIndex})` })
+          .from(R)
+          .where(and(inArray(R.candidateId, part), eq(R.mergeState, "open"), cond))
+          .groupBy(R.candidateId),
+    );
+    for (const h of hits) first.set(h.candidateId, Math.min(first.get(h.candidateId) ?? Number(h.n), Number(h.n)));
+    for (const o of others) seen.set(o.id, o);
+  };
+  // A mark the person answered with keep_file still names the other sheet: it goes too.
+  if (gone.target === "orders") await consider(["orders"], sql`json_extract(${R.values}, '$._otherFile.candidateId') = ${gone.id}`);
+  // After a merge, a sheet with the same old order or PO (kept with keep_file, or held by the
+  // planner) sees the live order now. By the order_key and po_key indexes.
+  if (how === "merged" && gone.target === "orders") {
+    await consider(
+      ["orders"],
+      sql`exists (select 1 from ingest_staged_row s where s.company_id = ${ctx.companyId} and s.candidate_id = ${gone.id} and ((${R.orderKey} is not null and s.order_key = ${R.orderKey}) or (${R.poKey} is not null and s.po_key = ${R.poKey})))`,
+    );
+  }
+  if (how === "discarded" && (gone.target === "customers" || gone.target === "dies")) {
+    const path = sql.raw(gone.target === "dies" ? "'$._ids.sectionCode'" : "'$._ids.customer'");
+    await consider(
+      gone.target === "dies" ? ["orders", "die_copies"] : ["customer_aliases"],
+      sql`json_extract(${R.values}, ${path}) like 'pending:%' and exists (select 1 from ingest_staged_row s where s.candidate_id = ${gone.id} and s.row_key = substr(json_extract(${R.values}, ${path}), 9))`,
+    );
+  }
+  return [...first].map(([id, from]) => {
+    const o = seen.get(id)!;
+    return ctx.db
+      .update(ingestCandidate)
+      .set({ state: "processing", dryCursor: o.state === "processing" ? Math.min(o.dryCursor, from) : from, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: at })
+      .where(and(eq(ingestCandidate.id, o.id), eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.state, o.state)));
+  });
+}
+
 /** A sheet another sheet waits on, named as the words name it: "old-dies.xlsx (Old dies)". */
 async function sheetName(ctx: IngestCtx, candidateId: string): Promise<string> {
   const [hit] = await ctx.db
@@ -1675,6 +1738,12 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     // New sections or customers other sheets were refused for: those sheets check again (rule 2).
     if (c.target === "dies" || c.target === "customers") {
       const again = await dependentsAgain(ctx, c, now());
+      if (again.length) await ctx.db.batch(again as never);
+    }
+    // The order book's derived new customers list adds names too (rule 2, item 3).
+    if (c.target === "orders") {
+      const child = await findNewCustomerChild(ctx, c);
+      const again = child ? await dependentsAgain(ctx, { id: child.id, target: "customers" }, now()) : [];
       if (again.length) await ctx.db.batch(again as never);
     }
   }

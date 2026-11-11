@@ -116,9 +116,18 @@ describe("S4-1 and rule 4.2: a PO joins the numbered order that carries it, acro
     expect(await tryApprove(p.owner, b)).toBe("approved");
     const m = await mergeOnce(p.owner);
     expect(m.state).toBe("done_with_holds");
-    const cb = await p.owner.ingest.candidate.get({ candidateId: b });
-    expect(cb.state).toBe("held");
-    expect(cb.reasonDetail).toContain("book.xlsx (A)");
+    const held = await env.d1
+      .prepare("select json_extract(meta, '$.detail') as d from audit_log where company_id = ? and action = 'ingest.candidate.hold' and subject_id = ?")
+      .bind(p.companyId, b)
+      .first<{ d: string }>();
+    expect(held?.d).toContain("book.xlsx (A)");
+    // Item 3 (round 5): once sheet A merged, the held sheet B checks again at once and meets order 41 live.
+    expect((await p.owner.ingest.candidate.get({ candidateId: b })).state).toBe("processing");
+    await pump(p.owner, b);
+    expect((await rowsOf(p.owner, b)).map((r) => [r.state, r.reasons.includes("order_line_new")])).toEqual([
+      ["conflict", true],
+      ["conflict", true],
+    ]);
   });
 
   test("sheets of one upload come in sheet order, so the later sheet is always the one held", async () => {
@@ -286,6 +295,83 @@ describe("lead answer (a): a closed order with the same PO is not a match", () =
     expect(await tryApprove(p.owner, again)).toBe("approved");
     expect((await mergeOnce(p.owner)).state).toBe("done");
     expect((await orders(p.companyId)).map((o) => o.po)).toEqual(["PO-9", "PO-9"]);
+  });
+});
+
+describe("item 3: no person is left to press check again or keep_file", () => {
+  const aliasLayout = () =>
+    layout("customer_aliases", ["Party", "Also called"], [{ field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] }, { field: "alias", steps: trim }], ["alias"]);
+  const discard = async (as: Caller, candidateId: string) => as.ingest.candidate.discard({ candidateId, expectSeq: (await as.ingest.candidate.get({ candidateId })).serverSeq });
+
+  test("rule 2 for the derived new customers list: the aliases sheet refused for that name checks again by itself", async () => {
+    const p = await setup();
+    await learnLayout(env, p.companyId, p.users.owner.id, aliasLayout(), "Aliases");
+    const { candidates } = await upload(p.owner, [
+      { name: "Aliases", headers: ["Party", "Also called"], rows: [["Kamal Bros", "Kamal"]] },
+      { name: "A", headers: BOOK, rows: [R("41", "PO-9", "31/10/2025", "5100", "Kamal Bros")] },
+    ]);
+    const [al, book] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, al);
+    expect((await rowsOf(p.owner, al)).map((r) => r.reasons)).toEqual([["not_found:customer"]]);
+    await pump(p.owner, book);
+    const c = await p.owner.ingest.candidate.get({ candidateId: book });
+    await p.owner.ingest.answer.set({ candidateId: book, questionCode: "new_customers", subject: "", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, book);
+    expect((await p.owner.ingest.candidate.get({ candidateId: al })).state).toBe("processing");
+    await pump(p.owner, al);
+    expect((await rowsOf(p.owner, al)).map((r) => r.state)).toEqual(["ready_create"]);
+  });
+
+  test("a sheet that used a customer of a discarded sheet checks again at once; its row is refused, nothing is held", async () => {
+    const p = await setup();
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("customers", ["Party name", "City"], [{ field: "name", steps: trim }, { field: "city", steps: trim }], ["name"]), "Parties");
+    await learnLayout(env, p.companyId, p.users.owner.id, aliasLayout(), "Aliases");
+    const { candidates } = await upload(p.owner, [
+      { name: "Parties", headers: ["Party name", "City"], rows: [["Nova Metals", "Rajkot"]] },
+      { name: "Aliases", headers: ["Party", "Also called"], rows: [["Nova Metals", "Nova"]] },
+    ]);
+    const [cu, al] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, cu);
+    await pump(p.owner, al);
+    expect((await rowsOf(p.owner, al)).map((r) => r.state)).toEqual(["ready_create"]);
+    await discard(p.owner, cu);
+    expect((await p.owner.ingest.candidate.get({ candidateId: al })).state).toBe("processing");
+    await pump(p.owner, al);
+    expect((await rowsOf(p.owner, al)).map((r) => [r.state, r.reasons])).toEqual([["refused", ["not_found:customer"]]]);
+  });
+
+  test("an order_in_other_file mark naming a discarded sheet is cleared", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: [R("41", "PO-9", "31/10/2025", "5100")] },
+      { name: "B", headers: BOOK, rows: [R("41", "PO-9", "31/10/2025", "5101")] },
+    ]);
+    const [a, b] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    expect(await shown(p.owner, a)).toEqual([["conflict", "order_in_other_file:order", "B"]]);
+    await discard(p.owner, b);
+    await pump(p.owner, a);
+    expect(await shown(p.owner, a)).toEqual([["ready_create", null, null]]);
+  });
+
+  test("an order_in_other_file mark naming a merged sheet is cleared: the held sheet then sees the live order", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: [R("41", "PO-9", "31/10/2025", "5100")] },
+      { name: "B", headers: BOOK, rows: [R("41", "PO-9", "31/10/2025", "5100")] },
+    ]);
+    const [a, b] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    await decide(p.owner, a, (await rowsOf(p.owner, a)).map((r) => r.id), "keep_file");
+    await decide(p.owner, b, (await rowsOf(p.owner, b)).map((r) => r.id), "keep_file");
+    expect(await tryApprove(p.owner, a)).toBe("approved");
+    expect(await tryApprove(p.owner, b)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done_with_holds");
+    expect((await p.owner.ingest.candidate.get({ candidateId: b })).state).toBe("processing");
+    await pump(p.owner, b);
+    expect((await rowsOf(p.owner, b)).map((r) => [r.state, r.reasons.includes("order_exists")])).toEqual([["unchanged", true]]);
   });
 });
 

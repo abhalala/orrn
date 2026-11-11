@@ -294,12 +294,16 @@ describe("the same old order in two files is never written twice (M-new-3)", () 
     expect((await approve(p.owner, a)).state).toBe("approved");
     expect((await approve(p.owner, b)).state).toBe("approved");
     expect((await mergeOnce(p.owner)).state).toBe("done_with_holds");
-    let cb = await p.owner.ingest.candidate.get({ candidateId: b });
-    expect(cb.state).toBe("held");
-    expect(cb.reasonDetail).toContain("Old order 41 is also in october.xlsx");
+    // The planner held B (the audit keeps its words); item 3 (round 5): once A merged, B checks
+    // again by itself, with no release.
+    const held = await env.d1
+      .prepare("select json_extract(meta, '$.detail') as d from audit_log where company_id = ? and action = 'ingest.candidate.hold' and subject_id = ?")
+      .bind(p.companyId, b)
+      .first<{ d: string }>();
+    expect(held?.d).toContain("Old order 41 is also in october.xlsx");
+    expect((await p.owner.ingest.candidate.get({ candidateId: b })).state).toBe("processing");
     expect((await orders(p.companyId)).filter((o) => o.note === "Old order no. 41")).toEqual([{ po: null, note: "Old order no. 41", lines: 2 }]);
-    // Check again: the order is live now, so the line it lacks is a conflict, never a second order.
-    cb = await p.owner.ingest.candidate.release({ candidateId: b, expectSeq: cb.serverSeq });
+    // The order is live now, so the line it lacks is a conflict, never a second order.
     await pump(p.owner, b);
     const again = await rowsOf(p.owner, b);
     expect(again[0]!.state).toBe("conflict");
