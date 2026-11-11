@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { fingerprint } from "./fingerprint";
-import { RECIPE_ERROR_CODES, validateRecipe, type RecipeErrorCode } from "./validate";
+import { nullUnshownUnits, RECIPE_ERROR_CODES, validateRecipe, type RecipeErrorCode } from "./validate";
 import type { Recipe } from "./recipe";
 import { BAKI_SHEET_HEADERS, DIE_SHEET_HEADERS, EXAMPLE_BAKI_RECIPE, EXAMPLE_DIE_RECIPE } from "./recipe-fixtures";
 
@@ -80,6 +80,16 @@ describe("validateRecipe", () => {
       r.onExisting = "skip";
       return { recipe: r, origin: "bot" };
     },
+    unit_not_shown: () => {
+      const r = clone(EXAMPLE_DIE_RECIPE);
+      r.fields[2]!.source = { kind: "columns", cols: [{ col: 4, header: "Name" }] };
+      return { recipe: r, origin: "bot" };
+    },
+    unit_header_mismatch: () => {
+      const r = clone(EXAMPLE_DIE_RECIPE);
+      r.fields[2]!.steps = [{ op: "number", kind: "linear_mass", unit: "g/12ft" }];
+      return { recipe: r, origin: "bot" };
+    },
     constant_on_numeric: () => {
       const r = clone(EXAMPLE_DIE_RECIPE);
       r.fields[2]!.source = { kind: "constant", value: "2.2" };
@@ -122,6 +132,42 @@ describe("validateRecipe", () => {
       expect(codes(r, "builtin")).not.toContain("on_existing_not_ask");
     }
     expect(codes(clone(EXAMPLE_DIE_RECIPE), "bot")).not.toContain("on_existing_not_ask");
+  });
+
+  describe("C4, C20: a unit the bot names must show in the header or the note", () => {
+    const block = (wt: string) => fingerprint({ headers: ["Series", "Section", wt], rows: [] });
+    const recipe = (wt: string, unit: string | null): Recipe => ({
+      schemaVersion: 1,
+      target: "bundles",
+      headerRow: 0,
+      headerRows: 1,
+      match: { headerKey: "", headers: [] },
+      fields: [{ field: "weightG", source: { kind: "columns", cols: [{ col: 2, header: wt }] }, steps: [{ op: "number", kind: "mass", unit }] }],
+      filters: [],
+      keys: [],
+      onExisting: "ask",
+      unclear: [],
+    });
+    const unitCodes = (wt: string, unit: string | null, origin: "bot" | "person" = "bot", note?: string) =>
+      validateRecipe(recipe(wt, unit), block(wt), origin, note === undefined ? {} : { note })
+        .map((e) => e.code)
+        .filter((c) => c === "unit_not_shown" || c === "unit_header_mismatch");
+
+    test("'Wt' with kg is a guess", () => expect(unitCodes("Wt", "kg")).toEqual(["unit_not_shown"]));
+    test("'Wt (kg)' with kg is shown", () => expect(unitCodes("Wt (kg)", "kg")).toEqual([]));
+    test("'Wt (kg)' with g contradicts the header", () => expect(unitCodes("Wt (kg)", "g")).toEqual(["unit_header_mismatch"]));
+    test("'Wt' with tonnes named in the person's note is shown", () => expect(unitCodes("Wt", "t", "bot", "weights are in tonnes")).toEqual([]));
+    test("a note naming another unit does not help", () => expect(unitCodes("Wt", "t", "bot", "weights in kg")).toEqual(["unit_not_shown"]));
+    test("unit null is the question, never an error", () => expect(unitCodes("Wt", null)).toEqual([]));
+    test("a person may name a unit the header does not show", () => expect(unitCodes("Wt", "kg", "person")).toEqual([]));
+
+    test("nullUnshownUnits turns a guessed unit into the unit question", () => {
+      const out = nullUnshownUnits(recipe("Wt", "kg"), block("Wt"));
+      expect(out.fields[0]!.steps).toEqual([{ op: "number", kind: "mass", unit: null }]);
+      expect(out.unclear).toContainEqual({ field: "weightG", code: "unit_unknown" });
+      const kept = nullUnshownUnits(recipe("Wt (kg)", "kg"), block("Wt (kg)"));
+      expect(kept.fields[0]!.steps).toEqual([{ op: "number", kind: "mass", unit: "kg" }]);
+    });
   });
 
   test("a constant on text is fine for the bot", () => {
