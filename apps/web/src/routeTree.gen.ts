@@ -48,6 +48,7 @@ import { Route as TenantPressIndexRouteImport } from './routes/_tenant/press.ind
 import { Route as TenantPackIndexRouteImport } from './routes/_tenant/pack.index'
 import { Route as TenantOrdersIndexRouteImport } from './routes/_tenant/orders.index'
 import { Route as TenantMastersIndexRouteImport } from './routes/_tenant/masters.index'
+import { Route as TenantIngestIndexRouteImport } from './routes/_tenant/ingest.index'
 import { Route as TenantGuidesIndexRouteImport } from './routes/_tenant/guides.index'
 import { Route as TenantDispatchesIndexRouteImport } from './routes/_tenant/dispatches.index'
 import { Route as TenantDispatchIndexRouteImport } from './routes/_tenant/dispatch.index'
@@ -161,6 +162,9 @@ import { Route as TenantPressRunsIdRouteImport } from './routes/_tenant/press.ru
 import { Route as TenantPressLinesIdRouteImport } from './routes/_tenant/press.lines.$id'
 import { Route as TenantPackIdLabelsRouteImport } from './routes/_tenant/pack_.$id_.labels'
 import { Route as TenantOrdersPlanIdRouteImport } from './routes/_tenant/orders.plan.$id'
+import { Route as TenantIngestReviewCandidateIdRouteImport } from './routes/_tenant/ingest.review.$candidateId'
+import { Route as TenantIngestMergeRunIdRouteImport } from './routes/_tenant/ingest.merge.$runId'
+import { Route as TenantIngestFilesArtifactIdRouteImport } from './routes/_tenant/ingest.files.$artifactId'
 import { Route as TenantCastsIdCertificateRouteImport } from './routes/_tenant/casts.$id.certificate'
 import { Route as TenantAgeingBatchIdRouteImport } from './routes/_tenant/ageing.batch.$id'
 import { Route as PortalPortalOrdersNewRouteImport } from './routes/_portal/portal.orders.new'
@@ -361,6 +365,11 @@ const TenantOrdersIndexRoute = TenantOrdersIndexRouteImport.update({
 const TenantMastersIndexRoute = TenantMastersIndexRouteImport.update({
   id: '/masters/',
   path: '/masters/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantIngestIndexRoute = TenantIngestIndexRouteImport.update({
+  id: '/ingest/',
+  path: '/ingest/',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantGuidesIndexRoute = TenantGuidesIndexRouteImport.update({
@@ -950,6 +959,23 @@ const TenantOrdersPlanIdRoute = TenantOrdersPlanIdRouteImport.update({
   path: '/orders/plan/$id',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantIngestReviewCandidateIdRoute =
+  TenantIngestReviewCandidateIdRouteImport.update({
+    id: '/ingest/review/$candidateId',
+    path: '/ingest/review/$candidateId',
+    getParentRoute: () => TenantRoute,
+  } as any)
+const TenantIngestMergeRunIdRoute = TenantIngestMergeRunIdRouteImport.update({
+  id: '/ingest/merge/$runId',
+  path: '/ingest/merge/$runId',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantIngestFilesArtifactIdRoute =
+  TenantIngestFilesArtifactIdRouteImport.update({
+    id: '/ingest/files/$artifactId',
+    path: '/ingest/files/$artifactId',
+    getParentRoute: () => TenantRoute,
+  } as any)
 const TenantCastsIdCertificateRoute =
   TenantCastsIdCertificateRouteImport.update({
     id: '/casts/$id/certificate',
@@ -1106,6 +1132,7 @@ export interface FileRoutesByFullPath {
   '/dispatch/': typeof TenantDispatchIndexRoute
   '/dispatches/': typeof TenantDispatchesIndexRoute
   '/guides/': typeof TenantGuidesIndexRoute
+  '/ingest/': typeof TenantIngestIndexRoute
   '/masters/': typeof TenantMastersIndexRoute
   '/orders/': typeof TenantOrdersIndexRoute
   '/pack/': typeof TenantPackIndexRoute
@@ -1125,6 +1152,9 @@ export interface FileRoutesByFullPath {
   '/portal/orders/new': typeof PortalPortalOrdersNewRoute
   '/ageing/batch/$id': typeof TenantAgeingBatchIdRoute
   '/casts/$id/certificate': typeof TenantCastsIdCertificateRoute
+  '/ingest/files/$artifactId': typeof TenantIngestFilesArtifactIdRoute
+  '/ingest/merge/$runId': typeof TenantIngestMergeRunIdRoute
+  '/ingest/review/$candidateId': typeof TenantIngestReviewCandidateIdRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1266,6 +1296,7 @@ export interface FileRoutesByTo {
   '/dispatch': typeof TenantDispatchIndexRoute
   '/dispatches': typeof TenantDispatchesIndexRoute
   '/guides': typeof TenantGuidesIndexRoute
+  '/ingest': typeof TenantIngestIndexRoute
   '/masters': typeof TenantMastersIndexRoute
   '/orders': typeof TenantOrdersIndexRoute
   '/pack': typeof TenantPackIndexRoute
@@ -1285,6 +1316,9 @@ export interface FileRoutesByTo {
   '/portal/orders/new': typeof PortalPortalOrdersNewRoute
   '/ageing/batch/$id': typeof TenantAgeingBatchIdRoute
   '/casts/$id/certificate': typeof TenantCastsIdCertificateRoute
+  '/ingest/files/$artifactId': typeof TenantIngestFilesArtifactIdRoute
+  '/ingest/merge/$runId': typeof TenantIngestMergeRunIdRoute
+  '/ingest/review/$candidateId': typeof TenantIngestReviewCandidateIdRoute
   '/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/pack/$id/labels': typeof TenantPackIdLabelsRoute
   '/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1432,6 +1466,7 @@ export interface FileRoutesById {
   '/_tenant/dispatch/': typeof TenantDispatchIndexRoute
   '/_tenant/dispatches/': typeof TenantDispatchesIndexRoute
   '/_tenant/guides/': typeof TenantGuidesIndexRoute
+  '/_tenant/ingest/': typeof TenantIngestIndexRoute
   '/_tenant/masters/': typeof TenantMastersIndexRoute
   '/_tenant/orders/': typeof TenantOrdersIndexRoute
   '/_tenant/pack/': typeof TenantPackIndexRoute
@@ -1451,6 +1486,9 @@ export interface FileRoutesById {
   '/_portal/portal/orders/new': typeof PortalPortalOrdersNewRoute
   '/_tenant/ageing/batch/$id': typeof TenantAgeingBatchIdRoute
   '/_tenant/casts/$id/certificate': typeof TenantCastsIdCertificateRoute
+  '/_tenant/ingest/files/$artifactId': typeof TenantIngestFilesArtifactIdRoute
+  '/_tenant/ingest/merge/$runId': typeof TenantIngestMergeRunIdRoute
+  '/_tenant/ingest/review/$candidateId': typeof TenantIngestReviewCandidateIdRoute
   '/_tenant/orders/plan/$id': typeof TenantOrdersPlanIdRoute
   '/_tenant/pack_/$id_/labels': typeof TenantPackIdLabelsRoute
   '/_tenant/press/lines/$id': typeof TenantPressLinesIdRoute
@@ -1594,6 +1632,7 @@ export interface FileRouteTypes {
     | '/dispatch/'
     | '/dispatches/'
     | '/guides/'
+    | '/ingest/'
     | '/masters/'
     | '/orders/'
     | '/pack/'
@@ -1613,6 +1652,9 @@ export interface FileRouteTypes {
     | '/portal/orders/new'
     | '/ageing/batch/$id'
     | '/casts/$id/certificate'
+    | '/ingest/files/$artifactId'
+    | '/ingest/merge/$runId'
+    | '/ingest/review/$candidateId'
     | '/orders/plan/$id'
     | '/pack/$id/labels'
     | '/press/lines/$id'
@@ -1754,6 +1796,7 @@ export interface FileRouteTypes {
     | '/dispatch'
     | '/dispatches'
     | '/guides'
+    | '/ingest'
     | '/masters'
     | '/orders'
     | '/pack'
@@ -1773,6 +1816,9 @@ export interface FileRouteTypes {
     | '/portal/orders/new'
     | '/ageing/batch/$id'
     | '/casts/$id/certificate'
+    | '/ingest/files/$artifactId'
+    | '/ingest/merge/$runId'
+    | '/ingest/review/$candidateId'
     | '/orders/plan/$id'
     | '/pack/$id/labels'
     | '/press/lines/$id'
@@ -1919,6 +1965,7 @@ export interface FileRouteTypes {
     | '/_tenant/dispatch/'
     | '/_tenant/dispatches/'
     | '/_tenant/guides/'
+    | '/_tenant/ingest/'
     | '/_tenant/masters/'
     | '/_tenant/orders/'
     | '/_tenant/pack/'
@@ -1938,6 +1985,9 @@ export interface FileRouteTypes {
     | '/_portal/portal/orders/new'
     | '/_tenant/ageing/batch/$id'
     | '/_tenant/casts/$id/certificate'
+    | '/_tenant/ingest/files/$artifactId'
+    | '/_tenant/ingest/merge/$runId'
+    | '/_tenant/ingest/review/$candidateId'
     | '/_tenant/orders/plan/$id'
     | '/_tenant/pack_/$id_/labels'
     | '/_tenant/press/lines/$id'
@@ -2270,6 +2320,13 @@ declare module '@tanstack/react-router' {
       path: '/masters'
       fullPath: '/masters/'
       preLoaderRoute: typeof TenantMastersIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ingest/': {
+      id: '/_tenant/ingest/'
+      path: '/ingest'
+      fullPath: '/ingest/'
+      preLoaderRoute: typeof TenantIngestIndexRouteImport
       parentRoute: typeof TenantRoute
     }
     '/_tenant/guides/': {
@@ -3063,6 +3120,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantOrdersPlanIdRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/_tenant/ingest/review/$candidateId': {
+      id: '/_tenant/ingest/review/$candidateId'
+      path: '/ingest/review/$candidateId'
+      fullPath: '/ingest/review/$candidateId'
+      preLoaderRoute: typeof TenantIngestReviewCandidateIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ingest/merge/$runId': {
+      id: '/_tenant/ingest/merge/$runId'
+      path: '/ingest/merge/$runId'
+      fullPath: '/ingest/merge/$runId'
+      preLoaderRoute: typeof TenantIngestMergeRunIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/_tenant/ingest/files/$artifactId': {
+      id: '/_tenant/ingest/files/$artifactId'
+      path: '/ingest/files/$artifactId'
+      fullPath: '/ingest/files/$artifactId'
+      preLoaderRoute: typeof TenantIngestFilesArtifactIdRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/_tenant/casts/$id/certificate': {
       id: '/_tenant/casts/$id/certificate'
       path: '/casts/$id/certificate'
@@ -3338,6 +3416,7 @@ interface TenantRouteChildren {
   TenantDispatchIndexRoute: typeof TenantDispatchIndexRoute
   TenantDispatchesIndexRoute: typeof TenantDispatchesIndexRoute
   TenantGuidesIndexRoute: typeof TenantGuidesIndexRoute
+  TenantIngestIndexRoute: typeof TenantIngestIndexRoute
   TenantMastersIndexRoute: typeof TenantMastersIndexRoute
   TenantOrdersIndexRoute: typeof TenantOrdersIndexRoute
   TenantPackIndexRoute: typeof TenantPackIndexRoute
@@ -3352,6 +3431,9 @@ interface TenantRouteChildren {
   TenantVendorsIndexRoute: typeof TenantVendorsIndexRoute
   TenantAgeingBatchIdRoute: typeof TenantAgeingBatchIdRoute
   TenantCastsIdCertificateRoute: typeof TenantCastsIdCertificateRoute
+  TenantIngestFilesArtifactIdRoute: typeof TenantIngestFilesArtifactIdRoute
+  TenantIngestMergeRunIdRoute: typeof TenantIngestMergeRunIdRoute
+  TenantIngestReviewCandidateIdRoute: typeof TenantIngestReviewCandidateIdRoute
   TenantOrdersPlanIdRoute: typeof TenantOrdersPlanIdRoute
   TenantPackIdLabelsRoute: typeof TenantPackIdLabelsRoute
   TenantPressLinesIdRoute: typeof TenantPressLinesIdRoute
@@ -3461,6 +3543,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDispatchIndexRoute: TenantDispatchIndexRoute,
   TenantDispatchesIndexRoute: TenantDispatchesIndexRoute,
   TenantGuidesIndexRoute: TenantGuidesIndexRoute,
+  TenantIngestIndexRoute: TenantIngestIndexRoute,
   TenantMastersIndexRoute: TenantMastersIndexRoute,
   TenantOrdersIndexRoute: TenantOrdersIndexRoute,
   TenantPackIndexRoute: TenantPackIndexRoute,
@@ -3475,6 +3558,9 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantVendorsIndexRoute: TenantVendorsIndexRoute,
   TenantAgeingBatchIdRoute: TenantAgeingBatchIdRoute,
   TenantCastsIdCertificateRoute: TenantCastsIdCertificateRoute,
+  TenantIngestFilesArtifactIdRoute: TenantIngestFilesArtifactIdRoute,
+  TenantIngestMergeRunIdRoute: TenantIngestMergeRunIdRoute,
+  TenantIngestReviewCandidateIdRoute: TenantIngestReviewCandidateIdRoute,
   TenantOrdersPlanIdRoute: TenantOrdersPlanIdRoute,
   TenantPackIdLabelsRoute: TenantPackIdLabelsRoute,
   TenantPressLinesIdRoute: TenantPressLinesIdRoute,
