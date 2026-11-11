@@ -13,10 +13,10 @@
  */
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 
-import { ingestArtifact, ingestBlock, ingestCandidate, ingestStagedRow } from "@orrn/db/schema/ingest";
+import { ingestArtifact, ingestBlock, ingestCandidate, ingestOrderKey, ingestStagedRow } from "@orrn/db/schema/ingest";
 import { salesOrder } from "@orrn/db/schema/sales";
 
-import { chunk, mapInChunks } from "../atomic";
+import { mapInChunks } from "../atomic";
 import { nameKey } from "../purchase";
 import type { IngestCtx } from "./types";
 
@@ -285,68 +285,64 @@ export type LiveOrder = { id: string; number: string; requestId: string | null; 
 /** What one live lookup needs: a live customer id (never `new:`), the year, the number and the PO. */
 export type LiveLookup = { key: string; customerId: string; fy: string; no: string | null; po: string | null };
 
+/** The key of a numbered old order in `ingest_order_key`: year, live customer id, number. */
+export const liveOrderKey = (customerId: string, fy: string, no: string) => [fy, customerId, no].join(SEP);
+
+/**
+ * The row that records which old order an import made (S3-6). Its id comes from the order (one
+ * numbered old order a sales order), so a resend of the same chunk records it once.
+ */
+export function orderKeyRecord(ctx: Pick<IngestCtx, "db" | "companyId">, salesOrderId: string, key: string) {
+  return ctx.db
+    .insert(ingestOrderKey)
+    .values({ id: `iok_${salesOrderId}`, companyId: ctx.companyId, key, salesOrderId })
+    .onConflictDoNothing();
+}
+
 /**
  * The live order each old order already is (rule 1, against live data):
- * - by number: the same customer, the same financial year, a note that names the number, and not
- *   closed or cancelled;
+ * - by number: an order an import made for the same customer, financial year and number
+ *   (`ingest_order_key`), not closed or cancelled;
  * - else by PO: the same customer and PO, not cancelled (the order screens refuse a PO twice).
- * Reads only the customers and years asked about, and the (customer, PO) pairs asked about.
+ * Both read by index, 90 keys or POs a statement, never every order of the customer (S3-6).
  */
 export async function liveOrdersOf(ctx: Pick<IngestCtx, "db" | "companyId">, lookups: readonly LiveLookup[]): Promise<Map<string, LiveOrder>> {
   const out = new Map<string, LiveOrder>();
-  const real = lookups.filter((l) => l.customerId && !l.customerId.startsWith("new:") && !l.customerId.startsWith("pending:"));
+  const real = lookups.filter((l) => l.customerId && !l.customerId.startsWith("new:") && !l.customerId.startsWith("pending:") && !l.customerId.startsWith("name:"));
   if (real.length === 0) return out;
   const byNo = new Map<string, LiveOrder>();
-  const withNo = real.filter((l) => l.no && fyRange(l.fy));
-  if (withNo.length) {
-    const fys = [...new Set(withNo.map((l) => l.fy))].sort();
-    const from = fyRange(fys[0]!)!.from;
-    const to = fyRange(fys.at(-1)!)!.to;
-    const rows = await mapInChunks([...new Set(withNo.map((l) => l.customerId))], (part) =>
+  const noKeys = [...new Set(real.filter((l) => l.no && fyRange(l.fy)).map((l) => liveOrderKey(l.customerId, l.fy, l.no!)))];
+  const pick = { id: salesOrder.id, number: salesOrder.number, requestId: salesOrder.clientRequestId, status: salesOrder.status };
+  if (noKeys.length) {
+    const rows = await mapInChunks(noKeys, (part) =>
       ctx.db
-        .select({ id: salesOrder.id, customerId: salesOrder.customerId, number: salesOrder.number, requestId: salesOrder.clientRequestId, status: salesOrder.status, orderDate: salesOrder.orderDate, note: salesOrder.note })
-        .from(salesOrder)
-        .where(
-          and(
-            eq(salesOrder.companyId, ctx.companyId),
-            inArray(salesOrder.customerId, part),
-            notInArray(salesOrder.status, ["closed", "cancelled"]),
-            sql`${salesOrder.orderDate} between ${from} and ${to}`,
-            sql`${salesOrder.note} like 'Old order no. %'`,
-          ),
-        ),
+        .select({ ...pick, key: ingestOrderKey.key })
+        .from(ingestOrderKey)
+        .innerJoin(salesOrder, and(eq(salesOrder.id, ingestOrderKey.salesOrderId), eq(salesOrder.companyId, ctx.companyId)))
+        .where(and(eq(ingestOrderKey.companyId, ctx.companyId), inArray(ingestOrderKey.key, part), notInArray(salesOrder.status, ["closed", "cancelled"]))),
     );
-    for (const o of rows) {
-      for (const no of noteOrderNos(o.note)) {
-        const k = [o.customerId, orderFyOf(o.orderDate), no].join(SEP);
-        if (!byNo.has(k)) byNo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "no" });
-      }
+    for (const o of rows.sort((a, b) => (a.number < b.number ? -1 : a.number > b.number ? 1 : 0))) {
+      if (!byNo.has(o.key)) byNo.set(o.key, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "no" });
     }
   }
   const byPo = new Map<string, LiveOrder>();
-  const pairs = [...new Map(real.filter((l) => l.po).map((l) => [`${l.customerId}${SEP}${l.po}`, { customerId: l.customerId, po: l.po! }])).values()];
-  // Two bound values a pair, plus the company: 45 pairs a statement.
-  for (const part of chunk(pairs, 45)) {
-    const rows = await ctx.db
-      .select({ id: salesOrder.id, customerId: salesOrder.customerId, number: salesOrder.number, requestId: salesOrder.clientRequestId, status: salesOrder.status, po: sql<string>`lower(trim(${salesOrder.poNumber}))` })
-      .from(salesOrder)
-      .where(
-        and(
-          eq(salesOrder.companyId, ctx.companyId),
-          sql`(${salesOrder.customerId}, lower(trim(${salesOrder.poNumber}))) in (values ${sql.join(
-            part.map((p) => sql`(${p.customerId}, ${p.po})`),
-            sql`, `,
-          )})`,
-          sql`${salesOrder.status} <> 'cancelled'`,
-        ),
-      );
+  const posByCustomer = new Map<string, Set<string>>();
+  for (const l of real) if (l.po) posByCustomer.set(l.customerId, (posByCustomer.get(l.customerId) ?? new Set()).add(normPo(l.po)));
+  for (const [customerId, pos] of posByCustomer) {
+    // On sales_order_company_customer_po_lower_idx: the customer's orders with these POs only.
+    const rows = await mapInChunks([...pos], (part) =>
+      ctx.db
+        .select({ ...pick, po: sql<string>`lower(${salesOrder.poNumber})` })
+        .from(salesOrder)
+        .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.customerId, customerId), inArray(sql`lower(${salesOrder.poNumber})`, part), sql`${salesOrder.status} <> 'cancelled'`)),
+    );
     for (const o of rows) {
-      const k = `${o.customerId}${SEP}${o.po}`;
+      const k = `${customerId}${SEP}${o.po}`;
       if (!byPo.has(k)) byPo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "po" });
     }
   }
   for (const l of real) {
-    const hit = (l.no ? byNo.get([l.customerId, l.fy, l.no].join(SEP)) : undefined) ?? (l.po ? byPo.get(`${l.customerId}${SEP}${l.po}`) : undefined);
+    const hit = (l.no && fyRange(l.fy) ? byNo.get(liveOrderKey(l.customerId, l.fy, l.no)) : undefined) ?? (l.po ? byPo.get(`${l.customerId}${SEP}${normPo(l.po)}`) : undefined);
     if (hit) out.set(l.key, hit);
   }
   return out;

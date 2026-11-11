@@ -11,6 +11,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 import { fingerprint, type Recipe } from "@orrn/ingest";
+import { ingestOrderKey } from "@orrn/db/schema/ingest";
+
+import { liveOrderKey, normOrderNo, orderFyOf } from "../src/lib/ingest/orderid";
 
 let env: TestEnv;
 
@@ -873,6 +876,8 @@ describe("A5 note: with no date column, an old order number matches only an open
       status: live.status,
       note: "Old order no. OB-1",
     } as never);
+    // An order an import made records its old order (S3-6): the seed does what the merge does.
+    await env.db.insert(ingestOrderKey).values({ id: `iok_${orderId}`, companyId: p.companyId, key: liveOrderKey(acme.id, orderFyOf(live.orderDate), normOrderNo("OB-1")), salesOrderId: orderId });
     await env.db.insert(salesOrderLine).values({
       id: `sol_${randomUUID()}`,
       companyId: p.companyId,

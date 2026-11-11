@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "87e93cc4-c702-4495-81da-db7587470f67",
+  "id": "7d71b717-4185-4598-8ae9-a3b162717d85",
   "prevId": "3182b154-d8c0-4805-9d6d-c1922cf3622a",
   "tables": {
     "ageing_batch": {
@@ -12021,6 +12021,88 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "ingest_order_key": {
+      "name": "ingest_order_key",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "company_id": {
+          "name": "company_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sales_order_id": {
+          "name": "sales_order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+        }
+      },
+      "indexes": {
+        "ingest_order_key_company_key_idx": {
+          "name": "ingest_order_key_company_key_idx",
+          "columns": [
+            "company_id",
+            "key"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "ingest_order_key_company_id_company_id_fk": {
+          "name": "ingest_order_key_company_id_company_id_fk",
+          "tableFrom": "ingest_order_key",
+          "tableTo": "company",
+          "columnsFrom": [
+            "company_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "ingest_order_key_sales_order_id_sales_order_id_fk": {
+          "name": "ingest_order_key_sales_order_id_sales_order_id_fk",
+          "tableFrom": "ingest_order_key",
+          "tableTo": "sales_order",
+          "columnsFrom": [
+            "sales_order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "ingest_staged_row": {
       "name": "ingest_staged_row",
       "columns": {
@@ -19862,6 +19944,15 @@
             "po_number"
           ],
           "isUnique": false
+        },
+        "sales_order_company_customer_po_lower_idx": {
+          "name": "sales_order_company_customer_po_lower_idx",
+          "columns": [
+            "company_id",
+            "customer_id",
+            "lower(\"po_number\")"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -23065,6 +23156,13 @@
       "reason_code_live_label_unique": {
         "columns": {
           "lower(trim(\"label\"))": {
+            "isExpression": true
+          }
+        }
+      },
+      "sales_order_company_customer_po_lower_idx": {
+        "columns": {
+          "lower(\"po_number\")": {
             "isExpression": true
           }
         }

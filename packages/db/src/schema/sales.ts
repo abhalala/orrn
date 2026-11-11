@@ -94,6 +94,9 @@ export const salesOrder = sqliteTable(
     index("sales_order_company_server_seq_idx").on(table.companyId, table.serverSeq),
     // PO repeat check among non-cancelled orders of a customer (enforced at confirm, OP §3).
     index("sales_order_company_customer_po_idx").on(table.companyId, table.customerId, table.poNumber),
+    // The same check as the order screens make it, by lower(po_number): assertPoFree, poRepeatGuard
+    // and the import's live order lookup read one customer's PO, not all of its orders (S3-6).
+    index("sales_order_company_customer_po_lower_idx").on(table.companyId, table.customerId, sql`lower(${table.poNumber})`),
   ],
 );
 

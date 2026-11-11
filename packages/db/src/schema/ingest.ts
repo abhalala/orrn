@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 import { user } from "./auth";
+import { salesOrder } from "./sales";
 import { company } from "./tenant";
 
 const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
@@ -320,6 +321,28 @@ export const ingestStagedRow = sqliteTable(
     index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey),
     index("ingest_staged_row_company_name_key_idx").on(t.companyId, t.nameKey),
   ],
+);
+
+/**
+ * The old orders an import made (PORTAL-RULES-3 section 1, S3-6): one row per sales order the merge
+ * wrote for a numbered old order. `key` is the financial year, the customer id and the old order
+ * number after normalising (server lib/ingest/orderid.ts liveOrderKey). The dry run, the planner and
+ * the merge find an old order already in orrn by this key, 90 keys a statement, instead of reading
+ * every order of the customer. An order cancelled and imported again has two rows; only an order
+ * that is not closed or cancelled counts.
+ */
+export const ingestOrderKey = sqliteTable(
+  "ingest_order_key",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    key: text("key").notNull(),
+    salesOrderId: text("sales_order_id")
+      .notNull()
+      .references(() => salesOrder.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (t) => [index("ingest_order_key_company_key_idx").on(t.companyId, t.key)],
 );
 
 export const ingestAnswer = sqliteTable(

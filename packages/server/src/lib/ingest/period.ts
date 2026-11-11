@@ -52,6 +52,9 @@ export async function refreshArtifactPeriod(ctx: Pick<IngestCtx, "db" | "company
     .map((c) => c.id);
   const bundles = candidates.filter((c) => c.target === "bundles").map((c) => c.id);
   const kept = notInArray(ingestStagedRow.state, ["refused", "skipped", "pending"]);
+  // The plant check stays, but with "+" so SQLite reads the candidate's rows on
+  // ingest_staged_row_candidate_state_idx, not every staged row of the plant (S3-6).
+  const plant = sql`+${ingestStagedRow.companyId} = ${ctx.companyId}`;
 
   let dateRange: PeriodInput["dateRange"] = null;
   if (dated.length > 0) {
@@ -59,7 +62,7 @@ export async function refreshArtifactPeriod(ctx: Pick<IngestCtx, "db" | "company
     const [range] = await ctx.db
       .select({ min: sql<string | null>`min(${orderDate})`, max: sql<string | null>`max(${orderDate})` })
       .from(ingestStagedRow)
-      .where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, dated), kept, sql`${orderDate} is not null`));
+      .where(and(plant, inArray(ingestStagedRow.candidateId, dated), kept, sql`${orderDate} is not null`));
     if (range?.min && range.max) dateRange = { min: range.min, max: range.max };
   }
   let codes: string[] = [];
@@ -68,7 +71,7 @@ export async function refreshArtifactPeriod(ctx: Pick<IngestCtx, "db" | "company
     const rows = await ctx.db
       .selectDistinct({ code: legacyId })
       .from(ingestStagedRow)
-      .where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, bundles), kept, sql`${legacyId} is not null`))
+      .where(and(plant, inArray(ingestStagedRow.candidateId, bundles), kept, sql`${legacyId} is not null`))
       .limit(CODES_FOR_GUESS);
     codes = rows.map((r) => String(r.code ?? "").trim()).filter(Boolean);
   }

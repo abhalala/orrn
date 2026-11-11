@@ -24,7 +24,7 @@ import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
 import { loadSections, resolveName, resolveSection, serverNameKey, type NameIndex } from "../resolvers";
 import type { IngestCtx } from "../types";
-import { liveOrdersOf, normOrderNo, orderGroupCheck, orderLabel, orderPoOf, parseOrderKey } from "../orderid";
+import { liveOrderKey, liveOrdersOf, normOrderNo, orderGroupCheck, orderKeyRecord, orderLabel, orderPoOf, parseOrderKey, type LiveOrder } from "../orderid";
 import {
   aliasMoveRefusal,
   aliasNameOwners,
@@ -855,6 +855,20 @@ const orders: Adapter = async (args) => {
   } catch (e) {
     return { written: [], failure: failureOf(e) };
   }
+  // Old orders of the chunk already live, read once for the chunk by key (S3-6).
+  let liveNo: Map<string, LiveOrder>;
+  try {
+    liveNo = await liveOrdersOf(
+      ctx,
+      groups.flatMap((g) => {
+        const k = parseOrderKey(g.key);
+        const customerId = refOf(g.rows[0]!, "customer", refs);
+        return k.kind === "no" && customerId ? [{ key: g.key, customerId, fy: k.fy, no: k.no, po: null }] : [];
+      }),
+    );
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
   const written: Written[] = [];
   for (const group of groups) {
     try {
@@ -868,7 +882,7 @@ const orders: Adapter = async (args) => {
       // something other than this order's own rows. The planner holds such a candidate first.
       const k = parseOrderKey(group.key);
       if (k.kind === "no") {
-        const hit = (await liveOrdersOf(ctx, [{ key: group.key, customerId, fy: k.fy, no: k.no, po: null }])).get(group.key);
+        const hit = liveNo.get(group.key);
         if (hit && hit.requestId !== requestId) {
           throw new TRPCError({ code: "CONFLICT", message: `${orderLabel(group.rows.map(groupRowOf))} is already in orrn as ${hit.number}. Check this sheet again: its rows then show what that order lacks.` });
         }
@@ -894,6 +908,8 @@ const orders: Adapter = async (args) => {
       });
       const source = args.sourceOf(group.rows);
       const made = await createSalesOrder({ ...ctx, ingestSource: source }, input, { canPrice, source: "ingest" });
+      // Which old order this order is, so a later sheet finds it by key (S3-6).
+      if (k.kind === "no" && k.no && k.fy) await orderKeyRecord(ctx, made.id, liveOrderKey(customerId, k.fy, k.no));
 
       // Confirm when the order is complete; otherwise it stays a booking (plan B4, D9). Not a failure.
       // The order exists from here on: any error while confirming is recorded on its rows, never

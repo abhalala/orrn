@@ -25,6 +25,8 @@ import { FakeShapeClient, fakeResponse } from "../src/lib/ingest/bot/fake";
 import { runShapeAttempt, type RunShapeArgs } from "../src/lib/ingest/bot";
 import { DAY_CALL_CAP, DAY_COST_CAP_MICRO, MemoryBotRunStore } from "../src/lib/ingest/bot/caps";
 import { dryRunHooks } from "../src/lib/ingest/dryrun";
+import { liveOrderKey, normOrderNo, orderFyOf } from "../src/lib/ingest/orderid";
+import { ingestOrderKey } from "@orrn/db/schema/ingest";
 import { BLOCK, baseArgs, haiku, recipeAnswer, sonnet, validRecipe } from "./ingest-bot-fixture";
 
 let env: TestEnv;
@@ -308,6 +310,9 @@ describe("A5, A-new-1: an order book matches the plant's live orders", () => {
       cutLengthMm: 3660,
       kgG: 500_000,
     } as never);
+    // An order an import made records its old order (S3-6): the seed does what the merge does.
+    const no = /^Old order no\. (.+)$/.exec(set.note ?? "")?.[1];
+    if (no) await env.db.insert(ingestOrderKey).values({ id: `iok_${id}`, companyId, key: liveOrderKey(customerId, orderFyOf(set.orderDate), normOrderNo(no)), salesOrderId: id });
     return id;
   }
 

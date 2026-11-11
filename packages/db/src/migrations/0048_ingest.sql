@@ -255,4 +255,16 @@ ALTER TABLE `customer` ADD `name_key` text;--> statement-breakpoint
 CREATE INDEX `customer_company_name_key_idx` ON `customer` (`company_id`,`name_key`);
 --> statement-breakpoint
 ALTER TABLE `ingest_staged_row` ADD `name_key` text;--> statement-breakpoint
-CREATE INDEX `ingest_staged_row_company_name_key_idx` ON `ingest_staged_row` (`company_id`,`name_key`);
+CREATE INDEX `ingest_staged_row_company_name_key_idx` ON `ingest_staged_row` (`company_id`,`name_key`);--> statement-breakpoint
+CREATE TABLE `ingest_order_key` (
+	`id` text PRIMARY KEY NOT NULL,
+	`company_id` text NOT NULL,
+	`key` text NOT NULL,
+	`sales_order_id` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`sales_order_id`) REFERENCES `sales_order`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `ingest_order_key_company_key_idx` ON `ingest_order_key` (`company_id`,`key`);--> statement-breakpoint
+CREATE INDEX `sales_order_company_customer_po_lower_idx` ON `sales_order` (`company_id`,`customer_id`,lower("po_number"));

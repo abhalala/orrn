@@ -618,3 +618,123 @@ describe("bounded dry run steps (S3-2)", () => {
     expect(c.openQuestions).toBe(0);
   }, 600_000);
 });
+
+describe("order writes read old orders by key, not the customer's whole history (S3-6)", () => {
+  test(`every write step of a 3,000-order one-customer book with POs reads at most ${STEP_ROWS_READ_MAX} rows, the last as the first`, async () => {
+    const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
+    const customerId = await env.seedCustomer(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "8100" });
+    const N = 3000;
+    await seedBulk(companyId, "orders", N, (i) => ({
+      customer: "Party",
+      oldOrderNo: `O-${i}`,
+      poNumber: `P-${i}`,
+      orderDate: "2025-10-31",
+      series: "R",
+      sectionCode: "8100",
+      cutLength: 3000,
+      bakiKg: 250_000,
+      _ids: { customer: customerId, sectionCode: dieId },
+    }));
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    for (let i = 0; last.state === "planning" && i < 10; i += 1) last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+    expect(last.state).toBe("running");
+    const reads: number[] = [];
+    for (let i = 0; last.state === "running" && i < 400; i += 1) {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    expect(last.state).toBe("done");
+    if (process.env.DEBUG_READS) console.log("WRITE READS first", reads.slice(0, 3), "last", reads.slice(-3), "max", Math.max(...reads));
+    for (const n of reads) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX);
+    // The last write step reads about what the first did: the orders made before it are not read.
+    expect(reads.at(-2)!).toBeLessThanOrEqual(reads[0]! + 100);
+  }, 600_000);
+
+  test(`with 1,000 live orders for the customer, a 10-row sheet's dry run, planning and write steps each read at most ${STEP_ROWS_READ_MAX} rows`, async () => {
+    const { createHash, randomUUID } = await import("node:crypto");
+    const { layout, learnLayout, trim } = await import("./ingest-portal-helpers");
+    const { companyId, users } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const acme = await owner.customer.create({ name: "Acme Traders" });
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "5100" });
+    // 1,000 orders of this customer, made by an earlier import.
+    await seedBulk(companyId, "orders", 1000, (i) => ({
+      customer: "Acme Traders",
+      oldOrderNo: `H-${i}`,
+      poNumber: `HP-${i}`,
+      orderDate: "2025-10-31",
+      series: "R",
+      sectionCode: "5100",
+      cutLength: 3000,
+      bakiKg: 250_000,
+      _ids: { customer: acme.id, sectionCode: dieId },
+    }));
+    const ctx = await contextFor(env, companyId, "owner");
+    const plain = await apiFor(ctx);
+    const first = await plain.ingest.merge.start();
+    let s = await plain.ingest.merge.step({ runId: first.runId, expectCursor: 0 });
+    while (s.state === "planning" || s.state === "running") s = await plain.ingest.merge.step({ runId: first.runId, expectCursor: s.cursor });
+    expect(s.state).toBe("done");
+
+    const BOOK = ["Party", "Order no", "PO", "Date", "Series", "Section", "Cut (mm)", "Baki (kg)"];
+    const recipe = layout(
+      "orders",
+      BOOK,
+      [
+        { field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "oldOrderNo", steps: trim },
+        { field: "poNumber", steps: trim },
+        { field: "orderDate", steps: [{ op: "date", format: "dmy" }] },
+        { field: "series", steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+        { field: "cutLength", steps: [{ op: "number", kind: "length", unit: "mm" }] },
+        { field: "bakiKg", steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+      ],
+      ["customer", "oldOrderNo", "orderDate"],
+    );
+    await learnLayout(env, companyId, users.owner.id, recipe, "Book");
+    const rows = Array.from({ length: 10 }, (_, i) => ["Acme Traders", `N-${i}`, `NP-${i}`, "31/10/2025", "R", "5100", "3658", "100"]);
+    const begin = await owner.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "ten.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const put = await owner.ingest.artifact.putBlocks({
+      artifactId: begin.artifactId,
+      blocks: [{ ordinal: 0, sheetName: "S", title: null, headerRow: 0, headerRows: 1, headers: BOOK, rowCount: rows.length, sample: rows }],
+    });
+    await owner.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows });
+    await owner.ingest.artifact.complete({ artifactId: begin.artifactId });
+    const id = put.candidates[0]!.id;
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const steps: number[] = [];
+    let cursor = (await api.ingest.candidate.get({ candidateId: id })).dryCursor;
+    for (let i = 0; i < 10; i += 1) {
+      tally.rows = 0;
+      const out = await api.ingest.dryRun.step({ candidateId: id, expectCursor: cursor });
+      steps.push(tally.rows);
+      if (out.done) break;
+      cursor = out.cursor;
+    }
+    const c = await owner.ingest.candidate.get({ candidateId: id });
+    await owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    const run = await api.ingest.merge.start();
+    tally.rows = 0;
+    let t = await api.ingest.merge.step({ runId: run.runId, expectCursor: 0 });
+    steps.push(tally.rows);
+    while (t.state === "planning" || t.state === "running") {
+      tally.rows = 0;
+      t = await api.ingest.merge.step({ runId: run.runId, expectCursor: t.cursor });
+      steps.push(tally.rows);
+    }
+    expect(t.state).toBe("done");
+    if (process.env.DEBUG_READS) console.log("STEPS", steps);
+    for (const n of steps) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX);
+  }, 600_000);
+});
