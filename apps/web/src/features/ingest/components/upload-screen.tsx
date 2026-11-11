@@ -25,7 +25,7 @@ import {
   type UploadItem,
 } from "../lib";
 import { CandidateCard } from "./candidate-card";
-import { InlineNotice, ProgressBar, QueryPanel, translateKey } from "./shared";
+import { ActionError, InlineNotice, ProgressBar, QueryPanel, translateKey } from "./shared";
 
 export function IngestUploadScreen() {
   const { t, locale } = useT();
@@ -93,7 +93,7 @@ export function IngestUploadScreen() {
 
       {status.data?.vaultReady === false ? <InlineNotice>{t("ingest.vault.off")}</InlineNotice> : null}
       {status.data?.botReady === false ? <InlineNotice>{t("ingest.helper.off")}</InlineNotice> : null}
-      {merge.error ? <p role="alert" className="m-0 text-[14px] text-destructive">{t("ingest.read.failed")}</p> : null}
+      <ActionError error={merge.rawError} />
 
       <Can do="ingest.upload">
         <section aria-label={t("ingest.drop.title")} className="flex flex-col gap-4 rounded-card border border-border bg-card p-4 sm:p-5">
@@ -133,7 +133,7 @@ export function IngestUploadScreen() {
           <Field label={`${t("common.note")} (${t("common.optional")})`}>
             <TextInput value={note} maxLength={500} onChange={(event) => setNote(event.currentTarget.value)} />
           </Field>
-          {left > 0 ? <p role="status" className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.hint")}</p> : null}
+          {left > 0 ? <p role="status" className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left })}</p> : null}
         </section>
       </Can>
 
@@ -197,7 +197,7 @@ function UploadRow({
     : item.step === "saving"
       ? t("ingest.read.uploading")
       : sending
-        ? t("ingest.state.processing")
+        ? t("ingest.read.sending", { done: item.sent?.rows ?? 0, total: item.sent?.total ?? 0 })
         : item.step === "done"
           ? t("common.done")
           : item.step === "seenBefore"
@@ -210,7 +210,7 @@ function UploadRow({
       <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="m-0 text-[15px] font-semibold break-words">{item.name}</p>
-          <p className="m-0 text-[14px] leading-6 break-words text-muted-foreground">{label}</p>
+          {["reading", "sending"].includes(item.step) ? null : <p className="m-0 text-[14px] leading-6 break-words text-muted-foreground">{label}</p>}
         </div>
         <IconButton label={`${t("common.remove")}: ${item.name}`} icon={<X aria-hidden="true" />} onClick={onRemove} />
       </div>
@@ -222,7 +222,7 @@ function UploadRow({
           </Button>
         ) : null}
         {item.step === "failed" ? <Button size="sm" onClick={onRetry}>{t("common.retry")}</Button> : null}
-        {item.notStored ? <span className="text-[13px] text-muted-foreground">{t("ingest.vault.off")}</span> : null}
+        {item.canonicalMissing ? <span className="text-[13px] text-muted-foreground">{t("ingest.read.canonicalMissing")}</span> : null}
       </div>
     </li>
   );

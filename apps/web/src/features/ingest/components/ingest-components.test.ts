@@ -18,7 +18,7 @@ let QueryClientProvider: typeof import("@tanstack/react-query").QueryClientProvi
 let renderToStaticMarkup: typeof import("react-dom/server").renderToStaticMarkup;
 let CandidateCard: typeof import("./candidate-card").CandidateCard;
 let addMapping: typeof import("./mapping-editor").addMapping;
-let buildRecipe: typeof import("./mapping-editor").buildRecipe;
+let buildRecipe: typeof import("../lib/recipe-builder").buildRecipe;
 let updateMapping: typeof import("./mapping-editor").updateMapping;
 let MergeBody: typeof import("./merge-screen").MergeBody;
 let answerValue: typeof import("./questions-panel").answerValue;
@@ -53,7 +53,7 @@ beforeAll(async () => {
   renderToStaticMarkup = renderer.renderToStaticMarkup;
   CandidateCard = cards.CandidateCard;
   addMapping = mapping.addMapping;
-  buildRecipe = mapping.buildRecipe;
+  buildRecipe = (await server.ssrLoadModule("/src/features/ingest/lib/recipe-builder.ts")).buildRecipe;
   updateMapping = mapping.updateMapping;
   MergeBody = merge.MergeBody;
   answerValue = questions.answerValue;
@@ -107,7 +107,7 @@ describe("candidate card states", () => {
       expect(html).toContain(`data-state="${state}"`);
       expect(html).toContain(text);
       expect(html).toContain("New");
-      expect(html).toContain("Fills blanks");
+      expect(html).toContain("Updates orrn");
     }
   });
 
@@ -126,7 +126,7 @@ describe("staged row filters", () => {
     expect(html).toContain("Pick a match 2");
     expect(html).toContain("Differs from orrn 1");
     expect(html).toContain("New 2");
-    expect(html).toContain("Fills blanks 1");
+    expect(html).toContain("Updates orrn 1");
     expect(html).not.toContain("Cannot import");
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain("Previous page");
@@ -146,7 +146,7 @@ describe("questions panel answer flow", () => {
     expect(html).toContain("weightMinG has no unit. Which unit is it?");
     expect(html).toContain("kg/12ft");
     expect(html).toContain("Save");
-    expect(html).toContain("12170 is not in your sections. Add it as an old section?");
+    expect(html).toContain("12170 is not in your sections. Add it, marked legacy?");
     expect(html).toContain("disabled");
   });
 
@@ -154,9 +154,9 @@ describe("questions panel answer flow", () => {
     const unit = questionView({ code: "unit_unknown", subject: "weight", params: {}, answer: null, open: true });
     const column = questionView({ code: "column_meaning_unclear", subject: "A", params: {}, answer: null, open: true });
     const date = questionView({ code: "date_format_ambiguous", subject: "date", params: {}, answer: null, open: true });
-    expect(answerValue(unit, "kg")).toEqual({ unit: "kg" });
-    expect(answerValue(column, "sectionCode")).toEqual({ field: "sectionCode" });
-    expect(answerValue(date, "dmy")).toBe("dmy");
+    expect(answerValue(unit, "kg")).toEqual({ code: "unit_unknown", answer: "kg" });
+    expect(answerValue(column, "sectionCode")).toEqual({ code: "column_meaning_unclear", answer: "sectionCode" });
+    expect(answerValue(date, "dmy")).toEqual({ code: "date_format_ambiguous", answer: "dmy" });
   });
 });
 
@@ -167,7 +167,11 @@ describe("mapping editor", () => {
     rows = addMapping(rows, "dies");
     expect(rows.map((row) => row.field)).toEqual(["series", "sectionCode", "weightMinG"]);
     rows = updateMapping(rows, rows[2]!.id, { column: 1, unit: "kg/12ft" });
-    const recipe = buildRecipe(detail(), "dies", rows);
+    const d = detail();
+    const recipe = buildRecipe(
+      { headers: d.block.headers, headerKey: d.block.headerKey, headerRow: d.block.headerRow, headerRows: d.block.headerRows },
+      "dies", rows, null,
+    );
     expect(recipe.fields).toHaveLength(1);
     expect(recipe.fields[0]!.source).toEqual({ kind: "columns", cols: [{ col: 1, header: "Minimum weight" }] });
     expect(recipe.fields[0]!.steps).toContainEqual({ op: "number", kind: "linear_mass", unit: "kg/12ft" });

@@ -17,7 +17,8 @@ export type QuantityField = {
 const T = 1_000_000; // grams in a tonne
 
 const TABLE = {
-  "bundle.weight": { kind: "mass", storage: "g", hard: [0, 50 * T], plausible: [1_000, 2 * T] },
+  // Owner, 2026-11-11: a believable bundle is 5 kg to 150 kg; anything outside is asked, not refused.
+  "bundle.weight": { kind: "mass", storage: "g", hard: [0, 50 * T], plausible: [5_000, 150_000] },
   "bundle.length": { kind: "length", storage: "mm", hard: [0, 30_000], plausible: [300, 12_500] },
   "bundle.pieces": { kind: "count", storage: "pcs", hard: [0, 1_000_000], plausible: [1, 5_000], whole: true },
   "order.cutLength": { kind: "length", storage: "mm", hard: [0, 30_000], plausible: [300, 12_500] },

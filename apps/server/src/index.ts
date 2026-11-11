@@ -17,6 +17,7 @@ import { legacyCookieCleanup } from "@orrn/server/lib/legacyCookies";
 import { masterKeyGate } from "@orrn/server/lib/masterKeyGate";
 
 import { createDevInvite, createDevMagicLink, devInviteInput, devMagicLinkInput } from "./dev-front-door";
+import { devIngestBotInput, runDevIngestBot } from "./dev-ingest-bot";
 import { devSpectroInput, runDevSpectro } from "./dev-spectro";
 import { seedDevData } from "./dev-seed";
 import { collectorRoutes } from "./collector-routes";
@@ -96,6 +97,14 @@ if (env.NODE_ENV === "development") {
     const input = devSpectroInput.safeParse(await c.req.json().catch(() => null));
     if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
     return c.json(await runDevSpectro(createDb(), input.data));
+  });
+
+  // Infinity Portal e2e: a scripted shape client instead of the real model. Same gate as /dev/seed.
+  app.post("/dev/ingest-bot", async (c) => {
+    if (!canRunDevSeed(env, c.req.url)) return c.notFound();
+    const input = devIngestBotInput.safeParse(await c.req.json().catch(() => null));
+    if (!input.success) return c.json({ ok: false, message: input.error.message }, 400);
+    return c.json(runDevIngestBot(input.data));
   });
 
   app.post("/dev/magic-link", async (c) => {

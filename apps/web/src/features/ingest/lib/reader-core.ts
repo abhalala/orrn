@@ -46,44 +46,101 @@ const pad = (n: number, width = 2) => String(n).padStart(width, "0");
 
 /** The parts of the `xlsx` module the reader uses. */
 export type XlsxLike = {
-  read(data: ArrayBuffer, opts: { type: "array"; cellNF: boolean }): { SheetNames: string[]; Sheets: Record<string, XlsxSheet> };
+  read(
+    data: ArrayBuffer,
+    opts: { type: "array"; cellNF: boolean },
+  ): { SheetNames: string[]; Sheets: Record<string, XlsxSheet>; Workbook?: { WBProps?: { date1904?: boolean } } };
   utils: {
     decode_range(ref: string): { s: { r: number; c: number }; e: { r: number; c: number } };
+    decode_cell(address: string): { r: number; c: number };
     encode_cell(cell: { r: number; c: number }): string;
   };
-  SSF: { parse_date_code(serial: number): { y: number; m: number; d: number } | null; is_date(format: string): boolean };
+  SSF: {
+    parse_date_code(serial: number, opts?: { date1904?: boolean }): { y: number; m: number; d: number; H?: number; M?: number } | null;
+    is_date(format: string): boolean;
+  };
 };
 export type XlsxCell = { t?: string; v?: unknown; w?: string; z?: string | number };
 export type XlsxSheet = Record<string, unknown> & { "!ref"?: string };
 
+export type MatrixOptions = {
+  /** The workbook counts days from 1904 (`Workbook.WBProps.date1904`). */
+  date1904?: boolean;
+  /** Real cells past these stop the read before any matrix is built. */
+  maxRows?: number;
+  maxColumns?: number;
+};
+
+const ZERO_PAD = /^0+$/;
+
 /**
- * A sheet as a matrix of text, plus the columns that hold real Excel date cells. Date cells become
- * `YYYY-MM-DD` from the serial number, with no time zone in the way.
+ * A sheet as a matrix of text, plus the columns that hold real Excel date cells.
+ * - The extent comes from the cells that hold something, never from the declared `!ref`, which formatting can
+ *   stretch to the last row of the sheet.
+ * - Date cells become `YYYY-MM-DD` from the serial number (in the workbook's date system), with no time zone in the
+ *   way. A time-only cell becomes `HH:mm` and is not a date. A date with a time keeps its day.
+ * - An error cell (`#N/A`) keeps its visible text; its numeric code is never a value.
+ * - A whole number shown with leading zeros (format `0000`) keeps them. Other numbers stay as stored.
  */
-export function matrixFromSheet(X: XlsxLike, sheet: XlsxSheet): { matrix: string[][]; dateColumns: number[] } {
+export function matrixFromSheet(X: XlsxLike, sheet: XlsxSheet, opts: MatrixOptions = {}): { matrix: string[][]; dateColumns: number[] } {
   const ref = sheet["!ref"];
   if (!ref) return { matrix: [], dateColumns: [] };
-  const range = X.utils.decode_range(ref);
+  const declared = X.utils.decode_range(ref);
+
+  // One pass over the sheet's own cells: the extent of what is really filled.
+  let minR = Infinity;
+  let minC = Infinity;
+  let maxR = -1;
+  let maxC = -1;
+  for (const key of Object.keys(sheet)) {
+    if (key.charCodeAt(0) === 33) continue; // "!"
+    const cell = sheet[key] as XlsxCell | undefined;
+    if (!cell || cell.v === undefined || cell.v === null || cell.v === "") continue;
+    const at = X.utils.decode_cell(key);
+    if (at.r < minR) minR = at.r;
+    if (at.r > maxR) maxR = at.r;
+    if (at.c < minC) minC = at.c;
+    if (at.c > maxC) maxC = at.c;
+  }
+  if (maxR < 0) return { matrix: [], dateColumns: [] };
+  const r0 = Math.min(declared.s.r, minR);
+  const c0 = Math.min(declared.s.c, minC);
+  const rows = maxR - r0 + 1;
+  const columns = maxC - c0 + 1;
+  if (opts.maxRows !== undefined && rows > opts.maxRows) throw new ReadStop({ code: "too_many_rows", rows });
+  if (opts.maxColumns !== undefined && columns > opts.maxColumns) throw new ReadStop({ code: "too_many_columns", sheet: null, columns });
+
   const matrix: string[][] = [];
   const dateCounts = new Map<number, { dates: number; filled: number }>();
-  for (let r = range.s.r; r <= range.e.r; r += 1) {
+  for (let r = r0; r <= maxR; r += 1) {
     const row: string[] = [];
-    for (let c = range.s.c; c <= range.e.c; c += 1) {
+    for (let c = c0; c <= maxC; c += 1) {
       const cell = sheet[X.utils.encode_cell({ r, c })] as XlsxCell | undefined;
       let text = "";
       if (cell && cell.v !== undefined && cell.v !== null) {
-        const col = c - range.s.c;
+        const col = c - c0;
         const counts = dateCounts.get(col) ?? { dates: 0, filled: 0 };
         counts.filled += 1;
-        if (cell.t === "n" && typeof cell.v === "number" && typeof cell.z === "string" && X.SSF.is_date(cell.z)) {
-          const d = X.SSF.parse_date_code(cell.v);
-          if (d) {
-            text = `${pad(d.y, 4)}-${pad(d.m)}-${pad(d.d)}`;
-            counts.dates += 1;
-          } else text = cellText(cell.v);
+        if (cell.t === "e") {
+          text = typeof cell.w === "string" && cell.w !== "" ? cell.w : "#ERROR";
+        } else if (cell.t === "n" && typeof cell.v === "number" && typeof cell.z === "string" && X.SSF.is_date(cell.z)) {
+          const wholeDays = Math.floor(cell.v);
+          if (cell.v > 0 && cell.v < 1) {
+            // A time of day: HH:mm, and not a date.
+            const minutes = Math.round(cell.v * 24 * 60);
+            text = `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
+          } else {
+            const d = X.SSF.parse_date_code(cell.v, { date1904: opts.date1904 === true });
+            if (d && d.d > 0 && d.m > 0 && wholeDays >= 1) {
+              text = `${pad(d.y, 4)}-${pad(d.m)}-${pad(d.d)}`;
+              counts.dates += 1;
+            } else text = typeof cell.w === "string" && cell.w !== "" ? cell.w : cellText(cell.v);
+          }
         } else if (cell.t === "d" && cell.v instanceof Date) {
           text = cellText(cell.v);
           counts.dates += 1;
+        } else if (cell.t === "n" && typeof cell.v === "number" && typeof cell.z === "string" && ZERO_PAD.test(cell.z) && Number.isInteger(cell.v) && cell.v >= 0) {
+          text = String(cell.v).padStart(cell.z.length, "0");
         } else text = cellText(cell.v);
         dateCounts.set(col, counts);
       }
@@ -108,7 +165,9 @@ type Piece = { sheetName: string | null; block: EngineBlock; dateColumns?: numbe
 export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ_LIMITS): ReadBlock[] {
   const out: ReadBlock[] = [];
   for (const { sheetName, block, dateColumns } of pieces) {
-    const columns = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0);
+    // A plain loop: spreading 150,000 rows into one call throws in V8 and Safari.
+    let columns = block.headers.length;
+    for (const r of block.rows) if (r.length > columns) columns = r.length;
     if (columns > limits.maxColumns) throw new ReadStop({ code: "too_many_columns", sheet: sheetName, columns });
     // The server cuts cells at 200 characters and records why; the browser only keeps the wire cap.
     const headers = block.headers.map((h) => clipCell(h, WIRE_CELL_MAX_CHARS).text);
@@ -185,7 +244,11 @@ export async function readSheetBytes(buffer: ArrayBuffer, deps: ReadDeps): Promi
     cancelled(deps);
     const sheet = book.Sheets[name];
     if (!sheet) continue;
-    const { matrix, dateColumns } = matrixFromSheet(X, sheet);
+    const { matrix, dateColumns } = matrixFromSheet(X, sheet, {
+      date1904: book.Workbook?.WBProps?.date1904 === true,
+      maxRows: Math.max(0, limits.maxRawRows - rawRows),
+      maxColumns: limits.maxColumns,
+    });
     rawRows += matrix.length;
     checkRawRows(rawRows, limits);
     deps.onProgress?.({ phase: "sheet", sheet: name, rowsRead: matrix.length, rowsTotal: matrix.length });

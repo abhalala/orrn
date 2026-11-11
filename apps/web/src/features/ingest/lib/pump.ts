@@ -14,13 +14,30 @@ export const STEP_RETRIES = 2;
 
 export type PumpError = { code: string; message: string };
 
+/** A request that never got an answer: a failed fetch, a dropped connection, a timeout. Not a bug in the page. */
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  const name = (error as { name?: unknown } | null | undefined)?.name;
+  if (name === "TRPCClientError" || name === "AbortError" || name === "TimeoutError") return true;
+  const message = String((error as { message?: unknown } | null | undefined)?.message ?? "");
+  return /failed to fetch|network|load failed|timed? ?out|connection/i.test(message);
+}
+
+const TRPC_CODES = new Set([
+  "CONFLICT", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "BAD_REQUEST", "TOO_MANY_REQUESTS", "TIMEOUT", "INTERNAL_SERVER_ERROR",
+  "PRECONDITION_FAILED", "PAYLOAD_TOO_LARGE", "STALLED",
+]);
+
 /** The tRPC error code of a thrown error, or "NETWORK" for anything without one. */
 export function errorCodeOf(error: unknown): string {
   const data = (error as { data?: { code?: unknown } } | null | undefined)?.data;
   if (data && typeof data.code === "string") return data.code;
   const shape = (error as { shape?: { data?: { code?: unknown } } } | null | undefined)?.shape?.data;
   if (shape && typeof shape.code === "string") return shape.code;
-  return "NETWORK";
+  // A `PumpError` (what the hooks keep) carries the code itself.
+  const own = (error as { code?: unknown } | null | undefined)?.code;
+  if (typeof own === "string" && TRPC_CODES.has(own)) return own;
+  return isNetworkFailure(error) ? "NETWORK" : "UNKNOWN";
 }
 
 export function isConflict(error: unknown): boolean {
@@ -151,9 +168,26 @@ export async function drivePump<R>(spec: DriveSpec<R>): Promise<DriveOutcome<R>>
       return { kind: "done", last };
     }
     if (outcome.kind === "aborted") return { kind: "aborted", last };
-    if (outcome.kind === "error") return { kind: "error", error: outcome.error, last };
+    if (outcome.kind === "error") {
+      // A step that lands after the work is finished is refused ("already checked"). If the stored state says it is
+      // not running any more, the work is done and the refusal is only a late answer.
+      if (errorCodeOf(outcome.error) !== "STALLED") {
+        try {
+          const now = await spec.read();
+          if (!now.running) {
+            spec.onOtherTab?.(false);
+            return { kind: "done", last };
+          }
+        } catch {
+          // keep the original error
+        }
+      }
+      return { kind: "error", error: outcome.error, last };
+    }
 
-    // CONFLICT. One quick look: did the cursor move past what we sent?
+    // CONFLICT. A call that made progress and then conflicted is most likely this tab's own lost response, so the
+    // quiet retry is available again. A conflict with no progress at all is another tab.
+    if (outcome.last) fastRetry = 1;
     if (fastRetry > 0) {
       fastRetry -= 1;
       let now: PumpRead;
@@ -239,4 +273,75 @@ export async function runBotPump(spec: {
     if (result.next === "manual") return { kind: result.outcome === "capped" ? "capped" : "gaveUp", last };
   }
   return { kind: "gaveUp", last };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Waiting for rows, and the phase a screen shows
+// ---------------------------------------------------------------------------------------------
+
+export type RowsRead = { missing: number; running: boolean };
+
+/**
+ * Waits while the uploading tab still has rows to send. It never gives up by itself, a slow upload may still
+ * move; after `stalePolls` polls with the same number missing it raises `onStalled(true)` so the screen can tell the
+ * person to drop the same file again, and clears it when the number moves. Ends when nothing is missing, the state
+ * stops running, or the tab leaves.
+ */
+export async function waitForRows(spec: {
+  read: () => Promise<RowsRead>;
+  onStalled?: (stalled: boolean) => void;
+  signal?: AbortSignal;
+  sleep?: (ms: number) => Promise<void>;
+  pollMs?: number;
+  stalePolls?: number;
+}): Promise<RowsRead> {
+  const sleep = spec.sleep ?? realSleep;
+  const pollMs = spec.pollMs ?? POLL_MS;
+  const stalePolls = spec.stalePolls ?? STALE_POLLS;
+  let last: number | undefined;
+  let still = 0;
+  let stalled = false;
+  for (;;) {
+    const now = await spec.read();
+    if (now.missing <= 0 || !now.running || spec.signal?.aborted) {
+      if (stalled) spec.onStalled?.(false);
+      return now;
+    }
+    if (last === undefined || now.missing !== last) {
+      last = now.missing;
+      still = 0;
+      if (stalled) {
+        stalled = false;
+        spec.onStalled?.(false);
+      }
+    } else {
+      still += 1;
+      if (still >= stalePolls && !stalled) {
+        stalled = true;
+        spec.onStalled?.(true);
+      }
+    }
+    await sleep(pollMs);
+  }
+}
+
+export type HookPhase = "idle" | "running" | "otherTab" | "done" | "error";
+
+/**
+ * The phase a dry-run screen shows. `ui` is what the effect last set. A `running` or `otherTab` left behind when the
+ * candidate stopped being processable (another tab finished it) is not shown: the effect was cancelled, so nobody is
+ * going to set it right.
+ */
+export function dryRunPhase(a: { mine: boolean; ui: HookPhase; eligible: boolean }): HookPhase {
+  if (!a.mine) return "idle";
+  if ((a.ui === "running" || a.ui === "otherTab") && !a.eligible) return "idle";
+  return a.ui;
+}
+
+/** The phase a merge screen shows: a finished run is done whatever a cancelled effect left, unless it ended in error. */
+export function mergePhase(a: { mine: boolean; ui: HookPhase; finished: boolean }): HookPhase {
+  if (a.mine && a.ui === "error") return "error";
+  if (a.finished) return "done";
+  if (!a.mine) return "idle";
+  return a.ui;
 }

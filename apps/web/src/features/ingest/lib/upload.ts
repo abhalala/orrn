@@ -1,6 +1,6 @@
 import type { IngestApi } from "./api";
 import {
-  BLOCKS_PER_CALL, chunk, DEFAULT_LIMITS, detectFileKind, fileSizeProblem, rowCountProblem, rowPages,
+  BLOCKS_PER_CALL, chunk, DEFAULT_LIMITS, detectFileKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
   type FileProblem,
 } from "./limits";
 import { ReadError, type ReadResult } from "./reader-client";
@@ -30,6 +30,8 @@ export type UploadItem = {
   seenOn: number | null;
   /** The raw bytes were not kept (no storage on this plant). */
   notStored: boolean;
+  /** The rebuild copy of the rows could not be saved (it was tried twice). The import itself went through. */
+  canonicalMissing?: boolean;
   problem: FileProblem | null;
 };
 
@@ -81,6 +83,9 @@ async function put(f: typeof fetch, upload: UploadTicketOut, body: Blob, content
   if (!res.ok) throw new UploadPutError(res.status);
 }
 
+/** Read failures the bytes themselves cause: the same file will fail again, so the server is told. */
+const REPORTED_FAILURES = new Set(["too_many_rows", "too_many_columns", "too_many_blocks", "no_text_layer"]);
+
 /** A begin error that is a plain refusal, as the screen's problem line, or null. */
 export function problemFromError(error: unknown, name: string, limitMb: number | null): FileProblem | null {
   const message = String((error as { message?: unknown } | null)?.message ?? "");
@@ -89,14 +94,9 @@ export function problemFromError(error: unknown, name: string, limitMb: number |
   return null;
 }
 
-/**
- * Tells the server the browser could not read the file (`artifact.complete` with `readError`, plan B7). The
- * server's input accepts it (`completeInput`); the router skeleton still types `complete` with the id only,
- * hence the cast. Best effort: a failure here changes nothing for the person.
- */
+/** Tells the server the browser could not read the file (`artifact.complete` with `readError`, plan B7). Best effort. */
 async function reportReadFailure(api: IngestApi, artifactId: string, readError: string): Promise<void> {
-  const complete = api.artifactComplete as unknown as (input: { artifactId: string; readError: string }) => Promise<unknown>;
-  await complete({ artifactId, readError }).catch(() => undefined);
+  await api.artifactComplete({ artifactId, readError }).catch(() => undefined);
 }
 
 type Hooks = { onItem: (patch: Partial<UploadItem>) => void; signal?: AbortSignal; note?: string };
@@ -117,14 +117,22 @@ export async function uploadOneFile(
   const limits = deps.limits ?? DEFAULT_LIMITS;
   const send = deps.fetch ?? fetch;
   const { onItem, signal } = hooks;
-  const found = detectFileKind(file.name, file.type, limits);
   const refuse = (problem: FileProblem) => {
     onItem({ step: "refused", problem });
     return { artifactId: null, step: "refused" as const };
   };
+  const wrongType = () => refuse({ key: "ingest.drop.wrongType", vars: { name: file.name } });
 
-  const tooBig = fileSizeProblem(file, limits);
-  if (tooBig || !found) return refuse(tooBig ?? { key: "ingest.read.failed" });
+  // The name says what the file is; the first bytes decide (a .xlsx that is really a CSV is read as a CSV).
+  const named = detectFileKind(file.name, file.type, limits);
+  if (!named || !isReadableKind(named.kind)) return wrongType();
+  const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const sniffed = sniffKind(head, named.kind);
+  if (!sniffed || !isReadableKind(sniffed)) return wrongType();
+  const found = { kind: sniffed, limitMb: limitMbFor(sniffed, limits) };
+  if (file.size > found.limitMb * 1024 * 1024) {
+    return refuse({ key: "ingest.drop.tooBig", vars: { name: file.name, limit: found.limitMb } });
+  }
 
   onItem({ step: "hashing", kind: found.kind, problem: null });
   const sha256 = await reader.hash(file, signal);
@@ -146,7 +154,12 @@ export async function uploadOneFile(
   const saveRaw = async () => {
     if (!begin.upload) return;
     onItem({ step: "saving" });
-    await put(send, begin.upload, file, file.type || "application/octet-stream");
+    try {
+      await put(send, begin.upload, file, file.type || "application/octet-stream");
+    } catch (error) {
+      // 409: an earlier try already stored these bytes (the digest names the object) and only commitRaw was lost.
+      if (!(error instanceof UploadPutError && error.status === 409)) throw error;
+    }
     await api.artifactCommitRaw({ artifactId });
   };
 
@@ -174,9 +187,11 @@ export async function uploadOneFile(
     read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
-    // Tell the server the file could not be read, so its candidates show Could not read and not "reading" forever.
-    const readError = error instanceof ReadError ? error.failure.code : "unreadable";
-    await reportReadFailure(api, artifactId, readError);
+    // Tell the server only about failures the bytes cause. A failed chunk load or a worker crash says nothing
+    // about the file, and marking the artifact failed would block the same bytes for good.
+    if (error instanceof ReadError && REPORTED_FAILURES.has(error.failure.code)) {
+      await reportReadFailure(api, artifactId, error.failure.code);
+    }
     if (error instanceof ReadError && error.failure.code === "too_many_rows") {
       return refuse({ key: "ingest.drop.tooManyRows", vars: { name: file.name } });
     }
@@ -220,11 +235,17 @@ export async function uploadOneFile(
   for (const upload of done.canonicalUploads) {
     const block = read.blocks.find((b) => b.input.ordinal === upload.blockOrdinal);
     if (!block) continue;
-    try {
-      await put(send, { url: upload.url, ticket: upload.ticket, expiresAt: 0 }, await gzipJsonl(block.rows), "application/gzip");
-    } catch {
-      // not fatal
+    const body = await gzipJsonl(block.rows);
+    let saved = false;
+    for (let attempt = 0; attempt < 2 && !saved; attempt += 1) {
+      try {
+        await put(send, { url: upload.url, ticket: upload.ticket, expiresAt: 0 }, body, "application/gzip");
+        saved = true;
+      } catch {
+        // tried again once; a miss is flagged below and does not undo the import
+      }
     }
+    if (!saved) onItem({ canonicalMissing: true });
   }
   onItem({ step: "done" });
   return { artifactId, step: "done" };

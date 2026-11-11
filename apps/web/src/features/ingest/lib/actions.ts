@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { chunk } from "./limits";
 import { ingestKeys } from "./queries";
 import { ingestApi } from "./trpc-api";
+import type { BuiltAnswer } from "./answers";
 import type { IngestTarget, RowDecision } from "./types";
 
 /** `rows.decide` takes 200 ids at most; `decide` splits a longer list into calls of 200. */
@@ -19,7 +20,8 @@ export type IngestActions = {
   /** "Use this layout" is `accept: true`, "Not this one" is `accept: false`. */
   confirmNear: (candidateId: string, accept: boolean, expectSeq: number) => Promise<void>;
   saveShape: (candidateId: string, recipe: unknown, holeName: string, expectSeq: number) => Promise<void>;
-  answer: (candidateId: string, code: QuestionCodeArg, subject: string, answer: unknown, expectSeq: number) => Promise<void>;
+  /** `answer` comes from the builders below, so the shape is the one the server reads. */
+  answer: (candidateId: string, subject: string, answer: BuiltAnswer, expectSeq: number) => Promise<void>;
   decide: (
     candidateId: string,
     rowIds: readonly string[],
@@ -35,7 +37,6 @@ export type IngestActions = {
   retireHole: (holeId: string) => Promise<void>;
 };
 
-type QuestionCodeArg = import("./types").QuestionCode;
 
 /** Everything a candidate write can change: the candidate, every list, the rows and the files. */
 export async function refreshIngest(qc: QueryClient, candidateId?: string): Promise<void> {
@@ -61,8 +62,8 @@ export function makeIngestActions(qc: QueryClient, api: () => ReturnType<typeof 
       api().candidateConfirmNear({ candidateId, accept, expectSeq }).then(then(candidateId)),
     saveShape: (candidateId, recipe, holeName, expectSeq) =>
       api().shapeSave({ candidateId, recipe, holeName, expectSeq }).then(then(candidateId)),
-    answer: (candidateId, questionCode, subject, answer, expectSeq) =>
-      api().answerSet({ candidateId, questionCode, subject, answer, expectSeq }).then(then(candidateId)),
+    answer: (candidateId, subject, built, expectSeq) =>
+      api().answerSet({ candidateId, questionCode: built.code, subject, answer: built.answer, expectSeq }).then(then(candidateId)),
     decide: async (candidateId, rowIds, decision, expectSeq, matchId) => {
       let seq = expectSeq;
       for (const ids of chunk(rowIds, DECIDE_ROWS_PER_CALL)) {

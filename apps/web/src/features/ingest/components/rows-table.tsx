@@ -10,17 +10,19 @@ import { Can } from "@/shared/components/can";
 import {
   decisionOptions,
   diffEntries,
-  rateCell,
+  refusalLines,
+  refusalText,
   rowStateCounts,
   rowStateKey,
   rowTone,
   useIngestActions,
   useRows,
+  valueCells,
   type CandidateDetail,
   type RowState,
   type StagedRowView,
 } from "../lib";
-import { chipTone, Panel, QueryPanel, translateKey } from "./shared";
+import { ActionError, chipTone, Panel, QueryPanel, translateKey } from "./shared";
 
 export function StagedRows({ candidate, onChanged }: { candidate: CandidateDetail; onChanged?: () => void }) {
   const { t } = useT();
@@ -52,16 +54,16 @@ export function StagedRows({ candidate, onChanged }: { candidate: CandidateDetai
           <EmptyState title={t("common.noResults", { query: state ? translateKey(t, rowStateKey(state) ?? "") : t("common.all") })} />
         ) : (
           <>
-            <div className="flex flex-col gap-3 sm:hidden">
+            <div className="flex flex-col gap-3 lg:hidden">
               {items.map((row) => <RowCard key={row.id} candidate={candidate} row={row} onChanged={onChanged} />)}
             </div>
-            <div className="hidden max-w-full overflow-x-auto rounded-card border border-border sm:block" tabIndex={0} role="region" aria-label={t("imports.preview.heading")}>
+            <div className="hidden max-w-full overflow-x-auto rounded-card border border-border lg:block" tabIndex={0} role="region" aria-label={t("imports.preview.heading")}>
               <table className="w-full min-w-[720px] border-collapse text-left text-[14px]">
                 <caption className="sr-only">{candidate.fileName}</caption>
                 <thead className="bg-surface-sunken">
                   <tr>
                     <th scope="col" className="px-3 py-2">{t("imports.preview.row")}</th>
-                    <th scope="col" className="px-3 py-2">{t("common.filter")}</th>
+                    <th scope="col" className="px-3 py-2">{t("ingest.row.state")}</th>
                     <th scope="col" className="px-3 py-2">{t("common.details")}</th>
                     <th scope="col" className="px-3 py-2">{t("common.moreActions")}</th>
                   </tr>
@@ -89,7 +91,7 @@ function RowLine({ candidate, row, onChanged }: { candidate: CandidateDetail; ro
     <tr className="border-t border-border align-top">
       <td className="px-3 py-3 font-mono tabular-nums">{row.rowIndex + 1}</td>
       <td className="px-3 py-3"><RowChip row={row} /></td>
-      <td className="max-w-[420px] px-3 py-3"><RowDetails row={row} /></td>
+      <td className="max-w-[420px] px-3 py-3"><RowDetails candidate={candidate} row={row} /></td>
       <td className="px-3 py-3"><RowDecision candidate={candidate} row={row} onChanged={onChanged} /></td>
     </tr>
   );
@@ -103,7 +105,7 @@ function RowCard({ candidate, row, onChanged }: { candidate: CandidateDetail; ro
         <span className="font-mono text-[13px] tabular-nums">{t("imports.preview.row")} {row.rowIndex + 1}</span>
         <RowChip row={row} />
       </div>
-      <RowDetails row={row} />
+      <RowDetails candidate={candidate} row={row} />
       <RowDecision candidate={candidate} row={row} onChanged={onChanged} />
     </article>
   );
@@ -115,30 +117,58 @@ function RowChip({ row }: { row: StagedRowView }) {
   return key ? <Chip tone={chipTone(rowTone(row.state))}>{translateKey(t, key)}</Chip> : null;
 }
 
-function RowDetails({ row }: { row: StagedRowView }) {
+function RowDetails({ candidate, row }: { candidate: CandidateDetail; row: StagedRowView }) {
   const { t } = useT();
-  const values = Object.entries(row.values ?? {});
+  const cells = valueCells(candidate.target, row);
   const diffs = diffEntries(row.diff);
-  const rate = rateCell(row);
+  const lines = refusalLines(row.reasons).map((line) => refusalText((key, vars) => translateKey(t, key, vars), line));
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <dl className="m-0 grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-x-3 gap-y-1 break-words">
-        {(values.length > 0 ? values : row.raw.map((value, index) => [String(index + 1), value] as const)).map(([field, value]) => (
-          <div key={field} className="contents">
-            <dt className="text-[13px] text-muted-foreground">{field}</dt>
-            <dd className="m-0 font-mono text-[13px]">{value === null || value === undefined ? "" : String(value)}</dd>
+        {(cells.length > 0 ? cells : []).map((cell) => (
+          <div key={cell.field} className="contents">
+            <dt className="text-[13px] text-muted-foreground">{translateKey(t, cell.labelKey)}</dt>
+            <dd className="m-0 flex min-w-0 flex-col font-mono text-[13px]">
+              {cell.hidden ? (
+                <span className="font-sans text-muted-foreground">{t("ingest.rate.hidden")}</span>
+              ) : (
+                <>
+                  <span>
+                    {cell.value}
+                    {cell.unit ? <span className="text-muted-foreground"> {cell.unit}</span> : null}
+                    {cell.unitKey ? <span className="font-sans text-muted-foreground"> {translateKey(t, cell.unitKey)}</span> : null}
+                  </span>
+                  {cell.entered ? (
+                    <span className="font-sans text-[12px] text-muted-foreground">
+                      {t("ingest.row.entered")}: {cell.entered.text}{cell.entered.unit ? ` ${cell.entered.unit}` : ""}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </dd>
           </div>
         ))}
+        {cells.length === 0
+          ? row.raw.map((value, index) => (
+              <div key={index} className="contents">
+                <dt className="text-[13px] text-muted-foreground">{index + 1}</dt>
+                <dd className="m-0 font-mono text-[13px]">{value}</dd>
+              </div>
+            ))
+          : null}
       </dl>
       {diffs.map((diff) => (
         <div key={diff.field} className="rounded-input bg-surface-sunken p-2 text-[13px] break-words">
-          <p className="m-0 font-semibold">{diff.field}</p>
+          <p className="m-0 font-semibold">{translateKey(t, `ingest.field.${diff.field}`)}</p>
           <p className="m-0">{t("ingest.decide.keepLive")}: {diff.live}</p>
           <p className="m-0">{t("ingest.decide.keepFile")}: {diff.file}</p>
         </div>
       ))}
-      {row.reasons.length > 0 ? <p className="m-0 text-[13px] break-words text-tone-red-ink">{row.reasons.join(", ")}</p> : null}
-      {rate.hidden ? <p className="m-0 text-[13px] text-muted-foreground">{t("ingest.rate.hidden")}</p> : rate.value !== null ? <p className="m-0 font-mono text-[13px]">{rate.value}</p> : null}
+      {lines.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0 text-[13px] break-words text-tone-red-ink">
+          {lines.map((line, index) => <li key={index}>{line}</li>)}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -147,7 +177,7 @@ function RowDecision({ candidate, row, onChanged }: { candidate: CandidateDetail
   const { t } = useT();
   const actions = useIngestActions();
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<unknown>(null);
   const options = decisionOptions(row);
   if (options.length === 0) return null;
   return (
@@ -161,12 +191,12 @@ function RowDecision({ candidate, row, onChanged }: { candidate: CandidateDetail
             const option = options[Number(event.currentTarget.value)];
             if (!option) return;
             setPending(true);
-            setFailed(false);
+            setFailed(null);
             try {
               await actions.decide(candidate.id, [row.id], option.decision, candidate.serverSeq, option.matchId);
               onChanged?.();
-            } catch {
-              setFailed(true);
+            } catch (error) {
+              setFailed(error);
             } finally {
               setPending(false);
             }
@@ -175,7 +205,7 @@ function RowDecision({ candidate, row, onChanged }: { candidate: CandidateDetail
           <option value="">{t("common.moreActions")}</option>
           {options.map((option, index) => <option key={`${option.decision}:${option.matchId ?? ""}`} value={index}>{translateKey(t, option.key, option.vars)}</option>)}
         </NativeSelect>
-        {failed ? <p role="alert" className="m-0 text-[13px] text-destructive">{t("ingest.read.failed")}</p> : null}
+        <ActionError error={failed} />
       </div>
     </Can>
   );

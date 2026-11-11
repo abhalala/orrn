@@ -16,24 +16,24 @@ import {
   useIngestActions,
   type CandidateSummary,
 } from "../lib";
-import { CandidateLink, chipTone, ReasonText, translateKey } from "./shared";
+import { ActionError, CandidateLink, chipTone, ReasonText, translateKey } from "./shared";
 
 export function CandidateActions({ candidate, onDone }: { candidate: CandidateSummary; onDone?: () => void }) {
   const { t } = useT();
   const { data: me } = useMe();
   const actions = useIngestActions();
   const [pending, setPending] = useState<"approve" | "hold" | "discard" | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<unknown>(null);
   const allowed = allowedActions(candidate, { merge: can(me, "ingest.merge"), upload: can(me, "ingest.upload") });
 
   const run = async (name: "approve" | "hold" | "discard") => {
     setPending(name);
-    setFailed(false);
+    setFailed(null);
     try {
       await actions[name](candidate.id, candidate.serverSeq);
       onDone?.();
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailed(error);
       onDone?.();
     } finally {
       setPending(null);
@@ -66,7 +66,7 @@ export function CandidateActions({ candidate, onDone }: { candidate: CandidateSu
           </Can>
         ) : null}
       </div>
-      {failed ? <p role="alert" className="m-0 text-[13px] text-destructive">{t("ingest.read.failed")}</p> : null}
+      <ActionError error={failed} />
     </div>
   );
 }
