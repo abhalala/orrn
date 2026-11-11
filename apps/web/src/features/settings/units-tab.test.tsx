@@ -118,6 +118,11 @@ describe("PreviewList markup", () => {
     for (const label of ["Weight", "Length", "Section weight", "Number", "Date and time"]) expect(html).toContain(`>${label}</dt>`);
     expect(html).toContain('data-testid="preview-weight">1,23,456.789 kg<');
   });
+  test("each line is its own atomic live region, so a change is spoken with its label", () => {
+    expect(html.match(/aria-live="polite" aria-atomic="true"/g)?.length).toBe(5);
+    // the list itself is not the live region (a change inside it would be read as a bare value)
+    expect(html).not.toMatch(/<dl[^>]*aria-live/);
+  });
   test("in Hindi the labels are Hindi and the numbers stay Latin", () => {
     const hi = renderToStaticMarkup(
       <I18nProvider locale="hi">
