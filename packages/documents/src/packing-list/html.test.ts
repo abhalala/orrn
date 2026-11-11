@@ -19,7 +19,7 @@ describe("packing list html (native print)", () => {
 
   test("the footer and page counter use page margin boxes, never a fixed footer", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
-    expect(html).toContain("Not a tax invoice. Printed from PL-0007 revision 1 as issued.");
+    expect(html).toContain("Fourcubes Extrusion · Not a tax invoice. Printed from PL-0007 revision 1 as issued.");
     expect(html).not.toContain("position: fixed");
     expect(html).toContain("@page");
     expect(html).toContain("@bottom-left");

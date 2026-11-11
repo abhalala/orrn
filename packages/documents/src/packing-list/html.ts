@@ -109,7 +109,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
   const brand = pl.issue?.branding;
   const profiles = plProfileLines(pl);
   const revision = plRevisionText(pl);
-  const footer = plLockedSnapshotFooter(h.plNumber, pl.issue?.revision ?? 1, opts.printText);
+  const footer = `${h.company.legalName ?? h.company.name} · ${plLockedSnapshotFooter(h.plNumber, pl.issue?.revision ?? 1, opts.printText)}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -240,7 +240,7 @@ export function buildPackingListHtml(
       return head + rows + sub;
     })
     .join("");
-  const footer = plLockedSnapshotFooter(code, 1, opts.printText);
+  const footer = `${header.companyName} · ${plLockedSnapshotFooter(code, 1, opts.printText)}`;
 
   return `<!DOCTYPE html>
 <html>
