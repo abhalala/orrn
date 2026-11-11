@@ -121,11 +121,38 @@ function startsNewBlock(row: readonly string[], recent: readonly string[][], wid
 const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/;
 /** A bare year. It marks a title only when the cell is not a group label (C-new-1: "Apr 2025" over "Kg | Pcs"). */
 const YEAR_MARK = /\b(?:19|20)\d{2}\b/;
+/** A month name, full or in a standard short form. */
+const MONTH_MARK = /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
+
+/** The bottom cells under a top cell: from it to the column before the next filled top cell. */
+function spanBelow(top: readonly string[], below: readonly string[], i: number): string[] {
+  let end = i + 1;
+  while (end < Math.max(top.length, below.length) && (top[end] ?? "") === "") end++;
+  return Array.from({ length: end - i }, (_, x) => (below[i + x] ?? "").toLowerCase());
+}
+
+/**
+ * Is the year or month cell at `i` a group label over sub-columns (C-new-1), not a letterhead (C-new-5)? It must span
+ * blank top cells over filled bottom cells, and the row must also show it is a group row: two or more year or month
+ * cells in the row, or the same sub-column names under another top cell (Kg | Pcs under Apr and under Total).
+ */
+function isGroupLabel(row: readonly string[], below: readonly string[], i: number): boolean {
+  if ((row[i + 1] ?? "") !== "" || (below[i + 1] ?? "") === "") return false;
+  const dated = row.filter((c) => c !== "" && (YEAR_MARK.test(c) || MONTH_MARK.test(c))).length;
+  if (dated >= 2) return true;
+  const mine = spanBelow(row, below, i);
+  if (mine.length < 2 || mine.some((c) => c === "")) return false;
+  return row.some((c, j) => {
+    if (j === i || c === "") return false;
+    const other = spanBelow(row, below, j);
+    return other.length === mine.length && other.every((x, n) => x === mine[n]);
+  });
+}
 
 /**
  * Is the header-like row at `h` a title above the real header (C15)? Only when it carries a title mark and the next
- * non-blank row is header-like with more cells. A bare year counts only when its cell does not head a group: the
- * cell to its right is blank and the row below fills that column. A group-label row of a two-row header is not a title.
+ * non-blank row is header-like with more cells. A bare year counts only when its cell is not a group label (see
+ * `isGroupLabel`). A group-label row of a two-row header is not a title.
  */
 function isTitleAbove(rows: readonly string[][], h: number): number {
   const row = rows[h]!;
@@ -133,8 +160,7 @@ function isTitleAbove(rows: readonly string[][], h: number): number {
   while (k < rows.length && nonBlank(rows[k]!) === 0) k++;
   if (k >= rows.length) return -1;
   const below = rows[k]!;
-  const groupLabel = (i: number) => (row[i + 1] ?? "") === "" && (below[i + 1] ?? "") !== "";
-  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !groupLabel(i))));
+  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !isGroupLabel(row, below, i))));
   if (!marked) return -1;
   return isHeaderLike(below) && nonBlank(below) > nonBlank(row) ? k : -1;
 }
