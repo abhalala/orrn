@@ -30,6 +30,10 @@ describe("round 6: the CSV delimiter with a semicolon or a pipe in a remark", ()
       ["Order book\nParty|Kg|Rate\nOm|12|245\nMehta|13|250\n", "|"],
       ["Party;Kg;Note\nOm;12;a, b\nMehta;13;c, d\n", ";"],
       ["Party\tNote\nOm\tok; fine\nMehta\tok; done\n", "\t"],
+      // Key and value lines above a comma table whose remarks all hold a semicolon (found by the round 6 property).
+      ["Party:,Om Metals,City:,Rajkot\nPhone,9812345678\nSection,Pcs,Kg,Remarks\nK1100,815,34.61,hold; fine\nK1100,830,42.00,ok; done\nF3301,12,3.50,ok; late\n", ","],
+      // A comma table whose notes all hold a pipe, with a second table at the end of the sample.
+      ["Section,Pcs,Kg,Remarks\nF3301,251,39.63,recheck| done\nK1100,96,6.31,recheck| late\nR2105,130,19.50,hold| late\nR2105,340,42.17,recheck| done\nT4012,655,37.93,hold| done\nF3301,620,28.27,ok| done\n\n\nName,City,Phone\nOm,Surat,9816282336\nMehta,Rajkot,9875843530\n", ","],
     ];
     for (const [s, d] of cases) expect(detectDelimiter(s), JSON.stringify(s)).toBe(d);
   });
