@@ -27,7 +27,7 @@ import {
   parseRank } from "./die-room-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 import { useFmt } from "@/shared/lib/fmt";
-import { altSectionText, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { altSectionText, countText, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 /** `/dies/copies/$copyId/lift`: ask for the copy to move to another band. A manager decides; the code never changes. */
 export function LiftPage({ copyId }: { copyId: string }) {
@@ -163,8 +163,8 @@ export function LiftPage({ copyId }: { copyId: string }) {
           {mine && mine.offBandMilli ? (
             <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="off-band">
               {mine.offBandMilli > 0
-                ? t("dieRoom.lift.aboveBy", { g: mine.offBandMilli.toLocaleString("en-IN") })
-                : t("dieRoom.lift.belowBy", { g: Math.abs(mine.offBandMilli).toLocaleString("en-IN") })}
+                ? t("dieRoom.lift.aboveBy", { g: countText(fmt, mine.offBandMilli) })
+                : t("dieRoom.lift.belowBy", { g: countText(fmt, Math.abs(mine.offBandMilli)) })}
             </p>
           ) : null}
         </Card>

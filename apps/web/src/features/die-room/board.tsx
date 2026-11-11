@@ -38,7 +38,7 @@ import { TrialSetting } from "./trial-setting";
 import { WorstToneChip } from "./drift-chips";
 import { formatBand, type DriftTone } from "./die-room-model";
 import { useFmt } from "@/shared/lib/fmt";
-import { sectionUnit } from "@/shared/lib/fmt-text";
+import { countText, sectionUnit } from "@/shared/lib/fmt-text";
 
 const PAGE = 50;
 
@@ -463,6 +463,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
 
 /** One tile of the board: a count, pressed to filter the list to it. */
 function TileButton({ id, count, pressed, onPress }: { id: BoardTile; count: number; pressed: boolean; onPress(): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const label = t(`dieRoom.board.tiles.${id}`);
   const warm = id === "on_trial" && count > 0;
@@ -479,7 +480,7 @@ function TileButton({ id, count, pressed, onPress }: { id: BoardTile; count: num
       ].join(" ")}
     >
       <span data-no-truncate="" className="font-mono text-[24px] leading-none font-semibold tabular-nums">
-        {count.toLocaleString("en-IN")}
+        {countText(fmt, count)}
       </span>
       <span className="text-[13px] leading-4 font-medium text-muted-foreground">{label}</span>
     </button>
