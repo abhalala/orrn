@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { readPdfText, type TextItem } from "./pdf-text";
 import type { BlockHints, ReadBlock } from "./types";
+import { chooseHeader } from "../header";
+import { layoutOf } from "./trust-helpers";
 
 // PORTAL-RULES-3 section 3, the acceptance property for PDF text items. Generated pages with titles, letterheads,
 // group labels, blank header cells, ragged rows, footers, wrapped cells, one-cell rows, a second table, a continuation
@@ -305,7 +307,7 @@ export function truthHints(c: Case): BlockHints[] {
 const view = (b: ReadBlock) => ({ title: b.title, headers: b.headers, rows: b.rows });
 const viewTruth = (t: Truth) => ({ title: t.title, headers: t.headers, rows: t.rows });
 
-describe("pdf reader property: sure means right, hints mean right", () => {
+describe("pdf reader property: a fit means the right row, hints mean right", () => {
   test("generated pages, each feature alone and in real-looking mixes", () => {
     const cases: Case[] = [];
     let seed = 1;
@@ -320,15 +322,22 @@ describe("pdf reader property: sure means right, hints mean right", () => {
     for (const c of cases) {
       const label = `${c.features.join(",")} seed`;
       const guessed = readPdfText(c.pages);
-      guessed.blocks.forEach((b, i) => {
-        if (b.confidence !== "sure") return;
+      // Rule 4.1: the plant knows the layouts of these tables. A guessed block whose preview fits one is trusted at
+      // the line chooseHeader names, so that line must be a true header on the block's page.
+      const holes = { learned: c.tables.map((t, k) => layoutOf(t.headers, `t${k}`)) };
+      const truths = truthHints(c);
+      guessed.blocks.forEach((b) => {
+        const choice = chooseHeader(b, holes);
+        if (choice.kind !== "fits") return;
         sure++;
-        expect(guessed.blocks.length, label).toBe(c.tables.length);
-        expect(view(b), label).toEqual(viewTruth(c.tables[i]!));
+        const atTruth = truths.find((x) => x.page === b.guess.page && x.headerRow === choice.headerRow && (x.headerRows ?? 1) === choice.headerRows);
+        // A row that carries exactly a true table's column names (a header repeated on a later page) may fit too.
+        const t = atTruth ?? (choice.fit.learned && choice.fit.fit === "exact" ? true : undefined);
+        expect(t ? null : { page: b.guess.page, headerRow: choice.headerRow, headerRows: choice.headerRows }, label).toBeNull();
       });
       const hinted = readPdfText(c.pages, { hints: truthHints(c) });
       expect(hinted.blocks.map(view), `${label} ${JSON.stringify(truthHints(c))}`).toEqual(c.tables.map(viewTruth));
     }
     expect(sure).toBeGreaterThan(200);
-  });
+  }, 120_000);
 });

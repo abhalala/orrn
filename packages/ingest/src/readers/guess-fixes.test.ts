@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { findBlocks } from "./blocks";
+import { asked } from "./trust-helpers";
 
 // Better guesses for unsure blocks (PORTAL-FIX2-OPEN R-new-3, R-new-4). They stay unsure; the guess is the one the
 // person will most often confirm. Synthetic sheets only.
@@ -17,7 +18,7 @@ describe("R-new-3: a first data row with a cell right of the header stays a data
       expect(b!.headerRows).toBe(1);
       expect(b!.headers).toEqual(headers);
       expect(b!.rows.length).toBe(n);
-      expect(b!.confidence).toBe("unsure");
+      expect(asked(b!)).toBe(true);
     });
   }
 });

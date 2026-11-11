@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { findBlocks, HintError, readSheet } from "./blocks";
 import { readCsv } from "./csv";
+import { asked, picked } from "./trust-helpers";
 
 // PORTAL-RULES-3 section 3: with hints a reader does not guess. Synthetic sheets only.
 
@@ -17,8 +18,7 @@ describe("sheet hints are followed exactly", () => {
       ["Asha", "", "Surat", "vip"],
       ["Kamal", "9797", "Rajkot"],
     ]);
-    expect(b!.confidence).toBe("sure");
-    expect(b!.reasons).toEqual([]);
+    expect(picked(b!)).toBe(true);
     expect(b!.hints).toEqual({ headerRow: 0 });
   });
 
@@ -42,7 +42,9 @@ describe("sheet hints are followed exactly", () => {
     ]);
     expect(b!.firstDataSheetRow).toBe(4);
     expect(b!.headerRow).toBe(1);
+    // Rule 4.1: every row of the region not in the rows is listed, the one-cell title too.
     expect(b!.warnings).toEqual([
+      { code: "kept_as_title", row: 0 },
       { code: "skipped_by_hint", row: 3 },
       { code: "after_last_row", row: 6 },
     ]);
@@ -55,7 +57,7 @@ describe("sheet hints are followed exactly", () => {
     const open = findBlocks(m, { hints: [{ headerRow: 0 }] });
     expect(open.length).toBe(2);
     expect(open[0]!.rows.length).toBe(1);
-    expect(open[1]!.confidence).toBe("unsure");
+    expect(asked(open[1]!)).toBe(true);
     const [b, ...rest] = findBlocks(m, { hints: [{ headerRow: 0, lastDataRow: 4 }] });
     expect(rest).toEqual([]);
     expect(b!.rows.length).toBe(4);

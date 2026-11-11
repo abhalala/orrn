@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { findBlocks, HintError, readSheet } from "./blocks";
 import { readPdfText, type TextItem } from "./pdf-text";
 import type { BlockHints } from "./types";
+import { asked, picked } from "./trust-helpers";
 
 // Fix round 3, round 2: hints that are not well formed fail with HintError (R3-8), and a hint for one block leaves
 // the rest of the sheet to the guess (R3-7). Synthetic sheets and pages only.
@@ -57,10 +58,10 @@ describe("R3-7: a hint for one block leaves the other blocks to the guess", () =
     expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
     expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
     expect(r.blocks[0]!.title).toBe("Stock statement");
-    expect(r.blocks[0]!.confidence).toBe("sure");
+    expect(picked(r.blocks[0]!)).toBe(true);
     expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
     expect(r.blocks[1]!.hints).toBeNull();
-    expect(r.blocks[1]!.confidence).toBe("unsure");
+    expect(asked(r.blocks[1]!)).toBe(true);
   });
 
   test("a hint on the second table keeps the first table as guessed", () => {
@@ -70,7 +71,7 @@ describe("R3-7: a hint for one block leaves the other blocks to the guess", () =
     expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
     expect(r.blocks[1]!.title).toBeNull();
     expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
-    expect(r.blocks[1]!.confidence).toBe("sure");
+    expect(picked(r.blocks[1]!)).toBe(true);
   });
 
   test("a table the guess joined to the one above: the hint splits it, the part above is guessed again", () => {
@@ -81,7 +82,7 @@ describe("R3-7: a hint for one block leaves the other blocks to the guess", () =
       [["Party", "Qty"], [["Om", "1"], ["Kamal", "2"]], null],
       [["Section", "Kg"], [["T 4012", "3"]], null],
     ]);
-    expect(blocks[0]!.confidence).toBe("unsure");
+    expect(asked(blocks[0]!)).toBe(true);
   });
 
   test("a row of two or more cells kept as the title of a hinted block is a warning", () => {

@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { findBlocks } from "./blocks";
 import { readPdfText, type TextItem } from "./pdf-text";
 import type { BlockHints, MatrixCell, ReadBlock } from "./types";
+import { chooseHeader } from "../header";
+import { headerKey, normalizeHeaders, usedWidth } from "../fingerprint";
 
 // PORTAL-RULES-3 section 3: every named case of the earlier reviews (C14 to C17, C-new-1 to C-new-7) and the three
 // R-new cases comes out right, or unsure with the right answer reachable by hints. Synthetic data only.
@@ -10,13 +12,19 @@ import type { BlockHints, MatrixCell, ReadBlock } from "./types";
 type Want = { title?: string | null; headers: string[]; rows: string[][] };
 const view = (b: ReadBlock, w: Want) => ({ ...(w.title !== undefined ? { title: b.title } : {}), headers: b.headers, rows: b.rows });
 
-/** Right as guessed, or every block that is wrong says unsure and the hints give the right blocks. */
+/** Right as guessed, or every block that is wrong is not trusted (the web asks) and the hints give the right blocks. */
 function rightOrReachable(guessed: ReadBlock[], want: Want[], hinted: () => ReadBlock[]): "right" | "hinted" {
   const right = guessed.length === want.length && guessed.every((b, i) => Bun.deepEquals(view(b, want[i]!), { ...want[i]! }));
   if (right) return "right";
   guessed.forEach((b, i) => {
     const w = want[i];
-    if (!w || !Bun.deepEquals(view(b, w), { ...w })) expect(b.confidence, JSON.stringify(b.headers)).toBe("unsure");
+    if (!w || !Bun.deepEquals(view(b, w), { ...w })) {
+      // Rule 4.1: a wrong block is trusted only when its header really carries a true table's column names.
+      const c = chooseHeader(b);
+      // A column with no name and no cell in the preview is not part of the names chooseHeader sees.
+      const trueKey = (x: Want) => headerKey(normalizeHeaders(x.headers, usedWidth(x.headers, [])));
+      if (c.kind === "fits") expect(want.some((x) => trueKey(x) === c.fit.recipe.match.headerKey), JSON.stringify(b.headers)).toBe(true);
+    }
   });
   const h = hinted();
   expect(h.map((b, i) => view(b, want[i] ?? { headers: [], rows: [] }))).toEqual(want.map((w) => ({ ...w })));

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { readPdfText, type TextItem } from "./pdf-text";
+import { asked } from "./trust-helpers";
 
 // Fix round 3, round 2: PDF pages where a table the reader could not head was dropped or joined while sure (R3-3), and
 // a later data row taken as a header (R3-9). Synthetic pages only.
@@ -34,7 +35,7 @@ describe("R3-3: a table the reader cannot head is never dropped or joined while 
       ...L(680, [["D 2", 50], ["4", 260]]),
     ];
     const { r, seen } = everyLineAccounted([page]);
-    for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+    for (const b of r.blocks) expect(asked(b)).toBe(true);
     for (let n = 0; n < 7; n++) expect(seen.has(`1:${n}`)).toBe(true);
     const h = readPdfText([page], { hints: [{ page: 1, headerRow: 0, lastDataRow: 3 }, { page: 1, headerRow: 4 }] });
     expect(h.blocks.map((b) => b.headers)).toEqual([["Section", "12", "14"], ["Die", "Hours"]]);
@@ -49,7 +50,7 @@ describe("R3-3: a table the reader cannot head is never dropped or joined while 
       ...L(725, [["Om Metals", 50], ["T 4012", 160], ["30", 260]]),
     ];
     const { r, seen } = everyLineAccounted([page]);
-    for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+    for (const b of r.blocks) expect(asked(b)).toBe(true);
     for (let n = 0; n < 4; n++) expect(seen.has(`1:${n}`)).toBe(true);
   });
 
@@ -59,7 +60,7 @@ describe("R3-3: a table the reader cannot head is never dropped or joined while 
       [...L(800, [["Section", 50], ["12", 160], ["14", 260]]), ...L(785, [["T 4012", 50], ["20", 160], ["30", 260]]), ...L(770, [["R 2105", 50], ["5", 160], ["6", 260]])],
     ];
     const r = readPdfText(pages);
-    for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+    for (const b of r.blocks) expect(asked(b)).toBe(true);
     expect(r.blocks[0]!.rows).toEqual([["Om Metals", "T 4012", "30"], ["Kamal", "R 2105", "6"]]);
     expect(r.blocks.length).toBe(2);
     expect(r.blocks[1]!.headers).toEqual(["Section", "12", "14"]);
@@ -73,18 +74,18 @@ describe("R3-3: a table the reader cannot head is never dropped or joined while 
     const r = readPdfText(pages);
     expect(r.blocks.length).toBe(1);
     expect(r.blocks[0]!.rows.length).toBe(4);
-    expect(r.blocks[0]!.reasons).toContain("continued_without_header");
+    expect(asked(r.blocks[0]!)).toBe(true);
   });
 
   test("lines far under a table that make no table are listed", () => {
     const table = [...line(770, "Party", "Section", "Qty", "Kg"), ...line(755, "Om Metals", "R 2105", "12", "1200"), ...line(740, "Kamal", "R 2106", "5", "500")];
     const noted = readPdfText([[...table, it("Rajkot depot stock", 120, 600)]]);
     expect(noted.rowWarnings).toContainEqual({ code: "not_placed", row: 3, page: 1 });
-    expect(noted.blocks[0]!.reasons).toContain("line_not_placed");
+    expect(asked(noted.blocks[0]!)).toBe(true);
     // A signature or a thank-you note is left out on purpose and listed with the table.
     const thanked = readPdfText([[...table, it("Thank you", 120, 600)]]);
     expect(thanked.blocks[0]!.warnings).toContainEqual({ code: "footer_left_out", row: 3, page: 1 });
-    expect(thanked.blocks[0]!.reasons).toContain("rows_left_out");
+    expect(asked(thanked.blocks[0]!)).toBe(true);
   });
 });
 
@@ -95,8 +96,7 @@ describe("R3-9: a data row with a word in one number column is not taken as a he
     expect(r.blocks.length).toBe(1);
     expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Qty", "Kg"]);
     expect(r.blocks[0]!.rows).toEqual([["Om Metals", "R 2105", "12", "1200"], ["Shree", "T 4012", "Nil", "Cancelled"], ["Kamal", "R 2106", "5", "500"]]);
-    expect(r.blocks[0]!.confidence).toBe("unsure");
-    expect(r.blocks[0]!.reasons).toContain("word_in_number_column");
+    expect(asked(r.blocks[0]!)).toBe(true);
   });
 
   test("a second table's header right under the rows still starts a new table", () => {
@@ -129,6 +129,6 @@ describe("a page that repeats the title of a table above but whose header differ
       ],
     ];
     const r = readPdfText(pages);
-    for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+    for (const b of r.blocks) expect(asked(b)).toBe(true);
   });
 });

@@ -3,7 +3,9 @@ import { describe, expect, test } from "bun:test";
 import { findBlocks, readSheet } from "./blocks";
 import { readCsvBlocks } from "./csv";
 import { parseSql, sqlTablesToBlocks } from "./sql";
-import type { UnsureReason } from "./types";
+
+import { fitsLayout } from "./trust-helpers";
+import { chooseHeader } from "../header";
 
 // PORTAL-RULES-3 section 3: every block says whether the reader is sure, why not, and shows its raw rows.
 // Synthetic sheets only. No real plant data.
@@ -15,13 +17,12 @@ describe("sure is narrow", () => {
       [1, "Om Metals", "T 4012", 20],
       [2, "Shree Ganesh", "R 2105", 12],
     ]);
-    expect(b!.confidence).toBe("sure");
-    expect(b!.reasons).toEqual([]);
+    expect(fitsLayout(b!, ["Sr", "Party", "Section", "Qty"])).toBe(true);
     expect(b!.hints).toBeNull();
     expect(b!.guess).toEqual({ headerRow: 0, headerRows: 1, firstDataRow: 1, lastDataRow: 2 });
   });
 
-  const cases: [string, unknown[][], UnsureReason][] = [
+  const cases: [string, unknown[][], string][] = [
     ["a title above the header", [["PENDING ORDERS"], ["Sr", "Party", "Qty"], [1, "Om", 5]], "rows_above_header"],
     ["a letterhead in two cells", [["FOURCUBES", "Plant 2"], ["Sr", "Party", "Qty"], [1, "Om", 5]], "first_row_has_no_number"],
     ["a blank header cell", [["Customer", "Contact", "", "City"], ["Om", "Asha", "", "Surat"], ["Ravi", "x", "9", "Pune"]], "header_blank_cell"],
@@ -34,12 +35,17 @@ describe("sure is narrow", () => {
     ["a one-cell last row", [["Party", "Qty"], ["Om", 4], ["Prepared by"]], "one_cell_last_row"],
     ["two tables", [["Series", "Section", "Qty"], ["R", "2105", 4], [], ["Party", "Section", "Qty"], ["Om", "2105", 7]], "more_tables"],
   ];
+  // Rule 4.1: these were "unsure". Now the header is trusted only when it fits a known layout, and then only at the
+  // true header row (row 1 under the title and the letterhead, row 0 otherwise). A blank header cell over Customer,
+  // Contact and City, or Name and City with no number below, fits the built-in customers layout at the right row.
   for (const [label, m, reason] of cases) {
-    test(`${label} is unsure (${reason})`, () => {
+    test(`${label} is not trusted at a wrong row (was ${reason})`, () => {
       const blocks = findBlocks(m as never);
       expect(blocks.length).toBeGreaterThan(0);
-      expect(blocks[0]!.confidence).toBe("unsure");
-      expect(blocks[0]!.reasons).toContain(reason);
+      const truth = reason === "rows_above_header" || reason === "first_row_has_no_number" ? 1 : 0;
+      const choice = chooseHeader(blocks[0]!);
+      if (choice.kind === "fits") expect(choice.headerRow).toBe(truth);
+      else expect(choice.guess.headerRow).toBe(blocks[0]!.guess.headerRow);
     });
   }
 });
@@ -73,14 +79,14 @@ describe("preview: the raw rows of the region, before any header", () => {
 
   test("CSV blocks carry the same fields", () => {
     const [b] = readCsvBlocks("Party,Qty\nOm,4\nAsha,5\n");
-    expect(b!.confidence).toBe("sure");
+    expect(fitsLayout(b!, ["Party", "Qty"])).toBe(true);
     expect(b!.preview[0]).toEqual({ row: 0, cells: ["Party", "Qty"] });
   });
 
   test("SQL blocks are sure, with the column list as row 0", () => {
     const r = parseSql("CREATE TABLE t (a int, b text);\nINSERT INTO t VALUES (1,'x'),(2,'y');\n");
     const [b] = sqlTablesToBlocks(r.tables);
-    expect(b!.confidence).toBe("sure");
+    expect(fitsLayout(b!, ["a", "b"])).toBe(true);
     expect(b!.preview).toEqual([
       { row: 0, cells: ["a", "b"] },
       { row: 1, cells: ["1", "x"] },

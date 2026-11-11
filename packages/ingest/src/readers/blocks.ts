@@ -8,7 +8,7 @@
 import { cellKind, inferKind } from "../cells";
 import { parseDate } from "../dates";
 import { usedWidth } from "../fingerprint";
-import { PREVIEW_ROWS, UNSURE_REASONS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning, type UnsureReason } from "./types";
+import { PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export const HEADER_SEARCH_ROWS = 20;
 export const HEADER_TEXT_SHARE = 0.6;
@@ -26,6 +26,7 @@ export function toCellText(v: MatrixCell): string {
 
 const nonBlank = (row: readonly string[]) => row.filter((c) => c !== "").length;
 
+/** Share of the filled cells that are text or codes. A blank-value word ("-", "Nil") is a value, not text. */
 function textShare(row: readonly string[]): number {
   let n = 0;
   let text = 0;
@@ -33,7 +34,7 @@ function textShare(row: readonly string[]): number {
     if (c === "") continue;
     n++;
     const k = cellKind(c);
-    if (k === "text" || k === "code") text++;
+    if ((k === "text" || k === "code") && !NULL_WORD.test(c.trim())) text++;
   }
   return n === 0 ? 0 : text / n;
 }
@@ -142,7 +143,7 @@ const GROUP_TEXT = new RegExp(`^(?:${MONTH}\\s*[-']?\\s*(?:\\d{4}|\\d{2})|fy\\s*
  * (a) another filled top cell has a blank under it, in a column the first data row fills (Sr or Party over a blank; a
  * letterhead cell past the header has no data under it), (b) the same sub-column names sit under another top cell
  * (Kg | Pcs under Apr and under Total), or (c) every filled top cell is a month or year label, two or more of them.
- * These only shape the guess: a two-row header is always unsure.
+ * These only shape the guess.
  */
 function isGroupLabel(row: readonly string[], below: readonly string[], i: number, data?: readonly string[]): boolean {
   if (!GROUP_TEXT.test(row[i]!.trim())) return false;
@@ -187,7 +188,8 @@ const isNumberish = (s: string) => {
 
 /**
  * Plain column names of plant sheets. A data cell is almost never exactly one of them, so a first data row that holds
- * one ("Party | 12", "Phone | 98...") may be the header under a letterhead or a key and value line. Only narrows sure.
+ * one ("Party | 12", "Phone | 98...") may be the header under a letterhead or a key and value line. The PDF reader uses it
+ * to tell whether lines at the top of a page continue the table above (`continuesTable`).
  */
 const COLUMN_WORDS = new Set(
   (
@@ -205,7 +207,7 @@ function isMonthStart(s: string): boolean {
 }
 
 /**
- * Could this first data row be the header itself (R3-1, R3-2)? Column names may be numbers: lengths (12, 14, 16),
+ * Could this row be a header itself (R3-1, R3-2)? Column names may be numbers: lengths (12, 14, 16),
  * years (2024, 2025), month dates (1 Apr, 1 May) or column numbers (1, 2, 3). It could when a cell is a plain column
  * name (`COLUMN_WORDS`), or when it holds a number or a
  * date and every one is a year or a month start, or when two or more whole numbers rise left to right, by one each
@@ -234,89 +236,23 @@ export function couldBeHeader(row: readonly string[], next: readonly string[] | 
   return sameSize && (vals.length === 2 ? top <= 100 : top <= 3 * vals[0]! && top <= 10000);
 }
 
-/** What the confidence check needs to know about one block. */
-export type JudgeInput = {
-  /** Rows above the header in the region (a title, a letterhead). */
-  hasTitle: boolean;
-  /** The top header row as read. */
-  topRow: readonly string[];
-  headerRows: 1 | 2;
-  /** The headers the block returns, padded to its width. */
-  headers: readonly string[];
-  rows: readonly (readonly string[])[];
-};
+/** Rows kept above the header when a long title moves the preview window down (R4-7). */
+export const PREVIEW_ABOVE_HEADER = 3;
 
 /**
- * The narrow rule for `sure` (PORTAL-RULES-3 section 3). The header is the first non-blank row of the region, nothing
- * sits above it, it has at least two filled cells, every one of them text (not a number, date or code), and no column
- * of the block lacks a name. Some row below holds a number or a date, and so does the first row under the header (so
- * the header is not a title over the real header, and the next row is not a second header row). No data row is wider
- * than the header, no word sits in a number column, no blank row splits the rows, and the last row has more than one
- * filled cell. Every failed condition is a reason; no reasons is `sure`.
+ * Where a preview of rows `from` to `to` (exclusive) starts: at `from`, unless the header (`header`, `headerRows`) and
+ * the two rows under it would not fit in `PREVIEW_ROWS` rows from there. Then `PREVIEW_ABOVE_HEADER` rows above the
+ * header, so the person sees the guess, what sits above it and the first rows under it.
  */
-export function unsureReasons(b: JudgeInput): UnsureReason[] {
-  const out: UnsureReason[] = [];
-  if (b.hasTitle) out.push("rows_above_header");
-  if (nonBlank(b.topRow) < 2) out.push("header_too_few_cells");
-  if (b.headers.some((c) => c !== "" && cellKind(c) !== "text")) out.push("header_not_text");
-  if (b.headers.some((c) => TITLE_MARK.test(c))) out.push("header_like_title");
-  const names = b.headers.filter((c) => c !== "").map((c) => c.toLowerCase());
-  if (new Set(names).size < names.length) out.push("header_repeated");
-  if (b.headers.some((c) => c === "")) out.push("header_blank_cell");
-  if (b.headerRows === 2) out.push("two_row_header");
-  if (!b.rows.some((r) => r.some(isNumberish))) out.push("no_number_below");
-  const filledRows = b.rows.filter((r) => nonBlank(r) > 0);
-  const first = filledRows[0];
-  if (first && !first.some(isNumberish)) out.push("first_row_has_no_number");
-  if (first && couldBeHeader(first, filledRows[1])) out.push("first_row_like_header");
-  let lastHead = -1;
-  b.topRow.forEach((c, i) => {
-    if (c !== "") lastHead = i;
-  });
-  if (b.headerRows === 2) lastHead = b.headers.length - 1;
-  if (b.rows.some((r) => r.some((c, i) => i > lastHead && c !== ""))) out.push("row_wider_than_header");
-  const width = b.headers.length;
-  for (let c = 0; c < width; c++) {
-    let nums = 0;
-    let words = 0;
-    for (const r of b.rows) {
-      const v = r[c] ?? "";
-      if (v === "") continue;
-      if (isNumberish(v)) nums++;
-      else if (isWord(v)) words++;
-    }
-    if (nums > 0 && words > 0 && nums >= words) {
-      out.push("word_in_number_column");
-      break;
-    }
-  }
-  let seenBlank = false;
-  for (const r of b.rows) {
-    if (nonBlank(r) === 0) seenBlank = true;
-    else if (seenBlank) {
-      out.push("gap_in_rows");
-      break;
-    }
-  }
-  const last = filledRows[filledRows.length - 1];
-  if (last && nonBlank(last) === 1) out.push("one_cell_last_row");
-  // A footer such as "Prepared by | Checked by": the last row has nothing in any column of numbers or dates (R3-4).
-  if (last && filledRows.length >= 2) {
-    const above = filledRows.slice(0, -1);
-    const numberCols: number[] = [];
-    for (let c = 0; c < width; c++) {
-      const kind = inferKind(above.map((r) => r[c] ?? ""));
-      if (kind === "int" || kind === "decimal" || kind === "date") numberCols.push(c);
-    }
-    if (numberCols.length > 0 && numberCols.every((c) => !isNumberish(last[c] ?? ""))) out.push("last_row_not_data");
-  }
-  return out;
+export function previewStart(from: number, header: number, headerRows: number): number {
+  if (header + headerRows + 2 <= from + PREVIEW_ROWS) return from;
+  return Math.max(from, header - PREVIEW_ABOVE_HEADER);
 }
 
-/** The first `PREVIEW_ROWS` raw rows from `from`, up to `to` (exclusive), with their row numbers. */
-export function previewRows(rows: readonly (readonly string[])[], from: number, to: number): PreviewRow[] {
+/** At most `PREVIEW_ROWS` raw rows of rows `from` to `to` (exclusive), with their row numbers; see `previewStart`. */
+export function previewRows(rows: readonly (readonly string[])[], from: number, to: number, header = from, headerRows = 1): PreviewRow[] {
   const out: PreviewRow[] = [];
-  for (let r = from; r < Math.min(to, rows.length) && out.length < PREVIEW_ROWS; r++) out.push({ row: r, cells: [...rows[r]!] });
+  for (let r = previewStart(from, header, headerRows); r < Math.min(to, rows.length) && out.length < PREVIEW_ROWS; r++) out.push({ row: r, cells: [...rows[r]!] });
   return out;
 }
 
@@ -379,8 +315,8 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
  * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
  *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
  *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
- * - Rows between blocks that no guessed block takes are the title of the hinted block below them (a row of two or more
- *   cells there is listed as `kept_as_title`), else `after_last_row` of the hinted block above, else sheet warnings.
+ * - Rows between blocks that no guessed block takes are the title of the hinted block below them (each listed as
+ *   `kept_as_title`), else `after_last_row` of the hinted block above, else sheet warnings.
  */
 function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], sheetName: string | null): SheetRead {
   const n = rows.length;
@@ -427,8 +363,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     if (filled.length < 2 || !numberColumn) continue;
     const top = rows[b.guess.headerRow]!;
     const shaped = finishShape(b.headerRows === 2 ? combineHeaders(top, rows[b.guess.headerRow + 1]!) : top, data);
-    const block: ReadBlock = { ...b, headers: shaped.headers, rows: shaped.rows, preview: previewRows(rows, start, hit.h), guess: { ...b.guess, lastDataRow: cut } };
-    block.reasons = unsureReasons({ hasTitle: b.title !== null, topRow: top, headerRows: b.headerRows, headers: block.headers, rows: block.rows });
+    const block: ReadBlock = { ...b, headers: shaped.headers, rows: shaped.rows, preview: previewRows(rows, start, hit.h, b.guess.headerRow, b.headerRows), guess: { ...b.guess, lastDataRow: cut } };
     keptGuess.push(block);
   }
 
@@ -469,7 +404,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     for (let r = start; r < h; r++) {
       const cells = rows[r]!.filter((c) => c !== "");
       if (cells.length > 0) titleParts.push(cells.join(" "));
-      if (cells.length >= 2) blockWarnings.push({ code: "kept_as_title", row: r });
+      if (cells.length > 0) blockWarnings.push({ code: "kept_as_title", row: r });
     }
     const headers = headerRows === 2 ? combineHeaders(rows[h]!, rows[h + 1]!) : rows[h]!;
     for (let r = h + headerRows; r < first; r++) if (nonBlank(rows[r]!) > 0) blockWarnings.push({ code: "skipped_by_hint", row: r });
@@ -483,9 +418,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       headers: shaped.headers,
       rows: shaped.rows,
       firstDataSheetRow: first,
-      confidence: "sure",
-      reasons: [],
-      preview: previewRows(rows, start, Math.max(last + 1, h + headerRows)),
+      preview: previewRows(rows, start, Math.max(last + 1, h + headerRows), h, headerRows),
       guess: { headerRow: h, headerRows, firstDataRow: first, lastDataRow: end },
       hints: { ...hint },
       warnings: blockWarnings,
@@ -495,15 +428,13 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     from = last + 1;
   }
   gap(from, n, false);
-  finishGuess(blocks.filter((b) => b.hints === null), blocks, warnings);
   return { blocks, warnings };
 }
 
 /**
- * The guess over rows `from` to `to` (exclusive). Each block carries its own reasons; `finishGuess` adds the ones that
- * depend on the whole sheet. The header search looks at the next 20 rows that are not blank (R3-6). When none of them
+ * The guess over rows `from` to `to` (exclusive). The header search looks at the next 20 rows that are not blank (R3-6). When none of them
  * looks like a header, the first row of two or more cells with a row under it is the guessed header (R3-5): the block
- * is unsure (its header holds numbers or dates) but there is a guess to show and to correct by hints. A window with
+ * holds numbers or dates, which no layout may know, but there is a guess to show and to correct by hints. A window with
  * no such row is reported row by row and the search goes on below it.
  */
 export function guessRange(rows: readonly string[][], from: number, to: number, sheetName: string | null, noHeaderGuess = false): SheetRead {
@@ -556,7 +487,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
     for (let i = start; i < h; i++) {
       const cells = rows[i]!.filter((c) => c !== "");
       if (cells.length > 0) titleParts.push(cells.join(" "));
-      if (cells.length >= 2) blockWarnings.push({ code: "kept_as_title", row: i });
+      if (cells.length > 0) blockWarnings.push({ code: "kept_as_title", row: i });
     }
 
     let headers = rows[h]!;
@@ -611,14 +542,11 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
       headers: shaped.headers,
       rows: shaped.rows,
       firstDataSheetRow: dataStart,
-      confidence: "unsure",
-      reasons: [],
-      preview: previewRows(rows, start, end),
+      preview: previewRows(rows, start, end, h, headerRows),
       guess: { headerRow: h, headerRows, firstDataRow: dataStart, lastDataRow: dataStart + data.length - 1 },
       hints: null,
       warnings: blockWarnings,
     };
-    block.reasons = unsureReasons({ hasTitle: titleParts.length > 0, topRow: rows[h]!, headerRows, headers: block.headers, rows: block.rows });
     blocks.push(block);
     if (end === n) break;
   }
@@ -626,31 +554,14 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
 }
 
 /**
- * Reasons that depend on the whole sheet, then the confidence. Two tables in one sheet: where one ends and the next
- * starts is a guess. A row no block took may belong to a table (R3-6).
- */
-function finishGuess(guessed: readonly ReadBlock[], all: readonly ReadBlock[], warnings: readonly RowWarning[]): void {
-  const lost = warnings.some((w) => w.code === "not_placed");
-  for (const b of guessed) {
-    const reasons = new Set<UnsureReason>(b.reasons);
-    if (all.length > 1) reasons.add("more_tables");
-    if (lost) reasons.add("line_not_placed");
-    b.reasons = UNSURE_REASONS.filter((r) => reasons.has(r));
-    b.confidence = b.reasons.length === 0 ? "sure" : "unsure";
-  }
-}
-
-/**
- * Matrix to blocks with the reader's guess, or by hints. A guessed block says whether the reader is sure (see
- * `unsureReasons`) and carries a preview of its region and the guess as hints.
+ * Matrix to blocks with the reader's guess, or by hints. A block carries a preview of its region and its header as
+ * hints; whether that header is trusted is `chooseHeader`'s answer, not the reader's.
  */
 export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: FindBlocksOptions = {}): SheetRead {
   const rows = matrix.map((r) => r.map(toCellText));
   const sheetName = opts.sheetName ?? null;
   if (opts.hints && opts.hints.length > 0) return readByHints(rows, opts.hints, sheetName);
-  const read = guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
-  finishGuess(read.blocks, read.blocks, read.warnings);
-  return read;
+  return guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
 }
 
 /** The blocks of `readSheet`. */
