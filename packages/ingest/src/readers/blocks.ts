@@ -293,8 +293,18 @@ export function unsureReasons(b: JudgeInput): UnsureReason[] {
       break;
     }
   }
-  const last = b.rows[b.rows.length - 1];
+  const last = filledRows[filledRows.length - 1];
   if (last && nonBlank(last) === 1) out.push("one_cell_last_row");
+  // A footer such as "Prepared by | Checked by": the last row has nothing in any column of numbers or dates (R3-4).
+  if (last && filledRows.length >= 2) {
+    const above = filledRows.slice(0, -1);
+    const numberCols: number[] = [];
+    for (let c = 0; c < width; c++) {
+      const kind = inferKind(above.map((r) => r[c] ?? ""));
+      if (kind === "int" || kind === "decimal" || kind === "date") numberCols.push(c);
+    }
+    if (numberCols.length > 0 && numberCols.every((c) => !isNumberish(last[c] ?? ""))) out.push("last_row_not_data");
+  }
   return out;
 }
 

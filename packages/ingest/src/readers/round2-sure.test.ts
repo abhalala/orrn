@@ -103,3 +103,29 @@ describe("R3-2: column numbers or a second header row of numbers under the heade
     expect(h.blocks[0]!.rows).toEqual([["Om Metals", "R 2105", "12", "1200"], ["Kamal", "R 2106", "5", "500"]]);
   });
 });
+
+describe("R3-4: a footer of two cells right under the last row is not sure", () => {
+  test("sheet", () => {
+    const m = [["Party", "Section", "Qty"], ["Om Metals", "T 4012", 12], ["Kamal", "R 2105", 20], ["Prepared by", "Checked by", ""]];
+    const [b] = readSheet(m).blocks;
+    expect(b!.confidence).toBe("unsure");
+    expect(b!.reasons).toContain("last_row_not_data");
+    const [h] = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 2 }] }).blocks;
+    expect(h!.rows).toEqual([["Om Metals", "T 4012", "12"], ["Kamal", "R 2105", "20"]]);
+  });
+
+  test("PDF, at the row pitch and a little below", () => {
+    for (const gap of [15, 25]) {
+      const page = [...line(770, "Party", "Section", "Qty", "Kg"), ...line(755, "Om Metals", "R 2105", "12", "1200"), ...line(740, "Kamal", "R 2106", "5", "500"), ...line(740 - gap, "Prepared by", "Checked by")];
+      const r = readPdfText([page]);
+      for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+      const h = readPdfText([page], { hints: [{ page: 1, headerRow: 0, lastDataRow: 2 }] });
+      expect(h.blocks[0]!.rows).toEqual([["Om Metals", "R 2105", "12", "1200"], ["Kamal", "R 2106", "5", "500"]]);
+    }
+  });
+
+  test("a total row with numbers stays a row and does not make it unsure", () => {
+    const [b] = readSheet([["Party", "Section", "Qty"], ["Om Metals", "T 4012", 12], ["Kamal", "R 2105", 20], ["Total", "", 32]]).blocks;
+    expect(b!.reasons).not.toContain("last_row_not_data");
+  });
+});
