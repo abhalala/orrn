@@ -124,7 +124,7 @@ export function StoreItemPage({ id }: { id: string }) {
         tone={tone}
         title={status}
         value={balanceMilli / 1000}
-        format={(n) => formatQty(Math.round(n * 1000))}
+        format={(n) => formatQty(Math.round(n * 1000), item.unit, fmt)}
         unit={unitShort(t, item.unit, balanceMilli, fmt)}
         className="orrn-block-hero animate-rise"
       />
