@@ -209,7 +209,8 @@ function isMonthStart(s: string): boolean {
  * years (2024, 2025), month dates (1 Apr, 1 May) or column numbers (1, 2, 3). It could when a cell is a plain column
  * name (`COLUMN_WORDS`), or when it holds a number or a
  * date and every one is a year or a month start, or when two or more whole numbers rise left to right, by one each
- * time or (with `sameSize`) with the last at most three times the first and at most 10000. A serial column (the next row holds the value plus one, or
+ * time or (with `sameSize`) of one size: two numbers both at most 100, or three or more with the last at most three
+ * times the first and at most 10000. A serial column (the next row holds the value plus one, or
  * the row `before` it the value minus one) is data and is left out of the rising test.
  */
 export function couldBeHeader(row: readonly string[], next: readonly string[] | undefined, before?: readonly string[], sameSize = true): boolean {
@@ -228,7 +229,9 @@ export function couldBeHeader(row: readonly string[], next: readonly string[] | 
   // Column names that are numbers count up by one (1, 2, 3) or stay of one size (lengths 8 to 20 ft). A quantity
   // next to a weight (12 | 1200) does not.
   if (vals.every((v, k) => k === 0 || v === vals[k - 1]! + 1)) return true;
-  return sameSize && vals[vals.length - 1]! <= 3 * vals[0]! && vals[vals.length - 1]! <= 10000;
+  // Two numbers of one size are common in a data row (Pcs | Kg), so two count only when both are small (12 | 16).
+  const top = vals[vals.length - 1]!;
+  return sameSize && (vals.length === 2 ? top <= 100 : top <= 3 * vals[0]! && top <= 10000);
 }
 
 /** What the confidence check needs to know about one block. */
@@ -374,8 +377,8 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
  * - A hinted block without a last data row ends before the next hinted header or before the next block the guess
  *   found, whichever comes first.
  * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
- *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when they hold a
- *   number or a date; otherwise those rows are the hinted block's title.
+ *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
+ *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
  * - Rows between blocks that no guessed block takes are the title of the hinted block below them (a row of two or more
  *   cells there is listed as `kept_as_title`), else `after_last_row` of the hinted block above, else sheet warnings.
  */
@@ -417,7 +420,11 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     if (b.guess.headerRow + b.headerRows - 1 >= hit.h || dataFrom >= hit.h) continue;
     const cut = lastFilled(rows as string[][], dataFrom, hit.h - 1);
     const data = rows.slice(dataFrom, cut + 1);
-    if (!data.some((r) => r.some(isNumberish))) continue;
+    // A table: two or more rows and a column of numbers or dates. Key and value lines ("Phone | 98...") are a title.
+    const filled = data.filter((r) => nonBlank(r) > 0);
+    const width = filled.reduce((w, r) => Math.max(w, r.length), 0);
+    const numberColumn = Array.from({ length: width }, (_, c) => inferKind(filled.map((r) => r[c] ?? ""))).some((k) => k === "int" || k === "decimal" || k === "date");
+    if (filled.length < 2 || !numberColumn) continue;
     const top = rows[b.guess.headerRow]!;
     const shaped = finishShape(b.headerRows === 2 ? combineHeaders(top, rows[b.guess.headerRow + 1]!) : top, data);
     const block: ReadBlock = { ...b, headers: shaped.headers, rows: shaped.rows, preview: previewRows(rows, start, hit.h), guess: { ...b.guess, lastDataRow: cut } };

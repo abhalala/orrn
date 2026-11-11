@@ -111,3 +111,24 @@ describe("R3-9: a data row with a word in one number column is not taken as a he
     expect(r.blocks.map((b) => b.headers[1])).toEqual(["Section", "Bundles"]);
   });
 });
+
+describe("a page that repeats the title of a table above but whose header differs", () => {
+  test("both blocks are unsure: one of the two guesses is wrong", () => {
+    const pages = [
+      [
+        it("Despatch Register 2025-26", 74, 800),
+        it("Fourcubes Extrusions", 57, 775), it("Rajkot", 172, 775),
+        it("Sr", 57, 758), it("Party", 102, 758), it("Section", 217, 758), it("Kg", 277, 758),
+        it("1", 57, 741), it("Kamal Bros", 102, 741), it("R 2105", 217, 741), it("6889", 267, 741),
+        it("2", 57, 724), it("Zenith Traders", 102, 724), it("R 2106", 217, 724), it("4699", 267, 724),
+      ],
+      [
+        it("Despatch Register 2025-26 Fourcubes Extrusions Rajkot", 50, 800),
+        it("Sr", 57, 778), it("Party", 102, 778), it("Section", 217, 778), it("Kg", 277, 778),
+        it("3", 57, 761), it("Zenith Traders", 102, 761), it("R 2105", 217, 761), it("7989", 267, 761),
+      ],
+    ];
+    const r = readPdfText(pages);
+    for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+  });
+});

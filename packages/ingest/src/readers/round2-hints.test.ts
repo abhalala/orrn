@@ -93,3 +93,25 @@ describe("R3-7: a hint for one block leaves the other blocks to the guess", () =
     expect(r.warnings).toEqual([]);
   });
 });
+
+describe("hint cases the extended property found", () => {
+  test("key and value lines above a hinted header are its title, not a table", () => {
+    const m = [["Customer", "Om Metals"], ["Phone", 9876543210], ["Party", 12, 14, 16], ["Om Metals", 470, 30, 354], ["Asha", 136, 140, 6]];
+    const r = readSheet(m, { hints: [{ headerRow: 2 }] });
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.title).toBe("Customer Om Metals Phone 9876543210");
+    expect(r.blocks[0]!.headers).toEqual(["Party", "12", "14", "16"]);
+  });
+
+  test("pdf: skipped column numbers still give the row pitch, so a one-cell row stays a row", () => {
+    const it = (str: string, x: number, y: number): TextItem => ({ str, x, y, width: str.length * 5, height: 10 });
+    const page = [
+      it("Party", 41, 800), it("Section", 136, 800), it("Pcs", 196, 800), it("Kg", 256, 800),
+      it("1", 41, 789), it("2", 136, 789), it("3", 206, 789), it("4", 256, 789),
+      it("Om Metals", 41, 778), it("R 2105", 136, 778), it("4449", 191, 778), it("9", 256, 778),
+      it("Shree Ganesh", 41, 767),
+    ];
+    const r = readPdfText([page], { hints: [{ page: 1, headerRow: 0, firstDataRow: 2 }] });
+    expect(r.blocks[0]!.rows).toEqual([["Om Metals", "R 2105", "4449", "9"], ["Shree Ganesh", "", "", ""]]);
+  });
+});

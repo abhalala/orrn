@@ -590,7 +590,7 @@ function linesPreview(lines: readonly Line[], from: number, to: number): Preview
 
 /** What the confidence check of a guessed PDF block needs from each page it touches. */
 type PageInfo = { blocks: Set<ReadBlock>; unplaced: number; cols: boolean; oneCell: boolean };
-type BlockMeta = { pages: Set<number>; topRow: string[]; fallback: boolean; regionStart: number; page: number; continued: boolean };
+type BlockMeta = { pages: Set<number>; topRow: string[]; fallback: boolean; regionStart: number; page: number; continued: boolean; maybeSame?: boolean };
 
 /**
  * Pages of text items to blocks. A table that continues on the next page is one block: the header repeated at the top
@@ -631,6 +631,8 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     let unplaced = 0;
     let leftover = 0;
     let offset = 0;
+    /** The block whose title this page repeats: a new block under it may be the same table. */
+    let titleAgain: ReadBlock | null = null;
     page.segments.forEach((seg, s) => {
       if (seg.oneCell) pi.oneCell = true;
       if (seg.notFit) pi.cols = true;
@@ -663,6 +665,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
           pre = pre.filter((l) => {
             if (!repeatsTitle(lineText(l), prev.title, h === 0)) return true;
             prev.warnings.push({ code: "title_repeated", row: l.n, page: p + 1 });
+            titleAgain = prev;
             return false;
           });
         }
@@ -804,6 +807,12 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         } else {
           out.push(b);
           pi.blocks.add(b);
+          // The page repeats the title of a table above but its header differs: one of the two guesses is wrong.
+          if (titleAgain && b === blocks[0]) {
+            meta.get(b)!.maybeSame = true;
+            const am = meta.get(titleAgain);
+            if (am) am.maybeSame = true;
+          }
         }
         found++;
       });
@@ -845,6 +854,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     }
     if (m.fallback) reasons.add("columns_not_shared");
     if (m.continued) reasons.add("continued_without_header");
+    if (m.maybeSame) reasons.add("more_tables");
     if (b.warnings.some((w) => w.code === "footer_left_out")) reasons.add("rows_left_out");
     b.reasons = UNSURE_REASONS.filter((r) => reasons.has(r));
     kept.push(b);
@@ -948,7 +958,8 @@ function readPdfByHints(
 
     // The row pitch of the data: the median gap above a multi-cell line (a new row starts there, after the header,
     // after a row or after the wrapped line of one).
-    const seq = first === h + headerRows ? [headLines[headLines.length - 1]!, ...dataLines] : dataLines;
+    // Every line from the header down counts, so skipped lines (column numbers) still give the pitch.
+    const seq = lines.slice(h, pEnd + 1);
     const gaps: number[] = [];
     for (let k = 1; k < seq.length; k++) {
       if (seq[k]!.cells.length >= 2) gaps.push(Math.abs(seq[k - 1]!.y - seq[k]!.y));
