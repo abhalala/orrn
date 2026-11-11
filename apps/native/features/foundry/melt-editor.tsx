@@ -27,6 +27,7 @@ import { draftWithKey, firstSaveKey, type FirstSave } from "./first-save";
 import { latestVerdict, lockState, verdictTone } from "./foundry-model";
 import { blankForm, figuresOf, formFromMelt, sameForm, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
 import { phoneMeltInputOf } from "./phone-quantities";
+import { storeReadState } from "./store-read";
 import { todayIn } from "./melt-times";
 import { Accordion, Balance, ChargeSection, ChemicalsSection, OutputSection, TimesSection, type AlloyOpt, type FurnaceOpt, type Lot, type StoreItem, type Stream } from "./melt-sections";
 import { meltWebPath } from "@/lib/web-link";
@@ -57,6 +58,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   const lots = useQuery(trpc.foundry.lots.available.queryOptions());
   const streams = useQuery(trpc.foundry.returnStreams.list.queryOptions());
   const store = useQuery(trpc.store.items.list.queryOptions());
+  const storeState = storeReadState(store.data, store.error);
   const activeFurnaces = (furnaces.data?.items ?? []).filter((f) => f.status === "active");
   const [form, setForm] = useState<MeltForm>(() => (melt ? formFromMelt(melt as unknown as SavedMelt, timeZone, todayIn(timeZone)) : blankForm(todayIn(timeZone))));
   // The single active furnace is the default of a new melt, once the list is in.
@@ -245,7 +247,6 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   const busy = saveMut.isPending || lockMut.isPending;
 
   if (lots.isError && !lots.data) return <ErrorBlock error={lots.error} onRetry={() => void lots.refetch()} retrying={lots.isRefetching} />;
-  if (store.isError && !store.data) return <ErrorBlock error={store.error} onRetry={() => void store.refetch()} retrying={store.isRefetching} />;
 
   const timesSummary = form.times.chargingStart || form.times.castingEnd ? `${form.times.chargingStart || "-"} - ${form.times.castingEnd || "-"}` : undefined;
   const common = { form, patch, issue };
@@ -268,7 +269,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
           <ChargeSection {...common} lots={(lots.data?.lots ?? []) as Lot[]} streams={(streams.data?.items ?? []) as Stream[]} capacityG={capacityG} />
         </Accordion>
         <Accordion title={t("foundry.melt.steps.chemicals")} open={openParts.has("chemicals")} onToggle={() => toggle("chemicals")}>
-          <ChemicalsSection {...common} storeItems={(store.data?.items ?? []) as StoreItem[]} />
+          <ChemicalsSection {...common} storeItems={storeState.items as StoreItem[]} storeError={storeState.inlineError} onStoreRetry={() => void store.refetch()} storeRetrying={store.isRefetching} />
         </Accordion>
         <Accordion title={t("foundry.melt.steps.output")} summary={fig.logsG > 0 ? `${kgOf(fig.logsG)} ${t("units.kg")}` : undefined} open={openParts.has("output")} onToggle={() => toggle("output")}>
           <OutputSection {...common} streams={(streams.data?.items ?? []) as Stream[]} capacityG={capacityG} />

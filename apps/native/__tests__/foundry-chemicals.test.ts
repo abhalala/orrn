@@ -25,7 +25,7 @@ describe("chemical and LDO editing", () => {
     expect(can(me("packer"), "melt.enter")).toBe(false);
     expect(read("features/foundry/melt-view.tsx")).toContain('can(me, "melt.enter")');
     expect(editor).toContain("trpc.store.items.list.queryOptions()");
-    expect(editor).toContain("<ChemicalsSection {...common} storeItems={(store.data?.items ?? []) as StoreItem[]} />");
+    expect(editor).toContain("storeItems={storeState.items as StoreItem[]}");
   });
 
   test("the UI has store and typed chemicals, computed close, remove, the line cap and all five dips", () => {
@@ -55,9 +55,10 @@ describe("chemical and LDO editing", () => {
     expect(saveInputOf(form, { castId: "cast-1", timeZone: "Asia/Kolkata" })).toEqual({ ok: false, issue: { code: "ldo", step: "chemicals" } });
   });
 
-  test("store read failures and save refusals stay visible", () => {
-    expect(editor).toContain("store.isError && !store.data");
-    expect(editor).toContain("<ErrorBlock error={store.error}");
+  test("store read failures stay inline and save refusals stay visible", () => {
+    expect(editor).toContain("storeError={storeState.inlineError}");
+    expect(sections).toContain("<ErrorBlock error={storeError} onRetry={onStoreRetry} retrying={storeRetrying} />");
+    expect(editor).not.toContain("store.isError && !store.data");
     expect(editor).toContain("<ErrorLine error={problem} />");
     expect(editor).toContain("announce(foundryError(t, error))");
   });

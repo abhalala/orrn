@@ -10,6 +10,7 @@ import { ListRow } from "@/components/ui/list-row";
 import { NumberInput } from "@/components/ui/number-input";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { Sheet } from "@/components/ui/sheet";
+import { ErrorBlock } from "@/components/ui/state";
 import { useThemeColor } from "@/lib/theme";
 
 import { MELT_MORE_TIMES, MELT_PAIR, bpText } from "./foundry-model";
@@ -315,7 +316,7 @@ export function ChargeSection({ form, patch, issue, lots, streams, capacityG }: 
 
 export type StoreItem = { id: string; name: string; unit: string; active: boolean };
 
-export function ChemicalsSection({ form, patch, issue, storeItems }: SectionProps & { storeItems: StoreItem[] }) {
+export function ChemicalsSection({ form, patch, issue, storeItems, storeError, onStoreRetry, storeRetrying }: SectionProps & { storeItems: StoreItem[]; storeError: unknown; onStoreRetry: () => void; storeRetrying: boolean }) {
   const { t } = useT();
   const active = storeItems.filter((item) => item.active);
   const taken = new Set(form.chemicals.map((c) => c.storeItemId).filter(Boolean));
@@ -327,6 +328,7 @@ export function ChemicalsSection({ form, patch, issue, storeItems }: SectionProp
       <View className="gap-3">
         <Text accessibilityRole="header" className="font-sans-semibold text-base text-ink">{t("foundry.melt.chem.title")}</Text>
         <Text className="font-sans text-sm text-ink-muted">{t("foundry.melt.chem.hint")}</Text>
+        {storeError ? <ErrorBlock error={storeError} onRetry={onStoreRetry} retrying={storeRetrying} /> : null}
         {form.chemicals.map((c, i) => {
           const other = c.storeItemId === "" && c.unit !== "";
           const item = active.find((x) => x.id === c.storeItemId);
