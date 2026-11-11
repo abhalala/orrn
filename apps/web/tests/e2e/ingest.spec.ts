@@ -92,7 +92,8 @@ async function mergeApproved(page: Page) {
   await expect(page).toHaveURL(/\/ingest\/merge\//, { timeout: 30_000 });
   // The page title says it (one h1); the block under it is a named group, not a second heading.
   await expect(page.getByRole("heading", { name: "Merge finished", level: 1 })).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText("rows added").first()).toBeVisible();
+  // "1 row added" or "700 rows added": the unit follows the count.
+  await expect(page.getByText(/^rows? added$/).first()).toBeVisible();
 }
 
 async function sectionVisible(page: Page, code: string) {
