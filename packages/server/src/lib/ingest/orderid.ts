@@ -369,15 +369,15 @@ export type OtherHolder = {
 
 /**
  * Other orders candidates of the plant that hold rows of these old orders (rule 1, across files):
- * not discarded, not fully merged (with `withMerged`, merged ones count too, for the planner), and
- * with a row that would make the order (ready, waiting on a person, in conflict) or already made it.
+ * not discarded, not fully merged, and with a row that would make the order (ready, waiting on a
+ * person, in conflict) or already made it while its candidate still merges. A merged candidate is
+ * left to the live order check, so a cancelled order may be imported again (S3-3).
  * Read on `ingest_staged_row_company_order_key_idx`, 90 keys a statement.
  */
 export async function otherFileHolders(
   ctx: Pick<IngestCtx, "db" | "companyId">,
   candidateId: string,
   keys: readonly string[],
-  opts: { withMerged?: boolean } = {},
 ): Promise<Map<string, OtherHolder[]>> {
   const out = new Map<string, OtherHolder[]>();
   const wanted = [...new Set(keys)].filter((k) => !isOwnOrderKey(k));
@@ -393,7 +393,7 @@ export async function otherFileHolders(
         eq(ingestCandidate.companyId, ctx.companyId),
         eq(ingestCandidate.target, "orders"),
         sql`${ingestCandidate.id} <> ${candidateId}`,
-        notInArray(ingestCandidate.state, opts.withMerged ? ["discarded"] : ["discarded", "merged"]),
+        notInArray(ingestCandidate.state, ["discarded", "merged"]),
       ),
     );
   if (others.length === 0) return out;

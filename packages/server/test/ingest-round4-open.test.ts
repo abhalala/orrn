@@ -107,3 +107,28 @@ describe("S3-1 and S3-5: one identity is one sales order", () => {
     expect(await orders(p.companyId)).toEqual([{ po: "PO-9", note: "Old order no. 41", lines: 2, status: expect.any(String) }]);
   });
 });
+
+describe("S3-3: an order the plant cancelled can be imported again", () => {
+  test("order 41 merged, then cancelled; a second file with order 41 makes one new order of 2 lines", async () => {
+    const p = await setup();
+    const A = await upload(p.owner, [{ name: "A", headers: BOOK, rows: [R("41", "", "31/10/2025", "5100")] }], "wrong.xlsx");
+    const a = A.candidates[0]!.id;
+    await pump(p.owner, a);
+    expect(await tryApprove(p.owner, a)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    const so = await env.d1.prepare("select id from sales_order where company_id = ?").bind(p.companyId).first<{ id: string }>();
+    await p.owner.orders.cancel({ id: so!.id, reason: "imported wrong" });
+    const B = await upload(p.owner, [{ name: "B", headers: BOOK, rows: [R("41", "", "31/10/2025", "5101"), R("41", "", "31/10/2025", "5102")] }], "right.xlsx");
+    const b = B.candidates[0]!.id;
+    await pump(p.owner, b);
+    expect((await rowsOf(p.owner, b)).map((r) => r.state)).toEqual(["ready_create", "ready_create"]);
+    expect(await tryApprove(p.owner, b)).toBe("approved");
+    const m = await mergeOnce(p.owner);
+    const cb = await p.owner.ingest.candidate.get({ candidateId: b });
+    expect([m.state, cb.state, cb.reasonDetail]).toEqual(["done", "merged", null]);
+    expect((await orders(p.companyId)).map((o) => [o.status, o.lines])).toEqual([
+      ["cancelled", 1],
+      [expect.not.stringMatching(/^cancelled$/), 2],
+    ]);
+  });
+});

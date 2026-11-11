@@ -248,7 +248,8 @@ export function liveOrderWords(label: string, poText: string | null, hit: LiveOr
  * - two different POs, above 100 lines, or one PO on two order dates with no order number (`orderGroupCheck`);
  * - an old order that is already a live order this order's own replay key did not make;
  * - an old order another file or sheet of the plant also holds, when that one comes first or has
- *   written it already: the later candidate is held, so it is never written twice;
+ *   written part of it while still merging: the later candidate is held, so it is never written
+ *   twice. A merged file's order is the live order above, only while it is live (S3-3);
  * - rates staged while the person merging may not write them (B3), and a line the order screen
  *   would refuse (B11: no weight, balance 0, no cut length, or `orderLineInput`).
  */
@@ -296,8 +297,10 @@ export async function orderPlanHold(ctx: IngestCtx, c: Pick<CandidateRow, "id" |
     if (hit.requestId === (await rowsRequestId(list.map((r) => r.id)))) continue;
     return hold(liveOrderWords(orderLabel(list), orderPoOf(list).poText, hit), "CONFLICT");
   }
-  // The same old order in another file or sheet: the later one waits (rule 1, across files).
-  const holders = await otherFileHolders(ctx, c.id, [...groups.keys()], { withMerged: true });
+  // The same old order in another file or sheet: the later one waits (rule 1, across files). A
+  // merged file is not counted: the order it made is found above while it is live, and once it is
+  // closed or cancelled the old order may be imported again, as the dry run says (S3-3).
+  const holders = await otherFileHolders(ctx, c.id, [...groups.keys()]);
   for (const [key, hs] of holders) {
     const first = hs.find((h) => h.rows.some((r) => r.written) || comesBefore({ createdAt: h.createdAt, id: h.candidateId }, c));
     if (first) return hold(otherFileWords(orderLabel(groups.get(key)!), first), "CONFLICT");
