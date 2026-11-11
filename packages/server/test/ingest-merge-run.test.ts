@@ -132,7 +132,7 @@ describe("a refused chunk", () => {
     const c = await candidateRow(env, customers.candidateId);
     expect(c.state).toBe("held");
     expect(c.reasonCode).toBe("merge_failed");
-    expect(c.reasonDetail).toBe("rows.0.email: Invalid email address");
+    expect(c.reasonDetail).toBe("File row 1, email: Invalid email address");
     const o = await candidateRow(env, orders.candidateId);
     expect(o.state).toBe("held");
     expect(o.reasonCode).toBe("dependency_held");

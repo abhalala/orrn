@@ -104,13 +104,24 @@ export function pendingKeys(rows: readonly StagedRow[]): string[] {
   return [...out];
 }
 
-/** A failure the person can read: the procedure's own message, field by field for an input refusal. */
+/** What a person reads for an error orrn did not mean to show (Bm3). The raw error goes to the log. */
+export const INTERNAL_MESSAGE = "The import could not be written. Try again; if it fails again, tell support.";
+
+/**
+ * A failure the person can read: the procedure's own message, field by field for an input refusal.
+ * An internal error (a driver or SQL error, which can carry the statement and its values) is never
+ * stored: the hold reason and audit row get INTERNAL_MESSAGE, and the raw error is logged (Bm3).
+ */
 export function failureOf(e: unknown): ChunkFailure {
   if (e instanceof DependencyHeld) return { code: "DEPENDENCY_HELD", message: e.heldName.slice(0, MESSAGE_MAX), reason: "dependency_held" };
   let code = "INTERNAL_SERVER_ERROR";
   let message = e instanceof Error ? e.message : String(e);
   if (e instanceof TRPCError) code = e.code;
   const zod = e instanceof ZodError ? e : e instanceof TRPCError && e.cause instanceof ZodError ? e.cause : null;
+  if (!zod && code === "INTERNAL_SERVER_ERROR") {
+    console.error("ingest merge: internal error in a chunk", e);
+    return { code, message: INTERNAL_MESSAGE, reason: "merge_failed" };
+  }
   if (zod) {
     code = "BAD_REQUEST";
     message = zod.issues
@@ -119,6 +130,21 @@ export function failureOf(e: unknown): ChunkFailure {
       .join("; ");
   }
   return { code, message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" };
+}
+
+/** The rows a bulk call sent, by the input array a refusal's path names. */
+export type SentRows = Partial<Record<"rows" | "newRows" | "updatedRows", readonly StagedRow[]>>;
+
+/**
+ * Point a refusal at the file, not at the call (Bm2): `rows.37.email: ...` becomes
+ * `File row 512, email: ...` from the staged row sent at that place.
+ */
+export function fileRowsIn(message: string, sent: SentRows): string {
+  return message.replace(/\b(rows|newRows|updatedRows)\.(\d+)(?:\.([A-Za-z0-9_.]+))?:/g, (m, key: keyof SentRows, n: string, field?: string) => {
+    const row = sent[key]?.[Number(n)];
+    if (!row) return m;
+    return `File row ${row.rowIndex + 1}${field ? `, ${field}` : ""}:`;
+  });
 }
 
 export async function sha256Hex(input: string): Promise<string> {

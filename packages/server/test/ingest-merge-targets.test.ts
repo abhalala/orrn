@@ -428,3 +428,34 @@ describe("an alias that is a name (B13)", () => {
     expect((await api.vendor.get({ id: v.id })).aliases.map((a) => a.alias)).toEqual(["Mahadev"]);
   });
 });
+
+describe("names and sections added since the dry run (Bm2, Bm8)", () => {
+  test("a refused customer row is named by its file row even when earlier rows were left out", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    await api.customer.create({ name: "Known Alu" });
+    const seeded = await seedCandidate(env, companyId, "customers", [
+      { values: { name: "Known Alu" } },
+      { values: { name: "Good Alu" } },
+      { values: { name: "Bad Mail Alu", email: "nope" } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 3, email: Invalid email address");
+  });
+
+  test("a section added since the dry run is recorded against, not added again", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "dies", [
+      { values: { series: "R", sectionCode: "ABC-12", weightMinG: 1000, weightMaxG: 1100 } },
+      { values: { series: "R", sectionCode: "ABC-13", weightMinG: 1000, weightMaxG: 1100 } },
+    ]);
+    const added = await env.seedDie(companyId, { series: "r", sectionCode: "abc-12" });
+    expect((await mergeAll(api)).state).toBe("done");
+    const rows = await stagedRows(env, seeded.candidateId);
+    expect(rows[0]!.committedId).toBe(added);
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { eq } = await import("drizzle-orm");
+    expect(await env.db.select().from(die).where(eq(die.companyId, companyId))).toHaveLength(2);
+  });
+});

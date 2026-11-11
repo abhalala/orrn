@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { chunkIdOf, cutOrderRuns, cutRuns, pickOrderRows } from "../src/lib/ingest/merge/planner";
-import { orderKeyOf, type StagedRow } from "../src/lib/ingest/merge/shared";
+import { failureOf, fileRowsIn, INTERNAL_MESSAGE, orderKeyOf, type StagedRow } from "../src/lib/ingest/merge/shared";
 
 const rows = (n: number, state = "ready_create", group: (i: number) => string | null = () => null) =>
   Array.from({ length: n }, (_, i) => ({ id: `r${i}`, rowIndex: i, state, group: group(i) }));
@@ -92,5 +92,20 @@ describe("orders", () => {
     expect(k({ poNumber: " PO-1 ", orderDate: "2025-01-01" })).toBe(k({ poNumber: "po-1", orderDate: "2025-02-01" }));
     expect(k({ oldOrderNo: "B-1", orderDate: "2025-01-01" })).not.toBe(k({ oldOrderNo: "B-1", orderDate: "2025-01-02" }));
     expect(k({ poNumber: "" , oldOrderNo: "B-1" })).toBe(k({ oldOrderNo: "B-1" }));
+  });
+});
+
+describe("failure messages", () => {
+  test("an internal error is never stored as it came: no SQL, no bound values (Bm3)", () => {
+    const f = failureOf(new Error("Failed query: select * from customer where tax_id = ?\nparams: 24ABCDE1234F1Z5"));
+    expect(f).toEqual({ code: "INTERNAL_SERVER_ERROR", message: INTERNAL_MESSAGE, reason: "merge_failed" });
+  });
+
+  test("a refusal names the file row, not the place in the call (Bm2)", () => {
+    const row = (rowIndex: number) => ({ id: `r${rowIndex}`, rowIndex }) as unknown as StagedRow;
+    const sent = { rows: [row(500), row(537)], newRows: [row(3)], updatedRows: [row(9)] };
+    expect(fileRowsIn("rows.1.email: Invalid email; newRows.0.weightMinG: Too small", sent)).toBe("File row 538, email: Invalid email; File row 4, weightMinG: Too small");
+    expect(fileRowsIn("updatedRows.0: Not found", sent)).toBe("File row 10: Not found");
+    expect(fileRowsIn("rows.7.email: x", sent)).toBe("rows.7.email: x");
   });
 });

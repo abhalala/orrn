@@ -29,7 +29,9 @@ import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveS
 import type { IngestCtx } from "../types";
 import {
   failureOf,
+  fileRowsIn,
   LINES_PER_ORDER,
+  MESSAGE_MAX,
   num,
   orderKeyOf,
   refOf,
@@ -41,6 +43,7 @@ import {
   type AdapterOut,
   type StagedRow,
   type Values,
+  type SentRows,
   type Written,
 } from "./shared";
 
@@ -148,11 +151,13 @@ async function perRow(
 }
 
 /** One call for every row of the chunk: all rows written or none. */
-async function oneCall(fn: () => Promise<Written[]>): Promise<AdapterOut> {
+async function oneCall(fn: (sent: SentRows) => Promise<Written[]>): Promise<AdapterOut> {
+  const sent: SentRows = {};
   try {
-    return { written: await fn(), failure: null };
+    return { written: await fn(sent), failure: null };
   } catch (e) {
-    return { written: [], failure: failureOf(e) };
+    const failure = failureOf(e);
+    return { written: [], failure: { ...failure, message: fileRowsIn(failure.message, sent).slice(0, MESSAGE_MAX) } };
   }
 }
 
@@ -235,7 +240,7 @@ const customers: Adapter = async (args) => {
       return { rowId: row.id, committedType: "customer", committedId: row.matchId! };
     });
   }
-  return oneCall(async () => {
+  return oneCall(async (sent) => {
     // A name added since the dry run (or by this chunk before a crash) is not added again (plan D7).
     const index = await loadCustomerIndex(ctx);
     const written: Written[] = [];
@@ -246,6 +251,7 @@ const customers: Adapter = async (args) => {
       else send.push(row);
     }
     if (send.length === 0) return written;
+    sent.rows = send;
     const caller = await args.callerFor(args.sourceOf(send));
     const res = await caller.customer.importCsv({
       clientRequestId: args.chunk.id,
@@ -278,7 +284,8 @@ const customerAliases: Adapter = async (args) => {
       failure: { code: "BAD_REQUEST", message: "A name that belongs to another customer is not moved by an import. Skip these rows.", reason: "merge_failed" },
     };
   }
-  return oneCall(async () => {
+  return oneCall(async (sent) => {
+    sent.rows = rows;
     const list = rows.map((row) => ({ row, customerId: refOf(row, "customer", refs)!, alias: text(valuesOf(row).alias) ?? "" }));
     // customer.addAliases refuses the whole call for a name that is another customer's: say which
     // file row before the call (B13). The dry run should mark it a conflict (lane A).
@@ -407,12 +414,35 @@ const vendorAliases: Adapter = async (args) => {
 
 const dies: Adapter = async (args) => {
   const { ctx, rows } = args;
-  return oneCall(async () => {
+  return oneCall(async (sent) => {
     // One call takes both kinds; an update row must still name its record (B6).
     const noMatch = rows.find((r) => isUpdate(r) && !r.matchId);
     if (noMatch) kindOf([noMatch]);
-    const creates = rows.filter((r) => !isUpdate(r));
     const updates = rows.filter(isUpdate);
+    // A section added since the dry run is not added again (as plan D7 does for names, Bm8): the
+    // row is recorded against it. Same key as the dry run: series and code, trimmed, any case.
+    const keyOf = (series: unknown, code: unknown) => `${(text(series) ?? "").toUpperCase()}|${(text(code) ?? "").toUpperCase()}`;
+    const fresh = rows.filter((r) => !isUpdate(r));
+    const liveByKey = new Map(
+      (
+        await mapInChunks([...new Set(fresh.map((r) => (text(valuesOf(r).sectionCode) ?? "").toUpperCase()))].filter(Boolean), (part) =>
+          ctx.db
+            .select({ id: die.id, series: die.series, sectionCode: die.sectionCode })
+            .from(die)
+            .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt), inArray(sql`upper(trim(${die.sectionCode}))`, part))),
+        )
+      ).map((d) => [keyOf(d.series, d.sectionCode), d.id]),
+    );
+    const already: Written[] = [];
+    const creates: StagedRow[] = [];
+    for (const r of fresh) {
+      const hit = liveByKey.get(keyOf(valuesOf(r).series, valuesOf(r).sectionCode));
+      if (hit) already.push({ rowId: r.id, committedType: "die", committedId: hit });
+      else creates.push(r);
+    }
+    if (creates.length === 0 && updates.length === 0) return already;
+    sent.newRows = creates;
+    sent.updatedRows = updates;
     const live = new Map(
       (
         await mapInChunks(
@@ -487,7 +517,7 @@ const dies: Adapter = async (args) => {
         };
       }),
     });
-    return idsInOrder([...creates, ...updates], res.ids, "die");
+    return [...already, ...idsInOrder([...creates, ...updates], res.ids, "die")];
   });
 };
 
@@ -595,7 +625,8 @@ const dieCopies: Adapter = async (args) => {
 
 const bundles: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
-  return oneCall(async () => {
+  return oneCall(async (sent) => {
+    sent.rows = rows;
     // The section the dry run resolved (its own series and code, which may differ in case or
     // series from the file); an old section the person said to add keeps the file's code.
     const dieIds = [...new Set(rows.map((r) => refOf(r, "sectionCode", refs)).filter((x): x is string => !!x))];
