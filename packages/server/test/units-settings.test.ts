@@ -208,6 +208,42 @@ describe("the legacy length unit stays true for the phone", () => {
   });
 });
 
+describe("a write that names one choice keeps the others", () => {
+  test("only the weight: the plant's length (metres) and section weight (lb/ft) stay, and so does the phone's lengthUnit", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.company.updateSettings({ units: { units: { mass: "lb", length: "m", linear_mass: "lb_ft" } } });
+    await owner.company.updateSettings({ units: { units: { mass: "kg" } } });
+    const me = await env.caller({ role: "viewer", companyId }).auth.me();
+    expect(me.company?.units?.units).toMatchObject({ mass: "kg", length: "m", linear_mass: "lb_ft" });
+    expect((await storedSettings(companyId)).lengthUnit).toBe("mm");
+  });
+  test("only the grouping: the stored marks stay", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.company.updateSettings({ units: { number: { grouping: "indian", decimal: ",", group: "." } } });
+    await owner.company.updateSettings({ units: { number: { grouping: "international" } } });
+    const me = await env.caller({ role: "viewer", companyId }).auth.me();
+    expect(me.company?.units?.number).toEqual({ grouping: "international", decimal: ",", group: "." });
+  });
+  test("a plant on the legacy key that sends only a mass keeps feet and inches", async () => {
+    const { companyId } = await env.seedCompany({ settings: { lengthUnit: "inch" } });
+    await env.caller({ role: "owner", companyId }).company.updateSettings({ units: { units: { mass: "lb" } } });
+    const me = await env.caller({ role: "viewer", companyId }).auth.me();
+    expect(me.company?.units?.units).toMatchObject({ mass: "lb", length: "ft_in" });
+  });
+  test("the Company tab's lengthUnit sent with units that name no length moves the stored length choice", async () => {
+    const { companyId } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.company.updateSettings({ units: { units: { length: "m" } } });
+    await owner.company.updateSettings({ lengthUnit: "inch", units: { clock: "h12" } });
+    const me = await env.caller({ role: "viewer", companyId }).auth.me();
+    expect(me.company?.units?.units.length).toBe("ft_in");
+    expect(me.company?.units?.clock).toBe("h12");
+    expect((await storedSettings(companyId)).lengthUnit).toBe("inch");
+  });
+});
+
 describe("getSettings", () => {
   test("returns the plant's own block and the resolved set", async () => {
     const { companyId } = await env.seedCompany();

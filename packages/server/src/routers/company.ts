@@ -237,7 +237,20 @@ export const companyRouter = router({
       if (input.units !== undefined) {
         // Merge over what the plant has today (the legacy `lengthUnit` counts as a stored length choice).
         const current = readUnitSettings(row.settings);
-        const checked = validatePlantUnitSettings({ ...current, ...input.units });
+        const sent = input.units as Record<string, unknown>;
+        const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+        const merged: Record<string, unknown> = { ...current, ...sent };
+        // One level deeper for the maps of choices: a call that sends only the weight keeps the plant's length and section weight.
+        for (const key of ["units", "number", "date", "currency"] as const) {
+          const before = (current as Record<string, unknown>)[key];
+          if (isRecord(before) && isRecord(sent[key])) merged[key] = { ...before, ...sent[key] };
+        }
+        // The Company tab's length switch sent in the same call counts as a length choice unless the call names one.
+        if (input.lengthUnit !== undefined && !(isRecord(sent.units) && "length" in sent.units)) {
+          merged.units = { ...(isRecord(merged.units) ? merged.units : {}), length: input.lengthUnit === "inch" ? "ft_in" : "mm" };
+          merged.v = 1;
+        }
+        const checked = validatePlantUnitSettings(merged);
         const problems = checked.ok ? offeredUnitProblems(checked.settings) : checked.errors;
         if (!checked.ok || problems.length > 0) {
           throw new TRPCError({ code: "BAD_REQUEST", message: `Unit settings refused: ${problems.join("; ")}` });
