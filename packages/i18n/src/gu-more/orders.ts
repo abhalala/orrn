@@ -178,6 +178,7 @@ export const guOrders = {
         die: "Die પસંદ કરો.",
         length: "કટ લંબાઈ લખો.",
         qty: "પીસ કે {massUnit} લખો.",
+        rate: "રેટ રૂપિયામાં લખો, જેમ કે 285.50.",
       },
     },
     timeline: {

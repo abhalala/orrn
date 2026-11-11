@@ -245,7 +245,7 @@ export function DieBlockCard({
             </FieldSelect>
           </Field>
           {showRates ? (
-            <Field label={t("orders.line.rate")}>
+            <Field label={t("orders.line.rate")} error={shown && problems.rows[first.key]?.rate ? t(problems.rows[first.key]!.rate!) : undefined}>
               <NumberInput value={first.rate} onValueChange={(rate) => onShared({ rate })} aria-label={t("orders.line.rate")} />
             </Field>
           ) : null}

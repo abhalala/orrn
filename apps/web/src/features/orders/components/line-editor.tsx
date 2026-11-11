@@ -89,7 +89,7 @@ export function LineEditor({
   });
 
   const label = (mmValue: number) => fmt.q("bundle.length", mmValue);
-  const ownProblems = problems ?? lineProblems(line, unit);
+  const ownProblems = problems ?? lineProblems(line, unit, showRates);
   const shown = problems != null;
 
   // The side that was typed shows the text as typed; the other side is the quote.
@@ -204,7 +204,7 @@ export function LineEditor({
           </FieldSelect>
         </Field>
         {showRates ? (
-          <Field label={t("orders.line.rate")}>
+          <Field label={t("orders.line.rate")} error={shown && ownProblems.rate ? t(ownProblems.rate) : undefined}>
             <NumberInput value={line.rate} onValueChange={(rate) => onChange({ rate })} aria-label={t("orders.line.rate")} />
           </Field>
         ) : null}

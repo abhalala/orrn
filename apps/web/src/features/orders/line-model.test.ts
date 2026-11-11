@@ -90,6 +90,17 @@ describe("lineProblems", () => {
     });
     expect(lineProblems(base({ basis: "pcs", pcsText: "30" }), "inch")).toEqual({});
   });
+  test("a rate the exact parser refuses is a problem when rates are on, never dropped without a word", () => {
+    const line = (rate: string) => base({ basis: "pcs", pcsText: "30", rate });
+    for (const rate of ["10,00", "1,0000", "12abc", "-5"]) {
+      expect(lineProblems(line(rate), "inch", true)).toEqual({ rate: "orders.form.errors.rate" });
+      expect(toLineInput(line(rate), "inch", true)).not.toHaveProperty("ratePaise");
+    }
+    for (const rate of ["", "  ", "285", "285.50", "1,200.50"]) expect(lineProblems(line(rate), "inch", true)).toEqual({});
+    // rates off (the person does not see the box), or the old two-argument call: no rate problem
+    expect(lineProblems(line("10,00"), "inch", false)).toEqual({});
+    expect(lineProblems(line("10,00"), "inch")).toEqual({});
+  });
 });
 
 describe("toLineInput", () => {

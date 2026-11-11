@@ -5448,6 +5448,7 @@ export const hi = {
         die: "Die चुनें।",
         length: "कट लंबाई डालें।",
         qty: "पीस या {massUnit} डालें।",
+        rate: "रेट रुपये में डालें, जैसे 285.50।",
       },
     },
     stock: {

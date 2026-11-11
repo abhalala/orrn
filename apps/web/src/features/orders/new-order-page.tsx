@@ -103,7 +103,7 @@ function NewOrderForm() {
   const quoted = useOrderQuotes(blocks, unit);
   const quotes = quoted.rows;
   const order = quoted.order;
-  const complete = customer != null && blocksComplete(blocks, unit);
+  const complete = customer != null && blocksComplete(blocks, unit, showRates);
 
   const create = useMutation({
     mutationFn: (input: Parameters<typeof trpcClient.orders.create.mutate>[0]) => trpcClient.orders.create.mutate(input),
@@ -167,7 +167,7 @@ function NewOrderForm() {
           customerId={customer?.id ?? null}
           dieBands={floor.dieBands}
           showRates={showRates}
-          problems={tried ? blockProblems(block, unit) : undefined}
+          problems={tried ? blockProblems(block, unit, showRates) : undefined}
           quotes={quotes}
           totals={quoted.blocks.get(block.key) ?? NO_TOTALS}
           focusKey={focusKey}

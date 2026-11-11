@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7563 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7564 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -4892,7 +4892,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (398)
+### orders (399)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5180,6 +5180,7 @@ Please check, Lalubhai:
 | `form.errors.die` | Pick the die. | Die चुनें। |
 | `form.errors.length` | Enter the cut length. | कट लंबाई डालें। |
 | `form.errors.qty` | Enter pieces or {massUnit}. | पीस या {massUnit} डालें। |
+| `form.errors.rate` | Enter the rate as rupees, like 285.50. | रेट रुपये में डालें, जैसे 285.50। |
 | `stock.title` | Stock for this die and length | इस die और लंबाई का स्टॉक |
 | `stock.hint` | Bundles of this die that are already made. Book the order, then use Take ready stock on its line to put them on it. | इस die के बने हुए bundle। ऑर्डर बुक करें, फिर उसकी लाइन पर "तैयार स्टॉक लें" से इन्हें उस पर डालें। |
 | `stock.takeTitle` | Ready stock for line {n} | लाइन {n} के लिए तैयार स्टॉक |

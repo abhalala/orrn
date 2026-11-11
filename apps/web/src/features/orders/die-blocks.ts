@@ -80,20 +80,20 @@ export function patchRow(block: DieBlock, key: string, patch: Partial<LineDraft>
 export type BlockProblems = { die: boolean; rows: Record<string, LineProblems> };
 
 /** The die problem is the block's; a row only has its own length and quantity problems. */
-export function blockProblems(block: DieBlock, unit: LengthUnit): BlockProblems {
+export function blockProblems(block: DieBlock, unit: LengthUnit, withRate = false): BlockProblems {
   const rows: Record<string, LineProblems> = {};
   for (const line of blockLines(block)) {
-    const { die: _die, ...own } = lineProblems(line, unit);
+    const { die: _die, ...own } = lineProblems(line, unit, withRate);
     rows[line.key] = own;
   }
   return { die: block.die == null, rows };
 }
 
-export function blocksComplete(blocks: readonly DieBlock[], unit: LengthUnit): boolean {
+export function blocksComplete(blocks: readonly DieBlock[], unit: LengthUnit, withRate = false): boolean {
   return (
     blocks.length > 0 &&
     blocks.every((b) => {
-      const p = blockProblems(b, unit);
+      const p = blockProblems(b, unit, withRate);
       return !p.die && Object.values(p.rows).every((r) => Object.keys(r).length === 0);
     })
   );

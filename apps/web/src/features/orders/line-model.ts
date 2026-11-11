@@ -126,10 +126,15 @@ export function sameQuoteArgs(a: QuoteArgs, b: QuoteArgs): boolean {
   return keys.every((k) => (a[k] ?? null) === (b[k] ?? null));
 }
 
-export type LineProblems = { die?: MessageKey; length?: MessageKey; qty?: MessageKey };
+export type LineProblems = { die?: MessageKey; length?: MessageKey; qty?: MessageKey; rate?: MessageKey };
 
-export function lineProblems(d: LineDraft, unit: LengthUnit): LineProblems {
+/**
+ * What is wrong with a line. With `withRate`, a rate that is written but is not a plain number of rupees ("10,00") is a problem;
+ * without this the rate was dropped from the save without a word.
+ */
+export function lineProblems(d: LineDraft, unit: LengthUnit, withRate = false): LineProblems {
   const out: LineProblems = {};
+  if (withRate && d.rate.trim() !== "" && ratePaiseOf(d.rate) === null) out.rate = "orders.form.errors.rate";
   if (!d.die) out.die = "orders.form.errors.die";
   if (cutLengthMm(d, unit) == null) out.length = "orders.form.errors.length";
   if (d.basis == null || (d.basis === "pcs" ? parsePieces(d.pcsText) : parseKgG(d.kgText)) == null) out.qty = "orders.form.errors.qty";

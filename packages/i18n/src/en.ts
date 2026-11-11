@@ -5461,6 +5461,7 @@ export const en = {
         die: "Pick the die.",
         length: "Enter the cut length.",
         qty: "Enter pieces or {massUnit}.",
+        rate: "Enter the rate as rupees, like 285.50.",
       },
     },
     stock: {
