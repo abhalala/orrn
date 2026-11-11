@@ -35,14 +35,14 @@ import {
   bandTitle,
   formatBand,
   kgPerMetreText,
-  milliKgText,
   parseRank,
   refusalText,
   shortDate,
   type BandPosition,
   type CopyStatus,
-  type DriftTone,
-} from "./die-room-model";
+  type DriftTone } from "./die-room-model";
+import { useFmt } from "@/shared/lib/fmt";
+import { altSectionText, geometryWithUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 type BandView = {
   id: string | null;
@@ -72,6 +72,7 @@ type CopyView = {
 
 /** `/dies/$id`: the section (existing die page) with its bands, copies and the copy to run first. */
 export function SectionDetail({ id }: { id: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { data: me } = useMe();
   const navigate = useNavigate();
@@ -261,7 +262,7 @@ export function SectionDetail({ id }: { id: string }) {
           role="status"
           className="m-0 rounded-card border border-border bg-tone-green-tint px-4 py-3 text-[15px] leading-6 font-semibold text-tone-green-ink"
         >
-          {t("dieRoom.section.useFirst", { code: pick.code, kg: milliKgText(pick.kgPer12ftMilli) })}
+          {t("dieRoom.section.useFirst", { code: pick.code, kg: sectionText(fmt, pick.kgPer12ftMilli) })}
         </p>
       ) : null}
 
@@ -289,7 +290,7 @@ export function SectionDetail({ id }: { id: string }) {
                 <div className="min-w-0">
                   <CardTitle as="h3">
                     <span className="font-mono tabular-nums">
-                      {bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}
+                      {bandTitle(band, t("units.mm"), sectionUnit(fmt), fmt)}
                     </span>
                   </CardTitle>
                   {band.label ? <p className="m-0 text-[13px] text-muted-foreground">{band.label}</p> : null}
@@ -311,7 +312,7 @@ export function SectionDetail({ id }: { id: string }) {
                 })}
                 {band.liftedOut.map((l) => (
                   <li key={l.dieInstanceId} className="text-[14px] leading-6 text-muted-foreground">
-                    {t("dieRoom.bands.liftedTo", { code: l.code, band: formatBand(l.toWeightMinG, l.toWeightMaxG, t("units.kgPer12ft")), date: shortDate(l.at) })}
+                    {t("dieRoom.bands.liftedTo", { code: l.code, band: formatBand(l.toWeightMinG, l.toWeightMaxG, sectionUnit(fmt), fmt), date: shortDate(l.at) })}
                   </li>
                 ))}
               </ul>
@@ -343,7 +344,7 @@ export function SectionDetail({ id }: { id: string }) {
                 <div key={m.field} className="flex min-w-0 flex-col gap-0.5">
                   <dt className="text-[13px] font-medium text-muted-foreground">{t(`dies.form.${m.field}`)}</dt>
                   <dd data-no-truncate="" className="m-0 font-mono text-[17px] font-semibold tabular-nums">
-                    {measurementText(m.mm, unit, units)}
+                    {geometryWithUnit(fmt, m.mm)}
                   </dd>
                 </div>
               ))}
@@ -351,9 +352,11 @@ export function SectionDetail({ id }: { id: string }) {
           ) : (
             <p className="m-0 text-[15px] text-muted-foreground">{t("dies.detail.noMeasurements")}</p>
           )}
-          <p className="m-0 font-mono text-[13px] text-muted-foreground tabular-nums">
-            {kgPerMetreText(die.primaryKgPerMetre.min)}–{kgPerMetreText(die.primaryKgPerMetre.max)} {t("units.kgPerMetre")}
-          </p>
+          {fmt.unitOf("linear_mass").id === "kg_12ft" ? (
+            <p className="m-0 font-mono text-[13px] text-muted-foreground tabular-nums">
+              {kgPerMetreText(die.primaryKgPerMetre.min)}–{kgPerMetreText(die.primaryKgPerMetre.max)} {t("units.kgPerMetre")}
+            </p>
+          ) : null}
           {die.notes ? (
             <div className="flex min-w-0 flex-col gap-0.5 border-t border-border pt-3">
               <span className="text-[13px] font-medium text-muted-foreground">{t("dies.form.notes")}</span>
@@ -394,7 +397,7 @@ export function SectionDetail({ id }: { id: string }) {
       <ConfirmDialog
         open={retiring !== null}
         title={t("dieRoom.bands.retireTitle")}
-        body={retiring ? `${bandTitle(retiring, t("units.mm"), t("units.kgPer12ft"))}. ${t("dieRoom.bands.retireBody")}` : ""}
+        body={retiring ? `${bandTitle(retiring, t("units.mm"), sectionUnit(fmt), fmt)}. ${t("dieRoom.bands.retireBody")}` : ""}
         confirmLabel={t("dieRoom.bands.retire")}
         loading={retireBand.isPending}
         onConfirm={() => retiring?.id && retireBand.mutate({ id: retiring.id })}
@@ -425,6 +428,7 @@ export function SectionDetail({ id }: { id: string }) {
 }
 
 function CopyRow({ copy }: { copy: CopyView }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-surface-sunken p-3" data-testid={`copy-${copy.code}`}>
@@ -448,10 +452,10 @@ function CopyRow({ copy }: { copy: CopyView }) {
         ) : (
           <>
             <span data-no-truncate="" className="font-mono text-[14px] tabular-nums">
-              {milliKgText(copy.currentMilli)} {t("units.kgPer12ft")}
+              {sectionText(fmt, copy.currentMilli)} {sectionUnit(fmt)}
             </span>
             <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
-              {kgPerMetreText(copy.kgPerMetre)} {t("units.kgPerMetre")}
+              {altSectionText(fmt, copy.currentMilli)}
             </span>
             <PercentChip tone={copy.tone} pctTenth={copy.pctTenth} position={copy.position} />
             <BandPositionChip position={copy.position} />
@@ -475,6 +479,7 @@ function AddCopySheet({
   sectionCode: string;
   bands: BandView[];
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const [tier, setTier] = useState("");
@@ -526,7 +531,7 @@ function AddCopySheet({
     .filter((b) => b.active)
     .map((b) => ({
       value: b.id ?? "primary",
-      label: bandTitle(b, t("units.mm"), t("units.kgPer12ft")),
+      label: bandTitle(b, t("units.mm"), sectionUnit(fmt), fmt),
     }));
 
   return (

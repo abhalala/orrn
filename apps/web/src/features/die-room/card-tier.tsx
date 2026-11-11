@@ -18,9 +18,12 @@ import { trpc } from "@/shared/utils/trpc";
 import { formatBand, parseRank, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionUnit } from "@/shared/lib/fmt-text";
 
 /** Tier and band lift. Nothing here changes a tier: a proposal waits for a manager's decision. */
 export function TierPanel({ card }: { card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const { instance, pendingTierChange: pending } = card;
@@ -32,10 +35,10 @@ export function TierPanel({ card }: { card: CardData }) {
   const bandName = (id: string | null) => {
     if (id == null) {
       const p = bands.data?.primary;
-      return p ? formatBand(p.weightMinG, p.weightMaxG, t("units.kgPer12ft")) : t("dieRoom.bands.primary");
+      return p ? formatBand(p.weightMinG, p.weightMaxG, sectionUnit(fmt), fmt) : t("dieRoom.bands.primary");
     }
     const b = bands.data?.bands.find((x) => x.id === id);
-    return b ? formatBand(b.weightMinG, b.weightMaxG, t("units.kgPer12ft")) : "";
+    return b ? formatBand(b.weightMinG, b.weightMaxG, sectionUnit(fmt), fmt) : "";
   };
 
   return (

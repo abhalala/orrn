@@ -21,13 +21,15 @@ import {
   parseKgToMilli,
   parseWallTenths,
   refusalText,
-  wallMmText,
-} from "./die-room-model";
+  wallMmText } from "./die-room-model";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_MM, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 
 /** `/dies/$id/bands/new`: another commercial band under a section. The duplicate guard answers in the server's words. */
 export function NewBandPage({ id }: { id: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -89,7 +91,7 @@ export function NewBandPage({ id }: { id: string }) {
 
   const code = dieCode(section.data);
   const hasWall = section.data.wallTenthMmEffective > 0;
-  const defaultWall = hasWall ? wallMmText(section.data.wallTenthMmEffective) : "";
+  const defaultWall = hasWall ? wallWithUnit(fmt, section.data.wallTenthMmEffective, false) : "";
 
   const submit = () => {
     const wallTenth = wall.trim() === "" ? (hasWall ? section.data!.wallTenthMmEffective : null) : parseWallTenths(wall);
@@ -145,12 +147,12 @@ export function NewBandPage({ id }: { id: string }) {
         <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.band.intro")}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label={t("dieRoom.bands.wall")} hint={hasWall ? t("dieRoom.band.wallHint", { wall: defaultWall }) : t("dieRoom.band.wallNone")} error={errors.wall}>
-            <PlantInput spec={LENGTH_MM} value={wall} onValueChange={setWall} placeholder={defaultWall} />
+            <PlantInput spec={WALL_MM} value={wall} onValueChange={setWall} placeholder={defaultWall} />
           </Field>
-          <Field label={t("dieRoom.band.min")} hint={t("units.kgPer12ft")} error={errors.min}>
+          <Field label={t("dieRoom.band.min")} hint={sectionUnit(fmt)} error={errors.min}>
             <PlantInput spec={SECTION_KG12} value={minKg} onValueChange={setMinKg} />
           </Field>
-          <Field label={t("dieRoom.band.max")} hint={t("units.kgPer12ft")} error={errors.max}>
+          <Field label={t("dieRoom.band.max")} hint={sectionUnit(fmt)} error={errors.max}>
             <PlantInput spec={SECTION_KG12} value={maxKg} onValueChange={setMaxKg} />
           </Field>
         </div>
@@ -162,7 +164,7 @@ export function NewBandPage({ id }: { id: string }) {
           <p role="alert" className="m-0 rounded-card border border-border bg-tone-red-tint px-4 py-3 text-[15px] leading-6 text-tone-red-ink">
             <Link to="/dies/$id" params={{ id }} className="font-semibold text-tone-red-ink">
               {t("dieRoom.errors.exists", {
-                code: `${existing.sectionCode} · ${bandTitle(existing, t("units.mm"), t("units.kgPer12ft"))}`,
+                code: `${existing.sectionCode} · ${bandTitle(existing, t("units.mm"), sectionUnit(fmt), fmt)}`,
               })}
             </Link>
             <br />

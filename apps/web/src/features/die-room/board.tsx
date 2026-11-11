@@ -32,12 +32,13 @@ import {
   type BoardKind,
   type BoardOwner,
   type BoardSort,
-  type BoardTile,
-} from "./board-model";
+  type BoardTile } from "./board-model";
 import { BulkDrawingsSheet } from "./bulk-drawings";
 import { TrialSetting } from "./trial-setting";
 import { WorstToneChip } from "./drift-chips";
 import { formatBand, type DriftTone } from "./die-room-model";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionUnit } from "@/shared/lib/fmt-text";
 
 const PAGE = 50;
 
@@ -84,6 +85,7 @@ export type BoardProps = {
  * copy-status tile counts copies, so pressing it lists those copies (each opens its card).
  */
 export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onPage, onFilter, onClear }: BoardProps) {
+  const fmt = useFmt();
   const { t } = useT();
   const { data: me } = useMe();
   const [importing, setImporting] = useState(false);
@@ -135,7 +137,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       phoneWide: true,
       cell: (d) => (
         <span data-no-truncate="" data-testid="board-band" className="font-mono whitespace-nowrap tabular-nums">
-          {formatBand(d.weightMinG, d.weightMaxG, t("units.kgPer12ft"))}
+          {formatBand(d.weightMinG, d.weightMaxG, sectionUnit(fmt), fmt)}
         </span>
       ),
     },
@@ -183,7 +185,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       phoneWide: true,
       cell: (c) => (
         <span data-no-truncate="" data-testid="copy-band" className="font-mono whitespace-nowrap tabular-nums">
-          {/^\d/.test(c.bandText) ? `${c.bandText} ${t("units.kgPer12ft")}` : c.bandText}
+          {/^\d/.test(c.bandText) ? `${c.bandText} ${sectionUnit(fmt)}` : c.bandText}
         </span>
       ),
     },

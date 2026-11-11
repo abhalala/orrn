@@ -15,7 +15,7 @@
  *   rateText    rateText                                            rupees per kg, two decimals, plain
  *   countText   pcsText, countText                                  whole pieces, grouped
  */
-import { formatKg, gToKg, type Fmt } from "@orrn/domain";
+import { formatKg, formatStorage, gToKg, kgPerMetre, type Fmt } from "@orrn/domain";
 
 const MASS = "order.weight";
 const BAND = "die.band";
@@ -119,4 +119,37 @@ export function castLengthText(fmt: Fmt, mm: number | null | undefined): string 
   if (mm === null || mm === undefined) return "";
   if (fmt.unitOf("length").id === "m") return fmt.q("bundle.length", mm);
   return `${Math.round((mm / 304.8) * 100) / 100} ft`;
+}
+
+const PLAIN = { grouping: "none", decimal: ".", group: "," } as const;
+
+/**
+ * Wall thickness from tenths of a mm, as the die screens write it: one decimal in mm ("1.2"), decimal inches in
+ * three places on a feet and inches plant, four places in metres. With the unit word: "1.2 mm".
+ */
+export function wallWithUnit(fmt: Fmt, tenthMm: number, withUnit = true): string {
+  const u = fmt.unitOf("length");
+  if (u.composite) return formatStorage(tenthMm, "tenth_mm", "in", 3, PLAIN, { trim: true }) + (withUnit ? " in" : "");
+  if (u.id === "m") return formatStorage(tenthMm, "tenth_mm", "m", 4, PLAIN, { trim: true }) + (withUnit ? " m" : "");
+  return formatStorage(tenthMm, "tenth_mm", "mm", 1, PLAIN) + (withUnit ? " mm" : "");
+}
+
+/** A die width, thickness or leg (mm, may carry a tenth) as the die screens write it: "12.5 mm", decimal inches, or metres. */
+export function geometryWithUnit(fmt: Fmt, mm: number): string {
+  const u = fmt.unitOf("length");
+  if (u.composite) return `${formatStorage(mm, "mm", "in", 3, PLAIN, { trim: true })} in`;
+  if (u.id === "m") return `${formatStorage(mm, "mm", "m", 4, PLAIN, { trim: true })} m`;
+  return `${formatStorage(mm, "mm", "mm", 1, PLAIN, { trim: true })} mm`;
+}
+
+/** "5.900\u20136.200 kg/12ft": a die's weight band in the plant's section weight unit, the ends to three decimals. */
+export const bandText = (fmt: Fmt, minG: number, maxG: number): string => `${sectionText(fmt, minG)}\u2013${sectionText(fmt, maxG)} ${sectionUnit(fmt)}`;
+
+/**
+ * The second section weight beside the first: kg per metre when the plant reads kg/12ft (today's pair), kg/12ft when
+ * it reads kg/m or lb/ft. From the stored grams per 12 ft, exact.
+ */
+export function altSectionText(fmt: Fmt, gramsPer12ft: number): string {
+  if (fmt.unitOf("linear_mass").id === "kg_12ft") return `${kgPerMetre(gramsPer12ft).toFixed(3)} kg/m`;
+  return `${(gramsPer12ft / 1000).toFixed(3)} kg/12ft`;
 }

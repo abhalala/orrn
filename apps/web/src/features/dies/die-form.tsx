@@ -39,7 +39,7 @@ import {
   type StoredDie,
 } from "./die-model";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 
 export type DieFormProps = {
   formId: string;
@@ -208,7 +208,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
           </Field>
         </div>
         <Field label={t("dieRoom.bands.wall")} hint={t("dies.form.wallHint")} error={err("wall")} id={`${formId}-wall`}>
-          <PlantInput spec={LENGTH_MM} value={draft.wall} onValueChange={set("wall")} />
+          <PlantInput spec={WALL_MM} value={draft.wall} onValueChange={set("wall")} />
         </Field>
         <Can do="masters.publish">
           <div className="flex min-w-0 flex-col gap-2" data-testid="die-form-owner">
@@ -261,7 +261,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {GEOMETRY_FIELDS.map((field) => (
               <Field key={field} label={t(`dies.form.${field}`)} error={err(field)} id={`${formId}-${field}`}>
-                <PlantInput spec={unit === "mm" ? LENGTH_MM : LENGTH_IN} value={draft[field]} onValueChange={set(field)} />
+                <PlantInput spec={unit === "mm" ? WALL_MM : LENGTH_IN} value={draft[field]} onValueChange={set(field)} />
               </Field>
             ))}
           </div>

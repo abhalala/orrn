@@ -78,6 +78,8 @@ describe("every web entry form follows the plant", () => {
         const el = m[0];
         // the feet and inches pair of a feet and inches plant: already in the plant's unit
         if (/(\.feet|\.inches|feet\b|inches\b)/.test(el) && /units\.(ft|inch)/.test(el)) continue;
+        // The foundry's LDO tank dip is a gauge reading in inches ("Inches stay inches", foundry.melt.ldo.hint), not a product length.
+        if (f.endsWith("features/foundry/melt-steps.tsx") && /ldo/.test(el)) continue;
         left.push(`${f.slice(ROOT.length + 1)}: ${m[1]}`);
       }
     }

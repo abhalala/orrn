@@ -19,11 +19,13 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ConfirmDialog } from "./confirm-dialog";
-import { milliKgText, parseKgToMilli, shortDate } from "./die-room-model";
+import { parseKgToMilli, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useNewCopyOnTrial, useRefreshDieRoom, useRefusal } from "./use-die-room";
 import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionText } from "@/shared/lib/fmt-text";
 
 const PURPOSES = ["trial", "correction", "repair"] as const;
 type Purpose = (typeof PURPOSES)[number];
@@ -254,6 +256,7 @@ function ReceiveSheet({
   jobId: string;
   number: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -315,7 +318,7 @@ function ReceiveSheet({
         ) : null}
         {hasTrial ? (
           <p className="m-0 text-[14px] leading-6 text-muted-foreground">
-            {t("dieRoom.maker.trialSet", { kg: milliKgText(card.instance.trialKgPer12ftMilli!) })}
+            {t("dieRoom.maker.trialSet", { kg: sectionText(fmt, card.instance.trialKgPer12ftMilli!) })}
           </p>
         ) : (
           <Field label={t("dieRoom.card.trial")} hint={t("dieRoom.maker.trialHint")}>

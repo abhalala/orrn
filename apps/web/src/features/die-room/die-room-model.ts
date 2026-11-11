@@ -3,6 +3,8 @@
  * band position and kg/m arrive from the server (`dieInstance.get`, `.drift`, `die.get`) and are
  * only formatted. What IS parsed here is what a person types (a weight in kg, a wall in mm).
  */
+import type { Fmt } from "@orrn/domain";
+import { sectionText, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
 
@@ -91,7 +93,8 @@ export function milliKgText(milli: number): string {
 }
 
 /** A band as one string, always kg per 12 ft to three decimals: "5.900–6.200". */
-export function bandRangeText(minG: number, maxG: number): string {
+export function bandRangeText(minG: number, maxG: number, fmt?: Fmt): string {
+  if (fmt) return `${sectionText(fmt, minG)}\u2013${sectionText(fmt, maxG)}`;
   return `${milliKgText(minG)}–${milliKgText(maxG)}`;
 }
 
@@ -99,8 +102,8 @@ export function bandRangeText(minG: number, maxG: number): string {
  * THE band format, used on the board, the section, the card, the lift and the forms:
  * "5.900\u20136.200 kg/12ft" (kg per 12 ft to three decimals, an en dash, the translated unit).
  */
-export function formatBand(minG: number, maxG: number, unit: string): string {
-  return `${bandRangeText(minG, maxG)} ${unit}`;
+export function formatBand(minG: number, maxG: number, unit: string, fmt?: Fmt): string {
+  return `${bandRangeText(minG, maxG, fmt)} ${fmt ? sectionUnit(fmt) : unit}`;
 }
 
 /**
@@ -108,9 +111,10 @@ export function formatBand(minG: number, maxG: number, unit: string): string {
  * or just the band when the section has no wall written (the server sends 0 then). `mm` and
  * `kg12` are the translated units.
  */
-export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string, kg12: string): string {
-  const range = formatBand(band.weightMinG, band.weightMaxG, kg12);
-  return band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${mm} \u00b7 ${range}` : range;
+export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string, kg12: string, fmt?: Fmt): string {
+  const range = formatBand(band.weightMinG, band.weightMaxG, kg12, fmt);
+  if (band.wallTenthMm <= 0) return range;
+  return fmt ? `${wallWithUnit(fmt, band.wallTenthMm)} \u00b7 ${range}` : `${wallMmText(band.wallTenthMm)} ${mm} \u00b7 ${range}`;
 }
 
 /** Wall in tenths of a mm: 12 -> "1.2". */

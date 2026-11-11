@@ -32,12 +32,9 @@ import { BandPositionChip, PercentChip, StatusChip } from "./drift-chips";
 import {
   bandTitle,
   CARD_TABS,
-  kgGroupedText,
   kgPerMetreText,
-  milliKgText,
   wallMmText,
-  type CardTab,
-} from "./die-room-model";
+  type CardTab } from "./die-room-model";
 import { PrintCard, printCard } from "./print-card";
 import { ShareSheet } from "./share-sheet";
 import { TrialPanel } from "./trial-panel";
@@ -45,6 +42,8 @@ import { WorkPanel } from "./card-work";
 import { ReadingPad } from "./reading-pad";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useFmt } from "@/shared/lib/fmt";
+import { altSectionText, kgTrim, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 export type CopyCardProps = {
   copyId: string;
@@ -54,6 +53,7 @@ export type CopyCardProps = {
 
 /** `/dies/copies/$copyId`: one physical copy, with its weight against its band and six tabs. */
 export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
+  const fmt = useFmt();
   const { t } = useT();
   const { data: me } = useMe();
   const [padOpen, setPadOpen] = useState(false);
@@ -197,11 +197,11 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           ) : (
             <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
               <p data-no-truncate="" className="m-0 font-mono text-[40px] leading-none font-semibold tabular-nums" data-testid="current-weight">
-                {milliKgText(latest)}
-                <span className="ml-2 text-[15px] font-medium text-muted-foreground">{t("units.kgPer12ft")}</span>
+                {sectionText(fmt, latest)}
+                <span className="ml-2 text-[15px] font-medium text-muted-foreground">{sectionUnit(fmt)}</span>
               </p>
               <p data-no-truncate="" className="m-0 font-mono text-[20px] font-semibold tabular-nums" data-testid="current-kgm">
-                {kgPerMetreText(card.kgPerMetre)} {t("units.kgPerMetre")}
+                {altSectionText(fmt, card.currentMilli ?? 0)}
               </p>
             </div>
           )}
@@ -212,7 +212,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
             </span>
             {band ? (
               <Badge tone="neutral" className="font-mono tabular-nums">
-                {bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}
+                {bandTitle(band, t("units.mm"), sectionUnit(fmt), fmt)}
               </Badge>
             ) : null}
             {card.pendingTierChange ? (
@@ -228,7 +228,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
           </div>
           {instance.lifeG != null ? (
             <p className="m-0 text-[15px] font-semibold tabular-nums">
-              {t("dieRoom.card.lifeLine", { produced: kgGroupedText(card.producedG), life: kgGroupedText(instance.lifeG) })}
+              {t("dieRoom.card.lifeLine", { produced: kgTrim(fmt, card.producedG), life: kgTrim(fmt, instance.lifeG) })}
             </p>
           ) : null}
           {instance.status === "in_use" ? (
@@ -254,7 +254,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
             <Fact label={t("dieRoom.card.cavities")} value={card.cavityCount == null ? null : String(card.cavityCount)} />
             <Fact label={t("dieRoom.card.bolster")} value={instance.bolster} mono />
             <Fact label={t("dieRoom.card.wall")} value={band && band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")}` : null} />
-            <Fact label={t("dieRoom.card.trial")} value={instance.trialKgPer12ftMilli == null ? null : `${milliKgText(instance.trialKgPer12ftMilli)} ${t("units.kgPer12ft")}`} mono />
+            <Fact label={t("dieRoom.card.trial")} value={instance.trialKgPer12ftMilli == null ? null : `${sectionText(fmt, instance.trialKgPer12ftMilli)} ${sectionUnit(fmt)}`} mono />
             <Fact label={t("dieRoom.card.hardness")} value={instance.hardness == null ? null : String(instance.hardness)} />
             <Fact label={t("dieRoom.copies.rack")} value={instance.rackNo} mono />
             <Fact label={t("dieRoom.card.makerDieNo")} value={instance.makerDieNo} mono />

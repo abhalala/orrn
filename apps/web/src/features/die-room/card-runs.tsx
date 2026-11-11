@@ -9,11 +9,14 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { bpText, kgGroupedText, milliKgText, pctTenthText, shortDate } from "./die-room-model";
+import { bpText, pctTenthText, shortDate } from "./die-room-model";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim, sectionText } from "@/shared/lib/fmt-text";
 
 /** Logged press runs of the copy, with the running total made by this copy. Empty until runs are logged. */
 export function RunsPanel({ copyId }: { copyId: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   const runs = useQuery({ ...trpc.dieInstance.runs.queryOptions({ dieInstanceId: copyId }), meta: INLINE_ERROR_META });
   return (
     <>
@@ -60,13 +63,13 @@ export function RunsPanel({ copyId }: { copyId: string }) {
             key: "in",
             header: t("dieRoom.runs.input"),
             align: "end",
-            cell: (r) => <span className="font-mono tabular-nums">{kgGroupedText(r.inputG)}</span>,
+            cell: (r) => <span className="font-mono tabular-nums">{kgTrim(fmt, r.inputG)}</span>,
           },
           {
             key: "out",
             header: t("dieRoom.runs.output"),
             align: "end",
-            cell: (r) => <span className="font-mono tabular-nums">{kgGroupedText(r.outputG)}</span>,
+            cell: (r) => <span className="font-mono tabular-nums">{kgTrim(fmt, r.outputG)}</span>,
           },
           {
             key: "recovery",
@@ -82,7 +85,7 @@ export function RunsPanel({ copyId }: { copyId: string }) {
                 "—"
               ) : (
                 <span className="font-mono tabular-nums">
-                  {milliKgText(r.readingMilli)}
+                  {sectionText(fmt, r.readingMilli)}
                   {r.pctTenth != null ? ` (${pctTenthText(r.pctTenth)})` : ""}
                 </span>
               ),
@@ -92,7 +95,7 @@ export function RunsPanel({ copyId }: { copyId: string }) {
             header: t("dieRoom.runs.accumulated"),
             align: "end",
             hideOnPhone: true,
-            cell: (r) => <span className="font-mono tabular-nums">{kgGroupedText(r.accumulatedG)}</span>,
+            cell: (r) => <span className="font-mono tabular-nums">{kgTrim(fmt, r.accumulatedG)}</span>,
           },
           {
             key: "nitriding",

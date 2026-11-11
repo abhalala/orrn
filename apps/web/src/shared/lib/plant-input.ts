@@ -20,6 +20,8 @@ export type EntrySpec = {
 export const MASS_KG: EntrySpec = { field: "order.weight", native: "kg" };
 export const MASS_G: EntrySpec = { field: "order.weight", native: "g" };
 export const LENGTH_MM: EntrySpec = { field: "bundle.length", native: "mm" };
+/** A wall or die measure in mm that may carry a tenth: the stored step is a tenth of a mm. */
+export const WALL_MM: EntrySpec = { field: "die.wall", native: "mm" };
 export const LENGTH_FT: EntrySpec = { field: "bundle.length", native: "ft" };
 export const LENGTH_IN: EntrySpec = { field: "bundle.length", native: "in" };
 export const SECTION_KG12: EntrySpec = { field: "die.band", native: "kg_12ft" };

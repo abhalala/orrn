@@ -9,9 +9,11 @@ import { toast } from "sonner";
 import { requestIdFor } from "@/features/dispatch/request-key";
 import { trpc } from "@/shared/utils/trpc";
 
-import { bandTitle, milliKgText, parseKgToMilli, refusalText } from "./die-room-model";
+import { bandTitle, parseKgToMilli, refusalText } from "./die-room-model";
 import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 const KEYS = ["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "back"] as const;
 
@@ -35,6 +37,7 @@ export function ReadingPad({
   lastMilli: number | null;
   band: { wallTenthMm: number; weightMinG: number; weightMaxG: number } | null;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const [text, setText] = useState("");
@@ -52,7 +55,7 @@ export function ReadingPad({
         queryClient.invalidateQueries({ queryKey: trpc.dieInstance.pathKey() }),
         queryClient.invalidateQueries({ queryKey: trpc.die.pathKey() }),
       ]);
-      toast.success(t("dieRoom.reading.saved", { code, kg: milliKgText(r.kgPer12ftMilli) }));
+      toast.success(t("dieRoom.reading.saved", { code, kg: sectionText(fmt, r.kgPer12ftMilli) }));
       setText("");
       setError(null);
       onOpenChange(false);
@@ -87,7 +90,7 @@ export function ReadingPad({
       description={
         lastMilli === null
           ? t("dieRoom.reading.noneYet")
-          : t("dieRoom.reading.last", { kg: milliKgText(lastMilli) })
+          : t("dieRoom.reading.last", { kg: sectionText(fmt, lastMilli) })
       }
       footer={
         <>
@@ -109,7 +112,7 @@ export function ReadingPad({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("dieRoom.reading.weight")} hint={t("units.kgPer12ft")}>
+        <Field label={t("dieRoom.reading.weight")} hint={sectionUnit(fmt)}>
           <PlantInput spec={SECTION_KG12}
             value={text}
             onValueChange={(v) => {
@@ -122,7 +125,7 @@ export function ReadingPad({
         </Field>
         {band ? (
           <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-            {t("dieRoom.reading.bandHint", { band: bandTitle(band, t("units.mm"), t("units.kgPer12ft")) })}
+            {t("dieRoom.reading.bandHint", { band: bandTitle(band, t("units.mm"), sectionUnit(fmt), fmt) })}
           </p>
         ) : null}
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.reading.serverFigures")}</p>
