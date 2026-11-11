@@ -403,8 +403,11 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
             at.x1 = Math.max(at.x1, c.x1);
           } else last.pos.push({ ...c });
         } else {
+          // A line of text alone (a signature, a party-only row) starts in its column; a long one reaches into the next.
+          const kind = cellKind(c.text);
+          const starts = kind === "int" || kind === "decimal" ? -1 : cols.findIndex(([a, b]) => c.x0 >= a - charWidth && c.x0 <= b);
           const cells = Array<string>(cols.length).fill("");
-          cells[k] = c.text;
+          cells[starts !== -1 ? starts : k] = c.text;
           rows.push({ cells, pos: [{ ...c }], line: e.line, last: e.line });
         }
         prev = e.line;
@@ -759,25 +762,9 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
           for (let n = at.line; n <= at.last; n++) listed.push({ ...w, row: n, page: p + 1 });
         }
         b.warnings = listed;
-        // Footer lines under a table are not rows (C17): a one-cell line after a blank gap, or one that reads like a
-        // signature or a note. A one-cell row at the table's row pitch is data (C-new-4). A footer left out is listed.
-        for (;;) {
-          const last = b.rows[b.rows.length - 1];
-          if (b.headers.length < 2 || !last) break;
-          if (nonBlankCells(last) === 0) {
-            b.rows.pop();
-            continue;
-          }
-          if (nonBlankCells(last) > 1) break;
-          const above = b.rows[b.rows.length - 2];
-          const afterGap = above !== undefined && nonBlankCells(above) === 0;
-          if (!afterGap && !FOOTER.test(last.find((c) => c !== "")!)) break;
-          const line = src[first + b.rows.length - 1]?.line ?? -1;
-          if (line >= 0) b.warnings.push({ code: "footer_left_out", row: line, page: p + 1 });
-          b.rows.pop();
-          // Blank rows above the footer go with it.
-          while (b.rows.length > 0 && nonBlankCells(b.rows[b.rows.length - 1]!) === 0) b.rows.pop();
-        }
+        // After the header the reader makes no judgement (rule 4.1): a footer, a total or a signature under the rows is a
+        // row. Only trailing blank rows are cut.
+        while (b.rows.length > 0 && nonBlankCells(b.rows[b.rows.length - 1]!) === 0) b.rows.pop();
         // The guess in page lines, so the web can show it on the preview and give it back as hints.
         const headLine = src[g.headerRow]!.line;
         const headEnd = src[g.headerRow + b.headerRows - 1]!.last;

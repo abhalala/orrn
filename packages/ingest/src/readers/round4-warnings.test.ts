@@ -102,3 +102,36 @@ describe("R4-7: PDF title lines are warnings with page lines and the page", () =
     expect(r.blocks[0]!.warnings).toEqual([{ code: "kept_as_title", row: 0, page: 1 }]);
   });
 });
+
+describe("item 5: after the header the reader makes no judgement; footers, totals and stray lines are rows", () => {
+  const head = (y: number) => line(y, "Party", "Section", "Qty", "Kg");
+  test("a one-cell signature line right under a PDF table is a row", () => {
+    const page = [...head(800), ...line(785, "Om Metals", "R 2105", "12", "1200"), ...line(770, "Kamal", "R 2106", "5", "500"), ...line(755, "Authorised Signatory")];
+    const r = readPdfText([page]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "R 2105", "12", "1200"],
+      ["Kamal", "R 2106", "5", "500"],
+      ["Authorised Signatory", "", "", ""],
+    ]);
+    expect(r.blocks[0]!.warnings).toEqual([]);
+  });
+
+  test("a place and date footer and a total row are rows (sheet and PDF)", () => {
+    const sheet = readSheet([["Party", "Section", "Qty", "Kg"], ["Om Metals", "R 2105", 12, 1200], ["Total", "", 12, 1200], ["Rajkot", "", "", new Date(Date.UTC(2025, 10, 11))]]);
+    expect(sheet.blocks[0]!.rows.slice(1)).toEqual([
+      ["Total", "", "12", "1200"],
+      ["Rajkot", "", "", "2025-11-11"],
+    ]);
+    const page = [...head(800), ...line(785, "Om Metals", "R 2105", "12", "1200"), ...line(770, "Rajkot", "", "", "11-11-2025")];
+    expect(readPdfText([page]).blocks[0]!.rows).toEqual([
+      ["Om Metals", "R 2105", "12", "1200"],
+      ["Rajkot", "", "", "11-11-2025"],
+    ]);
+  });
+
+  test("a second table stacked under the first with no gap is rows of the first (R4-3)", () => {
+    const sheet = readSheet([["Party", "Section", "Qty", "Kg"], ["Om Metals", "R 2105", 12, 1200], ["Party", "15-04-2025", "16-04-2025", "17-04-2025"], ["Om Metals", 3, 4, 5]]);
+    expect(sheet.blocks.length).toBe(1);
+    expect(sheet.blocks[0]!.rows.length).toBe(3);
+  });
+});

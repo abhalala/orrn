@@ -39,10 +39,11 @@ describe("pdf blocks say sure or unsure", () => {
     expect(asked(r.blocks[0]!)).toBe(true);
   });
 
-  test("a footer left out is listed and makes it unsure", () => {
+  test("a signature line under the rows is a row (rule 4.1), and the block is asked about", () => {
     const r = readPdfText([[...header(770), ...row(755, "Om Metals", "R 2105", "12", "1200"), ...row(740, "Kamal", "R 2106", "5", "500"), it("Authorised Signatory", 50, 725)]]);
-    expect(r.blocks[0]!.rows.length).toBe(2);
-    expect(r.blocks[0]!.warnings).toEqual([{ code: "footer_left_out", row: 3, page: 1 }]);
+    expect(r.blocks[0]!.rows.length).toBe(3);
+    expect(r.blocks[0]!.rows[2]).toEqual(["Authorised Signatory", "", "", ""]);
+    expect(r.blocks[0]!.warnings).toEqual([]);
     expect(asked(r.blocks[0]!)).toBe(true);
   });
 

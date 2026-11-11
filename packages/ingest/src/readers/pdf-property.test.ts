@@ -165,7 +165,11 @@ function generate(seed: number): Case {
   } else if (shape === 2) {
     // Footers: a signature line at the pitch, a note after a gap, a page number.
     const f = rnd(3);
-    if (f === 0) items.push(item("Authorised Signatory", cols[0]!.x0, y));
+    // Rule 4.1: after the header the reader makes no judgement, so the signature line at the pitch is a row.
+    if (f === 0) {
+      items.push(item("Authorised Signatory", cols[0]!.x0, y));
+      t1.table.rows.push(cols.map((_, i) => (i === 0 ? "Authorised Signatory" : "")));
+    }
     if (f === 1) items.push(item("Thank you", 40 + rnd(100), y - HEIGHT * 6));
     if (f === 2) items.push(item("Page 1 of 1", 200 + rnd(50), y - HEIGHT * 2));
     labels.push(`footer ${f}`);
