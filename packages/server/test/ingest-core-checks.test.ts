@@ -505,3 +505,115 @@ describe("A8 note: one Sonnet call with a server-side fallback stays under the d
     expect(day.costMicroUsd).toBeLessThanOrEqual(b.DAY_COST_CAP_MICRO);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Item 3 (B-new-3): a held candidate comes back through the API
+// ---------------------------------------------------------------------------
+
+describe("B-new-3: after a failed chunk, the person fixes the cause and approves again through the API", () => {
+  async function merge(as: Caller) {
+    const { runId } = await as.ingest.merge.start();
+    let cursor = 0;
+    for (let i = 0; i < 50; i += 1) {
+      const s = await as.ingest.merge.step({ runId, expectCursor: cursor });
+      cursor = s.cursor;
+      if (s.state !== "planning" && s.state !== "running") return s;
+    }
+    throw new Error("The merge did not finish");
+  }
+
+  /** Three die copies; the middle one's section is archived, so its chunk fails after the first copy is written. */
+  async function heldCopies() {
+    const p = await plant();
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "7100" });
+    const archived = await env.seedDie(p.companyId, { series: "R", sectionCode: "7200", status: "archived" });
+    await learnLayout(p.companyId, p.users.owner.id, copyLayout(), "Copies");
+    const { candidates } = await upload(p.owner, [
+      {
+        headers: COPY_HEADERS,
+        rows: [
+          ["R", "7100", "A-1", "available"],
+          ["R", "7200", "A-2", "available"],
+          ["R", "7100", "A-3", "available"],
+        ],
+      },
+    ]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect((await merge(p.owner)).state).toBe("done_with_holds");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c).toMatchObject({ state: "held", reasonDetail: "This section is archived; no new die copies", counts: { written: 1 } });
+    const first = (await rowsOf(p.owner, id))[0]!;
+    expect(first.mergeState).toBe("written");
+    return { p, id, archived, first };
+  }
+
+  async function copies(companyId: string) {
+    const row = await env.d1.prepare("select count(*) as n from die_instance where company_id = ?").bind(companyId).first<{ n: number }>();
+    return Number(row?.n ?? 0);
+  }
+
+  test("the section is fixed outside: check again, approve, merge; the written row is left alone", async () => {
+    const { p, id, archived, first } = await heldCopies();
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(die).set({ status: "active" }).where(eq(die.id, archived));
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.candidate.release({ candidateId: id, expectSeq: c.serverSeq });
+    expect((await pump(p.owner, id)).state).toBe("ready");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect((await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).state).toBe("approved");
+    expect((await merge(p.owner)).state).toBe("done");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c).toMatchObject({ state: "merged", counts: { written: 3 } });
+    const after = (await rowsOf(p.owner, id))[0]!;
+    expect([after.mergeState, after.committedId]).toEqual(["written", first.committedId]);
+    expect(await copies(p.companyId)).toBe(3);
+  });
+
+  test("the person skips the failing row: the candidate is ready again, approves and merges the rest", async () => {
+    const { p, id } = await heldCopies();
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    const bad = (await rowsOf(p.owner, id))[1]!;
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [bad.id], decision: "skip", expectSeq: c.serverSeq });
+    expect((await pump(p.owner, id)).state).toBe("ready");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect((await merge(p.owner)).state).toBe("done");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c).toMatchObject({ state: "merged", counts: { written: 2, skipped: 1 } });
+    expect(await copies(p.companyId)).toBe(2);
+  });
+
+  test("approving again saves no second copy of the answered layout", async () => {
+    const p = await plant();
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    const open = bundleLayout("kg");
+    const recipe: Recipe = {
+      ...open,
+      fields: open.fields.map((f) => (f.field === "weightG" ? { ...f, steps: [{ op: "number" as const, kind: "mass" as const, unit: null }] } : f)),
+      unclear: [{ field: "weightG", code: "unit_unknown" }],
+    };
+    await learnLayout(p.companyId, p.users.owner.id, recipe, "Bundles");
+    const { candidates } = await upload(p.owner, [{ headers: bundleHeaders("kg"), rows: [["B-1", "R", "5100", "10", "900", "3658"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "unit_unknown", subject: "weightG", answer: "kg", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    const versions = async () => {
+      const row = await env.d1.prepare("select count(*) as n from ingest_hole_version where company_id = ?").bind(p.companyId).first<{ n: number }>();
+      return Number(row?.n ?? 0);
+    };
+    const saved = await versions();
+    expect(saved).toBe(2);
+    c = await p.owner.ingest.candidate.hold({ candidateId: id, expectSeq: c.serverSeq });
+    c = await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c.state).toBe("approved");
+    expect(await versions()).toBe(saved);
+  });
+});

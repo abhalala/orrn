@@ -1032,13 +1032,15 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
         .where(and(eq(ingestHoleVersion.companyId, ctx.companyId), eq(ingestHoleVersion.id, c.holeRef.slice(8))))
         .limit(1)
     : [];
-  if (folded && !(v && v.state === "draft")) {
+  // A candidate approved again after a hold (B-new-3) saves its answered layout once: an approved
+  // version of this plant with the very same recipe is already that layout.
+  const variant = folded && !(v && v.state === "draft") ? withBlockMatch(folded, block) : null;
+  if (variant && !(await approvedVersionWith(ctx, block.headerKey, variant))) {
     // An approved or built-in layout is not changed in place: the answered variant is a new version.
-    const block2 = await loadBlock(ctx, c.blockId);
-    const made = await draftVersion(ctx, c, withBlockMatch(folded, block2), {
-      name: layoutName(c, block2, artifact.fileName),
+    const made = await draftVersion(ctx, c, variant, {
+      name: layoutName(c, block, artifact.fileName),
       madeBy: "person",
-      headerKey: block2.headerKey,
+      headerKey: block.headerKey,
       approved: true,
     });
     statements.push(
@@ -1065,6 +1067,36 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   }
   await guardedBatch(ctx.db, statements);
   return candidateDetail(ctx, c.id);
+}
+
+/** JSON with object keys sorted, so two equal recipes compare equal whatever their key order. */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** Whether an approved layout version of the plant for this header key holds exactly this recipe. */
+async function approvedVersionWith(ctx: Pick<IngestCtx, "db" | "companyId">, headerKey: string, recipe: Recipe): Promise<boolean> {
+  const rows = await ctx.db
+    .select({ recipe: ingestHoleVersion.recipe })
+    .from(ingestHoleVersion)
+    .innerJoin(ingestHole, eq(ingestHole.id, ingestHoleVersion.holeId))
+    .where(
+      and(
+        eq(ingestHoleVersion.companyId, ctx.companyId),
+        eq(ingestHoleVersion.headerKey, headerKey),
+        eq(ingestHoleVersion.state, "approved"),
+        eq(ingestHole.state, "active"),
+      ),
+    );
+  const want = canonicalJson(recipe);
+  return rows.some((r) => canonicalJson(r.recipe) === want);
 }
 
 export async function holdCandidate(
