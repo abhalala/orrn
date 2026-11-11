@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7567 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7569 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -4397,7 +4397,7 @@ Please check, Lalubhai:
 | `emptyBody` | Nothing matches this filter. | इस फ़िल्टर में कुछ नहीं मिला। |
 | `error` | The requests didn't load. Check the connection and try again. | रिक्वेस्ट लोड नहीं हुईं। कनेक्शन देखें और फिर से कोशिश करें। |
 
-### dieRoom (493)
+### dieRoom (495)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4781,12 +4781,14 @@ Please check, Lalubhai:
 | `reading.noneYet` | {sectionUnit}. No reading yet. | {sectionUnit}। अभी कोई रीडिंग नहीं। |
 | `reading.last` | {sectionUnit}. Last reading {kg}. | {sectionUnit}। पिछली रीडिंग {kg}। |
 | `reading.weight` | Weight of 12 ft | 12 ft का वज़न |
+| `reading.weightPlant` | Section weight ({sectionUnit}) | सेक्शन का वज़न ({sectionUnit}) |
 | `reading.bandHint` | Band {band}. | बैंड {band}। |
 | `reading.serverFigures` | The percent and colour are worked out when you save. | सेव करने पर प्रतिशत और रंग तय होते हैं। |
 | `reading.backspace` | Backspace | मिटाएं |
 | `reading.saved` | {code}: {kg} {sectionUnit} saved | {code}: {kg} {sectionUnit} सेव हुआ |
 | `reading.empty` | No readings yet | अभी कोई रीडिंग नहीं |
 | `reading.emptyBody` | Weigh 12 ft off this die and add the weight. | इस die से 12 ft तौलकर वज़न जोड़ें। |
+| `reading.emptyBodyPlant` | Weigh a piece of this die and add its weight in {sectionUnit}. | इस die का एक टुकड़ा तौलकर उसका वज़न {sectionUnit} में जोड़ें। |
 | `reading.trendLabel` | Readings, {sectionUnit} | रीडिंग, {sectionUnit} |
 | `reading.bench` | Bench | बेंच |
 | `reading.trialNote` | Trial weight. Not a drift reading. | ट्रायल वज़न। बढ़त की रीडिंग नहीं। |

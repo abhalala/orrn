@@ -7,6 +7,7 @@ import { Can } from "@/shared/components/can";
 
 import { PercentChip } from "./drift-chips";
 import { shortDateTime } from "./die-room-model";
+import { readingEmptyBody } from "./reading-text";
 import type { CardData } from "./types";
 import { useFmt } from "@/shared/lib/fmt";
 import { sectionText, sectionUnit } from "@/shared/lib/fmt-text";
@@ -25,7 +26,7 @@ export function ReadingsPanel({ card, onAdd }: { card: CardData; onAdd(): void }
     return (
       <EmptyState
         title={t("dieRoom.reading.empty")}
-        body={t("dieRoom.reading.emptyBody")}
+        body={readingEmptyBody(t, fmt)}
         action={
           <Can do="die.reading">
             <Button onClick={onAdd} disabled={card.instance.status === "retired"}>

@@ -10,6 +10,7 @@ import { requestIdFor } from "@/features/dispatch/request-key";
 import { trpc } from "@/shared/utils/trpc";
 
 import { bandTitle, parseKgToMilli, refusalText } from "./die-room-model";
+import { readingWeightLabel } from "./reading-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { followsPlant, keypadStep, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
@@ -120,7 +121,7 @@ export function ReadingPad({
       }
     >
       <div className="flex flex-col gap-4">
-        <Field label={t("dieRoom.reading.weight")} hint={sectionUnit(fmt)}>
+        <Field label={readingWeightLabel(t, fmt)} hint={sectionUnit(fmt)}>
           <PlantInput spec={SECTION_KG12}
             value={text}
             typed={typed}
