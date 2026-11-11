@@ -14,8 +14,9 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { kgFromG } from "@/features/press/model";
 import { ErrorLine, LoadFailed, Note, FieldSelect } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * `/casts/new` (FP-FD-02): pick the alloy the cast aims at. The number comes from the plant's series
@@ -23,6 +24,7 @@ import { ErrorLine, LoadFailed, Note, FieldSelect } from "./ui";
  * a melt will not start.
  */
 export function NewCastScreen() {
+  const fmt = useFmt();
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -104,8 +106,8 @@ export function NewCastScreen() {
             <div className="flex flex-wrap gap-2">
               {activeFurnaces.map((f) => (
                 <Chip key={f.id} tone="neutral" truncate={false}>
-                  {f.code} · {kgFromG(f.capacityG)} {t("units.kg")}
-                  {f.billetDiaMm ? ` · ${f.billetDiaMm} ${t("units.mm")}` : ""}
+                  {f.code} · {kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}
+                  {f.billetDiaMm ? ` · ${fmt.q("bundle.length", f.billetDiaMm)}` : ""}
                 </Chip>
               ))}
             </div>

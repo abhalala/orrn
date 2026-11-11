@@ -267,7 +267,7 @@ export const guFoundry = {
         billetLengthHint: "એ જ હોય તો ખાલી રાખો",
         kg: "Kg",
         addLog: "Log લાઇન ઉમેરો",
-        logLine: "{pcs} પીસ, {ft} ft, {kg} kg",
+        logLine: "{pcs} પીસ, {ft}, {kg} {massUnit}",
         byproducts: "Dross અને iron",
         dross: "Dross",
         fe: "Iron (Fe)",

@@ -13,7 +13,6 @@ import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { ReportToggle } from "@/features/reports/report-chrome";
-import { kgFromG } from "@/features/press/model";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -22,6 +21,8 @@ import { kgToG } from "./melt-form";
 import { ErrorLine, LoadFailed, Note, Panel } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * `/foundry/stock` (FP-FD-15): billets in the store by alloy, then cast. The kg is the ledger
@@ -29,6 +30,7 @@ import { MASS_KG } from "@/shared/lib/plant-input";
  * the page by mistake.
  */
 export function FoundryStockScreen() {
+  const fmt = useFmt();
   const { t } = useT();
   const [finished, setFinished] = useState(false);
   const query = useQuery({ ...trpc.foundry.stock.billets.queryOptions({ includeZero: finished }), meta: INLINE_ERROR_META });
@@ -49,11 +51,11 @@ export function FoundryStockScreen() {
       ) : (
         <>
           <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="stock-total">
-            {t("foundry.stock.total", { kg: kgFromG(d.totalG) })}
+            {t("foundry.stock.total", { kg: kgGrouped1(fmt, d.totalG) })}
           </p>
           {d.adjustedG !== 0 ? (
             <p className="m-0 text-[13px] text-muted-foreground tabular-nums" data-testid="stock-adjusted">
-              {t("foundry.stock.adjusted", { kg: `${d.adjustedG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.adjustedG))}` })}
+              {t("foundry.stock.adjusted", { kg: `${d.adjustedG < 0 ? "-" : "+"}${kgGrouped1(fmt, Math.abs(d.adjustedG))}` })}
             </p>
           ) : null}
           {d.byAlloy.map((a) => {
@@ -63,7 +65,7 @@ export function FoundryStockScreen() {
               <section key={a.alloy} aria-labelledby={`alloy-${a.alloy}`} className="flex min-w-0 flex-col gap-3" data-alloy={a.alloy}>
                 <h2 id={`alloy-${a.alloy}`} className="m-0 flex flex-wrap items-baseline gap-3 text-[17px] font-semibold">
                   <span className="font-mono">{a.alloy}</span>
-                  <span className="text-[14px] font-normal tabular-nums text-muted-foreground">{t("foundry.stock.alloyLine", { kg: kgFromG(a.onHandG), casts: a.casts })}</span>
+                  <span className="text-[14px] font-normal tabular-nums text-muted-foreground">{t("foundry.stock.alloyLine", { kg: kgGrouped1(fmt, a.onHandG), casts: a.casts })}</span>
                 </h2>
                 <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
                   {casts.map((c) => (
@@ -94,6 +96,7 @@ export function FoundryStockScreen() {
 }
 
 function CastCard({ c }: { c: { castId: string; number: string | null; year: number | null; alloy: string; status: string | null; onHandG: number } }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <li className="min-w-0" data-cast={c.number ?? ""}>
@@ -103,7 +106,7 @@ function CastCard({ c }: { c: { castId: string; number: string | null; year: num
           {c.status ? <Chip tone={CAST_TONE[c.status as CastStatus] ?? "neutral"}>{t(`foundry.casts.status.${c.status as CastStatus}`)}</Chip> : null}
         </span>
         <span className="text-[13px] text-muted-foreground">{c.year ?? ""}</span>
-        <span className="font-mono text-[18px] font-semibold tabular-nums">{kgFromG(c.onHandG)} {t("units.kg")}</span>
+        <span className="font-mono text-[18px] font-semibold tabular-nums">{kgGrouped1(fmt, c.onHandG)} {massUnit(fmt)}</span>
         <span className="text-[13px] text-muted-foreground">{t("foundry.stock.onHand")}</span>
       </UiLink>
     </li>
@@ -115,6 +118,7 @@ function CastCard({ c }: { c: { castId: string; number: string | null; year: num
  * plant states its plant scrap and dross once, or its first melt cannot take metal from a stream).
  */
 function Streams() {
+  const fmt = useFmt();
   const { t } = useT();
   const query = useQuery({ ...trpc.foundry.returnStreams.list.queryOptions(), meta: INLINE_ERROR_META });
   const [picked, setPicked] = useState<{ id: string; name: string } | null>(null);
@@ -131,7 +135,7 @@ function Streams() {
               <span className="text-[13px] text-muted-foreground break-words">{s.name}</span>
             </span>
             <span className="flex items-center gap-3">
-              <span className="font-mono text-[15px] font-semibold tabular-nums" data-testid="stream-balance">{t("foundry.stock.streams.balance", { kg: kgFromG(s.balanceG) })}</span>
+              <span className="font-mono text-[15px] font-semibold tabular-nums" data-testid="stream-balance">{t("foundry.stock.streams.balance", { kg: kgGrouped1(fmt, s.balanceG) })}</span>
               <Can do="masters.publish">
                 {s.hasOpening ? (
                   <span className="text-[13px] text-muted-foreground" data-testid="stream-opened">{t("foundry.stock.streams.posted")}</span>
@@ -151,6 +155,7 @@ function Streams() {
 }
 
 function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string } | null; onClose(): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const [kg, setKg] = useState("");
@@ -212,7 +217,7 @@ function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string 
           <TextInput value={note} maxLength={200} onChange={(e) => setNote(e.currentTarget.value)} />
         </Field>
         {confirming && g !== null ? (
-          <Note tone="amber" testId="opening-confirm">{t("foundry.stock.streams.confirm", { kg: kgFromG(g), name: stream?.name ?? "" })}</Note>
+          <Note tone="amber" testId="opening-confirm">{t("foundry.stock.streams.confirm", { kg: kgGrouped1(fmt, g), name: stream?.name ?? "" })}</Note>
         ) : null}
         <ErrorLine error={post.error} />
       </div>

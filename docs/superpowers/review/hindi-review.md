@@ -545,7 +545,7 @@ Counts: 7558 screen strings in 49 groups, 45 guides with 866 strings.
 | `press.open` | Open the press summary | प्रेस सारांश खोलें |
 | `press.pressed` | Pressed today | आज प्रेस हुआ |
 | `press.runs` | Runs: {count} | रन: {count} |
-| `press.trials` | trials {kg} kg | ट्रायल {kg} kg |
+| `press.trials` | trials {kg} {massUnit} | ट्रायल {kg} {massUnit} |
 | `press.recovery` | Recovery | रिकवरी |
 | `press.recoveryMeta` | Production runs only | सिर्फ़ प्रोडक्शन रन |
 | `press.downtime` | Downtime | रुकावट |
@@ -5413,7 +5413,7 @@ Please check, Lalubhai:
 | `console.cutLength` | Cut length | कट लंबाई |
 | `console.pcs` | Pcs | पीस |
 | `console.addLength` | Add cut length | कट लंबाई जोड़ें |
-| `console.hint` | About {kg} kg by the die weight | Die वज़न से लगभग {kg} kg |
+| `console.hint` | About {kg} {massUnit} by the die weight | Die वज़न से लगभग {kg} {massUnit} |
 | `console.rejects` | Rejects | रिजेक्ट |
 | `console.noRejects` | No rejects | कोई रिजेक्ट नहीं |
 | `console.rejectReason` | Reject reason | रिजेक्ट का कारण |
@@ -5432,7 +5432,7 @@ Please check, Lalubhai:
 | `console.supervisorOnly` | Only this run's supervisor can log it. | सिर्फ़ इस रन का सुपरवाइज़र इसे दर्ज कर सकता है। |
 | `console.queuePosition` | Number {n} in queue | कतार में नंबर {n} |
 | `console.startLocked` | Die not issued. Start is locked. | Die जारी नहीं हुई। शुरू करना बंद है। |
-| `console.billetsShortBy` | Billets short by {kg} kg | बिलेट {kg} kg कम |
+| `console.billetsShortBy` | Billets short by {kg} {massUnit} | बिलेट {kg} {massUnit} कम |
 | `console.pickOrderLine` | Pick the order line for {mm} mm | {mm} mm के लिए ऑर्डर लाइन चुनें |
 | `console.gates.not_counting` | Only a run being counted can be logged | सिर्फ़ गिनती वाला रन ही दर्ज हो सकता है |
 | `console.gates.no_close_permission` | Only a supervisor or manager can log a run | रन सिर्फ़ सुपरवाइज़र या मैनेजर दर्ज कर सकता है |
@@ -5503,7 +5503,7 @@ Please check, Lalubhai:
 | `console.countingTitle` | Counting | गिनती |
 | `console.countingBody` | Enter what came off the press. Figures below come from the server. | प्रेस से जो निकला वह दर्ज करें। नीचे के आँकड़े सर्वर के हैं। |
 | `console.loggedTitle` | Logged | दर्ज हो गया |
-| `console.loggedBody` | {good} kg good from {input} kg of billets. | {input} kg बिलेट से {good} kg अच्छा माल। |
+| `console.loggedBody` | {good} {massUnit} good from {input} {massUnit} of billets. | {input} {massUnit} बिलेट से {good} {massUnit} अच्छा माल। |
 | `console.voidedTitle` | Voided | रद्द |
 | `console.voidedBody` | This run was voided and moved no stock. | यह रन रद्द हुआ और कोई स्टॉक नहीं हिला। |
 | `console.trialBanner` | Die trial. Say whether it passed or failed when you log it. | Die ट्रायल। दर्ज करते समय बताएँ कि पास हुआ या फेल। |
@@ -5537,14 +5537,14 @@ Please check, Lalubhai:
 | `console.saveFailed` | Could not save. What you typed is still here. | सेव नहीं हुआ। जो आपने लिखा है वह यहीं है। |
 | `console.saveNext` | Save and next | सेव करें और आगे |
 | `console.castPick` | Cast the billets came from | बिलेट किस cast के हैं |
-| `console.castOnHand` | {kg} kg billet stock | {kg} kg बिलेट स्टॉक |
+| `console.castOnHand` | {kg} {massUnit} billet stock | {kg} {massUnit} बिलेट स्टॉक |
 | `console.castSpectroFail` | Spectro failed | स्पेक्ट्रो फेल |
 | `console.castSpectroFailNote` | The spectro on cast {cast} failed ({alloy}). Check with the foundry before these billets are pressed. | कास्ट {cast} ({alloy}) का स्पेक्ट्रो फेल हुआ है। ये बिलेट दबाने से पहले फाउंड्री से पूछ लें। |
 | `console.castNone` | No cast has billets in stock. | किसी cast के बिलेट स्टॉक में नहीं हैं। |
 | `console.castClosedChip` | Closed | बंद |
 | `console.weighedKg` | Weighed kg | तौला हुआ kg |
 | `console.billetsOnce` | One cast on a run. A second cast is a new run. | एक रन पर एक cast। दूसरी cast नया रन है। |
-| `console.shortStock` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show billets short by {short} kg. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट {short} kg कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
+| `console.shortStock` | The billet stock shows {kg} {massUnit} for this cast. The run is logged with the weighed {massUnit}; the cast will show billets short by {short} {massUnit}. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} {massUnit} दिख रहा है। रन तोले हुए {massUnit} के साथ दर्ज होगा; cast पर बिलेट {short} {massUnit} कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
 | `console.shortStockNoFigure` | The billet stock shows {kg} kg for this cast. The run is logged with the weighed kg; the cast will show the billets short. Say why the stock is short. | इस cast के लिए बिलेट स्टॉक में {kg} kg दिख रहा है। रन तोले हुए kg के साथ दर्ज होगा; cast पर बिलेट कम दिखेंगे। बताएं कि स्टॉक कम क्यों है। |
 | `console.pressedLength` | Pressed length | प्रेस की लंबाई |
 | `console.pressedLengthHint` | Optional. Pieces times cut length are checked only when this is set. | वैकल्पिक। भरने पर ही पीस गुणा कट लंबाई की जाँच होती है। |
@@ -5598,7 +5598,7 @@ Please check, Lalubhai:
 | `console.released` | Released | भेजा गया |
 | `console.pressedSoFar` | Pressed so far | अब तक प्रेस हुआ |
 | `console.orders` | Orders | ऑर्डर |
-| `console.totalLine` | Total {pcs} pcs, {kg} kg | कुल {pcs} पीस, {kg} kg |
+| `console.totalLine` | Total {pcs} pcs, {kg} {massUnit} | कुल {pcs} पीस, {kg} {massUnit} |
 | `console.loadFailed` | This run did not load. Check the connection and try again. | यह रन नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `console.notFound` | That run does not exist. | ऐसा कोई रन नहीं है। |
 | `console.busy` | Another run is running on this press. Stop it first. | इस प्रेस पर दूसरा रन चल रहा है। पहले उसे रोकें। |
@@ -5664,7 +5664,7 @@ Please check, Lalubhai:
 | `queue.orders` | Orders | ऑर्डर |
 | `queue.released` | Released | भेजा गया |
 | `queue.total` | Total | कुल |
-| `queue.pressedSoFar` | Pressed so far {kg} kg | अब तक प्रेस हुआ {kg} kg |
+| `queue.pressedSoFar` | Pressed so far {kg} {massUnit} | अब तक प्रेस हुआ {kg} {massUnit} |
 | `queue.noOrderLines` | No order line | ऑर्डर लाइन नहीं |
 | `queue.purposeNote` | Goes against no order. | किसी ऑर्डर में नहीं जाता। |
 | `queue.filterSection` | Section | सेक्शन |
@@ -5676,7 +5676,7 @@ Please check, Lalubhai:
 | `queue.clearUrgent` | Remove urgent | जल्दी हटाएँ |
 | `queue.moveFailed` | The queue did not change. Reload and try again. | कतार नहीं बदली। फिर लोड करके कोशिश करें। |
 | `queue.pullBackTitle` | Take this length back to planning? | यह लंबाई प्लानिंग में वापस लें? |
-| `queue.pullBackBody` | {order}, {length}, {pcs} pcs, {kg} kg become planable again. The run keeps its other lengths. | {order}, {length}, {pcs} पीस, {kg} kg फिर से प्लान हो सकेंगे। रन की बाकी लंबाइयाँ रहेंगी। |
+| `queue.pullBackBody` | {order}, {length}, {pcs} pcs, {kg} {massUnit} become planable again. The run keeps its other lengths. | {order}, {length}, {pcs} पीस, {kg} {massUnit} फिर से प्लान हो सकेंगे। रन की बाकी लंबाइयाँ रहेंगी। |
 | `queue.pullBackReason` | Why (optional) | क्यों (वैकल्पिक) |
 | `queue.pullBackConfirm` | Take back | वापस लें |
 | `queue.pullBackFailed` | Could not take it back. | वापस नहीं ले सके। |
@@ -5831,7 +5831,7 @@ Please check, Lalubhai:
 | `summary.previous` | Earlier day | पिछला दिन |
 | `summary.loadFailed` | The summary did not load. Check the connection and try again. | सारांश नहीं खुला। कनेक्शन जाँचकर फिर कोशिश करें। |
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} {massUnit} | {runs} रन, {kg} {massUnit} |
-| `summary.trials` | trials {kg} kg | ट्रायल {kg} kg |
+| `summary.trials` | trials {kg} {massUnit} | ट्रायल {kg} {massUnit} |
 
 ### foundry (603)
 
@@ -6201,7 +6201,7 @@ Please check, Lalubhai:
 | `melt.out.billetLengthHint` | Leave empty if the same | वही हो तो खाली छोड़ें |
 | `melt.out.kg` | Kg | Kg |
 | `melt.out.addLog` | Add log line | लॉग लाइन जोड़ें |
-| `melt.out.logLine` | {pcs} pcs, {ft} ft, {kg} kg | {pcs} पीस, {ft} ft, {kg} kg |
+| `melt.out.logLine` | {pcs} pcs, {ft}, {kg} {massUnit} | {pcs} पीस, {ft}, {kg} {massUnit} |
 | `melt.out.byproducts` | Dross and iron | ड्रॉस और आयरन |
 | `melt.out.dross` | Dross | ड्रॉस |
 | `melt.out.fe` | Iron (Fe) | आयरन (Fe) |

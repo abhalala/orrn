@@ -110,3 +110,13 @@ export function dayText(fmt: Fmt, ymd: string): string {
   const t = fmt.day(ymd, { year: false });
   return t === "-" ? ymd : t;
 }
+
+/**
+ * A cast-house length (billet, log): feet for a plant on mm or on feet and inches, as the foundry always wrote them
+ * ("12.5 ft"); the plant's own unit for a plant that chose metres. Same text as `mmToFtText` plus " ft" for a default plant.
+ */
+export function castLengthText(fmt: Fmt, mm: number | null | undefined): string {
+  if (mm === null || mm === undefined) return "";
+  if (fmt.unitOf("length").id === "m") return fmt.q("bundle.length", mm);
+  return `${Math.round((mm / 304.8) * 100) / 100} ft`;
+}

@@ -258,7 +258,7 @@ export const foundryHi = {
       billetLengthHint: "वही हो तो खाली छोड़ें",
       kg: "Kg",
       addLog: "लॉग लाइन जोड़ें",
-      logLine: "{pcs} पीस, {ft} ft, {kg} kg",
+      logLine: "{pcs} पीस, {ft}, {kg} {massUnit}",
       byproducts: "ड्रॉस और आयरन",
       dross: "ड्रॉस",
       fe: "आयरन (Fe)",

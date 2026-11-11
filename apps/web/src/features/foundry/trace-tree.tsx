@@ -5,7 +5,6 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-import { kgFromG } from "@/features/press/model";
 import { bundleDetailPath } from "@/shared/lib/paths";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -13,6 +12,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { MELT_TONE, verdictTone, type MeltStatus } from "./model";
 import { SpectroFileLink } from "./spectro-file-link";
 import { LoadFailed } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /** One branch: a heading with a count, its rows below. */
 function Branch({ title, count, children, testId }: { title: string; count?: number; children: ReactNode; testId: string }) {
@@ -36,6 +37,7 @@ const ROW = "flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[14px]
  * trace box (`highlight`) is marked. Press runs and bundles are links.
  */
 export function TraceTree({ castId, highlight }: { castId: string; highlight?: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const query = useQuery({ ...trpc.foundry.casts.trace.queryOptions({ castId }), meta: INLINE_ERROR_META });
   if (showsQueryError(query)) return <LoadFailed title={t("foundry.cast.trace.loadFailed")} onRetry={() => void query.refetch()} />;
@@ -52,7 +54,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
               <li key={l.lotId} className={ROW}>
                 <span className="font-mono font-semibold">{l.lotNumber}</span>
                 <span className="text-muted-foreground">{[l.itemName, l.gradeCode].filter(Boolean).join(" · ")}</span>
-                <span className="tabular-nums">{kgFromG(l.kgG)} {t("units.kg")}</span>
+                <span className="tabular-nums">{kgGrouped1(fmt, l.kgG)} {massUnit(fmt)}</span>
               </li>
             ))}
           </ul>
@@ -65,7 +67,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
               <span className="font-semibold">{t("foundry.melt.number", { n: m.seq })}</span>
               <Chip tone={MELT_TONE[m.status as MeltStatus] ?? "neutral"}>{t(`foundry.melt.status.${m.status}`)}</Chip>
               {m.furnaceCode ? <span className="font-mono">{m.furnaceCode}</span> : null}
-              <span className="tabular-nums">{t("foundry.cast.trace.inLogs", { inKg: kgFromG(m.inputG), logs: kgFromG(m.logsG) })}</span>
+              <span className="tabular-nums">{t("foundry.cast.trace.inLogs", { inKg: kgGrouped1(fmt, m.inputG), logs: kgGrouped1(fmt, m.logsG) })}</span>
               {m.status === "locked" ? (
                 m.spectroVerdict ? (
                   <Chip tone={verdictTone(m.spectroVerdict)}>{t(`foundry.spectro.verdict.${m.spectroVerdict}`)}</Chip>
@@ -85,9 +87,9 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
       </Branch>
       <Branch title={t("foundry.cast.trace.billets")} testId="trace-billets">
         <p className="m-0 border-l border-border pl-3 text-[14px] tabular-nums">
-          {t("foundry.cast.trace.billetsLine", { produced: kgFromG(d.billets.producedG), pressed: kgFromG(d.billets.creditedG), onHand: kgFromG(d.billets.onHandG) })}
+          {t("foundry.cast.trace.billetsLine", { produced: kgGrouped1(fmt, d.billets.producedG), pressed: kgGrouped1(fmt, d.billets.creditedG), onHand: kgGrouped1(fmt, d.billets.onHandG) })}
         </p>
-        {d.billets.adjustedG !== 0 ? <p className="m-0 border-l border-border pl-3 text-[13px] text-muted-foreground tabular-nums">{t("foundry.cast.trace.adjusted", { kg: `${d.billets.adjustedG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.billets.adjustedG))}` })}</p> : null}
+        {d.billets.adjustedG !== 0 ? <p className="m-0 border-l border-border pl-3 text-[13px] text-muted-foreground tabular-nums">{t("foundry.cast.trace.adjusted", { kg: `${d.billets.adjustedG < 0 ? "-" : "+"}${kgGrouped1(fmt, Math.abs(d.billets.adjustedG))}` })}</p> : null}
       </Branch>
       <Branch title={t("foundry.cast.trace.runs")} count={d.runs.length} testId="trace-runs">
         {d.runs.length === 0 ? (
@@ -100,7 +102,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
                   {r.number}
                 </UiLink>
                 {r.dieCode ? <span className="font-mono text-muted-foreground">{r.dieCode}</span> : null}
-                <span className="tabular-nums">{kgFromG(r.billetG)} {t("units.kg")}</span>
+                <span className="tabular-nums">{kgGrouped1(fmt, r.billetG)} {massUnit(fmt)}</span>
                 {r.mixed ? <Chip tone="amber">{t("foundry.cast.trace.mixed")}</Chip> : null}
                 {!r.mainCast ? <span className="text-[13px] text-muted-foreground" data-testid="trace-run-other-cast">{t("foundry.cast.trace.otherCast")}</span> : null}
                 <span className="text-muted-foreground">{r.productionDay}</span>
@@ -119,7 +121,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
                 <UiLink to={bundleDetailPath(b)} className={`font-mono font-semibold underline underline-offset-4 ${highlight === b.serial ? "rounded bg-tone-amber-tint px-1" : ""}`}>
                   {b.serial}
                 </UiLink>
-                <span className="tabular-nums">{kgFromG(b.weightG ?? 0)} {t("units.kg")}</span>
+                <span className="tabular-nums">{kgGrouped1(fmt, b.weightG ?? 0)} {massUnit(fmt)}</span>
                 <span className="text-muted-foreground">{t(`status.bundle.${b.status}`)}</span>
               </li>
             ))}
@@ -137,7 +139,7 @@ export function TraceTree({ castId, highlight }: { castId: string; highlight?: s
                 <UiLink to={`/customers/${c.customerId}`} className="font-semibold underline underline-offset-4">
                   {c.name}
                 </UiLink>
-                <span className="tabular-nums">{t("units.bundlesKg", { bundles: c.bundles, kg: kgFromG(c.weightG) })}</span>
+                <span className="tabular-nums">{t("units.bundlesKg", { bundles: c.bundles, kg: kgGrouped1(fmt, c.weightG) })}</span>
               </li>
             ))}
           </ul>

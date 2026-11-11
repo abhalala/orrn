@@ -262,7 +262,7 @@ export const foundryEn = {
       billetLengthHint: "Leave empty if the same",
       kg: "Kg",
       addLog: "Add log line",
-      logLine: "{pcs} pcs, {ft} ft, {kg} kg",
+      logLine: "{pcs} pcs, {ft}, {kg} {massUnit}",
       byproducts: "Dross and iron",
       dross: "Dross",
       fe: "Iron (Fe)",

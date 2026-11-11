@@ -11,7 +11,6 @@ import { useEffect } from "react";
 
 import { CastBlock } from "@/features/portal/certificate-page";
 import { ppmPercentText, type CertCast } from "@/features/portal/model";
-import { kgFromG } from "@/features/press/model";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -19,11 +18,12 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict } from "./cast-view";
 import { clockText, dayText } from "./format";
-import { mmToFtText } from "./melt-form";
 import { castPeriodText, ELEMENT_LABEL, verdictTone } from "./model";
 import { SpectroFileLink } from "./spectro-file-link";
 import { SpectroTable } from "./spectro-panel";
 import { LoadFailed, Note, useTimeZone } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, castLengthText } from "@/shared/lib/fmt-text";
 
 const RANK = { fail: 3, incomplete: 2, pass: 1 } as const;
 
@@ -48,6 +48,7 @@ const PRINT_CSS = `
  * Not linked from the public bundle page, not a tax document.
  */
 export function CertificateScreen({ id }: { id: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const tz = useTimeZone();
   const when = useCompanyWhen();
@@ -149,7 +150,7 @@ export function CertificateScreen({ id }: { id: string }) {
                 </span>
               </h2>
               <p className="m-0 text-[14px] tabular-nums">
-                {logs.map((l) => t("foundry.melt.out.logLine", { pcs: l.pcs ?? 0, ft: mmToFtText(l.lengthMm), kg: kgFromG(l.kgG) })).join(" · ")}
+                {logs.map((l) => t("foundry.melt.out.logLine", { pcs: l.pcs ?? 0, ft: castLengthText(fmt, l.lengthMm), kg: kgGrouped1(fmt, l.kgG) })).join(" · ")}
               </p>
               {result ? (
                 <>
@@ -185,7 +186,7 @@ export function CertificateScreen({ id }: { id: string }) {
               {trace.data.bundles.map((b) => (
                 <li key={b.id} className="flex flex-wrap gap-x-3 tabular-nums">
                   <span className="font-mono font-semibold">{b.serial}</span>
-                  <span>{kgFromG(b.weightG ?? 0)} {t("units.kg")}</span>
+                  <span>{kgGrouped1(fmt, b.weightG ?? 0)} {massUnit(fmt)}</span>
                 </li>
               ))}
             </ul>

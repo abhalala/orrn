@@ -14,7 +14,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
-import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -23,6 +22,8 @@ import { ELEMENT_LABEL, furnaceInput, limitDraft, limitRows, limitText, type Lim
 import { ErrorLine, LoadFailed, Note } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Furnace = inferRouterOutputs<AppRouter>["foundry"]["furnaces"]["list"]["items"][number];
 type AlloyRow = inferRouterOutputs<AppRouter>["foundry"]["alloys"]["list"]["items"][number];
@@ -33,6 +34,7 @@ const STATUS_TONE = { active: "green", retired: "neutral" } as const;
 
 /** `/masters/furnaces` (FP-FD-01): code, name, capacity and billet diameter. Capacity is a limit the lock enforces. */
 export function FurnacesPage() {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const query = useQuery({ ...trpc.foundry.furnaces.list.queryOptions(), meta: INLINE_ERROR_META });
@@ -55,8 +57,8 @@ export function FurnacesPage() {
   const columns: ResponsiveListColumn<Furnace>[] = [
     { key: "code", header: t("foundry.masters.code"), cell: (f) => <span className="font-mono text-[16px] font-bold">{f.code}</span> },
     { key: "name", header: t("foundry.masters.name"), cell: (f) => f.name },
-    { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgFromG(f.capacityG)} {t("units.kg")}</span> },
-    { key: "dia", header: t("foundry.masters.billetDia"), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? `${f.billetDiaMm} ${t("units.mm")}` : "-"}</span> },
+    { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}</span> },
+    { key: "dia", header: t("foundry.masters.billetDia"), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? fmt.q("bundle.length", f.billetDiaMm) : "-"}</span> },
     { key: "status", header: t("foundry.masters.status"), phoneWide: true, cell: (f) => <Chip tone={STATUS_TONE[f.status]}>{t(`foundry.masters.state.${f.status}`)}</Chip> },
     {
       key: "edit",

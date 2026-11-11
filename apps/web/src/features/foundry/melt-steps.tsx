@@ -5,7 +5,6 @@ import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
-import { kgFromG } from "@/features/press/model";
 
 import {
   CHEMICAL_UNITS,
@@ -20,13 +19,14 @@ import {
   qtyToMilli,
   type FormIssue,
   type LdoKey,
-  type MeltForm,
-} from "./melt-form";
+  type MeltForm } from "./melt-form";
 import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_FT, LENGTH_IN, MASS_KG } from "@/shared/lib/plant-input";
+import { LENGTH_FT, MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
 export type Stream = { id: string; code: string; name: string; kind: string; active: boolean; balanceG: number };
@@ -67,6 +67,7 @@ const TIME_LABEL = {
 } as const;
 
 export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, timeZone }: StepProps & { furnaces: FurnaceOpt[]; alloys: AlloyOpt[]; castAlloy: string; timeZone: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const resolved = resolveMeltTimes(form.date, form.times, timeZone);
   const picked = alloys.find((a) => a.id === form.alloyId);
@@ -79,7 +80,7 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
             <option value="">{t("foundry.melt.furnacePick")}</option>
             {furnaces.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.code} · {kgFromG(f.capacityG)} {t("units.kg")}
+                {f.code} · {kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}
               </option>
             ))}
           </FieldSelect>
@@ -128,6 +129,7 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
 // --- 2. Charge -----------------------------------------------------------------------------------------------
 
 export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: StepProps & { lots: Lot[]; streams: Stream[]; capacityG: number | null }) {
+  const fmt = useFmt();
   const { t } = useT();
   const fig = figuresOf(form, capacityG);
   const takenLots = new Set(form.lots.map((l) => l.lotId));
@@ -157,7 +159,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                     <option value="">{t("foundry.melt.charge.lotPick")}</option>
                     {lots.map((x) => (
                       <option key={x.id} value={x.id} disabled={takenLots.has(x.id) && x.id !== l.lotId}>
-                        {x.number} · {[x.itemName, x.gradeCode].filter(Boolean).join(" ")} · {kgFromG(x.remainingG)} {t("units.kg")}
+                        {x.number} · {[x.itemName, x.gradeCode].filter(Boolean).join(" ")} · {kgGrouped1(fmt, x.remainingG)} {massUnit(fmt)}
                       </option>
                     ))}
                   </FieldSelect>
@@ -166,8 +168,8 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
               <div className="sm:w-44">
                 <Field
                   label={t("foundry.melt.charge.kg")}
-                  hint={lot ? t("foundry.melt.charge.left", { kg: kgFromG(lot.remainingG) }) : undefined}
-                  error={over ? t("foundry.melt.charge.over", { kg: kgFromG(lot!.remainingG) }) : marked && (issue!.code === "kg" || issue!.code === "kgTooLarge") ? t(`foundry.melt.issue.${issue!.code}`) : undefined}
+                  hint={lot ? t("foundry.melt.charge.left", { kg: kgGrouped1(fmt, lot.remainingG) }) : undefined}
+                  error={over ? t("foundry.melt.charge.over", { kg: kgGrouped1(fmt, lot!.remainingG) }) : marked && (issue!.code === "kg" || issue!.code === "kgTooLarge") ? t(`foundry.melt.issue.${issue!.code}`) : undefined}
                 >
                   <PlantInput spec={MASS_KG} value={l.kgText} onValueChange={(v) => patch({ lots: form.lots.map((x) => (x.key === l.key ? { ...x, kgText: v } : x)) })} data-testid="lot-kg" />
                 </Field>
@@ -203,7 +205,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                     <option value="">{t("foundry.melt.charge.streamPick")}</option>
                     {charge.map((x) => (
                       <option key={x.id} value={x.id} disabled={takenStreams.has(x.id) && x.id !== s.streamId}>
-                        {x.code} · {kgFromG(x.balanceG)} {t("units.kg")}
+                        {x.code} · {kgGrouped1(fmt, x.balanceG)} {massUnit(fmt)}
                       </option>
                     ))}
                   </FieldSelect>
@@ -212,7 +214,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
               <div className="sm:w-44">
                 <Field
                   label={t("foundry.melt.charge.kg")}
-                  hint={stream ? t("foundry.melt.charge.left", { kg: kgFromG(stream.balanceG) }) : undefined}
+                  hint={stream ? t("foundry.melt.charge.left", { kg: kgGrouped1(fmt, stream.balanceG) }) : undefined}
                   error={marked ? t("foundry.melt.issue.kg") : undefined}
                 >
                   <PlantInput spec={MASS_KG} value={s.kgText} onValueChange={(v) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, kgText: v } : x)) })} data-testid="stream-kg" />
@@ -230,7 +232,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
       </section>
 
       <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="charge-total">
-        {t("foundry.melt.charge.total", { kg: kgFromG(fig.balance.metalInG) })}
+        {t("foundry.melt.charge.total", { kg: kgGrouped1(fmt, fig.balance.metalInG) })}
       </p>
       {fig.load === "over" ? <Note tone="red">{t("foundry.melt.charge.overCapacity")}</Note> : fig.load === "near" ? <Note tone="amber">{t("foundry.melt.charge.nearCapacity")}</Note> : null}
     </div>
@@ -321,7 +323,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {LDO_KEYS.map((k: LdoKey) => (
             <Field key={k} label={t(`foundry.melt.ldo.${k}`)} error={issue?.code === "ldo" && form.ldo[k].trim() !== "" && kgToG(form.ldo[k]) === null ? t("foundry.melt.issue.ldo") : undefined}>
-              <PlantInput spec={LENGTH_IN} value={form.ldo[k]} onValueChange={(v) => patch({ ldo: { ...form.ldo, [k]: v } })} data-testid={`ldo-${k}`} />
+              <NumberInput value={form.ldo[k]} suffix={t("units.inch")} onValueChange={(v) => patch({ ldo: { ...form.ldo, [k]: v } })} data-testid={`ldo-${k}`} />
             </Field>
           ))}
         </div>
@@ -430,15 +432,16 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
 
 /** The running balance: kg in, out, burn and yield, worked out on the screen for the person typing (the server stores its own). */
 export function Balance({ form, capacityG }: { form: MeltForm; capacityG: number | null }) {
+  const fmt = useFmt();
   const { t } = useT();
   const fig = figuresOf(form, capacityG);
   const b = fig.balance;
   const tone = b.metalInG === 0 ? "bg-surface-sunken" : b.needsReason || b.negativeBurn ? "bg-tone-amber-tint text-tone-amber-ink" : "bg-tone-green-tint text-tone-green-ink";
   return (
     <p role="status" className={`m-0 flex flex-wrap gap-x-5 gap-y-1 rounded-card px-4 py-3 text-[15px] font-semibold tabular-nums ${tone}`} data-testid="balance-chip">
-      <span>{t("foundry.melt.balance.in", { kg: kgFromG(b.metalInG) })}</span>
-      <span>{t("foundry.melt.balance.out", { kg: kgFromG(fig.logsG + fig.drossG + fig.feG + fig.returnsG) })}</span>
-      <span>{t("foundry.melt.balance.burn", { kg: kgFromG(Math.abs(b.burnG)), pct: bpText(b.balanceBp === null ? null : Math.abs(b.balanceBp)) || "0.0" })}</span>
+      <span>{t("foundry.melt.balance.in", { kg: kgGrouped1(fmt, b.metalInG) })}</span>
+      <span>{t("foundry.melt.balance.out", { kg: kgGrouped1(fmt, fig.logsG + fig.drossG + fig.feG + fig.returnsG) })}</span>
+      <span>{t("foundry.melt.balance.burn", { kg: kgGrouped1(fmt, Math.abs(b.burnG)), pct: bpText(b.balanceBp === null ? null : Math.abs(b.balanceBp)) || "0.0" })}</span>
       <span>{t("foundry.melt.balance.yield", { pct: bpText(b.yieldBp) || "0.0" })}</span>
     </p>
   );
