@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
 import { wrapSecret } from "@orrn/crypto";
+import { auditLog } from "@orrn/db/schema";
 import { pressAlert, pressCollectorFrame, pressRunCollector } from "@orrn/db/schema/collector";
 import { pressBilletUse, pressLine, pressRun } from "@orrn/db/schema/press";
 import { cast } from "@orrn/db/schema/foundry";
@@ -396,6 +397,48 @@ describe("press_alert evaluation", () => {
     expect(rows.find((a) => a.endedAt == null)).toMatchObject({ frames: 1, peakX10: 2150 });
   });
 
+  test("bulk acknowledge handles over 100 ended alerts, never a running alert or another plant's alerts", async () => {
+    const p = await plant();
+    const other = await plant();
+    const alertRow = (companyId: string, pressLineId: string, n: number, endedAt: Date | null) => ({
+      id: crypto.randomUUID(),
+      companyId,
+      pressLineId,
+      metric: "ram_speed" as const,
+      direction: "high" as const,
+      limitX10: 120,
+      peakX10: 150,
+      frames: 1,
+      simulated: true,
+      startedAt: at(n),
+      lastAt: endedAt ? at(n) : new Date(),
+      endedAt,
+    });
+    const rows = [
+      ...Array.from({ length: 105 }, (_, i) => alertRow(p.companyId, p.lineId, i, at(i + 1))),
+      alertRow(p.companyId, p.lineId, 1_000, null),
+      alertRow(other.companyId, other.lineId, 1, at(2)),
+      alertRow(other.companyId, other.lineId, 2, at(3)),
+    ];
+    for (let i = 0; i < rows.length; i += 5) await env.db.insert(pressAlert).values(rows.slice(i, i + 5));
+
+    await expect(env.caller({ role: "press", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    env.resetPeakParams();
+    const result = await env.caller({ role: "supervisor", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts();
+    expect(result).toEqual({ acknowledged: 105 });
+    expect(env.peakParams()).toBeLessThanOrEqual(100);
+
+    const mine = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId));
+    expect(mine.filter((row) => row.acknowledgedAt !== null)).toHaveLength(105);
+    expect(mine.find((row) => row.endedAt === null)?.acknowledgedAt).toBeNull();
+    const theirs = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, other.companyId));
+    expect(theirs.every((row) => row.acknowledgedAt === null)).toBe(true);
+
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "press.alert.ackEnded")));
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ subjectType: "company", subjectId: p.companyId, meta: { acknowledged: 105 } });
+  });
+
   test("no thresholds, no alerts; setThreshold refuses an empty or inverted band", async () => {
     const p = await plant();
     await p.post([frame(1, 0, { ramSpeedMmS: 999 })]);
@@ -563,8 +606,8 @@ describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
     const openNow = await viewer.press.collector.alerts({ openOnly: true, limit: 10 });
     expect(openNow.map((x) => x.lineCode).sort()).toEqual(["P1", "P2"]);
     expect(openNow.find((x) => x.lineCode === "P2")!.endedAt).toBeNull();
-    // Acknowledging the quiet one closes it: it leaves the open list and the count.
-    await env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeAlert({ id: quiet!.id });
+    // Bulk acknowledge closes the derived-ended quiet one, but leaves the fresh one open.
+    await expect(env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1 });
     expect((await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).map((x) => x.lineCode)).toEqual(["P2"]);
     expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, all: 2, simulated: true });
   });
