@@ -23,9 +23,9 @@ import {
   refusalText,
   wallMmText } from "./die-room-model";
 import { PlantInput } from "@/shared/components/plant-input";
-import { followsPlant, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
+import { LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { diameterVars, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
+import { diameterVars, sectionUnit } from "@/shared/lib/fmt-text";
 
 /** `/dies/$id/bands/new`: another commercial band under a section. The duplicate guard answers in the server's words. */
 export function NewBandPage({ id }: { id: string }) {
@@ -92,7 +92,7 @@ export function NewBandPage({ id }: { id: string }) {
   const code = dieCode(section.data);
   const hasWall = section.data.wallTenthMmEffective > 0;
   // The box takes mm on a plant that keeps its mm box (feet and inches plants too), so the placeholder says mm there.
-  const defaultWall = !hasWall ? "" : followsPlant(fmt, WALL_MM) ? wallMmText(section.data.wallTenthMmEffective) : wallWithUnit(fmt, section.data.wallTenthMmEffective, false);
+  const defaultWall = !hasWall ? "" : wallMmText(section.data.wallTenthMmEffective);
 
   const submit = () => {
     const wallTenth = wall.trim() === "" ? (hasWall ? section.data!.wallTenthMmEffective : null) : parseWallTenths(wall);

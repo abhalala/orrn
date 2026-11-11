@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { parseWholeKgToGrams } from "@/features/die-room/die-room-model";
-import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
+import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, followsPlant, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -107,10 +107,28 @@ describe("a feet and inches plant keeps its plain mm boxes (die wall, billet dia
     expect(draftToTyped(fi, DIAMETER_MM, "127")).toBe("127");
     expect(typedToDraft(fi, DIAMETER_MM, "127")).toMatchObject({ draft: "127", value: 127 });
   });
-  test("a metre plant still converts the same boxes", () => {
+  // The owner rule: a die wall, a billet diameter and a die measure stay in the unit they had before (mm). A plant that
+  // picks metres changes the lengths of bundles, orders and plans, not these small dimensions.
+  test("a metre plant keeps the wall, billet diameter and die measure boxes in mm, as typed", () => {
     const m = fmtOf({ units: { length: "m" } });
-    expect(typedToDraft(m, DIAMETER_MM, "0.127")).toMatchObject({ draft: "127" });
-    expect(typedToDraft(m, WALL_MM, "0.0016")).toMatchObject({ draft: "1.6" });
+    for (const [spec, text] of [[WALL_MM, "1.2"], [WALL_MM, "0.5"], [DIAMETER_MM, "152"], [DIAMETER_MM, "127"], [GEOMETRY_MM, "45.5"], [GEOMETRY_MM, "1.2"]] as const) {
+      expect(typedToDraft(m, spec, text)).toEqual({ draft: text, value: draftToCanonical(spec, text), problem: null });
+      expect(draftToTyped(m, spec, text)).toBe(text);
+      expect(followsPlant(m, spec)).toBe(true);
+    }
+    // what a metre plant used to read: 0.0012 is no wall, and 0.152 is no billet
+    expect(typedToDraft(m, WALL_MM, "1.2").draft).not.toBe("1200");
+    expect(typedToDraft(m, GEOMETRY_MM, "1.2").draft).not.toBe("1200");
+  });
+  test("a feet and inches plant keeps the same two boxes in mm and still reads a die measure in inches", () => {
+    expect(followsPlant(fi, WALL_MM)).toBe(true);
+    expect(followsPlant(fi, DIAMETER_MM)).toBe(true);
+    expect(followsPlant(fi, GEOMETRY_MM)).toBe(false);
+  });
+  test("a metre plant still converts the lengths that are lengths (bundle, log, pressed)", () => {
+    const m = fmtOf({ units: { length: "m" } });
+    expect(typedToDraft(m, LENGTH_MM, "3.658")).toMatchObject({ draft: "3658" });
+    expect(typedToDraft(m, PRESSED_MM, "40")).toMatchObject({ draft: "40000" });
   });
 });
 
@@ -198,11 +216,9 @@ describe("limits that belong to the field, not to a borrowed one (metre plant)",
     expect(typedToDraft(m, PRESSED_MM, "100001").problem).toBe("tooBig");
     expect(typedToDraft(fmtOf({ units: { length: "ft_in" } }), PRESSED_IN, "40 ft")).toMatchObject({ problem: null });
   });
-  test("a die 0.55 m wide is accepted, and a tenth of a mm still is (the 500 mm limit of a wall does not apply)", () => {
-    expect(typedToDraft(m, WALL_MM, "0.55").problem).toBe("tooBig");
-    expect(typedToDraft(m, GEOMETRY_MM, "0.55")).toMatchObject({ draft: "550", problem: null });
-    expect(typedToDraft(m, GEOMETRY_MM, "0.1205")).toMatchObject({ draft: "120.5", problem: null });
-    expect(typedToDraft(m, GEOMETRY_MM, "2.0001").problem).toBe("tooBig");
+  test("a die 550 mm wide is accepted in mm on a metre plant, and a tenth of a mm still is", () => {
+    expect(typedToDraft(m, GEOMETRY_MM, "550")).toMatchObject({ draft: "550", problem: null });
+    expect(typedToDraft(m, GEOMETRY_MM, "120.5")).toMatchObject({ draft: "120.5", problem: null });
   });
   test("a plant on mm is the old box", () => {
     expect(typedToDraft(fmtOf(), PRESSED_MM, "40000")).toMatchObject({ draft: "40000", problem: null });

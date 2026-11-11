@@ -202,21 +202,16 @@ export const paperT = (t: Translate): Translate => (key, vars) => t(key, { massU
 
 /**
  * Wall thickness from tenths of a mm, with its unit word ("1.2 mm"). A die wall is a small dimension that every plant,
- * feet and inches ones too (the legacy inch plants), has always read in mm, so a feet and inches plant keeps "1.2 mm";
- * a plant on metres follows its length unit.
+ * feet and inches and metres ones too, has always read in mm, so it is "1.2 mm" whatever the plant's length unit.
  */
-export const wallWithUnit = (fmt: Fmt, tenthMm: number, withUnit = true): string =>
-  fmt.unitOf("length").composite ? `${(tenthMm / 10).toFixed(1)}${withUnit ? " mm" : ""}` : fmt.wall(tenthMm, withUnit);
-/** A die width, thickness or leg as the die screens write it. */
-export const geometryWithUnit = (fmt: Fmt, mm: number): string => fmt.geometry(mm);
+export const wallWithUnit = (_fmt: Fmt, tenthMm: number, withUnit = true): string => `${(tenthMm / 10).toFixed(1)}${withUnit ? " mm" : ""}`;
+/** A die width, thickness or leg as the die screens write it: mm on a plant that reads mm or metres, inches on feet and inches. */
+export const geometryWithUnit = (fmt: Fmt, mm: number): string => (fmt.unitOf("length").id === "m" ? `${Math.round(mm * 10) / 10} mm` : fmt.geometry(mm));
 /** The second section weight beside the first (kg per metre beside kg per 12 ft). */
 export const altSectionText = (fmt: Fmt, gramsPer12ft: number): string => fmt.altSection(gramsPer12ft);
 /** Whole units of weight, grouped: `kgWholeText` under the default set. */
 export const kgGrouped0 = (fmt: Fmt, grams: number): string => fmt.wholeMass(grams);
-/**
- * A billet diameter (or any short measure in mm that every plant, feet and inches ones too, has always read in mm).
- * A feet and inches plant keeps "152 mm"; a plant on metres or mm follows its length unit.
- */
-export const diameterText = (fmt: Fmt, mm: number, mmWord: string): string => (fmt.unitOf("length").composite ? `${mm} ${mmWord}` : fmt.q("bundle.length", mm));
-/** The words for a label that names the diameter's unit: "mm" on a feet and inches plant, the plant's length unit otherwise. */
-export const diameterVars = (fmt: Fmt): { lengthUnit: string } | undefined => (fmt.unitOf("length").composite ? { lengthUnit: "mm" } : undefined);
+/** A billet diameter (or any short measure in mm that every plant has always read in mm): "152 mm" whatever the plant's length unit. */
+export const diameterText = (_fmt: Fmt, mm: number, mmWord: string): string => `${mm} ${mmWord}`;
+/** The words for a label that names the diameter's unit: always "mm", the box takes mm on every plant. */
+export const diameterVars = (_fmt: Fmt): { lengthUnit: string } => ({ lengthUnit: "mm" });

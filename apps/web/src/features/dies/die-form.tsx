@@ -41,7 +41,7 @@ import {
 import { PlantInput } from "@/shared/components/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { diameterVars } from "@/shared/lib/fmt-text";
-import { GEOMETRY_MM, LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
+import { followsPlant, GEOMETRY_MM, LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 
 export type DieFormProps = {
   formId: string;
@@ -121,7 +121,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
   };
 
   const err = (field: keyof DieDraft) => (errors[field] ? t(errors[field]!) : undefined);
-  const measureHint = unit === "mm" ? t("dies.form.measureHintMm") : t("dies.form.measureHintInch");
+  const measureHint = unit === "mm" ? t("dies.form.measureHintMm", followsPlant(fmt, GEOMETRY_MM) ? { lengthUnit: "mm" } : undefined) : t("dies.form.measureHintInch");
   const unitSuffix = unit === "mm" ? t("units.mm") : t("units.inch");
 
   return (

@@ -21,7 +21,7 @@ import { kg12Text } from "@/features/pack/line-preview";
 import { formatRupees } from "@/features/today/today-model";
 
 import {
-  altSectionText, bandEndText, bandText, geometryWithUnit, kgChartText, kgGrouped0, rupeeScreen, wallWithUnit, countText, dayText, dayTimeText, kgGrouped1, kgGrouped2, kgGrouped3, kgPlain3, kgPlainTrim, kgTrim, lengthUnitText, massUnit, rateText,
+  altSectionText, bandEndText, bandText, diameterText, diameterVars, geometryWithUnit, kgChartText, kgGrouped0, rupeeScreen, wallWithUnit, countText, dayText, dayTimeText, kgGrouped1, kgGrouped2, kgGrouped3, kgPlain3, kgPlainTrim, kgTrim, lengthUnitText, massUnit, rateText,
   rupeeText, sectionOrNull, sectionText, sectionUnit, whenText,
 } from "./fmt-text";
 
@@ -252,6 +252,32 @@ describe("more shapes under the default set", () => {
   });
   test("a feet and inches plant still reads a die measure in inches, as it did before", () => {
     const chosen = formatterFor(screenPrefs({ units: { length: "ft_in" } }), IST);
+    expect(geometryWithUnit(chosen, 254)).toBe("10 in");
+  });
+  // A plant that picks metres changes bundle, order and plan lengths. A die wall, a die measure and a billet diameter are small
+  // dimensions that stay in mm (the owner rule), so no screen may print "0.0012 m" for a 1.2 mm wall.
+  test("a metre plant reads a die wall, a die measure and a billet diameter in mm, as a default plant does", () => {
+    const metres = formatterFor(screenPrefs({ units: { length: "m" } }), IST);
+    const r = mulberry(31);
+    for (let i = 0; i < N; i++) {
+      const tenth = 1 + Math.floor(r() * 400);
+      expect(wallWithUnit(metres, tenth)).toBe(`${wallMmText(tenth)} mm`);
+      expect(wallWithUnit(metres, tenth, false)).toBe(wallMmText(tenth));
+      expect(wallWithUnit(metres, tenth)).toBe(wallWithUnit(fmt, tenth));
+      const mm = Math.floor(r() * 6000) / (i % 2 ? 10 : 1);
+      expect(geometryWithUnit(metres, mm)).toBe(geometryWithUnit(fmt, mm));
+      expect(geometryWithUnit(metres, mm)).toMatch(/ mm$/);
+      expect(diameterText(metres, 152, "mm")).toBe("152 mm");
+    }
+    expect(wallWithUnit(metres, 12)).toBe("1.2 mm");
+    expect(geometryWithUnit(metres, 45.2)).toBe("45.2 mm");
+    expect(geometryWithUnit(metres, 120)).toBe("120 mm");
+    expect(diameterVars(metres)).toEqual({ lengthUnit: "mm" });
+  });
+  test("a feet and inches plant reads the wall and the billet diameter in mm and a die measure in inches", () => {
+    const chosen = formatterFor(screenPrefs({ units: { length: "ft_in" } }), IST);
+    expect(diameterText(chosen, 152, "mm")).toBe("152 mm");
+    expect(diameterVars(chosen)).toEqual({ lengthUnit: "mm" });
     expect(geometryWithUnit(chosen, 254)).toBe("10 in");
   });
   test("the second section weight: kg per metre beside kg per 12 ft", () => {

@@ -16,10 +16,15 @@ export type EntrySpec = {
   /** The unit the form's draft text is written in. */
   native: UnitId;
   /**
-   * A box that was a plain mm box on every plant (a die wall, a billet diameter, a split cut). A feet and inches plant keeps
-   * that box and its draft as they were: a bare number there is mm, never feet. A plant on metres still converts.
+   * A small dimension that was a plain mm box on every plant (a die wall, a billet diameter, a split cut). The box and its
+   * draft stay in mm on every plant, feet and inches and metres ones too: a bare number there is mm, never feet or metres.
    */
-  plainOnFtIn?: boolean;
+  plainMm?: boolean;
+  /**
+   * A die measure (width, thickness, leg) that was mm on a plant that reads mm. A plant on metres keeps mm here too. A feet
+   * and inches plant still reads the die measure in inches, as it did before.
+   */
+  plainOnMetres?: boolean;
   /**
    * The form's model takes WHOLE units of `native` (die life in whole kg). A box that converts (a pound plant) rounds what is
    * typed to the nearest whole native unit before it writes the draft, and says what it stored; under half a unit it refuses.
@@ -33,11 +38,11 @@ export const WHOLE_KG: EntrySpec = { ...MASS_KG, wholeNative: true };
 export const MASS_G: EntrySpec = { field: "order.weight", native: "g" };
 export const LENGTH_MM: EntrySpec = { field: "bundle.length", native: "mm" };
 /** A wall or die measure in mm that may carry a tenth: the stored step is a tenth of a mm. */
-export const WALL_MM: EntrySpec = { field: "die.wall", native: "mm", plainOnFtIn: true };
+export const WALL_MM: EntrySpec = { field: "die.wall", native: "mm", plainMm: true };
 /** A diameter or short cut in mm that every plant, feet and inches ones too, has always typed in mm (billet diameter, split cut). */
-export const DIAMETER_MM: EntrySpec = { field: "bundle.length", native: "mm", plainOnFtIn: true };
+export const DIAMETER_MM: EntrySpec = { field: "bundle.length", native: "mm", plainMm: true };
 /** A die width, thickness or leg (may carry a tenth of a mm; a die is up to 2 m across). */
-export const GEOMETRY_MM: EntrySpec = { field: "die.geometry", native: "mm" };
+export const GEOMETRY_MM: EntrySpec = { field: "die.geometry", native: "mm", plainOnMetres: true };
 /** The pressed length of a whole push: no bundle limit of 30 m. */
 export const PRESSED_MM: EntrySpec = { field: "press.pressedLength", native: "mm" };
 export const PRESSED_IN: EntrySpec = { field: "press.pressedLength", native: "in" };
@@ -53,7 +58,7 @@ export const kindOf = (spec: EntrySpec): Kind => resolveField(spec.field).kind;
 export function followsPlant(fmt: Fmt, spec: EntrySpec): boolean {
   const unit = fmt.unitOf(kindOf(spec));
   if (unit.id === spec.native) return true;
-  if (spec.plainOnFtIn && spec.native === "mm" && unit.composite) return true;
+  if (spec.native === "mm" && (spec.plainMm || (spec.plainOnMetres && unit.id === "m"))) return true;
   // Small amounts typed in grams (nitriding powder) stay in grams for a kg or tonne plant; only pounds change them.
   if (spec.native === "g" && (unit.id === "kg" || unit.id === "t")) return true;
   // Feet and inch boxes (the foundry's billet and tank gauge) keep their words for a plant on mm, as today; a feet and

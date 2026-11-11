@@ -4,10 +4,11 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { formatterFor, screenPrefs } from "@orrn/domain";
+import { createI18n } from "@orrn/i18n";
 import { NumberInput } from "@orrn/ui/components/field";
 
 import { FmtProvider } from "@/shared/lib/fmt";
-import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, typedToDraft, WALL_MM, WHOLE_KG } from "@/shared/lib/plant-input";
+import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, typedToDraft, WALL_MM, WHOLE_KG } from "@/shared/lib/plant-input";
 
 import { PlantInput } from "./plant-input";
 
@@ -49,6 +50,17 @@ describe("a plant on another unit", () => {
     expect(html).toContain('value="12 ft 6 in"');
     expect(html).toContain("ft in");
     expect(html).toContain('inputMode="text"');
+  });
+  test("metres: the die wall, billet diameter and die measure stay plain mm boxes, and the hints that say millimetres are true", () => {
+    for (const [spec, value] of [[WALL_MM, "1.2"], [DIAMETER_MM, "152"], [GEOMETRY_MM, "45.5"]] as const) {
+      const mine = render({ units: { length: "m" } }, <PlantInput spec={spec} value={value} onValueChange={noop} data-testid="x" aria-label="A" />);
+      const old = render({}, <NumberInput value={value} onValueChange={noop} suffix="mm" data-testid="x" aria-label="A" />);
+      expect(mine).toBe(old);
+    }
+    const en = createI18n("en").t;
+    expect(en("dies.form.wallHint")).toContain("Millimetres, like 1.2");
+    expect(en("dieRoom.band.wallHint", { wall: "1.2" })).toBe("Millimetres. Blank means 1.2.");
+    expect(en("dieRoom.band.wallInvalid")).toContain("millimetres");
   });
   test("feet and inches: the die wall and billet diameter stay plain mm boxes, as they always were", () => {
     const wall = render({ units: { length: "ft_in" } }, <PlantInput spec={WALL_MM} value="1.6" onValueChange={noop} aria-label="W" />);
