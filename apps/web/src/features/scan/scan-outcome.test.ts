@@ -1,3 +1,4 @@
+import { formatterFor, screenPrefs } from "@orrn/domain";
 import { createI18n } from "@orrn/i18n";
 import { describe, expect, test } from "bun:test";
 
@@ -252,6 +253,14 @@ describe("one order per packing list and the weight warning (Q36, Q37)", () => {
     };
     expect(offBandText(t, report, "26J2")).toBe("12.498 kg/12ft, SO-14 says 12.000. Added. A manager has to approve it.");
     expect(offBandText(t, report, "26J1")).toBeNull();
+    // On a plant that reads lb/ft the figures are written in lb/ft (the provider fills the word beside them).
+    const lbFt = formatterFor(screenPrefs({ units: { linear_mass: "lb_ft" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    const text = offBandText(t, report, "26J2", lbFt)!;
+    expect(text).toStartWith("2.296 ");
+    expect(text).toContain("SO-14 says 2.205");
+    expect(text).not.toContain("12.498");
+    // a plant that changed nothing reads the same text with a formatter as without
+    expect(offBandText(t, report, "26J2", formatterFor(screenPrefs({}), { locale: "en", timeZone: "Asia/Kolkata" }))).toBe(offBandText(t, report, "26J2"));
     expect(offBandText(t, { warnings: undefined }, "26J2")).toBeNull();
     expect(addOutcome(report, "26J2").kind).toBe("added");
   });

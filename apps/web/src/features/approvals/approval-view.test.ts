@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
@@ -194,6 +195,9 @@ describe("approvalSubject", () => {
       href: "/dispatch/d-7",
       openKey: "approvals.openDispatch",
     });
+    // lb/ft plant: the section weights are written in lb/ft, not left in kg per 12 ft under the plant's word
+    const lbFt = formatterFor(screenPrefs({ units: { linear_mass: "lb_ft" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(approvalSubject(row({ kind: "dispatch_off_band", subjectId: "item-1", meta }), undefined, lbFt).vars).toMatchObject({ kg: "2.296", lineKg: "2.205" });
     const { t } = createI18n("en");
     expect(t("approvals.subject.offBand", approvalSubject(row({ kind: "dispatch_off_band", subjectId: "i", meta })).vars)).toBe(
       "26J2 on D-0007: 12.498 kg/12ft, SO-14 line 2 says 12.000",
@@ -597,6 +601,21 @@ describe("BACKLOG 89: the sheet reads live facts for a move and for a tier chang
     expect(tierFactsView({ ...tierFacts, reading: { kgPer12ftMilli: 6_000, readAt: 1 } }, words).position).toBe("inside");
     expect(tierFactsView({ ...tierFacts, reading: { kgPer12ftMilli: 5_800, readAt: 1 } }, words).position).toBe("below");
     expect(tierFactsView({ ...tierFacts, reading: null }, words)).toMatchObject({ readingKg: null, position: null });
+  });
+
+  test("tier on an lb/ft plant: the band is written in lb/ft beside the reading, a label is kept", async () => {
+    const { tierFactsView } = await import("./approval-view");
+    const lbFt = formatterFor(screenPrefs({ units: { linear_mass: "lb_ft" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    const words = { mainBand: "main band" };
+    const v = tierFactsView(tierFacts, words, lbFt);
+    expect(v.nowBand).toBe("main band 1.084-1.139");
+    expect(v.readingKg).toBe("1.190");
+    const lifted = tierFactsView({ ...tierFacts, request: { ...tierFacts.request, isLift: true, fromBandText: "5.900-6.200", toBandText: "Heavy" } }, words, lbFt);
+    expect(lifted.bandChange).toEqual({ from: "1.084-1.139", to: "Heavy" });
+    const labelled = tierFactsView({ ...tierFacts, copy: { ...tierFacts.copy, band: { text: "Heavy", minG: 5_900, maxG: 6_200, main: false } } }, words, lbFt);
+    expect(labelled.nowBand).toBe("Heavy");
+    // the default plant reads today's text
+    expect(tierFactsView(tierFacts, words, formatterFor(screenPrefs({}), { locale: "en", timeZone: "Asia/Kolkata" })).nowBand).toBe("main band 5.900-6.200");
   });
 
   test("tier: a lift names both bands (never 'tier 2 to 2'); a copy changed since the ask is flagged", async () => {

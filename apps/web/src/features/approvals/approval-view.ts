@@ -286,9 +286,21 @@ export type SubjectWords = { plant: string; mainBand?: string; otherBand?: strin
  * One end of a band lift (M6): the band's label or kg range as the server wrote it, the main band
  * for no band id, "another band" for an older request that only kept the id.
  */
-function bandEnd(id: unknown, label: unknown, words: SubjectWords): string {
+/**
+ * The server writes a band with no label as "5.900-6.200", kg per 12 ft with three decimals and no unit. On a plant that reads another
+ * section unit that text is turned into the plant's unit; a label (a name a person typed) is kept as it is.
+ */
+const BAND_RANGE = /^(\d+)\.(\d{3})-(\d+)\.(\d{3})$/;
+export function bandWordText(text: string, fmt?: Fmt): string {
+  const m = fmt ? BAND_RANGE.exec(text) : null;
+  if (!fmt || !m) return text;
+  const milli = (whole: string, frac: string) => Number(whole) * 1000 + Number(frac);
+  return `${sectionText(fmt, milli(m[1]!, m[2]!))}-${sectionText(fmt, milli(m[3]!, m[4]!))}`;
+}
+
+function bandEnd(id: unknown, label: unknown, words: SubjectWords, fmt?: Fmt): string {
   const named = str(label);
-  if (named) return named;
+  if (named) return bandWordText(named, fmt);
   return id == null ? (words.mainBand ?? "main band") : (words.otherBand ?? "another band");
 }
 
@@ -347,7 +359,7 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
     const openKey: MessageKey | null = sectionId ? "approvals.openDie" : null;
     // M6: a band lift names the bands ("main band to Heavy 2.600-2.800"), not "tier 2 to 2".
     if (m.isLift === true) {
-      const vars = { code: text(m.code), from: bandEnd(m.fromBandId, m.fromBandText, words), to: bandEnd(m.toBandId, m.toBandText, words) };
+      const vars = { code: text(m.code), from: bandEnd(m.fromBandId, m.fromBandText, words, fmt), to: bandEnd(m.toBandId, m.toBandText, words, fmt) };
       if (typeof m.fromRank === "number" && typeof m.toRank === "number" && m.fromRank !== m.toRank) {
         return { kindKey, titleKey: "approvals.subject.dieLiftRank", vars: { ...vars, fromRank: m.fromRank, toRank: m.toRank }, href, openKey };
       }
@@ -373,7 +385,8 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
   if (row.kind === "dispatch_off_band") {
     // Q36: the bundle, its dispatch and both weights (meta is the request's snapshot).
     const dispatchId = safeId(m.dispatchId);
-    const milli = (v: unknown) => (num(v) === null ? "" : (num(v)! / 1000).toFixed(3));
+    // A section weight in the plant's unit (the number and the word beside it agree); today's three decimals without a formatter.
+    const milli = (v: unknown) => (num(v) === null ? "" : fmt ? sectionText(fmt, num(v)!) : (num(v)! / 1000).toFixed(3));
     return {
       kindKey,
       titleKey: "approvals.subject.offBand",
@@ -547,15 +560,19 @@ export function tierFactsView(f: TierFacts, words: { mainBand: string }, fmt?: F
   const r = f.reading;
   const position: "above" | "below" | "inside" | null = r ? (r.kgPer12ftMilli > f.copy.band.maxG ? "above" : r.kgPer12ftMilli < f.copy.band.minG ? "below" : "inside") : null;
   const rank = (n: number | null) => (n === null ? null : String(n));
+  // The band's text is the server's kg per 12 ft; a band with a label keeps the label.
+  const bandNow = fmt && f.copy.band.text === `${(f.copy.band.minG / 1000).toFixed(3)}-${(f.copy.band.maxG / 1000).toFixed(3)}`
+    ? `${sectionText(fmt, f.copy.band.minG)}-${sectionText(fmt, f.copy.band.maxG)}`
+    : f.copy.band.text;
   return {
     code: f.copy.code,
     nowTier: rank(f.copy.tierRank),
     askedFromTier: rank(f.request.fromRank),
     askedToTier: String(f.request.toRank),
     tierChanges: f.request.fromRank !== f.request.toRank,
-    nowBand: f.copy.band.main ? `${words.mainBand} ${f.copy.band.text}` : f.copy.band.text,
+    nowBand: f.copy.band.main ? `${words.mainBand} ${bandNow}` : bandNow,
     bandChange: f.request.isLift
-      ? { from: f.request.fromBandText ?? words.mainBand, to: f.request.toBandText ?? words.mainBand }
+      ? { from: f.request.fromBandText ? bandWordText(f.request.fromBandText, fmt) : words.mainBand, to: f.request.toBandText ? bandWordText(f.request.toBandText, fmt) : words.mainBand }
       : null,
     readingKg: r ? (fmt ? sectionText(fmt, r.kgPer12ftMilli) : (r.kgPer12ftMilli / 1000).toFixed(3)) : null,
     readAt: r ? r.readAt : null,
