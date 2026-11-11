@@ -117,6 +117,22 @@ function startsNewBlock(row: readonly string[], recent: readonly string[][], wid
   return false;
 }
 
+/** A cell that reads like a title or letterhead, not a column name: a colon label, a date or a year. */
+const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\b(?:19|20)\d{2}\b/;
+
+/**
+ * Is the header-like row at `h` a title above the real header (C15)? Only when it carries a title mark and the next
+ * non-blank row is header-like with more cells. A group-label row of a two-row header has no such mark.
+ */
+function isTitleAbove(rows: readonly string[][], h: number): number {
+  const row = rows[h]!;
+  if (!row.some((c) => c !== "" && TITLE_MARK.test(c))) return -1;
+  let k = h + 1;
+  while (k < rows.length && nonBlank(rows[k]!) === 0) k++;
+  if (k >= rows.length) return -1;
+  return isHeaderLike(rows[k]!) && nonBlank(rows[k]!) > nonBlank(row) ? k : -1;
+}
+
 export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { sheetName?: string | null } = {}): ReadBlock[] {
   const rows = matrix.map((r) => r.map(toCellText));
   const n = rows.length;
@@ -132,6 +148,8 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
       }
     }
     if (h === -1) break;
+    const real = isTitleAbove(rows, h);
+    if (real !== -1) h = real;
 
     let start = h;
     for (let i = pos; i < h; i++) {
