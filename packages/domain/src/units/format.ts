@@ -184,6 +184,8 @@ function assembleDate(prefs: ResolvedPrefs, env: FormatEnv, y: number, m: number
 
 export type Fmt = {
   key: string;
+  /** The resolved number style (grouping and marks), for callers that read text with `convertText` or `parseAmount`. */
+  style: NumberStyle;
   q(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context): string;
   n(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context): string;
   unitOf(kind: Kind): UnitDef;
@@ -211,7 +213,9 @@ export function formatterFor(prefs: ResolvedPrefs, env: FormatEnv): Fmt {
 
 function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
   const plain: NumberStyle = { grouping: "none", decimal: ".", group: "," };
-  const styleFor = (ctx: Context): NumberStyle => (ctx === "export" ? plain : prefs.number);
+  // Lengths are never grouped: today's screens print "3658 mm" (slice b parity), and a cut length never needs it.
+  const styleFor = (ctx: Context, kind?: Kind): NumberStyle =>
+    ctx === "export" ? plain : kind === "length" ? { ...prefs.number, grouping: "none" } : prefs.number;
   const unitFor = (kind: Kind): UnitDef => UNITS[prefs.units[kind]];
   const decimalsFor = (kind: Kind, unit: UnitId, storage: UnitId, ctx: Context): number =>
     prefs.precision[`${kind}.${ctx}`] ?? defaultDecimals(unit, storage, ctx);
@@ -227,15 +231,16 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
     const unit = unitFor(f.kind);
     if (unit.composite) {
       const grid = ctx === "entry" ? 16 : prefs.inchGrid;
-      return formatFtIn(value, grid, styleFor(ctx), { fraction: ctx === "entry" });
+      return formatFtIn(value, grid, styleFor(ctx, f.kind), { fraction: ctx === "entry" });
     }
-    const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx));
+    const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx, f.kind));
     if (!withUnit || num === EMPTY_TEXT) return num;
     if (f.kind === "money" || f.kind === "money_per_mass") return withCurrency(num, unit);
     return unit.symbol === "%" ? `${num}%` : `${num} ${unit.symbol}`;
   };
   return {
     key,
+    style: prefs.number,
     q: (field, value, ctx = "screen") => text(field, value, ctx, true),
     n: (field, value, ctx = "screen") => text(field, value, ctx, false),
     unitOf: unitFor,

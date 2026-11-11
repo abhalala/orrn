@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
+Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -88,7 +88,7 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (16)
+### units (35)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -108,6 +108,25 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `percent` | {value}% | {value}% |
 | `rangeTo` | {min} to {max} | {min} से {max} |
 | `kgPerMetre` | kg/m | kg/m |
+| `problem.empty` | Enter a value. | मान डालें। |
+| `problem.invalid` | That is not a number in {unit}. | यह {unit} में सही संख्या नहीं है। |
+| `problem.grouping` | Check the commas in this number. | इस संख्या के कॉमा जाँचें। |
+| `problem.decimals` | Too many decimal places for {unit}. Use at most {places}. | {unit} के लिए दशमलव के बाद बहुत ज़्यादा अंक हैं। ज़्यादा से ज़्यादा {places} रखें। |
+| `problem.decimalsWhole` | {unit} takes whole numbers only. | {unit} में सिर्फ़ पूरी संख्या चलती है। |
+| `problem.decimalsFtIn` | Too fine. Use steps of 1/16 in. | बहुत बारीक है। 1/16 इंच के कदम में लिखें। |
+| `problem.whole` | Enter a whole number. | पूरी संख्या डालें। |
+| `problem.negative` | Enter zero or more. | शून्य या उससे ज़्यादा डालें। |
+| `problem.tooBig` | That is too large. | यह बहुत बड़ी है। |
+| `problem.tooSmall` | That is too small. | यह बहुत छोटी है। |
+| `name.kg` | Kilograms (kg) | किलोग्राम (kg) |
+| `name.t` | Tonnes (t) | टन (t) |
+| `name.lb` | Pounds (lb) | पाउंड (lb) |
+| `name.mm` | Millimetres (mm) | मिलीमीटर (mm) |
+| `name.ft_in` | Feet and inches | फ़ुट और इंच |
+| `name.m` | Metres (m) | मीटर (m) |
+| `name.kg_12ft` | kg per 12 ft | kg प्रति 12 ft |
+| `name.kg_m` | kg per metre | kg प्रति मीटर |
+| `name.lb_ft` | lb per foot | lb प्रति फ़ुट |
 
 ### status (31)
 
@@ -2146,7 +2165,7 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (244)
+### settings (273)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2173,6 +2192,35 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `tabs.about` | About | जानकारी |
 | `tabs.printing` | Printing | प्रिंटिंग |
 | `tabs.data` | Data | डेटा |
+| `tabs.units` | Units | इकाइयाँ |
+| `units.title` | Units and formats | इकाइयाँ और रूप |
+| `units.intro` | Choose how weights, lengths and numbers read on every screen of this plant. What is stored never changes. | चुनें कि इस प्लांट की हर स्क्रीन पर वज़न, लंबाई और संख्या कैसे दिखें। जो सेव है वह कभी नहीं बदलता। |
+| `units.weight` | Weight | वज़न |
+| `units.length` | Length | लंबाई |
+| `units.sectionWeight` | Section weight | सेक्शन का वज़न |
+| `units.sectionWeightHint` | The weight of a section by length: per 12 ft, per metre or per foot. | लंबाई के हिसाब से सेक्शन का वज़न: प्रति 12 ft, प्रति मीटर या प्रति फ़ुट। |
+| `units.grouping` | Number grouping | संख्या का समूहन |
+| `units.groupingIndian` | Indian (12,34,567) | भारतीय (12,34,567) |
+| `units.groupingInternational` | International (1,234,567) | अंतरराष्ट्रीय (1,234,567) |
+| `units.dateOrder` | Date order | तारीख़ का क्रम |
+| `units.dateDmy` | Day, month, year | दिन, महीना, साल |
+| `units.dateMdy` | Month, day, year | महीना, दिन, साल |
+| `units.dateYmd` | Year, month, day | साल, महीना, दिन |
+| `units.clock` | Clock | घड़ी |
+| `units.clock24` | 24 hour | 24 घंटे |
+| `units.clock12` | 12 hour | 12 घंटे |
+| `units.preview` | Preview | पूर्वावलोकन |
+| `units.previewHint` | A sample in the style you picked. Nothing is saved until you press Save. | आपकी चुनी शैली में एक नमूना। सेव दबाने तक कुछ सेव नहीं होता। |
+| `units.sampleWeight` | Weight | वज़न |
+| `units.sampleLength` | Length | लंबाई |
+| `units.sampleSection` | Section weight | सेक्शन का वज़न |
+| `units.sampleNumber` | Number | संख्या |
+| `units.sampleDate` | Date and time | तारीख़ और समय |
+| `units.papersNote` | Packing lists, labels and certificates keep their own units for now. A setting for them is coming. | पैकिंग लिस्ट, लेबल और सर्टिफ़िकेट अभी अपनी इकाइयों में ही रहते हैं। उनके लिए सेटिंग आने वाली है। |
+| `units.save` | Save units | इकाइयाँ सेव करें |
+| `units.saved` | Units saved | इकाइयाँ सेव हो गईं |
+| `units.saveFailed` | Couldn't save the units. Try again. | इकाइयाँ सेव नहीं हुईं। फिर कोशिश करें। |
+| `units.readOnly` | Only owners and admins can change these. | इन्हें सिर्फ़ मालिक और एडमिन बदल सकते हैं। |
 | `company.name` | Company name | कंपनी का नाम |
 | `company.nameHint` | Only orrn support can change this. | इसे सिर्फ़ orrn सपोर्ट बदल सकता है। |
 | `company.lengthUnit` | Length unit | लंबाई की इकाई |
@@ -2185,7 +2233,7 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `company.profile` | Company | कंपनी |
 | `company.slug` | Short name | छोटा नाम |
 | `company.units` | Units | इकाइयाँ |
-| `company.unitsHint` | Pack and stock screens show lengths in this unit. Weights are always in kg. | Pack और स्टॉक स्क्रीन पर लंबाई इसी इकाई में दिखती है। वज़न हमेशा kg में रहता है। |
+| `company.unitsHint` | Length unit and time zone. Weight, section weight and number style are on the Units tab. | लंबाई की इकाई और टाइम ज़ोन। वज़न, सेक्शन का वज़न और संख्या की शैली इकाइयाँ टैब में है। |
 | `company.timezoneHint` | Days and shifts follow this time zone. | दिन और शिफ़्ट इसी टाइम ज़ोन से चलते हैं। |
 | `company.language` | Language | भाषा |
 | `company.languageHint` | English, हिंदी and ગુજરાતી are available. The choice is kept on this device. | English, हिंदी और ગુજરાતી उपलब्ध हैं। चुनी हुई भाषा इसी डिवाइस पर रहती है। |

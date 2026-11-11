@@ -1,0 +1,2 @@
+[test]
+preload = ["./test-support/one-react.ts"]

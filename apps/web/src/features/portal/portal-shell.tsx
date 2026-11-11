@@ -10,6 +10,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { LanguageToggle } from "@/shell/language-toggle";
 import { SkipLink } from "@/shell/skip-link";
+import { FmtProvider } from "@/shared/lib/fmt";
 import { readStoredLocaleOrNull, storeLocale } from "@/shared/lib/locale";
 import { storePortalPlant } from "@/shared/lib/portal-plant";
 import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
@@ -53,7 +54,9 @@ export function PortalShell({ children }: { children: ReactNode }) {
         setChosen(next);
       }}
     >
-      <ShellFrame>{children}</ShellFrame>
+      <FmtProvider prefs={me.data?.units} timeZone={me.data?.timeZone}>
+        <ShellFrame>{children}</ShellFrame>
+      </FmtProvider>
     </I18nProvider>
   );
 }

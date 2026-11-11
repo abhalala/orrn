@@ -119,9 +119,9 @@ describe("formatters reproduce today's output, 10,000 seeded values each", () =>
         if (want !== null && (!got.ok || got.value !== want)) bad.push(`${feet} ft ${inches} in: old ${want}, new ${got.ok ? got.value : got.problem}`);
       }
     }
-    // One exact half-millimetre tie on the whole grid. 322.5 in x 25.4 is exactly 8191.5 mm; the old float maths
-    // reads 8191.499999999999 and rounds down, the exact path rounds half away from zero. Confirmed defect, see UNITS-A-REPORT.md.
-    expect(bad).toEqual(["26 ft 10.5 in: old 8191, new 8192"]);
+    // Slice b forwarded lengthFromInput to the exact path, so the one float defect of slice a (26 ft 10.5 in, exactly
+    // 8191.5 mm, read 8191) is gone and the two now agree on the whole grid. The regression is pinned in units.test.ts.
+    expect(bad).toEqual([]);
   });
 });
 
@@ -169,7 +169,10 @@ describe("formatterFor", () => {
     expect(f.q("bundle.weight", Infinity)).toBe("-");
   });
   test("other kinds at the default set", () => {
-    expect(f.q("bundle.length", 3658)).toBe("3,658 mm");
+    // Slice b: lengths are not grouped, so a plant that changed nothing still reads today's "3658 mm".
+    expect(f.q("bundle.length", 3658)).toBe("3658 mm");
+    expect(f.n("bundle.length", 12_500)).toBe("12500");
+    expect(formatterFor(screenPrefs({ number: { grouping: "international" } }), IST).q("bundle.length", 12_500)).toBe("12500 mm");
     expect(f.q("die.band", 2090)).toBe("2.090 kg/12ft");
     expect(f.q("order.rate", 25_000)).toBe("₹250.00/kg");
     expect(f.q("customer.tolerance", 250)).toBe("2.5%");
