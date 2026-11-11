@@ -4,9 +4,8 @@
  * "Start here" steps. No React here, so it is unit-tested directly.
  */
 import type { Fmt } from "@orrn/domain";
-import { kgGrouped1 } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped1 } from "@/shared/lib/fmt-text";
 import { hourInZone, isValidZone, ymdInZone } from "@/shared/lib/plant-calendar";
-import { formatKgTotal } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import { can, type Me } from "@orrn/server/lib/permissions";
@@ -53,11 +52,11 @@ export function clockTime(fmt: Fmt, timezone: string): (at: string | number) => 
 }
 
 /**
- * A count with Indian grouping ("1,284", "1,00,000") for display and for
+ * A count in the plant's grouping ("1,284" and "1,00,000" by default) for display and for
  * `t()` plural variables: `{count:one|other}` still picks "one" only for "1".
  */
-export function formatCount(n: number): string {
-  return Math.round(n).toLocaleString("en-IN");
+export function formatCount(fmt: Fmt, n: number): string {
+  return countText(fmt, Math.round(n));
 }
 
 export type TrendPoint = { t: Date; v: number; partial?: boolean };
@@ -298,11 +297,11 @@ const PLAIN_HINTS: Partial<Record<TodayTileKey, MessageKey>> = {
  * waiting", or "None open" at zero); while the count is unknown (loading, or the numbers failed)
  * it reads a plain line instead of nothing, so every tile keeps two lines and the titles line up.
  */
-export function tileHint(tile: Pick<TodayTile, "key">, count: number | null | undefined): TileHint {
+export function tileHint(tile: Pick<TodayTile, "key">, count: number | null | undefined, fmt: Fmt): TileHint {
   const counted = COUNT_HINTS[tile.key];
   if (!counted) return { key: PLAIN_HINTS[tile.key] ?? "today.tiles.guidesHint" };
   if (count === undefined || count === null) return { key: counted.any };
-  if (count > 0) return { key: counted.some, vars: { count: formatCount(count) } };
+  if (count > 0) return { key: counted.some, vars: { count: formatCount(fmt, count) } };
   return { key: counted.none };
 }
 
@@ -310,11 +309,11 @@ export function tileHint(tile: Pick<TodayTile, "key">, count: number | null | un
  * A packing session's line: bundles and kg (void left out, RP11), or "All
  * bundles void" when nothing of it is left, instead of "0 bundles · 0.0 kg".
  */
-export function sessionSummary(totals: { bundles: number; weightG: number }, fmt?: Fmt): TileHint {
+export function sessionSummary(totals: { bundles: number; weightG: number }, fmt: Fmt): TileHint {
   if (totals.bundles <= 0) return { key: "today.sessionVoided" };
   return {
     key: "units.bundlesKg",
-    vars: { bundles: formatCount(totals.bundles), kg: fmt ? kgGrouped1(fmt, totals.weightG) : formatKgTotal(totals.weightG / 1000) },
+    vars: { bundles: formatCount(fmt, totals.bundles), kg: kgGrouped1(fmt, totals.weightG) },
   };
 }
 

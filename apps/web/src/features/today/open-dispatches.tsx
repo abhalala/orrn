@@ -51,7 +51,7 @@ export function OpenDispatches({ data }: { data: TodayData }) {
                 <span className="flex shrink-0 flex-col items-end gap-1.5">
                   <Chip tone={dispatchTone(d.status)}>{t(`status.dispatch.${d.status}`)}</Chip>
                   <span data-no-truncate="" className="font-mono text-[13px] leading-5 tabular-nums text-muted-foreground">
-                    {t("units.bundlesKg", { massUnit: massUnit(fmt), bundles: formatCount(d.bundles), kg: kgGrouped1(fmt, d.weightG) })}
+                    {t("units.bundlesKg", { massUnit: massUnit(fmt), bundles: formatCount(fmt, d.bundles), kg: kgGrouped1(fmt, d.weightG) })}
                   </span>
                 </span>
               </UiLink>

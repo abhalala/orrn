@@ -99,7 +99,7 @@ export function TodayKpis({ data }: { data: TodayData }) {
           index={1}
           title={t("today.kpi.bundles")}
           value={kpis.packedBundles}
-          format={formatCount}
+          format={(n) => formatCount(fmt, n)}
           unit={t("today.bundleUnit", { count: kpis.packedBundles })}
           meta={kpis.packedBundles > 0 ? t("today.kpi.bundlesMeta") : t("today.nothingPackedYet")}
         />
@@ -121,7 +121,7 @@ export function TodayKpis({ data }: { data: TodayData }) {
           value={kpis.inStockG}
           format={(g) => kgGrouped1(fmt, g)}
           unit={massUnit(fmt)}
-          meta={t("today.kpi.stockMeta", { count: formatCount(kpis.inStockBundles) })}
+          meta={t("today.kpi.stockMeta", { count: formatCount(fmt, kpis.inStockBundles) })}
         />
         {value ? (
           <KpiBlock
@@ -133,7 +133,7 @@ export function TodayKpis({ data }: { data: TodayData }) {
             value={value.dispatchedPaise}
             format={(paise) => fmt.money(paise)}
             unit=""
-            meta={t("today.kpi.valueMeta", { count: formatCount(value.pricedBundles) })}
+            meta={t("today.kpi.valueMeta", { count: formatCount(fmt, value.pricedBundles) })}
           />
         ) : null}
       </ul>

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { dflt } from "../../../test-support/date-seeds";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
 import { interpolate } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
@@ -81,13 +82,18 @@ describe("companyClock", () => {
 
 describe("formatCount", () => {
   test("counts use Indian grouping and still pick the right plural", () => {
-    expect(formatCount(1284)).toBe("1,284");
-    expect(formatCount(100000)).toBe("1,00,000");
-    expect(formatCount(1)).toBe("1");
+    expect(formatCount(dflt(), 1284)).toBe("1,284");
+    expect(formatCount(dflt(), 100000)).toBe("1,00,000");
+    expect(formatCount(dflt(), 1)).toBe("1");
     const bundles = "{count} {count:bundle|bundles}";
-    expect(interpolate(bundles, { count: formatCount(1284) })).toBe("1,284 bundles");
-    expect(interpolate(bundles, { count: formatCount(1) })).toBe("1 bundle");
-    expect(interpolate(bundles, { count: formatCount(0) })).toBe("0 bundles");
+    expect(interpolate(bundles, { count: formatCount(dflt(), 1284) })).toBe("1,284 bundles");
+    expect(interpolate(bundles, { count: formatCount(dflt(), 1) })).toBe("1 bundle");
+    expect(interpolate(bundles, { count: formatCount(dflt(), 0) })).toBe("0 bundles");
+  });
+  test("a plant on international grouping reads counts with commas by thousands", () => {
+    const intl = formatterFor(screenPrefs({ number: { grouping: "international" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(formatCount(intl, 100000)).toBe("100,000");
+    expect(tileHint({ key: "dispatch" }, 1284000, intl)).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "1,284,000" } });
   });
 });
 
@@ -261,11 +267,11 @@ describe("clockTime", () => {
 
 describe("sessionSummary", () => {
   test("bundles and kg, or 'all void' when every bundle of the session was voided", () => {
-    expect(sessionSummary({ bundles: 14, weightG: 682_400 })).toEqual({
+    expect(sessionSummary({ bundles: 14, weightG: 682_400 }, dflt())).toEqual({
       key: "units.bundlesKg",
       vars: { bundles: "14", kg: "682.4" },
     });
-    expect(sessionSummary({ bundles: 0, weightG: 0 })).toEqual({ key: "today.sessionVoided" });
+    expect(sessionSummary({ bundles: 0, weightG: 0 }, dflt())).toEqual({ key: "today.sessionVoided" });
   });
 });
 
@@ -356,29 +362,29 @@ describe("tileHint", () => {
   const tile = (key: string) => todayTiles(me("owner")).find((t) => t.key === key)!;
 
   test("Dispatch carries the open count, grouped, or says none are open", () => {
-    expect(tileHint(tile("dispatch"), 14)).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "14" } });
-    expect(tileHint(tile("dispatch"), 1284)).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "1,284" } });
-    expect(tileHint(tile("dispatch"), 0)).toEqual({ key: "today.tiles.dispatchHintNone" });
+    expect(tileHint(tile("dispatch"), 14, dflt())).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "14" } });
+    expect(tileHint(tile("dispatch"), 1284, dflt())).toEqual({ key: "today.tiles.dispatchHint", vars: { count: "1,284" } });
+    expect(tileHint(tile("dispatch"), 0, dflt())).toEqual({ key: "today.tiles.dispatchHintNone" });
   });
 
   test("while the count is unknown (loading or failed) Dispatch still has a line, so tile titles line up", () => {
-    expect(tileHint(tile("dispatch"), undefined)).toEqual({ key: "today.tiles.dispatchHintAny" });
+    expect(tileHint(tile("dispatch"), undefined, dflt())).toEqual({ key: "today.tiles.dispatchHintAny" });
   });
 
   test("station tiles say their count, none, or a plain line while unknown", () => {
-    expect(tileHint(tile("dieRoom"), 2)).toEqual({ key: "today.floor.dieRoomHint", vars: { count: "2" } });
-    expect(tileHint(tile("dieRoom"), 0)).toEqual({ key: "today.floor.dieRoomHintNone" });
-    expect(tileHint(tile("press"), null)).toEqual({ key: "today.floor.pressHintAny" });
-    expect(tileHint(tile("orders"), 12)).toEqual({ key: "today.floor.ordersHint", vars: { count: "12" } });
-    expect(tileHint(tile("approvals"), 1)).toEqual({ key: "today.floor.approvalsHint", vars: { count: "1" } });
-    expect(tileHint(tile("approvals"), 0)).toEqual({ key: "today.floor.approvalsHintNone" });
+    expect(tileHint(tile("dieRoom"), 2, dflt())).toEqual({ key: "today.floor.dieRoomHint", vars: { count: "2" } });
+    expect(tileHint(tile("dieRoom"), 0, dflt())).toEqual({ key: "today.floor.dieRoomHintNone" });
+    expect(tileHint(tile("press"), null, dflt())).toEqual({ key: "today.floor.pressHintAny" });
+    expect(tileHint(tile("orders"), 12, dflt())).toEqual({ key: "today.floor.ordersHint", vars: { count: "12" } });
+    expect(tileHint(tile("approvals"), 1, dflt())).toEqual({ key: "today.floor.approvalsHint", vars: { count: "1" } });
+    expect(tileHint(tile("approvals"), 0, dflt())).toEqual({ key: "today.floor.approvalsHintNone" });
   });
 
   test("other tiles keep their own hint", () => {
-    expect(tileHint(tile("pack"), 3)).toEqual({ key: "today.tiles.packHint" });
-    expect(tileHint(tile("stock"), undefined)).toEqual({ key: "today.tiles.stockHint" });
-    expect(tileHint(tile("store"), null)).toEqual({ key: "today.floor.storeHint" });
-    expect(tileHint(tile("guides"), 0)).toEqual({ key: "today.tiles.guidesHint" });
+    expect(tileHint(tile("pack"), 3, dflt())).toEqual({ key: "today.tiles.packHint" });
+    expect(tileHint(tile("stock"), undefined, dflt())).toEqual({ key: "today.tiles.stockHint" });
+    expect(tileHint(tile("store"), null, dflt())).toEqual({ key: "today.floor.storeHint" });
+    expect(tileHint(tile("guides"), 0, dflt())).toEqual({ key: "today.tiles.guidesHint" });
   });
 });
 

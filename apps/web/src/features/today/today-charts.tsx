@@ -129,9 +129,9 @@ export default function TodayCharts({ live }: TodayChartsProps) {
     const buckets = ageing.data?.buckets ?? [];
     return {
       columns: [...table.columns, { key: "bundles", header: t("pack.columns.bundles"), numeric: true }],
-      rows: table.rows.map((row, i) => ({ ...row, bundles: formatCount(buckets[i]?.bundles ?? 0) })),
+      rows: table.rows.map((row, i) => ({ ...row, bundles: formatCount(fmt, buckets[i]?.bundles ?? 0) })),
     };
-  }, [bars, ageing.data, kg, t]);
+  }, [bars, ageing.data, kg, t, fmt]);
 
   const trendQuiet = days.every((d) => d.packedKgG === 0 && d.dispatchedKgG === 0);
   const nothingInStock = (ageing.data?.totals.bundles ?? 0) === 0;
