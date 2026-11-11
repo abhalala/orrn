@@ -34,6 +34,7 @@ export const RECIPE_ERROR_CODES = [
   "unit_not_shown",
   "unit_header_mismatch",
   "constant_not_allowed",
+  "split_on_number",
 ] as const;
 export type RecipeErrorCode = (typeof RECIPE_ERROR_CODES)[number];
 
@@ -142,8 +143,11 @@ export function validateRecipe(
     }
 
     if (f.steps.length > RECIPE_LIMITS.steps) err("too_many_steps", `${path}.steps`, f.field);
+    const numeric = def !== undefined && !["text", "enum", "date"].includes(def.kind);
     f.steps.forEach((s, j) => {
       const sp = `${path}.steps[${j}]`;
+      // A comma split cuts a grouped number: 12,34,567 would become 12 (C24).
+      if (s.op === "split" && s.sep === "," && numeric) err("split_on_number", sp, f.field);
       if (s.op === "pick") {
         if (s.map.length > RECIPE_LIMITS.pickPairs) err("too_many_pick_pairs", sp, f.field);
         if (def && (def.enum === null || s.map.some((p) => !def.enum!.includes(p.to)))) err("pick_not_in_enum", sp, f.field);

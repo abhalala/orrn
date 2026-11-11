@@ -214,3 +214,13 @@ describe("C7: order line quantities", () => {
     expect(row("1000", "200", "").state).toBe("ok");
   });
 });
+
+describe("C24: the entered text is the cell as the file had it", () => {
+  test("a split before the number does not hide the rest of the cell", () => {
+    const recipe: Recipe = structuredClone(EXAMPLE_DIE_RECIPE);
+    recipe.fields[2]!.steps = [{ op: "split", sep: "-", index: 0 }, { op: "number", kind: "linear_mass", unit: "kg/12ft" }];
+    const r = applyRecipe(recipe, [["40", "4012", "2.2-2.4", "2.5", "Frame", "", "", "", "active", ""]])[0]!;
+    expect(r.values.weightMinG).toBe(2200);
+    expect(r.entered.weightMinG).toEqual({ text: "2.2-2.4", unit: "kg/12ft" });
+  });
+});

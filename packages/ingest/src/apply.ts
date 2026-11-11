@@ -160,7 +160,8 @@ export function applyRow(c: CompiledRecipe, row: readonly string[], rowIndex: nu
     let value: string | number | null;
     if (s.number) {
       value = s.number.canonical;
-      out.entered[p.field] = { text: s.number.entered, unit: s.number.unit };
+      // The cell as the file had it, before any step (C24): the audit shows what was really there.
+      out.entered[p.field] = { text: text.trim(), unit: s.number.unit };
       if (s.number.rounded) out.rounded.push(p.field);
     } else if (s.date !== null) {
       value = s.date;

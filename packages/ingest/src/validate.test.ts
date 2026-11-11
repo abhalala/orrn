@@ -95,6 +95,11 @@ describe("validateRecipe", () => {
       r.fields.find((f) => f.field === "orderDate")!.source = { kind: "constant", value: "2025-04-01" };
       return { recipe: r, origin: "bot" };
     },
+    split_on_number: () => {
+      const r = clone(EXAMPLE_DIE_RECIPE);
+      r.fields[2]!.steps = [{ op: "split", sep: ",", index: 0 }, { op: "number", kind: "linear_mass", unit: "kg/12ft" }];
+      return { recipe: r };
+    },
     constant_on_numeric: () => {
       const r = clone(EXAMPLE_DIE_RECIPE);
       r.fields[2]!.source = { kind: "constant", value: "2.2" };
@@ -182,6 +187,13 @@ describe("validateRecipe", () => {
     const name = clone(EXAMPLE_BAKI_RECIPE);
     name.fields.find((f) => f.field === "customer")!.source = { kind: "constant", value: "ACME EXTRUSIONS" };
     expect(validateRecipe(name, bakiBlock, "bot").map((e) => e.code)).toContain("constant_not_allowed");
+  });
+
+  test("C24: a comma split before a number is refused; a dash split is not", () => {
+    expect(codes(cases.split_on_number().recipe)).toContain("split_on_number");
+    const dash = clone(EXAMPLE_DIE_RECIPE);
+    dash.fields[2]!.steps = [{ op: "split", sep: "-", index: 0 }, { op: "number", kind: "linear_mass", unit: "kg/12ft" }];
+    expect(codes(dash)).not.toContain("split_on_number");
   });
 
   test("a constant on text is fine for the bot", () => {
