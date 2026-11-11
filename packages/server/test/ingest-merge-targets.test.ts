@@ -396,3 +396,35 @@ describe("die copy statuses an import may not set (B12)", () => {
     expect(await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, dieId))).toHaveLength(0);
   });
 });
+
+describe("an alias that is a name (B13)", () => {
+  test("a customer alias equal to another customer's name is refused naming its file row", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const big = await api.customer.create({ name: "Shree Ram Aluminium Pvt Ltd" });
+    await api.customer.create({ name: "Shree Ram" });
+    const seeded = await seedCandidate(env, companyId, "customer_aliases", [
+      { values: { customer: "Shree Ram Aluminium Pvt Ltd", alias: "SRA", _ids: { customer: big.id } } },
+      { values: { customer: "Shree Ram Aluminium Pvt Ltd", alias: "Shree Ram", _ids: { customer: big.id } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 2: Shree Ram is already the name of Shree Ram. Skip the row.");
+  });
+
+  test("a vendor alias equal to the vendor's own name adds nothing and is not a failure", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const v = await api.vendor.create({ name: "Mahadev Scrap" });
+    const seeded = await seedCandidate(env, companyId, "vendor_aliases", [
+      { values: { vendor: "Mahadev Scrap", alias: "MAHADEV SCRAP", _ids: { vendor: v.id } } },
+      { values: { vendor: "Mahadev Scrap", alias: "Mahadev", _ids: { vendor: v.id } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done");
+    const rows = await stagedRows(env, seeded.candidateId);
+    expect(rows.map((r) => [r.committedType, r.mergeState])).toEqual([
+      ["vendor", "written"],
+      ["vendor_alias", "written"],
+    ]);
+    expect((await api.vendor.get({ id: v.id })).aliases.map((a) => a.alias)).toEqual(["Mahadev"]);
+  });
+});

@@ -10,11 +10,12 @@
 import { DIE_COPY_HAND_STATUSES } from "@orrn/domain";
 import { orderLineGrams } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
+import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { vendor } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
@@ -24,7 +25,7 @@ import { mapInChunks } from "../../atomic";
 import { assertModule } from "../../moduleGate";
 import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
-import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection } from "../resolvers";
+import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection, serverNameKey } from "../resolvers";
 import type { IngestCtx } from "../types";
 import {
   failureOf,
@@ -270,7 +271,7 @@ const customers: Adapter = async (args) => {
 // ---------------------------------------------------------------------------
 
 const customerAliases: Adapter = async (args) => {
-  const { rows, refs } = args;
+  const { ctx, rows, refs } = args;
   if (rows.some(isUpdate)) {
     return {
       written: [],
@@ -279,6 +280,23 @@ const customerAliases: Adapter = async (args) => {
   }
   return oneCall(async () => {
     const list = rows.map((row) => ({ row, customerId: refOf(row, "customer", refs)!, alias: text(valuesOf(row).alias) ?? "" }));
+    // customer.addAliases refuses the whole call for a name that is another customer's: say which
+    // file row before the call (B13). The dry run should mark it a conflict (lane A).
+    const names = await ctx.db
+      .select({ id: customer.id, name: customer.name })
+      .from(customer)
+      .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
+    const nameOwner = new Map<string, { id: string; name: string }>();
+    for (const c of names) {
+      const k = serverNameKey(c.name);
+      if (k && !nameOwner.has(k)) nameOwner.set(k, c);
+    }
+    for (const { row, customerId, alias } of list) {
+      const own = nameOwner.get(serverNameKey(alias));
+      if (own && own.id !== customerId) {
+        throw new TRPCError({ code: "CONFLICT", message: `File row ${row.rowIndex + 1}: ${alias} is already the name of ${own.name}. Skip the row.` });
+      }
+    }
     const caller = await args.callerFor(args.sourceOf(rows));
     const res = await caller.customer.addAliases({ clientRequestId: args.chunk.id, rows: list.map(({ customerId, alias }) => ({ customerId, alias })) });
     return list.map(({ row, customerId }, i) => ({
@@ -350,15 +368,33 @@ const vendors: Adapter = async (args) => {
 // ---------------------------------------------------------------------------
 
 const vendorAliases: Adapter = async (args) => {
-  const { rows, refs } = args;
+  const { ctx, rows, refs } = args;
   if (rows.some(isUpdate)) {
     return {
       written: [],
       failure: { code: "BAD_REQUEST", message: "A name that belongs to another vendor is not moved by an import. Skip these rows.", reason: "merge_failed" },
     };
   }
+  // A name of another vendor is refused by vendor.addAlias: say which file row before any call
+  // (B13). The vendor's own name adds nothing: it is recorded against the vendor, as for customers.
+  const names = await ctx.db.select({ id: vendor.id, name: vendor.name, key: vendor.nameKey }).from(vendor).where(eq(vendor.companyId, ctx.companyId));
+  const nameOwner = new Map(names.map((n) => [n.key, n]));
+  try {
+    for (const row of rows) {
+      const alias = text(valuesOf(row).alias) ?? "";
+      const own = nameOwner.get(serverNameKey(alias));
+      if (own && own.id !== refOf(row, "vendor", refs)) {
+        throw new TRPCError({ code: "CONFLICT", message: `File row ${row.rowIndex + 1}: ${alias} is already the name of ${own.name}. Skip the row.` });
+      }
+    }
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
   return perRow(args, rows, async (row) => {
     const vendorId = refOf(row, "vendor", refs)!;
+    if (nameOwner.get(serverNameKey(text(valuesOf(row).alias) ?? ""))?.id === vendorId) {
+      return { rowId: row.id, committedType: "vendor", committedId: vendorId };
+    }
     const caller = await args.callerFor(args.sourceOf([row]));
     const res = await caller.vendor.addAlias({ clientRequestId: await rowKey(row), vendorId, alias: text(valuesOf(row).alias) ?? "" });
     return { rowId: row.id, committedType: "vendor_alias", committedId: res.id };
