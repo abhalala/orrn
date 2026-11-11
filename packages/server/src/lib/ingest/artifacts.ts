@@ -25,7 +25,7 @@ import { pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { shapeBot } from "./engines";
 import {
   artifactSummary,
-  blockView,
+  blockViewFor,
   candidateChange,
   decodeCursor,
   encodeCursor,
@@ -478,7 +478,14 @@ export async function getArtifact(ctx: IngestCtx, artifactId: string): Promise<A
   const summaries = await summarize(ctx, candidates);
   return {
     ...artifactSummary(a),
-    blocks: blocks.map((b) => ({ ...blockView(b), candidates: summaries.filter((s) => s.blockId === b.id) })),
+    blocks: blocks.map((b) => ({
+      ...blockViewFor(
+        ctx,
+        b,
+        candidates.filter((c) => c.blockId === b.id).map((c) => c.recipe),
+      ),
+      candidates: summaries.filter((s) => s.blockId === b.id),
+    })),
   };
 }
 

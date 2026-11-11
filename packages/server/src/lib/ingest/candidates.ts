@@ -42,12 +42,11 @@ import { mapInChunks, type SqliteBatchItem } from "../atomic";
 import { auditInsert } from "../audit";
 import { now } from "../clock";
 import { createId } from "../id";
-import { can } from "../permissions";
 import { defaultCatalogue, runShapeAttempt, type SampleStats } from "./bot";
 import {
   artifactSummary,
   assertState,
-  blockView,
+  blockViewFor,
   candidateChange,
   candidateCounts,
   decodeCursor,
@@ -58,7 +57,11 @@ import {
   loadBlock,
   loadCandidate,
   loadCandidateAt,
+  maskCells,
   MOVED,
+  RATE_FIELDS,
+  rateMaskColumns,
+  seesRates,
   summarize,
   type BlockRow,
   type CandidateRow,
@@ -286,12 +289,16 @@ export async function candidateDetail(ctx: IngestCtx, candidateId: string): Prom
   const block = await loadBlock(ctx, c.blockId);
   const artifact = await loadArtifact(ctx, c.artifactId);
   const questions = await candidateQuestions(ctx, c, artifact);
+  const siblings = await ctx.db
+    .select({ recipe: ingestCandidate.recipe })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.blockId, block.id)));
   return {
     ...summary!,
     recipe: c.recipe ?? null,
     fitDiff: c.fitDiff ?? null,
     questions,
-    block: blockView(block),
+    block: blockViewFor(ctx, block, siblings.map((x) => x.recipe)),
     period: artifact.period ?? null,
     periodConfirmed: artifact.periodConfirmed ?? null,
     rowsMissing: Math.max(0, block.rowCount - block.rowsPut),
@@ -595,8 +602,6 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
 // Rows
 // ---------------------------------------------------------------------------
 
-const RATE_FIELDS = ["rate"];
-
 export async function listRows(
   ctx: IngestCtx,
   input: { candidateId: string; state?: RowState; cursor?: string; limit: number },
@@ -617,8 +622,8 @@ export async function listRows(
     )
     .orderBy(asc(ingestStagedRow.rowIndex))
     .limit(input.limit + 1);
-  const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-  const seesPrices = can(me, "order.price");
+  const seesPrices = seesRates(ctx);
+  const maskCols = seesPrices ? new Set<number>() : rateMaskColumns((await loadBlock(ctx, c.blockId)).headers, [c.recipe]);
   const page = rows.slice(0, input.limit);
   const items = page.map((r): StagedRowView => {
     const values = r.values ? { ...r.values } : null;
@@ -638,7 +643,9 @@ export async function listRows(
         delete entered[f];
       }
     }
-    const raw = seesPrices || !rateHidden ? r.raw : maskRawRate(r.raw, c.recipe);
+    // Raw cells are masked by column, whatever state the row is in: a pending, blank, filtered or
+    // refused row still holds the rate cell (A7).
+    const raw = seesPrices ? r.raw : maskCells(r.raw, maskCols);
     const options = ((values?._options as { field: string; options: { id: string; label: string }[] }[] | undefined) ?? []).flatMap((o) => o.options);
     return {
       id: r.id,
@@ -656,29 +663,11 @@ export async function listRows(
       committedType: r.committedType,
       committedId: r.committedId,
       rate,
-      rateHidden: rateHidden || (!seesPrices && hasRateColumn(c.recipe)),
+      rateHidden: rateHidden || (!seesPrices && maskCols.size > 0),
     };
   });
   const last = page.at(-1);
   return { items, nextCursor: rows.length > input.limit && last ? String(last.rowIndex) : null };
-}
-
-function rateColumns(recipe: unknown): number[] {
-  const parsed = recipeSchema.safeParse(recipe);
-  if (!parsed.success) return [];
-  return parsed.data.fields
-    .filter((f) => RATE_FIELDS.includes(f.field) && f.source.kind === "columns")
-    .flatMap((f) => (f.source.kind === "columns" ? f.source.cols.map((x) => x.col) : []));
-}
-
-function hasRateColumn(recipe: unknown): boolean {
-  return rateColumns(recipe).length > 0;
-}
-
-/** The raw cells with the rate column blanked, for a viewer who cannot see rates (A8). */
-function maskRawRate(raw: string[], recipe: unknown): string[] {
-  const cols = new Set(rateColumns(recipe));
-  return raw.map((cell, i) => (cols.has(i) ? "" : cell));
 }
 
 /**
@@ -946,6 +935,8 @@ export async function provenanceFor(ctx: IngestCtx, input: { type: string; id: s
   const [row] = await ctx.db
     .select({
       raw: ingestStagedRow.raw,
+      recipe: ingestCandidate.recipe,
+      headers: ingestBlock.headers,
       rowIndex: ingestStagedRow.rowIndex,
       artifactId: ingestArtifact.id,
       fileName: ingestArtifact.fileName,
@@ -968,14 +959,14 @@ export async function provenanceFor(ctx: IngestCtx, input: { type: string; id: s
     )
     .limit(1);
   if (!row) return null;
-  const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
   return {
     artifact: { id: row.artifactId, fileName: row.fileName, sha256: row.sha256, createdAt: row.createdAt.getTime() },
     sheet: row.sheet,
     blockOrdinal: row.ordinal,
     rowIndex: row.rowIndex,
-    // A person who cannot see rates never reads them through the source row either.
-    raw: can(me, "order.price") || input.type !== "sales_order" ? row.raw : [],
+    // A person who cannot see rates never reads them through the source row either, whatever the
+    // record's type is called (A29).
+    raw: seesRates(ctx) ? row.raw : maskCells(row.raw, rateMaskColumns(row.headers, [row.recipe])),
   };
 }
 

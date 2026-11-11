@@ -302,3 +302,43 @@ describe("A5: an order book matches the plant's live orders", () => {
     expect(row.state).toBe("ready_create");
   });
 });
+
+describe("A6, A7, A14, A18, A22, A29: no rate reaches a viewer without order.price", () => {
+  test("candidate.get and artifact.get blank the sample's rate cells for the admin; the owner sees them", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe(), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    expect((await p.admin.ingest.candidate.get({ candidateId: id })).block.sample[0]![9]).toBe("");
+    expect((await p.admin.ingest.artifact.get({ artifactId })).blocks[0]!.sample[0]![9]).toBe("");
+    expect((await p.owner.ingest.candidate.get({ candidateId: id })).block.sample[0]![9]).toBe("245.50");
+    expect((await p.owner.ingest.artifact.get({ artifactId })).blocks[0]!.sample[0]![9]).toBe("245.50");
+  });
+
+  test("rows.list masks the raw rate cell on pending and refused rows too", async () => {
+    const p = await plant();
+    // The rate unit is open, so every row is refused unit_unknown and holds no parsed rate.
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe(), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    const pending = (await p.admin.ingest.rows.list({ candidateId: id })).items[0]!;
+    expect(pending.state).toBe("pending");
+    expect(pending.raw[9]).toBe("");
+    expect(pending.rateHidden).toBe(true);
+    await pump(p.owner, id);
+    const refused = (await p.admin.ingest.rows.list({ candidateId: id })).items[0]!;
+    expect(refused.state).toBe("refused");
+    expect(refused.raw[9]).toBe("");
+  });
+
+  test("a sheet with no layout yet hides a column whose header reads as a rate", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.owner, [{ headers: ["Khata", "Maal", "Rate Rs/kg"], rows: [["Acme", "Domal", "245.50"]] }]);
+    const c = candidates[0]!;
+    expect(c.state).toBe("needs_shape");
+    const forAdmin = await p.admin.ingest.candidate.get({ candidateId: c.id });
+    expect(forAdmin.block.sample[0]).toEqual(["Acme", "Domal", ""]);
+    expect((await p.admin.ingest.rows.list({ candidateId: c.id })).items[0]!.raw).toEqual(["Acme", "Domal", ""]);
+    expect((await p.owner.ingest.candidate.get({ candidateId: c.id })).block.sample[0]![2]).toBe("245.50");
+  });
+});

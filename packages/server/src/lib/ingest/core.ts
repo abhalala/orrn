@@ -17,7 +17,10 @@ import {
   type CandidateState,
 } from "@orrn/db/schema/ingest";
 
+import { recipeSchema } from "@orrn/ingest";
+
 import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../atomic";
+import { can } from "../permissions";
 import type {
   ArtifactSummary,
   BlockView,
@@ -197,6 +200,53 @@ export function blockView(b: BlockRow): BlockView {
     readBy: b.readBy,
     modelChecked: b.modelChecked,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Rates (plan A8, D8)
+// ---------------------------------------------------------------------------
+
+export const RATE_FIELDS = ["rate"];
+
+export function rateColumns(recipe: unknown): number[] {
+  const parsed = recipeSchema.safeParse(recipe);
+  if (!parsed.success) return [];
+  return parsed.data.fields
+    .filter((f) => RATE_FIELDS.includes(f.field) && f.source.kind === "columns")
+    .flatMap((f) => (f.source.kind === "columns" ? f.source.cols.map((x) => x.col) : []));
+}
+
+/** A header that reads as a rate or price (Rate, Price, Rs/kg, Rs per kg, a rupee sign). */
+const RATE_HEADER = /\b(rate|rates|price|prices)\b|\brs\.?\s*(\/|per)\s*(kg|kgs|t|ton|tonne|qtl)\b|\u20b9/i;
+
+export function seesRates(ctx: Pick<IngestCtx, "role">): boolean {
+  return can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "order.price");
+}
+
+/**
+ * The columns a viewer without order.price must not read (plan A8, D8): every column a recipe on the
+ * block maps to a rate field, and every column whose header reads as a rate, so a block with no
+ * layout yet is covered too (A6, A7, A14, A18, A22).
+ */
+export function rateMaskColumns(headers: readonly string[], recipes: readonly unknown[]): Set<number> {
+  const cols = new Set<number>();
+  for (const r of recipes) for (const col of rateColumns(r)) cols.add(col);
+  headers.forEach((h, i) => {
+    if (RATE_HEADER.test(h)) cols.add(i);
+  });
+  return cols;
+}
+
+export function maskCells(raw: readonly string[], cols: ReadonlySet<number>): string[] {
+  return raw.map((cell, i) => (cols.has(i) ? "" : cell));
+}
+
+/** A block as one viewer may see it: the sample's rate cells blank without order.price. */
+export function blockViewFor(ctx: Pick<IngestCtx, "role">, block: BlockRow, recipes: readonly unknown[]): BlockView {
+  const view = blockView(block);
+  if (seesRates(ctx)) return view;
+  const cols = rateMaskColumns(block.headers, recipes);
+  return cols.size === 0 ? view : { ...view, sample: view.sample.map((r) => maskCells(r, cols)) };
 }
 
 export function candidateCounts(c: CandidateRow): CandidateCounts {
