@@ -27,7 +27,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
-import { completeRefusalText, offBandNote, offBandStops, overdrawLines } from "@/features/dispatch/off-band";
+import { completeRefusalText, offBandNote, offBandStops, overdrawExtras, overdrawLines } from "@/features/dispatch/off-band";
 import { LATE_STATUS_KEY, lateCheck, lateExtras, lateStart, lockedCheck, type LateCheck } from "@/features/dispatch/late-entry";
 import { kgTotal } from "@/features/dispatch/format";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
@@ -92,6 +92,8 @@ export default function DispatchDetailScreen() {
   // Why the load goes over the truck's capacity: asked at Dispatch, kept with the dispatch (FP-PK-12).
   const [overReason, setOverReason] = useState("");
   const [overTried, setOverTried] = useState(false);
+  // pl-flow 61: why more than the order goes; sent with Complete while a line is over (web parity).
+  const [overdrawNote, setOverdrawNote] = useState("");
   // BACKLOG 62: no vehicle in the header, so the Dispatch sheet asks for it and saves it first.
   const [vehicle, setVehicle] = useState("");
   const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
@@ -138,6 +140,7 @@ export default function DispatchDetailScreen() {
     if (next === "dispatch") {
       setOverReason("");
       setOverTried(false);
+      setOverdrawNote("");
       setVehicle("");
       setVehicleError(null);
       fillLate();
@@ -253,7 +256,8 @@ export default function DispatchDetailScreen() {
       if (gate.kind === "save") await saveVehicle.mutateAsync({ id: d.id, vehicleNo: gate.vehicleNo });
       await dispatchNow(d.status, held.current, {
         reserve: () => reserve.mutateAsync({ id: d.id }),
-        complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason), ...lateExtras(lateSend) }),
+        complete: () =>
+          complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason), ...overdrawExtras(overOrder, overdrawNote), ...lateExtras(lateSend) }),
       });
       setJustDispatched(true);
       closeSheet();
@@ -578,6 +582,17 @@ export default function DispatchDetailScreen() {
             onChangeText={setOverReason}
             multiline
             maxLength={500}
+          />
+        ) : null}
+        {overOrder ? (
+          <Field
+            label={t("dispatch.overTolerance.noteLabel")}
+            hint={t("dispatch.overTolerance.noteHint")}
+            value={overdrawNote}
+            onChangeText={setOverdrawNote}
+            multiline
+            maxLength={500}
+            testID="overdraw-note"
           />
         ) : null}
         <View className="min-h-12 flex-row items-center justify-between gap-3">

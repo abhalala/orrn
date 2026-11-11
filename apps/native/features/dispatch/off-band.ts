@@ -55,6 +55,15 @@ export function overdrawLines(state: OverdrawState | undefined): { lines: { line
   };
 }
 
+/**
+ * pl-flow 61 (web parity, `complete-sheet.tsx`): the note for the manager goes with Complete only while a
+ * line is over ordered + tolerance and something was written. The server fills the request's note only
+ * while it has none.
+ */
+export function overdrawExtras(over: ReturnType<typeof overdrawLines>, note: string): { overdrawNote?: string } {
+  return over && note.trim() ? { overdrawNote: note.trim() } : {};
+}
+
 /** A refused Complete in the floor's words when it is about the dispatch rules; null for anything else. */
 export function completeRefusalText(t: Translate, error: unknown): string | null {
   const e = (error && typeof error === "object" ? error : {}) as { message?: unknown; data?: { code?: unknown } | null };
