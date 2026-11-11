@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { ActionTile } from "@orrn/ui/components/action-tile";
 import { Button } from "@orrn/ui/components/button";
@@ -20,6 +19,8 @@ import { readDraftFor } from "@/features/pack/use-pack-draft";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/pack/")({
   component: PackList,
@@ -64,6 +65,7 @@ function sessionStore(): Storage | null {
  * session in this tab shows as an amber "Not saved" row to continue.
  */
 function PackList() {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { data: me } = useMe();
   const timeZone = timezoneOf(me?.company?.settings);
@@ -119,7 +121,7 @@ function PackList() {
       key: "kg",
       header: t("pack.columns.kg"),
       align: "end",
-      cell: (r) => <span className="font-mono tabular-nums">{formatKgTotal(gToKg(r.totalWeightG))}</span>,
+      cell: (r) => <span className="font-mono tabular-nums">{kgGrouped1(fmt, (r.totalWeightG))}</span>,
     },
     {
       key: "po",

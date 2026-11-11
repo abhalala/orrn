@@ -1,4 +1,4 @@
-import { formatKg, formatKgTotal, formatLength, gToKg, lengthFromInput, type LengthUnit } from "@orrn/domain";
+import { gToKg, lengthFromInput, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -17,8 +17,7 @@ import {
   kg12Text,
   positionKey,
   positionTone,
-  type LineVerdict,
-} from "./line-preview";
+  type LineVerdict } from "./line-preview";
 import { lengthToInput, parsePieces, parseWeightG } from "./pack-math";
 import { Measure, PackBar, formatRangeKg, type RangeState } from "./pack-ui";
 import { RejectsPanel } from "./rejects-panel";
@@ -27,8 +26,7 @@ import {
   gramsToKgText,
   typedWeightNeedsReason,
   weightProvenance,
-  type ScaleView,
-} from "./scale-view";
+  type ScaleView } from "./scale-view";
 import { useLinePreview, useLinesPreview, useScale } from "./use-pack-server";
 import { focusSelected, stillMayFocus } from "./focus-weight";
 import {
@@ -39,8 +37,9 @@ import {
   removeReject,
   replaceBundle,
   type DraftBundle,
-  type PackDraft,
-} from "./use-pack-draft";
+  type PackDraft } from "./use-pack-draft";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
 
 type Props = {
   draft: PackDraft;
@@ -82,6 +81,7 @@ export function BundlesStep({
   announce,
 }: Props) {
   const { t } = useT();
+  const fmt = useFmt();
   const uid = useId();
   const weightRef = useRef<HTMLInputElement | null>(null);
   const piecesRef = useRef<HTMLInputElement | null>(null);
@@ -229,7 +229,7 @@ export function BundlesStep({
       update((d) => addBundle(d, b));
       // The saved sentence names the server's verdict for this bundle when it is on screen.
       const word = live.verdict && positionKey(live.verdict.position) ? t(positionKey(live.verdict.position)!) : t("status.range.noRange");
-      announce(t("pack.new.bundleSaved", { n, kg: formatKg(gToKg(b.weightG)), pieces: b.pieces, status: word }));
+      announce(t("pack.new.bundleSaved", { massUnit: massUnit(fmt), n, kg: kgGrouped2(fmt, (b.weightG)), pieces: b.pieces, status: word }));
       setPopped(n - 1);
     }
     resetCard();
@@ -536,7 +536,7 @@ export function BundlesStep({
                 {t("units.bundles", { count: draft.bundles.length })}
               </span>
               <Measure value={totals.pieces.toLocaleString("en-IN")} unit={t("units.pcs")} />
-              <Measure value={formatKgTotal(gToKg(totals.weightG))} unit={t("units.kg")} />
+              <Measure value={kgGrouped1(fmt, (totals.weightG))} unit={massUnit(fmt)} />
               {rejectPcs > 0 ? <Measure value={rejectPcs.toLocaleString("en-IN")} unit={t("pack.reject.unit")} /> : null}
             </span>
           </div>
@@ -715,6 +715,7 @@ function ScaleStrip({
   onReason(v: string): void;
   uid: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (view.state === "off") return null;
   const usingScale = view.state === "stable" && filledFrom === view.grams && weightText === gramsToFieldText(view.grams);
@@ -863,6 +864,7 @@ function SavedRow({
   popped: boolean;
   onEdit(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const lengthMm = bundle.lengthMm ?? defaultLength;
   return (
@@ -885,9 +887,9 @@ function SavedRow({
         {index + 1}
       </span>
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-0.5 text-[15px]">
-        <Measure value={formatKg(gToKg(bundle.weightG))} unit={t("units.kg")} className="font-semibold" />
+        <Measure value={kgGrouped2(fmt, (bundle.weightG))} unit={massUnit(fmt)} className="font-semibold" />
         <Measure value={String(bundle.pieces)} unit={t("units.pcs")} />
-        <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(lengthMm, unit)}</span>
+        <span className="font-mono text-[14px] whitespace-nowrap">{fmt.q("bundle.length", lengthMm)}</span>
         {bundle.po !== undefined ? (
           <span className="text-[13px] whitespace-nowrap text-muted-foreground">
             {t("pack.new.poValue", { po: bundle.po })}
@@ -935,6 +937,7 @@ function SessionStrip({
   yardCode: string | null;
   onChange(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <div
@@ -951,7 +954,7 @@ function SessionStrip({
         <div className="flex items-baseline gap-2">
           <dt className="text-[13px] font-medium text-muted-foreground">{t("pack.new.cutLength")}</dt>
           <dd className="m-0 font-mono text-[15px] font-semibold whitespace-nowrap">
-            {formatLength(draft.defaults.lengthMm, unit)}
+            {fmt.q("bundle.length", draft.defaults.lengthMm)}
           </dd>
         </div>
         {yardCode ? (

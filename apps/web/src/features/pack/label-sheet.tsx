@@ -1,4 +1,4 @@
-import { formatKg, formatLength, gToKg, type LengthUnit } from "@orrn/domain";
+import { type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -20,11 +20,12 @@ import {
   standardLine,
   stickerPartyNo,
   type SheetSize,
-  type StickerLabel,
-} from "./label-sheet-model";
+  type StickerLabel } from "./label-sheet-model";
 import { useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
 
 const SIZE_KEY = "orrn.labelSheetSize";
 
@@ -233,6 +234,7 @@ function Sticker({
   qr: string | undefined;
   dense: boolean;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const party = stickerPartyNo(l);
   const std = standardLine(l);
@@ -266,10 +268,10 @@ function Sticker({
           <span className={cn("min-w-0 truncate font-mono font-semibold", z.small)}>{t("labelSheet.party", { number: party })}</span>
         ) : null}
         <span data-slot="sticker-weight" className={cn("min-w-0 font-mono font-bold tabular-nums", z.body)}>
-          {formatKg(gToKg(l.weightG))} {t("units.kg")}
+          {kgGrouped2(fmt, (l.weightG))} {massUnit(fmt)}
         </span>
         <span className={cn("min-w-0 font-mono tabular-nums [overflow-wrap:anywhere]", z.small)}>
-          {l.pieces} {t("units.pcs")} · {formatLength(l.lengthMm, unit)}
+          {l.pieces} {t("units.pcs")} · {fmt.q("bundle.length", l.lengthMm)}
           {k12 ? ` · ${k12} ${t("units.kgPer12ft")}` : ""}
         </span>
         {extra ? <span className={cn("min-w-0 truncate", z.small)}>{extra}</span> : null}

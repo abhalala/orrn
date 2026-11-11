@@ -654,7 +654,7 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `new.bundleNumber` | Bundle {n} | Bundle {n} |
 | `new.liveIncomplete` | Enter weight and pieces to see kg/12ft. | kg/12ft देखने के लिए वज़न और पीस डालें। |
 | `new.liveRange` | Die range {min} to {max} | Die रेंज {min} से {max} |
-| `new.bundleSaved` | Bundle {n} saved: {kg} kg, {pieces} {pieces:piece\|pieces}, {status}. | Bundle {n} सेव हुआ: {kg} kg, {pieces} पीस, {status}। |
+| `new.bundleSaved` | Bundle {n} saved: {kg} {massUnit}, {pieces} {pieces:piece\|pieces}, {status}. | Bundle {n} सेव हुआ: {kg} {massUnit}, {pieces} पीस, {status}। |
 | `new.bundleUpdated` | Bundle {n} updated. | Bundle {n} बदल गया। |
 | `new.bundleRemoved` | Bundle {n} removed. | Bundle {n} हट गया। |
 | `new.savedBundles` | Bundles in this session | इस सेशन के bundle |
@@ -759,7 +759,7 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `reject.addLine` | Save reject | रिजेक्ट सेव करें |
 | `reject.remove` | Remove reject {n} | रिजेक्ट {n} हटाएं |
 | `reject.added` | Reject added: {count} {count:piece\|pieces} | रिजेक्ट जुड़ा: {count} पीस |
-| `reject.atScrap` | {kg} kg at plant scrap | प्लांट स्क्रैप में {kg} kg |
+| `reject.atScrap` | {kg} {massUnit} at plant scrap | प्लांट स्क्रैप में {kg} {massUnit} |
 | `reject.noWeight` | no weight, so no kg row | वज़न नहीं, इसलिए kg की एंट्री नहीं |
 | `reject.unit` | pcs rejected | पीस रिजेक्ट |
 | `reject.piecesLabel` | Reject pieces | रिजेक्ट पीस |
@@ -786,7 +786,7 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `source.pinnedOverride` | Office: pack on another copy | ऑफिस: दूसरी कॉपी पर पैक करें |
 | `source.suggested` | Suggested | सुझाया गया |
 | `source.booking` | Booking, not confirmed | बुकिंग, कन्फ़र्म नहीं |
-| `source.lineDetail` | {baki} kg baki of {ordered} kg ordered | {ordered} kg ऑर्डर में से {baki} kg बाकी |
+| `source.lineDetail` | {baki} {massUnit} baki of {ordered} {massUnit} ordered | {ordered} {massUnit} ऑर्डर में से {baki} {massUnit} बाकी |
 | `source.copy` | Die copy | Die कॉपी |
 | `source.copyHint` | The copy that made these bundles. Its band judges the weight. | जिस कॉपी से ये bundle बने। वज़न उसी के बैंड से जांचा जाएगा। |
 | `source.noCopy` | No copy named | कॉपी नहीं चुनी |
