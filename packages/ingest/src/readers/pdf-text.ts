@@ -346,6 +346,20 @@ export type PdfTextRead = {
 };
 
 const nonBlankCells = (r: readonly string[]) => r.filter((c) => c !== "").length;
+const lineText = (l: Line) => l.cells.map((c) => c.text).join(" ");
+const squash = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Is the line the title of the table above again, or a "continued" mark? Such a line is dropped on purpose. A line
+ * that is only part of the old title counts only above a repeated header (`partOk`): above data it may be a row.
+ */
+function repeatsTitle(text: string, title: string | null, partOk: boolean): boolean {
+  const t = squash(text);
+  if (/^(?:continued|contd)\b/.test(t)) return true;
+  if (!title || t === "") return false;
+  const was = squash(title);
+  return was === t || t.includes(was) || (partOk && was.includes(t));
+}
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** A line under a table that is not data: a signature, a print stamp, a note (C-new-4). */
@@ -393,6 +407,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     let appended = 0;
     let found = 0;
     let misplaced = 0;
+    let unplaced = 0;
     let offset = 0;
     page.segments.forEach((seg, s) => {
       if (s > 0) offset++;
@@ -401,40 +416,52 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       let rows = seg.rows;
       let skipped = 0;
       const prev = [...out].reverse().find((b) => b.rows.length > 0);
+      let pre = seg.pre;
       if (p > 0 && s === 0 && prev && seg.cols) {
         // Rows above the first header-like row continue the table of the page before.
         let h = rows.findIndex((r) => isHeaderLike(r.cells));
         if (h === -1) h = rows.length;
+        // The page title repeated above a continuation is not a row and not a new title.
+        pre = pre.filter((l) => !repeatsTitle(lineText(l), prev.title, h === 0));
         const width = prev.headers.length;
         const cols = blockCols.get(prev);
-        rows.slice(0, h).forEach((r) => {
-          // A lone short line (a page number, a footer) is noise.
-          if (nonBlankCells(r.cells) < 2) return;
-          const placed = cols && r.pos ? placeByX(r.pos, cols, width, page.charWidth) : r.cells.length === width ? r.cells : null;
-          if (!placed) {
-            misplaced++;
-            return;
-          }
-          prev.rows.push(placed);
-          appended++;
-        });
+        const place = (cells: readonly Cell[] | null, flat: string[], lone: boolean) => {
+          const placed = cols && cells ? placeByX(cells, cols, width, page.charWidth) : flat.length === width ? flat : null;
+          if (placed) {
+            prev.rows.push(placed);
+            appended++;
+          } else if (lone) unplaced++;
+          else misplaced++;
+        };
+        if (h > 0) {
+          // One-cell lines above the continuation rows are rows too (a party-only row), placed by x or reported.
+          for (const l of pre) place(l.cells, l.cells.map((c) => c.text), l.cells.length < 2);
+          pre = [];
+        }
+        for (const r of rows.slice(0, h)) {
+          const n = nonBlankCells(r.cells);
+          if (n === 0) continue;
+          place(r.pos, r.cells, n < 2);
+        }
         rows = rows.slice(h);
         skipped = h;
       }
       // The run alone gives the header; the lines above it are the title of its first block.
       const sheetName = `Page ${p + 1}`;
-      const preText = seg.pre.map((l) => l.cells.map((c) => c.text).join(" "));
+      const preText = pre.map(lineText);
       let blocks = findBlocks(
         rows.map((r) => r.cells),
         { sheetName },
       );
+      let titleLines = 0;
       if (blocks.length > 0 && preText.length > 0) {
         const b = blocks[0]!;
         b.title = [...preText, ...(b.title ? [b.title] : [])].join(" ");
         b.headerRow += preText.length;
         b.firstDataSheetRow += preText.length;
+        titleLines = preText.length;
       } else if (blocks.length === 0 && preText.length > 0) {
-        blocks = findBlocks([...seg.pre.map((l) => l.cells.map((c) => c.text)), ...rows.map((r) => r.cells)], { sheetName });
+        blocks = findBlocks([...pre.map((l) => l.cells.map((c) => c.text)), ...rows.map((r) => r.cells)], { sheetName });
       }
       for (const b of blocks) {
         // Footer lines under a table are not rows (C17): a one-cell line after a blank gap, or one that reads like a
@@ -456,12 +483,16 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         if (seg.cols) blockCols.set(b, seg.cols);
         const last = [...out].reverse().find((x) => x.rows.length > 0);
         const sameHeader = last && found === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
-        if (last && sameHeader) last.rows.push(...b.rows);
-        else out.push(b);
+        if (last && sameHeader) {
+          last.rows.push(...b.rows);
+          // A new title above a header that joins the table above has nowhere to go: report it.
+          if (b === blocks[0]) unplaced += titleLines;
+        } else out.push(b);
         found++;
       }
     });
     if (misplaced > 0) warnings.push(`page ${p + 1}: ${plural(misplaced, "row", "rows")} did not line up with the table above`);
+    if (unplaced > 0) warnings.push(`page ${p + 1}: ${plural(unplaced, "line", "lines")} could not be placed`);
     if (page.fused > 0) warnings.push(`page ${p + 1}: ${plural(page.fused, "row has", "rows have")} two values in one column`);
     if (items.some((i) => i.str.trim() !== "") && found === 0 && appended === 0) warnings.push(`page ${p + 1}: text but no table`);
   });
