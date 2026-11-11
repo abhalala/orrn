@@ -3,6 +3,7 @@
  * status. The browser reads the file; the server stores its digest, blocks and rows, and the bytes go
  * to the vault by signed PUT.
  */
+import { periodRequired, recipeSchema } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 
@@ -509,25 +510,48 @@ export async function confirmPeriod(
       .update(ingestArtifact)
       .set({ periodConfirmed: { fy: input.fy, asOf: input.asOf }, updatedAt: at })
       .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId))),
+    ...(await periodRerun(ctx, a.id, null)),
   ];
-  // Candidates of this file whose rows depend on the period go back to processing from the start.
+  await guardedBatch(ctx.db, statements);
+  return artifactSummary(await loadArtifact(ctx, a.id));
+}
+
+/**
+ * Every orders candidate of the file whose rows take the period's date goes back to processing from
+ * row 0, an approved one too (its approval is cleared and audited), so no sheet keeps the old date
+ * (A13). A sheet already merging refuses the change; one with rows written keeps its rows. `except` is
+ * the candidate the caller changes itself.
+ */
+export async function periodRerun(ctx: IngestCtx, artifactId: string, except: string | null): Promise<SqliteBatchItem[]> {
   const affected = await ctx.db
     .select()
     .from(ingestCandidate)
     .where(
       and(
         eq(ingestCandidate.companyId, ctx.companyId),
-        eq(ingestCandidate.artifactId, a.id),
-        inArray(ingestCandidate.state, ["processing", "ready", "held"]),
+        eq(ingestCandidate.artifactId, artifactId),
         eq(ingestCandidate.target, "orders"),
+        inArray(ingestCandidate.state, ["processing", "ready", "held", "approved", "merging"]),
       ),
     );
-  for (const c of affected) {
-    if (c.recipeLocked) continue;
-    statements.push(...candidateChange(ctx, c.id, c.serverSeq, { state: "processing", dryCursor: 0 }));
+  const uses = affected.filter((c) => {
+    const r = recipeSchema.safeParse(c.recipe);
+    return r.success && periodRequired(r.data);
+  });
+  if (uses.some((c) => c.state === "merging")) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "A sheet of this file is being merged. Change the date after the merge." });
   }
-  await guardedBatch(ctx.db, statements);
-  return artifactSummary(await loadArtifact(ctx, a.id));
+  const out: SqliteBatchItem[] = [];
+  for (const c of uses) {
+    if (c.id === except || c.recipeLocked || c.rowsWritten > 0) continue;
+    out.push(...candidateChange(ctx, c.id, c.serverSeq, { state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null }));
+    if (c.state === "approved") {
+      out.push(
+        auditInsert(ctx, { action: "ingest.candidate.recheck", subjectType: "ingest_candidate", subjectId: c.id, meta: { reason: "period_changed", from: c.state } }),
+      );
+    }
+  }
+  return out;
 }
 
 export function validFy(fy: string): boolean {

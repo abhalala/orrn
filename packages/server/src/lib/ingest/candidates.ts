@@ -78,6 +78,7 @@ import {
   recountStatement,
   undecidedRows,
 } from "./dryrun";
+import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import {
   INGEST_LIMITS,
@@ -765,7 +766,14 @@ export async function decideRows(
 const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   unit_unknown: (a) => typeof a === "string" && a.length > 0 && a.length <= 20,
   date_format_ambiguous: (a) => typeof a === "string" && ["dmy", "mdy", "ymd", "d_mon_y", "excel_serial"].includes(a),
-  period_needed: (a) => !!a && typeof a === "object" && typeof (a as { asOf?: unknown }).asOf === "string",
+  // The same checks as period.confirm (A40): a real date, a financial year like 2025-26, the date in it.
+  period_needed: (a) => {
+    if (!a || typeof a !== "object") return false;
+    const { asOf, fy } = a as { asOf?: unknown; fy?: unknown };
+    if (typeof asOf !== "string" || !validDate(asOf)) return false;
+    if (fy === undefined || fy === null) return true;
+    return typeof fy === "string" && validFy(fy) && fyOfDate(asOf) === fy;
+  },
   rates_hidden: (a) => a === "leave_out" || a === "owner_merges",
   column_meaning_unclear: (a) => typeof a === "string" && a.length <= 100,
   create_legacy_die: (a) => typeof a === "boolean",
@@ -827,6 +835,8 @@ export async function setAnswer(
   ];
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
+    // Sibling order sheets of the file take the same date: they re-run too (A13).
+    statements.push(...(await periodRerun(ctx, artifact.id, c.id)));
     statements.push(
       ctx.db
         .update(ingestArtifact)

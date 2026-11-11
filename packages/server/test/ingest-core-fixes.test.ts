@@ -589,3 +589,60 @@ describe("A12: the derived new customers list", () => {
     expect(after.counts.total).toBe(0);
   });
 });
+
+describe("A13, A40: the period date reaches every order sheet of the file", () => {
+  /** Orders with no date column: the order date is the file's as-of date. */
+  const undated = () =>
+    bakiRecipe({
+      fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => {
+        if (f.field === "rate") return { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] };
+        if (f.field === "orderDate") return { field: "orderDate", source: { kind: "period_as_of" as const }, steps: [] };
+        return f;
+      }),
+      unclear: [],
+    });
+
+  test("answering period_needed on one sheet re-runs its sibling; a bad date is refused", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, undated(), "Baki");
+    const sheet = { headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] };
+    const { candidates } = await upload(p.owner, [sheet, { ...sheet, name: "Sheet2" }]);
+    const [a, b] = candidates as [(typeof candidates)[0], (typeof candidates)[0]];
+    await pump(p.owner, a.id);
+    await pump(p.owner, b.id);
+    let ca = await p.owner.ingest.candidate.get({ candidateId: a.id });
+    expect(ca.questions.some((q) => q.code === "period_needed" && q.open)).toBe(true);
+    await expect(
+      p.owner.ingest.answer.set({ candidateId: a.id, questionCode: "period_needed", subject: "", answer: { asOf: "31/10/2025" }, expectSeq: ca.serverSeq }),
+    ).rejects.toThrow(/does not fit/);
+    await expect(
+      p.owner.ingest.answer.set({ candidateId: a.id, questionCode: "period_needed", subject: "", answer: { asOf: "2026-04-02", fy: "2025-26" }, expectSeq: ca.serverSeq }),
+    ).rejects.toThrow(/does not fit/);
+    ca = await p.owner.ingest.answer.set({ candidateId: a.id, questionCode: "period_needed", subject: "", answer: { asOf: "2025-10-31" }, expectSeq: ca.serverSeq });
+    expect((await p.owner.ingest.candidate.get({ candidateId: b.id })).state).toBe("processing");
+    await pump(p.owner, b.id);
+    const row = (await p.owner.ingest.rows.list({ candidateId: b.id })).items[0]!;
+    expect(row.values?.orderDate).toBe("2025-10-31");
+  });
+
+  test("period.confirm sends an approved order sheet back to checking, with its approval cleared", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(p.companyId, p.users.owner.id, undated(), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-10-31" });
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c.state).toBe("approved");
+    await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2026-03-31" });
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.state).toBe("processing");
+    await pump(p.owner, id);
+    expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.values?.orderDate).toBe("2026-03-31");
+  });
+});
