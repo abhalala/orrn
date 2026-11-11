@@ -1,7 +1,8 @@
-import { formatKg, gToKg } from "@orrn/domain";
+import { formatKg, gToKg, type Fmt } from "@orrn/domain";
 import type { Locale, MessageKey } from "@orrn/i18n";
 
 import { rejectionMessage, type ScanMessage } from "@/features/scan/scan-outcome";
+import { bandEndText } from "@/shared/lib/fmt-text";
 
 /** Plant default when the company has no timezone set (dashboard.today uses the same). */
 export const DEFAULT_TIMEZONE = "Asia/Kolkata";
@@ -47,10 +48,10 @@ export function formatWhen(
 }
 
 /** A die's band (grams per 12 ft) as `2.40-2.60` kg, or null when the die has none. */
-export function formatKgBand(minG: number, maxG: number): string | null {
+export function formatKgBand(minG: number, maxG: number, fmt?: Fmt): string | null {
   if (!(maxG > 0)) return null;
-  const lo = formatKg(gToKg(minG));
-  const hi = formatKg(gToKg(maxG));
+  const lo = fmt ? bandEndText(fmt, minG) : formatKg(gToKg(minG));
+  const hi = fmt ? bandEndText(fmt, maxG) : formatKg(gToKg(maxG));
   return lo === hi ? lo : `${lo}-${hi}`;
 }
 

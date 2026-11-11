@@ -15,7 +15,7 @@
  *   rateText    rateText                                            rupees per kg, two decimals, plain
  *   countText   pcsText, countText                                  whole pieces, grouped
  */
-import type { Fmt } from "@orrn/domain";
+import { formatKg, gToKg, type Fmt } from "@orrn/domain";
 
 const MASS = "order.weight";
 const BAND = "die.band";
@@ -27,9 +27,19 @@ export const kgPlain3 = (fmt: Fmt, grams: number): string => fmt.n(MASS, grams, 
 export const kgTrim = (fmt: Fmt, grams: number): string => fmt.n(MASS, grams, "screen", { trim: true });
 export const kgPlainTrim = (fmt: Fmt, grams: number): string => fmt.n(MASS, grams, "export", { trim: true });
 export const sectionText = (fmt: Fmt, gramsPer12ft: number): string => fmt.n(BAND, gramsPer12ft, "export");
+/** `kg12Text`: grams per 12 ft as the section-weight text, or null without one. */
+export const sectionOrNull = (fmt: Fmt, gramsPer12ft: number | null | undefined): string | null =>
+  gramsPer12ft == null ? null : sectionText(fmt, gramsPer12ft);
 export const rateText = (fmt: Fmt, paisePerKg: number): string => fmt.n("order.rate", paisePerKg, "export");
 export const countText = (fmt: Fmt, n: number): string => fmt.n("bundle.pieces", n);
 export const rupeeText = (fmt: Fmt, paise: number): string => fmt.money(paise, "export");
+
+/**
+ * One end of a die's weight band (grams per 12 ft): "2.40" in kg/12ft at two decimals as the stock and die screens
+ * print it, three decimals in kg/m or lb/ft (those have no older wording to keep).
+ */
+export const bandEndText = (fmt: Fmt, gramsPer12ft: number): string =>
+  fmt.unitOf("linear_mass").id === "kg_12ft" ? formatKg(gToKg(gramsPer12ft)) : fmt.n(BAND, gramsPer12ft, "screen");
 
 /** The unit symbol for a column header or a suffix: "kg", "lb", "t". */
 export const massUnit = (fmt: Fmt): string => fmt.unitOf("mass").symbol;

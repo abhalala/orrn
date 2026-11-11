@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -16,6 +15,8 @@ import { StockTotals } from "@/features/stock/stock-totals";
 import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/stock/yards")({
   // The yard filter makes no sense on a view of every yard.
@@ -115,6 +116,7 @@ function StockYards() {
 }
 
 function YardCard({ y, filter }: { y: YardRow; filter: Record<string, unknown> }) {
+  const fmt = useFmt();
   const { t } = useT();
   const empty = y.bundles === 0;
   return (
@@ -127,7 +129,7 @@ function YardCard({ y, filter }: { y: YardRow; filter: Record<string, unknown> }
         {y.name && y.name !== y.code ? <span className="min-w-0 truncate text-[13px] text-muted-foreground">{y.name}</span> : null}
       </div>
       <p data-no-truncate="" className="m-0 font-display text-[28px] leading-none font-extrabold tracking-[-0.03em] tabular-nums" data-testid="yard-kg">
-        {formatKgTotal(gToKg(y.weightG))} <span className="text-[15px] font-semibold text-muted-foreground">{t("units.kg")}</span>
+        {kgGrouped1(fmt, (y.weightG))} <span className="text-[15px] font-semibold text-muted-foreground">{massUnit(fmt)}</span>
       </p>
       <p className="m-0 text-[14px] text-muted-foreground tabular-nums">
         {t("stock.yardLine", { bundles: y.bundles.toLocaleString("en-IN"), sections: y.sections })}
@@ -138,7 +140,7 @@ function YardCard({ y, filter }: { y: YardRow; filter: Record<string, unknown> }
           {y.top.map((s) => (
             <li key={s.dieId} className="flex min-w-0 items-baseline justify-between gap-2">
               <span className="min-w-0 truncate font-medium">{sectionLabel({ series: s.series, sectionCode: s.sectionCode })}</span>
-              <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{formatKgTotal(gToKg(s.weightG))}</span>
+              <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{kgGrouped1(fmt, (s.weightG))}</span>
             </li>
           ))}
         </ul>

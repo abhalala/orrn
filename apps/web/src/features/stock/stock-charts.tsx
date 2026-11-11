@@ -3,23 +3,25 @@
  * roles only, and loaded with `lazy()` from the Sections screen so the chart
  * kit never reaches the entry chunk or a floor role's download.
  */
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BarChart, ChartCard, RankedBars, barTable, rankedTable } from "@orrn/ui/charts";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ageBars, topSectionRows } from "./charts-data";
 import { failedWithoutData } from "./section-page";
 
-// An empty age bucket reads "0 kg", not "0.0 kg".
-const kg = (v: number) => (v === 0 ? "0 kg" : `${formatKgTotal(v)} kg`);
 const PLOT_HEIGHT = 220;
 
 export default function StockCharts({ labelFor }: { labelFor(dieId: string): string | undefined }) {
   const { t } = useT();
+  const fmt = useFmt();
+  // An empty age bucket reads "0 kg", not "0.0 kg". Chart values are kg; the label shows the same weight in the plant's unit.
+  const kg = (v: number) => (v === 0 ? `0 ${massUnit(fmt)}` : `${kgGrouped1(fmt, Math.round(v * 1000))} ${massUnit(fmt)}`);
   const ageing = useQuery(trpc.analytics.stockAgeing.queryOptions());
   const data = ageing.data;
 
@@ -51,7 +53,7 @@ export default function StockCharts({ labelFor }: { labelFor(dieId: string): str
           t,
           format: kg,
           labelHeader: t("stock.charts.ageHeader"),
-          valueHeader: t("stock.charts.kgHeader"),
+          valueHeader: t("stock.charts.kgHeader", { massUnit: massUnit(fmt) }),
         })}
       >
         <BarChart data={bars} format={kg} ordinal height={PLOT_HEIGHT} label={t("stock.charts.ageLabel")} />
@@ -69,7 +71,7 @@ export default function StockCharts({ labelFor }: { labelFor(dieId: string): str
         table={rankedTable(top.rows, {
           t,
           format: kg,
-          valueHeader: t("stock.charts.kgHeader"),
+          valueHeader: t("stock.charts.kgHeader", { massUnit: massUnit(fmt) }),
           other: top.other,
           otherLabel: t("stock.charts.otherSections"),
         })}

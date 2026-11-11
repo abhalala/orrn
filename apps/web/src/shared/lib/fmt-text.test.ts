@@ -11,12 +11,13 @@ import { kgGroupedText, milliKgText } from "@/features/die-room/die-room-model";
 import { dayText as oldDayText, dayTimeText as oldDayTimeText, kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText as oldRateText } from "@/features/orders/format";
 import { kgText as purchaseKgText } from "@/features/purchase/format";
 import { kgText as reportsKgText } from "@/features/reports/model";
-import { formatWhen } from "@/features/stock/format";
+import { formatKgBand, formatWhen } from "@/features/stock/format";
+import { kg12Text } from "@/features/pack/line-preview";
 import { formatRupees } from "@/features/today/today-model";
 
 import {
-  countText, dayText, dayTimeText, kgGrouped1, kgGrouped2, kgGrouped3, kgPlain3, kgPlainTrim, kgTrim, lengthUnitText, massUnit, rateText,
-  rupeeText, sectionText, sectionUnit, whenText,
+  bandEndText, countText, dayText, dayTimeText, kgGrouped1, kgGrouped2, kgGrouped3, kgPlain3, kgPlainTrim, kgTrim, lengthUnitText, massUnit, rateText,
+  rupeeText, sectionOrNull, sectionText, sectionUnit, whenText,
 } from "./fmt-text";
 
 function mulberry(seed: number) {
@@ -76,6 +77,27 @@ describe("kg text under the default set equals each old helper", () => {
   });
   test("die-model kgText: plain, zeros dropped", () => {
     for (const g of values) expect(kgPlainTrim(fmt, g)).toBe(dieKgText(g));
+  });
+});
+
+describe("section weight and die bands", () => {
+  test("kg12Text equals sectionOrNull over 10,000 values, and null stays null", () => {
+    const r = mulberry(3);
+    for (let i = 0; i < N; i++) {
+      const milli = i < 100 ? i : Math.floor(r() * 100_000);
+      expect(sectionOrNull(fmt, milli)).toBe(kg12Text(milli));
+    }
+    expect(sectionOrNull(fmt, null)).toBeNull();
+    expect(kg12Text(null)).toBeNull();
+  });
+  test("formatKgBand with the default Fmt equals the old call without one", () => {
+    const r = mulberry(5);
+    for (let i = 0; i < N; i++) {
+      const lo = Math.floor(r() * 30_000);
+      const hi = i % 7 === 0 ? 0 : lo + Math.floor(r() * 3_000);
+      expect(formatKgBand(lo, hi, fmt)).toBe(formatKgBand(lo, hi));
+    }
+    expect(bandEndText(formatterFor(screenPrefs({ units: { linear_mass: "lb_ft" } }), IST), 2400)).toBe("0.441");
   });
 });
 

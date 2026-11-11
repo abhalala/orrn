@@ -1,4 +1,4 @@
-import { formatKg, formatLength, gToKg, type LengthUnit } from "@orrn/domain";
+import { formatKg, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Link } from "@tanstack/react-router";
@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 
 import { bandText, driftChipTone, driftText, kg12Text, positionKey, positionTone, type ServerDriftTone, type ServerPosition } from "@/features/pack/line-preview";
 import { partyNoLabel } from "@/features/pack/party";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
 
 type Fact = { key: string; label: string; value: ReactNode; mono?: boolean };
 
@@ -68,6 +70,7 @@ export function BundleFacts({
   lengthUnit: LengthUnit;
   packedAt: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const k12 = kg12Text(bundle.kgPer12ftMilli);
   const key = positionKey(band.position);
@@ -77,9 +80,9 @@ export function BundleFacts({
   const bandRange = band.minG != null && band.maxG != null ? bandText({ minG: band.minG, maxG: band.maxG }) : null;
 
   const facts: Fact[] = [
-    { key: "weight", label: t("bundle.facts.weight"), value: `${formatKg(gToKg(bundle.weightG))} kg`, mono: true },
+    { key: "weight", label: t("bundle.facts.weight"), value: `${kgGrouped2(fmt, (bundle.weightG))} ${massUnit(fmt)}`, mono: true },
     { key: "pieces", label: t("bundle.facts.pieces"), value: String(bundle.quantity), mono: true },
-    { key: "length", label: t("bundle.facts.cutLength"), value: formatLength(bundle.lengthMm, lengthUnit), mono: true },
+    { key: "length", label: t("bundle.facts.cutLength"), value: fmt.q("bundle.length", bundle.lengthMm), mono: true },
     {
       key: "kg12",
       label: t("bundle.facts.kgPer12ft"),

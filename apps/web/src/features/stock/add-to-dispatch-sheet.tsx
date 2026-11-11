@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -14,6 +13,8 @@ import { addOutcome, ageingDispatchRefusal, renderScanMessage, resultOutcome, ty
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 
 /**
@@ -35,6 +36,7 @@ export function AddToDispatchSheet({
   /** One line under the title: the bundle and its weight. */
   description: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -164,7 +166,7 @@ export function AddToDispatchSheet({
                     <span className="text-[13px] leading-5 text-muted-foreground tabular-nums">
                       {t("units.bundlesKg", {
                         bundles: Number(d.itemCount),
-                        kg: formatKgTotal(gToKg(Number(d.totalWeightG))),
+                        kg: kgGrouped1(fmt, (Number(d.totalWeightG))),
                       })}
                     </span>
                   </span>

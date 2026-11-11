@@ -1,7 +1,8 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Skeleton } from "@orrn/ui/components/skeleton";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Sum = { bundles: number; pcs: number; weightG: number };
 type KindTotals = Record<"hollow" | "solid" | "semi" | "none", Sum>;
@@ -29,11 +30,12 @@ export function StockTotals({
   byStatus?: Record<(typeof STATUSES)[number], Sum>;
   loading: boolean;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (loading || !stock) return <Skeleton className="h-6 w-72" />;
   const { inStock, held, kindTotals } = stock;
   const shown = (["hollow", "solid", "semi"] as const).filter((k) => kindTotals[k].bundles > 0);
-  const kg = (g: number) => formatKgTotal(gToKg(g));
+  const kg = (g: number) => kgGrouped1(fmt, (g));
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="stock-totals">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
@@ -43,18 +45,18 @@ export function StockTotals({
           data-in-stock-g={inStock.weightG}
           data-in-stock-bundles={inStock.bundles}
         >
-          {t("stock.totals", { bundles: inStock.bundles.toLocaleString("en-IN"), kg: kg(inStock.weightG) })}
+          {t("stock.totals", { massUnit: massUnit(fmt), bundles: inStock.bundles.toLocaleString("en-IN"), kg: kg(inStock.weightG) })}
           {` · ${inStock.pcs.toLocaleString("en-IN")} ${t("units.pcs")}`}
         </p>
         {held.bundles > 0 ? (
           <Chip tone="blue" data-testid="stock-held" data-held-g={held.weightG}>
-            {t("stock.heldKg", { count: held.bundles.toLocaleString("en-IN"), kg: kg(held.weightG) })}
+            {t("stock.heldKg", { massUnit: massUnit(fmt), count: held.bundles.toLocaleString("en-IN"), kg: kg(held.weightG) })}
           </Chip>
         ) : null}
       </div>
       {listed ? (
         <p className="m-0 text-[14px] leading-6 text-muted-foreground tabular-nums" data-testid="stock-listed">
-          {t("stock.listed", { bundles: listed.bundles.toLocaleString("en-IN"), kg: kg(listed.weightG) })}
+          {t("stock.listed", { massUnit: massUnit(fmt), bundles: listed.bundles.toLocaleString("en-IN"), kg: kg(listed.weightG) })}
           {byStatus
             ? STATUSES.filter((s) => byStatus[s].bundles > 0)
                 .map((s) => ` · ${t(`status.bundle.${s}`)} ${byStatus[s].bundles.toLocaleString("en-IN")}`)
@@ -70,7 +72,7 @@ export function StockTotals({
               data-kind={k}
               className="rounded-full border border-border bg-card px-3 py-1 text-[13px] font-medium tabular-nums"
             >
-              {t(`packingList.v2.summary.${k}`)}: {t("stock.totals", { bundles: kindTotals[k].bundles.toLocaleString("en-IN"), kg: kg(kindTotals[k].weightG) })}
+              {t(`packingList.v2.summary.${k}`)}: {t("stock.totals", { massUnit: massUnit(fmt), bundles: kindTotals[k].bundles.toLocaleString("en-IN"), kg: kg(kindTotals[k].weightG) })}
             </li>
           ))}
         </ul>

@@ -877,10 +877,10 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `sections` | Sections | सेक्शन |
 | `bundles` | Bundles | Bundle |
 | `searchSections` | Search die or section | Die या सेक्शन खोजें |
-| `totals` | {bundles} {bundles:bundle\|bundles} · {kg} kg in stock | स्टॉक में {bundles} bundle · {kg} kg |
-| `listed` | {bundles} {bundles:bundle\|bundles} · {kg} kg listed | लिस्ट में {bundles} bundle · {kg} kg |
+| `totals` | {bundles} {bundles:bundle\|bundles} · {kg} {massUnit} in stock | स्टॉक में {bundles} bundle · {kg} {massUnit} |
+| `listed` | {bundles} {bundles:bundle\|bundles} · {kg} {massUnit} listed | लिस्ट में {bundles} bundle · {kg} {massUnit} |
 | `heldChip` | {count} held | {count} होल्ड पर |
-| `heldKg` | {count} held, {kg} kg | {count} होल्ड पर, {kg} kg |
+| `heldKg` | {count} held, {kg} {massUnit} | {count} होल्ड पर, {kg} {massUnit} |
 | `empty` | No stock yet. Bundles show up here after packing. | अभी स्टॉक नहीं है। पैकिंग के बाद bundle यहां दिखेंगे। |
 | `emptyAction` | Start a packing session | पैकिंग सेशन शुरू करें |
 | `view` | Stock view | स्टॉक व्यू |
@@ -894,13 +894,13 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `reprintFailed` | The label didn't print. Check that the print station is on, then try again. | लेबल प्रिंट नहीं हुआ। देखें कि प्रिंट स्टेशन चालू है, फिर दोबारा कोशिश करें। |
 | `block.unitInStock` | {count:bundle\|bundles} in stock | {count:bundle\|bundle} स्टॉक में |
 | `block.unitHeld` | {count:bundle\|bundles} held | {count:bundle\|bundle} होल्ड पर |
-| `block.band` | {band} kg/12ft | {band} kg/12ft |
-| `block.kg` | {kg} kg | {kg} kg |
+| `block.band` | {band} {sectionUnit} | {band} {sectionUnit} |
+| `block.kg` | {kg} {massUnit} | {kg} {massUnit} |
 | `charts.ageTitle` | Stock age | स्टॉक कितना पुराना |
 | `charts.ageSubtitle` | kg in stock, by days since packing | स्टॉक में kg, पैकिंग के बाद के दिनों के हिसाब से |
 | `charts.ageLabel` | Stock age, kg by days since packing | स्टॉक की उम्र, पैकिंग के बाद के दिनों के हिसाब से kg |
 | `charts.ageHeader` | Age | उम्र |
-| `charts.kgHeader` | kg | kg |
+| `charts.kgHeader` | {massUnit} | {massUnit} |
 | `charts.bucket` | {range} days | {range} दिन |
 | `charts.topTitle` | Top sections | सबसे ज़्यादा स्टॉक वाले सेक्शन |
 | `charts.topSubtitle` | kg in stock per section, top 8 and the rest | हर सेक्शन का स्टॉक में kg, टॉप 8 और बाकी |
@@ -927,11 +927,11 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `columns.serial` | Serial | Serial |
 | `columns.die` | Die | Die |
 | `columns.section` | Section | सेक्शन |
-| `columns.weight` | Weight (kg) | वज़न (kg) |
+| `columns.weight` | Weight ({massUnit}) | वज़न ({massUnit}) |
 | `columns.pieces` | Pcs | पीस |
 | `columns.cutLength` | Cut length | कट लंबाई |
 | `columns.piecesLength` | Pcs × cut length | पीस × कट लंबाई |
-| `columns.kgPer12ft` | kg/12ft | kg/12ft |
+| `columns.kgPer12ft` | {sectionUnit} | {sectionUnit} |
 | `columns.status` | Status | स्टेटस |
 | `columns.po` | PO | PO |
 | `columns.packed` | Packed | पैक हुआ |
