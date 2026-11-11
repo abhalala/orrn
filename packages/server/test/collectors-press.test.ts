@@ -461,6 +461,12 @@ describe("press_alert evaluation", () => {
     await expect(caller.press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1, more: false });
     const remaining = await env.db.select({ id: pressAlert.id }).from(pressAlert).where(and(eq(pressAlert.companyId, p.companyId), isNull(pressAlert.acknowledgedAt)));
     expect(remaining).toEqual([]);
+    const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "press.alert.ackEnded")));
+    expect(audits.map((row) => row.meta)).toEqual([{ acknowledged: 2_000 }, { acknowledged: 1 }]);
+
+    await expect(caller.press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 0, more: false });
+    const repeatedAudits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "press.alert.ackEnded")));
+    expect(repeatedAudits).toHaveLength(2);
   });
 
   test("no thresholds, no alerts; setThreshold refuses an empty or inverted band", async () => {

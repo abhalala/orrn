@@ -15,6 +15,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { auditLog } from "@orrn/db/schema";
 import {
   pressAlert,
   pressAlertMetrics,
@@ -23,7 +24,7 @@ import {
 import { pressLine, pressRun } from "@orrn/db/schema/press";
 
 import { actionProcedure, companyProcedure, router } from "../index";
-import { auditInsert, writeAudit } from "../lib/audit";
+import { auditInsert } from "../lib/audit";
 import { atomicBatch, atomicBatchLast, chunk, IN_LIST_CHUNK } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
@@ -200,28 +201,36 @@ export const pressCollectorRouter = router({
           ),
       );
       const idJson = JSON.stringify(ids);
+      const stamped = and(
+        eq(pressAlert.companyId, ctx.companyId),
+        eq(pressAlert.acknowledgedAt, acknowledgedAt),
+        eq(pressAlert.acknowledgedBy, ctx.session.user.id),
+        sql`${pressAlert.id} in (select j.value from json_each(${idJson}) j)`,
+      );
+      const audit = ctx.db.insert(auditLog).select(
+        ctx.db
+          .select({
+            id: sql<string>`${createId()}`.as("id"),
+            companyId: sql<string>`${ctx.companyId}`.as("company_id"),
+            actorId: sql<string>`${ctx.session.user.id}`.as("actor_id"),
+            impersonatorId: sql<string | null>`${ctx.impersonation?.actorUserId ?? null}`.as("impersonator_id"),
+            action: sql<string>`'press.alert.ackEnded'`.as("action"),
+            subjectType: sql<string>`'company'`.as("subject_type"),
+            subjectId: sql<string>`${ctx.companyId}`.as("subject_id"),
+            meta: sql<string>`json_object('acknowledged', (select count(*) from press_alert where ${stamped}))`.as("meta"),
+            at: sql<number>`${nowMs}`.as("at"),
+          })
+          .from(pressAlert)
+          .where(stamped)
+          .limit(1),
+      );
       const [countRow] = await atomicBatchLast<{ n: number }>(ctx.db, [
         ...updates,
-        ctx.db
-          .select({ n: sql<number>`count(*)` })
-          .from(pressAlert)
-          .where(
-            and(
-              eq(pressAlert.companyId, ctx.companyId),
-              eq(pressAlert.acknowledgedAt, acknowledgedAt),
-              eq(pressAlert.acknowledgedBy, ctx.session.user.id),
-              sql`${pressAlert.id} in (select j.value from json_each(${idJson}) j)`,
-            ),
-          ),
+        audit,
+        ctx.db.select({ n: sql<number>`count(*)` }).from(pressAlert).where(stamped),
       ]);
       acknowledged = Number(countRow?.n ?? 0);
     }
-    await writeAudit(ctx, {
-      action: "press.alert.ackEnded",
-      subjectType: "company",
-      subjectId: ctx.companyId,
-      meta: { acknowledged },
-    });
     return { acknowledged, more: ids.length === 2000 };
   }),
 
