@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { HintError, readSheet } from "./blocks";
+import { findBlocks, HintError, readSheet } from "./blocks";
 import { readPdfText, type TextItem } from "./pdf-text";
 import type { BlockHints } from "./types";
 
@@ -47,4 +47,49 @@ describe("R3-8: a hint that is not well formed is a HintError", () => {
       expect((err as HintError).code).toBe("hint_out_of_range");
     });
   }
+});
+
+describe("R3-7: a hint for one block leaves the other blocks to the guess", () => {
+  const m = [["Stock statement"], ["Party", "Qty"], ["Om", 1], ["Kamal", 2], [], ["Section", "Kg"], ["T 4012", 3], ["R 2105", 4]];
+
+  test("a hint on the first table keeps the second table as guessed", () => {
+    const r = readSheet(m, { hints: [{ headerRow: 1 }] });
+    expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
+    expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
+    expect(r.blocks[0]!.title).toBe("Stock statement");
+    expect(r.blocks[0]!.confidence).toBe("sure");
+    expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
+    expect(r.blocks[1]!.hints).toBeNull();
+    expect(r.blocks[1]!.confidence).toBe("unsure");
+  });
+
+  test("a hint on the second table keeps the first table as guessed", () => {
+    const r = readSheet(m, { hints: [{ headerRow: 5 }] });
+    expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
+    expect(r.blocks[0]!.title).toBe("Stock statement");
+    expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
+    expect(r.blocks[1]!.title).toBeNull();
+    expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
+    expect(r.blocks[1]!.confidence).toBe("sure");
+  });
+
+  test("a table the guess joined to the one above: the hint splits it, the part above is guessed again", () => {
+    const merged = [["Party", "Qty"], ["Om", 1], ["Kamal", 2], ["Section", "Kg"], ["T 4012", 3]];
+    expect(findBlocks(merged).length).toBe(1);
+    const blocks = findBlocks(merged, { hints: [{ headerRow: 3 }] });
+    expect(blocks.map((b) => [b.headers, b.rows, b.title])).toEqual([
+      [["Party", "Qty"], [["Om", "1"], ["Kamal", "2"]], null],
+      [["Section", "Kg"], [["T 4012", "3"]], null],
+    ]);
+    expect(blocks[0]!.confidence).toBe("unsure");
+  });
+
+  test("a row of two or more cells kept as the title of a hinted block is a warning", () => {
+    const m2 = [["Fourcubes Extrusions", "Rajkot"], ["Section", 12, 16], ["T 4012", 20, 30]];
+    const r = readSheet(m2, { hints: [{ headerRow: 1 }] });
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.title).toBe("Fourcubes Extrusions Rajkot");
+    expect(r.blocks[0]!.warnings).toEqual([{ code: "kept_as_title", row: 0 }]);
+    expect(r.warnings).toEqual([]);
+  });
 });

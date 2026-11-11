@@ -366,45 +366,107 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
   return { headers: headers.slice(0, width), rows: data.map((r) => r.slice(0, width)) };
 }
 
-/** Follow the hints exactly: no header search, no title test, no table split. */
+/**
+ * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7). The rest of
+ * the sheet keeps the guess, so a hint for one table does not swallow or drop another:
+ * - A hinted block without a last data row ends before the next hinted header or before the next block the guess
+ *   found, whichever comes first.
+ * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
+ *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when they hold a
+ *   number or a date; otherwise those rows are the hinted block's title.
+ * - Rows between blocks that no guessed block takes are the title of the hinted block below them (a row of two or more
+ *   cells there is listed as `kept_as_title`), else `after_last_row` of the hinted block above, else sheet warnings.
+ */
 function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], sheetName: string | null): SheetRead {
   const n = rows.length;
   for (const h of hintsIn) checkHintShape(h);
   const hints = [...hintsIn].sort((a, b) => a.headerRow - b.headerRow);
-  const blocks: ReadBlock[] = [];
-  let regionStart = 0;
+  const full = guessRange(rows, 0, n, sheetName).blocks;
+  const regionOf = (b: ReadBlock) => [b.preview[0]?.row ?? b.guess.headerRow, Math.max(b.guess.lastDataRow ?? -1, b.guess.headerRow + b.headerRows - 1)] as const;
+  type Span = { hint: BlockHints; h: number; headerRows: 1 | 2; first: number; last: number };
+  const spans: Span[] = [];
+  let prevLast = -1;
   hints.forEach((hint, x) => {
     const h = hint.headerRow;
     const headerRows = hint.headerRows ?? 1;
-    if (!Number.isInteger(h) || h < 0 || h + headerRows > n) throw new HintError("hint_out_of_range", `header row ${h} is not in the sheet`);
-    if (h < regionStart) throw new HintError("hint_overlap", `header row ${h} is inside the block above`);
+    if (h < 0 || h + headerRows > n) throw new HintError("hint_out_of_range", `header row ${h} is not in the sheet`);
+    if (h <= prevLast) throw new HintError("hint_overlap", `header row ${h} is inside the block above`);
     const next = hints[x + 1];
     const first = hint.firstDataRow ?? h + headerRows;
-    const last = hint.lastDataRow ?? (next ? next.headerRow - 1 : n - 1);
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
+    const stop = full.map((b) => regionOf(b)[0]).find((g) => g > Math.max(h + headerRows - 1, first - 1));
+    const last = hint.lastDataRow ?? Math.min(next ? next.headerRow - 1 : n - 1, stop !== undefined ? stop - 1 : n - 1);
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
+    spans.push({ hint, h, headerRows, first, last });
+    prevLast = last;
+  });
 
+  // The guessed blocks that stay: outside every hinted region, or cut short above one.
+  const keptGuess: ReadBlock[] = [];
+  for (const b of full) {
+    const [start, end] = regionOf(b);
+    const hit = spans.find((sp) => start <= sp.last && end >= sp.h);
+    if (!hit) {
+      keptGuess.push(b);
+      continue;
+    }
+    const dataFrom = b.guess.firstDataRow!;
+    if (b.guess.headerRow + b.headerRows - 1 >= hit.h || dataFrom >= hit.h) continue;
+    const cut = lastFilled(rows as string[][], dataFrom, hit.h - 1);
+    const data = rows.slice(dataFrom, cut + 1);
+    if (!data.some((r) => r.some(isNumberish))) continue;
+    const top = rows[b.guess.headerRow]!;
+    const shaped = finishShape(b.headerRows === 2 ? combineHeaders(top, rows[b.guess.headerRow + 1]!) : top, data);
+    const block: ReadBlock = { ...b, headers: shaped.headers, rows: shaped.rows, preview: previewRows(rows, start, hit.h), guess: { ...b.guess, lastDataRow: cut } };
+    block.reasons = unsureReasons({ hasTitle: b.title !== null, topRow: top, headerRows: b.headerRows, headers: block.headers, rows: block.rows });
+    keptGuess.push(block);
+  }
+
+  const blocks: ReadBlock[] = [];
+  const warnings: RowWarning[] = [];
+  let prevHinted: ReadBlock | null = null;
+  /** Rows `from` to `to`: the guessed blocks there, and the first row of the hinted block's title below (or `to`). */
+  const gap = (from: number, to: number, before: boolean): number => {
+    const inKept = new Set<number>();
+    let covered = from - 1;
+    for (const b of keptGuess) {
+      const [start, end] = regionOf(b);
+      if (start < from || start >= to) continue;
+      blocks.push(b);
+      for (let r = start; r <= end; r++) inKept.add(r);
+      covered = Math.max(covered, end);
+    }
+    for (let r = from; r < to; r++) {
+      if (inKept.has(r) || nonBlank(rows[r]!) === 0 || (before && r > covered)) continue;
+      if (prevHinted) prevHinted.warnings.push({ code: "after_last_row", row: r });
+      else warnings.push({ code: "not_placed", row: r });
+    }
+    return before ? covered + 1 : to;
+  };
+
+  let from = 0;
+  for (const { hint, h, headerRows, first, last } of spans) {
+    const titleFrom = gap(from, h, true);
     let start = h;
-    for (let r = regionStart; r < h; r++) {
+    for (let r = titleFrom; r < h; r++) {
       if (nonBlank(rows[r]!) > 0) {
         start = r;
         break;
       }
     }
     const titleParts: string[] = [];
+    const blockWarnings: RowWarning[] = [];
     for (let r = start; r < h; r++) {
       const cells = rows[r]!.filter((c) => c !== "");
       if (cells.length > 0) titleParts.push(cells.join(" "));
+      if (cells.length >= 2) blockWarnings.push({ code: "kept_as_title", row: r });
     }
     const headers = headerRows === 2 ? combineHeaders(rows[h]!, rows[h + 1]!) : rows[h]!;
-    const warnings: RowWarning[] = [];
-    for (let r = h + headerRows; r < first; r++) if (nonBlank(rows[r]!) > 0) warnings.push({ code: "skipped_by_hint", row: r });
+    for (let r = h + headerRows; r < first; r++) if (nonBlank(rows[r]!) > 0) blockWarnings.push({ code: "skipped_by_hint", row: r });
     const end = lastFilled(rows as string[][], first, last);
     const shaped = finishShape(headers, rows.slice(first, end + 1));
-    if (!next) for (let r = last + 1; r < n; r++) if (nonBlank(rows[r]!) > 0) warnings.push({ code: "after_last_row", row: r });
-    const guess: BlockHints = { headerRow: h, headerRows, firstDataRow: first, lastDataRow: end };
-    blocks.push({
+    const block: ReadBlock = {
       sheetName,
       title: titleParts.length > 0 ? titleParts.join(" ") : null,
       headerRow: h - start,
@@ -415,13 +477,17 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       confidence: "sure",
       reasons: [],
       preview: previewRows(rows, start, Math.max(last + 1, h + headerRows)),
-      guess,
+      guess: { headerRow: h, headerRows, firstDataRow: first, lastDataRow: end },
       hints: { ...hint },
-      warnings,
-    });
-    regionStart = last + 1;
-  });
-  return { blocks, warnings: [] };
+      warnings: blockWarnings,
+    };
+    blocks.push(block);
+    prevHinted = block;
+    from = last + 1;
+  }
+  gap(from, n, false);
+  finishGuess(blocks.filter((b) => b.hints === null), blocks, warnings);
+  return { blocks, warnings };
 }
 
 /**
