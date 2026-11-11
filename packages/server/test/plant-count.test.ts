@@ -9,10 +9,10 @@
  * the void posts reversal rows. Found / moved bundles move to where they were seen.
  * Review Focus 1 is re-asserted: ledger balance per bundle and per location = the bundle rows.
  */
-import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, spyOn, test } from "bun:test";
 
 import { approval, auditLog, bundle, bundleStatusEvent, company, countLine, countLocation, countSeen, countSession, countTally, legacyBundleMap, salesOrder, salesOrderLine, stockLedger } from "@orrn/db/schema";
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 
 import { APPROVAL_APPLIERS } from "../src/lib/approvalApply";
 import { atomicBatch } from "../src/lib/atomic";
@@ -764,6 +764,48 @@ describe("count.resolve void_phantom", () => {
     expect(releases).toHaveLength(1);
     expect(releases[0]).toMatchObject({ subjectType: "sales_order_line", subjectId: lineId });
     expect(releases[0]!.meta).toMatchObject({ reason: "voided", orderId, bundleIds: [phantoms[0]!.id], serials: [phantoms[0]!.serial] });
+  });
+
+  test("approval reads 120 phantom holds in two chunks and releases them all", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(120);
+    const orderId = crypto.randomUUID();
+    const lineId = crypto.randomUUID();
+    await env.db.insert(salesOrder).values({
+      id: orderId,
+      companyId: p.companyId,
+      period: "2026-27",
+      number: "SO-1",
+      customerId: p.customerId,
+      orderDate: "2026-11-11",
+      status: "confirmed",
+    });
+    await env.db.insert(salesOrderLine).values({
+      id: lineId,
+      companyId: p.companyId,
+      salesOrderId: orderId,
+      lineNo: 1,
+      dieId: p.dieId,
+      cutLengthMm: 3_658,
+      kgG: 3_000_000,
+    });
+    const ids = phantoms.map((row) => row.id);
+    for (let i = 0; i < ids.length; i += 90) {
+      await env.db.update(bundle).set({ heldForLineId: lineId, heldAt: new Date() }).where(inArray(bundle.id, ids.slice(i, i + 90)));
+    }
+    const res = voided(await p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: ids }));
+    const select = spyOn(env.db, "select");
+    try {
+      await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+      const holdReads = select.mock.calls.filter(([fields]) => fields && typeof fields === "object" && "heldAt" in fields && "customerName" in fields);
+      expect(holdReads).toHaveLength(2);
+    } finally {
+      select.mockRestore();
+    }
+
+    const bundles = await env.db.select().from(bundle).where(eq(bundle.companyId, p.companyId));
+    expect(bundles.every((row) => row.heldForLineId === null && row.heldAt === null)).toBe(true);
+    const releases = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "order.release")));
+    expect(releases).toHaveLength(120);
   });
 
   test("rejection puts the lines back to open; no ledger rows; bundles stay available; a new request can follow", async () => {

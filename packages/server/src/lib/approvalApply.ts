@@ -15,7 +15,7 @@ import { stillPhantomOfLine } from "./count";
 import { billetStoreRetiredMessage, boriMeltedMessage, castTailAdjustRow, dcNoteOverdrawAbort, foundryAbort, isFoundryAbort, lotRemaining } from "./foundry";
 import { dcNoteDeductionRows, phantomVoidRows, sqlUuid } from "./ledger";
 import { ageingOverrideDecision } from "./ageing";
-import { releaseOnVoidStatements } from "./orderHold";
+import { holdsOf, releaseOnVoidStatement } from "./orderHold";
 import { pressLateEntryDecision, pressReopenDecision, pressTimeDecision } from "./press";
 import { reallocateDecision, reallocatePrepare } from "./reallocate";
 
@@ -57,16 +57,16 @@ async function phantomVoidHoldRelease(
         eq(countLine.resolution, "void_requested"),
       ),
     );
-  const statements: SqliteBatchItem[] = [];
-  for (const { bundleId } of lines) {
-    if (!bundleId) continue;
-    statements.push(...await releaseOnVoidStatements(
-      { db: ctx.db, companyId: ctx.companyId, session: ctx.session ?? null, impersonation: ctx.impersonation ?? null },
-      bundleId,
-      and(eq(bundle.companyId, ctx.companyId), eq(bundle.id, bundleId), eq(bundle.status, "void"), eq(bundle.serverSeq, ctx.seq)),
-    ));
-  }
-  return statements;
+  const bundleIds = lines.map((line) => line.bundleId).filter((bundleId): bundleId is string => Boolean(bundleId));
+  const holds = await holdsOf(ctx.db, ctx.companyId, bundleIds);
+  const auditCtx = { db: ctx.db, companyId: ctx.companyId, session: ctx.session ?? null, impersonation: ctx.impersonation ?? null };
+  return [...holds.values()].map((hold) =>
+    releaseOnVoidStatement(
+      auditCtx,
+      hold,
+      and(eq(bundle.companyId, ctx.companyId), eq(bundle.id, hold.bundleId), eq(bundle.status, "void"), eq(bundle.serverSeq, ctx.seq)),
+    ),
+  );
 }
 
 /**

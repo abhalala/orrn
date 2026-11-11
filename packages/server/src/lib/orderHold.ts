@@ -166,10 +166,14 @@ function releaseAudits(ctx: AuditCtx, holds: readonly BundleHold[], why: Release
  * itself; this is the `order.release` audit (reason `voided`) of the hold read before the write,
  * written only when the void landed (`landed`, a WHERE on `bundle`).
  */
+export function releaseOnVoidStatement(ctx: AuditCtx, hold: BundleHold, landed: SQL | undefined): SqliteBatchItem {
+  return auditInsertGuarded(ctx, releaseAuditInput([hold], { reason: "voided" }), { from: bundle, where: landed });
+}
+
 export async function releaseOnVoidStatements(ctx: AuditCtx, bundleId: string, landed: SQL | undefined): Promise<SqliteBatchItem[]> {
   const hold = (await holdsOf(ctx.db, ctx.companyId, [bundleId])).get(bundleId);
   if (!hold) return [];
-  return [auditInsertGuarded(ctx, releaseAuditInput([hold], { reason: "voided" }), { from: bundle, where: landed })];
+  return [releaseOnVoidStatement(ctx, hold, landed)];
 }
 
 /**
