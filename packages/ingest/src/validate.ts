@@ -33,6 +33,7 @@ export const RECIPE_ERROR_CODES = [
   "on_existing_not_ask",
   "unit_not_shown",
   "unit_header_mismatch",
+  "constant_not_allowed",
 ] as const;
 export type RecipeErrorCode = (typeof RECIPE_ERROR_CODES)[number];
 
@@ -135,6 +136,9 @@ export function validateRecipe(
       if (def && def.kind !== "date") err("period_not_date", `${path}.source`, f.field);
     } else if (f.source.kind === "constant" && origin === "bot" && def && !["text", "enum", "date"].includes(def.kind)) {
       err("constant_on_numeric", `${path}.source`, f.field);
+    } else if (f.source.kind === "constant" && origin === "bot" && def && (def.kind === "date" || def.resolver !== null)) {
+      // A constant date or name lands on every row of every later file of this shape. Dates use period_as_of (C23).
+      err("constant_not_allowed", `${path}.source`, f.field);
     }
 
     if (f.steps.length > RECIPE_LIMITS.steps) err("too_many_steps", `${path}.steps`, f.field);

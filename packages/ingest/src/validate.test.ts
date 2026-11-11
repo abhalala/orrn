@@ -90,6 +90,11 @@ describe("validateRecipe", () => {
       r.fields[2]!.steps = [{ op: "number", kind: "linear_mass", unit: "g/12ft" }];
       return { recipe: r, origin: "bot" };
     },
+    constant_not_allowed: () => {
+      const r = clone(EXAMPLE_BAKI_RECIPE);
+      r.fields.find((f) => f.field === "orderDate")!.source = { kind: "constant", value: "2025-04-01" };
+      return { recipe: r, origin: "bot" };
+    },
     constant_on_numeric: () => {
       const r = clone(EXAMPLE_DIE_RECIPE);
       r.fields[2]!.source = { kind: "constant", value: "2.2" };
@@ -168,6 +173,15 @@ describe("validateRecipe", () => {
       const kept = nullUnshownUnits(recipe("Wt (kg)", "kg"), block("Wt (kg)"));
       expect(kept.fields[0]!.steps).toEqual([{ op: "number", kind: "mass", unit: "kg" }]);
     });
+  });
+
+  test("C23: the bot may not put a constant on a date or a looked-up name", () => {
+    const date = cases.constant_not_allowed().recipe;
+    expect(validateRecipe(date, bakiBlock, "bot").map((e) => e.code)).toContain("constant_not_allowed");
+    expect(validateRecipe(date, bakiBlock, "person").map((e) => e.code)).not.toContain("constant_not_allowed");
+    const name = clone(EXAMPLE_BAKI_RECIPE);
+    name.fields.find((f) => f.field === "customer")!.source = { kind: "constant", value: "ACME EXTRUSIONS" };
+    expect(validateRecipe(name, bakiBlock, "bot").map((e) => e.code)).toContain("constant_not_allowed");
   });
 
   test("a constant on text is fine for the bot", () => {
