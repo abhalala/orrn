@@ -104,6 +104,26 @@ describe("fitBlock: learned holes", () => {
     expect(r.score).toBe(880);
   });
 
+  test("C6: a hole stored with raw match headers (bot or editor) still near-fits a renamed sheet", () => {
+    const raw: LearnedHole = { ...learnedBaki(), recipe: { ...structuredClone(EXAMPLE_BAKI_RECIPE), match: { headerKey: "stored-key", headers: [...BAKI_SHEET_HEADERS] } } };
+    const headers = BAKI_SHEET_HEADERS.map((h) => (h === "Remarks" ? "Remark" : h));
+    const r = fitBlock(fingerprint({ headers, rows: bakiRows }), [raw]);
+    expect(r.fit).toBe("near");
+    expect(r.diff!.renamed).toEqual([{ col: 10, from: "remarks", to: "Remark" }]);
+    expect(r.diff!.extra).toEqual([]);
+  });
+
+  test("C6: a blank header placeholder in stored headers still lines up", () => {
+    const headers = [...BAKI_SHEET_HEADERS.slice(0, 10), ""];
+    const recipe = structuredClone(EXAMPLE_BAKI_RECIPE);
+    recipe.fields = recipe.fields.filter((f) => f.field !== "note");
+    recipe.match = { headerKey: "stored-key", headers: normalizeHeaders(headers) };
+    const withExtra = [...headers, "Truck"];
+    const r = fitBlock(fingerprint({ headers: withExtra, rows: bakiRows.map((x) => [...x.slice(0, 10), "", "GJ01"]) }), [{ ...learnedBaki(), recipe }]);
+    expect(r.fit).toBe("near");
+    expect(r.diff!.extra).toEqual([{ col: 11, header: "Truck" }]);
+  });
+
   test("a moved column is found by its header", () => {
     const order = [1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const headers = order.map((i) => BAKI_SHEET_HEADERS[i]!);

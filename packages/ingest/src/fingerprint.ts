@@ -42,6 +42,14 @@ export function normalizeHeaders(headers: readonly string[], width = headers.len
   return out;
 }
 
+/**
+ * Stored `match.headers` in normalized form. A bot or the mapping editor may store raw header text; a stored
+ * blank placeholder (`_3`) stays as it is. Normalizing twice gives the same text.
+ */
+export function normalizeStoredHeaders(headers: readonly string[]): string[] {
+  return headers.map((h, i) => (/^_\d+$/.test(h) ? h : normalizeHeader(h) || `_${i}`));
+}
+
 /** Hex SHA-256 of `"v1|"` plus the normalized headers joined by U+001F. Order matters. */
 export function headerKey(normalized: readonly string[]): string {
   return sha256Hex(`v1|${normalized.join("\u001f")}`);

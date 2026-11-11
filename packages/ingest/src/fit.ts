@@ -6,7 +6,7 @@
  * `none` so the person picks.
  */
 import { kindsCompatible } from "./cells";
-import { headerKey, normalizeHeaders } from "./fingerprint";
+import { headerKey, normalizeHeaders, normalizeStoredHeaders } from "./fingerprint";
 import type { BlockShape, CellKind, FitDiff, Recipe, RecipeField } from "./recipe";
 import type { IngestTarget } from "./states";
 import { BUILTIN_HOLES, analyzeBuiltin, builtinRef } from "./builtins";
@@ -128,7 +128,8 @@ function requiredCols(recipe: Recipe): Set<number> {
 
 export function fitLearned(block: BlockShape, hole: LearnedHole): FitCandidate | null {
   const recipe = hole.recipe;
-  const holeHeaders = recipe.match.headers;
+  // Holes made by the bot or the editor may store raw header text; compare like with like.
+  const holeHeaders = normalizeStoredHeaders(recipe.match.headers);
   const blockHeaders = normalizeHeaders(block.headers, block.columnCount);
   const expected = expectedKinds(recipe);
   const kindOf = (c: number): CellKind => block.kinds[c] ?? "empty";
