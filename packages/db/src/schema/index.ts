@@ -9,6 +9,7 @@ export * from "./customers";
 export * from "./dies";
 export * from "./dispatch";
 export * from "./foundry";
+export * from "./ingest";
 export * from "./inventory";
 export * from "./legacy";
 export * from "./packing";

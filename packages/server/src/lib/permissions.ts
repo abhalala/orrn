@@ -123,6 +123,9 @@ export const PLANT_ACTIONS = [
   "ageing.load", // put press lines / bundles on a trolley, start a cycle, take it out, void a loading batch
   "ageing.record", // temperature readings and hardness samples
   "ageing.release", // QC verdict: release, hold, rework, discard the rest, void after take-out, ask for an override
+  // Infinity Portal (plan 2026-11-10, A8): bring old files in, and merge approved imports into live tables.
+  "ingest.upload", // upload files, answer questions, map columns, hold or discard an import
+  "ingest.merge", // approve imports and run the merge
 ] as const;
 
 export const PLATFORM_ACTION_KEYS = [
@@ -246,6 +249,9 @@ const PLANT_ACTION_ROLES: Record<PlantAction | "dispatch.complete", readonly Com
   "ageing.load": ["press", "supervisor", "operator"],
   "ageing.record": ["press", "supervisor", "operator"],
   "ageing.release": ["supervisor", "manager"],
+  // Owner decision 2026-11-10: owner and admin may upload and merge; the same person may do both.
+  "ingest.upload": ["admin"],
+  "ingest.merge": ["admin"],
   "support.request": [
     "admin",
     "manager",

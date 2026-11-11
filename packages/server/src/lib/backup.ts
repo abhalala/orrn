@@ -59,6 +59,9 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   "invite",
   "spool_deployment",
   "backup_run",
+  // Infinity Portal: rebuildable from the R2 vault and the bulk of the rows (plan B1).
+  "ingest_staged_row",
+  "ingest_merge_chunk",
 ]);
 
 /**
