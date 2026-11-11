@@ -552,6 +552,23 @@ const bundles: Adapter = async (args) => {
 type OrderGroup = { key: string; rows: StagedRow[] };
 
 /**
+ * Rates are written only by a person who may see them, and only when the plant uses them (A8,
+ * D8). `refusal` says why not, for a candidate that carries rates.
+ */
+export async function orderPricing(ctx: IngestCtx): Promise<{ canPrice: boolean; refusal: string }> {
+  const floor = await companyFloor(ctx.db, ctx.companyId);
+  const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
+  const on = floor.floor.priceOnSalesOrder === true;
+  const may = can(me, "order.price");
+  return {
+    canPrice: on && may,
+    refusal: !on
+      ? "This sheet has rates, and rates on sales orders are off for this plant. Turn rates on first, or take the rate column out of this sheet's layout."
+      : "This sheet has rates. Only someone who may see prices can merge it: ask the owner to merge, or leave the rates out on this candidate.",
+  };
+}
+
+/**
  * Rows of a chunk grouped into orders (orderKeyOf). One group is one order: it is never cut, so one
  * PO never becomes two orders (B1, B5). Planning holds a candidate with an order above 100 lines;
  * this check is the backstop.
@@ -586,10 +603,13 @@ const orders: Adapter = async (args) => {
   }
   const { createInput, createSalesOrder } = await import("../../../routers/salesOrder");
   const { confirmOrder, orderConfirmBlockers } = await import("../../../routers/orderFlow");
-  const floor = await companyFloor(ctx.db, ctx.companyId);
-  const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-  // Rates are written only for a person who may see them, and only when the plant uses them (A8, D8).
-  const canPrice = can(me, "order.price") && floor.floor.priceOnSalesOrder === true;
+  const price = await orderPricing(ctx);
+  const canPrice = price.canPrice;
+  // A staged rate is never dropped without a choice (D8, B3): the planner holds such a candidate;
+  // this is the backstop.
+  if (!canPrice && rows.some((r) => num(valuesOf(r).rate) !== null)) {
+    return { written: [], failure: { code: "FORBIDDEN", message: price.refusal, reason: "merge_failed" } };
+  }
 
   let groups: OrderGroup[];
   try {

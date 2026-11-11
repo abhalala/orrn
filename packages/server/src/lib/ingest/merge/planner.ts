@@ -27,6 +27,7 @@ import { salesOrder } from "@orrn/db/schema/sales";
 import { chunk as chunkList, mapInChunks, type SqliteBatchItem } from "../../atomic";
 import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
+import { orderPricing } from "./adapters";
 import {
   CHUNK_ROWS,
   LINES_PER_ORDER,
@@ -199,16 +200,21 @@ export async function markerChunkId(runId: string, candidateId: string, kind: "h
   return `ing-${(await sha256Hex([kind, runId, candidateId].join("|"))).slice(0, 40)}`;
 }
 
-type OrderPlanRow = PlanRow & { customer: string | null; po: string | null; poText: string | null; orderDate: string | null; oldNo: string | null };
+type OrderPlanRow = PlanRow & { customer: string | null; po: string | null; poText: string | null; orderDate: string | null; oldNo: string | null; hasRate: number | null };
 
 const hold = (message: string): ChunkFailure => ({ code: "BAD_REQUEST", message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" });
 
 /**
  * Orders a merge must not send (B1, B5): an order above 100 lines, one PO on two order dates, or
- * a PO already on a live order that this order's own replay key did not make. Found before any
- * order of the candidate is written.
+ * a PO already on a live order that this order's own replay key did not make; and rates staged
+ * while the person merging may not write them (B3: a rate is left out only by choice). Found
+ * before any order of the candidate is written.
  */
 export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[]): Promise<ChunkFailure | null> {
+  if (rows.some((r) => r.hasRate)) {
+    const price = await orderPricing(ctx);
+    if (!price.canPrice) return { code: "FORBIDDEN", message: price.refusal.slice(0, MESSAGE_MAX), reason: "merge_failed" };
+  }
   const groups = new Map<string, OrderPlanRow[]>();
   for (const r of rows) {
     const k = r.group ?? `row:${r.rowIndex}`;
@@ -290,6 +296,7 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
         poText: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')` : sql<string | null>`null`,
         orderDate: isOrders ? sql<string | null>`json_extract(${V}, '$.orderDate')` : sql<string | null>`null`,
         oldNo: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')` : sql<string | null>`null`,
+        hasRate: isOrders ? sql<number | null>`json_type(${V}, '$.rate') in ('integer', 'real')` : sql<number | null>`null`,
       })
       .from(ingestStagedRow)
       .where(

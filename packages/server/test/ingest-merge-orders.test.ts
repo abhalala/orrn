@@ -116,19 +116,30 @@ describe("orders", () => {
     expect((await stagedRows(env, seeded.candidateId))[0]!.reasons ?? []).not.toContainEqual(expect.stringContaining("confirm_blocked"));
   });
 
-  test("rates: dropped for admin (no order.price) and when priceOnSalesOrder is off; kept for owner with it on", async () => {
-    const cases: { role: CompanyRole; on: boolean; rate: number | null }[] = [
-      { role: "admin", on: true, rate: null },
-      { role: "owner", on: false, rate: null },
-      { role: "owner", on: true, rate: 21_500 },
+  test("rates: kept for owner with priceOnSalesOrder on; never dropped without a choice (B3)", async () => {
+    const { companyId, customerId, dieId } = await plant({ priceOnSalesOrder: true });
+    await seedCandidate(env, companyId, "orders", [line(customerId, dieId, { rate: 21_500 })]);
+    expect((await mergeAll(await api(companyId, "owner"))).state).toBe("done");
+    expect((await orderRows(companyId)).lines.map((l) => l.ratePaise)).toEqual([21_500]);
+  });
+
+  test("rates staged while the person merging cannot price: held before any write, nothing dropped (B3)", async () => {
+    const cases: { role: CompanyRole; on: boolean; message: string }[] = [
+      { role: "admin", on: true, message: "This sheet has rates. Only someone who may see prices can merge it: ask the owner to merge, or leave the rates out on this candidate." },
+      { role: "owner", on: false, message: "This sheet has rates, and rates on sales orders are off for this plant. Turn rates on first, or take the rate column out of this sheet's layout." },
     ];
     for (const c of cases) {
       const { companyId, customerId, dieId } = await plant({ priceOnSalesOrder: c.on });
-      await seedCandidate(env, companyId, "orders", [line(customerId, dieId, { rate: 21_500 })]);
-      expect((await mergeAll(await api(companyId, c.role))).state).toBe("done");
-      const { lines } = await orderRows(companyId);
-      expect([c.role, c.on, lines.map((l) => l.ratePaise)]).toEqual([c.role, c.on, [c.rate]]);
+      const seeded = await seedCandidate(env, companyId, "orders", [line(customerId, dieId, { oldOrderNo: "R-1" }), line(customerId, dieId, { oldOrderNo: "R-2", rate: 21_500 })]);
+      expect((await mergeAll(await api(companyId, c.role))).state).toBe("done_with_holds");
+      const held = await candidateRow(env, seeded.candidateId);
+      expect([c.role, held.state, held.reasonDetail]).toEqual([c.role, "held", c.message]);
+      expect((await orderRows(companyId)).orders).toHaveLength(0);
     }
+    // With the rate left out by choice (the dry run deletes it from the staged values), admin merges.
+    const { companyId, customerId, dieId } = await plant({ priceOnSalesOrder: true });
+    await seedCandidate(env, companyId, "orders", [line(customerId, dieId, { oldOrderNo: "R-3" })]);
+    expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done");
   });
 
   test("orders module off: the orders candidate is held, nothing is written", async () => {
