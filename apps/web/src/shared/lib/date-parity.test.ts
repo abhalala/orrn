@@ -16,6 +16,8 @@ import * as oldCustomers from "../../../test-support/legacy/customers-dates";
 import { formatDay as customersDay, formatInstantDay, formatDispatchDay } from "@/features/customers/dates";
 import * as oldMasters from "../../../test-support/legacy/masters-model";
 import { formatDay as mastersDay } from "@/features/masters/masters-model";
+import * as oldPack from "../../../test-support/legacy/pack-format";
+import { packedWhen } from "@/features/pack/format";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -154,5 +156,20 @@ describe("masters dates", () => {
       }
     }
     expect(mastersDay(dflt(), "not a date", "2026-10-04")).toBe("not a date");
+  });
+});
+
+describe("pack packedWhen", () => {
+  test("day word, date label and time, in English, Hindi and Gujarati, in the zone the screen passes", () => {
+    for (const loc of ["en", "hi", "gu"] as const) {
+      for (const zone of [IST_ZONE, "America/New_York"]) {
+        for (const at of SEEDS.slice(0, 700)) {
+          const now = new Date(NOW);
+          expect(packedWhen(dflt(loc, zone), at, { now, timeZone: zone })).toEqual(oldPack.packedWhen(at, { now, timeZone: zone, locale: loc }));
+          const near = new Date(at + 20 * 3600_000);
+          expect(packedWhen(dflt(loc, zone), at, { now: near, timeZone: zone })).toEqual(oldPack.packedWhen(at, { now: near, timeZone: zone, locale: loc }));
+        }
+      }
+    }
   });
 });

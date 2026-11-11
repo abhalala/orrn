@@ -54,7 +54,7 @@ const STATUS_ORDER: BundleStatus[] = ["available", "reserved", "dispatched", "vo
 const bySerial = new Intl.Collator("en", { numeric: true });
 
 function PackSession() {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const { id } = Route.useParams();
   const { data: me } = useMe();
@@ -212,7 +212,7 @@ function PackSession() {
   const outsideRange = bundles.filter((b) => b.status !== "void" && (b.band.position === "below" || b.band.position === "above")).length;
   // Where the bundles are now (packed into one yard; a later move can split them).
   const yards = new Set(bundles.flatMap((b) => (b.locationId ? [b.locationId] : [])));
-  const when = packedWhen(group.createdAt, { timeZone, locale });
+  const when = packedWhen(fmt, group.createdAt, { timeZone });
   const whenText =
     when.day === "today"
       ? t("pack.whenToday", { time: when.time })

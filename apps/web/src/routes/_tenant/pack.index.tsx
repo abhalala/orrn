@@ -66,7 +66,7 @@ function sessionStore(): Storage | null {
  */
 function PackList() {
   const fmt = useFmt();
-  const { t, locale } = useT();
+  const { t } = useT();
   const { data: me } = useMe();
   const timeZone = timezoneOf(me?.company?.settings);
   const canPack = can(me, "bundle.pack");
@@ -89,7 +89,7 @@ function PackList() {
   const hasDraft = Boolean(draft && draft.bundles.length > 0);
 
   const when = (at: SessionRow["createdAt"]) => {
-    const w = packedWhen(at instanceof Date ? at : new Date(at), { timeZone, locale });
+    const w = packedWhen(fmt, at instanceof Date ? at : new Date(at), { timeZone });
     if (w.day === "today") return t("pack.whenToday", { time: w.time });
     if (w.day === "yesterday") return t("pack.whenYesterday", { time: w.time });
     return t("pack.whenDate", { date: w.date, time: w.time });
