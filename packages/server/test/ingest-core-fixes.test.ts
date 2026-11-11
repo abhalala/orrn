@@ -669,6 +669,92 @@ describe("A11: a row decision applies only when it fits the re-run", () => {
   });
 });
 
+describe("A28: staged row transitions of the dry run (plan B7)", () => {
+  const PARTY: Sheet = { headers: ["Party", "Town", "Mobile"], rows: [["Acme Traders", "Surat", "9825000000"]] };
+
+  /** A customers layout for PARTY with the given onExisting. */
+  function partyRecipe(onExisting: Recipe["onExisting"]): Recipe {
+    const fp = fingerprint({ headers: PARTY.headers, rows: [] });
+    return {
+      schemaVersion: 1,
+      target: "customers",
+      headerRow: 0,
+      headerRows: 1,
+      match: { headerKey: fp.headerKey, headers: fp.normalized },
+      fields: [
+        { field: "name", source: { kind: "columns", cols: [{ col: 0, header: "Party" }] }, steps: [{ op: "trim" }] },
+        { field: "city", source: { kind: "columns", cols: [{ col: 1, header: "Town" }] }, steps: [{ op: "trim" }] },
+        { field: "phone", source: { kind: "columns", cols: [{ col: 2, header: "Mobile" }] }, steps: [{ op: "trim" }] },
+      ],
+      filters: [],
+      keys: ["name"],
+      onExisting,
+      unclear: [],
+    };
+  }
+
+  /** Acme lives in orrn in Ahmedabad with no phone. The file says Surat and gives a phone. */
+  async function existing(onExisting: Recipe["onExisting"]) {
+    const p = await plant();
+    const acme = await p.owner.customer.create({ name: "Acme Traders", billingAddress: { city: "Ahmedabad" } });
+    await learnLayout(p.companyId, p.users.owner.id, partyRecipe(onExisting), "Party");
+    const { candidates } = await upload(p.admin, [PARTY]);
+    const id = candidates[0]!.id;
+    const done = await pump(p.admin, id);
+    const row = (await p.admin.ingest.rows.list({ candidateId: id })).items[0]!;
+    return { acme, done, row };
+  }
+
+  test("onExisting ask: a live field that differs is a conflict", async () => {
+    const { acme, row } = await existing("ask");
+    expect(row).toMatchObject({ state: "conflict", matchId: acme.id });
+  });
+
+  test("onExisting skip: a row that differs from the live record is skipped", async () => {
+    const { acme, done, row } = await existing("skip");
+    expect(row).toMatchObject({ state: "skipped", matchId: acme.id });
+    expect(done.counts).toMatchObject({ skipped: 1, conflict: 0, update: 0 });
+  });
+
+  test("onExisting fill_blanks: only the blank live field is filled; the differing city is left", async () => {
+    const { acme, done, row } = await existing("fill_blanks");
+    expect(row).toMatchObject({ state: "ready_update", matchId: acme.id });
+    expect(Object.keys(row.diff ?? {})).toEqual(["phone"]);
+    expect(done.counts).toMatchObject({ update: 1, conflict: 0 });
+  });
+
+  test("in-file duplicates: the same values again are skipped; different values are refused", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [
+      {
+        headers: CUSTOMERS.headers,
+        rows: [
+          ["Acme Traders", "", "Surat"],
+          ["Acme Traders", "", "Surat"],
+          ["Acme Traders", "", "Rajkot"],
+        ],
+      },
+    ]);
+    const id = candidates[0]!.id;
+    await pump(p.admin, id);
+    const rows = (await p.admin.ingest.rows.list({ candidateId: id })).items.sort((a, b) => a.rowIndex - b.rowIndex);
+    expect(rows.map((r) => r.state)).toEqual(["ready_create", "skipped", "refused"]);
+    expect(rows[1]!.reasons).toContain("in_file_duplicate_same");
+    expect(rows[2]!.reasons).toContain("in_file_duplicate");
+  });
+
+  test("module_off: rows of a target whose module is off are refused", async () => {
+    const { companyId } = await env.seedCompany({ modules: ["dies"] });
+    const admin = env.caller({ role: "admin", companyId });
+    const { candidates } = await upload(admin, [CUSTOMERS]);
+    const id = candidates[0]!.id;
+    expect(candidates[0]!.target).toBe("customers");
+    const done = await pump(admin, id);
+    expect(done.counts).toMatchObject({ refused: 2, create: 0 });
+    for (const r of (await admin.ingest.rows.list({ candidateId: id })).items) expect(r.reasons).toEqual(["module_off"]);
+  });
+});
+
 describe("A12: the derived new customers list", () => {
   const rated = () =>
     bakiRecipe({
