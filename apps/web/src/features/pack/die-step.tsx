@@ -25,6 +25,7 @@ import { YardPicker } from "./yard-picker";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
+import { countText } from "@/shared/lib/fmt-text";
 
 export type { DieOption };
 
@@ -156,6 +157,7 @@ export function DieStep({
 }
 
 function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [text, setText] = useState("");
   const typed = text.trim();
@@ -332,8 +334,8 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
             <li>
               <p role="status" className="m-0 text-[13px] font-medium text-muted-foreground">
                 {t("pack.new.diesShowing", {
-                  shown: more.shown.toLocaleString("en-IN"),
-                  total: more.total.toLocaleString("en-IN"),
+                  shown: countText(fmt, more.shown),
+                  total: countText(fmt, more.total),
                 })}
               </p>
             </li>

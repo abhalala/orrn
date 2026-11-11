@@ -38,7 +38,7 @@ import {
   type DraftBundle,
   type PackDraft } from "./use-pack-draft";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG, type EntrySpec } from "@/shared/lib/plant-input";
 
@@ -536,9 +536,9 @@ export function BundlesStep({
               <span data-testid="pack-total-bundles" className="whitespace-nowrap">
                 {t("units.bundles", { count: draft.bundles.length })}
               </span>
-              <Measure value={totals.pieces.toLocaleString("en-IN")} unit={t("units.pcs")} />
+              <Measure value={countText(fmt, totals.pieces)} unit={t("units.pcs")} />
               <Measure value={kgGrouped1(fmt, (totals.weightG))} unit={massUnit(fmt)} />
-              {rejectPcs > 0 ? <Measure value={rejectPcs.toLocaleString("en-IN")} unit={t("pack.reject.unit")} /> : null}
+              {rejectPcs > 0 ? <Measure value={countText(fmt, rejectPcs)} unit={t("pack.reject.unit")} /> : null}
             </span>
           </div>
         }
