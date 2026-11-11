@@ -23,7 +23,7 @@ import {
   refusalText,
   wallMmText } from "./die-room-model";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
+import { followsPlant, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 
@@ -91,7 +91,8 @@ export function NewBandPage({ id }: { id: string }) {
 
   const code = dieCode(section.data);
   const hasWall = section.data.wallTenthMmEffective > 0;
-  const defaultWall = hasWall ? wallWithUnit(fmt, section.data.wallTenthMmEffective, false) : "";
+  // The box takes mm on a plant that keeps its mm box (feet and inches plants too), so the placeholder says mm there.
+  const defaultWall = !hasWall ? "" : followsPlant(fmt, WALL_MM) ? wallMmText(section.data.wallTenthMmEffective) : wallWithUnit(fmt, section.data.wallTenthMmEffective, false);
 
   const submit = () => {
     const wallTenth = wall.trim() === "" ? (hasWall ? section.data!.wallTenthMmEffective : null) : parseWallTenths(wall);

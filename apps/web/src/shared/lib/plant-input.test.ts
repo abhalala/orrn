@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
-import { canonicalToDraft, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, typedToDraft } from "./plant-input";
+import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, typedToDraft, WALL_MM } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -85,6 +85,31 @@ describe("a plant on metres or feet and inches", () => {
   test("a plant on mm keeps its feet and inch boxes as they are (foundry billet, tank gauge)", () => {
     expect(typedToDraft(fmtOf(), LENGTH_FT, "12.5")).toEqual({ draft: "12.5", value: 3810, problem: null });
     expect(typedToDraft(fmtOf(), LENGTH_IN, "144")).toMatchObject({ draft: "144" });
+  });
+});
+
+describe("a feet and inches plant keeps its plain mm boxes (die wall, billet diameter, split cut)", () => {
+  const fi = fmtOf({ units: { length: "ft_in" } });
+  test("a wall typed 1.6 stays 1.6 mm, never 487.7", () => {
+    expect(typedToDraft(fi, WALL_MM, "1.6")).toMatchObject({ draft: "1.6", problem: null });
+    expect(typedToDraft(fi, WALL_MM, "1.6").draft).not.toBe("487.7");
+    expect(draftToTyped(fi, WALL_MM, "1.2")).toBe("1.2");
+    expect(draftToCanonical(WALL_MM, "1.2")).toBe(12);
+  });
+  test("a bare number in a box whose native unit is mm is never read as feet", () => {
+    for (const text of ["1.2", "12", "127", "3658", "0.5"]) {
+      expect(typedToDraft(fi, WALL_MM, text).draft).toBe(text);
+      expect(typedToDraft(fi, DIAMETER_MM, text).draft).toBe(text);
+    }
+  });
+  test("a billet diameter of 127 mm shows as 127 and types back as 127", () => {
+    expect(draftToTyped(fi, DIAMETER_MM, "127")).toBe("127");
+    expect(typedToDraft(fi, DIAMETER_MM, "127")).toMatchObject({ draft: "127", value: 127 });
+  });
+  test("a metre plant still converts the same boxes", () => {
+    const m = fmtOf({ units: { length: "m" } });
+    expect(typedToDraft(m, DIAMETER_MM, "0.127")).toMatchObject({ draft: "127" });
+    expect(typedToDraft(m, WALL_MM, "0.0016")).toMatchObject({ draft: "1.6" });
   });
 });
 

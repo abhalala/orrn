@@ -7,7 +7,7 @@ import { screenPrefs } from "@orrn/domain";
 import { NumberInput } from "@orrn/ui/components/field";
 
 import { FmtProvider } from "@/shared/lib/fmt";
-import { LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 
 import { PlantInput } from "./plant-input";
 
@@ -49,6 +49,14 @@ describe("a plant on another unit", () => {
     expect(html).toContain('value="12 ft 6 in"');
     expect(html).toContain("ft in");
     expect(html).toContain('inputMode="text"');
+  });
+  test("feet and inches: the die wall and billet diameter stay plain mm boxes, as they always were", () => {
+    const wall = render({ units: { length: "ft_in" } }, <PlantInput spec={WALL_MM} value="1.6" onValueChange={noop} aria-label="W" />);
+    const old = render({}, <NumberInput value="1.6" onValueChange={noop} suffix="mm" aria-label="W" />);
+    expect(wall).toBe(old);
+    const dia = render({ units: { length: "ft_in" } }, <PlantInput spec={DIAMETER_MM} value="127" onValueChange={noop} aria-label="D" />);
+    expect(dia).toContain('value="127"');
+    expect(dia).toContain(">mm<");
   });
   test("kg per metre for a section weight", () => {
     const html = render({ units: { linear_mass: "kg_m" } }, <PlantInput spec={SECTION_KG12} value="2.088" onValueChange={noop} aria-label="S" />);

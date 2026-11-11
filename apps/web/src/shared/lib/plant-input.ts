@@ -15,13 +15,20 @@ export type EntrySpec = {
   field: FieldId;
   /** The unit the form's draft text is written in. */
   native: UnitId;
+  /**
+   * A box that was a plain mm box on every plant (a die wall, a billet diameter, a split cut). A feet and inches plant keeps
+   * that box and its draft as they were: a bare number there is mm, never feet. A plant on metres still converts.
+   */
+  plainOnFtIn?: boolean;
 };
 
 export const MASS_KG: EntrySpec = { field: "order.weight", native: "kg" };
 export const MASS_G: EntrySpec = { field: "order.weight", native: "g" };
 export const LENGTH_MM: EntrySpec = { field: "bundle.length", native: "mm" };
 /** A wall or die measure in mm that may carry a tenth: the stored step is a tenth of a mm. */
-export const WALL_MM: EntrySpec = { field: "die.wall", native: "mm" };
+export const WALL_MM: EntrySpec = { field: "die.wall", native: "mm", plainOnFtIn: true };
+/** A diameter or short cut in mm that every plant, feet and inches ones too, has always typed in mm (billet diameter, split cut). */
+export const DIAMETER_MM: EntrySpec = { field: "bundle.length", native: "mm", plainOnFtIn: true };
 export const LENGTH_FT: EntrySpec = { field: "bundle.length", native: "ft" };
 export const LENGTH_IN: EntrySpec = { field: "bundle.length", native: "in" };
 export const SECTION_KG12: EntrySpec = { field: "die.band", native: "kg_12ft" };
@@ -34,6 +41,7 @@ export const kindOf = (spec: EntrySpec): Kind => resolveField(spec.field).kind;
 export function followsPlant(fmt: Fmt, spec: EntrySpec): boolean {
   const unit = fmt.unitOf(kindOf(spec));
   if (unit.id === spec.native) return true;
+  if (spec.plainOnFtIn && spec.native === "mm" && unit.composite) return true;
   // Small amounts typed in grams (nitriding powder) stay in grams for a kg or tonne plant; only pounds change them.
   if (spec.native === "g" && (unit.id === "kg" || unit.id === "t")) return true;
   // Feet and inch boxes (the foundry's billet and tank gauge) keep their words for a plant on mm, as today; a feet and

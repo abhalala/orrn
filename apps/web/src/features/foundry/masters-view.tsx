@@ -21,7 +21,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { ELEMENT_LABEL, furnaceInput, limitDraft, limitRows, limitText, type LimitDraft } from "./model";
 import { ErrorLine, LoadFailed, Note } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
+import { DIAMETER_MM, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
@@ -161,7 +161,7 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
           <PlantInput spec={MASS_KG} value={form.capacityKg} onValueChange={(v) => setForm({ ...form, capacityKg: v })} data-testid="furnace-capacity" />
         </Field>
         <Field label={t("foundry.masters.billetDia")} error={err === "dia" ? t("foundry.masters.diaInvalid") : undefined}>
-          <PlantInput spec={LENGTH_MM} decimal={false} value={form.billetDiaMm} onValueChange={(v) => setForm({ ...form, billetDiaMm: v })} data-testid="furnace-dia" />
+          <PlantInput spec={DIAMETER_MM} decimal={false} value={form.billetDiaMm} onValueChange={(v) => setForm({ ...form, billetDiaMm: v })} data-testid="furnace-dia" />
         </Field>
         {row ? (
           <div>
