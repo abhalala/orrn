@@ -196,7 +196,8 @@ export function orderGroupCheck(list: readonly OrderGroupRow[], kind: OrderKind 
     return {
       code: "order_lines_over",
       field: "order",
-      message: `${name} has ${list.length} lines. An order takes ${ORDER_LINES_MAX} lines at most. Split it in the file or skip some rows.`,
+      // Rule 1: say what works. Another sheet with the same number is the same order (order_in_other_file).
+      message: `${name} has ${list.length} lines. An order takes ${ORDER_LINES_MAX} lines at most. Give the lines over ${ORDER_LINES_MAX} another ${kind === "no" ? "order number" : "PO number"} in the file, or skip some rows.`,
     };
   }
   const dates = [...new Set(list.map((r) => r.orderDate ?? ""))];

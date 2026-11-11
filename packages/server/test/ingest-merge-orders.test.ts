@@ -187,7 +187,7 @@ describe("one order is never sent as two (B1, B5)", () => {
     expect(res.state).toBe("done_with_holds");
     const c = await candidateRow(env, seeded.candidateId);
     expect(c.state).toBe("held");
-    expect(c.reasonDetail).toBe("PO PO-77 has 150 lines. An order takes 100 lines at most. Split it in the file or skip some rows.");
+    expect(c.reasonDetail).toBe("PO PO-77 has 150 lines. An order takes 100 lines at most. Give the lines over 100 another PO number in the file, or skip some rows.");
     expect((await orderRows(companyId)).orders).toHaveLength(0);
     expect(new Set((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState))).toEqual(new Set(["open"]));
   });

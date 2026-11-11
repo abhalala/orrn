@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { approve, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
-import { comesBefore } from "../src/lib/ingest/orderid";
+import { comesBefore, orderGroupCheck } from "../src/lib/ingest/orderid";
 
 let env: TestEnv;
 
@@ -253,5 +253,14 @@ describe("S4-4 and rule 4.3: approve waits only on a sheet that may matter, and 
     const o = candidates[1]!.id;
     await pump(p.owner, o);
     expect(await tryApprove(p.owner, o)).toBe("REFUSED: book.xlsx (Dies) of this upload is still being checked. Finish it first, then check this sheet again.");
+  });
+});
+
+describe("item 5: words that tell a person what works (rule 1)", () => {
+  test("an old order over 100 lines says to give the extra lines another order number, never to split the file", () => {
+    const list = Array.from({ length: 101 }, (_, i) => ({ rowIndex: i, po: null, poText: null, orderDate: "2025-10-31", oldNo: "41" }));
+    const words = orderGroupCheck(list, "no")!.message;
+    expect(words).toEndWith("An order takes 100 lines at most. Give the lines over 100 another order number in the file, or skip some rows.");
+    expect(words).not.toContain("Split");
   });
 });
