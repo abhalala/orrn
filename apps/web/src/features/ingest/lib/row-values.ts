@@ -37,7 +37,8 @@ export function valueCells(target: IngestTarget | null, row: Pick<StagedRowView,
   const values = row.values ?? {};
   const entered = row.entered ?? {};
   const defs = target ? TARGETS[target].fields : [];
-  const order = [...defs.map((d) => d.name), ...Object.keys(values).filter((k) => !defs.some((d) => d.name === k))];
+  // Keys that start with "_" are the server's own working values (`_ids`, `_dupKey`), not what the file said.
+  const order = [...defs.map((d) => d.name), ...Object.keys(values).filter((k) => !k.startsWith("_") && !defs.some((d) => d.name === k))];
   const out: ValueCell[] = [];
   for (const name of order) {
     const def = defs.find((d) => d.name === name);

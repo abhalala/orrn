@@ -54,16 +54,16 @@ export function StagedRows({ candidate, onChanged }: { candidate: CandidateDetai
           <EmptyState title={t("common.noResults", { query: state ? translateKey(t, rowStateKey(state) ?? "") : t("common.all") })} />
         ) : (
           <>
-            <div className="flex flex-col gap-3 sm:hidden">
+            <div className="flex flex-col gap-3 lg:hidden">
               {items.map((row) => <RowCard key={row.id} candidate={candidate} row={row} onChanged={onChanged} />)}
             </div>
-            <div className="hidden max-w-full overflow-x-auto rounded-card border border-border sm:block" tabIndex={0} role="region" aria-label={t("imports.preview.heading")}>
+            <div className="hidden max-w-full overflow-x-auto rounded-card border border-border lg:block" tabIndex={0} role="region" aria-label={t("imports.preview.heading")}>
               <table className="w-full min-w-[720px] border-collapse text-left text-[14px]">
                 <caption className="sr-only">{candidate.fileName}</caption>
                 <thead className="bg-surface-sunken">
                   <tr>
                     <th scope="col" className="px-3 py-2">{t("imports.preview.row")}</th>
-                    <th scope="col" className="px-3 py-2">{t("common.filter")}</th>
+                    <th scope="col" className="px-3 py-2">{t("ingest.row.state")}</th>
                     <th scope="col" className="px-3 py-2">{t("common.details")}</th>
                     <th scope="col" className="px-3 py-2">{t("common.moreActions")}</th>
                   </tr>

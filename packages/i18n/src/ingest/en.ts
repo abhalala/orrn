@@ -21,10 +21,12 @@ export const ingestEn = {
     uploading: "Saving the original file",
     failed: "orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again.",
     canonicalMissing: "The file was imported. The backup copy of its rows could not be saved, which does not change this import.",
+    sending: "Sending {done} of {total} rows",
     stalled: "The rest of this file never arrived. Drop the same file again to continue.",
   },
   vault: {
     off: "File storage is not set up for this plant yet. Rows can still be imported, but the original file is not kept.",
+    notStored: "Original file not kept",
     stored: "Original file kept",
     pending: "Saving the original file",
   },
@@ -96,6 +98,7 @@ export const ingestEn = {
     missingRequired: "Map these fields before you save: {fields}.",
   },
   row: {
+    state: "Status",
     entered: "In the file",
     ready_create: "New",
     ready_update: "Updates orrn",
@@ -243,5 +246,10 @@ export const ingestEn = {
     busy: "orrn is busy. Try again in a minute.",
     load: "Could not load this. Check the connection and try again.",
     action: "Could not save that. Check the connection and try again.",
+  },
+  file: {
+    rows: "{count} {count:row|rows}",
+    columns: "{count} {count:column|columns}",
+    table: "Table {n}",
   },
 };

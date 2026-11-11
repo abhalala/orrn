@@ -11,6 +11,9 @@ describe("error codes", () => {
   test("reads the tRPC code, else NETWORK", () => {
     expect(errorCodeOf(trpcError("CONFLICT"))).toBe("CONFLICT");
     expect(errorCodeOf(new TypeError("Failed to fetch"))).toBe("NETWORK");
+    // a bug in the page is not "no connection"
+    expect(errorCodeOf(new Error("x is undefined"))).toBe("UNKNOWN");
+    expect(isTransient(new Error("x is undefined"))).toBe(false);
     expect(isConflict(trpcError("CONFLICT"))).toBe(true);
     expect(isConflict(trpcError("FORBIDDEN"))).toBe(false);
     expect(isTransient(new TypeError("Failed to fetch"))).toBe(true);

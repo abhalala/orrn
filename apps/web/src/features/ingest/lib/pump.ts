@@ -14,6 +14,15 @@ export const STEP_RETRIES = 2;
 
 export type PumpError = { code: string; message: string };
 
+/** A request that never got an answer: a failed fetch, a dropped connection, a timeout. Not a bug in the page. */
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  const name = (error as { name?: unknown } | null | undefined)?.name;
+  if (name === "TRPCClientError" || name === "AbortError" || name === "TimeoutError") return true;
+  const message = String((error as { message?: unknown } | null | undefined)?.message ?? "");
+  return /failed to fetch|network|load failed|timed? ?out|connection/i.test(message);
+}
+
 const TRPC_CODES = new Set([
   "CONFLICT", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "BAD_REQUEST", "TOO_MANY_REQUESTS", "TIMEOUT", "INTERNAL_SERVER_ERROR",
   "PRECONDITION_FAILED", "PAYLOAD_TOO_LARGE", "STALLED",
@@ -28,7 +37,7 @@ export function errorCodeOf(error: unknown): string {
   // A `PumpError` (what the hooks keep) carries the code itself.
   const own = (error as { code?: unknown } | null | undefined)?.code;
   if (typeof own === "string" && TRPC_CODES.has(own)) return own;
-  return "NETWORK";
+  return isNetworkFailure(error) ? "NETWORK" : "UNKNOWN";
 }
 
 export function isConflict(error: unknown): boolean {

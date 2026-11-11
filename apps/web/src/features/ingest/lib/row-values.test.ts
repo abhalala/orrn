@@ -45,6 +45,11 @@ describe("row values", () => {
     expect(cells.map((c) => c.field)).toEqual(["name", "extra"]);
   });
 
+  test("the server's working values (_ids, _dupKey) are not shown as fields", () => {
+    const cells = valueCells("bundles", row({ values: { legacyId: "L1", _ids: { sectionCode: "x" }, _dupKey: "L1" } }));
+    expect(cells.map((c) => c.field)).toEqual(["legacyId"]);
+  });
+
   test("a row with no values (a refused row) shows nothing", () => {
     expect(valueCells("dies", row({}))).toEqual([]);
   });

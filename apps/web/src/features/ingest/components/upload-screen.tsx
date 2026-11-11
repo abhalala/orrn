@@ -197,7 +197,7 @@ function UploadRow({
     : item.step === "saving"
       ? t("ingest.read.uploading")
       : sending
-        ? t("ingest.state.processing")
+        ? t("ingest.read.sending", { done: item.sent?.rows ?? 0, total: item.sent?.total ?? 0 })
         : item.step === "done"
           ? t("common.done")
           : item.step === "seenBefore"
@@ -210,7 +210,7 @@ function UploadRow({
       <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="m-0 text-[15px] font-semibold break-words">{item.name}</p>
-          <p className="m-0 text-[14px] leading-6 break-words text-muted-foreground">{label}</p>
+          {["reading", "sending"].includes(item.step) ? null : <p className="m-0 text-[14px] leading-6 break-words text-muted-foreground">{label}</p>}
         </div>
         <IconButton label={`${t("common.remove")}: ${item.name}`} icon={<X aria-hidden="true" />} onClick={onRemove} />
       </div>
@@ -222,7 +222,6 @@ function UploadRow({
           </Button>
         ) : null}
         {item.step === "failed" ? <Button size="sm" onClick={onRetry}>{t("common.retry")}</Button> : null}
-        {item.notStored ? <span className="text-[13px] text-muted-foreground">{t("ingest.vault.off")}</span> : null}
         {item.canonicalMissing ? <span className="text-[13px] text-muted-foreground">{t("ingest.read.canonicalMissing")}</span> : null}
       </div>
     </li>

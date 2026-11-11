@@ -20,9 +20,11 @@ export function IngestMergeScreen({ runId }: { runId: string }) {
   const { t } = useT();
   const query = useMergeRun(runId);
   const pump = useMergePump(runId);
+  const state = query.data?.state;
+  const subtitle = state === "done" || state === "done_with_holds" ? t("ingest.state.merged") : state === "stopped" ? undefined : t("ingest.state.merging");
   return (
     <>
-      <PageHeader back={{ to: "/ingest", label: t("ingest.title") }} title={t("ingest.title")} subtitle={t("ingest.state.merging")} />
+      <PageHeader back={{ to: "/ingest", label: t("ingest.title") }} title={t("ingest.title")} subtitle={subtitle} />
       <QueryPanel query={query}>
         {pump.run ? <MergeBody pump={pump} run={pump.run} /> : null}
       </QueryPanel>
@@ -63,7 +65,6 @@ export function MergeBody({ pump, run }: { pump: ReturnType<typeof useMergePump>
             </div>
           </InlineNotice>
         ) : null}
-        {!running && run.state !== "stopped" ? <p className="m-0 text-[15px] leading-6">{t("ingest.merge.done", { created, updated })}</p> : null}
         {holds.length > 0 ? <p className="m-0 text-[15px] font-semibold text-tone-amber-ink">{t("ingest.merge.holds", { count: holds.length })}</p> : null}
         {running ? (
           <Can do="ingest.merge">

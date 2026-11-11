@@ -21,9 +21,9 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
             <Panel title={data.fileName}>
               <div className="flex flex-wrap items-center gap-2">
                 <Chip tone={data.vaultState === "stored" ? "green" : data.vaultState === "not_stored" ? "amber" : "blue"}>
-                  {data.vaultState === "stored" ? t("ingest.vault.stored") : data.vaultState === "not_stored" ? t("ingest.vault.off") : t("ingest.vault.pending")}
+                  {data.vaultState === "stored" ? t("ingest.vault.stored") : data.vaultState === "not_stored" ? t("ingest.vault.notStored") : t("ingest.vault.pending")}
                 </Chip>
-                <span className="text-[14px] text-muted-foreground">{t("common.total")} {data.rowCount}</span>
+                <span className="text-[14px] text-muted-foreground">{t("ingest.file.rows", { count: data.rowCount })}</span>
               </div>
               {data.vaultState === "not_stored" ? <InlineNotice>{t("ingest.vault.off")}</InlineNotice> : null}
               {data.note ? <p className="m-0 text-[14px] leading-6 break-words"><span className="font-semibold">{t("common.note")}</span> {data.note}</p> : null}
@@ -35,10 +35,10 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
               <div className="rounded-card border border-border bg-card"><EmptyState title={t("ingest.empty.title")} body={t("ingest.empty.body")} /></div>
             ) : null}
             {data.blocks.map((block) => (
-              <Panel key={block.id} title={block.sheetName ?? block.title ?? `${t("ingest.title")} ${block.ordinal + 1}`}>
+              <Panel key={block.id} title={block.sheetName ?? block.title ?? t("ingest.file.table", { n: block.ordinal + 1 })}>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
-                  <span>{t("common.total")} {block.rowCount}</span>
-                  <span>{t("ingest.shape.column")} {block.columnCount}</span>
+                  <span>{t("ingest.file.rows", { count: block.rowCount })}</span>
+                  <span>{t("ingest.file.columns", { count: block.columnCount })}</span>
                 </div>
                 {block.headers.length > 0 ? <p className="m-0 text-[13px] leading-6 break-words text-muted-foreground">{block.headers.join(" · ")}</p> : null}
                 {block.candidates.length > 0 ? (

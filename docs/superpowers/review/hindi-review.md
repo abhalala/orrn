@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7710 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7716 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6854,7 +6854,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (195)
+### ingest (201)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6873,8 +6873,10 @@ Please check, Lalubhai:
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
+| `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेजी गईं |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
 | `vault.off` | File storage is not set up for this plant yet. Rows can still be imported, but the original file is not kept. | इस प्लांट के लिए फ़ाइल स्टोरेज अभी चालू नहीं है। लाइनें इम्पोर्ट हो सकती हैं, पर असली फ़ाइल सेव नहीं रहेगी। |
+| `vault.notStored` | Original file not kept | असली फ़ाइल सेव नहीं है |
 | `vault.stored` | Original file kept | असली फ़ाइल सेव है |
 | `vault.pending` | Saving the original file | असली फ़ाइल सेव हो रही है |
 | `helper.off` | The column helper is not set up. Map the columns yourself. | कॉलम हेल्पर चालू नहीं है। कॉलम खुद मिलाएं। |
@@ -6928,6 +6930,7 @@ Please check, Lalubhai:
 | `shape.dateOrder` | Date order | तारीख का क्रम |
 | `shape.nameRequired` | Give this layout a name. | इस लेआउट को एक नाम दें। |
 | `shape.missingRequired` | Map these fields before you save: {fields}. | सेव करने से पहले ये फ़ील्ड मिलाएं: {fields}। |
+| `row.state` | Status | स्थिति |
 | `row.entered` | In the file | फ़ाइल में |
 | `row.ready_create` | New | नया |
 | `row.ready_update` | Updates orrn | orrn में अपडेट होगा |
@@ -7053,6 +7056,9 @@ Please check, Lalubhai:
 | `error.busy` | orrn is busy. Try again in a minute. | orrn अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। |
 | `error.load` | Could not load this. Check the connection and try again. | यह लोड नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
 | `error.action` | Could not save that. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
+| `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
+| `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
+| `file.table` | Table {n} | तालिका {n} |
 
 ### reasons (79)
 
