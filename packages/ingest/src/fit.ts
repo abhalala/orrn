@@ -229,15 +229,16 @@ export function fitBuiltin(block: BlockShape, hole: BuiltinHole): FitCandidate |
   const exact = analyzeBuiltin(hole, blockHeaders, { ...pos, kinds: block.kinds });
   const holeRef = builtinRef(hole);
 
-  // A built-in names only columns it knows, so a sheet that mostly holds other columns is not an exact fit.
-  if (exact.missingRequired.length === 0 && exact.unitless.length === 0 && exact.extra.length <= exact.mapped.length) {
+  // Exact means nothing is dropped and nothing is the wrong kind. One extra column is a near fit, offered and asked
+  // once (owner decision), never silently ignored (C18, C21).
+  if (exact.missingRequired.length === 0 && exact.unitless.length === 0 && exact.extra.length === 0 && exact.kindMismatch.length === 0) {
     return {
       fit: "exact",
       score: FIT_SCORES.builtinExact,
       target: hole.target,
       holeRef,
       recipe: exact.recipe,
-      diff: { ...emptyDiff(), extra: exact.extra, missing: exact.missingOptional },
+      diff: { ...emptyDiff(), missing: exact.missingOptional },
       name: hole.id,
       learned: false,
     };
