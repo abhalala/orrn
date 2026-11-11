@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
+import { createHash, randomUUID } from "node:crypto";
 import { approve, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 import { comesBefore, orderGroupCheck } from "../src/lib/ingest/orderid";
 
@@ -372,6 +373,58 @@ describe("item 3: no person is left to press check again or keep_file", () => {
     expect((await p.owner.ingest.candidate.get({ candidateId: b })).state).toBe("processing");
     await pump(p.owner, b);
     expect((await rowsOf(p.owner, b)).map((r) => [r.state, r.reasons.includes("order_exists")])).toEqual([["unchanged", true]]);
+  });
+});
+
+describe("lead answer (b): a merged order-number cell gives its number only when the reader says it is merged", () => {
+  /** An upload with the reader's merged ranges for the block (block row indexes, one column). */
+  async function sendMerged(as: Caller, rows: string[][], merged?: { col: number; firstRow: number; lastRow: number }[]) {
+    const begin = await as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "book.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const put = await as.ingest.artifact.putBlocks({
+      artifactId: begin.artifactId,
+      blocks: [{ ordinal: 0, sheetName: "A", title: null, headerRow: 0, headerRows: 1, headers: BOOK, rowCount: rows.length, sample: rows, ...(merged ? { merged } : {}) }],
+    });
+    await as.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows });
+    await as.ingest.artifact.complete({ artifactId: begin.artifactId });
+    const id = put.candidates[0]!.id;
+    await pump(as, id);
+    return id;
+  }
+  const lines = (who2 = "Acme Traders") => [R("41", "", "31/10/2025", "5100"), R("", "", "31/10/2025", "5101"), R("", "", "31/10/2025", "5102", who2)];
+
+  test("merged: the rows under order 41 take its number and make one order of 3 lines", async () => {
+    const p = await setup();
+    const id = await sendMerged(p.owner, lines(), [{ col: 1, firstRow: 0, lastRow: 2 }]);
+    const rows = await rowsOf(p.owner, id);
+    expect(rows.map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create"]);
+    expect(rows.slice(1).every((r) => r.reasons.includes("merged_cell:oldOrderNo"))).toBe(true);
+    expect(await tryApprove(p.owner, id)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect(await orders(p.companyId)).toEqual([{ po: null, note: "Old order no. 41", lines: 3 }]);
+  });
+
+  test("no merge information: a blank stays blank and each such row is its own order", async () => {
+    const p = await setup();
+    const id = await sendMerged(p.owner, lines());
+    const rows = await rowsOf(p.owner, id);
+    expect(rows.some((r) => r.reasons.includes("merged_cell:oldOrderNo"))).toBe(false);
+    expect(await tryApprove(p.owner, id)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect((await orders(p.companyId)).map((o) => o.lines)).toEqual([1, 1, 1]);
+  });
+
+  test("merged, but the customer changes: that row does not take the number", async () => {
+    const p = await setup();
+    await p.owner.customer.create({ name: "Kamal Bros" });
+    const id = await sendMerged(p.owner, lines("Kamal Bros"), [{ col: 1, firstRow: 0, lastRow: 2 }]);
+    const rows = await rowsOf(p.owner, id);
+    expect(rows.map((r) => r.reasons.includes("merged_cell:oldOrderNo"))).toEqual([false, true, false]);
+  });
+
+  test("merged ranges are bounded: inside the block, top row first", async () => {
+    const p = await setup();
+    await expect(sendMerged(p.owner, lines(), [{ col: 1, firstRow: 2, lastRow: 1 }])).rejects.toThrow("A merged range must run down from its first row");
+    await expect(sendMerged(p.owner, lines(), [{ col: 9, firstRow: 0, lastRow: 1 }])).rejects.toThrow("A merged range is outside the table");
   });
 });
 

@@ -1187,6 +1187,59 @@ export function openQuestionCount(questions: readonly IngestQuestion[]): number 
 }
 
 /** Ambiguous and conflict rows that wait on a person, not on a question. */
+/** A note on a row whose blank order number came from the merged cell above it (lead answer b). */
+export const MERGED_CELL = "merged_cell:oldOrderNo";
+
+/** The single column a recipe field reads, or null. */
+function fieldColumn(recipe: Recipe, field: string): number | null {
+  const src = recipe.fields.find((f) => f.field === field)?.source as { kind?: string; cols?: { col: number }[] } | undefined;
+  return src?.kind === "columns" && src.cols?.length === 1 ? src.cols[0]!.col : null;
+}
+
+/**
+ * Lead answer (b), round 5: a blank order number takes the number above it only when the reader
+ * marked the cell as part of a merged range, the top cell is filled, and the other key columns
+ * (customer, date) are blank or the same as the top row's. Never from position alone. Returns the
+ * filled raw cells by row id; the stored raw row is left as the file had it.
+ */
+async function mergedOrderNumbers(ctx: IngestCtx, candidateId: string, recipe: Recipe, merged: readonly { col: number; firstRow: number; lastRow: number }[], rows: readonly Staged[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  const noCol = fieldColumn(recipe, "oldOrderNo");
+  if (noCol === null || merged.length === 0) return out;
+  const ranges = merged.filter((m) => m.col === noCol);
+  const others = recipe.keys.filter((k) => k !== "oldOrderNo").map((k) => fieldColumn(recipe, k)).filter((x): x is number => x !== null);
+  const want = new Map<string, number>();
+  for (const r of rows) {
+    if ((r.raw[noCol] ?? "").trim() !== "") continue;
+    const m = ranges.find((x) => r.rowIndex > x.firstRow && r.rowIndex <= x.lastRow);
+    if (m) want.set(r.id, m.firstRow);
+  }
+  if (want.size === 0) return out;
+  const tops = await mapInChunks([...new Set(want.values())], (part) =>
+    ctx.db
+      .select({ rowIndex: ingestStagedRow.rowIndex, raw: ingestStagedRow.raw })
+      .from(ingestStagedRow)
+      .where(and(eq(ingestStagedRow.candidateId, candidateId), inArray(ingestStagedRow.rowIndex, part))),
+  );
+  const top = new Map(tops.map((t) => [t.rowIndex, t.raw]));
+  for (const r of rows) {
+    const at = want.get(r.id);
+    const t = at === undefined ? undefined : top.get(at);
+    const no = (t?.[noCol] ?? "").trim();
+    if (!t || !no) continue;
+    const same = others.every((col) => {
+      const mine = (r.raw[col] ?? "").trim();
+      return mine === "" || mine.toLowerCase() === (t[col] ?? "").trim().toLowerCase();
+    });
+    if (!same) continue;
+    const raw = [...r.raw];
+    while (raw.length <= noCol) raw.push("");
+    raw[noCol] = t[noCol]!;
+    out.set(r.id, raw);
+  }
+  return out;
+}
+
 /** Rule 5.3: the row reason of a row the reader doubted, until a person answers it. */
 export const CHECK_AGAINST_FILE = "check_against_file";
 
@@ -1490,7 +1543,11 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     const dropRateFlags = c.target === "orders" && answers.ratesLeftOut === true;
     // Every read of a row goes through it, the re-reads of settleMagnitude too (X-new-2).
     const keepFlag = dropRateFlags ? (f: MagnitudeFlag) => !RATE_FIELDS.includes(f.field) : undefined;
-    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyRow(compiled, r.raw, r.rowIndex), r.raw, answers, compileWith, keepFlag) }));
+    const filled = c.target === "orders" ? await mergedOrderNumbers(ctx, c.id, recipe, block.merged ?? [], editable) : new Map<string, string[]>();
+    const applied = editable.map((r) => {
+      const raw = filled.get(r.id) ?? r.raw;
+      return { r, ...settleMagnitude(applyRow(compiled, raw, r.rowIndex), raw, answers, compileWith, keepFlag) };
+    });
     const live = await loadPageLive(
       ctx,
       c.target,
@@ -1530,7 +1587,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       out = applyDecision(out, r, c.target);
       out = holdForMagnitude(out, waiting, entered);
       if (c.target === "die_copies") out = copyStatusCheck(out, live.sections ?? []);
-      out.reasons = [...keep, ...out.reasons, ...notes];
+      out.reasons = [...keep, ...out.reasons, ...notes, ...(filled.has(r.id) ? [MERGED_CELL] : [])];
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);
       if (dup) values._dupKey = dup;

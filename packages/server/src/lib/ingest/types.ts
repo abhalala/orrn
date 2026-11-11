@@ -101,6 +101,8 @@ export type BlockInput = {
    * the header is taken as the browser read it and recorded as `reader`.
    */
   preview?: { row: number; page?: number; cells: string[] }[];
+  /** Lead answer (b): vertical merged cell ranges, by block row index and column. */
+  merged?: { col: number; firstRow: number; lastRow: number }[];
   /** The header row a person picked on the preview. Trusted; `headerRow` and `headerRows` must be it. */
   hint?: HeaderPickIn;
 };

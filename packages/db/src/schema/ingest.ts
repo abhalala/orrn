@@ -171,6 +171,11 @@ export const ingestBlock = sqliteTable(
     readBy: text("read_by", { enum: ["parser", "model"] }).notNull().default("parser"),
     /** Who settled the header (rule 4.1): the reader alone (old upload shape), a fit to a known layout, or a person. */
     headerBy: text("header_by", { enum: ["reader", "fit", "person"] }).notNull().default("reader"),
+    /**
+     * Lead answer (b), round 5: vertical merged cell ranges the reader reported, by block row index
+     * and column. Only a merged order-number cell gives its number to the rows under it.
+     */
+    merged: text("merged", { mode: "json" }).$type<{ col: number; firstRow: number; lastRow: number }[]>(),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
     /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
     canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),

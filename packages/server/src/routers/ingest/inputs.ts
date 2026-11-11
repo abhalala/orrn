@@ -67,6 +67,14 @@ export const blockInput = z.object({
     )
     .max(PREVIEW_ROWS + PREVIEW_HEAD_ROWS)
     .optional(),
+  /**
+   * Lead answer (b): vertical merged cell ranges the reader saw, by block row index (0 is the first
+   * row after the header) and column. Without them a blank cell stays blank.
+   */
+  merged: z
+    .array(z.object({ col: z.number().int().min(0).max(L.columnsPerBlock), firstRow: z.number().int().min(0).max(L.stagedRowsPerBlock), lastRow: z.number().int().min(0).max(L.stagedRowsPerBlock) }))
+    .max(10_000)
+    .optional(),
   /** The header row a person picked on the preview; trusted. */
   hint: z.object({ headerRow: z.number().int().min(0).max(RAW_ROW_MAX), headerRows: z.union([z.literal(1), z.literal(2)]) }).optional(),
 });

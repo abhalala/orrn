@@ -242,6 +242,10 @@ export async function putBlocks(
   const statements: SqliteBatchItem[] = [];
   const open: HeaderAnswer[] = [];
   for (const b of fresh) {
+    for (const m of b.merged ?? []) {
+      if (m.lastRow <= m.firstRow) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged range must run down from its first row" });
+      if (m.col >= b.headers.length || m.lastRow >= b.rowCount) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged range is outside the table" });
+    }
     const settled = settleHeader(b, learned);
     if (!("by" in settled)) {
       open.push(settled);
@@ -265,6 +269,7 @@ export async function putBlocks(
         headerRow: b.headerRow,
         headerRows: b.headerRows,
         headerBy: settled.by,
+        merged: b.merged?.length ? b.merged : null,
         headers: fp.headers,
         kinds: fp.kinds,
         headerKey: fp.headerKey,
