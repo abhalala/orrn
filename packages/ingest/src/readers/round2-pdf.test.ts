@@ -87,3 +87,27 @@ describe("R3-3: a table the reader cannot head is never dropped or joined while 
     expect(thanked.blocks[0]!.reasons).toContain("rows_left_out");
   });
 });
+
+describe("R3-9: a data row with a word in one number column is not taken as a header", () => {
+  test("Nil and Cancelled under Qty and Kg stay a row", () => {
+    const page = [...line(770, "Party", "Section", "Qty", "Kg"), ...line(755, "Om Metals", "R 2105", "12", "1200"), ...line(740, "Shree", "T 4012", "Nil", "Cancelled"), ...line(725, "Kamal", "R 2106", "5", "500")];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Qty", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([["Om Metals", "R 2105", "12", "1200"], ["Shree", "T 4012", "Nil", "Cancelled"], ["Kamal", "R 2106", "5", "500"]]);
+    expect(r.blocks[0]!.confidence).toBe("unsure");
+    expect(r.blocks[0]!.reasons).toContain("word_in_number_column");
+  });
+
+  test("a second table's header right under the rows still starts a new table", () => {
+    const page = [
+      ...line(770, "Party", "Section", "Qty", "Kg"),
+      ...line(755, "Om Metals", "R 2105", "12", "1200"),
+      ...line(740, "Kamal", "R 2106", "5", "500"),
+      ...line(725, "Party", "Bundles", "Pieces", "Total Kg"),
+      ...line(710, "Om Metals", "3", "40", "1200"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.map((b) => b.headers[1])).toEqual(["Section", "Bundles"]);
+  });
+});

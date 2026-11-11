@@ -161,11 +161,12 @@ function fitsWidened(members: readonly Line[], cols: readonly Col[], l: Line, ch
 
 
 /**
- * Is the line a new header? Either a word over a column where the run's data rows hold numbers, dates or codes (a code
- * such as "T4012" or a blank-value word such as "Nil" there is a data value), or a line of words only that does not fit
- * the columns, under data rows that hold numbers. A row of words that fits the columns (a name and a city) is data.
+ * Is the line a new header? Either words over columns where the run's data rows hold numbers, dates or codes (a code
+ * such as "T4012" or a blank-value word such as "Nil" there is a data value): two such columns for a line at the row
+ * pitch that fits the columns one to one, one for any other line; or a line of words only that does not fit the columns, under
+ * data rows that hold numbers. A row of words that fits the columns (a name and a city) is data.
  */
-function isNewHeader(cols: readonly Col[], l: Line, members: readonly Line[], charWidth: number): boolean {
+function isNewHeader(cols: readonly Col[], l: Line, members: readonly Line[], charWidth: number, afterBreak: boolean, nextLine?: Line): boolean {
   if (!isHeaderLike(l.cells.map((c) => c.text))) return false;
   const headed = members.length > 1 && isHeaderLike(members[0]!.cells.map((c) => c.text));
   const data = headed ? members.slice(1) : members;
@@ -180,13 +181,28 @@ function isNewHeader(cols: readonly Col[], l: Line, members: readonly Line[], ch
   ) {
     return true;
   }
-  return l.cells.some((c) => {
-    if (!isWord(c.text)) return false;
+  const kindAt = (c: Cell) => {
     const k = nearestColumn(cols, c, charWidth);
-    const values = data.flatMap((m) => m.cells.filter((d) => nearestColumn(cols, d, charWidth) === k).map((d) => d.text));
-    const kind = inferKind(values);
+    return inferKind(data.flatMap((m) => m.cells.filter((d) => nearestColumn(cols, d, charWidth) === k).map((d) => d.text)));
+  };
+  const wordsOverValues = l.cells.filter((c) => {
+    if (!isWord(c.text)) return false;
+    const kind = kindAt(c);
     return kind === "int" || kind === "decimal" || kind === "date" || kind === "code";
-  });
+  }).length;
+  // The line after does not read like a row of this table: a number under a column of words, or a word under numbers.
+  const nextIsOther =
+    nextLine !== undefined &&
+    nextLine.cells.some((c) => {
+      const kind = kindAt(c);
+      const own = cellKind(c.text);
+      return ((kind === "int" || kind === "decimal" || kind === "date") && isWord(c.text)) || (kind === "text" && (own === "int" || own === "decimal"));
+    });
+  // A line at the row pitch that fits the columns one to one is a row with a remark in it ("Shree | T 4012 | Nil |
+  // Cancelled") unless words sit over two or more columns of values (R3-9): once the header is found, a row is not
+  // taken as a header. After a blank gap or a line that is not part of a row (a title such as "Summary"), before a
+  // line that does not read like a row of this table, or when it does not fit, one such word is enough.
+  return wordsOverValues >= (fitsColumns(cols, l, charWidth) && !afterBreak && !nextIsOther ? 2 : 1);
 }
 
 type Entry = { line: number } | { gap: true };
@@ -267,7 +283,7 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
       const wraps = big ? 0 : countWraps(entries, cols, members[members.length - 1]!, pending);
       const plain = !big && wraps === pending.length;
       // A new header ends the run whether or not lines wait and whether or not it fits the columns (C-new-6).
-      const newHead = isNewHeader(cols, l, members, charWidth);
+      const newHead = isNewHeader(cols, l, members, charWidth, !plain, lines.slice(j + 1).find((x) => x.cells.length >= 2));
       if (newHead || (!plain && !fitsColumns(cols, l, charWidth) && !fitsWidened(members, cols, l, charWidth))) {
         // Lines across a blank gap from the next table belong to this run: trailing rows or footers.
         if (big) {
