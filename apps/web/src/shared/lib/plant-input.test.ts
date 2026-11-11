@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { parseWholeKgToGrams } from "@/features/die-room/die-room-model";
-import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
+import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -186,5 +186,26 @@ describe("a model that keeps whole kg (die life) behind a converting box", () =>
   });
   test("a plant on kg is the old box: the whole kg draft is the typed text", () => {
     expect(typedToDraft(fmtOf(), WHOLE_KG, "60000")).toMatchObject({ draft: "60000", problem: null });
+  });
+});
+
+describe("limits that belong to the field, not to a borrowed one (metre plant)", () => {
+  const m = fmtOf({ units: { length: "m" } });
+  test("a pressed length of 40 m is accepted (the bundle limit of 30 m does not apply), 100,000 m is the cap", () => {
+    expect(typedToDraft(m, LENGTH_MM, "40").problem).toBe("tooBig");
+    expect(typedToDraft(m, PRESSED_MM, "40")).toMatchObject({ draft: "40000", problem: null });
+    expect(typedToDraft(m, PRESSED_MM, "100000")).toMatchObject({ draft: "100000000", problem: null });
+    expect(typedToDraft(m, PRESSED_MM, "100001").problem).toBe("tooBig");
+    expect(typedToDraft(fmtOf({ units: { length: "ft_in" } }), PRESSED_IN, "40 ft")).toMatchObject({ problem: null });
+  });
+  test("a die 0.55 m wide is accepted, and a tenth of a mm still is (the 500 mm limit of a wall does not apply)", () => {
+    expect(typedToDraft(m, WALL_MM, "0.55").problem).toBe("tooBig");
+    expect(typedToDraft(m, GEOMETRY_MM, "0.55")).toMatchObject({ draft: "550", problem: null });
+    expect(typedToDraft(m, GEOMETRY_MM, "0.1205")).toMatchObject({ draft: "120.5", problem: null });
+    expect(typedToDraft(m, GEOMETRY_MM, "2.0001").problem).toBe("tooBig");
+  });
+  test("a plant on mm is the old box", () => {
+    expect(typedToDraft(fmtOf(), PRESSED_MM, "40000")).toMatchObject({ draft: "40000", problem: null });
+    expect(typedToDraft(fmtOf(), GEOMETRY_MM, "550.5")).toMatchObject({ draft: "550.5", problem: null });
   });
 });

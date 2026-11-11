@@ -118,7 +118,7 @@ describe("the forms that take a weight, length or section weight", () => {
     for (const m of s.matchAll(/<PlantInput\b[^>]*?spec=\{([^}]*)\}/gs)) {
       const rel = f.slice(ROOT.length + 1);
       const set = used.get(rel) ?? new Set<string>();
-      for (const spec of m[1]!.match(/MASS_KG|WHOLE_KG|MASS_G|LENGTH_MM|DIAMETER_MM|LENGTH_FT|LENGTH_IN|SECTION_KG12|WALL_MM/g) ?? []) set.add(spec);
+      for (const spec of m[1]!.match(/MASS_KG|WHOLE_KG|GEOMETRY_MM|PRESSED_MM|PRESSED_IN|MASS_G|LENGTH_MM|DIAMETER_MM|LENGTH_FT|LENGTH_IN|SECTION_KG12|WALL_MM/g) ?? []) set.add(spec);
       used.set(rel, set);
     }
     if (/<BigNumberField[^>]*spec=\{/s.test(s) || /<QtyBox\b/.test(s)) used.set(f.slice(ROOT.length + 1), (used.get(f.slice(ROOT.length + 1)) ?? new Set()).add("MASS_KG"));

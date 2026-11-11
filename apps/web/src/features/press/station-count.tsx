@@ -39,7 +39,7 @@ import {
 import { reasonLabel } from "./reason-label";
 import type { RunDetail } from "./types";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_IN, LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
+import { LENGTH_IN, LENGTH_MM, MASS_KG, PRESSED_IN, PRESSED_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
@@ -450,7 +450,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             {t("press.console.addLength")}
           </Button>
           <Field label={t("press.console.pressedLength")} hint={t("press.console.pressedLengthHint")}>
-            <PlantInput spec={unit === "inch" ? LENGTH_IN : LENGTH_MM} value={draft.pressedLengthText} onValueChange={(pressedLengthText) => patch({ pressedLengthText })}  />
+            <PlantInput spec={unit === "inch" ? PRESSED_IN : PRESSED_MM} value={draft.pressedLengthText} onValueChange={(pressedLengthText) => patch({ pressedLengthText })}  />
           </Field>
         </Card>
       ) : null}

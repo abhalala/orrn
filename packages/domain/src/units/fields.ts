@@ -19,6 +19,8 @@ const T = 1_000_000; // grams in a tonne
 const TABLE = {
   "bundle.weight": { kind: "mass", storage: "g", hard: [0, 50 * T], plausible: [1_000, 2 * T] },
   "bundle.length": { kind: "length", storage: "mm", hard: [0, 30_000], plausible: [300, 12_500] },
+  /** Pressed length of a whole push on the press count: the server takes up to 100,000 m (100,000,000 mm), far past a bundle's 30 m. */
+  "press.pressedLength": { kind: "length", storage: "mm", hard: [0, 100_000_000] },
   "bundle.pieces": { kind: "count", storage: "pcs", hard: [0, 1_000_000], plausible: [1, 5_000], whole: true },
   "order.cutLength": { kind: "length", storage: "mm", hard: [0, 30_000], plausible: [300, 12_500] },
   "order.weight": { kind: "mass", storage: "g", hard: [0, 5_000 * T], plausible: [1_000, 200 * T] },
@@ -31,6 +33,8 @@ const TABLE = {
   "die.width": { kind: "length", storage: "mm", hard: [0, 2_000], plausible: [5, 600] },
   "die.thickness": { kind: "length", storage: "mm", hard: [0, 2_000], plausible: [1, 200] },
   "die.wall": { kind: "length", storage: "tenth_mm", hard: [0, 5_000], plausible: [3, 400] },
+  /** A die width, thickness or leg: it may carry a tenth of a mm, and a die is up to 2 m across (not the 500 mm of a wall). */
+  "die.geometry": { kind: "length", storage: "tenth_mm", hard: [0, 20_000] },
   "press.input": { kind: "mass", storage: "g", hard: [0, 100 * T], plausible: [1_000, 20 * T] },
   "press.good": { kind: "mass", storage: "g", hard: [0, 100 * T], plausible: [0, 20 * T] },
   "press.pressure": { kind: "pressure", storage: "deci_bar", hard: [0, 10_000], plausible: [0, 4_000] },

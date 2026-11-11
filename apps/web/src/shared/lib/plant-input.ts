@@ -36,6 +36,11 @@ export const LENGTH_MM: EntrySpec = { field: "bundle.length", native: "mm" };
 export const WALL_MM: EntrySpec = { field: "die.wall", native: "mm", plainOnFtIn: true };
 /** A diameter or short cut in mm that every plant, feet and inches ones too, has always typed in mm (billet diameter, split cut). */
 export const DIAMETER_MM: EntrySpec = { field: "bundle.length", native: "mm", plainOnFtIn: true };
+/** A die width, thickness or leg (may carry a tenth of a mm; a die is up to 2 m across). */
+export const GEOMETRY_MM: EntrySpec = { field: "die.geometry", native: "mm" };
+/** The pressed length of a whole push: no bundle limit of 30 m. */
+export const PRESSED_MM: EntrySpec = { field: "press.pressedLength", native: "mm" };
+export const PRESSED_IN: EntrySpec = { field: "press.pressedLength", native: "in" };
 export const LENGTH_FT: EntrySpec = { field: "bundle.length", native: "ft" };
 export const LENGTH_IN: EntrySpec = { field: "bundle.length", native: "in" };
 export const SECTION_KG12: EntrySpec = { field: "die.band", native: "kg_12ft" };
