@@ -116,6 +116,24 @@ describe("one old order is one order (B1, B5)", () => {
   });
 });
 
+describe("rows the dry run matched to a live order (lane A, order_exists)", () => {
+  test("an unchanged order_exists row writes nothing; the new order beside it is made once", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const liveOrder = await (await api(companyId, "owner")).orders.create({ customerId, lines: [{ sectionId: dieId, cutLengthMm: 3658, kgG: 1000 }] });
+    const seeded = await seedCandidate(env, companyId, "orders", [
+      { ...line(customerId, dieId, { oldOrderNo: "L-1", cutLength: 3658 }), state: "unchanged" as const, matchId: liveOrder.id },
+      line(customerId, dieId, { oldOrderNo: "N-2", cutLength: 3000 }),
+    ]);
+    expect((await mergeAll(await api(companyId))).state).toBe("done");
+    expect(await count("sales_order", companyId)).toBe(2);
+    const [matched, fresh] = await stagedRows(env, seeded.candidateId);
+    expect(matched).toMatchObject({ mergeState: "open", committedType: null, committedId: null });
+    expect(fresh).toMatchObject({ mergeState: "written", committedType: "sales_order" });
+    expect(fresh!.committedId).not.toBe(liveOrder.id);
+    expect((await orderBook(companyId)).lines.filter((l) => l.salesOrderId === liveOrder.id)).toHaveLength(1);
+  });
+});
+
 describe("a ready_update row never becomes a create (B6)", () => {
   test("customers: an update with no record in a later chunk holds the candidate before any customer changes", async () => {
     const { companyId } = await env.seedCompany();
