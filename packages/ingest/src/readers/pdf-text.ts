@@ -1,4 +1,11 @@
 /**
+ * NOT USED BY THE FIRST PORTAL RELEASE (owner's decision, 2026-11-11). The first release reads sheets, CSV and
+ * database dumps only. PDFs and photos are uploaded and kept, marked "kept, not read yet", and the next release reads
+ * them with a vision model. Why: the round 5 recheck (PORTAL-R4-CHECK.md) found that on tightly spaced real-looking
+ * tables 78 to 100 percent of rows carry a doubt, too many for a person to check by eye, and it still found values
+ * under the wrong column with no doubt (B-R5-1, B-R5-3). This file is left as it was at round 5; do not build on it.
+ */
+/**
  * PDF text layer to tables (plan C2). The input is positioned text items, as a PDF library reports them: no library
  * object crosses this line. Items are grouped into lines by their y and merged into cells by the gaps between them.
  * A table is a run of multi-cell lines; its columns come from projecting the cells of those lines onto the x axis.
