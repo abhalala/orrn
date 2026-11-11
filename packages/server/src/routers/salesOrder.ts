@@ -43,6 +43,7 @@ import {
   type LineBalance,
 } from "../lib/orders";
 import { nextCompanySeq } from "../lib/sequence";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { assertDieAllowed } from "../lib/dieOwner";
 import { companyFloor, resolveLineEdits, resolveLines, type ResolvedLine } from "../lib/orderLines";
 import { can, type Action, type CompanyRole } from "../lib/permissions";
@@ -92,7 +93,8 @@ export const orderLineInput = z.object({
   ratePaise: z.number().int().min(0).max(100_000_000).nullable().optional(),
 });
 
-const createInput = z.object({
+/** Exported so the Infinity Portal merge checks an order exactly as `orders.create` does (plan A8). */
+export const createInput = z.object({
   customerId: z.string().min(1).max(64),
   poNumber: text(100).nullable().optional(),
   /** Company calendar date; defaults to today on the company clock. */
@@ -275,6 +277,8 @@ export type OrderCreateCtx = {
   companyId: string;
   session: NonNullable<Context["session"]>;
   impersonation: Context["impersonation"];
+  /** Set by the Infinity Portal merge only (plan A6); copied into the audit meta. */
+  ingestSource?: Context["ingestSource"];
 };
 
 export type OrderCreateInput = z.infer<typeof createInput>;
@@ -288,7 +292,7 @@ export type OrderCreateInput = z.infer<typeof createInput>;
 export async function createSalesOrder(
   ctx: OrderCreateCtx,
   input: OrderCreateInput,
-  opts: { canPrice: boolean; source: "office" | "portal" },
+  opts: { canPrice: boolean; source: "office" | "portal" | "ingest" },
 ): Promise<{ id: string; number: string; replayed: boolean }> {
   const auditAction = opts.source === "portal" ? "portal.order.create" : "order.create";
   // D11 / review round 1 I-1: a new order is a booking; confirming is `orders.confirm`.
@@ -365,7 +369,9 @@ export async function createSalesOrder(
       status,
       note: blank(input.note),
       lineSeq: input.lines.length,
-      source: opts.source,
+      // An order from an import is an office order (the column knows office and portal only); the
+      // audit row says it came from a file (`meta.source`, plan A6).
+      source: opts.source === "portal" ? "portal" : "office",
       clientRequestId: input.clientRequestId ?? null,
       statusChangedAt: at,
       statusChangedBy: userId,
@@ -405,6 +411,7 @@ export async function createSalesOrder(
               lines: input.lines.length,
               kgG: resolved.reduce((s, l) => s + l.kgG, 0),
               ...(input.clientRequestId ? { fingerprint } : {}),
+              ...sourceMeta(ctx),
             },
     }),
   );

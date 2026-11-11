@@ -33,6 +33,8 @@ import {
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
+import { legacyBundleMap } from "@orrn/db/schema/legacy";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
@@ -251,6 +253,11 @@ const bundleImportRowSchema = z.object({
   weightG: z.number().int().positive("Weight must be greater than 0"),
   lengthMm: z.number().int().positive("Length must be greater than 0"),
   poNumber: z.string().max(500).nullable().optional(),
+  /**
+   * The bundle id in the old system (pre-cutover label). When sent, `legacy_bundle_map` links it to
+   * the new bundle in the same batch, so the old label still resolves (plan B4).
+   */
+  legacyId: z.string().trim().min(1).max(100).optional(),
 });
 
 /**
@@ -1517,6 +1524,8 @@ export const bundleRouter = router({
               .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, replayProbe(ids))))
           ).map((r) => r.id),
         );
+      // The new bundles' ids in input order (the merge records what it wrote, plan A5).
+      const ids = rowIds ?? input.rows.map(() => crypto.randomUUID());
       const replayed = {
         success: true,
         replayed: true,
@@ -1525,11 +1534,28 @@ export const bundleRouter = router({
         newDies: 0,
         newGroups: 0,
         reusedGroups: 0,
+        ids,
       } as const;
       if (rowIds) {
         const state = await landed(rowIds);
         if (state === "replayed") return replayed;
         if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
+      }
+
+      // 0b. Old bundle ids: each once in the call and not already linked to a bundle.
+      const legacyIds = input.rows.map((row) => row.legacyId).filter((v): v is string => !!v);
+      if (legacyIds.length > 0) {
+        const twice = legacyIds.find((v, i) => legacyIds.indexOf(v) !== i);
+        if (twice) throw new TRPCError({ code: "BAD_REQUEST", message: `Old bundle id ${twice} is on two rows` });
+        const linked = await mapInChunks([...new Set(legacyIds)], (part) =>
+          ctx.db
+            .select({ legacyId: legacyBundleMap.legacyId })
+            .from(legacyBundleMap)
+            .where(and(eq(legacyBundleMap.companyId, ctx.companyId), inArray(legacyBundleMap.legacyId, part))),
+        );
+        if (linked.length > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Old bundle id ${linked[0]!.legacyId} is already in orrn` });
+        }
       }
 
       // 1. Resolve every (series, sectionCode) in the file to a die id.
@@ -1737,7 +1763,7 @@ export const bundleRouter = router({
         const idx = groupIdToNextIdx.get(group.id)!;
         groupIdToNextIdx.set(group.id, idx + 1);
 
-        const bundleId = rowIds?.[rowIndex] ?? crypto.randomUUID();
+        const bundleId = ids[rowIndex]!;
         bundleRows.push({
           id: bundleId,
           companyId: ctx.companyId,
@@ -1771,6 +1797,15 @@ export const bundleRouter = router({
       const openingVoucherId = crypto.randomUUID();
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(legacyBundleMap).values(rows),
+        input.rows.flatMap((row, i) =>
+          row.legacyId
+            ? [{ id: crypto.randomUUID(), companyId: ctx.companyId, serverSeq: seq, legacyId: row.legacyId, bundleId: ids[i]!, createdBy: userId }]
+            : [],
+        ),
+      );
       statements.push(
         ...packRows(
           { db: ctx.db, companyId: ctx.companyId, userId, seq, postedAt: now },
@@ -1792,6 +1827,8 @@ export const bundleRouter = router({
               newGroups: newGroups.length,
               reusedGroups: existingDieIdsAppendedTo.length,
               openingVoucherId,
+              ...(legacyIds.length > 0 ? { legacyIds: legacyIds.length } : {}),
+              ...sourceMeta(ctx),
             },
           },
         ),
@@ -1814,6 +1851,7 @@ export const bundleRouter = router({
         newDies: newDieIds.length,
         newGroups: newGroups.length,
         reusedGroups: existingDieIdsAppendedTo.length,
+        ids,
       };
     }),
 

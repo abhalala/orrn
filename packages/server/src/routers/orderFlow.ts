@@ -63,6 +63,8 @@ import {
 } from "../lib/reallocate";
 import { ensureDefaultReasonCodes } from "../lib/reasonCodes";
 import { nextCompanySeq } from "../lib/sequence";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
+import type { Context } from "../context";
 
 const id = z.string().min(1).max(64);
 const text = (max: number) => z.string().trim().max(max);
@@ -297,6 +299,81 @@ async function quoteLine(
   };
 }
 
+/** Who confirms: a member through `orders.confirm`, or the Infinity Portal merge (plan B4). */
+export type ConfirmOrderCtx = {
+  db: OrrnDb;
+  companyId: string;
+  session: NonNullable<Context["session"]>;
+  impersonation: Context["impersonation"];
+  /** Set by the Infinity Portal merge only (plan A6); copied into the audit meta. */
+  ingestSource?: Context["ingestSource"];
+};
+
+/**
+ * booking → confirmed, the body of `orders.confirm` (extracted for the Infinity Portal merge, plan
+ * B4, with no change in behaviour). The caller has checked the permission.
+ */
+export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; serverSeq?: number }) {
+  const order = await loadOrder(ctx.db, ctx.companyId, input.id);
+  if (order.status !== "booking") {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `Only a booking can be confirmed (this order is ${order.status})` });
+  }
+  if (input.serverSeq !== undefined && input.serverSeq !== order.serverSeq) conflict();
+  const blockers = await orderConfirmBlockers(ctx.db, ctx.companyId, order);
+  if (blockers.length > 0) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `Fill these before confirming: ${blockers.join(", ")}` });
+  }
+  await assertPoFree(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber!, exceptOrderId: order.id });
+  const lines = await orderLines(ctx.db, ctx.companyId, order.id);
+  for (const l of lines) {
+    if (l.dieInstanceId) {
+      await assertDieAllowed(ctx.db, ctx.companyId, {
+        dieId: l.dieId,
+        dieInstanceId: l.dieInstanceId,
+        customerId: order.customerId,
+        purpose: "plan",
+      });
+    }
+  }
+  const at = clockNow();
+  const userId = ctx.session.user.id;
+  const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+  try {
+    await atomicBatch(ctx.db, [
+      ctx.db
+        .update(salesOrder)
+        .set({
+          status: "confirmed",
+          confirmedAt: at,
+          confirmedBy: userId,
+          statusChangedAt: at,
+          statusChangedBy: userId,
+          serverSeq: seq,
+        })
+        .where(
+          and(
+            eq(salesOrder.id, order.id),
+            eq(salesOrder.companyId, ctx.companyId),
+            eq(salesOrder.status, "booking"),
+            eq(salesOrder.serverSeq, order.serverSeq),
+          ),
+        ),
+      batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
+      poRepeatGuard(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber! }),
+      auditInsert(ctx, {
+        action: "order.confirm",
+        subjectType: "sales_order",
+        subjectId: order.id,
+        meta: { number: order.number, period: order.period, orderId: order.id, lines: lines.length, ...sourceMeta(ctx) },
+      }),
+    ]);
+  } catch (e) {
+    if (isBatchAbort(e, "sales_order_line")) conflict();
+    throw e;
+  }
+  return { id: order.id, status: "confirmed" as const };
+}
+
 export const orderFlowProcedures = {
   /**
    * booking → confirmed (OP §6): PO, ≥ 1 line, each line pcs, kg, length, alloy, temper and (when
@@ -305,66 +382,7 @@ export const orderFlowProcedures = {
    */
   confirm: actionProcedure("order.manage")
     .input(z.object({ id, serverSeq: z.number().int().nonnegative().optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const order = await loadOrder(ctx.db, ctx.companyId, input.id);
-      if (order.status !== "booking") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `Only a booking can be confirmed (this order is ${order.status})` });
-      }
-      if (input.serverSeq !== undefined && input.serverSeq !== order.serverSeq) conflict();
-      const blockers = await orderConfirmBlockers(ctx.db, ctx.companyId, order);
-      if (blockers.length > 0) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: `Fill these before confirming: ${blockers.join(", ")}` });
-      }
-      await assertPoFree(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber!, exceptOrderId: order.id });
-      const lines = await orderLines(ctx.db, ctx.companyId, order.id);
-      for (const l of lines) {
-        if (l.dieInstanceId) {
-          await assertDieAllowed(ctx.db, ctx.companyId, {
-            dieId: l.dieId,
-            dieInstanceId: l.dieInstanceId,
-            customerId: order.customerId,
-            purpose: "plan",
-          });
-        }
-      }
-      const at = clockNow();
-      const userId = ctx.session.user.id;
-      const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-      try {
-        await atomicBatch(ctx.db, [
-          ctx.db
-            .update(salesOrder)
-            .set({
-              status: "confirmed",
-              confirmedAt: at,
-              confirmedBy: userId,
-              statusChangedAt: at,
-              statusChangedBy: userId,
-              serverSeq: seq,
-            })
-            .where(
-              and(
-                eq(salesOrder.id, order.id),
-                eq(salesOrder.companyId, ctx.companyId),
-                eq(salesOrder.status, "booking"),
-                eq(salesOrder.serverSeq, order.serverSeq),
-              ),
-            ),
-          batchAbortUnless(ctx.db, "sales_order_line", orderLanded(ctx.companyId, order.id, seq)),
-          poRepeatGuard(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber! }),
-          auditInsert(ctx, {
-            action: "order.confirm",
-            subjectType: "sales_order",
-            subjectId: order.id,
-            meta: { number: order.number, period: order.period, orderId: order.id, lines: lines.length },
-          }),
-        ]);
-      } catch (e) {
-        if (isBatchAbort(e, "sales_order_line")) conflict();
-        throw e;
-      }
-      return { id: order.id, status: "confirmed" as const };
-    }),
+    .mutation(({ ctx, input }) => confirmOrder(ctx, input)),
 
   /** confirmed / dispatching → closed. A reason is required while baki is left (Q-OP-8). Bundles stay on the line (FP-OP-07). */
   close: actionProcedure("order.manage")

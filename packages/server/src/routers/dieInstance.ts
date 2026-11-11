@@ -49,7 +49,8 @@ import { actionProcedure, anyActionProcedure, companyProcedure, router } from ".
 import { requestApprovalInsert } from "../lib/approval";
 import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
-import { clientRequestIdSchema } from "../lib/importReplay";
+import { clientRequestIdSchema, requestRowIds } from "../lib/importReplay";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import { now as clockNow } from "../lib/clock";
 import {
@@ -489,8 +490,31 @@ export const dieInstanceRouter = router({
    * row, no approval (re-ranking an existing copy always needs one).
    */
   create: dieCardEditor
-    .input(z.object({ sectionId: z.string().min(1), tierRank: rank.optional(), bandId: z.string().min(1).nullable().optional(), ...dieCardFields }))
+    .input(
+      z.object({
+        sectionId: z.string().min(1),
+        tierRank: rank.optional(),
+        bandId: z.string().min(1).nullable().optional(),
+        ...dieCardFields,
+        /** Same id, same copy: a resend answers `replayed` with the copy the first call made (plan A5). */
+        clientRequestId: clientRequestIdSchema.optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const requestId = input.clientRequestId
+        ? (await requestRowIds(ctx.companyId, "die_instance.create", input.clientRequestId, 1))[0]!
+        : null;
+      const madeBefore = async () => {
+        if (!requestId) return null;
+        const [row] = await ctx.db
+          .select({ id: dieInstance.id, code: dieInstance.code, seqNo: dieInstance.seqNo, status: dieInstance.status })
+          .from(dieInstance)
+          .where(and(eq(dieInstance.id, requestId), eq(dieInstance.companyId, ctx.companyId)))
+          .limit(1);
+        return row ? { ...row, replayed: true as const } : null;
+      };
+      const prior = await madeBefore();
+      if (prior) return prior;
       const [section] = await ctx.db
         .select({ id: die.id, status: die.status, ownerCustomerId: die.ownerCustomerId, cavityCount: die.cavityCount })
         .from(die)
@@ -520,7 +544,7 @@ export const dieInstanceRouter = router({
       // Cavities default from the section when the form leaves them out.
       const cavityCount = input.cavityCount === undefined ? section.cavityCount : input.cavityCount;
 
-      const id = crypto.randomUUID();
+      const id = requestId ?? crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const at = clockNow();
       const userId = ctx.session.user.id;
@@ -608,7 +632,7 @@ export const dieInstanceRouter = router({
             action: "die_instance.create",
             subjectType: "die_instance",
             subjectId: id,
-            meta: { sectionId: input.sectionId, tierRank: ranked, bandId: input.bandId ?? null, status: newStatus },
+            meta: { sectionId: input.sectionId, tierRank: ranked, bandId: input.bandId ?? null, status: newStatus, ...sourceMeta(ctx) },
           },
           { from: dieInstance, where: and(eq(dieInstance.id, id), eq(dieInstance.serverSeq, seq)) },
         ),
@@ -617,12 +641,19 @@ export const dieInstanceRouter = router({
         statements.push(
           auditInsertGuarded(
             auditCtx(ctx),
-            { action: "die_owner.set", subjectType: "die_instance", subjectId: id, meta: { from: null, to: input.ownerCustomerId } },
+            { action: "die_owner.set", subjectType: "die_instance", subjectId: id, meta: { from: null, to: input.ownerCustomerId, ...sourceMeta(ctx) } },
             { from: dieInstance, where: and(eq(dieInstance.id, id), eq(dieInstance.serverSeq, seq)) },
           ),
         );
       }
-      await atomicBatch(ctx.db, statements);
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (e) {
+        // The same request raced in a moment earlier: its copy stands.
+        const raced = await madeBefore();
+        if (raced) return raced;
+        throw e;
+      }
 
       const [created] = await ctx.db
         .select()
@@ -631,7 +662,7 @@ export const dieInstanceRouter = router({
         .limit(1);
       // The section was deleted or archived between the read and the write.
       if (!created) throw new TRPCError({ code: "CONFLICT", message: "The section changed; try again" });
-      return { id, code: created.code, seqNo: created.seqNo, status: created.status };
+      return { id, code: created.code, seqNo: created.seqNo, status: created.status, replayed: false as const };
     }),
 
   /**
@@ -712,6 +743,7 @@ export const dieInstanceRouter = router({
             meta: {
               before: Object.fromEntries(Object.keys(patch).map((k) => [k, existing[k as keyof Instance]])),
               patch,
+              ...sourceMeta(ctx),
             },
           },
           { from: dieInstance, where: landed },
@@ -720,7 +752,7 @@ export const dieInstanceRouter = router({
           ? [
               auditInsertGuarded(
                 auditCtx(ctx),
-                { action: "die_owner.set", subjectType: "die_instance", subjectId: existing.id, meta: { from: existing.ownerCustomerId, to: input.ownerCustomerId ?? null } },
+                { action: "die_owner.set", subjectType: "die_instance", subjectId: existing.id, meta: { from: existing.ownerCustomerId, to: input.ownerCustomerId ?? null, ...sourceMeta(ctx) } },
                 { from: dieInstance, where: landed },
               ),
             ]

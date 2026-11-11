@@ -3,9 +3,12 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { BUNDLE_NUMBER_POLICIES } from "@orrn/domain";
-import { customer } from "@orrn/db/schema/customers";
+import { customer, customerAlias } from "@orrn/db/schema/customers";
 import { actionProcedure, companyProcedure, router } from "../index";
-import { pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { atomicBatch, pushChunkedInserts, type SqliteBatchItem } from "../lib/atomic";
+import { auditInsert } from "../lib/audit";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
+import { nameKey } from "../lib/purchase";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { paginatedList, scopedFindOrThrow, withAudit } from "../lib/helpers";
 import { digitsOnly, likeContains, phoneDigits } from "../lib/search";
@@ -35,6 +38,9 @@ const MAX_IMPORT_ROWS = 2000;
 const customerImportRows = z
   .array(customerBaseSchema)
   .max(MAX_IMPORT_ROWS, "Max 2000 rows per import — split larger files into batches");
+
+/** Most aliases one `addAliases` call adds (plan A5: the merge sends 500 rows per call). */
+const MAX_ALIAS_ROWS = 500;
 
 type Customer = typeof customer.$inferSelect;
 
@@ -142,6 +148,7 @@ export const customerRouter = router({
             ...(input.bundleNumberPolicy !== undefined && input.bundleNumberPolicy !== existing.bundleNumberPolicy
               ? { bundleNumberPolicy: { from: existing.bundleNumberPolicy ?? null, to: input.bundleNumberPolicy } }
               : {}),
+            ...sourceMeta(ctx),
           },
         },
         ({ serverSeq }) => [
@@ -230,20 +237,22 @@ export const customerRouter = router({
         );
       if (rowIds) {
         const state = await landed(rowIds);
-        if (state === "replayed") return { success: true, count: input.length, replayed: true };
+        if (state === "replayed") return { success: true, count: input.length, replayed: true, ids: rowIds };
         if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
       }
 
+      // The new customers' ids in input order (the merge records what it wrote, plan A5).
+      const ids = rowIds ?? input.map(() => crypto.randomUUID());
       const racedReplay = await withAudit(
         ctx,
         {
           action: "customer.import",
           subjectType: "customer",
-          meta: { count: input.length },
+          meta: { count: input.length, ...sourceMeta(ctx) },
         },
         ({ serverSeq }) => {
           const values = input.map((row, i) => ({
-            id: rowIds?.[i] ?? crypto.randomUUID(),
+            id: ids[i]!,
             companyId: ctx.companyId,
             serverSeq,
             name: row.name,
@@ -268,8 +277,104 @@ export const customerRouter = router({
           throw error;
         },
       );
-      if (racedReplay) return { success: true, count: input.length, replayed: true };
+      if (racedReplay) return { success: true, count: input.length, replayed: true, ids };
 
-      return { success: true, count: input.length, replayed: false };
+      return { success: true, count: input.length, replayed: false, ids };
+    }),
+
+  /**
+   * Other names a customer is known by (plan B4, `customer_aliases`). One alias key (`nameKey`) belongs
+   * to one customer of the plant, and never equals another live customer's own name. An alias the
+   * customer already has is left as it is. Same id, same rows: a resend answers `replayed`.
+   */
+  addAliases: actionProcedure("customer.update")
+    .input(
+      z.object({
+        rows: z
+          .array(z.object({ customerId: z.string().min(1).max(64), alias: z.string().trim().min(1).max(200) }))
+          .min(1, "No rows provided")
+          .max(MAX_ALIAS_ROWS, `At most ${MAX_ALIAS_ROWS} names per call`),
+        clientRequestId: clientRequestIdSchema.optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const rows = input.rows.map((r) => ({ ...r, key: nameKey(r.alias) }));
+      const blankKey = rows.find((r) => !r.key);
+      if (blankKey) throw new TRPCError({ code: "BAD_REQUEST", message: `${blankKey.alias} needs letters or digits` });
+      // Request-derived ids: two identical calls racing end on the primary key, and the loser finds
+      // every alias already there (the plan below then adds nothing and answers `replayed`).
+      const rowIds = input.clientRequestId
+        ? await requestRowIds(ctx.companyId, "customer.alias", input.clientRequestId, rows.length)
+        : rows.map(() => crypto.randomUUID());
+
+      const plan = async () => {
+        const live = await ctx.db
+          .select({ id: customer.id, name: customer.name })
+          .from(customer)
+          .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
+        const nameOf = new Map(live.map((c) => [c.id, c.name]));
+        const nameOwner = new Map<string, string>();
+        for (const c of live) {
+          const k = nameKey(c.name);
+          if (k && !nameOwner.has(k)) nameOwner.set(k, c.id);
+        }
+        const existing = await ctx.db
+          .select({ id: customerAlias.id, key: customerAlias.aliasKey, customerId: customerAlias.customerId })
+          .from(customerAlias)
+          .where(eq(customerAlias.companyId, ctx.companyId));
+        const aliasOwner = new Map(existing.map((a) => [a.key, a]));
+        const ids: string[] = [];
+        const inserts: (typeof customerAlias.$inferInsert)[] = [];
+        const fresh = new Map<string, { id: string; customerId: string }>();
+        for (const [i, r] of rows.entries()) {
+          if (!nameOf.has(r.customerId)) throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+          const own = nameOwner.get(r.key);
+          if (own && own !== r.customerId) {
+            throw new TRPCError({ code: "CONFLICT", message: `${r.alias} is already the name of ${nameOf.get(own)}` });
+          }
+          const had = aliasOwner.get(r.key) ?? fresh.get(r.key);
+          if (had) {
+            if (had.customerId !== r.customerId) {
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: `${r.alias} already belongs to ${nameOf.get(had.customerId) ?? "another customer"}`,
+              });
+            }
+            ids.push(had.id);
+            continue;
+          }
+          // An alias equal to the customer's own name adds nothing; the row points at the customer.
+          if (own) {
+            ids.push(r.customerId);
+            continue;
+          }
+          const id = rowIds[i]!;
+          fresh.set(r.key, { id, customerId: r.customerId });
+          ids.push(id);
+          inserts.push({ id, companyId: ctx.companyId, customerId: r.customerId, alias: r.alias, aliasKey: r.key, createdBy: ctx.session.user.id });
+        }
+        return { ids, inserts };
+      };
+
+      const first = await plan();
+      if (first.inserts.length === 0) return { success: true, count: rows.length, added: 0, replayed: true, ids: first.ids };
+      const statements: SqliteBatchItem[] = [];
+      pushChunkedInserts(statements, (part) => ctx.db.insert(customerAlias).values(part), first.inserts);
+      statements.push(
+        auditInsert(ctx, {
+          action: "customer.aliases.add",
+          subjectType: "customer",
+          meta: { count: first.inserts.length, ...sourceMeta(ctx) },
+        }),
+      );
+      try {
+        await atomicBatch(ctx.db, statements);
+      } catch (error) {
+        // A name added meanwhile: plan again; the same rows already there answer `replayed`.
+        const again = await plan();
+        if (again.inserts.length === 0) return { success: true, count: rows.length, added: 0, replayed: true, ids: again.ids };
+        throw error;
+      }
+      return { success: true, count: rows.length, added: first.inserts.length, replayed: false, ids: first.ids };
     }),
 });
