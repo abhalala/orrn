@@ -85,6 +85,7 @@ import {
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
+import { openStuckParts } from "./stuck";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import { vaultReady } from "./vault";
 import {
@@ -1158,20 +1159,32 @@ export async function releaseCandidate(ctx: IngestCtx, input: { candidateId: str
     ]);
     return candidateDetail(ctx, c.id);
   }
+  // A part that stopped the server on every send is opened first (X-new-5): rows that landed are
+  // recorded as written, the rest open again for the person and the dry run.
+  const stuck = c.target ? await openStuckParts(ctx, c.id, c.target) : { statements: [], written: 0, from: null };
   const [first] = await ctx.db
     .select({ n: sql<number | null>`min(${ingestStagedRow.rowIndex})` })
     .from(ingestStagedRow)
     .where(and(eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open")));
+  const opened = [first?.n, stuck.from].filter((x): x is number => x !== null && x !== undefined).map(Number);
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, {
       state: "processing",
-      dryCursor: Number(first?.n ?? 0),
+      dryCursor: opened.length ? Math.min(...opened) : 0,
       reasonCode: null,
       reasonDetail: null,
       approvedBy: null,
       approvedAt: null,
+      ...(stuck.written > 0 ? { recipeLocked: true } : {}),
     }),
-    auditInsert(ctx, { action: "ingest.candidate.recheck", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state, reason: c.reasonCode } }),
+    ...stuck.statements,
+    ...(stuck.statements.length ? [recountStatement(ctx, c.id)] : []),
+    auditInsert(ctx, {
+      action: "ingest.candidate.recheck",
+      subjectType: "ingest_candidate",
+      subjectId: c.id,
+      meta: { from: c.state, reason: c.reasonCode, ...(stuck.statements.length ? { stuckOpened: true, stuckWritten: stuck.written } : {}) },
+    }),
   ]);
   return candidateDetail(ctx, c.id);
 }

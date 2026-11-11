@@ -748,6 +748,93 @@ describe("X-new-4: an order book may use a section the die sheet of the same upl
 });
 
 // ---------------------------------------------------------------------------
+// Round 2, X-new-5: a stuck part's rows can be reached again
+// ---------------------------------------------------------------------------
+
+describe("X-new-5: a part that stops the server on every send can be opened, skipped and merged", () => {
+  async function stuckCopies() {
+    const p = await plant();
+    const sectionId = await env.seedDie(p.companyId, { series: "R", sectionCode: "7100" });
+    await learnLayout(p.companyId, p.users.owner.id, copyLayout(), "Copies");
+    const { candidates } = await upload(p.owner, [
+      {
+        headers: COPY_HEADERS,
+        rows: [
+          ["R", "7100", "S-1", "available"],
+          ["R", "7100", "S-2", "available"],
+          ["R", "7100", "S-3", "available"],
+        ],
+      },
+    ]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    const { runId } = await p.owner.ingest.merge.start();
+    let cursor = 0;
+    let step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+    while (step.state === "planning") {
+      cursor = step.cursor;
+      step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+    }
+    cursor = step.cursor;
+    // Each send ends the request before its result is recorded (as a Worker past its CPU limit does);
+    // the first copy landed before the last such end.
+    const rows = await rowsOf(p.owner, id);
+    const { rowsRequestId } = await import("../src/lib/ingest/merge/shared");
+    const landed = await p.owner.dieInstance.create({ clientRequestId: await rowsRequestId([rows[0]!.id]), sectionId, makerDieNo: "S-1", status: "available" });
+    const { ingestMergeChunk } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    await env.db
+      .update(ingestMergeChunk)
+      .set({ state: "sent", attempts: 3, sentAt: new Date(Date.now() - 120_000) })
+      .where(eq(ingestMergeChunk.candidateId, id));
+    for (let i = 0; i < 10 && (step.state === "running" || step.state === "planning"); i += 1) {
+      step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+      cursor = step.cursor;
+    }
+    expect(step.state).toBe("done_with_holds");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.state).toBe("held");
+    expect((await rowsOf(p.owner, id)).map((r) => r.mergeState)).toEqual(["queued", "queued", "queued"]);
+    return { p, id, rows, landedId: landed.id };
+  }
+
+  async function copies(companyId: string) {
+    const row = await env.d1.prepare("select count(*) as n from die_instance where company_id = ?").bind(companyId).first<{ n: number }>();
+    return Number(row?.n ?? 0);
+  }
+
+  test("check again records the landed row as written and opens the rest; the person skips one and the rest merges", async () => {
+    const { p, id, rows, landedId } = await stuckCopies();
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.release({ candidateId: id, expectSeq: c.serverSeq });
+    let staged = await rowsOf(p.owner, id);
+    expect(staged.map((r) => r.mergeState)).toEqual(["written", "open", "open"]);
+    expect(staged[0]!.committedId).toBe(landedId);
+    expect((await pump(p.owner, id)).state).toBe("ready");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [rows[1]!.id], decision: "skip", expectSeq: c.serverSeq });
+    expect((await pump(p.owner, id)).state).toBe("ready");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    const { runId } = await p.owner.ingest.merge.start();
+    let cursor = 0;
+    let step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+    for (let i = 0; i < 20 && (step.state === "running" || step.state === "planning"); i += 1) {
+      cursor = step.cursor;
+      step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+    }
+    expect(step.state).toBe("done");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c).toMatchObject({ state: "merged", counts: { written: 2, skipped: 1 } });
+    staged = await rowsOf(p.owner, id);
+    expect([staged[0]!.committedId, staged[1]!.state]).toEqual([landedId, "skipped"]);
+    expect(await copies(p.companyId)).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Item 4a: the dateless order match stays in the period's financial year
 // ---------------------------------------------------------------------------
 
