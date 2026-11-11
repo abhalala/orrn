@@ -2,9 +2,11 @@ import { createAuth } from "@orrn/auth";
 import { createDb } from "@orrn/db";
 import type { Context as HonoContext } from "hono";
 
+import type { IngestSource } from "./lib/ingest/source";
 import { COMPANY_HEADER, IMPERSONATE_HEADER, resolveTenantContext } from "./lib/tenantContext";
 
 export type { ImpersonationInfo } from "./lib/tenantContext";
+export type { IngestSource } from "./lib/ingest/source";
 
 export type CreateContextOptions = {
   context: HonoContext;
@@ -38,6 +40,12 @@ export async function createContext({ context }: CreateContextOptions) {
     request: context.req.raw,
     session,
     ...tenant,
+    /**
+     * Set only by the Infinity Portal merge adapters on the context they pass to `createCaller`
+     * (plan A6). Procedures copy it into `audit_log.meta.source`. Never read from a request.
+     * Optional in the type so contexts built elsewhere (tests, fixtures) need not name it.
+     */
+    ...({} as { ingestSource?: IngestSource }),
   };
 }
 

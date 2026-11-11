@@ -99,6 +99,9 @@ const MATRIX: Record<string, CompanyRole[]> = {
   "ageing.load": ["press", "supervisor", "operator"],
   "ageing.record": ["press", "supervisor", "operator"],
   "ageing.release": ["supervisor", "manager"],
+  // Infinity Portal (owner decision 2026-11-10): owner and admin upload and merge.
+  "ingest.upload": ["admin"],
+  "ingest.merge": ["admin"],
   "support.request": ALL_ROLES.filter((r) => r !== "owner"),
 };
 
