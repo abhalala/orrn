@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { findBlocks, readSheet } from "./blocks";
 import { readCsvBlocks } from "./csv";
 import { parseSql, sqlTablesToBlocks } from "./sql";
+import type { UnsureReason } from "./types";
 
 // PORTAL-RULES-3 section 3: every block says whether the reader is sure, why not, and shows its raw rows.
 // Synthetic sheets only. No real plant data.
@@ -20,7 +21,7 @@ describe("sure is narrow", () => {
     expect(b!.guess).toEqual({ headerRow: 0, headerRows: 1, firstDataRow: 1, lastDataRow: 2 });
   });
 
-  const cases: [string, unknown[][], string][] = [
+  const cases: [string, unknown[][], UnsureReason][] = [
     ["a title above the header", [["PENDING ORDERS"], ["Sr", "Party", "Qty"], [1, "Om", 5]], "rows_above_header"],
     ["a letterhead in two cells", [["FOURCUBES", "Plant 2"], ["Sr", "Party", "Qty"], [1, "Om", 5]], "first_row_has_no_number"],
     ["a blank header cell", [["Customer", "Contact", "", "City"], ["Om", "Asha", "", "Surat"], ["Ravi", "x", "9", "Pune"]], "header_blank_cell"],
