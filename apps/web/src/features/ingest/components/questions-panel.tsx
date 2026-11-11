@@ -8,6 +8,7 @@ import { TARGETS, UNIT_KINDS, unitsFor, type UnitKind } from "@orrn/ingest";
 import {
   answerFromValue,
   questionList,
+  questionText,
   useIngestActions,
   type CandidateDetail,
   type QuestionView,
@@ -17,7 +18,7 @@ import { PeriodConfirm } from "./period-panel";
 
 export function QuestionsPanel({ candidate, onSaved }: { candidate: CandidateDetail; onSaved?: () => void }) {
   const { t } = useT();
-  const questions = questionList(candidate.questions);
+  const questions = questionList(candidate.questions, candidate.target);
   if (questions.length === 0) return null;
   return (
     <Panel title={t("ingest.group.needsYou")}>
@@ -69,8 +70,8 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
 
   if (question.control.kind === "period") {
     return (
-      <section aria-label={translateKey(t, question.key, question.vars)} className="flex flex-col gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
-        <h3 className="m-0 text-[15px] font-semibold leading-6">{translateKey(t, question.key, question.vars)}</h3>
+      <section aria-label={questionText((key, vars) => translateKey(t, key, vars), question)} className="flex flex-col gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
+        <h3 className="m-0 text-[15px] font-semibold leading-6">{questionText((key, vars) => translateKey(t, key, vars), question)}</h3>
         {question.answered ? null : (
           <PeriodConfirm
             artifactId={candidate.artifactId}
@@ -83,7 +84,7 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
     );
   }
 
-  const label = translateKey(t, question.key, question.vars);
+  const label = questionText((key, vars) => translateKey(t, key, vars), question);
   return (
     <section aria-label={label} className="flex flex-col gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
       <h3 className="m-0 text-[15px] font-semibold leading-6 break-words">{label}</h3>

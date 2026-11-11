@@ -23,6 +23,7 @@ function build(): IngestApi {
     candidateConfirmNear: (i) => c.candidate.confirmNear.mutate(i),
     candidateApprove: (i) => c.candidate.approve.mutate(i),
     candidateHold: (i) => c.candidate.hold.mutate(i),
+    candidateRelease: (i) => c.candidate.release.mutate(i),
     candidateDiscard: (i) => c.candidate.discard.mutate(i),
     shapeMake: (i) => c.shape.make.mutate(i),
     shapeSave: (i) => c.shape.save.mutate(i),

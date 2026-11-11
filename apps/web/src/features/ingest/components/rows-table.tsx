@@ -16,6 +16,7 @@ import {
   rowStateKey,
   rowTone,
   useIngestActions,
+  usePlantUnits,
   useRows,
   valueCells,
   type CandidateDetail,
@@ -119,7 +120,8 @@ function RowChip({ row }: { row: StagedRowView }) {
 
 function RowDetails({ candidate, row }: { candidate: CandidateDetail; row: StagedRowView }) {
   const { t } = useT();
-  const cells = valueCells(candidate.target, row);
+  const plant = usePlantUnits();
+  const cells = valueCells(candidate.target, row, plant);
   const diffs = diffEntries(row.diff);
   const lines = refusalLines(row.reasons).map((line) => refusalText((key, vars) => translateKey(t, key, vars), line));
   return (
@@ -133,14 +135,13 @@ function RowDetails({ candidate, row }: { candidate: CandidateDetail; row: Stage
                 <span className="font-sans text-muted-foreground">{t("ingest.rate.hidden")}</span>
               ) : (
                 <>
-                  <span>
-                    {cell.value}
-                    {cell.unit ? <span className="text-muted-foreground"> {cell.unit}</span> : null}
-                    {cell.unitKey ? <span className="font-sans text-muted-foreground"> {translateKey(t, cell.unitKey)}</span> : null}
+                  <span className={cell.mono ? "" : "font-sans"}>
+                    {cell.textKey ? translateKey(t, cell.textKey) : cell.text}
+                    {cell.unit ? <span className="font-sans text-muted-foreground"> {cell.unit}</span> : null}
                   </span>
-                  {cell.entered ? (
+                  {cell.fileSaid ? (
                     <span className="font-sans text-[12px] text-muted-foreground">
-                      {t("ingest.row.entered")}: {cell.entered.text}{cell.entered.unit ? ` ${cell.entered.unit}` : ""}
+                      {t("ingest.row.entered")} {cell.fileSaid}
                     </span>
                   ) : null}
                 </>

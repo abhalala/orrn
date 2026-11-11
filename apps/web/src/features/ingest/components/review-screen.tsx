@@ -126,12 +126,12 @@ function NearFit({ candidate, onChanged }: { candidate: CandidateDetail; onChang
     }
   };
   return (
-    <Panel title={t("ingest.near.title", { name: diff.name ?? candidate.holeName ?? candidate.fileName })}>
+    <Panel title={t("ingest.near.title", { name: diff.name ?? candidate.holeName ?? candidate.fileName, count: diff.renamed.length + diff.extra.length + diff.missing.length })}>
       {diff.renamed.length + diff.extra.length + diff.missing.length > 0 ? (
         <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-[14px] leading-6">
-          {diff.renamed.map((item) => <li key={`${item.old}:${item.new}`}>{t("ingest.near.renamed", item)}</li>)}
-          {diff.extra.map((name) => <li key={`extra:${name}`}>{t("ingest.near.extra", { name })}</li>)}
-          {diff.missing.map((name) => <li key={`missing:${name}`}>{t("ingest.near.missing", { name })}</li>)}
+          {diff.renamed.map((item) => <li key={`${item.old}:${item.new}`}>{t("ingest.near.renamed", { old: item.old, new: item.new })}</li>)}
+          {diff.extra.map((item) => <li key={`extra:${item.header}`}>{t("ingest.near.extra", { name: item.header })}</li>)}
+          {diff.missing.map((item) => <li key={`missing:${item.header}`}>{t("ingest.near.missing", { name: item.header })}</li>)}
         </ul>
       ) : null}
       <div className="flex flex-wrap gap-2">

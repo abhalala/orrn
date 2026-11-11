@@ -98,7 +98,7 @@ function render(node: ReactNode): string {
 describe("candidate card states", () => {
   test("renders each candidate state with its text and row counts", () => {
     const states: [CandidateState, string][] = [
-      ["processing", "Checking rows"], ["needs_confirm", "Looks familiar"], ["needs_shape", "Columns not known"],
+      ["processing", "Checking rows"], ["needs_confirm", "Check the layout"], ["needs_shape", "Needs a layout"],
       ["ready", "Ready"], ["held", "Held"], ["approved", "Approved"], ["merging", "Merging"],
       ["merged", "Merged"], ["failed", "Could not read"], ["discarded", "Discarded"],
     ];
@@ -115,7 +115,8 @@ describe("candidate card states", () => {
     const html = render(createElement(CandidateCard, {
       candidate: summary({ state: "held", reasonCode: "merge_failed", reasonDetail: "A duplicate row" }),
     }));
-    expect(html).toContain("Merge stopped here: A duplicate row");
+    // The server's own English detail sits in its own lang="en" span (work order M17).
+    expect(html).toContain('Not merged. </span><span lang="en">A duplicate row</span>');
   });
 });
 
@@ -143,10 +144,11 @@ describe("questions panel answer flow", () => {
       ],
     });
     const html = render(createElement(QuestionsPanel, { candidate }));
-    expect(html).toContain("weightMinG has no unit. Which unit is it?");
+    // The field is a label, never the code the server sent (work order S16).
+    expect(html).toContain("Min weight per 12 ft has no unit. Which unit is it?");
     expect(html).toContain("kg/12ft");
     expect(html).toContain("Save");
-    expect(html).toContain("12170 is not in your sections. Add it, marked legacy?");
+    expect(html).toContain("12170 is not in your sections. Add it as an old section?");
     expect(html).toContain("disabled");
   });
 
@@ -193,7 +195,7 @@ describe("merge progress and holds", () => {
   test("announces the current part and exposes a labelled progress bar", () => {
     const run = mergeRun();
     const html = render(createElement(MergeBody, { pump: mergePump(run), run }));
-    expect(html).toContain("Merging. Part 2 of 4.");
+    expect(html).toContain("Part 2 of 4");
     expect(html).toContain('aria-valuenow="25"');
     expect(html).toContain("Stop after this part");
   });
@@ -207,8 +209,8 @@ describe("merge progress and holds", () => {
       }],
     });
     const html = render(createElement(MergeBody, { pump: mergePump(run), run }));
-    expect(html).toContain("1 held. Open each one to see why.");
-    expect(html).toContain("Merge stopped here: Duplicate section");
+    expect(html).toContain("1 import was not merged. The reason is under each one.");
+    expect(html).toContain('Not merged. </span><span lang="en">Duplicate section</span>');
     expect(html).toContain('href="/ingest/review/c1"');
   });
 });

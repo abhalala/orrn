@@ -26,18 +26,18 @@ export function PeriodPanel({
   };
   return (
     <Panel
-      title={t("ingest.period.confirm")}
+      title={t("ingest.period.ask")}
       actions={
         !open ? (
           <Button ref={confirmRef} size="sm" variant="secondary" onClick={() => setOpen(true)}>
-            {t("ingest.period.confirm")}
+            {t("ingest.period.change")}
           </Button>
         ) : null
       }
     >
       <div className="flex flex-wrap gap-2">
         <Chip tone={current?.fy ? "blue" : "amber"}>
-          {current?.fy ? t("ingest.period.chip", { fy: current.fy }) : t("ingest.period.unsure")}
+          {current?.fy ? t("ingest.period.chip", { fy: current.fy }) : t("ingest.period.noGuess")}
         </Chip>
         {current?.asOf ? <span className="text-[14px] text-muted-foreground">{current.asOf}</span> : null}
       </div>

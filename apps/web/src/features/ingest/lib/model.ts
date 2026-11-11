@@ -1,3 +1,6 @@
+import { TARGETS, UNIT_KINDS, unitsFor, type UnitKind } from "@orrn/ingest";
+
+import { fieldLabelKey } from "./recipe-builder";
 import { CANDIDATE_STATES, ROW_STATES } from "./types";
 import type {
   CandidateCounts,
@@ -30,7 +33,8 @@ const STATE_TONE: Record<CandidateState, Tone> = {
   needs_shape: "warning",
   needs_confirm: "warning",
   ready: "success",
-  held: "warning",
+  // DESIGN.md rule 1: held is blue. A held import is paused, not in trouble.
+  held: "info",
   approved: "success",
   merging: "info",
   merged: "success",
@@ -42,34 +46,42 @@ export function candidateTone(state: CandidateState): Tone {
   return STATE_TONE[state];
 }
 
-/** The fit chip: manual and bot mappings read as a new layout the person (or the helper) made. */
-export function fitKeyOf(fit: CandidateSummary["fit"]): "ingest.fit.exact" | "ingest.fit.near" | "ingest.fit.none" {
+/** The fit words. A layout orrn made and a layout a person made have their own words (work order M10). */
+export function fitKeyOf(
+  fit: CandidateSummary["fit"],
+): "ingest.fit.exact" | "ingest.fit.near" | "ingest.fit.none" | "ingest.fit.bot" | "ingest.fit.manual" {
   if (fit === "exact") return "ingest.fit.exact";
   if (fit === "near") return "ingest.fit.near";
+  if (fit === "bot") return "ingest.fit.bot";
+  if (fit === "manual") return "ingest.fit.manual";
   return "ingest.fit.none";
 }
 
-export type CandidateGroup = "needsYou" | "ready" | "approved" | "held" | "merged" | "other";
+/**
+ * The four segments of the list (work order 3.2). A held import needs a person, so it sits under `needsYou`. A ready
+ * import with open questions cannot be approved, so it sits there too. An import still being checked is in no
+ * segment: it shows in the upload strip. A discarded import is in none.
+ */
+export type CandidateGroup = "needsYou" | "ready" | "approved" | "merged" | "other";
 
-export const GROUP_ORDER: readonly Exclude<CandidateGroup, "other">[] = ["needsYou", "ready", "approved", "held", "merged"];
+export const GROUP_ORDER: readonly Exclude<CandidateGroup, "other">[] = ["needsYou", "ready", "approved", "merged"];
 
-/** Which list group of the index screen a candidate sits in (`ingest.group.<group>`). */
-export function groupOf(state: CandidateState): CandidateGroup {
-  switch (state) {
+/** Which list group a candidate sits in (`ingest.group.<group>`). It reads the open question count, not only the state. */
+export function groupOf(c: Pick<CandidateSummary, "state" | "openQuestions">): CandidateGroup {
+  switch (c.state) {
     case "needs_shape":
     case "needs_confirm":
     case "failed":
+    case "held":
       return "needsYou";
-    case "processing":
     case "ready":
-      return "ready";
+      return c.openQuestions > 0 ? "needsYou" : "ready";
     case "approved":
     case "merging":
       return "approved";
-    case "held":
-      return "held";
     case "merged":
       return "merged";
+    case "processing":
     case "discarded":
       return "other";
   }
@@ -79,14 +91,14 @@ export function groupKey(group: Exclude<CandidateGroup, "other">): string {
   return `ingest.group.${group}`;
 }
 
-/** Candidates grouped in screen order; empty groups and discarded ones are left out. */
-export function groupCandidates<T extends { state: CandidateState }>(
+/** Candidates grouped in screen order; empty groups, imports still being checked and discarded ones are left out. */
+export function groupCandidates<T extends Pick<CandidateSummary, "state" | "openQuestions">>(
   candidates: readonly T[],
 ): { group: Exclude<CandidateGroup, "other">; key: string; items: T[] }[] {
   return GROUP_ORDER.map((group) => ({
     group,
     key: groupKey(group),
-    items: candidates.filter((c) => groupOf(c.state) === group),
+    items: candidates.filter((c) => groupOf(c) === group),
   })).filter((g) => g.items.length > 0);
 }
 
@@ -178,15 +190,27 @@ export function dryRunProgress(counts: CandidateCounts): number | null {
   return Math.min(1, classifiedRows(counts) / counts.total);
 }
 
-/** Sums of the approved candidates, for the "Merge {count} approved" button. */
-export function approvedSummary(candidates: readonly CandidateSummary[]): { count: number; rows: number } {
+/** Sums of the approved candidates, for the sticky merge bar and the status block. */
+export function approvedSummary(candidates: readonly Pick<CandidateSummary, "state" | "counts">[]): {
+  count: number;
+  /** Rows a merge would write: new plus updates. */
+  rows: number;
+  create: number;
+  update: number;
+} {
   const approved = candidates.filter((c) => c.state === "approved");
-  return { count: approved.length, rows: approved.reduce((sum, c) => sum + writableRows(c.counts), 0) };
+  const create = approved.reduce((sum, c) => sum + c.counts.create, 0);
+  const update = approved.reduce((sum, c) => sum + c.counts.update, 0);
+  return { count: approved.length, rows: create + update, create, update };
 }
 
-export type ActionName = "approve" | "hold" | "discard";
+export type ActionName = "approve" | "hold" | "discard" | "release";
 
-/** What buttons a candidate offers. Approve and merge are for people holding `ingest.merge`. */
+/**
+ * What buttons a candidate offers. Approve and merge are for people holding `ingest.merge`; hold, check again and
+ * discard follow the server's own guards (`candidate.hold` and `candidate.release` take either permission,
+ * `candidate.discard` needs `ingest.upload`). A held import may be approved again as it is when nothing is open.
+ */
 export function allowedActions(
   c: Pick<CandidateSummary, "state" | "openQuestions"> & { counts: Pick<CandidateCounts, "written"> },
   can: { merge: boolean; upload: boolean },
@@ -194,8 +218,9 @@ export function allowedActions(
   const open = c.openQuestions;
   const noWrite = c.counts.written === 0;
   return {
-    approve: can.merge && c.state === "ready" && open === 0,
+    approve: can.merge && (c.state === "ready" || c.state === "held") && open === 0,
     hold: (can.merge || can.upload) && (c.state === "ready" || c.state === "approved"),
+    release: (can.merge || can.upload) && c.state === "held",
     discard: can.upload && noWrite && c.state !== "merging" && c.state !== "merged" && c.state !== "discarded",
   };
 }
@@ -203,26 +228,65 @@ export function allowedActions(
 export const KNOWN_STATES: readonly CandidateState[] = CANDIDATE_STATES;
 
 // ---------------------------------------------------------------------------------------------
-// Questions (plan B7). One model for the question card; the screen draws the control.
+// Questions (plan B7, work order 3.3 and M12). One model for the question row; the screen draws the control.
 // ---------------------------------------------------------------------------------------------
 
+/** Words as a key and its variables. `varKeys` names variables that are themselves dictionary keys to translate first. */
+export type Words = {
+  key: string;
+  vars?: Record<string, string | number>;
+  varKeys?: Record<string, string>;
+  /** Variables that are lists of dictionary keys: each is translated, then joined with ", ". */
+  varLists?: Record<string, string[]>;
+  /** Literal text with no dictionary entry (a date order such as dd/mm/yyyy). Used when `key` is empty. */
+  text?: string;
+};
+
+/** One answer button. Every answer button is secondary: the decision bar holds the one loud element. */
+export type QuestionAnswer = { value: string | boolean; words: Words };
+
+export type UnitChoice = { value: string; labelKey: string };
+
 export type QuestionControl =
-  | { kind: "unit"; field: string; unitKind: string | null }
+  | { kind: "unit"; field: string; unitKind: string | null; units: UnitChoice[] }
   | { kind: "choice"; options: { value: string; labelKey?: string; label?: string }[] }
   | { kind: "period" }
   | { kind: "yesNo" }
-  | { kind: "column" };
+  | { kind: "column" }
+  | {
+      kind: "magnitude";
+      field: string;
+      /** The unit the layout read the column in (a recipe unit id), "" when every flagged row is settled. */
+      unit: string;
+      /** A unit to offer first, or null when the flagged rows do not agree on one. */
+      likelyUnit: string | null;
+      side: "above" | "below" | null;
+      /** Flagged rows still waiting. */
+      count: number;
+      /** Every unit of the column's kind, for "they are in another unit". */
+      units: UnitChoice[];
+    };
 
 export type QuestionView = {
   code: QuestionCode;
   subject: string;
-  /** Dictionary key, `ingest.q.<code>`. */
+  /** Dictionary key of the sentence, `ingest.q.<code>` (`magnitude_checkHint` when a likely unit is offered). */
   key: string;
   vars: Record<string, string | number>;
+  /** Variables that are dictionary keys: `field` is `ingest.field.<name>`, `unit` is `ingest.unit.<id>`, `side` its words. */
+  varKeys: Record<string, string>;
   control: QuestionControl;
+  /** The buttons, for the kinds drawn as buttons (`choice`, `yesNo`, `magnitude`). Empty for a select. */
+  answers: QuestionAnswer[];
   answered: boolean;
   answer: unknown | null;
+  /** "Answered: {answer}" for an answered question, else null. */
+  answeredWords: Words | null;
   rows: number;
+  /** The 1-based row the question is about, when the server says one. A link to that row. */
+  aboutRow: number | null;
+  /** True when "Skip the rows" is a way to answer: the question is about rows that can be left out. */
+  canSkipRows: boolean;
 };
 
 /** The variables each sentence needs, taken from the question's context. Missing ones become empty text. */
@@ -234,57 +298,170 @@ const QUESTION_VARS: Record<QuestionCode, string[]> = {
   column_meaning_unclear: ["name"],
   create_legacy_die: ["code"],
   new_customers: ["count"],
+  magnitude_check: ["field", "unit", "likelyUnit", "side", "count"],
 };
 
-export function questionView(q: IngestQuestion): QuestionView {
+/** Recipe unit id to its dictionary key: `kg/12ft` is `ingest.unit.kg_12ft`. */
+export function unitLabelKey(unit: string): string {
+  return `ingest.unit.${unit.replace(/\//g, "_")}`;
+}
+
+const DATE_ORDER_TEXT: Record<string, string> = { dmy: "dd/mm/yyyy", mdy: "mm/dd/yyyy", ymd: "yyyy/mm/dd" };
+
+function unitChoices(kind: string | null): UnitChoice[] {
+  if (!kind || !(UNIT_KINDS as readonly string[]).includes(kind)) return [];
+  return unitsFor(kind as UnitKind).map((value) => ({ value, labelKey: unitLabelKey(value) }));
+}
+
+function fieldKindOf(target: IngestTarget | null | undefined, field: string): string | null {
+  if (!target) return null;
+  const def = TARGETS[target].fields.find((f) => f.name === field);
+  return def && (UNIT_KINDS as readonly string[]).includes(def.kind) ? def.kind : null;
+}
+
+const str = (v: unknown): string => (v === undefined || v === null ? "" : String(v));
+
+export function questionView(q: IngestQuestion, target?: IngestTarget | null): QuestionView {
   const vars: Record<string, string | number> = {};
+  const varKeys: Record<string, string> = {};
   for (const name of QUESTION_VARS[q.code]) vars[name] = q.params[name] ?? "";
+  const field = str(q.params.field ?? q.subject);
+  const answered = !q.open;
+  const answer = q.answer ?? null;
+  let key = `ingest.q.${q.code}`;
   let control: QuestionControl;
+  let answers: QuestionAnswer[] = [];
+  let answeredWords: Words | null = null;
+  let canSkipRows = false;
+
   switch (q.code) {
-    case "unit_unknown":
-      control = { kind: "unit", field: String(q.params.field ?? q.subject), unitKind: q.params.kind === undefined ? null : String(q.params.kind) };
+    case "unit_unknown": {
+      const kind = q.params.kind === undefined ? fieldKindOf(target, field) : str(q.params.kind);
+      control = { kind: "unit", field, unitKind: kind, units: unitChoices(kind) };
+      vars.field = "";
+      varKeys.field = fieldLabelKey(field);
+      if (answered && typeof answer === "string") answeredWords = { key: unitLabelKey(answer) };
       break;
-    case "date_format_ambiguous":
-      control = { kind: "choice", options: [{ value: "dmy", label: "dd/mm/yyyy" }, { value: "mdy", label: "mm/dd/yyyy" }] };
+    }
+    case "date_format_ambiguous": {
+      const options = [
+        { value: "dmy", label: DATE_ORDER_TEXT.dmy! },
+        { value: "mdy", label: DATE_ORDER_TEXT.mdy! },
+      ];
+      control = { kind: "choice", options };
+      answers = options.map((o) => ({ value: o.value, words: { key: "", text: o.label } }));
+      if (answered && typeof answer === "string") answeredWords = { key: "", text: DATE_ORDER_TEXT[answer] ?? answer };
       break;
+    }
     case "period_needed":
       control = { kind: "period" };
       break;
-    case "rates_hidden":
+    case "rates_hidden": {
       // Two answers that read as what they do: the rates are left out of the merge, or the owner merges the file.
-      control = {
-        kind: "choice",
-        options: [
-          { value: "leave_out", labelKey: "ingest.q.leaveRatesOut" },
-          { value: "owner_merges", labelKey: "ingest.q.ownerMerges" },
-        ],
-      };
+      const options = [
+        { value: "leave_out", labelKey: "ingest.q.leaveRatesOut" },
+        { value: "owner_merges", labelKey: "ingest.q.ownerMerges" },
+      ];
+      control = { kind: "choice", options };
+      answers = options.map((o) => ({ value: o.value, words: { key: o.labelKey } }));
+      const hit = options.find((o) => o.value === answer);
+      if (answered && hit) answeredWords = { key: hit.labelKey };
       break;
+    }
     case "column_meaning_unclear":
       control = { kind: "column" };
+      if (answered && typeof answer === "string") answeredWords = { key: fieldLabelKey(answer) };
       break;
     case "create_legacy_die":
+      // Lead answer 3: "Add it" adds an old section, "Skip these rows" refuses the rows that use it.
+      control = { kind: "yesNo" };
+      answers = [
+        { value: true, words: { key: "ingest.q.addIt" } },
+        { value: false, words: { key: "ingest.q.skipRows" } },
+      ];
+      if (answered) answeredWords = { key: answer === true ? "ingest.q.addIt" : "ingest.q.skipRows" };
+      break;
     case "new_customers":
       control = { kind: "yesNo" };
+      answers = [
+        { value: true, words: { key: "common.yes" } },
+        { value: false, words: { key: "common.no" } },
+      ];
+      if (answered) answeredWords = { key: answer === true ? "common.yes" : "common.no" };
       break;
+    case "magnitude_check": {
+      const kind = fieldKindOf(target, field);
+      const unit = str(q.params.unit);
+      const likely = str(q.params.likelyUnit);
+      const side = q.params.side === "above" || q.params.side === "below" ? q.params.side : null;
+      const count = typeof q.params.count === "number" ? q.params.count : Number(q.params.count) || 0;
+      const units = unitChoices(kind);
+      control = { kind: "magnitude", field, unit, likelyUnit: likely === "" ? null : likely, side, count, units };
+      // `vars` keeps a placeholder for each translated variable so the sentence always has every name it needs.
+      vars.field = "";
+      vars.unit = "";
+      vars.likelyUnit = "";
+      vars.side = "";
+      vars.count = count;
+      varKeys.field = fieldLabelKey(field);
+      if (unit !== "") varKeys.unit = unitLabelKey(unit);
+      if (likely !== "") {
+        varKeys.likelyUnit = unitLabelKey(likely);
+        key = "ingest.q.magnitude_checkHint";
+      }
+      varKeys.side = side === "above" ? "ingest.q.sideAbove" : side === "below" ? "ingest.q.sideBelow" : "ingest.q.sideEither";
+      answers = [{ value: "as_is", words: { key: "ingest.q.magnitudeAsIs" } }];
+      if (likely !== "") answers.push({ value: likely, words: { key: "ingest.q.magnitudeUnit", varKeys: { unit: unitLabelKey(likely) } } });
+      canSkipRows = true;
+      if (answered && typeof answer === "string") {
+        answeredWords = answer === "as_is"
+          ? { key: "ingest.q.magnitudeAsIs" }
+          : { key: "ingest.q.magnitudeUnit", varKeys: { unit: unitLabelKey(answer) } };
+      }
+      break;
+    }
   }
   return {
     code: q.code,
     subject: q.subject,
-    key: `ingest.q.${q.code}`,
+    key,
     vars,
+    varKeys,
     control,
-    answered: !q.open,
-    answer: q.answer ?? null,
+    answers,
+    answered,
+    answer,
+    answeredWords,
     rows: typeof q.params.rows === "number" ? q.params.rows : 0,
+    aboutRow: typeof q.params.row === "number" ? q.params.row + 1 : null,
+    canSkipRows,
   };
 }
 
 /** Unanswered questions first, then answered ones, each in the server's order. */
-export function questionList(questions: readonly IngestQuestion[]): QuestionView[] {
-  const views = questions.map(questionView);
+export function questionList(questions: readonly IngestQuestion[], target?: IngestTarget | null): QuestionView[] {
+  const views = questions.map((q) => questionView(q, target));
   return [...views.filter((v) => !v.answered), ...views.filter((v) => v.answered)];
 }
+
+/** `ingest.q.*` words for a question, with its dictionary-key variables translated first. `say` is the screen's `t`. */
+export function questionText(say: Say, q: Pick<QuestionView, "key" | "vars" | "varKeys">): string {
+  const vars: Record<string, string | number> = { ...q.vars };
+  for (const [name, key] of Object.entries(q.varKeys)) vars[name] = say(key);
+  return say(q.key, vars);
+}
+
+/** The words of anything that is a key and its variables. */
+export function sayWords(say: Say, w: Words): string {
+  if (w.key === "") return w.text ?? "";
+  const vars: Record<string, string | number> = { ...(w.vars ?? {}) };
+  for (const [name, key] of Object.entries(w.varKeys ?? {})) vars[name] = say(key);
+  for (const [name, keys] of Object.entries(w.varLists ?? {})) vars[name] = keys.map((k) => say(k)).join(", ");
+  return say(w.key, vars);
+}
+
+/** The screen's translate function in the shape the helpers take. `translateKey(t, ...)` fits. */
+export type Say = (key: string, vars?: Record<string, string | number>) => string;
 
 // ---------------------------------------------------------------------------------------------
 // Row decisions
@@ -298,12 +475,34 @@ export type DecisionOption = {
   matchId?: string;
 };
 
-/** The menu of one row. A refused or finished row has none. */
-export function decisionOptions(row: Pick<StagedRowView, "state" | "options" | "mergeState">): DecisionOption[] {
+/** The question a row waits on (`q:<code>` markers the dry run writes), or null. The question says it, not the row. */
+export function rowWaitsOn(reasons: readonly string[] | undefined): { code: QuestionCode; subject: string } | null {
+  for (const r of reasons ?? []) {
+    if (!r.startsWith("q:")) continue;
+    const [, code = "", ...rest] = r.split(":");
+    const subject = rest.join(":");
+    if (code === "magnitude_check") return { code: "magnitude_check", subject };
+    if (code === "customer_new") return { code: "new_customers", subject: "" };
+    if (code === "section_unknown") return { code: "create_legacy_die", subject };
+  }
+  return null;
+}
+
+/**
+ * The choices of one row. A refused or finished row has none. The server refuses some choices, so they are not
+ * offered: a row that waits on a question can only be skipped (the question answers the rest), and a line that is
+ * not on the live order can only keep the orrn order or be skipped.
+ */
+export function decisionOptions(
+  row: Pick<StagedRowView, "state" | "options" | "mergeState"> & { reasons?: readonly string[] },
+): DecisionOption[] {
   if (row.mergeState === "written") return [];
   const skip: DecisionOption = { decision: "skip", key: "ingest.decide.skip" };
+  const reasons = row.reasons ?? [];
+  const waits = rowWaitsOn(reasons) !== null;
   switch (row.state) {
     case "ambiguous": {
+      if (waits) return [skip];
       const picks = row.options.map((m) => ({
         decision: "use_match" as const,
         key: "ingest.decide.useMatch",
@@ -313,6 +512,7 @@ export function decisionOptions(row: Pick<StagedRowView, "state" | "options" | "
       return [...picks, { decision: "create_new", key: "ingest.decide.createNew" }, skip];
     }
     case "conflict":
+      if (reasons.includes("order_line_new")) return [{ decision: "keep_live", key: "ingest.decide.keepLive" }, skip];
       return [
         { decision: "keep_file", key: "ingest.decide.keepFile" },
         { decision: "keep_live", key: "ingest.decide.keepLive" },
@@ -376,22 +576,36 @@ export function helperOffer(c: Pick<CandidateSummary, "state" | "botAttempts">, 
   return c.botAttempts < 4 ? "auto" : "none";
 }
 
-/** Reads a stored fit diff safely: unknown or missing parts become empty lists. */
+/**
+ * Reads a stored fit diff safely: unknown or missing parts become empty lists. The engine stores
+ * `renamed: { col, from, to }[]`, `extra: { col, header }[]` and `missing: { field, header }[]`; plain strings
+ * (older rows) read too. `col` is the column of this file, for its sample values.
+ */
 export function fitDiffView(raw: unknown): FitDiff {
   const obj = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
-  const renamed = Array.isArray(obj.renamed)
-    ? obj.renamed.flatMap((r) => {
-        const o = (r ?? {}) as Record<string, unknown>;
-        const from = typeof o.old === "string" ? o.old : typeof o.from === "string" ? o.from : null;
-        const to = typeof o.new === "string" ? o.new : typeof o.to === "string" ? o.to : null;
-        return from !== null && to !== null ? [{ old: from, new: to }] : [];
-      })
-    : [];
+  const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
+  const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  const col = (v: unknown): number | null => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : null);
+  const renamed = list(obj.renamed).flatMap((r) => {
+    const o = rec(r);
+    const from = typeof o.old === "string" ? o.old : typeof o.from === "string" ? o.from : null;
+    const to = typeof o.new === "string" ? o.new : typeof o.to === "string" ? o.to : null;
+    return from !== null && to !== null ? [{ old: from, new: to, col: col(o.col) }] : [];
+  });
+  const extra = list(obj.extra).flatMap((e) => {
+    if (typeof e === "string") return [{ header: e, col: null }];
+    const o = rec(e);
+    return typeof o.header === "string" ? [{ header: o.header, col: col(o.col) }] : [];
+  });
+  const missing = list(obj.missing).flatMap((m) => {
+    if (typeof m === "string") return [{ header: m, field: null }];
+    const o = rec(m);
+    return typeof o.header === "string" ? [{ header: o.header, field: typeof o.field === "string" ? o.field : null }] : [];
+  });
   return {
     name: typeof obj.name === "string" ? obj.name : typeof obj.holeName === "string" ? obj.holeName : null,
     renamed,
-    extra: strings(obj.extra),
-    missing: strings(obj.missing),
+    extra,
+    missing,
   };
 }

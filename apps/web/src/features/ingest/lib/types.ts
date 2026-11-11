@@ -76,10 +76,13 @@ export type {
 export type BotNext = ShapeMakeOut["next"];
 export type PeriodGuess = NonNullable<ArtifactSummary["period"]>;
 
-/** What the near-fit card lists (plan B3). The server stores it loosely; `fitDiffView` reads it safely. */
+/**
+ * What the near-fit table lists (work order 3.3). The server stores it loosely; `fitDiffView` reads it safely.
+ * `col` is the column of this file (for sample values), or null when the stored diff has no column.
+ */
 export type FitDiff = {
   name: string | null;
-  renamed: { old: string; new: string }[];
-  extra: string[];
-  missing: string[];
+  renamed: { old: string; new: string; col: number | null }[];
+  extra: { header: string; col: number | null }[];
+  missing: { header: string; field: string | null }[];
 };
