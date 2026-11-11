@@ -22,6 +22,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
+import { castCancelBody, runOnce, type WriteGate } from "./reason-write";
 import { bpText, closeAdvice, closeFormIssue, closeReasonFields, countedBillets, countKey } from "./foundry-model";
 import type { CastData } from "./types";
 import { ErrorLine, Figure, kgOf, Note } from "./ui";
@@ -161,6 +162,56 @@ export function CloseSheet({ visible, onClose, cast }: { visible: boolean; onClo
 
       <ErrorLine error={problem ?? (count.ok ? preview.error : null)} />
       <Button size="lg" label={advice?.approval ? t("foundry.cast.close.askButton") : t("foundry.cast.close.confirm")} loading={close.isPending || checking} onPress={() => void confirm()} />
+    </Sheet>
+  );
+}
+
+/** Cancel an empty cast. Its number stays used. The server refuses a cast with melts or billets. */
+export function CancelCastSheet({ visible, onClose, castId, number }: { visible: boolean; onClose: () => void; castId: string; number: string }) {
+  const { t } = useT();
+  const cancel = useMutation(trpc.foundry.casts.cancel.mutationOptions());
+  const [reason, setReason] = useState("");
+  const [tried, setTried] = useState(false);
+  const [problem, setProblem] = useState<unknown>(null);
+  const confirming = useRef<WriteGate>({ locked: false });
+
+  const done = () => {
+    setReason("");
+    setTried(false);
+    setProblem(null);
+    onClose();
+  };
+
+  const confirm = async () => {
+    setTried(true);
+    if (!reason.trim()) return;
+    setProblem(null);
+    try {
+      const result = await runOnce(confirming.current, () => cancel.mutateAsync(castCancelBody(castId, reason)));
+      if (!result.ran) return;
+      feedback.success();
+      announce(t("foundry.cast.cancel.done", { number }));
+      void queryClient.invalidateQueries({ queryKey: trpc.foundry.casts.pathKey() });
+      void queryClient.invalidateQueries({ queryKey: trpc.foundry.stock.pathKey() });
+      void queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() });
+      done();
+    } catch (error) {
+      feedback.error();
+      setProblem(error);
+      announce(foundryError(t, error));
+      if (writeFailureKind(error) === "unsure") void queryClient.invalidateQueries({ queryKey: trpc.foundry.casts.pathKey() });
+    }
+  };
+
+  return (
+    <Sheet visible={visible} onClose={done} title={t("foundry.cast.cancel.title", { number })}>
+      <Note>{t("foundry.cast.cancel.body")}</Note>
+      <Field label={t("foundry.cast.cancel.reason")} value={reason} onChangeText={setReason} maxLength={500} multiline error={tried && !reason.trim() ? t("foundry.cast.cancel.reasonRequired") : null} />
+      <ErrorLine error={problem} />
+      <View className="gap-2">
+        <Button variant="secondary" size="lg" label={t("common.cancel")} onPress={done} />
+        <Button variant="danger" size="lg" label={t("foundry.cast.cancel.confirm")} loading={cancel.isPending} onPress={() => void confirm()} />
+      </View>
     </Sheet>
   );
 }
