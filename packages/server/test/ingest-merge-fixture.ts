@@ -163,9 +163,10 @@ export async function auditRows(env: TestEnv, companyId: string, action: string)
 /**
  * Put a finished run back where a crash between the procedure call and the state write leaves it:
  * the chunk `sent`, its rows `queued` with no committed id, the candidate `merging`, the run
- * `running` with the cursor of that step.
+ * `running` with the cursor of that step. The chunk was sent `sentAgoMs` ago; the default is past
+ * the chunk lease, so the next step may send it again.
  */
-export async function rewindToCrash(env: TestEnv, runId: string, candidateId: string): Promise<number> {
+export async function rewindToCrash(env: TestEnv, runId: string, candidateId: string, opts: { sentAgoMs?: number } = {}): Promise<number> {
   const { ingestCandidate, ingestMergeChunk, ingestMergeRun, ingestStagedRow } = await import("@orrn/db/schema/ingest");
   const { and, eq } = await import("drizzle-orm");
   const [run] = await env.db.select().from(ingestMergeRun).where(eq(ingestMergeRun.id, runId));
@@ -176,7 +177,7 @@ export async function rewindToCrash(env: TestEnv, runId: string, candidateId: st
     .where(eq(ingestMergeRun.id, runId));
   await env.db
     .update(ingestMergeChunk)
-    .set({ state: "sent", writtenAt: null })
+    .set({ state: "sent", writtenAt: null, sentAt: new Date(Date.now() - (opts.sentAgoMs ?? 120_000)) })
     .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.candidateId, candidateId)));
   await env.db
     .update(ingestStagedRow)

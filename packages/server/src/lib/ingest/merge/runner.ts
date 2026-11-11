@@ -20,7 +20,7 @@
  *   queued rows to open, planned chunks are dropped. Written rows stay written.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, inArray, max, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 
 import {
@@ -47,6 +47,11 @@ import { chunkIdOf, pickOrderRows, planPage } from "./planner";
 import { failureOf, MESSAGE_MAX, pendingKeys, type ChunkFailure, type StagedRow, type Written } from "./shared";
 
 const ACTIVE: MergeRunState[] = ["planning", "running"];
+/**
+ * How long a sent chunk belongs to the step that sent it. Another step may send it again only
+ * after this, which is how a step that crashed is recovered (B9).
+ */
+export const CHUNK_LEASE_MS = 60_000;
 const OTHER_TAB = { code: "CONFLICT", message: "Running in another tab" } as const;
 
 type RunRow = typeof ingestMergeRun.$inferSelect;
@@ -314,10 +319,34 @@ async function writeStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Pro
     return;
   }
 
-  await ctx.db
-    .update(ingestMergeChunk)
-    .set({ state: "sent", attempts: sql`${ingestMergeChunk.attempts} + 1`, sentAt: now() })
-    .where(and(eq(ingestMergeChunk.id, chunk.id), eq(ingestMergeChunk.companyId, ctx.companyId)));
+  // Claim the chunk (B9): a compare-and-set from planned, or from sent once the lease of the step
+  // that sent it has run out. A second step on the same chunk stops here, before any call. The
+  // claim time is the lease token: the result batch only lands while it still holds.
+  const claimedAt = now();
+  await guardedBatch(
+    ctx.db,
+    [
+      ctx.db
+        .update(ingestMergeChunk)
+        .set({ state: "sent", attempts: sql`${ingestMergeChunk.attempts} + 1`, sentAt: claimedAt })
+        .where(
+          and(
+            eq(ingestMergeChunk.id, chunk.id),
+            eq(ingestMergeChunk.companyId, ctx.companyId),
+            eq(ingestMergeChunk.runId, run.id),
+            or(
+              eq(ingestMergeChunk.state, "planned"),
+              and(
+                eq(ingestMergeChunk.state, "sent"),
+                or(isNull(ingestMergeChunk.sentAt), lt(ingestMergeChunk.sentAt, new Date(claimedAt.getTime() - CHUNK_LEASE_MS))),
+              ),
+            ),
+          ),
+        ),
+      ingestAbortUnlessChanged(ctx.db),
+    ],
+    OTHER_TAB,
+  );
 
   const { refs, missing } = await resolveRefs(ctx, pendingKeys(rows));
   let written: Written[] = [];
@@ -356,7 +385,7 @@ async function writeStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Pro
       failure = failureOf(e);
     }
   }
-  await recordChunk(ctx, run, expectCursor, chunk, candidate.id, rows, written, failure);
+  await recordChunk(ctx, run, expectCursor, { ...chunk, sentAt: claimedAt }, candidate.id, rows, written, failure);
 }
 
 function requeue(ctx: IngestCtx, rowIds: readonly string[]): SqliteBatchItem[] {
@@ -407,12 +436,12 @@ async function recordChunk(
     );
   }
 
+  // Lands only while this step still holds the chunk's lease (B9).
+  const mine = and(eq(ingestMergeChunk.id, chunk.id), eq(ingestMergeChunk.companyId, ctx.companyId), eq(ingestMergeChunk.state, "sent"), eq(ingestMergeChunk.sentAt, chunk.sentAt!));
   if (!failure) {
     statements.push(
-      ctx.db
-        .update(ingestMergeChunk)
-        .set({ state: "written", writtenAt: at, errorCode: null, errorMessage: null })
-        .where(and(eq(ingestMergeChunk.id, chunk.id), eq(ingestMergeChunk.companyId, ctx.companyId))),
+      ctx.db.update(ingestMergeChunk).set({ state: "written", writtenAt: at, errorCode: null, errorMessage: null }).where(mine),
+      ingestAbortUnlessChanged(ctx.db),
       recountStatement(ctx, candidateId),
       ...advance(ctx, run.id, expectCursor, { chunksWritten: sql`${ingestMergeRun.chunksWritten} + 1` }),
     );
@@ -435,10 +464,8 @@ async function recordChunk(
     );
   const writtenIds = new Set(written.map((w) => w.rowId));
   statements.push(
-    ctx.db
-      .update(ingestMergeChunk)
-      .set({ state: "failed", errorCode: failure.code, errorMessage: failure.message.slice(0, MESSAGE_MAX) })
-      .where(and(eq(ingestMergeChunk.id, chunk.id), eq(ingestMergeChunk.companyId, ctx.companyId))),
+    ctx.db.update(ingestMergeChunk).set({ state: "failed", errorCode: failure.code, errorMessage: failure.message.slice(0, MESSAGE_MAX) }).where(mine),
+    ingestAbortUnlessChanged(ctx.db),
     ...requeue(ctx, rows.filter((r) => !writtenIds.has(r.id)).map((r) => r.id)),
   );
   for (const part of inIds(later.map((l) => l.id))) {

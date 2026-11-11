@@ -306,3 +306,63 @@ describe("one-row calls replay by row (B8)", () => {
     expect((await stagedRows(env, seeded.candidateId)).map((r) => r.committedId)).toEqual(before);
   });
 });
+
+describe("two steps on one chunk (B9)", () => {
+  test("a second step while the first is still writing gets CONFLICT before any call; each row is updated once", async () => {
+    const { ADAPTERS } = await import("../src/lib/ingest/merge/adapters");
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const v1 = await api.vendor.create({ name: "Lease One" });
+    const v2 = await api.vendor.create({ name: "Lease Two" });
+    const upd = (id: string, name: string) => ({ state: "ready_update" as const, matchId: id, values: { name, city: "Morbi" }, diff: { city: { live: null, file: "Morbi" } } });
+    await seedCandidate(env, companyId, "vendors", [upd(v1.id, "Lease One"), upd(v2.id, "Lease Two")]);
+    const { runId } = await api.ingest.merge.start();
+    let cursor = 0;
+    for (let s = await api.ingest.merge.step({ runId, expectCursor: 0 }); s.state === "planning"; s = await api.ingest.merge.step({ runId, expectCursor: cursor })) cursor = s.cursor;
+    const run = await api.ingest.merge.get({ runId });
+    expect(run.state).toBe("running");
+
+    const original = ADAPTERS.vendors;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let entered!: () => void;
+    const inside = new Promise<void>((r) => (entered = r));
+    let calls = 0;
+    ADAPTERS.vendors = async (args) => {
+      calls += 1;
+      entered();
+      // A second call means the claim let it through: let both go so the test fails, not hangs.
+      if (calls > 1) release();
+      await gate;
+      return original(args);
+    };
+    try {
+      const first = api.ingest.merge.step({ runId, expectCursor: run.cursor });
+      await inside;
+      await expect(api.ingest.merge.step({ runId, expectCursor: run.cursor })).rejects.toMatchObject({ code: "CONFLICT", message: "Running in another tab" });
+      release();
+      await first;
+    } finally {
+      ADAPTERS.vendors = original;
+    }
+    expect(calls).toBe(1);
+    const last = await pump(api, runId, (await api.ingest.merge.get({ runId })).cursor);
+    expect(last.state).toBe("done");
+    const audits = await auditRows(env, companyId, "vendor.update");
+    expect(audits.map((a) => a.subjectId).sort()).toEqual([v1.id, v2.id].sort());
+  });
+
+  test("a step that crashed holds its chunk until the lease runs out; then the next step sends it again", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "vendors", [{ values: { name: "Crash Fresh" } }]);
+    const first = await mergeAll(api);
+    const cursor = await rewindToCrash(env, first.runId, seeded.candidateId, { sentAgoMs: 1_000 });
+    await expect(api.ingest.merge.step({ runId: first.runId, expectCursor: cursor })).rejects.toMatchObject({ code: "CONFLICT" });
+    const { ingestMergeChunk } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(ingestMergeChunk).set({ sentAt: new Date(Date.now() - 61_000) }).where(eq(ingestMergeChunk.runId, first.runId));
+    expect((await pump(api, first.runId, cursor)).state).toBe("done");
+    expect(await count("vendor", companyId)).toBe(1);
+  });
+});
