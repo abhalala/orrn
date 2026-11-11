@@ -1241,6 +1241,10 @@ export const en = {
       noTime: "Enter the date and time the truck left.",
       chip: "Entered late",
       left: "Left at {when}: {reason}",
+      waitingFor: "Waiting for a manager to approve {when}. Press Dispatch again once it is approved.",
+      approvedFor: "A manager approved {when}. Press Dispatch to make the packing list.",
+      useAnother: "Use another time",
+      anotherAsks: "Another time asks a manager again.",
     },
     overTolerance: {
       title: "More than the order",
@@ -1447,7 +1451,7 @@ export const en = {
       offBand: "Some bundles are off the order weight. A manager has to approve them before this dispatch can go.",
       offBandRejected: "A bundle was rejected for the order weight. Take it off this dispatch, then try again.",
       overdraw: "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
-      lateEntry: "A manager has to approve the time the truck left. Press Dispatch again once it is approved.",
+      lateEntry: "A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved.",
     },
     capacity: {
       label: "Truck capacity (kg)",

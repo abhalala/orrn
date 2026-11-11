@@ -53,7 +53,7 @@ describe("actionErrorText", () => {
 describe("dispatchErrorText: late packing list (arch 52)", () => {
   test("waiting for approval and the server's own refusals of the time", () => {
     expect(dispatchErrorText(t, err("PRECONDITION_FAILED", "Entered late: a second person has to approve the dispatch time before this dispatch can complete."))).toBe(
-      "A manager has to approve the time the truck left. Press Dispatch again once it is approved.",
+      "A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved.",
     );
     expect(dispatchErrorText(t, err("BAD_REQUEST", "The dispatch time can't be in the future."))).toBe("That time is in the future. Check the date and time.");
     expect(dispatchErrorText(t, err("BAD_REQUEST", "A late packing list can go back at most 72 hours."))).toBe("A late packing list can go back at most 72 hours.");

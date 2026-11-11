@@ -1682,6 +1682,30 @@ export const dispatchRouter = router({
         overdraw = { toleranceBp, lines, approval: latest ?? null };
       }
 
+      // Review 5: the late time asked for (waiting) or approved, so both Complete sheets pre-fill and
+      // lock it. Pressing Dispatch with any other minute would ask again.
+      let lateEntry: { status: "pending" | "approved"; occurredAt: number; reason: string; approvalId: string } | null = null;
+      if (row.status === "draft" || row.status === "reserved") {
+        const [ask] = await ctx.db
+          .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote })
+          .from(approval)
+          .where(
+            and(
+              eq(approval.companyId, ctx.companyId),
+              eq(approval.kind, "dispatch_late_entry"),
+              eq(approval.subjectId, row.id),
+              inArray(approval.status, ["pending", "approved"]),
+            ),
+          )
+          .orderBy(desc(approval.createdAt), desc(approval.serverSeq))
+          .limit(1);
+        const at = ask?.meta?.occurredAt;
+        if (ask && typeof at === "number" && (ask.status === "pending" || ask.status === "approved")) {
+          const saved = typeof ask.meta?.reason === "string" ? ask.meta.reason : (ask.requestNote ?? "");
+          lateEntry = { status: ask.status, occurredAt: at, reason: saved.trim(), approvalId: ask.id };
+        }
+      }
+
       // FP-PK-12: loaded kg against the vehicle (warn only; complete over it needs a reason).
       const capacity = dispatchCapacity(
         row.truckId ? await dispatchLoadG(ctx.db, ctx.companyId, row.id) : items.reduce((sum, it) => sum + Number(it.weightG), 0),
@@ -1768,7 +1792,7 @@ export const dispatchRouter = router({
       const totals = { bundles: Number(sums?.bundles ?? 0), weightG: Number(sums?.weightG ?? 0) };
       const shipDay = dispatchShipDay({ status: row.status, completedAt: row.completedAt, shipDate: row.shipDate }, timezone);
 
-      return { dispatch: row, shipDay, totals, customer: customerRow ?? null, items: itemsWithApproval, offBand, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
+      return { dispatch: row, shipDay, totals, customer: customerRow ?? null, items: itemsWithApproval, offBand, events, overdraw, lateEntry, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
     }),
 
   /**

@@ -8,6 +8,9 @@ import type { MessageKey } from "@orrn/i18n";
 
 import { fromZonedInput, toZonedInput } from "@/features/orders/view";
 
+/** Review 5: the late time already asked for on this dispatch (`dispatch.getDispatch` `lateEntry`). */
+export type LateEntryAsk = { status: "pending" | "approved"; occurredAt: number; reason: string; approvalId: string };
+
 export type LateCheck =
   | { kind: "ok"; occurredAt: number; reason: string }
   | { kind: "error"; field: "time" | "reason"; key: MessageKey };

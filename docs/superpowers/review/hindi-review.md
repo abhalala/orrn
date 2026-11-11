@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
+Counts: 7506 screen strings in 49 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -1094,7 +1094,7 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (245)
+### dispatch (249)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1131,6 +1131,10 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `late.noTime` | Enter the date and time the truck left. | गाड़ी निकलने की तारीख और समय भरें। |
 | `late.chip` | Entered late | देर से भरा |
 | `late.left` | Left at {when}: {reason} | {when} पर निकली: {reason} |
+| `late.waitingFor` | Waiting for a manager to approve {when}. Press Dispatch again once it is approved. | {when} का समय मैनेजर की मंज़ूरी के लिए रुका है। मंज़ूरी के बाद Dispatch फिर दबाएं। |
+| `late.approvedFor` | A manager approved {when}. Press Dispatch to make the packing list. | मैनेजर ने {when} मंज़ूर किया। पैकिंग लिस्ट बनाने के लिए Dispatch दबाएं। |
+| `late.useAnother` | Use another time | दूसरा समय भरें |
+| `late.anotherAsks` | Another time asks a manager again. | दूसरा समय भरने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
 | `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
 | `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
@@ -1313,7 +1317,7 @@ Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 | `errors.offBand` | Some bundles are off the order weight. A manager has to approve them before this dispatch can go. | कुछ bundle ऑर्डर के वज़न से हटकर हैं। यह dispatch जाने से पहले मैनेजर को मंज़ूर करना होगा। |
 | `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
 | `errors.overdraw` | This load is more than the order allows. A manager has to approve it first. Your note went with the request. | यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया। |
-| `errors.lateEntry` | A manager has to approve the time the truck left. Press Dispatch again once it is approved. | गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद Dispatch फिर दबाएं। |
+| `errors.lateEntry` | A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved. | गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद उसी समय के साथ Dispatch फिर दबाएं। |
 | `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |

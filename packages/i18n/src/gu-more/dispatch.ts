@@ -51,6 +51,10 @@ export const guDispatch = {
       noTime: "ગાડી નીકળ્યાની તારીખ અને સમય ભરો.",
       chip: "મોડું ભરેલું",
       left: "{when} એ નીકળી: {reason}",
+      waitingFor: "{when} નો સમય મેનેજરની મંજૂરી માટે રાહ જુએ છે. મંજૂરી પછી Dispatch ફરી દબાવો.",
+      approvedFor: "મેનેજરે {when} મંજૂર કર્યું. પેકિંગ લિસ્ટ બનાવવા Dispatch દબાવો.",
+      useAnother: "બીજો સમય ભરો",
+      anotherAsks: "બીજો સમય ભરશો તો મેનેજર પાસે ફરી મંજૂરી માંગાશે.",
     },
     overTolerance: {
       title: "ઓર્ડરથી વધુ",

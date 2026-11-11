@@ -162,6 +162,27 @@ describe("late packing-list entry (arch 52)", () => {
     expect(await lateRows(p.companyId)).toHaveLength(1);
   }, SLOW);
 
+  test("review 5: getDispatch returns the late time waiting or approved, so the sheets can lock it; none once completed", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toBeNull();
+    const occurredAt = NOW.getTime() - 4 * H;
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Internet down" }).catch(() => undefined);
+    const [req] = await lateRows(p.companyId);
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toEqual({ status: "pending", occurredAt, reason: "Internet down", approvalId: req!.id });
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toEqual({ status: "approved", occurredAt, reason: "Internet down", approvalId: req!.id });
+    // A rejected ask is not offered.
+    const other = NOW.getTime() - 2 * H;
+    await c.dispatch.complete({ id, occurredAt: other, lateReason: "Internet down again" }).catch(() => undefined);
+    const ask2 = (await lateRows(p.companyId)).find((r) => r.status === "pending")!;
+    await p.as("manager").approval.decide({ id: ask2.id, decision: "rejected" });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "approved", occurredAt });
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Internet down" });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toBeNull();
+  }, SLOW);
+
   test("an approval covers only the time it was asked for; another time withdraws a waiting ask and asks again", async () => {
     setClock(NOW);
     const { p, id } = await heldDispatch();
