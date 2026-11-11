@@ -123,6 +123,7 @@ export const hi = {
       tooBig: "यह बहुत बड़ी है।",
       tooSmall: "यह बहुत छोटी है।",
     },
+    storedAs: "{value} {unit} के रूप में दर्ज हुआ, जो सबसे पास के पूरे kg के बराबर है।",
     /** Names for the unit pickers in Settings. */
     name: {
       kg: "किलोग्राम (kg)",

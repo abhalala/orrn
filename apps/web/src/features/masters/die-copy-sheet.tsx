@@ -20,7 +20,7 @@ import {
 import { MasterSheet } from "./masters-ui";
 import { useInvalidate, type DieCopyRow } from "./use-masters";
 import { PlantInput } from "@/shared/components/plant-input";
-import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { SECTION_KG12, WHOLE_KG } from "@/shared/lib/plant-input";
 
 type HandStatus = (typeof DIE_COPY_HAND_STATUSES)[number];
 const isHandStatus = (s: DieCopyStatus): s is HandStatus => (DIE_COPY_HAND_STATUSES as readonly string[]).includes(s);
@@ -226,7 +226,7 @@ export function DieCopySheet({
         </Field>
       </div>
       <Field label={t("masters.dieCopies.form.life")} hint={t("masters.dieCopies.form.lifeHint")} error={errors.life}>
-        <PlantInput spec={MASS_KG} value={life} onValueChange={setLife} decimal={false} />
+        <PlantInput spec={WHOLE_KG} value={life} onValueChange={setLife} decimal={false} />
       </Field>
       <Field label={t("masters.dieCopies.form.status")} id={statusId}>
         <NativeSelect id={statusId} value={status} onChange={(e) => setStatus(e.currentTarget.value as DieCopyStatus)}>

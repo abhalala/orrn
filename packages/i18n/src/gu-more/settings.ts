@@ -16,6 +16,7 @@ export const guSettings = {
       tooBig: "આ બહુ મોટી છે.",
       tooSmall: "આ બહુ નાની છે.",
     },
+    storedAs: "{value} {unit} તરીકે નોંધાયું, જે સૌથી નજીકના પૂર્ણ kg બરાબર છે.",
     name: {
       kg: "કિલોગ્રામ (kg)",
       t: "ટન (t)",

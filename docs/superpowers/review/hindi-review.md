@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7560 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -88,7 +88,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `waitingApproval` | Waiting for approval | मंज़ूरी का इंतज़ार |
 | `plant` | Plant | प्लांट |
 
-### units (35)
+### units (36)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -118,6 +118,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `problem.negative` | Enter zero or more. | शून्य या उससे ज़्यादा डालें। |
 | `problem.tooBig` | That is too large. | यह बहुत बड़ी है। |
 | `problem.tooSmall` | That is too small. | यह बहुत छोटी है। |
+| `storedAs` | Stored as {value} {unit}, the nearest whole kg. | {value} {unit} के रूप में दर्ज हुआ, जो सबसे पास के पूरे kg के बराबर है। |
 | `name.kg` | Kilograms (kg) | किलोग्राम (kg) |
 | `name.t` | Tonnes (t) | टन (t) |
 | `name.lb` | Pounds (lb) | पाउंड (lb) |

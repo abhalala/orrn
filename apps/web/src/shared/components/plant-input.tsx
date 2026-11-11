@@ -65,6 +65,13 @@ export function PlantInput({ spec, value, onValueChange, decimal, typed, onTyped
     onValueChange(step.draft);
   };
   const composite = Boolean(unit.composite);
+  // A model that keeps whole kg: say what was kept when the typed figure was rounded to it.
+  let storedNote: string | null = null;
+  if (spec.wholeNative && !problem && text.trim() !== "") {
+    const kept = typedToDraft(fmt, spec, text).value;
+    const keptText = kept === null ? null : fmt.entryText(spec.field, kept);
+    if (keptText !== null && keptText !== text.trim()) storedNote = t("units.storedAs", { value: keptText, unit: suffix });
+  }
   return (
     <div className="flex min-w-0 flex-col gap-1">
       {composite ? (
@@ -74,6 +81,7 @@ export function PlantInput({ spec, value, onValueChange, decimal, typed, onTyped
       )}
       <div aria-live="polite" className="empty:hidden">
         {problem ? <p className="m-0 text-[13px] font-medium leading-5 text-destructive">{unitProblemText(t, fmt, spec.field, problem)}</p> : null}
+        {storedNote ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{storedNote}</p> : null}
       </div>
     </div>
   );

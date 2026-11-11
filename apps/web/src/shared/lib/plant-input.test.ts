@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
-import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, keypadStep, typedToDraft, WALL_MM } from "./plant-input";
+import { parseWholeKgToGrams } from "@/features/die-room/die-room-model";
+import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -152,5 +153,38 @@ describe("an on-screen keypad edits the text in the plant's unit", () => {
   });
   test("a plant that changed nothing: the typed text and the draft are the same", () => {
     expect(press(fmtOf(), ["2", ".", "5"])).toEqual({ typed: "2.5", draft: "2.5" });
+  });
+});
+
+describe("a model that keeps whole kg (die life) behind a converting box", () => {
+  const lb = fmtOf({ units: { mass: "lb" } });
+  const tonne = fmtOf({ units: { mass: "t" } });
+  test("50000 lb is kept as 22680 kg and the model accepts it (it was 22679.619 and 'fields invalid')", () => {
+    const s = typedToDraft(lb, WHOLE_KG, "50000");
+    expect(s).toMatchObject({ draft: "22680", problem: null, value: 22_680_000 });
+    expect(parseWholeKgToGrams(s.draft)).toBe(22_680_000);
+  });
+  test("every pound figure from 1 to 5000 lands on a whole kg the model accepts", () => {
+    const bad: string[] = [];
+    for (let n = 1; n <= 5000; n++) {
+      const s = typedToDraft(lb, WHOLE_KG, String(n));
+      if (n >= 2 && parseWholeKgToGrams(s.draft) === null) bad.push(`${n}: ${s.draft} ${s.problem}`);
+    }
+    expect(bad).toEqual([]);
+  });
+  test("tonnes: 22.6796 t is kept as 22680 kg", () => {
+    expect(typedToDraft(tonne, WHOLE_KG, "22.6796")).toMatchObject({ draft: "22680", problem: null });
+  });
+  test("under half a kg is refused, zero is not", () => {
+    expect(typedToDraft(lb, WHOLE_KG, "0.5")).toMatchObject({ draft: "", problem: "tooSmall" });
+    expect(typedToDraft(lb, WHOLE_KG, "0")).toMatchObject({ draft: "0", problem: null });
+  });
+  test("what is kept reads back as the same whole kg (the box shows the kept figure)", () => {
+    const kept = typedToDraft(lb, WHOLE_KG, "50000");
+    const shown = draftToTyped(lb, WHOLE_KG, kept.draft);
+    expect(typedToDraft(lb, WHOLE_KG, shown).draft).toBe("22680");
+  });
+  test("a plant on kg is the old box: the whole kg draft is the typed text", () => {
+    expect(typedToDraft(fmtOf(), WHOLE_KG, "60000")).toMatchObject({ draft: "60000", problem: null });
   });
 });

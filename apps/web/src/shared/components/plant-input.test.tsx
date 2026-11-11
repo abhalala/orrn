@@ -7,7 +7,7 @@ import { screenPrefs } from "@orrn/domain";
 import { NumberInput } from "@orrn/ui/components/field";
 
 import { FmtProvider } from "@/shared/lib/fmt";
-import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
+import { DIAMETER_MM, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, WALL_MM, WHOLE_KG } from "@/shared/lib/plant-input";
 
 import { PlantInput } from "./plant-input";
 
@@ -57,6 +57,12 @@ describe("a plant on another unit", () => {
     const dia = render({ units: { length: "ft_in" } }, <PlantInput spec={DIAMETER_MM} value="127" onValueChange={noop} aria-label="D" />);
     expect(dia).toContain('value="127"');
     expect(dia).toContain(">mm<");
+  });
+  test("a whole-kg box on a pound plant says what it kept", () => {
+    const html = render({ units: { mass: "lb" } }, <PlantInput spec={WHOLE_KG} value="22680" typed="50000" onTypedChange={noop} onValueChange={noop} aria-label="Life" />);
+    expect(html).toContain("Stored as 50000.84 lb, the nearest whole kg.");
+    const exact = render({ units: { mass: "lb" } }, <PlantInput spec={WHOLE_KG} value="22680" typed="50000.84" onTypedChange={noop} onValueChange={noop} aria-label="Life" />);
+    expect(exact).not.toContain("Stored as");
   });
   test("kg per metre for a section weight", () => {
     const html = render({ units: { linear_mass: "kg_m" } }, <PlantInput spec={SECTION_KG12} value="2.088" onValueChange={noop} aria-label="S" />);
@@ -112,7 +118,7 @@ describe("the forms that take a weight, length or section weight", () => {
     for (const m of s.matchAll(/<PlantInput\b[^>]*?spec=\{([^}]*)\}/gs)) {
       const rel = f.slice(ROOT.length + 1);
       const set = used.get(rel) ?? new Set<string>();
-      for (const spec of m[1]!.match(/MASS_KG|MASS_G|LENGTH_MM|LENGTH_FT|LENGTH_IN|SECTION_KG12|WALL_MM/g) ?? []) set.add(spec);
+      for (const spec of m[1]!.match(/MASS_KG|WHOLE_KG|MASS_G|LENGTH_MM|DIAMETER_MM|LENGTH_FT|LENGTH_IN|SECTION_KG12|WALL_MM/g) ?? []) set.add(spec);
       used.set(rel, set);
     }
     if (/<BigNumberField[^>]*spec=\{/s.test(s) || /<QtyBox\b/.test(s)) used.set(f.slice(ROOT.length + 1), (used.get(f.slice(ROOT.length + 1)) ?? new Set()).add("MASS_KG"));

@@ -130,6 +130,8 @@ export const en = {
       tooBig: "That is too large.",
       tooSmall: "That is too small.",
     },
+    /** Under a box whose figure is kept in whole kg (die life): what was kept after rounding. {value} {unit} is in the plant's unit. */
+    storedAs: "Stored as {value} {unit}, the nearest whole kg.",
     /** Names for the unit pickers in Settings. */
     name: {
       kg: "Kilograms (kg)",

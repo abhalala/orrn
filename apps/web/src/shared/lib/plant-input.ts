@@ -8,7 +8,7 @@
  *
  * A plant whose unit already is the draft's unit gets the draft untouched (the old box, character for character).
  */
-import { convertText, entryDecimals, formatStorage, resolveField, type FieldId, type Fmt, type Kind, type ParseProblem, type UnitId } from "@orrn/domain";
+import { convertStorage, convertText, entryDecimals, formatStorage, resolveField, type FieldId, type Fmt, type Kind, type ParseProblem, type UnitId } from "@orrn/domain";
 
 export type EntrySpec = {
   /** The quantity (names the kind and the stored unit). */
@@ -20,9 +20,16 @@ export type EntrySpec = {
    * that box and its draft as they were: a bare number there is mm, never feet. A plant on metres still converts.
    */
   plainOnFtIn?: boolean;
+  /**
+   * The form's model takes WHOLE units of `native` (die life in whole kg). A box that converts (a pound plant) rounds what is
+   * typed to the nearest whole native unit before it writes the draft, and says what it stored; under half a unit it refuses.
+   */
+  wholeNative?: boolean;
 };
 
 export const MASS_KG: EntrySpec = { field: "order.weight", native: "kg" };
+/** A weight the model keeps in whole kg (die life). */
+export const WHOLE_KG: EntrySpec = { ...MASS_KG, wholeNative: true };
 export const MASS_G: EntrySpec = { field: "order.weight", native: "g" };
 export const LENGTH_MM: EntrySpec = { field: "bundle.length", native: "mm" };
 /** A wall or die measure in mm that may carry a tenth: the stored step is a tenth of a mm. */
@@ -66,6 +73,7 @@ export function draftToCanonical(spec: EntrySpec, draft: string): number | null 
 /** The model's draft text for a canonical integer: the most digits that read back the same, no grouping. */
 export function canonicalToDraft(spec: EntrySpec, value: number): string {
   const f = resolveField(spec.field);
+  if (spec.wholeNative) return String(convertStorage(value, f.storage, spec.native).value);
   return formatStorage(value, f.storage, spec.native, Math.max(0, entryDecimals(spec.native, f.storage)), PLAIN, { trim: true });
 }
 
@@ -88,6 +96,12 @@ export function typedToDraft(fmt: Fmt, spec: EntrySpec, text: string): TypedStep
   if (text.trim() === "") return { draft: "", value: null, problem: null };
   const r = fmt.parse(spec.field, text);
   if (!r.ok) return { draft: "", value: null, problem: r.problem };
+  if (spec.wholeNative) {
+    const f = resolveField(spec.field);
+    const whole = convertStorage(r.value, f.storage, spec.native).value;
+    if (r.value > 0 && whole < 1) return { draft: "", value: null, problem: "tooSmall" };
+    return { draft: String(whole), value: convertStorage(whole, spec.native, f.storage).value, problem: null };
+  }
   return { draft: canonicalToDraft(spec, r.value), value: r.value, problem: null };
 }
 
