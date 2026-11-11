@@ -1,7 +1,8 @@
 /**
  * Parity with the registry in @orrn/domain (feat/units-core): the same typed text must give the same canonical number.
  * The registry names units with underscores (`kg_12ft`, `quintal`, `paise_kg`) and the recipe strings of plan B2 use
- * slashes (`kg/12ft`), so the adapter stays the plan's face and this test is the proof that the numbers agree.
+ * slashes (`kg/12ft`). The adapter maps one spelling to the other and calls the registry; this test proves the
+ * mapping keeps every number the same.
  */
 import { describe, expect, test } from "bun:test";
 import { convertToCanonical as registryConvert, parseUnitToken as registryParse, unitsFor as registryUnitsFor } from "@orrn/domain";
@@ -11,8 +12,12 @@ import { convertToCanonical, parseUnitToken, splitFeetInches, unitsFor } from ".
 
 const VALUES = ["0", "1", "0.5", "2.4", "2.09", "58.4", "1.0015", "2.0005", "12", "214.5", "3658", "44.55", "0.0005", "1234567.891", "9999.9999"];
 
-/** Units the adapter reads that the registry does not list (it answers unit_mismatch). Written down so a change shows. */
-const ADAPTER_ONLY = new Set(["linear_mass lb/12ft", "linear_mass g/ft", "linear_mass lb/m", "price_per_mass paise/t", "price_per_mass paise/qtl", "dimension cm"]);
+/**
+ * Units the adapter reads that the registry does not list (it answers unit_mismatch). Written down so a change shows.
+ * Empty since the adapter delegates its maths to the registry: lb/12ft, g/ft, lb/m, paise/t, paise/qtl and a
+ * dimension in cm were dropped until the units lane adds them to the registry.
+ */
+const ADAPTER_ONLY = new Set<string>();
 const seenAdapterOnly = new Set<string>();
 
 describe("adapter and registry agree on every number", () => {
