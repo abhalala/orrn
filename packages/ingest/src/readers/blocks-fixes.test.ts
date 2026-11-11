@@ -61,6 +61,31 @@ describe("C15: a short letterhead or title row is not the header", () => {
   });
 });
 
+describe("C-new-1: month group labels with a year are a two-row header, not a title", () => {
+  test("Apr 2025 and May 2025 over Kg and Pcs", () => {
+    const [b] = findBlocks([
+      ["Party", "Apr 2025", "", "May 2025", ""],
+      ["", "Kg", "Pcs", "Kg", "Pcs"],
+      ["Shree Ganesh", 120, 4, 80, 3],
+    ]);
+    expect(b!.headerRows).toBe(2);
+    expect(b!.headers).toEqual(["Party", "Apr 2025 Kg", "Apr 2025 Pcs", "May 2025 Kg", "May 2025 Pcs"]);
+    expect(b!.title).toBeNull();
+    expect(b!.rows).toEqual([["Shree Ganesh", "120", "4", "80", "3"]]);
+  });
+
+  test("a letterhead with a bare year in its last cell is still a title", () => {
+    const [b] = findBlocks([
+      ["Sales register", "", "", "FY 2025"],
+      ["Sr", "Party", "Section", "Qty"],
+      [1, "Om Metals", "T 4012", 20],
+    ]);
+    expect(b!.headerRows).toBe(1);
+    expect(b!.headers).toEqual(["Sr", "Party", "Section", "Qty"]);
+    expect(b!.title).toBe("Sales register FY 2025");
+  });
+});
+
 describe("C33: a footer after a blank row is not a new block", () => {
   test("Prepared by and Checked by under the table", () => {
     const blocks = findBlocks([
