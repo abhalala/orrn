@@ -15,13 +15,14 @@
 import { DIE_COPY_HAND_STATUSES } from "@orrn/domain";
 import { orderLineGrams } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { customer } from "@orrn/db/schema/customers";
 import { ingestStagedRow } from "@orrn/db/schema/ingest";
 import { vendor } from "@orrn/db/schema/purchase";
 
+import { mapInChunks } from "../../atomic";
 import { serverNameKey } from "../resolvers";
 import type { IngestCtx } from "../types";
 import { LINES_PER_ORDER, num, text, type Values } from "./shared";
@@ -180,14 +181,46 @@ export function handStatusRefusal(rowIndex: number, value: unknown): string | nu
 
 export type NameOwner = { id: string; name: string };
 
+/** The name keys of these texts: unique, no blanks. */
+export function nameKeysOf(texts: readonly string[]): string[] {
+  return [...new Set(texts.map((t) => serverNameKey(t)).filter(Boolean))];
+}
+
+/** Live vendors by name key: the partial unique index `vendor_company_name_key_unique`. */
+export const LIVE_VENDOR = sql`${vendor.status} <> 'merged'`;
+
 /**
  * The live customer or vendor each name key belongs to, for the alias targets (B13). The dry run and
- * the planner check a whole candidate with it; each adapter checks again.
+ * the planner check a whole candidate with it; each adapter checks again. With `aliases`, only the
+ * keys of those texts are looked up (B-new-2): vendors by `vendor_company_name_key_unique` and the
+ * status index, 90 keys at a time. Without it, the whole table is read, as before.
  */
-export async function aliasNameOwners(ctx: Pick<IngestCtx, "db" | "companyId">, target: "customer_aliases" | "vendor_aliases"): Promise<Map<string, NameOwner>> {
+export async function aliasNameOwners(
+  ctx: Pick<IngestCtx, "db" | "companyId">,
+  target: "customer_aliases" | "vendor_aliases",
+  aliases?: readonly string[],
+): Promise<Map<string, NameOwner>> {
   const out = new Map<string, NameOwner>();
+  const keys = aliases ? new Set(nameKeysOf(aliases)) : null;
+  if (keys?.size === 0) return out;
   if (target === "vendor_aliases") {
-    const names = await ctx.db.select({ id: vendor.id, name: vendor.name, key: vendor.nameKey }).from(vendor).where(eq(vendor.companyId, ctx.companyId));
+    const names = keys
+      ? [
+          // Live vendors first, then merged ones (which keep their names), as the whole-table read did.
+          ...(await mapInChunks([...keys], (part) =>
+            ctx.db
+              .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+              .from(vendor)
+              .where(and(eq(vendor.companyId, ctx.companyId), LIVE_VENDOR, inArray(vendor.nameKey, part))),
+          )),
+          ...(await mapInChunks([...keys], (part) =>
+            ctx.db
+              .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+              .from(vendor)
+              .where(and(eq(vendor.companyId, ctx.companyId), eq(vendor.status, "merged"), inArray(vendor.nameKey, part))),
+          )),
+        ]
+      : await ctx.db.select({ id: vendor.id, name: vendor.name, key: vendor.nameKey }).from(vendor).where(eq(vendor.companyId, ctx.companyId));
     for (const n of names) if (n.key && !out.has(n.key)) out.set(n.key, { id: n.id, name: n.name });
     return out;
   }
@@ -197,7 +230,7 @@ export async function aliasNameOwners(ctx: Pick<IngestCtx, "db" | "companyId">, 
     .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
   for (const c of names) {
     const k = serverNameKey(c.name);
-    if (k && !out.has(k)) out.set(k, c);
+    if (k && (!keys || keys.has(k)) && !out.has(k)) out.set(k, c);
   }
   return out;
 }

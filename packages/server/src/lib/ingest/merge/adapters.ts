@@ -12,8 +12,9 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
+import { customer, customerAlias } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
-import { vendor } from "@orrn/db/schema/purchase";
+import { vendor, vendorAlias } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
 import type { IngestTarget } from "@orrn/db/schema/ingest";
 
@@ -21,17 +22,20 @@ import { mapInChunks } from "../../atomic";
 import { assertModule } from "../../moduleGate";
 import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
-import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection, serverNameKey } from "../resolvers";
+import { loadSections, resolveName, resolveSection, serverNameKey, type NameIndex } from "../resolvers";
 import type { IngestCtx } from "../types";
 import {
   aliasMoveRefusal,
   aliasNameOwners,
   aliasRefusal,
   handStatusRefusal,
+  LIVE_VENDOR,
+  nameKeysOf,
   orderLineOf,
   type OrderLine,
 } from "./rowchecks";
 import {
+  companyNotIndexed,
   failureOf,
   fileRowsIn,
   LINES_PER_ORDER,
@@ -52,7 +56,7 @@ import {
 } from "./shared";
 
 // The shared row checks moved to rowchecks.ts, so the dry run uses them too. Re-exported here.
-export { aliasMoveRefusal, aliasNameCheck, aliasNameOwners, aliasRefusal, handStatusCheck, handStatusRefusal, ORDER_LINE_FIELDS, orderLineCheck, orderLineOf } from "./rowchecks";
+export { aliasMoveRefusal, aliasNameCheck, aliasNameOwners, aliasRefusal, handStatusCheck, handStatusRefusal, nameKeysOf, ORDER_LINE_FIELDS, orderLineCheck, orderLineOf } from "./rowchecks";
 export type { NameOwner } from "./rowchecks";
 
 // ---------------------------------------------------------------------------
@@ -60,7 +64,35 @@ export type { NameOwner } from "./rowchecks";
 // ---------------------------------------------------------------------------
 
 /** The path is chosen by state, never by whether a match is set (B6). */
-const isUpdate = (r: StagedRow) => r.state === "ready_update";
+const isUpdate = (r: Pick<StagedRow, "state">) => r.state === "ready_update";
+
+/** Targets the merge only adds to: a ready_update row there has no update path (B6). */
+const ADD_ONLY: Partial<Record<IngestTarget, { one: string; many: string }>> = {
+  bundles: { one: "a bundle", many: "bundles" },
+  orders: { one: "an order", many: "orders" },
+};
+
+/**
+ * Why a ready_update row may not be sent, or null (B6): it names no record to update, or its
+ * target only takes new records (bundles, orders), where sending it would make a second record.
+ * The planner checks every row of a candidate with it before any chunk is written; the adapters
+ * check again.
+ */
+export function updateRefusal(target: IngestTarget, row: Pick<StagedRow, "state" | "matchId" | "rowIndex">): string | null {
+  if (!isUpdate(row)) return null;
+  const add = ADD_ONLY[target];
+  if (add && row.matchId) return `File row ${row.rowIndex + 1} would change ${add.one} already in orrn. An import only adds new ${add.many}. Skip the row.`;
+  if (!row.matchId) return `File row ${row.rowIndex + 1} has no record to update. Pick the record to use, or add it as new.`;
+  return null;
+}
+
+/** `updateRefusal` over a chunk, thrown as a refusal of the whole chunk. */
+function assertNoUpdate(target: IngestTarget, rows: readonly StagedRow[]): void {
+  for (const r of rows) {
+    const refusal = updateRefusal(target, r);
+    if (refusal) throw new TRPCError({ code: "BAD_REQUEST", message: refusal });
+  }
+}
 
 /**
  * A chunk's kind before any call: all creates, or all updates that each name the record they
@@ -69,7 +101,7 @@ const isUpdate = (r: StagedRow) => r.state === "ready_update";
  */
 function kindOf(rows: readonly StagedRow[]): "create" | "update" {
   const bad = rows.find((r) => isUpdate(r) && !r.matchId);
-  if (bad) throw new TRPCError({ code: "BAD_REQUEST", message: `File row ${bad.rowIndex + 1} has no record to update. Pick the record to use, or add it as new.` });
+  if (bad) throw new TRPCError({ code: "BAD_REQUEST", message: updateRefusal("customers", bad)! });
   if (rows.every(isUpdate)) return "update";
   if (rows.some(isUpdate)) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "A part mixes new and changed records" });
   return "create";
@@ -210,6 +242,82 @@ async function sectionFor(args: AdapterArgs, row: StagedRow, cache: Map<string, 
 }
 
 // ---------------------------------------------------------------------------
+// names already in orrn, read by key (B-new-2)
+// ---------------------------------------------------------------------------
+
+/** A name index (resolvers.ts) of these live records and alias keys. */
+function indexOf(records: readonly { id: string; name: string; key: string }[], aliases: readonly { id: string; key: string }[]): NameIndex {
+  const labels = new Map(records.map((r) => [r.id, r.name]));
+  const entries = records.map((r) => ({ id: r.id, key: r.key, label: r.name }));
+  for (const a of aliases) if (labels.has(a.id)) entries.push({ id: a.id, key: a.key, label: labels.get(a.id)! });
+  return { entries, labels };
+}
+
+/**
+ * The live customers whose name or alias has the key of one of `names`, as a name index. Aliases
+ * are read by `customer_alias_company_key_unique`, 90 keys at a time. Customer names have no key
+ * column, so every live customer's name is read: that read grows with the plant, not the run
+ * (see the report: it needs a `name_key` column on `customer`). Only keys of `names` go into the
+ * index, so `resolveName` gives the same exact hits as over the whole table.
+ */
+export async function customerIndexFor(ctx: IngestCtx, names: readonly string[]): Promise<NameIndex> {
+  const keys = new Set(nameKeysOf(names));
+  if (keys.size === 0) return indexOf([], []);
+  const records = (
+    await ctx.db
+      .select({ id: customer.id, name: customer.name })
+      .from(customer)
+      .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)))
+  )
+    .map((c) => ({ ...c, key: serverNameKey(c.name) }))
+    .filter((c) => keys.has(c.key));
+  const aliases = await mapInChunks([...keys], (part) =>
+    ctx.db
+      .select({ id: customerAlias.customerId, key: customerAlias.aliasKey })
+      .from(customerAlias)
+      .where(and(eq(customerAlias.companyId, ctx.companyId), inArray(customerAlias.aliasKey, part))),
+  );
+  const known = new Set(records.map((r) => r.id));
+  const owners = await mapInChunks([...new Set(aliases.map((a) => a.id))].filter((id) => !known.has(id)), (part) =>
+    ctx.db
+      .select({ id: customer.id, name: customer.name })
+      .from(customer)
+      .where(and(companyNotIndexed(customer.companyId, ctx.companyId), inArray(customer.id, part), isNull(customer.deletedAt))),
+  );
+  return indexOf([...records, ...owners.map((o) => ({ ...o, key: serverNameKey(o.name) }))], aliases);
+}
+
+/**
+ * The live vendors whose name or alias has the key of one of `names`, as a name index: read by
+ * `vendor_company_name_key_unique` and `vendor_alias_company_key_unique`, 90 keys at a time,
+ * never the whole vendor table. Same exact hits as `loadVendorIndex` for these names.
+ */
+export async function vendorIndexFor(ctx: IngestCtx, names: readonly string[]): Promise<NameIndex> {
+  const keys = nameKeysOf(names);
+  if (keys.length === 0) return indexOf([], []);
+  const records = await mapInChunks(keys, (part) =>
+    ctx.db
+      .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+      .from(vendor)
+      .where(and(eq(vendor.companyId, ctx.companyId), LIVE_VENDOR, inArray(vendor.nameKey, part))),
+  );
+  const aliases = await mapInChunks(keys, (part) =>
+    ctx.db
+      .select({ id: vendorAlias.vendorId, key: vendorAlias.aliasKey })
+      .from(vendorAlias)
+      .where(and(eq(vendorAlias.companyId, ctx.companyId), inArray(vendorAlias.aliasKey, part))),
+  );
+  const known = new Set(records.map((r) => r.id));
+  const owners = await mapInChunks([...new Set(aliases.map((a) => a.id))].filter((id) => !known.has(id)), (part) =>
+    ctx.db
+      .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+      .from(vendor)
+      .where(and(companyNotIndexed(vendor.companyId, ctx.companyId), inArray(vendor.id, part), LIVE_VENDOR)),
+  );
+  return indexOf([...records, ...owners], aliases);
+}
+
+// ---------------------------------------------------------------------------
 // customers (10): customer.importCsv; updates through customer.update
 // ---------------------------------------------------------------------------
 
@@ -250,7 +358,7 @@ const customers: Adapter = async (args) => {
   }
   return oneCall(async (sent) => {
     // A name added since the dry run (or by this chunk before a crash) is not added again (plan D7).
-    const index = await loadCustomerIndex(ctx);
+    const index = await customerIndexFor(ctx, rows.map((row) => text(valuesOf(row).name) ?? ""));
     const written: Written[] = [];
     const send: StagedRow[] = [];
     for (const row of rows) {
@@ -297,7 +405,7 @@ const customerAliases: Adapter = async (args) => {
     const list = rows.map((row) => ({ row, customerId: refOf(row, "customer", refs)!, alias: text(valuesOf(row).alias) ?? "" }));
     // customer.addAliases refuses the whole call for a name that is another customer's. The planner
     // holds such a candidate before any chunk is written (B13); this is the backstop.
-    const owners = await aliasNameOwners(ctx, "customer_aliases");
+    const owners = await aliasNameOwners(ctx, "customer_aliases", list.map((l) => l.alias));
     for (const { row, customerId, alias } of list) {
       const refusal = aliasRefusal(row.rowIndex, alias, customerId, owners);
       if (refusal) throw new TRPCError({ code: "CONFLICT", message: refusal });
@@ -344,7 +452,7 @@ const vendors: Adapter = async (args) => {
       return { rowId: row.id, committedType: "vendor", committedId: row.matchId! };
     });
   }
-  const index = await loadVendorIndex(ctx);
+  const index = await vendorIndexFor(ctx, rows.map((row) => text(valuesOf(row).name) ?? ""));
   return perRow(args, rows, async (row) => {
     const v = valuesOf(row);
     // A name added since the dry run is not added again (plan D7).
@@ -383,7 +491,7 @@ const vendorAliases: Adapter = async (args) => {
   // A name of another vendor is refused by vendor.addAlias. The planner holds such a candidate
   // before any chunk is written (B13); this is the backstop. The vendor's own name adds nothing: it
   // is recorded against the vendor, as for customers.
-  const nameOwner = await aliasNameOwners(ctx, "vendor_aliases");
+  const nameOwner = await aliasNameOwners(ctx, "vendor_aliases", rows.map((row) => text(valuesOf(row).alias) ?? ""));
   try {
     for (const row of rows) {
       const refusal = aliasRefusal(row.rowIndex, text(valuesOf(row).alias) ?? "", refOf(row, "vendor", refs), nameOwner);
@@ -614,6 +722,8 @@ const dieCopies: Adapter = async (args) => {
 const bundles: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
   return oneCall(async (sent) => {
+    // A bundle row is only ever a new bundle; a ready_update row is refused, never added (B6).
+    assertNoUpdate("bundles", rows);
     sent.rows = rows;
     // The section the dry run resolved (its own series and code, which may differ in case or
     // series from the file); an old section the person said to add keeps the file's code.
@@ -718,6 +828,13 @@ const orders: Adapter = async (args) => {
   if (!canPrice && rows.some((r) => num(valuesOf(r).rate) !== null)) {
     return { written: [], failure: { code: "FORBIDDEN", message: price.refusal, reason: "merge_failed" } };
   }
+  // The merge only makes new orders: a ready_update row would make a second one (B6). The planner
+  // holds such a candidate first; this is the backstop.
+  try {
+    assertNoUpdate("orders", rows);
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
 
   let groups: OrderGroup[];
   try {
@@ -747,8 +864,9 @@ const orders: Adapter = async (args) => {
       const first = valuesOf(group.rows[0]!);
       const customerId = refOf(group.rows[0]!, "customer", refs);
       if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: `${text(first.customer) ?? "This party"} is not a customer in orrn` });
-      const oldNo = text(first.oldOrderNo);
-      const notes = [oldNo ? `Old order no. ${oldNo}` : null].filter(Boolean).join(" ");
+      // Every old order number of the order's rows (one PO may cover several), in file order.
+      const oldNos = [...new Set(group.rows.map((r) => text(valuesOf(r).oldOrderNo)).filter((x): x is string => !!x))];
+      const notes = oldNos.length ? `Old order no. ${oldNos.join(", ")}` : "";
       const lines = group.rows.map((row) => lineOf.get(row.id)!);
       // The same input check as `orders.create`.
       const input = createInput.parse({
