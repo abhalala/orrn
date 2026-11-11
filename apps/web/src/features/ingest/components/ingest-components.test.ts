@@ -120,18 +120,28 @@ describe("candidate card states", () => {
   });
 });
 
+// What a screen part needs from the review page's writes. Nothing here is called while rendering to a string.
+const act = {
+  busy: false, pending: null, failed: () => null, after: null,
+  decide: async () => true, answer: async () => true, skipRows: async () => true,
+};
+const focusRef = () => () => {};
+
 describe("staged row filters", () => {
   test("shows all and only the states present, with the active filter named", () => {
-    const html = render(createElement(StagedRows, { candidate: detail() }));
+    const html = render(createElement(StagedRows, { candidate: detail(), canDecide: true, act, focusRef, announce: () => {} }));
     expect(html).toContain("All 6");
+    // Work order M12: "Needs a decision" comes first and is the one selected when it has rows.
+    expect(html).toContain("Needs a decision 3");
     expect(html).toContain("Pick a match 2");
     expect(html).toContain("Differs from orrn 1");
     expect(html).toContain("New 2");
     expect(html).toContain("Updates orrn 1");
     expect(html).not.toContain("Cannot import");
     expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain("Previous page");
-    expect(html).toContain("Next page");
+    // Work order 3.3: the pager is hidden when there is one page (nothing loaded here, so one page).
+    expect(html).not.toContain("Previous page");
+    expect(html).not.toContain("Next page");
   });
 });
 
@@ -143,13 +153,17 @@ describe("questions panel answer flow", () => {
         { code: "create_legacy_die", subject: "12170", params: { code: "12170" }, answer: true, open: false },
       ],
     });
-    const html = render(createElement(QuestionsPanel, { candidate }));
-    // The field is a label, never the code the server sent (work order S16).
+    const html = render(createElement(QuestionsPanel, { candidate, act, focusRef }));
+    // The field and the unit are labels, never the codes the server sent (work order S16).
     expect(html).toContain("Min weight per 12 ft has no unit. Which unit is it?");
-    expect(html).toContain("kg/12ft");
-    expect(html).toContain("Save");
+    expect(html).toContain("kg per 12 ft");
+    expect(html).not.toContain(">kg/12ft<");
+    expect(html).toContain("Save answer");
     expect(html).toContain("12170 is not in your sections. Add it as an old section?");
-    expect(html).toContain("disabled");
+    // Work order S13: an answered question shows its answer and a Change button, not two greyed buttons.
+    expect(html).toContain("Answered: Add it");
+    expect(html).toContain("Change");
+    expect(html).not.toContain('disabled=""');
   });
 
   test("turns the selected control value into the action answer", () => {
