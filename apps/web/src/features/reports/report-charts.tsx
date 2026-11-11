@@ -3,15 +3,15 @@
  * chunk or a role that only reads the tables. Each chart sits in a ChartCard whose table view is
  * built from the same bars and the same format (chart kit rules). One unit per axis.
  */
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BarChart, ChartCard, barTable, chartDateFormat } from "@orrn/ui/charts";
 import { useMemo } from "react";
 
 import { orderMonthBars, orderMonthBuckets, recoveryBars, stockAgeBars, type OrdersData, type RecoveryData, type StockAgeData } from "./model";
+import { kgChartText } from "@/shared/lib/fmt-text";
+import { useFmt } from "@/shared/lib/fmt";
 
 const PLOT_HEIGHT = 220;
-const kg = (v: number) => (v === 0 ? "0 kg" : `${formatKgTotal(v)} kg`);
 const pct = (v: number) => `${v.toFixed(1)} %`;
 
 export function RecoveryChart({ data }: { data: RecoveryData }) {
@@ -35,6 +35,8 @@ export function RecoveryChart({ data }: { data: RecoveryData }) {
 }
 
 export function StockAgeChart({ data }: { data: StockAgeData }) {
+  const fmt = useFmt();
+  const kg = (v: number) => kgChartText(fmt, v, true);
   const { t } = useT();
   const bars = useMemo(() => stockAgeBars(data, t), [data, t]);
   return (
@@ -59,6 +61,8 @@ export function StockAgeChart({ data }: { data: StockAgeData }) {
  * current month is marked "so far" (chart kit rules). `to` is the period's end date, if any.
  */
 export function OrderMonthsChart({ data, to }: { data: OrdersData; to?: string }) {
+  const fmt = useFmt();
+  const kg = (v: number) => kgChartText(fmt, v, true);
   const { t, locale } = useT();
   const dates = useMemo(() => chartDateFormat("month", locale, "UTC"), [locale]);
   const bars = useMemo(() => orderMonthBars(orderMonthBuckets(data.rows.map((r) => ({ key: r.key, orderedG: r.orderedG })), { today: data.today, to }), dates), [data, to, dates]);

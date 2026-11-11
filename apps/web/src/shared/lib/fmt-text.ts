@@ -32,6 +32,8 @@ export const sectionOrNull = (fmt: Fmt, gramsPer12ft: number | null | undefined)
   gramsPer12ft == null ? null : sectionText(fmt, gramsPer12ft);
 export const rateText = (fmt: Fmt, paisePerKg: number): string => fmt.n("order.rate", paisePerKg, "export");
 export const countText = (fmt: Fmt, n: number): string => fmt.n("bundle.pieces", n);
+/** Rupees as a bare grouped amount, two decimals ("3,00,000.00"): the reports' `rupeeText`. */
+export const rupeeScreen = (fmt: Fmt, paise: number): string => fmt.n("order.amount", paise);
 export const rupeeText = (fmt: Fmt, paise: number): string => fmt.money(paise, "export");
 
 /**
@@ -153,3 +155,10 @@ export function altSectionText(fmt: Fmt, gramsPer12ft: number): string {
   if (fmt.unitOf("linear_mass").id === "kg_12ft") return `${kgPerMetre(gramsPer12ft).toFixed(3)} kg/m`;
   return `${(gramsPer12ft / 1000).toFixed(3)} kg/12ft`;
 }
+
+/** Chart labels for values plotted in kg: the same weight in the plant's unit, "12.5 lb"; `zeroPlain` writes an empty bucket as "0 lb". */
+export const kgChartText = (fmt: Fmt, kg: number, zeroPlain = false): string =>
+  zeroPlain && kg === 0 ? `0 ${massUnit(fmt)}` : `${kgGrouped1(fmt, Math.round(kg * 1000))} ${massUnit(fmt)}`;
+
+/** Whole units of weight, grouped ("60,000"): a tile or a die card. `kgWholeText` under the default set. */
+export const kgGrouped0 = (fmt: Fmt, grams: number): string => formatStorage(grams, "g", fmt.unitOf("mass").id, 0, fmt.style);

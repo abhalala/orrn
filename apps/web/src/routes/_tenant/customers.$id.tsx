@@ -33,6 +33,8 @@ import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { massUnit } from "@/shared/lib/fmt-text";
 
 // The chart kit loads only for analytics.view roles (never in the entry chunk).
 const VolumeCard = lazy(() => import("@/features/customers/customer-charts").then((m) => ({ default: m.VolumeCard })));
@@ -281,6 +283,7 @@ function CustomerAnalytics({
   periodState: PeriodState;
   onPeriod(period: Period): void;
 }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { period, range, months, today } = periodState;
 
@@ -339,7 +342,7 @@ function CustomerAnalytics({
             meta={caption}
             value={totals.kgG / 1000}
             format={formatKgTotal}
-            unit={t("units.kg")}
+            unit={massUnit(fmt)}
             className="animate-rise col-span-2 md:col-span-1"
             style={riseDelay(0)}
           />
@@ -414,6 +417,7 @@ function CustomerAnalytics({
 
 /** Order book for the customer, once sales orders exist (plant PL-8). Hidden while null. */
 function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: number; bakiG: number; lines: number } }) {
+  const fmt = useFmt();
   const { t } = useT();
   const titleId = useId();
   const cells = [
@@ -436,7 +440,7 @@ function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: numbe
           <div key={c.key} className="flex min-w-0 flex-col gap-0.5">
             <dt className="text-[13px] font-medium text-muted-foreground">{c.label}</dt>
             <dd data-no-truncate="" className="m-0 font-mono text-[17px] font-semibold tabular-nums">
-              {formatKgTotal(c.g / 1000)} {t("units.kg")}
+              {formatKgTotal(c.g / 1000)} {massUnit(fmt)}
             </dd>
           </div>
         ))}

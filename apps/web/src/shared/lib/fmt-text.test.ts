@@ -4,19 +4,22 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { formatKg, formatKgTotal, formatterFor, gToKg, screenPrefs } from "@orrn/domain";
+import { formatKg, formatKgTotal, formatterFor, gToKg, kgPerMetre, screenPrefs } from "@orrn/domain";
 
 import { kgText as dieKgText } from "@/features/dies/die-model";
 import { kgGroupedText, milliKgText } from "@/features/die-room/die-room-model";
 import { dayText as oldDayText, dayTimeText as oldDayTimeText, kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText as oldRateText } from "@/features/orders/format";
 import { kgText as purchaseKgText } from "@/features/purchase/format";
-import { kgText as reportsKgText } from "@/features/reports/model";
+import { kgText as reportsKgText, kgWholeText, rupeeText as reportsRupeeText } from "@/features/reports/model";
+import { measurementText } from "@/features/dies/die-display";
+import { formatBand, kgPerMetreText, wallMmText } from "@/features/die-room/die-room-model";
+import { formatQty } from "@/features/store/store-qty";
 import { formatKgBand, formatWhen } from "@/features/stock/format";
 import { kg12Text } from "@/features/pack/line-preview";
 import { formatRupees } from "@/features/today/today-model";
 
 import {
-  bandEndText, countText, dayText, dayTimeText, kgGrouped1, kgGrouped2, kgGrouped3, kgPlain3, kgPlainTrim, kgTrim, lengthUnitText, massUnit, rateText,
+  altSectionText, bandEndText, bandText, geometryWithUnit, kgChartText, kgGrouped0, rupeeScreen, wallWithUnit, countText, dayText, dayTimeText, kgGrouped1, kgGrouped2, kgGrouped3, kgPlain3, kgPlainTrim, kgTrim, lengthUnitText, massUnit, rateText,
   rupeeText, sectionOrNull, sectionText, sectionUnit, whenText,
 } from "./fmt-text";
 
@@ -189,5 +192,50 @@ describe("units in labels and headers", () => {
     const f = formatterFor(screenPrefs({ clock: "h12", date: { order: "mdy" } }), IST);
     expect(whenText(f, Date.UTC(2026, 10, 10, 14, 5), Date.UTC(2026, 10, 10))).toBe("Nov 10, 7:35 pm");
     expect(dayText(f, "2026-10-25")).toBe("Oct 25");
+  });
+});
+
+describe("more shapes under the default set", () => {
+  const values = grams(77);
+  test("kgWholeText, reports rupeeText, chart labels", () => {
+    for (const g of values) {
+      expect(kgGrouped0(fmt, g)).toBe(kgWholeText(g));
+      expect(kgChartText(fmt, g / 1000)).toBe(`${formatKgTotal(g / 1000)} kg`);
+    }
+    expect(kgChartText(fmt, 0, true)).toBe("0 kg");
+    const r = mulberry(8);
+    for (let i = 0; i < N; i++) {
+      const paise = Math.floor(r() * (i % 3 === 0 ? 900_000_000_000 : 9_000_000));
+      expect(rupeeScreen(fmt, paise)).toBe(reportsRupeeText(paise));
+    }
+  });
+  test("die bands, walls, measurements", () => {
+    const r = mulberry(12);
+    for (let i = 0; i < N; i++) {
+      const lo = Math.floor(r() * 30_000);
+      const hi = lo + Math.floor(r() * 3_000);
+      expect(bandText(fmt, lo, hi)).toBe(formatBand(lo, hi, "kg/12ft"));
+      expect(formatBand(lo, hi, "kg/12ft", fmt)).toBe(formatBand(lo, hi, "kg/12ft"));
+      const tenth = 1 + Math.floor(r() * 400);
+      expect(wallWithUnit(fmt, tenth)).toBe(`${wallMmText(tenth)} mm`);
+      const mm = Math.floor(r() * 6000) / (i % 2 ? 10 : 1);
+      expect(geometryWithUnit(fmt, mm)).toBe(measurementText(mm, "mm", { mm: "mm", inch: "in" }));
+    }
+  });
+  test("the second section weight: kg per metre beside kg per 12 ft", () => {
+    const r = mulberry(14);
+    for (let i = 0; i < N; i++) {
+      const milli = 500 + Math.floor(r() * 30_000);
+      expect(altSectionText(fmt, milli)).toBe(`${kgPerMetreText(kgPerMetre(milli))} kg/m`);
+    }
+    const lb = formatterFor(screenPrefs({ units: { linear_mass: "lb_ft" } }), IST);
+    expect(altSectionText(lb, 2090)).toBe("2.090 kg/12ft");
+  });
+  test("store quantities of kilogram items: formatQty with the formatter equals the old one", () => {
+    for (const g of values) expect(formatQty(g, "kg", fmt)).toBe(formatQty(g));
+    expect(formatQty(12_500, "litre", fmt)).toBe("12.5");
+    const lb = formatterFor(screenPrefs({ units: { mass: "lb" } }), IST);
+    expect(formatQty(12_500, "kg", lb)).toBe("27.56");
+    expect(formatQty(12_500, "litre", lb)).toBe("12.5");
   });
 });

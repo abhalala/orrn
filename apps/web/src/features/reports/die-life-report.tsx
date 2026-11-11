@@ -12,9 +12,11 @@ import { useState } from "react";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { csvFileName, dieLifeCsv, kgText, lifeChip, lifeTone, type DieLifeItem } from "./model";
+import { csvFileName, dieLifeCsv, lifeChip, lifeTone, type DieLifeItem } from "./model";
 import { NUM, ReportActions, ReportPrintStyle, ReportsGate, ReportTableFrame, ReportToggle as Toggle, TD, TH } from "./report-chrome";
 import type { DieLifeSearch } from "./search";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3 } from "@/shared/lib/fmt-text";
 
 const PAGE = 100;
 /** The most the server returns in one answer; the CSV walks the pages with it. */
@@ -30,6 +32,7 @@ export function DieLifeReport({ search, onSearch }: { search: DieLifeSearch; onS
 }
 
 function DieLifeBody({ search, onSearch }: { search: DieLifeSearch; onSearch: (next: DieLifeSearch) => void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [pages, setPages] = useState(1);
   const filter = { withLife: !search.all, includeRetired: Boolean(search.retired) };
@@ -125,9 +128,9 @@ function DieLifeBody({ search, onSearch }: { search: DieLifeSearch; onSearch: (n
                         {lifeChip(i, t)}
                       </Chip>
                     </td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(i.producedG)}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{i.lifeG == null ? "—" : kgText(i.lifeG)}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{i.remainingG == null ? "—" : kgText(i.remainingG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, i.producedG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{i.lifeG == null ? "—" : kgGrouped3(fmt, i.lifeG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{i.remainingG == null ? "—" : kgGrouped3(fmt, i.remainingG)}</td>
                     <td className={`${TD} ${NUM}`}>{i.runs}</td>
                     <td className={`${TD} whitespace-nowrap`}>{i.lastRunDay ?? "—"}</td>
                   </tr>

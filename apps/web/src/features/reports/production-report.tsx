@@ -11,9 +11,11 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ReportScreen } from "../press/report-view";
-import { csvFileName, kgText, RECOVERY_GROUPS, recoveryCsv, recoveryLabel, type RecoveryGroup } from "./model";
+import { csvFileName, RECOVERY_GROUPS, recoveryCsv, recoveryLabel, type RecoveryGroup } from "./model";
 import { NUM, ReportActions, ReportPrintStyle, ReportsGate, ReportTableFrame, TD, TH } from "./report-chrome";
 import type { ProductionSearch } from "./search";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3 } from "@/shared/lib/fmt-text";
 
 // The chart kit (and d3) loads only when an analytics.view role opens the page.
 const RecoveryChart = lazy(() => import("./report-charts").then((m) => ({ default: m.RecoveryChart })));
@@ -42,6 +44,7 @@ export function ProductionReport({ search, onSearch }: { search: ProductionSearc
 }
 
 function RecoveryPanel({ search, onSearch }: { search: ProductionSearch; onSearch: (next: ProductionSearch) => void }) {
+  const fmt = useFmt();
   const { t } = useT();
   // Same default day as the report above (the current production day); same cached query.
   const today = useQuery({ ...trpc.press.summary.queryOptions({}), meta: INLINE_ERROR_META });
@@ -125,9 +128,9 @@ function RecoveryPanel({ search, onSearch }: { search: ProductionSearch; onSearc
                       {recoveryLabel(r, group, t)}
                     </th>
                     <td className={`${TD} ${NUM}`}>{r.runs}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(r.inputG)}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(r.goodG)}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(r.scrapG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, r.inputG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, r.goodG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, r.scrapG)}</td>
                     <td className={`${TD} ${NUM} font-semibold`}>{r.recoveryPct ?? "—"}</td>
                   </tr>
                 ))}
@@ -138,9 +141,9 @@ function RecoveryPanel({ search, onSearch }: { search: ProductionSearch; onSearc
                     {t("reports.total")}
                   </th>
                   <td className={`${TD} ${NUM}`}>{data.totals.runs}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(data.totals.inputG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(data.totals.goodG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(data.totals.scrapG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, data.totals.inputG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, data.totals.goodG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, data.totals.scrapG)}</td>
                   <td className={`${TD} ${NUM}`}>{data.totals.recoveryPct ?? "—"}</td>
                 </tr>
               </tfoot>
