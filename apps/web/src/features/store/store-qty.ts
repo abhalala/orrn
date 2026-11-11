@@ -5,6 +5,9 @@
  * `lib/store.ts` (pinned by store-qty.test.ts) so the web bundle never pulls in the schema.
  */
 
+import type { Fmt } from "@orrn/domain";
+import { kgTrim } from "@/shared/lib/fmt-text";
+
 export const STORE_UNITS = ["kg", "litre", "piece", "metre", "set", "box", "bag"] as const;
 export type StoreUnit = (typeof STORE_UNITS)[number];
 
@@ -54,7 +57,9 @@ export function parseQtyMilli(text: string, unit: StoreUnit | null): QtyResult {
 const DISPLAY = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 3, numberingSystem: "latn" });
 
 /** Milli-units for display: Indian grouping, up to three decimals, no trailing zeros ("12.5"). */
-export function formatQty(milli: number): string {
+export function formatQty(milli: number, unit?: string, fmt?: Fmt): string {
+  // A kilogram item is a weight: the plant's unit and style (milli-kg are grams).
+  if (fmt && unit === "kg") return kgTrim(fmt, milli);
   return DISPLAY.format(milli / 1000);
 }
 

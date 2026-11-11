@@ -6,6 +6,7 @@ import { pickerOrder } from "./store-entries";
 import { unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import type { StoreBalance } from "./use-store";
+import { useFmt } from "@/shared/lib/fmt";
 
 /** Case and spacing do not matter: "coverflux" finds "Cover flux". */
 function key(s: string): string {
@@ -34,6 +35,7 @@ export function StoreItemPicker({
   takesStock?: boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const toOption = (i: StoreBalance): ComboboxOption<string> => ({
     value: i.id,
     label: i.name,
@@ -41,8 +43,8 @@ export function StoreItemPicker({
       takesStock && i.balanceMilli <= 0
         ? t("store.form.emptyHint")
         : t("store.form.quantityHint", {
-            qty: formatQty(i.balanceMilli),
-            unit: unitShort(t, i.unit, i.balanceMilli),
+            qty: formatQty(i.balanceMilli, i.unit, fmt),
+            unit: unitShort(t, i.unit, i.balanceMilli, fmt),
           }),
   });
   const recentItems = useMemo(
