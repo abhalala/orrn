@@ -104,13 +104,24 @@ export function pendingKeys(rows: readonly StagedRow[]): string[] {
   return [...out];
 }
 
-/** A failure the person can read: the procedure's own message, field by field for an input refusal. */
+/** What a person reads for an error orrn did not mean to show (Bm3). The raw error goes to the log. */
+export const INTERNAL_MESSAGE = "The import could not be written. Try again; if it fails again, tell support.";
+
+/**
+ * A failure the person can read: the procedure's own message, field by field for an input refusal.
+ * An internal error (a driver or SQL error, which can carry the statement and its values) is never
+ * stored: the hold reason and audit row get INTERNAL_MESSAGE, and the raw error is logged (Bm3).
+ */
 export function failureOf(e: unknown): ChunkFailure {
   if (e instanceof DependencyHeld) return { code: "DEPENDENCY_HELD", message: e.heldName.slice(0, MESSAGE_MAX), reason: "dependency_held" };
   let code = "INTERNAL_SERVER_ERROR";
   let message = e instanceof Error ? e.message : String(e);
   if (e instanceof TRPCError) code = e.code;
   const zod = e instanceof ZodError ? e : e instanceof TRPCError && e.cause instanceof ZodError ? e.cause : null;
+  if (!zod && code === "INTERNAL_SERVER_ERROR") {
+    console.error("ingest merge: internal error in a chunk", e);
+    return { code, message: INTERNAL_MESSAGE, reason: "merge_failed" };
+  }
   if (zod) {
     code = "BAD_REQUEST";
     message = zod.issues
@@ -121,9 +132,50 @@ export function failureOf(e: unknown): ChunkFailure {
   return { code, message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" };
 }
 
-/** Split `items` into runs of at most `size`. */
-export function runsOf<T>(items: readonly T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
+/** The rows a bulk call sent, by the input array a refusal's path names. */
+export type SentRows = Partial<Record<"rows" | "newRows" | "updatedRows", readonly StagedRow[]>>;
+
+/**
+ * Point a refusal at the file, not at the call (Bm2): `rows.37.email: ...` becomes
+ * `File row 512, email: ...` from the staged row sent at that place.
+ */
+export function fileRowsIn(message: string, sent: SentRows): string {
+  return message.replace(/\b(rows|newRows|updatedRows)\.(\d+)(?:\.([A-Za-z0-9_.]+))?:/g, (m, key: keyof SentRows, n: string, field?: string) => {
+    const row = sent[key]?.[Number(n)];
+    if (!row) return m;
+    return `File row ${row.rowIndex + 1}${field ? `, ${field}` : ""}:`;
+  });
+}
+
+export async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * The replay key of one call that writes the given staged rows: `ing-` plus 40 hex of sha256 of
+ * the sorted row ids. It depends on the rows only, never on the chunk or the row's place in it, so
+ * a resend from any later chunk or run carries the same key (B8).
+ */
+export async function rowsRequestId(rowIds: readonly string[]): Promise<string> {
+  return `ing-${(await sha256Hex(["rows", ...[...rowIds].sort()].join("|"))).slice(0, 40)}`;
+}
+
+/** SQLite's `trim()` (spaces only) and `lower()` (ASCII only), so the key below matches ORDER_GROUP_SQL. */
+const sqlTrim = (s: string) => s.replace(/^ +| +$/g, "");
+const sqlLower = (s: string) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+const sqlText = (v: unknown): string | null => (v === null || v === undefined ? null : typeof v === "string" ? v : String(v));
+
+/**
+ * The order a staged row belongs to. With a PO: customer + PO (case and outer spaces ignored); the
+ * order date is not part of it, because one PO is one order. Without a PO: customer + old order
+ * number + order date. The customer is the raw `_ids.customer` (a `pending:` key stays as it is).
+ * Must give the same key as ORDER_GROUP_SQL in planner.ts.
+ */
+export function orderKeyOf(values: Values): string {
+  const ids = (values._ids ?? {}) as Record<string, unknown>;
+  const customer = sqlText(ids.customer) ?? sqlText(values.customer) ?? "";
+  const po = sqlTrim(sqlText(values.poNumber) ?? "");
+  if (po !== "") return `${customer}\u001fpo:${sqlLower(po)}`;
+  return `${customer}\u001fold:${sqlTrim(sqlText(values.oldOrderNo) ?? "")}\u001f${sqlText(values.orderDate) ?? ""}`;
 }

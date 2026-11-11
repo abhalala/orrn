@@ -1,10 +1,7 @@
 /**
  * Fixture for the Infinity Portal merge tests (lane B). Seeds approved candidates with staged rows
  * straight into D1 (the dry run is lane A's and has its own tests), builds callers, and pumps a
- * merge run through the real `ingest.merge.*` procedures.
- *
- * Until the lead swaps lane A's stub in `lib/ingest/engines.ts` for `lib/ingest/merge`, the fixture
- * points the stub's methods at the merge engine, so the procedures run exactly as they will.
+ * merge run through the real `ingest.merge.*` procedures, wired as the app wires them.
  */
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import type { IngestTarget, RowState } from "@orrn/db/schema/ingest";
@@ -23,12 +20,6 @@ export type SeedRow = {
 
 let n = 0;
 const uniq = (p: string) => `${p}${Date.now().toString(36)}${(n += 1).toString(36)}`;
-
-export async function wireMergeEngine(): Promise<void> {
-  const engines = await import("../src/lib/ingest/engines");
-  const merge = await import("../src/lib/ingest/merge");
-  Object.assign(engines.mergeEngine, merge.mergeEngine);
-}
 
 /** One approved candidate with its artifact, block and staged rows. Returns ids and row keys. */
 export async function seedCandidate(
@@ -172,9 +163,10 @@ export async function auditRows(env: TestEnv, companyId: string, action: string)
 /**
  * Put a finished run back where a crash between the procedure call and the state write leaves it:
  * the chunk `sent`, its rows `queued` with no committed id, the candidate `merging`, the run
- * `running` with the cursor of that step.
+ * `running` with the cursor of that step. The chunk was sent `sentAgoMs` ago; the default is past
+ * the chunk lease, so the next step may send it again.
  */
-export async function rewindToCrash(env: TestEnv, runId: string, candidateId: string): Promise<number> {
+export async function rewindToCrash(env: TestEnv, runId: string, candidateId: string, opts: { sentAgoMs?: number } = {}): Promise<number> {
   const { ingestCandidate, ingestMergeChunk, ingestMergeRun, ingestStagedRow } = await import("@orrn/db/schema/ingest");
   const { and, eq } = await import("drizzle-orm");
   const [run] = await env.db.select().from(ingestMergeRun).where(eq(ingestMergeRun.id, runId));
@@ -185,7 +177,7 @@ export async function rewindToCrash(env: TestEnv, runId: string, candidateId: st
     .where(eq(ingestMergeRun.id, runId));
   await env.db
     .update(ingestMergeChunk)
-    .set({ state: "sent", writtenAt: null })
+    .set({ state: "sent", writtenAt: null, sentAt: new Date(Date.now() - (opts.sentAgoMs ?? 120_000)) })
     .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.candidateId, candidateId)));
   await env.db
     .update(ingestStagedRow)

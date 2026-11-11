@@ -369,9 +369,8 @@ export async function createSalesOrder(
       status,
       note: blank(input.note),
       lineSeq: input.lines.length,
-      // An order from an import is an office order (the column knows office and portal only); the
-      // audit row says it came from a file (`meta.source`, plan A6).
-      source: opts.source === "portal" ? "portal" : "office",
+      // An order from an import is stored as `ingest`; its audit row also names the file (`meta.source`).
+      source: opts.source,
       clientRequestId: input.clientRequestId ?? null,
       statusChangedAt: at,
       statusChangedBy: userId,

@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { account, user } from "@orrn/db/schema";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { auditRows, candidateRow, pump, seedCandidate, stagedRows, wireMergeEngine } from "./ingest-merge-fixture";
+import { auditRows, candidateRow, pump, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 const PASSWORD = "merge-context-password-123";
@@ -17,7 +17,6 @@ const PASSWORD = "merge-context-password-123";
 beforeAll(async () => {
   env = await createTestEnv();
   (await import("@orrn/auth")).resetAuthForTests();
-  await wireMergeEngine();
 }, 60_000);
 
 afterAll(async () => {

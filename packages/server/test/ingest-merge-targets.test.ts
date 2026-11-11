@@ -6,13 +6,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { apiFor, auditRows, candidateRow, contextFor, mergeAll, seedCandidate, stagedRows, wireMergeEngine } from "./ingest-merge-fixture";
+import { apiFor, auditRows, candidateRow, contextFor, mergeAll, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 
 beforeAll(async () => {
   env = await createTestEnv();
-  await wireMergeEngine();
 }, 60_000);
 
 afterAll(async () => {
@@ -268,5 +267,258 @@ describe("bundles", () => {
     expect(legacy!.name).toContain("LEGACY");
     const [audit] = await auditRows(env, companyId, "bundle.import");
     expectSource(audit!.meta, seeded, res.runId);
+  });
+});
+
+describe("an update row with no record (B6)", () => {
+  test("a die copies chunk of updates plus one ready_update row with no match writes nothing and is refused", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3400" });
+    const a = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "NM-1" });
+    const b = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "NM-2" });
+    const upd = (id: string | null, no: string) => ({
+      state: "ready_update" as const,
+      matchId: id,
+      values: { series: "R", sectionCode: "3400", makerDieNo: no, supplier: "Maker Nine", _ids: { sectionCode: dieId } },
+      diff: { supplier: { live: null, file: "Maker Nine" } },
+    });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [upd(a.id, "NM-1"), upd(null, "NM-3"), upd(b.id, "NM-2")]);
+    const res = await mergeAll(api);
+    expect(res.state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c.state).toBe("held");
+    expect(c.reasonDetail).toBe("File row 2 has no record to update. Pick the record to use, or add it as new.");
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    const copies = await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, dieId));
+    expect(copies).toHaveLength(2);
+    expect(copies.map((x) => x.supplier)).toEqual([null, null]);
+    expect(await auditRows(env, companyId, "die_instance.update")).toHaveLength(0);
+  });
+});
+
+describe("live data changed after the dry run (B2)", () => {
+  test("a customer update is held and the office's value stays", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const made = await api.customer.create({ name: "Shree Metals" });
+    const seeded = await seedCandidate(env, companyId, "customers", [
+      { state: "ready_update", matchId: made.id, values: { name: "Shree Metals", phone: "98250 11111" }, diff: { phone: { live: null, file: "98250 11111" } } },
+    ]);
+    // The office types the real phone between the dry run and the merge.
+    await api.customer.update({ id: made.id, name: "Shree Metals", phone: "98250 22222" });
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c).toMatchObject({ state: "held", reasonCode: "merge_failed" });
+    expect(c.reasonDetail).toBe("File row 1: phone changed in orrn since the dry run. Review it and run the dry run again.");
+    expect((await api.customer.get({ id: made.id })).phone).toBe("98250 22222");
+  });
+
+  test("a live value that already equals the file value passes", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const made = await api.customer.create({ name: "Same Phone Alu" });
+    await seedCandidate(env, companyId, "customers", [
+      { state: "ready_update", matchId: made.id, values: { name: "Same Phone Alu", phone: "11111" }, diff: { phone: { live: null, file: "11111" } } },
+    ]);
+    await api.customer.update({ id: made.id, name: "Same Phone Alu", phone: "11111" });
+    expect((await mergeAll(api)).state).toBe("done");
+  });
+
+  test("vendor, die copy and die updates are held the same way", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const v = await api.vendor.create({ name: "Stale Scrap" });
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3500" });
+    const copy = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "ST-1" });
+    const vendors = await seedCandidate(env, companyId, "vendors", [
+      { state: "ready_update", matchId: v.id, values: { name: "Stale Scrap", city: "Morbi" }, diff: { city: { live: null, file: "Morbi" } } },
+    ]);
+    const copies = await seedCandidate(env, companyId, "die_copies", [
+      { state: "ready_update", matchId: copy.id, values: { series: "R", sectionCode: "3500", makerDieNo: "ST-1", supplier: "File Maker", _ids: { sectionCode: dieId } }, diff: { supplier: { live: null, file: "File Maker" } } },
+    ]);
+    const dies = await seedCandidate(env, companyId, "dies", [
+      { state: "ready_update", matchId: dieId, values: { series: "R", sectionCode: "3500", notes: "file note" }, diff: { notes: { live: null, file: "file note" } } },
+    ]);
+    await api.vendor.update({ id: v.id, city: "Rajkot" });
+    await api.dieInstance.update({ id: copy.id, supplier: "Office Maker" });
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(die).set({ notes: "office note" }).where(eq(die.id, dieId));
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    for (const s of [vendors, copies, dies]) expect((await candidateRow(env, s.candidateId)).state).toBe("held");
+    expect((await api.vendor.get({ id: v.id })).vendor.city).toBe("Rajkot");
+    expect((await env.db.select().from(dieInstance).where(eq(dieInstance.id, copy.id)))[0]!.supplier).toBe("Office Maker");
+    expect((await env.db.select().from(die).where(eq(die.id, dieId)))[0]!.notes).toBe("office note");
+  });
+});
+
+describe("die copies of an old section (B10)", () => {
+  test("a copy finds an old section added since the dry run; one with no section is refused in plain words", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      { values: { series: "Z", sectionCode: "OLD7", makerDieNo: "OD-1", legacyDie: true } },
+      { values: { series: "Z", sectionCode: "OLD7", makerDieNo: "OD-2", legacyDie: true } },
+    ]);
+    const missing = await seedCandidate(env, companyId, "die_copies", [{ values: { series: "Z", sectionCode: "OLD8", makerDieNo: "OD-3", legacyDie: true } }]);
+    // The section is added by hand between the dry run and the merge.
+    const sectionId = await env.seedDie(companyId, { series: "Z", sectionCode: "OLD7" });
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).state).toBe("merged");
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    const copies = await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, sectionId));
+    expect(copies.map((c) => c.makerDieNo).sort()).toEqual(["OD-1", "OD-2"]);
+    expect((await candidateRow(env, missing.candidateId)).reasonDetail).toBe(
+      "File row 1: section Z OLD8 is not in orrn. Add it with a die sheet or on the dies screen, then merge again.",
+    );
+  });
+});
+
+describe("die copy statuses an import may not set (B12)", () => {
+  test("a copy in use is refused before any copy of the chunk is made", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3600" });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      { values: { series: "R", sectionCode: "3600", makerDieNo: "US-1", status: "available", _ids: { sectionCode: dieId } } },
+      { values: { series: "R", sectionCode: "3600", makerDieNo: "US-2", status: "in_use", _ids: { sectionCode: dieId } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe(
+      "File row 2: status in_use cannot come from a file. Use available, at_nitriding or retired, or skip the row.",
+    );
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    expect(await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, dieId))).toHaveLength(0);
+  });
+
+  test("a copy in use in a later chunk holds the candidate before any copy is made", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3700" });
+    // 25 copies: chunk 1 takes 20, the copy in use is in chunk 2.
+    const rows = Array.from({ length: 25 }, (_, i) => ({
+      values: { series: "R", sectionCode: "3700", makerDieNo: `LC-${i}`, status: i === 22 ? "at_maker" : "available", _ids: { sectionCode: dieId } },
+    }));
+    const seeded = await seedCandidate(env, companyId, "die_copies", rows);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe(
+      "File row 23: status at_maker cannot come from a file. Use available, at_nitriding or retired, or skip the row.",
+    );
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    expect(await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, dieId))).toHaveLength(0);
+  });
+
+  test("an update that sets a copy in use is held before any copy is changed", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3800" });
+    const copy = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "UP-1" });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      { state: "ready_update", matchId: copy.id, values: { series: "R", sectionCode: "3800", makerDieNo: "UP-1", status: "on_trial", _ids: { sectionCode: dieId } }, diff: { status: { live: "available", file: "on_trial" } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe(
+      "File row 1: status on_trial cannot come from a file. Use available, at_nitriding or retired, or skip the row.",
+    );
+    expect(await auditRows(env, companyId, "die_instance.update")).toHaveLength(0);
+  });
+});
+
+describe("an alias that is a name (B13)", () => {
+  test("a customer alias equal to another customer's name is refused naming its file row", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const big = await api.customer.create({ name: "Shree Ram Aluminium Pvt Ltd" });
+    await api.customer.create({ name: "Shree Ram" });
+    const seeded = await seedCandidate(env, companyId, "customer_aliases", [
+      { values: { customer: "Shree Ram Aluminium Pvt Ltd", alias: "SRA", _ids: { customer: big.id } } },
+      { values: { customer: "Shree Ram Aluminium Pvt Ltd", alias: "Shree Ram", _ids: { customer: big.id } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 2: Shree Ram is already the name of Shree Ram. Skip the row.");
+  });
+
+  test("a customer alias that is another customer's name in a later chunk holds the candidate before any alias is added", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const big = await api.customer.create({ name: "Jay Ambe Extrusion" });
+    await api.customer.create({ name: "Jay Ambe" });
+    // 501 aliases: chunk 1 takes 500, the clash is row 501.
+    const rows = Array.from({ length: 501 }, (_, i) => ({
+      values: { customer: "Jay Ambe Extrusion", alias: i === 500 ? "Jay Ambe" : `JAE ${i}`, _ids: { customer: big.id } },
+    }));
+    const seeded = await seedCandidate(env, companyId, "customer_aliases", rows);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 501: Jay Ambe is already the name of Jay Ambe. Skip the row.");
+    expect((await stagedRows(env, seeded.candidateId)).filter((r) => r.mergeState !== "open")).toHaveLength(0);
+    const { customerAlias } = await import("@orrn/db/schema/customers");
+    const { eq } = await import("drizzle-orm");
+    expect(await env.db.select().from(customerAlias).where(eq(customerAlias.customerId, big.id))).toHaveLength(0);
+  });
+
+  test("a vendor alias that is another vendor's name in a later chunk holds the candidate before any alias is added", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const v = await api.vendor.create({ name: "Om Metals" });
+    await api.vendor.create({ name: "Om Scrap" });
+    const rows = Array.from({ length: 21 }, (_, i) => ({ values: { vendor: "Om Metals", alias: i === 20 ? "om scrap" : `OM ${i}`, _ids: { vendor: v.id } } }));
+    const seeded = await seedCandidate(env, companyId, "vendor_aliases", rows);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 21: om scrap is already the name of Om Scrap. Skip the row.");
+    expect((await api.vendor.get({ id: v.id })).aliases).toHaveLength(0);
+  });
+
+  test("a vendor alias equal to the vendor's own name adds nothing and is not a failure", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const v = await api.vendor.create({ name: "Mahadev Scrap" });
+    const seeded = await seedCandidate(env, companyId, "vendor_aliases", [
+      { values: { vendor: "Mahadev Scrap", alias: "MAHADEV SCRAP", _ids: { vendor: v.id } } },
+      { values: { vendor: "Mahadev Scrap", alias: "Mahadev", _ids: { vendor: v.id } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done");
+    const rows = await stagedRows(env, seeded.candidateId);
+    expect(rows.map((r) => [r.committedType, r.mergeState])).toEqual([
+      ["vendor", "written"],
+      ["vendor_alias", "written"],
+    ]);
+    expect((await api.vendor.get({ id: v.id })).aliases.map((a) => a.alias)).toEqual(["Mahadev"]);
+  });
+});
+
+describe("names and sections added since the dry run (Bm2, Bm8)", () => {
+  test("a refused customer row is named by its file row even when earlier rows were left out", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    await api.customer.create({ name: "Known Alu" });
+    const seeded = await seedCandidate(env, companyId, "customers", [
+      { values: { name: "Known Alu" } },
+      { values: { name: "Good Alu" } },
+      { values: { name: "Bad Mail Alu", email: "nope" } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 3, email: Invalid email address");
+  });
+
+  test("a section added since the dry run is recorded against, not added again", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "dies", [
+      { values: { series: "R", sectionCode: "ABC-12", weightMinG: 1000, weightMaxG: 1100 } },
+      { values: { series: "R", sectionCode: "ABC-13", weightMinG: 1000, weightMaxG: 1100 } },
+    ]);
+    const added = await env.seedDie(companyId, { series: "r", sectionCode: "abc-12" });
+    expect((await mergeAll(api)).state).toBe("done");
+    const rows = await stagedRows(env, seeded.candidateId);
+    expect(rows[0]!.committedId).toBe(added);
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { eq } = await import("drizzle-orm");
+    expect(await env.db.select().from(die).where(eq(die.companyId, companyId))).toHaveLength(2);
   });
 });

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7611 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7612 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -4833,7 +4833,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (397)
+### orders (398)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4914,6 +4914,7 @@ Please check, Lalubhai:
 | `expectedDate` | Expected by | कब तक चाहिए |
 | `source.office` | Office | ऑफ़िस |
 | `source.portal` | Portal | पोर्टल |
+| `source.ingest` | Imported from a file | फ़ाइल से इम्पोर्ट हुआ |
 | `source.label` | Booked from | कहां से बुक हुआ |
 | `status.booking` | Booking | बुकिंग |
 | `status.confirmed` | Confirmed | पक्का |
