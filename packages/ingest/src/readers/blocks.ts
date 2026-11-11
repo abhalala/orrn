@@ -76,7 +76,7 @@ function isSecondHeaderRow(top: readonly string[], bottom: readonly string[], be
     }
   });
   // A group label in the last top cell ("Party | Apr 2025" over "Kg | Pcs | Rate") has no blank inside the top span.
-  if (!hasBlankInSpan(top) && !(last !== -1 && isGroupLabel(top, bottom, last))) return false;
+  if (!hasBlankInSpan(top) && !(last !== -1 && isGroupLabel(top, bottom, last, below))) return false;
   let spans = false;
   for (let i = first + 1; i <= Math.max(last, bottom.length - 1); i++) if ((top[i] ?? "") === "" && (bottom[i] ?? "") !== "") spans = true;
   if (!spans) return false;
@@ -130,15 +130,25 @@ function spanBelow(top: readonly string[], below: readonly string[], i: number):
   return Array.from({ length: end - i }, (_, x) => (below[i + x] ?? "").toLowerCase());
 }
 
+const MONTH = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
+/** A group label holds only a month, a year or a financial year: "Apr 2025", "March 2026", "FY 2025-26", "2025-26". */
+const GROUP_TEXT = new RegExp(`^(?:${MONTH}\\s*[-']?\\s*(?:\\d{4}|\\d{2})|fy\\s*\\d{2,4}(?:\\s*-\\s*\\d{2,4})?|(?:19|20)\\d{2}(?:\\s*-\\s*\\d{2,4})?)$`, "i");
+
 /**
- * Is the year or month cell at `i` a group label over sub-columns (C-new-1), not a letterhead (C-new-5, R-new-1)? It
- * must span blank top cells over filled bottom cells, and the shape must show a group row, whatever the number of dated
- * cells: (a) another filled top cell has a blank under it (Sr or Party over a blank, which a letterhead over a full
- * header never has), or (b) the same sub-column names sit under another top cell (Kg | Pcs under Apr and under Total).
+ * Is the year or month cell at `i` a group label over sub-columns (C-new-1), not a letterhead (C-new-5, R-new-1)? Its
+ * text is only a month, a year or a financial year: a dated cell with any other word ("Despatch Register 2025-26") is a
+ * title mark (R-new-4). It must span blank top cells over filled bottom cells, and the shape must show a group row:
+ * (a) another filled top cell has a blank under it, in a column the first data row fills (Sr or Party over a blank; a
+ * letterhead cell past the header has no data under it), (b) the same sub-column names sit under another top cell
+ * (Kg | Pcs under Apr and under Total), or (c) every filled top cell is a month or year label, two or more of them.
+ * These only shape the guess: a two-row header is always unsure.
  */
-function isGroupLabel(row: readonly string[], below: readonly string[], i: number): boolean {
+function isGroupLabel(row: readonly string[], below: readonly string[], i: number, data?: readonly string[]): boolean {
+  if (!GROUP_TEXT.test(row[i]!.trim())) return false;
   if ((row[i + 1] ?? "") !== "" || (below[i + 1] ?? "") === "") return false;
-  if (row.some((c, j) => j !== i && c !== "" && (below[j] ?? "") === "")) return true;
+  if (row.some((c, j) => j !== i && c !== "" && (below[j] ?? "") === "" && (data === undefined || (data[j] ?? "") !== ""))) return true;
+  const filled = row.filter((c) => c !== "");
+  if (filled.length >= 2 && filled.every((c) => GROUP_TEXT.test(c.trim()))) return true;
   const mine = spanBelow(row, below, i);
   if (mine.length < 2 || mine.some((c) => c === "")) return false;
   return row.some((c, j) => {
@@ -159,7 +169,7 @@ function isTitleAbove(rows: readonly string[][], h: number): number {
   while (k < rows.length && nonBlank(rows[k]!) === 0) k++;
   if (k >= rows.length) return -1;
   const below = rows[k]!;
-  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !isGroupLabel(row, below, i))));
+  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !isGroupLabel(row, below, i, rows[k + 1]))));
   if (!marked) return -1;
   return isHeaderLike(below) && nonBlank(below) > nonBlank(row) ? k : -1;
 }
