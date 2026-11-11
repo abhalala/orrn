@@ -104,6 +104,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "dispatch.create",
   "dispatch.delete",
   "dispatch.linkItem",
+  "dispatch.off_band.request",
   "dispatch.overdraw.request",
   "dispatch.relink",
   "dispatch.removeBundle",

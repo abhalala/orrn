@@ -62,6 +62,17 @@ import {
 import { orderProgress, suggestBundlesFor, SUGGEST_MAX } from "../lib/dispatchOrder";
 import { companyFloor } from "../lib/orderLines";
 import { dispatchShipDay } from "../lib/dispatchFigures";
+import {
+  noPendingOffBandSql,
+  offBandRequestStatements,
+  offBandRowOf,
+  offBandRows,
+  offBandStates,
+  offBandSummary,
+  withdrawOffBandStatement,
+  type OffBandRow,
+  type OffBandState,
+} from "../lib/dispatchOffBand";
 import { can } from "../lib/permissions";
 import { bundlesPendingReallocation, pendingReallocationOf } from "../lib/reallocate";
 import {
@@ -278,6 +289,69 @@ function offBandWarnings(
     }
   }
   return out;
+}
+
+/** The off-band rows of bundles just added (`itemIdOf`: bundle id -> the item id the add inserts). */
+function offBandRowsOf(
+  bundles: readonly { id: string; serial: string; weightG: number; quantity: number; lengthMm: number; kgPer12ftMilli: number | null }[],
+  picks: ReadonlyMap<string, LineBalance>,
+  itemIdOf: ReadonlyMap<string, string>,
+): OffBandRow[] {
+  return bundles.flatMap((b) => {
+    const line = picks.get(b.id);
+    const itemId = itemIdOf.get(b.id);
+    if (!line || !itemId) return [];
+    const row = offBandRowOf({
+      itemId,
+      bundleId: b.id,
+      serial: b.serial,
+      bundleMilli: b.kgPer12ftMilli,
+      weightG: b.weightG,
+      quantity: b.quantity,
+      lengthMm: b.lengthMm,
+      line: { lineId: line.lineId, orderNumber: line.orderNumber, lineNo: line.lineNo, kgPer12ftMilli: line.kgPer12ftMilli },
+    });
+    return row ? [row] : [];
+  });
+}
+
+/** Q36 decided: the refusal while off-band rows are not approved for the line they are on. */
+function offBandMessage(states: readonly OffBandState[]): string {
+  const waiting = states.filter((s) => s.status !== "approved" && s.status !== "rejected").map((s) => s.serial);
+  const rejected = states.filter((s) => s.status === "rejected").map((s) => s.serial);
+  const parts: string[] = [];
+  if (waiting.length > 0) {
+    parts.push(`${waiting.join(", ")} ${waiting.length === 1 ? "is" : "are"} more than 0.1 kg/12ft off the order line. A manager has to approve before this dispatch can complete.`);
+  }
+  if (rejected.length > 0) {
+    parts.push(`${rejected.join(", ")} ${rejected.length === 1 ? "was" : "were"} rejected for the order line. Take ${rejected.length === 1 ? "it" : "them"} off the dispatch or link ${rejected.length === 1 ? "it" : "them"} to a line that fits.`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Q36 decided: every off-band row must be approved for the line it is on now. Rows nobody asked
+ * for yet (a relink or a customer change made them off band) and rows whose pending request named
+ * another line get a request now (the stale one withdrawn), then the call refuses.
+ */
+async function refuseOffBand(ctx: OverdrawCtx, d: { id: string; code: string }, states: readonly OffBandState[]): Promise<void> {
+  const open = states.filter((s) => s.status !== "approved");
+  if (open.length === 0) return;
+  const ask = open.filter((s) => s.status === "none");
+  if (ask.length > 0) {
+    const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+    const withdraw = ask.flatMap((s) => (s.stalePendingId ? [s.stalePendingId] : []));
+    await atomicBatch(ctx.db, [
+      ...offBandRequestStatements(ctx, d, ask, seq, withdraw),
+      auditInsert(ctx, {
+        action: "dispatch.off_band.request",
+        subjectType: "dispatch",
+        subjectId: d.id,
+        meta: { serials: ask.map((s) => s.serial), lines: ask.map((s) => ({ serial: s.serial, lineId: s.lineId, bundleMilli: s.bundleMilli, lineMilli: s.lineMilli })) },
+      }),
+    ]);
+  }
+  throw new TRPCError({ code: "PRECONDITION_FAILED", message: offBandMessage(open) });
 }
 
 /** A bundle linked to an order line when it was scanned on (spec P13 "order line suggested per bundle"). */
@@ -549,6 +623,7 @@ async function refuseOverdraw(
  * Close the dispatch's open dispatch_overdraw request once it is moot (the dispatch completed within
  * what was allowed, was cancelled or deleted). Approval statuses have no "withdrawn", so it becomes
  * `rejected` with no decider and a note saying why (ruling PL8-R6). Lands only if `guard` holds.
+ * The dispatch's open `dispatch_off_band` requests (Q36, subject = an item) close the same way.
  */
 function withdrawOverdrawRequests(db: OrrnDb, companyId: string, dispatchId: string, seq: number, at: Date, why: string, guard: SQL) {
   return db
@@ -557,8 +632,10 @@ function withdrawOverdrawRequests(db: OrrnDb, companyId: string, dispatchId: str
     .where(
       and(
         eq(approval.companyId, companyId),
-        eq(approval.kind, "dispatch_overdraw"),
-        eq(approval.subjectId, dispatchId),
+        or(
+          and(eq(approval.kind, "dispatch_overdraw"), eq(approval.subjectId, dispatchId)),
+          and(eq(approval.kind, "dispatch_off_band"), sql`json_extract(${approval.meta}, '$.dispatchId') = ${dispatchId}`),
+        ),
         eq(approval.status, "pending"),
         guard,
       ),
@@ -946,11 +1023,12 @@ async function addByCodes(
       toAdd.map((b) => b.id),
       GUARDED_IN_CHUNK,
     ).map((ids) => batchAbortUnless(ctx.db, "sales_order_line", sql`not ${heldForOtherCustomerSql(ctx.companyId, d.customerId, ids)}`));
+    const itemIdOf = new Map(toAdd.map((b) => [b.id, crypto.randomUUID()]));
     pushChunkedInserts(
       statements,
       (rows) => ctx.db.insert(dispatchItem).values(rows),
       toAdd.map((b) => ({
-        id: crypto.randomUUID(),
+        id: itemIdOf.get(b.id)!,
         companyId: ctx.companyId,
         dispatchId: d.id,
         bundleId: b.id,
@@ -958,6 +1036,8 @@ async function addByCodes(
       })),
     );
     if (picks.size > 0) statements.push(...dropStaleSuggestions(ctx.db, ctx.companyId, d.id, [...picks.keys()]));
+    // Q36 decided: an off-band row goes on in a needs-approval state (one dispatch_off_band request each).
+    statements.push(...offBandRequestStatements(ctx, d, offBandRowsOf(toAdd, picks, itemIdOf), seq));
 
     if (d.status === "reserved") {
       const addIds = toAdd.map((b) => b.id);
@@ -1385,6 +1465,34 @@ export const dispatchRouter = router({
         const band = offLineBand(own, lineMilli);
         return { ...it, heldBy: holders.get(it.bundleId) ?? null, kgPer12ftMilli: own, lineKgPer12ftMilli: lineMilli, offBand: band?.off === true, offBandDiffMilli: band?.diffMilli ?? null };
       });
+      // Q36 decided: where each off-band row stands for the line it is on now (asked, approved,
+      // rejected, or not asked yet), and the counts that hold the Dispatch button.
+      const offStates = await offBandStates(
+        ctx.db,
+        ctx.companyId,
+        items.flatMap((it) => {
+          if (!it.offBand || !it.salesOrderLineId || it.kgPer12ftMilli === null || it.lineKgPer12ftMilli === null) return [];
+          return [
+            {
+              itemId: it.itemId,
+              bundleId: it.bundleId,
+              serial: it.serial,
+              lineId: it.salesOrderLineId,
+              orderNumber: it.orderNumber ?? "",
+              lineNo: it.lineNo ?? 0,
+              bundleMilli: it.kgPer12ftMilli,
+              lineMilli: it.lineKgPer12ftMilli,
+              diffMilli: it.offBandDiffMilli ?? 0,
+            },
+          ];
+        }),
+      );
+      const offStateOf = new Map(offStates.map((st) => [st.itemId, st]));
+      const itemsWithApproval = items.map((it) => {
+        const st = offStateOf.get(it.itemId);
+        return { ...it, offBandStatus: st ? st.status : null, offBandApprovalId: st?.approvalId ?? null };
+      });
+      const offBand = offBandSummary(offStates);
 
       const events = await ctx.db
         .select()
@@ -1511,7 +1619,7 @@ export const dispatchRouter = router({
       const totals = { bundles: Number(sums?.bundles ?? 0), weightG: Number(sums?.weightG ?? 0) };
       const shipDay = dispatchShipDay({ status: row.status, completedAt: row.completedAt, shipDate: row.shipDate }, timezone);
 
-      return { dispatch: row, shipDay, totals, customer: customerRow ?? null, items, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
+      return { dispatch: row, shipDay, totals, customer: customerRow ?? null, items: itemsWithApproval, offBand, events, overdraw, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
     }),
 
   /**
@@ -1833,7 +1941,12 @@ export const dispatchRouter = router({
           bundleId: dispatchItem.bundleId,
           dieId: bundle.dieId,
           serial: bundle.serial,
+          bundleMilli: bundle.kgPer12ftMilli,
+          weightG: bundle.weightG,
+          quantity: bundle.quantity,
+          lengthMm: bundle.lengthMm,
           status: dispatch.status,
+          code: dispatch.code,
           customerId: dispatch.customerId,
           from: dispatchItem.salesOrderLineId,
         })
@@ -1863,9 +1976,17 @@ export const dispatchRouter = router({
           });
         }
       }
+      let newLine: { lineId: string; orderNumber: string; lineNo: number; kgPer12ftMilli: number | null } | null = null;
       if (input.salesOrderLineId) {
         const [line] = await ctx.db
-          .select({ dieId: salesOrderLine.dieId, customerId: salesOrder.customerId, status: salesOrder.status, number: salesOrder.number })
+          .select({
+            dieId: salesOrderLine.dieId,
+            customerId: salesOrder.customerId,
+            status: salesOrder.status,
+            number: salesOrder.number,
+            lineNo: salesOrderLine.lineNo,
+            kgPer12ftMilli: salesOrderLine.kgPer12ftMilli,
+          })
           .from(salesOrderLine)
           .innerJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, ctx.companyId)))
           .where(and(eq(salesOrderLine.id, input.salesOrderLineId), eq(salesOrderLine.companyId, ctx.companyId)))
@@ -1880,7 +2001,20 @@ export const dispatchRouter = router({
         if (line.dieId !== item.dieId) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "That order line is for another section" });
         }
+        newLine = { lineId: input.salesOrderLineId, orderNumber: line.number, lineNo: line.lineNo, kgPer12ftMilli: line.kgPer12ftMilli };
       }
+      // Q36 decided: linked to a line it is off of, the row needs approval for that line; any request
+      // still waiting for another line (or for none now) is withdrawn.
+      const offRow = offBandRowOf({
+        itemId: item.id,
+        bundleId: item.bundleId,
+        serial: item.serial,
+        bundleMilli: item.bundleMilli,
+        weightG: Number(item.weightG),
+        quantity: Number(item.quantity),
+        lengthMm: Number(item.lengthMm),
+        line: newLine,
+      });
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
@@ -1924,6 +2058,16 @@ export const dispatchRouter = router({
           .update(dispatch)
           .set({ serverSeq: seq })
           .where(dispatchInStatus(ctx.companyId, item.dispatchId, EDITABLE_DISPATCH)),
+        withdrawOffBandStatement(
+          ctx.db,
+          ctx.companyId,
+          { itemId: item.id },
+          seq,
+          clockNow(),
+          "the bundle is on another order line now.",
+          sql`json_extract(${approval.meta}, '$.lineId') is not ${input.salesOrderLineId} and exists (select 1 from dispatch_item wi where wi.id = ${item.id} and wi.company_id = ${ctx.companyId} and wi.sales_order_line_id is ${input.salesOrderLineId})`,
+        ),
+        ...(offRow ? offBandRequestStatements(ctx, { id: item.dispatchId, code: item.code }, [offRow], seq) : []),
         auditInsertGuarded(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
@@ -2046,15 +2190,18 @@ export const dispatchRouter = router({
         }
 
         const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
+        const itemId = crypto.randomUUID();
         const statements: SqliteBatchItem[] = [
           ctx.db.insert(dispatchItem).values({
-            id: crypto.randomUUID(),
+            id: itemId,
             companyId: ctx.companyId,
             dispatchId: d.id,
             bundleId: b.id,
             salesOrderLineId: picks.get(b.id)?.lineId ?? null,
           }),
           ...(picks.size > 0 ? dropStaleSuggestions(ctx.db, ctx.companyId, d.id, [b.id]) : []),
+          // Q36 decided: an off-band row goes on in a needs-approval state.
+          ...offBandRequestStatements(ctx, d, offBandRowsOf([b], picks, new Map([[b.id, itemId]])), seq),
           // Write time: a hold for another customer landing after the read fails the add whole.
           batchAbortUnless(ctx.db, "sales_order_line", sql`not ${heldForOtherCustomerSql(ctx.companyId, d.customerId, [b.id])}`),
         ];
@@ -2245,6 +2392,8 @@ export const dispatchRouter = router({
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const statements: SqliteBatchItem[] = [
+        // Q36: a request still waiting for this row is moot once it is off the dispatch.
+        withdrawOffBandStatement(ctx.db, ctx.companyId, { itemId: existingItem.id }, seq, clockNow(), "the bundle came off the dispatch."),
         ctx.db
           .delete(dispatchItem)
           .where(
@@ -2559,6 +2708,9 @@ export const dispatchRouter = router({
         await auditRelink(ctx, d.id, "complete", await relinkLanded(ctx.db, ctx.companyId, d.id, relink));
       }
 
+      // Q36 decided: every off-band row approved for the line it is on now (asked here when nobody had).
+      await refuseOffBand(ctx, d, await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, d.id)));
+
       // Review Focus 5: order lines past ordered + tolerance need an approved override.
       const toleranceBp = await dispatchTolerance(ctx.db, ctx.companyId, d.customerId);
       const overdraw = await dispatchOverdraw(ctx.db, ctx.companyId, d.id, toleranceBp);
@@ -2599,6 +2751,8 @@ export const dispatchRouter = router({
             and(
               dispatchInStatus(ctx.companyId, d.id, dispatchStatusesInto("completed")),
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
+              // Q36: a row that became off band after the read (a link) opened a request: not now.
+              noPendingOffBandSql(ctx.companyId, d.id),
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
               sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
               withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
@@ -2740,6 +2894,7 @@ export const dispatchRouter = router({
             message: `This dispatch changed while completing${now ? ` (now ${now.status})` : ""}. Reload and check it.`,
           });
         }
+        await refuseOffBand(ctx, d, await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, d.id)));
         const again = await dispatchOverdraw(ctx.db, ctx.companyId, d.id, toleranceBp);
         if (again.some((l) => !l.covered)) {
           await refuseOverdraw(ctx, d, again, toleranceBp, input.overdrawNote);

@@ -25,6 +25,7 @@ import { dispatchErrorText } from "@/features/dispatch/errors";
 import { GroupLabelSheet } from "@/features/dispatch/group-label-sheet";
 import { dispatchTotals, type DispatchItem, type ItemGroup } from "@/features/dispatch/group-items";
 import { HoldNote, PlPendingNote, ReleaseButton } from "@/features/dispatch/hold-step";
+import { offBandNote, offBandStops } from "@/features/dispatch/off-band";
 import { useCan, usePackingListScope } from "@/features/dispatch/hooks";
 import { OrderPanel } from "@/features/dispatch/order-panel";
 import { ValueCard } from "@/features/dispatch/value-card";
@@ -234,18 +235,23 @@ function DispatchDetail({ data }: { data: DetailData }) {
   const empty = items.length === 0;
   const blocked = blockedCount(items, status);
   const stopped = empty || blocked > 0;
+  // Q36 decided: off-band rows waiting or rejected hold Dispatch only (Hold stock stays open).
+  const offBand = offBandNote(data.offBand);
+  const dispatchStopped = stopped || offBandStops(data.offBand);
   const actionNote = empty
     ? t("dispatch.errors.empty")
     : blocked > 0
       ? t(status === "draft" ? "dispatch.build.blockedBuild" : "dispatch.build.blockedHeld", { count: blocked })
-      : undefined;
+      : offBand
+        ? t(offBand.key, { count: offBand.count })
+        : undefined;
 
   const dispatchPill = (
     <Button
       size="lg"
       className="sm:h-11 sm:text-[15px]"
-      disabled={stopped}
-      aria-describedby={stopped ? "dispatch-action-note" : undefined}
+      disabled={dispatchStopped}
+      aria-describedby={actionNote ? "dispatch-action-note" : undefined}
       onClick={() => setSheet("complete")}
       aria-haspopup="dialog"
       {...{ [NEXT_STEP_ATTR]: "" }}

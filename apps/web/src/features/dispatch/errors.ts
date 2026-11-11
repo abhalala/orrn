@@ -39,6 +39,11 @@ export function dispatchErrorText(t: Translate, error: unknown): string {
       return t("dispatch.errors.conflict");
     case "BAD_REQUEST":
       return /empty/i.test(message) ? t("dispatch.errors.empty") : t("dispatch.errors.moved");
+    case "PRECONDITION_FAILED":
+      // Q36 decided: off-band rows refused at Complete (rejected rows named first, they need someone to act).
+      if (/rejected for the order line/i.test(message)) return t("dispatch.errors.offBandRejected");
+      if (/off the order line/i.test(message)) return t("dispatch.errors.offBand");
+      return actionErrorText(t, error);
     default:
       return actionErrorText(t, error);
   }

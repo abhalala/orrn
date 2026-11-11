@@ -245,8 +245,8 @@ describe("dispatch.suggestBundles", () => {
   }, SLOW);
 });
 
-describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 either way; a warning, never a block", () => {
-  test("add reports the bundles off their line; the draft marks them; nothing is refused", async () => {
+describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 either way; off band needs approval", () => {
+  test("add reports the bundles off their line; the draft marks them; nothing is refused at the add", async () => {
     const p = await opPlant();
     const s = await p.section();
     await p.copy(s, { milli: 12_000 }); // the line's basis: 12.000 kg per 12 ft
@@ -284,8 +284,13 @@ describe("Q36: the weight check at dispatch is the order line's kg/12ft, 0.1 eit
     expect([ok, edge, heavy, light].map((x) => by.get(x)!.offBand)).toEqual([false, false, true, true]);
     expect(by.get(heavy)).toMatchObject({ lineKgPer12ftMilli: 12_000 });
     expect(by.get(heavy)!.offBandDiffMilli).toBeGreaterThan(100);
-    // It never blocks: the dispatch holds and completes.
+    // Q36 decided (owner 2026-10-24): the off-band rows wait for a second person; the dispatch holds
+    // but completes only once a manager approved each (dispatch-off-band.test.ts has the rest).
     await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const waiting = await p.owner.approval.list({ status: "pending", kind: "dispatch_off_band" });
+    expect(waiting.items.map((a) => (a.meta as { serial: string }).serial).sort()).toEqual([heavy, light].sort());
+    for (const a of waiting.items) await p.as("manager").approval.decide({ id: a.id, decision: "approved" });
     await expect(p.owner.dispatch.complete({ id })).resolves.toBeTruthy();
   }, SLOW);
 

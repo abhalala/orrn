@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7450 screen strings in 49 groups, 44 guides with 840 strings.
+Counts: 7472 screen strings in 49 groups, 44 guides with 840 strings.
 
 ## Screen strings
 
@@ -808,7 +808,7 @@ Counts: 7450 screen strings in 49 groups, 44 guides with 840 strings.
 | `torchOff` | Turn torch off | टॉर्च बंद करें |
 | `notFound` | Not found in this company | इस कंपनी में नहीं मिला |
 | `unrecognised` | That isn't a bundle serial or label link. Check it and try again. | यह bundle का serial या लेबल लिंक नहीं है। देखकर फिर से कोशिश करें। |
-| `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Check the weight. | {kg} kg/12ft, {order} में {line}। वज़न जांचें। |
+| `continuous.offBand` | {kg} kg/12ft, {order} says {line}. Added. A manager has to approve it. | {kg} kg/12ft, {order} में {line}। जोड़ दिया। मैनेजर की मंज़ूरी चाहिए। |
 | `continuous.outsideOrder` | This packing list is for {order} only | यह packing list सिर्फ़ {order} की है |
 | `continuous.outsideOrderPlain` | This packing list is for one sales order only | यह packing list सिर्फ़ एक sales order की है |
 | `continuous.orderBaki` | {order}: baki {baki} kg, {left} kg left after this load | {order}: बाकी {baki} kg, इस लोड के बाद {left} kg बचा |
@@ -1093,7 +1093,7 @@ Counts: 7450 screen strings in 49 groups, 44 guides with 840 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (213)
+### dispatch (222)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1109,6 +1109,13 @@ Counts: 7450 screen strings in 49 groups, 44 guides with 840 strings.
 | `truck.add` | Add another customer to this truck | इस ट्रक में एक और ग्राहक जोड़ें |
 | `truck.item` | {code}, {customer} | {code}, {customer} |
 | `offBand.chip` | {kg} kg/12ft, the order says {line} | {kg} kg/12ft, ऑर्डर में {line} |
+| `offBand.pending` | Waiting for approval | मंज़ूरी बाकी |
+| `offBand.approved` | Approved | मंज़ूर |
+| `offBand.rejected` | Rejected: take it off | नामंज़ूर: इसे हटाएं |
+| `offBand.none` | Needs approval | मंज़ूरी चाहिए |
+| `offBand.waiting` | {count} {count:bundle waits\|bundles wait} for a manager to approve the weight. Dispatch opens when each one is decided. | {count} bundle का वज़न मैनेजर की मंज़ूरी का इंतज़ार कर रहा है। हर एक पर फ़ैसला होने के बाद dispatch खुलेगा। |
+| `offBand.rejectedNote` | {count} {count:bundle was\|bundles were} rejected for the order weight. Take {count:it\|them} off this dispatch first. | {count} bundle ऑर्डर के वज़न के लिए नामंज़ूर हुए। पहले {count:इसे\|इन्हें} इस dispatch से हटाएं। |
+| `offBand.unasked` | {count} {count:bundle is\|bundles are} off the order weight. Pressing Dispatch asks a manager to approve. | {count} bundle ऑर्डर के वज़न से हटकर हैं। Dispatch दबाने पर मैनेजर से मंज़ूरी मांगी जाएगी। |
 | `fromOrder.start` | Start from | शुरू करें |
 | `fromOrder.byCustomer` | Customer | ग्राहक से |
 | `fromOrder.tab` | From sales order | सेल्स ऑर्डर से |
@@ -1281,6 +1288,8 @@ Counts: 7450 screen strings in 49 groups, 44 guides with 840 strings.
 | `errors.empty` | Add at least one bundle first. | पहले कम से कम एक bundle जोड़ें। |
 | `errors.conflict` | Some bundles changed since this page loaded. The ones that can't go are marked in the list. | पेज खुलने के बाद कुछ bundle बदल गए। जो नहीं जा सकते, उन पर लिस्ट में निशान है। |
 | `errors.moved` | This dispatch has moved on. Reload to see where it is now. | यह dispatch आगे बढ़ चुका है। ताज़ा स्थिति के लिए पेज रीलोड करें। |
+| `errors.offBand` | Some bundles are off the order weight. A manager has to approve them before this dispatch can go. | कुछ bundle ऑर्डर के वज़न से हटकर हैं। यह dispatch जाने से पहले मैनेजर को मंज़ूर करना होगा। |
+| `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
 | `capacity.label` | Truck capacity (kg) | गाड़ी की क्षमता (kg) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |
@@ -4131,7 +4140,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (148)
+### approvals (160)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4158,6 +4167,7 @@ Please check, Lalubhai:
 | `kind.ageing_override` | Ageing override | एजिंग की छूट |
 | `kind.press_late_entry` | Press run entered late | बाद में भरा गया प्रेस रन |
 | `kind.melt_correct` | Correct a locked melt | लॉक किया melt सुधारना |
+| `kind.dispatch_off_band` | Bundle off the order weight | ऑर्डर के वज़न से हटा bundle |
 | `subject.ageingOverride` | Release {number} on approval | मंज़ूरी पर {number} छोड़ें |
 | `subject.dcDebit` | Debit note {number} on {lot} | {lot} पर डेबिट नोट {number} |
 | `subject.dcCredit` | Credit note {number} on {lot} | {lot} पर क्रेडिट नोट {number} |
@@ -4172,6 +4182,7 @@ Please check, Lalubhai:
 | `subject.castClose` | Close cast {number}, tail {kg} kg | कास्ट {number} बंद करें, टेल {kg} kg |
 | `subject.castCloseBare` | Close cast {number} | कास्ट {number} बंद करें |
 | `subject.meltCorrect` | Correct melt {seq} of cast {number} | कास्ट {number} की मेल्ट {seq} सुधारें |
+| `subject.offBand` | {serial} on {code}: {kg} kg/12ft, {order} line {line} says {lineKg} | {code} पर {serial}: {kg} kg/12ft, {order} लाइन {line} में {lineKg} |
 | `foundry.title` | Figures | आँकड़े |
 | `foundry.produced` | Billets made | बने बिलेट |
 | `foundry.metalIn` | Metal in | डाला मेटल |
@@ -4234,6 +4245,15 @@ Please check, Lalubhai:
 | `facts.below` | below the band | बैंड से नीचे |
 | `facts.inside` | inside the band | बैंड के अंदर |
 | `facts.changedSince` | The copy changed after this request. It is now tier {tier} on {band}. Check before you approve. | यह मांगने के बाद कॉपी बदल गई: अब {band} पर टियर {tier} है। मंज़ूर करने से पहले देख लें। |
+| `facts.offBandTitle` | The bundle now | Bundle अभी |
+| `facts.offBandBundle` | Bundle | Bundle |
+| `facts.offBandOn` | {serial} on {code} | {code} पर {serial} |
+| `facts.offBandWeight` | Bundle kg/12ft | Bundle का kg/12ft |
+| `facts.offBandLine` | Order line | ऑर्डर लाइन |
+| `facts.offBandLineValue` | {order} line {line}, {kg} kg/12ft | {order} लाइन {line}, {kg} kg/12ft |
+| `facts.offBandNoLine` | Not on an order line now | अभी किसी ऑर्डर लाइन पर नहीं |
+| `facts.offBandGone` | This bundle is no longer on the dispatch. Approving changes nothing. | यह bundle अब dispatch पर नहीं है। मंज़ूर करने से कुछ नहीं बदलेगा। |
+| `facts.offBandMoved` | The bundle is on another order line now. Approving covers only the line it was asked for. | Bundle अब दूसरी ऑर्डर लाइन पर है। मंज़ूरी सिर्फ़ उसी लाइन के लिए है जिसके लिए मांगी गई थी। |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |
@@ -4243,6 +4263,7 @@ Please check, Lalubhai:
 | `move.plant` | plant stock | प्लांट स्टॉक |
 | `move.line` | {party}, {order} line {line} | {party}, {order} लाइन {line} |
 | `openOrder` | Open order | ऑर्डर खोलें |
+| `openDispatch` | Open dispatch | Dispatch खोलें |
 | `askedBy` | Asked by {name} | {name} ने मांगा |
 | `someone` | Someone | किसी ने |
 | `decidedBy` | {status} by {name} | {name} ने {status} किया |
@@ -7066,7 +7087,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (290)
+### audit (291)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7235,6 +7256,7 @@ Please check, Lalubhai:
 | `actions.dispatch__delete` | Dispatch deleted | Dispatch हटाया |
 | `actions.dispatch__linkItem` | Dispatch bundle put on an order line | Dispatch का बंडल ऑर्डर लाइन पर रखा |
 | `actions.dispatch__overdraw__request` | Dispatch over the order asked | ऑर्डर से ज़्यादा dispatch के लिए कहा |
+| `actions.dispatch__off_band__request` | Approval asked for bundles off the order weight | ऑर्डर के वज़न से हटे bundle के लिए मंज़ूरी मांगी |
 | `actions.dispatch__relink` | Dispatch bundles moved to another line | Dispatch के बंडल दूसरी लाइन पर रखे |
 | `actions.dispatch__removeBundle` | Bundle taken off a dispatch | बंडल dispatch से हटाया |
 | `actions.dispatch__reserve` | Dispatch reserved | Dispatch रिज़र्व किया |

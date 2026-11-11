@@ -235,6 +235,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `cast_close` | owner, admin, manager, foundry | closes the cast, or re-opens it with the close-out cleared |
   | `die_rerank` | owner, admin, manager | applies the tier change (`die_tier_change`) |
   | `dispatch_overdraw` | owner, admin, manager | no applier, by design: `dispatch.complete` reads the status |
+  | `dispatch_off_band` | owner, admin, manager | no applier, by design: subject = the dispatch item; `dispatch.complete` reads it (Q36, see Dispatch) |
   | `phantom_void` | owner, admin, manager | voids a count's still-missing phantoms with reversal rows (one request per count) |
   | `die_owner_override` | owner, admin, manager | the approved row is the grant: `assertDieAllowed` reads it until `meta.closedAt` is set by `dieInstance.closeOwnerOverride`; approval stamps `meta.grantedAt`, a rejection writes nothing |
   | `order_reallocate` | owner, admin, manager | moves another customer's bundles (re-runs the owner gate at the decision) |
@@ -986,11 +987,22 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   write-time `batchAbortUnless`; `update` cannot switch a sibling to a customer already on the
   truck); capacity counts the whole truck (`truckDispatchIds`); each customer gets its own PL
   number.
-- Q36 (warning, never a block): add / scan reports `warnings[]` (`{ serial, orderNumber, lineNo,
-  bundleMilli, lineMilli, diffMilli }`, domain `offLineBand`) for a
-  bundle whose kg/12ft is more than 0.100 (100 milli, exclusive) off its order line's
-  `kg_per_12ft_milli`; `getDispatch` items carry `offBand`, `lineKgPer12ftMilli`,
-  `offBandDiffMilli`. A bundle with no line has nothing to compare with. Pack's D15 band is
+- Q36 (decided: needs approval, Q40 approvers; `lib/dispatchOffBand.ts`): a bundle whose kg/12ft is
+  more than 0.100 (100 milli, exclusive, domain `offLineBand`) off its order line's `kg_per_12ft_milli`
+  goes on in a needs-approval state. Every add path (scan, paste, search, one bundle) reports
+  `warnings[]` (`{ serial, orderNumber, lineNo, bundleMilli, lineMilli, diffMilli }`) and opens one
+  `dispatch_off_band` request per row in the add's own batch (subject = the item; meta ids, serial,
+  order and line numbers, kg/12ft; guarded on the item still linked to that line). `linkItem` asks again
+  when the new line is off and withdraws a waiting request asked for another line (or for none);
+  `removeBundle`, cancel and delete withdraw ("Withdrawn: ..."). `dispatch.complete` refuses
+  (PRECONDITION_FAILED, before the overdraw check) while a row is not approved for the line it is on
+  NOW: waiting, rejected (take it off or link it to a line that fits), or not asked yet (a relink or a
+  customer change made it off band: complete asks then, once). The completing UPDATE carries
+  `noPendingOffBandSql`. `getDispatch` items carry `offBand`, `lineKgPer12ftMilli`, `offBandDiffMilli`,
+  `offBandStatus` (`pending|approved|rejected|none`, null when in band) and `offBandApprovalId`, plus a
+  top-level `offBand` `{ pending, rejected, unasked, approved, blocked }`; web and phone hold Dispatch
+  (not Hold stock) while `blocked` and say why. `approval.facts` shows the row as it is now (gone, moved,
+  or the line and both weights). A bundle with no line has nothing to compare with. Pack's D15 band is
   separate and untouched.
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
@@ -1028,7 +1040,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   grams per piece half up (`kgPerPieceG`).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
-- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): amber "over tolerance" at scan time with an early `dispatch_overdraw` request, the `dispatch_off_band` approval kind (Q36 is a warning today), per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
+- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): amber "over tolerance" at scan time with an early `dispatch_overdraw` request, per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
 
 ## Stock count (phantom report)
 

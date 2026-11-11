@@ -23,6 +23,8 @@ export const APPROVAL_KINDS = [
   // FP Wave 2.
   "press_late_entry",
   "melt_correct",
+  // Q36: an off-band bundle at dispatch.
+  "dispatch_off_band",
 ] as const satisfies readonly ApprovalKind[];
 
 // Compile-time: every server kind is listed (a new kind fails check-types here until it is added).

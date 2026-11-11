@@ -234,13 +234,28 @@ describe("analytics.orders: open by default, the strip's figures", () => {
     await owner.orders.cancel({ id: d.id, reason: "Entered twice" });
     const e = await p.confirmedOrder([{ sectionId: s1, pcs: 10 }]);
     const eDispatch = await p.held(await p.pack(s1, [{ kg: 200 }], e.lineIds[0]));
-    await owner.dispatch.complete({ id: eDispatch }).catch(async () => {
-      const [req] = await owner.approval.list({ status: "pending" }).then((r) => r.items.filter((i) => i.kind === "dispatch_overdraw"));
-      await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
-      await owner.dispatch.complete({ id: eDispatch });
-    });
+    // The 200 kg bundle is off its line's kg/12ft (Q36 decided: needs approval) and over the order
+    // (dispatch_overdraw): each refusal opens its request; a manager approves, Complete again.
+    const completeApproved = async (id: string) => {
+      for (let attempt = 0; ; attempt++) {
+        const done = await owner.dispatch.complete({ id }).then(
+          () => true,
+          (e) => {
+            if (attempt >= 2) throw e;
+            return false;
+          },
+        );
+        if (done) return;
+        const waiting = await owner.approval
+          .list({ status: "pending" })
+          .then((r) => r.items.filter((i) => i.kind === "dispatch_overdraw" || i.kind === "dispatch_off_band"));
+        for (const req of waiting) await p.as("manager").approval.decide({ id: req.id, decision: "approved" });
+      }
+    };
+    await completeApproved(eDispatch);
     const f = await p.confirmedOrder([{ sectionId: s1, pcs: 10 }]);
-    await owner.dispatch.complete({ id: await p.held(await p.pack(s1, [{ kg: 60 }], f.lineIds[0])) });
+    // 60 kg for 10 pcs is off the line's kg/12ft too (Q36): approved like the one above.
+    await completeApproved(await p.held(await p.pack(s1, [{ kg: 60 }], f.lineIds[0])));
     await owner.orders.close({ id: f.id, reason: "Customer took the rest from stock" });
 
     const office = p.as("office");

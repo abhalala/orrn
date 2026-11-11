@@ -21,6 +21,19 @@ describe("dispatchErrorText", () => {
     expect(dispatchErrorText(t, new TypeError("Failed to fetch"))).toBe("No internet connection. Check it and try again.");
     expect(dispatchErrorText(t, err("INTERNAL_SERVER_ERROR"))).toBe("Something went wrong. Try again.");
   });
+
+  test("Q36: off-band rows refused at Complete say what to do; rejected rows first", () => {
+    expect(
+      dispatchErrorText(t, err("PRECONDITION_FAILED", "KJ-1 is more than 0.1 kg/12ft off the order line. A manager has to approve before this dispatch can complete.")),
+    ).toBe("Some bundles are off the order weight. A manager has to approve them before this dispatch can go.");
+    expect(
+      dispatchErrorText(
+        t,
+        err("PRECONDITION_FAILED", "KJ-1 is more than 0.1 kg/12ft off the order line. A manager has to approve. KJ-2 was rejected for the order line. Take it off the dispatch or link it to a line that fits."),
+      ),
+    ).toBe("A bundle was rejected for the order weight. Take it off this dispatch, then try again.");
+    expect(dispatchErrorText(t, err("PRECONDITION_FAILED", "Loaded 9 kg is 1 kg over"))).toBe("Something went wrong. Try again.");
+  });
 });
 
 describe("actionErrorText", () => {

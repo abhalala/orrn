@@ -342,6 +342,8 @@ describe("dispatch: held for SO-n", () => {
     await p.owner.dispatch.reserve({ id: d });
     // Held for the line while on the truck (reserved still counts as held).
     expect(await strip(p, a.id)).toMatchObject({ heldG: kg(300) });
+    // Q36 decided: the 300 kg bundle is off its line's kg/12ft; a manager approves it first.
+    await p.approveOffBand(d);
     await p.owner.dispatch.complete({ id: d });
 
     const [row] = await rowsOf(p, yard);

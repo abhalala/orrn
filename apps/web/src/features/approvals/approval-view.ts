@@ -7,7 +7,7 @@
  */
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
-import type { MoveFacts, TierFacts } from "@orrn/server/lib/approvalFacts";
+import type { MoveFacts, OffBandFacts, TierFacts } from "@orrn/server/lib/approvalFacts";
 import { canAny, canApprove, type Action, type ApprovalKind, type Me } from "@orrn/server/lib/permissions";
 
 import type { ApprovalStatus } from "./approval-filter";
@@ -350,6 +350,18 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
       openKey: safeId(row.subjectId) ? "approvals.openCast" : null,
     };
   }
+  if (row.kind === "dispatch_off_band") {
+    // Q36: the bundle, its dispatch and both weights (meta is the request's snapshot).
+    const dispatchId = safeId(m.dispatchId);
+    const milli = (v: unknown) => (num(v) === null ? "" : (num(v)! / 1000).toFixed(3));
+    return {
+      kindKey,
+      titleKey: "approvals.subject.offBand",
+      vars: { serial: text(m.serial), code: text(m.dispatchCode), kg: milli(m.bundleMilli), order: text(m.orderNumber), line: text(m.lineNo), lineKg: milli(m.lineMilli) },
+      href: dispatchId ? `/dispatch/${dispatchId}` : null,
+      openKey: dispatchId ? "approvals.openDispatch" : null,
+    };
+  }
   if (row.kind === "melt_correct") {
     const castId = safeId(m.castId);
     const meltId = safeId(row.subjectId);
@@ -456,7 +468,7 @@ export function nextApprovalsOffset(last: { nextOffset: number | null }): number
 }
 
 /** Kinds whose sheet reads live facts (`approval.facts`) before Approve opens (BACKLOG 89). */
-export const FACT_KINDS = ["order_reallocate", "die_rerank"] as const satisfies readonly ApprovalKind[];
+export const FACT_KINDS = ["order_reallocate", "die_rerank", "dispatch_off_band"] as const satisfies readonly ApprovalKind[];
 export function hasLiveFacts(kind: string): boolean {
   return (FACT_KINDS as readonly string[]).includes(kind);
 }
@@ -482,6 +494,20 @@ export function moveFactsView(f: MoveFacts) {
       /** Moves AND takes a new number. */
       newNumber: b.willMove && b.renumbers,
     })),
+  };
+}
+
+/** An off-band row as it stands now (Q36): gone, moved to another line, or still where it was asked. */
+export function offBandFactsView(f: OffBandFacts) {
+  const kg = (milli: number | null) => (milli === null ? null : (milli / 1000).toFixed(3));
+  if (!f.row) return { gone: true as const };
+  return {
+    gone: false as const,
+    serial: f.row.serial,
+    code: f.row.dispatchCode,
+    bundleKg: kg(f.row.bundleMilli),
+    line: f.row.line ? { order: f.row.line.orderNumber, lineNo: f.row.line.lineNo, kg: kg(f.row.line.kgPer12ftMilli) } : null,
+    moved: !f.row.sameLine,
   };
 }
 

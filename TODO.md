@@ -78,7 +78,6 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 | Item | Detail | Rank |
 |---|---|---|
 | **Infinity Portal Wave 1** | Top priority — see the "Top priority" section above. Build the `ingest_artifact` vault + AI digest + XLSX/CSV staging for masters, dies, bundles, baki; spec `docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md`. | owner 2026-10-27 |
-| Dispatch off-band approval | Q36: the dispatch scan compares the bundle kg/12ft with the ORDER LINE kg/12ft ± 0.1; today a warning, the owner decision is "needs approval": approval kind `dispatch_off_band` (approvers manager/admin/owner, requester cannot approve), the row is added in a needs-approval state, review blocked until decided. | pl-flow 64, BL 71 |
 | Server refusal without a vehicle | `dispatch.complete` should refuse with no vehicle number. The web and phone gate exists (`vehicleGate` in domain); the server change touches about 230 tests in 28 files, so do it as one coordinated change. | BL 70 |
 | Tolerance at scan | Amber "Over +5% on line n" when an add passes the line limit; the scan sheet raises `dispatch_overdraw` then, not only at complete; the web complete sheet passes `overdrawNote`. | pl-flow 61 |
 | Late PL entry for line-down hours | `occurredAt` (at most 72 h back, never future) + reason + `late_entry` flag + second-person approval; dispatch timestamp and ledger `posted_at` use it; guide "When the internet is down" in en, hi, gu. Until then a paper PL is entered later at the time of entry (Q30). | arch 52 |

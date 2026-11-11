@@ -115,6 +115,8 @@ export interface SalesPlant {
     over?: { customerId?: string; poNumber?: string; status?: "booking" | "confirmed" },
   ): Promise<{ id: string; number: string; lineIds: string[] }>;
   held(serials: string[], cust?: string, api?: Api): Promise<string>;
+  /** Q36: a manager (else the admin) approves the dispatch's waiting off-band rows. */
+  approveOffBand(dispatchId: string): Promise<void>;
   lineOf(lineId: string): Promise<LineBalance>;
 }
 
@@ -216,7 +218,30 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
         await api.dispatch.addBundlesBySerial({ id, serials: serials.slice(i, i + 100), ...(api === owner ? { allowUnassigned: true } : {}) });
       }
       await api.dispatch.reserve({ id });
+      // Q36 decided: an off-band row needs a second person. These fixtures pack weights that are not
+      // what their tests are about, so a manager (else the admin, when the manager asked) approves the
+      // rows the add opened; dispatch-off-band.test.ts holds the rule itself.
+      await approveOffBand(id);
       return id;
+    }
+
+    async function approveOffBand(dispatchId: string) {
+      const waiting = await env.db
+        .select({ id: approval.id })
+        .from(approval)
+        .where(
+          and(
+            eq(approval.companyId, companyId),
+            eq(approval.kind, "dispatch_off_band"),
+            eq(approval.status, "pending"),
+            sql`json_extract(${approval.meta}, '$.dispatchId') = ${dispatchId}`,
+          ),
+        );
+      for (const w of waiting) {
+        await as("manager")
+          .approval.decide({ id: w.id, decision: "approved" })
+          .catch(() => as("admin").approval.decide({ id: w.id, decision: "approved" }));
+      }
     }
 
     async function lineOf(lineId: string): Promise<LineBalance> {
@@ -226,7 +251,7 @@ export function salesHelpers(getEnv: () => TestEnv): SalesHelpers {
       return l;
     }
 
-    return { companyId, users, as, owner, yard, dieA, dieB, customerId, otherCustomer, pack, order, held, lineOf };
+    return { companyId, users, as, owner, yard, dieA, dieB, customerId, otherCustomer, pack, order, held, approveOffBand, lineOf };
   }
 
   async function itemsOf(dispatchId: string) {

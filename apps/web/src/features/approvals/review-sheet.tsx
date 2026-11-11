@@ -48,6 +48,7 @@ import {
   plantTimeText,
   moveEndText,
   moveFactsView,
+  offBandFactsView,
   moveKgText,
   reallocateMoveOf,
   subjectCodes,
@@ -406,6 +407,36 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
     );
   }
   if (data === null) return null;
+  if (data.kind === "dispatch_off_band") {
+    const v = offBandFactsView(data);
+    if (v.gone) {
+      return (
+        <Block title={t("approvals.facts.offBandTitle")}>
+          <p className="m-0 text-[14px] text-destructive" data-testid="off-band-gone">
+            {t("approvals.facts.offBandGone")}
+          </p>
+        </Block>
+      );
+    }
+    const rows: [string, ReactNode][] = [
+      [t("approvals.facts.offBandBundle"), t("approvals.facts.offBandOn", { serial: v.serial, code: v.code })],
+      [t("approvals.facts.offBandWeight"), v.bundleKg ?? ""],
+      [
+        t("approvals.facts.offBandLine"),
+        v.line ? t("approvals.facts.offBandLineValue", { order: v.line.order, line: v.line.lineNo, kg: v.line.kg ?? "" }) : t("approvals.facts.offBandNoLine"),
+      ],
+    ];
+    return (
+      <Block title={t("approvals.facts.offBandTitle")}>
+        <Rows rows={rows} testId="live-off-band" />
+        {v.moved ? (
+          <p className="m-0 text-[14px] text-destructive" data-testid="off-band-moved">
+            {t("approvals.facts.offBandMoved")}
+          </p>
+        ) : null}
+      </Block>
+    );
+  }
   if (data.kind === "order_reallocate") {
     const v = moveFactsView(data);
     return (

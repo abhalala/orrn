@@ -28,6 +28,13 @@ export const guDispatch = {
     },
     offBand: {
       chip: "{kg} kg/12ft, ઓર્ડરમાં {line}",
+      pending: "મંજૂરી બાકી",
+      approved: "મંજૂર",
+      rejected: "નામંજૂર: તેને કાઢો",
+      none: "મંજૂરી જોઈએ",
+      waiting: "{count} bundle નું વજન મેનેજરની મંજૂરીની રાહ જુએ છે. દરેક પર નિર્ણય થાય પછી dispatch ખૂલશે.",
+      rejectedNote: "{count} bundle ઓર્ડરના વજન માટે નામંજૂર થયા. પહેલાં {count:તેને|તેમને} આ dispatch માંથી કાઢો.",
+      unasked: "{count} bundle ઓર્ડરના વજનથી અલગ છે. Dispatch દબાવતાં મેનેજર પાસે મંજૂરી માંગાશે.",
     },
     fromOrder: {
       start: "શરૂ કરો",

@@ -360,6 +360,8 @@ export const APPROVER_ROLES: Record<ApprovalKind, readonly CompanyRole[]> = {
   press_late_entry: ["owner", "supervisor", "manager"],
   // W2-FD-S: correcting a locked melt (reverse it, enter it again as a draft). Never the requester.
   melt_correct: ["owner", "admin", "manager"],
+  // Q36/Q40: a bundle more than 0.1 kg/12ft off its order line at dispatch. Never the requester.
+  dispatch_off_band: ["owner", "admin", "manager"],
 };
 
 export function canApprove(role: CompanyRole | null | undefined, kind: ApprovalKind): boolean {

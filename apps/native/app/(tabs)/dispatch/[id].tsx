@@ -27,6 +27,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
+import { completeRefusalText, offBandNote, offBandStops } from "@/features/dispatch/off-band";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
 import { dispatchNow } from "@/features/dispatch/dispatch-now";
@@ -158,6 +159,8 @@ export default function DispatchDetailScreen() {
   const { dispatch: d, customer, items } = detail.data;
   const customerName = customer?.name ?? "";
   const actions = dispatchActions(d.status);
+  // Q36 decided: off-band rows waiting or rejected hold Dispatch (Hold stock stays open).
+  const offNote = offBandNote(detail.data.offBand);
   const live = items.filter((i) => i.status !== "void");
   const voided = items.filter((i) => i.status === "void");
   const groups = groupItems(items);
@@ -232,6 +235,13 @@ export default function DispatchDetailScreen() {
         setOverTried(true);
         setSheetError(t("dispatch.capacity.reasonRequired"));
         announce(t("dispatch.capacity.reasonRequired"), { shownInLiveRegion: true });
+        refresh();
+      } else if (completeRefusalText(t, error)) {
+        // A dispatch rule refused it (off-band rows): say which rule and what to do.
+        const text = completeRefusalText(t, error)!;
+        feedback.error();
+        setSheetError(text);
+        announce(text, { shownInLiveRegion: true });
         refresh();
       } else {
         fail(error, true);
@@ -357,6 +367,11 @@ export default function DispatchDetailScreen() {
             </View>
           ) : null}
           {d.status !== "completed" ? <CapacityBanner capacity={detail.data.capacity} /> : null}
+          {d.status !== "completed" && offNote ? (
+            <View accessibilityLiveRegion="polite" testID="dispatch-off-band-note" className="rounded-card bg-tone-amber-tint p-4">
+              <Text className="font-sans text-[15px] leading-6 text-tone-amber-ink">{t(offNote.key, { count: offNote.count })}</Text>
+            </View>
+          ) : null}
 
           {banner ? (
             <View accessibilityLiveRegion="polite" className="gap-1 rounded-card bg-tone-red-tint p-4">
@@ -457,7 +472,7 @@ export default function DispatchDetailScreen() {
                 size="lg"
                 label={step.primary === "scan" ? t("dispatch.build.scanBundles") : step.primary === "hold" ? t("dispatch.holdStock") : t("dispatch.dispatchAction")}
                 loading={busy && step.primary !== "scan" && sheet === null}
-                disabled={busy}
+                disabled={busy || (step.primary === "dispatch" && offBandStops(detail.data.offBand))}
                 onPress={() => {
                   if (step.primary === "scan") scan();
                   else if (step.primary === "hold") void hold();

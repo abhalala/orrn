@@ -3,7 +3,19 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { APPROVAL_TONE, approvalSubject, decideState, foundryCastIdOf, foundryLiveOf, foundryFiguresOf, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
+import {
+  APPROVAL_TONE,
+  approvalSubject,
+  decideState,
+  foundryCastIdOf,
+  foundryLiveOf,
+  foundryFiguresOf,
+  hasLiveFacts,
+  offBandFactsView,
+  reallocateMoveOf,
+  subjectCodes,
+  type ApprovalForView,
+} from "./approval-view";
 
 function me(role: string, id = "u-manager"): Me {
   return {
@@ -135,6 +147,30 @@ describe("approvalSubject", () => {
     });
     // An id that does not look like an id is never a link.
     expect(approvalSubject(row({ kind: "melt_correct", subjectId: "m/../x", meta: { castId: "cast-9" } })).href).toBeNull();
+  });
+
+  test("dispatch_off_band (Q36): the bundle, its dispatch and both weights; opens the dispatch; reads live facts", () => {
+    const meta = { dispatchId: "d-7", dispatchCode: "D-0007", serial: "26J2", orderNumber: "SO-14", lineNo: 2, bundleMilli: 12_498, lineMilli: 12_000 };
+    expect(approvalSubject(row({ kind: "dispatch_off_band", subjectId: "item-1", meta }))).toEqual({
+      kindKey: "approvals.kind.dispatch_off_band",
+      titleKey: "approvals.subject.offBand",
+      vars: { serial: "26J2", code: "D-0007", kg: "12.498", order: "SO-14", line: "2", lineKg: "12.000" },
+      href: "/dispatch/d-7",
+      openKey: "approvals.openDispatch",
+    });
+    const { t } = createI18n("en");
+    expect(t("approvals.subject.offBand", approvalSubject(row({ kind: "dispatch_off_band", subjectId: "i", meta })).vars)).toBe(
+      "26J2 on D-0007: 12.498 kg/12ft, SO-14 line 2 says 12.000",
+    );
+    expect(approvalSubject(row({ kind: "dispatch_off_band", subjectId: "i", meta: { ...meta, dispatchId: "a/../b" } })).href).toBeNull();
+    expect(hasLiveFacts("dispatch_off_band")).toBe(true);
+    expect(offBandFactsView({ kind: "dispatch_off_band", row: null })).toEqual({ gone: true });
+    expect(
+      offBandFactsView({
+        kind: "dispatch_off_band",
+        row: { dispatchCode: "D-0007", dispatchStatus: "reserved", serial: "26J2", bundleMilli: 12_498, line: { orderNumber: "SO-14", lineNo: 3, kgPer12ftMilli: 12_400 }, sameLine: false },
+      }),
+    ).toEqual({ gone: false, serial: "26J2", code: "D-0007", bundleKg: "12.498", line: { order: "SO-14", lineNo: 3, kg: "12.400" }, moved: true });
   });
 
   test("foundryFiguresOf: the figures a cast close and a melt correction carry", () => {
