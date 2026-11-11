@@ -466,7 +466,10 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
         if (k < n) fallback = i;
       }
     }
-    if (h === -1 && !noHeaderGuess) h = fallback;
+    // A header-like row with no row under it ("Prepared by | Checked by" under a table whose header holds numbers) is
+    // not the header when a row of two or more cells above it has rows under it (R4-6).
+    if (h !== -1 && fallback !== -1 && !rows.slice(h + 1, n).some((r) => nonBlank(r) > 0)) h = noHeaderGuess ? -1 : fallback;
+    else if (h === -1 && !noHeaderGuess) h = fallback;
     if (h === -1) {
       // No table in this window: its rows are reported, never dropped quietly, and the search goes on below.
       for (let r = pos; r < windowEnd; r++) if (nonBlank(rows[r]!) > 0) warnings.push({ code: "not_placed", row: r });

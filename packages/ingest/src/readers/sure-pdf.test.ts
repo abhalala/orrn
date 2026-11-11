@@ -87,7 +87,9 @@ describe("pdf hints are followed exactly", () => {
       ["Om Metals", "R 2105", "12", "1200"],
       ["Kamal", "R 2106", "5", "500"],
     ]);
+    // Rule 4.1: the title line is listed too.
     expect(b!.warnings).toEqual([
+      { code: "kept_as_title", row: 0, page: 1 },
       { code: "skipped_by_hint", row: 2, page: 1 },
       { code: "after_last_row", row: 5, page: 1 },
     ]);

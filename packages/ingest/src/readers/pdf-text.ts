@@ -746,6 +746,19 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       blocks.forEach((b, bi) => {
         const g = b.guess;
         const first = g.firstDataRow!;
+        // Warnings from the sheet reader count matrix rows: they become page lines with the page (R4-7). The lines above
+        // the run that became the first block's title are listed too.
+        const listed: RowWarning[] = bi === 0 ? pre.slice(0, titleLines).map((l) => ({ code: "kept_as_title" as const, row: l.n, page: p + 1 })) : [];
+        for (const w of b.warnings) {
+          if (w.page !== undefined) {
+            listed.push(w);
+            continue;
+          }
+          const at = src[w.row];
+          if (!at || at.line < 0) continue;
+          for (let n = at.line; n <= at.last; n++) listed.push({ ...w, row: n, page: p + 1 });
+        }
+        b.warnings = listed;
         // Footer lines under a table are not rows (C17): a one-cell line after a blank gap, or one that reads like a
         // signature or a note. A one-cell row at the table's row pitch is data (C-new-4). A footer left out is listed.
         for (;;) {
@@ -815,6 +828,8 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     }
     const end = Math.max(b.guess.headerRow + b.headerRows - 1, b.guess.lastDataRow ?? -1);
     for (let n = m.regionStart; n <= end; n++) rowWarnings.push({ code: "not_placed", row: n, page: m.page + 1 });
+    for (const w of b.warnings) rowWarnings.push({ ...w, code: "not_placed" });
+    warnings.push(`page ${m.page + 1}: ${plural(end - m.regionStart + 1, "line", "lines")} could not be placed`);
   }
   const blocks = [...kept, ...(hinted?.blocks ?? [])].sort((a, b) => (a.guess.page ?? 0) - (b.guess.page ?? 0) || a.guess.headerRow - b.guess.headerRow);
   const seen = new Set<string>();
@@ -956,7 +971,7 @@ function readPdfByHints(
       const k = anchorOf(anchors, c, charWidth);
       return k !== "extra" ? ofAnchor(k) : columns.length - 1;
     };
-    const warnings: RowWarning[] = [];
+    const warnings: RowWarning[] = lines.slice(start, h).map((l) => ({ code: "kept_as_title" as const, row: l.n, page: p + 1 }));
     /** The line's cells in the columns; two cells in one column are joined and the line is listed (q: 0-based page). */
     const placeLine = (l: Line, q: number | null) => {
       const cells = Array<string>(cols.length).fill("");
