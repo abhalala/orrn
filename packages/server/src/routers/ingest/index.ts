@@ -74,6 +74,7 @@ import {
   mergeRunView,
   provenanceFor,
   putBlocks,
+  releaseCandidate,
   retireHole,
   saveShape,
   setAnswer,
@@ -124,6 +125,8 @@ export const ingestRouter = router({
     confirmNear: U.input(confirmNearInput).mutation(({ ctx, input }): Promise<CandidateDetail> => confirmNear(ix(ctx), input)),
     approve: M.input(candidateSeqInput).mutation(({ ctx, input }): Promise<CandidateDetail> => approveCandidate(ix(ctx), input)),
     hold: R.input(holdInput).mutation(({ ctx, input }): Promise<CandidateDetail> => holdCandidate(ix(ctx), input)),
+    /** Held back to checking rows (A15): processing from the first open row, then ready. */
+    release: R.input(candidateSeqInput).mutation(({ ctx, input }): Promise<CandidateDetail> => releaseCandidate(ix(ctx), input)),
     discard: U.input(candidateSeqInput).mutation(({ ctx, input }): Promise<CandidateDetail> => discardCandidate(ix(ctx), input)),
   }),
 

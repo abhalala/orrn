@@ -646,3 +646,62 @@ describe("A13, A40: the period date reaches every order sheet of the file", () =
     expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.values?.orderDate).toBe("2026-03-31");
   });
 });
+
+describe("A15, A20: a held candidate has a plain way back", () => {
+  test("held with nothing to answer can be approved again", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [CUSTOMERS]);
+    const id = candidates[0]!.id;
+    await pump(p.admin, id);
+    let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    c = await p.admin.ingest.candidate.hold({ candidateId: id, reason: "check first", expectSeq: c.serverSeq });
+    c = await p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c).toMatchObject({ state: "approved", reasonCode: null, reasonDetail: null });
+  });
+
+  test("release sends a held candidate back to checking rows from its first open row, then ready", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [CUSTOMERS]);
+    const id = candidates[0]!.id;
+    await pump(p.admin, id);
+    let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    await expect(p.admin.ingest.candidate.release({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/held/);
+    c = await p.admin.ingest.candidate.hold({ candidateId: id, expectSeq: c.serverSeq });
+    // A customer of the sheet was added meanwhile: the re-check sees it.
+    await p.owner.customer.create({ name: "Bharat Metals", billingAddress: { city: "Rajkot" } });
+    c = await p.admin.ingest.candidate.release({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c).toMatchObject({ state: "processing", dryCursor: 0 });
+    const done = await pump(p.admin, id);
+    expect(done).toMatchObject({ state: "ready", counts: { create: 1, unchanged: 1 } });
+  });
+});
+
+describe("A21: approve needs the raw file in the vault when there is one", () => {
+  class Bucket {
+    objects = new Map<string, number>();
+    async head(key: string) {
+      const n = this.objects.get(key);
+      return n === undefined ? null : { key, size: n };
+    }
+    async put(key: string, value: string | Uint8Array) {
+      this.objects.set(key, typeof value === "string" ? value.length : value.byteLength);
+      return { key };
+    }
+  }
+
+  test("bytes not stored: approve refused; after commitRaw it passes", async () => {
+    const bucket = new Bucket();
+    workersEnv.INGEST_VAULT = bucket;
+    const p = await plant();
+    const digest = sha();
+    const { candidates, artifactId } = await upload(p.admin, [CUSTOMERS], "c.xlsx", digest);
+    const id = candidates[0]!.id;
+    await pump(p.admin, id);
+    let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/not saved yet/);
+    bucket.objects.set(`tenants/${p.companyId}/artifacts/${digest}/raw`, 1000);
+    await p.admin.ingest.artifact.commitRaw({ artifactId });
+    c = await p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c.state).toBe("approved");
+  });
+});

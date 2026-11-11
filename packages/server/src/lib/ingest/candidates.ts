@@ -80,6 +80,7 @@ import {
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
+import { vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   type BlockInput,
@@ -854,12 +855,17 @@ export async function setAnswer(
 
 export async function approveCandidate(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
-  assertState(c, ["ready"], "Only an import that is ready can be approved");
+  // A held candidate finished its dry run before it was held, so it may be approved again (A20).
+  assertState(c, ["ready", "held"], "Only an import that is ready or held can be approved");
   const block = await loadBlock(ctx, c.blockId);
   if (block.readBy === "model" && !block.modelChecked) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Check these rows against the page first" });
   }
   const artifact = await loadArtifact(ctx, c.artifactId);
+  // Raw files are kept forever: with a vault, nothing is approved before its bytes are stored (A21).
+  if (vaultReady() && artifact.vaultState !== "stored") {
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The original file is not saved yet. Upload the same file again, then approve." });
+  }
   const questions = await candidateQuestions(ctx, c, artifact);
   const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
   if (open > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Answer every question first" });
@@ -867,7 +873,14 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This file has rates you cannot see. Leave rates out, or ask the owner to merge it." });
   }
   const statements: SqliteBatchItem[] = [
-    ...candidateChange(ctx, c.id, input.expectSeq, { state: "approved", openQuestions: 0, approvedBy: ctx.session.user.id, approvedAt: now() }),
+    ...candidateChange(ctx, c.id, input.expectSeq, {
+      state: "approved",
+      openQuestions: 0,
+      approvedBy: ctx.session.user.id,
+      approvedAt: now(),
+      reasonCode: null,
+      reasonDetail: null,
+    }),
     auditInsert(ctx, {
       action: "ingest.candidate.approve",
       subjectType: "ingest_candidate",
@@ -913,6 +926,40 @@ export async function holdCandidate(
       approvedAt: null,
     }),
     auditInsert(ctx, { action: "ingest.candidate.hold", subjectType: "ingest_candidate", subjectId: c.id, meta: { reason: input.reason ?? null, from: c.state } }),
+  ]);
+  return candidateDetail(ctx, c.id);
+}
+
+/**
+ * Held back to checking (A15): the open rows run again from the first one, so a cause fixed outside
+ * (a die added, a customer merged) shows in the rows; the candidate then reaches ready and can be
+ * approved again. A merged row stays merged and the layout stays locked.
+ */
+export async function releaseCandidate(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<CandidateDetail> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertState(c, ["held"], "Only a held import can be checked again");
+  if (c.parentId) {
+    // A derived list has no recipe to run: it goes straight back to ready.
+    await guardedBatch(ctx.db, [
+      ...candidateChange(ctx, c.id, input.expectSeq, { state: "ready", reasonCode: null, reasonDetail: null }),
+      auditInsert(ctx, { action: "ingest.candidate.recheck", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state, reason: c.reasonCode } }),
+    ]);
+    return candidateDetail(ctx, c.id);
+  }
+  const [first] = await ctx.db
+    .select({ n: sql<number | null>`min(${ingestStagedRow.rowIndex})` })
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open")));
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, {
+      state: "processing",
+      dryCursor: Number(first?.n ?? 0),
+      reasonCode: null,
+      reasonDetail: null,
+      approvedBy: null,
+      approvedAt: null,
+    }),
+    auditInsert(ctx, { action: "ingest.candidate.recheck", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state, reason: c.reasonCode } }),
   ]);
   return candidateDetail(ctx, c.id);
 }
