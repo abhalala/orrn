@@ -1,5 +1,6 @@
 import { formatKg } from "@orrn/domain";
-import { dayMonth } from "@/shared/lib/intl-tag";
+import { paperFormatter } from "@/shared/lib/paper-fmt";
+import { yearInZone } from "@/shared/lib/plant-calendar";
 
 /** Day formatting for dispatch screens (spec §2: `d MMM`, plus the year when it isn't this year). */
 
@@ -11,22 +12,21 @@ function toDate(value: Date | string | number | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function yearIn(d: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-IN", { year: "numeric", timeZone }).format(d);
-}
-
 /**
  * "4 Oct", or "30 Dec 2025" outside the current year, as a calendar day in
  * `timeZone` (default Asia/Kolkata). Hindi and Gujarati get their own month names with Latin
  * digits (numbers stay Latin, spec §2).
+ *
+ * This is the paper's date style (today's: day, month name, 24 hour clock, whatever the plant chose): the packing
+ * list views call it, and a paper keeps its own style until it has its own setting. Screens use `shipDayText`.
  */
 export function formatDay(value: Date | string | number | null | undefined, opts: DayOptions = {}): string | null {
   const d = toDate(value);
   if (!d) return null;
   const timeZone = opts.timeZone ?? "Asia/Kolkata";
   const now = opts.now ?? new Date();
-  const sameYear = yearIn(d, timeZone) === yearIn(now, timeZone);
-  return dayMonth(d, opts.locale, timeZone, !sameYear);
+  const sameYear = yearInZone(d.getTime(), timeZone) === yearInZone(now.getTime(), timeZone);
+  return paperFormatter(opts.locale, timeZone).date(d.getTime(), { year: !sameYear });
 }
 
 /**

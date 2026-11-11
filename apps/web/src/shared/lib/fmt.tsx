@@ -2,6 +2,7 @@ import { formatterFor, ORRN_DEFAULT_PREFS, type Fmt, type ResolvedPrefs } from "
 import { I18nVarsProvider, useT } from "@orrn/i18n";
 import { createContext, createElement, useContext, useMemo, type ReactNode } from "react";
 
+import { paperFormatter } from "./paper-fmt";
 import { isValidZone } from "./plant-calendar";
 
 /**
@@ -40,7 +41,7 @@ export function FmtProvider({ prefs, timeZone, children }: { prefs?: ResolvedPre
 export function usePaperFmt(): Fmt {
   const { timeZone } = useContext(FmtContext);
   const { locale } = useT();
-  return useMemo(() => formatterFor(ORRN_DEFAULT_PREFS, { locale, timeZone }), [locale, timeZone]);
+  return useMemo(() => paperFormatter(locale, timeZone), [locale, timeZone]);
 }
 
 /** The formatter for the current plant, person's language and plant time zone. */

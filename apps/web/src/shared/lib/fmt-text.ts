@@ -159,6 +159,14 @@ export function instantText(fmt: Fmt, at: string | number | Date, now: number = 
   return `${fmt.date(ms, { year: !sameYear })}${fmt.locale === "hi" ? ", " : " at "}${fmt.time(ms)}`;
 }
 
+/** "4 Oct", or "30 Dec 2025" outside the plant's current year: an instant's calendar day on the plant clock. Empty when not a date. */
+export function dayOrYearText(fmt: Fmt, at: string | number | Date | null | undefined, now: number = Date.now()): string {
+  if (at === null || at === undefined || at === "") return "";
+  const ms = msOf(at);
+  if (!Number.isFinite(ms)) return "";
+  return fmt.date(ms, { year: yearIn(ms, fmt.zone) !== yearIn(now, fmt.zone) });
+}
+
 /** A ship day from the server's `shipDay.ymd`: "4 Oct", with the year outside the current year (UTC, as it always was). */
 export function shipDayText(fmt: Fmt, ymd: string | null | undefined, now: Date = new Date()): string | null {
   if (!ymd) return null;

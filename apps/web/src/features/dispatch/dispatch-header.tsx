@@ -3,9 +3,8 @@ import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { cn } from "@orrn/ui/lib/utils";
 
-import { formatYmdDay } from "./format";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped2, massUnit, shipDayText } from "@/shared/lib/fmt-text";
 
 export type DispatchHeaderProps = {
   code: string;
@@ -35,8 +34,8 @@ export function DispatchHeader({
   celebrate,
 }: DispatchHeaderProps) {
   const fmt = useFmt();
-  const { t, locale } = useT();
-  const day = formatYmdDay(shipDay?.ymd, { locale });
+  const { t } = useT();
+  const day = shipDayText(fmt, shipDay?.ymd);
   const when = day
     ? shipDay?.kind === "dispatched"
       ? t("dispatch.detail.dispatchedOn", { date: day })

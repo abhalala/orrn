@@ -18,6 +18,10 @@ import * as oldMasters from "../../../test-support/legacy/masters-model";
 import { formatDay as mastersDay } from "@/features/masters/masters-model";
 import * as oldPack from "../../../test-support/legacy/pack-format";
 import { packedWhen } from "@/features/pack/format";
+import * as oldDispatch from "../../../test-support/legacy/dispatch-format";
+import { formatDay as paperDay, formatShipDate, formatYmdDay } from "@/features/dispatch/format";
+import { releaseNoteRows } from "@/features/settings/release-notes";
+import { dayOrYearText, shipDayText } from "./fmt-text";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -169,6 +173,40 @@ describe("pack packedWhen", () => {
           const near = new Date(at + 20 * 3600_000);
           expect(packedWhen(dflt(loc, zone), at, { now: near, timeZone: zone })).toEqual(oldPack.packedWhen(at, { now: near, timeZone: zone, locale: loc }));
         }
+      }
+    }
+  });
+});
+
+describe("dispatch days", () => {
+  test("the paper's formatDay, formatShipDate and formatYmdDay keep today's text in English, Hindi and Gujarati", () => {
+    const now = new Date(NOW);
+    for (const locale of ["en", "hi", "gu"]) {
+      for (const at of SEEDS.slice(0, 700)) {
+        for (const timeZone of [IST_ZONE, "UTC"]) {
+          expect(paperDay(at, { now, locale, timeZone })).toBe(oldDispatch.formatDay(at, { now, locale, timeZone }));
+        }
+        expect(formatShipDate(at, { now, locale })).toBe(oldDispatch.formatShipDate(at, { now, locale }));
+        expect(formatYmdDay(ymdOf(at), { now, locale })).toBe(oldDispatch.formatYmdDay(ymdOf(at), { now, locale }));
+      }
+    }
+  });
+  test("shipDayText (the dispatch list and header) reads like the old formatYmdDay", () => {
+    const now = new Date(NOW);
+    for (const loc of ["en", "hi", "gu"] as const) {
+      for (const at of SEEDS) expect(shipDayText(dflt(loc), ymdOf(at), now)).toBe(oldDispatch.formatYmdDay(ymdOf(at), { now, locale: loc }));
+    }
+    expect(shipDayText(dflt(), null)).toBeNull();
+    expect(shipDayText(dflt(), "soon")).toBeNull();
+  });
+  test("release note days: '4 Oct', the year outside the current year, Kolkata", () => {
+    const now = new Date(NOW);
+    for (const loc of ["en", "hi"] as const) {
+      for (const at of SEEDS.slice(0, 300)) {
+        const row = { id: "1", platform: "web", version: "1", buildNumber: 1, notes: "x", mandatory: false, publishedAt: new Date(at).toISOString() };
+        const [fromRows] = releaseNoteRows([row as never], { fmt: dflt(loc, "America/New_York"), now });
+        expect(fromRows?.day).toBe(oldDispatch.formatDay(at, { now, locale: loc }) ?? "");
+        expect(dayOrYearText(dflt(loc), at, now.getTime())).toBe(oldDispatch.formatDay(at, { now, locale: loc }) ?? "");
       }
     }
   });
