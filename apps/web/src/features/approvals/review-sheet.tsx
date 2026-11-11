@@ -31,7 +31,7 @@ import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
-import { kgText, pctText } from "../purchase/format";
+import { pctText } from "../purchase/format";
 import { formatRate, weightNotesOverShortG } from "../purchase/lot-view";
 import { showsQueryError } from "../purchase/query-state";
 import {
@@ -64,7 +64,7 @@ import {
   type FoundryFigure } from "./approval-view";
 import { useFmt } from "@/shared/lib/fmt";
 import { dayOf, massUnit } from "@/shared/lib/fmt-text";
-import { kgGrouped2, kgGrouped3 } from "@/shared/lib/fmt-text";
+import { kgGrouped2, kgGrouped3, kgTrim } from "@/shared/lib/fmt-text";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
 
@@ -389,7 +389,7 @@ function MoveFigures({ move }: { move: ReallocateView }) {
             <li key={b.serial} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[14px]">
               <span className="font-mono font-semibold">{b.serial}</span>
               <span className="min-w-0 flex-1 text-muted-foreground break-words">{moveEndText(b.from, plant)}</span>
-              <span className="font-mono">{kgGrouped3(fmt, b.weightG)} kg</span>
+              <span className="font-mono">{kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}</span>
             </li>
           ))}
         </ul>
@@ -485,7 +485,7 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
               <span className="min-w-0 flex-1 break-words text-muted-foreground">{t("approvals.facts.partyNow", { number: b.partyNo })}</span>
               {b.newNumber ? <Chip tone="amber">{t("approvals.facts.newNumber")}</Chip> : null}
               {!b.willMove ? <Chip tone="red">{t("approvals.facts.stays")}</Chip> : null}
-              <span className="font-mono">{kgGrouped3(fmt, b.weightG)} kg</span>
+              <span className="font-mono">{kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}</span>
             </li>
           ))}
         </ul>
@@ -524,14 +524,12 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
 
 type RunData = inferRouterOutputs<AppRouter>["press"]["runs"]["get"];
 
-const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-
 /**
  * H1 (final explore): what a late entry asks to accept. Round 1 (m1): the live run comes first (that is what
  * Approve accepts: times, press, copy, day and shift, kg in and good); the request's own copy fills in only
  * while the run loads, and a note says so when the request asked for other times. Times are in the plant's time zone.
  */
-function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
+export function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
   const fmt = useFmt();
   const { t, locale } = useT();
   const tz = useCompanyTimeZone();
@@ -546,7 +544,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
     run !== undefined && late.startedAt !== null && late.stoppedAt !== null && (late.startedAt !== ms(run.run.startedAt) || late.stoppedAt !== ms(run.run.stoppedAt));
   const figures = run?.figures;
   const counted = figures !== undefined && figures.inputG > 0;
-  const kg = (g: number) => `${KG3.format(g / 1000)} ${massUnit(fmt)}`;
+  const kg = (g: number) => `${kgGrouped3(fmt, g)} ${massUnit(fmt)}`;
   const pending = loading ? <Skeleton className="h-5 w-24" /> : "-";
   const rows: [string, ReactNode, string][] = [
     [t("approvals.late.run"), run?.run.number || late.runNumber || "-", "run"],
@@ -585,7 +583,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
 
 type NoteData = inferRouterOutputs<AppRouter>["purchase"]["dcNotes"]["get"];
 
-function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loading: boolean; error: boolean }) {
+export function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loading: boolean; error: boolean }) {
   const fmt = useFmt();
   const { t } = useT();
   if (loading) {
@@ -607,12 +605,12 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
     (n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"),
   );
   const rows: [string, ReactNode][] = [
-    [t("approvals.party"), `${kgText(lot.partyKgG)} ${massUnit(fmt)}`],
-    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} ${massUnit(fmt)}`],
-    [t("approvals.short"), data.shortG === null ? "-" : `${kgText(Math.max(0, data.shortG))} ${massUnit(fmt)}`],
-    [t("approvals.tolerance"), `${kgText(data.toleranceG)} kg (${pct})`],
-    [t("approvals.kgDiff"), `${kgText(note.kgDiffG)} ${massUnit(fmt)}`],
-    [t("approvals.bori"), `${kgText(note.boriDeductionG)} ${massUnit(fmt)}`],
+    [t("approvals.party"), `${kgTrim(fmt, lot.partyKgG)} ${massUnit(fmt)}`],
+    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgTrim(fmt, lot.fcKgG)} ${massUnit(fmt)}`],
+    [t("approvals.short"), data.shortG === null ? "-" : `${kgTrim(fmt, Math.max(0, data.shortG))} ${massUnit(fmt)}`],
+    [t("approvals.tolerance"), `${kgTrim(fmt, data.toleranceG)} ${massUnit(fmt)} (${pct})`],
+    [t("approvals.kgDiff"), `${kgTrim(fmt, note.kgDiffG)} ${massUnit(fmt)}`],
+    [t("approvals.bori"), `${kgTrim(fmt, note.boriDeductionG)} ${massUnit(fmt)}`],
     [
       t("approvals.rate"),
       <>
@@ -638,7 +636,7 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
         >
           <AlertTriangle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-4 shrink-0" />
           <span className="min-w-0 break-words">
-            {othersLive ? t("approvals.overShortWithOthers", { kg: kgText(overG) }) : t("approvals.overShort", { kg: kgText(overG) })}
+            {othersLive ? t("approvals.overShortWithOthers", { kg: kgTrim(fmt, overG) }) : t("approvals.overShort", { kg: kgTrim(fmt, overG) })}
           </span>
         </p>
       ) : weightDebit && data.shortBeyondTolerance ? (
@@ -659,7 +657,7 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
               <li key={n.id} className="flex flex-wrap items-center gap-2 text-[14px]">
                 <span className="font-mono font-semibold">{n.number}</span>
                 <span>{t(`purchase.detail.noteType.${n.type}`)}</span>
-                <span className="font-mono text-muted-foreground">{kgText(n.kgDiffG)} kg</span>
+                <span className="font-mono text-muted-foreground">{kgTrim(fmt, n.kgDiffG)} {massUnit(fmt)}</span>
                 <Chip tone={APPROVAL_TONE[n.status]}>{t(`status.request.${n.status}`)}</Chip>
               </li>
             ))}
