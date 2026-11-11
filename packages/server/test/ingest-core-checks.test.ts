@@ -365,3 +365,84 @@ describe("C19: a number outside its plausible range waits on a person", () => {
     expect((await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).state).toBe("approved");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Item 4a: the dateless order match stays in the period's financial year
+// ---------------------------------------------------------------------------
+
+describe("A5 note: with no date column, an old order number matches only an open order of the period's year", () => {
+  const headers = ["Party", "Old no", "Series", "Section", "Cut (mm)", "Baki (kg)"];
+  const dateless = (): Recipe => {
+    const r = layout(
+      "orders",
+      headers,
+      [
+        { field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "oldOrderNo", steps: trim },
+        { field: "series", steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+        { field: "cutLength", steps: [{ op: "number", kind: "length", unit: "mm" }] },
+        { field: "bakiKg", steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+      ],
+      ["customer", "oldOrderNo", "orderDate"],
+    );
+    return { ...r, fields: [...r.fields, { field: "orderDate", source: { kind: "period_as_of" }, steps: [] }] };
+  };
+
+  async function sheetAgainst(live: { status: string; orderDate: string }) {
+    const p = await plant();
+    const acme = await p.owner.customer.create({ name: "Acme Traders" });
+    const dieId = await env.seedDie(p.companyId, { series: "R", sectionCode: "5300" });
+    const { salesOrder, salesOrderLine } = await import("@orrn/db/schema");
+    const orderId = `so_${randomUUID()}`;
+    await env.db.insert(salesOrder).values({
+      id: orderId,
+      companyId: p.companyId,
+      period: fyOfDate(live.orderDate),
+      number: `SO-${randomUUID().slice(0, 6)}`,
+      customerId: acme.id,
+      orderDate: live.orderDate,
+      status: live.status,
+      note: "Old order no. OB-1",
+    } as never);
+    await env.db.insert(salesOrderLine).values({
+      id: `sol_${randomUUID()}`,
+      companyId: p.companyId,
+      salesOrderId: orderId,
+      lineNo: 1,
+      dieId,
+      cutLengthMm: 3658,
+      kgG: 300_000,
+    } as never);
+    await learnLayout(p.companyId, p.users.owner.id, dateless(), "Dateless book");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers, rows: [["Acme Traders", "OB-1", "R", "5300", "3658", "300"]] }]);
+    await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-11-30" });
+    await pump(p.owner, candidates[0]!.id);
+    const [row] = await rowsOf(p.owner, candidates[0]!.id);
+    return { row: row!, orderId };
+  }
+
+  const fyOfDate = (d: string) => {
+    const y = Number(d.slice(0, 4));
+    const start = Number(d.slice(5, 7)) >= 4 ? y : y - 1;
+    return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+  };
+
+  test("an open order of the same year matches: unchanged", async () => {
+    const { row, orderId } = await sheetAgainst({ status: "confirmed", orderDate: "2025-06-10" });
+    expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
+    expect(row.reasons).toContain("order_exists");
+  });
+
+  test("a closed order with the same old number is not matched: the line is a new order", async () => {
+    const { row } = await sheetAgainst({ status: "closed", orderDate: "2025-06-10" });
+    expect(row.state).toBe("ready_create");
+    expect(row.matchId).toBeNull();
+  });
+
+  test("an open order of the year before with the same old number is not matched: the line is a new order", async () => {
+    const { row } = await sheetAgainst({ status: "confirmed", orderDate: "2024-06-10" });
+    expect(row.state).toBe("ready_create");
+    expect(row.matchId).toBeNull();
+  });
+});

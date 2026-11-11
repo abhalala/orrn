@@ -47,7 +47,7 @@ import { createId } from "../id";
 import { companyModules } from "../moduleGate";
 import { can } from "../permissions";
 import { nameKey } from "../purchase";
-import { stagedRowIdOf } from "./artifacts";
+import { fyOfDate, stagedRowIdOf } from "./artifacts";
 import { aliasNameCheck, aliasNameOwners, checkReason, handStatusCheck, loadOrderLineSchema, orderLineCheck, type NameOwner } from "./merge/rowchecks";
 import { refreshArtifactPeriod } from "./period";
 import {
@@ -1129,8 +1129,11 @@ const OLD_ORDER_NOTE = /^Old order no\. (.+)$/;
  * Orders already in orrn (A5): an order line whose party has a live, not cancelled order with the same
  * PO (any date), or with no PO the same old order number, matches that order. With a date column the
  * old order number must also have the same date. With no date column the order date is the file's
- * as-of date, which moves with every file, so it is left out. The old order number is the one the
- * merge writes into the order's note ("Old order no. X").
+ * as-of date, which moves with every file, so it is left out; then only a live order that is not
+ * closed and whose order date is in the as-of date's financial year matches, because old order
+ * numbers repeat from year to year. Anything else is a new order. The old order number is the one
+ * the merge writes into the order's note ("Old order no. X"). A PO matches at any date and status,
+ * as the merge planner's PO check does.
  *
  * A matched line is unchanged only when the live order has a line for the same section and cut
  * length (any cut length when the file has none). Any other line of a matched order is a conflict
@@ -1146,18 +1149,27 @@ async function matchLiveOrders(ctx: IngestCtx, recipe: Recipe, rows: readonly St
   if (customerIds.length === 0) return;
   const live = await mapInChunks(customerIds, (part) =>
     ctx.db
-      .select({ id: salesOrder.id, customerId: salesOrder.customerId, poNumber: salesOrder.poNumber, orderDate: salesOrder.orderDate, note: salesOrder.note })
+      .select({
+        id: salesOrder.id,
+        customerId: salesOrder.customerId,
+        poNumber: salesOrder.poNumber,
+        orderDate: salesOrder.orderDate,
+        note: salesOrder.note,
+        status: salesOrder.status,
+      })
       .from(salesOrder)
       .where(and(eq(salesOrder.companyId, ctx.companyId), inArray(salesOrder.customerId, part), ne(salesOrder.status, "cancelled"))),
   );
   const byPo = new Map<string, string>();
   const byOldNo = new Map<string, string>();
-  const oldKey = (customerId: string, orderDate: string, old: string) => (byDate ? `${customerId}|${orderDate}|${old}` : `${customerId}|${old}`);
+  const oldKey = (customerId: string, orderDate: string, old: string) =>
+    byDate ? `${customerId}|${orderDate}|${old}` : `${customerId}|fy:${orderDate ? fyOfDate(orderDate) : ""}|${old}`;
   for (const o of live) {
     const po = (o.poNumber ?? "").trim().toLowerCase();
     if (po) byPo.set(`${o.customerId}|${po}`, o.id);
     const old = OLD_ORDER_NOTE.exec((o.note ?? "").trim())?.[1]?.trim().toLowerCase();
-    if (old) byOldNo.set(oldKey(o.customerId, o.orderDate, old), o.id);
+    // With no date column a closed order never matches: the same old number is a new order.
+    if (old && (byDate || o.status !== "closed")) byOldNo.set(oldKey(o.customerId, o.orderDate, old), o.id);
   }
   const hits: { r: Staged; out: RowOutcome; orderId: string }[] = [];
   for (const { r, out } of open) {
