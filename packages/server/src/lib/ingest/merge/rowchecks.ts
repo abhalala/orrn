@@ -111,7 +111,10 @@ export { ORDER_GROUP_CODES, orderGroupCheck, type OrderGroupRow } from "../order
 // New die copies
 // ---------------------------------------------------------------------------
 
-/** What dieInstance.create refuses for a new copy: an archived section, a copy that starts at nitriding. */
+/**
+ * What a new die copy is refused for: an archived section, a copy that starts at nitriding. The one
+ * check, used by dieInstance.create and by the dry run of a die copies sheet (minor 1).
+ */
 export function newCopyCheck(sectionStatus: string | null | undefined, status: unknown): RowCheck | null {
   if (sectionStatus && sectionStatus !== "active") {
     return { code: "section_archived", field: "sectionCode", message: "This section is archived; no new die copies" };

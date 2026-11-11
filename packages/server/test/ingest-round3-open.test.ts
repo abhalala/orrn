@@ -155,3 +155,16 @@ describe("minor 3: a magnitude answer that names a unit already tried leaves the
     await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow();
   });
 });
+
+describe("minor 1: dieInstance.create and the die copies dry run share one refusal", () => {
+  test("an archived section and a copy that starts at nitriding: the same words from both", async () => {
+    const { newCopyCheck } = await import("../src/lib/ingest/merge/rowchecks");
+    const p = await plant(env);
+    const sectionId = await env.seedDie(p.companyId, { series: "R", sectionCode: "6100" });
+    await expect(p.owner.dieInstance.create({ sectionId, status: "at_nitriding" })).rejects.toThrow(newCopyCheck("active", "at_nitriding")!.message);
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(die).set({ status: "archived" }).where(eq(die.id, sectionId));
+    await expect(p.owner.dieInstance.create({ sectionId })).rejects.toThrow(newCopyCheck("archived", null)!.message);
+  });
+});

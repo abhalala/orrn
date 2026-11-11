@@ -51,6 +51,7 @@ import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../
 import { auditInsert, auditInsertGuarded } from "../lib/audit";
 import { clientRequestIdSchema, requestRowIds } from "../lib/importReplay";
 import { sourceMeta } from "../lib/ingest/merge/provenance";
+import { newCopyCheck } from "../lib/ingest/merge/rowchecks";
 import { lostReplayRace, openReplay, readReplay, replayMeta, type Replay } from "../lib/requestReplay";
 import { now as clockNow } from "../lib/clock";
 import {
@@ -521,12 +522,9 @@ export const dieInstanceRouter = router({
         .where(and(eq(die.id, input.sectionId), eq(die.companyId, ctx.companyId), isNull(die.deletedAt)))
         .limit(1);
       if (!section) throw new TRPCError({ code: "NOT_FOUND", message: "Section not found" });
-      if (section.status !== "active") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This section is archived; no new die copies" });
-      }
-      if (input.status === "at_nitriding") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "A new copy starts on the rack; send it to nitriding from its card" });
-      }
+      // The import's dry run applies the very same check (rowchecks.ts), so a sheet never stages a copy this refuses.
+      const refused = newCopyCheck(section.status, input.status);
+      if (refused) throw new TRPCError({ code: "BAD_REQUEST", message: refused.message });
       // FP-DR-17: a new copy starts on trial while the plant setting is on. Only a manager (masters.publish)
       // may start one on the rack, and only with the setting on there is anything to skip.
       const floor = await loadFloorSettings(ctx.db, ctx.companyId);
