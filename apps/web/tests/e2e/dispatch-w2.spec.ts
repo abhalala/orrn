@@ -179,12 +179,12 @@ test.describe("dispatch from a sales order", () => {
       await expect(line).toContainText(`${kg3(before.leftG - onKg * 1000)} kg left after this load`);
       // On the line's weight: no warning.
       await expect(sheet.locator("[data-scan-warning]")).toHaveCount(0);
-      // Off it (Q36): added all the same, with the warning in the scan result.
+      // Off it (Q36 decided): added all the same, in a needs-approval state, said in the scan result.
       await field.fill(serials[1]!);
       await field.press("Enter");
       await expect(sheet.getByTestId("scan-count")).toHaveText("2 added");
       await expect(line).toContainText(`${kg3(before.leftG - (onKg * 2 + 10) * 1000)} kg left after this load`);
-      await expect(sheet.locator("[data-scan-warning]")).toContainText(`${o.number} says ${(basis / 1000).toFixed(3)}. Check the weight.`);
+      await expect(sheet.locator("[data-scan-warning]")).toContainText(`${o.number} says ${(basis / 1000).toFixed(3)}. Added. A manager has to approve it.`);
       await expect(sheet.getByRole("status")).toContainText(`Added ${serials[1]}`);
       await expectNoHorizontalScroll(page);
       await expectNoClippedText(page, "[data-slot='sheet']");

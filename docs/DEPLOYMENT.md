@@ -146,8 +146,14 @@ For each custom hostname, point to the Worker route Alchemy prints after deploy 
 ## Auth cookies & CORS
 
 - API host: `api.orrn.in`
-- Session cookies: `Domain=.orrn.in` (works for `api.orrn.in` and `orrn.in`)
-- `CORS_ALLOWED_ORIGINS` should include only additional web origins when a stage needs them
+- Session cookies: host-only on `api.orrn.in`, named `__Host-better-auth.*`, with no `Domain` attribute. The SPA on
+  `orrn.in` still calls the API with credentials because the two hosts are the same site. Never give an auth cookie a
+  `Domain`: every `*.orrn.in` host, plant-run `*.spool.orrn.in` tunnels included, would receive every session (security
+  review 2026-11-04, `packages/server/test/auth-session-cookie.test.ts`). `LEGACY_COOKIE_DOMAIN` only clears the old
+  `Domain=.orrn.in` cookies.
+- CORS is an exact allow-list: `CORS_ORIGIN` plus `CORS_ALLOWED_ORIGINS`, each a full origin (`https://orrn.in`). There is no
+  subdomain rule and no http twin, because the API answers these origins with credentials (security review 2026-11-04,
+  `packages/server/test/corsOrigin.test.ts`). Add an origin only when a stage really serves the web app there.
 
 Waitlist / magic-link invites use `WEB_PUBLIC_URL` (`https://orrn.in` in prod).
 

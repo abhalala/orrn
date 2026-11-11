@@ -89,6 +89,51 @@ lists every column). The same PRAGMA pattern is in `0028_fp_wave2` and applied c
 **Still true from before:** `0028` rebuilds `melt` and **refuses to run when any `melt` row exists** (NOT NULL failure on
 `__w2_melt_guard`). Production has never had a melt; the dev D1 is already past it.
 
+### Security fixes of 2026-11-04 (`sec/2026-11-04`)
+
+Four fixes from the 2026-11-04 security review. One of them changes data:
+
+| File | Adds | Data step? |
+|---|---|---|
+| `0046_revoke_sessions_cookie_scope` | nothing (schema unchanged) | **yes, see below** |
+
+**DATA STEP 3, 0046.** `DELETE FROM session`. The auth cookie moves from `Domain=.orrn.in` to a host-only `__Host-` cookie
+on the API host, and a token copied by any `*.orrn.in` host before the deploy would still be a valid session under the new
+name. Every web and phone user signs in again once (password, then the authenticator code). Users, passwords and
+authenticators are untouched. Deploy outside shift hours and tell the plant first. The old cookies left in browsers are
+cleared on their next API request (`lib/legacyCookies.ts`, binding `LEGACY_COOKIE_DOMAIN`, which replaces
+`COOKIE_DOMAIN`).
+
+**0046 runs in the same window as the Worker deploy.** Alchemy applies it inside the production deploy, just before it
+updates the Worker (D1 and its migrations first, then the R2 buckets and the web app, then the Worker, in
+`alchemy.run.ts`). Never run it by hand as a separate or later step. The real gap runs the other way: from the moment 0046
+runs until the new Worker is live, the old Worker still signs people in with the `Domain=.orrn.in` cookie, and those
+sessions survive 0046. A browser that sends that cookie under its old name later loses the session
+(`lib/legacyCookies.ts`), but a copy a `*.orrn.in` host took in the gap and sent under the new `__Host-` name stays valid.
+So:
+
+1. Revoke the tenant-made tunnels (query below) before the deploy, so a plant manager's own `cloudflared` cannot take a
+   copy. Godseye's legacy `spool-` nodes also run on plant computers with their tunnel token inside, so this narrows the
+   gap but does not close it; step 3 closes it.
+2. If the deploy stops after the database step and before the Worker update (an R2, web or Worker error), fix it and
+   rerun it at once. Do not leave the old Worker serving after 0046.
+3. Once a sign-in on `api.orrn.in` answers with `Set-Cookie: __Host-better-auth.session_token`, run `DELETE FROM session`
+   on the production D1 once more. It signs out everyone who signed in since 0046 ran, which is only the deploy window.
+
+**`ORRN_MASTER_KEY` must be the key that wrapped production's secrets.** The deploy now stops on a missing or all-zero
+key, but a different key would deploy and then strand every print computer (every `unwrapSecret` fails). The production
+gate checks this before any production write: `production-safety.ts rehearse` tries the GitHub key on up to 50 live
+`spool_deployment.shared_secret_wrapped` rows of the export and stops the deploy when it opens none
+(`assertMasterKeyOpens`; it prints only counts). A database with no node rows has nothing to check. Before the promote,
+still confirm the GitHub secret is set, is not the all-zero dev key, and has not been changed.
+
+**Tenant print-computer enrolment.** `edge.enroll` no longer creates Cloudflare tunnels or DNS records and never returns a
+tunnel token (see AGENTS.md, Spool integration). Godseye's legacy spool deployments are unchanged. Tunnels that tenants
+made before the deploy keep running until revoked: list them (`SELECT id, company_id, subdomain, cf_tunnel_id, status FROM
+spool_deployment WHERE cf_tunnel_id IS NOT NULL AND status <> 'revoked'`; tenant-made tunnels are named `edge-<subdomain>`
+in Cloudflare, Godseye's `spool-<subdomain>`) and revoke any a tenant made, before the deploy (see 0046 above). A plant may
+hold 5 nodes; an enrolment code that expired before any node used it does not take a place (`routers/edge.ts`).
+
 ### What to do now, in order
 
 1. Either enable R2 with the required token scope, or explicitly set the **dev** GitHub environment variable `ORRN_SKIP_R2=1` while storage is unavailable. A generic 403 authentication error is never silently treated as a missing subscription.
@@ -224,7 +269,8 @@ for return streams) is the owner's import work, not part of this promotion: see 
 
 The production workflow now runs `packages/server/scripts/production-safety.ts` before Alchemy.
 It resolves the database from the **currently deployed `api.orrn.in` Worker's `DB` binding**, reads its actual migration
-history, captures a Time Travel bookmark and exports the database. The export and recovery metadata are archived,
+history, captures a Time Travel bookmark and exports the database. The rehearsal also checks that `ORRN_MASTER_KEY` opens the
+export's wrapped node secrets and stops the deploy when it opens none. The export and recovery metadata are archived,
 encrypted with AES-256-GCM using a domain-separated key derived from the production `ORRN_MASTER_KEY`, and decrypted
 again to verify the archive checksum before upload. Only `backup.enc` is uploaded as
 `production-d1-before-<GitHub run id>` (30-day retention). This repository is public: never upload raw SQL, metadata,
@@ -258,7 +304,8 @@ may have added newer work. GitHub removes temporary plaintext files even when a 
 | `BACKUPS` R2 bucket (`backups`; physical `orrn-backups-{stage}`) | `alchemy.run.ts`, `adopt: true, delete: false` | Daily per-company JSON export and restore-drill source. Private. Never set `empty: true`; never delete it from the dashboard casually. |
 | Cron `30 21 * * *` UTC (03:00 IST) | `crons` on the `server` Worker | One backup per active plant per IST day, removal of drill scratch plants older than 7 days, the orphan die-file purge, collector frame retention (simulated 24 h, real 90 days). |
 | Optional R2 lifecycle rule | Cloudflare dashboard | "Abort incomplete multipart uploads" after 1 day on `die-files` only; no "delete objects" rule on that bucket (`docs/R2_BUCKETS.md`, from the masters follow-ups). |
-| `ORRN_MASTER_KEY` | GitHub environment secret | Signs die-file URLs, spectro upload tickets and wraps spool secrets. |
+| `ORRN_MASTER_KEY` | GitHub environment secret | Signs die-file URLs, spectro upload tickets and wraps spool secrets. Required outside the dev stage: the deploy stops on a missing or all-zero key (`infra/masterKey.ts`), it is bound as an encrypted secret, and a production Worker that still finds such a key answers 503 (`lib/masterKeyGate.ts`). Never change it casually: every wrapped node secret and tunnel token in D1 needs the same key, and the production rehearsal stops the deploy when the key opens none of the export's node secrets (`production-safety.ts`, `assertMasterKeyOpens`). |
+| `LEGACY_COOKIE_DOMAIN` | `alchemy.run.ts` (`.orrn.in` prod, `.orrn.app` dev) | Only clears the pre-2026-11-04 `Domain=` auth cookies; auth cookies are host-only. Remove it 30 days after the deploy. Replaces `COOKIE_DOMAIN`. |
 | `PURELYMAIL_SMTP_PASSWORD`, `WEBHOOK_BASE_URL` | GitHub environment | Invite, reset and sign-in emails (required in production); spool webhooks. |
 | Optional `EMAIL` Email Sending binding | Not enabled by current Alchemy configuration | Runtime prefers it when present, otherwise uses Purelymail SMTP. Missing providers fail explicitly; they never report a mock delivery. See prerequisites below. |
 | `SCALE_SIMULATOR` | local `.dev.vars` only | Never set on dev or production; the simulator refuses `NODE_ENV=production`. |

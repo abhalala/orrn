@@ -92,7 +92,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     setClock(NOON);
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 500 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     expect((await itemsOf(id)).map((i) => i.lineId)).toEqual([null]);
     const o = await p.order([{ dieId: p.dieA, kg: 100 }]); // entered AFTER the scan
@@ -120,7 +120,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const sup = p.as("supervisor");
     const serials = await p.pack(p.dieA, [{ kg: 1000 }, { kg: 1000 }]);
-    const { id } = await sup.dispatch.create({ customerId: p.otherCustomer });
+    const { id } = await sup.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     // D12: plant stock with no order line goes on only through the office (allowUnassigned).
     const scan = await p.as("office").dispatch.addBundlesBySerial({ id, serials, allowUnassigned: true });
     expect(scan.linked).toEqual([]);
@@ -139,7 +139,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const o = await p.order([{ dieId: p.dieA, kg: 600 }]);
     const serials = await p.pack(p.dieA, [{ kg: 300 }, { kg: 300 }], o.lineIds[0]);
     const packer = p.as("packer");
-    const { id } = await packer.dispatch.create({ customerId: p.otherCustomer });
+    const { id } = await packer.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     // D12: under the wrong customer the scan refuses them; the packer corrects the customer and rescans.
     const refusedReport = await packer.dispatch.addBundlesBySerial({ id, serials });
     expect(refusedReport.unavailable.map((u) => u.code)).toEqual(["wrong_customer", "wrong_customer"]);
@@ -183,7 +183,7 @@ describe("S-2 / correctness I-1: the order link is decided again when its premis
     const own = await p.order([{ dieId: p.dieA, kg: 1000 }], { customerId: p.otherCustomer });
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 100 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.otherCustomer });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.otherCustomer });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     const [item] = await itemsOf(id);
     expect(item!.lineId).toBe(own.lineIds[0]!);
@@ -257,6 +257,7 @@ describe("minor findings", () => {
     const p = await plant();
     const serials = await p.pack(p.dieA, [{ kg: 10 }]);
     const { id } = await p.owner.dispatch.create({
+      vehicleNo: "GJ05AB1234",
       customerId: p.customerId,
       notes: "Deliver before 5 pm",
       shipDate: new Date("2026-10-05T06:30:00.000Z").getTime(),
@@ -335,7 +336,11 @@ describe("minor findings", () => {
       .select({ meta: auditLog.meta })
       .from(auditLog)
       .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "dispatch.overdraw.request"), eq(auditLog.subjectId, d)));
-    expect(asks.map((a) => (a.meta as { note: string | null }).note).sort()).toEqual(["customer wants the full lorry", "first ask"]);
+    // Tolerance at scan (pl-flow 61): the add asked first, without a note; the supervisor's note filled
+    // the empty request note; the office's second ask is recorded and changes nothing.
+    const notes = asks.map((a) => (a.meta as { note: string | null }).note);
+    expect(notes.filter((n) => n === null)).toHaveLength(1);
+    expect(notes.filter((n): n is string => n !== null).sort()).toEqual(["customer wants the full lorry", "first ask"]);
     expect(asks.some((a) => (a.meta as { repeat?: boolean; requestId?: string }).repeat === true && (a.meta as { requestId?: string }).requestId === req!.id)).toBe(true);
     void approval;
   }, SLOW);

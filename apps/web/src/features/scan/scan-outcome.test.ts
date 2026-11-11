@@ -250,7 +250,7 @@ describe("one order per packing list and the weight warning (Q36, Q37)", () => {
       unavailable: [],
       warnings: [{ serial: "26J2", orderNumber: "SO-14", lineNo: 1, bundleMilli: 12_498, lineMilli: 12_000, diffMilli: 498 }],
     };
-    expect(offBandText(t, report, "26J2")).toBe("12.498 kg/12ft, SO-14 says 12.000. Check the weight.");
+    expect(offBandText(t, report, "26J2")).toBe("12.498 kg/12ft, SO-14 says 12.000. Added. A manager has to approve it.");
     expect(offBandText(t, report, "26J1")).toBeNull();
     expect(offBandText(t, { warnings: undefined }, "26J2")).toBeNull();
     expect(addOutcome(report, "26J2").kind).toBe("added");

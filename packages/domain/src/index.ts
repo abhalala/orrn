@@ -18,4 +18,5 @@ export * from "./label-document";
 export * from "./builtin-labels";
 export * from "./planView";
 export * from "./dispatchVehicle";
+export * from "./dispatchLate";
 export * from "./ageing";

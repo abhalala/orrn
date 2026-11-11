@@ -52,6 +52,10 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - Every read, update, delete, export, search, count, sync pull, and join must be scoped by `companyId`.
 - Prefer composite tenant indexes such as `(companyId, id)`, `(companyId, status)`, and `(companyId, serverSeq)`.
 - Return generic `Not found` errors instead of revealing that a row exists in another tenant.
+- Auth cookies are host-only `__Host-better-auth.*` cookies on the API host (security review 2026-11-04). Never set a
+  cookie `Domain` or turn on `crossSubDomainCookies`: every `*.orrn.in` host, plant tunnels included, would receive
+  every session. `lib/legacyCookies.ts` clears the old `__Secure-better-auth.*` ones and ends their sessions
+  (`packages/server/test/auth-session-cookie.test.ts`).
 - Do not sync or cache cross-tenant data in web or native clients.
 - Every authenticated route (web + native) must enforce a session check and an
   active company membership check. Use the shared `requireCompanyMe` /
@@ -235,6 +239,8 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `cast_close` | owner, admin, manager, foundry | closes the cast, or re-opens it with the close-out cleared |
   | `die_rerank` | owner, admin, manager | applies the tier change (`die_tier_change`) |
   | `dispatch_overdraw` | owner, admin, manager | no applier, by design: `dispatch.complete` reads the status |
+  | `dispatch_off_band` | owner, admin, manager | no applier, by design: subject = the dispatch item; `dispatch.complete` reads it (Q36, see Dispatch) |
+  | `dispatch_late_entry` | owner, admin, manager | no applier, by design: subject = the dispatch; `dispatch.complete` with the same `occurredAt` reads it and names it in `late_entry_approval_id` (arch 52, see Dispatch) |
   | `phantom_void` | owner, admin, manager | voids a count's still-missing phantoms with reversal rows (one request per count) |
   | `die_owner_override` | owner, admin, manager | the approved row is the grant: `assertDieAllowed` reads it until `meta.closedAt` is set by `dieInstance.closeOwnerOverride`; approval stamps `meta.grantedAt`, a rejection writes nothing |
   | `order_reallocate` | owner, admin, manager | moves another customer's bundles (re-runs the owner gate at the decision) |
@@ -242,6 +248,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `press_reopen` | owner, admin, manager | reopens a logged run with reversal postings |
   | `press_late_entry` | owner, supervisor, manager | approved: the run's `late_entry_approval_id` names it and the close gate passes (billets still debit the cast); rejected: the late run is voided and a copy it held goes back to the rack |
   | `ageing_override` | owner, admin, manager | approved: stamps `ageing_batch.override_approval_id` (batch still held, guarded on status held/released); the supervisor's next `ageing.batches.release` then releases the soak/hardness rejects. Approving never releases by itself |
+- **Two people on every dispatch request (lead, 2026-11-10).** `dispatch_overdraw` and `dispatch_off_band` are requested by the person whose scan (or add) opened them, or by whoever pressed Complete when Complete opened them. The approver must be a different person holding an approver role (`approval.decide` refuses the requester). The person who presses Dispatch MAY be the approver: the scanner and the approver are then the two people. A note typed at Complete that fills a scanner's request keeps its author in `meta.noteById`; `approval.list` names that person as `noteByName`, and the approvals screens show "Note from {name}" when it is not the requester. Pinned by the "review 3" tests in `dispatch-tolerance-scan.test.ts` and `dispatch-off-band.test.ts`.
 - A hook runs in the decision's own batch, scopes its statements by company and guards them with `decisionLanded`. A hook that can refuse adds its own batch abort and an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails. A kind with an effect adds its hook to `APPROVAL_APPLIERS`; a kind without one says so in this table.
 - **Prepare step.** Work that needs reads or allocation (party numbers, for one) cannot run inside the batch, so a kind may add an `APPROVAL_PREPARERS` entry (`lib/approvalApply.ts`). `approval.decide` runs it for the kind after the request is read and before the decision batch, and hands the result to the applier as `prepared`. A prepare step must spend only what the applier will really use (`order_reallocate` allocates party numbers only for bundles still available on the line they were asked from, so the customer's series has no gap); anything it allocates and the batch then refuses is lost, which the numbering convention (`allocateDocNumbers`) accepts as a residual gap.
 - **Live facts.** The review sheet shows the FACTS of the thing a request touches, not only the requester's note, and Approve stays disabled until they load (Reject is open). The request's own meta is the snapshot (second); `approval.facts` (`lib/approvalFacts.ts`, open to every role like `list`, ids/names/kg/numbers only) is what is true now (first). `press_late_entry` reads the run (`press.runs.get`), `order_reallocate` reads each bundle (still available on the asked line, who would move, who takes a new party number, whether the target order is still open), `die_rerank` reads the copy now (tier, band, last reading against the band, and a flag when the copy changed after the ask). A tier request that changes nothing is refused when it is made (`planTierChange` `nothing_changes`), so a title never reads "tier 2 to 2"; a band lift names both bands. A new kind whose meta cannot stay true adds its facts to `loadApprovalFacts` and to `FACT_KINDS` in `approval-view.ts`.
@@ -948,6 +955,48 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `batchAbortUnless`, so a concurrent completion or a late link cannot slip through. A request left
   open becomes `rejected` with note "Withdrawn: …" when the dispatch completes within limits, is
   cancelled or is deleted (ruling PL8-R6).
+- **Tolerance at scan (pl-flow 61).** Every add path (scan, paste, search, one bundle) reads the
+  overdraw after its batch lands: a line this add linked to that is now past ordered + tolerance with no
+  approval is reported as `overTolerance[]` (`{ lineId, orderNumber, lineNo, toleranceBp, limitG,
+  totalG, overG }`; web and phone say "Over +5% on SO-n line n" in amber) and the `dispatch_overdraw`
+  request is opened then (`askOverdraw`, the same figures Complete would ask for, requested by whoever
+  added; no "asked again" audit row from a scan). A replay re-reads `overTolerance` and asks nothing.
+  Complete with the same figures leaves that request as it is; its `overdrawNote` (the web Complete
+  sheet's "Why send more than the order?") fills the request's note only while it has none, never
+  replacing one.
+- **Late packing list (arch 52, Q30).** When the line or the internet was down, `dispatch.complete`
+  takes `occurredAt` (epoch ms, the time the truck left) and `lateReason`: at most 72 h back, never in
+  the future (2 min skew), a reason of 3 to 500 characters (`lateDispatchGate` in
+  `packages/domain/src/dispatchLate.ts`, the same check in the web and phone Complete sheets). The first
+  press opens a `dispatch_late_entry` request (subject = the dispatch, meta `{ dispatchId, dispatchCode,
+  occurredAt, reason }`, note = the reason, audit `dispatch.late_entry.request`) and refuses
+  PRECONDITION_FAILED "Entered late: ..."; nothing is held or posted. An approval covers only the exact
+  `occurredAt` it was asked for and the load in its meta (`bundles`, `weightG`, review 7); another time
+  withdraws a waiting ask ("Withdrawn: asked again with another time.") and asks again, and so does a
+  changed load ("Withdrawn: the bundles on the dispatch changed."). The 72 h window is measured only
+  when a new request would open: an approved time stands after the 72 hours (review 1); past them only
+  a time this dispatch already asked for (approved or waiting) may be asked again, so a manager can
+  approve a corrected load for that same time (check N1). The load is the bundle count, grams and a
+  SHA-256 of the sorted bundle ids (`bundlesHash`, check N7). An approval is used for 7 days after `decided_at` (check N3,
+  `LATE_APPROVAL_LIFE_MS`, read and write); after that Complete asks again for the same time, and
+  `lateEntry.status` is `expired`. The PL number comes from the series of `completed_at` (the time the
+  truck left), so a truck that left on 31 March and was entered in April takes the old year's series. The
+  dispatch stores the approved request's reason, never the one typed on the second press (review 4).
+  `getDispatch` returns `lateEntry` `{ status: pending|approved|changed, occurredAt, reason,
+  approvalId }` for a building or held dispatch, and both Complete sheets fill and lock the time and
+  reason from it until "Use another time" (review 5). Once approved, Complete writes `completed_at` = `occurredAt`, the
+  ledger `posted_at` = `occurredAt` (still clamped to just after the bundle's last ledger row, so a
+  bundle packed after that time posts just after its pack), sets `late_entry`, `late_entry_reason` and
+  `late_entry_approval_id` (migration `0047_dispatch_late_entry`), guards the UPDATE on the approval
+  still being approved, and puts `lateEntry` in the `dispatch.complete` audit meta. Cancel or delete
+  withdraws a waiting ask. The completed dispatch shows "Entered late" with the time and reason; the
+  approvals review sheet shows the time the truck left, how many hours later it was asked and the
+  bundles and kg it was asked for. Guide "When the internet is down" (`internet-down`) in en, hi and gu.
+  Known split (review 8, by design): when the packing was also entered late, the ledger clamps each
+  dispatch row to just after its pack row (entry time), while `dispatchShipDay` reads `completed_at`
+  (the late time). The dispatch register then shows the load on day D and stock at the end of D still
+  holds it; from D+1 they agree, nothing is counted twice and the ledger stays balanced per bundle. The
+  guide says so ("Stock for that day still shows the bundles").
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
@@ -958,7 +1007,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   lowered after the read cannot slip through without a reason.
 - **Dispatch figures (BACKLOG 80, `lib/dispatchFigures.ts`).** The list (`listDispatches`), the detail (`getDispatch`) and the packing list header read ONE ship day and ONE kg. Ship day (`shipDay` = `{ ymd, kind }`, `dispatchShipDay`): a COMPLETED load reads the day it left (`completedAt`, kind `dispatched`) whatever date was planned; a load still being built or held reads the ship date somebody entered (`shipDate`, kind `ship`); else none. Always the company calendar day (`settings.timezone`), never the UTC date of an instant, except that a date typed as a day (UTC midnight, how the web form and the phone store it) is that same day in every zone (`shipDateYmd`). Every screen reads the server's `shipDay` and never re-derives it from `shipDate` or `completedAt`: the dispatch list and detail, the customer page (web and phone), the phone's list and header (`shipDayLine`), the party portal (`portal.dispatches.list|get`, `portal.today.lastDispatch`, shown with `portalDispatchDay`) and the Edit details form (`shipDatePrefill`). The packing list header carries the ENTERED ship date only (`enteredShipYmd`; null when none was entered): it prints its own issue date, so the day the load left is never printed as a "ship date". Kg: the sum of the dispatch items' bundle weights, grams (`totalWeightG` on the list, `totals.weightG` on the detail, whole load, not capped at the 500 rows read); a packing list's `summary.weightG` is that sum taken at issue, so the current revision of a completed dispatch equals it. Every dispatch total prints to the 10 g (`dispatchKgText`, 809.76 kg), and so does the v2 packing list on screen, as PDF and as HTML (`formatPlKg`, the PDF's `kgText`, the snapshot's `summary.text`); the Excel keeps the exact gram as a number (so a sum stays a sum) and displays it with a `#,##0.00` format. kg/12ft and kg/pc stay at the gram (they are rates).
 - **Packing list not yet issued (BACKLOG 85).** A building or held dispatch has no packing list: its detail says "The packing list is issued when the dispatch completes" with a link to the (reserved) bundles; a completed one embeds the packing list.
-- **Dispatch header and ship-to.** Vehicle, driver, transporter and capacity are entered on the dispatch detail ("Edit details"); the Complete sheet (web `complete-sheet.tsx`, native dispatch screen) asks for a vehicle number first (`vehicleGate`, `normaliseVehicleNo` in `@orrn/domain`) and cannot be skipped there; the server does not refuse `dispatch.complete` without one (BACKLOG 70, open), so direct API use still passes. The vehicle number and driver print on the packing list when set. A ship-to address per dispatch ("Same as bill-to" or a second address) is not built (BACKLOG 63); the PL prints the customer's billing address.
+- **Dispatch header and ship-to.** Vehicle, driver, transporter and capacity are entered on the dispatch detail ("Edit details"); the Complete sheet (web `complete-sheet.tsx`, native dispatch screen) asks for a vehicle number first (`vehicleGate`, `normaliseVehicleNo` in `@orrn/domain`) and cannot be skipped there. The server refuses `dispatch.complete` without one too (BACKLOG 70): PRECONDITION_FAILED "No vehicle number: add it before this dispatch can complete." on the read, and the completing UPDATE is guarded on a non-blank `vehicle_no` (a header cleared meanwhile is said the same way). Test fixtures give their dispatches a vehicle number. The vehicle number and driver print on the packing list when set. A ship-to address per dispatch ("Same as bill-to" or a second address) is not built (BACKLOG 63); the PL prints the customer's billing address.
 - Dispatch from a sales order (FP-PK-17, migration 0031 `dispatch.sales_order_id` + `truck_id`):
   `dispatch.create({ salesOrderId })` takes the order's customer (a different `customerId` is
   refused; the order must be open); `dispatch.update` cannot move such a dispatch to another
@@ -986,12 +1035,28 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   write-time `batchAbortUnless`; `update` cannot switch a sibling to a customer already on the
   truck); capacity counts the whole truck (`truckDispatchIds`); each customer gets its own PL
   number.
-- Q36 (warning, never a block): add / scan reports `warnings[]` (`{ serial, orderNumber, lineNo,
-  bundleMilli, lineMilli, diffMilli }`, domain `offLineBand`) for a
-  bundle whose kg/12ft is more than 0.100 (100 milli, exclusive) off its order line's
-  `kg_per_12ft_milli`; `getDispatch` items carry `offBand`, `lineKgPer12ftMilli`,
-  `offBandDiffMilli`. A bundle with no line has nothing to compare with. Pack's D15 band is
-  separate and untouched.
+- Q36 (decided: needs approval, Q40 approvers; `lib/dispatchOffBand.ts`): a bundle whose kg/12ft is
+  more than 0.100 (100 milli, exclusive, domain `offLineBand`) off its order line's `kg_per_12ft_milli`
+  goes on in a needs-approval state. Every add path (scan, paste, search, one bundle) reports
+  `warnings[]` (`{ serial, orderNumber, lineNo, bundleMilli, lineMilli, diffMilli }`) and opens one
+  `dispatch_off_band` request per row in the add's own batch (subject = the item; meta ids, serial,
+  order and line numbers, kg/12ft; guarded on the item still linked to that line). `linkItem` asks again
+  when the new line is off and withdraws a waiting request asked for another line (or for none);
+  `removeBundle`, cancel and delete withdraw ("Withdrawn: ..."). `dispatch.complete` refuses
+  (PRECONDITION_FAILED, before the overdraw check) while a row is not approved for the line it is on
+  NOW: waiting, rejected (take it off or link it to a line that fits), or not asked yet (a relink or a
+  customer change made it off band: complete asks then, once). The completing UPDATE carries
+  `noPendingOffBandSql`. `getDispatch` items carry `offBand`, `lineKgPer12ftMilli`, `offBandDiffMilli`,
+  `offBandStatus` (`pending|approved|rejected|none`, null when in band) and `offBandApprovalId`, plus a
+  top-level `offBand` `{ pending, rejected, unasked, approved, blocked }`; web and phone hold Dispatch
+  (not Hold stock) while `blocked` and say why. `approval.facts` shows the row as it is now (gone, moved,
+  or the line and both weights). A bundle with no line has nothing to compare with. Pack's D15 band is
+  separate and untouched. Review fixes (2026-11-10): an approval counts only while the bundle's and the
+  line's kg/12ft equal the figures in its meta (`sameFigures` in `offBandStates`), so a line edited after
+  it asks again; the completing UPDATE also requires the linked lines' newest `server_seq` unchanged
+  since the off-band read (`linkedLinesSeqSql`), so a line edited during Complete fails the write and
+  the abort asks; `linkItem` back to a line already approved with the same figures asks nothing; and
+  `getDispatch`'s `offBand` counts cover every item even past the 500 rows it lists.
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
 - The off-band chip and the capacity fill are computed by the server on every read (`getDispatch`); the web draws them and sums nothing.
@@ -1028,7 +1093,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   grams per piece half up (`kgPerPieceG`).
 - `reports.salesRegisterCsv({ month })` (reports.read or export.accounts): one CSV row per completed
   dispatch in the company calendar month, cells guarded against spreadsheet formulas.
-- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): amber "over tolerance" at scan time with an early `dispatch_overdraw` request, the `dispatch_off_band` approval kind (Q36 is a warning today), per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR. Late PL entry for line-down hours (Q30, BACKLOG 52) is not built either: until it is, a paper PL is entered afterwards by an `order.manage` holder at the time of entry.
+- Not built (BACKLOG 61, 63-66, 68-70, still open; 67, the refusal wording, is partly done): per-dispatch ship-to, PL footer / signature lines / "Page x of y", dispatch labels (Q38), the rejected-scan log, the weak-link device scan queue (Q41), and the "scan to verify" QR.
 
 ## Stock count (phantom report)
 
@@ -1192,6 +1257,13 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   owner links straight into `verification`. A link never signs in an account that has a password
   or 2FA (`packages/auth/src/magic-link-guard.ts`). The guard finds tokens stored plain or hashed;
   never configure a custom token hasher.
+- **No public sign-up (security review 2026-11-04, HIGH 3).** Over HTTP, `/sign-up/email` needs `inviteToken`, the token
+  of a live invite (not accepted, revoked or expired) for exactly that email (`packages/auth/src/sign-up-guard.ts`); the
+  web and native invite pages send it, and e2e makes accounts from `/dev/invite` tokens. In-process
+  `auth.api.signUpEmail` (Godseye staff, the dev seed) carries no request and passes. An invite sign-up is
+  `emailVerified: false`. Waitlist approval gives `owner` only to a proven mailbox: an existing account with
+  `emailVerified: false` is refused with CONFLICT and nothing is written. A finished password reset (`onPasswordReset`)
+  or Godseye's own sign-in link proves the mailbox (`packages/server/test/auth-signup-invite.test.ts`).
 - **Backups (FP-PF-12).** Every table that has `company_id` is exported unless it is in
   `EXCLUDED_TABLES`, and any column matching `isSecretColumn` is dropped (`lib/backup.ts`). Give a
   new credential column a name ending `*_wrapped` or `*_hash`, or one containing token, secret or
@@ -1380,7 +1452,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Platform admins create/revoke/rotate deployments via `platform.spool.*` tRPC routes.
 - Tenant users interact via `spool.*` tRPC routes (printers, templates, jobs).
 - Deliverables are platform-specific archives (zip/tar.gz) with pre-embedded config.yaml containing secrets.
-- The `@orrn/server/lib/cloudflare.ts` client provisions CF Tunnels and DNS CNAMEs for `<subdomain>.spool.orrn.in`.
+- The `@orrn/server/lib/cloudflare.ts` client provisions CF Tunnels and DNS CNAMEs for `<subdomain>.spool.orrn.in`, for Godseye's legacy spool path (`platform.spool.*`) only.
+- **Tenant enrolment never gets a tunnel (security review 2026-11-04, CRITICAL 1).** `edge.enroll` (owner, admin, manager) makes an outbound-only ORRN Edge node: no Cloudflare call, no DNS record, no tunnel token and no node secret in the answer. It returns a 15-minute single-use enrolment code that the node exchanges at `POST /api/edge/v1/enroll` for its node secret. The node's address is ORRN's (`input.subdomain` is ignored), and a plant holds at most `MAX_EDGE_NODES_PER_COMPANY` (5) live nodes of any kind; a concurrent enrolment that lands over the cap takes its row back. A row still `pending` whose code expired before any node used it holds no place, so abandoned tries never lock a plant out; enrolled nodes and pre-Edge-V1 rows (no code) do (`packages/server/test/edge-tenant-enroll.test.ts`).
 - The `@orrn/server/lib/spool-client.ts` SpoolClient class wraps all spool API calls with auto-signing.
 - **Print exactly once.** `print_log.id` and `job_key = bundle:<serial>:label:v<template version>:attempt:<n>` identify a label job. The spool stores UNIQUE(job key) and a repeat POST answers the first job (`docs/print-exactly-once.md` in orrn-spool); a 200 `duplicate: true` is success, a 409 `job_key_conflict` is logged as a bug and refused. `attempt` rises only for `reprint: true` on a bundle whose latest attempt really went out; a transport retry, a double tap or a reprint that never reached the spool reuses it.
 - **Scale.** `scale.reading` (`bundle.pack`) polls the node's `/scale/reading` through the signed client; a typed weight needs a reason whenever the node reports a scale (D12, `weightNeedsReason`). `SCALE_SIMULATOR=1` in `apps/server/.dev.vars` (never in production) lets `scale.reading` answer from a deterministic cycle; the Go spool has `--scale-sim`. The real indicator make, frame and baud are owner-only (Q5).
@@ -1411,6 +1484,9 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
 - Keep root `TODO.md` updated when changing milestone scope or status (open work only, with its backlog rank).
 - Keep this file updated when durable conventions or project constraints change.
 - Do not add an audit pruning Worker cron unless explicitly requested.
+- `ORRN_MASTER_KEY` fails closed (security review 2026-11-04): outside the dev stage `alchemy.run.ts` refuses a missing
+  key or the public all-zero dev key (`infra/masterKey.ts`) and binds it with `alchemy.secret`; a production Worker
+  that still finds such a key answers 503 to every request (`lib/masterKeyGate.ts`, `test/infra-master-key.test.ts`).
 - Never push, deploy or merge to `main`/`prod` from a task worktree. Promotion is `docs/DEPLOY_PROMOTION.md`: green `wt/FP` shas reach `main` (dev only) through the peer session the owner named (D33), and `prod` moves only on the owner's explicit go. What only the owner can do is listed in `docs/OWNER_HANDOVER.md`; what is still to build is `TODO.md`.
-- Migrations after the head are additive and strictly consecutive; a step that changes existing data is named in the PROMOTE message and in `docs/DEPLOY_PROMOTION.md` (today `0038` retires duplicate live reason codes and `0041` rebuilds `ageing_hardness`).
+- Migrations after the head are additive and strictly consecutive; a step that changes existing data is named in the PROMOTE message and in `docs/DEPLOY_PROMOTION.md` (today `0038` retires duplicate live reason codes, `0041` rebuilds `ageing_hardness` and `0046` ends every session once, for the host-only cookie of security review 2026-11-04).
 - Accounts stay outside ORRN (O1): no accounting, GST e-invoice / e-way bill, Tally export or invoicing inside the app. Prices on orders and dispatch value are optional operational data.

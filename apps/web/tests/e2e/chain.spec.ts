@@ -1051,7 +1051,7 @@ for (const width of WIDTHS) {
         const token = new URL(grant.inviteUrl).pathname.split("/").pop()!;
         const signup = await pwRequest.newContext({ extraHTTPHeaders: { origin: ORIGIN } });
         try {
-          const made = await signup.post(`${API}/api/auth/sign-up/email`, { data: { name: "Chain Buyer", email, password } });
+          const made = await signup.post(`${API}/api/auth/sign-up/email`, { data: { name: "Chain Buyer", email, password, inviteToken: token } });
           expect(made.ok(), `party sign-up returned ${made.status()}`).toBe(true);
           const accepted = await signup.post(`${API}/trpc/invite.acceptByToken`, { data: { token } });
           expect(accepted.ok(), `invite accept returned ${accepted.status()}`).toBe(true);

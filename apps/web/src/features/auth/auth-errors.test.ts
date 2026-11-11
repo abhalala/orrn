@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { inviteAcceptOutcome, isExistingAccount, signInErrorKey, totpErrorKey } from "./auth-errors";
+import { inviteAcceptOutcome, inviteSignUpRefusal, isExistingAccount, signInErrorKey, totpErrorKey } from "./auth-errors";
 
 describe("signInErrorKey", () => {
   test("wrong email or password reads as the inline credentials error", () => {
@@ -33,6 +33,17 @@ describe("isExistingAccount (invite sign-up, audit N4)", () => {
     expect(isExistingAccount({ code: "USER_ALREADY_EXISTS", status: 422 })).toBe(true);
     expect(isExistingAccount({ code: "PASSWORD_TOO_SHORT", status: 400 })).toBe(false);
     expect(isExistingAccount(null)).toBe(false);
+  });
+});
+
+describe("inviteSignUpRefusal (sign-up needs a live invite, security review 2026-11-04)", () => {
+  test("the server's invite refusals map to the invite page's views; anything else is not one", () => {
+    expect(inviteSignUpRefusal({ code: "SIGN_UP_INVITE_EMAIL_MISMATCH", status: 403 })).toBe("wrongEmail");
+    expect(inviteSignUpRefusal({ code: "SIGN_UP_INVITE_NOT_VALID", status: 403 })).toBe("expired");
+    expect(inviteSignUpRefusal({ code: "SIGN_UP_NEEDS_INVITE", status: 403 })).toBe("expired");
+    expect(inviteSignUpRefusal({ code: "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL", status: 422 })).toBeNull();
+    expect(inviteSignUpRefusal(new TypeError("offline"))).toBeNull();
+    expect(inviteSignUpRefusal(null)).toBeNull();
   });
 });
 

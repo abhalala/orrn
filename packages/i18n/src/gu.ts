@@ -618,7 +618,8 @@ const guBase = {
     notFound: "આ કંપનીમાં મળ્યું નહીં",
     unrecognised: "આ bundle નો serial કે લેબલ લિંક નથી. જોઈને ફરી પ્રયત્ન કરો.",
     continuous: {
-      offBand: "{kg} kg/12ft, {order} માં {line}. વજન તપાસો.",
+      offBand: "{kg} kg/12ft, {order} માં {line}. ઉમેર્યું. મેનેજરની મંજૂરી જોઈએ.",
+      overTolerance: "{order} લાઇન {line} પર +{pct}% થી વધુ. Dispatch પહેલાં મેનેજરની મંજૂરી જોઈએ.",
       outsideOrder: "આ packing list ફક્ત {order} ની છે",
       outsideOrderPlain: "આ packing list ફક્ત એક sales order ની છે",
       orderBaki: "{order}: બાકી {baki} kg, આ લોડ પછી {left} kg બાકી",
@@ -1507,6 +1508,11 @@ const guBase = {
       empty: "પહેલાં ઓછામાં ઓછું એક bundle ઉમેરો.",
       conflict: "આ પેજ ખૂલ્યા પછી કેટલાક bundle બદલાયા છે. જે ન જઈ શકે તે લિસ્ટમાં દેખાડ્યા છે.",
       moved: "આ dispatch આગળ વધી ગયો છે. તે ક્યાં છે તે જોવા રીલોડ કરો.",
+      offBand: "કેટલાક bundle ઓર્ડરના વજનથી અલગ છે. આ dispatch જાય તે પહેલાં મેનેજરે મંજૂર કરવું પડશે.",
+      offBandRejected: "એક bundle ઓર્ડરના વજન માટે નામંજૂર થયું. તેને આ dispatch માંથી કાઢો, પછી ફરી કરો.",
+      overdraw: "આ લોડ ઓર્ડરની છૂટ કરતાં વધુ છે. પહેલાં મેનેજરે મંજૂર કરવું પડશે. તમારી નોંધ માંગણી સાથે ગઈ.",
+      lateEntry: "ગાડી નીકળ્યાનો સમય મેનેજરે મંજૂર કરવાનો છે. મંજૂરી પછી એ જ સમય સાથે Dispatch ફરી દબાવો.",
+      orderEdited: "Dispatch દબાવતી વખતે ઓર્ડર બદલાયો. Dispatch ફરી દબાવો.",
     },
     capacity: {
       label: "ગાડીની ક્ષમતા (kg)",

@@ -64,7 +64,7 @@ describe("D1 100-bound-parameter limit", () => {
 
   test("reserve, unreserve, reserve, complete a 120-bundle dispatch", async () => {
     const { companyId, api, customerId, bundles } = await setup(120);
-    const { id } = await api.dispatch.create({ customerId });
+    const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     for (let i = 0; i < bundles.length; i += 50) {
       await api.dispatch.addBundlesBySerial({ allowUnassigned: true, 
         id,
@@ -87,7 +87,7 @@ describe("D1 100-bound-parameter limit", () => {
 
   test("cancel releases a 120-bundle reserved dispatch", async () => {
     const { companyId, api, customerId, bundles } = await setup(120);
-    const { id } = await api.dispatch.create({ customerId });
+    const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     for (let i = 0; i < bundles.length; i += 50) {
       await api.dispatch.addBundlesBySerial({ allowUnassigned: true, 
         id,
@@ -101,7 +101,7 @@ describe("D1 100-bound-parameter limit", () => {
 
   test("addBundlesBySerial with 100 serials", async () => {
     const { companyId, api, customerId, bundles } = await setup(100);
-    const { id } = await api.dispatch.create({ customerId });
+    const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     const res = await api.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: bundles.map((b) => b.serial) });
     expect(res.added).toHaveLength(100);
     expect(await countRows(dispatchItem, and(eq(dispatchItem.companyId, companyId), eq(dispatchItem.dispatchId, id)))).toBe(100);
@@ -116,7 +116,7 @@ describe("D1 100-bound-parameter limit", () => {
 
   test("packing list for 120 bundles has 120 lines", async () => {
     const { api, customerId, bundles } = await setup(120);
-    const { id } = await api.dispatch.create({ customerId });
+    const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     for (let i = 0; i < bundles.length; i += 50) {
       await api.dispatch.addBundlesBySerial({ allowUnassigned: true, 
         id,

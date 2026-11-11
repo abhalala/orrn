@@ -1272,7 +1272,7 @@ export const guidesEnFp: GuideBookFp = {
     slug: "approvals-review",
     roles: APPROVERS,
     title: "Review and decide an approval",
-    when: "Use this when a request is waiting for a second person: a late press run, a move of bundles, a tier change, a cast close or a melt correction.",
+    when: "Use this when a request is waiting for a second person: a late press run, a move of bundles, a tier change, a cast close, a melt correction, or a dispatch with a bundle off its order weight, more than the order, or a packing list entered late.",
     steps: [
       {
         title: "Open the list",
@@ -1284,7 +1284,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Read the facts",
-        body: "Below the note are the facts as they are now: \"Where the bundles are now\" for a move, \"The run\" for a late entry, \"The copy now\" for a tier change and \"Figures\" for a cast close. Approve stays off until they load.",
+        body: "Below the note are the facts as they are now: \"Where the bundles are now\" for a move, \"The run\" for a late entry, \"The copy now\" for a tier change, \"Figures\" for a cast close, \"The bundle now\" for a bundle off its order weight, and \"Truck left\" with \"On the dispatch when asked\" for a late packing list. Approve stays off until they load.",
       },
       {
         title: "Check what changed",
@@ -1311,6 +1311,64 @@ export const guidesEnFp: GuideBookFp = {
       {
         title: "The purchase figures are hidden",
         fix: "Only people who read purchase figures can decide a debit or credit note. Ask one of them.",
+      },
+      {
+        title: "A dispatch request shows a note from someone else",
+        fix: "The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. The person who scanned cannot approve. The person who pressed Dispatch may approve.",
+      },
+    ],
+  },
+  "internet-down": {
+    slug: "internet-down",
+    roles: DISPATCH_OFFICE,
+    title: "When the internet is down",
+    when: "Use this when a truck has to leave while orrn cannot be reached, because the line or the internet is down. The packing list is entered afterwards at the time the truck left.",
+    steps: [
+      {
+        title: "Write it on paper",
+        body: "While orrn cannot be reached, fill the paper packing list as usual: the bundle serials, the vehicle number and the time the truck left. Leave the labels on the bundles.",
+      },
+      {
+        title: "Build the dispatch when it is back",
+        body: "Once the internet is back, open \"Dispatch\", open or start the dispatch for that party and scan or paste the serials from the paper.",
+      },
+      {
+        title: "Say when the truck left",
+        body: "Tap \"Dispatch\". In the sheet, turn on \"The truck left earlier (the line or the internet was down)\" and fill \"When the truck left\" from the paper. On the phone, fill \"Date the truck left\" and \"Time the truck left\". It can go back at most 72 hours.",
+      },
+      {
+        title: "Say why",
+        body: "Write the reason in \"Why is it entered late?\" and tap \"Dispatch\". The sheet says a manager has to approve the time. Nothing moves yet.",
+      },
+      {
+        title: "Get the time approved",
+        body: "A manager, an admin or the owner opens \"Approvals\", taps \"Review\" and checks the time against the paper. You cannot approve your own.",
+      },
+      {
+        title: "Dispatch again",
+        body: "Open the dispatch and tap \"Dispatch\". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. Use it within 7 days of the approval; after that, Dispatch asks a manager again. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
+      },
+    ],
+    problems: [
+      {
+        title: "It says the time is more than 72 hours back",
+        fix: "A late packing list can go back 72 hours only. For an older load, ask the manager how to correct the books.",
+      },
+      {
+        title: "It says the time is in the future",
+        fix: "Check the date and the 24 hour time. The time is on the plant's clock, not the phone's.",
+      },
+      {
+        title: "I typed another time after asking",
+        fix: "Tap \"Use another time\" in the sheet. A new time asks again and the old request is withdrawn. Ask the manager to approve the new one.",
+      },
+      {
+        title: "I added or took off bundles after the approval",
+        fix: "The approval covers the bundles on the dispatch when it was asked. Tap \"Dispatch\" with the same time: a manager is asked to approve that time again for the bundles on it now. This works after the 72 hours too, for the same time only.",
+      },
+      {
+        title: "Stock for that day still shows the bundles",
+        fix: "When the packing was also entered late, the bundles leave stock just after their packing entry. Stock at the end of the day the truck left can still show them, while the dispatch register shows the load on that day. From the next day both agree, and nothing is counted twice.",
       },
     ],
   },

@@ -25,6 +25,8 @@ export type DispatchItem = {
   kgPer12ftMilli?: number | null;
   lineKgPer12ftMilli?: number | null;
   offBand?: boolean;
+  /** Q36 decided: where the off-band row stands for the line it is on (null when it is not off band). */
+  offBandStatus?: "pending" | "approved" | "rejected" | "none" | null;
 };
 
 export type ItemGroup<T extends DispatchItem = DispatchItem> = {

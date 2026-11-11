@@ -1,3 +1,4 @@
+import { tolerancePercentText } from "@orrn/domain";
 import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 import type { ScanOutcome, ScanRefusalCode } from "@orrn/server/lib/scan";
 
@@ -60,7 +61,29 @@ export type AddBundlesReport = {
   results?: ScanResultRow[];
   /** Q36: bundles added more than 0.1 kg/12ft off the weight of the order line they went to. */
   warnings?: OffBandWarning[];
+  /** The order line each added bundle went to. */
+  linked?: { serial: string; salesOrderLineId: string; orderNumber: string; lineNo: number }[];
+  /** pl-flow 61: lines this add took past ordered + tolerance (a manager has been asked). */
+  overTolerance?: OverToleranceLine[];
 };
+
+export type OverToleranceLine = { lineId: string; orderNumber: string; lineNo: number; toleranceBp: number; limitG: number; totalG: number; overG: number };
+
+/** The tolerance as the floor says it: 500 bp is "5", 250 bp is "2.5" (domain `tolerancePercentText`). */
+export function tolerancePct(bp: number): string {
+  return tolerancePercentText(bp);
+}
+
+/**
+ * pl-flow 61: the amber "Over +5% on SO-4 line 2" for an added serial whose line this add took past
+ * ordered + tolerance, or null.
+ */
+export function overToleranceText(t: Translate, report: Pick<AddBundlesReport, "linked" | "overTolerance">, serial: string): string | null {
+  const lineId = report.linked?.find((l) => l.serial === serial)?.salesOrderLineId;
+  const over = lineId ? report.overTolerance?.find((o) => o.lineId === lineId) : undefined;
+  if (!over) return null;
+  return t("scan.continuous.overTolerance", { pct: tolerancePct(over.toleranceBp), order: over.orderNumber, line: over.lineNo });
+}
 
 export type OffBandWarning = { serial: string; orderNumber: string; lineNo: number; bundleMilli: number; lineMilli: number; diffMilli: number };
 

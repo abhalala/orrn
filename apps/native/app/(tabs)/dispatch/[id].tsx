@@ -2,8 +2,8 @@ import { dispatchActions, dispatchTone, vehicleGate } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Switch, Text, View } from "react-native";
 
 import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
@@ -27,10 +27,12 @@ import { queryClient, trpc } from "@/utils/trpc";
 import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
+import { completeRefusalText, offBandNote, offBandStops, overdrawExtras, overdrawLines } from "@/features/dispatch/off-band";
+import { LATE_STATUS_KEY, lateCheck, lateExtras, lateStart, lockedCheck, type LateCheck } from "@/features/dispatch/late-entry";
+import { kgTotal } from "@/features/dispatch/format";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
 import { dispatchNow } from "@/features/dispatch/dispatch-now";
-import { kgTotal } from "@/features/dispatch/format";
 import { GroupCard } from "@/features/dispatch/group-card";
 import { dispatchTotals, groupItems, type ItemGroup } from "@/features/dispatch/group-items";
 import { LabelSheet } from "@/features/dispatch/label-sheet";
@@ -90,13 +92,41 @@ export default function DispatchDetailScreen() {
   // Why the load goes over the truck's capacity: asked at Dispatch, kept with the dispatch (FP-PK-12).
   const [overReason, setOverReason] = useState("");
   const [overTried, setOverTried] = useState(false);
+  // pl-flow 61: why more than the order goes; sent with Complete while a line is over (web parity).
+  const [overdrawNote, setOverdrawNote] = useState("");
   // BACKLOG 62: no vehicle in the header, so the Dispatch sheet asks for it and saves it first.
   const [vehicle, setVehicle] = useState("");
   const [vehicleError, setVehicleError] = useState<"missing" | "invalid" | null>(null);
+  // Arch 52: the truck left while the line or the internet was down; entered at that time.
+  const timeZone = format.zone;
+  const [late, setLate] = useState(false);
+  const [lateDate, setLateDate] = useState("");
+  const [lateTime, setLateTime] = useState("");
+  const [lateReason, setLateReason] = useState("");
+  const [lateError, setLateError] = useState<Extract<LateCheck, { kind: "error" }> | null>(null);
+  // Review 5: locked to the time already asked for until "Use another time".
+  const [lateLocked, setLateLocked] = useState(false);
   const [banner, setBanner] = useState<{ title: string; body: string } | null>(null);
   const [justDispatched, setJustDispatched] = useState(false);
   // Remembers that the hold went through, so a retry after a failed complete does not hold twice (ruling T22).
   const held = useRef({ held: false });
+  // Review 5: the time already asked for (waiting or approved) fills the sheet and locks it.
+  const lateAsk = detail.data?.lateEntry ?? null;
+  const fillLate = () => {
+    const start = lateStart(lateAsk, timeZone);
+    setLate(start.late);
+    setLateDate(start.date);
+    setLateTime(start.time);
+    setLateReason(start.reason);
+    setLateError(null);
+    setLateLocked(start.locked);
+  };
+  // Again while the sheet is open, when a press opens the request or a manager decides it.
+  const askKey = lateAsk ? `${lateAsk.approvalId}:${lateAsk.status}` : "";
+  useEffect(() => {
+    if (sheet === "dispatch" && lateAsk) fillLate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the ask itself changes
+  }, [askKey]);
 
   const refresh = () => {
     void queryClient.invalidateQueries(trpc.dispatch.pathFilter());
@@ -110,8 +140,10 @@ export default function DispatchDetailScreen() {
     if (next === "dispatch") {
       setOverReason("");
       setOverTried(false);
+      setOverdrawNote("");
       setVehicle("");
       setVehicleError(null);
+      fillLate();
     }
     setSheet(next);
   };
@@ -158,6 +190,10 @@ export default function DispatchDetailScreen() {
   const { dispatch: d, customer, items } = detail.data;
   const customerName = customer?.name ?? "";
   const actions = dispatchActions(d.status);
+  // Q36 decided: off-band rows waiting or rejected hold Dispatch (Hold stock stays open).
+  const offNote = offBandNote(detail.data.offBand);
+  // pl-flow 61: lines past ordered + tolerance, in amber (a manager is asked at the scan or at Dispatch).
+  const overOrder = overdrawLines(detail.data.overdraw);
   const live = items.filter((i) => i.status !== "void");
   const voided = items.filter((i) => i.status === "void");
   const groups = groupItems(items);
@@ -208,13 +244,20 @@ export default function DispatchDetailScreen() {
       setOverTried(true);
       return;
     }
+    const lateSend = !late ? null : lateLocked && lateAsk ? lockedCheck(lateAsk) : lateCheck(lateDate, lateTime, lateReason, timeZone, Date.now());
+    if (lateSend?.kind === "error") {
+      setLateError(lateSend);
+      feedback.error();
+      return;
+    }
     setBusy(true);
     setSheetError(null);
     try {
       if (gate.kind === "save") await saveVehicle.mutateAsync({ id: d.id, vehicleNo: gate.vehicleNo });
       await dispatchNow(d.status, held.current, {
         reserve: () => reserve.mutateAsync({ id: d.id }),
-        complete: () => complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason) }),
+        complete: () =>
+          complete.mutateAsync({ id: d.id, ...completeExtras(capacity, overReason), ...overdrawExtras(overOrder, overdrawNote), ...lateExtras(lateSend) }),
       });
       setJustDispatched(true);
       closeSheet();
@@ -232,6 +275,13 @@ export default function DispatchDetailScreen() {
         setOverTried(true);
         setSheetError(t("dispatch.capacity.reasonRequired"));
         announce(t("dispatch.capacity.reasonRequired"), { shownInLiveRegion: true });
+        refresh();
+      } else if (completeRefusalText(t, error)) {
+        // A dispatch rule refused it (off-band rows): say which rule and what to do.
+        const text = completeRefusalText(t, error)!;
+        feedback.error();
+        setSheetError(text);
+        announce(text, { shownInLiveRegion: true });
         refresh();
       } else {
         fail(error, true);
@@ -357,6 +407,21 @@ export default function DispatchDetailScreen() {
             </View>
           ) : null}
           {d.status !== "completed" ? <CapacityBanner capacity={detail.data.capacity} /> : null}
+          {d.status !== "completed" && offNote ? (
+            <View accessibilityLiveRegion="polite" testID="dispatch-off-band-note" className="rounded-card bg-tone-amber-tint p-4">
+              <Text className="font-sans text-[15px] leading-6 text-tone-amber-ink">{t(offNote.key, { count: offNote.count })}</Text>
+            </View>
+          ) : null}
+          {d.status !== "completed" && overOrder ? (
+            <View accessibilityLiveRegion="polite" testID="dispatch-over-tolerance" className="gap-1 rounded-card bg-tone-amber-tint p-4">
+              {overOrder.lines.map((l) => (
+                <Text key={l.lineId} className="font-sans-semibold text-[15px] text-tone-amber-ink">
+                  {t("dispatch.overTolerance.line", { pct: l.pct, order: l.orderNumber, line: l.lineNo, kg: kgTotal(l.overG) })}
+                </Text>
+              ))}
+              <Text className="font-sans text-[15px] leading-6 text-tone-amber-ink">{t(overOrder.statusKey)}</Text>
+            </View>
+          ) : null}
 
           {banner ? (
             <View accessibilityLiveRegion="polite" className="gap-1 rounded-card bg-tone-red-tint p-4">
@@ -410,6 +475,16 @@ export default function DispatchDetailScreen() {
             ))}
           </View>
 
+          {d.status === "completed" && d.lateEntry && d.completedAt ? (
+            // Arch 52: entered after the line came back, at the time the truck left.
+            <View className="flex-row flex-wrap items-center gap-2" testID="late-entry-note">
+              <Chip tone="amber" label={t("dispatch.late.chip")} />
+              <Text className="min-w-0 flex-1 font-sans text-sm text-muted-foreground">
+                {t("dispatch.late.left", { when: `${format.day(d.completedAt)} ${format.time(d.completedAt)}`, reason: d.lateEntryReason ?? "" })}
+              </Text>
+            </View>
+          ) : null}
+
           {d.status === "completed" ? (
             plQuery.isPending ? (
               <LoadingBlock />
@@ -457,7 +532,7 @@ export default function DispatchDetailScreen() {
                 size="lg"
                 label={step.primary === "scan" ? t("dispatch.build.scanBundles") : step.primary === "hold" ? t("dispatch.holdStock") : t("dispatch.dispatchAction")}
                 loading={busy && step.primary !== "scan" && sheet === null}
-                disabled={busy}
+                disabled={busy || (step.primary === "dispatch" && offBandStops(detail.data.offBand))}
                 onPress={() => {
                   if (step.primary === "scan") scan();
                   else if (step.primary === "hold") void hold();
@@ -508,6 +583,101 @@ export default function DispatchDetailScreen() {
             multiline
             maxLength={500}
           />
+        ) : null}
+        {overOrder ? (
+          <Field
+            label={t("dispatch.overTolerance.noteLabel")}
+            hint={t("dispatch.overTolerance.noteHint")}
+            value={overdrawNote}
+            onChangeText={setOverdrawNote}
+            multiline
+            maxLength={500}
+            testID="overdraw-note"
+          />
+        ) : null}
+        <View className="min-h-12 flex-row items-center justify-between gap-3">
+          <Text className="flex-1 text-[15px] font-medium text-foreground">{t("dispatch.late.toggle")}</Text>
+          <Switch
+            accessibilityLabel={t("dispatch.late.toggle")}
+            value={late}
+            onValueChange={(on) => {
+              setLate(on);
+              setLateError(null);
+            }}
+            testID="late-entry-toggle"
+          />
+        </View>
+        {late ? (
+          <>
+            {lateLocked && lateAsk ? (
+              <View
+                className={`gap-2 rounded-card p-4 ${lateAsk.status === "approved" ? "bg-tone-green-tint" : "bg-tone-amber-tint"}`}
+                testID="late-locked"
+              >
+                <Text className={`text-[15px] font-semibold ${lateAsk.status === "approved" ? "text-tone-green-ink" : "text-tone-amber-ink"}`}>
+                  {t(LATE_STATUS_KEY[lateAsk.status], { when: `${format.day(lateAsk.occurredAt)} ${format.time(lateAsk.occurredAt)}` })}
+                </Text>
+                <Button
+                  label={t("dispatch.late.useAnother")}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={() => {
+                    setLateLocked(false);
+                    setLateTime("");
+                    setLateReason("");
+                    setLateError(null);
+                  }}
+                  testID="late-use-another"
+                />
+              </View>
+            ) : lateAsk ? (
+              <Text className="text-[14px] text-muted-foreground">{t("dispatch.late.anotherAsks")}</Text>
+            ) : null}
+            <Field
+              label={t("dispatch.late.date")}
+              editable={!lateLocked}
+              value={lateDate}
+              onChangeText={(v) => {
+                setLateDate(v);
+                setLateError(null);
+              }}
+              placeholder="YYYY-MM-DD"
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+              mono
+              testID="late-date"
+            />
+            <Field
+              label={t("dispatch.late.clock")}
+              hint={t("dispatch.late.clockHint")}
+              error={lateError?.field === "time" ? t(lateError.key) : null}
+              editable={!lateLocked}
+              value={lateTime}
+              onChangeText={(v) => {
+                setLateTime(v);
+                setLateError(null);
+              }}
+              placeholder="14:30"
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+              mono
+              testID="late-time"
+            />
+            <Field
+              label={t("dispatch.late.reason")}
+              hint={t("dispatch.late.reasonHint")}
+              error={lateError?.field === "reason" ? t(lateError.key) : null}
+              editable={!lateLocked}
+              value={lateReason}
+              onChangeText={(v) => {
+                setLateReason(v);
+                setLateError(null);
+              }}
+              multiline
+              maxLength={500}
+              testID="late-reason"
+            />
+          </>
         ) : null}
       </ConfirmSheet>
       <ConfirmSheet

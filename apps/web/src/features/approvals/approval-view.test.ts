@@ -3,7 +3,19 @@ import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
-import { APPROVAL_TONE, approvalSubject, decideState, foundryCastIdOf, foundryLiveOf, foundryFiguresOf, reallocateMoveOf, subjectCodes, type ApprovalForView } from "./approval-view";
+import {
+  APPROVAL_TONE,
+  approvalSubject,
+  decideState,
+  foundryCastIdOf,
+  foundryLiveOf,
+  foundryFiguresOf,
+  hasLiveFacts,
+  offBandFactsView,
+  reallocateMoveOf,
+  subjectCodes,
+  type ApprovalForView,
+} from "./approval-view";
 
 function me(role: string, id = "u-manager"): Me {
   return {
@@ -135,6 +147,64 @@ describe("approvalSubject", () => {
     });
     // An id that does not look like an id is never a link.
     expect(approvalSubject(row({ kind: "melt_correct", subjectId: "m/../x", meta: { castId: "cast-9" } })).href).toBeNull();
+  });
+
+  test("review 3: a note typed by someone other than the requester is named under its author", async () => {
+    const { noteAuthorName } = await import("./approval-view");
+    expect(noteAuthorName({ requestedBy: "packer", meta: { noteById: "office" }, noteByName: "Office Ola" })).toBe("Office Ola");
+    expect(noteAuthorName({ requestedBy: "packer", meta: { noteById: "packer" }, noteByName: "Packer Pia" })).toBeNull();
+    expect(noteAuthorName({ requestedBy: "packer", meta: {}, noteByName: null })).toBeNull();
+    const { t } = createI18n("en");
+    expect(t("approvals.noteFrom", { name: "Office Ola" })).toBe("Note from Office Ola");
+  });
+
+  test("dispatch_late_entry (arch 52): the dispatch, opens it; the review sheet reads the time the truck left", async () => {
+    const { lateDispatchOf, lateHours } = await import("./approval-view");
+    const meta = { dispatchId: "d-7", dispatchCode: "D-0007", occurredAt: Date.UTC(2026, 10, 10, 1, 0), reason: "Line down" };
+    expect(approvalSubject(row({ kind: "dispatch_late_entry", subjectId: "d-7", meta }))).toEqual({
+      kindKey: "approvals.kind.dispatch_late_entry",
+      titleKey: "approvals.subject.lateDispatch",
+      vars: { code: "D-0007" },
+      href: "/dispatch/d-7",
+      openKey: "approvals.openDispatch",
+    });
+    const { t } = createI18n("en");
+    expect(t("approvals.subject.lateDispatch", { code: "D-0007" })).toBe("D-0007, entered late");
+    expect(approvalSubject(row({ kind: "dispatch_late_entry", subjectId: "a/../b", meta: { ...meta, dispatchId: "a/../b" } })).href).toBeNull();
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta })).toEqual({ occurredAt: meta.occurredAt });
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: {} })).toBeNull();
+    // Review 7: the load it was asked for, when the request pinned one.
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: { ...meta, bundles: 6, weightG: 720_500 } })).toEqual({
+      occurredAt: meta.occurredAt,
+      load: { bundles: 6, weightG: 720_500 },
+    });
+    expect(lateDispatchOf({ kind: "dispatch_off_band", meta })).toBeNull();
+    expect(lateHours(meta.occurredAt, meta.occurredAt + 5 * 3_600_000 + 10 * 60_000)).toBe(5);
+    expect(lateHours(meta.occurredAt, meta.occurredAt - 60_000)).toBe(0);
+  });
+
+  test("dispatch_off_band (Q36): the bundle, its dispatch and both weights; opens the dispatch; reads live facts", () => {
+    const meta = { dispatchId: "d-7", dispatchCode: "D-0007", serial: "26J2", orderNumber: "SO-14", lineNo: 2, bundleMilli: 12_498, lineMilli: 12_000 };
+    expect(approvalSubject(row({ kind: "dispatch_off_band", subjectId: "item-1", meta }))).toEqual({
+      kindKey: "approvals.kind.dispatch_off_band",
+      titleKey: "approvals.subject.offBand",
+      vars: { serial: "26J2", code: "D-0007", kg: "12.498", order: "SO-14", line: "2", lineKg: "12.000" },
+      href: "/dispatch/d-7",
+      openKey: "approvals.openDispatch",
+    });
+    const { t } = createI18n("en");
+    expect(t("approvals.subject.offBand", approvalSubject(row({ kind: "dispatch_off_band", subjectId: "i", meta })).vars)).toBe(
+      "26J2 on D-0007: 12.498 kg/12ft, SO-14 line 2 says 12.000",
+    );
+    expect(approvalSubject(row({ kind: "dispatch_off_band", subjectId: "i", meta: { ...meta, dispatchId: "a/../b" } })).href).toBeNull();
+    expect(hasLiveFacts("dispatch_off_band")).toBe(true);
+    expect(offBandFactsView({ kind: "dispatch_off_band", row: null })).toEqual({ gone: true });
+    expect(
+      offBandFactsView({
+        kind: "dispatch_off_band",
+        row: { dispatchCode: "D-0007", dispatchStatus: "reserved", serial: "26J2", bundleMilli: 12_498, line: { orderNumber: "SO-14", lineNo: 3, kgPer12ftMilli: 12_400 }, sameLine: false },
+      }),
+    ).toEqual({ gone: false, serial: "26J2", code: "D-0007", bundleKg: "12.498", line: { order: "SO-14", lineNo: 3, kg: "12.400" }, moved: true });
   });
 
   test("foundryFiguresOf: the figures a cast close and a melt correction carry", () => {

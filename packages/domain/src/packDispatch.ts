@@ -182,6 +182,18 @@ export function diffPackingListRevisions(prev: readonly PlDiffRow[], next: reado
  */
 export const DISPATCH_LINE_BAND_MILLI = 100;
 
+/**
+ * An order tolerance in basis points as the floor says it, without trailing zeros (pl-flow 61,
+ * "Over +5% on line n"): 500 -> "5", 250 -> "2.5", 125 -> "1.25". Integer arithmetic only.
+ */
+export function tolerancePercentText(bp: number): string {
+  if (!Number.isInteger(bp) || bp < 0) throw new RangeError(`bp must be a whole number of basis points, got ${bp}`);
+  const whole = Math.floor(bp / 100);
+  const rest = bp % 100;
+  if (rest === 0) return String(whole);
+  return rest % 10 === 0 ? `${whole}.${rest / 10}` : `${whole}.${String(rest).padStart(2, "0")}`;
+}
+
 /** The bundle's kg/12ft in milli from its own weight, pieces and length (null without pieces or length). */
 export function bundleKgPer12ftMilli(b: { weightG: number; pieces: number; lengthMm: number }): number | null {
   const kg = kgPer12ft({ weightG: b.weightG, pieces: b.pieces, lengthMm: b.lengthMm });
