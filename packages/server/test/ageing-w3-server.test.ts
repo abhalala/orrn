@@ -816,6 +816,9 @@ describe("reads around the plant", () => {
     await expect(p.as("office").reports.ageing({ from: "2026-02-01", to: "2026-01-01" })).rejects.toThrow();
     expect((await p.as("supervisor").dashboard.today()).ageing).toEqual({ inOven: 0, held: 0, out: 1 });
     expect((await p.as("viewer").dashboard.today()).ageing).toBeNull();
+    await env.db.update(company).set({ modules: ["press"] }).where(eq(company.id, p.companyId));
+    expect((await p.as("supervisor").dashboard.today()).ageing).toBeNull();
+    await env.db.update(company).set({ modules: [] }).where(eq(company.id, p.companyId));
     await expect(p.as("supervisor").press.runs.reopen({ id: l.runId, reason: "typo" })).rejects.toThrow(/void that batch first$/);
     const other = await agPlant();
     await expect(other.owner.ageing.batches.get({ id: batchId })).rejects.toThrow("Ageing batch not found");
