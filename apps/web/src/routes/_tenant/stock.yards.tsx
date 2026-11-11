@@ -16,7 +16,7 @@ import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/stock/yards")({
   // The yard filter makes no sense on a view of every yard.
@@ -132,7 +132,7 @@ function YardCard({ y, filter }: { y: YardRow; filter: Record<string, unknown> }
         {kgGrouped1(fmt, (y.weightG))} <span className="text-[15px] font-semibold text-muted-foreground">{massUnit(fmt)}</span>
       </p>
       <p className="m-0 text-[14px] text-muted-foreground tabular-nums">
-        {t("stock.yardLine", { bundles: y.bundles.toLocaleString("en-IN"), sections: y.sections })}
+        {t("stock.yardLine", { bundles: countText(fmt, y.bundles), sections: y.sections })}
         {y.reserved > 0 ? ` · ${t("stock.heldChip", { count: y.reserved })}` : ""}
       </p>
       {y.top.length > 0 ? (

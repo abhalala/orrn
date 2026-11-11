@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Sum = { bundles: number; pcs: number; weightG: number };
 type KindTotals = Record<"hollow" | "solid" | "semi" | "none", Sum>;
@@ -45,21 +45,21 @@ export function StockTotals({
           data-in-stock-g={inStock.weightG}
           data-in-stock-bundles={inStock.bundles}
         >
-          {t("stock.totals", { massUnit: massUnit(fmt), bundles: inStock.bundles.toLocaleString("en-IN"), kg: kg(inStock.weightG) })}
-          {` · ${inStock.pcs.toLocaleString("en-IN")} ${t("units.pcs")}`}
+          {t("stock.totals", { massUnit: massUnit(fmt), bundles: countText(fmt, inStock.bundles), kg: kg(inStock.weightG) })}
+          {` · ${countText(fmt, inStock.pcs)} ${t("units.pcs")}`}
         </p>
         {held.bundles > 0 ? (
           <Chip tone="blue" data-testid="stock-held" data-held-g={held.weightG}>
-            {t("stock.heldKg", { massUnit: massUnit(fmt), count: held.bundles.toLocaleString("en-IN"), kg: kg(held.weightG) })}
+            {t("stock.heldKg", { massUnit: massUnit(fmt), count: countText(fmt, held.bundles), kg: kg(held.weightG) })}
           </Chip>
         ) : null}
       </div>
       {listed ? (
         <p className="m-0 text-[14px] leading-6 text-muted-foreground tabular-nums" data-testid="stock-listed">
-          {t("stock.listed", { massUnit: massUnit(fmt), bundles: listed.bundles.toLocaleString("en-IN"), kg: kg(listed.weightG) })}
+          {t("stock.listed", { massUnit: massUnit(fmt), bundles: countText(fmt, listed.bundles), kg: kg(listed.weightG) })}
           {byStatus
             ? STATUSES.filter((s) => byStatus[s].bundles > 0)
-                .map((s) => ` · ${t(`status.bundle.${s}`)} ${byStatus[s].bundles.toLocaleString("en-IN")}`)
+                .map((s) => ` · ${t(`status.bundle.${s}`)} ${countText(fmt, byStatus[s].bundles)}`)
                 .join("")
             : ""}
         </p>
@@ -72,7 +72,7 @@ export function StockTotals({
               data-kind={k}
               className="rounded-full border border-border bg-card px-3 py-1 text-[13px] font-medium tabular-nums"
             >
-              {t(`packingList.v2.summary.${k}`)}: {t("stock.totals", { massUnit: massUnit(fmt), bundles: kindTotals[k].bundles.toLocaleString("en-IN"), kg: kg(kindTotals[k].weightG) })}
+              {t(`packingList.v2.summary.${k}`)}: {t("stock.totals", { massUnit: massUnit(fmt), bundles: countText(fmt, kindTotals[k].bundles), kg: kg(kindTotals[k].weightG) })}
             </li>
           ))}
         </ul>

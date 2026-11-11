@@ -17,7 +17,7 @@ import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped1, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 type LengthsSearch = StockFilter & { page?: number };
 
@@ -56,7 +56,7 @@ function StockLengths() {
     { key: "section", header: t("stock.columns.section"), cell: (r) => <span className="font-semibold">{sectionLabel({ series: r.series, sectionCode: r.sectionCode })}</span> },
     { key: "length", header: t("stock.columns.cutLength"), align: "end", cell: (r) => <span className="font-mono whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</span> },
     { key: "bundles", header: t("pack.columns.bundles"), align: "end", cell: (r) => <span className="font-mono">{r.bundles}</span> },
-    { key: "pcs", header: t("stock.columns.pieces"), align: "end", cell: (r) => <span className="font-mono">{r.pcs.toLocaleString("en-IN")}</span> },
+    { key: "pcs", header: t("stock.columns.pieces"), align: "end", cell: (r) => <span className="font-mono">{countText(fmt, r.pcs)}</span> },
     { key: "kg", header: t("stock.columns.weight", { massUnit: massUnit(fmt) }), align: "end", cell: (r) => <span className="font-mono">{kgGrouped1(fmt, (r.weightG))}</span> },
     {
       key: "kg12",
