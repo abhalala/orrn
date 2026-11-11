@@ -6,7 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { approval } from "@orrn/db/schema";
+import { approval, salesOrderLine } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -79,6 +79,26 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     });
     await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
     expect((await p.owner.dispatch.getDispatch({ id })).offBand).toMatchObject({ pending: 0, approved: 1, blocked: false });
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
+  test("review 2: an approval covers only the weights it was given for; a line edited after it asks again", async () => {
+    const { p, id, heavy, lineId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [heavy] });
+    const [req] = await offBandRows(p.companyId);
+    const bundleMilli = (req!.meta as { bundleMilli: number }).bundleMilli;
+    expect(req!.meta).toMatchObject({ lineMilli: 12_000, diffMilli: bundleMilli - 12_000 });
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    expect((await p.owner.dispatch.getDispatch({ id })).offBand).toMatchObject({ approved: 1, blocked: false });
+    // The office edits the line's kg/12ft (as orders.update or repriceWeight would): about 0.300 off now, not the 0.500 approved.
+    await env.db.update(salesOrderLine).set({ kgPer12ftMilli: 12_200 }).where(eq(salesOrderLine.id, lineId));
+    expect((await p.owner.dispatch.getDispatch({ id })).offBand).toMatchObject({ approved: 0, unasked: 1 });
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const rows = await offBandRows(p.companyId);
+    const fresh = rows.find((r) => r.status === "pending");
+    expect(fresh?.meta).toMatchObject({ bundleMilli, lineMilli: 12_200, diffMilli: bundleMilli - 12_200 });
+    await p.as("admin").approval.decide({ id: fresh!.id, decision: "approved" });
     await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
   }, SLOW);
 
