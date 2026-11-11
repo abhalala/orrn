@@ -27,17 +27,17 @@ import { draftWithKey, firstSaveKey, type FirstSave } from "./first-save";
 import { latestVerdict, lockState, verdictTone } from "./foundry-model";
 import { blankForm, figuresOf, formFromMelt, sameForm, saveInputOf, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
 import { todayIn } from "./melt-times";
-import { Accordion, Balance, ChargeSection, OutputSection, TimesSection, type AlloyOpt, type FurnaceOpt, type Lot, type Stream } from "./melt-sections";
+import { Accordion, Balance, ChargeSection, ChemicalsSection, OutputSection, TimesSection, type AlloyOpt, type FurnaceOpt, type Lot, type StoreItem, type Stream } from "./melt-sections";
 import { meltWebPath } from "@/lib/web-link";
 import { SpectroPanel } from "./spectro-panel";
 import type { CastData, DraftView, MeltRow, MeltSaveBody, MeltSaveCall } from "./types";
 import { ErrorLine, Note, kgOf } from "./ui";
 
-type Part = "times" | "charge" | "output" | "spectro";
+type Part = "times" | "charge" | "chemicals" | "output" | "spectro";
 const VERDICT_KEY = { pass: "foundry.spectro.verdict.pass", fail: "foundry.spectro.verdict.fail", incomplete: "foundry.spectro.verdict.incomplete" } as const;
 
-/** A save step of the shared form maps to the part of the phone sheet that holds it (chemicals and LDO stay as saved). */
-const partOf = (step: Step): Part => (step === "chemicals" ? "charge" : step);
+/** A save step of the shared form maps to the part of the phone sheet that holds it. */
+const partOf = (step: Step): Part => step;
 
 /**
  * The melt sheet on a phone: a draft that posts nothing until Lock. Four parts (times, charge, logs and
@@ -55,6 +55,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   const furnaces = useQuery(trpc.foundry.furnaces.list.queryOptions());
   const lots = useQuery(trpc.foundry.lots.available.queryOptions());
   const streams = useQuery(trpc.foundry.returnStreams.list.queryOptions());
+  const store = useQuery(trpc.store.items.list.queryOptions());
   const activeFurnaces = (furnaces.data?.items ?? []).filter((f) => f.status === "active");
   const [form, setForm] = useState<MeltForm>(() => (melt ? formFromMelt(melt as unknown as SavedMelt, timeZone, todayIn(timeZone)) : blankForm(todayIn(timeZone))));
   // The single active furnace is the default of a new melt, once the list is in.
@@ -243,6 +244,7 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
   const busy = saveMut.isPending || lockMut.isPending;
 
   if (lots.isError && !lots.data) return <ErrorBlock error={lots.error} onRetry={() => void lots.refetch()} retrying={lots.isRefetching} />;
+  if (store.isError && !store.data) return <ErrorBlock error={store.error} onRetry={() => void store.refetch()} retrying={store.isRefetching} />;
 
   const timesSummary = form.times.chargingStart || form.times.castingEnd ? `${form.times.chargingStart || "-"} - ${form.times.castingEnd || "-"}` : undefined;
   const common = { form, patch, issue };
@@ -263,6 +265,9 @@ export function MeltEditor({ data, melt }: { data: CastData; melt: MeltRow | nul
         </Accordion>
         <Accordion title={t("foundry.melt.charge.title")} summary={fig.balance.metalInG > 0 ? t("foundry.melt.charge.total", { kg: kgOf(fig.balance.metalInG) }) : undefined} open={openParts.has("charge")} onToggle={() => toggle("charge")}>
           <ChargeSection {...common} lots={(lots.data?.lots ?? []) as Lot[]} streams={(streams.data?.items ?? []) as Stream[]} capacityG={capacityG} />
+        </Accordion>
+        <Accordion title={t("foundry.melt.steps.chemicals")} open={openParts.has("chemicals")} onToggle={() => toggle("chemicals")}>
+          <ChemicalsSection {...common} storeItems={(store.data?.items ?? []) as StoreItem[]} />
         </Accordion>
         <Accordion title={t("foundry.melt.steps.output")} summary={fig.logsG > 0 ? `${kgOf(fig.logsG)} ${t("units.kg")}` : undefined} open={openParts.has("output")} onToggle={() => toggle("output")}>
           <OutputSection {...common} streams={(streams.data?.items ?? []) as Stream[]} capacityG={capacityG} />
