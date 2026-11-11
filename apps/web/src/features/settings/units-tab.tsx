@@ -105,8 +105,9 @@ export function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; time
               <Choice label={t("settings.units.length")}>
                 <Pick label={t("settings.units.length")} value={draft.length} options={options("length")} onChange={(v) => set("length", v)} />
               </Choice>
-              <Choice label={t("settings.units.sectionWeight")} hint={t("settings.units.sectionWeightHint")}>
+              <Choice label={t("settings.units.sectionWeight")} hint={t("settings.units.sectionWeightHint")} hintId={`${headingId}-section-hint`}>
                 <Pick
+                  describedBy={`${headingId}-section-hint`}
                   label={t("settings.units.sectionWeight")}
                   value={draft.linear_mass}
                   options={options("linear_mass")}
@@ -180,10 +181,10 @@ export function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; time
  * (a 320 px screen, or 400 percent zoom) they are a select that shows the whole label; from sm up they are the segmented control.
  * Both are in the markup and the style hides one; a hidden one is out of the reading order.
  */
-function Pick<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange(value: T): void }) {
+function Pick<T extends string>({ label, value, options, onChange, describedBy }: { label: string; value: T; options: { value: T; label: string }[]; onChange(value: T): void; describedBy?: string }) {
   return (
     <>
-      <NativeSelect aria-label={label} value={value} onChange={(e) => onChange(e.target.value as T)} className="sm:hidden" data-testid="units-pick-select">
+      <NativeSelect aria-label={label} aria-describedby={describedBy} value={value} onChange={(e) => onChange(e.target.value as T)} className="sm:hidden" data-testid="units-pick-select">
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -191,18 +192,28 @@ function Pick<T extends string>({ label, value, options, onChange }: { label: st
         ))}
       </NativeSelect>
       <div className="hidden sm:block">
-        <SegmentedControl label={label} value={value} options={options} onChange={onChange} />
+        <SegmentedControl label={label} aria-describedby={describedBy} value={value} options={options} onChange={onChange} />
       </div>
     </>
   );
 }
 
-function Choice({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/**
+ * A visible caption over one choice. The choice carries its own accessible name (a radio group or a select, named by `label`),
+ * so this wrapper is not a second group of the same name; the hint it holds is tied to the choice by `describedBy`.
+ */
+function Choice({ label, hint, hintId, children }: { label: string; hint?: string; hintId?: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5" role="group" aria-label={label}>
-      <span className="text-[14px] leading-5 font-semibold">{label}</span>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-[14px] leading-5 font-semibold" aria-hidden="true">
+        {label}
+      </span>
       {children}
-      {hint ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p id={hintId} className="m-0 text-[13px] leading-5 text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

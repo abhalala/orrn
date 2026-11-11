@@ -44,4 +44,16 @@ describe("the four long choices", () => {
     expect(html).toContain("24 hour");
     expect(html.match(/role="radiogroup"/g)?.length).toBe(5);
   });
+
+  test("no outer group repeats the name of the choice inside it", () => {
+    expect(html).not.toContain('role="group"');
+    for (const label of ["Weight", "Length", "Section weight", "Number grouping", "Clock"]) {
+      expect(html.match(new RegExp(`aria-label="${label}"`, "g"))?.length ?? 0).toBeGreaterThanOrEqual(1);
+    }
+  });
+  test("the section weight hint is tied to the choice, in the select and in the radio group", () => {
+    const id = /<p id="([^"]+)"[^>]*>The weight of a section by length/.exec(html)?.[1];
+    expect(id).toBeDefined();
+    expect(html.match(new RegExp(`aria-describedby="${id}"`, "g"))?.length).toBe(2);
+  });
 });
