@@ -8,6 +8,7 @@ import type { MessageKey, Translate } from "@orrn/i18n";
 
 import type { Fmt } from "@orrn/domain";
 import { countText, kgGrouped3 } from "@/shared/lib/fmt-text";
+import { wallParts } from "@/shared/lib/plant-calendar";
 import { orderKgText, pcsText } from "./format";
 
 export type OrderStatus = "booking" | "confirmed" | "dispatching" | "closed" | "cancelled";
@@ -372,16 +373,10 @@ export function windowState(startMs: number, endMs: number): WindowState {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-const WALL = new Map<string, Intl.DateTimeFormat>();
 /** The wall clock of `timeZone` at `ms`: year, month, day, hour, minute. */
 function wallOf(ms: number, timeZone: string): { y: number; m: number; d: number; h: number; mi: number } {
-  let f = WALL.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-    WALL.set(timeZone, f);
-  }
-  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
-  return { y: Number(p.year), m: Number(p.month), d: Number(p.day), h: Number(p.hour) % 24, mi: Number(p.minute) };
+  const w = wallParts(ms, timeZone);
+  return { y: w.y, m: w.m, d: w.d, h: w.h, mi: w.min };
 }
 
 /**
@@ -415,14 +410,16 @@ export type WindowEnd = { day: "today" | "tomorrow" | "other"; time: string; dat
  * The window in words on the plant's clock (BACKLOG 51): "today 08:00 to tomorrow 08:00", where
  * today is the production day the server named (`plans.defaultWindow`), not the browser's date.
  */
-export function windowWords(startMs: number, endMs: number, timeZone: string, productionDay: string): { from: WindowEnd; to: WindowEnd } {
+export function windowWords(startMs: number, endMs: number, timeZone: string, productionDay: string, fmt?: Fmt): { from: WindowEnd; to: WindowEnd } {
   const [y, mo, d] = productionDay.split("-").map(Number) as [number, number, number];
   const next = new Date(Date.UTC(y, mo - 1, d + 1));
   const tomorrow = `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
   const end = (ms: number): WindowEnd => {
     const w = wallOf(ms, timeZone);
     const date = `${w.y}-${pad(w.m)}-${pad(w.d)}`;
-    return { day: date === productionDay ? "today" : date === tomorrow ? "tomorrow" : "other", time: `${pad(w.h)}:${pad(w.mi)}`, date };
+    // The time follows the plant's clock when the caller hands its formatter; without one it is the 24 hour text.
+    const time = fmt ? fmt.in({ timeZone }).time(ms) : `${pad(w.h)}:${pad(w.mi)}`;
+    return { day: date === productionDay ? "today" : date === tomorrow ? "tomorrow" : "other", time, date };
   };
   return { from: end(startMs), to: end(endMs) };
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { dayTimeText, kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText } from "./format";
+import { dayTimeText } from "../../../test-support/legacy/orders-format";
+import { kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText } from "./format";
 
 describe("orders number text", () => {
   test("kg to three decimals with Indian grouping", () => {

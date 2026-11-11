@@ -19,7 +19,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderLineAged } from "@/features/ageing/order-aged";
-import { bookDateText } from "@/features/purchase/format";
+import { bookDateText } from "@/shared/lib/fmt-text";
 import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
@@ -44,7 +44,7 @@ import { countText, kgGrouped3, massUnit, rateText, sectionText, sectionUnit } f
 
 export function OrderDetailPage({ id }: { id: string }) {
   const fmt = useFmt();
-  const { t, locale } = useT();
+  const { t } = useT();
   const queryClient = useQueryClient();
   const { unit } = useLengthUnit();
   const [editOpen, setEditOpen] = useState(false);
@@ -291,8 +291,8 @@ export function OrderDetailPage({ id }: { id: string }) {
           <dl className="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Fact label={t("orders.customer")} value={order.customerName} />
             <Fact label={t("orders.poNumber")} value={order.poNumber || t("orders.noPo")} mono={Boolean(order.poNumber)} />
-            <Fact label={t("orders.orderDate")} value={bookDateText(order.orderDate, locale)} />
-            {order.expectedDate ? <Fact label={t("orders.expectedDate")} value={bookDateText(order.expectedDate, locale)} /> : null}
+            <Fact label={t("orders.orderDate")} value={bookDateText(fmt, order.orderDate)} />
+            {order.expectedDate ? <Fact label={t("orders.expectedDate")} value={bookDateText(fmt, order.expectedDate)} /> : null}
             <Fact label={t("orders.source.label")} value={t(`orders.source.${order.source === "portal" ? "portal" : "office"}`)} />
             {order.note ? <Fact label={t("common.note")} value={order.note} /> : null}
             {order.closeReason ? <Fact label={t("orders.closeReason")} value={order.closeReason} /> : null}

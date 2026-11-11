@@ -8,6 +8,7 @@
  */
 import type { LengthUnit } from "@orrn/domain";
 
+import { ymdInZone } from "@/shared/lib/plant-calendar";
 import { newLine, lineProblems, parseKgG, parsePieces, type LineDraft, type LineProblems } from "./line-model";
 
 export type DieBlock = {
@@ -142,7 +143,7 @@ export function addDaysYmd(ymd: string, days: number): string {
 /** Today as `YYYY-MM-DD` on the plant's clock. */
 export function todayYmd(timeZone: string, nowMs: number = Date.now()): string {
   try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(nowMs));
+    return ymdInZone(nowMs, timeZone);
   } catch {
     return new Date(nowMs).toISOString().slice(0, 10);
   }

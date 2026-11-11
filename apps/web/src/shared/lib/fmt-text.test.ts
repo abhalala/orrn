@@ -8,7 +8,8 @@ import { formatKg, formatKgTotal, formatterFor, gToKg, kgPerMetre, screenPrefs }
 
 import { kgText as dieKgText } from "@/features/dies/die-model";
 import { kgGroupedText, milliKgText } from "@/features/die-room/die-room-model";
-import { dayText as oldDayText, dayTimeText as oldDayTimeText, kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText as oldRateText } from "@/features/orders/format";
+import { dayText as oldDayText, dayTimeText as oldDayTimeText } from "../../../test-support/legacy/orders-format";
+import { kgFieldText, listKgText, milliText, orderKgText, pcsText, rateText as oldRateText } from "@/features/orders/format";
 import { kgText as purchaseKgText } from "@/features/purchase/format";
 import { kgText as reportsKgText, kgWholeText, rupeeText as reportsRupeeText } from "@/features/reports/model";
 import { measurementText } from "@/features/dies/die-display";

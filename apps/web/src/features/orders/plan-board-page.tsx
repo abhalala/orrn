@@ -430,7 +430,7 @@ function PlanBuilder() {
           {defaultWin.data && startMs != null && endMs != null && win === "ok" ? (
             <p data-plan-window="" className="m-0 text-[14px] leading-6 text-muted-foreground md:col-span-2">
               {(() => {
-                const w = windowWords(startMs, endMs, planZone, defaultWin.data.productionDay);
+                const w = windowWords(startMs, endMs, planZone, defaultWin.data.productionDay, fmt);
                 const at = (e: typeof w.from) =>
                   e.day === "today"
                     ? t("orders.plan.atToday", { time: e.time })
