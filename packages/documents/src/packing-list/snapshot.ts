@@ -71,6 +71,23 @@ export function plFileName(code: string): string {
   return code.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "packing-list";
 }
 
+function pdfNamePart(value: string, fallback: string, max: number): string {
+  const safe = value
+    .replace(/[<>:"\/\\|?*\u0000-\u001F\u007F]+/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-. ]+|[-. ]+$/g, "");
+  return Array.from(safe || fallback).slice(0, max).join("").replace(/[-. ]+$/g, "") || fallback;
+}
+
+/** `{PL number}_{customer name}.pdf`, safe to save and at most 160 characters. */
+export function plPdfFileName(code: string, customerName: string): string {
+  const number = pdfNamePart(code, "packing-list", 80);
+  const customer = pdfNamePart(customerName, "customer", 155 - Array.from(number).length);
+  return `${number}_${customer}.pdf`;
+}
+
 export type PackingListPrintText = {
   lockedSnapshotFooter: (code: string, revision: number) => string;
   packedBy: string;

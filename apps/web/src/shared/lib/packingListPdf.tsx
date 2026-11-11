@@ -13,6 +13,7 @@ import {
   plLockedSnapshotFooter,
   plSignatureLabels,
   plGroupPrintDetails,
+  plPdfFileName,
   type PackingListModel,
   type PackingListModelOptions,
   type PackingListSnapshot,
@@ -397,13 +398,13 @@ export async function buildPackingListPdfBlob(pl: PackingListSnapshot, code: str
   ).toBlob();
 }
 
-/** Render and save the packing list as `<code>.pdf`. */
+/** Render and save the packing list as `{PL number}_{customer name}.pdf`. */
 export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}) {
   const blob = await buildPackingListPdfBlob(pl, code, opts);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${code.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
+  a.download = plPdfFileName(pl.header?.plNumber ?? code, pl.dispatch.customer.name);
   document.body.appendChild(a);
   a.click();
   a.remove();
