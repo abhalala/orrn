@@ -17,7 +17,7 @@ const STEP = 20;
 
 /** `/portal/dispatches`: this party's completed dispatches only. */
 export function PortalDispatchesPage() {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const [limit, setLimit] = useState(STEP);
   const list = useQuery({ ...trpc.portal.dispatches.list.queryOptions({ limit }), placeholderData: keepPreviousData, retry: false });
@@ -25,7 +25,7 @@ export function PortalDispatchesPage() {
 
   const columns: ResponsiveListColumn<Row>[] = [
     { key: "code", header: t("portal.dispatches.code"), cell: (d) => <span className="font-mono font-semibold whitespace-nowrap">{d.code}</span> },
-    { key: "date", header: t("portal.dispatches.date"), cell: (d) => <span className="whitespace-nowrap">{portalDispatchDay(d, locale)}</span> },
+    { key: "date", header: t("portal.dispatches.date"), cell: (d) => <span className="whitespace-nowrap">{portalDispatchDay(fmt, d)}</span> },
     { key: "pl", header: t("portal.dispatches.plNo"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.plNumber ?? ""}</span> },
     { key: "vehicle", header: t("portal.dispatches.vehicle"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.vehicleNo ?? ""}</span> },
     { key: "bundles", header: t("portal.dispatches.bundlesLabel"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{countText(fmt, d.bundles)}</span> },

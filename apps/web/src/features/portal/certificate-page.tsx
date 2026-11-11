@@ -20,7 +20,7 @@ import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
  * foundry has not tested. A quality document: no rate, not a tax invoice.
  */
 export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   usePortalMe();
   const q = useQuery({ ...trpc.portal.certificate.get.queryOptions({ dispatchId }), retry: false });
@@ -73,7 +73,7 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
         <dl className="m-0 grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           {[
             { k: t("portal.certificate.number"), v: snap.number, mono: true },
-            { k: t("portal.certificate.issuedOn"), v: bookDate(snap.issuedOn, locale) },
+            { k: t("portal.certificate.issuedOn"), v: bookDate(fmt, snap.issuedOn) },
             { k: t("portal.certificate.dispatch"), v: snap.dispatch.code, mono: true },
             { k: t("portal.dispatches.plNo"), v: snap.dispatch.plNumber ?? "-", mono: true },
           ].map((f) => (

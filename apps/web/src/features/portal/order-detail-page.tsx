@@ -14,7 +14,7 @@ import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /** `/portal/orders/$id`: ordered, dispatched and baki per line. Never a rate, a copy or a tier. */
 export function PortalOrderDetailPage({ id }: { id: string }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const me = usePortalMe();
   const q = useQuery({ ...trpc.portal.orders.get.queryOptions({ id }), retry: false });
@@ -43,7 +43,7 @@ export function PortalOrderDetailPage({ id }: { id: string }) {
       <PageHeader
         title={o.number}
         back={back}
-        subtitle={[bookDate(o.orderDate, locale), o.poNumber ? `${t("portal.orders.poNumber")}: ${o.poNumber}` : null].filter(Boolean).join(" · ")}
+        subtitle={[bookDate(fmt, o.orderDate), o.poNumber ? `${t("portal.orders.poNumber")}: ${o.poNumber}` : null].filter(Boolean).join(" · ")}
         actions={
           status ? (
             <Chip tone={PORTAL_STATUS_TONE[status]} truncate={false}>

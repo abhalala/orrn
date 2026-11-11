@@ -22,6 +22,8 @@ import * as oldDispatch from "../../../test-support/legacy/dispatch-format";
 import { formatDay as paperDay, formatShipDate, formatYmdDay } from "@/features/dispatch/format";
 import { releaseNoteRows } from "@/features/settings/release-notes";
 import { dayOrYearText, shipDayText } from "./fmt-text";
+import * as oldPortal from "../../../test-support/legacy/portal-model";
+import { bookDate as portalBookDate } from "@/features/portal/model";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -209,5 +211,16 @@ describe("dispatch days", () => {
         expect(dayOrYearText(dflt(loc), at, now.getTime())).toBe(oldDispatch.formatDay(at, { now, locale: loc }) ?? "");
       }
     }
+  });
+});
+
+describe("portal book dates", () => {
+  test("bookDate: '28 Oct 2026' in English and Hindi; blank and junk come back as given", () => {
+    for (const loc of ["en", "hi"] as const) for (const at of SEEDS) expect(portalBookDate(dflt(loc), ymdOf(at))).toBe(oldPortal.bookDate(ymdOf(at), loc));
+    for (const v of [null, undefined, "", "soon"]) expect(portalBookDate(dflt(), v)).toBe(oldPortal.bookDate(v, "en"));
+  });
+  test("Gujarati: the old text had Intl's own comma before the year; the plant formatter writes the Latin-digit form the other screens use", () => {
+    const old = oldPortal.bookDate("2026-10-28", "gu");
+    expect(old.replace(",", "")).toBe(portalBookDate(dflt("gu"), "2026-10-28"));
   });
 });

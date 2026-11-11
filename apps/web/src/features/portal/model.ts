@@ -4,12 +4,11 @@
  * one payload `portal.orders.create` takes (section, cut length, pieces OR kg; never a rate, a copy
  * or a tier).
  */
-import { lengthFromInput, type LengthUnit } from "@orrn/domain";
+import { lengthFromInput, type Fmt, type LengthUnit } from "@orrn/domain";
 import type { StatusTone } from "@orrn/domain";
 import type { Locale } from "@orrn/i18n";
 
 import { parseKgG, parsePieces } from "@/features/orders/line-model";
-import { intlTag } from "@/shared/lib/intl-tag";
 
 export const PORTAL_MAX_LINES = 20;
 
@@ -331,18 +330,16 @@ export function portalOrderErrorKey(error: unknown): PortalOrderErrorKey {
   return portalErrorKey(error);
 }
 
-/** A plain `YYYY-MM-DD` book date. */
-export function bookDate(value: string | null | undefined, locale: string): string {
+/** A plain `YYYY-MM-DD` book date in the plant's date order ("28 Oct 2026"). */
+export function bookDate(fmt: Fmt, value: string | null | undefined): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return value ?? "";
-  return new Intl.DateTimeFormat(intlTag(locale), { day: "numeric", month: "short", year: "numeric", numberingSystem: "latn", timeZone: "UTC" }).format(
-    new Date(`${value}T12:00:00Z`),
-  );
+  return fmt.day(value);
 }
 
 /**
  * The date a party sees on a dispatch: the server's one ship day (the day the load left, the same day the
  * office's list, detail and customer page show), as a calendar day, so no phone or browser zone can move it.
  */
-export function portalDispatchDay(d: { shipDay?: { ymd: string } | null }, locale: string): string {
-  return d.shipDay?.ymd ? bookDate(d.shipDay.ymd, locale) : "";
+export function portalDispatchDay(fmt: Fmt, d: { shipDay?: { ymd: string } | null }): string {
+  return d.shipDay?.ymd ? bookDate(fmt, d.shipDay.ymd) : "";
 }

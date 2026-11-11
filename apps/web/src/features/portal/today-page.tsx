@@ -19,7 +19,7 @@ import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /** `/portal`: what is open, how much is baki, the last dispatch, and the way to place an order. */
 export function PortalTodayPage() {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const me = usePortalMe();
   const today = useQuery({ ...trpc.portal.today.queryOptions(), retry: false });
@@ -51,7 +51,7 @@ export function PortalTodayPage() {
               <StatusBlock
                 tone="green"
                 title={t("portal.today.lastDispatch")}
-                meta={portalDispatchDay(d.lastDispatch, locale)}
+                meta={portalDispatchDay(fmt, d.lastDispatch)}
                 value={d.lastDispatch.code}
                 href={`/portal/dispatches/${d.lastDispatch.id}`}
               />
@@ -103,7 +103,7 @@ export function PortalTodayPage() {
                       </Chip>
                     ) : null
                   }
-                  subtitle={bookDate(o.orderDate, locale)}
+                  subtitle={bookDate(fmt, o.orderDate)}
                   facts={[
                     { label: t("portal.orders.ordered"), value: `${kgGrouped3(fmt, o.totals.orderedG)}\u00A0${massUnit(fmt)}`, mono: true },
                     { label: t("portal.orders.baki"), value: `${kgGrouped3(fmt, o.totals.bakiG)}\u00A0${massUnit(fmt)}`, mono: true },

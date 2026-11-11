@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { dflt } from "../../../test-support/date-seeds";
+
 import {
   bandPosition,
   castState,
@@ -182,9 +184,9 @@ describe("order errors in the party's words", () => {
 
 describe("dispatch day", () => {
   test("the party reads the server's ship day as a calendar day, in English or Hindi digits-as-Latin", () => {
-    expect(portalDispatchDay({ shipDay: { ymd: "2026-10-28" } }, "en")).toBe("28 Oct 2026");
-    expect(portalDispatchDay({ shipDay: { ymd: "2026-10-28" } }, "hi")).toContain("28");
-    expect(portalDispatchDay({ shipDay: null }, "en")).toBe("");
-    expect(portalDispatchDay({}, "en")).toBe("");
+    expect(portalDispatchDay(dflt("en"), { shipDay: { ymd: "2026-10-28" } })).toBe("28 Oct 2026");
+    expect(portalDispatchDay(dflt("hi"), { shipDay: { ymd: "2026-10-28" } })).toContain("28");
+    expect(portalDispatchDay(dflt("en"), { shipDay: null })).toBe("");
+    expect(portalDispatchDay(dflt("en"), {})).toBe("");
   });
 });

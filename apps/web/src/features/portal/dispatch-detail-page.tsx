@@ -27,7 +27,7 @@ import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
  * certificate opens next to it once the plant has issued one.
  */
 export function PortalDispatchDetailPage({ id }: { id: string }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const fmt = useFmt();
   const me = usePortalMe();
   const zone = me.data?.timeZone ?? "Asia/Kolkata";
@@ -75,7 +75,7 @@ export function PortalDispatchDetailPage({ id }: { id: string }) {
       <PageHeader
         title={d.code}
         back={back}
-        subtitle={[portalDispatchDay(d, locale), d.vehicleNo ? `${t("portal.dispatches.vehicle")}: ${d.vehicleNo}` : null].filter(Boolean).join(" · ")}
+        subtitle={[portalDispatchDay(fmt, d), d.vehicleNo ? `${t("portal.dispatches.vehicle")}: ${d.vehicleNo}` : null].filter(Boolean).join(" · ")}
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
             {model ? (
