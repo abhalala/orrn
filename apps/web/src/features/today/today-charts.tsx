@@ -23,7 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { useWeightChart } from "@/shared/lib/weight-chart";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -86,7 +86,9 @@ export default function TodayCharts({ live }: TodayChartsProps) {
 
   const fmt = useFmt();
   // Chart values are kg; the label shows the same weight in the plant's unit.
-  const kg = useMemo(() => (v: number) => `${kgGrouped1(fmt, Math.round(v * 1000))} ${massUnit(fmt)}`, [fmt]);
+  // Plotted in the plant's unit, so the gridlines and the labels agree.
+  const wc = useWeightChart();
+  const kg = useMemo(() => (v: number) => wc.text(v), [wc]);
   // Days arrive as calendar dates; UTC midnight formatted in UTC keeps each label on its day.
   const dates = useMemo(() => chartDateFormat("day", locale, "UTC"), [locale]);
   const { date, packedG, dispatchedG } = live;
@@ -99,8 +101,8 @@ export default function TodayCharts({ live }: TodayChartsProps) {
       trendSeries(days, {
         packed: t("today.trend.packed"),
         dispatched: t("today.trend.dispatched"),
-      }),
-    [days, t],
+      }).map((s) => ({ ...s, points: s.points.map((p) => ({ ...p, v: wc.value(p.v) })) })),
+    [days, t, wc],
   );
   // Newest first: today so far, then yesterday (the kit lists oldest first).
   const trendTable = useMemo(
@@ -115,8 +117,8 @@ export default function TodayCharts({ live }: TodayChartsProps) {
       ageingBars(ageing.data?.buckets ?? [], (key) => ({
         label: t(AGE_NAMES[key][0]),
         short: t(AGE_NAMES[key][1]),
-      })),
-    [ageing.data, t],
+      })).map((b) => ({ ...b, value: wc.value(b.value) })),
+    [ageing.data, t, wc],
   );
   const ageingTable = useMemo(() => {
     const table = barTable(bars, {
@@ -158,6 +160,7 @@ export default function TodayCharts({ live }: TodayChartsProps) {
             series={series}
             kind="line"
             format={kg}
+            formatTicks={wc.ticks}
             formatDate={dates}
             height={260}
             label={t("today.trend.label")}
@@ -176,7 +179,7 @@ export default function TodayCharts({ live }: TodayChartsProps) {
           onRetry={() => void ageing.refetch()}
           plotHeight={260}
         >
-          <BarChart data={bars} format={kg} ordinal height={260} label={t("today.ageing.label")} />
+          <BarChart data={bars} format={kg} formatTicks={wc.ticks} ordinal height={260} label={t("today.ageing.label")} />
         </ChartCard>
       </div>
     </section>

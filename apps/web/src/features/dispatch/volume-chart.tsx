@@ -7,8 +7,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { failedFirstLoad } from "./errors";
 import { volumeBars, volumeDateFormat } from "./volume-data";
-import { useFmt } from "@/shared/lib/fmt";
-import { kgChartText } from "@/shared/lib/fmt-text";
+import { useWeightChart } from "@/shared/lib/weight-chart";
 
 /**
  * Monthly kg dispatched, last 12 months with this month marked "so far"
@@ -19,11 +18,12 @@ import { kgChartText } from "@/shared/lib/fmt-text";
  */
 export default function DispatchVolumeChart() {
   const { t, locale } = useT();
-  const fmt = useFmt();
-  const kg = (v: number) => kgChartText(fmt, v);
+  // Plotted in the plant's weight unit, so the gridlines and the labels agree (a lb plant reads lb on both).
+  const wc = useWeightChart();
+  const kg = (v: number) => wc.text(v);
   const query = useQuery(trpc.analytics.dispatchVolume.queryOptions({ months: 12 }));
 
-  const data = useMemo(() => volumeBars(query.data ?? [], locale), [query.data, locale]);
+  const data = useMemo(() => volumeBars(query.data ?? [], locale).map((d) => ({ ...d, value: wc.value(d.value) })), [query.data, locale, wc]);
   const dates = useMemo(() => volumeDateFormat(locale), [locale]);
 
   // Nothing dispatched in a year (a new company): no chart at all. The kit's empty
@@ -42,7 +42,7 @@ export default function DispatchVolumeChart() {
       refreshing={query.isFetching && !query.isPending}
       onRetry={() => void query.refetch()}
     >
-      <BarChart data={data} format={kg} formatDate={dates} label={t("dispatch.volume.label")} />
+      <BarChart data={data} format={kg} formatTicks={wc.ticks} formatDate={dates} label={t("dispatch.volume.label")} />
     </ChartCard>
   );
 }

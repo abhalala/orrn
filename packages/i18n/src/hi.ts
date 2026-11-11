@@ -4103,6 +4103,7 @@ export const hi = {
     unitThousand: "k",
     unitLakh: "L",
     unitCrore: "Cr",
+    unitMillion: "M",
     sparkSummary: "{label}: {first} से {last}, सबसे ज़्यादा {max}, सबसे कम {min}",
   },
 

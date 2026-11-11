@@ -100,6 +100,7 @@ export const guPressBoard = {
     unitThousand: "k",
     unitLakh: "L",
     unitCrore: "Cr",
+    unitMillion: "M",
     sparkSummary: "{label}: {first} થી {last}, વધુમાં વધુ {max}, ઓછામાં ઓછું {min}",
   },
 } as const satisfies DeepPartial<Messages>;

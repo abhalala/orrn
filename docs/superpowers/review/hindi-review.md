@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7570 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7571 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -3976,7 +3976,7 @@ Counts: 7570 screen strings in 49 groups, 45 guides with 866 strings.
 | `pages` | Pages | पेज |
 | `pageRangeOpen` | {from}-{to} | {from}-{to} |
 
-### charts (28)
+### charts (29)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4007,6 +4007,7 @@ Counts: 7570 screen strings in 49 groups, 45 guides with 866 strings.
 | `unitThousand` | k | k (check) |
 | `unitLakh` | L | L (check) |
 | `unitCrore` | Cr | Cr (check) |
+| `unitMillion` | M | M |
 | `sparkSummary` | {label}: {first} to {last}, high {max}, low {min} | {label}: {first} से {last}, सबसे ज़्यादा {max}, सबसे कम {min} |
 
 Please check, Lalubhai:

@@ -4114,6 +4114,7 @@ export const en = {
     unitThousand: "k",
     unitLakh: "L",
     unitCrore: "Cr",
+    unitMillion: "M",
     sparkSummary: "{label}: {first} to {last}, high {max}, low {min}",
   },
 

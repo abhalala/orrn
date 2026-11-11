@@ -24,6 +24,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { leaderboardRows } from "./leaderboard";
 import { kgChartText, kgGrouped1 } from "@/shared/lib/fmt-text";
 import { useFmt } from "@/shared/lib/fmt";
+import { useWeightChart } from "@/shared/lib/weight-chart";
 
 
 /** Who is leading over the page's period: top 10 by kg, the rest folded into Other. */
@@ -85,8 +86,8 @@ export function VolumeCard({
   state?: "loading" | "error";
   onRetry?(): void;
 }) {
-  const fmt = useFmt();
-  const kgText = (v: number) => kgChartText(fmt, v);
+  const wc = useWeightChart();
+  const kgText = (v: number) => wc.text(v);
   const { t, locale } = useT();
   const dates = useMemo(() => chartDateFormat("month", locale, "UTC"), [locale]);
   const bars: BarDatum[] = useMemo(
@@ -99,11 +100,11 @@ export function VolumeCard({
           short: dates.short(at),
           // Dated bars: the axis adds the year where the 12 months cross one ("Nov 25 ... Jan 26 ... Oct").
           t: at,
-          value: s.kgG / 1000,
+          value: wc.value(s.kgG / 1000),
           partial: i === series.length - 1,
         };
       }),
-    [series, dates],
+    [series, dates, wc],
   );
   const empty = !state && bars.every((b) => b.value === 0);
 
@@ -122,7 +123,7 @@ export function VolumeCard({
         valueHeader: t("customers.detail.volume.value"),
       })}
     >
-      <BarChart data={bars} format={kgText} formatDate={dates} label={t("customers.detail.volume.label")} />
+      <BarChart data={bars} format={kgText} formatTicks={wc.ticks} formatDate={dates} label={t("customers.detail.volume.label")} />
     </ChartCard>
   );
 }
