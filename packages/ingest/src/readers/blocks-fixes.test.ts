@@ -138,6 +138,80 @@ describe("C-new-5: a letterhead with a year is a title, not a group label", () =
   });
 });
 
+describe("R-new-1: a group label is decided by shape, not by counting dated cells", () => {
+  test("Sr | Apr 2025 (Kg Pcs Rate Amt) | Remarks is a two-row header", () => {
+    const [b] = findBlocks([
+      ["Sr", "Apr 2025", "", "", "", "Remarks"],
+      ["", "Kg", "Pcs", "Rate", "Amt", ""],
+      [1, 120, 4, 200, 4800, "ok"],
+    ]);
+    expect(b!.headerRows).toBe(2);
+    expect(b!.headers).toEqual(["Sr", "Apr 2025 Kg", "Apr 2025 Pcs", "Apr 2025 Rate", "Apr 2025 Amt", "Remarks"]);
+    expect(b!.title).toBeNull();
+    expect(b!.rows).toEqual([["1", "120", "4", "200", "4800", "ok"]]);
+  });
+
+  test("Party | Apr 2025 (Kg Pcs Rate) with no cell on the right is a two-row header", () => {
+    const [b] = findBlocks([
+      ["Party", "Apr 2025", "", ""],
+      ["", "Kg", "Pcs", "Rate"],
+      ["Om Metals", 120, 4, 200],
+    ]);
+    expect(b!.headerRows).toBe(2);
+    expect(b!.headers).toEqual(["Party", "Apr 2025 Kg", "Apr 2025 Pcs", "Apr 2025 Rate"]);
+  });
+
+  test("a letterhead with two dated cells is a title over a one-row header", () => {
+    const [b] = findBlocks([
+      ["Sales Book 2025-26", "", "April 2025", ""],
+      ["Sr", "Party", "Section", "Qty"],
+      [1, "Om Metals", "T 4012", 20],
+    ]);
+    expect(b!.headerRows).toBe(1);
+    expect(b!.headers).toEqual(["Sr", "Party", "Section", "Qty"]);
+    expect(b!.title).toBe("Sales Book 2025-26 April 2025");
+    expect(b!.rows).toEqual([["1", "Om Metals", "T 4012", "20"]]);
+  });
+
+  // Generated: one or two month groups, with or without key cells on the left and right, 2 to 4 sub-columns.
+  // Every one is a two-row header with the group name on each sub-column.
+  test("generated month group headers stay two-row headers", () => {
+    let seed = 11;
+    const rnd = (n: number) => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed % n;
+    };
+    const subs = ["Kg", "Pcs", "Rate", "Amt"];
+    const months = ["Apr 2025", "May 2025", "FY 2025-26", "March 2026"];
+    for (let n = 0; n < 200; n++) {
+      const left = ["Sr", "Party"].slice(0, 1 + rnd(2));
+      const groups = 1 + rnd(2);
+      const sub = subs.slice(0, 2 + rnd(3));
+      const right = rnd(2) === 0 ? ["Remarks"] : [];
+      const top: string[] = [...left];
+      const bottom: string[] = left.map(() => "");
+      const want: string[] = [...left];
+      for (let g = 0; g < groups; g++) {
+        const m = months[(rnd(months.length) + g) % months.length]!;
+        sub.forEach((s, x) => {
+          top.push(x === 0 ? m : "");
+          bottom.push(s);
+          want.push(`${m} ${s}`);
+        });
+      }
+      top.push(...right);
+      bottom.push(...right.map(() => ""));
+      want.push(...right);
+      const data = want.map((h, x) => (h === "Party" ? "Om Metals" : h === "Remarks" ? "ok" : 10 + x));
+      const [b] = findBlocks([top, bottom, data]);
+      const label = JSON.stringify(top);
+      expect(b!.headerRows, label).toBe(2);
+      expect(b!.headers, label).toEqual(want);
+      expect(b!.title, label).toBeNull();
+    }
+  });
+});
+
 describe("C33: a footer after a blank row is not a new block", () => {
   test("Prepared by and Checked by under the table", () => {
     const blocks = findBlocks([

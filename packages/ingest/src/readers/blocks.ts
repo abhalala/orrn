@@ -67,7 +67,7 @@ const isTextCell = (c: string) => {
  * would make `bottom` the first data row.
  */
 function isSecondHeaderRow(top: readonly string[], bottom: readonly string[], below: readonly string[] | undefined): boolean {
-  if (!hasBlankInSpan(top) || nonBlank(bottom) < 2 || textShare(bottom) < HEADER_TEXT_SHARE) return false;
+  if (nonBlank(bottom) < 2 || textShare(bottom) < HEADER_TEXT_SHARE) return false;
   let first = -1;
   let last = -1;
   top.forEach((c, i) => {
@@ -76,6 +76,8 @@ function isSecondHeaderRow(top: readonly string[], bottom: readonly string[], be
       last = i;
     }
   });
+  // A group label in the last top cell ("Party | Apr 2025" over "Kg | Pcs | Rate") has no blank inside the top span.
+  if (!hasBlankInSpan(top) && !(last !== -1 && isGroupLabel(top, bottom, last))) return false;
   let spans = false;
   for (let i = first + 1; i <= Math.max(last, bottom.length - 1); i++) if ((top[i] ?? "") === "" && (bottom[i] ?? "") !== "") spans = true;
   if (!spans) return false;
@@ -121,8 +123,6 @@ function startsNewBlock(row: readonly string[], recent: readonly string[][], wid
 export const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/;
 /** A bare year. It marks a title only when the cell is not a group label (C-new-1: "Apr 2025" over "Kg | Pcs"). */
 const YEAR_MARK = /\b(?:19|20)\d{2}\b/;
-/** A month name, full or in a standard short form. */
-const MONTH_MARK = /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
 
 /** The bottom cells under a top cell: from it to the column before the next filled top cell. */
 function spanBelow(top: readonly string[], below: readonly string[], i: number): string[] {
@@ -132,14 +132,14 @@ function spanBelow(top: readonly string[], below: readonly string[], i: number):
 }
 
 /**
- * Is the year or month cell at `i` a group label over sub-columns (C-new-1), not a letterhead (C-new-5)? It must span
- * blank top cells over filled bottom cells, and the row must also show it is a group row: two or more year or month
- * cells in the row, or the same sub-column names under another top cell (Kg | Pcs under Apr and under Total).
+ * Is the year or month cell at `i` a group label over sub-columns (C-new-1), not a letterhead (C-new-5, R-new-1)? It
+ * must span blank top cells over filled bottom cells, and the shape must show a group row, whatever the number of dated
+ * cells: (a) another filled top cell has a blank under it (Sr or Party over a blank, which a letterhead over a full
+ * header never has), or (b) the same sub-column names sit under another top cell (Kg | Pcs under Apr and under Total).
  */
 function isGroupLabel(row: readonly string[], below: readonly string[], i: number): boolean {
   if ((row[i + 1] ?? "") !== "" || (below[i + 1] ?? "") === "") return false;
-  const dated = row.filter((c) => c !== "" && (YEAR_MARK.test(c) || MONTH_MARK.test(c))).length;
-  if (dated >= 2) return true;
+  if (row.some((c, j) => j !== i && c !== "" && (below[j] ?? "") === "")) return true;
   const mine = spanBelow(row, below, i);
   if (mine.length < 2 || mine.some((c) => c === "")) return false;
   return row.some((c, j) => {
