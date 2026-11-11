@@ -801,7 +801,7 @@ export function orderGroups(rows: readonly StagedRow[]): OrderGroup[] {
   }
   const out: OrderGroup[] = [];
   for (const [key, list] of groups) {
-    const problem = orderGroupCheck(list.map(groupRowOf));
+    const problem = orderGroupCheck(list.map(groupRowOf), parseOrderKey(key).kind);
     if (problem && problem.code !== "po_two_dates") throw new TRPCError({ code: "BAD_REQUEST", message: problem.message });
     out.push({ key, rows: list });
   }

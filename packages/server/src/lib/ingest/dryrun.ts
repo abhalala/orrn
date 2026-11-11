@@ -68,6 +68,8 @@ import {
   otherFileHolders,
   parseOrderKey,
   poTwiceCheck,
+  sheetOrderKeys,
+  ORDER_NO_UNCLEAR,
   type OrderIdentity,
 } from "./orderid";
 import { refreshArtifactPeriod } from "./period";
@@ -1513,21 +1515,42 @@ type OrderPassRow = {
   other: string | null;
 };
 
-type OrderWant = { state: RowState; reasons: string[]; matchId?: string | null; po?: string; other?: Record<string, unknown> | null };
+/**
+ * What the pass wants for one row. Nothing in it is per order, so rows of many orders share one
+ * statement (S3-2): the `order_po` reason is built from the row's own `order_key`, a live order's id
+ * is read from the order's matched row, and a PO picked for an order is read from its answer.
+ * `matchId`: "keep" leaves it, null clears it, "live" takes the order's live match.
+ */
+type OrderWant = {
+  state: RowState;
+  reasons: string[];
+  /** Add `q:order_po:<order_key>` to the reasons. */
+  askPo?: boolean;
+  matchId?: "keep" | "live" | null;
+  /** The live order id `matchId: "live"` means, known here for the "nothing changes" test only. */
+  liveId?: string | null;
+  /** Every row of the order takes the PO picked in the `order_po` answer. */
+  fillPicked?: boolean;
+  other?: Record<string, unknown> | null;
+};
 
 /**
  * Whole old orders (rule 1), once every row of the candidate is checked, because one order may span
- * pages. For each order key (orderid.ts), over rows that were ready before this pass:
+ * pages. First the sheet decides which order a row with no number belongs to (`sheetOrderKeys`).
+ * Then for each order key (orderid.ts), over rows that were ready before this pass:
  * - two different POs wait on the `order_po` question (`q:order_po:<key>`); its answer picks the PO
- *   for every row, or skips the order (`order_po_skipped`). With one PO, rows with a blank PO take it;
- * - an order the merge planner would hold (above 100 lines, one PO on two dates) is refused, as the
- *   planner holds it (`orderGroupCheck`);
+ *   for every row, or skips the order (`order_po_skipped`). With one PO, nothing is written: the
+ *   planner and the merge take the order's PO over its rows (`orderPoOf`);
+ * - an order the merge planner would hold (above 100 lines, one PO on two dates with no number) is
+ *   refused, as the planner holds it (`orderGroupCheck`);
  * - when another row of the order is on a live order, the row is a line that order does not have:
  *   `order_line_new` with that order (`order_live:order`);
  * - when another file or sheet of the plant holds rows of the same order, the rows of both are a
  *   conflict naming the other one (`order_in_other_file:order`, `values._otherFile`). A row the person
  *   kept (keep_file) stays ready; the planner holds the later candidate if both are kept.
- * A row this pass changed before goes back to ready when its order passes now.
+ * A row this pass changed before goes back to ready when its order passes now. The statements are
+ * bounded by the rows, never by the orders: at most one per 30 keys moved and one per 90 rows that
+ * end the same way (S3-2).
  */
 async function orderPassStatements(
   ctx: IngestCtx,
@@ -1570,6 +1593,7 @@ async function orderPassStatements(
     const wasLive = reasons.some((x) => x.startsWith("order_live:"));
     return {
       r,
+      key: r.orderKey!,
       had,
       state: had ? ("ready_create" as RowState) : r.state,
       reasons: had ? reasons.filter((x) => !isOrderPassReason(x) && !(wasLive && x === "order_line_new")) : reasons,
@@ -1577,16 +1601,21 @@ async function orderPassStatements(
     };
   });
   type Base = (typeof base)[number];
+  const counted = base.filter((b) => b.state !== "refused" && b.state !== "skipped");
+  // The sheet decides which order a row with no order number belongs to (S3-1).
+  const posByKey = new Map<string, (string | null)[]>();
+  for (const b of counted) posByKey.set(b.key, [...(posByKey.get(b.key) ?? []), b.r.po]);
+  const sheet = sheetOrderKeys([...posByKey].map(([key, pos]) => ({ key, pos })));
+  for (const b of base) b.key = sheet.remap.get(b.key) ?? b.key;
   const byKey = new Map<string, Base[]>();
-  for (const b of base) {
-    if (b.state === "refused" || b.state === "skipped") continue;
-    const list = byKey.get(b.r.orderKey!);
+  for (const b of counted) {
+    const list = byKey.get(b.key);
     if (list) list.push(b);
-    else byKey.set(b.r.orderKey!, [b]);
+    else byKey.set(b.key, [b]);
   }
   const want = new Map<string, OrderWant>();
   const toOtherCheck: { key: string; ready: Base[] }[] = [];
-  // Rows with a blank PO take their order's PO, or the PO picked for it, before PO checks.
+  // The PO an order has, or the PO picked for it, before PO checks.
   const pickedPo = (key: string, list: readonly Base[]): string | null => {
     const po = orderPoOf(list.map((b) => b.r));
     const answer = answers.orderPo.get(key);
@@ -1601,6 +1630,10 @@ async function orderPassStatements(
   );
   for (const [key, list] of byKey) {
     const ready = list.filter((b) => b.state === "ready_create");
+    if (sheet.unclear.has(key)) {
+      for (const b of ready) want.set(b.r.id, { state: "refused", reasons: [...b.reasons, checkReason(ORDER_NO_UNCLEAR)] });
+      continue;
+    }
     const po = orderPoOf(list.map((b) => b.r));
     const answer = answers.orderPo.get(key);
     let picked = po.poText;
@@ -1612,22 +1645,23 @@ async function orderPassStatements(
       else if (fits) picked = fits;
       else waits = true;
     }
-    // Rows with a blank PO, or another PO, take the order's PO.
-    const fill = (b: Base) => (picked && b.r.poText !== picked ? { po: picked } : {});
+    // An order of two POs takes the PO picked for it on every row; with one PO nothing is written.
+    const fill = po.all.length > 1 && !waits && !skip ? { fillPicked: true } : {};
     if (waits || skip) {
       for (const b of ready) {
-        want.set(b.r.id, waits ? { state: "ambiguous", reasons: [...b.reasons, `${Q_ORDER_PO}:${key}`] } : { state: "skipped", reasons: [...b.reasons, "order_po_skipped"] });
+        want.set(b.r.id, waits ? { state: "ambiguous", reasons: b.reasons, askPo: true } : { state: "skipped", reasons: [...b.reasons, "order_po_skipped"] });
       }
       continue;
     }
     const lowPicked = picked?.toLowerCase() ?? null;
-    const problem = orderGroupCheck(list.map((b) => ({ rowIndex: b.r.rowIndex, po: lowPicked, poText: picked, orderDate: b.r.orderDate, oldNo: b.r.oldNo }))) ?? twice.get(key) ?? null;
+    const kind = parseOrderKey(key).kind;
+    const problem = orderGroupCheck(list.map((b) => ({ rowIndex: b.r.rowIndex, po: lowPicked, poText: picked, orderDate: b.r.orderDate, oldNo: b.r.oldNo })), kind) ?? twice.get(key) ?? null;
     if (problem) {
-      for (const b of ready) want.set(b.r.id, { state: "refused", reasons: [...b.reasons, checkReason(problem)], ...fill(b) });
-      for (const b of list) if (b.state !== "ready_create") want.set(b.r.id, { state: b.state, reasons: b.reasons, ...fill(b) });
+      for (const b of ready) want.set(b.r.id, { state: "refused", reasons: [...b.reasons, checkReason(problem)], ...fill });
+      for (const b of list) if (b.state !== "ready_create") want.set(b.r.id, { state: b.state, reasons: b.reasons, ...fill });
       continue;
     }
-    for (const b of list) if (b.state !== "ready_create") want.set(b.r.id, { state: b.state, reasons: b.reasons, ...fill(b) });
+    for (const b of list) if (b.state !== "ready_create") want.set(b.r.id, { state: b.state, reasons: b.reasons, ...fill });
     // One old order is one sales order: a live order any row of it is on is the order of every row.
     const liveId = list.find((b) => b.matchId && (b.reasons.includes("order_exists") || b.reasons.includes("order_line_new")))?.matchId ?? null;
     if (liveId) {
@@ -1635,13 +1669,14 @@ async function orderPassStatements(
         want.set(b.r.id, {
           state: b.r.decision === "keep_live" ? "unchanged" : "conflict",
           reasons: [...b.reasons, "order_line_new", "order_live:order"],
-          matchId: liveId,
-          ...fill(b),
+          matchId: "live",
+          liveId,
+          ...fill,
         });
       }
       continue;
     }
-    for (const b of ready) want.set(b.r.id, { state: "ready_create", reasons: b.reasons, ...fill(b) });
+    for (const b of ready) want.set(b.r.id, { state: "ready_create", reasons: b.reasons, ...fill });
     if (ready.length) toOtherCheck.push({ key, ready });
   }
   // The same old order in another file or sheet of the plant.
@@ -1667,37 +1702,66 @@ async function orderPassStatements(
       otherRows.set(o.candidateId, e);
     }
   }
-  // This candidate's rows: one statement per 90 rows that end the same way.
+  // Rows with no order number that the sheet placed in a numbered order: one statement per 30 keys.
+  for (const part of chunk([...sheet.remap], 30)) {
+    out.push(
+      ctx.db
+        .update(ingestStagedRow)
+        .set({
+          orderKey: sql`case ${ingestStagedRow.orderKey} ${sql.join(
+            part.map(([from, to]) => sql`when ${from} then ${to}`),
+            sql` `,
+          )} else ${ingestStagedRow.orderKey} end`,
+          updatedAt: at,
+        })
+        .where(and(eq(ingestStagedRow.candidateId, c.id), inArray(ingestStagedRow.orderKey, part.map(([from]) => from)), eq(ingestStagedRow.mergeState, "open"))),
+    );
+  }
+  // This candidate's rows: one statement per 90 rows that end the same way. Nothing in the way a
+  // row ends names its order, so the count follows the rows, not the orders (S3-2).
   const groups = new Map<string, { w: OrderWant; ids: string[] }>();
   for (const b of base) {
-    const w = want.get(b.r.id) ?? (b.had ? { state: b.state, reasons: b.reasons, matchId: b.matchId } : null);
+    const w: OrderWant | null = want.get(b.r.id) ?? (b.had ? { state: b.state, reasons: b.reasons, matchId: b.matchId === b.r.matchId ? "keep" : null } : null);
     if (!w) continue;
     const wasOther = b.r.other !== null;
     const other = w.other ?? null;
-    const sameReasons = JSON.stringify(w.reasons) === JSON.stringify(b.r.reasons ?? []);
-    const sameMatch = w.matchId === undefined || w.matchId === b.r.matchId;
-    if (w.state === b.r.state && sameReasons && sameMatch && !w.po && !wasOther && !other) continue;
-    const sig = JSON.stringify([w.state, w.reasons, w.matchId === undefined ? "keep" : w.matchId, w.po ?? null, other, wasOther]);
-    const g = groups.get(sig) ?? { w: { ...w, other }, ids: [] };
+    const reasonsNow = w.askPo ? [...w.reasons, `${Q_ORDER_PO}:${b.key}`] : w.reasons;
+    const sameReasons = JSON.stringify(reasonsNow) === JSON.stringify(b.r.reasons ?? []);
+    const matchMode = w.matchId === undefined ? "keep" : w.matchId;
+    const matchNow = matchMode === "keep" ? b.r.matchId : matchMode === "live" ? (w.liveId ?? null) : null;
+    if (w.state === b.r.state && sameReasons && matchNow === b.r.matchId && !w.fillPicked && !wasOther && !other) continue;
+    const sig = JSON.stringify([w.state, w.reasons, !!w.askPo, matchMode, !!w.fillPicked, other, wasOther]);
+    const g = groups.get(sig) ?? { w: { ...w, matchId: matchMode, other }, ids: [] };
     g.ids.push(b.r.id);
     groups.set(sig, g);
   }
+  const R = ingestStagedRow;
   for (const { w, ids } of groups.values()) {
     for (const part of chunk(ids, 90)) {
-      let values: SQL = sql`${ingestStagedRow.values}`;
-      if (w.po) values = sql`json_set(${values}, '$.poNumber', ${w.po})`;
+      let values: SQL = sql`${R.values}`;
+      if (w.fillPicked) {
+        // The PO picked for the order, from its answer (the answer was checked against the order's POs).
+        values = sql`json_set(${values}, '$.poNumber', coalesce((select trim(json_extract(a.answer, '$.po')) from ingest_answer a where a.candidate_id = ${c.id} and a.question_code = 'order_po' and a.subject = ${R.orderKey}), json_extract(${R.values}, '$.poNumber')))`;
+      }
       values = w.other ? sql`json_set(${values}, '$._otherFile', json(${JSON.stringify(w.other)}))` : sql`json_remove(${values}, '$._otherFile')`;
+      const reasons = w.askPo
+        ? sql`json_insert(${JSON.stringify(w.reasons)}, '$[#]', ${`${Q_ORDER_PO}:`} || ${R.orderKey})`
+        : w.reasons.length
+          ? sql`${JSON.stringify(w.reasons)}`
+          : sql`null`;
+      // The live order of the order: the id on its row the page pass matched to a live order.
+      const live = sql`(select s2.match_id from ingest_staged_row s2 where s2.candidate_id = ${c.id} and s2.order_key = ${R.orderKey} and s2.merge_state = 'open' and s2.state not in ('refused', 'skipped') and s2.match_id is not null and (s2.reasons like '%"order_exists"%' or s2.reasons like '%"order_line_new"%') and s2.reasons not like '%"order_live:%' order by s2.row_index limit 1)`;
       out.push(
         ctx.db
-          .update(ingestStagedRow)
+          .update(R)
           .set({
             state: w.state,
-            reasons: w.reasons.length ? w.reasons : null,
-            ...(w.matchId !== undefined ? { matchId: w.matchId } : {}),
+            reasons: reasons as never,
+            ...(w.matchId === "live" ? { matchId: live as never } : w.matchId === null ? { matchId: null } : {}),
             values: values as never,
             updatedAt: at,
           })
-          .where(and(eq(ingestStagedRow.candidateId, c.id), inArray(ingestStagedRow.id, part), eq(ingestStagedRow.mergeState, "open"))),
+          .where(and(eq(R.candidateId, c.id), inArray(R.id, part), eq(R.mergeState, "open"))),
       );
     }
   }

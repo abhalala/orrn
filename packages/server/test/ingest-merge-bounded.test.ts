@@ -547,3 +547,74 @@ describe("bounded write steps (B-new-2)", () => {
     expect((await candidateRow(env, people.candidateId)).rowsWritten).toBe(500);
   }, 120_000);
 });
+
+describe("bounded dry run steps (S3-2)", () => {
+  /**
+   * The most statements one dry run step may send in one batch. The last step of an order book
+   * checks whole orders; it sent one statement per order whose PO is on some rows only: 1,503 in
+   * one batch for 1,500 such orders, over D1's 1,000 a Worker request, so the dry run never ended.
+   */
+  const DRY_RUN_BATCH_STATEMENTS_MAX = 400;
+
+  test(`a dry run of 1,500 two-row orders with the PO on the first row only sends at most ${DRY_RUN_BATCH_STATEMENTS_MAX} statements in a batch`, async () => {
+    const { createHash, randomUUID } = await import("node:crypto");
+    const { layout, learnLayout, trim } = await import("./ingest-portal-helpers");
+    const { companyId, users } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    await owner.customer.create({ name: "Acme Traders" });
+    for (const c of ["5100", "5101"]) await env.seedDie(companyId, { series: "R", sectionCode: c });
+    const BOOK = ["Party", "Order no", "PO", "Date", "Series", "Section", "Cut (mm)", "Baki (kg)"];
+    const recipe = layout(
+      "orders",
+      BOOK,
+      [
+        { field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "oldOrderNo", steps: trim },
+        { field: "poNumber", steps: trim },
+        { field: "orderDate", steps: [{ op: "date", format: "dmy" }] },
+        { field: "series", steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+        { field: "cutLength", steps: [{ op: "number", kind: "length", unit: "mm" }] },
+        { field: "bakiKg", steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+      ],
+      ["customer", "oldOrderNo", "orderDate"],
+    );
+    await learnLayout(env, companyId, users.owner.id, recipe, "Book");
+    const rows: string[][] = [];
+    for (let i = 0; i < 1500; i += 1) {
+      rows.push(["Acme Traders", String(i + 1), `PO-${i + 1}`, "31/10/2025", "R", "5100", "3658", "100"]);
+      rows.push(["Acme Traders", String(i + 1), "", "31/10/2025", "R", "5101", "3658", "100"]);
+    }
+    const begin = await owner.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "big.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const put = await owner.ingest.artifact.putBlocks({
+      artifactId: begin.artifactId,
+      blocks: [{ ordinal: 0, sheetName: "S", title: null, headerRow: 0, headerRows: 1, headers: BOOK, rowCount: rows.length, sample: rows.slice(0, 200) }],
+    });
+    const blockId = put.blocks[0]!.blockId;
+    for (let i = 0; i < rows.length; i += 500) await owner.ingest.artifact.putRows({ blockId, fromIndex: i, expectRowsPut: i, rows: rows.slice(i, i + 500) });
+    await owner.ingest.artifact.complete({ artifactId: begin.artifactId });
+    const id = put.candidates[0]!.id;
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "owner");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    let cursor = (await api.ingest.candidate.get({ candidateId: id })).dryCursor;
+    const batches: number[] = [];
+    let done = false;
+    for (let i = 0; i < 100 && !done; i += 1) {
+      Object.assign(tally, { rows: 0, statements: 0, maxBatch: 0 });
+      const out = await api.ingest.dryRun.step({ candidateId: id, expectCursor: cursor });
+      batches.push(tally.maxBatch ?? 0);
+      done = out.done;
+      cursor = out.cursor;
+    }
+    expect(done).toBe(true);
+    if (process.env.DEBUG_READS) console.log("DRY RUN BATCHES", batches);
+    for (const n of batches) expect(n).toBeLessThanOrEqual(DRY_RUN_BATCH_STATEMENTS_MAX);
+    const c = await owner.ingest.candidate.get({ candidateId: id });
+    expect(c.state).toBe("ready");
+    expect(c.counts.create).toBe(3000);
+    expect(c.openQuestions).toBe(0);
+  }, 600_000);
+});

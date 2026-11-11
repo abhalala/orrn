@@ -245,7 +245,7 @@ export function liveOrderWords(label: string, poText: string | null, hit: LiveOr
 /**
  * Orders a merge must not send (rule 1, B1, B5), found over the whole candidate before any order of
  * it is written. Each order is one order key (orderid.ts, stored by the dry run):
- * - two different POs, above 100 lines, or one PO on two order dates (`orderGroupCheck`);
+ * - two different POs, above 100 lines, or one PO on two order dates with no order number (`orderGroupCheck`);
  * - an old order that is already a live order this order's own replay key did not make;
  * - an old order another file or sheet of the plant also holds, when that one comes first or has
  *   written it already: the later candidate is held, so it is never written twice;
@@ -277,8 +277,8 @@ export async function orderPlanHold(ctx: IngestCtx, c: Pick<CandidateRow, "id" |
     else groups.set(k, [r]);
   }
   // The same check the dry run makes over the candidate's ready order lines (orderid.ts).
-  for (const list of groups.values()) {
-    const problem = orderGroupCheck(list);
+  for (const [key, list] of groups) {
+    const problem = orderGroupCheck(list, parseOrderKey(key).kind);
     if (problem) return hold(problem.message);
   }
   const twice = poTwiceCheck([...groups].map(([key, list]) => ({ key, list })));

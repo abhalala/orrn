@@ -153,14 +153,16 @@ export type OrderCheck = { code: string; field: string; message: string };
 /** Lines one sales order takes (orderLineInput MAX_LINES). */
 export const ORDER_LINES_MAX = 100;
 
-/** Row reason codes of `orderGroupCheck`, so the dry run can find the rows it refused. */
-export const ORDER_GROUP_CODES = ["order_lines_over", "po_two_dates", "po_on_two_orders"] as const;
+/** Row reason codes of `orderGroupCheck` and `sheetOrderKeys`, so the dry run can find the rows it refused. */
+export const ORDER_GROUP_CODES = ["order_lines_over", "po_two_dates", "po_on_two_orders", "order_no_unclear"] as const;
 
 /**
  * One old order the merge would not send: two different POs (the person picks one first), above
- * 100 lines, or one PO with more than one order date.
+ * 100 lines, or, for an order known only by its PO (`kind` "po", a sheet with no order number),
+ * more than one order date. An order with a number is one order whatever its dates in the year
+ * say: the PO never decides whether it can import (S3-5).
  */
-export function orderGroupCheck(list: readonly OrderGroupRow[]): OrderCheck | null {
+export function orderGroupCheck(list: readonly OrderGroupRow[], kind: OrderKind = "po"): OrderCheck | null {
   if (list.length === 0) return null;
   const name = orderLabel(list);
   const po = orderPoOf(list);
@@ -179,7 +181,7 @@ export function orderGroupCheck(list: readonly OrderGroupRow[]): OrderCheck | nu
     };
   }
   const dates = [...new Set(list.map((r) => r.orderDate ?? ""))];
-  if (po.po && dates.length > 1) {
+  if (kind === "po" && po.po && dates.length > 1) {
     return {
       code: "po_two_dates",
       field: "orderDate",
@@ -190,9 +192,10 @@ export function orderGroupCheck(list: readonly OrderGroupRow[]): OrderCheck | nu
 }
 
 /**
- * Old orders of one sheet with the same customer and PO under different order numbers. The order
- * screens take a PO once per customer, so only the first of them can be written: each later one is
- * refused (dry run) or holds the candidate (planner), by its key.
+ * Old orders of one sheet with the same customer and PO under different keys: two order numbers, or
+ * an order number and an order known only by its PO (S3-1). The order screens take a PO once per
+ * customer, so only the first of them can be written: each later one is refused (dry run) or holds
+ * the candidate (planner), by its key.
  */
 export function poTwiceCheck(groups: readonly { key: string; list: readonly OrderGroupRow[] }[]): Map<string, OrderCheck> {
   const out = new Map<string, OrderCheck>();
@@ -201,7 +204,7 @@ export function poTwiceCheck(groups: readonly { key: string; list: readonly Orde
   for (const g of sorted) {
     const k = parseOrderKey(g.key);
     const po = orderPoOf(g.list);
-    if (k.kind !== "no" || !po.po || !k.customer) continue;
+    if (k.kind === "row" || !po.po || !k.customer) continue;
     const at = `${k.customer}${SEP}${po.po}`;
     const prev = first.get(at);
     if (prev === undefined) {
@@ -216,6 +219,49 @@ export function poTwiceCheck(groups: readonly { key: string; list: readonly Orde
   }
   return out;
 }
+
+/**
+ * Which old order each row of one sheet belongs to, decided over the whole sheet, not row by row
+ * (S3-1). A row with no order number but a PO first gets a customer-and-PO key. When the sheet has
+ * exactly one numbered order of the same customer with a row carrying that PO, the row is a line of
+ * that order (`remap`, from key to key). When it has several, the row cannot be placed: it is
+ * refused with `order_no_unclear` (`unclear`). When it has none, the customer and PO are the
+ * order, as in a sheet with no order number column.
+ */
+export function sheetOrderKeys(groups: readonly { key: string; pos: readonly (string | null)[] }[]): { remap: Map<string, string>; unclear: Set<string> } {
+  // Numbered orders by customer and each PO any of their rows carries.
+  const numbered = new Map<string, Set<string>>();
+  for (const g of groups) {
+    const k = parseOrderKey(g.key);
+    if (k.kind !== "no" || !k.customer) continue;
+    for (const po of g.pos) {
+      const p = normPo(po);
+      if (!p) continue;
+      const at = `${k.customer}${SEP}${p}`;
+      const set = numbered.get(at) ?? new Set<string>();
+      set.add(g.key);
+      numbered.set(at, set);
+    }
+  }
+  const remap = new Map<string, string>();
+  const unclear = new Set<string>();
+  for (const g of groups) {
+    const k = parseOrderKey(g.key);
+    if (k.kind !== "po" || !k.customer || !k.po) continue;
+    const hits = numbered.get(`${k.customer}${SEP}${k.po}`);
+    if (!hits || hits.size === 0) continue;
+    if (hits.size === 1) remap.set(g.key, [...hits][0]!);
+    else unclear.add(g.key);
+  }
+  return { remap, unclear };
+}
+
+/** The words for a row with no order number whose PO is on more than one numbered order. */
+export const ORDER_NO_UNCLEAR: OrderCheck = {
+  code: "order_no_unclear",
+  field: "oldOrderNo",
+  message: "This row has no order number, and its PO is on more than one order in this sheet. Fill in the order number, or skip the row.",
+};
 
 // ---------------------------------------------------------------------------
 // Live orders
