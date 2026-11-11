@@ -234,10 +234,16 @@ export function lateEntryOf(row: Pick<ApprovalForView, "subjectId" | "meta">): L
 }
 
 /** The time a `dispatch_late_entry` request asks to record as the truck leaving (null on a malformed row). */
-export function lateDispatchOf(row: Pick<ApprovalForView, "kind" | "meta">): { occurredAt: number } | null {
+export function lateDispatchOf(
+  row: Pick<ApprovalForView, "kind" | "meta">,
+): { occurredAt: number; load?: { bundles: number; weightG: number } } | null {
   if (row.kind !== "dispatch_late_entry") return null;
   const at = num(row.meta?.occurredAt);
-  return at === null ? null : { occurredAt: at };
+  if (at === null) return null;
+  // Review 7: the bundles on the dispatch when it was asked (the approval covers that load only).
+  const bundles = num(row.meta?.bundles);
+  const weightG = num(row.meta?.weightG);
+  return bundles === null || weightG === null ? { occurredAt: at } : { occurredAt: at, load: { bundles, weightG } };
 }
 
 /** Whole hours between the truck leaving and the request (never below 0). */

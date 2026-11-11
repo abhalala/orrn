@@ -57,7 +57,7 @@ describe("late packing-list entry (arch 52)", () => {
     const [req, ...more] = await lateRows(p.companyId);
     expect(more).toEqual([]);
     expect(req).toMatchObject({ status: "pending", subjectId: id, requestedBy: p.users.office.id, requestNote: "Line down 1 to 6, paper PL" });
-    expect(req!.meta).toEqual({ dispatchId: id, dispatchCode: expect.any(String), occurredAt, reason: "Line down 1 to 6, paper PL" });
+    expect(req!.meta).toEqual({ dispatchId: id, dispatchCode: expect.any(String), occurredAt, reason: "Line down 1 to 6, paper PL", bundles: 1, weightG: 50_000 });
     // Nothing moved yet.
     expect((await ledgerOf(p.companyId, id)).length).toBe(0);
 
@@ -181,6 +181,50 @@ describe("late packing-list entry (arch 52)", () => {
     expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "approved", occurredAt });
     await c.dispatch.complete({ id, occurredAt, lateReason: "Internet down" });
     expect((await c.dispatch.getDispatch({ id })).lateEntry).toBeNull();
+  }, SLOW);
+
+  test("review 7: an approval covers the bundles it was given for; bundles added after it ask again", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    const occurredAt = NOW.getTime() - 5 * H;
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined);
+    const [first] = await lateRows(p.companyId);
+    expect(first!.meta).toMatchObject({ occurredAt, bundles: 1, weightG: 50_000 });
+    await p.as("manager").approval.decide({ id: first!.id, decision: "approved" });
+    const [more] = await p.pack(p.dieA, [{ kg: 60 }]);
+    await p.owner.dispatch.addBundlesBySerial({ id, serials: [more!], allowUnassigned: true });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "changed", occurredAt, approvalId: first!.id });
+    // The same time, 2 bundles now: not the load approved, so a manager is asked again.
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const second = (await lateRows(p.companyId)).find((r) => r.status === "pending")!;
+    expect(second.meta).toMatchObject({ occurredAt, bundles: 2, weightG: 110_000 });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "pending", approvalId: second.id });
+    await p.as("manager").approval.decide({ id: second.id, decision: "approved" });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
+    const [row] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
+    expect(row).toMatchObject({ lateEntryApprovalId: second.id });
+  }, SLOW);
+
+  test("review 7: past the 72 hours, a load changed after approval is refused and says why; putting it back completes", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    const occurredAt = NOW.getTime() - 60 * H;
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined);
+    const [req] = await lateRows(p.companyId);
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    const [more] = await p.pack(p.dieA, [{ kg: 60 }]);
+    await p.owner.dispatch.addBundlesBySerial({ id, serials: [more!], allowUnassigned: true });
+    setClock(new Date(NOW.getTime() + 13 * H));
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.",
+    });
+    expect(await lateRows(p.companyId)).toHaveLength(1);
+    const added = (await c.dispatch.getDispatch({ id })).items.find((i) => i.serial === more)!;
+    await p.owner.dispatch.removeBundle({ id, bundleId: added.bundleId });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
   }, SLOW);
 
   test("an approval covers only the time it was asked for; another time withdraws a waiting ask and asks again", async () => {

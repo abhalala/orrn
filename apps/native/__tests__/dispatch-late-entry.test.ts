@@ -39,6 +39,8 @@ describe("arch 52: late packing list on the phone (parity with web)", () => {
     expect(completeRefusalText(t, err("The dispatch time can't be in the future.", "BAD_REQUEST"))).toBe("That time is in the future. Check the date and time.");
     expect(completeRefusalText(t, err("A late packing list can go back at most 72 hours.", "BAD_REQUEST"))).toBe("A late packing list can go back at most 72 hours.");
     expect(completeRefusalText(t, err("Dispatch is empty", "BAD_REQUEST"))).toBeNull();
+    // Review 7: approved for other bundles, past the 72 hours.
+    expect(completeRefusalText(t, err("The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.", "BAD_REQUEST"))).toBe("The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.");
     // BACKLOG 70: no vehicle number.
     expect(completeRefusalText(t, err("No vehicle number: add it before this dispatch can complete."))).toBe("Add the vehicle number before you dispatch.");
   });

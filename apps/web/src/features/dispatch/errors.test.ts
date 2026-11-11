@@ -59,6 +59,8 @@ describe("dispatchErrorText: late packing list (arch 52)", () => {
     expect(dispatchErrorText(t, err("BAD_REQUEST", "A late packing list can go back at most 72 hours."))).toBe("A late packing list can go back at most 72 hours.");
     expect(dispatchErrorText(t, err("BAD_REQUEST", "Give the reason the packing list is entered late."))).toBe("Write why it is entered late.");
     expect(dispatchErrorText(t, err("BAD_REQUEST", "A late reason needs the time the truck left."))).toBe("Enter the date and time the truck left.");
+    // Review 7: approved for other bundles, past the 72 hours.
+    expect(dispatchErrorText(t, err("BAD_REQUEST", "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves."))).toBe("The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.");
   });
 });
 

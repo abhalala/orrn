@@ -1245,6 +1245,8 @@ export const en = {
       approvedFor: "A manager approved {when}. Press Dispatch to make the packing list.",
       useAnother: "Use another time",
       anotherAsks: "Another time asks a manager again.",
+      loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again.",
+      loadChangedOld: "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.",
     },
     overTolerance: {
       title: "More than the order",
@@ -4421,6 +4423,7 @@ export const en = {
       offBandMoved: "The bundle is on another order line now. Approving covers only the line it was asked for.",
       lateLeft: "Truck left",
       lateLeftValue: "{when}, entered {hours} h later",
+      lateLoad: "On the dispatch when asked",
     },
     move: {
       title: "What moves",

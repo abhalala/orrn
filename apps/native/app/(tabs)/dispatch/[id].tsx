@@ -28,7 +28,7 @@ import { ActionBar } from "@/features/dispatch/action-bar";
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { capacityView, completeExtras, overRaceAfterComplete, overReasonError } from "@/features/dispatch/capacity";
 import { completeRefusalText, offBandNote, offBandStops, overdrawLines } from "@/features/dispatch/off-band";
-import { lateCheck, lateExtras, lateStart, lockedCheck, type LateCheck } from "@/features/dispatch/late-entry";
+import { LATE_STATUS_KEY, lateCheck, lateExtras, lateStart, lockedCheck, type LateCheck } from "@/features/dispatch/late-entry";
 import { kgTotal } from "@/features/dispatch/format";
 import { hasTransport, transportFacts } from "@/features/dispatch/transport";
 import { ConfirmSheet } from "@/features/dispatch/confirm-sheet";
@@ -600,9 +600,7 @@ export default function DispatchDetailScreen() {
                 testID="late-locked"
               >
                 <Text className={`text-[15px] font-semibold ${lateAsk.status === "approved" ? "text-tone-green-ink" : "text-tone-amber-ink"}`}>
-                  {t(lateAsk.status === "approved" ? "dispatch.late.approvedFor" : "dispatch.late.waitingFor", {
-                    when: `${format.day(lateAsk.occurredAt)} ${format.time(lateAsk.occurredAt)}`,
-                  })}
+                  {t(LATE_STATUS_KEY[lateAsk.status], { when: `${format.day(lateAsk.occurredAt)} ${format.time(lateAsk.occurredAt)}` })}
                 </Text>
                 <Button
                   label={t("dispatch.late.useAnother")}

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7506 screen strings in 49 groups, 45 guides with 860 strings.
+Counts: 7509 screen strings in 49 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -1094,7 +1094,7 @@ Counts: 7506 screen strings in 49 groups, 45 guides with 860 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (249)
+### dispatch (251)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1135,6 +1135,8 @@ Counts: 7506 screen strings in 49 groups, 45 guides with 860 strings.
 | `late.approvedFor` | A manager approved {when}. Press Dispatch to make the packing list. | मैनेजर ने {when} मंज़ूर किया। पैकिंग लिस्ट बनाने के लिए Dispatch दबाएं। |
 | `late.useAnother` | Use another time | दूसरा समय भरें |
 | `late.anotherAsks` | Another time asks a manager again. | दूसरा समय भरने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
+| `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
+| `late.loadChangedOld` | The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves. | मैनेजर के यह समय मंज़ूर करने के बाद बंडल बदल गए। माल वैसा ही करें जैसा मंज़ूर हुआ था, या गाड़ी निकलने के समय पर Dispatch करें। |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
 | `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
 | `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
@@ -4168,7 +4170,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (165)
+### approvals (166)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4286,6 +4288,7 @@ Please check, Lalubhai:
 | `facts.offBandMoved` | The bundle is on another order line now. Approving covers only the line it was asked for. | Bundle अब दूसरी ऑर्डर लाइन पर है। मंज़ूरी सिर्फ़ उसी लाइन के लिए है जिसके लिए मांगी गई थी। |
 | `facts.lateLeft` | Truck left | गाड़ी निकली |
 | `facts.lateLeftValue` | {when}, entered {hours} h later | {when}, {hours} घंटे बाद भरा |
+| `facts.lateLoad` | On the dispatch when asked | मंज़ूरी मांगते समय डिस्पैच पर |
 | `move.title` | What moves | क्या जा रहा है |
 | `move.bundles` | Bundles | Bundle |
 | `move.count` | {count} {count:bundle\|bundles}, {kg} kg | {count} bundle, {kg} kg |

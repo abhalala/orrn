@@ -173,6 +173,11 @@ describe("approvalSubject", () => {
     expect(approvalSubject(row({ kind: "dispatch_late_entry", subjectId: "a/../b", meta: { ...meta, dispatchId: "a/../b" } })).href).toBeNull();
     expect(lateDispatchOf({ kind: "dispatch_late_entry", meta })).toEqual({ occurredAt: meta.occurredAt });
     expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: {} })).toBeNull();
+    // Review 7: the load it was asked for, when the request pinned one.
+    expect(lateDispatchOf({ kind: "dispatch_late_entry", meta: { ...meta, bundles: 6, weightG: 720_500 } })).toEqual({
+      occurredAt: meta.occurredAt,
+      load: { bundles: 6, weightG: 720_500 },
+    });
     expect(lateDispatchOf({ kind: "dispatch_off_band", meta })).toBeNull();
     expect(lateHours(meta.occurredAt, meta.occurredAt + 5 * 3_600_000 + 10 * 60_000)).toBe(5);
     expect(lateHours(meta.occurredAt, meta.occurredAt - 60_000)).toBe(0);

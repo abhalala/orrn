@@ -338,6 +338,16 @@ function offBandMessage(states: readonly OffBandState[]): string {
   return parts.join(" ");
 }
 
+/** Review 7: what a late-time request was asked for: the bundles on the dispatch and their grams. */
+type LateLoad = { bundles: number; weightG: number };
+
+function sameLateLoad(meta: Record<string, unknown> | null | undefined, load: LateLoad): boolean {
+  return meta?.bundles === load.bundles && meta?.weightG === load.weightG;
+}
+
+export const LATE_LOAD_CHANGED =
+  "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.";
+
 /** The items `getDispatch` lists (newest first); totals and the off-band counts cover all of them. */
 const ITEMS_READ = 500;
 
@@ -347,19 +357,22 @@ const ITEMS_READ = 500;
  * another time.") or left as it is, and the caller refuses. Meta: time and reason only.
  * Review 4: the reason returned is the one the manager approved; a different reason typed on the
  * second press is ignored.
+ * Review 7: the request pins the load (bundle count and grams); an approval covers that load only.
+ * Bundles added or taken off after it ask again, or, past the 72 hours, refuse until the load is put back.
  */
 async function askLateEntry(
   ctx: OverdrawCtx,
   d: { id: string; code: string },
   occurredAt: number,
   reason: string,
+  load: LateLoad,
 ): Promise<{ approvedId: string | null; reason: string }> {
   const rows = await ctx.db
     .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote })
     .from(approval)
     .where(and(eq(approval.companyId, ctx.companyId), eq(approval.kind, "dispatch_late_entry"), eq(approval.subjectId, d.id)))
     .orderBy(desc(approval.createdAt));
-  const forTime = rows.filter((r) => r.meta?.occurredAt === occurredAt);
+  const forTime = rows.filter((r) => r.meta?.occurredAt === occurredAt && sameLateLoad(r.meta, load));
   const approved = forTime.find((r) => r.status === "approved");
   if (approved) {
     const saved = typeof approved.meta?.reason === "string" ? approved.meta.reason : (approved.requestNote ?? "");
@@ -368,18 +381,27 @@ async function askLateEntry(
   // Not approved for this time: the window and the reason are measured now, before anything is asked.
   const gate = lateDispatchGate(occurredAt, reason, clockNow().getTime());
   if (gate.kind === "future") throw new TRPCError({ code: "BAD_REQUEST", message: "The dispatch time can't be in the future." });
-  if (gate.kind === "tooOld") throw new TRPCError({ code: "BAD_REQUEST", message: "A late packing list can go back at most 72 hours." });
+  if (gate.kind === "tooOld") {
+    const otherLoad = rows.some((r) => r.status === "approved" && r.meta?.occurredAt === occurredAt);
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: otherLoad
+        ? LATE_LOAD_CHANGED
+        : "A late packing list can go back at most 72 hours.",
+    });
+  }
   if (gate.kind === "noReason") throw new TRPCError({ code: "BAD_REQUEST", message: "Give the reason the packing list is entered late." });
   if (forTime.some((r) => r.status === "pending")) return { approvedId: null, reason: reason.trim() };
   const stale = rows.find((r) => r.status === "pending");
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-  const meta = { dispatchId: d.id, dispatchCode: d.code, occurredAt, reason: reason.trim() };
+  const meta = { dispatchId: d.id, dispatchCode: d.code, occurredAt, reason: reason.trim(), bundles: load.bundles, weightG: load.weightG };
   const statements: SqliteBatchItem[] = [];
   if (stale) {
+    const note = stale.meta?.occurredAt === occurredAt ? "Withdrawn: the bundles on the dispatch changed." : "Withdrawn: asked again with another time.";
     statements.push(
       ctx.db
         .update(approval)
-        .set({ status: "rejected", decidedAt: clockNow(), note: "Withdrawn: asked again with another time.", serverSeq: seq })
+        .set({ status: "rejected", decidedAt: clockNow(), note, serverSeq: seq })
         .where(and(eq(approval.id, stale.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending"))),
     );
   }
@@ -1690,8 +1712,9 @@ export const dispatchRouter = router({
       }
 
       // Review 5: the late time asked for (waiting) or approved, so both Complete sheets pre-fill and
-      // lock it. Pressing Dispatch with any other minute would ask again.
-      let lateEntry: { status: "pending" | "approved"; occurredAt: number; reason: string; approvalId: string } | null = null;
+      // lock it. Pressing Dispatch with any other minute would ask again. Review 7: "changed" when the
+      // bundles on the dispatch are not the ones it was asked for (set below, against the totals).
+      let lateAsk: { id: string; status: "pending" | "approved"; occurredAt: number; reason: string; meta: Record<string, unknown> } | null = null;
       if (row.status === "draft" || row.status === "reserved") {
         const [ask] = await ctx.db
           .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote })
@@ -1709,7 +1732,7 @@ export const dispatchRouter = router({
         const at = ask?.meta?.occurredAt;
         if (ask && typeof at === "number" && (ask.status === "pending" || ask.status === "approved")) {
           const saved = typeof ask.meta?.reason === "string" ? ask.meta.reason : (ask.requestNote ?? "");
-          lateEntry = { status: ask.status, occurredAt: at, reason: saved.trim(), approvalId: ask.id };
+          lateAsk = { id: ask.id, status: ask.status, occurredAt: at, reason: saved.trim(), meta: ask.meta };
         }
       }
 
@@ -1797,6 +1820,14 @@ export const dispatchRouter = router({
         .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatchItem.companyId)))
         .where(and(eq(dispatchItem.dispatchId, row.id), eq(dispatchItem.companyId, ctx.companyId)));
       const totals = { bundles: Number(sums?.bundles ?? 0), weightG: Number(sums?.weightG ?? 0) };
+      const lateEntry: { status: "pending" | "approved" | "changed"; occurredAt: number; reason: string; approvalId: string } | null = lateAsk
+        ? {
+            status: sameLateLoad(lateAsk.meta, totals) ? lateAsk.status : "changed",
+            occurredAt: lateAsk.occurredAt,
+            reason: lateAsk.reason,
+            approvalId: lateAsk.id,
+          }
+        : null;
       const shipDay = dispatchShipDay({ status: row.status, completedAt: row.completedAt, shipDate: row.shipDate }, timezone);
 
       return { dispatch: row, shipDay, totals, customer: customerRow ?? null, items: itemsWithApproval, offBand, events, overdraw, lateEntry, capacity, salesOrder: salesOrderInfo, truck: truck.length > 0 ? { id: row.truckId!, dispatches: truck } : null, value };
@@ -2914,7 +2945,12 @@ export const dispatchRouter = router({
       // arch 52: a late entry's time is asked of a second person now (so it goes out with any other
       // request this Complete opens), and refused at the end until approved.
       const late =
-        input.occurredAt !== undefined ? await askLateEntry(ctx, d, input.occurredAt, input.lateReason ?? "") : null;
+        input.occurredAt !== undefined
+          ? await askLateEntry(ctx, d, input.occurredAt, input.lateReason ?? "", {
+              bundles: bundles.length,
+              weightG: bundles.reduce((sum, b) => sum + b.weightG, 0),
+            })
+          : null;
 
       // Q36 decided: every off-band row approved for the line it is on now (asked here when nobody had).
       await refuseOffBand(ctx, d, await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, d.id)));

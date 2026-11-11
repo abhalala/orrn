@@ -18,7 +18,7 @@ import { plantTimeText } from "@/features/approvals/approval-view";
 import { toZonedInput } from "@/features/orders/view";
 
 import { useCompanyTimeZone } from "./hooks";
-import { lateBounds, lateCheck, type LateEntryAsk } from "./late-entry";
+import { LATE_STATUS_KEY, lateBounds, lateCheck, type LateEntryAsk } from "./late-entry";
 import { overdrawView, overLineText, type OverdrawState } from "./over-tolerance";
 import { dispatchKgText } from "./format";
 
@@ -266,7 +266,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
                 data-status={locked.status}
               >
                 <p className="m-0 text-[15px] font-semibold">
-                  {t(locked.status === "approved" ? "dispatch.late.approvedFor" : "dispatch.late.waitingFor", { when: plantTimeText(locked.occurredAt, tz) })}
+                  {t(LATE_STATUS_KEY[locked.status], { when: plantTimeText(locked.occurredAt, tz) })}
                 </p>
                 <Button
                   variant="secondary"

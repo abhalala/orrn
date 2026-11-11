@@ -29,6 +29,7 @@ import { useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { dayText } from "@/features/orders/format";
+import { dispatchKgText } from "@/features/dispatch/format";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
@@ -233,6 +234,13 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
                 when: plantTimeText(lateDispatch.occurredAt, tz),
                 hours: lateHours(lateDispatch.occurredAt, new Date(current.createdAt).getTime()),
               })}
+            </p>
+          </Block>
+        ) : null}
+        {lateDispatch?.load ? (
+          <Block title={t("approvals.facts.lateLoad")}>
+            <p className="m-0 text-[15px] font-medium tabular-nums" data-testid="late-dispatch-load">
+              {t("units.bundlesKg", { bundles: lateDispatch.load.bundles, kg: dispatchKgText(lateDispatch.load.weightG) })}
             </p>
           </Block>
         ) : null}
