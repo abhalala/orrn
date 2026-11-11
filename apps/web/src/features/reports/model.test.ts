@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
 import { en, type MessageKey } from "@orrn/i18n/en";
 
 import { csvBlob } from "../imports/templates";
@@ -125,6 +126,13 @@ describe("die life", () => {
     expect(lifeTone("none")).toBe("neutral");
     expect(lifeHeader(lifeItem({}), t)).toBe("Life: 94.7 % used, 56,820 of 60,000 kg pressed");
     expect(lifeHeader(lifeItem({ lifeG: null, usedPct: null, state: "none" }), t)).toBe("No life set for this copy. Pressed so far: 56,820 kg");
+    // a pound plant: the figures are whole pounds, the word beside them is the plant's
+    const lb = formatterFor(screenPrefs({ units: { mass: "lb" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(lifeHeader(lifeItem({}), t, lb)).toContain("1,25,267 of 1,32,277");
+    expect(lifeHeader(lifeItem({}), t, lb)).not.toContain("56,820");
+    // a plant that changed nothing reads the same text with a formatter as without
+    const plain = formatterFor(screenPrefs({}), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(lifeHeader(lifeItem({}), t, plain)).toBe(lifeHeader(lifeItem({}), t));
   });
 
   test("CSV: one row per copy with blank life cells when none is set", () => {

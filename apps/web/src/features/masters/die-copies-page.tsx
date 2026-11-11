@@ -12,10 +12,12 @@ import { Plus } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Can } from "@/shared/components/can";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionText } from "@/shared/lib/fmt-text";
 import { trpc } from "@/shared/utils/trpc";
 
 import { DieCopySheet, SectionPicker } from "./die-copy-sheet";
-import { DIE_CARD_EDITORS, dieCopyStatusView, kgPer12ftInput } from "./masters-model";
+import { DIE_CARD_EDITORS, dieCopyStatusView } from "./masters-model";
 import { MastersLoadError, RowEdit } from "./masters-ui";
 import { DIE_COPY_STATUSES, type DieCopiesSearch, type DieCopyStatus } from "./search";
 import { useMastersAccess, type DieCopyRow } from "./use-masters";
@@ -29,6 +31,7 @@ const PAGE = 50;
  */
 export function DieCopiesPage({ search, onSearch }: { search: DieCopiesSearch; onSearch(next: DieCopiesSearch): void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const access = useMastersAccess();
   const statusId = `die-copies-status-${useId().replace(/:/g, "")}`;
   const offset = search.offset ?? 0;
@@ -87,7 +90,7 @@ export function DieCopiesPage({ search, onSearch }: { search: DieCopiesSearch; o
       cell: (r) =>
         r.latestKgPer12ftMilli ? (
           <span data-no-truncate="" className="font-mono tabular-nums">
-            {kgPer12ftInput(r.latestKgPer12ftMilli)}
+            {sectionText(fmt, r.latestKgPer12ftMilli)}
           </span>
         ) : (
           <span className="text-muted-foreground">{t("masters.dieCopies.noReading")}</span>

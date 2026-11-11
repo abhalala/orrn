@@ -4,9 +4,12 @@
  * same rows the table shows, and maps answers onto chart bars. No arithmetic on kg or percents
  * beyond unit conversion for display.
  */
+import type { Fmt } from "@orrn/domain";
 import type { MessageKey, TranslateVars } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import type { inferRouterOutputs } from "@trpc/server";
+
+import { kgGrouped0 } from "@/shared/lib/fmt-text";
 
 import type { OrdersReportSearch } from "./search";
 
@@ -118,9 +121,11 @@ export function lifeChip(item: Pick<DieLifeItem, "state" | "usedPct">, t: T): st
 }
 
 /** The die card's Runs tab header line. */
-export function lifeHeader(item: Pick<DieLifeItem, "state" | "usedPct" | "producedG" | "lifeG">, t: T): string {
-  if (item.lifeG == null || item.usedPct == null) return t("reports.dieLife.cardNoLife", { pressed: kgWholeText(item.producedG) });
-  return t("reports.dieLife.cardUsed", { pct: item.usedPct, pressed: kgWholeText(item.producedG), life: kgWholeText(item.lifeG) });
+export function lifeHeader(item: Pick<DieLifeItem, "state" | "usedPct" | "producedG" | "lifeG">, t: T, fmt?: Fmt): string {
+  // With the plant's formatter the figures are whole units of the plant's weight; the sentence's {massUnit} names it.
+  const whole = (g: number) => (fmt ? kgGrouped0(fmt, g) : kgWholeText(g));
+  if (item.lifeG == null || item.usedPct == null) return t("reports.dieLife.cardNoLife", { pressed: whole(item.producedG) });
+  return t("reports.dieLife.cardUsed", { pct: item.usedPct, pressed: whole(item.producedG), life: whole(item.lifeG) });
 }
 
 export function dieLifeCsv(items: readonly DieLifeItem[], t: T, statusLabel: (s: string) => string): string {

@@ -99,7 +99,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
             </CardHeader>
             <ul className="flex flex-col divide-y divide-border">
               {p.dies.map((d) => {
-                const tot = pressedVsPlanned(d);
+                const tot = pressedVsPlanned(d, fmt);
                 return (
                   <li key={d.id} className="flex min-w-0 flex-col gap-2 px-4 py-3" data-phone-die={d.sectionCode} data-die-state={d.state}>
                     <div className="flex min-w-0 items-center justify-between gap-2">
@@ -127,7 +127,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
                     </p>
                     <ul className="flex flex-col gap-0.5 text-sm text-muted-foreground">
                       {d.lengths.map((l) => {
-                        const r = pressedVsPlanned(l);
+                        const r = pressedVsPlanned(l, fmt);
                         return (
                           <li key={l.cutLengthMm} className="flex min-w-0 justify-between gap-2 tabular-nums" data-phone-length="">
                             <span>{formatLengthMm(l.cutLengthMm, unit)}</span>
