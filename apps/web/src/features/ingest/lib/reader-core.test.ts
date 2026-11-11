@@ -168,11 +168,12 @@ describe("limits on blocks", () => {
     expect(() => finishBlocks([{ sheetName: "A", block: block(1, 60) }], { ...READ_LIMITS, maxRowsPerBlock: 1 })).toThrow(ReadStop);
   });
 
-  test("cells are cut at 200 characters, headers too", () => {
-    const b: EngineBlock = { title: null, headerRow: 0, headerRows: 1, headers: ["x".repeat(300)], rows: [["y".repeat(250)]] };
+  test("cells keep up to 2,000 characters for the server to cut at 200, with its reason code", () => {
+    const b: EngineBlock = { title: null, headerRow: 0, headerRows: 1, headers: ["x".repeat(2500)], rows: [["y".repeat(250), "z".repeat(2500)]] };
     const out = finishBlocks([{ sheetName: null, block: b }]);
-    expect(out[0]!.input.headers[0]).toHaveLength(200);
-    expect(out[0]!.rows[0]![0]).toHaveLength(200);
+    expect(out[0]!.input.headers[0]).toHaveLength(2000);
+    expect(out[0]!.rows[0]![0]).toHaveLength(250);
+    expect(out[0]!.rows[0]![1]).toHaveLength(2000);
   });
 
   test("the sample is bounded at 200 rows", () => {

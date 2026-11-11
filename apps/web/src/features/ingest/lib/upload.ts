@@ -163,6 +163,10 @@ export async function uploadOneFile(
   try {
     read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal });
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    // Tell the server the file could not be read, so its candidates show Could not read and not "reading" forever.
+    const readError = error instanceof ReadError ? error.failure.code : "unreadable";
+    await api.artifactComplete({ artifactId, readError }).catch(() => undefined);
     if (error instanceof ReadError && error.failure.code === "too_many_rows") {
       return refuse({ key: "ingest.drop.tooManyRows", vars: { name: file.name } });
     }

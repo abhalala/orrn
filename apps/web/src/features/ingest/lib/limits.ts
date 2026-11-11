@@ -36,6 +36,8 @@ export const MAX_BLOCKS = DEFAULT_LIMITS.blocksPerFile;
 export const MAX_COLUMNS = DEFAULT_LIMITS.columnsPerBlock;
 export const MAX_RAW_ROWS = DEFAULT_LIMITS.rawRowsPerFile;
 export const CELL_MAX_CHARS = DEFAULT_LIMITS.cellChars;
+/** What a cell may weigh on the wire; the server cuts it to `CELL_MAX_CHARS` with a reason code (plan A9). */
+export const WIRE_CELL_MAX_CHARS = 2000;
 /** `putRows` takes 500 rows at most (plan A1). */
 export const ROWS_PER_CALL = DEFAULT_LIMITS.rowsPerPut;
 /** `putBlocks` takes 50 blocks at most. */

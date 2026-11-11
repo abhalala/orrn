@@ -1,4 +1,4 @@
-import { clipCell, DEFAULT_LIMITS } from "./limits";
+import { clipCell, DEFAULT_LIMITS, WIRE_CELL_MAX_CHARS } from "./limits";
 import type { EngineBlock, PdfItem, ReaderEngine } from "./reader-engine";
 import type { ReadBlock, ReadFailure, ReadProgress } from "./reader-protocol";
 import type { ArtifactKind, BlockInput } from "./types";
@@ -110,8 +110,9 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
   for (const { sheetName, block, dateColumns } of pieces) {
     const columns = Math.max(block.headers.length, ...block.rows.map((r) => r.length), 0);
     if (columns > limits.maxColumns) throw new ReadStop({ code: "too_many_columns", sheet: sheetName, columns });
-    const headers = block.headers.map((h) => clipCell(h).text);
-    const rows = block.rows.map((r) => r.map((c) => clipCell(c).text));
+    // The server cuts cells at 200 characters and records why; the browser only keeps the wire cap.
+    const headers = block.headers.map((h) => clipCell(h, WIRE_CELL_MAX_CHARS).text);
+    const rows = block.rows.map((r) => r.map((c) => clipCell(c, WIRE_CELL_MAX_CHARS).text));
     const parts = Math.max(1, Math.ceil(rows.length / limits.maxRowsPerBlock));
     for (let part = 0; part < parts; part += 1) {
       const slice = parts === 1 ? rows : rows.slice(part * limits.maxRowsPerBlock, (part + 1) * limits.maxRowsPerBlock);
@@ -251,7 +252,7 @@ export async function readPdfBytes(buffer: ArrayBuffer, deps: ReadDeps): Promise
   let rawRows = 0;
   const pieces: Piece[] = tables.map((t) => {
     rawRows += t.rows.length;
-    return { sheetName: null, block: { title: t.title, headerRow: 0, headerRows: 1, headers: t.headers, rows: t.rows } };
+    return { sheetName: t.sheetName ?? null, block: { title: t.title, headerRow: 0, headerRows: 1, headers: t.headers, rows: t.rows } };
   });
   checkRawRows(rawRows, limits);
   if (pieces.length === 0) throw new ReadStop({ code: "unreadable", detail: "no table in the pdf" });

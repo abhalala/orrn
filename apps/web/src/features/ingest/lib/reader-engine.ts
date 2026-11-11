@@ -14,7 +14,7 @@ export type EngineBlock = {
 
 export type PdfItem = { page: number; text: string; x: number; y: number; width: number; height: number };
 
-export type EngineTable = { title: string | null; headers: string[]; rows: string[][] };
+export type EngineTable = { title: string | null; sheetName?: string | null; headers: string[]; rows: string[][] };
 
 export interface SqlTableReader {
   /** Feed the next chunk of dump text, in order. */
