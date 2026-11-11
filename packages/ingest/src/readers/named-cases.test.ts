@@ -248,7 +248,9 @@ describe("pdf cases", () => {
     );
     pdf(
       [[...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), it("Zenith Traders", 50, 740), it("closed", 420, 740), ...cust(725, "Kamal", "9797", "Rajkot"), ...cust(710, "Om", "9696", "Pune")]],
-      [{ headers: ["Name", "Phone", "City", ""], rows: [["Asha", "9898", "Surat", ""], ["Zenith Traders", "", "", "closed"], ["Kamal", "9797", "Rajkot", ""], ["Om", "9696", "Pune", ""]] }],
+      // Round 5, rule 5.3: never a column with no name. This pinned "closed" in an unnamed fourth column; it now pins it
+      // in the last band, City, as the rule places it.
+      [{ headers: ["Name", "Phone", "City"], rows: [["Asha", "9898", "Surat"], ["Zenith Traders", "", "closed"], ["Kamal", "9797", "Rajkot"], ["Om", "9696", "Pune"]] }],
       [{ page: 1, headerRow: 0 }],
     );
   });

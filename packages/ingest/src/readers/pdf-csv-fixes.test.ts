@@ -242,7 +242,14 @@ describe("R-new-2: a party group row under the header keeps every value in its c
   // placed by x, not fed as raw cell lists.
   const unnamed = (y: number) => [it("Party", 50, y), it("Section", 150, y), right("Kg", 345, y)];
 
-  test("a header with an unnamed column over a party group row keeps the columns", () => {
+  // Round 5, rule 5.3: the columns are exactly the header's cells, never a column with no name. These two tests pinned
+  // an unnamed Pcs column; they now pin three columns, the Pcs value joined into Kg, and every such row marked.
+  const joinedRows = [
+    ["Om Metals", "", ""],
+    ["", "R 2105", "12 12500.50"],
+    ["", "R 2106", "8 980.25"],
+  ];
+  test("a header with an unnamed column over a party group row: the header's columns, and the joined rows marked", () => {
     const page = [
       ...unnamed(770),
       it("Om Metals", 50, 755),
@@ -251,12 +258,10 @@ describe("R-new-2: a party group row under the header keeps every value in its c
     ];
     const r = readPdfText([page]);
     expect(r.blocks.length).toBe(1);
-    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
-    expect(r.blocks[0]!.rows).toEqual([
-      ["Om Metals", "", "", ""],
-      ["", "R 2105", "12", "12500.50"],
-      ["", "R 2106", "8", "980.25"],
-    ]);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual(joinedRows);
+    const codes = r.blocks[0]!.doubts.map((d) => `${d.row}:${d.code}`);
+    for (const want of ["0:few_columns", "1:cells_joined", "2:cells_joined"]) expect(codes).toContain(want);
     expect(r.warnings).toEqual([]);
   });
 
@@ -270,12 +275,9 @@ describe("R-new-2: a party group row under the header keeps every value in its c
     ];
     const r = readPdfText([page]);
     expect(r.blocks.length).toBe(1);
-    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
-    expect(r.blocks[0]!.rows).toEqual([
-      ["Om Metals", "", "", ""],
-      ["", "R 2105", "12", "12500.50"],
-      ["", "R 2106", "8", "980.25"],
-    ]);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual(joinedRows);
+    expect(r.blocks[0]!.doubts.filter((d) => d.code === "cells_joined").map((d) => d.row)).toEqual([1, 2]);
     expect(r.warnings).toEqual(["page 1: 1 line could not be placed"]);
   });
 

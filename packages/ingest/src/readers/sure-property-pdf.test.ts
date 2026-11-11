@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import { readPdfText, type TextItem } from "./pdf-text";
-import type { BlockHints, ReadBlock } from "./types";
+import type { BlockHints } from "./types";
 import { chooseHeader } from "../header";
-import { layoutOf } from "./trust-helpers";
+import { layoutOf, pdfMismatch } from "./trust-helpers";
 
 // PORTAL-RULES-3 section 3, the acceptance property for PDF text items. Generated pages with titles, letterheads,
 // group labels, blank header cells, ragged rows, footers, wrapped cells, one-cell rows, a second table, a continuation
@@ -304,8 +304,6 @@ export function truthHints(c: Case): BlockHints[] {
   }));
 }
 
-const view = (b: ReadBlock) => ({ title: b.title, headers: b.headers, rows: b.rows });
-const viewTruth = (t: Truth) => ({ title: t.title, headers: t.headers, rows: t.rows });
 
 describe("pdf reader property: a fit means the right row, hints mean right", () => {
   test("generated pages, each feature alone and in real-looking mixes", () => {
@@ -335,8 +333,15 @@ describe("pdf reader property: a fit means the right row, hints mean right", () 
         const t = atTruth ?? (choice.fit.learned && choice.fit.fit === "exact" ? true : undefined);
         expect(t ? null : { page: b.guess.page, headerRow: choice.headerRow, headerRows: choice.headerRows }, label).toBeNull();
       });
+      // Rule 5.5: with the right hints a PDF read is exact, or every wrong row carries a doubt. Round 5 changed this
+      // from strict equality: a blank header cell names no column (rule 5.3), so its values join a named column and
+      // that row is marked.
       const hinted = readPdfText(c.pages, { hints: truthHints(c) });
-      expect(hinted.blocks.map(view), `${label} ${JSON.stringify(truthHints(c))}`).toEqual(c.tables.map(viewTruth));
+      expect(hinted.blocks.length, label).toBe(c.tables.length);
+      hinted.blocks.forEach((b, k) => {
+        expect(b.title, label).toBe(c.tables[k]!.title);
+        expect(pdfMismatch(b, c.tables[k]!), `${label} ${JSON.stringify(truthHints(c))}`).toBeNull();
+      });
     }
     expect(sure).toBeGreaterThan(200);
   }, 120_000);

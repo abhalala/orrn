@@ -471,6 +471,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       guess: { headerRow: h, headerRows, firstDataRow: first, lastDataRow: end },
       hints: { ...hint },
       warnings: blockWarnings,
+      doubts: [],
     };
     blocks.push(block);
     prevHinted = block;
@@ -601,6 +602,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
       guess: { headerRow: h, headerRows, firstDataRow: dataStart, lastDataRow: dataStart + data.length - 1 },
       hints: null,
       warnings: blockWarnings,
+      doubts: [],
     };
     // A guessed split (rule 5.2): both previews show the last rows above it and the first rows of the block below.
     if (split) {

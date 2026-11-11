@@ -30,7 +30,8 @@ describe("pdf blocks say sure or unsure", () => {
   test("a title line makes it unsure, and the preview starts at the title", () => {
     const r = readPdfText([[it("PACKING LIST", 50, 800), ...header(770), ...row(755, "Om Metals", "R 2105", "12", "1200")]]);
     expect(asked(r.blocks[0]!)).toBe(true);
-    expect(r.blocks[0]!.preview[0]).toEqual({ row: 0, page: 1, cells: ["PACKING LIST"] });
+    // Round 5, rule 5.3 (M4): PDF preview rows are given in the block's columns. This pinned the raw line cells.
+    expect(r.blocks[0]!.preview[0]).toEqual({ row: 0, page: 1, cells: ["PACKING LIST", "", "", ""] });
     expect(r.blocks[0]!.guess.headerRow).toBe(1);
   });
 
