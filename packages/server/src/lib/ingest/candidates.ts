@@ -84,6 +84,7 @@ import {
   undecidedRows,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
+import { aliasMoveRefusal } from "./merge/rowchecks";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import { vaultReady } from "./vault";
 import {
@@ -831,6 +832,10 @@ export async function decideRows(
   if (input.decision !== "skip" && input.decision !== "keep_live" && rows.some((r) => (r.reasons ?? []).includes("order_line_new"))) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This line is not on the order in orrn. Add it to that order there, or leave the row out" });
   }
+  // An alias of another customer or vendor is never moved by the merge (X-new-3).
+  if (input.decision !== "skip" && input.decision !== "keep_live" && rows.some((r) => (r.reasons ?? []).includes("alias_taken:alias"))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: aliasMoveRefusal(c.target === "vendor_aliases" ? "vendor_aliases" : "customer_aliases") });
+  }
   if (input.decision === "use_match") {
     for (const r of rows) {
       const opts = ((r.values?._options as { options: { id: string }[] }[] | undefined) ?? []).flatMap((o) => o.options.map((x) => x.id));
@@ -916,6 +921,9 @@ export async function setAnswer(
   const questions = await candidateQuestions(ctx, c, artifact);
   if (!questions.some((q) => q.code === input.questionCode && q.subject === input.subject)) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This import does not ask that" });
+  }
+  if (input.questionCode === "rates_hidden" && answer === "owner_merges" && questions.some((q) => q.code === "rates_hidden" && q.params.reason === "pricing_off")) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Rates on sales orders are off for this plant. Turn rates on first, or leave rates out." });
   }
   if (input.questionCode === "column_meaning_unclear" && answer !== input.subject) {
     // The only answer that changes nothing is "the mapped column is right". Another column is a new

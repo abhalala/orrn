@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrder, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -48,7 +48,20 @@ import { companyModules } from "../moduleGate";
 import { can } from "../permissions";
 import { nameKey } from "../purchase";
 import { fyOfDate, stagedRowIdOf } from "./artifacts";
-import { aliasNameCheck, aliasNameOwners, checkReason, handStatusCheck, loadOrderLineSchema, orderLineCheck, type NameOwner } from "./merge/rowchecks";
+import {
+  aliasNameCheck,
+  aliasNameOwners,
+  checkReason,
+  handStatusCheck,
+  loadOrderLineSchema,
+  newCopyCheck,
+  ORDER_GROUP_CODES,
+  ORDER_GROUP_SQL,
+  orderGroupCheck,
+  orderLineCheck,
+  type NameOwner,
+} from "./merge/rowchecks";
+import { companyFloor } from "../orderLines";
 import { refreshArtifactPeriod } from "./period";
 import {
   guardedBatch,
@@ -526,6 +539,9 @@ export function applyDecision(out: RowOutcome, row: Pick<Staged, "decision" | "m
   if (d === "skip") return { ...out, state: "skipped" };
   if (out.state !== "ambiguous" && out.state !== "conflict") return out;
   if (out.reasons.some((r) => r.startsWith("q:"))) return out;
+  // An alias of another customer or vendor is never moved by the merge (the alias adapters refuse
+  // any update): only skip or keep orrn's fit. Any other choice stages the row refused (X-new-3).
+  if (out.reasons.includes("alias_taken:alias") && d !== "keep_live") return { ...out, state: "refused", matchId: null, diff: null };
   switch (d) {
     case "use_match": {
       const options = ((out.values?._options as { options: { id: string }[] }[] | undefined) ?? []).flatMap((o) => o.options.map((x) => x.id));
@@ -582,7 +598,12 @@ export async function candidateQuestions(
   }
   if (periodRequired(r) && !artifact.periodConfirmed?.asOf) add("period_needed", "", {});
   const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-  if (r.target === "orders" && r.fields.some((f) => f.field === "rate") && !can(me, "order.price")) add("rates_hidden", "", {});
+  if (r.target === "orders" && r.fields.some((f) => f.field === "rate")) {
+    // With rates on sales orders off, the merge writes no rate for anyone (B3): the person leaves
+    // rates out first, or turns rates on (X-new-3). Asked of everyone, and it blocks approve.
+    if ((await companyFloor(ctx.db, ctx.companyId)).floor.priceOnSalesOrder !== true) add("rates_hidden", "", { reason: "pricing_off" });
+    else if (!can(me, "order.price")) add("rates_hidden", "", {});
+  }
 
   const waiting = await ctx.db
     .select({ reasons: ingestStagedRow.reasons, magnitude: sql<string | null>`json_extract(${ingestStagedRow.values}, '$._magnitude')` })
@@ -670,9 +691,12 @@ export function clearMagnitudeAnswers(ctx: Pick<IngestCtx, "db" | "companyId">, 
     );
 }
 
-/** Questions that block approve for anyone (rates_hidden depends on who approves, so it is left out). */
+/**
+ * Questions that block approve for anyone. rates_hidden depends on who approves, so it is left out,
+ * unless rates on sales orders are off for the plant: then nobody may merge the rates.
+ */
 export function openQuestionCount(questions: readonly IngestQuestion[]): number {
-  return questions.filter((q) => q.open && q.code !== "rates_hidden").length;
+  return questions.filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off")).length;
 }
 
 /** Ambiguous and conflict rows that wait on a person, not on a question. */
@@ -798,11 +822,16 @@ function holdForMagnitude(out: RowOutcome, waiting: readonly MagnitudeFlag[], en
  * The die copy status the row would write, checked as the merge checks it (B12): a create's status,
  * or an update's new status.
  */
-function copyStatusCheck(out: RowOutcome): RowOutcome {
+function copyStatusCheck(out: RowOutcome, sections: readonly { id: string; status?: string }[]): RowOutcome {
   const diffStatus = (out.diff as Record<string, { file: unknown }> | null)?.status;
   const status = out.state === "ready_create" ? out.values?.status : out.state === "ready_update" || out.state === "conflict" ? diffStatus?.file : undefined;
   const bad = handStatusCheck(status);
-  return bad ? { ...out, state: "refused", reasons: [...out.reasons, checkReason(bad)] } : out;
+  if (bad) return { ...out, state: "refused", reasons: [...out.reasons, checkReason(bad)] };
+  if (out.state !== "ready_create") return out;
+  // What dieInstance.create refuses: an archived section, a new copy at nitriding (X-new-3).
+  const sectionId = ((out.values?._ids ?? {}) as Record<string, string>).sectionCode;
+  const fresh = newCopyCheck(sections.find((x) => x.id === sectionId)?.status, out.values?.status);
+  return fresh ? { ...out, state: "refused", reasons: [...out.reasons, checkReason(fresh)] } : out;
 }
 
 // ---------------------------------------------------------------------------
@@ -947,7 +976,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       });
       out = applyDecision(out, r, c.target);
       out = holdForMagnitude(out, waiting, entered);
-      if (c.target === "die_copies") out = copyStatusCheck(out);
+      if (c.target === "die_copies") out = copyStatusCheck(out, live.sections ?? []);
       out.reasons = [...keep, ...out.reasons, ...notes];
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);
@@ -1095,6 +1124,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
   if (done) {
     const questions = await candidateQuestions(ctx, fresh, artifact);
     const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
+    // Whole orders, checked as the merge planner checks them (X-new-3).
+    const groups = c.target === "orders" ? await orderGroupStatements(ctx, c.id, at) : [];
     try {
       await guardedBatch(ctx.db, [
         ctx.db
@@ -1110,6 +1141,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
             ),
           ),
         ingestAbortUnlessChanged(ctx.db),
+        ...groups,
+        ...(groups.length ? [recountStatement(ctx, c.id)] : []),
       ]);
     } catch (e) {
       const now2 = await loadCandidate(ctx, c.id);
@@ -1278,6 +1311,62 @@ async function orderLineChecks(rows: readonly Staged[], outcomes: Map<string, Ro
     const check = orderLineCheck(schema, out.values ?? {}, "section", true);
     if (check.problem) outcomes.set(r.id, { ...out, state: "refused", reasons: [...out.reasons, checkReason(check.problem)], diff: null });
   }
+}
+
+/**
+ * The order groups the merge planner would hold (B1, B5), refused here first with the same check
+ * (`orderGroupCheck`): every line of an order above 100 lines, or of a PO with two order dates. It
+ * runs once the whole candidate is checked, because one order may span pages. A line it refused
+ * before goes back to ready when its order passes now (a person skipped some lines).
+ */
+async function orderGroupStatements(ctx: IngestCtx, candidateId: string, at: Date): Promise<SqliteBatchItem[]> {
+  const V = ingestStagedRow.values;
+  const groupLike = or(...ORDER_GROUP_CODES.map((code) => sql`${ingestStagedRow.reasons} like ${`%"${code}:%`}`));
+  const rows = await ctx.db
+    .select({
+      id: ingestStagedRow.id,
+      rowIndex: ingestStagedRow.rowIndex,
+      state: ingestStagedRow.state,
+      reasons: ingestStagedRow.reasons,
+      group: ORDER_GROUP_SQL,
+      po: sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')`,
+      poText: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')`,
+      orderDate: sql<string | null>`json_extract(${V}, '$.orderDate')`,
+      oldNo: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')`,
+    })
+    .from(ingestStagedRow)
+    .where(
+      and(
+        eq(ingestStagedRow.candidateId, candidateId),
+        eq(ingestStagedRow.mergeState, "open"),
+        or(eq(ingestStagedRow.state, "ready_create"), and(eq(ingestStagedRow.state, "refused"), groupLike)),
+      ),
+    )
+    .orderBy(asc(ingestStagedRow.rowIndex));
+  const isGroupReason = (r: string) => ORDER_GROUP_CODES.some((code) => r.startsWith(`${code}:`));
+  const groups = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const list = groups.get(r.group);
+    if (list) list.push(r);
+    else groups.set(r.group, [r]);
+  }
+  const out: SqliteBatchItem[] = [];
+  for (const list of groups.values()) {
+    const problem = orderGroupCheck(list);
+    const reason = problem ? checkReason(problem) : null;
+    for (const r of list) {
+      const base = (r.reasons ?? []).filter((x) => !isGroupReason(x));
+      const want = reason ? { state: "refused" as const, reasons: [...base, reason] } : { state: "ready_create" as const, reasons: base };
+      if (want.state === r.state && JSON.stringify(want.reasons) === JSON.stringify(r.reasons ?? [])) continue;
+      out.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({ state: want.state, reasons: want.reasons.length ? want.reasons : null, updatedAt: at })
+          .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, candidateId), eq(ingestStagedRow.mergeState, "open"))),
+      );
+    }
+  }
+  return out;
 }
 
 /**

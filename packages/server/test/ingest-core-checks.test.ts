@@ -27,8 +27,8 @@ type Sheet = { headers: string[]; rows: string[][]; name?: string };
 
 const sha = () => createHash("sha256").update(randomUUID()).digest("hex");
 
-async function plant() {
-  const { companyId, users } = await env.seedCompany();
+async function plant(settings?: Record<string, unknown>) {
+  const { companyId, users } = await env.seedCompany(settings ? { settings } : undefined);
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, users, as, admin: as("admin"), owner: as("owner") };
 }
@@ -515,6 +515,144 @@ describe("X-new-2: a rate flag tells nothing about the rate to a role without or
 });
 
 // ---------------------------------------------------------------------------
+// Round 2, X-new-3: four more holds the dry run now finds first
+// ---------------------------------------------------------------------------
+
+describe("X-new-3: the dry run refuses what the merge would hold", () => {
+  test("(a) an alias of another customer takes skip or keep orrn's only; keep the file's is refused at once and on a re-run", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    const bharat = await p.owner.customer.create({ name: "Bharat Metals" });
+    await p.owner.customer.addAliases({ rows: [{ customerId: bharat.id, alias: "Acme Trading Co" }] });
+    const headers = ["Customer", "Other name"];
+    const aliasLayout = layout(
+      "customer_aliases",
+      headers,
+      [
+        { field: "customer", steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "alias", steps: trim },
+      ],
+      ["alias"],
+    );
+    await learnLayout(p.companyId, p.users.owner.id, aliasLayout, "Aliases");
+    const { candidates } = await upload(p.owner, [{ headers, rows: [["Acme Traders", "Acme Trading Co"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let [row] = await rowsOf(p.owner, id);
+    expect([row!.state, row!.reasons]).toEqual(["conflict", ["alias_taken:alias"]]);
+    const c = await p.owner.ingest.candidate.get({ candidateId: id });
+    for (const decision of ["keep_file", "create_new"] as const) {
+      await expect(p.owner.ingest.rows.decide({ candidateId: id, rowIds: [row!.id], decision, expectSeq: c.serverSeq })).rejects.toThrow(
+        "A name that belongs to another customer is not moved by an import. Skip these rows.",
+      );
+    }
+    // A choice stored before this rule (or by another path) does not make the row ready.
+    const { ingestCandidate, ingestStagedRow } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(ingestStagedRow).set({ decision: "keep_file" }).where(eq(ingestStagedRow.id, row!.id));
+    await env.db.update(ingestCandidate).set({ state: "processing", dryCursor: 0 }).where(eq(ingestCandidate.id, id));
+    await pump(p.owner, id);
+    [row] = await rowsOf(p.owner, id);
+    expect([row!.state, row!.reasons]).toEqual(["refused", ["alias_taken:alias"]]);
+  });
+
+  test("(b) one PO on two order dates, and an order above 100 lines, are refused at dry run; skipping a line brings the order back", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    await learnLayout(p.companyId, p.users.owner.id, orderLayout(), "Orders");
+    const line = (po: string, date: string) => ["Acme Traders", po, date, "R", "5100", "3658", "", "300"];
+    const rows = [line("PO-9", "01/10/2025"), line("PO-9", "02/10/2025"), line("PO-8", "01/10/2025")];
+    for (let i = 0; i < 101; i += 1) rows.push(line("PO-BIG", "03/10/2025"));
+    const { candidates } = await upload(p.owner, [{ headers: ORDER_HEADERS, rows }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    const all = async () => {
+      const first = await p.owner.ingest.rows.list({ candidateId: id, limit: 100 });
+      const rest = await p.owner.ingest.rows.list({ candidateId: id, limit: 100, cursor: first.nextCursor! });
+      return [...first.items, ...rest.items];
+    };
+    let staged = await all();
+    expect(staged.slice(0, 3).map((r) => [r.state, r.reasons])).toEqual([
+      ["refused", ["po_two_dates:orderDate"]],
+      ["refused", ["po_two_dates:orderDate"]],
+      ["ready_create", []],
+    ]);
+    expect(new Set(staged.slice(3).map((r) => `${r.state} ${r.reasons.join(",")}`))).toEqual(new Set(["refused order_lines_over:order"]));
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.counts).toMatchObject({ create: 1, refused: 103 });
+
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [staged.at(-1)!.id], decision: "skip", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    staged = await all();
+    expect(staged.at(-1)!.state).toBe("skipped");
+    expect(new Set(staged.slice(3, -1).map((r) => `${r.state} ${r.reasons.join(",")}`))).toEqual(new Set(["ready_create "]));
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.counts).toMatchObject({ create: 101, refused: 2, skipped: 1 });
+  });
+
+  test("(c) a new die copy on an archived section is refused at dry run with the merge's reason", async () => {
+    const p = await plant();
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "7100" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "7200", status: "archived" });
+    await learnLayout(p.companyId, p.users.owner.id, copyLayout(), "Copies");
+    const { candidates } = await upload(p.owner, [
+      {
+        headers: COPY_HEADERS,
+        rows: [
+          ["R", "7100", "A-1", "available"],
+          ["R", "7200", "A-2", "available"],
+          ["R", "7100", "A-3", "at_nitriding"],
+        ],
+      },
+    ]);
+    await pump(p.owner, candidates[0]!.id);
+    const rows = await rowsOf(p.owner, candidates[0]!.id);
+    expect(rows.map((r) => [r.state, r.reasons])).toEqual([
+      ["ready_create", []],
+      ["refused", ["section_archived:sectionCode"]],
+      ["refused", ["status_not_allowed:status"]],
+    ]);
+  });
+
+  test("(d) with rates on sales orders off, a sheet with rates asks everyone to leave rates out before approve", async () => {
+    const p = await plant({ priceOnSalesOrder: false });
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    const headers = [...ORDER_HEADERS, "Rate (Rs/kg)"];
+    const base = orderLayout();
+    await learnLayout(
+      p.companyId,
+      p.users.owner.id,
+      layout(
+        "orders",
+        headers,
+        [...base.fields.map((f) => ({ field: f.field, steps: f.steps })), { field: "rate", steps: [{ op: "number", kind: "price_per_mass", unit: "inr/kg" }] }],
+        base.keys,
+      ),
+      "Rated orders",
+    );
+    const { candidates } = await upload(p.owner, [{ headers, rows: [["Acme Traders", "PO-1", "01/10/2025", "R", "5100", "3658", "", "300", "250"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.find((q) => q.code === "rates_hidden")).toMatchObject({ open: true, params: { reason: "pricing_off" } });
+    expect(c.openQuestions).toBe(1);
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    await expect(
+      p.owner.ingest.answer.set({ candidateId: id, questionCode: "rates_hidden", subject: "", answer: "owner_merges", expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/Rates on sales orders are off/);
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "rates_hidden", subject: "", answer: "leave_out", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    const [row] = await rowsOf(p.owner, id);
+    expect(row!.state).toBe("ready_create");
+    expect(row!.rate).toBeNull();
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect((await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).state).toBe("approved");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Item 4a: the dateless order match stays in the period's financial year
 // ---------------------------------------------------------------------------
 
@@ -670,11 +808,14 @@ describe("B-new-3: after a failed chunk, the person fixes the cause and approves
     throw new Error("The merge did not finish");
   }
 
-  /** Three die copies; the middle one's section is archived, so its chunk fails after the first copy is written. */
+  /**
+   * Three die copies; the middle one's section is archived after the dry run (the dry run refuses an
+   * archived section itself, X-new-3), so its chunk fails after the first copy is written.
+   */
   async function heldCopies() {
     const p = await plant();
     await env.seedDie(p.companyId, { series: "R", sectionCode: "7100" });
-    const archived = await env.seedDie(p.companyId, { series: "R", sectionCode: "7200", status: "archived" });
+    const archived = await env.seedDie(p.companyId, { series: "R", sectionCode: "7200" });
     await learnLayout(p.companyId, p.users.owner.id, copyLayout(), "Copies");
     const { candidates } = await upload(p.owner, [
       {
@@ -690,6 +831,9 @@ describe("B-new-3: after a failed chunk, the person fixes the cause and approves
     await pump(p.owner, id);
     let c = await p.owner.ingest.candidate.get({ candidateId: id });
     await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(die).set({ status: "archived" }).where(eq(die.id, archived));
     expect((await merge(p.owner)).state).toBe("done_with_holds");
     c = await p.owner.ingest.candidate.get({ candidateId: id });
     expect(c).toMatchObject({ state: "held", reasonDetail: "This section is archived; no new die copies", counts: { written: 1 } });

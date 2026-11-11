@@ -24,6 +24,7 @@ import { can } from "../../permissions";
 import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection, serverNameKey } from "../resolvers";
 import type { IngestCtx } from "../types";
 import {
+  aliasMoveRefusal,
   aliasNameOwners,
   aliasRefusal,
   handStatusRefusal,
@@ -51,7 +52,7 @@ import {
 } from "./shared";
 
 // The shared row checks moved to rowchecks.ts, so the dry run uses them too. Re-exported here.
-export { aliasNameCheck, aliasNameOwners, aliasRefusal, handStatusCheck, handStatusRefusal, ORDER_LINE_FIELDS, orderLineCheck, orderLineOf } from "./rowchecks";
+export { aliasMoveRefusal, aliasNameCheck, aliasNameOwners, aliasRefusal, handStatusCheck, handStatusRefusal, ORDER_LINE_FIELDS, orderLineCheck, orderLineOf } from "./rowchecks";
 export type { NameOwner } from "./rowchecks";
 
 // ---------------------------------------------------------------------------
@@ -288,7 +289,7 @@ const customerAliases: Adapter = async (args) => {
   if (rows.some(isUpdate)) {
     return {
       written: [],
-      failure: { code: "BAD_REQUEST", message: "A name that belongs to another customer is not moved by an import. Skip these rows.", reason: "merge_failed" },
+      failure: { code: "BAD_REQUEST", message: aliasMoveRefusal("customer_aliases"), reason: "merge_failed" },
     };
   }
   return oneCall(async (sent) => {
@@ -376,7 +377,7 @@ const vendorAliases: Adapter = async (args) => {
   if (rows.some(isUpdate)) {
     return {
       written: [],
-      failure: { code: "BAD_REQUEST", message: "A name that belongs to another vendor is not moved by an import. Skip these rows.", reason: "merge_failed" },
+      failure: { code: "BAD_REQUEST", message: aliasMoveRefusal("vendor_aliases"), reason: "merge_failed" },
     };
   }
   // A name of another vendor is refused by vendor.addAlias. The planner holds such a candidate
