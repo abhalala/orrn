@@ -115,6 +115,24 @@ function mapError(err: unknown): ShapeClientError {
   return new ShapeClientError("unknown", "The model call failed.");
 }
 
+/**
+ * The JSON schema the API is given for a purpose. `zodOutputFormat` also returns a `parse`
+ * function, and the SDK calls it inside `finalMessage()` and throws when the answer does not
+ * fit. We want the raw answer instead: an answer that fails the schema is an `invalid` run that
+ * can retry with error codes, not a transport error. So only `type` and `schema` are sent
+ * on, and `index.ts` validates the JSON itself.
+ */
+const formats = new Map<ShapePurpose, { type: "json_schema"; schema: Record<string, unknown> }>();
+function outputFormat(purpose: ShapePurpose) {
+  let f = formats.get(purpose);
+  if (!f) {
+    const full = zodOutputFormat(purpose === "vision" ? visionOutput : botOutput);
+    f = { type: "json_schema", schema: full.schema as Record<string, unknown> };
+    formats.set(purpose, f);
+  }
+  return f;
+}
+
 function parseJson(text: string): unknown | null {
   if (text.trim() === "") return null;
   try {
@@ -139,7 +157,7 @@ export class AnthropicShapeClient implements ShapeModelClient {
 
   async call(req: ShapeRequest): Promise<ShapeResponse> {
     const started = Date.now();
-    const format = zodOutputFormat(req.purpose === "vision" ? visionOutput : botOutput);
+    const format = outputFormat(req.purpose);
     const system = req.system.map((b) => ({
       type: "text" as const,
       text: b.text,
