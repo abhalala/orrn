@@ -28,17 +28,21 @@ const SECTIONS = ["R 2105", "T 4012", "K 1100", "R 2106"];
 const WRAPS = ["long", "anodised", "mill finish", "8 ft"];
 
 /** Lay out columns left to right with random gaps of 3 to 10 characters. */
-function layColumns(rnd: (n: number) => number, spec: { name: string; kind: Kind }[], widest: (k: Kind) => number): Column[] {
+function layColumns(rnd: (n: number) => number, spec: { name: string; kind: Kind }[], widest: (k: Kind) => number, wide = false): Column[] {
   let x = 30 + rnd(40);
   return spec.map((c) => {
     const w = Math.max(c.name.length, widest(c.kind)) * CHAR;
-    const col: Column = { ...c, x0: x, x1: x + w, right: c.kind === "num" || c.kind === "sr" ? rnd(2) === 0 : false };
+    // Wide numbers are right-aligned, so a short header sits at the right end of a much wider column.
+    const right = wide && c.kind === "num" ? true : c.kind === "num" || c.kind === "sr" ? rnd(2) === 0 : false;
+    const col: Column = { ...c, x0: x, x1: x + w, right };
     x += w + (3 + rnd(8)) * CHAR;
     return col;
   });
 }
 
 const widest = (k: Kind) => (k === "party" ? 14 : k === "section" ? 6 : k === "sr" ? 2 : 4);
+/** With 5 to 7 digit numbers: a value is up to 3.5 times as wide as a 2-letter header (R-new-2). */
+const widestWide = (k: Kind) => (k === "num" ? 7 : widest(k));
 
 function cellAt(col: Column, text: string, y: number): TextItem {
   return item(text, col.right ? col.x1 - text.length * CHAR : col.x0, y);
@@ -55,7 +59,7 @@ function buildTable(
   cols: Column[],
   y0: number,
   pitch: number,
-  opts: { rows: number; wraps: boolean; oneCell: boolean; header: boolean; startSr: number },
+  opts: { rows: number; wraps: boolean; oneCell: boolean; header: boolean; startSr: number; wide?: boolean },
 ): Built {
   const items: TextItem[] = [];
   let y = y0;
@@ -69,9 +73,10 @@ function buildTable(
       if (c.kind === "sr") return String(opts.startSr + r);
       if (c.kind === "party") return PARTIES[rnd(PARTIES.length)]!;
       if (c.kind === "section") return rnd(5) === 0 ? "" : SECTIONS[rnd(SECTIONS.length)]!;
-      return String(1 + rnd(9999));
+      return opts.wide ? String(10000 + rnd(9990000)) : String(1 + rnd(9999));
     });
-    if (opts.oneCell && cols[0]!.kind === "party" && rnd(5) === 0) {
+    // A party-only row; the first data row is one more often (a party group row right under the header, R-new-2).
+    if (opts.oneCell && cols[0]!.kind === "party" && rnd(r === 0 ? 3 : 5) === 0) {
       for (let k = 1; k < cells.length; k++) cells[k] = "";
     }
     cols.forEach((c, k) => {
@@ -100,12 +105,15 @@ type Case = { pages: Page[]; tables: Table[]; label: string };
 function generate(seed: number): Case {
   const rnd = rng(seed);
   const pitch = 11 + rnd(8);
+  // Wide numbers: 5 to 7 digits under 2-letter headers.
+  const wide = rnd(3) === 0;
+  const pcs = wide ? "Pc" : "Pcs";
   const first: { name: string; kind: Kind }[] = rnd(2) === 0
-    ? [{ name: "Sr", kind: "sr" }, { name: "Section", kind: "section" }, { name: "Pcs", kind: "num" }, { name: "Kg", kind: "num" }]
-    : [{ name: "Party", kind: "party" }, { name: "Section", kind: "section" }, { name: "Pcs", kind: "num" }, { name: "Kg", kind: "num" }];
+    ? [{ name: "Sr", kind: "sr" }, { name: "Section", kind: "section" }, { name: pcs, kind: "num" }, { name: "Kg", kind: "num" }]
+    : [{ name: "Party", kind: "party" }, { name: "Section", kind: "section" }, { name: pcs, kind: "num" }, { name: "Kg", kind: "num" }];
   if (rnd(2) === 0) first.splice(2, 0, { name: "Party", kind: "party" });
   const unique = first.filter((c, i) => first.findIndex((d) => d.name === c.name) === i);
-  const cols = layColumns(rnd, unique, widest);
+  const cols = layColumns(rnd, unique, wide ? widestWide : widest, wide);
   const items: TextItem[] = [];
   let y = 800;
   const titleParts: string[] = [];
@@ -121,13 +129,13 @@ function generate(seed: number): Case {
     titleParts.push(t);
     y -= pitch + rnd(10);
   }
-  const t1 = buildTable(rnd, cols, y, pitch, { rows: 2 + rnd(6), wraps: true, oneCell: true, header: true, startSr: 1 });
+  const t1 = buildTable(rnd, cols, y, pitch, { rows: 2 + rnd(6), wraps: true, oneCell: true, header: true, startSr: 1, wide });
   items.push(...t1.items);
   t1.table.title = titleParts.length > 0 ? titleParts.join(" ") : null;
   y = t1.y;
   const tables: Table[] = [t1.table];
   const shape = rnd(4);
-  const labels = [`seed ${seed}`, `pitch ${pitch}`, `title ${titleKind}`, `shape ${shape}`];
+  const labels = [`seed ${seed}`, `pitch ${pitch}`, `title ${titleKind}`, `shape ${shape}`, ...(wide ? ["wide numbers"] : [])];
   const pages: Page[] = [{ items }];
   if (shape === 1) {
     // A second table under a one-cell Summary line, after a blank gap, or right under the first with no heading line
@@ -179,7 +187,7 @@ function generate(seed: number): Case {
       extra.push([name, ...cols.slice(1).map(() => "")]);
       y2 -= pitch;
     }
-    const t3 = buildTable(rnd, cols, y2, pitch, { rows: 1 + rnd(4), wraps: true, oneCell: true, header: again === 1, startSr: t1.table.rows.length + 1 });
+    const t3 = buildTable(rnd, cols, y2, pitch, { rows: 1 + rnd(4), wraps: true, oneCell: true, header: again === 1, startSr: t1.table.rows.length + 1, wide });
     p2.push(...t3.items);
     t1.table.rows.push(...extra, ...t3.table.rows);
     pages.push({ items: p2 });

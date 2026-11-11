@@ -132,6 +132,17 @@ function fitsColumns(cols: readonly Col[], l: Line, charWidth: number): boolean 
   return true;
 }
 
+/**
+ * Does the line fit once the spans take it in (R-new-2)? A header alone gives narrow spans: a value right-aligned under
+ * "Kg" can be far wider than "Kg". A data line (not header-like) fits when the spans rebuilt with it keep the same number
+ * of columns and it then fits them one cell to one column. A header-like line never widens: it may head the next table.
+ */
+function fitsWidened(members: readonly Line[], cols: readonly Col[], l: Line, charWidth: number): boolean {
+  if (isHeaderLike(l.cells.map((c) => c.text))) return false;
+  const wider = buildCols([...members, l], charWidth);
+  return wider.length === cols.length && fitsColumns(wider, l, charWidth);
+}
+
 /** A blank-value word in a number column: never a column name. */
 const NULL_WORD = /^(?:nil|na|n\/a|none|null|nill|-+)$/i;
 const isWord = (s: string) => cellKind(s) === "text" && /[a-z]{2}/i.test(s) && !NULL_WORD.test(s);
@@ -234,7 +245,7 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
       const plain = !big && wraps === pending.length;
       // A new header ends the run whether or not lines wait and whether or not it fits the columns (C-new-6).
       const newHead = isNewHeader(cols, l, members, charWidth);
-      if (newHead || (!plain && !fitsColumns(cols, l, charWidth))) {
+      if (newHead || (!plain && !fitsColumns(cols, l, charWidth) && !fitsWidened(members, cols, l, charWidth))) {
         // Lines across a blank gap from the next table belong to this run: trailing rows or footers.
         if (big) {
           entries.push(...pending);
@@ -462,6 +473,33 @@ function placeByX(cells: readonly Cell[], cols: readonly (readonly [number, numb
 }
 
 /**
+ * The lines above a header-less run and the run's rows as one matrix, every line placed by x (R-new-2). First into the
+ * run's columns; when a line above does not fit them, into columns rebuilt from the multi-cell lines above and the
+ * run's rows together (a header line over a run with a column it does not name). A line that still fits no column is
+ * left out and counted.
+ */
+function placeAbove(pre: readonly Line[], rows: readonly LayoutRow[], cols: Col[] | null, charWidth: number): { matrix: string[][]; unplaced: number } {
+  if (cols) {
+    const placed = pre.map((l) => placeByX(l.cells, cols, cols.length, charWidth));
+    if (placed.every((p) => p !== null)) return { matrix: [...(placed as string[][]), ...rows.map((r) => r.cells)], unplaced: 0 };
+  }
+  const multiLines = [...pre.filter((l) => l.cells.length >= 2), ...rows.flatMap((r) => (r.pos && r.pos.length >= 2 ? [{ y: 0, cells: r.pos }] : []))];
+  const wide = buildCols(multiLines, charWidth);
+  const matrix: string[][] = [];
+  let unplaced = 0;
+  for (const cells of [...pre.map((l) => l.cells), ...rows.map((r) => r.pos)]) {
+    if (cells === null || cells.length === 0) {
+      matrix.push([]);
+      continue;
+    }
+    const p = placeByX(cells, wide, wide.length, charWidth);
+    if (p) matrix.push(p);
+    else unplaced++;
+  }
+  return { matrix, unplaced };
+}
+
+/**
  * Pages of text items to blocks. A table that continues on the next page is one block: the header repeated at the top
  * of the next page is dropped, and data rows at the top of a page with no header join the table above (C16). Those
  * rows are placed under the table's columns by x, so a column blank on the whole page stays blank (C-new-2).
@@ -531,7 +569,11 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         b.firstDataSheetRow += preText.length;
         titleLines = preText.length;
       } else if (blocks.length === 0 && preText.length > 0) {
-        blocks = findBlocks([...pre.map((l) => l.cells.map((c) => c.text)), ...rows.map((r) => r.cells)], { sheetName });
+        // The run has no header, so the header may sit in the lines above. They are placed by x, never fed as raw cell
+        // lists (R-new-2); a line that fits no column is reported.
+        const placed = placeAbove(pre, rows, seg.cols, page.charWidth);
+        unplaced += placed.unplaced;
+        blocks = findBlocks(placed.matrix, { sheetName });
       }
       for (const b of blocks) {
         // Footer lines under a table are not rows (C17): a one-cell line after a blank gap, or one that reads like a

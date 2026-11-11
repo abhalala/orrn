@@ -204,6 +204,86 @@ describe("C-new-6: a second table right under the first, with no heading line, i
   }
 });
 
+describe("R-new-2: a party group row under the header keeps every value in its column", () => {
+  // Party and Section left-aligned, Pcs and Kg right-aligned to 275 and 345. A Kg value is far wider than "Kg".
+  const right = (s: string, edge: number, y: number) => it(s, edge - s.length * 5, y);
+  const hdr = (y: number) => [it("Party", 50, y), it("Section", 150, y), right("Pcs", 275, y), right("Kg", 345, y)];
+  const line = (y: number, sec: string, pcs: string, kg: string) => [it(sec, 150, y), right(pcs, 275, y), right(kg, 345, y)];
+
+  test("Om Metals alone, then rows with a blank party", () => {
+    const page = [
+      ...hdr(770),
+      it("Om Metals", 50, 755),
+      ...line(740, "R 2105", "12", "12500.50"),
+      ...line(725, "R 2106", "8", "980.25"),
+      it("Shree Ganesh", 50, 710),
+      ...line(695, "T 4012", "30", "41250.75"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Pcs", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "", "", ""],
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+      ["Shree Ganesh", "", "", ""],
+      ["", "T 4012", "30", "41250.75"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  // A header that names no Pcs column: the header line is set apart from the rows, and the lines above the rows are
+  // placed by x, not fed as raw cell lists.
+  const unnamed = (y: number) => [it("Party", 50, y), it("Section", 150, y), right("Kg", 345, y)];
+
+  test("a header with an unnamed column over a party group row keeps the columns", () => {
+    const page = [
+      ...unnamed(770),
+      it("Om Metals", 50, 755),
+      ...line(740, "R 2105", "12", "12500.50"),
+      ...line(725, "R 2106", "8", "980.25"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "", "", ""],
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("a line above the rows that fits no column is reported, and the rest stays in its columns", () => {
+    const page = [
+      ...unnamed(770),
+      it("see note", 600, 755),
+      it("Om Metals", 50, 740),
+      ...line(725, "R 2105", "12", "12500.50"),
+      ...line(710, "R 2106", "8", "980.25"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "", "", ""],
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+    ]);
+    expect(r.warnings).toEqual(["page 1: 1 line could not be placed"]);
+  });
+
+  test("the same page with no group rows reads the same columns", () => {
+    const page = [...hdr(770), ...line(755, "R 2105", "12", "12500.50"), ...line(740, "R 2106", "8", "980.25")];
+    const r = readPdfText([page]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+});
+
 describe("C-new-7: a wrapped line in a tightly spaced table folds into its cell", () => {
   test("rows 11 apart, a wrapped Section line 9 below its row", () => {
     const items = [
