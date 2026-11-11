@@ -1314,7 +1314,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "A dispatch request shows a note from someone else",
-        fix: "The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. Neither of them can approve; the one who presses Dispatch may be you.",
+        fix: "The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. The person who scanned cannot approve. The person who pressed Dispatch may approve.",
       },
     ],
   },

@@ -8836,7 +8836,7 @@ Please check, Lalubhai:
 | Problem 4 | The purchase figures are hidden | खरीद के आँकड़े छिपे हैं |
 | Fix 4 | Only people who read purchase figures can decide a debit or credit note. Ask one of them. | डेबिट या क्रेडिट नोट पर वही तय कर सकते हैं जो खरीद के आँकड़े पढ़ सकते हैं। उनमें से किसी से कहें। |
 | Problem 5 | A dispatch request shows a note from someone else | dispatch के अनुरोध में किसी और का नोट दिखता है |
-| Fix 5 | The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. Neither of them can approve; the one who presses Dispatch may be you. | स्कैन करने वाले ने मांगा, और Dispatch दबाने वाले ने नोट लिखा। शीट दोनों के नाम बताती है। इनमें से कोई मंज़ूर नहीं कर सकता; Dispatch दबाने वाले आप हो सकते हैं। |
+| Fix 5 | The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. The person who scanned cannot approve. The person who pressed Dispatch may approve. | स्कैन करने वाले ने मांगा, और Dispatch दबाने वाले ने नोट लिखा। शीट दोनों के नाम बताती है। स्कैन करने वाले मंज़ूर नहीं कर सकते। Dispatch दबाने वाले मंज़ूर कर सकते हैं। |
 
 ### When the internet is down (`internet-down`)
 
