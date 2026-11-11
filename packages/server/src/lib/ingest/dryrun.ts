@@ -263,6 +263,8 @@ type PageLive = {
   vendorAliasKeys?: Map<string, string>;
   /** Alias targets: the live customer or vendor each name key belongs to (B13). */
   nameOwners?: Map<string, NameOwner>;
+  /** Sections a ready or approved die sheet of the plant will create, by staged row key (X-new-4). */
+  pendingSections?: { rowKey: string; series: string; code: string }[];
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
@@ -273,6 +275,10 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
   if (target === "customers" || target === "customer_aliases" || target === "orders") live.customers = await loadCustomerIndex(ctx);
   if (target === "vendors" || target === "vendor_aliases") live.vendors = await loadVendorIndex(ctx);
   if (target === "dies" || target === "die_copies" || target === "bundles" || target === "orders") live.sections = await loadSections(ctx, codes);
+  if (target === "orders" || target === "die_copies") {
+    const known = new Set((live.sections ?? []).map((x) => x.sectionCode.trim().toUpperCase()));
+    live.pendingSections = await loadPendingSections(ctx, sectionKeys(codes).filter((k) => !known.has(k)));
+  }
   if (target === "die_copies") live.copies = await loadCopies(ctx, rows.map((v) => str(v.makerDieNo)));
   if (target === "bundles") live.legacy = await loadLegacyBundles(ctx, rows.map((v) => str(v.legacyId)));
   if (target === "customers") {
@@ -363,6 +369,35 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
   return live;
 }
 
+/**
+ * New sections a die sheet of the plant will add when it merges: `ready_create` rows of a dies
+ * candidate that is ready or approved (X-new-4). Dies merge before die copies and orders, so a row
+ * pointing at one of them (`pending:<rowKey>`) finds the new section at chunk time; if that die sheet
+ * is not merged first, the merge holds the row's candidate (dependency_held) instead of writing it.
+ */
+async function loadPendingSections(ctx: IngestCtx, codes: readonly string[]): Promise<{ rowKey: string; series: string; code: string }[]> {
+  if (codes.length === 0) return [];
+  const V = ingestStagedRow.values;
+  const code = sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))`;
+  const rows = await mapInChunks([...codes], (part) =>
+    ctx.db
+      .select({ rowKey: ingestStagedRow.rowKey, series: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.series'), '')))`, code })
+      .from(ingestStagedRow)
+      .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
+      .where(
+        and(
+          eq(ingestCandidate.companyId, ctx.companyId),
+          eq(ingestCandidate.target, "dies"),
+          inArray(ingestCandidate.state, ["ready", "approved"]),
+          eq(ingestStagedRow.state, "ready_create"),
+          eq(ingestStagedRow.mergeState, "open"),
+          inArray(code, part),
+        ),
+      ),
+  );
+  return rows;
+}
+
 type ClassifyCtx = {
   target: IngestTarget;
   recipe: Recipe;
@@ -417,8 +452,18 @@ function sectionOf(values: Values, ids: Record<string, string>, reasons: string[
   }
   if (r.kind === "ambiguous") return amb(values, "sectionCode", r.options, reasons, "ambiguous");
   // The merge adds an old section only for bundles. An order line or a die copy needs a section that
-  // is in orrn when the merge writes it (B10), so the question is not asked for them.
+  // is in orrn when the merge writes it (B10), so the question is not asked for them. A section a die
+  // sheet of this plant will add first is that section (X-new-4): the row points at its staged row.
   if (cx.target === "orders" || cx.target === "die_copies") {
+    const series = str(values.series).trim().toUpperCase();
+    const byCode = (cx.live.pendingSections ?? []).filter((x) => x.code === code.toUpperCase());
+    const exact = series ? byCode.filter((x) => x.series === series) : [];
+    const hit = exact.length === 1 ? exact[0] : byCode.length === 1 ? byCode[0] : undefined;
+    if (hit) {
+      ids.sectionCode = `pending:${hit.rowKey}`;
+      reasons.push("section_pending:sectionCode");
+      return null;
+    }
     return { state: "refused", values, reasons: [...reasons, "section_unknown:sectionCode"], matchId: null, diff: null };
   }
   const legacy = cx.answers.legacyDie.get(code);

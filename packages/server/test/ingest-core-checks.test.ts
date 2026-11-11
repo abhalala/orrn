@@ -653,6 +653,101 @@ describe("X-new-3: the dry run refuses what the merge would hold", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Round 2, X-new-4: a die sheet and an order book in one upload merge in one go
+// ---------------------------------------------------------------------------
+
+describe("X-new-4: an order book may use a section the die sheet of the same upload adds", () => {
+  const DIE_HEADERS = ["Series", "Section", "Min (kg/12ft)", "Max (kg/12ft)"];
+  const dieLayout = () =>
+    layout(
+      "dies",
+      DIE_HEADERS,
+      [
+        { field: "series", steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", steps: trim },
+        { field: "weightMinG", steps: [{ op: "number", kind: "linear_mass", unit: "kg/12ft" }] },
+        { field: "weightMaxG", steps: [{ op: "number", kind: "linear_mass", unit: "kg/12ft" }] },
+      ],
+      ["series", "sectionCode"],
+    );
+
+  async function mergeOnce(as: Caller) {
+    const { runId } = await as.ingest.merge.start();
+    let cursor = 0;
+    for (let i = 0; i < 80; i += 1) {
+      const s = await as.ingest.merge.step({ runId, expectCursor: cursor });
+      cursor = s.cursor;
+      if (s.state !== "planning" && s.state !== "running") return s;
+    }
+    throw new Error("The merge did not finish");
+  }
+
+  async function bothSheets() {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(p.companyId, p.users.owner.id, dieLayout(), "Dies");
+    await learnLayout(p.companyId, p.users.owner.id, orderLayout(), "Orders");
+    const { candidates } = await upload(p.owner, [
+      { name: "Dies", headers: DIE_HEADERS, rows: [["R", "9100", "2.0", "2.4"]] },
+      {
+        name: "Order book",
+        headers: ORDER_HEADERS,
+        rows: [
+          ["Acme Traders", "PO-1", "01/10/2025", "R", "9100", "3658", "", "300"],
+          ["Acme Traders", "PO-1", "01/10/2025", "R", "9100", "4877", "", "200"],
+        ],
+      },
+    ]);
+    const [dies, orders] = candidates;
+    await pump(p.owner, dies!.id);
+    await pump(p.owner, orders!.id);
+    return { p, dies: dies!.id, orders: orders!.id };
+  }
+
+  async function salesOrders(companyId: string) {
+    const row = await env.d1.prepare("select count(*) as n from sales_order_line where company_id = ?").bind(companyId).first<{ n: number }>();
+    return Number(row?.n ?? 0);
+  }
+
+  test("the order lines are ready at dry run; approve both, one merge writes the die and then the order", async () => {
+    const { p, dies, orders } = await bothSheets();
+    const rows = await rowsOf(p.owner, orders);
+    expect(rows.map((r) => [r.state, r.reasons])).toEqual([
+      ["ready_create", ["section_pending:sectionCode"]],
+      ["ready_create", ["section_pending:sectionCode"]],
+    ]);
+    for (const id of [dies, orders]) {
+      const c = await p.owner.ingest.candidate.get({ candidateId: id });
+      expect((await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).state).toBe("approved");
+    }
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    const c = await p.owner.ingest.candidate.get({ candidateId: orders });
+    expect(c).toMatchObject({ state: "merged", counts: { written: 2 } });
+    expect(await salesOrders(p.companyId)).toBe(2);
+  });
+
+  test("an order book merged without its die sheet is held, not merged with its lines lost", async () => {
+    const { p, dies, orders } = await bothSheets();
+    let c = await p.owner.ingest.candidate.get({ candidateId: orders });
+    await p.owner.ingest.candidate.approve({ candidateId: orders, expectSeq: c.serverSeq });
+    expect((await mergeOnce(p.owner)).state).toBe("done_with_holds");
+    c = await p.owner.ingest.candidate.get({ candidateId: orders });
+    expect(c).toMatchObject({ state: "held", reasonCode: "dependency_held", counts: { written: 0 } });
+    expect(await salesOrders(p.companyId)).toBe(0);
+    // The die sheet merges; the order book is checked again and merges.
+    const d = await p.owner.ingest.candidate.get({ candidateId: dies });
+    await p.owner.ingest.candidate.approve({ candidateId: dies, expectSeq: d.serverSeq });
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    c = await p.owner.ingest.candidate.release({ candidateId: orders, expectSeq: c.serverSeq });
+    await pump(p.owner, orders);
+    c = await p.owner.ingest.candidate.get({ candidateId: orders });
+    await p.owner.ingest.candidate.approve({ candidateId: orders, expectSeq: c.serverSeq });
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect(await salesOrders(p.companyId)).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Item 4a: the dateless order match stays in the period's financial year
 // ---------------------------------------------------------------------------
 
