@@ -6,22 +6,21 @@ const ROOT = join(import.meta.dir, "..");
 const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
 
 describe("pack Review above the phone's bottom action bar", () => {
-  test("every review row has scroll clearance, including For order", () => {
+  test("For order stays in the scroll content with no dead spacer", () => {
     const review = read("features/pack/review-step.tsx");
-    expect(review.indexOf('t("pack.forOrder")')).toBeGreaterThan(-1);
-    expect(review.indexOf('t("pack.forOrder")')).toBeLessThan(review.indexOf('testID="pack-review-bottom-clearance"'));
-    expect(review).toContain('testID="pack-review-bottom-clearance" className="h-40"');
+    expect(review).toContain('t("pack.forOrder")');
+    expect(review).not.toContain("pack-review-bottom-clearance");
     expect(review).not.toContain("pack.new.saveOnly");
   });
 
-  test("Save and Edit sit in the bar outside the scroll view on a small phone", () => {
+  test("ReviewStep and For order are inside Screen, while the action bar is outside it", () => {
     const screen = read("app/(tabs)/pack/new.tsx");
-    expect(screen).toContain('<View className="flex-1 bg-canvas">');
-    expect(screen.indexOf("</Screen>")).toBeLessThan(screen.indexOf("<ActionBar>"));
-    const bar = screen.slice(screen.indexOf("<ActionBar>"), screen.indexOf("</ActionBar>"));
+    const scroll = screen.slice(screen.lastIndexOf("<Screen>"), screen.lastIndexOf("</Screen>"));
+    expect(scroll).toContain("<ReviewStep");
+    expect(screen.lastIndexOf("</Screen>")).toBeLessThan(screen.indexOf("<PackReviewActionBar"));
+    const bar = read("features/pack/review-action-bar.tsx");
+    expect(bar).toContain("<ActionBar>");
     expect(bar).toContain('testID="pack-review-save"');
-    expect(bar).toContain('t("pack.new.saveOnly")');
     expect(bar).toContain('testID="pack-review-edit"');
-    expect(bar).toContain('t("native.pack.editBundles")');
   });
 });

@@ -95,7 +95,6 @@ export function ReviewStep(p: ReviewStepProps) {
         ))}
       </View>
 
-      <View testID="pack-review-bottom-clearance" className="h-40" />
     </View>
   );
 }
