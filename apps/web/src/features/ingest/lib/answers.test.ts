@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { answerColumn, answerDateFormat, answerFromValue, answerRatesHidden, answerUnit, answerYesNo } from "./answers";
+import { answerColumn, answerDateFormat, answerFromValue, answerMagnitude, answerRatesHidden, answerUnit, answerYesNo } from "./answers";
 import { questionView } from "./model";
 
 /**
@@ -18,6 +18,8 @@ function serverStores(code: string, answer: unknown): { accepted: boolean; usabl
     : code === "rates_hidden" ? answer === "leave_out" || answer === "owner_merges"
     : code === "column_meaning_unclear" ? typeof answer === "string" && answer.length <= 100
     : code === "create_legacy_die" || code === "new_customers" ? typeof answer === "boolean"
+    // `ANSWER_CHECK.magnitude_check` accepts a unit (checked again in `setAnswer`) or "as_is", as a string.
+    : code === "magnitude_check" ? typeof answer === "string" && answer.length > 0 && answer.length <= 20
     : false;
   return { accepted, usable: accepted };
 }
@@ -27,7 +29,7 @@ describe("answer builders against the server's rules", () => {
   test("every builder makes an answer the server accepts and keeps", () => {
     for (const b of [
       answerUnit("inr/kg"), answerUnit("kg/12ft"), answerDateFormat("mdy"), answerRatesHidden("leave_out"),
-      answerRatesHidden("owner_merges"), answerColumn("sectionCode"), answerYesNo("new_customers", true), answerYesNo("create_legacy_die", false),
+      answerRatesHidden("owner_merges"), answerColumn("sectionCode"), answerYesNo("new_customers", true), answerYesNo("create_legacy_die", false), answerMagnitude("as_is"), answerMagnitude("kg"), answerMagnitude("kg/12ft"),
     ]) expect({ code: b.code, ...sends(b) }).toEqual({ code: b.code, accepted: true, usable: true });
   });
   test("the object shape the old README showed is not accepted for a unit, and the builders never make it", () => {
@@ -39,7 +41,33 @@ describe("answer builders against the server's rules", () => {
       expect(answerFromValue(code, "dmy").code).toBe(code);
     }
     expect(answerFromValue("new_customers", true)).toEqual({ code: "new_customers", answer: true });
+    expect(answerFromValue("magnitude_check", "as_is")).toEqual({ code: "magnitude_check", answer: "as_is" });
+    expect(answerFromValue("magnitude_check", "kg")).toEqual({ code: "magnitude_check", answer: "kg" });
     expect(() => answerFromValue("period_needed", "x")).toThrow();
+  });
+  test("a value check is answered as the bare string: the values are right, or the unit they are in", () => {
+    const q = questionView({ code: "magnitude_check", subject: "weightG", params: { field: "weightG", unit: "t", likelyUnit: "", side: "above", count: 3 }, answer: null, open: true }, "bundles");
+    expect(q.control).toMatchObject({ kind: "magnitude", likelyUnit: null });
+    expect(q.key).toBe("ingest.q.magnitude_check");
+    expect(q.answers.map((a) => a.value)).toEqual(["as_is"]);
+    expect(answerMagnitude("as_is").answer).toBe("as_is");
+    // The unit picker lists every unit of the column's kind, as recipe unit ids the server reads again.
+    expect(q.control.kind === "magnitude" ? q.control.units.map((u) => u.value) : []).toEqual(["g", "kg", "t", "qtl", "lb"]);
+  });
+  test("an answered value check says what was answered", () => {
+    const yes = questionView({ code: "magnitude_check", subject: "weightG", params: { field: "weightG", unit: "", side: "", count: 0 }, answer: "as_is", open: false }, "bundles");
+    expect(yes.answered).toBe(true);
+    expect(yes.answeredWords).toEqual({ key: "ingest.q.magnitudeAsIs" });
+    const unit = questionView({ code: "magnitude_check", subject: "weightG", params: { field: "weightG", unit: "", side: "", count: 0 }, answer: "kg", open: false }, "bundles");
+    expect(unit.answeredWords).toEqual({ key: "ingest.q.magnitudeUnit", varKeys: { unit: "ingest.unit.kg" } });
+  });
+  test("an answered question shows its answer in words: the unit, the date order, the add-it choice", () => {
+    const unit = questionView({ code: "unit_unknown", subject: "weightMinG", params: { field: "weightMinG", kind: "linear_mass" }, answer: "kg/12ft", open: false });
+    expect(unit.answeredWords).toEqual({ key: "ingest.unit.kg_12ft" });
+    const date = questionView({ code: "date_format_ambiguous", subject: "d", params: { sample: "03/04/2025" }, answer: "dmy", open: false });
+    expect(date.answeredWords).toEqual({ key: "", text: "dd/mm/yyyy" });
+    const legacy = questionView({ code: "create_legacy_die", subject: "X", params: { code: "X" }, answer: false, open: false });
+    expect(legacy.answeredWords).toEqual({ key: "ingest.q.skipRows" });
   });
   test("rates_hidden offers two answers that do not borrow the Hold label", () => {
     const q = questionView({ code: "rates_hidden", subject: "", params: {}, answer: null, open: true });
