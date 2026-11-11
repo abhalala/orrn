@@ -89,7 +89,7 @@ function isSecondHeaderRow(top: readonly string[], bottom: readonly string[], be
 }
 
 /** "Top bottom" for a two-row header. A blank top cell above a filled bottom cell continues the group to its left. */
-function combineHeaders(top: readonly string[], bottom: readonly string[]): string[] {
+export function combineHeaders(top: readonly string[], bottom: readonly string[]): string[] {
   const width = Math.max(top.length, bottom.length);
   const out: string[] = [];
   let group = "";
@@ -265,14 +265,14 @@ export type FindBlocksOptions = {
   hints?: readonly BlockHints[] | null;
 };
 
-const lastFilled = (rows: readonly string[][], from: number, to: number) => {
+export const lastFilled = (rows: readonly string[][], from: number, to: number) => {
   let last = from - 1;
   for (let r = from; r <= to; r++) if (nonBlank(rows[r]!) > 0) last = r;
   return last;
 };
 
 /** Pad ragged rows under blank headers (C34) and cut trailing blank columns. */
-function finishShape(headersIn: readonly string[], data: readonly string[][]): { headers: string[]; rows: string[][] } {
+export function finishShape(headersIn: readonly string[], data: readonly string[][]): { headers: string[]; rows: string[][] } {
   let headers = [...headersIn];
   const wide = data.reduce((m, r) => Math.max(m, r.length), headers.length);
   if (wide > headers.length) headers = [...headers, ...Array<string>(wide - headers.length).fill("")];
