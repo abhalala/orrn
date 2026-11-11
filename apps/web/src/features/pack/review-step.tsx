@@ -1,4 +1,4 @@
-import { formatKgTotal, gToKg, type LengthUnit } from "@orrn/domain";
+import type { LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { Button } from "@orrn/ui/components/button";
@@ -93,8 +93,8 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         <Total label={t("pack.new.totalPieces")} value={totals.pieces} />
         <Total
           label={t("pack.new.totalKg")}
-          value={gToKg(totals.weightG)}
-          format={formatKgTotal}
+          value={totals.weightG}
+          format={(g) => kgGrouped1(fmt, Math.round(g))}
           className="col-span-2 sm:col-span-1"
         />
       </div>

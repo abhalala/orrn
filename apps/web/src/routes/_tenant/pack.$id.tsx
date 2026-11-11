@@ -1,4 +1,4 @@
-import { bundleTone, formatKgTotal, gToKg, type BundleStatus } from "@orrn/domain";
+import { bundleTone, type BundleStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { Button } from "@orrn/ui/components/button";
@@ -16,7 +16,7 @@ import { useMemo } from "react";
 
 import { VerdictChip } from "@/features/pack/bundles-step";
 import { packedWhen } from "@/features/pack/format";
-import { kg12Text, type LineVerdict } from "@/features/pack/line-preview";
+import type { LineVerdict } from "@/features/pack/line-preview";
 import { lengthUnitOf, timezoneOf } from "@/features/pack/pack-ui";
 import { partyNoLabel } from "@/features/pack/party";
 import { LabelFallback, PrintPanel } from "@/features/pack/print-panel";
@@ -27,7 +27,7 @@ import { isNotFound } from "@/shared/lib/session-errors";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/pack/$id")({
   component: PackSession,
@@ -136,7 +136,7 @@ function PackSession() {
         key: "k12",
         header: t("stock.columns.kgPer12ft"),
         align: "end",
-        cell: (b) => <span className="font-mono tabular-nums">{kg12Text(b.kgPer12ftMilli) ?? ""}</span>,
+        cell: (b) => <span className="font-mono tabular-nums">{sectionOrNull(fmt, b.kgPer12ftMilli) ?? ""}</span>,
       },
       {
         // Shown on phones too: an amber bundle is what a floor check looks for.
