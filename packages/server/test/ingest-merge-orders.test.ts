@@ -301,3 +301,21 @@ describe("replay keys come from the rows, not the chunk (B8)", () => {
     expect(await auditRows(env, companyId, "order.create")).toHaveLength(1);
   });
 });
+
+describe("an old section the person said to add (B10)", () => {
+  test("an order line finds a section the same run created from a die sheet", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    await seedCandidate(env, companyId, "dies", [{ values: { series: "R", sectionCode: "9100", weightMinG: 1000, weightMaxG: 1200 } }]);
+    const seeded = await seedCandidate(env, companyId, "orders", [
+      line(customerId, dieId, { oldOrderNo: "L-1" }),
+      { values: { customer: "Party", orderDate: "2025-10-31", series: "R", sectionCode: "9100", cutLength: 3658, bakiKg: 100_000, oldOrderNo: "L-1", legacyDie: true, _ids: { customer: customerId } } },
+    ]);
+    expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done");
+    expect((await candidateRow(env, seeded.candidateId)).state).toBe("merged");
+    const { die } = await import("@orrn/db/schema/catalog");
+    const { and, eq } = await import("drizzle-orm");
+    const [made] = await env.db.select().from(die).where(and(eq(die.companyId, companyId), eq(die.sectionCode, "9100")));
+    const { lines } = await orderRows(companyId);
+    expect(lines.map((l) => l.dieId).sort()).toEqual([dieId, made!.id].sort());
+  });
+});

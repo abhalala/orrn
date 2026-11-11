@@ -22,7 +22,7 @@ import { mapInChunks } from "../../atomic";
 import { assertModule } from "../../moduleGate";
 import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
-import { loadCustomerIndex, loadVendorIndex, resolveName } from "../resolvers";
+import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection } from "../resolvers";
 import type { IngestCtx } from "../types";
 import {
   failureOf,
@@ -161,6 +161,37 @@ function idsInOrder(rows: readonly StagedRow[], ids: readonly string[] | undefin
 }
 
 const nullable = (v: unknown) => text(v);
+
+/**
+ * The section a row points at. A row the person said to add as an old section (`legacyDie`) is
+ * looked up live at chunk time, which finds a section created earlier in the same run (a die sheet
+ * merged with the order book) or added by hand since the dry run (B10). If there is still none,
+ * the row is refused with a plain message: die.processImport needs a real weight band, and an
+ * import does not make one up. `cache` is per chunk.
+ */
+async function sectionFor(args: AdapterArgs, row: StagedRow, cache: Map<string, string>): Promise<string> {
+  const v = valuesOf(row);
+  const id = refOf(row, "sectionCode", args.refs);
+  if (id) return id;
+  const code = text(v.sectionCode) ?? "";
+  if (v.legacyDie !== true) throw new TRPCError({ code: "BAD_REQUEST", message: `Section ${code} is not in orrn` });
+  const series = text(v.series);
+  const key = `${(series ?? "").toUpperCase()}|${code.toUpperCase()}`;
+  const known = cache.get(key);
+  if (known) return known;
+  const hit = resolveSection(await loadSections(args.ctx, [code]), series, code);
+  if (hit.kind === "ambiguous") {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `File row ${row.rowIndex + 1}: section ${code} matches more than one section in orrn. Give its series.` });
+  }
+  if (hit.kind === "none") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `File row ${row.rowIndex + 1}: section ${series ? `${series} ` : ""}${code} is not in orrn. Add it with a die sheet or on the dies screen, then merge again.`,
+    });
+  }
+  cache.set(key, hit.id);
+  return hit.id;
+}
 
 // ---------------------------------------------------------------------------
 // customers (10): customer.importCsv; updates through customer.update
@@ -448,7 +479,7 @@ const COPY_UPDATE: Record<string, [string, (v: unknown) => unknown]> = {
 };
 
 const dieCopies: Adapter = async (args) => {
-  const { ctx, rows, refs } = args;
+  const { ctx, rows } = args;
   const k = chunkKind(rows);
   if ("failure" in k) return k.failure;
   if (k.kind === "update") {
@@ -483,10 +514,10 @@ const dieCopies: Adapter = async (args) => {
       return { rowId: row.id, committedType: "die_instance", committedId: row.matchId! };
     });
   }
+  const sections = new Map<string, string>();
   return perRow(args, rows, async (row) => {
     const v = valuesOf(row);
-    const sectionId = refOf(row, "sectionCode", refs);
-    if (!sectionId) throw new TRPCError({ code: "BAD_REQUEST", message: `Section ${text(v.sectionCode)} is not in orrn` });
+    const sectionId = await sectionFor(args, row, sections);
     const status = text(v.status);
     const caller = await args.callerFor(args.sourceOf([row]));
     const res = await caller.dieInstance.create({
@@ -617,6 +648,14 @@ const orders: Adapter = async (args) => {
   } catch (e) {
     return { written: [], failure: failureOf(e) };
   }
+  // Every line's section before any order is written (B10: an old section is found or added).
+  const sectionOf = new Map<string, string>();
+  try {
+    const cache = new Map<string, string>();
+    for (const row of rows) sectionOf.set(row.id, await sectionFor(args, row, cache));
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
   const written: Written[] = [];
   for (const group of groups) {
     try {
@@ -627,8 +666,7 @@ const orders: Adapter = async (args) => {
       const notes = [oldNo ? `Old order no. ${oldNo}` : null].filter(Boolean).join(" ");
       const lines = group.rows.map((row) => {
         const v = valuesOf(row);
-        const sectionId = refOf(row, "sectionCode", refs);
-        if (!sectionId) throw new TRPCError({ code: "BAD_REQUEST", message: `Section ${text(v.sectionCode)} is not in orrn` });
+        const sectionId = sectionOf.get(row.id)!;
         const rate = num(v.rate);
         return {
           sectionId,

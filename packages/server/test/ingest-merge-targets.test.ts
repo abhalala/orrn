@@ -354,3 +354,26 @@ describe("live data changed after the dry run (B2)", () => {
     expect((await env.db.select().from(die).where(eq(die.id, dieId)))[0]!.notes).toBe("office note");
   });
 });
+
+describe("die copies of an old section (B10)", () => {
+  test("a copy finds an old section added since the dry run; one with no section is refused in plain words", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      { values: { series: "Z", sectionCode: "OLD7", makerDieNo: "OD-1", legacyDie: true } },
+      { values: { series: "Z", sectionCode: "OLD7", makerDieNo: "OD-2", legacyDie: true } },
+    ]);
+    const missing = await seedCandidate(env, companyId, "die_copies", [{ values: { series: "Z", sectionCode: "OLD8", makerDieNo: "OD-3", legacyDie: true } }]);
+    // The section is added by hand between the dry run and the merge.
+    const sectionId = await env.seedDie(companyId, { series: "Z", sectionCode: "OLD7" });
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect((await candidateRow(env, seeded.candidateId)).state).toBe("merged");
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    const copies = await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, sectionId));
+    expect(copies.map((c) => c.makerDieNo).sort()).toEqual(["OD-1", "OD-2"]);
+    expect((await candidateRow(env, missing.candidateId)).reasonDetail).toBe(
+      "File row 1: section Z OLD8 is not in orrn. Add it with a die sheet or on the dies screen, then merge again.",
+    );
+  });
+});
