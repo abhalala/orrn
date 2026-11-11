@@ -942,7 +942,12 @@ function readPdfByHints(
         if (k === "extra") orphans.push([c.x0, c.x1]);
         else by.set(k, [...(by.get(k) ?? []), c]);
       }
-      for (const cs of by.values()) if (cs.length > 1) for (const c of cs) if (!anchors.some((sp) => overlaps(sp, c))) orphans.push([c.x0, c.x1]);
+      // Of the cells that share a header column, the one over the header cell (else the leftmost) keeps it.
+      for (const cs of by.values()) {
+        if (cs.length < 2) continue;
+        const keep = cs.find((c) => anchors.some((sp) => overlaps(sp, c))) ?? cs.reduce((m, c) => (c.x0 < m.x0 ? c : m));
+        for (const c of cs) if (c !== keep && !anchors.some((sp) => overlaps(sp, c))) orphans.push([c.x0, c.x1]);
+      }
     }
     const gapCols = mergeSpans(orphans, charWidth);
     type Column = { span: Col; anchor: number | null };
@@ -989,17 +994,23 @@ function readPdfByHints(
     // after a row or after the wrapped line of one).
     // Every line from the header down counts, so skipped lines (column numbers) still give the pitch.
     const seq = lines.slice(h, pEnd + 1);
+    // Two multi-cell lines next to each other give the pitch; a wrapped line between two rows does not shorten it.
+    const pairs: number[] = [];
     const gaps: number[] = [];
     for (let k = 1; k < seq.length; k++) {
-      if (seq[k]!.cells.length >= 2) gaps.push(Math.abs(seq[k - 1]!.y - seq[k]!.y));
+      if (seq[k]!.cells.length < 2) continue;
+      gaps.push(Math.abs(seq[k - 1]!.y - seq[k]!.y));
+      if (seq[k - 1]!.cells.length >= 2) pairs.push(Math.abs(seq[k - 1]!.y - seq[k]!.y));
     }
-    const pitch = median(gaps, height * 1.5);
+    const pitch = median(pairs, median(gaps, height * 1.5));
     const rows: string[][] = [];
     const addLines = (ls: readonly Line[], q: number) => {
       let above: Line | null = null;
+      /** The first line of the current row: a wrapped line sits before the next row would start. */
+      let rowStart: Line | null = null;
       for (const l of ls) {
         const prevRow = rows[rows.length - 1];
-        if (l.cells.length === 1 && above && prevRow && Math.abs(above.y - l.y) < pitch * 0.75) {
+        if (l.cells.length === 1 && above && rowStart && prevRow && Math.abs(above.y - l.y) < pitch * 0.75 && Math.abs(rowStart.y - l.y) < pitch * 0.9) {
           const k = columnFor(l.cells[0]!);
           prevRow[k] = prevRow[k] === "" ? l.cells[0]!.text : `${prevRow[k]} ${l.cells[0]!.text}`;
           above = l;
@@ -1007,6 +1018,7 @@ function readPdfByHints(
         }
         rows.push(placeLine(l, q));
         above = l;
+        rowStart = l;
       }
     };
     addLines(dataLines, p);

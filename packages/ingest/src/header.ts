@@ -73,6 +73,17 @@ function namesFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2)
   const bottom = preview[at + 1]?.cells.map((c) => c.trim());
   if (!bottom || preview[at + 1]!.row !== preview[at]!.row + 1) return null;
   if (filled(top) === 0 || filled(bottom) === 0) return null;
+  // The top row has the shape of group names: each filled top cell sits over a blank bottom cell ("Party" over
+  // nothing) or spans the bottom cells to its right ("Weight" over "Min | Max"), and one of them spans. A key and value
+  // line ("Phone | 98250...") over a header does not.
+  const spansRight = (i: number) => (top[i + 1] ?? "") === "" && (bottom[i + 1] ?? "") !== "";
+  let spans = false;
+  for (let i = 0; i < top.length; i++) {
+    if (top[i] === "") continue;
+    if (spansRight(i)) spans = true;
+    else if ((bottom[i] ?? "") !== "") return null;
+  }
+  if (!spans) return null;
   const names = combineHeaders(top, bottom);
   return filled(names) >= 2 ? names : null;
 }
