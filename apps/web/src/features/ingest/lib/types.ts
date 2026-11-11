@@ -5,27 +5,31 @@
  */
 import type {
   ArtifactBeginOut,
-  ArtifactDetail,
   ArtifactSummary,
   BlockInput,
   BlockView,
   CandidateCounts,
-  CandidateDetail,
   CandidateSummary,
   DryRunStepOut,
   HoleView,
   IngestLimits,
-  IngestQuestion,
   IngestStatus,
   MergeCandidateResult,
   MergeChunkView,
-  MergeRunView,
   MergeStepOut,
   Page,
   ShapeMakeOut,
-  StagedRowView,
   UploadTicketOut,
 } from "@orrn/server/lib/ingest/types";
+
+import type { IngestOutputs } from "./api";
+
+/** These four come through tRPC inference: a field typed `unknown` on the server arrives optional on the wire. */
+export type CandidateDetail = IngestOutputs["candidate"]["get"];
+export type IngestQuestion = CandidateDetail["questions"][number];
+export type StagedRowView = IngestOutputs["rows"]["list"]["items"][number];
+export type ArtifactDetail = IngestOutputs["artifact"]["get"];
+export type MergeRunView = IngestOutputs["merge"]["get"];
 
 export {
   ARTIFACT_KINDS,
@@ -52,25 +56,20 @@ export type {
 
 export type {
   ArtifactBeginOut,
-  ArtifactDetail,
   ArtifactSummary,
   BlockInput,
   BlockView,
   CandidateCounts,
-  CandidateDetail,
   CandidateSummary,
   DryRunStepOut,
   HoleView,
   IngestLimits,
-  IngestQuestion,
   IngestStatus,
   MergeCandidateResult,
   MergeChunkView,
-  MergeRunView,
   MergeStepOut,
   Page,
   ShapeMakeOut,
-  StagedRowView,
   UploadTicketOut,
 };
 

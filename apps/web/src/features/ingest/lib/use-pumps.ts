@@ -332,8 +332,9 @@ export function useBotPump(candidateId: string | undefined): BotPump {
         }
       } else if (outcome.kind === "error") {
         setUi((u) => ({ ...u, phase: "error", error: toPumpError(outcome.error) }));
-      } else {
-        setUi((u) => ({ ...u, phase: outcome.kind }));
+      } else if (outcome.kind === "done" || outcome.kind === "capped" || outcome.kind === "gaveUp") {
+        const phase: BotPhase = outcome.kind;
+        setUi((u) => ({ ...u, phase }));
       }
       await refreshIngest(qc, id);
     })().finally(() => {

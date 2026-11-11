@@ -32,8 +32,10 @@ export function setReaderWorkerFactoryForTests(next: WorkerFactory | null): void
   factory = next ?? realFactory;
 }
 
+type Req = WorkerRequest extends infer U ? (U extends { id: number } ? Omit<U, "id"> : never) : never;
+
 function ask<T extends WorkerResponse["type"]>(
-  request: Omit<WorkerRequest, "id">,
+  request: Req,
   want: T,
   opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal },
 ): Promise<Extract<WorkerResponse, { type: T }>> {

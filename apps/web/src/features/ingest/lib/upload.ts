@@ -73,7 +73,7 @@ export async function gzipJsonl(rows: readonly string[][]): Promise<Blob> {
       controller.enqueue(encoder.encode(text));
     },
   });
-  return new Response(source.pipeThrough(new CompressionStream("gzip"))).blob();
+  return new Response(source.pipeThrough(new CompressionStream("gzip") as unknown as ReadableWritablePair<Uint8Array, Uint8Array>)).blob();
 }
 
 async function put(f: typeof fetch, upload: UploadTicketOut, body: Blob, contentType: string): Promise<void> {
@@ -87,6 +87,16 @@ export function problemFromError(error: unknown, name: string, limitMb: number |
   if (/merge or discard/i.test(message)) return { key: "ingest.drop.openLimit" };
   if (/too big|larger than|exceeds/i.test(message) && limitMb !== null) return { key: "ingest.drop.tooBig", vars: { name, limit: limitMb } };
   return null;
+}
+
+/**
+ * Tells the server the browser could not read the file (`artifact.complete` with `readError`, plan B7). The
+ * server's input accepts it (`completeInput`); the router skeleton still types `complete` with the id only,
+ * hence the cast. Best effort: a failure here changes nothing for the person.
+ */
+async function reportReadFailure(api: IngestApi, artifactId: string, readError: string): Promise<void> {
+  const complete = api.artifactComplete as unknown as (input: { artifactId: string; readError: string }) => Promise<unknown>;
+  await complete({ artifactId, readError }).catch(() => undefined);
 }
 
 type Hooks = { onItem: (patch: Partial<UploadItem>) => void; signal?: AbortSignal; note?: string };
@@ -166,7 +176,7 @@ export async function uploadOneFile(
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     // Tell the server the file could not be read, so its candidates show Could not read and not "reading" forever.
     const readError = error instanceof ReadError ? error.failure.code : "unreadable";
-    await api.artifactComplete({ artifactId, readError }).catch(() => undefined);
+    await reportReadFailure(api, artifactId, readError);
     if (error instanceof ReadError && error.failure.code === "too_many_rows") {
       return refuse({ key: "ingest.drop.tooManyRows", vars: { name: file.name } });
     }
