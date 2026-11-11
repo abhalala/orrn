@@ -29,6 +29,7 @@ import { clockOf } from "@/features/press/model";
 import * as oldIntlTag from "../../../test-support/legacy/legacy-intl-tag";
 import * as oldToday from "../../../test-support/legacy/today-model";
 import { clockTime, companyClock, productionDayCaption } from "@/features/today/today-model";
+import { dateText, pinned } from "./fmt-text";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -270,6 +271,19 @@ describe("Today clock and caption", () => {
         const day = ymdOf(at - 24 * 3600_000);
         const pd = { day, startMs: at, shiftsSet: at % 2 === 0, shift: at % 3 === 0 ? shift : null };
         expect(productionDayCaption(pd, dflt(loc), IST_ZONE, at)).toEqual(oldToday.productionDayCaption(pd, IST_ZONE, loc, at));
+      }
+    }
+  });
+});
+
+describe("audit 'since' date", () => {
+  test("'25 Oct 2026' on the plant clock, in English and Hindi (the old screen's own Intl call is the reference)", () => {
+    for (const loc of ["en", "hi"] as const) {
+      for (const tz of [IST_ZONE, "America/New_York"]) {
+        for (const at of SEEDS.slice(0, 800)) {
+          const old = new Intl.DateTimeFormat(loc === "hi" ? "hi-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: tz, numberingSystem: "latn" }).format(new Date(at));
+          expect(dateText(pinned(dflt(loc), { zone: tz }), at)).toBe(old);
+        }
       }
     }
   });
