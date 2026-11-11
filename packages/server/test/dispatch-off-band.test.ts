@@ -217,4 +217,26 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect(await offBandRows(p.companyId)).toHaveLength(1);
   }, SLOW);
+
+  test("review 9: the screen's off-band counts cover every item, not only the 500 the list reads", async () => {
+    const { p, id, ok, heavy } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [ok, heavy] });
+    expect((await p.owner.dispatch.getDispatch({ id })).offBand).toMatchObject({ pending: 1, blocked: true });
+    // 500 more in-band bundles, copies of the good one, added after: the waiting row is now item 502.
+    const cols = (await env.d1.prepare("select name from pragma_table_info('bundle')").all<{ name: string }>()).results.map((r) => r.name);
+    const pick = cols.map((c) => (c === "id" ? "'bulk-' || n.i" : c === "serial" ? "b.serial || '-' || n.i" : `b.${c}`)).join(", ");
+    const okId = (await itemsOf(id)).find((i) => i.serial === ok)!.bundleId;
+    const seq = "with recursive n(i) as (select 1 union all select i + 1 from n where i < 500)";
+    await env.d1.prepare(`insert into bundle (${cols.join(", ")}) ${seq} select ${pick} from bundle b, n where b.id = ?`).bind(okId).run();
+    const icols = (await env.d1.prepare("select name from pragma_table_info('dispatch_item')").all<{ name: string }>()).results.map((r) => r.name);
+    const ipick = icols
+      .map((c) => (c === "id" ? "'bulk-item-' || n.i" : c === "bundle_id" ? "'bulk-' || n.i" : c === "added_at" ? "d.added_at + 60000 + n.i" : `d.${c}`))
+      .join(", ");
+    await env.d1.prepare(`insert into dispatch_item (${icols.join(", ")}) ${seq} select ${ipick} from dispatch_item d, n where d.dispatch_id = ? and d.bundle_id = ?`).bind(id, okId).run();
+    const got = await p.owner.dispatch.getDispatch({ id });
+    expect(got.items).toHaveLength(500);
+    expect(got.items.some((i) => i.serial === heavy)).toBe(false);
+    expect(got.offBand).toMatchObject({ pending: 1, rejected: 0, unasked: 0, blocked: true });
+  }, SLOW);
 });
+

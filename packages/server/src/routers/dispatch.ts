@@ -338,6 +338,9 @@ function offBandMessage(states: readonly OffBandState[]): string {
   return parts.join(" ");
 }
 
+/** The items `getDispatch` lists (newest first); totals and the off-band counts cover all of them. */
+const ITEMS_READ = 500;
+
 /**
  * arch 52: the approval of a late dispatch time. Approved for exactly this time: its id. Otherwise the
  * request is opened (a waiting one for another time is withdrawn, "Withdrawn: asked again with
@@ -1596,7 +1599,7 @@ export const dispatchRouter = router({
           ),
         )
         .orderBy(desc(dispatchItem.addedAt))
-        .limit(500);
+        .limit(ITEMS_READ);
       // While the dispatch can still change, name any other dispatch holding one of its bundles
       // (both drafts listed it; the other was held first), so Build can mark the row.
       const holders =
@@ -1641,7 +1644,11 @@ export const dispatchRouter = router({
         const st = offStateOf.get(it.itemId);
         return { ...it, offBandStatus: st ? st.status : null, offBandApprovalId: st?.approvalId ?? null };
       });
-      const offBand = offBandSummary(offStates);
+      // Review 9: the counts that hold the Dispatch button cover every item, as Complete does; past the
+      // 500 rows read above they are read again from all of them.
+      const offBand = offBandSummary(
+        itemRows.length < ITEMS_READ ? offStates : await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, row.id)),
+      );
 
       const events = await ctx.db
         .select()
