@@ -245,6 +245,14 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
       if (b === a + 1 && multi(a) && multi(b)) pitches.push(dy(a, b));
     }
     const pitch = median(pitches, height * 1.5);
+    // Key columns: the first column, and every column whose data cells are numbers. A wrapped line never sits there.
+    const multiLines = lineIdx.filter(multi).map((j) => lines[j]!);
+    const data = multiLines.length > 1 && isHeaderLike(multiLines[0]!.cells.map((c) => c.text)) ? multiLines.slice(1) : multiLines;
+    const key = new Set<number>([0]);
+    cols.forEach((_, k) => {
+      const kind = inferKind(data.flatMap((l) => l.cells.filter((c) => nearestColumn(cols, c, charWidth) === k).map((c) => c.text)));
+      if (kind === "int" || kind === "decimal") key.add(k);
+    });
     const rows: LayoutRow[] = [];
     let prev = -1;
     for (const e of entries) {
@@ -258,9 +266,12 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
         const c = l.cells[0]!;
         const k = nearestColumn(cols, c, charWidth);
         const last = rows[rows.length - 1];
-        // A wrapped cell sits clearly closer to the line above than the row pitch (C17, C-new-3). A one-cell line
-        // at the pitch is a row of its own with the other cells blank.
-        const wrapped = prev !== -1 && dy(prev, e.line) < pitch * 0.75;
+        // A wrapped cell sits clearly closer to the line above than the row pitch (C17, C-new-3). In a tight table
+        // a wrapped line can sit at the pitch: a one-cell line within the pitch, under a filled cell of the row above,
+        // outside the key columns, is a wrapped line too (C-new-7). Otherwise it is a row with the other cells blank.
+        const gapAbove = prev === -1 ? Infinity : dy(prev, e.line);
+        const underCell = last !== undefined && last.pos !== null && (last.cells[k] ?? "") !== "";
+        const wrapped = gapAbove < pitch * 0.75 || (gapAbove <= pitch * 1.05 && underCell && !key.has(k) && isTextish(c.text));
         if (wrapped && last && last.pos) {
           last.cells[k] = last.cells[k] === "" ? c.text : `${last.cells[k]} ${c.text}`;
           const at = last.pos.find((p) => columnOf(cols, p, charWidth) === k);

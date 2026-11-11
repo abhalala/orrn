@@ -176,3 +176,29 @@ describe("C-new-6: a table and the line or table next to it keep their own colum
     expect(r.warnings).toEqual([]);
   });
 });
+
+describe("C-new-7: a wrapped line in a tightly spaced table folds into its cell", () => {
+  test("rows 11 apart, a wrapped Section line 9 below its row", () => {
+    const items = [
+      ...header(770),
+      ...row(759, "1", "R 2105 long", "25", "1200"),
+      it("description", 100, 750),
+      ...row(739, "2", "R 2106", "8", "980"),
+      ...row(728, "3", "R 2107", "9", "990"),
+    ];
+    expect(textItemsToMatrix(items)).toEqual([
+      ["Sr", "Section", "Qty", "Weight"],
+      ["1", "R 2105 long description", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+      ["3", "R 2107", "9", "990"],
+    ]);
+  });
+
+  test("a one-cell line in the key column at the pitch is still its own row", () => {
+    const m = textItemsToMatrix([
+      ...custHeader(770), ...cust(759, "Asha", "9898", "Surat"), ...cust(748, "Zenith Traders"), ...cust(737, "Kamal", "9797", "Rajkot"), ...cust(726, "Om", "9696", "Pune"),
+    ]);
+    expect(m[2]).toEqual(["Zenith Traders", "", ""]);
+    expect(m.length).toBe(5);
+  });
+});
