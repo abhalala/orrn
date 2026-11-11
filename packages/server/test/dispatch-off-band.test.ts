@@ -238,5 +238,25 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     expect(got.items.some((i) => i.serial === heavy)).toBe(false);
     expect(got.offBand).toMatchObject({ pending: 1, rejected: 0, unasked: 0, blocked: true });
   }, SLOW);
+
+  test("review 10: approved on line A, moved to line B by mistake, moved back to A: A's approval stands, nothing is asked again", async () => {
+    const { p, id, ok, heavy, lineId, sectionId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [ok, heavy] });
+    const [askA] = await offBandRows(p.companyId);
+    await p.as("manager").approval.decide({ id: askA!.id, decision: "approved" });
+    const lineB = (await p.confirmedOrder([{ sectionId, pcs: 100 }])).lineIds[0]!;
+    const item = (await itemsOf(id)).find((i) => i.serial === heavy)!;
+    await p.as("office").dispatch.linkItem({ itemId: item.id, salesOrderLineId: lineB });
+    expect((await offBandRows(p.companyId)).filter((r) => r.status === "pending").map((r) => r.meta.lineId)).toEqual([lineB]);
+    await p.as("office").dispatch.linkItem({ itemId: item.id, salesOrderLineId: lineId });
+    const rows = await offBandRows(p.companyId);
+    expect(rows.filter((r) => r.status === "pending")).toEqual([]);
+    expect(rows.map((r) => `${r.status} ${r.meta.lineId === lineId ? "A" : "B"}`).sort()).toEqual(["approved A", "rejected B"]);
+    const got = await p.owner.dispatch.getDispatch({ id });
+    expect(got.offBand).toMatchObject({ pending: 0, unasked: 0, approved: 1, blocked: false });
+    expect(got.items.find((i) => i.serial === heavy)).toMatchObject({ offBandStatus: "approved", offBandApprovalId: askA!.id });
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
 });
 

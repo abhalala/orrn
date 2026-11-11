@@ -2195,6 +2195,9 @@ export const dispatchRouter = router({
         lengthMm: Number(item.lengthMm),
         line: newLine,
       });
+      // Review 10: back on a line it was already approved for, with the same figures: that approval
+      // stands and nothing is asked again (moved to B by mistake, then back to A).
+      const approvedHere = offRow ? (await offBandStates(ctx.db, ctx.companyId, [offRow]))[0]?.status === "approved" : false;
 
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       await atomicBatch(ctx.db, [
@@ -2247,7 +2250,7 @@ export const dispatchRouter = router({
           "the bundle is on another order line now.",
           sql`json_extract(${approval.meta}, '$.lineId') is not ${input.salesOrderLineId} and exists (select 1 from dispatch_item wi where wi.id = ${item.id} and wi.company_id = ${ctx.companyId} and wi.sales_order_line_id is ${input.salesOrderLineId})`,
         ),
-        ...(offRow ? offBandRequestStatements(ctx, { id: item.dispatchId, code: item.code }, [offRow], seq) : []),
+        ...(offRow && !approvedHere ? offBandRequestStatements(ctx, { id: item.dispatchId, code: item.code }, [offRow], seq) : []),
         auditInsertGuarded(
           { db: ctx.db, companyId: ctx.companyId, session: ctx.session, impersonation: ctx.impersonation },
           {
