@@ -549,3 +549,43 @@ describe("A11: a row decision applies only when it fits the re-run", () => {
     ).rejects.toThrow(/Answer the question/);
   });
 });
+
+describe("A12: the derived new customers list", () => {
+  const rated = () =>
+    bakiRecipe({
+      fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => (f.field === "rate" ? { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] } : f)),
+      unclear: [],
+    });
+
+  test("a skip on the list keeps it ready and survives a parent re-run; answering no empties it", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, rated(), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "new_customers", subject: "", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    const list = (await p.owner.ingest.candidate.list({ artifactId })).items.find((x) => x.parentId === id)!;
+    expect(list).toMatchObject({ state: "ready", counts: { create: 1 } });
+    const listRow = (await p.owner.ingest.rows.list({ candidateId: list.id })).items[0]!;
+    await expect(p.owner.ingest.answer.set({ candidateId: list.id, questionCode: "new_customers", subject: "", answer: true, expectSeq: list.serverSeq })).rejects.toThrow(
+      /another sheet/,
+    );
+    const counts = await p.owner.ingest.rows.decide({ candidateId: list.id, rowIds: [listRow.id], decision: "skip", expectSeq: list.serverSeq });
+    expect(counts).toMatchObject({ create: 0, skipped: 1 });
+    expect((await p.owner.ingest.candidate.get({ candidateId: list.id })).state).toBe("ready");
+
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    let after = await p.owner.ingest.candidate.get({ candidateId: list.id });
+    expect(after).toMatchObject({ state: "ready", counts: { total: 1, skipped: 1, create: 0 } });
+
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.answer.set({ candidateId: id, questionCode: "new_customers", subject: "", answer: false, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    after = await p.owner.ingest.candidate.get({ candidateId: list.id });
+    expect(after.counts.total).toBe(0);
+  });
+});

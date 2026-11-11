@@ -96,6 +96,11 @@ import {
 
 const DONE_STATES: readonly CandidateState[] = ["merging", "merged", "discarded"];
 
+/** A derived list (the new customers of an order sheet) changes only through its parent sheet (A12). */
+function assertNotDerived(c: CandidateRow): void {
+  if (c.parentId) throw new TRPCError({ code: "BAD_REQUEST", message: "This list comes from another sheet. Change that sheet instead." });
+}
+
 // ---------------------------------------------------------------------------
 // Learned layouts
 // ---------------------------------------------------------------------------
@@ -336,6 +341,7 @@ export async function setTarget(
   input: { candidateId: string; target: IngestTarget | "ignore"; expectSeq: number },
 ): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
   if (DONE_STATES.includes(c.state) || c.recipeLocked) throw new TRPCError({ code: "BAD_REQUEST", message: "This import can no longer change" });
   if (input.target === "ignore") {
     await guardedBatch(ctx.db, [
@@ -444,6 +450,7 @@ export async function confirmNear(
   input: { candidateId: string; accept: boolean; expectSeq: number },
 ): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
   assertState(c, ["needs_confirm"], "This import is not waiting for that");
   if (!input.accept) {
     await guardedBatch(
@@ -475,6 +482,7 @@ export async function saveShape(
   input: { candidateId: string; recipe: unknown; holeName: string; expectSeq: number },
 ): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
   if (DONE_STATES.includes(c.state) || c.state === "approved") throw new TRPCError({ code: "BAD_REQUEST", message: "This import can no longer change" });
   if (c.recipeLocked) throw new TRPCError({ code: "BAD_REQUEST", message: "Rows of this import are already merged; change single rows instead" });
   const parsed = recipeSchema.safeParse(input.recipe);
@@ -514,6 +522,7 @@ export async function saveShape(
 
 export async function makeShape(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<ShapeMakeOut> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
   assertState(c, ["needs_shape"], "This sheet does not need the helper");
   // Claim the candidate before any model call, so a second tab gets CONFLICT before it spends (A8).
   let seq = input.expectSeq;
@@ -719,6 +728,23 @@ export async function decideRows(
       }
     }
   }
+  if (c.parentId) {
+    // A derived list has no recipe to re-run: a skip lands on the rows at once and the list keeps its
+    // state (A12).
+    if (input.decision !== "skip") throw new TRPCError({ code: "BAD_REQUEST", message: "Rows of this list can only be skipped" });
+    const derived: SqliteBatchItem[] = [...candidateChange(ctx, c.id, input.expectSeq, {})];
+    for (const r of rows) {
+      derived.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({ decision: "skip", state: "skipped", updatedAt: now() })
+          .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),
+      );
+    }
+    derived.push(recountStatement(ctx, c.id));
+    await guardedBatch(ctx.db, derived);
+    return candidateCounts(await loadCandidate(ctx, c.id));
+  }
   const from = Math.min(...rows.map((r) => r.rowIndex));
   const statements: SqliteBatchItem[] = [
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
@@ -762,6 +788,7 @@ export async function setAnswer(
   input: { candidateId: string; questionCode: QuestionCode; subject: string; answer: unknown; expectSeq: number },
 ): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
   assertState(c, ["ready", "held", "processing"], "This import is not waiting for answers");
   const answer = normalizeAnswer(input.questionCode, input.answer);
   if (!ANSWER_CHECK[input.questionCode](answer)) throw new TRPCError({ code: "BAD_REQUEST", message: "That answer does not fit the question" });

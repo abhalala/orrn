@@ -33,6 +33,7 @@ import {
   ingestCandidate,
   ingestStagedRow,
   type IngestTarget,
+  type RowDecision,
   type RowState,
 } from "@orrn/db/schema/ingest";
 
@@ -467,7 +468,7 @@ export function classifyRow(values: Values, cx: ClassifyCtx): RowOutcome {
 
 /** Whether every lookup a new record of this target needs came out resolved. */
 export function lookupsResolved(target: IngestTarget, values: Values | null): boolean {
-  const ids = ((values?._ids ?? {}) as Record<string, string>) ?? {};
+  const ids = (values?._ids ?? {}) as Record<string, string>;
   const section = !!ids.sectionCode || values?.legacyDie === true;
   switch (target) {
     case "orders":
@@ -786,40 +787,83 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       ),
     ingestAbortUnlessChanged(ctx.db),
   );
+  // The derived "new customers" list (A12). It changes only while it is ready or held; once approved
+  // or merging it is left alone. A run from row 0 rebuilds its open rows, keeping a person's skips.
+  const child = c.target === "orders" ? await findNewCustomerChild(ctx, c) : null;
+  const childOpen = !child || child.state === "ready" || child.state === "held";
+  const keptDecisions = new Map<string, RowDecision>();
+  if (child && childOpen && input.expectCursor === 0) {
+    const decided = await ctx.db
+      .select({ rowKey: ingestStagedRow.rowKey, decision: ingestStagedRow.decision })
+      .from(ingestStagedRow)
+      .where(and(eq(ingestStagedRow.candidateId, child.id), eq(ingestStagedRow.mergeState, "open"), sql`${ingestStagedRow.decision} is not null`));
+    for (const d of decided) if (d.decision) keptDecisions.set(d.rowKey, d.decision);
+    statements.push(ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.candidateId, child.id), eq(ingestStagedRow.mergeState, "open"))));
+  }
   if (derivedRows.size > 0) {
-    const childId = await ensureNewCustomerCandidate(ctx, c, statements);
     const refMap = new Map<string, string>();
-    const inserts = [];
-    for (const [key, d] of derivedRows) {
-      const childRowKey = await sha(`${c.artifactId}|${block.ordinal}|new-customer|${key}`);
-      refMap.set(`pending:new-customer:${key}`, `pending:${childRowKey}`);
-      inserts.push({
-        id: await stagedRowIdOf(childRowKey, "customers"),
-        companyId: ctx.companyId,
-        rowKey: childRowKey,
-        candidateId: childId,
-        rowIndex: d.rowIndex,
-        raw: [d.name],
-        values: { name: d.name, _ids: {} },
-        entered: null,
-        state: "ready_create" as const,
-        reasons: null,
-        matchId: null,
-        diff: null,
-        decision: null,
-        mergeState: "open" as const,
-        committedType: null,
-        committedId: null,
-        updatedAt: at,
-      });
+    const keyed = await Promise.all(
+      [...derivedRows].map(async ([key, d]) => ({ key, d, rowKey: await sha(`${c.artifactId}|${block.ordinal}|new-customer|${key}`) })),
+    );
+    if (childOpen) {
+      const childId = child?.id ?? (await ensureNewCustomerCandidate(ctx, c, statements));
+      // Row indexes past every row the list ever had, so a new name never collides with an old index.
+      const [top] = child
+        ? await ctx.db.select({ n: sql<number>`coalesce(max(${ingestStagedRow.rowIndex}), -1)` }).from(ingestStagedRow).where(eq(ingestStagedRow.candidateId, child.id))
+        : [{ n: -1 }];
+      let next = Number(top?.n ?? -1) + 1;
+      const inserts = [];
+      for (const { key, d, rowKey } of keyed) {
+        refMap.set(`pending:new-customer:${key}`, `pending:${rowKey}`);
+        const decision = keptDecisions.get(rowKey) ?? null;
+        inserts.push({
+          id: await stagedRowIdOf(rowKey, "customers"),
+          companyId: ctx.companyId,
+          rowKey,
+          candidateId: childId,
+          rowIndex: next++,
+          raw: [d.name],
+          values: { name: d.name, _ids: {} },
+          entered: null,
+          state: decision === "skip" ? ("skipped" as const) : ("ready_create" as const),
+          reasons: null,
+          matchId: null,
+          diff: null,
+          decision,
+          mergeState: "open" as const,
+          committedType: null,
+          committedId: null,
+          updatedAt: at,
+        });
+      }
+      pushChunkedInserts(statements, (part) => ctx.db.insert(ingestStagedRow).values(part).onConflictDoNothing(), inserts);
+      if (!child) statements.push(recountStatement(ctx, childId));
+    } else {
+      // The list is approved or merging: only names already on it can be referenced.
+      const present = await mapInChunks(
+        keyed.map((k) => k.rowKey),
+        (part) =>
+          ctx.db
+            .select({ rowKey: ingestStagedRow.rowKey })
+            .from(ingestStagedRow)
+            .where(and(eq(ingestStagedRow.candidateId, child!.id), inArray(ingestStagedRow.rowKey, part), sql`${ingestStagedRow.state} <> 'skipped'`)),
+      );
+      const have = new Set(present.map((x) => x.rowKey));
+      for (const { key, rowKey } of keyed) if (have.has(rowKey)) refMap.set(`pending:new-customer:${key}`, `pending:${rowKey}`);
     }
-    pushChunkedInserts(statements, (part) => ctx.db.insert(ingestStagedRow).values(part).onConflictDoNothing(), inserts);
     for (const out of outcomes.values()) {
       const ids = (out.values?._ids ?? null) as Record<string, string> | null;
-      if (ids?.customer && refMap.has(ids.customer)) ids.customer = refMap.get(ids.customer)!;
+      if (!ids?.customer?.startsWith("pending:new-customer:")) continue;
+      const ref = refMap.get(ids.customer);
+      if (ref) ids.customer = ref;
+      else {
+        delete ids.customer;
+        out.state = "refused";
+        out.reasons = [...out.reasons, "not_found:customer"];
+      }
     }
-    statements.push(recountStatement(ctx, childId));
   }
+  if (child && childOpen) statements.push(recountStatement(ctx, child.id));
 
   for (const r of editable) {
     const out = outcomes.get(r.id)!;
@@ -908,13 +952,18 @@ async function sha(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** The derived `customers` candidate of an orders candidate, made on first need (in `statements`). */
-async function ensureNewCustomerCandidate(ctx: IngestCtx, parent: CandidateRow, statements: SqliteBatchItem[]): Promise<string> {
+async function findNewCustomerChild(ctx: IngestCtx, parent: CandidateRow): Promise<{ id: string; state: CandidateRow["state"] } | null> {
   const [existing] = await ctx.db
-    .select({ id: ingestCandidate.id })
+    .select({ id: ingestCandidate.id, state: ingestCandidate.state })
     .from(ingestCandidate)
     .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.parentId, parent.id), eq(ingestCandidate.target, "customers")))
     .limit(1);
+  return existing ?? null;
+}
+
+/** The derived `customers` candidate of an orders candidate, made on first need (in `statements`). */
+async function ensureNewCustomerCandidate(ctx: IngestCtx, parent: CandidateRow, statements: SqliteBatchItem[]): Promise<string> {
+  const existing = await findNewCustomerChild(ctx, parent);
   if (existing) return existing.id;
   const id = createId();
   statements.push(
