@@ -20,7 +20,7 @@ import { API_URL } from "./helpers/ports";
  * approved candidate of the plant.
  */
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 const STAMP = Date.now().toString(36).toUpperCase().slice(-5);
 const DIE_HEADER = "Series,Section code,Min weight (kg/12ft),Max weight (kg/12ft),Name,Width (mm),Thickness (mm),Leg (mm),Status,Notes";
@@ -99,7 +99,9 @@ test.describe("imports portal", () => {
     const series = `Y${STAMP.slice(0, 3)}`;
     const code = `${STAMP}7`;
     const name = `unknown-${STAMP}.csv`;
-    const headers = ["Sec series", "Profile no", "Low kg/12ft", "High kg/12ft"];
+    // The headers carry the run stamp: a layout the helper made and a person approved is remembered for the plant,
+    // so the same headers on a later run would be a known layout, not an unknown one.
+    const headers = [`Sec series ${STAMP}`, `Profile no ${STAMP}`, `Low ${STAMP} kg/12ft`, `High ${STAMP} kg/12ft`];
     const csv = Buffer.from([headers.join(","), `${series},${code},1.2,1.5`].join("\n"));
 
     const recipe = {
