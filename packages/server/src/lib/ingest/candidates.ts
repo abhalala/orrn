@@ -73,6 +73,7 @@ import {
   classifyRows,
   clearLayoutAnswers,
   openQuestionCount,
+  openUnitFields,
   parseRecipe,
   readAnswers,
   recountStatement,
@@ -381,8 +382,8 @@ async function draftVersion(
   ctx: IngestCtx,
   c: CandidateRow,
   recipe: Recipe,
-  opts: { name: string; madeBy: "person" | "bot" | "bot_edited"; botRunId?: string | null; headerKey: string },
-): Promise<{ statements: SqliteBatchItem[]; versionId: string }> {
+  opts: { name: string; madeBy: "person" | "bot" | "bot_edited"; botRunId?: string | null; headerKey: string; approved?: boolean },
+): Promise<{ statements: SqliteBatchItem[]; versionId: string; holeId: string; version: number }> {
   let holeId: string | null = null;
   let version = 1;
   if (c.holeRef?.startsWith("learned:")) {
@@ -409,7 +410,7 @@ async function draftVersion(
         companyId: ctx.companyId,
         target: recipe.target,
         name: opts.name,
-        currentVersion: 0,
+        currentVersion: opts.approved ? version : 0,
         state: "active",
         createdBy: ctx.session.user.id,
       }),
@@ -426,11 +427,49 @@ async function draftVersion(
       recipe: recipe as never,
       madeBy: opts.madeBy,
       botRunId: opts.botRunId ?? null,
-      state: "draft",
+      state: opts.approved ? "approved" : "draft",
       createdBy: ctx.session.user.id,
     }),
   );
-  return { statements, versionId };
+  return { statements, versionId, holeId, version };
+}
+
+/**
+ * The recipe with this candidate's answers written in (A19): an answered unit goes into the field's
+ * open number steps, an answered date format into its date steps, and answered entries leave
+ * `unclear`. Null when no answer changes it. The next file of this layout then asks nothing.
+ */
+export function foldAnswers(recipe: Recipe, answers: readonly { questionCode: string; subject: string; answer: unknown }[]): Recipe | null {
+  const units = new Map<string, string>();
+  const dates = new Map<string, string>();
+  const columns = new Set<string>();
+  const unitOpen = openUnitFields(recipe);
+  for (const a of answers) {
+    if (a.questionCode === "unit_unknown" && typeof a.answer === "string" && unitOpen.has(a.subject)) units.set(a.subject, a.answer);
+    if (a.questionCode === "date_format_ambiguous" && typeof a.answer === "string") dates.set(a.subject, a.answer);
+    if (a.questionCode === "column_meaning_unclear" && a.answer === a.subject) columns.add(a.subject);
+  }
+  const answered = (u: Recipe["unclear"][number]) =>
+    (u.code === "unit_unknown" && units.has(u.field)) ||
+    (u.code === "date_format_ambiguous" && dates.has(u.field)) ||
+    (u.code === "column_meaning_unclear" && columns.has(u.field));
+  if (!recipe.unclear.some(answered) && ![...units.keys()].length) return null;
+  const folded: Recipe = {
+    ...recipe,
+    fields: recipe.fields.map((f) => ({
+      ...f,
+      steps: f.steps.map((st) => {
+        if (st.op === "number" && st.unit === null && units.has(f.field)) return { ...st, unit: units.get(f.field)! };
+        if (st.op === "date" && dates.has(f.field) && recipe.unclear.some((u) => u.code === "date_format_ambiguous" && u.field === f.field)) {
+          return { ...st, format: dates.get(f.field) as typeof st.format };
+        }
+        return st;
+      }),
+    })),
+    unclear: recipe.unclear.filter((u) => !answered(u)),
+  };
+  const parsed = recipeSchema.safeParse(folded);
+  return parsed.success ? parsed.data : null;
 }
 
 /**
@@ -893,24 +932,53 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
       meta: { target: c.target, rows: c.rowsTotal, create: c.rowsCreate, update: c.rowsUpdate, holeRef: c.holeRef },
     }),
   ];
+  // Answers to unit, date and column questions are written into the layout, so the next file of this
+  // shape asks nothing (A19).
+  const answerRows = await ctx.db
+    .select()
+    .from(ingestAnswer)
+    .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
+  const current = c.recipe ? recipeSchema.safeParse(c.recipe) : null;
+  const folded = current?.success && !c.parentId ? foldAnswers(current.data, answerRows) : null;
   // A draft layout this candidate used becomes the plant's approved version now (brief: saved only
   // when a person approves the candidate that used it).
-  if (c.holeRef?.startsWith("learned:")) {
-    const [v] = await ctx.db
-      .select()
-      .from(ingestHoleVersion)
-      .where(and(eq(ingestHoleVersion.companyId, ctx.companyId), eq(ingestHoleVersion.id, c.holeRef.slice(8))))
-      .limit(1);
-    if (v && v.state === "draft") {
-      statements.push(
-        ctx.db.update(ingestHoleVersion).set({ state: "approved" }).where(and(eq(ingestHoleVersion.id, v.id), eq(ingestHoleVersion.companyId, ctx.companyId))),
-        ctx.db
-          .update(ingestHole)
-          .set({ currentVersion: sql`max(${ingestHole.currentVersion}, ${v.version})`, updatedAt: now() })
-          .where(and(eq(ingestHole.id, v.holeId), eq(ingestHole.companyId, ctx.companyId))),
-        auditInsert(ctx, { action: "ingest.hole.save", subjectType: "ingest_hole", subjectId: v.holeId, meta: { version: v.version, madeBy: v.madeBy } }),
-      );
-    }
+  const [v] = c.holeRef?.startsWith("learned:")
+    ? await ctx.db
+        .select()
+        .from(ingestHoleVersion)
+        .where(and(eq(ingestHoleVersion.companyId, ctx.companyId), eq(ingestHoleVersion.id, c.holeRef.slice(8))))
+        .limit(1)
+    : [];
+  if (folded && !(v && v.state === "draft")) {
+    // An approved or built-in layout is not changed in place: the answered variant is a new version.
+    const block2 = await loadBlock(ctx, c.blockId);
+    const made = await draftVersion(ctx, c, withBlockMatch(folded, block2), {
+      name: layoutName(c, block2, artifact.fileName),
+      madeBy: "person",
+      headerKey: block2.headerKey,
+      approved: true,
+    });
+    statements.push(
+      ...made.statements,
+      ctx.db
+        .update(ingestHole)
+        .set({ currentVersion: sql`max(${ingestHole.currentVersion}, ${made.version})`, updatedAt: now() })
+        .where(and(eq(ingestHole.id, made.holeId), eq(ingestHole.companyId, ctx.companyId))),
+      auditInsert(ctx, { action: "ingest.hole.save", subjectType: "ingest_hole", subjectId: made.holeId, meta: { version: made.version, madeBy: "person", answers: true } }),
+    );
+  }
+  if (v && v.state === "draft") {
+    statements.push(
+      ctx.db
+        .update(ingestHoleVersion)
+        .set({ state: "approved", ...(folded ? { recipe: withBlockMatch(folded, block) as never } : {}) })
+        .where(and(eq(ingestHoleVersion.id, v.id), eq(ingestHoleVersion.companyId, ctx.companyId))),
+      ctx.db
+        .update(ingestHole)
+        .set({ currentVersion: sql`max(${ingestHole.currentVersion}, ${v.version})`, updatedAt: now() })
+        .where(and(eq(ingestHole.id, v.holeId), eq(ingestHole.companyId, ctx.companyId))),
+      auditInsert(ctx, { action: "ingest.hole.save", subjectType: "ingest_hole", subjectId: v.holeId, meta: { version: v.version, madeBy: v.madeBy } }),
+    );
   }
   await guardedBatch(ctx.db, statements);
   return candidateDetail(ctx, c.id);

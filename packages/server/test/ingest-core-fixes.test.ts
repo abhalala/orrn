@@ -739,3 +739,29 @@ describe("A17: a column meaning answer is never stored without effect", () => {
     expect(c.questions.find((q) => q.code === "column_meaning_unclear")?.open).toBe(false);
   });
 });
+
+describe("A19: an answered unit is saved into the layout", () => {
+  test("two files of one layout: the second asks no unit question", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe(), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "unit_unknown", subject: "rate", answer: "inr/kg", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+
+    const next = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [["2", "Acme Traders", "OB-9", "02/10/2025", "DOMAL 12170", "6.1", "100", "0", "100", "250", ""]] }]);
+    expect(next.candidates[0]).toMatchObject({ fit: "exact", state: "processing" });
+    await pump(p.owner, next.candidates[0]!.id);
+    const again = await p.owner.ingest.candidate.get({ candidateId: next.candidates[0]!.id });
+    expect(again.questions.some((q) => q.code === "unit_unknown")).toBe(false);
+    expect((await p.owner.ingest.rows.list({ candidateId: again.id })).items[0]!.rate).toBe(25_000);
+  });
+});
