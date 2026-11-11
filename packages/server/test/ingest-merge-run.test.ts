@@ -366,3 +366,26 @@ describe("two steps on one chunk (B9)", () => {
     expect(await count("vendor", companyId)).toBe(1);
   });
 });
+
+describe("stop with a chunk in flight (B4, lead item 2)", () => {
+  test("stop is refused while a chunk is sent; the next step finishes it with what landed, then stop works", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "vendors", [{ values: { name: "Half Sent" } }]);
+    const first = await mergeAll(api);
+    const before = (await stagedRows(env, seeded.candidateId))[0]!.committedId;
+    const cursor = await rewindToCrash(env, first.runId, seeded.candidateId);
+    await expect(api.ingest.merge.stop({ runId: first.runId })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "A part is still being written. Stop again when it is done.",
+    });
+    // The rows stay queued: nothing can reopen them for editing.
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState)).toEqual(["queued"]);
+    expect((await candidateRow(env, seeded.candidateId)).state).toBe("merging");
+    const done = await pump(api, first.runId, cursor);
+    expect(done.state).toBe("done");
+    expect((await stagedRows(env, seeded.candidateId))[0]).toMatchObject({ mergeState: "written", committedId: before });
+    expect(await count("vendor", companyId)).toBe(1);
+    expect((await api.ingest.merge.stop({ runId: first.runId })).state).toBe("done");
+  });
+});

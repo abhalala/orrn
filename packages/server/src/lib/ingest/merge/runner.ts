@@ -16,8 +16,9 @@
  * - A refused chunk holds its candidate with the exact message (`merge_failed`); a chunk whose rows
  *   point at a record of a held candidate holds its own candidate (`dependency_held`). The rest of
  *   the run goes on. The run ends `done`, or `done_with_holds` when anything was held.
- * - `stopMerge` ends the run after the step in flight: merging candidates go back to approved, their
- *   queued rows to open, planned chunks are dropped. Written rows stay written.
+ * - `stopMerge` ends the run between steps: merging candidates go back to approved, their queued
+ *   rows to open, planned chunks are dropped. Written rows stay written. It is refused while a
+ *   chunk is sent (in flight, or left by a crash): the next step finishes that chunk first (B4).
  */
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizzle-orm";
@@ -547,6 +548,15 @@ async function finish(ctx: IngestCtx, run: RunRow, expectCursor: number): Promis
 export async function stopMerge(ctx: IngestCtx, input: { runId: string }): Promise<MergeStepOut> {
   const run = await loadRun(ctx, input.runId);
   if (!ACTIVE.includes(run.state)) return out(run);
+  // A chunk in flight (or left sent by a step that crashed) may have landed. Stopping now would
+  // reopen its rows for editing while a resend would answer with what landed (B4). The next step
+  // finishes it: the same rows with the same keys, recorded as written. Then stop.
+  const [inFlight] = await ctx.db
+    .select({ id: ingestMergeChunk.id })
+    .from(ingestMergeChunk)
+    .where(and(eq(ingestMergeChunk.runId, run.id), eq(ingestMergeChunk.companyId, ctx.companyId), eq(ingestMergeChunk.state, "sent")))
+    .limit(1);
+  if (inFlight) throw new TRPCError({ code: "CONFLICT", message: "A part is still being written. Stop again when it is done." });
   const merging = await ctx.db
     .select({ id: ingestCandidate.id })
     .from(ingestCandidate)
@@ -556,7 +566,15 @@ export async function stopMerge(ctx: IngestCtx, input: { runId: string }): Promi
     ctx.db
       .update(ingestMergeRun)
       .set({ state: "stopped", finishedAt: at, serverSeq: sql`${ingestMergeRun.serverSeq} + 1` })
-      .where(and(eq(ingestMergeRun.id, run.id), eq(ingestMergeRun.companyId, ctx.companyId), inArray(ingestMergeRun.state, ACTIVE))),
+      .where(
+        and(
+          eq(ingestMergeRun.id, run.id),
+          eq(ingestMergeRun.companyId, ctx.companyId),
+          inArray(ingestMergeRun.state, ACTIVE),
+          // A step that claimed a chunk since the check above wins; stop is refused.
+          sql`not exists (select 1 from ingest_merge_chunk c where c.run_id = ${run.id} and c.state = 'sent')`,
+        ),
+      ),
     ingestAbortUnlessChanged(ctx.db),
     ctx.db
       .delete(ingestMergeChunk)
