@@ -4,7 +4,6 @@
  * die come back from the release as notes, never as a refusal; an over-plan is the server's
  * CONFLICT, worded here.
  */
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -18,7 +17,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { OtherLines } from "./components/other-lines";
@@ -40,7 +38,6 @@ export function PlanDetailPage({ id }: { id: string }) {
   const { t, locale } = useT();
   const zone = useCompanyTimeZone();
   const queryClient = useQueryClient();
-  const { unit } = useLengthUnit();
   const wide = useMinWidth(820);
   const [releaseOpen, setReleaseOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -158,7 +155,7 @@ export function PlanDetailPage({ id }: { id: string }) {
   const { plan: p, dies, lines, runs } = plan.data;
   const pl = (pressLines.data ?? []).find((x) => x.id === p.pressLineId);
   const pressLineText = pl ? `${pl.code} ${pl.name}` : null;
-  const label = (mm: number) => formatLengthMm(mm, unit);
+  const label = (mm: number) => fmt.q("bundle.length", mm);
   const draft = p.status === "draft";
 
   return (

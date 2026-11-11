@@ -1,5 +1,5 @@
 import type { LengthUnit } from "@orrn/domain";
-import { bpPercent1, formatLength as formatLengthMm } from "@orrn/domain";
+import { bpPercent1 } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -483,7 +483,7 @@ function LengthRow({
         items={stock.data?.items}
         loading={stock.isPending && line.die != null}
         failed={stock.isError}
-        formatLength={(v) => formatLengthMm(v, unit)}
+        formatLength={(v) => fmt.q("bundle.length", v)}
       />
     </li>
   );

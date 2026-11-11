@@ -3,7 +3,7 @@
  * read-only (`plans.phone`). Per die: lengths with planned vs pressed pcs/kg and a run-state chip.
  * Planning itself stays on the 11" and desktop board.
  */
-import { formatLength as formatLengthMm, type PlanDieState } from "@orrn/domain";
+import type { PlanDieState } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
 import { Chip } from "@orrn/ui/components/chip";
@@ -12,7 +12,6 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 
 import { Can } from "@/shared/components/can";
-import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
 
 import { } from "../format";
@@ -41,7 +40,6 @@ function PhonePlanBody({ planId }: { planId?: string }) {
   const fmt = useFmt();
   const { t, locale } = useT();
   const zone = useCompanyTimeZone();
-  const { unit } = useLengthUnit();
   const q = useQuery(trpc.plans.phone.queryOptions(planId ? { planId } : {}));
   if (q.isPending) return <Skeleton className="h-40 w-full" />;
   if (q.isError || !q.data) {
@@ -130,7 +128,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
                         const r = pressedVsPlanned(l, fmt);
                         return (
                           <li key={l.cutLengthMm} className="flex min-w-0 justify-between gap-2 tabular-nums" data-phone-length="">
-                            <span>{formatLengthMm(l.cutLengthMm, unit)}</span>
+                            <span>{fmt.q("bundle.length", l.cutLengthMm)}</span>
                             <span className="text-right">
                               {t("orders.phonePlan.kgLine", { pressed: r.kg.pressed, planned: r.kg.planned })}
                               {r.pcs ? ` · ${t("orders.phonePlan.pcsLine", { pressed: r.pcs.pressed, planned: r.pcs.planned })}` : ""}

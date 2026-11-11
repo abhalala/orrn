@@ -1,4 +1,3 @@
-import { formatLength as formatLengthMm, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
@@ -14,14 +13,12 @@ export function LineFilters({
   value,
   onChange,
   options,
-  unit,
   shown,
   total,
 }: {
   value: LineFilterState;
   onChange(next: LineFilterState): void;
   options: { dies: { id: string; label: string }[]; lengths: number[] };
-  unit: LengthUnit;
   /** The server's lines and totals for the filter (`orders.get` `shown`). */
   shown: { lines: number; orderedPcs: number; orderedG: number; pcsMissing: number };
   total: number;
@@ -46,7 +43,7 @@ export function LineFilters({
             <option value="">{t("orders.detail.filter.anyLength")}</option>
             {options.lengths.map((mm) => (
               <option key={mm} value={String(mm)}>
-                {formatLengthMm(mm, unit)}
+                {fmt.q("bundle.length", mm)}
               </option>
             ))}
           </FieldSelect>

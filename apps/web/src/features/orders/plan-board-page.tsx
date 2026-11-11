@@ -4,7 +4,6 @@
  * sets the 24-hour window, and `plans.create` saves a draft. Releasing it is on the plan's page.
  * Kg per line is what the server says is still planable; nothing is worked out here.
  */
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -331,7 +330,7 @@ function PlanBuilder() {
     onError: (error) => setErrors(orderErrorLines(t, error)),
   });
 
-  const label = (mm: number) => formatLengthMm(mm, unit);
+  const label = (mm: number) => fmt.q("bundle.length", mm);
   const orderOf = (lineId: string) => infoOf(lineId)?.orderNumber;
   const orderIdOf = (lineId: string) => dies.flatMap((d) => d.lines).find((l) => l.lineId === lineId)?.orderId ?? others.data?.lines.find((l) => l.lineId === lineId)?.orderId;
   const groups = draftGroups(draft, view, orderOf);

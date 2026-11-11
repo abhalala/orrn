@@ -49,6 +49,12 @@ export const rupeeText = (fmt: Fmt, paise: number): string => fmt.money(paise, "
 export const bandEndText = (fmt: Fmt, gramsPer12ft: number): string =>
   fmt.unitOf("linear_mass").id === "kg_12ft" ? TWO_DECIMALS.format(gramsPer12ft / 1000) : fmt.n(BAND, gramsPer12ft, "screen");
 
+/**
+ * A cut length in a column whose header names no unit (the ageing report): a plant on mm reads the bare number it always did
+ * ("3658"); a plant on feet and inches or metres reads the length with its unit ("12 ft", "3.658 m").
+ */
+export const cutLengthText = (fmt: Fmt, mm: number): string =>
+  fmt.unitOf("length").id === "mm" ? fmt.n("bundle.length", mm) : fmt.q("bundle.length", mm);
 /** The unit symbol for a column header or a suffix: "kg", "lb", "t". */
 export const massUnit = (fmt: Fmt): string => fmt.unitOf("mass").symbol;
 /** "kg/12ft", "kg/m", "lb/ft". */

@@ -1,5 +1,4 @@
 import type { LengthUnit } from "@orrn/domain";
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -89,7 +88,7 @@ export function LineEditor({
     staleTime: 15_000,
   });
 
-  const label = (mmValue: number) => formatLengthMm(mmValue, unit);
+  const label = (mmValue: number) => fmt.q("bundle.length", mmValue);
   const ownProblems = problems ?? lineProblems(line, unit);
   const shown = problems != null;
 

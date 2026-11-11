@@ -1,4 +1,3 @@
-import { formatLength as formatLengthMm, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -27,13 +26,11 @@ export function SuggestSheet({
   open,
   onOpenChange,
   dispatchId,
-  unit,
   onAdded,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   dispatchId: string;
-  unit: LengthUnit;
   onAdded(report: AddBundlesReport): void;
 }) {
   const fmt = useFmt();
@@ -142,7 +139,7 @@ export function SuggestSheet({
                         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                           <span className="font-mono text-[15px] font-semibold [overflow-wrap:anywhere]">{b.serial}</span>
                           <span className="text-[13px] text-muted-foreground break-words">
-                            {b.sectionCode} {b.sectionName ?? b.series} · {formatLengthMm(b.lengthMm, unit)} · {/* Final explore L9: plant stock is not on a line yet; it goes on this one. */}
+                            {b.sectionCode} {b.sectionName ?? b.series} · {fmt.q("bundle.length", b.lengthMm)} · {/* Final explore L9: plant stock is not on a line yet; it goes on this one. */}
                             {t(key === "plant" ? "dispatch.suggest.forLinePlant" : "dispatch.suggest.forLine", { n: b.lineNo })}
                             <span className="font-mono">
                               {" "}

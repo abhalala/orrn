@@ -4,7 +4,6 @@
  * as blockers the page words. Move bundles is the reallocate sheet; a request waiting for a
  * manager shows here with a link to it.
  */
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -21,7 +20,6 @@ import { toast } from "sonner";
 import { OrderLineAged } from "@/features/ageing/order-aged";
 import { bookDateText } from "@/shared/lib/fmt-text";
 import { Can } from "@/shared/components/can";
-import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { BakiStrip } from "./components/baki-strip";
@@ -46,7 +44,6 @@ export function OrderDetailPage({ id }: { id: string }) {
   const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
-  const { unit } = useLengthUnit();
   const [editOpen, setEditOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -344,7 +341,6 @@ export function OrderDetailPage({ id }: { id: string }) {
               value={lineFilter}
               onChange={setLineFilter}
               options={filterOptions(lines)}
-              unit={unit}
               shown={get.data.shown}
               total={lines.length}
             />
@@ -383,7 +379,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                 <p className="m-0 text-[14px] leading-5">
                   <CopyText sectionId={line.sectionId} dieInstanceId={d?.dieInstanceId ?? null} tierRank={d?.tierRank ?? null} />
                   {" · "}
-                  {formatLengthMm(line.cutLengthMm, unit)}
+                  {fmt.q("bundle.length", line.cutLengthMm)}
                   {d?.alloy || d?.temper ? ` · ${[d.alloy, d.temper].filter(Boolean).join(" / ")}` : ""}
                   {line.finish ? ` · ${t(`orders.finish.${line.finish === "anodise" || line.finish === "pvd" ? line.finish : "none"}`)}` : ""}
                 </p>
@@ -540,7 +536,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setTakeLine(null);
           }}
           target={takeLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
       {holdLine ? (
@@ -550,7 +546,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setHoldLine(null);
           }}
           target={holdLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
       {heldLine ? (
@@ -560,7 +556,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setHeldLine(null);
           }}
           target={heldLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
       {moveLine ? (
@@ -570,7 +566,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setMoveLine(null);
           }}
           source={moveLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
     </>
