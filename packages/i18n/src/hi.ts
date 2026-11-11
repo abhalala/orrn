@@ -1275,7 +1275,7 @@ export const hi = {
       order: "सेल्स ऑर्डर",
       hint: "ऑर्डर का ग्राहक ही dispatch का ग्राहक बन जाता है।",
       search: "नंबर, PO या ग्राहक से खोजें",
-      baki: "बाकी {kg} kg",
+      baki: "बाकी {kg} {massUnit}",
       required: "सेल्स ऑर्डर चुनें।",
     },
     order: {
@@ -4141,7 +4141,7 @@ export const hi = {
     material: "{item}, ग्रेड {grade}",
     diff: {
       even: "वज़न बराबर",
-      over: "{kg} kg ज़्यादा",
+      over: "{kg} {massUnit} ज़्यादा",
       within: "{kg} kg कम, {pct} के अंदर",
       short: "{kg} kg कम, {pct} से ज़्यादा",
       incomplete: "हमारे कांटे पर नहीं तौला",
@@ -6865,8 +6865,8 @@ export const hi = {
       band: "बैंड",
       bandRange: "बैंड {min} से {max} {sectionUnit}",
       inBand: "बैंड में",
-      overBand: "बैंड से {kg} kg/12ft ऊपर",
-      underBand: "बैंड से {kg} kg/12ft नीचे",
+      overBand: "बैंड से {kg} {sectionUnit} ऊपर",
+      underBand: "बैंड से {kg} {sectionUnit} नीचे",
       owned: "आपका",
       granted: "आपके लिए खुला",
     },

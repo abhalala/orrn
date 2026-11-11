@@ -73,7 +73,7 @@ export function PortalDiesPage() {
                                 <Chip tone={pos.position === "in" ? "green" : "amber"} truncate={false}>
                                   {pos.position === "in"
                                     ? t("portal.dies.inBand")
-                                    : t(pos.position === "over" ? "portal.dies.overBand" : "portal.dies.underBand", { kg: sectionText(fmt, pos.offG) })}
+                                    : t(pos.position === "over" ? "portal.dies.overBand" : "portal.dies.underBand", { sectionUnit: sectionUnit(fmt), kg: sectionText(fmt, pos.offG) })}
                                 </Chip>
                               ) : null}
                             </li>

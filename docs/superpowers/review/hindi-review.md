@@ -1163,7 +1163,7 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `fromOrder.order` | Sales order | सेल्स ऑर्डर |
 | `fromOrder.hint` | The order's customer becomes the dispatch's customer. | ऑर्डर का ग्राहक ही dispatch का ग्राहक बन जाता है। |
 | `fromOrder.search` | Search by number, PO or customer | नंबर, PO या ग्राहक से खोजें |
-| `fromOrder.baki` | Baki {kg} kg | बाकी {kg} kg |
+| `fromOrder.baki` | Baki {kg} {massUnit} | बाकी {kg} {massUnit} |
 | `fromOrder.required` | Pick the sales order. | सेल्स ऑर्डर चुनें। |
 | `order.title` | Order {number} | ऑर्डर {number} |
 | `order.baki` | Baki now | अभी बाकी |
@@ -4042,7 +4042,7 @@ Please check, Lalubhai:
 | `list.error` | The lots didn't load. Check the connection and try again. | लॉट लोड नहीं हुए। कनेक्शन देखें और फिर से कोशिश करें। |
 | `material` | {item}, grade {grade} | {item}, ग्रेड {grade} |
 | `diff.even` | Same weight | वज़न बराबर |
-| `diff.over` | {kg} kg over | {kg} kg ज़्यादा |
+| `diff.over` | {kg} kg over | {kg} {massUnit} ज़्यादा |
 | `diff.within` | {kg} kg short, within {pct} | {kg} kg कम, {pct} के अंदर |
 | `diff.short` | {kg} kg short, beyond {pct} | {kg} kg कम, {pct} से ज़्यादा |
 | `diff.incomplete` | Not weighed on our kanta | हमारे कांटे पर नहीं तौला |
@@ -7496,8 +7496,8 @@ Please check, Lalubhai:
 | `dies.band` | Band | बैंड |
 | `dies.bandRange` | Band {min} to {max} {sectionUnit} | बैंड {min} से {max} {sectionUnit} |
 | `dies.inBand` | In band | बैंड में |
-| `dies.overBand` | Over band by {kg} kg/12ft | बैंड से {kg} kg/12ft ऊपर |
-| `dies.underBand` | Under band by {kg} kg/12ft | बैंड से {kg} kg/12ft नीचे |
+| `dies.overBand` | Over band by {kg} {sectionUnit} | बैंड से {kg} {sectionUnit} ऊपर |
+| `dies.underBand` | Under band by {kg} {sectionUnit} | बैंड से {kg} {sectionUnit} नीचे |
 | `dies.owned` | Yours | आपका |
 | `dies.granted` | Opened for you | आपके लिए खुला |
 | `orders.title` | Orders | ऑर्डर |
