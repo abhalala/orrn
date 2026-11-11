@@ -59,3 +59,70 @@ describe("C35: delimiter detection under a title line", () => {
     expect(detectDelimiter("a,b,c\n1,2,3\n")).toBe(",");
   });
 });
+
+// Review 2. A customer list with rows 15 units apart and text 10 units high.
+const cust = (y: number, name: string, phone = "", city = "") =>
+  [it(name, 50, y), ...(phone ? [it(phone, 200, y)] : []), ...(city ? [it(city, 300, y)] : [])];
+const custHeader = (y: number) => [it("Name", 50, y), it("Phone", 200, y), it("City", 300, y)];
+
+describe("C-new-2: continuation rows are placed by x, not by index", () => {
+  const hdr = (y: number) => [it("Sr", 50, y), it("PO", 90, y), it("Section", 150, y), it("Pcs", 260, y), it("Wt", 320, y)];
+  const line = (y: number, sr: string, po: string, sec: string, pcs: string, wt: string) => [
+    it(sr, 50, y),
+    ...(po ? [it(po, 90, y)] : []),
+    it(sec, 150, y),
+    it(pcs, 265, y),
+    it(wt, 320, y),
+  ];
+  const first = [...hdr(770), ...line(755, "1", "P11", "R 2105", "25", "1200"), ...line(740, "2", "P12", "R 2106", "8", "980")];
+
+  test("a page with a blank PO column keeps each value under its header", () => {
+    const page2 = [...line(800, "3", "", "T 4013", "6", "420"), ...line(785, "4", "", "T 4014", "7", "430")];
+    const r = readPdfText([first, page2]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "PO", "Section", "Pcs", "Wt"]);
+    expect(r.blocks[0]!.rows.slice(2)).toEqual([
+      ["3", "", "T 4013", "6", "420"],
+      ["4", "", "T 4014", "7", "430"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("a row whose cells do not line up with the table is left out with a warning", () => {
+    const page2 = [...line(800, "3", "P13", "T 4013", "6", "420"), it("3", 50, 785), it("9", 520, 785), it("x", 600, 785)];
+    const r = readPdfText([first, page2]);
+    expect(r.blocks[0]!.rows.length).toBe(3);
+    expect(r.warnings).toEqual(["page 2: 1 row did not line up with the table above"]);
+  });
+});
+
+describe("C-new-3: a real one-cell row is not folded into the row above", () => {
+  test("a customer with no phone and no city stays its own row", () => {
+    const m = textItemsToMatrix([...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), ...cust(740, "Zenith Traders"), ...cust(725, "Kamal", "9797", "Rajkot")]);
+    expect(m).toEqual([
+      ["Name", "Phone", "City"],
+      ["Asha", "9898", "Surat"],
+      ["Zenith Traders", "", ""],
+      ["Kamal", "9797", "Rajkot"],
+    ]);
+  });
+});
+
+describe("C-new-4: a trailing one-cell row at the row pitch is data", () => {
+  test("a last customer with only a name is kept", () => {
+    const page = [...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), ...cust(740, "Kamal", "9797", "Rajkot"), ...cust(720, "Om Traders")];
+    const r = readPdfText([page]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Asha", "9898", "Surat"],
+      ["Kamal", "9797", "Rajkot"],
+      ["Om Traders", "", ""],
+    ]);
+  });
+
+  test("a one-cell line after a gap, or a signature line, is a footer", () => {
+    const page = [...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), ...cust(740, "Kamal", "9797", "Rajkot"), it("Thank you", 50, 650)];
+    expect(readPdfText([page]).blocks[0]!.rows.length).toBe(2);
+    const signed = [...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), ...cust(740, "Kamal", "9797", "Rajkot"), it("Authorised Signatory", 50, 725)];
+    expect(readPdfText([signed]).blocks[0]!.rows.length).toBe(2);
+  });
+});
