@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { apiFor, contextFor, seedCandidate } from "./ingest-merge-fixture";
+import { apiFor, candidateRow, contextFor, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 
@@ -29,13 +29,21 @@ afterAll(async () => {
  */
 export const STEP_ROWS_READ_MAX = 1_000;
 
+/** Rows recorded per statement when each row was written to its own record (Bm7). */
+const RECORD_ROWS_PER_STATEMENT = 30;
+/** A step that makes 500 customers in one call: 99 statements now, 582 before (500 to record). */
+export const CUSTOMER_STEP_STATEMENTS_MAX = 150;
+/** A step that makes 10 orders of 100 lines: 438 now, 1,418 before (over D1's 1,000 a request). */
+export const ORDER_STEP_STATEMENTS_MAX = 600;
+
 const ROWS = 5_000;
 const ORDERS = 1_000;
 
-type Tally = { rows: number };
+/** Rows D1 read, and statements sent (D1 allows 1,000 per Worker invocation on the paid plan). */
+type Tally = { rows: number; statements: number };
 
 /**
- * A D1 binding that adds up `meta.rows_read` of every statement. `raw()` and `first()` return no
+ * A D1 binding that adds up `meta.rows_read` of every statement and counts the statements. `raw()` and `first()` return no
  * meta, so a select read that way is also run once with `all()` to learn its rows read (a select
  * has no side effects). Statements keep their real object for `batch()`.
  */
@@ -53,6 +61,7 @@ function counting(d1: D1Database, tally: Tally): D1Database {
         if (prop === "bind") return (...args: unknown[]) => wrap(target.bind(...args), query);
         if (prop === "all" || prop === "run") {
           return async () => {
+            tally.statements += 1;
             const res = await (target[prop] as () => Promise<D1Result>).call(target);
             add(res.meta, query);
             return res;
@@ -60,6 +69,7 @@ function counting(d1: D1Database, tally: Tally): D1Database {
         }
         if (prop === "raw" || prop === "first") {
           return async (...args: unknown[]) => {
+            tally.statements += 1;
             if (isSelect) add((await target.all()).meta, query);
             return (target[prop] as (...a: unknown[]) => Promise<unknown>).apply(target, args);
           };
@@ -77,6 +87,7 @@ function counting(d1: D1Database, tally: Tally): D1Database {
       if (prop === "prepare") return (query: string) => wrap(target.prepare(query), query);
       if (prop === "batch") {
         return async (statements: D1PreparedStatement[]) => {
+          tally.statements += statements.length;
           const res = await target.batch(statements.map((s) => real.get(s) ?? s));
           res.forEach((r, i) => add(r.meta, queries.get(statements[i]!) ?? ""));
           return res;
@@ -131,7 +142,7 @@ describe("bounded write steps (B-new-2)", () => {
     const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "8100" });
     await seedOrderBook(companyId, customerId, dieId);
 
-    const tally: Tally = { rows: 0 };
+    const tally: Tally = { rows: 0, statements: 0 };
     const ctx = await contextFor(env, companyId, "admin");
     const { createDb } = await import("@orrn/db");
     const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
@@ -161,5 +172,53 @@ describe("bounded write steps (B-new-2)", () => {
     expect(await env.db.select({ id: salesOrder.id }).from(salesOrder).where(eq(salesOrder.companyId, companyId))).toHaveLength(30);
     expect(await env.db.select({ id: salesOrderLine.id }).from(salesOrderLine).where(eq(salesOrderLine.companyId, companyId))).toHaveLength(150);
     await api.ingest.merge.stop({ runId });
+  }, 120_000);
+
+  test(`recording a written chunk sends one statement per order or per ${RECORD_ROWS_PER_STATEMENT} rows, not one per row (Bm7)`, async () => {
+    const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
+    const customerId = await env.seedCustomer(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "8100" });
+    // 10 orders of 100 lines (the largest orders chunk) and 500 new customers (the largest create chunk).
+    const lines = Array.from({ length: 1_000 }, (_, i) => ({
+      values: {
+        customer: "Party",
+        oldOrderNo: `L-${i % 10}`,
+        orderDate: "2025-10-31",
+        series: "R",
+        sectionCode: "8100",
+        cutLength: 3000 + Math.floor(i / 10),
+        bakiKg: 250_000,
+        _ids: { customer: customerId, sectionCode: dieId },
+      },
+    }));
+    const orders = await seedCandidate(env, companyId, "orders", lines);
+    const people = await seedCandidate(env, companyId, "customers", Array.from({ length: 500 }, (_, i) => ({ values: { name: `Bulk Party ${i}` } })));
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    while (last.state === "planning") last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+    expect(last.chunksTotal).toBe(2);
+
+    const sent: number[] = [];
+    for (let i = 0; i < 2; i += 1) {
+      tally.statements = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      sent.push(tally.statements);
+    }
+    expect(last.chunksWritten).toBe(2);
+    if (process.env.DEBUG_READS) console.log("STEP STATEMENTS", sent);
+    // Customers come first (merge order). The record batch alone was 500 statements before.
+    expect(sent[0]!).toBeLessThanOrEqual(CUSTOMER_STEP_STATEMENTS_MAX);
+    expect(sent[1]!).toBeLessThanOrEqual(ORDER_STEP_STATEMENTS_MAX);
+    const written = [...(await stagedRows(env, orders.candidateId)), ...(await stagedRows(env, people.candidateId))];
+    expect(written.every((r) => r.mergeState === "written" && r.committedId && r.committedType !== "ingest_merge_chunk")).toBe(true);
+    expect(new Set(written.filter((r) => r.committedType === "customer").map((r) => r.committedId)).size).toBe(500);
+    expect(new Set(written.filter((r) => r.committedType === "sales_order").map((r) => r.committedId)).size).toBe(10);
+    expect((await candidateRow(env, orders.candidateId)).rowsWritten).toBe(1_000);
+    expect((await candidateRow(env, people.candidateId)).rowsWritten).toBe(500);
   }, 120_000);
 });

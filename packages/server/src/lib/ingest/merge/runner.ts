@@ -25,7 +25,7 @@
  *   else is planned.
  */
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, max, ne, or, sql, type SQL } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
 
 import {
@@ -568,6 +568,70 @@ function requeue(ctx: IngestCtx, rowIds: readonly string[]): SqliteBatchItem[] {
   );
 }
 
+/** Rows recorded by one statement when each row has its own record id: 3 bound values a row. */
+const RECORD_PER_STATEMENT = 30;
+
+/**
+ * Mark written rows with their live records in few statements (Bm7): rows that share a record and
+ * reasons (the lines of one order) in one statement per 90; rows with their own record id 30 to a
+ * statement through a CASE on the row id. Reasons are appended to the row's own list. Not guarded
+ * on `queued`: a stop in between may have set a row back to open, and the record was written all
+ * the same.
+ */
+function recordWritten(ctx: IngestCtx, written: readonly Written[], at: Date): SqliteBatchItem[] {
+  const out: SqliteBatchItem[] = [];
+  const target = (ids: readonly string[]) =>
+    and(companyNotIndexed(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.id, [...ids]), ne(ingestStagedRow.mergeState, "written"));
+  const appended = (reasons: readonly string[]) =>
+    reasons.reduce<SQL>((acc, r) => sql`json_insert(${acc}, '$[#]', ${r})`, sql`coalesce(${ingestStagedRow.reasons}, '[]')`);
+  const shared = new Map<string, Written[]>();
+  for (const w of written) {
+    const key = JSON.stringify([w.committedType, w.committedId, w.reasons ?? []]);
+    shared.set(key, [...(shared.get(key) ?? []), w]);
+  }
+  const single = new Map<string, Written[]>();
+  for (const list of shared.values()) {
+    const w = list[0]!;
+    if (list.length === 1 && !w.reasons?.length) {
+      single.set(w.committedType, [...(single.get(w.committedType) ?? []), w]);
+      continue;
+    }
+    for (const part of inIds(list.map((x) => x.rowId))) {
+      out.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({
+            mergeState: "written",
+            committedType: w.committedType,
+            committedId: w.committedId,
+            ...(w.reasons?.length ? { reasons: appended(w.reasons) } : {}),
+            updatedAt: at,
+          })
+          .where(target(part)),
+      );
+    }
+  }
+  for (const [type, list] of single) {
+    for (const part of chunkList(list, RECORD_PER_STATEMENT)) {
+      out.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({
+            mergeState: "written",
+            committedType: type,
+            committedId: sql`case ${ingestStagedRow.id} ${sql.join(
+              part.map((w) => sql`when ${w.rowId} then ${w.committedId}`),
+              sql` `,
+            )} end`,
+            updatedAt: at,
+          })
+          .where(target(part.map((w) => w.rowId))),
+      );
+    }
+  }
+  return out;
+}
+
 async function recordChunk(
   ctx: IngestCtx,
   run: RunRow,
@@ -579,26 +643,8 @@ async function recordChunk(
   failure: ChunkFailure | null,
 ): Promise<void> {
   const at = now();
-  const byId = new Map(rows.map((r) => [r.id, r]));
   // Counted before the rows are marked written (B-new-2: no recount of the whole candidate).
-  const statements: SqliteBatchItem[] = writtenCount(ctx, candidateId, written.map((w) => w.rowId));
-  for (const w of written) {
-    const row = byId.get(w.rowId);
-    statements.push(
-      ctx.db
-        .update(ingestStagedRow)
-        .set({
-          mergeState: "written",
-          committedType: w.committedType,
-          committedId: w.committedId,
-          ...(w.reasons ? { reasons: [...(row?.reasons ?? []), ...w.reasons] } : {}),
-          updatedAt: at,
-        })
-        // Not guarded on `queued`: a stop in between may have set the row back to open, and the
-        // record was written all the same.
-        .where(and(eq(ingestStagedRow.id, w.rowId), eq(ingestStagedRow.companyId, ctx.companyId), ne(ingestStagedRow.mergeState, "written"))),
-    );
-  }
+  const statements: SqliteBatchItem[] = [...writtenCount(ctx, candidateId, written.map((w) => w.rowId)), ...recordWritten(ctx, written, at)];
   if (written.length > 0) {
     statements.push(
       ctx.db
