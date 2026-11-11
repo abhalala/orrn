@@ -700,14 +700,25 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     await markDuplicates(ctx, c.id, input.expectCursor, editable, outcomes);
   }
 
+  await dryRunHooks.beforeCommit?.();
   const statements: SqliteBatchItem[] = [];
   const last = page.at(-1);
   const nextCursor = last ? last.rowIndex + 1 : input.expectCursor;
+  // The step's rows were classified with the answers, layout and decisions read above. A person who
+  // changed any of them in between bumped server_seq, so the step must not land (A1).
   statements.push(
     ctx.db
       .update(ingestCandidate)
       .set({ dryCursor: nextCursor, updatedAt: at })
-      .where(and(eq(ingestCandidate.id, c.id), eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.dryCursor, input.expectCursor), eq(ingestCandidate.state, "processing"))),
+      .where(
+        and(
+          eq(ingestCandidate.id, c.id),
+          eq(ingestCandidate.companyId, ctx.companyId),
+          eq(ingestCandidate.dryCursor, input.expectCursor),
+          eq(ingestCandidate.serverSeq, c.serverSeq),
+          eq(ingestCandidate.state, "processing"),
+        ),
+      ),
     ingestAbortUnlessChanged(ctx.db),
   );
   if (derivedRows.size > 0) {
@@ -763,7 +774,15 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     );
   }
   statements.push(recountStatement(ctx, c.id));
-  await guardedBatch(ctx.db, statements, { code: "CONFLICT", message: "Running in another tab" });
+  try {
+    await guardedBatch(ctx.db, statements, { code: "CONFLICT", message: "Running in another tab" });
+  } catch (e) {
+    // A person changed the candidate during the step: nothing landed. When it is still being checked,
+    // answer with its new cursor so the pump goes on from there with the new answers.
+    const now2 = await loadCandidate(ctx, c.id);
+    if (now2.serverSeq !== c.serverSeq && now2.state === "processing") return stepOut(now2, false);
+    throw e;
+  }
 
   // Done when the file is read, every row is put and the cursor passed the last row.
   const fresh = await loadCandidate(ctx, c.id);
@@ -772,15 +791,35 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
   if (done) {
     const questions = await candidateQuestions(ctx, fresh, artifact);
     const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
-    await guardedBatch(ctx.db, [
-      ctx.db
-        .update(ingestCandidate)
-        .set({ state: "ready", openQuestions: open, serverSeq: fresh.serverSeq + 1, updatedAt: now() })
-        .where(and(eq(ingestCandidate.id, c.id), eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.serverSeq, fresh.serverSeq), eq(ingestCandidate.state, "processing"))),
-      ingestAbortUnlessChanged(ctx.db),
-    ]);
+    try {
+      await guardedBatch(ctx.db, [
+        ctx.db
+          .update(ingestCandidate)
+          .set({ state: "ready", openQuestions: open, serverSeq: c.serverSeq + 1, updatedAt: now() })
+          .where(
+            and(
+              eq(ingestCandidate.id, c.id),
+              eq(ingestCandidate.companyId, ctx.companyId),
+              eq(ingestCandidate.serverSeq, c.serverSeq),
+              eq(ingestCandidate.dryCursor, nextCursor),
+              eq(ingestCandidate.state, "processing"),
+            ),
+          ),
+        ingestAbortUnlessChanged(ctx.db),
+      ]);
+    } catch (e) {
+      const now2 = await loadCandidate(ctx, c.id);
+      if (now2.serverSeq !== c.serverSeq && now2.state === "processing") return stepOut(now2, false);
+      throw e;
+    }
   }
-  const final = await loadCandidate(ctx, c.id);
+  return stepOut(await loadCandidate(ctx, c.id), done);
+}
+
+/** Test seam: runs after the step read everything and before it writes (A1). */
+export const dryRunHooks: { beforeCommit?: () => Promise<void> } = {};
+
+function stepOut(final: CandidateRow, done: boolean): DryRunStepOut {
   return {
     cursor: final.dryCursor,
     done,
