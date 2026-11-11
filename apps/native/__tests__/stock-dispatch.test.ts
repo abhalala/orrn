@@ -196,6 +196,27 @@ describe("paste serials", () => {
       ),
     ).toEqual({ added: ["a", "d"], alreadyInDispatch: ["b"], notFound: ["e"], unavailable: [{ serial: "c", reason: "r" }] });
   });
+
+  test("mergeReports keeps off-band and tolerance results, with the latest figures for a repeated line", () => {
+    const line = (overG: number) => ({ lineId: "l1", orderNumber: "SO-4", lineNo: 2, toleranceBp: 500, limitG: 1_050_000, totalG: 1_050_000 + overG, overG });
+    const capacity = { loadedG: 2_000, capacityG: 3_000, state: "ok" as const, fillBp: 6_667, overG: 0, needsReason: false };
+    const out = mergeReports(
+      {
+        added: ["a"],
+        alreadyInDispatch: [],
+        notFound: [],
+        unavailable: [],
+        linked: [{ serial: "a", salesOrderLineId: "l1", orderNumber: "SO-4", lineNo: 2 }],
+        warnings: [{ serial: "a", orderNumber: "SO-4", lineNo: 2, bundleMilli: 12_498, lineMilli: 12_000, diffMilli: 498 }],
+        overTolerance: [line(1_000)],
+      },
+      { added: ["b"], alreadyInDispatch: [], notFound: [], unavailable: [], overTolerance: [line(2_000)], capacity },
+    );
+    expect(out.linked).toHaveLength(1);
+    expect(out.warnings).toHaveLength(1);
+    expect(out.overTolerance).toEqual([line(2_000)]);
+    expect(out.capacity).toEqual(capacity);
+  });
 });
 
 describe("ship date (stored as UTC midnight of the calendar day)", () => {

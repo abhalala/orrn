@@ -147,6 +147,12 @@ describe("bundle page", () => {
     expect(entries.map((e) => [e.kind, e.note])).toEqual([["restored", "Counted wrong"], ["packed", null]]);
   });
 
+  test("the pack session facts name the packer, with the web's unknown-packer fallback", () => {
+    const screen = read("app/(tabs)/pack/[id].tsx");
+    expect(screen).toContain('label={t("pack.columns.packedBy")}');
+    expect(screen).toContain('value={data.packedByName ?? t("pack.unknownPacker")}');
+  });
+
   test("void and restore are behind bundle.void, add to dispatch behind dispatch.addBundle, and reprint behind spool.create_jobs (BACKLOG 5, E6 Native)", () => {
     const screen = read("features/bundle/bundle-screen.tsx");
     expect(screen).toMatch(/can\(me, "bundle\.void"\)/);

@@ -80,6 +80,10 @@ export type Strip = {
   pressedAllG?: number;
   packedAllG?: number;
   inStockG: number;
+  /** Held for this line in the yard; absent on an older server answer. */
+  heldG?: number;
+  heldPcs?: number;
+  heldBundles?: number;
   dispatchedG: number;
   bakiG: number;
   bakiPcs: number | null;
@@ -239,13 +243,28 @@ export function timelineLabel(ev: { action: string; meta: unknown }): { key: Mes
       return { key: "orders.timeline.dispatched", vars: {} };
     case "dispatch.overdraw.request":
       return { key: "orders.timeline.overdraw", vars: {} };
+    case "order.hold":
+      return { key: "orders.timeline.hold", vars: { count: listLength(meta, "serials") || listLength(meta, "bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo") } };
+    case "order.release":
+      return {
+        key: str("reason") === "dispatched" ? "orders.timeline.releaseDispatched" : "orders.timeline.release",
+        vars: { count: listLength(meta, "serials") || listLength(meta, "bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
+      };
     default:
       return { key: "orders.timeline.other", vars: { action: ev.action } };
   }
+}
+
+function listLength(meta: Record<string, unknown>, key: string): number {
+  return Array.isArray(meta[key]) ? meta[key].length : 0;
 }
 
 /** "PATTI 14701 Patti 1": the code then the name (else the series). */
 export function dieTitle(die: { sectionCode: string; name?: string | null; series?: string | null; sectionName?: string | null }): string {
   const name = (die.sectionName ?? die.name)?.trim() || die.series?.trim() || "";
   return [die.sectionCode.trim(), name].filter(Boolean).join(" ");
+}
+
+export function holdableItems<T extends { lineId: string | null; heldForLineId: string | null }>(items: readonly T[], lineId: string): T[] {
+  return items.filter((item) => (item.lineId == null || item.lineId === lineId) && item.heldForLineId == null);
 }

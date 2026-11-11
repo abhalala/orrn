@@ -14,6 +14,16 @@ export function mergeReports(...reports: AddBundlesReport[]): AddBundlesReport {
     out.alreadyInDispatch.push(...r.alreadyInDispatch);
     out.notFound.push(...r.notFound);
     out.unavailable.push(...r.unavailable);
+    if (r.refused?.length) (out.refused ??= []).push(...r.refused);
+    if (r.results?.length) (out.results ??= []).push(...r.results);
+    if (r.linked?.length) (out.linked ??= []).push(...r.linked);
+    if (r.warnings?.length) (out.warnings ??= []).push(...r.warnings);
+    if (r.overTolerance?.length) {
+      const lines = new Map((out.overTolerance ?? []).map((line) => [line.lineId, line]));
+      for (const line of r.overTolerance) lines.set(line.lineId, line);
+      out.overTolerance = [...lines.values()];
+    }
+    if (r.capacity) out.capacity = r.capacity;
   }
   return out;
 }
