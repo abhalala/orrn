@@ -192,7 +192,7 @@ export function capRow(cells: readonly string[]): { raw: string[]; reasons: stri
   let bytes = new TextEncoder().encode(JSON.stringify(raw)).length;
   if (bytes > INGEST_LIMITS.rawBytesPerRow) {
     reasons.push("row_cut");
-    let cap = INGEST_LIMITS.cellChars;
+    let cap: number = INGEST_LIMITS.cellChars;
     while (bytes > INGEST_LIMITS.rawBytesPerRow && cap > 0) {
       cap = Math.floor(cap * 0.75);
       raw = raw.map((c) => (c.length > cap ? c.slice(0, cap) : c));
