@@ -304,6 +304,16 @@ export const ingestHi = {
     body: "हर एक जाना-पहचाना लेआउट है, orrn ने पढ़ा है और कोई जवाब बाकी नहीं है। मर्ज से पहले किसी को भी होल्ड कर सकते हैं।",
     confirm: "{count} मंज़ूर करें",
   },
+  // stage 2a (upload, list, file and merge screens): words the work order table did not list
+  imports: {
+    emptySegment: "{name} में अभी कुछ नहीं है।",
+    startFiles: "{count} फ़ाइलें जोड़ें",
+    bulkPartial: "{count} मंज़ूर हुए। {failed} मंज़ूर नहीं हो सके। वजह जानने के लिए उन्हें खोलें।",
+    colWhat: "इम्पोर्ट",
+    colFit: "लेआउट",
+    colStatus: "स्थिति",
+    colAction: "कार्रवाई",
+  },
   discard: {
     title: "{name} हटाएं?",
     body: "इसकी {count} लाइनें इम्पोर्ट नहीं होंगी। फ़ाइल बाद में फिर डाल सकते हैं।",
