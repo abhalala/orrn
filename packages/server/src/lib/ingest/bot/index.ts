@@ -9,7 +9,7 @@
 import { type BotOutcome, type BotRunStore, checkCaps } from "./caps";
 import { costOfResponse, estimateTokens } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
-import { getShapeClient, type ShapeClientError, type ShapeModelClient, type ShapeModelId, type ShapeResponse } from "./client";
+import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeModelClient, type ShapeResponse } from "./client";
 import { buildSystem, buildUserContent, type CatalogueTarget, newNonce, requestChars } from "./prompt";
 import { buildSample, MAX_COLUMNS, type Sample } from "./sample";
 import { botOutput, type NoTargetReason, type Recipe, schemaErrorCodes } from "./schema";
@@ -22,10 +22,10 @@ export * from "./fake";
 export * from "./prompt";
 export * from "./sample";
 export * from "./schema";
+export * from "./vision";
 
 /** Above this estimated input size the bot refuses, which keeps Haiku under its 100K price step. */
 export const MAX_INPUT_TOKENS = 60_000;
-export const MAX_TOKENS: Record<ShapeModelId, number> = { "claude-haiku-5-5": 8_000, "claude-sonnet-5-5": 16_000 };
 
 /** Counts from applying a recipe to the sample rows in memory and classifying them. Lane A makes these. */
 export type SampleStats = {

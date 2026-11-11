@@ -71,6 +71,9 @@ export class ShapeClientError extends Error {
   }
 }
 
+/** Output token caps per model (plan B6). Thinking counts toward these. */
+export const MAX_TOKENS: Record<ShapeModelId, number> = { "claude-haiku-5-5": 8_000, "claude-sonnet-5-5": 16_000 };
+
 export const REQUEST_TIMEOUT_MS = 90_000;
 export const MAX_RETRIES = 1;
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
