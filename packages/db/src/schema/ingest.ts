@@ -81,7 +81,8 @@ export const MERGE_RUN_STATES = ["planning", "running", "done", "done_with_holds
 export type MergeRunState = (typeof MERGE_RUN_STATES)[number];
 export const MERGE_CHUNK_STATES = ["planned", "sent", "written", "failed"] as const;
 export type MergeChunkState = (typeof MERGE_CHUNK_STATES)[number];
-export const BOT_RUN_OUTCOMES = ["recipe", "no_target", "invalid", "refused", "error", "capped", "sample_failed"] as const;
+/** `pending`: a call claimed its place under the caps and has not answered yet (A8). */
+export const BOT_RUN_OUTCOMES = ["recipe", "no_target", "invalid", "refused", "error", "capped", "sample_failed", "pending"] as const;
 export type BotRunOutcome = (typeof BOT_RUN_OUTCOMES)[number];
 
 /** Column kinds of plan B3 (`@orrn/ingest` fingerprint). */

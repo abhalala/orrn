@@ -6,7 +6,7 @@
  * recipe is validated by lane C's `validateRecipe`, and it is applied to a sample by lane A's
  * dry run, both passed in as functions.
  */
-import { type BotOutcome, type BotRunStore, checkCaps } from "./caps";
+import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
 import { costOfResponse, estimateTokens } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
 import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeModelClient, type ShapeResponse } from "./client";
@@ -211,6 +211,25 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
     return { status: "ran", outcome: "capped", attempt: plan.attempt, model, next: "manual", recipe: null, noTargetReason: null, errors: [`cap:${capReason}`], costMicroUsd: 0, runId, capReason };
   }
 
+  // Claim this call's place under the caps before the model is called (A8).
+  const zero = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0 };
+  let claimId: string | null = null;
+  if (args.store.finishRun) {
+    claimId = await args.store.insertRun({ ...base, model, outcome: "pending", ...zero, createdAtMs: now(), errorCodes: null });
+    const late = await capsAfterClaim({
+      store: args.store,
+      companyId: args.companyId,
+      blockId: args.block.id,
+      purpose: "shape",
+      sinceMs: args.holeVersionSinceMs,
+      nowMs: now(),
+    });
+    if (late) {
+      await args.store.finishRun(claimId, { ...base, model, outcome: "capped", ...zero, createdAtMs: now(), errorCodes: [`cap:${late}`] });
+      return { status: "ran", outcome: "capped", attempt: plan.attempt, model, next: "manual", recipe: null, noTargetReason: null, errors: [`cap:${late}`], costMicroUsd: 0, runId: claimId, capReason: late };
+    }
+  }
+
   const started = now();
   let res: ShapeResponse | null = null;
   let clientError: ShapeClientError | null = null;
@@ -243,7 +262,7 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
     evaluated = { outcome: "error", recipe: null, noTargetReason: null, errors: [`client:${kind}`] };
   }
 
-  const runId = await args.store.insertRun({
+  const record: BotRunRecord = {
     ...base,
     model: usedModel,
     outcome: evaluated.outcome,
@@ -255,7 +274,14 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
     durationMs: ms,
     createdAtMs: now(),
     errorCodes: evaluated.errors.length > 0 ? evaluated.errors : null,
-  });
+  };
+  let runId: string;
+  if (claimId && args.store.finishRun) {
+    await args.store.finishRun(claimId, record);
+    runId = claimId;
+  } else {
+    runId = await args.store.insertRun(record);
+  }
 
   const after = planNext(
     [...history, { attempt: plan.attempt, model: usedModel, outcome: evaluated.outcome, errorCodes: evaluated.errors }],

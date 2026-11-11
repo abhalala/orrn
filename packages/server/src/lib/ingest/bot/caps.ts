@@ -15,6 +15,9 @@ export const DAY_COST_CAP_MICRO = 5_000_000;
 export const BOT_OUTCOMES = ["recipe", "no_target", "invalid", "refused", "error", "capped", "sample_failed"] as const;
 export type BotOutcome = (typeof BOT_OUTCOMES)[number];
 
+/** What a store keeps: an outcome, or `pending` while a claimed call has not answered (A8). */
+export type StoredOutcome = BotOutcome | "pending";
+
 /** What `escalate.ts` needs to know about an earlier run. */
 export type BotRunHistoryRow = {
   attempt: number;
@@ -33,7 +36,7 @@ export type BotRunRecord = {
   purpose: ShapePurpose;
   model: string;
   attempt: number;
-  outcome: BotOutcome;
+  outcome: StoredOutcome;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
@@ -61,6 +64,12 @@ export interface BotRunStore {
   dayTotals(args: { companyId: string; sinceMs: number }): Promise<{ calls: number; costMicroUsd: number }>;
   /** Writes one row and returns its id. */
   insertRun(row: BotRunRecord): Promise<string>;
+  /**
+   * Replaces a `pending` row with the call's result. A store that has it lets a call claim its place
+   * under the caps before the model is called, so parallel calls cannot all pass the same count (A8).
+   * Listings report a `pending` row as `error`: it is a call that counts.
+   */
+  finishRun?(id: string, row: BotRunRecord): Promise<void>;
 }
 
 const DAY_MS = 86_400_000;
@@ -96,6 +105,31 @@ export async function checkCaps(args: {
   return null;
 }
 
+/**
+ * The caps again after this call's `pending` row is in: the block and day counts now include it, so
+ * they may reach the cap but not pass it. Two calls that claimed at once both see each other.
+ */
+export async function capsAfterClaim(args: {
+  store: BotRunStore;
+  companyId: string;
+  blockId: string;
+  purpose: ShapePurpose;
+  sinceMs?: number | undefined;
+  nowMs: number;
+}): Promise<CapReason | null> {
+  const history = await args.store.listBlockRuns({ companyId: args.companyId, blockId: args.blockId, purpose: args.purpose, sinceMs: args.sinceMs });
+  if (countCalls(history) > BLOCK_CALL_CAP) return "block_calls";
+  const day = await args.store.dayTotals({ companyId: args.companyId, sinceMs: plantDayStartMs(args.nowMs) });
+  if (day.calls > DAY_CALL_CAP) return "day_calls";
+  if (day.costMicroUsd >= DAY_COST_CAP_MICRO) return "day_cost";
+  return null;
+}
+
+/** A stored outcome as history: a `pending` call counts as an `error` call. */
+export function historyOutcome(o: StoredOutcome): BotOutcome {
+  return o === "pending" ? "error" : o;
+}
+
 /** An in-memory store for tests and for lane A's early wiring. */
 export class MemoryBotRunStore implements BotRunStore {
   readonly rows: (BotRunRecord & { id: string })[] = [];
@@ -110,7 +144,7 @@ export class MemoryBotRunStore implements BotRunStore {
           r.purpose === args.purpose &&
           (args.sinceMs === undefined || r.createdAtMs >= args.sinceMs),
       )
-      .map((r) => ({ attempt: r.attempt, model: r.model, outcome: r.outcome, errorCodes: r.errorCodes }));
+      .map((r) => ({ attempt: r.attempt, model: r.model, outcome: historyOutcome(r.outcome), errorCodes: r.errorCodes }));
   }
 
   async dayTotals(args: { companyId: string; sinceMs: number }) {
@@ -122,5 +156,10 @@ export class MemoryBotRunStore implements BotRunStore {
     const id = `run_${++this.seq}`;
     this.rows.push({ ...row, id });
     return id;
+  }
+
+  async finishRun(id: string, row: BotRunRecord) {
+    const i = this.rows.findIndex((r) => r.id === id);
+    if (i !== -1) this.rows[i] = { ...row, id };
   }
 }

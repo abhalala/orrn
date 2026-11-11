@@ -77,7 +77,7 @@ import {
   recountStatement,
   undecidedRows,
 } from "./dryrun";
-import { anthropicEnv, botRunStore } from "./engines";
+import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import {
   INGEST_LIMITS,
   type BlockInput,
@@ -506,6 +506,12 @@ export async function saveShape(
 export async function makeShape(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<ShapeMakeOut> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   assertState(c, ["needs_shape"], "This sheet does not need the helper");
+  // Claim the candidate before any model call, so a second tab gets CONFLICT before it spends (A8).
+  let seq = input.expectSeq;
+  if (shapeBot.botReady()) {
+    await guardedBatch(ctx.db, candidateChange(ctx, c.id, seq, {}));
+    seq += 1;
+  }
   const block = await loadBlock(ctx, c.blockId);
   const artifact = await loadArtifact(ctx, c.artifactId);
   const staged = await ctx.db
@@ -579,7 +585,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
         headerKey: block.headerKey,
       });
       await guardedBatch(ctx.db, [
-        ...candidateChange(ctx, c.id, input.expectSeq, {
+        ...candidateChange(ctx, c.id, seq, {
           state: "processing",
           target: recipe.target,
           recipe: stored as never,
@@ -594,7 +600,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
       return { outcome: "recipe", skipReason: null, attempt: result.attempt, model: result.model, next: "done" };
     }
   }
-  await guardedBatch(ctx.db, candidateChange(ctx, c.id, input.expectSeq, { botAttempts: c.botAttempts + 1 }));
+  await guardedBatch(ctx.db, candidateChange(ctx, c.id, seq, { botAttempts: c.botAttempts + 1 }));
   return { outcome: result.outcome, skipReason: null, attempt: result.attempt, model: result.model, next: result.next };
 }
 

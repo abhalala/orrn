@@ -13,6 +13,7 @@ import { ingestBotRun } from "@orrn/db/schema/ingest";
 
 import { createId } from "../id";
 import { shapeBotReady, type BotRunStore } from "./bot";
+import { historyOutcome, type BotRunRecord } from "./bot/caps";
 import { mergeEngine as mergeImpl } from "./merge";
 import type { IngestCtx, MergeStepOut } from "./types";
 
@@ -54,7 +55,7 @@ export function botRunStore(ctx: Pick<IngestCtx, "db" | "companyId">): BotRunSto
           ),
         )
         .orderBy(asc(ingestBotRun.createdAt), asc(ingestBotRun.attempt));
-      return rows;
+      return rows.map((r) => ({ ...r, outcome: historyOutcome(r.outcome) }));
     },
     async dayTotals(args) {
       const [row] = await ctx.db
@@ -65,26 +66,35 @@ export function botRunStore(ctx: Pick<IngestCtx, "db" | "companyId">): BotRunSto
     },
     async insertRun(row) {
       const id = createId();
-      await ctx.db.insert(ingestBotRun).values({
-        id,
-        companyId: ctx.companyId,
-        blockId: row.blockId,
-        candidateId: row.candidateId,
-        purpose: row.purpose,
-        model: row.model,
-        attempt: row.attempt,
-        outcome: row.outcome,
-        inputTokens: row.inputTokens,
-        outputTokens: row.outputTokens,
-        cacheReadTokens: row.cacheReadTokens,
-        cacheWriteTokens: row.cacheWriteTokens,
-        costMicroUsd: row.costMicroUsd,
-        durationMs: row.durationMs,
-        errorCodes: row.errorCodes,
-        createdBy: row.createdBy,
-        createdAt: new Date(row.createdAtMs),
-      });
+      await ctx.db.insert(ingestBotRun).values({ id, ...runValues(ctx.companyId, row) });
       return id;
     },
+    async finishRun(id, row) {
+      await ctx.db
+        .update(ingestBotRun)
+        .set(runValues(ctx.companyId, row))
+        .where(and(eq(ingestBotRun.id, id), eq(ingestBotRun.companyId, ctx.companyId)));
+    },
+  };
+}
+
+function runValues(companyId: string, row: BotRunRecord) {
+  return {
+    companyId,
+    blockId: row.blockId,
+    candidateId: row.candidateId,
+    purpose: row.purpose,
+    model: row.model,
+    attempt: row.attempt,
+    outcome: row.outcome,
+    inputTokens: row.inputTokens,
+    outputTokens: row.outputTokens,
+    cacheReadTokens: row.cacheReadTokens,
+    cacheWriteTokens: row.cacheWriteTokens,
+    costMicroUsd: row.costMicroUsd,
+    durationMs: row.durationMs,
+    errorCodes: row.errorCodes,
+    createdBy: row.createdBy,
+    createdAt: new Date(row.createdAtMs),
   };
 }

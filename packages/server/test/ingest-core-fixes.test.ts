@@ -11,7 +11,12 @@ import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 import { BAKI_SHEET_HEADERS, EXAMPLE_BAKI_RECIPE, fingerprint, type Recipe } from "@orrn/ingest";
 
+import { setShapeClientForTests } from "../src/lib/ingest/bot/client";
+import { FakeShapeClient, fakeResponse } from "../src/lib/ingest/bot/fake";
+import { runShapeAttempt } from "../src/lib/ingest/bot";
+import { DAY_CALL_CAP } from "../src/lib/ingest/bot/caps";
 import { dryRunHooks } from "../src/lib/ingest/dryrun";
+import { baseArgs, haiku, recipeAnswer } from "./ingest-bot-fixture";
 
 let env: TestEnv;
 
@@ -22,6 +27,7 @@ beforeAll(async () => {
 afterEach(() => {
   delete workersEnv.INGEST_VAULT;
   delete dryRunHooks.beforeCommit;
+  setShapeClientForTests(null);
 });
 
 afterAll(async () => {
@@ -340,5 +346,141 @@ describe("A6, A7, A14, A18, A22, A29: no rate reaches a viewer without order.pri
     expect(forAdmin.block.sample[0]).toEqual(["Acme", "Domal", ""]);
     expect((await p.admin.ingest.rows.list({ candidateId: c.id })).items[0]!.raw).toEqual(["Acme", "Domal", ""]);
     expect((await p.owner.ingest.candidate.get({ candidateId: c.id })).block.sample[0]![2]).toBe("245.50");
+  });
+});
+
+const KHATA: Sheet = { headers: ["Khata", "Gaam"], rows: [["Acme", "Surat"], ["Bharat", "Rajkot"]] };
+
+/** What the model would answer for the Khata sheet: a customers layout. Raw headers, as models write them. */
+function khataAnswer() {
+  const fp = fingerprint({ headers: KHATA.headers, rows: KHATA.rows });
+  const recipe: Recipe = {
+    schemaVersion: 1,
+    target: "customers",
+    headerRow: 0,
+    headerRows: 1,
+    match: { headerKey: fp.headerKey, headers: ["Khata", "Gaam"] },
+    fields: [
+      { field: "name", source: { kind: "columns", cols: [{ col: 0, header: "Khata" }] }, steps: [{ op: "trim" }] },
+      { field: "city", source: { kind: "columns", cols: [{ col: 1, header: "Gaam" }] }, steps: [{ op: "trim" }] },
+    ],
+    filters: [],
+    keys: ["name"],
+    onExisting: "ask",
+    unclear: [],
+  };
+  return fakeResponse({ result: { kind: "recipe", recipe } });
+}
+
+describe("A8: the bot claims its place before the model call", () => {
+  test("two tabs on one sheet: one call, the other gets CONFLICT before it spends", async () => {
+    const p = await plant();
+    const fake = new FakeShapeClient([khataAnswer(), khataAnswer()]);
+    setShapeClientForTests(fake);
+    const { candidates } = await upload(p.admin, [KHATA]);
+    const c = candidates[0]!;
+    const results = await Promise.allSettled([
+      p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq }),
+      p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq }),
+    ]);
+    expect(fake.calls).toHaveLength(1);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(String(rejected.reason)).toMatch(/another tab/);
+  });
+
+  test("a call that would pass the day cap once its claim is in is capped, not made", async () => {
+    const p = await plant();
+    const { ingestBotRun } = await import("@orrn/db/schema/ingest");
+    const { DAY_CALL_CAP } = await import("../src/lib/ingest/bot/caps");
+    const { candidates } = await upload(p.admin, [KHATA]);
+    const rows = Array.from({ length: DAY_CALL_CAP - 1 }, (_, i) => ({
+      id: `run_${randomUUID()}`,
+      companyId: p.companyId,
+      blockId: `old-${i}`,
+      candidateId: null,
+      purpose: "shape" as const,
+      model: "claude-haiku-5-5",
+      attempt: 1,
+      outcome: "invalid" as const,
+    }));
+    for (let i = 0; i < rows.length; i += 5) await env.db.insert(ingestBotRun).values(rows.slice(i, i + 5));
+    // One more call is still under the cap; a second one is not.
+    const fake = new FakeShapeClient([khataAnswer(), khataAnswer()]);
+    setShapeClientForTests(fake);
+    const c = candidates[0]!;
+    const out = await p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq });
+    expect(out.outcome).toBe("recipe");
+    expect(fake.calls).toHaveLength(1);
+    const pending = await env.d1.prepare("select count(*) as n from ingest_bot_run where company_id = ? and outcome = 'pending'").bind(p.companyId).first<{ n: number }>();
+    expect(pending?.n).toBe(0);
+  });
+});
+
+describe("A8: parallel calls across blocks", () => {
+  test("two blocks at the day cap edge: at most one model call between them", async () => {
+    const args = baseArgs();
+    const at = args.nowMs!();
+    for (let i = 0; i < DAY_CALL_CAP - 1; i += 1) {
+      await args.store.insertRun({
+        companyId: "co1", blockId: `old${i}`, candidateId: null, purpose: "shape", model: "claude-haiku-5-5", attempt: 1, outcome: "invalid",
+        inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0, createdBy: null, createdAtMs: at - 1000, errorCodes: null,
+      });
+    }
+    const fake = new FakeShapeClient([haiku(recipeAnswer()), haiku(recipeAnswer())]);
+    await Promise.all([
+      runShapeAttempt({ ...args, client: fake, block: { ...args.block, id: "blkA" } }),
+      runShapeAttempt({ ...args, client: fake, block: { ...args.block, id: "blkB" } }),
+    ]);
+    expect(fake.calls.length).toBeLessThanOrEqual(1);
+    expect(args.store.rows.filter((r) => r.outcome !== "capped").length).toBeLessThanOrEqual(DAY_CALL_CAP);
+    expect(args.store.rows.some((r) => r.outcome === "pending")).toBe(false);
+  });
+});
+
+describe("A27: the D1 bot run store", () => {
+  test("shape.make with a fake client: draft layout, one run row for this plant, other plants and capped rows not counted", async () => {
+    const other = await plant();
+    const p = await plant();
+    const { ingestBotRun } = await import("@orrn/db/schema/ingest");
+    const { DAY_CALL_CAP } = await import("../src/lib/ingest/bot/caps");
+    const theirs = Array.from({ length: DAY_CALL_CAP }, (_, i) => ({
+      id: `run_${randomUUID()}`,
+      companyId: other.companyId,
+      blockId: `b-${i}`,
+      candidateId: null,
+      purpose: "shape" as const,
+      model: "claude-haiku-5-5",
+      attempt: 1,
+      outcome: "invalid" as const,
+    }));
+    for (let i = 0; i < theirs.length; i += 5) await env.db.insert(ingestBotRun).values(theirs.slice(i, i + 5));
+    const { candidates } = await upload(p.admin, [KHATA]);
+    const c = candidates[0]!;
+    await env.db.insert(ingestBotRun).values({
+      id: `run_${randomUUID()}`,
+      companyId: p.companyId,
+      blockId: c.blockId,
+      candidateId: c.id,
+      purpose: "shape",
+      model: "claude-haiku-5-5",
+      attempt: 1,
+      outcome: "capped",
+    });
+    setShapeClientForTests(new FakeShapeClient([khataAnswer()]));
+    const out = await p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq });
+    expect(out).toMatchObject({ outcome: "recipe", next: "done" });
+    const after = await p.admin.ingest.candidate.get({ candidateId: c.id });
+    expect(after).toMatchObject({ state: "processing", fit: "bot", botAttempts: 1 });
+    const holes = await p.admin.ingest.hole.list({});
+    expect(holes[0]!.versions[0]).toMatchObject({ state: "draft", madeBy: "bot" });
+    const runs = await env.d1
+      .prepare("select company_id as companyId, outcome from ingest_bot_run where block_id = ? order by created_at")
+      .bind(c.blockId)
+      .all<{ companyId: string; outcome: string }>();
+    expect(runs.results).toEqual([
+      { companyId: p.companyId, outcome: "capped" },
+      { companyId: p.companyId, outcome: "recipe" },
+    ]);
   });
 });
