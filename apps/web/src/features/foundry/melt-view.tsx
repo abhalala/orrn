@@ -19,7 +19,9 @@ import { toast } from "sonner";
 import { FieldTextArea } from "@/features/catalog/field-text-area";
 import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
+import { useFmt } from "@/shared/lib/fmt";
 import { can, useMe } from "@/shared/lib/me";
+import { logLengthSpec } from "@/shared/lib/plant-input";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
@@ -92,6 +94,7 @@ export function MeltScreen({ castId, meltId, step, onStep }: { castId: string; m
 function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastData["melts"][number] | null; step: Step; onStep(step: Step): void }) {
   const { t } = useT();
   const timeZone = useTimeZone();
+  const lengthDraft = logLengthSpec(useFmt()).native === "mm" ? "mm" : "ft";
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const castId = data.cast.id;
@@ -102,7 +105,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
   const store = useQuery({ ...trpc.store.items.list.queryOptions(), meta: INLINE_ERROR_META });
   const activeFurnaces = (furnaces.data?.items ?? []).filter((f) => f.status === "active");
   const [form, setForm] = useState<MeltForm>(() => {
-    if (melt) return formFromMelt(melt as unknown as SavedMelt, timeZone, todayIn(timeZone));
+    if (melt) return formFromMelt(melt as unknown as SavedMelt, timeZone, todayIn(timeZone), lengthDraft);
     return blankForm(todayIn(timeZone));
   });
   // The single active furnace is the default of a new melt (once the list is in).
@@ -154,6 +157,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
       ...(meltIdRef.current ? { meltId: meltIdRef.current } : { clientRequestId: firstRequest.current }),
       ...(seqRef.current !== undefined ? { expectedServerSeq: seqRef.current } : {}),
       timeZone,
+      lengthDraft,
     });
     if (!r.ok) {
       setIssue(r.issue);

@@ -24,7 +24,7 @@ import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
-import { LENGTH_FT, MASS_KG } from "@/shared/lib/plant-input";
+import { logLengthSpec, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
@@ -337,6 +337,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
 
 export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps & { streams: Stream[]; capacityG: number | null }) {
   const { t } = useT();
+  const lengthSpec = logLengthSpec(useFmt());
   const fig = figuresOf(form, capacityG);
   const b = fig.balance;
   const outside = b.metalInG > 0 && (b.needsReason || b.negativeBurn);
@@ -358,10 +359,10 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
                   <NumberInput decimal={false} value={l.pcsText} onValueChange={(v) => set({ pcsText: v })} data-testid="log-pcs" />
                 </Field>
                 <Field label={t("foundry.melt.out.length")}>
-                  <PlantInput spec={LENGTH_FT} value={l.lengthText} onValueChange={(v) => set({ lengthText: v })} data-testid="log-length" />
+                  <PlantInput spec={lengthSpec} value={l.lengthText} onValueChange={(v) => set({ lengthText: v })} data-testid="log-length" />
                 </Field>
                 <Field label={t("foundry.melt.out.billetLength")} hint={t("foundry.melt.out.billetLengthHint")}>
-                  <PlantInput spec={LENGTH_FT} value={l.billetLengthText} onValueChange={(v) => set({ billetLengthText: v })} />
+                  <PlantInput spec={lengthSpec} value={l.billetLengthText} onValueChange={(v) => set({ billetLengthText: v })} />
                 </Field>
                 <Field label={t("foundry.melt.out.kg")}>
                   <PlantInput spec={MASS_KG} value={l.kgText} onValueChange={(v) => set({ kgText: v })} data-testid="log-kg" />

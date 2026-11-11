@@ -50,6 +50,12 @@ export function followsPlant(fmt: Fmt, spec: EntrySpec): boolean {
   return false;
 }
 
+/**
+ * The box for a log or billet length. Feet for a plant that follows feet (mm and feet and inches plants, as today); whole mm
+ * for a plant on metres, so a typed metre figure is stored exactly (3.5 m is 3500 mm, not 11.48 ft read back as 3499).
+ */
+export const logLengthSpec = (fmt: Fmt): EntrySpec => (followsPlant(fmt, LENGTH_FT) ? LENGTH_FT : LENGTH_MM);
+
 /** Exact canonical integer of a draft written in the model's unit; null when it is not a plain number. */
 export function draftToCanonical(spec: EntrySpec, draft: string): number | null {
   if (draft.trim() === "") return null;
