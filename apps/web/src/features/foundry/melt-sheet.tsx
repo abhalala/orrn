@@ -88,7 +88,7 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
           {times.map(([k, v]) => {
             const ms = at(v);
-            return <Figure key={k} label={t(`foundry.melt.times.${k}`)} value={ms === null ? "-" : `${clockText(ms, tz)}`} hint={ms === null ? undefined : dayText(ms, tz)} />;
+            return <Figure key={k} label={t(`foundry.melt.times.${k}`)} value={ms === null ? "-" : `${clockText(fmt, ms, tz)}`} hint={ms === null ? undefined : dayText(fmt, ms, tz)} />;
           })}
         </dl>
       </Panel>

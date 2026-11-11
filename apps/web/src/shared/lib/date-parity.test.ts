@@ -12,6 +12,8 @@ import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { windowWords } from "@/features/orders/view";
 
+import * as oldFoundry from "../../../test-support/legacy/foundry-format";
+import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
 import { shortDate, shortDateTime } from "@/features/die-room/die-room-model";
 import { todayYmd as dieRoomToday } from "@/features/die-room/work-model";
@@ -102,6 +104,19 @@ describe("die room dates", () => {
     for (const at of SEEDS) for (const zone of [IST_ZONE, "America/New_York"]) {
       const d = new Date(at);
       expect(dieRoomToday(d, zone)).toBe(new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d));
+    }
+  });
+});
+
+describe("foundry day and clock", () => {
+  test("dayText ('24 Oct', English month names) and clockText ('14:05') on the zone the screen passes", () => {
+    for (const loc of ["en", "hi"] as const) {
+      for (const zone of [IST_ZONE, "America/New_York"]) {
+        for (const at of SEEDS) {
+          expect(foundryDay(dflt(loc), at, zone)).toBe(oldFoundry.dayText(at, zone));
+          expect(foundryClock(dflt(loc), at, zone)).toBe(oldFoundry.clockText(at, zone));
+        }
+      }
     }
   });
 });

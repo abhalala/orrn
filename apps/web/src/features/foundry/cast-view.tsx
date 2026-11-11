@@ -182,7 +182,7 @@ function MeltsList({ castId, melts, castOpen }: { castId: string; melts: MeltRow
         <span className="flex min-w-0 flex-col">
           <span className="text-[16px] font-bold">{t("foundry.melt.number", { n: m.seq })}</span>
           {m.castingEndAt || m.chargingStartAt ? (
-            <span className="text-[13px] text-muted-foreground">{dayText(new Date(m.chargingStartAt ?? m.castingEndAt!).getTime(), tz)}</span>
+            <span className="text-[13px] text-muted-foreground">{dayText(fmt, new Date(m.chargingStartAt ?? m.castingEndAt!).getTime(), tz)}</span>
           ) : null}
         </span>
       ),
@@ -192,7 +192,7 @@ function MeltsList({ castId, melts, castOpen }: { castId: string; melts: MeltRow
       key: "time",
       header: t("foundry.cast.melts.time"),
       hideOnPhone: true,
-      cell: (m) => (m.chargingStartAt && m.castingEndAt ? <span className="tabular-nums">{clockText(new Date(m.chargingStartAt).getTime(), tz)} - {clockText(new Date(m.castingEndAt).getTime(), tz)}</span> : "-"),
+      cell: (m) => (m.chargingStartAt && m.castingEndAt ? <span className="tabular-nums">{clockText(fmt, new Date(m.chargingStartAt).getTime(), tz)} - {clockText(fmt, new Date(m.castingEndAt).getTime(), tz)}</span> : "-"),
     },
     { key: "in", header: t("foundry.cast.melts.in"), align: "end", cell: (m) => <span className="tabular-nums whitespace-nowrap">{m.status === "draft" ? "-" : `${kgGrouped1(fmt, m.inputG)} ${massUnit(fmt)}`}</span> },
     { key: "logs", header: t("foundry.cast.melts.logs"), align: "end", cell: (m) => <span className="tabular-nums whitespace-nowrap">{m.status === "draft" ? "-" : `${kgGrouped1(fmt, m.logsG)} ${massUnit(fmt)}`}</span> },

@@ -146,7 +146,7 @@ export function CertificateScreen({ id }: { id: string }) {
               <h2 className="m-0 flex flex-wrap items-baseline gap-x-3 text-[16px] font-semibold">
                 {t("foundry.melt.number", { n: m.seq })}
                 <span className="text-[13px] font-normal text-muted-foreground">
-                  {m.chargingStartAt && m.castingEndAt ? `${dayText(new Date(m.chargingStartAt).getTime(), tz)} ${clockText(new Date(m.chargingStartAt).getTime(), tz)} - ${clockText(new Date(m.castingEndAt).getTime(), tz)}` : ""}
+                  {m.chargingStartAt && m.castingEndAt ? `${dayText(fmt, new Date(m.chargingStartAt).getTime(), tz)} ${clockText(fmt, new Date(m.chargingStartAt).getTime(), tz)} - ${clockText(fmt, new Date(m.castingEndAt).getTime(), tz)}` : ""}
                 </span>
               </h2>
               <p className="m-0 text-[14px] tabular-nums">
