@@ -70,6 +70,11 @@ describe("validateRecipe", () => {
       r.fields[0]!.steps = [{ op: "lookup", resolver: "customer_by_name" }];
       return { recipe: r };
     },
+    period_not_date: () => {
+      const r = clone(EXAMPLE_DIE_RECIPE);
+      r.fields[4]!.source = { kind: "period_as_of" };
+      return { recipe: r };
+    },
     constant_on_numeric: () => {
       const r = clone(EXAMPLE_DIE_RECIPE);
       r.fields[2]!.source = { kind: "constant", value: "2.2" };
@@ -88,6 +93,19 @@ describe("validateRecipe", () => {
     const { recipe } = cases.constant_on_numeric();
     expect(codes(recipe, "person")).not.toContain("constant_on_numeric");
     expect(codes(recipe, "bot")).toContain("constant_on_numeric");
+  });
+
+  test("C2, C9: the period as-of date may fill a date field only", () => {
+    for (const field of ["rate", "orderedKg", "customer"]) {
+      const r = clone(EXAMPLE_BAKI_RECIPE);
+      const f = r.fields.find((x) => x.field === field)!;
+      f.source = { kind: "period_as_of" };
+      for (const origin of ["bot", "person", "builtin"] as const) expect(codes(r, origin, bakiBlock)).toContain("period_not_date");
+    }
+    const ok = clone(EXAMPLE_BAKI_RECIPE);
+    ok.fields.find((x) => x.field === "orderDate")!.source = { kind: "period_as_of" };
+    ok.fields.find((x) => x.field === "orderDate")!.steps = [];
+    expect(codes(ok, "person", bakiBlock)).not.toContain("period_not_date");
   });
 
   test("a constant on text is fine for the bot", () => {

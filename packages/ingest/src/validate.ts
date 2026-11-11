@@ -28,6 +28,7 @@ export const RECIPE_ERROR_CODES = [
   "unit_not_for_kind",
   "resolver_mismatch",
   "constant_on_numeric",
+  "period_not_date",
 ] as const;
 export type RecipeErrorCode = (typeof RECIPE_ERROR_CODES)[number];
 
@@ -62,6 +63,9 @@ export function validateRecipe(recipe: Recipe, block: Pick<BlockShape, "headers"
       if (f.source.cols.length === 0) err("no_cols", `${path}.source`, f.field);
       if (f.source.cols.length > RECIPE_LIMITS.colsPerSource) err("too_many_cols", `${path}.source`, f.field);
       f.source.cols.forEach((c, j) => colRef(c, `${path}.source.cols[${j}]`));
+    } else if (f.source.kind === "period_as_of") {
+      // The as-of date is an ISO date: it may only fill a date field, whoever wrote the recipe.
+      if (def && def.kind !== "date") err("period_not_date", `${path}.source`, f.field);
     } else if (f.source.kind === "constant" && origin === "bot" && def && !["text", "enum", "date"].includes(def.kind)) {
       err("constant_on_numeric", `${path}.source`, f.field);
     }
