@@ -242,3 +242,63 @@ describe("A4, A10: a file whose read failed can be read again", () => {
     expect(again.existing).toBe(true);
   });
 });
+
+describe("A5: an order book matches the plant's live orders", () => {
+  const ratedBaki = (poColumn = false) =>
+    bakiRecipe({
+      fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => {
+        if (f.field === "rate") return { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] };
+        if (f.field === "oldOrderNo" && poColumn) return { ...f, field: "poNumber" };
+        return f;
+      }),
+      unclear: [],
+    });
+
+  async function liveOrder(companyId: string, customerId: string, set: { poNumber?: string | null; note?: string | null; orderDate: string }) {
+    const { salesOrder } = await import("@orrn/db/schema");
+    const id = `so_${randomUUID()}`;
+    await env.db.insert(salesOrder).values({
+      id,
+      companyId,
+      period: "2025-26",
+      number: `SO-${randomUUID().slice(0, 6)}`,
+      customerId,
+      poNumber: set.poNumber ?? null,
+      orderDate: set.orderDate,
+      note: set.note ?? null,
+    } as never);
+    return id;
+  }
+
+  async function orderSheet(poColumn: boolean, live: { poNumber?: string | null; note?: string | null; orderDate: string }) {
+    const p = await plant();
+    const acme = await p.owner.customer.create({ name: "Acme Traders" });
+    const orderId = await liveOrder(p.companyId, acme.id, live);
+    await learnLayout(p.companyId, p.users.owner.id, ratedBaki(poColumn), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    // The section is not in orrn: say it is an old die, so the row can be created or matched.
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    const row = (await p.owner.ingest.rows.list({ candidateId: id })).items[0]!;
+    return { p, orderId, row };
+  }
+
+  test("same party and PO as a live order: unchanged, matched to it", async () => {
+    const { orderId, row } = await orderSheet(true, { poNumber: "ob-1", orderDate: "2025-09-01" });
+    expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
+    expect(row.reasons).toContain("order_exists");
+  });
+
+  test("no PO: same party, date and old order number as a live order is unchanged", async () => {
+    const { orderId, row } = await orderSheet(false, { note: "Old order no. OB-1", orderDate: "2025-10-01" });
+    expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
+  });
+
+  test("a different old order number is still a new order", async () => {
+    const { row } = await orderSheet(false, { note: "Old order no. OB-2", orderDate: "2025-10-01" });
+    expect(row.state).toBe("ready_create");
+  });
+});

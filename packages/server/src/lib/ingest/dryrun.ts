@@ -25,9 +25,9 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 
-import { customer, customerAlias, die, dieInstance, vendor, vendorAlias } from "@orrn/db/schema";
+import { customer, customerAlias, die, dieInstance, salesOrder, vendor, vendorAlias } from "@orrn/db/schema";
 import {
   ingestAnswer,
   ingestCandidate,
@@ -728,6 +728,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       if (dup) values._dupKey = dup;
       outcomes.set(r.id, out);
     }
+    if (c.target === "orders") await matchLiveOrders(ctx, outcomes);
     await markDuplicates(ctx, c.id, input.expectCursor, editable, outcomes);
   }
 
@@ -898,6 +899,46 @@ async function ensureNewCustomerCandidate(ctx: IngestCtx, parent: CandidateRow, 
     }),
   );
   return id;
+}
+
+const OLD_ORDER_NOTE = /^Old order no\. (.+)$/;
+
+/**
+ * Orders already in orrn (A5): an order line whose party has a live, not cancelled order with the same
+ * PO (any date), or with no PO the same date and old order number, is unchanged with the live order as
+ * its match. The merge would otherwise create the order again. The old order number is the one the
+ * merge writes into the order's note ("Old order no. X").
+ */
+async function matchLiveOrders(ctx: IngestCtx, outcomes: Map<string, RowOutcome>): Promise<void> {
+  const open = [...outcomes.values()].filter((o) => o.state === "ready_create" && o.values);
+  const customerOf = (o: RowOutcome) => ((o.values!._ids ?? {}) as Record<string, string>).customer ?? "";
+  const customerIds = [...new Set(open.map(customerOf).filter((id) => id && !id.startsWith("pending:")))];
+  if (customerIds.length === 0) return;
+  const live = await mapInChunks(customerIds, (part) =>
+    ctx.db
+      .select({ id: salesOrder.id, customerId: salesOrder.customerId, poNumber: salesOrder.poNumber, orderDate: salesOrder.orderDate, note: salesOrder.note })
+      .from(salesOrder)
+      .where(and(eq(salesOrder.companyId, ctx.companyId), inArray(salesOrder.customerId, part), ne(salesOrder.status, "cancelled"))),
+  );
+  const byPo = new Map<string, string>();
+  const byOldNo = new Map<string, string>();
+  for (const o of live) {
+    const po = (o.poNumber ?? "").trim().toLowerCase();
+    if (po) byPo.set(`${o.customerId}|${po}`, o.id);
+    const old = OLD_ORDER_NOTE.exec((o.note ?? "").trim())?.[1]?.trim().toLowerCase();
+    if (old) byOldNo.set(`${o.customerId}|${o.orderDate}|${old}`, o.id);
+  }
+  for (const out of open) {
+    const v = out.values!;
+    const cust = customerOf(out);
+    const po = str(v.poNumber).trim().toLowerCase();
+    const old = str(v.oldOrderNo).trim().toLowerCase();
+    const hit = po ? byPo.get(`${cust}|${po}`) : old ? byOldNo.get(`${cust}|${str(v.orderDate)}|${old}`) : undefined;
+    if (!hit) continue;
+    out.state = "unchanged";
+    out.matchId = hit;
+    out.reasons = [...out.reasons, "order_exists"];
+  }
 }
 
 /**
