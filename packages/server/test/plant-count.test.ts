@@ -11,7 +11,7 @@
  */
 import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 
-import { approval, auditLog, bundle, bundleStatusEvent, company, countLine, countLocation, countSeen, countSession, countTally, legacyBundleMap, stockLedger } from "@orrn/db/schema";
+import { approval, auditLog, bundle, bundleStatusEvent, company, countLine, countLocation, countSeen, countSession, countTally, legacyBundleMap, salesOrder, salesOrderLine, stockLedger } from "@orrn/db/schema";
 import { and, asc, eq, ne } from "drizzle-orm";
 
 import { APPROVAL_APPLIERS } from "../src/lib/approvalApply";
@@ -726,6 +726,44 @@ describe("count.resolve void_phantom", () => {
     await expect(
       p.supervisor.count.resolve({ sessionId: s.id, action: "void_phantom", bundleIds: [phantoms[0]!.id] }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  test("approval releases a phantom bundle's order hold and leaves an unheld bundle without a release audit", async () => {
+    const { p, s, phantoms } = await closedWithPhantoms(2);
+    const orderId = crypto.randomUUID();
+    const lineId = crypto.randomUUID();
+    await env.db.insert(salesOrder).values({
+      id: orderId,
+      companyId: p.companyId,
+      period: "2026-27",
+      number: "SO-1",
+      customerId: p.customerId,
+      orderDate: "2026-11-11",
+      status: "confirmed",
+    });
+    await env.db.insert(salesOrderLine).values({
+      id: lineId,
+      companyId: p.companyId,
+      salesOrderId: orderId,
+      lineNo: 1,
+      dieId: p.dieId,
+      cutLengthMm: 3_658,
+      kgG: 50_000,
+    });
+    await env.db.update(bundle).set({ heldForLineId: lineId, heldAt: new Date() }).where(eq(bundle.id, phantoms[0]!.id));
+    const res = voided(await p.supervisor.count.resolve({
+      sessionId: s.id,
+      action: "void_phantom",
+      bundleIds: phantoms.map((b) => b.id),
+    }));
+    await p.manager.approval.decide({ id: res.approvalId, decision: "approved" });
+
+    expect(await bundleRow(phantoms[0]!.id)).toMatchObject({ status: "void", heldForLineId: null, heldAt: null });
+    expect(await bundleRow(phantoms[1]!.id)).toMatchObject({ status: "void", heldForLineId: null, heldAt: null });
+    const releases = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "order.release")));
+    expect(releases).toHaveLength(1);
+    expect(releases[0]).toMatchObject({ subjectType: "sales_order_line", subjectId: lineId });
+    expect(releases[0]!.meta).toMatchObject({ reason: "voided", orderId, bundleIds: [phantoms[0]!.id], serials: [phantoms[0]!.serial] });
   });
 
   test("rejection puts the lines back to open; no ledger rows; bundles stay available; a new request can follow", async () => {

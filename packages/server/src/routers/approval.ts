@@ -174,7 +174,7 @@ export const approvalRouter = router({
 
       // Kind-specific effect (e.g. die re-rank writes the tier), guarded to land only if this
       // decision did, in the same batch as the decision.
-      const applyCtx = { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt };
+      const applyCtx = { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt, session: ctx.session, impersonation: ctx.impersonation };
       const prepared = await APPROVAL_PREPARERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId, meta: row.meta ?? null }, input.decision);
       const apply = APPROVAL_APPLIERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId }, input.decision, prepared) ?? [];
 
