@@ -24,6 +24,9 @@ import { releaseNoteRows } from "@/features/settings/release-notes";
 import { dayOrYearText, shipDayText } from "./fmt-text";
 import * as oldPortal from "../../../test-support/legacy/portal-model";
 import { bookDate as portalBookDate } from "@/features/portal/model";
+import * as oldPress from "../../../test-support/legacy/press-model";
+import { clockOf } from "@/features/press/model";
+import * as oldIntlTag from "../../../test-support/legacy/legacy-intl-tag";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -222,5 +225,22 @@ describe("portal book dates", () => {
   test("Gujarati: the old text had Intl's own comma before the year; the plant formatter writes the Latin-digit form the other screens use", () => {
     const old = oldPortal.bookDate("2026-10-28", "gu");
     expect(old.replace(",", "")).toBe(portalBookDate(dflt("gu"), "2026-10-28"));
+  });
+});
+
+describe("press clock and production day", () => {
+  test("clockOf: '14:05' in the plant zone, empty for null and junk", () => {
+    for (const loc of ["en", "hi"] as const) {
+      for (const zone of [IST_ZONE, "America/New_York"]) {
+        for (const at of SEEDS) {
+          for (const v of [at, new Date(at), new Date(at).toISOString()]) expect(clockOf(dflt(loc), v, zone)).toBe(oldPress.clockOf(v, zone));
+        }
+      }
+    }
+    for (const v of [null, undefined, "junk", Number.NaN]) expect(clockOf(dflt(), v as never, IST_ZONE)).toBe(oldPress.clockOf(v as never, IST_ZONE));
+  });
+  test("the shift line's production day is what ymdLabel wrote: '25 Oct 2026', in English, Hindi and Gujarati", () => {
+    for (const loc of ["en", "hi", "gu"] as const) for (const at of SEEDS) expect(dflt(loc).day(ymdOf(at))).toBe(oldIntlTag.ymdLabel(ymdOf(at), loc));
+    expect(oldIntlTag.ymdLabel("soon", "en")).toBe("soon");
   });
 });

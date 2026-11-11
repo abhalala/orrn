@@ -19,7 +19,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { ymdLabel } from "@/shared/lib/intl-tag";
 import { useLengthUnit } from "@/shared/lib/length";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -244,7 +243,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
       {banner === "running" ? <RunningClock data={data} tz={tz} /> : null}
       {banner === "stopped" ? (
         <p className="m-0 font-mono text-[26px] font-semibold tabular-nums" data-testid="stopped-window">
-          {clockOf(data.run.startedAt, tz)} – {clockOf(data.run.stoppedAt, tz)}
+          {clockOf(fmt, data.run.startedAt, tz)} – {clockOf(fmt, data.run.stoppedAt, tz)}
         </p>
       ) : null}
       {body[banner] ? <p className="m-0 text-[16px] leading-6 text-muted-foreground">{body[banner]}</p> : null}
@@ -312,6 +311,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
 }
 
 function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -322,7 +322,7 @@ function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="m-0 text-[15px] font-medium text-muted-foreground" data-testid="started-at">
-        {t("press.console.startedAt", { time: clockOf(data.run.startedAt, tz) })}
+        {t("press.console.startedAt", { time: clockOf(fmt, data.run.startedAt, tz) })}
       </p>
       <p className="m-0 font-mono text-[44px] font-semibold leading-none tabular-nums" aria-live="off" data-testid="elapsed">
         {startedMs ? elapsedText(now - startedMs) : "00:00"}
@@ -408,9 +408,9 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
         <Fact label={t("press.console.operator")} value={run.operatorName} />
         <Fact label={t("press.console.relief")} value={run.reliefOperatorName} />
         <Fact label={t("press.console.supervisor")} value={run.supervisorName} />
-        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: ymdLabel(run.productionDay, locale) }), ymdLabel(run.productionDay, locale)) : keepTogether(ymdLabel(run.productionDay, locale), ymdLabel(run.productionDay, locale))} /> : null}
+        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: fmt.day(run.productionDay) }), fmt.day(run.productionDay)) : keepTogether(fmt.day(run.productionDay), fmt.day(run.productionDay))} /> : null}
         {run.castNumber ? <Fact label={t("press.console.cast")} value={run.castNumber} mono /> : null}
-        {run.startedAt ? <Fact label={t("press.console.startedAt", { time: "" }).trim()} value={clockOf(run.startedAt, tz)} mono /> : null}
+        {run.startedAt ? <Fact label={t("press.console.startedAt", { time: "" }).trim()} value={clockOf(fmt, run.startedAt, tz)} mono /> : null}
       </dl>
 
       {data.planLines.length > 0 ? (
@@ -626,6 +626,7 @@ function HandoverDialog({ data, onClose, onSaved }: { data: RunDetail; onClose: 
 }
 
 function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; canStart: boolean }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const qc = useQueryClient();
   const refresh = useRunWrite(data.run.id);
@@ -696,7 +697,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
             <li key={r.id} data-open={!r.stoppedAt} className="flex flex-wrap items-baseline justify-between gap-2 text-[15px]">
               <span className="font-medium">{label(r.reasonCode ?? "other", r.reasonLabel ?? "", r)}</span>
               <span className="tabular-nums text-muted-foreground">
-                {r.stoppedAt ? t("press.console.downtimeMin", { min: minutes(r) }) : t("press.console.downtimeSince", { time: clockOf(r.startedAt, tz) })}
+                {r.stoppedAt ? t("press.console.downtimeMin", { min: minutes(r) }) : t("press.console.downtimeSince", { time: clockOf(fmt, r.startedAt, tz) })}
               </span>
               {r.note ? <span className="basis-full text-[14px] text-muted-foreground">{r.note}</span> : null}
             </li>

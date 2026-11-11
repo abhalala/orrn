@@ -9,7 +9,6 @@ import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
 
 import { Can } from "@/shared/components/can";
-import { ymdLabel } from "@/shared/lib/intl-tag";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -28,7 +27,7 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
   const header = (
     <PageHeader
       title={t("press.summary.title")}
-      subtitle={data ? `${t("press.summary.day")} ${ymdLabel(data.productionDay, locale)}` : undefined}
+      subtitle={data ? `${t("press.summary.day")} ${fmt.day(data.productionDay)}` : undefined}
       back={{ to: "/press", label: t("press.title") }}
       actions={
         <Can do="reports.read">
