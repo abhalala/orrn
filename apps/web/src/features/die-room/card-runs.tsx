@@ -56,7 +56,7 @@ export function RunsPanel({ copyId }: { copyId: string }) {
             header: t("dieRoom.runs.day"),
             cell: (r) =>
               r.shift.productionDay
-                ? `${shortDate(r.shift.productionDay)}${r.shift.seq != null ? ` · ${t("dieRoom.runs.shiftSeq", { seq: r.shift.seq })}` : ""}`
+                ? `${shortDate(fmt, r.shift.productionDay)}${r.shift.seq != null ? ` · ${t("dieRoom.runs.shiftSeq", { seq: r.shift.seq })}` : ""}`
                 : "—",
           },
           {
@@ -101,7 +101,7 @@ export function RunsPanel({ copyId }: { copyId: string }) {
             key: "nitriding",
             header: t("dieRoom.tabs.nitriding"),
             hideOnPhone: true,
-            cell: (r) => (r.nitridedAt ? shortDate(r.nitridedAt) : "—"),
+            cell: (r) => (r.nitridedAt ? shortDate(fmt, r.nitridedAt) : "—"),
           },
           {
             key: "remark",

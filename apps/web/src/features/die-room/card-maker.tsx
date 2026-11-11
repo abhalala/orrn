@@ -32,6 +32,7 @@ type Purpose = (typeof PURPOSES)[number];
 
 /** Maker tab: where the copy is with a die maker, the job, and the send / receive moves. */
 export function MakerPanel({ card }: { card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { instance, openMakerJob } = card;
   const [sendOpen, setSendOpen] = useState(false);
@@ -84,7 +85,7 @@ export function MakerPanel({ card }: { card: CardData }) {
             </div>
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.maker.sent")}</dt>
-              <dd className="m-0 text-[14px]">{shortDate(openMakerJob.sentAt)}</dd>
+              <dd className="m-0 text-[14px]">{shortDate(fmt, openMakerJob.sentAt)}</dd>
             </div>
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.maker.statusLabel")}</dt>
@@ -126,8 +127,8 @@ export function MakerPanel({ card }: { card: CardData }) {
                   <span>{j.makerName}</span>
                   <span className="text-muted-foreground">{t(`dieRoom.maker.${j.purpose}`)}</span>
                   <span className="text-[13px] text-muted-foreground">
-                    {shortDate(j.sentAt)}
-                    {j.receivedAt ? ` → ${shortDate(j.receivedAt)}` : ""}
+                    {shortDate(fmt, j.sentAt)}
+                    {j.receivedAt ? ` → ${shortDate(fmt, j.receivedAt)}` : ""}
                   </span>
                   <Chip tone={j.status === "received" ? "green" : "neutral"} truncate={false}>
                     {t(`dieRoom.maker.status.${j.status}`)}

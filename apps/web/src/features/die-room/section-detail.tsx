@@ -312,7 +312,7 @@ export function SectionDetail({ id }: { id: string }) {
                 })}
                 {band.liftedOut.map((l) => (
                   <li key={l.dieInstanceId} className="text-[14px] leading-6 text-muted-foreground">
-                    {t("dieRoom.bands.liftedTo", { code: l.code, band: formatBand(l.toWeightMinG, l.toWeightMaxG, sectionUnit(fmt), fmt), date: shortDate(l.at) })}
+                    {t("dieRoom.bands.liftedTo", { code: l.code, band: formatBand(l.toWeightMinG, l.toWeightMaxG, sectionUnit(fmt), fmt), date: shortDate(fmt, l.at) })}
                   </li>
                 ))}
               </ul>

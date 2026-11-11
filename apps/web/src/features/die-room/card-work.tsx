@@ -19,12 +19,14 @@ import { shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 import { canLogWork, todayYmd, workInput, workKindLabel, type WorkDraft } from "./work-model";
+import { useFmt } from "@/shared/lib/fmt";
 
 /**
  * FP-DR-18: the copy's work log (polish, correction, inspection, cleaning, other), newest first,
  * and "Log work" for the die room. A correction may send the copy back on trial. No stock moves.
  */
 export function WorkPanel({ card }: { card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const status = card.instance.status;
@@ -51,7 +53,7 @@ export function WorkPanel({ card }: { card: CardData }) {
               <Card>
                 <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-2">
                   <CardTitle>{workKindLabel(t, row.kindCode, row.label)}</CardTitle>
-                  <span className="text-[14px] text-muted-foreground tabular-nums">{shortDate(row.workedAt)}</span>
+                  <span className="text-[14px] text-muted-foreground tabular-nums">{shortDate(fmt, row.workedAt)}</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {row.hardness != null ? (

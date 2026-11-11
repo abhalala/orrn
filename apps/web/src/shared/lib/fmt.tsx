@@ -32,6 +32,17 @@ export function FmtProvider({ prefs, timeZone, children }: { prefs?: ResolvedPre
   return createElement(FmtContext.Provider, { value }, createElement(I18nVarsProvider, { vars: words, children }));
 }
 
+/**
+ * The formatter for a screen that mirrors a paper (a printed die card, the packing list): today's date style and
+ * 24 hour clock whatever the plant chose, in the person's language and the plant's zone. The paper keeps its own
+ * style until it has its own setting (design: papers follow the plant's setting, then the customer's).
+ */
+export function usePaperFmt(): Fmt {
+  const { timeZone } = useContext(FmtContext);
+  const { locale } = useT();
+  return useMemo(() => formatterFor(ORRN_DEFAULT_PREFS, { locale, timeZone }), [locale, timeZone]);
+}
+
 /** The formatter for the current plant, person's language and plant time zone. */
 export function useFmt(): Fmt {
   const { prefs, timeZone } = useContext(FmtContext);

@@ -8,7 +8,7 @@ import {
   shortDateTime,
   wallMmText } from "./die-room-model";
 import type { CardData } from "./types";
-import { useFmt } from "@/shared/lib/fmt";
+import { useFmt, usePaperFmt } from "@/shared/lib/fmt";
 import { altSectionText, kgTrim, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 /**
@@ -42,6 +42,7 @@ const PRINT_CSS = `
 `;
 
 export function PrintCard({ card }: { card: CardData }) {
+  const paper = usePaperFmt();
   const fmt = useFmt();
   const { t } = useT();
   const { instance, section, band } = card;
@@ -117,7 +118,7 @@ export function PrintCard({ card }: { card: CardData }) {
         <tbody>
           {card.readings.slice(0, 12).map((r) => (
             <tr key={r.id}>
-              <td className={cell}>{shortDateTime(r.readAt)}</td>
+              <td className={cell}>{shortDateTime(paper, r.readAt)}</td>
               <td className={`${cell} font-mono tabular-nums`}>{sectionText(fmt, r.kgPer12ftMilli)}</td>
               <td className={`${cell} font-mono tabular-nums`}>{r.pctTenth == null ? "" : pctTenthText(r.pctTenth)}</td>
               <td className={cell}>{r.pressRunNumber ?? t("dieRoom.reading.bench")}</td>
@@ -138,7 +139,7 @@ export function PrintCard({ card }: { card: CardData }) {
         <tbody>
           {card.nitriding.slice(0, 6).map((n) => (
             <tr key={n.id}>
-              <td className={cell}>{shortDate(n.nitridedAt)}</td>
+              <td className={cell}>{shortDate(paper, n.nitridedAt)}</td>
               <td className={cell}>{n.hardness ?? ""}</td>
             </tr>
           ))}

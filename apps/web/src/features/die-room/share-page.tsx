@@ -139,7 +139,7 @@ export function DieSharePage({ token }: { token: string }) {
           ) : null}
         </dl>
 
-        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.share.page.openUntil", { date: shortDate(expiresAt) })}</p>
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.share.page.openUntil", { date: shortDate(fmt, expiresAt) })}</p>
         <span className="sr-only">{sectionLabel(section)}</span>
       </article>
     </Frame>

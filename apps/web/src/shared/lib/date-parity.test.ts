@@ -12,6 +12,9 @@ import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { windowWords } from "@/features/orders/view";
 
+import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
+import { shortDate, shortDateTime } from "@/features/die-room/die-room-model";
+import { todayYmd as dieRoomToday } from "@/features/die-room/work-model";
 import * as oldApproval from "../../../test-support/legacy/approval-view";
 import { lateWindowText, plantTimeText } from "@/features/approvals/approval-view";
 import * as oldPurchase from "../../../test-support/legacy/purchase-format";
@@ -72,6 +75,33 @@ describe("approvals time text", () => {
           expect(lateWindowText(dflt(loc), at, stop, zone)).toBe(oldApproval.lateWindowText(at, stop, zone));
         }
       }
+    }
+  });
+});
+
+describe("die room dates", () => {
+  test("shortDate and shortDateTime: Kolkata, English month names, in every screen language", () => {
+    for (const loc of ["en", "hi"] as const) {
+      for (const at of SEEDS) {
+        for (const v of [at, new Date(at), new Date(at).toISOString()]) {
+          expect(shortDate(dflt(loc), v)).toBe(oldDieRoom.shortDate(v));
+          expect(shortDateTime(dflt(loc), v)).toBe(oldDieRoom.shortDateTime(v));
+        }
+      }
+    }
+    for (const v of [null, undefined, "not a date", Number.NaN]) {
+      expect(shortDate(dflt(), v as never)).toBe(oldDieRoom.shortDate(v as never));
+      expect(shortDateTime(dflt(), v as never)).toBe(oldDieRoom.shortDateTime(v as never));
+    }
+  });
+  test("a plant on another zone still reads the die room on Kolkata's clock", () => {
+    const at = Date.UTC(2026, 9, 24, 19, 0);
+    expect(shortDate(dflt("en", "America/New_York"), at)).toBe("25 Oct 2026");
+  });
+  test("the work day box value is the calendar day in the zone, not a shown date", () => {
+    for (const at of SEEDS) for (const zone of [IST_ZONE, "America/New_York"]) {
+      const d = new Date(at);
+      expect(dieRoomToday(d, zone)).toBe(new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d));
     }
   });
 });

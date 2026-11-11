@@ -93,7 +93,7 @@ export function TierPanel({ card }: { card: CardData }) {
                 <Chip tone={c.status === "applied" ? "green" : c.status === "pending" ? "amber" : "neutral"} truncate={false}>
                   {t(`dieRoom.tier.status.${c.status}`)}
                 </Chip>
-                <span className="text-[13px] text-muted-foreground">{shortDate(c.effectiveAt ?? c.createdAt)}</span>
+                <span className="text-[13px] text-muted-foreground">{shortDate(fmt, c.effectiveAt ?? c.createdAt)}</span>
                 {c.reason && c.reason !== "initial" ? <span className="min-w-0 text-[13px] break-words text-muted-foreground">{c.reason}</span> : null}
               </li>
             ))}

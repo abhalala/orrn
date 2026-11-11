@@ -30,6 +30,7 @@ import {
   type ShareStatus,
 } from "./share-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useFmt } from "@/shared/lib/fmt";
 
 const PAGE = 20;
 
@@ -257,6 +258,7 @@ function MadeLink({ link, onAnother }: { link: string; onAnother(): void }) {
 
 /** Links already sent for this section, newest first, with Revoke on the open ones. */
 function SentLinks({ sectionId, onRevoke }: { sectionId: string; onRevoke(id: string): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const list = useInfiniteQuery({
     queryKey: [...trpc.die.share.list.queryKey({ sectionId }), "pages"],
@@ -301,7 +303,7 @@ function SentLinks({ sectionId, onRevoke }: { sectionId: string; onRevoke(id: st
                   {item.partyName ? t("dieRoom.share.forParty", { name: item.partyName }) : t("dieRoom.share.forNobody")}
                 </p>
                 <p className="m-0 text-[13px] leading-5 text-muted-foreground">
-                  {t("dieRoom.share.expires", { date: shortDate(item.expiresAt) })}
+                  {t("dieRoom.share.expires", { date: shortDate(fmt, item.expiresAt) })}
                   {" · "}
                   {opened.key === "opened" ? t("dieRoom.share.opened", { n: opened.n }) : t(`dieRoom.share.${opened.key}`)}
                 </p>

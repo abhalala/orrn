@@ -4,7 +4,7 @@
  * only formatted. What IS parsed here is what a person types (a weight in kg, a wall in mm).
  */
 import type { Fmt } from "@orrn/domain";
-import { sectionText, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
+import { dateText, dayTimeText, pinned, sectionText, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
 
@@ -216,20 +216,20 @@ export function refusalText(error: unknown, t: Translate): string {
   return serverRefusal(t, error);
 }
 
-/** "24 Oct 2026" from an ISO string, epoch ms or Date (the API sends ISO strings). Empty when unknown. */
-export function shortDate(value: string | number | Date | null | undefined): string {
+/**
+ * "24 Oct 2026" from an ISO string, epoch ms or Date (the API sends ISO strings). Empty when unknown. The die room reads
+ * the Kolkata clock in English month names, as it always did; only the date order follows the plant.
+ */
+export function shortDate(fmt: Fmt, value: string | number | Date | null | undefined): string {
   if (value == null) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+  return dateText(pinned(fmt, { zone: "Asia/Kolkata", locale: "en" }), value);
 }
 
-/** "24 Oct, 09:12" for a reading or an issue. */
-export function shortDateTime(value: string | number | Date | null | undefined): string {
+/** "24 Oct, 09:12" for a reading or an issue: the plant's date order and clock, Kolkata, English month names. */
+export function shortDateTime(fmt: Fmt, value: string | number | Date | null | undefined): string {
   if (value == null) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? "" : dayTimeText(pinned(fmt, { zone: "Asia/Kolkata", locale: "en" }), ms);
 }
 
 /** Basis points as percent with one decimal: 7550 -> "75.5%". */

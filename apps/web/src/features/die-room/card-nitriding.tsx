@@ -16,6 +16,7 @@ import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
 import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_G } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
 
 const CHEMICALS = ["cr4", "cr2", "k2s", "caustic"] as const;
 type Chemical = (typeof CHEMICALS)[number];
@@ -24,6 +25,7 @@ const grams = (n: number) => n.toLocaleString("en-IN");
 
 /** Nitriding log of the copy, and the two moves: out to nitriding, back to the rack. */
 export function NitridingPanel({ card }: { card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [outOpen, setOutOpen] = useState(false);
   const [backOpen, setBackOpen] = useState(false);
@@ -44,7 +46,7 @@ export function NitridingPanel({ card }: { card: CardData }) {
           {card.nitriding.map((row) => (
             <li key={row.id}>
               <Card>
-                <CardTitle>{shortDate(row.nitridedAt)}</CardTitle>
+                <CardTitle>{shortDate(fmt, row.nitridedAt)}</CardTitle>
                 <p className="m-0 text-[14px] leading-6">
                   {row.hardness == null ? t("dieRoom.nitriding.noHardness") : t("dieRoom.nitriding.hardness", { hv: row.hardness })}
                 </p>

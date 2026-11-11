@@ -34,6 +34,7 @@ import {
   CARD_TABS,
   kgPerMetreText,
   wallMmText,
+  shortDate,
   type CardTab } from "./die-room-model";
 import { PrintCard, printCard } from "./print-card";
 import { ShareSheet } from "./share-sheet";
@@ -266,7 +267,7 @@ export function CopyCard({ copyId, tab, onTab }: CopyCardProps) {
               <Fact label={t("dieRoom.card.backer")} value={instance.backerNo} mono />
               <Fact label={t("dieRoom.card.subBolster")} value={instance.subBolster} mono />
               <Fact label={t("dieRoom.card.supplier")} value={instance.supplier} />
-              <Fact label={t("dieRoom.card.received")} value={instance.receivedAt ? new Date(instance.receivedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) : null} />
+              <Fact label={t("dieRoom.card.received")} value={instance.receivedAt ? shortDate(fmt, instance.receivedAt) : null} />
               <Fact label={t("dieRoom.card.ftr")} value={instance.ftr} />
               <Fact label={t("common.notes")} value={instance.notes} />
             </dl>
