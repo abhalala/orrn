@@ -11086,19 +11086,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "ingest_bot_run_block_id_ingest_block_id_fk": {
-          "name": "ingest_bot_run_block_id_ingest_block_id_fk",
-          "tableFrom": "ingest_bot_run",
-          "tableTo": "ingest_block",
-          "columnsFrom": [
-            "block_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "ingest_bot_run_created_by_user_id_fk": {
           "name": "ingest_bot_run_created_by_user_id_fk",
           "tableFrom": "ingest_bot_run",

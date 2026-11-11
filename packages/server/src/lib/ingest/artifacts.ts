@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 
 import {
+  ingestAnswer,
   ingestArtifact,
   ingestBlock,
   ingestBotRun,
@@ -109,6 +110,51 @@ export async function beginArtifact(
     .from(ingestArtifact)
     .where(and(eq(ingestArtifact.companyId, ctx.companyId), eq(ingestArtifact.sha256, input.sha256)))
     .limit(1);
+  if (existing && existing.sizeBytes === input.sizeBytes && rereadable(existing)) {
+    // A file whose read failed, or that gave no table (a scan or photo before the vision read), is read
+    // again from the start. Its old sheets, candidates and rows go; the stored bytes stay (A4, A10).
+    const at = now();
+    const ofArtifact = sql`(select id from ingest_candidate where artifact_id = ${existing.id} and company_id = ${ctx.companyId})`;
+    await guardedBatch(
+      ctx.db,
+      [
+        ctx.db
+          .update(ingestArtifact)
+          .set({ readState: "reading", readError: null, rowCount: 0, blockCount: 0, period: null, updatedAt: at })
+          .where(
+            and(
+              eq(ingestArtifact.id, existing.id),
+              eq(ingestArtifact.companyId, ctx.companyId),
+              eq(ingestArtifact.readState, existing.readState),
+              eq(ingestArtifact.blockCount, existing.blockCount),
+            ),
+          ),
+        ingestAbortUnlessChanged(ctx.db),
+        ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), sql`${ingestStagedRow.candidateId} in ${ofArtifact}`)),
+        ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), sql`${ingestAnswer.candidateId} in ${ofArtifact}`)),
+        ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, existing.id))),
+        ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, existing.id))),
+        auditInsert(ctx, {
+          action: "ingest.artifact.reread",
+          subjectType: "ingest_artifact",
+          subjectId: existing.id,
+          meta: { fileName: input.fileName, sha256: input.sha256, from: existing.readState, readError: existing.readError },
+        }),
+      ],
+      { code: "CONFLICT", message: "This file is being read in another tab. Reload and try again." },
+    );
+    let upload: ArtifactBeginOut["upload"] = null;
+    if (existing.vaultState !== "stored" && ready) {
+      upload = await ticketFor(existing.id);
+      if (existing.vaultState === "not_stored") {
+        await ctx.db
+          .update(ingestArtifact)
+          .set({ vaultState: "pending" })
+          .where(and(eq(ingestArtifact.id, existing.id), eq(ingestArtifact.companyId, ctx.companyId)));
+      }
+    }
+    return { artifactId: existing.id, existing: false, uploadedAt: existing.createdAt.getTime(), upload };
+  }
   if (existing) {
     // The same bytes again: open the existing artifact. When its bytes are not in the vault yet and
     // the vault is ready now, hand out a ticket to attach them (plan A2, "No R2").
@@ -163,6 +209,11 @@ export async function beginArtifact(
     throw e;
   }
   return { artifactId: id, existing: false, uploadedAt: at.getTime(), upload: ready ? await ticketFor(id) : null };
+}
+
+/** A failed read, or a read that found no table (a scan or photo the browser cannot read), may run again. */
+function rereadable(a: ArtifactRow): boolean {
+  return a.readState === "failed" || (a.readState === "read" && (a.blockCount ?? 0) === 0);
 }
 
 /** After the PUT: the object must exist with the declared size. */

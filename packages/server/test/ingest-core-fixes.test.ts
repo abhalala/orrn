@@ -198,3 +198,47 @@ describe("A3: ignoring a sheet while its rows upload does not block the file", (
     expect((await pump(p.admin, cust.id)).state).toBe("ready");
   });
 });
+
+describe("A4, A10: a file whose read failed can be read again", () => {
+  test("the same bytes again start a fresh read; the old sheets go, the bot cost stays counted", async () => {
+    const p = await plant();
+    const digest = sha();
+    const begin = await p.admin.ingest.artifact.begin({ sha256: digest, fileName: "big.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
+    const first = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    const { ingestBotRun } = await import("@orrn/db/schema/ingest");
+    await env.db.insert(ingestBotRun).values({
+      id: `run_${randomUUID()}`,
+      companyId: p.companyId,
+      blockId: first.blocks[0]!.blockId,
+      candidateId: first.candidates[0]!.id,
+      purpose: "shape",
+      model: "claude-haiku-5-5",
+      attempt: 1,
+      outcome: "invalid",
+      costMicroUsd: 1234,
+    });
+    await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId, readError: "The browser ran out of memory" });
+
+    const again = await p.admin.ingest.artifact.begin({ sha256: digest, fileName: "big.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
+    expect(again).toMatchObject({ artifactId: begin.artifactId, existing: false });
+    const detail = await p.admin.ingest.artifact.get({ artifactId: begin.artifactId });
+    expect(detail).toMatchObject({ readState: "reading", readError: null, blocks: [] });
+
+    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    await p.admin.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
+    await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
+    expect((await pump(p.admin, put.candidates[0]!.id)).state).toBe("ready");
+    expect((await p.admin.ingest.status()).botToday.costMicroUsd).toBe(1234);
+
+    const audit = await env.d1.prepare("select action from audit_log where company_id = ? and action = 'ingest.artifact.reread'").bind(p.companyId).all();
+    expect(audit.results).toHaveLength(1);
+  });
+
+  test("a file that was read well still opens as the same artifact", async () => {
+    const p = await plant();
+    const digest = sha();
+    await upload(p.admin, [CUSTOMERS], "c.xlsx", digest);
+    const again = await p.admin.ingest.artifact.begin({ sha256: digest, fileName: "c.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    expect(again.existing).toBe(true);
+  });
+});

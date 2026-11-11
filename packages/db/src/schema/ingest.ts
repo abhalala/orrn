@@ -380,9 +380,12 @@ export const ingestBotRun = sqliteTable(
   {
     id: text("id").primaryKey(),
     companyId: companyRef(),
-    blockId: text("block_id")
-      .notNull()
-      .references(() => ingestBlock.id, { onDelete: "cascade" }),
+    /**
+     * The block a shape run worked on, or the page key of a vision run (`<artifactId>:p<page>`): a
+     * scan or photo has no block until the vision read makes one. No foreign key, so a run's cost
+     * stays counted toward the day caps when a failed file is read again and its blocks go.
+     */
+    blockId: text("block_id").notNull(),
     candidateId: text("candidate_id"),
     purpose: text("purpose", { enum: ["shape", "vision"] }).notNull(),
     /** The model actually used; fallbacks may change it. */
