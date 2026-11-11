@@ -121,6 +121,7 @@ describe("the foundry writes from the phone", () => {
       "foundry.melts.save": [`${FOUNDRY}/melt-editor.tsx`],
       "foundry.spectro.attach": [`${FOUNDRY}/spectro-panel.tsx`],
       "foundry.spectro.enter": [`${FOUNDRY}/spectro-panel.tsx`],
+      "foundry.spectro.void": [`${FOUNDRY}/spectro-panel.tsx`],
     });
   });
 
