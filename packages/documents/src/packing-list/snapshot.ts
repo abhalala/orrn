@@ -76,7 +76,7 @@ const utf8Bytes = (value: string) => utf8.encode(value).length;
 
 function pdfNamePart(value: string, fallback: string): string {
   return value
-    .replace(/\p{Cf}/gu, "")
+    .replace(/[\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "")
     .replace(/[<>:"\/\\|?*\u0000-\u001F\u007F]+/g, "-")
     .replace(/\s+/g, " ")
     .replace(/\s*-\s*/g, "-")

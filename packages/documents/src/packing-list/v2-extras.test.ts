@@ -145,10 +145,10 @@ describe("packing list v2 extras (FP-PK-13)", () => {
         checkedBy: "जाँच करने वाला",
         driverReceived: "ड्राइवर",
         receiverSignature: "ग्राहक के हस्ताक्षर",
-        orderedKgPer12ft: (kg) => `ऑर्डर kg/12ft ${kg}`,
-        poDate: (date) => `PO तारीख ${date}`,
+        orderedKgPer12ft: (kg: string) => `ऑर्डर kg/12ft ${kg}`,
+        poDate: (date: string) => `PO तारीख ${date}`,
       },
-    });
+    } as never);
     expect(html).toContain("Not a tax invoice. Printed from PL/2026-27/7 revision 2 as issued.");
     expect(html).toContain("Ordered kg/12ft 2.500 · PO date 30 Sep 2026");
     expect(html).toContain("Packed by");

@@ -39,6 +39,8 @@ describe("packing list html (native print)", () => {
     expect(plPdfFileName("***", "???")).toBe("packing-list_customer.pdf");
     expect(plPdfFileName("PL/7", "शिवाम एल्युमिनियम")).toBe("PL-7_शिवाम एल्युमिनियम.pdf");
     expect(plPdfFileName("PL/2026-27/90", "Acme\u202Efdp.exe\u200B")).toBe("PL-2026-27-90_Acmefdp.exe.pdf");
+    expect(plPdfFileName("PL/7", "श्री\u200Dमान्")).toBe("PL-7_श्री\u200Dमान्.pdf");
+    expect(plPdfFileName("PL/7", "शि\u200Cवम")).toBe("PL-7_शि\u200Cवम.pdf");
 
     const long = plPdfFileName("PL/7", "X".repeat(300));
     expect(new TextEncoder().encode(long).length).toBeLessThanOrEqual(200);
