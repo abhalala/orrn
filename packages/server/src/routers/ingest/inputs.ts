@@ -49,6 +49,19 @@ export const blockInput = z.object({
   headerKey: z.string().max(100).optional(),
   sample: z.array(row).max(L.sampleRowsPerBlock),
   dateColumns: z.array(z.number().int().min(0).max(L.columnsPerBlock)).max(L.columnsPerBlock).optional(),
+  /** Rule 4.1: the raw rows the header is checked on (at most 12 rows, 200 cells, 200 characters). */
+  preview: z
+    .array(
+      z.object({
+        row: z.number().int().min(0).max(L.stagedRowsPerBlock),
+        page: z.number().int().min(1).max(10_000).optional(),
+        cells: z.array(z.string().max(200)).max(200),
+      }),
+    )
+    .max(12)
+    .optional(),
+  /** The header row a person picked on the preview; trusted. */
+  hint: z.object({ headerRow: z.number().int().min(0).max(1000), headerRows: z.union([z.literal(1), z.literal(2)]) }).optional(),
 });
 
 export const putBlocksInput = z.object({

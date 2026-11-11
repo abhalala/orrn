@@ -376,6 +376,10 @@ export async function completeArtifact(
   }
 
   if (a.readState === "reading") {
+    // Rule 4.1: a block whose header is not settled yet is not saved; the file waits for it.
+    if (blocks.length < (a.blockCount ?? 0)) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the row with the column names for every table first" });
+    }
     const missing = blocks.filter((b) => b.rowsPut !== b.rowCount);
     if (missing.length > 0) {
       throw new TRPCError({ code: "BAD_REQUEST", message: `Some rows were not sent yet (sheet ${missing[0]!.sheetName ?? missing[0]!.ordinal + 1})` });

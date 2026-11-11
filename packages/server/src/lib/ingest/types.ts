@@ -94,7 +94,34 @@ export type BlockInput = {
   sample: string[][];
   /** Column indexes the reader saw as real date cells (an Excel date), when it knows. */
   dateColumns?: number[];
+  /**
+   * Rule 4.1: the first raw rows of the region as read, before any header was applied (at most 12
+   * rows of at most 200 cells, each cut to 200 characters), with their raw row numbers. With it the
+   * server checks the header itself (`HeaderAnswer`). Without it (the old shape, for one release)
+   * the header is taken as the browser read it and recorded as `reader`.
+   */
+  preview?: { row: number; page?: number; cells: string[] }[];
+  /** The header row a person picked on the preview. Trusted; `headerRow` and `headerRows` must be it. */
+  hint?: HeaderPickIn;
 };
+
+/** A header as hints take it: the raw row number and one or two header rows. */
+export type HeaderPickIn = { headerRow: number; headerRows: 1 | 2 };
+
+/** Who settled a block's header: the reader alone (old shape), a fit to a known layout, or a person. */
+export type HeaderBy = "reader" | "fit" | "person";
+
+/**
+ * The server's answer for one block of `putBlocks` (rule 4.1). `keep`: the header is settled and
+ * the block is saved; send its rows. `reread`: another row fits a known layout; read the table
+ * again with that header and send the block again. `ask`: nothing fits; ask the person which row
+ * has the column names (`guess` first, then `candidates`), read again with their pick, and send the
+ * block again with that pick as `hint`. Rows of a block are taken only after `keep`.
+ */
+export type HeaderAnswer =
+  | { ordinal: number; answer: "keep"; by: HeaderBy; blockId: string }
+  | { ordinal: number; answer: "reread"; headerRow: number; headerRows: 1 | 2 }
+  | { ordinal: number; answer: "ask"; guess: HeaderPickIn; candidates: HeaderPickIn[] };
 
 export type CandidateCounts = {
   total: number;

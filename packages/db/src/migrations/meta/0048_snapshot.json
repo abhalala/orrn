@@ -10881,6 +10881,14 @@
           "autoincrement": false,
           "default": "'parser'"
         },
+        "header_by": {
+          "name": "header_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'reader'"
+        },
         "model_checked": {
           "name": "model_checked",
           "type": "integer",

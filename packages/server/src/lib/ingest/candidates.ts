@@ -8,6 +8,7 @@
  */
 import {
   BUILTIN_HOLES,
+  chooseHeader,
   findBuiltin,
   unitsFor,
   fingerprint,
@@ -92,6 +93,8 @@ import { vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
   type BlockInput,
+  type HeaderAnswer,
+  type HeaderBy,
   type CandidateCounts,
   type CandidateDetail,
   type CandidateSummary,
@@ -169,10 +172,32 @@ function fitDiffJson(fit: FitResult): Record<string, unknown> | null {
 // putBlocks
 // ---------------------------------------------------------------------------
 
+/**
+ * Who settles a block's header (rule 4.1). A person's pick (`hint`) is trusted. Otherwise the
+ * server runs `chooseHeader` over the block's preview with the plant's approved layouts and the
+ * built-in ones: the guess fits (`keep`), another row fits (`reread`), or nothing fits (`ask`). The
+ * server never trusts a browser's fit. A block with no preview (the old shape, one release) keeps
+ * the header the browser read, recorded as `reader`.
+ */
+function settleHeader(b: BlockInput, learned: readonly LearnedHole[]): { by: HeaderBy } | Exclude<HeaderAnswer, { answer: "keep" }> {
+  if (b.hint) {
+    if (b.hint.headerRow !== b.headerRow || b.hint.headerRows !== b.headerRows) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Read this table again with the row you picked, then send it" });
+    }
+    return { by: "person" };
+  }
+  if (!b.preview) return { by: "reader" };
+  const guess = { headerRow: b.headerRow, headerRows: (b.headerRows === 2 ? 2 : 1) as 1 | 2 };
+  const choice = chooseHeader({ preview: b.preview, guess }, { learned });
+  if (choice.kind === "ask") return { ordinal: b.ordinal, answer: "ask", guess: choice.guess, candidates: choice.candidates };
+  if (choice.headerRow === guess.headerRow && choice.headerRows === guess.headerRows) return { by: "fit" };
+  return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
+}
+
 export async function putBlocks(
   ctx: IngestCtx,
   input: { artifactId: string; blocks: BlockInput[] },
-): Promise<{ blocks: { blockId: string; ordinal: number }[]; candidates: CandidateSummary[] }> {
+): Promise<{ blocks: { blockId: string; ordinal: number }[]; candidates: CandidateSummary[]; header: HeaderAnswer[] }> {
   const artifact = await loadArtifact(ctx, input.artifactId);
   const ordinals = input.blocks.map((b) => b.ordinal);
   if (new Set(ordinals).size !== ordinals.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Two sheets have the same number" });
@@ -182,21 +207,33 @@ export async function putBlocks(
     .from(ingestBlock)
     .where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, artifact.id)))
     .orderBy(asc(ingestBlock.ordinal));
-  if (existing.length > 0) {
+  // A block already saved stays as it is; a later call sends the blocks whose header was not settled
+  // yet (rule 4.1), always with every block of the file.
+  // The first call fixes how many blocks the file has; a later call may not add or drop one.
+  const otherSet = (artifact.blockCount ?? 0) > 0 && ordinals.length !== artifact.blockCount;
+  if (otherSet || existing.some((b) => !ordinals.includes(b.ordinal))) throw new TRPCError({ code: "CONFLICT", message: "The sheets of this file are already saved" });
+  const keepOf = (b: BlockRow): HeaderAnswer => ({ ordinal: b.ordinal, answer: "keep", by: b.headerBy, blockId: b.id });
+  const fresh = input.blocks.filter((b) => !existing.some((e) => e.ordinal === b.ordinal));
+  if (fresh.length === 0) {
     // A replay of the same call (a reload, a second tab): answer with what is stored.
-    const same = existing.length === ordinals.length && existing.every((b) => ordinals.includes(b.ordinal));
-    if (!same) throw new TRPCError({ code: "CONFLICT", message: "The sheets of this file are already saved" });
-    return storedBlocks(ctx, artifact.id, existing);
+    return { ...(await storedBlocks(ctx, artifact.id, existing)), header: existing.map(keepOf) };
   }
   if (artifact.readState !== "reading") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
+  const totalRows = input.blocks.reduce((n, b) => n + b.rowCount, 0);
+  if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
+  }
 
   const learned = await learnedHoles(ctx);
   const at = now();
   const statements: SqliteBatchItem[] = [];
-  const out: { blockId: string; ordinal: number }[] = [];
-  let totalRows = 0;
-  for (const b of input.blocks) {
-    totalRows += b.rowCount;
+  const open: HeaderAnswer[] = [];
+  for (const b of fresh) {
+    const settled = settleHeader(b, learned);
+    if (!("by" in settled)) {
+      open.push(settled);
+      continue;
+    }
     const sample = capSample(b.sample.slice(0, INGEST_LIMITS.sampleRowsPerBlock).map((r) => r.map((c) => c.slice(0, INGEST_LIMITS.cellChars))));
     const headersIn = b.headers.map((h) => h.slice(0, INGEST_LIMITS.cellChars));
     // The server never trusts a browser fit: fingerprint and fit are recomputed here.
@@ -204,7 +241,6 @@ export async function putBlocks(
     if (fp.columnCount === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "A sheet has no columns" });
     const fit = fitBlock(fp, learned);
     const blockId = createId();
-    out.push({ blockId, ordinal: b.ordinal });
     statements.push(
       ctx.db.insert(ingestBlock).values({
         id: blockId,
@@ -215,6 +251,7 @@ export async function putBlocks(
         title: b.title,
         headerRow: b.headerRow,
         headerRows: b.headerRows,
+        headerBy: settled.by,
         headers: fp.headers,
         kinds: fp.kinds,
         headerKey: fp.headerKey,
@@ -246,9 +283,7 @@ export async function putBlocks(
       }),
     );
   }
-  if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
-  }
+  // The file's block count is every block it has, settled or not: complete waits for all of them.
   statements.push(
     ctx.db
       .update(ingestArtifact)
@@ -268,7 +303,8 @@ export async function putBlocks(
     .from(ingestBlock)
     .where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, artifact.id)))
     .orderBy(asc(ingestBlock.ordinal));
-  return storedBlocks(ctx, artifact.id, blocks);
+  const header = [...blocks.map(keepOf), ...open].sort((a, b) => a.ordinal - b.ordinal);
+  return { ...(await storedBlocks(ctx, artifact.id, blocks)), header };
 }
 
 /** The stored sample, at most 512 KB of JSON, cut from the end (A38: D1 keeps at most 2 MB per value). */

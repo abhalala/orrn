@@ -14,6 +14,7 @@ import type {
   CandidateCounts,
   CandidateDetail,
   CandidateSummary,
+  HeaderAnswer,
   DryRunStepOut,
   HoleView,
   IngestStatus,
@@ -102,7 +103,7 @@ export const ingestRouter = router({
       ({ ctx, input }): Promise<{ vaultState: ArtifactSummary["vaultState"] }> => commitRaw(ix(ctx), input.artifactId),
     ),
     putBlocks: U.input(putBlocksInput).mutation(
-      ({ ctx, input }): Promise<{ blocks: { blockId: string; ordinal: number }[]; candidates: CandidateSummary[] }> =>
+      ({ ctx, input }): Promise<{ blocks: { blockId: string; ordinal: number }[]; candidates: CandidateSummary[]; header: HeaderAnswer[] }> =>
         putBlocks(ix(ctx), input),
     ),
     putRows: U.input(putRowsInput).mutation(({ ctx, input }): Promise<{ rowsPut: number }> => putRows(ix(ctx), input)),

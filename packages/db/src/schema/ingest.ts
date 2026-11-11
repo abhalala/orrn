@@ -168,6 +168,8 @@ export const ingestBlock = sqliteTable(
     rowsPut: count("rows_put"),
     sample: text("sample", { mode: "json" }).$type<string[][]>().notNull(),
     readBy: text("read_by", { enum: ["parser", "model"] }).notNull().default("parser"),
+    /** Who settled the header (rule 4.1): the reader alone (old upload shape), a fit to a known layout, or a person. */
+    headerBy: text("header_by", { enum: ["reader", "fit", "person"] }).notNull().default("reader"),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
     /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
     canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),
