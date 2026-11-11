@@ -882,6 +882,8 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   column_meaning_unclear: (a) => typeof a === "string" && a.length <= 100,
   create_legacy_die: (a) => typeof a === "boolean",
   new_customers: (a) => typeof a === "boolean",
+  // "as_is" (the value is right) or the unit the question offers (checked in setAnswer).
+  magnitude_check: (a) => typeof a === "string" && a.length > 0 && a.length <= 20,
 };
 
 /**
@@ -889,7 +891,7 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
  * bare string is stored so the dry run reads one shape.
  */
 export function normalizeAnswer(code: QuestionCode, answer: unknown): unknown {
-  if (code === "unit_unknown" && answer && typeof answer === "object" && "unit" in answer) return (answer as { unit: unknown }).unit;
+  if ((code === "unit_unknown" || code === "magnitude_check") && answer && typeof answer === "object" && "unit" in answer) return (answer as { unit: unknown }).unit;
   if (code === "column_meaning_unclear" && answer && typeof answer === "object" && "field" in answer) return (answer as { field: unknown }).field;
   return answer;
 }
@@ -914,12 +916,14 @@ export async function setAnswer(
     // layout, made in the column mapping, so an answer is never stored without effect (A17).
     throw new TRPCError({ code: "BAD_REQUEST", message: "To use another column for this, change it in the column mapping" });
   }
-  if (input.questionCode === "unit_unknown" && c.recipe) {
+  if ((input.questionCode === "unit_unknown" || (input.questionCode === "magnitude_check" && answer !== "as_is")) && c.recipe) {
     const recipe = parseRecipe(c.recipe);
     const field = recipe.fields.find((f) => f.field === input.subject);
     const step = field?.steps.find((s) => s.op === "number");
     if (step && step.op === "number") {
       if (!unitsFor(step.kind).includes(answer as never)) throw new TRPCError({ code: "BAD_REQUEST", message: "That unit does not fit this column" });
+    } else if (input.questionCode === "magnitude_check") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "That unit does not fit this column" });
     }
   }
   const at = now();
@@ -980,6 +984,18 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   if (questions.some((q) => q.code === "rates_hidden" && q.open)) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This file has rates you cannot see. Leave rates out, or ask the owner to merge it." });
   }
+  const answerRows = await ctx.db
+    .select()
+    .from(ingestAnswer)
+    .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
+  // Numbers a person kept or re-read after a magnitude check (C19) go in the approval's audit meta.
+  const magnitude = answerRows
+    .filter((a) => a.questionCode === "magnitude_check")
+    .map((a) => {
+      return a.answer === "as_is"
+        ? { field: a.subject, answer: "as_is", note: "The person said the flagged values are right" }
+        : { field: a.subject, answer: String(a.answer), note: `The person said the flagged values are in ${String(a.answer)}` };
+    });
   const statements: SqliteBatchItem[] = [
     ...candidateChange(ctx, c.id, input.expectSeq, {
       state: "approved",
@@ -993,15 +1009,18 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
       action: "ingest.candidate.approve",
       subjectType: "ingest_candidate",
       subjectId: c.id,
-      meta: { target: c.target, rows: c.rowsTotal, create: c.rowsCreate, update: c.rowsUpdate, holeRef: c.holeRef },
+      meta: {
+        target: c.target,
+        rows: c.rowsTotal,
+        create: c.rowsCreate,
+        update: c.rowsUpdate,
+        holeRef: c.holeRef,
+        ...(magnitude.length ? { magnitude } : {}),
+      },
     }),
   ];
   // Answers to unit, date and column questions are written into the layout, so the next file of this
-  // shape asks nothing (A19).
-  const answerRows = await ctx.db
-    .select()
-    .from(ingestAnswer)
-    .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
+  // shape asks nothing (A19). Magnitude answers are about single rows and stay out of it.
   const current = c.recipe ? recipeSchema.safeParse(c.recipe) : null;
   const folded = current?.success && !c.parentId ? foldAnswers(current.data, answerRows) : null;
   // A draft layout this candidate used becomes the plant's approved version now (brief: saved only

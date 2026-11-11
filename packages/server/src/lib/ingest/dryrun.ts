@@ -19,7 +19,11 @@ import {
   periodRequired,
   recipeSchema,
   type ApplyOptions,
+  type ApplyRow,
+  type CompiledRecipe,
   type DateFormat,
+  type MagnitudeFlag,
+  magnitudeReason,
   type Recipe,
   type UnitId,
 } from "@orrn/ingest";
@@ -86,6 +90,8 @@ export const TARGET_MODULE: Record<IngestTarget, CompanyModule> = {
 /** Row reasons a candidate-level question covers. Such rows wait for the answer, not a row decision. */
 export const Q_CUSTOMER_NEW = "q:customer_new";
 export const Q_SECTION_UNKNOWN = "q:section_unknown";
+/** A row with a number outside its plausible range waits on `magnitude_check` for this subject (C19). */
+export const Q_MAGNITUDE = "q:magnitude_check";
 
 type Values = Record<string, unknown>;
 type Staged = typeof ingestStagedRow.$inferSelect;
@@ -112,13 +118,15 @@ export type AnswerSet = {
   ratesLeftOut: boolean | null;
   legacyDie: Map<string, boolean>;
   newCustomers: boolean | null;
+  /** `magnitude_check` answers by field: "as_is", or the unit the column's flagged numbers are in. */
+  magnitude: Map<string, string>;
   answered: Set<string>;
 };
 
 export const answerKey = (code: string, subject: string) => `${code}\u001f${subject}`;
 
 /** Answer codes that belong to one layout. A new layout drops them (A2). */
-export const LAYOUT_ANSWER_CODES = ["unit_unknown", "date_format_ambiguous", "column_meaning_unclear"] as const;
+export const LAYOUT_ANSWER_CODES = ["unit_unknown", "date_format_ambiguous", "column_meaning_unclear", "magnitude_check"] as const;
 
 /** Fields whose unit the recipe leaves open: a number step with unit null, or listed as unit_unknown. */
 export function openUnitFields(recipe: Recipe): Set<string> {
@@ -143,6 +151,7 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
     ratesLeftOut: null,
     legacyDie: new Map(),
     newCustomers: null,
+    magnitude: new Map(),
     answered: new Set(),
   };
   for (const a of rows) {
@@ -166,6 +175,9 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
         break;
       case "new_customers":
         set.newCustomers = v === true;
+        break;
+      case "magnitude_check":
+        if (typeof v === "string") set.magnitude.set(a.subject, v);
         break;
       default:
         break;
@@ -571,7 +583,7 @@ export async function candidateQuestions(
   if (r.target === "orders" && r.fields.some((f) => f.field === "rate") && !can(me, "order.price")) add("rates_hidden", "", {});
 
   const waiting = await ctx.db
-    .select({ reasons: ingestStagedRow.reasons })
+    .select({ reasons: ingestStagedRow.reasons, magnitude: sql<string | null>`json_extract(${ingestStagedRow.values}, '$._magnitude')` })
     .from(ingestStagedRow)
     .where(
       and(
@@ -582,13 +594,39 @@ export async function candidateQuestions(
     );
   const codes = new Set<string>();
   let newNames = 0;
+  const flagged = new Map<string, { field: string; unit: string; likelyUnit: string; side: string; count: number }>();
   for (const w of waiting) {
     for (const reason of w.reasons ?? []) {
       if (reason === Q_CUSTOMER_NEW) newNames += 1;
       else if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) codes.add(reason.slice(Q_SECTION_UNKNOWN.length + 1));
+      else if (reason.startsWith(`${Q_MAGNITUDE}:`)) {
+        const field = reason.slice(Q_MAGNITUDE.length + 1);
+        let note: Partial<MagnitudeNote> | undefined;
+        try {
+          note = (JSON.parse(w.magnitude ?? "[]") as MagnitudeNote[]).find((n) => n.field === field);
+        } catch {
+          note = undefined;
+        }
+        const likely = note?.likelyUnit ?? "";
+        const seen = flagged.get(field);
+        if (!seen) {
+          flagged.set(field, { field, unit: note?.unit ?? "", likelyUnit: likely, side: note?.side ?? "", count: 1 });
+          continue;
+        }
+        seen.count += 1;
+        // A unit is offered only when every flagged row of the column points at the same one.
+        if (seen.likelyUnit !== likely) seen.likelyUnit = "";
+        if (seen.side !== (note?.side ?? "")) seen.side = "";
+      }
     }
   }
   for (const code of [...codes].sort()) add("create_legacy_die", code, { code });
+  // Magnitude checks (C19): one question per field and offered unit, still shown once answered.
+  for (const a of answers) {
+    if (a.questionCode !== "magnitude_check" || flagged.has(a.subject)) continue;
+    flagged.set(a.subject, { field: a.subject, unit: "", likelyUnit: "", side: "", count: 0 });
+  }
+  for (const [subject, p] of [...flagged].sort(([x], [y]) => x.localeCompare(y))) add("magnitude_check", subject, p);
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
   return out;
 }
@@ -648,8 +686,62 @@ export function recountStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candi
 }
 
 // ---------------------------------------------------------------------------
-// The merge's row checks
+// Magnitude checks (C19) and the merge's row checks
 // ---------------------------------------------------------------------------
+
+/** The subject of a `magnitude_check` question: the field. One answer covers the column's flagged rows. */
+export const magnitudeSubject = (f: Pick<MagnitudeFlag, "field">) => f.field;
+
+/** What a waiting flag keeps on the row (`values._magnitude`), for the question and the screen. */
+export type MagnitudeNote = { field: string; side: MagnitudeFlag["side"]; unit: string | null; likelyUnit: UnitId | null; likelyValue: number | null };
+
+/**
+ * Settle a row's magnitude flags with the answers (C19). An answer covers every flagged row of that
+ * field in the block. "as_is" keeps the value and notes it (`magnitude_confirmed`). A unit reads the
+ * flagged cell again in that unit (`magnitude_unit`); the entered text stays as the file had it, and
+ * rows of the column that were not flagged keep the unit of the layout. A flag with no answer is
+ * returned as waiting: the row cannot be ready.
+ */
+export function settleMagnitude(
+  a: ApplyRow,
+  raw: readonly string[],
+  answers: AnswerSet,
+  compileWith: (units: Record<string, UnitId>) => CompiledRecipe,
+): { applied: ApplyRow; waiting: MagnitudeFlag[]; notes: string[] } {
+  if (a.state !== "ok" || a.flags.length === 0) return { applied: a, waiting: [], notes: [] };
+  const units: Record<string, UnitId> = {};
+  const notes: string[] = [];
+  const waiting: MagnitudeFlag[] = [];
+  for (const f of a.flags) {
+    const answer = answers.magnitude.get(magnitudeSubject(f));
+    if (answer === "as_is") notes.push(`magnitude_confirmed:${f.field}`);
+    else if (answer) {
+      units[f.field] = answer as UnitId;
+      notes.push(`magnitude_unit:${f.field}`);
+    } else waiting.push(f);
+  }
+  if (Object.keys(units).length === 0) return { applied: a, waiting, notes };
+  return { applied: applyRow(compileWith(units), raw, a.rowIndex), waiting, notes };
+}
+
+/** A row that waits on `magnitude_check` (C19): ambiguous, with the flag's reason and the question's. */
+function holdForMagnitude(out: RowOutcome, waiting: readonly MagnitudeFlag[], entered: Entered): RowOutcome {
+  if (waiting.length === 0) return out;
+  if (out.state !== "ready_create" && out.state !== "ready_update" && out.state !== "conflict" && out.state !== "ambiguous") return out;
+  const notes: MagnitudeNote[] = waiting.map((f) => ({
+    field: f.field,
+    side: f.side,
+    unit: entered[f.field]?.unit ?? null,
+    likelyUnit: f.likelyUnit,
+    likelyValue: f.likelyValue,
+  }));
+  if (out.values) out.values._magnitude = notes;
+  return {
+    ...out,
+    state: "ambiguous",
+    reasons: [...out.reasons, ...waiting.flatMap((f) => [magnitudeReason(f), `${Q_MAGNITUDE}:${magnitudeSubject(f)}`])],
+  };
+}
 
 /**
  * The die copy status the row would write, checked as the merge checks it (B12): a create's status,
@@ -748,13 +840,24 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     for (const r of editable) outcomes.set(r.id, { state: "refused", values: r.values, reasons: ["module_off"], matchId: null, diff: null });
   } else {
     const compiled = compileRecipe(recipe, applyOptions(answers));
-    const applied = editable.map((r) => ({ r, a: applyRow(compiled, r.raw, r.rowIndex) }));
+    const byUnits = new Map<string, CompiledRecipe>();
+    const compileWith = (units: Record<string, UnitId>) => {
+      const key = JSON.stringify(Object.entries(units).sort());
+      let hit = byUnits.get(key);
+      if (!hit) {
+        const base = applyOptions(answers);
+        hit = compileRecipe(recipe, { ...base, units: { ...base.units, ...units } });
+        byUnits.set(key, hit);
+      }
+      return hit;
+    };
+    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyRow(compiled, r.raw, r.rowIndex), r.raw, answers, compileWith) }));
     const live = await loadPageLive(
       ctx,
       c.target,
-      applied.filter((x) => x.a.state === "ok").map((x) => cleanValues(x.a.values)),
+      applied.filter((x) => x.applied.state === "ok").map((x) => cleanValues(x.applied.values)),
     );
-    for (const { r, a } of applied) {
+    for (const { r, applied: a, waiting, notes } of applied) {
       const keep = (r.reasons ?? []).filter((x) => x === "cell_cut" || x === "row_cut");
       if (a.state === "blank") {
         outcomes.set(r.id, { state: "skipped", values: null, reasons: [...keep, "blank_row"], matchId: null, diff: null });
@@ -786,8 +889,9 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         newCustomerRef: newCustomerRef(r.rowIndex),
       });
       out = applyDecision(out, r, c.target);
+      out = holdForMagnitude(out, waiting, entered);
       if (c.target === "die_copies") out = copyStatusCheck(out);
-      out.reasons = [...keep, ...out.reasons];
+      out.reasons = [...keep, ...out.reasons, ...notes];
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);
       if (dup) values._dupKey = dup;

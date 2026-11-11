@@ -273,3 +273,95 @@ describe("dry run and merge agree: aliases (B13)", () => {
     expect(rows[1]!.reasons).toEqual(["alias_is_name:alias"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Item 1: magnitude checks (C19)
+// ---------------------------------------------------------------------------
+
+/** A bundle sheet in tonnes: row 1 weighs "3" (3 t, past the plausible 2 t), row 2 "1.2" (fine). */
+async function tonneBundles() {
+  const p = await plant();
+  await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+  await learnLayout(p.companyId, p.users.owner.id, bundleLayout("t"), "Bundles in t");
+  const { candidates } = await upload(p.owner, [
+    {
+      headers: bundleHeaders("t"),
+      rows: [
+        ["B-1", "R", "5100", "10", "3", "3658"],
+        ["B-2", "R", "5100", "10", "1.2", "3658"],
+      ],
+    },
+  ]);
+  const id = candidates[0]!.id;
+  await pump(p.owner, id);
+  return { p, id };
+}
+
+describe("C19: a number outside its plausible range waits on a person", () => {
+  test("bundle weight 3 in tonnes is not ready: ambiguous with the flag's reason and one magnitude_check question", async () => {
+    const { p, id } = await tonneBundles();
+    const rows = await rowsOf(p.owner, id);
+    expect(rows[0]!.state).toBe("ambiguous");
+    expect(rows[0]!.reasons).toEqual(["magnitude:weightG", "q:magnitude_check:weightG"]);
+    expect(rows[1]!.state).toBe("ready_create");
+    const c = await p.owner.ingest.candidate.get({ candidateId: id });
+    const q = c.questions.find((x) => x.code === "magnitude_check");
+    expect(q).toMatchObject({ subject: "weightG", open: true, params: { field: "weightG", unit: "t", side: "above", count: 1 } });
+    expect(c.openQuestions).toBe(1);
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    // A row decision other than skip does not settle it.
+    await expect(
+      p.owner.ingest.rows.decide({ candidateId: id, rowIds: [rows[0]!.id], decision: "create_new", expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/Answer the question above/);
+  });
+
+  test("answering 'it is in kg' restages it ready with 3000 g and keeps the entered text; the other row keeps tonnes", async () => {
+    const { p, id } = await tonneBundles();
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await expect(
+      p.owner.ingest.answer.set({ candidateId: id, questionCode: "magnitude_check", subject: "weightG", answer: "mm", expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/does not fit this column/);
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "magnitude_check", subject: "weightG", answer: { unit: "kg" }, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    const rows = await rowsOf(p.owner, id);
+    expect(rows[0]).toMatchObject({ state: "ready_create", values: { weightG: 3000 }, entered: { weightG: { text: "3", unit: "kg" } } });
+    expect(rows[0]!.reasons).toContain("magnitude_unit:weightG");
+    expect(rows[1]).toMatchObject({ state: "ready_create", values: { weightG: 1_200_000 } });
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.find((q) => q.code === "magnitude_check")).toMatchObject({ open: false, answer: "kg" });
+    expect((await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).state).toBe("approved");
+  });
+
+  test("'the value is right' stages it ready as read, and the approval's audit meta carries the note", async () => {
+    const { p, id } = await tonneBundles();
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "magnitude_check", subject: "weightG", answer: "as_is", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    const [row] = await rowsOf(p.owner, id);
+    expect(row).toMatchObject({ state: "ready_create", values: { weightG: 3_000_000 }, entered: { weightG: { text: "3", unit: "t" } } });
+    expect(row!.reasons).toContain("magnitude_confirmed:weightG");
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    const { auditLog } = await import("@orrn/db/schema/audit");
+    const { and, eq } = await import("drizzle-orm");
+    const [audit] = await env.db
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "ingest.candidate.approve")));
+    expect((audit!.meta as { magnitude?: unknown }).magnitude).toEqual([
+      { field: "weightG", answer: "as_is", note: "The person said the flagged values are right" },
+    ]);
+  });
+
+  test("skipping the flagged row settles it without an answer", async () => {
+    const { p, id } = await tonneBundles();
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    const [row] = await rowsOf(p.owner, id);
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [row!.id], decision: "skip", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.counts).toMatchObject({ create: 1, skipped: 1, ambiguous: 0 });
+    expect(c.questions.some((q) => q.code === "magnitude_check")).toBe(false);
+    expect((await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).state).toBe("approved");
+  });
+});

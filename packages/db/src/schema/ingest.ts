@@ -63,6 +63,7 @@ export const QUESTION_CODES = [
   "column_meaning_unclear",
   "create_legacy_die",
   "new_customers",
+  "magnitude_check",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 
