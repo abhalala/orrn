@@ -262,6 +262,54 @@ describe("late packing-list entry (arch 52)", () => {
     await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
   }, SLOW);
 
+  test("check N3: an approved time is good for 7 days after the approval; after that Dispatch asks again for that same time", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    const occurredAt = NOW.getTime() - 5 * H;
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined);
+    const [first] = await lateRows(p.companyId);
+    await p.as("manager").approval.decide({ id: first!.id, decision: "approved" });
+    const DAY = 24 * H;
+    // A minute before the 7 days: still approved.
+    setClock(new Date(NOW.getTime() + 7 * DAY - 60_000));
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "approved", approvalId: first!.id });
+    // A minute after: expired; the press asks a manager again for the same time (check N1 lets it past 72 h).
+    setClock(new Date(NOW.getTime() + 7 * DAY + 60_000));
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "expired", approvalId: first!.id });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const second = (await lateRows(p.companyId)).find((r) => r.status === "pending")!;
+    expect(second.meta).toMatchObject({ occurredAt });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "pending", approvalId: second.id });
+    await p.as("manager").approval.decide({ id: second.id, decision: "approved" });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
+    const [row] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
+    expect(row).toMatchObject({ lateEntryApprovalId: second.id });
+    expect(row!.completedAt!.getTime()).toBe(occurredAt);
+  }, SLOW);
+
+  test("check N3: a truck that left on 31 March, entered and approved on 2 April, takes its PL number from the series of 31 March", async () => {
+    // 31 March 2027 18:00 IST is the last evening of FY 2026-27; 2 April 10:00 IST is in FY 2027-28.
+    const left = Date.parse("2027-03-31T12:30:00.000Z");
+    const april2 = new Date("2027-04-02T04:30:00.000Z");
+    setClock(new Date(left - 8 * H));
+    const { p, id } = await heldDispatch();
+    const [serial] = await p.pack(p.dieA, [{ kg: 40 }]);
+    const sameDayId = await p.held([serial!]);
+    setClock(april2);
+    const c = p.as("office");
+    await c.dispatch.complete({ id, occurredAt: left, lateReason: "Internet down over the year end" }).catch(() => undefined);
+    const [req] = await lateRows(p.companyId);
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    const late = await c.dispatch.complete({ id, occurredAt: left, lateReason: "Internet down over the year end" });
+    // A load dispatched normally on 2 April, for comparison.
+    const onTime = await c.dispatch.complete({ id: sameDayId });
+    expect(late.plNumber).toContain("26-27");
+    expect(onTime.plNumber).toContain("27-28");
+    const [row] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
+    expect(row!.completedAt!.getTime()).toBe(left);
+  }, SLOW);
+
   test("an approval covers only the time it was asked for; another time withdraws a waiting ask and asks again", async () => {
     setClock(NOW);
     const { p, id } = await heldDispatch();

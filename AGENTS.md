@@ -973,7 +973,10 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   when a new request would open: an approved time stands after the 72 hours (review 1); past them only
   a time this dispatch already asked for (approved or waiting) may be asked again, so a manager can
   approve a corrected load for that same time (check N1). The load is the bundle count, grams and a
-  SHA-256 of the sorted bundle ids (`bundlesHash`, check N7). The
+  SHA-256 of the sorted bundle ids (`bundlesHash`, check N7). An approval is used for 7 days after `decided_at` (check N3,
+  `LATE_APPROVAL_LIFE_MS`, read and write); after that Complete asks again for the same time, and
+  `lateEntry.status` is `expired`. The PL number comes from the series of `completed_at` (the time the
+  truck left), so a truck that left on 31 March and was entered in April takes the old year's series. The
   dispatch stores the approved request's reason, never the one typed on the second press (review 4).
   `getDispatch` returns `lateEntry` `{ status: pending|approved|changed, occurredAt, reason,
   approvalId }` for a building or held dispatch, and both Complete sheets fill and lock the time and

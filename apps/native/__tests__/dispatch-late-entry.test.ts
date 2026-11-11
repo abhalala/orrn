@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createI18n } from "@orrn/i18n";
 
-import { lateCheck, lateExtras, lateStart, lateStartDate, lockedCheck } from "../features/dispatch/late-entry";
+import { LATE_STATUS_KEY, lateCheck, lateExtras, lateStart, lateStartDate, lockedCheck } from "../features/dispatch/late-entry";
 import { completeRefusalText } from "../features/dispatch/off-band";
 
 const TZ = "Asia/Kolkata";
@@ -54,6 +54,18 @@ describe("arch 52: late packing list on the phone (parity with web)", () => {
     expect(lateExtras(lockedCheck(ask))).toEqual({ occurredAt: ask.occurredAt, lateReason: "Line down all weekend" });
     const later = Date.UTC(2026, 10, 9, 13, 30);
     expect(lateCheck("2026-11-06", "18:00", "Line down all weekend", TZ, later).kind).toBe("error");
+  });
+
+  test("check N3: an approval older than 7 days has its own line; every status says what Dispatch does", () => {
+    expect(LATE_STATUS_KEY).toEqual({
+      pending: "dispatch.late.waitingFor",
+      approved: "dispatch.late.approvedFor",
+      changed: "dispatch.late.loadChanged",
+      expired: "dispatch.late.expired",
+    });
+    expect(t(LATE_STATUS_KEY.expired, { when: "6 Nov 18:00" })).toBe(
+      "A manager approved 6 Nov 18:00 more than 7 days ago. Pressing Dispatch asks a manager to approve it again.",
+    );
   });
 });
 

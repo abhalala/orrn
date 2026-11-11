@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7510 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1094,7 +1094,7 @@ Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (251)
+### dispatch (252)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1135,6 +1135,7 @@ Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
 | `late.approvedFor` | A manager approved {when}. Press Dispatch to make the packing list. | मैनेजर ने {when} मंज़ूर किया। पैकिंग लिस्ट बनाने के लिए Dispatch दबाएं। |
 | `late.useAnother` | Use another time | दूसरा समय भरें |
 | `late.anotherAsks` | Another time asks a manager again. | दूसरा समय भरने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
+| `late.expired` | A manager approved {when} more than 7 days ago. Pressing Dispatch asks a manager to approve it again. | मैनेजर ने {when} को 7 दिन से पहले मंज़ूर किया था। Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
 | `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager to approve that time again for the bundles on it now. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से अभी के बंडल के लिए वही समय फिर मंज़ूर करने को कहा जाएगा। |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
 | `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
@@ -8855,7 +8856,7 @@ Please check, Lalubhai:
 | Step 5 | Get the time approved | समय मंज़ूर करवाएं |
 | Step 5 text | A manager, an admin or the owner opens "Approvals", taps "Review" and checks the time against the paper. You cannot approve your own. | मैनेजर, एडमिन या मालिक "मंज़ूरी" खोलकर "देखें और तय करें" दबाते हैं और समय कागज़ से मिलाते हैं। अपनी मांग आप खुद मंज़ूर नहीं कर सकते। |
 | Step 6 | Dispatch again | फिर से dispatch करें |
-| Step 6 text | Open the dispatch and tap "Dispatch". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. The packing list is made at the time the truck left and the dispatch shows "Entered late". | dispatch खोलें और "Dispatch करें" दबाएं। शीट में समय और वजह पहले से भरे हैं और लिखा है कि मैनेजर ने मंज़ूर किया। मंज़ूरी 72 घंटे के बाद आई हो तब भी यह चलता है। पैकिंग लिस्ट गाड़ी निकलने के समय से बनती है और dispatch पर "देर से भरा" दिखता है। |
+| Step 6 text | Open the dispatch and tap "Dispatch". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. Use it within 7 days of the approval; after that, Dispatch asks a manager again. The packing list is made at the time the truck left and the dispatch shows "Entered late". | dispatch खोलें और "Dispatch करें" दबाएं। शीट में समय और वजह पहले से भरे हैं और लिखा है कि मैनेजर ने मंज़ूर किया। मंज़ूरी 72 घंटे के बाद आई हो तब भी यह चलता है। मंज़ूरी के 7 दिन के अंदर dispatch करें; उसके बाद Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाती है। पैकिंग लिस्ट गाड़ी निकलने के समय से बनती है और dispatch पर "देर से भरा" दिखता है। |
 | Problem 1 | It says the time is more than 72 hours back | लिखा है कि समय 72 घंटे से ज़्यादा पीछे है |
 | Fix 1 | A late packing list can go back 72 hours only. For an older load, ask the manager how to correct the books. | देर से भरी पैकिंग लिस्ट सिर्फ़ 72 घंटे पीछे जा सकती है। पुराने लोड के लिए मैनेजर से पूछें कि खाते कैसे ठीक करें। |
 | Problem 2 | It says the time is in the future | लिखा है कि समय आगे का है |

@@ -1346,7 +1346,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Dispatch again",
-        body: "Open the dispatch and tap \"Dispatch\". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
+        body: "Open the dispatch and tap \"Dispatch\". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. Use it within 7 days of the approval; after that, Dispatch asks a manager again. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
       },
     ],
     problems: [

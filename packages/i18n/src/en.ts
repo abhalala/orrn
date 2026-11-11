@@ -1245,6 +1245,7 @@ export const en = {
       approvedFor: "A manager approved {when}. Press Dispatch to make the packing list.",
       useAnother: "Use another time",
       anotherAsks: "Another time asks a manager again.",
+      expired: "A manager approved {when} more than 7 days ago. Pressing Dispatch asks a manager to approve it again.",
       loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager to approve that time again for the bundles on it now.",
     },
     overTolerance: {

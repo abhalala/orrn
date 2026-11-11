@@ -353,6 +353,13 @@ async function linkedLinesSeq(db: OrrnDb, companyId: string, dispatchId: string)
 /** Review 7: what a late-time request was asked for: the bundles on the dispatch and their grams. */
 type LateLoad = { bundles: number; weightG: number; bundlesHash: string };
 
+/** Check N3: an approved late time can be used for 7 days after the approval; then Complete asks again. */
+export const LATE_APPROVAL_LIFE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function lateApprovalFresh(decidedAt: Date | null, now: number): boolean {
+  return decidedAt !== null && now - decidedAt.getTime() <= LATE_APPROVAL_LIFE_MS;
+}
+
 /** Check N7: the load names its bundles too, as a SHA-256 of the sorted bundle ids (an equal-weight swap differs). */
 async function lateLoadOf(rows: readonly { id: string; weightG: number }[]): Promise<LateLoad> {
   const ids = rows.map((r) => r.id).sort().join(",");
@@ -389,12 +396,13 @@ async function askLateEntry(
   load: LateLoad,
 ): Promise<{ approvedId: string | null; reason: string }> {
   const rows = await ctx.db
-    .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote })
+    .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote, decidedAt: approval.decidedAt })
     .from(approval)
     .where(and(eq(approval.companyId, ctx.companyId), eq(approval.kind, "dispatch_late_entry"), eq(approval.subjectId, d.id)))
     .orderBy(desc(approval.createdAt));
   const forTime = rows.filter((r) => r.meta?.occurredAt === occurredAt && sameLateLoad(r.meta, load));
-  const approved = forTime.find((r) => r.status === "approved");
+  // Check N3: an approval older than 7 days is not used; the time is asked again (allowed past 72 h by N1).
+  const approved = forTime.find((r) => r.status === "approved" && lateApprovalFresh(r.decidedAt, clockNow().getTime()));
   if (approved) {
     const saved = typeof approved.meta?.reason === "string" ? approved.meta.reason : (approved.requestNote ?? "");
     return { approvedId: approved.id, reason: saved.trim() };
@@ -1732,10 +1740,10 @@ export const dispatchRouter = router({
       // Review 5: the late time asked for (waiting) or approved, so both Complete sheets pre-fill and
       // lock it. Pressing Dispatch with any other minute would ask again. Review 7: "changed" when the
       // bundles on the dispatch are not the ones it was asked for (set below, against the totals).
-      let lateAsk: { id: string; status: "pending" | "approved"; occurredAt: number; reason: string; meta: Record<string, unknown> } | null = null;
+      let lateAsk: { id: string; status: "pending" | "approved"; occurredAt: number; reason: string; meta: Record<string, unknown>; decidedAt: Date | null } | null = null;
       if (row.status === "draft" || row.status === "reserved") {
         const [ask] = await ctx.db
-          .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote })
+          .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote, decidedAt: approval.decidedAt })
           .from(approval)
           .where(
             and(
@@ -1750,7 +1758,7 @@ export const dispatchRouter = router({
         const at = ask?.meta?.occurredAt;
         if (ask && typeof at === "number" && (ask.status === "pending" || ask.status === "approved")) {
           const saved = typeof ask.meta?.reason === "string" ? ask.meta.reason : (ask.requestNote ?? "");
-          lateAsk = { id: ask.id, status: ask.status, occurredAt: at, reason: saved.trim(), meta: ask.meta };
+          lateAsk = { id: ask.id, status: ask.status, occurredAt: at, reason: saved.trim(), meta: ask.meta, decidedAt: ask.decidedAt };
         }
       }
 
@@ -1850,9 +1858,13 @@ export const dispatchRouter = router({
             ).map((b) => ({ id: b.id, weightG: Number(b.weightG) })),
           )
         : null;
-      const lateEntry: { status: "pending" | "approved" | "changed"; occurredAt: number; reason: string; approvalId: string } | null = lateAsk
+      const lateEntry: { status: "pending" | "approved" | "changed" | "expired"; occurredAt: number; reason: string; approvalId: string } | null = lateAsk
         ? {
-            status: loadNow && sameLateLoad(lateAsk.meta, loadNow) ? lateAsk.status : "changed",
+            status: !loadNow || !sameLateLoad(lateAsk.meta, loadNow)
+              ? "changed"
+              : lateAsk.status === "approved" && !lateApprovalFresh(lateAsk.decidedAt, clockNow().getTime())
+                ? "expired"
+                : lateAsk.status,
             occurredAt: lateAsk.occurredAt,
             reason: lateAsk.reason,
             approvalId: lateAsk.id,
@@ -3043,7 +3055,7 @@ export const dispatchRouter = router({
               sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
               withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
               late?.approvedId
-                ? sql`exists (select 1 from approval la where la.id = ${late.approvedId} and la.company_id = ${ctx.companyId} and la.status = 'approved')`
+                ? sql`exists (select 1 from approval la where la.id = ${late.approvedId} and la.company_id = ${ctx.companyId} and la.status = 'approved' and la.decided_at >= ${clockNow().getTime() - LATE_APPROVAL_LIFE_MS})`
                 : undefined,
               sql`not ${dispatchHasForeignHoldSql(ctx.companyId, d.id, d.customerId)}`,
             ),
