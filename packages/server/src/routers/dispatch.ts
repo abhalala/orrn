@@ -677,7 +677,8 @@ async function askOverdraw(
       subjectId: d.id,
       serverSeq: seq,
       requestNote: note ?? null,
-      meta,
+      // Review finding 3: who wrote the note travels with it (here the requester).
+      meta: note ? { ...meta, noteById: ctx.session.user.id } : meta,
     });
     statements.push(
       statement,
@@ -704,7 +705,9 @@ async function askOverdraw(
       statements.push(
         ctx.db
           .update(approval)
-          .set({ requestNote: note })
+          // Review finding 3: the note from the Complete sheet is the completer's, not the scanner's who
+          // asked; its author is kept with it so the approvals sheet names the right person.
+          .set({ requestNote: note, meta: sql`json_set(${approval.meta}, '$.noteById', ${ctx.session.user.id})` })
           .where(and(eq(approval.id, pending.id), eq(approval.companyId, ctx.companyId), eq(approval.status, "pending"), isNull(approval.requestNote))),
       );
     }

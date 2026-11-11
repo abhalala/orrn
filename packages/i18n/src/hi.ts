@@ -4436,6 +4436,7 @@ export const hi = {
     openLot: "लॉट खोलें",
     openDie: "डाई खोलें",
     theirNote: "उनका नोट",
+    noteFrom: "{name} का नोट",
     decisionNote: "फ़ैसले का नोट",
     figures: "आंकड़े",
     party: "पार्टी का कांटा",

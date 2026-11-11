@@ -159,6 +159,7 @@ export const guApprovals = {
     openLot: "લૉટ ખોલો",
     openDie: "Die ખોલો",
     theirNote: "તેમની નોંધ",
+    noteFrom: "{name} ની નોંધ",
     decisionNote: "નિર્ણયની નોંધ",
     figures: "આંકડા",
     party: "પાર્ટીનો કાંટો",

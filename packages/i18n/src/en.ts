@@ -4448,6 +4448,7 @@ export const en = {
     openLot: "Open lot",
     openDie: "Open die",
     theirNote: "Their note",
+    noteFrom: "Note from {name}",
     decisionNote: "Decision note",
     figures: "Figures",
     party: "Party kanta",

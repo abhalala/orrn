@@ -37,6 +37,16 @@ export type ApprovalSubject = {
   openKey: MessageKey | null;
 };
 
+/**
+ * Review finding 3: whose words the request's note is. A note typed at Complete lands on the request the
+ * scanner opened; its author (`meta.noteById`, named by `approval.list` as `noteByName`) is named then.
+ */
+export function noteAuthorName(row: { requestedBy: string | null; meta: Record<string, unknown> | null; noteByName?: string | null }): string | null {
+  const by = row.meta?.noteById;
+  if (typeof by !== "string" || by === row.requestedBy) return null;
+  return row.noteByName ?? null;
+}
+
 /** uuid-ish or the seed's readable ids: letters, digits, dashes and underscores only. */
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 

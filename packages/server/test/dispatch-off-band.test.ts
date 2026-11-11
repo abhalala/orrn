@@ -116,6 +116,17 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     expect((await offBandRows(p.companyId))[0]!.status).toBe("approved");
   }, SLOW);
 
+  test("review 3: two people on every off-band row: the scanner cannot approve their own; a manager who did not scan approves, then completes", async () => {
+    const { p, id, heavy } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [heavy] });
+    const [req] = await offBandRows(p.companyId);
+    expect(req!.requestedBy).toBe(p.users.packer.id);
+    await expect(p.as("packer").approval.decide({ id: req!.id, decision: "approved" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    await p.as("manager").dispatch.reserve({ id });
+    await expect(p.as("manager").dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
   test("rejected: complete refuses and says to take it off; removing the bundle lets the rest complete", async () => {
     const { p, id, ok, heavy } = await setup();
     await p.owner.dispatch.scan({ id, serials: [ok, heavy] });

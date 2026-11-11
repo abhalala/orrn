@@ -108,6 +108,26 @@ describe("tolerance at scan (pl-flow 61)", () => {
     await p.as("admin").approval.decide({ id: req!.id, decision: "approved" });
   }, SLOW);
 
+  test("review 3: two people on every overdraw: the scanner asks and cannot approve; a manager who did not scan approves, then completes; the Complete note keeps its author", async () => {
+    const { p, id, serials } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials });
+    const [req] = await overdraws(p.companyId);
+    expect(req!.requestedBy).toBe(p.users.packer.id);
+    await expect(p.as("packer").approval.decide({ id: req!.id, decision: "approved" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // The office presses Dispatch with a note: it lands on the packer's request, under the office's name.
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.as("office").dispatch.complete({ id, overdrawNote: "Party asked for the full truck" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const [noted] = await overdraws(p.companyId);
+    expect(noted).toMatchObject({ id: req!.id, requestedBy: p.users.packer.id, requestNote: "Party asked for the full truck" });
+    expect(noted!.meta).toMatchObject({ noteById: p.users.office.id });
+    const listed = (await p.as("manager").approval.list({ status: "pending", kind: "dispatch_overdraw" })).items.find((i) => i.id === req!.id)!;
+    expect(listed).toMatchObject({ requestedByName: expect.any(String), noteByName: expect.any(String) });
+    expect(listed.noteByName).not.toBe(listed.requestedByName);
+    // The manager did not scan: may approve, and may be the one who sends it.
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    await expect(p.as("manager").dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
   test("cross-tenant: another plant cannot see or decide the request", async () => {
     const { p, id, serials } = await setup();
     await p.owner.dispatch.scan({ id, serials });

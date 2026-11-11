@@ -44,6 +44,7 @@ import {
   durationText,
   hasLiveFacts,
   lateDispatchOf,
+  noteAuthorName,
   lateEntryOf,
   lateHours,
   lateWindowText,
@@ -210,7 +211,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         </div>
 
         {current.requestNote ? (
-          <Block title={t("approvals.theirNote")}>
+          <Block title={noteAuthorName(current) ? t("approvals.noteFrom", { name: noteAuthorName(current)! }) : t("approvals.theirNote")}>
             <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[15px] break-words">{current.requestNote}</p>
           </Block>
         ) : null}

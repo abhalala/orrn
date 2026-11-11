@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7501 screen strings in 49 groups, 45 guides with 860 strings.
+Counts: 7502 screen strings in 49 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -4164,7 +4164,7 @@ Please check, Lalubhai:
 | `errors.notes` | Keep the notes under 500 characters. | नोट 500 अक्षर से कम रखें। |
 | `errors.reason` | Write why the lot is cancelled. | लिखें कि लॉट क्यों कैंसल हो रहा है। |
 
-### approvals (164)
+### approvals (165)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -4310,6 +4310,7 @@ Please check, Lalubhai:
 | `openLot` | Open lot | लॉट खोलें |
 | `openDie` | Open die | डाई खोलें |
 | `theirNote` | Their note | उनका नोट |
+| `noteFrom` | Note from {name} | {name} का नोट |
 | `decisionNote` | Decision note | फ़ैसले का नोट |
 | `figures` | Figures | आंकड़े |
 | `party` | Party kanta | पार्टी का कांटा |
