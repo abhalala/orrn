@@ -138,6 +138,11 @@ export function closeBlock(status: string, c: Pick<Closeout, "draftMelts">): Clo
   return c.draftMelts > 0 ? "draft_melts" : null;
 }
 
+/** A cast can be cancelled while it is open, with no live and no draft melt. The server also checks billets. */
+export function canCancelCast(status: string, c: Pick<Closeout, "liveMelts" | "draftMelts">): boolean {
+  return status === "open" && c.liveMelts === 0 && c.draftMelts === 0;
+}
+
 export type CountIssue = "pcs" | "kg" | "together";
 
 /**

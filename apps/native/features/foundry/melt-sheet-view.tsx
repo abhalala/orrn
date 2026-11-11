@@ -135,8 +135,67 @@ export function MeltSheetView({ data, melt }: { data: CastData; melt: MeltRow })
         <SpectroPanel meltId={null} results={melt.spectro} limits={(alloy?.limits ?? []) as SpectroLimit[]} alloyCode={alloy?.code ?? melt.alloy} draft={false} readOnly webPath={meltWebPath(cast.id, melt.id)} />
       </Section>
 
-      {status === "locked" && cast.status === "open" ? <Correction melt={melt} /> : null}
+      {status === "locked" && cast.status === "open" ? (
+        <>
+          <Correction melt={melt} />
+          <CancelMelt melt={melt} castNumber={cast.number} />
+        </>
+      ) : null}
     </Screen>
+  );
+}
+
+/** Cancel a locked melt of an open cast. The server reverses its kg and store draws in one batch. */
+function CancelMelt({ melt, castNumber }: { melt: MeltRow; castNumber: string }) {
+  const { t } = useT();
+  const router = useRouter();
+  const cancel = useMutation(trpc.foundry.melts.cancel.mutationOptions());
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [tried, setTried] = useState(false);
+  const [problem, setProblem] = useState<unknown>(null);
+
+  const done = () => {
+    setAsking(false);
+    setReason("");
+    setTried(false);
+    setProblem(null);
+  };
+
+  const confirm = async () => {
+    setTried(true);
+    if (!reason.trim()) return;
+    setProblem(null);
+    try {
+      await cancel.mutateAsync({ meltId: melt.id, reason: reason.trim() });
+      feedback.success();
+      announce(t("foundry.melt.cancel.done", { n: melt.seq, number: castNumber }));
+      void queryClient.invalidateQueries({ queryKey: trpc.foundry.pathKey() });
+      void queryClient.invalidateQueries({ queryKey: trpc.approval.pathKey() });
+      done();
+      router.back();
+    } catch (error) {
+      feedback.error();
+      setProblem(error);
+      announce(foundryError(t, error));
+      if (writeFailureKind(error) === "unsure") void queryClient.invalidateQueries({ queryKey: trpc.foundry.pathKey() });
+    }
+  };
+
+  return (
+    <Can do="cast.close">
+      <Section title={t("foundry.melt.cancel.title")} hint={t("foundry.melt.cancel.body")}>
+        <Button variant="ghost" label={t("foundry.melt.cancel.button")} onPress={() => setAsking(true)} />
+        <Sheet visible={asking} onClose={done} title={t("foundry.melt.cancel.sheetTitle", { n: melt.seq, number: castNumber })}>
+          <Field label={t("foundry.melt.cancel.reason")} value={reason} onChangeText={setReason} maxLength={500} multiline error={tried && !reason.trim() ? t("foundry.melt.cancel.reasonRequired") : null} />
+          <ErrorLine error={problem} />
+          <View className="gap-2">
+            <Button variant="secondary" size="lg" label={t("common.cancel")} onPress={done} />
+            <Button variant="danger" size="lg" label={t("foundry.melt.cancel.confirm")} loading={cancel.isPending} onPress={() => void confirm()} />
+          </View>
+        </Sheet>
+      </Section>
+    </Can>
   );
 }
 
