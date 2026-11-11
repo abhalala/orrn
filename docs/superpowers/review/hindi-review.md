@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7921 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7928 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6855,7 +6855,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (405)
+### ingest (412)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7098,6 +7098,13 @@ Please check, Lalubhai:
 | `bulk.title` | Approve {count} imports? | {count} इम्पोर्ट मंज़ूर करें? |
 | `bulk.body` | Each one is a known layout read by orrn with nothing left to answer. You can still hold any of them before you merge. | हर एक जाना-पहचाना लेआउट है, orrn ने पढ़ा है और कोई जवाब बाकी नहीं है। मर्ज से पहले किसी को भी होल्ड कर सकते हैं। |
 | `bulk.confirm` | Approve {count} | {count} मंज़ूर करें |
+| `imports.emptySegment` | Nothing under {name} right now. | {name} में अभी कुछ नहीं है। |
+| `imports.startFiles` | Add {count} {count:file\|files} | {count} फ़ाइलें जोड़ें |
+| `imports.bulkPartial` | {count} approved. {failed} could not be approved. Open them to see why. | {count} मंज़ूर हुए। {failed} मंज़ूर नहीं हो सके। वजह जानने के लिए उन्हें खोलें। |
+| `imports.colWhat` | Import | इम्पोर्ट |
+| `imports.colFit` | Layout | लेआउट |
+| `imports.colStatus` | Status | स्थिति |
+| `imports.colAction` | Action | कार्रवाई |
 | `discard.title` | Discard {name}? | {name} हटाएं? |
 | `discard.body` | Its {count} rows will not be imported. You can add the file again later. | इसकी {count} लाइनें इम्पोर्ट नहीं होंगी। फ़ाइल बाद में फिर डाल सकते हैं। |
 | `discard.keep` | Keep it | रहने दें |

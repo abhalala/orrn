@@ -307,6 +307,16 @@ export const ingestEn = {
     body: "Each one is a known layout read by orrn with nothing left to answer. You can still hold any of them before you merge.",
     confirm: "Approve {count}",
   },
+  // stage 2a (upload, list, file and merge screens): words the work order table did not list
+  imports: {
+    emptySegment: "Nothing under {name} right now.",
+    startFiles: "Add {count} {count:file|files}",
+    bulkPartial: "{count} approved. {failed} could not be approved. Open them to see why.",
+    colWhat: "Import",
+    colFit: "Layout",
+    colStatus: "Status",
+    colAction: "Action",
+  },
   discard: {
     title: "Discard {name}?",
     body: "Its {count} rows will not be imported. You can add the file again later.",
