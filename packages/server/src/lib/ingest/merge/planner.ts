@@ -38,13 +38,13 @@ import { salesOrder } from "@orrn/db/schema/sales";
 import { chunk as chunkList, mapInChunks, rowsPerStatement, type SqliteBatchItem } from "../../atomic";
 import { loadCandidate, type CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
-import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing, updateRefusal } from "./adapters";
+import { orderPricing, updateRefusal } from "./adapters";
+import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_GROUP_SQL, ORDER_LINE_FIELDS, orderGroupCheck, orderLineOf } from "./rowchecks";
 import {
   CHUNK_MARK,
   CHUNK_ROWS,
   companyNotIndexed,
   failureOf,
-  LINES_PER_ORDER,
   MESSAGE_MAX,
   ORDERS_PER_CHUNK,
   orderKeyOf,
@@ -199,9 +199,9 @@ export function pickOrders<T extends { rowIndex: number }>(rows: readonly T[], r
   return out.sort((a, b) => a.rowIndex - b.rowIndex);
 }
 
-/** The order key of a staged row. Must give the same key as `orderKeyOf` in shared.ts. */
+/** The order key of a staged row: shared with the dry run (rowchecks.ts). */
 const V = ingestStagedRow.values;
-export const ORDER_GROUP_SQL = sql<string>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'), '') || char(31) || case when trim(coalesce(json_extract(${V}, '$.poNumber'), '')) <> '' then 'po:' || lower(trim(json_extract(${V}, '$.poNumber'))) else 'old:' || trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')) || char(31) || coalesce(json_extract(${V}, '$.orderDate'), '') end`;
+export { ORDER_GROUP_SQL };
 
 export type PlanStep =
   | { done: true }
@@ -267,16 +267,10 @@ export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[
     if (list) list.push(r);
     else groups.set(k, [r]);
   }
-  const name = (r: OrderPlanRow) => (r.poText ? `PO ${r.poText}` : r.oldNo ? `Old order ${r.oldNo}` : `The order on file row ${r.rowIndex + 1}`);
+  // The same check the dry run makes over the candidate's ready order lines (rowchecks.ts).
   for (const list of groups.values()) {
-    const first = list[0]!;
-    if (list.length > LINES_PER_ORDER) {
-      return hold(`${name(first)} has ${list.length} lines. An order takes ${LINES_PER_ORDER} lines at most. Split it in the file or skip some rows.`);
-    }
-    const dates = [...new Set(list.map((r) => r.orderDate ?? ""))];
-    if (first.po && dates.length > 1) {
-      return hold(`${name(first)} has more than one order date in the file (${dates.filter(Boolean).slice(0, 3).join(", ")}). One PO is one order. Fix the dates or skip rows.`);
-    }
+    const problem = orderGroupCheck(list);
+    if (problem) return hold(problem.message);
   }
   // POs already on a live order of the same customer.
   const withPo = [...groups.values()].filter((l) => l[0]!.po && l[0]!.customer && !l[0]!.customer.startsWith("pending:"));

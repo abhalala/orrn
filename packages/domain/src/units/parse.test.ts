@@ -265,9 +265,18 @@ describe("checkMagnitude", () => {
     const v = checkMagnitude("bundle.weight", 5_000_000, { text: "5000", unit: "kg" });
     expect(v).toEqual({ ok: false, level: "flag", side: "above", likelyUnit: "g", likelyValue: 5000 });
   });
-  test("0.4 typed in kg: tonnes and quintals both fit, so no single offer", () => {
-    const v = checkMagnitude("bundle.weight", 400, { text: "0.4", unit: "kg" });
+  // Owner, 2026-11-11: a believable bundle is 5 kg to 150 kg.
+  test("0.1 typed in kg: tonnes and quintals both fit, so no single offer", () => {
+    const v = checkMagnitude("bundle.weight", 100, { text: "0.1", unit: "kg" });
     expect(v).toEqual({ ok: false, level: "flag", side: "below" });
+  });
+  test("0.4 typed in kg: only quintals fit, so quintals are offered", () => {
+    const v = checkMagnitude("bundle.weight", 400, { text: "0.4", unit: "kg" });
+    expect(v).toEqual({ ok: false, level: "flag", side: "below", likelyUnit: "quintal", likelyValue: 40_000 });
+  });
+  test("a 200 kg bundle is flagged; a 150 kg bundle is not", () => {
+    expect(checkMagnitude("bundle.weight", 200_000, { text: "200", unit: "kg" }).ok).toBe(false);
+    expect(checkMagnitude("bundle.weight", 150_000, { text: "150", unit: "kg" })).toEqual({ ok: true });
   });
   test("an ordinary value passes; a value past the hard cap is refused", () => {
     expect(checkMagnitude("bundle.weight", 52_400)).toEqual({ ok: true });

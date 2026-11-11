@@ -5,7 +5,7 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { useEffect, useRef, useState } from "react";
 
 import { useIngestActions, type PeriodGuess } from "../lib";
-import { Panel } from "./shared";
+import { ActionError, Panel } from "./shared";
 
 export function PeriodPanel({
   artifactId,
@@ -70,6 +70,7 @@ export function PeriodConfirm({
   const [asOf, setAsOf] = useState(initialAsOf);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
+  const [saveError, setSaveError] = useState<unknown>(null);
   const fyRef = useRef<HTMLInputElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -85,11 +86,12 @@ export function PeriodConfirm({
     }
     setPending(true);
     setError(false);
+    setSaveError(null);
     try {
       await actions.confirmPeriod(artifactId, fy, asOf);
       closeRef.current?.();
-    } catch {
-      setError(true);
+    } catch (e) {
+      setSaveError(e);
     } finally {
       setPending(false);
     }
@@ -103,13 +105,13 @@ export function PeriodConfirm({
         void save();
       }}
     >
-      <Field label={t("ingest.period.chip", { fy: initialFy })} required error={error && !fy ? t("common.required") : undefined}>
+      <Field label={t("ingest.period.fy")} required error={error && !fy ? t("common.required") : undefined}>
         <TextInput ref={fyRef} value={fy} onChange={(event) => setFy(event.currentTarget.value)} />
       </Field>
-      <Field label={t("common.productionDay")} required error={error && !asOf ? t("common.required") : undefined}>
+      <Field label={t("ingest.period.asOf")} required error={error && !asOf ? t("common.required") : undefined}>
         <TextInput type="date" value={asOf} onChange={(event) => setAsOf(event.currentTarget.value)} />
       </Field>
-      {error && fy && asOf ? <p role="alert" className="m-0 text-[14px] text-destructive sm:col-span-2">{t("ingest.read.failed")}</p> : null}
+      <div className="sm:col-span-2"><ActionError error={saveError} /></div>
       <div className="flex flex-wrap gap-2 sm:col-span-2">
         <Button type="submit" size="sm" loading={pending}>{t("common.save")}</Button>
         {onClose ? <Button type="button" size="sm" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button> : null}

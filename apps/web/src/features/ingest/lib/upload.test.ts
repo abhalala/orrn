@@ -55,7 +55,14 @@ const reader = (blocks: ReadBlock[], over: Partial<UploadReader> = {}): UploadRe
   ...over,
 });
 
-const file = (name = "Baki Oct-25.xlsx", bytes = 100) => new File([new Uint8Array(bytes)], name, { type: "" });
+/** A file whose first bytes match its name (a workbook starts with PK, a PDF with %PDF, the rest are text). */
+function head(name: string): string {
+  if (/\.(xlsx|xlsm)$/i.test(name)) return "PK\u0003\u0004";
+  if (/\.pdf$/i.test(name)) return "%PDF-1.7\n";
+  return "a,b\n";
+}
+const file = (name = "Baki Oct-25.xlsx", bytes = 100) => new File([head(name), "x".repeat(Math.max(0, bytes - head(name).length))], name, { type: "" });
+const sized = (name: string, size: number) => Object.defineProperty(file(name, 40), "size", { value: size });
 
 function track() {
   const steps: string[] = [];
@@ -177,7 +184,7 @@ describe("uploadOneFile", () => {
   test("a file over its limit is refused before it is read or hashed", async () => {
     const { api, calls } = fakeApi();
     let hashed = false;
-    const big = { name: "dump.xlsx", size: 20 * 1024 * 1024 + 1, type: "" } as File;
+    const big = sized("dump.xlsx", 20 * 1024 * 1024 + 1);
     const t = track();
     const out = await uploadOneFile(big, { api, reader: reader([], { hash: async () => ((hashed = true), "x") }) }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
@@ -190,7 +197,7 @@ describe("uploadOneFile", () => {
     const t = track();
     const out = await uploadOneFile(file("notes.docx"), { api: fakeApi().api, reader: reader([]) }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.read.failed" });
+    expect(t.item.problem).toEqual({ key: "ingest.drop.wrongType", vars: { name: "notes.docx" } });
   });
 
   test("too many rows from the reader refuses with the file name", async () => {
@@ -238,7 +245,7 @@ describe("uploadOneFile", () => {
   test("limits come from the server when given", async () => {
     const t = track();
     const limits = { ...DEFAULT_LIMITS, maxFileBytes: { ...DEFAULT_LIMITS.maxFileBytes, sheet: 10 } };
-    const out = await uploadOneFile(file("a.xlsx", 20), { api: fakeApi().api, reader: reader([]), limits }, { onItem: t.onItem });
+    const out = await uploadOneFile(file("a.xlsx", 40), { api: fakeApi().api, reader: reader([]), limits }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
   });
 });
@@ -252,5 +259,153 @@ describe("helpers", () => {
     expect(problemFromError(new Error("Merge or discard older imports first"), "a.csv", 50)).toEqual({ key: "ingest.drop.openLimit" });
     expect(problemFromError(new Error("File is too big"), "a.csv", 50)).toEqual({ key: "ingest.drop.tooBig", vars: { name: "a.csv", limit: 50 } });
     expect(problemFromError(new Error("boom"), "a.csv", 50)).toBeNull();
+  });
+});
+
+describe("review: upload fixes", () => {
+  const reportCalls = (calls: Call[]) => calls.filter((c) => c.name === "complete").map((c) => c.input as { readError?: string });
+
+  test("E2: a raw PUT that answers 409 (already stored) goes on to commitRaw and the rest of the upload", async () => {
+    const { api, calls } = fakeApi({
+      artifactBegin: async () => ({ artifactId: "A1", existing: true, uploadedAt: 1, upload: { url: "https://api.test/u", ticket: "T2", expiresAt: 1 } }),
+      artifactGet: async () => ({ readState: "reading", vaultState: "pending", blocks: [] }),
+    });
+    const fetch409 = (async (url: string) =>
+      new Response("This upload is already done", { status: String(url).includes("ticket=T2") ? 409 : 200 })) as unknown as typeof fetch;
+    const t = track();
+    const out = await uploadOneFile(file(), { api, reader: reader([block(0, 2)]), fetch: fetch409 }, { onItem: t.onItem });
+    expect(out.step).toBe("done");
+    expect(calls.map((c) => c.name)).toContain("commitRaw");
+  });
+
+  test("E2: the same 409 on an already-read file still lets commitRaw run and the file opens as seenBefore", async () => {
+    const { api, calls } = fakeApi({
+      artifactBegin: async () => ({ artifactId: "A1", existing: true, uploadedAt: 1, upload: { url: "https://api.test/u", ticket: "T3", expiresAt: 1 } }),
+      artifactGet: async () => ({ readState: "read", vaultState: "pending", blocks: [{ id: "B0", ordinal: 0, rowCount: 1, rowsPut: 1 }] }),
+    });
+    const fetch409 = (async () => new Response("done", { status: 409 })) as unknown as typeof fetch;
+    const out = await uploadOneFile(file(), { api, reader: reader([]), fetch: fetch409 }, { onItem: () => undefined });
+    expect(out.step).toBe("seenBefore");
+    expect(calls.map((c) => c.name)).toEqual(["commitRaw"]);
+  });
+
+  test("E2: other PUT failures still fail the file", async () => {
+    const { api } = fakeApi();
+    const f500 = (async () => new Response("no", { status: 500 })) as unknown as typeof fetch;
+    await expect(uploadOneFile(file(), { api, reader: reader([block(0, 1)]), fetch: f500 }, { onItem: () => undefined })).rejects.toThrow("upload failed (500)");
+  });
+
+  test("E3: a chunk-load or worker failure is not reported to the server, so the same bytes can be tried again", async () => {
+    const { api, calls } = fakeApi();
+    const r = reader([], { read: async () => { throw new ReadError({ code: "unreadable", detail: "Failed to fetch dynamically imported module" }); } });
+    await expect(uploadOneFile(file(), { api, reader: r, fetch: fakeFetch().fn }, { onItem: () => undefined })).rejects.toBeInstanceOf(ReadError);
+    expect(reportCalls(calls)).toEqual([]);
+    const boom = reader([], { read: async () => { throw new Error("worker crashed"); } });
+    await expect(uploadOneFile(file(), { api, reader: boom, fetch: fakeFetch().fn }, { onItem: () => undefined })).rejects.toThrow("worker crashed");
+    expect(reportCalls(calls)).toEqual([]);
+  });
+
+  test("E3: a refusal the bytes cause is reported: too many rows, columns, blocks, and a pdf without text", async () => {
+    for (const failure of [
+      { code: "too_many_rows", rows: 300_000 }, { code: "too_many_columns", sheet: "S", columns: 300 },
+      { code: "too_many_blocks", blocks: 60 }, { code: "no_text_layer" },
+    ] as const) {
+      const { api, calls } = fakeApi();
+      const r = reader([], { read: async () => { throw new ReadError(failure); } });
+      const name = failure.code === "no_text_layer" ? "scan.pdf" : "big.xlsx";
+      const bytes = failure.code === "no_text_layer" ? "%PDF-1.7" : "PK\u0003\u0004";
+      const f = new File([bytes], name);
+      await uploadOneFile(f, { api, reader: r, fetch: fakeFetch().fn }, { onItem: () => undefined }).catch(() => undefined);
+      expect(reportCalls(calls)).toEqual([{ artifactId: "A1", readError: failure.code }]);
+    }
+  });
+
+  test("E3: a photo is refused before any artifact is made, so nothing is left reading for the vision step", async () => {
+    const { api, calls } = fakeApi();
+    const t = track();
+    const jpg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0])], "register.jpg");
+    const out = await uploadOneFile(jpg, { api, reader: reader([]) }, { onItem: t.onItem });
+    expect(out.step).toBe("refused");
+    expect(t.item.problem).toEqual({ key: "ingest.drop.wrongType", vars: { name: "register.jpg" } });
+    expect(calls).toEqual([]);
+  });
+
+  test("E13: a type orrn does not read says which types it does", async () => {
+    const t = track();
+    const out = await uploadOneFile(file("notes.docx"), { api: fakeApi().api, reader: reader([]) }, { onItem: t.onItem });
+    expect(out.step).toBe("refused");
+    expect(t.item.problem).toEqual({ key: "ingest.drop.wrongType", vars: { name: "notes.docx" } });
+  });
+
+  test("E29: a canonical PUT is tried twice and a miss is flagged on the item", async () => {
+    const { api } = fakeApi();
+    let canonical = 0;
+    const fn = (async (url: string) => {
+      if (String(url).includes("ticket=C0")) { canonical += 1; return new Response("no", { status: 500 }); }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = track();
+    const out = await uploadOneFile(file(), { api, reader: reader([block(0, 2)]), fetch: fn }, { onItem: t.onItem });
+    expect(out.step).toBe("done");
+    expect(canonical).toBe(2);
+    expect(t.item.canonicalMissing).toBe(true);
+  });
+
+  test("E29: a canonical PUT that works on the second try leaves no flag", async () => {
+    const { api } = fakeApi();
+    let canonical = 0;
+    const fn = (async (url: string) => {
+      if (String(url).includes("ticket=C0")) { canonical += 1; return new Response("x", { status: canonical === 1 ? 500 : 200 }); }
+      return new Response("{}", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = track();
+    await uploadOneFile(file(), { api, reader: reader([block(0, 2)]), fetch: fn }, { onItem: t.onItem });
+    expect(t.item.canonicalMissing ?? false).toBe(false);
+  });
+});
+
+describe("review: E30 the first bytes decide the kind", () => {
+  const bytes = (...b: number[]) => new Uint8Array(b);
+  const run = async (name: string, head: Uint8Array | string) => {
+    const { api, calls } = fakeApi();
+    const t = track();
+    const f = new File([head as BlobPart, "x".repeat(40)], name);
+    await uploadOneFile(f, { api, reader: reader([block(0, 1)]), fetch: fakeFetch().fn }, { onItem: t.onItem });
+    return { calls, item: t.item };
+  };
+
+  test("a workbook that is really a CSV is sent as csv", async () => {
+    const { calls } = await run("book.xlsx", "Series,Section code\n40,4012\n");
+    expect(calls[0]!.input).toMatchObject({ kind: "csv" });
+  });
+  test("a .csv that is really a zip workbook is sent as a sheet", async () => {
+    const { calls } = await run("book.csv", bytes(0x50, 0x4b, 3, 4));
+    expect(calls[0]!.input).toMatchObject({ kind: "sheet" });
+  });
+  test("an old .xls (OLE) is a sheet", async () => {
+    const { calls } = await run("old.xls", bytes(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1));
+    expect(calls[0]!.input).toMatchObject({ kind: "sheet" });
+  });
+  test("a .pdf that is really a picture is refused", async () => {
+    const { calls, item } = await run("pl.pdf", bytes(0xff, 0xd8, 0xff, 0xe0));
+    expect(calls).toEqual([]);
+    expect(item.step).toBe("refused");
+  });
+  test("a real pdf passes", async () => {
+    const { calls } = await run("pl.pdf", "%PDF-1.7\n");
+    expect(calls[0]!.input).toMatchObject({ kind: "pdf_text" });
+  });
+  test("a .sql that is really a zip is refused", async () => {
+    const { item } = await run("dump.sql", bytes(0x50, 0x4b, 3, 4));
+    expect(item.step).toBe("refused");
+  });
+  test("the size limit uses the kind found in the bytes", async () => {
+    const { api, calls } = fakeApi();
+    // 21 MB is over the sheet limit (20 MB) but under the csv limit (50 MB): a .xlsx that is really a CSV passes.
+    const text = "a,b\n" + "x".repeat(21 * 1024 * 1024);
+    const f = new File([text], "big.xlsx");
+    const out = await uploadOneFile(f, { api, reader: reader([block(0, 1)]), fetch: fakeFetch().fn }, { onItem: () => undefined });
+    expect(out.step).toBe("done");
+    expect(calls[0]!.input).toMatchObject({ kind: "csv" });
   });
 });

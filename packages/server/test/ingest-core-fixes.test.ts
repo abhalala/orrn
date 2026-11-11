@@ -50,7 +50,9 @@ type Sheet = { headers: string[]; rows: string[][]; name?: string };
 const sha = () => createHash("sha256").update(randomUUID()).digest("hex");
 
 async function plant() {
-  const { companyId, users } = await env.seedCompany();
+  // The Baki sheets carry rates. With rates on sales orders off, the dry run asks everyone to leave
+  // rates out (X-new-3), so these plants use rates, as a plant that imports them does.
+  const { companyId, users } = await env.seedCompany({ settings: { priceOnSalesOrder: true } });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, users, as, admin: as("admin"), owner: as("owner") };
 }
@@ -117,10 +119,16 @@ const CUSTOMERS: Sheet = {
 
 const BAKI_ROW = ["1", "Acme Traders", "OB-1", "01/10/2025", "DOMAL 12170", "6.1", "500", "200", "300", "245.50", ""];
 
-/** The Baki layout learned with the rate unit left open (it asks unit_unknown for rate). */
+/**
+ * The Baki layout learned with the rate unit left open (it asks unit_unknown for rate). An order line
+ * needs a cut length, and the dry run refuses a line without one as the merge does (B11). The Baki
+ * sheet has no cut length column, so the layout gives every line 3660 mm as a constant.
+ */
 function bakiRecipe(over: Partial<Recipe> = {}): Recipe {
   const fp = fingerprint({ headers: BAKI_SHEET_HEADERS, rows: [] });
-  return { ...EXAMPLE_BAKI_RECIPE, headerRow: 0, match: { headerKey: fp.headerKey, headers: fp.normalized }, ...over };
+  const r: Recipe = { ...EXAMPLE_BAKI_RECIPE, headerRow: 0, match: { headerKey: fp.headerKey, headers: fp.normalized }, ...over };
+  if (r.target !== "orders" || r.fields.some((f) => f.field === "cutLength")) return r;
+  return { ...r, fields: [...r.fields, { field: "cutLength", source: { kind: "constant", value: "3660" }, steps: [{ op: "number", kind: "length", unit: "mm" }] }] };
 }
 
 describe("A1: a person's change during a dry run step is not lost", () => {
@@ -764,6 +772,8 @@ describe("A12: the derived new customers list", () => {
 
   test("a skip on the list keeps it ready and survives a parent re-run; answering no empties it", async () => {
     const p = await plant();
+    // Orders and die copies are never added as an old section (B10): the section is in orrn.
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
     await learnLayout(p.companyId, p.users.owner.id, rated(), "Baki");
     const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
     const id = candidates[0]!.id;
@@ -782,7 +792,8 @@ describe("A12: the derived new customers list", () => {
     expect((await p.owner.ingest.candidate.get({ candidateId: list.id })).state).toBe("ready");
 
     c = await p.owner.ingest.candidate.get({ candidateId: id });
-    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
+    // The same answer again re-runs the order sheet from its first row.
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "new_customers", subject: "", answer: true, expectSeq: c.serverSeq });
     await pump(p.owner, id);
     let after = await p.owner.ingest.candidate.get({ candidateId: list.id });
     expect(after).toMatchObject({ state: "ready", counts: { total: 1, skipped: 1, create: 0 } });
@@ -832,6 +843,8 @@ describe("A13, A40: the period date reaches every order sheet of the file", () =
 
   test("period.confirm sends an approved order sheet back to checking, with its approval cleared", async () => {
     const p = await plant();
+    // Orders and die copies are never added as an old section (B10): the section is in orrn.
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
     await p.owner.customer.create({ name: "Acme Traders" });
     await learnLayout(p.companyId, p.users.owner.id, undated(), "Baki");
     const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
@@ -839,8 +852,6 @@ describe("A13, A40: the period date reaches every order sheet of the file", () =
     await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-10-31" });
     await pump(p.owner, id);
     let c = await p.owner.ingest.candidate.get({ candidateId: id });
-    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
-    await pump(p.owner, id);
     c = await p.owner.ingest.candidate.get({ candidateId: id });
     c = await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
     expect(c.state).toBe("approved");
@@ -883,6 +894,8 @@ describe("A24: the period guess uses the parsed values after the dry run", () =>
 
   test("an order date column fills the guess the file name could not give", async () => {
     const p = await plant();
+    // Orders and die copies are never added as an old section (B10): the section is in orrn.
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
     await p.owner.customer.create({ name: "Acme Traders" });
     await learnLayout(p.companyId, p.users.owner.id, rated(false), "Baki");
     const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
@@ -895,6 +908,8 @@ describe("A24: the period guess uses the parsed values after the dry run", () =>
 
   test("a sheet with no date column does not feed its as-of date back into the guess", async () => {
     const p = await plant();
+    // Orders and die copies are never added as an old section (B10): the section is in orrn.
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
     await p.owner.customer.create({ name: "Acme Traders" });
     await learnLayout(p.companyId, p.users.owner.id, rated(true), "Baki");
     const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
@@ -1000,6 +1015,8 @@ describe("A17: a column meaning answer is never stored without effect", () => {
 describe("A19: an answered unit is saved into the layout", () => {
   test("two files of one layout: the second asks no unit question", async () => {
     const p = await plant();
+    // Orders and die copies are never added as an old section (B10): the section is in orrn.
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
     await p.owner.customer.create({ name: "Acme Traders" });
     await learnLayout(p.companyId, p.users.owner.id, bakiRecipe(), "Baki");
     const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
@@ -1009,8 +1026,6 @@ describe("A19: an answered unit is saved into the layout", () => {
     c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "unit_unknown", subject: "rate", answer: "inr/kg", expectSeq: c.serverSeq });
     await pump(p.owner, id);
     c = await p.owner.ingest.candidate.get({ candidateId: id });
-    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
-    await pump(p.owner, id);
     c = await p.owner.ingest.candidate.get({ candidateId: id });
     await p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
 
@@ -1293,6 +1308,8 @@ describe("test gaps", () => {
 
   test("A46: an ambiguous date format is asked, blocks approve, and the answer changes the dates", async () => {
     const p = await plant();
+    // Orders and die copies are never added as an old section (B10): the section is in orrn.
+    await env.seedDie(p.companyId, { series: "DOMAL", sectionCode: "12170" });
     await p.owner.customer.create({ name: "Acme Traders" });
     await learnLayout(
       p.companyId,
@@ -1307,8 +1324,6 @@ describe("test gaps", () => {
     const id = candidates[0]!.id;
     await pump(p.owner, id);
     let c = await p.owner.ingest.candidate.get({ candidateId: id });
-    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
-    await pump(p.owner, id);
     c = await p.owner.ingest.candidate.get({ candidateId: id });
     expect(c.questions.find((q) => q.code === "date_format_ambiguous")?.open).toBe(true);
     await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);

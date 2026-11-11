@@ -54,7 +54,9 @@ class FakeR2 {
 }
 
 async function plant() {
-  const { companyId, users } = await env.seedCompany();
+  // The Baki sheets carry rates. With rates on sales orders off, the dry run asks everyone to leave
+  // rates out (X-new-3), so these plants use rates, as a plant that imports them does.
+  const { companyId, users } = await env.seedCompany({ settings: { priceOnSalesOrder: true } });
   const as = (role: CompanyRole) => env.caller({ role, companyId });
   return { companyId, users, as, admin: as("admin"), owner: as("owner") };
 }

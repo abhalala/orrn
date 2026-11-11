@@ -7,7 +7,7 @@
  * dry run, both passed in as functions.
  */
 import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
-import { costOfResponse, estimateTokens, worstCaseCostMicro } from "./cost";
+import { costOfResponse, estimateTokens, worstCaseCallCostMicro } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
 import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeModelClient, type ShapeResponse } from "./client";
 import { buildSystem, buildUserContent, type CatalogueTarget, newNonce, requestChars } from "./prompt";
@@ -224,12 +224,13 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
   }
 
   // Claim this call's place under the caps before the model is called (A8). The claim carries the
-  // call's worst-case cost, so the day cost cap counts calls still in flight; finishRun replaces it
-  // with the real cost.
+  // call's worst-case cost, the server-side fallback attempt included, so the day cost cap counts
+  // calls still in flight; finishRun replaces it with the real cost.
   const zero = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0 };
+  const fallbacks = model === "claude-sonnet-5-5";
   let claimId: string | null = null;
   if (args.store.finishRun) {
-    const worst = worstCaseCostMicro(model, inputEstimate, MAX_TOKENS[model]);
+    const worst = worstCaseCallCostMicro(model, inputEstimate, MAX_TOKENS[model], fallbacks);
     claimId = await args.store.insertRun({ ...base, model, outcome: "pending", ...zero, costMicroUsd: worst, createdAtMs: now(), errorCodes: null });
     const late = await capsAfterClaim({
       store: args.store,
@@ -254,7 +255,7 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
       system,
       messages: [{ role: "user", content }],
       maxTokens: MAX_TOKENS[model],
-      fallbacks: model === "claude-sonnet-5-5",
+      fallbacks,
       purpose: "shape",
     });
   } catch (err) {

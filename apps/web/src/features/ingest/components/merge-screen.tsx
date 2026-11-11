@@ -8,6 +8,7 @@ import { Can } from "@/shared/components/can";
 import {
   candidateStateKey,
   candidateTone,
+  ingestErrorWords,
   TARGET_KEY,
   useMergePump,
   useMergeRun,
@@ -19,9 +20,11 @@ export function IngestMergeScreen({ runId }: { runId: string }) {
   const { t } = useT();
   const query = useMergeRun(runId);
   const pump = useMergePump(runId);
+  const state = query.data?.state;
+  const subtitle = state === "done" || state === "done_with_holds" ? t("ingest.state.merged") : state === "stopped" ? undefined : t("ingest.state.merging");
   return (
     <>
-      <PageHeader back={{ to: "/ingest", label: t("ingest.title") }} title={t("ingest.title")} subtitle={t("ingest.state.merging")} />
+      <PageHeader back={{ to: "/ingest", label: t("ingest.title") }} title={t("ingest.title")} subtitle={subtitle} />
       <QueryPanel query={query}>
         {pump.run ? <MergeBody pump={pump} run={pump.run} /> : null}
       </QueryPanel>
@@ -36,16 +39,19 @@ export function MergeBody({ pump, run }: { pump: ReturnType<typeof useMergePump>
   const progress = pump.chunksTotal > 0 ? doneParts / pump.chunksTotal : null;
   const part = Math.min(pump.chunksTotal, doneParts + 1);
   const progressLabel = run.state === "planning" || pump.chunksTotal === 0
-    ? t("ingest.state.processing")
+    ? t("ingest.merge.planning")
     : t("ingest.merge.running", { n: part, total: pump.chunksTotal });
   const holds = pump.results.filter((result) => result.state === "held");
   const created = pump.results.reduce((sum, result) => sum + result.rowsCreate, 0);
   const updated = pump.results.reduce((sum, result) => sum + result.rowsUpdate, 0);
+  const stoppedText = t("ingest.merge.stopped", { done: pump.chunksWritten, total: pump.chunksTotal });
   const title = run.state === "stopped"
-    ? t("ingest.merge.stop")
+    ? stoppedText
     : run.state === "done" || run.state === "done_with_holds"
       ? t("ingest.merge.done", { created, updated })
-      : t("ingest.state.merging");
+      : run.state === "planning"
+        ? t("ingest.merge.planning")
+        : t("ingest.state.merging");
   return (
     <>
       <Panel title={title}>
@@ -54,12 +60,11 @@ export function MergeBody({ pump, run }: { pump: ReturnType<typeof useMergePump>
         {pump.phase === "error" ? (
           <InlineNotice tone="danger">
             <div className="flex flex-wrap items-center gap-3">
-              <span>{t("ingest.read.failed")}</span>
+              <span>{translateKey(t, ingestErrorWords(pump.error, "action").key)}</span>
               <Button size="sm" variant="secondary" onClick={pump.retry}>{t("common.retry")}</Button>
             </div>
           </InlineNotice>
         ) : null}
-        {!running ? <p className="m-0 text-[15px] leading-6">{t("ingest.merge.done", { created, updated })}</p> : null}
         {holds.length > 0 ? <p className="m-0 text-[15px] font-semibold text-tone-amber-ink">{t("ingest.merge.holds", { count: holds.length })}</p> : null}
         {running ? (
           <Can do="ingest.merge">

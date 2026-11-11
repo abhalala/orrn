@@ -35,16 +35,18 @@ describe("C8: values past the registry's hard limit are refused", () => {
 });
 
 describe("C19: values outside the plausible range are flagged for a person, never changed", () => {
-  test("a 3 t bundle is flagged; a 2 t bundle is not", () => {
+  // Owner, 2026-11-11: a believable bundle is 5 kg to 150 kg.
+  test("a 3 t bundle is flagged; a 0.1 t bundle is not", () => {
     const recipe = instantiate(builtinBundles, ["Legacy id", "Series", "Section code", "Pieces", "Weight (t)", "Length (mm)"]);
-    const [three, two] = applyRecipe(recipe, [
+    const [three, tenth] = applyRecipe(recipe, [
       ["ck1", "R", "2105", "40", "3", "3658"],
-      ["ck2", "R", "2105", "40", "2", "3658"],
+      ["ck2", "R", "2105", "40", "0.1", "3658"],
     ]);
     expect(three!.state).toBe("ok");
     expect(three!.values.weightG).toBe(3_000_000);
     expect(three!.flags).toEqual([{ field: "weightG", code: "magnitude", side: "above", likelyUnit: null, likelyValue: null }]);
-    expect(two!.flags).toEqual([]);
+    expect(tenth!.values.weightG).toBe(100_000);
+    expect(tenth!.flags).toEqual([]);
   });
 
   test("5000 typed as INR per kg is flagged above the plausible rate", () => {

@@ -10,7 +10,7 @@ import { useId, type ReactNode } from "react";
 import { Can } from "@/shared/components/can";
 import { showsQueryError } from "@/shared/lib/query-errors";
 
-import { reasonLine, type Tone } from "../lib";
+import { ingestErrorWords, reasonLine, type Tone } from "../lib";
 
 export const ingestKey = (key: string) => key as MessageKey;
 export const translateKey = (t: Translate, key: string, vars?: Record<string, string | number>) =>
@@ -63,7 +63,7 @@ export function Panel({
   );
 }
 
-export function QueryPanel({ query, children }: { query: { isLoading: boolean; isError: boolean; data: unknown; refetch(): unknown }; children: ReactNode }) {
+export function QueryPanel({ query, children }: { query: { isLoading: boolean; isError: boolean; error?: unknown; data: unknown; refetch(): unknown }; children: ReactNode }) {
   const { t } = useT();
   if (query.isLoading) {
     return (
@@ -78,7 +78,7 @@ export function QueryPanel({ query, children }: { query: { isLoading: boolean; i
     return (
       <div role="alert" className="rounded-card border border-border bg-card">
         <EmptyState
-          title={t("ingest.read.failed")}
+          title={translateKey(t, ingestErrorWords(query.error, "load").key)}
           action={
             <Button variant="secondary" onClick={() => void query.refetch()}>
               {t("common.retry")}
@@ -145,5 +145,16 @@ export function CandidateLink({ id, children, className }: { id: string; childre
     <UiLink to={`/ingest/review/${id}`} className={cn("inline-flex min-h-11 items-center font-semibold text-foreground underline-offset-4 hover:underline", className)}>
       {children}
     </UiLink>
+  );
+}
+
+/** The words for a failed write, in an alert line. Nothing renders while `error` is null. */
+export function ActionError({ error, kind = "action" }: { error: unknown; kind?: "load" | "action" }) {
+  const { t } = useT();
+  if (error === null || error === undefined || error === false) return null;
+  return (
+    <p role="alert" className="m-0 text-[13px] text-destructive">
+      {translateKey(t, ingestErrorWords(error, kind).key)}
+    </p>
   );
 }
