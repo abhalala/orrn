@@ -93,7 +93,7 @@ export function CandidateCard({ candidate, onDone }: { candidate: CandidateSumma
       <div className="flex flex-wrap items-center gap-2">
         <Chip tone="neutral">{translateKey(t, fitKeyOf(candidate.fit))}</Chip>
         {candidate.openQuestions > 0 ? (
-          <span className="text-[13px] font-medium text-tone-amber-ink">{candidate.openQuestions}</span>
+          <span className="text-[13px] font-medium text-tone-amber-ink">{t("ingest.group.needsYou")} {candidate.openQuestions}</span>
         ) : null}
       </div>
       <dl className="m-0 flex flex-wrap gap-x-4 gap-y-2">

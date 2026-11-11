@@ -82,9 +82,11 @@ export function MergeBody({ pump, run }: { pump: ReturnType<typeof useMergePump>
                   </div>
                   <Chip tone={chipTone(candidateTone(result.state))}>{translateKey(t, candidateStateKey(result.state))}</Chip>
                 </div>
-                <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-                  {result.rowsCreate} · {result.rowsUpdate} · {result.rowsWritten}
-                </p>
+                <dl className="m-0 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[13px] tabular-nums text-muted-foreground">
+                  <div className="flex gap-1.5"><dt>{t("ingest.row.ready_create")}</dt><dd className="m-0">{result.rowsCreate}</dd></div>
+                  <div className="flex gap-1.5"><dt>{t("ingest.row.ready_update")}</dt><dd className="m-0">{result.rowsUpdate}</dd></div>
+                  <div className="flex gap-1.5"><dt>{t("ingest.state.merged")}</dt><dd className="m-0">{result.rowsWritten}</dd></div>
+                </dl>
                 <ReasonText code={result.reasonCode} detail={result.reasonDetail} />
               </li>
             ))}
