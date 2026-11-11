@@ -96,7 +96,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
         .join("");
       const sec = sectionAfter.get(gi);
       return `
-      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups) + plGroupPrintDetails(g as PlGroupPrintDetails, opts.printText))}</td></tr>
+      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups) + plGroupPrintDetails(g as PlGroupPrintDetails))}</td></tr>
       ${rows}
       <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="${tail}"></td></tr>${
         sec
@@ -109,7 +109,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
   const brand = pl.issue?.branding;
   const profiles = plProfileLines(pl);
   const revision = plRevisionText(pl);
-  const footer = `${h.company.legalName ?? h.company.name} · ${plLockedSnapshotFooter(h.plNumber, pl.issue?.revision ?? 1, opts.printText)}`;
+  const footer = `${h.company.legalName ?? h.company.name} · ${plLockedSnapshotFooter(h.plNumber, pl.issue?.revision ?? 1)}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -189,7 +189,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
   <div class="closing">
     ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
     <div class="total">${escapeHtml(pl.summary.text)}</div>
-    <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${e(label)}<div class="signature-line"></div></div>`).join("")}</div>
+    <div class="signatures">${plSignatureLabels().map((label) => `<div class="signature">${e(label)}<div class="signature-line"></div></div>`).join("")}</div>
   </div>
 </body>
 </html>`;
@@ -240,7 +240,7 @@ export function buildPackingListHtml(
       return head + rows + sub;
     })
     .join("");
-  const footer = `${header.companyName} · ${plLockedSnapshotFooter(code, 1, opts.printText)}`;
+  const footer = `${header.companyName} · ${plLockedSnapshotFooter(code, 1)}`;
 
   return `<!DOCTYPE html>
 <html>
@@ -300,7 +300,7 @@ export function buildPackingListHtml(
     <table>${V1_COLGROUP}<tbody>
       <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
     </tbody></table>
-    <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${escapeHtml(label)}<div class="signature-line"></div></div>`).join("")}</div>
+    <div class="signatures">${plSignatureLabels().map((label) => `<div class="signature">${escapeHtml(label)}<div class="signature-line"></div></div>`).join("")}</div>
   </div>
 </body>
 </html>`;
