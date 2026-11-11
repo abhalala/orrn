@@ -23,8 +23,8 @@ import {
 import { useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
-import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit, paperT, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 const SIZE_KEY = "orrn.labelSheetSize";
 
@@ -220,7 +220,7 @@ const STICKER = {
   21: { pad: "p-[1.1cqw]", gap: "gap-x-[1.1cqw]", qr: "size-[10cqw]", head: "text-[1.45cqw]", serial: "text-[1.95cqw]", body: "text-[1.5cqw]", small: "text-[1.25cqw]" },
 } as const;
 
-function Sticker({
+export function Sticker({
   label: l,
   company,
   unit,
@@ -233,8 +233,10 @@ function Sticker({
   qr: string | undefined;
   dense: boolean;
 }) {
-  const fmt = useFmt();
-  const { t } = useT();
+  // A paper: today's units and words whatever the plant chose for its screens (guarded by paper-guard.test.ts).
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const party = stickerPartyNo(l);
   const std = standardLine(l);
   const k12 = sectionOrNull(fmt, l.kgPer12ftMilli);

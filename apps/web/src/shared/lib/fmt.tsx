@@ -34,14 +34,17 @@ export function FmtProvider({ prefs, timeZone, children }: { prefs?: ResolvedPre
 }
 
 /**
- * The formatter for a screen that mirrors a paper (a printed die card, the packing list): today's date style and
- * 24 hour clock whatever the plant chose, in the person's language and the plant's zone. The paper keeps its own
- * style until it has its own setting (design: papers follow the plant's setting, then the customer's).
+ * The formatter for a paper (the packing list, the pack stickers, the printed die card, the test certificates): today's
+ * units and words, date style and 24 hour clock whatever the plant chose for its screens, in the person's language and
+ * the plant's zone. A plant that wrote lengths in feet and inches keeps them. The paper keeps its own style until it has its
+ * own setting (design: papers follow the plant's setting, then the customer's). Pair it with `paperT` for the words, and
+ * never call `useFmt()` in a paper (`paper-guard.test.ts` lists the papers).
  */
 export function usePaperFmt(): Fmt {
-  const { timeZone } = useContext(FmtContext);
+  const { timeZone, prefs } = useContext(FmtContext);
   const { locale } = useT();
-  return useMemo(() => paperFormatter(locale, timeZone), [locale, timeZone]);
+  const inch = prefs.units.length === "ft_in";
+  return useMemo(() => paperFormatter(locale, timeZone, { inch }), [locale, timeZone, inch]);
 }
 
 /** The formatter for the current plant, person's language and plant time zone. */
