@@ -10,6 +10,7 @@
 import { orderLineGrams } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import type { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
@@ -632,7 +633,7 @@ const orders: Adapter = async (args) => {
   } catch (e) {
     return { written: [], failure: failureOf(e) };
   }
-  const { createInput, createSalesOrder } = await import("../../../routers/salesOrder");
+  const { createInput, createSalesOrder, orderLineInput } = await import("../../../routers/salesOrder");
   const { confirmOrder, orderConfirmBlockers } = await import("../../../routers/orderFlow");
   const price = await orderPricing(ctx);
   const canPrice = price.canPrice;
@@ -656,6 +657,40 @@ const orders: Adapter = async (args) => {
   } catch (e) {
     return { written: [], failure: failureOf(e) };
   }
+  // Every line checked before any order is written (B11): a row the order screen would refuse
+  // names its file row instead of failing a whole order part way through the book.
+  const lineOf = new Map<string, z.input<typeof orderLineInput>>();
+  try {
+    for (const row of rows) {
+      const v = valuesOf(row);
+      const at = `File row ${row.rowIndex + 1}`;
+      const grams = orderLineGrams(v).grams;
+      if (grams === null) throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: no weight on this line. Give the ordered or balance kg, or skip the row.` });
+      if (grams <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: nothing is left to dispatch on this line (balance 0 kg). Skip the row.` });
+      if (num(v.cutLength) === null) throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: no cut length. Give the cut length, or skip the row.` });
+      const rate = num(v.rate);
+      const line = {
+        sectionId: sectionOf.get(row.id)!,
+        kgPer12ftMilli: num(v.kgPer12ft),
+        cutLengthMm: num(v.cutLength)!,
+        pcs: num(v.pcs),
+        kgG: grams,
+        finish: nullable(v.finish),
+        alloy: nullable(v.alloy),
+        temper: nullable(v.temper),
+        note: nullable(v.note),
+        ...(canPrice && rate !== null ? { ratePaise: rate } : {}),
+      };
+      const ok = orderLineInput.safeParse(line);
+      if (!ok.success) {
+        const issue = ok.error.issues[0]!;
+        throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: ${issue.path.join(".")}: ${issue.message}` });
+      }
+      lineOf.set(row.id, line);
+    }
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
   const written: Written[] = [];
   for (const group of groups) {
     try {
@@ -664,23 +699,7 @@ const orders: Adapter = async (args) => {
       if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: `${text(first.customer) ?? "This party"} is not a customer in orrn` });
       const oldNo = text(first.oldOrderNo);
       const notes = [oldNo ? `Old order no. ${oldNo}` : null].filter(Boolean).join(" ");
-      const lines = group.rows.map((row) => {
-        const v = valuesOf(row);
-        const sectionId = sectionOf.get(row.id)!;
-        const rate = num(v.rate);
-        return {
-          sectionId,
-          kgPer12ftMilli: num(v.kgPer12ft),
-          cutLengthMm: num(v.cutLength) as number,
-          pcs: num(v.pcs),
-          kgG: orderLineGrams(v).grams ?? undefined,
-          finish: nullable(v.finish),
-          alloy: nullable(v.alloy),
-          temper: nullable(v.temper),
-          note: nullable(v.note),
-          ...(canPrice && rate !== null ? { ratePaise: rate } : {}),
-        };
-      });
+      const lines = group.rows.map((row) => lineOf.get(row.id)!);
       // The same input check as `orders.create`.
       const input = createInput.parse({
         customerId,

@@ -171,7 +171,7 @@ describe("orders", () => {
     expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done_with_holds");
     const c = await candidateRow(env, seeded.candidateId);
     expect(c.state).toBe("held");
-    expect(c.reasonDetail).toContain("lines.0.cutLengthMm");
+    expect(c.reasonDetail).toBe("File row 1: no cut length. Give the cut length, or skip the row.");
   });
 });
 
@@ -317,5 +317,19 @@ describe("an old section the person said to add (B10)", () => {
     const [made] = await env.db.select().from(die).where(and(eq(die.companyId, companyId), eq(die.sectionCode, "9100")));
     const { lines } = await orderRows(companyId);
     expect(lines.map((l) => l.dieId).sort()).toEqual([dieId, made!.id].sort());
+  });
+});
+
+describe("order rows the order screen would refuse (B11)", () => {
+  test("a closed line (balance 0) is refused before any order of the chunk is written, naming its file row", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const seeded = await seedCandidate(env, companyId, "orders", [
+      line(customerId, dieId, { oldOrderNo: "Z-1" }),
+      line(customerId, dieId, { oldOrderNo: "Z-2", orderedKg: 1_000_000, dispatchedKg: 1_000_000, bakiKg: 0 }),
+    ]);
+    expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c.reasonDetail).toBe("File row 2: nothing is left to dispatch on this line (balance 0 kg). Skip the row.");
+    expect((await orderRows(companyId)).orders).toHaveLength(0);
   });
 });
