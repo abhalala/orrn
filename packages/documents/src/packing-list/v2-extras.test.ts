@@ -101,6 +101,7 @@ describe("packing list v2 extras (FP-PK-13)", () => {
   test("the print footer and page counter sit in page margin boxes", () => {
     const pl = parsePackingListSnapshot(v2());
     const html = buildPackingListHtml(pl, "ANOTHER-PL");
+    expect(html).toContain("<title>PL-2026-27-7_Shivam</title>");
     expect(html).toContain("Not a tax invoice. Printed from PL/2026-27/7 revision 2 as issued.");
     expect(html).not.toContain("position: fixed");
     expect(html).toContain("@page");

@@ -18,6 +18,7 @@ import {
   plLockedSnapshotFooter,
   plSignatureLabels,
   plGroupPrintDetails,
+  plPdfFileName,
   type PlGroupPrintDetails,
   type PlSnapshotV2,
 } from "./snapshot";
@@ -113,7 +114,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${e(h.plNumber)}</title>
+  <title>${e(plPdfFileName(h.plNumber, pl.dispatch.customer.name).replace(/\.pdf$/, ""))}</title>
   <style>
     @page {
       size: A4;
@@ -244,7 +245,7 @@ export function buildPackingListHtml(
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(code)}</title>
+  <title>${escapeHtml(plPdfFileName(code, header.customerName).replace(/\.pdf$/, ""))}</title>
   <style>
     @page {
       size: A4;

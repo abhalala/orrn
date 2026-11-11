@@ -10,6 +10,7 @@ describe("packing list html (native print)", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
     expect(html).toContain("Shivam Aluminium, Bhavnagar");
     expect(html).toContain("PL-0007");
+    expect(html).toContain("<title>PL-0007_Shivam Aluminium, Bhavnagar</title>");
     expect(html).toContain("Weight range /12'");
     expect(html).toContain("3 bundles · 152.97 kg");
     expect(html).not.toContain(RECEIPT_UUID);
