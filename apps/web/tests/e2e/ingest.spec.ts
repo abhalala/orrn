@@ -132,7 +132,7 @@ test.describe("imports portal", () => {
       await page.getByRole("button", { name: "Map columns for me" }).click();
       await expect(page.getByText("Ready", { exact: true }).first()).toBeVisible({ timeout: 90_000 });
       // The person reviews the proposed mapping through the staged row and approves.
-      await expect(page.getByText(code).first()).toBeVisible();
+      await expect(page.locator("table").getByText(code).first()).toBeVisible();
       await page.getByRole("button", { name: "Approve" }).first().click();
       await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
 
