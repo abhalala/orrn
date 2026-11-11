@@ -33,9 +33,15 @@ export function detectDelimiter(sample: string): CsvDelimiter {
       }
       return c;
     });
-    if (counts.length === 0 || counts[0] === 0) continue;
-    const consistent = counts.filter((c) => c === counts[0]).length / counts.length;
-    const score = consistent * counts[0]!;
+    // Score over the lines that hold the delimiter, so a title line above the table does not hide it (C35).
+    const used = counts.filter((c) => c > 0);
+    if (used.length === 0) continue;
+    const freq = new Map<number, number>();
+    for (const c of used) freq.set(c, (freq.get(c) ?? 0) + 1);
+    let mode = used[0]!;
+    for (const [c, f] of freq) if (f > freq.get(mode)! || (f === freq.get(mode)! && c > mode)) mode = c;
+    const consistent = freq.get(mode)! / counts.length;
+    const score = consistent * mode;
     if (score > bestScore) {
       bestScore = score;
       best = d;
