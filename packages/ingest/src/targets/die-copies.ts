@@ -1,4 +1,4 @@
-import { field } from "./field";
+import { field, rangeCheck } from "./field";
 import type { TargetDef } from "./types";
 
 /** `dieInstanceStatuses` in packages/db/src/schema/dies.ts. */
@@ -11,11 +11,11 @@ export const dieCopiesTarget: TargetDef = {
   fields: [
     field("series", { required: true }),
     field("sectionCode", { required: true, resolver: "section_by_code" }),
-    field("tierRank", { kind: "count" }),
+    field("tierRank", { kind: "count", check: rangeCheck(1, 99, "out_of_range") }),
     field("makerDieNo", { resolver: "die_copy_by_code" }),
     field("makerProjectNo"),
     field("supplier"),
-    field("trialKgPer12ft", { kind: "linear_mass" }),
+    field("trialKgPer12ft", { kind: "linear_mass", magnitude: "die.band" }),
     field("hardness", { kind: "count", note: "Surface hardness, HV" }),
     field("lifeKg", { kind: "mass", note: "Life in kg, stored in grams" }),
     field("status", { enum: DIE_COPY_STATUSES }),

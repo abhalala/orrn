@@ -28,6 +28,22 @@ describe("detectPeriod sources", () => {
     expect(detectPeriod({ fileName: "baki 2025-10-31.xlsx", ...now })).toMatchObject({ fy: "2025-26", asOf: "2025-10-31" });
     expect(detectPeriod({ fileName: "baki 31-Oct-25.xlsx", ...now })).toMatchObject({ fy: "2025-26", asOf: "2025-10-31" });
   });
+  test("C10: FY with a two-digit range starts at the first year", () => {
+    expect(detectPeriod({ fileName: "Baki FY 25-26.xlsx", ...now }).fy).toBe("2025-26");
+    expect(detectPeriod({ fileName: "Baki FY25-26.xlsx", ...now }).fy).toBe("2025-26");
+    expect(detectPeriod({ fileName: "Baki FY 24-25.xlsx", ...now }).fy).toBe("2024-25");
+    expect(detectPeriod({ fileName: "Baki FY 2025-26.xlsx", ...now }).fy).toBe("2025-26");
+  });
+
+  test("C25: a month needs its full name or a standard short form", () => {
+    expect(detectPeriod({ sheetNames: ["Janta 2025"], ...now }).confidence).toBe("unknown");
+    expect(detectPeriod({ sheetNames: ["Market 12"], ...now }).confidence).toBe("unknown");
+    expect(detectPeriod({ sheetNames: ["Decent 25"], ...now }).confidence).toBe("unknown");
+    expect(detectPeriod({ sheetNames: ["October 2025"], ...now }).fy).toBe("2025-26");
+    expect(detectPeriod({ sheetNames: ["Sept 25"], ...now }).fy).toBe("2025-26");
+    expect(detectPeriod({ sheetNames: ["Sep-25"], ...now }).fy).toBe("2025-26");
+  });
+
   test("title rows and sheet names", () => {
     expect(detectPeriod({ titles: ["PENDING ORDER LIST AS ON 31.10.2025"], ...now })).toMatchObject({ fy: "2025-26", asOf: "2025-10-31", confidence: "medium" });
     expect(detectPeriod({ sheetNames: ["Oct 25"], ...now })).toMatchObject({ fy: "2025-26", asOf: null });

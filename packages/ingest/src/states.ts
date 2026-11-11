@@ -116,5 +116,7 @@ export const REFUSAL_CODES = [
   "module_off",
   "baki_mismatch",
   "in_file_duplicate",
+  "over_dispatched",
+  "no_quantity",
 ] as const;
 export type RefusalCode = (typeof REFUSAL_CODES)[number];

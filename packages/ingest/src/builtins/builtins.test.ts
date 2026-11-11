@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 
 import { DIE_SHEET_HEADERS, EXAMPLE_DIE_RECIPE } from "../recipe-fixtures";
+import { applyRecipe } from "../apply";
+import { fingerprint } from "../fingerprint";
+import { fitBuiltin } from "../fit";
 import { recipeSchema } from "../recipe";
 import { analyzeBuiltin, builtinBundles, builtinCustomers, builtinDies, instantiate, IMPORT_FIELDS, readHeader, unitFromHeaderText } from "./index";
 
@@ -42,13 +45,32 @@ describe("instantiate", () => {
   });
 
   test("a per-12-ft header is never the weight of a bundle", () => {
-    const a = analyzeBuiltin(builtinBundles, ["Die series", "Section code", "Pieces", "Weight Kg/12ft", "Length (mm)"]);
+    const a = analyzeBuiltin(builtinBundles, ["Legacy id", "Die series", "Section code", "Pieces", "Weight Kg/12ft", "Length (mm)"]);
     expect(a.missingRequired).toEqual(["weightG"]);
   });
 
   test("the template sheets of the web parser map every required field", () => {
-    expect(analyzeBuiltin(builtinBundles, ["Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)", "PO number"]).missingRequired).toEqual([]);
+    // The bundle template needs its legacy id column (C1): it is the only key that finds a bundle already in orrn.
+    expect(analyzeBuiltin(builtinBundles, ["Legacy id", "Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)", "PO number"]).missingRequired).toEqual([]);
     expect(analyzeBuiltin(builtinCustomers, ["Name", "Phone", "Email", "GSTIN", "Notes"]).missingRequired).toEqual([]);
+  });
+
+  test("C1: a bundle sheet with no legacy id column misses a required field and does not fit", () => {
+    const headers = ["Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)", "PO number"];
+    expect(analyzeBuiltin(builtinBundles, headers).missingRequired).toEqual(["legacyId"]);
+    expect(fitBuiltin(fingerprint({ headers, rows: [["R", "2105", "4", "12.5", "12", ""]] }), builtinBundles)).toBeNull();
+  });
+
+  test("C1: a bundle row with a blank legacy id is refused, so a re-upload cannot create it twice", () => {
+    const headers = ["Legacy id", "Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)"];
+    const recipe = instantiate(builtinBundles, headers);
+    const [blank, filled] = applyRecipe(recipe, [
+      ["", "R", "2105", "4", "12.5", "12"],
+      ["ck1", "R", "2105", "4", "12.5", "12"],
+    ]);
+    expect(blank!.state).toBe("refused");
+    expect(blank!.refusals).toContainEqual({ field: "legacyId", code: "blank_required" });
+    expect(filled!.state).toBe("ok");
   });
 
   test("two columns for one field: the first is used and the field is flagged", () => {

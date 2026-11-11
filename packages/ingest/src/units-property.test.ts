@@ -31,8 +31,13 @@ describe("round trips", () => {
         for (let n = 0; n < 200; n++) {
           const d = randomDecimal(next);
           const a = conv(kind, unit, d);
-          expect(a.ok).toBe(true);
-          if (!a.ok) continue;
+          // The registry refuses a value past its sanity cap for the kind (for example 83,334 kg/ft is more than
+          // 1e9 g per 12 ft). That is a unit slip, not a quantity, so only large values may be refused.
+          if (!a.ok) {
+            expect(a.code).toBe("out_of_range");
+            expect(Number(d)).toBeGreaterThan(10_000);
+            continue;
+          }
           const text = canonicalToUnitText(kind, unit, a.canonical, 12)!;
           const b = conv(kind, unit, text);
           expect(b.ok && b.canonical).toBe(a.canonical);
@@ -115,7 +120,9 @@ describe("order and exactness", () => {
     expect(conv("mass", "kg", "1.005")).toEqual({ ok: true, canonical: 1005, rounded: false });
     expect(conv("mass", "t", "8.205")).toEqual({ ok: true, canonical: 8_205_000, rounded: false });
     expect(conv("mass", "kg", "0.0005")).toEqual({ ok: true, canonical: 1, rounded: true });
-    expect(conv("mass", "kg", "9007199254740.991")).toEqual({ ok: true, canonical: 9_007_199_254_740_991, rounded: false });
+    // The top of the range is the registry's cap (1e12 g), not the safe integer limit: past it is a unit slip.
+    expect(conv("mass", "kg", "999999999.999")).toEqual({ ok: true, canonical: 999_999_999_999, rounded: false });
+    expect(conv("mass", "kg", "1000000000.0005")).toEqual({ ok: false, code: "out_of_range" });
     expect(conv("mass", "kg", "9007199254740.992")).toEqual({ ok: false, code: "out_of_range" });
   });
 });

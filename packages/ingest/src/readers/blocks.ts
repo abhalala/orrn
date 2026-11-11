@@ -55,6 +55,38 @@ function hasBlankInSpan(row: readonly string[]): boolean {
   return false;
 }
 
+const isTextCell = (c: string) => {
+  const k = cellKind(c);
+  return k === "text" || k === "code";
+};
+
+/**
+ * Is `bottom` the second row of a two-row header under `top` (C14)? Needs structure, not only text: some top cell
+ * inside the header span is blank over a filled bottom cell (a group label spans it); every bottom cell is a short
+ * label (text of 3 words or fewer); and the row below does not hold text in the same columns as `bottom` does, which
+ * would make `bottom` the first data row.
+ */
+function isSecondHeaderRow(top: readonly string[], bottom: readonly string[], below: readonly string[] | undefined): boolean {
+  if (!hasBlankInSpan(top) || nonBlank(bottom) < 2 || textShare(bottom) < HEADER_TEXT_SHARE) return false;
+  let first = -1;
+  let last = -1;
+  top.forEach((c, i) => {
+    if (c !== "") {
+      if (first === -1) first = i;
+      last = i;
+    }
+  });
+  let spans = false;
+  for (let i = first + 1; i <= Math.max(last, bottom.length - 1); i++) if ((top[i] ?? "") === "" && (bottom[i] ?? "") !== "") spans = true;
+  if (!spans) return false;
+  if (bottom.some((c) => c !== "" && (!isTextCell(c) || c.trim().split(/\s+/).length > 3))) return false;
+  if (below && nonBlank(below) > 0) {
+    const sameShape = bottom.every((c, i) => c === "" || ((below[i] ?? "") !== "" && isTextCell(below[i]!)));
+    if (sameShape) return false;
+  }
+  return true;
+}
+
 /** "Top bottom" for a two-row header. A blank top cell above a filled bottom cell continues the group to its left. */
 function combineHeaders(top: readonly string[], bottom: readonly string[]): string[] {
   const width = Math.max(top.length, bottom.length);
@@ -85,6 +117,22 @@ function startsNewBlock(row: readonly string[], recent: readonly string[][], wid
   return false;
 }
 
+/** A cell that reads like a title or letterhead, not a column name: a colon label, a date or a year. */
+const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\b(?:19|20)\d{2}\b/;
+
+/**
+ * Is the header-like row at `h` a title above the real header (C15)? Only when it carries a title mark and the next
+ * non-blank row is header-like with more cells. A group-label row of a two-row header has no such mark.
+ */
+function isTitleAbove(rows: readonly string[][], h: number): number {
+  const row = rows[h]!;
+  if (!row.some((c) => c !== "" && TITLE_MARK.test(c))) return -1;
+  let k = h + 1;
+  while (k < rows.length && nonBlank(rows[k]!) === 0) k++;
+  if (k >= rows.length) return -1;
+  return isHeaderLike(rows[k]!) && nonBlank(rows[k]!) > nonBlank(row) ? k : -1;
+}
+
 export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { sheetName?: string | null } = {}): ReadBlock[] {
   const rows = matrix.map((r) => r.map(toCellText));
   const n = rows.length;
@@ -100,6 +148,8 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
       }
     }
     if (h === -1) break;
+    const real = isTitleAbove(rows, h);
+    if (real !== -1) h = real;
 
     let start = h;
     for (let i = pos; i < h; i++) {
@@ -117,7 +167,7 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
     let headers = rows[h]!;
     let headerRows: 1 | 2 = 1;
     const next = rows[h + 1];
-    if (next && hasBlankInSpan(headers) && nonBlank(next) >= 2 && textShare(next) >= HEADER_TEXT_SHARE) {
+    if (next && isSecondHeaderRow(headers, next, rows[h + 2])) {
       headers = combineHeaders(headers, next);
       headerRows = 2;
     }
@@ -141,7 +191,9 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
         for (let k = j; k < Math.min(n, j + 4); k++) {
           const cand = rows[k]!;
           if (nonBlank(cand) <= 1) continue;
-          found = startsNewBlock(cand, data.slice(-200), headers.length);
+          // A new table needs a data row right under its header; a footer such as "Prepared by" has none (C33).
+          const below = rows[k + 1];
+          found = below !== undefined && nonBlank(below) > 0 && !isHeaderLike(below) && startsNewBlock(cand, data.slice(-200), headers.length);
           break;
         }
       }
@@ -155,6 +207,9 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
     }
     pos = Math.max(end, dataStart);
 
+    // Ragged rows (CSV): a cell right of the header's last cell is kept under a blank header (C34).
+    const wide = data.reduce((m, r) => Math.max(m, r.length), headers.length);
+    if (wide > headers.length) headers = [...headers, ...Array<string>(wide - headers.length).fill("")];
     const width = usedWidth(headers, data);
     blocks.push({
       sheetName: opts.sheetName ?? null,

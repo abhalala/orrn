@@ -12,23 +12,24 @@ export const bundlesTarget: TargetDef = {
   id: "bundles",
   order: 40,
   fields: [
-    // Plan B4 marks legacyId required. It is optional here so the web template sheet (no legacy id column) fits a
-    // built-in hole exactly. Without it a row has no "already in orrn" check. See the lane C report.
-    field("legacyId", { resolver: "bundle_by_legacy_id", note: "The bundle id in the old system" }),
+    // Required (plan B4): the only key that finds a bundle already in orrn. A sheet with no id column does not fit.
+    field("legacyId", { required: true, resolver: "bundle_by_legacy_id", note: "The bundle id in the old system" }),
     field("series", { required: true }),
     field("sectionCode", { required: true, resolver: "section_by_code" }),
-    field("quantity", { kind: "count", required: true, check: positiveIntCheck, note: "Pieces in the bundle" }),
+    field("quantity", { kind: "count", required: true, check: positiveIntCheck, note: "Pieces in the bundle", magnitude: "bundle.pieces" }),
     field("weightG", {
       kind: "mass",
       required: true,
       check: rangeCheck(1, BUNDLE_MAX_WEIGHT_G, "weight_range"),
       note: "Bundle weight, stored in grams",
+      magnitude: "bundle.weight",
     }),
     field("lengthMm", {
       kind: "length",
       required: true,
       check: rangeCheck(BUNDLE_LENGTH_MM.min, BUNDLE_LENGTH_MM.max, "length_range"),
       note: "Cut length, stored in mm",
+      magnitude: "bundle.length",
     }),
     field("poNumber"),
   ],

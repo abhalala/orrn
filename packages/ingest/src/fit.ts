@@ -6,7 +6,7 @@
  * `none` so the person picks.
  */
 import { kindsCompatible } from "./cells";
-import { headerKey, normalizeHeaders } from "./fingerprint";
+import { headerKey, normalizeHeaders, normalizeStoredHeaders } from "./fingerprint";
 import type { BlockShape, CellKind, FitDiff, Recipe, RecipeField } from "./recipe";
 import type { IngestTarget } from "./states";
 import { BUILTIN_HOLES, analyzeBuiltin, builtinRef } from "./builtins";
@@ -128,7 +128,8 @@ function requiredCols(recipe: Recipe): Set<number> {
 
 export function fitLearned(block: BlockShape, hole: LearnedHole): FitCandidate | null {
   const recipe = hole.recipe;
-  const holeHeaders = recipe.match.headers;
+  // Holes made by the bot or the editor may store raw header text; compare like with like.
+  const holeHeaders = normalizeStoredHeaders(recipe.match.headers);
   const blockHeaders = normalizeHeaders(block.headers, block.columnCount);
   const expected = expectedKinds(recipe);
   const kindOf = (c: number): CellKind => block.kinds[c] ?? "empty";
@@ -228,15 +229,16 @@ export function fitBuiltin(block: BlockShape, hole: BuiltinHole): FitCandidate |
   const exact = analyzeBuiltin(hole, blockHeaders, { ...pos, kinds: block.kinds });
   const holeRef = builtinRef(hole);
 
-  // A built-in names only columns it knows, so a sheet that mostly holds other columns is not an exact fit.
-  if (exact.missingRequired.length === 0 && exact.unitless.length === 0 && exact.extra.length <= exact.mapped.length) {
+  // Exact means nothing is dropped and nothing is the wrong kind. One extra column is a near fit, offered and asked
+  // once (owner decision), never silently ignored (C18, C21).
+  if (exact.missingRequired.length === 0 && exact.unitless.length === 0 && exact.extra.length === 0 && exact.kindMismatch.length === 0) {
     return {
       fit: "exact",
       score: FIT_SCORES.builtinExact,
       target: hole.target,
       holeRef,
       recipe: exact.recipe,
-      diff: { ...emptyDiff(), extra: exact.extra, missing: exact.missingOptional },
+      diff: { ...emptyDiff(), missing: exact.missingOptional },
       name: hole.id,
       learned: false,
     };

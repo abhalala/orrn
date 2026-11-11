@@ -10,6 +10,10 @@ describe("normalizeHeader", () => {
     expect(normalizeHeader("Length (feet)")).toBe("length ft");
     expect(normalizeHeader("Cut length 12'")).toBe("cut length 12 ft");
     expect(normalizeHeader("Qty (Nos)")).toBe("qty pcs");
+    // C27: "No." is a number column, not a count. "PO No" and "PO No." get one key.
+    expect(normalizeHeader("Bundle No.")).toBe("bundle no");
+    expect(normalizeHeader("Bundle Nos")).toBe("bundle pcs");
+    expect(normalizeHeader("PO No.")).toBe(normalizeHeader("PO No"));
     expect(normalizeHeader("Rate (Rs.)")).toBe("rate inr");
     expect(normalizeHeader("Rate ₹")).toBe("rate inr");
     expect(normalizeHeader("Ｗeight   (ＫＧ)")).toBe("weight kg");

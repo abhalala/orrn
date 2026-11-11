@@ -10,7 +10,8 @@ const UNIT_TOKENS: [RegExp, string][] = [
   [/(?<![a-z0-9])(?:kgs|kg\.|kilos?)(?![a-z0-9])/g, "kg"],
   [/(?<![a-z0-9])(?:mtrs?|meters?|metres?)(?![a-z0-9])/g, "m"],
   [/(?<![a-z0-9])(?:feet|foot)(?![a-z0-9])/g, "ft"],
-  [/(?<![a-z0-9])(?:nos|no\.|pcs\.)(?![a-z0-9])/g, "pcs"],
+  // "No." is not here: "Bundle No." is an id column, not a count (C27, a correction to plan B3).
+  [/(?<![a-z0-9])(?:nos|pcs\.)(?![a-z0-9])/g, "pcs"],
   [/(?<![a-z0-9])(?:rs\.|rs|inr)(?![a-z0-9])|₹/g, "inr"],
 ];
 
@@ -40,6 +41,14 @@ export function normalizeHeaders(headers: readonly string[], width = headers.len
     out.push(n === "" ? `_${i}` : n);
   }
   return out;
+}
+
+/**
+ * Stored `match.headers` in normalized form. A bot or the mapping editor may store raw header text; a stored
+ * blank placeholder (`_3`) stays as it is. Normalizing twice gives the same text.
+ */
+export function normalizeStoredHeaders(headers: readonly string[]): string[] {
+  return headers.map((h, i) => (/^_\d+$/.test(h) ? h : normalizeHeader(h) || `_${i}`));
 }
 
 /** Hex SHA-256 of `"v1|"` plus the normalized headers joined by U+001F. Order matters. */

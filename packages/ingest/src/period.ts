@@ -30,8 +30,12 @@ const FULL_NUMERIC = /(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})(?!\d)/g;
 const FULL_ISO = /(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)/g;
 const FULL_MON = /(?<![\dA-Za-z])(\d{1,2})[\s./-]*([A-Za-z]{3,9})[\s./,-]*(\d{4}|\d{2})(?!\d)/g;
 const FY_RANGE = /(?<!\d)(20\d{2})\s*[-/]\s*(\d{4}|\d{2})(?!\d)/g;
+/** `FY 25-26`, `FY25-26`, `FY 2025-26`: a start and an end year one apart. Read before FY_SHORT. */
+const FY_PAIR = /\bFY\s*[-_]?\s*(\d{4}|\d{2})\s*[-/]\s*(\d{4}|\d{2})(?!\d)/gi;
 const FY_SHORT = /\bFY\s*[-_]?\s*(\d{4}|\d{2})(?!\d)/gi;
-const MON_YEAR = /(?<![A-Za-z])(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s._'-]*(\d{4}|\d{2})(?!\d)/gi;
+/** Full month names or their standard short forms only, so a party name such as "Janta" or "Market" is no month. */
+const MON_YEAR =
+  /(?<![A-Za-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?![a-z])[\s._'-]*(\d{4}|\d{2})(?!\d)/gi;
 
 function scanText(textIn: string, currentYear: number): Found {
   const fys = new Set<string>();
@@ -62,6 +66,13 @@ function scanText(textIn: string, currentYear: number): Found {
   });
   text = text.replace(FY_RANGE, (m, a: string, b: string) => {
     const start = Number(a);
+    const end = b.length === 4 ? Number(b) : Math.floor(start / 100) * 100 + Number(b);
+    if (end !== start + 1) return m;
+    fys.add(fyLabel(start));
+    return " ";
+  });
+  text = text.replace(FY_PAIR, (m, a: string, b: string) => {
+    const start = a.length === 4 ? Number(a) : expandYear(a, currentYear);
     const end = b.length === 4 ? Number(b) : Math.floor(start / 100) * 100 + Number(b);
     if (end !== start + 1) return m;
     fys.add(fyLabel(start));

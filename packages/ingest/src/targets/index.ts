@@ -15,7 +15,7 @@ export { field, MAX_TEXT } from "./field";
 export { BUNDLE_LENGTH_MM, BUNDLE_MAX_WEIGHT_G } from "./bundles";
 export { DIE_MAX_BAND_G, DIE_STATUSES } from "./dies";
 export { DIE_COPY_STATUSES } from "./die-copies";
-export { BAKI_TOLERANCE_G, orderLineGrams } from "./orders";
+export { BAKI_TOLERANCE_G, checkOrderLine, orderLineGrams } from "./orders";
 
 /** The Wave 1 catalogue (plan B4), by target id. */
 export const TARGETS: Record<IngestTarget, TargetDef> = {

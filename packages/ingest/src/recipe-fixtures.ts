@@ -80,7 +80,7 @@ export const BAKI_SHEET_HEADERS = [
   "Order No",
   "Date",
   "Section",
-  "Wt/12ft",
+  "Wt (kg/12ft)",
   "Ord Qty (Kg)",
   "Disp (Kg)",
   "Baki (Kg)",
@@ -93,7 +93,7 @@ const bakiNormalized = [
   "order no",
   "date",
   "section",
-  "wt/12ft",
+  "wt kg/12ft",
   "ord qty kg",
   "disp kg",
   "baki kg",
@@ -101,7 +101,11 @@ const bakiNormalized = [
   "remarks",
 ];
 
-/** Example 2: the made-up baki workbook, as the bot or a person would produce it. Header row is row 1 (title above). */
+/**
+ * Example 2: the made-up baki workbook, as the bot or a person would produce it. Header row is row 1 (title above).
+ * Plan B2 wrote the weight header as "Wt/12ft". It names no mass unit, so a bot naming kg/12ft for it would be a
+ * guess (C4); the example header shows the unit.
+ */
 export const EXAMPLE_BAKI_RECIPE: Recipe = {
   schemaVersion: 1,
   target: "orders",
@@ -114,7 +118,7 @@ export const EXAMPLE_BAKI_RECIPE: Recipe = {
     { field: "orderDate", source: c(3, "Date"), steps: [{ op: "date", format: "dmy" }] },
     { field: "series", source: c(4, "Section"), steps: [{ op: "split", sep: " ", index: 0 }, { op: "case", to: "upper" }] },
     { field: "sectionCode", source: c(4, "Section"), steps: [{ op: "split", sep: " ", index: 1 }, { op: "lookup", resolver: "section_by_code" }] },
-    { field: "kgPer12ft", source: c(5, "Wt/12ft"), steps: [{ op: "number", kind: "linear_mass", unit: "kg/12ft" }] },
+    { field: "kgPer12ft", source: c(5, "Wt (kg/12ft)"), steps: [{ op: "number", kind: "linear_mass", unit: "kg/12ft" }] },
     { field: "orderedKg", source: c(6, "Ord Qty (Kg)"), steps: [{ op: "number", kind: "mass", unit: "kg" }] },
     { field: "dispatchedKg", source: c(7, "Disp (Kg)"), steps: [{ op: "number", kind: "mass", unit: "kg" }] },
     { field: "bakiKg", source: c(8, "Baki (Kg)"), steps: [{ op: "number", kind: "mass", unit: "kg" }] },
@@ -123,6 +127,7 @@ export const EXAMPLE_BAKI_RECIPE: Recipe = {
   ],
   filters: [{ col: { col: 1, header: "Party Name" }, test: "not_blank", values: [], action: "keep" }],
   keys: ["customer", "oldOrderNo", "orderDate"],
-  onExisting: "skip",
+  // Plan B2 wrote "skip". A bot recipe must ask (C3), so the example asks.
+  onExisting: "ask",
   unclear: [{ field: "rate", code: "unit_unknown" }],
 };

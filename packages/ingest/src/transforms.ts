@@ -17,6 +17,8 @@ export type NumberValue = {
   entered: string;
   /** True when half-up rounding changed the exact value. */
   rounded: boolean;
+  /** The cleaned decimal that was converted (`"2500"`; feet and inches as `"12 6"`). */
+  decimal: string;
 };
 
 export type StepState = {
@@ -70,8 +72,16 @@ export type NumberRead =
   | { ok: true; value: NumberValue }
   | { ok: false; code: RefusalCode };
 
+/** Devanagari (U+0966..096F) and Gujarati (U+0AE6..0AEF) digits to ASCII, as the registry's parser folds them. */
+export function foldIndicDigits(text: string): string {
+  return text.replace(/[\u0966-\u096F\u0AE6-\u0AEF]/g, (ch) => {
+    const c = ch.charCodeAt(0);
+    return String(c >= 0x0ae6 ? c - 0x0ae6 : c - 0x0966);
+  });
+}
+
 export function readNumber(textIn: string, kind: UnitKind, declared: UnitId | null): NumberRead {
-  let t = textIn.normalize("NFKC").trim();
+  let t = foldIndicDigits(textIn.normalize("NFKC")).trim();
   if (kind === "price_per_mass") t = t.replace(/^(?:₹|rs\.?|inr)\s*/i, "").replace(/\s*\/-$/, "");
   let decimal: string;
   let unit: UnitId | null = declared;
@@ -103,7 +113,9 @@ export function readNumber(textIn: string, kind: UnitKind, declared: UnitId | nu
   if (unit === null) return { ok: false, code: "unit_unknown" };
   const r = convertToCanonical({ kind, unit, decimal });
   if (!r.ok) return { ok: false, code: r.code };
-  return { ok: true, value: { kind, canonical: r.canonical, unit, entered: textIn.trim(), rounded: r.rounded } };
+  // A count is whole: 12.5 pieces is a typo or a weight in the wrong column, never 13 pieces.
+  if (kind === "count" && r.rounded) return { ok: false, code: "not_whole" };
+  return { ok: true, value: { kind, canonical: r.canonical, unit, entered: textIn.trim(), rounded: r.rounded, decimal } };
 }
 
 // ---------------------------------------------------------------- steps

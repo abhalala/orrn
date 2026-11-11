@@ -22,6 +22,8 @@ export type SqlTable = {
   truncated: boolean;
   /** Rows whose cell count differed from the column count. */
   arityMismatch: number;
+  /** Statements whose column list differed from the first one. Their cells were placed by column name. */
+  columnListChanges: number;
   source: "insert" | "copy";
 };
 
@@ -42,7 +44,28 @@ export type SqlReaderOptions = {
   /** Column names from a schema-only dump, pushed as text before the data. Not needed: `push` it like any chunk. */
 };
 
-type Ident = { name: string; schema: string | null };
+/** `quoted`: the name was in quotes, so its case counts. An unquoted name folds to lower case, as Postgres does. */
+type Ident = { name: string; schema: string | null; quoted?: boolean };
+
+/** Table key: schema and name. A dump may hold public.log and audit.log, or "Orders" and orders. */
+function identKey(id: Ident): string {
+  return `${(id.schema ?? "").toLowerCase()}\u0000${id.quoted ? id.name : id.name.toLowerCase()}`;
+}
+
+/**
+ * The key a statement's table name refers to in `map`. The exact schema and name first. A name with no schema, or
+ * with a schema where only a schema-less entry exists, takes the one entry with that name, when there is one.
+ */
+function findKey(map: ReadonlyMap<string, unknown>, id: Ident): string | null {
+  const exact = identKey(id);
+  if (map.has(exact)) return exact;
+  const name = exact.slice(exact.indexOf("\u0000") + 1);
+  const hits = [...map.keys()].filter((k) => {
+    const [schema, n] = k.split("\u0000") as [string, string];
+    return n === name && (id.schema === null || schema === "");
+  });
+  return hits.length === 1 ? hits[0]! : null;
+}
 
 type SkipState = {
   quote: "'" | '"' | "`" | null;
@@ -56,7 +79,23 @@ type SkipState = {
 
 const MAX_HEADER_BYTES = 4 * 1024 * 1024;
 const MAX_CAPTURE = 1024 * 1024;
-const CONSTRAINT_WORDS = /^(constraint|primary|unique|foreign|key|index|check|fulltext|spatial|exclude|like|period)\b/i;
+/**
+ * A table constraint or index line in CREATE TABLE, in its statement form only. A column named key, index, period or
+ * check (pg_dump leaves such names unquoted) is followed by a type, so it is still read as a column (C30).
+ */
+const CONSTRAINT_FORMS = [
+  /^constraint\s/i,
+  /^primary\s+key\b/i,
+  /^foreign\s+key\b/i,
+  /^unique\s*(?:\(|key\b|index\b|constraint\b|[`"[])/i,
+  /^(?:fulltext|spatial)\s+(?:key|index)\b/i,
+  /^(?:key|index)\s*(?:\(|`[^`]*`\s*\(|"[^"]*"\s*\(|[A-Za-z_][A-Za-z0-9_]*\s+\(|[A-Za-z_][A-Za-z0-9_]*\s+using\b)/i,
+  /^check\s*\(/i,
+  /^exclude\s+(?:using\b|\()/i,
+  /^period\s+for\b/i,
+  /^like\s+[A-Za-z_"`][^\s]*\s+(?:including|excluding)\b/i,
+];
+const isConstraintLine = (t: string) => CONSTRAINT_FORMS.some((re) => re.test(t));
 const DOLLAR_OPEN = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/;
 
 function freshSkip(): SkipState {
@@ -89,6 +128,10 @@ export class SqlReader {
   private capture: string | null = null;
   private finished = false;
   private rowsInStatement = 0;
+  /** The MySQL client statement end, changed by `DELIMITER ;;` around stored routines. */
+  private delimiter = ";";
+  /** Statement column position to table column index, when this statement's list differs from the table's. */
+  private colMap: number[] | null = null;
 
   constructor(opts: SqlReaderOptions = {}) {
     this.dialect = opts.dialect ?? "auto";
@@ -120,6 +163,8 @@ export class SqlReader {
     }
     const tables = this.order.map((k) => this.tables.get(k)!);
     for (const t of tables) {
+      // A later column list added names: earlier rows get blank cells for them.
+      if (t.columnListChanges > 0) for (const r of t.rows) while (r.length < t.columns.length) r.push("");
       if (t.columns.length === 0) {
         const width = t.rows.reduce((m, r) => Math.max(m, r.length), 0);
         t.columns = Array.from({ length: width }, (_, i) => `col${i + 1}`);
@@ -141,12 +186,10 @@ export class SqlReader {
     return this.dialect === "mysql";
   }
 
+  /** Moves to `p`, counting the newlines passed over. Costs only the distance moved, so a long line stays linear. */
   private advanceTo(p: number) {
-    let i = this.buf.indexOf("\n", this.pos);
-    while (i !== -1 && i < p) {
-      this.line++;
-      i = this.buf.indexOf("\n", i + 1);
-    }
+    const b = this.buf;
+    for (let k = this.pos; k < p; k++) if (b.charCodeAt(k) === 10) this.line++;
     this.pos = p;
   }
 
@@ -233,6 +276,18 @@ export class SqlReader {
     }
     const kw = m[1]!.toUpperCase();
     this.advanceTo(p);
+    if (kw === "DELIMITER") {
+      const nl = b.indexOf("\n", p);
+      if (nl === -1 && !final) return false;
+      this.delimiter = b.slice(p + 9, nl === -1 ? b.length : nl).trim() || ";";
+      this.advanceTo(nl === -1 ? b.length : nl + 1);
+      return true;
+    }
+    // Between DELIMITER x and DELIMITER ; only routine and trigger bodies appear: never data (C36).
+    if (this.delimiter !== ";") {
+      this.beginSkip(false);
+      return true;
+    }
     try {
       if (kw === "INSERT" || kw === "REPLACE") return this.beginInsert(final);
       if (kw === "COPY") return this.beginCopy(final);
@@ -279,7 +334,7 @@ export class SqlReader {
   }
 
   /** A bare word or a quoted identifier. */
-  private readIdent(b: string, p: number): { value: string; end: number } | null {
+  private readIdent(b: string, p: number): { value: string; end: number; quoted?: boolean } | null {
     if (p >= b.length) throw new Incomplete();
     const c = b[p]!;
     if (c === '"' || c === "`" || c === "[") {
@@ -294,7 +349,7 @@ export class SqlReader {
             i += 2;
             continue;
           }
-          return { value: out, end: i + 1 };
+          return { value: out, end: i + 1, quoted: true };
         }
         out += b[i];
         i++;
@@ -308,11 +363,13 @@ export class SqlReader {
 
   private readQualifiedName(b: string, p: number): { ident: Ident; end: number } | null {
     const parts: string[] = [];
+    let quoted = false;
     let i = p;
     for (;;) {
       const id = this.readIdent(b, i);
       if (!id) return null;
       parts.push(id.value);
+      quoted = id.quoted === true;
       i = this.skipSpace(b, id.end);
       if (b[i] === ".") {
         i = this.skipSpace(b, i + 1);
@@ -322,7 +379,7 @@ export class SqlReader {
     }
     const name = parts[parts.length - 1]!;
     const schema = parts.length > 1 ? parts[parts.length - 2]! : null;
-    return { ident: { name, schema }, end: i };
+    return { ident: { name, schema, quoted }, end: i };
   }
 
   private readColumnList(b: string, p: number): { cols: string[]; end: number } {
@@ -400,10 +457,12 @@ export class SqlReader {
   }
 
   private tableFor(ident: Ident, cols: string[] | null, source: "insert" | "copy"): SqlTable {
-    const key = ident.name.toLowerCase();
-    let t = this.tables.get(key);
+    let key = findKey(this.tables, ident);
+    let t = key === null ? undefined : this.tables.get(key);
     if (!t) {
-      const declared = this.declared.get(key);
+      key = identKey(ident);
+      const dk = findKey(this.declared, ident);
+      const declared = dk === null ? undefined : this.declared.get(dk);
       t = {
         name: ident.name,
         schema: ident.schema,
@@ -412,6 +471,7 @@ export class SqlReader {
         rowCount: 0,
         truncated: false,
         arityMismatch: 0,
+        columnListChanges: 0,
         source,
       };
       this.tables.set(key, t);
@@ -419,15 +479,48 @@ export class SqlReader {
     } else if (cols && t.columns.length === 0) {
       t.columns = cols;
     }
+    this.colMap = null;
+    if (cols && t.columns !== cols && t.columns.length > 0) {
+      const lower = t.columns.map((c) => c.toLowerCase());
+      const same = cols.length === lower.length && cols.every((c, i) => c.toLowerCase() === lower[i]);
+      if (!same) {
+        // Keep the first list as the table's columns; place this statement's cells by name, adding new names.
+        this.colMap = cols.map((c) => {
+          const at = lower.indexOf(c.toLowerCase());
+          if (at !== -1) return at;
+          t.columns.push(c);
+          lower.push(c.toLowerCase());
+          return t.columns.length - 1;
+        });
+        t.columnListChanges++;
+      }
+    }
     return t;
   }
 
-  private addRow(t: SqlTable, cells: string[]) {
+  private addRow(t: SqlTable, cellsIn: string[]) {
+    let cells = cellsIn;
+    if (this.colMap) {
+      const map = this.colMap;
+      if (cellsIn.length !== map.length) t.arityMismatch++;
+      cells = new Array<string>(t.columns.length).fill("");
+      cellsIn.forEach((c, i) => {
+        if (i < map.length) cells[map[i]!] = c;
+        else cells.push(c);
+      });
+      t.rowCount++;
+      this.keep(t, cells);
+      return;
+    }
     t.rowCount++;
     if (t.columns.length > 0 && cells.length !== t.columns.length) {
       t.arityMismatch++;
       if (cells.length > t.columns.length) for (let i = t.columns.length; i < cells.length; i++) t.columns.push(`col${i + 1}`);
     }
+    this.keep(t, cells);
+  }
+
+  private keep(t: SqlTable, cells: string[]) {
     if (this.kept >= this.maxRows) {
       t.truncated = true;
       this.truncated = true;
@@ -439,7 +532,7 @@ export class SqlReader {
 
   private stepValues(final: boolean): boolean {
     const b = this.buf;
-    let p: number;
+    let p = this.pos;
     try {
       p = this.skipSpace(b, this.pos);
       while (b[p] === ",") p = this.skipSpace(b, p + 1);
@@ -471,11 +564,41 @@ export class SqlReader {
         }
         return false;
       }
+      // Resync at the end of this one row, so the rows after it in the statement are kept (C13).
+      const end = this.tupleEnd(b, p);
+      if (end === -1) {
+        if (!final && b.length - p <= MAX_HEADER_BYTES) return false;
+        this.flag(`bad row: ${(e as Error).message}`);
+        this.beginSkip(false);
+        return true;
+      }
       this.flag(`bad row: ${(e as Error).message}`);
-      // Resync: skip to the end of this statement.
-      this.beginSkip(false);
+      this.current!.rowCount++;
+      this.rowsInStatement++;
+      this.advanceTo(end);
       return true;
     }
+  }
+
+  /** Just past the `)` that closes the tuple opening at b[start], skipping strings. -1 when the buffer ends first. */
+  private tupleEnd(b: string, start: number): number {
+    let depth = 0;
+    let i = start;
+    while (i < b.length) {
+      const ch = b[i]!;
+      if (ch === "'") {
+        try {
+          i = this.readString(b, i, this.backslash).end;
+        } catch {
+          return -1;
+        }
+        continue;
+      }
+      if (ch === "(") depth++;
+      else if (ch === ")" && --depth === 0) return i + 1;
+      i++;
+    }
+    return -1;
   }
 
   private parseTuple(b: string, start: number): { cells: string[]; end: number } {
@@ -502,7 +625,8 @@ export class SqlReader {
     // String literals, with an optional E, N or _charset prefix directly before the quote.
     let q = p;
     let eString = false;
-    const prefix = /^(?:[EeNn]|_[A-Za-z0-9]+|[Xx]|[Bb])(?=')/.exec(b.slice(p, p + 20));
+    // mysqldump writes `_binary 'x'` with a space; typed literals such as DATE '2020-01-01' read as their text.
+    const prefix = /^(?:[EeNn]|_[A-Za-z0-9]+\s*|[Xx]|[Bb]|(?:date|time|timestamp|timestamptz|interval)\s+)(?=')/i.exec(b.slice(p, p + 24));
     if (prefix) {
       eString = prefix[0].toLowerCase() === "e";
       q = p + prefix[0].length;
@@ -538,7 +662,12 @@ export class SqlReader {
       } else if (ch === "," && depth === 0) break;
       i++;
     }
-    const raw = b.slice(p, i).trim();
+    // A cast after a raw value (`1.50::numeric`, `NULL::character varying`) is dropped, as after a string (C31).
+    const raw = b
+      .slice(p, i)
+      .trim()
+      .replace(/(?:\s*::\s*[A-Za-z_][A-Za-z0-9_ ]*(?:\([^)]*\))?(?:\[\])?)+$/, "")
+      .trim();
     if (!raw.includes("(") && /\s/.test(raw)) throw new Error("bad value");
     if (/^null$/i.test(raw) || /^default$/i.test(raw)) return { value: "", end: i };
     return { value: raw, end: i };
@@ -603,16 +732,21 @@ export class SqlReader {
   private unescape(b: string, j: number, mysql: boolean): { text: string; end: number } {
     const n = b[j + 1]!;
     const simple: Record<string, string> = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", v: "\v", "0": "\0", Z: "\x1a", "'": "'", '"': '"', "\\": "\\" };
-    if (!mysql && n === "x" && /^[0-9A-Fa-f]{1,2}/.test(b.slice(j + 2, j + 4))) {
-      const hex = /^[0-9A-Fa-f]{1,2}/.exec(b.slice(j + 2, j + 4))![0];
-      if (j + 2 + hex.length >= b.length) throw new Incomplete();
-      return { text: String.fromCharCode(parseInt(hex, 16)), end: j + 2 + hex.length };
+    // Postgres E'' escapes. A chunk may end inside one: wait for more text rather than read part of it (C32).
+    if (!mysql && n === "x") {
+      const hex = /^[0-9A-Fa-f]{0,2}/.exec(b.slice(j + 2, j + 4))![0];
+      if (hex.length < 2 && j + 2 + hex.length >= b.length) throw new Incomplete();
+      if (hex.length > 0) return { text: String.fromCharCode(parseInt(hex, 16)), end: j + 2 + hex.length };
     }
-    if (!mysql && n === "u" && /^[0-9A-Fa-f]{4}/.test(b.slice(j + 2, j + 6))) {
-      return { text: String.fromCharCode(parseInt(b.slice(j + 2, j + 6), 16)), end: j + 6 };
+    if (!mysql && n === "u") {
+      const hex = /^[0-9A-Fa-f]{0,4}/.exec(b.slice(j + 2, j + 6))![0];
+      if (hex.length < 4 && j + 2 + hex.length >= b.length) throw new Incomplete();
+      if (hex.length === 4) return { text: String.fromCharCode(parseInt(hex, 16)), end: j + 6 };
     }
-    if (!mysql && /[0-7]/.test(n) && n !== "0") {
+    if (!mysql && /[0-7]/.test(n)) {
+      // \0 starts an octal too: \011 is a tab, not NUL and "11".
       const oct = /^[0-7]{1,3}/.exec(b.slice(j + 1, j + 4))![0];
+      if (oct.length < 3 && j + 1 + oct.length >= b.length) throw new Incomplete();
       return { text: String.fromCharCode(parseInt(oct, 8)), end: j + 1 + oct.length };
     }
     if (n in simple) return { text: simple[n]!, end: j + 2 };
@@ -726,6 +860,16 @@ export class SqlReader {
           else if (i + 1 >= b.length && !final) break;
           else s.quote = null;
         }
+      } else if (this.delimiter !== ";" && ch === this.delimiter[0]) {
+        if (b.startsWith(this.delimiter, i)) {
+          this.captureText(b.slice(this.pos, i));
+          this.advanceTo(i + this.delimiter.length);
+          this.endSkip();
+          return true;
+        }
+        if (!final && i + this.delimiter.length > b.length) break;
+      } else if (this.delimiter !== ";" && ch === ";") {
+        // A semicolon inside a routine body does not end it.
       } else if (!final && (ch === "-" || ch === "/") && i + 1 >= b.length) {
         break;
       } else if (!final && ch === "$" && i + 64 > b.length) {
@@ -827,7 +971,7 @@ export class SqlReader {
     const columns: string[] = [];
     for (const it of items) {
       const t = it.trim();
-      if (t === "" || CONSTRAINT_WORDS.test(t)) continue;
+      if (t === "" || isConstraintLine(t)) continue;
       try {
         const id = this.readIdent(t + " ", 0);
         if (id) columns.push(id.value);
@@ -835,9 +979,9 @@ export class SqlReader {
         /* not a column definition */
       }
     }
-    const key = ident.ident.name.toLowerCase();
-    this.declared.set(key, { ident: ident.ident, columns });
-    const t = this.tables.get(key);
+    this.declared.set(identKey(ident.ident), { ident: ident.ident, columns });
+    const tk = findKey(this.tables, ident.ident);
+    const t = tk === null ? undefined : this.tables.get(tk);
     if (t && t.columns.length === 0) t.columns = columns;
   }
 }
@@ -893,10 +1037,12 @@ export function parseSql(text: string, opts: SqlReaderOptions & { chunkSize?: nu
 
 /** Tables as blocks: the table name is the sheet name, the columns are the header. Empty tables are left out. */
 export function sqlTablesToBlocks(tables: readonly SqlTable[]): ReadBlock[] {
-  return tables
-    .filter((t) => t.rows.length > 0)
+  const kept = tables.filter((t) => t.rows.length > 0);
+  // Two tables with one bare name (public.log, audit.log) are told apart by their schema.
+  const shared = (t: SqlTable) => kept.filter((x) => x.name.toLowerCase() === t.name.toLowerCase()).length > 1;
+  return kept
     .map((t) => ({
-      sheetName: t.name,
+      sheetName: t.schema && shared(t) ? `${t.schema}.${t.name}` : t.name,
       title: null,
       headerRow: 0,
       headerRows: 1 as const,

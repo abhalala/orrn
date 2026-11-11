@@ -1,3 +1,5 @@
+import type { FieldId } from "@orrn/domain";
+
 import type { ResolverId } from "../recipe";
 import type { RefusalCode } from "../states";
 import type { UnitId } from "../units-adapter";
@@ -41,6 +43,7 @@ type Opts = {
   note?: string;
   check?: FieldCheck | null;
   unit?: UnitId | null;
+  magnitude?: FieldId;
 };
 
 const NUMERIC = new Set(["length", "mass", "linear_mass", "price_per_mass", "count", "dimension"]);
@@ -58,6 +61,7 @@ export function field(name: string, opts: Opts = {}): TargetField {
     multi: opts.multi ?? null,
     note: opts.note ?? "",
     check: opts.check === undefined ? defaultCheck(kind, opts.enum) : opts.check,
+    magnitude: opts.magnitude ?? null,
   };
 }
 

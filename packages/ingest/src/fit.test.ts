@@ -51,6 +51,27 @@ describe("fitBlock: built-in holes", () => {
     expect(fitBlock(fp, []).fit).toBe("none");
   });
 
+  test("C18: one extra column on the die template is a near fit, offered and asked, not exact", () => {
+    const fp = fingerprint({ headers: [...DIE_SHEET_HEADERS, "Remarks 2"], rows: [["40", "4012", "2.2", "2.5", "Frame", "44.5", "1.2", "", "active", "", "old"]] });
+    const r = fitBlock(fp, []);
+    expect(r.fit).toBe("near");
+    expect(r.diff!.extra).toEqual([{ col: 10, header: "Remarks 2" }]);
+    expect(r.score).toBe(940);
+  });
+
+  test("C18: a mapped column whose cells are the wrong kind is not exact", () => {
+    const fp = fingerprint({ headers: DIE_SHEET_HEADERS, rows: [["40", "4012", "heavy", "2.5", "Frame", "44.5", "1.2", "", "active", ""]] });
+    const r = fitBlock(fp, []);
+    expect(r.fit).toBe("near");
+    expect(r.diff!.kindMismatch.map((k) => k.col)).toEqual([2]);
+  });
+
+  test("C21: a short baki sheet with Party Name and numbers is not an exact customers fit", () => {
+    const headers = ["Party Name", "Section", "Baki (Kg)", "Remarks"];
+    const fp = fingerprint({ headers, rows: [["Om Metals", "T 4012", "2500", "urgent"], ["Shree Ganesh", "R 2105", "3800", ""]] });
+    expect(fitBlock(fp, []).fit).not.toBe("exact");
+  });
+
   test("a sheet with no known columns is none", () => {
     expect(fitBlock(fingerprint({ headers: ["Foo", "Bar"], rows: [["a", "b"]] }), []).fit).toBe("none");
   });
@@ -102,6 +123,26 @@ describe("fitBlock: learned holes", () => {
     expect(r.diff!.renamed).toEqual([{ col: 1, from: "party name", to: "Party Names" }]);
     expect(r.recipe!.match.headerKey).toBe(fp.headerKey);
     expect(r.score).toBe(880);
+  });
+
+  test("C6: a hole stored with raw match headers (bot or editor) still near-fits a renamed sheet", () => {
+    const raw: LearnedHole = { ...learnedBaki(), recipe: { ...structuredClone(EXAMPLE_BAKI_RECIPE), match: { headerKey: "stored-key", headers: [...BAKI_SHEET_HEADERS] } } };
+    const headers = BAKI_SHEET_HEADERS.map((h) => (h === "Remarks" ? "Remark" : h));
+    const r = fitBlock(fingerprint({ headers, rows: bakiRows }), [raw]);
+    expect(r.fit).toBe("near");
+    expect(r.diff!.renamed).toEqual([{ col: 10, from: "remarks", to: "Remark" }]);
+    expect(r.diff!.extra).toEqual([]);
+  });
+
+  test("C6: a blank header placeholder in stored headers still lines up", () => {
+    const headers = [...BAKI_SHEET_HEADERS.slice(0, 10), ""];
+    const recipe = structuredClone(EXAMPLE_BAKI_RECIPE);
+    recipe.fields = recipe.fields.filter((f) => f.field !== "note");
+    recipe.match = { headerKey: "stored-key", headers: normalizeHeaders(headers) };
+    const withExtra = [...headers, "Truck"];
+    const r = fitBlock(fingerprint({ headers: withExtra, rows: bakiRows.map((x) => [...x.slice(0, 10), "", "GJ01"]) }), [{ ...learnedBaki(), recipe }]);
+    expect(r.fit).toBe("near");
+    expect(r.diff!.extra).toEqual([{ col: 11, header: "Truck" }]);
   });
 
   test("a moved column is found by its header", () => {
