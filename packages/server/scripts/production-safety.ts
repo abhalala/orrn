@@ -168,6 +168,27 @@ export function assertPreserved(before: Record<string, number>, after: Record<st
 }
 
 /**
+ * Tables a migration empties on purpose. The rehearsal expects every other table to keep its exact
+ * row count; a table listed here must end empty instead. Add an entry only for a data step that is
+ * named in docs/DEPLOY_PROMOTION.md, and never for a table in `protectedNames`.
+ */
+export const EMPTIED_BY_MIGRATION: Record<string, readonly string[]> = {
+  // Security review 2026-11-04: the auth cookie moves to a host-only cookie, so every session ends once.
+  "0046_revoke_sessions_cookie_scope.sql": ["session"],
+};
+
+/** After the rehearsal: every table keeps its rows, except the ones a pending migration empties on purpose. */
+export function assertRehearsed(copied: Record<string, number>, after: Record<string, number>, pending: readonly string[]): void {
+  const emptied = new Set(pending.flatMap((name) => EMPTIED_BY_MIGRATION[name] ?? []));
+  for (const table of emptied) assert(!protectedNames.has(table), `A migration may not empty the protected table ${table}`);
+  assertPreserved(Object.fromEntries(Object.entries(copied).filter(([table]) => !emptied.has(table))), after);
+  for (const table of emptied) {
+    assert(Object.hasOwn(after, table), `A pre-existing table disappeared: ${table}`);
+    assert.equal(after[table], 0, `${table} should be empty after its migration`);
+  }
+}
+
+/**
  * The deploy's ORRN_MASTER_KEY must be the key that wrapped production's node secrets. A different
  * key deploys fine, then every `unwrapSecret` on production fails and every print computer is
  * stranded (security review 2026-11-04, review fixes). Fails when none of the given values opens;
@@ -308,10 +329,11 @@ async function rehearse(): Promise<void> {
     await local(`${sql}\nINSERT INTO d1_migrations (id, name, applied_at) VALUES (${literal(String(++sequence).padStart(5, "0"))}, ${literal(name)}, datetime('now'));`);
   }
   const afterNames = (await local(tablesSql)).map((row) => String(row.name));
-  assertPreserved(copied, await tableCounts(local, afterNames));
+  assertRehearsed(copied, await tableCounts(local, afterNames), pending);
   assert.equal((await local("PRAGMA foreign_key_check")).length, 0, "Rehearsed migrations introduced foreign-key violations");
   assert.equal((await local("SELECT name FROM d1_migrations")).length, files.length, "Rehearsal migration history is incomplete");
-  console.log(`Rehearsed ${pending.length} pending migrations on the production export. Every existing table's row count and foreign-key integrity were preserved.`);
+  const emptied = pending.flatMap((name) => EMPTIED_BY_MIGRATION[name] ?? []);
+  console.log(`Rehearsed ${pending.length} pending migrations on the production export. Every existing table's row count and foreign-key integrity were preserved.${emptied.length ? ` Emptied on purpose by a pending migration: ${emptied.join(", ")}.` : ""}`);
 }
 
 async function verify(): Promise<void> {

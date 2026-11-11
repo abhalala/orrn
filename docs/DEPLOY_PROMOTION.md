@@ -104,6 +104,11 @@ authenticators are untouched. Deploy outside shift hours and tell the plant firs
 cleared on their next API request (`lib/legacyCookies.ts`, binding `LEGACY_COOKIE_DOMAIN`, which replaces
 `COOKIE_DOMAIN`).
 
+The production rehearsal expects every table to keep its exact row count. `session` is the one table it lets a
+pending migration empty, and only for 0046 (`EMPTIED_BY_MIGRATION` in `packages/server/scripts/production-safety.ts`,
+tested in `production-safety.test.ts`). The first promote of 0046 stopped at the rehearsal for lack of this entry;
+nothing on production had changed.
+
 **0046 runs in the same window as the Worker deploy.** Alchemy applies it inside the production deploy, just before it
 updates the Worker (D1 and its migrations first, then the R2 buckets and the web app, then the Worker, in
 `alchemy.run.ts`). Never run it by hand as a separate or later step. The real gap runs the other way: from the moment 0046
