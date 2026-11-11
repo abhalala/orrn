@@ -10,6 +10,7 @@ import type { CompanyRole } from "@orrn/db/schema/tenant";
 import type { IngestTarget, RowState } from "@orrn/db/schema/ingest";
 
 import type { Context } from "../src/context";
+import type { appRouter } from "../src/routers/index";
 import type { TestEnv } from "./harness";
 
 export type SeedRow = {
@@ -127,11 +128,11 @@ export async function contextFor(env: TestEnv, companyId: string, role: CompanyR
   } as Context;
 }
 
-export type Api = Awaited<ReturnType<typeof apiFor>>;
+export type Api = ReturnType<typeof appRouter.createCaller>;
 
-export async function apiFor(ctx: Context) {
-  const { appRouter } = await import("../src/routers/index");
-  return appRouter.createCaller(ctx);
+export async function apiFor(ctx: Context): Promise<Api> {
+  const routers = await import("../src/routers/index");
+  return routers.appRouter.createCaller(ctx);
 }
 
 /** Start a merge and pump it to the end; returns the run id and its last step. */

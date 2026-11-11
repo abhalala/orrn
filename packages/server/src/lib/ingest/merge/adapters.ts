@@ -335,21 +335,31 @@ const copyFields = (v: Values) => ({
   notes: nullable(v.notes),
 });
 
+const COPY_UPDATE: Record<string, [string, (v: unknown) => unknown]> = {
+  makerDieNo: ["makerDieNo", nullable],
+  makerProjectNo: ["makerProjectNo", nullable],
+  supplier: ["supplier", nullable],
+  trialKgPer12ft: ["trialKgPer12ftMilli", num],
+  hardness: ["hardness", num],
+  lifeKg: ["lifeG", num],
+  notes: ["notes", nullable],
+  status: ["status", text],
+};
+
 const dieCopies: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
   if (rows.every(isUpdate)) {
     return perRow(args, rows, async (row) => {
       if (!(await updatedBefore(ctx, "die_instance.update", args.chunk.id, row.rowIndex))) {
-        const p = patchOf(row);
-        const all = copyFields(p);
-        // The tier of an existing copy moves only by approval; an import never changes it.
-        const fields = Object.fromEntries(
-          Object.entries({ ...all, ...(text(p.status) ? { status: text(p.status) } : {}) }).filter(([k]) =>
-            Object.hasOwn(p, k === "trialKgPer12ftMilli" ? "trialKgPer12ft" : k === "lifeG" ? "lifeKg" : k),
-          ),
-        );
+        // File field to `dieInstance.update` input. The tier of an existing copy moves only by
+        // approval, so an import never sends it.
+        const fields: Record<string, unknown> = {};
+        for (const [field, value] of Object.entries(patchOf(row))) {
+          const to = COPY_UPDATE[field];
+          if (to) fields[to[0]] = to[1](value);
+        }
         const caller = await args.callerFor(args.sourceOf([row]));
-        await caller.dieInstance.update({ id: row.matchId!, ...(fields as Record<string, never>) });
+        await caller.dieInstance.update({ id: row.matchId!, ...(fields as { notes?: string | null }) });
       }
       return { rowId: row.id, committedType: "die_instance", committedId: row.matchId! };
     });

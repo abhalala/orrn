@@ -71,13 +71,31 @@ async function loadRun(ctx: Pick<IngestCtx, "db" | "companyId">, runId: string):
   return run;
 }
 
-/** The run's cursor moves by one, only from `expectCursor` (every step's result batch carries it). */
-function advance(ctx: IngestCtx, runId: string, expectCursor: number, set: SQLiteUpdateSetSource<typeof ingestMergeRun> = {}): SqliteBatchItem[] {
+/**
+ * The run's cursor moves by one, only from `expectCursor` (every step's result batch carries it).
+ * `active` also requires the run to be planning or running: planning and finishing write nothing
+ * live, so a stop in between wins. Recording a written chunk does not require it: the records were
+ * written and must be recorded even when a stop landed meanwhile.
+ */
+function advance(
+  ctx: IngestCtx,
+  runId: string,
+  expectCursor: number,
+  set: SQLiteUpdateSetSource<typeof ingestMergeRun> = {},
+  opts: { active?: boolean } = {},
+): SqliteBatchItem[] {
   return [
     ctx.db
       .update(ingestMergeRun)
       .set({ ...set, cursor: expectCursor + 1 })
-      .where(and(eq(ingestMergeRun.id, runId), eq(ingestMergeRun.companyId, ctx.companyId), eq(ingestMergeRun.cursor, expectCursor))),
+      .where(
+        and(
+          eq(ingestMergeRun.id, runId),
+          eq(ingestMergeRun.companyId, ctx.companyId),
+          eq(ingestMergeRun.cursor, expectCursor),
+          opts.active ? inArray(ingestMergeRun.state, ACTIVE) : undefined,
+        ),
+      ),
     ingestAbortUnlessChanged(ctx.db),
   ];
 }
@@ -171,12 +189,12 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
   const firstSeq = (top?.seq ?? -1) + 1;
   const page = await planPage(ctx, run.id, firstSeq);
   if (page.done) {
-    await guardedBatch(ctx.db, advance(ctx, run.id, expectCursor, { state: "running" }), OTHER_TAB);
+    await guardedBatch(ctx.db, advance(ctx, run.id, expectCursor, { state: "running" }, { active: true }), OTHER_TAB);
     return;
   }
   await guardedBatch(
     ctx.db,
-    [...page.statements, ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`${ingestMergeRun.chunksTotal} + ${page.chunks.length}` })],
+    [...page.statements, ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`${ingestMergeRun.chunksTotal} + ${page.chunks.length}` }, { active: true })],
     OTHER_TAB,
   );
 }
@@ -433,7 +451,7 @@ async function finish(ctx: IngestCtx, run: RunRow, expectCursor: number): Promis
       subjectId: run.id,
       meta: { state, merged: merging.length, chunksWritten: fresh.chunksWritten, chunksFailed: fresh.chunksFailed },
     }),
-    ...advance(ctx, run.id, expectCursor, { state, finishedAt: at }),
+    ...advance(ctx, run.id, expectCursor, { state, finishedAt: at }, { active: true }),
   );
   await guardedBatch(ctx.db, statements, OTHER_TAB);
 }

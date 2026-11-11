@@ -211,6 +211,32 @@ describe("die_copies", () => {
   });
 });
 
+describe("die_copies updates", () => {
+  test("a fills-blanks update goes through dieInstance.update and never moves the tier", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3300" });
+    const copy = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "UP-1", tierRank: 1 });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      {
+        state: "ready_update",
+        matchId: copy.id,
+        values: { series: "R", sectionCode: "3300", makerDieNo: "UP-1", supplier: "Maker Two", tierRank: 5, _ids: { sectionCode: dieId } },
+        diff: { supplier: { live: null, file: "Maker Two" }, tierRank: { live: 1, file: 5 } },
+      },
+    ]);
+    const res = await mergeAll(api);
+    expect(res.state).toBe("done");
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    const [after] = await env.db.select().from(dieInstance).where(eq(dieInstance.id, copy.id));
+    expect(after).toMatchObject({ supplier: "Maker Two", tierRank: 1 });
+    expect((await stagedRows(env, seeded.candidateId))[0]).toMatchObject({ committedType: "die_instance", committedId: copy.id });
+    const [audit] = await auditRows(env, companyId, "die_instance.update");
+    expectSource(audit!.meta, seeded, res.runId);
+  });
+});
+
 describe("bundles", () => {
   test("bundles go through bundle.bulkImport; legacy ids land in legacy_bundle_map in the same call", async () => {
     const { companyId } = await env.seedCompany();
