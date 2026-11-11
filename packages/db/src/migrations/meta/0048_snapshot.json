@@ -12234,6 +12234,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "po_key": {
+          "name": "po_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "integer",
@@ -12290,6 +12297,14 @@
           "columns": [
             "company_id",
             "name_key"
+          ],
+          "isUnique": false
+        },
+        "ingest_staged_row_company_po_key_idx": {
+          "name": "ingest_staged_row_company_po_key_idx",
+          "columns": [
+            "company_id",
+            "po_key"
           ],
           "isUnique": false
         }

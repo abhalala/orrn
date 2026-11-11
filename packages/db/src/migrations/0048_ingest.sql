@@ -267,4 +267,6 @@ CREATE TABLE `ingest_order_key` (
 );
 --> statement-breakpoint
 CREATE INDEX `ingest_order_key_company_key_idx` ON `ingest_order_key` (`company_id`,`key`);--> statement-breakpoint
-CREATE INDEX `sales_order_company_customer_po_lower_idx` ON `sales_order` (`company_id`,`customer_id`,lower("po_number"));
+CREATE INDEX `sales_order_company_customer_po_lower_idx` ON `sales_order` (`company_id`,`customer_id`,lower("po_number"));--> statement-breakpoint
+ALTER TABLE `ingest_staged_row` ADD `po_key` text;--> statement-breakpoint
+CREATE INDEX `ingest_staged_row_company_po_key_idx` ON `ingest_staged_row` (`company_id`,`po_key`);

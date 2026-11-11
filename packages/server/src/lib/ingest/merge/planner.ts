@@ -37,7 +37,20 @@ import { ingestCandidate, ingestMergeChunk, ingestStagedRow, type IngestTarget }
 import { chunk as chunkList, rowsPerStatement, type SqliteBatchItem } from "../../atomic";
 import { loadCandidate, type CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
-import { comesBefore, liveOrdersOf, orderLabel, orderPoOf, otherFileHolders, otherFileWords, parseOrderKey, poTwiceCheck, type LiveOrder } from "../orderid";
+import {
+  comesBefore,
+  groupFyOf,
+  liveOrdersOf,
+  orderLabel,
+  orderPoOf,
+  otherFileHolders,
+  otherFileWords,
+  otherPoWords,
+  parseOrderKey,
+  poKeyOf,
+  poTwiceCheck,
+  type LiveOrder,
+} from "../orderid";
 import { orderPricing, updateRefusal } from "./adapters";
 import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_GROUP_SQL, ORDER_LINE_FIELDS, orderGroupCheck, orderLineOf } from "./rowchecks";
 import {
@@ -297,13 +310,20 @@ export async function orderPlanHold(ctx: IngestCtx, c: Pick<CandidateRow, "id" |
     if (hit.requestId === (await rowsRequestId(list.map((r) => r.id)))) continue;
     return hold(liveOrderWords(orderLabel(list), orderPoOf(list).poText, hit), "CONFLICT");
   }
-  // The same old order in another file or sheet: the later one waits (rule 1, across files). A
-  // merged file is not counted: the order it made is found above while it is live, and once it is
-  // closed or cancelled the old order may be imported again, as the dry run says (S3-3).
-  const holders = await otherFileHolders(ctx, c.id, [...groups.keys()]);
+  // The same old order, or another old order with the same PO, in another file or sheet: the later
+  // one waits (rule 1 and 4.2, across files; both keys compared). A merged file is not counted: the
+  // order it made is found above while it is live, and once it is closed or cancelled the old order
+  // may be imported again, as the dry run says (S3-3).
+  const refs = [...groups].map(([key, list]) => {
+    const k = parseOrderKey(key);
+    return { key, poKey: poKeyOf(k.customer, orderPoOf(list).po), fy: k.kind === "no" ? k.fy : groupFyOf(list.map((r) => r.orderDate)) };
+  });
+  const holders = await otherFileHolders(ctx, c.id, refs);
   for (const [key, hs] of holders) {
     const first = hs.find((h) => h.rows.some((r) => r.written) || comesBefore({ createdAt: h.createdAt, id: h.candidateId }, c));
-    if (first) return hold(otherFileWords(orderLabel(groups.get(key)!), first), "CONFLICT");
+    if (!first) continue;
+    const list = groups.get(key)!;
+    return hold(first.why === "order" ? otherFileWords(orderLabel(list), first) : otherPoWords(orderLabel(list), orderPoOf(list).poText ?? "", first), "CONFLICT");
   }
   return null;
 }

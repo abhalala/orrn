@@ -78,8 +78,11 @@ describe("S3-1 and S3-5: one identity is one sales order", () => {
     const rows = await rowsOf(p.owner, id);
     expect(rows[2]).toMatchObject({ state: "refused" });
     expect(rows[2]!.reasons).toContain("order_no_unclear:oldOrderNo");
-    // Order 42 shares the PO with order 41: refused as before.
-    expect(rows[1]!.state).toBe("refused");
+    // Order 42 shares the PO with order 41: a conflict on both orders, so nothing of either is
+    // written until a person answers (rule 4.2; it was refused on order 42 only).
+    expect(rows[0]!.state).toBe("conflict");
+    expect(rows[1]!.state).toBe("conflict");
+    expect(rows[1]!.reasons).toContain("po_on_two_orders:poNumber");
   });
 
   test("a row with no order number and a PO no numbered row has stays an order by customer and PO", async () => {

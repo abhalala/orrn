@@ -311,6 +311,13 @@ export const ingestStagedRow = sqliteTable(
      * Indexed so an aliases sheet of the same upload finds a customer another sheet adds (rule 2).
      */
     nameKey: text("name_key"),
+    /**
+     * Orders only: the customer part of `order_key` and the row's own PO, trimmed and in lower case
+     * (server lib/ingest/orderid.ts poKeyOf). Null when the row has no PO. Indexed so a PO-only order
+     * finds the numbered order of another sheet that carries its PO, and one PO on two numbered
+     * orders in two sheets is found (PORTAL-RULES-3 4.2).
+     */
+    poKey: text("po_key"),
     updatedAt: updatedAtCol(),
   },
   (t) => [
@@ -320,6 +327,7 @@ export const ingestStagedRow = sqliteTable(
     index("ingest_staged_row_company_key_idx").on(t.companyId, t.rowKey),
     index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey),
     index("ingest_staged_row_company_name_key_idx").on(t.companyId, t.nameKey),
+    index("ingest_staged_row_company_po_key_idx").on(t.companyId, t.poKey),
   ],
 );
 

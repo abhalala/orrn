@@ -848,6 +848,11 @@ export async function decideRows(
   }
   // A line that is not on the matched live order (A-new-1). The merge only makes new orders, so it
   // cannot add this line to that order: the person leaves it out, skips it, or adds it in orrn.
+  // A numbered old order whose PO is on a live order of another old order (rule 4.2): the order
+  // screens take a PO once, so the person leaves the rows out or skips them.
+  if (input.decision !== "skip" && input.decision !== "keep_live" && rows.some((r) => (r.reasons ?? []).includes("po_on_live_order:poNumber"))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This PO is already on another order in orrn. Leave these rows out, or skip them" });
+  }
   if (input.decision !== "skip" && input.decision !== "keep_live" && rows.some((r) => (r.reasons ?? []).includes("order_line_new"))) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This line is not on the order in orrn. Add it to that order there, or leave the row out" });
   }

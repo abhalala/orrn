@@ -100,6 +100,25 @@ export function orderIdentityOf(values: Record<string, unknown>, rowKey: string)
   return { key: ["row", rowKey].join(SEP), kind: "row", customer, fy, no: null, po: null };
 }
 
+/**
+ * The PO key of an order row: the customer part of its order key and its own PO, trimmed and in
+ * lower case. Null when the row has no PO or no customer. Stored in `ingest_staged_row.po_key`, so a
+ * PO-only order finds the numbered order of another sheet that carries its PO (rule 4.2).
+ */
+export function poKeyOf(customer: string | null | undefined, po: unknown): string | null {
+  const p = normPo(po);
+  return customer && p ? `${customer}${SEP}${p}` : null;
+}
+
+/** Whether two financial years may be one order: equal, or one of them unknown (no date). */
+export const fyFits = (a: string, b: string) => !a || !b || a === b;
+
+/** The financial year of a group of rows: their one year, or "" when they have none or several. */
+export function groupFyOf(dates: readonly (string | null)[]): string {
+  const fys = new Set(dates.map((d) => orderFyOf(d)).filter(Boolean));
+  return fys.size === 1 ? [...fys][0]! : "";
+}
+
 /** The parts of a stored order key. A `row` key has no customer, year, number or PO. */
 export function parseOrderKey(key: string): { kind: OrderKind; customer: string | null; fy: string; no: string | null; po: string | null } {
   const [kind = "row", a = "", b = "", c = ""] = key.split(SEP);
@@ -191,56 +210,58 @@ export function orderGroupCheck(list: readonly OrderGroupRow[], kind: OrderKind 
   return null;
 }
 
+/** The plain words for one PO on two old orders. */
+export function poTwiceWords(poText: string, a: string, b: string, where = "in the file"): string {
+  return `PO ${poText} is on ${a} and on ${b.replace(/^Old order/, "old order")} ${where}. One PO can be on one order only. Skip the rows of one of them, or fix the file.`;
+}
+
 /**
  * Old orders of one sheet with the same customer and PO under different keys: two order numbers, or
- * an order number and an order known only by its PO (S3-1). The order screens take a PO once per
- * customer, so only the first of them can be written: each later one is refused (dry run) or holds
- * the candidate (planner), by its key.
+ * an order number and an order known only by its PO in another financial year (S3-1, rule 4.2). The
+ * order screens take a PO once per customer, so nothing of either may be written until a person
+ * answers: every one of them is in the map, each naming another (the dry run marks all of them as a
+ * conflict, the planner holds the candidate).
  */
 export function poTwiceCheck(groups: readonly { key: string; list: readonly OrderGroupRow[] }[]): Map<string, OrderCheck> {
   const out = new Map<string, OrderCheck>();
-  const first = new Map<string, string>();
+  const byPo = new Map<string, { key: string; label: string; poText: string }[]>();
   const sorted = [...groups].sort((a, b) => Math.min(...a.list.map((r) => r.rowIndex)) - Math.min(...b.list.map((r) => r.rowIndex)));
   for (const g of sorted) {
     const k = parseOrderKey(g.key);
     const po = orderPoOf(g.list);
     if (k.kind === "row" || !po.po || !k.customer) continue;
     const at = `${k.customer}${SEP}${po.po}`;
-    const prev = first.get(at);
-    if (prev === undefined) {
-      first.set(at, orderLabel(g.list));
-      continue;
+    byPo.set(at, [...(byPo.get(at) ?? []), { key: g.key, label: orderLabel(g.list), poText: po.poText ?? po.po }]);
+  }
+  for (const list of byPo.values()) {
+    if (list.length < 2) continue;
+    for (const g of list) {
+      const other = list.find((x) => x.key !== g.key)!;
+      const [a, b] = list.indexOf(g) < list.indexOf(other) ? [g.label, other.label] : [other.label, g.label];
+      out.set(g.key, { code: "po_on_two_orders", field: "poNumber", message: poTwiceWords(g.poText, a, b) });
     }
-    out.set(g.key, {
-      code: "po_on_two_orders",
-      field: "poNumber",
-      message: `PO ${po.poText} is on ${prev} and on ${orderLabel(g.list).replace(/^Old order/, "old order")} in the file. One PO can be on one order only. Fix the file or skip rows.`,
-    });
   }
   return out;
 }
 
 /**
  * Which old order each row of one sheet belongs to, decided over the whole sheet, not row by row
- * (S3-1). A row with no order number but a PO first gets a customer-and-PO key. When the sheet has
- * exactly one numbered order of the same customer with a row carrying that PO, the row is a line of
- * that order (`remap`, from key to key). When it has several, the row cannot be placed: it is
- * refused with `order_no_unclear` (`unclear`). When it has none, the customer and PO are the
- * order, as in a sheet with no order number column.
+ * (S3-1, rule 4.2). A row with no order number but a PO first gets a customer-and-PO key. When the
+ * sheet has exactly one numbered order of the same customer and financial year with a row carrying
+ * that PO, the row is a line of that order (`remap`, from key to key). When it has several, the row
+ * cannot be placed: it is refused with `order_no_unclear` (`unclear`). When it has none, the
+ * customer and PO are the order, as in a sheet with no order number column. `fy` is the year of a
+ * PO-only group's rows ("" when they have none or several); a numbered order's year is in its key.
  */
-export function sheetOrderKeys(groups: readonly { key: string; pos: readonly (string | null)[] }[]): { remap: Map<string, string>; unclear: Set<string> } {
+export function sheetOrderKeys(groups: readonly { key: string; pos: readonly (string | null)[]; fy?: string }[]): { remap: Map<string, string>; unclear: Set<string> } {
   // Numbered orders by customer and each PO any of their rows carries.
-  const numbered = new Map<string, Set<string>>();
+  const numbered = new Map<string, { key: string; fy: string }[]>();
   for (const g of groups) {
     const k = parseOrderKey(g.key);
     if (k.kind !== "no" || !k.customer) continue;
-    for (const po of g.pos) {
-      const p = normPo(po);
-      if (!p) continue;
+    for (const p of new Set(g.pos.map((po) => normPo(po)).filter(Boolean))) {
       const at = `${k.customer}${SEP}${p}`;
-      const set = numbered.get(at) ?? new Set<string>();
-      set.add(g.key);
-      numbered.set(at, set);
+      numbered.set(at, [...(numbered.get(at) ?? []), { key: g.key, fy: k.fy }]);
     }
   }
   const remap = new Map<string, string>();
@@ -248,9 +269,9 @@ export function sheetOrderKeys(groups: readonly { key: string; pos: readonly (st
   for (const g of groups) {
     const k = parseOrderKey(g.key);
     if (k.kind !== "po" || !k.customer || !k.po) continue;
-    const hits = numbered.get(`${k.customer}${SEP}${k.po}`);
-    if (!hits || hits.size === 0) continue;
-    if (hits.size === 1) remap.set(g.key, [...hits][0]!);
+    const hits = (numbered.get(`${k.customer}${SEP}${k.po}`) ?? []).filter((h) => fyFits(h.fy, g.fy ?? ""));
+    if (hits.length === 0) continue;
+    if (hits.length === 1) remap.set(g.key, hits[0]!.key);
     else unclear.add(g.key);
   }
   return { remap, unclear };
@@ -280,7 +301,15 @@ export function noteOrderNos(note: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
-export type LiveOrder = { id: string; number: string; requestId: string | null; status: string; by: "no" | "po" };
+export type LiveOrder = {
+  id: string;
+  number: string;
+  requestId: string | null;
+  status: string;
+  by: "no" | "po";
+  /** The old order an import made this order for (`ingest_order_key.key`), or null for an order typed in orrn. */
+  oldKey: string | null;
+};
 
 /** What one live lookup needs: a live customer id (never `new:`), the year, the number and the PO. */
 export type LiveLookup = { key: string; customerId: string; fy: string; no: string | null; po: string | null };
@@ -322,7 +351,7 @@ export async function liveOrdersOf(ctx: Pick<IngestCtx, "db" | "companyId">, loo
         .where(and(eq(ingestOrderKey.companyId, ctx.companyId), inArray(ingestOrderKey.key, part), notInArray(salesOrder.status, ["closed", "cancelled"]))),
     );
     for (const o of rows.sort((a, b) => (a.number < b.number ? -1 : a.number > b.number ? 1 : 0))) {
-      if (!byNo.has(o.key)) byNo.set(o.key, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "no" });
+      if (!byNo.has(o.key)) byNo.set(o.key, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "no", oldKey: o.key });
     }
   }
   const byPo = new Map<string, LiveOrder>();
@@ -332,17 +361,18 @@ export async function liveOrdersOf(ctx: Pick<IngestCtx, "db" | "companyId">, loo
     // On sales_order_company_customer_po_lower_idx: the customer's orders with these POs only.
     const rows = await mapInChunks([...pos], (part) =>
       ctx.db
-        .select({ ...pick, po: sql<string>`lower(${salesOrder.poNumber})` })
+        .select({ ...pick, po: sql<string>`lower(${salesOrder.poNumber})`, oldKey: ingestOrderKey.key })
         .from(salesOrder)
+        .leftJoin(ingestOrderKey, and(eq(ingestOrderKey.salesOrderId, salesOrder.id), eq(ingestOrderKey.companyId, ctx.companyId)))
         .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.customerId, customerId), inArray(sql`lower(${salesOrder.poNumber})`, part), sql`${salesOrder.status} <> 'cancelled'`)),
     );
     for (const o of rows) {
       const k = `${customerId}${SEP}${o.po}`;
-      if (!byPo.has(k)) byPo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "po" });
+      if (!byPo.has(k)) byPo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "po", oldKey: o.oldKey ?? null });
     }
   }
   for (const l of real) {
-    const hit = (l.no && fyRange(l.fy) ? byNo.get(liveOrderKey(l.customerId, l.fy, l.no)) : undefined) ?? (l.po ? byPo.get(`${l.customerId}${SEP}${normPo(l.po)}`) : undefined);
+    const hit: LiveOrder | undefined = (l.no && fyRange(l.fy) ? byNo.get(liveOrderKey(l.customerId, l.fy, l.no)) : undefined) ?? (l.po ? byPo.get(`${l.customerId}${SEP}${normPo(l.po)}`) : undefined);
     if (hit) out.set(l.key, hit);
   }
   return out;
@@ -359,25 +389,49 @@ export type OtherHolder = {
   createdAt: Date;
   fileName: string;
   sheetName: string | null;
-  /** Rows of the other candidate with this key that would write the order, or wrote it. */
+  /**
+   * `order`: the other candidate holds rows of this same old order (the same key, or a PO-only
+   * order and the numbered order of the same customer and year that carries its PO). `po`: it holds
+   * another old order with the same customer and PO (one PO on two orders, rule 4.2).
+   */
+  why: "order" | "po";
+  /** The other candidate's order key. */
+  otherKey: string;
+  /** Rows of the other candidate's order that would write it, or wrote it. */
   rows: { id: string; state: string; decision: string | null; written: boolean }[];
 };
 
+/** One old order of a candidate, as the cross-file check compares it. */
+export type OrderRef = { key: string; poKey: string | null; fy: string };
+
+/** How another sheet's order `other` stands to `mine`, when they share the customer and PO. */
+function poRelation(mine: { key: string; fy: string }, other: { key: string; fy: string }): "order" | "po" {
+  const a = parseOrderKey(mine.key);
+  const b = parseOrderKey(other.key);
+  if (a.kind === "po" && b.kind === "po") return "order";
+  // A PO-only order and a numbered one of the same year are one order (rule 4.2).
+  if (a.kind !== b.kind) return fyFits(a.kind === "no" ? a.fy : mine.fy, b.kind === "no" ? b.fy : other.fy) ? "order" : "po";
+  return "po";
+}
+
 /**
- * Other orders candidates of the plant that hold rows of these old orders (rule 1, across files):
- * not discarded, not fully merged, and with a row that would make the order (ready, waiting on a
- * person, in conflict) or already made it while its candidate still merges. A merged candidate is
- * left to the live order check, so a cancelled order may be imported again (S3-3).
- * Read on `ingest_staged_row_company_order_key_idx`, 90 keys a statement.
+ * Other orders candidates of the plant that hold rows of these old orders (rule 1 and 4.2, across
+ * files): not discarded, not fully merged, and with a row that would make the order (ready,
+ * waiting on a person, in conflict) or already made it while its candidate still merges. A merged
+ * candidate is left to the live order check, so a cancelled order may be imported again (S3-3).
+ * Both keys are compared: the order key, and the customer and PO key (`po_key`), so a PO-only order
+ * meets the numbered order that carries its PO, and one PO on two numbered orders is found. Read on
+ * `ingest_staged_row_company_order_key_idx` and `ingest_staged_row_company_po_key_idx`, 90 keys a
+ * statement. A plain string list compares order keys only.
  */
 export async function otherFileHolders(
   ctx: Pick<IngestCtx, "db" | "companyId">,
   candidateId: string,
-  keys: readonly string[],
+  refs: readonly (OrderRef | string)[],
 ): Promise<Map<string, OtherHolder[]>> {
   const out = new Map<string, OtherHolder[]>();
-  const wanted = [...new Set(keys)].filter((k) => !isOwnOrderKey(k));
-  if (wanted.length === 0) return out;
+  const mine = refs.map((r) => (typeof r === "string" ? { key: r, poKey: null, fy: "" } : r)).filter((r) => !isOwnOrderKey(r.key));
+  if (mine.length === 0) return out;
   // The plant's other orders candidates first: usually none, and then no row is read at all.
   const others = await ctx.db
     .select({ id: ingestCandidate.id, state: ingestCandidate.state, createdAt: ingestCandidate.createdAt, fileName: ingestArtifact.fileName, sheetName: ingestBlock.sheetName })
@@ -395,30 +449,84 @@ export async function otherFileHolders(
   if (others.length === 0) return out;
   const byId = new Map(others.map((o) => [o.id, o]));
   const R = ingestStagedRow;
-  const rows = await mapInChunks(wanted, (part) =>
+  const live = sql`(${R.mergeState} = 'written' or (${R.matchId} is null and ${R.state} in ('ready_create', 'ambiguous', 'conflict')))`;
+  const pick = {
+    key: R.orderKey,
+    poKey: R.poKey,
+    orderDate: sql<string | null>`json_extract(${R.values}, '$.orderDate')`,
+    id: R.id,
+    state: R.state,
+    decision: R.decision,
+    mergeState: R.mergeState,
+    candidateId: R.candidateId,
+  };
+  type Hit = { key: string | null; poKey: string | null; orderDate: string | null; id: string; state: string; decision: string | null; mergeState: string; candidateId: string };
+  const byKey = await mapInChunks([...new Set(mine.map((m) => m.key))], (part) =>
     ctx.db
-      .select({ key: R.orderKey, id: R.id, state: R.state, decision: R.decision, mergeState: R.mergeState, candidateId: R.candidateId })
+      .select(pick)
       .from(R)
-      .where(
-        and(
-          eq(R.companyId, ctx.companyId),
-          inArray(R.orderKey, part),
-          sql`${R.candidateId} <> ${candidateId}`,
-          sql`(${R.mergeState} = 'written' or (${R.matchId} is null and ${R.state} in ('ready_create', 'ambiguous', 'conflict')))`,
-        ),
-      ),
+      .where(and(eq(R.companyId, ctx.companyId), inArray(R.orderKey, part), sql`${R.candidateId} <> ${candidateId}`, live)),
   );
-  const byKey = new Map<string, Map<string, OtherHolder>>();
-  for (const r of rows) {
-    const o = byId.get(r.candidateId);
-    if (!r.key || !o) continue;
-    const m = byKey.get(r.key) ?? new Map<string, OtherHolder>();
-    byKey.set(r.key, m);
-    const h = m.get(o.id) ?? { key: r.key, candidateId: o.id, candidateState: o.state, createdAt: o.createdAt, fileName: o.fileName, sheetName: o.sheetName, rows: [] };
-    m.set(o.id, h);
-    h.rows.push({ id: r.id, state: r.state, decision: r.decision, written: r.mergeState === "written" });
+  const poKeys = [...new Set(mine.map((m) => m.poKey).filter((x): x is string => !!x))];
+  const byPo: Hit[] = poKeys.length
+    ? await mapInChunks(poKeys, (part) =>
+        ctx.db
+          .select(pick)
+          .from(R)
+          .where(and(eq(R.companyId, ctx.companyId), inArray(R.poKey, part), sql`${R.candidateId} <> ${candidateId}`, live)),
+      )
+    : [];
+  // The other orders a PO led to, each with the year of its rows, then all of their rows: a line
+  // with a blank PO belongs to its order too.
+  const otherFy = new Map<string, (string | null)[]>();
+  for (const h of byPo) if (h.key && byId.has(h.candidateId)) otherFy.set(`${h.candidateId}${SEP}${h.key}`, [...(otherFy.get(`${h.candidateId}${SEP}${h.key}`) ?? []), h.orderDate]);
+  const mineKeys = new Set(mine.map((m) => m.key));
+  const moreKeys = [...new Set(byPo.map((h) => h.key).filter((k): k is string => !!k && !mineKeys.has(k)))];
+  const more: Hit[] = moreKeys.length
+    ? await mapInChunks(moreKeys, (part) =>
+        ctx.db
+          .select(pick)
+          .from(R)
+          .where(and(eq(R.companyId, ctx.companyId), inArray(R.orderKey, part), sql`${R.candidateId} <> ${candidateId}`, live)),
+      )
+    : [];
+  // Each other order (candidate and key) with its rows, found by its key and by each PO key.
+  const rowsOf = new Map<string, { cid: string; otherKey: string; hits: Hit[] }>();
+  const atsByKey = new Map<string, Set<string>>();
+  const atsByPo = new Map<string, Set<string>>();
+  const seen = new Set<string>();
+  for (const h of [...byKey, ...byPo, ...more]) {
+    if (!h.key || !byId.has(h.candidateId) || seen.has(h.id)) continue;
+    seen.add(h.id);
+    const at = `${h.candidateId}${SEP}${h.key}`;
+    const e = rowsOf.get(at) ?? { cid: h.candidateId, otherKey: h.key, hits: [] };
+    e.hits.push(h);
+    rowsOf.set(at, e);
+    atsByKey.set(h.key, (atsByKey.get(h.key) ?? new Set()).add(at));
+    if (h.poKey) atsByPo.set(h.poKey, (atsByPo.get(h.poKey) ?? new Set()).add(at));
   }
-  for (const [k, m] of byKey) out.set(k, [...m.values()]);
+  for (const m of mine) {
+    const found = new Map<string, OtherHolder>();
+    const ats = new Set([...(atsByKey.get(m.key) ?? []), ...(m.poKey ? (atsByPo.get(m.poKey) ?? []) : [])]);
+    for (const at of ats) {
+      const { cid, otherKey, hits } = rowsOf.get(at)!;
+      const why: "order" | "po" = otherKey === m.key ? "order" : poRelation(m, { key: otherKey, fy: groupFyOf(otherFy.get(at) ?? []) });
+      const o = byId.get(cid)!;
+      found.set(at, {
+        key: m.key,
+        candidateId: o.id,
+        candidateState: o.state,
+        createdAt: o.createdAt,
+        fileName: o.fileName,
+        sheetName: o.sheetName,
+        why,
+        otherKey,
+        rows: hits.map((h) => ({ id: h.id, state: h.state, decision: h.decision, written: h.mergeState === "written" })),
+      });
+    }
+    // The same order first, then another order with the same PO.
+    if (found.size) out.set(m.key, [...found.values()].sort((a, b) => (a.why === b.why ? 0 : a.why === "order" ? -1 : 1)));
+  }
   return out;
 }
 
@@ -428,7 +536,15 @@ export function comesBefore(a: { createdAt: Date; id: string }, b: { createdAt: 
   return d !== 0 ? d < 0 : a.id < b.id;
 }
 
+/** The file and sheet of another candidate, as the words name it: "book.xlsx (Old dies)". */
+export const fileAndSheet = (h: { fileName: string; sheetName: string | null }) => `${h.fileName}${h.sheetName ? ` (${h.sheetName})` : ""}`;
+
 /** The plain words for "this old order is also in that file". */
 export function otherFileWords(label: string, h: Pick<OtherHolder, "fileName" | "sheetName">): string {
-  return `${label} is also in ${h.fileName}${h.sheetName ? ` (${h.sheetName})` : ""}. Skip its rows in one of the two, or discard one of them.`;
+  return `${label} is also in ${fileAndSheet(h)}. Skip its rows in one of the two, or discard one of them.`;
+}
+
+/** The plain words for "this order's PO is on another old order in that file". */
+export function otherPoWords(label: string, poText: string, h: Pick<OtherHolder, "fileName" | "sheetName">): string {
+  return `PO ${poText} of ${label.replace(/^Old order/, "old order")} is also on another order in ${fileAndSheet(h)}. One PO can be on one order only. Skip the rows of one of them, or discard one of the sheets.`;
 }
