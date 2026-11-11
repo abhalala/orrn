@@ -1186,10 +1186,27 @@ export async function releaseCandidate(ctx: IngestCtx, input: { candidateId: str
   // A ready one too (rule 2): its refusals may be out of date, and approve says so.
   assertState(c, ["held", "ready"], "Only a held or ready import can be checked again");
   if (c.parentId) {
-    // A derived list has no recipe to run: it goes straight back to ready.
+    // A derived list has no recipe to run: it goes straight back to ready. A part of it that stopped
+    // the server on every send opens first, as for any candidate (X-new-5), so the person can skip
+    // its rows. Names that landed need no lookup: the customers adapter sends only names not in orrn.
+    const stuck = c.state === "held" ? await openStuckParts(ctx, c.id, "customers") : { statements: [], written: 0, from: null };
     await guardedBatch(ctx.db, [
-      ...candidateChange(ctx, c.id, input.expectSeq, { state: "ready", reasonCode: null, reasonDetail: null }),
-      auditInsert(ctx, { action: "ingest.candidate.recheck", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state, reason: c.reasonCode } }),
+      ...candidateChange(ctx, c.id, input.expectSeq, {
+        state: "ready",
+        reasonCode: null,
+        reasonDetail: null,
+        approvedBy: null,
+        approvedAt: null,
+        ...(stuck.written > 0 ? { recipeLocked: true } : {}),
+      }),
+      ...stuck.statements,
+      ...(stuck.statements.length ? [recountStatement(ctx, c.id)] : []),
+      auditInsert(ctx, {
+        action: "ingest.candidate.recheck",
+        subjectType: "ingest_candidate",
+        subjectId: c.id,
+        meta: { from: c.state, reason: c.reasonCode, ...(stuck.statements.length ? { stuckOpened: true, stuckWritten: stuck.written } : {}) },
+      }),
     ]);
     return candidateDetail(ctx, c.id);
   }

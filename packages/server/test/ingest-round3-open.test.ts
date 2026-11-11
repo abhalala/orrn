@@ -43,3 +43,65 @@ describe("X-new-2: rates left out stay left out through every re-read", () => {
     expect(c.openQuestions).toBe(0);
   });
 });
+
+describe("X-new-5: a stuck part of the derived new customers list has a way out", () => {
+  test("check again opens its rows; the person skips one; approve and merge finish", async () => {
+    const p = await plant(env);
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    await learnLayout(env, p.companyId, p.users.owner.id, layout("orders", ORDER_HEADERS, ORDER_FIELDS, ["customer", "poNumber", "orderDate"]), "Orders");
+    const { candidates } = await upload(p.owner, [
+      {
+        headers: ORDER_HEADERS,
+        rows: [
+          ["Bharat Metals", "PO-1", "01/10/2025", "R", "5100", "3658", "", "300"],
+          ["Zenith Traders", "PO-2", "01/10/2025", "R", "5100", "3658", "", "300"],
+        ],
+      },
+    ]);
+    const orders = candidates[0]!.id;
+    await pump(p.owner, orders);
+    let c = await p.owner.ingest.candidate.get({ candidateId: orders });
+    await p.owner.ingest.answer.set({ candidateId: orders, questionCode: "new_customers", subject: "", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, orders);
+    const child = await env.d1.prepare("select id from ingest_candidate where parent_id = ?").bind(orders).first<{ id: string }>();
+    const list = child!.id;
+    c = await p.owner.ingest.candidate.get({ candidateId: list });
+    await p.owner.ingest.candidate.approve({ candidateId: list, expectSeq: c.serverSeq });
+    const { runId } = await p.owner.ingest.merge.start();
+    let cursor = 0;
+    let step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+    while (step.state === "planning") {
+      cursor = step.cursor;
+      step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+    }
+    cursor = step.cursor;
+    // Every send ends the request before its result is recorded (a Worker past its CPU limit).
+    const { ingestMergeChunk } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(ingestMergeChunk).set({ state: "sent", attempts: 3, sentAt: new Date(Date.now() - 120_000) }).where(eq(ingestMergeChunk.candidateId, list));
+    for (let i = 0; i < 10 && (step.state === "running" || step.state === "planning"); i += 1) {
+      step = await p.owner.ingest.merge.step({ runId, expectCursor: cursor });
+      cursor = step.cursor;
+    }
+    c = await p.owner.ingest.candidate.get({ candidateId: list });
+    expect(c.state).toBe("held");
+    c = await p.owner.ingest.candidate.release({ candidateId: list, expectSeq: c.serverSeq });
+    expect(c.state).toBe("ready");
+    const rows = await rowsOf(p.owner, list);
+    expect(rows.map((r) => r.mergeState)).toEqual(["open", "open"]);
+    const zenith = rows.find((r) => (r.values as { name: string }).name === "Zenith Traders")!;
+    await p.owner.ingest.rows.decide({ candidateId: list, rowIds: [zenith.id], decision: "skip", expectSeq: c.serverSeq });
+    c = await p.owner.ingest.candidate.get({ candidateId: list });
+    expect((await p.owner.ingest.candidate.approve({ candidateId: list, expectSeq: c.serverSeq })).state).toBe("approved");
+    const again = await p.owner.ingest.merge.start();
+    let cur2 = 0;
+    let s2 = await p.owner.ingest.merge.step({ runId: again.runId, expectCursor: cur2 });
+    for (let i = 0; i < 20 && (s2.state === "running" || s2.state === "planning"); i += 1) {
+      cur2 = s2.cursor;
+      s2 = await p.owner.ingest.merge.step({ runId: again.runId, expectCursor: cur2 });
+    }
+    expect(s2.state).toBe("done");
+    const names = await env.d1.prepare("select name from customer where company_id = ? order by name").bind(p.companyId).all<{ name: string }>();
+    expect(names.results.map((n) => n.name)).toEqual(["Bharat Metals"]);
+  });
+});
