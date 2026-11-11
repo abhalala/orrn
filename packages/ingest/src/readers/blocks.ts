@@ -313,22 +313,6 @@ export function checkHintShape(h: BlockHints): void {
 /** The first raw row of a block's region: its title, or its header. Not `preview[0]`, which may show rows above. */
 export const regionStartOf = (b: ReadBlock) => b.guess.headerRow - b.headerRow;
 
-/**
- * The last filled row of rows `from` to `to`, stopping at a run of two or more blank rows (PORTAL-RULES-3 section 5.2):
- * a single blank row is ignored. `from - 1` when there is none.
- */
-export function regionEnd(rows: readonly string[][], from: number, to: number): number {
-  let last = from - 1;
-  let blanks = 0;
-  for (let r = from; r <= to; r++) {
-    if (nonBlank(rows[r]!) > 0) {
-      last = r;
-      blanks = 0;
-    } else if (++blanks >= 2) break;
-  }
-  return last;
-}
-
 /** Rows to show around a guessed split: this many filled rows above it and rows from the next block's start. */
 export const SPLIT_CONTEXT_ROWS = 2;
 
@@ -369,8 +353,10 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
 /**
  * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7, rule 5.2).
  * The rest of the sheet keeps the guess, so a hint for one table does not swallow or drop another:
- * - A hinted block without a last data row ends before the next hinted header, or at the last filled row before two
- *   or more blank rows, or at the end of the sheet. A single blank row never ends it: a row after one is a row (B5).
+ * - A hinted block without a last data row runs to the last filled row before the next hinted header, or before the
+ *   end of the sheet. Blank rows never end it, however many (B5; round 6, M-R5-1): the person said where the table
+ *   starts, so every row below it is a row of it until the next table they named. Nothing after the header is left
+ *   outside every block.
  * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
  *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
  *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
@@ -395,7 +381,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     if (next && next.headerRow < h + headerRows) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the header above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
-    const last = hint.lastDataRow ?? Math.max(first - 1, regionEnd(rows, first, next ? next.headerRow - 1 : n - 1));
+    const last = hint.lastDataRow ?? Math.max(first - 1, lastFilled(rows as string[][], first, next ? next.headerRow - 1 : n - 1));
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
     spans.push({ hint, h, headerRows, first, last });

@@ -33,12 +33,20 @@ describe("5.2: hints are exact across blank rows", () => {
     expect(r.blocks[0]!.rows).toEqual([["Om", "12"], [], ["Section", "Kg"], ["T4012", "3.5"]]);
   });
 
-  test("two or more blank rows end the region; the table below is still guessed", () => {
+  // Round 6 (M-R5-1): blank rows never end a hinted block with no last row. This test pinned that two blank rows
+  // end the region; it now pins that the rows below are rows of the hinted block, and that a hint on the second
+  // table (or a given last row) is how the person keeps the second table apart.
+  test("blank rows do not end the region; a hint on the table below keeps it apart", () => {
     const m = [["Party", "Kg"], ["Om", "12"], [], [], ["Section", "Kg"], ["T4012", "3.5"], ["T4013", "4.5"]];
-    const r = readSheet(m, { hints: [{ headerRow: 0 }] });
+    const one = readSheet(m, { hints: [{ headerRow: 0 }] });
+    expect(one.blocks.length).toBe(1);
+    expect(one.blocks[0]!.rows.length).toBe(6);
+    const r = readSheet(m, { hints: [{ headerRow: 0 }, { headerRow: 4 }] });
     expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Kg"], ["Section", "Kg"]]);
     expect(r.blocks[0]!.rows).toEqual([["Om", "12"]]);
-    expect(r.blocks[1]!.hints).toBeNull();
+    const l = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 1 }] });
+    expect(l.blocks.map((b) => b.headers)).toEqual([["Party", "Kg"], ["Section", "Kg"]]);
+    expect(l.blocks[1]!.hints).toBeNull();
   });
 
   test("a given last row is followed exactly, across blank rows", () => {

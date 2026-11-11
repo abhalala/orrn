@@ -54,14 +54,16 @@ describe("R3-7: a hint for one block leaves the other blocks to the guess", () =
   const m = [["Stock statement"], ["Party", "Qty"], ["Om", 1], ["Kamal", 2], [], ["Section", "Kg"], ["T 4012", 3], ["R 2105", 4]];
 
   // Round 5, rule 5.2: a hinted read never splits at one blank row, so the table under one blank row is rows of the
-  // hinted block. This test pinned the split; it now pins one block for one blank row, and keeps its intent (the
-  // second table stays guessed) with two blank rows between the tables.
-  test("one blank row: the hinted block runs on; two blank rows: the second table stays guessed", () => {
+  // hinted block. This test pinned the split; it now pins one block for one blank row. Round 6 (M-R5-1): two blank
+  // rows no longer end a hinted block either, so the intent (the second table stays guessed) is now kept with a
+  // given last data row.
+  test("blank rows: the hinted block runs on; a given last row: the second table stays guessed", () => {
     const one = readSheet(m, { hints: [{ headerRow: 1 }] });
     expect(one.blocks.length).toBe(1);
     expect(one.blocks[0]!.rows.length).toBe(6);
     const m2 = [...m.slice(0, 5), [], ...m.slice(5)];
-    const r = readSheet(m2, { hints: [{ headerRow: 1 }] });
+    expect(readSheet(m2, { hints: [{ headerRow: 1 }] }).blocks.length).toBe(1);
+    const r = readSheet(m2, { hints: [{ headerRow: 1, lastDataRow: 3 }] });
     expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
     expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
     expect(r.blocks[0]!.title).toBe("Stock statement");
