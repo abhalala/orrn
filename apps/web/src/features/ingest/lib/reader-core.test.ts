@@ -253,3 +253,91 @@ describe("sha256", () => {
     );
   });
 });
+
+/** Review E1, E4, E5, E6, E14: cells and sheets as Excel really stores them. */
+describe("review: sheet cells", () => {
+  const X = xlsxLike;
+  const serial1900 = (y: number, m: number, d: number) => (Date.UTC(y, m - 1, d) - Date.UTC(1899, 11, 30)) / 86_400_000;
+  const sheetOf = (cells: Record<string, unknown>, ref: string) => ({ "!ref": ref, ...cells }) as never;
+
+  test("E1: an error cell keeps its visible text, never the numeric error code", () => {
+    const sheet = sheetOf({ A1: { t: "s", v: "Weight" }, A2: { t: "e", v: 42, w: "#N/A" }, A3: { t: "e", v: 7, w: "#DIV/0!" }, A4: { t: "e", v: 15 } }, "A1:A4");
+    const { matrix, dateColumns } = matrixFromSheet(X, sheet);
+    expect(matrix).toEqual([["Weight"], ["#N/A"], ["#DIV/0!"], ["#ERROR"]]);
+    expect(dateColumns).toEqual([]);
+  });
+
+  test("E4: a 1904 workbook reads the same day, not four years and a day off", () => {
+    const wanted = serial1900(2026, 11, 10);
+    const sheet = sheetOf({ A1: { t: "n", v: wanted - 1462, z: "yyyy-mm-dd" } }, "A1:A1");
+    expect(matrixFromSheet(X, sheet, { date1904: true }).matrix).toEqual([["2026-11-10"]]);
+    const plain = sheetOf({ A1: { t: "n", v: wanted, z: "yyyy-mm-dd" } }, "A1:A1");
+    expect(matrixFromSheet(X, plain).matrix).toEqual([["2026-11-10"]]);
+  });
+
+  test("E4: a time-only cell is a time, not 1900-01-00, and does not make a date column", () => {
+    const sheet = sheetOf({ A1: { t: "n", v: 0.5, z: "h:mm" }, A2: { t: "n", v: 0.75, z: "h:mm" } }, "A1:A2");
+    const out = matrixFromSheet(X, sheet);
+    expect(out.matrix).toEqual([["12:00"], ["18:00"]]);
+    expect(out.dateColumns).toEqual([]);
+  });
+
+  test("E4: a date with a time keeps its day", () => {
+    const sheet = sheetOf({ A1: { t: "n", v: serial1900(2026, 11, 10) + 0.6, z: "yyyy-mm-dd hh:mm" } }, "A1:A1");
+    expect(matrixFromSheet(X, sheet).matrix).toEqual([["2026-11-10"]]);
+  });
+
+  test("E4: the workbook's date system reaches the cells through readSheetBytes", async () => {
+    const sheet = sheetOf({ A1: { t: "s", v: "Date" }, A2: { t: "n", v: serial1900(2026, 11, 10) - 1462, z: "yyyy-mm-dd" } }, "A1:A2");
+    const fake = {
+      ...XLSX,
+      read: () => ({ SheetNames: ["S"], Sheets: { S: sheet }, Workbook: { WBProps: { date1904: true } } }),
+    } as unknown as XlsxLike;
+    const blocks = await readSheetBytes(new ArrayBuffer(8), deps({ loadXlsx: async () => fake }));
+    expect(blocks[0]!.rows[0]![0]).toBe("2026-11-10");
+  });
+
+  test("E5: a block of 150,000 rows is counted without spreading it into Math.max", () => {
+    const rows = Array.from({ length: 150_000 }, (_, i) => [String(i), "x"]);
+    const out = finishBlocks([{ sheetName: "Big", block: { title: null, headerRow: 0, headerRows: 1, headers: ["a", "b"], rows } }]);
+    expect(out.map((b) => b.input.rowCount)).toEqual([50_000, 50_000, 50_000]);
+  });
+
+  test("E6: a range stretched by formatting is not walked cell by cell", () => {
+    const sheet = sheetOf({ A1: { t: "s", v: "h" }, A2: { t: "s", v: "1" } }, "A1:XFD1048576");
+    const out = matrixFromSheet(X, sheet);
+    expect(out.matrix).toEqual([["h"], ["1"]]);
+  });
+
+  test("E6: real cells past the caps stop the read before a matrix is built", () => {
+    const wide = sheetOf({ A1: { t: "s", v: "h" }, IA1: { t: "s", v: "x" } }, "A1:IA1");
+    expect(() => matrixFromSheet(X, wide, { maxColumns: 200 })).toThrow(ReadStop);
+    const tall = sheetOf({ A1: { t: "s", v: "h" }, A5: { t: "s", v: "x" } }, "A1:A5");
+    try {
+      matrixFromSheet(X, tall, { maxRows: 4 });
+      throw new Error("no stop");
+    } catch (e) {
+      expect((e as ReadStop).failure).toEqual({ code: "too_many_rows", rows: 5 });
+    }
+  });
+
+  test("E6: a sheet with no cells gives no matrix even with a big range", () => {
+    expect(matrixFromSheet(X, sheetOf({}, "A1:XFD1048576"))).toEqual({ matrix: [], dateColumns: [] });
+  });
+
+  test("E14: a number shown with leading zeros keeps them; other numbers stay as stored", () => {
+    const sheet = sheetOf({
+      A1: { t: "n", v: 7, z: "0000", w: "0007" },
+      A2: { t: "n", v: 12.64, z: "0.0", w: "12.6" },
+    }, "A1:A2");
+    expect(matrixFromSheet(X, sheet).matrix).toEqual([["0007"], ["12.64"]]);
+  });
+});
+
+describe("review: E5 source guard", () => {
+  test("reader-core never spreads a row list into a call (V8 and Safari throw past about 100,000 arguments)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("./reader-core.ts", import.meta.url), "utf8");
+    expect(src).not.toMatch(/Math\.(max|min)\(\s*[^)]*\.\.\./);
+  });
+});
