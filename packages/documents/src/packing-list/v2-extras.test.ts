@@ -108,12 +108,15 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(html).toContain('@bottom-right { content: "Page " counter(page) " of " counter(pages);');
   });
 
-  test("the grand total and three signature lines share one unbreakable wrapper", () => {
+  test("the grand total and four signature lines share one unbreakable wrapper", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(v2()), "PL/2026-27/7");
-    for (const label of ["Packed by", "Checked by", "Driver received"]) expect(html).toContain(label);
+    const labels = ["Packed by", "Checked by", "Driver", "Receiver's signature"];
+    for (const label of labels) expect(html).toContain(label);
+    expect(html.indexOf(labels[0]!)).toBeLessThan(html.indexOf(labels[1]!));
+    expect(html.indexOf(labels[1]!)).toBeLessThan(html.indexOf(labels[2]!));
+    expect(html.indexOf(labels[2]!)).toBeLessThan(html.indexOf(labels[3]!));
     expect(html).toContain(".closing { break-inside: avoid; page-break-inside: avoid; }");
     expect(html).toMatch(/<div class="closing">[\s\S]*4 bundles · 85.000 kg[\s\S]*Packed by/);
-    expect(html).not.toContain("Receiver's signature");
   });
 
   test("group headings include only the ordered weight and PO date present in the snapshot", () => {

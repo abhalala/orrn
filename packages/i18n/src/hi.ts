@@ -1591,9 +1591,10 @@ export const hi = {
     print: "प्रिंट",
     lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी।",
     signatures: {
-      packedBy: "किसने पैक किया",
-      checkedBy: "किसने जाँच की",
-      driverReceived: "ड्राइवर ने माल प्राप्त किया",
+      packedBy: "पैक करने वाला",
+      checkedBy: "जाँच करने वाला",
+      driverReceived: "ड्राइवर",
+      receiverSignature: "ग्राहक के हस्ताक्षर",
     },
     groupDetails: {
       orderedKgPer12ft: "ऑर्डर kg/12ft {kg}",

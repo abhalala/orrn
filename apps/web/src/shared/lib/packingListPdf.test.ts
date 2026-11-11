@@ -99,10 +99,12 @@ describe("packing list PDF print polish", () => {
     for (const page of pages) {
       expect(page).toContain("Not a tax invoice. Printed from PL/2026-27/90 revision 3 as issued.");
     }
-    const labels = ["Packed by", "Checked by", "Driver received"];
+    const labels = ["Packed by", "Checked by", "Driver", "Receiver's signature"];
     const signed = pages.filter((page) => labels.every((label) => page.includes(label)));
     expect(signed).toHaveLength(1);
     expect(signed[0]).toContain(`Page ${total} of ${total}`);
+    const positions = labels.map((label) => signed[0]!.indexOf(label));
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
   test("around a page break the signatures stay with the grand total and no page is header-only", async () => {
@@ -113,7 +115,8 @@ describe("packing list PDF print polish", () => {
       expect(signed, `${rowCount} rows`).toHaveLength(1);
       expect(signed[0], `${rowCount} rows`).toContain("Total");
       expect(signed[0], `${rowCount} rows`).toContain("Checked by");
-      expect(signed[0], `${rowCount} rows`).toContain("Driver received");
+      expect(signed[0], `${rowCount} rows`).toContain("Driver");
+      expect(signed[0], `${rowCount} rows`).toContain("Receiver's signature");
       const kg = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(rowCount * 25);
       expect(signed[0], `${rowCount} rows`).toContain(kg);
       for (const page of pages) {
@@ -136,7 +139,8 @@ describe("packing list PDF print polish", () => {
     const text = pdfTextStreams(await blob.arrayBuffer()).join("");
     expect(text).toContain("Packed by");
     expect(text).toContain("Checked by");
-    expect(text).toContain("Driver received");
+    expect(text).toContain("Driver");
+    expect(text).toContain("Receiver's signature");
     expect(text).toContain("Not a tax invoice.");
     expect(text).not.toContain("पैक करने वाला");
     expect(text).not.toContain("जाँच करने वाला");

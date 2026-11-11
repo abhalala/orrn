@@ -27,7 +27,7 @@ describe("packing list html (native print)", () => {
 
   test("the grand total and signature labels share one unbreakable wrapper", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
-    for (const label of ["Packed by", "Checked by", "Driver received"]) expect(html).toContain(label);
+    for (const label of ["Packed by", "Checked by", "Driver", "Receiver's signature"]) expect(html).toContain(label);
     expect(html).toContain(".closing { break-inside: avoid; page-break-inside: avoid; }");
     expect(html).toMatch(/<div class="closing">[\s\S]*<tr class="grand">[\s\S]*Packed by/);
   });

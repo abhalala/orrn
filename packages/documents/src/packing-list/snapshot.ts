@@ -93,6 +93,7 @@ export type PackingListPrintText = {
   packedBy: string;
   checkedBy: string;
   driverReceived: string;
+  receiverSignature: string;
   orderedKgPer12ft: (kg: string) => string;
   poDate: (date: string) => string;
 };
@@ -101,8 +102,13 @@ export function plLockedSnapshotFooter(code: string, revision: number, text?: Pa
   return text?.lockedSnapshotFooter?.(code, revision) ?? `Not a tax invoice. Printed from ${code} revision ${revision} as issued.`;
 }
 
-export function plSignatureLabels(text?: Partial<PackingListPrintText>): [string, string, string] {
-  return [text?.packedBy ?? "Packed by", text?.checkedBy ?? "Checked by", text?.driverReceived ?? "Driver received"];
+export function plSignatureLabels(text?: Partial<PackingListPrintText>): [string, string, string, string] {
+  return [
+    text?.packedBy ?? "Packed by",
+    text?.checkedBy ?? "Checked by",
+    text?.driverReceived ?? "Driver",
+    text?.receiverSignature ?? "Receiver's signature",
+  ];
 }
 
 /** Printed column headings, in order (the PL is a customer document, printed in English). */

@@ -1601,7 +1601,8 @@ export const en = {
     signatures: {
       packedBy: "Packed by",
       checkedBy: "Checked by",
-      driverReceived: "Driver received",
+      driverReceived: "Driver",
+      receiverSignature: "Receiver's signature",
     },
     groupDetails: {
       orderedKgPer12ft: "Ordered kg/12ft {kg}",
