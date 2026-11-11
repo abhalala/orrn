@@ -661,7 +661,9 @@ async function buildPrintStatusSection(db: OrrnDb, companyId: string): Promise<B
 }
 
 function sanitizeCompanySettings(settings: Record<string, unknown>): Record<string, unknown> {
-  const allowedKeys = ["timezone", "units", "standards", "orderToleranceBp", "bundleNumberStyle", "dieRoom"];
+  // `units` is not passed on: the plant's own unit choices (company.settings.units) are for the web screens. The edge reprint and read
+  // fallback is a paper-style surface that stays on today's units (kg and feet), so it reads the fixed `dto.units` below.
+  const allowedKeys = ["timezone", "standards", "orderToleranceBp", "bundleNumberStyle", "dieRoom"];
   const out: Record<string, unknown> = {};
   for (const k of allowedKeys) {
     if (k in settings) {
@@ -697,7 +699,7 @@ async function buildCompanyFormatSection(db: OrrnDb, companyId: string): Promise
             name: comp.name,
             slug: comp.slug,
             timezone: (safeSettings.timezone as string) ?? "Asia/Kolkata",
-            units: safeSettings.units ?? { weight: "kg", length: "ft" },
+            units: { weight: "kg", length: "ft" },
             settings: safeSettings,
           },
         },
