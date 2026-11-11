@@ -16,6 +16,7 @@ import { toast } from "sonner";
 
 import { beginSessionChange, cancelSessionChange, warnLeaving } from "@/features/press/outbox-session";
 import { useMe } from "@/shared/lib/me";
+import { expectPlant } from "@/shared/lib/plant-sync";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient, trpc } from "@/shared/utils/trpc";
 
@@ -38,7 +39,11 @@ export function PlantSwitcher({ variant }: { variant: "header" | "rail" }) {
 
   const sw = useMutation(
     trpc.company.switch.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (picked) => {
+        // The server now answers for the new plant while `me` still carries the old plant's units: the frame
+        // renders nothing but its loading state until `me` is the new plant's (plant-sync.ts), so no weight is
+        // read or typed under the old unit in between.
+        expectPlant(picked.companyId);
         // Leave first: a page of the old plant (a dispatch id, a run) must not re-fetch under the new one and
         // flash "Not found". Then forget the old plant's data and learn the new one.
         await navigate({ to: "/today" as never });

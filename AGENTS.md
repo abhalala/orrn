@@ -78,6 +78,11 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
     silent fallback to another plant.
   - Clients that get that error must clear their stored `x-orrn-company`
     value, refetch `auth.me` and let the user pick a plant again.
+- After a plant switch (web) the server answers for the new plant while `auth.me` still carries the old plant's units.
+  `PlantSwitcher` calls `expectPlant(newId)` (`shared/lib/plant-sync.ts`) before it leaves the page; `TenantFmtProvider`
+  (keyed on the company id) and the portal's `PortalFmtProvider` render their content only when the units in hand
+  belong to that plant, the loading state meanwhile, so no weight is read or typed under the old unit
+  (`tenant-fmt.test.tsx`, `portal-fmt.test.tsx`). If `me` cannot be read again the page reloads.
   - Without the header, the active plant is the one last chosen with
     `company.switch({ companyId })`, else the newest membership.
   - `auth.me` returns `company` (the active plant) and `memberships:
