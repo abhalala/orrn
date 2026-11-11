@@ -8,7 +8,7 @@ export const builtinBundles: BuiltinHole = {
   keys: ["legacyId"],
   onExisting: "skip",
   fields: [
-    { field: "legacyId", aliases: ["legacy id", "old id", "bundle id", "uid"] },
+    { field: "legacyId", aliases: ["legacy id", "old id", "bundle id", "uid"], required: true },
     { field: "series", aliases: ["die series", "series"], required: true, caseTo: "upper" },
     { field: "sectionCode", aliases: ["die section code", "section code", "section", "die section", "section no"], required: true },
     { field: "quantity", aliases: ["quantity", "qty", "pieces", "pcs", "piece", "nos"], required: true, unitFromHeader: "count" },
