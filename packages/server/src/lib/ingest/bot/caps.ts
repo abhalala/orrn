@@ -107,7 +107,8 @@ export async function checkCaps(args: {
 
 /**
  * The caps again after this call's `pending` row is in: the block and day counts now include it, so
- * they may reach the cap but not pass it. Two calls that claimed at once both see each other.
+ * they may reach the cap but not pass it. Two calls that claimed at once both see each other. The day
+ * cost includes every claim's worst-case cost, so it too may reach the cap but not pass it.
  */
 export async function capsAfterClaim(args: {
   store: BotRunStore;
@@ -121,7 +122,7 @@ export async function capsAfterClaim(args: {
   if (countCalls(history) > BLOCK_CALL_CAP) return "block_calls";
   const day = await args.store.dayTotals({ companyId: args.companyId, sinceMs: plantDayStartMs(args.nowMs) });
   if (day.calls > DAY_CALL_CAP) return "day_calls";
-  if (day.costMicroUsd >= DAY_COST_CAP_MICRO) return "day_cost";
+  if (day.costMicroUsd > DAY_COST_CAP_MICRO) return "day_cost";
   return null;
 }
 

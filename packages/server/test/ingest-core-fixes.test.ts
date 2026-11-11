@@ -22,10 +22,10 @@ import {
 
 import { setShapeClientForTests } from "../src/lib/ingest/bot/client";
 import { FakeShapeClient, fakeResponse } from "../src/lib/ingest/bot/fake";
-import { runShapeAttempt } from "../src/lib/ingest/bot";
-import { DAY_CALL_CAP } from "../src/lib/ingest/bot/caps";
+import { runShapeAttempt, type RunShapeArgs } from "../src/lib/ingest/bot";
+import { DAY_CALL_CAP, DAY_COST_CAP_MICRO, MemoryBotRunStore } from "../src/lib/ingest/bot/caps";
 import { dryRunHooks } from "../src/lib/ingest/dryrun";
-import { BLOCK, baseArgs, haiku, recipeAnswer, validRecipe } from "./ingest-bot-fixture";
+import { BLOCK, baseArgs, haiku, recipeAnswer, sonnet, validRecipe } from "./ingest-bot-fixture";
 
 let env: TestEnv;
 
@@ -495,6 +495,65 @@ describe("A8: parallel calls across blocks", () => {
     expect(fake.calls.length).toBeLessThanOrEqual(1);
     expect(args.store.rows.filter((r) => r.outcome !== "capped").length).toBeLessThanOrEqual(DAY_CALL_CAP);
     expect(args.store.rows.some((r) => r.outcome === "pending")).toBe(false);
+  });
+});
+
+describe("A8: the day cost cap counts calls still in flight", () => {
+  const spent = (store: MemoryBotRunStore, at: number, costMicroUsd: number) =>
+    store.insertRun({
+      companyId: "co1", blockId: "old", candidateId: null, purpose: "shape", model: "claude-sonnet-5-5", attempt: 1, outcome: "recipe",
+      inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd, durationMs: 0, createdBy: null, createdAtMs: at - 1000, errorCodes: null,
+    });
+
+  /** The cost a claim stores before its call: seen once on a store that keeps every pending row. */
+  async function claimCost(over: Partial<RunShapeArgs> = {}): Promise<number> {
+    const seen: number[] = [];
+    class Probe extends MemoryBotRunStore {
+      override async insertRun(row: Parameters<MemoryBotRunStore["insertRun"]>[0]) {
+        if (row.outcome === "pending") seen.push(row.costMicroUsd);
+        return super.insertRun(row);
+      }
+    }
+    const args = baseArgs({ store: new Probe(), ...over });
+    await runShapeAttempt({ ...args, client: new FakeShapeClient([haiku(recipeAnswer()), sonnet(recipeAnswer())]) });
+    expect(seen).toHaveLength(1);
+    return seen[0]!;
+  }
+
+  test("a claim stores the call's worst-case cost: the full output budget at the planned model", async () => {
+    const worst = await claimCost();
+    // Haiku 5.5: 8,000 output tokens at 0.50 USD per million is 4,000 micro-USD, plus the input.
+    expect(worst).toBeGreaterThan(4_000);
+  });
+
+  test("two blocks with room for one call's worst case: at most one model call, and the day stays under 5 USD", async () => {
+    const worst = await claimCost();
+    const args = baseArgs();
+    const at = args.nowMs!();
+    await spent(args.store, at, DAY_COST_CAP_MICRO - Math.floor(worst * 1.5));
+    const fake = new FakeShapeClient([haiku(recipeAnswer()), haiku(recipeAnswer())]);
+    const results = await Promise.all([
+      runShapeAttempt({ ...args, client: fake, block: { ...args.block, id: "blkA" } }),
+      runShapeAttempt({ ...args, client: fake, block: { ...args.block, id: "blkB" } }),
+    ]);
+    expect(fake.calls.length).toBeLessThanOrEqual(1);
+    expect(results.some((r) => r.status === "ran" && r.outcome === "capped" && r.capReason === "day_cost")).toBe(true);
+    const day = await args.store.dayTotals({ companyId: "co1", sinceMs: 0 });
+    expect(day.costMicroUsd).toBeLessThanOrEqual(DAY_COST_CAP_MICRO);
+  });
+
+  test("at 4.99 USD a Sonnet call, whose worst case passes 5 USD, is capped before it is made", async () => {
+    const args = baseArgs({ noFitBlocks: 2 });
+    await spent(args.store, args.nowMs!(), 4_990_000);
+    const fake = new FakeShapeClient([sonnet(recipeAnswer()), sonnet(recipeAnswer())]);
+    const results = await Promise.all([
+      runShapeAttempt({ ...args, client: fake, block: { ...args.block, id: "blkA" } }),
+      runShapeAttempt({ ...args, client: fake, block: { ...args.block, id: "blkB" } }),
+    ]);
+    expect(fake.calls).toHaveLength(0);
+    for (const r of results) expect(r).toMatchObject({ status: "ran", outcome: "capped", capReason: "day_cost" });
+    const day = await args.store.dayTotals({ companyId: "co1", sinceMs: 0 });
+    expect(day.costMicroUsd).toBe(4_990_000);
   });
 });
 

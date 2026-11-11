@@ -182,9 +182,15 @@ describe("caps", () => {
   });
 
   test("5 USD per plant per day: at the limit the call is capped, below it the call runs", async () => {
+    // Below the cap by more than one Haiku call's worst case (A8: the claim counts that worst case).
     const below = baseArgs({ client: new FakeShapeClient([haiku(recipeAnswer())]) });
-    await below.store.insertRun(runRow({ costMicroUsd: DAY_COST_CAP_MICRO - 1 }));
+    await below.store.insertRun(runRow({ costMicroUsd: DAY_COST_CAP_MICRO - 100_000 }));
     expect(await runShapeAttempt(below)).toMatchObject({ outcome: "recipe" });
+
+    // Below the cap, but the call's worst case would pass it: capped before the call (A8).
+    const edge = baseArgs({ client: new FakeShapeClient([]) });
+    await edge.store.insertRun(runRow({ costMicroUsd: DAY_COST_CAP_MICRO - 1 }));
+    expect(await runShapeAttempt(edge)).toMatchObject({ outcome: "capped", capReason: "day_cost" });
 
     const at = baseArgs({ client: new FakeShapeClient([]) });
     await at.store.insertRun(runRow({ costMicroUsd: DAY_COST_CAP_MICRO }));

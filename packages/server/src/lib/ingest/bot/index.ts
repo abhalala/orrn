@@ -7,7 +7,7 @@
  * dry run, both passed in as functions.
  */
 import { type BotOutcome, type BotRunRecord, type BotRunStore, capsAfterClaim, checkCaps } from "./caps";
-import { costOfResponse, estimateTokens } from "./cost";
+import { costOfResponse, estimateTokens, worstCaseCostMicro } from "./cost";
 import { carriedErrors, type Next, planNext, startModel } from "./escalate";
 import { getShapeClient, MAX_TOKENS, type ShapeClientError, type ShapeModelClient, type ShapeResponse } from "./client";
 import { buildSystem, buildUserContent, type CatalogueTarget, newNonce, requestChars } from "./prompt";
@@ -191,7 +191,8 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
     note: args.note ?? null,
     errors,
   });
-  if (estimateTokens(requestChars(system, content)) > MAX_INPUT_TOKENS) {
+  const inputEstimate = estimateTokens(requestChars(system, content));
+  if (inputEstimate > MAX_INPUT_TOKENS) {
     return { status: "skipped", reason: "input_too_large", next: "manual" };
   }
 
@@ -222,11 +223,14 @@ export async function runShapeAttempt(args: RunShapeArgs): Promise<ShapeAttemptR
     return { status: "ran", outcome: "capped", attempt: plan.attempt, model, next: "manual", recipe: null, noTargetReason: null, errors: [`cap:${capReason}`], costMicroUsd: 0, runId, capReason };
   }
 
-  // Claim this call's place under the caps before the model is called (A8).
+  // Claim this call's place under the caps before the model is called (A8). The claim carries the
+  // call's worst-case cost, so the day cost cap counts calls still in flight; finishRun replaces it
+  // with the real cost.
   const zero = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costMicroUsd: 0, durationMs: 0 };
   let claimId: string | null = null;
   if (args.store.finishRun) {
-    claimId = await args.store.insertRun({ ...base, model, outcome: "pending", ...zero, createdAtMs: now(), errorCodes: null });
+    const worst = worstCaseCostMicro(model, inputEstimate, MAX_TOKENS[model]);
+    claimId = await args.store.insertRun({ ...base, model, outcome: "pending", ...zero, costMicroUsd: worst, createdAtMs: now(), errorCodes: null });
     const late = await capsAfterClaim({
       store: args.store,
       companyId: args.companyId,

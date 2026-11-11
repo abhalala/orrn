@@ -85,3 +85,12 @@ export function costOfResponse(res: Pick<ShapeResponse, "usage" | "modelUsed" | 
 export function estimateTokens(chars: number): number {
   return Math.ceil(chars / 3);
 }
+
+/**
+ * The most one call can cost before it is made (A8): every estimated input token billed as a cache
+ * write (the dearest input rate) plus the full output budget, at the planned model's card. A claim
+ * stores this as its cost, so parallel calls see each other's spend under the day cost cap.
+ */
+export function worstCaseCostMicro(model: string, inputTokens: number, maxOutputTokens: number): number {
+  return costOfUsage(model, { input: 0, output: maxOutputTokens, cacheRead: 0, cacheWrite: inputTokens });
+}
