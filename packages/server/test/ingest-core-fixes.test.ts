@@ -177,3 +177,24 @@ describe("A2: answers to an old layout do not override the new layout", () => {
     expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.rate).toBe(24_550);
   });
 });
+
+describe("A3: ignoring a sheet while its rows upload does not block the file", () => {
+  test("the rest of the rows count as sent, the file completes and the other sheet gets ready", async () => {
+    const p = await plant();
+    const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "two.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
+    const other: Sheet = { headers: ["Foo", "Bar"], rows: [["1", "2"], ["3", "4"], ["5", "6"]] };
+    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(other, 1)] });
+    const custBlock = put.blocks.find((b) => b.ordinal === 0)!.blockId;
+    const otherBlock = put.blocks.find((b) => b.ordinal === 1)!.blockId;
+    const otherCand = put.candidates.find((c) => c.blockOrdinal === 1)!;
+    await p.admin.ingest.artifact.putRows({ blockId: custBlock, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
+    await p.admin.ingest.artifact.putRows({ blockId: otherBlock, fromIndex: 0, expectRowsPut: 0, rows: other.rows.slice(0, 1) });
+    await p.admin.ingest.candidate.setTarget({ candidateId: otherCand.id, target: "ignore", expectSeq: otherCand.serverSeq });
+    const rest = await p.admin.ingest.artifact.putRows({ blockId: otherBlock, fromIndex: 1, expectRowsPut: 1, rows: other.rows.slice(1) });
+    expect(rest.rowsPut).toBe(3);
+    await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
+    expect((await p.admin.ingest.artifact.get({ artifactId: begin.artifactId })).readState).toBe("read");
+    const cust = put.candidates.find((c) => c.blockOrdinal === 0)!;
+    expect((await pump(p.admin, cust.id)).state).toBe("ready");
+  });
+});

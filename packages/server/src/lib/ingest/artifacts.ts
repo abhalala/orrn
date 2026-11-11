@@ -223,7 +223,22 @@ export async function putRows(
     .orderBy(asc(ingestCandidate.createdAt))
     .limit(1);
   if (!primary) throw new TRPCError({ code: "BAD_REQUEST", message: "Send the sheets before their rows" });
-  if (primary.state === "discarded") return { rowsPut: block.rowsPut };
+  if (primary.state === "discarded") {
+    // The sheet was ignored while its rows were on the way: count them as sent and keep none, so the
+    // file can still complete and its other sheets go on (A3).
+    await guardedBatch(
+      ctx.db,
+      [
+        ctx.db
+          .update(ingestBlock)
+          .set({ rowsPut: end })
+          .where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.rowsPut, input.expectRowsPut))),
+        ingestAbortUnlessChanged(ctx.db),
+      ],
+      { code: "CONFLICT", message: "Rows were sent from another tab. Reload and try again." },
+    );
+    return { rowsPut: end };
+  }
 
   const at = now();
   const rows = await Promise.all(
