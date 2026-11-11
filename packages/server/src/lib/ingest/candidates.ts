@@ -95,6 +95,8 @@ import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import { vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
+  KEPT_UNREAD_NOT_READ,
+  isKeptUnread,
   type BlockInput,
   type HeaderAnswer,
   type DoubtListOut,
@@ -208,6 +210,7 @@ export async function putBlocks(
   input: { artifactId: string; blocks: BlockInput[] },
 ): Promise<{ blocks: { blockId: string; ordinal: number }[]; candidates: CandidateSummary[]; header: HeaderAnswer[] }> {
   const artifact = await loadArtifact(ctx, input.artifactId);
+  if (isKeptUnread(artifact.kind)) throw new TRPCError({ code: "BAD_REQUEST", message: KEPT_UNREAD_NOT_READ });
   const ordinals = input.blocks.map((b) => b.ordinal);
   if (new Set(ordinals).size !== ordinals.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Two sheets have the same number" });
 
@@ -668,6 +671,8 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   assertNotDerived(c);
   assertState(c, ["needs_shape"], "This sheet does not need the helper");
+  // No PDF or photo goes to a model in this release (owner's decision).
+  if (isKeptUnread((await loadArtifact(ctx, c.artifactId)).kind)) throw new TRPCError({ code: "BAD_REQUEST", message: KEPT_UNREAD_NOT_READ });
   // Claim the candidate before any model call, so a second tab gets CONFLICT before it spends (A8).
   let seq = input.expectSeq;
   if (shapeBot.botReady()) {

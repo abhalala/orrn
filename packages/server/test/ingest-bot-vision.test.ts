@@ -36,6 +36,8 @@ function args(over: Partial<RunVisionArgs> = {}): RunVisionArgs {
     pageKind: "pdf_scan",
     page: { mediaType: "image/jpeg", bytes: new Uint8Array([1, 2, 3, 250, 251, 252]) },
     vaultReady: true,
+    // The vision read is off in the first portal release; these tests check the read itself.
+    visualReads: true,
     nowMs: () => Date.UTC(2026, 10, 10, 12, 0, 0),
     ...over,
   };

@@ -30,7 +30,7 @@ const ROWS = [
 type Doubt = { row: number; code: "crosses_column" | "cells_joined" | "cells_close" | "few_columns" | "off_column"; line: number; page?: number };
 
 async function send(as: Caller, rows: string[][], doubts: Doubt[], headers = HEADERS) {
-  const begin = await as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "parties.pdf", sizeBytes: 1000, contentType: null, kind: "pdf_text" });
+  const begin = await as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "parties.csv", sizeBytes: 1000, contentType: null, kind: "csv" });
   const put = await as.ingest.artifact.putBlocks({
     artifactId: begin.artifactId,
     blocks: [{ ordinal: 0, sheetName: null, title: null, headerRow: 0, headerRows: 1, headers, rowCount: rows.length, sample: rows }],

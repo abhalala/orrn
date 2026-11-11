@@ -70,13 +70,15 @@ export type RunVisionArgs = {
   page: VisionPage;
   /** Vision needs the bytes in R2 first. False when there is no R2: refused with `vault_required`. */
   vaultReady: boolean;
+  /** Off in the first portal release: PDFs and photos are kept, not read (`kept_unread`). */
+  visualReads?: boolean;
   holeVersionSinceMs?: number;
   previousErrors?: string[];
   client?: ShapeModelClient;
   nowMs?: () => number;
 };
 
-export type VisionSkipReason = "no_key" | "vault_required" | "unsupported_page" | "page_too_large" | "already_done" | "attempts_exhausted";
+export type VisionSkipReason = "kept_unread" | "no_key" | "vault_required" | "unsupported_page" | "page_too_large" | "already_done" | "attempts_exhausted";
 
 export type VisionAttemptResult =
   | { status: "skipped"; reason: VisionSkipReason; next: "manual" | "done" }
@@ -165,6 +167,7 @@ export function finishTables(out: VisionOutput): VisionTable[] {
 
 export async function runVisionAttempt(args: RunVisionArgs): Promise<VisionAttemptResult> {
   const now = args.nowMs ?? Date.now;
+  if (!args.visualReads) return { status: "skipped", reason: "kept_unread", next: "manual" };
   if (!args.vaultReady) return { status: "skipped", reason: "vault_required", next: "manual" };
   const client = args.client ?? getShapeClient(args.env);
   if (!client) return { status: "skipped", reason: "no_key", next: "manual" };

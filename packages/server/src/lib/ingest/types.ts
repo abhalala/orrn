@@ -130,6 +130,15 @@ export type HeaderAnswer =
  */
 export type HeaderResemblesOut = { headerRow: number; headerRows: 1 | 2; name: string; target: IngestTarget; fit: "exact" | "near" };
 
+/**
+ * Owner's decision for the first portal release: PDFs and photos are kept in the vault and not read
+ * (read state `kept_unread`). A later release reads them with a vision model.
+ */
+export const KEPT_UNREAD_KINDS = ["pdf_text", "pdf_scan", "image"] as const satisfies readonly ArtifactKind[];
+export const isKeptUnread = (kind: ArtifactKind): boolean => (KEPT_UNREAD_KINDS as readonly string[]).includes(kind);
+export const KEPT_UNREAD_NO_STORAGE = "PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on.";
+export const KEPT_UNREAD_NOT_READ = "PDFs and photos are kept, not read, in this release. They will be read in a later release.";
+
 /** Rule 5.3: how a PDF reader doubted a row's split (packages/ingest RowDoubt codes). */
 export const DOUBT_CODES = ["crosses_column", "cells_joined", "cells_close", "few_columns", "off_column"] as const;
 export type DoubtCode = (typeof DOUBT_CODES)[number];

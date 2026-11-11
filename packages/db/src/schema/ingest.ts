@@ -73,7 +73,8 @@ export const ARTIFACT_KINDS = ["sheet", "csv", "sql", "pdf_text", "pdf_scan", "i
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 export const VAULT_STATES = ["pending", "stored", "not_stored"] as const;
 export type VaultState = (typeof VAULT_STATES)[number];
-export const READ_STATES = ["reading", "read", "failed"] as const;
+/** `kept_unread`: a PDF or photo kept in the vault, not read in this release (no blocks, no candidates). */
+export const READ_STATES = ["reading", "read", "failed", "kept_unread"] as const;
 export type ReadState = (typeof READ_STATES)[number];
 export const CANDIDATE_FITS = ["exact", "near", "none", "manual", "bot"] as const;
 export type CandidateFit = (typeof CANDIDATE_FITS)[number];

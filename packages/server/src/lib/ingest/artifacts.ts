@@ -41,6 +41,8 @@ import { guessArtifactPeriod } from "./period";
 import { canonicalKey, CANONICAL_MAX_BYTES, digestKey, ingestVault, issueTicket, rawKey, vaultReady } from "./vault";
 import {
   INGEST_LIMITS,
+  KEPT_UNREAD_NO_STORAGE,
+  isKeptUnread,
   type ArtifactBeginOut,
   type ArtifactDetail,
   type ArtifactSummary,
@@ -94,6 +96,9 @@ export async function beginArtifact(
     throw new TRPCError({ code: "BAD_REQUEST", message: `${input.fileName} is too big. The limit for this kind of file is ${mb(limit)} MB.` });
   }
   const ready = vaultReady();
+  // A PDF or photo is only kept in this release, so with no vault there is nothing to keep it in.
+  const keptOnly = isKeptUnread(input.kind);
+  if (keptOnly && !ready) throw new TRPCError({ code: "PRECONDITION_FAILED", message: KEPT_UNREAD_NO_STORAGE });
   const ticketFor = (artifactId: string) =>
     issueTicket(ctx, {
       purpose: "ingest-raw",
@@ -113,7 +118,7 @@ export async function beginArtifact(
     .from(ingestArtifact)
     .where(and(eq(ingestArtifact.companyId, ctx.companyId), eq(ingestArtifact.sha256, input.sha256)))
     .limit(1);
-  if (existing && existing.sizeBytes === input.sizeBytes && rereadable(existing)) {
+  if (existing && existing.sizeBytes === input.sizeBytes && !keptOnly && rereadable(existing)) {
     // A file whose read failed, or that gave no table (a scan or photo before the vision read), is read
     // again from the start. Its old sheets, candidates and rows go; the stored bytes stay (A4, A10).
     const at = now();
@@ -174,7 +179,7 @@ export async function beginArtifact(
     return { artifactId: existing.id, existing: true, uploadedAt: existing.createdAt.getTime(), upload };
   }
 
-  if ((await openStagedRows(ctx)) >= INGEST_LIMITS.openRowsPerPlant) {
+  if (!keptOnly && (await openStagedRows(ctx)) >= INGEST_LIMITS.openRowsPerPlant) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Too many rows are waiting. Merge or discard older imports first." });
   }
 
@@ -191,7 +196,7 @@ export async function beginArtifact(
         kind: input.kind,
         sizeBytes: input.sizeBytes,
         vaultState: ready ? "pending" : "not_stored",
-        readState: "reading",
+        readState: keptOnly ? "kept_unread" : "reading",
         note: input.note?.trim() || null,
         uploadedBy: ctx.session.user.id,
         createdAt: at,
@@ -369,6 +374,8 @@ export async function completeArtifact(
   input: { artifactId: string; readError?: string },
 ): Promise<{ canonicalUploads: { blockOrdinal: number; url: string; ticket: string }[] }> {
   const a = await loadArtifact(ctx, input.artifactId);
+  // A kept PDF or photo has nothing to read: complete leaves it as it is.
+  if (a.readState === "kept_unread") return { canonicalUploads: [] };
   const blocks = await ctx.db
     .select()
     .from(ingestBlock)
