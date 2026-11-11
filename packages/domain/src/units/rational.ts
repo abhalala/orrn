@@ -69,7 +69,7 @@ export function mulDivRoundNumber(value: number, n: number, d: number): number |
   if (!Number.isSafeInteger(twice)) return null;
   const r = twice % (2 * d);
   const q = (twice - r) / (2 * d);
-  return neg ? -q : q;
+  return neg && q !== 0 ? -q : q;
 }
 
 export function ratioIsInteger(r: Ratio): boolean {

@@ -12,7 +12,7 @@ const MAX_DIGITS = 30;
 
 /** Hindi and Gujarati digits read as Latin digits. Display never writes them (AGENTS.md). */
 function foldDigits(s: string): string {
-  return s.replace(/[०-९૦-૯]/g, (c) => String(c.charCodeAt(0) & 0xf));
+  return s.replace(/[\u0966-\u096f\u0ae6-\u0aef]/g, (c) => String(c.charCodeAt(0) - (c.charCodeAt(0) >= 0x0ae6 ? 0x0ae6 : 0x0966)));
 }
 
 function cleanText(text: string): string {
@@ -149,7 +149,9 @@ export function parseLengthText(
   if (withFeet && /\d$/.test((withFeet[1] ?? "").trim())) {
     const feet = num(withFeet[1]!.trim());
     if (!feet.ok) return feet;
-    const restRaw = (withFeet[2] ?? "").replace(INCH_MARK, "").trim();
+    const rest0 = (withFeet[2] ?? "").trim();
+    const restRaw = rest0.replace(INCH_MARK, "").trim();
+    if (rest0 !== "" && restRaw === "") return { ok: false, problem: "invalid" };
     if (restRaw === "") return { ok: true, amount: sign(feet.amount), unit: "ft", explicit: true, parts: { feet: sign(feet.amount) } };
     const inches = parseMixed(restRaw, style, false);
     if (!inches.ok) return inches;

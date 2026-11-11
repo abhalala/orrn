@@ -38,7 +38,9 @@ export function convertText(
   unit: UnitId,
   opts: { mode?: ConvertMode; style?: NumberStyle } = {},
 ): ConvertOutcome {
-  const text = typeof input === "number" ? (numberToDecimalText(input) ?? String(input)) : input;
+  // A sheet cell is an IEEE double. Excel keeps 15 significant digits, so 12.300000000000001 is 12.3.
+  const sheet = typeof input === "number" && Number.isFinite(input) && !Number.isInteger(input) ? Number(input.toPrecision(15)) : input;
+  const text = typeof sheet === "number" ? (numberToDecimalText(sheet) ?? String(sheet)) : sheet;
   const entered: Entered = { text, unit };
   const fail = (problem: ParseProblem | "kind"): ConvertOutcome => ({ ok: false, problem, entered });
   if (typeof input === "string" ? false : !Number.isFinite(input)) return fail("invalid");
