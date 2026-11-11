@@ -17,6 +17,7 @@ import { useThemeColor } from "@/lib/theme";
 import { useLengthUnit } from "@/utils/length";
 import { trpc } from "@/utils/trpc";
 
+import { SheetErrors } from "./hold-ui";
 import { holdableItems, orderErrorLines, orderKgText, pcsText } from "./order-model";
 import { claimWrite, selectionInItems } from "./write-selection";
 
@@ -37,19 +38,6 @@ function refreshAfterHold(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: trpc.orders.holds.queryKey() }),
     queryClient.invalidateQueries({ queryKey: trpc.orders.list.queryKey() }),
   ]);
-}
-
-function Errors({ lines }: { lines: string[] }) {
-  if (lines.length === 0) return null;
-  return (
-    <View accessibilityRole="alert" accessibilityLiveRegion="polite" className="gap-1 rounded-input bg-tone-red-tint px-4 py-3">
-      {lines.map((line) => (
-        <Text key={line} className="font-sans-medium text-[15px] leading-6 text-tone-red-ink">
-          {line}
-        </Text>
-      ))}
-    </View>
-  );
 }
 
 type StockItem = {
@@ -196,7 +184,7 @@ export function HoldStockSheet({ target, onClose }: { target: HoldTarget; onClos
           {stock.isPending ? <LoadingBlock /> : stock.isError ? <Text accessibilityRole="alert" className="font-sans text-sm text-destructive">{t("errors.generic")}</Text> : items.length === 0 ? <Text className="font-sans text-sm text-ink-muted">{t("orders.hold.none")}</Text> : <StockList items={items} selected={currentSelected} onToggle={toggle} />}
           {tooMany ? <Text accessibilityRole="alert" className="font-sans text-[13px] text-destructive">{t("orders.hold.tooMany", { max: MAX_HOLD_BUNDLES })}</Text> : null}
           <Field label={t("common.note")} value={note} onChangeText={setNote} multiline maxLength={500} />
-          <Errors lines={errors} />
+          <SheetErrors lines={errors} />
           <Button variant="secondary" label={t("common.cancel")} onPress={onClose} />
           <Button size="lg" testID="hold-stock-submit" label={t("orders.hold.submit", { count: currentSelected.size })} loading={hold.isPending} loadingLabel={t("common.saving")} disabled={currentSelected.size === 0 || tooMany} onPress={() => void submit()} />
         </>
@@ -261,7 +249,7 @@ export function HeldSheet({ target, onClose }: { target: HoldTarget; onClose: ()
           </View>
         </SelectableRow>
       ))}
-      <Errors lines={errors} />
+      <SheetErrors lines={errors} />
       <Button variant="secondary" label={t("common.done")} onPress={onClose} />
       {items.length > 0 ? (
         <>

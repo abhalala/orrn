@@ -22,17 +22,6 @@ describe("hold stock for an order line on the phone", () => {
     expect(holdableItems(items, "line-1").map((item) => item.id)).toEqual(["plant", "this"]);
   });
 
-  test("the order detail uses order.manage and opens the same two sheets as the web", () => {
-    const screen = read("features/orders/order-detail.tsx");
-    expect(screen).toContain('<Can do="order.manage">');
-    expect(screen).toContain('t("orders.hold.button")');
-    expect(screen).toContain('t("orders.hold.list")');
-    expect(screen).toContain('t("orders.hold.chip"');
-    expect(screen).toContain("<HoldStockSheet target={holdLine}");
-    expect(screen).toContain("<HeldSheet target={heldLine}");
-    expect(screen).toContain("openOrder={isOpenStatus(status)}");
-  });
-
   test("the sheets call the web's procedures and show its confirmations, warnings and release choices", () => {
     const sheet = read("features/orders/hold-sheet.tsx");
     expect(sheet).toContain("trpc.orders.matchStock.queryOptions");

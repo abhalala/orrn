@@ -19,6 +19,7 @@ import { useLengthUnit } from "@/utils/length";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { HeldSheet, HoldStockSheet, type HoldTarget } from "./hold-sheet";
+import { HoldActions } from "./hold-ui";
 import {
   blockerText,
   dieTitle,
@@ -82,15 +83,7 @@ function LineCard({
         </View>
       ) : null}
       {strip && strip.overG > 0 ? <Chip tone="amber" label={t("orders.over", { kg: orderKgText(strip.overG) })} /> : null}
-      {openOrder || heldG > 0 ? (
-        <Can do="order.manage">
-          <View className="flex-row flex-wrap items-center gap-2">
-            {heldG > 0 ? <Chip tone="blue" label={t("orders.hold.chip", { count: strip?.heldBundles ?? 0, kg: orderKgText(heldG) })} /> : null}
-            {openOrder ? <Button variant="secondary" testID={`hold-stock-${target.lineNo}`} label={t("orders.hold.button")} onPress={() => onHold(target)} /> : null}
-            {heldG > 0 ? <Button variant="ghost" testID={`held-stock-${target.lineNo}`} label={t("orders.hold.list")} onPress={() => onHeld(target)} /> : null}
-          </View>
-        </Can>
-      ) : null}
+      <HoldActions target={target} openOrder={openOrder} heldG={heldG} heldBundles={strip?.heldBundles ?? 0} onHold={onHold} onHeld={onHeld} />
       {basis ? <Text className="font-sans text-sm text-ink-muted">{basis}</Text> : null}
     </View>
   );
