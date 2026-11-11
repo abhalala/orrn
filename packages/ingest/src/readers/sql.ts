@@ -141,12 +141,10 @@ export class SqlReader {
     return this.dialect === "mysql";
   }
 
+  /** Moves to `p`, counting the newlines passed over. Costs only the distance moved, so a long line stays linear. */
   private advanceTo(p: number) {
-    let i = this.buf.indexOf("\n", this.pos);
-    while (i !== -1 && i < p) {
-      this.line++;
-      i = this.buf.indexOf("\n", i + 1);
-    }
+    const b = this.buf;
+    for (let k = this.pos; k < p; k++) if (b.charCodeAt(k) === 10) this.line++;
     this.pos = p;
   }
 
