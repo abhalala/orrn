@@ -24,9 +24,9 @@ import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
-import { logLengthSpec, MASS_KG } from "@/shared/lib/plant-input";
+import { followsPlant, logLengthSpec, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, kgPlainTrim, massUnit } from "@/shared/lib/fmt-text";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
 export type Stream = { id: string; code: string; name: string; kind: string; active: boolean; balanceG: number };
@@ -243,6 +243,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
 
 export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { storeItems: StoreItem[] }) {
   const { t } = useT();
+  const fmt = useFmt();
   const active = storeItems.filter((i) => i.active);
   const taken = new Set(form.chemicals.map((c) => c.storeItemId).filter(Boolean));
   const ldoUsed = (() => {
@@ -262,6 +263,11 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
           const open = qtyToMilli(c.openText);
           const used = qtyToMilli(c.usedText);
           const close = open !== null && used !== null ? open - used : null;
+          // A kilogram item is a weight: the store screens show it in the plant's unit, so the melt sheet does too. The draft stays kg text.
+          const itemUnit = other ? c.unit : (active.find((x) => x.id === c.storeItemId)?.unit ?? "");
+          const isKg = itemUnit === "kg";
+          // A plant that reads kg keeps the plain box it always had; another weight unit gets the converting box.
+          const converts = isKg && !followsPlant(fmt, MASS_KG);
           const marked = issue?.step === "chemicals" && issue.line === i && issue.code !== "ldo";
           const set = (next: Partial<typeof c>) => patch({ chemicals: form.chemicals.map((x) => (x.key === c.key ? { ...x, ...next } : x)) });
           return (
@@ -271,7 +277,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                   <option value="">{t("foundry.melt.chem.pick")}</option>
                   {active.map((x) => (
                     <option key={x.id} value={x.id} disabled={taken.has(x.id) && x.id !== c.storeItemId}>
-                      {x.name} ({x.unit})
+                      {x.name} ({x.unit === "kg" ? massUnit(fmt) : x.unit})
                     </option>
                   ))}
                   <option value="__other">{t("foundry.melt.chem.other")}</option>
@@ -295,13 +301,21 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
               ) : null}
               <div className="grid grid-cols-3 gap-3">
                 <Field label={t("foundry.melt.chem.open")} error={marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : undefined}>
-                  <NumberInput value={c.openText} onValueChange={(v) => set({ openText: v, closeText: "" })} data-testid="chem-open" />
+                  {converts ? (
+                    <PlantInput spec={MASS_KG} value={c.openText} onValueChange={(v) => set({ openText: v, closeText: "" })} data-testid="chem-open" />
+                  ) : (
+                    <NumberInput value={c.openText} onValueChange={(v) => set({ openText: v, closeText: "" })} data-testid="chem-open" />
+                  )}
                 </Field>
                 <Field label={t("foundry.melt.chem.used")}>
-                  <NumberInput value={c.usedText} onValueChange={(v) => set({ usedText: v, closeText: "" })} data-testid="chem-used" />
+                  {converts ? (
+                    <PlantInput spec={MASS_KG} value={c.usedText} onValueChange={(v) => set({ usedText: v, closeText: "" })} data-testid="chem-used" />
+                  ) : (
+                    <NumberInput value={c.usedText} onValueChange={(v) => set({ usedText: v, closeText: "" })} data-testid="chem-used" />
+                  )}
                 </Field>
                 <Field label={t("foundry.melt.chem.close")} error={marked && issue!.code === "chemicalClose" ? t("foundry.melt.issue.chemicalClose") : undefined}>
-                  <TextInput readOnly value={close === null ? "" : String(close / 1000)} aria-readonly="true" data-testid="chem-close" />
+                  <TextInput readOnly value={close === null ? "" : isKg ? kgPlainTrim(fmt, close) : String(close / 1000)} aria-readonly="true" data-testid="chem-close" />
                 </Field>
               </div>
               <RemoveButton label={t("common.remove")} onClick={() => patch({ chemicals: form.chemicals.filter((x) => x.key !== c.key) })} />

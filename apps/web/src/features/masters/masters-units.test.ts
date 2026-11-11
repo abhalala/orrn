@@ -27,5 +27,9 @@ describe("masters figures", () => {
     const places = read("locations-page.tsx");
     expect(places).not.toContain("formatKgTotal");
     expect(places).toContain("kgGrouped1(fmt, h.kgG)");
+    // the scrap streams balance followed the plant's number but wrote a literal kg beside it
+    const scrap = read("scrap-page.tsx");
+    expect(scrap).not.toContain("formatKgTotal");
+    expect(scrap).toContain("{kgGrouped1(fmt, r.balanceG)} {massUnit(fmt)}");
   });
 });

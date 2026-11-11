@@ -1,4 +1,3 @@
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -10,6 +9,8 @@ import { Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Can } from "@/shared/components/can";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 import { trpc } from "@/shared/utils/trpc";
 
 import { percentText } from "./masters-model";
@@ -201,6 +202,7 @@ function GradesTab() {
 
 function StreamsTab() {
   const { t } = useT();
+  const fmt = useFmt();
   const access = useMastersAccess();
   const invalidate = useInvalidate();
   const list = useQuery(trpc.foundry.returnStreams.list.queryOptions());
@@ -226,7 +228,7 @@ function StreamsTab() {
       align: "end",
       cell: (r) => (
         <span data-no-truncate="" className="font-mono tabular-nums">
-          {formatKgTotal(r.balanceG / 1000)} kg
+          {kgGrouped1(fmt, r.balanceG)} {massUnit(fmt)}
         </span>
       ),
     },
