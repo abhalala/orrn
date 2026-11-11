@@ -154,9 +154,9 @@ describe("questions panel answer flow", () => {
     const unit = questionView({ code: "unit_unknown", subject: "weight", params: {}, answer: null, open: true });
     const column = questionView({ code: "column_meaning_unclear", subject: "A", params: {}, answer: null, open: true });
     const date = questionView({ code: "date_format_ambiguous", subject: "date", params: {}, answer: null, open: true });
-    expect(answerValue(unit, "kg")).toEqual({ unit: "kg" });
-    expect(answerValue(column, "sectionCode")).toEqual({ field: "sectionCode" });
-    expect(answerValue(date, "dmy")).toBe("dmy");
+    expect(answerValue(unit, "kg")).toEqual({ code: "unit_unknown", answer: "kg" });
+    expect(answerValue(column, "sectionCode")).toEqual({ code: "column_meaning_unclear", answer: "sectionCode" });
+    expect(answerValue(date, "dmy")).toEqual({ code: "date_format_ambiguous", answer: "dmy" });
   });
 });
 

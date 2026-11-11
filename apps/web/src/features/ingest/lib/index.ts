@@ -12,6 +12,7 @@ export type { IngestApi } from "./api";
 export { ingestApi, setIngestApiForTests } from "./trpc-api";
 export * from "./queries";
 export * from "./use-pumps";
+export * from "./answers";
 export { useIngestActions, makeIngestActions, refreshIngest, DECIDE_ROWS_PER_CALL, type IngestActions } from "./actions";
 export { hashFile, readFile, ReadError, setReaderWorkerFactoryForTests, type ReadResult, type WorkerLike } from "./reader-client";
 export type { ReadProgress, ReadFailure, ReadBlock } from "./reader-protocol";

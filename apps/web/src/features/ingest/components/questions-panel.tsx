@@ -6,6 +6,7 @@ import { useState } from "react";
 import { TARGETS, UNIT_KINDS, unitsFor, type UnitKind } from "@orrn/ingest";
 
 import {
+  answerFromValue,
   questionList,
   useIngestActions,
   type CandidateDetail,
@@ -29,10 +30,9 @@ export function QuestionsPanel({ candidate, onSaved }: { candidate: CandidateDet
   );
 }
 
-export function answerValue(question: QuestionView, value: string): unknown {
-  if (question.control.kind === "unit") return { unit: value };
-  if (question.control.kind === "column") return { field: value };
-  return value;
+/** The control's value as the answer the server reads (the bare unit id, the bare field name, a format code). */
+export function answerValue(question: QuestionView, value: string | boolean) {
+  return answerFromValue(question.code, value);
 }
 
 function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDetail; question: QuestionView; onSaved?: () => void }) {
@@ -54,11 +54,11 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
     ? unitsFor(unitKind)
     : [...new Set(UNIT_KINDS.flatMap((kind) => unitsFor(kind)))];
 
-  const save = async (answer: unknown) => {
+  const save = async (answer: ReturnType<typeof answerValue>) => {
     setPending(true);
     setFailed(false);
     try {
-      await actions.answer(candidate.id, question.code, question.subject, answer, candidate.serverSeq);
+      await actions.answer(candidate.id, question.subject, answer, candidate.serverSeq);
       onSaved?.();
     } catch {
       setFailed(true);
@@ -87,10 +87,24 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
   return (
     <section aria-label={label} className="flex flex-col gap-3 border-b border-border pb-4 last:border-0 last:pb-0">
       <h3 className="m-0 text-[15px] font-semibold leading-6 break-words">{label}</h3>
-      {question.control.kind === "yesNo" ? (
+      {question.control.kind === "choice" ? (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={question.answered || pending} onClick={() => void save(true)}>{t("common.yes")}</Button>
-          <Button size="sm" variant="secondary" disabled={question.answered || pending} onClick={() => void save(false)}>{t("common.no")}</Button>
+          {question.control.options.map((option, index) => (
+            <Button
+              key={option.value}
+              size="sm"
+              variant={index === 0 ? "primary" : "secondary"}
+              disabled={question.answered || pending}
+              onClick={() => void save(answerValue(question, option.value))}
+            >
+              {option.labelKey ? translateKey(t, option.labelKey) : option.label}
+            </Button>
+          ))}
+        </div>
+      ) : question.control.kind === "yesNo" ? (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={question.answered || pending} onClick={() => void save(answerValue(question, true))}>{t("common.yes")}</Button>
+          <Button size="sm" variant="secondary" disabled={question.answered || pending} onClick={() => void save(answerValue(question, false))}>{t("common.no")}</Button>
         </div>
       ) : (
         <Field label={label}>
@@ -100,15 +114,12 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
             <NativeSelect value={value} disabled={question.answered} onChange={(event) => setValue(event.currentTarget.value)} aria-label={label}>
               <option value="">{t("ingest.shape.notUsed")}</option>
               {question.control.kind === "unit" ? units.map((unit) => <option key={unit} value={unit}>{unit}</option>) : null}
-              {question.control.kind === "choice" ? question.control.options.map((option) => (
-                <option key={option.value} value={option.value}>{option.labelKey ? translateKey(t, option.labelKey) : option.label}</option>
-              )) : null}
               {question.control.kind === "column" ? fields.map((field) => <option key={field.name} value={field.name}>{field.name}</option>) : null}
             </NativeSelect>
           )}
         </Field>
       )}
-      {question.control.kind !== "yesNo" && !question.answered ? (
+      {question.control.kind !== "yesNo" && question.control.kind !== "choice" && !question.answered ? (
         <div>
           <Button
             size="sm"

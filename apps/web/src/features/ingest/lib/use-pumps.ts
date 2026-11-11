@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { POLL_MS } from "./model";
-import { drivePump, isConflict, runBotPump, STALE_POLLS, toPumpError } from "./pump";
+import { drivePump, dryRunPhase, isConflict, mergePhase, runBotPump, STALE_POLLS, toPumpError, waitForRows } from "./pump";
 import type { PumpError } from "./pump";
 import { refreshIngest } from "./actions";
 import { ingestKeys, useCandidate, useMergeRun } from "./queries";
@@ -38,8 +38,13 @@ export type DryRunPump = {
   counts: CandidateCounts | null;
   /** 0 to 1; null while the row total is unknown. */
   progress: number | null;
-  /** Rows the browser that is uploading has not sent yet. While above 0 the pump waits and does not step. */
+  /**
+   * Rows the browser that is uploading has not sent yet (this block's, or the file's while it is still being read).
+   * While above 0 the pump waits and does not step.
+   */
   rowsMissing: number;
+  /** The rows have stopped arriving for 30 s: the uploading tab is probably closed. Say `ingest.read.stalled`. */
+  stalled: boolean;
   error: PumpError | null;
   /** After `error`: step again from the stored cursor. */
   retry: () => void;
@@ -59,6 +64,7 @@ export function useDryRunPump(candidateId: string | undefined, opts?: { enabled?
     id: candidateId, phase: "idle", error: null, value: { cursor: null, counts: null },
   });
   const [attempt, setAttempt] = useState(0);
+  const [stalled, setStalled] = useState(false);
 
   useEffect(() => {
     if (!eligible || !candidateId) return;
@@ -68,14 +74,27 @@ export function useDryRunPump(candidateId: string | undefined, opts?: { enabled?
     const readDetail = (): Promise<CandidateDetail> =>
       qc.fetchQuery({ queryKey: ingestKeys.candidate(candidateId), queryFn: () => api.candidateGet({ candidateId }), staleTime: 0 });
 
+    // Rows are missing while this block, or any block of the file, is still being sent: the server finishes a dry run
+    // only once the whole file is read (`artifact.complete`), so a sheet whose own rows are in still waits.
     const read = async () => {
-      let d = await readDetail();
-      // The uploading tab has rows left to send: wait for them instead of stepping.
-      while (d.state === "processing" && d.rowsMissing > 0 && !ctl.signal.aborted) {
-        await sleepFor(POLL_MS, ctl.signal);
-        d = await readDetail();
-      }
-      return { cursor: d.dryCursor, running: d.state === "processing" };
+      let detail: CandidateDetail | null = null;
+      const state = await waitForRows({
+        signal: ctl.signal,
+        onStalled: setStalled,
+        read: async () => {
+          detail = await readDetail();
+          let missing = detail.state === "processing" ? detail.rowsMissing : 0;
+          if (detail.state === "processing" && missing === 0) {
+            const artifact = await api.artifactGet({ artifactId: detail.artifactId });
+            if (artifact.readState === "reading") {
+              const unsent = artifact.blocks.reduce((n, b) => n + Math.max(0, b.rowCount - b.rowsPut), 0);
+              missing = Math.max(1, unsent);
+            }
+          }
+          return { missing, running: detail.state === "processing" };
+        },
+      });
+      return { cursor: detail!.dryCursor, running: state.running };
     };
 
     void drivePump<DryRunStepOut>({
@@ -109,7 +128,8 @@ export function useDryRunPump(candidateId: string | undefined, opts?: { enabled?
   const total = counts?.total ?? 0;
   const done = counts ? counts.create + counts.update + counts.unchanged + counts.ambiguous + counts.conflict + counts.refused + counts.skipped : 0;
   return {
-    phase: mine ? ui.phase : "idle",
+    phase: dryRunPhase({ mine, ui: ui.phase, eligible }),
+    stalled: eligible && stalled,
     state: c?.state ?? null,
     cursor: (mine ? ui.value.cursor : null) ?? c?.dryCursor ?? null,
     counts,
@@ -131,13 +151,18 @@ export function useDryRunQueue(
 
   useEffect(() => {
     if (!activeId) return;
+    if (pump.phase === "error" && pump.error?.code === "STALLED") {
+      // Not a failure of this candidate: the file was still arriving. Look again shortly.
+      const timer = setTimeout(pump.retry, POLL_MS);
+      return () => clearTimeout(timer);
+    }
     if (pump.phase === "done" || pump.phase === "error") {
       setFinished((f) => ({ ...f, [activeId]: pump.phase as "done" | "error" }));
     } else if (pump.phase === "idle" && pump.state !== null && pump.state !== "processing") {
       // Nothing to run: it is already past the dry run.
       setFinished((f) => ({ ...f, [activeId]: "done" }));
     }
-  }, [activeId, pump.phase, pump.state]);
+  }, [activeId, pump.phase, pump.state, pump.error?.code, pump.retry]);
 
   const byId: Record<string, { phase: PumpPhase; progress: number | null }> = {};
   for (const id of candidateIds) {
@@ -216,7 +241,7 @@ export function useMergePump(runId: string | undefined): MergePump {
     await qc.invalidateQueries({ queryKey: ingestKeys.run(runId) });
   }, [runId, qc]);
   return {
-    phase: mine && ui.phase !== "idle" ? ui.phase : finished ? "done" : "idle",
+    phase: mergePhase({ mine, ui: ui.phase, finished }),
     run,
     results: run?.candidates ?? [],
     chunksTotal: run?.chunksTotal ?? 0,
