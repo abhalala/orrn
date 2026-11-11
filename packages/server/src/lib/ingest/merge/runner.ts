@@ -47,7 +47,7 @@ import type { IngestSource } from "../source";
 import type { IngestCtx, MergeStepOut } from "../types";
 import { ADAPTERS } from "./adapters";
 import { callerFor } from "./caller";
-import { chunkIdOf, planPage } from "./planner";
+import { chunkIdOf, MARKER_DONE, planPage } from "./planner";
 import {
   CHUNK_MARK,
   companyNotIndexed,
@@ -231,8 +231,10 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
   const firstSeq = top ? top.seq + 1 : SEQ_PLANNED_FROM;
 
   // A stuck chunk of a candidate merging again moves into this run before anything is planned. It
-  // keeps its id (its replay key) and its STUCK_CODE, which marks it for the resend above.
-  const [stuck] = await ctx.db
+  // keeps its id (its replay key) and its STUCK_CODE, which marks it for the resend above. Looked
+  // for only until planning starts (no planned chunk, no empty chunk yet): it walks the chunks of
+  // the merging candidates.
+  const [stuck] = top || (await planningStarted(ctx, run.id)) ? [] : await ctx.db
     .select({ id: ingestMergeChunk.id })
     .from(ingestMergeChunk)
     .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestMergeChunk.candidateId))
@@ -262,7 +264,7 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
     return;
   }
 
-  const page = await planPage(ctx, run.id, firstSeq);
+  const page = await planPage(ctx, run.id, firstSeq, top);
   if (page.done) {
     await guardedBatch(ctx.db, advance(ctx, run.id, expectCursor, { state: "running" }, { active: true }), OTHER_TAB);
     return;
@@ -278,8 +280,9 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
       target: candidate.target!,
       // Finished when recorded: below the planned chunks (SEQ_PLANNED_FROM).
       seq: finishedSeq(run.id),
-      rowFrom: -1,
-      rowTo: -1,
+      // A hold has no rows. An empty chunk records how far planning read (MARKER_DONE, MARKER_MORE).
+      rowFrom: page.marker?.rowFrom ?? MARKER_DONE,
+      rowTo: page.marker?.rowTo ?? -1,
       rowCount: 0,
       state: page.hold ? ("failed" as const) : ("written" as const),
       attempts: 0,
@@ -318,6 +321,17 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
     [...page.statements, ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`${ingestMergeRun.chunksTotal} + ${page.chunks.length}` }, { active: true })],
     OTHER_TAB,
   );
+}
+
+/** True once planning recorded anything but a resent chunk: the top finished chunk is an empty one. */
+async function planningStarted(ctx: IngestCtx, runId: string): Promise<boolean> {
+  const [low] = await ctx.db
+    .select({ rowCount: ingestMergeChunk.rowCount })
+    .from(ingestMergeChunk)
+    .where(and(eq(ingestMergeChunk.runId, runId), lt(ingestMergeChunk.seq, SEQ_PLANNED_FROM), eq(ingestMergeChunk.companyId, ctx.companyId)))
+    .orderBy(desc(ingestMergeChunk.seq))
+    .limit(1);
+  return low?.rowCount === 0;
 }
 
 /** The rows a `pending:` key names, written earlier: key to live id, plus the names of the held ones. */

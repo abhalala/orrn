@@ -13,6 +13,9 @@
  * - Every planned row carries its chunk's mark (CHUNK_MARK, B-new-2). The write step reads exactly
  *   those rows by an index, whatever the range, and checks the chunk id against them. The order
  *   grouping is worked out here, once, over the whole candidate; a write step reads only its rows.
+ * - A planning step reads one window (Bm5): up to PLAN_SCAN_ROWS rows after where the last step
+ *   stopped, found from the top planned chunk and the top empty chunk (planPosition). An orders
+ *   sheet is read whole in one step, and one of more than ORDERS_PLAN_MAX_ROWS rows is held.
  * - Before any order is written, an orders candidate is held when an order has more than 100
  *   lines, when one PO has two order dates, or when its PO is already on a live order (B1, B5),
  *   or when a line is one the order screen would refuse (B11). A die copies candidate with a
@@ -27,13 +30,13 @@
  *   sha256(candidateId|target|holeRef|rowFrom|rowTo|sha256(rowIds)). Same rows, same id.
  */
 import { TARGET_ORDER } from "@orrn/ingest";
-import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, sql, type SQL } from "drizzle-orm";
 
 import { ingestCandidate, ingestMergeChunk, ingestStagedRow, type IngestTarget } from "@orrn/db/schema/ingest";
 import { salesOrder } from "@orrn/db/schema/sales";
 
 import { chunk as chunkList, mapInChunks, rowsPerStatement, type SqliteBatchItem } from "../../atomic";
-import type { CandidateRow } from "../core";
+import { loadCandidate, type CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
 import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing, updateRefusal } from "./adapters";
 import {
@@ -47,13 +50,15 @@ import {
   orderKeyOf,
   rowsRequestId,
   sha256Hex,
+  SEQ_PLANNED_FROM,
   SPLIT_UPDATES,
   text,
   type ChunkFailure,
+  type ChunkRow,
   type StagedRow,
 } from "./shared";
 
-/** Open rows read per planning step for one candidate (orders read the whole candidate). */
+/** Open rows planned per planning step for one candidate (orders plan the whole sheet). */
 export const PLAN_PAGE_ROWS = 2000;
 
 const READY = ["ready_create", "ready_update"] as const;
@@ -207,8 +212,10 @@ export type PlanStep =
       statements: SqliteBatchItem[];
       /** Hold the candidate before anything of it is written, with this empty failed chunk. */
       hold?: { chunkId: string; failure: ChunkFailure };
-      /** Nothing to write: record this empty chunk as written. */
+      /** Nothing to write in this window: record this empty chunk as written, with `marker`. */
       empty?: string;
+      /** How far planning read the candidate (MARKER_DONE or MARKER_MORE in `rowFrom`). */
+      marker?: { rowFrom: number; rowTo: number };
     };
 
 /** The id of an empty chunk (a hold found at planning, or a candidate with nothing to write). */
@@ -341,79 +348,183 @@ export async function rowPlanHold(ctx: IngestCtx, target: IngestTarget, rows: re
   return null;
 }
 
+/** Rows one planning step reads of a candidate other than orders, in every state (Bm5). */
+export const PLAN_SCAN_ROWS = 4000;
 /**
- * Plan one page: the first merging candidate (in merge order) that still has open ready rows, or
- * that has no chunk in this run yet. The caller adds the cursor guard and the run counters to
- * `statements` and runs them in one batch.
+ * The most rows an orders sheet may hold to be merged (Bm5). Its orders are grouped and checked
+ * over the whole sheet in one planning step, so that step reads the whole sheet; a larger sheet is
+ * held at planning, read only this far. Lane A should refuse such a sheet at approval too.
  */
-export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number): Promise<PlanStep> {
-  const seen = new Set(
-    (
-      await ctx.db
-        .selectDistinct({ id: ingestMergeChunk.candidateId })
-        .from(ingestMergeChunk)
-        .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.companyId, ctx.companyId)))
-    ).map((x) => x.id),
-  );
-  for (const c of await mergingCandidates(ctx)) {
+export const ORDERS_PLAN_MAX_ROWS = 5000;
+export const ORDERS_TOO_BIG = `This sheet has more than ${ORDERS_PLAN_MAX_ROWS} rows. An order book import takes ${ORDERS_PLAN_MAX_ROWS} rows at most. Split the file and import each part.`;
+
+/**
+ * The empty chunk of a candidate (`markerChunkId(.., "empty")`, written, no rows) also records how
+ * far planning has read the candidate when a step plans no chunk: `rowFrom` -1 means the
+ * candidate is done (nothing more to plan), -2 means planning goes on after `rowTo`.
+ */
+export const MARKER_DONE = -1;
+export const MARKER_MORE = -2;
+
+type SortKey = [number, number, string];
+const sortKeyOf = (c: Pick<CandidateRow, "target" | "createdAt" | "id">): SortKey => [c.target ? TARGET_ORDER.indexOf(c.target) : 99, c.createdAt.getTime(), c.id];
+const compareKeys = (a: SortKey, b: SortKey) => a[0] - b[0] || a[1] - b[1] || (a[2] < b[2] ? -1 : a[2] > b[2] ? 1 : 0);
+
+/** Where planning stands in the run: candidates before `key` are done; at `key`, go on after `x`. */
+type PlanPosition = { key: SortKey; done: boolean; x: number };
+
+/**
+ * Where the last planning step left off, from two reads: the top planned chunk (`top`, read by the
+ * caller) and the top finished chunk, when it is a candidate's empty chunk. Planning goes through
+ * the candidates in merge order, so the later of the two in merge order is the current candidate.
+ * A candidate's chunks other than orders cover its rows in order, so the top one ends where
+ * planning stopped. Before this, each step read every open row of the candidate again (Bm5).
+ */
+async function planPosition(ctx: IngestCtx, runId: string, top: ChunkRow | undefined, merging: readonly CandidateRow[]): Promise<PlanPosition | null> {
+  const [low] = await ctx.db
+    .select()
+    .from(ingestMergeChunk)
+    .where(and(eq(ingestMergeChunk.runId, runId), lt(ingestMergeChunk.seq, SEQ_PLANNED_FROM), eq(ingestMergeChunk.companyId, ctx.companyId)))
+    .orderBy(desc(ingestMergeChunk.seq))
+    .limit(1);
+  const marker = low && low.rowCount === 0 ? low : undefined;
+  const keyOf = async (candidateId: string): Promise<SortKey> => {
+    const c = merging.find((m) => m.id === candidateId) ?? (await loadCandidate(ctx, candidateId));
+    return sortKeyOf(c);
+  };
+  const fromTop: PlanPosition | null = top ? { key: await keyOf(top.candidateId), done: false, x: top.rowTo } : null;
+  const fromMarker: PlanPosition | null = marker
+    ? { key: await keyOf(marker.candidateId), done: marker.state === "failed" || marker.rowFrom !== MARKER_MORE, x: marker.rowTo }
+    : null;
+  if (!fromTop || !fromMarker) return fromTop ?? fromMarker;
+  const cmp = compareKeys(fromTop.key, fromMarker.key);
+  if (cmp !== 0) return cmp > 0 ? fromTop : fromMarker;
+  return { key: fromTop.key, done: fromMarker.done, x: Math.max(fromTop.x, fromMarker.x) };
+}
+
+/** The last row index of a candidate: one read on `ingest_staged_row_candidate_index_unique`. */
+async function lastRowIndex(ctx: IngestCtx, candidateId: string): Promise<number> {
+  const [last] = await ctx.db
+    .select({ rowIndex: ingestStagedRow.rowIndex })
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.candidateId, candidateId), companyNotIndexed(ingestStagedRow.companyId, ctx.companyId)))
+    .orderBy(desc(ingestStagedRow.rowIndex))
+    .limit(1);
+  return last?.rowIndex ?? -1;
+}
+
+/**
+ * Plan one page (Bm5): the next window of the first merging candidate (in merge order) that planning
+ * has not finished. A window is up to PLAN_SCAN_ROWS rows after where planning stopped, read in
+ * row order on `ingest_staged_row_candidate_index_unique`, of which at most PLAN_PAGE_ROWS open
+ * ready rows are planned. An orders sheet is read whole in one step (at most ORDERS_PLAN_MAX_ROWS
+ * rows). A window with nothing to plan records how far it read on the candidate's empty chunk. The
+ * caller adds the cursor guard and the run counters to `statements` and runs them in one batch.
+ */
+export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number, top?: ChunkRow): Promise<PlanStep> {
+  const merging = await mergingCandidates(ctx);
+  const pos = await planPosition(ctx, runId, top, merging);
+  for (const c of merging) {
     if (!c.target) continue;
-    const isOrders = c.target === "orders";
-    const rows = await ctx.db
-      .select({
-        id: ingestStagedRow.id,
-        rowIndex: ingestStagedRow.rowIndex,
-        state: ingestStagedRow.state,
-        matchId: ingestStagedRow.matchId,
-        group: isOrders ? ORDER_GROUP_SQL : sql<string | null>`null`,
-        customer: isOrders ? sql<string | null>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'))` : sql<string | null>`null`,
-        po: isOrders ? sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')` : sql<string | null>`null`,
-        poText: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')` : sql<string | null>`null`,
-        orderDate: isOrders ? sql<string | null>`json_extract(${V}, '$.orderDate')` : sql<string | null>`null`,
-        oldNo: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')` : sql<string | null>`null`,
-        hasRate: isOrders ? sql<number | null>`json_type(${V}, '$.rate') in ('integer', 'real')` : sql<number | null>`null`,
-        line: isOrders ? ORDER_LINE_SQL : sql<string | null>`null`,
-        // die_copies: the status the row would set (B12). Aliases: the alias and its owner (B13).
-        status: c.target === "die_copies" ? sql<unknown>`case when ${ingestStagedRow.state} = 'ready_update' then json_extract(${ingestStagedRow.diff}, '$.status.file') else json_extract(${V}, '$.status') end` : sql<unknown>`null`,
-        alias: isAlias(c.target) ? sql<unknown>`json_extract(${V}, '$.alias')` : sql<unknown>`null`,
-        owner: isAlias(c.target)
-          ? sql<string | null>`json_extract(${V}, ${c.target === "vendor_aliases" ? "$._ids.vendor" : "$._ids.customer"})`
-          : sql<string | null>`null`,
-      })
-      .from(ingestStagedRow)
-      .where(
-        and(
-          eq(ingestStagedRow.candidateId, c.id),
-          eq(ingestStagedRow.companyId, ctx.companyId),
-          inArray(ingestStagedRow.state, [...READY]),
-          eq(ingestStagedRow.mergeState, "open"),
-        ),
-      )
-      .orderBy(asc(ingestStagedRow.rowIndex))
-      .limit(isOrders ? 50_000 : PLAN_PAGE_ROWS);
-    if (rows.length === 0) {
-      if (seen.has(c.id)) continue;
-      // Nothing to write (every row unchanged, skipped or written before): one empty chunk, written.
-      return { done: false, candidateId: c.id, chunks: [], statements: [], empty: await markerChunkId(runId, c.id, "empty") };
+    let after = -1;
+    if (pos) {
+      const cmp = compareKeys(sortKeyOf(c), pos.key);
+      if (cmp < 0) continue;
+      if (cmp === 0) {
+        // An orders sheet is planned in one step.
+        if (pos.done || c.target === "orders") continue;
+        after = pos.x;
+        if ((await lastRowIndex(ctx, c.id)) <= after) continue;
+      }
     }
-
-    // Planning ends before any chunk of the run is written, so a hold found on any page of a
-    // candidate lands before anything of it is written.
-    // A ready_update row with no record, or on a target the merge only adds to, is never sent (B6).
-    const update = rows.map((r) => updateRefusal(c.target!, { state: r.state as StagedRow["state"], matchId: r.matchId, rowIndex: r.rowIndex })).find(Boolean);
-    const failure = update ? hold(update) : isOrders ? await orderPlanHold(ctx, rows) : await rowPlanHold(ctx, c.target, rows);
-    if (failure) return { done: false, candidateId: c.id, chunks: [], statements: [], hold: { chunkId: await markerChunkId(runId, c.id, "hold"), failure } };
-
-    const runs = isOrders ? cutOrderRuns(rows) : cutRuns(c.target, rows);
-    const chunks: PlannedChunk[] = [];
-    for (const run of runs) {
-      const rowIds = run.map((r) => r.id);
-      const rowFrom = run[0]!.rowIndex;
-      const rowTo = run.at(-1)!.rowIndex;
-      chunks.push({ id: await chunkIdOf({ candidateId: c.id, target: c.target, holeRef: c.holeRef, rowFrom, rowTo, rowIds }), rowFrom, rowTo, rowIds });
-    }
-    return { done: false, candidateId: c.id, chunks, statements: plannedStatements(ctx, runId, c as CandidateRow & { target: IngestTarget }, firstSeq, chunks) };
+    const page = await planWindow(ctx, runId, firstSeq, c as CandidateRow & { target: IngestTarget }, after);
+    if (page) return page;
   }
   return { done: true };
+}
+
+/** Whether a candidate has a chunk in this run (a stuck chunk resent before planning). */
+async function hasChunkIn(ctx: IngestCtx, runId: string, candidateId: string): Promise<boolean> {
+  const [hit] = await ctx.db
+    .select({ id: ingestMergeChunk.id })
+    .from(ingestMergeChunk)
+    .where(and(eq(ingestMergeChunk.candidateId, candidateId), eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.companyId, ctx.companyId)))
+    .limit(1);
+  return Boolean(hit);
+}
+
+/**
+ * One window of a candidate, or null when the candidate needs nothing more and planning goes on to
+ * the next one in the same step: a candidate read whole with nothing open whose only chunk in the
+ * run is a stuck chunk resent before planning (it needs no empty chunk to be listed).
+ */
+async function planWindow(ctx: IngestCtx, runId: string, firstSeq: number, c: CandidateRow & { target: IngestTarget }, after: number): Promise<PlanStep | null> {
+  const isOrders = c.target === "orders";
+  const limit = isOrders ? ORDERS_PLAN_MAX_ROWS + 1 : PLAN_SCAN_ROWS;
+  const scanned = await ctx.db
+    .select({
+      id: ingestStagedRow.id,
+      rowIndex: ingestStagedRow.rowIndex,
+      state: ingestStagedRow.state,
+      mergeState: ingestStagedRow.mergeState,
+      matchId: ingestStagedRow.matchId,
+      group: isOrders ? ORDER_GROUP_SQL : sql<string | null>`null`,
+      customer: isOrders ? sql<string | null>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'))` : sql<string | null>`null`,
+      po: isOrders ? sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')` : sql<string | null>`null`,
+      poText: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')` : sql<string | null>`null`,
+      orderDate: isOrders ? sql<string | null>`json_extract(${V}, '$.orderDate')` : sql<string | null>`null`,
+      oldNo: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')` : sql<string | null>`null`,
+      hasRate: isOrders ? sql<number | null>`json_type(${V}, '$.rate') in ('integer', 'real')` : sql<number | null>`null`,
+      line: isOrders ? ORDER_LINE_SQL : sql<string | null>`null`,
+      // die_copies: the status the row would set (B12). Aliases: the alias and its owner (B13).
+      status: c.target === "die_copies" ? sql<unknown>`case when ${ingestStagedRow.state} = 'ready_update' then json_extract(${ingestStagedRow.diff}, '$.status.file') else json_extract(${V}, '$.status') end` : sql<unknown>`null`,
+      alias: isAlias(c.target) ? sql<unknown>`json_extract(${V}, '$.alias')` : sql<unknown>`null`,
+      owner: isAlias(c.target) ? sql<string | null>`json_extract(${V}, ${c.target === "vendor_aliases" ? "$._ids.vendor" : "$._ids.customer"})` : sql<string | null>`null`,
+    })
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.candidateId, c.id), gt(ingestStagedRow.rowIndex, after), companyNotIndexed(ingestStagedRow.companyId, ctx.companyId)))
+    .orderBy(asc(ingestStagedRow.rowIndex))
+    .limit(limit);
+  const holdPage = async (failure: ChunkFailure): Promise<PlanStep> => ({
+    done: false,
+    candidateId: c.id,
+    chunks: [],
+    statements: [],
+    hold: { chunkId: await markerChunkId(runId, c.id, "hold"), failure },
+  });
+  if (isOrders && scanned.length > ORDERS_PLAN_MAX_ROWS) return holdPage(hold(ORDERS_TOO_BIG));
+
+  let rows = scanned.filter((r) => (READY as readonly string[]).includes(r.state) && r.mergeState === "open");
+  let readTo = scanned.at(-1)?.rowIndex ?? after;
+  let end = scanned.length < limit;
+  if (!isOrders && rows.length > PLAN_PAGE_ROWS) {
+    rows = rows.slice(0, PLAN_PAGE_ROWS);
+    readTo = rows.at(-1)!.rowIndex;
+    end = false;
+  }
+  if (rows.length === 0) {
+    if (after === -1 && end && (await hasChunkIn(ctx, runId, c.id))) return null;
+    // Nothing to write in this window (every row unchanged, skipped or written before): the empty
+    // chunk, written, lists the candidate in the run and records how far planning read.
+    return { done: false, candidateId: c.id, chunks: [], statements: [], empty: await markerChunkId(runId, c.id, "empty"), marker: { rowFrom: end ? MARKER_DONE : MARKER_MORE, rowTo: readTo } };
+  }
+
+  // Planning ends before any chunk of the run is written, so a hold found on any page of a
+  // candidate lands before anything of it is written.
+  // A ready_update row with no record, or on a target the merge only adds to, is never sent (B6).
+  const update = rows.map((r) => updateRefusal(c.target, { state: r.state as StagedRow["state"], matchId: r.matchId, rowIndex: r.rowIndex })).find(Boolean);
+  const failure = update ? hold(update) : isOrders ? await orderPlanHold(ctx, rows) : await rowPlanHold(ctx, c.target, rows);
+  if (failure) return holdPage(failure);
+
+  const runs = isOrders ? cutOrderRuns(rows) : cutRuns(c.target, rows);
+  const chunks: PlannedChunk[] = [];
+  for (const run of runs) {
+    const rowIds = run.map((r) => r.id);
+    const rowFrom = run[0]!.rowIndex;
+    const rowTo = run.at(-1)!.rowIndex;
+    chunks.push({ id: await chunkIdOf({ candidateId: c.id, target: c.target, holeRef: c.holeRef, rowFrom, rowTo, rowIds }), rowFrom, rowTo, rowIds });
+  }
+  return { done: false, candidateId: c.id, chunks, statements: plannedStatements(ctx, runId, c, firstSeq, chunks) };
 }
 
 /** Chunk columns bound per row in a multi-row insert. */

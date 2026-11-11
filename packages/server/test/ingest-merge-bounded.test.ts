@@ -59,6 +59,14 @@ export const PLAN_BATCH_STATEMENTS_MAX = 400;
  */
 export const PLAN_ROWS_READ_MAX = 16_000;
 
+/**
+ * The most rows one planning step of a target other than orders may read: a window of 4,000 rows
+ * from where the last step stopped, and the marks of at most 2,000 planned rows (two reads a row).
+ * Before, each page read every ready row of the candidate again, queued ones too: up to 14,027
+ * rows a step for this sheet.
+ */
+export const PLAN_PAGE_ROWS_READ_MAX = 9_000;
+
 const ROWS = 5_000;
 const ORDERS = 1_000;
 
@@ -318,6 +326,65 @@ describe("bounded write steps (B-new-2)", () => {
     for (const r of rows) perChunk.set(r.committedId!, (perChunk.get(r.committedId!) ?? 0) + 1);
     expect(perChunk.size).toBe(ROWS / 10);
     expect([...perChunk.values()].every((n) => n === 10)).toBe(true);
+    await api.ingest.merge.stop({ runId });
+  }, 120_000);
+
+  test("an orders sheet of more than 5,000 rows is held at planning, read no further (Bm5)", async () => {
+    const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
+    const customerId = await env.seedCustomer(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "8100" });
+    const book = await seedOrderBook(companyId, customerId, dieId, { rows: 6_000, orders: 1_200 });
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    const reads: number[] = [];
+    let last = { state: "planning", cursor: 0 } as Awaited<ReturnType<typeof api.ingest.merge.step>>;
+    while (last.state === "planning" || last.state === "running") {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    if (process.env.DEBUG_READS) console.log("HELD PLAN READS", reads);
+    expect(last.state).toBe("done_with_holds");
+    for (const n of reads) expect(n).toBeLessThanOrEqual(PLAN_ROWS_READ_MAX);
+    const c = await candidateRow(env, book);
+    expect(c.state).toBe("held");
+    expect(c.reasonDetail).toBe("This sheet has more than 5000 rows. An order book import takes 5000 rows at most. Split the file and import each part.");
+    expect((await stagedRows(env, book)).every((r) => r.mergeState === "open" && r.committedType === null)).toBe(true);
+  }, 120_000);
+
+  test(`planning a 10,000-row sheet reads each window once: at most ${PLAN_PAGE_ROWS_READ_MAX} rows a step (Bm5)`, async () => {
+    const { companyId } = await env.seedCompany();
+    const api0 = await apiFor(await contextFor(env, companyId, "admin"));
+    const v = await api0.vendor.create({ name: "Mahadev Scrap" });
+    // 4,500 skipped rows (more than one window with nothing to plan), then 5,500 aliases.
+    const sheet = await seedBulk(companyId, "vendor_aliases", 10_000, () => ({ vendor: "Mahadev Scrap", alias: "Mahadev Scrap", _ids: { vendor: v.id } }));
+    const { ingestStagedRow } = await import("@orrn/db/schema/ingest");
+    const { and, eq, lt } = await import("drizzle-orm");
+    await env.db.update(ingestStagedRow).set({ state: "skipped" }).where(and(eq(ingestStagedRow.candidateId, sheet), lt(ingestStagedRow.rowIndex, 4_500)));
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    const reads: number[] = [];
+    let last = { state: "planning", cursor: 0 } as Awaited<ReturnType<typeof api.ingest.merge.step>>;
+    while (last.state === "planning" && reads.length < 50) {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    if (process.env.DEBUG_READS) console.log("PAGE PLAN READS", reads);
+    expect(last.state).toBe("running");
+    expect(last.chunksTotal).toBe(5_500 / 20);
+    for (const n of reads) expect(n).toBeLessThanOrEqual(PLAN_PAGE_ROWS_READ_MAX);
+    const rows = await stagedRows(env, sheet);
+    expect(rows.filter((r) => r.mergeState === "queued")).toHaveLength(5_500);
+    expect(rows.slice(0, 4_500).every((r) => r.mergeState === "open" && r.committedType === null)).toBe(true);
     await api.ingest.merge.stop({ runId });
   }, 120_000);
 
