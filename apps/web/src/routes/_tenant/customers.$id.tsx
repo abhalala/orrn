@@ -1,4 +1,4 @@
-import { dispatchTone, formatKgTotal, type DispatchStatus } from "@orrn/domain";
+import { dispatchTone, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -34,7 +34,7 @@ import { can, useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 import { useFmt } from "@/shared/lib/fmt";
-import { massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 // The chart kit loads only for analytics.view roles (never in the entry chunk).
 const VolumeCard = lazy(() => import("@/features/customers/customer-charts").then((m) => ({ default: m.VolumeCard })));
@@ -341,7 +341,7 @@ function CustomerAnalytics({
             title={t("customers.detail.kpi.kg")}
             meta={caption}
             value={totals.kgG / 1000}
-            format={formatKgTotal}
+            format={(n) => kgGrouped1(fmt, Math.round(n * 1000))}
             unit={massUnit(fmt)}
             className="animate-rise col-span-2 md:col-span-1"
             style={riseDelay(0)}
@@ -355,7 +355,7 @@ function CustomerAnalytics({
           <KpiTile
             label={t("customers.detail.kpi.avgLoad")}
             value={totals.avgLoadKgG / 1000}
-            format={formatKgTotal}
+            format={(n) => kgGrouped1(fmt, Math.round(n * 1000))}
             unit={t("customers.detail.kpi.perDispatch")}
             className="animate-rise"
             style={riseDelay(2)}
@@ -364,7 +364,7 @@ function CustomerAnalytics({
             label={t("customers.detail.kpi.share")}
             meta={
               boardReady
-                ? t("customers.detail.kpi.shareOf", { total: formatKgTotal(board.data.totalKgG / 1000) })
+                ? t("customers.detail.kpi.shareOf", { total: kgGrouped1(fmt, board.data.totalKgG) })
                 : boardFailed
                   ? t("customers.detail.kpi.shareFailed")
                   : undefined
@@ -416,7 +416,7 @@ function CustomerAnalytics({
 }
 
 /** Order book for the customer, once sales orders exist (plant PL-8). Hidden while null. */
-function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: number; bakiG: number; lines: number } }) {
+export function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: number; bakiG: number; lines: number } }) {
   const fmt = useFmt();
   const { t } = useT();
   const titleId = useId();
@@ -440,7 +440,7 @@ function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: numbe
           <div key={c.key} className="flex min-w-0 flex-col gap-0.5">
             <dt className="text-[13px] font-medium text-muted-foreground">{c.label}</dt>
             <dd data-no-truncate="" className="m-0 font-mono text-[17px] font-semibold tabular-nums">
-              {formatKgTotal(c.g / 1000)} {massUnit(fmt)}
+              {kgGrouped1(fmt, c.g)} {massUnit(fmt)}
             </dd>
           </div>
         ))}
@@ -550,7 +550,7 @@ type DispatchRow = {
 const RECENT_PAGE = 10;
 
 /** Every dispatch to this customer, newest first, linking to the dispatch. Visible to every role. */
-function RecentDispatches({
+export function RecentDispatches({
   customerId,
   today,
   timeZone,
@@ -604,7 +604,7 @@ function RecentDispatches({
       align: "end",
       cell: (d) => (
         <span data-no-truncate="" className="font-mono whitespace-nowrap">
-          {formatKgTotal(d.totalWeightG / 1000)}
+          {kgGrouped1(fmt, d.totalWeightG)}
         </span>
       ),
     },
