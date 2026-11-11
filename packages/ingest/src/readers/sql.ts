@@ -8,7 +8,7 @@
  * Everything else (SET, SELECT setval, ALTER, comments, psql `\restrict` lines) is skipped. SQL is never executed.
  * NULL becomes an empty cell. Rows past `maxRows` are counted and dropped, and the table is flagged `truncated`.
  */
-import type { ReadBlock } from "./types";
+import { PREVIEW_ROWS, type ReadBlock } from "./types";
 
 export type SqlDialect = "auto" | "mysql" | "postgres";
 
@@ -1049,5 +1049,12 @@ export function sqlTablesToBlocks(tables: readonly SqlTable[]): ReadBlock[] {
       headers: t.columns,
       rows: t.rows,
       firstDataSheetRow: 1,
+      // A dump names its columns: nothing is guessed. Row 0 of the preview is the column list.
+      confidence: "sure" as const,
+      reasons: [],
+      preview: [{ row: 0, cells: [...t.columns] }, ...t.rows.slice(0, PREVIEW_ROWS - 1).map((r, i) => ({ row: i + 1, cells: [...r] }))],
+      guess: { headerRow: 0, headerRows: 1 as const, firstDataRow: 1, lastDataRow: t.rows.length },
+      hints: null,
+      warnings: [],
     }));
 }
