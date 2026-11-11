@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { dflt } from "../../../test-support/date-seeds";
+
 import { interpolate } from "@orrn/i18n";
 import type { Me } from "@orrn/server/lib/permissions";
 
@@ -53,27 +55,27 @@ describe("companyClock", () => {
   test("hour and date are read on the plant's wall clock, not the device's", () => {
     // 2026-10-03T20:00Z is 01:30 on Sunday 4 Oct in India, still Saturday evening in UTC.
     const at = Date.parse("2026-10-03T20:00:00Z");
-    const india = companyClock("Asia/Kolkata", at, "en");
+    const india = companyClock(dflt("en"), "Asia/Kolkata", at);
     expect(india.hour).toBe(1);
     expect(india.date).toBe("Sunday, 4 October");
-    const utc = companyClock("UTC", at, "en");
+    const utc = companyClock(dflt("en"), "UTC", at);
     expect(utc.hour).toBe(20);
     expect(utc.date).toBe("Saturday, 3 October");
   });
 
   test("Gujarati reads the date in Gujarati script with Latin digits", () => {
     const at = Date.parse("2026-10-03T06:00:00Z");
-    const gu = companyClock("Asia/Kolkata", at, "gu").date;
+    const gu = companyClock(dflt("gu"), "Asia/Kolkata", at).date;
     expect(gu).toMatch(/[\u0A80-\u0AFF]/);
     expect(gu).toMatch(/3/);
     expect(gu).not.toMatch(/[\u0AE6-\u0AEF]/);
-    expect(gu).not.toBe(companyClock("Asia/Kolkata", at, "en").date);
+    expect(gu).not.toBe(companyClock(dflt("en"), "Asia/Kolkata", at).date);
   });
 
   test("Hindi keeps Latin digits; a broken time zone falls back to India", () => {
     const at = Date.parse("2026-10-03T06:00:00Z");
-    expect(companyClock("Asia/Kolkata", at, "hi").date).toMatch(/3/);
-    expect(companyClock("Not/AZone", at, "en")).toEqual(companyClock("Asia/Kolkata", at, "en"));
+    expect(companyClock(dflt("hi"), "Asia/Kolkata", at).date).toMatch(/3/);
+    expect(companyClock(dflt("en"), "Not/AZone", at)).toEqual(companyClock(dflt("en"), "Asia/Kolkata", at));
   });
 });
 
@@ -247,13 +249,13 @@ describe("todaySections", () => {
 describe("clockTime", () => {
   test("session times read on the plant's clock, not the device's", () => {
     // 2026-10-04T08:35Z is 14:05 in India and 04:35 in New York (EDT).
-    expect(clockTime("Asia/Kolkata")("2026-10-04T08:35:00.000Z")).toBe("14:05");
-    expect(clockTime("America/New_York")("2026-10-04T08:35:00.000Z")).toBe("04:35");
-    expect(clockTime("UTC")(Date.parse("2026-10-04T23:59:00Z"))).toBe("23:59");
+    expect(clockTime(dflt(), "Asia/Kolkata")("2026-10-04T08:35:00.000Z")).toBe("14:05");
+    expect(clockTime(dflt(), "America/New_York")("2026-10-04T08:35:00.000Z")).toBe("04:35");
+    expect(clockTime(dflt(), "UTC")(Date.parse("2026-10-04T23:59:00Z"))).toBe("23:59");
   });
 
   test("a broken time zone falls back to India", () => {
-    expect(clockTime("Not/AZone")("2026-10-04T08:35:00.000Z")).toBe("14:05");
+    expect(clockTime(dflt(), "Not/AZone")("2026-10-04T08:35:00.000Z")).toBe("14:05");
   });
 });
 
@@ -397,7 +399,7 @@ describe("productionDayCaption", () => {
 
   test("14:22 with Day from 08:00: the production day is the calendar day, no 'before start' note", () => {
     const pd = { day: "2026-10-24", startMs: Date.UTC(2026, 9, 24, 2, 30), shiftsSet: true, shift };
-    expect(productionDayCaption(pd, "Asia/Kolkata", "en", afternoon)).toEqual({
+    expect(productionDayCaption(pd, dflt("en" as "en"), "Asia/Kolkata", afternoon)).toEqual({
       day: "24 Oct",
       from: "08:00",
       calendar: "24 Oct",
@@ -408,13 +410,13 @@ describe("productionDayCaption", () => {
 
   test("07:30 before shift 1 starts: still 23 Oct's production day, and the caption says why", () => {
     const pd = { day: "2026-10-23", startMs: Date.UTC(2026, 9, 23, 2, 30), shiftsSet: true, shift: { id: "s2", name: "Night", seq: 2 } };
-    const caption = productionDayCaption(pd, "Asia/Kolkata", "en", earlyMorning);
+    const caption = productionDayCaption(pd, dflt("en" as "en"), "Asia/Kolkata", earlyMorning);
     expect(caption).toMatchObject({ day: "23 Oct", from: "08:00", calendar: "24 Oct", beforeStart: true, shiftName: "Night" });
   });
 
   test("no shifts saved: the day starts at midnight, so there is no start time to print", () => {
     const pd = { day: "2026-10-24", startMs: Date.UTC(2026, 9, 23, 18, 30), shiftsSet: false, shift: null };
-    const caption = productionDayCaption(pd, "Asia/Kolkata", "en", afternoon);
+    const caption = productionDayCaption(pd, dflt("en" as "en"), "Asia/Kolkata", afternoon);
     expect(caption.from).toBeNull();
     expect(caption.beforeStart).toBe(false);
     expect(caption.shiftName).toBeNull();
@@ -423,7 +425,7 @@ describe("productionDayCaption", () => {
   test("Hindi and Gujarati dates keep Latin digits", () => {
     const pd = { day: "2026-10-24", startMs: Date.UTC(2026, 9, 24, 2, 30), shiftsSet: true, shift };
     for (const locale of ["hi", "gu"]) {
-      const caption = productionDayCaption(pd, "Asia/Kolkata", locale, afternoon);
+      const caption = productionDayCaption(pd, dflt(locale as "en"), "Asia/Kolkata", afternoon);
       expect(caption.day).toMatch(/^24 /);
       expect(caption.from).toBe("08:00");
     }

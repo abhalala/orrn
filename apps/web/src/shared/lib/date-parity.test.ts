@@ -27,6 +27,8 @@ import { bookDate as portalBookDate } from "@/features/portal/model";
 import * as oldPress from "../../../test-support/legacy/press-model";
 import { clockOf } from "@/features/press/model";
 import * as oldIntlTag from "../../../test-support/legacy/legacy-intl-tag";
+import * as oldToday from "../../../test-support/legacy/today-model";
+import { clockTime, companyClock, productionDayCaption } from "@/features/today/today-model";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -242,5 +244,33 @@ describe("press clock and production day", () => {
   test("the shift line's production day is what ymdLabel wrote: '25 Oct 2026', in English, Hindi and Gujarati", () => {
     for (const loc of ["en", "hi", "gu"] as const) for (const at of SEEDS) expect(dflt(loc).day(ymdOf(at))).toBe(oldIntlTag.ymdLabel(ymdOf(at), loc));
     expect(oldIntlTag.ymdLabel("soon", "en")).toBe("soon");
+  });
+});
+
+describe("Today clock and caption", () => {
+  test("companyClock: the hour and 'Saturday, 3 October' in English, Hindi and Gujarati, on the plant zone, a broken zone reads India", () => {
+    for (const loc of ["en", "hi", "gu"] as const) {
+      for (const zone of [IST_ZONE, "America/New_York", "UTC", "Not/AZone"]) {
+        for (const at of SEEDS.slice(0, 600)) expect(companyClock(dflt(loc), zone, at)).toEqual(oldToday.companyClock(zone, at, loc));
+      }
+    }
+  });
+  test("clockTime: '14:05' on the zone given", () => {
+    for (const zone of [IST_ZONE, "America/New_York", "Not/AZone"]) {
+      for (const at of SEEDS) {
+        expect(clockTime(dflt(), zone)(at)).toBe(oldToday.clockTime(zone)(at));
+        expect(clockTime(dflt("hi"), zone)(new Date(at).toISOString())).toBe(oldToday.clockTime(zone)(new Date(at).toISOString()));
+      }
+    }
+  });
+  test("productionDayCaption: day, start, calendar day, before-start note", () => {
+    const shift = { id: "s", name: "Day", seq: 1 };
+    for (const loc of ["en", "hi", "gu"] as const) {
+      for (const at of SEEDS.slice(0, 600)) {
+        const day = ymdOf(at - 24 * 3600_000);
+        const pd = { day, startMs: at, shiftsSet: at % 2 === 0, shift: at % 3 === 0 ? shift : null };
+        expect(productionDayCaption(pd, dflt(loc), IST_ZONE, at)).toEqual(oldToday.productionDayCaption(pd, IST_ZONE, loc, at));
+      }
+    }
   });
 });

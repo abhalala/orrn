@@ -37,6 +37,7 @@ import {
   type TodayData,
 } from "./today-model";
 import { TodaySectionSkeleton } from "./today-section";
+import { useFmt } from "@/shared/lib/fmt";
 
 /** The chart kit (and d3) loads only for analytics.view roles, never in the entry chunk. */
 const TodayCharts = lazy(() => import("./today-charts"));
@@ -87,7 +88,8 @@ function ListsGrid({ pair, children }: { pair: boolean; children: ReactNode }) {
  * age. A plant with no die or no bundle yet gets "Start here" instead.
  */
 export function TodayScreen() {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const today = useQuery({
     ...trpc.dashboard.today.queryOptions(),
@@ -98,7 +100,7 @@ export function TodayScreen() {
 
   const configured = me?.company?.settings?.timezone;
   const timezone = today.data?.timezone ?? (typeof configured === "string" && configured ? configured : DEFAULT_TIMEZONE);
-  const clock = companyClock(timezone, now, locale);
+  const clock = companyClock(fmt, timezone, now);
   const name = me?.user.name?.trim() || me?.user.email || "";
   // Lists follow the modules, and a viewer's KPI-only answer has none (todaySections, scope).
   const sections = todaySections(me, today.data?.scope);
@@ -120,7 +122,7 @@ export function TodayScreen() {
           >
             <CloudOff aria-hidden="true" className="size-[18px] shrink-0 text-muted-foreground" strokeWidth={2} />
             <p className="m-0 min-w-0 flex-1 py-2 text-[14px] leading-5 text-muted-foreground break-words">
-              {t("today.refreshFailed", { time: clockTime(timezone)(today.dataUpdatedAt) })}
+              {t("today.refreshFailed", { time: clockTime(fmt, timezone)(today.dataUpdatedAt) })}
             </p>
             <Button
               variant="ghost"
@@ -229,8 +231,9 @@ export function TodayScreen() {
  * when the calendar date is a day ahead of the production day, why (before shift 1 starts).
  */
 function DayCaption({ data, timezone, now }: { data: TodayData; timezone: string; now: number }) {
-  const { t, locale } = useT();
-  const caption = productionDayCaption(data.productionDay, timezone, locale, now);
+  const { t } = useT();
+  const fmt = useFmt();
+  const caption = productionDayCaption(data.productionDay, fmt, timezone, now);
   return (
     <div className="mt-3 flex min-w-0 flex-col gap-1" data-testid="production-day">
       <p className="m-0 font-display text-[19px] leading-snug font-bold tracking-[-0.02em] break-words sm:text-[22px]" data-testid="production-day-caption">
@@ -240,7 +243,7 @@ function DayCaption({ data, timezone, now }: { data: TodayData; timezone: string
       </p>
       <p className="m-0 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-5 text-muted-foreground">
         <span>{t("today.calendarDate", { date: caption.calendar })}</span>
-        <span className="tabular-nums">{t("today.clockNow", { time: clockTime(timezone)(now) })}</span>
+        <span className="tabular-nums">{t("today.clockNow", { time: clockTime(fmt, timezone)(now) })}</span>
         {caption.shiftName ? <Chip tone="blue">{caption.shiftName}</Chip> : null}
       </p>
       {caption.beforeStart && caption.from ? (

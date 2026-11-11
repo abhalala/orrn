@@ -17,7 +17,7 @@ import { useFmt } from "@/shared/lib/fmt";
 export function RecentSessions({ data }: { data: TodayData }) {
   const { t } = useT();
   const fmt = useFmt();
-  const time = useMemo(() => clockTime(data.timezone), [data.timezone]);
+  const time = useMemo(() => clockTime(fmt, data.timezone), [fmt, data.timezone]);
   const rows = data.recentSessions;
   return (
     <TodaySection
