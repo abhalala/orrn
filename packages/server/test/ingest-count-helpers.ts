@@ -10,10 +10,10 @@ import { seedCandidate } from "./ingest-merge-fixture";
 import { orderKeyOf } from "../src/lib/ingest/merge/shared";
 
 /** Rows D1 read, statements sent, the largest batch. */
-export type Tally = { rows: number; statements: number; maxBatch: number };
+export type Tally = { rows: number; statements: number; maxBatch: number; log?: { q: string; rows: number }[] };
 
 export const newTally = (): Tally => ({ rows: 0, statements: 0, maxBatch: 0 });
-export const resetTally = (t: Tally) => Object.assign(t, newTally());
+export const resetTally = (t: Tally) => Object.assign(t, newTally(), t.log ? { log: [] } : {});
 
 /**
  * A D1 binding that adds up `meta.rows_read` of every statement. `raw()` and `first()` return no
@@ -24,6 +24,7 @@ export function counting(d1: D1Database, tally: Tally): D1Database {
   const queries = new WeakMap<object, string>();
   const add = (meta: { rows_read?: number } | undefined, q = "") => {
     tally.rows += Number(meta?.rows_read ?? 0);
+    tally.log?.push({ q, rows: Number(meta?.rows_read ?? 0) });
     if (process.env.DEBUG_READS && Number(meta?.rows_read ?? 0) > 300) console.log("READS", meta?.rows_read, q.slice(0, 300));
   };
   const wrap = (stmt: D1PreparedStatement, query: string): D1PreparedStatement => {

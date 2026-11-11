@@ -385,7 +385,8 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
     );
     live.customerAliasKeys = new Map(hits.map((h) => [h.key, h.id]));
   }
-  if (target === "customer_aliases" || target === "vendor_aliases") live.nameOwners = await aliasNameOwners(ctx, target);
+  // Only the alias names on this page, 90 keys a statement, never every customer or vendor of the plant.
+  if (target === "customer_aliases" || target === "vendor_aliases") live.nameOwners = await aliasNameOwners(ctx, target, rows.map((v) => str(v.alias)));
   if (target === "customer_aliases") live.pendingCustomers = await loadPendingCustomers(ctx, rows.map((v) => nameKey(str(v.customer))));
   if (target === "vendor_aliases") {
     const keys = rows.map((v) => nameKey(str(v.alias))).filter(Boolean);

@@ -263,6 +263,32 @@ describe("rule 4.4: every dry run step of a 5,000-row sheet is bounded, the last
     }, 600_000);
   }
 
+  test("customer_aliases: a page reads only the names on it, never every customer of the plant", async () => {
+    const p = await plant();
+    const { customer } = await import("@orrn/db/schema/customers");
+    const many = Array.from({ length: 3000 }, (_, i) => ({ id: `cx-${p.companyId}-${i}`, companyId: p.companyId, name: `Party ${i}`, nameKey: `party ${i}` }));
+    const inserts = [];
+    for (let i = 0; i < many.length; i += 20) inserts.push(env.db.insert(customer).values(many.slice(i, i + 20)));
+    for (let i = 0; i < inserts.length; i += 100) await env.db.batch(inserts.slice(i, i + 100) as unknown as Parameters<typeof env.db.batch>[0]);
+    const s = SHEETS.customer_aliases;
+    const id = await uploadSheet(p.companyId, p.ownerId, s.recipe(), s.headers, Array.from({ length: 200 }, (_, i) => s.row(i)));
+    // Count the reads of the whole customer table on each step. The name resolver keeps its one
+    // in-memory index a step (plan B4); the alias owner check used to read the table again.
+    const tally: Tally = { ...newTally(), log: [] };
+    const a = await api(p.companyId, tally);
+    let cursor = 0;
+    const whole: number[] = [];
+    for (let i = 0; i < 50; i += 1) {
+      resetTally(tally);
+      const out = await a.ingest.dryRun.step({ candidateId: id, expectCursor: cursor });
+      whole.push(tally.log!.filter((l) => /from "customer"/.test(l.q) && l.rows >= 3000).length);
+      if (out.done) break;
+      cursor = out.cursor;
+    }
+    expect(whole.length).toBeGreaterThan(1);
+    for (const n of whole) expect(n).toBeLessThanOrEqual(1);
+  }, 600_000);
+
   test("orders: 2,500 orders of a numbered row and a PO-only row (S4-2 a)", async () => {
     const p = await plant();
     const rows = Array.from({ length: ROWS }, (_, i) => ["Acme Traders", i % 2 ? "" : n(i / 2), `PO-${n(Math.floor(i / 2))}`, "31/10/2025", "R", "8100", String(3658 + (i % 2)), "100"]);
