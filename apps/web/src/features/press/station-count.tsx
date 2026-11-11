@@ -40,6 +40,8 @@ import {
 } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { RunDetail } from "./types";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_IN, LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -335,10 +337,10 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
           {draft.billets.map((row, i) => (
             <div key={row.key} className="grid grid-cols-1 gap-3 rounded-card bg-surface-sunken p-3 sm:grid-cols-3">
               <Field label={i === 0 ? t("press.console.billetLength") : `${t("press.console.billetLength")} ${i + 1}`}>
-                <NumberInput
+                <PlantInput spec={unit === "inch" ? LENGTH_IN : LENGTH_MM}
                   value={row.lengthText}
                   onValueChange={(lengthText) => setDraft((d) => ({ ...d, billets: d.billets.map((b) => (b.key === row.key ? { ...b, lengthText } : b)) }))}
-                  suffix={unitSuffix(unit)}
+                  
                 />
               </Field>
               <Field label={i === 0 ? t("press.console.billetCount") : `${t("press.console.billetCount")} ${i + 1}`}>
@@ -349,10 +351,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                 />
               </Field>
               <Field label={i === 0 ? t("press.console.weighedKg") : `${t("press.console.weighedKg")} ${i + 1}`}>
-                <NumberInput
+                <PlantInput spec={MASS_KG}
                   value={row.kgText}
                   onValueChange={(kgText) => setDraft((d) => ({ ...d, billets: d.billets.map((b) => (b.key === row.key ? { ...b, kgText } : b)) }))}
-                  suffix={t("units.kg")}
                 />
               </Field>
               {draft.billets.length > 1 ? (
@@ -409,10 +410,10 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                 ) : null}
                 {row.cutLengthMm === null ? (
                   <Field label={t("press.console.cutLength")}>
-                    <NumberInput
+                    <PlantInput spec={unit === "inch" ? LENGTH_IN : LENGTH_MM}
                       value={row.cutText}
                       onValueChange={(cutText) => setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, cutText } : l)) }))}
-                      suffix={unitSuffix(unit)}
+                      
                     />
                   </Field>
                 ) : (
@@ -431,10 +432,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                   label={t("press.console.good")}
                   hint={hint ? t("press.console.hint", { kg: kgFromG(hint) }) : undefined}
                 >
-                  <NumberInput
+                  <PlantInput spec={MASS_KG}
                     value={row.kgText}
                     onValueChange={(kgText) => setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, kgText } : l)) }))}
-                    suffix={t("units.kg")}
                   />
                 </Field>
                 {row.pressPlanLineId === null && draft.lines.length > 1 ? (
@@ -449,7 +449,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             {t("press.console.addLength")}
           </Button>
           <Field label={t("press.console.pressedLength")} hint={t("press.console.pressedLengthHint")}>
-            <NumberInput value={draft.pressedLengthText} onValueChange={(pressedLengthText) => patch({ pressedLengthText })} suffix={unitSuffix(unit)} />
+            <PlantInput spec={unit === "inch" ? LENGTH_IN : LENGTH_MM} value={draft.pressedLengthText} onValueChange={(pressedLengthText) => patch({ pressedLengthText })}  />
           </Field>
         </Card>
       ) : null}
@@ -457,10 +457,10 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
       {draft.step === 2 ? (
         <Card className="gap-4">
           <Field label={t("press.console.discard")} hint={t("press.console.buttHint")}>
-            <NumberInput value={draft.discardText} onValueChange={(discardText) => patch({ discardText })} suffix={t("units.kg")} />
+            <PlantInput spec={MASS_KG} value={draft.discardText} onValueChange={(discardText) => patch({ discardText })} />
           </Field>
           <Field label={t("press.console.ends")} hint={t("press.console.endsHint")}>
-            <NumberInput value={draft.endsText} onValueChange={(endsText) => patch({ endsText })} suffix={t("units.kg")} />
+            <PlantInput spec={MASS_KG} value={draft.endsText} onValueChange={(endsText) => patch({ endsText })} />
           </Field>
         </Card>
       ) : null}
@@ -474,10 +474,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             return (
               <div key={row.key} className="grid grid-cols-1 gap-3 rounded-card bg-surface-sunken p-3 sm:grid-cols-2" data-slot="reject-row">
                 <Field label={i === 0 ? t("press.console.reject") : `${t("press.console.reject")} ${i + 1}`}>
-                  <NumberInput
+                  <PlantInput spec={MASS_KG}
                     value={row.kgText}
                     onValueChange={(kgText) => setDraft((d) => ({ ...d, qc: d.qc.map((q) => (q.key === row.key ? { ...q, kgText } : q)) }))}
-                    suffix={t("units.kg")}
                   />
                 </Field>
                 <Field label={i === 0 ? t("press.console.rejectPcs") : `${t("press.console.rejectPcs")} ${i + 1}`}>

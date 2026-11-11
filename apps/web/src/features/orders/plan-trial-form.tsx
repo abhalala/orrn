@@ -13,6 +13,8 @@ import { SectionPicker } from "@/features/masters/die-copy-sheet";
 import { copyStatusesFor, type PlanPurpose, type TrialProblems } from "./plan-purpose";
 import { useFmt } from "@/shared/lib/fmt";
 import { massUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 export type TrialDraft = {
   section: { id: string; label: string } | null;
@@ -65,7 +67,7 @@ export function PlanTrialForm({
           <div />
         )}
         <Field label={t("orders.plan.trial.kg")} error={problems.kg ? t("orders.plan.trial.badKg") : undefined}>
-          <NumberInput value={draft.kgText} onValueChange={(v) => onChange({ ...draft, kgText: v })} suffix={t("units.kg")} />
+          <PlantInput spec={MASS_KG} value={draft.kgText} onValueChange={(v) => onChange({ ...draft, kgText: v })} />
         </Field>
         <Field label={t("orders.plan.trial.pcs")} error={problems.pcs ? t("orders.plan.trial.badPcs") : undefined} hint={t("orders.plan.trial.qtyHint")}>
           <NumberInput value={draft.pcsText} onValueChange={(v) => onChange({ ...draft, pcsText: v })} decimal={false} />

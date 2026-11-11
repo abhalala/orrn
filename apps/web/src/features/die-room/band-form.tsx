@@ -23,6 +23,8 @@ import {
   refusalText,
   wallMmText,
 } from "./die-room-model";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 
 /** `/dies/$id/bands/new`: another commercial band under a section. The duplicate guard answers in the server's words. */
 export function NewBandPage({ id }: { id: string }) {
@@ -143,13 +145,13 @@ export function NewBandPage({ id }: { id: string }) {
         <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.band.intro")}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label={t("dieRoom.bands.wall")} hint={hasWall ? t("dieRoom.band.wallHint", { wall: defaultWall }) : t("dieRoom.band.wallNone")} error={errors.wall}>
-            <NumberInput value={wall} onValueChange={setWall} suffix={t("units.mm")} placeholder={defaultWall} />
+            <PlantInput spec={LENGTH_MM} value={wall} onValueChange={setWall} placeholder={defaultWall} />
           </Field>
           <Field label={t("dieRoom.band.min")} hint={t("units.kgPer12ft")} error={errors.min}>
-            <NumberInput value={minKg} onValueChange={setMinKg} suffix={t("units.kg")} />
+            <PlantInput spec={SECTION_KG12} value={minKg} onValueChange={setMinKg} />
           </Field>
           <Field label={t("dieRoom.band.max")} hint={t("units.kgPer12ft")} error={errors.max}>
-            <NumberInput value={maxKg} onValueChange={setMaxKg} suffix={t("units.kg")} />
+            <PlantInput spec={SECTION_KG12} value={maxKg} onValueChange={setMaxKg} />
           </Field>
         </div>
         <Field label={t("dieRoom.bands.label")} hint={t("common.optional")}>

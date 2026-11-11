@@ -51,6 +51,8 @@ import { useInvalidatePurchase } from "./lot-sheets";
 import { useCompanyToday, useLotPerms, useToleranceBp } from "./lot-ui";
 import { formatRate } from "./lot-view";
 import { showsQueryError } from "./query-state";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 export function NewLotPage() {
   const { t } = useT();
@@ -637,10 +639,10 @@ function WeightsStep({
     <>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label={t("purchase.new.party")} hint={t("purchase.new.partyHint")} error={errors.party ? t(errors.party) : undefined}>
-          <NumberInput value={draft.partyText} onValueChange={(partyText) => set({ partyText })} suffix="kg" className="h-14 text-[22px] pointer-coarse:h-14" />
+          <PlantInput spec={MASS_KG} value={draft.partyText} onValueChange={(partyText) => set({ partyText })} className="h-14 text-[22px] pointer-coarse:h-14" />
         </Field>
         <Field label={t("purchase.new.fc")} hint={t("purchase.new.fcHint")} error={errors.fc ? t(errors.fc) : undefined}>
-          <NumberInput value={draft.fcText} onValueChange={(fcText) => set({ fcText })} suffix="kg" className="h-14 text-[22px] pointer-coarse:h-14" />
+          <PlantInput spec={MASS_KG} value={draft.fcText} onValueChange={(fcText) => set({ fcText })} className="h-14 text-[22px] pointer-coarse:h-14" />
         </Field>
       </div>
 
@@ -702,10 +704,9 @@ function WeightsStep({
                   error={errors.noteKg ? t(errors.noteKg) : undefined}
                 >
                   {/* The whole short until the person types here; follows the weights again when they change. */}
-                  <NumberInput
+                  <PlantInput spec={MASS_KG}
                     value={noteKgText(draft, toleranceBp)}
                     onValueChange={(text) => set({ noteKgText: text })}
-                    suffix="kg"
                   />
                 </Field>
                 <Field
@@ -713,7 +714,7 @@ function WeightsStep({
                   hint={t("purchase.new.boriHint")}
                   error={errors.bori ? t(errors.bori) : undefined}
                 >
-                  <NumberInput value={draft.boriText} onValueChange={(boriText) => set({ boriText })} suffix="kg" />
+                  <PlantInput spec={MASS_KG} value={draft.boriText} onValueChange={(boriText) => set({ boriText })} />
                 </Field>
                 <Field label={`${t("purchase.new.noteText")} (${t("common.optional").toLowerCase()})`} className="sm:col-span-2">
                   <TextInput value={draft.noteText} onChangeText={(noteText) => set({ noteText })} maxLength={500} />

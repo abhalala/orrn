@@ -21,6 +21,8 @@ import { StockSheet } from "./stock-sheet";
 import { useFmt } from "@/shared/lib/fmt";
 import { countText, kgGrouped3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 import { kgFieldText } from "../format";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 /**
  * One line of the new-order form. The person types ONE side (pieces or kg); the other side, the
@@ -151,7 +153,7 @@ export function LineEditor({
               </div>
             </div>
           ) : (
-            <NumberInput value={line.mm} onValueChange={(v) => onChange({ mm: v })} suffix={t("units.mm")} decimal={false} aria-label={t("orders.line.cutLength")} />
+            <PlantInput spec={LENGTH_MM} value={line.mm} onValueChange={(v) => onChange({ mm: v })} decimal={false} aria-label={t("orders.line.cutLength")} />
           )}
         </Field>
         {unit === "inch" ? (
@@ -183,10 +185,9 @@ export function LineEditor({
           />
         </Field>
         <Field label={t("orders.line.kg")}>
-          <NumberInput
+          <PlantInput spec={MASS_KG}
             value={kgValue}
             onValueChange={(text) => onChange({ kgText: text, basis: text.trim() === "" ? (line.basis === "kg" ? null : line.basis) : "kg" })}
-            suffix={t("units.kg")}
             aria-label={t("orders.line.kg")}
           />
         </Field>

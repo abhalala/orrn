@@ -14,6 +14,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { parseGrams, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_G } from "@/shared/lib/plant-input";
 
 const CHEMICALS = ["cr4", "cr2", "k2s", "caustic"] as const;
 type Chemical = (typeof CHEMICALS)[number];
@@ -160,10 +162,10 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
               <legend className="mb-1 text-[14px] font-semibold">{t(`dieRoom.nitriding.chem.${c}`)}</legend>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("dieRoom.nitriding.open")}>
-                  <NumberInput value={draft[c].open} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], open: v } }))} decimal={false} suffix={t("units.g")} />
+                  <PlantInput spec={MASS_G} value={draft[c].open} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], open: v } }))} decimal={false} />
                 </Field>
                 <Field label={t("dieRoom.nitriding.used")}>
-                  <NumberInput value={draft[c].used} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], used: v } }))} decimal={false} suffix={t("units.g")} />
+                  <PlantInput spec={MASS_G} value={draft[c].used} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], used: v } }))} decimal={false} />
                 </Field>
               </div>
               {o !== null && u !== null && u <= o ? (

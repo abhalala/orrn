@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { focusComboboxQuietly } from "@orrn/ui/components/combobox";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
+import { Field, NumberInput, TextInput, type NumberInputProps } from "@orrn/ui/components/field";
 import { FormActions } from "@orrn/ui/components/form-actions";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { TextArea } from "@orrn/ui/components/input";
@@ -13,7 +13,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Ref } from "react";
 
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
@@ -28,6 +28,8 @@ import { formatQty, ISSUE_PURPOSES, isShort, parseQtyMilli, type IssuePurpose, t
 import { StoreItemPicker } from "./item-picker";
 import { StoreLoadError, StoreNoAccess, StoreNote } from "./store-ui";
 import { useInvalidateStore, useStoreAccess, useStoreBalances, useStoreEntries, type StoreBalance } from "./use-store";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 export type EntryMode = "receive" | "issue" | "exchange";
 
@@ -527,7 +529,7 @@ function EntryFormBody({
                 error={shownError("old")}
                 hint={item ? inStoreHint(t, item) : undefined}
               >
-                <NumberInput
+                <QtyBox unit={unit}
                   ref={(el) => void (fieldRefs.current.old = el)}
                   value={oldQty}
                   onValueChange={(v) => {
@@ -546,7 +548,7 @@ function EntryFormBody({
                 label={t("store.form.newIn")}
                 error={shownError("new")}
               >
-                <NumberInput
+                <QtyBox unit={unit}
                   ref={(el) => void (fieldRefs.current.new = el)}
                   value={newQty}
                   onValueChange={(v) => {
@@ -566,7 +568,7 @@ function EntryFormBody({
               error={shownError("qty")}
               hint={mode === "issue" && item ? inStoreHint(t, item) : undefined}
             >
-              <NumberInput
+              <QtyBox unit={unit}
                 ref={(el) => void (fieldRefs.current.qty = el)}
                 value={qty}
                 onValueChange={(v) => {
@@ -718,4 +720,13 @@ function SelectedItem({ item, className }: { item: StoreBalance; className?: str
       </div>
     </div>
   );
+}
+
+/**
+ * A quantity box in the item's own unit. A kilogram item takes the plant's weight unit (the draft stays kg text, which is
+ * the stored grams); every other unit (litre, piece, metre, set, box, bag) is its own word and stays as it is.
+ */
+function QtyBox({ unit, suffix, ...props }: NumberInputProps & { unit: StoreUnit | null; ref?: Ref<HTMLInputElement> }) {
+  if (unit === "kg") return <PlantInput spec={MASS_KG} {...props} />;
+  return <NumberInput {...props} suffix={suffix} />;
 }

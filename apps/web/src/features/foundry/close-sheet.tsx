@@ -18,6 +18,8 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 
 import { bpText, closeFormIssue, countedBillets, countKey } from "./model";
 import { ErrorLine, Note, FieldSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 
@@ -138,7 +140,7 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
               <NumberInput decimal={false} value={pcs} onValueChange={setPcs} data-testid="close-pcs" />
             </Field>
             <Field label={t("foundry.cast.close.kg")} error={countError === "kg" ? t("foundry.cast.close.kgInvalid") : undefined}>
-              <NumberInput value={kg} suffix={t("units.kg")} onValueChange={setKg} data-testid="close-kg" />
+              <PlantInput spec={MASS_KG} value={kg} onValueChange={setKg} data-testid="close-kg" />
             </Field>
           </div>
           {!count.ok && count.issue === "together" ? <Note tone="amber">{t("foundry.cast.close.together")}</Note> : null}

@@ -11,6 +11,8 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { dispatchErrorText } from "./errors";
 import { parseCapacityKg, type TransportFields } from "./transport";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 /** Which of the fields to show: the new form asks for the transporter and capacity only. */
 export type TransportShow = { vehicle?: boolean; driver?: boolean; capacity?: boolean; invoice?: boolean };
@@ -46,10 +48,9 @@ export function TransportFieldset({
           error={capacityError}
           className="sm:max-w-[260px]"
         >
-          <NumberInput
+          <PlantInput spec={MASS_KG}
             value={value.capacityKg}
             onValueChange={(capacityKg) => set({ capacityKg })}
-            suffix={t("units.kg")}
             disabled={capacityLocked}
             enterKeyHint="next"
           />

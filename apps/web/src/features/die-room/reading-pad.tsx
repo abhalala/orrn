@@ -10,6 +10,8 @@ import { requestIdFor } from "@/features/dispatch/request-key";
 import { trpc } from "@/shared/utils/trpc";
 
 import { bandTitle, milliKgText, parseKgToMilli, refusalText } from "./die-room-model";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 
 const KEYS = ["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "back"] as const;
 
@@ -108,13 +110,12 @@ export function ReadingPad({
     >
       <div className="flex flex-col gap-4">
         <Field label={t("dieRoom.reading.weight")} hint={t("units.kgPer12ft")}>
-          <NumberInput
+          <PlantInput spec={SECTION_KG12}
             value={text}
             onValueChange={(v) => {
               setError(null);
               if (/^\d{0,3}(\.\d{0,3})?$/.test(v)) setText(v);
             }}
-            suffix={t("units.kg")}
             className="font-mono text-[28px]"
             data-testid="reading-value"
           />

@@ -40,6 +40,8 @@ import {
   type PackDraft } from "./use-pack-draft";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG, type EntrySpec } from "@/shared/lib/plant-input";
 
 type Props = {
   draft: PackDraft;
@@ -413,7 +415,7 @@ export function BundlesStep({
                 if (errors.weight) setErrors((x) => ({ ...x, weight: undefined }));
               }}
               onKeyDown={onWeightKey}
-              suffix={t("units.kg")}
+              spec={MASS_KG}
               error={errors.weight}
               enterKeyHint="next"
             />
@@ -564,6 +566,7 @@ function BigNumberField({
   onChange,
   onKeyDown,
   suffix,
+  spec,
   error,
   enterKeyHint,
 }: {
@@ -573,7 +576,9 @@ function BigNumberField({
   value: string;
   onChange(v: string): void;
   onKeyDown?(e: KeyboardEvent<HTMLInputElement>): void;
-  suffix: string;
+  suffix?: string;
+  /** A weight or length box: takes the plant's unit while the draft stays in the unit the model reads. */
+  spec?: EntrySpec;
   error?: string;
   enterKeyHint?: "next" | "done";
 }) {
@@ -583,18 +588,31 @@ function BigNumberField({
       <label htmlFor={id} className="text-[14px] font-semibold leading-5">
         {label}
       </label>
-      <NumberInput
+      {spec ? (
+        <PlantInput spec={spec}
         id={id}
         ref={inputRef}
         value={value}
         onValueChange={onChange}
         onKeyDown={onKeyDown}
-        suffix={suffix}
-        enterKeyHint={enterKeyHint}
+                enterKeyHint={enterKeyHint}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         className="h-16 text-[28px] font-semibold tracking-[-0.01em] pointer-coarse:h-16"
       />
+      ) : (
+        <NumberInput
+        id={id}
+        ref={inputRef}
+        value={value}
+        onValueChange={onChange}
+        onKeyDown={onKeyDown}
+                enterKeyHint={enterKeyHint}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className="h-16 text-[28px] font-semibold tracking-[-0.01em] pointer-coarse:h-16"
+       suffix={suffix} />
+      )}
       {error ? (
         <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium leading-5 text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
@@ -826,11 +844,10 @@ function OverrideLength({
           </div>
         </div>
       ) : (
-        <NumberInput
+        <PlantInput spec={LENGTH_MM}
           aria-label={t("pack.new.cutLengthMm")}
           value={value.mm}
           onValueChange={(mm) => onChange({ ...value, mm })}
-          suffix={t("units.mm")}
           aria-invalid={error ? true : undefined}
           className="h-12"
         />

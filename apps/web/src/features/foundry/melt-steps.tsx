@@ -25,6 +25,8 @@ import {
 import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_FT, LENGTH_IN, MASS_KG } from "@/shared/lib/plant-input";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
 export type Stream = { id: string; code: string; name: string; kind: string; active: boolean; balanceG: number };
@@ -167,7 +169,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                   hint={lot ? t("foundry.melt.charge.left", { kg: kgFromG(lot.remainingG) }) : undefined}
                   error={over ? t("foundry.melt.charge.over", { kg: kgFromG(lot!.remainingG) }) : marked && (issue!.code === "kg" || issue!.code === "kgTooLarge") ? t(`foundry.melt.issue.${issue!.code}`) : undefined}
                 >
-                  <NumberInput value={l.kgText} suffix={t("units.kg")} onValueChange={(v) => patch({ lots: form.lots.map((x) => (x.key === l.key ? { ...x, kgText: v } : x)) })} data-testid="lot-kg" />
+                  <PlantInput spec={MASS_KG} value={l.kgText} onValueChange={(v) => patch({ lots: form.lots.map((x) => (x.key === l.key ? { ...x, kgText: v } : x)) })} data-testid="lot-kg" />
                 </Field>
               </div>
               {lot ? (
@@ -213,7 +215,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                   hint={stream ? t("foundry.melt.charge.left", { kg: kgFromG(stream.balanceG) }) : undefined}
                   error={marked ? t("foundry.melt.issue.kg") : undefined}
                 >
-                  <NumberInput value={s.kgText} suffix={t("units.kg")} onValueChange={(v) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, kgText: v } : x)) })} data-testid="stream-kg" />
+                  <PlantInput spec={MASS_KG} value={s.kgText} onValueChange={(v) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, kgText: v } : x)) })} data-testid="stream-kg" />
                 </Field>
               </div>
               <RemoveButton label={t("common.remove")} onClick={() => patch({ streams: form.streams.filter((x) => x.key !== s.key) })} />
@@ -319,7 +321,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {LDO_KEYS.map((k: LdoKey) => (
             <Field key={k} label={t(`foundry.melt.ldo.${k}`)} error={issue?.code === "ldo" && form.ldo[k].trim() !== "" && kgToG(form.ldo[k]) === null ? t("foundry.melt.issue.ldo") : undefined}>
-              <NumberInput value={form.ldo[k]} suffix={t("units.inch")} onValueChange={(v) => patch({ ldo: { ...form.ldo, [k]: v } })} data-testid={`ldo-${k}`} />
+              <PlantInput spec={LENGTH_IN} value={form.ldo[k]} onValueChange={(v) => patch({ ldo: { ...form.ldo, [k]: v } })} data-testid={`ldo-${k}`} />
             </Field>
           ))}
         </div>
@@ -354,13 +356,13 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
                   <NumberInput decimal={false} value={l.pcsText} onValueChange={(v) => set({ pcsText: v })} data-testid="log-pcs" />
                 </Field>
                 <Field label={t("foundry.melt.out.length")}>
-                  <NumberInput value={l.lengthText} suffix={t("units.ft")} onValueChange={(v) => set({ lengthText: v })} data-testid="log-length" />
+                  <PlantInput spec={LENGTH_FT} value={l.lengthText} onValueChange={(v) => set({ lengthText: v })} data-testid="log-length" />
                 </Field>
                 <Field label={t("foundry.melt.out.billetLength")} hint={t("foundry.melt.out.billetLengthHint")}>
-                  <NumberInput value={l.billetLengthText} suffix={t("units.ft")} onValueChange={(v) => set({ billetLengthText: v })} />
+                  <PlantInput spec={LENGTH_FT} value={l.billetLengthText} onValueChange={(v) => set({ billetLengthText: v })} />
                 </Field>
                 <Field label={t("foundry.melt.out.kg")}>
-                  <NumberInput value={l.kgText} suffix={t("units.kg")} onValueChange={(v) => set({ kgText: v })} data-testid="log-kg" />
+                  <PlantInput spec={MASS_KG} value={l.kgText} onValueChange={(v) => set({ kgText: v })} data-testid="log-kg" />
                 </Field>
               </div>
               <RemoveButton label={t("common.remove")} onClick={() => patch({ logs: form.logs.filter((x) => x.key !== l.key) })} />
@@ -376,10 +378,10 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label={t("foundry.melt.out.byproducts")}>
         <Field label={t("foundry.melt.out.dross")}>
-          <NumberInput value={form.drossKg} suffix={t("units.kg")} onValueChange={(v) => patch({ drossKg: v })} data-testid="melt-dross" />
+          <PlantInput spec={MASS_KG} value={form.drossKg} onValueChange={(v) => patch({ drossKg: v })} data-testid="melt-dross" />
         </Field>
         <Field label={t("foundry.melt.out.fe")}>
-          <NumberInput value={form.feKg} suffix={t("units.kg")} onValueChange={(v) => patch({ feKg: v })} data-testid="melt-fe" />
+          <PlantInput spec={MASS_KG} value={form.feKg} onValueChange={(v) => patch({ feKg: v })} data-testid="melt-fe" />
         </Field>
       </section>
 
@@ -403,7 +405,7 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
             </div>
             <div className="sm:w-44">
               <Field label={t("foundry.melt.out.kg")}>
-                <NumberInput value={r.kgText} suffix={t("units.kg")} onValueChange={(v) => patch({ returns: form.returns.map((x) => (x.key === r.key ? { ...x, kgText: v } : x)) })} />
+                <PlantInput spec={MASS_KG} value={r.kgText} onValueChange={(v) => patch({ returns: form.returns.map((x) => (x.key === r.key ? { ...x, kgText: v } : x)) })} />
               </Field>
             </div>
             <RemoveButton label={t("common.remove")} onClick={() => patch({ returns: form.returns.filter((x) => x.key !== r.key) })} />

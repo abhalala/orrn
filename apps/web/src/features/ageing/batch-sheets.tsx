@@ -25,6 +25,8 @@ import {
   x10Text,
 } from "./model";
 import { FormSheet, RefusalNote, FieldSelect as NativeSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM } from "@/shared/lib/plant-input";
 
 type SheetProps = { open: boolean; onOpenChange(open: boolean): void; batch: Batch };
 
@@ -631,7 +633,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
       {cuts.map((c, i) => (
         <div key={i} className="grid grid-cols-2 gap-3">
           <Field label={t("ageing.split.cutLength", { n: i + 1 })}>
-            <NumberInput decimal={false} value={c.len} suffix={t("units.mm")} onValueChange={(v) => setCuts((p) => p.map((x, j) => (j === i ? { ...x, len: v } : x)))} className="h-12" data-testid={`split-len-${i + 1}`} />
+            <PlantInput spec={LENGTH_MM} decimal={false} value={c.len} onValueChange={(v) => setCuts((p) => p.map((x, j) => (j === i ? { ...x, len: v } : x)))} className="h-12" data-testid={`split-len-${i + 1}`} />
           </Field>
           <Field label={t("ageing.field.pieces")}>
             <NumberInput decimal={false} value={c.pcs} suffix={t("units.pcs")} onValueChange={(v) => setCuts((p) => p.map((x, j) => (j === i ? { ...x, pcs: v } : x)))} className="h-12" data-testid={`split-pcs-${i + 1}`} />

@@ -20,6 +20,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { CAST_TONE, type CastStatus } from "./model";
 import { kgToG } from "./melt-form";
 import { ErrorLine, LoadFailed, Note, Panel } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 /**
  * `/foundry/stock` (FP-FD-15): billets in the store by alloy, then cast. The kg is the ledger
@@ -204,7 +206,7 @@ function OpeningSheet({ stream, onClose }: { stream: { id: string; name: string 
       <div className="flex flex-col gap-4 pt-1">
         <p className="m-0 text-[14px] text-muted-foreground">{t("foundry.stock.streams.once")}</p>
         <Field label={t("foundry.stock.streams.kg")} error={tried && (g === null || g <= 0) ? t("foundry.stock.streams.kgInvalid") : undefined}>
-          <NumberInput value={kg} suffix={t("units.kg")} onValueChange={(v) => { setKg(v); setConfirming(false); }} data-testid="opening-kg" />
+          <PlantInput spec={MASS_KG} value={kg} onValueChange={(v) => { setKg(v); setConfirming(false); }} data-testid="opening-kg" />
         </Field>
         <Field label={t("foundry.stock.streams.note")}>
           <TextInput value={note} maxLength={200} onChange={(e) => setNote(e.currentTarget.value)} />

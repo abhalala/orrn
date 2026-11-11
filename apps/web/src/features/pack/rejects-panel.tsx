@@ -15,6 +15,8 @@ import { EMPTY_REJECT, readReject, type RejectErrors, type RejectForm } from "./
 import type { DraftReject } from "./use-pack-draft";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 /**
  * Rejects at pack (FP-PK-14): pieces taken out of the pile that are not a bundle. Weighed rejects
@@ -102,7 +104,7 @@ export function RejectsPanel({
             <NumberInput value={form.pcs} onValueChange={(pcs) => setForm((f) => ({ ...f, pcs }))} suffix={t("units.pcs")} />
           </Field>
           <Field label={t("pack.reject.kg")} hint={t("pack.reject.kgHint")} error={errors.kg ? t("pack.new.weightRequired") : undefined}>
-            <NumberInput value={form.kg} onValueChange={(kg) => setForm((f) => ({ ...f, kg }))} suffix={t("units.kg")} />
+            <PlantInput spec={MASS_KG} value={form.kg} onValueChange={(kg) => setForm((f) => ({ ...f, kg }))} />
           </Field>
           <Field label={t("pack.reject.reason")} id="reject-reason" error={errors.reason ? t("pack.reject.reasonRequired") : undefined}>
             <NativeSelect

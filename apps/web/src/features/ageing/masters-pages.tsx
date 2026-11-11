@@ -19,6 +19,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { useAgeingInvalidate, useDuration, type Oven, type Recipe, type Trolley } from "./hooks";
 import { kgFromText, kgToText, wholeFromText, x10FromText, x10Text } from "./model";
 import { FormSheet, FieldSelect as NativeSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 type Status = "draft" | "active" | "out_of_service";
 
@@ -184,7 +186,7 @@ function OvenSheet({ open, onOpenChange, row }: { open: boolean; onOpenChange(o:
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("ageing.field.capacityKg")} error={tried && cap.trim() && capG === null ? t("ageing.masters.numberInvalid") : undefined}>
-          <NumberInput value={cap} onValueChange={setCap} suffix={t("units.kg")} data-testid="master-capacity" />
+          <PlantInput spec={MASS_KG} value={cap} onValueChange={setCap} data-testid="master-capacity" />
         </Field>
         <Field label={t("ageing.field.maxTemp")} error={tried && max.trim() && maxX10 === null ? t("ageing.masters.numberInvalid") : undefined}>
           <NumberInput value={max} onValueChange={setMax} suffix="°C" />
@@ -294,7 +296,7 @@ function TrolleySheet({ open, onOpenChange, row }: { open: boolean; onOpenChange
         <TextInput value={code} maxLength={16} autoComplete="off" className="font-mono" onChange={(e) => setCode(e.currentTarget.value)} data-testid="master-code" />
       </Field>
       <Field label={t("ageing.field.capacityKg")} error={tried && cap.trim() && capG === null ? t("ageing.masters.numberInvalid") : undefined}>
-        <NumberInput value={cap} onValueChange={setCap} suffix={t("units.kg")} data-testid="master-capacity" />
+        <PlantInput spec={MASS_KG} value={cap} onValueChange={setCap} data-testid="master-capacity" />
       </Field>
       <StatusField value={status} onChange={setStatus} publish={access.publish} extra={[{ value: "out_of_service", label: t("ageing.masterStatus.out_of_service") }]} />
       <Field label={t("ageing.hold.note")} hint={t("common.optional")}>

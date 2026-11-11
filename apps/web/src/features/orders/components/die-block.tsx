@@ -22,6 +22,8 @@ import { StockSheet } from "./stock-sheet";
 import { useFmt } from "@/shared/lib/fmt";
 import { countText, kgGrouped3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 import { kgFieldText } from "../format";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 type Quote = {
   pcs: number;
@@ -376,7 +378,7 @@ function LengthRow({
               </div>
             </div>
           ) : (
-            <NumberInput ref={lengthRef} value={row.mm} onValueChange={(v) => onChange({ mm: v })} suffix={t("units.mm")} decimal={false} aria-label={t("orders.line.cutLength")} />
+            <PlantInput spec={LENGTH_MM} ref={lengthRef} value={row.mm} onValueChange={(v) => onChange({ mm: v })} decimal={false} aria-label={t("orders.line.cutLength")} />
           )}
         </Field>
         {unit === "inch" ? (
@@ -409,11 +411,10 @@ function LengthRow({
           />
         </Field>
         <Field label={t("orders.line.kg")}>
-          <NumberInput
+          <PlantInput spec={MASS_KG}
             value={kgValue}
             onValueChange={(text) => onChange({ kgText: text, basis: text.trim() === "" ? (row.basis === "kg" ? null : row.basis) : "kg" })}
             onKeyDown={onKey}
-            suffix={t("units.kg")}
             aria-label={t("orders.line.kg")}
           />
         </Field>

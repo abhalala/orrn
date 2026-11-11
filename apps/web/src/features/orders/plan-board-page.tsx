@@ -53,6 +53,8 @@ import { isTrialPurpose, PLAN_PURPOSES, trialDraftProblems, trialPlanInput, type
 import { EMPTY_TRIAL, PlanTrialForm, type TrialDraft } from "./plan-trial-form";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 type DraftLineInfo = {
   lineId: string;
@@ -356,10 +358,9 @@ function PlanBuilder() {
         </div>
         <div className="w-[9rem]">
           <Field label={t("orders.plan.lineKg", { order: l.orderNumber })} error={bad ? t("orders.form.errors.qty") : undefined}>
-            <NumberInput
+            <PlantInput spec={MASS_KG}
               value={kgText}
               onValueChange={(v) => setLineKg((cur) => ({ ...cur, [lineId]: v }))}
-              suffix={t("units.kg")}
               placeholder={kgGrouped3(fmt, l.planableG)}
               aria-label={t("orders.plan.lineKg", { order: l.orderNumber })}
             />

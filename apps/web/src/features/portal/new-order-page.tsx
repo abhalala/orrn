@@ -27,6 +27,8 @@ import {
   type PortalLineDraft,
 } from "./model";
 import { PortalError, PortalSkeleton } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 let lineSeq = 0;
 const lineKey = () => `line-${(lineSeq += 1)}`;
@@ -172,7 +174,7 @@ export function PortalNewOrderPage() {
                     </div>
                   </div>
                 ) : (
-                  <NumberInput value={line.mm} onValueChange={(mm) => patch(line.key, { mm })} suffix={t("units.mm")} decimal={false} aria-label={t("portal.orders.cutLength")} />
+                  <PlantInput spec={LENGTH_MM} value={line.mm} onValueChange={(mm) => patch(line.key, { mm })} decimal={false} aria-label={t("portal.orders.cutLength")} />
                 )}
               </Field>
               <div className="flex min-w-0 flex-col gap-2 md:col-span-2">
@@ -186,13 +188,22 @@ export function PortalNewOrderPage() {
                   ]}
                 />
                 <Field label={line.basis === "pcs" ? t("portal.orders.pieces") : t("portal.orders.kg")} error={p.qty ? t(p.qty) : undefined}>
-                  <NumberInput
-                    value={line.qty}
-                    onValueChange={(qty) => patch(line.key, { qty })}
-                    suffix={line.basis === "pcs" ? t("units.pcs") : t("units.kg")}
-                    decimal={line.basis === "kg"}
-                    aria-label={line.basis === "pcs" ? t("portal.orders.pieces") : t("portal.orders.kg")}
-                  />
+                  {line.basis === "pcs" ? (
+                    <NumberInput
+                      value={line.qty}
+                      onValueChange={(qty) => patch(line.key, { qty })}
+                      suffix={t("units.pcs")}
+                      decimal={false}
+                      aria-label={t("portal.orders.pieces")}
+                    />
+                  ) : (
+                    <PlantInput
+                      spec={MASS_KG}
+                      value={line.qty}
+                      onValueChange={(qty) => patch(line.key, { qty })}
+                      aria-label={t("portal.orders.kg")}
+                    />
+                  )}
                 </Field>
               </div>
               <div className="md:col-span-2">

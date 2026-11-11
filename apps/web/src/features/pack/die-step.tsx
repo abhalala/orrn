@@ -22,6 +22,8 @@ import { DEFAULT_SOURCE, preselectSource, type SourceChoice } from "./source-gat
 import { SourceExtras, useSourceGate } from "./source-extras";
 import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM } from "@/shared/lib/plant-input";
 
 export type { DieOption };
 
@@ -649,11 +651,10 @@ function DefaultsForm({
             error={lengthError}
             className="sm:max-w-[240px]"
           >
-            <NumberInput
+            <PlantInput spec={LENGTH_MM}
               ref={firstInputRef}
               value={mm}
               onValueChange={setMm}
-              suffix={t("units.mm")}
               enterKeyHint="go"
               className="h-14 text-[22px]"
             />

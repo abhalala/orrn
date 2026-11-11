@@ -22,6 +22,8 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { milliKgText, parseKgToMilli, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useNewCopyOnTrial, useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 
 const PURPOSES = ["trial", "correction", "repair"] as const;
 type Purpose = (typeof PURPOSES)[number];
@@ -317,7 +319,7 @@ function ReceiveSheet({
           </p>
         ) : (
           <Field label={t("dieRoom.card.trial")} hint={t("dieRoom.maker.trialHint")}>
-            <NumberInput value={trial} onValueChange={setTrial} suffix={t("units.kg")} />
+            <PlantInput spec={SECTION_KG12} value={trial} onValueChange={setTrial} />
           </Field>
         )}
         <Field label={t("common.note")} hint={t("common.optional")}>

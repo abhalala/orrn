@@ -19,6 +19,8 @@ import {
 } from "./masters-model";
 import { MasterSheet } from "./masters-ui";
 import { useInvalidate, type DieCopyRow } from "./use-masters";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 
 type HandStatus = (typeof DIE_COPY_HAND_STATUSES)[number];
 const isHandStatus = (s: DieCopyStatus): s is HandStatus => (DIE_COPY_HAND_STATUSES as readonly string[]).includes(s);
@@ -217,14 +219,14 @@ export function DieCopySheet({
       </Field>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label={t("masters.dieCopies.form.trial")} hint={t("masters.dieCopies.form.trialHint")} error={errors.trial}>
-          <NumberInput value={trial} onValueChange={setTrial} suffix="kg" />
+          <PlantInput spec={SECTION_KG12} value={trial} onValueChange={setTrial} />
         </Field>
         <Field label={t("masters.dieCopies.form.hardness")} hint={t("masters.dieCopies.form.hardnessHint")} error={errors.hardness}>
           <NumberInput value={hardness} onValueChange={setHardness} decimal={false} />
         </Field>
       </div>
       <Field label={t("masters.dieCopies.form.life")} hint={t("masters.dieCopies.form.lifeHint")} error={errors.life}>
-        <NumberInput value={life} onValueChange={setLife} decimal={false} suffix="kg" />
+        <PlantInput spec={MASS_KG} value={life} onValueChange={setLife} decimal={false} />
       </Field>
       <Field label={t("masters.dieCopies.form.status")} id={statusId}>
         <NativeSelect id={statusId} value={status} onChange={(e) => setStatus(e.currentTarget.value as DieCopyStatus)}>
