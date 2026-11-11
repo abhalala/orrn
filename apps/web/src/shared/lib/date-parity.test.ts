@@ -12,6 +12,8 @@ import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import { windowWords } from "@/features/orders/view";
 
+import * as oldCustomers from "../../../test-support/legacy/customers-dates";
+import { formatDay as customersDay, formatInstantDay, formatDispatchDay } from "@/features/customers/dates";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -115,6 +117,27 @@ describe("foundry day and clock", () => {
         for (const at of SEEDS) {
           expect(foundryDay(dflt(loc), at, zone)).toBe(oldFoundry.dayText(at, zone));
           expect(foundryClock(dflt(loc), at, zone)).toBe(oldFoundry.clockText(at, zone));
+        }
+      }
+    }
+  });
+});
+
+describe("customer dates", () => {
+  test("formatDay: '1 Apr', with the year outside the company's year, in English, Hindi and Gujarati", () => {
+    for (const loc of ["en", "hi", "gu"] as const) {
+      for (const at of SEEDS) for (const today of ["2026-10-03", "2025-01-02"]) {
+        expect(customersDay(dflt(loc), ymdOf(at), today)).toBe(oldCustomers.formatDay(ymdOf(at), loc, today));
+      }
+    }
+  });
+  test("formatInstantDay and formatDispatchDay read the company's calendar", () => {
+    for (const loc of ["en", "hi"] as const) {
+      for (const zone of [IST_ZONE, "America/New_York"]) {
+        for (const at of SEEDS.slice(0, 500)) {
+          expect(formatInstantDay(dflt(loc, zone), at, zone, "2026-10-03")).toBe(oldCustomers.formatInstantDay(at, loc, zone, "2026-10-03"));
+          const d = { shipDay: at % 2 === 0 ? { ymd: ymdOf(at) } : null, createdAt: at };
+          expect(formatDispatchDay(dflt(loc, zone), d, zone, "2026-10-03")).toBe(oldCustomers.formatDispatchDay(d, loc, zone, "2026-10-03"));
         }
       }
     }

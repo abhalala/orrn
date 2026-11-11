@@ -308,7 +308,7 @@ function CustomerAnalytics({
   const boardReady = board.data !== undefined && !board.isPlaceholderData;
   const boardFailed = board.isError && board.data === undefined;
   const share = totals && !stale && boardReady ? customerShare(customerId, totals.kgG, board.data) : null;
-  const caption = t("customers.period.range", { from: formatDay(range.from, locale, today), to: formatDay(range.to, locale, today) });
+  const caption = t("customers.period.range", { from: formatDay(fmt, range.from, today), to: formatDay(fmt, range.to, today) });
   const openOrders = current.data?.openOrders ?? null;
 
   return (
@@ -562,6 +562,7 @@ function RecentDispatches({
   className?: string;
 }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const titleId = useId();
   const [offset, setOffset] = useState(0);
   const query = useQuery({
@@ -584,7 +585,7 @@ function RecentDispatches({
       header: t("customers.detail.recent.date"),
       // The server's one ship day (a completed load: the day it left; one being built: its entered ship date),
       // else the day it was started: the same date the dispatch list and detail show.
-      cell: (d) => <span className="whitespace-nowrap">{formatDispatchDay(d, locale, timeZone, today)}</span>,
+      cell: (d) => <span className="whitespace-nowrap">{formatDispatchDay(fmt, d, timeZone, today)}</span>,
     },
     {
       key: "status",
