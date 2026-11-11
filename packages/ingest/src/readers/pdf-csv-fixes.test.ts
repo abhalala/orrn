@@ -119,11 +119,17 @@ describe("C-new-4: a trailing one-cell row at the row pitch is data", () => {
     ]);
   });
 
-  test("a one-cell line after a gap, or a signature line, is a footer", () => {
+  test("a one-cell line far under the table is listed; a signature line at the pitch is a row (rule 4.1)", () => {
     const page = [...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), ...cust(740, "Kamal", "9797", "Rajkot"), it("Thank you", 50, 650)];
-    expect(readPdfText([page]).blocks[0]!.rows.length).toBe(2);
+    const far = readPdfText([page]);
+    expect(far.blocks[0]!.rows.length).toBe(2);
+    expect(far.blocks[0]!.warnings).toEqual([{ code: "footer_left_out", row: 3, page: 1 }]);
     const signed = [...custHeader(770), ...cust(755, "Asha", "9898", "Surat"), ...cust(740, "Kamal", "9797", "Rajkot"), it("Authorised Signatory", 50, 725)];
-    expect(readPdfText([signed]).blocks[0]!.rows.length).toBe(2);
+    expect(readPdfText([signed]).blocks[0]!.rows).toEqual([
+      ["Asha", "9898", "Surat"],
+      ["Kamal", "9797", "Rajkot"],
+      ["Authorised Signatory", "", ""],
+    ]);
   });
 });
 

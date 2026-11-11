@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { findBlocks, toCellText } from "./blocks";
+import { findBlocks, readSheet, toCellText } from "./blocks";
 import { CsvParser, detectDelimiter, parseCsv, readCsvBlocks } from "./csv";
 import { readPdfTextBlocks, textItemsToMatrix, type TextItem } from "./pdf-text";
 import { fingerprint } from "../fingerprint";
+import { asked } from "./trust-helpers";
 
 describe("toCellText", () => {
   test("plain values only", () => {
@@ -36,7 +37,11 @@ describe("findBlocks", () => {
 
   test("the header must come within the first 20 rows", () => {
     const junk = Array.from({ length: 21 }, () => ["only one cell"]);
-    expect(findBlocks([...junk, ["A", "B"], ["x", "y"]])).toEqual([]);
+    // R3-5, R3-6: past 20 rows with no header the search goes on; the rows are reported and the block is unsure.
+    const late = readSheet([...junk, ["A", "B"], ["x", "y"]]);
+    expect(late.blocks.map((b) => b.headers)).toEqual([["A", "B"]]);
+    expect(asked(late.blocks[0]!)).toBe(true);
+    expect(late.warnings.map((w) => w.row)).toEqual(Array.from({ length: 20 }, (_, i) => i));
     const ok = Array.from({ length: 19 }, () => ["note"]);
     expect(findBlocks([...ok, ["A", "B"], ["1", "2"]]).length).toBe(1);
   });

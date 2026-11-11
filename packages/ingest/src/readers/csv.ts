@@ -2,8 +2,8 @@
  * CSV reader: push-based so a 50 MB file never has to be one string. Handles quotes, doubled quotes, newlines inside
  * quotes, CRLF and a BOM, across chunk boundaries.
  */
-import { findBlocks } from "./blocks";
-import type { ReadBlock } from "./types";
+import { readSheet, type SheetRead } from "./blocks";
+import type { BlockHints, ReadBlock } from "./types";
 
 export type CsvDelimiter = "," | ";" | "\t" | "|";
 
@@ -153,7 +153,17 @@ export function parseCsv(text: string, opts: CsvOptions = {}): string[][] {
   return p.end();
 }
 
-/** A CSV file as blocks. The whole file is one sheet, so it may still hold a title and several tables. */
-export function readCsvBlocks(text: string, opts: CsvOptions & { sheetName?: string | null } = {}): ReadBlock[] {
-  return findBlocks(parseCsv(text, opts), { sheetName: opts.sheetName ?? null });
+export type CsvReadOptions = CsvOptions & { sheetName?: string | null; hints?: readonly BlockHints[] | null };
+
+/**
+ * A CSV file as one sheet: its blocks and the rows no block took. The file may still hold a title and several tables.
+ * With `hints` (raw rows of the file, 0-based) the reader follows them and guesses nothing.
+ */
+export function readCsv(text: string, opts: CsvReadOptions = {}): SheetRead {
+  return readSheet(parseCsv(text, opts), { sheetName: opts.sheetName ?? null, hints: opts.hints ?? null });
+}
+
+/** The blocks of `readCsv`. */
+export function readCsvBlocks(text: string, opts: CsvReadOptions = {}): ReadBlock[] {
+  return readCsv(text, opts).blocks;
 }
