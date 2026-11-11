@@ -8,14 +8,17 @@ import { useState } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { kgText, pcsText, portalDispatchDay } from "./model";
+import { portalDispatchDay } from "./model";
 import { PortalError } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3 } from "@/shared/lib/fmt-text";
 
 const STEP = 20;
 
 /** `/portal/dispatches`: this party's completed dispatches only. */
 export function PortalDispatchesPage() {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const [limit, setLimit] = useState(STEP);
   const list = useQuery({ ...trpc.portal.dispatches.list.queryOptions({ limit }), placeholderData: keepPreviousData, retry: false });
   type Row = NonNullable<typeof list.data>["items"][number];
@@ -25,8 +28,8 @@ export function PortalDispatchesPage() {
     { key: "date", header: t("portal.dispatches.date"), cell: (d) => <span className="whitespace-nowrap">{portalDispatchDay(d, locale)}</span> },
     { key: "pl", header: t("portal.dispatches.plNo"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.plNumber ?? ""}</span> },
     { key: "vehicle", header: t("portal.dispatches.vehicle"), hideOnPhone: true, cell: (d) => <span className="font-mono">{d.vehicleNo ?? ""}</span> },
-    { key: "bundles", header: t("portal.dispatches.bundlesLabel"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{pcsText(d.bundles)}</span> },
-    { key: "weight", header: t("portal.dispatches.weight"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{kgText(d.weightG)}</span> },
+    { key: "bundles", header: t("portal.dispatches.bundlesLabel"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{countText(fmt, d.bundles)}</span> },
+    { key: "weight", header: t("portal.dispatches.weight"), align: "end", cell: (d) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, d.weightG)}</span> },
   ];
 
   return (

@@ -7494,7 +7494,7 @@ Please check, Lalubhai:
 | `dies.noReading` | No reading yet | अभी कोई रीडिंग नहीं |
 | `dies.noCopies` | No copy of this die yet | इस die की अभी कोई कॉपी नहीं |
 | `dies.band` | Band | बैंड |
-| `dies.bandRange` | Band {min} to {max} kg/12ft | बैंड {min} से {max} kg/12ft |
+| `dies.bandRange` | Band {min} to {max} {sectionUnit} | बैंड {min} से {max} {sectionUnit} |
 | `dies.inBand` | In band | बैंड में |
 | `dies.overBand` | Over band by {kg} kg/12ft | बैंड से {kg} kg/12ft ऊपर |
 | `dies.underBand` | Under band by {kg} kg/12ft | बैंड से {kg} kg/12ft नीचे |
@@ -7565,7 +7565,7 @@ Please check, Lalubhai:
 | `dispatches.vehicle` | Vehicle | गाड़ी |
 | `dispatches.bundlesLabel` | Bundles | बंडल |
 | `dispatches.weight` | kg | kg |
-| `dispatches.totals` | {bundles} bundles, {pcs} pcs, {kg} kg | {bundles} बंडल, {pcs} पीस, {kg} kg |
+| `dispatches.totals` | {bundles} bundles, {pcs} pcs, {kg} {massUnit} | {bundles} बंडल, {pcs} पीस, {kg} {massUnit} |
 | `dispatches.noPl` | The packing list is not ready yet. | पैकिंग लिस्ट अभी तैयार नहीं है। |
 | `dispatches.downloadPl` | Download packing list | पैकिंग लिस्ट डाउनलोड करें |
 | `dispatches.print` | Print | प्रिंट |

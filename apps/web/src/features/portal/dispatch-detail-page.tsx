@@ -16,8 +16,10 @@ import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
-import { kgText, pcsText, portalDispatchDay } from "./model";
+import { portalDispatchDay } from "./model";
 import { PortalError, PortalSkeleton } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * `/portal/dispatches/$id`: the packing list the party received, as the plant printed it, without
@@ -26,6 +28,7 @@ import { PortalError, PortalSkeleton } from "./ui";
  */
 export function PortalDispatchDetailPage({ id }: { id: string }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const me = usePortalMe();
   const zone = me.data?.timeZone ?? "Asia/Kolkata";
   const dispatch = useQuery({ ...trpc.portal.dispatches.get.queryOptions({ id }), retry: false });
@@ -99,7 +102,7 @@ export function PortalDispatchDetailPage({ id }: { id: string }) {
         }
       />
       <p className="m-0 font-display text-[22px] font-bold tabular-nums" data-testid="portal-dispatch-totals">
-        {t("portal.dispatches.totals", { bundles: d.totals.bundles, pcs: pcsText(d.totals.pcs), kg: kgText(d.totals.weightG) })}
+        {t("portal.dispatches.totals", { massUnit: massUnit(fmt), bundles: d.totals.bundles, pcs: countText(fmt, d.totals.pcs), kg: kgGrouped3(fmt, d.totals.weightG) })}
       </p>
       <section aria-labelledby="portal-pl" className="flex min-w-0 flex-col gap-3">
         <h2 id="portal-pl" className="m-0 font-display text-[22px] font-bold tracking-[-0.03em]">

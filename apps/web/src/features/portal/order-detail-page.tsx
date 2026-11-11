@@ -1,4 +1,3 @@
-import { formatLength } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { PageHeader } from "@orrn/ui/components/page-header";
@@ -8,12 +7,15 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
-import { isPortalOrderStatus, kgText, pcsText, PORTAL_STATUS_TONE, sectionTitle } from "./model";
+import { isPortalOrderStatus, PORTAL_STATUS_TONE, sectionTitle } from "./model";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /** `/portal/orders/$id`: ordered, dispatched and baki per line. Never a rate, a copy or a tier. */
 export function PortalOrderDetailPage({ id }: { id: string }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const me = usePortalMe();
   const q = useQuery({ ...trpc.portal.orders.get.queryOptions({ id }), retry: false });
   const unit = me.data?.lengthUnit ?? "mm";
@@ -56,9 +58,9 @@ export function PortalOrderDetailPage({ id }: { id: string }) {
         </p>
       ) : null}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <StatusBlock tone="neutral" title={t("portal.orders.ordered")} value={o.totals.orderedG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
-        <StatusBlock tone="blue" title={t("portal.orders.dispatched")} value={o.totals.dispatchedG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
-        <StatusBlock tone="amber" title={t("portal.orders.baki")} meta={t("portal.orders.bakiHint")} value={o.totals.bakiG / 1000} unit={t("units.kg")} format={(n) => kgText(Math.round(n * 1000))} countUp={false} />
+        <StatusBlock tone="neutral" title={t("portal.orders.ordered")} value={o.totals.orderedG / 1000} unit={massUnit(fmt)} format={(n) => kgGrouped3(fmt, Math.round(n * 1000))} countUp={false} />
+        <StatusBlock tone="blue" title={t("portal.orders.dispatched")} value={o.totals.dispatchedG / 1000} unit={massUnit(fmt)} format={(n) => kgGrouped3(fmt, Math.round(n * 1000))} countUp={false} />
+        <StatusBlock tone="amber" title={t("portal.orders.baki")} meta={t("portal.orders.bakiHint")} value={o.totals.bakiG / 1000} unit={massUnit(fmt)} format={(n) => kgGrouped3(fmt, Math.round(n * 1000))} countUp={false} />
       </div>
       {o.note ? <p className="m-0 text-[15px] break-words text-muted-foreground">{o.note}</p> : null}
       <section aria-labelledby="portal-lines" className="flex min-w-0 flex-col gap-3">
@@ -72,7 +74,7 @@ export function PortalOrderDetailPage({ id }: { id: string }) {
                 <p className="m-0 text-[16px] font-semibold break-words">
                   {t("portal.orders.lineNo", { n: l.lineNo })} · {sectionTitle(l)}
                 </p>
-                <p className="m-0 font-mono text-[14px] tabular-nums">{formatLength(l.cutLengthMm, unit)}</p>
+                <p className="m-0 font-mono text-[14px] tabular-nums">{fmt.q("bundle.length", l.cutLengthMm)}</p>
               </div>
               <dl className="m-0 grid grid-cols-3 gap-3">
                 {[
@@ -83,8 +85,8 @@ export function PortalOrderDetailPage({ id }: { id: string }) {
                   <div key={c.k} className="min-w-0">
                     <dt className="text-xs font-medium text-muted-foreground">{t(`portal.orders.${c.k as "ordered"}`)}</dt>
                     <dd data-no-truncate="" className="m-0 mt-0.5 font-mono text-[14px] font-semibold tabular-nums">
-                      {kgText(c.g)} {t("units.kg")}
-                      {c.p != null ? <span className="block text-xs font-normal text-muted-foreground">{pcsText(c.p)} {t("units.pcs")}</span> : null}
+                      {kgGrouped3(fmt, c.g)} {massUnit(fmt)}
+                      {c.p != null ? <span className="block text-xs font-normal text-muted-foreground">{countText(fmt, c.p)} {t("units.pcs")}</span> : null}
                     </dd>
                   </div>
                 ))}
