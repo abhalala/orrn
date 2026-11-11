@@ -17,6 +17,8 @@ export type NumberValue = {
   entered: string;
   /** True when half-up rounding changed the exact value. */
   rounded: boolean;
+  /** The cleaned decimal that was converted (`"2500"`; feet and inches as `"12 6"`). */
+  decimal: string;
 };
 
 export type StepState = {
@@ -113,7 +115,7 @@ export function readNumber(textIn: string, kind: UnitKind, declared: UnitId | nu
   if (!r.ok) return { ok: false, code: r.code };
   // A count is whole: 12.5 pieces is a typo or a weight in the wrong column, never 13 pieces.
   if (kind === "count" && r.rounded) return { ok: false, code: "not_whole" };
-  return { ok: true, value: { kind, canonical: r.canonical, unit, entered: textIn.trim(), rounded: r.rounded } };
+  return { ok: true, value: { kind, canonical: r.canonical, unit, entered: textIn.trim(), rounded: r.rounded, decimal } };
 }
 
 // ---------------------------------------------------------------- steps

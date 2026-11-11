@@ -7,12 +7,14 @@
  * number, the lookups to resolve, and the refusals. A row is `blank` (every cell empty), `dropped` (a filter removed
  * it), `refused` (a total row, a bad value, a missing required field) or `ok`.
  */
+import { checkMagnitude } from "@orrn/domain";
+
 import type { DateFormat, Recipe, RecipeFilter, RecipeStep } from "./recipe";
 import type { ResolverId } from "./recipe";
 import type { RefusalCode } from "./states";
 import { TARGETS, type TargetField } from "./targets";
 import { runSteps, type NumberValue, type StepContext } from "./transforms";
-import type { UnitId } from "./units-adapter";
+import { recipeUnitOf, registryUnitOf, type UnitId } from "./units-adapter";
 
 export type ApplyOptions = {
   /** The confirmed as-of date for `period_as_of` sources. */
@@ -28,6 +30,21 @@ export type Refusal = { field: string | null; code: RefusalCode; detail?: string
 
 export type Entered = { text: string; unit: UnitId | null };
 
+/**
+ * A number outside the plausible range of its registry field (C19). The value is kept as read; a person must
+ * confirm it or fix the unit. `likelyUnit` is offered only when exactly one other unit lands in range.
+ */
+export type MagnitudeFlag = {
+  field: string;
+  code: "magnitude";
+  side: "below" | "above";
+  likelyUnit: UnitId | null;
+  likelyValue: number | null;
+};
+
+/** The reason text a staged row carries for a flag, `magnitude:<field>`. */
+export const magnitudeReason = (f: Pick<MagnitudeFlag, "field">): string => `magnitude:${f.field}`;
+
 export type ApplyRow = {
   /** Position among the data rows of the block, 0-based. */
   rowIndex: number;
@@ -40,6 +57,8 @@ export type ApplyRow = {
   /** Fields where half-up rounding changed the exact value. */
   rounded: string[];
   refusals: Refusal[];
+  /** Numbers outside their plausible range. The row stays `ok`; the server must ask before it is ready. */
+  flags: MagnitudeFlag[];
 };
 
 type FieldPlan = {
@@ -96,7 +115,7 @@ function filterTest(f: RecipeFilter, cell: string): boolean {
 }
 
 function emptyRow(rowIndex: number, state: ApplyRow["state"]): ApplyRow {
-  return { rowIndex, state, values: {}, entered: {}, lookups: {}, rounded: [], refusals: [] };
+  return { rowIndex, state, values: {}, entered: {}, lookups: {}, rounded: [], refusals: [], flags: [] };
 }
 
 export function applyRow(c: CompiledRecipe, row: readonly string[], rowIndex: number): ApplyRow {
@@ -155,6 +174,7 @@ export function applyRow(c: CompiledRecipe, row: readonly string[], rowIndex: nu
     out.values[p.field] = value;
     if (s.lookup && typeof value === "string") out.lookups[p.field] = { resolver: s.lookup as ResolverId, text: value };
     checkField(out, p, value);
+    if (s.number && typeof value === "number") checkRange(out, p, s.number);
   }
 
   // Required fields with no mapping or no value.
@@ -171,6 +191,29 @@ export function applyRow(c: CompiledRecipe, row: readonly string[], rowIndex: nu
   }
   if (out.refusals.length > 0) out.state = "refused";
   return out;
+}
+
+/** Registry limits (C8, C19): past `hard` is refused, outside `plausible` is flagged. Never changes the value. */
+function checkRange(out: ApplyRow, p: FieldPlan, n: NumberValue) {
+  const fieldId = p.def?.magnitude;
+  if (!fieldId || out.refusals.some((r) => r.field === p.field)) return;
+  const reg = registryUnitOf(n.kind, n.unit);
+  // Feet and inches have no single decimal to read in another unit, so no unit is offered for them.
+  const entered = reg && n.unit !== "ft_in" ? { text: n.decimal, unit: reg } : undefined;
+  const v = checkMagnitude(fieldId, n.canonical, entered);
+  if (v.ok) return;
+  if (v.level === "refuse") {
+    out.refusals.push({ field: p.field, code: "out_of_range" });
+    return;
+  }
+  const likely = v.likelyUnit ? recipeUnitOf(n.kind, v.likelyUnit) : null;
+  out.flags.push({
+    field: p.field,
+    code: "magnitude",
+    side: v.side,
+    likelyUnit: likely,
+    likelyValue: likely !== null ? (v.likelyValue ?? null) : null,
+  });
 }
 
 function checkField(out: ApplyRow, p: FieldPlan, value: string | number | null) {

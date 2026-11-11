@@ -67,6 +67,12 @@ export function canonicalUnit(kind: UnitKind): UnitId {
   return CANONICAL[kind];
 }
 
+/** The recipe spelling of a registry unit for this kind, or null when the portal does not offer it. */
+export function recipeUnitOf(kind: UnitKind, reg: RegistryUnitId): UnitId | null {
+  for (const [id, r] of Object.entries(REGISTRY_ID[kind])) if (r === reg) return id as UnitId;
+  return null;
+}
+
 /** The registry id behind a recipe unit, or null when the kind has no such unit. */
 export function registryUnitOf(kind: UnitKind, unit: UnitId | string): RegistryUnitId | null {
   return REGISTRY_ID[kind][unit as UnitId] ?? null;

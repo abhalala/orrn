@@ -1,4 +1,4 @@
-import { field } from "./field";
+import { field, positiveIntCheck } from "./field";
 import type { TargetDef } from "./types";
 
 /**
@@ -15,13 +15,13 @@ export const ordersTarget: TargetDef = {
     field("sectionCode", { required: true, resolver: "section_by_code" }),
     field("poNumber"),
     field("oldOrderNo", { note: "Order number in the old book" }),
-    field("kgPer12ft", { kind: "linear_mass" }),
-    field("cutLength", { kind: "length" }),
-    field("pcs", { kind: "count" }),
-    field("orderedKg", { kind: "mass", note: "Ordered quantity, stored in grams" }),
-    field("dispatchedKg", { kind: "mass", note: "Dispatched so far, stored in grams" }),
-    field("bakiKg", { kind: "mass", note: "Balance still to dispatch, stored in grams" }),
-    field("rate", { kind: "price_per_mass", note: "Rate, stored as paise per kg" }),
+    field("kgPer12ft", { kind: "linear_mass", magnitude: "die.band" }),
+    field("cutLength", { kind: "length", magnitude: "order.cutLength" }),
+    field("pcs", { kind: "count", check: positiveIntCheck, magnitude: "order.pieces" }),
+    field("orderedKg", { kind: "mass", note: "Ordered quantity, stored in grams", magnitude: "order.weight" }),
+    field("dispatchedKg", { kind: "mass", note: "Dispatched so far, stored in grams", magnitude: "order.weight" }),
+    field("bakiKg", { kind: "mass", note: "Balance still to dispatch, stored in grams", magnitude: "order.weight" }),
+    field("rate", { kind: "price_per_mass", note: "Rate, stored as paise per kg", magnitude: "order.rate" }),
     field("finish"),
     field("alloy"),
     field("temper"),

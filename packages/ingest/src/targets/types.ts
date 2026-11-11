@@ -1,3 +1,5 @@
+import type { FieldId } from "@orrn/domain";
+
 import type { ResolverId, UnitKind } from "../recipe";
 import type { IngestTarget, RefusalCode } from "../states";
 import type { UnitId } from "../units-adapter";
@@ -23,6 +25,11 @@ export type TargetField = {
   /** One line for the bot's catalogue. */
   note: string;
   check: FieldCheck | null;
+  /**
+   * The registry field (`@orrn/domain` FIELDS) whose limits apply: past `hard` is refused `out_of_range`, outside
+   * `plausible` is flagged for a person (C8, C19). Null when the registry has no such field.
+   */
+  magnitude: FieldId | null;
 };
 
 /** `field` is the offending field (null for the whole row). */
