@@ -33,7 +33,7 @@ export function UnitsTab() {
   );
 }
 
-function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; timezone: string }) {
+export function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; timezone: string }) {
   const { t, locale } = useT();
   const saved = useMemo(() => draftFromSettings(plant), [plant]);
   const [draft, setDraft] = useState<UnitsDraft>(saved);
@@ -94,13 +94,13 @@ function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; timezone: s
             </span>
             <CardContent>
               <Choice label={t("settings.units.weight")}>
-                <SegmentedControl label={t("settings.units.weight")} value={draft.mass} options={options("mass")} onChange={(v) => set("mass", v)} />
+                <Pick label={t("settings.units.weight")} value={draft.mass} options={options("mass")} onChange={(v) => set("mass", v)} />
               </Choice>
               <Choice label={t("settings.units.length")}>
-                <SegmentedControl label={t("settings.units.length")} value={draft.length} options={options("length")} onChange={(v) => set("length", v)} />
+                <Pick label={t("settings.units.length")} value={draft.length} options={options("length")} onChange={(v) => set("length", v)} />
               </Choice>
               <Choice label={t("settings.units.sectionWeight")} hint={t("settings.units.sectionWeightHint")}>
-                <SegmentedControl
+                <Pick
                   label={t("settings.units.sectionWeight")}
                   value={draft.linear_mass}
                   options={options("linear_mass")}
@@ -108,7 +108,7 @@ function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; timezone: s
                 />
               </Choice>
               <Choice label={t("settings.units.grouping")}>
-                <SegmentedControl
+                <Pick
                   label={t("settings.units.grouping")}
                   value={draft.grouping}
                   options={[
@@ -166,6 +166,28 @@ function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; timezone: s
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * One choice among a few. The labels are long ("International (1,234,567)", "Millimetres (mm)"), so below the sm breakpoint
+ * (a 320 px screen, or 400 percent zoom) they are a select that shows the whole label; from sm up they are the segmented control.
+ * Both are in the markup and the style hides one; a hidden one is out of the reading order.
+ */
+function Pick<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: { value: T; label: string }[]; onChange(value: T): void }) {
+  return (
+    <>
+      <NativeSelect aria-label={label} value={value} onChange={(e) => onChange(e.target.value as T)} className="sm:hidden" data-testid="units-pick-select">
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </NativeSelect>
+      <div className="hidden sm:block">
+        <SegmentedControl label={label} value={value} options={options} onChange={onChange} />
+      </div>
+    </>
   );
 }
 
