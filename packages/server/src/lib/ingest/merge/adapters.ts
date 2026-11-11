@@ -43,7 +43,30 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const isUpdate = (r: StagedRow) => r.state === "ready_update" && !!r.matchId;
+/** The path is chosen by state, never by whether a match is set (B6). */
+const isUpdate = (r: StagedRow) => r.state === "ready_update";
+
+/**
+ * A chunk's kind before any call: all creates, or all updates that each name the record they
+ * update. An update row with no record, or a mix, refuses the whole chunk, so an update row never
+ * takes a create path (B6).
+ */
+function kindOf(rows: readonly StagedRow[]): "create" | "update" {
+  const bad = rows.find((r) => isUpdate(r) && !r.matchId);
+  if (bad) throw new TRPCError({ code: "BAD_REQUEST", message: `File row ${bad.rowIndex + 1} has no record to update. Pick the record to use, or add it as new.` });
+  if (rows.every(isUpdate)) return "update";
+  if (rows.some(isUpdate)) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "A part mixes new and changed records" });
+  return "create";
+}
+
+/** `kindOf` as a chunk failure instead of a throw. */
+function chunkKind(rows: readonly StagedRow[]): { kind: "create" | "update" } | { failure: AdapterOut } {
+  try {
+    return { kind: kindOf(rows) };
+  } catch (e) {
+    return { failure: { written: [], failure: failureOf(e) } };
+  }
+}
 
 /** The fields a ready_update row changes: every field of its diff, with the file's value. */
 function patchOf(row: StagedRow): Values {
@@ -111,7 +134,9 @@ const nullable = (v: unknown) => text(v);
 
 const customers: Adapter = async (args) => {
   const { ctx, rows } = args;
-  if (rows.every(isUpdate)) {
+  const k = chunkKind(rows);
+  if ("failure" in k) return k.failure;
+  if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       const caller = await args.callerFor(args.sourceOf([row]));
       if (!(await updatedBefore(ctx, "customer.update", args.chunk.id, row.rowIndex))) {
@@ -197,7 +222,9 @@ const customerAliases: Adapter = async (args) => {
 
 const vendors: Adapter = async (args) => {
   const { ctx, rows } = args;
-  if (rows.every(isUpdate)) {
+  const k = chunkKind(rows);
+  if ("failure" in k) return k.failure;
+  if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       if (!(await updatedBefore(ctx, "vendor.update", args.chunk.id, row.rowIndex))) {
         const p = patchOf(row);
@@ -264,6 +291,9 @@ const vendorAliases: Adapter = async (args) => {
 const dies: Adapter = async (args) => {
   const { ctx, rows } = args;
   return oneCall(async () => {
+    // One call takes both kinds; an update row must still name its record (B6).
+    const noMatch = rows.find((r) => isUpdate(r) && !r.matchId);
+    if (noMatch) kindOf([noMatch]);
     const creates = rows.filter((r) => !isUpdate(r));
     const updates = rows.filter(isUpdate);
     const live = new Map(
@@ -349,7 +379,9 @@ const COPY_UPDATE: Record<string, [string, (v: unknown) => unknown]> = {
 
 const dieCopies: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
-  if (rows.every(isUpdate)) {
+  const k = chunkKind(rows);
+  if ("failure" in k) return k.failure;
+  if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       if (!(await updatedBefore(ctx, "die_instance.update", args.chunk.id, row.rowIndex))) {
         // File field to `dieInstance.update` input. The tier of an existing copy moves only by

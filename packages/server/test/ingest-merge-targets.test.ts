@@ -269,3 +269,31 @@ describe("bundles", () => {
     expectSource(audit!.meta, seeded, res.runId);
   });
 });
+
+describe("an update row with no record (B6)", () => {
+  test("a die copies chunk of updates plus one ready_update row with no match writes nothing and is refused", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "3400" });
+    const a = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "NM-1" });
+    const b = await api.dieInstance.create({ sectionId: dieId, makerDieNo: "NM-2" });
+    const upd = (id: string | null, no: string) => ({
+      state: "ready_update" as const,
+      matchId: id,
+      values: { series: "R", sectionCode: "3400", makerDieNo: no, supplier: "Maker Nine", _ids: { sectionCode: dieId } },
+      diff: { supplier: { live: null, file: "Maker Nine" } },
+    });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [upd(a.id, "NM-1"), upd(null, "NM-3"), upd(b.id, "NM-2")]);
+    const res = await mergeAll(api);
+    expect(res.state).toBe("done_with_holds");
+    const c = await candidateRow(env, seeded.candidateId);
+    expect(c.state).toBe("held");
+    expect(c.reasonDetail).toBe("File row 2 has no record to update. Pick the record to use, or add it as new.");
+    const { dieInstance } = await import("@orrn/db/schema/dies");
+    const { eq } = await import("drizzle-orm");
+    const copies = await env.db.select().from(dieInstance).where(eq(dieInstance.sectionId, dieId));
+    expect(copies).toHaveLength(2);
+    expect(copies.map((x) => x.supplier)).toEqual([null, null]);
+    expect(await auditRows(env, companyId, "die_instance.update")).toHaveLength(0);
+  });
+});
