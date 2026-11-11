@@ -3,8 +3,9 @@ import type { DeepPartial } from "../gu";
 
 /**
  * Gujarati, W2-FD-W: the foundry screens the furnace floor reads (casts, new cast, cast, melt, spectro,
- * billet stock, Today). The office-only parts (certificate, masters, yield report) read English in gu.
- * Plant words stay Latin: cast, melt, billet, spectro, dross, LDO. Needs a native-speaker review:
+ * billet stock, Today, and the phone's master lists). The web's office-only parts (certificate, masters,
+ * yield report) read English in gu. Plant words stay Latin: cast, melt, billet, spectro, dross, LDO.
+ * Needs a native-speaker review:
  * .fp-build/reports/gu-review-list-web.md.
  */
 export const guFoundry = {
@@ -418,6 +419,20 @@ export const guFoundry = {
       voidTitle: "આ પરિણામ રદ કરો",
       voidReason: "કેમ રદ?",
       voidConfirm: "પરિણામ રદ કરો",
+    },
+    masters: {
+      furnaces: "Furnace",
+      furnacesSubtitle: "દરેક furnace ની ક્ષમતા છે. તેનાથી વધુ metal ભરીને melt લૉક થઈ શકતો નથી.",
+      alloys: "Alloy",
+      alloysSubtitle: "Spectro પરિણામ જે તત્વો અને મર્યાદા સામે તપાસાય છે.",
+      billetDia: "Billet ની સાઇઝ (mm)",
+      capacity: "ક્ષમતા",
+      noFurnace: "હજી કોઈ furnace નથી.",
+      noFurnaceBody: "Furnace ઉમેરો, અથવા પ્લાન્ટનો મૂળ furnace એક સાથે ઉમેરો.",
+      noAlloy: "હજી કોઈ alloy નથી.",
+      noAlloyBody: "પ્લાન્ટ જે alloy ઢાળે છે તે ઉમેરો, અથવા સામાન્ય મર્યાદા સાથે 6063 અને 6061 ઉમેરો.",
+      noLimits: "મર્યાદા નથી",
+      state: { active: "ચાલુ", retired: "બંધ" },
     },
     stock: {
       title: "Billet સ્ટોક",
