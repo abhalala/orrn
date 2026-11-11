@@ -36,13 +36,13 @@ export function dispatchErrorText(t: Translate, error: unknown): string {
   const message = typeof e.message === "string" ? e.message : "";
   switch (e.data?.code) {
     case "CONFLICT":
+      // Check N6: an order line was saved while Dispatch ran; nothing about the bundles changed.
+      if (/^The order was edited while you pressed Dispatch/i.test(message)) return t("dispatch.errors.orderEdited");
       return t("dispatch.errors.conflict");
     case "BAD_REQUEST":
       // Arch 52: the late time and reason are checked on the sheet first; these are the server's own refusals.
       if (/in the future/i.test(message)) return t("dispatch.late.future");
       if (/at most 72 hours/i.test(message)) return t("dispatch.late.tooOld");
-      // Review 7: approved for another load, and too late to ask again.
-      if (/bundles changed after a manager approved/i.test(message)) return t("dispatch.late.loadChangedOld");
       if (/reason the packing list is entered late/i.test(message)) return t("dispatch.late.noReason");
       if (/needs the time the truck left/i.test(message)) return t("dispatch.late.noTime");
       return /empty/i.test(message) ? t("dispatch.errors.empty") : t("dispatch.errors.moved");

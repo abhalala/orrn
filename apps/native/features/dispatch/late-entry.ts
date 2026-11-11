@@ -34,13 +34,14 @@ export function lateExtras(check: LateCheck | null): { occurredAt?: number; late
 }
 
 /** Review 5: the late time already asked for on this dispatch (`dispatch.getDispatch` `lateEntry`). */
-export type LateEntryAsk = { status: "pending" | "approved" | "changed"; occurredAt: number; reason: string; approvalId: string };
+export type LateEntryAsk = { status: "pending" | "approved" | "changed" | "expired"; occurredAt: number; reason: string; approvalId: string };
 
 /** The line the locked late time shows: waiting, approved, or approved for other bundles (review 7). */
 export const LATE_STATUS_KEY = {
   pending: "dispatch.late.waitingFor",
   approved: "dispatch.late.approvedFor",
   changed: "dispatch.late.loadChanged",
+  expired: "dispatch.late.expired",
 } as const satisfies Record<LateEntryAsk["status"], MessageKey>;
 
 /**

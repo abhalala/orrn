@@ -279,5 +279,59 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     const rows = await offBandRows(p.companyId);
     expect(rows.map((r) => [r.status, r.meta.lineMilli])).toEqual([["pending", 12_300]]);
   }, SLOW);
+
+  test("check N6: an order line edited during Complete with no row off band says the order was edited; pressing again completes", async () => {
+    const { p, id, ok, lineId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [ok] });
+    await p.owner.dispatch.reserve({ id });
+    // The office saves the order (a new server_seq) without changing the kg/12ft.
+    env.beforeNextBatch(() =>
+      env.db
+        .update(salesOrderLine)
+        .set({ note: "Edited while dispatching", serverSeq: sql`${salesOrderLine.serverSeq} + 1000000` })
+        .where(eq(salesOrderLine.id, lineId)),
+    );
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "The order was edited while you pressed Dispatch. Press Dispatch again.",
+    });
+    expect(await offBandRows(p.companyId)).toEqual([]);
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
+  test("check N4a: a rejection given for other figures does not decide the row after the line is corrected; Complete asks for the new figures", async () => {
+    const { p, id, heavy, lineId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [heavy] });
+    const [asked] = await offBandRows(p.companyId);
+    await p.as("manager").approval.decide({ id: asked!.id, decision: "rejected", note: "0.5 off is too much" });
+    // The office corrects the line to 12.300: the bundle is still 0.2 off, a figure nobody judged.
+    await env.db.update(salesOrderLine).set({ kgPer12ftMilli: 12_300 }).where(eq(salesOrderLine.id, lineId));
+    const got = await p.owner.dispatch.getDispatch({ id });
+    expect(got.items.find((i) => i.serial === heavy)).toMatchObject({ offBandStatus: "none" });
+    expect(got.offBand).toMatchObject({ rejected: 0, unasked: 1 });
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect((await offBandRows(p.companyId)).find((r) => r.status === "pending")?.meta).toMatchObject({ lineMilli: 12_300 });
+  }, SLOW);
+
+  test("check N4b: approved at one figure, asked again at another, the line put back: the first approval stands, the stale ask is withdrawn, it completes", async () => {
+    const { p, id, heavy, lineId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [heavy] });
+    const [first] = await offBandRows(p.companyId);
+    await p.as("manager").approval.decide({ id: first!.id, decision: "approved" });
+    await p.owner.dispatch.reserve({ id });
+    await env.db.update(salesOrderLine).set({ kgPer12ftMilli: 12_200 }).where(eq(salesOrderLine.id, lineId));
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" }); // asks at 12.200
+    const stale = (await offBandRows(p.companyId)).find((r) => r.status === "pending")!;
+    await env.db.update(salesOrderLine).set({ kgPer12ftMilli: 12_000 }).where(eq(salesOrderLine.id, lineId));
+    expect((await p.owner.dispatch.getDispatch({ id })).items.find((i) => i.serial === heavy)).toMatchObject({
+      offBandStatus: "approved",
+      offBandApprovalId: first!.id,
+    });
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+    const after = (await offBandRows(p.companyId)).find((r) => r.id === stale.id)!;
+    expect(after.status).toBe("rejected");
+    expect(after.note).toMatch(/^Withdrawn: /);
+  }, SLOW);
 });
 

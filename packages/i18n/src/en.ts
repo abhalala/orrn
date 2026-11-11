@@ -1245,8 +1245,8 @@ export const en = {
       approvedFor: "A manager approved {when}. Press Dispatch to make the packing list.",
       useAnother: "Use another time",
       anotherAsks: "Another time asks a manager again.",
-      loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again.",
-      loadChangedOld: "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.",
+      expired: "A manager approved {when} more than 7 days ago. Pressing Dispatch asks a manager to approve it again.",
+      loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager to approve that time again for the bundles on it now.",
     },
     overTolerance: {
       title: "More than the order",
@@ -1454,6 +1454,7 @@ export const en = {
       offBandRejected: "A bundle was rejected for the order weight. Take it off this dispatch, then try again.",
       overdraw: "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
       lateEntry: "A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved.",
+      orderEdited: "The order was edited while you pressed Dispatch. Press Dispatch again.",
     },
     capacity: {
       label: "Truck capacity (kg)",
