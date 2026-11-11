@@ -117,6 +117,7 @@ export const guShell = {
     adminSupport: "સપોર્ટ",
     press: "Press",
     reports: "રિપોર્ટ",
+    ingest: "ઇમ્પોર્ટ",
   },
   ui: {
     stepOf: "સ્ટેપ {n} / {total}",
