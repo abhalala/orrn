@@ -57,6 +57,11 @@ export const cutLengthText = (fmt: Fmt, mm: number): string =>
   fmt.unitOf("length").id === "mm" ? fmt.n("bundle.length", mm) : fmt.q("bundle.length", mm);
 /** True for a plant that chose metres: the mm-layout length boxes then take metres, so their hints say so. */
 export const lengthIsMetres = (fmt: Fmt): boolean => fmt.unitOf("length").id === "m";
+/**
+ * A column header over a weight: the caption, plus the plant's unit word when that is not kg ("Ordered lb"). A header that never
+ * named kg (the party portal's order list) keeps its bare caption for a plant on kg, as it always read.
+ */
+export const weightHeader = (fmt: Fmt, caption: string): string => (fmt.unitOf("mass").id === "kg" ? caption : `${caption} ${fmt.unitOf("mass").symbol}`);
 /** The unit symbol for a column header or a suffix: "kg", "lb", "t". */
 export const massUnit = (fmt: Fmt): string => fmt.unitOf("mass").symbol;
 /** "kg/12ft", "kg/m", "lb/ft". */

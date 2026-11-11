@@ -71,3 +71,20 @@ describe("the portal after a plant switch", () => {
     expect(shell.indexOf("expectPlant(companyId)")).toBeLessThan(shell.indexOf("dropTenantQueries(queryClient)"));
   });
 });
+
+describe("the portal order list names the plant's weight unit in its headers", () => {
+  test("a pound plant reads Ordered lb and Baki lb; a kg plant keeps the bare words it always had", async () => {
+    const { formatterFor } = await import("@orrn/domain");
+    const { weightHeader } = await import("@/shared/lib/fmt-text");
+    const env = { locale: "en", timeZone: "Asia/Kolkata" } as const;
+    const lb = formatterFor(screenPrefs({ units: { mass: "lb" } }), env);
+    const kg = formatterFor(screenPrefs({}), env);
+    expect(weightHeader(lb, "Ordered")).toBe("Ordered lb");
+    expect(weightHeader(lb, "Baki")).toBe("Baki lb");
+    expect(weightHeader(formatterFor(screenPrefs({ units: { mass: "t" } }), env), "Baki")).toBe("Baki t");
+    expect(weightHeader(kg, "Ordered")).toBe("Ordered");
+    const src = readFileSync(join(import.meta.dir, "orders-page.tsx"), "utf8");
+    expect(src).toContain('weightHeader(fmt, t("portal.orders.ordered"))');
+    expect(src).toContain('weightHeader(fmt, t("portal.orders.baki"))');
+  });
+});

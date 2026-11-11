@@ -15,7 +15,7 @@ import { trpc } from "@/shared/utils/trpc";
 import { isPortalOrderStatus, PORTAL_STATUS_TONE } from "./model";
 import { bookDate, PortalError } from "./ui";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped3 } from "@/shared/lib/fmt-text";
+import { kgGrouped3, weightHeader } from "@/shared/lib/fmt-text";
 
 type Show = "open" | "all";
 const STEP = 20;
@@ -51,8 +51,8 @@ export function PortalOrdersPage() {
     },
     { key: "date", header: t("portal.orders.date"), hideOnPhone: true, cell: (o) => <span className="whitespace-nowrap">{bookDate(fmt, o.orderDate)}</span> },
     { key: "po", header: t("portal.orders.poNumber"), hideOnPhone: true, cell: (o) => (o.poNumber ? <span className="font-mono break-all">{o.poNumber}</span> : "") },
-    { key: "ordered", header: t("portal.orders.ordered"), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, o.totals.orderedG)}</span> },
-    { key: "baki", header: t("portal.orders.baki"), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, o.totals.bakiG)}</span> },
+    { key: "ordered", header: weightHeader(fmt, t("portal.orders.ordered")), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, o.totals.orderedG)}</span> },
+    { key: "baki", header: weightHeader(fmt, t("portal.orders.baki")), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, o.totals.bakiG)}</span> },
   ];
 
   return (
