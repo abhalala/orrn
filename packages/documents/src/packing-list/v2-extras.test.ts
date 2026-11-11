@@ -98,6 +98,69 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(plProfileLines(pl as never)).toHaveLength(2);
   });
 
+  test("the print footer and page counter sit in page margin boxes", () => {
+    const pl = parsePackingListSnapshot(v2());
+    const html = buildPackingListHtml(pl, "ANOTHER-PL");
+    expect(html).toContain("<title>PL-2026-27-7_Shivam</title>");
+    expect(html).toContain("Fourcubes Aluminium Pvt Ltd · Not a tax invoice. Printed from PL/2026-27/7 revision 2 as issued.");
+    expect(html).not.toContain("position: fixed");
+    expect(html).toContain("@page");
+    expect(html).toContain("@bottom-left");
+    expect(html).toContain('@bottom-right { content: "Page " counter(page) " of " counter(pages);');
+  });
+
+  test("the grand total and four signature lines share one unbreakable wrapper", () => {
+    const html = buildPackingListHtml(parsePackingListSnapshot(v2()), "PL/2026-27/7");
+    const labels = ["Packed by", "Checked by", "Driver", "Receiver's signature"];
+    for (const label of labels) expect(html).toContain(label);
+    expect(html.indexOf(labels[0]!)).toBeLessThan(html.indexOf(labels[1]!));
+    expect(html.indexOf(labels[1]!)).toBeLessThan(html.indexOf(labels[2]!));
+    expect(html.indexOf(labels[2]!)).toBeLessThan(html.indexOf(labels[3]!));
+    expect(html).toContain(".closing { break-inside: avoid; page-break-inside: avoid; }");
+    expect(html).toContain(".signature-line { height: 40px;");
+    expect(html).toMatch(/<div class="closing">[\s\S]*4 bundles · 85.000 kg[\s\S]*Packed by/);
+  });
+
+  test("group headings include only the ordered weight and PO date present in the snapshot", () => {
+    const raw = v2();
+    Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });
+    Object.assign(raw.groups[1]!, { orderedKgPer12ftMilli: 3_000 });
+    const html = buildPackingListHtml(parsePackingListSnapshot(raw), "PL/2026-27/7");
+    expect(html).toContain("Ordered kg/12ft 2.500 · PO date 30 Sep 2026");
+    expect(html).toContain("Ordered kg/12ft 3.000");
+    expect(html.split("PO date")).toHaveLength(2);
+
+    const without = buildPackingListHtml(parsePackingListSnapshot(v2()), "PL/2026-27/7");
+    expect(without).not.toContain("Ordered kg/12ft");
+    expect(without).not.toContain("PO date");
+  });
+
+  test("HTML ignores caller-supplied Hindi print text", () => {
+    const raw = v2();
+    Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });
+    const html = buildPackingListHtml(parsePackingListSnapshot(raw), "PL/2026-27/7", undefined, {
+      printText: {
+        lockedSnapshotFooter: () => "यह टैक्स इनवॉइस नहीं है।",
+        packedBy: "पैक करने वाला",
+        checkedBy: "जाँच करने वाला",
+        driverReceived: "ड्राइवर",
+        receiverSignature: "ग्राहक के हस्ताक्षर",
+        orderedKgPer12ft: (kg: string) => `ऑर्डर kg/12ft ${kg}`,
+        poDate: (date: string) => `PO तारीख ${date}`,
+      },
+    } as never);
+    expect(html).toContain("Not a tax invoice. Printed from PL/2026-27/7 revision 2 as issued.");
+    expect(html).toContain("Ordered kg/12ft 2.500 · PO date 30 Sep 2026");
+    expect(html).toContain("Packed by");
+    expect(html).toContain("Checked by");
+    expect(html).toContain("Receiver's signature");
+    expect(html).not.toContain("पैक करने वाला");
+    expect(html).not.toContain("जाँच करने वाला");
+    expect(html).not.toContain("ग्राहक के हस्ताक्षर");
+    expect(html).not.toContain("ऑर्डर kg/12ft");
+    expect(html).not.toContain("PO तारीख");
+  });
+
   test("branding off hides logo and tagline, never the legal name; original SO can be turned off", () => {
     const pl = parsePackingListSnapshot(
       v2({ issue: { revision: 1, dispatchCodes: ["DSP-000006"], branding: { show: false, tagline: null, logoUrl: null } }, print: { showBranding: false, showOriginalSo: false } }),

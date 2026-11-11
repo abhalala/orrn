@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7573 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7580 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1372,7 +1372,7 @@ Counts: 7573 screen strings in 49 groups, 45 guides with 866 strings.
 | `header.invoiceNumber` | Tally invoice number | Tally इनवॉइस नंबर |
 | `header.invoiceDate` | Invoice date | इनवॉइस की तारीख |
 
-### packingList (93)
+### packingList (100)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1469,6 +1469,13 @@ Counts: 7573 screen strings in 49 groups, 45 guides with 866 strings.
 | `po` | PO | PO |
 | `invoice` | Invoice | इनवॉइस |
 | `print` | Print | प्रिंट |
+| `lockedSnapshotFooter` | Not a tax invoice. Printed from {code} revision {revision} as issued. | यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी। |
+| `signatures.packedBy` | Packed by | पैक करने वाला |
+| `signatures.checkedBy` | Checked by | जाँच करने वाला |
+| `signatures.driverReceived` | Driver | ड्राइवर |
+| `signatures.receiverSignature` | Receiver's signature | ग्राहक के हस्ताक्षर |
+| `groupDetails.orderedKgPer12ft` | Ordered kg/12ft {kg} | ऑर्डर kg/12ft {kg} |
+| `groupDetails.poDate` | PO date {date} | PO तारीख {date} |
 
 ### dies (68)
 
