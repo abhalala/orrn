@@ -8,7 +8,7 @@ import { mmTextToMm } from "@/features/foundry/melt-form";
 import { parseKgPer12ftMilli, parseWholeNumber } from "@/features/masters/masters-model";
 import { kgTextToG as pressKgTextToG } from "@/features/press/model";
 import { kgTextToG as kantaKgTextToG } from "@/features/purchase/kanta";
-import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, followsPlant, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, isRefusedDraft, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
+import { plainFromRefused, canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, followsPlant, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, isRefusedDraft, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -271,5 +271,16 @@ describe("a refused entry is never a blank draft (review recheck)", () => {
   });
   test("the keypad refusal is a refused draft too", () => {
     expect(isRefusedDraft(keypadStep(fmtOf({ units: { linear_mass: "kg_m" } }), SECTION_KG12, "2.500", "1", /^\d{0,4}(\.\d{0,4})?$/)!.draft)).toBe(true);
+  });
+});
+
+describe("plainFromRefused: a refused draft the plain box can show", () => {
+  test("marker removed when the rest is a plain number text, blank when it is not, other drafts untouched", () => {
+    expect(plainFromRefused("?2,5")).toBe("2,5");
+    expect(plainFromRefused("?12.5")).toBe("12.5");
+    expect(plainFromRefused("?12.5 lb")).toBe("");
+    expect(plainFromRefused("?abc")).toBe("");
+    expect(plainFromRefused("12.5")).toBe("12.5");
+    expect(plainFromRefused("")).toBe("");
   });
 });

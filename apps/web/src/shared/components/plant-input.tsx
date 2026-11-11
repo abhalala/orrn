@@ -6,7 +6,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useEffect, useId, useRef, useState, type Ref } from "react";
 
 import { useFmt } from "@/shared/lib/fmt";
-import { draftToTyped, followsPlant, kindOf, typedToDraft, type EntrySpec } from "@/shared/lib/plant-input";
+import { draftToTyped, followsPlant, isRefusedDraft, kindOf, plainFromRefused, typedToDraft, type EntrySpec } from "@/shared/lib/plant-input";
 import { unitProblemText } from "@/shared/lib/unit-input";
 
 export type PlantInputProps = Omit<NumberInputProps, "suffix"> & {
@@ -51,9 +51,18 @@ export function PlantInput({ spec, value, onValueChange, decimal, typed, onTyped
     setProblem(null);
   }, [native, controlled, value, fmt, spec]);
 
+  // A refusal left open while the plant switched to the draft's own unit: the plain box takes it as plain text (or blank), and
+  // the form's draft follows, so the box is editable and the form is not left holding a marker the box cannot show.
+  const leftRefused = native && !controlled && isRefusedDraft(value);
+  const plain = leftRefused ? plainFromRefused(value) : value;
+  useEffect(() => {
+    if (leftRefused) onValueChange(plain);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leftRefused, plain]);
+
   if (native) {
     // The draft is in the box's own unit (grams for a nitriding box, inches for a gauge), so that is the word beside it.
-    return <NumberInput {...rest} value={value} onValueChange={onValueChange} decimal={decimal} suffix={UNITS[spec.native].symbol} />;
+    return <NumberInput {...rest} value={plain} onValueChange={onValueChange} decimal={decimal} suffix={UNITS[spec.native].symbol} />;
   }
 
   const change = (next: string) => {
