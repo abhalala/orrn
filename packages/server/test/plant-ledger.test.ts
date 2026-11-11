@@ -238,7 +238,7 @@ describe("Review Focus 1: ledger balance equals the bundle projection", () => {
             }
             case "reserve": {
               if (available.length === 0) break;
-              const { id } = await api.dispatch.create({ customerId: p.customerId });
+              const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
               for (const b of pickSome(available, int(1, 4))) await api.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b.id });
               await api.dispatch.reserve({ id });
               bump("reserve");
@@ -429,7 +429,7 @@ describe("stock.move", () => {
     const p = await plant();
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row(), row()] });
     const bs = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId)).orderBy(asc(bundle.serial));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: bs[0]!.id });
     await p.owner.dispatch.reserve({ id });
 
@@ -447,7 +447,7 @@ describe("stock.move", () => {
     const p = await plant();
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row(), row(), row()] });
     const bs = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId)).orderBy(asc(bundle.serial));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: bs[0]!.id });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
@@ -517,7 +517,7 @@ describe("dispatch complete (DN)", () => {
     const bs = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId)).orderBy(asc(bundle.serial));
     await p.owner.stock.move({ bundleIds: bs.slice(0, 70).map((b) => b.id), toLocationId: p.loc("Y2") });
 
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: bs.slice(0, 100).map((b) => b.serial) });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials: bs.slice(100).map((b) => b.serial) });
     await p.owner.dispatch.reserve({ id });
@@ -540,7 +540,7 @@ describe("dispatch complete (DN)", () => {
     const p = await plant();
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row(33_000)] });
     const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b!.id });
     await p.owner.dispatch.reserve({ id });
 
@@ -556,7 +556,7 @@ describe("dispatch complete (DN)", () => {
     const p = await plant();
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row()] });
     const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b!.id });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
@@ -570,7 +570,7 @@ describe("dispatch complete (DN)", () => {
     const p = await plant();
     const res = await p.owner.bundle.createReceipt({ dieId: p.dieId, unit: "pcs", locationId: p.loc("Y1"), rows: [row()] });
     const [b] = await env.db.select().from(bundle).where(eq(bundle.groupId, res.groupId));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: b!.id });
     await p.owner.dispatch.reserve({ id });
 
@@ -610,7 +610,7 @@ describe("legacy bundles and the opening balance", () => {
     // Now on the ledger: void, move and dispatch post as usual.
     await p.owner.bundle.transitionStatus({ id: legacy[2]!.id, toStatus: "void" });
     await p.owner.stock.move({ bundleIds: [legacy[3]!.id], toLocationId: p.loc("Y4") });
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundle({ allowUnassigned: true,  id, bundleId: legacy[4]!.id });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
@@ -851,7 +851,7 @@ describe("races: ledger equals projection after each interleaving", () => {
     // Reserve reads an available bundle; a void lands before the reserve writes.
     const a = await plant();
     const [b1, b2] = await packInto(a, a.loc("Y1"), 2);
-    const d1 = await a.owner.dispatch.create({ customerId: a.customerId });
+    const d1 = await a.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: a.customerId });
     await a.owner.dispatch.addBundle({ allowUnassigned: true,  id: d1.id, bundleId: b1!.id });
     await a.owner.dispatch.addBundle({ allowUnassigned: true,  id: d1.id, bundleId: b2!.id });
     env.beforeNextBatch(() => a.owner.bundle.transitionStatus({ id: b1!.id, toStatus: "void", reason: "bent" }));
@@ -863,7 +863,7 @@ describe("races: ledger equals projection after each interleaving", () => {
     // Void reads an available bundle; a reserve lands before the void writes.
     const c = await plant();
     const [x] = await packInto(c, c.loc("Y1"), 1);
-    const d2 = await c.owner.dispatch.create({ customerId: c.customerId });
+    const d2 = await c.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: c.customerId });
     await c.owner.dispatch.addBundle({ allowUnassigned: true,  id: d2.id, bundleId: x!.id });
     env.beforeNextBatch(() => c.owner.dispatch.reserve({ id: d2.id }));
     await c.owner.bundle.transitionStatus({ id: x!.id, toStatus: "void", reason: "bent" }).catch(() => null);

@@ -9,6 +9,7 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { customer } from "@orrn/db/schema/customers";
 import { die } from "@orrn/db/schema/catalog";
 import { dieBand, dieInstance, dieTierChange, dieWeightReading } from "@orrn/db/schema/dies";
+import { dispatch, dispatchItem } from "@orrn/db/schema/dispatch";
 import { bundle } from "@orrn/db/schema/inventory";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 
@@ -44,7 +45,26 @@ export type TierFacts = {
   reading: { kgPer12ftMilli: number; readAt: number } | null;
 };
 
-export type ApprovalFacts = MoveFacts | TierFacts | null;
+/**
+ * Q36: an off-band row as it stands now. The bundle may have come off the dispatch or moved to
+ * another line since it was asked, and the line's kg/12ft may have been edited.
+ */
+export type OffBandFacts = {
+  kind: "dispatch_off_band";
+  /** The row is still on the dispatch (null when it came off). */
+  row: {
+    dispatchCode: string;
+    dispatchStatus: string;
+    serial: string;
+    bundleMilli: number | null;
+    /** The line it is linked to now, null when unlinked. */
+    line: { orderNumber: string; lineNo: number; kgPer12ftMilli: number | null } | null;
+    /** Still linked to the line the request asked about. */
+    sameLine: boolean;
+  } | null;
+};
+
+export type ApprovalFacts = MoveFacts | TierFacts | OffBandFacts | null;
 
 const OPEN_ORDER = ["booking", "confirmed", "dispatching"];
 
@@ -55,6 +75,7 @@ export async function loadApprovalFacts(
 ): Promise<ApprovalFacts> {
   if (row.kind === "order_reallocate") return moveFacts(db, companyId, row.meta ?? {});
   if (row.kind === "die_rerank") return tierFacts(db, companyId, row.subjectId);
+  if (row.kind === "dispatch_off_band") return offBandFacts(db, companyId, row.subjectId, row.meta ?? {});
   return null;
 }
 
@@ -172,5 +193,38 @@ async function tierFacts(db: OrrnDb, companyId: string, tierChangeId: string): P
     },
     changedSince: tc.status === "pending" && (copy.tierRank !== tc.fromRank || (copy.bandId ?? null) !== startedFromBand),
     reading: reading ? { kgPer12ftMilli: reading.kgPer12ftMilli, readAt: reading.readAt.getTime() } : null,
+  };
+}
+
+async function offBandFacts(db: OrrnDb, companyId: string, itemId: string, meta: Record<string, unknown>): Promise<OffBandFacts> {
+  const [r] = await db
+    .select({
+      dispatchCode: dispatch.code,
+      dispatchStatus: dispatch.status,
+      serial: bundle.serial,
+      bundleMilli: bundle.kgPer12ftMilli,
+      lineId: dispatchItem.salesOrderLineId,
+      lineNo: salesOrderLine.lineNo,
+      lineMilli: salesOrderLine.kgPer12ftMilli,
+      orderNumber: salesOrder.number,
+    })
+    .from(dispatchItem)
+    .innerJoin(dispatch, and(eq(dispatch.id, dispatchItem.dispatchId), eq(dispatch.companyId, companyId)))
+    .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, companyId)))
+    .leftJoin(salesOrderLine, and(eq(salesOrderLine.id, dispatchItem.salesOrderLineId), eq(salesOrderLine.companyId, companyId)))
+    .leftJoin(salesOrder, and(eq(salesOrder.id, salesOrderLine.salesOrderId), eq(salesOrder.companyId, companyId)))
+    .where(and(eq(dispatchItem.id, itemId), eq(dispatchItem.companyId, companyId)))
+    .limit(1);
+  if (!r) return { kind: "dispatch_off_band", row: null };
+  return {
+    kind: "dispatch_off_band",
+    row: {
+      dispatchCode: r.dispatchCode,
+      dispatchStatus: r.dispatchStatus,
+      serial: r.serial,
+      bundleMilli: r.bundleMilli,
+      line: r.lineId && r.orderNumber && r.lineNo !== null ? { orderNumber: r.orderNumber, lineNo: r.lineNo, kgPer12ftMilli: r.lineMilli } : null,
+      sameLine: r.lineId !== null && r.lineId === meta.lineId,
+    },
   };
 }

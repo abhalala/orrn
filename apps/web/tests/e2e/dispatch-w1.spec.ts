@@ -301,7 +301,8 @@ test.describe("dispatch: truck capacity, transporter, completing over capacity",
 
 /** A completed dispatch of `serials` for `customerId`, built through the API. */
 async function completed(api: OwnerApi, customerId: string, serials: string[]) {
-  const d = await api.mutate<{ id: string; code: string }>("dispatch.create", { customerId });
+  // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+  const d = await api.mutate<{ id: string; code: string }>("dispatch.create", { customerId, vehicleNo: "GJ05AB1234" });
   await api.mutate("dispatch.addBundlesBySerial", { id: d.id, serials, allowUnassigned: true });
   await api.mutate("dispatch.reserve", { id: d.id });
   await api.mutate("dispatch.complete", { id: d.id });

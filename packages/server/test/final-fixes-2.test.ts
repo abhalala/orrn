@@ -295,6 +295,12 @@ describe("BACKLOG 88: one line walked through run, pack and dispatch (own plant,
     const so = lineOf!.replace(/^dev-sol-(\d+)-\d+$/, "dev-so-$1");
     const before = await strip(so, lineOf!);
     expect(before.pressedAllG).toBeGreaterThanOrEqual(before.packedAllG);
+    // Q36 decided: the seed's held truck carries bundles more than 0.1 kg/12ft off their line. The first
+    // Complete asks for each (nobody had); a manager approves; Complete again.
+    await expect(o.dispatch.complete({ id: "dev-dispatch-held" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const asked = await o.approval.list({ status: "pending", kind: "dispatch_off_band", limit: 200 });
+    expect(asked.items.length).toBeGreaterThan(0);
+    for (const req of asked.items) await walkEnv.caller({ role: "manager", companyId: company }).approval.decide({ id: req.id, decision: "approved" });
     await o.dispatch.complete({ id: "dev-dispatch-held" });
     const after = await strip(so, lineOf!);
     expect(after.dispatchedG).toBeGreaterThan(before.dispatchedG);

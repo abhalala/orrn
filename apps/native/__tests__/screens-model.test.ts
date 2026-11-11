@@ -5,7 +5,7 @@ import { hi } from "@orrn/i18n/hi";
 import { listGuides } from "@orrn/i18n/guides";
 
 import { guidesFor } from "../features/guides/guides";
-import { inviteAcceptOutcome, isExistingAccount } from "../features/invite/invite-flow";
+import { inviteAcceptOutcome, inviteSignUpRefusal, isExistingAccount } from "../features/invite/invite-flow";
 import { moreRows } from "../features/more/more-rows";
 import { greetingKey, inStock, showStartHere, todayTiles } from "../features/today/today-model";
 import { formatDay, formatTime, monthNames } from "../lib/format";
@@ -87,6 +87,12 @@ describe("Invite (audit N4)", () => {
     expect(isExistingAccount({ code: "USER_ALREADY_EXISTS" })).toBe(true);
     expect(isExistingAccount({ code: "INVALID_EMAIL" })).toBe(false);
     expect(isExistingAccount(null)).toBe(false);
+    // Security review 2026-11-04: the server makes an account only from a live invite for that email.
+    expect(inviteSignUpRefusal({ code: "SIGN_UP_INVITE_EMAIL_MISMATCH" })).toBe("wrongEmail");
+    expect(inviteSignUpRefusal({ code: "SIGN_UP_INVITE_NOT_VALID" })).toBe("expired");
+    expect(inviteSignUpRefusal({ code: "SIGN_UP_NEEDS_INVITE" })).toBe("expired");
+    expect(inviteSignUpRefusal({ code: "USER_ALREADY_EXISTS" })).toBeNull();
+    expect(inviteSignUpRefusal(null)).toBeNull();
   });
 
   test("accept errors: dead link, wrong account, signed out, anything else", () => {

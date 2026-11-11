@@ -5,6 +5,8 @@ import { mkdir, open, readFile, readdir, rm, stat, writeFile } from "node:fs/pro
 import { join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
+import { unwrapSecret } from "@orrn/crypto";
+
 const root = resolve(import.meta.dir, "../../..");
 const migrationsDir = join(root, "packages/db/src/migrations");
 const header = Buffer.from("ORRN-D1-BACKUP-v1\n");
@@ -165,6 +167,29 @@ export function assertPreserved(before: Record<string, number>, after: Record<st
   }
 }
 
+/**
+ * The deploy's ORRN_MASTER_KEY must be the key that wrapped production's node secrets. A different
+ * key deploys fine, then every `unwrapSecret` on production fails and every print computer is
+ * stranded (security review 2026-11-04, review fixes). Fails when none of the given values opens;
+ * with nothing wrapped yet there is nothing to check. Never puts a key or a secret in a message.
+ */
+export async function assertMasterKeyOpens(wrapped: string[], masterKey: string | undefined): Promise<{ checked: number; opened: number }> {
+  if (wrapped.length === 0) return { checked: 0, opened: 0 };
+  const key = masterKey?.trim();
+  assert(key, "ORRN_MASTER_KEY is required to check production's wrapped node secrets");
+  let opened = 0;
+  for (const value of wrapped) {
+    try {
+      await unwrapSecret(value, key);
+      opened += 1;
+    } catch {
+      // Counted below; the value itself is never printed.
+    }
+  }
+  assert(opened > 0, `ORRN_MASTER_KEY opens none of the ${wrapped.length} wrapped node secrets on the production copy. It is not the key that wrapped them: restore the historical production key before deploying`);
+  return { checked: wrapped.length, opened };
+}
+
 function backupKey(secret: string): Buffer {
   assert(secret.trim(), "ORRN_MASTER_KEY is required to encrypt the production backup");
   return createHash("sha256").update("orrn-production-backup:v1\0").update(secret).digest();
@@ -267,6 +292,11 @@ async function rehearse(): Promise<void> {
   wrangler("Restore production export to local D1", ["d1", "execute", "DB", "--local", "--persist-to", join(safetyDir(), "state"), "--file", exportPath, "--yes"]);
   const copiedTables = (await local(tablesSql)).map((row) => String(row.name));
   const copied = await tableCounts(local, copiedTables);
+  if (copiedTables.includes("spool_deployment")) {
+    const wrapped = (await local("SELECT shared_secret_wrapped AS w FROM spool_deployment WHERE status <> 'revoked' AND shared_secret_wrapped IS NOT NULL LIMIT 50")).map((row) => String(row.w));
+    const key = await assertMasterKeyOpens(wrapped, process.env.ORRN_MASTER_KEY);
+    if (key.checked) console.log(`ORRN_MASTER_KEY opened ${key.opened} of ${key.checked} wrapped node secrets on the production copy.`);
+  }
   // The export may include writes made after the earlier remote read. Sessions can also expire.
   // Check document lower bounds here, then compare every frozen copy's table exactly after rehearsal.
   assert(Object.keys(before.counts).every((name) => Object.hasOwn(copied, name)), "A production table is missing from the export");

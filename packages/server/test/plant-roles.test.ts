@@ -290,14 +290,14 @@ describe("new roles through existing procedures", () => {
 
     for (const [i, role] of (["office", "supervisor"] as const).entries()) {
       const api = env.caller({ role, companyId });
-      const { id } = await api.dispatch.create({ customerId });
+      const { id } = await api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
       await api.dispatch.addBundle({ id, bundleId: bundles[i]!.id });
       await api.dispatch.reserve({ id });
       await expect(api.dispatch.complete({ id })).resolves.toBeDefined();
     }
 
     const packer = env.caller({ role: "packer", companyId });
-    const { id } = await packer.dispatch.create({ customerId });
+    const { id } = await packer.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await expect(packer.dispatch.addBundle({ id, bundleId: bundles[2]!.id })).resolves.toBeDefined();
     await owner.dispatch.reserve({ id });
     await expect(packer.dispatch.complete({ id })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -329,6 +329,8 @@ describe("approvals", () => {
       ageing_override: ["owner", "admin", "manager"],
       press_late_entry: ["owner", "supervisor", "manager"],
       melt_correct: ["owner", "admin", "manager"],
+      dispatch_off_band: ["owner", "admin", "manager"],
+      dispatch_late_entry: ["owner", "admin", "manager"],
     });
   });
 

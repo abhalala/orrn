@@ -297,6 +297,7 @@ on top of the new head; the SQL header of a renumbered file says what it was cal
 | 0040 | ageing 2 | telemetry device id, oven, trolley and rework indexes |
 | 0041 | ageing 3 | `ageing_hardness.pass` nullable; **data step**: the table is rebuilt (`PRAGMA foreign_keys=OFF`, copy, drop, rename), empty on any database that never ran 0039 |
 | 0042 | cast legacy code | `cast.legacy_code`, unique per plant; continue an imported paper cast alongside its series number |
+| 0047 | dispatch late entry | `dispatch.late_entry`, `late_entry_reason`, `late_entry_approval_id` (arch 52). Chained after 0046 (the session revoke, which changes no schema) |
 
 The two data steps and the 0028 refusal are what [DEPLOY_PROMOTION.md](DEPLOY_PROMOTION.md) checks before a real database
 gets them. If you need a number before a lane merges, take the next one after the highest merged and tell whoever is merging.

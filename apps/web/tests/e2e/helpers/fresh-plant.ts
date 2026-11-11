@@ -7,9 +7,9 @@ import { API_URL, WEB_ORIGIN } from "./ports";
  * demo company is shared by every spec running in parallel, so a test that flips a plant-wide
  * setting (packing-list scope, kg per piece, order lead days) does it HERE, never there.
  *
- * Made the way the front door makes members: a public sign-up per role, an invite from the local
- * `/dev/invite` hook (the first one makes the company, later ones join it), `invite.acceptByToken`,
- * and the welcome step done over the API. Local stack only.
+ * Made the way the front door makes members: an invite from the local `/dev/invite` hook (the first
+ * one makes the company, later ones join it), a sign-up that carries the invite token (there is no
+ * public sign-up), `invite.acceptByToken`, and the welcome step done over the API. Local stack only.
  */
 
 export type PlantRole = "owner" | "office" | "packer";
@@ -29,12 +29,15 @@ async function join(role: PlantRole, companyId: string | null, companyName: stri
   const password = `Plant-${crypto.randomUUID().slice(0, 12)}`;
   const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
   try {
-    await ok(await api.post(`${API_URL}/api/auth/sign-up/email`, { data: { name: `W2 ${role}`, email, password } }), "sign-up");
     const invite = await ok(
       await api.post(`${API_URL}/dev/invite`, { data: { email, role, companyName, ...(companyId ? { companyId } : {}) } }),
       "/dev/invite",
     );
     const made = (await invite.json()) as { token: string; companyId: string };
+    await ok(
+      await api.post(`${API_URL}/api/auth/sign-up/email`, { data: { name: `W2 ${role}`, email, password, inviteToken: made.token } }),
+      "sign-up",
+    );
     await ok(await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email, password } }), "sign-in");
     await ok(await api.post(`${API_URL}/trpc/invite.acceptByToken`, { data: { token: made.token } }), "invite.acceptByToken");
     // The welcome step (an owner also gives the company's details), so the app does not send them to /welcome.
@@ -103,7 +106,8 @@ export async function plantDispatch(page: Page, m: <T>(page: Page, path: string,
   });
   const list = await q<{ items: { serial: string; weightG: number }[] }>(page, "bundle.listBundles", { groupId: receipt.groupId, limit: 100 });
   const serials = list.items.sort((a, b) => a.weightG - b.weightG).map((b) => b.serial);
-  const made = await m<{ id: string; code: string }>(page, "dispatch.create", { customerId: customer.id });
+  // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+  const made = await m<{ id: string; code: string }>(page, "dispatch.create", { customerId: customer.id, vehicleNo: "GJ05AB1234" });
   await m(page, "dispatch.addBundlesBySerial", { id: made.id, serials, allowUnassigned: true });
   await m(page, "dispatch.reserve", { id: made.id });
   await m(page, "dispatch.complete", { id: made.id });

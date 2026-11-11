@@ -20,7 +20,12 @@ export interface CloudflareEnv {
   /** Optional Email Sending binding; absent until supported deployment tooling and account setup. */
   EMAIL?: SendEmail;
   WEBHOOK_BASE_URL: string;
-  COOKIE_DOMAIN: string;
+  /**
+   * The parent domain the auth cookies used to be scoped to (".orrn.in" in production, ".orrn.app"
+   * on the dev stage), used ONLY to clear those old cookies (packages/server/src/lib/legacyCookies.ts).
+   * Auth cookies are host-only now and never take a Domain attribute.
+   */
+  LEGACY_COOKIE_DOMAIN?: string;
   CF_API_TOKEN: string;
   CF_ACCOUNT_ID: string;
   CF_ZONE_ID_IN: string;

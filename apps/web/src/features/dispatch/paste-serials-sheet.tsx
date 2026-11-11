@@ -14,6 +14,7 @@ import { Can } from "@/shared/components/can";
 import { trpcClient } from "@/shared/utils/trpc";
 
 import { CapacityBanner } from "./capacity-banner";
+import { overLineText } from "./over-tolerance";
 import { addInChunks, type ChunkedAddResult } from "./paste";
 
 type Props = {
@@ -248,6 +249,14 @@ function PasteReport({
         ) : null}
       </div>
       <CapacityBanner capacity={result.report.capacity} compact />
+      {result.report.overTolerance && result.report.overTolerance.length > 0 ? (
+        <ul data-over-tolerance="" className="m-0 flex list-none flex-col gap-1 rounded-card bg-tone-amber-tint p-3 text-[14px] font-semibold text-tone-amber-ink">
+          {result.report.overTolerance.map((l) => (
+            <li key={l.lineId}>{overLineText(t, l)}</li>
+          ))}
+          <li className="font-normal">{t("dispatch.overTolerance.pending")}</li>
+        </ul>
+      ) : null}
       {noOrder.length > 0 ? (
         <Can do="order.manage">
           <div className="flex min-w-0 flex-col gap-1.5">

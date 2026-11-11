@@ -35,6 +35,15 @@ export type SignInRefusal =
 
 export const HAS_PASSWORD_MESSAGE = "This owner already signs in with a password; ask them to use Forgot password.";
 
+/**
+ * Security review 2026-11-04 (HIGH 3): an account already exists at the requester's address but has
+ * never proved it holds that mailbox. Anyone could have registered it first, so approval must not
+ * make it the owner. Proof is a finished password reset (the link goes only to the mailbox) or
+ * Godseye's own sign-in link; after either, approve again.
+ */
+export const UNVERIFIED_OWNER_MESSAGE =
+  "An account already uses this email but has never proved it owns the mailbox. Ask the requester to use Forgot password from that address, then approve again.";
+
 function mayIssueSignInLink(platformRole: PlatformStaffRole | null | undefined) {
   return can({ company: null, isPlatformAdmin: true, platformRole: platformRole ?? null }, "platform.waitlist.signInLink");
 }
@@ -217,6 +226,12 @@ export const waitlistProcedures = {
         .from(user)
         .where(eq(user.email, request.requesterEmail))
         .get();
+
+      // The owner role goes only to the requester's proven mailbox, never to whoever registered the
+      // address first. Nothing is written: the request stays pending.
+      if (existingUser && !existingUser.emailVerified) {
+        throw new TRPCError({ code: "CONFLICT", message: UNVERIFIED_OWNER_MESSAGE });
+      }
 
       const userId = existingUser?.id ?? crypto.randomUUID();
 

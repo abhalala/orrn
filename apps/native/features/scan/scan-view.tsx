@@ -37,7 +37,7 @@ import { CapacityBanner } from "@/features/dispatch/capacity-banner";
 import { overCapacityLine } from "@/features/dispatch/capacity";
 
 import { createDeduper } from "./dedupe";
-import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport, type CapacityReport } from "./outcome";
+import { addOutcome, addWarningText, renderScanMessage, scanErrorKey, type AddBundlesReport, type CapacityReport } from "./outcome";
 import {
   dedupeKey,
   lookupTarget,
@@ -234,8 +234,10 @@ export function ScanView() {
             feedback.success();
             const noOrder = outcome.noOrder || !!opts.allowUnassigned;
             const added = noOrder ? t("scan.continuous.addedNoOrder", { serial: outcome.serial }) : t("scan.continuous.added", { serial: outcome.serial });
-            announce(`${added}. ${t("scan.continuous.count", { count: countRef.current })}`, { shownInLiveRegion: true });
-            setLine({ id, tone: "success", message: added, serial: outcome.serial });
+            // Q36 off band and pl-flow 61 over tolerance: added, but a manager has to approve (said aloud too).
+            const warn = addWarningText(t, report, outcome.serial);
+            announce(`${added}. ${t("scan.continuous.count", { count: countRef.current })}${warn ? `. ${warn}` : ""}`, { shownInLiveRegion: true });
+            setLine({ id, tone: "success", message: warn ? `${added}. ${warn}` : added, serial: outcome.serial });
             remember(outcome.serial, "added");
             // A scan that tips the truck over its capacity says so, aloud too.
             const over = overCapacityLine(report.capacity);

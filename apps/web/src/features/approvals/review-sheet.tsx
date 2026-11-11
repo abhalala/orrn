@@ -43,11 +43,14 @@ import {
   decideState,
   durationText,
   hasLiveFacts,
+  lateDispatchOf,
   lateEntryOf,
+  lateHours,
   lateWindowText,
   plantTimeText,
   moveEndText,
   moveFactsView,
+  offBandFactsView,
   moveKgText,
   reallocateMoveOf,
   subjectCodes,
@@ -106,6 +109,9 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
 
   // H1: a late entry shows the run (press, copy, the typed start and stop, kg in and good) before anyone decides.
   const late = current?.kind === "press_late_entry" ? lateEntryOf(current) : null;
+  // Arch 52: a late packing list shows the time the truck left and how long after it was entered.
+  const lateDispatch = current ? lateDispatchOf(current) : null;
+  const tz = useCompanyTimeZone();
   const lateRun = useQuery({
     ...trpc.press.runs.get.queryOptions({ id: late?.runId ?? "" }),
     enabled: open && late !== null && late.runId !== null,
@@ -218,6 +224,17 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         ) : null}
 
         {foundry.length > 0 ? <FoundryFigures rows={foundry} title={isFoundryLive ? t("approvals.foundry.atRequest") : undefined} /> : null}
+
+        {lateDispatch ? (
+          <Block title={t("approvals.facts.lateLeft")}>
+            <p className="m-0 text-[15px] font-medium" data-testid="late-dispatch-time">
+              {t("approvals.facts.lateLeftValue", {
+                when: plantTimeText(lateDispatch.occurredAt, tz),
+                hours: lateHours(lateDispatch.occurredAt, new Date(current.createdAt).getTime()),
+              })}
+            </p>
+          </Block>
+        ) : null}
 
         {late ? <LateEntryFigures late={late} run={lateRun.data} loading={lateRun.isLoading} error={showsQueryError(lateRun)} /> : null}
 
@@ -406,6 +423,36 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
     );
   }
   if (data === null) return null;
+  if (data.kind === "dispatch_off_band") {
+    const v = offBandFactsView(data);
+    if (v.gone) {
+      return (
+        <Block title={t("approvals.facts.offBandTitle")}>
+          <p className="m-0 text-[14px] text-destructive" data-testid="off-band-gone">
+            {t("approvals.facts.offBandGone")}
+          </p>
+        </Block>
+      );
+    }
+    const rows: [string, ReactNode][] = [
+      [t("approvals.facts.offBandBundle"), t("approvals.facts.offBandOn", { serial: v.serial, code: v.code })],
+      [t("approvals.facts.offBandWeight"), v.bundleKg ?? ""],
+      [
+        t("approvals.facts.offBandLine"),
+        v.line ? t("approvals.facts.offBandLineValue", { order: v.line.order, line: v.line.lineNo, kg: v.line.kg ?? "" }) : t("approvals.facts.offBandNoLine"),
+      ],
+    ];
+    return (
+      <Block title={t("approvals.facts.offBandTitle")}>
+        <Rows rows={rows} testId="live-off-band" />
+        {v.moved ? (
+          <p className="m-0 text-[14px] text-destructive" data-testid="off-band-moved">
+            {t("approvals.facts.offBandMoved")}
+          </p>
+        ) : null}
+      </Block>
+    );
+  }
   if (data.kind === "order_reallocate") {
     const v = moveFactsView(data);
     return (

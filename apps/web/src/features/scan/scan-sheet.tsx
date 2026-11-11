@@ -27,6 +27,7 @@ import { createDeduper } from "./dedupe";
 import {
   addOutcome,
   offBandText,
+  overToleranceText,
   renderScanMessage,
   resultOutcome,
   scanErrorKey,
@@ -410,7 +411,8 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
             tone: "success",
             message: noOrder ? t("scan.continuous.addedNoOrder", { serial: outcome.serial }) : t("scan.continuous.added", { serial: outcome.serial }),
             extra: t("scan.continuous.count", { count: countRef.current }),
-            warn: offBandText(t, report, outcome.serial) ?? undefined,
+            // Q36 off band and pl-flow 61 over tolerance: both amber, both need a manager.
+            warn: [offBandText(t, report, outcome.serial), overToleranceText(t, report, outcome.serial)].filter(Boolean).join(" ") || undefined,
           });
           remember(outcome.serial, "added", { note: noOrder });
           addedReport = report;

@@ -122,7 +122,8 @@ test.describe("stock: Yards tab, filters in the URL, same totals on every tab", 
     const held = await s.api.mutate<{ id: string }>("dispatch.create", { customerId: s.cust.id });
     await s.api.mutate("dispatch.addBundlesBySerial", { id: held.id, serials: [s.serials[0]] });
     await s.api.mutate("dispatch.reserve", { id: held.id });
-    const gone = await s.api.mutate<{ id: string }>("dispatch.create", { customerId: s.cust.id });
+    // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+    const gone = await s.api.mutate<{ id: string }>("dispatch.create", { customerId: s.cust.id, vehicleNo: "GJ05AB1234" });
     await s.api.mutate("dispatch.addBundlesBySerial", { id: gone.id, serials: [s.serials[1]] });
     await s.api.mutate("dispatch.reserve", { id: gone.id });
     await s.api.mutate("dispatch.complete", { id: gone.id });

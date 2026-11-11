@@ -103,7 +103,17 @@ function AdminRequests() {
         setDetails(signIn);
       }
     },
-    onError: failed,
+    onError: async (err) => {
+      // Security review 2026-11-04: the address has an account that never proved the mailbox; the
+      // request stays pending until the requester has used Forgot password from that address.
+      if (errorCode(err) === "CONFLICT") {
+        toast.error(t("admin.requests.unverifiedAccount"), { action: forgotPasswordAction(t("auth.continue.forgotLink")) });
+        await refresh();
+        setDecision(null);
+        return;
+      }
+      await failed(err);
+    },
   });
   const getDetails = useMutation({
     ...trpc.platform.waitlistSignInDetails.mutationOptions(),

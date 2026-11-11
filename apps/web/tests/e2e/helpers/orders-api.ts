@@ -40,6 +40,18 @@ function owner(): Promise<APIRequestContext> {
   return ownerContext;
 }
 
+/** Q36 decided: off-band rows need a second person; the manager approves what the owner's setup opened. */
+let managerContext: Promise<APIRequestContext> | null = null;
+function manager(): Promise<APIRequestContext> {
+  managerContext ??= (async () => {
+    const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
+    const res = await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email: "manager@orrn.local", password: localPassword() } });
+    expect(res.ok(), `manager sign-in returned ${res.status()}`).toBe(true);
+    return api;
+  })();
+  return managerContext;
+}
+
 async function oq<T>(path: string, input: unknown): Promise<T> {
   const res = await (await owner()).get(`${API_URL}/trpc/${path}?input=${encodeURIComponent(JSON.stringify(input))}`);
   expect(res.ok(), `${path} returned ${res.status()}: ${await res.text()}`).toBe(true);
@@ -129,11 +141,32 @@ export async function packFor(_page: Page, lineId: string, weightsKg: number[], 
 
 /** Sends bundles on a dispatch opened from the order, held and completed. */
 export async function dispatchNow(_page: Page, orderId: string, serials: string[]): Promise<{ id: string; code: string }> {
-  const made = await om<{ id: string; code: string }>("dispatch.create", { salesOrderId: orderId });
+  // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+  const made = await om<{ id: string; code: string }>("dispatch.create", { salesOrderId: orderId, vehicleNo: "GJ05AB1234" });
   await om("dispatch.addBundlesBySerial", { id: made.id, serials });
   await om("dispatch.reserve", { id: made.id });
-  await om("dispatch.complete", { id: made.id });
+  // Q36 decided: bundles more than 0.1 kg/12ft off the order line wait for a manager. The add (or
+  // Complete, for a row it links) opens a dispatch_off_band request per row; the manager approves them.
+  await approveOffBand(made.id);
+  const first = await (await owner()).post(`${API_URL}/trpc/dispatch.complete`, { data: { id: made.id } });
+  if (!first.ok()) {
+    const text = await first.text();
+    expect(text, `dispatch.complete returned ${first.status()}: ${text}`).toContain("off the order line");
+    await approveOffBand(made.id);
+    await om("dispatch.complete", { id: made.id });
+  }
   return made;
+}
+
+async function approveOffBand(dispatchId: string) {
+  const mgr = await manager();
+  const listed = await mgr.get(`${API_URL}/trpc/approval.list?input=${encodeURIComponent(JSON.stringify({ status: "pending", kind: "dispatch_off_band", limit: 200 }))}`);
+  expect(listed.ok(), `approval.list returned ${listed.status()}`).toBe(true);
+  const waiting = ((await listed.json()).result.data as { items: { id: string; meta: { dispatchId?: string } }[] }).items;
+  for (const r of waiting.filter((x) => x.meta.dispatchId === dispatchId)) {
+    const res = await mgr.post(`${API_URL}/trpc/approval.decide`, { data: { id: r.id, decision: "approved" } });
+    expect(res.ok(), `approval.decide returned ${res.status()}: ${await res.text()}`).toBe(true);
+  }
 }
 
 /** Closes orders at the end of a spec (so the open lists of other specs do not carry them). */

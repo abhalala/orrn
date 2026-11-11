@@ -194,7 +194,7 @@ describe("FP-OP-08: orders.reallocate", () => {
 
     const second = await p.owner.orders.reallocate({ bundleIds: ids, toLineId: b.lineIds[0]!, reason: "again" });
     // Review round 1 m-4: a bundle in a pending request can't go on a dispatch.
-    const { id: d } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: d } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ id: d, serials: [serials[0]!] });
     expect(report.added).toEqual([]);
     expect(report.unavailable.map((u) => u.code)).toEqual(["reallocation_pending"]);

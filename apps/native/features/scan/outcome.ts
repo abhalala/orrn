@@ -1,4 +1,4 @@
-import { BUNDLE_STATUSES, type BundleStatus } from "@orrn/domain";
+import { BUNDLE_STATUSES, tolerancePercentText, type BundleStatus } from "@orrn/domain";
 import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 import { SCAN_REFUSALS, type ScanRefusalCode } from "@orrn/server/lib/scanRefusal";
 
@@ -70,7 +70,34 @@ export type AddBundlesReport = {
   capacity?: CapacityReport;
   /** The add was a repeat of an earlier one with the same request id. */
   replayed?: boolean;
+  /** The order line each added bundle went to. */
+  linked?: { serial: string; salesOrderLineId: string; orderNumber: string; lineNo: number }[];
+  /** Q36: added bundles more than 0.1 kg/12ft off their order line (each needs a manager's approval). */
+  warnings?: { serial: string; orderNumber: string; lineNo: number; bundleMilli: number; lineMilli: number; diffMilli: number }[];
+  /** pl-flow 61: lines this add took past ordered + tolerance (a manager has been asked). */
+  overTolerance?: OverToleranceLine[];
 };
+
+export type OverToleranceLine = { lineId: string; orderNumber: string; lineNo: number; toleranceBp: number; limitG: number; totalG: number; overG: number };
+
+/** The tolerance as the floor says it: 500 bp is "5" (domain `tolerancePercentText`, same as the web). */
+export function tolerancePct(tolerance: number): string {
+  return tolerancePercentText(tolerance);
+}
+
+/**
+ * What an added bundle needs a manager for, said in the floor's words (web parity): off its line's
+ * kg/12ft (Q36) and the line past ordered + tolerance (pl-flow 61). Null when neither.
+ */
+export function addWarningText(t: Translate, report: Pick<AddBundlesReport, "linked" | "overTolerance" | "warnings">, serial: string): string | null {
+  const parts: string[] = [];
+  const w = report.warnings?.find((x) => x.serial === serial);
+  if (w) parts.push(t("scan.continuous.offBand", { kg: (w.bundleMilli / 1000).toFixed(3), line: (w.lineMilli / 1000).toFixed(3), order: w.orderNumber }));
+  const lineId = report.linked?.find((l) => l.serial === serial)?.salesOrderLineId;
+  const over = lineId ? report.overTolerance?.find((o) => o.lineId === lineId) : undefined;
+  if (over) parts.push(t("scan.continuous.overTolerance", { pct: tolerancePct(over.toleranceBp), order: over.orderNumber, line: over.lineNo }));
+  return parts.length > 0 ? parts.join(" ") : null;
+}
 
 /** An i18n key plus variables (`status` fills `{status}` with that bundle status' word), or the server's own words. */
 /** A refusal as a dictionary key with its values. There is no raw-text variant: the server's English is never shown or spoken. */

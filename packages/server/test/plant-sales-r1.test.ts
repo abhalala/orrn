@@ -160,7 +160,7 @@ describe("complete: produced follows this dispatch's item", () => {
     // The same bundle goes out for a customer with no order: its item on the new dispatch has no line.
     // D12: the scan refuses another customer's bundle, so it goes out for them by a customer change
     // on the dispatch after the scan (unlinked first, as the office would).
-    const { id: second } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: second } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await p.owner.dispatch.addBundlesBySerial({ id: second, serials });
     await p.owner.dispatch.linkItem({ itemId: (await itemsOf(second))[0]!.id, salesOrderLineId: null });
     await p.owner.dispatch.update({ id: second, customerId: p.otherCustomer });

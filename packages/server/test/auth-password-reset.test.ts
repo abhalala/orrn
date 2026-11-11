@@ -203,7 +203,6 @@ describe("forgot password", () => {
       WEB_PUBLIC_URL: "https://app.test",
       BETTER_AUTH_URL: "https://api.test",
       BETTER_AUTH_SECRET: "request-environment-test-secret-0123456789",
-      COOKIE_DOMAIN: "",
       ORRN_MASTER_KEY: "",
       WEBHOOK_BASE_URL: "",
       CF_API_TOKEN: "",
