@@ -7,25 +7,31 @@ import { sha256Hex } from "./hash";
 import type { BlockInput, BlockShape, CellKind } from "./recipe";
 
 const UNIT_TOKENS: [RegExp, string][] = [
-  [/(?<![a-z0-9])(?:kgs|kg\.|kilos?)(?![a-z0-9])/g, "kg"],
+  [/(?<![a-z0-9])(?:kgs|kilos?|kilograms?)(?![a-z0-9])/g, "kg"],
   [/(?<![a-z0-9])(?:mtrs?|meters?|metres?)(?![a-z0-9])/g, "m"],
   [/(?<![a-z0-9])(?:feet|foot)(?![a-z0-9])/g, "ft"],
-  // "No." is not here: "Bundle No." is an id column, not a count (C27, a correction to plan B3).
-  [/(?<![a-z0-9])(?:nos|pcs\.)(?![a-z0-9])/g, "pcs"],
-  [/(?<![a-z0-9])(?:rs\.|rs|inr)(?![a-z0-9])|₹/g, "inr"],
+  // Round 6 (owner's decision): count words are not folded together. "Pcs" and "Nos" are different names; only the
+  // spellings of one word fold. "No." stays "no", so "Bundle No." is still an id column (C27).
+  [/(?<![a-z0-9])(?:pc|pieces?)(?![a-z0-9])/g, "pcs"],
+  [/(?<![a-z0-9])nos(?![a-z0-9])/g, "no"],
+  [/(?<![a-z0-9])(?:rs|inr)(?![a-z0-9])|₹/g, "inr"],
 ];
 
 /**
  * NFKC and lower case, unit tokens canonical, every run of other characters one space, trimmed. Blank stays "".
  * Letters, their marks and digits of every script are kept, so a Hindi or Gujarati name is a name, never a blank
- * (PORTAL-RULES-3 section 5.1, B2). Invisible format characters (the joiners Indian scripts use) are dropped. Two
- * names give one key only when they differ by case, spaces, punctuation or a unit word ("Kgs" and "kg").
+ * (PORTAL-RULES-3 section 5.1, B2). Invisible format characters (the joiners Indian scripts use) are dropped.
+ * Round 6 (owner's decision): the signs + - % # and / carry meaning and are kept, so "Tol +" and "Tol -" are two
+ * names, and so are "Rate %" and "Rate". A hyphen between two letters or digits only joins words ("Sr-No" is
+ * "sr no"). Two names give one key only when they differ by case, spaces, other punctuation, or the spelling of one
+ * unit ("Kgs" and "kg", "Pieces" and "pcs", "Nos" and "No.").
  */
 export function normalizeHeader(h: string): string {
   let t = h.normalize("NFKC").replace(/\p{Cf}/gu, "").toLowerCase();
-  t = t.replace(/'/g, " ft ");
+  t = t.replace(/'/g, " ft ").replace(/\u2212/g, "-");
   for (const [re, to] of UNIT_TOKENS) t = t.replace(re, (m) => (m === "₹" ? " inr " : to));
-  return t.replace(/[^\p{L}\p{M}\p{N}/]+/gu, " ").trim();
+  t = t.replace(/(?<=[\p{L}\p{M}\p{N}])-(?=[\p{L}\p{N}])/gu, " ").replace(/[+%#-]/g, " $& ");
+  return t.replace(/[^\p{L}\p{M}\p{N}/+%#-]+/gu, " ").trim();
 }
 
 /** A word that only names a unit, a count or a sign, alone or glued to a number ("12ft"). */
