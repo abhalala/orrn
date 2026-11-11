@@ -115,6 +115,32 @@ describe("late packing-list entry (arch 52)", () => {
     expect(await lateRows(p.companyId)).toHaveLength(1);
   }, SLOW);
 
+  test("review 1: asked at 60 h, approved at 73 h: the approved time still completes; an unapproved time past 72 h is still refused", async () => {
+    // The truck leaves Friday 18:00 (IST), the paper PL is entered Monday 06:00, a manager approves Monday 19:00.
+    const friday1800 = Date.parse("2026-11-06T12:30:00.000Z");
+    const monday0600 = Date.parse("2026-11-09T00:30:00.000Z");
+    const monday1900 = Date.parse("2026-11-09T13:30:00.000Z");
+    setClock(new Date(friday1800 - 8 * H));
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    setClock(new Date(monday0600));
+    await expect(c.dispatch.complete({ id, occurredAt: friday1800, lateReason: "Line down all weekend" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const [req] = await lateRows(p.companyId);
+    setClock(new Date(monday1900));
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    // Another time, 73 h back and never approved: still too old, and nothing is asked.
+    await expect(c.dispatch.complete({ id, occurredAt: friday1800 + 60_000, lateReason: "Line down" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "A late packing list can go back at most 72 hours.",
+    });
+    expect(await lateRows(p.companyId)).toHaveLength(1);
+    // The approved time completes, dated Friday.
+    await expect(c.dispatch.complete({ id, occurredAt: friday1800, lateReason: "Line down all weekend" })).resolves.toMatchObject({ success: true });
+    const [row] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
+    expect(row).toMatchObject({ status: "completed", lateEntry: true, lateEntryApprovalId: req!.id });
+    expect(row!.completedAt!.getTime()).toBe(friday1800);
+  }, SLOW);
+
   test("an approval covers only the time it was asked for; another time withdraws a waiting ask and asks again", async () => {
     setClock(NOW);
     const { p, id } = await heldDispatch();
