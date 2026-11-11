@@ -198,6 +198,7 @@ export const ingestEn = {
     conflict: "Differs from orrn",
     refused: "Cannot import",
     skipped: "Skipped",
+    waiting: "Waits on a question",
   },
   decide: {
     useMatch: "Use {name}",
@@ -298,6 +299,7 @@ export const ingestEn = {
     mergeMeta: "{created} rows will be added, {updated} updated",
     bar: "{count} {count:import|imports} approved, {rows} rows",
     segments: "Show",
+    showing: "Showing {name}, {count} {count:import|imports}.",
     colNew: "New",
     colUpdates: "Updates",
     colQuestions: "Questions",
@@ -333,6 +335,7 @@ export const ingestEn = {
     line: "Adds {create} new and updates {update} in orrn.",
     refused: "{count} {count:row|rows} cannot be imported.",
     nothing: "Nothing to add or update.",
+    waiting: "{count} {count:row waits|rows wait} on your answers.",
     processing: "orrn is checking the rows.",
     needsShape: "orrn does not know this table yet. Say what it is and map its columns.",
     failed: "orrn could not read this table.",
@@ -367,7 +370,8 @@ export const ingestEn = {
     titleDone: "Merge finished",
     titleStopped: "Merge stopped",
     rowsUnit: "of {total} rows",
-    rowsAdded: "rows added",
+    rowsAdded: "{count:row|rows} added",
+    titleHolds: "Merged with holds",
     updatedMeta: "{count} updated",
     notMergedMeta: "{count} {count:import|imports} not merged",
     partsWritten: "{done} of {total} parts written",
@@ -395,6 +399,11 @@ export const ingestEn = {
   },
   rate: {
     hidden: "Hidden",
+  },
+  // The column header of a field whose unit already says "per 12 ft": "Min weight, kg/12ft", never the unit twice.
+  fieldHeader: {
+    weightMinG: "Min weight",
+    weightMaxG: "Max weight",
   },
   field: {
     name: "Name",
@@ -474,7 +483,7 @@ export const ingestEn = {
     // screens work order: reasons the server sends now (PORTAL-X-FIX-REPORT.md "For the web lane")
     over_dispatched: "More was dispatched than was ordered.",
     no_quantity: "This line has no weight and no pieces.",
-    magnitude: "This number looks too large or too small for its unit. Answer the question above, or skip the row.",
+    magnitude: "This number looks too large or too small for its unit.",
     magnitude_unit: "Read again in the unit you gave.",
     magnitude_confirmed: "You said this number is right.",
     no_weight: "No weight on this line. Give the ordered or balance kg, or skip the row.",

@@ -131,6 +131,15 @@ describe("file groups", () => {
     expect(row.action?.kind).toBe("approve");
     expect(row.title.kind).toBe("target");
   });
+
+  test("an import nobody has counted yet carries no numbers, not zeros", () => {
+    for (const state of ["needs_shape", "needs_confirm", "processing", "failed"] as const) {
+      const [group] = fileGroups([cand({ state })], "needsYou", [artifact("a1")], can);
+      if (group) expect(group.rows[0]!.numbers).toBeNull();
+    }
+    const [held] = fileGroups([cand({ state: "held", counts: { create: 3 } })], "needsYou", [artifact("a1")], can);
+    expect(held!.rows[0]!.numbers).toMatchObject({ create: 3 });
+  });
 });
 
 describe("Approve all N (lead answer 4)", () => {

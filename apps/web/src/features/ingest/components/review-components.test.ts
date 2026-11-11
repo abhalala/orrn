@@ -403,7 +403,7 @@ describe("how orrn read this file (3.3, M10, M11)", () => {
       [{ id: 1, field: "sectionCode", column: 0, unit: null, dateFormat: "dmy" }, { id: 2, field: "weightMinG", column: 1, unit: "kg/12ft", dateFormat: "dmy" }] as never,
       null,
     );
-    const html = render(createElement(ReadPanel, { model: model(detail({ fit: "bot", recipe })), onChange: noop } as never));
+    const html = render(createElement(ReadPanel, { model: model(detail({ fit: "bot", recipe })), onChange: noop, roomy: true } as never));
     expect(html).toContain('aria-expanded="true"');
     expect(html).toContain("Sample values");
     expect(html).toContain("12170, 12171");
@@ -414,8 +414,22 @@ describe("how orrn read this file (3.3, M10, M11)", () => {
     expect(html).toContain(">Hide<");
   });
 
+  test("on a phone the panel is its one-line summary whatever the state, so ten column cards do not push the page away", () => {
+    const html = render(createElement(ReadPanel, { model: model(detail({ fit: "bot" })), onChange: noop } as never));
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain(">Show<");
+    expect(html).not.toContain("Sample values");
+  });
+
+  test("a column with no sample values leaves its Sample values label out", () => {
+    const c = detail({ fit: "bot" });
+    const blank = { ...c, block: { ...c.block, sample: [] } } as CandidateDetail;
+    const html = render(createElement(ReadPanel, { model: model(blank), onChange: noop, roomy: true } as never));
+    expect(html).not.toContain("Sample values");
+  });
+
   test("a rate column is Hidden for a person who may not see rates", () => {
-    const html = render(createElement(ReadPanel, { model: model(detail({ fit: "bot" }), false), onChange: noop } as never));
+    const html = render(createElement(ReadPanel, { model: model(detail({ fit: "bot" }), false), onChange: noop, roomy: true } as never));
     expect(html).toContain("Hidden");
     expect(html).not.toContain("950, 960");
   });
@@ -425,7 +439,7 @@ describe("how orrn read this file (3.3, M10, M11)", () => {
       state: "needs_confirm", fit: "near", holeName: "My dies",
       fitDiff: { name: "My dies", renamed: [{ old: "Wt", new: "Minimum weight", col: 1 }], extra: [{ header: "Rate", col: 2 }], missing: [{ header: "Alloy", field: "alloy" }] },
     });
-    const html = render(createElement(ReadPanel, { model: model(c, true, false), onChange: noop } as never));
+    const html = render(createElement(ReadPanel, { model: model(c, true, false), onChange: noop, roomy: true } as never));
     expect(html).toContain("What changed");
     // On a phone the first column is the row's title, so its header shows only in the wide table.
     expect(html).toContain("Column in this file");
@@ -462,7 +476,11 @@ describe("mapping editor (3.4, M9)", () => {
     expect(order.every((i) => i > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(html).toContain("12170, 12171");
-    expect(html).toContain('aria-label="Goes into: Code"');
+    // A card shows its label ("Goes into") above the select, tied to it by for and id (WCAG 3.3.2); the file column is a hidden tail.
+    const into = /<label for="([^"]+)"[^>]*>Goes into<span class="sr-only">: Code<\/span><\/label>/.exec(html);
+    expect(into).not.toBeNull();
+    expect(html).toContain(`id="${into![1]}"`);
+    expect(html).not.toContain('aria-label="Goes into: Code"');
     // "Not used" is the first choice of the select, the target's fields follow it.
     expect(html.indexOf(">Not used</option>")).toBeGreaterThan(0);
     expect(html.indexOf(">Not used</option>")).toBeLessThan(html.indexOf("Series (required)"));
@@ -491,7 +509,10 @@ describe("mapping editor (3.4, M9)", () => {
     expect(html).toContain('value="My dies"');
     expect(html).toContain('data-state="done"');
     expect(html).toContain("All required fields are mapped.");
-    expect(html).toContain('aria-label="Unit: Minimum weight"');
+    const unit = /<label for="([^"]+)"[^>]*>Unit<span class="sr-only">: Minimum weight<\/span><\/label>/.exec(html);
+    expect(unit).not.toBeNull();
+    expect(html).toContain(`id="${unit![1]}"`);
+    expect(html).not.toContain('aria-label="Unit: Minimum weight"');
     expect(html).toContain('<option value="kg/12ft" selected="">kg per 12 ft</option>');
     expect(html).toContain("1.1");
   });

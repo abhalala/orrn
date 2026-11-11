@@ -3,8 +3,9 @@ import { describe, expect, test } from "bun:test";
 import { plantUnitsFor } from "./plant-units";
 import {
   cardFields, decisionButtonName, decisionGroupName, defaultRowFilter, effectiveFilter, rowFilters, rowsShowingWords, rowsTable, rowView,
-  serverStatesFor, ROWS_UI_PAGE,
+  serverStatesFor, visibleRowFilters, ROWS_UI_PAGE,
 } from "./rows-model";
+import { refusalTone } from "./refusals";
 import type { CandidateCounts, CandidateDetail, StagedRowView } from "./types";
 
 const counts = (over: Partial<CandidateCounts> = {}): CandidateCounts => ({
@@ -33,6 +34,15 @@ describe("filters (M12)", () => {
     expect(effectiveFilter("needsDecision", counts({ ambiguous: 1 }))).toBe("needsDecision");
     expect(effectiveFilter("refused", counts({ refused: 2 }))).toBe("refused");
     expect(effectiveFilter("refused", counts({ create: 2 }))).toBe("all");
+  });
+
+  test("a filter whose count equals All is left out, and with fewer than two groups there is no filter row", () => {
+    // Three rows, all waiting: Needs a decision 3, Pick a match 3 and All 3 say the same thing.
+    expect(visibleRowFilters(rowFilters(counts({ total: 3, ambiguous: 3 })))).toEqual([]);
+    expect(visibleRowFilters(rowFilters(counts({ total: 100, create: 100 })))).toEqual([]);
+    // Different groups stay, in order, with All last.
+    expect(visibleRowFilters(rowFilters(counts({ total: 100, ambiguous: 2, conflict: 1, create: 90, refused: 7 }))).map((o) => o.id)).toEqual(["needsDecision", "ambiguous", "conflict", "refused", "ready_create", "all"]);
+    expect(visibleRowFilters(rowFilters(counts({ total: 10, create: 6, refused: 4 }))).map((o) => o.id)).toEqual(["refused", "ready_create", "all"]);
   });
 
   test("needs a decision asks for two server states; the others for one", () => {
@@ -77,6 +87,23 @@ describe("one row", () => {
     expect(view.waitsOn).toEqual({ code: "magnitude_check", subject: "weightG" });
     expect(view.decisions.map((o) => o.decision)).toEqual(["skip"]);
     expect(view.reasons).toEqual([{ kind: "refusal", key: "ingest.refuse.magnitude", fieldKey: "ingest.field.weightG" }]);
+    // Nothing in the row offers a match, so the chip says what it waits on. The value check is asked, never refused: amber.
+    expect(view.chip).toEqual({ key: "ingest.row.waiting", tone: "warning" });
+    expect(refusalTone(view.reasons[0]!)).toBe("amber");
+  });
+
+  test("a row that really has matches keeps Pick a match; a real refusal stays red", () => {
+    const pick = rowView(candidate, staged({ state: "ambiguous", options: [{ id: "x", label: "RCQCZ1" }], reasons: ["ambiguous:sectionCode"] }), plant);
+    expect(pick.chip).toEqual({ key: "ingest.row.ambiguous", tone: "warning" });
+    expect(refusalTone({ kind: "refusal", key: "ingest.refuse.bad_number", fieldKey: null })).toBe("red");
+    expect(refusalTone({ kind: "blocked", blockers: ["po_number"] })).toBe("amber");
+  });
+
+  test("columns and card labels say 'Min weight', the unit comes after it in the header", () => {
+    const dies = { target: "dies", block: { headers: [] }, recipe: null } as unknown as Pick<CandidateDetail, "target" | "block" | "recipe">;
+    const table = rowsTable(dies, [], plantUnitsFor({ lengthUnit: "mm" }));
+    const min = table.columns.find((c) => c.field === "weightMinG")!;
+    expect(min).toMatchObject({ labelKey: "ingest.fieldHeader.weightMinG", unit: "kg/12ft" });
   });
 
   test("a decided row says what was chosen, with the matched name", () => {

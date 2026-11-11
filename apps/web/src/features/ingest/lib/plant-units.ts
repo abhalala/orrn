@@ -62,19 +62,19 @@ const STORED: Record<UnitKind, { kind: Kind; storage: UnitId }> = {
   dimension: { kind: "length", storage: "mm" },
 };
 
-const IMPERIAL_LENGTH: readonly UnitId[] = ["in", "ft", "ft_in"];
-
-/** The plant's unit for a kind. A die width or leg reads in inches only when the plant reads lengths in feet or inches. */
+/**
+ * The plant's unit for a kind. A die cross-section size (width, thickness, leg) always reads in millimetres: dies are
+ * drawn and named in mm, and a plant that reads lengths in feet and inches still reads a 30 mm die as 30 mm.
+ */
 function unitIdFor(prefs: ResolvedPrefs, kind: UnitKind): UnitId {
-  const unit = prefs.units[STORED[kind].kind];
-  if (kind === "dimension") return IMPERIAL_LENGTH.includes(unit) ? "in" : "mm";
-  return unit;
+  if (kind === "dimension") return "mm";
+  return prefs.units[STORED[kind].kind];
 }
 
 /** Decimals for a stored value. A dimension keeps its tenth of a millimetre; every other kind uses the registry's screen rule. */
 function decimalsFor(prefs: ResolvedPrefs, kind: UnitKind, unit: UnitId): number {
   const { kind: k, storage } = STORED[kind];
-  if (kind === "dimension") return unit === "in" ? 3 : 1;
+  if (kind === "dimension") return 1;
   return prefs.precision[`${k}.screen`] ?? defaultDecimals(unit, storage, "screen");
 }
 

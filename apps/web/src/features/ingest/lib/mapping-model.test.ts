@@ -82,6 +82,15 @@ describe("the mapping editor (M9)", () => {
     expect(entries(map)[0]!.preview).toEqual({ kind: "value", text: "R", unit: "", mono: false });
   });
 
+  test("an enum field shows its label, never the stored code", () => {
+    const withStatus = {
+      headers: ["Series", "Status"], kinds: ["code", "text"] as const, sample: [["R", "active"], ["R", "Retired"]],
+    };
+    const map = assignField(emptyColumnMap(withStatus), 1, "status", "dies", { headers: withStatus.headers, headerKey: "k", headerRow: 0, headerRows: 1 });
+    const preview = columnEntries(withStatus as never, "dies", map, mm, true)[1]!.preview;
+    expect(preview).toEqual({ kind: "value", text: "", unit: "", mono: false, textKey: "ingest.enumValue.active" });
+  });
+
   test("a sample the field cannot read says why, in words", () => {
     const map = assignField(emptyColumnMap(block), 5, "weightMinG", "dies", forMapping);
     const preview = entries(setColumnUnit(map, 5, "kg/12ft"))[5]!.preview;

@@ -67,7 +67,9 @@ describe("row values: the plant's unit first", () => {
   test("a count and a die width", () => {
     expect(cell("bundles", row({ values: { quantity: 1400 } }), "quantity")).toMatchObject({ text: "1,400", unit: "pcs" });
     expect(cell("dies", row({ values: { widthMm: 12.5 } }), "widthMm")).toMatchObject({ text: "12.5", unit: "mm" });
-    expect(cell("dies", row({ values: { widthMm: 12.5 } }), "widthMm", inch)).toMatchObject({ unit: "in" });
+    // A die cross-section size stays in millimetres even where the plant reads lengths in inches: a 30 mm die is 30 mm.
+    expect(cell("dies", row({ values: { widthMm: 12.5 } }), "widthMm", inch)).toMatchObject({ text: "12.5", unit: "mm" });
+    expect(cell("dies", row({ values: { widthMm: 30, thicknessMm: 1.5 } }, ), "thicknessMm", inch)).toMatchObject({ text: "1.5", unit: "mm", fileSaid: null });
   });
 
   test("text typed the same as it is stored shows once", () => {

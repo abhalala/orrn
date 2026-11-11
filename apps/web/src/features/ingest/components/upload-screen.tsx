@@ -203,7 +203,7 @@ export function IngestUploadScreen() {
               onCancel={cancel}
             />
           ) : null}
-          <UploadStrip entries={strip} headingId={stripId} onRetry={upload.retry} onRemove={upload.remove} />
+          <UploadStrip entries={strip} headingId={stripId} onRetry={upload.retry} onRemove={upload.remove} storageNoticeShown={status.data?.vaultReady === false} />
         </section>
       ) : null}
 

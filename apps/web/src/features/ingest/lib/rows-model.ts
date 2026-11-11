@@ -58,6 +58,16 @@ export function rowFilters(counts: CandidateCounts): RowFilterOption[] {
   return out;
 }
 
+/**
+ * The filter buttons the panel draws. A filter whose count equals All says nothing the All button does not, so it is
+ * left out; with fewer than two groups left there is nothing to choose and the row of filters is not drawn at all.
+ */
+export function visibleRowFilters(options: readonly RowFilterOption[]): RowFilterOption[] {
+  const all = options.find((o) => o.id === "all");
+  const kept = options.filter((o) => o.id === "all" || !all || o.count !== all.count);
+  return kept.length >= 2 ? kept : [];
+}
+
 /** "Needs a decision" is selected when above 0, else "All". */
 export function defaultRowFilter(counts: CandidateCounts): RowFilter {
   return counts.ambiguous + counts.conflict > 0 ? "needsDecision" : "all";
@@ -135,18 +145,20 @@ export function rowView(candidate: Pick<CandidateDetail, "target" | "block">, ro
   const needs = rowNeedsDecision(row);
   const options = decisionOptions({ state: row.state, options: row.options, mergeState: row.mergeState, reasons: row.reasons });
   const key = rowStateKey(row.state);
+  const waits = rowWaitsOn(row.reasons);
   return {
     id: row.id,
     n: row.rowIndex + 1,
     state: row.state,
-    chip: key ? { key, tone: rowTone(row.state) } : null,
+    // A row that waits on a file-level question is not "Pick a match": nothing in the row offers a match. It says what it waits on.
+    chip: waits && row.state === "ambiguous" ? { key: "ingest.row.waiting", tone: rowTone(row.state) } : key ? { key, tone: rowTone(row.state) } : null,
     written: row.mergeState === "written",
     cells,
     raw: cells.length === 0 ? rawCells(row.raw, candidate.block.headers) : [],
     reasons: refusalLines(row.reasons),
     diffs: diffEntries(row.diff).map((d) => ({ fieldKey: `ingest.field.${d.field}`, live: d.live, file: d.file })),
     needsDecision: needs,
-    waitsOn: rowWaitsOn(row.reasons),
+    waitsOn: waits,
     decisions: needs ? options : [],
     menu: needs ? [] : options.filter((o) => o.decision === "skip"),
     chosen: chosenWords(row),

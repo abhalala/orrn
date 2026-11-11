@@ -13,10 +13,12 @@ import {
   decisionButtonName,
   decisionGroupName,
   refusalText,
+  refusalTone,
   ROWS_UI_PAGE,
   rowFocusKey,
   rowsTable,
   rowView,
+  visibleRowFilters,
   useRowsBrowser,
   usePlantUnits,
   type CandidateDetail,
@@ -32,15 +34,16 @@ import { FOCUS, type ReviewActions } from "./use-review-actions";
 type Act = Pick<ReviewActions, "decide" | "busy" | "pending" | "failed">;
 type FocusRef = (key: string) => (el: HTMLElement | null) => void;
 
-/** Most mapped fields a rows table shows before the rows read as cards (the table sits in a panel about 900 px wide). */
-const TABLE_MAX_FIELDS = 5;
+/** The question a row waits on, as the server marks it (`q:<code>` on the row). */
+export type RowQuestionRef = { code: string; subject: string };
 
 export type RowsHandle = { goToRow: (n: number) => void };
 
 /**
  * Rows as they will appear in orrn (work order 3.3, M12, S1). Filters with counts, "Needs a decision" first and selected
- * when it has rows. From 1024 px a table with one column per mapped field and its plant unit in the header; below, stacked
- * cards. Only a row that needs a decision has buttons, and they save on a press, never on a select change (WCAG 3.2.2).
+ * when it has rows. From 1024 px always a table, with one column per mapped field and its plant unit in the header (a wide
+ * layout scrolls sideways under a pinned Row column, and the decision buttons sit next to the Row so they stay in view);
+ * below, stacked cards. Only a row that needs a decision has buttons, and they save on a press, never on a select change (WCAG 3.2.2).
  *
  * Mount it under a component keyed by the candidate id only, so a decision never resets the filter or the page.
  */
@@ -51,6 +54,7 @@ export function StagedRows({
   focusRef,
   announce,
   handle,
+  onGoToQuestion,
 }: {
   candidate: CandidateDetail;
   canDecide: boolean;
@@ -58,6 +62,8 @@ export function StagedRows({
   focusRef: FocusRef;
   announce: (text: string) => void;
   handle?: Ref<RowsHandle>;
+  /** A row that waits on a question links to it. */
+  onGoToQuestion?: (question: RowQuestionRef) => void;
 }) {
   const { t, words } = useSay();
   const plant = usePlantUnits();
@@ -96,44 +102,45 @@ export function StagedRows({
 
   const decide = (row: RowView, option: DecisionOption) => void act.decide({ id: row.id, n: row.n }, option, ids);
   const showChoice = canDecide && (table.decisionColumn || views.some((v) => v.menu.length > 0));
-  // A table only when every column and the decision buttons fit in the panel. A layout with many fields, or rows that
-  // need a decision (their buttons must be in view, not behind a sideways scroll), read as cards instead.
-  const asTable = wide && !table.decisionColumn && table.columns.length <= TABLE_MAX_FIELDS;
+  const asTable = wide;
+  const filters = visibleRowFilters(browser.options);
 
   return (
     <EvidencePanel title={t("ingest.rows.title")} headingRef={focusRef(FOCUS.rowsHeading)}>
-      <div role="group" aria-label={t("common.filter")} className="flex flex-wrap gap-2">
-        {browser.options.map((option) => {
-          const selected = option.id === browser.filter;
-          const label = option.id === "needsDecision"
-            ? t("ingest.rows.needsDecision", { count: plant.count(option.count) })
-            : `${t(option.key as never)} ${plant.count(option.count)}`;
-          return (
-            <Button
-              key={option.id}
-              ref={selected ? focusRef(FOCUS.rowsFilter) : undefined}
-              size="sm"
-              variant="secondary"
-              aria-pressed={selected}
-              className={cn(selected && "border-foreground bg-surface-sunken")}
-              onClick={() => browser.setFilter(option.id)}
-            >
-              {label}
-            </Button>
-          );
-        })}
-      </div>
+      {filters.length > 0 ? (
+        <div role="group" aria-label={t("common.filter")} className="flex flex-wrap gap-2">
+          {filters.map((option) => {
+            const selected = option.id === browser.filter;
+            const label = option.id === "needsDecision"
+              ? t("ingest.rows.needsDecision", { count: plant.count(option.count) })
+              : `${t(option.key as never)} ${plant.count(option.count)}`;
+            return (
+              <Button
+                key={option.id}
+                ref={selected ? focusRef(FOCUS.rowsFilter) : undefined}
+                size="sm"
+                variant="secondary"
+                aria-pressed={selected}
+                className={cn(selected && "border-foreground bg-surface-sunken")}
+                onClick={() => browser.setFilter(option.id)}
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </div>
+      ) : null}
       <QueryPanel query={browser.rows}>
         {views.length === 0 ? (
           <div className="rounded-card border border-border">
             <EmptyState title={t("ingest.rows.none")} />
           </div>
         ) : asTable ? (
-          <RowsTable views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} />
+          <RowsTable views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} onGoToQuestion={onGoToQuestion} />
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0 lg:grid lg:grid-cols-2">
             {views.map((row) => (
-              <RowCard key={row.id} view={row} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} />
+              <RowCard key={row.id} view={row} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} onGoToQuestion={onGoToQuestion} />
             ))}
           </ul>
         )}
@@ -159,6 +166,7 @@ type RowProps = {
   act: Act;
   focusRef: FocusRef;
   onDecide: (row: RowView, option: DecisionOption) => void;
+  onGoToQuestion?: (question: RowQuestionRef) => void;
 };
 
 /** One value of a row in the table: mono for numbers and codes, "Hidden" for a rate the person may not see. */
@@ -182,16 +190,41 @@ function CellValue({ cell, showUnit }: { cell: ValueCell | undefined; showUnit: 
   );
 }
 
-/** Why a row is refused or waits, in the order the server wrote it; its raw English sits in a `lang="en"` span. */
+/**
+ * Why a row is refused or waits, in the order the server wrote it; its raw English sits in a `lang="en"` span. A refusal
+ * is red ink. A value that is asked about, never refused, is amber ink.
+ */
 function ReasonLines({ view, className }: { view: RowView; className?: string }) {
   const { say } = useSay();
   if (view.reasons.length === 0) return null;
   return (
-    <ul className={cn("m-0 flex list-none flex-col gap-0.5 p-0 text-[13px] leading-5 break-words text-tone-red-ink", className)}>
+    <ul className={cn("m-0 flex list-none flex-col gap-0.5 p-0 text-[13px] leading-5 break-words", className)}>
       {view.reasons.map((line, index) => (
-        <li key={index}>{line.kind === "raw" ? <span lang="en">{line.text}</span> : refusalText(say, line)}</li>
+        <li key={index} className={refusalTone(line) === "amber" ? "text-tone-amber-ink" : "text-tone-red-ink"}>
+          {line.kind === "raw" ? <span lang="en">{line.text}</span> : refusalText(say, line)}
+        </li>
       ))}
     </ul>
+  );
+}
+
+/** "Answer the question above, or skip the row." as a link to the question the row waits on. */
+function WaitsOnLine({ view, onGoToQuestion }: { view: RowView; onGoToQuestion?: (question: RowQuestionRef) => void }) {
+  const { t } = useSay();
+  const waits = view.waitsOn;
+  if (!waits) return null;
+  if (!onGoToQuestion) return <span className="text-[13px] text-muted-foreground">{t("ingest.rows.waitsOnQuestion")}</span>;
+  return (
+    <a
+      href="#review-first-open"
+      className="inline-flex min-h-6 items-center self-start text-[13px] text-foreground underline underline-offset-4"
+      onClick={(event) => {
+        event.preventDefault();
+        onGoToQuestion(waits);
+      }}
+    >
+      {t("ingest.rows.waitsOnQuestion")}
+    </a>
   );
 }
 
@@ -304,59 +337,60 @@ export function RowsTable({
   ...rest
 }: RowProps & { views: RowView[]; columns: RowColumn[]; showChoice: boolean; decisionColumn: boolean }) {
   const { t } = useSay();
-  const list: ResponsiveListColumn<RowView>[] = [
-    {
-      key: "row",
-      header: t("imports.preview.row"),
-      cell: (v) => (
-        <>
-          {v.needsDecision ? <span aria-hidden="true" data-testid="needs-decision-mark" className="absolute inset-y-0 left-0 w-[3px] bg-tone-amber-ink" /> : null}
-          <span id={`row-${v.n}`} tabIndex={-1} className="font-mono tabular-nums outline-none">{v.n}</span>
-        </>
-      ),
-    },
-    ...columns.map((column): ResponsiveListColumn<RowView> => ({
-      key: `field:${column.field}`,
-      header: column.unit ? `${t(column.labelKey as never)}, ${column.unit}` : t(column.labelKey as never),
-      align: column.align === "end" ? "end" : undefined,
-      cell: (v) => <CellValue cell={v.cells.find((c) => c.field === column.field)} showUnit={false} />,
-    })),
-    {
-      key: "status",
-      header: t("ingest.row.state"),
-      cell: (v) => (
-        <span className="flex min-w-0 flex-col items-start gap-1">
-          <StatusChip view={v} />
-          {v.needsDecision ? null : <ReasonLines view={v} />}
-          <RawCells view={v} />
-          <Chosen view={v} />
+  const rowColumn: ResponsiveListColumn<RowView> = {
+    key: "row",
+    header: t("imports.preview.row"),
+    sticky: true,
+    cell: (v) => (
+      <>
+        {v.needsDecision ? <span aria-hidden="true" data-testid="needs-decision-mark" className="absolute inset-y-0 left-0 w-[3px] bg-tone-amber-ink" /> : null}
+        <span id={`row-${v.n}`} tabIndex={-1} className="font-mono tabular-nums outline-none">{v.n}</span>
+      </>
+    ),
+  };
+  const statusColumn: ResponsiveListColumn<RowView> = {
+    key: "status",
+    header: t("ingest.row.state"),
+    cell: (v) => (
+      <span className="flex min-w-0 flex-col items-start gap-1">
+        <StatusChip view={v} />
+        {v.needsDecision ? null : <ReasonLines view={v} />}
+        <RawCells view={v} />
+        <Chosen view={v} />
+      </span>
+    ),
+  };
+  const choiceColumn: ResponsiveListColumn<RowView> = {
+    key: "choice",
+    header: t("ingest.rows.choice"),
+    headerHidden: !decisionColumn,
+    cell: (v) => {
+      if (!v.needsDecision) return <RowMenu view={v} {...rest} />;
+      return (
+        <span className="flex min-w-0 flex-col items-start gap-2">
+          <ReasonLines view={v} />
+          <WaitsOnLine view={v} onGoToQuestion={rest.onGoToQuestion} />
+          <DiffLines view={v} />
+          {rest.canDecide ? <DecisionButtons view={v} {...rest} /> : null}
         </span>
-      ),
+      );
     },
-  ];
-  if (showChoice) {
-    list.push({
-      key: "choice",
-      header: t("ingest.rows.choice"),
-      headerHidden: !decisionColumn,
-      cell: (v) => {
-        if (!v.needsDecision) return <RowMenu view={v} {...rest} />;
-        return (
-          <span className="flex min-w-0 flex-col items-start gap-2">
-            <ReasonLines view={v} />
-            {v.waitsOn ? <span className="text-[13px] text-muted-foreground">{t("ingest.rows.waitsOnQuestion")}</span> : null}
-            <DiffLines view={v} />
-            {rest.canDecide ? <DecisionButtons view={v} {...rest} /> : null}
-          </span>
-        );
-      },
-    });
-  }
+  };
+  const fieldColumns = columns.map((column): ResponsiveListColumn<RowView> => ({
+    key: `field:${column.field}`,
+    header: column.unit ? `${t(column.labelKey as never)}, ${column.unit}` : t(column.labelKey as never),
+    align: column.align === "end" ? "end" : undefined,
+    wrapHeader: true,
+    cell: (v) => <CellValue cell={v.cells.find((c) => c.field === column.field)} showUnit={false} />,
+  }));
+  // Row, then what it is and what to do about it, then the values: a layout with many fields scrolls sideways under the
+  // pinned Row column, and the buttons of a row that needs a decision never sit behind that scroll.
+  const list: ResponsiveListColumn<RowView>[] = [rowColumn, statusColumn, ...(showChoice ? [choiceColumn] : []), ...fieldColumns];
   return <ResponsiveList label={t("ingest.rows.title")} rows={views} columns={list} rowKey={(v) => v.id} empty={null} />;
 }
 
 /** Phone and tablet: one card per row. At most five fields, the rest behind "Show all fields". */
-function RowCard({ view, canDecide, act, focusRef, onDecide }: RowProps & { view: RowView }) {
+function RowCard({ view, canDecide, act, focusRef, onDecide, onGoToQuestion }: RowProps & { view: RowView }) {
   const { t } = useSay();
   const [expanded, setExpanded] = useState(false);
   const fields = cardFields(view.cells, expanded);
@@ -380,7 +414,7 @@ function RowCard({ view, canDecide, act, focusRef, onDecide }: RowProps & { view
         <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-2">
           {fields.shown.map((cell) => (
             <div key={cell.field} className="flex min-w-0 flex-col">
-              <dt className="truncate text-[12px] text-muted-foreground" title={t(cell.labelKey as never)}>{t(cell.labelKey as never)}</dt>
+              <dt className="text-[12px] leading-4 break-words text-muted-foreground">{t(cell.labelKey as never)}</dt>
               <dd className="m-0 min-w-0 text-[14px]"><CellValue cell={cell} showUnit /></dd>
             </div>
           ))}
@@ -393,7 +427,7 @@ function RowCard({ view, canDecide, act, focusRef, onDecide }: RowProps & { view
       ) : null}
       <RawCells view={view} />
       <ReasonLines view={view} />
-      {view.waitsOn ? <p className="m-0 text-[13px] text-muted-foreground">{t("ingest.rows.waitsOnQuestion")}</p> : null}
+      {view.waitsOn ? <WaitsOnLine view={view} onGoToQuestion={onGoToQuestion} /> : null}
       <DiffLines view={view} />
       <Chosen view={view} />
       {canDecide && view.needsDecision ? <DecisionButtons view={view} act={act} focusRef={focusRef} onDecide={onDecide} /> : null}

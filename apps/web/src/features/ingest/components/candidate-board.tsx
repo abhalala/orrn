@@ -25,8 +25,8 @@ import {
   type FileGroup,
   type Segment,
 } from "../lib";
-import { FileGroupSection } from "./candidate-card";
-import { FileName, ForeignText, MonoText, useListActions, useSay } from "./list-kit";
+import { FileGroupHeading } from "./candidate-card";
+import { FileName, ForeignText, ImportGroups, MonoText, useListActions, useSay } from "./list-kit";
 import { ActionError, IngestBar } from "./shared";
 
 /**
@@ -120,7 +120,11 @@ export function CandidateBoard({
       <SegmentedControl
         label={t("ingest.list.segments")}
         value={active}
-        onChange={setChoice}
+        onChange={(next) => {
+          setChoice(next);
+          // The list swaps under the control; a screen reader hears what it now shows, once (WCAG 4.1.3).
+          announce(say("ingest.list.showing", { name: say(`ingest.group.${next}`), count: segments.find((s) => s.id === next)?.count ?? 0 }));
+        }}
         options={segments.map((s) => ({ value: s.id, label: `${say(s.labelKey)}\n${plant.count(s.count)}` }))}
       />
 
@@ -131,11 +135,12 @@ export function CandidateBoard({
           <EmptyState title={say("ingest.imports.emptySegment", { name: say(`ingest.group.${active}`) })} />
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          {groups.map((group) => (
-            <FileGroupSection key={group.artifactId} group={group} controls={controls} onApproveAll={setBulk} />
-          ))}
-        </div>
+        <ImportGroups
+          groups={groups}
+          label={t("ingest.title")}
+          controls={controls}
+          heading={(group) => <FileGroupHeading group={group} controls={controls} onApproveAll={setBulk} />}
+        />
       )}
 
       {bar.show ? (

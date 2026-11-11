@@ -45,6 +45,15 @@ describe("the decision bar (M7)", () => {
   test("the sentence adds how many rows cannot be imported, and says so when there is nothing to do", () => {
     expect(decisionBar(detail({ counts: counts({ refused: 4 }) }), ctx).refused).toEqual({ key: "ingest.effect.refused", vars: { count: 4 } });
     expect(decisionBar(detail({ counts: counts({ create: 0, update: 0 }) }), ctx).sentence).toEqual({ key: "ingest.effect.nothing" });
+    expect(decisionBar(detail({ counts: counts({ create: 0, update: 0, refused: 2, unchanged: 1 }) }), ctx).sentence).toEqual({ key: "ingest.effect.nothing" });
+  });
+
+  test("rows that wait on answers are not empty: the sentence says how many wait, not 'Nothing to add'", () => {
+    const bar = decisionBar(detail({ counts: counts({ create: 0, update: 0, ambiguous: 3 }), openQuestions: 1 }), ctx);
+    expect(bar.sentence).toEqual({ key: "ingest.effect.waiting", vars: { count: 3 } });
+    expect(decisionBar(detail({ counts: counts({ create: 0, update: 0, ambiguous: 2, conflict: 1 }) }), ctx).sentence).toEqual({ key: "ingest.effect.waiting", vars: { count: 3 } });
+    // With something to add, the add line leads.
+    expect(decisionBar(detail({ counts: counts({ create: 5, update: 0, ambiguous: 3 }) }), ctx).sentence).toEqual({ key: "ingest.effect.line", vars: { create: 5, update: 0 } });
   });
 
   test("ready with questions: a link that says how many, no Approve, Hold stays", () => {
@@ -158,9 +167,9 @@ describe("the reason line (M17)", () => {
     expect(reasonPieces(say, "merge_failed", "Bundle LRCQCZ is already in orrn.")).toEqual([
       { text: "Not merged. " }, { text: "Bundle LRCQCZ is already in orrn.", lang: "en" },
     ]);
-    expect(reasonPieces(say, "dependency_held", "Customers 1")).toEqual([{ text: "Waits for Customers 1, which is held" }]);
+    expect(reasonPieces(say, "dependency_held", "Customers 1")).toEqual([{ text: "Waits for Customers 1, which is held." }]);
     expect(reasonPieces(say, "person", "Waiting for the PO")).toEqual([{ text: "Waiting for the PO" }]);
-    expect(reasonPieces(say, "odd_code", "Exact words")).toEqual([{ text: "Exact words", lang: "en" }]);
+    expect(reasonPieces(say, "odd_code", "Exact words")).toEqual([{ text: "Exact words.", lang: "en" }]);
     expect(reasonPieces(say, null, null)).toEqual([]);
   });
 });

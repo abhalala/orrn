@@ -182,7 +182,7 @@ function StatusChip({ row }: { row: ListRow }) {
   const text = words(row.chip.words);
   // Approved shows a tick so it differs from Ready at a glance, and the word stays on it (work order N2).
   return (
-    <Chip tone={chipTone(row.chip.tone)} truncate={false} title={text}>
+    <Chip tone={chipTone(row.chip.tone)} truncate={false} dot={row.candidate.state !== "approved"} title={text}>
       {row.candidate.state === "approved" ? (
         <span className="inline-flex items-center gap-1">
           <Check aria-hidden="true" className="size-3" strokeWidth={3} />
@@ -252,11 +252,40 @@ function ActionCell({ row, controls }: { row: ListRow; controls?: RowControls })
   );
 }
 
+/** Fixed widths of the list's columns, so every file group lines up under the one header (work order 3.2). */
+const WIDTHS = { fit: "w-[148px]", create: "w-[72px]", update: "w-[84px]", questions: "w-[96px]", cannot: "w-[84px]", status: "w-[156px]", action: "w-[148px]" } as const;
+
 /**
- * The rows of one file as one `ResponsiveList` (work order 3.2): what it is, layout, four counts, status, and the
- * one action. Below 1024 px the rows stack: the chip and the layout move up under the title. `extra` is a second
- * line under the title (the file screen lists the columns there).
+ * The columns of an import list (work order 3.2): what it is, layout, four counts, status, and the one action.
+ * Below 1024 px the rows stack: the chip and the layout move up under the title. `extra` is a second line under the
+ * title (the file screen lists the columns there). A count that is not known yet shows nothing, and on a phone the
+ * pair is left out.
  */
+function useImportColumns(controls: RowControls | undefined, extra: ((row: ListRow) => ReactNode) | undefined): ResponsiveListColumn<ListRow>[] {
+  const { t } = useT();
+  const { words } = useSay();
+  const wide = useMediaQuery(breakpoints.desktop);
+  const count = (key: keyof NonNullable<ListRow["numbers"]>, tone?: "amber") => (row: ListRow) =>
+    row.numbers ? <Num value={row.numbers[key]} tone={tone} /> : null;
+  return [
+    { key: "what", header: t("ingest.imports.colWhat"), cell: (row) => <TitleCell row={row} stacked={!wide} extra={extra?.(row)} /> },
+    {
+      key: "fit",
+      header: t("ingest.imports.colFit"),
+      hideOnPhone: true,
+      width: WIDTHS.fit,
+      cell: (row) => (row.fit ? <span className="text-[13px] text-muted-foreground">{words(row.fit)}</span> : null),
+    },
+    { key: "create", header: t("ingest.list.colNew"), align: "end", width: WIDTHS.create, hideWhenEmpty: true, cell: count("create") },
+    { key: "update", header: t("ingest.list.colUpdates"), align: "end", width: WIDTHS.update, hideWhenEmpty: true, cell: count("update") },
+    { key: "questions", header: t("ingest.list.colQuestions"), align: "end", width: WIDTHS.questions, hideWhenEmpty: true, cell: count("questions", "amber") },
+    { key: "cannot", header: t("ingest.list.colCannot"), align: "end", width: WIDTHS.cannot, hideWhenEmpty: true, cell: count("cannot") },
+    { key: "status", header: t("ingest.imports.colStatus"), hideOnPhone: true, width: WIDTHS.status, cell: (row) => <StatusChip row={row} /> },
+    { key: "action", header: t("ingest.imports.colAction"), headerHidden: true, width: WIDTHS.action, cell: (row) => <ActionCell row={row} controls={controls} /> },
+  ];
+}
+
+/** The rows of one file as one list (the file screen). */
 export function ImportRows({
   rows,
   label,
@@ -270,24 +299,7 @@ export function ImportRows({
   extra?: (row: ListRow) => ReactNode;
   empty?: ReactNode;
 }) {
-  const { t } = useT();
-  const { words } = useSay();
-  const wide = useMediaQuery(breakpoints.desktop);
-  const columns: ResponsiveListColumn<ListRow>[] = [
-    { key: "what", header: t("ingest.imports.colWhat"), cell: (row) => <TitleCell row={row} stacked={!wide} extra={extra?.(row)} /> },
-    {
-      key: "fit",
-      header: t("ingest.imports.colFit"),
-      hideOnPhone: true,
-      cell: (row) => (row.fit ? <span className="text-[13px] text-muted-foreground">{words(row.fit)}</span> : null),
-    },
-    { key: "create", header: t("ingest.list.colNew"), align: "end", cell: (row) => <Num value={row.numbers.create} /> },
-    { key: "update", header: t("ingest.list.colUpdates"), align: "end", cell: (row) => <Num value={row.numbers.update} /> },
-    { key: "questions", header: t("ingest.list.colQuestions"), align: "end", cell: (row) => <Num value={row.numbers.questions} tone="amber" /> },
-    { key: "cannot", header: t("ingest.list.colCannot"), align: "end", cell: (row) => <Num value={row.numbers.cannot} /> },
-    { key: "status", header: t("ingest.imports.colStatus"), hideOnPhone: true, cell: (row) => <StatusChip row={row} /> },
-    { key: "action", header: t("ingest.imports.colAction"), headerHidden: true, cell: (row) => <ActionCell row={row} controls={controls} /> },
-  ];
+  const columns = useImportColumns(controls, extra);
   return (
     <ResponsiveList<ListRow>
       label={label}
@@ -296,6 +308,35 @@ export function ImportRows({
       rowKey={(row) => row.id}
       rowHref={(row) => `/ingest/review/${row.id}`}
       empty={empty ?? null}
+    />
+  );
+}
+
+/**
+ * Every file group in one card under one header row (work order 3.2). Each group is a full-width heading row, then
+ * its imports. The columns have fixed widths, so New, Updates, Questions, Cannot import, Status and the action keep
+ * their place from group to group.
+ */
+export function ImportGroups<G extends { artifactId: string; rows: ListRow[] }>({
+  groups,
+  label,
+  controls,
+  heading,
+}: {
+  groups: readonly G[];
+  label: string;
+  controls?: RowControls;
+  heading: (group: G) => ReactNode;
+}) {
+  const columns = useImportColumns(controls, undefined);
+  return (
+    <ResponsiveList<ListRow>
+      label={label}
+      sections={groups.map((group) => ({ key: group.artifactId, heading: heading(group), rows: group.rows }))}
+      columns={columns}
+      rowKey={(row) => row.id}
+      rowHref={(row) => `/ingest/review/${row.id}`}
+      empty={null}
     />
   );
 }

@@ -39,7 +39,7 @@ import { ReadPanel } from "./read-panel";
 import { Muted, useSay, useScrolledOut } from "./review-bits";
 import { StagedRows, type RowsHandle } from "./rows-table";
 import { IngestBar, InlineNotice, ProgressBar, QueryPanel } from "./shared";
-import { FOCUS, useReviewActions } from "./use-review-actions";
+import { FOCUS, questionSentenceKey, useReviewActions } from "./use-review-actions";
 
 const EDITOR_ID = "review-mapping-editor";
 
@@ -295,6 +295,9 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
             focusRef={focus.ref}
             announce={announce}
             handle={rowsRef}
+            onGoToQuestion={(q) => {
+              if (!focus.focus(questionSentenceKey(q.code, q.subject))) focus.focus(FOCUS.firstQuestion);
+            }}
           />
         ) : null}
       </div>
@@ -336,8 +339,8 @@ function ShapeNotices({ offer, bot }: { offer: ReturnType<typeof helperOffer>; b
   const { t, say } = useSay();
   return (
     <div className="flex flex-col gap-2">
-      <Muted>{t("ingest.shape.explain")}</Muted>
-      {offer === "off" ? <Muted>{t("ingest.helper.off")}</Muted> : null}
+      {/* With the helper off, "orrn suggests a layout" would sit right above "orrn cannot suggest one". */}
+      {offer === "off" ? <Muted>{t("ingest.helper.off")}</Muted> : <Muted>{t("ingest.shape.explain")}</Muted>}
       {bot.phase === "working" ? <ProgressBar value={null} label={t("ingest.shape.working", { n: bot.attempt })} /> : null}
       {bot.phase === "otherTab" ? <InlineNotice>{t("ingest.merge.otherTab")}</InlineNotice> : null}
       {bot.phase === "gaveUp" ? <InlineNotice>{t("ingest.shape.gaveUp")}</InlineNotice> : null}

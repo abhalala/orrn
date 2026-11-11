@@ -37,6 +37,8 @@ export const FOCUS = {
 } as const;
 
 export const questionFocusKey = (code: string, subject: string) => `review:question:${code}:${subject}`;
+/** The key of a question's sentence, which takes focus when a row that waits on it links there. */
+export const questionSentenceKey = (code: string, subject: string) => `review:question-text:${code}:${subject}`;
 
 export type ReviewActions = {
   /** A write is running: every write button is `aria-disabled`. */

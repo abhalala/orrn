@@ -21,6 +21,11 @@ export function useSay() {
   return { t, say, words, locale };
 }
 
+/** The language of a date field, so the browser may write the day first (31/03/2026) the way a plant in India reads it. */
+export function dateLang(locale: string): string {
+  return locale === "hi" ? "hi-IN" : locale === "gu" ? "gu-IN" : "en-IN";
+}
+
 /** File names, sheet names and column headers are the file's own text. On a Hindi screen they are marked English (WCAG 3.1.2). */
 export function Foreign({ children, className }: { children: ReactNode; className?: string }) {
   const { locale } = useT();
@@ -92,7 +97,7 @@ export function PreviewCell({ preview }: { preview: Preview }) {
     case "value":
       return (
         <span className="text-[14px] break-words">
-          <span className={preview.mono ? "font-mono tabular-nums" : ""}>{preview.text}</span>
+          <span className={preview.mono ? "font-mono tabular-nums" : ""}>{preview.textKey ? t(preview.textKey as never) : preview.text}</span>
           {preview.unit ? <span className="ml-1 text-[0.85em] text-muted-foreground">{preview.unit}</span> : null}
         </span>
       );

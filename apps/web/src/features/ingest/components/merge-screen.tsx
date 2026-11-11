@@ -53,7 +53,7 @@ export function MergeBody({ pump, run }: { pump: ReturnType<typeof useMergePump>
   const announcer = useAnnouncer();
   const view = mergeView(run, pump.results, pump);
   const listId = useId();
-  const resultRef = useRef<HTMLHeadingElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const before = useRef<string | null>(null);
   const [stopping, setStopping] = useState(false);
   const [stopError, setStopError] = useState<unknown>(null);
@@ -98,25 +98,25 @@ export function MergeBody({ pump, run }: { pump: ReturnType<typeof useMergePump>
   const finished = view.phase === "done" || view.phase === "stopped";
   const items: MergeItem[] = view.phase === "done" ? [...view.held, ...view.merged] : view.all;
   const status = view.status;
-  const statusTitle = view.phase === "done" ? t("ingest.state.merged") : words(status.title);
+  const statusTitle = words(status.title);
 
   return (
     <>
       <StatusRegion message={announcer.message} />
-      <h2 ref={resultRef} tabIndex={-1} className="sr-only outline-none">
-        {words(view.title)}
-      </h2>
 
       <div className="flex flex-col gap-3 sm:max-w-[360px]">
-        <StatusBlock
-          tone={BLOCK_TONE[status.tone]}
-          title={statusTitle}
-          value={status.value ?? ""}
-          unit={status.unit ? words(status.unit) : undefined}
-          meta={status.meta ? words(status.meta) : undefined}
-          progress={status.progress ?? undefined}
-          format={plant.count}
-        />
+        {/* The focus target when the run ends (the Stop button leaves). A named group, not a second heading. */}
+        <div ref={resultRef} role="group" tabIndex={-1} aria-label={words(view.title)} className="outline-none">
+          <StatusBlock
+            tone={BLOCK_TONE[status.tone]}
+            title={statusTitle}
+            value={status.value ?? ""}
+            unit={status.unit ? words(status.unit) : undefined}
+            meta={status.meta ? words(status.meta) : undefined}
+            progress={status.progress ?? undefined}
+            format={plant.count}
+          />
+        </div>
         {view.canStop ? (
           <Can do="ingest.merge">
             <Button variant="secondary" className="max-sm:w-full" aria-disabled={stopping || undefined} aria-busy={stopping || undefined} onClick={() => void stop()}>

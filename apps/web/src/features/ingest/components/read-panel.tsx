@@ -1,6 +1,7 @@
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
+import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
 import { useId, useState, type Ref } from "react";
 
@@ -16,13 +17,21 @@ export function ReadPanel({
   model,
   onChange,
   changeRef,
+  roomy: roomyProp,
 }: {
   model: ReadPanelModel;
   onChange: () => void;
   changeRef?: Ref<HTMLButtonElement>;
+  /** There is room for the open table (a tablet or wider). By default this follows the screen; a test sets it. */
+  roomy?: boolean;
 }) {
   const { t, words } = useSay();
-  const [open, setOpen] = useState(model.openByDefault);
+  // On a phone the panel starts as its one-line summary whatever the state (10 column cards push everything else away).
+  const wideScreen = useMediaQuery(breakpoints.tablet);
+  const roomy = roomyProp ?? wideScreen;
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const open = chosen ?? (model.openByDefault && roomy);
+  const setOpen = (update: (v: boolean) => boolean) => setChosen(update(open));
   const bodyId = useId();
   return (
     <EvidencePanel
@@ -61,7 +70,13 @@ function ReadTable({ entries }: { entries: ColumnEntry[] }) {
       header: t("ingest.shape.column"),
       cell: (e) => <ColumnHeaderCell header={e.header} headerBlank={e.headerBlank} n={e.n} kindKey={e.kind.key} muted={e.muted} />,
     },
-    { key: "samples", header: t("ingest.shape.samples"), cell: (e) => <SampleCell samples={e.samples} /> },
+    {
+      key: "samples",
+      header: t("ingest.shape.samples"),
+      hideWhenEmpty: true,
+      // A column with no values leaves its label out (a phone card has nothing to say under it).
+      cell: (e) => (e.samples.masked || e.samples.values.length > 0 ? <SampleCell samples={e.samples} /> : null),
+    },
     {
       key: "into",
       header: t("ingest.shape.field"),
@@ -104,7 +119,12 @@ function NearChanges({ rows }: { rows: NearChangeRow[] }) {
       header: t("ingest.near.now"),
       cell: (r) => (r.now ? <Foreign className="text-[14px] break-words">{r.now}</Foreign> : <span className="text-[14px] text-muted-foreground">{t("ingest.near.notInFile")}</span>),
     },
-    { key: "samples", header: t("ingest.shape.samples"), cell: (r) => (r.samples ? <SampleCell samples={r.samples} /> : null) },
+    {
+      key: "samples",
+      header: t("ingest.shape.samples"),
+      hideWhenEmpty: true,
+      cell: (r) => (r.samples && (r.samples.masked || r.samples.values.length > 0) ? <SampleCell samples={r.samples} /> : null),
+    },
   ];
   return (
     <section aria-labelledby="near-changes-title" className="flex flex-col gap-3">

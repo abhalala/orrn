@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7932 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7938 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6855,7 +6855,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (413)
+### ingest (419)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7013,6 +7013,7 @@ Please check, Lalubhai:
 | `row.conflict` | Differs from orrn | orrn से अलग है |
 | `row.refused` | Cannot import | इम्पोर्ट नहीं हो सकता |
 | `row.skipped` | Skipped | छोड़ा गया |
+| `row.waiting` | Waits on a question | सवाल का इंतज़ार |
 | `decide.useMatch` | Use {name} | {name} लें |
 | `decide.keepFile` | Use the file value | फ़ाइल की वैल्यू लें |
 | `decide.keepLive` | Keep the orrn value | orrn की वैल्यू रखें |
@@ -7092,6 +7093,7 @@ Please check, Lalubhai:
 | `list.mergeMeta` | {created} rows will be added, {updated} updated | {created} लाइनें जुड़ेंगी, {updated} अपडेट होंगी |
 | `list.bar` | {count} {count:import\|imports} approved, {rows} rows | {count} इम्पोर्ट मंज़ूर, {rows} लाइनें |
 | `list.segments` | Show | दिखाएं |
+| `list.showing` | Showing {name}, {count} {count:import\|imports}. | {name} दिखा रहे हैं, {count} इम्पोर्ट। |
 | `list.colNew` | New | नया |
 | `list.colUpdates` | Updates | अपडेट |
 | `list.colQuestions` | Questions | सवाल |
@@ -7116,6 +7118,7 @@ Please check, Lalubhai:
 | `effect.line` | Adds {create} new and updates {update} in orrn. | orrn में {create} नए जुड़ेंगे और {update} अपडेट होंगे। |
 | `effect.refused` | {count} {count:row\|rows} cannot be imported. | {count} लाइनें इम्पोर्ट नहीं हो सकतीं। |
 | `effect.nothing` | Nothing to add or update. | जोड़ने या अपडेट करने को कुछ नहीं है। |
+| `effect.waiting` | {count} {count:row waits\|rows wait} on your answers. | {count} {count:लाइन आपके जवाब का इंतज़ार कर रही है\|लाइनें आपके जवाब का इंतज़ार कर रही हैं}। |
 | `effect.processing` | orrn is checking the rows. | orrn लाइनें जांच रहा है। |
 | `effect.needsShape` | orrn does not know this table yet. Say what it is and map its columns. | orrn अभी इस टेबल को नहीं जानता। बताएं कि यह क्या है और कॉलम मिलाएं। |
 | `effect.failed` | orrn could not read this table. | orrn यह टेबल नहीं पढ़ पाया। |
@@ -7145,7 +7148,8 @@ Please check, Lalubhai:
 | `merge.titleDone` | Merge finished | मर्ज पूरा हुआ |
 | `merge.titleStopped` | Merge stopped | मर्ज रुका |
 | `merge.rowsUnit` | of {total} rows | {total} लाइनों में से |
-| `merge.rowsAdded` | rows added | लाइनें जुड़ीं |
+| `merge.rowsAdded` | {count:row\|rows} added | {count:लाइन जुड़ी\|लाइनें जुड़ीं} |
+| `merge.titleHolds` | Merged with holds | होल्ड के साथ मर्ज हुआ |
 | `merge.updatedMeta` | {count} updated | {count} अपडेट हुईं |
 | `merge.notMergedMeta` | {count} {count:import\|imports} not merged | {count} इम्पोर्ट मर्ज नहीं हुए |
 | `merge.partsWritten` | {done} of {total} parts written | {total} में से {done} हिस्से लिखे गए |
@@ -7167,6 +7171,8 @@ Please check, Lalubhai:
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
 | `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |
 | `rate.hidden` | Hidden | छिपा है |
+| `fieldHeader.weightMinG` | Min weight | न्यूनतम वज़न |
+| `fieldHeader.weightMaxG` | Max weight | अधिकतम वज़न |
 | `field.name` | Name | नाम |
 | `field.taxId` | GSTIN | GSTIN |
 | `field.phone` | Phone | फ़ोन |
@@ -7241,7 +7247,7 @@ Please check, Lalubhai:
 | `refuse.filtered` | Left out by this layout. | इस लेआउट ने छोड़ दी। |
 | `refuse.over_dispatched` | More was dispatched than was ordered. | ऑर्डर से ज़्यादा भेजा जा चुका है। |
 | `refuse.no_quantity` | This line has no weight and no pieces. | इस लाइन में न वज़न है, न पीस। |
-| `refuse.magnitude` | This number looks too large or too small for its unit. Answer the question above, or skip the row. | यह संख्या अपनी यूनिट के हिसाब से बहुत बड़ी या बहुत छोटी लगती है। ऊपर का सवाल हल करें, या लाइन छोड़ दें। |
+| `refuse.magnitude` | This number looks too large or too small for its unit. | यह संख्या अपनी यूनिट के हिसाब से बहुत बड़ी या बहुत छोटी लगती है। |
 | `refuse.magnitude_unit` | Read again in the unit you gave. | आपकी बताई यूनिट में फिर से पढ़ा गया। |
 | `refuse.magnitude_confirmed` | You said this number is right. | आपने कहा कि यह संख्या सही है। |
 | `refuse.no_weight` | No weight on this line. Give the ordered or balance kg, or skip the row. | इस लाइन में वज़न नहीं है। ऑर्डर या बाकी kg दें, या लाइन छोड़ दें। |

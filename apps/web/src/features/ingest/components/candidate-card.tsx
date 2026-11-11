@@ -1,19 +1,20 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 
 import { allowedActions, useIngestActions, type CandidateSummary, type FileGroup } from "../lib";
-import { FileName, ImportRows, useSay, type RowControls } from "./list-kit";
+import { FileName, useSay, type RowControls } from "./list-kit";
 import { ActionError } from "./shared";
 
 /**
- * One file's imports on the list (work order 3.2): the file name as a heading, "3 tables, added 11 Nov" beside it,
- * "Approve all N" on the right when the file qualifies, and the imports as one list underneath.
+ * The heading row of one file on the list (work order 3.2): the file name at 14 px semibold, "3 tables, added 11 Nov"
+ * muted beside it, and "Approve all N" on the right when the file qualifies. The imports of the file follow under it,
+ * inside the one card that holds every file (`ImportGroups`).
  */
-export function FileGroupSection({
+export function FileGroupHeading({
   group,
   controls,
   onApproveAll,
@@ -23,31 +24,27 @@ export function FileGroupSection({
   onApproveAll: (group: FileGroup) => void;
 }) {
   const { say, words } = useSay();
-  const headingId = useId();
   return (
-    <section aria-labelledby={headingId} data-testid="ingest-file-group" className="flex min-w-0 flex-col gap-2">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-x-3">
-          <h2 id={headingId} className="m-0 min-w-0 text-[13px] font-semibold text-foreground sm:text-[14px]">
-            <FileName name={group.fileName} className="text-[13px] font-semibold sm:text-[14px]" />
-          </h2>
-          <p className="m-0 text-[13px] text-muted-foreground">{words(group.summary)}</p>
-        </div>
-        {group.approveAll ? (
-          <Button
-            variant="ghost"
-            aria-label={`${say("ingest.action.approveAll", { count: group.approveAll.count })}: ${group.fileName}`}
-            aria-disabled={controls.busy || undefined}
-            onClick={() => {
-              if (!controls.busy) onApproveAll(group);
-            }}
-          >
-            {say("ingest.action.approveAll", { count: group.approveAll.count })}
-          </Button>
-        ) : null}
+    <div data-testid="ingest-file-group" className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-x-3">
+        <h2 className="m-0 min-w-0 text-[13px] font-semibold text-foreground sm:text-[14px]">
+          <FileName name={group.fileName} className="text-[13px] font-semibold sm:text-[14px]" />
+        </h2>
+        <p className="m-0 text-[13px] text-muted-foreground">{words(group.summary)}</p>
       </div>
-      <ImportRows rows={group.rows} label={group.fileName} controls={controls} />
-    </section>
+      {group.approveAll ? (
+        <Button
+          variant="ghost"
+          aria-label={`${say("ingest.action.approveAll", { count: group.approveAll.count })}: ${group.fileName}`}
+          aria-disabled={controls.busy || undefined}
+          onClick={() => {
+            if (!controls.busy) onApproveAll(group);
+          }}
+        >
+          {say("ingest.action.approveAll", { count: group.approveAll.count })}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

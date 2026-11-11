@@ -3,7 +3,7 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
-import { useEffect, useMemo, useRef, useState, type Ref } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from "react";
 import type { DateFormat, IngestTarget, Recipe } from "@orrn/ingest";
 
 import {
@@ -251,16 +251,34 @@ function headerText(t: ReturnType<typeof useSay>["t"], entry: ColumnEntry): stri
   return entry.headerBlank ? t("ingest.rows.column", { n: entry.n }) : entry.header;
 }
 
-/** "Goes into": the field select. Its name is the visible column title plus the file column. */
-function IntoSelect({ entry, check, register, onField }: { entry: ColumnEntry } & Pick<RowHandlers, "check" | "register" | "onField">) {
+/**
+ * The small label over a select in a column card (WCAG 3.3.2, 1.3.1). It says what the select is ("Goes into"), and a
+ * visually hidden tail adds the file column it belongs to, so two cards never read alike. The table has column headers
+ * instead, so there the select carries an `aria-label` and no visible label.
+ */
+function SelectLabel({ htmlFor, text, entry }: { htmlFor: string; text: string; entry: ColumnEntry }) {
+  const { t } = useSay();
+  return (
+    <label htmlFor={htmlFor} className="text-[12px] leading-4 font-medium text-muted-foreground">
+      {text}
+      <span className="sr-only">: {headerText(t, entry)}</span>
+    </label>
+  );
+}
+
+/** "Goes into": the field select. In a card it has a visible label; in the table its name is the column title plus the file column. */
+function IntoSelect({ entry, check, register, onField, labeled }: { entry: ColumnEntry; labeled?: boolean } & Pick<RowHandlers, "check" | "register" | "onField">) {
   const { t, words } = useSay();
+  const id = useId();
   const message = check?.byColumn[entry.col];
   const errorId = `column-${entry.col}-error`;
   return (
     <div className="flex min-w-0 flex-col gap-1">
+      {labeled ? <SelectLabel htmlFor={id} text={t("ingest.shape.field")} entry={entry} /> : null}
       <FieldSelect
         ref={register(entry.col)}
-        aria-label={`${t("ingest.shape.field")}: ${headerText(t, entry)}`}
+        id={labeled ? id : undefined}
+        aria-label={labeled ? undefined : `${t("ingest.shape.field")}: ${headerText(t, entry)}`}
         aria-invalid={message ? true : undefined}
         aria-describedby={message ? errorId : undefined}
         value={entry.field ?? ""}
@@ -278,27 +296,34 @@ function IntoSelect({ entry, check, register, onField }: { entry: ColumnEntry } 
 }
 
 /** The unit of a number field, with labels ("kg per 12 ft"), or the date order of a date field. Nothing for the rest. */
-function UnitSelect({ entry, onUnit, onDate }: { entry: ColumnEntry } & Pick<RowHandlers, "onUnit" | "onDate">) {
+function UnitSelect({ entry, onUnit, onDate, labeled }: { entry: ColumnEntry; labeled?: boolean } & Pick<RowHandlers, "onUnit" | "onDate">) {
   const { t } = useSay();
+  const id = useId();
   const unit = entry.unit;
   if (!unit) return null;
-  const label = `${unit.kind === "number" ? t("ingest.shape.unit") : t("ingest.shape.dateOrder")}: ${headerText(t, entry)}`;
-  if (unit.kind === "number") {
-    return (
-      <FieldSelect aria-label={label} value={unit.value ?? ""} onChange={(event) => onUnit(entry.col, event.currentTarget.value === "" ? null : event.currentTarget.value)}>
+  const text = unit.kind === "number" ? t("ingest.shape.unit") : t("ingest.shape.dateOrder");
+  const name = labeled ? { id } : { "aria-label": `${text}: ${headerText(t, entry)}` };
+  const select =
+    unit.kind === "number" ? (
+      <FieldSelect {...name} value={unit.value ?? ""} onChange={(event) => onUnit(entry.col, event.currentTarget.value === "" ? null : event.currentTarget.value)}>
         <option value="">{t(unit.askKey as never)}</option>
         {unit.choices.map((choice) => (
           <option key={choice.value} value={choice.value}>{t(choice.labelKey as never)}</option>
         ))}
       </FieldSelect>
+    ) : (
+      <FieldSelect {...name} value={unit.value} onChange={(event) => onDate(entry.col, event.currentTarget.value as DateFormat)}>
+        {unit.choices.map((choice) => (
+          <option key={choice.value} value={choice.value}>{choice.text}</option>
+        ))}
+      </FieldSelect>
     );
-  }
+  if (!labeled) return select;
   return (
-    <FieldSelect aria-label={label} value={unit.value} onChange={(event) => onDate(entry.col, event.currentTarget.value as DateFormat)}>
-      {unit.choices.map((choice) => (
-        <option key={choice.value} value={choice.value}>{choice.text}</option>
-      ))}
-    </FieldSelect>
+    <div className="flex min-w-0 flex-col gap-1">
+      <SelectLabel htmlFor={id} text={text} entry={entry} />
+      {select}
+    </div>
   );
 }
 
@@ -325,8 +350,8 @@ function ColumnCard({ entry, ...handlers }: { entry: ColumnEntry } & RowHandlers
     <li className={cn("flex flex-col gap-3 rounded-card border border-border p-3", entry.muted && "bg-surface-sunken/60")}>
       <ColumnHeaderCell header={entry.header} headerBlank={entry.headerBlank} n={entry.n} kindKey={entry.kind.key} muted={entry.muted} />
       <SampleCell samples={entry.samples} />
-      <IntoSelect entry={entry} {...handlers} />
-      <UnitSelect entry={entry} onUnit={handlers.onUnit} onDate={handlers.onDate} />
+      <IntoSelect entry={entry} labeled {...handlers} />
+      <UnitSelect entry={entry} labeled onUnit={handlers.onUnit} onDate={handlers.onDate} />
       <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-[13px] text-muted-foreground">
         <span>{t("ingest.shape.preview")}</span>
         <PreviewCell preview={entry.preview} />

@@ -2,7 +2,7 @@ import { Button } from "@orrn/ui/components/button";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { cn } from "@orrn/ui/lib/utils";
 import { Check } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   answerFromValue,
@@ -15,7 +15,7 @@ import {
 } from "../lib";
 import { ActionButton, EvidencePanel, FieldSelect, useSay } from "./review-bits";
 import { ActionError } from "./shared";
-import { FOCUS, questionFocusKey, type ReviewActions } from "./use-review-actions";
+import { FOCUS, questionFocusKey, questionSentenceKey, type ReviewActions } from "./use-review-actions";
 
 /** The control's value as the answer the server reads (the bare unit id, the bare field name, a format code). */
 export function answerValue(question: QuestionView, value: string | boolean) {
@@ -92,6 +92,17 @@ function QuestionRow({
   const sentence = questionText(say, question);
   const key = questionFocusKey(question.code, question.subject);
   const showControls = !question.answered || editing;
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const changeRef = useRef<HTMLButtonElement | null>(null);
+  const was = useRef(false);
+
+  // Change opens the controls and focus goes to the first one (WCAG 2.4.3). Leaving edit mode, by Cancel or by an answer,
+  // puts focus back on Change, which stayed mounted (hidden) so there is a node to return to.
+  useEffect(() => {
+    if (editing) controlsRef.current?.querySelector<HTMLElement>("button, select, input")?.focus();
+    else if (was.current) changeRef.current?.focus();
+    was.current = editing;
+  }, [editing]);
 
   const send = async (value: string | boolean) => {
     if (act.busy) return;
@@ -103,7 +114,10 @@ function QuestionRow({
     <li className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 md:flex-row md:items-start md:justify-between md:gap-6">
       <div className="flex min-w-0 flex-col gap-1">
         <p
-          ref={isFirstOpen ? focusRef(FOCUS.firstQuestion) : undefined}
+          ref={(el) => {
+            focusRef(questionSentenceKey(question.code, question.subject))(el);
+            if (isFirstOpen) focusRef(FOCUS.firstQuestion)(el);
+          }}
           tabIndex={-1}
           className="m-0 text-[15px] leading-6 font-semibold break-words outline-none"
         >
@@ -123,28 +137,43 @@ function QuestionRow({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-col gap-2 md:items-end">
-        {question.answered && !editing ? (
-          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        {question.answered ? (
+          <div hidden={editing} className="flex flex-wrap items-center gap-2 md:justify-end">
             <Check aria-hidden="true" className="size-4 shrink-0 text-tone-green-ink" strokeWidth={2.5} />
             {question.answeredWords ? (
               <span className="text-[14px] break-words">{t("ingest.q.answered", { answer: words(question.answeredWords) })}</span>
             ) : null}
-            <Button ref={focusRef(key)} variant="secondary" aria-disabled={act.busy || undefined} onClick={() => !act.busy && setEditing(true)}>
+            <Button
+              ref={(el) => {
+                changeRef.current = el;
+                focusRef(key)(el);
+              }}
+              variant="secondary"
+              aria-disabled={act.busy || undefined}
+              onClick={() => !act.busy && setEditing(true)}
+            >
               {t("ingest.q.change")}
               <span className="sr-only">: {sentence}</span>
             </Button>
           </div>
         ) : null}
         {showControls ? (
-          <QuestionControls
-            candidate={candidate}
-            question={question}
-            sentence={sentence}
-            act={act}
-            send={send}
-            focusKey={key}
-            onGoToYear={onGoToYear}
-          />
+          <div ref={controlsRef} className="flex min-w-0 flex-col gap-2 md:items-end">
+            <QuestionControls
+              candidate={candidate}
+              question={question}
+              sentence={sentence}
+              act={act}
+              send={send}
+              focusKey={key}
+              onGoToYear={onGoToYear}
+            />
+            {editing ? (
+              <Button variant="ghost" className="self-start md:self-end" onClick={() => setEditing(false)}>
+                {t("common.cancel")}
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </li>

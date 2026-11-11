@@ -197,6 +197,7 @@ export const ingestHi = {
     conflict: "orrn से अलग है",
     refused: "इम्पोर्ट नहीं हो सकता",
     skipped: "छोड़ा गया",
+    waiting: "सवाल का इंतज़ार",
   },
   decide: {
     useMatch: "{name} लें",
@@ -297,6 +298,7 @@ export const ingestHi = {
     mergeMeta: "{created} लाइनें जुड़ेंगी, {updated} अपडेट होंगी",
     bar: "{count} इम्पोर्ट मंज़ूर, {rows} लाइनें",
     segments: "दिखाएं",
+    showing: "{name} दिखा रहे हैं, {count} इम्पोर्ट।",
     colNew: "नया",
     colUpdates: "अपडेट",
     colQuestions: "सवाल",
@@ -332,6 +334,7 @@ export const ingestHi = {
     line: "orrn में {create} नए जुड़ेंगे और {update} अपडेट होंगे।",
     refused: "{count} लाइनें इम्पोर्ट नहीं हो सकतीं।",
     nothing: "जोड़ने या अपडेट करने को कुछ नहीं है।",
+    waiting: "{count} {count:लाइन आपके जवाब का इंतज़ार कर रही है|लाइनें आपके जवाब का इंतज़ार कर रही हैं}।",
     processing: "orrn लाइनें जांच रहा है।",
     needsShape: "orrn अभी इस टेबल को नहीं जानता। बताएं कि यह क्या है और कॉलम मिलाएं।",
     failed: "orrn यह टेबल नहीं पढ़ पाया।",
@@ -366,7 +369,8 @@ export const ingestHi = {
     titleDone: "मर्ज पूरा हुआ",
     titleStopped: "मर्ज रुका",
     rowsUnit: "{total} लाइनों में से",
-    rowsAdded: "लाइनें जुड़ीं",
+    rowsAdded: "{count:लाइन जुड़ी|लाइनें जुड़ीं}",
+    titleHolds: "होल्ड के साथ मर्ज हुआ",
     updatedMeta: "{count} अपडेट हुईं",
     notMergedMeta: "{count} इम्पोर्ट मर्ज नहीं हुए",
     partsWritten: "{total} में से {done} हिस्से लिखे गए",
@@ -394,6 +398,11 @@ export const ingestHi = {
   },
   rate: {
     hidden: "छिपा है",
+  },
+  // The column header of a field whose unit already says "per 12 ft": the unit is never said twice.
+  fieldHeader: {
+    weightMinG: "न्यूनतम वज़न",
+    weightMaxG: "अधिकतम वज़न",
   },
   field: {
     name: "नाम",
@@ -473,7 +482,7 @@ export const ingestHi = {
     // screens work order: reasons the server sends now (PORTAL-X-FIX-REPORT.md "For the web lane")
     over_dispatched: "ऑर्डर से ज़्यादा भेजा जा चुका है।",
     no_quantity: "इस लाइन में न वज़न है, न पीस।",
-    magnitude: "यह संख्या अपनी यूनिट के हिसाब से बहुत बड़ी या बहुत छोटी लगती है। ऊपर का सवाल हल करें, या लाइन छोड़ दें।",
+    magnitude: "यह संख्या अपनी यूनिट के हिसाब से बहुत बड़ी या बहुत छोटी लगती है।",
     magnitude_unit: "आपकी बताई यूनिट में फिर से पढ़ा गया।",
     magnitude_confirmed: "आपने कहा कि यह संख्या सही है।",
     no_weight: "इस लाइन में वज़न नहीं है। ऑर्डर या बाकी kg दें, या लाइन छोड़ दें।",

@@ -122,6 +122,11 @@ export function statusChip(c: Pick<CandidateSummary, "state" | "openQuestions">)
   return { words: { key: candidateStateKey(c.state) }, tone: candidateTone(c.state) };
 }
 
+/** Whether the dry run has counted this import's rows yet. */
+export function isCounted(state: CandidateSummary["state"]): boolean {
+  return state !== "needs_shape" && state !== "needs_confirm" && state !== "processing" && state !== "failed";
+}
+
 export type RowActionKind = "approve" | "hold" | "review" | "mapColumns" | "checkLayout";
 
 /** `write` calls the server on the spot; `link` opens the review page. */
@@ -168,8 +173,12 @@ export type ListRow = {
   title: RowTitle;
   fit: Words | null;
   chip: { words: Words; tone: Tone };
-  /** New, Updates, Questions, Cannot import. A zero is muted; questions above zero are amber. */
-  numbers: { create: number; update: number; questions: number; cannot: number };
+  /**
+   * New, Updates, Questions, Cannot import. A zero is muted; questions above zero are amber. Null while nothing has
+   * been counted yet (an import that needs a layout, a check of the layout, still checking or failed): a row of zeros
+   * there would say "nothing to do" when the truth is "not looked at".
+   */
+  numbers: { create: number; update: number; questions: number; cannot: number } | null;
   action: RowAction | null;
   /** The hold or merge reason, shown under the row. */
   reasonCode: string | null;
@@ -253,7 +262,9 @@ export function fileGroups(
         title: rowTitle(candidate),
         fit: fitWords(candidate),
         chip: statusChip(candidate),
-        numbers: { create: candidate.counts.create, update: candidate.counts.update, questions: candidate.openQuestions, cannot: candidate.counts.refused },
+        numbers: isCounted(candidate.state)
+          ? { create: candidate.counts.create, update: candidate.counts.update, questions: candidate.openQuestions, cannot: candidate.counts.refused }
+          : null,
         action: rowAction(candidate, can),
         reasonCode: candidate.reasonCode,
         reasonDetail: candidate.reasonDetail,

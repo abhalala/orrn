@@ -68,7 +68,8 @@ export function QueryPanel({ query, children }: { query: { isLoading: boolean; i
   const { t } = useT();
   if (query.isLoading) {
     return (
-      <div aria-busy="true" aria-label={t("common.loading")} className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
+      <div role="status" aria-busy="true" className="flex flex-col gap-3 rounded-card border border-border bg-card p-4">
+        <span className="sr-only">{t("common.loading")}</span>
         <Skeleton className="h-5 w-2/5" />
         <Skeleton className="h-4 w-4/5" />
         <Skeleton className="h-28 w-full" />

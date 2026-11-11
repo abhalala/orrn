@@ -61,10 +61,14 @@ export function plainWords(value: string): string {
   return spaced === "" ? "" : spaced[0]!.toUpperCase() + spaced.slice(1);
 }
 
+/** Fields whose unit says "per 12 ft" already: their column and card label drops those words ("Min weight", then "kg/12ft"). */
+const SHORT_LABEL: Record<string, string> = { weightMinG: "ingest.fieldHeader.weightMinG", weightMaxG: "ingest.fieldHeader.weightMaxG" };
+export const rowFieldLabelKey = (field: string): string => SHORT_LABEL[field] ?? fieldLabelKey(field);
+
 const looksIso = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
 
 function blankCell(field: string, hidden: boolean): ValueCell {
-  return { field, labelKey: fieldLabelKey(field), hidden, kind: "text", text: "", textKey: null, unit: "", mono: false, align: "start", fileSaid: null };
+  return { field, labelKey: rowFieldLabelKey(field), hidden, kind: "text", text: "", textKey: null, unit: "", mono: false, align: "start", fileSaid: null };
 }
 
 /** One stored field as a cell, or null when it is blank. */
@@ -138,7 +142,7 @@ export function rowColumns(target: IngestTarget | null, recipe: Recipe | null, p
       const numeric = isNumericDef(d);
       return {
         field: d.name,
-        labelKey: fieldLabelKey(d.name),
+        labelKey: rowFieldLabelKey(d.name),
         unit: numeric ? plant.unitText(d.kind) : "",
         numeric,
         mono: numeric || CODE_FIELDS.has(d.name),

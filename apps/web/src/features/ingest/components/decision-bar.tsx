@@ -183,9 +183,15 @@ export function DecisionBarCard({
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Chip tone={chipTone(bar.chip.tone)} truncate={false} title={words(bar.chip.words)}>
-              {done ? <Check aria-hidden="true" className="size-3.5 shrink-0" strokeWidth={2.5} /> : null}
-              {words(bar.chip.words)}
+            <Chip tone={chipTone(bar.chip.tone)} truncate={false} dot={!done} title={words(bar.chip.words)}>
+              {done ? (
+                <span className="inline-flex items-center gap-1">
+                  <Check aria-hidden="true" className="size-3 shrink-0" strokeWidth={3} />
+                  {words(bar.chip.words)}
+                </span>
+              ) : (
+                words(bar.chip.words)
+              )}
             </Chip>
             {bar.sentence ? <p className="m-0 min-w-0 text-[17px] leading-6 font-medium break-words">{words(bar.sentence)}</p> : null}
           </div>

@@ -52,8 +52,8 @@ export type MergeStatus = {
   value: number | null;
   unit: Words | null;
   meta: Words | null;
-  /** 0 to 1 by rows written over rows planned. Null while planning. */
-  progress: number | null;
+  /** 0 to 1 by rows written over rows planned. "indeterminate" while planning, so the block is not blank. Null when there is no bar. */
+  progress: number | "indeterminate" | null;
 };
 
 export type MergeView = {
@@ -134,7 +134,7 @@ export function mergeView(
       meta: phase === "planning" || pump.chunksTotal === 0
         ? { key: "ingest.merge.planning" }
         : { key: "ingest.merge.running", vars: { n: part, total: pump.chunksTotal } },
-      progress: phase === "planning" || rowsPlanned === 0 ? null : Math.min(1, rowsWritten / rowsPlanned),
+      progress: phase === "planning" || rowsPlanned === 0 ? "indeterminate" : Math.min(1, rowsWritten / rowsPlanned),
     };
   } else if (phase === "stopped") {
     title = { key: "ingest.merge.titleStopped" };
@@ -142,7 +142,7 @@ export function mergeView(
       tone: "warning",
       title: { key: "ingest.merge.titleStopped" },
       value: created,
-      unit: { key: "ingest.merge.rowsAdded" },
+      unit: { key: "ingest.merge.rowsAdded", vars: { count: created } },
       meta: { key: "ingest.merge.partsWritten", vars: { done: pump.chunksWritten, total: pump.chunksTotal } },
       progress: null,
     };
@@ -150,9 +150,10 @@ export function mergeView(
     title = { key: "ingest.merge.titleDone" };
     status = {
       tone: heldResults.length > 0 ? "warning" : "success",
-      title: { key: "ingest.merge.titleDone" },
+      // The page title already says "Merge finished": the block says what the run did.
+      title: heldResults.length > 0 ? { key: "ingest.merge.titleHolds" } : { key: "ingest.state.merged" },
       value: created,
-      unit: { key: "ingest.merge.rowsAdded" },
+      unit: { key: "ingest.merge.rowsAdded", vars: { count: created } },
       meta: heldResults.length > 0
         ? { key: "ingest.merge.notMergedMeta", vars: { count: heldResults.length } }
         : { key: "ingest.merge.updatedMeta", vars: { count: updated } },
@@ -164,7 +165,7 @@ export function mergeView(
   const targetLinks = merged.flatMap((r) => {
     if (!r.target || seen.has(r.target)) return [];
     seen.add(r.target);
-    return [{ target: r.target, words: { key: "ingest.merge.see", varKeys: { target: TARGET_KEY(r.target) } }, to: TARGET_LIST_PATH[r.target] }];
+    return [{ target: r.target, words: { key: "ingest.merge.see", varKeys: { target: TARGET_KEY(r.target) }, lowerKeys: ["target"] }, to: TARGET_LIST_PATH[r.target] }];
   });
 
   return {

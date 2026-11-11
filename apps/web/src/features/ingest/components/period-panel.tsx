@@ -11,7 +11,7 @@ import {
   type PeriodGuess,
   type YearLine as YearLineModel,
 } from "../lib";
-import { ActionButton, FieldSelect, Muted, useSay } from "./review-bits";
+import { ActionButton, dateLang, FieldSelect, Muted, useSay } from "./review-bits";
 import { ActionError } from "./shared";
 import type { ReviewActions } from "./use-review-actions";
 
@@ -40,7 +40,7 @@ export function YearLine({
   selectRef?: Ref<HTMLSelectElement>;
   changeRef?: Ref<HTMLButtonElement>;
 }) {
-  const { t, words, say } = useSay();
+  const { t, words, say, locale } = useSay();
   const plant = usePlantUnits();
   const [editing, setEditing] = useState(false);
   const [fy, setFy] = useState(line.show && line.mode === "ask" ? line.fy : "");
@@ -49,10 +49,15 @@ export function YearLine({
   const localSelect = useRef<HTMLSelectElement | null>(null);
   const localDate = useRef<HTMLInputElement | null>(null);
   const opened = useRef(false);
+  const localChange = useRef<HTMLButtonElement | null>(null);
+  const wasEditing = useRef(false);
 
-  // Press Change: the form opens and takes focus. A form that was already open does not.
+  // Press Change: the form opens and takes focus. A form that was already open does not. Leaving the form (Cancel or Save)
+  // puts focus back on Change, which stayed mounted, hidden, so there is a node to return to (WCAG 2.4.3).
   useEffect(() => {
     if (editing && opened.current) localSelect.current?.focus();
+    else if (!editing && wasEditing.current) localChange.current?.focus();
+    wasEditing.current = editing;
   }, [editing]);
 
   if (!line.show) return null;
@@ -89,7 +94,11 @@ export function YearLine({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="m-0 text-[15px] leading-6 break-words">{words(saved.saved)}</p>
           <Button
-            ref={changeRef}
+            ref={(el) => {
+              localChange.current = el;
+              if (typeof changeRef === "function") changeRef(el);
+              else if (changeRef) (changeRef as { current: HTMLButtonElement | null }).current = el;
+            }}
             variant="ghost"
             size="sm"
             hidden={editing}
@@ -140,10 +149,11 @@ export function YearLine({
                 ))}
               </FieldSelect>
             </Field>
-            <Field label={t("ingest.period.asOf")} required error={problems.asOf ? words(problems.asOf) : undefined}>
+            <Field label={t("ingest.period.asOf")} required hint={asOf ? plant.day(asOf) : undefined} error={problems.asOf ? words(problems.asOf) : undefined}>
               <TextInput
                 ref={localDate}
                 type="date"
+                lang={dateLang(locale)}
                 value={asOf}
                 onChange={(event) => setAsOf(event.currentTarget.value)}
               />

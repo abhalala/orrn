@@ -16,7 +16,7 @@ describe("merge result (M14)", () => {
       result({ candidateId: "a", rowsCreate: 700, rowsUpdate: 3, rowsWritten: 703 }),
       result({ candidateId: "b", state: "held", rowsCreate: 1402, reasonCode: "merge_failed", reasonDetail: "Bundle LRCQCZ is already in orrn." }),
     ], pump({ chunksWritten: 1, chunksFailed: 1 }));
-    expect(view.status).toMatchObject({ tone: "warning", value: 700, unit: { key: "ingest.merge.rowsAdded" }, meta: { key: "ingest.merge.notMergedMeta", vars: { count: 1 } } });
+    expect(view.status).toMatchObject({ tone: "warning", value: 700, unit: { key: "ingest.merge.rowsAdded", vars: { count: 700 } }, title: { key: "ingest.merge.titleHolds" }, meta: { key: "ingest.merge.notMergedMeta", vars: { count: 1 } } });
     expect(view.title).toEqual({ key: "ingest.merge.titleDone" });
     expect(view.announce).toEqual({ key: "ingest.merge.announceDone", vars: { created: 700, updated: 3, held: 1 } });
   });
@@ -45,7 +45,7 @@ describe("merge result (M14)", () => {
       result({ candidateId: "d", target: "orders", state: "held" }),
     ], pump());
     expect(view.targetLinks.map((l) => l.to)).toEqual(["/dies", "/stock/bundles"]);
-    expect(view.targetLinks[0]!.words).toEqual({ key: "ingest.merge.see", varKeys: { target: "ingest.target.dies" } });
+    expect(view.targetLinks[0]!.words).toEqual({ key: "ingest.merge.see", varKeys: { target: "ingest.target.dies" }, lowerKeys: ["target"] });
     for (const t of INGEST_TARGETS) expect(TARGET_LIST_PATH[t]).toMatch(/^\//);
   });
 
@@ -66,7 +66,7 @@ describe("merge result (M14)", () => {
 
   test("planning shows no number", () => {
     const view = mergeView({ state: "planning" }, [result({ state: "approved", rowsCreate: 5 })], pump({ chunksTotal: 0 }));
-    expect(view.status).toMatchObject({ value: null, unit: null, meta: { key: "ingest.merge.planning" }, progress: null });
+    expect(view.status).toMatchObject({ value: null, unit: null, meta: { key: "ingest.merge.planning" }, progress: "indeterminate" });
     expect(view.canStop).toBe(true);
   });
 

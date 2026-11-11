@@ -96,9 +96,12 @@ export function decisionBar(
   switch (c.state) {
     case "ready":
     case "held":
-      sentence = c.counts.create + c.counts.update === 0
-        ? { key: "ingest.effect.nothing" }
-        : { key: "ingest.effect.line", vars: { create: c.counts.create, update: c.counts.update } };
+      sentence = c.counts.create + c.counts.update > 0
+        ? { key: "ingest.effect.line", vars: { create: c.counts.create, update: c.counts.update } }
+        // Rows that wait on an answer are not empty: "Nothing to add" is only for rows that are refused or unchanged.
+        : c.counts.ambiguous + c.counts.conflict > 0
+          ? { key: "ingest.effect.waiting", vars: { count: c.counts.ambiguous + c.counts.conflict } }
+          : { key: "ingest.effect.nothing" };
       break;
     case "approved":
       sentence = { key: "ingest.effect.approved" };
@@ -245,16 +248,23 @@ export function reasonPieces(say: Say, code: string | null, detail: string | nul
   const line = reasonLine(code, detail);
   if (!line) return [];
   // A reason the person typed when holding is their own words, in whatever language they wrote it.
-  if (line.key === null) return detail ? (code === "person" ? [{ text: detail }] : [{ text: detail, lang: "en" }]) : [];
+  if (line.key === null) return detail ? (code === "person" ? [{ text: detail }] : endSentence([{ text: detail, lang: "en" }])) : [];
   const marker = "\u0000";
   const filled = say(line.key, { ...line.vars, ...(line.vars.detail !== undefined ? { detail: marker } : {}) });
-  if (!filled.includes(marker)) return [{ text: filled }];
+  if (!filled.includes(marker)) return endSentence([{ text: filled }]);
   const [before = "", after = ""] = filled.split(marker);
   const pieces: { text: string; lang?: "en" }[] = [];
   if (before) pieces.push({ text: before });
   if (line.vars.detail) pieces.push({ text: line.vars.detail, lang: "en" });
   if (after) pieces.push({ text: after });
-  return pieces;
+  return endSentence(pieces);
+}
+
+/** The reason is a sentence: end it with a full stop when the words (the server's own text) lack one. */
+function endSentence(pieces: { text: string; lang?: "en" }[]): { text: string; lang?: "en" }[] {
+  const last = pieces[pieces.length - 1];
+  if (!last || /[.!?\u0964\u2026]\s*$/.test(last.text)) return pieces;
+  return [...pieces.slice(0, -1), { ...last, text: `${last.text.trimEnd()}.` }];
 }
 
 // ---------------------------------------------------------------------------------------------

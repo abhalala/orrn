@@ -240,6 +240,8 @@ export type Words = {
   varLists?: Record<string, string[]>;
   /** Literal text with no dictionary entry (a date order such as dd/mm/yyyy). Used when `key` is empty. */
   text?: string;
+  /** Names from `varKeys` that sit mid-sentence: their words are lower-cased ("See bundles in stock"). */
+  lowerKeys?: string[];
 };
 
 /** One answer button. Every answer button is secondary: the decision bar holds the one loud element. */
@@ -455,7 +457,7 @@ export function questionText(say: Say, q: Pick<QuestionView, "key" | "vars" | "v
 export function sayWords(say: Say, w: Words): string {
   if (w.key === "") return w.text ?? "";
   const vars: Record<string, string | number> = { ...(w.vars ?? {}) };
-  for (const [name, key] of Object.entries(w.varKeys ?? {})) vars[name] = say(key);
+  for (const [name, key] of Object.entries(w.varKeys ?? {})) vars[name] = w.lowerKeys?.includes(name) ? say(key).toLocaleLowerCase() : say(key);
   for (const [name, keys] of Object.entries(w.varLists ?? {})) vars[name] = keys.map((k) => say(k)).join(", ");
   return say(w.key, vars);
 }

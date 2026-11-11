@@ -19,12 +19,15 @@ export function UploadStrip({
   onRetry,
   onRemove,
   headingId,
+  storageNoticeShown,
 }: {
   entries: StripEntry[];
   onRetry: (id: string) => void;
   onRemove: (id: string) => void;
   /** The heading is shared with the staged files, so the screen draws it. */
   headingId: string;
+  /** The page already says the original file is not kept: a file does not say it again. */
+  storageNoticeShown?: boolean;
 }) {
   const { t } = useT();
   const { say, words } = useSay();
@@ -66,7 +69,7 @@ export function UploadStrip({
                 ) : line ? (
                   <p className={problem ? "m-0 text-[14px] leading-6 break-words text-tone-amber-ink" : "m-0 text-[14px] leading-6 break-words text-muted-foreground"}>{line}</p>
                 ) : null}
-                {entry.notStored ? <p className="m-0 text-[13px] text-muted-foreground">{t("ingest.vault.notStored")}</p> : null}
+                {entry.notStored && !storageNoticeShown ? <p className="m-0 text-[13px] text-muted-foreground">{t("ingest.vault.notStored")}</p> : null}
                 {entry.canonicalMissing ? <p className="m-0 text-[13px] text-muted-foreground">{t("ingest.read.canonicalMissing")}</p> : null}
               </div>
               <IconButton label={`${t("common.remove")}: ${entry.name}`} icon={<X aria-hidden="true" />} onClick={() => onRemove(entry.id)} />

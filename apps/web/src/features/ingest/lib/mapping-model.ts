@@ -11,6 +11,7 @@ import {
 
 import { TARGET_KEY, unitLabelKey, type UnitChoice, type Words } from "./model";
 import type { PlantUnits } from "./plant-units";
+import { enumValueKey } from "./row-values";
 import {
   buildRecipe,
   checkRecipe,
@@ -212,7 +213,8 @@ export type Preview =
   | { kind: "willNotImport" }
   | { kind: "hidden" }
   | { kind: "ask" }
-  | { kind: "value"; text: string; unit: string; mono: boolean }
+  /** `textKey` is an enum value's words (`ingest.enumValue.active`): say it instead of `text`. */
+  | { kind: "value"; text: string; unit: string; mono: boolean; textKey?: string }
   | { kind: "error"; words: Words };
 
 export type ColumnEntry = {
@@ -271,6 +273,11 @@ function previewFor(
     const iso = parseDate(sample, entry.dateFormat);
     if (iso === null) return { kind: "error", words: { key: "ingest.refuse.bad_date", vars: { field: "" }, varKeys: { field: fieldLabelKey(def.name) } } };
     return { kind: "value", text: plant.day(iso), unit: "", mono: false };
+  }
+  if (def.kind === "enum") {
+    // What orrn stores is a code ("active"); the person reads its label ("Active"), never the code.
+    const key = enumValueKey(sample.trim().toLowerCase().replace(/[\s-]+/g, "_"));
+    if (key) return { kind: "value", text: "", unit: "", mono: false, textKey: key };
   }
   return { kind: "value", text: sample.length > SAMPLE_CUT ? cut(sample) : sample, unit: "", mono: false };
 }

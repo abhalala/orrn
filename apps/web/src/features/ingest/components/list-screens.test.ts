@@ -192,6 +192,14 @@ describe("files being added", () => {
     expect(html).not.toContain("Review");
   });
 
+  test("a file does not say the original is not kept when the page already says it", () => {
+    const entries = uploadStrip([item({ step: "done", artifactId: "a1", notStored: true })], [cand({ id: "c9" })], fmt);
+    const once = render(createElement(UploadStrip, { entries, headingId: "h", onRetry: () => {}, onRemove: () => {} }));
+    expect(once).toContain("Original file not kept");
+    const quiet = render(createElement(UploadStrip, { entries, headingId: "h", onRetry: () => {}, onRemove: () => {}, storageNoticeShown: true }));
+    expect(quiet).not.toContain("Original file not kept");
+  });
+
   test("a file seen before says when it was added and offers Open it", () => {
     const html = strip([item({ step: "seenBefore", artifactId: "a1", seenOn: Date.UTC(2026, 10, 11) })]);
     expect(html).toContain("You added this file on 11 Nov.");
@@ -317,6 +325,14 @@ describe("candidates list", () => {
     expect(html).toContain("Nothing under Merged right now.");
   });
 
+  test("an import that has not been counted yet shows no counts, not a row of zeros", () => {
+    const html = render(board([cand({ id: "n1", state: "needs_shape", target: null, sheetName: null, counts: { total: 0, create: 0 } })], { initialSegment: "needsYou" }));
+    expect(html).toContain("Needs a layout");
+    expect(html).not.toContain("Cannot import");
+    expect(html).not.toContain("Questions");
+    expect(html).not.toContain('text-muted-foreground">0</span>');
+  });
+
   test("each stacked row names the layout, the four counts and numbers in mono", () => {
     const html = render(board([cand({ id: "r1", counts: { total: 1400, create: 1400, update: 0, refused: 0 } })], { initialSegment: "ready" }));
     expect(html).toContain("Known layout");
@@ -422,10 +438,12 @@ describe("merge screen", () => {
     expect(html).not.toContain("font-mono text-[13px]");
   });
 
-  test("planning: the same block says Planning the merge and shows no number", () => {
+  test("planning: the same block says Planning the merge and shows no number, with a moving bar so it is not blank", () => {
     const html = merge(run({ state: "planning", chunksTotal: 0, candidates: two }));
     expect(html).toContain("Planning the merge");
     expect(html).not.toContain('data-slot="big-number"');
+    expect(html).toContain('role="progressbar"');
+    expect(html).not.toContain("aria-valuenow");
     expect(html).toContain("Stop after this part");
   });
 
@@ -441,15 +459,18 @@ describe("merge screen", () => {
     expect(html).toContain("2,00,001");
     expect(html).toContain("rows added");
     expect(html).toContain("3 updated");
+    expect(html).not.toContain("Merge finished</span>");
     expect(html).toContain("Back to imports");
-    expect(html).toContain("See Dies");
+    expect(html).toContain("See dies");
     expect(html).toContain('href="/dies"');
-    expect(html).toContain("See Bundles in stock");
+    expect(html).toContain("See bundles in stock");
     expect(html).toContain('href="/stock/bundles"');
     expect(count(html, 'data-variant="primary"')).toBe(1);
     expect(html).not.toContain("Stop after this part");
-    // The result heading takes focus when the run finishes.
-    expect(html).toContain('tabindex="-1" class="sr-only outline-none">Merge finished</h2>');
+    // A named group takes focus when the run finishes. There is no second heading that repeats the page title.
+    expect(html).toContain('role="group" tabindex="-1" aria-label="Merge finished"');
+    expect(html).not.toContain("</h2>Merge finished");
+    expect(html).not.toMatch(/<h2[^>]*>Merge finished/);
   });
 
   test("done with a hold: amber, the held import first with its reason in full and Open, zero counts left out", () => {
@@ -461,6 +482,7 @@ describe("merge screen", () => {
       ],
     }));
     expect(html).toContain('data-tone="amber"');
+    expect(html).toContain("Merged with holds");
     expect(html).toContain("1 import not merged");
     // The 500 rows of the held import are not in the headline.
     expect(html).toContain('<span class="sr-only">2</span>');
@@ -470,6 +492,23 @@ describe("merge screen", () => {
     expect(html).toContain("Added ");
     expect(html).not.toContain("Updated 0");
     expect(html).toContain('data-tone="blue"');
+  });
+
+  test("one row added reads as a singular", () => {
+    const html = merge(run({
+      state: "done", chunksWritten: 1,
+      candidates: [result({ candidateId: "c1", state: "merged", rowsWritten: 1, rowsCreate: 1, rowsUpdate: 0 })],
+    }));
+    expect(html).toContain(">row added<");
+    expect(html).not.toContain("1 rows added");
+  });
+
+  test("a reason without a full stop gets one", () => {
+    const html = merge(run({
+      state: "done_with_holds", chunksWritten: 1, chunksFailed: 1,
+      candidates: [result({ candidateId: "c1", state: "held", rowsWritten: 0, rowsCreate: 5, reasonCode: "merge_failed", reasonDetail: "Section is archived" })],
+    }));
+    expect(html).toContain('<span lang="en">Section is archived.</span>');
   });
 
   test("stopped: Merge stopped with the parts written and Merge the rest as the primary action", () => {
