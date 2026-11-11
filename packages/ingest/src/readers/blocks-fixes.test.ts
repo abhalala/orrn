@@ -61,3 +61,17 @@ describe("C15: a short letterhead or title row is not the header", () => {
   });
 });
 
+describe("C33: a footer after a blank row is not a new block", () => {
+  test("Prepared by and Checked by under the table", () => {
+    const blocks = findBlocks([
+      ["Sr", "Section", "Qty"],
+      [1, "2105", 4],
+      [2, "2106", 5],
+      [],
+      ["Prepared by", "", "Checked by"],
+    ]);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]!.headers).toEqual(["Sr", "Section", "Qty"]);
+  });
+});
+

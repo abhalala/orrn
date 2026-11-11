@@ -191,7 +191,9 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
         for (let k = j; k < Math.min(n, j + 4); k++) {
           const cand = rows[k]!;
           if (nonBlank(cand) <= 1) continue;
-          found = startsNewBlock(cand, data.slice(-200), headers.length);
+          // A new table needs a data row right under its header; a footer such as "Prepared by" has none (C33).
+          const below = rows[k + 1];
+          found = below !== undefined && nonBlank(below) > 0 && !isHeaderLike(below) && startsNewBlock(cand, data.slice(-200), headers.length);
           break;
         }
       }
