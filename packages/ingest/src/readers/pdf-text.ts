@@ -6,7 +6,7 @@
  * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `findBlocks` like a sheet.
  */
 import { cellKind, inferKind } from "../cells";
-import { combineHeaders, findBlocks, finishShape, HintError, isHeaderLike, isWord, TITLE_MARK, unsureReasons } from "./blocks";
+import { checkHintShape, combineHeaders, findBlocks, finishShape, HintError,isHeaderLike, isWord, TITLE_MARK, unsureReasons } from "./blocks";
 import { PREVIEW_ROWS, UNSURE_REASONS, type BlockHints, type PreviewRow, type ReadBlock, type RowWarning, type UnsureReason } from "./types";
 
 export type TextItem = {
@@ -812,6 +812,7 @@ function readPdfByHints(
     return v;
   };
   const hints = hintsIn.map((h) => {
+    checkHintShape(h);
     const page = h.page ?? 1;
     if (!Number.isInteger(page) || page < 1 || page > pages.length) throw new HintError("hint_out_of_range", `page ${page} is not in the file`);
     const lastPage = h.lastPage ?? page;

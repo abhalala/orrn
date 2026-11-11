@@ -266,6 +266,20 @@ export class HintError extends Error {
   }
 }
 
+/**
+ * Hints cross JSON between the web and the server, so the type alone proves nothing (R3-8). The header has one or two
+ * rows; the header row, the first data row and the last data row are whole numbers when given; the page fields too.
+ */
+export function checkHintShape(h: BlockHints): void {
+  const whole = (v: unknown) => typeof v === "number" && Number.isInteger(v);
+  const optional = (v: unknown) => v === undefined || whole(v);
+  if (!whole(h.headerRow)) throw new HintError("hint_out_of_range", "the header row is not a row number");
+  if (h.headerRows !== undefined && h.headerRows !== 1 && h.headerRows !== 2) throw new HintError("hint_out_of_range", "the header has one or two rows");
+  if (!optional(h.firstDataRow)) throw new HintError("hint_out_of_range", "the first data row is not a row number");
+  if (h.lastDataRow !== null && !optional(h.lastDataRow)) throw new HintError("hint_out_of_range", "the last data row is not a row number");
+  if (!optional(h.page) || !optional(h.lastPage)) throw new HintError("hint_out_of_range", "the page is not a page number");
+}
+
 /** One sheet read: its blocks, and rows that no block took. */
 export type SheetRead = { blocks: ReadBlock[]; warnings: RowWarning[] };
 
@@ -293,6 +307,7 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
 /** Follow the hints exactly: no header search, no title test, no table split. */
 function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], sheetName: string | null): SheetRead {
   const n = rows.length;
+  for (const h of hintsIn) checkHintShape(h);
   const hints = [...hintsIn].sort((a, b) => a.headerRow - b.headerRow);
   const blocks: ReadBlock[] = [];
   let regionStart = 0;
