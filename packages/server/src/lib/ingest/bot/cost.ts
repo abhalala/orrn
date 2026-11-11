@@ -94,3 +94,16 @@ export function estimateTokens(chars: number): number {
 export function worstCaseCostMicro(model: string, inputTokens: number, maxOutputTokens: number): number {
   return costOfUsage(model, { input: 0, output: maxOutputTokens, cacheRead: 0, cacheWrite: inputTokens });
 }
+
+/** The models the server may run after the planned one when a call asks for fallbacks (client.ts). */
+export const SERVER_FALLBACKS: Record<string, readonly string[]> = { "claude-sonnet-5-5": ["claude-sonnet-5"] };
+
+/**
+ * The most one call can cost, fallbacks included (A8): with fallbacks on, the server may bill the
+ * planned model and then each fallback model, each with the full output budget. A claim stores this,
+ * so a call whose fallback runs never takes the day past the cost cap.
+ */
+export function worstCaseCallCostMicro(model: string, inputTokens: number, maxOutputTokens: number, fallbacks: boolean): number {
+  const chain = [model, ...(fallbacks ? (SERVER_FALLBACKS[model] ?? []) : [])];
+  return chain.reduce((sum, m) => sum + worstCaseCostMicro(m, inputTokens, maxOutputTokens), 0);
+}
