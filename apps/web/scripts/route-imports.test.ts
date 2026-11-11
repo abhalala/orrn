@@ -47,4 +47,18 @@ describe("route files import no view code that is meant to be lazy", () => {
     }
     expect(hits).toEqual([]);
   });
+  // Vite warns "does not export a Route" for any file under routes/ that is not a route, and the router plugin
+  // reads it as a route. Tests sit beside the feature code they test (`features/<area>/*.test.tsx`).
+  test("no test file sits in the routes folder", () => {
+    const tests: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.test\.tsx?$/.test(name)) tests.push(path.split("/src/")[1]!);
+      }
+    };
+    walk(join(import.meta.dir, "../src/routes"));
+    expect(tests).toEqual([]);
+  });
 });

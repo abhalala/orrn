@@ -12,7 +12,7 @@ import { screenPrefs } from "@orrn/domain";
 import { I18nProvider } from "@orrn/i18n";
 
 const { FmtProvider } = await import("@/shared/lib/fmt");
-const { OpenOrders } = await import("@/features/customers/open-orders");
+const { OpenOrders } = await import("./open-orders");
 
 const ORDERS = { orderedG: 5_000_000, dispatchedG: 1_234_567_000, bakiG: 0, lines: 3 };
 const render = (prefs: ReturnType<typeof screenPrefs> | undefined) =>
@@ -45,7 +45,7 @@ describe("customer order book cells", () => {
 });
 
 describe("the other customer figures carry no hand-written kg formatter", () => {
-  const read = (f: string) => readFileSync(join(import.meta.dir, f), "utf8");
+  const read = (f: string) => readFileSync(join(import.meta.dir, "../../routes/_tenant", f), "utf8");
   for (const f of ["customers.$id.tsx", "customers.index.tsx"]) {
     test(`${f} writes weights through the plant formatter`, () => {
       const src = read(f);
