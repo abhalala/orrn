@@ -376,11 +376,16 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     const h = hint.headerRow;
     const headerRows = hint.headerRows ?? 1;
     if (h < 0 || h + headerRows > n) throw new HintError("hint_out_of_range", `header row ${h} is not in the sheet`);
+    // A header with no name in it is not a header (H5): blank header rows are a hint error, not blank column names.
+    if (rows.slice(h, h + headerRows).every((r) => nonBlank(r) === 0)) throw new HintError("hint_out_of_range", `header row ${h} is blank`);
     if (h <= prevLast) throw new HintError("hint_overlap", `header row ${h} is inside the block above`);
     const next = hints[x + 1];
     if (next && next.headerRow < h + headerRows) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the header above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
+    // A first data row the person named must be a row of the sheet (H12). With none named, a header on the last row
+    // is a block with no rows.
+    if (hint.firstDataRow != null && first >= n) throw new HintError("hint_out_of_range", `first data row ${first} is not in the sheet`);
     const last = hint.lastDataRow ?? Math.max(first - 1, lastFilled(rows as string[][], first, next ? next.headerRow - 1 : n - 1));
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
