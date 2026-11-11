@@ -14,6 +14,8 @@ import { windowWords } from "@/features/orders/view";
 
 import * as oldCustomers from "../../../test-support/legacy/customers-dates";
 import { formatDay as customersDay, formatInstantDay, formatDispatchDay } from "@/features/customers/dates";
+import * as oldMasters from "../../../test-support/legacy/masters-model";
+import { formatDay as mastersDay } from "@/features/masters/masters-model";
 import * as oldFoundry from "../../../test-support/legacy/foundry-format";
 import { clockText as foundryClock, dayText as foundryDay } from "@/features/foundry/format";
 import * as oldDieRoom from "../../../test-support/legacy/die-room-model";
@@ -141,5 +143,16 @@ describe("customer dates", () => {
         }
       }
     }
+  });
+});
+
+describe("masters dates", () => {
+  test("formatDay: '4 Oct' or '31 Dec 2025', English month names in every screen language", () => {
+    for (const loc of ["en", "hi"] as const) {
+      for (const at of SEEDS) for (const today of ["2026-10-04", "2025-01-02"]) {
+        expect(mastersDay(dflt(loc), ymdOf(at), today)).toBe(oldMasters.formatDay(ymdOf(at), today));
+      }
+    }
+    expect(mastersDay(dflt(), "not a date", "2026-10-04")).toBe("not a date");
   });
 });
