@@ -426,7 +426,7 @@ export const guFoundry = {
       furnacesSubtitle: "દરેક furnace ની ક્ષમતા છે. તેનાથી વધુ metal ભરીને melt લૉક થઈ શકતો નથી.",
       alloys: "Alloy",
       alloysSubtitle: "Spectro પરિણામ જે તત્વો અને મર્યાદા સામે તપાસાય છે.",
-      billetDia: "Billet ની સાઇઝ (mm)",
+      billetDia: "Billet ની સાઇઝ ({lengthUnit})",
       capacity: "ક્ષમતા",
       noFurnace: "હજી કોઈ furnace નથી.",
       noFurnaceBody: "Furnace ઉમેરો, અથવા પ્લાન્ટનો મૂળ furnace એક સાથે ઉમેરો.",
