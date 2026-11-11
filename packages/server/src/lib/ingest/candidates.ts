@@ -708,6 +708,9 @@ export async function decideRows(
   if (input.decision !== "skip" && rows.some((r) => r.state !== "ambiguous" && r.state !== "conflict")) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Only rows that need a choice can take one" });
   }
+  if (input.decision !== "skip" && rows.some((r) => (r.reasons ?? []).some((x) => x.startsWith("q:")))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Answer the question above for these rows, or skip them" });
+  }
   if (input.decision === "use_match") {
     for (const r of rows) {
       const opts = ((r.values?._options as { options: { id: string }[] }[] | undefined) ?? []).flatMap((o) => o.options.map((x) => x.id));

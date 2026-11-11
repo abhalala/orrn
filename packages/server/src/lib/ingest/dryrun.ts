@@ -465,20 +465,53 @@ export function classifyRow(values: Values, cx: ClassifyCtx): RowOutcome {
   return { state: "ready_create", values, reasons, matchId: null, diff: null };
 }
 
-/** Plan B7 decisions on ambiguous and conflict rows. */
-export function applyDecision(out: RowOutcome, row: Pick<Staged, "decision" | "matchId">): RowOutcome {
+/** Whether every lookup a new record of this target needs came out resolved. */
+export function lookupsResolved(target: IngestTarget, values: Values | null): boolean {
+  const ids = ((values?._ids ?? {}) as Record<string, string>) ?? {};
+  const section = !!ids.sectionCode || values?.legacyDie === true;
+  switch (target) {
+    case "orders":
+      return !!ids.customer && section;
+    case "bundles":
+    case "die_copies":
+      return section;
+    case "customer_aliases":
+      return !!ids.customer;
+    case "vendor_aliases":
+      return !!ids.vendor;
+    default:
+      return true;
+  }
+}
+
+/**
+ * Plan B7 decisions on ambiguous and conflict rows. A decision applies only when it still fits what
+ * the re-run found (A11): a row that waits on a question stays waiting, `use_match` needs that record
+ * among the row's options, `keep_file` needs a live record, `create_new` needs every lookup resolved.
+ * A decision that does not fit leaves the row ambiguous or in conflict, so it still blocks approve.
+ */
+export function applyDecision(out: RowOutcome, row: Pick<Staged, "decision" | "matchId">, target: IngestTarget): RowOutcome {
   const d = row.decision;
   if (!d) return out;
   if (d === "skip") return { ...out, state: "skipped" };
   if (out.state !== "ambiguous" && out.state !== "conflict") return out;
+  if (out.reasons.some((r) => r.startsWith("q:"))) return out;
   switch (d) {
-    case "use_match":
-      return { ...out, state: "ready_update", matchId: row.matchId ?? out.matchId };
-    case "keep_file":
-      return { ...out, state: "ready_update" };
+    case "use_match": {
+      const options = ((out.values?._options as { options: { id: string }[] }[] | undefined) ?? []).flatMap((o) => o.options.map((x) => x.id));
+      const id = row.matchId ?? out.matchId;
+      if (!id || (out.state === "ambiguous" && !options.includes(id)) || !lookupsResolved(target, out.values)) return out;
+      return { ...out, state: "ready_update", matchId: id };
+    }
+    case "keep_file": {
+      const id = row.matchId ?? out.matchId;
+      if (!id) return out;
+      return { ...out, state: "ready_update", matchId: id };
+    }
     case "keep_live":
       return { ...out, state: "unchanged" };
     case "create_new":
+      if (!lookupsResolved(target, out.values)) return out;
       return { ...out, state: "ready_create", matchId: null };
   }
 }
@@ -571,7 +604,7 @@ export async function undecidedRows(ctx: Pick<IngestCtx, "db">, candidateId: str
       and(
         eq(ingestStagedRow.candidateId, candidateId),
         inArray(ingestStagedRow.state, ["ambiguous", "conflict"]),
-        isNull(ingestStagedRow.decision),
+        // A decided row that is still ambiguous or in conflict: its decision did not fit (A11).
         sql`coalesce(${ingestStagedRow.reasons}, '[]') not like '%"q:%'`,
       ),
     );
@@ -721,7 +754,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         forced: r.decision === "use_match" ? r.matchId : null,
         newCustomerRef: newCustomerRef(r.rowIndex),
       });
-      out = applyDecision(out, r);
+      out = applyDecision(out, r, c.target);
       out.reasons = [...keep, ...out.reasons];
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);

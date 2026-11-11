@@ -509,3 +509,43 @@ describe("A9: a bot or editor layout stores normalized headers, so a variant nea
     expect(saved.recipe).toMatchObject({ match: { headers: ["khata", "gaam"] } });
   });
 });
+
+describe("A11: a row decision applies only when it fits the re-run", () => {
+  test("keep_file on a near name with no live record does not make the row ready", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    const { candidates } = await upload(p.admin, [{ headers: CUSTOMERS.headers, rows: [["Acme Trader", "", "Surat"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.admin, id);
+    let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    const row = (await p.admin.ingest.rows.list({ candidateId: id })).items[0]!;
+    expect(row.state).toBe("ambiguous");
+    expect(row.matchId).toBeNull();
+    await p.admin.ingest.rows.decide({ candidateId: id, rowIds: [row.id], decision: "keep_file", expectSeq: c.serverSeq });
+    await pump(p.admin, id);
+    c = await p.admin.ingest.candidate.get({ candidateId: id });
+    expect((await p.admin.ingest.rows.list({ candidateId: id })).items[0]!.state).toBe("ambiguous");
+    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    // use_match on the listed option does resolve it.
+    await p.admin.ingest.rows.decide({ candidateId: id, rowIds: [row.id], decision: "use_match", matchId: row.options[0]!.id, expectSeq: c.serverSeq });
+    const done = await pump(p.admin, id);
+    expect(done.counts.ambiguous).toBe(0);
+  });
+
+  test("an order row waiting on the new customers question takes no row decision but skip", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe({
+      fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => (f.field === "rate" ? { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] } : f)),
+      unclear: [],
+    }), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    const c = await p.owner.ingest.candidate.get({ candidateId: id });
+    const row = (await p.owner.ingest.rows.list({ candidateId: id })).items[0]!;
+    expect(row.reasons).toContain("q:customer_new");
+    await expect(
+      p.owner.ingest.rows.decide({ candidateId: id, rowIds: [row.id], decision: "create_new", expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/Answer the question/);
+  });
+});
