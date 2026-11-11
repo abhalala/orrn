@@ -27,6 +27,7 @@ const INGEST_TABLES = [
   "ingest_hole_version",
   "ingest_merge_chunk",
   "ingest_merge_run",
+  "ingest_order_key",
   "ingest_staged_row",
 ];
 
