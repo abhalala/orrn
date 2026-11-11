@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7510 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7509 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1094,7 +1094,7 @@ Counts: 7510 screen strings in 49 groups, 45 guides with 866 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (252)
+### dispatch (251)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1135,8 +1135,7 @@ Counts: 7510 screen strings in 49 groups, 45 guides with 866 strings.
 | `late.approvedFor` | A manager approved {when}. Press Dispatch to make the packing list. | मैनेजर ने {when} मंज़ूर किया। पैकिंग लिस्ट बनाने के लिए Dispatch दबाएं। |
 | `late.useAnother` | Use another time | दूसरा समय भरें |
 | `late.anotherAsks` | Another time asks a manager again. | दूसरा समय भरने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
-| `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
-| `late.loadChangedOld` | The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves. | मैनेजर के यह समय मंज़ूर करने के बाद बंडल बदल गए। माल वैसा ही करें जैसा मंज़ूर हुआ था, या गाड़ी निकलने के समय पर Dispatch करें। |
+| `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager to approve that time again for the bundles on it now. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से अभी के बंडल के लिए वही समय फिर मंज़ूर करने को कहा जाएगा। |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
 | `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} kg over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} kg ज़्यादा |
 | `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
@@ -8864,6 +8863,6 @@ Please check, Lalubhai:
 | Problem 3 | I typed another time after asking | मांगने के बाद दूसरा समय भरा |
 | Fix 3 | Tap "Use another time" in the sheet. A new time asks again and the old request is withdrawn. Ask the manager to approve the new one. | शीट में "दूसरा समय भरें" दबाएं। नया समय फिर से मांग भेजता है और पुरानी मांग वापस हो जाती है। मैनेजर से नई मांग मंज़ूर करवाएं। |
 | Problem 4 | I added or took off bundles after the approval | मंज़ूरी के बाद bundle जोड़े या हटाए |
-| Fix 4 | The approval covers the bundles on the dispatch when it was asked. Tap "Dispatch" to ask again. After 72 hours that is not possible: put the load back as it was approved, or dispatch it at the time it leaves. | मंज़ूरी उन bundle के लिए है जो मांगते समय dispatch पर थे। फिर से मांगने के लिए "Dispatch करें" दबाएं। 72 घंटे के बाद यह नहीं हो सकता: माल वैसा ही करें जैसा मंज़ूर हुआ था, या गाड़ी निकलने के समय पर dispatch करें। |
+| Fix 4 | The approval covers the bundles on the dispatch when it was asked. Tap "Dispatch" with the same time: a manager is asked to approve that time again for the bundles on it now. This works after the 72 hours too, for the same time only. | मंज़ूरी उन bundle के लिए है जो मांगते समय dispatch पर थे। उसी समय के साथ "Dispatch करें" दबाएं: मैनेजर से अभी के bundle के लिए वही समय फिर मंज़ूर करने को कहा जाता है। यह 72 घंटे के बाद भी चलता है, सिर्फ़ उसी समय के लिए। |
 | Problem 5 | Stock for that day still shows the bundles | उस दिन के स्टॉक में bundle अभी भी दिखते हैं |
 | Fix 5 | When the packing was also entered late, the bundles leave stock just after their packing entry. Stock at the end of the day the truck left can still show them, while the dispatch register shows the load on that day. From the next day both agree, and nothing is counted twice. | जब पैकिंग भी देर से भरी हो, तो bundle अपनी पैकिंग एंट्री के ठीक बाद स्टॉक से निकलते हैं। गाड़ी निकलने वाले दिन के आखिर का स्टॉक उन्हें अभी भी दिखा सकता है, जबकि dispatch रजिस्टर माल उसी दिन दिखाता है। अगले दिन से दोनों मिल जाते हैं, और कुछ दो बार नहीं गिना जाता। |

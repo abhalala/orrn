@@ -970,8 +970,10 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   `occurredAt` it was asked for and the load in its meta (`bundles`, `weightG`, review 7); another time
   withdraws a waiting ask ("Withdrawn: asked again with another time.") and asks again, and so does a
   changed load ("Withdrawn: the bundles on the dispatch changed."). The 72 h window is measured only
-  when a new request would open: an approved time stands after the 72 hours (review 1); past them a
-  changed load is refused ("The bundles changed after a manager approved this time. ..."). The
+  when a new request would open: an approved time stands after the 72 hours (review 1); past them only
+  a time this dispatch already asked for (approved or waiting) may be asked again, so a manager can
+  approve a corrected load for that same time (check N1). The load is the bundle count, grams and a
+  SHA-256 of the sorted bundle ids (`bundlesHash`, check N7). The
   dispatch stores the approved request's reason, never the one typed on the second press (review 4).
   `getDispatch` returns `lateEntry` `{ status: pending|approved|changed, occurredAt, reason,
   approvalId }` for a building or held dispatch, and both Complete sheets fill and lock the time and

@@ -64,8 +64,6 @@ describe("dispatchErrorText: late packing list (arch 52)", () => {
     expect(dispatchErrorText(t, err("CONFLICT", "Bundles on this dispatch changed. Reload and try again."))).toBe(
       "Some bundles changed since this page loaded. The ones that can't go are marked in the list.",
     );
-    // Review 7: approved for other bundles, past the 72 hours.
-    expect(dispatchErrorText(t, err("BAD_REQUEST", "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves."))).toBe("The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.");
   });
 });
 

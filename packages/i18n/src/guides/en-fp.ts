@@ -1364,7 +1364,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "I added or took off bundles after the approval",
-        fix: "The approval covers the bundles on the dispatch when it was asked. Tap \"Dispatch\" to ask again. After 72 hours that is not possible: put the load back as it was approved, or dispatch it at the time it leaves.",
+        fix: "The approval covers the bundles on the dispatch when it was asked. Tap \"Dispatch\" with the same time: a manager is asked to approve that time again for the bundles on it now. This works after the 72 hours too, for the same time only.",
       },
       {
         title: "Stock for that day still shows the bundles",

@@ -1245,8 +1245,7 @@ export const en = {
       approvedFor: "A manager approved {when}. Press Dispatch to make the packing list.",
       useAnother: "Use another time",
       anotherAsks: "Another time asks a manager again.",
-      loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again.",
-      loadChangedOld: "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.",
+      loadChanged: "The bundles changed after {when} was asked for. Pressing Dispatch asks a manager to approve that time again for the bundles on it now.",
     },
     overTolerance: {
       title: "More than the order",

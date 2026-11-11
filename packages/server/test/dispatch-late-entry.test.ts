@@ -206,25 +206,38 @@ describe("late packing-list entry (arch 52)", () => {
     expect(row).toMatchObject({ lateEntryApprovalId: second.id });
   }, SLOW);
 
-  test("review 7: past the 72 hours, a load changed after approval is refused and says why; putting it back completes", async () => {
-    setClock(NOW);
+  test("check N1: approved at 73 h, a missed bundle added: Dispatch asks again for that same time, a manager approves, it completes at that time with the corrected load", async () => {
+    // The truck leaves Friday 18:00 (IST); the paper PL is entered Monday 06:00; a manager approves Monday 19:00.
+    const friday1800 = Date.parse("2026-11-06T12:30:00.000Z");
+    setClock(new Date(friday1800 - 8 * H));
     const { p, id } = await heldDispatch();
     const c = p.as("office");
-    const occurredAt = NOW.getTime() - 60 * H;
-    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined);
-    const [req] = await lateRows(p.companyId);
-    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
-    const [more] = await p.pack(p.dieA, [{ kg: 60 }]);
-    await p.owner.dispatch.addBundlesBySerial({ id, serials: [more!], allowUnassigned: true });
-    setClock(new Date(NOW.getTime() + 13 * H));
-    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      message: "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.",
+    setClock(new Date(Date.parse("2026-11-09T00:30:00.000Z")));
+    await c.dispatch.complete({ id, occurredAt: friday1800, lateReason: "Line down all weekend" }).catch(() => undefined);
+    const [first] = await lateRows(p.companyId);
+    setClock(new Date(Date.parse("2026-11-09T13:30:00.000Z")));
+    await p.as("manager").approval.decide({ id: first!.id, decision: "approved" });
+    // A bundle on the paper PL was not scanned: added now, 73 h after the truck left.
+    const [missed] = await p.pack(p.dieA, [{ kg: 60 }]);
+    await p.owner.dispatch.addBundlesBySerial({ id, serials: [missed!], allowUnassigned: true });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "changed", occurredAt: friday1800 });
+    await expect(c.dispatch.complete({ id, occurredAt: friday1800, lateReason: "Line down all weekend" })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: "Entered late: a second person has to approve the dispatch time before this dispatch can complete.",
     });
-    expect(await lateRows(p.companyId)).toHaveLength(1);
-    const added = (await c.dispatch.getDispatch({ id })).items.find((i) => i.serial === more)!;
-    await p.owner.dispatch.removeBundle({ id, bundleId: added.bundleId });
-    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
+    const second = (await lateRows(p.companyId)).find((r) => r.status === "pending")!;
+    expect(second.meta).toMatchObject({ occurredAt: friday1800, bundles: 2, weightG: 110_000 });
+    // No other time can be asked past 72 hours.
+    await expect(c.dispatch.complete({ id, occurredAt: friday1800 + 60_000, lateReason: "Line down" })).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "A late packing list can go back at most 72 hours.",
+    });
+    await p.as("manager").approval.decide({ id: second.id, decision: "approved" });
+    await expect(c.dispatch.complete({ id, occurredAt: friday1800, lateReason: "Line down all weekend" })).resolves.toMatchObject({ success: true });
+    const [row] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
+    expect(row).toMatchObject({ status: "completed", lateEntryApprovalId: second.id });
+    expect(row!.completedAt!.getTime()).toBe(friday1800);
+    expect((await c.dispatch.getDispatch({ id })).items.map((i) => i.serial).sort()).toHaveLength(2);
   }, SLOW);
 
   test("check N7: an approval covers which bundles, not only how many and how heavy: an equal-weight swap asks again", async () => {

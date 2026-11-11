@@ -368,9 +368,6 @@ function sameLateLoad(meta: Record<string, unknown> | null | undefined, load: La
   return meta?.bundles === load.bundles && meta?.weightG === load.weightG && meta?.bundlesHash === load.bundlesHash;
 }
 
-export const LATE_LOAD_CHANGED =
-  "The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves.";
-
 /** The items `getDispatch` lists (newest first); totals and the off-band counts cover all of them. */
 const ITEMS_READ = 500;
 
@@ -380,8 +377,9 @@ const ITEMS_READ = 500;
  * another time.") or left as it is, and the caller refuses. Meta: time and reason only.
  * Review 4: the reason returned is the one the manager approved; a different reason typed on the
  * second press is ignored.
- * Review 7: the request pins the load (bundle count and grams); an approval covers that load only.
- * Bundles added or taken off after it ask again, or, past the 72 hours, refuse until the load is put back.
+ * Review 7 and check N7: the request pins the load (bundle count, grams and which bundles); an approval
+ * covers that load only. Bundles added, taken off or swapped after it ask again for the same time, even
+ * past the 72 hours (check N1).
  */
 async function askLateEntry(
   ctx: OverdrawCtx,
@@ -404,14 +402,11 @@ async function askLateEntry(
   // Not approved for this time: the window and the reason are measured now, before anything is asked.
   const gate = lateDispatchGate(occurredAt, reason, clockNow().getTime());
   if (gate.kind === "future") throw new TRPCError({ code: "BAD_REQUEST", message: "The dispatch time can't be in the future." });
-  if (gate.kind === "tooOld") {
-    const otherLoad = rows.some((r) => r.status === "approved" && r.meta?.occurredAt === occurredAt);
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: otherLoad
-        ? LATE_LOAD_CHANGED
-        : "A late packing list can go back at most 72 hours.",
-    });
+  // Check N1: past the 72 hours only a time this dispatch already asked for (approved or waiting; it
+  // passed the 72 hours when it opened) may be asked again, so a manager can approve the corrected load.
+  const askedBefore = rows.some((r) => (r.status === "approved" || r.status === "pending") && r.meta?.occurredAt === occurredAt);
+  if (gate.kind === "tooOld" && !askedBefore) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "A late packing list can go back at most 72 hours." });
   }
   if (gate.kind === "noReason") throw new TRPCError({ code: "BAD_REQUEST", message: "Give the reason the packing list is entered late." });
   if (forTime.some((r) => r.status === "pending")) return { approvedId: null, reason: reason.trim() };
