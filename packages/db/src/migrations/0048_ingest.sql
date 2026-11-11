@@ -231,6 +231,7 @@ CREATE TABLE `ingest_staged_row` (
 	`row_index` integer NOT NULL,
 	`raw` text NOT NULL,
 	`values` text,
+	`entered` text,
 	`state` text DEFAULT 'pending' NOT NULL,
 	`reasons` text,
 	`match_id` text,
