@@ -27,12 +27,12 @@
  *   sha256(candidateId|target|holeRef|rowFrom|rowTo|sha256(rowIds)). Same rows, same id.
  */
 import { TARGET_ORDER } from "@orrn/ingest";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import { ingestCandidate, ingestMergeChunk, ingestStagedRow, type IngestTarget } from "@orrn/db/schema/ingest";
 import { salesOrder } from "@orrn/db/schema/sales";
 
-import { chunk as chunkList, mapInChunks, type SqliteBatchItem } from "../../atomic";
+import { chunk as chunkList, mapInChunks, rowsPerStatement, type SqliteBatchItem } from "../../atomic";
 import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
 import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing, updateRefusal } from "./adapters";
@@ -411,42 +411,75 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
       const rowTo = run.at(-1)!.rowIndex;
       chunks.push({ id: await chunkIdOf({ candidateId: c.id, target: c.target, holeRef: c.holeRef, rowFrom, rowTo, rowIds }), rowFrom, rowTo, rowIds });
     }
-    const statements: SqliteBatchItem[] = [];
-    chunks.forEach((ch, i) => {
-      const values = {
-        id: ch.id,
-        companyId: ctx.companyId,
-        runId,
-        candidateId: c.id,
-        target: c.target!,
-        seq: firstSeq + i,
-        rowFrom: ch.rowFrom,
-        rowTo: ch.rowTo,
-        rowCount: ch.rowIds.length,
-        state: "planned" as const,
-        attempts: 0,
-        errorCode: null,
-        errorMessage: null,
-        sentAt: null,
-        writtenAt: null,
-      };
-      // A chunk that failed in an earlier run and comes back unchanged keeps its id (and so its
-      // replay key); it moves to this run.
-      const { id: _id, companyId: _c, ...again } = values;
-      statements.push(ctx.db.insert(ingestMergeChunk).values(values).onConflictDoUpdate({ target: ingestMergeChunk.id, set: again }));
-    });
-    // Each row carries its chunk's mark, so the write step reads exactly its rows (B-new-2).
-    for (const ch of chunks) {
-      for (const part of chunkList(ch.rowIds, 90)) {
-        statements.push(
-          ctx.db
-            .update(ingestStagedRow)
-            .set({ mergeState: "queued", committedType: CHUNK_MARK, committedId: ch.id })
-            .where(and(companyNotIndexed(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.id, part), eq(ingestStagedRow.mergeState, "open"))),
-        );
-      }
-    }
-    return { done: false, candidateId: c.id, chunks, statements };
+    return { done: false, candidateId: c.id, chunks, statements: plannedStatements(ctx, runId, c as CandidateRow & { target: IngestTarget }, firstSeq, chunks) };
   }
   return { done: true };
+}
+
+/** Chunk columns bound per row in a multi-row insert. */
+const CHUNK_COLUMNS = 15;
+/** Rows marked by one CASE statement: 3 bound values a row, under 100 (as recordWritten). */
+const MARK_PER_CASE = 30;
+
+/**
+ * The statements that record a page's chunks and mark their rows (M-new-1). Chunks go 6 to an
+ * insert. Each row gets its chunk's mark: a chunk's rows 90 to a statement, and the rest of every
+ * chunk pooled, 30 rows to a statement, through a CASE on the row id. 5,000 one-line orders (500
+ * chunks of 10) take 84 inserts and 167 marks, not 500 and 500.
+ */
+export function plannedStatements(ctx: IngestCtx, runId: string, c: CandidateRow & { target: IngestTarget }, firstSeq: number, chunks: readonly PlannedChunk[]): SqliteBatchItem[] {
+  const statements: SqliteBatchItem[] = [];
+  const values = chunks.map((ch, i) => ({
+    id: ch.id,
+    companyId: ctx.companyId,
+    runId,
+    candidateId: c.id,
+    target: c.target,
+    seq: firstSeq + i,
+    rowFrom: ch.rowFrom,
+    rowTo: ch.rowTo,
+    rowCount: ch.rowIds.length,
+    state: "planned" as const,
+    attempts: 0,
+    errorCode: null,
+    errorMessage: null,
+    sentAt: null,
+    writtenAt: null,
+  }));
+  // A chunk that failed in an earlier run and comes back unchanged keeps its id (and so its replay
+  // key); it moves to this run.
+  const again = Object.fromEntries(
+    ["runId", "candidateId", "target", "seq", "rowFrom", "rowTo", "rowCount", "state", "attempts", "errorCode", "errorMessage", "sentAt", "writtenAt"].map((k) => [
+      k,
+      sql.raw(`excluded.${ingestMergeChunk[k as keyof typeof ingestMergeChunk.$inferSelect].name}`),
+    ]),
+  );
+  for (const part of chunkList(values, rowsPerStatement(CHUNK_COLUMNS))) {
+    statements.push(ctx.db.insert(ingestMergeChunk).values(part).onConflictDoUpdate({ target: ingestMergeChunk.id, set: again }));
+  }
+  // Each row carries its chunk's mark, so the write step reads exactly its rows (B-new-2).
+  const mark = (ids: readonly string[], committedId: SQL | string) =>
+    ctx.db
+      .update(ingestStagedRow)
+      .set({ mergeState: "queued", committedType: CHUNK_MARK, committedId })
+      .where(and(companyNotIndexed(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.id, [...ids]), eq(ingestStagedRow.mergeState, "open")));
+  const pooled: { rowId: string; chunkId: string }[] = [];
+  for (const ch of chunks) {
+    for (const part of chunkList(ch.rowIds, 90)) {
+      if (part.length >= MARK_PER_CASE) statements.push(mark(part, ch.id));
+      else pooled.push(...part.map((rowId) => ({ rowId, chunkId: ch.id })));
+    }
+  }
+  for (const part of chunkList(pooled, MARK_PER_CASE)) {
+    statements.push(
+      mark(
+        part.map((p) => p.rowId),
+        sql`case ${ingestStagedRow.id} ${sql.join(
+          part.map((p) => sql`when ${p.rowId} then ${p.chunkId}`),
+          sql` `,
+        )} end`,
+      ),
+    );
+  }
+  return statements;
 }

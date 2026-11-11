@@ -46,11 +46,24 @@ export const CUSTOMER_STEP_STATEMENTS_MAX = 150;
 /** A step that makes 10 orders of 100 lines: 438 now, 1,418 before (over D1's 1,000 a request). */
 export const ORDER_STEP_STATEMENTS_MAX = 600;
 
+/**
+ * The most statements one planning batch may send. D1 allows 1,000 statements a Worker request;
+ * the step also reads. Planning 5,000 one-line orders sent 1,002 in one batch (M-new-1).
+ */
+export const PLAN_BATCH_STATEMENTS_MAX = 400;
+/**
+ * The most rows one planning step may read, all statements together (Bm5). An orders candidate is
+ * planned in one step, so its sheet is read whole: at most ORDERS_PLAN_MAX_ROWS (5,000) rows, and a
+ * larger one is held, read only that far. Other targets read at most 4,000 rows a step, from where
+ * the last step stopped. Before, the step after the orders page read the 5,000 queued rows again.
+ */
+export const PLAN_ROWS_READ_MAX = 16_000;
+
 const ROWS = 5_000;
 const ORDERS = 1_000;
 
 /** Rows D1 read, and statements sent (D1 allows 1,000 per Worker invocation on the paid plan). */
-type Tally = { rows: number; statements: number };
+type Tally = { rows: number; statements: number; maxBatch?: number };
 
 /**
  * A D1 binding that adds up `meta.rows_read` of every statement and counts the statements. `raw()` and `first()` return no
@@ -98,6 +111,7 @@ function counting(d1: D1Database, tally: Tally): D1Database {
       if (prop === "batch") {
         return async (statements: D1PreparedStatement[]) => {
           tally.statements += statements.length;
+          tally.maxBatch = Math.max(tally.maxBatch ?? 0, statements.length);
           const res = await target.batch(statements.map((s) => real.get(s) ?? s));
           res.forEach((r, i) => add(r.meta, queries.get(statements[i]!) ?? ""));
           return res;
@@ -270,6 +284,41 @@ describe("bounded write steps (B-new-2)", () => {
     const { and, eq } = await import("drizzle-orm");
     expect(await env.db.select({ id: vendor.id }).from(vendor).where(eq(vendor.companyId, companyId))).toHaveLength(1_119);
     expect(await env.db.select({ id: vendorAlias.id }).from(vendorAlias).where(and(eq(vendorAlias.companyId, companyId), eq(vendorAlias.vendorId, live[1_050]!.id)))).toHaveLength(19);
+  }, 120_000);
+
+  test(`planning 5,000 one-line orders sends at most ${PLAN_BATCH_STATEMENTS_MAX} statements in a batch and reads at most ${PLAN_ROWS_READ_MAX} rows a step (M-new-1)`, async () => {
+    const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
+    const customerId = await env.seedCustomer(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "8100" });
+    const book = await seedOrderBook(companyId, customerId, dieId, { rows: ROWS, orders: ROWS });
+
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    const steps: Tally[] = [];
+    let last = { state: "planning", cursor: 0 } as Awaited<ReturnType<typeof api.ingest.merge.step>>;
+    while (last.state === "planning") {
+      Object.assign(tally, { rows: 0, statements: 0, maxBatch: 0 });
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      steps.push({ ...tally });
+    }
+    if (process.env.DEBUG_READS) console.log("PLAN STEPS", steps);
+    expect(last.state).toBe("running");
+    expect(last.chunksTotal).toBe(ROWS / 10);
+    for (const t of steps) {
+      expect(t.maxBatch!).toBeLessThanOrEqual(PLAN_BATCH_STATEMENTS_MAX);
+      expect(t.rows).toBeLessThanOrEqual(PLAN_ROWS_READ_MAX);
+    }
+    // Every row carries the mark of its own chunk: 500 chunks of 10 rows.
+    const rows = await stagedRows(env, book);
+    expect(rows.every((r) => r.mergeState === "queued" && r.committedType === "ingest_merge_chunk")).toBe(true);
+    const perChunk = new Map<string, number>();
+    for (const r of rows) perChunk.set(r.committedId!, (perChunk.get(r.committedId!) ?? 0) + 1);
+    expect(perChunk.size).toBe(ROWS / 10);
+    expect([...perChunk.values()].every((n) => n === 10)).toBe(true);
+    await api.ingest.merge.stop({ runId });
   }, 120_000);
 
   test(`recording a written chunk sends one statement per order or per ${RECORD_ROWS_PER_STATEMENT} rows, not one per row (Bm7)`, async () => {
