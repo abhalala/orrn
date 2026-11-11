@@ -75,6 +75,11 @@ describe("validateRecipe", () => {
       r.fields[4]!.source = { kind: "period_as_of" };
       return { recipe: r };
     },
+    on_existing_not_ask: () => {
+      const r = clone(EXAMPLE_DIE_RECIPE);
+      r.onExisting = "skip";
+      return { recipe: r, origin: "bot" };
+    },
     constant_on_numeric: () => {
       const r = clone(EXAMPLE_DIE_RECIPE);
       r.fields[2]!.source = { kind: "constant", value: "2.2" };
@@ -106,6 +111,17 @@ describe("validateRecipe", () => {
     ok.fields.find((x) => x.field === "orderDate")!.source = { kind: "period_as_of" };
     ok.fields.find((x) => x.field === "orderDate")!.steps = [];
     expect(codes(ok, "person", bakiBlock)).not.toContain("period_not_date");
+  });
+
+  test("C3: a bot recipe must ask about live records; a person or a built-in may choose", () => {
+    for (const mode of ["skip", "fill_blanks"] as const) {
+      const r = clone(EXAMPLE_DIE_RECIPE);
+      r.onExisting = mode;
+      expect(codes(r, "bot")).toContain("on_existing_not_ask");
+      expect(codes(r, "person")).not.toContain("on_existing_not_ask");
+      expect(codes(r, "builtin")).not.toContain("on_existing_not_ask");
+    }
+    expect(codes(clone(EXAMPLE_DIE_RECIPE), "bot")).not.toContain("on_existing_not_ask");
   });
 
   test("a constant on text is fine for the bot", () => {

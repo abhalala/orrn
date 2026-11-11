@@ -123,6 +123,7 @@ export const EXAMPLE_BAKI_RECIPE: Recipe = {
   ],
   filters: [{ col: { col: 1, header: "Party Name" }, test: "not_blank", values: [], action: "keep" }],
   keys: ["customer", "oldOrderNo", "orderDate"],
-  onExisting: "skip",
+  // Plan B2 wrote "skip". A bot recipe must ask (C3), so the example asks.
+  onExisting: "ask",
   unclear: [{ field: "rate", code: "unit_unknown" }],
 };

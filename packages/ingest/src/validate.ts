@@ -29,6 +29,7 @@ export const RECIPE_ERROR_CODES = [
   "resolver_mismatch",
   "constant_on_numeric",
   "period_not_date",
+  "on_existing_not_ask",
 ] as const;
 export type RecipeErrorCode = (typeof RECIPE_ERROR_CODES)[number];
 
@@ -41,6 +42,9 @@ export function validateRecipe(recipe: Recipe, block: Pick<BlockShape, "headers"
   const target = TARGETS[recipe.target];
 
   if (recipe.headerRows !== 1 && recipe.headerRows !== 2) err("bad_header_rows", "headerRows");
+  // A file that disagrees with a live record is shown and asked (owner rule). The model may not pick skip or
+  // fill_blanks, which would hide the disagreement in every later file of this shape.
+  if (origin === "bot" && recipe.onExisting !== "ask") err("on_existing_not_ask", "onExisting");
   if (recipe.headerRow < 0) err("bad_header_row", "headerRow");
 
   const colRef = (c: { col: number; header: string }, path: string) => {
