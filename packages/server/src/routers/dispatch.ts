@@ -342,27 +342,32 @@ function offBandMessage(states: readonly OffBandState[]): string {
  * arch 52: the approval of a late dispatch time. Approved for exactly this time: its id. Otherwise the
  * request is opened (a waiting one for another time is withdrawn, "Withdrawn: asked again with
  * another time.") or left as it is, and the caller refuses. Meta: time and reason only.
+ * Review 4: the reason returned is the one the manager approved; a different reason typed on the
+ * second press is ignored.
  */
 async function askLateEntry(
   ctx: OverdrawCtx,
   d: { id: string; code: string },
   occurredAt: number,
   reason: string,
-): Promise<{ approvedId: string | null }> {
+): Promise<{ approvedId: string | null; reason: string }> {
   const rows = await ctx.db
-    .select({ id: approval.id, status: approval.status, meta: approval.meta })
+    .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote })
     .from(approval)
     .where(and(eq(approval.companyId, ctx.companyId), eq(approval.kind, "dispatch_late_entry"), eq(approval.subjectId, d.id)))
     .orderBy(desc(approval.createdAt));
   const forTime = rows.filter((r) => r.meta?.occurredAt === occurredAt);
   const approved = forTime.find((r) => r.status === "approved");
-  if (approved) return { approvedId: approved.id };
+  if (approved) {
+    const saved = typeof approved.meta?.reason === "string" ? approved.meta.reason : (approved.requestNote ?? "");
+    return { approvedId: approved.id, reason: saved.trim() };
+  }
   // Not approved for this time: the window and the reason are measured now, before anything is asked.
   const gate = lateDispatchGate(occurredAt, reason, clockNow().getTime());
   if (gate.kind === "future") throw new TRPCError({ code: "BAD_REQUEST", message: "The dispatch time can't be in the future." });
   if (gate.kind === "tooOld") throw new TRPCError({ code: "BAD_REQUEST", message: "A late packing list can go back at most 72 hours." });
   if (gate.kind === "noReason") throw new TRPCError({ code: "BAD_REQUEST", message: "Give the reason the packing list is entered late." });
-  if (forTime.some((r) => r.status === "pending")) return { approvedId: null };
+  if (forTime.some((r) => r.status === "pending")) return { approvedId: null, reason: reason.trim() };
   const stale = rows.find((r) => r.status === "pending");
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
   const meta = { dispatchId: d.id, dispatchCode: d.code, occurredAt, reason: reason.trim() };
@@ -385,7 +390,7 @@ async function askLateEntry(
     // A concurrent Complete opened its request first: that one stands.
     if (!/UNIQUE constraint failed: approval\./.test(errorChain(e))) throw e;
   }
-  return { approvedId: null };
+  return { approvedId: null, reason: reason.trim() };
 }
 
 /**
@@ -2922,7 +2927,7 @@ export const dispatchRouter = router({
             completedAt,
             plNumber,
             capacityOverrideReason,
-            ...(late ? { lateEntry: true, lateEntryReason: (input.lateReason ?? "").trim(), lateEntryApprovalId: late.approvedId } : {}),
+            ...(late ? { lateEntry: true, lateEntryReason: late.reason, lateEntryApprovalId: late.approvedId } : {}),
             serverSeq: seq,
           })
           .where(
@@ -3059,7 +3064,7 @@ export const dispatchRouter = router({
             meta: {
               itemCount: items.length,
               plNumber,
-              ...(late ? { lateEntry: { occurredAt: input.occurredAt, reason: (input.lateReason ?? "").trim(), approvalId: late.approvedId } } : {}),
+              ...(late ? { lateEntry: { occurredAt: input.occurredAt, reason: late.reason, approvalId: late.approvedId } } : {}),
             },
           },
         ),

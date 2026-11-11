@@ -141,6 +141,27 @@ describe("late packing-list entry (arch 52)", () => {
     expect(row!.completedAt!.getTime()).toBe(friday1800);
   }, SLOW);
 
+  test("review 4: the dispatch keeps the reason the manager approved; a different reason on the second press is ignored", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    const occurredAt = NOW.getTime() - 5 * H;
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down, paper PL" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const [req] = await lateRows(p.companyId);
+    await p.as("manager").approval.decide({ id: req!.id, decision: "approved" });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "x x x" })).resolves.toMatchObject({ success: true });
+    const [row] = await env.db.select().from(dispatch).where(eq(dispatch.id, id));
+    expect(row).toMatchObject({ lateEntry: true, lateEntryReason: "Line down, paper PL", lateEntryApprovalId: req!.id });
+    const audits = await env.db
+      .select({ meta: auditLog.meta })
+      .from(auditLog)
+      .where(and(eq(auditLog.subjectId, id), eq(auditLog.action, "dispatch.complete")));
+    expect(audits).toHaveLength(1);
+    expect((audits[0]!.meta as { lateEntry: { reason: string } }).lateEntry.reason).toBe("Line down, paper PL");
+    // Asking again with only a different reason opened nothing.
+    expect(await lateRows(p.companyId)).toHaveLength(1);
+  }, SLOW);
+
   test("an approval covers only the time it was asked for; another time withdraws a waiting ask and asks again", async () => {
     setClock(NOW);
     const { p, id } = await heldDispatch();
