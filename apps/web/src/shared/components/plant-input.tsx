@@ -3,7 +3,7 @@ import { useT } from "@orrn/i18n";
 import { NumberInput, useFieldControl, type NumberInputProps } from "@orrn/ui/components/field";
 import { Input } from "@orrn/ui/components/input";
 import { cn } from "@orrn/ui/lib/utils";
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useId, useRef, useState, type Ref } from "react";
 
 import { useFmt } from "@/shared/lib/fmt";
 import { draftToTyped, followsPlant, kindOf, typedToDraft, type EntrySpec } from "@/shared/lib/plant-input";
@@ -73,14 +73,58 @@ export function PlantInput({ spec, value, onValueChange, decimal, typed, onTyped
     if (keptText !== null && keptText !== text.trim()) storedNote = t("units.storedAs", { value: keptText, unit: suffix });
   }
   return (
+    <ConvertingBox
+      {...rest}
+      composite={composite}
+      text={text}
+      onText={change}
+      suffix={suffix}
+      problem={problem}
+      problemText={problem ? unitProblemText(t, fmt, spec.field, problem) : null}
+      storedNote={storedNote}
+    />
+  );
+}
+
+/**
+ * The box of a plant that is not on the draft's unit, with its sentences below. A component of its own so that a plant that
+ * changed nothing (the plain `NumberInput` above) takes no extra hook, and its markup stays the old box, character for character.
+ */
+function ConvertingBox({
+  composite,
+  text,
+  onText,
+  suffix,
+  problem,
+  problemText,
+  storedNote,
+  ...rest
+}: Omit<NumberInputProps, "value" | "onValueChange" | "suffix"> & {
+  composite: boolean;
+  text: string;
+  onText(text: string): void;
+  suffix: string;
+  problem: ParseProblem | "kind" | null;
+  problemText: string | null;
+  storedNote: string | null;
+}) {
+  const problemId = `plant-input-problem-${useId().replace(/:/g, "")}`;
+  // The refusal sentence is tied to the box, so a screen reader reads why when the person returns to it.
+  const describedBy = [rest["aria-describedby"], problem ? problemId : undefined].filter(Boolean).join(" ") || undefined;
+  return (
     <div className="flex min-w-0 flex-col gap-1">
       {composite ? (
-        <FreeTextBox {...rest} text={text} onText={change} suffix={suffix} invalid={problem !== null} />
+        <FreeTextBox {...rest} aria-describedby={describedBy} text={text} onText={onText} suffix={suffix} invalid={problem !== null} />
       ) : (
-        <NumberInput {...rest} value={text} onValueChange={change} decimal suffix={suffix} aria-invalid={problem ? true : rest["aria-invalid"]} />
+        <NumberInput {...rest} aria-describedby={describedBy} value={text} onValueChange={onText} decimal suffix={suffix} aria-invalid={problem ? true : rest["aria-invalid"]} />
       )}
-      <div aria-live="polite" className="empty:hidden">
-        {problem ? <p className="m-0 text-[13px] font-medium leading-5 text-destructive">{unitProblemText(t, fmt, spec.field, problem)}</p> : null}
+      {/* The live region stays in the tree, so a sentence that appears is announced; empty, it takes no space (as Field's does). */}
+      <div aria-live="polite" className="empty:-mt-1">
+        {problem ? (
+          <p id={problemId} className="m-0 text-[13px] font-medium leading-5 text-destructive">
+            {problemText}
+          </p>
+        ) : null}
         {storedNote ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{storedNote}</p> : null}
       </div>
     </div>
@@ -89,8 +133,17 @@ export function PlantInput({ spec, value, onValueChange, decimal, typed, onTyped
 
 /** Feet and inches are typed as words ("12 ft 6 in", "12' 6\""): a free-text box with the unit beside it. */
 function FreeTextBox({ text, onText, suffix, invalid, className, id, ref, ...rest }: Omit<NumberInputProps, "value" | "onValueChange" | "suffix"> & { ref?: Ref<HTMLInputElement>; text: string; onText(text: string): void; suffix: string; invalid: boolean }) {
-  const a11y = useFieldControl({ id, "aria-invalid": invalid ? true : undefined });
-  const { decimal: _decimal, ...input } = rest as Record<string, unknown>;
+  const suffixId = `plant-input-unit-${useId().replace(/:/g, "")}`;
+  // What the caller set (a form's own error id, aria-invalid, aria-required) is merged in, never overridden; the unit word is read with the box.
+  const { decimal: _decimal, "aria-describedby": describedBy, "aria-invalid": ariaInvalid, "aria-required": ariaRequired, ...input } = rest as Record<string, unknown> & {
+    "aria-describedby"?: string;
+    "aria-invalid"?: boolean | "true" | "false" | "grammar" | "spelling";
+    "aria-required"?: boolean | "true" | "false";
+  };
+  const a11y = useFieldControl(
+    { id, "aria-describedby": describedBy, "aria-invalid": invalid || (ariaInvalid !== undefined && ariaInvalid !== false && ariaInvalid !== "false") ? true : undefined, "aria-required": ariaRequired },
+    suffixId,
+  );
   return (
     <div data-slot="number-input" className="relative min-w-0">
       <Input
@@ -106,7 +159,7 @@ function FreeTextBox({ text, onText, suffix, invalid, className, id, ref, ...res
         className={cn("pointer-coarse:h-12 pr-16 font-mono text-[16px] tabular-nums", className)}
         {...a11y}
       />
-      <span className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[14px] font-medium text-muted-foreground">{suffix}</span>
+      <span id={suffixId} className="pointer-events-none absolute inset-y-0 right-3.5 flex items-center text-[14px] font-medium text-muted-foreground">{suffix}</span>
     </div>
   );
 }

@@ -155,3 +155,33 @@ describe("the press count's die reading box takes the plant's section unit", () 
     expect(step.value).toBe(2400);
   });
 });
+
+describe("the box and its refusal are tied together for a screen reader", () => {
+  test("a refusal sentence has an id and the box points at it; the live region stays in the tree when empty", () => {
+    const refused = render({ units: { mass: "lb" } }, <PlantInput spec={MASS_KG} value="" typed="5.1234" onTypedChange={noop} onValueChange={noop} aria-label="W" />);
+    const id = /<p id="([^"]+)"[^>]*>Too many decimal places for lb/.exec(refused)?.[1];
+    expect(id).toBeDefined();
+    expect(refused).toMatch(new RegExp(`aria-describedby="[^"]*${id}`));
+    expect(refused).toContain('aria-invalid="true"');
+    const clean = render({ units: { mass: "lb" } }, <PlantInput spec={MASS_KG} value="52.435" onValueChange={noop} aria-label="W" />);
+    expect(clean).toContain('aria-live="polite"');
+    expect(clean).not.toContain("empty:hidden");
+    expect(clean).not.toContain("plant-input-problem");
+  });
+  test("a feet and inches box keeps the caller's aria-describedby and aria-invalid, and its unit is read with it", () => {
+    const html = render(
+      { units: { length: "ft_in" } },
+      <PlantInput spec={LENGTH_MM} value="3810" onValueChange={noop} aria-label="L" aria-invalid aria-describedby="pack-len-error" />,
+    );
+    expect(html).toMatch(/aria-describedby="pack-len-error plant-input-unit-[^" ]+"/);
+    expect(html).toContain('aria-invalid="true"');
+    const unitId = /aria-describedby="pack-len-error (plant-input-unit-[^" ]+)"/.exec(html)?.[1];
+    expect(html).toContain(`<span id="${unitId}"`);
+  });
+  test("a refused feet and inches text names its sentence in aria-describedby too", () => {
+    const html = render({ units: { length: "ft_in" } }, <PlantInput spec={LENGTH_MM} value="" typed="12 ft 6.33 in" onTypedChange={noop} onValueChange={noop} aria-label="L" />);
+    const id = /<p id="([^"]+)"[^>]*>Too fine/.exec(html)?.[1];
+    expect(id).toBeDefined();
+    expect(html).toMatch(new RegExp(`aria-describedby="[^"]*${id}`));
+  });
+});
