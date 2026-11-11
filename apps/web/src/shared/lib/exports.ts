@@ -5,8 +5,7 @@
  * `packingListPdf` or `@orrn/documents/packing-list` directly. Pass the
  * snapshot already parsed by `parsePackingListSnapshot` (W17).
  */
-import type { PackingListPrintText, PackingListSnapshot } from "@orrn/documents/packing-list/model";
-import type { Translate } from "@orrn/i18n";
+import type { PackingListSnapshot } from "@orrn/documents/packing-list/model";
 
 export type { PackingListSnapshot };
 
@@ -14,19 +13,7 @@ export type ExportOptions = {
   timeZone?: string;
   /** FP-PK-13: the optional kg-per-piece column. */
   kgPerPiece?: boolean;
-  printText?: Partial<PackingListPrintText>;
 };
-
-export function packingListPrintText(t: Translate): PackingListPrintText {
-  return {
-    lockedSnapshotFooter: (code, revision) => t("packingList.lockedSnapshotFooter", { code, revision }),
-    packedBy: t("packingList.signatures.packedBy"),
-    checkedBy: t("packingList.signatures.checkedBy"),
-    driverReceived: t("packingList.signatures.driverReceived"),
-    orderedKgPer12ft: (kg) => t("packingList.groupDetails.orderedKgPer12ft", { kg }),
-    poDate: (date) => t("packingList.groupDetails.poDate", { date }),
-  };
-}
 
 export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: ExportOptions = {}) {
   const { downloadPackingListPdf: run } = await import("./packingListPdf");

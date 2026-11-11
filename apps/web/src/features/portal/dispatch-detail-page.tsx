@@ -11,7 +11,7 @@ import { LegacyBody } from "@/features/dispatch/packing-list-v1";
 import { PlV2Body } from "@/features/dispatch/packing-list-v2";
 import { plViewOf } from "@/features/dispatch/pl-model";
 import { RouterLink } from "@/shared/components/router-link";
-import { downloadPackingListPdf, packingListPrintText } from "@/shared/lib/exports";
+import { downloadPackingListPdf } from "@/shared/lib/exports";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -59,7 +59,7 @@ export function PortalDispatchDetailPage({ id }: { id: string }) {
     if (!pl.data || !parsed?.success) return;
     setDownloading(true);
     try {
-      await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone: zone, printText: packingListPrintText(t) });
+      await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone: zone });
     } catch {
       toast.error(t("packingList.downloadFailed"));
     } finally {

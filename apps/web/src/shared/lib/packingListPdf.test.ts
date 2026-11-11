@@ -102,6 +102,27 @@ describe("packing list PDF print polish", () => {
     expect(signed[0]).toContain(`Page ${total} of ${total}`);
   });
 
+  test("the paper stays English when the caller supplies Hindi print text", async () => {
+    const blob = await buildPackingListPdfBlob(parsePackingListSnapshot(snapshot(1)), "PL/2026-27/90", {
+      printText: {
+        lockedSnapshotFooter: () => "यह टैक्स इनवॉइस नहीं है।",
+        packedBy: "पैक करने वाला",
+        checkedBy: "जाँच करने वाला",
+        driverReceived: "ड्राइवर",
+        orderedKgPer12ft: (kg) => `ऑर्डर kg/12ft ${kg}`,
+        poDate: (date) => `PO तारीख ${date}`,
+      },
+    });
+    const text = pdfTextStreams(await blob.arrayBuffer()).join("");
+    expect(text).toContain("Packed by");
+    expect(text).toContain("Checked by");
+    expect(text).toContain("Driver received");
+    expect(text).toContain("Not a tax invoice.");
+    expect(text).not.toContain("पैक करने वाला");
+    expect(text).not.toContain("जाँच करने वाला");
+    expect(text).not.toContain("यह टैक्स इनवॉइस नहीं है।");
+  });
+
   test("the PDF group heading carries optional order details", async () => {
     const raw = snapshot(1);
     Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });

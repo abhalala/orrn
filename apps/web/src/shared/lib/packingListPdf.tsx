@@ -4,8 +4,8 @@
  * click, so the renderer (~1.4 MB) stays out of every page chunk (W3).
  *
  * Same header, columns, groups and totals as the screen, the Excel sheet and
- * the native print (`packingListModel`). New footer, signature and group-detail
- * text follows the selected language. Print colours are plain greys.
+ * the native print (`packingListModel`). The paper is always English. Print
+ * colours are plain greys.
  */
 import {
   packingListModel,
@@ -86,7 +86,7 @@ function TableHead({ kgPerPiece }: { kgPerPiece: boolean }) {
   );
 }
 
-function PackingListDoc({ model, code, kgPerPiece, printText }: { model: PackingListModel; code: string; kgPerPiece: boolean; printText?: PackingListModelOptions["printText"] }) {
+function PackingListDoc({ model, code, kgPerPiece }: { model: PackingListModel; code: string; kgPerPiece: boolean }) {
   const { header, groups, totals } = model;
   const meta: [string, string][] = [
     ["PL no", code],
@@ -175,7 +175,7 @@ function PackingListDoc({ model, code, kgPerPiece, printText }: { model: Packing
           {kgPerPiece ? <Text style={s.cKgPc} /> : null}
         </View>
         <View style={s.signatures} wrap={false}>
-          {plSignatureLabels(printText).map((label) => (
+          {plSignatureLabels().map((label) => (
             <View key={label} style={s.signature}>
               <Text>{label}</Text>
               <View style={s.signatureLine} />
@@ -184,7 +184,7 @@ function PackingListDoc({ model, code, kgPerPiece, printText }: { model: Packing
         </View>
 
         <View style={s.footer} fixed>
-          <Text>{plLockedSnapshotFooter(code, 1, printText)}</Text>
+          <Text>{plLockedSnapshotFooter(code, 1)}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -250,7 +250,7 @@ function columnsOf(view: PlView, kgPerPiece = false): Col[] {
   ];
 }
 
-function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view: PlView; code: string; kgPerPiece?: boolean; printText?: PackingListModelOptions["printText"] }) {
+function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; code: string; kgPerPiece?: boolean }) {
   const cols = columnsOf(view, kgPerPiece);
   const total = cols.reduce((n, c) => n + c.w, 0);
   const cell = (c: Col) => ({ width: `${(c.w / total) * 100}%`, textAlign: c.end ? ("right" as const) : ("left" as const), paddingRight: 3 });
@@ -347,7 +347,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view:
         {view.groups.map((g) => (
           <View key={g.key}>
             <View style={v2s.groupRow} wrap={false} minPresenceAhead={30}>
-              <Text style={v2s.groupText}>{g.title + plGroupPrintDetails(g, printText)}</Text>
+              <Text style={v2s.groupText}>{g.title + plGroupPrintDetails(g)}</Text>
             </View>
             {g.rows.map((r) => {
               const v = cells(g, r) as Record<string, string>;
@@ -369,7 +369,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view:
         ))}
         {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
         <View style={v2s.signatures} wrap={false}>
-          {plSignatureLabels(printText).map((label) => (
+          {plSignatureLabels().map((label) => (
             <View key={label} style={v2s.signature}>
               <Text>{label}</Text>
               <View style={v2s.signatureLine} />
@@ -378,7 +378,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view:
         </View>
 
         <View style={v2s.footer} fixed>
-          <Text>{plLockedSnapshotFooter(view.plNumber, view.revision, printText)}</Text>
+          <Text>{plLockedSnapshotFooter(view.plNumber, view.revision)}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -391,9 +391,9 @@ export async function buildPackingListPdfBlob(pl: PackingListSnapshot, code: str
   const kgPerPiece = opts.kgPerPiece === true;
   return pdf(
     view ? (
-      <PackingListDocV2 view={view} code={code} kgPerPiece={kgPerPiece} printText={opts.printText} />
+      <PackingListDocV2 view={view} code={code} kgPerPiece={kgPerPiece} />
     ) : (
-      <PackingListDoc model={packingListModel(pl, opts)} code={code} kgPerPiece={kgPerPiece} printText={opts.printText} />
+      <PackingListDoc model={packingListModel(pl, opts)} code={code} kgPerPiece={kgPerPiece} />
     ),
   ).toBlob();
 }

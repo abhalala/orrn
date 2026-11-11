@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { downloadPackingListPdf, downloadPackingListXlsx, packingListPrintText, printPackingList } from "@/shared/lib/exports";
+import { downloadPackingListPdf, downloadPackingListXlsx, printPackingList } from "@/shared/lib/exports";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -87,10 +87,9 @@ export function PackingListView({
     if (!pl.data || !parsed?.success) return;
     setDownloading(kind);
     try {
-      const printText = packingListPrintText(t);
-      if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece, printText });
+      if (kind === "pdf") await downloadPackingListPdf(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
       else if (kind === "xlsx") await downloadPackingListXlsx(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
-      else await printPackingList(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece, printText });
+      else await printPackingList(parsed.data, pl.data.code, { timeZone, kgPerPiece: showKgPerPiece });
     } catch (err) {
       console.error("packing list export failed", err);
       toast.error(t("packingList.downloadFailed"));
