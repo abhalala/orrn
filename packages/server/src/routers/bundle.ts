@@ -486,6 +486,62 @@ async function receiptReplay(db: OrrnDb, companyId: string, groupId: string) {
   };
 }
 
+/**
+ * The last bundle number of an old (legacy) group the import appends to. Only `bulkImport` makes
+ * bundles in such a group, numbered 1, 2, 3 with no gaps, and bundles are never deleted, so the
+ * last number is found by looking up serials on bundle_company_serial_unique: powers of two first,
+ * then 16 probes a round between the last one found and the first one missing. About 30 rows read
+ * for a group of 5,000, where reading every bundle of the group grew with each chunk (S4-3). A
+ * group that does not start at 1 falls back to reading its serials.
+ */
+async function lastLegacySerial(ctx: { db: OrrnDb; companyId: string }, group: { id: string; code: string }): Promise<number> {
+  const present = async (ks: number[]) =>
+    new Set(
+      (
+        await ctx.db
+          .select({ serial: bundle.serial })
+          .from(bundle)
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, ks.map((k) => formatBundleSerial(group.code, k)))))
+      ).map((r) => r.serial),
+    );
+  const has = (set: Set<string>, k: number) => set.has(formatBundleSerial(group.code, k));
+  const powers = Array.from({ length: 24 }, (_, i) => 2 ** i);
+  const got = await present(powers);
+  if (!has(got, 1)) {
+    const rows = await ctx.db.select({ serial: bundle.serial }).from(bundle).where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.groupId, group.id)));
+    let max = 0;
+    for (const r of rows) {
+      const n = Number(/-B(\d+)$/.exec(r.serial)?.[1] ?? 0);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return max;
+  }
+  let lo = 1;
+  for (const p of powers) {
+    if (!has(got, p)) break;
+    lo = p;
+  }
+  let hi = lo * 2;
+  while (hi - lo > 1) {
+    const step = Math.max(1, Math.floor((hi - lo) / 16));
+    const ks: number[] = [];
+    for (let k = lo + step; k < hi; k += step) ks.push(k);
+    const g = await present(ks);
+    let nextLo = lo;
+    let nextHi = hi;
+    for (const k of ks) {
+      if (has(g, k)) nextLo = k;
+      else {
+        nextHi = k;
+        break;
+      }
+    }
+    lo = nextLo;
+    hi = nextHi;
+  }
+  return lo;
+}
+
 export const bundleRouter = router({
   createReceipt: actionProcedure("bundle.pack")
     .input(receiptInputSchema)
@@ -1733,23 +1789,7 @@ export const bundleRouter = router({
       }
       for (const dieId of existingDieIdsAppendedTo) {
         const group = dieIdToGroup.get(dieId)!;
-        const existing = await ctx.db
-          .select({ serial: bundle.serial })
-          .from(bundle)
-          .where(
-            and(eq(bundle.companyId, ctx.companyId), eq(bundle.groupId, group.id)),
-          );
-        let maxIdx = 0;
-        for (const row of existing) {
-          // Serial is `{groupCode}-B{N…}` — strip prefix and parse the tail.
-          const m = row.serial.match(/-B(\d+)$/);
-          const tail = m?.[1];
-          if (tail) {
-            const n = parseInt(tail, 10);
-            if (!isNaN(n) && n > maxIdx) maxIdx = n;
-          }
-        }
-        groupIdToNextIdx.set(group.id, maxIdx + 1);
+        groupIdToNextIdx.set(group.id, (await lastLegacySerial(ctx, group)) + 1);
       }
 
       // 6. Build the bundle + status event rows.

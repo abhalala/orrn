@@ -761,19 +761,29 @@ export const dieRouter = router({
       }
 
       if (input.newRows.length > 0) {
-        const codes = [...new Set(input.newRows.map((row) => row.sectionCode))];
-        const deleted = await mapInChunks(codes, (slice) =>
-          ctx.db
-            .select({ series: die.series, sectionCode: die.sectionCode })
-            .from(die)
-            .where(
-              and(
-                eq(die.companyId, ctx.companyId),
-                isNotNull(die.deletedAt),
-                inArray(die.sectionCode, slice),
+        // By series and code on die_company_series_section_unique: only the dies these rows name,
+        // never every die of the plant with one of the codes in any series (S4-3).
+        const bySeries = new Map<string, Set<string>>();
+        for (const row of input.newRows) bySeries.set(row.series, (bySeries.get(row.series) ?? new Set()).add(row.sectionCode));
+        const deleted = (
+          await Promise.all(
+            [...bySeries].map(([series, codes]) =>
+              mapInChunks([...codes], (slice) =>
+                ctx.db
+                  .select({ series: die.series, sectionCode: die.sectionCode })
+                  .from(die)
+                  .where(
+                    and(
+                      eq(die.companyId, ctx.companyId),
+                      eq(die.series, series),
+                      inArray(die.sectionCode, slice),
+                      isNotNull(die.deletedAt),
+                    ),
+                  ),
               ),
             ),
-        );
+          )
+        ).flat();
         const taken = new Set(deleted.map((d) => `${d.series}\u0000${d.sectionCode}`));
         if (input.newRows.some((row) => taken.has(`${row.series}\u0000${row.sectionCode}`))) {
           throw new TRPCError(DELETED_DIE_CONFLICT);

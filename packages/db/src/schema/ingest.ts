@@ -318,6 +318,12 @@ export const ingestStagedRow = sqliteTable(
      * orders in two sheets is found (PORTAL-RULES-3 4.2).
      */
     poKey: text("po_key"),
+    /**
+     * The in-file duplicate key of the row (server lib/ingest/dryrun.ts dupKeyOf), or null. Indexed
+     * with the candidate so a dry run page finds an earlier row with the same key without reading
+     * every earlier page (rule 4.4).
+     */
+    dupKey: text("dup_key"),
     updatedAt: updatedAtCol(),
   },
   (t) => [
@@ -328,6 +334,7 @@ export const ingestStagedRow = sqliteTable(
     index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey),
     index("ingest_staged_row_company_name_key_idx").on(t.companyId, t.nameKey),
     index("ingest_staged_row_company_po_key_idx").on(t.companyId, t.poKey),
+    index("ingest_staged_row_candidate_dup_key_idx").on(t.candidateId, t.dupKey),
   ],
 );
 

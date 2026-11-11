@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, lt, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -1092,6 +1092,40 @@ export function recountStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candi
     .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId)));
 }
 
+/** The count column of each row state the candidate counts. */
+const COUNT_COLUMN: Partial<Record<RowState, keyof typeof ingestCandidate.$inferInsert>> = {
+  ready_create: "rowsCreate",
+  ready_update: "rowsUpdate",
+  unchanged: "rowsUnchanged",
+  ambiguous: "rowsAmbiguous",
+  conflict: "rowsConflict",
+  refused: "rowsRefused",
+  skipped: "rowsSkipped",
+};
+
+/**
+ * The counts statement of a dry run page: each count moves by the rows of the page that left or
+ * reached its state. Reads nothing, where `recountStatement` reads the whole candidate (rule 4.4).
+ */
+export function countDeltaStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candidateId: string, moves: readonly (readonly [RowState, RowState])[]): SqliteBatchItem {
+  const delta = new Map<string, number>();
+  for (const [from, to] of moves) {
+    if (from === to) continue;
+    const a = COUNT_COLUMN[from];
+    const b = COUNT_COLUMN[to];
+    if (a) delta.set(a, (delta.get(a) ?? 0) - 1);
+    if (b) delta.set(b, (delta.get(b) ?? 0) + 1);
+  }
+  const cols = ingestCandidate as unknown as Record<string, SQL>;
+  const set: Record<string, unknown> = {};
+  for (const [col, d] of delta) if (d !== 0) set[col] = sql`${cols[col]} + ${d}`;
+  if (Object.keys(set).length === 0) set.updatedAt = sql`${ingestCandidate.updatedAt}`;
+  return ctx.db
+    .update(ingestCandidate)
+    .set(set as never)
+    .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId)));
+}
+
 // ---------------------------------------------------------------------------
 // Magnitude checks (C19) and the merge's row checks
 // ---------------------------------------------------------------------------
@@ -1464,13 +1498,18 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
           diff: out.diff,
           orderKey: order?.key ?? null,
           poKey: order ? poKeyOf(order.customer, order.po) : null,
+          dupKey: typeof out.values?._dupKey === "string" ? (out.values._dupKey as string) : null,
           nameKey: c.target === "customers" ? nameKey(str(out.values?.name)) || null : null,
           updatedAt: at,
         })
         .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),
     );
   }
-  statements.push(recountStatement(ctx, c.id));
+  // The counts: by the change of each row of the page, so a step reads its page and not the whole
+  // candidate (rule 4.4). The last step counts the rows themselves once, which also mends any drift.
+  const lastPage = artifact.readState === "read" && block.rowsPut === block.rowCount && page.length < INGEST_LIMITS.dryRunRowsPerStep;
+  // An order book counts once, after its whole-order pass.
+  statements.push(lastPage && c.target !== "orders" ? recountStatement(ctx, c.id) : countDeltaStatement(ctx, c.id, editable.map((r) => [r.state, outcomes.get(r.id)!.state])));
   try {
     await guardedBatch(ctx.db, statements, { code: "CONFLICT", message: "Running in another tab" });
   } catch (e) {
@@ -1492,7 +1531,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     // At most ORDER_PASS_BATCH statements a batch (rule 4.4), each batch behind the same guard. A
     // person who changes the candidate in between stops the rest; the pass runs again from its rows.
     const parts = chunk(groups, ORDER_PASS_BATCH);
-    for (const [i, part] of parts.entries()) {
+    for (const part of parts) {
       try {
         await guardedBatch(ctx.db, [
           ctx.db
@@ -1501,7 +1540,6 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
             .where(and(eq(ingestCandidate.id, c.id), eq(ingestCandidate.serverSeq, c.serverSeq), eq(ingestCandidate.dryCursor, nextCursor), eq(ingestCandidate.state, "processing"))),
           ingestAbortUnlessChanged(ctx.db),
           ...part,
-          ...(i === parts.length - 1 ? [recountStatement(ctx, c.id)] : []),
         ]);
       } catch (e) {
         const now2 = await loadCandidate(ctx, c.id);
@@ -1526,6 +1564,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
             ),
           ),
         ingestAbortUnlessChanged(ctx.db),
+        // An order book's counts, once, after its last page and its whole-order pass.
+        ...(c.target === "orders" ? [recountStatement(ctx, c.id)] : []),
       ]);
     } catch (e) {
       const now2 = await loadCandidate(ctx, c.id);
@@ -1996,7 +2036,17 @@ async function orderPassStatements(
   // The other candidates: their rows of the order turn into the same conflict, naming this sheet.
   const mine = JSON.stringify({ candidateId: c.id, fileName: names.fileName, sheetName: names.sheetName });
   for (const { candidateId, reason, rowIds } of otherRows.values()) {
-    for (const part of chunk(rowIds, 90)) {
+    // 40 a statement: the counts statement names the rows twice (under D1's 100 parameters).
+    for (const part of chunk(rowIds, 40)) {
+      // Its counts move by the rows this statement turns: counted by primary key first, in the same
+      // batch, never by reading the whole candidate (rule 4.4).
+      const turning = sql`(select count(*) from ingest_staged_row r where r.id in ${part} and +r.candidate_id = ${candidateId} and +r.merge_state = 'open' and +r.state = 'ready_create')`;
+      out.push(
+        ctx.db
+          .update(ingestCandidate)
+          .set({ rowsCreate: sql`${ingestCandidate.rowsCreate} - ${turning}`, rowsConflict: sql`${ingestCandidate.rowsConflict} + ${turning}` })
+          .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId))),
+      );
       out.push(
         ctx.db
           .update(R)
@@ -2016,7 +2066,6 @@ async function orderPassStatements(
         .update(ingestCandidate)
         .set({ openQuestions: sql`${ingestCandidate.openQuestions} + ${rowIds.length}`, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: at })
         .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.state, ["ready", "held"]))),
-      recountStatement(ctx, candidateId),
     );
   }
   return out;
@@ -2038,16 +2087,19 @@ async function markDuplicates(
     .filter((x) => typeof x.out.values?._dupKey === "string" && x.out.state !== "refused" && x.out.state !== "skipped");
   if (keyed.length === 0) return;
   const keys = [...new Set(keyed.map((x) => x.out.values!._dupKey as string))];
+  // On ingest_staged_row_candidate_dup_key_idx: only earlier rows with these keys, never every
+  // earlier page (rule 4.4). The unary plus keeps SQLite off the state and row index indexes.
+  const R = ingestStagedRow;
   const earlier = await mapInChunks(keys, (part) =>
     ctx.db
-      .select({ values: ingestStagedRow.values, rowIndex: ingestStagedRow.rowIndex })
-      .from(ingestStagedRow)
+      .select({ values: R.values, rowIndex: R.rowIndex })
+      .from(R)
       .where(
         and(
-          eq(ingestStagedRow.candidateId, candidateId),
-          lt(ingestStagedRow.rowIndex, cursor),
-          inArray(ingestStagedRow.state, ["ready_create", "ready_update", "unchanged", "ambiguous", "conflict"]),
-          inArray(sql<string>`json_extract(${ingestStagedRow.values}, '$._dupKey')`, part),
+          eq(R.candidateId, candidateId),
+          inArray(R.dupKey, part),
+          sql`+${R.rowIndex} < ${cursor}`,
+          sql`+${R.state} in ('ready_create', 'ready_update', 'unchanged', 'ambiguous', 'conflict')`,
         ),
       ),
   );
