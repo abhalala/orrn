@@ -686,8 +686,11 @@ function placeOnBands(l: Line, b: Bands, mode: "head" | "row" | "fold"): Placed 
         const w = p.x1 - p.x0;
         if (lo - p.x0 > w / 4 || p.x1 - hi > w / 4) doubts.add("crosses_column");
       }
+      // Parts of one cell are one phrase only when they sit at most one character apart (as `headSpans` splits a
+      // header): two values 8 points apart were merged into one cell by `pageLines`, but are two cells here.
       const last = groups[groups.length - 1];
-      if (last && last.band === k && last.cell === c) last.parts.push(p);
+      const lastX1 = last ? last.parts[last.parts.length - 1]!.x1 : -Infinity;
+      if (last && last.band === k && last.cell === c && p.x0 - lastX1 <= b.charWidth) last.parts.push(p);
       else groups.push({ band: k, cell: c, parts: [p] });
     }
   }

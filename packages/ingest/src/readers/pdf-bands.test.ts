@@ -94,6 +94,15 @@ describe("5.3: doubt is marked on the row", () => {
     }
   });
 
+  test("two close items merged into one cell are not one phrase (round 5 large run, seed 3184)", () => {
+    // "44" right-aligned at the end of Order, "F3301" left-aligned at the start of Section, 8 apart: one PDF cell.
+    const items = [it("Party", 50, 700), it("Order", 100, 700), it("Section", 158, 700), it("Om", 50, 686), it("44", 140, 686), it("F3301", 158, 686), it("Kamal", 50, 672), it("45", 140, 672), it("R2105", 158, 672)];
+    const b = readPdfText([items], { hints: [{ page: 1, headerRow: 0 }] }).blocks[0]!;
+    expect(b.headers).toEqual(["Party", "Order", "Section"]);
+    expect(b.rows).toEqual([["Om", "44", "F3301"], ["Kamal", "45", "R2105"]]);
+    expect(new Set(b.doubts.map((d) => d.row))).toEqual(new Set([0, 1]));
+  });
+
   test("an item across a band edge is marked", () => {
     const items = [it("Party", 50, 700), it("Kg", 120, 700), it("Rate", 200, 700), it("Om", 50, 686), it("12", 120, 686), it("245", 200, 686), it("Shree Ganesh Metals", 50, 672), it("8", 120, 672), it("250", 200, 672)];
     const b = readPdfText([items], { hints: [{ page: 1, headerRow: 0 }] }).blocks[0]!;
