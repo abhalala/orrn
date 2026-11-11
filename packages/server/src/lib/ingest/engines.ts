@@ -4,18 +4,16 @@
  * - Bot: lane D's `runShapeAttempt(args)` from `./bot` (it takes an args object, not the plan's
  *   `(ctx, candidate, block)`). Lane A passes a `BotRunStore` over `ingest_bot_run`, the recipe
  *   validator and the in-memory sample check.
- * - Merge: until lane B lands `server/lib/ingest/merge`, a typed stub that throws NOT_IMPLEMENTED.
- *   Expected exports there: `startMerge(ctx)`, `stepMerge(ctx, { runId, expectCursor })`,
- *   `stopMerge(ctx, { runId })`, with the signatures of `MergeEngine` below.
+ * - Merge: lane B's `./merge` (`startMerge`, `stepMerge`, `stopMerge`), typed by `MergeEngine` below.
  */
 import { env } from "@orrn/env/server";
-import { TRPCError } from "@trpc/server";
 import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
 
 import { ingestBotRun } from "@orrn/db/schema/ingest";
 
 import { createId } from "../id";
 import { shapeBotReady, type BotRunStore } from "./bot";
+import { mergeEngine as mergeImpl } from "./merge";
 import type { IngestCtx, MergeStepOut } from "./types";
 
 export interface MergeEngine {
@@ -27,16 +25,8 @@ export interface MergeEngine {
   stopMerge(ctx: IngestCtx, input: { runId: string }): Promise<MergeStepOut>;
 }
 
-function notImplemented(what: string): never {
-  throw new TRPCError({ code: "NOT_IMPLEMENTED", message: `${what} is not built yet` });
-}
-
-/** Stub until lane B lands `server/lib/ingest/merge`. */
-export const mergeEngine: MergeEngine = {
-  startMerge: async () => notImplemented("Merge"),
-  stepMerge: async () => notImplemented("Merge"),
-  stopMerge: async () => notImplemented("Merge"),
-};
+/** Lane B's merge: planner, step runner and adapters in `./merge`. */
+export const mergeEngine: MergeEngine = mergeImpl;
 
 export function anthropicEnv(): { ANTHROPIC_API_KEY?: string } {
   const key = (env as unknown as { ANTHROPIC_API_KEY?: string }).ANTHROPIC_API_KEY;
