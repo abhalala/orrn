@@ -1,4 +1,4 @@
-import { bpPercent1, formatLength, parseDecimal, type LengthUnit } from "@orrn/domain";
+import { bpPercent1, parseDecimal, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import type { MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
@@ -29,19 +29,19 @@ import {
   COUNT_STEPS,
   gateSentences,
   isLastStep,
-  kgFromG,
   kgTextToG,
   lineRows,
   notesToSend,
   qcRows,
   STATION_ACTION,
   stepOfGate,
-  type NoteAttempts,
-} from "./model";
+  type NoteAttempts } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { RunDetail } from "./types";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_IN, LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -61,6 +61,7 @@ const unitSuffix = (unit: LengthUnit) => (unit === "inch" ? "in" : "mm");
  * person typed is cleared when a save fails: the message says so and the same button tries again.
  */
 export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const qc = useQueryClient();
   const { data: me } = useMe();
@@ -132,7 +133,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
         .sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)
         .map((c) => ({
           value: c.id,
-          label: `${c.number} · ${c.alloy} · ${t("press.console.castOnHand", { kg: kgFromG(c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { kg: kgFromG(c.billetsShortG) })}` : ""}${c.spectroFailedMelts > 0 ? ` · ${t("press.console.castSpectroFail")}` : ""}`,
+          label: `${c.number} · ${c.alloy} · ${t("press.console.castOnHand", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, c.billetsShortG) })}` : ""}${c.spectroFailedMelts > 0 ? ` · ${t("press.console.castSpectroFail")}` : ""}`,
         })),
     [casts.data, draft.castId, t],
   );
@@ -292,8 +293,8 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
 
   const figures = preview.data?.figures;
   // D22: the run is logged with the weighed kg whatever the store shows; the cast carries the shortfall.
-  const onHandKg = kgFromG(preview.data?.billetsOnHandG ?? 0);
-  const shortHint = figures?.billetShortG ? t("press.console.shortStock", { kg: onHandKg, short: kgFromG(figures.billetShortG) }) : t("press.console.shortStockNoFigure", { kg: onHandKg });
+  const onHandKg = kgGrouped1(fmt, preview.data?.billetsOnHandG ?? 0);
+  const shortHint = figures?.billetShortG ? t("press.console.shortStock", { massUnit: massUnit(fmt), kg: onHandKg, short: kgGrouped1(fmt, figures.billetShortG) }) : t("press.console.shortStockNoFigure", { kg: onHandKg });
   const liveGates = (preview.data?.gates ?? []).filter((g) => canClose || (g !== "no_close_permission" && g !== "not_supervisor"));
   const shownGates = liveGates;
   const stepLabels = COUNT_STEPS.map((s) => t(`press.console.steps.${s}` as MessageKey));
@@ -404,7 +405,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                         if (pl) setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, pressPlanLineId: pl.id, orderNumber: pl.orderNumber, cutLengthMm: pl.cutLengthMm, releasedPcs: pl.pcs } : l)) }));
                       }}
                       placeholder={t("press.console.pickOne")}
-                      options={data.planLines.map((p) => ({ value: p.id, label: `${p.orderNumber} ${p.customerName} · ${formatLength(p.cutLengthMm, unit)}` }))}
+                      options={data.planLines.map((p) => ({ value: p.id, label: `${p.orderNumber} ${p.customerName} · ${fmt.q("bundle.length", p.cutLengthMm)}` }))}
                     />
                   </Field>
                 ) : null}
@@ -418,7 +419,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                   </Field>
                 ) : (
                   <p className="m-0 self-end text-[15px] font-medium tabular-nums">
-                    {t("press.console.cutLength")}: {formatLength(row.cutLengthMm, unit)}
+                    {t("press.console.cutLength")}: {fmt.q("bundle.length", row.cutLengthMm)}
                   </p>
                 )}
                 <Field label={t("press.console.pcs")}>
@@ -430,7 +431,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                 </Field>
                 <Field
                   label={t("press.console.good")}
-                  hint={hint ? t("press.console.hint", { kg: kgFromG(hint) }) : undefined}
+                  hint={hint ? t("press.console.hint", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, hint) }) : undefined}
                 >
                   <PlantInput spec={MASS_KG}
                     value={row.kgText}
@@ -703,6 +704,7 @@ function PreviewPanel({
   t: ReturnType<typeof useT>["t"];
   onGoto: (step: number) => void;
 }) {
+  const fmt = useFmt();
   const visible = gates.filter((g) => canClose || (g !== "no_close_permission" && g !== "not_supervisor"));
   return (
     <section aria-labelledby="close-preview" data-slot="close-preview" className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface-sunken p-4">
@@ -723,10 +725,10 @@ function PreviewPanel({
             </p>
           </div>
           <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Fig label={t("press.console.input")} value={`${kgFromG(figures.inputG)} ${t("units.kg")}`} testid="preview-input" />
-            <Fig label={t("press.console.good")} value={`${kgFromG(figures.goodG)} ${t("units.kg")}`} testid="preview-good" />
-            <Fig label={t("press.console.reject")} value={`${kgFromG(figures.rejectG)} ${t("units.kg")}`} testid="preview-reject" />
-            <Fig label={t("press.console.balanceLabel")} value={`${kgFromG(figures.balanceG)} ${t("units.kg")}`} testid="preview-balance" />
+            <Fig label={t("press.console.input")} value={`${kgGrouped1(fmt, figures.inputG)} ${massUnit(fmt)}`} testid="preview-input" />
+            <Fig label={t("press.console.good")} value={`${kgGrouped1(fmt, figures.goodG)} ${massUnit(fmt)}`} testid="preview-good" />
+            <Fig label={t("press.console.reject")} value={`${kgGrouped1(fmt, figures.rejectG)} ${massUnit(fmt)}`} testid="preview-reject" />
+            <Fig label={t("press.console.balanceLabel")} value={`${kgGrouped1(fmt, figures.balanceG)} ${massUnit(fmt)}`} testid="preview-balance" />
           </dl>
           {figures.balanceWarn ? <p className="m-0 text-[14px] leading-6">{t("press.console.balanceWarn", { pct: warnPct })}</p> : null}
         </>

@@ -8,7 +8,6 @@ import { FieldTextArea as TextArea } from "./textarea";
 import { PageHeader } from "@orrn/ui/components/page-header";
 import { Select } from "@orrn/ui/components/select";
 import { Skeleton } from "@orrn/ui/components/skeleton";
-import { formatLength } from "@orrn/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -23,9 +22,11 @@ import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast } from "./hooks";
 import { JobCard } from "./job-card";
 import { LateEntrySheet } from "./late-entry-sheet";
-import { kgFromG, reorderTarget, splitQueue } from "./model";
+import { reorderTarget, splitQueue } from "./model";
 import type { QueueSearch } from "./search";
 import type { QueueCard, QueueLine } from "./types";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 const ALL = "__all";
 
@@ -35,6 +36,7 @@ const ALL = "__all";
  * here can never disagree). press.queue holders reorder, mark urgent and take one cut length back.
  */
 export function QueueScreen({ lineId, search, onSearch }: { lineId: string; search: QueueSearch; onSearch: (next: QueueSearch) => void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { unit } = useLengthUnit();
   const qc = useQueryClient();
@@ -106,7 +108,7 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
     (c) => c.dieInstanceId as string,
   ).map((c) => ({ value: c.dieInstanceId as string, label: c.copyCode as string }));
   const filtering = Boolean(search.section || search.order || search.copy);
-  const fmt = (mm: number) => formatLength(mm, unit);
+  const lengthText = (mm: number) => fmt.q("bundle.length", mm);
 
   const header = (
     <PageHeader
@@ -232,7 +234,7 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
               </h2>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {onLine.map((card) => (
-                  <JobCard key={card.id} card={card} formatLength={fmt} position={null} waitingCount={allWaiting.length} />
+                  <JobCard key={card.id} card={card} formatLength={lengthText} position={null} waitingCount={allWaiting.length} />
                 ))}
               </div>
             </section>
@@ -244,7 +246,7 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
               </h2>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {closing.map((card) => (
-                  <JobCard key={card.id} card={card} formatLength={fmt} position={null} waitingCount={allWaiting.length} />
+                  <JobCard key={card.id} card={card} formatLength={lengthText} position={null} waitingCount={allWaiting.length} />
                 ))}
               </div>
             </section>
@@ -261,7 +263,7 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
                     <JobCard
                       key={card.id}
                       card={card}
-                      formatLength={fmt}
+                      formatLength={lengthText}
                       position={position}
                       waitingCount={allWaiting.length}
                       busy={move.isPending || urgent.isPending}
@@ -293,11 +295,11 @@ export function QueueScreen({ lineId, search, onSearch }: { lineId: string; sear
         title={t("press.queue.pullBackTitle")}
         description={
           pull
-            ? t("press.queue.pullBackBody", {
+            ? t("press.queue.pullBackBody", { massUnit: massUnit(fmt),
                 order: pull.line.orderNumber,
-                length: fmt(pull.line.cutLengthMm),
+                length: lengthText(pull.line.cutLengthMm),
                 pcs: pull.line.pcs,
-                kg: kgFromG(pull.line.kgG),
+                kg: kgGrouped1(fmt, pull.line.kgG),
               })
             : undefined
         }

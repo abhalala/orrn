@@ -1,5 +1,5 @@
 import { formatterFor, ORRN_DEFAULT_PREFS, type Fmt, type ResolvedPrefs } from "@orrn/domain";
-import { useT } from "@orrn/i18n";
+import { I18nVarsProvider, useT } from "@orrn/i18n";
 import { createContext, createElement, useContext, useMemo, type ReactNode } from "react";
 
 /**
@@ -20,7 +20,13 @@ export function FmtProvider({ prefs, timeZone, children }: { prefs?: ResolvedPre
     () => ({ prefs: prefs ?? ORRN_DEFAULT_PREFS, timeZone: timeZone || DEFAULT_PLANT_ZONE }),
     [prefs, timeZone],
   );
-  return createElement(FmtContext.Provider, { value }, children);
+  // The plant's unit words reach every t() call below: {massUnit}, {sectionUnit}, {lengthUnit}.
+  const words = useMemo(() => {
+    const f = formatterFor(value.prefs, { locale: "en", timeZone: value.timeZone });
+    const length = f.unitOf("length");
+    return { massUnit: f.unitOf("mass").symbol, sectionUnit: f.unitOf("linear_mass").symbol, lengthUnit: length.composite ? "ft in" : length.symbol };
+  }, [value]);
+  return createElement(FmtContext.Provider, { value }, createElement(I18nVarsProvider, { vars: words, children }));
 }
 
 /** The formatter for the current plant, person's language and plant time zone. */

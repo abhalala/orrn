@@ -87,3 +87,13 @@ export function I18nProvider({ locale: initial, onLocaleChange, children }: I18n
 export function useT(): I18nContextValue {
   return useContext(I18nContext);
 }
+
+/**
+ * Default variables for every `t()` call below it (web: the plant's unit words, so a string that says `{massUnit}`
+ * reads "lb" on a pound plant with no call site passing it). A variable a call passes wins. Memoise `vars`.
+ */
+export function I18nVarsProvider({ vars, children }: { vars: Record<string, string | number>; children?: ReactNode }) {
+  const base = useContext(I18nContext);
+  const value = useMemo<I18nContextValue>(() => ({ ...base, t: (key, own) => base.t(key, { ...vars, ...own }) }), [base, vars]);
+  return createElement(I18nContext.Provider, { value }, children);
+}

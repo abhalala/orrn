@@ -1,10 +1,11 @@
-import { gToKg, formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { UiLink } from "@orrn/ui/components/link";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 
-import { kgFromG, percentOfBp } from "./model";
+import { percentOfBp } from "./model";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /** `dashboard.today.pressAlerts` (FP-PR-22): null when there is no alert at all. */
 export type PressAlertsToday = { open: number; today: number; simulated: boolean } | null;
@@ -28,6 +29,7 @@ export type PressedToday = {
  * strings are `today.press.*`, a floor namespace gu carries in full (BACKLOG 54).
  */
 export function TodayPressTile({ data, alerts = null }: { data: PressedToday; alerts?: PressAlertsToday }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <section aria-labelledby="today-press" data-testid="today-press" className="flex min-w-0 flex-col gap-3">
@@ -56,10 +58,10 @@ export function TodayPressTile({ data, alerts = null }: { data: PressedToday; al
         <StatusBlock
           tone="green"
           title={t("today.press.pressed")}
-          meta={[t("today.press.runs", { count: data.runs }), data.trialRuns > 0 ? t("today.press.trials", { kg: kgFromG(data.trialKgG) }) : null].filter(Boolean).join(" · ")}
-          value={gToKg(data.kgG)}
-          unit={t("units.kg")}
-          format={formatKgTotal}
+          meta={[t("today.press.runs", { count: data.runs }), data.trialRuns > 0 ? t("today.press.trials", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, data.trialKgG) }) : null].filter(Boolean).join(" · ")}
+          value={data.kgG}
+          unit={massUnit(fmt)}
+          format={(g) => kgGrouped1(fmt, g)}
           countUp={false}
           href="/press/summary"
         />

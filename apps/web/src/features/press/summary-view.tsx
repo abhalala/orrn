@@ -1,4 +1,3 @@
-import { gToKg, formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -14,12 +13,15 @@ import { ymdLabel } from "@/shared/lib/intl-tag";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { kgFromG, percentOfBp } from "./model";
+import { percentOfBp } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { SummarySearch } from "./search";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /** `/press/summary`: the production day's three numbers, the stops longest first, shifts and late share. */
 export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onSearch: (next: SummarySearch) => void }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const query = useQuery({ ...trpc.press.summary.queryOptions(search.day ? { productionDay: search.day } : {}), meta: INLINE_ERROR_META });
   const data = query.data;
@@ -75,13 +77,13 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
           <StatusBlock
             tone="green"
             title={t("press.summary.pressedToday")}
-            meta={[t("press.summary.runs") + ": " + data.runs, t("press.summary.pieces") + ": " + data.pcs, data.trialRuns > 0 ? t("press.summary.trials", { kg: kgFromG(data.trialKgG) }) : null].filter(Boolean).join(" · ")}
-            value={gToKg(data.kgG)}
-            unit={t("units.kg")}
-            format={formatKgTotal}
+            meta={[t("press.summary.runs") + ": " + data.runs, t("press.summary.pieces") + ": " + data.pcs, data.trialRuns > 0 ? t("press.summary.trials", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, data.trialKgG) }) : null].filter(Boolean).join(" · ")}
+            value={data.kgG}
+            unit={massUnit(fmt)}
+            format={(g) => kgGrouped1(fmt, g)}
             countUp={false}
           />
-          <StatusBlock tone="blue" title={t("press.summary.recovery")} meta={`${t("press.summary.scrap")}: ${kgFromG(data.scrapG)} ${t("units.kg")}`} value={data.recoveryBp == null ? "—" : Number(percentOfBp(data.recoveryBp))} unit={data.recoveryBp == null ? undefined : "%"} format={(n) => n.toFixed(1)} countUp={false} />
+          <StatusBlock tone="blue" title={t("press.summary.recovery")} meta={`${t("press.summary.scrap")}: ${kgGrouped1(fmt, data.scrapG)} ${massUnit(fmt)}`} value={data.recoveryBp == null ? "—" : Number(percentOfBp(data.recoveryBp))} unit={data.recoveryBp == null ? undefined : "%"} format={(n) => n.toFixed(1)} countUp={false} />
           <StatusBlock tone="amber" title={t("press.summary.downtime")} value={data.downtimeMin} unit={t("units.min")} countUp={false} />
         </div>
       )}
@@ -96,8 +98,8 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
               <li key={l.pressLineId} data-line={l.code} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[15px]">
                 <span className="font-mono font-semibold">{l.code}</span>
                 <span className="tabular-nums text-muted-foreground">
-                  {t("press.summary.shiftRow", { runs: l.runs, kg: kgFromG(l.kgG) })}
-                  {l.trialKgG > 0 ? ` · ${t("press.summary.trials", { kg: kgFromG(l.trialKgG) })}` : ""}
+                  {t("press.summary.shiftRow", { massUnit: massUnit(fmt), runs: l.runs, kg: kgGrouped1(fmt, l.kgG) })}
+                  {l.trialKgG > 0 ? ` · ${t("press.summary.trials", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, l.trialKgG) })}` : ""}
                   {l.recoveryBp != null ? ` · ${percentOfBp(l.recoveryBp)}%` : ""}
                 </span>
                 <span className="tabular-nums">{t("press.summary.minutes", { min: l.downtimeMin })}</span>
@@ -140,8 +142,8 @@ export function SummaryScreen({ search, onSearch }: { search: SummarySearch; onS
               <li key={s.shiftSeq ?? "none"} className="flex flex-wrap items-baseline justify-between gap-x-4">
                 <span className="font-medium">{s.shiftName ?? s.shiftSeq ?? ""}</span>
                 <span className="tabular-nums text-muted-foreground">
-                  {t("press.summary.shiftRow", { runs: s.runs, kg: kgFromG(s.kgG) })}
-                  {s.trialKgG > 0 ? ` · ${t("press.summary.trials", { kg: kgFromG(s.trialKgG) })}` : ""}
+                  {t("press.summary.shiftRow", { massUnit: massUnit(fmt), runs: s.runs, kg: kgGrouped1(fmt, s.kgG) })}
+                  {s.trialKgG > 0 ? ` · ${t("press.summary.trials", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, s.trialKgG) })}` : ""}
                   {s.recoveryBp != null ? ` · ${percentOfBp(s.recoveryBp)}%` : ""}
                 </span>
                 {s.lateRuns > 0 ? <span className="tabular-nums">{t("press.summary.late")}: {s.lateRuns}</span> : null}
