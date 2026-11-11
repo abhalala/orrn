@@ -7186,7 +7186,7 @@ Please check, Lalubhai:
 | `field.trialKgPer12ft` | Trial weight per 12 ft | 12 ft का ट्रायल वज़न |
 | `field.hardness` | Hardness | हार्डनेस |
 | `field.lifeKg` | Life in kg | आयु (kg) |
-| `field.legacyId` | Old bundle id | पुराना bundle आईडी |
+| `field.legacyId` | Old bundle number | पुराना bundle नंबर |
 | `field.quantity` | Pieces | पीस |
 | `field.weightG` | Weight | वज़न |
 | `field.lengthMm` | Length | लंबाई |
@@ -7198,7 +7198,7 @@ Please check, Lalubhai:
 | `field.pcs` | Pieces | पीस |
 | `field.orderedKg` | Ordered | ऑर्डर की मात्रा |
 | `field.dispatchedKg` | Dispatched | भेजा गया |
-| `field.bakiKg` | Baki (balance) | बाकी |
+| `field.bakiKg` | Balance | बाकी |
 | `field.rate` | Rate | रेट |
 | `field.finish` | Finish | फिनिश |
 | `field.alloy` | Alloy | अलॉय |

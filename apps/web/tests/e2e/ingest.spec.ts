@@ -53,7 +53,7 @@ async function mergeApproved(page: Page, count: number) {
   await page.goto("/ingest");
   await page.getByRole("button", { name: new RegExp(`Merge ${count} approved`) }).click();
   await expect(page).toHaveURL(/\/ingest\/merge\//, { timeout: 30_000 });
-  await expect(page.getByText(/^Merged\. \d+ added, \d+ updated\.$/).first()).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText(/^\d+ added and \d+ updated in orrn\.$/).first()).toBeVisible({ timeout: 120_000 });
 }
 
 async function sectionVisible(page: Page, code: string) {
@@ -178,7 +178,7 @@ test.describe("imports portal", () => {
     await expect(card(page, name)).toBeVisible({ timeout: 60_000 });
     await expect(page.locator("li[data-step='done']").first()).toBeVisible({ timeout: 60_000 });
     await upload(page, `copy-of-${name}`, csv);
-    await expect(page.getByText(/You uploaded this file on .+\. Opening it\./)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/You added this file on .+\./)).toBeVisible({ timeout: 60_000 });
   });
 
   test("a role without the import actions gets no drop zone", async ({ page }) => {

@@ -409,7 +409,7 @@ export const ingestHi = {
     trialKgPer12ft: "12 ft का ट्रायल वज़न",
     hardness: "हार्डनेस",
     lifeKg: "आयु (kg)",
-    legacyId: "पुराना bundle आईडी",
+    legacyId: "पुराना bundle नंबर",
     quantity: "पीस",
     weightG: "वज़न",
     lengthMm: "लंबाई",

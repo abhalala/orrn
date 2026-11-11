@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { listFormat } from "./list-model";
 import { groupBareNumber, plantUnitsFor } from "./plant-units";
 import { rawCells, rowColumns, rupeesFromPaise, valueCells } from "./row-values";
 
@@ -160,6 +161,13 @@ describe("plant units", () => {
     expect(mm.unitText("linear_mass")).toBe("kg/12ft");
     expect(mm.unitText("length")).toBe("mm");
     expect(inch.unitText("length")).toBe("");
+  });
+
+  test("the list writes a day without its year, in the plant's zone, and counts the plant's way", () => {
+    const format = listFormat(mm);
+    expect(format.date(Date.UTC(2026, 10, 11, 6, 0))).toBe("11 Nov");
+    expect(format.count(1402)).toBe("1,402");
+    expect(mm.day("2026-11-11")).toBe("11 Nov 2026");
   });
 
   test("a bare number is regrouped, anything else is left alone", () => {
