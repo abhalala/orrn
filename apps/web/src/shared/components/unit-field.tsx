@@ -58,12 +58,47 @@ export function UnitField({ field, value, onValueChange, label, hint, required, 
     onValueChange(step.value);
   };
 
+  if (!label) {
+    return <BareUnitBox text={text} onText={change} kind={kind} disabled={disabled} className={className} id={id} problem={problem} {...rest} />;
+  }
   const control = <UnitControl text={text} onText={change} kind={kind} disabled={disabled} className={className} id={id} invalid={problem !== null} {...rest} />;
-  if (!label) return control;
   return (
     <Field label={label} hint={hint} required={required} error={problem ?? undefined} id={id}>
       {control}
     </Field>
+  );
+}
+
+/**
+ * A unit box with no `Field` around it (the caller supplies the label as `aria-label`): the refusal sentence is shown under it,
+ * tied to the box, in a live region that stays in the tree so it is announced when it appears.
+ */
+export function BareUnitBox({
+  problem,
+  ...box
+}: {
+  problem: string | null;
+  text: string;
+  onText(text: string): void;
+  kind: Kind;
+  disabled?: boolean;
+  className?: string;
+  id?: string;
+  "aria-label"?: string;
+  "data-testid"?: string;
+}) {
+  const problemId = `unit-problem-${useId().replace(/:/g, "")}`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <UnitControl {...box} invalid={problem !== null} describedBy={problem ? problemId : undefined} />
+      <div aria-live="polite" className="empty:-mt-1">
+        {problem ? (
+          <p id={problemId} className="m-0 text-[13px] font-medium leading-5 text-destructive">
+            {problem}
+          </p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -75,8 +110,10 @@ function UnitControl({
   className,
   id,
   invalid,
+  describedBy,
   ...rest
 }: {
+  describedBy?: string;
   text: string;
   onText(text: string): void;
   kind: Kind;
@@ -91,7 +128,7 @@ function UnitControl({
   const suffixId = `unit-${useId().replace(/:/g, "")}`;
   const unit = fmt.unitOf(kind);
   const composite = Boolean(unit.composite);
-  const a11y = useFieldControl({ id, "aria-invalid": invalid ? true : undefined }, suffixId);
+  const a11y = useFieldControl({ id, "aria-describedby": describedBy, "aria-invalid": invalid ? true : undefined }, suffixId);
   return (
     <div data-slot="unit-field" className="relative min-w-0">
       <Input

@@ -5,7 +5,7 @@ import { screenPrefs } from "@orrn/domain";
 
 import { FmtProvider } from "@/shared/lib/fmt";
 
-import { UnitField } from "./unit-field";
+import { BareUnitBox, UnitField } from "./unit-field";
 
 const render = (units: Parameters<typeof screenPrefs>[0], node: React.ReactNode) =>
   renderToStaticMarkup(<FmtProvider prefs={screenPrefs(units)}>{node}</FmtProvider>);
@@ -38,6 +38,16 @@ describe("UnitField renders the stored integer in the plant's unit", () => {
     const mm = render({}, <UnitField field="bundle.length" value={3658} onValueChange={noop} aria-label="L" />);
     expect(mm).toContain('value="3658"');
     expect(mm).toContain(">mm<");
+  });
+  test("a label-less box shows its refusal sentence, tied to the box by aria-describedby", () => {
+    const html = render({ units: { mass: "lb" } }, <BareUnitBox text="5.1234" onText={noop} kind="mass" problem="Too many decimal places for lb. Use at most 2." aria-label="W" />);
+    const id = /<p id="([^"]+)"[^>]*>Too many decimal places/.exec(html)?.[1];
+    expect(id).toBeDefined();
+    expect(html).toMatch(new RegExp(`aria-describedby="[^"]*${id}`));
+    expect(html).toContain('aria-invalid="true"');
+    const clean = render({}, <UnitField field="order.weight" value={12_345} onValueChange={noop} aria-label="W" />);
+    expect(clean).toContain('aria-live="polite"');
+    expect(clean).not.toContain("unit-problem");
   });
   test("empty value is an empty box, not 0", () => {
     expect(render({}, <UnitField field="order.weight" value={null} onValueChange={noop} aria-label="W" />)).toContain('value=""');
