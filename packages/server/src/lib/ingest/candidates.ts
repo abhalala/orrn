@@ -67,6 +67,7 @@ import {
   answerKey,
   candidateQuestions,
   classifyRows,
+  clearLayoutAnswers,
   openQuestionCount,
   parseRecipe,
   readAnswers,
@@ -352,7 +353,10 @@ export async function setTarget(
           fitDiff: fitDiffJson(fit),
           state: stateForFit(fit),
         };
-  await guardedBatch(ctx.db, candidateChange(ctx, c.id, input.expectSeq, { ...set, dryCursor: 0, reasonCode: null, reasonDetail: null }));
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, { ...set, dryCursor: 0, reasonCode: null, reasonDetail: null }),
+    clearLayoutAnswers(ctx, c.id),
+  ]);
   return candidateDetail(ctx, c.id);
 }
 
@@ -443,6 +447,7 @@ export async function confirmNear(
   });
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", holeRef: `learned:${versionId}`, dryCursor: 0 }),
+    clearLayoutAnswers(ctx, c.id),
     ...statements,
   ]);
   return candidateDetail(ctx, c.id);
@@ -481,6 +486,7 @@ export async function saveShape(
       reasonCode: null,
       reasonDetail: null,
     }),
+    clearLayoutAnswers(ctx, c.id),
     ...statements,
   ]);
   return candidateDetail(ctx, c.id);
@@ -575,6 +581,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
           dryCursor: 0,
           botAttempts: c.botAttempts + 1,
         }),
+        clearLayoutAnswers(ctx, c.id),
         ...statements,
       ]);
       return { outcome: "recipe", skipReason: null, attempt: result.attempt, model: result.model, next: "done" };

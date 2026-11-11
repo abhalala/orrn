@@ -149,3 +149,31 @@ describe("A1: a person's change during a dry run step is not lost", () => {
     expect(done.counts).toMatchObject({ create: 0, skipped: 2 });
   });
 });
+
+describe("A2: answers to an old layout do not override the new layout", () => {
+  test("a unit answered for one layout is dropped when a layout states the unit", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe(), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "unit_unknown", subject: "rate", answer: "inr/t", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    // Rs 245.50 a tonne is 24.55 paise a kg.
+    expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.rate).toBe(25);
+
+    const stated = bakiRecipe({
+      fields: EXAMPLE_BAKI_RECIPE.fields.map((f) =>
+        f.field === "rate" ? { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] } : f,
+      ),
+      unclear: [],
+    });
+    await p.owner.ingest.shape.save({ candidateId: id, recipe: stated, holeName: "Baki kg", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.some((q) => q.code === "unit_unknown")).toBe(false);
+    expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.rate).toBe(24_550);
+  });
+});

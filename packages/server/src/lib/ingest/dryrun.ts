@@ -112,7 +112,25 @@ export type AnswerSet = {
 
 export const answerKey = (code: string, subject: string) => `${code}\u001f${subject}`;
 
-export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactRow, "periodConfirmed">): AnswerSet {
+/** Answer codes that belong to one layout. A new layout drops them (A2). */
+export const LAYOUT_ANSWER_CODES = ["unit_unknown", "date_format_ambiguous", "column_meaning_unclear"] as const;
+
+/** Fields whose unit the recipe leaves open: a number step with unit null, or listed as unit_unknown. */
+export function openUnitFields(recipe: Recipe): Set<string> {
+  const out = new Set<string>();
+  for (const f of recipe.fields) if (f.steps.some((s) => s.op === "number" && s.unit === null)) out.add(f.field);
+  for (const u of recipe.unclear) if (u.code === "unit_unknown") out.add(u.field);
+  return out;
+}
+
+/**
+ * The stored answers as dry run options. With `recipe`, a unit or date answer counts only while the
+ * recipe still asks that question, so an answer to an older layout never overrides a unit the new
+ * layout states (A2).
+ */
+export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactRow, "periodConfirmed">, recipe?: Recipe): AnswerSet {
+  const unitOpen = recipe ? openUnitFields(recipe) : null;
+  const dateOpen = recipe ? new Set(recipe.unclear.filter((u) => u.code === "date_format_ambiguous").map((u) => u.field)) : null;
   const set: AnswerSet = {
     units: {},
     dateFormats: {},
@@ -127,10 +145,10 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
     const v = a.answer as unknown;
     switch (a.questionCode) {
       case "unit_unknown":
-        if (typeof v === "string") set.units[a.subject] = v as UnitId;
+        if (typeof v === "string" && (!unitOpen || unitOpen.has(a.subject))) set.units[a.subject] = v as UnitId;
         break;
       case "date_format_ambiguous":
-        if (typeof v === "string") set.dateFormats[a.subject] = v as DateFormat;
+        if (typeof v === "string" && (!dateOpen || dateOpen.has(a.subject))) set.dateFormats[a.subject] = v as DateFormat;
         break;
       case "period_needed":
         if (v && typeof v === "object" && typeof (v as { asOf?: unknown }).asOf === "string") set.periodAsOf = (v as { asOf: string }).asOf;
@@ -526,6 +544,19 @@ export async function candidateQuestions(
   return out;
 }
 
+/** Drops a candidate's answers that belonged to its old layout (A2). Put it in the batch that changes the layout. */
+export function clearLayoutAnswers(ctx: Pick<IngestCtx, "db" | "companyId">, candidateId: string): SqliteBatchItem {
+  return ctx.db
+    .delete(ingestAnswer)
+    .where(
+      and(
+        eq(ingestAnswer.companyId, ctx.companyId),
+        eq(ingestAnswer.candidateId, candidateId),
+        inArray(ingestAnswer.questionCode, [...LAYOUT_ANSWER_CODES]),
+      ),
+    );
+}
+
 /** Questions that block approve for anyone (rates_hidden depends on who approves, so it is left out). */
 export function openQuestionCount(questions: readonly IngestQuestion[]): number {
   return questions.filter((q) => q.open && q.code !== "rates_hidden").length;
@@ -623,7 +654,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     .select()
     .from(ingestAnswer)
     .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
-  const answers = readAnswers(answerRows, artifact);
+  const answers = readAnswers(answerRows, artifact, recipe);
 
   const page = await ctx.db
     .select()
