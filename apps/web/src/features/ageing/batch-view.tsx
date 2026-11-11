@@ -17,7 +17,7 @@ import { reasonCodeText } from "@/features/press/reason-label";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { showsQueryError } from "@/shared/lib/query-errors";
-import { dayText } from "@/features/orders/format";
+import { } from "@/features/orders/format";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -57,7 +57,7 @@ import { Fact, Panel, PhaseChip, RowChip, Section, SoakChip } from "./ui";
 import { useRefusal } from "./hooks";
 import { useShifts } from "./hooks";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { dayOf, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Dlg = "start" | "out" | "temp" | "hardness" | "override" | "rework" | "void" | null;
 
@@ -226,7 +226,7 @@ function Facts({ batch, when }: { batch: Batch; when: (at: number) => string }) 
         {batch.inAt ? <Fact label={t("ageing.field.inAt")} mono>{when(batch.inAt)}</Fact> : null}
         {batch.outAt ? <Fact label={t("ageing.field.outAt")} mono>{when(batch.outAt)}</Fact> : null}
         {shift ? <Fact label={t("ageing.field.shift")}>{shift.name}</Fact> : null}
-        {batch.productionDay ? <Fact label={t("ageing.field.day")}>{dayText(batch.productionDay, locale)}</Fact> : null}
+        {batch.productionDay ? <Fact label={t("ageing.field.day")}>{dayOf(fmt, batch.productionDay)}</Fact> : null}
         {batch.gasStartMilli !== null ? <Fact label={t("ageing.field.gasStart")} mono>{(batch.gasStartMilli / 1000).toFixed(3)}</Fact> : null}
         {batch.gasEndMilli !== null ? <Fact label={t("ageing.field.gasEnd")} mono>{(batch.gasEndMilli / 1000).toFixed(3)}</Fact> : null}
         {batch.gasUsedMilli !== null ? <Fact label={t("ageing.field.gasUsed")} mono>{(batch.gasUsedMilli / 1000).toFixed(3)}</Fact> : null}

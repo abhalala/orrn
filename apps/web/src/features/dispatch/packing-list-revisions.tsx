@@ -17,6 +17,7 @@ import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { trpc } from "@/shared/utils/trpc";
 
 import { dispatchErrorText } from "./errors";
+import { paperT } from "@/shared/lib/fmt-text";
 
 type Changes = {
   added: string[];
@@ -41,7 +42,8 @@ function serialsText(t: ReturnType<typeof useT>["t"], serials: readonly string[]
  * from the one before: bundles added, removed, and figures that changed.
  */
 export function RevisionsPanel({ listId, currentId }: { listId: string; currentId: string }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const when = useCompanyWhen();
   const rev = useQuery(trpc.packingList.revisions.queryOptions({ id: listId }));
   if (rev.isPending) return <Skeleton className="h-24 w-full rounded-card" />;
@@ -165,7 +167,8 @@ export function RegenerateDialog({
   next: number;
   onDone(newId: string): void;
 }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const uid = useId();
   const [branding, setBranding] = useState(list.showBranding);
   const [originalSo, setOriginalSo] = useState(list.showOriginalSo);
@@ -228,7 +231,8 @@ export function CombineSheet({
   customerId: string;
   customerName: string;
 }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [picked, setPicked] = useState<Set<string>>(new Set());

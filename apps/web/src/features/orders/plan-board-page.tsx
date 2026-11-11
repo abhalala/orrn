@@ -26,7 +26,7 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "./errors";
-import { dayText, dayTimeText } from "./format";
+import { } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import {
   addPlanLine,
@@ -52,7 +52,7 @@ import { parseKgG } from "./line-model";
 import { isTrialPurpose, PLAN_PURPOSES, trialDraftProblems, trialPlanInput, type PlanPurpose } from "./plan-purpose";
 import { EMPTY_TRIAL, PlanTrialForm, type TrialDraft } from "./plan-trial-form";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
+import { dayOf, dayTimeAt, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG } from "@/shared/lib/plant-input";
 
@@ -163,7 +163,7 @@ function PlanListPage({ offset, first, onMore }: { offset: number; first: boolea
                   </span>
                 </span>
                 <span className="text-[13px] text-muted-foreground">
-                  {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
+                  {t("press.plan.window", { from: dayTimeAt(fmt, p.windowStart), to: dayTimeAt(fmt, p.windowEnd) })}
                 </span>
                 <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
                   {t("orders.plan.summary", { massUnit: massUnit(fmt), dies: p.dies, kg: kgGrouped3(fmt, p.kgG) })}
@@ -436,8 +436,8 @@ function PlanBuilder() {
                     ? t("orders.plan.atToday", { time: e.time })
                     : e.day === "tomorrow"
                       ? t("orders.plan.atTomorrow", { time: e.time })
-                      : t("orders.plan.atOther", { date: dayText(e.date, locale), time: e.time });
-                return t("orders.plan.windowShown", { day: dayText(defaultWin.data.productionDay, locale), from: at(w.from), to: at(w.to) });
+                      : t("orders.plan.atOther", { date: dayOf(fmt, e.date), time: e.time });
+                return t("orders.plan.windowShown", { day: dayOf(fmt, defaultWin.data.productionDay), from: at(w.from), to: at(w.to) });
               })()}
             </p>
           ) : null}

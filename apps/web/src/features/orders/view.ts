@@ -253,7 +253,9 @@ function metaOf(meta: unknown): Record<string, unknown> {
 export function timelineLabel(
   ev: Pick<TimelineEvent, "action" | "meta" | "move">,
   words: { plant: string } = { plant: "plant stock" },
+  fmt?: Fmt,
 ): { key: MessageKey; vars: Record<string, string | number> } {
+  const kg = (g: number) => (fmt ? kgGrouped3(fmt, g) : orderKgText(g));
   const meta = metaOf(ev.meta);
   const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : "");
   const num = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
@@ -278,23 +280,23 @@ export function timelineLabel(
       const move = ev.move;
       // BACKLOG 34: "3 bundles, 57.000 kg, from KD Extrusion to plant stock" (the server's figures).
       if (move && move.from && move.from.length > 0 && move.to !== undefined) {
-        const vars = { count: move.count, kg: orderKgText(move.kgG), from: fromText(move.from, words.plant), to: toText(move.to, words.plant) };
+        const vars = { count: move.count, kg: kg(move.kgG), from: fromText(move.from, words.plant), to: toText(move.to, words.plant) };
         if (status === "pending") return { key: "orders.timeline.movePending", vars };
         if (status === "rejected") return { key: "orders.timeline.moveRejected", vars };
         return { key: "orders.timeline.moveApplied", vars };
       }
-      const vars = { count: move?.count ?? num("bundles"), kg: orderKgText(move?.kgG ?? num("kgG")) };
+      const vars = { count: move?.count ?? num("bundles"), kg: kg(move?.kgG ?? num("kgG")) };
       if (status === "pending") return { key: "orders.timeline.reallocatePending", vars };
       if (status === "rejected") return { key: "orders.timeline.reallocateRejected", vars };
       return { key: "orders.timeline.reallocateApplied", vars };
     }
     // Explorer W1 M5: holds read as words, not "order.hold" / "order.release".
     case "order.hold":
-      return { key: "orders.timeline.hold", vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo") } };
+      return { key: "orders.timeline.hold", vars: { count: listLength("serials") || listLength("bundleIds"), kg: kg(num("kgG")), line: num("lineNo") } };
     case "order.release":
       return {
         key: str("reason") === "dispatched" ? "orders.timeline.releaseDispatched" : "orders.timeline.release",
-        vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
+        vars: { count: listLength("serials") || listLength("bundleIds"), kg: kg(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
       };
     case "plan.create":
       return { key: "orders.timeline.planCreate", vars: { number: str("number") } };

@@ -15,11 +15,11 @@ import { Can } from "@/shared/components/can";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
 
-import { dayTimeText } from "../format";
+import { } from "../format";
 import { useCompanyTimeZone } from "../hooks";
 import { DIE_STATE_TONE, dieStateKey, pressedBarWidth, pressedPctText, pressedVsPlanned } from "../phone-plan-view";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
+import { dayTimeAt, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 export function PhonePlan({ planId }: { planId?: string }) {
   return (
@@ -91,7 +91,7 @@ function PhonePlanBody({ planId }: { planId?: string }) {
                 {p.pressLine ? ` · ${p.pressLine.code}` : ""}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
+                {t("press.plan.window", { from: dayTimeAt(fmt, p.windowStart), to: dayTimeAt(fmt, p.windowEnd) })}
               </p>
               <p className="text-sm tabular-nums">
                 {t("orders.phonePlan.planTotal", { massUnit: massUnit(fmt), pressed: kgGrouped3(fmt, p.pressedG), planned: kgGrouped3(fmt, p.plannedG), pct: pressedPctText(p.pressedBp) })}

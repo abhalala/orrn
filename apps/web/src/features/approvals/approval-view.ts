@@ -5,6 +5,8 @@
  * role, so meta is treated as data: ids only become links when they look like
  * ids.
  */
+import type { Fmt } from "@orrn/domain";
+import { kgGrouped3, massUnit, sectionText } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { MoveFacts, OffBandFacts, TierFacts } from "@orrn/server/lib/approvalFacts";
@@ -126,11 +128,13 @@ export type FoundryFigure = { labelKey: MessageKey; value: string };
  * billets produced, the tail and its share, or the melt's metal in and logs. Absent figures are
  * left out (a request made before a figure existed).
  */
-export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknown> | null | undefined): FoundryFigure[] {
+export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknown> | null | undefined, fmt?: Fmt): FoundryFigure[] {
+  const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
+  const U = fmt ? massUnit(fmt) : "kg";
   const m = meta ?? {};
   const rows: FoundryFigure[] = [];
   const kg = (g: number | null, labelKey: MessageKey) => {
-    if (g !== null) rows.push({ labelKey, value: `${moveKgText(g)} kg` });
+    if (g !== null) rows.push({ labelKey, value: `${W(g)} ${U}` });
   };
   if (kind === "cast_close") {
     kg(num(m.producedG), "approvals.foundry.produced");
@@ -138,11 +142,11 @@ export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknow
     kg(num(m.ledgerOnHandG), "approvals.foundry.ledgerOnHand");
     kg(num(m.countedG), "approvals.foundry.counted");
     const adjust = num(m.adjustG);
-    if (adjust !== null && adjust !== 0) rows.push({ labelKey: "approvals.foundry.adjust", value: `${adjust < 0 ? "-" : "+"}${moveKgText(Math.abs(adjust))} kg` });
+    if (adjust !== null && adjust !== 0) rows.push({ labelKey: "approvals.foundry.adjust", value: `${adjust < 0 ? "-" : "+"}${W(Math.abs(adjust))} ${U}` });
     const tail = num(m.tailG);
     if (tail !== null) {
       const pct = bpPct(num(m.tailBp));
-      rows.push({ labelKey: "approvals.foundry.tail", value: `${tail < 0 ? "-" : ""}${moveKgText(Math.abs(tail))} kg${pct ? ` (${pct}%)` : ""}` });
+      rows.push({ labelKey: "approvals.foundry.tail", value: `${tail < 0 ? "-" : ""}${W(Math.abs(tail))} ${U}${pct ? ` (${pct}%)` : ""}` });
     }
     kg(num(m.shortG) && num(m.shortG)! > 0 ? num(m.shortG) : null, "approvals.foundry.short");
   } else if (kind === "melt_correct") {
@@ -180,15 +184,18 @@ export function foundryLiveOf(
   subjectId: string,
   meta: Record<string, unknown> | null | undefined,
   live: FoundryLiveSource,
+  fmt?: Fmt,
 ): { rows: FoundryFigure[]; notes: FoundryLiveNote[] } | null {
+  const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
+  const U = fmt ? massUnit(fmt) : "kg";
   const m = meta ?? {};
-  const kg = (g: number, labelKey: MessageKey): FoundryFigure => ({ labelKey, value: `${moveKgText(g)} kg` });
+  const kg = (g: number, labelKey: MessageKey): FoundryFigure => ({ labelKey, value: `${W(g)} ${U}` });
   if (kind === "cast_close") {
     const notes: FoundryLiveNote[] = [];
     const asked = num(m.ledgerOnHandG);
     const now = live.closeout.billetsOnHandG;
-    if (asked !== null && now < asked) notes.push({ key: "approvals.foundry.usedSince", kg: moveKgText(asked - now) });
-    else if (asked !== null && now > asked) notes.push({ key: "approvals.foundry.addedSince", kg: moveKgText(now - asked) });
+    if (asked !== null && now < asked) notes.push({ key: "approvals.foundry.usedSince", kg: W(asked - now) });
+    else if (asked !== null && now > asked) notes.push({ key: "approvals.foundry.addedSince", kg: W(now - asked) });
     if (live.cast.status !== "closing") notes.push({ key: "approvals.foundry.castMoved" });
     return {
       rows: [kg(live.closeout.producedG, "approvals.foundry.produced"), kg(live.closeout.inputG, "approvals.foundry.metalIn"), kg(now, "approvals.foundry.ledgerOnHand")],
@@ -302,7 +309,9 @@ function bandEnd(id: unknown, label: unknown, words: SubjectWords): string {
   return id == null ? (words.mainBand ?? "main band") : (words.otherBand ?? "another band");
 }
 
-export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }): ApprovalSubject {
+export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }, fmt?: Fmt): ApprovalSubject {
+  const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
+  const U = fmt ? massUnit(fmt) : "kg";
   const kindKey = `approvals.kind.${row.kind}` as MessageKey;
   const m = row.meta ?? {};
   if (row.kind === "press_late_entry") {
@@ -321,7 +330,7 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
       return {
         kindKey,
         titleKey: "approvals.subject.reallocate",
-        vars: { count: move.count, kg: moveKgText(move.kgG), from: moveFromText(move.from, words.plant), to: moveEndText(move.to, words.plant) },
+        vars: { count: move.count, kg: W(move.kgG), from: moveFromText(move.from, words.plant), to: moveEndText(move.to, words.plant) },
         href: move.orderId ? `/orders/${move.orderId}` : null,
         openKey: move.orderId ? "approvals.openOrder" : null,
       };
@@ -373,7 +382,7 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
     return {
       kindKey,
       titleKey: tail === null ? "approvals.subject.castCloseBare" : "approvals.subject.castClose",
-      vars: { number: castNumber, kg: tail === null ? "" : moveKgText(Math.abs(tail)) },
+      vars: { number: castNumber, kg: tail === null ? "" : W(Math.abs(tail)) },
       href: safeId(row.subjectId) ? `/casts/${row.subjectId}` : null,
       openKey: safeId(row.subjectId) ? "approvals.openCast" : null,
     };
@@ -537,8 +546,8 @@ export function moveFactsView(f: MoveFacts) {
 }
 
 /** An off-band row as it stands now (Q36): gone, moved to another line, or still where it was asked. */
-export function offBandFactsView(f: OffBandFacts) {
-  const kg = (milli: number | null) => (milli === null ? null : (milli / 1000).toFixed(3));
+export function offBandFactsView(f: OffBandFacts, fmt?: Fmt) {
+  const kg = (milli: number | null) => (milli === null ? null : fmt ? sectionText(fmt, milli) : (milli / 1000).toFixed(3));
   if (!f.row) return { gone: true as const };
   return {
     gone: false as const,
@@ -551,7 +560,7 @@ export function offBandFactsView(f: OffBandFacts) {
 }
 
 /** A tier change as it stands now: the copy now, what is asked, the last reading against the band. */
-export function tierFactsView(f: TierFacts, words: { mainBand: string }) {
+export function tierFactsView(f: TierFacts, words: { mainBand: string }, fmt?: Fmt) {
   const r = f.reading;
   const position: "above" | "below" | "inside" | null = r ? (r.kgPer12ftMilli > f.copy.band.maxG ? "above" : r.kgPer12ftMilli < f.copy.band.minG ? "below" : "inside") : null;
   const rank = (n: number | null) => (n === null ? null : String(n));
@@ -565,7 +574,7 @@ export function tierFactsView(f: TierFacts, words: { mainBand: string }) {
     bandChange: f.request.isLift
       ? { from: f.request.fromBandText ?? words.mainBand, to: f.request.toBandText ?? words.mainBand }
       : null,
-    readingKg: r ? (r.kgPer12ftMilli / 1000).toFixed(3) : null,
+    readingKg: r ? (fmt ? sectionText(fmt, r.kgPer12ftMilli) : (r.kgPer12ftMilli / 1000).toFixed(3)) : null,
     readAt: r ? r.readAt : null,
     position,
     changedSince: f.changedSince,

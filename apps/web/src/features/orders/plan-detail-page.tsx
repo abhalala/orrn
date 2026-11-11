@@ -26,12 +26,12 @@ import { PlanPrintButtons } from "./components/print-buttons";
 import { PhonePlan } from "./components/phone-plan";
 import { ReasonSheet } from "./components/reason-sheet";
 import { orderErrorLines } from "./errors";
-import { dayTimeText } from "./format";
+import { } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import { BiggerScreenNote, PLAN_STATUS_TONE } from "./plan-board-page";
 import { dieTitle } from "./view";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
+import { dayTimeAt, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 type Warning = { lineId: string; sectionCode: string; customerName: string; orderNumber: string; cutLengthMm: number; planableG: number };
 
@@ -165,7 +165,7 @@ export function PlanDetailPage({ id }: { id: string }) {
     <>
       <PageHeader
         title={p.number}
-        subtitle={t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
+        subtitle={t("press.plan.window", { from: dayTimeAt(fmt, p.windowStart), to: dayTimeAt(fmt, p.windowEnd) })}
         back={back}
         actions={
           <Can do="order.plan">

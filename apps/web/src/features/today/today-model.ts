@@ -3,6 +3,8 @@
  * clock, the in-stock total, the chart series and the role-aware tiles and
  * "Start here" steps. No React here, so it is unit-tested directly.
  */
+import type { Fmt } from "@orrn/domain";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 import { formatKgTotal } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
@@ -343,11 +345,11 @@ export function tileHint(tile: Pick<TodayTile, "key">, count: number | null | un
  * A packing session's line: bundles and kg (void left out, RP11), or "All
  * bundles void" when nothing of it is left, instead of "0 bundles · 0.0 kg".
  */
-export function sessionSummary(totals: { bundles: number; weightG: number }): TileHint {
+export function sessionSummary(totals: { bundles: number; weightG: number }, fmt?: Fmt): TileHint {
   if (totals.bundles <= 0) return { key: "today.sessionVoided" };
   return {
     key: "units.bundlesKg",
-    vars: { bundles: formatCount(totals.bundles), kg: formatKgTotal(totals.weightG / 1000) },
+    vars: { bundles: formatCount(totals.bundles), kg: fmt ? kgGrouped1(fmt, totals.weightG) : formatKgTotal(totals.weightG / 1000) },
   };
 }
 

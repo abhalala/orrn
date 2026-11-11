@@ -15,6 +15,7 @@
  *   rateText    rateText                                            rupees per kg, two decimals, plain
  *   countText   pcsText, countText                                  whole pieces, grouped
  */
+import type { Translate } from "@orrn/i18n";
 import { formatKg, formatStorage, gToKg, kgPerMetre, type Fmt } from "@orrn/domain";
 
 const MASS = "order.weight";
@@ -165,3 +166,13 @@ export const kgGrouped0 = (fmt: Fmt, grams: number): string => formatStorage(gra
 
 /** A section weight, plain, zeros dropped ("2.4"): the die list's range column, `kgText` of a die's band end in kg/12ft. */
 export const sectionPlainTrim = (fmt: Fmt, gramsPer12ft: number): string => fmt.n(BAND, gramsPer12ft, "export", { trim: true });
+
+/** Aliases for screens that already import another `dayText` or `dayTimeText` (orders/format, foundry/format). */
+export const dayTimeAt = dayTimeText;
+export const dayOf = dayText;
+
+/**
+ * A `t` for a screen that mirrors a paper (the packing list): the unit words are the paper's (kg, kg per 12 ft, mm),
+ * whatever the plant shows on its other screens.
+ */
+export const paperT = (t: Translate): Translate => (key, vars) => t(key, { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm", ...vars });

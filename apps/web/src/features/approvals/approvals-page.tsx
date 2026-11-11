@@ -43,6 +43,7 @@ import {
 } from "./approval-view";
 import { APPROVAL_FILTERS, isApprovalStatus } from "./approval-filter";
 import { ReviewSheet, type ApprovalItem } from "./review-sheet";
+import { useFmt } from "@/shared/lib/fmt";
 
 export { APPROVAL_FILTERS, isApprovalKind, isApprovalStatus };
 
@@ -192,9 +193,10 @@ export function ApprovalsPage({
 
 function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const view: ApprovalForView = item;
-  const subject = approvalSubject(view, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") });
+  const subject = approvalSubject(view, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") }, fmt);
   const state = decideState(me, view);
   const title = t(subject.titleKey, subject.vars) || t(subject.kindKey);
   // Codes stay on one line: "LOT-" and "13" on two lines misreads.

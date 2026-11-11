@@ -6,6 +6,7 @@ import { cn } from "@orrn/ui/lib/utils";
 
 import { formatShipDate } from "./format";
 import type { PlGroupView, PlRowView, PlSubtotal, PlView } from "./pl-model";
+import { paperT } from "@/shared/lib/fmt-text";
 
 const kg = (g: number) => formatKg(gToKg(g));
 const k12 = (milli: number | null) => (milli === null ? "-" : (milli / 1000).toFixed(3));
@@ -32,7 +33,8 @@ export function PlV2Body({ view, code, kgPerPiece = false }: { view: PlView; cod
 }
 
 function PlHeader({ view, code }: { view: PlView; code: string }) {
-  const { t, locale } = useT();
+  const { t: tUi, locale } = useT();
+  const t = paperT(tUi);
   const facts: { key: string; label: string; value: string | null; mono?: boolean }[] = [
     { key: "plNo", label: t("packingList.plNo"), value: view.revision > 1 ? `${code} (${t("packingList.v2.revisionShort", { n: view.revision })})` : code, mono: true },
     { key: "date", label: t("packingList.date"), value: formatShipDate(view.date, { locale }) ?? t("packingList.notSet") },
@@ -97,7 +99,8 @@ function PlHeader({ view, code }: { view: PlView; code: string }) {
 }
 
 function Party({ label, party }: { label: string; party: { name: string; gstin: string | null; address: string | null } }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <p className="m-0 text-[13px] text-muted-foreground">{label}</p>
@@ -113,7 +116,8 @@ function Party({ label, party }: { label: string; party: { name: string; gstin: 
 }
 
 function PlSummary({ view }: { view: PlView }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   if (view.profile.length === 0) return null;
   return (
     <section aria-label={t("packingList.v2.byProfile")} data-slot="pl-profile" className="flex min-w-0 flex-wrap gap-3">
@@ -134,7 +138,8 @@ function groupTotals(t: ReturnType<typeof useT>["t"], s: PlSubtotal) {
 }
 
 function PlTable({ view, kgPerPiece }: { view: PlView; kgPerPiece: boolean }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const { partyNo, originalSo } = view.columns;
   const cols = [
     { key: "sr", label: t("packingList.columns.sr"), end: false },
@@ -197,7 +202,8 @@ function PlTable({ view, kgPerPiece }: { view: PlView; kgPerPiece: boolean }) {
 }
 
 function GroupBody({ g, span, cell, partyNo, originalSo, kgPerPiece }: { g: PlGroupView; span: number; cell: string; partyNo: boolean; originalSo: boolean; kgPerPiece: boolean }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const blank = (n: number) => Array.from({ length: n }, (_, i) => <td key={i} className={cell} />);
   return (
     <tbody>
@@ -257,7 +263,8 @@ function GroupBody({ g, span, cell, partyNo, originalSo, kgPerPiece }: { g: PlGr
 }
 
 function PlStack({ view, kgPerPiece }: { view: PlView; kgPerPiece: boolean }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {view.groups.map((g) => (
@@ -291,7 +298,8 @@ function PlStack({ view, kgPerPiece }: { view: PlView; kgPerPiece: boolean }) {
 }
 
 function StackRow({ r, originalSo, kgPerPiece }: { r: PlRowView; originalSo: boolean; kgPerPiece: boolean }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   return (
     <li data-testid="packing-list-row" className="flex min-w-0 flex-col gap-2 px-4 py-3">
       <div className="flex min-w-0 items-baseline justify-between gap-3">
