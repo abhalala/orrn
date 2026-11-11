@@ -63,6 +63,8 @@ import {
   resolveCopy,
   resolveName,
   resolveSection,
+  sectionCodeIn,
+  sectionKeys,
   type NameIndex,
   type Resolution,
 } from "./resolvers";
@@ -259,11 +261,11 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
     live.liveVendors = new Map(recs.map((v) => [v.id, { name: v.name, gstin: v.gstin, phone: v.phone, city: v.city, notes: v.notes }]));
   }
   if (target === "dies") {
-    const recs = await mapInChunks([...new Set(codes)], (part) =>
+    const recs = await mapInChunks(sectionKeys(codes), (part) =>
       ctx.db
         .select()
         .from(die)
-        .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt), inArray(die.sectionCode, part))),
+        .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt), sectionCodeIn(part))),
     );
     live.liveDies = new Map(
       recs.map((d) => {

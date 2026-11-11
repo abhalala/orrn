@@ -9,7 +9,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
-import { BAKI_SHEET_HEADERS, EXAMPLE_BAKI_RECIPE, fingerprint, type Recipe } from "@orrn/ingest";
+import { BAKI_SHEET_HEADERS, DIE_SHEET_HEADERS, EXAMPLE_BAKI_RECIPE, EXAMPLE_DIE_RECIPE, fingerprint, type Recipe } from "@orrn/ingest";
 
 import { setShapeClientForTests } from "../src/lib/ingest/bot/client";
 import { FakeShapeClient, fakeResponse } from "../src/lib/ingest/bot/fake";
@@ -703,5 +703,22 @@ describe("A21: approve needs the raw file in the vault when there is one", () =>
     await p.admin.ingest.artifact.commitRaw({ artifactId });
     c = await p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
     expect(c.state).toBe("approved");
+  });
+});
+
+describe("A16: section codes match live dies whatever their case", () => {
+  test("a die sheet row 'fc / s100a' matches the live die FC S100A instead of creating a second one", async () => {
+    const p = await plant();
+    const { die } = await import("@orrn/db/schema");
+    const dieId = `die_${randomUUID()}`;
+    await env.db.insert(die).values({ id: dieId, companyId: p.companyId, series: "FC", sectionCode: "S100A", weightMinG: 3000, weightMaxG: 3200 } as never);
+    await learnLayout(p.companyId, p.users.admin.id, { ...EXAMPLE_DIE_RECIPE, headerRow: 0 }, "Dies");
+    const { candidates } = await upload(p.admin, [{ headers: DIE_SHEET_HEADERS, rows: [["fc", "s100a", "3", "3.2", "Angle", "25", "2", "25", "active", ""]] }]);
+    const id = candidates[0]!.id;
+    expect(candidates[0]!.target).toBe("dies");
+    await pump(p.admin, id);
+    const row = (await p.admin.ingest.rows.list({ candidateId: id })).items[0]!;
+    expect(row.state).not.toBe("ready_create");
+    expect(row.matchId).toBe(dieId);
   });
 });

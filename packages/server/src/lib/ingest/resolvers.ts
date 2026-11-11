@@ -5,7 +5,7 @@
  * makes the row ambiguous with options for a person to pick.
  */
 import { matchName, nameKey as engineNameKey, type NameEntry } from "@orrn/ingest";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, legacyBundleMap, vendor, vendorAlias } from "@orrn/db/schema";
 
@@ -72,13 +72,22 @@ export type SectionRow = { id: string; series: string; sectionCode: string; name
 
 /** Live sections whose code is one of `codes` (chunked IN lists). */
 export async function loadSections(ctx: Db, codes: readonly string[]): Promise<SectionRow[]> {
-  const unique = [...new Set(codes.filter(Boolean))];
-  return mapInChunks(unique, (part) =>
+  return mapInChunks(sectionKeys(codes), (part) =>
     ctx.db
       .select({ id: die.id, series: die.series, sectionCode: die.sectionCode, name: die.name })
       .from(die)
-      .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt), inArray(die.sectionCode, part))),
+      .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt), sectionCodeIn(part))),
   );
+}
+
+/** Section codes as the resolvers compare them: trimmed, upper case, unique, no blanks. */
+export function sectionKeys(codes: readonly string[]): string[] {
+  return [...new Set(codes.map((c) => c.trim().toUpperCase()).filter(Boolean))];
+}
+
+/** The SQL filter that compares section codes the way `resolveSection` does (A16). */
+export function sectionCodeIn(keys: readonly string[]): SQL {
+  return inArray(sql`upper(trim(${die.sectionCode}))`, [...keys]);
 }
 
 const norm = (s: string) => s.trim().toUpperCase();
