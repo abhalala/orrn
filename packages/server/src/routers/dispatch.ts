@@ -351,10 +351,21 @@ async function linkedLinesSeq(db: OrrnDb, companyId: string, dispatchId: string)
 }
 
 /** Review 7: what a late-time request was asked for: the bundles on the dispatch and their grams. */
-type LateLoad = { bundles: number; weightG: number };
+type LateLoad = { bundles: number; weightG: number; bundlesHash: string };
+
+/** Check N7: the load names its bundles too, as a SHA-256 of the sorted bundle ids (an equal-weight swap differs). */
+async function lateLoadOf(rows: readonly { id: string; weightG: number }[]): Promise<LateLoad> {
+  const ids = rows.map((r) => r.id).sort().join(",");
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ids)));
+  return {
+    bundles: rows.length,
+    weightG: rows.reduce((sum, r) => sum + r.weightG, 0),
+    bundlesHash: [...digest].map((b) => b.toString(16).padStart(2, "0")).join(""),
+  };
+}
 
 function sameLateLoad(meta: Record<string, unknown> | null | undefined, load: LateLoad): boolean {
-  return meta?.bundles === load.bundles && meta?.weightG === load.weightG;
+  return meta?.bundles === load.bundles && meta?.weightG === load.weightG && meta?.bundlesHash === load.bundlesHash;
 }
 
 export const LATE_LOAD_CHANGED =
@@ -406,7 +417,7 @@ async function askLateEntry(
   if (forTime.some((r) => r.status === "pending")) return { approvedId: null, reason: reason.trim() };
   const stale = rows.find((r) => r.status === "pending");
   const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-  const meta = { dispatchId: d.id, dispatchCode: d.code, occurredAt, reason: reason.trim(), bundles: load.bundles, weightG: load.weightG };
+  const meta = { dispatchId: d.id, dispatchCode: d.code, occurredAt, reason: reason.trim(), bundles: load.bundles, weightG: load.weightG, bundlesHash: load.bundlesHash };
   const statements: SqliteBatchItem[] = [];
   if (stale) {
     const note = stale.meta?.occurredAt === occurredAt ? "Withdrawn: the bundles on the dispatch changed." : "Withdrawn: asked again with another time.";
@@ -1832,9 +1843,21 @@ export const dispatchRouter = router({
         .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatchItem.companyId)))
         .where(and(eq(dispatchItem.dispatchId, row.id), eq(dispatchItem.companyId, ctx.companyId)));
       const totals = { bundles: Number(sums?.bundles ?? 0), weightG: Number(sums?.weightG ?? 0) };
+      // Check N7: compared with the bundles on the dispatch now (ids and grams), not only the totals.
+      const loadNow = lateAsk
+        ? await lateLoadOf(
+            (
+              await ctx.db
+                .select({ id: dispatchItem.bundleId, weightG: bundle.weightG })
+                .from(dispatchItem)
+                .innerJoin(bundle, and(eq(bundle.id, dispatchItem.bundleId), eq(bundle.companyId, dispatchItem.companyId)))
+                .where(and(eq(dispatchItem.dispatchId, row.id), eq(dispatchItem.companyId, ctx.companyId)))
+            ).map((b) => ({ id: b.id, weightG: Number(b.weightG) })),
+          )
+        : null;
       const lateEntry: { status: "pending" | "approved" | "changed"; occurredAt: number; reason: string; approvalId: string } | null = lateAsk
         ? {
-            status: sameLateLoad(lateAsk.meta, totals) ? lateAsk.status : "changed",
+            status: loadNow && sameLateLoad(lateAsk.meta, loadNow) ? lateAsk.status : "changed",
             occurredAt: lateAsk.occurredAt,
             reason: lateAsk.reason,
             approvalId: lateAsk.id,
@@ -2958,10 +2981,7 @@ export const dispatchRouter = router({
       // request this Complete opens), and refused at the end until approved.
       const late =
         input.occurredAt !== undefined
-          ? await askLateEntry(ctx, d, input.occurredAt, input.lateReason ?? "", {
-              bundles: bundles.length,
-              weightG: bundles.reduce((sum, b) => sum + b.weightG, 0),
-            })
+          ? await askLateEntry(ctx, d, input.occurredAt, input.lateReason ?? "", await lateLoadOf(bundles))
           : null;
 
       // Q36 decided: every off-band row approved for the line it is on now (asked here when nobody had).

@@ -57,7 +57,7 @@ describe("late packing-list entry (arch 52)", () => {
     const [req, ...more] = await lateRows(p.companyId);
     expect(more).toEqual([]);
     expect(req).toMatchObject({ status: "pending", subjectId: id, requestedBy: p.users.office.id, requestNote: "Line down 1 to 6, paper PL" });
-    expect(req!.meta).toEqual({ dispatchId: id, dispatchCode: expect.any(String), occurredAt, reason: "Line down 1 to 6, paper PL", bundles: 1, weightG: 50_000 });
+    expect(req!.meta).toEqual({ dispatchId: id, dispatchCode: expect.any(String), occurredAt, reason: "Line down 1 to 6, paper PL", bundles: 1, weightG: 50_000, bundlesHash: expect.stringMatching(/^[0-9a-f]{64}$/) });
     // Nothing moved yet.
     expect((await ledgerOf(p.companyId, id)).length).toBe(0);
 
@@ -224,6 +224,28 @@ describe("late packing-list entry (arch 52)", () => {
     expect(await lateRows(p.companyId)).toHaveLength(1);
     const added = (await c.dispatch.getDispatch({ id })).items.find((i) => i.serial === more)!;
     await p.owner.dispatch.removeBundle({ id, bundleId: added.bundleId });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
+  test("check N7: an approval covers which bundles, not only how many and how heavy: an equal-weight swap asks again", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    const occurredAt = NOW.getTime() - 5 * H;
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined);
+    const [first] = await lateRows(p.companyId);
+    await p.as("manager").approval.decide({ id: first!.id, decision: "approved" });
+    // Swap the 50 kg bundle for another 50 kg bundle: same count, same grams, another bundle.
+    const before = (await c.dispatch.getDispatch({ id })).items[0]!;
+    const [other] = await p.pack(p.dieA, [{ kg: 50 }]);
+    await p.owner.dispatch.removeBundle({ id, bundleId: before.bundleId });
+    await p.owner.dispatch.addBundlesBySerial({ id, serials: [other!], allowUnassigned: true });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "changed", approvalId: first!.id });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    const second = (await lateRows(p.companyId)).find((r) => r.status === "pending")!;
+    expect(second.meta).toMatchObject({ occurredAt, bundles: 1, weightG: 50_000 });
+    expect(second.meta.bundlesHash).not.toBe(first!.meta.bundlesHash);
+    await p.as("manager").approval.decide({ id: second.id, decision: "approved" });
     await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
   }, SLOW);
 
