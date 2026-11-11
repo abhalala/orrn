@@ -2,13 +2,14 @@ import { useT } from "@orrn/i18n";
 import { Skeleton } from "@orrn/ui/components/skeleton";
 import { useQuery } from "@tanstack/react-query";
 
-import { kgFromG } from "@/features/press/model";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { useDuration } from "./hooks";
 import { x10Text } from "./model";
 import { SoakChip } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 /**
  * What an approver needs before they let a short or failed batch go (`ageing_override`): the
@@ -16,6 +17,7 @@ import { SoakChip } from "./ui";
  * `ageing.batches.get`, which people with `ageing.view` (the approvers) may call.
  */
 export function AgeingOverrideFigures({ batchId }: { batchId: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const duration = useDuration();
   const q = useQuery({ ...trpc.ageing.batches.get.queryOptions({ id: batchId }), meta: INLINE_ERROR_META });
@@ -25,7 +27,7 @@ export function AgeingOverrideFigures({ batchId }: { batchId: string }) {
   const rows: [string, React.ReactNode][] = [
     [t("ageing.field.number"), <span key="n" className="font-mono">{b.number}</span>],
     [t("ageing.field.recipe"), b.recipeLabel ?? "-"],
-    [t("ageing.field.loaded"), t("ageing.pcsKg", { pcs: b.totals.loadedPcs, kg: kgFromG(b.totals.loadedKgG) })],
+    [t("ageing.field.loaded"), t("ageing.pcsKg", { pcs: b.totals.loadedPcs, kg: kgGrouped1(fmt, b.totals.loadedKgG) })],
   ];
   if (b.snapshot) rows.push([t("ageing.field.target"), `${x10Text(b.snapshot.targetTempX10)} ± ${x10Text(b.snapshot.toleranceX10)} °C · ${duration(b.snapshot.soakMin)}`]);
   if (b.soak) {
@@ -48,7 +50,7 @@ export function AgeingOverrideFigures({ batchId }: { batchId: string }) {
       <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label={t("ageing.batch.lines")}>
         {b.rows.filter((r) => r.status !== "void").map((r) => (
           <li key={r.id} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[14px]" data-testid="override-line">
-            <span className="min-w-0 flex-1 break-words">{r.sectionLabel} · {r.lengthMm} mm · {r.pcs} {t("units.pcs")}</span>
+            <span className="min-w-0 flex-1 break-words">{r.sectionLabel} · {fmt.q("bundle.length", r.lengthMm)} · {r.pcs} {t("units.pcs")}</span>
             <span className="font-mono">
               {r.hardnessReadingX10 === null ? t("ageing.hardness.untested") : `${x10Text(r.hardnessReadingX10)} ${r.hardnessMethod ? t(`ageing.method.${r.hardnessMethod}`) : ""} · ${r.hardnessPass ? t("ageing.readings.pass") : t("ageing.readings.fail")}`}
             </span>

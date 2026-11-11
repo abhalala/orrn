@@ -13,7 +13,6 @@ import { toast } from "sonner";
 
 import { AuditRows } from "@/features/audit/audit-rows";
 import { PackBar } from "@/features/pack/pack-ui";
-import { kgFromG } from "@/features/press/model";
 import { reasonCodeText } from "@/features/press/reason-label";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
@@ -34,8 +33,7 @@ import {
   TempSheet,
   UnholdDialog,
   VoidSheet,
-  recipeLine,
-} from "./batch-sheets";
+  recipeLine } from "./batch-sheets";
 import { useActionKey, useAgeingInvalidate, useBatch, useDuration, useNow, type Batch, type BatchRow } from "./hooks";
 import {
   STAGES,
@@ -53,12 +51,13 @@ import {
   stageIndex,
   voidPermission,
   x10Text,
-  type NextAction,
-} from "./model";
+  type NextAction } from "./model";
 import { TempSpark } from "./sparkline";
 import { Fact, Panel, PhaseChip, RowChip, Section, SoakChip } from "./ui";
 import { useRefusal } from "./hooks";
 import { useShifts } from "./hooks";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Dlg = "start" | "out" | "temp" | "hardness" | "override" | "rework" | "void" | null;
 
@@ -207,6 +206,7 @@ function Links({ batch }: { batch: Batch }) {
 }
 
 function Facts({ batch, when }: { batch: Batch; when: (at: number) => string }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const duration = useDuration();
   const { shifts } = useShifts();
@@ -215,12 +215,12 @@ function Facts({ batch, when }: { batch: Batch; when: (at: number) => string }) 
   return (
     <Panel>
       <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-4" data-testid="batch-facts">
-        <Fact label={t("ageing.field.loaded")} mono>{t("ageing.pcsKg", { pcs: batch.totals.loadedPcs, kg: kgFromG(batch.totals.loadedKgG) })}</Fact>
+        <Fact label={t("ageing.field.loaded")} mono>{t("ageing.pcsKg", { pcs: batch.totals.loadedPcs, kg: kgGrouped1(fmt, batch.totals.loadedKgG) })}</Fact>
         <Fact label={t("ageing.field.packable")} mono>{batch.totals.packablePcs}</Fact>
         <Fact label={t("ageing.field.held")} mono>{batch.totals.heldPcs}</Fact>
         <Fact label={t("ageing.field.packed")} mono>{batch.totals.packedPcs}</Fact>
         <Fact label={t("ageing.field.remaining")} mono>{batch.totals.remainingPcs}</Fact>
-        <Fact label={t("ageing.field.theoreticalKg")} mono>{kgFromG(batch.totals.theoreticalRemainingKgG)}</Fact>
+        <Fact label={t("ageing.field.theoreticalKg")} mono>{kgGrouped1(fmt, batch.totals.theoreticalRemainingKgG)}</Fact>
         {batch.totals.scrapPcs > 0 ? <Fact label={t("ageing.field.scrap")} mono>{batch.totals.scrapPcs}</Fact> : null}
         {batch.totals.reworkPcs > 0 ? <Fact label={t("ageing.field.reworked")} mono>{batch.totals.reworkPcs}</Fact> : null}
         {batch.inAt ? <Fact label={t("ageing.field.inAt")} mono>{when(batch.inAt)}</Fact> : null}
@@ -418,6 +418,7 @@ function Lines({
   onDiscard(row: BatchRow): void;
   onSplit(row: BatchRow): void;
 }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { settings } = useShifts();
   const splitOn = settings.data?.ageing?.split === true;
@@ -446,9 +447,9 @@ function Lines({
         </span>
       ),
     },
-    { key: "len", header: t("ageing.field.cutLength"), cell: (r) => <span className="font-mono tabular-nums whitespace-nowrap">{r.lengthMm} mm</span> },
+    { key: "len", header: t("ageing.field.cutLength"), cell: (r) => <span className="font-mono tabular-nums whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</span> },
     { key: "pcs", header: t("ageing.field.pieces"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.pcs}</span> },
-    { key: "kg", header: t("units.kg"), align: "end", hideOnPhone: true, cell: (r) => <span className="font-mono tabular-nums">{kgFromG(r.kgG)}</span> },
+    { key: "kg", header: massUnit(fmt), align: "end", hideOnPhone: true, cell: (r) => <span className="font-mono tabular-nums">{kgGrouped1(fmt, r.kgG)}</span> },
     { key: "rem", header: t("ageing.field.remaining"), align: "end", cell: (r) => <span className="font-mono tabular-nums" data-testid="row-remaining">{r.remainingPcs}</span> },
     { key: "cast", header: t("ageing.field.cast"), hideOnPhone: true, cell: (r) => <span className="font-mono">{r.castCode ?? "-"}</span> },
     {

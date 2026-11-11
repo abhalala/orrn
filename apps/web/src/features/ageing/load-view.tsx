@@ -14,7 +14,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { PackBar } from "@/features/pack/pack-ui";
-import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
@@ -24,6 +23,8 @@ import { useAgeingInvalidate, useActionKey, type AvailableBundle, type Available
 import { canLoad, capacityTone, lineFitsRecipe, loadTotals, pickOf, pressRowsOf, type PickState } from "./model";
 import type { LoadSearch } from "./search";
 import { Panel, RefusalNote, FieldSelect as NativeSelect } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Source = "press" | "bundles";
 
@@ -34,6 +35,7 @@ type Source = "press" | "bundles";
  * binds 100 parameters per statement; the server chunks the inserts); a longer pick is told so.
  */
 export function LoadScreen({ search }: { search: LoadSearch }) {
+  const fmt = useFmt();
   const { t } = useT();
   const navigate = useNavigate();
   const invalidate = useAgeingInvalidate();
@@ -187,7 +189,7 @@ export function LoadScreen({ search }: { search: LoadSearch }) {
           notice={load.error ? <RefusalNote error={load.error} /> : undefined}
           summary={
             <p className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px]" data-testid="load-summary">
-              <span className="font-semibold tabular-nums">{t("ageing.load.summary", { lines: totals.lines, pcs: totals.pcs, kg: kgFromG(totals.kgG) })}</span>
+              <span className="font-semibold tabular-nums">{t("ageing.load.summary", { lines: totals.lines, pcs: totals.pcs, kg: kgGrouped1(fmt, totals.kgG) })}</span>
               {trolley && totals.lines > 0 && capacity !== "ok" ? (
                 <Chip tone={capacityTone(capacity)} truncate={false} data-testid="load-capacity">
                   {t(`ageing.capacity.${capacity}`)}
@@ -227,6 +229,7 @@ function TrolleyPicker({
   onChange(id: string): void;
   error?: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (loading) return <Skeleton className="h-16 rounded-input" />;
   if (trolleys.length === 0) {
@@ -254,7 +257,7 @@ function TrolleyPicker({
               <input type="radio" name="trolley" value={r.id} checked={checked} onChange={() => onChange(r.id)} className="sr-only" aria-label={r.code} />
               <span className="font-mono text-[17px] font-semibold">{r.code}</span>
               <span className="text-[12px] text-muted-foreground">
-                {r.openBatchNumber ? t("ageing.load.addTo", { number: r.openBatchNumber }) : r.capacityG ? t("ageing.floor.capacity", { kg: kgFromG(r.capacityG) }) : t("ageing.floor.free")}
+                {r.openBatchNumber ? t("ageing.load.addTo", { number: r.openBatchNumber }) : r.capacityG ? t("ageing.floor.capacity", { kg: kgGrouped1(fmt, r.capacityG) }) : t("ageing.floor.free")}
               </span>
             </label>
           );
@@ -280,6 +283,7 @@ function PressLines({
   picks: PickState;
   onPicks(next: PickState): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (showsQueryError(query)) {
     return (
@@ -327,7 +331,7 @@ function PressLines({
                   <span className="text-[13px] leading-5 text-muted-foreground">
                     {[
                       t("ageing.load.lineLength", { mm: line.lengthMm }),
-                      t("ageing.load.lineLeft", { pcs: line.pcsLeft, kg: kgFromG(line.kgLeftG) }),
+                      t("ageing.load.lineLeft", { pcs: line.pcsLeft, kg: kgGrouped1(fmt, line.kgLeftG) }),
                       line.castCode ? t("ageing.load.lineCast", { cast: line.castCode }) : null,
                       [line.alloy, line.temper].filter(Boolean).join(" "),
                       line.salesOrderNumber ? `${line.salesOrderNumber}${line.customerName ? ` · ${line.customerName}` : ""}` : null,
@@ -378,6 +382,7 @@ function Bundles({
   picked: Record<string, true>;
   onPicked(next: Record<string, true>): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const items = query.data?.items ?? [];
   return (
@@ -417,7 +422,7 @@ function Bundles({
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="font-mono text-[15px] font-semibold">{b.serial}</span>
                     <span className="text-[13px] leading-5 text-muted-foreground">
-                      {[b.sectionLabel, t("ageing.load.lineLength", { mm: b.lengthMm }), `${b.pcs} ${t("units.pcs")} · ${kgFromG(b.weightG)} ${t("units.kg")}`, b.castCode, [b.alloy, b.temper].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
+                      {[b.sectionLabel, t("ageing.load.lineLength", { mm: b.lengthMm }), `${b.pcs} ${t("units.pcs")} · ${kgGrouped1(fmt, b.weightG)} ${massUnit(fmt)}`, b.castCode, [b.alloy, b.temper].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
                     </span>
                   </span>
                 </label>
