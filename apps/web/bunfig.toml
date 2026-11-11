@@ -1,2 +1,2 @@
 [test]
-preload = ["./test-support/one-react.ts"]
+preload = ["./test-support/test-env.ts", "./test-support/one-react.ts"]

@@ -336,7 +336,7 @@ function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
 // The run card: who, what, which orders
 // ---------------------------------------------------------------------------
 
-function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: string }) {
+export function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: string }) {
   const fmt = useFmt();
   const { t, locale } = useT();
   const { data: me } = useMe();

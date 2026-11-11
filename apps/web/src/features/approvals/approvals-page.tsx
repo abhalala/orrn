@@ -191,7 +191,7 @@ export function ApprovalsPage({
   );
 }
 
-function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void }) {
+export function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void }) {
   const { t } = useT();
   const fmt = useFmt();
   const { data: me } = useMe();

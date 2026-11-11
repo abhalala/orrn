@@ -13,5 +13,6 @@ const ids = ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom",
 for (const id of ids) {
   const from = shared.resolve(id);
   const to = web.resolve(id);
-  if (from !== to) mock.module(from, () => web(id));
+  // A default export too: a module that writes `import React from "react"` reads it through the CommonJS object.
+  if (from !== to) mock.module(from, () => ({ ...web(id), default: web(id) }));
 }
