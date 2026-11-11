@@ -70,8 +70,16 @@ export type NumberRead =
   | { ok: true; value: NumberValue }
   | { ok: false; code: RefusalCode };
 
+/** Devanagari (U+0966..096F) and Gujarati (U+0AE6..0AEF) digits to ASCII, as the registry's parser folds them. */
+export function foldIndicDigits(text: string): string {
+  return text.replace(/[\u0966-\u096F\u0AE6-\u0AEF]/g, (ch) => {
+    const c = ch.charCodeAt(0);
+    return String(c >= 0x0ae6 ? c - 0x0ae6 : c - 0x0966);
+  });
+}
+
 export function readNumber(textIn: string, kind: UnitKind, declared: UnitId | null): NumberRead {
-  let t = textIn.normalize("NFKC").trim();
+  let t = foldIndicDigits(textIn.normalize("NFKC")).trim();
   if (kind === "price_per_mass") t = t.replace(/^(?:₹|rs\.?|inr)\s*/i, "").replace(/\s*\/-$/, "");
   let decimal: string;
   let unit: UnitId | null = declared;
