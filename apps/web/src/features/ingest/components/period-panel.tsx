@@ -1,5 +1,5 @@
 import { Button } from "@orrn/ui/components/button";
-import { Field, TextInput } from "@orrn/ui/components/field";
+import { Field } from "@orrn/ui/components/field";
 import { useEffect, useRef, useState, type Ref } from "react";
 
 import {
@@ -11,7 +11,7 @@ import {
   type PeriodGuess,
   type YearLine as YearLineModel,
 } from "../lib";
-import { ActionButton, dateLang, FieldSelect, Muted, useSay } from "./review-bits";
+import { ActionButton, DayInput, FieldSelect, Muted, useSay } from "./review-bits";
 import { ActionError } from "./shared";
 import type { ReviewActions } from "./use-review-actions";
 
@@ -40,7 +40,7 @@ export function YearLine({
   selectRef?: Ref<HTMLSelectElement>;
   changeRef?: Ref<HTMLButtonElement>;
 }) {
-  const { t, words, say, locale } = useSay();
+  const { t, words, say } = useSay();
   const plant = usePlantUnits();
   const [editing, setEditing] = useState(false);
   const [fy, setFy] = useState(line.show && line.mode === "ask" ? line.fy : "");
@@ -149,14 +149,8 @@ export function YearLine({
                 ))}
               </FieldSelect>
             </Field>
-            <Field label={t("ingest.period.asOf")} required hint={asOf ? plant.day(asOf) : undefined} error={problems.asOf ? words(problems.asOf) : undefined}>
-              <TextInput
-                ref={localDate}
-                type="date"
-                lang={dateLang(locale)}
-                value={asOf}
-                onChange={(event) => setAsOf(event.currentTarget.value)}
-              />
+            <Field label={t("ingest.period.asOf")} required hint={/^\d{4}-\d{2}-\d{2}$/.test(asOf) ? plant.day(asOf) : undefined} error={problems.asOf ? words(problems.asOf) : undefined}>
+              <DayInput ref={localDate} value={asOf} onChange={setAsOf} />
             </Field>
             <div className="flex flex-wrap gap-2 sm:pt-[26px]">
               <ActionButton type="submit" variant="secondary" busy={act.busy} working={act.pending === "year"}>

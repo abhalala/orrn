@@ -46,10 +46,14 @@ async function openPortal(page: Page, role: LocalRole) {
 }
 
 const fileInput = (page: Page) => page.locator("input[type='file']");
-/** One file's imports on the list: the heading with the file name, and its table. */
+/** The heading row of one file on the list: the file name, "3 tables, added 11 Nov", and "Approve all N". */
 const group = (page: Page, fileName: string): Locator => page.locator("[data-testid='ingest-file-group']", { hasText: fileName });
-/** The first import row of a file (the list is a table at 1280 px). */
-const row = (page: Page, fileName: string): Locator => group(page, fileName).locator("tbody tr").first();
+/** One file's part of the list: every file is a tbody of the one table, a heading row first and its imports after it. */
+const section = (page: Page, fileName: string): Locator => page.locator("tbody", { has: group(page, fileName) });
+/** The import rows of a file (not its heading row; the list is a table at 1280 px). */
+const fileRows = (page: Page, fileName: string): Locator => section(page, fileName).locator("tr:not(:has(> td[colspan]))");
+/** The first import row of a file. */
+const row = (page: Page, fileName: string): Locator => fileRows(page, fileName).first();
 /** A row of the strip "Files being added". */
 const stripRow = (page: Page, fileName: string): Locator => page.locator("li[data-step]", { hasText: fileName });
 
@@ -86,7 +90,8 @@ async function mergeApproved(page: Page) {
   await expect(sheet.getByText(/^Merge \d+ imports? into orrn\?$/)).toBeVisible();
   await sheet.getByRole("button", { name: /^Merge \d+ approved imports?$/ }).click();
   await expect(page).toHaveURL(/\/ingest\/merge\//, { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Merge finished", level: 2 })).toBeVisible({ timeout: 120_000 });
+  // The page title says it (one h1); the block under it is a named group, not a second heading.
+  await expect(page.getByRole("heading", { name: "Merge finished", level: 1 })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText("rows added").first()).toBeVisible();
 }
 
@@ -318,15 +323,16 @@ test.describe("imports portal", () => {
 
     // The row that waits has its own explanation, and the filter starts on "Needs a decision".
     await expect(page.getByRole("button", { name: /^Needs a decision \d+/ })).toHaveAttribute("aria-pressed", "true");
-    // Rows that wait for a decision read as cards, so their buttons are in view (a table of this width would push them aside).
-    const waiting = page.getByTestId("row-card").filter({ hasText: "400" });
+    // The row that waits says so in its chip, explains itself in amber, and links to the question.
+    const waiting = page.locator("tbody tr").filter({ hasText: "Waits on a question" });
     await expect(waiting.getByText(/looks too large or too small/)).toBeVisible();
+    await expect(waiting.getByRole("link", { name: "Answer the question above, or skip the row." })).toBeVisible();
 
     // "The values are right" saves on a press, the question reads "Answered", and the row no longer waits.
     await question.getByRole("button", { name: "The values are right" }).click();
     await expect(page.getByText(/^Answered: /).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("group", { name: /Some Weight values look wrong for kg/ })).toHaveCount(0);
-    await expect(page.getByTestId("row-card").filter({ hasText: "looks too large or too small" })).toHaveCount(0);
+    await expect(page.locator("tbody tr").filter({ hasText: "looks too large or too small" })).toHaveCount(0);
   });
 
   test("Approve all approves only the imports with no open question", async ({ page }) => {
@@ -354,10 +360,10 @@ test.describe("imports portal", () => {
     // The two die sheets are Ready with no question; the bundles sheet is under Needs you.
     await expect(async () => {
       await segment(page, "Ready");
-      await expect(group(page, name).locator("tbody tr")).toHaveCount(2, { timeout: 1_000 });
+      await expect(fileRows(page, name)).toHaveCount(2, { timeout: 1_000 });
     }).toPass({ timeout: 90_000 });
     await segment(page, "Needs you");
-    await expect(group(page, name).locator("tbody tr")).toHaveCount(1);
+    await expect(fileRows(page, name)).toHaveCount(1);
     await segment(page, "Ready");
 
     await group(page, name).getByRole("button", { name: /^Approve all 2/ }).click();
@@ -367,11 +373,11 @@ test.describe("imports portal", () => {
 
     // Both die sheets are approved; the bundles sheet is not, and the sticky bar counts two.
     await segment(page, "Approved");
-    await expect(group(page, name).locator("tbody tr")).toHaveCount(2);
+    await expect(fileRows(page, name)).toHaveCount(2);
     await expect(page.getByText(/^2 imports approved, /)).toBeVisible();
     await segment(page, "Needs you");
-    await expect(group(page, name).locator("tbody tr")).toHaveCount(1);
-    await expect(group(page, name).getByText("Bundles in stock")).toBeVisible();
+    await expect(fileRows(page, name)).toHaveCount(1);
+    await expect(section(page, name).getByText("Bundles in stock")).toBeVisible();
 
     // Leave nothing approved behind: merge the two.
     await mergeApproved(page);

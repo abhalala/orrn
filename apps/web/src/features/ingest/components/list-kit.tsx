@@ -253,7 +253,7 @@ function ActionCell({ row, controls }: { row: ListRow; controls?: RowControls })
 }
 
 /** Fixed widths of the list's columns, so every file group lines up under the one header (work order 3.2). */
-const WIDTHS = { fit: "w-[148px]", create: "w-[72px]", update: "w-[84px]", questions: "w-[96px]", cannot: "w-[84px]", status: "w-[156px]", action: "w-[148px]" } as const;
+const WIDTHS = { fit: "w-[136px]", create: "w-[64px]", update: "w-[76px]", questions: "w-[88px]", cannot: "w-[76px]", status: "w-[156px]", action: "w-[172px]" } as const;
 
 /**
  * The columns of an import list (work order 3.2): what it is, layout, four counts, status, and the one action.

@@ -258,6 +258,7 @@ export const ingestHi = {
     doneNoYear: "{date} तक",
     change: "बदलें",
     mismatch: "यह तारीख {fy} में नहीं है। उसी वर्ष की तारीख चुनें।",
+    badDate: "तारीख दिन, महीना, साल के क्रम में लिखें, जैसे 31/03/2026।",
     source: {
       title: "शीट के शीर्षक",
       file_name: "फ़ाइल के नाम",

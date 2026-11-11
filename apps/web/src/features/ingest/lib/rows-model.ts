@@ -60,11 +60,18 @@ export function rowFilters(counts: CandidateCounts): RowFilterOption[] {
 
 /**
  * The filter buttons the panel draws. A filter whose count equals All says nothing the All button does not, so it is
- * left out; with fewer than two groups left there is nothing to choose and the row of filters is not drawn at all.
+ * left out, and so is a Pick a match or Differs filter that holds exactly the rows Needs a decision already holds; with fewer than two groups left there is nothing to choose and the row of filters is not drawn at all.
  */
 export function visibleRowFilters(options: readonly RowFilterOption[]): RowFilterOption[] {
   const all = options.find((o) => o.id === "all");
-  const kept = options.filter((o) => o.id === "all" || !all || o.count !== all.count);
+  const decide = options.find((o) => o.id === "needsDecision");
+  const kept = options.filter(
+    (o) =>
+      o.id === "all" ||
+      ((!all || o.count !== all.count) &&
+        // "Pick a match 1" under "Needs a decision 1" is the same rows twice.
+        !(decide && o.id !== "needsDecision" && (o.id === "ambiguous" || o.id === "conflict") && o.count === decide.count)),
+  );
   return kept.length >= 2 ? kept : [];
 }
 

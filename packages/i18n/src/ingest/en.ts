@@ -259,6 +259,7 @@ export const ingestEn = {
     doneNoYear: "As on {date}",
     change: "Change",
     mismatch: "The date is not inside {fy}. Pick a date in that year.",
+    badDate: "Write the date as day, month, year, for example 31/03/2026.",
     source: {
       title: "the title of the sheet",
       file_name: "the file name",

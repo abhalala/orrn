@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { defaultAsOf, financialYears, fileYearTargets, guessSource, needsYearLine, yearLine, yearProblems } from "./year-model";
+import { defaultAsOf, financialYears, fileYearTargets, formatDay, guessSource, needsYearLine, parseDay, yearLine, yearProblems } from "./year-model";
 
 const day = (iso: string) => `day(${iso})`;
 const base = { target: "orders", questions: [], period: null, periodConfirmed: null } as never;
@@ -71,6 +71,16 @@ describe("saving a year", () => {
     expect(yearProblems({ fy: "2025-26", asOf: "2026-03-31" })).toEqual({});
     expect(yearProblems({ fy: "2025-26", asOf: "2026-04-01" })).toEqual({ asOf: { key: "ingest.period.mismatch", vars: { fy: "2025-26" } } });
     expect(yearProblems({ fy: "", asOf: "" })).toEqual({ fy: { key: "common.required" }, asOf: { key: "common.required" } });
+  });
+  test("a day is written day first: 31/03/2026 is 2026-03-31, and what is not a real day is said in words", () => {
+    expect(parseDay("31/03/2026")).toBe("2026-03-31");
+    expect(parseDay(" 1-4-2026 ")).toBe("2026-04-01");
+    expect(parseDay("31.03.2026")).toBe("2026-03-31");
+    expect(parseDay("31/02/2026")).toBeNull();
+    expect(parseDay("03/31/26")).toBeNull();
+    expect(formatDay("2026-03-31")).toBe("31/03/2026");
+    expect(formatDay("31/0")).toBe("31/0");
+    expect(yearProblems({ fy: "2025-26", asOf: "31/0" })).toEqual({ asOf: { key: "ingest.period.badDate" } });
   });
   test("the file screen shows the year once, only when the file has orders or bundles", () => {
     expect(fileYearTargets([{ candidates: [{ target: "dies" }] }, { candidates: [{ target: "orders" }] }])).toBe(true);

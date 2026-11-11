@@ -1,11 +1,11 @@
 import { useT } from "@orrn/i18n";
 import { Button, type ButtonProps } from "@orrn/ui/components/button";
-import { useFieldControl } from "@orrn/ui/components/field";
+import { TextInput, useFieldControl } from "@orrn/ui/components/field";
 import { NativeSelect, type NativeSelectProps } from "@orrn/ui/components/native-select";
 import { cn } from "@orrn/ui/lib/utils";
 import { forwardRef, useCallback, useEffect, useId, useMemo, useState, type ReactNode, type Ref } from "react";
 
-import { sayWords, type Preview, type SampleView, type Words } from "../lib";
+import { formatDay, parseDay, sayWords, type Preview, type SampleView, type Words } from "../lib";
 import { translateKey } from "./shared";
 
 /**
@@ -21,12 +21,39 @@ export function useSay() {
   return { t, say, words, locale };
 }
 
-/** The language of a date field, so the browser may write the day first (31/03/2026) the way a plant in India reads it. */
-export function dateLang(locale: string): string {
-  return locale === "hi" ? "hi-IN" : locale === "gu" ? "gu-IN" : "en-IN";
-}
+/**
+ * A day written the way a plant in India writes it: day, month, year (31/03/2026). The browser's own date control follows
+ * the browser's language and showed month first. The value it reports is the ISO day (`2026-03-31`), or what was typed
+ * while that is not a real day, so the form can say how to write it. Put it inside a `Field` for the label and error.
+ */
+export const DayInput = forwardRef<HTMLInputElement, { value: string; onChange: (value: string) => void; "aria-label"?: string }>(function DayInput(
+  { value, onChange, ...rest },
+  ref,
+) {
+  const [text, setText] = useState(() => formatDay(value));
+  // A value set from outside (Change starts from the saved day) shows in the field; what the person is typing is left alone.
+  useEffect(() => {
+    setText((current) => (parseDay(current) === value || current === value ? current : formatDay(value)));
+  }, [value]);
+  return (
+    <TextInput
+      ref={ref}
+      inputMode="numeric"
+      autoComplete="off"
+      maxLength={10}
+      placeholder="dd/mm/yyyy"
+      value={text}
+      onChange={(event) => {
+        const next = event.currentTarget.value;
+        setText(next);
+        onChange(parseDay(next) ?? next.trim());
+      }}
+      {...rest}
+    />
+  );
+});
 
-/** File names, sheet names and column headers are the file's own text. On a Hindi screen they are marked English (WCAG 3.1.2). */
+/** File names, sheet names/** File names, sheet names and column headers are the file's own text. On a Hindi screen they are marked English (WCAG 3.1.2). */
 export function Foreign({ children, className }: { children: ReactNode; className?: string }) {
   const { locale } = useT();
   return (

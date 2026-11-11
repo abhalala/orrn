@@ -1,12 +1,12 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Field, TextInput, useFieldControl } from "@orrn/ui/components/field";
+import { Field, useFieldControl } from "@orrn/ui/components/field";
 import { NativeSelect, type NativeSelectProps } from "@orrn/ui/components/native-select";
 import { forwardRef, useRef, useState } from "react";
 
 import { financialYears, useFocusReturn, useIngestActions, useRunAction, yearProblems, type YearLine } from "../lib";
 import { useSay } from "./list-kit";
-import { dateLang } from "./review-bits";
+import { DayInput } from "./review-bits";
 import { ActionError } from "./shared";
 
 /** A select that takes its label, hint and error from the `Field` around it (a bare `NativeSelect` has no name). */
@@ -34,7 +34,7 @@ export function FileYearLine({
   confirmed: { fy: string | null; asOf: string | null } | null;
   announce: (text: string) => void;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
   const { say, words, plant } = useSay();
   const focus = useFocusReturn();
   const actions = useIngestActions();
@@ -91,8 +91,8 @@ export function FileYearLine({
                 ))}
               </FieldSelect>
             </Field>
-            <Field label={t("ingest.period.asOf")} hint={asOf ? plant.day(asOf) : undefined} error={problems.asOf ? words(problems.asOf) : undefined} className="sm:w-48">
-              <TextInput ref={asOfRef} type="date" lang={dateLang(locale)} value={asOf} onChange={(event) => setAsOf(event.currentTarget.value)} />
+            <Field label={t("ingest.period.asOf")} hint={/^\d{4}-\d{2}-\d{2}$/.test(asOf) ? plant.day(asOf) : undefined} error={problems.asOf ? words(problems.asOf) : undefined} className="sm:w-48">
+              <DayInput ref={asOfRef} value={asOf} onChange={setAsOf} />
             </Field>
             <div className="flex flex-col gap-2 sm:flex-row sm:self-end">
               <Button

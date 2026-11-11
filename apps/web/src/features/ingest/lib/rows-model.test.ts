@@ -43,6 +43,8 @@ describe("filters (M12)", () => {
     // Different groups stay, in order, with All last.
     expect(visibleRowFilters(rowFilters(counts({ total: 100, ambiguous: 2, conflict: 1, create: 90, refused: 7 }))).map((o) => o.id)).toEqual(["needsDecision", "ambiguous", "conflict", "refused", "ready_create", "all"]);
     expect(visibleRowFilters(rowFilters(counts({ total: 10, create: 6, refused: 4 }))).map((o) => o.id)).toEqual(["refused", "ready_create", "all"]);
+    // "Pick a match 1" under "Needs a decision 1" is the same rows twice.
+    expect(visibleRowFilters(rowFilters(counts({ total: 3, ambiguous: 1, create: 2 }))).map((o) => o.id)).toEqual(["needsDecision", "ready_create", "all"]);
   });
 
   test("needs a decision asks for two server states; the others for one", () => {

@@ -108,11 +108,30 @@ export function yearLine(
   };
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `31/03/2026` (also 31-3-2026 or 31.03.2026) as `2026-03-31`, or null when it is not a real day. A plant in India writes the day first. */
+export function parseDay(text: string): string | null {
+  const m = /^\s*(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})\s*$/.exec(text);
+  if (!m) return null;
+  const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** `2026-03-31` as `31/03/2026`. Anything that is not an ISO day comes back as it is (what the person typed). */
+export function formatDay(value: string): string {
+  return ISO_DAY.test(value) ? `${value.slice(8, 10)}/${value.slice(5, 7)}/${value.slice(0, 4)}` : value;
+}
+
 /** A save that would fail on the server (the date outside the year, or a field left empty), said before it is sent. */
 export function yearProblems(input: { fy: string; asOf: string }): { fy?: Words; asOf?: Words } {
   const out: { fy?: Words; asOf?: Words } = {};
   if (!input.fy) out.fy = { key: "common.required" };
-  if (!input.asOf || !/^\d{4}-\d{2}-\d{2}$/.test(input.asOf)) out.asOf = { key: "common.required" };
+  if (!input.asOf) out.asOf = { key: "common.required" };
+  // Something typed that is not a day: say how to write it, not "required".
+  else if (!ISO_DAY.test(input.asOf)) out.asOf = { key: "ingest.period.badDate" };
   else if (input.fy && fyOfIso(input.asOf) !== input.fy) out.asOf = { key: "ingest.period.mismatch", vars: { fy: input.fy } };
   return out;
 }

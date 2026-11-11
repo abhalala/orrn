@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7938 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7939 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6855,7 +6855,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (419)
+### ingest (420)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7060,6 +7060,7 @@ Please check, Lalubhai:
 | `period.doneNoYear` | As on {date} | {date} तक |
 | `period.change` | Change | बदलें |
 | `period.mismatch` | The date is not inside {fy}. Pick a date in that year. | यह तारीख {fy} में नहीं है। उसी वर्ष की तारीख चुनें। |
+| `period.badDate` | Write the date as day, month, year, for example 31/03/2026. | तारीख दिन, महीना, साल के क्रम में लिखें, जैसे 31/03/2026। |
 | `period.source.title` | the title of the sheet | शीट के शीर्षक |
 | `period.source.file_name` | the file name | फ़ाइल के नाम |
 | `period.source.sheet_name` | the sheet name | शीट के नाम |
