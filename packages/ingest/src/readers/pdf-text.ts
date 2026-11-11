@@ -652,7 +652,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       const preText = pre.map(lineText);
       let matrix = rows.map((r) => r.cells);
       let src = rows.map(srcOf);
-      let blocks = findBlocks(matrix, { sheetName });
+      let blocks = findBlocks(matrix, { sheetName, noHeaderGuess: true });
       let titleLines = 0;
       let fallback = false;
       if (blocks.length > 0 && preText.length > 0) {
@@ -670,8 +670,10 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         matrix = placed.matrix;
         src = placed.src;
         fallback = true;
-        blocks = findBlocks(matrix, { sheetName });
+        blocks = findBlocks(matrix, { sheetName, noHeaderGuess: true });
       }
+      // No line looks like a header: the first line of two or more cells is the guess, and the block is unsure (R3-5).
+      if (blocks.length === 0) blocks = findBlocks(matrix, { sheetName });
       blocks.forEach((b, bi) => {
         const g = b.guess;
         const first = g.firstDataRow!;

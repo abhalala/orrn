@@ -87,10 +87,11 @@ export type BlockHints = {
  * - `footer_left_out` (PDF): a one-cell line under the table read as a footer, not a row.
  * - `title_repeated` (PDF): the title of the table repeated on a later page.
  * - `skipped_by_hint`: a row between the header and the hinted first data row.
- * - `after_last_row`: a row after the hinted last data row that no other hinted block takes.
+ * - `after_last_row`: a row after the hinted last data row that no other block takes.
+ * - `kept_as_title`: a row of two or more filled cells above the header, kept in the block's title. It may be data.
  */
 export type RowWarning = {
-  code: "not_placed" | "footer_left_out" | "title_repeated" | "skipped_by_hint" | "after_last_row";
+  code: "not_placed" | "footer_left_out" | "title_repeated" | "skipped_by_hint" | "after_last_row" | "kept_as_title";
   row: number;
   /** 1-based page, for PDF only. */
   page?: number;

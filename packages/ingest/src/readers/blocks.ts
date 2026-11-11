@@ -8,7 +8,7 @@
 import { cellKind, inferKind } from "../cells";
 import { parseDate } from "../dates";
 import { usedWidth } from "../fingerprint";
-import { PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning, type UnsureReason } from "./types";
+import { PREVIEW_ROWS, UNSURE_REASONS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning, type UnsureReason } from "./types";
 
 export const HEADER_SEARCH_ROWS = 20;
 export const HEADER_TEXT_SHARE = 0.6;
@@ -164,13 +164,13 @@ function isGroupLabel(row: readonly string[], below: readonly string[], i: numbe
  * non-blank row is header-like with more cells. A bare year counts only when its cell is not a group label (see
  * `isGroupLabel`). A group-label row of a two-row header is not a title.
  */
-function isTitleAbove(rows: readonly string[][], h: number): number {
+function isTitleAbove(rows: readonly string[][], h: number, to: number): number {
   const row = rows[h]!;
   let k = h + 1;
-  while (k < rows.length && nonBlank(rows[k]!) === 0) k++;
-  if (k >= rows.length) return -1;
+  while (k < to && nonBlank(rows[k]!) === 0) k++;
+  if (k >= to) return -1;
   const below = rows[k]!;
-  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !isGroupLabel(row, below, i, rows[k + 1]))));
+  const marked = row.some((c, i) => c !== "" && (TITLE_MARK.test(c) || (YEAR_MARK.test(c) && !isGroupLabel(row, below, i, k + 1 < to ? rows[k + 1] : undefined))));
   if (!marked) return -1;
   return isHeaderLike(below) && nonBlank(below) > nonBlank(row) ? k : -1;
 }
@@ -345,8 +345,10 @@ export type SheetRead = { blocks: ReadBlock[]; warnings: RowWarning[] };
 
 export type FindBlocksOptions = {
   sheetName?: string | null;
-  /** Hints for every block of the sheet. Given, the reader follows them and guesses nothing on this sheet. */
+  /** Hints for blocks of the sheet. Hinted regions follow them exactly; the rest of the sheet is guessed (R3-7). */
   hints?: readonly BlockHints[] | null;
+  /** For the PDF reader: no header guess when no row looks like a header (it first tries the lines above a run). */
+  noHeaderGuess?: boolean;
 };
 
 export const lastFilled = (rows: readonly string[][], from: number, to: number) => {
@@ -423,32 +425,48 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
 }
 
 /**
- * Matrix to blocks with the reader's guess, or by hints. A guessed block says whether the reader is sure (see
- * `unsureReasons`) and carries a preview of its region and the guess as hints.
+ * The guess over rows `from` to `to` (exclusive). Each block carries its own reasons; `finishGuess` adds the ones that
+ * depend on the whole sheet. The header search looks at the next 20 rows that are not blank (R3-6). When none of them
+ * looks like a header, the first row of two or more cells with a row under it is the guessed header (R3-5): the block
+ * is unsure (its header holds numbers or dates) but there is a guess to show and to correct by hints. A window with
+ * no such row is reported row by row and the search goes on below it.
  */
-export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: FindBlocksOptions = {}): SheetRead {
-  const rows = matrix.map((r) => r.map(toCellText));
-  const sheetName = opts.sheetName ?? null;
-  if (opts.hints && opts.hints.length > 0) return readByHints(rows, opts.hints, sheetName);
-  const n = rows.length;
+export function guessRange(rows: readonly string[][], from: number, to: number, sheetName: string | null, noHeaderGuess = false): SheetRead {
+  const n = to;
   const blocks: ReadBlock[] = [];
   const warnings: RowWarning[] = [];
-  let pos = 0;
+  let pos = from;
 
   while (pos < n) {
     let h = -1;
-    for (let i = pos; i < Math.min(n, pos + HEADER_SEARCH_ROWS); i++) {
+    let fallback = -1;
+    let seen = 0;
+    let windowEnd = n;
+    for (let i = pos; i < n; i++) {
+      if (nonBlank(rows[i]!) === 0) continue;
+      if (seen === HEADER_SEARCH_ROWS) {
+        windowEnd = i;
+        break;
+      }
+      seen++;
       if (isHeaderLike(rows[i]!)) {
         h = i;
         break;
       }
+      if (fallback === -1 && nonBlank(rows[i]!) >= 2) {
+        let k = i + 1;
+        while (k < n && nonBlank(rows[k]!) === 0) k++;
+        if (k < n) fallback = i;
+      }
     }
+    if (h === -1 && !noHeaderGuess) h = fallback;
     if (h === -1) {
-      // No table here: every row left is reported, never dropped quietly.
-      for (let r = pos; r < n; r++) if (nonBlank(rows[r]!) > 0) warnings.push({ code: "not_placed", row: r });
-      break;
+      // No table in this window: its rows are reported, never dropped quietly, and the search goes on below.
+      for (let r = pos; r < windowEnd; r++) if (nonBlank(rows[r]!) > 0) warnings.push({ code: "not_placed", row: r });
+      pos = windowEnd;
+      continue;
     }
-    const real = isTitleAbove(rows, h);
+    const real = isTitleAbove(rows, h, n);
     if (real !== -1) h = real;
 
     let start = h;
@@ -459,15 +477,17 @@ export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: Find
       }
     }
     const titleParts: string[] = [];
+    const blockWarnings: RowWarning[] = [];
     for (let i = start; i < h; i++) {
       const cells = rows[i]!.filter((c) => c !== "");
       if (cells.length > 0) titleParts.push(cells.join(" "));
+      if (cells.length >= 2) blockWarnings.push({ code: "kept_as_title", row: i });
     }
 
     let headers = rows[h]!;
     let headerRows: 1 | 2 = 1;
-    const next = rows[h + 1];
-    if (next && isSecondHeaderRow(headers, next, rows[h + 2])) {
+    const next = h + 1 < n ? rows[h + 1] : undefined;
+    if (next && isSecondHeaderRow(headers, next, h + 2 < n ? rows[h + 2] : undefined)) {
       headers = combineHeaders(headers, next);
       headerRows = 2;
     }
@@ -492,7 +512,7 @@ export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: Find
           const cand = rows[k]!;
           if (nonBlank(cand) <= 1) continue;
           // A new table needs a data row right under its header; a footer such as "Prepared by" has none (C33).
-          const below = rows[k + 1];
+          const below = k + 1 < n ? rows[k + 1] : undefined;
           found = below !== undefined && nonBlank(below) > 0 && !isHeaderLike(below) && startsNewBlock(cand, data.slice(-200), headers.length);
           break;
         }
@@ -516,21 +536,46 @@ export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: Find
       headers: shaped.headers,
       rows: shaped.rows,
       firstDataSheetRow: dataStart,
-      confidence: "sure",
+      confidence: "unsure",
       reasons: [],
       preview: previewRows(rows, start, end),
       guess: { headerRow: h, headerRows, firstDataRow: dataStart, lastDataRow: dataStart + data.length - 1 },
       hints: null,
-      warnings: [],
+      warnings: blockWarnings,
     };
     block.reasons = unsureReasons({ hasTitle: titleParts.length > 0, topRow: rows[h]!, headerRows, headers: block.headers, rows: block.rows });
     blocks.push(block);
     if (end === n) break;
   }
-  // Two tables in one region: where one ends and the next starts is a guess.
-  if (blocks.length > 1) for (const b of blocks) b.reasons.push("more_tables");
-  for (const b of blocks) b.confidence = b.reasons.length === 0 ? "sure" : "unsure";
   return { blocks, warnings };
+}
+
+/**
+ * Reasons that depend on the whole sheet, then the confidence. Two tables in one sheet: where one ends and the next
+ * starts is a guess. A row no block took may belong to a table (R3-6).
+ */
+function finishGuess(guessed: readonly ReadBlock[], all: readonly ReadBlock[], warnings: readonly RowWarning[]): void {
+  const lost = warnings.some((w) => w.code === "not_placed");
+  for (const b of guessed) {
+    const reasons = new Set<UnsureReason>(b.reasons);
+    if (all.length > 1) reasons.add("more_tables");
+    if (lost) reasons.add("line_not_placed");
+    b.reasons = UNSURE_REASONS.filter((r) => reasons.has(r));
+    b.confidence = b.reasons.length === 0 ? "sure" : "unsure";
+  }
+}
+
+/**
+ * Matrix to blocks with the reader's guess, or by hints. A guessed block says whether the reader is sure (see
+ * `unsureReasons`) and carries a preview of its region and the guess as hints.
+ */
+export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: FindBlocksOptions = {}): SheetRead {
+  const rows = matrix.map((r) => r.map(toCellText));
+  const sheetName = opts.sheetName ?? null;
+  if (opts.hints && opts.hints.length > 0) return readByHints(rows, opts.hints, sheetName);
+  const read = guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
+  finishGuess(read.blocks, read.blocks, read.warnings);
+  return read;
 }
 
 /** The blocks of `readSheet`. */

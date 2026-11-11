@@ -129,3 +129,68 @@ describe("R3-4: a footer of two cells right under the last row is not sure", () 
     expect(b!.reasons).not.toContain("last_row_not_data");
   });
 });
+
+describe("R3-5: a table whose header holds numbers or dates still gives a guess", () => {
+  test("stock by length", () => {
+    const m = [["Section", 12, 14, 16], ["T 4012", 1, 2, 3], ["R 2105", 4, 5, 6]];
+    const r = readSheet(m);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.confidence).toBe("unsure");
+    expect(r.blocks[0]!.reasons).toContain("header_not_text");
+    expect(r.blocks[0]!.headers).toEqual(["Section", "12", "14", "16"]);
+    expect(r.blocks[0]!.rows).toEqual([["T 4012", "1", "2", "3"], ["R 2105", "4", "5", "6"]]);
+    expect(r.blocks[0]!.preview.map((p) => p.row)).toEqual([0, 1, 2]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("month-wise", () => {
+    const m = [["Party", apr, new Date(Date.UTC(2025, 4, 1))], ["Om Metals", 12, 13], ["Asha", 3, 4]];
+    const [b] = readSheet(m).blocks;
+    expect(b!.confidence).toBe("unsure");
+    expect(b!.headers).toEqual(["Party", "2025-04-01", "2025-05-01"]);
+    expect(b!.rows.length).toBe(2);
+  });
+
+  test("PDF page with only such a table", () => {
+    const page = [...line(770, "Section", "12", "14", "16"), ...line(755, "T 4012", "1", "2", "3"), ...line(740, "R 2105", "4", "5", "6")];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.confidence).toBe("unsure");
+    expect(r.blocks[0]!.headers).toEqual(["Section", "12", "14", "16"]);
+    expect(r.blocks[0]!.rows.length).toBe(2);
+  });
+
+  test("a row of numbers with nothing under it is still no table", () => {
+    const r = readSheet([["Total", 12]]);
+    expect(r.blocks).toEqual([]);
+    expect(r.warnings).toEqual([{ code: "not_placed", row: 0 }]);
+  });
+});
+
+describe("R3-6: blank rows do not count toward the header search", () => {
+  const blanks = (k: number) => Array.from({ length: k }, () => [] as string[]);
+
+  test("a table after 30 blank rows", () => {
+    const r = readSheet([...blanks(30), ["Party", "Qty"], ["Om", 12], ["Kamal", 20]]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Qty"]);
+    expect(r.blocks[0]!.confidence).toBe("sure");
+  });
+
+  test("a second table 30 blank rows under the first", () => {
+    const r = readSheet([["Party", "Qty"], ["Om", 12], ["Kamal", 20], ...blanks(30), ["Section", "Kg"], ["T 4012", 3.5], ["R 2105", 4.5]]);
+    expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
+    for (const b of r.blocks) expect(b.confidence).toBe("unsure");
+  });
+
+  test("rows no block takes make every block of the sheet unsure", () => {
+    const notes = Array.from({ length: 25 }, (_, i) => [`note ${i}`]);
+    const r = readSheet([...notes, ["Party", "Qty"], ["Om", 12], ["Kamal", 20]]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Qty"]);
+    expect(r.blocks[0]!.reasons).toContain("line_not_placed");
+    expect(r.warnings.length).toBeGreaterThan(0);
+    const listed = new Set([...r.warnings.map((w) => w.row), ...r.blocks[0]!.preview.map((p) => p.row)]);
+    for (let i = 0; i < 25; i++) expect(listed.has(i)).toBe(true);
+  });
+});
