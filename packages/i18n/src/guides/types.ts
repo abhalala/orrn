@@ -72,6 +72,7 @@ export const GUIDE_SLUGS_FP = [
   "pack-from-trolley",
   "die-share-link",
   "approvals-review",
+  "internet-down",
 ] as const;
 
 export const GUIDE_SLUGS = [...GUIDE_SLUGS_BASE, ...GUIDE_SLUGS_FP] as const;
@@ -90,6 +91,7 @@ export const GUIDE_SLUGS_GU = [
   "press-downtime",
   "die-reading",
   "die-issue-return",
+  "internet-down",
 ] as const;
 
 export type GuideSlug = (typeof GUIDE_SLUGS)[number];

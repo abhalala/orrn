@@ -59,7 +59,7 @@ async function fixture(): Promise<Fx> {
   // D12: the floor dispatches plant stock; a bundle with no line and no transfer is refused.
   await env.plantStock(companyId, bundles.map((b) => b.id));
   const draft = async () => {
-    const { id } = await owner.dispatch.create({ customerId });
+    const { id } = await owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId });
     await owner.dispatch.addBundle({ id, bundleId: bundles[0]!.id });
     return id;
   };
@@ -135,17 +135,17 @@ const CASES: Case[] = [
   ),
 
   c("dispatch.create", "dispatch.create", async (fx) => fx.customerId, (api, customerId) =>
-    api.dispatch.create({ customerId }),
+    api.dispatch.create({ vehicleNo: "GJ05AB1234", customerId }),
   ),
-  c("dispatch.update", "dispatch.update", async (fx) => (await fx.owner.dispatch.create({ customerId: fx.customerId })).id,
+  c("dispatch.update", "dispatch.update", async (fx) => (await fx.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: fx.customerId })).id,
     (api, id) => api.dispatch.update({ id, notes: "edited" }),
   ),
   c("dispatch.addBundle", "dispatch.addBundle",
-    async (fx) => (await fx.owner.dispatch.create({ customerId: fx.customerId })).id,
+    async (fx) => (await fx.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: fx.customerId })).id,
     (api, id, fx) => api.dispatch.addBundle({ id, bundleId: fx.bundles[0]!.id }),
   ),
   c("dispatch.addBundlesBySerial", "dispatch.addBundle",
-    async (fx) => (await fx.owner.dispatch.create({ customerId: fx.customerId })).id,
+    async (fx) => (await fx.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: fx.customerId })).id,
     (api, id, fx) => api.dispatch.addBundlesBySerial({ id, serials: [fx.bundles[0]!.serial] }),
   ),
   c("dispatch.setItemGroupLabel", "dispatch.addBundle", (fx) => fx.draft(), (api, id, fx) =>

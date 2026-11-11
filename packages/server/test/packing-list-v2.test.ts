@@ -125,7 +125,7 @@ describe("PL v2 snapshot", () => {
     const t = await p.owner.transporter.create({ name: "Shree Roadlines" });
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }], o.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId, transporterId: t.id });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, transporterId: t.id });
     await p.owner.dispatch.addBundlesBySerial({ allowUnassigned: true,  id, serials });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id });
@@ -181,7 +181,8 @@ describe("regenerate = new revision, same number", () => {
     await p.owner.dispatch.update({ id: d, vehicleNo: "GJ05AB9999" });
     const [r1] = await env.db.select().from(packingList).where(eq(packingList.id, rev1.id));
     const [r2] = await env.db.select().from(packingList).where(eq(packingList.id, rev2.id));
-    expect((r1!.snapshot as unknown as Snap).header.vehicleNo).toBeNull();
+    // BACKLOG 70: rev 1 keeps the vehicle the dispatch completed with (the fixture's).
+    expect((r1!.snapshot as unknown as Snap).header.vehicleNo).toBe("GJ05AB1234");
     expect((r2!.snapshot as unknown as Snap).header.vehicleNo).toBe("GJ05AB9999");
   }, SLOW);
 });

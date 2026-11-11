@@ -13,6 +13,8 @@ export type DispatchItemLike = {
   dieId: string;
   dieSeries: string;
   dieSectionCode: string;
+  /** Q36 decided: where an off-band row's approval stands (null or absent when it is not off band). */
+  offBandStatus?: "pending" | "approved" | "rejected" | "none" | null;
 };
 
 export type ItemGroup<T extends DispatchItemLike> = {

@@ -1314,4 +1314,50 @@ export const guidesEnFp: GuideBookFp = {
       },
     ],
   },
+  "internet-down": {
+    slug: "internet-down",
+    roles: DISPATCH_OFFICE,
+    title: "When the internet is down",
+    when: "Use this when a truck has to leave while orrn cannot be reached, because the line or the internet is down. The packing list is entered afterwards at the time the truck left.",
+    steps: [
+      {
+        title: "Write it on paper",
+        body: "While orrn cannot be reached, fill the paper packing list as usual: the bundle serials, the vehicle number and the time the truck left. Leave the labels on the bundles.",
+      },
+      {
+        title: "Build the dispatch when it is back",
+        body: "Once the internet is back, open \"Dispatch\", open or start the dispatch for that party and scan or paste the serials from the paper.",
+      },
+      {
+        title: "Say when the truck left",
+        body: "Tap \"Dispatch\". In the sheet, turn on \"The truck left earlier (the line or the internet was down)\" and fill \"When the truck left\" from the paper. On the phone, fill \"Date the truck left\" and \"Time the truck left\". It can go back at most 72 hours.",
+      },
+      {
+        title: "Say why",
+        body: "Write the reason in \"Why is it entered late?\" and tap \"Dispatch\". The sheet says a manager has to approve the time. Nothing moves yet.",
+      },
+      {
+        title: "Get the time approved",
+        body: "A manager, an admin or the owner opens \"Approvals\", taps \"Review\" and checks the time against the paper. You cannot approve your own.",
+      },
+      {
+        title: "Dispatch again",
+        body: "Open the dispatch and tap \"Dispatch\" again with the same time and reason. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
+      },
+    ],
+    problems: [
+      {
+        title: "It says the time is more than 72 hours back",
+        fix: "A late packing list can go back 72 hours only. For an older load, ask the manager how to correct the books.",
+      },
+      {
+        title: "It says the time is in the future",
+        fix: "Check the date and the 24 hour time. The time is on the plant's clock, not the phone's.",
+      },
+      {
+        title: "I typed another time after asking",
+        fix: "A new time asks again and the old request is withdrawn. Ask the manager to approve the new one.",
+      },
+    ],
+  },
 };

@@ -62,7 +62,7 @@ describe("dispatch.scan: one outcome per code in the §E6 order", () => {
     // The die becomes the other customer's after the bundle was packed.
     await env.db.update(die).set({ ownerCustomerId: p.otherCustomer }).where(eq(die.id, p.dieB));
 
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.scan({
       id,
       serials: ["NOPE-404", "1", voidS!, dispS!, heldS!, plantS!, wrongS!, ownedS!, okS!],
@@ -99,7 +99,7 @@ describe("dispatch.scan: one outcome per code in the §E6 order", () => {
     const [wrongS] = await p.pack(p.dieA, [{ kg: 10 }], theirs.lineIds[0]);
     const [ownedS] = await p.pack(p.dieB, [{ kg: 10 }], mine.lineIds[0]);
     await env.db.update(die).set({ ownerCustomerId: p.otherCustomer }).where(eq(die.id, p.dieB));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     // The floor holds dispatch.addBundle too: the office procedure is no way around the scan gate.
     for (const role of ["owner", "packer", "operator"] as const) {
       const report = await p.as(role).dispatch.addBundlesBySerial({ id, serials: [plantS!, wrongS!, ownedS!] });
@@ -120,7 +120,7 @@ describe("dispatch.scan: one outcome per code in the §E6 order", () => {
     const theirs = await p.order([{ dieId: p.dieA, kg: 1000 }], { customerId: p.otherCustomer });
     const [plant1, plant2, plant3] = await p.pack(p.dieA, [{ kg: 10 }, { kg: 10 }, { kg: 10 }]);
     const [wrongS] = await p.pack(p.dieA, [{ kg: 10 }], theirs.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
 
     await expect(p.as("packer").dispatch.addBundlesBySerial({ id, serials: [plant1!], allowUnassigned: true })).rejects.toThrow(
       "Only the office can add bundles that are not on a sales order",
@@ -163,7 +163,7 @@ describe("dispatch.scan: one outcome per code in the §E6 order", () => {
     await env.db.update(die).set({ ownerCustomerId: p.otherCustomer }).where(eq(die.id, p.dieB));
     const idOf = async (serial: string) =>
       (await env.db.query.bundle.findFirst({ where: (x, { and: a, eq: e }) => a(e(x.companyId, p.companyId), e(x.serial, serial)) }))!.id;
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const other = await nameOf(p.otherCustomer);
     const cases = [
       { serial: plantS!, code: "unassigned", reason: "Not assigned to a sales order", trpc: "BAD_REQUEST" as const },
@@ -207,7 +207,7 @@ describe("dispatch.scan: one outcome per code in the §E6 order", () => {
     setClock(NOON);
     const p = await plant();
     const [s] = await p.pack(p.dieA, [{ kg: 10 }]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     await expect(p.as("viewer").dispatch.scan({ id, serials: [s!] })).rejects.toThrow();
     expect(await itemsOf(id)).toHaveLength(0);
   }, SLOW);
@@ -226,7 +226,7 @@ describe("refusal precedence: a bundle with two problems gets the earlier outcom
     // The die becomes a third party's after packing: owned for both customers.
     const third = await env.seedCustomer(p.companyId);
     await env.db.update(die).set({ ownerCustomerId: third }).where(eq(die.id, p.dieB));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.scan({ id, serials: [heldWrong!, unassignedOwned!, wrongOwned!] });
     expect(report.results.map((r) => r.outcome)).toEqual(["held", "unassigned", "wrong_customer"]);
     expect(report.results[0]!.message).toBe(`Bundle is held by ${holderCode}`);
@@ -243,7 +243,7 @@ describe("refusal precedence: a bundle with two problems gets the earlier outcom
     const b = (await env.db.query.bundle.findFirst({ where: (x, { and: a, eq: e }) => a(e(x.companyId, p.companyId), e(x.serial, s!)) }))!;
     await p.owner.bundle.transitionStatus({ id: b.id, toStatus: "void", reason: "damaged" });
     expect(b.partyNo).not.toBe(b.serial);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.scan({ id, serials: [b.serial, b.partyNo!] });
     expect(report.results.map((r) => r.outcome)).toEqual(["void", "void"]);
     expect(report.results[1]!.code).toBe(b.partyNo!);
@@ -272,7 +272,7 @@ describe("code resolution: serial AND party number every time (D15)", () => {
     expect(mineRow.partyNo).toBe(stockS!);
     expect(mineRow.serial).not.toBe(stockS!);
 
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const scanned = await p.owner.dispatch.scan({ id, serials: [stockS!] });
     expect(scanned.results.map((r) => r.outcome)).toEqual(["ambiguous"]);
     expect(scanned.results[0]!.candidates).toEqual([stockS!, mineS!].sort());
@@ -302,7 +302,7 @@ describe("code resolution: serial AND party number every time (D15)", () => {
     const b = (await env.db.query.bundle.findFirst({ where: (x, { and: a, eq: e }) => a(e(x.companyId, p.companyId), e(x.serial, s!)) }))!;
     // A bundle whose party number equals its own serial (no policy) also resolves to itself.
     await env.db.update(bundle).set({ partyNo: b.serial }).where(eq(bundle.id, b.id));
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.scan({ id, serials: [b.serial] });
     expect(report.results.map((r) => r.outcome)).toEqual(["added"]);
     expect(await p.owner.resolve.byCode({ code: b.serial })).toMatchObject({ kind: "bundle", bundleId: b.id });
@@ -321,14 +321,14 @@ describe("transporter master and vehicle capacity (FP-PK-12)", () => {
     await p.owner.transporter.update({ id, active: false });
     expect((await p.owner.transporter.list()).items).toHaveLength(0);
     expect((await p.owner.transporter.list({ includeRetired: true })).items[0]!.name).toBe("Shree Road Lines");
-    await expect(p.owner.dispatch.create({ customerId: p.customerId, transporterId: id })).rejects.toThrow("retired");
+    await expect(p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, transporterId: id })).rejects.toThrow("retired");
   }, SLOW);
 
   test("dispatch snapshots the transporter name; a rename later does not change it", async () => {
     setClock(NOON);
     const p = await plant();
     const t = await p.owner.transporter.create({ name: "VRL Logistics" });
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId, transporterId: t.id, vehicleCapacityG: kg(9000) });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, transporterId: t.id, vehicleCapacityG: kg(9000) });
     await p.owner.transporter.update({ id: t.id, name: "VRL Logistics Ltd" });
     expect(await dispatchRow(id)).toMatchObject({ transporterId: t.id, transporterName: "VRL Logistics", vehicleCapacityG: kg(9000) });
     await p.owner.dispatch.update({ id, transporterId: null, vehicleCapacityG: null });
@@ -340,7 +340,7 @@ describe("transporter master and vehicle capacity (FP-PK-12)", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }, { kg: 10 }, { kg: 6 }], o.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId, vehicleCapacityG: kg(21) });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, vehicleCapacityG: kg(21) });
     const first = await p.owner.dispatch.scan({ id, serials: serials.slice(0, 2) });
     expect(first.capacity).toMatchObject({ state: "near", loadedG: kg(20), capacityG: kg(21) });
     const second = await p.owner.dispatch.scan({ id, serials: serials.slice(2) });
@@ -364,7 +364,7 @@ describe("transporter master and vehicle capacity (FP-PK-12)", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }, { kg: 10 }], o.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId, vehicleCapacityG: kg(100) });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, vehicleCapacityG: kg(100) });
     await p.owner.dispatch.scan({ id, serials });
     await p.owner.dispatch.reserve({ id });
     env.beforeNextBatch(() => p.as("office").dispatch.update({ id, vehicleCapacityG: kg(15) }));
@@ -380,7 +380,7 @@ describe("transporter master and vehicle capacity (FP-PK-12)", () => {
     const p = await plant();
     const o = await p.order([{ dieId: p.dieA, kg: 1000 }]);
     const serials = await p.pack(p.dieA, [{ kg: 10 }], o.lineIds[0]);
-    const { id } = await p.owner.dispatch.create({ customerId: p.customerId, vehicleCapacityG: kg(100) });
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId, vehicleCapacityG: kg(100) });
     await p.owner.dispatch.scan({ id, serials });
     await p.owner.dispatch.reserve({ id });
     await p.owner.dispatch.complete({ id, capacityOverrideReason: "not needed" });

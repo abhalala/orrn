@@ -67,6 +67,12 @@ export const dispatch = sqliteTable(
     transporterName: text("transporter_name"),
     vehicleCapacityG: integer("vehicle_capacity_g"),
     capacityOverrideReason: text("capacity_override_reason"),
+    // Late packing-list entry for line-down hours (arch 52, migration 0047): `completed_at` is the
+    // time the truck really left (at most 72 h back), entered later with a reason and approved by a
+    // second person (`dispatch_late_entry`); the stock ledger posts at that time too.
+    lateEntry: integer("late_entry", { mode: "boolean" }).notNull().default(false),
+    lateEntryReason: text("late_entry_reason"),
+    lateEntryApprovalId: text("late_entry_approval_id"),
     /**
      * FP-PK-17 (Wave 2): the sales order this dispatch was opened from. It fixes the party and makes
      * the scan screen show that order's live baki; bundles still link to lines by the usual rule.

@@ -9,6 +9,8 @@ import { useLengthUnit } from "@/utils/length";
 
 import { kgBundle, kgTotal } from "./format";
 import type { DispatchItemLike, ItemGroup } from "./group-items";
+import { OFF_BAND_TONE, offBandStatusKey } from "./off-band";
+import { Chip } from "@/components/ui/chip";
 
 /**
  * One group of a dispatch: its label (a packing group label, else the
@@ -62,6 +64,11 @@ export function GroupCard<T extends DispatchItemLike>({
           >
             <Text className="font-mono-semibold text-base text-ink">{b.serial}</Text>
             <Text className="font-sans text-sm text-ink-muted">{t("native.dispatch.bundleMeta", { pcs: b.quantity, length: length.formatLength(b.lengthMm), kg: kgBundle(b.weightG) })}</Text>
+            {b.offBandStatus ? (
+              <View className="flex-row pt-1">
+                <Chip tone={OFF_BAND_TONE[b.offBandStatus]} label={t(offBandStatusKey(b.offBandStatus))} />
+              </View>
+            ) : null}
           </PressableScale>
           {editable ? (
             <PressableScale

@@ -408,7 +408,7 @@ describe("reallocation: owner override, plant stock origin, pending bundles", ()
     const ids = await idsOf(p, serials);
     await p.owner.orders.reallocate({ bundleIds: [ids[0]!], toLineId: b.lineIds[0]!, reason: "B is short" });
 
-    const { id: d1 } = await p.owner.dispatch.create({ customerId: p.customerId });
+    const { id: d1 } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", customerId: p.customerId });
     const report = await p.owner.dispatch.addBundlesBySerial({ id: d1, serials: [serials[0]!, serials[1]!] });
     expect(report.added).toEqual([serials[1]!]);
     expect(report.unavailable).toEqual([expect.objectContaining({ serial: serials[0]!, code: "reallocation_pending" })]);

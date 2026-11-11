@@ -35,6 +35,13 @@ export const approvalKinds = [
   // W2-FD-S (FP-FD-13): correct a locked melt; subject = melt id; meta { castNumber, meltSeq,
   // reasonCode, usedAt?, draftId? }. No applier: the approved row is the grant `melts.correct` uses once.
   "melt_correct",
+  // Q36/Q40 (owner 2026-10-24): a bundle on a dispatch more than 0.1 kg/12ft off its order line;
+  // subject = dispatch item id; meta { dispatchId, dispatchCode, itemId, bundleId, serial, lineId,
+  // orderNumber, lineNo, bundleMilli, lineMilli, diffMilli }. No applier: dispatch.complete reads it.
+  "dispatch_off_band",
+  // arch 52: a dispatch completed later at the time the truck left (line down); subject = dispatch id;
+  // meta { dispatchId, dispatchCode, occurredAt, reason }. No applier: dispatch.complete reads it.
+  "dispatch_late_entry",
 ] as const;
 export const approvalStatuses = ["pending", "approved", "rejected"] as const;
 

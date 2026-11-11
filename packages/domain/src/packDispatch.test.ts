@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   BUNDLE_NUMBER_POLICIES,
+  tolerancePercentText,
   CAPACITY_NEAR_BP,
   capacityCheck,
   diffPackingListRevisions,
@@ -151,5 +152,13 @@ describe("dispatch weight check against the order line (Q36)", () => {
     // 25.2 kg over 10 pieces of 12 ft is 2.520 kg/12ft.
     expect(bundleKgPer12ftMilli({ weightG: 25_200, pieces: 10, lengthMm: 3657.6 })).toBe(2_520);
     expect(bundleKgPer12ftMilli({ weightG: 25_200, pieces: 0, lengthMm: 3657.6 })).toBeNull();
+  });
+});
+
+describe("tolerancePercentText (pl-flow 61)", () => {
+  test("basis points as the floor says the percent, no trailing zeros", () => {
+    expect([500, 250, 125, 1000, 0, 5, 1050].map(tolerancePercentText)).toEqual(["5", "2.5", "1.25", "10", "0", "0.05", "10.5"]);
+    expect(() => tolerancePercentText(2.5)).toThrow(RangeError);
+    expect(() => tolerancePercentText(-1)).toThrow(RangeError);
   });
 });

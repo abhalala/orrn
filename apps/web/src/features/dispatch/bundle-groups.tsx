@@ -11,6 +11,7 @@ import { Can } from "@/shared/components/can";
 import { blockText, itemBlock, sortBlockedFirst } from "./blocked";
 import { dispatchKgText } from "./format";
 import { groupItems, type DispatchItem, type ItemGroup } from "./group-items";
+import { OFF_BAND_TONE, offBandStatusKey } from "./off-band";
 
 export type BundleGroupsProps = {
   items: DispatchItem[];
@@ -190,16 +191,27 @@ function GroupTable({ group, unit, fresh, removable, removing, onRemove, dispatc
   );
 }
 
-/** Q36: the bundle is more than 0.1 kg/12ft off the weight of its order line: a warning (amber), never a block. */
+/**
+ * Q36 decided: the bundle is more than 0.1 kg/12ft off the weight of its order line. The figures in
+ * amber, and beside them where its approval stands (waiting, approved, rejected).
+ */
 function OffBandChip({ item }: { item: DispatchItem }) {
   const { t } = useT();
+  const status = item.offBandStatus ?? null;
   return (
-    <Chip tone="amber" truncate={false} data-off-band="">
-      {t("dispatch.offBand.chip", {
-        kg: ((item.kgPer12ftMilli ?? 0) / 1000).toFixed(3),
-        line: ((item.lineKgPer12ftMilli ?? 0) / 1000).toFixed(3),
-      })}
-    </Chip>
+    <>
+      <Chip tone="amber" truncate={false} data-off-band="">
+        {t("dispatch.offBand.chip", {
+          kg: ((item.kgPer12ftMilli ?? 0) / 1000).toFixed(3),
+          line: ((item.lineKgPer12ftMilli ?? 0) / 1000).toFixed(3),
+        })}
+      </Chip>
+      {status ? (
+        <Chip tone={OFF_BAND_TONE[status]} truncate={false} data-off-band-status={status}>
+          {t(offBandStatusKey(status))}
+        </Chip>
+      ) : null}
+    </>
   );
 }
 
@@ -236,7 +248,7 @@ function GroupRows({ group, unit, fresh, removable, removing, onRemove, dispatch
                 </div>
               ) : null}
               {it.offBand ? (
-                <div className="flex min-w-0 py-0.5">
+                <div className="flex min-w-0 flex-wrap gap-1.5 py-0.5">
                   <OffBandChip item={it} />
                 </div>
               ) : null}

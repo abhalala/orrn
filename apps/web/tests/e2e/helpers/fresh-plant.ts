@@ -106,7 +106,8 @@ export async function plantDispatch(page: Page, m: <T>(page: Page, path: string,
   });
   const list = await q<{ items: { serial: string; weightG: number }[] }>(page, "bundle.listBundles", { groupId: receipt.groupId, limit: 100 });
   const serials = list.items.sort((a, b) => a.weightG - b.weightG).map((b) => b.serial);
-  const made = await m<{ id: string; code: string }>(page, "dispatch.create", { customerId: customer.id });
+  // BACKLOG 70: dispatch.complete refuses with no vehicle number.
+  const made = await m<{ id: string; code: string }>(page, "dispatch.create", { customerId: customer.id, vehicleNo: "GJ05AB1234" });
   await m(page, "dispatch.addBundlesBySerial", { id: made.id, serials, allowUnassigned: true });
   await m(page, "dispatch.reserve", { id: made.id });
   await m(page, "dispatch.complete", { id: made.id });

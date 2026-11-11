@@ -94,6 +94,7 @@ export const RELATED_SCREENS: Record<GuideSlug, readonly RelatedScreen[]> = {
   "pack-from-trolley": [PACK, AGEING],
   "die-share-link": [DIES],
   "approvals-review": [APPROVALS],
+  "internet-down": [DISPATCH, APPROVALS],
 };
 
 /** The related screens this person can open. */
