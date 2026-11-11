@@ -108,7 +108,7 @@ export function ResponsiveList<T>({
   } else if (wide) {
     body = (
       <div className="overflow-hidden rounded-card border border-border bg-card">
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table aria-label={label} aria-busy={loading || undefined} className="w-full border-collapse text-[14px]">
             <thead>
               <tr className="border-b border-border">
