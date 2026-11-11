@@ -7,7 +7,7 @@ and ui-kit moved from C to A. Keep the long store, platform, press and chain flo
 
 | Group | Spec files | Saved wall time, runs 1 / 2 |
 |---|---|---|
-| A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, preview-redirects, redirects, ui-kit | 351 s / 285 s |
+| A | a11y-app, catalog, charts, die-room-share, die-room-w2, die-room, dispatch-w1, dispatch-w2, dispatch, front-door, godseye, gu-w4, guides, imports, ingest, preview-redirects, redirects, ui-kit | 351 s / 285 s |
 | B | die-room-flows, foundry, foundry-masters, layout-guards, marketing, masters, orders-w2, orders, pack-w1, pack, platform, portal, press, printing-settings, reports | 276 s (failed) / 272 s |
 | C | ageing-masters, ageing, chain, collectors, next-rows, orders-plan-purpose, purchase, scan, session, shell, stock-w1, stock, store, today | 287 s / 285 s |
 

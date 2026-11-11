@@ -9,6 +9,7 @@ import { refusalHi } from "./native/refusal.hi";
 import { platformHi } from "./native/platform.hi";
 import { pressHi } from "./native/press.hi";
 import { ageingHi } from "./ageing/ageing.hi";
+import { ingestHi } from "./ingest/hi";
 import { stockHi } from "./native/stock.hi";
 import { foundryRefusalHi } from "./native/foundry-refusal.hi";
 import { foundryHi } from "./foundry/hi";
@@ -245,6 +246,7 @@ export const hi = {
     adminSupport: "सपोर्ट",
     press: "प्रेस",
     reports: "रिपोर्ट",
+    ingest: "इम्पोर्ट",
   },
 
   auth: {
@@ -6157,6 +6159,8 @@ export const hi = {
 
   ageing: ageingHi.ageing,
 
+  ingest: ingestHi,
+
   reasons: {
     kinds: {
       downtime: "रुकावट",
@@ -6522,6 +6526,10 @@ export const hi = {
       count_session: "स्टॉक की गिनती",
       bundle_transfer: "बंडल ट्रांसफर",
       sales_order_line: "ऑर्डर लाइन",
+      ingest_artifact: "इम्पोर्ट की फ़ाइल",
+      ingest_candidate: "इम्पोर्ट",
+      ingest_merge_run: "इम्पोर्ट मर्ज",
+      ingest_hole: "इम्पोर्ट का लेआउट",
     },
     onlyThis: "सिर्फ़ यह",
     byStaff: "orrn सपोर्ट",
@@ -6587,6 +6595,7 @@ export const hi = {
       count__removeScans: "गिनती से स्कैन हटाए",
       count__start: "स्टॉक गिनती शुरू की",
       count__voidRequested: "गायब बंडल void करने को कहा",
+      customer__aliases__add: "ग्राहकों के नाम जोड़े",
       customer__create: "ग्राहक जोड़ा",
       customer__delete: "ग्राहक हटाया",
       customer__import: "ग्राहक इंपोर्ट किए",
@@ -6661,6 +6670,13 @@ export const hi = {
       foundry__reading__add: "फर्नेस का तापमान जोड़ा",
       foundry__reading__simulate: "फर्नेस का सिमुलेटेड कर्व चलाया (डेमो)",
       foundry__spectro__void: "स्पेक्ट्रो नतीजा रद्द किया",
+      ingest__artifact__upload: "इम्पोर्ट के लिए फ़ाइल डाली",
+      ingest__candidate__approve: "इम्पोर्ट मंज़ूर किया",
+      ingest__candidate__discard: "इम्पोर्ट हटाया",
+      ingest__candidate__hold: "इम्पोर्ट होल्ड किया",
+      ingest__hole__save: "इम्पोर्ट का लेआउट सेव किया",
+      ingest__merge__finish: "इम्पोर्ट मर्ज पूरा हुआ",
+      ingest__merge__start: "इम्पोर्ट मर्ज शुरू हुआ",
       location__create: "यार्ड जोड़ा",
       location__seedDefaults: "डिफ़ॉल्ट यार्ड जोड़े",
       location__update: "यार्ड बदला",

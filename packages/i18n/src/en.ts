@@ -25,6 +25,7 @@ import { stockEn } from "./native/stock.en";
 import { foundryRefusalEn } from "./native/foundry-refusal.en";
 import { foundryEn } from "./foundry/en";
 import { ageingEn } from "./ageing/ageing.en";
+import { ingestEn } from "./ingest/en";
 
 export const en = {
   common: {
@@ -252,6 +253,7 @@ export const en = {
     adminSupport: "Support",
     press: "Press",
     reports: "Reports",
+    ingest: "Imports",
   },
 
   auth: {
@@ -6169,6 +6171,8 @@ export const en = {
 
   ageing: ageingEn.ageing,
 
+  ingest: ingestEn,
+
   reasons: {
     kinds: {
       downtime: "Downtime",
@@ -6534,6 +6538,10 @@ export const en = {
       count_session: "Stock count",
       bundle_transfer: "Bundle transfer",
       sales_order_line: "Order line",
+      ingest_artifact: "Import file",
+      ingest_candidate: "Import",
+      ingest_merge_run: "Import merge",
+      ingest_hole: "Import layout",
     },
     onlyThis: "Only this",
     byStaff: "orrn support",
@@ -6599,6 +6607,7 @@ export const en = {
       count__removeScans: "Scans taken off a count",
       count__start: "Stock count started",
       count__voidRequested: "Void of missing bundles asked",
+      customer__aliases__add: "Customer names added",
       customer__create: "Customer added",
       customer__delete: "Customer removed",
       customer__import: "Customers imported",
@@ -6673,6 +6682,13 @@ export const en = {
       foundry__reading__add: "Furnace temperature added",
       foundry__reading__simulate: "Furnace curve simulated (demo)",
       foundry__spectro__void: "Spectro result voided",
+      ingest__artifact__upload: "File uploaded for import",
+      ingest__candidate__approve: "Import approved",
+      ingest__candidate__discard: "Import discarded",
+      ingest__candidate__hold: "Import held",
+      ingest__hole__save: "Import layout saved",
+      ingest__merge__finish: "Import merge finished",
+      ingest__merge__start: "Import merge started",
       location__create: "Yard added",
       location__seedDefaults: "Default yards added",
       location__update: "Yard changed",
