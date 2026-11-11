@@ -6,15 +6,15 @@ import { extraTabs, visibleTabs } from "@/lib/nav";
 
 import { showsAgeing } from "@/features/ageing/model";
 
-export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press" | "cast" | "furnaces" | "alloys" | "ageing";
+export type MoreRowKey = "dies" | "customers" | "guides" | "settings" | "orders" | "dieRoom" | "press" | "cast" | "furnaces" | "alloys" | "nitriding" | "makers" | "ageing";
 
 export type MoreRow = {
   key: MoreRowKey;
   /** The More stack's own screens, or a tab screen reached from More (Orders, Dies). */
-  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press" | "/cast" | "/more/furnaces" | "/more/alloys" | "/more/ageing";
-  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press" | "foundry.casts.title" | "foundry.masters.furnaces" | "foundry.masters.alloys" | "nav.ageing";
+  href: "/more/dies" | "/more/customers" | "/more/guides" | "/more/settings" | "/orders" | "/dies" | "/press" | "/cast" | "/more/furnaces" | "/more/alloys" | "/more/nitriding" | "/more/makers" | "/more/ageing";
+  labelKey: "nav.dies" | "nav.customers" | "nav.guides" | "nav.settings" | "nav.orders" | "native.tabs.press" | "foundry.casts.title" | "foundry.masters.furnaces" | "foundry.masters.alloys" | "dieRoom.status.at_nitriding" | "dieRoom.makers.withMakers" | "nav.ageing";
   /** A Feather glyph. */
-  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity" | "droplet" | "tool" | "percent" | "thermometer";
+  icon: "layers" | "users" | "book-open" | "settings" | "file-text" | "disc" | "activity" | "droplet" | "tool" | "percent" | "archive" | "truck" | "thermometer";
   /** Company modules (lower case) any one of which keeps the row. No entry: always shown. */
   modules?: readonly string[];
 };
@@ -32,6 +32,8 @@ const PRESS_ROW: MoreRow = { key: "press", href: "/press", labelKey: "native.tab
 const CAST_ROW: MoreRow = { key: "cast", href: "/cast", labelKey: "foundry.casts.title", icon: "droplet" };
 const FURNACES_ROW: MoreRow = { key: "furnaces", href: "/more/furnaces", labelKey: "foundry.masters.furnaces", icon: "tool" };
 const ALLOYS_ROW: MoreRow = { key: "alloys", href: "/more/alloys", labelKey: "foundry.masters.alloys", icon: "percent" };
+const NITRIDING_ROW: MoreRow = { key: "nitriding", href: "/more/nitriding", labelKey: "dieRoom.status.at_nitriding", icon: "archive" };
+const MAKERS_ROW: MoreRow = { key: "makers", href: "/more/makers", labelKey: "dieRoom.makers.withMakers", icon: "truck" };
 const AGEING_ROW: MoreRow = { key: "ageing", href: "/more/ageing", labelKey: "nav.ageing", icon: "thermometer" };
 const DIE_ROOM_ROW: MoreRow = { key: "dieRoom", href: "/dies", labelKey: "nav.dies", icon: "disc" };
 
@@ -51,6 +53,12 @@ export function showsFoundryMasters(me: Pick<Me, "company"> | null | undefined):
   return moduleOn && canAny(me as Me, ["cast.enter", "cast.close", "melt.enter", "masters.draft", "masters.publish"]);
 }
 
+export function showsDieWorkLists(me: Pick<Me, "company"> | null | undefined): boolean {
+  const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
+  const moduleOn = modules.length === 0 || modules.includes("dies");
+  return moduleOn && canAny(me as Me, ["die.card", "die.maker"]);
+}
+
 export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] {
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   // The die room has a Dies tab: More does not list a second "Dies" that opens the read-only list.
@@ -65,8 +73,9 @@ export function moreRows(me: Pick<Me, "company"> | null | undefined): MoreRow[] 
   // Cast (the supervisor): the foundry floor sits after Press, before the rest.
   const withCast = extra.includes("cast") ? (extra.includes("press") ? [withPress[0]!, CAST_ROW, ...withPress.slice(1)] : [CAST_ROW, ...withPress]) : withPress;
   const withMasters = me?.company && showsFoundryMasters(me) ? [FURNACES_ROW, ALLOYS_ROW, ...withCast] : withCast;
+  const withDieWork = me?.company && showsDieWorkLists(me) ? [NITRIDING_ROW, MAKERS_ROW, ...withMasters] : withMasters;
   // Ageing is the first item for anyone who works or reads the ovens (spec 5: under More, never a sixth tab).
-  const withAgeing = me?.company && showsAgeing(me as Me) ? [AGEING_ROW, ...withMasters] : withMasters;
+  const withAgeing = me?.company && showsAgeing(me as Me) ? [AGEING_ROW, ...withDieWork] : withDieWork;
   if (!extra.includes("orders")) return withAgeing;
   // Orders sits right after Dies, before Customers.
   const at = withAgeing.findIndex((r) => r.key === "dies" || r.key === "dieRoom");
