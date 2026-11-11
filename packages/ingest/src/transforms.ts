@@ -103,6 +103,8 @@ export function readNumber(textIn: string, kind: UnitKind, declared: UnitId | nu
   if (unit === null) return { ok: false, code: "unit_unknown" };
   const r = convertToCanonical({ kind, unit, decimal });
   if (!r.ok) return { ok: false, code: r.code };
+  // A count is whole: 12.5 pieces is a typo or a weight in the wrong column, never 13 pieces.
+  if (kind === "count" && r.rounded) return { ok: false, code: "not_whole" };
   return { ok: true, value: { kind, canonical: r.canonical, unit, entered: textIn.trim(), rounded: r.rounded } };
 }
 
