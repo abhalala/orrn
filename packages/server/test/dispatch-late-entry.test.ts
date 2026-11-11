@@ -310,6 +310,24 @@ describe("late packing-list entry (arch 52)", () => {
     expect(row!.completedAt!.getTime()).toBe(left);
   }, SLOW);
 
+  test("check N2: the load put back as approved shows that approval, not the newer request for the other load", async () => {
+    setClock(NOW);
+    const { p, id } = await heldDispatch();
+    const c = p.as("office");
+    const occurredAt = NOW.getTime() - 5 * H;
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined);
+    const [first] = await lateRows(p.companyId);
+    await p.as("manager").approval.decide({ id: first!.id, decision: "approved" });
+    const [more] = await p.pack(p.dieA, [{ kg: 60 }]);
+    await p.owner.dispatch.addBundlesBySerial({ id, serials: [more!], allowUnassigned: true });
+    await c.dispatch.complete({ id, occurredAt, lateReason: "Line down" }).catch(() => undefined); // asks for 2 bundles
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "pending" });
+    const added = (await c.dispatch.getDispatch({ id })).items.find((i) => i.serial === more)!;
+    await p.owner.dispatch.removeBundle({ id, bundleId: added.bundleId });
+    expect((await c.dispatch.getDispatch({ id })).lateEntry).toMatchObject({ status: "approved", approvalId: first!.id });
+    await expect(c.dispatch.complete({ id, occurredAt, lateReason: "Line down" })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
   test("an approval covers only the time it was asked for; another time withdraws a waiting ask and asks again", async () => {
     setClock(NOW);
     const { p, id } = await heldDispatch();

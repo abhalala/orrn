@@ -1740,9 +1740,10 @@ export const dispatchRouter = router({
       // Review 5: the late time asked for (waiting) or approved, so both Complete sheets pre-fill and
       // lock it. Pressing Dispatch with any other minute would ask again. Review 7: "changed" when the
       // bundles on the dispatch are not the ones it was asked for (set below, against the totals).
-      let lateAsk: { id: string; status: "pending" | "approved"; occurredAt: number; reason: string; meta: Record<string, unknown>; decidedAt: Date | null } | null = null;
+      type LateAsk = { id: string; status: "pending" | "approved"; occurredAt: number; reason: string; meta: Record<string, unknown>; decidedAt: Date | null };
+      let lateAsks: LateAsk[] = [];
       if (row.status === "draft" || row.status === "reserved") {
-        const [ask] = await ctx.db
+        const asks = await ctx.db
           .select({ id: approval.id, status: approval.status, meta: approval.meta, requestNote: approval.requestNote, decidedAt: approval.decidedAt })
           .from(approval)
           .where(
@@ -1753,13 +1754,13 @@ export const dispatchRouter = router({
               inArray(approval.status, ["pending", "approved"]),
             ),
           )
-          .orderBy(desc(approval.createdAt), desc(approval.serverSeq))
-          .limit(1);
-        const at = ask?.meta?.occurredAt;
-        if (ask && typeof at === "number" && (ask.status === "pending" || ask.status === "approved")) {
+          .orderBy(desc(approval.createdAt), desc(approval.serverSeq));
+        lateAsks = asks.flatMap((ask) => {
+          const at = ask.meta?.occurredAt;
+          if (typeof at !== "number" || (ask.status !== "pending" && ask.status !== "approved")) return [];
           const saved = typeof ask.meta?.reason === "string" ? ask.meta.reason : (ask.requestNote ?? "");
-          lateAsk = { id: ask.id, status: ask.status, occurredAt: at, reason: saved.trim(), meta: ask.meta, decidedAt: ask.decidedAt };
-        }
+          return [{ id: ask.id, status: ask.status, occurredAt: at, reason: saved.trim(), meta: ask.meta, decidedAt: ask.decidedAt }];
+        });
       }
 
       // FP-PK-12: loaded kg against the vehicle (warn only; complete over it needs a reason).
@@ -1847,7 +1848,7 @@ export const dispatchRouter = router({
         .where(and(eq(dispatchItem.dispatchId, row.id), eq(dispatchItem.companyId, ctx.companyId)));
       const totals = { bundles: Number(sums?.bundles ?? 0), weightG: Number(sums?.weightG ?? 0) };
       // Check N7: compared with the bundles on the dispatch now (ids and grams), not only the totals.
-      const loadNow = lateAsk
+      const loadNow = lateAsks.length > 0
         ? await lateLoadOf(
             (
               await ctx.db
@@ -1858,6 +1859,18 @@ export const dispatchRouter = router({
             ).map((b) => ({ id: b.id, weightG: Number(b.weightG) })),
           )
         : null;
+      // Check N2: for the newest time asked, an approval that fits the bundles on the dispatch now (and is
+      // within its 7 days) is shown first; otherwise the newest request.
+      const newestAsk = lateAsks[0] ?? null;
+      const lateAsk =
+        lateAsks.find(
+          (a) =>
+            a.status === "approved" &&
+            a.occurredAt === newestAsk?.occurredAt &&
+            loadNow !== null &&
+            sameLateLoad(a.meta, loadNow) &&
+            lateApprovalFresh(a.decidedAt, clockNow().getTime()),
+        ) ?? newestAsk;
       const lateEntry: { status: "pending" | "approved" | "changed" | "expired"; occurredAt: number; reason: string; approvalId: string } | null = lateAsk
         ? {
             status: !loadNow || !sameLateLoad(lateAsk.meta, loadNow)
