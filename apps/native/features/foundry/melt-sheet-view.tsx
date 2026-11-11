@@ -26,6 +26,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
+import { runOnce, type WriteGate } from "./reason-write";
 import { bpText, latestVerdict, lockedMeltTone, MELT_TONE, verdictTone, type MeltStatus } from "./foundry-model";
 import { mmToFtText } from "./melt-form";
 import { MELT_TIME_KEYS } from "./melt-times";
@@ -154,6 +155,7 @@ function CancelMelt({ melt, castNumber }: { melt: MeltRow; castNumber: string })
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
+  const confirming = useRef<WriteGate>({ locked: false });
 
   const done = () => {
     setAsking(false);
@@ -167,7 +169,8 @@ function CancelMelt({ melt, castNumber }: { melt: MeltRow; castNumber: string })
     if (!reason.trim()) return;
     setProblem(null);
     try {
-      await cancel.mutateAsync({ meltId: melt.id, reason: reason.trim() });
+      const result = await runOnce(confirming.current, () => cancel.mutateAsync({ meltId: melt.id, reason: reason.trim() }));
+      if (!result.ran) return;
       feedback.success();
       announce(t("foundry.melt.cancel.done", { n: melt.seq, number: castNumber }));
       void queryClient.invalidateQueries({ queryKey: trpc.foundry.pathKey() });

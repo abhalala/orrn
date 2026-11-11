@@ -20,6 +20,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 
 import { CameraSheet } from "./camera-sheet";
 import { foundryError } from "./errors";
+import { runOnce, type WriteGate } from "./reason-write";
 import { ELEMENT_LABEL, readingTone, spectroInput, spectroRows, verdictTone, ppmPct } from "./foundry-model";
 import type { SpectroResult } from "./types";
 import { ErrorLine, Note } from "./ui";
@@ -114,6 +115,7 @@ function VoidSheet({ id, visible, onClose }: { id: string; visible: boolean; onC
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
+  const confirming = useRef<WriteGate>({ locked: false });
 
   const done = () => {
     setReason("");
@@ -127,7 +129,8 @@ function VoidSheet({ id, visible, onClose }: { id: string; visible: boolean; onC
     if (!reason.trim()) return;
     setProblem(null);
     try {
-      await voidResult.mutateAsync({ id, reason: reason.trim() });
+      const result = await runOnce(confirming.current, () => voidResult.mutateAsync({ id, reason: reason.trim() }));
+      if (!result.ran) return;
       feedback.success();
       refresh();
       done();

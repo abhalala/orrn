@@ -22,6 +22,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
+import { runOnce, type WriteGate } from "./reason-write";
 import { bpText, closeAdvice, closeFormIssue, closeReasonFields, countedBillets, countKey } from "./foundry-model";
 import type { CastData } from "./types";
 import { ErrorLine, Figure, kgOf, Note } from "./ui";
@@ -172,6 +173,7 @@ export function CancelCastSheet({ visible, onClose, castId, number }: { visible:
   const [reason, setReason] = useState("");
   const [tried, setTried] = useState(false);
   const [problem, setProblem] = useState<unknown>(null);
+  const confirming = useRef<WriteGate>({ locked: false });
 
   const done = () => {
     setReason("");
@@ -185,7 +187,8 @@ export function CancelCastSheet({ visible, onClose, castId, number }: { visible:
     if (!reason.trim()) return;
     setProblem(null);
     try {
-      await cancel.mutateAsync({ castId, reason: reason.trim() });
+      const result = await runOnce(confirming.current, () => cancel.mutateAsync({ castId, reason: reason.trim() }));
+      if (!result.ran) return;
       feedback.success();
       announce(t("foundry.cast.cancel.done", { number }));
       void queryClient.invalidateQueries({ queryKey: trpc.foundry.casts.pathKey() });
