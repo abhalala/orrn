@@ -16,7 +16,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped2, shipDayText } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped2, shipDayText } from "@/shared/lib/fmt-text";
 
 /** Monthly volume chart, only fetched for `analytics.view` (chart kit stays out of floor roles' downloads). */
 const DispatchVolumeChart = lazy(() => import("@/features/dispatch/volume-chart"));
@@ -106,7 +106,7 @@ function DispatchListPage() {
       key: "bundles",
       header: t("dispatch.columns.bundles"),
       align: "end",
-      cell: (r) => <span className="font-mono">{Number(r.itemCount).toLocaleString("en-IN")}</span>,
+      cell: (r) => <span className="font-mono">{countText(fmt, Number(r.itemCount))}</span>,
     },
     {
       key: "kg",
