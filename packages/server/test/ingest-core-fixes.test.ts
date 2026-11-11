@@ -765,3 +765,34 @@ describe("A19: an answered unit is saved into the layout", () => {
     expect((await p.owner.ingest.rows.list({ candidateId: again.id })).items[0]!.rate).toBe(25_000);
   });
 });
+
+describe("lead: the upload route records that a canonical rows file landed", () => {
+  test("after the canonical PUT the block says canonicalStored; a retry keeps it", async () => {
+    const { handleIngestUpload } = await import("../src/lib/ingest/vault");
+    const objects = new Map<string, number>();
+    const bucket = {
+      async head(key: string) {
+        return objects.has(key) ? { key, size: objects.get(key)! } : null;
+      },
+      async put(key: string, value: ReadableStream | Uint8Array | string) {
+        const body = typeof value === "string" ? new TextEncoder().encode(value) : value instanceof Uint8Array ? value : new Uint8Array(await new Response(value).arrayBuffer());
+        objects.set(key, body.byteLength);
+        return { key };
+      },
+    };
+    workersEnv.INGEST_VAULT = bucket;
+    const p = await plant();
+    const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "c.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
+    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    await p.admin.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
+    const done = await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
+    expect(done.canonicalUploads).toHaveLength(1);
+    expect((await p.admin.ingest.artifact.get({ artifactId: begin.artifactId })).blocks[0]!.canonicalStored).toBe(false);
+    const body = new Uint8Array([31, 139, 8, 0, 1, 2, 3]);
+    const req = () => new Request(done.canonicalUploads[0]!.url, { method: "PUT", body, headers: { "content-length": String(body.byteLength) } });
+    const res = await handleIngestUpload(req(), { bucket: bucket as unknown as R2Bucket, db: env.db });
+    expect(res.status).toBe(200);
+    expect((await p.admin.ingest.artifact.get({ artifactId: begin.artifactId })).blocks[0]!.canonicalStored).toBe(true);
+    expect((await handleIngestUpload(req(), { bucket: bucket as unknown as R2Bucket, db: env.db })).status).toBe(409);
+  });
+});

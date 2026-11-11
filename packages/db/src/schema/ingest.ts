@@ -166,6 +166,8 @@ export const ingestBlock = sqliteTable(
     sample: text("sample", { mode: "json" }).$type<string[][]>().notNull(),
     readBy: text("read_by", { enum: ["parser", "model"] }).notNull().default("parser"),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
+    /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
+    canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAtCol(),
   },
   (t) => [

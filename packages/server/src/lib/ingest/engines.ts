@@ -30,7 +30,7 @@ export interface MergeEngine {
 export const mergeEngine: MergeEngine = mergeImpl;
 
 export function anthropicEnv(): { ANTHROPIC_API_KEY?: string } {
-  const key = (env as unknown as { ANTHROPIC_API_KEY?: string }).ANTHROPIC_API_KEY;
+  const key = env.ANTHROPIC_API_KEY;
   return key ? { ANTHROPIC_API_KEY: key } : {};
 }
 

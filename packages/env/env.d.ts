@@ -43,6 +43,14 @@ export interface CloudflareEnv {
   OVEN_SIMULATOR_PROFILE?: string;
   /** Daily per-company exports and restore drills (FP-PF-12). Optional: no binding = backups report failed. */
   BACKUPS?: R2Bucket;
+  /**
+   * Infinity Portal file vault (`ingest-vault`): raw uploads, digests and canonical row files under
+   * `tenants/{companyId}/artifacts/{sha256}/`. Optional: absent (ORRN_SKIP_R2) = files are read and
+   * staged but their bytes are not kept.
+   */
+  INGEST_VAULT?: R2Bucket;
+  /** Infinity Portal column helper (Claude API, production secret). Optional: absent = people map columns by hand. */
+  ANTHROPIC_API_KEY?: string;
 }
 
 declare global {

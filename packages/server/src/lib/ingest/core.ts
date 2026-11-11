@@ -199,6 +199,7 @@ export function blockView(b: BlockRow): BlockView {
     sample: b.sample,
     readBy: b.readBy,
     modelChecked: b.modelChecked,
+    canonicalStored: b.canonicalStored,
   };
 }
 

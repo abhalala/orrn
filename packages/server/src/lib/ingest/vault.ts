@@ -11,8 +11,12 @@
  *   do not match the digest. Checked on Miniflare: a wrong digest is refused with code 10037.
  * - No procedure deletes vault objects. Discarding an artifact keeps its bytes.
  */
+import { createDb } from "@orrn/db";
+import { ingestBlock } from "@orrn/db/schema/ingest";
 import { env } from "@orrn/env/server";
+import { and, eq } from "drizzle-orm";
 
+import type { OrrnDb } from "../atomic";
 import { base64url, dieFileSigningReady, fromBase64url, hex, hmacKey, apiOrigin } from "../dieFiles";
 
 export const INGEST_TICKET_TTL_MS = 10 * 60 * 1000;
@@ -44,7 +48,7 @@ export type IngestTicket = {
 
 /** The vault bucket, or null when this stage has none. */
 export function ingestVault(): R2Bucket | null {
-  return (env as unknown as { INGEST_VAULT?: R2Bucket }).INGEST_VAULT ?? null;
+  return env.INGEST_VAULT ?? null;
 }
 
 /** True when uploads can be taken: a bucket and the signing key. */
@@ -117,7 +121,7 @@ export async function issueTicket(
  */
 export async function handleIngestUpload(
   request: Request,
-  opts: { bucket?: R2Bucket | null; now?: number } = {},
+  opts: { bucket?: R2Bucket | null; now?: number; db?: OrrnDb } = {},
 ): Promise<Response> {
   const text = (body: string, status: number) =>
     new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8", "x-content-type-options": "nosniff" } });
@@ -131,7 +135,11 @@ export async function handleIngestUpload(
   const length = Number(declared);
   if (length > ticket.size) return text("The file is larger than declared", 413);
   if ((ticket.exactSize && length !== ticket.size) || length === 0 || !request.body) return text("The file size does not match", 400);
-  if (await bucket.head(ticket.key)) return text("This upload is already done", 409);
+  if (await bucket.head(ticket.key)) {
+    // A retry after a lost answer: the file is there, so the mark is set again.
+    await markCanonical(ticket, opts.db);
+    return text("This upload is already done", 409);
+  }
   const customMetadata: Record<string, string> = {
     companyId: ticket.companyId,
     artifactId: ticket.artifactId,
@@ -152,5 +160,18 @@ export async function handleIngestUpload(
     }
     throw error;
   }
+  await markCanonical(ticket, opts.db);
   return new Response(JSON.stringify({ ok: true, bytes: length }), { status: 200, headers: { "content-type": "application/json" } });
+}
+
+/** Records that a block's canonical rows file landed (`ingest_block.canonical_stored`). Scoped by the signed ticket. */
+async function markCanonical(ticket: IngestTicket, db?: OrrnDb): Promise<void> {
+  if (ticket.purpose !== "ingest-canonical") return;
+  const m = /\/canonical\/(\d{1,4})\.jsonl\.gz$/.exec(ticket.key);
+  if (!m) return;
+  const conn = db ?? createDb();
+  await conn
+    .update(ingestBlock)
+    .set({ canonicalStored: true })
+    .where(and(eq(ingestBlock.companyId, ticket.companyId), eq(ingestBlock.artifactId, ticket.artifactId), eq(ingestBlock.ordinal, Number(m[1]))));
 }

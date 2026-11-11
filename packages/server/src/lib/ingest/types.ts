@@ -160,6 +160,8 @@ export type BlockView = {
   sample: string[][];
   readBy: "parser" | "model";
   modelChecked: boolean;
+  /** The canonical rows file of this block is in the vault. */
+  canonicalStored: boolean;
 };
 
 export type CandidateDetail = CandidateSummary & {

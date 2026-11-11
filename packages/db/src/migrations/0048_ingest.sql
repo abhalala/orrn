@@ -74,6 +74,7 @@ CREATE TABLE `ingest_block` (
 	`sample` text NOT NULL,
 	`read_by` text DEFAULT 'parser' NOT NULL,
 	`model_checked` integer DEFAULT false NOT NULL,
+	`canonical_stored` integer DEFAULT false NOT NULL,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`artifact_id`) REFERENCES `ingest_artifact`(`id`) ON UPDATE no action ON DELETE cascade
