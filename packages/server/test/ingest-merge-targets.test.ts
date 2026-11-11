@@ -6,13 +6,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { apiFor, auditRows, candidateRow, contextFor, mergeAll, seedCandidate, stagedRows, wireMergeEngine } from "./ingest-merge-fixture";
+import { apiFor, auditRows, candidateRow, contextFor, mergeAll, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 
 beforeAll(async () => {
   env = await createTestEnv();
-  await wireMergeEngine();
 }, 60_000);
 
 afterAll(async () => {

@@ -9,13 +9,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { auditRows, mergeAll, stagedRows, wireMergeEngine } from "./ingest-merge-fixture";
+import { auditRows, mergeAll, stagedRows } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 
 beforeAll(async () => {
   env = await createTestEnv();
-  await wireMergeEngine();
 }, 60_000);
 
 afterAll(async () => {

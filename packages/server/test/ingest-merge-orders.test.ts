@@ -9,13 +9,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { apiFor, auditRows, candidateRow, contextFor, mergeAll, pump, rewindToCrash, seedCandidate, stagedRows, wireMergeEngine } from "./ingest-merge-fixture";
+import { apiFor, auditRows, candidateRow, contextFor, mergeAll, pump, rewindToCrash, seedCandidate, stagedRows } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 
 beforeAll(async () => {
   env = await createTestEnv();
-  await wireMergeEngine();
 }, 60_000);
 
 afterAll(async () => {

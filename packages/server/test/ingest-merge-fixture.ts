@@ -1,10 +1,7 @@
 /**
  * Fixture for the Infinity Portal merge tests (lane B). Seeds approved candidates with staged rows
  * straight into D1 (the dry run is lane A's and has its own tests), builds callers, and pumps a
- * merge run through the real `ingest.merge.*` procedures.
- *
- * Until the lead swaps lane A's stub in `lib/ingest/engines.ts` for `lib/ingest/merge`, the fixture
- * points the stub's methods at the merge engine, so the procedures run exactly as they will.
+ * merge run through the real `ingest.merge.*` procedures, wired as the app wires them.
  */
 import type { CompanyRole } from "@orrn/db/schema/tenant";
 import type { IngestTarget, RowState } from "@orrn/db/schema/ingest";
@@ -23,12 +20,6 @@ export type SeedRow = {
 
 let n = 0;
 const uniq = (p: string) => `${p}${Date.now().toString(36)}${(n += 1).toString(36)}`;
-
-export async function wireMergeEngine(): Promise<void> {
-  const engines = await import("../src/lib/ingest/engines");
-  const merge = await import("../src/lib/ingest/merge");
-  Object.assign(engines.mergeEngine, merge.mergeEngine);
-}
 
 /** One approved candidate with its artifact, block and staged rows. Returns ids and row keys. */
 export async function seedCandidate(

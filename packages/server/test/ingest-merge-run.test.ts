@@ -18,14 +18,12 @@ import {
   rewindToCrash,
   seedCandidate,
   stagedRows,
-  wireMergeEngine,
 } from "./ingest-merge-fixture";
 
 let env: TestEnv;
 
 beforeAll(async () => {
   env = await createTestEnv();
-  await wireMergeEngine();
 }, 60_000);
 
 afterAll(async () => {
@@ -189,6 +187,15 @@ describe("a refused chunk", () => {
 });
 
 describe("the run", () => {
+  test("the router uses the real merge engine (no test wiring, never NOT_IMPLEMENTED)", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    await seedCandidate(env, companyId, "customers", [{ values: { name: "Wired Alu" } }]);
+    const res = await mergeAll(api);
+    expect(res.state).toBe("done");
+    expect(await count("customer", companyId)).toBe(1);
+  });
+
   test("one active run per plant: a second start is CONFLICT; another plant may start", async () => {
     const { companyId } = await env.seedCompany();
     const api = await adminApi(companyId);
