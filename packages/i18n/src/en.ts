@@ -2817,7 +2817,7 @@ export const en = {
       mm: "mm",
       in: "inches",
       ft: "feet",
-      kg: "{massUnit}",
+      kg: "kg",
       g: "grams",
       m: "metres",
     },

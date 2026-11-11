@@ -2808,7 +2808,7 @@ export const hi = {
       mm: "mm",
       in: "इंच",
       ft: "फ़ुट",
-      kg: "{massUnit}",
+      kg: "kg",
       g: "ग्राम",
       m: "मीटर",
     },

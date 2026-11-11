@@ -2503,7 +2503,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `unit.mm` | mm | mm |
 | `unit.in` | inches | इंच |
 | `unit.ft` | feet | फ़ुट |
-| `unit.kg` | {massUnit} | {massUnit} |
+| `unit.kg` | kg | kg |
 | `unit.g` | grams | ग्राम |
 | `unit.m` | metres | मीटर |
 | `preview.heading` | First rows, as orrn will save them | पहली लाइनें, जैसे orrn सेव करेगा |
