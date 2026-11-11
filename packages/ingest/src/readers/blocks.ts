@@ -333,6 +333,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     if (h < 0 || h + headerRows > n) throw new HintError("hint_out_of_range", `header row ${h} is not in the sheet`);
     if (h <= prevLast) throw new HintError("hint_overlap", `header row ${h} is inside the block above`);
     const next = hints[x + 1];
+    if (next && next.headerRow < h + headerRows) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the header above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
     const stop = full.map((b) => regionOf(b)[0]).find((g) => g > Math.max(h + headerRows - 1, first - 1));

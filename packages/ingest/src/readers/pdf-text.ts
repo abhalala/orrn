@@ -831,11 +831,51 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
 const lineKey = (cells: readonly string[]) => cells.map(squash).join("|");
 
 /**
+ * The columns of a hinted header: one per header cell (R4-5). For two header rows, the cells of the bottom line and the
+ * top cells over no bottom cell (a name such as "Party" whose bottom cell is blank). Sorted left to right.
+ */
+function headerAnchors(headLines: readonly Line[]): Col[] {
+  const bottom = headLines[headLines.length - 1]!.cells;
+  const spans: Col[] = bottom.map((c) => [c.x0, c.x1]);
+  if (headLines.length === 2) {
+    for (const c of headLines[0]!.cells) if (!bottom.some((b) => c.x0 < b.x1 && c.x1 > b.x0)) spans.push([c.x0, c.x1]);
+  }
+  return spans.sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * Which header column a cell of a hinted block goes to. The column whose header cell it overlaps, when it overlaps one;
+ * else the last header cell that starts at or left of the cell's edge: its right edge for a number (values are often
+ * right-aligned past a short left-aligned name), its left edge for anything else. A cell left of every header cell
+ * goes to the first column. A cell that is not a number and starts well right of the last header cell is `extra`: a
+ * column with no name, as a ragged row of a sheet.
+ */
+function anchorOf(anchors: readonly Col[], c: Cell, charWidth: number): number | "extra" {
+  const over: number[] = [];
+  anchors.forEach(([a, b], k) => {
+    if (c.x0 < b && c.x1 > a) over.push(k);
+  });
+  if (over.length === 1) return over[0]!;
+  const kind = cellKind(c.text);
+  const number = kind === "int" || kind === "decimal";
+  const last = anchors[anchors.length - 1]!;
+  if (over.length === 0 && !number && c.x0 > last[1] + charWidth * 4) return "extra";
+  const edge = number ? c.x1 : c.x0;
+  let k = 0;
+  anchors.forEach(([a], x) => {
+    if (a <= edge + charWidth * 0.5) k = x;
+  });
+  return k;
+}
+
+/**
  * Follow PDF hints exactly. The region of a hint runs from its header line to its last data line, on its page or on
- * to `lastPage`. Its columns come from the multi-cell lines of the header and the data on the header's page; every line
- * is one row, except that a one-cell line closer than three quarters of the row pitch to the line above is the rest of
- * a cell above (a wrapped line). Lines on later pages are placed by x into those columns; a header line repeated there
- * and the lines above it are listed and skipped; a line that fits no column is listed. Nothing else is decided.
+ * to `lastPage`. Its columns are the header's cells, one each (`headerAnchors`), plus columns with no name: where cells
+ * under no header cell would share a column with another cell of their line (a blank header cell), and for cells far
+ * right of the table. Every line is one row, except that a one-cell line closer than three quarters of the row
+ * pitch to the line above is the rest of a cell above (a wrapped line). Every cell goes to a column by `anchorOf`; when
+ * two cells of a line go to one column they are joined and the line is listed as `columns_not_matched`. On later pages
+ * a header line repeated there and the lines above it are listed and skipped. Nothing else is decided.
  */
 function readPdfByHints(
   pages: readonly (readonly TextItem[])[],
@@ -873,6 +913,7 @@ function readPdfByHints(
     if (prevEnd && (prevEnd.p > p || (prevEnd.p === p && prevEnd.line >= h))) throw new HintError("hint_overlap", `header line ${h} on page ${p + 1} is inside the block above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data line ${first} is above the header`);
+    if (lp > p && first > lines.length) throw new HintError("hint_out_of_range", `first data line ${first} is not on page ${p + 1}`);
     const lpLines = linesOf(lp).lines;
     const last = hint.lastDataRow ?? (next && next.p === lp ? next.hint.headerRow - 1 : lpLines.length - 1);
     if (last >= lpLines.length || (lp === p && last < first - 1)) throw new HintError("hint_out_of_range", `last data line ${last} is not on page ${lp + 1}`);
@@ -885,19 +926,61 @@ function readPdfByHints(
     const headLines = lines.slice(h, h + headerRows);
     const pEnd = lp === p ? last : lines.length - 1;
     const dataLines = lines.slice(first, pEnd + 1);
-    let cols = buildCols([...headLines, ...dataLines].filter((l) => l.cells.length >= 2), charWidth);
-    if (cols.length === 0) cols = mergeSpans([...headLines, ...dataLines].flatMap((l) => l.cells.map((c) => [c.x0, c.x1] as const)), charWidth);
-    const placeLine = (l: Line) => {
+    const anchors = headerAnchors(headLines);
+    const overlaps = (span: Col, c: Cell) => c.x0 < span[1] && c.x1 > span[0];
+    const regionLines = [...dataLines];
+    for (let q = p + 1; q <= lp; q++) regionLines.push(...linesOf(q).lines.slice(0, q === lp ? last + 1 : undefined));
+    // Columns with no name: a column whose header cell is blank (cells under no header cell that would share a column
+    // with another cell of their line), and cells that start well right of the table. Their spans become columns.
+    const orphans: Col[] = [];
+    for (const l of regionLines) {
+      const by = new Map<number, Cell[]>();
+      for (const c of l.cells) {
+        const k = anchorOf(anchors, c, charWidth);
+        if (k === "extra") orphans.push([c.x0, c.x1]);
+        else by.set(k, [...(by.get(k) ?? []), c]);
+      }
+      for (const cs of by.values()) if (cs.length > 1) for (const c of cs) if (!anchors.some((sp) => overlaps(sp, c))) orphans.push([c.x0, c.x1]);
+    }
+    const gapCols = mergeSpans(orphans, charWidth);
+    type Column = { span: Col; anchor: number | null };
+    const columns: Column[] = [...anchors.map((span, anchor) => ({ span, anchor })), ...gapCols.map((span) => ({ span, anchor: null }))].sort((a, b) => a.span[0] - b.span[0]);
+    const cols = columns.map((c) => c.span);
+    const ofAnchor = (k: number) => columns.findIndex((c) => c.anchor === k);
+    const columnFor = (c: Cell): number => {
+      const over = anchors.filter((sp) => overlaps(sp, c)).length;
+      if (over === 0) {
+        const g = columns.findIndex((col) => col.anchor === null && overlaps(col.span, c));
+        if (g !== -1) return g;
+      }
+      const k = anchorOf(anchors, c, charWidth);
+      return k !== "extra" ? ofAnchor(k) : columns.length - 1;
+    };
+    const warnings: RowWarning[] = [];
+    /** The line's cells in the columns; two cells in one column are joined and the line is listed (q: 0-based page). */
+    const placeLine = (l: Line, q: number | null) => {
+      const cells = Array<string>(cols.length).fill("");
+      let clash = false;
+      for (const c of l.cells) {
+        const k = columnFor(c);
+        if (cells[k] !== "") clash = true;
+        cells[k] = cells[k] === "" ? c.text : `${cells[k]} ${c.text}`;
+      }
+      if (clash && q !== null) warnings.push({ code: "columns_not_matched", row: l.n, page: q + 1 });
+      return cells;
+    };
+    /** A header line's cells in the columns: a top cell over several columns names the first of them. */
+    const placeHead = (l: Line) => {
       const cells = Array<string>(cols.length).fill("");
       for (const c of l.cells) {
-        const k = nearestColumn(cols, c, charWidth);
-        cells[k] = cells[k] === "" ? c.text : `${cells[k]} ${c.text}`;
+        const k = anchors.findIndex((sp) => overlaps(sp, c));
+        const at = k !== -1 ? ofAnchor(k) : columnFor(c);
+        cells[at] = cells[at] === "" ? c.text : `${cells[at]} ${c.text}`;
       }
       return cells;
     };
-    const top = placeLine(headLines[0]!);
-    const headers = headerRows === 2 ? combineHeaders(top, placeLine(headLines[1]!)) : top;
-    const warnings: RowWarning[] = [];
+    const top = placeHead(headLines[0]!);
+    const headers = headerRows === 2 ? combineHeaders(top, placeHead(headLines[1]!)) : top;
     for (let n = h + headerRows; n < first; n++) warnings.push({ code: "skipped_by_hint", row: n, page: p + 1 });
 
     // The row pitch of the data: the median gap above a multi-cell line (a new row starts there, after the header,
@@ -910,23 +993,21 @@ function readPdfByHints(
     }
     const pitch = median(gaps, height * 1.5);
     const rows: string[][] = [];
-    const addLines = (ls: readonly Line[], place: (l: Line) => string[] | null, q: number) => {
+    const addLines = (ls: readonly Line[], q: number) => {
       let above: Line | null = null;
       for (const l of ls) {
         const prevRow = rows[rows.length - 1];
         if (l.cells.length === 1 && above && prevRow && Math.abs(above.y - l.y) < pitch * 0.75) {
-          const k = nearestColumn(cols, l.cells[0]!, charWidth);
+          const k = columnFor(l.cells[0]!);
           prevRow[k] = prevRow[k] === "" ? l.cells[0]!.text : `${prevRow[k]} ${l.cells[0]!.text}`;
           above = l;
           continue;
         }
-        const placed = place(l);
-        if (placed) rows.push(placed);
-        else warnings.push({ code: "not_placed", row: l.n, page: q + 1 });
+        rows.push(placeLine(l, q));
         above = l;
       }
     };
-    addLines(dataLines, placeLine, p);
+    addLines(dataLines, p);
     const headKey = lineKey(headLines[0]!.cells.map((c) => c.text));
     for (let q = p + 1; q <= lp; q++) {
       const ql = linesOf(q).lines;
@@ -937,7 +1018,7 @@ function readPdfByHints(
         for (let n = 0; n < again + headerRows; n++) warnings.push({ code: "title_repeated", row: n, page: q + 1 });
         from = again + headerRows;
       }
-      addLines(ql.slice(from, qEnd + 1), (l) => placeByX(l.cells, cols, cols.length, charWidth), q);
+      addLines(ql.slice(from, qEnd + 1), q);
     }
     if (!(next && next.p === lp)) for (let n = last + 1; n < lpLines.length; n++) warnings.push({ code: "after_last_row", row: n, page: lp + 1 });
     const shaped = finishShape(headers, rows);

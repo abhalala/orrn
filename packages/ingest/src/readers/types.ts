@@ -38,9 +38,11 @@ export type BlockHints = {
  * - `skipped_by_hint`: a row between the header and the hinted first data row.
  * - `after_last_row`: a row after the hinted last data row that no other block takes.
  * - `kept_as_title`: a row above the header, kept in the block's title, not in its rows. It may be data.
+ * - `columns_not_matched` (PDF hints): two cells of the line fell under one header cell, so the page does not give one
+ *   column per header cell there. The cells are joined in that column; the row is kept. Check the table or pick again.
  */
 export type RowWarning = {
-  code: "not_placed" | "footer_left_out" | "title_repeated" | "skipped_by_hint" | "after_last_row" | "kept_as_title";
+  code: "not_placed" | "footer_left_out" | "title_repeated" | "skipped_by_hint" | "after_last_row" | "kept_as_title" | "columns_not_matched";
   row: number;
   /** 1-based page, for PDF only. */
   page?: number;
