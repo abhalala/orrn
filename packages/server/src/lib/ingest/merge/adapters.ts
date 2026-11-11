@@ -52,7 +52,35 @@ import {
 // ---------------------------------------------------------------------------
 
 /** The path is chosen by state, never by whether a match is set (B6). */
-const isUpdate = (r: StagedRow) => r.state === "ready_update";
+const isUpdate = (r: Pick<StagedRow, "state">) => r.state === "ready_update";
+
+/** Targets the merge only adds to: a ready_update row there has no update path (B6). */
+const ADD_ONLY: Partial<Record<IngestTarget, { one: string; many: string }>> = {
+  bundles: { one: "a bundle", many: "bundles" },
+  orders: { one: "an order", many: "orders" },
+};
+
+/**
+ * Why a ready_update row may not be sent, or null (B6): it names no record to update, or its
+ * target only takes new records (bundles, orders), where sending it would make a second record.
+ * The planner checks every row of a candidate with it before any chunk is written; the adapters
+ * check again.
+ */
+export function updateRefusal(target: IngestTarget, row: Pick<StagedRow, "state" | "matchId" | "rowIndex">): string | null {
+  if (!isUpdate(row)) return null;
+  const add = ADD_ONLY[target];
+  if (add && row.matchId) return `File row ${row.rowIndex + 1} would change ${add.one} already in orrn. An import only adds new ${add.many}. Skip the row.`;
+  if (!row.matchId) return `File row ${row.rowIndex + 1} has no record to update. Pick the record to use, or add it as new.`;
+  return null;
+}
+
+/** `updateRefusal` over a chunk, thrown as a refusal of the whole chunk. */
+function assertNoUpdate(target: IngestTarget, rows: readonly StagedRow[]): void {
+  for (const r of rows) {
+    const refusal = updateRefusal(target, r);
+    if (refusal) throw new TRPCError({ code: "BAD_REQUEST", message: refusal });
+  }
+}
 
 /**
  * A chunk's kind before any call: all creates, or all updates that each name the record they
@@ -61,7 +89,7 @@ const isUpdate = (r: StagedRow) => r.state === "ready_update";
  */
 function kindOf(rows: readonly StagedRow[]): "create" | "update" {
   const bad = rows.find((r) => isUpdate(r) && !r.matchId);
-  if (bad) throw new TRPCError({ code: "BAD_REQUEST", message: `File row ${bad.rowIndex + 1} has no record to update. Pick the record to use, or add it as new.` });
+  if (bad) throw new TRPCError({ code: "BAD_REQUEST", message: updateRefusal("customers", bad)! });
   if (rows.every(isUpdate)) return "update";
   if (rows.some(isUpdate)) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "A part mixes new and changed records" });
   return "create";
@@ -647,6 +675,8 @@ const dieCopies: Adapter = async (args) => {
 const bundles: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
   return oneCall(async (sent) => {
+    // A bundle row is only ever a new bundle; a ready_update row is refused, never added (B6).
+    assertNoUpdate("bundles", rows);
     sent.rows = rows;
     // The section the dry run resolved (its own series and code, which may differ in case or
     // series from the file); an old section the person said to add keeps the file's code.
@@ -789,6 +819,13 @@ const orders: Adapter = async (args) => {
   if (!canPrice && rows.some((r) => num(valuesOf(r).rate) !== null)) {
     return { written: [], failure: { code: "FORBIDDEN", message: price.refusal, reason: "merge_failed" } };
   }
+  // The merge only makes new orders: a ready_update row would make a second one (B6). The planner
+  // holds such a candidate first; this is the backstop.
+  try {
+    assertNoUpdate("orders", rows);
+  } catch (e) {
+    return { written: [], failure: failureOf(e) };
+  }
 
   let groups: OrderGroup[];
   try {
@@ -818,8 +855,9 @@ const orders: Adapter = async (args) => {
       const first = valuesOf(group.rows[0]!);
       const customerId = refOf(group.rows[0]!, "customer", refs);
       if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: `${text(first.customer) ?? "This party"} is not a customer in orrn` });
-      const oldNo = text(first.oldOrderNo);
-      const notes = [oldNo ? `Old order no. ${oldNo}` : null].filter(Boolean).join(" ");
+      // Every old order number of the order's rows (one PO may cover several), in file order.
+      const oldNos = [...new Set(group.rows.map((r) => text(valuesOf(r).oldOrderNo)).filter((x): x is string => !!x))];
+      const notes = oldNos.length ? `Old order no. ${oldNos.join(", ")}` : "";
       const lines = group.rows.map((row) => lineOf.get(row.id)!);
       // The same input check as `orders.create`.
       const input = createInput.parse({

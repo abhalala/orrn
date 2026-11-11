@@ -17,7 +17,9 @@
  *   lines, when one PO has two order dates, or when its PO is already on a live order (B1, B5),
  *   or when a line is one the order screen would refuse (B11). A die copies candidate with a
  *   status an import may not set (B12) and an alias candidate with an alias that is another
- *   customer's or vendor's name (B13) are held the same way. Planning ends before the first
+ *   customer's or vendor's name (B13) are held the same way, and so is any candidate with a
+ *   ready_update row that names no record, or one on bundles or orders, which the merge only adds
+ *   to (B6). Planning ends before the first
  *   chunk of the run is written, so these holds land before anything of the candidate is written.
  * - A candidate with nothing open to write gets one empty chunk, already written, so the run
  *   lists it (merged with nothing written).
@@ -33,7 +35,7 @@ import { salesOrder } from "@orrn/db/schema/sales";
 import { chunk as chunkList, mapInChunks, type SqliteBatchItem } from "../../atomic";
 import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
-import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing } from "./adapters";
+import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing, updateRefusal } from "./adapters";
 import {
   CHUNK_MARK,
   CHUNK_ROWS,
@@ -86,7 +88,7 @@ export async function mergingCandidates(ctx: Pick<IngestCtx, "db" | "companyId">
   );
 }
 
-type PlanRow = { id: string; rowIndex: number; state: string; group: string | null };
+type PlanRow = { id: string; rowIndex: number; state: string; group: string | null; matchId?: string | null };
 
 export type PlannedChunk = { id: string; rowFrom: number; rowTo: number; rowIds: string[] };
 
@@ -361,6 +363,7 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
         id: ingestStagedRow.id,
         rowIndex: ingestStagedRow.rowIndex,
         state: ingestStagedRow.state,
+        matchId: ingestStagedRow.matchId,
         group: isOrders ? ORDER_GROUP_SQL : sql<string | null>`null`,
         customer: isOrders ? sql<string | null>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'))` : sql<string | null>`null`,
         po: isOrders ? sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')` : sql<string | null>`null`,
@@ -395,7 +398,9 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
 
     // Planning ends before any chunk of the run is written, so a hold found on any page of a
     // candidate lands before anything of it is written.
-    const failure = isOrders ? await orderPlanHold(ctx, rows) : await rowPlanHold(ctx, c.target, rows);
+    // A ready_update row with no record, or on a target the merge only adds to, is never sent (B6).
+    const update = rows.map((r) => updateRefusal(c.target!, { state: r.state as StagedRow["state"], matchId: r.matchId, rowIndex: r.rowIndex })).find(Boolean);
+    const failure = update ? hold(update) : isOrders ? await orderPlanHold(ctx, rows) : await rowPlanHold(ctx, c.target, rows);
     if (failure) return { done: false, candidateId: c.id, chunks: [], statements: [], hold: { chunkId: await markerChunkId(runId, c.id, "hold"), failure } };
 
     const runs = isOrders ? cutOrderRuns(rows) : cutRuns(c.target, rows);
