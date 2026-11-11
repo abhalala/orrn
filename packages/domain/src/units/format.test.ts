@@ -154,6 +154,33 @@ describe("formatFtIn", () => {
   });
 });
 
+describe("a feet and inches plant reads a field by its own storage unit", () => {
+  const inch = formatterFor({ ...ORRN_DEFAULT_PREFS, units: { ...ORRN_DEFAULT_PREFS.units, length: "ft_in" } }, IST);
+  test("die.wall is tenths of a mm: 1.6 mm is 1/16 in, not 16 mm", () => {
+    expect(inch.entryText("die.wall", 16)).toBe("1/16 in");
+    expect(inch.entryText("die.wall", 127)).toBe("1/2 in");
+    expect(inch.entryText("die.wall", 254)).toBe("1 in");
+    expect(inch.q("die.wall", 127)).toBe("0.5 in");
+    expect(inch.q("die.wall", 3048)).toBe("1 ft");
+  });
+  test("a mm field is unchanged", () => {
+    expect(inch.entryText("bundle.length", 3811)).toBe("12 ft 6 1/16 in");
+    expect(inch.q("bundle.length", 3810)).toBe("12 ft 6 in");
+  });
+  test("formatFtIn takes the storage unit and does not round to whole mm first", () => {
+    expect(formatFtIn(16, 16, IN, { fraction: true }, "tenth_mm")).toBe("1/16 in");
+    expect(formatFtIn(3811, 16, IN, { fraction: true }, "mm")).toBe(formatFtIn(38110, 16, IN, { fraction: true }, "tenth_mm"));
+  });
+  test("a wall shown in tenth_mm reads back to a stored value that shows the same text", () => {
+    for (const tenths of [16, 32, 127, 254, 508, 1016, 3048]) {
+      const text = inch.entryText("die.wall", tenths);
+      const back = inch.parse("die.wall", text);
+      expect(back.ok).toBe(true);
+      if (back.ok) expect(inch.entryText("die.wall", back.value)).toBe(text);
+    }
+  });
+});
+
 describe("formatterFor", () => {
   const f = formatterFor(ORRN_DEFAULT_PREFS, IST);
   test("kg for a bundle, in each context", () => {

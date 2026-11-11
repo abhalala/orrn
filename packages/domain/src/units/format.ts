@@ -55,12 +55,20 @@ export function formatStorage(
 }
 
 /**
- * Feet and inches from mm on a grid of 1/4, 1/8 or 1/16 inch: "11 ft 6.25 in", "12 ft", "6.5 in".
+ * Feet and inches from a length (mm unless `storage` says otherwise) on a grid of 1/4, 1/8 or 1/16 inch: "11 ft 6.25 in", "12 ft", "6.5 in".
  * With `fraction` the inches read "6 1/4". Today's quarter-inch output is `grid: 4` without `fraction`.
  */
-export function formatFtIn(mm: number, grid: 4 | 8 | 16, style: NumberStyle, opts: { fraction?: boolean } = {}): string {
-  const r = valueRatio(mm);
-  if (!r) return EMPTY_TEXT;
+export function formatFtIn(
+  value: number,
+  grid: 4 | 8 | 16,
+  style: NumberStyle,
+  opts: { fraction?: boolean } = {},
+  storage: UnitId = "mm",
+): string {
+  const stored = valueRatio(value);
+  if (!stored) return EMPTY_TEXT;
+  // The value is in the field's storage unit (mm, or tenth_mm for walls); the grid is read off exact millimetres.
+  const r = storage === "mm" ? stored : toBase(stored, storage);
   const g = BigInt(grid);
   const total = roundHalfAway(r.num * 5n * g, r.den * 127n);
   const neg = total < 0n;
@@ -258,7 +266,7 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
     const unit = unitFor(f.kind);
     if (unit.composite) {
       const grid = ctx === "entry" ? 16 : prefs.inchGrid;
-      return formatFtIn(value, grid, styleFor(ctx, f.kind), { fraction: ctx === "entry" });
+      return formatFtIn(value, grid, styleFor(ctx, f.kind), { fraction: ctx === "entry" }, f.storage);
     }
     const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx, f.kind), { trim });
     if (!withUnit || num === EMPTY_TEXT) return num;
@@ -279,7 +287,7 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
     entryText(field, value) {
       const f = resolveField(field);
       const unit = unitFor(f.kind);
-      if (unit.composite) return formatFtIn(value, 16, { ...prefs.number, grouping: "none" }, { fraction: true });
+      if (unit.composite) return formatFtIn(value, 16, { ...prefs.number, grouping: "none" }, { fraction: true }, f.storage);
       const d = entryDecimals(unit.id, f.storage);
       return formatStorage(value, f.storage, unit.id, d, { ...prefs.number, grouping: "none" }, { trim: true });
     },
