@@ -6070,6 +6070,7 @@ export const en = {
       cutLengths: "Cut lengths",
       cast: "Cast",
       billets: "Billets",
+      billetsUnit: "Billets / {massUnit}",
       startedStopped: "Started to stopped",
       runningMin: "Running min",
       downtimeMin: "Downtime min",

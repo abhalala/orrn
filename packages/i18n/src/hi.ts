@@ -6057,6 +6057,7 @@ export const hi = {
       cutLengths: "कट लंबाई",
       cast: "Cast",
       billets: "बिलेट",
+      billetsUnit: "बिलेट / {massUnit}",
       startedStopped: "शुरू से बंद तक",
       runningMin: "चलने के मिनट",
       downtimeMin: "रुकावट के मिनट",
