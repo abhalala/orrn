@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 
 import { wrapSecret } from "@orrn/crypto";
 
-import { assertMasterKeyOpens, assertPreserved, decryptBackup, encryptBackup, orderExportSql, pendingMigrations } from "./production-safety";
+import { assertMasterKeyOpens, assertPreserved, assertRehearsed, decryptBackup, encryptBackup, EMPTIED_BY_MIGRATION, orderExportSql, pendingMigrations } from "./production-safety";
 
 const temporary = await mkdtemp(join(tmpdir(), "orrn-production-safety-test-"));
 const root = resolve(import.meta.dir, "../../..");
@@ -29,6 +29,22 @@ describe("production release guards", () => {
 
   // Review fix (2026-11-05): a deploy key that differs from the one that wrapped production's node
   // secrets deploys fine and then strands every node. The rehearsal stops before production writes.
+  test("the rehearsal lets 0046 empty the session table and nothing else", () => {
+    const pending = ["0046_revoke_sessions_cookie_scope.sql", "0047_dispatch_late_entry.sql"];
+    // Sessions end once; every other table keeps its exact count.
+    expect(() => assertRehearsed({ session: 31, bundle: 2 }, { session: 0, bundle: 2 }, pending)).not.toThrow();
+    // The migration must really have emptied it.
+    expect(() => assertRehearsed({ session: 31, bundle: 2 }, { session: 31, bundle: 2 }, pending)).toThrow();
+    // Any other table losing a row still stops the deploy.
+    expect(() => assertRehearsed({ session: 31, bundle: 2 }, { session: 0, bundle: 1 }, pending)).toThrow();
+    // With 0046 already applied, a shrinking session table stops the deploy again.
+    expect(() => assertRehearsed({ session: 31, bundle: 2 }, { session: 0, bundle: 2 }, ["0047_dispatch_late_entry.sql"])).toThrow();
+    // The table must still exist.
+    expect(() => assertRehearsed({ session: 31 }, {}, pending)).toThrow();
+    // Only the documented data step is listed.
+    expect(Object.keys(EMPTIED_BY_MIGRATION)).toEqual(["0046_revoke_sessions_cookie_scope.sql"]);
+  });
+
   test("the deploy key must open production's wrapped node secrets", async () => {
     const key = Buffer.alloc(32, 7).toString("base64");
     const other = Buffer.alloc(32, 9).toString("base64");

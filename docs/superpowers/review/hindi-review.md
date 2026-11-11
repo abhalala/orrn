@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7564 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7565 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1115,7 +1115,7 @@ Counts: 7564 screen strings in 49 groups, 45 guides with 866 strings.
 | `ambiguousBody` | More than one bundle has the number {code}. Pick the year it was packed. | {code} नंबर के एक से ज़्यादा bundle हैं। जिस साल पैक हुआ वह साल चुनें। |
 | `byActor` | by {name} | {name} ने |
 
-### dispatch (251)
+### dispatch (252)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1156,8 +1156,8 @@ Counts: 7564 screen strings in 49 groups, 45 guides with 866 strings.
 | `late.approvedFor` | A manager approved {when}. Press Dispatch to make the packing list. | मैनेजर ने {when} मंज़ूर किया। पैकिंग लिस्ट बनाने के लिए Dispatch दबाएं। |
 | `late.useAnother` | Use another time | दूसरा समय भरें |
 | `late.anotherAsks` | Another time asks a manager again. | दूसरा समय भरने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
-| `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager again. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
-| `late.loadChangedOld` | The bundles changed after a manager approved this time. Put the load back as approved, or dispatch it at the time it leaves. | मैनेजर के यह समय मंज़ूर करने के बाद बंडल बदल गए। माल वैसा ही करें जैसा मंज़ूर हुआ था, या गाड़ी निकलने के समय पर Dispatch करें। |
+| `late.expired` | A manager approved {when} more than 7 days ago. Pressing Dispatch asks a manager to approve it again. | मैनेजर ने {when} को 7 दिन से पहले मंज़ूर किया था। Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाएगी। |
+| `late.loadChanged` | The bundles changed after {when} was asked for. Pressing Dispatch asks a manager to approve that time again for the bundles on it now. | {when} की मंज़ूरी मांगने के बाद बंडल बदल गए। Dispatch दबाने पर मैनेजर से अभी के बंडल के लिए वही समय फिर मंज़ूर करने को कहा जाएगा। |
 | `overTolerance.title` | More than the order | ऑर्डर से ज़्यादा |
 | `overTolerance.line` | Over +{pct}% on {order} line {line}: {kg} {massUnit} over | {order} लाइन {line} पर +{pct}% से ज़्यादा: {kg} {massUnit} ज़्यादा |
 | `overTolerance.pending` | A manager has been asked to approve these figures. | इन आंकड़ों के लिए मैनेजर से मंज़ूरी मांगी गई है। |
@@ -1341,6 +1341,7 @@ Counts: 7564 screen strings in 49 groups, 45 guides with 866 strings.
 | `errors.offBandRejected` | A bundle was rejected for the order weight. Take it off this dispatch, then try again. | एक bundle ऑर्डर के वज़न के लिए नामंज़ूर हुआ। उसे इस dispatch से हटाएं, फिर दोबारा करें। |
 | `errors.overdraw` | This load is more than the order allows. A manager has to approve it first. Your note went with the request. | यह लोड ऑर्डर की छूट से ज़्यादा है। पहले मैनेजर को मंज़ूर करना होगा। आपका नोट मांग के साथ गया। |
 | `errors.lateEntry` | A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved. | गाड़ी निकलने का समय मैनेजर को मंज़ूर करना है। मंज़ूरी के बाद उसी समय के साथ Dispatch फिर दबाएं। |
+| `errors.orderEdited` | The order was edited while you pressed Dispatch. Press Dispatch again. | Dispatch दबाते समय ऑर्डर बदला गया। Dispatch फिर दबाएं। |
 | `capacity.label` | Truck capacity ({massUnit}) | गाड़ी की क्षमता ({massUnit}) |
 | `capacity.fill` | {pct}% full | {pct}% भरी |
 | `capacity.near` | Nearly full | लगभग भरी |
@@ -8891,7 +8892,7 @@ Please check, Lalubhai:
 | Problem 4 | The purchase figures are hidden | खरीद के आँकड़े छिपे हैं |
 | Fix 4 | Only people who read purchase figures can decide a debit or credit note. Ask one of them. | डेबिट या क्रेडिट नोट पर वही तय कर सकते हैं जो खरीद के आँकड़े पढ़ सकते हैं। उनमें से किसी से कहें। |
 | Problem 5 | A dispatch request shows a note from someone else | dispatch के अनुरोध में किसी और का नोट दिखता है |
-| Fix 5 | The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. Neither of them can approve; the one who presses Dispatch may be you. | स्कैन करने वाले ने मांगा, और Dispatch दबाने वाले ने नोट लिखा। शीट दोनों के नाम बताती है। इनमें से कोई मंज़ूर नहीं कर सकता; Dispatch दबाने वाले आप हो सकते हैं। |
+| Fix 5 | The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. The person who scanned cannot approve. The person who pressed Dispatch may approve. | स्कैन करने वाले ने मांगा, और Dispatch दबाने वाले ने नोट लिखा। शीट दोनों के नाम बताती है। स्कैन करने वाले मंज़ूर नहीं कर सकते। Dispatch दबाने वाले मंज़ूर कर सकते हैं। |
 
 ### When the internet is down (`internet-down`)
 
@@ -8910,7 +8911,7 @@ Please check, Lalubhai:
 | Step 5 | Get the time approved | समय मंज़ूर करवाएं |
 | Step 5 text | A manager, an admin or the owner opens "Approvals", taps "Review" and checks the time against the paper. You cannot approve your own. | मैनेजर, एडमिन या मालिक "मंज़ूरी" खोलकर "देखें और तय करें" दबाते हैं और समय कागज़ से मिलाते हैं। अपनी मांग आप खुद मंज़ूर नहीं कर सकते। |
 | Step 6 | Dispatch again | फिर से dispatch करें |
-| Step 6 text | Open the dispatch and tap "Dispatch". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. The packing list is made at the time the truck left and the dispatch shows "Entered late". | dispatch खोलें और "Dispatch करें" दबाएं। शीट में समय और वजह पहले से भरे हैं और लिखा है कि मैनेजर ने मंज़ूर किया। मंज़ूरी 72 घंटे के बाद आई हो तब भी यह चलता है। पैकिंग लिस्ट गाड़ी निकलने के समय से बनती है और dispatch पर "देर से भरा" दिखता है। |
+| Step 6 text | Open the dispatch and tap "Dispatch". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. Use it within 7 days of the approval; after that, Dispatch asks a manager again. The packing list is made at the time the truck left and the dispatch shows "Entered late". | dispatch खोलें और "Dispatch करें" दबाएं। शीट में समय और वजह पहले से भरे हैं और लिखा है कि मैनेजर ने मंज़ूर किया। मंज़ूरी 72 घंटे के बाद आई हो तब भी यह चलता है। मंज़ूरी के 7 दिन के अंदर dispatch करें; उसके बाद Dispatch दबाने पर मैनेजर से फिर मंज़ूरी मांगी जाती है। पैकिंग लिस्ट गाड़ी निकलने के समय से बनती है और dispatch पर "देर से भरा" दिखता है। |
 | Problem 1 | It says the time is more than 72 hours back | लिखा है कि समय 72 घंटे से ज़्यादा पीछे है |
 | Fix 1 | A late packing list can go back 72 hours only. For an older load, ask the manager how to correct the books. | देर से भरी पैकिंग लिस्ट सिर्फ़ 72 घंटे पीछे जा सकती है। पुराने लोड के लिए मैनेजर से पूछें कि खाते कैसे ठीक करें। |
 | Problem 2 | It says the time is in the future | लिखा है कि समय आगे का है |
@@ -8918,6 +8919,6 @@ Please check, Lalubhai:
 | Problem 3 | I typed another time after asking | मांगने के बाद दूसरा समय भरा |
 | Fix 3 | Tap "Use another time" in the sheet. A new time asks again and the old request is withdrawn. Ask the manager to approve the new one. | शीट में "दूसरा समय भरें" दबाएं। नया समय फिर से मांग भेजता है और पुरानी मांग वापस हो जाती है। मैनेजर से नई मांग मंज़ूर करवाएं। |
 | Problem 4 | I added or took off bundles after the approval | मंज़ूरी के बाद bundle जोड़े या हटाए |
-| Fix 4 | The approval covers the bundles on the dispatch when it was asked. Tap "Dispatch" to ask again. After 72 hours that is not possible: put the load back as it was approved, or dispatch it at the time it leaves. | मंज़ूरी उन bundle के लिए है जो मांगते समय dispatch पर थे। फिर से मांगने के लिए "Dispatch करें" दबाएं। 72 घंटे के बाद यह नहीं हो सकता: माल वैसा ही करें जैसा मंज़ूर हुआ था, या गाड़ी निकलने के समय पर dispatch करें। |
+| Fix 4 | The approval covers the bundles on the dispatch when it was asked. Tap "Dispatch" with the same time: a manager is asked to approve that time again for the bundles on it now. This works after the 72 hours too, for the same time only. | मंज़ूरी उन bundle के लिए है जो मांगते समय dispatch पर थे। उसी समय के साथ "Dispatch करें" दबाएं: मैनेजर से अभी के bundle के लिए वही समय फिर मंज़ूर करने को कहा जाता है। यह 72 घंटे के बाद भी चलता है, सिर्फ़ उसी समय के लिए। |
 | Problem 5 | Stock for that day still shows the bundles | उस दिन के स्टॉक में bundle अभी भी दिखते हैं |
 | Fix 5 | When the packing was also entered late, the bundles leave stock just after their packing entry. Stock at the end of the day the truck left can still show them, while the dispatch register shows the load on that day. From the next day both agree, and nothing is counted twice. | जब पैकिंग भी देर से भरी हो, तो bundle अपनी पैकिंग एंट्री के ठीक बाद स्टॉक से निकलते हैं। गाड़ी निकलने वाले दिन के आखिर का स्टॉक उन्हें अभी भी दिखा सकता है, जबकि dispatch रजिस्टर माल उसी दिन दिखाता है। अगले दिन से दोनों मिल जाते हैं, और कुछ दो बार नहीं गिना जाता। |

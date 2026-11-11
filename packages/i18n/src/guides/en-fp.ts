@@ -1314,7 +1314,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "A dispatch request shows a note from someone else",
-        fix: "The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. Neither of them can approve; the one who presses Dispatch may be you.",
+        fix: "The person who scanned asked, and the person who pressed Dispatch wrote the note. The sheet names them. The person who scanned cannot approve. The person who pressed Dispatch may approve.",
       },
     ],
   },
@@ -1346,7 +1346,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "Dispatch again",
-        body: "Open the dispatch and tap \"Dispatch\". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
+        body: "Open the dispatch and tap \"Dispatch\". The sheet already has the time and reason and says a manager approved it. It still works when the approval came after the 72 hours. Use it within 7 days of the approval; after that, Dispatch asks a manager again. The packing list is made at the time the truck left and the dispatch shows \"Entered late\".",
       },
     ],
     problems: [
@@ -1364,7 +1364,7 @@ export const guidesEnFp: GuideBookFp = {
       },
       {
         title: "I added or took off bundles after the approval",
-        fix: "The approval covers the bundles on the dispatch when it was asked. Tap \"Dispatch\" to ask again. After 72 hours that is not possible: put the load back as it was approved, or dispatch it at the time it leaves.",
+        fix: "The approval covers the bundles on the dispatch when it was asked. Tap \"Dispatch\" with the same time: a manager is asked to approve that time again for the bundles on it now. This works after the 72 hours too, for the same time only.",
       },
       {
         title: "Stock for that day still shows the bundles",

@@ -10,6 +10,7 @@ import { loadApprovalFacts } from "../lib/approvalFacts";
 import { APPROVAL_APPLIERS, APPROVAL_PREPARERS, explainApplyAbort } from "../lib/approvalApply";
 import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
+import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
 import { canAny, canApprove, type Action } from "../lib/permissions";
 import { nextCompanySeq } from "../lib/sequence";
@@ -161,7 +162,8 @@ export const approvalRouter = router({
       }
 
       const serverSeq = await nextCompanySeq(ctx, ctx.companyId);
-      const decidedAt = new Date();
+      // The plant clock (real time in production): check N3 measures a late approval's age from it.
+      const decidedAt = clockNow();
       const note = input.note ? input.note : null;
       const mine = and(
         eq(approval.id, row.id),
