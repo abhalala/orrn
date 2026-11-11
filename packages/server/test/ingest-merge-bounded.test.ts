@@ -297,6 +297,46 @@ describe("bounded write steps (B-new-2)", () => {
     expect(await env.db.select({ id: vendorAlias.id }).from(vendorAlias).where(and(eq(vendorAlias.companyId, companyId), eq(vendorAlias.vendorId, live[1_050]!.id)))).toHaveLength(19);
   }, 120_000);
 
+  // Opening a row costs about 3 rows read (the mark index, the row, the index entry it leaves), so a
+  // step that opens one 500-row bundles chunk cannot stay under 1,000. The bound is one chunk: at
+  // most STEP_ROWS_READ_MAX plus 3 reads per row of one chunk, the same for every step, however long
+  // the sheet. Before, the failing step opened every chunk of the candidate: 15,566 rows read.
+  test(`a refused first chunk of a 5,000-row bundles sheet holds the candidate; that step and every drop step read one chunk's worth, and every row ends open (M-new-4)`, async () => {
+    const { companyId } = await env.seedCompany();
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "8100" });
+    // Row 3 names a section that is not in orrn: chunk 1 is refused before any call.
+    const candidateId = await seedBulk(companyId, "bundles", ROWS, (i) =>
+      i === 2
+        ? { legacyId: `L-${i}`, series: "R", sectionCode: "9999", quantity: 10, weightG: 50_000, lengthMm: 3658, _ids: {} }
+        : { legacyId: `L-${i}`, series: "R", sectionCode: "8100", quantity: 10, weightG: 50_000, lengthMm: 3658, _ids: { sectionCode: dieId } },
+    );
+    const tally: Tally = { rows: 0, statements: 0 };
+    const ctx = await contextFor(env, companyId, "admin");
+    const { createDb } = await import("@orrn/db");
+    const api = await apiFor({ ...ctx, db: createDb(counting(env.d1, tally)) } as typeof ctx);
+    const { runId } = await api.ingest.merge.start();
+    let last = await api.ingest.merge.step({ runId, expectCursor: 0 });
+    for (let i = 0; last.state === "planning" && i < 20; i += 1) last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+    expect(last.state).toBe("running");
+    expect(last.chunksTotal).toBeGreaterThan(5);
+    const reads: number[] = [];
+    for (let i = 0; i < 40 && last.state === "running"; i += 1) {
+      tally.rows = 0;
+      last = await api.ingest.merge.step({ runId, expectCursor: last.cursor });
+      reads.push(tally.rows);
+    }
+    expect(last.state).toBe("done_with_holds");
+    if (process.env.DEBUG_READS) console.log("HOLD AND DROP READS", reads);
+    const { CHUNK_ROWS } = await import("../src/lib/ingest/merge/shared");
+    for (const n of reads) expect(n).toBeLessThanOrEqual(STEP_ROWS_READ_MAX + 3 * CHUNK_ROWS.bundles.create);
+    // Each drop step costs the same: no step reads more because the sheet has more chunks.
+    const drops = reads.slice(1, -1);
+    expect(Math.max(...drops) - Math.min(...drops)).toBeLessThanOrEqual(STEP_GROWTH_MAX);
+    expect((await candidateRow(env, candidateId)).state).toBe("held");
+    const staged = await stagedRows(env, candidateId);
+    expect(staged.every((r) => r.mergeState === "open" && r.committedType === null)).toBe(true);
+  }, 300_000);
+
   test(`planning 5,000 one-line orders sends at most ${PLAN_BATCH_STATEMENTS_MAX} statements in a batch and reads at most ${PLAN_ROWS_READ_MAX} rows a step (M-new-1)`, async () => {
     const { companyId } = await env.seedCompany({ settings: { dieRequiredOnSalesOrder: false } });
     const customerId = await env.seedCustomer(companyId);

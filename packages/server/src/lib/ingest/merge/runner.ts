@@ -294,14 +294,13 @@ async function planStep(ctx: IngestCtx, run: RunRow, expectCursor: number): Prom
     const { id: _id, companyId: _c, ...again } = marker;
     const insert = ctx.db.insert(ingestMergeChunk).values(marker).onConflictDoUpdate({ target: ingestMergeChunk.id, set: again });
     if (page.hold) {
-      // Held before anything of it was written (B1, B5). Chunks planned for it on earlier pages
-      // open their rows again; the write step drops those chunks.
-      const earlier = await laterPlanned(ctx, run.id, { id: "", candidateId: page.candidateId });
+      // Held before anything of it was written (B1, B5). Chunks planned for it on earlier pages are
+      // left planned: the write step drops each one, one chunk a step, and opens its rows (M-new-4).
       await guardedBatch(
         ctx.db,
         [
           insert,
-          ...holdStatements(ctx, run, page.candidateId, marker.id, page.hold.failure, at, earlier.map((c) => c.id)),
+          ...holdStatements(ctx, run, page.candidateId, marker.id, page.hold.failure, at),
           ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`${ingestMergeRun.chunksTotal} + 1`, chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1` }, { active: true }),
         ],
         OTHER_TAB,
@@ -460,7 +459,7 @@ function isStuck(chunk: ChunkRow, at: Date): boolean {
  * resends the chunk with the same keys. The rows of `others` (the candidate's other planned chunks)
  * open again.
  */
-function stuckStatements(ctx: IngestCtx, run: RunRow, chunk: ChunkRow, others: readonly string[], at: Date): SqliteBatchItem[] {
+function stuckStatements(ctx: IngestCtx, run: RunRow, chunk: ChunkRow, at: Date): SqliteBatchItem[] {
   const failure: ChunkFailure = { code: STUCK_CODE, message: STUCK_MESSAGE, reason: "merge_failed" };
   return [
     ctx.db
@@ -477,20 +476,23 @@ function stuckStatements(ctx: IngestCtx, run: RunRow, chunk: ChunkRow, others: r
         ),
       ),
     ingestAbortUnlessChanged(ctx.db),
-    ...holdStatements(ctx, run, chunk.candidateId, chunk.id, failure, at, others),
+    ...holdStatements(ctx, run, chunk.candidateId, chunk.id, failure, at),
   ];
 }
 
 async function writeChunk(ctx: IngestCtx, run: RunRow, expectCursor: number, chunk: ChunkRow): Promise<void> {
   const candidate = await loadCandidate(ctx, chunk.candidateId);
-  const rows = await chunkRows(ctx, chunk);
+  // A candidate held since this chunk was planned: drop the chunk and open its rows by the chunk
+  // mark, without reading them first (M-new-4: one chunk a step).
+  const held = candidate.state !== "merging" || !candidate.target;
+  const rows = held ? [] : await chunkRows(ctx, chunk);
 
-  // A candidate held since this chunk was planned, or a chunk with nothing left: drop it.
-  if (candidate.state !== "merging" || rows.length === 0 || !candidate.target) {
+  // A held candidate, or a chunk with nothing left: drop it.
+  if (held || rows.length === 0 || !candidate.target) {
     await guardedBatch(
       ctx.db,
       [
-        ...requeue(ctx, rows.map((r) => r.id)),
+        ...(held ? reopenChunks(ctx, [chunk.id]) : []),
         ctx.db.delete(ingestMergeChunk).where(and(eq(ingestMergeChunk.id, chunk.id), eq(ingestMergeChunk.companyId, ctx.companyId))),
         ...advance(ctx, run.id, expectCursor, { chunksTotal: sql`max(${ingestMergeRun.chunksTotal} - 1, 0)` }),
       ],
@@ -501,16 +503,12 @@ async function writeChunk(ctx: IngestCtx, run: RunRow, expectCursor: number, chu
 
   // Every send so far ended the request before its result was recorded: not sent again (B-new-1).
   if (isStuck(chunk, now())) {
-    const later = await laterPlanned(ctx, run.id, chunk);
+    // The candidate's other planned chunks are dropped by later steps, one a step (M-new-4).
     await guardedBatch(
       ctx.db,
       [
-        ...stuckStatements(ctx, run, chunk, later.map((c) => c.id), now()),
-        ...deleteChunks(ctx, later),
-        ...advance(ctx, run.id, expectCursor, {
-          chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1`,
-          chunksTotal: sql`max(${ingestMergeRun.chunksTotal} - ${later.length}, 0)`,
-        }),
+        ...stuckStatements(ctx, run, chunk, now()),
+        ...advance(ctx, run.id, expectCursor, { chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1` }),
       ],
       OTHER_TAB,
     );
@@ -693,8 +691,8 @@ async function recordChunk(
     return;
   }
 
-  // The rest of this candidate's planned chunks will not run: drop them and reopen their rows.
-  const later = await laterPlanned(ctx, run.id, chunk);
+  // The rest of this candidate's planned chunks will not run. They are not touched here: each later
+  // step drops one of them and opens its rows, so no step reads more than one chunk (M-new-4).
   const writtenIds = new Set(written.map((w) => w.rowId));
   statements.push(
     ctx.db
@@ -703,56 +701,21 @@ async function recordChunk(
       .where(mine),
     ingestAbortUnlessChanged(ctx.db),
     ...requeue(ctx, rows.filter((r) => !writtenIds.has(r.id)).map((r) => r.id)),
-    ...deleteChunks(ctx, later),
   );
   statements.push(
-    ...holdStatements(ctx, run, candidateId, chunk.id, failure, at, later.map((c) => c.id)),
-    ...advance(ctx, run.id, expectCursor, {
-      chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1`,
-      chunksTotal: sql`max(${ingestMergeRun.chunksTotal} - ${later.length}, 0)`,
-    }),
+    ...holdStatements(ctx, run, candidateId, chunk.id, failure, at),
+    ...advance(ctx, run.id, expectCursor, { chunksFailed: sql`${ingestMergeRun.chunksFailed} + 1` }),
   );
   await guardedBatch(ctx.db, statements, OTHER_TAB);
 }
 
-/** The other planned chunks of a chunk's candidate in this run (all of them when `chunk.id` is ""). */
-async function laterPlanned(ctx: IngestCtx, runId: string, chunk: Pick<ChunkRow, "id" | "candidateId">): Promise<{ id: string }[]> {
-  return ctx.db
-    .select({ id: ingestMergeChunk.id })
-    .from(ingestMergeChunk)
-    .where(
-      and(
-        eq(ingestMergeChunk.runId, runId),
-        eq(ingestMergeChunk.companyId, ctx.companyId),
-        eq(ingestMergeChunk.candidateId, chunk.candidateId),
-        eq(ingestMergeChunk.state, "planned"),
-        ne(ingestMergeChunk.id, chunk.id),
-      ),
-    );
-}
-
-function deleteChunks(ctx: IngestCtx, chunks: readonly { id: string }[]): SqliteBatchItem[] {
-  return inIds(chunks.map((c) => c.id)).map((part) =>
-    ctx.db.delete(ingestMergeChunk).where(and(eq(ingestMergeChunk.companyId, ctx.companyId), inArray(ingestMergeChunk.id, part))),
-  );
-}
-
 /**
- * Hold a merging candidate with the failure, with an audit row. The queued rows of `reopen` (the
- * candidate's planned chunks that will not run) open again. The merge never changes a row's
- * `state`, so the candidate's counts need no recount here.
+ * Hold a merging candidate with the failure, with an audit row. Its planned chunks that will not
+ * run stay planned; the write step drops them one a step and opens their rows (M-new-4). The merge
+ * never changes a row's `state`, so the candidate's counts need no recount here.
  */
-function holdStatements(
-  ctx: IngestCtx,
-  run: RunRow,
-  candidateId: string,
-  chunkId: string,
-  failure: ChunkFailure,
-  at: Date,
-  reopen: readonly string[],
-): SqliteBatchItem[] {
+function holdStatements(ctx: IngestCtx, run: RunRow, candidateId: string, chunkId: string, failure: ChunkFailure, at: Date): SqliteBatchItem[] {
   return [
-    ...reopenChunks(ctx, reopen),
     ctx.db
       .update(ingestCandidate)
       .set({
@@ -847,7 +810,7 @@ export async function stopMerge(ctx: IngestCtx, input: { runId: string }): Promi
   const statements: SqliteBatchItem[] = [];
   const stuckCandidates = new Set<string>();
   for (const c of [...sent, ...moved]) {
-    statements.push(...stuckStatements(ctx, run, c, [], at));
+    statements.push(...stuckStatements(ctx, run, c, at));
     stuckCandidates.add(c.candidateId);
   }
   statements.push(...reopenChunks(ctx, planned.map((c) => c.id)));
