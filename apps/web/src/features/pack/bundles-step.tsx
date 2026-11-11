@@ -14,7 +14,6 @@ import {
   bandText,
   driftChipTone,
   driftText,
-  kg12Text,
   positionKey,
   positionTone,
   type LineVerdict } from "./line-preview";
@@ -39,7 +38,7 @@ import {
   type DraftBundle,
   type PackDraft } from "./use-pack-draft";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG, type EntrySpec } from "@/shared/lib/plant-input";
 
@@ -82,8 +81,8 @@ export function BundlesStep({
   onReview,
   announce,
 }: Props) {
-  const { t } = useT();
   const fmt = useFmt();
+  const { t } = useT();
   const uid = useId();
   const weightRef = useRef<HTMLInputElement | null>(null);
   const piecesRef = useRef<HTMLInputElement | null>(null);
@@ -644,6 +643,7 @@ function LiveReadout({
   copyCode: string | null;
   className?: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const key = verdict ? positionKey(verdict.position) : null;
   const tone = verdict === null ? "idle" : verdict.position === "in" ? "green" : verdict.position ? "amber" : "neutral";
@@ -652,14 +652,14 @@ function LiveReadout({
   const drift = verdict ? driftText(verdict.driftPercentTenths) : null;
   // The copy's band when the bundle names a copy, else the section's; the die range text until the server answers.
   const range = verdict?.band
-    ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band) })
+    ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band, fmt) })
     : die
-      ? t("pack.new.liveRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })
+      ? t("pack.new.liveRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })
       : null;
   void copyCode;
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      <span className="text-[14px] font-semibold leading-5">{t("units.kgPer12ft")}</span>
+      <span className="text-[14px] font-semibold leading-5">{sectionUnit(fmt)}</span>
       <div
         data-slot="live-k12"
         data-tone={tone}
@@ -682,7 +682,7 @@ function LiveReadout({
         ) : (
           <>
             <span data-no-truncate="" data-testid="live-k12-value" className="font-mono text-[28px] font-semibold tracking-[-0.02em] tabular-nums">
-              {kg12Text(verdict.kgPer12ftMilli) ?? ""}
+              {sectionOrNull(fmt, verdict.kgPer12ftMilli) ?? ""}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[14px] font-bold">
               {key ? <Icon aria-hidden="true" strokeWidth={2} className="size-[18px]" /> : null}
@@ -740,7 +740,7 @@ function ScaleStrip({
   const chip =
     view.state === "stable" ? (
       <Chip tone="green" data-testid="scale-chip" data-scale="stable">
-        {t("pack.scale.stable")} {gramsToKgText(view.grams)} {t("units.kg")}
+        {t("pack.scale.stable")} {gramsToKgText(view.grams, fmt)} {massUnit(fmt)}
       </Chip>
     ) : view.state === "waiting" ? (
       <Chip tone="amber" data-testid="scale-chip" data-scale="waiting">
@@ -913,7 +913,7 @@ function SavedRow({
           </span>
         ) : null}
         {verdict?.kgPer12ftMilli != null ? (
-          <Measure value={kg12Text(verdict.kgPer12ftMilli) ?? ""} unit={t("units.kgPer12ft")} className="text-[14px]" />
+          <Measure value={sectionOrNull(fmt, verdict.kgPer12ftMilli) ?? ""} unit={sectionUnit(fmt)} className="text-[14px]" />
         ) : null}
         {bundle.weightSource === "manual" && bundle.weightOverrideReason ? (
           <span className="text-[13px] text-muted-foreground">{t("pack.scale.typed")}</span>

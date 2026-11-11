@@ -22,9 +22,8 @@ import {
   type SourceChoice } from "./source-gate";
 import { packLineChoices } from "./pack-lines";
 import { useCasts, useDieCopies, useOpenLines, useOwnerCheck, useTrolleyLines } from "./use-pack-server";
-import { kg12Text } from "./line-preview";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 const NONE = "";
 
@@ -114,7 +113,7 @@ export function SourceExtras({
         detail: [
           c.tierRank != null ? t("dieRoom.copies.tier", { rank: c.tierRank }) : null,
           t(`dieRoom.status.${c.status}`),
-          c.latestMilli != null ? t("pack.source.latest", { kg: kg12Text(c.latestMilli) ?? "" }) : null,
+          c.latestMilli != null ? t("pack.source.latest", { kg: sectionOrNull(fmt, c.latestMilli) ?? "" }) : null,
         ]
           .filter(Boolean)
           .join(" · "),

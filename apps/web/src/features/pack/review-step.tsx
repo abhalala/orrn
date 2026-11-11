@@ -11,14 +11,14 @@ import { Can } from "@/shared/components/can";
 
 import type { DieOption } from "./die-step";
 import { draftTotals } from "./pack-math";
-import { kg12Text, type LineVerdict } from "./line-preview";
+import { type LineVerdict } from "./line-preview";
 import { Measure, PackBar, type RangeState } from "./pack-ui";
 import { VerdictChip } from "./bundles-step";
 import type { SaveErrorKind } from "./save-error";
 import type { PackDraft } from "./use-pack-draft";
 import { useCasts, useDieCopies, useLinesPreview, useOpenLines, useTrolleyLines } from "./use-pack-server";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 type Props = {
   draft: PackDraft;
@@ -190,7 +190,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   <Measure value={String(r.b.pieces)} unit={t("units.pcs")} />
                   <span className="font-mono text-[14px] whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</span>
                   {r.k !== null ? (
-                    <Measure value={kg12Text(r.k) ?? ""} unit={t("units.kgPer12ft")} className="text-[14px]" />
+                    <Measure value={sectionOrNull(fmt, r.k) ?? ""} unit={sectionUnit(fmt)} className="text-[14px]" />
                   ) : null}
                 </span>
                 <VerdictChip verdict={r.verdict} />
@@ -217,7 +217,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   {t("pack.new.po")}
                 </th>
                 <th scope="col" className="px-3 text-right font-semibold">
-                  {t("units.kgPer12ft")}
+                  {sectionUnit(fmt)}
                 </th>
                 <th scope="col" className="pr-5 pl-3 text-left font-semibold">
                   <span className="sr-only">{t("stock.columns.status")}</span>
@@ -234,7 +234,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   <td className="px-3 text-right font-mono tabular-nums">{r.b.pieces}</td>
                   <td className="px-3 font-mono whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</td>
                   <td className="px-3 font-mono break-all">{r.b.po ?? draft.defaults.po ?? ""}</td>
-                  <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? (kg12Text(r.k) ?? "") : ""}</td>
+                  <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? (sectionOrNull(fmt, r.k) ?? "") : ""}</td>
                   <td className="pr-5 pl-3">
                     <VerdictChip verdict={r.verdict} />
                   </td>

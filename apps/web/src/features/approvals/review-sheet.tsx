@@ -64,8 +64,9 @@ import {
   foundryFiguresOf,
   foundryLiveOf,
   type FoundryLiveNote,
-  type FoundryFigure,
-} from "./approval-view";
+  type FoundryFigure } from "./approval-view";
+import { useFmt } from "@/shared/lib/fmt";
+import { massUnit } from "@/shared/lib/fmt-text";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
 
@@ -530,6 +531,7 @@ const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFr
  * while the run loads, and a note says so when the request asked for other times. Times are in the plant's time zone.
  */
 function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const tz = useCompanyTimeZone();
   const ms = (v: string | number | Date | null | undefined) => (v ? new Date(v).getTime() : null);
@@ -543,7 +545,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
     run !== undefined && late.startedAt !== null && late.stoppedAt !== null && (late.startedAt !== ms(run.run.startedAt) || late.stoppedAt !== ms(run.run.stoppedAt));
   const figures = run?.figures;
   const counted = figures !== undefined && figures.inputG > 0;
-  const kg = (g: number) => `${KG3.format(g / 1000)} kg`;
+  const kg = (g: number) => `${KG3.format(g / 1000)} ${massUnit(fmt)}`;
   const pending = loading ? <Skeleton className="h-5 w-24" /> : "-";
   const rows: [string, ReactNode, string][] = [
     [t("approvals.late.run"), run?.run.number || late.runNumber || "-", "run"],
@@ -583,6 +585,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
 type NoteData = inferRouterOutputs<AppRouter>["purchase"]["dcNotes"]["get"];
 
 function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loading: boolean; error: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (loading) {
     return (
@@ -603,12 +606,12 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
     (n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"),
   );
   const rows: [string, ReactNode][] = [
-    [t("approvals.party"), `${kgText(lot.partyKgG)} kg`],
-    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} kg`],
-    [t("approvals.short"), data.shortG === null ? "-" : `${kgText(Math.max(0, data.shortG))} kg`],
+    [t("approvals.party"), `${kgText(lot.partyKgG)} ${massUnit(fmt)}`],
+    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} ${massUnit(fmt)}`],
+    [t("approvals.short"), data.shortG === null ? "-" : `${kgText(Math.max(0, data.shortG))} ${massUnit(fmt)}`],
     [t("approvals.tolerance"), `${kgText(data.toleranceG)} kg (${pct})`],
-    [t("approvals.kgDiff"), `${kgText(note.kgDiffG)} kg`],
-    [t("approvals.bori"), `${kgText(note.boriDeductionG)} kg`],
+    [t("approvals.kgDiff"), `${kgText(note.kgDiffG)} ${massUnit(fmt)}`],
+    [t("approvals.bori"), `${kgText(note.boriDeductionG)} ${massUnit(fmt)}`],
     [
       t("approvals.rate"),
       <>

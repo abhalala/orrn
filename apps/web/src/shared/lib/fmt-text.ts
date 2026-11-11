@@ -162,3 +162,6 @@ export const kgChartText = (fmt: Fmt, kg: number, zeroPlain = false): string =>
 
 /** Whole units of weight, grouped ("60,000"): a tile or a die card. `kgWholeText` under the default set. */
 export const kgGrouped0 = (fmt: Fmt, grams: number): string => formatStorage(grams, "g", fmt.unitOf("mass").id, 0, fmt.style);
+
+/** A section weight, plain, zeros dropped ("2.4"): the die list's range column, `kgText` of a die's band end in kg/12ft. */
+export const sectionPlainTrim = (fmt: Fmt, gramsPer12ft: number): string => fmt.n(BAND, gramsPer12ft, "export", { trim: true });

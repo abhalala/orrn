@@ -236,7 +236,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             <p className="m-0 text-[15px] font-semibold text-tone-amber-ink">{t("dispatch.overTolerance.title")}</p>
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[14px] text-tone-amber-ink">
               {overOrder.lines.map((l) => (
-                <li key={l.lineId}>{overLineText(t, l)}</li>
+                <li key={l.lineId}>{overLineText(t, l, fmt)}</li>
               ))}
             </ul>
             <p className="m-0 text-[14px] text-tone-amber-ink">{t(overOrder.statusKey)}</p>

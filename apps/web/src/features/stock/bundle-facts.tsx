@@ -4,10 +4,10 @@ import { Chip } from "@orrn/ui/components/chip";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { bandText, driftChipTone, driftText, kg12Text, positionKey, positionTone, type ServerDriftTone, type ServerPosition } from "@/features/pack/line-preview";
+import { bandText, driftChipTone, driftText, positionKey, positionTone, type ServerDriftTone, type ServerPosition } from "@/features/pack/line-preview";
 import { partyNoLabel } from "@/features/pack/party";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped2, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 type Fact = { key: string; label: string; value: ReactNode; mono?: boolean };
 
@@ -72,12 +72,12 @@ export function BundleFacts({
 }) {
   const fmt = useFmt();
   const { t } = useT();
-  const k12 = kg12Text(bundle.kgPer12ftMilli);
+  const k12 = sectionOrNull(fmt, bundle.kgPer12ftMilli);
   const key = positionKey(band.position);
   const chip = driftChipTone(band.tone);
   const drift = driftText(band.percentTenths);
   const party = partyNoLabel(bundle);
-  const bandRange = band.minG != null && band.maxG != null ? bandText({ minG: band.minG, maxG: band.maxG }) : null;
+  const bandRange = band.minG != null && band.maxG != null ? bandText({ minG: band.minG, maxG: band.maxG }, fmt) : null;
 
   const facts: Fact[] = [
     { key: "weight", label: t("bundle.facts.weight"), value: `${kgGrouped2(fmt, (bundle.weightG))} ${massUnit(fmt)}`, mono: true },

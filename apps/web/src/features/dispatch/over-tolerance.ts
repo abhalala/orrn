@@ -2,6 +2,8 @@ import type { MessageKey, Translate } from "@orrn/i18n";
 
 import { tolerancePct, type OverToleranceLine } from "@/features/scan/scan-outcome";
 
+import type { Fmt } from "@orrn/domain";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 import { dispatchKgText } from "./format";
 
 /** The order-line overdraw state `dispatch.getDispatch` returns while a dispatch can change (Review Focus 5). */
@@ -12,8 +14,8 @@ export type OverdrawState = {
 } | null;
 
 /** "Over +5% on SO-4 line 2: 30.00 kg over" (pl-flow 61, amber). */
-export function overLineText(t: Translate, l: Pick<OverToleranceLine, "toleranceBp" | "orderNumber" | "lineNo" | "overG">): string {
-  return t("dispatch.overTolerance.line", { pct: tolerancePct(l.toleranceBp), order: l.orderNumber, line: l.lineNo, kg: dispatchKgText(l.overG) });
+export function overLineText(t: Translate, l: Pick<OverToleranceLine, "toleranceBp" | "orderNumber" | "lineNo" | "overG">, fmt?: Fmt): string {
+  return t("dispatch.overTolerance.line", { pct: tolerancePct(l.toleranceBp), order: l.orderNumber, line: l.lineNo, kg: fmt ? kgGrouped2(fmt, l.overG) : dispatchKgText(l.overG) });
 }
 
 /**

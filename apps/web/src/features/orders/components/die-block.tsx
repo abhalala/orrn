@@ -20,8 +20,7 @@ import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
 import { useFmt } from "@/shared/lib/fmt";
-import { countText, kgGrouped3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
-import { kgFieldText } from "../format";
+import { countText, kgGrouped3, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
@@ -330,7 +329,7 @@ function LengthRow({
   });
 
   const pcsValue = row.basis === "pcs" ? row.pcsText : q && row.basis === "kg" ? String(q.pcs) : "";
-  const kgValue = row.basis === "kg" ? row.kgText : q && row.basis === "pcs" ? kgFieldText(q.kgG) : "";
+  const kgValue = row.basis === "kg" ? row.kgText : q && row.basis === "pcs" ? kgPlain3(fmt, q.kgG) : "";
   const bestPcs = q?.pcs ?? null;
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;

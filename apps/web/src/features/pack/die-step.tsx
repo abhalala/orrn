@@ -24,6 +24,7 @@ import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
 
 export type { DieOption };
 
@@ -383,6 +384,7 @@ function DieRow({
   onKeyDown(e: KeyboardEvent<HTMLButtonElement>): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <button
       type="button"
@@ -401,11 +403,11 @@ function DieRow({
         <span className="text-[13px] font-semibold text-muted-foreground">{die.series}</span>
       </span>
       <span className="col-start-2 row-span-2 row-start-1 hidden text-right text-[13px] font-medium text-muted-foreground tabular-nums sm:block">
-        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
+        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })}
       </span>
       {die.name ? <span className="col-start-1 min-w-0 text-[14px] leading-5 break-words text-foreground">{die.name}</span> : null}
       <span className="col-span-2 text-[13px] font-medium text-muted-foreground tabular-nums sm:hidden">
-        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
+        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })}
       </span>
     </button>
   );
@@ -423,6 +425,7 @@ function ChosenDie({
   onChange(): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <div
       data-slot="chosen-die"
@@ -444,7 +447,7 @@ function ChosenDie({
             </p>
             {die.name ? <p className="m-0 text-[14px] break-words">{die.name}</p> : null}
             <p className="m-0 text-[13px] font-medium text-muted-foreground tabular-nums">
-              {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
+              {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })}
             </p>
           </>
         )}

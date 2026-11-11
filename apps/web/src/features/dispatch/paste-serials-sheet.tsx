@@ -16,6 +16,7 @@ import { trpcClient } from "@/shared/utils/trpc";
 import { CapacityBanner } from "./capacity-banner";
 import { overLineText } from "./over-tolerance";
 import { addInChunks, type ChunkedAddResult } from "./paste";
+import { useFmt } from "@/shared/lib/fmt";
 
 type Props = {
   open: boolean;
@@ -35,6 +36,7 @@ type Phase = { kind: "edit" } | { kind: "sending"; done: number; total: number }
  */
 export function PasteSerialsSheet({ open, onOpenChange, dispatchId, onAdded }: Props) {
   const { t } = useT();
+  const fmt = useFmt();
   const [text, setText] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "edit" });
   const [error, setError] = useState<string | undefined>();
@@ -231,6 +233,7 @@ function PasteReport({
   addingAnyway: boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const lines = reportLines(t, result.report);
   const done = total - result.unsent.length;
   const noOrder = blocksOf(result.report).filter((b) => b.code === "unassigned").map((b) => b.serial);
@@ -252,7 +255,7 @@ function PasteReport({
       {result.report.overTolerance && result.report.overTolerance.length > 0 ? (
         <ul data-over-tolerance="" className="m-0 flex list-none flex-col gap-1 rounded-card bg-tone-amber-tint p-3 text-[14px] font-semibold text-tone-amber-ink">
           {result.report.overTolerance.map((l) => (
-            <li key={l.lineId}>{overLineText(t, l)}</li>
+            <li key={l.lineId}>{overLineText(t, l, fmt)}</li>
           ))}
           <li className="font-normal">{t("dispatch.overTolerance.pending")}</li>
         </ul>

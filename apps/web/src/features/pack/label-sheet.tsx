@@ -12,7 +12,6 @@ import { Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { lengthUnitOf } from "./pack-ui";
-import { kg12Text } from "./line-preview";
 import {
   SHEET_GRID,
   isSheetSize,
@@ -25,7 +24,7 @@ import { useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 const SIZE_KEY = "orrn.labelSheetSize";
 
@@ -238,7 +237,7 @@ function Sticker({
   const { t } = useT();
   const party = stickerPartyNo(l);
   const std = standardLine(l);
-  const k12 = kg12Text(l.kgPer12ftMilli);
+  const k12 = sectionOrNull(fmt, l.kgPer12ftMilli);
   const z = STICKER[dense ? 21 : 10];
   const extra = [l.cast ? t("labelSheet.cast", { cast: l.cast }) : null, l.salesOrder, std].filter(Boolean).join(" · ");
   return (
@@ -272,7 +271,7 @@ function Sticker({
         </span>
         <span className={cn("min-w-0 font-mono tabular-nums [overflow-wrap:anywhere]", z.small)}>
           {l.pieces} {t("units.pcs")} · {fmt.q("bundle.length", l.lengthMm)}
-          {k12 ? ` · ${k12} ${t("units.kgPer12ft")}` : ""}
+          {k12 ? ` · ${k12} ${sectionUnit(fmt)}` : ""}
         </span>
         {extra ? <span className={cn("min-w-0 truncate", z.small)}>{extra}</span> : null}
       </div>

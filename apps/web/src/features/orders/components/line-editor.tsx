@@ -19,8 +19,7 @@ import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
 import { useFmt } from "@/shared/lib/fmt";
-import { countText, kgGrouped3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
-import { kgFieldText } from "../format";
+import { countText, kgGrouped3, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
@@ -96,7 +95,7 @@ export function LineEditor({
 
   // The side that was typed shows the text as typed; the other side is the quote.
   const pcsValue = line.basis === "pcs" ? line.pcsText : q && line.basis === "kg" ? String(q.pcs) : "";
-  const kgValue = line.basis === "kg" ? line.kgText : q && line.basis === "pcs" ? kgFieldText(q.kgG) : "";
+  const kgValue = line.basis === "kg" ? line.kgText : q && line.basis === "pcs" ? kgPlain3(fmt, q.kgG) : "";
   const bestPcs = q?.pcs ?? null;
 
   return (

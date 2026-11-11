@@ -1,4 +1,6 @@
 import { formatKg } from "@orrn/domain";
+import type { Fmt } from "@orrn/domain";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 
 /**
  * What the packing-bay scale is doing, from `scale.reading` (FP-PK-02). The server has already
@@ -58,8 +60,8 @@ export function gramsToFieldText(grams: number): string {
 }
 
 /** "52.40" for the chip beside the field. */
-export function gramsToKgText(grams: number): string {
-  return formatKg(grams / 1000, 2);
+export function gramsToKgText(grams: number, fmt?: Fmt): string {
+  return fmt ? kgGrouped2(fmt, grams) : formatKg(grams / 1000, 2);
 }
 
 /**
