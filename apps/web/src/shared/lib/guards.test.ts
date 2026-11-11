@@ -6,6 +6,8 @@ import type { Me } from "./me";
 // The real trpc module validates the Vite env at import; the guards only need the `auth.me` key.
 mock.module("../utils/trpc", () => ({
   trpc: { auth: { me: { queryOptions: () => ({ queryKey: ["auth.me"], queryFn: async () => null }) } } },
+  // Bun keeps a module mock for the whole run; a screen test that loads components needs the client's name to exist.
+  trpcClient: {},
 }));
 const { requireCompanyMe, requirePlatformAdmin, requireSession } = await import("./guards");
 

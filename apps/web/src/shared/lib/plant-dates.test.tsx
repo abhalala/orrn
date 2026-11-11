@@ -10,15 +10,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { screenPrefs } from "@orrn/domain";
 import { I18nProvider } from "@orrn/i18n";
 
-import { RequestCard } from "@/features/approvals/approvals-page";
-import { DispatchHeader } from "@/features/dispatch/dispatch-header";
-import { Timeline } from "@/features/orders/components/timeline";
-import { BakiStrip } from "@/features/orders/components/baki-strip";
 import type { Strip } from "@/features/orders/view";
-import { RunCard } from "@/features/press/station";
-import { trpc } from "@/shared/utils/trpc";
 
-import { FmtProvider } from "./fmt";
+// Dynamic imports, after the preload set the API url: the screens import the tRPC client, which `guards.test.ts` stubs for the whole run.
+const { trpc } = await import("../utils/trpc");
+const { RequestCard } = await import("@/features/approvals/approvals-page");
+const { DispatchHeader } = await import("@/features/dispatch/dispatch-header");
+const { Timeline } = await import("@/features/orders/components/timeline");
+const { BakiStrip } = await import("@/features/orders/components/baki-strip");
+const { RunCard } = await import("@/features/press/station");
+const { FmtProvider } = await import("./fmt");
 
 const PLANT = screenPrefs({ number: { grouping: "international" }, date: { order: "dmy" }, clock: "h12" });
 const ZONE = "Asia/Kolkata";
@@ -38,7 +39,7 @@ function me(role = "owner") {
 
 function page(prefs: typeof PLANT | undefined, children: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  qc.setQueryData(trpc.auth.me.queryKey(), me() as never);
+  qc.setQueryData(trpc.auth.me.queryOptions().queryKey, me() as never);
   return renderToStaticMarkup(
     <QueryClientProvider client={qc}>
       <I18nProvider locale="en">
