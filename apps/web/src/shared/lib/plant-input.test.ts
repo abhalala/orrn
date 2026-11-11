@@ -2,8 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
-import { parseWholeKgToGrams } from "@/features/die-room/die-room-model";
-import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, followsPlant, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
+import { parseGrams, parseKgToMilli, parseWholeKgToGrams } from "@/features/die-room/die-room-model";
+import { parseCapacityKg } from "@/features/dispatch/transport";
+import { mmTextToMm } from "@/features/foundry/melt-form";
+import { parseKgPer12ftMilli, parseWholeNumber } from "@/features/masters/masters-model";
+import { kgTextToG as pressKgTextToG } from "@/features/press/model";
+import { kgTextToG as kantaKgTextToG } from "@/features/purchase/kanta";
+import { canonicalToDraft, DIAMETER_MM, draftToCanonical, draftToTyped, followsPlant, LENGTH_FT, LENGTH_IN, LENGTH_MM, MASS_G, MASS_KG, SECTION_KG12, GEOMETRY_MM, PRESSED_IN, PRESSED_MM, isRefusedDraft, keypadStep, typedToDraft, WALL_MM, WHOLE_KG } from "./plant-input";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -57,9 +62,9 @@ describe("a plant on pounds: typing stores exact grams and reads back the same t
     expect(typedToDraft(kgm, SECTION_KG12, "0.571")).toMatchObject({ draft: "2.088", value: 2088 });
     expect(draftToTyped(kgm, SECTION_KG12, "2.088")).toBe("0.571");
   });
-  test("text finer than the grid is refused: a blank draft and the reason", () => {
-    expect(typedToDraft(f, MASS_KG, "115.555")).toEqual({ draft: "", value: null, problem: "decimals" });
-    expect(typedToDraft(f, MASS_KG, "12abc")).toMatchObject({ draft: "", problem: "invalid" });
+  test("text finer than the grid is refused: a refused draft that is never blank, and the reason", () => {
+    expect(typedToDraft(f, MASS_KG, "115.555")).toEqual({ draft: "?115.555", value: null, problem: "decimals" });
+    expect(typedToDraft(f, MASS_KG, "12abc")).toMatchObject({ draft: "?12abc", problem: "invalid" });
     expect(typedToDraft(f, MASS_KG, "")).toEqual({ draft: "", value: null, problem: null });
   });
 });
@@ -164,10 +169,10 @@ describe("an on-screen keypad edits the text in the plant's unit", () => {
     expect(r.typed).toBe("1.25");
     expect(draftToCanonical(SECTION_KG12, r.draft)).toBe(Math.round(1.25 * 5443.10844));
   });
-  test("back removes the last character of the typed text; a refused (too fine) text gives a blank draft", () => {
+  test("back removes the last character of the typed text; a refused (too fine) text gives a refused draft", () => {
     const f = fmtOf({ units: { linear_mass: "kg_m" } });
     expect(press(f, ["2", ".", "5", "back"])).toEqual({ typed: "2.", draft: "7.315" });
-    expect(press(f, ["2", ".", "5", "0", "0", "1"]).draft).toBe("");
+    expect(press(f, ["2", ".", "5", "0", "0", "1"]).draft).toBe("?2.5001");
   });
   test("a plant that changed nothing: the typed text and the draft are the same", () => {
     expect(press(fmtOf(), ["2", ".", "5"])).toEqual({ typed: "2.5", draft: "2.5" });
@@ -194,7 +199,7 @@ describe("a model that keeps whole kg (die life) behind a converting box", () =>
     expect(typedToDraft(tonne, WHOLE_KG, "22.6796")).toMatchObject({ draft: "22680", problem: null });
   });
   test("under half a kg is refused, zero is not", () => {
-    expect(typedToDraft(lb, WHOLE_KG, "0.5")).toMatchObject({ draft: "", problem: "tooSmall" });
+    expect(typedToDraft(lb, WHOLE_KG, "0.5")).toMatchObject({ draft: "?0.5", problem: "tooSmall" });
     expect(typedToDraft(lb, WHOLE_KG, "0")).toMatchObject({ draft: "0", problem: null });
   });
   test("what is kept reads back as the same whole kg (the box shows the kept figure)", () => {
@@ -223,5 +228,48 @@ describe("limits that belong to the field, not to a borrowed one (metre plant)",
   test("a plant on mm is the old box", () => {
     expect(typedToDraft(fmtOf(), PRESSED_MM, "40000")).toMatchObject({ draft: "40000", problem: null });
     expect(typedToDraft(fmtOf(), GEOMETRY_MM, "550.5")).toMatchObject({ draft: "550.5", problem: null });
+  });
+});
+
+describe("a refused entry is never a blank draft (review recheck)", () => {
+  const lb = fmtOf({ units: { mass: "lb" } });
+  const lbft = fmtOf({ units: { linear_mass: "lb_ft" } });
+  test("120000 lb in a die life box and 110231.131 in the same box are refused drafts, not blank", () => {
+    const big = typedToDraft(lb, WHOLE_KG, "120000 lb");
+    const fine = typedToDraft(lb, WHOLE_KG, "110231.131");
+    for (const s of [big, fine]) {
+      expect(s.problem).not.toBeNull();
+      expect(s.value).toBeNull();
+      expect(s.draft.trim()).not.toBe("");
+      expect(isRefusedDraft(s.draft)).toBe(true);
+    }
+  });
+  test("a blank box is still a blank draft, and a good entry is not marked", () => {
+    expect(typedToDraft(lb, WHOLE_KG, "")).toEqual({ draft: "", value: null, problem: null });
+    expect(typedToDraft(lb, WHOLE_KG, "  ")).toEqual({ draft: "", value: null, problem: null });
+    expect(isRefusedDraft(typedToDraft(lb, WHOLE_KG, "50000").draft)).toBe(false);
+  });
+  test("the form models read a refused draft as not a number, so Save is refused where a blank box would pass", () => {
+    const refused = typedToDraft(lb, WHOLE_KG, "120000 lb").draft;
+    expect(parseWholeNumber("", { min: 1, max: 100_000_000 })).toEqual({ ok: true, value: null });
+    expect(parseWholeNumber(refused, { min: 1, max: 100_000_000 }).ok).toBe(false);
+    expect(parseWholeKgToGrams(refused)).toBeNull();
+    const trial = typedToDraft(lbft, SECTION_KG12, "0.4235").draft;
+    expect(parseKgPer12ftMilli("")).toEqual({ ok: true, value: null });
+    expect(parseKgPer12ftMilli(trial).ok).toBe(false);
+    const kg = typedToDraft(lb, MASS_KG, "12.345").draft;
+    expect(parseCapacityKg("")).toBeNull();
+    expect(parseCapacityKg(kg)).toBeUndefined();
+    expect(kantaKgTextToG(kg)).toBeNull();
+    expect(pressKgTextToG(kg)).toBeNull();
+    expect(parseKgToMilli(kg)).toBeNull();
+    expect(parseGrams(typedToDraft(lb, MASS_G, "1.2345").draft)).toBeNull();
+    expect(mmTextToMm(typedToDraft(fmtOf({ units: { length: "m" } }), LENGTH_MM, "3.6581").draft)).toBeNull();
+  });
+  test("the box shows what was typed, without the marker, when it is drawn again", () => {
+    expect(draftToTyped(lb, MASS_KG, "?12.345")).toBe("12.345");
+  });
+  test("the keypad refusal is a refused draft too", () => {
+    expect(isRefusedDraft(keypadStep(fmtOf({ units: { linear_mass: "kg_m" } }), SECTION_KG12, "2.500", "1", /^\d{0,4}(\.\d{0,4})?$/)!.draft)).toBe(true);
   });
 });

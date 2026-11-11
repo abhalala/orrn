@@ -90,26 +90,37 @@ export function canonicalToDraft(spec: EntrySpec, value: number): string {
 /** What the box shows for a draft: the plant's unit, round-trip digits. A draft that is not a number shows as it is. */
 export function draftToTyped(fmt: Fmt, spec: EntrySpec, draft: string): string {
   if (followsPlant(fmt, spec)) return draft;
+  // A refused text shows as it was typed (without the marker that keeps it from reading as a blank box).
+  if (isRefusedDraft(draft)) return draft.slice(REFUSED_DRAFT.length);
   const v = draftToCanonical(spec, draft);
   return v === null ? (draft.trim() === "" ? "" : draft) : fmt.entryText(spec.field, v);
 }
+
+/**
+ * The draft of a box whose text was refused. It is never blank, so a form that treats a blank box as "no value" (an optional
+ * die life, a truck limit, a trial weight) cannot save it as a cleared field: every form model reads "?120000 lb" as not a
+ * number and refuses it, as it refuses the same text on a plant that follows the draft's unit.
+ */
+export const REFUSED_DRAFT = "?";
+export const isRefusedDraft = (draft: string): boolean => draft.startsWith(REFUSED_DRAFT);
+const refusedDraft = (text: string): string => REFUSED_DRAFT + text.trim();
 
 export type TypedStep = { draft: string; value: number | null; problem: ParseProblem | "kind" | null };
 
 /**
  * One keystroke. In the plant's own unit the text is the draft (the old behaviour, no refusal added). In another unit
  * the text is read strictly: a good value becomes the draft in the model's unit; blank gives a blank draft; a refused
- * text gives a blank draft and the reason, so the form model sees "no value" and the box says what to type.
+ * text gives a refused draft (never blank) and the reason, so the form model refuses it too and the box says what to type.
  */
 export function typedToDraft(fmt: Fmt, spec: EntrySpec, text: string): TypedStep {
   if (followsPlant(fmt, spec)) return { draft: text, value: draftToCanonical(spec, text), problem: null };
   if (text.trim() === "") return { draft: "", value: null, problem: null };
   const r = fmt.parse(spec.field, text);
-  if (!r.ok) return { draft: "", value: null, problem: r.problem };
+  if (!r.ok) return { draft: refusedDraft(text), value: null, problem: r.problem };
   if (spec.wholeNative) {
     const f = resolveField(spec.field);
     const whole = convertStorage(r.value, f.storage, spec.native).value;
-    if (r.value > 0 && whole < 1) return { draft: "", value: null, problem: "tooSmall" };
+    if (r.value > 0 && whole < 1) return { draft: refusedDraft(text), value: null, problem: "tooSmall" };
     return { draft: String(whole), value: convertStorage(whole, spec.native, f.storage).value, problem: null };
   }
   return { draft: canonicalToDraft(spec, r.value), value: r.value, problem: null };
