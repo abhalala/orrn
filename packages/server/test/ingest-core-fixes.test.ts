@@ -870,6 +870,40 @@ describe("A13, A40: the period date reaches every order sheet of the file", () =
   });
 });
 
+describe("A24: the period guess uses the parsed values after the dry run", () => {
+  const rated = (undated: boolean) =>
+    bakiRecipe({
+      fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => {
+        if (f.field === "rate") return { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] };
+        if (f.field === "orderDate" && undated) return { field: "orderDate", source: { kind: "period_as_of" as const }, steps: [] };
+        return f;
+      }),
+      unclear: [],
+    });
+
+  test("an order date column fills the guess the file name could not give", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(p.companyId, p.users.owner.id, rated(false), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    expect((await p.owner.ingest.artifact.get({ artifactId })).period).toMatchObject({ fy: null, confidence: "unknown" });
+    await pump(p.owner, candidates[0]!.id);
+    const period = (await p.owner.ingest.artifact.get({ artifactId })).period!;
+    expect(period.fy).toBe("2025-26");
+    expect(period.sources).toContainEqual({ kind: "date_column", value: "2025-10-01..2025-10-01" });
+  });
+
+  test("a sheet with no date column does not feed its as-of date back into the guess", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(p.companyId, p.users.owner.id, rated(true), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-10-31" });
+    await pump(p.owner, candidates[0]!.id);
+    expect((await p.owner.ingest.artifact.get({ artifactId })).period).toMatchObject({ fy: null, confidence: "unknown" });
+  });
+});
+
 describe("A15, A20: a held candidate has a plain way back", () => {
   test("held with nothing to answer can be approved again", async () => {
     const p = await plant();

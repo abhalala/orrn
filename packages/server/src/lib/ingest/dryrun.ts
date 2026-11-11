@@ -44,6 +44,7 @@ import { companyModules } from "../moduleGate";
 import { can } from "../permissions";
 import { nameKey } from "../purchase";
 import { stagedRowIdOf } from "./artifacts";
+import { refreshArtifactPeriod } from "./period";
 import {
   guardedBatch,
   ingestAbortUnlessChanged,
@@ -923,6 +924,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       if (now2.serverSeq !== c.serverSeq && now2.state === "processing") return stepOut(now2, false);
       throw e;
     }
+    // The sheet's values are parsed now: guess the period again with them (A24).
+    if (c.target === "orders" || c.target === "bundles") await refreshArtifactPeriod(ctx, artifact);
   }
   return stepOut(await loadCandidate(ctx, c.id), done);
 }
