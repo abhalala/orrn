@@ -47,6 +47,8 @@ import {
   type IngestCtx,
   type IngestStatus,
   type Page,
+  type DoubtCode,
+  type RowDoubtView,
 } from "./types";
 
 const OPEN_STATES_EXCLUDED = ["merged", "discarded"] as const;
@@ -254,10 +256,29 @@ export function capRow(cells: readonly string[]): { raw: string[]; reasons: stri
   return { raw, reasons };
 }
 
+type RowDoubtIn = { row: number; code: DoubtCode; line: number; page?: number };
+
+/**
+ * Rule 5.3: the reader's doubts of one putRows call by row index. A doubt must name a row of the
+ * call, and a row carries each code once, so a call holds at most 5 doubts a row.
+ */
+function doubtsByRow(fromIndex: number, count: number, doubts: readonly RowDoubtIn[]): Map<number, RowDoubtView[]> {
+  const out = new Map<number, RowDoubtView[]>();
+  for (const d of doubts) {
+    if (d.row < fromIndex || d.row >= fromIndex + count) throw new TRPCError({ code: "BAD_REQUEST", message: "A doubt names a row that was not sent" });
+    const list = out.get(d.row) ?? [];
+    if (list.some((x) => x.code === d.code)) throw new TRPCError({ code: "BAD_REQUEST", message: "A row has the same doubt twice" });
+    list.push(d.page === undefined ? { code: d.code, line: d.line } : { code: d.code, line: d.line, page: d.page });
+    out.set(d.row, list);
+  }
+  return out;
+}
+
 export async function putRows(
   ctx: IngestCtx,
-  input: { blockId: string; fromIndex: number; expectRowsPut: number; rows: string[][] },
+  input: { blockId: string; fromIndex: number; expectRowsPut: number; rows: string[][]; doubts?: RowDoubtIn[] },
 ): Promise<{ rowsPut: number }> {
+  const doubts = doubtsByRow(input.fromIndex, input.rows.length, input.doubts ?? []);
   const block = await loadBlock(ctx, input.blockId);
   const artifact = await loadArtifact(ctx, block.artifactId);
   if (artifact.readState !== "reading") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
@@ -309,6 +330,7 @@ export async function putRows(
         entered: null,
         state: "pending" as const,
         reasons: reasons.length ? reasons : null,
+        doubts: doubts.get(rowIndex) ?? null,
         matchId: null,
         diff: null,
         decision: null,

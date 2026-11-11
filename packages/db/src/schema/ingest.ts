@@ -326,6 +326,13 @@ export const ingestStagedRow = sqliteTable(
      * every earlier page (rule 4.4).
      */
     dupKey: text("dup_key"),
+    /**
+     * Rule 5.3: where the reader doubted how it split this row (PDF), one entry per code, with the
+     * file line and page. A row with doubts is never ready until a person answers (`doubtBy`).
+     */
+    doubts: text("doubts", { mode: "json" }).$type<{ code: string; line: number; page?: number }[]>(),
+    /** The user who said the doubted row is right, as read. Kept across re-runs; null while open. */
+    doubtBy: text("doubt_by"),
     updatedAt: updatedAtCol(),
   },
   (t) => [

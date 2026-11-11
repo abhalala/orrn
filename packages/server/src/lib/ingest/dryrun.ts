@@ -1123,6 +1123,36 @@ export function openQuestionCount(questions: readonly IngestQuestion[]): number 
 }
 
 /** Ambiguous and conflict rows that wait on a person, not on a question. */
+/** Rule 5.3: the row reason of a row the reader doubted, until a person answers it. */
+export const CHECK_AGAINST_FILE = "check_against_file";
+
+/**
+ * Rule 5.3: a row the reader doubted is never ready on its own. Until a person says it is right
+ * (`doubt_by`) or skips it, it carries `check_against_file`, and a row that would be ready or
+ * unchanged waits as ambiguous. A row refused or asked for another reason keeps that state and
+ * shows both reasons.
+ */
+export function holdDoubt(r: Pick<Staged, "doubts" | "doubtBy">, out: { state: RowState; reasons: string[] }): void {
+  if (!r.doubts?.length || r.doubtBy || out.state === "skipped") return;
+  if (!out.reasons.includes(CHECK_AGAINST_FILE)) out.reasons = [...out.reasons, CHECK_AGAINST_FILE];
+  if (out.state === "ready_create" || out.state === "ready_update" || out.state === "unchanged") out.state = "ambiguous";
+}
+
+/** Open doubted rows of a candidate: doubts, no answer, not skipped, not merged. */
+export const openDoubtWhere = (candidateId: string) =>
+  and(
+    eq(ingestStagedRow.candidateId, candidateId),
+    sql`${ingestStagedRow.doubts} is not null`,
+    sql`${ingestStagedRow.doubtBy} is null`,
+    sql`${ingestStagedRow.state} <> 'skipped'`,
+    eq(ingestStagedRow.mergeState, "open"),
+  );
+
+export async function openDoubts(ctx: Pick<IngestCtx, "db">, candidateId: string): Promise<number> {
+  const [row] = await ctx.db.select({ n: sql<number>`count(*)` }).from(ingestStagedRow).where(openDoubtWhere(candidateId));
+  return Number(row?.n ?? 0);
+}
+
 export async function undecidedRows(ctx: Pick<IngestCtx, "db">, candidateId: string): Promise<number> {
   const [row] = await ctx.db
     .select({ n: sql<number>`count(*)` })
@@ -1549,6 +1579,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
   }
   if (child && childOpen) statements.push(recountStatement(ctx, child.id));
 
+  for (const r of editable) holdDoubt(r, outcomes.get(r.id)!);
   for (const r of editable) {
     const out = outcomes.get(r.id)!;
     const order = c.target === "orders" ? identityOf(r, out) : null;
@@ -1892,7 +1923,8 @@ async function orderPassStatements(
       r,
       key: r.orderKey!,
       had,
-      state: had ? ("ready_create" as RowState) : r.state,
+      // A doubted row the pass touched before still waits on the person (rule 5.3).
+      state: had ? ((reasons.includes(CHECK_AGAINST_FILE) ? "ambiguous" : "ready_create") as RowState) : r.state,
       reasons: had ? reasons.filter((x) => !isOrderPassReason(x) && !(wasLive && (x === "order_line_new" || x === PO_ON_LIVE_ORDER))) : reasons,
       matchId: wasLive ? null : r.matchId,
     };

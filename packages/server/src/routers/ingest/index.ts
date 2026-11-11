@@ -15,6 +15,7 @@ import type {
   CandidateDetail,
   CandidateSummary,
   HeaderAnswer,
+  DoubtListOut,
   DryRunStepOut,
   HoleView,
   IngestStatus,
@@ -45,6 +46,8 @@ import {
   putBlocksInput,
   putRowsInput,
   rowsDecideInput,
+  rowsDoubtsInput,
+  rowsAnswerDoubtsInput,
   rowsListInput,
   runIdInput,
   setTargetInput,
@@ -66,6 +69,8 @@ import {
   candidateDetail,
   confirmNear,
   decideRows,
+  listDoubts,
+  answerDoubts,
   discardCandidate,
   holdCandidate,
   listCandidates,
@@ -143,6 +148,8 @@ export const ingestRouter = router({
   rows: router({
     list: R.input(rowsListInput).query(({ ctx, input }): Promise<Page<StagedRowView>> => listRows(ix(ctx), input)),
     decide: U.input(rowsDecideInput).mutation(({ ctx, input }): Promise<CandidateCounts> => decideRows(ix(ctx), input)),
+    doubts: R.input(rowsDoubtsInput).query(({ ctx, input }): Promise<DoubtListOut> => listDoubts(ix(ctx), input)),
+    answerDoubts: U.input(rowsAnswerDoubtsInput).mutation(({ ctx, input }): Promise<CandidateCounts> => answerDoubts(ix(ctx), input)),
   }),
 
   answer: router({

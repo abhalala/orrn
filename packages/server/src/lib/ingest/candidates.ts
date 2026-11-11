@@ -84,6 +84,9 @@ import {
   recountStatement,
   staleRefusal,
   undecidedRows,
+  CHECK_AGAINST_FILE,
+  openDoubts,
+  openDoubtWhere,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
@@ -94,6 +97,8 @@ import {
   INGEST_LIMITS,
   type BlockInput,
   type HeaderAnswer,
+  type DoubtListOut,
+  type RowDoubtView,
   type HeaderBy,
   type CandidateCounts,
   type CandidateDetail,
@@ -792,7 +797,7 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
 
 export async function listRows(
   ctx: IngestCtx,
-  input: { candidateId: string; state?: RowState; cursor?: string; limit: number },
+  input: { candidateId: string; state?: RowState; cursor?: string; limit: number; doubted?: boolean },
 ): Promise<Page<StagedRowView>> {
   const c = await loadCandidate(ctx, input.candidateId);
   const from = input.cursor ? Number(input.cursor) : -1;
@@ -805,6 +810,7 @@ export async function listRows(
         eq(ingestStagedRow.candidateId, c.id),
         eq(ingestStagedRow.companyId, ctx.companyId),
         input.state ? eq(ingestStagedRow.state, input.state) : undefined,
+        input.doubted ? openDoubtWhere(c.id) : undefined,
         gt(ingestStagedRow.rowIndex, from),
       ),
     )
@@ -856,10 +862,51 @@ export async function listRows(
       committedId: r.committedId,
       rate,
       rateHidden: rateHidden || (!seesPrices && maskCols.size > 0),
+      doubts: (r.doubts ?? []) as RowDoubtView[],
+      doubtConfirmed: r.doubtBy !== null,
     };
   });
   const last = page.at(-1);
   return { items, nextCursor: rows.length > input.limit && last ? String(last.rowIndex) : null };
+}
+
+/** Rule 5.3: the open doubted rows of a candidate, a page at a time, and how many there are. */
+export async function listDoubts(ctx: IngestCtx, input: { candidateId: string; cursor?: string; limit: number }): Promise<DoubtListOut> {
+  const page = await listRows(ctx, { ...input, doubted: true });
+  return { open: await openDoubts(ctx, input.candidateId), ...page };
+}
+
+/**
+ * Rule 5.3: a person answers doubted rows. "right": the row goes on as read, and the merge records
+ * who confirmed it in the audit meta; "skip": the row is left out. One row, or every open doubted
+ * row of the candidate when `expectCount` is the count the person was shown. The rows re-run from
+ * the first one answered, so the answer passes through the dry run like any decision.
+ */
+export async function answerDoubts(
+  ctx: IngestCtx,
+  input: { candidateId: string; answer: "right" | "skip"; rowId?: string; expectCount?: number; expectSeq: number },
+): Promise<CandidateCounts> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertState(c, ["ready", "held", "processing"], "Rows of this import can no longer change");
+  const where = and(openDoubtWhere(c.id), eq(ingestStagedRow.companyId, ctx.companyId), input.rowId ? eq(ingestStagedRow.id, input.rowId) : undefined);
+  const [found] = await ctx.db.select({ n: sql<number>`count(*)`, from: sql<number | null>`min(${ingestStagedRow.rowIndex})` }).from(ingestStagedRow).where(where);
+  const n = Number(found?.n ?? 0);
+  if (input.rowId && n === 0) throw new TRPCError({ code: "NOT_FOUND", message: "This row has no doubt to answer" });
+  if (input.expectCount !== undefined && n !== input.expectCount) {
+    throw new TRPCError({ code: "CONFLICT", message: "The list of rows to check changed. Open it again." });
+  }
+  const from = Number(found?.from ?? 0);
+  // The candidate's server_seq guards the whole batch: nothing changed since the count was read.
+  const statements: SqliteBatchItem[] = [
+    ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
+    ctx.db
+      .update(ingestStagedRow)
+      .set(input.answer === "right" ? { doubtBy: ctx.session.user.id, updatedAt: now() } : { decision: "skip", updatedAt: now() })
+      .where(where),
+    recountStatement(ctx, c.id),
+  ];
+  await guardedBatch(ctx.db, statements);
+  return candidateCounts(await loadCandidate(ctx, c.id));
 }
 
 /**
@@ -884,6 +931,10 @@ export async function decideRows(
   if (rows.some((r) => r.mergeState !== "open")) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged row cannot change" });
   if (input.decision !== "skip" && rows.some((r) => r.state !== "ambiguous" && r.state !== "conflict")) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Only rows that need a choice can take one" });
+  }
+  // A row held only for its doubt takes "It is right" or a skip (rule 5.3, rows.answerDoubts).
+  if (input.decision !== "skip" && rows.some((r) => (r.reasons ?? []).includes(CHECK_AGAINST_FILE) && (r.reasons ?? []).every((x) => x === CHECK_AGAINST_FILE || x === "cell_cut" || x === "row_cut"))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Check this row against the file: say it is right, or skip it" });
   }
   if (input.decision !== "skip" && rows.some((r) => (r.reasons ?? []).some((x) => x.startsWith("q:")))) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Answer the question above for these rows, or skip them" });
@@ -1081,6 +1132,14 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   }
   // An orders sheet the planner cannot read in one step is refused here with the planner's words.
   if (c.target === "orders" && c.rowsTotal > ORDERS_PLAN_MAX_ROWS) throw new TRPCError({ code: "PRECONDITION_FAILED", message: ORDERS_TOO_BIG });
+  // Rows the reader doubted wait for a person (rule 5.3).
+  const doubts = await openDoubts(ctx, c.id);
+  if (doubts > 0) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: `Check ${doubts} ${doubts === 1 ? "row" : "rows"} against the file first. Open the list, then say each is right or skip it.`,
+    });
+  }
   const questions = await candidateQuestions(ctx, c, artifact);
   const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
   if (open > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Answer every question first" });

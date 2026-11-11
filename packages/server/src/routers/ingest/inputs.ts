@@ -4,7 +4,7 @@ import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS } from "@orrn/ingest";
 
 import { ARTIFACT_KINDS, CANDIDATE_STATES, INGEST_TARGETS, QUESTION_CODES, ROW_DECISIONS, ROW_STATES } from "@orrn/db/schema/ingest";
 
-import { INGEST_LIMITS as L } from "../../lib/ingest/types";
+import { DOUBT_CODES, INGEST_LIMITS as L } from "../../lib/ingest/types";
 
 const id = z.string().min(1).max(64);
 const seq = z.number().int().min(0);
@@ -81,6 +81,21 @@ export const putRowsInput = z.object({
   fromIndex: z.number().int().min(0).max(L.stagedRowsPerBlock),
   expectRowsPut: z.number().int().min(0).max(L.stagedRowsPerBlock),
   rows: z.array(row).min(1).max(L.rowsPerPut),
+  /**
+   * Rule 5.3: rows of this call the reader doubted (PDF). `row` is the block row index (from
+   * `fromIndex`), `line` and `page` point into the file. One entry per row and code.
+   */
+  doubts: z
+    .array(
+      z.object({
+        row: z.number().int().min(0).max(L.stagedRowsPerBlock),
+        code: z.enum(DOUBT_CODES),
+        line: z.number().int().min(0).max(RAW_ROW_MAX),
+        page: z.number().int().min(1).max(10_000).optional(),
+      }),
+    )
+    .max(L.rowsPerPut * DOUBT_CODES.length)
+    .optional(),
 });
 
 export const listInput = z.object({ cursor, limit: z.number().int().min(1).max(50).default(20) });
@@ -148,6 +163,17 @@ export const rowsDecideInput = z.object({
   matchId: id.optional(),
   expectSeq: seq,
 });
+
+/** Rule 5.3: the open doubted rows of a candidate, a page at a time, with their count. */
+export const rowsDoubtsInput = z.object({ candidateId: id, cursor, limit: z.number().int().min(1).max(L.rowsPerPage).default(L.rowsPerPage) });
+
+/**
+ * Rule 5.3: answer doubted rows. "right": the row goes on as read; "skip": the row is left out. One
+ * row (`rowId`), or every open doubted row of the candidate with the count the person saw (`expectCount`).
+ */
+export const rowsAnswerDoubtsInput = z
+  .object({ candidateId: id, answer: z.enum(["right", "skip"]), rowId: id.optional(), expectCount: z.number().int().min(1).max(L.stagedRowsPerBlock).optional(), expectSeq: seq })
+  .refine((v) => (v.rowId === undefined) !== (v.expectCount === undefined), "Send one row, or the count of rows shown");
 
 export const candidateSeqInput = z.object({ candidateId: id, expectSeq: seq });
 

@@ -572,8 +572,11 @@ async function writeChunk(ctx: IngestCtx, run: RunRow, expectCursor: number, chu
         candidate,
         rows,
         refs,
-        sourceOf: (part) =>
-          part.length === 0 ? base : { ...base, rowFrom: Math.min(...part.map((r) => r.rowIndex)), rowTo: Math.max(...part.map((r) => r.rowIndex)) },
+        sourceOf: (part) => {
+          if (part.length === 0) return base;
+          const confirmed = part.filter((r) => r.doubtBy && r.doubts?.length).map((r) => ({ row: r.rowIndex, by: r.doubtBy!, codes: r.doubts!.map((d) => d.code) }));
+          return { ...base, rowFrom: Math.min(...part.map((r) => r.rowIndex)), rowTo: Math.max(...part.map((r) => r.rowIndex)), ...(confirmed.length ? { confirmed } : {}) };
+        },
       });
       written = res.written;
       failure = res.failure;

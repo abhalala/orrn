@@ -12264,6 +12264,20 @@
           "notNull": false,
           "autoincrement": false
         },
+        "doubts": {
+          "name": "doubts",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "doubt_by": {
+          "name": "doubt_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "integer",

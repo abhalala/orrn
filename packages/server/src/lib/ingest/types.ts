@@ -130,6 +130,13 @@ export type HeaderAnswer =
  */
 export type HeaderResemblesOut = { headerRow: number; headerRows: 1 | 2; name: string; target: IngestTarget; fit: "exact" | "near" };
 
+/** Rule 5.3: how a PDF reader doubted a row's split (packages/ingest RowDoubt codes). */
+export const DOUBT_CODES = ["crosses_column", "cells_joined", "cells_close", "few_columns", "off_column"] as const;
+export type DoubtCode = (typeof DOUBT_CODES)[number];
+export type RowDoubtView = { code: DoubtCode; line: number; page?: number };
+/** The open doubted rows of a candidate: `open` is the count the bulk answer must send back. */
+export type DoubtListOut = { open: number; items: StagedRowView[]; nextCursor: string | null };
+
 export type CandidateCounts = {
   total: number;
   create: number;
@@ -261,6 +268,10 @@ export type StagedRowView = {
   /** Paise per kg, or null when the row has none or the viewer cannot see rates (A8). */
   rate: number | null;
   rateHidden: boolean;
+  /** Rule 5.3: where the reader doubted the split (PDF): code, file line and page. Empty for most rows. */
+  doubts: RowDoubtView[];
+  /** A person said this doubted row is right, as read. */
+  doubtConfirmed: boolean;
 };
 
 export type DryRunStepOut = { cursor: number; done: boolean; counts: CandidateCounts; state: CandidateState };

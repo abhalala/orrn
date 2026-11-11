@@ -273,4 +273,6 @@ CREATE INDEX `ingest_staged_row_company_po_key_idx` ON `ingest_staged_row` (`com
 ALTER TABLE `ingest_staged_row` ADD `dup_key` text;--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_candidate_dup_key_idx` ON `ingest_staged_row` (`candidate_id`,`dup_key`);--> statement-breakpoint
 CREATE INDEX `die_company_section_norm_idx` ON `die` (`company_id`,upper(trim("section_code")));--> statement-breakpoint
-ALTER TABLE `ingest_block` ADD `header_by` text DEFAULT 'reader' NOT NULL;
+ALTER TABLE `ingest_block` ADD `header_by` text DEFAULT 'reader' NOT NULL;--> statement-breakpoint
+ALTER TABLE `ingest_staged_row` ADD `doubts` text;--> statement-breakpoint
+ALTER TABLE `ingest_staged_row` ADD `doubt_by` text;
