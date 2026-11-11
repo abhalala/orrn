@@ -22,7 +22,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
-import { runOnce, type WriteGate } from "./reason-write";
+import { castCancelBody, runOnce, type WriteGate } from "./reason-write";
 import { bpText, closeAdvice, closeFormIssue, closeReasonFields, countedBillets, countKey } from "./foundry-model";
 import type { CastData } from "./types";
 import { ErrorLine, Figure, kgOf, Note } from "./ui";
@@ -187,7 +187,7 @@ export function CancelCastSheet({ visible, onClose, castId, number }: { visible:
     if (!reason.trim()) return;
     setProblem(null);
     try {
-      const result = await runOnce(confirming.current, () => cancel.mutateAsync({ castId, reason: reason.trim() }));
+      const result = await runOnce(confirming.current, () => cancel.mutateAsync(castCancelBody(castId, reason)));
       if (!result.ran) return;
       feedback.success();
       announce(t("foundry.cast.cancel.done", { number }));

@@ -26,7 +26,7 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { queryClient, trpc } from "@/utils/trpc";
 
 import { foundryError } from "./errors";
-import { runOnce, type WriteGate } from "./reason-write";
+import { meltCancelBody, runOnce, type WriteGate } from "./reason-write";
 import { bpText, latestVerdict, lockedMeltTone, MELT_TONE, verdictTone, type MeltStatus } from "./foundry-model";
 import { mmToFtText } from "./melt-form";
 import { MELT_TIME_KEYS } from "./melt-times";
@@ -169,7 +169,7 @@ function CancelMelt({ melt, castNumber }: { melt: MeltRow; castNumber: string })
     if (!reason.trim()) return;
     setProblem(null);
     try {
-      const result = await runOnce(confirming.current, () => cancel.mutateAsync({ meltId: melt.id, reason: reason.trim() }));
+      const result = await runOnce(confirming.current, () => cancel.mutateAsync(meltCancelBody(melt.id, reason)));
       if (!result.ran) return;
       feedback.success();
       announce(t("foundry.melt.cancel.done", { n: melt.seq, number: castNumber }));

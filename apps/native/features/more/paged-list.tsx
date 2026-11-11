@@ -6,6 +6,8 @@ import { View } from "react-native";
 import { Button } from "@/components/ui/button";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
 
+import { hasNextOffset, listViewState } from "./list-state";
+
 export type PageData<T> = { items: T[]; total: number };
 
 export type PagedListProps<T> = {
@@ -55,16 +57,15 @@ function Page<T>({
   const { t } = useT();
   const query = usePage(offset);
 
-  if (query.data === undefined) {
-    if (query.isError) return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />;
-    return <LoadingBlock />;
-  }
-  const { items, total } = query.data;
-  if (offset === 0 && items.length === 0) return <>{empty}</>;
+  const state = listViewState(query.data, query.error, query.isError, offset);
+  if (state === "error") return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />;
+  if (state === "loading") return <LoadingBlock />;
+  if (state === "empty") return <>{empty}</>;
+  const { items, total } = query.data!;
   return (
     <>
       {items.map((row, i) => renderRow(row, offset + i))}
-      {isLast && offset + pageSize < total ? <Button variant="secondary" label={t("common.showMore")} onPress={onMore} /> : null}
+      {isLast && hasNextOffset(offset, pageSize, total) ? <Button variant="secondary" label={t("common.showMore")} onPress={onMore} /> : null}
     </>
   );
 }

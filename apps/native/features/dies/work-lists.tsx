@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { Screen } from "@/components/ui/screen";
 import { ErrorBlock, LoadingBlock } from "@/components/ui/state";
+import { hasNextCursor, listViewState } from "@/features/more/list-state";
 import { PagedList } from "@/features/more/paged-list";
 import { useFormat } from "@/lib/use-format";
 import { trpc } from "@/utils/trpc";
@@ -81,15 +82,14 @@ export function MakerJobsView() {
 function MakerJobsPage({ cursor, first, last, onMore }: { cursor: string | undefined; first: boolean; last: boolean; onMore: (cursor: string) => void }) {
   const { t } = useT();
   const query = useQuery(trpc.dieInstance.maker.jobs.list.queryOptions({ status: "sent", limit: PAGE, ...(cursor ? { cursor } : {}) }));
-  if (query.data === undefined) {
-    if (query.isError) return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />;
-    return <LoadingBlock />;
-  }
-  if (first && query.data.items.length === 0) return <EmptyState title={t("dieRoom.makers.noJobs")} body={t("dieRoom.makers.noJobsBody")} />;
+  const state = listViewState(query.data, query.error, query.isError, first ? 0 : PAGE);
+  if (state === "error") return <ErrorBlock error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />;
+  if (state === "loading") return <LoadingBlock />;
+  if (state === "empty") return <EmptyState title={t("dieRoom.makers.noJobs")} body={t("dieRoom.makers.noJobsBody")} />;
   return (
     <View className="gap-2">
-      {query.data.items.map((job) => <MakerJobRow key={job.id} job={job} />)}
-      {last && query.data.nextCursor ? <Button variant="secondary" label={t("common.showMore")} onPress={() => onMore(query.data.nextCursor!)} /> : null}
+      {query.data!.items.map((job) => <MakerJobRow key={job.id} job={job} />)}
+      {last && hasNextCursor(query.data!.nextCursor) ? <Button variant="secondary" label={t("common.showMore")} onPress={() => onMore(query.data!.nextCursor!)} /> : null}
     </View>
   );
 }

@@ -44,9 +44,9 @@ describe("cast and melt cancel rules", () => {
 
   test("the confirms require a reason and send the web's procedure bodies", () => {
     expect(castSheet).toContain("trpc.foundry.casts.cancel.mutationOptions()");
-    expect(castSheet).toContain("cancel.mutateAsync({ castId, reason: reason.trim() })");
+    expect(castSheet).toContain("cancel.mutateAsync(castCancelBody(castId, reason))");
     expect(meltSheet).toContain("trpc.foundry.melts.cancel.mutationOptions()");
-    expect(meltSheet).toContain("cancel.mutateAsync({ meltId: melt.id, reason: reason.trim() })");
+    expect(meltSheet).toContain("cancel.mutateAsync(meltCancelBody(melt.id, reason))");
     for (const source of [castSheet, meltSheet]) {
       expect(source).toContain("if (!reason.trim()) return;");
       expect(source).toContain("maxLength={500}");

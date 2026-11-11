@@ -33,7 +33,7 @@ describe("spectro void on a phone draft", () => {
     expect(source).toContain("maxLength={500}");
     expect(source).toContain("if (!reason.trim()) return;");
     expect(source).toContain("trpc.foundry.spectro.void.mutationOptions()");
-    expect(source).toContain("voidResult.mutateAsync({ id, reason: reason.trim() })");
+    expect(source).toContain("voidResult.mutateAsync(spectroVoidBody(id, reason))");
   });
 
   test("a refusal is translated and an unsure answer refreshes the result list", () => {
