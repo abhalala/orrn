@@ -110,7 +110,7 @@ export const en = {
     min: "min",
     bundles: "{count} {count:bundle|bundles}",
     pieces: "{count} {count:piece|pieces}",
-    bundlesKg: "{bundles} {bundles:bundle|bundles} · {kg} kg",
+    bundlesKg: "{bundles} {bundles:bundle|bundles} · {kg} {massUnit}",
     feetInches: "{ft} ft {in} in",
     kgPerM: "kg/m",
     percent: "{value}%",

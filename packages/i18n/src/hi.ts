@@ -103,7 +103,7 @@ export const hi = {
     min: "मिनट",
     bundles: "{count} bundle",
     pieces: "{count} पीस",
-    bundlesKg: "{bundles} bundle · {kg} kg",
+    bundlesKg: "{bundles} bundle · {kg} {massUnit}",
     feetInches: "{ft} ft {in} in",
     kgPerM: "kg/m",
     percent: "{value}%",

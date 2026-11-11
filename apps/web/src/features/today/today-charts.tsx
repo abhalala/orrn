@@ -10,7 +10,6 @@
  * whenever those figures change (a bundle packed, a dispatch done, midnight)
  * both charts refetch, so stock age follows "In stock" too.
  */
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import {
   BarChart,
@@ -23,6 +22,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -83,7 +84,9 @@ export default function TodayCharts({ live }: TodayChartsProps) {
     void refetchAgeing();
   }, [signature, refetchTrends, refetchAgeing]);
 
-  const kg = useMemo(() => (v: number) => `${formatKgTotal(v)} ${t("units.kg")}`, [t]);
+  const fmt = useFmt();
+  // Chart values are kg; the label shows the same weight in the plant's unit.
+  const kg = useMemo(() => (v: number) => `${kgGrouped1(fmt, Math.round(v * 1000))} ${massUnit(fmt)}`, [fmt]);
   // Days arrive as calendar dates; UTC midnight formatted in UTC keeps each label on its day.
   const dates = useMemo(() => chartDateFormat("day", locale, "UTC"), [locale]);
   const { date, packedG, dispatchedG } = live;

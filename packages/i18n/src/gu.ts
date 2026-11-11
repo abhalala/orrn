@@ -192,7 +192,7 @@ const guBase = {
     ft: "ft",
     bundles: "{count} bundle",
     pieces: "{count} પીસ",
-    bundlesKg: "{bundles} bundle · {kg} kg",
+    bundlesKg: "{bundles} bundle · {kg} {massUnit}",
     feetInches: "{ft} ft {in} in",
     kgPerM: "kg/m",
     percent: "{value}%",

@@ -102,7 +102,7 @@ Counts: 7550 screen strings in 49 groups, 45 guides with 860 strings.
 | `min` | min | मिनट |
 | `bundles` | {count} {count:bundle\|bundles} | {count} bundle |
 | `pieces` | {count} {count:piece\|pieces} | {count} पीस |
-| `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} kg | {bundles} bundle · {kg} kg |
+| `bundlesKg` | {bundles} {bundles:bundle\|bundles} · {kg} {massUnit} | {bundles} bundle · {kg} {massUnit} |
 | `feetInches` | {ft} ft {in} in | {ft} ft {in} in |
 | `kgPerM` | kg/m | kg/m |
 | `percent` | {value}% | {value}% |
