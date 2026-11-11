@@ -451,21 +451,32 @@ async function askLateEntry(
  */
 async function refuseOffBand(ctx: OverdrawCtx, d: { id: string; code: string }, states: readonly OffBandState[]): Promise<void> {
   const open = states.filter((s) => s.status !== "approved");
-  if (open.length === 0) return;
+  // Check N4: an approved row can still have a waiting request asked for other figures (the line was
+  // put back); it is moot and would hold the completing UPDATE (noPendingOffBandSql), so it goes now.
+  const moot = states.filter((s) => s.status === "approved" && s.stalePendingId);
+  if (open.length === 0 && moot.length === 0) return;
   const ask = open.filter((s) => s.status === "none");
-  if (ask.length > 0) {
+  if (ask.length > 0 || moot.length > 0) {
     const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
-    const withdraw = ask.flatMap((s) => (s.stalePendingId ? [s.stalePendingId] : []));
+    const staleOf = (rows: readonly OffBandState[], figures: boolean) =>
+      rows.flatMap((s) => (s.stalePendingId && s.staleFigures === figures ? [s.stalePendingId] : []));
+    const withdrawRows = [...ask, ...moot];
     await atomicBatch(ctx.db, [
-      ...offBandRequestStatements(ctx, d, ask, seq, withdraw),
-      auditInsert(ctx, {
-        action: "dispatch.off_band.request",
-        subjectType: "dispatch",
-        subjectId: d.id,
-        meta: { serials: ask.map((s) => s.serial), lines: ask.map((s) => ({ serial: s.serial, lineId: s.lineId, bundleMilli: s.bundleMilli, lineMilli: s.lineMilli })) },
-      }),
+      ...offBandRequestStatements(ctx, d, ask, seq, staleOf(withdrawRows, false), staleOf(withdrawRows, true)),
+      ...(ask.length > 0
+        ? [
+            auditInsert(ctx, {
+              action: "dispatch.off_band.request",
+              subjectType: "dispatch",
+              subjectId: d.id,
+              meta: { serials: ask.map((s) => s.serial), lines: ask.map((s) => ({ serial: s.serial, lineId: s.lineId, bundleMilli: s.bundleMilli, lineMilli: s.lineMilli })) },
+            }),
+          ]
+        : []),
     ]);
   }
+  // Only moot requests withdrawn: every row is approved, Complete goes on.
+  if (open.length === 0) return;
   throw new TRPCError({ code: "PRECONDITION_FAILED", message: offBandMessage(open) });
 }
 
