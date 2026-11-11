@@ -594,37 +594,39 @@ export async function candidateQuestions(
     );
   const codes = new Set<string>();
   let newNames = 0;
+  // Keyed by subject (field, unit read in, side).
   const flagged = new Map<string, { field: string; unit: string; likelyUnit: string; side: string; count: number }>();
   for (const w of waiting) {
     for (const reason of w.reasons ?? []) {
       if (reason === Q_CUSTOMER_NEW) newNames += 1;
       else if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) codes.add(reason.slice(Q_SECTION_UNKNOWN.length + 1));
       else if (reason.startsWith(`${Q_MAGNITUDE}:`)) {
-        const field = reason.slice(Q_MAGNITUDE.length + 1);
+        const subject = reason.slice(Q_MAGNITUDE.length + 1);
+        const { field, unit, side } = parseMagnitudeSubject(subject);
         let note: Partial<MagnitudeNote> | undefined;
         try {
-          note = (JSON.parse(w.magnitude ?? "[]") as MagnitudeNote[]).find((n) => n.field === field);
+          note = (JSON.parse(w.magnitude ?? "[]") as MagnitudeNote[]).find((n) => magnitudeSubject({ field: n.field, side: n.side }, n.unit) === subject);
         } catch {
           note = undefined;
         }
         const likely = note?.likelyUnit ?? "";
-        const seen = flagged.get(field);
+        const seen = flagged.get(subject);
         if (!seen) {
-          flagged.set(field, { field, unit: note?.unit ?? "", likelyUnit: likely, side: note?.side ?? "", count: 1 });
+          flagged.set(subject, { field, unit, likelyUnit: likely, side, count: 1 });
           continue;
         }
         seen.count += 1;
-        // A unit is offered only when every flagged row of the column points at the same one.
+        // A unit is offered only when every flagged row of the question points at the same one.
         if (seen.likelyUnit !== likely) seen.likelyUnit = "";
-        if (seen.side !== (note?.side ?? "")) seen.side = "";
       }
     }
   }
   for (const code of [...codes].sort()) add("create_legacy_die", code, { code });
-  // Magnitude checks (C19): one question per field and offered unit, still shown once answered.
+  // Magnitude checks (C19): one question per field, unit read in and side; still shown once answered.
   for (const a of answers) {
     if (a.questionCode !== "magnitude_check" || flagged.has(a.subject)) continue;
-    flagged.set(a.subject, { field: a.subject, unit: "", likelyUnit: "", side: "", count: 0 });
+    const { field, unit, side } = parseMagnitudeSubject(a.subject);
+    flagged.set(a.subject, { field, unit, likelyUnit: "", side, count: 0 });
   }
   for (const [subject, p] of [...flagged].sort(([x], [y]) => x.localeCompare(y))) add("magnitude_check", subject, p);
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
@@ -640,6 +642,23 @@ export function clearLayoutAnswers(ctx: Pick<IngestCtx, "db" | "companyId">, can
         eq(ingestAnswer.companyId, ctx.companyId),
         eq(ingestAnswer.candidateId, candidateId),
         inArray(ingestAnswer.questionCode, [...LAYOUT_ANSWER_CODES]),
+      ),
+    );
+}
+
+/**
+ * Drops the `magnitude_check` answers of one field. Put it in the batch that changes how the field
+ * is read (a unit_unknown answer): those answers were about values the person no longer sees.
+ */
+export function clearMagnitudeAnswers(ctx: Pick<IngestCtx, "db" | "companyId">, candidateId: string, field: string): SqliteBatchItem {
+  return ctx.db
+    .delete(ingestAnswer)
+    .where(
+      and(
+        eq(ingestAnswer.companyId, ctx.companyId),
+        eq(ingestAnswer.candidateId, candidateId),
+        eq(ingestAnswer.questionCode, "magnitude_check"),
+        sql`substr(${ingestAnswer.subject}, 1, ${field.length + 1}) = ${`${field}|`}`,
       ),
     );
 }
@@ -689,18 +708,32 @@ export function recountStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candi
 // Magnitude checks (C19) and the merge's row checks
 // ---------------------------------------------------------------------------
 
-/** The subject of a `magnitude_check` question: the field. One answer covers the column's flagged rows. */
-export const magnitudeSubject = (f: Pick<MagnitudeFlag, "field">) => f.field;
+/**
+ * The subject of a `magnitude_check` question: `<field>|<unit>|<side>`, where unit is the unit the
+ * column was read in and side is above or below. The answer is about exactly the rows the person
+ * saw: a row read in another unit, or out of range on the other side, waits on its own question.
+ */
+export const magnitudeSubject = (f: Pick<MagnitudeFlag, "field" | "side">, unit: string | null) => `${f.field}|${unit ?? ""}|${f.side}`;
+
+/** The field, unit and side of a `magnitude_check` subject. */
+export function parseMagnitudeSubject(subject: string): { field: string; unit: string; side: string } {
+  const [field = "", unit = "", side = ""] = subject.split("|");
+  return { field, unit, side };
+}
 
 /** What a waiting flag keeps on the row (`values._magnitude`), for the question and the screen. */
 export type MagnitudeNote = { field: string; side: MagnitudeFlag["side"]; unit: string | null; likelyUnit: UnitId | null; likelyValue: number | null };
 
+/** Rounds of unit re-reads one row may take (t to kg, then kg to g) before it simply waits. */
+const MAGNITUDE_ROUNDS = 3;
+
 /**
- * Settle a row's magnitude flags with the answers (C19). An answer covers every flagged row of that
- * field in the block. "as_is" keeps the value and notes it (`magnitude_confirmed`). A unit reads the
- * flagged cell again in that unit (`magnitude_unit`); the entered text stays as the file had it, and
- * rows of the column that were not flagged keep the unit of the layout. A flag with no answer is
- * returned as waiting: the row cannot be ready.
+ * Settle a row's magnitude flags with the answers (C19). An answer covers the flagged rows of that
+ * field read in the same unit and out of range on the same side. "as_is" keeps the value and notes
+ * it (`magnitude_confirmed`). A unit reads the cell again in that unit (`magnitude_unit`); the
+ * entered text stays as the file had it, and rows of the column that were not flagged keep the unit
+ * of the layout. The row read again is checked again: a value still out of range waits on the
+ * question for its new unit. A flag with no answer is returned as waiting: the row cannot be ready.
  */
 export function settleMagnitude(
   a: ApplyRow,
@@ -710,18 +743,29 @@ export function settleMagnitude(
 ): { applied: ApplyRow; waiting: MagnitudeFlag[]; notes: string[] } {
   if (a.state !== "ok" || a.flags.length === 0) return { applied: a, waiting: [], notes: [] };
   const units: Record<string, UnitId> = {};
-  const notes: string[] = [];
-  const waiting: MagnitudeFlag[] = [];
-  for (const f of a.flags) {
-    const answer = answers.magnitude.get(magnitudeSubject(f));
-    if (answer === "as_is") notes.push(`magnitude_confirmed:${f.field}`);
-    else if (answer) {
-      units[f.field] = answer as UnitId;
-      notes.push(`magnitude_unit:${f.field}`);
-    } else waiting.push(f);
+  const notes = new Set<string>();
+  const readIn = new Map<string, Set<string>>();
+  let cur = a;
+  for (let round = 0; ; round += 1) {
+    const waiting: MagnitudeFlag[] = [];
+    let reread = false;
+    for (const f of cur.flags) {
+      const seen = cur.entered[f.field]?.unit ?? null;
+      const tried = readIn.get(f.field) ?? new Set<string>([seen ?? ""]);
+      readIn.set(f.field, tried);
+      const answer = answers.magnitude.get(magnitudeSubject(f, seen));
+      if (answer === "as_is" || (answer && answer === seen)) notes.add(`magnitude_confirmed:${f.field}`);
+      else if (answer && !tried.has(answer) && round < MAGNITUDE_ROUNDS) {
+        tried.add(answer);
+        units[f.field] = answer as UnitId;
+        notes.add(`magnitude_unit:${f.field}`);
+        reread = true;
+      } else waiting.push(f);
+    }
+    if (!reread) return { applied: cur, waiting, notes: [...notes] };
+    cur = applyRow(compileWith(units), raw, a.rowIndex);
+    if (cur.state !== "ok") return { applied: cur, waiting: [], notes: [...notes] };
   }
-  if (Object.keys(units).length === 0) return { applied: a, waiting, notes };
-  return { applied: applyRow(compileWith(units), raw, a.rowIndex), waiting, notes };
 }
 
 /** A row that waits on `magnitude_check` (C19): ambiguous, with the flag's reason and the question's. */
@@ -739,7 +783,7 @@ function holdForMagnitude(out: RowOutcome, waiting: readonly MagnitudeFlag[], en
   return {
     ...out,
     state: "ambiguous",
-    reasons: [...out.reasons, ...waiting.flatMap((f) => [magnitudeReason(f), `${Q_MAGNITUDE}:${magnitudeSubject(f)}`])],
+    reasons: [...out.reasons, ...waiting.flatMap((f) => [magnitudeReason(f), `${Q_MAGNITUDE}:${magnitudeSubject(f, entered[f.field]?.unit ?? null)}`])],
   };
 }
 

@@ -74,8 +74,10 @@ import {
   candidateQuestions,
   classifyRows,
   clearLayoutAnswers,
+  clearMagnitudeAnswers,
   openQuestionCount,
   openUnitFields,
+  parseMagnitudeSubject,
   parseRecipe,
   readAnswers,
   recountStatement,
@@ -916,9 +918,11 @@ export async function setAnswer(
     // layout, made in the column mapping, so an answer is never stored without effect (A17).
     throw new TRPCError({ code: "BAD_REQUEST", message: "To use another column for this, change it in the column mapping" });
   }
+  // A magnitude subject is `<field>|<unit>|<side>`; the unit check is on its field.
+  const subjectField = input.questionCode === "magnitude_check" ? parseMagnitudeSubject(input.subject).field : input.subject;
   if ((input.questionCode === "unit_unknown" || (input.questionCode === "magnitude_check" && answer !== "as_is")) && c.recipe) {
     const recipe = parseRecipe(c.recipe);
-    const field = recipe.fields.find((f) => f.field === input.subject);
+    const field = recipe.fields.find((f) => f.field === subjectField);
     const step = field?.steps.find((s) => s.op === "number");
     if (step && step.op === "number") {
       if (!unitsFor(step.kind).includes(answer as never)) throw new TRPCError({ code: "BAD_REQUEST", message: "That unit does not fit this column" });
@@ -946,6 +950,9 @@ export async function setAnswer(
         set: { answer: answer as never, answeredBy: ctx.session.user.id, answeredAt: at },
       }),
   ];
+  // The field is read in another unit now: its magnitude answers were about values the person no
+  // longer sees, so they go (X-new-1).
+  if (input.questionCode === "unit_unknown") statements.push(clearMagnitudeAnswers(ctx, c.id, input.subject));
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
     // Sibling order sheets of the file take the same date: they re-run too (A13).
@@ -992,9 +999,11 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   const magnitude = answerRows
     .filter((a) => a.questionCode === "magnitude_check")
     .map((a) => {
+      const { field, unit, side } = parseMagnitudeSubject(a.subject);
+      const seen = `the ${field} values read in ${unit || "no unit"} that looked too ${side === "below" ? "small" : "large"}`;
       return a.answer === "as_is"
-        ? { field: a.subject, answer: "as_is", note: "The person said the flagged values are right" }
-        : { field: a.subject, answer: String(a.answer), note: `The person said the flagged values are in ${String(a.answer)}` };
+        ? { field, unit, side, answer: "as_is", note: `The person said ${seen} are right` }
+        : { field, unit, side, answer: String(a.answer), note: `The person said ${seen} are in ${String(a.answer)}` };
     });
   const statements: SqliteBatchItem[] = [
     ...candidateChange(ctx, c.id, input.expectSeq, {
