@@ -25,6 +25,9 @@ export type PdfTextOptions = {
 type Cell = { text: string; x0: number; x1: number };
 type Line = { y: number; cells: Cell[] };
 
+/** A page number on its own: `Page 2`, `Page 2 of 5`, `2 of 5`. Never table data (C17). */
+const PAGE_MARK = /^(?:page\s*\d+(?:\s*(?:of|\/)\s*\d+)?|\d+\s+of\s+\d+)$/i;
+
 function median(xs: number[], fallback: number): number {
   if (xs.length === 0) return fallback;
   const s = [...xs].sort((a, b) => a - b);
@@ -57,7 +60,8 @@ export function textItemsToMatrix(itemsIn: readonly TextItem[], opts: PdfTextOpt
       } else cells.push({ text: it.str, x0: it.x, x1: it.x + it.width });
     }
     for (const c of cells) c.text = c.text.replace(/\s+/g, " ").trim();
-    lines.push({ y: lineY, cells });
+    const kept = cells.filter((c) => !PAGE_MARK.test(c.text));
+    if (kept.length > 0) lines.push({ y: lineY, cells: kept });
     current = [];
   };
   for (const it of sorted) {
@@ -80,10 +84,18 @@ export function textItemsToMatrix(itemsIn: readonly TextItem[], opts: PdfTextOpt
       continue;
     }
     // A region of multi-cell lines that follow each other.
+    // A one-cell line right under a row (within 1.5 line heights) is a wrapped cell: it stays in the region (C17).
+    const isWrap = (k: number) => lines[k]!.cells.length === 1 && Math.abs(lines[k - 1]!.y - lines[k]!.y) <= height * 1.5;
     let j = i;
-    while (j < lines.length && lines[j]!.cells.length >= 2 && (j === i || Math.abs(lines[j - 1]!.y - lines[j]!.y) <= height * 3)) j++;
+    while (
+      j < lines.length &&
+      (j === i || Math.abs(lines[j - 1]!.y - lines[j]!.y) <= height * 3) &&
+      (lines[j]!.cells.length >= 2 || (j > i && isWrap(j)))
+    )
+      j++;
     const region = lines.slice(i, j);
     const spans = region
+      .filter((l) => l.cells.length >= 2)
       .flatMap((l) => l.cells.map((c) => [c.x0, c.x1] as const))
       .sort((a, b) => a[0] - b[0]);
     const cols: [number, number][] = [];
@@ -93,6 +105,17 @@ export function textItemsToMatrix(itemsIn: readonly TextItem[], opts: PdfTextOpt
       else cols.push([a, b]);
     }
     for (const l of region) {
+      if (l.cells.length === 1) {
+        const c = l.cells[0]!;
+        const k = cols.findIndex(([a, b]) => c.x0 >= a - charWidth && c.x0 <= b);
+        const last = matrix[matrix.length - 1];
+        if (k !== -1 && last) {
+          last[k] = last[k] === "" ? c.text : `${last[k]} ${c.text}`;
+          continue;
+        }
+        matrix.push([c.text]);
+        continue;
+      }
       const row = Array<string>(cols.length).fill("");
       for (const c of l.cells) {
         const mid = (c.x0 + c.x1) / 2;
@@ -142,6 +165,10 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       rest = matrix.slice(h);
     }
     const blocks = findBlocks(rest, { sheetName: `Page ${p + 1}` });
+    // Footer lines under a table (one cell, after the data) are not rows (C17).
+    for (const b of blocks) {
+      while (b.headers.length >= 2 && b.rows.length > 0 && nonBlankCells(b.rows[b.rows.length - 1]!) <= 1) b.rows.pop();
+    }
     blocks.forEach((b, k) => {
       const last = [...out].reverse().find((x) => x.rows.length > 0);
       const sameHeader = last && k === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
@@ -150,7 +177,8 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
     });
     if (items.some((i) => i.str.trim() !== "") && blocks.length === 0 && appended === 0) warnings.push(`page ${p + 1}: text but no table`);
   });
-  return { blocks: out, warnings };
+  // A header with no rows under it (a footer read as a header) is no table.
+  return { blocks: out.filter((b) => b.rows.length > 0), warnings };
 }
 
 /** Pages of text items to blocks; see `readPdfText`, which also returns the warnings. */
