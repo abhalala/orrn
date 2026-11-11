@@ -38,6 +38,8 @@ export type ResponsiveListColumn<T> = {
    * The one column without a width takes the rest.
    */
   width?: string;
+  /** Tighter side padding (8 px) for a narrow numeric column, so a fixed width of 60 to 90 px still fits its header word. */
+  compact?: boolean;
   /** Let the header text wrap onto a second line instead of holding the column open (a long header over a number). */
   wrapHeader?: boolean;
   /**
@@ -145,7 +147,8 @@ export function ResponsiveList<T>({
           <td
             key={col.key}
             className={cn(
-              "h-[52px] px-4 py-2 align-middle break-words first:pl-5 last:pr-5",
+              "h-[52px] py-2 align-middle break-words first:pl-5 last:pr-5",
+              col.compact ? "px-2" : "px-4",
               col.align === "end" && "text-right whitespace-nowrap tabular-nums",
               col.sticky && STICKY_CELL,
               href && c > 0 && LIFT_INTERACTIVE,
@@ -234,7 +237,8 @@ export function ResponsiveList<T>({
                     key={col.key}
                     scope="col"
                     className={cn(
-                      "h-11 px-4 text-[13px] font-semibold text-muted-foreground first:pl-5 last:pr-5",
+                      "h-11 text-[13px] font-semibold text-muted-foreground first:pl-5 last:pr-5",
+                      col.compact ? "px-2" : "px-4",
                       col.width || col.wrapHeader ? "leading-4 break-words" : "whitespace-nowrap",
                       col.align === "end" ? "text-right" : "text-left",
                       col.sticky && STICKY_CELL,

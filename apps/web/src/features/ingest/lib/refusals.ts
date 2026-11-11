@@ -93,8 +93,14 @@ export function refusalText(
   return t(line.key, { field: line.fieldKey ? t(line.fieldKey) : "" });
 }
 
-/** The reasons that ask a question or note an answer: amber ink. Only a real refusal is red (owner decision: a value outside the believable range is asked, never refused). */
-const WAITING_KEYS = new Set(["ingest.refuse.magnitude", "ingest.refuse.magnitude_unit", "ingest.refuse.magnitude_confirmed"]);
+/** The reasons that ask a question, ask for a pick, or note an answer: amber ink. Only a real refusal is red (owner decision: a value outside the believable range is asked, never refused). */
+const WAITING_KEYS = new Set([
+  "ingest.refuse.magnitude",
+  "ingest.refuse.magnitude_unit",
+  "ingest.refuse.magnitude_confirmed",
+  // "Matches more than one record. Pick one." asks for a pick, it does not refuse the row.
+  "ingest.refuse.ambiguous",
+]);
 
 export function refusalTone(line: RefusalLine): "amber" | "red" {
   if (line.kind === "blocked") return "amber";

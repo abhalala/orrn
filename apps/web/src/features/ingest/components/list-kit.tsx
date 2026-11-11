@@ -253,7 +253,7 @@ function ActionCell({ row, controls }: { row: ListRow; controls?: RowControls })
 }
 
 /** Fixed widths of the list's columns, so every file group lines up under the one header (work order 3.2). */
-const WIDTHS = { fit: "w-[136px]", create: "w-[64px]", update: "w-[76px]", questions: "w-[88px]", cannot: "w-[76px]", status: "w-[156px]", action: "w-[172px]" } as const;
+const WIDTHS = { fit: "w-[136px]", create: "w-[56px]", update: "w-[72px]", questions: "w-[84px]", cannot: "w-[72px]", status: "w-[156px]", action: "w-[172px]" } as const;
 
 /**
  * The columns of an import list (work order 3.2): what it is, layout, four counts, status, and the one action.
@@ -276,10 +276,10 @@ function useImportColumns(controls: RowControls | undefined, extra: ((row: ListR
       width: WIDTHS.fit,
       cell: (row) => (row.fit ? <span className="text-[13px] text-muted-foreground">{words(row.fit)}</span> : null),
     },
-    { key: "create", header: t("ingest.list.colNew"), align: "end", width: WIDTHS.create, hideWhenEmpty: true, cell: count("create") },
-    { key: "update", header: t("ingest.list.colUpdates"), align: "end", width: WIDTHS.update, hideWhenEmpty: true, cell: count("update") },
-    { key: "questions", header: t("ingest.list.colQuestions"), align: "end", width: WIDTHS.questions, hideWhenEmpty: true, cell: count("questions", "amber") },
-    { key: "cannot", header: t("ingest.list.colCannot"), align: "end", width: WIDTHS.cannot, hideWhenEmpty: true, cell: count("cannot") },
+    { key: "create", header: t("ingest.list.colNew"), align: "end", width: WIDTHS.create, compact: true, hideWhenEmpty: true, cell: count("create") },
+    { key: "update", header: t("ingest.list.colUpdates"), align: "end", width: WIDTHS.update, compact: true, hideWhenEmpty: true, cell: count("update") },
+    { key: "questions", header: t("ingest.list.colQuestions"), align: "end", width: WIDTHS.questions, compact: true, hideWhenEmpty: true, cell: count("questions", "amber") },
+    { key: "cannot", header: t("ingest.list.colCannot"), align: "end", width: WIDTHS.cannot, compact: true, hideWhenEmpty: true, cell: count("cannot") },
     { key: "status", header: t("ingest.imports.colStatus"), hideOnPhone: true, width: WIDTHS.status, cell: (row) => <StatusChip row={row} /> },
     { key: "action", header: t("ingest.imports.colAction"), headerHidden: true, width: WIDTHS.action, cell: (row) => <ActionCell row={row} controls={controls} /> },
   ];

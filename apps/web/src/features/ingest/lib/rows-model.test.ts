@@ -81,7 +81,8 @@ describe("one row", () => {
   test("a conflict row offers the orrn value, the file value, or Skip", () => {
     const view = rowView(candidate, staged({ state: "conflict", diff: { weightG: { live: 100, file: 200 } } }), plant);
     expect(view.decisions.map((o) => o.key)).toEqual(["ingest.decide.keepFile", "ingest.decide.keepLive", "ingest.decide.skip"]);
-    expect(view.diffs).toEqual([{ fieldKey: "ingest.field.weightG", live: "100", file: "200" }]);
+    // Orrn's value and the file's are shown in the plant's unit, never as the stored grams.
+    expect(view.diffs).toEqual([{ fieldKey: "ingest.field.weightG", live: "0.1 kg", file: "0.2 kg", liveKey: null, fileKey: null }]);
   });
 
   test("a row waiting on a column question points at it and can only be skipped", () => {
@@ -124,6 +125,18 @@ describe("one row", () => {
   test("a written row has no controls", () => {
     const view = rowView(candidate, staged({ mergeState: "written" }), plant);
     expect(view).toMatchObject({ written: true, menu: [], decisions: [] });
+  });
+
+  test("a field no row has a value for takes no column, and a conflict shows kg/12ft, not grams", () => {
+    const dies = { target: "dies", block: { headers: [] }, recipe: null } as unknown as Pick<CandidateDetail, "target" | "block" | "recipe">;
+    const row = rowView(dies, staged({ values: { series: "ZB", sectionCode: "X1", weightMinG: 1100, status: "active" }, diff: null }), plant);
+    const table = rowsTable(dies, [row], plant);
+    expect(table.columns.map((c) => c.field)).toEqual(["series", "sectionCode", "weightMinG", "status"]);
+    const conflict = rowView(dies, staged({ state: "conflict", diff: { weightMinG: { live: 1100, file: 1900 }, status: { live: "active", file: "retired" } } }), plant);
+    expect(conflict.diffs).toEqual([
+      { fieldKey: "ingest.fieldHeader.weightMinG", live: "1.1 kg/12ft", file: "1.9 kg/12ft", liveKey: null, fileKey: null },
+      { fieldKey: "ingest.field.status", live: "", file: "", liveKey: "ingest.enumValue.active", fileKey: "ingest.enumValue.retired" },
+    ]);
   });
 
   test("a decision column is needed only when a row on the page needs one", () => {

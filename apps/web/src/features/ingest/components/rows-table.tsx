@@ -252,8 +252,8 @@ function DiffLines({ view }: { view: RowView }) {
       {view.diffs.map((diff) => (
         <div key={diff.fieldKey}>
           <p className="m-0 font-semibold">{t(diff.fieldKey as never)}</p>
-          <p className="m-0">{t("ingest.decide.keepLive")}: <span className="font-mono">{diff.live}</span></p>
-          <p className="m-0">{t("ingest.decide.keepFile")}: <span className="font-mono">{diff.file}</span></p>
+          <p className="m-0">{t("ingest.decide.keepLive")}: <span className={diff.liveKey ? undefined : "font-mono"}>{diff.liveKey ? t(diff.liveKey as never) : diff.live}</span></p>
+          <p className="m-0">{t("ingest.decide.keepFile")}: <span className={diff.fileKey ? undefined : "font-mono"}>{diff.fileKey ? t(diff.fileKey as never) : diff.file}</span></p>
         </div>
       ))}
     </div>
@@ -353,7 +353,11 @@ export function RowsTable({
     header: t("ingest.row.state"),
     cell: (v) => (
       <span className="flex min-w-0 flex-col items-start gap-1">
-        <StatusChip view={v} />
+        <span className="flex items-center gap-1">
+          <StatusChip view={v} />
+          {/* Skip for a row that needs nothing sits beside its chip, so it takes no column of its own. */}
+          {!decisionColumn && showChoice && !v.needsDecision ? <RowMenu view={v} act={rest.act} focusRef={rest.focusRef} onDecide={rest.onDecide} /> : null}
+        </span>
         {v.needsDecision ? null : <ReasonLines view={v} />}
         <RawCells view={v} />
         <Chosen view={v} />
@@ -385,7 +389,7 @@ export function RowsTable({
   }));
   // Row, then what it is and what to do about it, then the values: a layout with many fields scrolls sideways under the
   // pinned Row column, and the buttons of a row that needs a decision never sit behind that scroll.
-  const list: ResponsiveListColumn<RowView>[] = [rowColumn, statusColumn, ...(showChoice ? [choiceColumn] : []), ...fieldColumns];
+  const list: ResponsiveListColumn<RowView>[] = [rowColumn, statusColumn, ...(decisionColumn && showChoice ? [choiceColumn] : []), ...fieldColumns];
   return <ResponsiveList label={t("ingest.rows.title")} rows={views} columns={list} rowKey={(v) => v.id} empty={null} />;
 }
 

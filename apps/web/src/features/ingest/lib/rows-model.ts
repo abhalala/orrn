@@ -2,7 +2,6 @@ import type { Recipe } from "@orrn/ingest";
 
 import {
   decisionOptions,
-  diffEntries,
   rowNeedsDecision,
   rowStateKey,
   rowTone,
@@ -14,7 +13,7 @@ import {
 } from "./model";
 import type { PlantUnits } from "./plant-units";
 import { refusalLines, type RefusalLine } from "./refusals";
-import { rawCells, rowColumns, valueCells, type RowColumn, type ValueCell } from "./row-values";
+import { diffSide, rawCells, rowColumns, rowFieldLabelKey, valueCells, type RowColumn, type ValueCell } from "./row-values";
 import type { CandidateCounts, CandidateDetail, RowState, StagedRowView } from "./types";
 
 /** Rows per page in the rows panel (work order 3.3). The server pages by 100; the screen asks for 15 at a time. */
@@ -115,8 +114,8 @@ export type RowView = {
   raw: { label: string | null; n: number; value: string }[];
   /** Why the row is refused or waits, in the order the server wrote it. Question markers are left out. */
   reasons: RefusalLine[];
-  /** Where a conflict differs: orrn's value against the file's. */
-  diffs: { fieldKey: string; live: string; file: string }[];
+  /** Where a conflict differs: orrn's value against the file's, in the plant's unit. A `...Key` is an enum's words to translate. */
+  diffs: { fieldKey: string; live: string; file: string; liveKey: string | null; fileKey: string | null }[];
   /** An ambiguous or conflict row nobody has decided. It gets the amber left border and the inline buttons. */
   needsDecision: boolean;
   /** The question this row waits on. The buttons are then only Skip, and the sentence points at the question. */
@@ -163,7 +162,11 @@ export function rowView(candidate: Pick<CandidateDetail, "target" | "block">, ro
     cells,
     raw: cells.length === 0 ? rawCells(row.raw, candidate.block.headers) : [],
     reasons: refusalLines(row.reasons),
-    diffs: diffEntries(row.diff).map((d) => ({ fieldKey: `ingest.field.${d.field}`, live: d.live, file: d.file })),
+    diffs: Object.entries(row.diff ?? {}).map(([field, d]) => {
+      const live = diffSide(candidate.target, field, d.live, plant);
+      const file = diffSide(candidate.target, field, d.file, plant);
+      return { fieldKey: rowFieldLabelKey(field), live: live.text, file: file.text, liveKey: live.textKey, fileKey: file.textKey };
+    }),
     needsDecision: needs,
     waitsOn: waits,
     decisions: needs ? options : [],
@@ -178,10 +181,10 @@ export function rowsTable(
   rows: readonly RowView[],
   plant: PlantUnits,
 ): { columns: RowColumn[]; decisionColumn: boolean } {
-  return {
-    columns: rowColumns(candidate.target, candidate.recipe as Recipe | null, plant),
-    decisionColumn: rows.some((r) => r.needsDecision),
-  };
+  const all = rowColumns(candidate.target, candidate.recipe as Recipe | null, plant);
+  // A field no row on this page has a value for (an empty Leg, Notes) takes no column: the table stays as narrow as it can.
+  const columns = rows.length === 0 ? all : all.filter((col) => rows.some((r) => r.cells.some((c) => c.field === col.field)));
+  return { columns, decisionColumn: rows.some((r) => r.needsDecision) };
 }
 
 /** At most `limit` fields of a row for the stacked card, with whether the rest are folded behind "Show all fields". */

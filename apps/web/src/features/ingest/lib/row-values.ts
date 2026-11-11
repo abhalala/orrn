@@ -155,3 +155,27 @@ export function rowColumns(target: IngestTarget | null, recipe: Recipe | null, p
 export function rawCells(raw: readonly string[], headers: readonly string[]): { label: string | null; n: number; value: string }[] {
   return raw.map((value, index) => ({ label: headers[index]?.trim() ? headers[index]!.trim() : null, n: index + 1, value }));
 }
+
+/**
+ * One side of a conflict ("Keep the orrn value: 1.1 kg/12ft"): the stored value in the plant's unit with its unit text, an
+ * enum by its label, a day the plant's way. Never the raw stored integer (grams, paise, millimetres).
+ */
+export function diffSide(
+  target: IngestTarget | null,
+  field: string,
+  raw: unknown,
+  plant: PlantUnits,
+): { text: string; textKey: string | null } {
+  if (raw === null || raw === undefined || raw === "") return { text: "", textKey: null };
+  const def = target ? TARGETS[target].fields.find((f) => f.name === field) : undefined;
+  if (isNumericDef(def) && typeof raw === "number") {
+    const q = plant.quantity(def.kind, raw);
+    return { text: q.unit ? `${q.text} ${q.unit}` : q.text, textKey: null };
+  }
+  if (def?.kind === "enum" && typeof raw === "string") {
+    const key = enumValueKey(raw);
+    return key ? { text: "", textKey: key } : { text: plainWords(raw), textKey: null };
+  }
+  if (def?.kind === "date" && looksIso(raw)) return { text: plant.day(raw), textKey: null };
+  return { text: plain(raw), textKey: null };
+}
