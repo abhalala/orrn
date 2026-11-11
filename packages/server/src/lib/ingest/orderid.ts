@@ -333,10 +333,16 @@ export function orderKeyRecord(ctx: Pick<IngestCtx, "db" | "companyId">, salesOr
  * The live order each old order already is (rule 1, against live data):
  * - by number: an order an import made for the same customer, financial year and number
  *   (`ingest_order_key`), not closed or cancelled;
- * - else by PO: the same customer and PO, not cancelled (the order screens refuse a PO twice).
+ * - else by PO: the same customer and PO, not closed or cancelled.
+ * A closed order with the PO is not a match (lead, round 5): the import is a new order. When `closed`
+ * is given it gets, for each lookup with no match, the closed order that has its PO, for the note.
  * Both read by index, 90 keys or POs a statement, never every order of the customer (S3-6).
  */
-export async function liveOrdersOf(ctx: Pick<IngestCtx, "db" | "companyId">, lookups: readonly LiveLookup[]): Promise<Map<string, LiveOrder>> {
+export async function liveOrdersOf(
+  ctx: Pick<IngestCtx, "db" | "companyId">,
+  lookups: readonly LiveLookup[],
+  closed?: Map<string, { number: string }>,
+): Promise<Map<string, LiveOrder>> {
   const out = new Map<string, LiveOrder>();
   const real = lookups.filter((l) => l.customerId && !l.customerId.startsWith("new:") && !l.customerId.startsWith("pending:") && !l.customerId.startsWith("name:"));
   if (real.length === 0) return out;
@@ -356,6 +362,7 @@ export async function liveOrdersOf(ctx: Pick<IngestCtx, "db" | "companyId">, loo
     }
   }
   const byPo = new Map<string, LiveOrder>();
+  const closedByPo = new Map<string, { number: string }>();
   const posByCustomer = new Map<string, Set<string>>();
   for (const l of real) if (l.po) posByCustomer.set(l.customerId, (posByCustomer.get(l.customerId) ?? new Set()).add(normPo(l.po)));
   for (const [customerId, pos] of posByCustomer) {
@@ -369,12 +376,20 @@ export async function liveOrdersOf(ctx: Pick<IngestCtx, "db" | "companyId">, loo
     );
     for (const o of rows) {
       const k = `${customerId}${SEP}${o.po}`;
+      if (o.status === "closed") {
+        if (!closedByPo.has(k)) closedByPo.set(k, { number: o.number });
+        continue;
+      }
       if (!byPo.has(k)) byPo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "po", oldKey: o.oldKey ?? null });
     }
   }
   for (const l of real) {
     const hit: LiveOrder | undefined = (l.no && fyRange(l.fy) ? byNo.get(liveOrderKey(l.customerId, l.fy, l.no)) : undefined) ?? (l.po ? byPo.get(`${l.customerId}${SEP}${normPo(l.po)}`) : undefined);
     if (hit) out.set(l.key, hit);
+    else if (closed && l.po) {
+      const shut = closedByPo.get(`${l.customerId}${SEP}${normPo(l.po)}`);
+      if (shut) closed.set(l.key, shut);
+    }
   }
   return out;
 }

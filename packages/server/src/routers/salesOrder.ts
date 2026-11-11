@@ -340,7 +340,8 @@ export async function createSalesOrder(
   await assertSections(ctx.db, ctx.companyId, input.lines.map((l) => l.sectionId));
   const resolved = await resolveLines(ctx.db, ctx.companyId, input.lines, { canPrice: opts.canPrice });
   const poNumber = blank(input.poNumber);
-  if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber });
+  const closedFree = opts.source === "ingest";
+  if (poNumber) await assertPoFree(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber, closedFree });
 
   const at = clockNow();
   const userId = ctx.session.user.id;
@@ -393,7 +394,7 @@ export async function createSalesOrder(
     ),
   );
   // Write-time PO repeat check (FP-OP-01): a second order with this PO saved meanwhile fails the batch.
-  if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber }));
+  if (poNumber) statements.push(poRepeatGuard(ctx.db, ctx.companyId, { customerId: input.customerId, poNumber, closedFree }));
   statements.push(
     auditInsert(ctx, {
       action: auditAction,

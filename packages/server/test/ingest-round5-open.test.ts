@@ -264,3 +264,28 @@ describe("item 5: words that tell a person what works (rule 1)", () => {
     expect(words).not.toContain("Split");
   });
 });
+
+describe("lead answer (a): a closed order with the same PO is not a match", () => {
+  test("re-importing order 41 after it was closed makes a new order and notes the closed one, with no question", async () => {
+    const p = await setup();
+    const sheet = { name: "A", headers: BOOK, rows: [R("41", "PO-9", "31/10/2025", "5100")] };
+    const first = (await upload(p.owner, [sheet])).candidates[0]!.id;
+    await pump(p.owner, first);
+    expect(await tryApprove(p.owner, first)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    const made = await env.d1.prepare("select id, number, status from sales_order where company_id = ?").bind(p.companyId).first<{ id: string; number: string; status: string }>();
+    // The imported order is a booking; closing it on the order screen needs a confirm first, which is not what this test is about.
+    await env.d1.prepare("update sales_order set status = 'closed' where id = ?").bind(made!.id).run();
+
+    const again = (await upload(p.owner, [sheet], "book-2.xlsx")).candidates[0]!.id;
+    await pump(p.owner, again);
+    const [row] = await rowsOf(p.owner, again);
+    expect(row!.state).toBe("ready_create");
+    expect(row!.reasons).toContain("po_on_closed_order:poNumber");
+    expect((row!.values as Record<string, unknown>)._closedOrder).toEqual({ number: made!.number });
+    expect(await tryApprove(p.owner, again)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect((await orders(p.companyId)).map((o) => o.po)).toEqual(["PO-9", "PO-9"]);
+  });
+});
+

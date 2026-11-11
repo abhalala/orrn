@@ -1762,10 +1762,19 @@ async function matchLiveOrders(ctx: IngestCtx, rows: readonly Staged[], outcomes
     .filter(({ out }) => out.state === "ready_create" && out.values)
     .map((x) => ({ ...x, id: identityOf(x.r, x.out) }))
     .filter((x): x is typeof x & { id: OrderIdentity } => !!x.id && x.id.kind !== "row");
+  const closed = new Map<string, { number: string }>();
   const live = await liveOrdersOf(
     ctx,
     open.map(({ id }) => ({ key: id.key, customerId: id.customer, fy: id.fy, no: id.no, po: id.po })),
+    closed,
   );
+  // A closed order with the same PO is not this order (lead, round 5): a note on the row, no question.
+  for (const { out, id } of open) {
+    const shut = closed.get(id.key);
+    if (!shut || !out.values) continue;
+    out.values._closedOrder = { number: shut.number };
+    out.reasons = [...out.reasons, PO_ON_CLOSED_ORDER];
+  }
   const hits = open.filter(({ id }) => live.has(id.key)).map((x) => ({ ...x, orderId: live.get(x.id.key)!.id }));
   if (hits.length === 0) return;
   const lines = await mapInChunks([...new Set(hits.map((h) => h.orderId))], (part) =>
@@ -1823,6 +1832,8 @@ export const ORDER_PASS_BATCH = 396;
 
 /** A numbered old order whose PO is on a live order of another old order (rule 4.2). */
 const PO_ON_LIVE_ORDER = "po_on_live_order:poNumber";
+/** A note, not a question: the row's PO is also on a closed order of the customer (`values._closedOrder`). */
+const PO_ON_CLOSED_ORDER = "po_on_closed_order:poNumber";
 
 /** Row reasons the whole-order pass sets; a row with one of them was ready before that pass. */
 const ORDER_PASS_REASONS = [...ORDER_GROUP_CODES.map((c) => `${c}:`), "order_in_other_file:", `${Q_ORDER_PO}:`, "order_po_skipped", "order_live:"];

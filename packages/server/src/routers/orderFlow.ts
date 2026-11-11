@@ -77,7 +77,7 @@ const blank = (v: string | null | undefined) => (v == null || v.trim() === "" ? 
 export async function assertPoFree(
   db: OrrnDb,
   companyId: string,
-  input: { customerId: string; poNumber: string; exceptOrderId?: string },
+  input: { customerId: string; poNumber: string; exceptOrderId?: string; closedFree?: boolean },
 ): Promise<void> {
   const [row] = await db
     .select({ number: salesOrder.number })
@@ -87,7 +87,8 @@ export async function assertPoFree(
         eq(salesOrder.companyId, companyId),
         eq(salesOrder.customerId, input.customerId),
         sql`lower(${salesOrder.poNumber}) = lower(${input.poNumber})`,
-        sql`${salesOrder.status} <> 'cancelled'`,
+        // An import may reuse the PO of a closed order (lead, round 5); an order typed in orrn may not.
+        input.closedFree ? sql`${salesOrder.status} not in ('cancelled', 'closed')` : sql`${salesOrder.status} <> 'cancelled'`,
         input.exceptOrderId ? sql`${salesOrder.id} <> ${input.exceptOrderId}` : undefined,
       ),
     )
@@ -98,11 +99,12 @@ export async function assertPoFree(
 }
 
 /** Write-time twin of `assertPoFree`: fails the batch when two live orders end up with this PO. */
-export function poRepeatGuard(db: OrrnDb, companyId: string, input: { customerId: string; poNumber: string }): SqliteBatchItem {
+export function poRepeatGuard(db: OrrnDb, companyId: string, input: { customerId: string; poNumber: string; closedFree?: boolean }): SqliteBatchItem {
+  const counted = input.closedFree ? sql`o.status not in ('cancelled', 'closed')` : sql`o.status <> 'cancelled'`;
   return batchAbortUnless(
     db,
     "sales_order_line",
-    sql`(select count(*) from sales_order o where o.company_id = ${companyId} and o.customer_id = ${input.customerId} and lower(o.po_number) = lower(${input.poNumber}) and o.status <> 'cancelled') <= 1`,
+    sql`(select count(*) from sales_order o where o.company_id = ${companyId} and o.customer_id = ${input.customerId} and lower(o.po_number) = lower(${input.poNumber}) and ${counted}) <= 1`,
   );
 }
 
@@ -323,7 +325,7 @@ export async function confirmOrder(ctx: ConfirmOrderCtx, input: { id: string; se
   if (blockers.length > 0) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `Fill these before confirming: ${blockers.join(", ")}` });
   }
-  await assertPoFree(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber!, exceptOrderId: order.id });
+  await assertPoFree(ctx.db, ctx.companyId, { customerId: order.customerId, poNumber: order.poNumber!, exceptOrderId: order.id, closedFree: !!ctx.ingestSource });
   const lines = await orderLines(ctx.db, ctx.companyId, order.id);
   for (const l of lines) {
     if (l.dieInstanceId) {
