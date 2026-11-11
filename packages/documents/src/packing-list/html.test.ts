@@ -16,9 +16,13 @@ describe("packing list html (native print)", () => {
     expect(html.toLowerCase()).not.toContain("total len");
   });
 
-  test("the footer names the PL number and first revision", () => {
+  test("the footer and page counter use page margin boxes, never a fixed footer", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
     expect(html).toContain("Not a tax invoice. Generated from the locked snapshot of PL-0007 rev 1.");
+    expect(html).not.toContain("position: fixed");
+    expect(html).toContain("@page");
+    expect(html).toContain("@bottom-left");
+    expect(html).toContain('@bottom-right { content: "Page " counter(page) " of " counter(pages);');
   });
 
   test("signature labels stay in one unbreakable block after the table", () => {

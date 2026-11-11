@@ -98,11 +98,14 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(plProfileLines(pl as never)).toHaveLength(2);
   });
 
-  test("the print footer names the snapshot PL number and revision", () => {
+  test("the print footer and page counter sit in page margin boxes", () => {
     const pl = parsePackingListSnapshot(v2());
     const html = buildPackingListHtml(pl, "ANOTHER-PL");
     expect(html).toContain("Not a tax invoice. Generated from the locked snapshot of PL/2026-27/7 rev 2.");
-    expect(html).toContain("position: fixed");
+    expect(html).not.toContain("position: fixed");
+    expect(html).toContain("@page");
+    expect(html).toContain("@bottom-left");
+    expect(html).toContain('@bottom-right { content: "Page " counter(page) " of " counter(pages);');
   });
 
   test("the three signature lines follow the totals in one unbreakable block", () => {
