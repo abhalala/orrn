@@ -756,6 +756,10 @@ export async function listRows(
     const entered = r.entered ? { ...r.entered } : null;
     let rate: number | null = null;
     let rateHidden = false;
+    // The likely value of a rate flag (C19) is a rate too (X-new-2).
+    if (values && !seesPrices && Array.isArray(values._magnitude)) {
+      values._magnitude = (values._magnitude as { field?: unknown }[]).filter((n) => !RATE_FIELDS.includes(String(n.field)));
+    }
     for (const f of RATE_FIELDS) {
       if (values && f in values) {
         if (seesPrices) rate = typeof values[f] === "number" ? (values[f] as number) : null;
@@ -920,6 +924,9 @@ export async function setAnswer(
   }
   // A magnitude subject is `<field>|<unit>|<side>`; the unit check is on its field.
   const subjectField = input.questionCode === "magnitude_check" ? parseMagnitudeSubject(input.subject).field : input.subject;
+  if (input.questionCode === "magnitude_check" && RATE_FIELDS.includes(subjectField) && !seesRates(ctx)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Rates are hidden from you. Leave rates out, or ask the owner to answer this." });
+  }
   if ((input.questionCode === "unit_unknown" || (input.questionCode === "magnitude_check" && answer !== "as_is")) && c.recipe) {
     const recipe = parseRecipe(c.recipe);
     const field = recipe.fields.find((f) => f.field === subjectField);

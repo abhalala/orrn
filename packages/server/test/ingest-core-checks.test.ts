@@ -454,6 +454,67 @@ describe("X-new-1: a magnitude answer is tied to the unit and side the person sa
 });
 
 // ---------------------------------------------------------------------------
+// Round 2, X-new-2: a rate's magnitude check shows no rate to a person who may not see rates
+// ---------------------------------------------------------------------------
+
+describe("X-new-2: a rate flag tells nothing about the rate to a role without order.price", () => {
+  const headers = [...ORDER_HEADERS, "Rate (paise/kg)"];
+  const ratedLayout = (): Recipe => {
+    const base = orderLayout();
+    return layout(
+      "orders",
+      headers,
+      [...base.fields.map((f) => ({ field: f.field, steps: f.steps })), { field: "rate", steps: [{ op: "number", kind: "price_per_mass", unit: "paise/kg" }] }],
+      base.keys,
+    );
+  };
+
+  async function ratedSheet() {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await env.seedDie(p.companyId, { series: "R", sectionCode: "5100" });
+    await learnLayout(p.companyId, p.users.owner.id, ratedLayout(), "Rated orders");
+    // 250 paise/kg is Rs 2.50 a kg, far below a believable rate: likely Rs 250 a kg.
+    const { candidates } = await upload(p.owner, [{ headers, rows: [["Acme Traders", "PO-1", "01/10/2025", "R", "5100", "3658", "", "300", "250"]] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    return { p, id };
+  }
+
+  test("the admin's row read holds no rate value anywhere, and the question offers no unit", async () => {
+    const { p, id } = await ratedSheet();
+    const [own] = await rowsOf(p.owner, id);
+    expect((own!.values as { _magnitude?: unknown })._magnitude).toEqual([{ field: "rate", side: "below", unit: "paise/kg", likelyUnit: "inr/kg", likelyValue: 25_000 }]);
+    const [row] = await rowsOf(p.admin, id);
+    expect(row!.rate).toBeNull();
+    expect(row!.rateHidden).toBe(true);
+    expect((row!.values as { _magnitude?: unknown[] })._magnitude ?? []).toEqual([]);
+    const text = JSON.stringify(row);
+    expect(text).not.toContain("25000");
+    expect(text).not.toContain("inr/kg");
+    const c = await p.admin.ingest.candidate.get({ candidateId: id });
+    const q = c.questions.find((x) => x.code === "magnitude_check");
+    expect(q).toMatchObject({ subject: "rate|paise/kg|below", open: true, params: { field: "rate", likelyUnit: "" } });
+  });
+
+  test("the admin may not answer the rate's magnitude check; leaving rates out settles the row", async () => {
+    const { p, id } = await ratedSheet();
+    let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    await expect(
+      p.admin.ingest.answer.set({ candidateId: id, questionCode: "magnitude_check", subject: "rate|paise/kg|below", answer: "inr/kg", expectSeq: c.serverSeq }),
+    ).rejects.toThrow(/Rates are hidden from you/);
+    c = await p.admin.ingest.answer.set({ candidateId: id, questionCode: "rates_hidden", subject: "", answer: "leave_out", expectSeq: c.serverSeq });
+    await pump(p.admin, id);
+    const [row] = await rowsOf(p.admin, id);
+    expect(row!.state).toBe("ready_create");
+    expect(row!.reasons.some((r) => r.includes("rate"))).toBe(false);
+    c = await p.admin.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.some((q) => q.code === "magnitude_check")).toBe(false);
+    expect(c.openQuestions).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Item 4a: the dateless order match stays in the period's financial year
 // ---------------------------------------------------------------------------
 

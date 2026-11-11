@@ -56,6 +56,8 @@ import {
   loadArtifact,
   loadBlock,
   loadCandidate,
+  RATE_FIELDS,
+  seesRates,
   type AnswerRow,
   type ArtifactRow,
   type CandidateRow,
@@ -628,7 +630,12 @@ export async function candidateQuestions(
     const { field, unit, side } = parseMagnitudeSubject(a.subject);
     flagged.set(a.subject, { field, unit, likelyUnit: "", side, count: 0 });
   }
-  for (const [subject, p] of [...flagged].sort(([x], [y]) => x.localeCompare(y))) add("magnitude_check", subject, p);
+  const seesPrices = seesRates(ctx);
+  for (const [subject, p] of [...flagged].sort(([x], [y]) => x.localeCompare(y))) {
+    // A rate question still blocks approve for a person who may not see rates, but it offers no
+    // unit, since that tells the size of the rate. Such a person may not answer it (A8, X-new-2).
+    add("magnitude_check", subject, !seesPrices && RATE_FIELDS.includes(p.field) ? { ...p, likelyUnit: "" } : p);
+  }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
   return out;
 }
@@ -895,7 +902,13 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       }
       return hit;
     };
-    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyRow(compiled, r.raw, r.rowIndex), r.raw, answers, compileWith) }));
+    // Rates left out by choice are deleted from the row (classifyRow), so their flags go too (X-new-2).
+    const dropRateFlags = c.target === "orders" && answers.ratesLeftOut === true;
+    const applyOne = (r: Staged) => {
+      const a = applyRow(compiled, r.raw, r.rowIndex);
+      return dropRateFlags ? { ...a, flags: a.flags.filter((f) => !RATE_FIELDS.includes(f.field)) } : a;
+    };
+    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyOne(r), r.raw, answers, compileWith) }));
     const live = await loadPageLive(
       ctx,
       c.target,
