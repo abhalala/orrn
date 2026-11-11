@@ -11,6 +11,9 @@ describe("error codes", () => {
   test("reads the tRPC code, else NETWORK", () => {
     expect(errorCodeOf(trpcError("CONFLICT"))).toBe("CONFLICT");
     expect(errorCodeOf(new TypeError("Failed to fetch"))).toBe("NETWORK");
+    // a bug in the page is not "no connection"
+    expect(errorCodeOf(new Error("x is undefined"))).toBe("UNKNOWN");
+    expect(isTransient(new Error("x is undefined"))).toBe(false);
     expect(isConflict(trpcError("CONFLICT"))).toBe(true);
     expect(isConflict(trpcError("FORBIDDEN"))).toBe(false);
     expect(isTransient(new TypeError("Failed to fetch"))).toBe(true);
@@ -333,5 +336,119 @@ describe("stall guard", () => {
       sleep: noSleep,
     });
     expect(out.kind).toBe("done");
+  });
+});
+
+/** Review E7 to E9, E15, E16. */
+import { dryRunPhase, mergePhase, waitForRows } from "./pump";
+
+describe("review: pump fixes", () => {
+  test("E15: two lost responses in one run never show another tab", async () => {
+    const flags: boolean[] = [];
+    const sent: number[] = [];
+    let stored = 100;
+    let calls = 0;
+    const out = await drivePump<R>({
+      read: async () => ({ cursor: stored, running: true }),
+      step: async (expect) => {
+        sent.push(expect);
+        calls += 1;
+        // Calls 1 and 3 land on the server but the answer is lost: the retry sees the moved cursor and conflicts.
+        if (calls === 2 || calls === 4) {
+          stored += 100;
+          throw trpcError("CONFLICT");
+        }
+        if (calls === 5) return { cursor: stored + 100, done: true };
+        stored += 100;
+        return { cursor: stored, done: false };
+      },
+      cursorOf: (r) => r.cursor,
+      isDone: (r) => r.done,
+      onOtherTab: (o) => flags.push(o),
+      sleep: noSleep,
+    });
+    expect(out.kind).toBe("done");
+    expect(flags).not.toContain(true);
+  });
+
+  test("E16: a step that lands after the work is finished ends as done, not an error", async () => {
+    let reads = 0;
+    const out = await drivePump<R>({
+      // start: running; after the failed step the stored state says finished
+      read: async () => ({ cursor: 200, running: reads++ === 0 }),
+      step: async () => {
+        throw trpcError("BAD_REQUEST");
+      },
+      cursorOf: (r) => r.cursor,
+      isDone: (r) => r.done,
+      sleep: noSleep,
+    });
+    expect(out.kind).toBe("done");
+  });
+
+  test("E16: a real refusal while the state still runs stays an error", async () => {
+    const out = await drivePump<R>({
+      read: async () => ({ cursor: 200, running: true }),
+      step: async () => {
+        throw trpcError("BAD_REQUEST");
+      },
+      cursorOf: (r) => r.cursor,
+      isDone: (r) => r.done,
+      sleep: noSleep,
+    });
+    expect(out.kind).toBe("error");
+  });
+
+  test("E7: a phase left at running or otherTab does not outlive the work", () => {
+    expect(dryRunPhase({ mine: true, ui: "otherTab", eligible: false })).toBe("idle");
+    expect(dryRunPhase({ mine: true, ui: "running", eligible: false })).toBe("idle");
+    expect(dryRunPhase({ mine: true, ui: "otherTab", eligible: true })).toBe("otherTab");
+    expect(dryRunPhase({ mine: true, ui: "done", eligible: false })).toBe("done");
+    expect(dryRunPhase({ mine: true, ui: "error", eligible: false })).toBe("error");
+    expect(dryRunPhase({ mine: false, ui: "running", eligible: true })).toBe("idle");
+  });
+
+  test("E7: a finished run is done whatever the stale ui phase says", () => {
+    expect(mergePhase({ mine: true, ui: "otherTab", finished: true })).toBe("done");
+    expect(mergePhase({ mine: true, ui: "running", finished: true })).toBe("done");
+    expect(mergePhase({ mine: true, ui: "error", finished: true })).toBe("error");
+    expect(mergePhase({ mine: true, ui: "otherTab", finished: false })).toBe("otherTab");
+    expect(mergePhase({ mine: false, ui: "otherTab", finished: false })).toBe("idle");
+  });
+
+  test("E9: rows that stop arriving raise a stalled flag after 30 s and it clears when they move", async () => {
+    const stalled: boolean[] = [];
+    const missing = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 0];
+    let i = 0;
+    const out = await waitForRows({
+      read: async () => ({ missing: missing[Math.min(i++, missing.length - 1)]!, running: true }),
+      onStalled: (s) => stalled.push(s),
+      sleep: noSleep,
+    });
+    expect(out.missing).toBe(0);
+    expect(stalled).toContain(true);
+    expect(stalled[stalled.length - 1]).toBe(false);
+  });
+
+  test("E9: waiting never gives up by itself: a slow upload may still come", async () => {
+    let i = 0;
+    const out = await waitForRows({
+      read: async () => ({ missing: i++ < 500 ? 3 : 0, running: true }),
+      sleep: noSleep,
+    });
+    expect(i).toBe(501);
+    expect(out.missing).toBe(0);
+  });
+
+  test("E9: it stops waiting when the state stops running or the tab leaves", async () => {
+    const ended = await waitForRows({ read: async () => ({ missing: 3, running: false }), sleep: noSleep });
+    expect(ended.running).toBe(false);
+    const ctl = new AbortController();
+    const aborted = await waitForRows({
+      read: async () => (ctl.abort(), { missing: 3, running: true }),
+      signal: ctl.signal,
+      sleep: noSleep,
+    });
+    expect(aborted.missing).toBe(3);
   });
 });

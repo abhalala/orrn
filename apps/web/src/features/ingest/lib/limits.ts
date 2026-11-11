@@ -78,7 +78,19 @@ export const ACCEPT_FILES =
   ".xlsx,.xlsm,.xls,.csv,.tsv,.sql,.dump,.pdf,.jpg,.jpeg,.png,.webp,.heic," +
   "text/csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-export type FileProblemKey = "ingest.drop.tooBig" | "ingest.drop.tooManyRows" | "ingest.drop.openLimit" | "ingest.read.failed";
+export type FileProblemKey =
+  | "ingest.drop.tooBig"
+  | "ingest.drop.tooManyRows"
+  | "ingest.drop.openLimit"
+  | "ingest.drop.wrongType"
+  | "ingest.read.failed"
+  | "ingest.error.network"
+  | "ingest.error.action"
+  | "ingest.error.forbidden"
+  | "ingest.error.busy"
+  | "ingest.error.conflict"
+  | "ingest.error.notFound"
+  | "ingest.error.load";
 
 /** `key` is a dictionary key and `vars` its variables, ready for `t(key, vars)`. */
 export type FileProblem = { key: FileProblemKey; vars?: Record<string, string | number> };
@@ -89,7 +101,7 @@ export function fileSizeProblem(
   limits: IngestLimits = DEFAULT_LIMITS,
 ): FileProblem | null {
   const found = detectFileKind(file.name, file.type, limits);
-  if (!found) return { key: "ingest.read.failed" };
+  if (!found) return { key: "ingest.drop.wrongType", vars: { name: file.name } };
   if (file.size > found.limitMb * MB) {
     return { key: "ingest.drop.tooBig", vars: { name: file.name, limit: found.limitMb } };
   }
@@ -130,4 +142,51 @@ export function rowPages(rows: readonly string[][]): { fromIndex: number; rows: 
 /** Rows of every block of a file, to compare against the open-rows limit before sending anything. */
 export function totalRows(blocks: readonly { rowCount: number }[]): number {
   return blocks.reduce((sum, b) => sum + b.rowCount, 0);
+}
+
+const startsWith = (head: Uint8Array, ...bytes: number[]) => bytes.every((b, i) => head[i] === b);
+const isZip = (h: Uint8Array) => startsWith(h, 0x50, 0x4b);
+const isOle = (h: Uint8Array) => startsWith(h, 0xd0, 0xcf, 0x11, 0xe0);
+const isPdf = (h: Uint8Array) => startsWith(h, 0x25, 0x50, 0x44, 0x46);
+const isImage = (h: Uint8Array) =>
+  startsWith(h, 0xff, 0xd8, 0xff) ||
+  startsWith(h, 0x89, 0x50, 0x4e, 0x47) ||
+  (startsWith(h, 0x52, 0x49, 0x46, 0x46) && h[8] === 0x57 && h[9] === 0x45 && h[10] === 0x42 && h[11] === 0x50) ||
+  (h[4] === 0x66 && h[5] === 0x74 && h[6] === 0x79 && h[7] === 0x70);
+
+/** True when the first bytes look like text (no control bytes other than tab, newline and return). */
+function looksLikeText(head: Uint8Array): boolean {
+  for (const b of head) if (b < 9 || (b > 13 && b < 32)) return false;
+  return true;
+}
+
+/**
+ * The kind of a file from its first bytes (plan brief: detect by content). A workbook is a zip (xlsx) or OLE (xls),
+ * a PDF starts with `%PDF`, a picture has a known signature. Text is a CSV unless the name said SQL. The name's kind
+ * is kept when the bytes agree; a spreadsheet whose bytes are text becomes csv, a csv whose bytes are a workbook
+ * becomes a sheet. Null means the bytes do not match what the name says and the file cannot be read as that.
+ */
+export function sniffKind(head: Uint8Array, declared: ArtifactKind): ArtifactKind | null {
+  const workbook = isZip(head) || isOle(head);
+  switch (declared) {
+    case "sheet":
+      if (workbook) return "sheet";
+      return !isPdf(head) && !isImage(head) && looksLikeText(head) ? "csv" : null;
+    case "csv":
+      if (workbook) return "sheet";
+      if (isPdf(head)) return "pdf_text";
+      return isImage(head) ? null : looksLikeText(head) ? "csv" : null;
+    case "sql":
+      return !workbook && !isPdf(head) && !isImage(head) && looksLikeText(head) ? "sql" : null;
+    case "pdf_text":
+    case "pdf_scan":
+      return isPdf(head) ? declared : null;
+    case "image":
+      return isImage(head) ? "image" : null;
+  }
+}
+
+/** Kinds this release can read in the browser. Photos and scanned pages wait for the vision step. */
+export function isReadableKind(kind: ArtifactKind): boolean {
+  return kind === "sheet" || kind === "csv" || kind === "sql" || kind === "pdf_text";
 }

@@ -56,7 +56,7 @@ describe("file size problems", () => {
     expect(fileSizeProblem({ name: "a.jpg", size: mb(10) + 1 })?.vars?.limit).toBe(10);
   });
   test("an unknown type cannot be read", () => {
-    expect(fileSizeProblem({ name: "a.docx", size: 10 })).toEqual({ key: "ingest.read.failed" });
+    expect(fileSizeProblem({ name: "a.docx", size: 10 })).toEqual({ key: "ingest.drop.wrongType", vars: { name: "a.docx" } });
   });
   test("raw rows: 200,000 passes, one more is refused", () => {
     expect(rowCountProblem("a.csv", 200_000)).toBeNull();

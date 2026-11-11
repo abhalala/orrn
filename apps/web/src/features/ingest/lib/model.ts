@@ -251,7 +251,14 @@ export function questionView(q: IngestQuestion): QuestionView {
       control = { kind: "period" };
       break;
     case "rates_hidden":
-      control = { kind: "choice", options: [{ value: "leave_out", labelKey: "ingest.action.hold" }] };
+      // Two answers that read as what they do: the rates are left out of the merge, or the owner merges the file.
+      control = {
+        kind: "choice",
+        options: [
+          { value: "leave_out", labelKey: "ingest.q.leaveRatesOut" },
+          { value: "owner_merges", labelKey: "ingest.q.ownerMerges" },
+        ],
+      };
       break;
     case "column_meaning_unclear":
       control = { kind: "column" };
@@ -340,6 +347,10 @@ export function reasonLine(
   reasonDetail: string | null,
 ): { key: string | null; vars: Record<string, string> } | null {
   if (!reasonCode) return null;
+  // The browser told the server it could not read the file; the next step is the same for every cause.
+  if (reasonCode === "read_failed") return { key: "ingest.read.failed", vars: {} };
+  // A person's own words for holding it, and an ignored sheet, are shown as typed or not at all.
+  if (reasonCode === "ignored") return null;
   const known = ["merge_failed", "dependency_held", "module_off", "confirm_blocked"];
   if (!known.includes(reasonCode)) return reasonDetail ? { key: null, vars: { detail: reasonDetail } } : null;
   const detail = reasonDetail ?? "";

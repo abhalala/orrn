@@ -25,6 +25,7 @@ describe("visibleItems", () => {
       "pack",
       "stock",
       "dispatch",
+      "ingest",
       "orders",
       "press",
       "foundry",
@@ -94,7 +95,7 @@ describe("visibleItems", () => {
   test("modules filter (case-insensitive); empty list means all on", () => {
     const visible = keys(visibleItems(ALL, me("owner", ["Customers"])));
     // Plant screens (Store) are gated by role, not by the legacy SaaS modules.
-    expect(visible).toEqual(["today", "orders", "reports", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit"]);
+    expect(visible).toEqual(["today", "ingest", "orders", "reports", "purchase", "approvals", "customers", "store", "printing", "masters", "guides", "settings", "audit"]);
     expect(keys(visibleItems(ALL, me("owner", [])))).toHaveLength(ALL.length);
   });
 

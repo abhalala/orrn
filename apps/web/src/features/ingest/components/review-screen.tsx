@@ -11,6 +11,7 @@ import {
   fitDiffView,
   fitKeyOf,
   helperOffer,
+  ingestErrorWords,
   TARGET_KEY,
   useBotPump,
   useCandidate,
@@ -24,7 +25,7 @@ import { MappingEditor } from "./mapping-editor";
 import { PeriodPanel } from "./period-panel";
 import { QuestionsPanel } from "./questions-panel";
 import { StagedRows } from "./rows-table";
-import { chipTone, InlineNotice, Panel, ProgressBar, QueryPanel, ReasonText, translateKey } from "./shared";
+import { ActionError, chipTone, InlineNotice, Panel, ProgressBar, QueryPanel, ReasonText, translateKey } from "./shared";
 
 export function IngestReviewScreen({ candidateId }: { candidateId: string }) {
   const { t } = useT();
@@ -58,7 +59,7 @@ function ReviewBody({ candidate, onChanged }: { candidate: CandidateDetail; onCh
           {candidate.holeName ? <span className="text-[14px] text-muted-foreground">{candidate.holeName}</span> : null}
         </div>
         <ReasonText code={candidate.reasonCode} detail={candidate.reasonDetail} />
-        {candidate.state === "failed" ? <InlineNotice tone="danger">{t("ingest.read.failed")}</InlineNotice> : null}
+        {candidate.state === "failed" && !candidate.reasonCode ? <InlineNotice tone="danger">{t("ingest.read.failed")}</InlineNotice> : null}
         {candidate.block.readBy === "model" && candidate.block.modelChecked ? <p className="m-0 text-[14px]">{t("ingest.vision.check")}</p> : null}
         <CandidateActions candidate={candidate} onDone={onChanged} />
         {candidate.state === "merged" ? (
@@ -90,7 +91,7 @@ function DryRunState({ candidate, dryRun }: { candidate: CandidateDetail; dryRun
     return (
       <InlineNotice tone="danger">
         <div className="flex flex-wrap items-center gap-3">
-          <span>{t("ingest.read.failed")}</span>
+          <span>{translateKey(t, ingestErrorWords(dryRun.error, "action").key)}</span>
           <Button size="sm" variant="secondary" onClick={dryRun.retry}>{t("common.retry")}</Button>
         </div>
       </InlineNotice>
@@ -100,6 +101,7 @@ function DryRunState({ candidate, dryRun }: { candidate: CandidateDetail; dryRun
   return (
     <Panel title={t("ingest.state.processing")}>
       <ProgressBar value={dryRun.rowsMissing > 0 ? null : dryRun.progress} label={label} />
+      {dryRun.stalled ? <InlineNotice tone="danger">{t("ingest.read.stalled")}</InlineNotice> : null}
       <span className="sr-only">{candidate.rowsMissing}</span>
     </Panel>
   );
@@ -109,16 +111,16 @@ function NearFit({ candidate, onChanged }: { candidate: CandidateDetail; onChang
   const { t } = useT();
   const actions = useIngestActions();
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<unknown>(null);
   const diff = fitDiffView(candidate.fitDiff);
   const confirm = async (accept: boolean) => {
     setPending(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await actions.confirmNear(candidate.id, accept, candidate.serverSeq);
       onChanged();
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailed(error);
     } finally {
       setPending(false);
     }
@@ -136,7 +138,7 @@ function NearFit({ candidate, onChanged }: { candidate: CandidateDetail; onChang
         <Button loading={pending} onClick={() => void confirm(true)}>{t("ingest.near.use")}</Button>
         <Button variant="secondary" disabled={pending} onClick={() => void confirm(false)}>{t("ingest.near.reject")}</Button>
       </div>
-      {failed ? <p role="alert" className="m-0 text-[14px] text-destructive">{t("ingest.read.failed")}</p> : null}
+      <ActionError error={failed} />
     </Panel>
   );
 }
@@ -157,6 +159,7 @@ function ShapeState({
   const bot = useBotPump(candidate.id);
   const actions = useIngestActions();
   const [ignorePending, setIgnorePending] = useState(false);
+  const [ignoreError, setIgnoreError] = useState<unknown>(null);
   const manualButtonRef = useRef<HTMLButtonElement>(null);
   const offer = helperOffer(candidate, status.data?.botReady ?? false);
 
@@ -166,9 +169,12 @@ function ShapeState({
 
   const ignore = async () => {
     setIgnorePending(true);
+    setIgnoreError(null);
     try {
       await actions.setTarget(candidate.id, "ignore", candidate.serverSeq);
       onChanged();
+    } catch (error) {
+      setIgnoreError(error);
     } finally {
       setIgnorePending(false);
     }
@@ -182,7 +188,7 @@ function ShapeState({
         {bot.phase === "otherTab" ? <InlineNotice>{t("ingest.merge.otherTab")}</InlineNotice> : null}
         {bot.phase === "gaveUp" ? <InlineNotice>{t("ingest.shape.gaveUp")}</InlineNotice> : null}
         {bot.phase === "capped" ? <InlineNotice>{t("ingest.shape.capped")}</InlineNotice> : null}
-        {bot.phase === "error" ? <InlineNotice tone="danger">{t("ingest.read.failed")}</InlineNotice> : null}
+        {bot.phase === "error" ? <InlineNotice tone="danger">{translateKey(t, ingestErrorWords(bot.error, "action").key)}</InlineNotice> : null}
         <div className="flex flex-wrap gap-2">
           {offer === "auto" ? (
             <Button loading={bot.phase === "working"} onClick={bot.start}>{t("ingest.shape.auto")}</Button>
@@ -200,13 +206,12 @@ function ShapeState({
           <Button
             variant="ghost"
             loading={ignorePending}
-            onClick={() => {
-              void ignore().catch(() => undefined);
-            }}
+            onClick={() => void ignore()}
           >
             {t("ingest.shape.ignore")}
           </Button>
         </div>
+        <ActionError error={ignoreError} />
       </Panel>
       {manual ? <MappingEditor candidate={candidate} onSaved={onChanged} /> : null}
     </>

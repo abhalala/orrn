@@ -103,12 +103,35 @@ Check a file before adding it with `fileSizeProblem(file, limits)` if you want t
 | `isRunningCandidate`, `isRunningRun`, `candidatePollMs`, `runPollMs` | Polling rules |
 | `detectFileKind(name, type)`, `limitMbFor(kind)` | Kind and MB limit |
 
-`questionView.control` says which input to draw: `unit` (a unit select for the field), `choice` (`options`),
-`period` (financial year and as-of date, saved with `confirmPeriod`, not `answer`), `yesNo`, `column`.
-Answer shapes sent to `answer(...)`: `unit_unknown` `{ unit }`, `date_format_ambiguous` `"dmy"` or `"mdy"`,
-`rates_hidden` `"leave_out"`, `column_meaning_unclear` `{ field }`, `create_legacy_die` and `new_customers`
-`true` or `false`. The router takes `answer` as `unknown`, so these are my reading of plan B7 until lane A's
-`answer.set` is built; if its real shapes differ I change the helpers, not the screens.
+`questionView.control` says which input to draw: `unit` (a unit select for the field), `choice` (`options`, drawn as buttons:
+for `rates_hidden` they are "Leave rates out" and "Hold for the owner"), `period` (financial year and as-of date, saved
+with `confirmPeriod`, not `answer`), `yesNo`, `column`.
+
+Answers are built, never typed: `answerUnit(unitId)`, `answerDateFormat`, `answerRatesHidden`, `answerColumn`, `answerYesNo`,
+or `answerFromValue(code, value)` for a control's value, and sent with `actions.answer(candidateId, subject, built, expectSeq)`.
+A unit is the bare unit id (`"kg"`, `"inr/kg"`). An object like `{ unit }` is not what the dry run reads.
+
+After an answer or a row decision the server puts the candidate back to `processing` with `dryCursor` 0. `useDryRunPump`
+sees that and steps again from the stored cursor; nothing to do in the screen except keep it mounted.
+
+## Mapping editor logic (`recipe-builder.ts`)
+
+`targetFields(target)` gives each field's `labelKey` (`ingest.field.<name>`), kind, units and whether it is required.
+`initialMappings`, `addMapping`, `changeField`, `changeColumn`, `updateMapping` edit `MappingRow[]`; `mappingProblems`
+reports `missingRequired`, `duplicateFields` and `unitToAsk`; `buildRecipe(block, target, rows, previous)` makes the recipe
+and `checkRecipe` runs the engine's `validateRecipe`. A number with no chosen unit gets `unit: null` and an `unclear`
+entry: the dry run asks "which unit is it?", nothing is assumed. A unit is only ever read from the column's header
+(`Weight (kg)`) or chosen by the person.
+
+## Words for failures and rows
+
+- `ingestErrorWords(error, "load" | "action")` gives `{ key, retry }` from `ingest.error.*`. Never show `error.message`.
+- `refusalLines(row.reasons)` and `refusalText(t, line)` word a staged row's reasons (`bad_number:weightMinG`,
+  `confirm_blocked:po_number, line_1_pcs`, the blocker codes through `orders.blockers.*`). Question markers (`q:...`)
+  are dropped.
+- `valueCells(target, row)` gives each stored value with the unit, and, where the file said it differently, what it said
+  (`entered`). A masked rate is `hidden` in both. A rate is shown in rupees from paise with `ingest.rate.unit`.
+- `useDryRunPump(...).stalled` is true when another tab's upload has stopped sending rows for 30 s: say `ingest.read.stalled`.
 
 ## Which key goes with which state (review screen, plan B9)
 
