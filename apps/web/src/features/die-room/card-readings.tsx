@@ -20,7 +20,7 @@ export function ReadingsPanel({ card, onAdd }: { card: CardData; onAdd(): void }
   const { t } = useT();
   const trial = card.instance.trialKgPer12ftMilli;
   // The chart reads left to right in time; the list shows the newest first.
-  const points = [...card.readings].reverse().map((r) => r.kgPer12ftMilli / 1000);
+  const points = [...card.readings].reverse().map((r) => r.kgPer12ftMilli);
 
   if (card.readings.length === 0 && trial == null) {
     return (
