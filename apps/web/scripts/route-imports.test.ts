@@ -11,6 +11,8 @@ import { join } from "node:path";
 const FORBIDDEN = [
   /features\/audit\/action-words/,
   /features\/approvals\/approval-view/,
+  // Imports the plant formatter text helpers (units layer): the search helper for the card tab is `card-tab.ts`.
+  /features\/die-room\/die-room-model/,
 ];
 
 function routeFiles(dir: string): string[] {

@@ -1392,7 +1392,7 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
   for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
 - A route file exports `Route` and nothing else. The code splitter leaves a file whole when it exports more, and every import of that file then lands in the entry (a test-only `export function` in `customers.$id.tsx` once carried the plant formatter and the unit registry into `/`, 196.9 kB to 212.0 kB). A component a test needs lives in a module under `features/` (`scripts/route-imports.test.ts` fails on any other export). The plant formatter provider (`FmtProvider`) is mounted only in the tenant frame and the portal shell; public pages read the default words.
-- `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (197.0 kB after the units layer) and fails if Hindi, the full English, guide text or the unit registry (`UNITS_MODULE_SIGNATURES`) reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
+- `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (188.5 kB after the units layer) and fails if Hindi, the full English, guide text or the unit registry (`UNITS_MODULE_SIGNATURES`) reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
 
 ## No fixture-only routes in production nav
 

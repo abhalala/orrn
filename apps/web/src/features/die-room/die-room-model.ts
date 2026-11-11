@@ -12,18 +12,10 @@ import { serverRefusal } from "@/features/shared/server-refusal";
 
 export type DriftTone = "none" | "under" | "green" | "amber" | "red";
 export type BandPosition = "in" | "above" | "below";
-export type CopyStatus = "available" | "in_use" | "at_nitriding" | "at_maker" | "retired" | "on_trial";
-
-export const COPY_STATUSES: readonly CopyStatus[] = ["available", "in_use", "at_nitriding", "at_maker", "on_trial", "retired"];
-
-/** Tabs of the die card, in the order the spec lists them. */
-export const CARD_TABS = ["readings", "runs", "nitriding", "work", "tier", "maker", "files"] as const;
-export type CardTab = (typeof CARD_TABS)[number];
-
-/** `?tab=` from the URL: anything unknown is the first tab. Plain function (no zod in route files). */
-export function cardTabParam(value: unknown): CardTab {
-  return typeof value === "string" && (CARD_TABS as readonly string[]).includes(value) ? (value as CardTab) : "readings";
-}
+// What the route files read from the URL lives in `search-params.ts`: their `validateSearch` and the board model run in the app
+// entry, and this model imports the plant formatter text helpers, which the `/` closure must not carry (`scripts/route-imports.test.ts`).
+import type { CopyStatus } from "./search-params";
+export { CARD_TABS, cardTabParam, COPY_STATUSES, type CardTab, type CopyStatus } from "./search-params";
 
 export function toneToChip(tone: DriftTone): StatusTone {
   switch (tone) {
