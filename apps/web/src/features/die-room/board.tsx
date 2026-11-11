@@ -35,6 +35,7 @@ import {
   type BoardTile } from "./board-model";
 import { BulkDrawingsSheet } from "./bulk-drawings";
 import { TrialSetting } from "./trial-setting";
+import { copyBandCell } from "./copy-band";
 import { WorstToneChip } from "./drift-chips";
 import { formatBand, type DriftTone } from "./die-room-model";
 import { useFmt } from "@/shared/lib/fmt";
@@ -48,6 +49,9 @@ type CopyRow = {
   sectionSeries: string;
   /** The copy's own band as the server writes it (`2.700-2.900`, or the band's label). */
   bandText: string;
+  /** The same band's ends in grams per 12 ft: the cell writes them in the plant's section unit. */
+  bandMinG: number;
+  bandMaxG: number;
 };
 
 type Row = {
@@ -185,7 +189,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       phoneWide: true,
       cell: (c) => (
         <span data-no-truncate="" data-testid="copy-band" className="font-mono whitespace-nowrap tabular-nums">
-          {/^\d/.test(c.bandText) ? `${c.bandText} ${sectionUnit(fmt)}` : c.bandText}
+          {copyBandCell(c, fmt)}
         </span>
       ),
     },

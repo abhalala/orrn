@@ -11,8 +11,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { usePortalMe } from "./hooks";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
 import { castState, certCasts, chemistryNotes, type CertCast, type CertSnapshot } from "./model";
-import { useFmt } from "@/shared/lib/fmt";
-import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit, paperT } from "@/shared/lib/fmt-text";
 
 /**
  * `/portal/certificate/$dispatchId`: the test certificate of a dispatch, a frozen snapshot. It cites
@@ -20,8 +20,10 @@ import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
  * foundry has not tested. A quality document: no rate, not a tax invoice.
  */
 export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
-  const { t } = useT();
-  const fmt = useFmt();
+  // A paper: today's units, words and date style whatever the plant chose for its screens (guarded by paper-guard.test.ts).
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   usePortalMe();
   const q = useQuery({ ...trpc.portal.certificate.get.queryOptions({ dispatchId }), retry: false });
   const back = { to: `/portal/dispatches/${dispatchId}`, label: t("portal.dispatches.title") };
@@ -141,8 +143,9 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
 }
 
 export function CastBlock({ cast }: { cast: CertCast }) {
-  const { t } = useT();
-  const fmt = useFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
+  const fmt = usePaperFmt();
   const state = castState(cast);
   return (
     <li className="flex min-w-0 flex-col gap-3 rounded-card border border-border p-3" data-cast={cast.castNo} data-cast-state={state}>

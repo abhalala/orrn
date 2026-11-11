@@ -1,3 +1,4 @@
+import { withoutGrouping } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
@@ -68,7 +69,7 @@ export function CompanyStep({
     const next: Errors = {};
     if (!location.trim()) next.location = "errors.required";
     if (!contact.trim()) next.contact = "errors.required";
-    const pressCount = Number(presses.replace(/,/g, ""));
+    const pressCount = Number(withoutGrouping(presses) ?? Number.NaN);
     if (!presses.trim()) next.presses = "errors.required";
     else if (!Number.isInteger(pressCount) || pressCount < 0) next.presses = "errors.wholeNumber";
     else if (pressCount > MAX_PRESSES) next.presses = "welcome.company.pressesMax";

@@ -146,18 +146,37 @@ export function formatAxisTicksIN(
   return scaled.map((v) => (v === 0 ? "0" : `${nf.format(v)}${unit.suffix}`));
 }
 
-/** Plain non-negative decimal, thousands commas allowed. No exponent, sign or junk. */
+/**
+ * Commas only as digit grouping: international "12,345.5" or Indian "1,00,000" (the last group is exactly three digits, a group
+ * before it two or three, the first one to three, no leading 0 group), then an optional decimal point part. "2,5", "4,50" and
+ * "1,2,3" are not grouping: they are a decimal comma or a typo, and reading them as 25, 450 and 123 stored ten times the value.
+ * Text without a comma always passes.
+ */
+const DIGIT_GROUPING = /^(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d?(?:,\d{2})*,\d{3})(?:\.\d*)?$/;
+
+/**
+ * Typed number text with its grouping commas taken out, trimmed; null when a comma is not digit grouping. The one place that
+ * decides what a comma means in a plain number box, for the web and the phone (`parseDecimal` and every form parser that
+ * keeps its own digit pattern use it).
+ */
+export function withoutGrouping(text: string): string | null {
+  const t = text.trim();
+  if (!t.includes(",")) return t;
+  return DIGIT_GROUPING.test(t) ? t.replace(/,/g, "") : null;
+}
+
+/** Plain non-negative decimal, digit-grouping commas allowed ("1,234.5", "1,00,000"; "2,5" is not a number). No exponent, sign or junk. */
 export function parseDecimal(text: string): number | null {
-  const cleaned = text.trim().replace(/,/g, "");
-  if (!/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+  const cleaned = withoutGrouping(text);
+  if (cleaned === null || !/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
 /** The same text `parseDecimal` accepts, as an exact ratio (no float). Null for anything else. */
 function parseDecimalRatio(text: string): Ratio | null {
-  const cleaned = text.trim().replace(/,/g, "");
-  if (!/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+  const cleaned = withoutGrouping(text);
+  if (cleaned === null || !/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
   const [whole = "", frac = ""] = cleaned.split(".");
   return ratio(BigInt(`${whole || "0"}${frac}`), pow10(frac.length));
 }

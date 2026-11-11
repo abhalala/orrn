@@ -127,17 +127,12 @@ export function geometryText(mm: number | null | undefined, unit: LengthUnit): s
   return unit === "mm" ? trimNumber(mm, 1) : trimNumber(mm / MM_PER_INCH, 3);
 }
 
-/** Commas only as digit grouping: 1,250.5 and the Indian 1,25,000, never a leading 0 group. */
-const DIGIT_GROUPING = /^(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d?(?:,\d{2})*,\d{3})(?:\.\d*)?$/;
-
 /**
- * A typed number, or null. `parseDecimal` drops every comma, so "2,65" (a decimal comma) would read
- * as 265; a comma is accepted only as digit grouping here.
+ * A typed number, or null. A comma is accepted only as digit grouping ("1,250.5", the Indian "1,25,000"): "2,65" is not 265.
+ * The rule lives in the shared `parseDecimal` (units layer sweep 3), so this is the same read.
  */
 export function readDecimal(text: string): number | null {
-  const s = text.trim();
-  if (s.includes(",") && !DIGIT_GROUPING.test(s)) return null;
-  return parseDecimal(s);
+  return parseDecimal(text);
 }
 
 /** Text in the company unit to mm at 0.1 mm; null when empty, "invalid" when not a number. */

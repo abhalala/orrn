@@ -13,6 +13,7 @@ import {
   kgToG,
   lengthFromInput,
   parseDecimal,
+  withoutGrouping,
   weightRange12ft,
   weightRange12ftFromMilli,
   weightRange12ftOf,
@@ -87,6 +88,29 @@ describe("kg formatting", () => {
     expect(formatKgTotal(52)).toBe("52.0");
     // en-IN lakh grouping, consistent with formatKg
     expect(formatKgTotal(1234567.8)).toBe("12,34,567.8");
+  });
+});
+
+describe("a comma is digit grouping or nothing (units sweep 3, M3)", () => {
+  test("correct grouping reads as before, western and Indian, with or without a decimal part", () => {
+    expect(parseDecimal("1,000")).toBe(1000);
+    expect(parseDecimal("1,00,000")).toBe(100_000);
+    expect(parseDecimal("12,345.5")).toBe(12_345.5);
+    expect(parseDecimal("1,234,567.25")).toBe(1_234_567.25);
+    expect(parseDecimal("12,34,567")).toBe(1_234_567);
+    expect(parseDecimal("999,999")).toBe(999_999);
+  });
+  test("a decimal comma or a stray comma is not a number: 2,5 was 25, 4,50 was 450, 1,2,3 was 123", () => {
+    for (const text of ["2,5", "4,50", "1,2,3", "12,5", "0,5", "0,500", ",5", "5,", "1,0000", "1,234,56", "1,2345", "12,3456.7", "1,,000", "1, 000"]) {
+      expect(parseDecimal(text)).toBeNull();
+      expect(withoutGrouping(text)).toBeNull();
+    }
+  });
+  test("text without a comma is untouched", () => {
+    expect(withoutGrouping("  12.5 ")).toBe("12.5");
+    expect(withoutGrouping("")).toBe("");
+    expect(withoutGrouping("1,00,000.5")).toBe("100000.5");
+    expect(parseDecimal("2.5")).toBe(2.5);
   });
 });
 

@@ -1,4 +1,4 @@
-import { canCancelIssue, canReturnDie, type StatusTone } from "@orrn/domain";
+import { canCancelIssue, canReturnDie, withoutGrouping, type StatusTone } from "@orrn/domain";
 
 import type { BandPosition, CopyStatus, DriftTone } from "./attention";
 
@@ -77,8 +77,8 @@ export const MAX_MILLI = 500_000;
  * stores. Up to three decimals; null when empty, not a number or outside 0.001 to 500 kg.
  */
 export function parseKgToMilli(text: string): number | null {
-  const clean = text.replace(/,/g, "").trim();
-  if (!/^\d{1,6}(\.\d{1,3})?$/.test(clean)) return null;
+  const clean = withoutGrouping(text);
+  if (clean === null || !/^\d{1,6}(\.\d{1,3})?$/.test(clean)) return null;
   const [whole = "0", frac = ""] = clean.split(".");
   const milli = Number(whole) * 1000 + Number(frac.padEnd(3, "0"));
   return milli >= 1 && milli <= MAX_MILLI ? milli : null;

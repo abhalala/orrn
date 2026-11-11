@@ -5,7 +5,7 @@
  * `lib/store.ts` (pinned by store-qty.test.ts) so the web bundle never pulls in the schema.
  */
 
-import type { Fmt } from "@orrn/domain";
+import { withoutGrouping, type Fmt } from "@orrn/domain";
 import { kgTrim } from "@/shared/lib/fmt-text";
 
 export const STORE_UNITS = ["kg", "litre", "piece", "metre", "set", "box", "bag"] as const;
@@ -38,8 +38,11 @@ export function isCountable(unit: StoreUnit | string | null | undefined): boolea
  * adds the whole-number rule for countable items.
  */
 export function parseQtyMilli(text: string, unit: StoreUnit | null): QtyResult {
-  const cleaned = text.replace(/[\s,]/g, "");
-  if (cleaned === "") return { ok: false, problem: "empty" };
+  // Spaces are ignored; a comma only as digit grouping ("2,5" is not 25).
+  const spaced = text.replace(/\s/g, "");
+  const cleaned = withoutGrouping(spaced);
+  if (spaced === "") return { ok: false, problem: "empty" };
+  if (cleaned === null) return { ok: false, problem: "invalid" };
   const m = QTY_TEXT.exec(cleaned);
   if (!m || (m[1] === "" && (m[2] ?? "") === "")) return { ok: false, problem: "invalid" };
   const whole = m[1] ?? "";

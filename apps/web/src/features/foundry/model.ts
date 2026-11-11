@@ -18,6 +18,7 @@ import {
   type SpectroLimit,
   type SpectroReading,
   type SpectroVerdict,
+  withoutGrouping,
 } from "@orrn/domain";
 
 export { CAST_STATUSES, type CastStatus } from "./search";
@@ -139,10 +140,10 @@ export type CountIssue = "pcs" | "kg" | "together";
  * not. The server works the tail out from this and the ledger; nothing here is a figure.
  */
 export function countedBillets(pcsText: string, kgText: string): { ok: true; billetsOnHand: { count: number; kgG: number } } | { ok: false; issue: CountIssue } {
-  const pcsRaw = pcsText.trim().replace(/,/g, "");
-  const kgRaw = kgText.trim().replace(/,/g, "");
-  if (!/^\d{1,7}$/.test(pcsRaw)) return { ok: false, issue: "pcs" };
-  if (!/^\d+(\.\d{1,3})?$/.test(kgRaw)) return { ok: false, issue: "kg" };
+  const pcsRaw = withoutGrouping(pcsText);
+  const kgRaw = withoutGrouping(kgText);
+  if (pcsRaw === null || !/^\d{1,7}$/.test(pcsRaw)) return { ok: false, issue: "pcs" };
+  if (kgRaw === null || !/^\d+(\.\d{1,3})?$/.test(kgRaw)) return { ok: false, issue: "kg" };
   const count = Number(pcsRaw);
   const kgG = Math.round(Number(kgRaw) * 1000);
   if (count > 1_000_000 || kgG > 100_000_000) return { ok: false, issue: "kg" };

@@ -202,3 +202,20 @@ describe("the box and its refusal are tied together for a screen reader", () => 
     expect(html).toMatch(new RegExp(`aria-describedby="[^"]*${id}`));
   });
 });
+
+describe("a refusal left open while the plant switches to the draft's own unit (units sweep 3)", () => {
+  test("the plain box shows the typed text without the marker, so it can be edited", () => {
+    const html = render({}, <PlantInput spec={MASS_KG} value="?2,5" onValueChange={noop} aria-label="W" />);
+    expect(html).toContain('value="2,5"');
+    expect(html).not.toContain("?2,5");
+  });
+  test("text the plain box cannot hold (a unit word) shows as a blank box, not as a box that refuses every edit", () => {
+    const html = render({}, <PlantInput spec={MASS_KG} value="?12.5 lb" onValueChange={noop} aria-label="W" />);
+    expect(html).toContain('value=""');
+    expect(html).not.toContain("?");
+  });
+  test("a good draft is untouched, and the converting box still shows a refusal as typed", () => {
+    expect(render({}, <PlantInput spec={MASS_KG} value="12.5" onValueChange={noop} aria-label="W" />)).toContain('value="12.5"');
+    expect(render({ units: { mass: "lb" } }, <PlantInput spec={MASS_KG} value="?12.3456" onValueChange={noop} aria-label="W" />)).toContain('value="12.3456"');
+  });
+});

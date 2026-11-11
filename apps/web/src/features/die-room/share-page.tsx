@@ -10,8 +10,8 @@ import { trpcClient } from "@/shared/utils/trpc";
 
 import { shortDate } from "./die-room-model";
 import { kgText, sectionLabel, shareFailure, wallText } from "./share-model";
-import { useFmt } from "@/shared/lib/fmt";
-import { sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { paperT, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 
 /** The drawing link lives 10 minutes; come back before it dies (focus after 8 minutes asks again). */
 const FRESH_MS = 8 * 60 * 1000;
@@ -22,8 +22,11 @@ const FRESH_MS = 8 * 60 * 1000;
  * expired link is one neutral page. Costs, stock and customers are not in the answer at all.
  */
 export function DieSharePage({ token }: { token: string }) {
-  const fmt = useFmt();
-  const { t } = useT();
+  // A paper: this page renders outside the tenant frame today, so the plant's unit would not reach it; it reads the paper
+  // formatter and the paper words anyway, so a move under the frame can never write kg/12ft figures under a lb/ft word.
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const view = useQuery({
     queryKey: ["die-share-view", token],
     queryFn: () => trpcClient.die.share.view.mutate({ token }),

@@ -327,6 +327,9 @@ export const dieInstanceRouter = router({
             kgPerMetre: f.kgPerMetre,
             bandId: band.id,
             bandText: bandText(band),
+            /** The band ends in grams per 12 ft: the screen writes them in the plant section unit; bandText stays kg/12ft for the phone. */
+            bandMinG: band.weightMinG,
+            bandMaxG: band.weightMaxG,
           };
         }),
         total,

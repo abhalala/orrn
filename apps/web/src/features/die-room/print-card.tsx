@@ -8,8 +8,8 @@ import {
   shortDateTime,
   wallMmText } from "./die-room-model";
 import type { CardData } from "./types";
-import { useFmt, usePaperFmt } from "@/shared/lib/fmt";
-import { altSectionText, kgTrim, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { altSectionText, kgTrim, massUnit, paperT, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 /**
  * The A4 copy card (D16 / backlog 39): what the die room keeps on paper for one copy. Hidden on
@@ -42,9 +42,10 @@ const PRINT_CSS = `
 `;
 
 export function PrintCard({ card }: { card: CardData }) {
-  const paper = usePaperFmt();
-  const fmt = useFmt();
-  const { t } = useT();
+  // A paper: today's units and words whatever the plant chose for its screens (guarded by paper-guard.test.ts).
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const { instance, section, band } = card;
   const shape = [
     section?.profileKind ? t(`dieRoom.card.${section.profileKind}`) : null,
@@ -118,7 +119,7 @@ export function PrintCard({ card }: { card: CardData }) {
         <tbody>
           {card.readings.slice(0, 12).map((r) => (
             <tr key={r.id}>
-              <td className={cell}>{shortDateTime(paper, r.readAt)}</td>
+              <td className={cell}>{shortDateTime(fmt, r.readAt)}</td>
               <td className={`${cell} font-mono tabular-nums`}>{sectionText(fmt, r.kgPer12ftMilli)}</td>
               <td className={`${cell} font-mono tabular-nums`}>{r.pctTenth == null ? "" : pctTenthText(r.pctTenth)}</td>
               <td className={cell}>{r.pressRunNumber ?? t("dieRoom.reading.bench")}</td>
@@ -139,7 +140,7 @@ export function PrintCard({ card }: { card: CardData }) {
         <tbody>
           {card.nitriding.slice(0, 6).map((n) => (
             <tr key={n.id}>
-              <td className={cell}>{shortDate(paper, n.nitridedAt)}</td>
+              <td className={cell}>{shortDate(fmt, n.nitridedAt)}</td>
               <td className={cell}>{n.hardness ?? ""}</td>
             </tr>
           ))}

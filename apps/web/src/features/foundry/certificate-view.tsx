@@ -11,7 +11,6 @@ import { useEffect } from "react";
 
 import { CastBlock } from "@/features/portal/certificate-page";
 import { ppmPercentText, type CertCast } from "@/features/portal/model";
-import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -22,8 +21,8 @@ import { castPeriodText, ELEMENT_LABEL, verdictTone } from "./model";
 import { SpectroFileLink } from "./spectro-file-link";
 import { SpectroTable } from "./spectro-panel";
 import { LoadFailed, Note, useTimeZone } from "./ui";
-import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit, castLengthText } from "@/shared/lib/fmt-text";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, castLengthText, paperT, whenText } from "@/shared/lib/fmt-text";
 
 const RANK = { fail: 3, incomplete: 2, pass: 1 } as const;
 
@@ -48,10 +47,11 @@ const PRINT_CSS = `
  * Not linked from the public bundle page, not a tax document.
  */
 export function CertificateScreen({ id }: { id: string }) {
-  const fmt = useFmt();
-  const { t } = useT();
+  // A paper: today's units, words, date order and clock whatever the plant chose for its screens (guarded by paper-guard.test.ts).
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const tz = useTimeZone();
-  const when = useCompanyWhen();
   const { data: me } = useMe();
   const cast = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id }), meta: INLINE_ERROR_META });
   const trace = useQuery({ ...trpc.foundry.casts.trace.queryOptions({ castId: id }), meta: INLINE_ERROR_META });
@@ -192,7 +192,7 @@ export function CertificateScreen({ id }: { id: string }) {
             </ul>
           )}
         </section>
-        <p className="m-0 border-t border-border pt-3 text-[13px] text-muted-foreground">{t("foundry.cert.footer", { date: when(Date.now()) })}</p>
+        <p className="m-0 border-t border-border pt-3 text-[13px] text-muted-foreground">{t("foundry.cert.footer", { date: whenText(fmt, Date.now()) })}</p>
       </article>
     </>
   );
