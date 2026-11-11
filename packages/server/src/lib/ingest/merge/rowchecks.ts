@@ -8,20 +8,23 @@
  *   refuses.
  * - die copies (B12): a status only die issue, maker jobs and trials may set.
  * - customer and vendor aliases (B13): an alias that is already the name of another customer or
- *   vendor.
+ *   vendor, and an alias that belongs to another customer or vendor (never moved by an import).
+ * - order groups (B1, B5): an order above 100 lines, one PO on two order dates.
+ * - new die copies: a section that is archived, a new copy sent straight to nitriding.
  */
 import { DIE_COPY_HAND_STATUSES } from "@orrn/domain";
 import { orderLineGrams } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { customer } from "@orrn/db/schema/customers";
+import { ingestStagedRow } from "@orrn/db/schema/ingest";
 import { vendor } from "@orrn/db/schema/purchase";
 
 import { serverNameKey } from "../resolvers";
 import type { IngestCtx } from "../types";
-import { num, text, type Values } from "./shared";
+import { LINES_PER_ORDER, num, text, type Values } from "./shared";
 
 /** One failed row check. `code` and `field` make the dry run reason; `message` is for the merge hold. */
 export type RowCheck = { code: string; field: string; message: string };
@@ -92,6 +95,62 @@ export async function loadOrderLineSchema(): Promise<LineSchema> {
 }
 
 // ---------------------------------------------------------------------------
+// Order groups (B1, B5)
+// ---------------------------------------------------------------------------
+
+/** The order key of a staged row. Must give the same key as `orderKeyOf` in shared.ts. */
+const V = ingestStagedRow.values;
+export const ORDER_GROUP_SQL = sql<string>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'), '') || char(31) || case when trim(coalesce(json_extract(${V}, '$.poNumber'), '')) <> '' then 'po:' || lower(trim(json_extract(${V}, '$.poNumber'))) else 'old:' || trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')) || char(31) || coalesce(json_extract(${V}, '$.orderDate'), '') end`;
+
+/** The fields of one order line `orderGroupCheck` reads. `po` is the lower-cased PO, `poText` as written. */
+export type OrderGroupRow = { rowIndex: number; po: string | null; poText: string | null; orderDate: string | null; oldNo: string | null };
+
+/** Row reason codes of `orderGroupCheck`, so the dry run can find the rows it refused. */
+export const ORDER_GROUP_CODES = ["order_lines_over", "po_two_dates"] as const;
+
+/**
+ * One order (the lines of one order key) the merge would not send: above 100 lines, or one PO with
+ * more than one order date. The planner holds the candidate with the message; the dry run refuses
+ * the order's lines with the reason first.
+ */
+export function orderGroupCheck(list: readonly OrderGroupRow[]): RowCheck | null {
+  const first = list[0];
+  if (!first) return null;
+  const name = first.poText ? `PO ${first.poText}` : first.oldNo ? `Old order ${first.oldNo}` : `The order on file row ${first.rowIndex + 1}`;
+  if (list.length > LINES_PER_ORDER) {
+    return {
+      code: "order_lines_over",
+      field: "order",
+      message: `${name} has ${list.length} lines. An order takes ${LINES_PER_ORDER} lines at most. Split it in the file or skip some rows.`,
+    };
+  }
+  const dates = [...new Set(list.map((r) => r.orderDate ?? ""))];
+  if (first.po && dates.length > 1) {
+    return {
+      code: "po_two_dates",
+      field: "orderDate",
+      message: `${name} has more than one order date in the file (${dates.filter(Boolean).slice(0, 3).join(", ")}). One PO is one order. Fix the dates or skip rows.`,
+    };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// New die copies
+// ---------------------------------------------------------------------------
+
+/** What dieInstance.create refuses for a new copy: an archived section, a copy that starts at nitriding. */
+export function newCopyCheck(sectionStatus: string | null | undefined, status: unknown): RowCheck | null {
+  if (sectionStatus && sectionStatus !== "active") {
+    return { code: "section_archived", field: "sectionCode", message: "This section is archived; no new die copies" };
+  }
+  if (text(status) === "at_nitriding") {
+    return { code: "status_not_allowed", field: "status", message: "A new copy starts on the rack; send it to nitriding from its card" };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Die copies (B12)
 // ---------------------------------------------------------------------------
 
@@ -154,6 +213,14 @@ export function aliasNameCheck(alias: string, ownerId: string | null, owners: Ma
 export function aliasRefusal(rowIndex: number, alias: string, ownerId: string | null, owners: Map<string, NameOwner>): string | null {
   const c = aliasNameCheck(alias, ownerId, owners);
   return c ? `${at(rowIndex)}: ${c.message}` : null;
+}
+
+/**
+ * An alias that already belongs to another customer or vendor (`alias_taken`). The merge never moves
+ * it: the alias adapters refuse any update. Only skip or keep orrn's (`keep_live`) fit such a row.
+ */
+export function aliasMoveRefusal(target: "customer_aliases" | "vendor_aliases"): string {
+  return `A name that belongs to another ${target === "vendor_aliases" ? "vendor" : "customer"} is not moved by an import. Skip these rows.`;
 }
 
 /** The dry run reason of a failed check: `<code>:<field>`. */

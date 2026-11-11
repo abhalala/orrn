@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrder, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -48,7 +48,20 @@ import { companyModules } from "../moduleGate";
 import { can } from "../permissions";
 import { nameKey } from "../purchase";
 import { fyOfDate, stagedRowIdOf } from "./artifacts";
-import { aliasNameCheck, aliasNameOwners, checkReason, handStatusCheck, loadOrderLineSchema, orderLineCheck, type NameOwner } from "./merge/rowchecks";
+import {
+  aliasNameCheck,
+  aliasNameOwners,
+  checkReason,
+  handStatusCheck,
+  loadOrderLineSchema,
+  newCopyCheck,
+  ORDER_GROUP_CODES,
+  ORDER_GROUP_SQL,
+  orderGroupCheck,
+  orderLineCheck,
+  type NameOwner,
+} from "./merge/rowchecks";
+import { companyFloor } from "../orderLines";
 import { refreshArtifactPeriod } from "./period";
 import {
   guardedBatch,
@@ -56,6 +69,8 @@ import {
   loadArtifact,
   loadBlock,
   loadCandidate,
+  RATE_FIELDS,
+  seesRates,
   type AnswerRow,
   type ArtifactRow,
   type CandidateRow,
@@ -248,6 +263,8 @@ type PageLive = {
   vendorAliasKeys?: Map<string, string>;
   /** Alias targets: the live customer or vendor each name key belongs to (B13). */
   nameOwners?: Map<string, NameOwner>;
+  /** Sections a ready or approved die sheet of the plant will create, by staged row key (X-new-4). */
+  pendingSections?: { rowKey: string; series: string; code: string }[];
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
@@ -258,6 +275,10 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
   if (target === "customers" || target === "customer_aliases" || target === "orders") live.customers = await loadCustomerIndex(ctx);
   if (target === "vendors" || target === "vendor_aliases") live.vendors = await loadVendorIndex(ctx);
   if (target === "dies" || target === "die_copies" || target === "bundles" || target === "orders") live.sections = await loadSections(ctx, codes);
+  if (target === "orders" || target === "die_copies") {
+    const known = new Set((live.sections ?? []).map((x) => x.sectionCode.trim().toUpperCase()));
+    live.pendingSections = await loadPendingSections(ctx, sectionKeys(codes).filter((k) => !known.has(k)));
+  }
   if (target === "die_copies") live.copies = await loadCopies(ctx, rows.map((v) => str(v.makerDieNo)));
   if (target === "bundles") live.legacy = await loadLegacyBundles(ctx, rows.map((v) => str(v.legacyId)));
   if (target === "customers") {
@@ -348,6 +369,35 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
   return live;
 }
 
+/**
+ * New sections a die sheet of the plant will add when it merges: `ready_create` rows of a dies
+ * candidate that is ready or approved (X-new-4). Dies merge before die copies and orders, so a row
+ * pointing at one of them (`pending:<rowKey>`) finds the new section at chunk time; if that die sheet
+ * is not merged first, the merge holds the row's candidate (dependency_held) instead of writing it.
+ */
+async function loadPendingSections(ctx: IngestCtx, codes: readonly string[]): Promise<{ rowKey: string; series: string; code: string }[]> {
+  if (codes.length === 0) return [];
+  const V = ingestStagedRow.values;
+  const code = sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))`;
+  const rows = await mapInChunks([...codes], (part) =>
+    ctx.db
+      .select({ rowKey: ingestStagedRow.rowKey, series: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.series'), '')))`, code })
+      .from(ingestStagedRow)
+      .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
+      .where(
+        and(
+          eq(ingestCandidate.companyId, ctx.companyId),
+          eq(ingestCandidate.target, "dies"),
+          inArray(ingestCandidate.state, ["ready", "approved"]),
+          eq(ingestStagedRow.state, "ready_create"),
+          eq(ingestStagedRow.mergeState, "open"),
+          inArray(code, part),
+        ),
+      ),
+  );
+  return rows;
+}
+
 type ClassifyCtx = {
   target: IngestTarget;
   recipe: Recipe;
@@ -402,8 +452,18 @@ function sectionOf(values: Values, ids: Record<string, string>, reasons: string[
   }
   if (r.kind === "ambiguous") return amb(values, "sectionCode", r.options, reasons, "ambiguous");
   // The merge adds an old section only for bundles. An order line or a die copy needs a section that
-  // is in orrn when the merge writes it (B10), so the question is not asked for them.
+  // is in orrn when the merge writes it (B10), so the question is not asked for them. A section a die
+  // sheet of this plant will add first is that section (X-new-4): the row points at its staged row.
   if (cx.target === "orders" || cx.target === "die_copies") {
+    const series = str(values.series).trim().toUpperCase();
+    const byCode = (cx.live.pendingSections ?? []).filter((x) => x.code === code.toUpperCase());
+    const exact = series ? byCode.filter((x) => x.series === series) : [];
+    const hit = exact.length === 1 ? exact[0] : byCode.length === 1 ? byCode[0] : undefined;
+    if (hit) {
+      ids.sectionCode = `pending:${hit.rowKey}`;
+      reasons.push("section_pending:sectionCode");
+      return null;
+    }
     return { state: "refused", values, reasons: [...reasons, "section_unknown:sectionCode"], matchId: null, diff: null };
   }
   const legacy = cx.answers.legacyDie.get(code);
@@ -524,6 +584,9 @@ export function applyDecision(out: RowOutcome, row: Pick<Staged, "decision" | "m
   if (d === "skip") return { ...out, state: "skipped" };
   if (out.state !== "ambiguous" && out.state !== "conflict") return out;
   if (out.reasons.some((r) => r.startsWith("q:"))) return out;
+  // An alias of another customer or vendor is never moved by the merge (the alias adapters refuse
+  // any update): only skip or keep orrn's fit. Any other choice stages the row refused (X-new-3).
+  if (out.reasons.includes("alias_taken:alias") && d !== "keep_live") return { ...out, state: "refused", matchId: null, diff: null };
   switch (d) {
     case "use_match": {
       const options = ((out.values?._options as { options: { id: string }[] }[] | undefined) ?? []).flatMap((o) => o.options.map((x) => x.id));
@@ -580,7 +643,12 @@ export async function candidateQuestions(
   }
   if (periodRequired(r) && !artifact.periodConfirmed?.asOf) add("period_needed", "", {});
   const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
-  if (r.target === "orders" && r.fields.some((f) => f.field === "rate") && !can(me, "order.price")) add("rates_hidden", "", {});
+  if (r.target === "orders" && r.fields.some((f) => f.field === "rate")) {
+    // With rates on sales orders off, the merge writes no rate for anyone (B3): the person leaves
+    // rates out first, or turns rates on (X-new-3). Asked of everyone, and it blocks approve.
+    if ((await companyFloor(ctx.db, ctx.companyId)).floor.priceOnSalesOrder !== true) add("rates_hidden", "", { reason: "pricing_off" });
+    else if (!can(me, "order.price")) add("rates_hidden", "", {});
+  }
 
   const waiting = await ctx.db
     .select({ reasons: ingestStagedRow.reasons, magnitude: sql<string | null>`json_extract(${ingestStagedRow.values}, '$._magnitude')` })
@@ -594,39 +662,46 @@ export async function candidateQuestions(
     );
   const codes = new Set<string>();
   let newNames = 0;
+  // Keyed by subject (field, unit read in, side).
   const flagged = new Map<string, { field: string; unit: string; likelyUnit: string; side: string; count: number }>();
   for (const w of waiting) {
     for (const reason of w.reasons ?? []) {
       if (reason === Q_CUSTOMER_NEW) newNames += 1;
       else if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) codes.add(reason.slice(Q_SECTION_UNKNOWN.length + 1));
       else if (reason.startsWith(`${Q_MAGNITUDE}:`)) {
-        const field = reason.slice(Q_MAGNITUDE.length + 1);
+        const subject = reason.slice(Q_MAGNITUDE.length + 1);
+        const { field, unit, side } = parseMagnitudeSubject(subject);
         let note: Partial<MagnitudeNote> | undefined;
         try {
-          note = (JSON.parse(w.magnitude ?? "[]") as MagnitudeNote[]).find((n) => n.field === field);
+          note = (JSON.parse(w.magnitude ?? "[]") as MagnitudeNote[]).find((n) => magnitudeSubject({ field: n.field, side: n.side }, n.unit) === subject);
         } catch {
           note = undefined;
         }
         const likely = note?.likelyUnit ?? "";
-        const seen = flagged.get(field);
+        const seen = flagged.get(subject);
         if (!seen) {
-          flagged.set(field, { field, unit: note?.unit ?? "", likelyUnit: likely, side: note?.side ?? "", count: 1 });
+          flagged.set(subject, { field, unit, likelyUnit: likely, side, count: 1 });
           continue;
         }
         seen.count += 1;
-        // A unit is offered only when every flagged row of the column points at the same one.
+        // A unit is offered only when every flagged row of the question points at the same one.
         if (seen.likelyUnit !== likely) seen.likelyUnit = "";
-        if (seen.side !== (note?.side ?? "")) seen.side = "";
       }
     }
   }
   for (const code of [...codes].sort()) add("create_legacy_die", code, { code });
-  // Magnitude checks (C19): one question per field and offered unit, still shown once answered.
+  // Magnitude checks (C19): one question per field, unit read in and side; still shown once answered.
   for (const a of answers) {
     if (a.questionCode !== "magnitude_check" || flagged.has(a.subject)) continue;
-    flagged.set(a.subject, { field: a.subject, unit: "", likelyUnit: "", side: "", count: 0 });
+    const { field, unit, side } = parseMagnitudeSubject(a.subject);
+    flagged.set(a.subject, { field, unit, likelyUnit: "", side, count: 0 });
   }
-  for (const [subject, p] of [...flagged].sort(([x], [y]) => x.localeCompare(y))) add("magnitude_check", subject, p);
+  const seesPrices = seesRates(ctx);
+  for (const [subject, p] of [...flagged].sort(([x], [y]) => x.localeCompare(y))) {
+    // A rate question still blocks approve for a person who may not see rates, but it offers no
+    // unit, since that tells the size of the rate. Such a person may not answer it (A8, X-new-2).
+    add("magnitude_check", subject, !seesPrices && RATE_FIELDS.includes(p.field) ? { ...p, likelyUnit: "" } : p);
+  }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
   return out;
 }
@@ -644,9 +719,29 @@ export function clearLayoutAnswers(ctx: Pick<IngestCtx, "db" | "companyId">, can
     );
 }
 
-/** Questions that block approve for anyone (rates_hidden depends on who approves, so it is left out). */
+/**
+ * Drops the `magnitude_check` answers of one field. Put it in the batch that changes how the field
+ * is read (a unit_unknown answer): those answers were about values the person no longer sees.
+ */
+export function clearMagnitudeAnswers(ctx: Pick<IngestCtx, "db" | "companyId">, candidateId: string, field: string): SqliteBatchItem {
+  return ctx.db
+    .delete(ingestAnswer)
+    .where(
+      and(
+        eq(ingestAnswer.companyId, ctx.companyId),
+        eq(ingestAnswer.candidateId, candidateId),
+        eq(ingestAnswer.questionCode, "magnitude_check"),
+        sql`substr(${ingestAnswer.subject}, 1, ${field.length + 1}) = ${`${field}|`}`,
+      ),
+    );
+}
+
+/**
+ * Questions that block approve for anyone. rates_hidden depends on who approves, so it is left out,
+ * unless rates on sales orders are off for the plant: then nobody may merge the rates.
+ */
 export function openQuestionCount(questions: readonly IngestQuestion[]): number {
-  return questions.filter((q) => q.open && q.code !== "rates_hidden").length;
+  return questions.filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off")).length;
 }
 
 /** Ambiguous and conflict rows that wait on a person, not on a question. */
@@ -689,18 +784,32 @@ export function recountStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candi
 // Magnitude checks (C19) and the merge's row checks
 // ---------------------------------------------------------------------------
 
-/** The subject of a `magnitude_check` question: the field. One answer covers the column's flagged rows. */
-export const magnitudeSubject = (f: Pick<MagnitudeFlag, "field">) => f.field;
+/**
+ * The subject of a `magnitude_check` question: `<field>|<unit>|<side>`, where unit is the unit the
+ * column was read in and side is above or below. The answer is about exactly the rows the person
+ * saw: a row read in another unit, or out of range on the other side, waits on its own question.
+ */
+export const magnitudeSubject = (f: Pick<MagnitudeFlag, "field" | "side">, unit: string | null) => `${f.field}|${unit ?? ""}|${f.side}`;
+
+/** The field, unit and side of a `magnitude_check` subject. */
+export function parseMagnitudeSubject(subject: string): { field: string; unit: string; side: string } {
+  const [field = "", unit = "", side = ""] = subject.split("|");
+  return { field, unit, side };
+}
 
 /** What a waiting flag keeps on the row (`values._magnitude`), for the question and the screen. */
 export type MagnitudeNote = { field: string; side: MagnitudeFlag["side"]; unit: string | null; likelyUnit: UnitId | null; likelyValue: number | null };
 
+/** Rounds of unit re-reads one row may take (t to kg, then kg to g) before it simply waits. */
+const MAGNITUDE_ROUNDS = 3;
+
 /**
- * Settle a row's magnitude flags with the answers (C19). An answer covers every flagged row of that
- * field in the block. "as_is" keeps the value and notes it (`magnitude_confirmed`). A unit reads the
- * flagged cell again in that unit (`magnitude_unit`); the entered text stays as the file had it, and
- * rows of the column that were not flagged keep the unit of the layout. A flag with no answer is
- * returned as waiting: the row cannot be ready.
+ * Settle a row's magnitude flags with the answers (C19). An answer covers the flagged rows of that
+ * field read in the same unit and out of range on the same side. "as_is" keeps the value and notes
+ * it (`magnitude_confirmed`). A unit reads the cell again in that unit (`magnitude_unit`); the
+ * entered text stays as the file had it, and rows of the column that were not flagged keep the unit
+ * of the layout. The row read again is checked again: a value still out of range waits on the
+ * question for its new unit. A flag with no answer is returned as waiting: the row cannot be ready.
  */
 export function settleMagnitude(
   a: ApplyRow,
@@ -710,18 +819,29 @@ export function settleMagnitude(
 ): { applied: ApplyRow; waiting: MagnitudeFlag[]; notes: string[] } {
   if (a.state !== "ok" || a.flags.length === 0) return { applied: a, waiting: [], notes: [] };
   const units: Record<string, UnitId> = {};
-  const notes: string[] = [];
-  const waiting: MagnitudeFlag[] = [];
-  for (const f of a.flags) {
-    const answer = answers.magnitude.get(magnitudeSubject(f));
-    if (answer === "as_is") notes.push(`magnitude_confirmed:${f.field}`);
-    else if (answer) {
-      units[f.field] = answer as UnitId;
-      notes.push(`magnitude_unit:${f.field}`);
-    } else waiting.push(f);
+  const notes = new Set<string>();
+  const readIn = new Map<string, Set<string>>();
+  let cur = a;
+  for (let round = 0; ; round += 1) {
+    const waiting: MagnitudeFlag[] = [];
+    let reread = false;
+    for (const f of cur.flags) {
+      const seen = cur.entered[f.field]?.unit ?? null;
+      const tried = readIn.get(f.field) ?? new Set<string>([seen ?? ""]);
+      readIn.set(f.field, tried);
+      const answer = answers.magnitude.get(magnitudeSubject(f, seen));
+      if (answer === "as_is" || (answer && answer === seen)) notes.add(`magnitude_confirmed:${f.field}`);
+      else if (answer && !tried.has(answer) && round < MAGNITUDE_ROUNDS) {
+        tried.add(answer);
+        units[f.field] = answer as UnitId;
+        notes.add(`magnitude_unit:${f.field}`);
+        reread = true;
+      } else waiting.push(f);
+    }
+    if (!reread) return { applied: cur, waiting, notes: [...notes] };
+    cur = applyRow(compileWith(units), raw, a.rowIndex);
+    if (cur.state !== "ok") return { applied: cur, waiting: [], notes: [...notes] };
   }
-  if (Object.keys(units).length === 0) return { applied: a, waiting, notes };
-  return { applied: applyRow(compileWith(units), raw, a.rowIndex), waiting, notes };
 }
 
 /** A row that waits on `magnitude_check` (C19): ambiguous, with the flag's reason and the question's. */
@@ -739,7 +859,7 @@ function holdForMagnitude(out: RowOutcome, waiting: readonly MagnitudeFlag[], en
   return {
     ...out,
     state: "ambiguous",
-    reasons: [...out.reasons, ...waiting.flatMap((f) => [magnitudeReason(f), `${Q_MAGNITUDE}:${magnitudeSubject(f)}`])],
+    reasons: [...out.reasons, ...waiting.flatMap((f) => [magnitudeReason(f), `${Q_MAGNITUDE}:${magnitudeSubject(f, entered[f.field]?.unit ?? null)}`])],
   };
 }
 
@@ -747,11 +867,16 @@ function holdForMagnitude(out: RowOutcome, waiting: readonly MagnitudeFlag[], en
  * The die copy status the row would write, checked as the merge checks it (B12): a create's status,
  * or an update's new status.
  */
-function copyStatusCheck(out: RowOutcome): RowOutcome {
+function copyStatusCheck(out: RowOutcome, sections: readonly { id: string; status?: string }[]): RowOutcome {
   const diffStatus = (out.diff as Record<string, { file: unknown }> | null)?.status;
   const status = out.state === "ready_create" ? out.values?.status : out.state === "ready_update" || out.state === "conflict" ? diffStatus?.file : undefined;
   const bad = handStatusCheck(status);
-  return bad ? { ...out, state: "refused", reasons: [...out.reasons, checkReason(bad)] } : out;
+  if (bad) return { ...out, state: "refused", reasons: [...out.reasons, checkReason(bad)] };
+  if (out.state !== "ready_create") return out;
+  // What dieInstance.create refuses: an archived section, a new copy at nitriding (X-new-3).
+  const sectionId = ((out.values?._ids ?? {}) as Record<string, string>).sectionCode;
+  const fresh = newCopyCheck(sections.find((x) => x.id === sectionId)?.status, out.values?.status);
+  return fresh ? { ...out, state: "refused", reasons: [...out.reasons, checkReason(fresh)] } : out;
 }
 
 // ---------------------------------------------------------------------------
@@ -851,7 +976,13 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       }
       return hit;
     };
-    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyRow(compiled, r.raw, r.rowIndex), r.raw, answers, compileWith) }));
+    // Rates left out by choice are deleted from the row (classifyRow), so their flags go too (X-new-2).
+    const dropRateFlags = c.target === "orders" && answers.ratesLeftOut === true;
+    const applyOne = (r: Staged) => {
+      const a = applyRow(compiled, r.raw, r.rowIndex);
+      return dropRateFlags ? { ...a, flags: a.flags.filter((f) => !RATE_FIELDS.includes(f.field)) } : a;
+    };
+    const applied = editable.map((r) => ({ r, ...settleMagnitude(applyOne(r), r.raw, answers, compileWith) }));
     const live = await loadPageLive(
       ctx,
       c.target,
@@ -890,7 +1021,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       });
       out = applyDecision(out, r, c.target);
       out = holdForMagnitude(out, waiting, entered);
-      if (c.target === "die_copies") out = copyStatusCheck(out);
+      if (c.target === "die_copies") out = copyStatusCheck(out, live.sections ?? []);
       out.reasons = [...keep, ...out.reasons, ...notes];
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);
@@ -1038,6 +1169,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
   if (done) {
     const questions = await candidateQuestions(ctx, fresh, artifact);
     const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
+    // Whole orders, checked as the merge planner checks them (X-new-3).
+    const groups = c.target === "orders" ? await orderGroupStatements(ctx, c.id, at) : [];
     try {
       await guardedBatch(ctx.db, [
         ctx.db
@@ -1053,6 +1186,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
             ),
           ),
         ingestAbortUnlessChanged(ctx.db),
+        ...groups,
+        ...(groups.length ? [recountStatement(ctx, c.id)] : []),
       ]);
     } catch (e) {
       const now2 = await loadCandidate(ctx, c.id);
@@ -1221,6 +1356,62 @@ async function orderLineChecks(rows: readonly Staged[], outcomes: Map<string, Ro
     const check = orderLineCheck(schema, out.values ?? {}, "section", true);
     if (check.problem) outcomes.set(r.id, { ...out, state: "refused", reasons: [...out.reasons, checkReason(check.problem)], diff: null });
   }
+}
+
+/**
+ * The order groups the merge planner would hold (B1, B5), refused here first with the same check
+ * (`orderGroupCheck`): every line of an order above 100 lines, or of a PO with two order dates. It
+ * runs once the whole candidate is checked, because one order may span pages. A line it refused
+ * before goes back to ready when its order passes now (a person skipped some lines).
+ */
+async function orderGroupStatements(ctx: IngestCtx, candidateId: string, at: Date): Promise<SqliteBatchItem[]> {
+  const V = ingestStagedRow.values;
+  const groupLike = or(...ORDER_GROUP_CODES.map((code) => sql`${ingestStagedRow.reasons} like ${`%"${code}:%`}`));
+  const rows = await ctx.db
+    .select({
+      id: ingestStagedRow.id,
+      rowIndex: ingestStagedRow.rowIndex,
+      state: ingestStagedRow.state,
+      reasons: ingestStagedRow.reasons,
+      group: ORDER_GROUP_SQL,
+      po: sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')`,
+      poText: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')`,
+      orderDate: sql<string | null>`json_extract(${V}, '$.orderDate')`,
+      oldNo: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')`,
+    })
+    .from(ingestStagedRow)
+    .where(
+      and(
+        eq(ingestStagedRow.candidateId, candidateId),
+        eq(ingestStagedRow.mergeState, "open"),
+        or(eq(ingestStagedRow.state, "ready_create"), and(eq(ingestStagedRow.state, "refused"), groupLike)),
+      ),
+    )
+    .orderBy(asc(ingestStagedRow.rowIndex));
+  const isGroupReason = (r: string) => ORDER_GROUP_CODES.some((code) => r.startsWith(`${code}:`));
+  const groups = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const list = groups.get(r.group);
+    if (list) list.push(r);
+    else groups.set(r.group, [r]);
+  }
+  const out: SqliteBatchItem[] = [];
+  for (const list of groups.values()) {
+    const problem = orderGroupCheck(list);
+    const reason = problem ? checkReason(problem) : null;
+    for (const r of list) {
+      const base = (r.reasons ?? []).filter((x) => !isGroupReason(x));
+      const want = reason ? { state: "refused" as const, reasons: [...base, reason] } : { state: "ready_create" as const, reasons: base };
+      if (want.state === r.state && JSON.stringify(want.reasons) === JSON.stringify(r.reasons ?? [])) continue;
+      out.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({ state: want.state, reasons: want.reasons.length ? want.reasons : null, updatedAt: at })
+          .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, candidateId), eq(ingestStagedRow.mergeState, "open"))),
+      );
+    }
+  }
+  return out;
 }
 
 /**

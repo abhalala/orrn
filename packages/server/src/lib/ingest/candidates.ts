@@ -74,14 +74,18 @@ import {
   candidateQuestions,
   classifyRows,
   clearLayoutAnswers,
+  clearMagnitudeAnswers,
   openQuestionCount,
   openUnitFields,
+  parseMagnitudeSubject,
   parseRecipe,
   readAnswers,
   recountStatement,
   undecidedRows,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
+import { aliasMoveRefusal } from "./merge/rowchecks";
+import { openStuckParts } from "./stuck";
 import { anthropicEnv, botRunStore, shapeBot } from "./engines";
 import { vaultReady } from "./vault";
 import {
@@ -754,6 +758,10 @@ export async function listRows(
     const entered = r.entered ? { ...r.entered } : null;
     let rate: number | null = null;
     let rateHidden = false;
+    // The likely value of a rate flag (C19) is a rate too (X-new-2).
+    if (values && !seesPrices && Array.isArray(values._magnitude)) {
+      values._magnitude = (values._magnitude as { field?: unknown }[]).filter((n) => !RATE_FIELDS.includes(String(n.field)));
+    }
     for (const f of RATE_FIELDS) {
       if (values && f in values) {
         if (seesPrices) rate = typeof values[f] === "number" ? (values[f] as number) : null;
@@ -824,6 +832,10 @@ export async function decideRows(
   // cannot add this line to that order: the person leaves it out, skips it, or adds it in orrn.
   if (input.decision !== "skip" && input.decision !== "keep_live" && rows.some((r) => (r.reasons ?? []).includes("order_line_new"))) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This line is not on the order in orrn. Add it to that order there, or leave the row out" });
+  }
+  // An alias of another customer or vendor is never moved by the merge (X-new-3).
+  if (input.decision !== "skip" && input.decision !== "keep_live" && rows.some((r) => (r.reasons ?? []).includes("alias_taken:alias"))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: aliasMoveRefusal(c.target === "vendor_aliases" ? "vendor_aliases" : "customer_aliases") });
   }
   if (input.decision === "use_match") {
     for (const r of rows) {
@@ -911,14 +923,22 @@ export async function setAnswer(
   if (!questions.some((q) => q.code === input.questionCode && q.subject === input.subject)) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This import does not ask that" });
   }
+  if (input.questionCode === "rates_hidden" && answer === "owner_merges" && questions.some((q) => q.code === "rates_hidden" && q.params.reason === "pricing_off")) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Rates on sales orders are off for this plant. Turn rates on first, or leave rates out." });
+  }
   if (input.questionCode === "column_meaning_unclear" && answer !== input.subject) {
     // The only answer that changes nothing is "the mapped column is right". Another column is a new
     // layout, made in the column mapping, so an answer is never stored without effect (A17).
     throw new TRPCError({ code: "BAD_REQUEST", message: "To use another column for this, change it in the column mapping" });
   }
+  // A magnitude subject is `<field>|<unit>|<side>`; the unit check is on its field.
+  const subjectField = input.questionCode === "magnitude_check" ? parseMagnitudeSubject(input.subject).field : input.subject;
+  if (input.questionCode === "magnitude_check" && RATE_FIELDS.includes(subjectField) && !seesRates(ctx)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Rates are hidden from you. Leave rates out, or ask the owner to answer this." });
+  }
   if ((input.questionCode === "unit_unknown" || (input.questionCode === "magnitude_check" && answer !== "as_is")) && c.recipe) {
     const recipe = parseRecipe(c.recipe);
-    const field = recipe.fields.find((f) => f.field === input.subject);
+    const field = recipe.fields.find((f) => f.field === subjectField);
     const step = field?.steps.find((s) => s.op === "number");
     if (step && step.op === "number") {
       if (!unitsFor(step.kind).includes(answer as never)) throw new TRPCError({ code: "BAD_REQUEST", message: "That unit does not fit this column" });
@@ -946,6 +966,9 @@ export async function setAnswer(
         set: { answer: answer as never, answeredBy: ctx.session.user.id, answeredAt: at },
       }),
   ];
+  // The field is read in another unit now: its magnitude answers were about values the person no
+  // longer sees, so they go (X-new-1).
+  if (input.questionCode === "unit_unknown") statements.push(clearMagnitudeAnswers(ctx, c.id, input.subject));
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
     // Sibling order sheets of the file take the same date: they re-run too (A13).
@@ -992,9 +1015,11 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   const magnitude = answerRows
     .filter((a) => a.questionCode === "magnitude_check")
     .map((a) => {
+      const { field, unit, side } = parseMagnitudeSubject(a.subject);
+      const seen = `the ${field} values read in ${unit || "no unit"} that looked too ${side === "below" ? "small" : "large"}`;
       return a.answer === "as_is"
-        ? { field: a.subject, answer: "as_is", note: "The person said the flagged values are right" }
-        : { field: a.subject, answer: String(a.answer), note: `The person said the flagged values are in ${String(a.answer)}` };
+        ? { field, unit, side, answer: "as_is", note: `The person said ${seen} are right` }
+        : { field, unit, side, answer: String(a.answer), note: `The person said ${seen} are in ${String(a.answer)}` };
     });
   const statements: SqliteBatchItem[] = [
     ...candidateChange(ctx, c.id, input.expectSeq, {
@@ -1134,20 +1159,32 @@ export async function releaseCandidate(ctx: IngestCtx, input: { candidateId: str
     ]);
     return candidateDetail(ctx, c.id);
   }
+  // A part that stopped the server on every send is opened first (X-new-5): rows that landed are
+  // recorded as written, the rest open again for the person and the dry run.
+  const stuck = c.target ? await openStuckParts(ctx, c.id, c.target) : { statements: [], written: 0, from: null };
   const [first] = await ctx.db
     .select({ n: sql<number | null>`min(${ingestStagedRow.rowIndex})` })
     .from(ingestStagedRow)
     .where(and(eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open")));
+  const opened = [first?.n, stuck.from].filter((x): x is number => x !== null && x !== undefined).map(Number);
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, {
       state: "processing",
-      dryCursor: Number(first?.n ?? 0),
+      dryCursor: opened.length ? Math.min(...opened) : 0,
       reasonCode: null,
       reasonDetail: null,
       approvedBy: null,
       approvedAt: null,
+      ...(stuck.written > 0 ? { recipeLocked: true } : {}),
     }),
-    auditInsert(ctx, { action: "ingest.candidate.recheck", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state, reason: c.reasonCode } }),
+    ...stuck.statements,
+    ...(stuck.statements.length ? [recountStatement(ctx, c.id)] : []),
+    auditInsert(ctx, {
+      action: "ingest.candidate.recheck",
+      subjectType: "ingest_candidate",
+      subjectId: c.id,
+      meta: { from: c.state, reason: c.reasonCode, ...(stuck.statements.length ? { stuckOpened: true, stuckWritten: stuck.written } : {}) },
+    }),
   ]);
   return candidateDetail(ctx, c.id);
 }

@@ -68,13 +68,13 @@ export function resolveName(index: NameIndex, text: string): Resolution {
   return { kind: "none" };
 }
 
-export type SectionRow = { id: string; series: string; sectionCode: string; name: string | null };
+export type SectionRow = { id: string; series: string; sectionCode: string; name: string | null; status?: string };
 
 /** Live sections whose code is one of `codes` (chunked IN lists). */
 export async function loadSections(ctx: Db, codes: readonly string[]): Promise<SectionRow[]> {
   return mapInChunks(sectionKeys(codes), (part) =>
     ctx.db
-      .select({ id: die.id, series: die.series, sectionCode: die.sectionCode, name: die.name })
+      .select({ id: die.id, series: die.series, sectionCode: die.sectionCode, name: die.name, status: die.status })
       .from(die)
       .where(and(eq(die.companyId, ctx.companyId), isNull(die.deletedAt), sectionCodeIn(part))),
   );

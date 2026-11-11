@@ -126,3 +126,252 @@ describe("C-new-4: a trailing one-cell row at the row pitch is data", () => {
     expect(readPdfText([signed]).blocks[0]!.rows.length).toBe(2);
   });
 });
+
+// Review 3.
+describe("C-new-6: a table and the line or table next to it keep their own columns", () => {
+  test("two tables stacked with a one-cell Summary line between them", () => {
+    const second = [
+      it("Summary", 50, 725),
+      it("Party", 50, 710), it("Bundles", 170, 710), it("Kg", 280, 710),
+      it("Om Metals", 50, 695), it("12", 180, 695), it("2180", 280, 695),
+      it("Shree Ganesh", 50, 680), it("4", 185, 680), it("640", 280, 680),
+    ];
+    const r = readPdfText([[...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980"), ...second]]);
+    expect(r.blocks.length).toBe(2);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["1", "R 2105", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+    ]);
+    expect(r.blocks[1]!.title).toBe("Summary");
+    expect(r.blocks[1]!.headers).toEqual(["Party", "Bundles", "Kg"]);
+    expect(r.blocks[1]!.rows).toEqual([
+      ["Om Metals", "12", "2180"],
+      ["Shree Ganesh", "4", "640"],
+    ]);
+  });
+
+  test("a Party and Date line, a one-cell PACKING LIST line, then the table", () => {
+    const top = [it("Party: Om Metals", 50, 800), it("Date: 31.10.2025", 300, 800), it("PACKING LIST", 150, 785)];
+    const r = readPdfText([[...top, ...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980")]]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+    expect(r.blocks[0]!.title).toBe("Party: Om Metals Date: 31.10.2025 PACKING LIST");
+    expect(r.blocks[0]!.rows).toEqual([
+      ["1", "R 2105", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+    ]);
+  });
+
+  test("a Party and Date line right above the header does not fuse the Sr and Section columns", () => {
+    const top = [it("Party: Om Metals", 50, 785), it("Date: 31.10.2025", 300, 785)];
+    const r = readPdfText([[...top, ...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980")]]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+    expect(r.blocks[0]!.title).toBe("Party: Om Metals Date: 31.10.2025");
+    expect(r.blocks[0]!.rows).toEqual([
+      ["1", "R 2105", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+});
+
+// Review 4.
+describe("C-new-6: a second table right under the first, with no heading line, is its own block", () => {
+  for (const gap of [15, 25]) {
+    test(`Party | Bundles | Kg ${gap} units under the last row`, () => {
+      const y = 740 - gap;
+      const second = [
+        it("Party", 50, y), it("Bundles", 170, y), it("Kg", 280, y),
+        it("Om Metals", 50, y - 15), it("12", 180, y - 15), it("2180", 280, y - 15),
+        it("Shree Ganesh", 50, y - 30), it("4", 185, y - 30), it("640", 280, y - 30),
+      ];
+      const r = readPdfText([[...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980"), ...second]]);
+      expect(r.blocks.length).toBe(2);
+      expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+      expect(r.blocks[0]!.rows).toEqual([
+        ["1", "R 2105", "25", "1200"],
+        ["2", "R 2106", "8", "980"],
+      ]);
+      expect(r.blocks[1]!.headers).toEqual(["Party", "Bundles", "Kg"]);
+      expect(r.blocks[1]!.rows).toEqual([
+        ["Om Metals", "12", "2180"],
+        ["Shree Ganesh", "4", "640"],
+      ]);
+      expect(r.warnings).toEqual([]);
+    });
+  }
+});
+
+describe("R-new-2: a party group row under the header keeps every value in its column", () => {
+  // Party and Section left-aligned, Pcs and Kg right-aligned to 275 and 345. A Kg value is far wider than "Kg".
+  const right = (s: string, edge: number, y: number) => it(s, edge - s.length * 5, y);
+  const hdr = (y: number) => [it("Party", 50, y), it("Section", 150, y), right("Pcs", 275, y), right("Kg", 345, y)];
+  const line = (y: number, sec: string, pcs: string, kg: string) => [it(sec, 150, y), right(pcs, 275, y), right(kg, 345, y)];
+
+  test("Om Metals alone, then rows with a blank party", () => {
+    const page = [
+      ...hdr(770),
+      it("Om Metals", 50, 755),
+      ...line(740, "R 2105", "12", "12500.50"),
+      ...line(725, "R 2106", "8", "980.25"),
+      it("Shree Ganesh", 50, 710),
+      ...line(695, "T 4012", "30", "41250.75"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "Pcs", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "", "", ""],
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+      ["Shree Ganesh", "", "", ""],
+      ["", "T 4012", "30", "41250.75"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  // A header that names no Pcs column: the header line is set apart from the rows, and the lines above the rows are
+  // placed by x, not fed as raw cell lists.
+  const unnamed = (y: number) => [it("Party", 50, y), it("Section", 150, y), right("Kg", 345, y)];
+
+  test("a header with an unnamed column over a party group row keeps the columns", () => {
+    const page = [
+      ...unnamed(770),
+      it("Om Metals", 50, 755),
+      ...line(740, "R 2105", "12", "12500.50"),
+      ...line(725, "R 2106", "8", "980.25"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "", "", ""],
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("a line above the rows that fits no column is reported, and the rest stays in its columns", () => {
+    const page = [
+      ...unnamed(770),
+      it("see note", 600, 755),
+      it("Om Metals", 50, 740),
+      ...line(725, "R 2105", "12", "12500.50"),
+      ...line(710, "R 2106", "8", "980.25"),
+    ];
+    const r = readPdfText([page]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Party", "Section", "", "Kg"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "", "", ""],
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+    ]);
+    expect(r.warnings).toEqual(["page 1: 1 line could not be placed"]);
+  });
+
+  test("the same page with no group rows reads the same columns", () => {
+    const page = [...hdr(770), ...line(755, "R 2105", "12", "12500.50"), ...line(740, "R 2106", "8", "980.25")];
+    const r = readPdfText([page]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["", "R 2105", "12", "12500.50"],
+      ["", "R 2106", "8", "980.25"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+});
+
+describe("C-new-7: a wrapped line in a tightly spaced table folds into its cell", () => {
+  test("rows 11 apart, a wrapped Section line 9 below its row", () => {
+    const items = [
+      ...header(770),
+      ...row(759, "1", "R 2105 long", "25", "1200"),
+      it("description", 100, 750),
+      ...row(739, "2", "R 2106", "8", "980"),
+      ...row(728, "3", "R 2107", "9", "990"),
+    ];
+    expect(textItemsToMatrix(items)).toEqual([
+      ["Sr", "Section", "Qty", "Weight"],
+      ["1", "R 2105 long description", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+      ["3", "R 2107", "9", "990"],
+    ]);
+  });
+
+  test("a one-cell line in the key column at the pitch is still its own row", () => {
+    const m = textItemsToMatrix([
+      ...custHeader(770), ...cust(759, "Asha", "9898", "Surat"), ...cust(748, "Zenith Traders"), ...cust(737, "Kamal", "9797", "Rajkot"), ...cust(726, "Om", "9696", "Pune"),
+    ]);
+    expect(m[2]).toEqual(["Zenith Traders", "", ""]);
+    expect(m.length).toBe(5);
+  });
+});
+
+describe("one-cell lines at the top of a continuation page are placed or reported", () => {
+  const hdr = (y: number) => [it("Party", 50, y), it("Section", 150, y), it("Kg", 260, y)];
+  const line = (y: number, party: string, sec: string, kg: string) => [...(party ? [it(party, 50, y)] : []), it(sec, 150, y), it(kg, 260, y)];
+  const first = [...hdr(770), ...line(755, "Om Metals", "T 4012", "120"), ...line(740, "", "T 4013", "80")];
+
+  test("a party-only row at the top of page 2 is a row", () => {
+    const page2 = [it("Shree Ganesh", 50, 800), ...line(785, "", "R 2105", "300"), ...line(770, "", "R 2106", "210")];
+    const r = readPdfText([first, page2]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["Om Metals", "T 4012", "120"],
+      ["", "T 4013", "80"],
+      ["Shree Ganesh", "", ""],
+      ["", "R 2105", "300"],
+      ["", "R 2106", "210"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("a party-only row between continuation rows is a row", () => {
+    const page2 = [...line(800, "", "R 2105", "300"), it("Shree Ganesh", 50, 785), ...line(770, "", "R 2106", "210")];
+    const r = readPdfText([first, page2]);
+    expect(r.blocks[0]!.rows.slice(2)).toEqual([
+      ["", "R 2105", "300"],
+      ["Shree Ganesh", "", ""],
+      ["", "R 2106", "210"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("a one-cell line that fits no column is reported, not dropped", () => {
+    const page2 = [it("see note", 600, 800), ...line(785, "", "R 2105", "300")];
+    const r = readPdfText([first, page2]);
+    expect(r.blocks[0]!.rows.length).toBe(3);
+    expect(r.warnings).toEqual(["page 2: 1 line could not be placed"]);
+  });
+
+  test("the title repeated above the repeated header is not a row and not a warning", () => {
+    const titled = [it("ORDER BOOK", 50, 800), ...first];
+    const page2 = [it("ORDER BOOK", 50, 800), ...hdr(770), ...line(755, "Shree Ganesh", "R 2105", "300")];
+    const r = readPdfText([titled, page2]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.rows.length).toBe(3);
+    expect(r.warnings).toEqual([]);
+  });
+
+  test("a new title above the repeated header has nowhere to go and is reported", () => {
+    const titled = [it("ORDER BOOK", 50, 800), ...first];
+    const page2 = [it("Second shift", 50, 800), ...hdr(770), ...line(755, "Shree Ganesh", "R 2105", "300")];
+    const r = readPdfText([titled, page2]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.rows.length).toBe(3);
+    expect(r.warnings).toEqual(["page 2: 1 line could not be placed"]);
+  });
+
+  test("a party-only row that matches part of the title is still a row", () => {
+    const titled = [it("Party: Om Metals", 50, 800), ...first];
+    const page2 = [it("Om Metals", 50, 800), ...line(785, "", "R 2105", "300")];
+    const r = readPdfText([titled, page2]);
+    expect(r.blocks[0]!.rows.slice(2)).toEqual([
+      ["Om Metals", "", ""],
+      ["", "R 2105", "300"],
+    ]);
+  });
+});
