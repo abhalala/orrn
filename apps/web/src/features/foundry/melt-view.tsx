@@ -28,7 +28,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict } from "./cast-view";
 import { gateSentences, gateStep } from "./errors";
-import { blankForm, formFromMelt, saveInputOf, sameForm, STEPS, type FormIssue, type MeltForm, type SavedMelt, type Step } from "./melt-form";
+import { blankForm, formFromMelt, saveInputOf, sameForm, STEPS, type FormIssue, type LengthDraft, type MeltForm, type SavedMelt, type Step } from "./melt-form";
 import { todayIn } from "./melt-times";
 import { Balance, ChargeStep, ChemicalsStep, OutputStep, TimesStep } from "./melt-steps";
 import { MeltSheet } from "./melt-sheet";
@@ -94,7 +94,10 @@ export function MeltScreen({ castId, meltId, step, onStep }: { castId: string; m
 function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastData["melts"][number] | null; step: Step; onStep(step: Step): void }) {
   const { t } = useT();
   const timeZone = useTimeZone();
-  const lengthDraft = logLengthSpec(useFmt()).native === "mm" ? "mm" : "ft";
+  // Frozen when the editor opens: the form text is kept in this unit, so a plant that changes its length choice under an
+  // open form must not re-read "12" (feet) as 12 mm. The box converts the display for whatever the plant is now.
+  const fmt = useFmt();
+  const [lengthDraft] = useState<LengthDraft>(() => (logLengthSpec(fmt).native === "mm" ? "mm" : "ft"));
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const castId = data.cast.id;
@@ -255,7 +258,7 @@ function MeltEditor({ data, melt, step, onStep }: { data: CastData; melt: CastDa
         ) : step === "chemicals" ? (
           <ChemicalsStep {...common} storeItems={(store.data?.items ?? []) as never} />
         ) : step === "output" ? (
-          <OutputStep {...common} streams={(streams.data?.items ?? []) as never} capacityG={capacityG} />
+          <OutputStep {...common} lengthDraft={lengthDraft} streams={(streams.data?.items ?? []) as never} capacityG={capacityG} />
         ) : (
           <div className="flex flex-col gap-5">
             <SpectroPanel

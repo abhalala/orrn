@@ -19,12 +19,13 @@ import {
   qtyToMilli,
   type FormIssue,
   type LdoKey,
+  type LengthDraft,
   type MeltForm } from "./melt-form";
 import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
-import { followsPlant, logLengthSpec, MASS_KG } from "@/shared/lib/plant-input";
+import { followsPlant, LENGTH_FT, LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped1, kgPlainTrim, massUnit } from "@/shared/lib/fmt-text";
 
@@ -349,9 +350,10 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
 
 // --- 4. Output -----------------------------------------------------------------------------------------------------
 
-export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps & { streams: Stream[]; capacityG: number | null }) {
+export function OutputStep({ form, patch, issue, streams, capacityG, lengthDraft }: StepProps & { streams: Stream[]; capacityG: number | null; lengthDraft: LengthDraft }) {
   const { t } = useT();
-  const lengthSpec = logLengthSpec(useFmt());
+  // The unit the draft text is written in, frozen by the editor; the box shows it in whatever the plant reads now.
+  const lengthSpec = lengthDraft === "mm" ? LENGTH_MM : LENGTH_FT;
   const fig = figuresOf(form, capacityG);
   const b = fig.balance;
   const outside = b.metalInG > 0 && (b.needsReason || b.negativeBurn);
