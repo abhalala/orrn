@@ -98,9 +98,6 @@ export const ingestEn = {
   },
   near: {
     title: "This looks like your layout {name}. {count} {count:column|columns} changed.",
-    renamed: "{old} is now {new}",
-    extra: "New column: {name}",
-    missing: "Missing column: {name}",
     use: "Use this layout",
     reject: "No, map the columns",
     // screens work order: the "What changed" table
@@ -110,6 +107,8 @@ export const ingestEn = {
     kindRenamed: "Renamed",
     kindNew: "New",
     kindMissing: "Missing",
+    // review screen (stage 2): a saved column the file no longer has
+    notInFile: "Not in this file",
   },
   shape: {
     auto: "Map columns for me",
@@ -236,12 +235,15 @@ export const ingestEn = {
     change: "Change",
     aboutRow: "Row {n}",
     save: "Save answer",
+    // review screen (stage 2): the year question points at the year line
+    goToYear: "Choose the year",
   },
   questions: {
     title: "{count} {count:question|questions} before you approve",
+    // review screen (stage 2): every question is answered
+    doneTitle: "{count} {count:question|questions} answered",
   },
   period: {
-    chip: "Financial year {fy}",
     fy: "Financial year",
     asOf: "As on date",
     // screens work order: the year line in the decision bar

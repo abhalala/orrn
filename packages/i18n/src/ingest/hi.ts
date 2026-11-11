@@ -97,9 +97,6 @@ export const ingestHi = {
   },
   near: {
     title: "यह आपके लेआउट {name} जैसा है। {count} कॉलम बदले हैं।",
-    renamed: "{old} अब {new} है",
-    extra: "नया कॉलम: {name}",
-    missing: "कॉलम नहीं मिला: {name}",
     use: "यही लेआउट लें",
     reject: "नहीं, कॉलम मिलाएं",
     // screens work order: the "What changed" table
@@ -109,6 +106,8 @@ export const ingestHi = {
     kindRenamed: "नाम बदला",
     kindNew: "नया",
     kindMissing: "नहीं मिला",
+    // review screen (stage 2): a saved column the file no longer has
+    notInFile: "इस फ़ाइल में नहीं है",
   },
   shape: {
     auto: "orrn से कॉलम मिलवाएं",
@@ -235,12 +234,15 @@ export const ingestHi = {
     change: "बदलें",
     aboutRow: "लाइन {n}",
     save: "जवाब सेव करें",
+    // review screen (stage 2): the year question points at the year line
+    goToYear: "वर्ष चुनें",
   },
   questions: {
     title: "मंज़ूर करने से पहले {count} सवाल",
+    // review screen (stage 2): every question is answered
+    doneTitle: "{count} {count:सवाल का जवाब दिया|सवालों के जवाब दिए}",
   },
   period: {
-    chip: "वित्त वर्ष {fy}",
     fy: "वित्त वर्ष",
     asOf: "किस तारीख तक",
     // screens work order: the year line in the decision bar

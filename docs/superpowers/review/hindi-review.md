@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7922 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7921 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6855,7 +6855,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (406)
+### ingest (405)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6926,9 +6926,6 @@ Please check, Lalubhai:
 | `fit.bot` | Layout made by orrn | orrn ने लेआउट बनाया |
 | `fit.manual` | Layout you made | आपका बनाया लेआउट |
 | `near.title` | This looks like your layout {name}. {count} {count:column\|columns} changed. | यह आपके लेआउट {name} जैसा है। {count} कॉलम बदले हैं। |
-| `near.renamed` | {old} is now {new} | {old} अब {new} है |
-| `near.extra` | New column: {name} | नया कॉलम: {name} |
-| `near.missing` | Missing column: {name} | कॉलम नहीं मिला: {name} |
 | `near.use` | Use this layout | यही लेआउट लें |
 | `near.reject` | No, map the columns | नहीं, कॉलम मिलाएं |
 | `near.changedTitle` | What changed | क्या बदला |
@@ -6937,6 +6934,7 @@ Please check, Lalubhai:
 | `near.kindRenamed` | Renamed | नाम बदला |
 | `near.kindNew` | New | नया |
 | `near.kindMissing` | Missing | नहीं मिला |
+| `near.notInFile` | Not in this file | इस फ़ाइल में नहीं है |
 | `shape.auto` | Map columns for me | orrn से कॉलम मिलवाएं |
 | `shape.manual` | Map columns myself | कॉलम खुद मिलाएं |
 | `shape.ignore` | Not data, skip this sheet | यह डेटा नहीं है, शीट छोड़ें |
@@ -7045,8 +7043,9 @@ Please check, Lalubhai:
 | `q.change` | Change | बदलें |
 | `q.aboutRow` | Row {n} | लाइन {n} |
 | `q.save` | Save answer | जवाब सेव करें |
+| `q.goToYear` | Choose the year | वर्ष चुनें |
 | `questions.title` | {count} {count:question\|questions} before you approve | मंज़ूर करने से पहले {count} सवाल |
-| `period.chip` | Financial year {fy} | वित्त वर्ष {fy} |
+| `questions.doneTitle` | {count} {count:question\|questions} answered | {count} {count:सवाल का जवाब दिया\|सवालों के जवाब दिए} |
 | `period.fy` | Financial year | वित्त वर्ष |
 | `period.asOf` | As on date | किस तारीख तक |
 | `period.ask` | Which financial year is this file from? | यह फ़ाइल किस वित्त वर्ष की है? |
