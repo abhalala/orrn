@@ -118,7 +118,7 @@ function startsNewBlock(row: readonly string[], recent: readonly string[][], wid
 }
 
 /** A cell that reads like a title or letterhead, not a column name: a colon label or a full date. */
-const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/;
+export const TITLE_MARK = /:\s*\S|\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/;
 /** A bare year. It marks a title only when the cell is not a group label (C-new-1: "Apr 2025" over "Kg | Pcs"). */
 const YEAR_MARK = /\b(?:19|20)\d{2}\b/;
 /** A month name, full or in a standard short form. */

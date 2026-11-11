@@ -6,7 +6,7 @@
  * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `findBlocks` like a sheet.
  */
 import { cellKind, inferKind } from "../cells";
-import { findBlocks, isHeaderLike } from "./blocks";
+import { findBlocks, isHeaderLike, TITLE_MARK } from "./blocks";
 import type { ReadBlock } from "./types";
 
 export type TextItem = {
@@ -213,30 +213,44 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
         continue;
       }
       const l = lines[j]!;
-      const plain = pending.length === 0 && !big;
+      // A first line of colon labels or a date ("Party: ... Date: ...") over lines it does not fit is a title.
+      if (members.length === 1 && members[0]!.cells.some((c) => TITLE_MARK.test(c.text)) && !fitsColumns(cols, l, charWidth)) {
+        return { entries, end: j };
+      }
+      // Waiting lines that are wrapped lines of the last row do not break the run.
+      const wraps = big ? 0 : countWraps(entries, cols, members[members.length - 1]!, pending);
+      const plain = !big && wraps === pending.length;
       if (!plain && !(fitsColumns(cols, l, charWidth) && !isNewHeader(cols, l, members, charWidth))) {
-        // The waiting one-cell lines head whatever comes next.
-        const first = pending[0];
+        // Lines across a blank gap from the next table belong to this run: trailing rows or footers.
+        if (big) {
+          entries.push(...pending);
+          return { entries, end: j };
+        }
+        // Wrapped lines stay with the run, and so do lines in a column of the table (rows with one value), but the
+        // last waiting line heads the next table and a line in no column ends the run.
+        let keep = wraps;
+        while (keep < pending.length - 1 && columnOf(cols, lines[(pending[keep] as { line: number }).line]!.cells[0]!, charWidth) !== -1) keep++;
+        entries.push(...pending.slice(0, keep));
+        const first = pending[keep];
         return { entries, end: first && "line" in first ? first.line : j };
       }
       if (big) pending.push({ gap: true });
       entries.push(...pending, { line: j });
       pending = [];
       members.push(l);
-      cols = buildCols(members, charWidth);
+      // The spans change only when a cell reaches outside them.
+      if (!l.cells.every((c) => cols.some(([a, b]) => c.x0 >= a && c.x1 <= b))) cols = buildCols(members, charWidth);
     }
     // Trailing one-cell lines within 3 line heights stay with the run (data rows, or footers the reader drops).
     entries.push(...pending);
     return { entries, end: j };
   };
 
-  let fused = 0;
-  const emitRun = (entries: readonly Entry[]): { rows: LayoutRow[]; cols: Col[] } => {
-    const lineIdx = entries.flatMap((e) => ("line" in e ? [e.line] : []));
-    const cols = buildCols(
-      lineIdx.filter(multi).map((j) => lines[j]!),
-      charWidth,
-    );
+  /** Columns, row pitch and key columns of a run made of these lines. */
+  type Shape = { cols: Col[]; pitch: number; key: Set<number> };
+  const shapeOf = (lineIdx: readonly number[], known?: Col[]): Shape => {
+    const multiLines = lineIdx.filter(multi).map((j) => lines[j]!);
+    const cols = known ?? buildCols(multiLines, charWidth);
     // The row pitch: the median gap between two multi-cell lines next to each other.
     const pitches: number[] = [];
     for (let x = 1; x < lineIdx.length; x++) {
@@ -244,15 +258,58 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
       const b = lineIdx[x]!;
       if (b === a + 1 && multi(a) && multi(b)) pitches.push(dy(a, b));
     }
-    const pitch = median(pitches, height * 1.5);
+    // With no two multi-cell lines next to each other, the median gap between any two lines of the run.
+    const anyGaps: number[] = [];
+    for (let x = 1; x < lineIdx.length; x++) if (lineIdx[x] === lineIdx[x - 1]! + 1) anyGaps.push(dy(lineIdx[x - 1]!, lineIdx[x]!));
+    const pitch = median(pitches, median(anyGaps, height * 1.5));
     // Key columns: the first column, and every column whose data cells are numbers. A wrapped line never sits there.
-    const multiLines = lineIdx.filter(multi).map((j) => lines[j]!);
     const data = multiLines.length > 1 && isHeaderLike(multiLines[0]!.cells.map((c) => c.text)) ? multiLines.slice(1) : multiLines;
     const key = new Set<number>([0]);
     cols.forEach((_, k) => {
       const kind = inferKind(data.flatMap((l) => l.cells.filter((c) => nearestColumn(cols, c, charWidth) === k).map((c) => c.text)));
       if (kind === "int" || kind === "decimal") key.add(k);
     });
+    return { cols, pitch, key };
+  };
+
+  /**
+   * Is a one-cell line a wrapped line of the row above? It sits clearly closer than the row pitch (C17, C-new-3), or,
+   * in a tight table, within the pitch, under a filled cell of the row above, outside the key columns (C-new-7).
+   */
+  const isWrap = (shape: Shape, gapAbove: number, k: number, above: Cell | undefined, c: Cell) =>
+    gapAbove < shape.pitch * 0.75 ||
+    (gapAbove <= shape.pitch * 1.05 &&
+      above !== undefined &&
+      !shape.key.has(k) &&
+      // Wrapped text starts where the cell above starts and stays inside its column.
+      Math.abs(c.x0 - above.x0) <= charWidth &&
+      c.x1 < (shape.cols[k + 1]?.[0] ?? Infinity));
+
+  /** How many of the waiting one-cell lines, from the first, are wrapped lines of the run's last row. */
+  const countWraps = (entries: readonly Entry[], cols: Col[], lastRow: Line, pending: readonly Entry[]): number => {
+    if (pending.length === 0) return 0;
+    const shape = shapeOf(
+      entries.flatMap((e) => ("line" in e ? [e.line] : [])),
+      cols,
+    );
+    let above = (entries[entries.length - 1] as { line: number }).line;
+    let n = 0;
+    for (const e of pending) {
+      if (!("line" in e)) break;
+      const c = lines[e.line]!.cells[0]!;
+      const k = nearestColumn(shape.cols, c, charWidth);
+      const cellAbove = lastRow.cells.find((d) => nearestColumn(shape.cols, d, charWidth) === k);
+      if (!isWrap(shape, dy(above, e.line), k, cellAbove, c)) break;
+      above = e.line;
+      n++;
+    }
+    return n;
+  };
+
+  let fused = 0;
+  const emitRun = (entries: readonly Entry[]): { rows: LayoutRow[]; cols: Col[] } => {
+    const shape = shapeOf(entries.flatMap((e) => ("line" in e ? [e.line] : [])));
+    const cols = shape.cols;
     const rows: LayoutRow[] = [];
     let prev = -1;
     for (const e of entries) {
@@ -266,12 +323,10 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
         const c = l.cells[0]!;
         const k = nearestColumn(cols, c, charWidth);
         const last = rows[rows.length - 1];
-        // A wrapped cell sits clearly closer to the line above than the row pitch (C17, C-new-3). In a tight table
-        // a wrapped line can sit at the pitch: a one-cell line within the pitch, under a filled cell of the row above,
-        // outside the key columns, is a wrapped line too (C-new-7). Otherwise it is a row with the other cells blank.
+        // A wrapped line joins the cell above; any other one-cell line is a row with the other cells blank.
         const gapAbove = prev === -1 ? Infinity : dy(prev, e.line);
-        const underCell = last !== undefined && last.pos !== null && (last.cells[k] ?? "") !== "";
-        const wrapped = gapAbove < pitch * 0.75 || (gapAbove <= pitch * 1.05 && underCell && !key.has(k) && isTextish(c.text));
+        const cellAbove = last?.pos?.find((p) => nearestColumn(cols, p, charWidth) === k);
+        const wrapped = isWrap(shape, gapAbove, k, cellAbove, c);
         if (wrapped && last && last.pos) {
           last.cells[k] = last.cells[k] === "" ? c.text : `${last.cells[k]} ${c.text}`;
           const at = last.pos.find((p) => columnOf(cols, p, charWidth) === k);
@@ -417,12 +472,13 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
       let skipped = 0;
       const prev = [...out].reverse().find((b) => b.rows.length > 0);
       let pre = seg.pre;
-      if (p > 0 && s === 0 && prev && seg.cols) {
-        // Rows above the first header-like row continue the table of the page before.
+      if ((p > 0 || s > 0) && prev && seg.cols) {
+        // Rows above the first header-like row continue the table above: the table of the page before, or the one
+        // above on this page when its run broke off (a run with no header of its own).
         let h = rows.findIndex((r) => isHeaderLike(r.cells));
         if (h === -1) h = rows.length;
         // The page title repeated above a continuation is not a row and not a new title.
-        pre = pre.filter((l) => !repeatsTitle(lineText(l), prev.title, h === 0));
+        if (s === 0) pre = pre.filter((l) => !repeatsTitle(lineText(l), prev.title, h === 0));
         const width = prev.headers.length;
         const cols = blockCols.get(prev);
         const place = (cells: readonly Cell[] | null, flat: string[], lone: boolean) => {
