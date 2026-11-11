@@ -946,3 +946,127 @@ describe("A37: two variants of one layout saved at once", () => {
     expect(results.some((r) => r.status === "fulfilled")).toBe(true);
   });
 });
+
+describe("test gaps", () => {
+  test("A25: another plant's ids are NOT_FOUND on every procedure that takes one, and change nothing", async () => {
+    const a = await plant();
+    const b = await plant();
+    const { candidates, artifactId, blocks } = await upload(a.admin, [CUSTOMERS]);
+    const c = candidates[0]!;
+    await pump(a.admin, c.id);
+    const before = await a.admin.ingest.candidate.get({ candidateId: c.id });
+    const row = (await a.admin.ingest.rows.list({ candidateId: c.id })).items[0]!;
+    const fp = fingerprint({ headers: KHATA.headers, rows: KHATA.rows });
+    const { holeId } = await learnLayout(a.companyId, a.users.admin.id, { ...(khataAnswer().json as { result: { recipe: Recipe } }).result.recipe, match: { headerKey: fp.headerKey, headers: fp.normalized } });
+    const seq = before.serverSeq;
+    const calls: [string, () => Promise<unknown>][] = [
+      ["artifact.get", () => b.owner.ingest.artifact.get({ artifactId })],
+      ["artifact.commitRaw", () => b.owner.ingest.artifact.commitRaw({ artifactId })],
+      ["artifact.complete", () => b.owner.ingest.artifact.complete({ artifactId })],
+      ["artifact.putRows", () => b.owner.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 2, expectRowsPut: 2, rows: [["x", "", "y"]] })],
+      ["period.confirm", () => b.owner.ingest.period.confirm({ artifactId, fy: null, asOf: null })],
+      ["candidate.get", () => b.owner.ingest.candidate.get({ candidateId: c.id })],
+      ["candidate.setTarget", () => b.owner.ingest.candidate.setTarget({ candidateId: c.id, target: "vendors", expectSeq: seq })],
+      ["candidate.confirmNear", () => b.owner.ingest.candidate.confirmNear({ candidateId: c.id, accept: true, expectSeq: seq })],
+      ["candidate.approve", () => b.owner.ingest.candidate.approve({ candidateId: c.id, expectSeq: seq })],
+      ["candidate.hold", () => b.owner.ingest.candidate.hold({ candidateId: c.id, expectSeq: seq })],
+      ["candidate.release", () => b.owner.ingest.candidate.release({ candidateId: c.id, expectSeq: seq })],
+      ["candidate.discard", () => b.owner.ingest.candidate.discard({ candidateId: c.id, expectSeq: seq })],
+      ["shape.make", () => b.owner.ingest.shape.make({ candidateId: c.id, expectSeq: seq })],
+      ["shape.save", () => b.owner.ingest.shape.save({ candidateId: c.id, recipe: {}, holeName: "x", expectSeq: seq })],
+      ["dryRun.step", () => b.owner.ingest.dryRun.step({ candidateId: c.id, expectCursor: before.dryCursor })],
+      ["rows.list", () => b.owner.ingest.rows.list({ candidateId: c.id })],
+      ["rows.decide", () => b.owner.ingest.rows.decide({ candidateId: c.id, rowIds: [row.id], decision: "skip", expectSeq: seq })],
+      ["answer.set", () => b.owner.ingest.answer.set({ candidateId: c.id, questionCode: "new_customers", subject: "", answer: true, expectSeq: seq })],
+      ["hole.retire", () => b.owner.ingest.hole.retire({ holeId })],
+      ["merge.get", () => b.owner.ingest.merge.get({ runId: "run-of-a" })],
+    ];
+    for (const [name, call] of calls) {
+      const err = await call().then(
+        () => null,
+        (e: unknown) => e as { code?: string },
+      );
+      expect({ name, code: err?.code }).toEqual({ name, code: "NOT_FOUND" });
+    }
+    const after = await a.admin.ingest.candidate.get({ candidateId: c.id });
+    expect(after).toMatchObject({ state: before.state, serverSeq: before.serverSeq });
+    expect((await a.admin.ingest.hole.list({}))[0]!.state).toBe("active");
+  });
+
+  test("A26: a manager gets FORBIDDEN from every ingest procedure", async () => {
+    const { ingestRouter } = await import("../src/routers/ingest");
+    const p = await plant();
+    const caller = p.as("manager") as unknown as { ingest: Record<string, unknown> };
+    const paths = Object.keys((ingestRouter as unknown as { _def: { procedures: Record<string, unknown> } })._def.procedures);
+    expect(paths.length).toBeGreaterThan(25);
+    for (const path of paths) {
+      let fn: unknown = caller.ingest;
+      for (const part of path.split(".")) fn = (fn as Record<string, unknown>)[part];
+      const err = await (fn as (i: unknown) => Promise<unknown>)({}).then(
+        () => null,
+        (e: unknown) => e as { code?: string },
+      );
+      expect({ path, code: err?.code }).toEqual({ path, code: "FORBIDDEN" });
+    }
+  });
+
+  test("A43: held, answered, re-run to ready; discard refused while merging or merged", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, bakiRecipe(), "Baki");
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.candidate.hold({ candidateId: id, expectSeq: c.serverSeq });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "unit_unknown", subject: "rate", answer: "inr/kg", expectSeq: c.serverSeq });
+    expect(c.state).toBe("processing");
+    expect((await pump(p.owner, id)).state).toBe("ready");
+
+    for (const state of ["merging", "merged"] as const) {
+      await env.d1.prepare("update ingest_candidate set state = ? where id = ?").bind(state, id).run();
+      c = await p.owner.ingest.candidate.get({ candidateId: id });
+      await expect(p.owner.ingest.candidate.discard({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/merged import cannot be discarded/);
+    }
+  });
+
+  test("A44: an accepted near variant, once approved, fits the next file exactly", async () => {
+    const p = await plant();
+    const fp = fingerprint({ headers: KHATA.headers, rows: KHATA.rows });
+    await learnLayout(p.companyId, p.users.admin.id, { ...(khataAnswer().json as { result: { recipe: Recipe } }).result.recipe, match: { headerKey: fp.headerKey, headers: fp.normalized } });
+    const near: Sheet = { headers: ["Khata", "Gaam", "Extra"], rows: [["Acme", "Surat", "x"]] };
+    const c = (await upload(p.admin, [near])).candidates[0]!;
+    await p.admin.ingest.candidate.confirmNear({ candidateId: c.id, accept: true, expectSeq: c.serverSeq });
+    await pump(p.admin, c.id);
+    const ready = await p.admin.ingest.candidate.get({ candidateId: c.id });
+    await p.admin.ingest.candidate.approve({ candidateId: c.id, expectSeq: ready.serverSeq });
+    const again = (await upload(p.admin, [near], "next.xlsx")).candidates[0]!;
+    expect(again).toMatchObject({ fit: "exact", state: "processing" });
+  });
+
+  test("A46: an ambiguous date format is asked, blocks approve, and the answer changes the dates", async () => {
+    const p = await plant();
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(
+      p.companyId,
+      p.users.owner.id,
+      bakiRecipe({
+        fields: EXAMPLE_BAKI_RECIPE.fields.map((f) => (f.field === "rate" ? { ...f, steps: [{ op: "number" as const, kind: "price_per_mass" as const, unit: "inr/kg" }] } : f)),
+        unclear: [{ field: "orderDate", code: "date_format_ambiguous" }],
+      }),
+      "Baki",
+    );
+    const { candidates } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    let c = await p.owner.ingest.candidate.get({ candidateId: id });
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "create_legacy_die", subject: "12170", answer: true, expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    c = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(c.questions.find((q) => q.code === "date_format_ambiguous")?.open).toBe(true);
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.values?.orderDate).toBe("2025-10-01");
+    c = await p.owner.ingest.answer.set({ candidateId: id, questionCode: "date_format_ambiguous", subject: "orderDate", answer: "mdy", expectSeq: c.serverSeq });
+    await pump(p.owner, id);
+    expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.values?.orderDate).toBe("2025-01-10");
+  });
+});

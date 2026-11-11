@@ -176,7 +176,7 @@ describe("artifact.begin", () => {
     const digest = sha();
     const out = await p.admin.ingest.artifact.begin({ sha256: digest, fileName: "a.csv", sizeBytes: 4, contentType: "text/csv", kind: "csv" });
     expect(out.upload?.url).toContain("/files/ingest/upload?ticket=");
-    await expect(p.admin.ingest.artifact.commitRaw({ artifactId: out.artifactId })).rejects.toThrow();
+    await expect(p.admin.ingest.artifact.commitRaw({ artifactId: out.artifactId })).rejects.toThrow(/has not arrived/);
     await bucket.put(`tenants/${p.companyId}/artifacts/${digest}/raw`, new Uint8Array(4));
     expect((await p.admin.ingest.artifact.commitRaw({ artifactId: out.artifactId })).vaultState).toBe("stored");
     const again = await p.admin.ingest.artifact.begin({ sha256: digest, fileName: "a.csv", sizeBytes: 4, contentType: "text/csv", kind: "csv" });
@@ -221,7 +221,7 @@ describe("artifact.putRows", () => {
 
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "d.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
     const { blocks } = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf({ headers: ["Name"], rows: [["a"]] }, 0)] });
-    await expect(p.admin.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [["y".repeat(2001)]] })).rejects.toThrow();
+    await expect(p.admin.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [["y".repeat(2001)]] })).rejects.toThrow(/Too big|too_big/i);
   });
 
   test("putBlocks twice with the same sheets replays; different sheets are a conflict", async () => {
@@ -485,7 +485,7 @@ describe("the two actions", () => {
 
   test("merge.start is wired to the merge seam (lane B stub until it lands)", async () => {
     const p = await plant();
-    await expect(p.owner.ingest.merge.start()).rejects.toThrow();
+    await expect(p.owner.ingest.merge.start()).rejects.toThrow(/Nothing is approved to merge/);
   });
 
   test("one plant cannot read another plant's candidate", async () => {
