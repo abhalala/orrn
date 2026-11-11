@@ -33,7 +33,7 @@ re-verified before wiring the hybrid router.
 - FINAL-FIXES-4 removes `features/preview` and repoints `/preview/ageing*` to `/ageing` and `/reports/ageing`.
 - Dispatch rules (off-band approval, tolerance at scan, late packing-list entry, vehicle required) and the 2026-11-04 security fixes went to production on 2026-11-11 (migrations 0046 and 0047).
 - The continuation schema head is 0047. Dev can deploy without R2 using the explicit dev-only override; actual deployment state and immutable gated SHA are in the final report. Production requires a separate explicit go. See `docs/DEPLOY_PROMOTION.md`.
-- Owner, 2026-11-10: no. Customers see orders, dispatches and packing lists only.
+- Customer portal (owner, 2026-11-10): a customer sees orders, dispatches and packing lists only. No die drift readings and no trial copies.
 - Three things are not in this file because they are the owner's: the owner-only list is `docs/OWNER_HANDOVER.md`, device bring-up is its own section below (O9), and Gujarati is its own section below (O8).
 
 ## Owner only (no agent can do these)
