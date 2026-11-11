@@ -27,6 +27,8 @@ export default function MoreLayout() {
       <Stack.Screen name="guides" options={{ title: t("nav.guides") }} />
       <Stack.Screen name="guides/[slug]" options={{ title: t("nav.guides") }} />
       <Stack.Screen name="settings" options={{ title: t("nav.settings") }} />
+      <Stack.Screen name="furnaces" options={{ title: t("foundry.masters.furnaces") }} />
+      <Stack.Screen name="alloys" options={{ title: t("foundry.masters.alloys") }} />
       <Stack.Screen name="ageing/index" options={{ title: t("nav.ageing") }} />
       <Stack.Screen name="ageing/[id]" options={{ title: t("nav.ageing") }} />
       <Stack.Screen name="ageing/load" options={{ title: t("ageing.load.title") }} />
