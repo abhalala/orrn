@@ -23,7 +23,7 @@ import { ErrorLine, LoadFailed, Note } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
 import { DIAMETER_MM, MASS_KG } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { diameterText, diameterVars, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Furnace = inferRouterOutputs<AppRouter>["foundry"]["furnaces"]["list"]["items"][number];
 type AlloyRow = inferRouterOutputs<AppRouter>["foundry"]["alloys"]["list"]["items"][number];
@@ -58,7 +58,7 @@ export function FurnacesPage() {
     { key: "code", header: t("foundry.masters.code"), cell: (f) => <span className="font-mono text-[16px] font-bold">{f.code}</span> },
     { key: "name", header: t("foundry.masters.name"), cell: (f) => f.name },
     { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}</span> },
-    { key: "dia", header: t("foundry.masters.billetDia"), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? fmt.q("bundle.length", f.billetDiaMm) : "-"}</span> },
+    { key: "dia", header: t("foundry.masters.billetDia", diameterVars(fmt)), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? diameterText(fmt, f.billetDiaMm, t("units.mm")) : "-"}</span> },
     { key: "status", header: t("foundry.masters.status"), phoneWide: true, cell: (f) => <Chip tone={STATUS_TONE[f.status]}>{t(`foundry.masters.state.${f.status}`)}</Chip> },
     {
       key: "edit",
@@ -100,6 +100,7 @@ export function FurnacesPage() {
 
 function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" | null; onClose(): void; onSaved(): void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const row = editing && editing !== "new" ? editing : null;
   const [form, setForm] = useState({ code: "", name: "", capacityKg: "", billetDiaMm: "" });
   const [seeded, setSeeded] = useState<string | null>(null);
@@ -160,7 +161,7 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
         <Field label={t("foundry.masters.capacityKg")} hint={t("foundry.masters.capacityHint")} error={err === "capacity" ? t("foundry.masters.capacityInvalid") : undefined}>
           <PlantInput spec={MASS_KG} value={form.capacityKg} onValueChange={(v) => setForm({ ...form, capacityKg: v })} data-testid="furnace-capacity" />
         </Field>
-        <Field label={t("foundry.masters.billetDia")} error={err === "dia" ? t("foundry.masters.diaInvalid") : undefined}>
+        <Field label={t("foundry.masters.billetDia", diameterVars(fmt))} error={err === "dia" ? t("foundry.masters.diaInvalid") : undefined}>
           <PlantInput spec={DIAMETER_MM} decimal={false} value={form.billetDiaMm} onValueChange={(v) => setForm({ ...form, billetDiaMm: v })} data-testid="furnace-dia" />
         </Field>
         {row ? (

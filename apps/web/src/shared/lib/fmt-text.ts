@@ -208,3 +208,10 @@ export const geometryWithUnit = (fmt: Fmt, mm: number): string => fmt.geometry(m
 export const altSectionText = (fmt: Fmt, gramsPer12ft: number): string => fmt.altSection(gramsPer12ft);
 /** Whole units of weight, grouped: `kgWholeText` under the default set. */
 export const kgGrouped0 = (fmt: Fmt, grams: number): string => fmt.wholeMass(grams);
+/**
+ * A billet diameter (or any short measure in mm that every plant, feet and inches ones too, has always read in mm).
+ * A feet and inches plant keeps "152 mm"; a plant on metres or mm follows its length unit.
+ */
+export const diameterText = (fmt: Fmt, mm: number, mmWord: string): string => (fmt.unitOf("length").composite ? `${mm} ${mmWord}` : fmt.q("bundle.length", mm));
+/** The words for a label that names the diameter's unit: "mm" on a feet and inches plant, the plant's length unit otherwise. */
+export const diameterVars = (fmt: Fmt): { lengthUnit: string } | undefined => (fmt.unitOf("length").composite ? { lengthUnit: "mm" } : undefined);

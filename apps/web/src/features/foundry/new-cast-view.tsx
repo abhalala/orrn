@@ -16,7 +16,7 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { ErrorLine, LoadFailed, Note, FieldSelect } from "./ui";
 import { useFmt } from "@/shared/lib/fmt";
-import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { diameterText, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * `/casts/new` (FP-FD-02): pick the alloy the cast aims at. The number comes from the plant's series
@@ -107,7 +107,7 @@ export function NewCastScreen() {
               {activeFurnaces.map((f) => (
                 <Chip key={f.id} tone="neutral" truncate={false}>
                   {f.code} · {kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}
-                  {f.billetDiaMm ? ` · ${fmt.q("bundle.length", f.billetDiaMm)}` : ""}
+                  {f.billetDiaMm ? ` · ${diameterText(fmt, f.billetDiaMm, t("units.mm"))}` : ""}
                 </Chip>
               ))}
             </div>
