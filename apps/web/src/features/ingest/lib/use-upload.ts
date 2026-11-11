@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { refreshIngest } from "./actions";
 import { DEFAULT_LIMITS, detectFileKind, takeFiles } from "./limits";
 import { useIngestStatus } from "./queries";
-import { hashFile, readFile } from "./reader-client";
+import { ingestErrorWords } from "./errors";
+import type { FileProblemKey } from "./limits";
+import { hashFile, ReadError, readFile } from "./reader-client";
 import { ingestApi } from "./trpc-api";
 import { uploadOneFile, type UploadItem } from "./upload";
 
@@ -76,7 +78,9 @@ export function useIngestUpload(): {
     })
       .catch((error: unknown) => {
         if ((error as { name?: string } | null)?.name === "AbortError") return;
-        patch(nextId, { step: "failed", problem: { key: "ingest.read.failed" } });
+        // A file orrn could not read says so; a network or server failure says that instead.
+        const key = error instanceof ReadError ? "ingest.read.failed" : (ingestErrorWords(error, "action").key as FileProblemKey);
+        patch(nextId, { step: "failed", problem: { key } });
       })
       .finally(() => {
         running.current = null;

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7709 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7710 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6854,7 +6854,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (194)
+### ingest (195)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6872,6 +6872,7 @@ Please check, Lalubhai:
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
+| `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
 | `vault.off` | File storage is not set up for this plant yet. Rows can still be imported, but the original file is not kept. | इस प्लांट के लिए फ़ाइल स्टोरेज अभी चालू नहीं है। लाइनें इम्पोर्ट हो सकती हैं, पर असली फ़ाइल सेव नहीं रहेगी। |
 | `vault.stored` | Original file kept | असली फ़ाइल सेव है |
@@ -6927,7 +6928,7 @@ Please check, Lalubhai:
 | `shape.dateOrder` | Date order | तारीख का क्रम |
 | `shape.nameRequired` | Give this layout a name. | इस लेआउट को एक नाम दें। |
 | `shape.missingRequired` | Map these fields before you save: {fields}. | सेव करने से पहले ये फ़ील्ड मिलाएं: {fields}। |
-| `shape.needsColumn` | Pick a column for {fields}, or remove the field. | {fields} के लिए कॉलम चुनें, या फ़ील्ड हटा दें। |
+| `row.entered` | In the file | फ़ाइल में |
 | `row.ready_create` | New | नया |
 | `row.ready_update` | Updates orrn | orrn में अपडेट होगा |
 | `row.unchanged` | Already in orrn | orrn में पहले से है |

@@ -24,3 +24,4 @@ export {
 export * from "./recipe-builder";
 export * from "./errors";
 export * from "./refusals";
+export * from "./row-values";

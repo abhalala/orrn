@@ -12,7 +12,7 @@ import {
   type CandidateDetail,
   type QuestionView,
 } from "../lib";
-import { Panel, translateKey } from "./shared";
+import { ActionError, Panel, translateKey } from "./shared";
 import { PeriodConfirm } from "./period-panel";
 
 export function QuestionsPanel({ candidate, onSaved }: { candidate: CandidateDetail; onSaved?: () => void }) {
@@ -45,7 +45,7 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
       : "";
   const [value, setValue] = useState(initial);
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<unknown>(null);
   const fields = candidate.target ? TARGETS[candidate.target].fields : [];
   const unitKind = question.control.kind === "unit" && UNIT_KINDS.includes(question.control.unitKind as UnitKind)
     ? question.control.unitKind as UnitKind
@@ -56,12 +56,12 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
 
   const save = async (answer: ReturnType<typeof answerValue>) => {
     setPending(true);
-    setFailed(false);
+    setFailed(null);
     try {
       await actions.answer(candidate.id, question.subject, answer, candidate.serverSeq);
       onSaved?.();
-    } catch {
-      setFailed(true);
+    } catch (error) {
+      setFailed(error);
     } finally {
       setPending(false);
     }
@@ -131,7 +131,7 @@ function QuestionCard({ candidate, question, onSaved }: { candidate: CandidateDe
           </Button>
         </div>
       ) : null}
-      {failed ? <p role="alert" className="m-0 text-[13px] text-destructive">{t("ingest.read.failed")}</p> : null}
+      <ActionError error={failed} />
     </section>
   );
 }

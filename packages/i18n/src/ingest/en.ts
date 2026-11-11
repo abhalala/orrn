@@ -20,6 +20,7 @@ export const ingestEn = {
     reading: "Reading {sheet} ({rows} rows)",
     uploading: "Saving the original file",
     failed: "orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again.",
+    canonicalMissing: "The file was imported. The backup copy of its rows could not be saved, which does not change this import.",
     stalled: "The rest of this file never arrived. Drop the same file again to continue.",
   },
   vault: {
@@ -93,9 +94,9 @@ export const ingestEn = {
     dateOrder: "Date order",
     nameRequired: "Give this layout a name.",
     missingRequired: "Map these fields before you save: {fields}.",
-    needsColumn: "Pick a column for {fields}, or remove the field.",
   },
   row: {
+    entered: "In the file",
     ready_create: "New",
     ready_update: "Updates orrn",
     unchanged: "Already in orrn",

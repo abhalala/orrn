@@ -20,6 +20,7 @@ export const ingestHi = {
     reading: "{sheet} पढ़ रहे हैं ({rows} लाइनें)",
     uploading: "असली फ़ाइल सेव कर रहे हैं",
     failed: "orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें।",
+    canonicalMissing: "फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता।",
     stalled: "इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें।",
   },
   vault: {
@@ -93,9 +94,9 @@ export const ingestHi = {
     dateOrder: "तारीख का क्रम",
     nameRequired: "इस लेआउट को एक नाम दें।",
     missingRequired: "सेव करने से पहले ये फ़ील्ड मिलाएं: {fields}।",
-    needsColumn: "{fields} के लिए कॉलम चुनें, या फ़ील्ड हटा दें।",
   },
   row: {
+    entered: "फ़ाइल में",
     ready_create: "नया",
     ready_update: "orrn में अपडेट होगा",
     unchanged: "orrn में पहले से है",

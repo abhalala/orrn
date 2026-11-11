@@ -14,12 +14,20 @@ export const STEP_RETRIES = 2;
 
 export type PumpError = { code: string; message: string };
 
+const TRPC_CODES = new Set([
+  "CONFLICT", "FORBIDDEN", "UNAUTHORIZED", "NOT_FOUND", "BAD_REQUEST", "TOO_MANY_REQUESTS", "TIMEOUT", "INTERNAL_SERVER_ERROR",
+  "PRECONDITION_FAILED", "PAYLOAD_TOO_LARGE", "STALLED",
+]);
+
 /** The tRPC error code of a thrown error, or "NETWORK" for anything without one. */
 export function errorCodeOf(error: unknown): string {
   const data = (error as { data?: { code?: unknown } } | null | undefined)?.data;
   if (data && typeof data.code === "string") return data.code;
   const shape = (error as { shape?: { data?: { code?: unknown } } } | null | undefined)?.shape?.data;
   if (shape && typeof shape.code === "string") return shape.code;
+  // A `PumpError` (what the hooks keep) carries the code itself.
+  const own = (error as { code?: unknown } | null | undefined)?.code;
+  if (typeof own === "string" && TRPC_CODES.has(own)) return own;
   return "NETWORK";
 }
 

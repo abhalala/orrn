@@ -21,7 +21,7 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
             <Panel title={data.fileName}>
               <div className="flex flex-wrap items-center gap-2">
                 <Chip tone={data.vaultState === "stored" ? "green" : data.vaultState === "not_stored" ? "amber" : "blue"}>
-                  {data.vaultState === "stored" ? t("common.saved") : data.vaultState === "not_stored" ? t("ingest.vault.off") : t("common.loading")}
+                  {data.vaultState === "stored" ? t("ingest.vault.stored") : data.vaultState === "not_stored" ? t("ingest.vault.off") : t("ingest.vault.pending")}
                 </Chip>
                 <span className="text-[14px] text-muted-foreground">{t("common.total")} {data.rowCount}</span>
               </div>

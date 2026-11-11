@@ -83,7 +83,14 @@ export type FileProblemKey =
   | "ingest.drop.tooManyRows"
   | "ingest.drop.openLimit"
   | "ingest.drop.wrongType"
-  | "ingest.read.failed";
+  | "ingest.read.failed"
+  | "ingest.error.network"
+  | "ingest.error.action"
+  | "ingest.error.forbidden"
+  | "ingest.error.busy"
+  | "ingest.error.conflict"
+  | "ingest.error.notFound"
+  | "ingest.error.load";
 
 /** `key` is a dictionary key and `vars` its variables, ready for `t(key, vars)`. */
 export type FileProblem = { key: FileProblemKey; vars?: Record<string, string | number> };

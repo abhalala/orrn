@@ -261,13 +261,17 @@ export function useStartMerge(): {
   start: () => Promise<{ runId: string; joined: boolean }>;
   pending: boolean;
   error: PumpError | null;
+  /** The thrown error itself, for `ingestErrorWords`. */
+  rawError: unknown;
 } {
   const qc = useQueryClient();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<PumpError | null>(null);
+  const [rawError, setRawError] = useState<unknown>(null);
   const start = useCallback(async () => {
     setPending(true);
     setError(null);
+    setRawError(null);
     try {
       const api = ingestApi();
       try {
@@ -282,12 +286,13 @@ export function useStartMerge(): {
       }
     } catch (e) {
       setError(toPumpError(e));
+      setRawError(e);
       throw e;
     } finally {
       setPending(false);
     }
   }, [qc]);
-  return { start, pending, error };
+  return { start, pending, error, rawError };
 }
 
 export type BotPhase = "idle" | "working" | "otherTab" | "done" | "gaveUp" | "capped" | "error";
