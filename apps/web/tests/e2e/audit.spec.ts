@@ -20,7 +20,8 @@ test("an owner reads recent audit rows, filters a subject and opens its record",
     await expect(page.getByRole("heading", { level: 1, name: "Audit log" })).toBeVisible();
     const list = page.getByTestId("audit-list");
     await expect(list).toContainText(party.name);
-    await expect(list.locator('[data-audit-action="customer.create"]')).toBeVisible();
+    // Other specs on this plant also create customers, so more than one such row can be listed.
+    await expect(list.locator('[data-audit-action="customer.create"]').first()).toBeVisible();
 
     await page.getByTestId("audit-subject").fill(party.id);
     await page.getByTestId("audit-subject").press("Enter");

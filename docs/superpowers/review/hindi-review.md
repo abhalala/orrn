@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7571 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7572 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7184,7 +7184,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (292)
+### audit (293)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7416,6 +7416,7 @@ Please check, Lalubhai:
 | `actions.portal__user__grant` | Party login given | पार्टी को लॉगिन दिया |
 | `actions.portal__user__revoke` | Party login turned off | पार्टी लॉगिन बंद किया |
 | `actions.press__alert__ack` | Press alert acknowledged | प्रेस अलर्ट देखा |
+| `actions.press__alert__ackEnded` | Ended press alerts acknowledged | खत्म हुए प्रेस अलर्ट देखे |
 | `actions.press__alert__threshold` | Press alert limits changed | प्रेस अलर्ट की सीमा बदली |
 | `actions.press__run__close` | Press run logged | प्रेस रन दर्ज किया |
 | `actions.press_downtime__start` | Press stopped (downtime) | प्रेस रुका (डाउनटाइम) |

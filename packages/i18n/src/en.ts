@@ -6790,6 +6790,7 @@ export const en = {
       portal__user__grant: "Party login given",
       portal__user__revoke: "Party login turned off",
       press__alert__ack: "Press alert acknowledged",
+      press__alert__ackEnded: "Ended press alerts acknowledged",
       press__alert__threshold: "Press alert limits changed",
       press__run__close: "Press run logged",
       press_downtime__start: "Press stopped (downtime)",

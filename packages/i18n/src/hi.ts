@@ -6777,6 +6777,7 @@ export const hi = {
       portal__user__grant: "पार्टी को लॉगिन दिया",
       portal__user__revoke: "पार्टी लॉगिन बंद किया",
       press__alert__ack: "प्रेस अलर्ट देखा",
+      press__alert__ackEnded: "खत्म हुए प्रेस अलर्ट देखे",
       press__alert__threshold: "प्रेस अलर्ट की सीमा बदली",
       press__run__close: "प्रेस रन दर्ज किया",
       press_downtime__start: "प्रेस रुका (डाउनटाइम)",
