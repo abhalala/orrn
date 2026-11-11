@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { approve, layout, learnLayout, mergeOnce, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+import { approve, countOf, DIE_HEADERS, dieLayout, layout, learnLayout, mergeOnce, ORDER_HEADERS, orderLayout, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -130,5 +130,47 @@ describe("S3-3: an order the plant cancelled can be imported again", () => {
       ["cancelled", 1],
       [expect.not.stringMatching(/^cancelled$/), 2],
     ]);
+  });
+});
+
+describe("S3-4: an order book approved while its die sheet waits on an answer", () => {
+  test("approve refuses the order book with plain words; once the die sheet is answered, both merge with both lines", async () => {
+    const p = await plant(env);
+    await p.owner.customer.create({ name: "Acme Traders" });
+    await learnLayout(env, p.companyId, p.users.owner.id, dieLayout(), "Dies");
+    await learnLayout(env, p.companyId, p.users.owner.id, orderLayout(), "Orders");
+    const { candidates } = await upload(p.owner, [
+      // 0.17 and 0.2 kg/12ft: the die sheet asks whether that unit is right.
+      { name: "Dies", headers: DIE_HEADERS, rows: [["R", "9100", "0.17", "0.2"]] },
+      {
+        name: "Order book",
+        headers: ORDER_HEADERS,
+        rows: [
+          ["Acme Traders", "PO-1", "01/10/2025", "R", "9100", "3658", "", "300"],
+          ["Acme Traders", "PO-1", "01/10/2025", "R", "9100", "4877", "", "200"],
+        ],
+      },
+    ]);
+    const [dies, book] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, dies);
+    let dc = await p.owner.ingest.candidate.get({ candidateId: dies });
+    expect(dc.questions.some((q) => q.code === "magnitude_check" && q.open)).toBe(true);
+    await pump(p.owner, book);
+    expect((await rowsOf(p.owner, book)).map((r) => r.state)).toEqual(["refused", "refused"]);
+    expect(await tryApprove(p.owner, book)).toBe("REFUSED: A die sheet of this plant that is still being checked adds section 9100. Finish it first, then check this sheet again.");
+    for (const q of dc.questions.filter((x) => x.open)) {
+      dc = await p.owner.ingest.candidate.get({ candidateId: dies });
+      await p.owner.ingest.answer.set({ candidateId: dies, questionCode: q.code, subject: q.subject, answer: "kg/ft", expectSeq: dc.serverSeq });
+    }
+    await pump(p.owner, dies);
+    expect((await rowsOf(p.owner, dies)).map((r) => r.state)).toEqual(["ready_create"]);
+    // The die sheet finished with the section: the order book is checked again (rule 2).
+    await pump(p.owner, book);
+    expect((await rowsOf(p.owner, book)).map((r) => r.state)).toEqual(["ready_create", "ready_create"]);
+    expect(await tryApprove(p.owner, dies)).toBe("approved");
+    expect(await tryApprove(p.owner, book)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect(await countOf(env, "die", p.companyId)).toBe(1);
+    expect(await countOf(env, "sales_order_line", p.companyId)).toBe(2);
   });
 });

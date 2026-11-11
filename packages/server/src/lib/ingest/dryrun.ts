@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -492,7 +492,40 @@ export async function staleRefusal(ctx: IngestCtx, candidateId: string): Promise
   const known = new Set(live.map((x) => x.sectionCode.trim().toUpperCase()));
   const pending = await loadPendingSections(ctx, codes.filter((k) => !known.has(k)));
   const hit = codes.find((k) => known.has(k) || pending.some((x) => x.code === k));
-  return hit ? `Check this sheet again: section ${hit} is now in orrn or in a die sheet of this plant, so rows refused for it may import now.` : null;
+  if (hit) return `Check this sheet again: section ${hit} is now in orrn or in a die sheet of this plant, so rows refused for it may import now.`;
+  // A die sheet that adds the section but is not done yet: a row waiting on an answer, a sheet still
+  // being checked, or one held. Approving now would drop these rows for good (S3-4).
+  const waiting = await unfinishedDieSections(ctx, codes.filter((k) => !known.has(k)));
+  return waiting ? `A die sheet of this plant that is still being checked adds section ${waiting}. Finish it first, then check this sheet again.` : null;
+}
+
+/**
+ * The first of these sections that a dies candidate of the plant, not discarded and not merged,
+ * has on a row that is not refused or skipped and is not yet a ready row of a ready or approved
+ * sheet (those are `loadPendingSections`). Read by section code, 90 a statement.
+ */
+async function unfinishedDieSections(ctx: IngestCtx, codes: readonly string[]): Promise<string | null> {
+  if (codes.length === 0) return null;
+  const V = ingestStagedRow.values;
+  const code = sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))`;
+  const rows = await mapInChunks([...codes], (part) =>
+    ctx.db
+      .select({ code })
+      .from(ingestStagedRow)
+      .innerJoin(ingestCandidate, eq(ingestCandidate.id, ingestStagedRow.candidateId))
+      .where(
+        and(
+          eq(ingestCandidate.companyId, ctx.companyId),
+          eq(ingestCandidate.target, "dies"),
+          notInArray(ingestCandidate.state, ["discarded", "merged"]),
+          notInArray(ingestStagedRow.state, ["refused", "skipped"]),
+          eq(ingestStagedRow.mergeState, "open"),
+          inArray(code, part),
+        ),
+      )
+      .limit(1),
+  );
+  return rows[0]?.code ?? null;
 }
 
 type ClassifyCtx = {
