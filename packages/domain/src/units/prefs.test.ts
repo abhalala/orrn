@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  documentPrefs, LEGACY_DOC_UNITS, ORRN_DEFAULT_PREFS, prefsKey, readUnitSettings, readUserPrefs, screenPrefs,
+  documentPrefs, LEGACY_DOC_UNITS, mergeUnitSettings, ORRN_DEFAULT_PREFS, prefsKey, readUnitSettings, readUserPrefs, screenPrefs,
   validatePlantUnitSettings, validateUnitPrefs,
 } from "./prefs";
 import { KINDS } from "./registry";
@@ -191,5 +191,28 @@ describe("prefsKey", () => {
     const b = screenPrefs({ units: { length: "m", mass: "lb" } });
     expect(prefsKey(a)).toBe(prefsKey(b));
     expect(prefsKey(a)).not.toBe(prefsKey(ORRN_DEFAULT_PREFS));
+  });
+});
+
+describe("mergeUnitSettings: a plant write laid over the plant", () => {
+  const plant = readUnitSettings({ units: { v: 1, units: { mass: "lb", length: "m" }, number: { grouping: "international", decimal: ",", group: "." }, date: { order: "mdy", month: "numeric" }, clock: "h12" } });
+  test("a write that names one choice keeps the others, one level deeper", () => {
+    const merged = mergeUnitSettings(plant, { units: { mass: "t" } });
+    expect(merged.units).toEqual({ mass: "t", length: "m" });
+    expect(merged.number).toEqual(plant.number);
+    expect(merged.clock).toBe("h12");
+  });
+  test("marks and month style survive a grouping or date order write", () => {
+    const merged = mergeUnitSettings(plant, { number: { grouping: "indian" }, date: { order: "ymd" } });
+    expect(merged.number).toEqual({ grouping: "indian", decimal: ",", group: "." });
+    expect(merged.date).toEqual({ order: "ymd", month: "numeric" });
+  });
+  test("a top-level key that is not a map replaces", () => {
+    expect(mergeUnitSettings(plant, { clock: "h23" }).clock).toBe("h23");
+  });
+  test("the plant is not changed", () => {
+    const before = JSON.stringify(plant);
+    mergeUnitSettings(plant, { units: { mass: "kg" } });
+    expect(JSON.stringify(plant)).toBe(before);
   });
 });

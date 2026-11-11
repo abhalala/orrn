@@ -56,21 +56,57 @@ export function rebaseDraft(draft: UnitsDraft, was: UnitsDraft, now: UnitsDraft)
 }
 
 /**
- * What `company.updateSettings({ units })` takes. Top-level keys sent replace the stored ones, so each block
- * carries the keys the form does not edit (decimal and group marks, month style) over from the plant.
+ * The saved set moved under an open tab and the person has edited some choices: the choices they did not touch follow the
+ * saved set (so the preview and Save show what will really be stored), the ones they touched stay as they typed them.
  */
-export function draftPayload(draft: UnitsDraft, plant: PlantUnitSettings) {
-  return {
+export function followUntouched(draft: UnitsDraft, touched: ReadonlySet<keyof UnitsDraft>, saved: UnitsDraft): UnitsDraft {
+  const next = { ...draft };
+  let moved = false;
+  for (const k of Object.keys(draft) as (keyof UnitsDraft)[]) {
+    if (!touched.has(k) && next[k] !== saved[k]) {
+      (next as Record<string, string>)[k] = saved[k];
+      moved = true;
+    }
+  }
+  return moved ? next : draft;
+}
+
+/**
+ * What `company.updateSettings({ units })` takes: only the choices the person changed from what the plant has saved.
+ * The server merges them over the stored set field by field (`mergeUnitSettings`), so the marks and month style the
+ * form does not edit stay as they are, and a draft opened before another admin's save cannot send that admin's
+ * choices back. `touched` names the choices the person edited in this tab; with it, a choice the person did not touch is never
+ * sent even when the saved set moved under the open tab.
+ */
+export function draftPayload(draft: UnitsDraft, plant: PlantUnitSettings, touched?: ReadonlySet<keyof UnitsDraft>) {
+  const saved = draftFromSettings(plant);
+  const changed = (k: keyof UnitsDraft) => draft[k] !== saved[k] && (touched === undefined || touched.has(k));
+  const units: Partial<Pick<UnitsDraft, "mass" | "length" | "linear_mass">> = {};
+  if (changed("mass")) units.mass = draft.mass;
+  if (changed("length")) units.length = draft.length;
+  if (changed("linear_mass")) units.linear_mass = draft.linear_mass;
+  const out: {
+    units?: typeof units;
+    number?: { grouping: UnitsDraft["grouping"] };
+    date?: { order: UnitsDraft["dateOrder"] };
+    clock?: UnitsDraft["clock"];
+  } = {};
+  if (Object.keys(units).length > 0) out.units = units;
+  if (changed("grouping")) out.number = { grouping: draft.grouping };
+  if (changed("dateOrder")) out.date = { order: draft.dateOrder };
+  if (changed("clock")) out.clock = draft.clock;
+  return out;
+}
+
+/** The set the screens would use for this draft (the plant's other choices kept). */
+export function draftPrefs(draft: UnitsDraft, plant: PlantUnitSettings): ResolvedPrefs {
+  const whole = {
     units: { ...plant.units, mass: draft.mass, length: draft.length, linear_mass: draft.linear_mass },
     number: { ...plant.number, grouping: draft.grouping },
     date: { ...plant.date, order: draft.dateOrder },
     clock: draft.clock,
   };
-}
-
-/** The set the screens would use for this draft (the plant's other choices kept). */
-export function draftPrefs(draft: UnitsDraft, plant: PlantUnitSettings): ResolvedPrefs {
-  return screenPrefs({ ...plant, ...draftPayload(draft, plant) } as PlantUnitSettings);
+  return screenPrefs({ ...plant, ...whole } as PlantUnitSettings);
 }
 
 export function choicesOf(kind: OfferedKind): readonly UnitId[] {

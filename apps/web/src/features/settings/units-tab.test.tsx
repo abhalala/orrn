@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { PLANT_UNIT_CHOICES, readUnitSettings, validatePlantUnitSettings } from "@orrn/domain";
+import { mergeUnitSettings, PLANT_UNIT_CHOICES, readUnitSettings, validatePlantUnitSettings } from "@orrn/domain";
 import { createI18n, I18nProvider } from "@orrn/i18n";
 
-import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, previewFor, rebaseDraft, type UnitsDraft } from "./units-model";
+import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, followUntouched, previewFor, rebaseDraft, type UnitsDraft } from "./units-model";
 import { PreviewList } from "./units-preview";
 
 const ENV = { locale: "en", timeZone: "Asia/Kolkata" } as const;
@@ -23,24 +23,55 @@ describe("the draft a plant starts from", () => {
   });
 });
 
+/** What the server stores for a payload: its merge over the plant, then its check (`company.updateSettings`). */
+const stored = (payload: Record<string, unknown>, plant: ReturnType<typeof readUnitSettings>) => validatePlantUnitSettings(mergeUnitSettings(plant, payload));
+
 describe("save payload", () => {
   const draft: UnitsDraft = { mass: "lb", length: "ft_in", linear_mass: "lb_ft", grouping: "international", dateOrder: "ymd", clock: "h12" };
-  test("the server accepts what the form sends", () => {
+  test("when every choice changed, the server accepts what the form sends", () => {
     const payload = draftPayload(draft, none);
-    const checked = validatePlantUnitSettings(payload);
+    const checked = stored(payload, none);
     expect(checked.ok).toBe(true);
     expect(payload.units).toEqual({ mass: "lb", length: "ft_in", linear_mass: "lb_ft" });
+    expect(payload.number).toEqual({ grouping: "international" });
+    expect(payload.date).toEqual({ order: "ymd" });
+    expect(payload.clock).toBe("h12");
   });
-  test("marks and month style the form does not edit are carried over", () => {
-    const plant = readUnitSettings({ units: { number: { grouping: "indian", decimal: ",", group: "." }, date: { order: "dmy", month: "numeric" } } });
-    const payload = draftPayload(draft, plant);
-    expect(payload.number).toEqual({ grouping: "international", decimal: ",", group: "." });
-    expect(payload.date).toEqual({ order: "ymd", month: "numeric" });
+  test("only the choices the person changed are sent", () => {
+    const saved = draftFromSettings(none);
+    expect(draftPayload({ ...saved, clock: "h12" }, none)).toEqual({ clock: "h12" });
+    expect(draftPayload({ ...saved, mass: "lb" }, none)).toEqual({ units: { mass: "lb" } });
+    expect(draftPayload({ ...saved, grouping: "international", dateOrder: "mdy" }, none)).toEqual({ number: { grouping: "international" }, date: { order: "mdy" } });
+    expect(draftPayload(saved, none)).toEqual({});
+  });
+  test("marks and month style the form does not edit are kept by the server, not carried by the form", () => {
+    const plant = readUnitSettings({ units: { units: { mass: "kg" }, number: { grouping: "indian", decimal: ",", group: "." }, date: { order: "dmy", month: "numeric" } } });
+    const payload = draftPayload({ ...draftFromSettings(plant), grouping: "international", dateOrder: "ymd" }, plant);
+    expect(payload).toEqual({ number: { grouping: "international" }, date: { order: "ymd" } });
+    const checked = stored(payload, plant);
+    expect(checked.ok && checked.settings.number).toEqual({ grouping: "international", decimal: ",", group: "." });
+    expect(checked.ok && checked.settings.date).toEqual({ order: "ymd", month: "numeric" });
+  });
+  test("two admins on two tabs: the second save does not send the first admin's choice back", () => {
+    // Both opened the tab on the same plant (kg, 24 hour). Admin A saves pounds. Admin B, on a stale tab, only turns on the 12 hour clock.
+    const opened = none;
+    const draftB: UnitsDraft = { ...draftFromSettings(opened), clock: "h12" };
+    const afterA = readUnitSettings({ units: { units: { mass: "lb" } } });
+    const payloadB = draftPayload(draftB, opened);
+    expect(payloadB).toEqual({ clock: "h12" });
+    const checked = stored(payloadB, afterA);
+    expect(checked.ok && checked.settings.units?.mass).toBe("lb");
+    expect(checked.ok && checked.settings.clock).toBe("h12");
+  });
+  test("the preview still follows the whole draft", () => {
+    const d: UnitsDraft = { ...draftFromSettings(none), mass: "lb", clock: "h12" };
+    expect(previewFor(d, none, ENV).weight).toContain("lb");
+    expect(previewFor(d, none, ENV).date).toContain("pm");
   });
   test("every choice the form offers is accepted by the server check", () => {
     for (const mass of PLANT_UNIT_CHOICES.mass) for (const length of PLANT_UNIT_CHOICES.length) for (const linear_mass of PLANT_UNIT_CHOICES.linear_mass) {
       for (const grouping of ["indian", "international"] as const) for (const dateOrder of DATE_ORDERS) for (const clock of ["h23", "h12"] as const) {
-        expect(validatePlantUnitSettings(draftPayload({ mass, length, linear_mass, grouping, dateOrder, clock }, none)).ok).toBe(true);
+        expect(stored(draftPayload({ mass, length, linear_mass, grouping, dateOrder, clock }, none), none).ok).toBe(true);
       }
     }
   });
@@ -73,6 +104,31 @@ describe("an open tab and a changed plant (another admin, a second tab)", () => 
     const mine: UnitsDraft = { ...kg, clock: "h12" };
     expect(rebaseDraft(mine, kg, { ...kg })).toBe(mine);
     expect(rebaseDraft(kg, kg, { ...kg })).toBe(kg);
+  });
+});
+
+describe("a draft the person edited, while another admin saved", () => {
+  const kg = draftFromSettings(none);
+  const lbPlant = readUnitSettings({ units: { units: { mass: "lb" } } });
+  const lb = draftFromSettings(lbPlant);
+  test("the payload carries the touched choices only, so an untouched stale choice is never sent back", () => {
+    // B's draft: opened on kg, clock edited. The saved set is now lb (admin A's save).
+    const draft: UnitsDraft = { ...kg, clock: "h12" };
+    expect(draftPayload(draft, lbPlant, new Set(["clock"]))).toEqual({ clock: "h12" });
+    // Without the touched set the draft's mass would differ from the saved one and go out as kg.
+    expect(draftPayload(draft, lbPlant)).toEqual({ units: { mass: "kg" }, clock: "h12" });
+  });
+  test("a touched choice equal to the saved one is not sent", () => {
+    expect(draftPayload({ ...lb }, lbPlant, new Set(["mass"]))).toEqual({});
+  });
+  test("untouched choices follow the saved set, touched ones stay", () => {
+    const draft: UnitsDraft = { ...kg, clock: "h12" };
+    expect(followUntouched(draft, new Set(["clock"]), lb)).toEqual({ ...lb, clock: "h12" });
+    expect(followUntouched(draft, new Set(), lb)).toEqual(lb);
+  });
+  test("nothing differs: the same draft comes back", () => {
+    const draft: UnitsDraft = { ...lb, clock: "h12" };
+    expect(followUntouched(draft, new Set(["clock"]), lb)).toBe(draft);
   });
 });
 

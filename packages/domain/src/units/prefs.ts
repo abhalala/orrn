@@ -173,6 +173,20 @@ export function readUnitSettings(raw: unknown): PlantUnitSettings {
   return out;
 }
 
+/**
+ * A plant write laid over what the plant has: the keys sent win, and the maps of choices (`units`, `number`, `date`,
+ * `currency`) merge one level deeper, so a write that names only the clock keeps the plant's weight, length and
+ * marks. The Units tab sends only the choices the person changed, so two admins' saves do not undo each other.
+ */
+export function mergeUnitSettings(current: PlantUnitSettings, sent: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...current, ...sent };
+  for (const key of ["units", "number", "date", "currency"] as const) {
+    const before = (current as Record<string, unknown>)[key];
+    if (isObj(before) && isObj(sent[key])) merged[key] = { ...before, ...sent[key] };
+  }
+  return merged;
+}
+
 /** Tolerant reader for one person's stored preferences: unknown ids dropped, never throws. */
 export function readUserPrefs(raw: unknown): UnitPrefs {
   return readLayer(raw, null);

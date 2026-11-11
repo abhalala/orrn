@@ -14,7 +14,7 @@ import { Can } from "@/shared/components/can";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
-import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, previewFor, rebaseDraft, type UnitsDraft } from "./units-model";
+import { DATE_ORDERS, draftDirty, draftFromSettings, draftPayload, followUntouched, previewFor, rebaseDraft, type UnitsDraft } from "./units-model";
 import { TabState, usePlantSettings } from "./ui";
 import { Fact, PreviewList } from "./units-preview";
 
@@ -38,21 +38,27 @@ export function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; time
   const saved = useMemo(() => draftFromSettings(plant), [plant]);
   const [draft, setDraft] = useState<UnitsDraft>(saved);
   const [seen, setSeen] = useState<UnitsDraft>(saved);
+  // The choices this person edited in this tab: only those are sent, so another admin's save is never sent back.
+  const [touched, setTouched] = useState<ReadonlySet<keyof UnitsDraft>>(() => new Set());
   if (seen !== saved) {
     // The plant's saved set changed (a refetch after another admin's save, or this tab's own): see `rebaseDraft`.
     setSeen(saved);
-    setDraft((d) => rebaseDraft(d, seen, saved));
+    setDraft((d) => followUntouched(rebaseDraft(d, seen, saved), touched, saved));
   }
   const dirty = draftDirty(draft, saved);
   const preview = useMemo(() => previewFor(draft, plant, { locale, timeZone: timezone }), [draft, plant, locale, timezone]);
   const queryClient = useQueryClient();
   const headingId = useId();
-  const set = <K extends keyof UnitsDraft>(key: K, value: UnitsDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  const set = <K extends keyof UnitsDraft>(key: K, value: UnitsDraft[K]) => {
+    setDraft((d) => ({ ...d, [key]: value }));
+    setTouched((prev) => new Set(prev).add(key));
+  };
 
   const save = useMutation(
     trpc.company.updateSettings.mutationOptions({
       onSuccess: () => {
         toast.success(t("settings.units.saved"));
+        setTouched(new Set());
         void queryClient.invalidateQueries({ queryKey: trpc.auth.me.queryKey() });
         void queryClient.invalidateQueries({ queryKey: trpc.company.getSettings.queryKey() });
       },
@@ -63,7 +69,7 @@ export function UnitsPanel({ plant, timezone }: { plant: PlantUnitSettings; time
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!dirty) return;
-    save.mutate({ units: draftPayload(draft, plant) });
+    save.mutate({ units: draftPayload(draft, plant, touched) });
   };
 
   const options = <K extends keyof typeof PLANT_UNIT_CHOICES>(kind: K) =>

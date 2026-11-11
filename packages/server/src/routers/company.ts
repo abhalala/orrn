@@ -14,6 +14,7 @@ import {
   SETTINGS_LOCALES,
   offeredUnitProblems,
   readFloorSettings,
+  mergeUnitSettings,
   readUnitSettings,
   screenPrefs,
   validatePlantUnitSettings,
@@ -239,12 +240,7 @@ export const companyRouter = router({
         const current = readUnitSettings(row.settings);
         const sent = input.units as Record<string, unknown>;
         const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
-        const merged: Record<string, unknown> = { ...current, ...sent };
-        // One level deeper for the maps of choices: a call that sends only the weight keeps the plant's length and section weight.
-        for (const key of ["units", "number", "date", "currency"] as const) {
-          const before = (current as Record<string, unknown>)[key];
-          if (isRecord(before) && isRecord(sent[key])) merged[key] = { ...before, ...sent[key] };
-        }
+        const merged = mergeUnitSettings(current, sent);
         // The Company tab's length switch sent in the same call counts as a length choice unless the call names one.
         if (input.lengthUnit !== undefined && !(isRecord(sent.units) && "length" in sent.units)) {
           merged.units = { ...(isRecord(merged.units) ? merged.units : {}), length: input.lengthUnit === "inch" ? "ft_in" : "mm" };
