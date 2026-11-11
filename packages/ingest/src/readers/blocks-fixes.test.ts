@@ -75,3 +75,14 @@ describe("C33: a footer after a blank row is not a new block", () => {
   });
 });
 
+describe("C34: ragged rows keep the cells right of the header", () => {
+  test("a CSV header with 2 cells and data rows with 3", () => {
+    const [b] = findBlocks([
+      ["Name", "Qty"],
+      ["Asha", "5", "Dispatch note 12"],
+      ["Ravi", "6"],
+    ]);
+    expect(b!.headers).toEqual(["Name", "Qty", ""]);
+    expect(b!.rows[0]).toEqual(["Asha", "5", "Dispatch note 12"]);
+  });
+});

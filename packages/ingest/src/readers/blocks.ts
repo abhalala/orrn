@@ -207,6 +207,9 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
     }
     pos = Math.max(end, dataStart);
 
+    // Ragged rows (CSV): a cell right of the header's last cell is kept under a blank header (C34).
+    const wide = data.reduce((m, r) => Math.max(m, r.length), headers.length);
+    if (wide > headers.length) headers = [...headers, ...Array<string>(wide - headers.length).fill("")];
     const width = usedWidth(headers, data);
     blocks.push({
       sheetName: opts.sheetName ?? null,
