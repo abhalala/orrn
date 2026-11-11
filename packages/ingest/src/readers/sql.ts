@@ -648,7 +648,12 @@ export class SqlReader {
       } else if (ch === "," && depth === 0) break;
       i++;
     }
-    const raw = b.slice(p, i).trim();
+    // A cast after a raw value (`1.50::numeric`, `NULL::character varying`) is dropped, as after a string (C31).
+    const raw = b
+      .slice(p, i)
+      .trim()
+      .replace(/(?:\s*::\s*[A-Za-z_][A-Za-z0-9_ ]*(?:\([^)]*\))?(?:\[\])?)+$/, "")
+      .trim();
     if (!raw.includes("(") && /\s/.test(raw)) throw new Error("bad value");
     if (/^null$/i.test(raw) || /^default$/i.test(raw)) return { value: "", end: i };
     return { value: raw, end: i };

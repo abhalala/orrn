@@ -124,3 +124,13 @@ describe("C30: column names that look like constraint words", () => {
   });
 });
 
+describe("C31: casts after raw values", () => {
+  test("1.50::numeric is 1.50 and NULL::text and NULL::character varying are empty", () => {
+    const sql = "INSERT INTO t (a, b, c, d) VALUES (1, 1.50::numeric, NULL::text, NULL::character varying);\n";
+    each(sql, (r) => {
+      expect(r.tables[0]!.rows).toEqual([["1", "1.50", "", ""]]);
+      expect(r.unparsedCount).toBe(0);
+    });
+  });
+});
+
