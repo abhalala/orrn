@@ -1,0 +1,129 @@
+/**
+ * Types and small helpers shared by the merge planner, the step runner and the target adapters
+ * (plan A5).
+ */
+import { TRPCError } from "@trpc/server";
+import { ZodError } from "zod";
+
+import type { ingestMergeChunk, ingestStagedRow, IngestTarget } from "@orrn/db/schema/ingest";
+
+import type { CandidateRow } from "../core";
+import type { IngestSource } from "../source";
+import type { IngestCtx } from "../types";
+
+export type StagedRow = typeof ingestStagedRow.$inferSelect;
+export type ChunkRow = typeof ingestMergeChunk.$inferSelect;
+export type Values = Record<string, unknown>;
+
+/** What a staged row became in a live table. `committedType` is the live table's name. */
+export type Written = { rowId: string; committedType: string; committedId: string; reasons?: string[] };
+
+export type ChunkFailure = { code: string; message: string; reason: "merge_failed" | "dependency_held" };
+
+export type AdapterOut = { written: Written[]; failure: ChunkFailure | null };
+
+/** A procedure caller that runs as the person, with this call's provenance on the context. */
+export type CallerFor = (source: IngestSource) => Promise<MergeCaller>;
+export type MergeCaller = ReturnType<typeof import("../../../routers/index").appRouter.createCaller>;
+
+export type AdapterArgs = {
+  ctx: IngestCtx;
+  callerFor: CallerFor;
+  chunk: ChunkRow;
+  candidate: CandidateRow;
+  rows: StagedRow[];
+  /** `pending:<rowKey>` resolved to the live id written earlier in this run. */
+  refs: Map<string, string>;
+  /** The provenance of one call: the chunk's, narrowed to the rows the call carries. */
+  sourceOf: (rows: readonly StagedRow[]) => IngestSource;
+};
+
+export type Adapter = (args: AdapterArgs) => Promise<AdapterOut>;
+
+/** Rows per call and calls per chunk for each target (plan A5 table). */
+export const CHUNK_ROWS: Record<IngestTarget, { create: number; update: number }> = {
+  customers: { create: 500, update: 20 },
+  customer_aliases: { create: 500, update: 500 },
+  vendors: { create: 20, update: 20 },
+  vendor_aliases: { create: 20, update: 20 },
+  dies: { create: 500, update: 500 },
+  die_copies: { create: 20, update: 20 },
+  bundles: { create: 500, update: 500 },
+  orders: { create: 0, update: 0 },
+};
+
+/** Orders: at most this many orders per chunk, and lines per order (`MAX_LINES` in routers/salesOrder.ts). */
+export const ORDERS_PER_CHUNK = 10;
+export const LINES_PER_ORDER = 100;
+
+/** Targets whose updates go through a different procedure than their creates, one row per call. */
+export const SPLIT_UPDATES: ReadonlySet<IngestTarget> = new Set(["customers", "vendors", "die_copies", "customer_aliases", "vendor_aliases"]);
+
+export const MESSAGE_MAX = 300;
+
+/** A text value of a staged row, or null when blank. */
+export function text(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = typeof v === "string" ? v.trim() : String(v);
+  return s === "" ? null : s;
+}
+
+export function num(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+export function valuesOf(row: StagedRow): Values {
+  return (row.values ?? {}) as Values;
+}
+
+/** Thrown when a row points at a record of a candidate that was not written (plan A5 step 6). */
+export class DependencyHeld extends Error {
+  constructor(readonly heldName: string) {
+    super(heldName);
+  }
+}
+
+/** The live id a row refers to for `field` (`_ids`), with `pending:` references resolved. */
+export function refOf(row: StagedRow, field: string, refs: Map<string, string>): string | null {
+  const ids = (valuesOf(row)._ids ?? {}) as Record<string, unknown>;
+  const raw = ids[field];
+  if (typeof raw !== "string" || raw === "") return null;
+  if (!raw.startsWith("pending:")) return raw;
+  const hit = refs.get(raw.slice("pending:".length));
+  if (!hit) throw new DependencyHeld(raw.slice("pending:".length));
+  return hit;
+}
+
+/** Every `pending:` row key a set of rows refers to. */
+export function pendingKeys(rows: readonly StagedRow[]): string[] {
+  const out = new Set<string>();
+  for (const r of rows) {
+    const ids = (valuesOf(r)._ids ?? {}) as Record<string, unknown>;
+    for (const v of Object.values(ids)) if (typeof v === "string" && v.startsWith("pending:")) out.add(v.slice("pending:".length));
+  }
+  return [...out];
+}
+
+/** A failure the person can read: the procedure's own message, field by field for an input refusal. */
+export function failureOf(e: unknown): ChunkFailure {
+  if (e instanceof DependencyHeld) return { code: "DEPENDENCY_HELD", message: e.heldName.slice(0, MESSAGE_MAX), reason: "dependency_held" };
+  let code = "INTERNAL_SERVER_ERROR";
+  let message = e instanceof Error ? e.message : String(e);
+  if (e instanceof TRPCError) code = e.code;
+  const zod = e instanceof ZodError ? e : e instanceof TRPCError && e.cause instanceof ZodError ? e.cause : null;
+  if (zod) {
+    code = "BAD_REQUEST";
+    message = zod.issues
+      .slice(0, 5)
+      .map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message))
+      .join("; ");
+  }
+  return { code, message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" };
+}
+
+/** Split `items` into runs of at most `size`. */
+export function runsOf<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
