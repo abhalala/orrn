@@ -417,6 +417,82 @@ async function loadPendingSections(ctx: IngestCtx, codes: readonly string[]): Pr
   return rows;
 }
 
+/** Section keys (upper case, trimmed) of a candidate's refused `section_unknown` rows, with each row's index. */
+async function sectionUnknownRows(ctx: IngestCtx, candidateIds: readonly string[]) {
+  if (candidateIds.length === 0) return [];
+  const V = ingestStagedRow.values;
+  return mapInChunks([...candidateIds], (part) =>
+    ctx.db
+      .select({
+        candidateId: ingestStagedRow.candidateId,
+        rowIndex: ingestStagedRow.rowIndex,
+        code: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))`,
+      })
+      .from(ingestStagedRow)
+      .where(
+        and(
+          inArray(ingestStagedRow.candidateId, part),
+          eq(ingestStagedRow.state, "refused"),
+          eq(ingestStagedRow.mergeState, "open"),
+          sql`${ingestStagedRow.reasons} like '%"section_unknown:sectionCode"%'`,
+        ),
+      ),
+  );
+}
+
+/**
+ * Rule 2: a die sheet finished its dry run with new sections. Every orders or die copies candidate of
+ * the plant that is ready or still checking, and has rows refused for one of those sections, goes
+ * back to checking from its first such row. A held one is left as it is: approve refuses it until it
+ * is checked again (`staleRefusal`).
+ */
+export async function dependentsAgain(ctx: IngestCtx, diesCandidateId: string, at: Date): Promise<SqliteBatchItem[]> {
+  const V = ingestStagedRow.values;
+  const made = await ctx.db
+    .select({ code: sql<string>`upper(trim(coalesce(json_extract(${V}, '$.sectionCode'), '')))` })
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.candidateId, diesCandidateId), eq(ingestStagedRow.state, "ready_create"), eq(ingestStagedRow.mergeState, "open")));
+  const codes = new Set(made.map((m) => m.code).filter(Boolean));
+  if (codes.size === 0) return [];
+  const others = await ctx.db
+    .select({ id: ingestCandidate.id, dryCursor: ingestCandidate.dryCursor, state: ingestCandidate.state })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.target, ["orders", "die_copies"]), inArray(ingestCandidate.state, ["ready", "processing"])));
+  const first = new Map<string, number>();
+  for (const r of await sectionUnknownRows(ctx, others.map((o) => o.id))) {
+    if (!codes.has(r.code)) continue;
+    first.set(r.candidateId, Math.min(first.get(r.candidateId) ?? r.rowIndex, r.rowIndex));
+  }
+  return others
+    .filter((o) => first.has(o.id))
+    .map((o) =>
+      ctx.db
+        .update(ingestCandidate)
+        .set({
+          state: "processing",
+          dryCursor: o.state === "processing" ? Math.min(o.dryCursor, first.get(o.id)!) : first.get(o.id)!,
+          serverSeq: sql`${ingestCandidate.serverSeq} + 1`,
+          updatedAt: at,
+        })
+        .where(and(eq(ingestCandidate.id, o.id), eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.state, o.state))),
+    );
+}
+
+/**
+ * Rule 2, at approve: the words when a row was refused for a section that is now in orrn, or that a
+ * ready or approved die sheet of the plant adds. Null when the refusals still stand.
+ */
+export async function staleRefusal(ctx: IngestCtx, candidateId: string): Promise<string | null> {
+  const rows = await sectionUnknownRows(ctx, [candidateId]);
+  const codes = [...new Set(rows.map((r) => r.code).filter(Boolean))];
+  if (codes.length === 0) return null;
+  const live = await loadSections(ctx, codes);
+  const known = new Set(live.map((x) => x.sectionCode.trim().toUpperCase()));
+  const pending = await loadPendingSections(ctx, codes.filter((k) => !known.has(k)));
+  const hit = codes.find((k) => known.has(k) || pending.some((x) => x.code === k));
+  return hit ? `Check this sheet again: section ${hit} is now in orrn or in a die sheet of this plant, so rows refused for it may import now.` : null;
+}
+
 type ClassifyCtx = {
   target: IngestTarget;
   recipe: Recipe;
@@ -475,7 +551,16 @@ function sectionOf(values: Values, ids: Record<string, string>, reasons: string[
   // sheet of this plant will add first is that section (X-new-4): the row points at its staged row.
   if (cx.target === "orders" || cx.target === "die_copies") {
     const series = str(values.series).trim().toUpperCase();
-    const byCode = (cx.live.pendingSections ?? []).filter((x) => x.code === code.toUpperCase());
+    // Two pending die rows for one series and section are one section (rule 2): the first by key.
+    const byCode = [
+      ...new Map(
+        (cx.live.pendingSections ?? [])
+          .filter((x) => x.code === code.toUpperCase())
+          .sort((a, b) => (a.rowKey < b.rowKey ? -1 : a.rowKey > b.rowKey ? 1 : 0))
+          .reverse()
+          .map((x) => [`${x.series}|${x.code}`, x] as const),
+      ).values(),
+    ];
     const exact = series ? byCode.filter((x) => x.series === series) : [];
     const hit = exact.length === 1 ? exact[0] : byCode.length === 1 ? byCode[0] : undefined;
     if (hit) {
@@ -1268,6 +1353,11 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     }
     // The sheet's values are parsed now: guess the period again with them (A24).
     if (c.target === "orders" || c.target === "bundles") await refreshArtifactPeriod(ctx, artifact);
+    // New sections other sheets were refused for: those sheets check again (rule 2, X-new-4).
+    if (c.target === "dies") {
+      const again = await dependentsAgain(ctx, c.id, now());
+      if (again.length) await ctx.db.batch(again as never);
+    }
   }
   return stepOut(await loadCandidate(ctx, c.id), done);
 }

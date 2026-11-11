@@ -944,6 +944,13 @@ describe("A15, A20: a held candidate has a plain way back", () => {
     const id = candidates[0]!.id;
     await pump(p.admin, id);
     let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    // Changed by portal rules round 3, section 2: a ready candidate may be checked again too
+    // (approve refuses one whose refusals are out of date). An approved one may not.
+    c = await p.admin.ingest.candidate.release({ candidateId: id, expectSeq: c.serverSeq });
+    expect(c.state).toBe("processing");
+    await pump(p.admin, id);
+    c = await p.admin.ingest.candidate.get({ candidateId: id });
+    c = await p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
     await expect(p.admin.ingest.candidate.release({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/held/);
     c = await p.admin.ingest.candidate.hold({ candidateId: id, expectSeq: c.serverSeq });
     // A customer of the sheet was added meanwhile: the re-check sees it.
