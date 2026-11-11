@@ -50,7 +50,7 @@ const s = StyleSheet.create({
   grand: { flexDirection: "row", paddingVertical: 5, borderTopWidth: 1.5, borderColor: INK, marginTop: 6, fontFamily: "Helvetica-Bold", fontSize: 10 },
   signatures: { flexDirection: "row", gap: 24, marginTop: 32 },
   signature: { flexGrow: 1, flexBasis: 0 },
-  signatureLine: { height: 20, borderBottomWidth: 0.5, borderColor: INK },
+  signatureLine: { height: 40, borderBottomWidth: 0.5, borderColor: INK },
   footer: { position: "absolute", bottom: 20, left: 32, right: 32, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
   cSr: { width: "5%" },
   cBundle: { width: "15%" },
@@ -222,7 +222,7 @@ const v2s = StyleSheet.create({
   grand: { flexDirection: "row", paddingVertical: 4, borderTopWidth: 1.5, borderColor: INK, marginTop: 4, fontFamily: "Helvetica-Bold", fontSize: 9.5 },
   signatures: { flexDirection: "row", gap: 24, marginTop: 28 },
   signature: { flexGrow: 1, flexBasis: 0 },
-  signatureLine: { height: 20, borderBottomWidth: 0.5, borderColor: INK },
+  signatureLine: { height: 40, borderBottomWidth: 0.5, borderColor: INK },
   footer: { position: "absolute", bottom: 16, left: 28, right: 28, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
 });
 

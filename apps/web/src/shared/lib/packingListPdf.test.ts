@@ -147,6 +147,11 @@ describe("packing list PDF print polish", () => {
     expect(text).not.toContain("यह टैक्स इनवॉइस नहीं है।");
   });
 
+  test("both PDF signature styles reserve 40 points above each line", async () => {
+    const source = await Bun.file(new URL("./packingListPdf.tsx", import.meta.url)).text();
+    expect(source.match(/signatureLine: \{ height: 40,/g)).toHaveLength(2);
+  });
+
   test("the PDF group heading carries optional order details", async () => {
     const raw = snapshot(1);
     Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });

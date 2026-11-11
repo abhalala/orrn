@@ -143,7 +143,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
     .logo { max-height: 36px; max-width: 160px; margin-bottom: 4px; }
     .signatures { margin-top: 32px; display: flex; gap: 24px; break-inside: avoid; page-break-inside: avoid; }
     .signature { flex: 1; }
-    .signature-line { height: 20px; border-bottom: 1px solid #111; }
+    .signature-line { height: 40px; border-bottom: 1px solid #111; }
   </style>
 </head>
 <body>
@@ -270,7 +270,7 @@ export function buildPackingListHtml(
     .closing { break-inside: avoid; page-break-inside: avoid; }
     .signatures { margin-top: 32px; display: flex; gap: 24px; break-inside: avoid; page-break-inside: avoid; }
     .signature { flex: 1; }
-    .signature-line { height: 20px; border-bottom: 1px solid #111; }
+    .signature-line { height: 40px; border-bottom: 1px solid #111; }
   </style>
 </head>
 <body>

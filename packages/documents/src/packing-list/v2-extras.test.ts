@@ -116,6 +116,7 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(html.indexOf(labels[1]!)).toBeLessThan(html.indexOf(labels[2]!));
     expect(html.indexOf(labels[2]!)).toBeLessThan(html.indexOf(labels[3]!));
     expect(html).toContain(".closing { break-inside: avoid; page-break-inside: avoid; }");
+    expect(html).toContain(".signature-line { height: 40px;");
     expect(html).toMatch(/<div class="closing">[\s\S]*4 bundles · 85.000 kg[\s\S]*Packed by/);
   });
 
