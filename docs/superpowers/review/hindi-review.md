@@ -1448,7 +1448,7 @@ Counts: 7517 screen strings in 49 groups, 45 guides with 866 strings.
 | `po` | PO | PO |
 | `invoice` | Invoice | इनवॉइस |
 | `print` | Print | प्रिंट |
-| `lockedSnapshotFooter` | Not a tax invoice. Generated from the locked snapshot of {code} rev {revision}. | यह टैक्स इनवॉइस नहीं है। {code} rev {revision} के लॉक किए गए स्नैपशॉट से बनाई गई। |
+| `lockedSnapshotFooter` | Not a tax invoice. Printed from {code} revision {revision} as issued. | यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी। |
 | `signatures.packedBy` | Packed by | किसने पैक किया |
 | `signatures.checkedBy` | Checked by | किसने जाँच की |
 | `signatures.driverReceived` | Driver received | ड्राइवर ने माल प्राप्त किया |

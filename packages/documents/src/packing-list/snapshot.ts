@@ -98,7 +98,7 @@ export type PackingListPrintText = {
 };
 
 export function plLockedSnapshotFooter(code: string, revision: number, text?: Partial<PackingListPrintText>): string {
-  return text?.lockedSnapshotFooter?.(code, revision) ?? `Not a tax invoice. Generated from the locked snapshot of ${code} rev ${revision}.`;
+  return text?.lockedSnapshotFooter?.(code, revision) ?? `Not a tax invoice. Printed from ${code} revision ${revision} as issued.`;
 }
 
 export function plSignatureLabels(text?: Partial<PackingListPrintText>): [string, string, string] {

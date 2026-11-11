@@ -1589,7 +1589,7 @@ export const hi = {
     po: "PO",
     invoice: "इनवॉइस",
     print: "प्रिंट",
-    lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} rev {revision} के लॉक किए गए स्नैपशॉट से बनाई गई।",
+    lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी।",
     signatures: {
       packedBy: "किसने पैक किया",
       checkedBy: "किसने जाँच की",

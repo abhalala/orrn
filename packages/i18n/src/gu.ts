@@ -1630,7 +1630,7 @@ const guBase = {
     po: "PO",
     invoice: "ઇન્વૉઇસ",
     print: "પ્રિન્ટ",
-    lockedSnapshotFooter: "આ ટેક્સ ઇન્વૉઇસ નથી. {code} rev {revision} ના લૉક કરેલા સ્નૅપશૉટમાંથી બનાવેલી.",
+    lockedSnapshotFooter: "આ ટેક્સ ઇન્વૉઇસ નથી. {code} સુધારા {revision} મુજબ, જેમ જારી થયું તેમ છપાયું.",
     signatures: {
       packedBy: "કોણે પૅક કર્યું",
       checkedBy: "કોણે ચકાસણી કરી",
