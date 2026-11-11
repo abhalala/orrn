@@ -389,3 +389,83 @@ describe("stop with a chunk in flight (B4, lead item 2)", () => {
     expect((await api.ingest.merge.stop({ runId: first.runId })).state).toBe("done");
   });
 });
+
+describe("a chunk that ends the request on every send (B-new-1)", () => {
+  async function stuckAfterThreeSends(runId: string) {
+    const { ingestMergeChunk } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(ingestMergeChunk).set({ attempts: 3 }).where(eq(ingestMergeChunk.runId, runId));
+  }
+
+  async function chunksOf(candidateId: string) {
+    const { ingestMergeChunk } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    return env.db.select().from(ingestMergeChunk).where(eq(ingestMergeChunk.candidateId, candidateId));
+  }
+
+  async function approveAgain(candidateId: string) {
+    const { ingestCandidate } = await import("@orrn/db/schema/ingest");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(ingestCandidate).set({ state: "approved" }).where(eq(ingestCandidate.id, candidateId));
+  }
+
+  test("stop ends the run: the chunk is failed, its candidate held, its rows stay queued; the next run resends it first", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "vendors", [{ values: { name: "Stuck One" } }, { values: { name: "Stuck Two" } }]);
+    const first = await mergeAll(api);
+    const before = (await stagedRows(env, seeded.candidateId)).map((r) => r.committedId);
+    await rewindToCrash(env, first.runId, seeded.candidateId, { sentAgoMs: 120_000 });
+    await stuckAfterThreeSends(first.runId);
+
+    expect((await api.ingest.merge.stop({ runId: first.runId })).state).toBe("stopped");
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState)).toEqual(["queued", "queued"]);
+    const held = await candidateRow(env, seeded.candidateId);
+    expect([held.state, held.reasonDetail]).toEqual([
+      "held",
+      "One part of this import stopped the server on each of 3 tries. Its rows are kept as they were. Approve the import again to try that part once more, or tell support.",
+    ]);
+    const [chunk] = await chunksOf(seeded.candidateId);
+    expect([chunk!.state, chunk!.errorCode]).toEqual(["failed", "CHUNK_STUCK"]);
+    // A new merge may start: the plant is no longer blocked. Its first step moves the chunk in; a
+    // stop before the resend keeps the rows queued and the candidate held.
+    await approveAgain(seeded.candidateId);
+    const moved = await api.ingest.merge.start();
+    expect((await api.ingest.merge.step({ runId: moved.runId, expectCursor: 0 })).chunksTotal).toBe(1);
+    expect((await chunksOf(seeded.candidateId)).map((c) => [c.runId, c.state])).toEqual([[moved.runId, "planned"]]);
+    expect((await api.ingest.merge.stop({ runId: moved.runId })).state).toBe("stopped");
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState)).toEqual(["queued", "queued"]);
+    expect((await candidateRow(env, seeded.candidateId)).state).toBe("held");
+    expect((await chunksOf(seeded.candidateId)).map((c) => [c.state, c.errorCode])).toEqual([["failed", "CHUNK_STUCK"]]);
+
+    await approveAgain(seeded.candidateId);
+    const again = await mergeAll(api);
+    expect(again.state).toBe("done");
+    const after = await chunksOf(seeded.candidateId);
+    expect(after.map((c) => [c.id, c.runId, c.state, c.errorCode])).toEqual([[chunk!.id, again.runId, "written", null]]);
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => [r.mergeState, r.committedId])).toEqual(before.map((id) => ["written", id]));
+    expect(await count("vendor", companyId)).toBe(2);
+  });
+
+  test("the next step marks the chunk failed instead of sending it a fourth time; the run finishes", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const seeded = await seedCandidate(env, companyId, "vendors", [{ values: { name: "Stuck Step" } }]);
+    const other = await seedCandidate(env, companyId, "customers", [{ values: { name: "Fine Party" } }]);
+    const first = await mergeAll(api);
+    const cursor = await rewindToCrash(env, first.runId, seeded.candidateId);
+    await stuckAfterThreeSends(first.runId);
+    const { spyOn } = await import("bun:test");
+    const adapters = await import("../src/lib/ingest/merge/adapters");
+    const vendors = spyOn(adapters.ADAPTERS, "vendors");
+    try {
+      expect((await pump(api, first.runId, cursor)).state).toBe("done_with_holds");
+      expect(vendors).not.toHaveBeenCalled();
+    } finally {
+      vendors.mockRestore();
+    }
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState)).toEqual(["queued"]);
+    expect((await candidateRow(env, seeded.candidateId)).state).toBe("held");
+    expect((await candidateRow(env, other.candidateId)).state).toBe("merged");
+  });
+});
