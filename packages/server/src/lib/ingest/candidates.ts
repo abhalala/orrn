@@ -28,6 +28,7 @@ import {
   ingestAnswer,
   ingestArtifact,
   ingestBlock,
+  ingestBotRun,
   ingestCandidate,
   ingestHole,
   ingestHoleVersion,
@@ -99,6 +100,13 @@ import {
 } from "./types";
 
 const DONE_STATES: readonly CandidateState[] = ["merging", "merged", "discarded"];
+
+/** `header_mismatch:fields.2.source.cols.0`: a recipe error as a code and a dotted path, for the retry. */
+export function errorWithPath(e: { code: string; path?: string | null }): string {
+  const path = (e.path ?? "").replace(/\[(\d+)\]/g, ".$1").replace(/^\./, "");
+  const out = path && /^[a-z0-9_.]{1,80}$/i.test(path) ? `${e.code}:${path}` : e.code;
+  return out.slice(0, 120);
+}
 
 /** A derived list (the new customers of an order sheet) changes only through its parent sheet (A12). */
 function assertNotDerived(c: CandidateRow): void {
@@ -183,7 +191,7 @@ export async function putBlocks(
   let totalRows = 0;
   for (const b of input.blocks) {
     totalRows += b.rowCount;
-    const sample = b.sample.slice(0, INGEST_LIMITS.sampleRowsPerBlock).map((r) => r.map((c) => c.slice(0, INGEST_LIMITS.cellChars)));
+    const sample = capSample(b.sample.slice(0, INGEST_LIMITS.sampleRowsPerBlock).map((r) => r.map((c) => c.slice(0, INGEST_LIMITS.cellChars))));
     const headersIn = b.headers.map((h) => h.slice(0, INGEST_LIMITS.cellChars));
     // The server never trusts a browser fit: fingerprint and fit are recomputed here.
     const fp = fingerprint({ headers: headersIn, rows: sample, headerRow: b.headerRow, headerRows: b.headerRows });
@@ -253,6 +261,21 @@ export async function putBlocks(
     .where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, artifact.id)))
     .orderBy(asc(ingestBlock.ordinal));
   return storedBlocks(ctx, artifact.id, blocks);
+}
+
+/** The stored sample, at most 512 KB of JSON, cut from the end (A38: D1 keeps at most 2 MB per value). */
+export const SAMPLE_MAX_BYTES = 512 * 1024;
+export function capSample(rows: string[][]): string[][] {
+  const enc = new TextEncoder();
+  let bytes = 2;
+  const out: string[][] = [];
+  for (const r of rows) {
+    const n = enc.encode(JSON.stringify(r)).length + 1;
+    if (bytes + n > SAMPLE_MAX_BYTES) break;
+    bytes += n;
+    out.push(r);
+  }
+  return out;
 }
 
 async function storedBlocks(ctx: IngestCtx, artifactId: string, blocks: readonly BlockRow[]) {
@@ -346,7 +369,17 @@ export async function setTarget(
 ): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   assertNotDerived(c);
-  if (DONE_STATES.includes(c.state) || c.recipeLocked) throw new TRPCError({ code: "BAD_REQUEST", message: "This import can no longer change" });
+  if (c.state === "merging" || c.state === "merged" || c.recipeLocked) throw new TRPCError({ code: "BAD_REQUEST", message: "This import can no longer change" });
+  // An approved import is held first, so its approval is cleared and audited there (A30, A39).
+  if (c.state === "approved") throw new TRPCError({ code: "BAD_REQUEST", message: "Hold this import first, then change what it holds" });
+  if (c.state === "failed") throw new TRPCError({ code: "BAD_REQUEST", message: "This file could not be read. Upload it again." });
+  if (c.state === "discarded") {
+    // A sheet ignored by mistake comes back when every row of it was kept (A41).
+    const sheet = await loadBlock(ctx, c.blockId);
+    if (c.rowsWritten > 0 || c.rowsTotal !== sheet.rowCount || input.target === "ignore") {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "The rows of this sheet were not kept. Upload the file again." });
+    }
+  }
   if (input.target === "ignore") {
     await guardedBatch(ctx.db, [
       ...candidateChange(ctx, c.id, input.expectSeq, { state: "discarded", reasonCode: "ignored" }),
@@ -610,7 +643,8 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
     note: artifact.note,
     // A unit the file does not show (header or note) is asked of the person, never guessed (C4, C20).
     normalize: (recipe) => nullUnshownUnits(recipe, block, artifact.note),
-    validate: (recipe) => validateRecipe(recipe, block, "bot", { note: artifact.note }).map((e) => e.code),
+    // Code plus path (never the model's own text), so a retry knows which field to fix (A35).
+    validate: (recipe) => validateRecipe(recipe, block, "bot", { note: artifact.note }).map((e) => errorWithPath(e)),
     sampleCheck: async (recipe): Promise<SampleStats> => {
       const sampleRows = [...block.sample.map((raw, i) => ({ rowIndex: -1 - i, raw })), ...staged];
       const classified = await classifyRows(ctx, { target: recipe.target, recipe, answers, rows: sampleRows });
@@ -618,13 +652,18 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
       let ambiguous = 0;
       let conflict = 0;
       let requiredBlank = 0;
+      let blankRows = 0;
+      let filtered = 0;
       for (const { outcome } of classified) {
+        // Blank rows are not data; filtered rows are, and too many of them fail the check (A23).
+        if (outcome.reasons.includes("blank_row")) blankRows += 1;
+        if (outcome.reasons.includes("filtered")) filtered += 1;
         if (outcome.state === "refused") refused += 1;
         if (outcome.state === "ambiguous") ambiguous += 1;
         if (outcome.state === "conflict") conflict += 1;
         if (outcome.reasons.some((r) => r.startsWith("blank_required"))) requiredBlank += 1;
       }
-      return { rows: classified.length, refused, ambiguous, conflict, requiredBlank };
+      return { rows: classified.length - blankRows, refused, ambiguous, conflict, requiredBlank, filtered };
     },
   });
 
@@ -646,21 +685,38 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
         botRunId: result.runId,
         headerKey: block.headerKey,
       });
-      await guardedBatch(ctx.db, [
-        ...candidateChange(ctx, c.id, seq, {
-          state: "processing",
-          target: recipe.target,
-          recipe: stored as never,
-          holeRef: `learned:${versionId}`,
-          fit: "bot",
-          dryCursor: 0,
-          botAttempts: c.botAttempts + 1,
-        }),
-        clearLayoutAnswers(ctx, c.id),
-        ...statements,
-      ]);
+      try {
+        await guardedBatch(ctx.db, [
+          ...candidateChange(ctx, c.id, seq, {
+            state: "processing",
+            target: recipe.target,
+            recipe: stored as never,
+            holeRef: `learned:${versionId}`,
+            fit: "bot",
+            dryCursor: 0,
+            botAttempts: c.botAttempts + 1,
+          }),
+          clearLayoutAnswers(ctx, c.id),
+          ...statements,
+        ]);
+      } catch (e) {
+        // The candidate moved during the call: the recipe is not saved, so the run is not done (A33).
+        await ctx.db
+          .update(ingestBotRun)
+          .set({ outcome: "error", errorCodes: ["candidate_moved"] })
+          .where(and(eq(ingestBotRun.id, result.runId), eq(ingestBotRun.companyId, ctx.companyId)));
+        throw e;
+      }
       return { outcome: "recipe", skipReason: null, attempt: result.attempt, model: result.model, next: "done" };
     }
+    // The sheet already has an import of that kind: the recipe is not saved, so the run is not a
+    // finished recipe and the bot does not count the sheet as done (A33, A36).
+    await ctx.db
+      .update(ingestBotRun)
+      .set({ outcome: "no_target", errorCodes: ["target_taken"] })
+      .where(and(eq(ingestBotRun.id, result.runId), eq(ingestBotRun.companyId, ctx.companyId)));
+    await guardedBatch(ctx.db, candidateChange(ctx, c.id, seq, { botAttempts: c.botAttempts + 1 }));
+    return { outcome: "no_target", skipReason: null, attempt: result.attempt, model: result.model, next: "manual" };
   }
   await guardedBatch(ctx.db, candidateChange(ctx, c.id, seq, { botAttempts: c.botAttempts + 1 }));
   return { outcome: result.outcome, skipReason: null, attempt: result.attempt, model: result.model, next: result.next };
@@ -1103,7 +1159,11 @@ export async function retireHole(ctx: IngestCtx, input: { holeId: string }): Pro
     .where(and(eq(ingestHole.id, input.holeId), eq(ingestHole.companyId, ctx.companyId)))
     .limit(1);
   if (!h) throw new TRPCError({ code: "NOT_FOUND", message: "Layout not found" });
-  await ctx.db.update(ingestHole).set({ state: "retired", updatedAt: now() }).where(and(eq(ingestHole.id, h.id), eq(ingestHole.companyId, ctx.companyId)));
+  // Retiring changes what fits for the plant, so it is audited with the change (A31).
+  await guardedBatch(ctx.db, [
+    ctx.db.update(ingestHole).set({ state: "retired", updatedAt: now() }).where(and(eq(ingestHole.id, h.id), eq(ingestHole.companyId, ctx.companyId))),
+    auditInsert(ctx, { action: "ingest.hole.retire", subjectType: "ingest_hole", subjectId: h.id, meta: { name: h.name, target: h.target, from: h.state } }),
+  ]);
   const [view] = (await listHoles(ctx, { target: h.target })).filter((x) => x.id === h.id);
   return view!;
 }

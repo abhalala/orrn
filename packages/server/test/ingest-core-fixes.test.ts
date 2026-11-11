@@ -833,3 +833,116 @@ describe("cross-lane C4, C20: a bot unit the file does not show becomes a questi
     }
   });
 });
+
+describe("minor fixes", () => {
+  test("A23: a recipe that filters away every row fails the sample check", async () => {
+    const { evaluateSampleStats } = await import("../src/lib/ingest/bot");
+    expect(evaluateSampleStats({ rows: 10, refused: 0, ambiguous: 0, conflict: 0, requiredBlank: 0, filtered: 10 })).toEqual({ ok: false, codes: ["sample:no_rows_survive"] });
+    expect(evaluateSampleStats({ rows: 10, refused: 0, ambiguous: 0, conflict: 0, requiredBlank: 0, filtered: 3 }).codes).toContain("sample:filtered_over_20");
+    expect(evaluateSampleStats({ rows: 10, refused: 0, ambiguous: 0, conflict: 0, requiredBlank: 0, filtered: 2 }).ok).toBe(true);
+  });
+
+  test("A30, A39: setTarget refuses an approved candidate and a failed read", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [CUSTOMERS]);
+    const id = candidates[0]!.id;
+    await pump(p.admin, id);
+    let c = await p.admin.ingest.candidate.get({ candidateId: id });
+    c = await p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq });
+    await expect(p.admin.ingest.candidate.setTarget({ candidateId: id, target: "vendors", expectSeq: c.serverSeq })).rejects.toThrow(/Hold this import first/);
+
+    const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "bad.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
+    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId, readError: "Broken" });
+    const failed = await p.admin.ingest.candidate.get({ candidateId: put.candidates[0]!.id });
+    await expect(p.admin.ingest.candidate.setTarget({ candidateId: failed.id, target: "customers", expectSeq: failed.serverSeq })).rejects.toThrow(/could not be read/);
+  });
+
+  test("A41: a sheet ignored by mistake comes back when its rows were kept", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [CUSTOMERS]);
+    const c = candidates[0]!;
+    const ignored = await p.admin.ingest.candidate.setTarget({ candidateId: c.id, target: "ignore", expectSeq: c.serverSeq });
+    const back = await p.admin.ingest.candidate.setTarget({ candidateId: c.id, target: "customers", expectSeq: ignored.serverSeq });
+    expect(back).toMatchObject({ state: "processing", target: "customers" });
+    expect((await pump(p.admin, c.id)).counts.create).toBe(2);
+  });
+
+  test("A31: retiring a layout writes an audit row", async () => {
+    const p = await plant();
+    const fp = fingerprint({ headers: KHATA.headers, rows: KHATA.rows });
+    const recipe = (khataAnswer().json as { result: { recipe: Recipe } }).result.recipe;
+    const { holeId } = await learnLayout(p.companyId, p.users.admin.id, { ...recipe, match: { headerKey: fp.headerKey, headers: fp.normalized } });
+    await p.owner.ingest.hole.retire({ holeId });
+    const rows = await env.d1.prepare("select action from audit_log where company_id = ? and action = 'ingest.hole.retire'").bind(p.companyId).all();
+    expect(rows.results).toHaveLength(1);
+  });
+
+  test("A32: a row over 8 KB of JSON is refused on the wire", async () => {
+    const p = await plant();
+    const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "w.csv", sizeBytes: 10, contentType: null, kind: "csv" });
+    const wide = Array.from({ length: 20 }, () => "y".repeat(500));
+    const { blocks } = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf({ headers: wide.map((_, i) => `c${i}`), rows: [] }, 0)] });
+    await expect(p.admin.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [wide] })).rejects.toThrow(/too long/);
+  });
+
+  test("A38: the stored sample is cut to 512 KB", async () => {
+    const { capSample, SAMPLE_MAX_BYTES } = await import("../src/lib/ingest/candidates");
+    const rows = Array.from({ length: 200 }, () => Array.from({ length: 30 }, () => "z".repeat(200)));
+    const kept = capSample(rows);
+    expect(kept.length).toBeLessThan(200);
+    expect(new TextEncoder().encode(JSON.stringify(kept)).length).toBeLessThanOrEqual(SAMPLE_MAX_BYTES);
+  });
+
+  test("A35: a retry code carries the path, never model text", async () => {
+    const { errorWithPath } = await import("../src/lib/ingest/candidates");
+    expect(errorWithPath({ code: "header_mismatch", path: "fields[2].source.cols[0]" })).toBe("header_mismatch:fields.2.source.cols.0");
+    expect(errorWithPath({ code: "kind_mismatch", path: "fields.1 <b>" })).toBe("kind_mismatch");
+  });
+
+  test("A34: after a transport error the retry repeats the model that failed", async () => {
+    const { planNext } = await import("../src/lib/ingest/bot/escalate");
+    const plan = planNext(
+      [
+        { attempt: 1, model: "claude-haiku-5-5", outcome: "sample_failed", errorCodes: ["sample:refused_over_20"] },
+        { attempt: 2, model: "claude-sonnet-5-5", outcome: "error", errorCodes: ["client:timeout"] },
+      ],
+      "claude-haiku-5-5",
+    );
+    expect(plan).toMatchObject({ next: "retry", model: "claude-sonnet-5-5" });
+  });
+
+  test("A33, A36: a bot recipe for a kind the sheet already has is not reported done", async () => {
+    const p = await plant();
+    const { candidates } = await upload(p.admin, [KHATA]);
+    const c = candidates[0]!;
+    // Another candidate of the same block already holds customers.
+    const { ingestCandidate } = await import("@orrn/db/schema/ingest");
+    await env.db.insert(ingestCandidate).values({
+      id: `cand_${randomUUID()}`, companyId: p.companyId, artifactId: c.artifactId, blockId: c.blockId, parentId: c.id, target: "customers", fit: "manual", state: "ready",
+    } as never);
+    setShapeClientForTests(new FakeShapeClient([khataAnswer()]));
+    const out = await p.admin.ingest.shape.make({ candidateId: c.id, expectSeq: c.serverSeq });
+    expect(out).toMatchObject({ outcome: "no_target", next: "manual" });
+    const run = await env.d1.prepare("select outcome, error_codes as codes from ingest_bot_run where block_id = ?").bind(c.blockId).first<{ outcome: string; codes: string }>();
+    expect(run).toMatchObject({ outcome: "no_target", codes: JSON.stringify(["target_taken"]) });
+  });
+});
+
+describe("A37: two variants of one layout saved at once", () => {
+  test("a clash on the version number is a CONFLICT, never a server error", async () => {
+    const p = await plant();
+    const fp = fingerprint({ headers: KHATA.headers, rows: KHATA.rows });
+    const recipe = (khataAnswer().json as { result: { recipe: Recipe } }).result.recipe;
+    await learnLayout(p.companyId, p.users.admin.id, { ...recipe, match: { headerKey: fp.headerKey, headers: fp.normalized } });
+    const near: Sheet = { headers: ["Khata", "Gaam", "Extra"], rows: [["Acme", "Surat", "x"]] };
+    const a = (await upload(p.admin, [near])).candidates[0]!;
+    const b = (await upload(p.admin, [near], "copy.xlsx")).candidates[0]!;
+    const results = await Promise.allSettled([
+      p.admin.ingest.candidate.confirmNear({ candidateId: a.id, accept: true, expectSeq: a.serverSeq }),
+      p.admin.ingest.candidate.confirmNear({ candidateId: b.id, accept: true, expectSeq: b.serverSeq }),
+    ]);
+    for (const r of results) if (r.status === "rejected") expect(String(r.reason)).toMatch(/another tab/);
+    expect(results.some((r) => r.status === "fulfilled")).toBe(true);
+  });
+});

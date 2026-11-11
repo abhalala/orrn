@@ -25,8 +25,16 @@ export const artifactIdInput = z.object({ artifactId: id });
 /** `readError` set: the browser could not read the file; the artifact and its candidates become failed. */
 export const completeInput = z.object({ artifactId: id, readError: z.string().trim().min(1).max(300).optional() });
 
-/** Cells longer than 200 characters are cut by the server with a reason code (A9); 2,000 is the wire cap. */
-const cell = z.string().max(2000);
+/**
+ * Cells longer than 200 characters are cut by the server with a reason code (A9). The wire takes at
+ * most 1,000, and a row at most 8 KB of JSON, so a request stays near what the server keeps (A32).
+ */
+const cell = z.string().max(1000);
+const ROW_JSON_MAX = 8 * 1024;
+const row = z
+  .array(cell)
+  .max(L.columnsPerBlock)
+  .refine((r) => new TextEncoder().encode(JSON.stringify(r)).length <= ROW_JSON_MAX, "A row is too long");
 
 export const blockInput = z.object({
   ordinal: z.number().int().min(0).max(L.blocksPerFile - 1),
@@ -39,7 +47,7 @@ export const blockInput = z.object({
   /** The browser's own reading; the server recomputes both and never trusts these. */
   kinds: z.array(z.string().max(20)).max(L.columnsPerBlock).optional(),
   headerKey: z.string().max(100).optional(),
-  sample: z.array(z.array(cell).max(L.columnsPerBlock)).max(L.sampleRowsPerBlock),
+  sample: z.array(row).max(L.sampleRowsPerBlock),
   dateColumns: z.array(z.number().int().min(0).max(L.columnsPerBlock)).max(L.columnsPerBlock).optional(),
 });
 
@@ -52,7 +60,7 @@ export const putRowsInput = z.object({
   blockId: id,
   fromIndex: z.number().int().min(0).max(L.stagedRowsPerBlock),
   expectRowsPut: z.number().int().min(0).max(L.stagedRowsPerBlock),
-  rows: z.array(z.array(cell).max(L.columnsPerBlock)).min(1).max(L.rowsPerPut),
+  rows: z.array(row).min(1).max(L.rowsPerPut),
 });
 
 export const listInput = z.object({ cursor, limit: z.number().int().min(1).max(50).default(20) });

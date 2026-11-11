@@ -77,6 +77,10 @@ export async function guardedBatch(
     await atomicBatch(db, statements);
   } catch (e) {
     if (isIngestAbort(e)) throw new TRPCError(refusal);
+    // Two people saved a version of one layout at once: the second is told to reload (A37).
+    if (/UNIQUE constraint failed: ingest_hole_version/.test(String((e as Error)?.message ?? e)) || /UNIQUE constraint failed: ingest_hole_version/.test(String((e as { cause?: unknown })?.cause ?? ""))) {
+      throw new TRPCError(MOVED);
+    }
     throw e;
   }
 }

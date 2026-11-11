@@ -35,12 +35,18 @@ export type SampleStats = {
   conflict: number;
   /** Rows where a required field came out blank. */
   requiredBlank: number;
+  /** Rows a recipe filter dropped (A23). Counted in `rows`. */
+  filtered?: number;
 };
 
 /** Plan B6, "Sample check": fails above 20% refused, 40% ambiguous plus conflict, or 30% required blank. */
 export function evaluateSampleStats(s: SampleStats): { ok: boolean; codes: string[] } {
   if (s.rows <= 0) return { ok: false, codes: ["sample:no_rows"] };
+  const filtered = s.filtered ?? 0;
+  // A recipe that filters away the data is not a layout (A23).
+  if (s.rows - filtered <= 0) return { ok: false, codes: ["sample:no_rows_survive"] };
   const codes: string[] = [];
+  if (filtered * 100 > s.rows * 20) codes.push("sample:filtered_over_20");
   if (s.refused * 100 > s.rows * 20) codes.push("sample:refused_over_20");
   if ((s.ambiguous + s.conflict) * 100 > s.rows * 40) codes.push("sample:ambiguous_over_40");
   if (s.requiredBlank * 100 > s.rows * 30) codes.push("sample:required_blank_over_30");

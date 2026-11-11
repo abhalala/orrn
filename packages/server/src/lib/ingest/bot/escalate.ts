@@ -62,8 +62,9 @@ export function planNext(history: readonly BotRunHistoryRow[], start: ShapeModel
     let trailing = 0;
     for (let i = calls.length - 1; i >= 0 && calls[i]!.outcome === "error"; i--) trailing++;
     if (trailing >= 2) return { next: "manual", model: null, attempt, carryErrors: false };
+    // A transport error repeats the model that failed (A34); the errors carried are the last real row's.
     const prev = real[real.length - 1];
-    const model: ShapeModelId = prev ? (isHaiku(prev.model) ? HAIKU : SONNET) : start;
+    const model: ShapeModelId = isHaiku(last.model) ? HAIKU : SONNET;
     return { next: "retry", model, attempt, carryErrors: prev?.outcome === "invalid" };
   }
 
