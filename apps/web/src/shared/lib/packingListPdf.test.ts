@@ -97,7 +97,7 @@ describe("packing list PDF print polish", () => {
     expect(total).toBe(pages.length);
     expect(numbers.map((match) => Number(match?.[1])).sort((a, b) => a - b)).toEqual(Array.from({ length: total }, (_, i) => i + 1));
     for (const page of pages) {
-      expect(page).toContain("Not a tax invoice. Printed from PL/2026-27/90 revision 3 as issued.");
+      expect(page).toContain("Fourcubes Aluminium Pvt Ltd · Not a tax invoice. Printed from PL/2026-27/90 revision 3 as issued.");
     }
     const labels = ["Packed by", "Checked by", "Driver", "Receiver's signature"];
     const signed = pages.filter((page) => labels.every((label) => page.includes(label)));

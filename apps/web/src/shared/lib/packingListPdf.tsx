@@ -186,7 +186,7 @@ function PackingListDoc({ model, code, kgPerPiece }: { model: PackingListModel; 
         </View>
 
         <View style={s.footer} fixed>
-          <Text>{plLockedSnapshotFooter(code, 1)}</Text>
+          <Text>{`${header.companyName} · ${plLockedSnapshotFooter(code, 1)}`}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -382,7 +382,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
         </View>
 
         <View style={v2s.footer} fixed>
-          <Text>{plLockedSnapshotFooter(view.plNumber, view.revision)}</Text>
+          <Text>{`${view.company.legalName ?? view.company.name} · ${plLockedSnapshotFooter(view.plNumber, view.revision)}`}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
