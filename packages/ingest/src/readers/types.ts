@@ -10,38 +10,50 @@ export type BlockConfidence = "sure" | "unsure";
  * - `rows_above_header`: a title, letterhead or other rows sit above the header in the region.
  * - `header_too_few_cells`: the header has fewer than two filled cells.
  * - `header_not_text`: a header cell is a number, a date or a code.
+ * - `header_like_title`: a header cell reads like a title or letterhead (a colon label such as "Party: Om", or a full
+ *   date), so the real header may be the row below.
+ * - `header_repeated`: two header cells hold the same name (a second header row of sizes or units may sit below).
  * - `header_blank_cell`: a column has no name (a blank header cell, also a data row wider than the header).
  * - `two_row_header`: the reader joined two rows into the header (group labels over columns).
  * - `no_number_below`: no data row holds a number or a date.
  * - `first_row_has_no_number`: the first row under the header holds no number or date, so it may be a second header
  *   row, or the header may be a title.
+ * - `first_row_like_header`: the first row under the header could itself be the header: its numbers are years, dates
+ *   on the 1st of a month, or whole numbers rising left to right (lengths 12, 14, 16; column numbers 1, 2, 3).
  * - `row_wider_than_header`: a data row has a cell right of the header's last cell.
  * - `word_in_number_column`: a word sits in a column whose other cells are numbers or dates.
  * - `gap_in_rows`: a blank row sits between data rows (what follows may be a footer or another table).
  * - `one_cell_last_row`: the last row has one filled cell (a footer or a note, or a real row).
+ * - `last_row_not_data`: the last row is blank in every column of numbers or dates ("Prepared by | Checked by").
  * - `more_tables`: the sheet or page holds another table, so where this one ends is a guess.
  * - `line_not_placed` (PDF): a line on the page could not be placed in the table.
  * - `columns_not_shared` (PDF): the rows of the region do not share column positions.
  * - `one_cell_line` (PDF): a line with one cell was folded into the row above or kept as its own row.
  * - `rows_left_out` (PDF): a line under the table was left out as a footer (listed in `warnings`).
+ * - `continued_without_header` (PDF): lines on a later page with no header of their own were joined to the table.
  */
 export const UNSURE_REASONS = [
   "rows_above_header",
   "header_too_few_cells",
   "header_not_text",
+  "header_like_title",
+  "header_repeated",
   "header_blank_cell",
   "two_row_header",
   "no_number_below",
   "first_row_has_no_number",
+  "first_row_like_header",
   "row_wider_than_header",
   "word_in_number_column",
   "gap_in_rows",
   "one_cell_last_row",
+  "last_row_not_data",
   "more_tables",
   "line_not_placed",
   "columns_not_shared",
   "one_cell_line",
   "rows_left_out",
+  "continued_without_header",
 ] as const;
 export type UnsureReason = (typeof UNSURE_REASONS)[number];
 

@@ -6,6 +6,7 @@
  * "top bottom" with `headerRows = 2`. A blank row followed by a new header-like row starts a new block.
  */
 import { cellKind, inferKind } from "../cells";
+import { parseDate } from "../dates";
 import { usedWidth } from "../fingerprint";
 import { PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning, type UnsureReason } from "./types";
 
@@ -184,6 +185,50 @@ const isNumberish = (s: string) => {
   return k === "int" || k === "decimal" || k === "date";
 };
 
+/**
+ * Plain column names of plant sheets. A data cell is almost never exactly one of them, so a first data row that holds
+ * one ("Party | 12", "Phone | 98...") may be the header under a letterhead or a key and value line. Only narrows sure.
+ */
+const COLUMN_WORDS = new Set(
+  (
+    "sr|sr no|s no|sno|no|party|party name|customer|customer name|name|section|section no|die|die no|series|qty|quantity|" +
+    "pcs|pieces|kg|kgs|weight|wt|net wt|gross wt|rate|amount|value|date|length|size|city|phone|mobile|contact|email|" +
+    "address|gst|gstin|remarks|remark|bundle|bundles|order|order no|po|po no|invoice|invoice no|alloy|temper|finish|" +
+    "colour|color|press|hours|shift|vehicle|vehicle no|transporter|code|item|description|unit|uom|month|year"
+  ).split("|"),
+);
+
+const YEAR_RANGE = (n: number) => n >= 1990 && n <= 2100;
+/** A date on the 1st of a month, in any format the date reader knows: a month label in a header. */
+function isMonthStart(s: string): boolean {
+  return (["ymd", "dmy", "mdy", "d_mon_y"] as const).some((f) => parseDate(s, f)?.slice(8, 10) === "01");
+}
+
+/**
+ * Could this first data row be the header itself (R3-1, R3-2)? Column names may be numbers: lengths (12, 14, 16),
+ * years (2024, 2025), month dates (1 Apr, 1 May) or column numbers (1, 2, 3). It could when a cell is a plain column
+ * name (`COLUMN_WORDS`), or when it holds a number or a
+ * date and every one is a year or a month start, or when two or more whole numbers rise left to right, by one each
+ * time or with the last at most three times the first. A serial column (the next row holds the value plus one) is
+ * data and is left out of the rising test.
+ */
+export function couldBeHeader(row: readonly string[], next: readonly string[] | undefined): boolean {
+  if (row.some((v) => COLUMN_WORDS.has(v.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()))) return true;
+  const nums: { v: string; i: number }[] = [];
+  row.forEach((v, i) => {
+    if (v !== "" && isNumberish(v)) nums.push({ v, i });
+  });
+  if (nums.length === 0) return false;
+  if (nums.every(({ v }) => (cellKind(v) === "int" && YEAR_RANGE(Number(v.replace(/,/g, "")))) || (cellKind(v) === "date" && isMonthStart(v)))) return true;
+  const ints = nums.filter(({ v, i }) => !(cellKind(v) === "int" && next !== undefined && Number(next[i]) === Number(v) + 1));
+  if (ints.length < 2 || ints.some(({ v }) => cellKind(v) !== "int")) return false;
+  const vals = ints.map(({ v }) => Number(v.replace(/,/g, "")));
+  if (!vals.every((v, k) => k === 0 || v > vals[k - 1]!)) return false;
+  // Column names that are numbers count up by one (1, 2, 3) or stay of one size (lengths 8 to 20 ft). A quantity
+  // next to a weight (12 | 1200) does not.
+  return vals.every((v, k) => k === 0 || v === vals[k - 1]! + 1) || vals[vals.length - 1]! <= 3 * vals[0]!;
+}
+
 /** What the confidence check needs to know about one block. */
 export type JudgeInput = {
   /** Rows above the header in the region (a title, a letterhead). */
@@ -209,11 +254,16 @@ export function unsureReasons(b: JudgeInput): UnsureReason[] {
   if (b.hasTitle) out.push("rows_above_header");
   if (nonBlank(b.topRow) < 2) out.push("header_too_few_cells");
   if (b.headers.some((c) => c !== "" && cellKind(c) !== "text")) out.push("header_not_text");
+  if (b.headers.some((c) => TITLE_MARK.test(c))) out.push("header_like_title");
+  const names = b.headers.filter((c) => c !== "").map((c) => c.toLowerCase());
+  if (new Set(names).size < names.length) out.push("header_repeated");
   if (b.headers.some((c) => c === "")) out.push("header_blank_cell");
   if (b.headerRows === 2) out.push("two_row_header");
   if (!b.rows.some((r) => r.some(isNumberish))) out.push("no_number_below");
-  const first = b.rows.find((r) => nonBlank(r) > 0);
+  const filledRows = b.rows.filter((r) => nonBlank(r) > 0);
+  const first = filledRows[0];
   if (first && !first.some(isNumberish)) out.push("first_row_has_no_number");
+  if (first && couldBeHeader(first, filledRows[1])) out.push("first_row_like_header");
   let lastHead = -1;
   b.topRow.forEach((c, i) => {
     if (c !== "") lastHead = i;
