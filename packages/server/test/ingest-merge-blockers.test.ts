@@ -63,16 +63,19 @@ async function count(table: "customer" | "bundle" | "sales_order", companyId: st
 }
 
 describe("one old order is one order (B1, B5)", () => {
-  test("an old order split over the sheet and two old orders on one PO merge into the right orders: no duplicate, no orphan, a rerun adds nothing", async () => {
+  // Changed by portal rules round 3, section 1: the PO is a fact about an order, never part of
+  // it. One old order whose PO is on some rows only, in two spellings of its number, is one order.
+  // (Two old order numbers on one PO are two orders now; that case is held, see below.)
+  test("an old order split over the sheet, with its PO on some rows only, merges into the right orders: no duplicate, no orphan, a rerun adds nothing", async () => {
     const { companyId, customerId, dieId } = await plant();
     const rows: ReturnType<typeof line>[] = [];
     // 12 old orders with no PO, 3 lines each, row i in order i % 12: every order spans the sheet,
     // so the planner packs 10 whole orders and the chunk ranges overlap.
     for (let i = 0; i < 36; i += 1) rows.push(line(customerId, dieId, { oldOrderNo: `O-${i % 12}`, cutLength: 1000 + i }));
-    // One PO under two old order numbers, in two spellings, spread between them: one order.
+    // One old order in two spellings of its number, its PO on two of its three rows: one order.
     rows.splice(5, 0, line(customerId, dieId, { poNumber: "PO-77", oldOrderNo: "B-1", cutLength: 2001 }));
-    rows.splice(17, 0, line(customerId, dieId, { poNumber: "po-77 ", oldOrderNo: "B-2", cutLength: 2002 }));
-    rows.splice(30, 0, line(customerId, dieId, { poNumber: "PO-77", oldOrderNo: "B-1", cutLength: 2003 }));
+    rows.splice(17, 0, line(customerId, dieId, { oldOrderNo: "b-01", cutLength: 2002 }));
+    rows.splice(30, 0, line(customerId, dieId, { poNumber: "po-77 ", oldOrderNo: "B-1", cutLength: 2003 }));
     const seeded = await seedCandidate(env, companyId, "orders", rows);
 
     const admin = await api(companyId);
@@ -96,15 +99,15 @@ describe("one old order is one order (B1, B5)", () => {
     const byKey = new Map<string, Set<string>>();
     for (const r of staged) {
       const v = r.values as { poNumber?: string; oldOrderNo: string };
-      const key = v.poNumber ? `po:${v.poNumber.trim().toLowerCase()}` : `old:${v.oldOrderNo}`;
+      const key = `old:${v.oldOrderNo.toLowerCase().replace(/(^|[^0-9])0+(?=[0-9])/g, "$1")}`;
       byKey.set(key, (byKey.get(key) ?? new Set()).add(r.committedId!));
     }
     expect(byKey.size).toBe(13);
     for (const ids of byKey.values()) expect(ids.size).toBe(1);
     const po = orders.find((o) => o.poNumber === "PO-77")!;
     expect(lines.filter((l) => l.salesOrderId === po.id).map((l) => l.cutLengthMm).sort()).toEqual([2001, 2002, 2003]);
-    // Both old order numbers stay on the order.
-    expect(po.note).toBe("Old order no. B-1, B-2");
+    // The number as first written stays on the order.
+    expect(po.note).toBe("Old order no. B-1");
 
     // A rerun of the same candidate writes nothing new.
     const { ingestCandidate } = await import("@orrn/db/schema/ingest");
@@ -113,6 +116,19 @@ describe("one old order is one order (B1, B5)", () => {
     expect((await mergeAll(admin)).state).toBe("done");
     expect(await count("sales_order", companyId)).toBe(13);
     expect(await auditRows(env, companyId, "order.create")).toHaveLength(13);
+  });
+});
+
+describe("one PO on two old orders (rule 1)", () => {
+  test("is held before any order is written: the order screens take a PO once per customer", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    await seedCandidate(env, companyId, "orders", [
+      line(customerId, dieId, { poNumber: "PO-77", oldOrderNo: "B-1", cutLength: 2001 }),
+      line(customerId, dieId, { poNumber: "po-77 ", oldOrderNo: "B-2", cutLength: 2002 }),
+    ]);
+    const res = await mergeAll(await api(companyId));
+    expect(res.state).toBe("done_with_holds");
+    expect(await count("sales_order", companyId)).toBe(0);
   });
 });
 

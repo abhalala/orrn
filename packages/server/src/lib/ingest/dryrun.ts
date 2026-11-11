@@ -29,9 +29,9 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 
-import { customer, customerAlias, die, dieInstance, salesOrder, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
+import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
   ingestAnswer,
   ingestCandidate,
@@ -41,13 +41,13 @@ import {
   type RowState,
 } from "@orrn/db/schema/ingest";
 
-import { mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../atomic";
+import { chunk, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { now } from "../clock";
 import { createId } from "../id";
 import { companyModules } from "../moduleGate";
 import { can } from "../permissions";
 import { nameKey } from "../purchase";
-import { fyOfDate, stagedRowIdOf } from "./artifacts";
+import { stagedRowIdOf } from "./artifacts";
 import {
   aliasNameCheck,
   aliasNameOwners,
@@ -55,13 +55,21 @@ import {
   handStatusCheck,
   loadOrderLineSchema,
   newCopyCheck,
-  ORDER_GROUP_CODES,
-  ORDER_GROUP_SQL,
-  orderGroupCheck,
   orderLineCheck,
   type NameOwner,
 } from "./merge/rowchecks";
 import { companyFloor } from "../orderLines";
+import {
+  liveOrdersOf,
+  ORDER_GROUP_CODES,
+  orderGroupCheck,
+  orderIdentityOf,
+  orderPoOf,
+  otherFileHolders,
+  parseOrderKey,
+  poTwiceCheck,
+  type OrderIdentity,
+} from "./orderid";
 import { refreshArtifactPeriod } from "./period";
 import {
   guardedBatch,
@@ -107,6 +115,8 @@ export const Q_CUSTOMER_NEW = "q:customer_new";
 export const Q_SECTION_UNKNOWN = "q:section_unknown";
 /** A row with a number outside its plausible range waits on `magnitude_check` for this subject (C19). */
 export const Q_MAGNITUDE = "q:magnitude_check";
+/** The rows of one old order with two different POs wait on `order_po` for the order's key (rules 3, 1). */
+export const Q_ORDER_PO = "q:order_po";
 
 type Values = Record<string, unknown>;
 type Staged = typeof ingestStagedRow.$inferSelect;
@@ -120,6 +130,8 @@ export type RowOutcome = {
   reasons: string[];
   matchId: string | null;
   diff: Record<string, { live: unknown; file: unknown }> | null;
+  /** Orders: the old order the row belongs to (orderid.ts), stored in `order_key`. */
+  orderKey?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -135,6 +147,8 @@ export type AnswerSet = {
   newCustomers: boolean | null;
   /** `magnitude_check` answers by field: "as_is", or the unit the column's flagged numbers are in. */
   magnitude: Map<string, string>;
+  /** `order_po` answers by order key: the PO picked (`{ po }`), or "skip". */
+  orderPo: Map<string, { po: string } | "skip">;
   answered: Set<string>;
 };
 
@@ -167,6 +181,7 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
     legacyDie: new Map(),
     newCustomers: null,
     magnitude: new Map(),
+    orderPo: new Map(),
     answered: new Set(),
   };
   for (const a of rows) {
@@ -193,6 +208,10 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
         break;
       case "magnitude_check":
         if (typeof v === "string") set.magnitude.set(a.subject, v);
+        break;
+      case "order_po":
+        if (v === "skip") set.orderPo.set(a.subject, "skip");
+        else if (v && typeof v === "object" && typeof (v as { po?: unknown }).po === "string") set.orderPo.set(a.subject, { po: (v as { po: string }).po });
         break;
       default:
         break;
@@ -628,9 +647,13 @@ export async function candidateQuestions(
     answerRows ?? (await ctx.db.select().from(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id))));
   const byKey = new Map(answers.map((a) => [answerKey(a.questionCode, a.subject), a.answer as unknown]));
   const out: IngestQuestion[] = [];
+  // Questions rows still wait on. A row waits only while its question has no answer that settles
+  // it, so such a question is open even with an answer stored: an answer naming a unit already
+  // tried, a unit past the last re-read, or a PO that is not one of the order's (minor 3).
+  const stillWaiting = new Set<string>();
   const add = (code: IngestQuestion["code"], subject: string, params: IngestQuestion["params"]) => {
     const k = answerKey(code, subject);
-    out.push({ code, subject, params, answer: byKey.has(k) ? byKey.get(k) : null, open: !byKey.has(k) });
+    out.push({ code, subject, params, answer: byKey.has(k) ? byKey.get(k) : null, open: !byKey.has(k) || stillWaiting.has(k) });
   };
   const r = recipe.data;
   for (const f of r.fields) {
@@ -645,13 +668,22 @@ export async function candidateQuestions(
   const me = { company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null };
   if (r.target === "orders" && r.fields.some((f) => f.field === "rate")) {
     // With rates on sales orders off, the merge writes no rate for anyone (B3): the person leaves
-    // rates out first, or turns rates on (X-new-3). Asked of everyone, and it blocks approve.
-    if ((await companyFloor(ctx.db, ctx.companyId)).floor.priceOnSalesOrder !== true) add("rates_hidden", "", { reason: "pricing_off" });
-    else if (!can(me, "order.price")) add("rates_hidden", "", {});
+    // rates out first, or turns rates on (X-new-3). Asked of everyone, and it blocks approve. A
+    // stored "owner merges" from before pricing was turned off does not answer it (minor 2).
+    if ((await companyFloor(ctx.db, ctx.companyId)).floor.priceOnSalesOrder !== true) {
+      if (byKey.get(answerKey("rates_hidden", "")) === "owner_merges") stillWaiting.add(answerKey("rates_hidden", ""));
+      add("rates_hidden", "", { reason: "pricing_off" });
+    } else if (!can(me, "order.price")) add("rates_hidden", "", {});
   }
 
   const waiting = await ctx.db
-    .select({ reasons: ingestStagedRow.reasons, magnitude: sql<string | null>`json_extract(${ingestStagedRow.values}, '$._magnitude')` })
+    .select({
+      reasons: ingestStagedRow.reasons,
+      magnitude: sql<string | null>`json_extract(${ingestStagedRow.values}, '$._magnitude')`,
+      poText: sql<string | null>`nullif(trim(coalesce(json_extract(${ingestStagedRow.values}, '$.poNumber'), '')), '')`,
+      oldNo: sql<string | null>`nullif(trim(coalesce(json_extract(${ingestStagedRow.values}, '$.oldOrderNo'), '')), '')`,
+      party: sql<string | null>`json_extract(${ingestStagedRow.values}, '$.customer')`,
+    })
     .from(ingestStagedRow)
     .where(
       and(
@@ -664,8 +696,22 @@ export async function candidateQuestions(
   let newNames = 0;
   // Keyed by subject (field, unit read in, side).
   const flagged = new Map<string, { field: string; unit: string; likelyUnit: string; side: string; count: number }>();
+  // Old orders with two POs, by order key: the POs in file order, the order's name, rows waiting.
+  const twoPos = new Map<string, { order: string; customer: string; pos: string[]; count: number }>();
   for (const w of waiting) {
     for (const reason of w.reasons ?? []) {
+      if (reason.startsWith(`${Q_ORDER_PO}:`)) {
+        const subject = reason.slice(Q_ORDER_PO.length + 1);
+        const seen = twoPos.get(subject) ?? { order: w.oldNo ?? w.poText ?? "", customer: w.party ?? "", pos: [], count: 0 };
+        twoPos.set(subject, seen);
+        seen.count += 1;
+        if (w.poText && !seen.pos.some((p) => p.toLowerCase() === w.poText!.toLowerCase())) seen.pos.push(w.poText);
+        stillWaiting.add(answerKey("order_po", subject));
+        continue;
+      }
+      if (reason.startsWith(`${Q_MAGNITUDE}:`)) stillWaiting.add(answerKey("magnitude_check", reason.slice(Q_MAGNITUDE.length + 1)));
+      if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) stillWaiting.add(answerKey("create_legacy_die", reason.slice(Q_SECTION_UNKNOWN.length + 1)));
+      if (reason === Q_CUSTOMER_NEW) stillWaiting.add(answerKey("new_customers", ""));
       if (reason === Q_CUSTOMER_NEW) newNames += 1;
       else if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) codes.add(reason.slice(Q_SECTION_UNKNOWN.length + 1));
       else if (reason.startsWith(`${Q_MAGNITUDE}:`)) {
@@ -703,6 +749,15 @@ export async function candidateQuestions(
     add("magnitude_check", subject, !seesPrices && RATE_FIELDS.includes(p.field) ? { ...p, likelyUnit: "" } : p);
   }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
+  // One question per old order whose rows carry two different POs (rule 1): pick one, or skip.
+  for (const a of answers) {
+    if (a.questionCode !== "order_po" || twoPos.has(a.subject)) continue;
+    const k = parseOrderKey(a.subject);
+    twoPos.set(a.subject, { order: k.no ?? k.po ?? "", customer: "", pos: [], count: 0 });
+  }
+  for (const [subject, p] of [...twoPos].sort(([x], [y]) => x.localeCompare(y))) {
+    add("order_po", subject, { order: p.order, customer: p.customer, pos: p.pos.join(", "), count: p.count });
+  }
   return out;
 }
 
@@ -1029,7 +1084,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       outcomes.set(r.id, out);
     }
     if (c.target === "orders") {
-      await matchLiveOrders(ctx, recipe, editable, outcomes);
+      await matchLiveOrders(ctx, editable, outcomes);
       await orderLineChecks(editable, outcomes);
     }
     await markDuplicates(ctx, c.id, input.expectCursor, editable, outcomes);
@@ -1146,6 +1201,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
           reasons: out.reasons.length ? out.reasons : null,
           matchId: r.decision === "use_match" ? r.matchId : out.matchId,
           diff: out.diff,
+          orderKey: c.target === "orders" ? (identityOf(r, out)?.key ?? null) : null,
           updatedAt: at,
         })
         .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),
@@ -1167,10 +1223,28 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
   const allPut = artifact.readState === "read" && block.rowsPut === block.rowCount;
   const done = allPut && page.length < INGEST_LIMITS.dryRunRowsPerStep;
   if (done) {
+    // Whole old orders (rule 1), checked as the merge planner checks them (X-new-3). They land
+    // first, so the questions and choices counted below see them.
+    const groups = c.target === "orders" ? await orderPassStatements(ctx, c, { fileName: artifact.fileName, sheetName: block.sheetName }, answers, at) : [];
+    if (groups.length) {
+      try {
+        await guardedBatch(ctx.db, [
+          ctx.db
+            .update(ingestCandidate)
+            .set({ updatedAt: now() })
+            .where(and(eq(ingestCandidate.id, c.id), eq(ingestCandidate.serverSeq, c.serverSeq), eq(ingestCandidate.dryCursor, nextCursor), eq(ingestCandidate.state, "processing"))),
+          ingestAbortUnlessChanged(ctx.db),
+          ...groups,
+          recountStatement(ctx, c.id),
+        ]);
+      } catch (e) {
+        const now2 = await loadCandidate(ctx, c.id);
+        if (now2.serverSeq !== c.serverSeq && now2.state === "processing") return stepOut(now2, false);
+        throw e;
+      }
+    }
     const questions = await candidateQuestions(ctx, fresh, artifact);
     const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
-    // Whole orders, checked as the merge planner checks them (X-new-3).
-    const groups = c.target === "orders" ? await orderGroupStatements(ctx, c.id, at) : [];
     try {
       await guardedBatch(ctx.db, [
         ctx.db
@@ -1186,8 +1260,6 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
             ),
           ),
         ingestAbortUnlessChanged(ctx.db),
-        ...groups,
-        ...(groups.length ? [recountStatement(ctx, c.id)] : []),
       ]);
     } catch (e) {
       const now2 = await loadCandidate(ctx, c.id);
@@ -1258,63 +1330,35 @@ async function ensureNewCustomerCandidate(ctx: IngestCtx, parent: CandidateRow, 
   return id;
 }
 
-const OLD_ORDER_NOTE = /^Old order no\. (.+)$/;
+/** The old order of a classified order row (orderid.ts), or null while its customer is open. */
+function identityOf(r: Pick<Staged, "rowKey">, out: RowOutcome): OrderIdentity | null {
+  if (!out.values) return null;
+  const ids = (out.values._ids ?? {}) as Record<string, string>;
+  return ids.customer ? orderIdentityOf(out.values, r.rowKey) : null;
+}
 
 /**
- * Orders already in orrn (A5): an order line whose party has a live, not cancelled order with the same
- * PO (any date), or with no PO the same old order number, matches that order. With a date column the
- * old order number must also have the same date. With no date column the order date is the file's
- * as-of date, which moves with every file, so it is left out; then only a live order that is not
- * closed and whose order date is in the as-of date's financial year matches, because old order
- * numbers repeat from year to year. Anything else is a new order. The old order number is the one
- * the merge writes into the order's note ("Old order no. X"). A PO matches at any date and status,
- * as the merge planner's PO check does.
+ * Orders already in orrn (rule 1, against live data): a ready order line whose old order
+ * (orderid.ts) is a live order is that order. By number: the same customer and financial year, a
+ * note that names the number, not closed or cancelled. Else by the row's PO: the same customer and
+ * PO, not cancelled, as the order screens refuse a PO twice. With no date column the order date is
+ * the file's as-of date, so the year is the period's. Anything else is a new order.
  *
  * A matched line is unchanged only when the live order has a line for the same section and cut
  * length (any cut length when the file has none). Any other line of a matched order is a conflict
  * with `order_line_new`, so a person decides; it is never dropped silently (A-new-1).
  */
-async function matchLiveOrders(ctx: IngestCtx, recipe: Recipe, rows: readonly Staged[], outcomes: Map<string, RowOutcome>): Promise<void> {
-  const byDate = !periodRequired(recipe);
+async function matchLiveOrders(ctx: IngestCtx, rows: readonly Staged[], outcomes: Map<string, RowOutcome>): Promise<void> {
   const open = rows
     .map((r) => ({ r, out: outcomes.get(r.id)! }))
-    .filter(({ out }) => out.state === "ready_create" && out.values);
-  const customerOf = (o: RowOutcome) => ((o.values!._ids ?? {}) as Record<string, string>).customer ?? "";
-  const customerIds = [...new Set(open.map(({ out }) => customerOf(out)).filter((id) => id && !id.startsWith("pending:")))];
-  if (customerIds.length === 0) return;
-  const live = await mapInChunks(customerIds, (part) =>
-    ctx.db
-      .select({
-        id: salesOrder.id,
-        customerId: salesOrder.customerId,
-        poNumber: salesOrder.poNumber,
-        orderDate: salesOrder.orderDate,
-        note: salesOrder.note,
-        status: salesOrder.status,
-      })
-      .from(salesOrder)
-      .where(and(eq(salesOrder.companyId, ctx.companyId), inArray(salesOrder.customerId, part), ne(salesOrder.status, "cancelled"))),
+    .filter(({ out }) => out.state === "ready_create" && out.values)
+    .map((x) => ({ ...x, id: identityOf(x.r, x.out) }))
+    .filter((x): x is typeof x & { id: OrderIdentity } => !!x.id && x.id.kind !== "row");
+  const live = await liveOrdersOf(
+    ctx,
+    open.map(({ id }) => ({ key: id.key, customerId: id.customer, fy: id.fy, no: id.no, po: id.po })),
   );
-  const byPo = new Map<string, string>();
-  const byOldNo = new Map<string, string>();
-  const oldKey = (customerId: string, orderDate: string, old: string) =>
-    byDate ? `${customerId}|${orderDate}|${old}` : `${customerId}|fy:${orderDate ? fyOfDate(orderDate) : ""}|${old}`;
-  for (const o of live) {
-    const po = (o.poNumber ?? "").trim().toLowerCase();
-    if (po) byPo.set(`${o.customerId}|${po}`, o.id);
-    const old = OLD_ORDER_NOTE.exec((o.note ?? "").trim())?.[1]?.trim().toLowerCase();
-    // With no date column a closed order never matches: the same old number is a new order.
-    if (old && (byDate || o.status !== "closed")) byOldNo.set(oldKey(o.customerId, o.orderDate, old), o.id);
-  }
-  const hits: { r: Staged; out: RowOutcome; orderId: string }[] = [];
-  for (const { r, out } of open) {
-    const v = out.values!;
-    const cust = customerOf(out);
-    const po = str(v.poNumber).trim().toLowerCase();
-    const old = str(v.oldOrderNo).trim().toLowerCase();
-    const orderId = po ? byPo.get(`${cust}|${po}`) : old ? byOldNo.get(oldKey(cust, str(v.orderDate), old)) : undefined;
-    if (orderId) hits.push({ r, out, orderId });
-  }
+  const hits = open.filter(({ id }) => live.has(id.key)).map((x) => ({ ...x, orderId: live.get(x.id.key)!.id }));
   if (hits.length === 0) return;
   const lines = await mapInChunks([...new Set(hits.map((h) => h.orderId))], (part) =>
     ctx.db
@@ -1358,58 +1402,244 @@ async function orderLineChecks(rows: readonly Staged[], outcomes: Map<string, Ro
   }
 }
 
+/** Row reasons the whole-order pass sets; a row with one of them was ready before that pass. */
+const ORDER_PASS_REASONS = [...ORDER_GROUP_CODES.map((c) => `${c}:`), "order_in_other_file:", `${Q_ORDER_PO}:`, "order_po_skipped", "order_live:"];
+const isOrderPassReason = (r: string) => ORDER_PASS_REASONS.some((p) => r === p || r.startsWith(p));
+
+type OrderPassRow = {
+  id: string;
+  rowIndex: number;
+  state: RowState;
+  reasons: string[] | null;
+  decision: RowDecision | null;
+  matchId: string | null;
+  orderKey: string | null;
+  po: string | null;
+  poText: string | null;
+  orderDate: string | null;
+  oldNo: string | null;
+  other: string | null;
+};
+
+type OrderWant = { state: RowState; reasons: string[]; matchId?: string | null; po?: string; other?: Record<string, unknown> | null };
+
 /**
- * The order groups the merge planner would hold (B1, B5), refused here first with the same check
- * (`orderGroupCheck`): every line of an order above 100 lines, or of a PO with two order dates. It
- * runs once the whole candidate is checked, because one order may span pages. A line it refused
- * before goes back to ready when its order passes now (a person skipped some lines).
+ * Whole old orders (rule 1), once every row of the candidate is checked, because one order may span
+ * pages. For each order key (orderid.ts), over rows that were ready before this pass:
+ * - two different POs wait on the `order_po` question (`q:order_po:<key>`); its answer picks the PO
+ *   for every row, or skips the order (`order_po_skipped`). With one PO, rows with a blank PO take it;
+ * - an order the merge planner would hold (above 100 lines, one PO on two dates) is refused, as the
+ *   planner holds it (`orderGroupCheck`);
+ * - when another row of the order is on a live order, the row is a line that order does not have:
+ *   `order_line_new` with that order (`order_live:order`);
+ * - when another file or sheet of the plant holds rows of the same order, the rows of both are a
+ *   conflict naming the other one (`order_in_other_file:order`, `values._otherFile`). A row the person
+ *   kept (keep_file) stays ready; the planner holds the later candidate if both are kept.
+ * A row this pass changed before goes back to ready when its order passes now.
  */
-async function orderGroupStatements(ctx: IngestCtx, candidateId: string, at: Date): Promise<SqliteBatchItem[]> {
+async function orderPassStatements(
+  ctx: IngestCtx,
+  c: CandidateRow,
+  names: { fileName: string; sheetName: string | null },
+  answers: AnswerSet,
+  at: Date,
+): Promise<SqliteBatchItem[]> {
   const V = ingestStagedRow.values;
-  const groupLike = or(...ORDER_GROUP_CODES.map((code) => sql`${ingestStagedRow.reasons} like ${`%"${code}:%`}`));
-  const rows = await ctx.db
+  const passLike = or(...ORDER_PASS_REASONS.map((p) => sql`${ingestStagedRow.reasons} like ${`%"${p}%`}`));
+  const rows: OrderPassRow[] = await ctx.db
     .select({
       id: ingestStagedRow.id,
       rowIndex: ingestStagedRow.rowIndex,
       state: ingestStagedRow.state,
       reasons: ingestStagedRow.reasons,
-      group: ORDER_GROUP_SQL,
+      decision: ingestStagedRow.decision,
+      matchId: ingestStagedRow.matchId,
+      orderKey: ingestStagedRow.orderKey,
       po: sql<string | null>`nullif(lower(trim(coalesce(json_extract(${V}, '$.poNumber'), ''))), '')`,
       poText: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.poNumber'), '')), '')`,
       orderDate: sql<string | null>`json_extract(${V}, '$.orderDate')`,
       oldNo: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')`,
+      other: sql<string | null>`json_extract(${V}, '$._otherFile')`,
     })
     .from(ingestStagedRow)
     .where(
       and(
-        eq(ingestStagedRow.candidateId, candidateId),
+        eq(ingestStagedRow.candidateId, c.id),
         eq(ingestStagedRow.mergeState, "open"),
-        or(eq(ingestStagedRow.state, "ready_create"), and(eq(ingestStagedRow.state, "refused"), groupLike)),
+        sql`${ingestStagedRow.orderKey} is not null`,
+        or(inArray(ingestStagedRow.state, ["ready_create", "unchanged", "conflict", "ambiguous"]), passLike),
       ),
     )
     .orderBy(asc(ingestStagedRow.rowIndex));
-  const isGroupReason = (r: string) => ORDER_GROUP_CODES.some((code) => r.startsWith(`${code}:`));
-  const groups = new Map<string, typeof rows>();
-  for (const r of rows) {
-    const list = groups.get(r.group);
-    if (list) list.push(r);
-    else groups.set(r.group, [r]);
+  // Each row as the page pass left it, before this pass.
+  const base = rows.map((r) => {
+    const reasons = r.reasons ?? [];
+    const had = reasons.some(isOrderPassReason);
+    const wasLive = reasons.some((x) => x.startsWith("order_live:"));
+    return {
+      r,
+      had,
+      state: had ? ("ready_create" as RowState) : r.state,
+      reasons: had ? reasons.filter((x) => !isOrderPassReason(x) && !(wasLive && x === "order_line_new")) : reasons,
+      matchId: wasLive ? null : r.matchId,
+    };
+  });
+  type Base = (typeof base)[number];
+  const byKey = new Map<string, Base[]>();
+  for (const b of base) {
+    if (b.state === "refused" || b.state === "skipped") continue;
+    const list = byKey.get(b.r.orderKey!);
+    if (list) list.push(b);
+    else byKey.set(b.r.orderKey!, [b]);
   }
+  const want = new Map<string, OrderWant>();
+  const toOtherCheck: { key: string; ready: Base[] }[] = [];
+  // Rows with a blank PO take their order's PO, or the PO picked for it, before PO checks.
+  const pickedPo = (key: string, list: readonly Base[]): string | null => {
+    const po = orderPoOf(list.map((b) => b.r));
+    const answer = answers.orderPo.get(key);
+    if (po.all.length <= 1) return po.poText;
+    return answer && answer !== "skip" ? (po.all.find((p) => p.toLowerCase() === answer.po.trim().toLowerCase()) ?? null) : null;
+  };
+  const twice = poTwiceCheck(
+    [...byKey].map(([key, list]) => {
+      const p = pickedPo(key, list);
+      return { key, list: list.map((b) => ({ rowIndex: b.r.rowIndex, po: p?.toLowerCase() ?? null, poText: p, orderDate: b.r.orderDate, oldNo: b.r.oldNo })) };
+    }),
+  );
+  for (const [key, list] of byKey) {
+    const ready = list.filter((b) => b.state === "ready_create");
+    const po = orderPoOf(list.map((b) => b.r));
+    const answer = answers.orderPo.get(key);
+    let picked = po.poText;
+    let skip = false;
+    let waits = false;
+    if (po.all.length > 1) {
+      const fits = answer && answer !== "skip" ? po.all.find((p) => p.toLowerCase() === answer.po.trim().toLowerCase()) : undefined;
+      if (answer === "skip") skip = true;
+      else if (fits) picked = fits;
+      else waits = true;
+    }
+    // Rows with a blank PO, or another PO, take the order's PO.
+    const fill = (b: Base) => (picked && b.r.poText !== picked ? { po: picked } : {});
+    if (waits || skip) {
+      for (const b of ready) {
+        want.set(b.r.id, waits ? { state: "ambiguous", reasons: [...b.reasons, `${Q_ORDER_PO}:${key}`] } : { state: "skipped", reasons: [...b.reasons, "order_po_skipped"] });
+      }
+      continue;
+    }
+    const lowPicked = picked?.toLowerCase() ?? null;
+    const problem = orderGroupCheck(list.map((b) => ({ rowIndex: b.r.rowIndex, po: lowPicked, poText: picked, orderDate: b.r.orderDate, oldNo: b.r.oldNo }))) ?? twice.get(key) ?? null;
+    if (problem) {
+      for (const b of ready) want.set(b.r.id, { state: "refused", reasons: [...b.reasons, checkReason(problem)], ...fill(b) });
+      for (const b of list) if (b.state !== "ready_create") want.set(b.r.id, { state: b.state, reasons: b.reasons, ...fill(b) });
+      continue;
+    }
+    for (const b of list) if (b.state !== "ready_create") want.set(b.r.id, { state: b.state, reasons: b.reasons, ...fill(b) });
+    // One old order is one sales order: a live order any row of it is on is the order of every row.
+    const liveId = list.find((b) => b.matchId && (b.reasons.includes("order_exists") || b.reasons.includes("order_line_new")))?.matchId ?? null;
+    if (liveId) {
+      for (const b of ready) {
+        want.set(b.r.id, {
+          state: b.r.decision === "keep_live" ? "unchanged" : "conflict",
+          reasons: [...b.reasons, "order_line_new", "order_live:order"],
+          matchId: liveId,
+          ...fill(b),
+        });
+      }
+      continue;
+    }
+    for (const b of ready) want.set(b.r.id, { state: "ready_create", reasons: b.reasons, ...fill(b) });
+    if (ready.length) toOtherCheck.push({ key, ready });
+  }
+  // The same old order in another file or sheet of the plant.
+  const holders = await otherFileHolders(ctx, c.id, toOtherCheck.map((x) => x.key));
   const out: SqliteBatchItem[] = [];
-  for (const list of groups.values()) {
-    const problem = orderGroupCheck(list);
-    const reason = problem ? checkReason(problem) : null;
-    for (const r of list) {
-      const base = (r.reasons ?? []).filter((x) => !isGroupReason(x));
-      const want = reason ? { state: "refused" as const, reasons: [...base, reason] } : { state: "ready_create" as const, reasons: base };
-      if (want.state === r.state && JSON.stringify(want.reasons) === JSON.stringify(r.reasons ?? [])) continue;
+  const otherRows = new Map<string, { candidateId: string; rowIds: string[] }>();
+  for (const { key, ready } of toOtherCheck) {
+    const hs = holders.get(key);
+    if (!hs?.length) continue;
+    const h = hs[0]!;
+    for (const b of ready) {
+      if (b.r.decision === "keep_file") continue;
+      const w = want.get(b.r.id)!;
+      want.set(b.r.id, { ...w, state: "conflict", reasons: [...w.reasons, "order_in_other_file:order"], other: { candidateId: h.candidateId, fileName: h.fileName, sheetName: h.sheetName } });
+    }
+    // The other candidate's rows of this order, while a person may still change them.
+    for (const o of hs) {
+      if (o.candidateState !== "ready" && o.candidateState !== "held") continue;
+      const ids = o.rows.filter((x) => !x.written && x.state === "ready_create" && x.decision !== "keep_file").map((x) => x.id);
+      if (!ids.length) continue;
+      const e = otherRows.get(o.candidateId) ?? { candidateId: o.candidateId, rowIds: [] };
+      e.rowIds.push(...ids);
+      otherRows.set(o.candidateId, e);
+    }
+  }
+  // This candidate's rows: one statement per 90 rows that end the same way.
+  const groups = new Map<string, { w: OrderWant; ids: string[] }>();
+  for (const b of base) {
+    const w = want.get(b.r.id) ?? (b.had ? { state: b.state, reasons: b.reasons, matchId: b.matchId } : null);
+    if (!w) continue;
+    const wasOther = b.r.other !== null;
+    const other = w.other ?? null;
+    const sameReasons = JSON.stringify(w.reasons) === JSON.stringify(b.r.reasons ?? []);
+    const sameMatch = w.matchId === undefined || w.matchId === b.r.matchId;
+    if (w.state === b.r.state && sameReasons && sameMatch && !w.po && !wasOther && !other) continue;
+    const sig = JSON.stringify([w.state, w.reasons, w.matchId === undefined ? "keep" : w.matchId, w.po ?? null, other, wasOther]);
+    const g = groups.get(sig) ?? { w: { ...w, other }, ids: [] };
+    g.ids.push(b.r.id);
+    groups.set(sig, g);
+  }
+  for (const { w, ids } of groups.values()) {
+    for (const part of chunk(ids, 90)) {
+      let values: SQL = sql`${ingestStagedRow.values}`;
+      if (w.po) values = sql`json_set(${values}, '$.poNumber', ${w.po})`;
+      values = w.other ? sql`json_set(${values}, '$._otherFile', json(${JSON.stringify(w.other)}))` : sql`json_remove(${values}, '$._otherFile')`;
       out.push(
         ctx.db
           .update(ingestStagedRow)
-          .set({ state: want.state, reasons: want.reasons.length ? want.reasons : null, updatedAt: at })
-          .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, candidateId), eq(ingestStagedRow.mergeState, "open"))),
+          .set({
+            state: w.state,
+            reasons: w.reasons.length ? w.reasons : null,
+            ...(w.matchId !== undefined ? { matchId: w.matchId } : {}),
+            values: values as never,
+            updatedAt: at,
+          })
+          .where(and(eq(ingestStagedRow.candidateId, c.id), inArray(ingestStagedRow.id, part), eq(ingestStagedRow.mergeState, "open"))),
       );
     }
+  }
+  // The other candidates: their rows of the order turn into the same conflict, naming this sheet.
+  const mine = JSON.stringify({ candidateId: c.id, fileName: names.fileName, sheetName: names.sheetName });
+  for (const { candidateId, rowIds } of otherRows.values()) {
+    for (const part of chunk(rowIds, 90)) {
+      out.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({
+            state: "conflict",
+            reasons: sql`json_insert(coalesce(${ingestStagedRow.reasons}, '[]'), '$[#]', 'order_in_other_file:order')` as never,
+            values: sql`json_set(${ingestStagedRow.values}, '$._otherFile', json(${mine}))` as never,
+            updatedAt: at,
+          })
+          .where(
+            and(
+              eq(ingestStagedRow.candidateId, candidateId),
+              inArray(ingestStagedRow.id, part),
+              eq(ingestStagedRow.mergeState, "open"),
+              eq(ingestStagedRow.state, "ready_create"),
+            ),
+          ),
+      );
+    }
+    // Its counts and its open choices change with its rows; a screen open on it must read again.
+    out.push(
+      ctx.db
+        .update(ingestCandidate)
+        .set({ openQuestions: sql`${ingestCandidate.openQuestions} + ${rowIds.length}`, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: at })
+        .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.state, ["ready", "held"]))),
+      recountStatement(ctx, candidateId),
+    );
   }
   return out;
 }

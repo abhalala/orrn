@@ -23,7 +23,7 @@ import { mapInChunks, type SqliteBatchItem } from "../atomic";
 import { now } from "../clock";
 import { requestRowIds, type ImportReplayKind } from "../importReplay";
 import type { IngestCtx } from "./types";
-import { orderKeyOf, rowsRequestId, type StagedRow } from "./merge/shared";
+import { rowOrderKey, rowsRequestId, type StagedRow } from "./merge/shared";
 import { STUCK_CODE } from "./merge/runner";
 
 /** The error code of a stuck chunk whose rows a person opened again. */
@@ -83,7 +83,7 @@ export async function landedRows(ctx: IngestCtx, target: IngestTarget, chunkId: 
     case "orders": {
       const groups = new Map<string, StagedRow[]>();
       for (const r of rows) {
-        const k = orderKeyOf((r.values ?? {}) as Record<string, unknown>);
+        const k = rowOrderKey(r);
         groups.set(k, [...(groups.get(k) ?? []), r]);
       }
       const keyed = await Promise.all([...groups.values()].map(async (list) => ({ list, key: await rowsRequestId(list.map((r) => r.id)) })));

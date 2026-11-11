@@ -33,11 +33,11 @@ import { TARGET_ORDER } from "@orrn/ingest";
 import { and, asc, desc, eq, gt, inArray, lt, sql, type SQL } from "drizzle-orm";
 
 import { ingestCandidate, ingestMergeChunk, ingestStagedRow, type IngestTarget } from "@orrn/db/schema/ingest";
-import { salesOrder } from "@orrn/db/schema/sales";
 
-import { chunk as chunkList, mapInChunks, rowsPerStatement, type SqliteBatchItem } from "../../atomic";
+import { chunk as chunkList, rowsPerStatement, type SqliteBatchItem } from "../../atomic";
 import { loadCandidate, type CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
+import { comesBefore, liveOrdersOf, orderLabel, orderPoOf, otherFileHolders, otherFileWords, parseOrderKey, poTwiceCheck, type LiveOrder } from "../orderid";
 import { orderPricing, updateRefusal } from "./adapters";
 import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_GROUP_SQL, ORDER_LINE_FIELDS, orderGroupCheck, orderLineOf } from "./rowchecks";
 import {
@@ -179,7 +179,7 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
  * it: it reads a chunk's rows by the chunk mark (B-new-2). Kept as a pure helper with its tests.
  */
 export function pickOrderRows(rows: readonly StagedRow[], rowCount: number): StagedRow[] {
-  return pickOrders(rows, rowCount, (r) => orderKeyOf((r.values ?? {}) as Record<string, unknown>));
+  return pickOrders(rows, rowCount, (r) => r.orderKey ?? orderKeyOf((r.values ?? {}) as Record<string, unknown>, r.id));
 }
 
 /** `pickOrderRows` over any rows with an order key (the write step reads only the keys first). */
@@ -236,14 +236,23 @@ type OrderPlanRow = PlanRow & {
 
 const hold = (message: string, code = "BAD_REQUEST"): ChunkFailure => ({ code, message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" });
 
+/** The words for an old order that is already a live order this order's rows did not make. */
+export function liveOrderWords(label: string, poText: string | null, hit: LiveOrder): string {
+  if (hit.by === "po" && poText) return `PO ${poText} is already on ${hit.number} for this customer. Skip these rows or cancel that order first.`;
+  return `${label} is already in orrn as ${hit.number}. Check this sheet again: its rows then show what that order lacks.`;
+}
+
 /**
- * Orders a merge must not send (B1, B5): an order above 100 lines, one PO on two order dates, or
- * a PO already on a live order that this order's own replay key did not make; rates staged while
- * the person merging may not write them (B3: a rate is left out only by choice); and a line the
- * order screen would refuse (B11: no weight, balance 0, no cut length, or `orderLineInput`). Found
- * over the whole candidate before any order of it is written.
+ * Orders a merge must not send (rule 1, B1, B5), found over the whole candidate before any order of
+ * it is written. Each order is one order key (orderid.ts, stored by the dry run):
+ * - two different POs, above 100 lines, or one PO on two order dates (`orderGroupCheck`);
+ * - an old order that is already a live order this order's own replay key did not make;
+ * - an old order another file or sheet of the plant also holds, when that one comes first or has
+ *   written it already: the later candidate is held, so it is never written twice;
+ * - rates staged while the person merging may not write them (B3), and a line the order screen
+ *   would refuse (B11: no weight, balance 0, no cut length, or `orderLineInput`).
  */
-export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[]): Promise<ChunkFailure | null> {
+export async function orderPlanHold(ctx: IngestCtx, c: Pick<CandidateRow, "id" | "createdAt">, rows: readonly OrderPlanRow[]): Promise<ChunkFailure | null> {
   let canPrice = false;
   if (rows.some((r) => r.hasRate)) {
     const price = await orderPricing(ctx);
@@ -267,42 +276,31 @@ export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[
     if (list) list.push(r);
     else groups.set(k, [r]);
   }
-  // The same check the dry run makes over the candidate's ready order lines (rowchecks.ts).
+  // The same check the dry run makes over the candidate's ready order lines (orderid.ts).
   for (const list of groups.values()) {
     const problem = orderGroupCheck(list);
     if (problem) return hold(problem.message);
   }
-  // POs already on a live order of the same customer.
-  const withPo = [...groups.values()].filter((l) => l[0]!.po && l[0]!.customer && !l[0]!.customer.startsWith("pending:"));
-  if (withPo.length === 0) return null;
-  const customers = [...new Set(withPo.map((l) => l[0]!.customer!))];
-  const live = await mapInChunks(customers, (part) =>
-    ctx.db
-      .select({ customerId: salesOrder.customerId, po: sql<string>`lower(trim(${salesOrder.poNumber}))`, number: salesOrder.number, requestId: salesOrder.clientRequestId })
-      .from(salesOrder)
-      .where(
-        and(
-          eq(salesOrder.companyId, ctx.companyId),
-          inArray(salesOrder.customerId, part),
-          sql`${salesOrder.poNumber} is not null`,
-          sql`${salesOrder.status} <> 'cancelled'`,
-        ),
-      ),
-  );
-  if (live.length === 0) return null;
-  const taken = new Map<string, { number: string; requestId: string | null }[]>();
-  for (const o of live) {
-    const k = `${o.customerId}|${o.po}`;
-    taken.set(k, [...(taken.get(k) ?? []), o]);
-  }
-  for (const list of withPo) {
-    const first = list[0]!;
-    const hits = taken.get(`${first.customer}|${first.po}`);
-    if (!hits) continue;
+  const twice = poTwiceCheck([...groups].map(([key, list]) => ({ key, list })));
+  if (twice.size) return hold([...twice.values()][0]!.message);
+  // Old orders already live: by number in the same year, else by PO (orderid.ts liveOrdersOf).
+  const lookups = [...groups].flatMap(([key, list]) => {
+    const k = parseOrderKey(key);
+    if (k.kind === "row" || !k.customer) return [];
+    return [{ key, customerId: k.customer, fy: k.fy, no: k.no, po: orderPoOf(list).po }];
+  });
+  const live = await liveOrdersOf(ctx, lookups);
+  for (const [key, hit] of live) {
+    const list = groups.get(key)!;
     // The order this very group made before a crash is not a clash: its resend answers replayed.
-    const mine = await rowsRequestId(list.map((r) => r.id));
-    const other = hits.find((h) => h.requestId !== mine);
-    if (other) return hold(`PO ${first.poText} is already on ${other.number} for this customer. Skip these rows or cancel that order first.`);
+    if (hit.requestId === (await rowsRequestId(list.map((r) => r.id)))) continue;
+    return hold(liveOrderWords(orderLabel(list), orderPoOf(list).poText, hit), "CONFLICT");
+  }
+  // The same old order in another file or sheet: the later one waits (rule 1, across files).
+  const holders = await otherFileHolders(ctx, c.id, [...groups.keys()], { withMerged: true });
+  for (const [key, hs] of holders) {
+    const first = hs.find((h) => h.rows.some((r) => r.written) || comesBefore({ createdAt: h.createdAt, id: h.candidateId }, c));
+    if (first) return hold(otherFileWords(orderLabel(groups.get(key)!), first), "CONFLICT");
   }
   return null;
 }
@@ -350,7 +348,7 @@ export const PLAN_SCAN_ROWS = 4000;
  * held at planning, read only this far. Lane A should refuse such a sheet at approval too.
  */
 export const ORDERS_PLAN_MAX_ROWS = 5000;
-export const ORDERS_TOO_BIG = `This sheet has more than ${ORDERS_PLAN_MAX_ROWS} rows. An order book import takes ${ORDERS_PLAN_MAX_ROWS} rows at most. Split the file and import each part.`;
+export const ORDERS_TOO_BIG = `This sheet has more than ${ORDERS_PLAN_MAX_ROWS} rows. One order book sheet takes ${ORDERS_PLAN_MAX_ROWS} rows at most. Make parts of at most ${ORDERS_PLAN_MAX_ROWS} rows with every row of one order in the same part, and import each part. A part that cuts an order is held until the other part is skipped or discarded.`;
 
 /**
  * The empty chunk of a candidate (`markerChunkId(.., "empty")`, written, no rows) also records how
@@ -507,7 +505,7 @@ async function planWindow(ctx: IngestCtx, runId: string, firstSeq: number, c: Ca
   // candidate lands before anything of it is written.
   // A ready_update row with no record, or on a target the merge only adds to, is never sent (B6).
   const update = rows.map((r) => updateRefusal(c.target, { state: r.state as StagedRow["state"], matchId: r.matchId, rowIndex: r.rowIndex })).find(Boolean);
-  const failure = update ? hold(update) : isOrders ? await orderPlanHold(ctx, rows) : await rowPlanHold(ctx, c.target, rows);
+  const failure = update ? hold(update) : isOrders ? await orderPlanHold(ctx, c, rows) : await rowPlanHold(ctx, c.target, rows);
   if (failure) return holdPage(failure);
 
   const runs = isOrders ? cutOrderRuns(rows) : cutRuns(c.target, rows);

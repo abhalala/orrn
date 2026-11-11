@@ -102,6 +102,7 @@ import {
   type ShapeMakeOut,
   type StagedRowView,
 } from "./types";
+import { ORDERS_PLAN_MAX_ROWS, ORDERS_TOO_BIG } from "./merge/planner";
 
 const DONE_STATES: readonly CandidateState[] = ["merging", "merged", "discarded"];
 
@@ -339,7 +340,23 @@ export async function candidateDetail(ctx: IngestCtx, candidateId: string): Prom
     period: artifact.period ?? null,
     periodConfirmed: artifact.periodConfirmed ?? null,
     rowsMissing: Math.max(0, block.rowCount - block.rowsPut),
+    rowsOwnOrder: c.target === "orders" ? await rowsOwnOrder(ctx, c.id) : 0,
   };
+}
+
+/** Order rows of a candidate that are their own order: no old order number, no PO (rule 1). */
+async function rowsOwnOrder(ctx: IngestCtx, candidateId: string): Promise<number> {
+  const [row] = await ctx.db
+    .select({ n: sql<number>`count(*)` })
+    .from(ingestStagedRow)
+    .where(
+      and(
+        eq(ingestStagedRow.candidateId, candidateId),
+        sql`substr(${ingestStagedRow.orderKey}, 1, 4) = ${"row\u001f"}`,
+        sql`${ingestStagedRow.state} not in ('skipped', 'refused')`,
+      ),
+    );
+  return Number(row?.n ?? 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -896,6 +913,8 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   new_customers: (a) => typeof a === "boolean",
   // "as_is" (the value is right) or the unit the question offers (checked in setAnswer).
   magnitude_check: (a) => typeof a === "string" && a.length > 0 && a.length <= 20,
+  // The PO picked for one old order ({ po }, one of the order's), or "skip" (checked in setAnswer).
+  order_po: (a) => a === "skip" || (!!a && typeof a === "object" && typeof (a as { po?: unknown }).po === "string" && (a as { po: string }).po.trim().length > 0 && (a as { po: string }).po.length <= 100),
 };
 
 /**
@@ -925,6 +944,12 @@ export async function setAnswer(
   }
   if (input.questionCode === "rates_hidden" && answer === "owner_merges" && questions.some((q) => q.code === "rates_hidden" && q.params.reason === "pricing_off")) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Rates on sales orders are off for this plant. Turn rates on first, or leave rates out." });
+  }
+  if (input.questionCode === "order_po" && answer !== "skip") {
+    const q = questions.find((x) => x.code === "order_po" && x.subject === input.subject)!;
+    const pos = String(q.params.pos ?? "").split(", ").filter(Boolean);
+    const picked = (answer as { po: string }).po.trim().toLowerCase();
+    if (!pos.some((p) => p.toLowerCase() === picked)) throw new TRPCError({ code: "BAD_REQUEST", message: "That answer does not fit the question" });
   }
   if (input.questionCode === "column_meaning_unclear" && answer !== input.subject) {
     // The only answer that changes nothing is "the mapped column is right". Another column is a new
@@ -1001,6 +1026,8 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   if (vaultReady() && artifact.vaultState !== "stored") {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The original file is not saved yet. Upload the same file again, then approve." });
   }
+  // An orders sheet the planner cannot read in one step is refused here with the planner's words.
+  if (c.target === "orders" && c.rowsTotal > ORDERS_PLAN_MAX_ROWS) throw new TRPCError({ code: "PRECONDITION_FAILED", message: ORDERS_TOO_BIG });
   const questions = await candidateQuestions(ctx, c, artifact);
   const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
   if (open > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Answer every question first" });

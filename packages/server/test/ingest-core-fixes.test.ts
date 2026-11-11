@@ -340,8 +340,15 @@ describe("A5, A-new-1: an order book matches the plant's live orders", () => {
     expect(row.state).toBe("ready_create");
   });
 
-  test("with a date column, the same old order number on another date is a new order", async () => {
-    const { row } = await orderSheet({ note: "Old order no. OB-1", orderDate: "2025-09-15" });
+  // Changed by portal rules round 3, section 1: an old order is the plant, the financial year, the
+  // customer and the number. Another date in the same financial year is the same order.
+  test("with a date column, the same old order number on another date of the same financial year is that order", async () => {
+    const { orderId, row } = await orderSheet({ note: "Old order no. OB-1", orderDate: "2025-09-15" });
+    expect(row).toMatchObject({ state: "unchanged", matchId: orderId });
+  });
+
+  test("with a date column, the same old order number in another financial year is a new order", async () => {
+    const { row } = await orderSheet({ note: "Old order no. OB-1", orderDate: "2025-03-15" });
     expect(row.state).toBe("ready_create");
   });
 

@@ -25,7 +25,7 @@ import { vendor } from "@orrn/db/schema/purchase";
 import { mapInChunks } from "../../atomic";
 import { serverNameKey } from "../resolvers";
 import type { IngestCtx } from "../types";
-import { LINES_PER_ORDER, num, text, type Values } from "./shared";
+import { num, text, type Values } from "./shared";
 
 /** One failed row check. `code` and `field` make the dry run reason; `message` is for the merge hold. */
 export type RowCheck = { code: string; field: string; message: string };
@@ -99,42 +99,13 @@ export async function loadOrderLineSchema(): Promise<LineSchema> {
 // Order groups (B1, B5)
 // ---------------------------------------------------------------------------
 
-/** The order key of a staged row. Must give the same key as `orderKeyOf` in shared.ts. */
-const V = ingestStagedRow.values;
-export const ORDER_GROUP_SQL = sql<string>`coalesce(json_extract(${V}, '$._ids.customer'), json_extract(${V}, '$.customer'), '') || char(31) || case when trim(coalesce(json_extract(${V}, '$.poNumber'), '')) <> '' then 'po:' || lower(trim(json_extract(${V}, '$.poNumber'))) else 'old:' || trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')) || char(31) || coalesce(json_extract(${V}, '$.orderDate'), '') end`;
-
-/** The fields of one order line `orderGroupCheck` reads. `po` is the lower-cased PO, `poText` as written. */
-export type OrderGroupRow = { rowIndex: number; po: string | null; poText: string | null; orderDate: string | null; oldNo: string | null };
-
-/** Row reason codes of `orderGroupCheck`, so the dry run can find the rows it refused. */
-export const ORDER_GROUP_CODES = ["order_lines_over", "po_two_dates"] as const;
-
 /**
- * One order (the lines of one order key) the merge would not send: above 100 lines, or one PO with
- * more than one order date. The planner holds the candidate with the message; the dry run refuses
- * the order's lines with the reason first.
+ * The order key of a staged row in SQL: the key the dry run stored (orderid.ts), or the row's own
+ * order when it has none. The one rule lives in orderid.ts; this only reads its result.
  */
-export function orderGroupCheck(list: readonly OrderGroupRow[]): RowCheck | null {
-  const first = list[0];
-  if (!first) return null;
-  const name = first.poText ? `PO ${first.poText}` : first.oldNo ? `Old order ${first.oldNo}` : `The order on file row ${first.rowIndex + 1}`;
-  if (list.length > LINES_PER_ORDER) {
-    return {
-      code: "order_lines_over",
-      field: "order",
-      message: `${name} has ${list.length} lines. An order takes ${LINES_PER_ORDER} lines at most. Split it in the file or skip some rows.`,
-    };
-  }
-  const dates = [...new Set(list.map((r) => r.orderDate ?? ""))];
-  if (first.po && dates.length > 1) {
-    return {
-      code: "po_two_dates",
-      field: "orderDate",
-      message: `${name} has more than one order date in the file (${dates.filter(Boolean).slice(0, 3).join(", ")}). One PO is one order. Fix the dates or skip rows.`,
-    };
-  }
-  return null;
-}
+export const ORDER_GROUP_SQL = sql<string>`coalesce(${ingestStagedRow.orderKey}, 'row' || char(31) || ${ingestStagedRow.id})`;
+
+export { ORDER_GROUP_CODES, orderGroupCheck, type OrderGroupRow } from "../orderid";
 
 // ---------------------------------------------------------------------------
 // New die copies

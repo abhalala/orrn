@@ -19,6 +19,11 @@ export const customer = sqliteTable(
       .references(() => company.id, { onDelete: "cascade" }),
     serverSeq: integer("server_seq").notNull().default(0),
     name: text("name").notNull(),
+    /**
+     * `nameKey(name)` (server lib/purchase.ts), kept by customer.create, importCsv and update. Null
+     * on rows made before it existed; the import's name lookup fills those in on first use.
+     */
+    nameKey: text("name_key"),
     phone: text("phone"),
     email: text("email"),
     billingAddress: text("billing_address", { mode: "json" }).$type<Record<string, unknown>>(),
@@ -39,6 +44,7 @@ export const customer = sqliteTable(
   },
   (table) => [
     index("customer_company_name_idx").on(table.companyId, table.name),
+    index("customer_company_name_key_idx").on(table.companyId, table.nameKey),
     index("customer_company_server_seq_idx").on(table.companyId, table.serverSeq),
   ],
 );

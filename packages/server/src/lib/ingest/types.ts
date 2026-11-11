@@ -173,6 +173,11 @@ export type CandidateDetail = CandidateSummary & {
   periodConfirmed: { fy: string | null; asOf: string | null } | null;
   /** Rows of this block the browser has not sent yet. The dry run waits for them. */
   rowsMissing: number;
+  /**
+   * Orders: rows with no old order number and no PO. Each becomes its own order (rule 1); the
+   * screen says so in the summary ("N rows have no order number; each becomes its own order").
+   */
+  rowsOwnOrder: number;
 };
 
 export type ArtifactSummary = {

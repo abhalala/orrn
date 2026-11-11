@@ -240,6 +240,7 @@ CREATE TABLE `ingest_staged_row` (
 	`merge_state` text DEFAULT 'open' NOT NULL,
 	`committed_type` text,
 	`committed_id` text,
+	`order_key` text,
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`candidate_id`) REFERENCES `ingest_candidate`(`id`) ON UPDATE no action ON DELETE cascade
@@ -248,4 +249,7 @@ CREATE TABLE `ingest_staged_row` (
 CREATE UNIQUE INDEX `ingest_staged_row_candidate_index_unique` ON `ingest_staged_row` (`candidate_id`,`row_index`);--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_candidate_state_idx` ON `ingest_staged_row` (`candidate_id`,`state`);--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_committed_idx` ON `ingest_staged_row` (`company_id`,`committed_type`,`committed_id`);--> statement-breakpoint
-CREATE INDEX `ingest_staged_row_company_key_idx` ON `ingest_staged_row` (`company_id`,`row_key`);
+CREATE INDEX `ingest_staged_row_company_key_idx` ON `ingest_staged_row` (`company_id`,`row_key`);--> statement-breakpoint
+CREATE INDEX `ingest_staged_row_company_order_key_idx` ON `ingest_staged_row` (`company_id`,`order_key`);--> statement-breakpoint
+ALTER TABLE `customer` ADD `name_key` text;--> statement-breakpoint
+CREATE INDEX `customer_company_name_key_idx` ON `customer` (`company_id`,`name_key`);

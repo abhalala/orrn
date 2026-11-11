@@ -24,6 +24,7 @@ import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
 import { loadSections, resolveName, resolveSection, serverNameKey, type NameIndex } from "../resolvers";
 import type { IngestCtx } from "../types";
+import { liveOrdersOf, normOrderNo, orderGroupCheck, orderLabel, orderPoOf, parseOrderKey } from "../orderid";
 import {
   aliasMoveRefusal,
   aliasNameOwners,
@@ -38,11 +39,10 @@ import {
   companyNotIndexed,
   failureOf,
   fileRowsIn,
-  LINES_PER_ORDER,
   MESSAGE_MAX,
   num,
-  orderKeyOf,
   refOf,
+  rowOrderKey,
   rowsRequestId,
   text,
   valuesOf,
@@ -786,26 +786,30 @@ export async function orderPricing(ctx: IngestCtx): Promise<{ canPrice: boolean;
   };
 }
 
+/** What the order checks read of a staged row (orderid.ts OrderGroupRow). */
+function groupRowOf(row: StagedRow) {
+  const v = valuesOf(row);
+  const poText = text(v.poNumber);
+  return { rowIndex: row.rowIndex, po: poText ? poText.toLowerCase() : null, poText, orderDate: text(v.orderDate), oldNo: text(v.oldOrderNo) };
+}
+
 /**
- * Rows of a chunk grouped into orders (orderKeyOf). One group is one order: it is never cut, so one
- * PO never becomes two orders (B1, B5). Planning holds a candidate with an order above 100 lines;
- * this check is the backstop.
+ * Rows of a chunk grouped into orders: one stored order key (orderid.ts) is one order, never cut,
+ * so one old order never becomes two (rule 1). Planning holds a candidate with an order of two POs
+ * or above 100 lines; this check is the backstop.
  */
 export function orderGroups(rows: readonly StagedRow[]): OrderGroup[] {
   const groups = new Map<string, StagedRow[]>();
   for (const row of rows) {
-    const key = orderKeyOf(valuesOf(row));
+    const key = rowOrderKey(row);
     const list = groups.get(key);
     if (list) list.push(row);
     else groups.set(key, [row]);
   }
   const out: OrderGroup[] = [];
   for (const [key, list] of groups) {
-    if (list.length > LINES_PER_ORDER) {
-      const v = valuesOf(list[0]!);
-      const name = text(v.poNumber) ? `PO ${text(v.poNumber)}` : `The order on file row ${list[0]!.rowIndex + 1}`;
-      throw new TRPCError({ code: "BAD_REQUEST", message: `${name} has ${list.length} lines. An order takes ${LINES_PER_ORDER} lines at most.` });
-    }
+    const problem = orderGroupCheck(list.map(groupRowOf));
+    if (problem && problem.code !== "po_two_dates") throw new TRPCError({ code: "BAD_REQUEST", message: problem.message });
     out.push({ key, rows: list });
   }
   return out;
@@ -864,19 +868,36 @@ const orders: Adapter = async (args) => {
       const first = valuesOf(group.rows[0]!);
       const customerId = refOf(group.rows[0]!, "customer", refs);
       if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: `${text(first.customer) ?? "This party"} is not a customer in orrn` });
+      // The PO the order's rows agree on (rows with a blank PO take it).
+      const po = orderPoOf(group.rows.map(groupRowOf));
+      const requestId = await rowsRequestId(group.rows.map((r) => r.id));
+      // The no-PO twin of poRepeatGuard (M-new-3): the same old order already live, made by
+      // something other than this order's own rows. The planner holds such a candidate first.
+      const k = parseOrderKey(group.key);
+      if (k.kind === "no") {
+        const hit = (await liveOrdersOf(ctx, [{ key: group.key, customerId, fy: k.fy, no: k.no, po: null }])).get(group.key);
+        if (hit && hit.requestId !== requestId) {
+          throw new TRPCError({ code: "CONFLICT", message: `${orderLabel(group.rows.map(groupRowOf))} is already in orrn as ${hit.number}. Check this sheet again: its rows then show what that order lacks.` });
+        }
+      }
       // Every old order number of the order's rows (one PO may cover several), in file order.
-      const oldNos = [...new Set(group.rows.map((r) => text(valuesOf(r).oldOrderNo)).filter((x): x is string => !!x))];
+      const byNo = new Map<string, string>();
+      for (const r of group.rows) {
+        const no = text(valuesOf(r).oldOrderNo);
+        if (no && !byNo.has(normOrderNo(no))) byNo.set(normOrderNo(no), no);
+      }
+      const oldNos = [...byNo.values()];
       const notes = oldNos.length ? `Old order no. ${oldNos.join(", ")}` : "";
       const lines = group.rows.map((row) => lineOf.get(row.id)!);
       // The same input check as `orders.create`.
       const input = createInput.parse({
         customerId,
-        poNumber: text(first.poNumber),
+        poNumber: po.poText,
         ...(text(first.orderDate) ? { orderDate: text(first.orderDate)! } : {}),
         note: notes || null,
         lines,
         // From the order's own rows, so a resend from any chunk or run carries the same key (B8).
-        clientRequestId: await rowsRequestId(group.rows.map((r) => r.id)),
+        clientRequestId: requestId,
       });
       const source = args.sourceOf(group.rows);
       const made = await createSalesOrder({ ...ctx, ingestSource: source }, input, { canPrice, source: "ingest" });

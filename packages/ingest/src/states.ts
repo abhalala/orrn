@@ -53,6 +53,8 @@ export const QUESTION_CODES = [
   "create_legacy_die",
   "new_customers",
   "magnitude_check",
+  // One old order whose rows carry two different POs (portal rules round 3, section 1).
+  "order_po",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 

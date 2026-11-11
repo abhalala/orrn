@@ -5070,6 +5070,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "name_key": {
+          "name": "name_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "phone": {
           "name": "phone",
           "type": "text",
@@ -5156,6 +5163,14 @@
           "columns": [
             "company_id",
             "name"
+          ],
+          "isUnique": false
+        },
+        "customer_company_name_key_idx": {
+          "name": "customer_company_name_key_idx",
+          "columns": [
+            "company_id",
+            "name_key"
           ],
           "isUnique": false
         },
@@ -12123,6 +12138,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "order_key": {
+          "name": "order_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "integer",
@@ -12163,6 +12185,14 @@
           "columns": [
             "company_id",
             "row_key"
+          ],
+          "isUnique": false
+        },
+        "ingest_staged_row_company_order_key_idx": {
+          "name": "ingest_staged_row_company_order_key_idx",
+          "columns": [
+            "company_id",
+            "order_key"
           ],
           "isUnique": false
         }

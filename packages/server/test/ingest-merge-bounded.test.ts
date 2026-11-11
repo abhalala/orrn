@@ -10,6 +10,8 @@ import type { IngestTarget } from "@orrn/db/schema/ingest";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { apiFor, candidateRow, contextFor, seedCandidate, stagedRows } from "./ingest-merge-fixture";
+import { ORDERS_TOO_BIG } from "../src/lib/ingest/merge/planner";
+import { orderKeyOf } from "../src/lib/ingest/merge/shared";
 
 let env: TestEnv;
 
@@ -143,6 +145,7 @@ async function seedBulk(companyId: string, target: IngestTarget, total: number, 
     rowIndex: i,
     raw: [],
     values: valuesAt(i),
+    orderKey: target === "orders" ? orderKeyOf(valuesAt(i), `k${seeded.candidateId}-${i}`) : null,
     state: "ready_create" as const,
   }));
   const inserts = [];
@@ -352,7 +355,8 @@ describe("bounded write steps (B-new-2)", () => {
     for (const n of reads) expect(n).toBeLessThanOrEqual(PLAN_ROWS_READ_MAX);
     const c = await candidateRow(env, book);
     expect(c.state).toBe("held");
-    expect(c.reasonDetail).toBe("This sheet has more than 5000 rows. An order book import takes 5000 rows at most. Split the file and import each part.");
+    // Words changed by portal rules round 3, section 1: the limit, and what works (ORDERS_TOO_BIG).
+    expect(c.reasonDetail).toBe(ORDERS_TOO_BIG);
     expect((await stagedRows(env, book)).every((r) => r.mergeState === "open" && r.committedType === null)).toBe(true);
   }, 120_000);
 

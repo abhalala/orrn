@@ -64,6 +64,7 @@ export const QUESTION_CODES = [
   "create_legacy_die",
   "new_customers",
   "magnitude_check",
+  "order_po",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 
@@ -297,6 +298,13 @@ export const ingestStagedRow = sqliteTable(
     mergeState: text("merge_state", { enum: ROW_MERGE_STATES }).notNull().default("open"),
     committedType: text("committed_type"),
     committedId: text("committed_id"),
+    /**
+     * Orders only: the old order this row belongs to (PORTAL-RULES-3 section 1), written by the dry
+     * run from `orderIdentityOf` (server lib/ingest/orderid.ts). Plant, financial year, customer and
+     * old order number; the PO is never part of it. Indexed so the dry run and the planner find the
+     * same order in another file.
+     */
+    orderKey: text("order_key"),
     updatedAt: updatedAtCol(),
   },
   (t) => [
@@ -304,6 +312,7 @@ export const ingestStagedRow = sqliteTable(
     index("ingest_staged_row_candidate_state_idx").on(t.candidateId, t.state),
     index("ingest_staged_row_committed_idx").on(t.companyId, t.committedType, t.committedId),
     index("ingest_staged_row_company_key_idx").on(t.companyId, t.rowKey),
+    index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey),
   ],
 );
 

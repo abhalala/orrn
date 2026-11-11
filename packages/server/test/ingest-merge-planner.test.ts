@@ -87,11 +87,15 @@ describe("orders", () => {
     expect(pickOrderRows(staged.filter((s) => s.rowIndex % 3 === 2), 2).map((s) => s.id)).toEqual(["s2", "s5"]);
   });
 
-  test("the order key: PO ignores case, outer spaces and date; no PO uses old order no and date", () => {
+  // Changed by portal rules round 3, section 1: an old order is the financial year, the customer
+  // and the old order number; the PO is never part of it. With no number, customer and PO.
+  test("the order key: old order no and financial year, never the PO; with no number, PO ignoring case, spaces and date", () => {
     const k = (v: Record<string, unknown>) => orderKeyOf({ _ids: { customer: "c1" }, ...v });
     expect(k({ poNumber: " PO-1 ", orderDate: "2025-01-01" })).toBe(k({ poNumber: "po-1", orderDate: "2025-02-01" }));
-    expect(k({ oldOrderNo: "B-1", orderDate: "2025-01-01" })).not.toBe(k({ oldOrderNo: "B-1", orderDate: "2025-01-02" }));
-    expect(k({ poNumber: "" , oldOrderNo: "B-1" })).toBe(k({ oldOrderNo: "B-1" }));
+    expect(k({ oldOrderNo: "B-1", orderDate: "2025-01-01" })).toBe(k({ oldOrderNo: "b-01", orderDate: "2025-01-02" }));
+    expect(k({ oldOrderNo: "B-1", orderDate: "2025-03-31" })).not.toBe(k({ oldOrderNo: "B-1", orderDate: "2025-04-01" }));
+    expect(k({ oldOrderNo: "B-1", poNumber: "PO-9", orderDate: "2025-05-01" })).toBe(k({ oldOrderNo: "B-1", orderDate: "2025-05-01" }));
+    expect(k({ poNumber: "", oldOrderNo: "B-1" })).toBe(k({ oldOrderNo: "B-1" }));
   });
 });
 

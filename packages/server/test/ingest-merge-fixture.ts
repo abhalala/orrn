@@ -7,6 +7,7 @@ import type { CompanyRole } from "@orrn/db/schema/tenant";
 import type { IngestTarget, RowState } from "@orrn/db/schema/ingest";
 
 import type { Context } from "../src/context";
+import { orderKeyOf } from "../src/lib/ingest/merge/shared";
 import type { appRouter } from "../src/routers/index";
 import type { TestEnv } from "./harness";
 
@@ -84,6 +85,8 @@ export async function seedCandidate(
       rowIndex: i,
       raw: [],
       values: { _ids: {}, ...r.values },
+      // The dry run stores each order row's old order (orderid.ts); a hand-staged row gets the same.
+      orderKey: target === "orders" ? orderKeyOf({ _ids: {}, ...r.values }, rowKey) : null,
       state: r.state ?? "ready_create",
       matchId: r.matchId ?? null,
       diff: r.diff ?? null,
