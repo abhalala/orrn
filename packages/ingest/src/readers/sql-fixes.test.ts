@@ -75,6 +75,25 @@ describe("C12: a later statement with another column list lands under the right 
   });
 });
 
+describe("C13: one unreadable value loses one row, not the rest of the statement", () => {
+  test("an odd value in row 2 keeps rows 1 and 3 and counts one unparsed row", () => {
+    const sql = "INSERT INTO t (a, b) VALUES (1, 'x'), (2, bad value here), (3, 'z');\nINSERT INTO t (a, b) VALUES (4, 'w');\n";
+    each(sql, (r) => {
+      expect(r.tables[0]!.rows).toEqual([["1", "x"], ["3", "z"], ["4", "w"]]);
+      expect(r.tables[0]!.rowCount).toBe(4);
+      expect(r.unparsedCount).toBe(1);
+    });
+  });
+
+  test("_binary 'x' with a space, DATE '...' and TIMESTAMP '...' are read", () => {
+    const sql = "INSERT INTO t (a, b, c) VALUES (_binary 'ab', DATE '2020-01-01', TIMESTAMP '2020-01-01 10:00:00');\n";
+    each(sql, (r) => {
+      expect(r.tables[0]!.rows).toEqual([["ab", "2020-01-01", "2020-01-01 10:00:00"]]);
+      expect(r.unparsedCount).toBe(0);
+    });
+  });
+});
+
 describe("C22: advancing over a long one-line insert stays linear", () => {
   test("50,000 rows on one line, 1 MB chunks, finish quickly with the right line count", () => {
     const rows = Array.from({ length: 50_000 }, (_, i) => `(${i},'name ${i}')`).join(",");

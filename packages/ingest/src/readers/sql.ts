@@ -502,7 +502,7 @@ export class SqlReader {
 
   private stepValues(final: boolean): boolean {
     const b = this.buf;
-    let p: number;
+    let p = this.pos;
     try {
       p = this.skipSpace(b, this.pos);
       while (b[p] === ",") p = this.skipSpace(b, p + 1);
@@ -534,11 +534,41 @@ export class SqlReader {
         }
         return false;
       }
+      // Resync at the end of this one row, so the rows after it in the statement are kept (C13).
+      const end = this.tupleEnd(b, p);
+      if (end === -1) {
+        if (!final && b.length - p <= MAX_HEADER_BYTES) return false;
+        this.flag(`bad row: ${(e as Error).message}`);
+        this.beginSkip(false);
+        return true;
+      }
       this.flag(`bad row: ${(e as Error).message}`);
-      // Resync: skip to the end of this statement.
-      this.beginSkip(false);
+      this.current!.rowCount++;
+      this.rowsInStatement++;
+      this.advanceTo(end);
       return true;
     }
+  }
+
+  /** Just past the `)` that closes the tuple opening at b[start], skipping strings. -1 when the buffer ends first. */
+  private tupleEnd(b: string, start: number): number {
+    let depth = 0;
+    let i = start;
+    while (i < b.length) {
+      const ch = b[i]!;
+      if (ch === "'") {
+        try {
+          i = this.readString(b, i, this.backslash).end;
+        } catch {
+          return -1;
+        }
+        continue;
+      }
+      if (ch === "(") depth++;
+      else if (ch === ")" && --depth === 0) return i + 1;
+      i++;
+    }
+    return -1;
   }
 
   private parseTuple(b: string, start: number): { cells: string[]; end: number } {
@@ -565,7 +595,8 @@ export class SqlReader {
     // String literals, with an optional E, N or _charset prefix directly before the quote.
     let q = p;
     let eString = false;
-    const prefix = /^(?:[EeNn]|_[A-Za-z0-9]+|[Xx]|[Bb])(?=')/.exec(b.slice(p, p + 20));
+    // mysqldump writes `_binary 'x'` with a space; typed literals such as DATE '2020-01-01' read as their text.
+    const prefix = /^(?:[EeNn]|_[A-Za-z0-9]+\s*|[Xx]|[Bb]|(?:date|time|timestamp|timestamptz|interval)\s+)(?=')/i.exec(b.slice(p, p + 24));
     if (prefix) {
       eString = prefix[0].toLowerCase() === "e";
       q = p + prefix[0].length;
