@@ -15,8 +15,11 @@
  *   rateText    rateText                                            rupees per kg, two decimals, plain
  *   countText   pcsText, countText                                  whole pieces, grouped
  */
+import type { Fmt } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
-import { formatKg, formatStorage, gToKg, kgPerMetre, type Fmt } from "@orrn/domain";
+
+/** `formatKg(kg)`: two decimals, Indian grouping (the old band wording). */
+const TWO_DECIMALS = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const MASS = "order.weight";
 const BAND = "die.band";
@@ -42,7 +45,7 @@ export const rupeeText = (fmt: Fmt, paise: number): string => fmt.money(paise, "
  * print it, three decimals in kg/m or lb/ft (those have no older wording to keep).
  */
 export const bandEndText = (fmt: Fmt, gramsPer12ft: number): string =>
-  fmt.unitOf("linear_mass").id === "kg_12ft" ? formatKg(gToKg(gramsPer12ft)) : fmt.n(BAND, gramsPer12ft, "screen");
+  fmt.unitOf("linear_mass").id === "kg_12ft" ? TWO_DECIMALS.format(gramsPer12ft / 1000) : fmt.n(BAND, gramsPer12ft, "screen");
 
 /** The unit symbol for a column header or a suffix: "kg", "lb", "t". */
 export const massUnit = (fmt: Fmt): string => fmt.unitOf("mass").symbol;
@@ -124,45 +127,13 @@ export function castLengthText(fmt: Fmt, mm: number | null | undefined): string 
   return `${Math.round((mm / 304.8) * 100) / 100} ft`;
 }
 
-const PLAIN = { grouping: "none", decimal: ".", group: "," } as const;
-
-/**
- * Wall thickness from tenths of a mm, as the die screens write it: one decimal in mm ("1.2"), decimal inches in
- * three places on a feet and inches plant, four places in metres. With the unit word: "1.2 mm".
- */
-export function wallWithUnit(fmt: Fmt, tenthMm: number, withUnit = true): string {
-  const u = fmt.unitOf("length");
-  if (u.composite) return formatStorage(tenthMm, "tenth_mm", "in", 3, PLAIN, { trim: true }) + (withUnit ? " in" : "");
-  if (u.id === "m") return formatStorage(tenthMm, "tenth_mm", "m", 4, PLAIN, { trim: true }) + (withUnit ? " m" : "");
-  return formatStorage(tenthMm, "tenth_mm", "mm", 1, PLAIN) + (withUnit ? " mm" : "");
-}
-
-/** A die width, thickness or leg (mm, may carry a tenth) as the die screens write it: "12.5 mm", decimal inches, or metres. */
-export function geometryWithUnit(fmt: Fmt, mm: number): string {
-  const u = fmt.unitOf("length");
-  if (u.composite) return `${formatStorage(mm, "mm", "in", 3, PLAIN, { trim: true })} in`;
-  if (u.id === "m") return `${formatStorage(mm, "mm", "m", 4, PLAIN, { trim: true })} m`;
-  return `${formatStorage(mm, "mm", "mm", 1, PLAIN, { trim: true })} mm`;
-}
 
 /** "5.900\u20136.200 kg/12ft": a die's weight band in the plant's section weight unit, the ends to three decimals. */
 export const bandText = (fmt: Fmt, minG: number, maxG: number): string => `${sectionText(fmt, minG)}\u2013${sectionText(fmt, maxG)} ${sectionUnit(fmt)}`;
 
-/**
- * The second section weight beside the first: kg per metre when the plant reads kg/12ft (today's pair), kg/12ft when
- * it reads kg/m or lb/ft. From the stored grams per 12 ft, exact.
- */
-export function altSectionText(fmt: Fmt, gramsPer12ft: number): string {
-  if (fmt.unitOf("linear_mass").id === "kg_12ft") return `${kgPerMetre(gramsPer12ft).toFixed(3)} kg/m`;
-  return `${(gramsPer12ft / 1000).toFixed(3)} kg/12ft`;
-}
-
 /** Chart labels for values plotted in kg: the same weight in the plant's unit, "12.5 lb"; `zeroPlain` writes an empty bucket as "0 lb". */
 export const kgChartText = (fmt: Fmt, kg: number, zeroPlain = false): string =>
   zeroPlain && kg === 0 ? `0 ${massUnit(fmt)}` : `${kgGrouped1(fmt, Math.round(kg * 1000))} ${massUnit(fmt)}`;
-
-/** Whole units of weight, grouped ("60,000"): a tile or a die card. `kgWholeText` under the default set. */
-export const kgGrouped0 = (fmt: Fmt, grams: number): string => formatStorage(grams, "g", fmt.unitOf("mass").id, 0, fmt.style);
 
 /** A section weight, plain, zeros dropped ("2.4"): the die list's range column, `kgText` of a die's band end in kg/12ft. */
 export const sectionPlainTrim = (fmt: Fmt, gramsPer12ft: number): string => fmt.n(BAND, gramsPer12ft, "export", { trim: true });
@@ -176,3 +147,12 @@ export const dayOf = dayText;
  * whatever the plant shows on its other screens.
  */
 export const paperT = (t: Translate): Translate => (key, vars) => t(key, { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm", ...vars });
+
+/** Wall thickness from tenths of a mm, with its unit word ("1.2 mm"). */
+export const wallWithUnit = (fmt: Fmt, tenthMm: number, withUnit = true): string => fmt.wall(tenthMm, withUnit);
+/** A die width, thickness or leg as the die screens write it. */
+export const geometryWithUnit = (fmt: Fmt, mm: number): string => fmt.geometry(mm);
+/** The second section weight beside the first (kg per metre beside kg per 12 ft). */
+export const altSectionText = (fmt: Fmt, gramsPer12ft: number): string => fmt.altSection(gramsPer12ft);
+/** Whole units of weight, grouped: `kgWholeText` under the default set. */
+export const kgGrouped0 = (fmt: Fmt, grams: number): string => fmt.wholeMass(grams);

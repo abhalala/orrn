@@ -200,6 +200,14 @@ export type Fmt = {
   compact(value: number): string;
   date(at: number | string, opts?: { year?: boolean }): string;
   time(at: number): string;
+  /** Wall thickness from tenths of a mm: one decimal in mm, decimal inches (3) on a feet and inches plant, metres (4). */
+  wall(tenthMm: number, withUnit?: boolean): string;
+  /** A die width, thickness or leg in mm (may carry a tenth): "12.5 mm", decimal inches, or metres. */
+  geometry(mm: number): string;
+  /** The second section weight beside the first: kg/m when the plant reads kg/12ft, kg/12ft otherwise. */
+  altSection(gramsPer12ft: number): string;
+  /** Whole units of weight, grouped ("60,000"). */
+  wholeMass(grams: number): string;
   /** A production day (no zone shift). `year` defaults to true. */
   day(ymd: string, opts?: { year?: boolean }): string;
 };
@@ -273,6 +281,24 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
       return `${c}${c === "₹" ? "" : " "}${num}`;
     },
     compact: (value) => formatCompact(value, prefs.currency.compact, prefs.number),
+    wall(tenthMm, withUnit = true) {
+      const u = unitFor("length");
+      if (u.composite) return formatStorage(tenthMm, "tenth_mm", "in", 3, plain, { trim: true }) + (withUnit ? " in" : "");
+      if (u.id === "m") return formatStorage(tenthMm, "tenth_mm", "m", 4, plain, { trim: true }) + (withUnit ? " m" : "");
+      return formatStorage(tenthMm, "tenth_mm", "mm", 1, plain) + (withUnit ? " mm" : "");
+    },
+    geometry(mm) {
+      const u = unitFor("length");
+      if (u.composite) return `${formatStorage(mm, "mm", "in", 3, plain, { trim: true })} in`;
+      if (u.id === "m") return `${formatStorage(mm, "mm", "m", 4, plain, { trim: true })} m`;
+      return `${formatStorage(mm, "mm", "mm", 1, plain, { trim: true })} mm`;
+    },
+    altSection(g) {
+      // kg per metre from grams per 12 ft: g x 10000 / 36576, rounded, over 1000 (the die room's kgPerMetre).
+      if (unitFor("linear_mass").id === "kg_12ft") return `${(Math.round((g * 10_000) / 36_576) / 1000).toFixed(3)} kg/m`;
+      return `${(g / 1000).toFixed(3)} kg/12ft`;
+    },
+    wholeMass: (g) => formatStorage(g, "g", unitFor("mass").id, 0, prefs.number),
     date(at, opts = {}) {
       if (typeof at === "string") {
         if (/^\d{4}-\d{2}-\d{2}$/.test(at)) return this.day(at);
