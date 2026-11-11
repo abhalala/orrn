@@ -7,15 +7,11 @@
  * A multi-call chunk stops at the first refused call: rows written before it are kept as written,
  * and the refusal holds the candidate. A one-call chunk either writes every row or none.
  */
-import { DIE_COPY_HAND_STATUSES } from "@orrn/domain";
-import { orderLineGrams } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-import type { z } from "zod";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
-import { customer } from "@orrn/db/schema/customers";
 import { dieInstance } from "@orrn/db/schema/dies";
 import { vendor } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
@@ -27,6 +23,13 @@ import { companyFloor } from "../../orderLines";
 import { can } from "../../permissions";
 import { loadCustomerIndex, loadSections, loadVendorIndex, resolveName, resolveSection, serverNameKey } from "../resolvers";
 import type { IngestCtx } from "../types";
+import {
+  aliasNameOwners,
+  aliasRefusal,
+  handStatusRefusal,
+  orderLineOf,
+  type OrderLine,
+} from "./rowchecks";
 import {
   failureOf,
   fileRowsIn,
@@ -46,6 +49,10 @@ import {
   type SentRows,
   type Written,
 } from "./shared";
+
+// The shared row checks moved to rowchecks.ts, so the dry run uses them too. Re-exported here.
+export { aliasNameCheck, aliasNameOwners, aliasRefusal, handStatusCheck, handStatusRefusal, ORDER_LINE_FIELDS, orderLineCheck, orderLineOf } from "./rowchecks";
+export type { NameOwner } from "./rowchecks";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -275,37 +282,6 @@ const customers: Adapter = async (args) => {
 // ---------------------------------------------------------------------------
 // customer_aliases (11): customer.addAliases
 // ---------------------------------------------------------------------------
-
-export type NameOwner = { id: string; name: string };
-
-/**
- * The live customer or vendor each name key belongs to, for the alias targets (B13). The planner
- * checks a whole candidate with it before any chunk is written; each adapter checks again.
- */
-export async function aliasNameOwners(ctx: IngestCtx, target: "customer_aliases" | "vendor_aliases"): Promise<Map<string, NameOwner>> {
-  const out = new Map<string, NameOwner>();
-  if (target === "vendor_aliases") {
-    const names = await ctx.db.select({ id: vendor.id, name: vendor.name, key: vendor.nameKey }).from(vendor).where(eq(vendor.companyId, ctx.companyId));
-    for (const n of names) if (n.key && !out.has(n.key)) out.set(n.key, { id: n.id, name: n.name });
-    return out;
-  }
-  const names = await ctx.db
-    .select({ id: customer.id, name: customer.name })
-    .from(customer)
-    .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
-  for (const c of names) {
-    const k = serverNameKey(c.name);
-    if (k && !out.has(k)) out.set(k, c);
-  }
-  return out;
-}
-
-/** The refusal for an alias that is already the name of another customer or vendor, or null. */
-export function aliasRefusal(rowIndex: number, alias: string, ownerId: string | null, owners: Map<string, NameOwner>): string | null {
-  const own = owners.get(serverNameKey(alias));
-  if (!own || own.id === ownerId) return null;
-  return `File row ${rowIndex + 1}: ${alias} is already the name of ${own.name}. Skip the row.`;
-}
 
 const customerAliases: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
@@ -564,16 +540,6 @@ const COPY_UPDATE: Record<string, [string, (v: unknown) => unknown]> = {
   status: ["status", text],
 };
 
-/**
- * A copy's status as an import may set it (B12). `in_use`, `at_maker` and `on_trial` are written
- * only by die issue, maker jobs and trials, and dieInstance refuses them from a person.
- */
-export function handStatusRefusal(rowIndex: number, value: unknown): string | null {
-  const status = text(value);
-  if (status === null || (DIE_COPY_HAND_STATUSES as readonly string[]).includes(status)) return null;
-  return `File row ${rowIndex + 1}: status ${status} cannot come from a file. Use available, at_nitriding or retired, or skip the row.`;
-}
-
 /** The planner holds such a candidate before any copy is made (B12); this is the backstop. */
 function assertHandStatus(rows: readonly StagedRow[], update: boolean): void {
   for (const row of rows) {
@@ -691,44 +657,6 @@ const bundles: Adapter = async (args) => {
 // ---------------------------------------------------------------------------
 
 type OrderGroup = { key: string; rows: StagedRow[] };
-
-type LineSchema = (typeof import("../../../routers/salesOrder"))["orderLineInput"];
-type OrderLine = z.input<LineSchema>;
-
-/**
- * One order line as the order screen takes it, or a refusal that names the file row (B11): no
- * weight, a closed line (balance 0 or less), no cut length, or anything `orderLineInput` refuses.
- * The schema is passed in because routers/salesOrder is imported lazily here.
- */
-export function orderLineOf(schema: LineSchema, rowIndex: number, v: Values, sectionId: string, canPrice: boolean): OrderLine {
-  const at = `File row ${rowIndex + 1}`;
-  const grams = orderLineGrams(v).grams;
-  if (grams === null) throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: no weight on this line. Give the ordered or balance kg, or skip the row.` });
-  if (grams <= 0) throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: nothing is left to dispatch on this line (balance 0 kg). Skip the row.` });
-  if (num(v.cutLength) === null) throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: no cut length. Give the cut length, or skip the row.` });
-  const rate = num(v.rate);
-  const line = {
-    sectionId,
-    kgPer12ftMilli: num(v.kgPer12ft),
-    cutLengthMm: num(v.cutLength)!,
-    pcs: num(v.pcs),
-    kgG: grams,
-    finish: nullable(v.finish),
-    alloy: nullable(v.alloy),
-    temper: nullable(v.temper),
-    note: nullable(v.note),
-    ...(canPrice && rate !== null ? { ratePaise: rate } : {}),
-  };
-  const ok = schema.safeParse(line);
-  if (!ok.success) {
-    const issue = ok.error.issues[0]!;
-    throw new TRPCError({ code: "BAD_REQUEST", message: `${at}: ${issue.path.join(".")}: ${issue.message}` });
-  }
-  return line;
-}
-
-/** The staged fields `orderLineOf` reads, so the planner can read them without the whole row. */
-export const ORDER_LINE_FIELDS = ["orderedKg", "dispatchedKg", "bakiKg", "cutLength", "kgPer12ft", "pcs", "finish", "alloy", "temper", "note", "rate"] as const;
 
 /**
  * Rates are written only by a person who may see them, and only when the plant uses them (A8,

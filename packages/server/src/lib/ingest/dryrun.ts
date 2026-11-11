@@ -44,6 +44,7 @@ import { companyModules } from "../moduleGate";
 import { can } from "../permissions";
 import { nameKey } from "../purchase";
 import { stagedRowIdOf } from "./artifacts";
+import { aliasNameCheck, aliasNameOwners, checkReason, handStatusCheck, loadOrderLineSchema, orderLineCheck, type NameOwner } from "./merge/rowchecks";
 import { refreshArtifactPeriod } from "./period";
 import {
   guardedBatch,
@@ -233,6 +234,8 @@ type PageLive = {
   liveCopies?: Map<string, Values>;
   customerAliasKeys?: Map<string, string>;
   vendorAliasKeys?: Map<string, string>;
+  /** Alias targets: the live customer or vendor each name key belongs to (B13). */
+  nameOwners?: Map<string, NameOwner>;
 };
 
 const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v));
@@ -319,6 +322,7 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
     );
     live.customerAliasKeys = new Map(hits.map((h) => [h.key, h.id]));
   }
+  if (target === "customer_aliases" || target === "vendor_aliases") live.nameOwners = await aliasNameOwners(ctx, target);
   if (target === "vendor_aliases") {
     const keys = rows.map((v) => nameKey(str(v.alias))).filter(Boolean);
     const hits = await mapInChunks([...new Set(keys)], (part) =>
@@ -385,6 +389,11 @@ function sectionOf(values: Values, ids: Record<string, string>, reasons: string[
     return null;
   }
   if (r.kind === "ambiguous") return amb(values, "sectionCode", r.options, reasons, "ambiguous");
+  // The merge adds an old section only for bundles. An order line or a die copy needs a section that
+  // is in orrn when the merge writes it (B10), so the question is not asked for them.
+  if (cx.target === "orders" || cx.target === "die_copies") {
+    return { state: "refused", values, reasons: [...reasons, "section_unknown:sectionCode"], matchId: null, diff: null };
+  }
   const legacy = cx.answers.legacyDie.get(code);
   if (legacy === true) {
     values.legacyDie = true;
@@ -422,6 +431,9 @@ export function classifyRow(values: Values, cx: ClassifyCtx): RowOutcome {
     const owner = (t === "customer_aliases" ? cx.live.customerAliasKeys : cx.live.vendorAliasKeys)?.get(nameKey(str(values.alias)));
     if (owner === r.id) return { state: "unchanged", values, reasons, matchId: r.id, diff: null };
     if (owner) return { state: "conflict", values, reasons: ["alias_taken:alias"], matchId: owner, diff: { [field]: { live: owner, file: r.id } } };
+    // The same check the merge makes (B13): an alias that is another customer's or vendor's name.
+    const named = aliasNameCheck(str(values.alias), r.id, cx.live.nameOwners ?? new Map());
+    if (named) return { state: "refused", values, reasons: [checkReason(named)], matchId: null, diff: null };
     return { state: "ready_create", values, reasons, matchId: null, diff: null };
   }
 
@@ -636,6 +648,21 @@ export function recountStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candi
 }
 
 // ---------------------------------------------------------------------------
+// The merge's row checks
+// ---------------------------------------------------------------------------
+
+/**
+ * The die copy status the row would write, checked as the merge checks it (B12): a create's status,
+ * or an update's new status.
+ */
+function copyStatusCheck(out: RowOutcome): RowOutcome {
+  const diffStatus = (out.diff as Record<string, { file: unknown }> | null)?.status;
+  const status = out.state === "ready_create" ? out.values?.status : out.state === "ready_update" || out.state === "conflict" ? diffStatus?.file : undefined;
+  const bad = handStatusCheck(status);
+  return bad ? { ...out, state: "refused", reasons: [...out.reasons, checkReason(bad)] } : out;
+}
+
+// ---------------------------------------------------------------------------
 // Step
 // ---------------------------------------------------------------------------
 
@@ -759,13 +786,17 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         newCustomerRef: newCustomerRef(r.rowIndex),
       });
       out = applyDecision(out, r, c.target);
+      if (c.target === "die_copies") out = copyStatusCheck(out);
       out.reasons = [...keep, ...out.reasons];
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);
       if (dup) values._dupKey = dup;
       outcomes.set(r.id, out);
     }
-    if (c.target === "orders") await matchLiveOrders(ctx, recipe, editable, outcomes);
+    if (c.target === "orders") {
+      await matchLiveOrders(ctx, recipe, editable, outcomes);
+      await orderLineChecks(editable, outcomes);
+    }
     await markDuplicates(ctx, c.id, input.expectCursor, editable, outcomes);
   }
 
@@ -1057,6 +1088,22 @@ async function matchLiveOrders(ctx: IngestCtx, recipe: Recipe, rows: readonly St
     out.reasons = [...out.reasons, "order_line_new"];
     // The person's choice for this line: leave it out (keep_live). Skip is applied before this.
     if (r.decision === "keep_live") out.state = "unchanged";
+  }
+}
+
+/**
+ * The order lines the merge would refuse (B11), refused here first with the same check: no weight,
+ * nothing left to dispatch, no cut length, or anything the order screen refuses. Only lines the merge
+ * would write are checked; a line already on a live order writes nothing.
+ */
+async function orderLineChecks(rows: readonly Staged[], outcomes: Map<string, RowOutcome>): Promise<void> {
+  const schema = await loadOrderLineSchema();
+  for (const r of rows) {
+    const out = outcomes.get(r.id)!;
+    if (out.state !== "ready_create" && out.state !== "ready_update") continue;
+    // A rate is checked as if it will be written; any id passes the section here, as in the planner.
+    const check = orderLineCheck(schema, out.values ?? {}, "section", true);
+    if (check.problem) outcomes.set(r.id, { ...out, state: "refused", reasons: [...out.reasons, checkReason(check.problem)], diff: null });
   }
 }
 

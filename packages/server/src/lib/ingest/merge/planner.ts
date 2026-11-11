@@ -31,7 +31,8 @@ import { salesOrder } from "@orrn/db/schema/sales";
 import { chunk as chunkList, mapInChunks, type SqliteBatchItem } from "../../atomic";
 import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
-import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing } from "./adapters";
+import { orderPricing } from "./adapters";
+import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf } from "./rowchecks";
 import {
   CHUNK_ROWS,
   failureOf,
