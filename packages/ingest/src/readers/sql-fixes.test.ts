@@ -134,3 +134,12 @@ describe("C31: casts after raw values", () => {
   });
 });
 
+describe("C32: Postgres E'' escapes split across chunks", () => {
+  test("\\u, \\x and octal cut by a chunk end read the same as one chunk", () => {
+    const sql = "INSERT INTO t (a) VALUES (E'caf\\u00e9 \\x41 \\101 \\011end');\n";
+    const whole = parseSql(sql).tables[0]!.rows;
+    expect(whole).toEqual([["caf\u00e9 A A \tend"]]);
+    for (const chunkSize of [1, 2, 3, 5, 7]) expect(parseSql(sql, { chunkSize }).tables[0]!.rows).toEqual(whole);
+  });
+});
+

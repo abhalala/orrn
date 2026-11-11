@@ -718,16 +718,21 @@ export class SqlReader {
   private unescape(b: string, j: number, mysql: boolean): { text: string; end: number } {
     const n = b[j + 1]!;
     const simple: Record<string, string> = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", v: "\v", "0": "\0", Z: "\x1a", "'": "'", '"': '"', "\\": "\\" };
-    if (!mysql && n === "x" && /^[0-9A-Fa-f]{1,2}/.test(b.slice(j + 2, j + 4))) {
-      const hex = /^[0-9A-Fa-f]{1,2}/.exec(b.slice(j + 2, j + 4))![0];
-      if (j + 2 + hex.length >= b.length) throw new Incomplete();
-      return { text: String.fromCharCode(parseInt(hex, 16)), end: j + 2 + hex.length };
+    // Postgres E'' escapes. A chunk may end inside one: wait for more text rather than read part of it (C32).
+    if (!mysql && n === "x") {
+      const hex = /^[0-9A-Fa-f]{0,2}/.exec(b.slice(j + 2, j + 4))![0];
+      if (hex.length < 2 && j + 2 + hex.length >= b.length) throw new Incomplete();
+      if (hex.length > 0) return { text: String.fromCharCode(parseInt(hex, 16)), end: j + 2 + hex.length };
     }
-    if (!mysql && n === "u" && /^[0-9A-Fa-f]{4}/.test(b.slice(j + 2, j + 6))) {
-      return { text: String.fromCharCode(parseInt(b.slice(j + 2, j + 6), 16)), end: j + 6 };
+    if (!mysql && n === "u") {
+      const hex = /^[0-9A-Fa-f]{0,4}/.exec(b.slice(j + 2, j + 6))![0];
+      if (hex.length < 4 && j + 2 + hex.length >= b.length) throw new Incomplete();
+      if (hex.length === 4) return { text: String.fromCharCode(parseInt(hex, 16)), end: j + 6 };
     }
-    if (!mysql && /[0-7]/.test(n) && n !== "0") {
+    if (!mysql && /[0-7]/.test(n)) {
+      // \0 starts an octal too: \011 is a tab, not NUL and "11".
       const oct = /^[0-7]{1,3}/.exec(b.slice(j + 1, j + 4))![0];
+      if (oct.length < 3 && j + 1 + oct.length >= b.length) throw new Incomplete();
       return { text: String.fromCharCode(parseInt(oct, 8)), end: j + 1 + oct.length };
     }
     if (n in simple) return { text: simple[n]!, end: j + 2 };
