@@ -57,6 +57,7 @@ function ddMmmYyyy(ymd: string | null | undefined): string {
 }
 
 const NUMERIC_COLUMNS = new Set([0, 4, 5, 6, 7, 8, 9]);
+const V1_COLGROUP = `<colgroup><col style="width:5%"><col style="width:15%"><col style="width:24%"><col style="width:10%"><col style="width:8%"><col style="width:8%"><col style="width:7%"><col style="width:10%"><col style="width:13%"></colgroup>`;
 
 /** v2: the plant's PL — letterhead, bill-to / ship-to, transport, refs, 11 columns grouped by order line. */
 function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = {}): string {
@@ -260,7 +261,7 @@ export function buildPackingListHtml(
     dl { display: grid; grid-template-columns: auto auto; gap: 2px 12px; margin: 0; }
     dt { color: #555; } dd { margin: 0; font-weight: bold; }
     .totals { font-size: 14px; font-weight: bold; margin: 8px 0 12px; }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th { background: #f3f4f6; text-align: left; font-size: 9px; color: #333; padding: 6px; border-bottom: 1px solid #d1d5db; }
     td { padding: 4px 6px; border-bottom: 1px solid #eee; font-size: 10px; }
     .n { text-align: right; font-variant-numeric: tabular-nums; }
@@ -285,6 +286,7 @@ export function buildPackingListHtml(
   <p class="totals">${bundlesText(totals.bundles)} · ${kgText(totals.weightKg)} kg</p>
   ${header.notes ? `<p class="notes">${escapeHtml(header.notes)}</p>` : ""}
   <table>
+    ${V1_COLGROUP}
     <thead>
       <tr>
         <th>Sr</th><th>Bundle no</th><th>Item</th>
@@ -295,7 +297,7 @@ export function buildPackingListHtml(
     <tbody>${body}</tbody>
   </table>
   <div class="closing">
-    <table><tbody>
+    <table>${V1_COLGROUP}<tbody>
       <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
     </tbody></table>
     <div class="signatures">${plSignatureLabels(opts.printText).map((label) => `<div class="signature">${escapeHtml(label)}<div class="signature-line"></div></div>`).join("")}</div>
