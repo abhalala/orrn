@@ -107,3 +107,20 @@ describe("C22: advancing over a long one-line insert stays linear", () => {
   });
 });
 
+describe("C30: column names that look like constraint words", () => {
+  test("key, index, period, like and check are columns when a type follows", () => {
+    const sql = [
+      "CREATE TABLE public.settings (key text, value text, index integer, period text, \"like\" text, check_no int,",
+      "  CONSTRAINT settings_pkey PRIMARY KEY (key), UNIQUE (value), KEY idx_v (value), CHECK (index > 0));",
+      "INSERT INTO public.settings VALUES ('a', 'b', 1, 'p', 'l', 2);",
+      "",
+    ].join("\n");
+    each(sql, (r) => expect(r.tables[0]!.columns).toEqual(["key", "value", "index", "period", "like", "check_no"]));
+  });
+
+  test("MySQL KEY and UNIQUE KEY lines are not columns", () => {
+    const sql = ["CREATE TABLE `t` (", "  `id` int,", "  `code` varchar(20),", "  PRIMARY KEY (`id`),", "  UNIQUE KEY `u_code` (`code`),", "  KEY `k_code` (`code`)", ") ENGINE=InnoDB;", "INSERT INTO `t` VALUES (1,'a');", ""].join("\n");
+    each(sql, (r) => expect(r.tables[0]!.columns).toEqual(["id", "code"]));
+  });
+});
+

@@ -79,7 +79,23 @@ type SkipState = {
 
 const MAX_HEADER_BYTES = 4 * 1024 * 1024;
 const MAX_CAPTURE = 1024 * 1024;
-const CONSTRAINT_WORDS = /^(constraint|primary|unique|foreign|key|index|check|fulltext|spatial|exclude|like|period)\b/i;
+/**
+ * A table constraint or index line in CREATE TABLE, in its statement form only. A column named key, index, period or
+ * check (pg_dump leaves such names unquoted) is followed by a type, so it is still read as a column (C30).
+ */
+const CONSTRAINT_FORMS = [
+  /^constraint\s/i,
+  /^primary\s+key\b/i,
+  /^foreign\s+key\b/i,
+  /^unique\s*(?:\(|key\b|index\b|constraint\b|[`"[])/i,
+  /^(?:fulltext|spatial)\s+(?:key|index)\b/i,
+  /^(?:key|index)\s*(?:\(|`[^`]*`\s*\(|"[^"]*"\s*\(|[A-Za-z_][A-Za-z0-9_]*\s+\(|[A-Za-z_][A-Za-z0-9_]*\s+using\b)/i,
+  /^check\s*\(/i,
+  /^exclude\s+(?:using\b|\()/i,
+  /^period\s+for\b/i,
+  /^like\s+[A-Za-z_"`][^\s]*\s+(?:including|excluding)\b/i,
+];
+const isConstraintLine = (t: string) => CONSTRAINT_FORMS.some((re) => re.test(t));
 const DOLLAR_OPEN = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/;
 
 function freshSkip(): SkipState {
@@ -921,7 +937,7 @@ export class SqlReader {
     const columns: string[] = [];
     for (const it of items) {
       const t = it.trim();
-      if (t === "" || CONSTRAINT_WORDS.test(t)) continue;
+      if (t === "" || isConstraintLine(t)) continue;
       try {
         const id = this.readIdent(t + " ", 0);
         if (id) columns.push(id.value);
