@@ -6,10 +6,11 @@
  * One call handles at most 200 rows from the stored cursor. The browser pumps it with `expectCursor`;
  * the cursor moves with a compare-and-set in the statement's own WHERE, so a second tab gets CONFLICT.
  *
- * Staged `values` hold the recipe's values plus three server keys: `_entered` (the text and unit of
- * every number, for audit), `_ids` (resolved live ids by field, or `pending:<rowKey>` for a record the
- * same merge creates), `_options` (what an ambiguous row could mean) and `_dupKey` (in-file duplicate
- * key). The merge reads field values and `_ids`; keys starting with `_` are never live fields.
+ * Staged `values` hold the recipe's canonical values plus server keys: `_ids` (resolved live ids by
+ * field, or `pending:<rowKey>` for a record the same merge creates), `_options` (what an ambiguous row
+ * could mean) and `_dupKey` (in-file duplicate key). The merge reads field values and `_ids`; keys
+ * starting with `_` are never live fields. The text and unit the file gave for each number go in the
+ * `entered` column, for audit (owner rule).
  */
 import {
   applyRow,
@@ -84,9 +85,12 @@ export const Q_SECTION_UNKNOWN = "q:section_unknown";
 type Values = Record<string, unknown>;
 type Staged = typeof ingestStagedRow.$inferSelect;
 
+export type Entered = Record<string, { text: string; unit: string | null }>;
+
 export type RowOutcome = {
   state: RowState;
   values: Values | null;
+  entered?: Entered | null;
   reasons: string[];
   matchId: string | null;
   diff: Record<string, { live: unknown; file: unknown }> | null;
@@ -585,11 +589,12 @@ export async function classifyRows(
   return applied.map(({ r, a }) => {
     if (a.state === "blank") return { rowIndex: r.rowIndex, outcome: { state: "skipped" as const, values: null, reasons: ["blank_row"], matchId: null, diff: null } };
     if (a.state === "dropped") return { rowIndex: r.rowIndex, outcome: { state: "skipped" as const, values: null, reasons: ["filtered"], matchId: null, diff: null } };
-    const values: Values = { ...cleanValues(a.values), _entered: a.entered };
+    const values: Values = cleanValues(a.values);
+    const entered = a.entered as Entered;
     if (a.state === "refused") {
       return {
         rowIndex: r.rowIndex,
-        outcome: { state: "refused" as const, values, reasons: a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`), matchId: null, diff: null },
+        outcome: { state: "refused" as const, values, entered, reasons: a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`), matchId: null, diff: null },
       };
     }
     const outcome = classifyRow(values, {
@@ -600,7 +605,7 @@ export async function classifyRows(
       forced: null,
       newCustomerRef: () => "pending:sample",
     });
-    return { rowIndex: r.rowIndex, outcome };
+    return { rowIndex: r.rowIndex, outcome: { ...outcome, entered } };
   });
 }
 
@@ -664,11 +669,13 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         outcomes.set(r.id, { state: "skipped", values: null, reasons: [...keep, "filtered"], matchId: null, diff: null });
         continue;
       }
-      const values: Values = { ...cleanValues(a.values), _entered: a.entered };
+      const values: Values = cleanValues(a.values);
+      const entered = a.entered as Entered;
       if (a.state === "refused") {
         outcomes.set(r.id, {
           state: "refused",
           values,
+          entered,
           reasons: [...keep, ...a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`)],
           matchId: null,
           diff: null,
@@ -685,6 +692,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       });
       out = applyDecision(out, r);
       out.reasons = [...keep, ...out.reasons];
+      out.entered = entered;
       const dup = dupKeyOf(c.target, values);
       if (dup) values._dupKey = dup;
       outcomes.set(r.id, out);
@@ -717,6 +725,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         rowIndex: d.rowIndex,
         raw: [d.name],
         values: { name: d.name, _ids: {} },
+        entered: null,
         state: "ready_create" as const,
         reasons: null,
         matchId: null,
@@ -744,6 +753,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         .set({
           state: out.state,
           values: out.values,
+          entered: out.entered && Object.keys(out.entered).length ? out.entered : null,
           reasons: out.reasons.length ? out.reasons : null,
           matchId: r.decision === "use_match" ? r.matchId : out.matchId,
           diff: out.diff,

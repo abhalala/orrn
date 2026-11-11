@@ -239,6 +239,7 @@ export async function putRows(
         rowIndex,
         raw,
         values: null,
+        entered: null,
         state: "pending" as const,
         reasons: reasons.length ? reasons : null,
         matchId: null,

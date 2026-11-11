@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "858916a6-db73-4f5f-90bc-86140e3ae282",
+  "id": "664340c6-a148-466d-9542-c0c5d866d7ff",
   "prevId": "3182b154-d8c0-4805-9d6d-c1922cf3622a",
   "tables": {
     "ageing_batch": {
@@ -12058,6 +12058,13 @@
         },
         "values": {
           "name": "values",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "entered": {
+          "name": "entered",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

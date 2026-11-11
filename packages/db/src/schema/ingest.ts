@@ -280,6 +280,11 @@ export const ingestStagedRow = sqliteTable(
     rowIndex: integer("row_index").notNull(),
     raw: text("raw", { mode: "json" }).$type<string[]>().notNull(),
     values: text("values", { mode: "json" }).$type<Record<string, unknown>>(),
+    /**
+     * What the file gave for each numeric field before conversion, kept for audit (owner rule):
+     * `{ field: { text: "12.5", unit: "kg" } }`. `values` holds the canonical integers.
+     */
+    entered: text("entered", { mode: "json" }).$type<Record<string, { text: string; unit: string | null }>>(),
     state: text("state", { enum: ROW_STATES }).notNull().default("pending"),
     reasons: text("reasons", { mode: "json" }).$type<string[]>(),
     matchId: text("match_id"),

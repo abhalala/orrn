@@ -205,6 +205,8 @@ export type StagedRowView = {
   rowIndex: number;
   state: RowState;
   values: Record<string, unknown> | null;
+  /** What the file gave for each number before conversion ("12.5" "kg"). Rate masked like `rate`. */
+  entered: Record<string, { text: string; unit: string | null }> | null;
   raw: string[];
   reasons: string[];
   matchId: string | null;
@@ -223,7 +225,9 @@ export type StagedRowView = {
 export type DryRunStepOut = { cursor: number; done: boolean; counts: CandidateCounts; state: CandidateState };
 
 export type ShapeMakeOut = {
-  outcome: "recipe" | "no_target" | "invalid" | "refused" | "error" | "capped" | "sample_failed";
+  /** `skipped`: no model call was made (no key, too many columns, attempts used up); see `skipReason`. */
+  outcome: "recipe" | "no_target" | "invalid" | "refused" | "error" | "capped" | "sample_failed" | "skipped";
+  skipReason: string | null;
   attempt: number;
   model: string;
   next: "retry" | "escalate" | "manual" | "done";

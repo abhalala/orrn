@@ -88,6 +88,7 @@ export class SqlReader {
   private skip = freshSkip();
   private capture: string | null = null;
   private finished = false;
+  private rowsInStatement = 0;
 
   constructor(opts: SqlReaderOptions = {}) {
     this.dialect = opts.dialect ?? "auto";
@@ -178,6 +179,11 @@ export class SqlReader {
     // whitespace
     while (p < b.length && /\s/.test(b[p]!)) p++;
     if (p >= b.length) {
+      this.advanceTo(p);
+      return false;
+    }
+    // One character may be the start of `--` or `/*`: wait for the next.
+    if (!final && p + 2 > b.length) {
       this.advanceTo(p);
       return false;
     }
@@ -381,6 +387,7 @@ export class SqlReader {
       }
       this.advanceTo(v.end);
       this.current = this.tableFor(q.ident, cols, "insert");
+      this.rowsInStatement = 0;
       this.mode = "values";
       return true;
     } catch (e) {
@@ -445,6 +452,7 @@ export class SqlReader {
       }
       if (b[p] !== "(") {
         // ON DUPLICATE KEY UPDATE, ON CONFLICT, RETURNING: nothing more to read.
+        if (this.rowsInStatement === 0 && !/^(?:on|returning)\b/i.test(b.slice(p, p + 12))) this.flag("VALUES without a row");
         this.advanceTo(p);
         this.beginSkip(false);
         return true;
@@ -452,6 +460,7 @@ export class SqlReader {
       const t = this.parseTuple(b, p);
       this.advanceTo(t.end);
       this.addRow(this.current!, t.cells);
+      this.rowsInStatement++;
       return true;
     } catch (e) {
       if (e instanceof Incomplete) {
@@ -530,6 +539,7 @@ export class SqlReader {
       i++;
     }
     const raw = b.slice(p, i).trim();
+    if (!raw.includes("(") && /\s/.test(raw)) throw new Error("bad value");
     if (/^null$/i.test(raw) || /^default$/i.test(raw)) return { value: "", end: i };
     return { value: raw, end: i };
   }
