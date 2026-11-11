@@ -130,20 +130,30 @@ function generate(seed: number): Case {
   const labels = [`seed ${seed}`, `pitch ${pitch}`, `title ${titleKind}`, `shape ${shape}`];
   const pages: Page[] = [{ items }];
   if (shape === 1) {
-    // A second table under a one-cell Summary line, or after a blank gap.
-    const spaced = rnd(2) === 0;
+    // A second table under a one-cell Summary line, after a blank gap, or right under the first with no heading line
+    // (within 3 line heights, C-new-6).
+    const mode = rnd(3);
+    const spaced = mode === 1;
+    const bare = mode === 2;
     // A heading lines up with the table's left edge, or with no cell at all: a short line that starts exactly where
     // a text cell starts, one row pitch below it, reads as a wrapped line of that cell.
     let sx = rnd(2) === 0 ? cols[0]!.x0 : 30 + rnd(200);
     while (cols.some((c) => c !== cols[0] && Math.abs(c.x0 - sx) <= 2 * CHAR)) sx += 3 * CHAR;
-    if (!spaced) items.push(item("Summary", sx, y));
-    y -= spaced ? HEIGHT * 5 : pitch;
+    if (mode === 0) items.push(item("Summary", sx, y));
+    y -= spaced ? HEIGHT * 5 : bare ? rnd(HEIGHT) : pitch;
     const cols2 = layColumns(rnd, [{ name: "Party", kind: "party" }, { name: "Bundles", kind: "num" }, { name: "Total Kg", kind: "num" }], widest);
     const t2 = buildTable(rnd, cols2, y, pitch, { rows: 1 + rnd(4), wraps: false, oneCell: false, header: true, startSr: 1 });
     items.push(...t2.items);
-    t2.table.title = spaced ? null : "Summary";
+    t2.table.title = mode === 0 ? "Summary" : null;
+    // A party-only last row right above the next header has the shape of a heading at the left edge: by the reader's
+    // rule the last waiting line heads the next table, so it is that table's title.
+    const lastRow = t1.table.rows[t1.table.rows.length - 1]!;
+    if (bare && lastRow.filter((c) => c !== "").length === 1) {
+      t1.table.rows.pop();
+      t2.table.title = lastRow[0]!;
+    }
     tables.push(t2.table);
-    labels.push(spaced ? "second after gap" : "second after Summary");
+    labels.push(spaced ? "second after gap" : bare ? "second with no heading" : "second after Summary");
   } else if (shape === 2) {
     // Footers: a signature line at the pitch, a note after a gap, a page number.
     const f = rnd(3);

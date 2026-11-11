@@ -177,6 +177,33 @@ describe("C-new-6: a table and the line or table next to it keep their own colum
   });
 });
 
+// Review 4.
+describe("C-new-6: a second table right under the first, with no heading line, is its own block", () => {
+  for (const gap of [15, 25]) {
+    test(`Party | Bundles | Kg ${gap} units under the last row`, () => {
+      const y = 740 - gap;
+      const second = [
+        it("Party", 50, y), it("Bundles", 170, y), it("Kg", 280, y),
+        it("Om Metals", 50, y - 15), it("12", 180, y - 15), it("2180", 280, y - 15),
+        it("Shree Ganesh", 50, y - 30), it("4", 185, y - 30), it("640", 280, y - 30),
+      ];
+      const r = readPdfText([[...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980"), ...second]]);
+      expect(r.blocks.length).toBe(2);
+      expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+      expect(r.blocks[0]!.rows).toEqual([
+        ["1", "R 2105", "25", "1200"],
+        ["2", "R 2106", "8", "980"],
+      ]);
+      expect(r.blocks[1]!.headers).toEqual(["Party", "Bundles", "Kg"]);
+      expect(r.blocks[1]!.rows).toEqual([
+        ["Om Metals", "12", "2180"],
+        ["Shree Ganesh", "4", "640"],
+      ]);
+      expect(r.warnings).toEqual([]);
+    });
+  }
+});
+
 describe("C-new-7: a wrapped line in a tightly spaced table folds into its cell", () => {
   test("rows 11 apart, a wrapped Section line 9 below its row", () => {
     const items = [

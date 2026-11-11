@@ -132,19 +132,31 @@ function fitsColumns(cols: readonly Col[], l: Line, charWidth: number): boolean 
   return true;
 }
 
-const isTextish = (s: string) => {
-  const k = cellKind(s);
-  return k === "text" || k === "code";
-};
+/** A blank-value word in a number column: never a column name. */
+const NULL_WORD = /^(?:nil|na|n\/a|none|null|nill|-+)$/i;
+const isWord = (s: string) => cellKind(s) === "text" && /[a-z]{2}/i.test(s) && !NULL_WORD.test(s);
 
-/** Is the line a new header: text over a column where the run's data rows hold numbers, dates or codes? */
+/**
+ * Is the line a new header? Either a word over a column where the run's data rows hold numbers, dates or codes (a code
+ * such as "T4012" or a blank-value word such as "Nil" there is a data value), or a line of words only that does not fit
+ * the columns, under data rows that hold numbers. A row of words that fits the columns (a name and a city) is data.
+ */
 function isNewHeader(cols: readonly Col[], l: Line, members: readonly Line[], charWidth: number): boolean {
   if (!isHeaderLike(l.cells.map((c) => c.text))) return false;
-  const data = members.length > 1 && isHeaderLike(members[0]!.cells.map((c) => c.text)) ? members.slice(1) : members;
+  const headed = members.length > 1 && isHeaderLike(members[0]!.cells.map((c) => c.text));
+  const data = headed ? members.slice(1) : members;
+  if (
+    headed &&
+    l.cells.every((c) => isWord(c.text)) &&
+    data.some((m) => m.cells.some((d) => /^(?:int|decimal)$/.test(cellKind(d.text)))) &&
+    !fitsColumns(cols, l, charWidth)
+  ) {
+    return true;
+  }
   return l.cells.some((c) => {
-    if (!isTextish(c.text)) return false;
-    const k = columnOf(cols, c, charWidth);
-    const values = data.flatMap((m) => m.cells.filter((d) => columnOf(cols, d, charWidth) === k).map((d) => d.text));
+    if (!isWord(c.text)) return false;
+    const k = nearestColumn(cols, c, charWidth);
+    const values = data.flatMap((m) => m.cells.filter((d) => nearestColumn(cols, d, charWidth) === k).map((d) => d.text));
     const kind = inferKind(values);
     return kind === "int" || kind === "decimal" || kind === "date" || kind === "code";
   });
@@ -220,7 +232,9 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
       // Waiting lines that are wrapped lines of the last row do not break the run.
       const wraps = big ? 0 : countWraps(entries, cols, members[members.length - 1]!, pending);
       const plain = !big && wraps === pending.length;
-      if (!plain && !(fitsColumns(cols, l, charWidth) && !isNewHeader(cols, l, members, charWidth))) {
+      // A new header ends the run whether or not lines wait and whether or not it fits the columns (C-new-6).
+      const newHead = isNewHeader(cols, l, members, charWidth);
+      if (newHead || (!plain && !fitsColumns(cols, l, charWidth))) {
         // Lines across a blank gap from the next table belong to this run: trailing rows or footers.
         if (big) {
           entries.push(...pending);
