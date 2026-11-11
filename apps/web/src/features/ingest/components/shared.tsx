@@ -196,13 +196,13 @@ export function IngestBar({ summary, notice, children, className }: { summary?: 
       data-slot="ingest-bar"
       className={cn(
         "sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-20 mt-2 flex items-center gap-x-4 gap-y-2 rounded-card border border-border bg-card/95 p-2 pl-4 shadow-md backdrop-blur-md supports-[backdrop-filter]:bg-card/85",
-        summary && !notice ? "flex-nowrap" : "flex-wrap",
+        summary && !notice ? "flex-wrap sm:flex-nowrap" : "flex-wrap",
         className,
       )}
     >
       {notice ? <div className="-ml-2 w-full min-w-0">{notice}</div> : null}
-      {summary ? <div className="min-w-0 flex-1">{summary}</div> : <div className="flex-1 max-sm:hidden" />}
-      <div className={cn("flex min-w-0 flex-wrap justify-end gap-2", summary ? "shrink-0" : "max-sm:w-full max-sm:[&>*:last-child]:flex-1")}>{children}</div>
+      {summary ? <div className="min-w-0 flex-1 max-sm:basis-full">{summary}</div> : <div className="flex-1 max-sm:hidden" />}
+      <div className={cn("flex min-w-0 flex-wrap justify-end gap-2", summary ? "max-sm:w-full max-sm:[&>*:last-child]:flex-1 sm:shrink-0" : "max-sm:w-full max-sm:[&>*:last-child]:flex-1")}>{children}</div>
     </div>
   );
 }

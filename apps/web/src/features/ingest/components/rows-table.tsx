@@ -32,6 +32,9 @@ import { FOCUS, type ReviewActions } from "./use-review-actions";
 type Act = Pick<ReviewActions, "decide" | "busy" | "pending" | "failed">;
 type FocusRef = (key: string) => (el: HTMLElement | null) => void;
 
+/** Most mapped fields a rows table shows before the rows read as cards (the table sits in a panel about 900 px wide). */
+const TABLE_MAX_FIELDS = 5;
+
 export type RowsHandle = { goToRow: (n: number) => void };
 
 /**
@@ -93,6 +96,9 @@ export function StagedRows({
 
   const decide = (row: RowView, option: DecisionOption) => void act.decide({ id: row.id, n: row.n }, option, ids);
   const showChoice = canDecide && (table.decisionColumn || views.some((v) => v.menu.length > 0));
+  // A table only when every column and the decision buttons fit in the panel. A layout with many fields, or rows that
+  // need a decision (their buttons must be in view, not behind a sideways scroll), read as cards instead.
+  const asTable = wide && !table.decisionColumn && table.columns.length <= TABLE_MAX_FIELDS;
 
   return (
     <EvidencePanel title={t("ingest.rows.title")} headingRef={focusRef(FOCUS.rowsHeading)}>
@@ -122,10 +128,10 @@ export function StagedRows({
           <div className="rounded-card border border-border">
             <EmptyState title={t("ingest.rows.none")} />
           </div>
-        ) : wide ? (
+        ) : asTable ? (
           <RowsTable views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} />
         ) : (
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          <ul className="m-0 flex list-none flex-col gap-3 p-0 lg:grid lg:grid-cols-2">
             {views.map((row) => (
               <RowCard key={row.id} view={row} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} />
             ))}
@@ -310,7 +316,7 @@ export function RowsTable({
       ),
     },
     ...columns.map((column): ResponsiveListColumn<RowView> => ({
-      key: column.field,
+      key: `field:${column.field}`,
       header: column.unit ? `${t(column.labelKey as never)}, ${column.unit}` : t(column.labelKey as never),
       align: column.align === "end" ? "end" : undefined,
       cell: (v) => <CellValue cell={v.cells.find((c) => c.field === column.field)} showUnit={false} />,
@@ -363,9 +369,12 @@ function RowCard({ view, canDecide, act, focusRef, onDecide }: RowProps & { view
         view.needsDecision && "border-l-[3px] border-l-tone-amber-ink",
       )}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-h-9 items-center justify-between gap-2">
         <span id={`row-${view.n}`} tabIndex={-1} className="text-[14px] font-semibold outline-none">{t("ingest.q.aboutRow", { n: view.n })}</span>
-        <StatusChip view={view} />
+        <span className="flex items-center gap-2">
+          <StatusChip view={view} />
+          {canDecide && !view.needsDecision && view.menu.length > 0 ? <RowMenu view={view} act={act} focusRef={focusRef} onDecide={onDecide} /> : null}
+        </span>
       </div>
       {fields.shown.length > 0 ? (
         <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-2">
@@ -388,9 +397,6 @@ function RowCard({ view, canDecide, act, focusRef, onDecide }: RowProps & { view
       <DiffLines view={view} />
       <Chosen view={view} />
       {canDecide && view.needsDecision ? <DecisionButtons view={view} act={act} focusRef={focusRef} onDecide={onDecide} /> : null}
-      {canDecide && !view.needsDecision && view.menu.length > 0 ? (
-        <div className="flex justify-end"><RowMenu view={view} act={act} focusRef={focusRef} onDecide={onDecide} /></div>
-      ) : null}
     </li>
   );
 }

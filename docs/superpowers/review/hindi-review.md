@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7931 screen strings in 50 groups, 45 guides with 860 strings.
+Counts: 7932 screen strings in 50 groups, 45 guides with 860 strings.
 
 ## Screen strings
 
@@ -6855,7 +6855,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (412)
+### ingest (413)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6875,6 +6875,7 @@ Please check, Lalubhai:
 | `drop.openIt` | Open it | इसे खोलें |
 | `drop.listLabel` | Files being added | जुड़ रही फ़ाइलें |
 | `drop.done` | Read. {count} {count:table\|tables}: {summary}. | पढ़ ली। {count} टेबल: {summary}। |
+| `drop.noTables` | No table found in this file. Check that it has column names and rows, then add it again. | इस फ़ाइल में कोई टेबल नहीं मिली। देखें कि उसमें कॉलम के नाम और लाइनें हैं, फिर इसे दोबारा डालें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |

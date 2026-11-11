@@ -25,6 +25,7 @@ export const ingestEn = {
     openIt: "Open it",
     listLabel: "Files being added",
     done: "Read. {count} {count:table|tables}: {summary}.",
+    noTables: "No table found in this file. Check that it has column names and rows, then add it again.",
   },
   read: {
     reading: "Reading {sheet} ({rows} rows)",

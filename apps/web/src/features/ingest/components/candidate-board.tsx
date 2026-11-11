@@ -121,7 +121,7 @@ export function CandidateBoard({
         label={t("ingest.list.segments")}
         value={active}
         onChange={setChoice}
-        options={segments.map((s) => ({ value: s.id, label: `${say(s.labelKey)} ${plant.count(s.count)}` }))}
+        options={segments.map((s) => ({ value: s.id, label: `${say(s.labelKey)}\n${plant.count(s.count)}` }))}
       />
 
       <ActionError error={error} />

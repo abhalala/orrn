@@ -224,11 +224,12 @@ describe("candidates list", () => {
   ];
 
   test("Needs you is the first segment shown, with one chip and one primary action for each row", () => {
+    // The label carries a line break before the count: on a phone it stacks, from sm up it is one line.
     const html = render(board(needsYou));
-    expect(html).toContain("Needs you 4");
-    expect(html).toContain("Ready 0");
-    expect(html).toContain("Approved 0");
-    expect(html).toContain("Merged 0");
+    expect(html).toContain("Needs you\n4");
+    expect(html).toContain("Ready\n0");
+    expect(html).toContain("Approved\n0");
+    expect(html).toContain("Merged\n0");
     // The status block is amber with the count of imports that need a person.
     expect(html).toContain('data-tone="amber"');
     expect(html).toMatch(/Needs you<\/span>/);
@@ -263,7 +264,7 @@ describe("candidates list", () => {
   test("Ready rows have Approve; two exact fits of a parser-read file offer Approve all 2 and nothing else loud", () => {
     const list = [cand({ id: "r1" }), cand({ id: "r2", blockOrdinal: 1, sheetName: "Sections 2" })];
     const html = render(board(list));
-    expect(html).toContain("Ready 2");
+    expect(html).toContain("Ready\n2");
     expect(html).toContain('aria-label="Approve: Dies, dies-b-RCQCZ.csv"');
     expect(html).toContain("Approve all 2");
     expect(html).toContain('aria-label="Approve all 2: dies-b-RCQCZ.csv"');

@@ -61,7 +61,7 @@ export function UploadStrip({
                   <ProgressBar value={entry.progress ?? null} label={line ?? t("ingest.read.working")} />
                 ) : entry.found ? (
                   <p className="m-0 text-[14px] leading-6 break-words">
-                    {entry.found.count > 0 ? foundSummary(say, entry.found) : t("common.done")}
+                    {entry.found.count > 0 ? foundSummary(say, entry.found) : t("ingest.drop.noTables")}
                   </p>
                 ) : line ? (
                   <p className={problem ? "m-0 text-[14px] leading-6 break-words text-tone-amber-ink" : "m-0 text-[14px] leading-6 break-words text-muted-foreground"}>{line}</p>

@@ -318,14 +318,15 @@ test.describe("imports portal", () => {
 
     // The row that waits has its own explanation, and the filter starts on "Needs a decision".
     await expect(page.getByRole("button", { name: /^Needs a decision \d+/ })).toHaveAttribute("aria-pressed", "true");
-    const waiting = page.locator("tbody tr", { hasText: "400" });
+    // Rows that wait for a decision read as cards, so their buttons are in view (a table of this width would push them aside).
+    const waiting = page.getByTestId("row-card").filter({ hasText: "400" });
     await expect(waiting.getByText(/looks too large or too small/)).toBeVisible();
 
     // "The values are right" saves on a press, the question reads "Answered", and the row no longer waits.
     await question.getByRole("button", { name: "The values are right" }).click();
     await expect(page.getByText(/^Answered: /).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("group", { name: /Some Weight values look wrong for kg/ })).toHaveCount(0);
-    await expect(page.locator("tbody tr", { hasText: "looks too large or too small" })).toHaveCount(0);
+    await expect(page.getByTestId("row-card").filter({ hasText: "looks too large or too small" })).toHaveCount(0);
   });
 
   test("Approve all approves only the imports with no open question", async ({ page }) => {

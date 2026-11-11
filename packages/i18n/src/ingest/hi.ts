@@ -24,6 +24,7 @@ export const ingestHi = {
     openIt: "इसे खोलें",
     listLabel: "जुड़ रही फ़ाइलें",
     done: "पढ़ ली। {count} टेबल: {summary}।",
+    noTables: "इस फ़ाइल में कोई टेबल नहीं मिली। देखें कि उसमें कॉलम के नाम और लाइनें हैं, फिर इसे दोबारा डालें।",
   },
   read: {
     reading: "{sheet} पढ़ रहे हैं ({rows} लाइनें)",
