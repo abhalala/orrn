@@ -390,6 +390,8 @@ export const ingestBotRun = sqliteTable(
     cacheWriteTokens: count("cache_write_tokens"),
     costMicroUsd: count("cost_micro_usd"),
     durationMs: count("duration_ms"),
+    /** Codes of a failed attempt (never free model text); sent back on the retry. */
+    errorCodes: text("error_codes", { mode: "json" }).$type<string[]>(),
     createdBy: userRef("created_by"),
     createdAt: createdAtCol(),
   },
