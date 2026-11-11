@@ -34,4 +34,17 @@ describe("route files import no view code that is meant to be lazy", () => {
     }
     expect(hits).toEqual([]);
   });
+  // TanStack's code splitter leaves a route file whole when it exports anything besides `Route`, so every import of
+  // that file (the plant formatter and the unit registry, in the units layer) lands in the app entry and the `/` closure.
+  // A component a test wants goes in its own module under features/.
+  test("no route file exports anything but Route", () => {
+    const hits: string[] = [];
+    for (const file of files) {
+      const src = readFileSync(file, "utf8");
+      for (const m of src.matchAll(/^export\s+(?:async\s+)?(?:const|let|var|function|class|default)\s+(\w+)?/gm)) {
+        if (m[1] !== "Route") hits.push(`${file.split("/src/")[1]} exports ${m[1] ?? "default"}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
 });

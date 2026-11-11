@@ -12,7 +12,7 @@ import { screenPrefs } from "@orrn/domain";
 import { I18nProvider } from "@orrn/i18n";
 
 const { FmtProvider } = await import("@/shared/lib/fmt");
-const { OpenOrders } = await import("./customers.$id");
+const { OpenOrders } = await import("@/features/customers/open-orders");
 
 const ORDERS = { orderedG: 5_000_000, dispatchedG: 1_234_567_000, bakiG: 0, lines: 3 };
 const render = (prefs: ReturnType<typeof screenPrefs> | undefined) =>

@@ -35,6 +35,7 @@ import {
   MARKETING_BUDGET_GZIP,
   MARKETING_MARKER,
   measureRoute,
+  UNITS_MODULE_SIGNATURES,
 } from "./route-budget";
 
 const dist = fileURLToPath(new URL("../dist", import.meta.url));
@@ -79,6 +80,15 @@ for (const [what, signatures] of lazyText) {
         `never import @orrn/i18n/en, @orrn/i18n/hi, a locale file or @orrn/i18n/guides from code on the / path`,
     );
   }
+}
+
+// The plant formatter and the unit registry (units layer): signed-in screens only. A route file that exports more than
+// `Route` is not split, so its imports ride in the entry; scripts/route-imports.test.ts pins that, this pins the result.
+for (const [file, hit] of filesWithSignatures(dist, result.files.map((f) => f.file), UNITS_MODULE_SIGNATURES)) {
+  problems.push(
+    `${file} carries the unit registry ("${hit}"): the plant formatter loads with the signed-in screens only; ` +
+      `check that no route file exports more than Route and that nothing on the / path imports shared/lib/fmt or @orrn/domain units code`,
+  );
 }
 
 // Module refusal tables (W3-AG-S review I3): each registers from its own module, imported by that
