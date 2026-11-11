@@ -1590,6 +1590,11 @@ export const hi = {
     invoice: "इनवॉइस",
     print: "प्रिंट",
     lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} rev {revision} के लॉक किए गए स्नैपशॉट से बनाई गई।",
+    signatures: {
+      packedBy: "किसने पैक किया",
+      checkedBy: "किसने जाँच की",
+      driverReceived: "ड्राइवर ने माल प्राप्त किया",
+    },
   },
 
   dies: {

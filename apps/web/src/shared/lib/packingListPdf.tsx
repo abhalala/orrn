@@ -11,6 +11,7 @@ import {
   packingListModel,
   plKgPerPiece,
   plLockedSnapshotFooter,
+  plSignatureLabels,
   type PackingListModel,
   type PackingListModelOptions,
   type PackingListSnapshot,
@@ -45,6 +46,9 @@ const s = StyleSheet.create({
   groupText: { fontFamily: "Helvetica-Bold", fontSize: 9 },
   sub: { flexDirection: "row", paddingVertical: 3, backgroundColor: BAND, fontFamily: "Helvetica-Bold" },
   grand: { flexDirection: "row", paddingVertical: 5, borderTopWidth: 1.5, borderColor: INK, marginTop: 6, fontFamily: "Helvetica-Bold", fontSize: 10 },
+  signatures: { flexDirection: "row", gap: 24, marginTop: 32 },
+  signature: { flexGrow: 1, flexBasis: 0 },
+  signatureLine: { height: 20, borderBottomWidth: 0.5, borderColor: INK },
   footer: { position: "absolute", bottom: 20, left: 32, right: 32, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
   cSr: { width: "5%" },
   cBundle: { width: "15%" },
@@ -168,6 +172,14 @@ function PackingListDoc({ model, code, kgPerPiece, printText }: { model: Packing
           <Text style={s.cRange} />
           {kgPerPiece ? <Text style={s.cKgPc} /> : null}
         </View>
+        <View style={s.signatures} wrap={false}>
+          {plSignatureLabels(printText).map((label) => (
+            <View key={label} style={s.signature}>
+              <Text>{label}</Text>
+              <View style={s.signatureLine} />
+            </View>
+          ))}
+        </View>
 
         <View style={s.footer} fixed>
           <Text>{plLockedSnapshotFooter(code, 1, printText)}</Text>
@@ -204,6 +216,9 @@ const v2s = StyleSheet.create({
   groupText: { fontFamily: "Helvetica-Bold", fontSize: 8.5 },
   sub: { flexDirection: "row", paddingVertical: 2, backgroundColor: BAND, fontFamily: "Helvetica-Bold" },
   grand: { flexDirection: "row", paddingVertical: 4, borderTopWidth: 1.5, borderColor: INK, marginTop: 4, fontFamily: "Helvetica-Bold", fontSize: 9.5 },
+  signatures: { flexDirection: "row", gap: 24, marginTop: 28 },
+  signature: { flexGrow: 1, flexBasis: 0 },
+  signatureLine: { height: 20, borderBottomWidth: 0.5, borderColor: INK },
   footer: { position: "absolute", bottom: 16, left: 28, right: 28, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
 });
 
@@ -351,6 +366,14 @@ function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view:
           </View>
         ))}
         {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
+        <View style={v2s.signatures} wrap={false}>
+          {plSignatureLabels(printText).map((label) => (
+            <View key={label} style={v2s.signature}>
+              <Text>{label}</Text>
+              <View style={v2s.signatureLine} />
+            </View>
+          ))}
+        </View>
 
         <View style={v2s.footer} fixed>
           <Text>{plLockedSnapshotFooter(view.plNumber, view.revision, printText)}</Text>
@@ -361,17 +384,21 @@ function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view:
   );
 }
 
-/** Render and save the packing list as `<code>.pdf`. */
-export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}) {
+export async function buildPackingListPdfBlob(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}): Promise<Blob> {
   const view = plViewOf(pl);
   const kgPerPiece = opts.kgPerPiece === true;
-  const blob = await pdf(
+  return pdf(
     view ? (
       <PackingListDocV2 view={view} code={code} kgPerPiece={kgPerPiece} printText={opts.printText} />
     ) : (
       <PackingListDoc model={packingListModel(pl, opts)} code={code} kgPerPiece={kgPerPiece} printText={opts.printText} />
     ),
   ).toBlob();
+}
+
+/** Render and save the packing list as `<code>.pdf`. */
+export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}) {
+  const blob = await buildPackingListPdfBlob(pl, code, opts);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

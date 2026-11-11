@@ -20,6 +20,9 @@ export type ExportOptions = {
 export function packingListPrintText(t: Translate): PackingListPrintText {
   return {
     lockedSnapshotFooter: (code, revision) => t("packingList.lockedSnapshotFooter", { code, revision }),
+    packedBy: t("packingList.signatures.packedBy"),
+    checkedBy: t("packingList.signatures.checkedBy"),
+    driverReceived: t("packingList.signatures.driverReceived"),
   };
 }
 

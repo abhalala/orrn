@@ -20,6 +20,13 @@ describe("packing list html (native print)", () => {
     expect(html).toContain("Not a tax invoice. Generated from the locked snapshot of PL-0007 rev 1.");
   });
 
+  test("signature labels stay in one unbreakable block after the table", () => {
+    const html = buildPackingListHtml(parsePackingListSnapshot(unlabelled), "PL-0007");
+    for (const label of ["Packed by", "Checked by", "Driver received"]) expect(html).toContain(label);
+    expect(html).toContain("break-inside: avoid");
+    expect(html.indexOf("Packed by")).toBeGreaterThan(html.indexOf("</table>"));
+  });
+
   test("labelled groups name their section", () => {
     const html = buildPackingListHtml(parsePackingListSnapshot(labelled), "PL-0008");
     expect(html).toContain("A: 14701 PATTI");

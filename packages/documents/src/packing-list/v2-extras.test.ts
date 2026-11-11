@@ -105,6 +105,14 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(html).toContain("position: fixed");
   });
 
+  test("the three signature lines follow the totals in one unbreakable block", () => {
+    const html = buildPackingListHtml(parsePackingListSnapshot(v2()), "PL/2026-27/7");
+    for (const label of ["Packed by", "Checked by", "Driver received"]) expect(html).toContain(label);
+    expect(html).toContain("break-inside: avoid");
+    expect(html.indexOf("Packed by")).toBeGreaterThan(html.indexOf("4 bundles · 85.000 kg"));
+    expect(html).not.toContain("Receiver's signature");
+  });
+
   test("branding off hides logo and tagline, never the legal name; original SO can be turned off", () => {
     const pl = parsePackingListSnapshot(
       v2({ issue: { revision: 1, dispatchCodes: ["DSP-000006"], branding: { show: false, tagline: null, logoUrl: null } }, print: { showBranding: false, showOriginalSo: false } }),

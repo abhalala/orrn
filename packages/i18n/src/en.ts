@@ -1598,6 +1598,11 @@ export const en = {
     invoice: "Invoice",
     print: "Print",
     lockedSnapshotFooter: "Not a tax invoice. Generated from the locked snapshot of {code} rev {revision}.",
+    signatures: {
+      packedBy: "Packed by",
+      checkedBy: "Checked by",
+      driverReceived: "Driver received",
+    },
   },
 
   dies: {

@@ -44,5 +44,6 @@ export {
   plSectionSubtotalAfter,
   plShipDateText,
   plLockedSnapshotFooter,
+  plSignatureLabels,
   type PackingListPrintText,
 } from "./snapshot";

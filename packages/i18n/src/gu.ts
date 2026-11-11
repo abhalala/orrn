@@ -1631,6 +1631,11 @@ const guBase = {
     invoice: "ઇન્વૉઇસ",
     print: "પ્રિન્ટ",
     lockedSnapshotFooter: "આ ટેક્સ ઇન્વૉઇસ નથી. {code} rev {revision} ના લૉક કરેલા સ્નૅપશૉટમાંથી બનાવેલી.",
+    signatures: {
+      packedBy: "કોણે પૅક કર્યું",
+      checkedBy: "કોણે ચકાસણી કરી",
+      driverReceived: "ડ્રાઇવરે માલ મેળવ્યો",
+    },
   },
   reasons: {
     kinds: {

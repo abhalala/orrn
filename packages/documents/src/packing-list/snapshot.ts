@@ -73,10 +73,17 @@ export function plFileName(code: string): string {
 
 export type PackingListPrintText = {
   lockedSnapshotFooter: (code: string, revision: number) => string;
+  packedBy: string;
+  checkedBy: string;
+  driverReceived: string;
 };
 
 export function plLockedSnapshotFooter(code: string, revision: number, text?: Partial<PackingListPrintText>): string {
   return text?.lockedSnapshotFooter?.(code, revision) ?? `Not a tax invoice. Generated from the locked snapshot of ${code} rev ${revision}.`;
+}
+
+export function plSignatureLabels(text?: Partial<PackingListPrintText>): [string, string, string] {
+  return [text?.packedBy ?? "Packed by", text?.checkedBy ?? "Checked by", text?.driverReceived ?? "Driver received"];
 }
 
 /** Printed column headings, in order (the PL is a customer document, printed in English). */
