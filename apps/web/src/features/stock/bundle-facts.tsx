@@ -1,4 +1,4 @@
-import { formatKg, type LengthUnit } from "@orrn/domain";
+import { formatKg, type Fmt, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Link } from "@tanstack/react-router";
@@ -10,6 +10,15 @@ import { useFmt } from "@/shared/lib/fmt";
 import { kgGrouped2, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 type Fact = { key: string; label: string; value: ReactNode; mono?: boolean };
+
+/**
+ * The packing list's weight range of 12 ft (kg per 12 ft, one decimal: the paper's own figure). A plant on kg/12ft reads the bare
+ * number it always did; a plant on kg/m or lb/ft reads it with its unit word, so it is not taken for a figure in its own unit.
+ */
+export function range12ftText(fmt: Fmt, range12ft: number | null): string {
+  if (range12ft === null) return "-";
+  return fmt.unitOf("linear_mass").id === "kg_12ft" ? formatKg(range12ft, 1) : `${formatKg(range12ft, 1)} kg/12ft`;
+}
 
 /** The server's band verdict for the bundle (`bundle.getBySerial().band`, D15). */
 export type BundleBandView = {
@@ -110,7 +119,7 @@ export function BundleFacts({
     {
       key: "range",
       label: t("bundle.facts.weightRange"),
-      value: range12ft === null ? "-" : formatKg(range12ft, 1),
+      value: range12ftText(fmt, range12ft),
       mono: true,
     },
     ...(bandRange
