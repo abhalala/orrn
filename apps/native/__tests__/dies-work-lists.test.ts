@@ -43,7 +43,7 @@ describe("die room work lists", () => {
   test("maker jobs asks only for sent jobs and mirrors job, copy, maker, purpose and sent date", () => {
     expect(source).toContain('trpc.dieInstance.maker.jobs.list.queryOptions({ status: "sent", limit: PAGE');
     for (const field of ["job.number", "job.code", "job.makerName", "job.purpose", "job.sentAt"]) expect(source).toContain(field);
-    expect(source).toContain("query.data.nextCursor");
+    expect(source).toContain("hasNextCursor(query.data!.nextCursor)");
   });
 
   test("failed reads show retry and the lists have no writes", () => {
