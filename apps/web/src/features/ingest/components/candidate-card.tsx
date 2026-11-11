@@ -1,23 +1,60 @@
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
-import { Chip } from "@orrn/ui/components/chip";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 
-import {
-  allowedActions,
-  candidateStateKey,
-  candidateTone,
-  fitKeyOf,
-  rowStateCounts,
-  TARGET_KEY,
-  useIngestActions,
-  type CandidateSummary,
-} from "../lib";
-import { ActionError, CandidateLink, chipTone, ReasonText, translateKey } from "./shared";
+import { allowedActions, useIngestActions, type CandidateSummary, type FileGroup } from "../lib";
+import { FileName, ImportRows, useSay, type RowControls } from "./list-kit";
+import { ActionError } from "./shared";
 
+/**
+ * One file's imports on the list (work order 3.2): the file name as a heading, "3 tables, added 11 Nov" beside it,
+ * "Approve all N" on the right when the file qualifies, and the imports as one list underneath.
+ */
+export function FileGroupSection({
+  group,
+  controls,
+  onApproveAll,
+}: {
+  group: FileGroup;
+  controls: RowControls;
+  onApproveAll: (group: FileGroup) => void;
+}) {
+  const { say, words } = useSay();
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId} data-testid="ingest-file-group" className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-x-3">
+          <h2 id={headingId} className="m-0 min-w-0 text-[13px] font-semibold text-foreground sm:text-[14px]">
+            <FileName name={group.fileName} className="text-[13px] font-semibold sm:text-[14px]" />
+          </h2>
+          <p className="m-0 text-[13px] text-muted-foreground">{words(group.summary)}</p>
+        </div>
+        {group.approveAll ? (
+          <Button
+            variant="ghost"
+            aria-label={`${say("ingest.action.approveAll", { count: group.approveAll.count })}: ${group.fileName}`}
+            aria-disabled={controls.busy || undefined}
+            onClick={() => {
+              if (!controls.busy) onApproveAll(group);
+            }}
+          >
+            {say("ingest.action.approveAll", { count: group.approveAll.count })}
+          </Button>
+        ) : null}
+      </div>
+      <ImportRows rows={group.rows} label={group.fileName} controls={controls} />
+    </section>
+  );
+}
+
+/**
+ * Approve, Hold and Discard as the old review screen draws them. The rebuilt review screen has its own decision bar
+ * and does not use this; it stays only so that screen compiles until it is replaced. Delete it with that screen.
+ */
 export function CandidateActions({ candidate, onDone }: { candidate: CandidateSummary; onDone?: () => void }) {
   const { t } = useT();
   const { data: me } = useMe();
@@ -68,44 +105,5 @@ export function CandidateActions({ candidate, onDone }: { candidate: CandidateSu
       </div>
       <ActionError error={failed} />
     </div>
-  );
-}
-
-export function CandidateCard({ candidate, onDone }: { candidate: CandidateSummary; onDone?: () => void }) {
-  const { t } = useT();
-  const title = candidate.target ? translateKey(t, TARGET_KEY(candidate.target)) : candidate.holeName ?? candidate.fileName;
-  return (
-    <li data-testid="ingest-candidate" data-state={candidate.state} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0">
-          <CandidateLink id={candidate.id} className="font-display text-[18px] leading-snug font-bold tracking-[-0.02em] break-words">
-            {title}
-          </CandidateLink>
-          <p className="m-0 text-[13px] leading-5 break-words text-muted-foreground">
-            {candidate.fileName}
-            {candidate.sheetName ? ` · ${candidate.sheetName}` : ""}
-          </p>
-        </div>
-        <Chip tone={chipTone(candidateTone(candidate.state))} truncate={false}>
-          {translateKey(t, candidateStateKey(candidate.state))}
-        </Chip>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Chip tone="neutral">{translateKey(t, fitKeyOf(candidate.fit))}</Chip>
-        {candidate.openQuestions > 0 ? (
-          <span className="text-[13px] font-medium text-tone-amber-ink">{t("ingest.group.needsYou")} {candidate.openQuestions}</span>
-        ) : null}
-      </div>
-      <dl className="m-0 flex flex-wrap gap-x-4 gap-y-2">
-        {rowStateCounts(candidate.counts).map((count) => (
-          <div key={count.state} className="flex items-baseline gap-1.5">
-            <dt className="text-[13px] text-muted-foreground">{translateKey(t, count.key)}</dt>
-            <dd className="m-0 font-mono text-[14px] font-semibold tabular-nums">{count.count}</dd>
-          </div>
-        ))}
-      </dl>
-      <ReasonText code={candidate.reasonCode} detail={candidate.reasonDetail} />
-      <CandidateActions candidate={candidate} onDone={onDone} />
-    </li>
   );
 }

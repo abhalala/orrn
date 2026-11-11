@@ -5,10 +5,7 @@ import type { ReactNode } from "react";
 import type {
   CandidateCounts,
   CandidateDetail,
-  CandidateState,
   CandidateSummary,
-  MergeRunView,
-  useMergePump,
 } from "../lib";
 
 let server: ViteDevServer;
@@ -16,11 +13,9 @@ let createElement: typeof import("react").createElement;
 let QueryClient: typeof import("@tanstack/react-query").QueryClient;
 let QueryClientProvider: typeof import("@tanstack/react-query").QueryClientProvider;
 let renderToStaticMarkup: typeof import("react-dom/server").renderToStaticMarkup;
-let CandidateCard: typeof import("./candidate-card").CandidateCard;
 let addMapping: typeof import("./mapping-editor").addMapping;
 let buildRecipe: typeof import("../lib/recipe-builder").buildRecipe;
 let updateMapping: typeof import("./mapping-editor").updateMapping;
-let MergeBody: typeof import("./merge-screen").MergeBody;
 let answerValue: typeof import("./questions-panel").answerValue;
 let QuestionsPanel: typeof import("./questions-panel").QuestionsPanel;
 let StagedRows: typeof import("./rows-table").StagedRows;
@@ -41,9 +36,7 @@ beforeAll(async () => {
   const renderer = await import("react-dom/server");
   const i18n = await server.ssrLoadModule("@orrn/i18n");
   await i18n.loadMessages("en");
-  const cards = await server.ssrLoadModule("/src/features/ingest/components/candidate-card.tsx");
   const mapping = await server.ssrLoadModule("/src/features/ingest/components/mapping-editor.tsx");
-  const merge = await server.ssrLoadModule("/src/features/ingest/components/merge-screen.tsx");
   const questions = await server.ssrLoadModule("/src/features/ingest/components/questions-panel.tsx");
   const rows = await server.ssrLoadModule("/src/features/ingest/components/rows-table.tsx");
   const model = await server.ssrLoadModule("/src/features/ingest/lib/model.ts");
@@ -51,11 +44,9 @@ beforeAll(async () => {
   QueryClient = query.QueryClient;
   QueryClientProvider = query.QueryClientProvider;
   renderToStaticMarkup = renderer.renderToStaticMarkup;
-  CandidateCard = cards.CandidateCard;
   addMapping = mapping.addMapping;
   buildRecipe = (await server.ssrLoadModule("/src/features/ingest/lib/recipe-builder.ts")).buildRecipe;
   updateMapping = mapping.updateMapping;
-  MergeBody = merge.MergeBody;
   answerValue = questions.answerValue;
   QuestionsPanel = questions.QuestionsPanel;
   StagedRows = rows.StagedRows;
@@ -94,31 +85,6 @@ function render(node: ReactNode): string {
   client.setQueryData([["auth", "me"], { type: "query" }], { company: { role: "owner" }, isPlatformAdmin: false });
   return renderToStaticMarkup(createElement(QueryClientProvider, { client }, node));
 }
-
-describe("candidate card states", () => {
-  test("renders each candidate state with its text and row counts", () => {
-    const states: [CandidateState, string][] = [
-      ["processing", "Checking rows"], ["needs_confirm", "Check the layout"], ["needs_shape", "Needs a layout"],
-      ["ready", "Ready"], ["held", "Held"], ["approved", "Approved"], ["merging", "Merging"],
-      ["merged", "Merged"], ["failed", "Could not read"], ["discarded", "Discarded"],
-    ];
-    for (const [state, text] of states) {
-      const html = render(createElement(CandidateCard, { candidate: summary({ state }) }));
-      expect(html).toContain(`data-state="${state}"`);
-      expect(html).toContain(text);
-      expect(html).toContain("New");
-      expect(html).toContain("Updates orrn");
-    }
-  });
-
-  test("shows the reason for a held candidate", () => {
-    const html = render(createElement(CandidateCard, {
-      candidate: summary({ state: "held", reasonCode: "merge_failed", reasonDetail: "A duplicate row" }),
-    }));
-    // The server's own English detail sits in its own lang="en" span (work order M17).
-    expect(html).toContain('Not merged. </span><span lang="en">A duplicate row</span>');
-  });
-});
 
 describe("staged row filters", () => {
   test("shows all and only the states present, with the active filter named", () => {
@@ -177,40 +143,5 @@ describe("mapping editor", () => {
     expect(recipe.fields).toHaveLength(1);
     expect(recipe.fields[0]!.source).toEqual({ kind: "columns", cols: [{ col: 1, header: "Minimum weight" }] });
     expect(recipe.fields[0]!.steps).toContainEqual({ op: "number", kind: "linear_mass", unit: "kg/12ft" });
-  });
-});
-
-const mergeRun = (over: Partial<MergeRunView> = {}): MergeRunView => ({
-  id: "r1", state: "running", cursor: 1, chunksTotal: 4, chunksWritten: 1, chunksFailed: 0,
-  serverSeq: 2, startedBy: null, startedAt: 0, finishedAt: null, candidates: [], failedChunks: [], ...over,
-});
-
-const mergePump = (run: MergeRunView): ReturnType<typeof useMergePump> => ({
-  phase: run.state === "running" ? "running" : "done", run, results: run.candidates,
-  chunksTotal: run.chunksTotal, chunksWritten: run.chunksWritten, chunksFailed: run.chunksFailed,
-  error: null, retry: () => {}, stop: async () => {},
-});
-
-describe("merge progress and holds", () => {
-  test("announces the current part and exposes a labelled progress bar", () => {
-    const run = mergeRun();
-    const html = render(createElement(MergeBody, { pump: mergePump(run), run }));
-    expect(html).toContain("Part 2 of 4");
-    expect(html).toContain('aria-valuenow="25"');
-    expect(html).toContain("Stop after this part");
-  });
-
-  test("lists each held candidate with its reason and review link", () => {
-    const run = mergeRun({
-      state: "done_with_holds", chunksWritten: 0, chunksFailed: 1,
-      candidates: [{
-        candidateId: "c1", target: "dies", state: "held", reasonCode: "merge_failed", reasonDetail: "Duplicate section",
-        rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0, fileName: "dies.csv", sheetName: "Sections",
-      }],
-    });
-    const html = render(createElement(MergeBody, { pump: mergePump(run), run }));
-    expect(html).toContain("1 import was not merged. The reason is under each one.");
-    expect(html).toContain('Not merged. </span><span lang="en">Duplicate section</span>');
-    expect(html).toContain('href="/ingest/review/c1"');
   });
 });

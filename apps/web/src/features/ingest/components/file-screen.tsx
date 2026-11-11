@@ -1,53 +1,81 @@
 import { useT } from "@orrn/i18n";
-import { Chip } from "@orrn/ui/components/chip";
 import { EmptyState } from "@orrn/ui/components/empty-state";
 import { PageHeader } from "@orrn/ui/components/page-header";
 
-import { useArtifact } from "../lib";
-import { CandidateCard } from "./candidate-card";
-import { PeriodPanel } from "./period-panel";
-import { InlineNotice, Panel, ProgressBar, QueryPanel } from "./shared";
+import { can, useMe } from "@/shared/lib/me";
 
+import { useAnnouncer, useArtifact } from "../lib";
+import { fileRows, fileSubtitle, fileYear, vaultWords } from "../lib/file-model";
+import { FileYearLine } from "./file-year-line";
+import { ImportRows, StatusRegion, useDocTitle, useListActions, useSay } from "./list-kit";
+import { ActionError, ProgressBar, QueryPanel } from "./shared";
+
+/**
+ * `/ingest/files/:id` (work order 3.5): the file's name as the title, rows, tables and the day under it, one muted
+ * line for whether the original is kept, the year line once for a file of orders or bundles, and each table as one
+ * row of the same list the candidates page uses, with its columns on a second line.
+ */
 export function IngestFileScreen({ artifactId }: { artifactId: string }) {
   const { t } = useT();
+  const { data: me } = useMe();
+  const { say, words, plant } = useSay();
   const artifact = useArtifact(artifactId);
+  const announcer = useAnnouncer();
   const data = artifact.data;
+  useDocTitle(data ? say("ingest.docTitle.page", { name: data.fileName }) : null);
+
+  const rows = data ? fileRows(data.blocks, { merge: can(me, "ingest.merge"), upload: can(me, "ingest.upload") }) : [];
+  const columnsOf = new Map(rows.map((r) => [r.row.id, r.columns]));
+  const approvedCount = rows.filter((r) => r.row.candidate.state === "approved").length;
+  const { controls, error } = useListActions({
+    visibleIds: rows.map((r) => r.row.id),
+    approvedCount,
+    announce: announcer.announce,
+  });
+  const year = data ? fileYear(data, plant.day) : null;
+
   return (
     <>
-      <PageHeader back={{ to: "/ingest", label: t("ingest.title") }} title={data?.fileName ?? t("ingest.title")} subtitle={t("ingest.lead")} />
+      <PageHeader
+        back={{ to: "/ingest", label: t("ingest.title") }}
+        title={data?.fileName ?? t("common.loading")}
+        subtitle={data ? words(fileSubtitle(data, (ms) => plant.fmt.date(ms))) : undefined}
+      />
+      <StatusRegion message={announcer.message} />
       <QueryPanel query={artifact}>
         {data ? (
           <>
-            <Panel title={data.fileName}>
-              <div className="flex flex-wrap items-center gap-2">
-                <Chip tone={data.vaultState === "stored" ? "green" : data.vaultState === "not_stored" ? "amber" : "blue"}>
-                  {data.vaultState === "stored" ? t("ingest.vault.stored") : data.vaultState === "not_stored" ? t("ingest.vault.notStored") : t("ingest.vault.pending")}
-                </Chip>
-                <span className="text-[14px] text-muted-foreground">{t("ingest.file.rows", { count: data.rowCount })}</span>
+            <div className="flex flex-col gap-1">
+              <p className="m-0 text-[13px] leading-5 text-muted-foreground">{words(vaultWords(data.vaultState))}</p>
+              {data.note ? (
+                <p className="m-0 text-[13px] leading-5 break-words text-muted-foreground">
+                  {t("common.note")}: {data.note}
+                </p>
+              ) : null}
+            </div>
+            {data.readState === "reading" ? <ProgressBar value={null} label={t("ingest.read.working")} /> : null}
+            {data.readState === "failed" ? <p className="m-0 text-[14px] leading-6 text-tone-red-ink">{t("ingest.read.failed")}</p> : null}
+            {year && year.show ? <FileYearLine artifactId={data.id} line={year} confirmed={data.periodConfirmed} announce={announcer.announce} /> : null}
+            <ActionError error={error} />
+            {rows.length === 0 && data.readState !== "reading" ? (
+              <div className="rounded-card border border-border bg-card">
+                <EmptyState title={t("ingest.empty.title")} body={t("ingest.empty.body")} />
               </div>
-              {data.vaultState === "not_stored" ? <InlineNotice>{t("ingest.vault.off")}</InlineNotice> : null}
-              {data.note ? <p className="m-0 text-[14px] leading-6 break-words"><span className="font-semibold">{t("common.note")}</span> {data.note}</p> : null}
-              {data.readState === "reading" ? <ProgressBar value={null} label={t("ingest.state.processing")} /> : null}
-              {data.readState === "failed" ? <InlineNotice tone="danger">{t("ingest.read.failed")}</InlineNotice> : null}
-            </Panel>
-            <PeriodPanel key={data.id} artifactId={data.id} period={data.period} confirmed={data.periodConfirmed} />
-            {data.blocks.length === 0 && data.readState !== "reading" ? (
-              <div className="rounded-card border border-border bg-card"><EmptyState title={t("ingest.empty.title")} body={t("ingest.empty.body")} /></div>
+            ) : rows.length > 0 ? (
+              <ImportRows
+                rows={rows.map((r) => r.row)}
+                label={data.fileName}
+                controls={controls}
+                extra={(row) => {
+                  const columns = columnsOf.get(row.id) ?? [];
+                  return columns.length > 0 ? (
+                    <span className="text-[13px] leading-5 font-normal break-words text-muted-foreground">
+                      {say("ingest.file.columnsIn", { names: columns.join(", ") })}
+                    </span>
+                  ) : null;
+                }}
+              />
             ) : null}
-            {data.blocks.map((block) => (
-              <Panel key={block.id} title={block.sheetName ?? block.title ?? t("ingest.file.table", { n: block.ordinal + 1 })}>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
-                  <span>{t("ingest.file.rows", { count: block.rowCount })}</span>
-                  <span>{t("ingest.file.columns", { count: block.columnCount })}</span>
-                </div>
-                {block.headers.length > 0 ? <p className="m-0 text-[13px] leading-6 break-words text-muted-foreground">{block.headers.join(" · ")}</p> : null}
-                {block.candidates.length > 0 ? (
-                  <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 xl:grid-cols-2">
-                    {block.candidates.map((candidate) => <CandidateCard key={candidate.id} candidate={candidate} onDone={() => void artifact.refetch()} />)}
-                  </ul>
-                ) : null}
-              </Panel>
-            ))}
           </>
         ) : null}
       </QueryPanel>
