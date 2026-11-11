@@ -71,20 +71,36 @@ export function plFileName(code: string): string {
   return code.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "packing-list";
 }
 
-function pdfNamePart(value: string, fallback: string, max: number): string {
-  const safe = value
+const utf8 = new TextEncoder();
+const utf8Bytes = (value: string) => utf8.encode(value).length;
+
+function pdfNamePart(value: string, fallback: string): string {
+  return value
+    .replace(/\p{Cf}/gu, "")
     .replace(/[<>:"\/\\|?*\u0000-\u001F\u007F]+/g, "-")
     .replace(/\s+/g, " ")
     .replace(/\s*-\s*/g, "-")
     .replace(/-+/g, "-")
-    .replace(/^[-. ]+|[-. ]+$/g, "");
-  return Array.from(safe || fallback).slice(0, max).join("").replace(/[-. ]+$/g, "") || fallback;
+    .replace(/^[-. ]+|[-. ]+$/g, "") || fallback;
 }
 
-/** `{PL number}_{customer name}.pdf`, safe to save and at most 160 characters. */
+function cutUtf8(value: string, max: number): string {
+  if (utf8Bytes(value) <= max) return value;
+  let out = "";
+  let bytes = 0;
+  for (const { segment } of new Intl.Segmenter("en", { granularity: "grapheme" }).segment(value)) {
+    const size = utf8Bytes(segment);
+    if (bytes + size > max) break;
+    out += segment;
+    bytes += size;
+  }
+  return out;
+}
+
+/** `{PL number}_{customer name}.pdf`, safe to save and at most 200 UTF-8 bytes. */
 export function plPdfFileName(code: string, customerName: string): string {
-  const number = pdfNamePart(code, "packing-list", 80);
-  const customer = pdfNamePart(customerName, "customer", 155 - Array.from(number).length);
+  const number = cutUtf8(pdfNamePart(code, "packing-list"), 100).replace(/[-. ]+$/g, "");
+  const customer = cutUtf8(pdfNamePart(customerName, "customer"), 195 - utf8Bytes(number)).replace(/[-. ]+$/g, "") || "customer";
   return `${number}_${customer}.pdf`;
 }
 

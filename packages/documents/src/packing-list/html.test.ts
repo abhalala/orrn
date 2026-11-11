@@ -33,14 +33,25 @@ describe("packing list html (native print)", () => {
     expect(html).toMatch(/<div class="closing">[\s\S]*<tr class="grand">[\s\S]*Packed by/);
   });
 
-  test("PDF names use the PL number and customer, replace unsafe characters and stay bounded", () => {
+  test("PDF names remove invisible controls and cap at 200 UTF-8 bytes on whole graphemes", () => {
     expect(plPdfFileName("PL/2026-27/7", 'Shivam / Sons: "West" \\ Depot?')).toBe("PL-2026-27-7_Shivam-Sons-West-Depot.pdf");
     expect(plPdfFileName("***", "???")).toBe("packing-list_customer.pdf");
     expect(plPdfFileName("PL/7", "शिवाम एल्युमिनियम")).toBe("PL-7_शिवाम एल्युमिनियम.pdf");
-    const long = plPdfFileName(`PL/${"9".repeat(200)}`, "A".repeat(200));
-    expect(Array.from(long).length).toBeLessThanOrEqual(160);
-    expect(long.startsWith("PL-")).toBe(true);
+    expect(plPdfFileName("PL/2026-27/90", "Acme\u202Efdp.exe\u200B")).toBe("PL-2026-27-90_Acmefdp.exe.pdf");
+
+    const long = plPdfFileName("PL/7", "X".repeat(300));
+    expect(new TextEncoder().encode(long).length).toBeLessThanOrEqual(200);
+    expect(long.startsWith("PL-7_X")).toBe(true);
     expect(long.endsWith(".pdf")).toBe(true);
+
+    const source = "श्रीमान् ".repeat(60);
+    const hindi = plPdfFileName("PL/7", source);
+    expect(new TextEncoder().encode(hindi).length).toBeLessThanOrEqual(200);
+    expect(hindi.startsWith("PL-7_श्रीमान्")).toBe(true);
+    const segmenter = new Intl.Segmenter("hi", { granularity: "grapheme" });
+    const sourceParts = [...segmenter.segment(source)].map((part) => part.segment);
+    const outputParts = [...segmenter.segment(hindi.slice("PL-7_".length, -4))].map((part) => part.segment);
+    expect(outputParts.every((part, i) => part === (i === outputParts.length - 1 ? sourceParts[i]?.trimEnd() : sourceParts[i]))).toBe(true);
   });
 
   test("labelled groups name their section", () => {
