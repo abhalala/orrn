@@ -121,6 +121,15 @@ describe("rates, counts and rupees", () => {
       expect(countText(fmt, n)).toBe(pcsText(n));
     }
   });
+  test("countText matches the toLocaleString(\"en-IN\") it replaced on whole numbers, signs and zero included", () => {
+    const r = mulberry(21);
+    const seen: number[] = [0, 1, -1, 999, 1000, -1000, 99_999, 100_000, -100_000, 1_234_567, -1_234_567, 123_456_789];
+    for (let i = 0; i < N; i++) seen.push(Math.floor(r() * (i % 5 === 0 ? 900_000_000 : 20_000)) * (i % 3 === 0 ? -1 : 1));
+    for (const n of seen) {
+      expect(countText(fmt, n)).toBe(n.toLocaleString("en-IN"));
+      expect(countText(fmt, Math.abs(n))).toBe(Math.abs(n).toLocaleString("en-IN"));
+    }
+  });
   test("formatRupees: the symbol, grouped, 2 decimals", () => {
     const r = mulberry(13);
     for (let i = 0; i < N; i++) {

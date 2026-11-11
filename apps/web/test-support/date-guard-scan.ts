@@ -16,6 +16,8 @@ export const FORBIDDEN: { name: string; re: RegExp }[] = [
   { name: "old date helper", re: /\b(dayMonth|ymdLabel|intlTag|instantDateText|formatWhen)\s*\(/ },
   // The paper's date helpers: only the packing list views and their own module may use them.
   { name: "paper date helper", re: /\b(formatShipDate|formatYmdDay)\s*\(/ },
+  // A number grouped with a fixed locale: a plant on international grouping would still see Indian (or US) grouping.
+  { name: "toLocaleString with a fixed locale", re: /\btoLocaleString\(\s*["'`][^"'`]+["'`]/ },
 ];
 
 /** Paths (relative to `src`) the guard does not look at, each with the reason. */
@@ -52,6 +54,35 @@ export const ALLOWED: { path: RegExp; label: string; why: string; optional?: boo
     why: "the packing list views mirror the printed paper and keep today's date style through the paper helpers (lead's decision)",
   },
 ];
+
+/**
+ * Files that may group a number with a fixed locale, for this one rule only (the date rules still apply to them).
+ * Counts, pieces, bundles and every other whole number on a web screen go through `countText(fmt, n)`.
+ */
+export const FIXED_LOCALE_NUMBER_OK: { path: RegExp; label: string; why: string }[] = [
+  {
+    path: /^features\/imports\//,
+    label: "features/imports/",
+    why: "the spreadsheet import is a staff and file screen: its row counts and file limits are not plant screens",
+  },
+  {
+    path: /^features\/printing\//,
+    label: "features/printing/",
+    why: "label and print queue counts: prints, labels and the print queue stay on today's units for now",
+  },
+  {
+    path: /^features\/settings\/backup-tab\.tsx$/,
+    label: "features/settings/backup-tab.tsx",
+    why: "a backup file size in megabytes: a file figure, not a plant quantity",
+  },
+  {
+    path: /^features\/today\/today-model\.ts$/,
+    label: "features/today/today-model.ts",
+    why: "formatRupees writes a rupee amount (money, not a count); rates and money are outside the units layer and keep Indian grouping",
+  },
+];
+
+export const FIXED_LOCALE_FINDING = "toLocaleString with a fixed locale";
 
 /** Files whose only job is the paper's date text: the paper helpers may be defined and used here. */
 export const PAPER_HELPER_HOMES = /^features\/dispatch\/(format|packing-list-[^/]*)\.tsx?$/;

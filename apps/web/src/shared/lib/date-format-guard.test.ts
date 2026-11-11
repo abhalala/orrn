@@ -10,7 +10,7 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { ALLOWED, allowedBy, findings, PAPER_HELPER_HOMES, stripComments, webSourceFiles } from "../../../test-support/date-guard-scan";
+import { ALLOWED, allowedBy, findings, FIXED_LOCALE_FINDING, FIXED_LOCALE_NUMBER_OK, PAPER_HELPER_HOMES, stripComments, webSourceFiles } from "../../../test-support/date-guard-scan";
 
 describe("dates and times go through the plant formatter", () => {
   const files = webSourceFiles();
@@ -26,8 +26,18 @@ describe("dates and times go through the plant formatter", () => {
       .filter((f) => !allowedBy(f.rel))
       .flatMap((f) => findings(f.text).map((what) => `${f.rel}: ${what}`))
       // The paper's own helpers are fine in the files that define and use them.
-      .filter((line) => !(line.endsWith("paper date helper") && PAPER_HELPER_HOMES.test(line.split(":")[0]!)));
+      .filter((line) => !(line.endsWith("paper date helper") && PAPER_HELPER_HOMES.test(line.split(":")[0]!)))
+      // A few staff, file and money files may group a number with a fixed locale (see FIXED_LOCALE_NUMBER_OK).
+      .filter((line) => !(line.endsWith(FIXED_LOCALE_FINDING) && FIXED_LOCALE_NUMBER_OK.some((a) => a.path.test(line.split(":")[0]!))));
     expect(bad).toEqual([]);
+  });
+
+  test("every fixed-locale number exception has a reason and still needs the exception", () => {
+    for (const a of FIXED_LOCALE_NUMBER_OK) {
+      expect(a.why.length).toBeGreaterThan(20);
+      const needs = files.some((f) => a.path.test(f.rel) && findings(f.text).includes(FIXED_LOCALE_FINDING));
+      expect(needs).toBe(true);
+    }
   });
 
   test("every allow-list entry has a reason and still needs the exception", () => {
@@ -54,6 +64,10 @@ describe("dates and times go through the plant formatter", () => {
     expect(findings("const w = formatShipDate(d, { locale });")).toEqual(["paper date helper"]);
     expect(findings("// uses Intl.DateTimeFormat to read the zone\nconst a = 1;")).toEqual([]);
     expect(findings("/* toLocaleDateString */ const a = 1;")).toEqual([]);
+    expect(findings('const a = n.toLocaleString("en-IN");')).toEqual([FIXED_LOCALE_FINDING]);
+    expect(findings("const a = n.toLocaleString('en-US', { maximumFractionDigits: 3 });")).toEqual([FIXED_LOCALE_FINDING]);
+    expect(findings("const a = (x / 100).toLocaleString(`en-IN`);")).toEqual([FIXED_LOCALE_FINDING]);
+    expect(findings("// n.toLocaleString(\"en-IN\") was here\nconst a = countText(fmt, n);")).toEqual([]);
     expect(findings("const a = fmt.date(ms) + fmt.time(ms);")).toEqual([]);
     expect(stripComments("const u = 'http://x'; // note")).toContain("http://x");
   });
