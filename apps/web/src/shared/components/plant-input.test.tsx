@@ -86,3 +86,42 @@ describe("every web entry form follows the plant", () => {
     expect(left).toEqual([]);
   });
 });
+
+/** Which forms take a quantity in the plant's unit, and in which quantity: the list this part of the work wires. */
+describe("the forms that take a weight, length or section weight", () => {
+  const ROOT = join(import.meta.dir, "../..");
+  function files(dir: string, out: string[] = []): string[] {
+    for (const n of readdirSync(dir)) {
+      const p = join(dir, n);
+      if (statSync(p).isDirectory()) files(p, out);
+      else if (/\.tsx$/.test(n) && !/\.test\./.test(n)) out.push(p);
+    }
+    return out;
+  }
+  const used = new Map<string, Set<string>>();
+  for (const f of files(ROOT)) {
+    const s = readFileSync(f, "utf8");
+    for (const m of s.matchAll(/<PlantInput\b[^>]*?spec=\{([^}]*)\}/gs)) {
+      const rel = f.slice(ROOT.length + 1);
+      const set = used.get(rel) ?? new Set<string>();
+      for (const spec of m[1]!.match(/MASS_KG|MASS_G|LENGTH_MM|LENGTH_FT|LENGTH_IN|SECTION_KG12|WALL_MM/g) ?? []) set.add(spec);
+      used.set(rel, set);
+    }
+    if (/<BigNumberField[^>]*spec=\{/s.test(s) || /<QtyBox\b/.test(s)) used.set(f.slice(ROOT.length + 1), (used.get(f.slice(ROOT.length + 1)) ?? new Set()).add("MASS_KG"));
+  }
+  const FORMS = [
+    "features/ageing/batch-sheets.tsx", "features/ageing/masters-pages.tsx", "features/dies/die-form.tsx", "features/die-room/band-form.tsx",
+    "features/die-room/card-edit.tsx", "features/die-room/card-maker.tsx", "features/die-room/card-nitriding.tsx", "features/die-room/reading-pad.tsx",
+    "features/dispatch/transport-fields.tsx", "features/foundry/close-sheet.tsx", "features/foundry/masters-view.tsx", "features/foundry/melt-steps.tsx",
+    "features/foundry/stock-view.tsx", "features/masters/die-copy-sheet.tsx", "features/orders/components/die-block.tsx", "features/orders/components/line-editor.tsx",
+    "features/orders/plan-board-page.tsx", "features/orders/plan-trial-form.tsx", "features/pack/bundles-step.tsx", "features/pack/die-step.tsx",
+    "features/pack/rejects-panel.tsx", "features/portal/new-order-page.tsx", "features/press/station-count.tsx", "features/purchase/lot-sheets.tsx",
+    "features/purchase/new-lot-page.tsx", "features/store/entry-form.tsx",
+  ];
+  test("every form on the list takes its quantity through the plant's unit", () => {
+    expect(FORMS.filter((f) => !used.has(f))).toEqual([]);
+  });
+  test("no other form was added without being on the list", () => {
+    expect([...used.keys()].filter((f) => !FORMS.includes(f) && !f.includes("shared/components")).sort()).toEqual([]);
+  });
+});
