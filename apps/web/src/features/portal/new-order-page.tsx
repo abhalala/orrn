@@ -28,6 +28,8 @@ import {
 } from "./model";
 import { PortalError, PortalSkeleton } from "./ui";
 import { PlantInput } from "@/shared/components/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { lengthIsMetres } from "@/shared/lib/fmt-text";
 import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 let lineSeq = 0;
@@ -39,6 +41,7 @@ const lineKey = () => `line-${(lineSeq += 1)}`;
  */
 export function PortalNewOrderPage() {
   const { t } = useT();
+  const fmt = useFmt();
   const queryClient = useQueryClient();
   const me = usePortalMe();
   const sections = useQuery({ ...trpc.portal.sections.visible.queryOptions(), retry: false });
@@ -163,7 +166,7 @@ export function PortalNewOrderPage() {
                   ))}
                 </NativeSelect>
               </Field>
-              <Field label={t("portal.orders.cutLength")} error={p.length ? t(p.length) : undefined} hint={unit === "inch" ? t("portal.orders.lengthHintInch") : t("portal.orders.lengthHintMm")}>
+              <Field label={t("portal.orders.cutLength")} error={p.length ? t(p.length) : undefined} hint={unit === "inch" ? t("portal.orders.lengthHintInch") : t(lengthIsMetres(fmt) ? "portal.orders.lengthHintMetres" : "portal.orders.lengthHintMm")}>
                 {unit === "inch" ? (
                   <div className="flex min-w-0 flex-wrap gap-2">
                     <div className="min-w-[7rem] flex-1">

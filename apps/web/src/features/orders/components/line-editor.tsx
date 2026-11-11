@@ -18,7 +18,7 @@ import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
 import { useFmt } from "@/shared/lib/fmt";
-import { countText, kgGrouped3, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { countText, kgGrouped3, lengthIsMetres, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
@@ -128,7 +128,7 @@ export function LineEditor({
         <Field
           label={t("orders.line.cutLength")}
           error={shown && ownProblems.length ? t(ownProblems.length) : undefined}
-          hint={unit === "inch" ? t("orders.form.lengthHintInch") : t("orders.form.lengthHintMm")}
+          hint={unit === "inch" ? t("orders.form.lengthHintInch") : t(lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm")}
         >
           {unit === "inch" ? (
             <div className="flex min-w-0 flex-wrap gap-2">

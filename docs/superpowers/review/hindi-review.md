@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7563 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -578,7 +578,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `floor.store` | Store | स्टोर |
 | `floor.storeHint` | Chemicals, fuel and spares | केमिकल, ईंधन और स्पेयर |
 
-### pack (221)
+### pack (222)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -630,6 +630,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `new.cutLengthMm` | Cut length ({lengthUnit}) | कट लंबाई ({lengthUnit}) |
 | `new.cutLengthHintInch` | Feet and inches, for example 11 ft 6 in. | फ़ुट और इंच, जैसे 11 ft 6 in. |
 | `new.cutLengthHintMm` | In millimetres, for example 3658. | मिलीमीटर में, जैसे 3658. |
+| `new.cutLengthHintMetres` | In metres, for example 3.658. | मीटर में, जैसे 3.658. |
 | `new.cutLengthRequired` | Enter the cut length. | कट लंबाई डालें। |
 | `new.yard` | Yard | यार्ड |
 | `new.yardHint` | Where these bundles will be stacked. | ये bundle किस यार्ड में रखे जाएंगे। |
@@ -1468,7 +1469,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `invoice` | Invoice | इनवॉइस |
 | `print` | Print | प्रिंट |
 
-### dies (67)
+### dies (68)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1515,6 +1516,7 @@ Counts: 7559 screen strings in 49 groups, 45 guides with 866 strings.
 | `form.weightMin` | Min weight ({sectionUnit}) | कम से कम वज़न ({sectionUnit}) |
 | `form.weightMax` | Max weight ({sectionUnit}) | ज़्यादा से ज़्यादा वज़न ({sectionUnit}) |
 | `form.rangeHint` | Weight of one 12 ft length, in {massUnit}. | 12 ft लंबाई का वज़न, {massUnit} में। |
+| `form.rangeHintUnit` | Weight in {sectionUnit}. | वज़न {sectionUnit} में। |
 | `form.rangeOrder` | Max weight can't be less than min weight. | ज़्यादा से ज़्यादा वज़न, कम से कम वज़न से कम नहीं हो सकता। |
 | `form.status` | Status | स्टेटस |
 | `form.statusHint` | Archived dies don't show in Pack. | बंद die पैकिंग में नहीं दिखते। |
@@ -4890,7 +4892,7 @@ Please check, Lalubhai:
 | `makers.nameRequired` | Write the name. | नाम लिखें। |
 | `makers.added` | Die maker added | Die मेकर जुड़ गया |
 
-### orders (397)
+### orders (398)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -5159,6 +5161,7 @@ Please check, Lalubhai:
 | `form.inches` | Inches | इंच |
 | `form.lengthHintInch` | Feet and inches | फ़ीट और इंच |
 | `form.lengthHintMm` | Millimetres | मिलीमीटर |
+| `form.lengthHintMetres` | Metres | मीटर |
 | `form.quickLengths` | Common lengths | आम लंबाइयां |
 | `form.weightBasis` | Weight basis | वज़न आधार |
 | `form.basisCurrent` | Current | ताज़ा |
@@ -7470,7 +7473,7 @@ Please check, Lalubhai:
 | `actions.vendor__merge` | Vendors merged | वेंडर मिलाए |
 | `actions.vendor__update` | Vendor changed | वेंडर बदला |
 
-### portal (185)
+### portal (186)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7522,6 +7525,7 @@ Please check, Lalubhai:
 | `orders.cutLength` | Cut length | कट लंबाई |
 | `orders.lengthHintInch` | Feet and inches, like 12 ft or 11 ft 6 in. | फ़ुट और इंच में, जैसे 12 ft या 11 ft 6 in। |
 | `orders.lengthHintMm` | In millimetres, like 3658. | मिलीमीटर में, जैसे 3658। |
+| `orders.lengthHintMetres` | In metres, like 3.658. | मीटर में, जैसे 3.658। |
 | `orders.feet` | Feet | फ़ुट |
 | `orders.inches` | Inches | इंच |
 | `orders.pieces` | Pieces | पीस |

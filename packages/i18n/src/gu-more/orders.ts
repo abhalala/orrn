@@ -158,6 +158,7 @@ export const guOrders = {
       inches: "ઇંચ",
       lengthHintInch: "ફૂટ અને ઇંચ",
       lengthHintMm: "મિલીમીટર",
+      lengthHintMetres: "મીટર",
       quickLengths: "સામાન્ય લંબાઈ",
       weightBasis: "વજનનો આધાર",
       basisCurrent: "તાજું",

@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 import { formatterFor, screenPrefs } from "@orrn/domain";
 
-import { cutLengthText } from "./fmt-text";
+import { cutLengthText, lengthIsMetres } from "./fmt-text";
 
 const at = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const metres = formatterFor(screenPrefs({ units: { length: "m" } }), at);
@@ -48,5 +48,25 @@ describe("no order, plan or dispatch screen calls the mm and inch helper", () =>
   });
   test("the ageing report writes its cut length through the formatter", () => {
     expect(readFileSync(join(ROOT, "ageing/report-view.tsx"), "utf8")).toContain("cutLengthText(fmt, r.lengthMm)");
+  });
+});
+
+describe("the hints under the length and band boxes follow the plant's unit", () => {
+  const src = (rel: string) => readFileSync(join(import.meta.dir, "../..", rel), "utf8");
+  test("the cut length hints pick the metre wording for a plant on metres", () => {
+    expect(src("features/pack/die-step.tsx")).toContain('lengthIsMetres(fmt) ? "pack.new.cutLengthHintMetres" : "pack.new.cutLengthHintMm"');
+    expect(src("features/orders/components/die-block.tsx")).toContain('lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm"');
+    expect(src("features/orders/components/line-editor.tsx")).toContain('lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm"');
+    expect(src("features/portal/new-order-page.tsx")).toContain('lengthIsMetres(fmt) ? "portal.orders.lengthHintMetres" : "portal.orders.lengthHintMm"');
+  });
+  test("the die form band hint keeps its words for kg/12ft and names the section unit otherwise", () => {
+    const form = src("features/dies/die-form.tsx");
+    expect(form).toContain('t("dies.form.rangeHint", { massUnit: "kg" })');
+    expect(form).toContain('t("dies.form.rangeHintUnit")');
+  });
+  test("a plant on metres is told metres, a plant on mm is told mm", () => {
+    expect(lengthIsMetres(metres)).toBe(true);
+    expect(lengthIsMetres(mm)).toBe(false);
+    expect(lengthIsMetres(inch)).toBe(false);
   });
 });

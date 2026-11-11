@@ -39,6 +39,7 @@ import {
   type StoredDie,
 } from "./die-model";
 import { PlantInput } from "@/shared/components/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
 import { GEOMETRY_MM, LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 
 export type DieFormProps = {
@@ -54,6 +55,7 @@ type ServerError = { data?: { code?: string } | null; message?: string };
 
 export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieFormProps) {
   const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DieDraft>(() => (die ? dieToDraft(die, unit) : EMPTY_DIE_DRAFT));
@@ -154,7 +156,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
             <PlantInput spec={SECTION_KG12} value={draft.weightMax} onValueChange={set("weightMax")} required />
           </Field>
         </div>
-        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dies.form.rangeHint")}</p>
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{fmt.unitOf("linear_mass").id === "kg_12ft" ? t("dies.form.rangeHint", { massUnit: "kg" }) : t("dies.form.rangeHintUnit")}</p>
       </fieldset>
 
       <div className="flex min-w-0 flex-col gap-1.5">

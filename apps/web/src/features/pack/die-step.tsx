@@ -25,7 +25,7 @@ import { YardPicker } from "./yard-picker";
 import { PlantInput } from "@/shared/components/plant-input";
 import { LENGTH_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { countText } from "@/shared/lib/fmt-text";
+import { countText, lengthIsMetres } from "@/shared/lib/fmt-text";
 
 export type { DieOption };
 
@@ -481,6 +481,7 @@ function DefaultsForm({
   onSubmit(defaults: PackDraft["defaults"]): boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const initial = lengthToInput(draft.defaults.lengthMm, unit);
   const [mm, setMm] = useState(initial.mm);
   const [feet, setFeet] = useState(initial.feet);
@@ -652,7 +653,7 @@ function DefaultsForm({
         ) : (
           <Field
             label={t("pack.new.cutLengthMm")}
-            hint={t("pack.new.cutLengthHintMm")}
+            hint={t(lengthIsMetres(fmt) ? "pack.new.cutLengthHintMetres" : "pack.new.cutLengthHintMm")}
             error={lengthError}
             className="sm:max-w-[240px]"
           >

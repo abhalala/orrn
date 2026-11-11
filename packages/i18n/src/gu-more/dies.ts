@@ -52,6 +52,7 @@ export const guDies = {
       weightMin: "ઓછામાં ઓછું વજન ({sectionUnit})",
       weightMax: "વધુમાં વધુ વજન ({sectionUnit})",
       rangeHint: "12 ft લંબાઈનું વજન, {massUnit} માં.",
+      rangeHintUnit: "વજન {sectionUnit} માં.",
       rangeOrder: "વધુમાં વધુ વજન ઓછામાં ઓછા વજન કરતાં ઓછું ન હોઈ શકે.",
       status: "સ્થિતિ",
       statusHint: "બંધ die પૅકિંગમાં દેખાતી નથી.",

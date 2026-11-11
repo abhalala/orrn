@@ -430,6 +430,7 @@ const guBase = {
       cutLengthMm: "કટ લંબાઈ ({lengthUnit})",
       cutLengthHintInch: "ફૂટ અને ઇંચ, જેમ કે 11 ft 6 in.",
       cutLengthHintMm: "મિલીમીટરમાં, જેમ કે 3658.",
+      cutLengthHintMetres: "મીટરમાં, જેમ કે 3.658.",
       cutLengthRequired: "કટ લંબાઈ લખો.",
       yard: "યાર્ડ",
       yardHint: "આ bundle કયા યાર્ડમાં મુકાશે.",

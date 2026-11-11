@@ -55,6 +55,8 @@ export const bandEndText = (fmt: Fmt, gramsPer12ft: number): string =>
  */
 export const cutLengthText = (fmt: Fmt, mm: number): string =>
   fmt.unitOf("length").id === "mm" ? fmt.n("bundle.length", mm) : fmt.q("bundle.length", mm);
+/** True for a plant that chose metres: the mm-layout length boxes then take metres, so their hints say so. */
+export const lengthIsMetres = (fmt: Fmt): boolean => fmt.unitOf("length").id === "m";
 /** The unit symbol for a column header or a suffix: "kg", "lb", "t". */
 export const massUnit = (fmt: Fmt): string => fmt.unitOf("mass").symbol;
 /** "kg/12ft", "kg/m", "lb/ft". */
