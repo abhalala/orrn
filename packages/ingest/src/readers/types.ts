@@ -93,6 +93,14 @@ export type ReadBlock = {
   headerRow: number;
   headerRows: 1 | 2;
   headers: string[];
+  /**
+   * The region's width: the widest of the header and data rows, counted to each row's last filled cell. A column
+   * filled only below the preview counts. `chooseHeader` pads the names to it, so a blank header cell matches an
+   * approved unnamed column by position (round 6, M-R5-2). Set by the sheet, CSV and SQL readers. The PDF reader is
+   * not used by the first release and was not changed: a PDF block may carry the width of its inner matrix. For a
+   * whole block `chooseHeader` counts the width from the block's own rows, so that number is never used there.
+   */
+  width?: number;
   /** Data rows after the header. Interior blank rows stay (the recipe skips them); trailing ones are cut. */
   rows: string[][];
   /** Row of the sheet where the first data row sits, 0-based. Row `i` of `rows` is sheet row `firstDataSheetRow + i`. */

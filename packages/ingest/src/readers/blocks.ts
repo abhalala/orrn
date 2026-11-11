@@ -621,8 +621,19 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
 export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: FindBlocksOptions = {}): SheetRead {
   const rows = matrix.map((r) => r.map(toCellText));
   const sheetName = opts.sheetName ?? null;
-  if (opts.hints && opts.hints.length > 0) return readByHints(rows, opts.hints, sheetName);
-  return guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
+  const read = opts.hints && opts.hints.length > 0 ? readByHints(rows, opts.hints, sheetName) : guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
+  return { blocks: read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows) })), warnings: read.warnings };
+}
+
+/** The widest of `headers` and `rows`, each counted to its last filled cell (round 6, M-R5-2). */
+export function regionWidth(headers: readonly string[], rows: readonly (readonly string[])[]): number {
+  const to = (r: readonly string[]) => {
+    for (let c = r.length - 1; c >= 0; c--) if ((r[c] ?? "").trim() !== "") return c + 1;
+    return 0;
+  };
+  let w = to(headers);
+  for (const r of rows) w = Math.max(w, to(r));
+  return w;
 }
 
 /** The blocks of `readSheet`. */

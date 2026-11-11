@@ -7,10 +7,10 @@
  */
 import { BUILTIN_HOLES } from "./builtins";
 import type { BuiltinHole } from "./builtins/types";
-import { fingerprint, isUnitOnlyName } from "./fingerprint";
+import { headerKey, inferKinds, isUnitOnlyName, normalizeHeaders, usedWidth, type Fingerprint } from "./fingerprint";
 import { candidatesFor, recipeColumns, type FitCandidate, type LearnedHole } from "./fit";
 import { cellKind } from "./cells";
-import { combineHeaders, isHeaderLike } from "./readers/blocks";
+import { combineHeaders, isHeaderLike, regionWidth } from "./readers/blocks";
 import type { PreviewRow } from "./readers/types";
 import type { IngestTarget } from "./states";
 
@@ -18,6 +18,14 @@ import type { IngestTarget } from "./states";
 export type HeaderInput = {
   preview: readonly PreviewRow[];
   guess: { headerRow: number; headerRows?: 1 | 2 };
+  /**
+   * The block's region width (`ReadBlock.width`). The names are padded to it, so a blank header cell matches an
+   * approved unnamed column by position even when that column is filled only below the preview (round 6, M-R5-2).
+   */
+  width?: number;
+  /** A whole block's names and rows. When given, the width is counted from them and `width` is not used. */
+  headers?: readonly string[];
+  rows?: readonly (readonly string[])[];
 };
 
 /** The layouts to fit against. `learned`: the plant's approved layouts, newest first. `builtins`: default all of them. */
@@ -114,7 +122,7 @@ type PickFit = { exact: FitCandidate | null; trusted: boolean; near: FitCandidat
  * best near fit of a one-row pick whose data rows are mostly not wider than it on either side, with
  * `NEAR_NAMED_MIN` columns found by their own name. A near fit only names a layout in the question.
  */
-function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, holes: HeaderHoles): PickFit {
+function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, holes: HeaderHoles, regionWidth = 0): PickFit {
   const none: PickFit = { exact: null, trusted: false, near: null };
   const names = namesFor(preview, at, headerRows);
   if (!names) return none;
@@ -124,9 +132,13 @@ function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, 
     .map((p) => p.cells.map((c) => c.trim()))
     .filter((r) => filled(r) > 0);
   if (dataRows.length === 0) return none;
-  const width = Math.max(names.length, ...dataRows.map((r) => lastFilledCell(r) + 1));
-  const padded = [...names, ...Array<string>(width - names.length).fill("")];
-  const fp = fingerprint({ headers: padded, rows: dataRows, headerRow: preview[at]!.row, headerRows });
+  const seen = Math.max(names.length, ...dataRows.map((r) => lastFilledCell(r) + 1));
+  // Trailing columns blank in the names and the preview drop, unless the block's region is that wide (M-R5-2): a
+  // column filled only below the preview is still a column of the block.
+  const width = Math.max(usedWidth([...names, ...Array<string>(seen - names.length).fill("")], dataRows), regionWidth);
+  const padded = [...names, ...Array<string>(Math.max(0, width - names.length)).fill("")].slice(0, width);
+  const normalized = normalizeHeaders(padded, width);
+  const fp: Fingerprint = { headers: padded, normalized, columnCount: width, kinds: inferKinds(dataRows, width), headerKey: headerKey(normalized), headerRow: preview[at]!.row, headerRows };
   const learned = (holes.learned ?? []).filter((h) => (h.recipe.headerRows ?? 1) === headerRows);
   const builtins = headerRows === 1 ? (holes.builtins ?? BUILTIN_HOLES) : [];
   const all = candidatesFor(fp, learned, builtins);
@@ -182,6 +194,8 @@ const resemblance = (p: PreviewRow, headerRows: 1 | 2, c: FitCandidate): HeaderR
  */
 export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): HeaderChoice {
   const preview = input.preview;
+  // The region's width (M-R5-2): counted from the block's own rows when it has them, else the width it reports.
+  const width = input.headers && input.rows ? regionWidth(input.headers, input.rows) : (input.width ?? 0);
   const guess: HeaderPick = { headerRow: input.guess.headerRow, headerRows: input.guess.headerRows ?? 1 };
   const guessAt = preview.findIndex((p) => p.row === guess.headerRow);
   const gap = preview.some((p, i) => i > 0 && p.page === preview[i - 1]!.page && p.row > preview[i - 1]!.row + 1);
@@ -202,7 +216,7 @@ export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): Heade
   let near: { at: number; headerRows: 1 | 2; fit: FitCandidate } | null = null;
   for (let at = 0; at < preview.length; at++) {
     for (const rows of [1, 2] as const) {
-      const f = fitsFor(preview, at, rows, holes);
+      const f = fitsFor(preview, at, rows, holes, width);
       if (f.exact) {
         if (f.trusted && !gap && !blocked(at, rows)) {
           if (!trusted) trusted = { at, headerRows: rows, fit: f.exact };
