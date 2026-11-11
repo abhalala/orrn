@@ -22,11 +22,12 @@ import type { Action } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "./errors";
-import { kgText } from "./format";
 import { kgTextToG, readKanta, MAX_LOT_KG } from "./kanta";
 import { DiffText } from "./lot-ui";
 import { PlantInput } from "@/shared/components/plant-input";
 import { MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim } from "@/shared/lib/fmt-text";
 
 /** Grams as the text a NumberInput starts with ("12450.5"). */
 const gToText = (g: number | null) => (g === null ? "" : String(g / 1000));
@@ -170,6 +171,7 @@ export function NoteSheet({
   maxWeightG?: number | null;
   onSent?(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const invalidate = useInvalidatePurchase();
   const onRefused = useRefusalToast();
@@ -288,11 +290,11 @@ export function NoteSheet({
           label={t("purchase.detail.kgDiff")}
           hint={
             weightDebit && maxWeightG !== null && minNoteG > 0
-              ? t("purchase.new.noteKgRange", { min: kgText(minNoteG), max: kgText(maxWeightG) })
+              ? t("purchase.new.noteKgRange", { min: kgTrim(fmt, minNoteG), max: kgTrim(fmt, maxWeightG) })
               : weightDebit && minNoteG > 0
-                ? t("purchase.new.noteKgHint", { min: kgText(minNoteG) })
+                ? t("purchase.new.noteKgHint", { min: kgTrim(fmt, minNoteG) })
                 : weightDebit && maxWeightG !== null
-                  ? t("purchase.new.noteKgMax", { max: kgText(maxWeightG) })
+                  ? t("purchase.new.noteKgMax", { max: kgTrim(fmt, maxWeightG) })
                   : undefined
           }
           error={submitted ? errors.kg : undefined}

@@ -27,13 +27,16 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { APPROVAL_TONE } from "../approvals/approval-view";
 import { isForbidden, isStaleRefusal } from "./errors";
-import { bookDateText, kgText, pctText, slashBreaks } from "./format";
+import { bookDateText, pctText, slashBreaks } from "./format";
 import { readKantaG, type KantaReading } from "./kanta";
 import { CancelLotDialog, NoteSheet, StoreSheet, WeightsSheet, useInvalidatePurchase } from "./lot-sheets";
 import { useLotPerms } from "./lot-ui";
 import { LOT_TONE, formatRate, lotNextStep, maxWeightDebitG, type LotStatus } from "./lot-view";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim, massUnit } from "@/shared/lib/fmt-text";
 
 export function LotDetailPage({ id }: { id: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const lotQuery = useQuery(trpc.purchase.lots.get.queryOptions({ id }));
 
@@ -82,6 +85,7 @@ export function LotDetailPage({ id }: { id: string }) {
 type LotData = inferRouterOutputs<AppRouter>["purchase"]["lots"]["get"];
 
 function LotDetail({ data }: { data: LotData }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const perms = useLotPerms();
   const invalidate = useInvalidatePurchase();
@@ -135,7 +139,7 @@ function LotDetail({ data }: { data: LotData }) {
         setPopKey((k) => k + 1);
         toast.success(
           t("purchase.detail.markedOk", {
-            kg: kgText("postedKgG" in res ? res.postedKgG : 0),
+            kg: kgTrim(fmt, "postedKgG" in res ? res.postedKgG : 0),
             location: "locationCode" in res ? res.locationCode : "",
           }),
         );
@@ -182,7 +186,7 @@ function LotDetail({ data }: { data: LotData }) {
   })();
 
   const pct = pctText(toleranceBp);
-  const shortVars = { kg: kgText(reading.shortG), pct, min: kgText(uncoveredG) };
+  const shortVars = { kg: kgTrim(fmt, reading.shortG), pct, min: kgTrim(fmt, uncoveredG) };
   // Live weight notes, for "covered by DCN-4" on a lot in stock.
   const coveringNotes = notes
     .filter((n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"))
@@ -367,9 +371,10 @@ function KantaHero({
   toleranceBp: number;
   pop: boolean;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const pct = pctText(toleranceBp);
-  const diffBig = reading.diffG === null ? "-" : kgText(Math.abs(reading.diffG));
+  const diffBig = reading.diffG === null ? "-" : kgTrim(fmt, Math.abs(reading.diffG));
   const diffWord =
     reading.state === "incomplete"
       ? t("purchase.diffWord.incomplete")
@@ -402,13 +407,13 @@ function KantaHero({
         <p className="m-0 text-[15px] font-medium break-words">{material}</p>
       </div>
       <dl className="relative m-0 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
-        <Figure label={t("purchase.detail.party")} value={kgText(reading.partyG ?? 0)} unit="kg" />
-        <Figure label={t("purchase.detail.ours")} value={reading.fcG === null ? "-" : kgText(reading.fcG)} unit={reading.fcG === null ? "" : "kg"} />
+        <Figure label={t("purchase.detail.party")} value={kgTrim(fmt, reading.partyG ?? 0)} unit={massUnit(fmt)} />
+        <Figure label={t("purchase.detail.ours")} value={reading.fcG === null ? "-" : kgTrim(fmt, reading.fcG)} unit={reading.fcG === null ? "" : "kg"} />
         <div className="col-span-2 flex min-w-0 flex-col gap-1 sm:col-span-1">
           <dt className="text-[13px] font-semibold">{t("purchase.detail.difference")}</dt>
           <dd data-no-truncate="" className="m-0 flex flex-wrap items-baseline gap-x-2">
             <span className="font-display text-[40px] leading-none font-extrabold tracking-[-0.04em] tabular-nums">{diffBig}</span>
-            {reading.diffG !== null ? <span className="text-[15px] font-semibold">kg</span> : null}
+            {reading.diffG !== null ? <span className="text-[15px] font-semibold">{massUnit(fmt)}</span> : null}
           </dd>
           <dd className="m-0 text-[14px] font-semibold break-words">{diffWord}</dd>
         </div>
@@ -446,6 +451,7 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function FactsCard({ data }: { data: LotData }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { lot } = data;
   const notSet = t("purchase.detail.notSet");
@@ -458,7 +464,7 @@ function FactsCard({ data }: { data: LotData }) {
         <span className="font-mono">{formatRate(lot.ratePaise)}</span> {t("purchase.detail.perKgUnit")}
       </>,
     ],
-    [t("purchase.detail.payable"), `${kgText(data.payableKgG)} kg`, true],
+    [t("purchase.detail.payable"), `${kgTrim(fmt, data.payableKgG)} ${massUnit(fmt)}`, true],
     [t("purchase.detail.amount"), formatRate(data.amountPaise), true],
     [t("purchase.detail.billBook"), t(`purchase.billBooks.${lot.billBook}`)],
     [t("purchase.detail.partyBillNo"), lot.partyBillNo || notSet, Boolean(lot.partyBillNo)],
@@ -489,6 +495,7 @@ function FactsCard({ data }: { data: LotData }) {
 type NoteRow = LotData["notes"][number];
 
 function NotesCard({ notes }: { notes: NoteRow[] }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <Card title={t("purchase.detail.notesTitle")}>
@@ -506,8 +513,8 @@ function NotesCard({ notes }: { notes: NoteRow[] }) {
                 <Chip tone={APPROVAL_TONE[n.status]}>{t(`status.request.${n.status}`)}</Chip>
               </div>
               <p className="m-0 flex flex-wrap gap-x-4 gap-y-0.5 text-[14px] text-muted-foreground tabular-nums">
-                {n.kgDiffG > 0 ? <span>{t("purchase.detail.noteKg", { kg: kgText(n.kgDiffG) })}</span> : null}
-                {n.boriDeductionG > 0 ? <span>{t("purchase.detail.noteBori", { kg: kgText(n.boriDeductionG) })}</span> : null}
+                {n.kgDiffG > 0 ? <span>{t("purchase.detail.noteKg", { kg: kgTrim(fmt, n.kgDiffG) })}</span> : null}
+                {n.boriDeductionG > 0 ? <span>{t("purchase.detail.noteBori", { kg: kgTrim(fmt, n.boriDeductionG) })}</span> : null}
                 <span>{formatRate(n.amountPaise)}</span>
               </p>
               {n.note ? <p className="m-0 text-[14px] break-words text-muted-foreground">{n.note}</p> : null}
@@ -520,6 +527,7 @@ function NotesCard({ notes }: { notes: NoteRow[] }) {
 }
 
 function StockCard({ ledger, lot, status }: { ledger: LotData["ledger"]; lot: LotData["lot"]; status: LotStatus }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <Card title={t("purchase.detail.stockTitle")}>
@@ -531,7 +539,7 @@ function StockCard({ ledger, lot, status }: { ledger: LotData["ledger"]; lot: Lo
         <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
           {ledger.map((row) => {
             const location = row.locationId === lot.locationId ? (lot.locationCode ?? "-") : "-";
-            const kg = kgText(Math.abs(row.qtyG));
+            const kg = kgTrim(fmt, Math.abs(row.qtyG));
             return (
               <li key={row.id} className="text-[15px] tabular-nums">
                 {row.qtyG >= 0

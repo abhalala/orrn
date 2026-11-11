@@ -13,18 +13,18 @@ import {
   foldToOther,
   rankedTable,
   timeSeriesTable,
-  type TimeSeries,
-} from "@orrn/ui/charts";
+  type TimeSeries } from "@orrn/ui/charts";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
 import { chartWindow, kgByVendor, monthlyRates } from "./chart-data";
-import { kgText } from "./format";
 import { useCompanyToday } from "./lot-ui";
 import { formatRate } from "./lot-view";
 import { showsQueryError } from "./query-state";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim, massUnit } from "@/shared/lib/fmt-text";
 
 const TOP_VENDORS = 8;
 const RATE_SERIES = 3;
@@ -33,6 +33,7 @@ const RATE_SERIES = 3;
 const monthStart = (month: string) => new Date(`${month}-01T00:00:00+05:30`);
 
 export default function PurchaseCharts() {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const today = useCompanyToday();
   const range = useMemo(() => chartWindow(today), [today]);
@@ -53,7 +54,7 @@ export default function PurchaseCharts() {
   const vendors = useMemo(() => foldToOther(kgByVendor(lots), TOP_VENDORS), [lots]);
 
   const rate = (v: number) => t("purchase.detail.perKg", { rate: formatRate(Math.round(v * 100)) });
-  const kg = (v: number) => `${kgText(Math.round(v * 1000))} kg`;
+  const kg = (v: number) => `${kgTrim(fmt, Math.round(v * 1000))} ${massUnit(fmt)}`;
   const state = register.isLoading ? "loading" : showsQueryError(register) ? "error" : undefined;
 
   return (
