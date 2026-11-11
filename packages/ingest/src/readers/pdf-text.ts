@@ -1,9 +1,11 @@
 /**
  * PDF text layer to tables (plan C2). The input is positioned text items, as a PDF library reports them: no library
- * object crosses this line. Items are grouped into lines by their y, merged into cells by the gaps between them, and
- * the columns of a run of multi-cell lines come from projecting the cells onto the x axis. The resulting matrix goes
- * through `findBlocks` like a sheet.
+ * object crosses this line. Items are grouped into lines by their y and merged into cells by the gaps between them.
+ * A table is a run of multi-cell lines; its columns come from projecting the cells of those lines onto the x axis.
+ * One-cell lines never widen a column: they are placed into a column or folded into the cell above afterwards, and a
+ * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `findBlocks` like a sheet.
  */
+import { cellKind, inferKind } from "../cells";
 import { findBlocks, isHeaderLike } from "./blocks";
 import type { ReadBlock } from "./types";
 
@@ -24,6 +26,7 @@ export type PdfTextOptions = {
 
 type Cell = { text: string; x0: number; x1: number };
 type Line = { y: number; cells: Cell[] };
+type Col = [number, number];
 
 /** A page number on its own: `Page 2`, `Page 2 of 5`, `2 of 5`. Never table data (C17). */
 const PAGE_MARK = /^(?:page\s*\d+(?:\s*(?:of|\/)\s*\d+)?|\d+\s+of\s+\d+)$/i;
@@ -34,15 +37,20 @@ function median(xs: number[], fallback: number): number {
   return s[Math.floor(s.length / 2)]!;
 }
 
-/** One page laid out: the matrix, and for each matrix row the column spans of its region and its cells (or null). */
-type PageLayout = {
-  matrix: string[][];
-  /** Column x spans of the region a row came from; null for a row outside any region. */
-  rowCols: ([number, number][] | null)[];
-  /** The positioned cells of a row read from one line; null for a blank gap row or a folded line. */
-  rowCells: (Cell[] | null)[];
-  charWidth: number;
+/** One row of a laid out page. */
+type LayoutRow = {
+  cells: string[];
+  /** The positioned cells of the row, with folded lines joined in; null for a blank gap row. */
+  pos: Cell[] | null;
 };
+
+/**
+ * A table run and the lines that belong with it. `pre` are the lines above the run that are not rows of it (titles);
+ * `cols` is null for the lines left over at the end of a page, which hold no table.
+ */
+type Segment = { pre: Line[]; rows: LayoutRow[]; cols: Col[] | null };
+
+type PageLayout = { segments: Segment[]; charWidth: number; height: number; fused: number };
 
 /** Index of the column holding the cell: by its midpoint, else by its left edge. -1 when none does. */
 function columnOf(cols: readonly (readonly [number, number])[], c: Cell, charWidth: number): number {
@@ -51,9 +59,102 @@ function columnOf(cols: readonly (readonly [number, number])[], c: Cell, charWid
   return k !== -1 ? k : cols.findIndex(([a, b]) => c.x0 >= a - charWidth && c.x0 <= b);
 }
 
+/** The column holding the cell, else the nearest one. */
+function nearestColumn(cols: readonly (readonly [number, number])[], c: Cell, charWidth: number): number {
+  const k = columnOf(cols, c, charWidth);
+  if (k !== -1) return k;
+  const mid = (c.x0 + c.x1) / 2;
+  let best = 0;
+  let dist = Infinity;
+  cols.forEach(([a, b], x) => {
+    const d = mid < a ? a - mid : mid - b;
+    if (d < dist) {
+      dist = d;
+      best = x;
+    }
+  });
+  return best;
+}
+
+const overlapping = (cols: readonly Col[], c: Cell) => cols.filter(([a, b]) => c.x0 < b && c.x1 > a).length;
+
+function mergeSpans(spans: (readonly [number, number])[], charWidth: number): Col[] {
+  const sorted = [...spans].sort((a, b) => a[0] - b[0]);
+  const cols: Col[] = [];
+  for (const [a, b] of sorted) {
+    const last = cols[cols.length - 1];
+    if (last && a <= last[1] + charWidth * 0.5) last[1] = Math.max(last[1], b);
+    else cols.push([a, b]);
+  }
+  return cols;
+}
+
+/**
+ * Column spans of a run's multi-cell lines. A cell that bridges the gap between two cells of another line (a wide
+ * title cell, a group label, a long text) would fuse their columns, so it is left out of the spans and placed by x.
+ */
+function buildCols(lines: readonly Line[], charWidth: number): Col[] {
+  const out = new Set<Cell>();
+  let cols: Col[] = [];
+  for (let round = 0; round < 50; round++) {
+    cols = mergeSpans(lines.flatMap((l) => l.cells.filter((c) => !out.has(c)).map((c) => [c.x0, c.x1] as const)), charWidth);
+    let changed = false;
+    for (const l of lines) {
+      const kept = l.cells.filter((c) => !out.has(c));
+      for (let a = 1; a < kept.length; a++) {
+        const left = kept[a - 1]!;
+        const right = kept[a]!;
+        if (columnOf(cols, left, charWidth) !== columnOf(cols, right, charWidth)) continue;
+        for (const other of lines) {
+          if (other === l) continue;
+          for (const c of other.cells) {
+            if (!out.has(c) && c.x0 < right.x0 && c.x1 > left.x1) {
+              out.add(c);
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+    if (!changed) break;
+  }
+  return cols;
+}
+
+/** Does the line fit the columns one cell to one column, with no new column and no cell across two? */
+function fitsColumns(cols: readonly Col[], l: Line, charWidth: number): boolean {
+  const seen = new Set<number>();
+  for (const c of l.cells) {
+    const k = columnOf(cols, c, charWidth);
+    if (k === -1 || seen.has(k) || overlapping(cols, c) > 1) return false;
+    seen.add(k);
+  }
+  return true;
+}
+
+const isTextish = (s: string) => {
+  const k = cellKind(s);
+  return k === "text" || k === "code";
+};
+
+/** Is the line a new header: text over a column where the run's data rows hold numbers, dates or codes? */
+function isNewHeader(cols: readonly Col[], l: Line, members: readonly Line[], charWidth: number): boolean {
+  if (!isHeaderLike(l.cells.map((c) => c.text))) return false;
+  const data = members.length > 1 && isHeaderLike(members[0]!.cells.map((c) => c.text)) ? members.slice(1) : members;
+  return l.cells.some((c) => {
+    if (!isTextish(c.text)) return false;
+    const k = columnOf(cols, c, charWidth);
+    const values = data.flatMap((m) => m.cells.filter((d) => columnOf(cols, d, charWidth) === k).map((d) => d.text));
+    const kind = inferKind(values);
+    return kind === "int" || kind === "decimal" || kind === "date" || kind === "code";
+  });
+}
+
+type Entry = { line: number } | { gap: true };
+
 function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLayout {
   const items = itemsIn.filter((i) => i.str.trim() !== "");
-  if (items.length === 0) return { matrix: [], rowCols: [], rowCells: [], charWidth: 5 };
+  if (items.length === 0) return { segments: [], charWidth: 5, height: 10, fused: 0 };
   const sign = opts.yUp === false ? -1 : 1;
   const height = median(items.map((i) => i.height ?? 0).filter((h) => h > 0), 10);
   const charWidth = median(items.map((i) => i.width / Math.max(i.str.length, 1)).filter((w) => w > 0), 5);
@@ -88,91 +189,153 @@ function layoutPage(itemsIn: readonly TextItem[], opts: PdfTextOptions): PageLay
   }
   flush();
 
-  const matrix: string[][] = [];
-  const rowCols: ([number, number][] | null)[] = [];
-  const rowCells: (Cell[] | null)[] = [];
-  const push = (row: string[], cols: [number, number][] | null, cells: Cell[] | null) => {
-    matrix.push(row);
-    rowCols.push(cols);
-    rowCells.push(cells);
-  };
   const dy = (a: number, b: number) => Math.abs(lines[a]!.y - lines[b]!.y);
+  const far = (a: number, b: number) => dy(a, b) > height * 3;
+  const multi = (j: number) => lines[j]!.cells.length >= 2;
+
+  /**
+   * The run that starts at the multi-cell line `i`. Next multi-cell lines within 3 line heights join it. One-cell
+   * lines wait: they are rows of the run only when the next multi-cell line continues the same table (fits its
+   * columns one to one and is not a new header), or when no table line follows them on the page. A multi-cell line
+   * after a blank gap joins only when it continues the table.
+   */
+  const collectRun = (i: number): { entries: Entry[]; end: number } => {
+    const entries: Entry[] = [{ line: i }];
+    const members: Line[] = [lines[i]!];
+    let cols = buildCols(members, charWidth);
+    let pending: Entry[] = [];
+    let j = i + 1;
+    for (; j < lines.length; j++) {
+      const big = far(j - 1, j);
+      if (!multi(j)) {
+        if (big) break;
+        pending.push({ line: j });
+        continue;
+      }
+      const l = lines[j]!;
+      const plain = pending.length === 0 && !big;
+      if (!plain && !(fitsColumns(cols, l, charWidth) && !isNewHeader(cols, l, members, charWidth))) {
+        // The waiting one-cell lines head whatever comes next.
+        const first = pending[0];
+        return { entries, end: first && "line" in first ? first.line : j };
+      }
+      if (big) pending.push({ gap: true });
+      entries.push(...pending, { line: j });
+      pending = [];
+      members.push(l);
+      cols = buildCols(members, charWidth);
+    }
+    // Trailing one-cell lines within 3 line heights stay with the run (data rows, or footers the reader drops).
+    entries.push(...pending);
+    return { entries, end: j };
+  };
+
+  let fused = 0;
+  const emitRun = (entries: readonly Entry[]): { rows: LayoutRow[]; cols: Col[] } => {
+    const lineIdx = entries.flatMap((e) => ("line" in e ? [e.line] : []));
+    const cols = buildCols(
+      lineIdx.filter(multi).map((j) => lines[j]!),
+      charWidth,
+    );
+    // The row pitch: the median gap between two multi-cell lines next to each other.
+    const pitches: number[] = [];
+    for (let x = 1; x < lineIdx.length; x++) {
+      const a = lineIdx[x - 1]!;
+      const b = lineIdx[x]!;
+      if (b === a + 1 && multi(a) && multi(b)) pitches.push(dy(a, b));
+    }
+    const pitch = median(pitches, height * 1.5);
+    const rows: LayoutRow[] = [];
+    let prev = -1;
+    for (const e of entries) {
+      if (!("line" in e)) {
+        rows.push({ cells: [], pos: null });
+        prev = -1;
+        continue;
+      }
+      const l = lines[e.line]!;
+      if (l.cells.length === 1) {
+        const c = l.cells[0]!;
+        const k = nearestColumn(cols, c, charWidth);
+        const last = rows[rows.length - 1];
+        // A wrapped cell sits clearly closer to the line above than the row pitch (C17, C-new-3). A one-cell line
+        // at the pitch is a row of its own with the other cells blank.
+        const wrapped = prev !== -1 && dy(prev, e.line) < pitch * 0.75;
+        if (wrapped && last && last.pos) {
+          last.cells[k] = last.cells[k] === "" ? c.text : `${last.cells[k]} ${c.text}`;
+          const at = last.pos.find((p) => columnOf(cols, p, charWidth) === k);
+          if (at) {
+            at.text = last.cells[k]!;
+            at.x1 = Math.max(at.x1, c.x1);
+          } else last.pos.push({ ...c });
+        } else {
+          const cells = Array<string>(cols.length).fill("");
+          cells[k] = c.text;
+          rows.push({ cells, pos: [{ ...c }] });
+        }
+        prev = e.line;
+        continue;
+      }
+      const cells = Array<string>(cols.length).fill("");
+      for (const c of l.cells) {
+        const k = nearestColumn(cols, c, charWidth);
+        if (cells[k] !== "") fused++;
+        cells[k] = cells[k] === "" ? c.text : `${cells[k]} ${c.text}`;
+      }
+      rows.push({ cells, pos: l.cells.map((c) => ({ ...c })) });
+      prev = e.line;
+    }
+    return { rows, cols };
+  };
+
+  const segments: Segment[] = [];
+  let pre: Line[] = [];
   let i = 0;
-  let prevY: number | null = null;
   while (i < lines.length) {
-    const line = lines[i]!;
-    if (prevY !== null && Math.abs(prevY - line.y) > height * 3) push([], null, null);
-    if (line.cells.length < 2) {
-      push([line.cells.map((c) => c.text).join(" ")], null, line.cells);
-      prevY = line.y;
+    if (!multi(i)) {
+      pre.push(lines[i]!);
       i++;
       continue;
     }
-    // A region: a multi-cell line and the lines that follow it within 3 line heights. One-cell lines stay in the
-    // region, so a row with blank cells keeps the region's columns.
-    let j = i + 1;
-    while (j < lines.length && dy(j - 1, j) <= height * 3) j++;
-    const region = lines.slice(i, j);
-    // The row pitch: the median gap between two multi-cell lines next to each other.
-    const pitches: number[] = [];
-    for (let k = i + 1; k < j; k++) if (lines[k - 1]!.cells.length >= 2 && lines[k]!.cells.length >= 2) pitches.push(dy(k - 1, k));
-    const pitch = median(pitches, height * 1.5);
-    const spans = region
-      .filter((l) => l.cells.length >= 2)
-      .flatMap((l) => l.cells.map((c) => [c.x0, c.x1] as const))
-      .sort((a, b) => a[0] - b[0]);
-    const cols: [number, number][] = [];
-    for (const [a, b] of spans) {
-      const last = cols[cols.length - 1];
-      if (last && a <= last[1] + charWidth * 0.5) last[1] = Math.max(last[1], b);
-      else cols.push([a, b]);
+    const { entries, end } = collectRun(i);
+    // A lone multi-cell line with more text after it (a "Party: ... Date: ..." line) heads what follows.
+    if (entries.length === 1 && end < lines.length) {
+      pre.push(lines[i]!);
+      i++;
+      continue;
     }
-    region.forEach((l, r) => {
-      if (l.cells.length === 1) {
-        const c = l.cells[0]!;
-        const k = columnOf(cols, c, charWidth);
-        // A wrapped cell sits clearly closer to the line above than the row pitch (C17, C-new-3). A one-cell line
-        // at the pitch is a row of its own with the other cells blank.
-        const wrapped = r > 0 && dy(i + r - 1, i + r) < pitch * 0.75;
-        const last = matrix[matrix.length - 1];
-        if (k !== -1 && wrapped && last && last.length === cols.length) {
-          last[k] = last[k] === "" ? c.text : `${last[k]} ${c.text}`;
-          return;
-        }
-        if (k === -1) {
-          push([c.text], null, l.cells);
-          return;
-        }
-        const row = Array<string>(cols.length).fill("");
-        row[k] = c.text;
-        push(row, cols, l.cells);
-        return;
-      }
-      const row = Array<string>(cols.length).fill("");
-      for (const c of l.cells) {
-        const k = columnOf(cols, c, charWidth);
-        const at = k === -1 ? 0 : k;
-        row[at] = row[at] === "" ? c.text : `${row[at]} ${c.text}`;
-      }
-      push(row, cols, l.cells);
-    });
-    prevY = region[region.length - 1]!.y;
-    i = j;
+    const { rows, cols } = emitRun(entries);
+    segments.push({ pre, rows, cols });
+    pre = [];
+    i = end;
   }
-  return { matrix, rowCols, rowCells, charWidth };
+  if (pre.length > 0) segments.push({ pre: [], rows: pre.map((l) => ({ cells: l.cells.map((c) => c.text), pos: l.cells.map((c) => ({ ...c })) })), cols: null });
+  return { segments, charWidth, height, fused };
 }
 
+/** The matrix rows of a segment: its title lines, then its rows. */
+const segmentMatrix = (s: Segment): string[][] => [...s.pre.map((l) => l.cells.map((c) => c.text)), ...s.rows.map((r) => r.cells)];
+
 export function textItemsToMatrix(itemsIn: readonly TextItem[], opts: PdfTextOptions = {}): string[][] {
-  return layoutPage(itemsIn, opts).matrix;
+  const out: string[][] = [];
+  layoutPage(itemsIn, opts).segments.forEach((s, k) => {
+    if (k > 0) out.push([]);
+    out.push(...segmentMatrix(s));
+  });
+  return out;
 }
 
 export type PdfTextRead = {
   blocks: ReadBlock[];
-  /** A page with text that gave no table and no rows (`page 3: text but no table`). No cell text is quoted. */
+  /**
+   * Text the reader could not use, one line per page and kind: `page 3: text but no table`, `page 2: 1 row did not
+   * line up with the table above`. No cell text is quoted.
+   */
   warnings: string[];
 };
 
 const nonBlankCells = (r: readonly string[]) => r.filter((c) => c !== "").length;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** A line under a table that is not data: a signature, a print stamp, a note (C-new-4). */
 const FOOTER = /^(?:printed|prepared|checked|verified|approved|authori[sz]ed|signature|signatory|receiver'?s?\s+sign|thank|continued|contd|e\.?\s*&\s*o\.?\s*e|subject\s+to\b)/i;
@@ -212,67 +375,84 @@ function placeByX(cells: readonly Cell[], cols: readonly (readonly [number, numb
 export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTextOptions = {}): PdfTextRead {
   const out: ReadBlock[] = [];
   const warnings: string[] = [];
-  /** The column x spans of the page a block started on. */
+  /** The column x spans of the run a block came from. */
   const blockCols = new Map<ReadBlock, readonly (readonly [number, number])[]>();
   pages.forEach((items, p) => {
     const page = layoutPage(items, opts);
-    const matrix = page.matrix;
-    const prev = [...out].reverse().find((b) => b.rows.length > 0);
-    let rest = matrix;
     let appended = 0;
+    let found = 0;
+    let misplaced = 0;
     let offset = 0;
-    if (p > 0 && prev) {
-      // Rows above the first header-like row continue the table of the page before.
-      let h = matrix.findIndex((r) => isHeaderLike(r));
-      if (h === -1) h = matrix.length;
-      const width = prev.headers.length;
-      const cols = blockCols.get(prev);
-      let misplaced = 0;
-      matrix.slice(0, h).forEach((r, x) => {
-        // A lone short line (a page number, a footer) is noise.
-        if (nonBlankCells(r) < 2) return;
-        const cells = page.rowCells[x];
-        const placed = cols && cells ? placeByX(cells, cols, width, page.charWidth) : r.length === width ? r : null;
-        if (!placed) {
-          misplaced++;
-          return;
-        }
-        prev.rows.push(placed);
-        appended++;
-      });
-      if (misplaced > 0) warnings.push(`page ${p + 1}: ${misplaced} ${misplaced === 1 ? "row" : "rows"} did not line up with the table above`);
-      rest = matrix.slice(h);
-      offset = h;
-    }
-    const blocks = findBlocks(rest, { sheetName: `Page ${p + 1}` });
-    for (const b of blocks) {
-      // Footer lines under a table are not rows (C17): a one-cell line after a blank gap, or one that reads like a
-      // signature or a note. A one-cell row at the table's row pitch is data (C-new-4).
-      for (;;) {
-        const rows = b.rows;
-        const last = rows[rows.length - 1];
-        if (b.headers.length < 2 || !last) break;
-        if (nonBlankCells(last) === 0) {
-          rows.pop();
-          continue;
-        }
-        if (nonBlankCells(last) > 1) break;
-        const above = rows[rows.length - 2];
-        const afterGap = above !== undefined && nonBlankCells(above) === 0;
-        if (!afterGap && !FOOTER.test(last.find((c) => c !== "")!)) break;
-        rows.pop();
+    page.segments.forEach((seg, s) => {
+      if (s > 0) offset++;
+      const segStart = offset;
+      offset += seg.pre.length + seg.rows.length;
+      let rows = seg.rows;
+      let skipped = 0;
+      const prev = [...out].reverse().find((b) => b.rows.length > 0);
+      if (p > 0 && s === 0 && prev && seg.cols) {
+        // Rows above the first header-like row continue the table of the page before.
+        let h = rows.findIndex((r) => isHeaderLike(r.cells));
+        if (h === -1) h = rows.length;
+        const width = prev.headers.length;
+        const cols = blockCols.get(prev);
+        rows.slice(0, h).forEach((r) => {
+          // A lone short line (a page number, a footer) is noise.
+          if (nonBlankCells(r.cells) < 2) return;
+          const placed = cols && r.pos ? placeByX(r.pos, cols, width, page.charWidth) : r.cells.length === width ? r.cells : null;
+          if (!placed) {
+            misplaced++;
+            return;
+          }
+          prev.rows.push(placed);
+          appended++;
+        });
+        rows = rows.slice(h);
+        skipped = h;
       }
-      const at = offset + b.firstDataSheetRow;
-      const cols = page.rowCols[at - 1] ?? page.rowCols[at] ?? null;
-      if (cols) blockCols.set(b, cols);
-    }
-    blocks.forEach((b, k) => {
-      const last = [...out].reverse().find((x) => x.rows.length > 0);
-      const sameHeader = last && k === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
-      if (last && sameHeader) last.rows.push(...b.rows);
-      else out.push(b);
+      // The run alone gives the header; the lines above it are the title of its first block.
+      const sheetName = `Page ${p + 1}`;
+      const preText = seg.pre.map((l) => l.cells.map((c) => c.text).join(" "));
+      let blocks = findBlocks(
+        rows.map((r) => r.cells),
+        { sheetName },
+      );
+      if (blocks.length > 0 && preText.length > 0) {
+        const b = blocks[0]!;
+        b.title = [...preText, ...(b.title ? [b.title] : [])].join(" ");
+        b.headerRow += preText.length;
+        b.firstDataSheetRow += preText.length;
+      } else if (blocks.length === 0 && preText.length > 0) {
+        blocks = findBlocks([...seg.pre.map((l) => l.cells.map((c) => c.text)), ...rows.map((r) => r.cells)], { sheetName });
+      }
+      for (const b of blocks) {
+        // Footer lines under a table are not rows (C17): a one-cell line after a blank gap, or one that reads like a
+        // signature or a note. A one-cell row at the table's row pitch is data (C-new-4).
+        for (;;) {
+          const last = b.rows[b.rows.length - 1];
+          if (b.headers.length < 2 || !last) break;
+          if (nonBlankCells(last) === 0) {
+            b.rows.pop();
+            continue;
+          }
+          if (nonBlankCells(last) > 1) break;
+          const above = b.rows[b.rows.length - 2];
+          const afterGap = above !== undefined && nonBlankCells(above) === 0;
+          if (!afterGap && !FOOTER.test(last.find((c) => c !== "")!)) break;
+          b.rows.pop();
+        }
+        b.firstDataSheetRow += segStart + skipped;
+        if (seg.cols) blockCols.set(b, seg.cols);
+        const last = [...out].reverse().find((x) => x.rows.length > 0);
+        const sameHeader = last && found === 0 && last.headers.length === b.headers.length && last.headers.every((h, x) => h.toLowerCase() === b.headers[x]!.toLowerCase());
+        if (last && sameHeader) last.rows.push(...b.rows);
+        else out.push(b);
+        found++;
+      }
     });
-    if (items.some((i) => i.str.trim() !== "") && blocks.length === 0 && appended === 0) warnings.push(`page ${p + 1}: text but no table`);
+    if (misplaced > 0) warnings.push(`page ${p + 1}: ${plural(misplaced, "row", "rows")} did not line up with the table above`);
+    if (page.fused > 0) warnings.push(`page ${p + 1}: ${plural(page.fused, "row has", "rows have")} two values in one column`);
+    if (items.some((i) => i.str.trim() !== "") && found === 0 && appended === 0) warnings.push(`page ${p + 1}: text but no table`);
   });
   // A header with no rows under it (a footer read as a header) is no table.
   return { blocks: out.filter((b) => b.rows.length > 0), warnings };

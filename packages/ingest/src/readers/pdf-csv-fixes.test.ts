@@ -126,3 +126,53 @@ describe("C-new-4: a trailing one-cell row at the row pitch is data", () => {
     expect(readPdfText([signed]).blocks[0]!.rows.length).toBe(2);
   });
 });
+
+// Review 3.
+describe("C-new-6: a table and the line or table next to it keep their own columns", () => {
+  test("two tables stacked with a one-cell Summary line between them", () => {
+    const second = [
+      it("Summary", 50, 725),
+      it("Party", 50, 710), it("Bundles", 170, 710), it("Kg", 280, 710),
+      it("Om Metals", 50, 695), it("12", 180, 695), it("2180", 280, 695),
+      it("Shree Ganesh", 50, 680), it("4", 185, 680), it("640", 280, 680),
+    ];
+    const r = readPdfText([[...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980"), ...second]]);
+    expect(r.blocks.length).toBe(2);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+    expect(r.blocks[0]!.rows).toEqual([
+      ["1", "R 2105", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+    ]);
+    expect(r.blocks[1]!.title).toBe("Summary");
+    expect(r.blocks[1]!.headers).toEqual(["Party", "Bundles", "Kg"]);
+    expect(r.blocks[1]!.rows).toEqual([
+      ["Om Metals", "12", "2180"],
+      ["Shree Ganesh", "4", "640"],
+    ]);
+  });
+
+  test("a Party and Date line, a one-cell PACKING LIST line, then the table", () => {
+    const top = [it("Party: Om Metals", 50, 800), it("Date: 31.10.2025", 300, 800), it("PACKING LIST", 150, 785)];
+    const r = readPdfText([[...top, ...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980")]]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+    expect(r.blocks[0]!.title).toBe("Party: Om Metals Date: 31.10.2025 PACKING LIST");
+    expect(r.blocks[0]!.rows).toEqual([
+      ["1", "R 2105", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+    ]);
+  });
+
+  test("a Party and Date line right above the header does not fuse the Sr and Section columns", () => {
+    const top = [it("Party: Om Metals", 50, 785), it("Date: 31.10.2025", 300, 785)];
+    const r = readPdfText([[...top, ...header(770), ...row(755, "1", "R 2105", "25", "1200"), ...row(740, "2", "R 2106", "8", "980")]]);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.headers).toEqual(["Sr", "Section", "Qty", "Weight"]);
+    expect(r.blocks[0]!.title).toBe("Party: Om Metals Date: 31.10.2025");
+    expect(r.blocks[0]!.rows).toEqual([
+      ["1", "R 2105", "25", "1200"],
+      ["2", "R 2106", "8", "980"],
+    ]);
+    expect(r.warnings).toEqual([]);
+  });
+});
