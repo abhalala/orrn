@@ -169,7 +169,8 @@ const resemblance = (p: PreviewRow, headerRows: 1 | 2, c: FitCandidate): HeaderR
  * The header to trust, or the question to ask (PORTAL-RULES-3 section 5.1). Every preview row is tried as a one-row
  * header and, with the row under it, as a two-row header. Only an exact fit is trusted, and the top-most one wins
  * (M1). An exact fit below the guess is trusted only when no filled row sits between the guess's header rows and it:
- * otherwise it may be a second table under the first, and the answer is "ask". A preview with a gap in its row numbers
+ * otherwise it may be a second table under the first, and the answer is "ask". One above the guess is trusted only
+ * when no blank row sits between it and the guess (rows of a table above, shown around a split, are not its header). A preview with a gap in its row numbers
  * left rows out (a long letterhead, M6), and the answer is "ask" too. `ask` carries the guess and the preview rows of
  * two or more filled cells, best first: the row named in `resembles`, the guess, rows that read like a header, the
  * rest, each in sheet order. `resembles` is an untrusted exact fit, or else the best near fit (more columns found by name,
@@ -180,9 +181,15 @@ export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): Heade
   const guess: HeaderPick = { headerRow: input.guess.headerRow, headerRows: input.guess.headerRows ?? 1 };
   const guessAt = preview.findIndex((p) => p.row === guess.headerRow);
   const gap = preview.some((p, i) => i > 0 && p.page === preview[i - 1]!.page && p.row > preview[i - 1]!.row + 1);
-  // A pick below the guess with a filled row between them is not trusted.
-  const blocked = (at: number) => {
-    if (guessAt === -1 || at < guessAt + guess.headerRows) return false;
+  // A pick below the guess with a filled row between them, or above the guess with a blank row between them (the
+  // rows of a table above, shown around a split), is not trusted.
+  const blocked = (at: number, rows: 1 | 2) => {
+    if (guessAt === -1) return false;
+    if (at < guessAt) {
+      for (let i = at + rows; i < guessAt; i++) if (filled(preview[i]!.cells) === 0 || preview[i]!.row !== preview[i - 1]!.row + 1) return true;
+      return false;
+    }
+    if (at < guessAt + guess.headerRows) return false;
     for (let i = guessAt + guess.headerRows; i < at; i++) if (filled(preview[i]!.cells) > 0) return true;
     return false;
   };
@@ -193,7 +200,7 @@ export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): Heade
     for (const rows of [1, 2] as const) {
       const f = fitsFor(preview, at, rows, holes);
       if (f.exact) {
-        if (!gap && !blocked(at)) {
+        if (!gap && !blocked(at, rows)) {
           if (!trusted) trusted = { at, headerRows: rows, fit: f.exact };
         } else if (!untrusted) untrusted = resemblance(preview[at]!, rows, f.exact);
       }

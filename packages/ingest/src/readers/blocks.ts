@@ -300,6 +300,36 @@ export function checkHintShape(h: BlockHints): void {
   if (!optional(h.page) || !optional(h.lastPage)) throw new HintError("hint_out_of_range", "the page is not a page number");
 }
 
+/** The first raw row of a block's region: its title, or its header. Not `preview[0]`, which may show rows above. */
+export const regionStartOf = (b: ReadBlock) => b.guess.headerRow - b.headerRow;
+
+/**
+ * The last filled row of rows `from` to `to`, stopping at a run of two or more blank rows (PORTAL-RULES-3 section 5.2):
+ * a single blank row is ignored. `from - 1` when there is none.
+ */
+export function regionEnd(rows: readonly string[][], from: number, to: number): number {
+  let last = from - 1;
+  let blanks = 0;
+  for (let r = from; r <= to; r++) {
+    if (nonBlank(rows[r]!) > 0) {
+      last = r;
+      blanks = 0;
+    } else if (++blanks >= 2) break;
+  }
+  return last;
+}
+
+/** Rows to show around a guessed split: this many filled rows above it and rows from the next block's start. */
+export const SPLIT_CONTEXT_ROWS = 2;
+
+/** `preview` with rows `from` to `to` added, in row order, each row once. */
+function withRows(preview: readonly PreviewRow[], rows: readonly (readonly string[])[], from: number, to: number): PreviewRow[] {
+  const have = new Set(preview.map((p) => p.row));
+  const out = [...preview];
+  for (let r = Math.max(0, from); r <= Math.min(to, rows.length - 1); r++) if (!have.has(r)) out.push({ row: r, cells: [...rows[r]!] });
+  return out.sort((a, b) => a.row - b.row);
+}
+
 /** One sheet read: its blocks, and rows that no block took. */
 export type SheetRead = { blocks: ReadBlock[]; warnings: RowWarning[] };
 
@@ -327,10 +357,10 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
 }
 
 /**
- * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7). The rest of
- * the sheet keeps the guess, so a hint for one table does not swallow or drop another:
- * - A hinted block without a last data row ends before the next hinted header or before the next block the guess
- *   found, whichever comes first.
+ * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7, rule 5.2).
+ * The rest of the sheet keeps the guess, so a hint for one table does not swallow or drop another:
+ * - A hinted block without a last data row ends before the next hinted header, or at the last filled row before two
+ *   or more blank rows, or at the end of the sheet. A single blank row never ends it: a row after one is a row (B5).
  * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
  *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
  *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
@@ -342,7 +372,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
   for (const h of hintsIn) checkHintShape(h);
   const hints = [...hintsIn].sort((a, b) => a.headerRow - b.headerRow);
   const full = guessRange(rows, 0, n, sheetName).blocks;
-  const regionOf = (b: ReadBlock) => [b.preview[0]?.row ?? b.guess.headerRow, Math.max(b.guess.lastDataRow ?? -1, b.guess.headerRow + b.headerRows - 1)] as const;
+  const regionOf = (b: ReadBlock) => [regionStartOf(b), Math.max(b.guess.lastDataRow ?? -1, b.guess.headerRow + b.headerRows - 1)] as const;
   type Span = { hint: BlockHints; h: number; headerRows: 1 | 2; first: number; last: number };
   const spans: Span[] = [];
   let prevLast = -1;
@@ -355,8 +385,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     if (next && next.headerRow < h + headerRows) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the header above`);
     const first = hint.firstDataRow ?? h + headerRows;
     if (first < h + headerRows) throw new HintError("hint_order", `first data row ${first} is above the header`);
-    const stop = full.map((b) => regionOf(b)[0]).find((g) => g > Math.max(h + headerRows - 1, first - 1));
-    const last = hint.lastDataRow ?? Math.min(next ? next.headerRow - 1 : n - 1, stop !== undefined ? stop - 1 : n - 1);
+    const last = hint.lastDataRow ?? Math.max(first - 1, regionEnd(rows, first, next ? next.headerRow - 1 : n - 1));
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
     spans.push({ hint, h, headerRows, first, last });
@@ -462,6 +491,8 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
   const blocks: ReadBlock[] = [];
   const warnings: RowWarning[] = [];
   let pos = from;
+  // The block above a guessed split, and the last filled row before the split.
+  let split: { block: ReadBlock; lastData: number } | null = null;
 
   while (pos < n) {
     let h = -1;
@@ -550,6 +581,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
         end = i;
         break;
       }
+      // A blank row inside one block; the rows after it are rows of this table.
       if (j >= n) break;
       for (let b = i; b < j; b++) data.push(rows[b]!);
       i = j;
@@ -570,8 +602,16 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
       hints: null,
       warnings: blockWarnings,
     };
+    // A guessed split (rule 5.2): both previews show the last rows above it and the first rows of the block below.
+    if (split) {
+      const above = Math.max(split.block.guess.firstDataRow ?? 0, split.lastData - SPLIT_CONTEXT_ROWS + 1);
+      split.block.preview = withRows(split.block.preview, rows, above, start + SPLIT_CONTEXT_ROWS);
+      block.preview = withRows(block.preview, rows, above, start - 1);
+      split = null;
+    }
     blocks.push(block);
     if (end === n) break;
+    split = { block, lastData: lastFilled(rows as string[][], dataStart, end - 1) };
   }
   return { blocks, warnings };
 }

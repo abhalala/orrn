@@ -53,11 +53,13 @@ describe("sheet hints are followed exactly", () => {
   test("a word row the guess would take as a new header stays a row under a hint with its last row", () => {
     const m = [["Party", "Section", "Qty", "Kg"], ["Om", "R 2105", 12, 1200], [], ["Shree Ganesh", "T 4012", "Cancelled", ""], ["Kamal", "R 2106", 5, 500]];
     expect(findBlocks(m).length).toBe(2);
-    // R3-7: a hint for one block leaves the other guessed block in place; the last data row joins them.
+    // Round 5, rule 5.2 (B5): a hinted read never splits at one blank row. This pinned two blocks under the hint; it
+    // now pins one block holding every row, with or without the last row.
     const open = findBlocks(m, { hints: [{ headerRow: 0 }] });
-    expect(open.length).toBe(2);
-    expect(open[0]!.rows.length).toBe(1);
-    expect(asked(open[1]!)).toBe(true);
+    expect(open.length).toBe(1);
+    expect(open[0]!.rows.length).toBe(4);
+    // Without hints the guess still splits, and the second block is asked about.
+    expect(asked(findBlocks(m)[1]!)).toBe(true);
     const [b, ...rest] = findBlocks(m, { hints: [{ headerRow: 0, lastDataRow: 4 }] });
     expect(rest).toEqual([]);
     expect(b!.rows.length).toBe(4);

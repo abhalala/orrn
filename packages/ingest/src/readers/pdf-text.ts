@@ -6,7 +6,7 @@
  * one-cell line that is not a row of the table ends the run (C-new-6). Each run goes through `readSheet` like a sheet.
  */
 import { cellKind, inferKind } from "../cells";
-import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isValueCell, isWord, previewIndices, readSheet, TITLE_MARK } from "./blocks";
+import { checkHintShape, combineHeaders, couldBeHeader, finishShape, HintError, isHeaderLike, isValueCell, isWord, previewIndices, readSheet, regionStartOf, TITLE_MARK } from "./blocks";
 import { type BlockHints, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export type TextItem = {
@@ -769,7 +769,7 @@ export function readPdfText(pages: readonly (readonly TextItem[])[], opts: PdfTe
         const lastIdx = first + b.rows.length - 1;
         const firstLine = src[first]?.line ?? headEnd + 1;
         const lastLine = lastIdx >= first ? src[lastIdx]!.last : firstLine - 1;
-        const regionStart = bi === 0 && titleLines > 0 ? pre[0]!.n : (src[b.preview[0]?.row ?? g.headerRow]?.line ?? headLine);
+        const regionStart = bi === 0 && titleLines > 0 ? pre[0]!.n : (src[regionStartOf(b)]?.line ?? headLine);
         b.guess = { page: p + 1, headerRow: headLine, headerRows: b.headerRows, firstDataRow: firstLine, lastDataRow: lastLine, lastPage: p + 1 };
         b.preview = linesPreview(page.lines, regionStart, Math.max(lastLine, headEnd), p + 1, headLine, headEnd - headLine + 1);
         b.firstDataSheetRow += segStart + skipped;
