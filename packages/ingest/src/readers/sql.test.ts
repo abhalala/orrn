@@ -93,7 +93,7 @@ describe("Postgres COPY blocks", () => {
     expect(r.unparsedCount).toBe(0);
   });
   test("parseCopyLine", () => {
-    expect(parseCopyLine("a\\N\t\\N\t\\x41\\101")).toEqual(["a\\N", "", "AA"]);
+    expect(parseCopyLine("a\\N\t\\N\t\\x41\\101")).toEqual(["aN", "", "AA"]);
   });
 });
 

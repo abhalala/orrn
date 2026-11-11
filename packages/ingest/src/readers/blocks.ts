@@ -149,6 +149,7 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
         end = i;
         break;
       }
+      if (j >= n) break;
       for (let b = i; b < j; b++) data.push(rows[b]!);
       i = j;
     }
