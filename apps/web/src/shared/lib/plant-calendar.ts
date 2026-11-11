@@ -94,3 +94,24 @@ export function yearInZone(at: number, zone: string): string {
   }
   return f.format(at);
 }
+
+const joinerCache = new Map<string, string>();
+
+/**
+ * The words the language puts between a day and a time ("24 Oct at 20:00" in English on current browsers, a comma
+ * on others). The orders timeline took this from `Intl` itself, so it is read from `Intl` here: a plant that
+ * changed nothing sees the same joiner as before, whatever the browser's ICU says. Nothing is shown from this call
+ * but the joiner.
+ */
+export function dateTimeJoiner(locale: "en" | "hi" | "gu"): string {
+  const tag = locale === "hi" ? "hi-IN" : "en-IN";
+  let joiner = joinerCache.get(tag);
+  if (joiner === undefined) {
+    const parts = new Intl.DateTimeFormat(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, numberingSystem: "latn", timeZone: "UTC" }).formatToParts(0);
+    const i = parts.findIndex((p) => p.type === "month");
+    const next = parts[i + 1];
+    joiner = next && next.type === "literal" ? next.value : ", ";
+    joinerCache.set(tag, joiner);
+  }
+  return joiner;
+}

@@ -18,7 +18,7 @@
 import type { Fmt } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
 
-import { isValidZone, yearInZone as yearIn } from "./plant-calendar";
+import { dateTimeJoiner, isValidZone, yearInZone as yearIn } from "./plant-calendar";
 
 /** `formatKg(kg)`: two decimals, Indian grouping (the old band wording). */
 const TWO_DECIMALS = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -71,25 +71,6 @@ export function whenText(fmt: Fmt, at: string | number | Date, now: number = Dat
   if (!Number.isFinite(ms)) return "";
   const sameYear = yearIn(ms, fmt.zone) === yearIn(now, fmt.zone);
   return `${fmt.date(ms, { year: !sameYear })}, ${fmt.time(ms)}`;
-}
-
-const joinerCache = new Map<string, string>();
-/**
- * The words the language puts between a day and a time ("24 Oct at 20:00" in English on current browsers, a comma
- * on others). The orders timeline took this from `Intl` itself, so it is read from `Intl` here: a plant that
- * changed nothing sees the same joiner as before, whatever the browser's ICU says.
- */
-function dateTimeJoiner(locale: Fmt["locale"]): string {
-  const tag = locale === "hi" ? "hi-IN" : "en-IN";
-  let joiner = joinerCache.get(tag);
-  if (joiner === undefined) {
-    const parts = new Intl.DateTimeFormat(tag, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, numberingSystem: "latn", timeZone: "UTC" }).formatToParts(0);
-    const i = parts.findIndex((p) => p.type === "month");
-    const next = parts[i + 1];
-    joiner = next && next.type === "literal" ? next.value : ", ";
-    joinerCache.set(tag, joiner);
-  }
-  return joiner;
 }
 
 /** "24 Oct at 20:00" (the joiner is the language's own): a day and the time, no year (orders timelines). */
