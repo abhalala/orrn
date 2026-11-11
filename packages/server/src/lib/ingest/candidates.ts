@@ -945,7 +945,7 @@ export async function setAnswer(
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
     // Sibling order sheets of the file take the same date: they re-run too (A13).
-    statements.push(...(await periodRerun(ctx, artifact.id, c.id)));
+    statements.push(...(await periodRerun(ctx, artifact.id, c.id, (artifact.periodConfirmed?.asOf ?? null) !== a.asOf)));
     statements.push(
       ctx.db
         .update(ingestArtifact)

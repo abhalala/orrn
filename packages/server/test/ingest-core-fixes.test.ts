@@ -764,6 +764,24 @@ describe("A13, A40: the period date reaches every order sheet of the file", () =
     await pump(p.owner, id);
     expect((await p.owner.ingest.rows.list({ candidateId: id })).items[0]!.values?.orderDate).toBe("2026-03-31");
   });
+
+  test("a sheet held after a failed merge chunk refuses a new date; the same date again is fine", async () => {
+    const p = await plant();
+    await learnLayout(p.companyId, p.users.owner.id, undated(), "Baki");
+    const { candidates, artifactId } = await upload(p.owner, [{ headers: BAKI_SHEET_HEADERS, rows: [BAKI_ROW] }]);
+    const id = candidates[0]!.id;
+    await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-10-31" });
+    await pump(p.owner, id);
+    // Merge chunk 3 failed: the candidate is held, its layout locked, 200 rows written with 2025-10-31.
+    await env.d1.prepare("update ingest_candidate set state = 'held', recipe_locked = 1, rows_written = 200 where id = ?").bind(id).run();
+    const before = await p.owner.ingest.candidate.get({ candidateId: id });
+    await expect(p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2026-03-31" })).rejects.toThrow(/already merged with the old date/);
+    expect((await p.owner.ingest.artifact.get({ artifactId })).periodConfirmed?.asOf).toBe("2025-10-31");
+    const after = await p.owner.ingest.candidate.get({ candidateId: id });
+    expect(after).toMatchObject({ state: "held", serverSeq: before.serverSeq });
+    await p.owner.ingest.period.confirm({ artifactId, fy: "2025-26", asOf: "2025-10-31" });
+    expect((await p.owner.ingest.candidate.get({ candidateId: id })).state).toBe("held");
+  });
 });
 
 describe("A15, A20: a held candidate has a plain way back", () => {

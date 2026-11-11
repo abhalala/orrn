@@ -510,7 +510,7 @@ export async function confirmPeriod(
       .update(ingestArtifact)
       .set({ periodConfirmed: { fy: input.fy, asOf: input.asOf }, updatedAt: at })
       .where(and(eq(ingestArtifact.id, a.id), eq(ingestArtifact.companyId, ctx.companyId))),
-    ...(await periodRerun(ctx, a.id, null)),
+    ...(await periodRerun(ctx, a.id, null, (a.periodConfirmed?.asOf ?? null) !== input.asOf)),
   ];
   await guardedBatch(ctx.db, statements);
   return artifactSummary(await loadArtifact(ctx, a.id));
@@ -519,10 +519,12 @@ export async function confirmPeriod(
 /**
  * Every orders candidate of the file whose rows take the period's date goes back to processing from
  * row 0, an approved one too (its approval is cleared and audited), so no sheet keeps the old date
- * (A13). A sheet already merging refuses the change; one with rows written keeps its rows. `except` is
- * the candidate the caller changes itself.
+ * (A13). A sheet already merging refuses the change. So does a sheet with rows already written or its
+ * layout locked by a merge, when the date really changes: its written rows carry the old date, and a
+ * new date would leave one file with two order dates. `except` is the candidate the caller changes
+ * itself; it is checked too, but not re-queued here.
  */
-export async function periodRerun(ctx: IngestCtx, artifactId: string, except: string | null): Promise<SqliteBatchItem[]> {
+export async function periodRerun(ctx: IngestCtx, artifactId: string, except: string | null, asOfChanged: boolean): Promise<SqliteBatchItem[]> {
   const affected = await ctx.db
     .select()
     .from(ingestCandidate)
@@ -531,7 +533,7 @@ export async function periodRerun(ctx: IngestCtx, artifactId: string, except: st
         eq(ingestCandidate.companyId, ctx.companyId),
         eq(ingestCandidate.artifactId, artifactId),
         eq(ingestCandidate.target, "orders"),
-        inArray(ingestCandidate.state, ["processing", "ready", "held", "approved", "merging"]),
+        inArray(ingestCandidate.state, ["processing", "ready", "held", "approved", "merging", "merged"]),
       ),
     );
   const uses = affected.filter((c) => {
@@ -541,9 +543,12 @@ export async function periodRerun(ctx: IngestCtx, artifactId: string, except: st
   if (uses.some((c) => c.state === "merging")) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "A sheet of this file is being merged. Change the date after the merge." });
   }
+  if (asOfChanged && uses.some((c) => c.state === "merged" || c.recipeLocked || c.rowsWritten > 0)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Rows of this sheet are already merged with the old date" });
+  }
   const out: SqliteBatchItem[] = [];
   for (const c of uses) {
-    if (c.id === except || c.recipeLocked || c.rowsWritten > 0) continue;
+    if (c.id === except || c.state === "merged" || c.recipeLocked || c.rowsWritten > 0) continue;
     out.push(...candidateChange(ctx, c.id, c.serverSeq, { state: "processing", dryCursor: 0, approvedBy: null, approvedAt: null }));
     if (c.state === "approved") {
       out.push(
