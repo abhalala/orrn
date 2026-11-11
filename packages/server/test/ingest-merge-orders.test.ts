@@ -238,3 +238,55 @@ describe("one order is never sent as two (B1, B5)", () => {
   });
 });
 
+
+describe("replay keys come from the rows, not the chunk (B8)", () => {
+  async function reopen(candidateId: string, rowIndexes: number[]) {
+    const { ingestCandidate, ingestStagedRow } = await import("@orrn/db/schema/ingest");
+    const { and, eq, inArray } = await import("drizzle-orm");
+    // What a call that landed but looked failed leaves: the rows open, the candidate approved again.
+    await env.db
+      .update(ingestStagedRow)
+      .set({ mergeState: "open", committedType: null, committedId: null })
+      .where(and(eq(ingestStagedRow.candidateId, candidateId), inArray(ingestStagedRow.rowIndex, rowIndexes)));
+    await env.db.update(ingestCandidate).set({ state: "approved" }).where(eq(ingestCandidate.id, candidateId));
+  }
+
+  test("an order that landed is not made again when a later run sends its rows in another chunk", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const admin = await api(companyId, "admin");
+    const seeded = await seedCandidate(env, companyId, "orders", [
+      line(customerId, dieId, { oldOrderNo: "E-1" }),
+      line(customerId, dieId, { oldOrderNo: "E-2" }),
+      line(customerId, dieId, { oldOrderNo: "E-3" }),
+    ]);
+    expect((await mergeAll(admin)).state).toBe("done");
+    const before = (await stagedRows(env, seeded.candidateId)).map((r) => r.committedId);
+    await reopen(seeded.candidateId, [2]);
+    expect((await mergeAll(admin)).state).toBe("done");
+    expect((await orderRows(companyId)).orders).toHaveLength(3);
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => r.committedId)).toEqual(before);
+  });
+
+  test("an error while confirming after the order was made records the rows as written; a rerun makes no second order", async () => {
+    const { spyOn } = await import("bun:test");
+    const flow = await import("../src/routers/orderFlow");
+    const { companyId, customerId, dieId } = await plant();
+    const admin = await api(companyId, "admin");
+    const seeded = await seedCandidate(env, companyId, "orders", [line(customerId, dieId, { poNumber: "PO-CF", pcs: 10 })]);
+    const spy = spyOn(flow, "confirmOrder").mockImplementation(async () => {
+      throw new Error("D1_ERROR: network connection lost");
+    });
+    try {
+      expect((await mergeAll(admin)).state).toBe("done");
+    } finally {
+      spy.mockRestore();
+    }
+    const [row] = await stagedRows(env, seeded.candidateId);
+    expect(row!.mergeState).toBe("written");
+    expect(row!.reasons).toContain("confirm_blocked:The order was saved as a booking but could not be confirmed. Confirm it on the order screen.");
+    await reopen(seeded.candidateId, [0]);
+    expect((await mergeAll(admin)).state).toBe("done");
+    expect((await orderRows(companyId)).orders).toHaveLength(1);
+    expect(await auditRows(env, companyId, "order.create")).toHaveLength(1);
+  });
+});

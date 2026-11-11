@@ -282,3 +282,27 @@ describe("the run", () => {
     expect(await count("customer", companyId)).toBe(1);
   });
 });
+
+describe("one-row calls replay by row (B8)", () => {
+  test("a die copy that landed is not made again when a later run sends it in another chunk", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const dieId = await env.seedDie(companyId, { series: "R", sectionCode: "7300" });
+    const seeded = await seedCandidate(env, companyId, "die_copies", [
+      { values: { series: "R", sectionCode: "7300", makerDieNo: "RK-1", _ids: { sectionCode: dieId } } },
+      { values: { series: "R", sectionCode: "7300", makerDieNo: "RK-2", _ids: { sectionCode: dieId } } },
+    ]);
+    expect((await mergeAll(api)).state).toBe("done");
+    const before = (await stagedRows(env, seeded.candidateId)).map((r) => r.committedId);
+    const { ingestCandidate, ingestStagedRow } = await import("@orrn/db/schema/ingest");
+    const { and, eq } = await import("drizzle-orm");
+    await env.db
+      .update(ingestStagedRow)
+      .set({ mergeState: "open", committedType: null, committedId: null })
+      .where(and(eq(ingestStagedRow.candidateId, seeded.candidateId), eq(ingestStagedRow.rowIndex, 1)));
+    await env.db.update(ingestCandidate).set({ state: "approved" }).where(eq(ingestCandidate.id, seeded.candidateId));
+    expect((await mergeAll(api)).state).toBe("done");
+    expect(await count("die_instance", companyId)).toBe(2);
+    expect((await stagedRows(env, seeded.candidateId)).map((r) => r.committedId)).toEqual(before);
+  });
+});

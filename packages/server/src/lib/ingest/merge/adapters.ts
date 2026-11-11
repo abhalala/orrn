@@ -75,22 +75,32 @@ function patchOf(row: StagedRow): Values {
   return out;
 }
 
-/** True when an update call of this chunk and row already wrote its audit row (a resend after a crash). */
-async function updatedBefore(ctx: IngestCtx, action: string, chunkId: string, rowIndex: number): Promise<boolean> {
+/**
+ * True when an update of this staged row already wrote its audit row (a resend after a crash, or a
+ * rerun after a call that landed but looked failed). Keyed by the record, the candidate and the
+ * row, not the chunk, so a later chunk or run finds it too (B8). The subject filter uses
+ * audit_subject_idx (Bm6).
+ */
+async function updatedBefore(ctx: IngestCtx, action: string, subjectType: string, row: StagedRow): Promise<boolean> {
   const [hit] = await ctx.db
     .select({ id: auditLog.id })
     .from(auditLog)
     .where(
       and(
         eq(auditLog.companyId, ctx.companyId),
+        eq(auditLog.subjectType, subjectType),
+        eq(auditLog.subjectId, row.matchId!),
         eq(auditLog.action, action),
-        sql`json_extract(${auditLog.meta}, '$.source.chunkId') = ${chunkId}`,
-        sql`json_extract(${auditLog.meta}, '$.source.rowFrom') = ${rowIndex}`,
+        sql`json_extract(${auditLog.meta}, '$.source.candidateId') = ${row.candidateId}`,
+        sql`json_extract(${auditLog.meta}, '$.source.rowFrom') = ${row.rowIndex}`,
       ),
     )
     .limit(1);
   return !!hit;
 }
+
+/** The replay key of a one-row call: from the staged row, never the chunk (B8). */
+const rowKey = (row: StagedRow) => rowsRequestId([row.id]);
 
 /** Run one call per row, in order, stopping at the first refusal. */
 async function perRow(
@@ -139,7 +149,7 @@ const customers: Adapter = async (args) => {
   if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       const caller = await args.callerFor(args.sourceOf([row]));
-      if (!(await updatedBefore(ctx, "customer.update", args.chunk.id, row.rowIndex))) {
+      if (!(await updatedBefore(ctx, "customer.update", "customer", row))) {
         const live = await caller.customer.get({ id: row.matchId! });
         const p = patchOf(row);
         const has = (k: string) => Object.hasOwn(p, k);
@@ -226,7 +236,7 @@ const vendors: Adapter = async (args) => {
   if ("failure" in k) return k.failure;
   if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
-      if (!(await updatedBefore(ctx, "vendor.update", args.chunk.id, row.rowIndex))) {
+      if (!(await updatedBefore(ctx, "vendor.update", "vendor", row))) {
         const p = patchOf(row);
         const caller = await args.callerFor(args.sourceOf([row]));
         await caller.vendor.update({
@@ -241,7 +251,7 @@ const vendors: Adapter = async (args) => {
     });
   }
   const index = await loadVendorIndex(ctx);
-  return perRow(args, rows, async (row, i) => {
+  return perRow(args, rows, async (row) => {
     const v = valuesOf(row);
     // A name added since the dry run is not added again (plan D7).
     const hit = resolveName(index, text(v.name) ?? "");
@@ -252,7 +262,7 @@ const vendors: Adapter = async (args) => {
       .map((a) => a.trim())
       .filter(Boolean);
     const res = await caller.vendor.create({
-      clientRequestId: `${args.chunk.id}-${i}`,
+      clientRequestId: await rowKey(row),
       name: text(v.name) ?? "",
       gstin: nullable(v.gstin),
       phone: nullable(v.phone),
@@ -276,10 +286,10 @@ const vendorAliases: Adapter = async (args) => {
       failure: { code: "BAD_REQUEST", message: "A name that belongs to another vendor is not moved by an import. Skip these rows.", reason: "merge_failed" },
     };
   }
-  return perRow(args, rows, async (row, i) => {
+  return perRow(args, rows, async (row) => {
     const vendorId = refOf(row, "vendor", refs)!;
     const caller = await args.callerFor(args.sourceOf([row]));
-    const res = await caller.vendor.addAlias({ clientRequestId: `${args.chunk.id}-${i}`, vendorId, alias: text(valuesOf(row).alias) ?? "" });
+    const res = await caller.vendor.addAlias({ clientRequestId: await rowKey(row), vendorId, alias: text(valuesOf(row).alias) ?? "" });
     return { rowId: row.id, committedType: "vendor_alias", committedId: res.id };
   });
 };
@@ -383,7 +393,7 @@ const dieCopies: Adapter = async (args) => {
   if ("failure" in k) return k.failure;
   if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
-      if (!(await updatedBefore(ctx, "die_instance.update", args.chunk.id, row.rowIndex))) {
+      if (!(await updatedBefore(ctx, "die_instance.update", "die_instance", row))) {
         // File field to `dieInstance.update` input. The tier of an existing copy moves only by
         // approval, so an import never sends it.
         const fields: Record<string, unknown> = {};
@@ -397,14 +407,14 @@ const dieCopies: Adapter = async (args) => {
       return { rowId: row.id, committedType: "die_instance", committedId: row.matchId! };
     });
   }
-  return perRow(args, rows, async (row, i) => {
+  return perRow(args, rows, async (row) => {
     const v = valuesOf(row);
     const sectionId = refOf(row, "sectionCode", refs);
     if (!sectionId) throw new TRPCError({ code: "BAD_REQUEST", message: `Section ${text(v.sectionCode)} is not in orrn` });
     const status = text(v.status);
     const caller = await args.callerFor(args.sourceOf([row]));
     const res = await caller.dieInstance.create({
-      clientRequestId: `${args.chunk.id}-${i}`,
+      clientRequestId: await rowKey(row),
       sectionId,
       ...(num(v.tierRank) !== null ? { tierRank: num(v.tierRank)! } : {}),
       ...copyFields(v),
@@ -551,23 +561,26 @@ const orders: Adapter = async (args) => {
       const made = await createSalesOrder({ ...ctx, ingestSource: source }, input, { canPrice, source: "ingest" });
 
       // Confirm when the order is complete; otherwise it stays a booking (plan B4, D9). Not a failure.
+      // The order exists from here on: any error while confirming is recorded on its rows, never
+      // thrown, so the rows are recorded as written and a rerun cannot make it again (B8).
       let blocked: string | null = null;
-      const [order] = await ctx.db
-        .select({ id: salesOrder.id, status: salesOrder.status, poNumber: salesOrder.poNumber })
-        .from(salesOrder)
-        .where(and(eq(salesOrder.id, made.id), eq(salesOrder.companyId, ctx.companyId)))
-        .limit(1);
-      if (order && order.status === "booking") {
-        const blockers = await orderConfirmBlockers(ctx.db, ctx.companyId, order);
-        if (blockers.length > 0) blocked = blockers.join(", ");
-        else {
-          try {
-            await confirmOrder({ ...ctx, ingestSource: source }, { id: order.id });
-          } catch (e) {
-            if (e instanceof TRPCError && (e.code === "BAD_REQUEST" || e.code === "CONFLICT")) blocked = e.message;
-            else throw e;
-          }
+      try {
+        const [order] = await ctx.db
+          .select({ id: salesOrder.id, status: salesOrder.status, poNumber: salesOrder.poNumber })
+          .from(salesOrder)
+          .where(and(eq(salesOrder.id, made.id), eq(salesOrder.companyId, ctx.companyId)))
+          .limit(1);
+        if (order && order.status === "booking") {
+          const blockers = await orderConfirmBlockers(ctx.db, ctx.companyId, order);
+          if (blockers.length > 0) blocked = blockers.join(", ");
+          else await confirmOrder({ ...ctx, ingestSource: source }, { id: order.id });
         }
+      } catch (e) {
+        blocked =
+          e instanceof TRPCError && e.code !== "INTERNAL_SERVER_ERROR"
+            ? e.message
+            : "The order was saved as a booking but could not be confirmed. Confirm it on the order screen.";
+        if (!(e instanceof TRPCError)) console.error("ingest merge: confirm after create failed", e);
       }
       for (const row of group.rows) {
         written.push({
