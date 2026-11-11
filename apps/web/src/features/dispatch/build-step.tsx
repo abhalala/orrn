@@ -9,7 +9,8 @@ import { useRef, type ReactNode } from "react";
 import { Can } from "@/shared/components/can";
 
 import { BundleGroups, type BundleGroupsProps } from "./bundle-groups";
-import { dispatchKgText } from "./format";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 
 export type AddActionsProps = {
   onScan(): void;
@@ -97,6 +98,7 @@ export function ActionBar({
   note?: string;
   children: ReactNode;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const ref = useRef<HTMLDivElement>(null);
   // Toasts ("Stock held", "Removed") rise above the bar instead of covering Dispatch.
@@ -109,7 +111,7 @@ export function ActionBar({
     >
       <div className="flex min-w-0 flex-col px-1.5 sm:px-0">
         <p data-no-truncate="" className="m-0 text-[15px] font-semibold tabular-nums">
-          {t("units.bundlesKg", { bundles, kg: dispatchKgText(weightG) })}
+          {t("units.bundlesKg", { bundles, kg: kgGrouped2(fmt, weightG) })}
         </p>
         {note ? (
           <p id="dispatch-action-note" className="m-0 text-[13px] text-muted-foreground">

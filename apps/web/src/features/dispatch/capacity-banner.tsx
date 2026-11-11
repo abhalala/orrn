@@ -1,9 +1,10 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { AlertTriangle, Truck } from "lucide-react";
 
 import type { CapacityReport } from "@/features/scan/scan-outcome";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 /**
  * How full the truck is (FP-PK-12), from the server's check: quiet while there is room, amber from 95 %
@@ -11,15 +12,16 @@ import type { CapacityReport } from "@/features/scan/scan-outcome";
  * goes, with a reason when it is dispatched. Nothing shows when the dispatch has no capacity set.
  */
 export function CapacityBanner({ capacity, compact = false }: { capacity: CapacityReport | null | undefined; compact?: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (!capacity || capacity.state === "none" || capacity.capacityG == null) return null;
-  const loaded = formatKgTotal(gToKg(capacity.loadedG));
-  const cap = formatKgTotal(gToKg(capacity.capacityG));
+  const loaded = kgGrouped1(fmt, (capacity.loadedG));
+  const cap = kgGrouped1(fmt, (capacity.capacityG));
   const pct = Math.min(100, Math.round((capacity.fillBp ?? 0) / 100));
   const over = capacity.state === "over";
   const near = capacity.state === "near";
   const headline = over
-    ? t("dispatch.capacity.over", { kg: formatKgTotal(gToKg(capacity.overG)) })
+    ? t("dispatch.capacity.over", { kg: kgGrouped1(fmt, (capacity.overG)) })
     : near
       ? t("dispatch.capacity.near")
       : t("dispatch.capacity.fill", { pct });

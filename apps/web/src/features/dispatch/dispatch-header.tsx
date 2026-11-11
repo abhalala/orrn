@@ -3,7 +3,9 @@ import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { cn } from "@orrn/ui/lib/utils";
 
-import { dispatchKgText, formatYmdDay } from "./format";
+import { formatYmdDay } from "./format";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
 
 export type DispatchHeaderProps = {
   code: string;
@@ -32,6 +34,7 @@ export function DispatchHeader({
   weightG,
   celebrate,
 }: DispatchHeaderProps) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const day = formatYmdDay(shipDay?.ymd, { locale });
   const when = day
@@ -75,12 +78,12 @@ export function DispatchHeader({
           </dd>
         </div>
         <div className="flex min-w-0 flex-col gap-1">
-          <dt className="text-[13px] font-semibold">{t("units.kg")}</dt>
+          <dt className="text-[13px] font-semibold">{massUnit(fmt)}</dt>
           <dd className="m-0">
             <BigNumber
               data-testid="dispatch-kg"
               value={weightG / 1000}
-              format={(kg) => dispatchKgText(Math.round(kg * 1000))}
+              format={(kg) => kgGrouped2(fmt, Math.round(kg * 1000))}
               className="text-[40px] sm:text-[52px]"
             />
           </dd>

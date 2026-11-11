@@ -13,9 +13,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
-import { dispatchKgText, formatYmdDay } from "@/features/dispatch/format";
+import { formatYmdDay } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 
 /** Monthly volume chart, only fetched for `analytics.view` (chart kit stays out of floor roles' downloads). */
 const DispatchVolumeChart = lazy(() => import("@/features/dispatch/volume-chart"));
@@ -51,6 +53,7 @@ type Row = {
 };
 
 function DispatchListPage() {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -112,7 +115,7 @@ function DispatchListPage() {
       align: "end",
       cell: (r) => (
         <span data-no-truncate="" className="font-mono">
-          {dispatchKgText(Number(r.totalWeightG))}
+          {kgGrouped2(fmt, Number(r.totalWeightG))}
         </span>
       ),
     },

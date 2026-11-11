@@ -1,4 +1,3 @@
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BarChart, ChartCard, barTable } from "@orrn/ui/charts";
 import { useQuery } from "@tanstack/react-query";
@@ -8,8 +7,8 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { failedFirstLoad } from "./errors";
 import { volumeBars, volumeDateFormat } from "./volume-data";
-
-const kg = (v: number) => `${formatKgTotal(v)} kg`;
+import { useFmt } from "@/shared/lib/fmt";
+import { kgChartText } from "@/shared/lib/fmt-text";
 
 /**
  * Monthly kg dispatched, last 12 months with this month marked "so far"
@@ -20,6 +19,8 @@ const kg = (v: number) => `${formatKgTotal(v)} kg`;
  */
 export default function DispatchVolumeChart() {
   const { t, locale } = useT();
+  const fmt = useFmt();
+  const kg = (v: number) => kgChartText(fmt, v);
   const query = useQuery(trpc.analytics.dispatchVolume.queryOptions({ months: 12 }));
 
   const data = useMemo(() => volumeBars(query.data ?? [], locale), [query.data, locale]);

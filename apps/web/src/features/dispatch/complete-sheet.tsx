@@ -20,7 +20,8 @@ import { toZonedInput } from "@/features/orders/view";
 import { useCompanyTimeZone } from "./hooks";
 import { LATE_STATUS_KEY, lateBounds, lateCheck, type LateEntryAsk } from "./late-entry";
 import { overdrawView, overLineText, type OverdrawState } from "./over-tolerance";
-import { dispatchKgText } from "./format";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 
 type Props = {
   open: boolean;
@@ -46,6 +47,7 @@ type Props = {
  */
 export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh, capacity, overdraw, lateEntry }: Props) {
   const { t } = useT();
+  const fmt = useFmt();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [reason, setReason] = useState("");
@@ -97,7 +99,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   }, [open, askKey, tz]);
   const groups = groupItems(items);
   const weightG = items.reduce((s, i) => s + i.weightG, 0);
-  const kg = dispatchKgText(weightG);
+  const kg = kgGrouped2(fmt, weightG);
 
   const confirm = async () => {
     const gate = vehicleGate(dispatch.vehicleNo, vehicle);
@@ -177,7 +179,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
                 {g.labelled ? t("dispatch.build.groupNamed", { label: g.label }) : g.label}
               </span>
               <span className="shrink-0 text-[14px] text-muted-foreground tabular-nums">
-                {t("dispatch.build.groupTotal", { bundles: g.bundles.length, kg: dispatchKgText(g.weightG) })}
+                {t("dispatch.build.groupTotal", { bundles: g.bundles.length, kg: kgGrouped2(fmt, g.weightG) })}
               </span>
             </li>
           ))}

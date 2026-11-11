@@ -9,11 +9,12 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { orderKgText, pcsText } from "@/features/orders/format";
 import { addOutcome, renderScanMessage, scanErrorKey, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { addAllSerials, addInChunks, suggestGroups } from "./order-view";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * "Suggest bundles" for a dispatch opened from a sales order (FP-PK-17): this order's stock in the
@@ -35,6 +36,7 @@ export function SuggestSheet({
   unit: LengthUnit;
   onAdded(report: AddBundlesReport): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | "all" | null>(null);
@@ -99,7 +101,7 @@ export function SuggestSheet({
       <div className="flex min-w-0 flex-col gap-4 pt-1" data-suggest="">
         {progress ? (
           <p className="m-0 text-[14px] leading-5" data-suggest-left="">
-            {t("dispatch.suggest.left", { kg: orderKgText(progress.leftG) })}
+            {t("dispatch.suggest.left", { kg: kgGrouped3(fmt, progress.leftG) })}
           </p>
         ) : null}
         <p role="status" aria-live="polite" className="m-0 min-h-5 text-[14px] font-medium">
@@ -125,7 +127,7 @@ export function SuggestSheet({
           <>
             <Button size="lg" loading={busy === "all"} disabled={busy !== null || fitCount === 0} onClick={() => void add(fitRows, "all")} data-suggest-add-all="">
               <Plus aria-hidden="true" strokeWidth={2} />
-              {t("dispatch.suggest.addAll", { count: fitCount, kg: orderKgText(fitG) })}
+              {t("dispatch.suggest.addAll", { count: fitCount, kg: kgGrouped3(fmt, fitG) })}
             </Button>
             {([
               ["order", groups.order, t("dispatch.suggest.order")],
@@ -144,7 +146,7 @@ export function SuggestSheet({
                             {t(key === "plant" ? "dispatch.suggest.forLinePlant" : "dispatch.suggest.forLine", { n: b.lineNo })}
                             <span className="font-mono">
                               {" "}
-                              {pcsText(b.pcs)} {t("units.pcs")} · {orderKgText(b.weightG)} {t("units.kg")}
+                              {countText(fmt, b.pcs)} {t("units.pcs")} · {kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}
                             </span>
                           </span>
                           <span className="flex flex-wrap gap-1.5">

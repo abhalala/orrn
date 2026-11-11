@@ -1,4 +1,4 @@
-import { formatKg, normalizeSerial } from "@orrn/domain";
+import { normalizeSerial } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -14,6 +14,8 @@ import { sendOnce } from "./request-key";
 import { addOutcome, renderScanMessage, resultOutcome, scanErrorText, type AddBundlesReport } from "@/features/scan/scan-outcome";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
 
 type Props = {
   open: boolean;
@@ -26,6 +28,7 @@ type Props = {
 
 /** Find in-stock bundles by part of a serial or PO and add them one by one; the sheet stays open. */
 export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onAdded }: Props) {
+  const fmt = useFmt();
   const { t } = useT();
   const [text, setText] = useState("");
   const [query, setQuery] = useState("");
@@ -154,7 +157,7 @@ export function SearchAddSheet({ open, onOpenChange, dispatchId, inDispatch, onA
                       {b.dieSectionCode} {b.dieSeries}
                       <span className="font-mono">
                         {" "}
-                        {formatKg(b.weightG / 1000)} {t("units.kg")}
+                        {kgGrouped2(fmt, b.weightG)} {massUnit(fmt)}
                       </span>
                     </span>
                   </div>

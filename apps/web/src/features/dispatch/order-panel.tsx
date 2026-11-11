@@ -2,9 +2,10 @@ import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Link } from "@tanstack/react-router";
 
-import { orderKgText, pcsText } from "@/features/orders/format";
 
 import { orderState, otherOrderItems, type LinkedItem, type Progress } from "./order-view";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 type PanelProgress = Progress & {
   lines: { lineId: string; lineNo: number; sectionCode: string; bakiG: number; onDispatchG: number; leftG: number; overG: number }[];
@@ -24,6 +25,7 @@ export function OrderPanel({
   items: readonly LinkedItem[];
   editable: boolean;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const p = order.progress;
   const state = orderState(p);
@@ -39,7 +41,7 @@ export function OrderPanel({
         </h2>
         {state === "over" ? (
           <Chip tone="red" truncate={false}>
-            {t("dispatch.order.over", { kg: orderKgText(p.overG) })}
+            {t("dispatch.order.over", { kg: kgGrouped3(fmt, p.overG) })}
           </Chip>
         ) : state === "done" ? (
           <Chip tone="green" truncate={false}>
@@ -60,7 +62,7 @@ export function OrderPanel({
               <li key={l.lineId} data-order-line={l.lineNo} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-1.5">
                 <span className="text-[14px] font-medium">{t("dispatch.order.lineShort", { n: l.lineNo, die: l.sectionCode })}</span>
                 <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
-                  {t("dispatch.order.lineFigures", { baki: orderKgText(l.bakiG), load: orderKgText(l.onDispatchG), left: orderKgText(l.leftG) })}
+                  {t("dispatch.order.lineFigures", { baki: kgGrouped3(fmt, l.bakiG), load: kgGrouped3(fmt, l.onDispatchG), left: kgGrouped3(fmt, l.leftG) })}
                 </span>
               </li>
             ))}
@@ -77,16 +79,17 @@ export function OrderPanel({
 }
 
 function Figure({ k, label, g, pcs, open }: { k: string; label: string; g: number; pcs: number | null; open?: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <div data-order-figure={k} className={open ? "min-w-0 rounded-card bg-tone-amber-tint px-3 py-2.5 text-tone-amber-ink" : "min-w-0 rounded-card bg-surface-sunken px-3 py-2.5"}>
       <dt className={open ? "m-0 text-xs font-medium" : "m-0 text-xs font-medium text-muted-foreground"}>{label}</dt>
       <dd className="m-0 mt-0.5 font-mono text-[15px] font-semibold tabular-nums leading-5 break-words">
-        {orderKgText(g)} {t("units.kg")}
+        {kgGrouped3(fmt, g)} {massUnit(fmt)}
       </dd>
       {pcs != null ? (
         <dd className={open ? "m-0 text-[13px] tabular-nums" : "m-0 text-[13px] tabular-nums text-muted-foreground"}>
-          {pcsText(pcs)} {t("units.pcs")}
+          {countText(fmt, pcs)} {t("units.pcs")}
         </dd>
       ) : null}
     </div>
