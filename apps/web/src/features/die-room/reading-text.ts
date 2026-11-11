@@ -17,3 +17,9 @@ export function readingWeightLabel(t: Translate, fmt: Fmt): string {
 export function readingEmptyBody(t: Translate, fmt: Fmt): string {
   return followsPlant(fmt, SECTION_KG12) ? t("dieRoom.reading.emptyBody") : t("dieRoom.reading.emptyBodyPlant", { sectionUnit: sectionUnit(fmt) });
 }
+
+/**
+ * What the keypad may build up in a plant's section unit (kg/m, lb/ft): up to four digits and the three places a section weight
+ * is stored to. A fourth place is text the entry parser always refuses ("decimals"), so the keypad does not build it.
+ */
+export const PLANT_SECTION_TEXT = /^\d{0,4}(\.\d{0,3})?$/;

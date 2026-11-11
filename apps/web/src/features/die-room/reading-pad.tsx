@@ -10,15 +10,15 @@ import { requestIdFor } from "@/features/dispatch/request-key";
 import { trpc } from "@/shared/utils/trpc";
 
 import { bandTitle, parseKgToMilli, refusalText } from "./die-room-model";
-import { readingWeightLabel } from "./reading-text";
+import { PLANT_SECTION_TEXT, readingWeightLabel } from "./reading-text";
 import { PlantInput } from "@/shared/components/plant-input";
 import { followsPlant, keypadStep, MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
 import { sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
-/** What the keypad may build up: three digits and three places in kg per 12 ft; a little more room in a finer unit (kg per metre, lb per foot). */
+/** What the keypad may build up: three digits and three places in kg per 12 ft; a little more room before the point in a finer unit (kg per metre, lb per foot). */
 const KG12_TEXT = /^\d{0,3}(\.\d{0,3})?$/;
-const PLANT_TEXT = /^\d{0,4}(\.\d{0,4})?$/;
+const PLANT_TEXT = PLANT_SECTION_TEXT;
 const KEYS = ["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0", "back"] as const;
 
 /**

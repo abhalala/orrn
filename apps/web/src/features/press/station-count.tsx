@@ -214,7 +214,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     if (!canRun) return true;
     try {
       const typedReading = draft.readingText.trim() !== "" && data.copy ? parseDecimal(draft.readingText) : null;
-      if (draft.readingText.trim() !== "" && data.copy && (typedReading === null || typedReading <= 0)) return invalid("press.console.kgInvalid");
+      if (draft.readingText.trim() !== "" && data.copy && (typedReading === null || typedReading <= 0)) return invalid("dieRoom.band.kgInvalid");
       const fresh = await qc.fetchQuery({ ...trpc.press.runs.get.queryOptions({ id: runId }), staleTime: 0 });
       const todo = notesToSend(
         { pressRemark: draft.pressRemark, dieRemark: draft.dieRemark, readingMilli: typedReading === null ? null : Math.round(typedReading * 1000) },

@@ -3,7 +3,12 @@ import { describe, expect, test } from "bun:test";
 import { formatterFor, screenPrefs } from "@orrn/domain";
 import { createI18n } from "@orrn/i18n";
 
-import { readingEmptyBody, readingWeightLabel } from "./reading-text";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { en } from "@orrn/i18n/en";
+
+import { PLANT_SECTION_TEXT, readingEmptyBody, readingWeightLabel } from "./reading-text";
 
 const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
 const fmtOf = (p: Parameters<typeof screenPrefs>[0] = {}) => formatterFor(screenPrefs(p), IST);
@@ -28,5 +33,19 @@ describe("the reading pad asks for the plant's section unit", () => {
     const f = fmtOf({ units: { linear_mass: "lb_ft" } });
     expect(readingWeightLabel(hi, f)).toContain("lb/ft");
     expect(readingEmptyBody(hi, f)).toContain("lb/ft");
+  });
+});
+
+describe("the section reading box and its keypad", () => {
+  test("the keypad builds at most three places, the places a section weight is stored to", () => {
+    expect(PLANT_SECTION_TEXT.test("0.423")).toBe(true);
+    expect(PLANT_SECTION_TEXT.test("0.4235")).toBe(false);
+    expect(PLANT_SECTION_TEXT.test("12345")).toBe(false);
+  });
+  test("a refused press reading says the section unit, not the weight unit", () => {
+    const src = readFileSync(join(import.meta.dir, "../press/station-count.tsx"), "utf8");
+    expect(src).toContain('(typedReading === null || typedReading <= 0)) return invalid("dieRoom.band.kgInvalid")');
+    expect(src).not.toMatch(/typedReading <= 0\)\) return invalid\("press\.console\.kgInvalid"\)/);
+    expect(en.dieRoom.band.kgInvalid).toContain("{sectionUnit}");
   });
 });
