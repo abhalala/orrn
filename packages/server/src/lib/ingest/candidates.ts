@@ -13,6 +13,7 @@ import {
   fingerprint,
   fitBlock,
   normalizeHeaders,
+  nullUnshownUnits,
   recipeSchema,
   validateRecipe,
   type FitResult,
@@ -607,7 +608,9 @@ export async function makeShape(ctx: IngestCtx, input: { candidateId: string; ex
     noFitBlocks: Number(noFit?.n ?? 1),
     catalogue: defaultCatalogue(),
     note: artifact.note,
-    validate: (recipe) => validateRecipe(recipe, block, "bot").map((e) => e.code),
+    // A unit the file does not show (header or note) is asked of the person, never guessed (C4, C20).
+    normalize: (recipe) => nullUnshownUnits(recipe, block, artifact.note),
+    validate: (recipe) => validateRecipe(recipe, block, "bot", { note: artifact.note }).map((e) => e.code),
     sampleCheck: async (recipe): Promise<SampleStats> => {
       const sampleRows = [...block.sample.map((raw, i) => ({ rowIndex: -1 - i, raw })), ...staged];
       const classified = await classifyRows(ctx, { target: recipe.target, recipe, answers, rows: sampleRows });

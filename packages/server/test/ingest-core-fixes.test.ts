@@ -9,14 +9,23 @@ import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test
 import { workersEnv } from "./env-mock";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
-import { BAKI_SHEET_HEADERS, DIE_SHEET_HEADERS, EXAMPLE_BAKI_RECIPE, EXAMPLE_DIE_RECIPE, fingerprint, type Recipe } from "@orrn/ingest";
+import {
+  BAKI_SHEET_HEADERS,
+  DIE_SHEET_HEADERS,
+  EXAMPLE_BAKI_RECIPE,
+  EXAMPLE_DIE_RECIPE,
+  fingerprint,
+  nullUnshownUnits,
+  validateRecipe,
+  type Recipe,
+} from "@orrn/ingest";
 
 import { setShapeClientForTests } from "../src/lib/ingest/bot/client";
 import { FakeShapeClient, fakeResponse } from "../src/lib/ingest/bot/fake";
 import { runShapeAttempt } from "../src/lib/ingest/bot";
 import { DAY_CALL_CAP } from "../src/lib/ingest/bot/caps";
 import { dryRunHooks } from "../src/lib/ingest/dryrun";
-import { baseArgs, haiku, recipeAnswer } from "./ingest-bot-fixture";
+import { BLOCK, baseArgs, haiku, recipeAnswer, validRecipe } from "./ingest-bot-fixture";
 
 let env: TestEnv;
 
@@ -794,5 +803,33 @@ describe("lead: the upload route records that a canonical rows file landed", () 
     expect(res.status).toBe(200);
     expect((await p.admin.ingest.artifact.get({ artifactId: begin.artifactId })).blocks[0]!.canonicalStored).toBe(true);
     expect((await handleIngestUpload(req(), { bucket: bucket as unknown as R2Bucket, db: env.db })).status).toBe(409);
+  });
+});
+
+describe("cross-lane C4, C20: a bot unit the file does not show becomes a question", () => {
+  test("the model names kg/12ft on a bare weight header: stored with unit null and unit_unknown", async () => {
+    const bare = (h: string) => h.replace(/\s*\(.*\)\s*$/, "");
+    const block = { ...BLOCK, headers: BLOCK.headers.map(bare) };
+    const r = validRecipe();
+    const recipe: Recipe = {
+      ...r,
+      fields: r.fields.map((f) =>
+        f.source.kind === "columns" ? { ...f, source: { ...f.source, cols: f.source.cols.map((c) => ({ ...c, header: bare(c.header) })) } } : f,
+      ),
+    };
+    const weighted = recipe.fields.filter((f) => f.steps.some((st) => st.op === "number" && st.unit !== null && st.kind === "linear_mass"));
+    expect(weighted.length).toBeGreaterThan(0);
+    const args = baseArgs({
+      block,
+      normalize: (x) => nullUnshownUnits(x, block, null),
+      validate: (x) => validateRecipe(x, block, "bot").map((e) => e.code),
+    });
+    const out = await runShapeAttempt({ ...args, client: new FakeShapeClient([haiku(recipeAnswer(recipe))]) });
+    expect(out.status === "ran" && out.outcome).toBe("recipe");
+    const got = out.status === "ran" ? out.recipe! : null;
+    for (const f of weighted) {
+      expect(got!.fields.find((x) => x.field === f.field)!.steps.find((st) => st.op === "number")).toMatchObject({ unit: null });
+      expect(got!.unclear).toContainEqual({ field: f.field, code: "unit_unknown" });
+    }
   });
 });

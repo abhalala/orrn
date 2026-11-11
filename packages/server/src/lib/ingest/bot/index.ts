@@ -78,6 +78,11 @@ export type RunShapeArgs = {
   note?: string | null;
   /** Lane C's `validateRecipe(recipe, block, "bot")`, returned as error codes. Empty means valid. */
   validate: (recipe: Recipe) => string[];
+  /**
+   * Runs on the model's recipe before `validate`. Lane A passes lane C's `nullUnshownUnits`: a unit the
+   * file does not show becomes null with a unit_unknown question, since a retry cannot learn it (C4, C20).
+   */
+  normalize?: (recipe: Recipe) => Recipe;
   /** Applies the recipe to the sample and up to 200 staged rows and counts the results, with no writes. */
   sampleCheck: (recipe: Recipe) => Promise<SampleStats>;
   /** When the current hole version began. Earlier runs do not count toward the block cap. */
@@ -129,7 +134,7 @@ async function evaluate(res: ShapeResponse, args: RunShapeArgs): Promise<Evaluat
   const result = parsed.data.result;
   if (result.kind === "no_target") return { outcome: "no_target", recipe: null, noTargetReason: result.reason, errors: [] };
 
-  const recipe = result.recipe;
+  const recipe = args.normalize ? args.normalize(result.recipe) : result.recipe;
   const problems = args.validate(recipe);
   if (problems.length > 0) return fail("invalid", problems);
 
