@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { checkMagnitude, toCanonical } from "./canonical";
 import { numberToDecimalText, parseAmount, parseLengthText } from "./parse";
 import { ratio, ratioToString } from "./rational";
+import type { UnitId } from "./registry";
 import { rng } from "./test-support";
 import type { NumberStyle } from "./style";
 
@@ -87,7 +88,7 @@ describe("numberToDecimalText", () => {
   });
 });
 
-const len = (text: string, plain = "mm" as const) => {
+const len = (text: string, plain: UnitId = "mm") => {
   const r = parseLengthText(text, plain);
   return r.ok ? `${ratioToString(r.amount)} ${r.unit}${r.explicit ? "*" : ""}` : r.problem;
 };
@@ -143,7 +144,7 @@ describe("parseLengthText", () => {
 });
 
 describe("toCanonical: feet and inches golden cases", () => {
-  const mm = (text: string, unit = "ft_in" as const, mode: "strict" | "round" = "strict") => {
+  const mm = (text: string, unit: UnitId = "ft_in", mode: "strict" | "round" = "strict") => {
     const r = toCanonical("bundle.length", text, unit, { mode });
     return r.ok ? r.value : r.problem;
   };

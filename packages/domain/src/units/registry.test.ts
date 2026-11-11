@@ -54,7 +54,7 @@ describe("unit table", () => {
       "in", "inr", "inr_kg", "inr_quintal", "inr_t", "kg", "kg_12ft", "kg_ft", "kg_m", "kgf_cm2", "l", "lb", "lb_ft", "m",
       "m3", "m_min", "milli_pcs", "min", "ml", "mm", "mm_s", "mpa", "ms", "paise", "paise_kg", "pcs", "pct", "ppm", "psi",
       "quintal", "s", "t", "tenth_in", "tenth_mm", "um",
-    ].sort());
+    ].sort() as UnitId[]);
   });
   test("every kind has a base unit with factor 1 and offset 0", () => {
     for (const k of KINDS) {

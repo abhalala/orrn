@@ -129,6 +129,7 @@ describe("seeded properties", () => {
 
   test("a step finer than the entry decimals is refused in strict mode and rounded in round mode", () => {
     const r = rng(8);
+    let seen = 0;
     for (const kind of KINDS) {
       const typed = unitsOf(kind).filter((u) => !u.noEntry && !u.composite && u.id !== "in");
       for (const u of typed) {
@@ -142,8 +143,10 @@ describe("seeded properties", () => {
         const strict = convertText(signed(kind, storage), finer, u.id, { mode: "strict", style: PLAIN });
         expect([u.id, strict.ok ? "ok" : strict.problem]).toEqual([u.id, "decimals"]);
         expect(convertText(signed(kind, storage), finer, u.id, { mode: "round", style: PLAIN }).ok).toBe(true);
+        seen++;
       }
     }
+    expect(seen).toBeGreaterThan(20);
   });
 
   test("storage integer, shown at entry decimals, read back, for units whose step is exactly one storage unit", () => {

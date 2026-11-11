@@ -60,7 +60,7 @@ export function parseAmount(
   } else if (t[0] === "+") {
     t = t.slice(1).trim();
   }
-  if (t === "") return { ok: false, problem: "invalid" };
+  if (t === "" || /^[-+\u2212]/.test(t)) return { ok: false, problem: "invalid" };
   if (neg && !opts.negative) return { ok: false, problem: "negative" };
 
   const pieces = t.split(style.decimal);
