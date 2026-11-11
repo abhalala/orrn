@@ -40,6 +40,7 @@ import {
 } from "./die-model";
 import { PlantInput } from "@/shared/components/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
+import { diameterVars } from "@/shared/lib/fmt-text";
 import { GEOMETRY_MM, LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 
 export type DieFormProps = {
@@ -209,7 +210,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
             </datalist>
           </Field>
         </div>
-        <Field label={t("dieRoom.bands.wall")} hint={t("dies.form.wallHint")} error={err("wall")} id={`${formId}-wall`}>
+        <Field label={t("dieRoom.bands.wall", diameterVars(fmt))} hint={t("dies.form.wallHint")} error={err("wall")} id={`${formId}-wall`}>
           <PlantInput spec={WALL_MM} value={draft.wall} onValueChange={set("wall")} />
         </Field>
         <Can do="masters.publish">

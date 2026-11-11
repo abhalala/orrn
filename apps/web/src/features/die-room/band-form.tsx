@@ -25,7 +25,7 @@ import {
 import { PlantInput } from "@/shared/components/plant-input";
 import { followsPlant, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 import { useFmt } from "@/shared/lib/fmt";
-import { sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
+import { diameterVars, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 
 /** `/dies/$id/bands/new`: another commercial band under a section. The duplicate guard answers in the server's words. */
 export function NewBandPage({ id }: { id: string }) {
@@ -147,7 +147,7 @@ export function NewBandPage({ id }: { id: string }) {
       >
         <p className="m-0 text-[14px] leading-6 text-muted-foreground">{t("dieRoom.band.intro")}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label={t("dieRoom.bands.wall")} hint={hasWall ? t("dieRoom.band.wallHint", { wall: defaultWall }) : t("dieRoom.band.wallNone")} error={errors.wall}>
+          <Field label={t("dieRoom.bands.wall", diameterVars(fmt))} hint={hasWall ? t("dieRoom.band.wallHint", { wall: defaultWall }) : t("dieRoom.band.wallNone")} error={errors.wall}>
             <PlantInput spec={WALL_MM} value={wall} onValueChange={setWall} placeholder={defaultWall} />
           </Field>
           <Field label={t("dieRoom.band.min")} hint={sectionUnit(fmt)} error={errors.min}>
