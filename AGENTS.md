@@ -967,15 +967,27 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   press opens a `dispatch_late_entry` request (subject = the dispatch, meta `{ dispatchId, dispatchCode,
   occurredAt, reason }`, note = the reason, audit `dispatch.late_entry.request`) and refuses
   PRECONDITION_FAILED "Entered late: ..."; nothing is held or posted. An approval covers only the exact
-  `occurredAt` it was asked for; another time withdraws a waiting ask ("Withdrawn: asked again with
-  another time.") and asks again. Once approved, Complete writes `completed_at` = `occurredAt`, the
+  `occurredAt` it was asked for and the load in its meta (`bundles`, `weightG`, review 7); another time
+  withdraws a waiting ask ("Withdrawn: asked again with another time.") and asks again, and so does a
+  changed load ("Withdrawn: the bundles on the dispatch changed."). The 72 h window is measured only
+  when a new request would open: an approved time stands after the 72 hours (review 1); past them a
+  changed load is refused ("The bundles changed after a manager approved this time. ..."). The
+  dispatch stores the approved request's reason, never the one typed on the second press (review 4).
+  `getDispatch` returns `lateEntry` `{ status: pending|approved|changed, occurredAt, reason,
+  approvalId }` for a building or held dispatch, and both Complete sheets fill and lock the time and
+  reason from it until "Use another time" (review 5). Once approved, Complete writes `completed_at` = `occurredAt`, the
   ledger `posted_at` = `occurredAt` (still clamped to just after the bundle's last ledger row, so a
   bundle packed after that time posts just after its pack), sets `late_entry`, `late_entry_reason` and
   `late_entry_approval_id` (migration `0048_dispatch_late_entry`), guards the UPDATE on the approval
   still being approved, and puts `lateEntry` in the `dispatch.complete` audit meta. Cancel or delete
   withdraws a waiting ask. The completed dispatch shows "Entered late" with the time and reason; the
-  approvals review sheet shows the time the truck left and how many hours later it was asked. Guide
-  "When the internet is down" (`internet-down`) in en, hi and gu.
+  approvals review sheet shows the time the truck left, how many hours later it was asked and the
+  bundles and kg it was asked for. Guide "When the internet is down" (`internet-down`) in en, hi and gu.
+  Known split (review 8, by design): when the packing was also entered late, the ledger clamps each
+  dispatch row to just after its pack row (entry time), while `dispatchShipDay` reads `completed_at`
+  (the late time). The dispatch register then shows the load on day D and stock at the end of D still
+  holds it; from D+1 they agree, nothing is counted twice and the ledger stays balanced per bundle. The
+  guide says so ("Stock for that day still shows the bundles").
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
@@ -1030,7 +1042,12 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   top-level `offBand` `{ pending, rejected, unasked, approved, blocked }`; web and phone hold Dispatch
   (not Hold stock) while `blocked` and say why. `approval.facts` shows the row as it is now (gone, moved,
   or the line and both weights). A bundle with no line has nothing to compare with. Pack's D15 band is
-  separate and untouched.
+  separate and untouched. Review fixes (2026-11-10): an approval counts only while the bundle's and the
+  line's kg/12ft equal the figures in its meta (`sameFigures` in `offBandStates`), so a line edited after
+  it asks again; the completing UPDATE also requires the linked lines' newest `server_seq` unchanged
+  since the off-band read (`linkedLinesSeqSql`), so a line edited during Complete fails the write and
+  the abort asks; `linkItem` back to a line already approved with the same figures asks nothing; and
+  `getDispatch`'s `offBand` counts cover every item even past the 500 rows it lists.
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
 - The off-band chip and the capacity fill are computed by the server on every read (`getDispatch`); the web draws them and sums nothing.
