@@ -332,4 +332,26 @@ describe("order rows the order screen would refuse (B11)", () => {
     expect(c.reasonDetail).toBe("File row 2: nothing is left to dispatch on this line (balance 0 kg). Skip the row.");
     expect((await orderRows(companyId)).orders).toHaveLength(0);
   });
+
+  test("a closed line or a line with no cut length in a later chunk holds the candidate before any order is written", async () => {
+    // 12 orders of 3 adjacent lines: chunk 1 takes orders 1 to 10, chunk 2 orders 11 and 12.
+    const bad: Record<string, unknown>[] = [
+      { orderedKg: 1_000_000, dispatchedKg: 1_000_000, bakiKg: 0 },
+      { cutLength: null },
+    ];
+    const messages = [
+      "File row 35: nothing is left to dispatch on this line (balance 0 kg). Skip the row.",
+      "File row 35: no cut length. Give the cut length, or skip the row.",
+    ];
+    for (const [i, extra] of bad.entries()) {
+      const { companyId, customerId, dieId } = await plant();
+      const rows = Array.from({ length: 36 }, (_, r) => line(customerId, dieId, { oldOrderNo: `K-${Math.floor(r / 3)}`, ...(r === 34 ? extra : {}) }));
+      const seeded = await seedCandidate(env, companyId, "orders", rows);
+      expect((await mergeAll(await api(companyId, "admin"))).state).toBe("done_with_holds");
+      const c = await candidateRow(env, seeded.candidateId);
+      expect([c.state, c.reasonDetail]).toEqual(["held", messages[i]!]);
+      expect((await orderRows(companyId)).orders).toHaveLength(0);
+      expect(new Set((await stagedRows(env, seeded.candidateId)).map((r) => r.mergeState))).toEqual(new Set(["open"]));
+    }
+  });
 });

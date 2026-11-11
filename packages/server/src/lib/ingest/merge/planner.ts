@@ -12,7 +12,11 @@
  *   whole orders at a time in order of their first row, so chunk ranges may overlap. The write
  *   step picks the chunk's orders back out of its range (pickOrderRows) and checks the chunk id.
  * - Before any order is written, an orders candidate is held when an order has more than 100
- *   lines, when one PO has two order dates, or when its PO is already on a live order (B1, B5).
+ *   lines, when one PO has two order dates, or when its PO is already on a live order (B1, B5),
+ *   or when a line is one the order screen would refuse (B11). A die copies candidate with a
+ *   status an import may not set (B12) and an alias candidate with an alias that is another
+ *   customer's or vendor's name (B13) are held the same way. Planning ends before the first
+ *   chunk of the run is written, so these holds land before anything of the candidate is written.
  * - A candidate with nothing open to write gets one empty chunk, already written, so the run
  *   lists it (merged with nothing written).
  * - The chunk id is the call's clientRequestId: `ing-` plus 40 hex of
@@ -27,9 +31,10 @@ import { salesOrder } from "@orrn/db/schema/sales";
 import { chunk as chunkList, mapInChunks, type SqliteBatchItem } from "../../atomic";
 import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
-import { orderPricing } from "./adapters";
+import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing } from "./adapters";
 import {
   CHUNK_ROWS,
+  failureOf,
   LINES_PER_ORDER,
   MESSAGE_MAX,
   ORDERS_PER_CHUNK,
@@ -37,6 +42,7 @@ import {
   rowsRequestId,
   sha256Hex,
   SPLIT_UPDATES,
+  text,
   type ChunkFailure,
   type StagedRow,
 } from "./shared";
@@ -163,14 +169,19 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
  * left in the range starts with this chunk's orders. The caller checks the chunk id.
  */
 export function pickOrderRows(rows: readonly StagedRow[], rowCount: number): StagedRow[] {
-  const byOrder = new Map<string, StagedRow[]>();
+  return pickOrders(rows, rowCount, (r) => orderKeyOf((r.values ?? {}) as Record<string, unknown>));
+}
+
+/** `pickOrderRows` over any rows with an order key (the write step reads only the keys first). */
+export function pickOrders<T extends { rowIndex: number }>(rows: readonly T[], rowCount: number, keyOf: (r: T) => string): T[] {
+  const byOrder = new Map<string, T[]>();
   for (const r of [...rows].sort((a, b) => a.rowIndex - b.rowIndex)) {
-    const k = orderKeyOf((r.values ?? {}) as Record<string, unknown>);
+    const k = keyOf(r);
     const list = byOrder.get(k);
     if (list) list.push(r);
     else byOrder.set(k, [r]);
   }
-  const out: StagedRow[] = [];
+  const out: T[] = [];
   for (const list of byOrder.values()) {
     if (out.length >= rowCount) break;
     out.push(...list);
@@ -200,20 +211,42 @@ export async function markerChunkId(runId: string, candidateId: string, kind: "h
   return `ing-${(await sha256Hex([kind, runId, candidateId].join("|"))).slice(0, 40)}`;
 }
 
-type OrderPlanRow = PlanRow & { customer: string | null; po: string | null; poText: string | null; orderDate: string | null; oldNo: string | null; hasRate: number | null };
+type OrderPlanRow = PlanRow & {
+  customer: string | null;
+  po: string | null;
+  poText: string | null;
+  orderDate: string | null;
+  oldNo: string | null;
+  hasRate: number | null;
+  /** JSON of the fields `orderLineOf` reads (ORDER_LINE_FIELDS). */
+  line?: string | null;
+};
 
-const hold = (message: string): ChunkFailure => ({ code: "BAD_REQUEST", message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" });
+const hold = (message: string, code = "BAD_REQUEST"): ChunkFailure => ({ code, message: message.slice(0, MESSAGE_MAX), reason: "merge_failed" });
 
 /**
  * Orders a merge must not send (B1, B5): an order above 100 lines, one PO on two order dates, or
- * a PO already on a live order that this order's own replay key did not make; and rates staged
- * while the person merging may not write them (B3: a rate is left out only by choice). Found
- * before any order of the candidate is written.
+ * a PO already on a live order that this order's own replay key did not make; rates staged while
+ * the person merging may not write them (B3: a rate is left out only by choice); and a line the
+ * order screen would refuse (B11: no weight, balance 0, no cut length, or `orderLineInput`). Found
+ * over the whole candidate before any order of it is written.
  */
 export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[]): Promise<ChunkFailure | null> {
+  let canPrice = false;
   if (rows.some((r) => r.hasRate)) {
     const price = await orderPricing(ctx);
     if (!price.canPrice) return { code: "FORBIDDEN", message: price.refusal.slice(0, MESSAGE_MAX), reason: "merge_failed" };
+    canPrice = true;
+  }
+  const { orderLineInput } = await import("../../../routers/salesOrder");
+  for (const r of rows) {
+    if (r.line === undefined) break;
+    try {
+      // The section is resolved at chunk time (B10); any id passes the schema here.
+      orderLineOf(orderLineInput, r.rowIndex, (r.line ? JSON.parse(r.line) : {}) as Record<string, unknown>, "section", canPrice);
+    } catch (e) {
+      return failureOf(e);
+    }
   }
   const groups = new Map<string, OrderPlanRow[]>();
   for (const r of rows) {
@@ -268,6 +301,41 @@ export async function orderPlanHold(ctx: IngestCtx, rows: readonly OrderPlanRow[
   return null;
 }
 
+const isAlias = (t: IngestTarget): t is "customer_aliases" | "vendor_aliases" => t === "customer_aliases" || t === "vendor_aliases";
+
+/** The fields `orderLineOf` reads, as one JSON object. */
+const ORDER_LINE_SQL = sql<string | null>`json_object(${sql.join(
+  ORDER_LINE_FIELDS.map((f) => sql`${sql.raw(`'${f}'`)}, json_extract(${V}, ${sql.raw(`'$.${f}'`)})`),
+  sql`, `,
+)})`;
+
+type RowPlanRow = PlanRow & { status?: unknown; alias?: unknown; owner?: string | null };
+
+/**
+ * Rows of a page the adapter would refuse, found before any chunk of the candidate is written:
+ * a die copy status an import may not set (B12), and an alias that is already the name of another
+ * customer or vendor (B13). An alias whose owner is made in this same run is left to the adapter,
+ * which knows the owner's id by then.
+ */
+export async function rowPlanHold(ctx: IngestCtx, target: IngestTarget, rows: readonly RowPlanRow[]): Promise<ChunkFailure | null> {
+  if (target === "die_copies") {
+    for (const r of rows) {
+      const refusal = handStatusRefusal(r.rowIndex, r.status);
+      if (refusal) return hold(refusal);
+    }
+    return null;
+  }
+  if (!isAlias(target)) return null;
+  const creates = rows.filter((r) => r.state === "ready_create" && r.owner && !r.owner.startsWith("pending:"));
+  if (creates.length === 0) return null;
+  const owners = await aliasNameOwners(ctx, target);
+  for (const r of creates) {
+    const refusal = aliasRefusal(r.rowIndex, text(r.alias) ?? "", r.owner!, owners);
+    if (refusal) return hold(refusal, "CONFLICT");
+  }
+  return null;
+}
+
 /**
  * Plan one page: the first merging candidate (in merge order) that still has open ready rows, or
  * that has no chunk in this run yet. The caller adds the cursor guard and the run counters to
@@ -297,6 +365,13 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
         orderDate: isOrders ? sql<string | null>`json_extract(${V}, '$.orderDate')` : sql<string | null>`null`,
         oldNo: isOrders ? sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')` : sql<string | null>`null`,
         hasRate: isOrders ? sql<number | null>`json_type(${V}, '$.rate') in ('integer', 'real')` : sql<number | null>`null`,
+        line: isOrders ? ORDER_LINE_SQL : sql<string | null>`null`,
+        // die_copies: the status the row would set (B12). Aliases: the alias and its owner (B13).
+        status: c.target === "die_copies" ? sql<unknown>`case when ${ingestStagedRow.state} = 'ready_update' then json_extract(${ingestStagedRow.diff}, '$.status.file') else json_extract(${V}, '$.status') end` : sql<unknown>`null`,
+        alias: isAlias(c.target) ? sql<unknown>`json_extract(${V}, '$.alias')` : sql<unknown>`null`,
+        owner: isAlias(c.target)
+          ? sql<string | null>`json_extract(${V}, ${c.target === "vendor_aliases" ? "$._ids.vendor" : "$._ids.customer"})`
+          : sql<string | null>`null`,
       })
       .from(ingestStagedRow)
       .where(
@@ -315,10 +390,10 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
       return { done: false, candidateId: c.id, chunks: [], statements: [], empty: await markerChunkId(runId, c.id, "empty") };
     }
 
-    if (isOrders) {
-      const failure = await orderPlanHold(ctx, rows);
-      if (failure) return { done: false, candidateId: c.id, chunks: [], statements: [], hold: { chunkId: await markerChunkId(runId, c.id, "hold"), failure } };
-    }
+    // Planning ends before any chunk of the run is written, so a hold found on any page of a
+    // candidate lands before anything of it is written.
+    const failure = isOrders ? await orderPlanHold(ctx, rows) : await rowPlanHold(ctx, c.target, rows);
+    if (failure) return { done: false, candidateId: c.id, chunks: [], statements: [], hold: { chunkId: await markerChunkId(runId, c.id, "hold"), failure } };
 
     const runs = isOrders ? cutOrderRuns(rows) : cutRuns(c.target, rows);
     const chunks: PlannedChunk[] = [];
