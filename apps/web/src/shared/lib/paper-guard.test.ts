@@ -18,6 +18,7 @@ export const PAPERS: { file: string; what: string }[] = [
   { file: "features/die-room/print-card.tsx", what: "the printed die card" },
   { file: "features/foundry/certificate-view.tsx", what: "the foundry test certificate" },
   { file: "features/portal/certificate-page.tsx", what: "the portal test certificate" },
+  { file: "features/die-room/share-page.tsx", what: "the die share page a party opens from a link" },
 ];
 
 const PLANT_STYLE = [/\buseFmt\s*\(/, /\buseLengthUnit\s*\(/, /\buseCompanyWhen\s*\(/, /\buseTenantFmt\s*\(/];

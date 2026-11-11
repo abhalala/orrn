@@ -18,6 +18,7 @@ const { Sticker } = await import("@/features/pack/label-sheet");
 const { PrintCard } = await import("@/features/die-room/print-card");
 const { CastBlock, PortalCertificatePage } = await import("@/features/portal/certificate-page");
 const { CertificateScreen } = await import("@/features/foundry/certificate-view");
+const { DieSharePage } = await import("@/features/die-room/share-page");
 
 const DEFAULT = screenPrefs({});
 // Pounds, metres, pounds per foot, international grouping, month first, 12 hour clock: nothing of today's is left.
@@ -156,5 +157,24 @@ describe("the foundry test certificate", () => {
     expect(t).toContain("12 pcs, 12 ft, 1,234.5 kg");
     expect(t).toContain("52.4 kg");
     expect(t).not.toMatch(/\blb\b|\bpm\b|\bam\b/);
+  });
+});
+
+describe("the die share page", () => {
+  const view = {
+    section: { sectionCode: "12170", series: "Domal", name: null, alloy: "6063", temper: "T5" },
+    bands: [{ weightMinG: 2_300, weightMaxG: 2_500, wallTenthMm: 12 }, { weightMinG: 2_600, weightMaxG: 2_800, wallTenthMm: 14 }],
+    drawing: null, owner: null, tier: 1, from: "Four Cubes", expiresAt: new Date("2026-10-24T14:05:00+05:30").toISOString(),
+  };
+  function render(prefs: ReturnType<typeof screenPrefs>) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    qc.setQueryData(["die-share-view", "tok"], view as never);
+    return page(prefs, <DieSharePage token="tok" />, qc);
+  }
+  test("the band stays in kg/12ft with its own word even inside a frame of pounds per foot", () => {
+    const t = text(render(FAR));
+    expect(t).toContain("kg/12ft");
+    expect(t).not.toMatch(/lb\/ft|kg\/m\b/);
+    expect(render(FAR)).toBe(render(DEFAULT));
   });
 });
