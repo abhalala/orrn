@@ -13,6 +13,8 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { auditLog } from "@orrn/db/schema/audit";
 import { die } from "@orrn/db/schema/catalog";
+import { dieInstance } from "@orrn/db/schema/dies";
+import { vendor } from "@orrn/db/schema/purchase";
 import { salesOrder } from "@orrn/db/schema/sales";
 import type { IngestTarget } from "@orrn/db/schema/ingest";
 
@@ -99,6 +101,28 @@ async function updatedBefore(ctx: IngestCtx, action: string, subjectType: string
   return !!hit;
 }
 
+const blank = (v: unknown) => v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+/** The dry run's comparison (dryrun.ts `same`): text ignores case and outer spaces. */
+const same = (a: unknown, b: unknown) =>
+  typeof a === "string" && typeof b === "string" ? a.trim().toLowerCase() === b.trim().toLowerCase() : a === b;
+
+/**
+ * Refuse an update whose live record changed after the dry run (B2, owner rule "never overwrite
+ * silently"). Each diff field passes when the live value is still what the dry run saw (blank
+ * counts as blank) or already equals the file value. `live` uses the dry run's field names.
+ */
+function assertNotStale(row: StagedRow, live: Values): void {
+  for (const [field, d] of Object.entries(row.diff ?? {})) {
+    if (!(field in live)) continue;
+    const now = live[field];
+    if ((blank(now) && blank(d.live)) || same(now, d.live) || same(now, d.file)) continue;
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `File row ${row.rowIndex + 1}: ${field} changed in orrn since the dry run. Review it and run the dry run again.`,
+    });
+  }
+}
+
 /** The replay key of a one-row call: from the staged row, never the chunk (B8). */
 const rowKey = (row: StagedRow) => rowsRequestId([row.id]);
 
@@ -151,6 +175,13 @@ const customers: Adapter = async (args) => {
       const caller = await args.callerFor(args.sourceOf([row]));
       if (!(await updatedBefore(ctx, "customer.update", "customer", row))) {
         const live = await caller.customer.get({ id: row.matchId! });
+        assertNotStale(row, {
+          taxId: live.taxId,
+          phone: live.phone,
+          email: live.email,
+          city: (live.billingAddress as { city?: unknown } | null)?.city ?? null,
+          notes: live.notes,
+        });
         const p = patchOf(row);
         const has = (k: string) => Object.hasOwn(p, k);
         const billing = { ...((live.billingAddress as Record<string, unknown> | null) ?? {}) };
@@ -237,6 +268,13 @@ const vendors: Adapter = async (args) => {
   if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       if (!(await updatedBefore(ctx, "vendor.update", "vendor", row))) {
+        const [live] = await ctx.db
+          .select({ gstin: vendor.gstin, phone: vendor.phone, city: vendor.city, notes: vendor.notes })
+          .from(vendor)
+          .where(and(eq(vendor.id, row.matchId!), eq(vendor.companyId, ctx.companyId)))
+          .limit(1);
+        if (!live) throw new TRPCError({ code: "NOT_FOUND", message: `File row ${row.rowIndex + 1}: that vendor is no longer in orrn` });
+        assertNotStale(row, live);
         const p = patchOf(row);
         const caller = await args.callerFor(args.sourceOf([row]));
         await caller.vendor.update({
@@ -312,7 +350,18 @@ const dies: Adapter = async (args) => {
           updates.map((r) => r.matchId!),
           (part) =>
             ctx.db
-              .select({ id: die.id, weightMinG: die.weightMinG, weightMaxG: die.weightMaxG })
+              .select({
+                id: die.id,
+                name: die.name,
+                widthMm: die.widthMm,
+                thicknessMm: die.thicknessMm,
+                legMm: die.legMm,
+                dimensions: die.dimensions,
+                weightMinG: die.weightMinG,
+                weightMaxG: die.weightMaxG,
+                status: die.status,
+                notes: die.notes,
+              })
               .from(die)
               .where(and(eq(die.companyId, ctx.companyId), inArray(die.id, part))),
         )
@@ -342,6 +391,17 @@ const dies: Adapter = async (args) => {
         const has = (k: string) => Object.hasOwn(p, k);
         const was = live.get(row.matchId!);
         if (!was) throw new TRPCError({ code: "NOT_FOUND", message: `Section ${text(v.sectionCode)} is no longer in orrn` });
+        const dims = (was.dimensions ?? {}) as Record<string, unknown>;
+        assertNotStale(row, {
+          name: was.name,
+          widthMm: dims.widthMm ?? was.widthMm,
+          thicknessMm: dims.thicknessMm ?? was.thicknessMm,
+          legMm: dims.legMm ?? was.legMm,
+          weightMinG: was.weightMinG,
+          weightMaxG: was.weightMaxG,
+          status: was.status,
+          notes: was.notes,
+        });
         // Only the fields the dry run marked change; the weights stay as orrn has them otherwise.
         return {
           existingId: row.matchId!,
@@ -394,6 +454,22 @@ const dieCopies: Adapter = async (args) => {
   if (k.kind === "update") {
     return perRow(args, rows, async (row) => {
       if (!(await updatedBefore(ctx, "die_instance.update", "die_instance", row))) {
+        const [c] = await ctx.db
+          .select()
+          .from(dieInstance)
+          .where(and(eq(dieInstance.id, row.matchId!), eq(dieInstance.companyId, ctx.companyId)))
+          .limit(1);
+        if (!c) throw new TRPCError({ code: "NOT_FOUND", message: `File row ${row.rowIndex + 1}: that die copy is no longer in orrn` });
+        assertNotStale(row, {
+          supplier: c.supplier,
+          makerProjectNo: c.makerProjectNo,
+          trialKgPer12ft: c.trialKgPer12ftMilli,
+          hardness: c.hardness,
+          lifeKg: c.lifeG,
+          tierRank: c.tierRank,
+          status: c.status,
+          notes: c.notes,
+        });
         // File field to `dieInstance.update` input. The tier of an existing copy moves only by
         // approval, so an import never sends it.
         const fields: Record<string, unknown> = {};
