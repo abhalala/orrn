@@ -12,7 +12,7 @@
  *   Ram speed stays off the press report until a real collector exists.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -180,7 +180,9 @@ export const pressCollectorRouter = router({
     const rows = await ctx.db
       .select({ id: pressAlert.id })
       .from(pressAlert)
-      .where(and(eq(pressAlert.companyId, ctx.companyId), isNull(pressAlert.acknowledgedAt), ended));
+      .where(and(eq(pressAlert.companyId, ctx.companyId), isNull(pressAlert.acknowledgedAt), ended))
+      .orderBy(asc(pressAlert.id))
+      .limit(2000);
     const ids = rows.map((row) => row.id);
     let acknowledged = 0;
     if (ids.length > 0) {
@@ -220,7 +222,7 @@ export const pressCollectorRouter = router({
       subjectId: ctx.companyId,
       meta: { acknowledged },
     });
-    return { acknowledged };
+    return { acknowledged, more: ids.length === 2000 };
   }),
 
   /**

@@ -425,7 +425,7 @@ describe("press_alert evaluation", () => {
     await expect(env.caller({ role: "press", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).rejects.toMatchObject({ code: "FORBIDDEN" });
     env.resetPeakParams();
     const result = await env.caller({ role: "supervisor", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts();
-    expect(result).toEqual({ acknowledged: 105 });
+    expect(result).toEqual({ acknowledged: 105, more: false });
     expect(env.peakParams()).toBeLessThanOrEqual(100);
 
     const mine = await env.db.select().from(pressAlert).where(eq(pressAlert.companyId, p.companyId));
@@ -437,6 +437,30 @@ describe("press_alert evaluation", () => {
     const audits = await env.db.select().from(auditLog).where(and(eq(auditLog.companyId, p.companyId), eq(auditLog.action, "press.alert.ackEnded")));
     expect(audits).toHaveLength(1);
     expect(audits[0]).toMatchObject({ subjectType: "company", subjectId: p.companyId, meta: { acknowledged: 105 } });
+  });
+
+  test("bulk acknowledge bounds each call at 2,000 and repeats to completion", async () => {
+    const p = await plant();
+    const rows = Array.from({ length: 2_001 }, (_, i) => ({
+      id: crypto.randomUUID(),
+      companyId: p.companyId,
+      pressLineId: p.lineId,
+      metric: "ram_speed" as const,
+      direction: "high" as const,
+      limitX10: 120,
+      peakX10: 150,
+      frames: 1,
+      simulated: true,
+      startedAt: at(i),
+      lastAt: at(i),
+      endedAt: at(i + 1),
+    }));
+    for (let i = 0; i < rows.length; i += 7) await env.db.insert(pressAlert).values(rows.slice(i, i + 7));
+    const caller = env.caller({ role: "supervisor", companyId: p.companyId });
+    await expect(caller.press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 2_000, more: true });
+    await expect(caller.press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1, more: false });
+    const remaining = await env.db.select({ id: pressAlert.id }).from(pressAlert).where(and(eq(pressAlert.companyId, p.companyId), isNull(pressAlert.acknowledgedAt)));
+    expect(remaining).toEqual([]);
   });
 
   test("no thresholds, no alerts; setThreshold refuses an empty or inverted band", async () => {
@@ -607,7 +631,7 @@ describe("alerts end after a 5-minute gap, on ingest and on read (I-3)", () => {
     expect(openNow.map((x) => x.lineCode).sort()).toEqual(["P1", "P2"]);
     expect(openNow.find((x) => x.lineCode === "P2")!.endedAt).toBeNull();
     // Bulk acknowledge closes the derived-ended quiet one, but leaves the fresh one open.
-    await expect(env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1 });
+    await expect(env.caller({ role: "owner", companyId: p.companyId }).press.collector.acknowledgeEndedAlerts()).resolves.toEqual({ acknowledged: 1, more: false });
     expect((await viewer.press.collector.alerts({ openOnly: true, limit: 10 })).map((x) => x.lineCode)).toEqual(["P2"]);
     expect(await viewer.press.collector.openAlertCount()).toEqual({ open: 1, all: 2, simulated: true });
   });
