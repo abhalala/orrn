@@ -523,7 +523,7 @@ describe("questions and row decisions", () => {
     await expect(
       p.owner.ingest.answer.set({ candidateId: p.candidateId, questionCode: "unit_unknown", subject: "nothing", answer: "inr/kg", expectSeq: c.serverSeq }),
     ).rejects.toThrow(/does not ask/);
-    c = await p.owner.ingest.answer.set({ candidateId: p.candidateId, questionCode: "unit_unknown", subject: "rate", answer: "inr/kg", expectSeq: c.serverSeq });
+    c = await p.owner.ingest.answer.set({ candidateId: p.candidateId, questionCode: "unit_unknown", subject: "rate", answer: { unit: "inr/kg" }, expectSeq: c.serverSeq });
     expect(c).toMatchObject({ state: "processing", dryCursor: 0 });
     await pump(p.owner, p.candidateId);
     c = await p.owner.ingest.candidate.get({ candidateId: p.candidateId });

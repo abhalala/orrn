@@ -732,6 +732,16 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   new_customers: (a) => typeof a === "boolean",
 };
 
+/**
+ * The stored form of an answer. The screens send `{ unit }` and `{ field }` objects for two codes; the
+ * bare string is stored so the dry run reads one shape.
+ */
+export function normalizeAnswer(code: QuestionCode, answer: unknown): unknown {
+  if (code === "unit_unknown" && answer && typeof answer === "object" && "unit" in answer) return (answer as { unit: unknown }).unit;
+  if (code === "column_meaning_unclear" && answer && typeof answer === "object" && "field" in answer) return (answer as { field: unknown }).field;
+  return answer;
+}
+
 /** Answer one question; the candidate's rows re-run from the start. */
 export async function setAnswer(
   ctx: IngestCtx,
@@ -739,7 +749,8 @@ export async function setAnswer(
 ): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   assertState(c, ["ready", "held", "processing"], "This import is not waiting for answers");
-  if (!ANSWER_CHECK[input.questionCode](input.answer)) throw new TRPCError({ code: "BAD_REQUEST", message: "That answer does not fit the question" });
+  const answer = normalizeAnswer(input.questionCode, input.answer);
+  if (!ANSWER_CHECK[input.questionCode](answer)) throw new TRPCError({ code: "BAD_REQUEST", message: "That answer does not fit the question" });
   const artifact = await loadArtifact(ctx, c.artifactId);
   const questions = await candidateQuestions(ctx, c, artifact);
   if (!questions.some((q) => q.code === input.questionCode && q.subject === input.subject)) {
@@ -750,7 +761,7 @@ export async function setAnswer(
     const field = recipe.fields.find((f) => f.field === input.subject);
     const step = field?.steps.find((s) => s.op === "number");
     if (step && step.op === "number") {
-      if (!unitsFor(step.kind).includes(input.answer as never)) throw new TRPCError({ code: "BAD_REQUEST", message: "That unit does not fit this column" });
+      if (!unitsFor(step.kind).includes(answer as never)) throw new TRPCError({ code: "BAD_REQUEST", message: "That unit does not fit this column" });
     }
   }
   const at = now();
@@ -764,17 +775,17 @@ export async function setAnswer(
         candidateId: c.id,
         questionCode: input.questionCode,
         subject: input.subject,
-        answer: input.answer as never,
+        answer: answer as never,
         answeredBy: ctx.session.user.id,
         answeredAt: at,
       })
       .onConflictDoUpdate({
         target: [ingestAnswer.candidateId, ingestAnswer.questionCode, ingestAnswer.subject],
-        set: { answer: input.answer as never, answeredBy: ctx.session.user.id, answeredAt: at },
+        set: { answer: answer as never, answeredBy: ctx.session.user.id, answeredAt: at },
       }),
   ];
   if (input.questionCode === "period_needed") {
-    const a = input.answer as { fy?: string | null; asOf: string };
+    const a = answer as { fy?: string | null; asOf: string };
     statements.push(
       ctx.db
         .update(ingestArtifact)
