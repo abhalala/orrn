@@ -51,6 +51,31 @@ describe("screens: default, then plant, then user", () => {
     const p = screenPrefs({ number: { grouping: "international" } }, { number: { decimal: "," , group: "." } });
     expect(p.number).toEqual({ grouping: "international", decimal: ",", group: "." });
   });
+  test("one mark alone never resolves to a set whose decimal and group marks are the same", () => {
+    // decimal "," alone over the default group ","
+    expect(screenPrefs({ number: { decimal: "," } }).number).toEqual({ grouping: "indian", decimal: ",", group: "." });
+    // group "." alone over the default decimal "." keeps the group mark the plant had
+    expect(screenPrefs({ number: { group: "." } }).number).toEqual({ grouping: "indian", decimal: ".", group: "," });
+    // a user layer that sends one mark over a plant with different marks
+    const plant = { number: { decimal: "," as const, group: "." as const } };
+    expect(screenPrefs(plant, { number: { decimal: "." } }).number).toEqual({ grouping: "indian", decimal: ".", group: "," });
+    expect(screenPrefs(plant, { number: { group: "," } }).number).toEqual({ grouping: "indian", decimal: ",", group: "." });
+    // a stored clash from before reads safely too
+    const stored = readUnitSettings({ units: { number: { decimal: "," } } });
+    const p = screenPrefs(stored);
+    expect(p.number.decimal).not.toBe(p.number.group);
+    // a plant that changed nothing is untouched
+    expect(screenPrefs({}).number).toEqual({ grouping: "indian", decimal: ".", group: "," });
+  });
+  test("a plant write that sends one mark alone is refused when it lands on the default's other mark", () => {
+    for (const number of [{ decimal: "," }, { group: "." }]) {
+      const r = validatePlantUnitSettings({ number });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(" ")).toContain("must differ");
+    }
+    expect(validatePlantUnitSettings({ number: { decimal: ",", group: "." } }).ok).toBe(true);
+    expect(validatePlantUnitSettings({ number: { grouping: "international" } }).ok).toBe(true);
+  });
   test("a plant's legacy lengthUnit reads as a unit choice", () => {
     expect(readUnitSettings({ lengthUnit: "inch" })).toMatchObject({ units: { length: "ft_in" }, inchGrid: 4 });
     expect(readUnitSettings({ lengthUnit: "mm" }).units).toEqual({ length: "mm" });

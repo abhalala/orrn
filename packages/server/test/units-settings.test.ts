@@ -139,6 +139,8 @@ describe("bad values are refused with BAD_REQUEST and nothing is written", () =>
     { what: "a unit for a kind that stays on its default", units: { units: { temperature: "f" } }, message: /f is not offered for temperature/ },
     { what: "a bad grouping", units: { number: { grouping: "lakh" } }, message: /bad number.grouping/ },
     { what: "the same mark for decimal and group", units: { number: { decimal: ",", group: "," } }, message: /must differ/ },
+    { what: "a decimal mark alone that lands on the default group mark", units: { number: { decimal: "," } }, message: /must differ/ },
+    { what: "a group mark alone that lands on the default decimal mark", units: { number: { group: "." } }, message: /must differ/ },
     { what: "a bad clock", units: { clock: "h24" }, message: /clock must be/ },
     { what: "a bad date order", units: { date: { order: "ydm" } }, message: /./ },
     { what: "a bad inch grid", units: { inchGrid: 3 }, message: /inchGrid/ },

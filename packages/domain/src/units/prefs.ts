@@ -205,6 +205,11 @@ export function validatePlantUnitSettings(
   }
   if (size > MAX_BYTES) return { ok: false, errors: [`over ${MAX_BYTES} bytes`] };
   const layer = readLayer(input, errors);
+  // The plant's marks are laid over the default set, so a layer that sends only one mark must still differ from the other (the default's).
+  if (layer.number && !errors.some((e) => e.includes("must differ"))) {
+    const merged = { ...ORRN_DEFAULT_PREFS.number, ...layer.number };
+    if (merged.decimal === merged.group) errors.push("decimal mark and group mark must differ");
+  }
   const settings: PlantUnitSettings = { ...layer };
   if (isObj(input)) {
     if (input.lock !== undefined) {
@@ -242,7 +247,16 @@ function apply(base: Mutable, layer: UnitPrefs | undefined, blocked: readonly Ki
     if (!blocked.includes(k as Kind) && u) base.units[k as Kind] = u;
   }
   if (layer.inchGrid) base.inchGrid = layer.inchGrid;
-  if (layer.number) base.number = { ...base.number, ...layer.number };
+  if (layer.number) {
+    const before = base.number;
+    base.number = { ...before, ...layer.number };
+    // A layer that sends only one mark can land on the other layer's mark (decimal "," over the default group ","). Never resolve
+    // to a set whose decimal and group marks are the same: keep the group mark we had, or take the one that differs.
+    if (base.number.decimal === base.number.group) {
+      const other = base.number.decimal === "," ? "." : ",";
+      base.number = { ...base.number, group: before.group !== base.number.decimal ? before.group : other };
+    }
+  }
   if (layer.currency) base.currency = { ...base.currency, ...layer.currency };
   if (layer.date) base.date = { ...base.date, ...layer.date };
   if (layer.clock) base.clock = layer.clock;
