@@ -23,6 +23,8 @@ export function packingListPrintText(t: Translate): PackingListPrintText {
     packedBy: t("packingList.signatures.packedBy"),
     checkedBy: t("packingList.signatures.checkedBy"),
     driverReceived: t("packingList.signatures.driverReceived"),
+    orderedKgPer12ft: (kg) => t("packingList.groupDetails.orderedKgPer12ft", { kg }),
+    poDate: (date) => t("packingList.groupDetails.poDate", { date }),
   };
 }
 

@@ -36,6 +36,8 @@ export {
   plExtraColumns,
   plFileName,
   plGroupTitle,
+  plGroupPrintDetails,
+  type PlGroupPrintDetails,
   plKgPerPiece,
   plProfileLines,
   plRevisionText,

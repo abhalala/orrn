@@ -1603,6 +1603,10 @@ export const en = {
       checkedBy: "Checked by",
       driverReceived: "Driver received",
     },
+    groupDetails: {
+      orderedKgPer12ft: "Ordered kg/12ft {kg}",
+      poDate: "PO date {date}",
+    },
   },
 
   dies: {

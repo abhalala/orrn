@@ -1636,6 +1636,10 @@ const guBase = {
       checkedBy: "કોણે ચકાસણી કરી",
       driverReceived: "ડ્રાઇવરે માલ મેળવ્યો",
     },
+    groupDetails: {
+      orderedKgPer12ft: "ઓર્ડર kg/12ft {kg}",
+      poDate: "PO તારીખ {date}",
+    },
   },
   reasons: {
     kinds: {

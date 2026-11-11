@@ -113,6 +113,20 @@ describe("packing list v2 extras (FP-PK-13)", () => {
     expect(html).not.toContain("Receiver's signature");
   });
 
+  test("group headings include only the ordered weight and PO date present in the snapshot", () => {
+    const raw = v2();
+    Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });
+    Object.assign(raw.groups[1]!, { orderedKgPer12ftMilli: 3_000 });
+    const html = buildPackingListHtml(parsePackingListSnapshot(raw), "PL/2026-27/7");
+    expect(html).toContain("Ordered kg/12ft 2.500 · PO date 30 Sep 2026");
+    expect(html).toContain("Ordered kg/12ft 3.000");
+    expect(html.split("PO date")).toHaveLength(2);
+
+    const without = buildPackingListHtml(parsePackingListSnapshot(v2()), "PL/2026-27/7");
+    expect(without).not.toContain("Ordered kg/12ft");
+    expect(without).not.toContain("PO date");
+  });
+
   test("branding off hides logo and tagline, never the legal name; original SO can be turned off", () => {
     const pl = parsePackingListSnapshot(
       v2({ issue: { revision: 1, dispatchCodes: ["DSP-000006"], branding: { show: false, tagline: null, logoUrl: null } }, print: { showBranding: false, showOriginalSo: false } }),

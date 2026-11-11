@@ -1595,6 +1595,10 @@ export const hi = {
       checkedBy: "किसने जाँच की",
       driverReceived: "ड्राइवर ने माल प्राप्त किया",
     },
+    groupDetails: {
+      orderedKgPer12ft: "ऑर्डर kg/12ft {kg}",
+      poDate: "PO तारीख {date}",
+    },
   },
 
   dies: {

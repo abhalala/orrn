@@ -17,6 +17,8 @@ import {
   plShipDateText,
   plLockedSnapshotFooter,
   plSignatureLabels,
+  plGroupPrintDetails,
+  type PlGroupPrintDetails,
   type PlSnapshotV2,
 } from "./snapshot";
 import type { PackingListSnapshot } from "./types";
@@ -88,7 +90,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
         .join("");
       const sec = sectionAfter.get(gi);
       return `
-      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups))}</td></tr>
+      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups) + plGroupPrintDetails(g as PlGroupPrintDetails, opts.printText))}</td></tr>
       ${rows}
       <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="${tail}"></td></tr>${
         sec

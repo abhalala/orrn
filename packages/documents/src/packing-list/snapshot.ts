@@ -76,6 +76,8 @@ export type PackingListPrintText = {
   packedBy: string;
   checkedBy: string;
   driverReceived: string;
+  orderedKgPer12ft: (kg: string) => string;
+  poDate: (date: string) => string;
 };
 
 export function plLockedSnapshotFooter(code: string, revision: number, text?: Partial<PackingListPrintText>): string {
@@ -168,6 +170,21 @@ export function plShipDateText(shipDate: string | null | undefined, shipYmd?: st
   }
   const [y, m, d] = ymd.split("-");
   return `${d} ${MONTHS[Number(m) - 1]} ${y}`;
+}
+
+export type PlGroupPrintDetails = {
+  orderedKgPer12ftMilli?: number | null;
+  poDate?: string | null;
+};
+
+export function plGroupPrintDetails(g: PlGroupPrintDetails, text?: Partial<PackingListPrintText>): string {
+  const kg = typeof g.orderedKgPer12ftMilli === "number" && Number.isFinite(g.orderedKgPer12ftMilli) ? (g.orderedKgPer12ftMilli / 1000).toFixed(3) : null;
+  const date = g.poDate ? plShipDateText(null, g.poDate) : null;
+  const parts = [
+    kg === null ? null : (text?.orderedKgPer12ft?.(kg) ?? `Ordered kg/12ft ${kg}`),
+    date === null ? null : (text?.poDate?.(date) ?? `PO date ${date}`),
+  ].filter(Boolean);
+  return parts.length > 0 ? ` · ${parts.join(" · ")}` : "";
 }
 
 /** FP-PK-13 extras a v2 snapshot may carry (absent on lists stored before them). */

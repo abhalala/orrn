@@ -12,6 +12,7 @@ import {
   plKgPerPiece,
   plLockedSnapshotFooter,
   plSignatureLabels,
+  plGroupPrintDetails,
   type PackingListModel,
   type PackingListModelOptions,
   type PackingListSnapshot,
@@ -345,7 +346,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false, printText }: { view:
         {view.groups.map((g) => (
           <View key={g.key}>
             <View style={v2s.groupRow} wrap={false} minPresenceAhead={30}>
-              <Text style={v2s.groupText}>{g.title}</Text>
+              <Text style={v2s.groupText}>{g.title + plGroupPrintDetails(g, printText)}</Text>
             </View>
             {g.rows.map((r) => {
               const v = cells(g, r) as Record<string, string>;

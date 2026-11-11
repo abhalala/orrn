@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7515 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7517 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1351,7 +1351,7 @@ Counts: 7515 screen strings in 49 groups, 45 guides with 866 strings.
 | `header.invoiceNumber` | Tally invoice number | Tally इनवॉइस नंबर |
 | `header.invoiceDate` | Invoice date | इनवॉइस की तारीख |
 
-### packingList (97)
+### packingList (99)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1452,6 +1452,8 @@ Counts: 7515 screen strings in 49 groups, 45 guides with 866 strings.
 | `signatures.packedBy` | Packed by | किसने पैक किया |
 | `signatures.checkedBy` | Checked by | किसने जाँच की |
 | `signatures.driverReceived` | Driver received | ड्राइवर ने माल प्राप्त किया |
+| `groupDetails.orderedKgPer12ft` | Ordered kg/12ft {kg} | ऑर्डर kg/12ft {kg} |
+| `groupDetails.poDate` | PO date {date} | PO तारीख {date} |
 
 ### dies (67)
 

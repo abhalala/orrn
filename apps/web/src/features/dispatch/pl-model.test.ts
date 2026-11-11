@@ -123,6 +123,15 @@ describe("packing list v2 view", () => {
     expect(view({ print: { showBranding: true, showOriginalSo: false } }).columns.originalSo).toBe(false);
   });
 
+  test("optional print details do not change the on-screen group title", () => {
+    const raw = snapshot();
+    Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });
+    const v = plViewOf(parsePackingListSnapshot(raw))!;
+    expect(v.groups[0]!.title).toBe("SO-4 / 1 · 12170 · Domal");
+    expect(v.groups[0]!.orderedKgPer12ftMilli).toBe(2_500);
+    expect(v.groups[0]!.poDate).toBe("2026-09-30");
+  });
+
   test("hollow / solid / semi summary leaves zero kinds out and totals are the snapshot's", () => {
     const v = view();
     expect(v.profile.map((k) => k.kind)).toEqual(["hollow", "solid"]);

@@ -101,4 +101,12 @@ describe("packing list PDF print polish", () => {
     expect(signed).toHaveLength(1);
     expect(signed[0]).toContain(`Page ${total} of ${total}`);
   });
+
+  test("the PDF group heading carries optional order details", async () => {
+    const raw = snapshot(1);
+    Object.assign(raw.groups[0]!, { orderedKgPer12ftMilli: 2_500, poDate: "2026-09-30" });
+    const blob = await buildPackingListPdfBlob(parsePackingListSnapshot(raw), "PL/2026-27/90");
+    const text = pdfTextStreams(await blob.arrayBuffer()).join("");
+    expect(text).toContain("Ordered kg/12ft 2.500 · PO date 30 Sep 2026");
+  });
 });
