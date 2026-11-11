@@ -84,6 +84,8 @@ export const guSettings = {
       lengthUnit: "લંબાઈનો એકમ",
       unitMm: "મિલીમીટર (mm)",
       unitInch: "ફૂટ અને ઇંચ",
+      unitMetres: "મીટર (m)",
+      lengthOnUnitsTab: "લંબાઈ એકમ ટેબમાં બદલો.",
       timezone: "ટાઇમ ઝોન",
       submit: "સેટિંગ સેવ કરો",
       saved: "સેટિંગ સેવ થઈ",

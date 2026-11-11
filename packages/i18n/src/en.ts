@@ -2505,6 +2505,8 @@ export const en = {
       lengthUnit: "Length unit",
       unitMm: "Millimetres (mm)",
       unitInch: "Feet and inches",
+      unitMetres: "Metres (m)",
+      lengthOnUnitsTab: "Change the length on the Units tab.",
       timezone: "Time zone",
       submit: "Save settings",
       saved: "Settings saved",

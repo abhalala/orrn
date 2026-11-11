@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7565 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7567 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -2175,7 +2175,7 @@ Counts: 7565 screen strings in 49 groups, 45 guides with 866 strings.
 | `collectors.backlog` | {count} waiting to send | {count} भेजने बाकी |
 | `collectors.error` | Last problem: {message} | आखिरी दिक्कत: {message} |
 
-### settings (274)
+### settings (276)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -2237,6 +2237,8 @@ Counts: 7565 screen strings in 49 groups, 45 guides with 866 strings.
 | `company.lengthUnit` | Length unit | लंबाई की इकाई |
 | `company.unitMm` | Millimetres (mm) | मिलीमीटर (mm) |
 | `company.unitInch` | Feet and inches | फ़ुट और इंच |
+| `company.unitMetres` | Metres (m) | मीटर (m) |
+| `company.lengthOnUnitsTab` | Change the length on the Units tab. | लंबाई इकाइयाँ टैब में बदलें। |
 | `company.timezone` | Time zone | टाइम ज़ोन |
 | `company.submit` | Save settings | सेटिंग्स सेव करें |
 | `company.saved` | Settings saved | सेटिंग्स सेव हो गईं |

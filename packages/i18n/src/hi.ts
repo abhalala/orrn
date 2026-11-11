@@ -2496,6 +2496,8 @@ export const hi = {
       lengthUnit: "लंबाई की इकाई",
       unitMm: "मिलीमीटर (mm)",
       unitInch: "फ़ुट और इंच",
+      unitMetres: "मीटर (m)",
+      lengthOnUnitsTab: "लंबाई इकाइयाँ टैब में बदलें।",
       timezone: "टाइम ज़ोन",
       submit: "सेटिंग्स सेव करें",
       saved: "सेटिंग्स सेव हो गईं",

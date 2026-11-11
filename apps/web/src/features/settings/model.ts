@@ -11,6 +11,7 @@ import {
   validateShifts,
   validateThresholds,
   type CompanyModule,
+  type ResolvedPrefs,
   type Shift,
   type ShiftError,
   type StandardPair,
@@ -24,6 +25,19 @@ export type LengthUnitSetting = "mm" | "inch";
 /** The company's stored length unit; anything but "inch" is mm (the server default). */
 export function lengthUnitOf(settings: Record<string, unknown> | undefined): LengthUnitSetting {
   return settings?.lengthUnit === "inch" ? "inch" : "mm";
+}
+
+/**
+ * The plant's real length choice for the Company tab: the resolved units when `auth.me` carries them (a metres plant is
+ * metres, though the legacy `lengthUnit` key only knows mm and inch), else the legacy key.
+ */
+export type LengthChoice = LengthUnitSetting | "m";
+export function lengthChoiceOf(units: ResolvedPrefs | undefined, settings: Record<string, unknown> | undefined): LengthChoice {
+  const id = units?.units?.length;
+  if (id === "m") return "m";
+  if (id === "ft_in") return "inch";
+  if (id === "mm") return "mm";
+  return lengthUnitOf(settings);
 }
 
 export function timezoneOf(settings: Record<string, unknown> | undefined): string {
