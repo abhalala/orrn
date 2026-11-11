@@ -59,8 +59,9 @@ async function phantomVoidHoldRelease(
     );
   const statements: SqliteBatchItem[] = [];
   for (const { bundleId } of lines) {
+    if (!bundleId) continue;
     statements.push(...await releaseOnVoidStatements(
-      { db: ctx.db, companyId: ctx.companyId, session: ctx.session ?? null, impersonation: ctx.impersonation },
+      { db: ctx.db, companyId: ctx.companyId, session: ctx.session ?? null, impersonation: ctx.impersonation ?? null },
       bundleId,
       and(eq(bundle.companyId, ctx.companyId), eq(bundle.id, bundleId), eq(bundle.status, "void"), eq(bundle.serverSeq, ctx.seq)),
     ));
