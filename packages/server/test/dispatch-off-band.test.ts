@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { approval, salesOrderLine } from "@orrn/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
 import { opHelpers, type OpPlant } from "./orders-w1-fixture";
@@ -257,6 +257,27 @@ describe("dispatch_off_band: the off-band row needs a second person", () => {
     expect(got.items.find((i) => i.serial === heavy)).toMatchObject({ offBandStatus: "approved", offBandApprovalId: askA!.id });
     await p.owner.dispatch.reserve({ id });
     await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
+  test("review 6: a line edited between the Complete read and its write makes a row off band: the write does not land, the row is asked", async () => {
+    const { p, id, ok, lineId } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials: [ok] });
+    await p.owner.dispatch.reserve({ id });
+    expect((await p.owner.dispatch.getDispatch({ id })).offBand).toMatchObject({ pending: 0, unasked: 0, blocked: false });
+    // The office edits the line's kg/12ft (as orders.update does: new figures, a new server_seq) while Complete runs.
+    env.beforeNextBatch(() =>
+      env.db
+        .update(salesOrderLine)
+        .set({ kgPer12ftMilli: 12_300, serverSeq: sql`${salesOrderLine.serverSeq} + 1000000` })
+        .where(eq(salesOrderLine.id, lineId)),
+    );
+    await expect(p.owner.dispatch.complete({ id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message: expect.stringContaining(`${ok} is more than 0.1 kg/12ft off the order line`),
+    });
+    expect((await p.owner.dispatch.getDispatch({ id })).dispatch).toMatchObject({ status: "reserved", plNumber: null });
+    const rows = await offBandRows(p.companyId);
+    expect(rows.map((r) => [r.status, r.meta.lineMilli])).toEqual([["pending", 12_300]]);
   }, SLOW);
 });
 

@@ -338,6 +338,16 @@ function offBandMessage(states: readonly OffBandState[]): string {
   return parts.join(" ");
 }
 
+/** Review 6: the newest server_seq of the order lines this dispatch's items are linked to (0 with none). */
+function linkedLinesSeqSql(companyId: string, dispatchId: string): SQL {
+  return sql`(select coalesce(max(sl.server_seq), 0) from dispatch_item sdi join sales_order_line sl on sl.id = sdi.sales_order_line_id and sl.company_id = ${companyId} where sdi.company_id = ${companyId} and sdi.dispatch_id = ${dispatchId})`;
+}
+
+async function linkedLinesSeq(db: OrrnDb, companyId: string, dispatchId: string): Promise<number> {
+  const [row] = await db.select({ seq: sql<number>`${linkedLinesSeqSql(companyId, dispatchId)}` }).from(company).where(eq(company.id, companyId));
+  return Number(row?.seq ?? 0);
+}
+
 /** Review 7: what a late-time request was asked for: the bundles on the dispatch and their grams. */
 type LateLoad = { bundles: number; weightG: number };
 
@@ -2953,6 +2963,9 @@ export const dispatchRouter = router({
           : null;
 
       // Q36 decided: every off-band row approved for the line it is on now (asked here when nobody had).
+      // Review 6: the linked lines' newest server_seq is read first; an order-line edit after it (a new
+      // kg/12ft) fails the write below, and the abort reads the rows again and asks.
+      const linesSeqAtRead = await linkedLinesSeq(ctx.db, ctx.companyId, d.id);
       await refuseOffBand(ctx, d, await offBandStates(ctx.db, ctx.companyId, await offBandRows(ctx.db, ctx.companyId, d.id)));
 
       // Review Focus 5: order lines past ordered + tolerance need an approved override.
@@ -3007,6 +3020,8 @@ export const dispatchRouter = router({
               overdrawGuard(ctx.companyId, d.id, toleranceBp),
               // Q36: a row that became off band after the read (a link) opened a request: not now.
               noPendingOffBandSql(ctx.companyId, d.id),
+              // Review 6: and no linked order line was edited since the off-band read.
+              sql`${linkedLinesSeqSql(ctx.companyId, d.id)} <= ${linesSeqAtRead}`,
               noUnlinkedWithOpenLine(ctx.companyId, d.id),
               sql`not exists (select 1 from dispatch_item pdi where pdi.company_id = ${ctx.companyId} and pdi.dispatch_id = ${d.id} and ${pendingReallocationOf(ctx.companyId, sql`pdi.bundle_id`)})`,
               withinCapacityOrReason(ctx.companyId, d.id, capacityOverrideReason),
