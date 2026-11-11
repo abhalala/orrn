@@ -18,7 +18,11 @@ export const HEADER_TEXT_SHARE = 0.6;
  * hands one over, is written without float noise: a whole number as it is, any other at 15 significant digits, so
  * 12.299999999999999 is "12.3" and 0.1 + 0.2 is "0.3". What a person saw ("007", "18%", "12.30") only the file's
  * formatted text gives, so the web hands that over as a string. Excel dates arrive as Date objects: they become
- * `YYYY-MM-DD` (UTC), or with the time when there is one.
+ * `YYYY-MM-DD`, or `YYYY-MM-DDTHH:MM:SS` when there is a time. A date is never shifted by the time zone of the
+ * machine that reads it (round 6): a Date at UTC midnight is that UTC date (libraries that build dates in UTC), a Date
+ * at local midnight is that local date (SheetJS, which the web uses, builds them in local time). Any other Date is
+ * written with its UTC clock. One case stays open: a time that is exactly local midnight in UTC (18:30 UTC in India)
+ * from a UTC library reads as the next date. Handing over the formatted text avoids it.
  */
 export function toCellText(v: MatrixCell): string {
   if (v === null || v === undefined) return "";
@@ -31,7 +35,12 @@ export function toCellText(v: MatrixCell): string {
   if (typeof v === "boolean") return v ? "TRUE" : "FALSE";
   if (Number.isNaN(v.getTime())) return "";
   const iso = v.toISOString();
-  return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso.slice(0, 19);
+  if (iso.endsWith("T00:00:00.000Z")) return iso.slice(0, 10);
+  if (v.getHours() === 0 && v.getMinutes() === 0 && v.getSeconds() === 0 && v.getMilliseconds() === 0) {
+    const two = (x: number) => String(x).padStart(2, "0");
+    return `${String(v.getFullYear()).padStart(4, "0")}-${two(v.getMonth() + 1)}-${two(v.getDate())}`;
+  }
+  return iso.slice(0, 19);
 }
 
 const nonBlank = (row: readonly string[]) => row.filter((c) => c !== "").length;
