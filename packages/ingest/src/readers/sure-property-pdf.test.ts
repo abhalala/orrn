@@ -44,6 +44,12 @@ export const PDF_FEATURES = [
   "second_table",
   "continuation",
   "word_in_number",
+  // Round 2 (R3-1 to R3-4): column names that are numbers or dates, a letterhead or colon line whose cells sit at the
+  // column positions right above the header, column numbers under the names, a two-cell footer right under the rows.
+  "number_header",
+  "aligned_letterhead",
+  "column_numbers",
+  "adjacent_footer",
 ] as const;
 type Feature = (typeof PDF_FEATURES)[number];
 
@@ -123,6 +129,7 @@ export function generatePdf(seed: number, force?: Feature[]): Case {
     const chance: Record<Feature, number> = {
       title: 2, letterhead: 6, group_labels: 12, blank_header_cell: 12, ragged_row: 15, footer: 4, wrapped_cell: 4,
       one_cell_row: 5, second_table: 8, continuation: 4, word_in_number: 8,
+      number_header: 8, aligned_letterhead: 8, column_numbers: 15, adjacent_footer: 10,
     };
     for (const f of PDF_FEATURES) if (rnd(chance[f]) === 0) on.add(f);
     if (on.has("second_table")) on.delete("continuation");
@@ -140,6 +147,11 @@ export function generatePdf(seed: number, force?: Feature[]): Case {
       spec.push({ name: "Kg", kind: "num" }, { name: "Pcs", kind: "num" });
       groupNames.push("May 2025");
     }
+  }
+  if (on.has("number_header") && !on.has("group_labels")) {
+    const style = rnd(3);
+    const names = Array.from({ length: 2 + rnd(2) }, (_, i) => (style === 0 ? String(12 + 2 * i) : style === 1 ? String(2023 + i) : `01.0${4 + i}.2025`));
+    spec.splice(0, spec.length, rnd(2) === 0 ? { name: "Party", kind: "party" } : { name: "Section", kind: "section" }, ...names.map((name) => ({ name, kind: "num" as Kind })));
   }
   const cols = layColumns(rnd, spec, on.has("word_in_number"));
   const items: TextItem[] = [];
@@ -161,6 +173,19 @@ export function generatePdf(seed: number, force?: Feature[]): Case {
     }
     y -= pitch + rnd(10);
   }
+  if (on.has("aligned_letterhead")) {
+    const cells = rnd(2) === 0 ? ["Party: Om", "City: Rajkot", "FY: 2025-26"] : ["Fourcubes Extrusions", "Rajkot", "Gujarat"];
+    const used = cells.slice(0, 2 + rnd(2)).slice(0, cols.length);
+    // At the column's left edge, or just right of the cell before when that one is wider than its column.
+    let edge = 0;
+    used.forEach((t, k) => {
+      const x = Math.max(cols[k]!.x0, edge + 3 * CHAR);
+      items.push(item(t, x, y));
+      edge = x + t.length * CHAR;
+    });
+    titleParts.push(used.join(" "));
+    y -= pitch;
+  }
   const headY = y;
   let headers = cols.map((c) => c.name);
   let headerRows: 1 | 2 = 1;
@@ -180,6 +205,10 @@ export function generatePdf(seed: number, force?: Feature[]): Case {
     if (blank >= 0) headers[blank] = "";
   }
   y -= pitch;
+  if (on.has("column_numbers")) {
+    cols.forEach((c, k) => items.push(cellAt(c, String(k + 1), y)));
+    y -= pitch;
+  }
   const n = 2 + rnd(6);
   const t1 = dataRows(rnd, cols, y, pitch, on, {
     n,
@@ -243,6 +272,10 @@ export function generatePdf(seed: number, force?: Feature[]): Case {
     pages.push(p2);
   }
   const last = pages.length - 1;
+  if (on.has("adjacent_footer") && last === 0 && !on.has("second_table")) {
+    items.push(item("Prepared by", cols[0]!.x0, y), item("Checked by", cols[1]!.x0, y));
+    y -= pitch;
+  }
   if (on.has("footer")) {
     const page = pages[last]!;
     const lowY = last === 0 ? y : Math.min(...page.map((i) => i.y)) - pitch;
@@ -277,9 +310,12 @@ describe("pdf reader property: sure means right, hints mean right", () => {
     const cases: Case[] = [];
     let seed = 1;
     for (const f of PDF_FEATURES) for (let k = 0; k < 60; k++) cases.push(generatePdf(seed++, [f]));
-    for (let k = 0; k < 300; k++) cases.push(generatePdf(seed++, [PDF_FEATURES[k % 11]!, PDF_FEATURES[(k * 4 + 3) % 11]!]));
+    const nf = PDF_FEATURES.length;
+    for (let k = 0; k < 600; k++) cases.push(generatePdf(seed++, [PDF_FEATURES[k % nf]!, PDF_FEATURES[(k * 4 + 3) % nf]!]));
+    // The checker's sure-and-wrong class (R3-1): number or date names under an aligned letterhead or colon line.
+    for (let k = 0; k < 300; k++) cases.push(generatePdf(seed++, ["number_header", "aligned_letterhead", ...(k % 3 === 0 ? (["adjacent_footer"] as const) : [])]));
     // R3-3 made a continuation page with no header of its own unsure; more cases keep the sure count above the floor.
-    for (let k = 0; k < 2000; k++) cases.push(generatePdf(seed++));
+    for (let k = 0; k < 2500; k++) cases.push(generatePdf(seed++));
     let sure = 0;
     for (const c of cases) {
       const label = `${c.features.join(",")} seed`;

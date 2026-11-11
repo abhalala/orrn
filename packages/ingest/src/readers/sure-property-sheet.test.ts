@@ -49,6 +49,14 @@ export const SHEET_FEATURES = [
   "word_in_number",
   "leading_blank_rows",
   "gap_row",
+  // Round 2 (R3-1 to R3-6): column names that are numbers or dates, letterheads of two or three cells side by side
+  // and colon lines right above the header, column numbers under the names, a two-cell footer right under the last
+  // row, and a second table 30 blank rows down.
+  "number_header",
+  "tight_letterhead",
+  "column_numbers",
+  "adjacent_footer",
+  "far_second_table",
 ] as const;
 type Feature = (typeof SHEET_FEATURES)[number];
 
@@ -84,7 +92,27 @@ function table(rnd: (n: number) => number, m: MatrixCell[][], on: Set<Feature>, 
   if (key.name === "Sr" && rnd(2) === 0) cols.splice(1, 0, POOL[1]!);
   if (!cols.some((c) => c.kind === "int" || c.kind === "dec")) cols.push({ name: "Qty", kind: "int" });
 
+  // Column names that are lengths, years or month dates: a key column, then two to four columns of numbers.
+  let numberNames: MatrixCell[] | null = null;
+  if (on.has("number_header") && !on.has("group_labels") && !on.has("two_row_header")) {
+    const k = 2 + rnd(3);
+    const style = rnd(3);
+    numberNames = Array.from({ length: k }, (_, i) =>
+      style === 0 ? [8, 10, 12, 14, 16, 18][i]! : style === 1 ? 2022 + i : new Date(Date.UTC(2025, 3 + i, 1)),
+    );
+    cols.splice(0, cols.length, POOL[rnd(2) === 0 ? 1 : 2]!, ...numberNames.map(() => ({ name: "", kind: "int" as Kind })));
+  }
+
   const titleParts: string[] = [];
+  if (on.has("tight_letterhead")) {
+    const three = rnd(2) === 0;
+    const row: MatrixCell[] =
+      rnd(2) === 0
+        ? ["Fourcubes Extrusions", "Rajkot", ...(three ? ["Gujarat"] : [])]
+        : ["Party: Om Metals", "City: Rajkot", ...(three ? ["FY: 2025-26"] : [])];
+    m.push(row);
+    titleParts.push(row.join(" "));
+  }
   if (on.has("letterhead")) {
     // A company name and a second cell: spread over the columns (and past them), or in two cells side by side.
     const spread = rnd(2) === 0;
@@ -101,16 +129,16 @@ function table(rnd: (n: number) => number, m: MatrixCell[][], on: Set<Feature>, 
   }
 
   // Header: one row, or a group-label row over sub-columns, or a two-row header with Min and Max under one name.
-  let top: string[] = cols.map((c) => c.name);
+  let top: MatrixCell[] = numberNames ? [cols[0]!.name, ...numberNames] : cols.map((c) => c.name);
   let bottom: string[] | null = null;
-  let headers = [...top];
+  let headers = top.map(toCellText);
   if (on.has("group_labels")) {
     const subs = ["Kg", "Pcs"];
     const months = rnd(2) === 0 ? ["Apr 2025"] : ["Apr 2025", "May 2025"];
     const left = cols.filter((c) => c.kind === "party" || c.kind === "sr").slice(0, 1);
     const key = left[0] ?? { name: "Party", kind: "party" as Kind };
     cols.splice(0, cols.length, key, ...months.flatMap(() => subs.map((s) => ({ name: s, kind: (s === "Kg" ? "dec" : "int") as Kind }))));
-    top = [key.name, ...months.flatMap((mo) => [mo, ""])];
+    top = [key.name, ...months.flatMap((mo) => [mo, ""])] as string[];
     bottom = ["", ...months.flatMap(() => subs)];
     headers = [key.name, ...months.flatMap((mo) => subs.map((s) => `${mo} ${s}`))];
   } else if (on.has("two_row_header")) {
@@ -137,6 +165,7 @@ function table(rnd: (n: number) => number, m: MatrixCell[][], on: Set<Feature>, 
   const headerRow = m.length;
   m.push(top);
   if (bottom) m.push(bottom);
+  if (on.has("column_numbers")) m.push(cols.map((_, i) => i + 1));
   const firstDataRow = m.length;
 
   const rows: MatrixCell[][] = [];
@@ -159,6 +188,7 @@ function table(rnd: (n: number) => number, m: MatrixCell[][], on: Set<Feature>, 
   }
   m.push(...rows);
   const lastDataRow = m.length - 1;
+  if (on.has("adjacent_footer") && last) m.push(["Prepared by", "Checked by"]);
   if (on.has("footer") && last) m.push([], ["Prepared by", "", "Checked by"]);
 
   const text = rows.map((r) => r.map(toCellText));
@@ -184,14 +214,17 @@ export function generateSheet(seed: number, force?: Feature[]): Case {
     const chance: Record<Feature, number> = {
       title: 3, letterhead: 6, group_labels: 10, two_row_header: 12, blank_header_cell: 10, ragged_row: 15, footer: 6,
       total_row: 5, wrapped_cell: 8, second_table: 8, word_in_number: 8, leading_blank_rows: 6, gap_row: 10,
+      number_header: 8, tight_letterhead: 8, column_numbers: 15, adjacent_footer: 10, far_second_table: 20,
     };
     for (const f of SHEET_FEATURES) if (rnd(chance[f]) === 0) on.add(f);
     if (on.has("group_labels")) on.delete("two_row_header");
   }
   const m: MatrixCell[][] = [];
   if (on.has("leading_blank_rows")) m.push([], []);
-  const tables = [table(rnd, m, on, !on.has("second_table"))];
+  const tables = [table(rnd, m, on, !on.has("second_table") && !on.has("far_second_table"))];
+  if (on.has("far_second_table")) on.add("second_table");
   if (on.has("second_table")) {
+    if (on.has("far_second_table")) for (let k = 0; k < 30; k++) m.push([]);
     m.push([]);
     const second = new Set<Feature>(["title", ...(on.has("footer") ? (["footer"] as Feature[]) : [])]);
     if (rnd(2) === 0) second.delete("title");
@@ -208,7 +241,10 @@ describe("sheet reader property: sure means right, hints mean right", () => {
     const cases: Case[] = [];
     let seed = 1;
     for (const f of SHEET_FEATURES) for (let k = 0; k < 60; k++) cases.push(generateSheet(seed++, [f]));
-    for (let k = 0; k < 300; k++) cases.push(generateSheet(seed++, [SHEET_FEATURES[k % 13]!, SHEET_FEATURES[(k * 5 + 3) % 13]!]));
+    const nf = SHEET_FEATURES.length;
+    for (let k = 0; k < 600; k++) cases.push(generateSheet(seed++, [SHEET_FEATURES[k % nf]!, SHEET_FEATURES[(k * 5 + 3) % nf]!]));
+    // The checker's sure-and-wrong class (R3-1): number or date names under a letterhead or a colon line.
+    for (let k = 0; k < 300; k++) cases.push(generateSheet(seed++, ["number_header", "tight_letterhead", ...(k % 3 === 0 ? (["adjacent_footer"] as const) : [])]));
     for (let k = 0; k < 2000; k++) cases.push(generateSheet(seed++));
     let sure = 0;
     for (const c of cases) {
