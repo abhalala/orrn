@@ -159,7 +159,10 @@ function isNewHeader(cols: readonly Col[], l: Line, members: readonly Line[], ch
   if (
     headed &&
     l.cells.every((c) => isWord(c.text)) &&
-    data.some((m) => m.cells.some((d) => /^(?:int|decimal)$/.test(cellKind(d.text)))) &&
+    data.some((m) => m.cells.some((d) => {
+      const k = cellKind(d.text);
+      return k === "int" || k === "decimal";
+    })) &&
     !fitsColumns(cols, l, charWidth)
   ) {
     return true;
