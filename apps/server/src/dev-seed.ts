@@ -637,7 +637,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     createdAt: pastAt(5, 11),
     completedAt: pastAt(4, 15),
     shipDate: pastAt(4, 15),
-    notes: "Vehicle GJ-01 BT 4471. LR handed to driver.",
+    notes: "LR handed to driver.",
     members: [...bundlesOf(0, 0, 12), ...bundlesOf(1, 0, 8)],
     labelled: true,
     // FP-PK-12: the first truck went with the transporter master and a 9 t capacity; the office linked Tally invoice 271 (SO-7).
@@ -667,7 +667,7 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
     createdAt: todayAt(0.7),
     completedAt: todayAt(0.85),
     shipDate: todayAt(0.85),
-    notes: "Vehicle GJ-03 AX 8120. Mixed tee and channel.",
+    notes: "Mixed tee and channel.",
     members: [...bundlesOf(2, 0, 8), ...bundlesOf(3, 0, 8)],
     labelled: true,
     // Opened from SO-8 (its baki on the scan screen); a 12 t truck, invoice not linked yet.
@@ -706,6 +706,11 @@ export async function seedDevData(db: Db, opts: { password: string; now?: number
   const c3 = truck(3, bundlesOf(4, 5, 8), 12.5, "GJ03BV5520", "Karsan Bhai", "9879044444", "268/26-27");
   const c4 = truck(4, bundlesOf(4, 8, 11), 15.25, "GJ03BV5521", "Mahesh Parmar", "9879055555", "269/26-27");
   dispatches.push(c3, c4);
+
+  // BACKLOG 70: dispatch.complete refuses with no vehicle number, so no seeded completed dispatch lacks one.
+  for (const plan of dispatches) {
+    if (plan.status === "completed" && !plan.header?.vehicleNo?.trim()) throw new Error(`dev seed: ${plan.id} is completed with no vehicle number`);
+  }
 
   // Apply dispatch state to bundles, with one status event per transition.
   const reserveAt = (plan: DispatchPlan, offsetMin: number) => plan.createdAt + offsetMin * 60_000;
