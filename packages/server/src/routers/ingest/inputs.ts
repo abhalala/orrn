@@ -22,7 +22,11 @@ export const beginInput = z.object({
 
 export const artifactIdInput = z.object({ artifactId: id });
 
-const cell = z.string().max(L.cellChars);
+/** `readError` set: the browser could not read the file; the artifact and its candidates become failed. */
+export const completeInput = z.object({ artifactId: id, readError: z.string().trim().min(1).max(300).optional() });
+
+/** Cells longer than 200 characters are cut by the server with a reason code (A9); 2,000 is the wire cap. */
+const cell = z.string().max(2000);
 
 export const blockInput = z.object({
   ordinal: z.number().int().min(0).max(L.blocksPerFile - 1),
@@ -30,8 +34,11 @@ export const blockInput = z.object({
   title: z.string().max(500).nullable(),
   headerRow: z.number().int().min(0).max(1000),
   headerRows: z.number().int().min(1).max(2),
-  headers: z.array(z.string().max(L.cellChars)).min(1).max(L.columnsPerBlock),
+  headers: z.array(cell).min(1).max(L.columnsPerBlock),
   rowCount: z.number().int().min(0).max(L.stagedRowsPerBlock),
+  /** The browser's own reading; the server recomputes both and never trusts these. */
+  kinds: z.array(z.string().max(20)).max(L.columnsPerBlock).optional(),
+  headerKey: z.string().max(100).optional(),
   sample: z.array(z.array(cell).max(L.columnsPerBlock)).max(L.sampleRowsPerBlock),
   dateColumns: z.array(z.number().int().min(0).max(L.columnsPerBlock)).max(L.columnsPerBlock).optional(),
 });

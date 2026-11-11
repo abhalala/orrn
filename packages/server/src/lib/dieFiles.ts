@@ -76,8 +76,14 @@ export function dieFileSigningReady(): boolean {
   return typeof master === "string" && master.length > 0;
 }
 
-/** HMAC key for one purpose. Throws PRECONDITION_FAILED when ORRN_MASTER_KEY is missing. */
-async function hmacKey(purpose: "orrn-die-files" | "orrn-die-upload" = "orrn-die-files"): Promise<CryptoKey> {
+/** Purposes an HMAC key is derived for. The ingest ones sign Infinity Portal upload tickets (plan A2). */
+export type HmacPurpose = "orrn-die-files" | "orrn-die-upload" | "ingest-raw" | "ingest-canonical" | "ingest-page";
+
+/**
+ * HMAC key for one purpose. Throws PRECONDITION_FAILED when ORRN_MASTER_KEY is missing. Exported so
+ * the ingest upload tickets reuse this derivation instead of copying it.
+ */
+export async function hmacKey(purpose: HmacPurpose = "orrn-die-files"): Promise<CryptoKey> {
   if (!dieFileSigningReady()) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "File links are not set up for this plant yet" });
   }
@@ -85,7 +91,7 @@ async function hmacKey(purpose: "orrn-die-files" | "orrn-die-upload" = "orrn-die
   return crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
-function hex(buf: ArrayBuffer): string {
+export function hex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -95,7 +101,7 @@ async function signature(key: string, exp: number): Promise<string> {
 }
 
 /** The API origin the URL points at: this request's origin, else BETTER_AUTH_URL. */
-function apiOrigin(ctx: { request?: Request | null }): string {
+export function apiOrigin(ctx: { request?: Request | null }): string {
   try {
     if (ctx.request?.url) return new URL(ctx.request.url).origin;
   } catch {
@@ -162,13 +168,13 @@ export type DieUploadTicket = {
   exp: number;
 };
 
-function base64url(bytes: Uint8Array): string {
+export function base64url(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function fromBase64url(text: string): Uint8Array {
+export function fromBase64url(text: string): Uint8Array {
   const bin = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }

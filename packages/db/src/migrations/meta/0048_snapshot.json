@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "67d7b86e-e95a-4657-9b49-af6aa497edfa",
+  "id": "858916a6-db73-4f5f-90bc-86140e3ae282",
   "prevId": "3182b154-d8c0-4805-9d6d-c1922cf3622a",
   "tables": {
     "ageing_batch": {
@@ -11031,6 +11031,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
+        },
+        "error_codes": {
+          "name": "error_codes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "created_by": {
           "name": "created_by",

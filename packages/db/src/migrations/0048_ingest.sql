@@ -96,6 +96,7 @@ CREATE TABLE `ingest_bot_run` (
 	`cache_write_tokens` integer DEFAULT 0 NOT NULL,
 	`cost_micro_usd` integer DEFAULT 0 NOT NULL,
 	`duration_ms` integer DEFAULT 0 NOT NULL,
+	`error_codes` text,
 	`created_by` text,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`company_id`) REFERENCES `company`(`id`) ON UPDATE no action ON DELETE cascade,
