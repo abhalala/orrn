@@ -43,6 +43,38 @@ describe("C11: tables are keyed by schema and name", () => {
   });
 });
 
+describe("C12: a later statement with another column list lands under the right headers", () => {
+  test("INSERT (a,b) then (b,a)", () => {
+    const sql = "INSERT INTO t (a, b) VALUES (1, 2);\nINSERT INTO t (b, a) VALUES (3, 4);\n";
+    each(sql, (r) => {
+      expect(r.tables[0]!.columns).toEqual(["a", "b"]);
+      expect(r.tables[0]!.rows).toEqual([["1", "2"], ["4", "3"]]);
+      expect(r.tables[0]!.columnListChanges).toBe(1);
+    });
+  });
+
+  test("a new column is added and earlier rows are padded", () => {
+    const sql = "INSERT INTO t (a, b) VALUES (1, 2);\nINSERT INTO t (a, c) VALUES (3, 5);\n";
+    each(sql, (r) => {
+      expect(r.tables[0]!.columns).toEqual(["a", "b", "c"]);
+      expect(r.tables[0]!.rows).toEqual([["1", "2", ""], ["3", "", "5"]]);
+    });
+  });
+
+  test("COPY with a reordered list", () => {
+    const sql = ["COPY t (a, b) FROM stdin;", "1\t2", "\\.", "COPY t (b, a) FROM stdin;", "3\t4", "\\.", ""].join("\n");
+    each(sql, (r) => expect(r.tables[0]!.rows).toEqual([["1", "2"], ["4", "3"]]));
+  });
+
+  test("the same list in another case is not a change", () => {
+    const sql = "INSERT INTO t (a, b) VALUES (1, 2);\nINSERT INTO t (A, B) VALUES (3, 4);\n";
+    each(sql, (r) => {
+      expect(r.tables[0]!.rows).toEqual([["1", "2"], ["3", "4"]]);
+      expect(r.tables[0]!.columnListChanges).toBe(0);
+    });
+  });
+});
+
 describe("C22: advancing over a long one-line insert stays linear", () => {
   test("50,000 rows on one line, 1 MB chunks, finish quickly with the right line count", () => {
     const rows = Array.from({ length: 50_000 }, (_, i) => `(${i},'name ${i}')`).join(",");

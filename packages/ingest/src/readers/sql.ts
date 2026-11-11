@@ -22,6 +22,8 @@ export type SqlTable = {
   truncated: boolean;
   /** Rows whose cell count differed from the column count. */
   arityMismatch: number;
+  /** Statements whose column list differed from the first one. Their cells were placed by column name. */
+  columnListChanges: number;
   source: "insert" | "copy";
 };
 
@@ -110,6 +112,8 @@ export class SqlReader {
   private capture: string | null = null;
   private finished = false;
   private rowsInStatement = 0;
+  /** Statement column position to table column index, when this statement's list differs from the table's. */
+  private colMap: number[] | null = null;
 
   constructor(opts: SqlReaderOptions = {}) {
     this.dialect = opts.dialect ?? "auto";
@@ -141,6 +145,8 @@ export class SqlReader {
     }
     const tables = this.order.map((k) => this.tables.get(k)!);
     for (const t of tables) {
+      // A later column list added names: earlier rows get blank cells for them.
+      if (t.columnListChanges > 0) for (const r of t.rows) while (r.length < t.columns.length) r.push("");
       if (t.columns.length === 0) {
         const width = t.rows.reduce((m, r) => Math.max(m, r.length), 0);
         t.columns = Array.from({ length: width }, (_, i) => `col${i + 1}`);
@@ -435,6 +441,7 @@ export class SqlReader {
         rowCount: 0,
         truncated: false,
         arityMismatch: 0,
+        columnListChanges: 0,
         source,
       };
       this.tables.set(key, t);
@@ -442,15 +449,48 @@ export class SqlReader {
     } else if (cols && t.columns.length === 0) {
       t.columns = cols;
     }
+    this.colMap = null;
+    if (cols && t.columns !== cols && t.columns.length > 0) {
+      const lower = t.columns.map((c) => c.toLowerCase());
+      const same = cols.length === lower.length && cols.every((c, i) => c.toLowerCase() === lower[i]);
+      if (!same) {
+        // Keep the first list as the table's columns; place this statement's cells by name, adding new names.
+        this.colMap = cols.map((c) => {
+          const at = lower.indexOf(c.toLowerCase());
+          if (at !== -1) return at;
+          t.columns.push(c);
+          lower.push(c.toLowerCase());
+          return t.columns.length - 1;
+        });
+        t.columnListChanges++;
+      }
+    }
     return t;
   }
 
-  private addRow(t: SqlTable, cells: string[]) {
+  private addRow(t: SqlTable, cellsIn: string[]) {
+    let cells = cellsIn;
+    if (this.colMap) {
+      const map = this.colMap;
+      if (cellsIn.length !== map.length) t.arityMismatch++;
+      cells = new Array<string>(t.columns.length).fill("");
+      cellsIn.forEach((c, i) => {
+        if (i < map.length) cells[map[i]!] = c;
+        else cells.push(c);
+      });
+      t.rowCount++;
+      this.keep(t, cells);
+      return;
+    }
     t.rowCount++;
     if (t.columns.length > 0 && cells.length !== t.columns.length) {
       t.arityMismatch++;
       if (cells.length > t.columns.length) for (let i = t.columns.length; i < cells.length; i++) t.columns.push(`col${i + 1}`);
     }
+    this.keep(t, cells);
+  }
+
+  private keep(t: SqlTable, cells: string[]) {
     if (this.kept >= this.maxRows) {
       t.truncated = true;
       this.truncated = true;
