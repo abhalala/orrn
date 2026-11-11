@@ -55,6 +55,38 @@ function hasBlankInSpan(row: readonly string[]): boolean {
   return false;
 }
 
+const isTextCell = (c: string) => {
+  const k = cellKind(c);
+  return k === "text" || k === "code";
+};
+
+/**
+ * Is `bottom` the second row of a two-row header under `top` (C14)? Needs structure, not only text: some top cell
+ * inside the header span is blank over a filled bottom cell (a group label spans it); every bottom cell is a short
+ * label (text of 3 words or fewer); and the row below does not hold text in the same columns as `bottom` does, which
+ * would make `bottom` the first data row.
+ */
+function isSecondHeaderRow(top: readonly string[], bottom: readonly string[], below: readonly string[] | undefined): boolean {
+  if (!hasBlankInSpan(top) || nonBlank(bottom) < 2 || textShare(bottom) < HEADER_TEXT_SHARE) return false;
+  let first = -1;
+  let last = -1;
+  top.forEach((c, i) => {
+    if (c !== "") {
+      if (first === -1) first = i;
+      last = i;
+    }
+  });
+  let spans = false;
+  for (let i = first + 1; i <= Math.max(last, bottom.length - 1); i++) if ((top[i] ?? "") === "" && (bottom[i] ?? "") !== "") spans = true;
+  if (!spans) return false;
+  if (bottom.some((c) => c !== "" && (!isTextCell(c) || c.trim().split(/\s+/).length > 3))) return false;
+  if (below && nonBlank(below) > 0) {
+    const sameShape = bottom.every((c, i) => c === "" || ((below[i] ?? "") !== "" && isTextCell(below[i]!)));
+    if (sameShape) return false;
+  }
+  return true;
+}
+
 /** "Top bottom" for a two-row header. A blank top cell above a filled bottom cell continues the group to its left. */
 function combineHeaders(top: readonly string[], bottom: readonly string[]): string[] {
   const width = Math.max(top.length, bottom.length);
@@ -117,7 +149,7 @@ export function findBlocks(matrix: readonly (readonly MatrixCell[])[], opts: { s
     let headers = rows[h]!;
     let headerRows: 1 | 2 = 1;
     const next = rows[h + 1];
-    if (next && hasBlankInSpan(headers) && nonBlank(next) >= 2 && textShare(next) >= HEADER_TEXT_SHARE) {
+    if (next && isSecondHeaderRow(headers, next, rows[h + 2])) {
       headers = combineHeaders(headers, next);
       headerRows = 2;
     }
