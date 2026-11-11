@@ -6,7 +6,7 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { approval, auditLog } from "@orrn/db/schema";
+import { approval, auditLog, customer } from "@orrn/db/schema";
 import { and, eq } from "drizzle-orm";
 
 import { createTestEnv, type TestEnv } from "./harness";
@@ -150,4 +150,60 @@ describe("tolerance at scan (pl-flow 61)", () => {
     expect(rows.map((r) => r.status).sort()).toEqual(["pending", "rejected"]);
     expect(rows.find((r) => r.status === "rejected")!.note).toBe("Withdrawn: asked again with new figures.");
   }, SLOW);
+
+  /** Nine 120 kg bundles (1,080,000 g) on one line of `orderedG`; the customer's tolerance set when given. */
+  async function boundary(orderedG: number, bp?: number) {
+    const p = await opPlant();
+    if (bp !== undefined) await env.db.update(customer).set({ kgToleranceBp: bp }).where(eq(customer.id, p.customerId));
+    const s = await p.section();
+    await p.copy(s, { milli: 12_000 });
+    const o = await p.confirmedOrder([{ sectionId: s, kgG: orderedG }]);
+    const serials = await p.pack(s, Array.from({ length: 9 }, () => ({ kg: 120 })), o.lineIds[0]);
+    const { id } = await p.owner.dispatch.create({ vehicleNo: "GJ05AB1234", salesOrderId: o.id });
+    return { p, id, serials, lineId: o.lineIds[0]! };
+  }
+
+  test("boundary: a total exactly at ordered + 5 % asks nothing and completes", async () => {
+    // 1,028,572 g + floor(5 %) = 1,028,572 + 51,428 = 1,080,000 g, the nine bundles to the gram.
+    const { p, id, serials } = await boundary(1_028_572);
+    const rep = await p.as("packer").dispatch.scan({ id, serials });
+    expect(rep.overTolerance).toEqual([]);
+    expect(await overdraws(p.companyId)).toEqual([]);
+    expect((await p.owner.dispatch.getDispatch({ id })).overdraw?.lines[0]).toMatchObject({ limitG: 1_080_000 });
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+  }, SLOW);
+
+  test("boundary: one gram over the limit is over: reported and asked", async () => {
+    // 1,028,571 g + floor(51,428.55) = 1,079,999 g: the same nine bundles are 1 g over.
+    const { p, id, serials, lineId } = await boundary(1_028_571);
+    const rep = await p.as("packer").dispatch.scan({ id, serials });
+    expect(rep.overTolerance).toMatchObject([{ lineId, toleranceBp: 500, limitG: 1_079_999, totalG: 1_080_000, overG: 1 }]);
+    expect((await overdraws(p.companyId)).map((r) => r.status)).toEqual(["pending"]);
+  }, SLOW);
+
+  test("boundary: a customer with 0 % tolerance has a limit of exactly the ordered kg", async () => {
+    const atLimit = await boundary(1_080_000, 0);
+    expect((await atLimit.p.as("packer").dispatch.scan({ id: atLimit.id, serials: atLimit.serials })).overTolerance).toEqual([]);
+    expect((await atLimit.p.owner.dispatch.getDispatch({ id: atLimit.id })).overdraw).toMatchObject({ toleranceBp: 0, lines: [{ limitG: 1_080_000 }] });
+    const over = await boundary(1_079_999, 0);
+    const rep = await over.p.as("packer").dispatch.scan({ id: over.id, serials: over.serials });
+    expect(rep.overTolerance).toMatchObject([{ toleranceBp: 0, limitG: 1_079_999, overG: 1 }]);
+  }, SLOW);
+
+  test("partial removal back under the limit: Complete withdraws the waiting request and completes", async () => {
+    const { p, id, serials } = await setup();
+    await p.as("packer").dispatch.scan({ id, serials }); // 1,080 kg > 1,050
+    const [req] = await overdraws(p.companyId);
+    expect(req).toMatchObject({ status: "pending" });
+    const item = (await p.owner.dispatch.getDispatch({ id })).items.find((i) => i.serial === serials[8])!;
+    await p.owner.dispatch.removeBundle({ id, bundleId: item.bundleId }); // 960 kg
+    expect((await p.owner.dispatch.getDispatch({ id })).overdraw?.lines.every((l) => l.covered)).toBe(true);
+    await p.owner.dispatch.reserve({ id });
+    await expect(p.owner.dispatch.complete({ id })).resolves.toMatchObject({ success: true });
+    const [after] = await overdraws(p.companyId);
+    expect(after).toMatchObject({ id: req!.id, status: "rejected" });
+    expect(after!.note).toMatch(/^Withdrawn: /);
+  }, SLOW);
 });
+
