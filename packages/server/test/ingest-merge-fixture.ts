@@ -162,7 +162,7 @@ export async function auditRows(env: TestEnv, companyId: string, action: string)
 
 /**
  * Put a finished run back where a crash between the procedure call and the state write leaves it:
- * the chunk `sent`, its rows `queued` with no committed id, the candidate `merging`, the run
+ * the chunk `sent`, its rows `queued` with the chunk's mark, the candidate `merging`, the run
  * `running` with the cursor of that step. The chunk was sent `sentAgoMs` ago; the default is past
  * the chunk lease, so the next step may send it again.
  */
@@ -179,10 +179,20 @@ export async function rewindToCrash(env: TestEnv, runId: string, candidateId: st
     .update(ingestMergeChunk)
     .set({ state: "sent", writtenAt: null, sentAt: new Date(Date.now() - (opts.sentAgoMs ?? 120_000)) })
     .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.candidateId, candidateId)));
-  await env.db
-    .update(ingestStagedRow)
-    .set({ mergeState: "queued", committedType: null, committedId: null })
-    .where(eq(ingestStagedRow.candidateId, candidateId));
+  // A queued row carries its chunk's mark (CHUNK_MARK, B-new-2) until it is written.
+  const { CHUNK_MARK } = await import("../src/lib/ingest/merge/shared");
+  const { between } = await import("drizzle-orm");
+  const chunks = await env.db
+    .select()
+    .from(ingestMergeChunk)
+    .where(and(eq(ingestMergeChunk.runId, runId), eq(ingestMergeChunk.candidateId, candidateId)));
+  for (const ch of chunks) {
+    if (ch.rowCount === 0) continue;
+    await env.db
+      .update(ingestStagedRow)
+      .set({ mergeState: "queued", committedType: CHUNK_MARK, committedId: ch.id })
+      .where(and(eq(ingestStagedRow.candidateId, candidateId), between(ingestStagedRow.rowIndex, ch.rowFrom, ch.rowTo)));
+  }
   await env.db.update(ingestCandidate).set({ state: "merging" }).where(eq(ingestCandidate.id, candidateId));
   return cursor;
 }

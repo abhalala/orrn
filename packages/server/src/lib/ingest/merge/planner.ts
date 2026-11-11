@@ -9,8 +9,10 @@
  *   all updates.
  * - Orders: one order (orderKeyOf) is never cut. Whole orders pack at most 10 per chunk. Orders
  *   that interleave in the file form one component; a component above 10 orders is packed 10
- *   whole orders at a time in order of their first row, so chunk ranges may overlap. The write
- *   step picks the chunk's orders back out of its range (pickOrderRows) and checks the chunk id.
+ *   whole orders at a time in order of their first row, so chunk ranges may overlap.
+ * - Every planned row carries its chunk's mark (CHUNK_MARK, B-new-2). The write step reads exactly
+ *   those rows by an index, whatever the range, and checks the chunk id against them. The order
+ *   grouping is worked out here, once, over the whole candidate; a write step reads only its rows.
  * - Before any order is written, an orders candidate is held when an order has more than 100
  *   lines, when one PO has two order dates, or when its PO is already on a live order (B1, B5),
  *   or when a line is one the order screen would refuse (B11). A die copies candidate with a
@@ -33,7 +35,9 @@ import type { CandidateRow } from "../core";
 import type { IngestCtx } from "../types";
 import { aliasNameOwners, aliasRefusal, handStatusRefusal, ORDER_LINE_FIELDS, orderLineOf, orderPricing } from "./adapters";
 import {
+  CHUNK_MARK,
   CHUNK_ROWS,
+  companyNotIndexed,
   failureOf,
   LINES_PER_ORDER,
   MESSAGE_MAX,
@@ -164,9 +168,8 @@ export function cutOrderRuns(rows: readonly PlanRow[]): PlanRow[][] {
 }
 
 /**
- * The rows of an orders chunk, picked from the queued rows of its range: whole orders in order of
- * their first row until `rowCount` rows. Orders of earlier chunks are written by then, so what is
- * left in the range starts with this chunk's orders. The caller checks the chunk id.
+ * Whole orders in order of their first row until `rowCount` rows. The write step no longer needs
+ * it: it reads a chunk's rows by the chunk mark (B-new-2). Kept as a pure helper with its tests.
  */
 export function pickOrderRows(rows: readonly StagedRow[], rowCount: number): StagedRow[] {
   return pickOrders(rows, rowCount, (r) => orderKeyOf((r.values ?? {}) as Record<string, unknown>));
@@ -427,13 +430,16 @@ export async function planPage(ctx: IngestCtx, runId: string, firstSeq: number):
       const { id: _id, companyId: _c, ...again } = values;
       statements.push(ctx.db.insert(ingestMergeChunk).values(values).onConflictDoUpdate({ target: ingestMergeChunk.id, set: again }));
     });
-    for (const part of chunkList(chunks.flatMap((ch) => ch.rowIds), 90)) {
-      statements.push(
-        ctx.db
-          .update(ingestStagedRow)
-          .set({ mergeState: "queued" })
-          .where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.id, part), eq(ingestStagedRow.mergeState, "open"))),
-      );
+    // Each row carries its chunk's mark, so the write step reads exactly its rows (B-new-2).
+    for (const ch of chunks) {
+      for (const part of chunkList(ch.rowIds, 90)) {
+        statements.push(
+          ctx.db
+            .update(ingestStagedRow)
+            .set({ mergeState: "queued", committedType: CHUNK_MARK, committedId: ch.id })
+            .where(and(companyNotIndexed(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.id, part), eq(ingestStagedRow.mergeState, "open"))),
+        );
+      }
     }
     return { done: false, candidateId: c.id, chunks, statements };
   }

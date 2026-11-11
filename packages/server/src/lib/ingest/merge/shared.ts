@@ -3,6 +3,8 @@
  * (plan A5).
  */
 import { TRPCError } from "@trpc/server";
+import { sql, type SQL } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { ZodError } from "zod";
 
 import type { ingestMergeChunk, ingestStagedRow, IngestTarget } from "@orrn/db/schema/ingest";
@@ -60,6 +62,26 @@ export const LINES_PER_ORDER = 100;
 export const SPLIT_UPDATES: ReadonlySet<IngestTarget> = new Set(["customers", "vendors", "die_copies", "customer_aliases", "vendor_aliases"]);
 
 export const MESSAGE_MAX = 300;
+
+/**
+ * The chunk mark (B-new-2). While a staged row is `queued`, `committed_type` holds this value and
+ * `committed_id` holds the id of the chunk that will send it. A write step reads its rows by
+ * `ingest_staged_row_committed_idx` (company, type, id): exactly the chunk's rows, never a range.
+ * Writing the row replaces the mark with the live table and id; a row that opens again loses it.
+ * Readers: `committed_type` and `committed_id` name a live record only when `merge_state` is
+ * `written`.
+ */
+export const CHUNK_MARK = "ingest_merge_chunk";
+
+/**
+ * The tenant filter `company_id = ?` written so SQLite never takes it as the index (a unary plus).
+ * Use it next to a primary key `IN` list. With no ANALYZE statistics SQLite guesses 10 rows for one
+ * company and would walk the company's whole index instead of the listed ids: for 50 ids of a
+ * 5,000-row sheet it read all 5,000 rows (B-new-2).
+ */
+export function companyNotIndexed(column: SQLiteColumn, companyId: string): SQL {
+  return sql`+${column} = ${companyId}`;
+}
 
 /** A text value of a staged row, or null when blank. */
 export function text(v: unknown): string | null {
