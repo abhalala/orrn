@@ -134,7 +134,7 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
                       </label>
                     </td>
                     {cols.map((c) => (
-                      <td key={c} title={line.cells[c] ?? ""} className={cn("truncate py-1.5 pr-2", on && "font-semibold", c >= NARROW_COLUMNS && "max-sm:hidden")}>
+                      <td key={c} title={line.cells[c] ?? ""} className={cn("py-1.5 pr-2 break-words sm:truncate", on && "font-semibold", c >= NARROW_COLUMNS && "max-sm:hidden")}>
                         <ForeignText>{line.cells[c] ?? ""}</ForeignText>
                       </td>
                     ))}

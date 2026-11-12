@@ -29,11 +29,14 @@ export function keptFiles(artifacts: readonly ArtifactSummary[], fmt: ListFormat
 
 /**
  * Files still marked as being read that this page is not sending: the person closed the page before the file was
- * finished. Add the file again and it carries on from where it stopped.
+ * finished. Add the file again and it carries on from where it stopped. The newest three show, so abandoned files never fill the page.
  */
+export const UNFINISHED_SHOWN = 3;
+
 export function unfinishedFiles(artifacts: readonly ArtifactSummary[], sending: ReadonlySet<string>): { id: string; name: string }[] {
   return artifacts
     .filter((a) => a.readState === "reading" && !sending.has(a.id))
     .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, UNFINISHED_SHOWN)
     .map((a) => ({ id: a.id, name: a.fileName }));
 }

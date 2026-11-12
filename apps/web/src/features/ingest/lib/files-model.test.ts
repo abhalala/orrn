@@ -30,5 +30,7 @@ describe("files that are not candidates", () => {
   test("a file still being read that this page is not sending was left half way", () => {
     const files = [art({ id: "1", readState: "reading", fileName: "a.xlsx" }), art({ id: "2", readState: "reading", fileName: "b.xlsx" }), art({ id: "3" })];
     expect(unfinishedFiles(files, new Set(["2"]))).toEqual([{ id: "1", name: "a.xlsx" }]);
+    const many = Array.from({ length: 5 }, (_, i) => art({ id: String(i), readState: "reading", fileName: `f${i}.xlsx`, createdAt: 1000 + i }));
+    expect(unfinishedFiles(many, new Set()).map((f) => f.id)).toEqual(["4", "3", "2"]);
   });
 });

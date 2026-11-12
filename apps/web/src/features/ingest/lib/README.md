@@ -324,3 +324,23 @@ the same commit as the screen (both dictionaries, then the Hindi export): `near.
 `near.missing` (the "What changed" table replaces them), `merge.stopped` (`merge.titleStopped` and
 `merge.partsWritten` replace it), `row.state`, `period.chip`, `merge.holds` (only if the merge screen does not keep
 that line). `group.held` stays, as the work order says, for segment labels; no model uses it today.
+
+
+## The header step and kept files (web round, 2026-11-12)
+
+- Upload is `read` (worker, guess) then `settleHeaders` (`settle.ts`) then rows. Every `putBlocks` call carries every table with
+  its `preview`, the raw header row (`input.headerRow` is the sheet's own row, the number in the preview), `width`, `merged` and no
+  rows. The answer decides: `keep` (rows follow), `reread` (`reader.read(file, { hints })`, table sent again, no pick of the
+  person), `ask` (the step: `headerAskView`, the reply is a `HeaderReply`). A person's pick goes out as `hint`. A table the
+  person skips, or one that is joined to the table above, goes out as an empty table under their pick, so the block count
+  never changes (the server fixes it on the first call), and its candidate is discarded after `complete`.
+- A hint the reader cannot follow is a `ReadError` of code `hint_error`: the step asks again with "Pick another row" and the old
+  block stays.
+- "It continues the table above" and "Same columns as the table above" need the upper table not to be saved yet (the server
+  keeps a saved block as it is). The offers are left out when it is.
+- `matrixFromSheet` hands on the text a person saw (`cell.w`; else the number without float noise). Excel dates stay ISO days:
+  SheetJS words the built-in date formats month first, which would turn 11 October into 10 November.
+- PDFs and photos: `isKeptKind`. No reader runs; the file is stored and finished (`kept`), and `keptFiles` lists those the
+  server marks `kept_unread`. `unfinishedFiles` lists files a closed page left half way.
+- `usePlantUnits` reads `me.company.units`, the set the plant formatter provider holds. `plantUnitsFor(settings)` is for tests.
+- `server-codes.test.ts` reads the server's ingest sources and fails when a row reason has no words.
