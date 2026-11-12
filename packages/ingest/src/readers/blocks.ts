@@ -346,6 +346,19 @@ export type FindBlocksOptions = {
   noHeaderGuess?: boolean;
 };
 
+/** Two rows hold the same names, exactly: cells trimmed, trailing blank cells ignored. */
+export function sameNames(a: readonly string[], b: readonly string[]): boolean {
+  const cut = (r: readonly string[]) => {
+    const t = r.map((c) => c.trim());
+    let e = t.length;
+    while (e > 0 && t[e - 1] === "") e--;
+    return t.slice(0, e);
+  };
+  const x = cut(a);
+  const y = cut(b);
+  return x.length > 0 && x.length === y.length && x.every((c, i) => c === y[i]);
+}
+
 export const lastFilled = (rows: readonly string[][], from: number, to: number) => {
   let last = from - 1;
   for (let r = from; r <= to; r++) if (nonBlank(rows[r]!) > 0) last = r;
@@ -423,19 +436,32 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
    * Rows `from` to `to` (exclusive), guessed again from `from`. Pushes the guessed blocks that start there, cut short
    * above `span` when they run into it, and notes the rows they leave. Returns the first row of `span`'s title.
    */
-  const gap = (from: number, to: number, span: Span | null): number => {
-    const guessed = guessRange(rows, from, span ? span.last + 1 : n, sheetName).blocks;
+  const gap = (from: number, to: number, span: Span | null, upperHeader: readonly string[] | null): number => {
+    // Below a hinted block, a row that repeats its header names exactly (rule 6.1), after a blank row and up to three
+    // one-cell title rows ("December"), starts a guess of its own, so the guess above it cannot take it as a row.
+    const end = span ? span.last + 1 : n;
+    const cuts = [from];
+    if (upperHeader) {
+      for (let r = from + 1; r < to; r++) {
+        if (!sameNames(rows[r]!, upperHeader)) continue;
+        let k = r;
+        while (k - 1 > from && r - k < 3 && nonBlank(rows[k - 1]!) === 1) k--;
+        if (nonBlank(rows[k - 1]!) === 0 && k > cuts[cuts.length - 1]!) cuts.push(k);
+      }
+    }
+    cuts.push(end);
+    const guessed = cuts.slice(0, -1).flatMap((a, i) => guessRange(rows, a, cuts[i + 1]!, sheetName).blocks);
     const inKept = new Set<number>();
     let covered = from - 1;
     for (const b of guessed) {
       const [start, end] = regionOf(b);
       if (start < from || start >= to) continue;
-      // Below a hinted block, a guessed table needs a data row under its header that does not read as names, as a
-      // guessed split does (C33). A footer such as "Prepared by | Checked by" has none: its rows go with the block
-      // above, or form a block when they look like data.
+      // Below a hinted block, a guessed header over at most one row of text and no row that looks like data is no
+      // table (C33): a footer such as "Prepared by | Checked by". Its rows go with the block above. A table whose
+      // first row under the header reads as names (a units row) is still a table when data follows.
       if (from > 0 && spans.some((sp) => sp.last + 1 === from)) {
-        const under = rows.slice(b.guess.firstDataRow!, (b.guess.lastDataRow ?? -1) + 1).find((r) => nonBlank(r) > 0);
-        if (!under || isHeaderLike(under)) continue;
+        const under = rows.slice(b.guess.firstDataRow!, (b.guess.lastDataRow ?? -1) + 1).filter((r) => nonBlank(r) > 0);
+        if (under.length < 2 && !under.some((r) => nonBlank(r) >= 2 && textShare(r) < 1)) continue;
       }
       let keep: ReadBlock | null = b;
       if (span && end >= span.h) {
@@ -469,9 +495,10 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
   };
 
   let from = 0;
+  let upperHeader: readonly string[] | null = null;
   for (const span of spans) {
     const { hint, h, headerRows, first, last } = span;
-    const titleFrom = gap(from, h, span);
+    const titleFrom = gap(from, h, span, upperHeader);
     let start = h;
     for (let r = titleFrom; r < h; r++) {
       if (nonBlank(rows[r]!) > 0) {
@@ -507,8 +534,9 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       doubts: [],
     });
     from = last + 1;
+    upperHeader = rows[h]!;
   }
-  gap(from, n, null);
+  gap(from, n, null, upperHeader);
 
   // Rows no block takes: rows that look like data form blocks of their own, other rows go with the block above.
   blocks.sort((x, y) => regionStartOf(x) - regionStartOf(y));
@@ -649,7 +677,15 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
           if (nonBlank(cand) <= 1) continue;
           // A new table needs a data row right under its header; a footer such as "Prepared by" has none (C33).
           const below = k + 1 < n ? rows[k + 1] : undefined;
-          found = below !== undefined && nonBlank(below) > 0 && !isHeaderLike(below) && startsNewBlock(cand, data.slice(-200), headers.length);
+          // With no data row yet, the guessed header itself is the row to compare with (round 7): a lone row of numbers
+          // guessed as a header, then a blank row and a real header, is two tables. A text header never splits here.
+          // A row that repeats this block's header names exactly is a new block too (rule 6.1: a second month in the
+          // same layout), even when no column holds numbers or the row under it looks like names.
+          found =
+            below !== undefined &&
+            nonBlank(below) > 0 &&
+            (sameNames(cand, rows[h]!) ||
+              (!isHeaderLike(below) && startsNewBlock(cand, data.some((r) => nonBlank(r) > 0) ? data.slice(-200) : [headers], headers.length)));
           break;
         }
       }

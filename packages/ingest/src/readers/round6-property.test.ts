@@ -11,6 +11,8 @@
  *    no last row a hinted block ends at the first blank row (rule 6.1, round 7); the rows below are counted by 3.
  * 3. Cells lost 0: every filled cell of the file is in a header, a data row (the same text), or a listed row.
  * 4. A known layout with an unnamed column filled only below the preview fits the same file again.
+ * 5. Round 7, rule 6.1: a second table one or more blank rows below a hinted one (hinted alone, no last row) is never
+ *    swallowed: it heads a block of its own that follows the block above.
  *
  * `R6_SEEDS` sets the number of files (default 300); `R6_REPORT=1` prints the counts.
  */
@@ -84,12 +86,12 @@ function value(r: Rand, k: Kind, remarkSep: string): Cell {
   return t(pick(r, CITY));
 }
 
-type Table = { head: string[]; kinds: Kind[]; units: string[] | null; approvedTwoRow: boolean; data: Cell[][]; decoy: string[] | null };
-type Gen = { above: string[][]; tables: Table[]; gaps: number[]; feats: string[]; noLast: boolean };
+type Table = { head: string[]; kinds: Kind[]; units: string[] | null; approvedTwoRow: boolean; data: Cell[][]; decoy: string[] | null; layout: Layout };
+type Gen = { above: string[][]; tables: Table[]; gaps: number[]; feats: string[]; noLast: boolean; midTitle?: string };
 const BLANK: Cell = { raw: "", text: "" };
 
-function genTable(r: Rand, feats: string[], opts: { below?: boolean } = {}): Table {
-  const L = opts.below ? pick(r, LAYOUTS.filter((l) => !l.feat && !l.head.includes(""))) : pick(r, LAYOUTS);
+function genTable(r: Rand, feats: string[], opts: { below?: boolean; layout?: Layout } = {}): Table {
+  const L = opts.layout ?? (opts.below ? pick(r, LAYOUTS.filter((l) => !l.feat && !l.head.includes(""))) : pick(r, LAYOUTS));
   if (L.feat) feats.push(L.feat);
   let head = [...L.head];
   let kinds = [...L.kinds];
@@ -116,7 +118,7 @@ function genTable(r: Rand, feats: string[], opts: { below?: boolean } = {}): Tab
   const unitsOk = units !== null && units.some((u) => u !== "");
   if (unitsOk) feats.push("units");
   if (kinds.includes("date")) feats.push("dates");
-  return { head, kinds, units: unitsOk ? units : null, approvedTwoRow: unitsOk && r() < 0.5, data, decoy: L.decoy ?? null };
+  return { head, kinds, units: unitsOk ? units : null, approvedTwoRow: unitsOk && r() < 0.5, data, decoy: L.decoy ?? null, layout: L };
 }
 
 function generate(seed: number): Gen {
@@ -136,14 +138,21 @@ function generate(seed: number): Gen {
   const tables = [genTable(r, feats)];
   const gaps = [0];
   const second = pick(r, ["none", "none", "stacked0", "stacked1", "stacked3"]);
+  let midTitle: string | undefined;
   if (second !== "none") {
-    tables.push(genTable(r, feats));
+    // Round 7: a second month in the same layout below, sometimes under a month title.
+    const sameLayout = second !== "stacked0" && r() < 0.3;
+    tables.push(genTable(r, feats, sameLayout ? { layout: tables[0]!.layout } : {}));
     gaps.push(second === "stacked0" ? 0 : second === "stacked1" ? 1 : 3);
     feats.push(second);
+    if (sameLayout) {
+      feats.push("same_layout_below");
+      if (r() < 0.5) midTitle = pick(r, ["December", "January 2026", "दिसंबर"]);
+    }
   }
   const noLast = r() < 0.5;
   if (noLast) feats.push("no_last_row");
-  return { above, tables, gaps, feats, noLast };
+  return { above, tables, gaps, feats, noLast, midTitle };
 }
 
 type Truth = { hint: BlockHints; headers: string[]; rows: string[][]; key: string; headerRows: 1 | 2 };
@@ -158,6 +167,7 @@ function toFile(g: Gen): { matrix: MatrixCell[][]; text: string[][]; truths: Tru
   };
   g.tables.forEach((t, k) => {
     for (let b = 0; b < (k === 0 ? (g.above.length > 0 ? 1 : 0) : g.gaps[k]!); b++) push([], []);
+    if (k === 1 && g.midTitle) push([g.midTitle], [g.midTitle]);
     const h = matrix.length;
     push([...t.head], [...t.head]);
     let headerRows: 1 | 2 = 1;
@@ -245,7 +255,7 @@ const hinted = (bs: readonly ReadBlock[]) => bs.filter((b) => b.hints !== null);
 describe("round 6 acceptance property (sheets and CSV)", () => {
   test("wrong fits 0, inexact hinted reads 0, cells lost 0, known unnamed-below layouts fit", () => {
     const seeds = Number(process.env.R6_SEEDS ?? 300);
-    const counts = { files: 0, sheets: 0, csvs: 0, wrongFits: 0, inexactHinted: 0, cellsLost: 0, unnamedBelow: 0, unnamedBelowAsked: 0, fits: 0, asks: 0 };
+    const counts = { files: 0, sheets: 0, csvs: 0, wrongFits: 0, inexactHinted: 0, cellsLost: 0, unnamedBelow: 0, unnamedBelowAsked: 0, fits: 0, asks: 0, belowHinted: 0, swallowed: 0 };
     const feats = new Map<string, number>();
     for (let seed = 1; seed <= seeds; seed++) {
       const g = generate(seed);
@@ -283,6 +293,23 @@ describe("round 6 acceptance property (sheets and CSV)", () => {
           if (c.kind === "fits") counts.fits++;
           else counts.asks++;
         }
+        // Round 7, rule 6.1: a second table one or more blank rows below a hinted one, hinted alone with no last row,
+        // is never swallowed. It heads a block of its own that follows the blocks above, and no cell is lost.
+        if (truths.length === 2 && g.gaps[1]! >= 1) {
+          counts.belowHinted++;
+          const only = { ...truths[0]!.hint, lastDataRow: undefined };
+          const one = kind === "sheet" ? readSheet(matrix, { hints: [only] }) : readCsv(csvText, { hints: [only] });
+          const top = one.blocks.find((b) => b.hints !== null)!;
+          const h2 = truths[1]!.hint.headerRow;
+          const swallowed = h2 >= top.firstDataSheetRow && h2 < top.firstDataSheetRow + top.rows.length;
+          const heads = one.blocks.find((b) => b.guess.headerRow === h2 || (b.guess.headerRow < h2 && h2 < b.guess.headerRow + b.headerRows));
+          const ok = !swallowed && heads !== undefined && heads.follows != null;
+          if (!ok) counts.swallowed++;
+          expect(ok, `${label} ${kind} second table below a hinted one: ${JSON.stringify(one.blocks.map((b) => [b.guess, b.follows]))}`).toBe(true);
+          const l = lost(text, one);
+          counts.cellsLost += l.length;
+          expect(l, `${label} ${kind} cells, one hint`).toEqual([]);
+        }
         if (g.feats.includes("unnamed_below")) {
           counts.unnamedBelow++;
           const b = guessed.blocks[0]!;
@@ -294,7 +321,7 @@ describe("round 6 acceptance property (sheets and CSV)", () => {
       }
     }
     if (process.env.R6_REPORT) console.log(JSON.stringify({ ...counts, feats: Object.fromEntries(feats) }));
-    for (const f of ["unit_layout", "near_sign", "near_count", "remark_sep", "dates", "blank_run", "no_last_row", "unnamed_below", "units", "stacked0", "stacked3", "keyValue", "longLetterhead"]) {
+    for (const f of ["unit_layout", "near_sign", "near_count", "remark_sep", "dates", "blank_run", "no_last_row", "unnamed_below", "units", "stacked0", "stacked3", "keyValue", "longLetterhead", "same_layout_below"]) {
       expect(feats.get(f) ?? 0, f).toBeGreaterThan(seeds / 60);
     }
     expect(counts.fits).toBeGreaterThan(seeds / 4);

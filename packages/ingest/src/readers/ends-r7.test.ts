@@ -129,4 +129,41 @@ describe("6.1: a hinted table ends at the first blank row", () => {
     expect(r.blocks.length).toBe(2);
     expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
   });
+
+  // Found by the round 7 property (seeds 148, 16, 253): the guess below a hinted block must not take the next table.
+  const LIST = (from: number, n: number) => Array.from({ length: n }, (_, i) => [`Party ${from + i}`, `98250${10000 + from + i}`, i % 2 ? "Rajkot" : "Morbi"]);
+  test("a table that repeats the hinted header below, with no column of numbers, is a block of its own", () => {
+    const head = ["Firm", "Contact", "Place"]; // no built-in layout has these names, so the check asks
+    for (const title of [[], [["December"]]]) {
+      const m = [head, ...LIST(0, 2), [], ...LIST(2, 3), [], [], [], ...title, head, ...LIST(5, 4)];
+      const h2 = m.length - 5;
+      const r = readSheet(m, { hints: [{ headerRow: 0 }] });
+      const b2 = r.blocks.find((b) => b.guess.headerRow === h2);
+      expect(b2, JSON.stringify(r.blocks.map((b) => b.guess))).toBeDefined();
+      expect(b2!.rows.length).toBe(4);
+      expect(b2!.follows).not.toBeNull();
+      expect(r.blocks[0]!.rows.length).toBe(2);
+      expect(placed(m, r)).toBe(filledRows(m));
+      const c = chooseHeaderInSheet(r.blocks, r.blocks.indexOf(b2!));
+      expect(c.kind === "ask" && c.sameColumnsAsAbove).toBe(false); // the block above it is the guessed one, not the hinted header
+    }
+  });
+
+  test("the guess splits at a row that repeats its own header after blank rows", () => {
+    const head = ["Firm", "Contact", "Place"]; // no built-in layout has these names, so the check asks
+    const m = [head, ...LIST(0, 3), [], [], head, ...LIST(3, 3)];
+    const r = readSheet(m);
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 3], [6, 3]]);
+    const c = chooseHeaderInSheet(r.blocks, 1);
+    expect(c.kind === "ask" && c.sameColumnsAsAbove).toBe(true);
+  });
+
+  test("a units row under the second table's header does not turn the table into warnings", () => {
+    const m = [["Date", "Party", "Kg"], ["2025-01-02", "Om", "21.05"], [], ["Party", "Order No", "Pcs", "Rate"], ["", "nos", "nos", "inr"], ["Om", "308", "218", "28.72"], ["Mehta", "119", "552", "6.55"]];
+    const r = readSheet(m, { hints: [{ headerRow: 0 }] });
+    expect(r.blocks.length).toBe(2);
+    expect(regionStartOf(r.blocks[1]!)).toBe(3);
+    expect(r.blocks[0]!.warnings).toEqual([]);
+    expect(placed(m, r)).toBe(filledRows(m));
+  });
 });
