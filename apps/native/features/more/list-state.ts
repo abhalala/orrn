@@ -1,6 +1,6 @@
 export type ListViewState = "loading" | "error" | "empty" | "rows";
 
-export function listViewState(data: { items: readonly unknown[] } | undefined, error: unknown, isError: boolean, offset: number): ListViewState {
+export function listViewState(data: { items: readonly unknown[]; total?: number } | undefined, error: unknown, isError: boolean, offset: number): ListViewState {
   if (data === undefined) return isError ? "error" : "loading";
   if (offset === 0 && data.items.length === 0) return "empty";
   return "rows";
