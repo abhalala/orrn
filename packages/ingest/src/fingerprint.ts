@@ -14,29 +14,62 @@ const UNIT_TOKENS: [RegExp, string][] = [
   // spellings of one word fold. "No." stays "no", so "Bundle No." is still an id column (C27).
   [/(?<![a-z0-9])(?:pc|pieces?)(?![a-z0-9])/g, "pcs"],
   [/(?<![a-z0-9])nos(?![a-z0-9])/g, "no"],
-  [/(?<![a-z0-9])(?:rs|inr)(?![a-z0-9])|₹/g, "inr"],
+  [/(?<![a-z0-9])(?:rs|inr)(?![a-z0-9])|\u20b9/g, "inr"],
 ];
 
+/** Every dash and minus character (rule 6.2): hyphen, non-breaking hyphen, figure dash, en dash, em dash, minus. */
+const DASHES = /[\u2010\u2011\u2012\u2013\u2014\u2212\ufe58\ufe63\uff0d]/g;
+/** Signs that are always kept as their own token (rule 6.2). "+" is kept too; "-" only where it is a sign. */
+const KEPT = "+%#\u00b1<>\u2264\u2265";
+const WORD = /[\p{L}\p{M}\p{N}]/u;
+
 /**
- * NFKC and lower case, unit tokens canonical, every run of other characters one space, trimmed. Blank stays "".
- * Letters, their marks and digits of every script are kept, so a Hindi or Gujarati name is a name, never a blank
- * (PORTAL-RULES-3 section 5.1, B2). Invisible format characters (the joiners Indian scripts use) are dropped.
- * Round 6 (owner's decision): the signs + - % # and / carry meaning and are kept, so "Tol +" and "Tol -" are two
- * names, and so are "Rate %" and "Rate". A hyphen between two letters or digits only joins words ("Sr-No" is
- * "sr no"). Two names give one key only when they differ by case, spaces, other punctuation, or the spelling of one
- * unit ("Kgs" and "kg", "Pieces" and "pcs", "Nos" and "No.").
+ * The key form of a column name (PORTAL-RULES-3 rule 6.2, round 7). NFKC and lower case, so non-breaking and
+ * full-width characters fold to their plain forms. Then:
+ * - Every dash and minus folds to "-". A "-" or "/" between two words, spaced or not, is a separator ("Wt - Kg",
+ *   "Wt-Kg" and "Wt Kg" are one name). A "-" at the end of the name, or right before a digit with no word right before
+ *   it, is a sign and is kept ("Tol -", "Kg (-)", "-12"). "+" is always kept, and so are % # ± < > ≤ ≥.
+ * - Dots, colons, brackets and every other punctuation count as a space; a dot between single letters joins them
+ *   ("P.O. No" is "po no"). A trailing danda is punctuation.
+ * - Letters, their marks and digits of every script are kept: a nukta or a matra is part of the letter (B2). The
+ *   joiners U+200C and U+200D are kept; every other format character is dropped (`DROPPED_FORMAT`).
+ * - The spellings of one unit fold ("Kgs" and "kg", "Pieces" and "pcs", "Nos" and "No."); count words do not fold
+ *   together (round 6).
+ * Blank stays "".
  */
+/**
+ * Format characters to drop (round 7): every invisible format character except U+200C and U+200D, the joiners Indian
+ * scripts use to choose a letter's form. The same in cell text (`toCellText`) and in names.
+ */
+export const DROPPED_FORMAT = /(?![\u200c\u200d])\p{Cf}/gu;
+
 export function normalizeHeader(h: string): string {
-  let t = h.normalize("NFKC").replace(/\p{Cf}/gu, "").toLowerCase();
-  t = t.replace(/'/g, " ft ").replace(/\u2212/g, "-");
-  for (const [re, to] of UNIT_TOKENS) t = t.replace(re, (m) => (m === "₹" ? " inr " : to));
-  t = t.replace(/(?<=[\p{L}\p{M}\p{N}])-(?=[\p{L}\p{N}])/gu, " ").replace(/[+%#-]/g, " $& ");
-  return t.replace(/[^\p{L}\p{M}\p{N}/+%#-]+/gu, " ").trim();
+  let t = h.normalize("NFKC").replace(DROPPED_FORMAT, "").toLowerCase();
+  t = t.replace(DASHES, "-").replace(/'/g, " ft ");
+  for (const [re, to] of UNIT_TOKENS) t = t.replace(re, (m) => (m === "\u20b9" ? " inr " : to));
+  // A dot between single letters joins them: "p.o." is "po".
+  let prev = "";
+  while (prev !== t) {
+    prev = t;
+    t = t.replace(/(?<![\p{L}\p{M}\p{N}])(\p{L}\p{M}*)\.(?=\p{L}\p{M}*(?:\.|[^\p{L}\p{M}\p{N}]|$))/u, "$1");
+  }
+  // Every other character that is not a word character, a space, "-", "/" or a kept sign is a space.
+  t = t.replace(new RegExp(`[^\\p{L}\\p{M}\\p{N}\\s\\-/\\u200c\\u200d${KEPT}]`, "gu"), " ");
+  // "/" is never a sign: a separator between words, else punctuation.
+  t = t.replace(/\//g, " ");
+  // "-": a sign at the end of the name, or right before a digit with no word right before it; else a space.
+  t = t.replace(/-/g, (_m, i: number, str: string) => {
+    const end = str.slice(i + 1).trim() === "";
+    const beforeDigit = /\p{N}/u.test(str[i + 1] ?? "") && !WORD.test(str[i - 1] ?? "");
+    return end || beforeDigit ? " - " : " ";
+  });
+  t = t.replace(new RegExp(`[${KEPT}]`, "g"), " $& ");
+  return t.replace(/\s+/g, " ").trim();
 }
 
 /** A word that only names a unit, a count or a sign, alone or glued to a number ("12ft"). */
 const UNIT_WORD =
-  /^(?:\d+(?:\.\d+)?)?(?:kg|kgs|kilo|kilos|kilogram|kilograms|g|gm|gms|gram|grams|ton|tons|mt|m|mm|cm|mtr|ft|in|inch|inches|pc|pcs|piece|pieces|no|nos|inr|rs|%|#|\+|-)$/;
+  /^(?:\d+(?:\.\d+)?)?(?:kg|kgs|kilo|kilos|kilogram|kilograms|g|gm|gms|gram|grams|ton|tons|mt|m|mm|cm|mtr|ft|in|inch|inches|pc|pcs|piece|pieces|no|nos|inr|rs|%|#|\+|-|±|<|>|≤|≥)$/;
 
 /**
  * Is a normalized header only unit words (round 6, B-R5-2)? "kg", "pcs", "kg/12ft", "%" and a blank are; a name with

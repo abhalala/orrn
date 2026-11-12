@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { builtinBundles, builtinCustomers, builtinDies } from "./builtins";
 import { fitBuiltin } from "./fit";
 import { fingerprint, normalizeHeader } from "./fingerprint";
+import { WEB_TEMPLATE_CSV } from "./builtins/web-templates.fixture";
+import { parseCsv } from "./readers/csv";
 import { DIE_SHEET_HEADERS } from "./recipe-fixtures";
 
 // Round 6, item 2 (M-R5-3, owner's decision): signs that carry meaning are kept, count words are not folded together,
@@ -78,10 +80,12 @@ describe("round 6: the normaliser keeps meaning", () => {
   test("the web's old templates are still exact built-in fits", () => {
     const fits = (headers: readonly string[], hole: Parameters<typeof fitBuiltin>[1], row: string[]) => fitBuiltin(fingerprint({ headers, rows: [row, row] }), hole);
     expect(fits(DIE_SHEET_HEADERS, builtinDies, ["40", "4012", "2.2", "2.5", "Frame", "44.5", "1.2", "", "active", ""])?.fit).toBe("exact");
-    const bundle = fits(["Legacy id", "Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)", "PO number"], builtinBundles, ["ck1", "R", "2105", "4", "12.5", "12", "PO1"]);
+    // Round 7, rule 6.4: the bundle template exactly as the web hands it out, with no column added by this test
+    // (it had a hand-added "Legacy id" column). See also builtins/templates-r7.test.ts.
+    const bundle = fits(parseCsv(WEB_TEMPLATE_CSV.bundles.inch)[0]!, builtinBundles, ["40", "4012", "25", "58.4", "12", "PO-2611"]);
     expect(bundle?.fit).toBe("exact");
-    // The one stored-key change: "Pieces" is now "pcs" (it was "pieces").
-    expect(bundle!.recipe.match.headers).toEqual(["legacy id", "die series", "section code", "pcs", "weight kg", "length ft", "po number"]);
+    // The one stored-key change of round 6: "Pieces" is now "pcs" (it was "pieces").
+    expect(bundle!.recipe.match.headers).toEqual(["die series", "section code", "pcs", "weight kg", "length ft", "po number"]);
     expect(fits(["Name", "Phone", "Email", "GSTIN", "Notes"], builtinCustomers, ["Om", "98250", "a@b.in", "24AB", "ok"])?.fit).toBe("exact");
   });
 });

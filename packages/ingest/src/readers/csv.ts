@@ -9,12 +9,12 @@ export type CsvDelimiter = "," | ";" | "\t" | "|";
 
 /**
  * The delimiter that splits the first lines evenly, header included (M7). Quoted text is ignored.
- * Round 6 (M-R5-4): the delimiter that gives every line, from the first line that holds it to the end of the sample,
- * the same count wins, so a remark with a semicolon or a pipe does not make it the delimiter. Of those, the one that
- * starts highest wins (a title line above the table holds none, C35), then the larger count, then tab, semicolon,
- * pipe, comma. A comma between two digits ("1,200", "12,5") is skipped only when counting it leaves the lines uneven.
- * A last line the sample cut short is left out of that test. With no even delimiter, the most consistent count wins
- * as before; comma when nothing is clear.
+ * Round 6 (M-R5-4): for each delimiter, the longest run of consecutive lines that share one count above zero. The
+ * longest run wins, then the larger count, then tab, semicolon, pipe, comma. So the header and every row of a comma
+ * table beat a semicolon that only the remarks hold, and title or key and value lines above a table (C35), or a
+ * second table at the end of the sample, do not break it. A comma between two digits ("1,200", "12,5") is skipped
+ * only when that gives the comma a longer run. A last line the sample cut short is left out. With no run of two
+ * lines, the most consistent count wins as before; comma when nothing is clear.
  */
 export function detectDelimiter(sample: string): CsvDelimiter {
   const lines: string[] = [];
@@ -45,20 +45,28 @@ export function detectDelimiter(sample: string): CsvDelimiter {
       }
       return c;
     });
-  /** The first line that holds the delimiter and its count, when every line from there has that count. */
-  const even = (counts: number[]): { start: number; count: number } | null => {
+  /** The longest run of consecutive lines that share one count above zero (the first, on a tie). Two lines or more. */
+  const run = (counts: number[]): { length: number; count: number } | null => {
     const checked = cutShort && counts.length > 2 ? counts.slice(0, -1) : counts;
-    const start = checked.findIndex((c) => c > 0);
-    if (start === -1 || checked.length - start < 2) return null;
-    const count = checked[start]!;
-    return checked.slice(start).every((c) => c === count) ? { start, count } : null;
+    let best: { length: number; count: number } | null = null;
+    for (let i = 0; i < checked.length; ) {
+      let j = i + 1;
+      while (j < checked.length && checked[j] === checked[i]) j++;
+      if (checked[i]! > 0 && j - i >= 2 && (!best || j - i > best.length)) best = { length: j - i, count: checked[i]! };
+      i = j;
+    }
+    return best;
   };
   const order = ["\t", ";", "|", ","] as const;
-  let pick: { d: CsvDelimiter; start: number; count: number } | null = null;
+  let pick: { d: CsvDelimiter; length: number; count: number } | null = null;
   for (const d of order) {
-    const e = even(countsOf(d, false)) ?? (d === "," ? even(countsOf(d, true)) : null);
+    let e = run(countsOf(d, false));
+    if (d === ",") {
+      const skipped = run(countsOf(d, true));
+      if (skipped && (!e || skipped.length > e.length)) e = skipped;
+    }
     if (!e) continue;
-    if (!pick || e.start < pick.start || (e.start === pick.start && e.count > pick.count)) pick = { d, ...e };
+    if (!pick || e.length > pick.length || (e.length === pick.length && e.count > pick.count)) pick = { d, ...e };
   }
   if (pick) return pick.d;
 
@@ -163,7 +171,10 @@ export class CsvParser {
           continue;
         }
       }
-      if (ch === '"' && this.field === "") {
+      // A quote that opens a field opens a quoted field, after spaces too (round 7): `Om, "Mehta, Rajkot"` is two
+      // cells. The spaces before it are dropped. A quote after other text is a character (an inch mark).
+      if (ch === '"' && /^ *$/.test(this.field)) {
+        this.field = "";
         this.inQuotes = true;
       } else if (ch === d) {
         this.row.push(this.field);

@@ -67,7 +67,11 @@ describe("5.1: the normaliser", () => {
   // together. This test pinned that all Latin text normalises as in round 4; it now pins that Latin text with none
   // of those signs or count words normalises as before, and that the changed names are exactly the ones the owner
   // named.
-  const changed = (s: string) => /[+%#-]/.test(s) || /(?<![a-z0-9])(?:pc|pieces?|nos|kilograms?)(?![a-z0-9])/.test(s.normalize("NFKC").toLowerCase());
+  // Round 7, rule 6.2 also keeps < and >, makes "/" a separator, and joins single letters split by dots ("P.O.").
+  const changed = (s: string) =>
+    /[+%#<>/-]/.test(s) ||
+    /(?<![a-z0-9])(?:pc|pieces?|nos|kilograms?)(?![a-z0-9])/.test(s.normalize("NFKC").toLowerCase()) ||
+    /(?<![a-z0-9])[a-z]\.[a-z](?![a-z0-9])/i.test(s);
   test("Latin text with no sign and no count word normalises exactly as before (5,000 random ASCII names and every unit form)", () => {
     const r = rng(7);
     const ascii = range(0x20, 0x7e);
@@ -78,19 +82,23 @@ describe("5.1: the normaliser", () => {
       kept++;
       expect(normalizeHeader(s)).toBe(before(s));
     }
-    expect(kept).toBeGreaterThan(2500);
-    for (const s of ["Wt (Kgs)", "Kg.", "Rs.", "₹ Rate", "Length 12'", "Pcs.", "Bundle No.", "Min weight (kg/12ft)", "S.No", "Party Name:", "Sr-No"]) {
+    expect(kept).toBeGreaterThan(1500);
+    for (const s of ["Wt (Kgs)", "Kg.", "Rs.", "₹ Rate", "Length 12'", "Pcs.", "Bundle No.", "S.No", "Party Name:", "Sr-No", "Sr. No."]) {
       expect(normalizeHeader(s)).toBe(before(s));
     }
     // The names round 6 changes, and how.
-    expect(["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)"].map(normalizeHeader)).toEqual(["no", "pcs", "tol +", "rate %", "order #", "kg -"]);
-    expect(["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)"].map(before)).toEqual(["pcs", "pieces", "tol", "rate", "order", "kg"]);
+    const names = ["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)", "Min weight (kg/12ft)", "P.O. No", ">12ft"];
+    expect(names.map(normalizeHeader)).toEqual(["no", "pcs", "tol +", "rate %", "order #", "kg -", "min weight kg 12ft", "po no", "> 12ft"]);
+    expect(names.map(before)).toEqual(["pcs", "pieces", "tol", "rate", "order", "kg", "min weight kg/12ft", "p o no", "12ft"]);
   });
 
-  test("Hindi and Gujarati names stay names, and joiners are dropped", () => {
+  // Round 7 (item 5): the joiners U+200C and U+200D are kept, as in cell text; other format characters are dropped.
+  // This test pinned the joiner dropped; it now pins it kept, and a zero-width space dropped.
+  test("Hindi and Gujarati names stay names; joiners are kept, other format characters dropped", () => {
     expect(normalizeHeader("પાર્ટી નું નામ")).toBe("પાર્ટી નું નામ");
     expect(normalizeHeader("वज़न (kg)")).toBe("वज़न kg");
-    expect(normalizeHeader("क्‍ष")).toBe("क्ष");
+    expect(normalizeHeader("क्\u200dष")).toBe("क्\u200dष");
+    expect(normalizeHeader("क्\u200bष")).toBe("क्ष");
     expect(normalizeHeaders(["नाम", "", "શહેર"])).toEqual(["नाम", "_1", "શહેર"]);
   });
 

@@ -53,24 +53,21 @@ describe("R3-8: a hint that is not well formed is a HintError", () => {
 describe("R3-7: a hint for one block leaves the other blocks to the guess", () => {
   const m = [["Stock statement"], ["Party", "Qty"], ["Om", 1], ["Kamal", 2], [], ["Section", "Kg"], ["T 4012", 3], ["R 2105", 4]];
 
-  // Round 5, rule 5.2: a hinted read never splits at one blank row, so the table under one blank row is rows of the
-  // hinted block. This test pinned the split; it now pins one block for one blank row. Round 6 (M-R5-1): two blank
-  // rows no longer end a hinted block either, so the intent (the second table stays guessed) is now kept with a
-  // given last data row.
-  test("blank rows: the hinted block runs on; a given last row: the second table stays guessed", () => {
-    const one = readSheet(m, { hints: [{ headerRow: 1 }] });
-    expect(one.blocks.length).toBe(1);
-    expect(one.blocks[0]!.rows.length).toBe(6);
-    const m2 = [...m.slice(0, 5), [], ...m.slice(5)];
-    expect(readSheet(m2, { hints: [{ headerRow: 1 }] }).blocks.length).toBe(1);
-    const r = readSheet(m2, { hints: [{ headerRow: 1, lastDataRow: 3 }] });
-    expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
-    expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
-    expect(r.blocks[0]!.title).toBe("Stock statement");
-    expect(picked(r.blocks[0]!)).toBe(true);
-    expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
-    expect(r.blocks[1]!.hints).toBeNull();
-    expect(asked(r.blocks[1]!)).toBe(true);
+  // Round 5, rule 5.2 pinned one block for one blank row; round 6 pinned it across two blank rows too. Round 7, rule
+  // 6.1 (B-R6-1): a hinted block with no last row ends at the first blank row, so this test now pins the intent it
+  // always had: the second table stays guessed, with one blank row or two, and follows the hinted block.
+  test("a blank row ends the hinted block; the second table stays guessed and follows it", () => {
+    for (const mm of [m, [...m.slice(0, 5), [], ...m.slice(5)]]) {
+      const r = readSheet(mm, { hints: [{ headerRow: 1 }] });
+      expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Qty"], ["Section", "Kg"]]);
+      expect(r.blocks[0]!.rows).toEqual([["Om", "1"], ["Kamal", "2"]]);
+      expect(r.blocks[0]!.title).toBe("Stock statement");
+      expect(picked(r.blocks[0]!)).toBe(true);
+      expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
+      expect(r.blocks[1]!.hints).toBeNull();
+      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: mm.length - m.length + 1 });
+      expect(asked(r.blocks[1]!)).toBe(true);
+    }
   });
 
   test("a hint on the second table keeps the first table as guessed", () => {

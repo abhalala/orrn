@@ -23,9 +23,13 @@ export const PREVIEW_HEAD_ROWS = 3;
  * - `headerRow`: the raw row that holds the column names (the top one when the header has two rows).
  * - `headerRows`: 1 (default) or 2. Two rows join as "top bottom", a blank top cell continuing the group to its left.
  * - `firstDataRow`: the first data row. Default: the row under the header.
- * - `lastDataRow`: the last data row. Default for sheets and CSV: the row before the next hinted header or before the
- *   next block the reader guessed, whichever comes first, else the end of the sheet. For PDF: the line before the next
+ * - `lastDataRow`: the last data row. Given, it is followed exactly, across blank rows. Default for sheets and CSV
+ *   (rule 6.1): the row before the first fully blank row after the header, or before the next hinted header, else
+ *   the end of the sheet. What lies below is read by the guess as further blocks. For PDF: the line before the next
  *   hinted header on the same page, else the end of the page.
+ * - `skipRows` (sheets and CSV): data rows to leave out, such as a repeated header inside a range the person joined.
+ *   Each must lie between the first and the last data row. A skipped row stays in `rows` as a blank row, so row `i`
+ *   of `rows` is still sheet row `firstDataSheetRow + i`, and it is listed as `skipped_by_hint`.
  * - `page` (PDF only): the 1-based page of the header. `lastPage` (PDF only): the page of `lastDataRow`, default `page`.
  */
 export type BlockHints = {
@@ -33,6 +37,7 @@ export type BlockHints = {
   headerRows?: 1 | 2;
   firstDataRow?: number;
   lastDataRow?: number | null;
+  skipRows?: number[];
   page?: number;
   lastPage?: number;
 };
@@ -42,8 +47,9 @@ export type BlockHints = {
  * - `not_placed`: no table took the row (no header was found for it, or it fits no column).
  * - `footer_left_out` (PDF): a one-cell line under the table read as a footer, not a row.
  * - `title_repeated` (PDF): the title of the table repeated on a later page.
- * - `skipped_by_hint`: a row between the header and the hinted first data row.
- * - `after_last_row`: a row after the hinted last data row that no other block takes.
+ * - `skipped_by_hint`: a row between the header and the hinted first data row, or a row of the hint's `skipRows`.
+ * - `after_last_row`: a row below a block that no block takes and that does not look like data (a note, a footer).
+ *   Rows that look like data always go in a block (rule 6.1).
  * - `kept_as_title`: a row above the header, kept in the block's title, not in its rows. It may be data.
  * - `columns_not_matched`: no longer given since round 5; a PDF row in doubt is a `RowDoubt` in `doubts`. Kept so
  *   stored reads still parse.
@@ -113,6 +119,13 @@ export type ReadBlock = {
   hints: BlockHints | null;
   /** Rows of this block's region that are not in `rows`. */
   warnings: RowWarning[];
+  /**
+   * Set when this block starts right after another block of the same sheet, with only blank rows between (rule 6.1):
+   * `block` is that block's index in the sheet's blocks, `gapRows` the number of blank rows between. `chooseHeaderInSheet`
+   * then offers to join it to the block above. Null otherwise. Set by the sheet and CSV readers; the SQL reader gives
+   * null, the PDF reader (not in the first release) leaves it out.
+   */
+  follows?: { block: number; gapRows: number } | null;
   /** Rows of `rows` whose split into columns is in doubt (PDF only; sheets, CSV and SQL give none). */
   doubts: RowDoubt[];
 };
