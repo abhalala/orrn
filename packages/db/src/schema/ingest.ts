@@ -66,6 +66,7 @@ export const QUESTION_CODES = [
   "new_customers",
   "magnitude_check",
   "order_po",
+  "bundles_no_old_id",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 
@@ -344,6 +345,12 @@ export const ingestStagedRow = sqliteTable(
      */
     dupKey: text("dup_key"),
     /**
+     * The row key of a row of another sheet this row waits on: a new section a die sheet adds, or a
+     * new customer a customers sheet adds (`pending:<rowKey>` in `values._ids`). Indexed so a
+     * discard finds the rows that wait on the gone sheet by its own row keys (rule 7.3).
+     */
+    pendingRef: text("pending_ref"),
+    /**
      * Rule 5.3: where the reader doubted how it split this row (PDF), one entry per code, with the
      * file line and page. A row with doubts is never ready until a person answers (`doubtBy`).
      */
@@ -357,10 +364,11 @@ export const ingestStagedRow = sqliteTable(
     index("ingest_staged_row_candidate_state_idx").on(t.candidateId, t.state),
     index("ingest_staged_row_committed_idx").on(t.companyId, t.committedType, t.committedId),
     index("ingest_staged_row_company_key_idx").on(t.companyId, t.rowKey),
-    index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey),
+    index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey, t.candidateId),
     index("ingest_staged_row_company_name_key_idx").on(t.companyId, t.nameKey),
-    index("ingest_staged_row_company_po_key_idx").on(t.companyId, t.poKey),
+    index("ingest_staged_row_company_po_key_idx").on(t.companyId, t.poKey, t.candidateId),
     index("ingest_staged_row_candidate_dup_key_idx").on(t.candidateId, t.dupKey),
+    index("ingest_staged_row_company_pending_ref_idx").on(t.companyId, t.pendingRef, t.candidateId),
   ],
 );
 

@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -43,7 +43,7 @@ import {
   type RowState,
 } from "@orrn/db/schema/ingest";
 
-import { chunk, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../atomic";
+import { chunk, IN_LIST_CHUNK, mapInChunks, pushChunkedInserts, type SqliteBatchItem } from "../atomic";
 import { now } from "../clock";
 import { createId } from "../id";
 import { companyModules } from "../moduleGate";
@@ -56,11 +56,13 @@ import {
   checkReason,
   handStatusCheck,
   liveCustomersByKey,
+  nameIndexFor,
   loadOrderLineSchema,
   newCopyCheck,
   orderLineCheck,
   type NameOwner,
 } from "./merge/rowchecks";
+import { companyNotIndexed } from "./merge/shared";
 import { companyFloor } from "../orderLines";
 import {
   fileAndSheet,
@@ -97,10 +99,8 @@ import {
 } from "./core";
 import {
   loadCopies,
-  loadCustomerIndex,
   loadLegacyBundles,
   loadSections,
-  loadVendorIndex,
   resolveCopy,
   resolveName,
   resolveSection,
@@ -129,6 +129,10 @@ export const Q_SECTION_UNKNOWN = "q:section_unknown";
 export const Q_MAGNITUDE = "q:magnitude_check";
 /** The rows of one old order with two different POs wait on `order_po` for the order's key (rules 3, 1). */
 export const Q_ORDER_PO = "q:order_po";
+/** A bundle row with no old bundle number waits on `bundles_no_old_id` (rule 7.5). */
+export const Q_BUNDLE_NO_OLD_ID = "q:bundle_no_old_id";
+/** The reason of a bundle row with no old bundle number when the person said "Do not import". */
+export const NO_OLD_ID_NOT_IMPORTED = "no_old_id_not_imported:legacyId";
 
 type Values = Record<string, unknown>;
 type Staged = typeof ingestStagedRow.$inferSelect;
@@ -157,6 +161,8 @@ export type AnswerSet = {
   ratesLeftOut: boolean | null;
   legacyDie: Map<string, boolean>;
   newCustomers: boolean | null;
+  /** `bundles_no_old_id`: true "Import them", false "Do not import", null not answered (rule 7.5). */
+  bundlesNoOldId: boolean | null;
   /** `magnitude_check` answers by field: "as_is", or the unit the column's flagged numbers are in. */
   magnitude: Map<string, string>;
   /** `order_po` answers by order key: the PO picked (`{ po }`), or "skip". */
@@ -192,6 +198,7 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
     ratesLeftOut: null,
     legacyDie: new Map(),
     newCustomers: null,
+    bundlesNoOldId: null,
     magnitude: new Map(),
     orderPo: new Map(),
     answered: new Set(),
@@ -217,6 +224,9 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
         break;
       case "new_customers":
         set.newCustomers = v === true;
+        break;
+      case "bundles_no_old_id":
+        if (typeof v === "boolean") set.bundlesNoOldId = v;
         break;
       case "magnitude_check":
         if (typeof v === "string") set.magnitude.set(a.subject, v);
@@ -305,8 +315,12 @@ const str = (v: unknown) => (typeof v === "string" ? v : v === null || v === und
 async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly Values[]): Promise<PageLive> {
   const live: PageLive = {};
   const codes = rows.map((v) => str(v.sectionCode)).filter(Boolean);
-  if (target === "customers" || target === "customer_aliases" || target === "orders") live.customers = await loadCustomerIndex(ctx);
-  if (target === "vendors" || target === "vendor_aliases") live.vendors = await loadVendorIndex(ctx);
+  // Only the names on this page, by their stored keys and their neighbours in key order (rule 7.3).
+  const namesOf = (field: string) => rows.map((v) => str(v[field])).filter(Boolean);
+  if (target === "customers") live.customers = await nameIndexFor(ctx, "customer", namesOf("name"));
+  if (target === "customer_aliases" || target === "orders") live.customers = await nameIndexFor(ctx, "customer", namesOf("customer"));
+  if (target === "vendors") live.vendors = await nameIndexFor(ctx, "vendor", namesOf("name"));
+  if (target === "vendor_aliases") live.vendors = await nameIndexFor(ctx, "vendor", namesOf("vendor"));
   if (target === "dies" || target === "die_copies" || target === "bundles" || target === "orders") live.sections = await loadSections(ctx, codes);
   if (target === "orders" || target === "die_copies") {
     const known = new Set((live.sections ?? []).map((x) => x.sectionCode.trim().toUpperCase()));
@@ -315,10 +329,13 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
   if (target === "die_copies") live.copies = await loadCopies(ctx, rows.map((v) => str(v.makerDieNo)));
   if (target === "bundles") live.legacy = await loadLegacyBundles(ctx, rows.map((v) => str(v.legacyId)));
   if (target === "customers") {
-    const recs = await ctx.db
-      .select()
-      .from(customer)
-      .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
+    // The customers the page's names found, by primary key (`+company_id`, S5-4).
+    const recs = await mapInChunks([...(live.customers?.labels.keys() ?? [])], (part) =>
+      ctx.db
+        .select()
+        .from(customer)
+        .where(and(inArray(customer.id, part), companyNotIndexed(customer.companyId, ctx.companyId), isNull(customer.deletedAt))),
+    );
     live.liveCustomers = new Map(
       recs.map((c) => [
         c.id,
@@ -327,7 +344,12 @@ async function loadPageLive(ctx: IngestCtx, target: IngestTarget, rows: readonly
     );
   }
   if (target === "vendors") {
-    const recs = await ctx.db.select().from(vendor).where(eq(vendor.companyId, ctx.companyId));
+    const recs = await mapInChunks([...(live.vendors?.labels.keys() ?? [])], (part) =>
+      ctx.db
+        .select()
+        .from(vendor)
+        .where(and(inArray(vendor.id, part), companyNotIndexed(vendor.companyId, ctx.companyId))),
+    );
     live.liveVendors = new Map(recs.map((v) => [v.id, { name: v.name, gstin: v.gstin, phone: v.phone, city: v.city, notes: v.notes }]));
   }
   if (target === "dies") {
@@ -569,57 +591,73 @@ export async function dependentsAgain(ctx: IngestCtx, madeBy: Pick<CandidateRow,
  */
 export async function othersAgainAfter(ctx: IngestCtx, gone: Pick<CandidateRow, "id" | "target">, how: "discarded" | "merged", at: Date): Promise<SqliteBatchItem[]> {
   const R = ingestStagedRow;
+  const targets: IngestTarget[] =
+    gone.target === "orders" ? ["orders"] : how === "discarded" && gone.target === "dies" ? ["orders", "die_copies"] : how === "discarded" && gone.target === "customers" ? ["customer_aliases"] : [];
+  if (targets.length === 0) return [];
+  // Rule 7.3: the sheets that may wait first (few rows, by the state index). None: nothing is read.
+  const others = await ctx.db
+    .select({ id: ingestCandidate.id, dryCursor: ingestCandidate.dryCursor, state: ingestCandidate.state })
+    .from(ingestCandidate)
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        inArray(ingestCandidate.state, ["ready", "held", "processing"]),
+        inArray(ingestCandidate.target, targets),
+        sql`${ingestCandidate.id} <> ${gone.id}`,
+      ),
+    );
+  if (others.length === 0) return [];
+  const otherIds = others.map((o) => o.id);
   const first = new Map<string, number>();
-  const seen = new Map<string, { id: string; dryCursor: number; state: CandidateRow["state"] }>();
-  const consider = async (targets: IngestTarget[], cond: SQL) => {
-    const others = await ctx.db
-      .select({ id: ingestCandidate.id, dryCursor: ingestCandidate.dryCursor, state: ingestCandidate.state })
-      .from(ingestCandidate)
-      .where(
-        and(
-          eq(ingestCandidate.companyId, ctx.companyId),
-          inArray(ingestCandidate.target, targets),
-          inArray(ingestCandidate.state, ["ready", "held", "processing"]),
-          sql`${ingestCandidate.id} <> ${gone.id}`,
-        ),
-      );
-    if (others.length === 0) return;
-    const hits = await mapInChunks(
-      others.map((o) => o.id),
-      (part) =>
+  // Then the gone sheet's own keys, and the other sheets' open rows with those keys only, by the
+  // (company, key, candidate) indexes: the waiting sheets' other rows are never read.
+  const hitsBy = async (column: typeof R.orderKey | typeof R.poKey | typeof R.pendingRef, keys: readonly string[], also?: SQL) => {
+    const per = Math.max(1, Math.floor(IN_LIST_CHUNK / Math.min(otherIds.length, IN_LIST_CHUNK)));
+    for (const ids of chunk(otherIds, IN_LIST_CHUNK)) {
+      const hits = await mapInChunks([...new Set(keys)], (part) =>
         ctx.db
           .select({ candidateId: R.candidateId, n: sql<number>`min(${R.rowIndex})` })
           .from(R)
-          .where(and(inArray(R.candidateId, part), eq(R.mergeState, "open"), cond))
+          .where(and(eq(R.companyId, ctx.companyId), inArray(column, part), inArray(R.candidateId, ids), eq(R.mergeState, "open"), also))
           .groupBy(R.candidateId),
-    );
-    for (const h of hits) first.set(h.candidateId, Math.min(first.get(h.candidateId) ?? Number(h.n), Number(h.n)));
-    for (const o of others) seen.set(o.id, o);
+        per,
+      );
+      for (const h of hits) first.set(h.candidateId, Math.min(first.get(h.candidateId) ?? Number(h.n), Number(h.n)));
+    }
   };
-  // A mark the person answered with keep_file still names the other sheet: it goes too.
-  if (gone.target === "orders") await consider(["orders"], sql`json_extract(${R.values}, '$._otherFile.candidateId') = ${gone.id}`);
-  // After a merge, a sheet with the same old order or PO (kept with keep_file, or held by the
-  // planner) sees the live order now. By the order_key and po_key indexes.
-  if (how === "merged" && gone.target === "orders") {
-    await consider(
-      ["orders"],
-      sql`exists (select 1 from ingest_staged_row s where s.company_id = ${ctx.companyId} and s.candidate_id = ${gone.id} and ((${R.orderKey} is not null and s.order_key = ${R.orderKey}) or (${R.poKey} is not null and s.po_key = ${R.poKey})))`,
-    );
+  if (gone.target === "orders") {
+    const own = await ctx.db
+      .selectDistinct({ orderKey: R.orderKey, poKey: R.poKey })
+      .from(R)
+      .where(and(eq(R.candidateId, gone.id), or(isNotNull(R.orderKey), isNotNull(R.poKey))));
+    // Discarded: the rows that name the gone sheet (a mark the person answered with keep_file still
+    // does). Merged: every row with the same old order or PO, which now sees the live order.
+    const marked = how === "discarded" ? sql`json_extract(${R.values}, '$._otherFile.candidateId') = ${gone.id}` : undefined;
+    await hitsBy(R.orderKey, own.map((o) => o.orderKey).filter((k): k is string => !!k), marked);
+    await hitsBy(R.poKey, own.map((o) => o.poKey).filter((k): k is string => !!k), marked);
+  } else {
+    const own = await ctx.db.select({ rowKey: R.rowKey }).from(R).where(eq(R.candidateId, gone.id));
+    await hitsBy(R.pendingRef, own.map((o) => o.rowKey));
   }
-  if (how === "discarded" && (gone.target === "customers" || gone.target === "dies")) {
-    const path = sql.raw(gone.target === "dies" ? "'$._ids.sectionCode'" : "'$._ids.customer'");
-    await consider(
-      gone.target === "dies" ? ["orders", "die_copies"] : ["customer_aliases"],
-      sql`json_extract(${R.values}, ${path}) like 'pending:%' and exists (select 1 from ingest_staged_row s where s.candidate_id = ${gone.id} and s.row_key = substr(json_extract(${R.values}, ${path}), 9))`,
-    );
+  return others
+    .filter((o) => first.has(o.id))
+    .map((o) => {
+      const from = first.get(o.id)!;
+      return ctx.db
+        .update(ingestCandidate)
+        .set({ state: "processing", dryCursor: o.state === "processing" ? Math.min(o.dryCursor, from) : from, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: at })
+        .where(and(eq(ingestCandidate.id, o.id), eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.state, o.state)));
+    });
+}
+
+/** The row key a staged row waits on (`pending:<rowKey>` in `_ids`): a new section, else a new customer. */
+export function pendingRefOf(values: Values | null | undefined): string | null {
+  const ids = (values?._ids ?? null) as Record<string, unknown> | null;
+  for (const field of ["sectionCode", "customer"]) {
+    const v = ids?.[field];
+    if (typeof v === "string" && v.startsWith("pending:") && !v.startsWith("pending:new-customer:")) return v.slice("pending:".length);
   }
-  return [...first].map(([id, from]) => {
-    const o = seen.get(id)!;
-    return ctx.db
-      .update(ingestCandidate)
-      .set({ state: "processing", dryCursor: o.state === "processing" ? Math.min(o.dryCursor, from) : from, serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: at })
-      .where(and(eq(ingestCandidate.id, o.id), eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.state, o.state)));
-  });
+  return null;
 }
 
 /** A sheet another sheet waits on, named as the words name it: "old-dies.xlsx (Old dies)". */
@@ -944,6 +982,11 @@ export function classifyRow(values: Values, cx: ClassifyCtx): RowOutcome {
     if (hit) return { state: "unchanged", values, reasons: ["legacy_mapped"], matchId: hit, diff: null };
     const sec = sectionOf(values, ids, reasons, cx);
     if (sec) return sec;
+    // Rule 7.5: with no old bundle number orrn cannot tell the bundle from one imported before.
+    if (!str(values.legacyId).trim()) {
+      if (cx.answers.bundlesNoOldId === false) return { state: "skipped", values, reasons: [...reasons, NO_OLD_ID_NOT_IMPORTED], matchId: null, diff: null };
+      if (cx.answers.bundlesNoOldId !== true) return { state: "ambiguous", values, reasons: [...reasons, Q_BUNDLE_NO_OLD_ID], matchId: null, diff: null };
+    }
     return { state: "ready_create", values, reasons, matchId: null, diff: null };
   }
 
@@ -1084,6 +1127,7 @@ export async function candidateQuestions(
     );
   const codes = new Set<string>();
   let newNames = 0;
+  let noOldId = 0;
   // Keyed by subject (field, unit read in, side).
   const flagged = new Map<string, { field: string; unit: string; likelyUnit: string; side: string; count: number }>();
   // Old orders with two POs, by order key: the POs in file order, the order's name, rows waiting.
@@ -1102,6 +1146,7 @@ export async function candidateQuestions(
       if (reason.startsWith(`${Q_MAGNITUDE}:`)) stillWaiting.add(answerKey("magnitude_check", reason.slice(Q_MAGNITUDE.length + 1)));
       if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) stillWaiting.add(answerKey("create_legacy_die", reason.slice(Q_SECTION_UNKNOWN.length + 1)));
       if (reason === Q_CUSTOMER_NEW) stillWaiting.add(answerKey("new_customers", ""));
+      if (reason === Q_BUNDLE_NO_OLD_ID) noOldId += 1;
       if (reason === Q_CUSTOMER_NEW) newNames += 1;
       else if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) codes.add(reason.slice(Q_SECTION_UNKNOWN.length + 1));
       else if (reason.startsWith(`${Q_MAGNITUDE}:`)) {
@@ -1139,6 +1184,7 @@ export async function candidateQuestions(
     add("magnitude_check", subject, !seesPrices && RATE_FIELDS.includes(p.field) ? { ...p, likelyUnit: "" } : p);
   }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
+  if (noOldId > 0 || byKey.has(answerKey("bundles_no_old_id", ""))) add("bundles_no_old_id", "", { count: noOldId });
   // One question per old order whose rows carry two different POs (rule 1): pick one, or skip.
   for (const a of answers) {
     if (a.questionCode !== "order_po" || twoPos.has(a.subject)) continue;
@@ -1826,6 +1872,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
           poKey: order ? poKeyOf(order.customer, order.po) : null,
           dupKey: typeof out.values?._dupKey === "string" ? (out.values._dupKey as string) : null,
           nameKey: c.target === "customers" ? nameKey(str(out.values?.name)) || null : null,
+          pendingRef: pendingRefOf(out.values),
           updatedAt: at,
         })
         .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),

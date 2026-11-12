@@ -331,7 +331,8 @@ export const customerRouter = router({
           ctx.db
             .select({ id: customer.id, name: customer.name })
             .from(customer)
-            .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.id, part), isNull(customer.deletedAt))),
+            // By primary key: `+company_id` keeps SQLite off the company index (S5-4).
+            .where(and(inArray(customer.id, part), sql`+${customer.companyId} = ${ctx.companyId}`, isNull(customer.deletedAt))),
         );
         for (const c of live) nameOf.set(c.id, c.name);
         const ids: string[] = [];

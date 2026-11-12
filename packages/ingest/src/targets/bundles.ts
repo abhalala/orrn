@@ -12,8 +12,9 @@ export const bundlesTarget: TargetDef = {
   id: "bundles",
   order: 40,
   fields: [
-    // Required (plan B4): the only key that finds a bundle already in orrn. A sheet with no id column does not fit.
-    field("legacyId", { required: true, resolver: "bundle_by_legacy_id", note: "The bundle id in the old system" }),
+    // The only key that finds a bundle already in orrn. Optional (rule 7.5): the web's old template has no id column;
+    // its rows import only after the sheet's one question (bundles_no_old_id), since orrn cannot tell them apart.
+    field("legacyId", { resolver: "bundle_by_legacy_id", note: "The bundle id in the old system" }),
     field("series", { required: true }),
     field("sectionCode", { required: true, resolver: "section_by_code" }),
     field("quantity", { kind: "count", required: true, check: positiveIntCheck, note: "Pieces in the bundle", magnitude: "bundle.pieces" }),

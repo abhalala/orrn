@@ -274,7 +274,8 @@ describe("the same old order in two files is never written twice (M-new-3)", () 
     await decide(p.owner, a, [ra[0]!.id, ra[1]!.id], "keep_file");
     expect((await rowsOf(p.owner, a)).map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create"]);
     expect((await approve(p.owner, a)).state).toBe("approved");
-    expect((await approve(p.owner, b)).state).toBe("approved");
+    // Sheet B has nothing left to import (rule 7.4): it is not approved.
+    await expect(approve(p.owner, b)).rejects.toThrow("Nothing in this sheet can be imported. Fix the rows or discard it.");
     expect((await mergeOnce(p.owner)).state).toBe("done");
     expect((await orders(p.companyId)).filter((o) => o.note === "Old order no. 41")).toEqual([{ po: null, note: "Old order no. 41", lines: 2 }]);
   });

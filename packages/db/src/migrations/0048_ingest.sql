@@ -250,7 +250,7 @@ CREATE UNIQUE INDEX `ingest_staged_row_candidate_index_unique` ON `ingest_staged
 CREATE INDEX `ingest_staged_row_candidate_state_idx` ON `ingest_staged_row` (`candidate_id`,`state`);--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_committed_idx` ON `ingest_staged_row` (`company_id`,`committed_type`,`committed_id`);--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_company_key_idx` ON `ingest_staged_row` (`company_id`,`row_key`);--> statement-breakpoint
-CREATE INDEX `ingest_staged_row_company_order_key_idx` ON `ingest_staged_row` (`company_id`,`order_key`);--> statement-breakpoint
+CREATE INDEX `ingest_staged_row_company_order_key_idx` ON `ingest_staged_row` (`company_id`,`order_key`,`candidate_id`);--> statement-breakpoint
 ALTER TABLE `customer` ADD `name_key` text;--> statement-breakpoint
 CREATE INDEX `customer_company_name_key_idx` ON `customer` (`company_id`,`name_key`);
 --> statement-breakpoint
@@ -269,7 +269,7 @@ CREATE TABLE `ingest_order_key` (
 CREATE INDEX `ingest_order_key_company_key_idx` ON `ingest_order_key` (`company_id`,`key`);--> statement-breakpoint
 CREATE INDEX `sales_order_company_customer_po_lower_idx` ON `sales_order` (`company_id`,`customer_id`,lower("po_number"));--> statement-breakpoint
 ALTER TABLE `ingest_staged_row` ADD `po_key` text;--> statement-breakpoint
-CREATE INDEX `ingest_staged_row_company_po_key_idx` ON `ingest_staged_row` (`company_id`,`po_key`);--> statement-breakpoint
+CREATE INDEX `ingest_staged_row_company_po_key_idx` ON `ingest_staged_row` (`company_id`,`po_key`,`candidate_id`);--> statement-breakpoint
 ALTER TABLE `ingest_staged_row` ADD `dup_key` text;--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_candidate_dup_key_idx` ON `ingest_staged_row` (`candidate_id`,`dup_key`);--> statement-breakpoint
 CREATE INDEX `die_company_section_norm_idx` ON `die` (`company_id`,upper(trim("section_code")));--> statement-breakpoint
@@ -280,4 +280,6 @@ ALTER TABLE `ingest_block` ADD `merged` text;--> statement-breakpoint
 ALTER TABLE `ingest_candidate` ADD `rows_filled` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE `ingest_candidate` ADD `rows_skipped_by_person` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE `ingest_artifact` ADD `header_asked` text;--> statement-breakpoint
-ALTER TABLE `ingest_block` ADD `header_pick` text;
+ALTER TABLE `ingest_block` ADD `header_pick` text;--> statement-breakpoint
+ALTER TABLE `ingest_staged_row` ADD `pending_ref` text;--> statement-breakpoint
+CREATE INDEX `ingest_staged_row_company_pending_ref_idx` ON `ingest_staged_row` (`company_id`,`pending_ref`,`candidate_id`);

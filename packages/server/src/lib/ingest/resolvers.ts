@@ -5,9 +5,9 @@
  * makes the row ambiguous with options for a person to pick.
  */
 import { matchName, nameKey as engineNameKey, type NameEntry } from "@orrn/ingest";
-import { and, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 
-import { customer, customerAlias, die, dieInstance, legacyBundleMap, vendor, vendorAlias } from "@orrn/db/schema";
+import { die, dieInstance, legacyBundleMap } from "@orrn/db/schema";
 
 import { mapInChunks, type OrrnDb } from "../atomic";
 import { nameKey } from "../purchase";
@@ -25,37 +25,8 @@ export const sharedNameKey = engineNameKey;
 
 export type NameIndex = { entries: NameEntry[]; labels: Map<string, string> };
 
-/** Every live customer of the plant by its name and its aliases, in memory (plan B4). */
-export async function loadCustomerIndex(ctx: Db): Promise<NameIndex> {
-  const rows = await ctx.db
-    .select({ id: customer.id, name: customer.name })
-    .from(customer)
-    .where(and(eq(customer.companyId, ctx.companyId), isNull(customer.deletedAt)));
-  const aliases = await ctx.db
-    .select({ id: customerAlias.customerId, alias: customerAlias.alias, key: customerAlias.aliasKey })
-    .from(customerAlias)
-    .where(eq(customerAlias.companyId, ctx.companyId));
-  const labels = new Map(rows.map((r) => [r.id, r.name]));
-  const entries: NameEntry[] = rows.map((r) => ({ id: r.id, key: nameKey(r.name), label: r.name }));
-  for (const a of aliases) if (labels.has(a.id)) entries.push({ id: a.id, key: a.key, label: labels.get(a.id)! });
-  return { entries, labels };
-}
-
-/** Every vendor of the plant that is not merged, by name and alias. */
-export async function loadVendorIndex(ctx: Db): Promise<NameIndex> {
-  const rows = await ctx.db
-    .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
-    .from(vendor)
-    .where(and(eq(vendor.companyId, ctx.companyId), ne(vendor.status, "merged")));
-  const aliases = await ctx.db
-    .select({ id: vendorAlias.vendorId, key: vendorAlias.aliasKey })
-    .from(vendorAlias)
-    .where(eq(vendorAlias.companyId, ctx.companyId));
-  const labels = new Map(rows.map((r) => [r.id, r.name]));
-  const entries: NameEntry[] = rows.map((r) => ({ id: r.id, key: r.key, label: r.name }));
-  for (const a of aliases) if (labels.has(a.id)) entries.push({ id: a.id, key: a.key, label: labels.get(a.id)! });
-  return { entries, labels };
-}
+// The index of a step's names is `nameIndexFor` (merge/rowchecks.ts): by stored keys only, never
+// every customer or vendor of the plant (rule 7.3).
 
 /** `customer_by_name` and `vendor_by_name`: exact key matches, a near key is ambiguous, never merged. */
 export function resolveName(index: NameIndex, text: string): Resolution {
