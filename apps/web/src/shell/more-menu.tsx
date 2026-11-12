@@ -14,7 +14,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Eye, ListOrdered, LogOut } from "lucide-react";
+import { ChevronRight, Eye, ArrowUpDown, LogOut } from "lucide-react";
 import { forwardRef, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -153,7 +153,7 @@ export function MoreSheet({
 
         {onArrange ? (
           <Button variant="secondary" className="w-full" onClick={onArrange}>
-            <ListOrdered aria-hidden="true" strokeWidth={2} />
+            <ArrowUpDown aria-hidden="true" strokeWidth={2} />
             {t("nav.arrange")}
           </Button>
         ) : null}
@@ -279,7 +279,7 @@ export function AccountMenu({ variant, onArrange }: { variant: ShellVariant; onA
         ) : null}
         {onArrange ? (
           <DropdownMenuItem onSelect={onArrange}>
-            <ListOrdered aria-hidden="true" strokeWidth={2} />
+            <ArrowUpDown aria-hidden="true" strokeWidth={2} />
             {t("nav.arrange")}
           </DropdownMenuItem>
         ) : null}

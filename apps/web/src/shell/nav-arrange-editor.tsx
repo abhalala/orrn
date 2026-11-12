@@ -192,6 +192,7 @@ export default function NavArrangeEditor({
                 picked={picked?.id === row.id}
                 onKey={handleKey}
                 onMove={moveBy}
+                onDrop={() => setPicked(null)}
               />
             ))}
           </ul>
@@ -210,11 +211,13 @@ function ArrangeRow({
   picked,
   onKey,
   onMove,
+  onDrop,
 }: {
   row: NavEditorRow;
   picked: boolean;
   onKey(event: KeyboardEvent<HTMLButtonElement>, item: NavItem): void;
   onMove(item: NavItem, delta: number): void;
+  onDrop(): void;
 }) {
   const { t } = useT();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useSortable({
@@ -250,7 +253,7 @@ function ArrangeRow({
       data-nav-key={item.key}
       className={cn(
         "motion-reduce:transition-none flex min-w-0 items-center gap-1 rounded-card border border-border bg-card px-1 py-1",
-        (isDragging || picked) && "z-10 border-primary shadow-md",
+        (isDragging || picked) && "z-10 border-primary bg-accent shadow-lg",
       )}
     >
       <button
@@ -261,12 +264,13 @@ function ArrangeRow({
         aria-label={t("nav.dragToMove", { name: t(item.labelKey) })}
         aria-pressed={picked}
         onKeyDown={(event) => onKey(event, item)}
+        onBlur={onDrop}
         className="motion-reduce:transition-none flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground active:cursor-grabbing"
       >
         <GripVertical aria-hidden="true" className="size-5" />
       </button>
       <Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate px-1 text-[15px] font-medium">{t(item.labelKey)}</span>
+      <span title={t(item.labelKey)} className="min-w-0 flex-1 truncate px-1 text-[15px] font-medium">{t(item.labelKey)}</span>
       <button
         type="button"
         aria-label={t("nav.moveUp")}

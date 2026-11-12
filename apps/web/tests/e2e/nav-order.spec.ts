@@ -211,3 +211,37 @@ test("divider crossings and the arrange hint are announced", async ({ page }) =>
   await handle.press("ArrowUp");
   await expect(page.getByTestId("nav-order-announcement")).toHaveText("Dispatch moved above More");
 });
+
+test("Tab drops the picked row without losing its new place", async ({ page }) => {
+  const plant = await freshPlant("NavBlur");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+  await openArrange(page);
+  const dialog = page.getByRole("dialog", { name: "Arrange menu" });
+  const handle = dialog.getByRole("button", { name: "Reorder Orders" });
+  await handle.focus();
+  await handle.press("Space");
+  await handle.press("ArrowUp");
+  await handle.press("Tab");
+
+  await expect(handle).toHaveAttribute("aria-pressed", "false");
+  await expect(dialog.locator("[data-slot='nav-arrange-list'] > li").nth(4)).toHaveAttribute("data-nav-key", "orders");
+});
+
+test("a failed editor chunk leaves the app shell usable", async ({ page }) => {
+  const plant = await freshPlant("NavChunk");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+  await page.route("**/src/shell/nav-arrange-editor.tsx", (route) => route.abort());
+  try {
+    await openArrange(page);
+    await expect(page.getByText("The menu order could not be saved. Try again.", { exact: true })).toBeVisible();
+    await expectShell(page);
+    await expect(page.getByText("Something went wrong!")).toHaveCount(0);
+    await expect(page.locator("[data-slot='side-nav']").getByRole("button", { name: /W2 owner/ })).toBeEnabled();
+  } finally {
+    await page.unroute("**/src/shell/nav-arrange-editor.tsx");
+  }
+});

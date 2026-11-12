@@ -2,8 +2,9 @@ import { useT } from "@orrn/i18n";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Eye } from "lucide-react";
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Eye, LoaderCircle } from "lucide-react";
+import { Component, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import { OutboxSessionGuard } from "@/features/press/outbox-session-guard";
 import { useScan } from "@/features/scan/scan-context";
@@ -14,7 +15,7 @@ import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 import { CommandPaletteProvider } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
 import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
-import { orderedNavItems } from "./nav-order";
+import { canArrangeMenu, orderedNavItems } from "./nav-order";
 import { PlantSwitcher } from "./plant-switcher";
 import { switcherPlants } from "./plant-switcher-model";
 import { SideNav } from "./side-nav";
@@ -22,6 +23,22 @@ import { SkipLink } from "./skip-link";
 import { TabBar } from "./tab-bar";
 
 const LazyNavArrangeEditor = lazy(() => import("./nav-arrange-editor"));
+
+class NavArrangeBoundary extends Component<{ children: ReactNode; onFailed: () => void }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch() {
+    this.props.onFailed();
+  }
+
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 export type AppShellProps = {
   variant: ShellVariant;
@@ -76,7 +93,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   const scanOn = !godseye && scan.available && (modules.length === 0 || modules.includes("bundles"));
   const openScan = scanOn ? () => scan.open({ kind: "lookup" }) : undefined;
-  const openArrange = !godseye
+  const openArrange = !godseye && canArrangeMenu(me)
     ? () => {
         setArrangeCompanyId(me?.company?.id ?? null);
         setMoreOpen(false);
@@ -88,6 +105,10 @@ function ShellFrame({ variant, children }: AppShellProps) {
     queryClient.setQueryData(trpc.auth.me.queryKey(), (current: AuthMe | undefined) =>
       current?.company ? { ...current, company: { ...current.company, navOrder } } : current,
     );
+  };
+  const arrangeLoadFailed = () => {
+    setArrangeOpen(false);
+    toast.error(t("nav.orderSaveFailed"));
   };
 
   useEffect(() => setArrangeOpen(false), [me?.company?.id]);
@@ -200,15 +221,24 @@ function ShellFrame({ variant, children }: AppShellProps) {
       />
 
       {!godseye && arrangeOpen && arrangeCompanyId ? (
-        <Suspense fallback={null}>
-          <LazyNavArrangeEditor
-            open={arrangeOpen}
-            onOpenChange={setArrangeOpen}
-            groups={{ primary, more }}
-            companyId={arrangeCompanyId}
-            onSaved={navSaved}
-          />
-        </Suspense>
+        <NavArrangeBoundary onFailed={arrangeLoadFailed}>
+          <Suspense
+            fallback={
+              <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+                <LoaderCircle aria-hidden="true" className="size-6 animate-spin motion-reduce:animate-none" />
+                <span className="sr-only">{t("common.loading")}</span>
+              </div>
+            }
+          >
+            <LazyNavArrangeEditor
+              open={arrangeOpen}
+              onOpenChange={setArrangeOpen}
+              groups={{ primary, more }}
+              companyId={arrangeCompanyId}
+              onSaved={navSaved}
+            />
+          </Suspense>
+        </NavArrangeBoundary>
       ) : null}
     </div>
   );

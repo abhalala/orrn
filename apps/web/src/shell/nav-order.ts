@@ -1,8 +1,12 @@
-import type { MemberNavOrder } from "@orrn/server/lib/permissions";
+import type { Me, MemberNavOrder } from "@orrn/server/lib/permissions";
 
 import type { NavItem } from "./nav-items";
 
 export const NAV_MORE_ROW = "orrn-nav-more";
+
+export function canArrangeMenu(me: Me | null | undefined): boolean {
+  return Boolean(me?.company && !me.impersonation);
+}
 
 export type NavGroups = {
   primary: NavItem[];
@@ -57,6 +61,12 @@ export function orderedNavItems({
   if (typeof divider === "string" && saved.order.includes(divider)) {
     const index = ordered.findIndex((item) => item.key === divider);
     if (index >= 0) return { primary: ordered.slice(0, index), more: ordered.slice(index) };
+    const nextVisible = saved.order.slice(saved.order.indexOf(divider) + 1).find((key) => visibleByKey.has(key));
+    if (nextVisible) {
+      const nextIndex = ordered.findIndex((item) => item.key === nextVisible);
+      if (nextIndex >= 0) return { primary: ordered.slice(0, nextIndex), more: ordered.slice(nextIndex) };
+    }
+    return { primary: ordered, more: [] };
   }
 
   const primaryKeys = new Set(defaultPrimary.map((item) => item.key));

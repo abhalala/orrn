@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Me } from "@orrn/server/lib/permissions";
+import type { CompanyRole, Me } from "@orrn/server/lib/permissions";
 
 import { TENANT_MORE, TENANT_PRIMARY, visibleItems, type NavItem } from "./nav-items";
 import {
+  canArrangeMenu,
   NAV_MORE_ROW,
   moveNavRow,
   moveNavRowBy,
@@ -84,6 +85,39 @@ describe("orderedNavItems", () => {
     const result = order({ order: ["orders", "today"], moreFrom: "not-a-page" });
     expect(keys(result.primary)).toEqual(["today", "pack", "stock", "dispatch"]);
     expect(keys(result.more)[0]).toBe("orders");
+  });
+
+  test("a hidden divider uses the next visible saved key", () => {
+    const visiblePrimary = TENANT_PRIMARY.filter((item) => item.key !== "pack");
+    const visibleMore = TENANT_MORE.filter((item) => ["orders", "guides"].includes(item.key));
+    const result = order({ order: ["orders", "pack", "today", "guides"], moreFrom: "pack" }, visiblePrimary, visibleMore);
+    expect(keys(result.primary)).toEqual(["orders"]);
+    expect(keys(result.more)[0]).toBe("today");
+  });
+
+  test("every role keeps exactly its visibleItems groups with no saved order", () => {
+    const roles: CompanyRole[] = ["owner", "admin", "manager", "office", "accountant", "supervisor", "packer", "foundry", "press", "storekeeper", "die_room", "operator", "viewer"];
+    for (const role of roles) {
+      const person = { ...me, company: { ...me.company!, role } } as Me;
+      const visiblePrimary = visibleItems(TENANT_PRIMARY, person);
+      const visibleMore = visibleItems(TENANT_MORE, person);
+      const result = order(null, visiblePrimary, visibleMore);
+      expect({ role, primary: keys(result.primary), more: keys(result.more) }).toEqual({
+        role,
+        primary: keys(visiblePrimary),
+        more: keys(visibleMore),
+      });
+    }
+  });
+
+  test("impersonating staff cannot arrange a member's menu", () => {
+    expect(canArrangeMenu(me)).toBe(true);
+    const impersonating = {
+      ...me,
+      impersonation: { actorUserId: "staff", companyId: "c1", grantId: "g1", expiresAt: new Date(0).toISOString() },
+    } as Me;
+    expect(canArrangeMenu(impersonating)).toBe(false);
+    expect(canArrangeMenu({ ...me, company: null })).toBe(false);
   });
 });
 
