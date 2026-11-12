@@ -6,12 +6,13 @@
  *   above it in the preview, and it resembles no layout: kept by the reader, on to "needs a layout".
  * - item 4: before any row of the file is written, a table can be put again with a new pick, and the
  *   file's tables can be sent again with a new count (join, start a new table, drop a repeat).
+ * - item 5: a numbered order line with no date says so in plain words (`order_no_date:<n>`).
  */
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { layout, learnLayout, mergeOnce, plant, pump, putRowsAs, trim, type Caller } from "./ingest-portal-helpers";
+import { layout, learnLayout, mergeOnce, plant, pump, putRowsAs, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -327,5 +328,32 @@ describe("item 4: a table is put again with a new pick while no row of the file 
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [book(), book({ ordinal: 1, sheetName: "B" })] })).rejects.toThrow(
       "Rows of this sheet are already written. Its columns cannot change now.",
     );
+  });
+});
+
+describe("item 5: a numbered order line with no date", () => {
+  const L = (no: string, po: string, date: string) => ["Acme Traders", no, po, date, "R", "5100", "3658", "100"];
+
+  test("the line says it has no date, with its order number; the order it holds waits as before", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "Book", headers: BOOK, rows: [L("7", "PO-1", "15/03/2025"), L("9", "", ""), L("7", "", ""), L("", "PO-5", "")] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    const rows = await rowsOf(p.owner, id);
+    // Row 2 is not under a line of its order, so its date is not filled down.
+    expect(rows[2]!.state).toBe("refused");
+    expect(rows[2]!.reasons).toContain("order_no_date:7");
+    expect(rows[1]!.reasons).toContain("order_no_date:9");
+    expect(rows[0]!.state).toBe("ambiguous");
+    expect(rows[0]!.reasons).not.toContain("order_no_date:7");
+    // A line with no number is not about a year's order of a number.
+    expect(rows[3]!.reasons.some((r) => r.startsWith("order_no_date:"))).toBe(false);
+  });
+
+  test("a numbered line with a date has no such reason", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "Book", headers: BOOK, rows: [L("8", "PO-2", "15/03/2025")] }]);
+    await pump(p.owner, candidates[0]!.id);
+    expect((await rowsOf(p.owner, candidates[0]!.id))[0]!.reasons.some((r) => r.startsWith("order_no_date:"))).toBe(false);
   });
 });
