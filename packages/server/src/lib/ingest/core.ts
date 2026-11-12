@@ -17,7 +17,7 @@ import {
   type CandidateState,
 } from "@orrn/db/schema/ingest";
 
-import { recipeSchema } from "@orrn/ingest";
+import { periodRequired, recipeSchema } from "@orrn/ingest";
 
 import { atomicBatch, mapInChunks, type OrrnDb, type SqliteBatchItem } from "../atomic";
 import { can } from "../permissions";
@@ -291,6 +291,16 @@ export function candidateCounts(c: CandidateRow): CandidateCounts {
 
 type SummaryExtras = { fileName: string; sheetName: string | null; blockOrdinal: number; holeName: string | null };
 
+/**
+ * Design fix B1: whether `openQuestions` already holds the year (the layout takes the date from the period, so the dry run
+ * lists `period_needed` until a year is saved). The list cannot see the questions; this lets it count what the review does.
+ */
+function yearInCount(c: CandidateRow): boolean {
+  if (c.target !== "orders") return false;
+  const parsed = recipeSchema.safeParse(c.recipe);
+  return parsed.success && periodRequired(parsed.data);
+}
+
 export function candidateSummary(c: CandidateRow, x: SummaryExtras): CandidateSummary {
   return {
     id: c.id,
@@ -309,6 +319,7 @@ export function candidateSummary(c: CandidateRow, x: SummaryExtras): CandidateSu
     dryCursor: c.dryCursor,
     counts: candidateCounts(c),
     openQuestions: c.openQuestions,
+    periodInCount: yearInCount(c),
     botAttempts: c.botAttempts,
     recipeLocked: c.recipeLocked,
     fileName: x.fileName,

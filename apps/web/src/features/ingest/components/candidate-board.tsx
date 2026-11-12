@@ -7,7 +7,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { StatusBlock } from "@orrn/ui/components/status-block";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import {
   approveAllConfirm,
@@ -20,6 +20,7 @@ import {
   mergeBar,
   mergeConfirm,
   useStartMerge,
+  withYearOpen,
   type ArtifactSummary,
   type CandidateSummary,
   type FileGroup,
@@ -34,7 +35,7 @@ import { ActionError, IngestBar } from "./shared";
  * sticky merge bar once something is approved. It reads the view models of `../lib` and draws them.
  */
 export function CandidateBoard({
-  candidates,
+  candidates: loaded,
   artifacts,
   activeRunId,
   canMerge,
@@ -55,6 +56,8 @@ export function CandidateBoard({
   const navigate = useNavigate();
   const { say, words, plant, fmt } = useSay();
   const can = { merge: canMerge, upload: canUpload };
+  // One count with the review page: the year counts as something to answer when the file has no saved year.
+  const candidates = useMemo(() => withYearOpen(loaded, artifacts), [loaded, artifacts]);
   const segments = listSegments(candidates);
   const [choice, setChoice] = useState<Segment | null>(initialSegment ?? null);
   const active = choice ?? defaultSegment(segments);

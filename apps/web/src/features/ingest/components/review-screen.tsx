@@ -28,6 +28,7 @@ import {
   useFocusReturn,
   useIngestStatus,
   usePlantUnits,
+  withYearQuestion,
   useReput,
   yearLine,
   ingestErrorWords,
@@ -134,7 +135,7 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   const bar = decisionBar(candidate, { can: { merge: canMerge, upload: canUpload }, botReady, editorOpen });
   const offer = helperOffer(candidate, botReady);
   const year = yearLine(candidate, plant.day);
-  const questions = questionList(candidate.questions, candidate.target);
+  const questions = questionList(withYearQuestion(candidate), candidate.target);
   const showEditor = editorOpen && (candidate.state === "needs_shape" || ((candidate.state === "ready" || candidate.state === "held") && canUpload));
   const canChangeMapping = canUpload && candidate.target !== null && (candidate.state === "ready" || candidate.state === "held");
   const read = readPanel(candidate, plant, canSeePrices, canChangeMapping);

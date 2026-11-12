@@ -11,6 +11,7 @@ import {
   questionList,
   questionText,
   targetFields,
+  withYearQuestion,
   type CandidateDetail,
   type QuestionView,
 } from "../lib";
@@ -38,7 +39,7 @@ export function QuestionsPanel({
   onGoToRow,
   onGoToYear,
 }: {
-  candidate: Pick<CandidateDetail, "questions" | "target">;
+  candidate: Pick<CandidateDetail, "questions" | "target" | "periodConfirmed">;
   act: Act;
   /** `useFocusReturn().ref`: registers an element under a key so focus can come back to it. */
   focusRef: (key: string) => (el: HTMLElement | null) => void;
@@ -47,7 +48,7 @@ export function QuestionsPanel({
 }) {
   const { t } = useSay();
   // An answered year question is the saved year line, which the bar already shows.
-  const views = questionList(candidate.questions, candidate.target).filter((q) => !(q.control.kind === "period" && q.answered));
+  const views = questionList(withYearQuestion(candidate), candidate.target).filter((q) => !(q.control.kind === "period" && q.answered));
   if (views.length === 0) return null;
   const open = views.filter((q) => !q.answered).length;
   const firstOpen = views.findIndex((q) => !q.answered);

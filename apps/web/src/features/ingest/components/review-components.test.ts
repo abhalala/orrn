@@ -334,7 +334,8 @@ describe("year line (3.3, M8)", () => {
 });
 
 describe("questions panel (3.3, S13)", () => {
-  const bundles = (questions: CandidateDetail["questions"]) => detail({ target: "bundles", questions });
+  // The year is saved, so these tests are about the questions the server listed (an unsaved year is one more, see below).
+  const bundles = (questions: CandidateDetail["questions"]) => detail({ target: "bundles", questions, periodConfirmed: { fy: "2025-26", asOf: "2026-03-31" } });
 
   test("a value check: the sentence in words, Skip the rows, the likely unit, and a select of other units, all secondary", () => {
     const html = render(createElement(QuestionsPanel, {
@@ -373,6 +374,16 @@ describe("questions panel (3.3, S13)", () => {
 
   test("no questions, no panel", () => {
     expect(render(createElement(QuestionsPanel, { candidate: bundles([]), act: act(), focusRef } as never))).toBe("");
+  });
+
+  // Design check B1: the year the page asks in its year line is counted in the panel, so the title says the same number as the bar.
+  test("a year only the page asks is one more question, and the title counts it", () => {
+    const html = render(createElement(QuestionsPanel, {
+      candidate: detail({ target: "orders", periodConfirmed: null, questions: [{ code: "order_fill_above", subject: "", params: { rows: 2 }, answer: null, open: true }] }),
+      act: act(), focusRef,
+    } as never));
+    expect(html).toContain("2 questions before you approve");
+    expect(html).toContain("Which financial year is this file from, and on what date?");
   });
 });
 

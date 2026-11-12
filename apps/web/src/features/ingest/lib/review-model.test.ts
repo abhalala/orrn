@@ -55,10 +55,12 @@ describe("Wrong columns? Pick the row (rule 7.2)", () => {
 
 describe("the count says what it counts (server round 9)", () => {
   const open = (code: string, subject = "") => ({ code, subject, params: {}, answer: null, open: true });
+  // Design check B1: the server's number never holds the year the page asks. 3 on the server is one listed question and two
+  // lines that wait; the year is one more question, so the page says 2 questions and 2 lines, 4 in all.
   test("the server said 3 where the page asks a year and one question: both parts are said, never a bare 3", () => {
     const bar = decisionBar(detail({ target: "orders", openQuestions: 3, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);
-    expect(bar.chip.words).toEqual({ key: "ingest.state.toAnswer", vars: { count: 3 } });
-    expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlockedMixed", vars: { count: 3, questions: 2, rows: 1 } });
+    expect(bar.chip.words).toEqual({ key: "ingest.state.toAnswer", vars: { count: 4 } });
+    expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlockedMixed", vars: { count: 4, questions: 2, rows: 2 } });
   });
   test("lines that wait with no question left say so alone, never '0 questions'", () => {
     const bar = decisionBar(detail({ target: "orders", openQuestions: 2, periodConfirmed: { fy: "2025-26", asOf: "2026-03-31" }, questions: [{ code: "order_fill_above", subject: "", params: {}, answer: true, open: false }] }), ctx);
@@ -67,7 +69,8 @@ describe("the count says what it counts (server round 9)", () => {
     expect(bar.chip.words).toEqual({ key: "ingest.state.linesWait", vars: { count: 2 } });
   });
   test("when the server's number is the page's questions, it is still said as questions", () => {
-    const bar = decisionBar(detail({ target: "orders", openQuestions: 2, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);
+    // The server holds the one listed question; the year is the second. No line waits, so both are questions.
+    const bar = decisionBar(detail({ target: "orders", openQuestions: 1, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);
     expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 2 } });
     expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlocked", vars: { count: 2 } });
   });

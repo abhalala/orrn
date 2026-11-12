@@ -487,27 +487,47 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
   };
 }
 
-/**
- * What stands between the person and Approve, said plainly (server round 9 review). `questions` is what the page asks as
- * questions: the open ones of the list, and the year while the year line is asking (orders and bundles, the year not saved,
- * no `period_needed` in the list); a rate question a person who cannot see rates is not asked is not counted. `other` is
- * what the server counts beyond that: lines that wait (a line of an order waits on other lines, a line waits on a question).
- * The server's number is the truth for approving (it refuses while it is above 0), so `total` is never below it; the screen
- * says both parts, so "3" is never a mystery. With no questions loaded (a list row) the server's number is all there is.
- */
-export function openBreakdown(c: {
+/** What the open count needs to know about the year. */
+type YearIn = {
   questions?: readonly IngestQuestion[];
-  openQuestions: number;
   target?: IngestTarget | null;
   periodConfirmed?: { fy: string | null; asOf: string | null } | null;
-}): { questions: number; other: number; total: number } {
-  if (!c.questions || c.questions.length === 0) return { questions: c.openQuestions, other: 0, total: c.openQuestions };
+  /** From the list row (no questions loaded): the server's count already holds the year. */
+  periodInCount?: boolean;
+};
+
+/**
+ * The year as a question, when the screen asks it and the server's count does not hold it: orders and bundles with no
+ * saved year and no `period_needed` in the list. The list (no questions loaded) reads the server's own flag instead.
+ */
+export function clientYearQuestion(c: YearIn): IngestQuestion | null {
+  if (c.target !== "orders" && c.target !== "bundles") return null;
+  if (c.periodConfirmed && (c.periodConfirmed.fy || c.periodConfirmed.asOf)) return null;
+  const listed = c.questions ? c.questions.some((q) => q.code === "period_needed") : c.periodInCount === true;
+  return listed ? null : { code: "period_needed", subject: "", params: {}, answer: null, open: true };
+}
+
+/** The questions the page shows: the server's list, with the year first when only the screen asks it. */
+export function withYearQuestion(c: YearIn & { questions: readonly IngestQuestion[] }): IngestQuestion[] {
+  const year = clientYearQuestion(c);
+  return year ? [year, ...c.questions] : [...c.questions];
+}
+
+/**
+ * What stands between the person and Approve, said plainly, and the one count every place uses (design check B1).
+ * `questions` is what the page asks as questions: the open ones of the list plus the year when only the screen asks it
+ * (a rate question a person who cannot see rates is not asked is not counted). `other` is what the server counts
+ * beyond its listed questions: lines that wait on a person. `total` is both, so the chip, the bar line, the questions
+ * panel and the list all say the same number. With no questions loaded (a list row) there is no split: the server's
+ * number, plus the year when the screen asks it, is all there is.
+ */
+export function openBreakdown(c: YearIn & { openQuestions: number }): { questions: number; other: number; total: number } {
+  const year = clientYearQuestion(c) ? 1 : 0;
+  if (!c.questions) return { questions: c.openQuestions + year, other: 0, total: c.openQuestions + year };
   const open = c.questions.filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off"));
-  const yearListed = open.some((q) => q.code === "period_needed");
-  const yearAsking = !yearListed && (c.target === "orders" || c.target === "bundles") && !(c.periodConfirmed && (c.periodConfirmed.fy || c.periodConfirmed.asOf));
-  const questions = open.length + (yearAsking ? 1 : 0);
-  const total = Math.max(c.openQuestions, questions);
-  return { questions, other: total - questions, total };
+  const questions = open.length + year;
+  const other = Math.max(0, c.openQuestions - open.length);
+  return { questions, other, total: questions + other };
 }
 
 export const openQuestionTotal = (c: Parameters<typeof openBreakdown>[0]): number => openBreakdown(c).total;

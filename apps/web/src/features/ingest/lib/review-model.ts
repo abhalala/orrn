@@ -9,6 +9,7 @@ import {
   openBreakdown,
   openQuestionTotal,
   questionList,
+  withYearQuestion,
   reasonLine,
   TARGET_KEY,
   type QuestionView,
@@ -165,7 +166,7 @@ export function decisionBar(
               : open.other > 0
                 ? { key: "ingest.action.approveBlockedMixed", vars: { count: open.total, questions: open.questions, rows: open.other } }
                 : { key: "ingest.action.approveBlocked", vars: { count: c.openQuestions } },
-          to: firstOpen(questionList(c.questions, c.target), c.counts.ambiguous + c.counts.conflict),
+          to: firstOpen(questionList(withYearQuestion(c), c.target), c.counts.ambiguous + c.counts.conflict),
         };
       } else if (allowed.approve) buttons.push(approveBtn);
       if (allowed.hold) buttons.push(holdBtn);

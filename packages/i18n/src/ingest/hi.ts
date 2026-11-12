@@ -389,7 +389,7 @@ export const ingestHi = {
     showing: "{name} दिखा रहे हैं, {count} इम्पोर्ट।",
     colNew: "नया",
     colUpdates: "अपडेट",
-    colQuestions: "सवाल",
+    colQuestions: "जवाब देना है",
     colCannot: "इम्पोर्ट नहीं हो सकता",
   },
   bulk: {
@@ -419,7 +419,7 @@ export const ingestHi = {
     fixFirst: "पहले orrn में सुधारें",
   },
   effect: {
-    line: "orrn में {create} नए जुड़ेंगे और {update} अपडेट होंगे।",
+    line: "orrn में {create} {create:नया जुड़ेगा|नए जुड़ेंगे} और {update} अपडेट होंगे।",
     refused: "{count} {count:लाइन इम्पोर्ट नहीं हो सकती|लाइनें इम्पोर्ट नहीं हो सकतीं}।",
     nothing: "जोड़ने या अपडेट करने को कुछ नहीं है।",
     waiting: "{count} {count:लाइन आपके जवाब का इंतज़ार कर रही है|लाइनें आपके जवाब का इंतज़ार कर रही हैं}।",

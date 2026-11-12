@@ -2,6 +2,7 @@ import {
   approvedSummary,
   fitKeyOf,
   groupOf,
+  openBreakdown,
   TARGET_KEY,
   candidateStateKey,
   candidateTone,
@@ -121,6 +122,30 @@ export function statusChip(c: Pick<CandidateSummary, "state" | "openQuestions">)
     return { words: { key: "ingest.state.questions", vars: { count: c.openQuestions } }, tone: "warning" };
   }
   return { words: { key: candidateStateKey(c.state) }, tone: candidateTone(c.state) };
+}
+
+/**
+ * The chip of a list row. A list row has no question list, so it cannot say how many of the open things are questions and
+ * how many are lines that wait: it says the total, "3 to answer", the same number the review page's chip and bar give.
+ */
+export function listChip(c: Pick<CandidateSummary, "state" | "openQuestions">): { words: Words; tone: Tone } {
+  if (c.state === "ready" && c.openQuestions > 0) return { words: { key: "ingest.state.toAnswer", vars: { count: c.openQuestions } }, tone: "warning" };
+  return statusChip(c);
+}
+
+/**
+ * The list's candidates with the year counted the way the review page counts it: an orders or bundles import whose file has
+ * no saved year has one more thing to answer than the server's number (the page asks the year in its year line). Without
+ * the file's record the number stays the server's. Segments, chips, columns and the Approve button all read this.
+ */
+export function withYearOpen<T extends CandidateSummary>(candidates: readonly T[], artifacts: readonly Pick<ArtifactSummary, "id" | "periodConfirmed">[]): T[] {
+  const by = new Map(artifacts.map((a) => [a.id, a]));
+  return candidates.map((c) => {
+    const file = by.get(c.artifactId);
+    if (!file || (c.state !== "ready" && c.state !== "held")) return c;
+    const total = openBreakdown({ openQuestions: c.openQuestions, target: c.target, periodConfirmed: file.periodConfirmed, periodInCount: c.periodInCount }).total;
+    return total === c.openQuestions ? c : { ...c, openQuestions: total };
+  });
 }
 
 /** Whether the dry run has counted this import's rows yet. */
@@ -262,7 +287,7 @@ export function fileGroups(
         candidate,
         title: rowTitle(candidate),
         fit: fitWords(candidate),
-        chip: statusChip(candidate),
+        chip: listChip(candidate),
         numbers: isCounted(candidate.state)
           ? { create: candidate.counts.create, update: candidate.counts.update, questions: candidate.openQuestions, cannot: candidate.counts.refused }
           : null,

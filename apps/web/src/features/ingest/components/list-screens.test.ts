@@ -250,7 +250,7 @@ describe("candidates list", () => {
     expect(html).toContain("Needs a layout");
     expect(html).toContain("Check the layout");
     expect(html).toContain("Held");
-    expect(html).toContain("1 question");
+    expect(html).toContain("1 to answer");
     // Not on the list: Discard, a second fit chip, a merge button, the old card words.
     expect(html).not.toContain("Discard");
     expect(html).not.toContain("Merge 1");
@@ -329,7 +329,7 @@ describe("candidates list", () => {
     const html = render(board([cand({ id: "n1", state: "needs_shape", target: null, sheetName: null, counts: { total: 0, create: 0 } })], { initialSegment: "needsYou" }));
     expect(html).toContain("Needs a layout");
     expect(html).not.toContain("Cannot import");
-    expect(html).not.toContain("Questions");
+    expect(html).not.toContain("To answer");
     expect(html).not.toContain('text-muted-foreground">0</span>');
   });
 
@@ -338,7 +338,7 @@ describe("candidates list", () => {
     expect(html).toContain("Known layout");
     expect(html).toContain("New");
     expect(html).toContain("Updates");
-    expect(html).toContain("Questions");
+    expect(html).toContain("To answer");
     expect(html).toContain("Cannot import");
     expect(html).toContain('<span class="font-mono tabular-nums text-foreground">1,400</span>');
     expect(html).toContain('text-muted-foreground">0</span>');

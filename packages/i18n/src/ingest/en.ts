@@ -375,7 +375,7 @@ export const ingestEn = {
     repicked: "The columns are open again. Add the file again on the Imports page to pick the row.",
     // server round 9
     skipNoDate: "Skip these {count} lines",
-    approveBlockedMixed: "Before you approve: {questions} {questions:question|questions} to answer and {rows} {rows:line|lines} that wait ({count} in all).",
+    approveBlockedMixed: "Before you approve: {questions} {questions:question|questions} to answer and {rows} {rows:line that waits|lines that wait} ({count} in all).",
     approveBlockedRows: "Before you approve: {rows} {rows:line waits|lines wait}.",
   },
   list: {
@@ -384,13 +384,13 @@ export const ingestEn = {
     tablesNoDate: "{count} {count:table|tables}",
     ready: "Ready to merge",
     importsUnit: "{count:import|imports}",
-    mergeMeta: "{created} rows will be added, {updated} updated",
-    bar: "{count} {count:import|imports} approved, {rows} rows",
+    mergeMeta: "{created} {created:row|rows} will be added, {updated} updated",
+    bar: "{count} {count:import|imports} approved, {rows} {rows:row|rows}",
     segments: "Show",
     showing: "Showing {name}, {count} {count:import|imports}.",
     colNew: "New",
     colUpdates: "Updates",
-    colQuestions: "Questions",
+    colQuestions: "To answer",
     colCannot: "Cannot import",
   },
   bulk: {

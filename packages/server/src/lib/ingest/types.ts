@@ -205,6 +205,8 @@ export type CandidateSummary = {
   dryCursor: number;
   counts: CandidateCounts;
   openQuestions: number;
+  /** True when the layout takes its date from the period, so `openQuestions` holds the year while none is saved. Absent: false. */
+  periodInCount?: boolean;
   botAttempts: number;
   recipeLocked: boolean;
   fileName: string;

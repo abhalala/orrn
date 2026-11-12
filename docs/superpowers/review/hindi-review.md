@@ -7243,20 +7243,20 @@ Please check, Lalubhai:
 | `action.repick` | Wrong columns? Pick the row | कॉलम गलत हैं? लाइन चुनें |
 | `action.repicked` | The columns are open again. Add the file again on the Imports page to pick the row. | कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें। |
 | `action.skipNoDate` | Skip these {count} lines | ये {count} लाइनें छोड़ें |
-| `action.approveBlockedMixed` | Before you approve: {questions} {questions:question\|questions} to answer and {rows} {rows:line\|lines} that wait ({count} in all). | मंज़ूर करने से पहले: {questions} {questions:सवाल का\|सवालों के} जवाब देने हैं और {rows} {rows:लाइन इंतज़ार कर रही है\|लाइनें इंतज़ार कर रही हैं} (कुल {count})। |
+| `action.approveBlockedMixed` | Before you approve: {questions} {questions:question\|questions} to answer and {rows} {rows:line that waits\|lines that wait} ({count} in all). | मंज़ूर करने से पहले: {questions} {questions:सवाल का\|सवालों के} जवाब देने हैं और {rows} {rows:लाइन इंतज़ार कर रही है\|लाइनें इंतज़ार कर रही हैं} (कुल {count})। |
 | `action.approveBlockedRows` | Before you approve: {rows} {rows:line waits\|lines wait}. | मंज़ूर करने से पहले: {rows} {rows:लाइन इंतज़ार कर रही है\|लाइनें इंतज़ार कर रही हैं}। |
 | `list.newTable` | New table | नई टेबल |
 | `list.tables` | {count} {count:table\|tables}, added {date} | {count} टेबल, {date} को डाली |
 | `list.tablesNoDate` | {count} {count:table\|tables} | {count} टेबल |
 | `list.ready` | Ready to merge | मर्ज के लिए तैयार |
 | `list.importsUnit` | {count:import\|imports} | {count:इम्पोर्ट\|इम्पोर्ट} |
-| `list.mergeMeta` | {created} rows will be added, {updated} updated | {created} लाइनें जुड़ेंगी, {updated} अपडेट होंगी |
-| `list.bar` | {count} {count:import\|imports} approved, {rows} rows | {count} इम्पोर्ट मंज़ूर, {rows} लाइनें |
+| `list.mergeMeta` | {created} {created:row\|rows} will be added, {updated} updated | {created} लाइनें जुड़ेंगी, {updated} अपडेट होंगी |
+| `list.bar` | {count} {count:import\|imports} approved, {rows} {rows:row\|rows} | {count} इम्पोर्ट मंज़ूर, {rows} लाइनें |
 | `list.segments` | Show | दिखाएं |
 | `list.showing` | Showing {name}, {count} {count:import\|imports}. | {name} दिखा रहे हैं, {count} इम्पोर्ट। |
 | `list.colNew` | New | नया |
 | `list.colUpdates` | Updates | अपडेट |
-| `list.colQuestions` | Questions | सवाल |
+| `list.colQuestions` | To answer | जवाब देना है |
 | `list.colCannot` | Cannot import | इम्पोर्ट नहीं हो सकता |
 | `bulk.title` | Approve {count} imports? | {count} इम्पोर्ट मंज़ूर करें? |
 | `bulk.body` | Each one is a known layout read by orrn with nothing left to answer. You can still hold any of them before you merge. | हर एक जाना-पहचाना लेआउट है, orrn ने पढ़ा है और कोई जवाब बाकी नहीं है। मर्ज से पहले किसी को भी होल्ड कर सकते हैं। |
@@ -7275,7 +7275,7 @@ Please check, Lalubhai:
 | `hold.owner` | Wait for the owner | मालिक का इंतज़ार |
 | `hold.wrongFile` | Wrong file | गलत फ़ाइल |
 | `hold.fixFirst` | Fix in orrn first | पहले orrn में सुधारें |
-| `effect.line` | Adds {create} new and updates {update} in orrn. | orrn में {create} नए जुड़ेंगे और {update} अपडेट होंगे। |
+| `effect.line` | Adds {create} new and updates {update} in orrn. | orrn में {create} {create:नया जुड़ेगा\|नए जुड़ेंगे} और {update} अपडेट होंगे। |
 | `effect.refused` | {count} {count:row\|rows} cannot be imported. | {count} {count:लाइन इम्पोर्ट नहीं हो सकती\|लाइनें इम्पोर्ट नहीं हो सकतीं}। |
 | `effect.nothing` | Nothing to add or update. | जोड़ने या अपडेट करने को कुछ नहीं है। |
 | `effect.waiting` | {count} {count:row waits\|rows wait} on your answers. | {count} {count:लाइन आपके जवाब का इंतज़ार कर रही है\|लाइनें आपके जवाब का इंतज़ार कर रही हैं}। |
