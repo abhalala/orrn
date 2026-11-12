@@ -132,6 +132,8 @@ export const ingestEn = {
     discarded: "Discarded",
     // screens work order: a ready import with open questions
     questions: "{count} {count:question|questions}",
+    // item 4a: say what the count holds
+    toAnswer: "{count} to answer",
   },
   target: {
     customers: "Customers",
@@ -367,6 +369,7 @@ export const ingestEn = {
     repicked: "The columns are open again. Add the file again on the Imports page to pick the row.",
     // server round 9
     skipNoDate: "Skip these {count} lines",
+    approveBlockedMixed: "Before you approve: {questions} {questions:question|questions} to answer and {rows} {rows:line|lines} that wait ({count} in all).",
   },
   list: {
     newTable: "New table",

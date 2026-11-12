@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8113 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8115 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (522)
+### ingest (524)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7026,6 +7026,7 @@ Please check, Lalubhai:
 | `state.failed` | Could not read | पढ़ा नहीं गया |
 | `state.discarded` | Discarded | हटाया गया |
 | `state.questions` | {count} {count:question\|questions} | {count} सवाल |
+| `state.toAnswer` | {count} to answer | {count} का जवाब देना है |
 | `target.customers` | Customers | ग्राहक |
 | `target.customer_aliases` | Other names for customers | ग्राहकों के दूसरे नाम |
 | `target.vendors` | Vendors | पार्टियां |
@@ -7217,6 +7218,7 @@ Please check, Lalubhai:
 | `action.repick` | Wrong columns? Pick the row | कॉलम गलत हैं? लाइन चुनें |
 | `action.repicked` | The columns are open again. Add the file again on the Imports page to pick the row. | कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें। |
 | `action.skipNoDate` | Skip these {count} lines | ये {count} लाइनें छोड़ें |
+| `action.approveBlockedMixed` | Before you approve: {questions} {questions:question\|questions} to answer and {rows} {rows:line\|lines} that wait ({count} in all). | मंज़ूर करने से पहले: {questions} {questions:सवाल\|सवाल} का जवाब और इंतज़ार कर रही {rows} {rows:लाइन\|लाइनें} (कुल {count})। |
 | `list.newTable` | New table | नई टेबल |
 | `list.tables` | {count} {count:table\|tables}, added {date} | {count} टेबल, {date} को डाली |
 | `list.tablesNoDate` | {count} {count:table\|tables} | {count} टेबल |

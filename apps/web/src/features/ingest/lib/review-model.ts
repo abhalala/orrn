@@ -6,6 +6,7 @@ import {
   allowedActions,
   fitDiffView,
   helperOffer,
+  openBreakdown,
   openQuestionTotal,
   questionList,
   reasonLine,
@@ -93,11 +94,13 @@ export function decisionBar(
 ): DecisionBar {
   const { can } = ctx;
   // Every open question counts for the chip and for the line that links to the first one, the year included.
-  c = { ...c, openQuestions: openQuestionTotal(c) };
+  const open = openBreakdown(c);
+  c = { ...c, openQuestions: open.total };
   const allowed = allowedActions(c, can);
   const diff = fitDiffView(c.fitDiff);
   const changed = diff.renamed.length + diff.extra.length + diff.missing.length;
-  const chip = statusChip(c);
+  // Questions and lines that wait are said apart, so the number on the chip is never more than the page shows.
+  const chip = open.other > 0 && c.state === "ready" ? { words: { key: "ingest.state.toAnswer", vars: { count: open.total } }, tone: "warning" as Tone } : statusChip(c);
 
   let sentence: Words | null = null;
   switch (c.state) {
@@ -152,7 +155,10 @@ export function decisionBar(
     case "ready":
       if (c.openQuestions > 0) {
         blocked = {
-          words: { key: "ingest.action.approveBlocked", vars: { count: c.openQuestions } },
+          words:
+            open.other > 0
+              ? { key: "ingest.action.approveBlockedMixed", vars: { count: open.total, questions: open.questions, rows: open.other } }
+              : { key: "ingest.action.approveBlocked", vars: { count: c.openQuestions } },
           to: firstOpen(questionList(c.questions, c.target), c.counts.ambiguous + c.counts.conflict),
         };
       } else if (allowed.approve) buttons.push(approveBtn);

@@ -488,24 +488,29 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
 }
 
 /**
- * Everything the page asks the person before Approve, counted from what the page shows: the open questions of the list, and
- * the year when the year line is still asking (orders and bundles, the year not saved, no `period_needed` in the list). The
- * server's own `openQuestions` is not used when the questions are loaded: it counts things the page does not ask (it said 3
- * where the page asked a year and one question). A rate question a person who cannot see rates is not asked is not counted.
- * With no questions loaded (a list row, or none stored), the server's number is all there is.
+ * What stands between the person and Approve, said plainly (server round 9 review). `questions` is what the page asks as
+ * questions: the open ones of the list, and the year while the year line is asking (orders and bundles, the year not saved,
+ * no `period_needed` in the list); a rate question a person who cannot see rates is not asked is not counted. `other` is
+ * what the server counts beyond that: lines that wait (a line of an order waits on other lines, a line waits on a question).
+ * The server's number is the truth for approving (it refuses while it is above 0), so `total` is never below it; the screen
+ * says both parts, so "3" is never a mystery. With no questions loaded (a list row) the server's number is all there is.
  */
-export function openQuestionTotal(c: {
+export function openBreakdown(c: {
   questions?: readonly IngestQuestion[];
   openQuestions: number;
   target?: IngestTarget | null;
   periodConfirmed?: { fy: string | null; asOf: string | null } | null;
-}): number {
-  if (!c.questions || c.questions.length === 0) return c.openQuestions;
+}): { questions: number; other: number; total: number } {
+  if (!c.questions || c.questions.length === 0) return { questions: c.openQuestions, other: 0, total: c.openQuestions };
   const open = c.questions.filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off"));
   const yearListed = open.some((q) => q.code === "period_needed");
   const yearAsking = !yearListed && (c.target === "orders" || c.target === "bundles") && !(c.periodConfirmed && (c.periodConfirmed.fy || c.periodConfirmed.asOf));
-  return open.length + (yearAsking ? 1 : 0);
+  const questions = open.length + (yearAsking ? 1 : 0);
+  const total = Math.max(c.openQuestions, questions);
+  return { questions, other: total - questions, total };
 }
+
+export const openQuestionTotal = (c: Parameters<typeof openBreakdown>[0]): number => openBreakdown(c).total;
 
 /** Unanswered questions first, then answered ones, each in the server's order. */
 export function questionList(questions: readonly IngestQuestion[], target?: IngestTarget | null): QuestionView[] {

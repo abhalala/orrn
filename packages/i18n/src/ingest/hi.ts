@@ -131,6 +131,8 @@ export const ingestHi = {
     discarded: "हटाया गया",
     // screens work order: a ready import with open questions
     questions: "{count} सवाल",
+    // item 4a: say what the count holds
+    toAnswer: "{count} का जवाब देना है",
   },
   target: {
     customers: "ग्राहक",
@@ -366,6 +368,7 @@ export const ingestHi = {
     repicked: "कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें।",
     // server round 9
     skipNoDate: "ये {count} लाइनें छोड़ें",
+    approveBlockedMixed: "मंज़ूर करने से पहले: {questions} {questions:सवाल|सवाल} का जवाब और इंतज़ार कर रही {rows} {rows:लाइन|लाइनें} (कुल {count})।",
   },
   list: {
     newTable: "नई टेबल",

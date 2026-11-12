@@ -53,16 +53,22 @@ describe("Wrong columns? Pick the row (rule 7.2)", () => {
   });
 });
 
-describe("the count matches what the page asks (server round 9)", () => {
+describe("the count says what it counts (server round 9)", () => {
   const open = (code: string, subject = "") => ({ code, subject, params: {}, answer: null, open: true });
-  test("the server said 3 where the page asks a year and one question: the page's 2 is what is said", () => {
+  test("the server said 3 where the page asks a year and one question: both parts are said, never a bare 3", () => {
     const bar = decisionBar(detail({ target: "orders", openQuestions: 3, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);
+    expect(bar.chip.words).toEqual({ key: "ingest.state.toAnswer", vars: { count: 3 } });
+    expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlockedMixed", vars: { count: 3, questions: 2, rows: 1 } });
+  });
+  test("when the server's number is the page's questions, it is still said as questions", () => {
+    const bar = decisionBar(detail({ target: "orders", openQuestions: 2, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);
     expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 2 } });
     expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlocked", vars: { count: 2 } });
   });
-  test("the year saved is not asked again", () => {
+  test("the year saved is not asked again, and Approve stays hidden while the server counts anything open", () => {
     const bar = decisionBar(detail({ target: "orders", openQuestions: 3, periodConfirmed: { fy: "2025-26", asOf: "2026-03-31" }, questions: [open("order_fill_above")] }), ctx);
-    expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 1 } });
+    expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlockedMixed", vars: { count: 3, questions: 1, rows: 2 } });
+    expect(bar.buttons.map((b) => b.id)).not.toContain("approve");
   });
 });
 

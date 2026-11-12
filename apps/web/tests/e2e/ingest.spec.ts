@@ -530,6 +530,105 @@ test.describe("imports portal", () => {
     await expect(page.getByText(/^Done\. The tables of this file were read again\./)).toBeVisible({ timeout: 90_000 });
   });
 
+  /**
+   * An order book with one order (41) that has two dates and blank dates under each, among dated lines of other orders (so the
+   * helper's sample check passes). The helper maps it, the year is saved, and the fill question comes.
+   */
+  async function fillBook(page: Page, request: APIRequestContext, tag: string) {
+    const party = await makeParty(page, `Fill${tag}`);
+    const die = (await q<{ items: { series: string; sectionCode: string }[] }>(page, "die.list", { search: "14701", limit: 5 })).items[0]!;
+    const head = [`Party ${STAMP}${tag}`, `Order no ${STAMP}${tag}`, `PO ${STAMP}${tag}`, `Date ${STAMP}${tag}`, `Series ${STAMP}${tag}`, `Section ${STAMP}${tag}`, `Baki ${STAMP}${tag} kg`, `Cut ${STAMP}${tag} mm`];
+    const col = (n: number) => ({ kind: "columns", cols: [{ col: n, header: head[n] }] });
+    const recipe = {
+      schemaVersion: 1, target: "orders", headerRow: 0, headerRows: 1,
+      match: { headerKey: headerKey(normalizeHeaders(head)), headers: normalizeHeaders(head) },
+      fields: [
+        { field: "customer", source: col(0), steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "oldOrderNo", source: col(1), steps: [{ op: "trim" }] },
+        { field: "poNumber", source: col(2), steps: [{ op: "trim" }] },
+        { field: "orderDate", source: col(3), steps: [{ op: "date", format: "dmy" }] },
+        { field: "series", source: col(4), steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", source: col(5), steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+        { field: "bakiKg", source: col(6), steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+        { field: "cutLength", source: col(7), steps: [{ op: "number", kind: "length", unit: "mm" }] },
+      ],
+      filters: [], keys: ["customer", "oldOrderNo", "orderDate"], onExisting: "ask", unclear: [],
+    };
+    await fakeBot(request, { action: "install", responses: [{ result: { kind: "recipe", recipe } }] });
+    const row = (no: string, po: string, d: string, i: number) => `${party.name},${no},${po},${d},${die.series},${die.sectionCode},${100 + i},3658`;
+    const others = Array.from({ length: 8 }, (_, i) => row(String(30 + i), `PO-${tag}${i}`, `0${i + 1}/04/2025`, i));
+    const name = `fill-${tag}-${STAMP}.csv`;
+    await page.goto("/ingest");
+    await upload(page, name, Buffer.from([head.join(","), ...others, row("41", `PA${tag}`, "01/05/2023", 0), row("41", "", "", 1), row("41", `PB${tag}`, "01/06/2024", 2), row("41", "", "", 3)].join("\n")));
+    await openReview(page, name, "Needs you");
+    await page.getByRole("button", { name: "Map columns for me" }).click();
+    await expect(decisionBar(page)).toHaveAttribute("data-state", "ready", { timeout: 90_000 });
+    await page.getByLabel(/^Financial year/).selectOption("2025-26");
+    await page.getByLabel(/^As on date/).fill("31/03/2026");
+    await page.getByRole("button", { name: "Save year" }).click();
+    await expect(page.getByTestId("fill-lines")).toBeVisible({ timeout: 90_000 });
+  }
+
+  test("the fill question shows the lines that took a date, and Yes lets the order go on", async ({ page, request }) => {
+    await openPortal(page, "admin");
+    try {
+      await fillBook(page, request, "Y");
+      // Once for the file, with the lines it filled, and the page counts what it asks (the year was saved: one question).
+      const question = page.getByRole("group", { name: /Some lines have no date\. orrn took each one's date from the dated line just above it\. Is that right\?/ });
+      await expect(question).toBeVisible();
+      await expect(page.getByTestId("fill-lines").getByRole("row")).toHaveCount(3);
+      // The bar says what it counts: one question, and the lines that wait on it (never a bare number).
+      await expect(decisionBar(page).getByRole("link", { name: /^Before you approve: 1 question to answer and \d+ lines? that wait \(\d+ in all\)\.$/ })).toBeVisible();
+      // The long sentence of the waiting lines is said once above the table, not on each row.
+      await expect(page.getByTestId("row-group-notes")).toBeVisible();
+      await question.getByRole("button", { name: "Yes", exact: true }).click();
+      await expect(page.getByText(/^Answered: Yes/)).toBeVisible({ timeout: 30_000 });
+      await expect(decisionBar(page).getByRole("button", { name: "Approve", exact: true })).toBeVisible({ timeout: 90_000 });
+    } finally {
+      await fakeBot(request, { action: "clear" });
+    }
+  });
+
+  test("No leaves the dateless lines and their order waiting, and 'Skip these lines' lets the rest go on", async ({ page, request }) => {
+    await openPortal(page, "admin");
+    try {
+      await fillBook(page, request, "N");
+      await page.getByRole("group", { name: /Some lines have no date/ }).getByRole("button", { name: "No", exact: true }).click();
+      // The two dateless lines are refused for their missing date, and the dated lines of that order wait; nothing can be approved.
+      const skip = decisionBar(page).getByRole("button", { name: /^Skip these \d+ lines$/ });
+      await expect(skip).toBeVisible({ timeout: 90_000 });
+      await expect(decisionBar(page).getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+      await expect(page.getByText(/has no date, so orrn cannot tell which year's order 41/).first()).toBeVisible();
+      // It asks first, then skips every such line in one action.
+      await skip.click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByText(/^Skip these \d+ lines\?$/)).toBeVisible();
+      await dialog.getByRole("button", { name: /^Skip these \d+ lines$/ }).click();
+      await expect(dialog).toHaveCount(0, { timeout: 30_000 });
+      await expect(skip).toHaveCount(0, { timeout: 90_000 });
+      await expect(decisionBar(page).getByRole("button", { name: "Approve", exact: true })).toBeVisible({ timeout: 90_000 });
+    } finally {
+      await fakeBot(request, { action: "clear" });
+    }
+  });
+
+  test("a table that fits a layout already (saved) can still be joined: 'It continues the table above'", async ({ page }) => {
+    const name = `saved-upper-${STAMP}.csv`;
+    // The customers layout is all text and fits exactly, so the first table is kept; the rows under the blank row are a table
+    // that follows it.
+    const csv = Buffer.from(["Name,Phone,Email,GSTIN,Notes", `Saved Upper One ${STAMP},98250 11111,,,`, `Saved Upper Two ${STAMP},98250 22222,,,`, ",,,,", `Saved Upper Three ${STAMP},98250 33333,,,`, `Saved Upper Four ${STAMP},98250 44444,,,`].join("\n"));
+    await openPortal(page, "admin");
+    await upload(page, name, csv);
+    await expect(headerStep(page).getByRole("button", { name: "It continues the table above" })).toBeVisible({ timeout: 60_000 });
+    await headerStep(page).getByRole("button", { name: "It continues the table above" }).click();
+    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    // One import with the rows of both parts, under the known layout.
+    const r = await waitInSegment(page, name, "Ready");
+    await expect(r.getByText("Known layout")).toBeVisible();
+    await openReview(page, name, "Ready");
+    await expect(page.getByText(/\b5 rows\b/).first()).toBeVisible();
+  });
+
   test("a value like 007 and a value like 18% arrive in the review rows as written", async ({ page }) => {
     const series = `Q${STAMP.slice(0, 3)}`;
     const code = `${STAMP}V`;
