@@ -139,7 +139,13 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   // Start a new table here: while no row of the import is written and the person may upload.
   const reput = useReput(candidate.artifactId);
   const canReput = canUpload && candidate.counts.written === 0 && candidate.state !== "merged" && candidate.state !== "merging" && candidate.state !== "discarded";
-  const reputProps = canReput ? { busy: reput.busy, onStartNewTable: (row: number) => reput.request({ kind: "newTable", ordinal: candidate.blockOrdinal, row }) } : null;
+  const reputProps = canReput
+    ? {
+        busy: reput.busy,
+        onStartNewTable: (row: number) => reput.request({ kind: "newTable", ordinal: candidate.blockOrdinal, row }),
+        onContinues: () => reput.request({ kind: "continues", ordinal: candidate.blockOrdinal }),
+      }
+    : null;
   const showRead = candidate.block.headers.length > 0 && candidate.state !== "failed" && candidate.state !== "discarded";
   const showRows = !["needs_confirm", "needs_shape", "discarded"].includes(candidate.state) && candidate.counts.total > 0;
 

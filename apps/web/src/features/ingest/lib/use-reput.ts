@@ -52,7 +52,10 @@ export function useReput(artifactId: string): {
             ask: (view) => new Promise<HeaderReply>((resolve) => void (waiting.current = resolve)),
             reput: {
               sha256: art.sha256,
-              stored: art.blocks.map((b) => ({ ordinal: b.ordinal, sheetName: b.sheetName, headerRow: b.headerRow, headerRows: b.headerRows })),
+              stored: art.blocks.map((b) => ({
+                ordinal: b.ordinal, sheetName: b.sheetName, headerRow: b.headerRow, headerRows: b.headerRows,
+                lastDataRow: b.lastDataRow ?? null, skipRows: b.skipRows ?? [], follows: b.follows ?? null,
+              })),
               action: what,
             },
           },

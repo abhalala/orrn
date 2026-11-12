@@ -140,6 +140,7 @@ describe("what the reader said, on the read panel", () => {
       moreWarnings: 249,
       sections: [{ n: 5, row: 4, text: "December" }],
       moreSections: 0,
+      continuesAbove: false,
     });
     expect(readFacts({ gaps: 0, warnings: [], sections: [] })).toBeNull();
     expect(readFacts({})).toBeNull();
@@ -195,5 +196,43 @@ describe("the refusals of server round 8 and the fill question", () => {
     expect(q.fillLines[0]).toEqual({ n: 3, order: "40", date: null, po: "PO-A" });
     expect(rowWaitsOn(["q:order_fill_above"])).toEqual({ code: "order_fill_above", subject: "" });
     expect(decisionOptions({ state: "ambiguous", options: [], mergeState: "open", reasons: ["q:order_fill_above"] }).map((o) => o.decision)).toEqual(["skip"]);
+  });
+});
+
+describe("a person's earlier pick is kept (server round 8)", () => {
+  test("a table saved with its end and its skipped rows goes back with them, even when the header is the guess", () => {
+    const guess = [block(0, { header: 0, rows: 10 }), block(1, { header: 12, rows: 3 })];
+    const saved: StoredBlock[] = [
+      { ...stored(0, 0), lastDataRow: 6, skipRows: [3] },
+      stored(1, 12),
+    ];
+    const plan = planReput(guess, saved, { kind: "newTable", ordinal: 1, row: 14 });
+    const first = plan!.hints.find((h) => h.hint.headerRow === 0)!;
+    expect(first.hint).toEqual({ headerRow: 0, headerRows: 1, lastDataRow: 6, skipRows: [3] });
+    expect(plan!.hints.find((h) => h.hint.headerRow === 12)!.hint.lastDataRow).toBe(13);
+  });
+
+  test("a new table start keeps the skipped rows the table already had", () => {
+    const guess = [block(0, { header: 0, rows: 10 })];
+    const plan = planReput(guess, [{ ...stored(0, 0), skipRows: [4] }], { kind: "newTable", ordinal: 0, row: 7 });
+    expect(plan!.hints[0]!.hint).toEqual({ headerRow: 0, headerRows: 1, lastDataRow: 6, skipRows: [4] });
+  });
+
+  test("it continues the table above: the table above is the one the server says this one follows, and its skipped rows stay", () => {
+    const guess = [block(0, { header: 0, rows: 3 }), block(1, { header: 6, rows: 3, titleRows: [5] }), block(2, { header: 12, rows: 2 })];
+    const saved: StoredBlock[] = [
+      { ...stored(0, 0), skipRows: [2] },
+      { ...stored(1, 6), follows: { ordinal: 0, gapRows: 2, continues: true } },
+      stored(2, 12),
+    ];
+    const plan = planReput(guess, saved, { kind: "continues", ordinal: 1 });
+    expect(plan!.hints.find((h) => h.hint.headerRow === 0)!.hint).toEqual({ headerRow: 0, headerRows: 1, lastDataRow: 9, skipRows: [2, 5] });
+    expect(plan!.hints.find((h) => h.hint.headerRow === 6)).toBeUndefined();
+  });
+
+  test("the review panel offers 'It continues the table above' for a saved block the server says follows an all-text table", () => {
+    expect(readFacts({ follows: { ordinal: 0, gapRows: 1, continues: true } })?.continuesAbove).toBe(true);
+    expect(readFacts({ follows: { ordinal: 0, gapRows: 1, continues: false } })).toBeNull();
+    expect(readFacts({ gaps: 1, follows: null })?.continuesAbove).toBe(false);
   });
 });

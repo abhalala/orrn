@@ -341,22 +341,26 @@ export type ReadFacts = {
   /** `row` is the sheet row counted from 0 (what a re-read takes), `n` the number a person sees. */
   sections: { n: number; row: number; text: string }[];
   moreSections: number;
+  /** The table follows another one that is all text (server `follows.continues`): "It continues the table above" can be offered. */
+  continuesAbove: boolean;
 };
 
 /** More titles than this are a count and a list that opens. */
 export const SECTIONS_OPEN_MAX = 12;
 
-export function readFacts(block: Partial<Pick<CandidateDetail["block"], "gaps" | "warnings" | "warningsTotal" | "sections" | "sectionsTotal">>): ReadFacts | null {
+export function readFacts(block: Partial<Pick<CandidateDetail["block"], "gaps" | "warnings" | "warningsTotal" | "sections" | "sectionsTotal" | "follows">>): ReadFacts | null {
   const warnings = block.warnings ?? [];
   const sections = block.sections ?? [];
   const gaps = block.gaps ?? 0;
-  if (gaps === 0 && warnings.length === 0 && sections.length === 0) return null;
+  const continuesAbove = block.follows?.continues === true;
+  if (gaps === 0 && warnings.length === 0 && sections.length === 0 && !continuesAbove) return null;
   return {
     gaps,
     warnings: warnings.map((w) => ({ n: w.row + 1, code: w.code, text: w.text })),
     moreWarnings: Math.max(0, (block.warningsTotal ?? 0) - warnings.length),
     sections: sections.map((s) => ({ n: s.row + 1, row: s.row, text: s.text })),
     moreSections: Math.max(0, (block.sectionsTotal ?? 0) - sections.length),
+    continuesAbove,
   };
 }
 

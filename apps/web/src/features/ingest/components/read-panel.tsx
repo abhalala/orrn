@@ -26,7 +26,7 @@ export function ReadPanel({
   /** There is room for the open table (a tablet or wider). By default this follows the screen; a test sets it. */
   roomy?: boolean;
   /** "Start a new table here" on a title the table went on under: offered while no row is written. */
-  reput?: { onStartNewTable: (row: number) => void; busy: boolean } | null;
+  reput?: { onStartNewTable: (row: number) => void; onContinues?: () => void; busy: boolean } | null;
 }) {
   const { t, words } = useSay();
   // On a phone the panel starts as its one-line summary whatever the state (10 column cards push everything else away).
@@ -151,7 +151,7 @@ function NearChanges({ rows }: { rows: NearChangeRow[] }) {
  * has its row number and text, "and N more" when the server kept only the first 200. More than 12 titles are a count and a
  * list that opens. Each title can start a new table while no row is written.
  */
-export function ReadFactsView({ facts, reput }: { facts: ReadFacts; reput: { onStartNewTable: (row: number) => void; busy: boolean } | null }) {
+export function ReadFactsView({ facts, reput }: { facts: ReadFacts; reput: { onStartNewTable: (row: number) => void; onContinues?: () => void; busy: boolean } | null }) {
   const { say } = useSay();
   const many = facts.sections.length + facts.moreSections > SECTIONS_OPEN_MAX;
   const sectionList = (
@@ -172,6 +172,13 @@ export function ReadFactsView({ facts, reput }: { facts: ReadFacts; reput: { onS
   );
   return (
     <div data-testid="read-facts" className="flex min-w-0 flex-col gap-2 text-[14px] leading-6">
+      {facts.continuesAbove && reput?.onContinues ? (
+        <div>
+          <Button variant="secondary" aria-disabled={reput.busy || undefined} className="max-sm:w-full" onClick={() => !reput.busy && reput.onContinues?.()}>
+            {say("ingest.header.continues")}
+          </Button>
+        </div>
+      ) : null}
       {facts.gaps > 0 ? <p className="m-0">{say("ingest.read.gaps", { count: facts.gaps })}</p> : null}
       {facts.warnings.length > 0 ? (
         <details open={facts.warnings.length <= 3}>

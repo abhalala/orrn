@@ -12,7 +12,16 @@ import type { ReadBlock } from "./reader-protocol";
  *   skipped, and this table is no more.
  */
 
-export type StoredBlock = { ordinal: number; sheetName: string | null; headerRow: number; headerRows: number };
+export type StoredBlock = {
+  ordinal: number;
+  sheetName: string | null;
+  headerRow: number;
+  headerRows: number;
+  /** The saved pick's end and skipped rows, and the table above it (server round 8: BlockView carries them). */
+  lastDataRow?: number | null;
+  skipRows?: number[];
+  follows?: { ordinal: number; gapRows: number; continues: boolean } | null;
+};
 
 /** `row` is the sheet row of the title, counted from 0. */
 export type ReputAction = { kind: "continues"; ordinal: number } | { kind: "newTable"; ordinal: number; row: number };
@@ -20,6 +29,14 @@ export type ReputAction = { kind: "continues"; ordinal: number } | { kind: "newT
 export type ReputPlan = { hints: { sheet: string | null; hint: EngineHints }[] };
 
 const sheetOf = (name: string | null) => name ?? "";
+
+/** The hint a saved table was picked under, as it was saved. */
+const savedHint = (s: StoredBlock): EngineHints => ({
+  headerRow: s.headerRow,
+  headerRows: s.headerRows === 2 ? 2 : 1,
+  ...((s.lastDataRow ?? null) !== null ? { lastDataRow: s.lastDataRow } : {}),
+  ...((s.skipRows ?? []).length > 0 ? { skipRows: s.skipRows } : {}),
+});
 
 /** The block of the new read that is the stored block: the same place among the blocks of its sheet. */
 function matching(guess: readonly ReadBlock[], stored: readonly StoredBlock[], s: StoredBlock): ReadBlock | undefined {
@@ -43,30 +60,32 @@ export function planReput(guess: readonly ReadBlock[], stored: readonly StoredBl
   for (const s of stored) {
     const g = matching(guess, stored, s);
     if (!g?.meta) continue;
-    if (g.meta.guess.headerRow !== s.headerRow || (g.meta.guess.headerRows ?? 1) !== s.headerRows) {
-      hints.set(key(s.sheetName, s.headerRow), { sheet: s.sheetName, hint: { headerRow: s.headerRow, headerRows: s.headerRows === 2 ? 2 : 1 } });
+    // A table saved under a person's pick keeps it whole: the header, where the table ends and the rows it skips.
+    const picked = (s.lastDataRow ?? null) !== null || (s.skipRows ?? []).length > 0;
+    if (picked || g.meta.guess.headerRow !== s.headerRow || (g.meta.guess.headerRows ?? 1) !== s.headerRows) {
+      hints.set(key(s.sheetName, s.headerRow), { sheet: s.sheetName, hint: savedHint(s) });
     }
   }
   if (action.kind === "newTable") {
     const lastDataRow = action.row - here.meta.rowBase - 1;
     if (lastDataRow < here.meta.firstDataRow) return null;
-    hints.set(key(target.sheetName, target.headerRow), {
-      sheet: target.sheetName,
-      hint: { headerRow: target.headerRow, headerRows: target.headerRows === 2 ? 2 : 1, lastDataRow },
-    });
+    hints.set(key(target.sheetName, target.headerRow), { sheet: target.sheetName, hint: { ...savedHint(target), lastDataRow } });
   } else {
-    const above = stored
-      .filter((s) => sheetOf(s.sheetName) === sheetOf(target.sheetName) && s.ordinal < target.ordinal)
-      .sort((a, b) => b.ordinal - a.ordinal)[0];
+    // The table above is the one the server says this one follows; else the one just before it on the sheet.
+    const above =
+      (target.follows ? stored.find((s) => s.ordinal === target.follows!.ordinal) : undefined) ??
+      stored
+        .filter((s) => sheetOf(s.sheetName) === sheetOf(target.sheetName) && s.ordinal < target.ordinal)
+        .sort((a, b) => b.ordinal - a.ordinal)[0];
     if (!above) return null;
     hints.delete(key(target.sheetName, target.headerRow));
     hints.set(key(above.sheetName, above.headerRow), {
       sheet: above.sheetName,
       hint: {
-        headerRow: above.headerRow,
-        headerRows: above.headerRows === 2 ? 2 : 1,
+        ...savedHint(above),
         lastDataRow: here.meta.lastDataRow,
-        ...(here.meta.titleRows.length > 0 ? { skipRows: here.meta.titleRows } : {}),
+        // What the table above already skipped stays skipped, and this table's title lines are skipped too.
+        ...((above.skipRows ?? []).length + here.meta.titleRows.length > 0 ? { skipRows: [...new Set([...(above.skipRows ?? []), ...here.meta.titleRows])].sort((a, b) => a - b) } : {}),
       },
     });
   }
