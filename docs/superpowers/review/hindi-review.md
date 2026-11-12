@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8117 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8118 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (525)
+### ingest (526)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7449,6 +7449,7 @@ Please check, Lalubhai:
 | `file.columnsIn` | Columns in the file: {names} | फ़ाइल के कॉलम: {names} |
 | `file.subtitle` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added by {name} on {date} | {rows} लाइनें, {tables} टेबल, {name} ने {date} को जोड़ी |
 | `file.subtitleNoName` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added on {date} | {rows} लाइनें, {tables} टेबल, {date} को जोड़ी |
+| `file.fillAbove` | Dates taken from the dated line above: {answer}. | ऊपर की तारीख वाली लाइन से ली गई तारीखें: {answer}। |
 | `docTitle.list` | Imports \| orrn | इम्पोर्ट \| orrn |
 | `docTitle.page` | {name} \| Imports \| orrn | {name} \| इम्पोर्ट \| orrn |
 | `docTitle.review` | {target}, {file} \| Imports \| orrn | {target}, {file} \| इम्पोर्ट \| orrn |

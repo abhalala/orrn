@@ -236,3 +236,19 @@ describe("a person's earlier pick is kept (server round 8)", () => {
     expect(readFacts({ gaps: 1, follows: null })?.continuesAbove).toBe(false);
   });
 });
+
+describe("the file's one fill answer (server round 10)", () => {
+  test("a new order sheet in an answered file shows the question closed with that answer, and the file page names the answer", async () => {
+    const { questionView } = await import("./model");
+    const { fillAnswerWords } = await import("./file-model");
+    const closed = questionView({ code: "order_fill_above", subject: "", params: { count: 2 }, answer: true, open: false, lines: [] } as never);
+    expect(closed.answered).toBe(true);
+    expect(closed.answeredWords).toEqual({ key: "common.yes" });
+    const no = questionView({ code: "order_fill_above", subject: "", params: {}, answer: false, open: false } as never);
+    expect(no.answeredWords).toEqual({ key: "common.no" });
+    expect(fillAnswerWords({ fillAbove: { answer: true } })).toEqual({ key: "ingest.file.fillAbove", varKeys: { answer: "common.yes" } });
+    expect(fillAnswerWords({ fillAbove: { answer: false } })!.varKeys).toEqual({ answer: "common.no" });
+    expect(fillAnswerWords({ fillAbove: null })).toBeNull();
+    expect(fillAnswerWords({})).toBeNull();
+  });
+});

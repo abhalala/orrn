@@ -5,7 +5,7 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { can, useMe } from "@/shared/lib/me";
 
 import { useAnnouncer, useArtifact } from "../lib";
-import { fileRows, fileSubtitle, fileYear, vaultWords } from "../lib/file-model";
+import { fileRows, fileSubtitle, fileYear, fillAnswerWords, vaultWords } from "../lib/file-model";
 import { FileYearLine } from "./file-year-line";
 import { ImportRows, StatusRegion, useDocTitle, useListActions, useSay } from "./list-kit";
 import { ActionError, ProgressBar, QueryPanel } from "./shared";
@@ -47,6 +47,7 @@ export function IngestFileScreen({ artifactId }: { artifactId: string }) {
           <>
             <div className="flex flex-col gap-1">
               <p className="m-0 text-[13px] leading-5 text-muted-foreground">{words(vaultWords(data.vaultState))}</p>
+              {fillAnswerWords(data) ? <p data-testid="file-fill-answer" className="m-0 text-[13px] leading-5 text-muted-foreground">{words(fillAnswerWords(data)!)}</p> : null}
               {data.note ? (
                 <p className="m-0 text-[13px] leading-5 break-words text-muted-foreground">
                   {t("common.note")}: {data.note}

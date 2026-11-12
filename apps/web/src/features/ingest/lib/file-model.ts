@@ -63,3 +63,12 @@ export function fileYear(
   };
   return yearLine(source, day, now);
 }
+
+/**
+ * The file's one answer to "Some lines have no date. orrn took each one's date from the dated line just above it. Is that
+ * right?" (server round 10: it is stored once, on the file, and every order sheet shows it). Null before it is answered.
+ */
+export function fillAnswerWords(file: { fillAbove?: { answer: boolean } | null }): Words | null {
+  if (!file.fillAbove) return null;
+  return { key: "ingest.file.fillAbove", varKeys: { answer: file.fillAbove.answer ? "common.yes" : "common.no" } };
+}

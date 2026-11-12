@@ -643,6 +643,8 @@ export const ingestHi = {
     columnsIn: "फ़ाइल के कॉलम: {names}",
     subtitle: "{rows} लाइनें, {tables} टेबल, {name} ने {date} को जोड़ी",
     subtitleNoName: "{rows} लाइनें, {tables} टेबल, {date} को जोड़ी",
+    // server round 10: the file's one fill answer
+    fillAbove: "ऊपर की तारीख वाली लाइन से ली गई तारीखें: {answer}।",
   },
   docTitle: {
     list: "इम्पोर्ट | orrn",
