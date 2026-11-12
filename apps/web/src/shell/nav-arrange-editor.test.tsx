@@ -96,7 +96,7 @@ describe("NavArrangeEditor keyboard arranging", () => {
       });
 
       expect(rowOrder()).toEqual(["today", "pack", "stock", "more", "orders", "guides"]);
-      const handle = document.querySelector<HTMLElement>("[data-nav-key='orders'] button[aria-label='Drag to move Orders']")!;
+      const handle = document.querySelector<HTMLElement>("[data-nav-key='orders'] button[aria-label='Reorder Orders']")!;
       await act(async () => handle.focus());
       await key(handle, " ");
       expect(handle.getAttribute("aria-pressed")).toBe("true");

@@ -54,7 +54,7 @@ test("a member saves their own menu order and resets it", async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "Arrange menu" });
   await expect(dialog).toBeVisible();
 
-  const handle = dialog.getByRole("button", { name: "Drag to move Orders" });
+  const handle = dialog.getByRole("button", { name: "Reorder Orders" });
   await handle.focus();
   await handle.press("Space");
   await expect(handle).toHaveAttribute("aria-pressed", "true");
@@ -106,7 +106,7 @@ test("phone More keeps items moved above the divider", async ({ page }) => {
   let moreSheet = page.getByRole("dialog", { name: "More" });
   await moreSheet.getByRole("button", { name: "Arrange menu" }).click();
   const dialog = page.getByRole("dialog", { name: "Arrange menu" });
-  const handle = dialog.getByRole("button", { name: "Drag to move Reports" });
+  const handle = dialog.getByRole("button", { name: "Reorder Reports" });
   await handle.focus();
   await handle.press("Space");
   for (let move = 0; move < 5; move += 1) await handle.press("ArrowUp");
@@ -128,7 +128,7 @@ test("Escape restores the picked row and a second Escape cancels", async ({ page
   await openArrange(page);
 
   const dialog = page.getByRole("dialog", { name: "Arrange menu" });
-  const handle = dialog.getByRole("button", { name: "Drag to move Orders" });
+  const handle = dialog.getByRole("button", { name: "Reorder Orders" });
   await handle.focus();
   await handle.press("Space");
   await handle.press("ArrowUp");
@@ -190,6 +190,24 @@ test("reset confirmation stays in the footer and restores focus", async ({ page 
   await expect(confirm).toBeVisible();
   await expect(confirm.getByRole("button").first()).toBeFocused();
   await expect(dialog.locator("[data-slot='sheet-footer']").getByRole("alert")).toHaveCount(1);
-  await confirm.getByRole("button").first().click();
+  await confirm.getByRole("button", { name: "Keep my order" }).click();
   await expect(reset).toBeFocused();
+});
+
+test("divider crossings and the arrange hint are announced", async ({ page }) => {
+  const plant = await freshPlant("NavAnnounce");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+  await openArrange(page);
+  const dialog = page.getByRole("dialog", { name: "Arrange menu" });
+  await expect(dialog.getByText("Items above More stay at the top of the menu. Drag an item across the line to move it.")).toBeVisible();
+
+  const handle = dialog.getByRole("button", { name: "Reorder Dispatch" });
+  await handle.focus();
+  await handle.press("Space");
+  await handle.press("ArrowDown");
+  await expect(page.getByTestId("nav-order-announcement")).toHaveText("Dispatch moved below More");
+  await handle.press("ArrowUp");
+  await expect(page.getByTestId("nav-order-announcement")).toHaveText("Dispatch moved above More");
 });

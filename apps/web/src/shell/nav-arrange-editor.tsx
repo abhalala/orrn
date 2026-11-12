@@ -52,11 +52,11 @@ export default function NavArrangeEditor({
   const save = useMutation(trpc.auth.setNavOrder.mutationOptions());
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const resetButtonRef = useRef<HTMLButtonElement>(null);
-  const keepOrderButtonRef = useRef<HTMLButtonElement>(null);
+  const confirmFirstButtonRef = useRef<HTMLButtonElement>(null);
   const wasConfirmReset = useRef(false);
 
   useEffect(() => {
-    if (confirmReset) keepOrderButtonRef.current?.focus({ preventScroll: true });
+    if (confirmReset) confirmFirstButtonRef.current?.focus({ preventScroll: true });
     else if (wasConfirmReset.current) resetButtonRef.current?.focus({ preventScroll: true });
     wasConfirmReset.current = confirmReset;
   }, [confirmReset]);
@@ -66,6 +66,12 @@ export default function NavArrangeEditor({
   };
 
   const announce = (item: NavItem, next: NavEditorRow[]) => {
+    const beforeMore = rows.findIndex((row) => row.id === item.key) > rows.findIndex((row) => row.kind === "divider");
+    const afterMore = next.findIndex((row) => row.id === item.key) > next.findIndex((row) => row.kind === "divider");
+    if (beforeMore !== afterMore) {
+      setAnnouncement(t(afterMore ? "nav.movedBelow" : "nav.movedAbove", { name: t(item.labelKey) }));
+      return;
+    }
     const items = next.flatMap((row) => (row.kind === "item" ? [row.item] : []));
     const position = items.findIndex((candidate) => candidate.key === item.key) + 1;
     setAnnouncement(t("nav.moved", { name: t(item.labelKey), position, total: items.length }));
@@ -135,6 +141,7 @@ export default function NavArrangeEditor({
         if (!next) cancel();
       }}
       title={t("nav.arrange")}
+      description={t("nav.arrangeHint")}
       onEscapeKeyDown={(event) => {
         if (!picked) return;
         event.preventDefault();
@@ -148,11 +155,11 @@ export default function NavArrangeEditor({
           <div className="flex flex-col gap-3" role="alert">
             <p className="m-0 text-[14px]">{t("nav.resetConfirm")}</p>
             <div className="flex flex-wrap gap-2">
-              <Button ref={keepOrderButtonRef} variant="secondary" disabled={!!busy} onClick={() => setConfirmReset(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button variant="danger" loading={busy === "reset"} disabled={!!busy} onClick={() => void finish(null, "reset")}>
+              <Button ref={confirmFirstButtonRef} variant="danger" loading={busy === "reset"} disabled={!!busy} onClick={() => void finish(null, "reset")}>
                 {t("nav.resetDefault")}
+              </Button>
+              <Button variant="secondary" disabled={!!busy} onClick={() => setConfirmReset(false)}>
+                {t("nav.keepOrder")}
               </Button>
             </div>
           </div>
