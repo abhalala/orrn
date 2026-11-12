@@ -441,7 +441,7 @@ export type TableRun = { last: number; skipped: RowWarning[] };
  *   table's header.
  * Titles with no more of the table after them are not listed here; the caller places them.
  */
-export function readTableRun(rows: readonly (readonly string[])[], header: readonly string[], second: readonly string[] | null, first: number, limit: number): TableRun {
+export function readTableRun(rows: readonly (readonly string[])[], header: readonly string[], second: readonly string[] | null, first: number, limit: number, above: readonly (readonly string[])[] = []): TableRun {
   const kinds = new ColumnKinds(Math.max(filledWidth(header), second ? filledWidth(second) : 0));
   // A repeat holds every name of the header, each in its column, and nothing else (a shorter header that starts with
   // the same names is another table).
@@ -458,11 +458,12 @@ export function readTableRun(rows: readonly (readonly string[])[], header: reado
     return got.length === names.length && got.every((c, i) => c === names[i]);
   };
   // Section 9: after a blank row, a row that starts another table, never a continuation.
-  const names2 = second ? norm(second) : [];
+  // The names of the table's header rows, and of the header rows of the tables above it in this read: a block that
+  // starts below another one may have a row of that table as its header, after a split.
+  const allNames = [names, ...(second ? [norm(second)] : []), ...above.map(norm)];
   const startsTable = (r: readonly string[]) => {
-    if (kinds.rows === 0) return false;
     // A cell equal to its own column's name (the row is not a full repeat; the caller tests that first).
-    if (r.some((c, i) => c.trim() !== "" && ((names[i] ?? "") !== "" && normalizeHeader(c) === names[i] || (names2[i] ?? "") !== "" && normalizeHeader(c) === names2[i]))) return true;
+    if (r.some((c, i) => c.trim() !== "" && allNames.some((ns) => (ns[i] ?? "") !== "" && normalizeHeader(c) === ns[i]))) return true;
     // Three or more whole numbers rising by one from left to right (column numbers, months, years, lengths).
     const ints = r.filter((c) => c.trim() !== "" && isValueCell(c)).map((c) => (cellKind(c) === "int" ? Number(c.replace(/,/g, "")) : NaN));
     let run = 1;
@@ -470,7 +471,9 @@ export function readTableRun(rows: readonly (readonly string[])[], header: reado
       run = Number.isFinite(ints[k]!) && ints[k] === ints[k - 1]! + 1 ? run + 1 : 1;
       if (run >= 3) return true;
     }
-    // Number cells only in columns where every row above was blank.
+    // Number cells only in columns where every row above was blank (with no data row yet every column is blank, so
+    // this sign needs one).
+    if (kinds.rows === 0) return false;
     const at = r.flatMap((c, i) => (valueKind(c) === "number" ? [i] : []));
     return at.length > 0 && at.every((i) => kinds.kindOf(i) === undefined);
   };
@@ -615,7 +618,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       }
     }
     cuts.push(end);
-    const guessed = cuts.slice(0, -1).flatMap((a, i) => guessRange(rows, a, cuts[i + 1]!, sheetName, false, upperHeader !== null).blocks);
+    const guessed = cuts.slice(0, -1).flatMap((a, i) => guessRange(rows, a, cuts[i + 1]!, sheetName, false, upperHeader !== null, upperHeader ? [upperHeader] : []).blocks);
     const inKept = new Set<number>();
     let covered = from - 1;
     for (const b of guessed) {
@@ -774,8 +777,10 @@ function placeLoose(rows: readonly string[][], loose: readonly number[], owner: 
  * holds numbers or dates, which no layout may know, but there is a guess to show and to correct by hints. A window with
  * no such row is reported row by row and the search goes on below it.
  */
-export function guessRange(rows: readonly string[][], from: number, to: number, sheetName: string | null, noHeaderGuess = false, below = false): SheetRead {
+export function guessRange(rows: readonly string[][], from: number, to: number, sheetName: string | null, noHeaderGuess = false, below = false, above: readonly (readonly string[])[] = []): SheetRead {
   const n = to;
+  // Header rows of the tables above, for the section 9 sign "a cell equal to its own column's name".
+  let headersAbove: readonly (readonly string[])[] = above;
   const blocks: ReadBlock[] = [];
   const warnings: RowWarning[] = [];
   let pos = from;
@@ -859,7 +864,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
     const dataStart = h + headerRows;
 
     // Rule 8.1: the table goes on across blank rows only while what follows fits it.
-    const run = readTableRun(rows, rows[h]!, headerRows === 2 ? rows[h + 1]! : null, dataStart, n - 1);
+    const run = readTableRun(rows, rows[h]!, headerRows === 2 ? rows[h + 1]! : null, dataStart, n - 1, headersAbove);
     const left = new Set(run.skipped.map((w) => w.row));
     // A repeat of the header with no data under it is listed and read past.
     const end = Math.max(run.last + 1, ...run.skipped.map((w) => w.row + 1));
@@ -907,6 +912,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
       split = null;
     }
     blocks.push(block);
+    headersAbove = [rows[h]!, ...(headerRows === 2 ? [rows[h + 1]!] : []), ...headersAbove];
     if (end === n) break;
     split = { block, lastData: lastFilled(rows as string[][], dataStart, end - 1) };
   }

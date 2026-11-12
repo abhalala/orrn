@@ -96,6 +96,12 @@ type File = {
   h2: number;
   /** Below a text table: the first row of a part of the same table, or -1. */
   part: number;
+  /**
+   * Section 9: the second table's header holds numbers or dates. "sign" when it carries one of the section 9 signs by
+   * construction (the first table's first name in its column, or column numbers rising by one); "none" when it carries
+   * none (alloys or lengths as names under an unrelated table), which section 9 does not cover; null otherwise.
+   */
+  numbered: "sign" | "none" | null;
 };
 
 function generate(seed: number): File {
@@ -160,6 +166,7 @@ function generate(seed: number): File {
   let below = -1;
   let h2 = -1;
   let part = -1;
+  let numbered: File["numbered"] = null;
   if (r() < 0.5) {
     for (let b = int(r, 1, 3); b > 0; b--) text.push([]);
     below = text.length;
@@ -173,6 +180,25 @@ function generate(seed: number): File {
         feats.push("title_below");
       }
       h2 = text.length;
+      const form = numbers && r() < 0.5 ? pick(r, ["label_dates", "label_months", "label_years", "column_numbers", "column_numbers", "no_sign"] as const) : null;
+      if (form !== null) {
+        // Section 9: a second table whose header holds numbers or dates (the checker's r8b and r8c shapes).
+        const w = Math.max(3, Math.min(6, L.head.length + int(r, -1, 1)));
+        const d0 = int(r, 1, 20);
+        const m0 = int(r, 1, 9);
+        const y0 = int(r, 2019, 2025);
+        const head =
+          form === "label_dates" ? [L.head[0]!, ...Array.from({ length: w - 1 }, (_, i) => `${d0 + i}/11/2026`)]
+          : form === "label_months" ? [L.head[0]!, ...Array.from({ length: w - 1 }, (_, i) => String(m0 + i))]
+          : form === "label_years" ? [L.head[0]!, ...Array.from({ length: w - 1 }, (_, i) => String(y0 + i))]
+          : form === "column_numbers" ? Array.from({ length: w }, (_, i) => String(i + 1))
+          : pick(r, [["Grade", "", "6063", "6061"], ["", "12", "14", "16"], ["Length", "8", "10", "12"]]);
+        numbered = form === "no_sign" ? "none" : "sign";
+        text.push(head);
+        for (let k = int(r, 2, 6); k > 0; k--) text.push(head.map((_, i) => (i === 0 ? pick(r, SEC) : String(int(r, 0, 90)))));
+        feats.push(form === "no_sign" ? "numbered_below_no_sign" : "numbered_below");
+        return { text, feats, numbers, h1, rows1, listed1, blanks1, below, h2, part, numbered };
+      }
       // The second header: words, over at least one number or date column of the first table when it has one.
       const firstValue = L.kinds.findIndex((k) => VALUE(k));
       const w = Math.min(7, Math.max(2, firstValue + 1, int(r, 2, 5)));
@@ -184,7 +210,7 @@ function generate(seed: number): File {
       feats.push("table_below");
     }
   }
-  return { text, feats, numbers, h1, rows1, listed1, blanks1, below, h2, part };
+  return { text, feats, numbers, h1, rows1, listed1, blanks1, below, h2, part, numbered };
 }
 
 const filled = (row: readonly string[] | undefined) => (row ?? []).some((c) => c !== "");
@@ -225,6 +251,25 @@ function lost(text: readonly string[][], read: SheetRead): string[] {
   return out;
 }
 
+/**
+ * Why a real continuation row after blank rows ended the table, by section 9 (strict kinds and the three signs), or
+ * "other" when none applies.
+ */
+function sign9(header: readonly string[], above: readonly (readonly string[])[], row: readonly string[]): string {
+  const k = new ColumnKinds(0);
+  for (const x of above) k.add(x);
+  const name = (c: string) => c.trim().toLowerCase();
+  if (row.some((c, i) => c !== "" && (header[i] ?? "") !== "" && name(c) === name(header[i]!))) return "nameInColumn";
+  const isNum = (c: string) => /^-?[\d,]*\.?\d+$/.test(c.trim());
+  const isDate = (c: string) => /^\d{4}-\d{2}-\d{2}$/.test(c.trim());
+  if (row.some((c, i) => (k.kindOf(i) === "number" && isDate(c)) || (k.kindOf(i) === "date" && isNum(c)))) return "strictKind";
+  const ints = row.filter((c) => isNum(c) || isDate(c)).map((c) => (/^\d+$/.test(c) ? Number(c) : NaN));
+  for (let i = 2; i < ints.length; i++) if (ints[i] === ints[i - 1]! + 1 && ints[i - 1] === ints[i - 2]! + 1) return "risingNumbers";
+  const at = row.flatMap((c, i) => (isNum(c) ? [i] : []));
+  if (at.length > 0 && at.every((i) => k.kindOf(i) === undefined)) return "numberInBlankColumn";
+  return "other";
+}
+
 /** Sheet rows a block holds as data (filled, not left out). */
 function dataRows(b: ReadBlock, text: readonly string[][]): number[] {
   const left = new Set(b.warnings.filter((w) => w.code.startsWith("skipped")).map((w) => w.row));
@@ -239,7 +284,7 @@ function dataRows(b: ReadBlock, text: readonly string[][]): number[] {
 describe("round 8 acceptance property (rule 8.1, sheets and CSV)", () => {
   test("swallowed 0, cells lost 0, what is read past is listed; split wrongly is counted", () => {
     const seeds = Number(process.env.R8_SEEDS ?? 400);
-    const c = { files: 0, reads: 0, swallowed: 0, cellsLost: 0, exact: 0, splitWrongly: 0, splitCause: {} as Record<string, number>, splitOffered: 0, splitOfferedMade: 0, withGaps: 0, oneCellRowsListed: 0, gapsChecked: 0, tablesBelow: 0, textParts: 0, textPartsOffered: 0 };
+    const c = { files: 0, reads: 0, swallowed: 0, cellsLost: 0, exact: 0, splitWrongly: 0, splitCause: {} as Record<string, number>, splitOffered: 0, splitOfferedMade: 0, withGaps: 0, numberedBelow: 0, numberedBelowOwnBlock: 0, noSignBelow: 0, noSignSwallowed: 0, oneCellRowsListed: 0, gapsChecked: 0, tablesBelow: 0, textParts: 0, textPartsOffered: 0 };
     const feats = new Map<string, number>();
     for (let seed = 1; seed <= seeds; seed++) {
       const f = generate(seed);
@@ -264,6 +309,14 @@ describe("round 8 acceptance property (rule 8.1, sheets and CSV)", () => {
         const got = dataRows(top!, f.text);
         const own = new Set(f.rows1);
         const swallowed = got.some((x) => !own.has(x));
+        if (f.numbered === "none") {
+          // Outside section 9: counted, not asserted. Nothing is lost either way (checked above).
+          c.noSignBelow++;
+          if (swallowed) {
+            c.noSignSwallowed++;
+            continue;
+          }
+        }
         if (swallowed) c.swallowed++;
         expect(swallowed, `${label} ${kind} swallowed ${JSON.stringify(got.filter((x) => !own.has(x)))}`).toBe(false);
         // A data row of one text cell right after blank rows reads as a title by rule 8.1: left out and listed.
@@ -297,7 +350,7 @@ describe("round 8 acceptance property (rule 8.1, sheets and CSV)", () => {
                 ? "wordInNumber"
                 : words.length >= 2 && words.every((x) => isWord(x))
                   ? "wordsOnlyRow" // the round 8 guard: a row of words only after blank rows reads as a header
-                  : "other";
+                  : sign9(f.text[f.h1]!, got.map((x) => f.text[x]!), row);
             c.splitCause[cause] = (c.splitCause[cause] ?? 0) + 1;
             expect(cause, `${label} ${kind} split by ${JSON.stringify(row)}`).not.toBe("other");
           } else {
@@ -308,11 +361,17 @@ describe("round 8 acceptance property (rule 8.1, sheets and CSV)", () => {
           // The block reads past nothing it does not list: its listed rows all lie inside what it read.
           for (const w of top!.warnings.filter((x) => x.code.startsWith("skipped"))) expect(w.row, `${label} ${kind}`).toBeLessThan(lastRow);
         }
-        if (f.h2 >= 0) {
+        if (f.h2 >= 0 && f.numbered === "none" && !read.blocks.some((b) => b.guess.headerRow === f.h2)) {
+          c.noSignSwallowed++; // swallowed by a block split from the table above; outside section 9, counted only
+        } else if (f.h2 >= 0) {
           c.tablesBelow++;
           const b2 = read.blocks.find((b) => b.guess.headerRow === f.h2);
           expect(b2, `${label} ${kind}: the second table heads no block ${JSON.stringify(read.blocks.map((b) => b.guess))}`).toBeDefined();
           expect(dataRows(b2!, f.text).every((x) => x > f.h2), `${label} ${kind}`).toBe(true);
+          if (f.numbered === "sign") {
+            c.numberedBelow++;
+            if (b2) c.numberedBelowOwnBlock++;
+          }
         }
         if (f.part >= 0) {
           c.textParts++;
@@ -328,7 +387,7 @@ describe("round 8 acceptance property (rule 8.1, sheets and CSV)", () => {
       const share = (c.splitWrongly / Math.max(1, c.withGaps)).toFixed(4);
       console.log(JSON.stringify({ ...c, splitWronglyShare: share, feats: Object.fromEntries(feats) }));
     }
-    for (const x of ["numbers", "all_text", "blank_inside", "month_line", "repeat_header", "table_below", "text_part_below", "word_in_number"]) {
+    for (const x of ["numbers", "all_text", "blank_inside", "month_line", "repeat_header", "table_below", "text_part_below", "word_in_number", "numbered_below", "numbered_below_no_sign"]) {
       expect(feats.get(x) ?? 0, x).toBeGreaterThan(seeds / 100);
     }
     expect(c.swallowed).toBe(0);

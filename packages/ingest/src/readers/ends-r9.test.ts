@@ -157,3 +157,29 @@ describe("9: titles are listed as sections", () => {
 });
 
 const regionStart = (b: { guess: { headerRow: number }; headerRow: number }) => b.guess.headerRow - b.headerRow;
+
+describe("9: a part split from the table above still knows its names", () => {
+  // Found by the round 9 property (seeds 230 and 4071). A word in a number column splits the table; the part below has
+  // a data row as its header. A second table headed with the first table's first name, after a blank row, must not
+  // join that part.
+  const H = ["Party", "Date", "Kg"];
+  const rows = (n: number) => Array.from({ length: n }, (_, i) => ["Om " + i, `2026-01-${String(i + 1).padStart(2, "0")}`, String(10 + i)]);
+  test("a split part's rows, then 'Party | 2021 | 2022': the second table is its own block", () => {
+    const nums = (n: number) => Array.from({ length: n }, (_, i) => ["Om " + i, String(40 + i), String(10 + i)]);
+    const m = [["Party", "Kg", "Rate"], ...nums(3), [], ["Shah", "cancelled", ""], ...nums(3), [], ["Party", "2021", "2022"], ["T4012", "29", "8"], ["K1100", "13", "28"]];
+    for (const [how, r] of both(m)) {
+      const b = r.blocks.find((x) => x.guess.headerRow === 10);
+      expect(b, `${how} ${JSON.stringify(r.blocks.map((x) => x.guess))}`).toBeDefined();
+      expect(filled(b!.rows).length, how).toBe(2);
+      expect(accounted(m, r), how).toBe(true);
+    }
+  });
+  test("a split part of one row with a blank spacer under it, then 'Party | 3 | 4'", () => {
+    const m = [H, ...rows(3), [], ["Shah", "cancelled", ""], [], [], ["Shah", "98", "Rajkot"], [], ["Party", "3", "4"], ["T4012", "29", "8"]];
+    for (const [how, r] of both(m)) {
+      const b = r.blocks.find((x) => x.guess.headerRow === 10);
+      expect(b, `${how} ${JSON.stringify(r.blocks.map((x) => x.guess))}`).toBeDefined();
+      expect(accounted(m, r), how).toBe(true);
+    }
+  });
+});
