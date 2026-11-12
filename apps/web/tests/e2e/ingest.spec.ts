@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
 import * as XLSX from "xlsx";
 
 import { signInViaApi, type LocalRole } from "./helpers/accounts";
+import { makeParty, q } from "./helpers/orders-api";
 import { API_URL } from "./helpers/ports";
 
 /**
@@ -18,6 +19,10 @@ import { API_URL } from "./helpers/ports";
  *   6. A near fit asks once ("Use this layout"); the next upload with the same headers fits with no question.
  *   7. A weight outside the believable range asks, and the answer restages the row.
  *   8. "Approve all N" approves only imports with no open question.
+ *   9. The header step: a sheet with a letterhead is asked "Which row has the column names?" and carries on after the
+ *      pick; a header on another row that fits a known layout is read again with no question; a second table below a
+ *      blank row is joined with "It continues the table above"; "007" and "18%" arrive as written.
+ *  10. A PDF is kept, not read. One PO on two orders is shown as a conflict.
  *
  * Every file is made fresh per run: its series and section codes carry a run stamp, so a second run never meets the
  * first run's sections, and no other spec's data is touched. Tests run one after another because a merge writes every
@@ -124,6 +129,26 @@ async function openReview(page: Page, fileName: string, segmentName: Parameters<
 
 const decisionBar = (page: Page) => page.getByTestId("decision-bar");
 
+/** The header step ("Which row has the column names?") of the file being added. */
+const headerStep = (page: Page) => page.getByTestId("header-step");
+
+/** Wait for the header step, pick a row by its number on the sheet and use it. */
+async function pickHeaderRow(page: Page, n: number) {
+  const step = headerStep(page);
+  await expect(step.getByRole("heading", { name: "Which row has the column names?" })).toBeVisible({ timeout: 60_000 });
+  await step.getByRole("radio", { name: new RegExp(`^Row ${n}:`) }).check();
+  await step.getByRole("button", { name: `Use row ${n}` }).click();
+}
+
+/** `ingest.artifact.putBlocks` calls the page makes, to see how many times a table's header was sent. */
+function countPutBlocks(page: Page): { count: () => number } {
+  let n = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("ingest.artifact.putBlocks")) n += 1;
+  });
+  return { count: () => n };
+}
+
 test.describe("imports portal", () => {
   test("an admin reads the die template, sees a known layout, approves and merges", async ({ page }) => {
     const series = `Z${STAMP.slice(0, 3)}`;
@@ -180,6 +205,8 @@ test.describe("imports portal", () => {
     try {
       await openPortal(page, "admin");
       await upload(page, name, csv);
+      // No layout the plant knows fits these headers, so orrn asks which row has the column names before it goes on.
+      await pickHeaderRow(page, 1);
       // An unknown layout needs a person: it sits under Needs you with "Map columns".
       const r = await waitInSegment(page, name, "Needs you");
       await expect(r.getByText("Needs a layout")).toBeVisible();
@@ -275,6 +302,9 @@ test.describe("imports portal", () => {
     await openPortal(page, "admin");
 
     await upload(page, first, dieCsv(series, [`${STAMP}N1`], renamed));
+    // A near fit is never trusted on its own: orrn names the layout it looks like and asks if row 1 has the column names.
+    await expect(headerStep(page).getByText(/^This looks like .+\. Is row 1 the column names\?$/)).toBeVisible({ timeout: 60_000 });
+    await pickHeaderRow(page, 1);
     await openReview(page, first, "Needs you");
     await expect(decisionBar(page)).toHaveAttribute("data-state", "needs_confirm", { timeout: 30_000 });
     await expect(page.getByRole("heading", { name: "What changed" })).toBeVisible();
@@ -385,5 +415,159 @@ test.describe("imports portal", () => {
     await sectionVisible(page, `${STAMP}P1`);
     await sectionVisible(page, `${STAMP}P2`);
     await sectionAbsent(page, `${STAMP}Q`);
+  });
+
+  test("a sheet with a two-line letterhead is asked, the person picks the row, and the import goes on", async ({ page }) => {
+    const name = `letterhead-${STAMP}.csv`;
+    const headers = [`Lh series ${STAMP}`, `Lh profile ${STAMP}`, `Lh low ${STAMP} kg/12ft`, `Lh high ${STAMP} kg/12ft`];
+    const csv = Buffer.from(
+      ["FourCubes Extrusions,,,", "Old sections, October,,", headers.join(","), "Z1,LH1,1.1,1.4", "Z1,LH2,1.2,1.5"].join("\n"),
+    );
+    await openPortal(page, "admin");
+    await upload(page, name, csv);
+
+    const step = headerStep(page);
+    await expect(step.getByRole("heading", { name: "Which row has the column names?" })).toBeVisible({ timeout: 60_000 });
+    // The rows are numbered as on the sheet and the reader's guess is selected: one row, and not necessarily the right one
+    // (the second letterhead line has two cells, so the reader takes it for the names).
+    await expect(step.getByRole("radio", { name: /^Row \d+:/ })).toHaveCount(5);
+    await expect(step.getByRole("radio", { name: /^Row \d+:/, checked: true })).toHaveCount(1);
+    await expect(step.getByRole("radio", { name: /^Row 3:/ })).not.toBeChecked();
+    await expect(step.getByText(/^Table \d of \d/)).toHaveCount(0);
+    await step.getByRole("radio", { name: /^Row 3:/ }).check();
+    await step.getByRole("button", { name: "Use row 3" }).click();
+
+    // The step goes away and the import goes on: an unknown layout waits for a person, with the picked row as its names.
+    await expect(headerStep(page)).toHaveCount(0, { timeout: 60_000 });
+    await waitRead(page, name);
+    await openReview(page, name, "Needs you");
+    await expect(decisionBar(page)).toHaveAttribute("data-state", "needs_shape", { timeout: 30_000 });
+    await page.getByRole("button", { name: "Map columns myself" }).click();
+    await expect(page.getByText(headers[0]!).first()).toBeVisible();
+  });
+
+  test("a sheet whose header is on another row but fits a known layout is read again with no question", async ({ page }) => {
+    const series = `R${STAMP.slice(0, 3)}`;
+    const name = `wide-letterhead-${STAMP}.csv`;
+    // A letterhead as wide as the table: the reader takes it for the header, the server finds the die layout on row 2.
+    const letterhead = ["FourCubes", "Unit 2", "Extrusion", "Die list", "Oct", "2026", "Page", "1", "of", "1"].join(",");
+    const csv = Buffer.from([letterhead, DIE_HEADER, ...dieRows(series, [`${STAMP}R1`])].join("\n"));
+    await openPortal(page, "admin");
+    const calls = countPutBlocks(page);
+    await upload(page, name, csv);
+    await expect(stripRow(page, name).getByText(/^Read\. 1 table: .*Known layout\.$/)).toBeVisible({ timeout: 60_000 });
+    await expect(headerStep(page)).toHaveCount(0);
+    // The table was sent, the server named the row, the file was read again and the table sent once more.
+    expect(calls.count()).toBeGreaterThanOrEqual(2);
+    const r = await waitInSegment(page, name, "Ready");
+    await expect(r.getByText("Known layout")).toBeVisible();
+  });
+
+  test("a second table below a blank row is joined with \"It continues the table above\"", async ({ page }) => {
+    const name = `continues-${STAMP}.csv`;
+    const headers = [`Cn series ${STAMP}`, `Cn profile ${STAMP}`, `Cn low ${STAMP} kg/12ft`, `Cn high ${STAMP} kg/12ft`];
+    const csv = Buffer.from(
+      [headers.join(","), "Z1,CN1,1.1,1.4", "Z1,CN2,1.2,1.5", ",,,", "Z1,Total,,", "Z1,CN3,1.3,1.6", "Z1,CN4,1.4,1.7"].join("\n"),
+    );
+    await openPortal(page, "admin");
+    await upload(page, name, csv);
+
+    // Two tables wait: the names of the first, then the second, whose first row does not look like column names.
+    await expect(headerStep(page).getByText(/^Table 1 of 2/)).toBeVisible({ timeout: 60_000 });
+    await pickHeaderRow(page, 1);
+    await expect(headerStep(page).getByText(/^Table 2 of 2/)).toBeVisible({ timeout: 60_000 });
+    await headerStep(page).getByRole("button", { name: "It continues the table above" }).click();
+
+    // One table, with the rows of both: the second table did not become an import of its own.
+    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await openReview(page, name, "Needs you");
+    await expect(page.getByText(/\b6 rows\b/).first()).toBeVisible();
+  });
+
+  test("a value like 007 and a value like 18% arrive in the review rows as written", async ({ page }) => {
+    const series = `Q${STAMP.slice(0, 3)}`;
+    const code = `${STAMP}V`;
+    const name = `as-written-${STAMP}.csv`;
+    const row = `${series},${code},1.1,1.4,18%,30,1.5,,active,007`;
+    await openPortal(page, "admin");
+    await upload(page, name, Buffer.from([DIE_HEADER, row].join("\n")));
+    await openReview(page, name, "Ready");
+    const cells = page.locator("table tbody");
+    await expect(cells.getByText("18%", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(cells.getByText("007", { exact: true }).first()).toBeVisible();
+  });
+
+  test("one PO on two orders is shown as a conflict naming both, and nothing waits unseen", async ({ page, request }) => {
+    const name = `po-twice-${STAMP}.csv`;
+    await openPortal(page, "admin");
+    // A customer and a section orrn already has, so the rows are ready and only the conflict is left to say.
+    const party = await makeParty(page, "PoTwice");
+    const die = (await q<{ items: { series: string; sectionCode: string }[] }>(page, "die.list", { search: "14701", limit: 5 })).items[0]!;
+    const customer = party.name;
+    const headers = [`Party ${STAMP}`, `Order no ${STAMP}`, `PO ${STAMP}`, `Date ${STAMP}`, `Series ${STAMP}`, `Section ${STAMP}`, `Baki ${STAMP} kg`, `Cut ${STAMP} mm`];
+    const csv = Buffer.from(
+      [headers.join(","), `${customer},41,PO-${STAMP},01/10/2025,${die.series},${die.sectionCode},100,3658`, `${customer},42,PO-${STAMP},02/10/2025,${die.series},${die.sectionCode},200,3658`].join("\n"),
+    );
+    const col = (n: number) => ({ kind: "columns", cols: [{ col: n, header: headers[n] }] });
+    const recipe = {
+      schemaVersion: 1,
+      target: "orders",
+      headerRow: 0,
+      headerRows: 1,
+      match: { headerKey: headerKey(normalizeHeaders(headers)), headers: normalizeHeaders(headers) },
+      fields: [
+        { field: "customer", source: col(0), steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "oldOrderNo", source: col(1), steps: [{ op: "trim" }] },
+        { field: "poNumber", source: col(2), steps: [{ op: "trim" }] },
+        { field: "orderDate", source: col(3), steps: [{ op: "date", format: "dmy" }] },
+        { field: "series", source: col(4), steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", source: col(5), steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+        { field: "bakiKg", source: col(6), steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+        { field: "cutLength", source: col(7), steps: [{ op: "number", kind: "length", unit: "mm" }] },
+      ],
+      filters: [],
+      keys: ["customer", "oldOrderNo", "orderDate"],
+      onExisting: "ask",
+      unclear: [],
+    };
+    await fakeBot(request, { action: "install", responses: [{ result: { kind: "recipe", recipe } }] });
+    try {
+      await upload(page, name, csv);
+      await pickHeaderRow(page, 1);
+      await openReview(page, name, "Needs you");
+      await page.getByRole("button", { name: "Map columns for me" }).click();
+      await expect(decisionBar(page)).toHaveAttribute("data-state", "ready", { timeout: 90_000 });
+
+      // The year of an order book is asked first.
+      await page.getByLabel(/^Financial year/).selectOption("2025-26");
+      await page.getByLabel(/^As on date/).fill("31/03/2026");
+      await page.getByRole("button", { name: "Save year" }).click();
+      await expect(page.getByTestId("year-line").getByText(/^Financial year 2025-26/)).toBeVisible({ timeout: 30_000 });
+
+      // Then the two orders that carry one PO are a conflict on both, with words that name the order and the other order.
+      const conflict = page.locator("tbody tr").filter({ hasText: /is on old order \d+ and on another order in this sheet/ });
+      await expect(conflict.first()).toBeVisible({ timeout: 90_000 });
+      await expect(conflict).toHaveCount(2);
+      await expect(conflict.first().getByRole("button", { name: /^Skip this row/ })).toBeVisible();
+      await expect(decisionBar(page).getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+    } finally {
+      await fakeBot(request, { action: "clear" });
+    }
+  });
+
+  test("a PDF is kept and not read", async ({ page }) => {
+    const name = `packing-list-${STAMP}.pdf`;
+    await openPortal(page, "admin");
+    await upload(page, name, Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n"), "application/pdf");
+    const entry = stripRow(page, name);
+    const noStorage = page.getByText(/^PDFs and photos need file storage/);
+    // With storage the file is kept and listed under its own heading; with none the upload is refused in the server's words.
+    await expect(entry.getByText(/^Kept\. orrn does not read PDFs and photos yet\.$/).or(noStorage).first()).toBeVisible({ timeout: 60_000 });
+    if (await noStorage.count()) return;
+    const kept = page.getByTestId("kept-files");
+    await expect(kept.getByRole("heading", { name: "Kept, not read yet" })).toBeVisible();
+    await expect(kept.getByText("Reading PDFs and photos comes in a later release.")).toBeVisible();
+    await expect(kept.getByText(name)).toBeVisible();
+    await expect(stripRow(page, name).getByRole("link", { name: /^Review/ })).toHaveCount(0);
   });
 });
