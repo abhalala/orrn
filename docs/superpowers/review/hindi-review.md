@@ -6971,9 +6971,9 @@ Please check, Lalubhai:
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
 | `read.canonicalMissing` | The file was imported. The backup copy of its rows could not be saved, which does not change this import. | फ़ाइल इम्पोर्ट हो गई। लाइनों की बैकअप कॉपी सेव नहीं हो सकी, इससे यह इम्पोर्ट नहीं बदलता। |
-| `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेजी गईं |
+| `read.sending` | Sending {done} of {total} rows | {total} में से {done} लाइनें भेज रहे हैं |
 | `read.stalled` | The rest of this file never arrived. Drop the same file again to continue. | इस फ़ाइल का बाकी हिस्सा पहुंचा ही नहीं। आगे बढ़ने के लिए वही फ़ाइल फिर डालें। |
-| `read.progress` | Reading {done} of {total} rows | {total} में से {done} लाइनें पढ़ीं |
+| `read.progress` | Reading {done} of {total} rows | {total} में से {done} लाइनें पढ़ रहे हैं |
 | `read.working` | Working | काम चल रहा है |
 | `read.title` | How orrn read this file | orrn ने यह फ़ाइल कैसे पढ़ी |
 | `read.summary` | {used} columns used, {unused} not used. | {used} कॉलम लिए, {unused} नहीं लिए। |
@@ -7015,8 +7015,8 @@ Please check, Lalubhai:
 | `header.rowName` | Row {n}: {cells} | लाइन {n}: {cells} |
 | `header.empty` | Empty row | खाली लाइन |
 | `header.gap` | Rows left out | बीच की लाइनें छोड़ी गई हैं |
-| `header.moreColumns` | {count} more {count:column\|columns} not shown | {count} और कॉलम नहीं दिखाए गए |
-| `header.namesTake` | The column names take | कॉलम के नाम |
+| `header.moreColumns` | {count} more {count:column\|columns} not shown | {count} और कॉलम नहीं {count:दिखाया गया\|दिखाए गए} |
+| `header.namesTake` | The column names take | कॉलम के नाम कितनी लाइनों में हैं |
 | `header.oneRow` | One row | एक लाइन |
 | `header.twoRows` | Two rows | दो लाइनें |
 | `header.twoHint` | Row {n} and the row under it. | लाइन {n} और उसके नीचे की लाइन। |
@@ -7066,7 +7066,7 @@ Please check, Lalubhai:
 | `fit.nearNamed` | Close to {name} | {name} से मिलता-जुलता |
 | `fit.bot` | Layout made by orrn | orrn ने लेआउट बनाया |
 | `fit.manual` | Layout you made | आपका बनाया लेआउट |
-| `near.title` | This looks like your layout {name}. {count} {count:column\|columns} changed. | यह आपके लेआउट {name} जैसा है। {count} कॉलम बदले हैं। |
+| `near.title` | This looks like your layout {name}. {count} {count:column\|columns} changed. | यह आपके लेआउट {name} जैसा है। {count} कॉलम {count:बदला है\|बदले हैं}। |
 | `near.use` | Use this layout | यही लेआउट लें |
 | `near.reject` | No, map the columns | नहीं, कॉलम मिलाएं |
 | `near.changedTitle` | What changed | क्या बदला |
@@ -7104,7 +7104,7 @@ Please check, Lalubhai:
 | `shape.allMapped` | All required fields are mapped. | सभी ज़रूरी फ़ील्ड मिल गए। |
 | `shape.duplicate` | {field} is picked for two columns. Keep one. | {field} दो कॉलम के लिए चुना गया है। एक ही रखें। |
 | `shape.recipeInvalid` | This layout does not fit the columns in the file. Check each column and unit. | यह लेआउट फ़ाइल के कॉलम से मेल नहीं खाता। हर कॉलम और यूनिट देखें। |
-| `shape.fixCount` | Fix {count} {count:thing\|things} before you save | सेव करने से पहले {count} चीज़ें ठीक करें |
+| `shape.fixCount` | Fix {count} {count:thing\|things} before you save | सेव करने से पहले {count} {count:चीज़\|चीज़ें} ठीक करें |
 | `shape.save` | Save layout | लेआउट सेव करें |
 | `shape.explain` | orrn reads the column names and first rows and suggests a layout. You check it before anything is saved. | orrn कॉलम के नाम और पहली लाइनें पढ़कर लेआउट सुझाता है। कुछ भी सेव होने से पहले आप उसे देखते हैं। |
 | `shape.targetRequired` | Choose what this table is. | चुनें कि यह टेबल किस चीज़ की है। |
@@ -7124,12 +7124,12 @@ Please check, Lalubhai:
 | `unit.m` | m | मीटर |
 | `unit.in` | in | इंच |
 | `unit.ft` | ft | फ़ुट |
-| `unit.kg_12ft` | kg per 12 ft | 12 ft का kg |
-| `unit.g_12ft` | g per 12 ft | 12 ft का ग्राम |
-| `unit.kg_ft` | kg per ft | प्रति फ़ुट kg |
-| `unit.lb_ft` | lb per ft | प्रति फ़ुट lb |
-| `unit.kg_m` | kg per m | प्रति मीटर kg |
-| `unit.g_m` | g per m | प्रति मीटर ग्राम |
+| `unit.kg_12ft` | kg per 12 ft | kg प्रति 12 ft |
+| `unit.g_12ft` | g per 12 ft | ग्राम प्रति 12 ft |
+| `unit.kg_ft` | kg per ft | kg प्रति फ़ुट |
+| `unit.lb_ft` | lb per ft | lb प्रति फ़ुट |
+| `unit.kg_m` | kg per m | kg प्रति मीटर |
+| `unit.g_m` | g per m | ग्राम प्रति मीटर |
 | `unit.inr_kg` | Rs per kg | रुपये प्रति kg |
 | `unit.paise_kg` | paise per kg | पैसे प्रति kg |
 | `unit.inr_t` | Rs per tonne | रुपये प्रति टन |
@@ -7137,10 +7137,10 @@ Please check, Lalubhai:
 | `unit.pcs` | pieces | पीस |
 | `unit.nos` | pieces | पीस |
 | `enumValue.active` | Active | चालू |
-| `enumValue.archived` | Archived | पुराना |
+| `enumValue.archived` | Archived | बंद |
 | `enumValue.available` | Available | उपलब्ध |
 | `enumValue.at_nitriding` | At nitriding | नाइट्राइडिंग में |
-| `enumValue.retired` | Retired | रिटायर |
+| `enumValue.retired` | Retired | बंद |
 | `enumValue.in_use` | In use | इस्तेमाल में |
 | `enumValue.at_maker` | At the maker | मेकर के पास |
 | `enumValue.on_trial` | On trial | ट्रायल पर |
@@ -7170,8 +7170,8 @@ Please check, Lalubhai:
 | `q.column_meaning_unclear` | What does the column {name} hold? | कॉलम {name} में क्या लिखा है? |
 | `q.create_legacy_die` | {code} is not in your sections. Add it as an old section? | {code} आपकी सेक्शन लिस्ट में नहीं है। इसे पुराने सेक्शन के रूप में जोड़ें? |
 | `q.new_customers` | {count} {count:name is\|names are} not in your customers. Add {count:it\|them} as new {count:customer\|customers}? | {count} {count:नाम\|नाम} आपके ग्राहकों में नहीं {count:है\|हैं}। {count:इसे\|इन्हें} नए ग्राहक बनाकर जोड़ें? |
-| `q.magnitude_check` | Some {field} values look wrong for {unit}. {count} {count:row is\|rows are} much {side} what is usual. Are they right? | {field} की कुछ वैल्यू {unit} के हिसाब से गलत लगती हैं। {count} लाइनें सामान्य से बहुत {side} हैं। क्या वे सही हैं? |
-| `q.magnitude_checkHint` | Some {field} values look wrong for {unit}. {count} {count:row is\|rows are} much {side} what is usual. They may be in {likelyUnit}. Are they right? | {field} की कुछ वैल्यू {unit} के हिसाब से गलत लगती हैं। {count} लाइनें सामान्य से बहुत {side} हैं। वे {likelyUnit} में हो सकती हैं। क्या वे सही हैं? |
+| `q.magnitude_check` | Some {field} values look wrong for {unit}. {count} {count:row is\|rows are} much {side} what is usual. Are they right? | {field} की कुछ वैल्यू {unit} के हिसाब से गलत लगती हैं। {count} {count:लाइन\|लाइनें} सामान्य से बहुत {side} {count:है\|हैं}। क्या वे सही हैं? |
+| `q.magnitude_checkHint` | Some {field} values look wrong for {unit}. {count} {count:row is\|rows are} much {side} what is usual. They may be in {likelyUnit}. Are they right? | {field} की कुछ वैल्यू {unit} के हिसाब से गलत लगती हैं। {count} {count:लाइन\|लाइनें} सामान्य से बहुत {side} {count:है\|हैं}। वे {likelyUnit} में हो सकती हैं। क्या वे सही हैं? |
 | `q.magnitudeAsIs` | The values are right | वैल्यू सही हैं |
 | `q.magnitudeUnit` | They are in {unit} | ये {unit} में हैं |
 | `q.magnitudeUnitPick` | They are in another unit | ये किसी और यूनिट में हैं |
@@ -7180,7 +7180,7 @@ Please check, Lalubhai:
 | `q.sideBelow` | smaller than | छोटी |
 | `q.sideEither` | different from | अलग |
 | `q.leaveRatesOut` | Leave rates out | रेट छोड़ दें |
-| `q.ownerMerges` | Hold for the owner | मालिक के लिए रोकें |
+| `q.ownerMerges` | Hold for the owner | मालिक के लिए होल्ड करें |
 | `q.addIt` | Add it | इसे जोड़ें |
 | `q.skipRows` | Skip these rows | ये लाइनें छोड़ें |
 | `q.answered` | Answered: {answer} | जवाब: {answer} |
@@ -7207,8 +7207,8 @@ Please check, Lalubhai:
 | `period.ask` | Which financial year is this file from? | यह फ़ाइल किस वित्त वर्ष की है? |
 | `period.guess` | orrn guessed {fy} from {source}. | orrn ने {source} से {fy} का अंदाज़ा लगाया। |
 | `period.noGuess` | orrn found nothing in the file to tell the year. | फ़ाइल में वर्ष बताने वाला कुछ नहीं मिला। |
-| `period.whyOrders` | Old order numbers start again each financial year, so orrn needs the year to match orders. | पुराने ऑर्डर नंबर हर वित्त वर्ष में फिर 1 से शुरू होते हैं, इसलिए ऑर्डर मिलाने के लिए वर्ष चाहिए। |
-| `period.whyBundles` | orrn needs the as-on date to place opening stock. | शुरुआती स्टॉक सही जगह रखने के लिए orrn को तारीख चाहिए। |
+| `period.whyOrders` | Old order numbers start again each financial year, so orrn needs the year to match orders. | पुराने ऑर्डर नंबर हर वित्त वर्ष में फिर से शुरू होते हैं, इसलिए ऑर्डर मिलाने के लिए orrn को वर्ष चाहिए। |
+| `period.whyBundles` | orrn needs the as-on date to place opening stock. | शुरुआती स्टॉक सही तारीख पर दर्ज करने के लिए orrn को यह तारीख चाहिए। |
 | `period.save` | Save year | वर्ष सेव करें |
 | `period.done` | Financial year {fy}, as on {date} | वित्त वर्ष {fy}, {date} तक |
 | `period.doneNoYear` | As on {date} | {date} तक |
@@ -7230,7 +7230,7 @@ Please check, Lalubhai:
 | `action.mapColumns` | Map columns | कॉलम मिलाएं |
 | `action.checkLayout` | Check layout | लेआउट जांचें |
 | `action.approveAll` | Approve all {count} | सभी {count} मंज़ूर करें |
-| `action.approveBlocked` | Answer {count} {count:question\|questions} to approve. | मंज़ूर करने से पहले {count} सवाल का जवाब दें। |
+| `action.approveBlocked` | Answer {count} {count:question\|questions} to approve. | मंज़ूर करने से पहले {count} {count:सवाल का\|सवालों के} जवाब दें। |
 | `action.release` | Check again | फिर से जांचें |
 | `action.approveAsIs` | Approve as it is | जैसा है वैसा मंज़ूर करें |
 | `action.goMerge` | Go to merge | मर्ज पर जाएं |
@@ -7243,7 +7243,7 @@ Please check, Lalubhai:
 | `action.repick` | Wrong columns? Pick the row | कॉलम गलत हैं? लाइन चुनें |
 | `action.repicked` | The columns are open again. Add the file again on the Imports page to pick the row. | कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें। |
 | `action.skipNoDate` | Skip these {count} lines | ये {count} लाइनें छोड़ें |
-| `action.approveBlockedMixed` | Before you approve: {questions} {questions:question\|questions} to answer and {rows} {rows:line\|lines} that wait ({count} in all). | मंज़ूर करने से पहले: {questions} {questions:सवाल\|सवाल} का जवाब और इंतज़ार कर रही {rows} {rows:लाइन\|लाइनें} (कुल {count})। |
+| `action.approveBlockedMixed` | Before you approve: {questions} {questions:question\|questions} to answer and {rows} {rows:line\|lines} that wait ({count} in all). | मंज़ूर करने से पहले: {questions} {questions:सवाल का\|सवालों के} जवाब देने हैं और {rows} {rows:लाइन इंतज़ार कर रही है\|लाइनें इंतज़ार कर रही हैं} (कुल {count})। |
 | `action.approveBlockedRows` | Before you approve: {rows} {rows:line waits\|lines wait}. | मंज़ूर करने से पहले: {rows} {rows:लाइन इंतज़ार कर रही है\|लाइनें इंतज़ार कर रही हैं}। |
 | `list.newTable` | New table | नई टेबल |
 | `list.tables` | {count} {count:table\|tables}, added {date} | {count} टेबल, {date} को डाली |
@@ -7262,7 +7262,7 @@ Please check, Lalubhai:
 | `bulk.body` | Each one is a known layout read by orrn with nothing left to answer. You can still hold any of them before you merge. | हर एक जाना-पहचाना लेआउट है, orrn ने पढ़ा है और कोई जवाब बाकी नहीं है। मर्ज से पहले किसी को भी होल्ड कर सकते हैं। |
 | `bulk.confirm` | Approve {count} | {count} मंज़ूर करें |
 | `imports.emptySegment` | Nothing under {name} right now. | {name} में अभी कुछ नहीं है। |
-| `imports.startFiles` | Add {count} {count:file\|files} | {count} फ़ाइलें जोड़ें |
+| `imports.startFiles` | Add {count} {count:file\|files} | {count} {count:फ़ाइल\|फ़ाइलें} जोड़ें |
 | `imports.bulkPartial` | {count} approved. {failed} could not be approved. Open them to see why. | {count} मंज़ूर हुए। {failed} मंज़ूर नहीं हो सके। वजह जानने के लिए उन्हें खोलें। |
 | `imports.colWhat` | Import | इम्पोर्ट |
 | `imports.colFit` | Layout | लेआउट |
@@ -7276,7 +7276,7 @@ Please check, Lalubhai:
 | `hold.wrongFile` | Wrong file | गलत फ़ाइल |
 | `hold.fixFirst` | Fix in orrn first | पहले orrn में सुधारें |
 | `effect.line` | Adds {create} new and updates {update} in orrn. | orrn में {create} नए जुड़ेंगे और {update} अपडेट होंगे। |
-| `effect.refused` | {count} {count:row\|rows} cannot be imported. | {count} लाइनें इम्पोर्ट नहीं हो सकतीं। |
+| `effect.refused` | {count} {count:row\|rows} cannot be imported. | {count} {count:लाइन इम्पोर्ट नहीं हो सकती\|लाइनें इम्पोर्ट नहीं हो सकतीं}। |
 | `effect.nothing` | Nothing to add or update. | जोड़ने या अपडेट करने को कुछ नहीं है। |
 | `effect.waiting` | {count} {count:row waits\|rows wait} on your answers. | {count} {count:लाइन आपके जवाब का इंतज़ार कर रही है\|लाइनें आपके जवाब का इंतज़ार कर रही हैं}। |
 | `effect.processing` | orrn is checking the rows. | orrn लाइनें जांच रहा है। |
@@ -7296,25 +7296,25 @@ Please check, Lalubhai:
 | `rows.showing` | Showing {filter}, {count} rows, page {n}. | {filter} दिखा रहे हैं, {count} लाइनें, पेज {n}। |
 | `rows.column` | Column {n} | कॉलम {n} |
 | `rows.decided` | Row {n} decided. | लाइन {n} पर फ़ैसला हो गया। |
-| `rows.none` | No rows in this view. | इस दृश्य में कोई लाइन नहीं। |
+| `rows.none` | No rows in this view. | इस सूची में कोई लाइन नहीं। |
 | `rows.waitsOnQuestion` | Answer the question above, or skip the row. | ऊपर के सवाल का जवाब दें, या लाइन छोड़ दें। |
 | `rows.scrollHint` | Scroll sideways to see the other columns. | बाकी कॉलम देखने के लिए साइड में स्क्रॉल करें। |
 | `merge.running` | Part {n} of {total} | हिस्सा {n}/{total} |
 | `merge.otherTab` | This merge is running in another tab. | यह मर्ज दूसरे टैब में चल रहा है। |
 | `merge.done` | {created} added and {updated} updated in orrn. | orrn में {created} जुड़े, {updated} अपडेट हुए। |
-| `merge.holds` | {count} {count:import was\|imports were} not merged. The reason is under each one. | {count} इम्पोर्ट मर्ज नहीं हुए। हर एक के नीचे वजह लिखी है। |
+| `merge.holds` | {count} {count:import was\|imports were} not merged. The reason is under each one. | {count} इम्पोर्ट मर्ज नहीं {count:हुआ\|हुए}। हर एक के नीचे वजह लिखी है। |
 | `merge.stop` | Stop after this part | इस हिस्से के बाद रोकें |
 | `merge.planning` | Planning the merge | मर्ज की तैयारी हो रही है |
 | `merge.stopped` | Stopped. {done} of {total} parts written. Merge again to finish. | रुक गया। {total} में से {done} हिस्से लिखे गए। पूरा करने के लिए फिर मर्ज करें। |
 | `merge.open` | Open | खोलें |
-| `merge.titleRunning` | Merging {count} {count:import\|imports} | {count} इम्पोर्ट मर्ज हो रहे हैं |
+| `merge.titleRunning` | Merging {count} {count:import\|imports} | {count} इम्पोर्ट मर्ज हो {count:रहा है\|रहे हैं} |
 | `merge.titleDone` | Merge finished | मर्ज पूरा हुआ |
 | `merge.titleStopped` | Merge stopped | मर्ज रुका |
 | `merge.rowsUnit` | of {total} rows | {total} लाइनों में से |
 | `merge.rowsAdded` | {count:row\|rows} added | {count:लाइन जुड़ी\|लाइनें जुड़ीं} |
 | `merge.titleHolds` | Merged with holds | होल्ड के साथ मर्ज हुआ |
-| `merge.updatedMeta` | {count} updated | {count} अपडेट हुईं |
-| `merge.notMergedMeta` | {count} {count:import\|imports} not merged | {count} इम्पोर्ट मर्ज नहीं हुए |
+| `merge.updatedMeta` | {count} updated | {count} {count:अपडेट हुई\|अपडेट हुईं} |
+| `merge.notMergedMeta` | {count} {count:import\|imports} not merged | {count} इम्पोर्ट मर्ज नहीं {count:हुआ\|हुए} |
 | `merge.partsWritten` | {done} of {total} parts written | {total} में से {done} हिस्से लिखे गए |
 | `merge.listTitle` | Imports in this merge | इस मर्ज के इम्पोर्ट |
 | `merge.added` | Added {n} | जुड़े {n} |
@@ -7334,8 +7334,8 @@ Please check, Lalubhai:
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
 | `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |
 | `rate.hidden` | Hidden | छिपा है |
-| `fieldHeader.weightMinG` | Min weight | न्यूनतम वज़न |
-| `fieldHeader.weightMaxG` | Max weight | अधिकतम वज़न |
+| `fieldHeader.weightMinG` | Min weight | कम से कम वज़न |
+| `fieldHeader.weightMaxG` | Max weight | ज़्यादा से ज़्यादा वज़न |
 | `field.name` | Name | नाम |
 | `field.taxId` | GSTIN | GSTIN |
 | `field.phone` | Phone | फ़ोन |
@@ -7349,8 +7349,8 @@ Please check, Lalubhai:
 | `field.vendor` | Vendor | पार्टी |
 | `field.series` | Series | सीरीज़ |
 | `field.sectionCode` | Section code | सेक्शन कोड |
-| `field.weightMinG` | Min weight per 12 ft | 12 ft का न्यूनतम वज़न |
-| `field.weightMaxG` | Max weight per 12 ft | 12 ft का अधिकतम वज़न |
+| `field.weightMinG` | Min weight per 12 ft | 12 ft का कम से कम वज़न |
+| `field.weightMaxG` | Max weight per 12 ft | 12 ft का ज़्यादा से ज़्यादा वज़न |
 | `field.widthMm` | Width | चौड़ाई |
 | `field.thicknessMm` | Thickness | मोटाई |
 | `field.legMm` | Leg | लेग |
@@ -7361,7 +7361,7 @@ Please check, Lalubhai:
 | `field.supplier` | Supplier | सप्लायर |
 | `field.trialKgPer12ft` | Trial weight per 12 ft | 12 ft का ट्रायल वज़न |
 | `field.hardness` | Hardness | हार्डनेस |
-| `field.lifeKg` | Life in kg | आयु (kg) |
+| `field.lifeKg` | Life in kg | लाइफ (kg) |
 | `field.legacyId` | Old bundle number | पुराना bundle नंबर |
 | `field.quantity` | Pieces | पीस |
 | `field.weightG` | Weight | वज़न |
@@ -7373,7 +7373,7 @@ Please check, Lalubhai:
 | `field.cutLength` | Cut length | कट लंबाई |
 | `field.pcs` | Pieces | पीस |
 | `field.orderedKg` | Ordered | ऑर्डर की मात्रा |
-| `field.dispatchedKg` | Dispatched | भेजा गया |
+| `field.dispatchedKg` | Dispatched | Dispatch हुआ |
 | `field.bakiKg` | Balance | बाकी |
 | `field.rate` | Rate | रेट |
 | `field.finish` | Finish | फिनिश |
@@ -7394,31 +7394,31 @@ Please check, Lalubhai:
 | `refuse.bad_gstin` | {field} is not a valid GSTIN. It has 15 letters and digits. | {field} सही GSTIN नहीं है। उसमें 15 अक्षर और अंक होते हैं। |
 | `refuse.not_whole` | {field} must be a whole number. | {field} पूरी संख्या होनी चाहिए। |
 | `refuse.not_positive` | {field} must be more than zero. | {field} शून्य से ज़्यादा होना चाहिए। |
-| `refuse.range_order` | The minimum is above the maximum. Check both columns. | न्यूनतम, अधिकतम से ज़्यादा है। दोनों कॉलम देखें। |
+| `refuse.range_order` | The minimum is above the maximum. Check both columns. | कम से कम वाली संख्या, ज़्यादा से ज़्यादा वाली से बड़ी है। दोनों कॉलम देखें। |
 | `refuse.length_range` | {field} looks like the wrong unit. A bundle is 1 to 30 ft long. | {field} की यूनिट गलत लगती है। bundle 1 से 30 ft लंबा होता है। |
 | `refuse.weight_range` | {field} looks like the wrong unit. Check the weight. | {field} की यूनिट गलत लगती है। वज़न देखें। |
 | `refuse.too_many_aliases` | There are more than 20 other names. Keep 20. | दूसरे नाम 20 से ज़्यादा हैं। 20 रखें। |
 | `refuse.module_off` | This part of orrn is turned off for this plant. | इस प्लांट में orrn का यह हिस्सा बंद है। |
-| `refuse.baki_mismatch` | Ordered minus dispatched does not match the balance. Pick which one is right. | ऑर्डर में से भेजा घटाने पर बाकी नहीं मिलता। बताएं कौन सा सही है। |
+| `refuse.baki_mismatch` | Ordered minus dispatched does not match the balance. Pick which one is right. | ऑर्डर में से dispatch घटाने पर बाकी से मेल नहीं खाता। चुनें कौन सा सही है। |
 | `refuse.in_file_duplicate` | This row is in the file twice, with different values. | यह लाइन फ़ाइल में दो बार है, अलग वैल्यू के साथ। |
-| `refuse.section_unknown` | This section is not in orrn. Add it with a die sheet or on the dies screen, then check this sheet again. | यह सेक्शन orrn में नहीं है। इसे Die शीट से या Dies स्क्रीन पर जोड़ें, फिर यह शीट दोबारा जांचें। |
+| `refuse.section_unknown` | This section is not in orrn. Add it with a die sheet or on the dies screen, then check this sheet again. | यह सेक्शन orrn में नहीं है। इसे Die शीट से या Die स्क्रीन पर जोड़ें, फिर यह शीट दोबारा जांचें। |
 | `refuse.not_found` | {field} is not in orrn. | {field} orrn में नहीं है। |
 | `refuse.alias_taken` | This other name already belongs to another record. | यह दूसरा नाम पहले से किसी और रिकॉर्ड का है। |
 | `refuse.ambiguous` | {field} matches more than one record. Pick one. | {field} एक से ज़्यादा रिकॉर्ड से मिलता है। एक चुनें। |
 | `refuse.legacy_mapped` | This bundle is already in orrn. | यह bundle orrn में पहले से है। |
 | `refuse.blank_row` | Blank row. | खाली लाइन। |
 | `refuse.filtered` | Left out by this layout. | इस लेआउट ने छोड़ दी। |
-| `refuse.over_dispatched` | More was dispatched than was ordered. | ऑर्डर से ज़्यादा भेजा जा चुका है। |
+| `refuse.over_dispatched` | More was dispatched than was ordered. | ऑर्डर से ज़्यादा dispatch हो चुका है। |
 | `refuse.no_quantity` | This line has no weight and no pieces. | इस लाइन में न वज़न है, न पीस। |
 | `refuse.magnitude` | This number looks too large or too small for its unit. | यह संख्या अपनी यूनिट के हिसाब से बहुत बड़ी या बहुत छोटी लगती है। |
 | `refuse.magnitude_unit` | Read again in the unit you gave. | आपकी बताई यूनिट में फिर से पढ़ा गया। |
 | `refuse.magnitude_confirmed` | You said this number is right. | आपने कहा कि यह संख्या सही है। |
 | `refuse.no_weight` | No weight on this line. Give the ordered or balance kg, or skip the row. | इस लाइन में वज़न नहीं है। ऑर्डर या बाकी kg दें, या लाइन छोड़ दें। |
-| `refuse.nothing_left` | Nothing is left to dispatch on this line. | इस लाइन में भेजने को कुछ बाकी नहीं है। |
+| `refuse.nothing_left` | Nothing is left to dispatch on this line. | इस लाइन में dispatch के लिए कुछ बाकी नहीं है। |
 | `refuse.no_cut_length` | No cut length. Give the cut length, or skip the row. | कट लंबाई नहीं है। कट लंबाई दें, या लाइन छोड़ दें। |
 | `refuse.line_invalid` | The order screen would refuse this line. | ऑर्डर स्क्रीन इस लाइन को मना कर देगी। |
 | `refuse.line_invalidField` | The order screen would refuse this line. Check {field}. | ऑर्डर स्क्रीन इस लाइन को मना कर देगी। {field} देखें। |
-| `refuse.status_not_allowed` | This status cannot come from a file. Use available, at nitriding or retired, or skip the row. | यह स्थिति फ़ाइल से नहीं आ सकती। उपलब्ध, नाइट्राइडिंग में या रिटायर लें, या लाइन छोड़ दें। |
+| `refuse.status_not_allowed` | This status cannot come from a file. Use available, at nitriding or retired, or skip the row. | यह स्थिति फ़ाइल से नहीं आ सकती। उपलब्ध, नाइट्राइडिंग में या बंद लें, या लाइन छोड़ दें। |
 | `refuse.alias_is_name` | This name already belongs to another customer or vendor. Skip the row. | यह नाम पहले से किसी और ग्राहक या पार्टी का है। लाइन छोड़ दें। |
 | `refuse.order_exists` | This line is already on an order in orrn. | यह लाइन orrn के एक ऑर्डर में पहले से है। |
 | `refuse.order_line_new` | This line is not on the order in orrn. Add it to that order there, or keep the orrn order as it is. | यह लाइन orrn के ऑर्डर में नहीं है। उसे वहीं उस ऑर्डर में जोड़ें, या orrn का ऑर्डर जैसा है वैसा रहने दें। |
@@ -7437,7 +7437,7 @@ Please check, Lalubhai:
 | `refuse.order_two_pos` | This order has more than one PO in the file. Pick the right one, or skip the order. | इस ऑर्डर में फ़ाइल के अंदर एक से ज़्यादा PO हैं। सही वाला चुनें, या ऑर्डर छोड़ दें। |
 | `refuse.order_lines_over` | This order has more than 100 lines. Give the lines over 100 another PO number in the file, or skip some rows. | इस ऑर्डर में 100 से ज़्यादा लाइनें हैं। 100 से ऊपर की लाइनों को फ़ाइल में दूसरा PO नंबर दें, या कुछ लाइनें छोड़ दें। |
 | `refuse.po_two_dates` | This PO has more than one order date in the file. One PO is one order. Fix the dates or skip rows. | इस PO की फ़ाइल में एक से ज़्यादा ऑर्डर तारीखें हैं। एक PO एक ही ऑर्डर है। तारीखें सुधारें या लाइनें छोड़ दें। |
-| `refuse.section_archived` | This section is archived, so it takes no new die copies. | यह सेक्शन आर्काइव है, इसलिए इसमें नई Die कॉपी नहीं बनतीं। |
+| `refuse.section_archived` | This section is archived, so it takes no new die copies. | यह सेक्शन बंद है, इसलिए इसमें नई Die कॉपी नहीं बनतीं। |
 | `refuse.check_against_file` | Check this row against the file. | इस लाइन को फ़ाइल से मिलाकर देखें। |
 | `refuse.po_on_closed_order` | PO {po} is also on closed order {closed}. This row is imported as a new order. | PO {po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है। |
 | `refuse.merged_cell` | Order number taken from the merged cell above. | ऑर्डर नंबर ऊपर के मर्ज किए सेल से लिया गया। |
@@ -7449,7 +7449,7 @@ Please check, Lalubhai:
 | `refuse.order_no_date` | This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it. | इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें। |
 | `refuse.po_on_two_ordersFileOnly` | PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
 | `refuse.order_in_other_fileOnly` | This order is also in {file}. Keep it in this file, or skip these rows and keep it there. | यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें। |
-| `refuse.filled_down` | {field} came from the dated line above. | {field} ऊपर की लाइन से आई। |
+| `refuse.filled_down` | {field} came from the dated line above. | {field} ऊपर की तारीख वाली लाइन से आई। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |
 | `error.forbidden` | Your role cannot do this. Ask the owner. | आपका रोल यह नहीं कर सकता। मालिक से कहें। |
 | `error.notFound` | This import is no longer there. | यह इम्पोर्ट अब नहीं है। |
@@ -7472,8 +7472,8 @@ Please check, Lalubhai:
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
 | `file.table` | Table {n} | टेबल {n} |
 | `file.columnsIn` | Columns in the file: {names} | फ़ाइल के कॉलम: {names} |
-| `file.subtitle` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added by {name} on {date} | {rows} लाइनें, {tables} टेबल, {name} ने {date} को जोड़ी |
-| `file.subtitleNoName` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added on {date} | {rows} लाइनें, {tables} टेबल, {date} को जोड़ी |
+| `file.subtitle` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added by {name} on {date} | {rows} {rows:लाइन\|लाइनें}, {tables} टेबल, {name} ने {date} को जोड़ी |
+| `file.subtitleNoName` | {rows} {rows:row\|rows}, {tables} {tables:table\|tables}, added on {date} | {rows} {rows:लाइन\|लाइनें}, {tables} टेबल, {date} को जोड़ी |
 | `file.fillAbove` | Dates taken from the dated line above: {answer}. | ऊपर की तारीख वाली लाइन से ली गई तारीखें: {answer}। |
 | `docTitle.list` | Imports \| orrn | इम्पोर्ट \| orrn |
 | `docTitle.page` | {name} \| Imports \| orrn | {name} \| इम्पोर्ट \| orrn |
@@ -7943,8 +7943,8 @@ Please check, Lalubhai:
 | `actions.ingest__artifact__upload` | File uploaded for import | इम्पोर्ट के लिए फ़ाइल डाली |
 | `actions.ingest__candidate__approve` | Import approved | इम्पोर्ट मंज़ूर किया |
 | `actions.ingest__candidate__discard` | Import discarded | इम्पोर्ट हटाया |
-| `actions.ingest__block__repick` | Header row opened again | कॉलम की लाइन फिर से खोली |
-| `actions.ingest__block__reput` | Table put again | टेबल फिर से भेजी गई |
+| `actions.ingest__block__repick` | Header row opened again | कॉलम के नाम वाली लाइन फिर से खोली |
+| `actions.ingest__block__reput` | Table put again | टेबल फिर से डाली गई |
 | `actions.ingest__rows__skip_no_date` | Lines with no date skipped | बिना तारीख की लाइनें छोड़ी गईं |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
 | `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
