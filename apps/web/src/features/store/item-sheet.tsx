@@ -14,6 +14,7 @@ import { storeErrorText } from "./store-errors";
 import { categoryLabel, unitName, unitShort } from "./store-labels";
 import { formatQty, STORE_CATEGORIES, STORE_UNITS, type StoreCategory, type StoreUnit } from "./store-qty";
 import { ITEM_EDITORS, useInvalidateStore } from "./use-store";
+import { useFmt } from "@/shared/lib/fmt";
 
 export type EditableItem = { id: string; name: string; unit: string; category: string; active: boolean };
 
@@ -45,6 +46,7 @@ export function StoreItemSheet({
   onCreated?(id: string): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const invalidate = useInvalidateStore();
   const uid = useId().replace(/:/g, "");
   const formId = `store-item-form-${uid}`;
@@ -196,8 +198,8 @@ export function StoreItemSheet({
               <p id={retireNoteId} className="m-0 text-[14px] leading-6 text-muted-foreground">
                 {item.active && balanceMilli > 0
                   ? t("store.itemForm.retireBlocked", {
-                      qty: formatQty(balanceMilli),
-                      unit: unitShort(t, item.unit, balanceMilli),
+                      qty: formatQty(balanceMilli, item.unit, fmt),
+                      unit: unitShort(t, item.unit, balanceMilli, fmt),
                     })
                   : t("store.itemForm.retireHint")}
               </p>

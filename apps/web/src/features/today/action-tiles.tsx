@@ -1,4 +1,5 @@
 import { useT } from "@orrn/i18n";
+import { useFmt } from "@/shared/lib/fmt";
 import { ActionTile, type ActionTileProps } from "@orrn/ui/components/action-tile";
 import { riseDelay } from "@orrn/ui/components/motion";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -33,6 +34,7 @@ const ACCENT: Record<TodayTile["key"], NonNullable<ActionTileProps["accent"]>> =
  * count (`tileLayout`), so office's three tiles fill their row.
  */
 export function TodayTiles({ tiles: served, startIndex = 0 }: { tiles?: readonly { key: string; count: number | null }[]; startIndex?: number }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { data: me } = useMe();
   const headingId = useId();
@@ -49,7 +51,7 @@ export function TodayTiles({ tiles: served, startIndex = 0 }: { tiles?: readonly
       <ul className={cn("m-0 grid list-none gap-3 p-0", layout.grid)}>
         {tiles.map((tile, i) => {
           const Icon = tile.icon;
-          const hint = tileHint(tile, countOf(tile.key));
+          const hint = tileHint(tile, countOf(tile.key), fmt);
           const spans = layout.spanLast && i === tiles.length - 1;
           return (
             <li

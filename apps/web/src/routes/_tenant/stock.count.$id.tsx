@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -22,6 +21,8 @@ import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/stock/count/$id")({
   component: StockCountSession,
@@ -190,14 +191,15 @@ function StockCountSession() {
 }
 
 function Summary({ report }: { report: any }) {
+  const fmt = useFmt();
   const { t } = useT();
   const s = report.summary as { expected: number; seen: number; matched: number; phantom: number; phantomG: number; found: number; moved: number; changed: number; phantomBp: number };
   const tiles: { key: string; label: string; value: string; tone?: "amber" | "red" }[] = [
-    { key: "expected", label: t("stock.count.expected"), value: s.expected.toLocaleString("en-IN") },
-    { key: "seen", label: t("stock.count.seen"), value: s.seen.toLocaleString("en-IN") },
-    { key: "phantom", label: t("stock.count.phantom"), value: `${s.phantom.toLocaleString("en-IN")} · ${formatKgTotal(gToKg(s.phantomG))} ${t("units.kg")}`, tone: s.phantom > 0 ? "amber" : undefined },
-    { key: "found", label: t("stock.count.found"), value: s.found.toLocaleString("en-IN"), tone: s.found > 0 ? "amber" : undefined },
-    { key: "moved", label: t("stock.count.moved"), value: s.moved.toLocaleString("en-IN") },
+    { key: "expected", label: t("stock.count.expected"), value: countText(fmt, s.expected) },
+    { key: "seen", label: t("stock.count.seen"), value: countText(fmt, s.seen) },
+    { key: "phantom", label: t("stock.count.phantom"), value: `${countText(fmt, s.phantom)} · ${kgGrouped1(fmt, (s.phantomG))} ${massUnit(fmt)}`, tone: s.phantom > 0 ? "amber" : undefined },
+    { key: "found", label: t("stock.count.found"), value: countText(fmt, s.found), tone: s.found > 0 ? "amber" : undefined },
+    { key: "moved", label: t("stock.count.moved"), value: countText(fmt, s.moved) },
     { key: "share", label: t("stock.count.phantomShare"), value: bpText(s.phantomBp) },
   ];
   return (
@@ -229,6 +231,7 @@ function Variance({ report }: { report: any }) {
 }
 
 function VarianceTable({ label, rows, testId }: { label: string; rows: { key: string; name: string; row: VarRow }[]; testId: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const total = varianceTotal(rows.map((r) => r.row));
   return (
@@ -251,7 +254,7 @@ function VarianceTable({ label, rows, testId }: { label: string; rows: { key: st
                 <th scope="row" className="h-11 pl-4 text-left font-mono font-semibold">{name}</th>
                 <td className="px-3 text-right font-mono tabular-nums">{row.expected}</td>
                 <td className="px-3 text-right font-mono tabular-nums">{row.counted}</td>
-                <td className={cn("pr-4 pl-3 text-right font-mono font-semibold tabular-nums", row.variance !== 0 && "text-tone-amber-ink")}>{signed(row.variance)}</td>
+                <td className={cn("pr-4 pl-3 text-right font-mono font-semibold tabular-nums", row.variance !== 0 && "text-tone-amber-ink")}>{signed(fmt, row.variance)}</td>
               </tr>
             ))}
           </tbody>
@@ -260,7 +263,7 @@ function VarianceTable({ label, rows, testId }: { label: string; rows: { key: st
               <th scope="row" className="h-11 pl-4 text-left">{t("packingList.grandTotal")}</th>
               <td className="px-3 text-right font-mono tabular-nums">{total.expected}</td>
               <td className="px-3 text-right font-mono tabular-nums">{total.counted}</td>
-              <td className="pr-4 pl-3 text-right font-mono tabular-nums">{signed(total.variance)}</td>
+              <td className="pr-4 pl-3 text-right font-mono tabular-nums">{signed(fmt, total.variance)}</td>
             </tr>
           </tfoot>
         </table>
@@ -275,6 +278,7 @@ function VarianceTable({ label, rows, testId }: { label: string; rows: { key: st
  * (a manager approves it) or moves what was found to where it was seen.
  */
 function Missing({ report, sessionId, closed, onResolved }: { report: any; sessionId: string; closed: boolean; onResolved(): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const resolve = useMutation(trpc.count.resolve.mutationOptions());
   type Bundle = { bundleId: string; serial: string | null; sectionCode: string | null; weightG: number | null; systemLocationCode: string | null; seenLocationCode: string | null; resolution: string; seenElsewhere: unknown };
@@ -327,7 +331,7 @@ function Missing({ report, sessionId, closed, onResolved }: { report: any; sessi
               <span className="font-mono text-[15px] font-semibold">{p.serial}</span>
               <span className="text-[13px] text-muted-foreground">{p.sectionCode}</span>
               <span className="font-mono text-[13px]">{p.systemLocationCode ?? t("stock.noYard")}</span>
-              <span className="ml-auto font-mono text-[13px] tabular-nums">{p.weightG == null ? "" : formatKgTotal(gToKg(p.weightG))}</span>
+              <span className="ml-auto font-mono text-[13px] tabular-nums">{p.weightG == null ? "" : kgGrouped1(fmt, (p.weightG))}</span>
               {p.resolution !== "open" ? <Chip tone="neutral">{t(`stock.count.resolution.${p.resolution}` as never)}</Chip> : null}
             </li>
           ))}

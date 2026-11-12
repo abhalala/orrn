@@ -3,7 +3,7 @@
  * the list shows. Plain functions (route files import this, so no zod); the server does the
  * filtering and sorting, nothing here counts or ranks a die.
  */
-import { COPY_STATUSES, type CopyStatus } from "./die-room-model";
+import { COPY_STATUSES, type CopyStatus } from "./search-params";
 
 export const BOARD_SORTS = ["newest", "code", "band", "copies"] as const;
 export type BoardSort = (typeof BOARD_SORTS)[number];

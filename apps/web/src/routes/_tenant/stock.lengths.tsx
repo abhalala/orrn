@@ -1,4 +1,3 @@
-import { formatKgTotal, formatLength, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -8,7 +7,7 @@ import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/r
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { kg12Text, positionKey, positionTone } from "@/features/pack/line-preview";
+import { positionKey, positionTone } from "@/features/pack/line-preview";
 import { sectionLabel } from "@/features/stock/sections";
 import { StockFilterBar } from "@/features/stock/stock-filter-bar";
 import { stockFilterInput, validateStockFilter, withoutFilters, type StockFilter } from "@/features/stock/stock-filters";
@@ -17,6 +16,8 @@ import { StockViewSwitch } from "@/features/stock/stock-view-switch";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { useLengthUnit } from "@/shared/lib/length";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped1, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 type LengthsSearch = StockFilter & { page?: number };
 
@@ -36,6 +37,7 @@ export const Route = createFileRoute("/_tenant/stock/lengths")({
  * verdict, and what is held on a dispatch. Filters live in the URL; totals come from the server.
  */
 function StockLengths() {
+  const fmt = useFmt();
   const { t } = useT();
   const lu = useLengthUnit();
   const when = useCompanyWhen();
@@ -52,19 +54,19 @@ function StockLengths() {
 
   const columns: ResponsiveListColumn<Row>[] = [
     { key: "section", header: t("stock.columns.section"), cell: (r) => <span className="font-semibold">{sectionLabel({ series: r.series, sectionCode: r.sectionCode })}</span> },
-    { key: "length", header: t("stock.columns.cutLength"), align: "end", cell: (r) => <span className="font-mono whitespace-nowrap">{formatLength(r.lengthMm, lu.unit)}</span> },
+    { key: "length", header: t("stock.columns.cutLength"), align: "end", cell: (r) => <span className="font-mono whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</span> },
     { key: "bundles", header: t("pack.columns.bundles"), align: "end", cell: (r) => <span className="font-mono">{r.bundles}</span> },
-    { key: "pcs", header: t("stock.columns.pieces"), align: "end", cell: (r) => <span className="font-mono">{r.pcs.toLocaleString("en-IN")}</span> },
-    { key: "kg", header: t("stock.columns.weight"), align: "end", cell: (r) => <span className="font-mono">{formatKgTotal(gToKg(r.weightG))}</span> },
+    { key: "pcs", header: t("stock.columns.pieces"), align: "end", cell: (r) => <span className="font-mono">{countText(fmt, r.pcs)}</span> },
+    { key: "kg", header: t("stock.columns.weight", { massUnit: massUnit(fmt) }), align: "end", cell: (r) => <span className="font-mono">{kgGrouped1(fmt, (r.weightG))}</span> },
     {
       key: "kg12",
-      header: t("stock.columns.kgPer12ft"),
+      header: t("stock.columns.kgPer12ft", { sectionUnit: sectionUnit(fmt) }),
       align: "end",
       cell: (r) => {
         const key = positionKey(r.band.position);
         return (
           <span className="inline-flex items-center justify-end gap-2">
-            <span className="font-mono">{kg12Text(r.avgKgPer12ftMilli) ?? "-"}</span>
+            <span className="font-mono">{sectionOrNull(fmt, r.avgKgPer12ftMilli) ?? "-"}</span>
             {key ? <Chip tone={positionTone(r.band.position)} data-verdict={r.band.position}>{t(key)}</Chip> : null}
           </span>
         );

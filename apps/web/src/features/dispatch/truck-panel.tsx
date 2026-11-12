@@ -4,8 +4,9 @@ import { Chip } from "@orrn/ui/components/chip";
 import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 
-import { orderKgText } from "@/features/orders/format";
 import { Can } from "@/shared/components/can";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 type TruckDispatch = { id: string; code: string; status: string; plNumber: string | null; customerName: string; bundles: number; weightG: number };
 
@@ -15,6 +16,7 @@ type TruckDispatch = { id: string; code: string; status: string; plNumber: strin
  * customer can be added.
  */
 export function TruckPanel({ truck, currentId, canAdd }: { truck: { id: string; dispatches: TruckDispatch[] }; currentId: string; canAdd: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <section aria-label={t("dispatch.truck.title")} data-truck-panel="" className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-card p-4">
@@ -32,7 +34,7 @@ export function TruckPanel({ truck, currentId, canAdd }: { truck: { id: string; 
             )}
             <span className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
-                {t("units.bundles", { count: d.bundles })} · {orderKgText(d.weightG)} {t("units.kg")}
+                {t("units.bundles", { count: d.bundles })} · {kgGrouped3(fmt, d.weightG)} {massUnit(fmt)}
               </span>
               {d.plNumber ? <Chip tone="green">{d.plNumber}</Chip> : null}
             </span>

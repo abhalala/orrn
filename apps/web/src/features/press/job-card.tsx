@@ -8,8 +8,9 @@ import type { MessageKey } from "@orrn/i18n";
 
 import { Can } from "@/shared/components/can";
 
-import { kgFromG } from "./model";
 import type { QueueCard, QueueLine } from "./types";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 const STATUS_TONE: Record<string, "amber" | "blue" | "green" | "neutral" | "red"> = {
   queued: "amber",
@@ -27,6 +28,7 @@ export function statusTone(status: string) {
 
 /** One cut length of a job: sales order number, customer, length x pieces, kg. */
 function LineRow({ line, formatLength, onPullBack, canPullBack }: { line: QueueLine; formatLength: (mm: number) => string; onPullBack?: () => void; canPullBack: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <li className="relative flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -35,7 +37,7 @@ function LineRow({ line, formatLength, onPullBack, canPullBack }: { line: QueueL
         <span className="text-[14px] text-muted-foreground"> {line.customerName}</span>
       </span>
       <span className="whitespace-nowrap text-[14px] tabular-nums">
-        {formatLength(line.cutLengthMm)} × {line.pcs} {t("units.pcs")} · {kgFromG(line.kgG)} {t("units.kg")}
+        {formatLength(line.cutLengthMm)} × {line.pcs} {t("units.pcs")} · {kgGrouped1(fmt, line.kgG)} {massUnit(fmt)}
       </span>
       {canPullBack && onPullBack ? (
         <Can do="press.queue">
@@ -74,6 +76,7 @@ export function JobCard({
   onUrgent?: (urgent: boolean) => void;
   onPullBack?: (line: QueueLine) => void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const purpose = card.purpose !== "production" ? (`press.plan.purpose.${card.purpose}` as MessageKey) : null;
   const reorderable = card.reorderable;
@@ -134,9 +137,9 @@ export function JobCard({
             ))}
           </ul>
           <p className="m-0 border-t border-border pt-2 text-[14px] font-semibold tabular-nums">
-            {t("press.queue.total")}: {card.totals.pcs} {t("units.pcs")} · {kgFromG(card.totals.kgG)} {t("units.kg")}
+            {t("press.queue.total")}: {card.totals.pcs} {t("units.pcs")} · {kgGrouped1(fmt, card.totals.kgG)} {massUnit(fmt)}
             {card.totals.pressedG > 0 ? (
-              <span className="font-normal text-muted-foreground"> · {t("press.queue.pressedSoFar", { kg: kgFromG(card.totals.pressedG) })}</span>
+              <span className="font-normal text-muted-foreground"> · {t("press.queue.pressedSoFar", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, card.totals.pressedG) })}</span>
             ) : null}
           </p>
         </div>

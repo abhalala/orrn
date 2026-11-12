@@ -38,6 +38,10 @@ import {
   type DieDraftErrors,
   type StoredDie,
 } from "./die-model";
+import { PlantInput } from "@/shared/components/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { diameterVars } from "@/shared/lib/fmt-text";
+import { followsPlant, GEOMETRY_MM, LENGTH_IN, LENGTH_MM, MASS_KG, SECTION_KG12, WALL_MM } from "@/shared/lib/plant-input";
 
 export type DieFormProps = {
   formId: string;
@@ -52,6 +56,7 @@ type ServerError = { data?: { code?: string } | null; message?: string };
 
 export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieFormProps) {
   const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<DieDraft>(() => (die ? dieToDraft(die, unit) : EMPTY_DIE_DRAFT));
@@ -116,7 +121,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
   };
 
   const err = (field: keyof DieDraft) => (errors[field] ? t(errors[field]!) : undefined);
-  const measureHint = unit === "mm" ? t("dies.form.measureHintMm") : t("dies.form.measureHintInch");
+  const measureHint = unit === "mm" ? t("dies.form.measureHintMm", followsPlant(fmt, GEOMETRY_MM) ? { lengthUnit: "mm" } : undefined) : t("dies.form.measureHintInch");
   const unitSuffix = unit === "mm" ? t("units.mm") : t("units.inch");
 
   return (
@@ -146,13 +151,13 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
         <legend className="sr-only">{t("dies.detail.band")}</legend>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <Field label={t("dies.form.weightMin")} error={err("weightMin")} id={`${formId}-weightMin`}>
-            <NumberInput value={draft.weightMin} onValueChange={set("weightMin")} suffix={t("units.kg")} required />
+            <PlantInput spec={SECTION_KG12} value={draft.weightMin} onValueChange={set("weightMin")} required />
           </Field>
           <Field label={t("dies.form.weightMax")} error={err("weightMax")} id={`${formId}-weightMax`}>
-            <NumberInput value={draft.weightMax} onValueChange={set("weightMax")} suffix={t("units.kg")} required />
+            <PlantInput spec={SECTION_KG12} value={draft.weightMax} onValueChange={set("weightMax")} required />
           </Field>
         </div>
-        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dies.form.rangeHint")}</p>
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{fmt.unitOf("linear_mass").id === "kg_12ft" ? t("dies.form.rangeHint", { massUnit: "kg" }) : t("dies.form.rangeHintUnit")}</p>
       </fieldset>
 
       <div className="flex min-w-0 flex-col gap-1.5">
@@ -205,8 +210,8 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
             </datalist>
           </Field>
         </div>
-        <Field label={t("dieRoom.bands.wall")} hint={t("dies.form.wallHint")} error={err("wall")} id={`${formId}-wall`}>
-          <NumberInput value={draft.wall} onValueChange={set("wall")} suffix={t("units.mm")} />
+        <Field label={t("dieRoom.bands.wall", diameterVars(fmt))} hint={t("dies.form.wallHint")} error={err("wall")} id={`${formId}-wall`}>
+          <PlantInput spec={WALL_MM} value={draft.wall} onValueChange={set("wall")} />
         </Field>
         <Can do="masters.publish">
           <div className="flex min-w-0 flex-col gap-2" data-testid="die-form-owner">
@@ -259,7 +264,7 @@ export function DieForm({ formId, unit, die, onSaved, onPendingChange }: DieForm
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {GEOMETRY_FIELDS.map((field) => (
               <Field key={field} label={t(`dies.form.${field}`)} error={err(field)} id={`${formId}-${field}`}>
-                <NumberInput value={draft[field]} onValueChange={set(field)} suffix={unitSuffix} />
+                <PlantInput spec={unit === "mm" ? GEOMETRY_MM : LENGTH_IN} value={draft[field]} onValueChange={set(field)} />
               </Field>
             ))}
           </div>

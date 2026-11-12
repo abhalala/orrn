@@ -1,5 +1,6 @@
 import type { ApprovalKind } from "@orrn/db/schema/approval";
 import type { CompanyRole, PlatformStaffRole } from "@orrn/db/schema/tenant";
+import type { ResolvedPrefs } from "@orrn/domain";
 import type { LengthUnit } from "./length";
 
 export type { ApprovalKind, CompanyRole, PlatformStaffRole };
@@ -423,6 +424,8 @@ export type Me = {
     modules?: string[];
     role: CompanyRole;
     settings?: { lengthUnit?: LengthUnit; [key: string]: unknown };
+    /** Resolved units and formats for this plant's screens (`screenPrefs`). Absent on old payloads. */
+    units?: ResolvedPrefs;
   } | null;
   /** Every active company the user belongs to (spec P10); `company` is the active one. */
   memberships?: { companyId: string; name: string; role: CompanyRole }[];

@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
+import { useFmt } from "@/shared/lib/fmt";
 import { formatDay, vendorStatusView, type VendorStatus } from "./masters-model";
 import { companyToday, MasterNote, MastersLoadError, MastersNoAccess } from "./masters-ui";
 import { MergeVendorsSheet } from "./merge-vendors-sheet";
@@ -77,6 +78,7 @@ export function VendorsPage({ search, onSearch }: { search: VendorsSearch; onSea
   const [adding, setAdding] = useState(false);
   const [merging, setMerging] = useState(false);
   const today = companyToday(access.me?.company?.settings?.timezone);
+  const fmt = useFmt();
 
   const header = (
     <PageHeader
@@ -130,7 +132,7 @@ export function VendorsPage({ search, onSearch }: { search: VendorsSearch; onSea
       header: t("vendors.columns.lastLot"),
       cell: (r) =>
         r.lastLotDate ? (
-          <span className="whitespace-nowrap tabular-nums">{formatDay(r.lastLotDate, today)}</span>
+          <span className="whitespace-nowrap tabular-nums">{formatDay(fmt, r.lastLotDate, today)}</span>
         ) : (
           <span className="text-muted-foreground">{t("vendors.noLots")}</span>
         ),

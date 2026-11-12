@@ -414,6 +414,7 @@ export default function DispatchDetailScreen() {
           ) : null}
           {d.status !== "completed" && overOrder ? (
             <View accessibilityLiveRegion="polite" testID="dispatch-over-tolerance" className="gap-1 rounded-card bg-tone-amber-tint p-4">
+              <Text className="font-sans-semibold text-[15px] text-tone-amber-ink">{t("dispatch.overTolerance.title")}</Text>
               {overOrder.lines.map((l) => (
                 <Text key={l.lineId} className="font-sans-semibold text-[15px] text-tone-amber-ink">
                   {t("dispatch.overTolerance.line", { pct: l.pct, order: l.orderNumber, line: l.lineNo, kg: kgTotal(l.overG) })}
@@ -585,15 +586,24 @@ export default function DispatchDetailScreen() {
           />
         ) : null}
         {overOrder ? (
-          <Field
-            label={t("dispatch.overTolerance.noteLabel")}
-            hint={t("dispatch.overTolerance.noteHint")}
-            value={overdrawNote}
-            onChangeText={setOverdrawNote}
-            multiline
-            maxLength={500}
-            testID="overdraw-note"
-          />
+          <View testID="dispatch-sheet-over-tolerance" className="gap-3 rounded-card bg-tone-amber-tint p-4">
+            <Text className="font-sans-semibold text-[15px] text-tone-amber-ink">{t("dispatch.overTolerance.title")}</Text>
+            {overOrder.lines.map((l) => (
+              <Text key={l.lineId} className="font-sans text-sm text-tone-amber-ink">
+                {t("dispatch.overTolerance.line", { pct: l.pct, order: l.orderNumber, line: l.lineNo, kg: kgTotal(l.overG) })}
+              </Text>
+            ))}
+            <Text className="font-sans text-sm leading-5 text-tone-amber-ink">{t(overOrder.statusKey)}</Text>
+            <Field
+              label={t("dispatch.overTolerance.noteLabel")}
+              hint={t("dispatch.overTolerance.noteHint")}
+              value={overdrawNote}
+              onChangeText={setOverdrawNote}
+              multiline
+              maxLength={500}
+              testID="overdraw-note"
+            />
+          </View>
         ) : null}
         <View className="min-h-12 flex-row items-center justify-between gap-3">
           <Text className="flex-1 text-[15px] font-medium text-foreground">{t("dispatch.late.toggle")}</Text>

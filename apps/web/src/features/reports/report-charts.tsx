@@ -3,15 +3,14 @@
  * chunk or a role that only reads the tables. Each chart sits in a ChartCard whose table view is
  * built from the same bars and the same format (chart kit rules). One unit per axis.
  */
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BarChart, ChartCard, barTable, chartDateFormat } from "@orrn/ui/charts";
 import { useMemo } from "react";
 
 import { orderMonthBars, orderMonthBuckets, recoveryBars, stockAgeBars, type OrdersData, type RecoveryData, type StockAgeData } from "./model";
+import { useWeightChart } from "@/shared/lib/weight-chart";
 
 const PLOT_HEIGHT = 220;
-const kg = (v: number) => (v === 0 ? "0 kg" : `${formatKgTotal(v)} kg`);
 const pct = (v: number) => `${v.toFixed(1)} %`;
 
 export function RecoveryChart({ data }: { data: RecoveryData }) {
@@ -35,8 +34,10 @@ export function RecoveryChart({ data }: { data: RecoveryData }) {
 }
 
 export function StockAgeChart({ data }: { data: StockAgeData }) {
+  const wc = useWeightChart();
+  const kg = (v: number) => wc.text(v, true);
   const { t } = useT();
-  const bars = useMemo(() => stockAgeBars(data, t), [data, t]);
+  const bars = useMemo(() => stockAgeBars(data, t).map((b) => ({ ...b, value: wc.value(b.value) })), [data, t, wc]);
   return (
     <ChartCard
       data-testid="chart-report-stock-age"
@@ -48,7 +49,7 @@ export function StockAgeChart({ data }: { data: StockAgeData }) {
       emptyTitle={t("reports.stockAge.empty")}
       table={barTable(bars, { t, format: kg, labelHeader: t("reports.stockAge.ageHeader"), valueHeader: t("reports.stockAge.kgHeader") })}
     >
-      <BarChart data={bars} format={kg} ordinal height={PLOT_HEIGHT} label={t("reports.stockAge.chartLabel")} />
+      <BarChart data={bars} format={kg} formatTicks={wc.ticks} ordinal height={PLOT_HEIGHT} label={t("reports.stockAge.chartLabel")} />
     </ChartCard>
   );
 }
@@ -59,9 +60,14 @@ export function StockAgeChart({ data }: { data: StockAgeData }) {
  * current month is marked "so far" (chart kit rules). `to` is the period's end date, if any.
  */
 export function OrderMonthsChart({ data, to }: { data: OrdersData; to?: string }) {
+  const wc = useWeightChart();
+  const kg = (v: number) => wc.text(v, true);
   const { t, locale } = useT();
   const dates = useMemo(() => chartDateFormat("month", locale, "UTC"), [locale]);
-  const bars = useMemo(() => orderMonthBars(orderMonthBuckets(data.rows.map((r) => ({ key: r.key, orderedG: r.orderedG })), { today: data.today, to }), dates), [data, to, dates]);
+  const bars = useMemo(
+    () => orderMonthBars(orderMonthBuckets(data.rows.map((r) => ({ key: r.key, orderedG: r.orderedG })), { today: data.today, to }), dates).map((b) => ({ ...b, value: wc.value(b.value) })),
+    [data, to, dates, wc],
+  );
   return (
     <ChartCard
       data-testid="chart-order-months"
@@ -72,7 +78,7 @@ export function OrderMonthsChart({ data, to }: { data: OrdersData; to?: string }
       emptyTitle={t("reports.orders.empty")}
       table={barTable(bars, { t, format: kg, labelHeader: t("reports.orders.monthHeader"), valueHeader: t("reports.orders.kgHeader") })}
     >
-      <BarChart data={bars} format={kg} formatDate={dates} height={PLOT_HEIGHT} label={t("reports.orders.chartLabel")} />
+      <BarChart data={bars} format={kg} formatTicks={wc.ticks} formatDate={dates} height={PLOT_HEIGHT} label={t("reports.orders.chartLabel")} />
     </ChartCard>
   );
 }

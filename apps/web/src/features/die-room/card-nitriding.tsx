@@ -14,14 +14,17 @@ import { trpc } from "@/shared/utils/trpc";
 import { parseGrams, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_G } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText } from "@/shared/lib/fmt-text";
 
 const CHEMICALS = ["cr4", "cr2", "k2s", "caustic"] as const;
 type Chemical = (typeof CHEMICALS)[number];
 
-const grams = (n: number) => n.toLocaleString("en-IN");
-
 /** Nitriding log of the copy, and the two moves: out to nitriding, back to the rack. */
 export function NitridingPanel({ card }: { card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [outOpen, setOutOpen] = useState(false);
   const [backOpen, setBackOpen] = useState(false);
@@ -42,7 +45,7 @@ export function NitridingPanel({ card }: { card: CardData }) {
           {card.nitriding.map((row) => (
             <li key={row.id}>
               <Card>
-                <CardTitle>{shortDate(row.nitridedAt)}</CardTitle>
+                <CardTitle>{shortDate(fmt, row.nitridedAt)}</CardTitle>
                 <p className="m-0 text-[14px] leading-6">
                   {row.hardness == null ? t("dieRoom.nitriding.noHardness") : t("dieRoom.nitriding.hardness", { hv: row.hardness })}
                 </p>
@@ -54,7 +57,7 @@ export function NitridingPanel({ card }: { card: CardData }) {
                     if (open == null || used == null || close == null) return null;
                     return (
                       <li key={c}>
-                        {t(`dieRoom.nitriding.chem.${c}`)}: {t("dieRoom.nitriding.balance", { open: grams(open), used: grams(used), close: grams(close) })}
+                        {t(`dieRoom.nitriding.chem.${c}`)}: {t("dieRoom.nitriding.balance", { open: countText(fmt, open), used: countText(fmt, used), close: countText(fmt, close) })}
                       </li>
                     );
                   })}
@@ -80,6 +83,7 @@ const EMPTY: Draft = {
 };
 
 function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(open: boolean): void; card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -160,15 +164,15 @@ function SendSheet({ open, onOpenChange, card }: { open: boolean; onOpenChange(o
               <legend className="mb-1 text-[14px] font-semibold">{t(`dieRoom.nitriding.chem.${c}`)}</legend>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("dieRoom.nitriding.open")}>
-                  <NumberInput value={draft[c].open} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], open: v } }))} decimal={false} suffix={t("units.g")} />
+                  <PlantInput spec={MASS_G} value={draft[c].open} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], open: v } }))} decimal={false} />
                 </Field>
                 <Field label={t("dieRoom.nitriding.used")}>
-                  <NumberInput value={draft[c].used} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], used: v } }))} decimal={false} suffix={t("units.g")} />
+                  <PlantInput spec={MASS_G} value={draft[c].used} onValueChange={(v) => setDraft((d) => ({ ...d, [c]: { ...d[c], used: v } }))} decimal={false} />
                 </Field>
               </div>
               {o !== null && u !== null && u <= o ? (
                 <p className="m-0 font-mono text-[13px] text-muted-foreground tabular-nums">
-                  {t("dieRoom.nitriding.closeLine", { open: grams(o), used: grams(u), close: grams(o - u) })}
+                  {t("dieRoom.nitriding.closeLine", { open: countText(fmt, o), used: countText(fmt, u), close: countText(fmt, o - u) })}
                 </p>
               ) : null}
               {errorChemical === c ? (

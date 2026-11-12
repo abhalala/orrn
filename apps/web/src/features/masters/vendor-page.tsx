@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
 
+import { useFmt } from "@/shared/lib/fmt";
 import { formatDay, nameKey, rupeesPerKg, vendorStatusView, type VendorStatus } from "./masters-model";
 import { companyToday, FormError, MasterNote, MasterSection, MastersLoadError, MastersNoAccess, useMasterError } from "./masters-ui";
 import { MergeVendorsSheet } from "./merge-vendors-sheet";
@@ -46,6 +47,7 @@ export function VendorPage({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [merging, setMerging] = useState(false);
   const today = companyToday(access.me?.company?.settings?.timezone);
+  const fmt = useFmt();
   const back = { to: "/vendors", label: t("vendors.title") };
 
   const itemName = useMemo(() => {
@@ -133,7 +135,7 @@ export function VendorPage({ id }: { id: string }) {
     {
       key: "date",
       header: t("vendors.page.columns.date"),
-      cell: (l) => <span className="whitespace-nowrap tabular-nums">{formatDay(l.lotDate, today)}</span>,
+      cell: (l) => <span className="whitespace-nowrap tabular-nums">{formatDay(fmt, l.lotDate, today)}</span>,
     },
     { key: "item", header: t("vendors.page.columns.item"), cell: (l) => <span className="break-words">{itemName(l.scrapItemId)}</span> },
     {

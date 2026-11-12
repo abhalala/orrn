@@ -17,13 +17,16 @@ import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { statusTone } from "./job-card";
-import { kgFromG, leadOnLine, splitQueue } from "./model";
+import { leadOnLine, splitQueue } from "./model";
 import type { LineRow, SummaryOut } from "./types";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 const REFRESH_MS = 20_000;
 
 /** One press: what is on it, how many wait, what it logged today. */
 function LineCard({ line, summary }: { line: LineRow; summary: SummaryOut | undefined }) {
+  const fmt = useFmt();
   const { t } = useT();
   const queue = useQuery({
     ...trpc.press.queue.list.queryOptions({ pressLineId: line.id }),
@@ -79,7 +82,7 @@ function LineCard({ line, summary }: { line: LineRow; summary: SummaryOut | unde
         <div className="rounded-card bg-surface-sunken px-4 py-3">
           <dt className="text-xs font-medium text-muted-foreground">{t("press.board.todayLogged")}</dt>
           <dd className="m-0 mt-1 font-mono text-[22px] font-semibold tabular-nums">
-            {summary ? `${kgFromG(today?.kgG ?? 0)} ${t("units.kg")}` : "…"}
+            {summary ? `${kgGrouped1(fmt, today?.kgG ?? 0)} ${massUnit(fmt)}` : "…"}
           </dd>
         </div>
       </dl>

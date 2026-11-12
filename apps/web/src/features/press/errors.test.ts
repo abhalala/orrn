@@ -150,11 +150,12 @@ describe("pressErrorView: the person's language first, the server's English only
 });
 
 describe("the short-stock hint states D22 (review r1 I-2)", () => {
+  // The unit word is the plant's ({massUnit}); the claim under test is unchanged.
   test("the run is logged with the weighed kg and the cast shows the shortfall; the stock figure is never what posts", () => {
     const hint = (dict: unknown, key: string) => dig(dict, `press.console.${key}`) as string;
-    expect(hint(en, "shortStock")).toContain("logged with the weighed kg");
-    expect(hint(en, "shortStock")).toContain("billets short by {short} kg");
-    expect(hint(en, "shortStockNoFigure")).toContain("logged with the weighed kg");
+    expect(hint(en, "shortStock")).toContain("logged with the weighed {massUnit}");
+    expect(hint(en, "shortStock")).toContain("billets short by {short} {massUnit}");
+    expect(hint(en, "shortStockNoFigure")).toContain("logged with the weighed {massUnit}");
     for (const dict of [en, hi, gu]) {
       for (const key of ["shortStock", "shortStockNoFigure"]) expect(hint(dict, key)).not.toMatch(/\bposts?\b/);
       expect(hint(dict, "shortStock")).toContain("{kg}");

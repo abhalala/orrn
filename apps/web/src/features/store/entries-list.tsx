@@ -30,6 +30,7 @@ import { formatQty } from "./store-qty";
 import { StoreLoadError } from "./store-ui";
 import { useFormatWhen } from "./use-format-when";
 import { useInvalidateStore, useStoreAccess, useStoreEntries, type StoreEntry } from "./use-store";
+import { useFmt } from "@/shared/lib/fmt";
 
 /** The server's cap on store.txns (no cursor yet: a `before` cursor is a plant/core follow-up). */
 const MAX = 500;
@@ -44,21 +45,23 @@ function stateWord(t: Translate, entry: StoreEntry): string {
 /** "+12.5 kg" / "−3 pcs"; a cancelled entry shows its quantity struck through, no sign. */
 function SignedQty({ entry }: { entry: StoreEntry }) {
   const { t } = useT();
+  const fmt = useFmt();
   const cancelled = entryState(entry) === "cancelled";
   const sign = cancelled ? "" : entry.kind === "grn" ? "+" : "−";
   return (
     <span data-no-truncate="" className={cancelled ? "text-muted-foreground line-through" : undefined}>
       <span className="font-mono font-medium tabular-nums">
         {sign}
-        {formatQty(entry.qtyMilli)}
+        {formatQty(entry.qtyMilli, entry.unit, fmt)}
       </span>{" "}
-      <span className="text-muted-foreground">{unitShort(t, entry.unit, entry.qtyMilli)}</span>
+      <span className="text-muted-foreground">{unitShort(t, entry.unit, entry.qtyMilli, fmt)}</span>
     </span>
   );
 }
 
 function EntryChip({ entry }: { entry: StoreEntry }) {
   const { t } = useT();
+  const fmt = useFmt();
   return <Chip tone={entryTone(entry)}>{stateWord(t, entry)}</Chip>;
 }
 
@@ -84,6 +87,7 @@ export function StoreEntries({
   pageSize?: number;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const when = useFormatWhen();
   const [limit, setLimit] = useState(pageSize);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -220,6 +224,7 @@ function EntrySheet({
   onOpenChange(open: boolean): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const when = useFormatWhen();
   const { canEnter } = useStoreAccess();
   const invalidate = useInvalidateStore();

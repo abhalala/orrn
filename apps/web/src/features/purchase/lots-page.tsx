@@ -23,12 +23,15 @@ import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isForbidden } from "./errors";
-import { bookDayText, kgText, slashBreaks } from "./format";
+import { bookDayText } from "@/shared/lib/fmt-text";
+import { slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
 import { LOT_FILTERS, isLotFilter, type LotFilter } from "./lot-filter";
-import { lotListChip, type LotFlag, type LotStatus } from "./lot-view";
+import { inStockTileText, lotListChip, type LotFlag, type LotStatus } from "./lot-view";
 import { showsQueryError } from "./query-state";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim, massUnit } from "@/shared/lib/fmt-text";
 
 const PurchaseCharts = lazy(() => import("./purchase-charts"));
 
@@ -49,7 +52,8 @@ type LotRow = {
 };
 
 export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: LotFilter): void }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const tolBp = useToleranceBp();
   const today = useCompanyToday();
   const [offset, setOffset] = useState(0);
@@ -88,7 +92,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
       cell: (l) => (
         <span className="flex flex-col">
           <span className="font-mono whitespace-nowrap">{l.number}</span>
-          <span className="text-[13px] font-normal whitespace-nowrap text-muted-foreground">{bookDayText(l.lotDate, locale, today)}</span>
+          <span className="text-[13px] font-normal whitespace-nowrap text-muted-foreground">{bookDayText(fmt, l.lotDate, today)}</span>
         </span>
       ),
     },
@@ -104,14 +108,14 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
       align: "end",
       // Phones show the verdict (difference) and keep both kantas for the lot page: a card stays one glance.
       hideOnPhone: true,
-      cell: (l) => <span className="font-mono">{kgText(l.partyKgG)}</span>,
+      cell: (l) => <span className="font-mono">{kgTrim(fmt, l.partyKgG)}</span>,
     },
     {
       key: "ours",
       header: t("purchase.list.ours"),
       align: "end",
       hideOnPhone: true,
-      cell: (l) => <span className="font-mono">{l.fcKgG === null ? "-" : kgText(l.fcKgG)}</span>,
+      cell: (l) => <span className="font-mono">{l.fcKgG === null ? "-" : kgTrim(fmt, l.fcKgG)}</span>,
     },
     {
       key: "diff",
@@ -221,8 +225,8 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
             title={t("purchase.kpi.inStock")}
             meta={t("purchase.kpi.inStockMeta")}
             value={stock.data.totalG / 1000}
-            format={(kg) => kgText(Math.round(kg) * 1000)}
-            unit="kg"
+            format={(kg) => inStockTileText(fmt, kg)}
+            unit={massUnit(fmt)}
           />
         ) : (
           <Skeleton className="h-[168px] rounded-block" />

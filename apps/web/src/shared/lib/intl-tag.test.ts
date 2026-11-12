@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { dayMonth, intlTag, ymdLabel } from "./intl-tag";
+import { dayMonth, intlTag, ymdLabel } from "../../../test-support/legacy/legacy-intl-tag";
 
 const D = new Date("2026-10-23T06:00:00Z");
 

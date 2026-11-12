@@ -2,7 +2,7 @@
  * Pure model for the Printers tab: how a print computer and each label printer read at a glance,
  * from what the print computer last reported, and the printer settings form.
  */
-import type { LabelDocument, StatusTone } from "@orrn/domain";
+import { withoutGrouping, type LabelDocument, type StatusTone } from "@orrn/domain";
 
 import type { NodeStatus } from "./model";
 import { PRINT_COMPUTER_STALE_MS } from "./print-computer";
@@ -163,8 +163,8 @@ export type PreferencesInput = {
 };
 
 const parse = (value: string) => {
-  const cleaned = value.replace(/,/g, "").trim();
-  return cleaned === "" ? Number.NaN : Number(cleaned);
+  const cleaned = withoutGrouping(value);
+  return cleaned === null || cleaned === "" ? Number.NaN : Number(cleaned);
 };
 
 /** The server's limits (`spool.updatePrinterPreferences`), checked before sending. */

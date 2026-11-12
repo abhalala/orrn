@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { formatterFor, screenPrefs } from "@orrn/domain";
 
 import {
   COUNTABLE_STORE_UNITS as SERVER_COUNTABLE,
@@ -108,5 +112,18 @@ describe("isCountable and isShort", () => {
     expect(isShort(5_001, 5_000)).toBe(true);
     expect(isShort(1, 0)).toBe(true);
     expect(isShort(1, -10)).toBe(true);
+  });
+});
+
+describe("the store item page hero balance", () => {
+  const lb = formatterFor(screenPrefs({ units: { mass: "lb" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+  test("a kilogram item holding 12,500 kg reads in the plant's unit, the word beside it is lb", () => {
+    expect(formatQty(12_500_000, "kg", lb)).toBe("27,557.78");
+    expect(formatQty(12_500_000, "litre", lb)).toBe("12,500");
+  });
+  test("the hero's format call passes the item's unit and the formatter (it passed neither)", () => {
+    const src = readFileSync(join(import.meta.dir, "item-page.tsx"), "utf8");
+    expect(src).toContain("formatQty(Math.round(n * 1000), item.unit, fmt)");
+    expect(src).not.toContain("formatQty(Math.round(n * 1000))");
   });
 });

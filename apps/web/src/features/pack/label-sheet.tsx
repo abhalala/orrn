@@ -1,4 +1,4 @@
-import { formatKg, formatLength, gToKg, type LengthUnit } from "@orrn/domain";
+import { type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -12,7 +12,6 @@ import { Printer } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { lengthUnitOf } from "./pack-ui";
-import { kg12Text } from "./line-preview";
 import {
   SHEET_GRID,
   isSheetSize,
@@ -20,11 +19,12 @@ import {
   standardLine,
   stickerPartyNo,
   type SheetSize,
-  type StickerLabel,
-} from "./label-sheet-model";
+  type StickerLabel } from "./label-sheet-model";
 import { useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit, paperT, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 const SIZE_KEY = "orrn.labelSheetSize";
 
@@ -220,7 +220,7 @@ const STICKER = {
   21: { pad: "p-[1.1cqw]", gap: "gap-x-[1.1cqw]", qr: "size-[10cqw]", head: "text-[1.45cqw]", serial: "text-[1.95cqw]", body: "text-[1.5cqw]", small: "text-[1.25cqw]" },
 } as const;
 
-function Sticker({
+export function Sticker({
   label: l,
   company,
   unit,
@@ -233,10 +233,13 @@ function Sticker({
   qr: string | undefined;
   dense: boolean;
 }) {
-  const { t } = useT();
+  // A paper: today's units and words whatever the plant chose for its screens (guarded by paper-guard.test.ts).
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const party = stickerPartyNo(l);
   const std = standardLine(l);
-  const k12 = kg12Text(l.kgPer12ftMilli);
+  const k12 = sectionOrNull(fmt, l.kgPer12ftMilli);
   const z = STICKER[dense ? 21 : 10];
   const extra = [l.cast ? t("labelSheet.cast", { cast: l.cast }) : null, l.salesOrder, std].filter(Boolean).join(" · ");
   return (
@@ -266,11 +269,11 @@ function Sticker({
           <span className={cn("min-w-0 truncate font-mono font-semibold", z.small)}>{t("labelSheet.party", { number: party })}</span>
         ) : null}
         <span data-slot="sticker-weight" className={cn("min-w-0 font-mono font-bold tabular-nums", z.body)}>
-          {formatKg(gToKg(l.weightG))} {t("units.kg")}
+          {kgGrouped2(fmt, (l.weightG))} {massUnit(fmt)}
         </span>
         <span className={cn("min-w-0 font-mono tabular-nums [overflow-wrap:anywhere]", z.small)}>
-          {l.pieces} {t("units.pcs")} · {formatLength(l.lengthMm, unit)}
-          {k12 ? ` · ${k12} ${t("units.kgPer12ft")}` : ""}
+          {l.pieces} {t("units.pcs")} · {fmt.q("bundle.length", l.lengthMm)}
+          {k12 ? ` · ${k12} ${sectionUnit(fmt)}` : ""}
         </span>
         {extra ? <span className={cn("min-w-0 truncate", z.small)}>{extra}</span> : null}
       </div>

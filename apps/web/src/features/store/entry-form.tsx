@@ -2,7 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { focusComboboxQuietly } from "@orrn/ui/components/combobox";
 import { EmptyState } from "@orrn/ui/components/empty-state";
-import { Field, NumberInput, TextInput } from "@orrn/ui/components/field";
+import { Field, NumberInput, TextInput, type NumberInputProps } from "@orrn/ui/components/field";
 import { FormActions } from "@orrn/ui/components/form-actions";
 import { HowToButton } from "@orrn/ui/components/how-to-button";
 import { TextArea } from "@orrn/ui/components/input";
@@ -13,7 +13,7 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Ref } from "react";
 
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
@@ -28,6 +28,10 @@ import { formatQty, ISSUE_PURPOSES, isShort, parseQtyMilli, type IssuePurpose, t
 import { StoreItemPicker } from "./item-picker";
 import { StoreLoadError, StoreNoAccess, StoreNote } from "./store-ui";
 import { useInvalidateStore, useStoreAccess, useStoreBalances, useStoreEntries, type StoreBalance } from "./use-store";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
+import type { Fmt } from "@orrn/domain";
+import { useFmt } from "@/shared/lib/fmt";
 
 export type EntryMode = "receive" | "issue" | "exchange";
 
@@ -74,6 +78,7 @@ const COPY = {
  */
 export function StoreEntryForm({ mode, initialItemId }: { mode: EntryMode; initialItemId?: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const access = useStoreAccess();
   const balances = useStoreBalances(access.canEnter);
@@ -178,6 +183,7 @@ function EntryFormBody({
   initialItemId?: string;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const copy = COPY[mode];
   const invalidate = useInvalidateStore();
   const ids = useRequestIds();
@@ -255,8 +261,8 @@ function EntryFormBody({
       if (!isShort(m, item.balanceMilli)) return;
       short.push(key);
       out[key] = t("store.form.qty.short", {
-        qty: formatQty(Math.max(0, item.balanceMilli)),
-        unit: unitShort(t, item.unit, item.balanceMilli),
+        qty: formatQty(Math.max(0, item.balanceMilli), item.unit, fmt),
+        unit: unitShort(t, item.unit, item.balanceMilli, fmt),
       });
     };
     if (mode === "exchange") checkShort(outMilli, "old");
@@ -399,7 +405,7 @@ function EntryFormBody({
     setAnnounce(
       s.cancelled
         ? `${t("store.replayCancelled.title")}. ${t("store.replayCancelled.body", { number: s.numbers[0] })}`
-        : `${t(copy.done)}. ${s.numbers.join(", ")}. ${t("store.qtyOf", { qty: formatQty(s.milli), unit: unitShort(t, s.unit, s.milli), item: s.itemName })}`,
+        : `${t(copy.done)}. ${s.numbers.join(", ")}. ${t("store.qtyOf", { qty: formatQty(s.milli, s.unit, fmt), unit: unitShort(t, s.unit, s.milli, fmt), item: s.itemName })}`,
     );
     void invalidate();
   };
@@ -431,8 +437,8 @@ function EntryFormBody({
                 mode === "exchange" && saved.numbers[1]
                   ? t("store.exchange.newInUnder", { number: saved.numbers[1] })
                   : t("store.qtyOf", {
-                      qty: formatQty(saved.milli),
-                      unit: unitShort(t, saved.unit, saved.milli),
+                      qty: formatQty(saved.milli, saved.unit, fmt),
+                      unit: unitShort(t, saved.unit, saved.milli, fmt),
                       item: saved.itemName,
                     })
               }
@@ -525,9 +531,9 @@ function EntryFormBody({
                 className="row-span-4 grid grid-rows-subgrid"
                 label={t("store.form.oldOut")}
                 error={shownError("old")}
-                hint={item ? inStoreHint(t, item) : undefined}
+                hint={item ? inStoreHint(t, item, fmt) : undefined}
               >
-                <NumberInput
+                <QtyBox unit={unit}
                   ref={(el) => void (fieldRefs.current.old = el)}
                   value={oldQty}
                   onValueChange={(v) => {
@@ -546,7 +552,7 @@ function EntryFormBody({
                 label={t("store.form.newIn")}
                 error={shownError("new")}
               >
-                <NumberInput
+                <QtyBox unit={unit}
                   ref={(el) => void (fieldRefs.current.new = el)}
                   value={newQty}
                   onValueChange={(v) => {
@@ -564,9 +570,9 @@ function EntryFormBody({
             <Field
               label={t("store.form.quantity")}
               error={shownError("qty")}
-              hint={mode === "issue" && item ? inStoreHint(t, item) : undefined}
+              hint={mode === "issue" && item ? inStoreHint(t, item, fmt) : undefined}
             >
-              <NumberInput
+              <QtyBox unit={unit}
                 ref={(el) => void (fieldRefs.current.qty = el)}
                 value={qty}
                 onValueChange={(v) => {
@@ -675,15 +681,16 @@ function EntryFormBody({
   );
 }
 
-function inStoreHint(t: ReturnType<typeof useT>["t"], item: StoreBalance): string {
+function inStoreHint(t: ReturnType<typeof useT>["t"], item: StoreBalance, fmt: Fmt): string {
   return t("store.form.quantityHint", {
-    qty: formatQty(item.balanceMilli),
-    unit: unitShort(t, item.unit, item.balanceMilli),
+    qty: formatQty(item.balanceMilli, item.unit, fmt),
+    unit: unitShort(t, item.unit, item.balanceMilli, fmt),
   });
 }
 
 function NoteField({ value, onChange }: { value: string; onChange(v: string): void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const id = `store-note-${useId().replace(/:/g, "")}`;
   return (
     <Field label={t("store.form.note")} hint={t("store.form.noteHint")} id={id}>
@@ -702,6 +709,7 @@ function NoteField({ value, onChange }: { value: string; onChange(v: string): vo
 /** The chosen item and what is in the store: the number the storekeeper checks before saving. */
 function SelectedItem({ item, className }: { item: StoreBalance; className?: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <div className={cn("flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4", className)}>
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -710,7 +718,7 @@ function SelectedItem({ item, className }: { item: StoreBalance; className?: str
             {item.name}
           </Link>
         </p>
-        <p className="m-0 text-[13px] text-muted-foreground break-words">{countedIn(t, item)}</p>
+        <p className="m-0 text-[13px] text-muted-foreground break-words">{countedIn(t, item, fmt)}</p>
       </div>
       <div className="flex flex-col gap-1">
         <p className="m-0 text-[13px] font-medium text-muted-foreground">{t("store.form.inStoreNow")}</p>
@@ -718,4 +726,13 @@ function SelectedItem({ item, className }: { item: StoreBalance; className?: str
       </div>
     </div>
   );
+}
+
+/**
+ * A quantity box in the item's own unit. A kilogram item takes the plant's weight unit (the draft stays kg text, which is
+ * the stored grams); every other unit (litre, piece, metre, set, box, bag) is its own word and stays as it is.
+ */
+function QtyBox({ unit, suffix, ...props }: NumberInputProps & { unit: StoreUnit | null; ref?: Ref<HTMLInputElement> }) {
+  if (unit === "kg") return <PlantInput spec={MASS_KG} {...props} />;
+  return <NumberInput {...props} suffix={suffix} />;
 }

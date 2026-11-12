@@ -12,7 +12,7 @@ export const packEn = {
     pickDie: "Choose a die",
     dieSheetTitle: "Choose a die",
     dieLoadError: "The dies didn't load. Try again.",
-    cutLengthMm: "Cut length (mm)",
+    cutLengthMm: "Cut length ({lengthUnit})",
     cutLengthError: "Enter a cut length above zero.",
     yard: "Yard location",
     yardHint: "Where these bundles will be kept.",

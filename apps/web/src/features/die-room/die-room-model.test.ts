@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createI18n } from "@orrn/i18n";
 
+import { dflt } from "../../../test-support/date-seeds";
+
 import {
   percentChipTone,
   percentWord,
@@ -211,9 +213,9 @@ describe("life and nitriding inputs", () => {
   });
 
   test("dates read in the plant's day, recovery in percent", () => {
-    expect(shortDate("2026-10-24T10:00:00.000Z")).toBe("24 Oct 2026");
-    expect(shortDate(null)).toBe("");
-    expect(shortDate("not a date")).toBe("");
+    expect(shortDate(dflt(), "2026-10-24T10:00:00.000Z")).toBe("24 Oct 2026");
+    expect(shortDate(dflt(), null)).toBe("");
+    expect(shortDate(dflt(), "not a date")).toBe("");
     expect(bpText(7550)).toBe("75.5%");
     expect(bpText(null)).toBe("");
   });

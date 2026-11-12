@@ -4,9 +4,12 @@
  * same rows the table shows, and maps answers onto chart bars. No arithmetic on kg or percents
  * beyond unit conversion for display.
  */
+import type { Fmt } from "@orrn/domain";
 import type { MessageKey, TranslateVars } from "@orrn/i18n";
 import type { AppRouter } from "@orrn/server/routers/index";
 import type { inferRouterOutputs } from "@trpc/server";
+
+import { kgGrouped0 } from "@/shared/lib/fmt-text";
 
 import type { OrdersReportSearch } from "./search";
 
@@ -19,6 +22,9 @@ export type OrdersData = Outputs["analytics"]["orders"];
 export type OrdersRow = OrdersData["rows"][number];
 
 type T = (key: MessageKey, vars?: TranslateVars) => string;
+
+/** Exports stay in kg, mm and kg per 12 ft whatever the plant shows on screen (units in the headers, numbers in those units). */
+const exportWords = (t: T): T => (key, vars) => t(key, { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm", ...vars });
 
 const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const KG0 = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
@@ -75,6 +81,8 @@ export function recoveryLabel(r: { label: string; detail: string | null }, group
 }
 
 export function recoveryCsv(data: RecoveryData, t: T): string {
+  const T = t;
+  t = exportWords(T);
   const group = data.groupBy as RecoveryGroup;
   const header = [
     t(`reports.production.group.${group}`),
@@ -113,12 +121,16 @@ export function lifeChip(item: Pick<DieLifeItem, "state" | "usedPct">, t: T): st
 }
 
 /** The die card's Runs tab header line. */
-export function lifeHeader(item: Pick<DieLifeItem, "state" | "usedPct" | "producedG" | "lifeG">, t: T): string {
-  if (item.lifeG == null || item.usedPct == null) return t("reports.dieLife.cardNoLife", { pressed: kgWholeText(item.producedG) });
-  return t("reports.dieLife.cardUsed", { pct: item.usedPct, pressed: kgWholeText(item.producedG), life: kgWholeText(item.lifeG) });
+export function lifeHeader(item: Pick<DieLifeItem, "state" | "usedPct" | "producedG" | "lifeG">, t: T, fmt?: Fmt): string {
+  // With the plant's formatter the figures are whole units of the plant's weight; the sentence's {massUnit} names it.
+  const whole = (g: number) => (fmt ? kgGrouped0(fmt, g) : kgWholeText(g));
+  if (item.lifeG == null || item.usedPct == null) return t("reports.dieLife.cardNoLife", { pressed: whole(item.producedG) });
+  return t("reports.dieLife.cardUsed", { pct: item.usedPct, pressed: whole(item.producedG), life: whole(item.lifeG) });
 }
 
 export function dieLifeCsv(items: readonly DieLifeItem[], t: T, statusLabel: (s: string) => string): string {
+  const T = t;
+  t = exportWords(T);
   const header = [
     t("reports.dieLife.copy"),
     t("reports.dieLife.section"),
@@ -161,6 +173,8 @@ export function stockAgeBars(data: StockAgeData, t: T) {
 }
 
 export function stockAgeCsv(data: StockAgeData, t: T): string {
+  const T = t;
+  t = exportWords(T);
   const header = [
     t("reports.stockAge.party"),
     ...AGE_BUCKET_KEYS.flatMap((k) => [`${t(k)} ${t("reports.stockAge.kg")}`, `${t(k)} ${t("reports.stockAge.bundles")}`]),
@@ -188,6 +202,8 @@ export function ordersRowName(r: Pick<OrdersRow, "key" | "label">, group: "custo
 }
 
 export function ordersCsv(data: OrdersData, t: T, withRates: boolean): string {
+  const T = t;
+  t = exportWords(T);
   const group = data.groupBy;
   const months = monthNames(t);
   const header = [

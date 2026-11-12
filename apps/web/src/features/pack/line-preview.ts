@@ -1,5 +1,6 @@
 import { driftPercentText, formatKg } from "@orrn/domain";
 import type { StatusTone } from "@orrn/domain";
+import type { Fmt } from "@orrn/domain";
 
 /**
  * Pack line verdicts from the server (`bundle.previewLine` / `previewLines`, D15). The screen shows
@@ -48,8 +49,8 @@ export function kg12Text(milli: number | null): string | null {
 }
 
 /** The band as the plant writes it ("2.4 to 2.6"), from grams per 12 ft. */
-export function bandText(band: Pick<NonNullable<LineVerdict["band"]>, "minG" | "maxG">): string {
-  const f = (g: number) => (Number.isInteger(g / 100) ? (g / 1000).toFixed(1) : formatKg(g / 1000, 3));
+export function bandText(band: Pick<NonNullable<LineVerdict["band"]>, "minG" | "maxG">, fmt?: Fmt): string {
+  const f = (g: number) => (fmt && fmt.unitOf("linear_mass").id !== "kg_12ft" ? fmt.n("die.band", g, "screen") : Number.isInteger(g / 100) ? (g / 1000).toFixed(1) : formatKg(g / 1000, 3));
   return `${f(band.minG)} to ${f(band.maxG)}`;
 }
 

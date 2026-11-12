@@ -11,12 +11,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LanguageToggle } from "@/shell/language-toggle";
 import { SkipLink } from "@/shell/skip-link";
 import { readStoredLocaleOrNull, storeLocale } from "@/shared/lib/locale";
+import { expectPlant } from "@/shared/lib/plant-sync";
 import { storePortalPlant } from "@/shared/lib/portal-plant";
 import { useSignOutAndReset } from "@/shared/lib/use-sign-out";
 import { dropTenantQueries } from "@/shared/lib/tenant-cache";
 import { queryClient } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
+import { PortalFmtProvider } from "./portal-fmt";
 import { portalLocale } from "./model";
 
 type NavEntry = { key: string; to: string; label: MessageKey; icon: LucideIcon; exact?: boolean };
@@ -53,7 +55,9 @@ export function PortalShell({ children }: { children: ReactNode }) {
         setChosen(next);
       }}
     >
-      <ShellFrame>{children}</ShellFrame>
+      <PortalFmtProvider>
+        <ShellFrame>{children}</ShellFrame>
+      </PortalFmtProvider>
     </I18nProvider>
   );
 }
@@ -167,6 +171,8 @@ function AccountSheet({ open, onOpenChange }: { open: boolean; onOpenChange(open
 
   function switchPlant(companyId: string) {
     storePortalPlant(companyId);
+    // Nothing of the old plant renders, and no weight shows in the old unit, until `portal.me` is the new plant's.
+    expectPlant(companyId);
     dropTenantQueries(queryClient);
     onOpenChange(false);
     void navigate({ to: "/portal" as never, replace: true });

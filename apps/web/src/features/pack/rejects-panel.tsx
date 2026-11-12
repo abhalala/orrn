@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Field, NumberInput } from "@orrn/ui/components/field";
@@ -14,6 +13,10 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { EMPTY_REJECT, readReject, type RejectErrors, type RejectForm } from "./reject-form";
 import type { DraftReject } from "./use-pack-draft";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 /**
  * Rejects at pack (FP-PK-14): pieces taken out of the pile that are not a bundle. Weighed rejects
@@ -29,6 +32,7 @@ export function RejectsPanel({
   onRemove(index: number): void;
 }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const id = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<RejectForm>(EMPTY_REJECT);
@@ -80,7 +84,7 @@ export function RejectsPanel({
                 <span className="text-muted-foreground">
                   {" · "}
                   {reasonCodeText(t, "qc_reject", r.reasonCode, reasons.data, locale)}
-                  {r.weightG ? ` · ${formatKgTotal(gToKg(r.weightG))} ${t("units.kg")}` : ` · ${t("pack.reject.noWeight")}`}
+                  {r.weightG ? ` · ${kgGrouped1(fmt, (r.weightG))} ${massUnit(fmt)}` : ` · ${t("pack.reject.noWeight")}`}
                   {r.note ? ` · ${r.note}` : ""}
                 </span>
               </span>
@@ -100,7 +104,7 @@ export function RejectsPanel({
             <NumberInput value={form.pcs} onValueChange={(pcs) => setForm((f) => ({ ...f, pcs }))} suffix={t("units.pcs")} />
           </Field>
           <Field label={t("pack.reject.kg")} hint={t("pack.reject.kgHint")} error={errors.kg ? t("pack.new.weightRequired") : undefined}>
-            <NumberInput value={form.kg} onValueChange={(kg) => setForm((f) => ({ ...f, kg }))} suffix={t("units.kg")} />
+            <PlantInput spec={MASS_KG} value={form.kg} onValueChange={(kg) => setForm((f) => ({ ...f, kg }))} />
           </Field>
           <Field label={t("pack.reject.reason")} id="reject-reason" error={errors.reason ? t("pack.reject.reasonRequired") : undefined}>
             <NativeSelect

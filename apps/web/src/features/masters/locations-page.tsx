@@ -1,4 +1,3 @@
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -9,6 +8,8 @@ import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Can } from "@/shared/components/can";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 import { trpc } from "@/shared/utils/trpc";
 
 import { LocationSheet } from "./location-sheet";
@@ -35,6 +36,7 @@ type Row = LocationRow & { totals: readonly LocationTotal[] };
  */
 export function LocationsPage() {
   const { t } = useT();
+  const fmt = useFmt();
   const access = useMastersAccess();
   const invalidate = useInvalidate();
   const list = useQuery(trpc.stock.locations.list.queryOptions({ includeInactive: true }));
@@ -55,7 +57,7 @@ export function LocationsPage() {
     if (h.empty) return <span className="text-muted-foreground">{t("masters.locations.holdsEmpty")}</span>;
     const parts = [
       h.bundles > 0 ? t("masters.locations.holdsBundles", { count: h.bundles }) : null,
-      h.kgG !== 0 ? t("masters.locations.holdsKg", { kg: formatKgTotal(h.kgG / 1000) }) : null,
+      h.kgG !== 0 ? t("masters.locations.holdsKg", { kg: kgGrouped1(fmt, h.kgG) }) : null,
       h.storeItems > 0 ? t("masters.locations.holdsItems", { count: h.storeItems }) : null,
     ].filter(Boolean);
     return (

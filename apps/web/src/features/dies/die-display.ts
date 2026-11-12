@@ -1,5 +1,6 @@
 /** Display helpers shared by the dies list and a die's page. */
-import type { LengthUnit } from "@orrn/domain";
+import type { Fmt, LengthUnit } from "@orrn/domain";
+import { sectionPlainTrim } from "@/shared/lib/fmt-text";
 import type { Translate } from "@orrn/i18n";
 
 import { geometryText, kgText } from "./die-model";
@@ -10,7 +11,8 @@ export function dieCode(d: { series: string; sectionCode: string }): string {
 }
 
 /** "2.4-2.6" (the list's range column, kg/12ft in the header). */
-export function rangeText(t: Translate, d: { weightMinG: number; weightMaxG: number }): string {
+export function rangeText(t: Translate, d: { weightMinG: number; weightMaxG: number }, fmt?: Fmt): string {
+  if (fmt) return t("dies.rangeValue", { min: sectionPlainTrim(fmt, d.weightMinG), max: sectionPlainTrim(fmt, d.weightMaxG) });
   return t("dies.rangeValue", { min: kgText(d.weightMinG), max: kgText(d.weightMaxG) });
 }
 

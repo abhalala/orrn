@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Me } from "@orrn/server/lib/permissions";
+
+import { dflt } from "../../../test-support/date-seeds";
 import type { CompanyRole } from "@orrn/server/lib/permissions";
 
 import {
@@ -260,9 +262,9 @@ describe("code rules (same as the server's)", () => {
 
 describe("formatDay and rupeesPerKg", () => {
   test("a book date: year only when it is not this year", () => {
-    expect(formatDay("2026-10-04", "2026-10-04")).toBe("4 Oct");
-    expect(formatDay("2025-12-31", "2026-01-02")).toBe("31 Dec 2025");
-    expect(formatDay("not a date", "2026-10-04")).toBe("not a date");
+    expect(formatDay(dflt(), "2026-10-04", "2026-10-04")).toBe("4 Oct");
+    expect(formatDay(dflt(), "2025-12-31", "2026-01-02")).toBe("31 Dec 2025");
+    expect(formatDay(dflt(), "not a date", "2026-10-04")).toBe("not a date");
   });
 
   test("rate in paise to rupees with two decimals, en-IN grouping", () => {

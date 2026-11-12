@@ -5,8 +5,9 @@
  * shows (recovery, balance, hints) comes from the server (`press.runs.get` / `preview`); nothing
  * here computes one.
  */
-import { bpPercent1, formatKg, formatKgTotal, gToKg, parseDecimal, PRESS_QUEUE_REORDERABLE, type CloseGateError, type PressRunStatus } from "@orrn/domain";
+import { bpPercent1, formatKg, formatKgTotal, gToKg, parseDecimal, PRESS_QUEUE_REORDERABLE, type CloseGateError, type Fmt, type PressRunStatus } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
+import { clockText, pinned } from "@/shared/lib/fmt-text";
 import type { Action } from "@/shared/lib/me";
 
 // ---------------------------------------------------------------------------
@@ -334,16 +335,9 @@ export function movedOrder<T extends { id: string }>(waiting: readonly T[], id: 
 export const kgFromG = (g: number): string => formatKgTotal(gToKg(g));
 export const kgFromG3 = (g: number): string => formatKg(gToKg(g), 3);
 
-/** `14:05` on the plant clock; empty for null. */
-export function clockOf(at: Date | string | number | null | undefined, timeZone?: string): string {
-  if (at === null || at === undefined) return "";
-  const date = at instanceof Date ? at : new Date(at);
-  if (Number.isNaN(date.getTime())) return "";
-  try {
-    return new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
-  } catch {
-    return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
-  }
+/** `14:05` (or `2:05 pm`) on the plant clock; empty for null. `timeZone` is the plant zone the screen holds. */
+export function clockOf(fmt: Fmt, at: Date | string | number | null | undefined, timeZone?: string): string {
+  return clockText(pinned(fmt, { zone: timeZone }), at);
 }
 
 /** `1:12:05` / `12:05` elapsed. */

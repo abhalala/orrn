@@ -61,6 +61,7 @@ export default function PackSessionScreen() {
               <Fact label={t("units.pcs")} value={String(totals.pieces)} />
               <Fact label={t("pack.columns.kg")} value={formatKgTotal(totals.kg)} />
               {data.group.purchaseOrderRef ? <Fact label={t("pack.new.po")} value={data.group.purchaseOrderRef} /> : null}
+              <Fact label={t("pack.columns.packedBy")} value={data.packedByName ?? t("pack.unknownPacker")} />
               {data.die ? <Fact label={t("pack.columns.section")} value={data.die.sectionCode} /> : null}
             </View>
             {totals.voidCount > 0 ? <Text className="font-sans text-sm text-ink-muted">{t("native.pack.voidNote")}</Text> : null}

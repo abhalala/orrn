@@ -5,6 +5,7 @@ import { IndianRupee } from "lucide-react";
 import { Can } from "@/shared/components/can";
 
 import { valueCardModel, type DispatchValue } from "./value-view";
+import { useFmt } from "@/shared/lib/fmt";
 
 /**
  * FP-OP-14: the value of a dispatch from the rate on each order line (server-computed, weighed kg).
@@ -13,7 +14,8 @@ import { valueCardModel, type DispatchValue } from "./value-view";
  */
 export function ValueCard({ value }: { value: DispatchValue | null | undefined }) {
   const { t } = useT();
-  const model = valueCardModel(value);
+  const fmt = useFmt();
+  const model = valueCardModel(value, fmt);
   if (!model) return null;
   return (
     <Can do="order.price">

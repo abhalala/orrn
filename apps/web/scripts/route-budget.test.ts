@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 
-import { dictionarySignatures, filesWithSignatures, htmlRoots, measureRoute, staticImports } from "./route-budget";
+import { dictionarySignatures, filesWithSignatures, htmlRoots, measureRoute, staticImports, UNITS_MODULE_SIGNATURES } from "./route-budget";
 
 describe("staticImports", () => {
   test("finds static imports and re-exports, never dynamic import()", () => {
@@ -105,6 +105,27 @@ describe("dictionary signatures", () => {
       expect(filesWithSignatures(dist, ["assets/entry.js", "assets/clean.js"], dictionarySignatures(dict))).toEqual([
         ["assets/entry.js", "Another namespace with a long sentence"],
       ]);
+    } finally {
+      rmSync(dist, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("units module signatures", () => {
+  test("each one is spelled in the domain unit registry, so a rename cannot switch the guard off", () => {
+    const registry = readFileSync(join(import.meta.dir, "../../../packages/domain/src/units/registry.ts"), "utf8");
+    expect(UNITS_MODULE_SIGNATURES.length).toBeGreaterThan(1);
+    for (const s of UNITS_MODULE_SIGNATURES) expect(registry).toContain(s);
+  });
+
+  test("a chunk that carries the registry is found, a clean one is not", () => {
+    const dist = mkdtempSync(join(tmpdir(), "units-sig-"));
+    try {
+      mkdirSync(join(dist, "assets"));
+      writeFileSync(join(dist, "assets/entry.js"), `const r=[\`${UNITS_MODULE_SIGNATURES[0]}\`];`);
+      writeFileSync(join(dist, "assets/clean.js"), "const a=`nothing here`;");
+      const hits = filesWithSignatures(dist, ["assets/entry.js", "assets/clean.js"], UNITS_MODULE_SIGNATURES);
+      expect(hits.map(([file]) => file)).toEqual(["assets/entry.js"]);
     } finally {
       rmSync(dist, { recursive: true, force: true });
     }

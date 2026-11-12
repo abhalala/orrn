@@ -9,7 +9,8 @@ import { useRef, type ReactNode } from "react";
 import { Can } from "@/shared/components/can";
 
 import { BundleGroups, type BundleGroupsProps } from "./bundle-groups";
-import { dispatchKgText } from "./format";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 
 export type AddActionsProps = {
   onScan(): void;
@@ -74,17 +75,27 @@ export function ItemsSection(props: ItemsSectionProps) {
           <EmptyState title={t("dispatch.build.empty")} />
         </div>
       ) : (
-        <BundleGroups {...props} />
+        // Its own scroll area, ending above the action bar: the bar follows the list in the layout flow, so no row or
+        // button is ever under it. Focusable so the rows can be scrolled by keyboard.
+        <div
+          data-slot="bundle-scroll"
+          role="region"
+          aria-labelledby="dispatch-items"
+          tabIndex={0}
+          className="max-h-[max(16rem,calc(100dvh-18rem))] min-w-0 overflow-y-auto overscroll-contain rounded-card outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <BundleGroups {...props} />
+        </div>
       )}
     </section>
   );
 }
 
 /**
- * The flow's sticky action bar: running totals on the left, the next steps on
- * the right. It sits above the phone tab bar and stays in reach while the
- * list scrolls. `note` explains why the actions are off (an empty dispatch).
- * Toasts are lifted above it while it is on screen.
+ * The flow's action bar: running totals on the left, the next steps on the
+ * right. It sits in the layout flow right under the bundle list (which scrolls
+ * in its own area above it), never over a row. `note` explains why the actions
+ * are off (an empty dispatch). Toasts are lifted above it while it is on screen.
  */
 export function ActionBar({
   bundles,
@@ -97,6 +108,7 @@ export function ActionBar({
   note?: string;
   children: ReactNode;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const ref = useRef<HTMLDivElement>(null);
   // Toasts ("Stock held", "Removed") rise above the bar instead of covering Dispatch.
@@ -105,11 +117,11 @@ export function ActionBar({
     <div
       ref={ref}
       data-slot="dispatch-action-bar"
-      className="sticky bottom-[calc(var(--shell-tabbar-offset)+12px)] z-20 flex min-w-0 flex-col gap-2 rounded-card border border-border bg-card/95 p-2.5 shadow-md backdrop-blur-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-3 sm:pl-5"
+      className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-card p-2.5 shadow-md sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-3 sm:pl-5"
     >
       <div className="flex min-w-0 flex-col px-1.5 sm:px-0">
         <p data-no-truncate="" className="m-0 text-[15px] font-semibold tabular-nums">
-          {t("units.bundlesKg", { bundles, kg: dispatchKgText(weightG) })}
+          {t("units.bundlesKg", { bundles, kg: kgGrouped2(fmt, weightG) })}
         </p>
         {note ? (
           <p id="dispatch-action-note" className="m-0 text-[13px] text-muted-foreground">

@@ -10,7 +10,6 @@
  * whenever those figures change (a bundle packed, a dispatch done, midnight)
  * both charts refetch, so stock age follows "In stock" too.
  */
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import {
   BarChart,
@@ -23,6 +22,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 
+import { useFmt } from "@/shared/lib/fmt";
+import { useWeightChart } from "@/shared/lib/weight-chart";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -83,7 +84,11 @@ export default function TodayCharts({ live }: TodayChartsProps) {
     void refetchAgeing();
   }, [signature, refetchTrends, refetchAgeing]);
 
-  const kg = useMemo(() => (v: number) => `${formatKgTotal(v)} ${t("units.kg")}`, [t]);
+  const fmt = useFmt();
+  // Chart values are kg; the label shows the same weight in the plant's unit.
+  // Plotted in the plant's unit, so the gridlines and the labels agree.
+  const wc = useWeightChart();
+  const kg = useMemo(() => (v: number) => wc.text(v), [wc]);
   // Days arrive as calendar dates; UTC midnight formatted in UTC keeps each label on its day.
   const dates = useMemo(() => chartDateFormat("day", locale, "UTC"), [locale]);
   const { date, packedG, dispatchedG } = live;
@@ -96,8 +101,8 @@ export default function TodayCharts({ live }: TodayChartsProps) {
       trendSeries(days, {
         packed: t("today.trend.packed"),
         dispatched: t("today.trend.dispatched"),
-      }),
-    [days, t],
+      }).map((s) => ({ ...s, points: s.points.map((p) => ({ ...p, v: wc.value(p.v) })) })),
+    [days, t, wc],
   );
   // Newest first: today so far, then yesterday (the kit lists oldest first).
   const trendTable = useMemo(
@@ -112,8 +117,8 @@ export default function TodayCharts({ live }: TodayChartsProps) {
       ageingBars(ageing.data?.buckets ?? [], (key) => ({
         label: t(AGE_NAMES[key][0]),
         short: t(AGE_NAMES[key][1]),
-      })),
-    [ageing.data, t],
+      })).map((b) => ({ ...b, value: wc.value(b.value) })),
+    [ageing.data, t, wc],
   );
   const ageingTable = useMemo(() => {
     const table = barTable(bars, {
@@ -126,9 +131,9 @@ export default function TodayCharts({ live }: TodayChartsProps) {
     const buckets = ageing.data?.buckets ?? [];
     return {
       columns: [...table.columns, { key: "bundles", header: t("pack.columns.bundles"), numeric: true }],
-      rows: table.rows.map((row, i) => ({ ...row, bundles: formatCount(buckets[i]?.bundles ?? 0) })),
+      rows: table.rows.map((row, i) => ({ ...row, bundles: formatCount(fmt, buckets[i]?.bundles ?? 0) })),
     };
-  }, [bars, ageing.data, kg, t]);
+  }, [bars, ageing.data, kg, t, fmt]);
 
   const trendQuiet = days.every((d) => d.packedKgG === 0 && d.dispatchedKgG === 0);
   const nothingInStock = (ageing.data?.totals.bundles ?? 0) === 0;
@@ -155,6 +160,7 @@ export default function TodayCharts({ live }: TodayChartsProps) {
             series={series}
             kind="line"
             format={kg}
+            formatTicks={wc.ticks}
             formatDate={dates}
             height={260}
             label={t("today.trend.label")}
@@ -173,7 +179,7 @@ export default function TodayCharts({ live }: TodayChartsProps) {
           onRetry={() => void ageing.refetch()}
           plotHeight={260}
         >
-          <BarChart data={bars} format={kg} ordinal height={260} label={t("today.ageing.label")} />
+          <BarChart data={bars} format={kg} formatTicks={wc.ticks} ordinal height={260} label={t("today.ageing.label")} />
         </ChartCard>
       </div>
     </section>

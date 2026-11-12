@@ -1,5 +1,7 @@
 import type { MessageKey, Translate } from "@orrn/i18n";
 
+import { ymdInZone } from "@/shared/lib/plant-calendar";
+
 /**
  * FP-DR-18 die work log on the copy card: the pure parts (kind label, day input, form checks), so
  * they are unit-tested. The server decides what is allowed; these only keep the form honest.
@@ -14,7 +16,7 @@ export function workKindLabel(t: Translate, code: string, label: string | null |
 
 /** Today in the plant's zone as `YYYY-MM-DD` (the `<input type="date">` value). */
 export function todayYmd(now: Date = new Date(), timeZone = "Asia/Kolkata"): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return ymdInZone(now, timeZone);
 }
 
 /** `YYYY-MM-DD` as noon IST of that day (06:30 UTC), so the day never shifts when shown; null when not a date. */

@@ -5,7 +5,6 @@ import { Plus, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
-import { kgFromG } from "@/features/press/model";
 
 import {
   CHEMICAL_UNITS,
@@ -20,11 +19,15 @@ import {
   qtyToMilli,
   type FormIssue,
   type LdoKey,
-  type MeltForm,
-} from "./melt-form";
+  type LengthDraft,
+  type MeltForm } from "./melt-form";
 import { MELT_TIME_KEYS, nowTimeIn, resolveMeltTimes } from "./melt-times";
 import { bpText } from "./model";
 import { Note, FieldSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { followsPlant, LENGTH_FT, LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, kgPlainTrim, massUnit } from "@/shared/lib/fmt-text";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
 export type Stream = { id: string; code: string; name: string; kind: string; active: boolean; balanceG: number };
@@ -65,6 +68,7 @@ const TIME_LABEL = {
 } as const;
 
 export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, timeZone }: StepProps & { furnaces: FurnaceOpt[]; alloys: AlloyOpt[]; castAlloy: string; timeZone: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const resolved = resolveMeltTimes(form.date, form.times, timeZone);
   const picked = alloys.find((a) => a.id === form.alloyId);
@@ -77,7 +81,7 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
             <option value="">{t("foundry.melt.furnacePick")}</option>
             {furnaces.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.code} · {kgFromG(f.capacityG)} {t("units.kg")}
+                {f.code} · {kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}
               </option>
             ))}
           </FieldSelect>
@@ -126,6 +130,7 @@ export function TimesStep({ form, patch, issue, furnaces, alloys, castAlloy, tim
 // --- 2. Charge -----------------------------------------------------------------------------------------------
 
 export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: StepProps & { lots: Lot[]; streams: Stream[]; capacityG: number | null }) {
+  const fmt = useFmt();
   const { t } = useT();
   const fig = figuresOf(form, capacityG);
   const takenLots = new Set(form.lots.map((l) => l.lotId));
@@ -155,7 +160,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                     <option value="">{t("foundry.melt.charge.lotPick")}</option>
                     {lots.map((x) => (
                       <option key={x.id} value={x.id} disabled={takenLots.has(x.id) && x.id !== l.lotId}>
-                        {x.number} · {[x.itemName, x.gradeCode].filter(Boolean).join(" ")} · {kgFromG(x.remainingG)} {t("units.kg")}
+                        {x.number} · {[x.itemName, x.gradeCode].filter(Boolean).join(" ")} · {kgGrouped1(fmt, x.remainingG)} {massUnit(fmt)}
                       </option>
                     ))}
                   </FieldSelect>
@@ -164,10 +169,10 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
               <div className="sm:w-44">
                 <Field
                   label={t("foundry.melt.charge.kg")}
-                  hint={lot ? t("foundry.melt.charge.left", { kg: kgFromG(lot.remainingG) }) : undefined}
-                  error={over ? t("foundry.melt.charge.over", { kg: kgFromG(lot!.remainingG) }) : marked && (issue!.code === "kg" || issue!.code === "kgTooLarge") ? t(`foundry.melt.issue.${issue!.code}`) : undefined}
+                  hint={lot ? t("foundry.melt.charge.left", { kg: kgGrouped1(fmt, lot.remainingG) }) : undefined}
+                  error={over ? t("foundry.melt.charge.over", { kg: kgGrouped1(fmt, lot!.remainingG) }) : marked && (issue!.code === "kg" || issue!.code === "kgTooLarge") ? t(`foundry.melt.issue.${issue!.code}`) : undefined}
                 >
-                  <NumberInput value={l.kgText} suffix={t("units.kg")} onValueChange={(v) => patch({ lots: form.lots.map((x) => (x.key === l.key ? { ...x, kgText: v } : x)) })} data-testid="lot-kg" />
+                  <PlantInput spec={MASS_KG} value={l.kgText} onValueChange={(v) => patch({ lots: form.lots.map((x) => (x.key === l.key ? { ...x, kgText: v } : x)) })} data-testid="lot-kg" />
                 </Field>
               </div>
               {lot ? (
@@ -201,7 +206,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
                     <option value="">{t("foundry.melt.charge.streamPick")}</option>
                     {charge.map((x) => (
                       <option key={x.id} value={x.id} disabled={takenStreams.has(x.id) && x.id !== s.streamId}>
-                        {x.code} · {kgFromG(x.balanceG)} {t("units.kg")}
+                        {x.code} · {kgGrouped1(fmt, x.balanceG)} {massUnit(fmt)}
                       </option>
                     ))}
                   </FieldSelect>
@@ -210,10 +215,10 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
               <div className="sm:w-44">
                 <Field
                   label={t("foundry.melt.charge.kg")}
-                  hint={stream ? t("foundry.melt.charge.left", { kg: kgFromG(stream.balanceG) }) : undefined}
+                  hint={stream ? t("foundry.melt.charge.left", { kg: kgGrouped1(fmt, stream.balanceG) }) : undefined}
                   error={marked ? t("foundry.melt.issue.kg") : undefined}
                 >
-                  <NumberInput value={s.kgText} suffix={t("units.kg")} onValueChange={(v) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, kgText: v } : x)) })} data-testid="stream-kg" />
+                  <PlantInput spec={MASS_KG} value={s.kgText} onValueChange={(v) => patch({ streams: form.streams.map((x) => (x.key === s.key ? { ...x, kgText: v } : x)) })} data-testid="stream-kg" />
                 </Field>
               </div>
               <RemoveButton label={t("common.remove")} onClick={() => patch({ streams: form.streams.filter((x) => x.key !== s.key) })} />
@@ -228,7 +233,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
       </section>
 
       <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="charge-total">
-        {t("foundry.melt.charge.total", { kg: kgFromG(fig.balance.metalInG) })}
+        {t("foundry.melt.charge.total", { kg: kgGrouped1(fmt, fig.balance.metalInG) })}
       </p>
       {fig.load === "over" ? <Note tone="red">{t("foundry.melt.charge.overCapacity")}</Note> : fig.load === "near" ? <Note tone="amber">{t("foundry.melt.charge.nearCapacity")}</Note> : null}
     </div>
@@ -239,6 +244,7 @@ export function ChargeStep({ form, patch, issue, lots, streams, capacityG }: Ste
 
 export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { storeItems: StoreItem[] }) {
   const { t } = useT();
+  const fmt = useFmt();
   const active = storeItems.filter((i) => i.active);
   const taken = new Set(form.chemicals.map((c) => c.storeItemId).filter(Boolean));
   const ldoUsed = (() => {
@@ -258,6 +264,11 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
           const open = qtyToMilli(c.openText);
           const used = qtyToMilli(c.usedText);
           const close = open !== null && used !== null ? open - used : null;
+          // A kilogram item is a weight: the store screens show it in the plant's unit, so the melt sheet does too. The draft stays kg text.
+          const itemUnit = other ? c.unit : (active.find((x) => x.id === c.storeItemId)?.unit ?? "");
+          const isKg = itemUnit === "kg";
+          // A plant that reads kg keeps the plain box it always had; another weight unit gets the converting box.
+          const converts = isKg && !followsPlant(fmt, MASS_KG);
           const marked = issue?.step === "chemicals" && issue.line === i && issue.code !== "ldo";
           const set = (next: Partial<typeof c>) => patch({ chemicals: form.chemicals.map((x) => (x.key === c.key ? { ...x, ...next } : x)) });
           return (
@@ -267,7 +278,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                   <option value="">{t("foundry.melt.chem.pick")}</option>
                   {active.map((x) => (
                     <option key={x.id} value={x.id} disabled={taken.has(x.id) && x.id !== c.storeItemId}>
-                      {x.name} ({x.unit})
+                      {x.name} ({x.unit === "kg" ? massUnit(fmt) : x.unit})
                     </option>
                   ))}
                   <option value="__other">{t("foundry.melt.chem.other")}</option>
@@ -282,7 +293,7 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
                     <FieldSelect value={c.unit} onChange={(e) => set({ unit: e.currentTarget.value })}>
                       {CHEMICAL_UNITS.map((u) => (
                         <option key={u} value={u}>
-                          {u}
+                          {u === "kg" ? massUnit(fmt) : u}
                         </option>
                       ))}
                     </FieldSelect>
@@ -291,13 +302,21 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
               ) : null}
               <div className="grid grid-cols-3 gap-3">
                 <Field label={t("foundry.melt.chem.open")} error={marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : undefined}>
-                  <NumberInput value={c.openText} onValueChange={(v) => set({ openText: v, closeText: "" })} data-testid="chem-open" />
+                  {converts ? (
+                    <PlantInput spec={MASS_KG} value={c.openText} onValueChange={(v) => set({ openText: v, closeText: "" })} data-testid="chem-open" />
+                  ) : (
+                    <NumberInput value={c.openText} onValueChange={(v) => set({ openText: v, closeText: "" })} data-testid="chem-open" />
+                  )}
                 </Field>
                 <Field label={t("foundry.melt.chem.used")}>
-                  <NumberInput value={c.usedText} onValueChange={(v) => set({ usedText: v, closeText: "" })} data-testid="chem-used" />
+                  {converts ? (
+                    <PlantInput spec={MASS_KG} value={c.usedText} onValueChange={(v) => set({ usedText: v, closeText: "" })} data-testid="chem-used" />
+                  ) : (
+                    <NumberInput value={c.usedText} onValueChange={(v) => set({ usedText: v, closeText: "" })} data-testid="chem-used" />
+                  )}
                 </Field>
                 <Field label={t("foundry.melt.chem.close")} error={marked && issue!.code === "chemicalClose" ? t("foundry.melt.issue.chemicalClose") : undefined}>
-                  <TextInput readOnly value={close === null ? "" : String(close / 1000)} aria-readonly="true" data-testid="chem-close" />
+                  <TextInput readOnly value={close === null ? "" : isKg ? kgPlainTrim(fmt, close) : String(close / 1000)} aria-readonly="true" data-testid="chem-close" />
                 </Field>
               </div>
               <RemoveButton label={t("common.remove")} onClick={() => patch({ chemicals: form.chemicals.filter((x) => x.key !== c.key) })} />
@@ -331,8 +350,10 @@ export function ChemicalsStep({ form, patch, issue, storeItems }: StepProps & { 
 
 // --- 4. Output -----------------------------------------------------------------------------------------------------
 
-export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps & { streams: Stream[]; capacityG: number | null }) {
+export function OutputStep({ form, patch, issue, streams, capacityG, lengthDraft }: StepProps & { streams: Stream[]; capacityG: number | null; lengthDraft: LengthDraft }) {
   const { t } = useT();
+  // The unit the draft text is written in, frozen by the editor; the box shows it in whatever the plant reads now.
+  const lengthSpec = lengthDraft === "mm" ? LENGTH_MM : LENGTH_FT;
   const fig = figuresOf(form, capacityG);
   const b = fig.balance;
   const outside = b.metalInG > 0 && (b.needsReason || b.negativeBurn);
@@ -354,13 +375,13 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
                   <NumberInput decimal={false} value={l.pcsText} onValueChange={(v) => set({ pcsText: v })} data-testid="log-pcs" />
                 </Field>
                 <Field label={t("foundry.melt.out.length")}>
-                  <NumberInput value={l.lengthText} suffix={t("units.ft")} onValueChange={(v) => set({ lengthText: v })} data-testid="log-length" />
+                  <PlantInput spec={lengthSpec} value={l.lengthText} onValueChange={(v) => set({ lengthText: v })} data-testid="log-length" />
                 </Field>
                 <Field label={t("foundry.melt.out.billetLength")} hint={t("foundry.melt.out.billetLengthHint")}>
-                  <NumberInput value={l.billetLengthText} suffix={t("units.ft")} onValueChange={(v) => set({ billetLengthText: v })} />
+                  <PlantInput spec={lengthSpec} value={l.billetLengthText} onValueChange={(v) => set({ billetLengthText: v })} />
                 </Field>
                 <Field label={t("foundry.melt.out.kg")}>
-                  <NumberInput value={l.kgText} suffix={t("units.kg")} onValueChange={(v) => set({ kgText: v })} data-testid="log-kg" />
+                  <PlantInput spec={MASS_KG} value={l.kgText} onValueChange={(v) => set({ kgText: v })} data-testid="log-kg" />
                 </Field>
               </div>
               <RemoveButton label={t("common.remove")} onClick={() => patch({ logs: form.logs.filter((x) => x.key !== l.key) })} />
@@ -376,10 +397,10 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label={t("foundry.melt.out.byproducts")}>
         <Field label={t("foundry.melt.out.dross")}>
-          <NumberInput value={form.drossKg} suffix={t("units.kg")} onValueChange={(v) => patch({ drossKg: v })} data-testid="melt-dross" />
+          <PlantInput spec={MASS_KG} value={form.drossKg} onValueChange={(v) => patch({ drossKg: v })} data-testid="melt-dross" />
         </Field>
         <Field label={t("foundry.melt.out.fe")}>
-          <NumberInput value={form.feKg} suffix={t("units.kg")} onValueChange={(v) => patch({ feKg: v })} data-testid="melt-fe" />
+          <PlantInput spec={MASS_KG} value={form.feKg} onValueChange={(v) => patch({ feKg: v })} data-testid="melt-fe" />
         </Field>
       </section>
 
@@ -403,7 +424,7 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
             </div>
             <div className="sm:w-44">
               <Field label={t("foundry.melt.out.kg")}>
-                <NumberInput value={r.kgText} suffix={t("units.kg")} onValueChange={(v) => patch({ returns: form.returns.map((x) => (x.key === r.key ? { ...x, kgText: v } : x)) })} />
+                <PlantInput spec={MASS_KG} value={r.kgText} onValueChange={(v) => patch({ returns: form.returns.map((x) => (x.key === r.key ? { ...x, kgText: v } : x)) })} />
               </Field>
             </div>
             <RemoveButton label={t("common.remove")} onClick={() => patch({ returns: form.returns.filter((x) => x.key !== r.key) })} />
@@ -428,15 +449,16 @@ export function OutputStep({ form, patch, issue, streams, capacityG }: StepProps
 
 /** The running balance: kg in, out, burn and yield, worked out on the screen for the person typing (the server stores its own). */
 export function Balance({ form, capacityG }: { form: MeltForm; capacityG: number | null }) {
+  const fmt = useFmt();
   const { t } = useT();
   const fig = figuresOf(form, capacityG);
   const b = fig.balance;
   const tone = b.metalInG === 0 ? "bg-surface-sunken" : b.needsReason || b.negativeBurn ? "bg-tone-amber-tint text-tone-amber-ink" : "bg-tone-green-tint text-tone-green-ink";
   return (
     <p role="status" className={`m-0 flex flex-wrap gap-x-5 gap-y-1 rounded-card px-4 py-3 text-[15px] font-semibold tabular-nums ${tone}`} data-testid="balance-chip">
-      <span>{t("foundry.melt.balance.in", { kg: kgFromG(b.metalInG) })}</span>
-      <span>{t("foundry.melt.balance.out", { kg: kgFromG(fig.logsG + fig.drossG + fig.feG + fig.returnsG) })}</span>
-      <span>{t("foundry.melt.balance.burn", { kg: kgFromG(Math.abs(b.burnG)), pct: bpText(b.balanceBp === null ? null : Math.abs(b.balanceBp)) || "0.0" })}</span>
+      <span>{t("foundry.melt.balance.in", { kg: kgGrouped1(fmt, b.metalInG) })}</span>
+      <span>{t("foundry.melt.balance.out", { kg: kgGrouped1(fmt, fig.logsG + fig.drossG + fig.feG + fig.returnsG) })}</span>
+      <span>{t("foundry.melt.balance.burn", { kg: kgGrouped1(fmt, Math.abs(b.burnG)), pct: bpText(b.balanceBp === null ? null : Math.abs(b.balanceBp)) || "0.0" })}</span>
       <span>{t("foundry.melt.balance.yield", { pct: bpText(b.yieldBp) || "0.0" })}</span>
     </p>
   );

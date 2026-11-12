@@ -45,7 +45,7 @@ export const guPressBoard = {
       orders: "ઓર્ડર",
       released: "રિલીઝ થયું",
       total: "કુલ",
-      pressedSoFar: "અત્યાર સુધી પ્રેસ થયું {kg} kg",
+      pressedSoFar: "અત્યાર સુધી પ્રેસ થયું {kg} {massUnit}",
       noOrderLines: "કોઈ ઓર્ડર લાઇન નથી",
       purposeNote: "કોઈ ઓર્ડર સામે નથી.",
       filterSection: "સેક્શન",
@@ -57,7 +57,7 @@ export const guPressBoard = {
       clearUrgent: "તાત્કાલિક હટાવો",
       moveFailed: "કતાર બદલાઈ નહીં. ફરી લોડ કરીને પ્રયાસ કરો.",
       pullBackTitle: "આ લંબાઈ પાછી પ્લાનિંગમાં લઈએ?",
-      pullBackBody: "{order}, {length}, {pcs} pcs, {kg} kg ફરી પ્લાન કરી શકાશે. રન તેની બીજી લંબાઈ રાખે છે.",
+      pullBackBody: "{order}, {length}, {pcs} pcs, {kg} {massUnit} ફરી પ્લાન કરી શકાશે. રન તેની બીજી લંબાઈ રાખે છે.",
       pullBackReason: "કેમ (મરજિયાત)",
       pullBackConfirm: "પાછું લો",
       pullBackFailed: "પાછું લઈ શકાયું નહીં.",
@@ -69,7 +69,7 @@ export const guPressBoard = {
   reports: {
     todayTile: {
       title: "90 દિવસથી જૂનો સ્ટોક",
-      meta: "યાર્ડમાં {kg} kg",
+      meta: "યાર્ડમાં {kg} {massUnit}",
     },
   },
   charts: {
@@ -100,6 +100,7 @@ export const guPressBoard = {
     unitThousand: "k",
     unitLakh: "L",
     unitCrore: "Cr",
+    unitMillion: "M",
     sparkSummary: "{label}: {first} થી {last}, વધુમાં વધુ {max}, ઓછામાં ઓછું {min}",
   },
 } as const satisfies DeepPartial<Messages>;

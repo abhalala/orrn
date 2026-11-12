@@ -22,9 +22,12 @@ import type { Action } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "./errors";
-import { kgText } from "./format";
 import { kgTextToG, readKanta, MAX_LOT_KG } from "./kanta";
 import { DiffText } from "./lot-ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim } from "@/shared/lib/fmt-text";
 
 /** Grams as the text a NumberInput starts with ("12450.5"). */
 const gToText = (g: number | null) => (g === null ? "" : String(g / 1000));
@@ -127,10 +130,10 @@ export function WeightsSheet({
         }}
       >
         <Field label={t("purchase.new.party")} hint={t("purchase.new.partyHint")} error={submitted ? partyError : undefined}>
-          <NumberInput value={party} onValueChange={setParty} suffix="kg" />
+          <PlantInput spec={MASS_KG} value={party} onValueChange={setParty} />
         </Field>
         <Field label={t("purchase.new.fc")} hint={t("purchase.new.fcHint")} error={submitted ? fcError : undefined}>
-          <NumberInput value={fc} onValueChange={setFc} suffix="kg" />
+          <PlantInput spec={MASS_KG} value={fc} onValueChange={setFc} />
         </Field>
         <p aria-live="polite" className="m-0 rounded-card bg-surface-sunken px-4 py-3 text-[15px]">
           <DiffText reading={readKanta(party, fc, toleranceBp)} toleranceBp={toleranceBp} />
@@ -168,6 +171,7 @@ export function NoteSheet({
   maxWeightG?: number | null;
   onSent?(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const invalidate = useInvalidatePurchase();
   const onRefused = useRefusalToast();
@@ -286,20 +290,20 @@ export function NoteSheet({
           label={t("purchase.detail.kgDiff")}
           hint={
             weightDebit && maxWeightG !== null && minNoteG > 0
-              ? t("purchase.new.noteKgRange", { min: kgText(minNoteG), max: kgText(maxWeightG) })
+              ? t("purchase.new.noteKgRange", { min: kgTrim(fmt, minNoteG), max: kgTrim(fmt, maxWeightG) })
               : weightDebit && minNoteG > 0
-                ? t("purchase.new.noteKgHint", { min: kgText(minNoteG) })
+                ? t("purchase.new.noteKgHint", { min: kgTrim(fmt, minNoteG) })
                 : weightDebit && maxWeightG !== null
-                  ? t("purchase.new.noteKgMax", { max: kgText(maxWeightG) })
+                  ? t("purchase.new.noteKgMax", { max: kgTrim(fmt, maxWeightG) })
                   : undefined
           }
           error={submitted ? errors.kg : undefined}
         >
-          <NumberInput value={kg} onValueChange={setKg} suffix="kg" />
+          <PlantInput spec={MASS_KG} value={kg} onValueChange={setKg} />
         </Field>
         {type === "debit" ? (
           <Field label={t("purchase.new.bori")} hint={t("purchase.new.boriHint")} error={submitted ? errors.bori : undefined}>
-            <NumberInput value={bori} onValueChange={setBori} suffix="kg" />
+            <PlantInput spec={MASS_KG} value={bori} onValueChange={setBori} />
           </Field>
         ) : null}
         <Field label={t("purchase.detail.amountOptional")} hint={t("purchase.detail.amountHint")} error={submitted ? errors.amount : undefined}>

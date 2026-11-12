@@ -9,7 +9,6 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
-import { kgFromG } from "@/features/press/model";
 import { reasonOptions } from "@/features/press/reason-label";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
@@ -18,6 +17,10 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 
 import { bpText, closeFormIssue, countedBillets, countKey } from "./model";
 import { ErrorLine, Note, FieldSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 
@@ -37,6 +40,7 @@ function useRefreshCast() {
  * goes to a second person, and the ledger moves to the count when the close lands.
  */
 export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose(): void; cast: CastData }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const refresh = useRefreshCast();
   const co = cast.closeout;
@@ -120,12 +124,12 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
     >
       <div className="flex flex-col gap-4 pt-1">
         <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]" data-testid="close-figures" aria-busy={checking}>
-          <Row label={t("foundry.cast.panel.produced")} value={`${kgFromG(co.producedG)} ${t("units.kg")}`} />
-          <Row label={t("foundry.cast.panel.pressed")} value={`${kgFromG(co.creditedG)} ${t("units.kg")}`} />
-          <Row label={t("foundry.cast.close.ledgerOnHand")} value={`${kgFromG(co.billetsOnHandG)} ${t("units.kg")}`} testId="close-ledger" />
+          <Row label={t("foundry.cast.panel.produced")} value={`${kgGrouped1(fmt, co.producedG)} ${massUnit(fmt)}`} />
+          <Row label={t("foundry.cast.panel.pressed")} value={`${kgGrouped1(fmt, co.creditedG)} ${massUnit(fmt)}`} />
+          <Row label={t("foundry.cast.close.ledgerOnHand")} value={`${kgGrouped1(fmt, co.billetsOnHandG)} ${massUnit(fmt)}`} testId="close-ledger" />
           <Row
             label={t("foundry.cast.panel.tail")}
-            value={p ? `${p.tailG < 0 ? "-" : ""}${kgFromG(Math.abs(p.tailG))} ${t("units.kg")}${p.tailBp !== null ? ` (${bpText(p.tailBp)}%)` : ""}` : "-"}
+            value={p ? `${p.tailG < 0 ? "-" : ""}${kgGrouped1(fmt, Math.abs(p.tailG))} ${massUnit(fmt)}${p.tailBp !== null ? ` (${bpText(p.tailBp)}%)` : ""}` : "-"}
             strong
             testId="close-tail"
           />
@@ -138,17 +142,17 @@ export function CloseCastSheet({ open, onClose, cast }: { open: boolean; onClose
               <NumberInput decimal={false} value={pcs} onValueChange={setPcs} data-testid="close-pcs" />
             </Field>
             <Field label={t("foundry.cast.close.kg")} error={countError === "kg" ? t("foundry.cast.close.kgInvalid") : undefined}>
-              <NumberInput value={kg} suffix={t("units.kg")} onValueChange={setKg} data-testid="close-kg" />
+              <PlantInput spec={MASS_KG} value={kg} onValueChange={setKg} data-testid="close-kg" />
             </Field>
           </div>
           {!count.ok && count.issue === "together" ? <Note tone="amber">{t("foundry.cast.close.together")}</Note> : null}
         </section>
         {!p && !(count.ok === false && count.issue === "together") ? <Note>{t("foundry.cast.close.waitingCount")}</Note> : null}
-        {p && p.shortG > 0 ? <Note tone="red">{t("foundry.cast.close.short", { kg: kgFromG(p.shortG) })}</Note> : null}
-        {p && p.tailG < 0 && p.shortG === 0 ? <Note tone="amber">{t("foundry.cast.close.countOver", { kg: kgFromG(-p.tailG) })}</Note> : null}
+        {p && p.shortG > 0 ? <Note tone="red">{t("foundry.cast.close.short", { kg: kgGrouped1(fmt, p.shortG) })}</Note> : null}
+        {p && p.tailG < 0 && p.shortG === 0 ? <Note tone="amber">{t("foundry.cast.close.countOver", { kg: kgGrouped1(fmt, -p.tailG) })}</Note> : null}
         {p ? (
           <p className="m-0 text-[14px] text-muted-foreground" data-testid="close-adjust">
-            {p.adjustG !== 0 ? t("foundry.cast.close.adjust", { kg: `${p.adjustG < 0 ? "-" : "+"}${kgFromG(Math.abs(p.adjustG))}` }) : t("foundry.cast.close.adjustNone")}
+            {p.adjustG !== 0 ? t("foundry.cast.close.adjust", { kg: `${p.adjustG < 0 ? "-" : "+"}${kgGrouped1(fmt, Math.abs(p.adjustG))}` }) : t("foundry.cast.close.adjustNone")}
           </p>
         ) : null}
         {p && !p.needsReason ? <Note tone="green" testId="close-clean">{t("foundry.cast.close.clean")}</Note> : null}

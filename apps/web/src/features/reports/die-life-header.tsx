@@ -2,6 +2,7 @@ import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { useQuery } from "@tanstack/react-query";
 
+import { useFmt } from "@/shared/lib/fmt";
 import { trpc } from "@/shared/utils/trpc";
 
 import { lifeChip, lifeHeader, lifeTone } from "./model";
@@ -12,6 +13,7 @@ import { lifeChip, lifeHeader, lifeTone } from "./model";
  */
 export function DieLifeHeader({ copyId }: { copyId: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   const life = useQuery({ ...trpc.analytics.dieLife.queryOptions({ dieInstanceId: copyId, includeRetired: true }), retry: false });
   const item = life.data?.items[0];
   if (!item) return null;
@@ -21,7 +23,7 @@ export function DieLifeHeader({ copyId }: { copyId: string }) {
         <Chip tone={lifeTone(item.state)} truncate={false}>
           {lifeChip(item, t)}
         </Chip>
-        <span className="text-[14px] leading-5 text-muted-foreground">{lifeHeader(item, t)}</span>
+        <span className="text-[14px] leading-5 text-muted-foreground">{lifeHeader(item, t, fmt)}</span>
       </div>
       {item.reached ? (
         <p role="note" className="m-0 text-[13px] leading-5 font-medium text-destructive">

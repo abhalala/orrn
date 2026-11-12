@@ -10,6 +10,8 @@ import { trpcClient } from "@/shared/utils/trpc";
 
 import { shortDate } from "./die-room-model";
 import { kgText, sectionLabel, shareFailure, wallText } from "./share-model";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { paperT, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 
 /** The drawing link lives 10 minutes; come back before it dies (focus after 8 minutes asks again). */
 const FRESH_MS = 8 * 60 * 1000;
@@ -20,7 +22,11 @@ const FRESH_MS = 8 * 60 * 1000;
  * expired link is one neutral page. Costs, stock and customers are not in the answer at all.
  */
 export function DieSharePage({ token }: { token: string }) {
-  const { t } = useT();
+  // A paper: this page renders outside the tenant frame today, so the plant's unit would not reach it; it reads the paper
+  // formatter and the paper words anyway, so a move under the frame can never write kg/12ft figures under a lb/ft word.
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const view = useQuery({
     queryKey: ["die-share-view", token],
     queryFn: () => trpcClient.die.share.view.mutate({ token }),
@@ -107,19 +113,19 @@ export function DieSharePage({ token }: { token: string }) {
         <dl className="m-0 grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="share-facts">
           <Fact label={t("dieRoom.share.page.weight")}>
             <span className="font-mono tabular-nums" data-testid="share-weight">
-              {t("dieRoom.share.page.range", { min: kgText(main?.weightMinG ?? 0), max: kgText(main?.weightMaxG ?? 0) })} {t("units.kgPer12ft")}
+              {t("dieRoom.share.page.range", { min: kgText(main?.weightMinG ?? 0), max: kgText(main?.weightMaxG ?? 0) })} {sectionUnit(fmt)}
             </span>
             {others.map((b, i) => (
               <span key={i} className="block font-mono text-[14px] font-medium tabular-nums text-muted-foreground">
-                {t("dieRoom.share.page.range", { min: kgText(b.weightMinG), max: kgText(b.weightMaxG) })} {t("units.kgPer12ft")}
-                {wallText(b.wallTenthMm) ? ` · ${wallText(b.wallTenthMm)} ${t("units.mm")}` : ""}
+                {t("dieRoom.share.page.range", { min: kgText(b.weightMinG), max: kgText(b.weightMaxG) })} {sectionUnit(fmt)}
+                {b.wallTenthMm && b.wallTenthMm > 0 ? ` · ${wallWithUnit(fmt, b.wallTenthMm)}` : ""}
               </span>
             ))}
           </Fact>
           {wall ? (
             <Fact label={t("dieRoom.share.page.wall")}>
               <span className="font-mono tabular-nums">
-                {wall} {t("units.mm")}
+                {main?.wallTenthMm && main.wallTenthMm > 0 ? wallWithUnit(fmt, main.wallTenthMm) : null}
               </span>
             </Fact>
           ) : null}
@@ -136,7 +142,7 @@ export function DieSharePage({ token }: { token: string }) {
           ) : null}
         </dl>
 
-        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.share.page.openUntil", { date: shortDate(expiresAt) })}</p>
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("dieRoom.share.page.openUntil", { date: shortDate(fmt, expiresAt) })}</p>
         <span className="sr-only">{sectionLabel(section)}</span>
       </article>
     </Frame>

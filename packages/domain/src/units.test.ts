@@ -13,6 +13,7 @@ import {
   kgToG,
   lengthFromInput,
   parseDecimal,
+  withoutGrouping,
   weightRange12ft,
   weightRange12ftFromMilli,
   weightRange12ftOf,
@@ -90,6 +91,29 @@ describe("kg formatting", () => {
   });
 });
 
+describe("a comma is digit grouping or nothing (units sweep 3, M3)", () => {
+  test("correct grouping reads as before, western and Indian, with or without a decimal part", () => {
+    expect(parseDecimal("1,000")).toBe(1000);
+    expect(parseDecimal("1,00,000")).toBe(100_000);
+    expect(parseDecimal("12,345.5")).toBe(12_345.5);
+    expect(parseDecimal("1,234,567.25")).toBe(1_234_567.25);
+    expect(parseDecimal("12,34,567")).toBe(1_234_567);
+    expect(parseDecimal("999,999")).toBe(999_999);
+  });
+  test("a decimal comma or a stray comma is not a number: 2,5 was 25, 4,50 was 450, 1,2,3 was 123", () => {
+    for (const text of ["2,5", "4,50", "1,2,3", "12,5", "0,5", "0,500", ",5", "5,", "1,0000", "1,234,56", "1,2345", "12,3456.7", "1,,000", "1, 000"]) {
+      expect(parseDecimal(text)).toBeNull();
+      expect(withoutGrouping(text)).toBeNull();
+    }
+  });
+  test("text without a comma is untouched", () => {
+    expect(withoutGrouping("  12.5 ")).toBe("12.5");
+    expect(withoutGrouping("")).toBe("");
+    expect(withoutGrouping("1,00,000.5")).toBe("100000.5");
+    expect(parseDecimal("2.5")).toBe(2.5);
+  });
+});
+
 describe("parseDecimal", () => {
   test("accepts plain and grouped numbers", () => {
     expect(parseDecimal("1,234.5")).toBe(1234.5);
@@ -118,6 +142,31 @@ describe("lengthFromInput", () => {
   test("mm company", () => {
     expect(lengthFromInput({ unit: "mm", mm: "3658" })).toBe(3658);
     expect(lengthFromInput({ unit: "mm", mm: "3,658.4" })).toBe(3658);
+  });
+  test("regression: 26 ft 10.5 in is exactly 8191.5 mm and rounds half away to 8192 (the float sum gave 8191)", () => {
+    expect(lengthFromInput({ unit: "inch", feet: "26", inches: "10.5" })).toBe(8192);
+    // The old float path, kept here as the reference the new exact path is compared with.
+    const oldFloat = (feet: number, inches: number) => Math.round((feet * 12 + inches) * 25.4);
+    expect(oldFloat(26, 10.5)).toBe(8191);
+    // Every quarter inch from 0 to 40 ft: the exact path equals the old one except where the float was wrong.
+    const differs: string[] = [];
+    for (let feet = 0; feet <= 40; feet++) {
+      for (let q = 0; q < 48; q++) {
+        const inches = q / 4;
+        if (feet === 0 && inches === 0) continue;
+        const now = lengthFromInput({ unit: "inch", feet: String(feet), inches: String(inches) });
+        if (now !== oldFloat(feet, inches)) differs.push(`${feet} ft ${inches} in`);
+        // Exact check: mm = (feet*12 + inches) * 127 / 5, half away from zero.
+        const num = (feet * 48 + q) * 127; // quarter inches * 127 / 20 mm
+        expect(now).toBe(Math.floor((num * 2 + 20) / 40));
+      }
+    }
+    expect(differs).toEqual(["26 ft 10.5 in"]);
+  });
+  test("regression: text beyond a double is read exactly", () => {
+    expect(lengthFromInput({ unit: "mm", mm: "0.49999999999999999" })).toBeNull(); // 0.4999... rounds to 0, which is not a length
+    expect(lengthFromInput({ unit: "mm", mm: "1234.5" })).toBe(1235);
+    expect(lengthFromInput({ unit: "mm", mm: "99999999999999999999" })).toBeNull(); // not a safe integer
   });
   test("never reads mm text as inches (25.4x guard)", () => {
     expect(lengthFromInput({ unit: "inch", mm: "3658" })).toBeNull();

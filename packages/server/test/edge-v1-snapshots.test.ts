@@ -24,6 +24,25 @@ afterAll(async () => {
   await env.dispose();
 });
 
+describe("edge company_format and the plant's unit choices", () => {
+  test("a plant that saved the Units tab still sends the edge today's fixed units, and no units block", async () => {
+    const { companyId } = await env.seedCompany({
+      settings: { timezone: "Asia/Kolkata", units: { v: 1, units: { mass: "lb", length: "m", linear_mass: "lb_ft" }, number: { grouping: "international" }, clock: "h12" } },
+    });
+    const manifest = await buildOrGetCompanySnapshotManifest(env.db, { companyId, forceRebuild: true, nowMs: 1_700_000_000_000 });
+    const sec = manifest.sections.find((x) => x.section === "company_format")!;
+    const chunk = await getSnapshotChunkForNode(env.db, { companyId, snapshotId: sec.snapshotId, sequence: 0 });
+    expect(chunk.ok).toBe(true);
+    if (!chunk.ok) return;
+    const raw = JSON.stringify(chunk.body);
+    expect(raw).toContain('"units":{"weight":"kg","length":"ft"}');
+    expect(raw).not.toContain("lb_ft");
+    expect(raw).not.toContain("international");
+    expect(raw).not.toContain("h12");
+    expect(raw).toContain("Asia/Kolkata");
+  });
+});
+
 describe("edge v1 sanitized snapshots", () => {
   test("builds all five sections, strips prices and label variables, and reflects hard deletes on next generation", async () => {
     const { companyId } = await env.seedCompany();

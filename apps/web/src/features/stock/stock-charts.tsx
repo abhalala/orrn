@@ -3,27 +3,33 @@
  * roles only, and loaded with `lazy()` from the Sections screen so the chart
  * kit never reaches the entry chunk or a floor role's download.
  */
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BarChart, ChartCard, RankedBars, barTable, rankedTable } from "@orrn/ui/charts";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
+import { useWeightChart } from "@/shared/lib/weight-chart";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ageBars, topSectionRows } from "./charts-data";
 import { failedWithoutData } from "./section-page";
 
-// An empty age bucket reads "0 kg", not "0.0 kg".
-const kg = (v: number) => (v === 0 ? "0 kg" : `${formatKgTotal(v)} kg`);
 const PLOT_HEIGHT = 220;
 
 export default function StockCharts({ labelFor }: { labelFor(dieId: string): string | undefined }) {
   const { t } = useT();
+  const fmt = useFmt();
+  // An empty age bucket reads "0 kg", not "0.0 kg". Chart values are kg; the label shows the same weight in the plant's unit.
+  const kg = (v: number) => (v === 0 ? `0 ${massUnit(fmt)}` : `${kgGrouped1(fmt, Math.round(v * 1000))} ${massUnit(fmt)}`);
+  // The age bars are plotted in the plant's unit, so their gridlines and labels agree; the ranked bars below keep kg values.
+  const wc = useWeightChart();
+  const plotted = (v: number) => wc.text(v, true);
   const ageing = useQuery(trpc.analytics.stockAgeing.queryOptions());
   const data = ageing.data;
 
-  const bars = useMemo(() => (data ? ageBars(data, t) : []), [data, t]);
+  const bars = useMemo(() => (data ? ageBars(data, t) : []).map((b) => ({ ...b, value: wc.value(b.value) })), [data, t, wc]);
   const top = useMemo(() => (data ? topSectionRows(data, labelFor) : { rows: [], other: 0 }), [data, labelFor]);
 
   // A failed background refetch keeps the charts on screen (React Query v5 keeps data); the error state is for no data.
@@ -49,12 +55,12 @@ export default function StockCharts({ labelFor }: { labelFor(dieId: string): str
         plotHeight={PLOT_HEIGHT}
         table={barTable(bars, {
           t,
-          format: kg,
+          format: plotted,
           labelHeader: t("stock.charts.ageHeader"),
-          valueHeader: t("stock.charts.kgHeader"),
+          valueHeader: t("stock.charts.kgHeader", { massUnit: massUnit(fmt) }),
         })}
       >
-        <BarChart data={bars} format={kg} ordinal height={PLOT_HEIGHT} label={t("stock.charts.ageLabel")} />
+        <BarChart data={bars} format={plotted} formatTicks={wc.ticks} ordinal height={PLOT_HEIGHT} label={t("stock.charts.ageLabel")} />
       </ChartCard>
 
       <ChartCard
@@ -69,7 +75,7 @@ export default function StockCharts({ labelFor }: { labelFor(dieId: string): str
         table={rankedTable(top.rows, {
           t,
           format: kg,
-          valueHeader: t("stock.charts.kgHeader"),
+          valueHeader: t("stock.charts.kgHeader", { massUnit: massUnit(fmt) }),
           other: top.other,
           otherLabel: t("stock.charts.otherSections"),
         })}

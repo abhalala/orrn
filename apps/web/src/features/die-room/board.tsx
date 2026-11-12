@@ -32,12 +32,14 @@ import {
   type BoardKind,
   type BoardOwner,
   type BoardSort,
-  type BoardTile,
-} from "./board-model";
+  type BoardTile } from "./board-model";
 import { BulkDrawingsSheet } from "./bulk-drawings";
 import { TrialSetting } from "./trial-setting";
+import { copyBandCell } from "./copy-band";
 import { WorstToneChip } from "./drift-chips";
 import { formatBand, type DriftTone } from "./die-room-model";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, sectionUnit } from "@/shared/lib/fmt-text";
 
 const PAGE = 50;
 
@@ -47,6 +49,9 @@ type CopyRow = {
   sectionSeries: string;
   /** The copy's own band as the server writes it (`2.700-2.900`, or the band's label). */
   bandText: string;
+  /** The same band's ends in grams per 12 ft: the cell writes them in the plant's section unit. */
+  bandMinG: number;
+  bandMaxG: number;
 };
 
 type Row = {
@@ -84,6 +89,7 @@ export type BoardProps = {
  * copy-status tile counts copies, so pressing it lists those copies (each opens its card).
  */
 export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onPage, onFilter, onClear }: BoardProps) {
+  const fmt = useFmt();
   const { t } = useT();
   const { data: me } = useMe();
   const [importing, setImporting] = useState(false);
@@ -135,7 +141,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       phoneWide: true,
       cell: (d) => (
         <span data-no-truncate="" data-testid="board-band" className="font-mono whitespace-nowrap tabular-nums">
-          {formatBand(d.weightMinG, d.weightMaxG, t("units.kgPer12ft"))}
+          {formatBand(d.weightMinG, d.weightMaxG, sectionUnit(fmt), fmt)}
         </span>
       ),
     },
@@ -183,7 +189,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
       phoneWide: true,
       cell: (c) => (
         <span data-no-truncate="" data-testid="copy-band" className="font-mono whitespace-nowrap tabular-nums">
-          {/^\d/.test(c.bandText) ? `${c.bandText} ${t("units.kgPer12ft")}` : c.bandText}
+          {copyBandCell(c, fmt)}
         </span>
       ),
     },
@@ -461,6 +467,7 @@ export function DieRoomBoard({ q, offset, tile, kind, owner, sort, onSearch, onP
 
 /** One tile of the board: a count, pressed to filter the list to it. */
 function TileButton({ id, count, pressed, onPress }: { id: BoardTile; count: number; pressed: boolean; onPress(): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const label = t(`dieRoom.board.tiles.${id}`);
   const warm = id === "on_trial" && count > 0;
@@ -477,7 +484,7 @@ function TileButton({ id, count, pressed, onPress }: { id: BoardTile; count: num
       ].join(" ")}
     >
       <span data-no-truncate="" className="font-mono text-[24px] leading-none font-semibold tabular-nums">
-        {count.toLocaleString("en-IN")}
+        {countText(fmt, count)}
       </span>
       <span className="text-[13px] leading-4 font-medium text-muted-foreground">{label}</span>
     </button>

@@ -11,6 +11,8 @@ import { trpc } from "@/shared/utils/trpc";
 import { gramsToWholeKg, parseWholeKgToGrams } from "./die-room-model";
 import type { CardData } from "./types";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { PlantInput } from "@/shared/components/plant-input";
+import { WHOLE_KG } from "@/shared/lib/plant-input";
 
 const text = (v: string | null | undefined) => v ?? "";
 const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
@@ -127,7 +129,7 @@ function EditForm({ open, onOpenChange, card }: { open: boolean; onOpenChange(op
           </Field>
         </div>
         <Field label={t("dieRoom.card.lifeKg")} hint={t("dieRoom.card.lifeHint")} error={error === t("dieRoom.card.fieldsInvalid") && life.trim() !== "" && parseWholeKgToGrams(life) === null ? error : undefined}>
-          <NumberInput value={life} onValueChange={setLife} decimal={false} suffix={t("units.kg")} />
+          <PlantInput spec={WHOLE_KG} value={life} onValueChange={setLife} decimal={false} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label={t("dieRoom.card.makerDieNo")}>

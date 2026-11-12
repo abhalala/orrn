@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { bookDateText, kgText, pctText } from "./format";
+import { bookDateText } from "../../../test-support/legacy/purchase-format";
+import { kgText, pctText } from "./format";
 
 describe("kgText", () => {
   test("grams as kg, Indian grouping, no trailing zeros, up to 3 decimals", () => {
@@ -37,7 +38,7 @@ describe("bookDateText", () => {
 
 describe("bookDayText", () => {
   test("lists drop the year inside the plant's current year and keep it otherwise", async () => {
-    const { bookDayText } = await import("./format");
+    const { bookDayText } = await import("../../../test-support/legacy/purchase-format");
     expect(bookDayText("2026-10-04", "en", "2026-10-04")).toBe("4 Oct");
     expect(bookDayText("2026-01-31", "en", "2026-10-04")).toBe("31 Jan");
     expect(bookDayText("2025-12-30", "en", "2026-01-02")).toBe("30 Dec 2025");
@@ -48,14 +49,14 @@ describe("bookDayText", () => {
 
 describe("instantDateText", () => {
   test("shows the plant's wall clock and survives a bad zone", async () => {
-    const { instantDateText } = await import("./format");
+    const { instantDateText } = await import("../../../test-support/legacy/purchase-format");
     // 3 Oct 2026 08:30 UTC is 14:00 in India.
     expect(instantDateText("2026-10-03T08:30:00Z", "en")).toMatch(/3 Oct.*14:00/);
     expect(instantDateText("2026-10-03T08:30:00Z", "en", "Not/AZone")).toMatch(/3 Oct.*14:00/);
   });
 
   test("24-hour clock; the year only outside the plant's current year (C2 spec dates)", async () => {
-    const { instantDateText } = await import("./format");
+    const { instantDateText } = await import("../../../test-support/legacy/purchase-format");
     const now = Date.parse("2026-10-04T06:00:00Z");
     // 30 Dec 2025 16:42 UTC is 22:12 in India.
     expect(instantDateText("2025-12-30T16:42:00Z", "en", "Asia/Kolkata", now)).toBe("30 Dec 2025 at 22:12");

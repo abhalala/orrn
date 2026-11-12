@@ -12,7 +12,6 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
-import { kgFromG } from "@/features/press/model";
 import { reasonOptions } from "@/features/press/reason-label";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
@@ -21,10 +20,11 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict, MeltChip } from "./cast-view";
 import { clockText, dayText } from "./format";
-import { mmToFtText } from "./melt-form";
 import { bpText } from "./model";
 import { SpectroPanel } from "./spectro-panel";
 import { ErrorLine, Figure, Note, Panel, useTimeZone, FieldSelect } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, castLengthText } from "@/shared/lib/fmt-text";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 type MeltRow = CastData["melts"][number];
@@ -38,6 +38,7 @@ const at = (v: unknown): number | null => (v === null || v === undefined ? null 
  * a draft copy.
  */
 export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
+  const fmt = useFmt();
   const { t } = useT();
   const tz = useTimeZone();
   const alloys = useQuery({ ...trpc.foundry.alloys.list.queryOptions(), meta: INLINE_ERROR_META });
@@ -71,11 +72,11 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
           <Figure label={t("foundry.melt.furnace")} value={furnace?.code ?? "-"} />
           <Figure label={t("foundry.melt.alloy")} value={alloy?.code ?? melt.alloy} />
-          <Figure label={t("foundry.cast.panel.metalIn")} value={`${kgFromG(melt.inputG)} ${t("units.kg")}`} testId="sheet-in" />
-          <Figure label={t("foundry.melt.out.logs")} value={`${kgFromG(melt.logsG)} ${t("units.kg")}`} hint={`${melt.logsPcs} ${t("units.pcs")}`} testId="sheet-logs" />
-          <Figure label={t("foundry.melt.out.dross")} value={`${kgFromG(melt.drossG)} ${t("units.kg")}`} />
-          <Figure label={t("foundry.melt.out.fe")} value={`${kgFromG(melt.feG)} ${t("units.kg")}`} />
-          <Figure label={t("foundry.cast.panel.burn")} value={`${kgFromG(Math.abs(melt.lossG))} ${t("units.kg")}`} hint={`${bpText(Math.abs(melt.lossBp))}%`} testId="sheet-burn" />
+          <Figure label={t("foundry.cast.panel.metalIn")} value={`${kgGrouped1(fmt, melt.inputG)} ${massUnit(fmt)}`} testId="sheet-in" />
+          <Figure label={t("foundry.melt.out.logs")} value={`${kgGrouped1(fmt, melt.logsG)} ${massUnit(fmt)}`} hint={`${melt.logsPcs} ${t("units.pcs")}`} testId="sheet-logs" />
+          <Figure label={t("foundry.melt.out.dross")} value={`${kgGrouped1(fmt, melt.drossG)} ${massUnit(fmt)}`} />
+          <Figure label={t("foundry.melt.out.fe")} value={`${kgGrouped1(fmt, melt.feG)} ${massUnit(fmt)}`} />
+          <Figure label={t("foundry.cast.panel.burn")} value={`${kgGrouped1(fmt, Math.abs(melt.lossG))} ${massUnit(fmt)}`} hint={`${bpText(Math.abs(melt.lossBp))}%`} testId="sheet-burn" />
           <Figure label={t("foundry.melt.balance.yieldLabel")} value={melt.yieldBp === null ? "-" : `${bpText(melt.yieldBp)}%`} testId="sheet-yield" />
         </dl>
         {melt.balanceNote ? <p className="m-0 text-[14px] break-words">{t("foundry.melt.sheet.balanceNote", { note: melt.balanceNote })}</p> : null}
@@ -87,7 +88,7 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
           {times.map(([k, v]) => {
             const ms = at(v);
-            return <Figure key={k} label={t(`foundry.melt.times.${k}`)} value={ms === null ? "-" : `${clockText(ms, tz)}`} hint={ms === null ? undefined : dayText(ms, tz)} />;
+            return <Figure key={k} label={t(`foundry.melt.times.${k}`)} value={ms === null ? "-" : `${clockText(fmt, ms, tz)}`} hint={ms === null ? undefined : dayText(fmt, ms, tz)} />;
           })}
         </dl>
       </Panel>
@@ -97,7 +98,7 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
             <li key={n} className="flex flex-wrap items-baseline gap-x-3 text-[15px]">
               <span className="font-mono font-semibold">{i.lotNumber ?? i.streamCode}</span>
               <span className="text-muted-foreground">{[i.itemName, i.gradeCode].filter(Boolean).join(" · ") || i.streamName}</span>
-              <span className="tabular-nums">{kgFromG(i.kgG)} {t("units.kg")}</span>
+              <span className="tabular-nums">{kgGrouped1(fmt, i.kgG)} {massUnit(fmt)}</span>
             </li>
           ))}
         </ul>
@@ -116,12 +117,12 @@ export function MeltSheet({ data, melt }: { data: CastData; melt: MeltRow }) {
           <ul className="m-0 flex list-none flex-col gap-1.5 border-t border-border p-0 pt-3" data-testid="sheet-logs-list">
             {logs.map((l, n) => (
               <li key={n} className="text-[15px] tabular-nums">
-                {t("foundry.melt.out.logLine", { pcs: l.pcs ?? 0, ft: mmToFtText(l.lengthMm), kg: kgFromG(l.kgG) })}
+                {t("foundry.melt.out.logLine", { pcs: l.pcs ?? 0, ft: castLengthText(fmt, l.lengthMm), kg: kgGrouped1(fmt, l.kgG) })}
               </li>
             ))}
             {returns.map((r, n) => (
               <li key={`r${n}`} className="text-[15px] tabular-nums">
-                {r.streamCode}: {kgFromG(r.kgG)} {t("units.kg")}
+                {r.streamCode}: {kgGrouped1(fmt, r.kgG)} {massUnit(fmt)}
               </li>
             ))}
           </ul>

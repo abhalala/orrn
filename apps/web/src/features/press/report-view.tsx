@@ -16,9 +16,12 @@ import { INLINE_ERROR_META, isForbiddenError, showsQueryError } from "@/shared/l
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { downloadCsv as saveCsvFile } from "../imports/templates";
-import { kgFromG, percentOfBp } from "./model";
+import { percentOfBp } from "./model";
+import { billetsHeaderKey, reportCell } from "./report-cells";
 import { reasonLabel } from "./reason-label";
 import type { ReportSearch } from "./search";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 const ALL = "__all";
 
@@ -91,6 +94,7 @@ export function ReportScreen({
   back?: { to: string; label: string };
   children?: ReactNode;
 }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { data: me } = useMe();
   const today = useQuery({ ...trpc.press.summary.queryOptions({}), meta: INLINE_ERROR_META });
@@ -215,7 +219,7 @@ export function ReportScreen({
                 <tr className="border-b border-border text-muted-foreground">
                   {COLUMN_KEYS.map(([id, key]) => (
                     <th key={id} scope="col" className={`px-[3px] py-2 align-bottom font-medium leading-4 ${RIGHT.has(id) ? "text-right" : ""}`}>
-                      {t(key)}
+                      {t(id === "billets" ? billetsHeaderKey(fmt) : key)}
                     </th>
                   ))}
                 </tr>
@@ -224,7 +228,12 @@ export function ReportScreen({
                 {data.rows.map((row) => (
                   <tr key={row.id} data-run={row.number} className="border-b border-border last:border-0">
                     {COLUMN_KEYS.map(([id]) => {
-                      const cell = id === "orders" && row.trial ? t(`press.plan.purpose.${row.purpose}` as MessageKey) : row.cells[id];
+                      const cell =
+                        id === "orders" && row.trial
+                          ? t(`press.plan.purpose.${row.purpose}` as MessageKey)
+                          : id === "good" || id === "scrap" || id === "billets" || id === "cutLengths"
+                            ? reportCell(fmt, id, row)
+                            : row.cells[id];
                       const content =
                         id === "downtimeMin" && row.downtimeCodes.length > 0
                           ? `${row.downtimeMin} (${row.downtimeReasons.map((c) => reasonLabel(t, "downtime", c.code, c.label, c, locale)).join(", ")})`
@@ -259,9 +268,9 @@ export function ReportScreen({
                   </td>
                   <td className="px-[3px] py-2 tabular-nums">{data.totals.downtimeMin}</td>
                   <td className="px-[3px] py-2 tabular-nums">
-                    {kgFromG(data.totals.goodG)} / {data.totals.pcs}
+                    {kgGrouped1(fmt, data.totals.goodG)} / {data.totals.pcs}
                   </td>
-                  <td className="whitespace-nowrap px-[3px] py-2 tabular-nums">{kgFromG(data.totals.scrapG)}</td>
+                  <td className="whitespace-nowrap px-[3px] py-2 tabular-nums">{kgGrouped1(fmt, data.totals.scrapG)}</td>
                   <td className="px-[3px] py-2 text-right font-mono tabular-nums">{percentOfBp(data.totals.recoveryBp)}</td>
                 </tr>
               </tfoot>

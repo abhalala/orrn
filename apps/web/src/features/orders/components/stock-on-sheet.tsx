@@ -11,8 +11,9 @@ import { toast } from "sonner";
 import { downloadStockOnOrderPdf, downloadStockOnOrderXlsx, printStockOnOrder } from "@/shared/lib/exports";
 import { trpc } from "@/shared/utils/trpc";
 
-import { orderKgText, pcsText } from "../format";
 import { useCompanyTimeZone } from "../hooks";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * Stock held on this order (FP-OP-19): the order's in-yard bundles by line with a total, from
@@ -20,6 +21,7 @@ import { useCompanyTimeZone } from "../hooks";
  * snapshot in the browser. No rates.
  */
 export function StockOnSheet({ open, onOpenChange, orderId, orderNumber }: { open: boolean; onOpenChange(open: boolean): void; orderId: string; orderNumber: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const timeZone = useCompanyTimeZone();
   const data = useQuery({ ...trpc.orders.stockOn.queryOptions({ id: orderId }), enabled: open });
@@ -54,7 +56,7 @@ export function StockOnSheet({ open, onOpenChange, orderId, orderNumber }: { ope
         ) : (
           <>
             <p className="m-0 font-mono text-[15px] font-semibold tabular-nums" data-stock-on-total="">
-              {t("units.bundles", { count: data.data.total.bundles })} · {pcsText(data.data.total.pcs)} {t("units.pcs")} · {orderKgText(data.data.total.weightG)} {t("units.kg")}
+              {t("units.bundles", { count: data.data.total.bundles })} · {countText(fmt, data.data.total.pcs)} {t("units.pcs")} · {kgGrouped3(fmt, data.data.total.weightG)} {massUnit(fmt)}
             </p>
             {lines.length === 0 ? (
               <p className="m-0 text-[14px] text-muted-foreground" data-stock-on-empty="">
@@ -72,7 +74,7 @@ export function StockOnSheet({ open, onOpenChange, orderId, orderNumber }: { ope
                         <span className="font-mono text-[14px] font-semibold">{b.serial}</span>
                         <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
                           {b.copyCode ? `${b.copyCode} · ` : ""}
-                          {pcsText(b.pcs)} {t("units.pcs")} · {orderKgText(b.weightG)} {t("units.kg")}
+                          {countText(fmt, b.pcs)} {t("units.pcs")} · {kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}
                           {b.yard ? ` · ${b.yard}` : ""}
                         </span>
                       </li>

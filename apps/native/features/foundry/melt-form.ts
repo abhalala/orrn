@@ -93,6 +93,22 @@ export function mmToFtText(mm: number | null | undefined): string {
   if (mm === null || mm === undefined) return "";
   return String(Math.round((mm / MM_PER_FT) * 100) / 100);
 }
+/** What a log or billet length draft is written in: feet (today's boxes) or whole mm (a plant on metres, so 3.5 m is exactly 3500). */
+export type LengthDraft = "ft" | "mm";
+/** A draft of whole mm to mm; null when it is not a positive whole number. */
+export function mmTextToMm(text: string): number | null {
+  const t = text.trim();
+  if (!/^\d{1,9}$/.test(t)) return null;
+  const n = Number(t);
+  return n > 0 ? n : null;
+}
+export function lengthDraftToMm(text: string, draft: LengthDraft): number | null {
+  return draft === "mm" ? mmTextToMm(text) : ftToMm(text);
+}
+export function mmToLengthDraft(mm: number | null | undefined, draft: LengthDraft): string {
+  if (mm === null || mm === undefined) return "";
+  return draft === "mm" ? String(mm) : mmToFtText(mm);
+}
 /** Typed LDO inches ("42.5") to tenths of an inch. */
 export function inchToTenth(text: string): number | null {
   const n = parseDecimal(text);
@@ -187,6 +203,8 @@ export type SaveContext = {
   expectedServerSeq?: number;
   timeZone: string;
   clientRequestId?: string;
+  /** The unit the log and billet length drafts are written in; feet unless the plant chose metres. */
+  lengthDraft?: LengthDraft;
 };
 
 export type SaveInput = {
@@ -217,6 +235,7 @@ export type SaveInput = {
  */
 export function saveInputOf(form: MeltForm, ctx: SaveContext): { ok: true; input: SaveInput } | { ok: false; issue: FormIssue } {
   const fail = (issue: FormIssue) => ({ ok: false as const, issue });
+  const lengthDraft = ctx.lengthDraft ?? "ft";
 
   const times = resolveMeltTimes(form.date, form.times, ctx.timeZone);
   if (times.invalid.length > 0) return fail({ code: "time", step: "times" });
@@ -281,11 +300,11 @@ export function saveInputOf(form: MeltForm, ctx: SaveContext): { ok: true; input
   for (const [i, l] of form.logs.entries()) {
     if (blank(l.pcsText) && blank(l.lengthText) && blank(l.kgText) && blank(l.billetLengthText)) continue;
     const pcs = wholePositive(l.pcsText);
-    const lengthMm = ftToMm(l.lengthText);
+    const lengthMm = lengthDraftToMm(l.lengthText, lengthDraft);
     const kgG = kgToG(l.kgText);
     if (pcs === null || lengthMm === null || kgG === null || kgG <= 0) return fail({ code: "log", step: "output", line: i });
     if (kgG > FOUNDRY_LINE_MAX_G) return fail({ code: "kgTooLarge", step: "output", line: i });
-    const billetLengthMm = blank(l.billetLengthText) ? null : ftToMm(l.billetLengthText);
+    const billetLengthMm = blank(l.billetLengthText) ? null : lengthDraftToMm(l.billetLengthText, lengthDraft);
     if (!blank(l.billetLengthText) && billetLengthMm === null) return fail({ code: "log", step: "output", line: i });
     logs.push({ pcs, lengthMm, ...(billetLengthMm !== null ? { billetLengthMm } : {}), kgG });
   }
@@ -367,7 +386,7 @@ export type SavedMelt = {
 };
 
 /** The saved draft as text, on the plant's clock. `fallbackDate` is used while no time is written yet. */
-export function formFromMelt(m: SavedMelt, timeZone: string, fallbackDate: string): MeltForm {
+export function formFromMelt(m: SavedMelt, timeZone: string, fallbackDate: string, lengthDraft: LengthDraft = "ft"): MeltForm {
   const at: Record<MeltTimeKey, number | null> = {
     preheatStart: ms(m.preheatStartAt),
     chargingStart: ms(m.chargingStartAt),
@@ -408,8 +427,8 @@ export function formFromMelt(m: SavedMelt, timeZone: string, fallbackDate: strin
       .map((o) => ({
         key: lineKey(),
         pcsText: o.pcs ? String(o.pcs) : "",
-        lengthText: mmToFtText(o.lengthMm),
-        billetLengthText: o.billetLengthMm && o.billetLengthMm !== o.lengthMm ? mmToFtText(o.billetLengthMm) : "",
+        lengthText: mmToLengthDraft(o.lengthMm, lengthDraft),
+        billetLengthText: o.billetLengthMm && o.billetLengthMm !== o.lengthMm ? mmToLengthDraft(o.billetLengthMm, lengthDraft) : "",
         kgText: gToKgText(o.kgG),
       })),
     drossKg: m.drossG ? gToKgText(m.drossG) : "",

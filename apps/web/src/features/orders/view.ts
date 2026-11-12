@@ -6,6 +6,9 @@
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey, Translate } from "@orrn/i18n";
 
+import type { Fmt } from "@orrn/domain";
+import { countText, kgGrouped3 } from "@/shared/lib/fmt-text";
+import { wallParts } from "@/shared/lib/plant-calendar";
 import { orderKgText, pcsText } from "./format";
 
 export type OrderStatus = "booking" | "confirmed" | "dispatching" | "closed" | "cancelled";
@@ -103,7 +106,8 @@ export function stripGrams(strip: Strip, key: StripGramKey): number {
   return strip[key];
 }
 
-export function stripCells(strip: Strip): StripCell[] {
+/** With the plant's `fmt` the figures are in its weight unit and style; without, today's kg text (the default set gives the same). */
+export function stripCells(strip: Strip, fmt?: Fmt): StripCell[] {
   return STRIP_CELLS.map((cell) => {
     const grams = stripGrams(strip, cell.key);
     const inStock = cell.key === "inStockG";
@@ -111,8 +115,8 @@ export function stripCells(strip: Strip): StripCell[] {
     return {
       key: cell.key,
       labelKey: cell.labelKey,
-      kg: orderKgText(grams),
-      pcs: pcs == null ? null : pcsText(pcs),
+      kg: fmt ? kgGrouped3(fmt, grams) : orderKgText(grams),
+      pcs: pcs == null ? null : fmt ? countText(fmt, pcs) : pcsText(pcs),
       bundles: inStock ? (strip.inStockBundles ?? null) : null,
       open: Boolean(cell.balance) && grams > 0,
     };
@@ -250,7 +254,9 @@ function metaOf(meta: unknown): Record<string, unknown> {
 export function timelineLabel(
   ev: Pick<TimelineEvent, "action" | "meta" | "move">,
   words: { plant: string } = { plant: "plant stock" },
+  fmt?: Fmt,
 ): { key: MessageKey; vars: Record<string, string | number> } {
+  const kg = (g: number) => (fmt ? kgGrouped3(fmt, g) : orderKgText(g));
   const meta = metaOf(ev.meta);
   const str = (k: string) => (typeof meta[k] === "string" ? (meta[k] as string) : "");
   const num = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
@@ -275,23 +281,23 @@ export function timelineLabel(
       const move = ev.move;
       // BACKLOG 34: "3 bundles, 57.000 kg, from KD Extrusion to plant stock" (the server's figures).
       if (move && move.from && move.from.length > 0 && move.to !== undefined) {
-        const vars = { count: move.count, kg: orderKgText(move.kgG), from: fromText(move.from, words.plant), to: toText(move.to, words.plant) };
+        const vars = { count: move.count, kg: kg(move.kgG), from: fromText(move.from, words.plant), to: toText(move.to, words.plant) };
         if (status === "pending") return { key: "orders.timeline.movePending", vars };
         if (status === "rejected") return { key: "orders.timeline.moveRejected", vars };
         return { key: "orders.timeline.moveApplied", vars };
       }
-      const vars = { count: move?.count ?? num("bundles"), kg: orderKgText(move?.kgG ?? num("kgG")) };
+      const vars = { count: move?.count ?? num("bundles"), kg: kg(move?.kgG ?? num("kgG")) };
       if (status === "pending") return { key: "orders.timeline.reallocatePending", vars };
       if (status === "rejected") return { key: "orders.timeline.reallocateRejected", vars };
       return { key: "orders.timeline.reallocateApplied", vars };
     }
     // Explorer W1 M5: holds read as words, not "order.hold" / "order.release".
     case "order.hold":
-      return { key: "orders.timeline.hold", vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo") } };
+      return { key: "orders.timeline.hold", vars: { count: listLength("serials") || listLength("bundleIds"), kg: kg(num("kgG")), line: num("lineNo") } };
     case "order.release":
       return {
         key: str("reason") === "dispatched" ? "orders.timeline.releaseDispatched" : "orders.timeline.release",
-        vars: { count: listLength("serials") || listLength("bundleIds"), kg: orderKgText(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
+        vars: { count: listLength("serials") || listLength("bundleIds"), kg: kg(num("kgG")), line: num("lineNo"), code: str("dispatchCode") },
       };
     case "plan.create":
       return { key: "orders.timeline.planCreate", vars: { number: str("number") } };
@@ -367,16 +373,10 @@ export function windowState(startMs: number, endMs: number): WindowState {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-const WALL = new Map<string, Intl.DateTimeFormat>();
 /** The wall clock of `timeZone` at `ms`: year, month, day, hour, minute. */
 function wallOf(ms: number, timeZone: string): { y: number; m: number; d: number; h: number; mi: number } {
-  let f = WALL.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-    WALL.set(timeZone, f);
-  }
-  const p = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
-  return { y: Number(p.year), m: Number(p.month), d: Number(p.day), h: Number(p.hour) % 24, mi: Number(p.minute) };
+  const w = wallParts(ms, timeZone);
+  return { y: w.y, m: w.m, d: w.d, h: w.h, mi: w.min };
 }
 
 /**
@@ -410,14 +410,16 @@ export type WindowEnd = { day: "today" | "tomorrow" | "other"; time: string; dat
  * The window in words on the plant's clock (BACKLOG 51): "today 08:00 to tomorrow 08:00", where
  * today is the production day the server named (`plans.defaultWindow`), not the browser's date.
  */
-export function windowWords(startMs: number, endMs: number, timeZone: string, productionDay: string): { from: WindowEnd; to: WindowEnd } {
+export function windowWords(startMs: number, endMs: number, timeZone: string, productionDay: string, fmt?: Fmt): { from: WindowEnd; to: WindowEnd } {
   const [y, mo, d] = productionDay.split("-").map(Number) as [number, number, number];
   const next = new Date(Date.UTC(y, mo - 1, d + 1));
   const tomorrow = `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
   const end = (ms: number): WindowEnd => {
     const w = wallOf(ms, timeZone);
     const date = `${w.y}-${pad(w.m)}-${pad(w.d)}`;
-    return { day: date === productionDay ? "today" : date === tomorrow ? "tomorrow" : "other", time: `${pad(w.h)}:${pad(w.mi)}`, date };
+    // The time follows the plant's clock when the caller hands its formatter; without one it is the 24 hour text.
+    const time = fmt ? fmt.in({ timeZone }).time(ms) : `${pad(w.h)}:${pad(w.mi)}`;
+    return { day: date === productionDay ? "today" : date === tomorrow ? "tomorrow" : "other", time, date };
   };
   return { from: end(startMs), to: end(endMs) };
 }

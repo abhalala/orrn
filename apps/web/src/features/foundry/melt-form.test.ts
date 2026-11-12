@@ -8,6 +8,7 @@ import {
   figuresOf,
   formFromMelt,
   ftToMm,
+  lengthDraftToMm,
   inchToTenth,
   kgToG,
   lineKey,
@@ -19,6 +20,10 @@ import {
   type MeltForm,
   type SavedMelt,
 } from "./melt-form";
+
+import { formatterFor, screenPrefs } from "@orrn/domain";
+
+import { draftToTyped, logLengthSpec, typedToDraft } from "@/shared/lib/plant-input";
 
 const IST = "Asia/Kolkata";
 const ctx = { castId: "cast-1", timeZone: IST };
@@ -256,5 +261,55 @@ describe("formFromMelt", () => {
 
   test("line keys are unique", () => {
     expect(new Set([lineKey(), lineKey(), lineKey()]).size).toBe(3);
+  });
+});
+
+describe("log and billet lengths on a plant that chose metres", () => {
+  const metre = formatterFor(screenPrefs({ units: { length: "m" } }), { locale: "en", timeZone: IST });
+  const spec = logLengthSpec(metre);
+  const defaults = formatterFor(screenPrefs({}), { locale: "en", timeZone: IST });
+
+  test("the draft is whole mm on a metre plant and feet on every other plant", () => {
+    expect(spec.native).toBe("mm");
+    expect(logLengthSpec(defaults).native).toBe("ft");
+    expect(logLengthSpec(formatterFor(screenPrefs({ units: { length: "ft_in" } }), { locale: "en", timeZone: IST })).native).toBe("ft");
+  });
+  test("3.5 m is 3500 mm and 6 m is 6000 mm (they were 3499 and 6002)", () => {
+    for (const [typed, mm] of [["3.5", 3500], ["6", 6000]] as const) {
+      const step = typedToDraft(metre, spec, typed);
+      expect(step.draft).toBe(String(mm));
+      const f = filled();
+      f.logs = [{ key: "d", pcsText: "4", lengthText: step.draft, billetLengthText: step.draft, kgText: "100" }];
+      const r = saveInputOf(f, { ...ctx, lengthDraft: "mm" });
+      expect(r.ok && r.input.logs[0]).toMatchObject({ lengthMm: mm, billetLengthMm: mm });
+    }
+  });
+  test("every whole mm from 1 to 30000 goes mm, draft, box, typed, draft, mm unchanged", () => {
+    const bad: number[] = [];
+    for (let mm = 1; mm <= 30_000; mm++) {
+      const box = draftToTyped(metre, spec, String(mm));
+      const back = typedToDraft(metre, spec, box);
+      if (lengthDraftToMm(back.draft, "mm") !== mm) bad.push(mm);
+    }
+    expect(bad).toEqual([]);
+  });
+  test("a saved 6000 mm log is loaded as 6000 and shows as 6 m, and saving it again changes nothing", () => {
+    const saved: SavedMelt = {
+      furnaceId: "f1", alloyId: null, alloyReason: null, preheatStartAt: null, chargingStartAt: null, chargingEndAt: null,
+      castingStartAt: null, castingEndAt: null, ldoStartTenthIn: null, ldoChargingStartTenthIn: null, ldoChargingEndTenthIn: null,
+      ldoCastingStartTenthIn: null, ldoEndTenthIn: null, drossG: 0, feG: 0, balanceNote: null, spectroReason: null, notes: null,
+      inputs: [], chemicals: [],
+      outputs: [{ kind: "logs", returnStreamId: null, pcs: 3, lengthMm: 6000, billetLengthMm: 5500, kgG: 300_000 }],
+    };
+    const f = formFromMelt(saved, IST, "2026-10-25", "mm");
+    expect(f.logs[0]).toMatchObject({ lengthText: "6000", billetLengthText: "5500" });
+    expect(draftToTyped(metre, spec, f.logs[0]!.lengthText)).toBe("6");
+    const r = saveInputOf(f, { ...ctx, lengthDraft: "mm" });
+    expect(r.ok && r.input.logs[0]).toMatchObject({ lengthMm: 6000, billetLengthMm: 5500 });
+  });
+  test("feet drafts of a plant that did not change are read as before", () => {
+    const f = filled();
+    const r = saveInputOf(f, ctx);
+    expect(r.ok && r.input.logs[0]!.lengthMm).toBe(3658);
   });
 });

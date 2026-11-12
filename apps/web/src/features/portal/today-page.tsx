@@ -12,12 +12,15 @@ import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
-import { isPortalOrderStatus, kgText, PORTAL_STATUS_TONE, portalDispatchDay } from "./model";
+import { isPortalOrderStatus, PORTAL_STATUS_TONE, portalDispatchDay } from "./model";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /** `/portal`: what is open, how much is baki, the last dispatch, and the way to place an order. */
 export function PortalTodayPage() {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const me = usePortalMe();
   const today = useQuery({ ...trpc.portal.today.queryOptions(), retry: false });
   const open = useQuery({ ...trpc.portal.orders.list.queryOptions({ status: "open", limit: 5 }), retry: false });
@@ -40,15 +43,15 @@ export function PortalTodayPage() {
               title={t("portal.today.baki")}
               meta={t("portal.today.bakiHint")}
               value={d.bakiG / 1000}
-              unit={t("units.kg")}
-              format={(n) => kgText(Math.round(n * 1000))}
+              unit={massUnit(fmt)}
+              format={(n) => kgGrouped3(fmt, Math.round(n * 1000))}
               countUp={false}
             />
             {d.lastDispatch ? (
               <StatusBlock
                 tone="green"
                 title={t("portal.today.lastDispatch")}
-                meta={portalDispatchDay(d.lastDispatch, locale)}
+                meta={portalDispatchDay(fmt, d.lastDispatch)}
                 value={d.lastDispatch.code}
                 href={`/portal/dispatches/${d.lastDispatch.id}`}
               />
@@ -100,10 +103,10 @@ export function PortalTodayPage() {
                       </Chip>
                     ) : null
                   }
-                  subtitle={bookDate(o.orderDate, locale)}
+                  subtitle={bookDate(fmt, o.orderDate)}
                   facts={[
-                    { label: t("portal.orders.ordered"), value: `${kgText(o.totals.orderedG)}\u00A0${t("units.kg")}`, mono: true },
-                    { label: t("portal.orders.baki"), value: `${kgText(o.totals.bakiG)}\u00A0${t("units.kg")}`, mono: true },
+                    { label: t("portal.orders.ordered"), value: `${kgGrouped3(fmt, o.totals.orderedG)}\u00A0${massUnit(fmt)}`, mono: true },
+                    { label: t("portal.orders.baki"), value: `${kgGrouped3(fmt, o.totals.bakiG)}\u00A0${massUnit(fmt)}`, mono: true },
                   ]}
                 />
               </li>

@@ -7,6 +7,8 @@ import { UiLink } from "@orrn/ui/components/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Cylinder, Flame, FlaskConical, Layers, ListChecks, MapPin, Recycle, Store, Thermometer, Timer, Truck, Container, type LucideIcon } from "lucide-react";
 
+import { useFmt } from "@/shared/lib/fmt";
+import { countText } from "@/shared/lib/fmt-text";
 import { canAny } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -139,6 +141,7 @@ export function MastersHubPage() {
 }
 
 function MasterRow({ entry, count }: { entry: MasterEntry; count: number | undefined }) {
+  const fmt = useFmt();
   const { t } = useT();
   const Icon = ICONS[entry.key];
   return (
@@ -164,7 +167,7 @@ function MasterRow({ entry, count }: { entry: MasterEntry; count: number | undef
         ) : (
           <>
             <span data-no-truncate="" className="font-mono text-[20px] font-semibold leading-none tabular-nums">
-              {count.toLocaleString("en-IN")}
+              {countText(fmt, count)}
             </span>
             <span className="mt-1 text-[12px] font-medium text-muted-foreground">{t(NOUNS[entry.key], { count })}</span>
           </>

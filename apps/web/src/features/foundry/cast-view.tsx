@@ -12,7 +12,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
 
-import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { canAny, useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -25,6 +24,8 @@ import { bpText, CAST_TONE, canCancelCast, castPeriodText, closeBlock, closeoutV
 import { TraceTree } from "./trace-tree";
 import { Figure, LoadFailed, Note, Panel, useTimeZone } from "./ui";
 import { clockText, dayText } from "./format";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type CastData = inferRouterOutputs<AppRouter>["foundry"]["casts"]["get"];
 type MeltRow = CastData["melts"][number];
@@ -38,6 +39,7 @@ export type CastTab = "melts" | "trace";
  */
 export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTab; bundle?: string; onTab(tab: CastTab): void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const query = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id }), meta: INLINE_ERROR_META });
   const [closing, setClosing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -113,15 +115,15 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
         <Chip tone={chip.tone} truncate={false} data-testid="tail-chip">
           {chip.kind === "pending"
             ? co.tailG !== 0
-              ? t("foundry.cast.tailChip.pending", { kg: kgFromG(Math.abs(co.tailG)), pct: bpText(co.tailBp) })
-              : t("foundry.cast.tailChip.pendingShort", { kg: kgFromG(co.shortG) })
+              ? t("foundry.cast.tailChip.pending", { kg: kgGrouped1(fmt, Math.abs(co.tailG)), pct: bpText(co.tailBp) })
+              : t("foundry.cast.tailChip.pendingShort", { kg: kgGrouped1(fmt, co.shortG) })
             : chip.kind === "balanced"
             ? t("foundry.cast.tailChip.balanced")
             : chip.kind === "short"
-              ? t("foundry.cast.tailChip.short", { kg: kgFromG(co.shortG) })
+              ? t("foundry.cast.tailChip.short", { kg: kgGrouped1(fmt, co.shortG) })
               : chip.kind === "empty"
                 ? t("foundry.cast.tailChip.empty")
-                : t("foundry.cast.tailChip.tail", { kg: kgFromG(Math.abs(co.tailG)) })}
+                : t("foundry.cast.tailChip.tail", { kg: kgGrouped1(fmt, Math.abs(co.tailG)) })}
         </Chip>
         {co.draftMelts > 0 ? <Chip tone="amber" truncate={false}>{t("foundry.casts.drafts", { count: co.draftMelts })}</Chip> : null}
       </div>
@@ -136,16 +138,16 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
 
       <Panel id="tail-panel" title={t("foundry.cast.panel.title")} testId="tail-panel">
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-          <Figure label={t("foundry.cast.panel.produced")} value={`${kgFromG(co.producedG)} ${t("units.kg")}`} testId="fig-produced" />
-          <Figure label={t("foundry.cast.panel.pressed")} value={`${kgFromG(co.creditedG)} ${t("units.kg")}`} testId="fig-pressed" />
-          <Figure label={t("foundry.cast.panel.onHand")} value={`${kgFromG(co.billetsOnHandG)} ${t("units.kg")}`} testId="fig-onhand" />
-          <Figure label={t("foundry.cast.panel.tail")} value={`${co.tailG < 0 ? "-" : ""}${kgFromG(Math.abs(co.tailG))} ${t("units.kg")}`} hint={co.tailBp !== null ? `${bpText(co.tailBp)}%` : undefined} strong testId="fig-tail" />
+          <Figure label={t("foundry.cast.panel.produced")} value={`${kgGrouped1(fmt, co.producedG)} ${massUnit(fmt)}`} testId="fig-produced" />
+          <Figure label={t("foundry.cast.panel.pressed")} value={`${kgGrouped1(fmt, co.creditedG)} ${massUnit(fmt)}`} testId="fig-pressed" />
+          <Figure label={t("foundry.cast.panel.onHand")} value={`${kgGrouped1(fmt, co.billetsOnHandG)} ${massUnit(fmt)}`} testId="fig-onhand" />
+          <Figure label={t("foundry.cast.panel.tail")} value={`${co.tailG < 0 ? "-" : ""}${kgGrouped1(fmt, Math.abs(co.tailG))} ${massUnit(fmt)}`} hint={co.tailBp !== null ? `${bpText(co.tailBp)}%` : undefined} strong testId="fig-tail" />
         </dl>
         <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.cast.panel.hint")}</p>
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-3 sm:grid-cols-4" aria-label={t("foundry.cast.panel.beside")}>
-          <Figure label={t("foundry.cast.panel.metalIn")} value={`${kgFromG(co.inputG)} ${t("units.kg")}`} testId="fig-in" />
-          <Figure label={t("foundry.cast.panel.burn")} value={`${kgFromG(co.burnG)} ${t("units.kg")}`} testId="fig-burn" />
-          <Figure label={t("foundry.cast.panel.bundles")} value={`${kgFromG(co.bundlesG)} ${t("units.kg")}`} testId="fig-bundles" />
+          <Figure label={t("foundry.cast.panel.metalIn")} value={`${kgGrouped1(fmt, co.inputG)} ${massUnit(fmt)}`} testId="fig-in" />
+          <Figure label={t("foundry.cast.panel.burn")} value={`${kgGrouped1(fmt, co.burnG)} ${massUnit(fmt)}`} testId="fig-burn" />
+          <Figure label={t("foundry.cast.panel.bundles")} value={`${kgGrouped1(fmt, co.bundlesG)} ${massUnit(fmt)}`} testId="fig-bundles" />
           <Figure label={t("foundry.cast.panel.melts")} value={co.liveMelts} testId="fig-melts" />
         </dl>
       </Panel>
@@ -169,6 +171,7 @@ export function CastScreen({ id, tab, bundle, onTab }: { id: string; tab: CastTa
 }
 
 function MeltsList({ castId, melts, castOpen }: { castId: string; melts: MeltRow[]; castOpen: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   const tz = useTimeZone();
   const columns: ResponsiveListColumn<MeltRow>[] = [
@@ -179,7 +182,7 @@ function MeltsList({ castId, melts, castOpen }: { castId: string; melts: MeltRow
         <span className="flex min-w-0 flex-col">
           <span className="text-[16px] font-bold">{t("foundry.melt.number", { n: m.seq })}</span>
           {m.castingEndAt || m.chargingStartAt ? (
-            <span className="text-[13px] text-muted-foreground">{dayText(new Date(m.chargingStartAt ?? m.castingEndAt!).getTime(), tz)}</span>
+            <span className="text-[13px] text-muted-foreground">{dayText(fmt, new Date(m.chargingStartAt ?? m.castingEndAt!).getTime(), tz)}</span>
           ) : null}
         </span>
       ),
@@ -189,10 +192,10 @@ function MeltsList({ castId, melts, castOpen }: { castId: string; melts: MeltRow
       key: "time",
       header: t("foundry.cast.melts.time"),
       hideOnPhone: true,
-      cell: (m) => (m.chargingStartAt && m.castingEndAt ? <span className="tabular-nums">{clockText(new Date(m.chargingStartAt).getTime(), tz)} - {clockText(new Date(m.castingEndAt).getTime(), tz)}</span> : "-"),
+      cell: (m) => (m.chargingStartAt && m.castingEndAt ? <span className="tabular-nums">{clockText(fmt, new Date(m.chargingStartAt).getTime(), tz)} - {clockText(fmt, new Date(m.castingEndAt).getTime(), tz)}</span> : "-"),
     },
-    { key: "in", header: t("foundry.cast.melts.in"), align: "end", cell: (m) => <span className="tabular-nums whitespace-nowrap">{m.status === "draft" ? "-" : `${kgFromG(m.inputG)} ${t("units.kg")}`}</span> },
-    { key: "logs", header: t("foundry.cast.melts.logs"), align: "end", cell: (m) => <span className="tabular-nums whitespace-nowrap">{m.status === "draft" ? "-" : `${kgFromG(m.logsG)} ${t("units.kg")}`}</span> },
+    { key: "in", header: t("foundry.cast.melts.in"), align: "end", cell: (m) => <span className="tabular-nums whitespace-nowrap">{m.status === "draft" ? "-" : `${kgGrouped1(fmt, m.inputG)} ${massUnit(fmt)}`}</span> },
+    { key: "logs", header: t("foundry.cast.melts.logs"), align: "end", cell: (m) => <span className="tabular-nums whitespace-nowrap">{m.status === "draft" ? "-" : `${kgGrouped1(fmt, m.logsG)} ${massUnit(fmt)}`}</span> },
     { key: "burn", header: t("foundry.cast.melts.burn"), align: "end", hideOnPhone: true, cell: (m) => (m.status === "locked" ? <span className="tabular-nums">{bpText(m.lossBp)}%</span> : "-") },
     { key: "spectro", header: t("foundry.cast.melts.spectro"), cell: (m) => <SpectroChip m={m} /> },
   ];
@@ -240,6 +243,7 @@ function SpectroChip({ m }: { m: MeltRow }) {
 
 /** casts.cost (FP-FD-20): purchase readers only; rates stay off every other role's screen. */
 function CostCard({ castId }: { castId: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { data: me } = useMe();
   const allowed = canAny(me, PURCHASE_READERS);
@@ -258,10 +262,10 @@ function CostCard({ castId }: { castId: string }) {
           <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
             <Figure label={t("foundry.cast.cost.total")} value={d.costPaise === null ? t("foundry.cast.cost.notCosted") : rupees(d.costPaise)} testId="cost-total" />
             <Figure label={t("foundry.cast.cost.perKg")} value={d.perKgBilletPaise === null ? "-" : rupees(d.perKgBilletPaise)} testId="cost-per-kg" />
-            <Figure label={t("foundry.cast.cost.lotsKg")} value={`${kgFromG(d.lotsG)} ${t("units.kg")}`} />
+            <Figure label={t("foundry.cast.cost.lotsKg")} value={`${kgGrouped1(fmt, d.lotsG)} ${massUnit(fmt)}`} />
           </dl>
           {d.costPaise === null ? <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.cast.cost.missingRate")}</p> : null}
-          {d.streamsG > 0 ? <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.cast.cost.streams", { kg: kgFromG(d.streamsG) })}</p> : null}
+          {d.streamsG > 0 ? <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.cast.cost.streams", { kg: kgGrouped1(fmt, d.streamsG) })}</p> : null}
         </>
       )}
     </Panel>

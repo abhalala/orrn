@@ -22,7 +22,7 @@ import { useMemo, useState } from "react";
 import { useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { instantDateText } from "../purchase/format";
+import { instantText } from "@/shared/lib/fmt-text";
 import { showsQueryError } from "../purchase/query-state";
 import type { ApprovalKind } from "@orrn/server/lib/permissions";
 
@@ -43,6 +43,7 @@ import {
 } from "./approval-view";
 import { APPROVAL_FILTERS, isApprovalStatus } from "./approval-filter";
 import { ReviewSheet, type ApprovalItem } from "./review-sheet";
+import { useFmt } from "@/shared/lib/fmt";
 
 export { APPROVAL_FILTERS, isApprovalKind, isApprovalStatus };
 
@@ -190,11 +191,12 @@ export function ApprovalsPage({
   );
 }
 
-function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void }) {
-  const { t, locale } = useT();
+export function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void }) {
+  const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const view: ApprovalForView = item;
-  const subject = approvalSubject(view, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") });
+  const subject = approvalSubject(view, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") }, fmt);
   const state = decideState(me, view);
   const title = t(subject.titleKey, subject.vars) || t(subject.kindKey);
   // Codes stay on one line: "LOT-" and "13" on two lines misreads.
@@ -207,7 +209,6 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
       p.text
     ),
   );
-  const tz = typeof me?.company?.settings?.timezone === "string" ? me.company.settings.timezone : undefined;
   // Only link what this person can open (foundry and die room see D/C notes here, not purchase).
   const href = subject.href && canOpenSubject(me, view) ? subject.href : null;
   const asked = t("approvals.askedBy", { name: item.requestedByName ?? t("approvals.someone") });
@@ -234,7 +235,7 @@ function RequestCard({ item, onReview }: { item: ApprovalItem; onReview(): void 
         <Chip tone={APPROVAL_TONE[item.status]}>{t(`status.request.${item.status}`)}</Chip>
       </div>
       <p className="m-0 text-[14px] text-muted-foreground">
-        {asked}, <time dateTime={new Date(item.createdAt).toISOString()}>{instantDateText(item.createdAt, locale, tz)}</time>
+        {asked}, <time dateTime={new Date(item.createdAt).toISOString()}>{instantText(fmt, item.createdAt)}</time>
       </p>
       {item.requestNote ? (
         <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[14px] break-words">

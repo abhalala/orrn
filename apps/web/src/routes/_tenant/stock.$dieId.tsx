@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -15,14 +14,15 @@ import {
   offsetOf,
   pageWithinTotal,
   sectionDefaultStatus,
-  validateSectionSearch,
-} from "@/features/stock/bundle-search";
+  validateSectionSearch } from "@/features/stock/bundle-search";
 import { formatKgBand } from "@/features/stock/format";
 import { failedWithoutData, resolveSectionPage } from "@/features/stock/section-page";
 import { mergeSections, sectionHeadline } from "@/features/stock/sections";
 import { StatusFilter, type StatusFilterValue } from "@/features/stock/status-filter";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 const FILTERS: readonly StatusFilterValue[] = ["all", "available", "reserved", "dispatched", "void"];
 
@@ -44,6 +44,7 @@ export const Route = createFileRoute("/_tenant/stock/$dieId")({
  */
 function SectionPage() {
   const { t } = useT();
+  const fmt = useFmt();
   const { dieId } = Route.useParams();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -125,7 +126,7 @@ function SectionPage() {
   }
 
   const header = page.kind === "ready" ? page.header : null;
-  const band = header ? formatKgBand(header.weightMinG, header.weightMaxG) : null;
+  const band = header ? formatKgBand(header.weightMinG, header.weightMaxG, fmt) : null;
   const setStatus = (next: StatusFilterValue) => navigate({ search: { status: next, page: undefined } });
   const setOffset = (offset: number) =>
     navigate({ search: (prev) => ({ ...prev, page: offset / PAGE_SIZE + 1 > 1 ? offset / PAGE_SIZE + 1 : undefined }) });
@@ -187,9 +188,9 @@ function SectionPage() {
               head.state === "none"
                 ? undefined
                 : [
-                    t("stock.block.kg", { kg: formatKgTotal(gToKg(head.weightG)) }),
+                    t("stock.block.kg", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, (head.weightG)) }),
                     head.state === "inStock" && head.held > 0
-                      ? t("stock.heldKg", { count: head.held, kg: formatKgTotal(gToKg(head.heldWeightG)) })
+                      ? t("stock.heldKg", { massUnit: massUnit(fmt), count: head.held, kg: kgGrouped1(fmt, (head.heldWeightG)) })
                       : null,
                   ]
                     .filter(Boolean)

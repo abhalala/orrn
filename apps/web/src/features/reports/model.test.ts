@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
 import { en, type MessageKey } from "@orrn/i18n/en";
 
 import { csvBlob } from "../imports/templates";
@@ -32,13 +33,16 @@ import {
 } from "./model";
 import { parseDieLifeSearch, parseOrdersReportSearch, parseProductionSearch, parseStockAgeSearch } from "./search";
 
+/** The unit words a string may carry; a screen outside the plant provider (and this stub) reads them in kg, kg/12ft and mm. */
+const UNIT_DEFAULTS: Record<string, string> = { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm" };
+
 /** English `t` over the real dictionary (with `{var}` and `{count:a|b}`), so a missing key fails here. */
 function t(key: MessageKey, vars: Record<string, unknown> = {}): string {
   const raw = key.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], en);
   if (typeof raw !== "string") throw new Error(`missing ${key}`);
   return raw
     .replace(/\{(\w+):([^|}]*)\|([^}]*)\}/g, (_, v, one, other) => (Number(vars[v]) === 1 ? one : other))
-    .replace(/\{(\w+)\}/g, (_, v) => String(vars[v] ?? `{${v}}`));
+    .replace(/\{(\w+)\}/g, (_, v) => String(vars[v] ?? UNIT_DEFAULTS[v] ?? `{${v}}`));
 }
 
 const recovery: RecoveryData = {
@@ -122,6 +126,13 @@ describe("die life", () => {
     expect(lifeTone("none")).toBe("neutral");
     expect(lifeHeader(lifeItem({}), t)).toBe("Life: 94.7 % used, 56,820 of 60,000 kg pressed");
     expect(lifeHeader(lifeItem({ lifeG: null, usedPct: null, state: "none" }), t)).toBe("No life set for this copy. Pressed so far: 56,820 kg");
+    // a pound plant: the figures are whole pounds, the word beside them is the plant's
+    const lb = formatterFor(screenPrefs({ units: { mass: "lb" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(lifeHeader(lifeItem({}), t, lb)).toContain("1,25,267 of 1,32,277");
+    expect(lifeHeader(lifeItem({}), t, lb)).not.toContain("56,820");
+    // a plant that changed nothing reads the same text with a formatter as without
+    const plain = formatterFor(screenPrefs({}), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(lifeHeader(lifeItem({}), t, plain)).toBe(lifeHeader(lifeItem({}), t));
   });
 
   test("CSV: one row per copy with blank life cells when none is set", () => {

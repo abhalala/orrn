@@ -1,3 +1,4 @@
+import { interpolate } from "./core";
 import { describe, expect, test } from "bun:test";
 import { en } from "./en";
 import { hi } from "./hi";
@@ -109,6 +110,8 @@ describe("guide parity", () => {
 
 
 describe("guides name real buttons", () => {
+  // A button whose label carries a unit placeholder ("Weight ({massUnit})") reads, for a plant on the defaults, "Weight (kg)": guides quote that.
+  const withUnitDefaults = (values: Iterable<string>) => new Set([...values].flatMap((v) => [v, interpolate(v)]));
   const quoted = (s: string) => [...s.matchAll(/"([^"]+)"/g)].map((m) => m[1] as string);
 
   function unknownNames(book: typeof guidesEn, values: Set<string>): string[] {
@@ -122,11 +125,11 @@ describe("guides name real buttons", () => {
   }
 
   test("every quoted name in the English guides is an en.ts string or a guide title", () => {
-    expect(unknownNames(guidesEn, new Set(enFlat.values()))).toEqual([]);
+    expect(unknownNames(guidesEn, withUnitDefaults(enFlat.values()))).toEqual([]);
   });
 
   test("every quoted name in the Hindi guides is a hi.ts string or a guide title", () => {
-    expect(unknownNames(guidesHi, new Set(hiFlat.values()))).toEqual([]);
+    expect(unknownNames(guidesHi, withUnitDefaults(hiFlat.values()))).toEqual([]);
   });
 
   test("each guide quotes UI names in both locales or in neither", () => {

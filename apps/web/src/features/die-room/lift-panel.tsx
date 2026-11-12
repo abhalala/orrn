@@ -24,13 +24,14 @@ import {
   formatBand,
   bandTitle,
   kgPerMetreText,
-  milliKgText,
-  parseRank,
-} from "./die-room-model";
+  parseRank } from "./die-room-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useFmt } from "@/shared/lib/fmt";
+import { altSectionText, countText, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 /** `/dies/copies/$copyId/lift`: ask for the copy to move to another band. A manager decides; the code never changes. */
 export function LiftPage({ copyId }: { copyId: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -102,14 +103,14 @@ export function LiftPage({ copyId }: { copyId: string }) {
       : []),
   ].map((b) => ({
     value: b.id ?? "primary",
-    label: bandTitle(b, t("units.mm"), t("units.kgPer12ft")),
+    label: bandTitle(b, t("units.mm"), sectionUnit(fmt), fmt),
   }));
   const chosen = target || targets[0]?.value || "";
   const rankText = rank ?? (instance.tierRank == null ? "" : String(instance.tierRank));
   const bandNameOf = (id: string | null) => {
-    if (id == null && bands.data) return formatBand(bands.data.primary.weightMinG, bands.data.primary.weightMaxG, t("units.kgPer12ft"));
+    if (id == null && bands.data) return formatBand(bands.data.primary.weightMinG, bands.data.primary.weightMaxG, sectionUnit(fmt), fmt);
     const b = bands.data?.bands.find((x) => x.id === id);
-    return b ? formatBand(b.weightMinG, b.weightMaxG, t("units.kgPer12ft")) : "";
+    return b ? formatBand(b.weightMinG, b.weightMaxG, sectionUnit(fmt), fmt) : "";
   };
 
   const submit = () => {
@@ -143,7 +144,7 @@ export function LiftPage({ copyId }: { copyId: string }) {
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.lift.currentBand")}</dt>
               <dd className="m-0 font-mono text-[15px] font-semibold tabular-nums">
-                {band ? bandTitle(band, t("units.mm"), t("units.kgPer12ft")) : "—"}
+                {band ? bandTitle(band, t("units.mm"), sectionUnit(fmt), fmt) : "—"}
               </dd>
             </div>
             <div>
@@ -151,7 +152,7 @@ export function LiftPage({ copyId }: { copyId: string }) {
               <dd className="m-0 font-mono text-[15px] tabular-nums">
                 {card.data.currentMilli == null
                   ? t("dieRoom.card.noReading")
-                  : `${milliKgText(card.data.currentMilli)} ${t("units.kgPer12ft")} · ${kgPerMetreText(card.data.kgPerMetre)} ${t("units.kgPerMetre")}`}
+                  : `${sectionText(fmt, card.data.currentMilli)} ${sectionUnit(fmt)} · ${altSectionText(fmt, card.data.currentMilli)}`}
               </dd>
             </div>
           </dl>
@@ -162,8 +163,8 @@ export function LiftPage({ copyId }: { copyId: string }) {
           {mine && mine.offBandMilli ? (
             <p className="m-0 text-[15px] font-semibold tabular-nums" data-testid="off-band">
               {mine.offBandMilli > 0
-                ? t("dieRoom.lift.aboveBy", { g: mine.offBandMilli.toLocaleString("en-IN") })
-                : t("dieRoom.lift.belowBy", { g: Math.abs(mine.offBandMilli).toLocaleString("en-IN") })}
+                ? t("dieRoom.lift.aboveBy", { g: countText(fmt, mine.offBandMilli) })
+                : t("dieRoom.lift.belowBy", { g: countText(fmt, Math.abs(mine.offBandMilli)) })}
             </p>
           ) : null}
         </Card>

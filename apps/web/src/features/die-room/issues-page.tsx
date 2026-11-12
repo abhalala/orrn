@@ -23,6 +23,7 @@ import { shortDate, shortDateTime } from "./die-room-model";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CopyPicker, CustomerSearchPicker, type PickedCopy } from "./pickers";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useFmt } from "@/shared/lib/fmt";
 
 const PURPOSES = ["plan", "press", "pack", "dispatch"] as const;
 type Purpose = (typeof PURPOSES)[number];
@@ -190,6 +191,7 @@ function IssueForm() {
 }
 
 function OpenIssues() {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -255,7 +257,7 @@ function OpenIssues() {
                 {i.pressRunNumber ? <span className="font-mono text-[13px] text-muted-foreground">{i.pressRunNumber}</span> : null}
               </div>
               <p className="m-0 text-[13px] text-muted-foreground">
-                {shortDateTime(i.issuedAt)}
+                {shortDateTime(fmt, i.issuedAt)}
                 {i.note ? ` · ${i.note}` : ""}
               </p>
               <Can do="die.issue">
@@ -470,6 +472,7 @@ function OwnerCheck() {
  * again. Read-only for everyone else.
  */
 function OpenExceptions({ copy }: { copy: PickedCopy }) {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -527,7 +530,7 @@ function OpenExceptions({ copy }: { copy: PickedCopy }) {
                   {t(`dieRoom.owner.purpose.${String(meta.purpose) as "plan" | "press" | "pack" | "dispatch"}`)}
                 </p>
                 <p className="m-0 text-[13px] text-muted-foreground">
-                  {t("dieRoom.owner.approvedOn", { date: shortDate(a.decidedAt as string | number | Date | null) })}
+                  {t("dieRoom.owner.approvedOn", { date: shortDate(fmt, a.decidedAt as string | number | Date | null) })}
                   {a.requestNote ? ` \u00b7 ${a.requestNote}` : ""}
                 </p>
                 <Can do="masters.publish">

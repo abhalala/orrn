@@ -19,15 +19,20 @@ import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ConfirmDialog } from "./confirm-dialog";
-import { milliKgText, parseKgToMilli, shortDate } from "./die-room-model";
+import { parseKgToMilli, shortDate } from "./die-room-model";
 import type { CardData } from "./types";
 import { useNewCopyOnTrial, useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionText } from "@/shared/lib/fmt-text";
 
 const PURPOSES = ["trial", "correction", "repair"] as const;
 type Purpose = (typeof PURPOSES)[number];
 
 /** Maker tab: where the copy is with a die maker, the job, and the send / receive moves. */
 export function MakerPanel({ card }: { card: CardData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { instance, openMakerJob } = card;
   const [sendOpen, setSendOpen] = useState(false);
@@ -80,7 +85,7 @@ export function MakerPanel({ card }: { card: CardData }) {
             </div>
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.maker.sent")}</dt>
-              <dd className="m-0 text-[14px]">{shortDate(openMakerJob.sentAt)}</dd>
+              <dd className="m-0 text-[14px]">{shortDate(fmt, openMakerJob.sentAt)}</dd>
             </div>
             <div>
               <dt className="text-[12px] font-medium text-muted-foreground">{t("dieRoom.maker.statusLabel")}</dt>
@@ -122,8 +127,8 @@ export function MakerPanel({ card }: { card: CardData }) {
                   <span>{j.makerName}</span>
                   <span className="text-muted-foreground">{t(`dieRoom.maker.${j.purpose}`)}</span>
                   <span className="text-[13px] text-muted-foreground">
-                    {shortDate(j.sentAt)}
-                    {j.receivedAt ? ` → ${shortDate(j.receivedAt)}` : ""}
+                    {shortDate(fmt, j.sentAt)}
+                    {j.receivedAt ? ` → ${shortDate(fmt, j.receivedAt)}` : ""}
                   </span>
                   <Chip tone={j.status === "received" ? "green" : "neutral"} truncate={false}>
                     {t(`dieRoom.maker.status.${j.status}`)}
@@ -252,6 +257,7 @@ function ReceiveSheet({
   jobId: string;
   number: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -313,11 +319,11 @@ function ReceiveSheet({
         ) : null}
         {hasTrial ? (
           <p className="m-0 text-[14px] leading-6 text-muted-foreground">
-            {t("dieRoom.maker.trialSet", { kg: milliKgText(card.instance.trialKgPer12ftMilli!) })}
+            {t("dieRoom.maker.trialSet", { kg: sectionText(fmt, card.instance.trialKgPer12ftMilli!) })}
           </p>
         ) : (
           <Field label={t("dieRoom.card.trial")} hint={t("dieRoom.maker.trialHint")}>
-            <NumberInput value={trial} onValueChange={setTrial} suffix={t("units.kg")} />
+            <PlantInput spec={SECTION_KG12} value={trial} onValueChange={setTrial} />
           </Field>
         )}
         <Field label={t("common.note")} hint={t("common.optional")}>

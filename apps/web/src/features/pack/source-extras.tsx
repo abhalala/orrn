@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Skeleton } from "@orrn/ui/components/skeleton";
@@ -20,11 +19,11 @@ import {
   withPinOverride,
   withPinnedLine,
   type SourceBlocker,
-  type SourceChoice,
-} from "./source-gate";
+  type SourceChoice } from "./source-gate";
 import { packLineChoices } from "./pack-lines";
 import { useCasts, useDieCopies, useOpenLines, useOwnerCheck, useTrolleyLines } from "./use-pack-server";
-import { kg12Text } from "./line-preview";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 const NONE = "";
 
@@ -64,6 +63,7 @@ export function SourceExtras({
   /** A trolley line was picked: the Source step may fill the cut length from it. */
   onPickTrolley?(row: { cutLengthMm: number } | null): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const blockers = gate.blockers;
   const has = (k: SourceBlocker["kind"]) => blockers.find((b) => b.kind === k);
@@ -92,7 +92,7 @@ export function SourceExtras({
         </span>
       ),
       ariaLabel: `${l.orderNumber}/${l.lineNo} ${l.customerName}`,
-      detail: t("pack.source.lineDetail", { baki: formatKgTotal(gToKg(l.bakiG)), ordered: formatKgTotal(gToKg(l.orderedG)) }),
+      detail: t("pack.source.lineDetail", { massUnit: massUnit(fmt), baki: kgGrouped1(fmt, (l.bakiG)), ordered: kgGrouped1(fmt, (l.orderedG)) }),
     })),
   ];
 
@@ -113,7 +113,7 @@ export function SourceExtras({
         detail: [
           c.tierRank != null ? t("dieRoom.copies.tier", { rank: c.tierRank }) : null,
           t(`dieRoom.status.${c.status}`),
-          c.latestMilli != null ? t("pack.source.latest", { kg: kg12Text(c.latestMilli) ?? "" }) : null,
+          c.latestMilli != null ? t("pack.source.latest", { kg: sectionOrNull(fmt, c.latestMilli) ?? "" }) : null,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -135,7 +135,7 @@ export function SourceExtras({
       ariaLabel: `${r.trolleyCode} ${r.batchNumber}`,
       detail: [
         r.dieInstanceCode ? `${r.sectionLabel} · ${r.dieInstanceCode}` : r.sectionLabel,
-        t("pack.source.trolleyCut", { mm: r.cutLengthMm }),
+        t("pack.source.trolleyCut", { mm: fmt.q("bundle.length", r.cutLengthMm) }),
         r.castCode ? t("pack.source.trolleyCast", { cast: r.castCode }) : null,
         r.salesOrderNumber ? `${r.salesOrderNumber}${r.customerName ? ` · ${r.customerName}` : ""}` : null,
       ]

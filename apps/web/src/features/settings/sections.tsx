@@ -13,6 +13,7 @@ import { ShiftsTab } from "./shifts-tab";
 import { StandardsTab } from "./standards-tab";
 import { SupportTab } from "./support-tab";
 import { TeamTab } from "./team-tab";
+import { UnitsTab } from "./units-tab";
 
 /**
  * The sections of /settings, in tab order. A new section is a row here and a component file next
@@ -29,6 +30,7 @@ export type SettingsSection = {
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "company", labelKey: "settings.tabs.company", render: () => <CompanyTab /> },
+  { id: "units", labelKey: "settings.tabs.units", render: () => <UnitsTab /> },
   { id: "shifts", labelKey: "settings.tabs.shifts", render: () => <ShiftsTab /> },
   { id: "standards", labelKey: "settings.tabs.standards", render: () => <StandardsTab /> },
   { id: "modules", labelKey: "settings.tabs.modules", render: () => <ModulesTab /> },

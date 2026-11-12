@@ -12,15 +12,18 @@ import { useState } from "react";
 import { RouterLink } from "@/shared/components/router-link";
 import { trpc } from "@/shared/utils/trpc";
 
-import { isPortalOrderStatus, kgText, PORTAL_STATUS_TONE } from "./model";
+import { isPortalOrderStatus, PORTAL_STATUS_TONE } from "./model";
 import { bookDate, PortalError } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, weightHeader } from "@/shared/lib/fmt-text";
 
 type Show = "open" | "all";
 const STEP = 20;
 
 /** `/portal/orders`: this party's orders with ordered / baki. No rate anywhere. */
 export function PortalOrdersPage() {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const [show, setShow] = useState<Show>("open");
   const [limit, setLimit] = useState(STEP);
   const today = useQuery({ ...trpc.portal.today.queryOptions(), retry: false });
@@ -46,10 +49,10 @@ export function PortalOrdersPage() {
           o.status
         ),
     },
-    { key: "date", header: t("portal.orders.date"), hideOnPhone: true, cell: (o) => <span className="whitespace-nowrap">{bookDate(o.orderDate, locale)}</span> },
+    { key: "date", header: t("portal.orders.date"), hideOnPhone: true, cell: (o) => <span className="whitespace-nowrap">{bookDate(fmt, o.orderDate)}</span> },
     { key: "po", header: t("portal.orders.poNumber"), hideOnPhone: true, cell: (o) => (o.poNumber ? <span className="font-mono break-all">{o.poNumber}</span> : "") },
-    { key: "ordered", header: t("portal.orders.ordered"), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgText(o.totals.orderedG)}</span> },
-    { key: "baki", header: t("portal.orders.baki"), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgText(o.totals.bakiG)}</span> },
+    { key: "ordered", header: weightHeader(fmt, t("portal.orders.ordered")), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, o.totals.orderedG)}</span> },
+    { key: "baki", header: weightHeader(fmt, t("portal.orders.baki")), align: "end", cell: (o) => <span className="font-mono tabular-nums">{kgGrouped3(fmt, o.totals.bakiG)}</span> },
   ];
 
   return (

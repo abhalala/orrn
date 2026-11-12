@@ -1,4 +1,5 @@
 /** Plant maths shared by server, web and native. All lengths are stored in mm, weights in g. */
+import { addRatio, mulRatio, pow10, ratio, roundHalfAway, type Ratio } from "./units/rational";
 
 export const MM_PER_INCH = 25.4;
 export const MM_PER_FOOT = 304.8;
@@ -145,18 +146,47 @@ export function formatAxisTicksIN(
   return scaled.map((v) => (v === 0 ? "0" : `${nf.format(v)}${unit.suffix}`));
 }
 
-/** Plain non-negative decimal, thousands commas allowed. No exponent, sign or junk. */
+/**
+ * Commas only as digit grouping: international "12,345.5" or Indian "1,00,000" (the last group is exactly three digits, a group
+ * before it two or three, the first one to three, no leading 0 group), then an optional decimal point part. "2,5", "4,50" and
+ * "1,2,3" are not grouping: they are a decimal comma or a typo, and reading them as 25, 450 and 123 stored ten times the value.
+ * Text without a comma always passes.
+ */
+const DIGIT_GROUPING = /^(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d?(?:,\d{2})*,\d{3})(?:\.\d*)?$/;
+
+/**
+ * Typed number text with its grouping commas taken out, trimmed; null when a comma is not digit grouping. The one place that
+ * decides what a comma means in a plain number box, for the web and the phone (`parseDecimal` and every form parser that
+ * keeps its own digit pattern use it).
+ */
+export function withoutGrouping(text: string): string | null {
+  const t = text.trim();
+  if (!t.includes(",")) return t;
+  return DIGIT_GROUPING.test(t) ? t.replace(/,/g, "") : null;
+}
+
+/** Plain non-negative decimal, digit-grouping commas allowed ("1,234.5", "1,00,000"; "2,5" is not a number). No exponent, sign or junk. */
 export function parseDecimal(text: string): number | null {
-  const cleaned = text.trim().replace(/,/g, "");
-  if (!/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+  const cleaned = withoutGrouping(text);
+  if (cleaned === null || !/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
+}
+
+/** The same text `parseDecimal` accepts, as an exact ratio (no float). Null for anything else. */
+function parseDecimalRatio(text: string): Ratio | null {
+  const cleaned = withoutGrouping(text);
+  if (cleaned === null || !/^(\d+\.?\d*|\.\d+)$/.test(cleaned)) return null;
+  const [whole = "", frac = ""] = cleaned.split(".");
+  return ratio(BigInt(`${whole || "0"}${frac}`), pow10(frac.length));
 }
 
 /**
  * Reads the length fields for the company's unit and returns whole mm.
  * mm companies use `mm`; inch companies use `feet` + `inches` (either may be empty).
  * Fields belonging to the other unit are ignored, so a stray mm value is never read as inches.
+ * The arithmetic is exact (BigInt ratios, half away from zero): 26 ft 10.5 in is 8191.5 mm and reads 8192,
+ * where the old float sum gave 8191.
  */
 export function lengthFromInput(input: {
   unit: LengthUnit;
@@ -164,21 +194,24 @@ export function lengthFromInput(input: {
   feet?: string;
   inches?: string;
 }): number | null {
+  const whole = (mm: Ratio): number | null => {
+    const n = Number(roundHalfAway(mm.num, mm.den));
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
+  };
   if (input.unit === "mm") {
-    const mm = parseDecimal(input.mm ?? "");
-    if (mm === null) return null;
-    const rounded = Math.round(mm);
-    return rounded > 0 ? rounded : null;
+    const mm = parseDecimalRatio(input.mm ?? "");
+    return mm === null ? null : whole(mm);
   }
 
   const feetText = (input.feet ?? "").trim();
   const inchesText = (input.inches ?? "").trim();
   if (feetText === "" && inchesText === "") return null;
-  const feet = feetText === "" ? 0 : parseDecimal(feetText);
-  const inches = inchesText === "" ? 0 : parseDecimal(inchesText);
+  const feet = feetText === "" ? ratio(0n) : parseDecimalRatio(feetText);
+  const inches = inchesText === "" ? ratio(0n) : parseDecimalRatio(inchesText);
   if (feet === null || inches === null) return null;
-  const mm = Math.round((feet * 12 + inches) * MM_PER_INCH);
-  return mm > 0 ? mm : null;
+  // 1 in = 127/5 mm exactly.
+  const totalInches = addRatio(mulRatio(feet, ratio(12n)), inches);
+  return whole(mulRatio(totalInches, ratio(127n, 5n)));
 }
 
 /** `"3658 mm"`, or for inch companies `"12 ft"` / `"11 ft 6 in"` with inches rounded to 0.25. */

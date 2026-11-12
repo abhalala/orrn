@@ -8,7 +8,6 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { reasonOptions } from "@/features/press/reason-label";
-import { kgFromG } from "@/features/press/model";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -22,9 +21,12 @@ import {
   rowsToTest,
   wholeFromText,
   x10FromText,
-  x10Text,
-} from "./model";
+  x10Text } from "./model";
 import { FormSheet, RefusalNote, FieldSelect as NativeSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { DIAMETER_MM } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 type SheetProps = { open: boolean; onOpenChange(open: boolean): void; batch: Batch };
 
@@ -294,6 +296,7 @@ export function TempSheet({ open, onOpenChange, batch }: SheetProps) {
 // ---------------------------------------------------------------------------
 
 export function HardnessSheet({ open, onOpenChange, batch, rowId }: SheetProps & { rowId?: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const invalidate = useAgeingInvalidate();
   const key = useActionKey();
@@ -367,7 +370,7 @@ export function HardnessSheet({ open, onOpenChange, batch, rowId }: SheetProps &
         <NativeSelect value={row} onChange={(e) => setRow(e.currentTarget.value)} data-testid="hardness-row">
           {candidates.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.sectionLabel} · {r.lengthMm} mm · {r.pcs} {t("units.pcs")}
+              {r.sectionLabel} · {fmt.q("bundle.length", r.lengthMm)} · {r.pcs} {t("units.pcs")}
               {r.hardnessReadingX10 !== null ? ` · ${x10Text(r.hardnessReadingX10)}` : ""}
             </option>
           ))}
@@ -505,6 +508,7 @@ export function UnholdDialog({ row, onClose }: { row: BatchRow | null; onClose()
 }
 
 export function DiscardSheet({ open, onOpenChange, batch, row }: SheetProps & { row: BatchRow | null }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const invalidate = useAgeingInvalidate();
   const reasons = useQuery({ ...trpc.press.reasons.queryOptions({ kind: "ageing_scrap" }), enabled: open, staleTime: 5 * 60_000 });
@@ -568,7 +572,7 @@ export function DiscardSheet({ open, onOpenChange, batch, row }: SheetProps & { 
       <Field label={t("ageing.hold.note")} hint={needsNote ? undefined : t("common.optional")} error={tried && needsNote && !note.trim() ? t("ageing.hold.noteRequired") : undefined}>
         <TextInput value={note} maxLength={500} onChange={(e) => setNote(e.currentTarget.value)} />
       </Field>
-      {row ? <p className="m-0 text-[13px] text-muted-foreground">{t("ageing.discard.kg", { kg: kgFromG(Math.floor((row.kgG * (n ?? 0)) / Math.max(1, row.pcs))) })}</p> : null}
+      {row ? <p className="m-0 text-[13px] text-muted-foreground">{t("ageing.discard.kg", { kg: kgGrouped1(fmt, Math.floor((row.kgG * (n ?? 0)) / Math.max(1, row.pcs))) })}</p> : null}
       <p className="m-0 text-[13px] text-muted-foreground">{t("ageing.discard.hint", { number: batch.number })}</p>
     </FormSheet>
   );
@@ -578,6 +582,7 @@ const SPLIT_TOLERANCE_MM = 25;
 
 export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { row: BatchRow | null }) {
   const { t } = useT();
+  const fmt = useFmt();
   const invalidate = useAgeingInvalidate();
   const [cuts, setCuts] = useState<{ len: string; pcs: string }[]>([
     { len: "", pcs: "" },
@@ -616,7 +621,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
       open={open}
       onOpenChange={onOpenChange}
       title={t("ageing.split.title", { section: row?.sectionLabel ?? "" })}
-      description={row ? t("ageing.split.body", { pcs: row.pcs, mm: row.lengthMm, total: want }) : undefined}
+      description={row ? t("ageing.split.body", { pcs: row.pcs, mm: fmt.q("bundle.length", row.lengthMm), total: fmt.q("bundle.length", want) }) : undefined}
       busy={split.isPending}
       error={split.error}
       submitLabel={t("ageing.action.split")}
@@ -631,7 +636,7 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
       {cuts.map((c, i) => (
         <div key={i} className="grid grid-cols-2 gap-3">
           <Field label={t("ageing.split.cutLength", { n: i + 1 })}>
-            <NumberInput decimal={false} value={c.len} suffix={t("units.mm")} onValueChange={(v) => setCuts((p) => p.map((x, j) => (j === i ? { ...x, len: v } : x)))} className="h-12" data-testid={`split-len-${i + 1}`} />
+            <PlantInput spec={DIAMETER_MM} decimal={false} value={c.len} onValueChange={(v) => setCuts((p) => p.map((x, j) => (j === i ? { ...x, len: v } : x)))} className="h-12" data-testid={`split-len-${i + 1}`} />
           </Field>
           <Field label={t("ageing.field.pieces")}>
             <NumberInput decimal={false} value={c.pcs} suffix={t("units.pcs")} onValueChange={(v) => setCuts((p) => p.map((x, j) => (j === i ? { ...x, pcs: v } : x)))} className="h-12" data-testid={`split-pcs-${i + 1}`} />
@@ -644,11 +649,11 @@ export function SplitSheet({ open, onOpenChange, batch, row }: SheetProps & { ro
         </Button>
       </div>
       <p className={sumOk || !valid ? "m-0 text-[13px] text-muted-foreground" : "m-0 text-[13px] font-medium text-destructive"} data-testid="split-sum">
-        {t("ageing.split.sum", { total, want })}
+        {t("ageing.split.sum", { total: fmt.q("bundle.length", total), want: fmt.q("bundle.length", want) })}
       </p>
       {sumMiss ? (
         <p role="alert" className="sr-only">
-          {t("ageing.split.sum", sumMiss)}
+          {t("ageing.split.sum", { total: fmt.q("bundle.length", sumMiss.total), want: fmt.q("bundle.length", sumMiss.want) })}
         </p>
       ) : null}
       {tried && !valid ? <p role="alert" className="m-0 text-[13px] font-medium text-destructive">{t("ageing.split.invalid")}</p> : null}

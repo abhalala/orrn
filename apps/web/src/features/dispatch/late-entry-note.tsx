@@ -3,19 +3,22 @@ import { Chip } from "@orrn/ui/components/chip";
 
 import { plantTimeText } from "@/features/approvals/approval-view";
 
+import { useFmt } from "@/shared/lib/fmt";
+
 import { useCompanyTimeZone } from "./hooks";
 
 /** Arch 52: a completed dispatch entered late says so, with the time the truck left and why. */
 export function LateEntryNote({ dispatch }: { dispatch: { lateEntry?: boolean | null; lateEntryReason?: string | null; completedAt?: string | Date | null } }) {
   const { t } = useT();
   const tz = useCompanyTimeZone();
+  const fmt = useFmt();
   if (!dispatch.lateEntry || !dispatch.completedAt) return null;
   const at = new Date(dispatch.completedAt).getTime();
   return (
     <div className="flex flex-wrap items-center gap-2" data-testid="late-entry-note">
       <Chip tone="amber">{t("dispatch.late.chip")}</Chip>
       <span className="min-w-0 text-[15px] break-words text-muted-foreground">
-        {t("dispatch.late.left", { when: plantTimeText(at, tz), reason: dispatch.lateEntryReason ?? "" })}
+        {t("dispatch.late.left", { when: plantTimeText(fmt, at, tz), reason: dispatch.lateEntryReason ?? "" })}
       </span>
     </div>
   );

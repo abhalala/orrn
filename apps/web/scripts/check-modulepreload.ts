@@ -15,6 +15,8 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { chunkName } from "./chunk-name";
+
 const dist = fileURLToPath(new URL("../dist", import.meta.url));
 const html = readFileSync(join(dist, "index.html"), "utf8");
 
@@ -69,7 +71,7 @@ for (const [kind, hrefs] of [["entry", entries], ["modulepreload", preloads]] as
       problems.push(`${kind} ${href} not found in dist`);
       continue;
     }
-    if (FORBIDDEN_NAME.test(href)) problems.push(`${kind} ${href} is an export library chunk`);
+    if (FORBIDDEN_NAME.test(chunkName(href))) problems.push(`${kind} ${href} is an export library chunk`);
     if (size > MAX_BYTES) problems.push(`${kind} ${href} is ${(size / 1000).toFixed(0)} kB (limit ${MAX_BYTES / 1000} kB)`);
     if (FORBIDDEN_CONTENT.test(content)) problems.push(`${kind} ${href} contains @react-pdf code`);
     if (FORBIDDEN_CHARTS.test(content)) problems.push(`${kind} ${href} contains the chart kit (load charts lazily)`);

@@ -27,6 +27,11 @@ import {
   type PortalLineDraft,
 } from "./model";
 import { PortalError, PortalSkeleton } from "./ui";
+import { FeetInchesGroup } from "@/shared/components/feet-inches-group";
+import { PlantInput } from "@/shared/components/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { lengthIsMetres } from "@/shared/lib/fmt-text";
+import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 let lineSeq = 0;
 const lineKey = () => `line-${(lineSeq += 1)}`;
@@ -37,6 +42,7 @@ const lineKey = () => `line-${(lineSeq += 1)}`;
  */
 export function PortalNewOrderPage() {
   const { t } = useT();
+  const fmt = useFmt();
   const queryClient = useQueryClient();
   const me = usePortalMe();
   const sections = useQuery({ ...trpc.portal.sections.visible.queryOptions(), retry: false });
@@ -161,18 +167,18 @@ export function PortalNewOrderPage() {
                   ))}
                 </NativeSelect>
               </Field>
-              <Field label={t("portal.orders.cutLength")} error={p.length ? t(p.length) : undefined} hint={unit === "inch" ? t("portal.orders.lengthHintInch") : t("portal.orders.lengthHintMm")}>
+              <Field label={t("portal.orders.cutLength")} error={p.length ? t(p.length) : undefined} hint={unit === "inch" ? t("portal.orders.lengthHintInch") : t(lengthIsMetres(fmt) ? "portal.orders.lengthHintMetres" : "portal.orders.lengthHintMm")}>
                 {unit === "inch" ? (
-                  <div className="flex min-w-0 flex-wrap gap-2">
+                  <FeetInchesGroup label={t("portal.orders.cutLength")}>
                     <div className="min-w-[7rem] flex-1">
                       <NumberInput value={line.feet} onValueChange={(feet) => patch(line.key, { feet })} suffix={t("units.ft")} decimal={false} aria-label={t("portal.orders.feet")} />
                     </div>
                     <div className="min-w-[7rem] flex-1">
                       <NumberInput value={line.inches} onValueChange={(inches) => patch(line.key, { inches })} suffix={t("units.inch")} aria-label={t("portal.orders.inches")} />
                     </div>
-                  </div>
+                  </FeetInchesGroup>
                 ) : (
-                  <NumberInput value={line.mm} onValueChange={(mm) => patch(line.key, { mm })} suffix={t("units.mm")} decimal={false} aria-label={t("portal.orders.cutLength")} />
+                  <PlantInput spec={LENGTH_MM} value={line.mm} onValueChange={(mm) => patch(line.key, { mm })} decimal={false} aria-label={t("portal.orders.cutLength")} />
                 )}
               </Field>
               <div className="flex min-w-0 flex-col gap-2 md:col-span-2">
@@ -186,13 +192,22 @@ export function PortalNewOrderPage() {
                   ]}
                 />
                 <Field label={line.basis === "pcs" ? t("portal.orders.pieces") : t("portal.orders.kg")} error={p.qty ? t(p.qty) : undefined}>
-                  <NumberInput
-                    value={line.qty}
-                    onValueChange={(qty) => patch(line.key, { qty })}
-                    suffix={line.basis === "pcs" ? t("units.pcs") : t("units.kg")}
-                    decimal={line.basis === "kg"}
-                    aria-label={line.basis === "pcs" ? t("portal.orders.pieces") : t("portal.orders.kg")}
-                  />
+                  {line.basis === "pcs" ? (
+                    <NumberInput
+                      value={line.qty}
+                      onValueChange={(qty) => patch(line.key, { qty })}
+                      suffix={t("units.pcs")}
+                      decimal={false}
+                      aria-label={t("portal.orders.pieces")}
+                    />
+                  ) : (
+                    <PlantInput
+                      spec={MASS_KG}
+                      value={line.qty}
+                      onValueChange={(qty) => patch(line.key, { qty })}
+                      aria-label={t("portal.orders.kg")}
+                    />
+                  )}
                 </Field>
               </div>
               <div className="md:col-span-2">

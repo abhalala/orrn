@@ -9,7 +9,7 @@ export const guBundle = {
       weight: "વજન",
       pieces: "પીસ",
       cutLength: "કટ લંબાઈ",
-      kgPer12ft: "kg/12ft",
+      kgPer12ft: "{sectionUnit}",
       weightRange: "વજન રેન્જ /12'",
       die: "Die",
       section: "સેક્શન",

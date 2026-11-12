@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { packedWhen } from "./format";
+import { dflt } from "../../../test-support/date-seeds";
+import { packedWhen as packedWhenFor } from "./format";
+
+/** The old call shape: a language and a zone, the default plant style. */
+const packedWhen = (at: Date | number | string, opts: { now?: Date; timeZone?: string; locale?: "en" | "hi" | "gu" } = {}) =>
+  packedWhenFor(dflt(opts.locale ?? "en"), at, { now: opts.now, timeZone: opts.timeZone });
 
 const IST = "Asia/Kolkata";
 // 3 Oct 2026, 15:00 IST

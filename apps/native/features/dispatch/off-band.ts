@@ -20,6 +20,11 @@ export function offBandStatusKey(status: OffBandStatus): MessageKey {
   return `dispatch.offBand.${status}` as MessageKey;
 }
 
+export function offBandChipText(t: Translate, item: { offBand?: boolean | null; kgPer12ftMilli?: number | null; lineKgPer12ftMilli?: number | null }): string | null {
+  if (!item.offBand) return null;
+  return t("dispatch.offBand.chip", { kg: ((item.kgPer12ftMilli ?? 0) / 1000).toFixed(3), line: ((item.lineKgPer12ftMilli ?? 0) / 1000).toFixed(3) });
+}
+
 /** Why Dispatch is off (rows rejected, then waiting), else what pressing it will ask. */
 export function offBandNote(summary: OffBandSummary | null | undefined): { key: MessageKey; count: number } | null {
   if (!summary) return null;

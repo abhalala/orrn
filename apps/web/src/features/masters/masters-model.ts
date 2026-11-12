@@ -1,7 +1,9 @@
 import type { StatusTone } from "@orrn/domain";
-import { parseDecimal } from "@orrn/domain";
+import { parseDecimal, withoutGrouping, type Fmt } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import { canAny, type Action, type Me } from "@orrn/server/lib/permissions";
+
+import { bookDayText, pinned } from "@/shared/lib/fmt-text";
 
 import type { DieCopyStatus } from "./search";
 
@@ -33,7 +35,8 @@ export function percentText(bp: number | null | undefined): string | null {
 export function parsePercentBp(text: string): Parsed {
   const t = text.trim();
   if (t === "") return { ok: true, value: null };
-  if (!/^\d+(\.\d{1,2})?$/.test(t.replace(/,/g, ""))) return { ok: false };
+  const plain = withoutGrouping(t);
+  if (plain === null || !/^\d+(\.\d{1,2})?$/.test(plain)) return { ok: false };
   const n = parseDecimal(t);
   if (n === null || n > 100) return { ok: false };
   return { ok: true, value: Math.round(n * 100) };
@@ -49,7 +52,8 @@ export function kgPer12ftInput(milli: number | null | undefined): string {
 export function parseKgPer12ftMilli(text: string): Parsed {
   const t = text.trim();
   if (t === "") return { ok: true, value: null };
-  if (!/^\d+(\.\d{1,3})?$/.test(t.replace(/,/g, ""))) return { ok: false };
+  const plain = withoutGrouping(t);
+  if (plain === null || !/^\d+(\.\d{1,3})?$/.test(plain)) return { ok: false };
   const n = parseDecimal(t);
   if (n === null || n <= 0 || n > 500) return { ok: false };
   return { ok: true, value: Math.round(n * 1000) };
@@ -57,9 +61,9 @@ export function parseKgPer12ftMilli(text: string): Parsed {
 
 /** A whole number within [min, max]; blank is "not set". Digit grouping commas are fine. */
 export function parseWholeNumber(text: string, range: { min: number; max: number }): Parsed {
-  const t = text.trim().replace(/,/g, "");
+  const t = withoutGrouping(text);
   if (t === "") return { ok: true, value: null };
-  if (!/^\d+$/.test(t)) return { ok: false };
+  if (t === null || !/^\d+$/.test(t)) return { ok: false };
   const n = Number(t);
   if (!Number.isSafeInteger(n) || n < range.min || n > range.max) return { ok: false };
   return { ok: true, value: n };
@@ -297,18 +301,9 @@ export function masterEntries(me: Me | null | undefined): MasterEntry[] {
   return ENTRIES.filter((e) => !e.requires || canAny(me, e.requires));
 }
 
-/** "2026-10-04" as "4 Oct" (the plant's current year) or "31 Dec 2025". `today` is the company's day. */
-export function formatDay(iso: string, today: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  const date = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  const sameYear = today.slice(0, 4) === m[1];
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    ...(sameYear ? {} : { year: "numeric" }),
-    timeZone: "UTC",
-  }).format(date);
+/** "2026-10-04" as "4 Oct" (the plant's current year) or "31 Dec 2025", English month names as ever. `today` is the company's day. */
+export function formatDay(fmt: Fmt, iso: string, today: string): string {
+  return bookDayText(pinned(fmt, { locale: "en" }), iso, today);
 }
 
 /** Paise as rupees with two decimals: 19850 -> "198.50". */

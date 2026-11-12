@@ -14,6 +14,8 @@ import { WEB_BUILD } from "@/shared/lib/build-info";
 import { trpc } from "@/shared/utils/trpc";
 
 import { supportContactOf, supportDraft, supportPatch, type SupportDraft } from "./model";
+import { useFmt } from "@/shared/lib/fmt";
+
 import { releaseNoteRows } from "./release-notes";
 
 function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
@@ -93,9 +95,10 @@ export function AboutTab() {
 
 /** FP-PF-14: what changed in the last app builds (the update gate's own notes), newest first. */
 function ReleaseNotesCard() {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const notes = useQuery(trpc.release.notes.queryOptions());
-  const rows = releaseNoteRows(notes.data?.items, { locale });
+  const rows = releaseNoteRows(notes.data?.items, { fmt });
   return (
     <Card data-testid="release-notes">
       <CardHeader>

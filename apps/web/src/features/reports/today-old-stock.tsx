@@ -4,7 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { kgWholeText } from "./model";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped0 } from "@/shared/lib/fmt-text";
 
 /**
  * Today's "Stock older than 90 days" tile (FP-PK-16) for the people who see the charts
@@ -12,6 +13,7 @@ import { kgWholeText } from "./model";
  * and kg are `analytics.stockAge().over90`, the server's; it opens `/reports/stock-age`.
  */
 export function TodayOldStockTile() {
+  const fmt = useFmt();
   const { t } = useT();
   const age = useQuery({ ...trpc.analytics.stockAge.queryOptions({}), retry: false });
   if (!age.data) return null;
@@ -21,7 +23,7 @@ export function TodayOldStockTile() {
       <StatusBlock
         tone={bundles > 0 ? "amber" : "neutral"}
         title={t("reports.todayTile.title")}
-        meta={t("reports.todayTile.meta", { kg: kgWholeText(kgG) })}
+        meta={t("reports.todayTile.meta", { kg: kgGrouped0(fmt, kgG) })}
         value={bundles}
         countUp={false}
         href="/reports/stock-age"

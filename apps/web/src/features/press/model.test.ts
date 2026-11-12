@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { can, type CompanyRole } from "@orrn/server/lib/permissions";
+
+import { dflt } from "../../../test-support/date-seeds";
 import { en } from "@orrn/i18n/en";
 import { hi } from "@orrn/i18n/hi";
 import { gu } from "@orrn/i18n/gu";
@@ -241,8 +243,8 @@ describe("queue", () => {
 
 describe("formatting", () => {
   test("clock in the plant zone, elapsed, percent", () => {
-    expect(clockOf(Date.UTC(2026, 9, 24, 8, 30), "Asia/Kolkata")).toBe("14:00");
-    expect(clockOf(null)).toBe("");
+    expect(clockOf(dflt(), Date.UTC(2026, 9, 24, 8, 30), "Asia/Kolkata")).toBe("14:00");
+    expect(clockOf(dflt(), null)).toBe("");
     expect(elapsedText(72 * 60 * 1000 + 5000)).toBe("1:12:05");
     expect(elapsedText(125_000)).toBe("02:05");
     expect(percentOfBp(7545)).toBe("75.5");

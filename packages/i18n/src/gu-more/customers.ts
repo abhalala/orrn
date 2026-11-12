@@ -36,7 +36,7 @@ export const guCustomers = {
         kg: "Dispatch થયું",
         dispatches: "Dispatch",
         avgLoad: "સરેરાશ લોડ",
-        perDispatch: "kg દર dispatch",
+        perDispatch: "{massUnit} દર dispatch",
       },
       recent: {
         title: "હમણાંના dispatch",

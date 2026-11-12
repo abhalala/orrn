@@ -1,4 +1,3 @@
-import { formatKg, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -23,6 +22,8 @@ import { bundleDetailPath } from "@/shared/lib/paths";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 import { TenantFrame } from "@/shell/tenant-frame";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit } from "@/shared/lib/fmt-text";
 
 type Candidate = { bundleId: string; number: string; year: number };
 
@@ -148,6 +149,7 @@ type Detail = Awaited<ReturnType<typeof trpcClient.bundle.getBySerial.query>>;
 
 /** Bundle page for a member: hero, actions, facts, history (spec §3 `/b/:serial`). */
 function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) {
+  const fmt = useFmt();
   const { t } = useT();
   const lu = useLengthUnit();
   const when = useCompanyWhen();
@@ -179,7 +181,7 @@ function BundleDetail({ serial, initial }: { serial: string; initial: Detail }) 
       />
       <BundleActions
         bundle={bundle}
-        description={`${t("bundle.title", { serial: bundle.serial })} · ${formatKg(gToKg(bundle.weightG))} kg`}
+        description={`${t("bundle.title", { serial: bundle.serial })} · ${kgGrouped2(fmt, (bundle.weightG))} ${massUnit(fmt)}`}
       >
         <BundleFacts
           bundle={bundle}

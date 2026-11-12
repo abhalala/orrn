@@ -51,7 +51,7 @@ export function LinesEditor({
   const [errors, setErrors] = useState<string[]>([]);
 
   const problems: Record<string, LineProblems> = {};
-  for (const l of drafts) problems[l.key] = lineProblems(l, unit);
+  for (const l of drafts) problems[l.key] = lineProblems(l, unit, showRates);
   const complete = drafts.length > 0 && drafts.every((l) => Object.keys(problems[l.key]!).length === 0);
 
   const save = useMutation({

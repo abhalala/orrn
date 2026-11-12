@@ -1,12 +1,14 @@
 import type { AgeingReportRow } from "@orrn/server/lib/ageingContracts";
 
+import { ymdInZone } from "@/shared/lib/plant-calendar";
+
 /** The company calendar day (YYYY-MM-DD) of an instant, in its time zone. */
 export function dayOf(ms: number | null, timeZone: string): string {
   if (ms === null) return "-";
   try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+    return ymdInZone(ms, timeZone);
   } catch {
-    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+    return ymdInZone(ms, undefined);
   }
 }
 

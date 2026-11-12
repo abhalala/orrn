@@ -11,19 +11,18 @@ import { useEffect } from "react";
 
 import { CastBlock } from "@/features/portal/certificate-page";
 import { ppmPercentText, type CertCast } from "@/features/portal/model";
-import { kgFromG } from "@/features/press/model";
-import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { latestVerdict } from "./cast-view";
 import { clockText, dayText } from "./format";
-import { mmToFtText } from "./melt-form";
 import { castPeriodText, ELEMENT_LABEL, verdictTone } from "./model";
 import { SpectroFileLink } from "./spectro-file-link";
 import { SpectroTable } from "./spectro-panel";
 import { LoadFailed, Note, useTimeZone } from "./ui";
+import { usePaperFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, castLengthText, paperT, whenText } from "@/shared/lib/fmt-text";
 
 const RANK = { fail: 3, incomplete: 2, pass: 1 } as const;
 
@@ -48,9 +47,11 @@ const PRINT_CSS = `
  * Not linked from the public bundle page, not a tax document.
  */
 export function CertificateScreen({ id }: { id: string }) {
-  const { t } = useT();
+  // A paper: today's units, words, date order and clock whatever the plant chose for its screens (guarded by paper-guard.test.ts).
+  const fmt = usePaperFmt();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const tz = useTimeZone();
-  const when = useCompanyWhen();
   const { data: me } = useMe();
   const cast = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id }), meta: INLINE_ERROR_META });
   const trace = useQuery({ ...trpc.foundry.casts.trace.queryOptions({ castId: id }), meta: INLINE_ERROR_META });
@@ -145,11 +146,11 @@ export function CertificateScreen({ id }: { id: string }) {
               <h2 className="m-0 flex flex-wrap items-baseline gap-x-3 text-[16px] font-semibold">
                 {t("foundry.melt.number", { n: m.seq })}
                 <span className="text-[13px] font-normal text-muted-foreground">
-                  {m.chargingStartAt && m.castingEndAt ? `${dayText(new Date(m.chargingStartAt).getTime(), tz)} ${clockText(new Date(m.chargingStartAt).getTime(), tz)} - ${clockText(new Date(m.castingEndAt).getTime(), tz)}` : ""}
+                  {m.chargingStartAt && m.castingEndAt ? `${dayText(fmt, new Date(m.chargingStartAt).getTime(), tz)} ${clockText(fmt, new Date(m.chargingStartAt).getTime(), tz)} - ${clockText(fmt, new Date(m.castingEndAt).getTime(), tz)}` : ""}
                 </span>
               </h2>
               <p className="m-0 text-[14px] tabular-nums">
-                {logs.map((l) => t("foundry.melt.out.logLine", { pcs: l.pcs ?? 0, ft: mmToFtText(l.lengthMm), kg: kgFromG(l.kgG) })).join(" · ")}
+                {logs.map((l) => t("foundry.melt.out.logLine", { pcs: l.pcs ?? 0, ft: castLengthText(fmt, l.lengthMm), kg: kgGrouped1(fmt, l.kgG) })).join(" · ")}
               </p>
               {result ? (
                 <>
@@ -185,13 +186,13 @@ export function CertificateScreen({ id }: { id: string }) {
               {trace.data.bundles.map((b) => (
                 <li key={b.id} className="flex flex-wrap gap-x-3 tabular-nums">
                   <span className="font-mono font-semibold">{b.serial}</span>
-                  <span>{kgFromG(b.weightG ?? 0)} {t("units.kg")}</span>
+                  <span>{kgGrouped1(fmt, b.weightG ?? 0)} {massUnit(fmt)}</span>
                 </li>
               ))}
             </ul>
           )}
         </section>
-        <p className="m-0 border-t border-border pt-3 text-[13px] text-muted-foreground">{t("foundry.cert.footer", { date: when(Date.now()) })}</p>
+        <p className="m-0 border-t border-border pt-3 text-[13px] text-muted-foreground">{t("foundry.cert.footer", { date: whenText(fmt, Date.now()) })}</p>
       </article>
     </>
   );

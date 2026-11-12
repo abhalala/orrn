@@ -16,9 +16,11 @@ import { trpc } from "@/shared/utils/trpc";
 import { ConfirmDialog } from "./confirm-dialog";
 import { shortDate } from "./die-room-model";
 import { useRefreshDieRoom, useRefusal } from "./use-die-room";
+import { useFmt } from "@/shared/lib/fmt";
 
 /** `/dies/makers`: the die makers the plant uses, and the copies that are with them now. */
 export function MakersPage() {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRefreshDieRoom();
   const refusal = useRefusal();
@@ -116,7 +118,7 @@ export function MakersPage() {
                     </Link>
                   </div>
                   <p className="m-0 text-[13px] text-muted-foreground">
-                    {j.makerName} · {t(`dieRoom.maker.${j.purpose}`)} · {shortDate(j.sentAt)}
+                    {j.makerName} · {t(`dieRoom.maker.${j.purpose}`)} · {shortDate(fmt, j.sentAt)}
                   </p>
                 </li>
               ))}

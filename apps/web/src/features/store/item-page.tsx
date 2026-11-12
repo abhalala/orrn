@@ -16,6 +16,7 @@ import { countedIn, unitShort } from "./store-labels";
 import { formatQty } from "./store-qty";
 import { StoreLoadError, StoreNoAccess, StoreNote, StoreSection } from "./store-ui";
 import { ITEM_EDITORS, useStoreAccess, useStoreBalances, useStoreEntries, useStoreItems } from "./use-store";
+import { useFmt } from "@/shared/lib/fmt";
 
 const ACTION_ROUTES = {
   issue: "/store/issue",
@@ -29,6 +30,7 @@ const ACTION_ROUTES = {
  */
 export function StoreItemPage({ id }: { id: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   const access = useStoreAccess();
   const items = useStoreItems(access.canRead);
   const balances = useStoreBalances(access.canRead);
@@ -108,7 +110,7 @@ export function StoreItemPage({ id }: { id: string }) {
       <PageHeader
         back={back}
         title={item.name}
-        subtitle={countedIn(t, item)}
+        subtitle={countedIn(t, item, fmt)}
         actions={
           <Can do={ITEM_EDITORS}>
             <Button variant="secondary" aria-haspopup="dialog" onClick={() => setEditing(true)}>
@@ -122,8 +124,8 @@ export function StoreItemPage({ id }: { id: string }) {
         tone={tone}
         title={status}
         value={balanceMilli / 1000}
-        format={(n) => formatQty(Math.round(n * 1000))}
-        unit={unitShort(t, item.unit, balanceMilli)}
+        format={(n) => formatQty(Math.round(n * 1000), item.unit, fmt)}
+        unit={unitShort(t, item.unit, balanceMilli, fmt)}
         className="orrn-block-hero animate-rise"
       />
 

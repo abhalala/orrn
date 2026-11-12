@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Checkbox } from "@orrn/ui/components/checkbox";
@@ -18,6 +17,8 @@ import { bpText, coversEveryYard } from "@/features/stock-count/count-model";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/stock/count/")({
   component: StockCountList,
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/_tenant/stock/count/")({
  * starting one needs `stock.count` (packer, operator, supervisor, office).
  */
 function StockCountList() {
+  const fmt = useFmt();
   const { t } = useT();
   const when = useCompanyWhen();
   const list = useQuery(trpc.count.list.queryOptions({ limit: 20, offset: 0 }));
@@ -44,7 +46,7 @@ function StockCountList() {
 
       {summary.data ? (
         <section aria-label={t("stock.count.phantomTitle")} data-testid="phantom-summary" className="flex min-w-0 flex-wrap gap-3">
-          <Tile label={t("stock.count.phantomOpen")} value={t("units.bundlesKg", { bundles: summary.data.open.bundles, kg: formatKgTotal(gToKg(summary.data.open.weightG)) })} />
+          <Tile label={t("stock.count.phantomOpen")} value={t("units.bundlesKg", { bundles: summary.data.open.bundles, kg: kgGrouped1(fmt, (summary.data.open.weightG)) })} />
           {last ? (
             <Tile
               label={t("stock.count.lastCount", { number: last.number })}
