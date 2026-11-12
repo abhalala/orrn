@@ -34,11 +34,13 @@ export default function NavArrangeEditor({
   open,
   onOpenChange,
   groups,
+  companyId,
   onSaved,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   groups: NavGroups;
+  companyId: string;
   onSaved(order: MemberNavOrder | null): void;
 }) {
   const { t } = useT();
@@ -101,12 +103,17 @@ export default function NavArrangeEditor({
   const finish = async (order: MemberNavOrder | null, kind: "save" | "reset") => {
     setBusy(kind);
     try {
-      await save.mutateAsync(order ?? { order: [] });
+      await save.mutateAsync({ ...(order ?? { order: [] }), expectCompanyId: companyId });
       onSaved(order);
       toast.success(t("nav.orderSaved"));
       onOpenChange(false);
-    } catch {
-      toast.error(t("nav.orderSaveFailed"));
+    } catch (error) {
+      if ((error as { data?: { code?: string } }).data?.code === "CONFLICT") {
+        toast.error(t("nav.plantChanged"));
+        onOpenChange(false);
+      } else {
+        toast.error(t("nav.orderSaveFailed"));
+      }
     } finally {
       setBusy(null);
     }

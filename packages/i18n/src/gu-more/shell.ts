@@ -128,6 +128,7 @@ export const guShell = {
     moved: "{name}ને કુલ {total}માંથી {position} સ્થાન પર લઈ ગયા",
     orderSaved: "મેન્યુનો ક્રમ સેવ થયો",
     orderSaveFailed: "મેન્યુનો ક્રમ સેવ થઈ શક્યો નથી. ફરી પ્રયત્ન કરો.",
+    plantChanged: "પ્લાન્ટ બદલાયું. આ પ્લાન્ટ માટે મેન્યુ ફરી ખોલીને ક્રમ બદલો.",
   },
   ui: {
     stepOf: "સ્ટેપ {n} / {total}",

@@ -19,6 +19,7 @@ const navOrderInput = z
   .strictObject({
     order: z.array(z.string().min(1).max(40)).max(60),
     moreFrom: z.string().min(1).max(40).nullable().optional(),
+    expectCompanyId: z.string().min(1).max(64).optional(),
   })
   .superRefine((value, ctx) => {
     if (new Set(value.order).size !== value.order.length) {
@@ -166,6 +167,12 @@ export const authRouter = router({
   }),
 
   setNavOrder: companyProcedure.input(navOrderInput).mutation(async ({ ctx, input }) => {
+    if (input.expectCompanyId && input.expectCompanyId !== ctx.companyId) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "The plant changed. Open the menu again and arrange it for this plant.",
+      });
+    }
     const userId = ctx.session.user.id;
     const current = await ctx.db
       .select({ id: membership.id, preferences: sql<unknown>`${membership.preferences}` })

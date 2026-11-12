@@ -85,6 +85,23 @@ describe("auth.setNavOrder", () => {
     expect((await inB.auth.me()).company?.navOrder).toEqual({ order: ["guides", "stock"], moreFrom: "stock" });
   });
 
+  test("a plant guard refuses to save into a different active plant", async () => {
+    const a = await env.seedCompany();
+    const b = await env.seedCompany();
+    await env.addMembership(a.users.owner.id, b.companyId, "owner");
+    const inA = env.callerForUser(a.users.owner.id, { company: a.companyId });
+    await inA.auth.setNavOrder({ order: ["today"], expectCompanyId: a.companyId });
+
+    await expect(
+      inA.auth.setNavOrder({ order: ["orders"], expectCompanyId: b.companyId }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "The plant changed. Open the menu again and arrange it for this plant.",
+    });
+    expect((await inA.auth.me()).company?.navOrder).toEqual({ order: ["today"] });
+    expect(await preferencesOf(b.companyId, a.users.owner.id)).toEqual({});
+  });
+
   test("bad shapes are refused and the saved value is unchanged", async () => {
     const { companyId, users } = await env.seedCompany();
     const owner = env.caller({ role: "owner", companyId });

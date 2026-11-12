@@ -55,6 +55,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [moreOpen, setMoreOpen] = useState(false);
   const [arrangeOpen, setArrangeOpen] = useState(false);
+  const [arrangeCompanyId, setArrangeCompanyId] = useState<string | null>(null);
   const tablet = useMediaQuery(breakpoints.tablet);
 
   const godseye = variant === "godseye";
@@ -77,6 +78,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
   const openScan = scanOn ? () => scan.open({ kind: "lookup" }) : undefined;
   const openArrange = !godseye
     ? () => {
+        setArrangeCompanyId(me?.company?.id ?? null);
         setMoreOpen(false);
         setArrangeOpen(true);
       }
@@ -87,6 +89,8 @@ function ShellFrame({ variant, children }: AppShellProps) {
       current?.company ? { ...current, company: { ...current.company, navOrder } } : current,
     );
   };
+
+  useEffect(() => setArrangeOpen(false), [me?.company?.id]);
 
   // Portalled sheets and menus live outside this tree; give them the violet tone too.
   useLayoutEffect(() => {
@@ -195,12 +199,13 @@ function ShellFrame({ variant, children }: AppShellProps) {
         onArrange={tablet ? undefined : openArrange}
       />
 
-      {!godseye && arrangeOpen ? (
+      {!godseye && arrangeOpen && arrangeCompanyId ? (
         <Suspense fallback={null}>
           <LazyNavArrangeEditor
             open={arrangeOpen}
             onOpenChange={setArrangeOpen}
             groups={{ primary, more }}
+            companyId={arrangeCompanyId}
             onSaved={navSaved}
           />
         </Suspense>

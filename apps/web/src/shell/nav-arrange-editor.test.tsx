@@ -89,7 +89,7 @@ describe("NavArrangeEditor keyboard arranging", () => {
         root.render(
           <QueryClientProvider client={new QueryClient()}>
             <I18nProvider locale="en">
-              <NavArrangeEditor open onOpenChange={() => {}} groups={groups} onSaved={() => {}} />
+              <NavArrangeEditor open onOpenChange={() => {}} groups={groups} companyId="plant-a" onSaved={() => {}} />
             </I18nProvider>
           </QueryClientProvider>,
         );

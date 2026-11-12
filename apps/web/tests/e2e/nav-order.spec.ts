@@ -1,6 +1,8 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 
 import { freshPlant, signInPlant, type FreshPlant, type PlantRole } from "./helpers/fresh-plant";
+import { m, q } from "./helpers/orders-api";
+import { API_URL, WEB_ORIGIN } from "./helpers/ports";
 
 function mainNav(page: Page) {
   return page.getByRole("navigation", { name: "Main" });
@@ -16,6 +18,23 @@ async function openPlant(page: Page, plant: FreshPlant, role: PlantRole) {
   await signInPlant(page, plant, role);
   await page.goto("/today");
   await expectShell(page);
+}
+
+async function secondPlantFor(plant: FreshPlant): Promise<string> {
+  const { email, password } = plant.members.owner;
+  const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
+  try {
+    const invite = await api.post(`${API_URL}/dev/invite`, {
+      data: { email, role: "owner", companyName: `Second ${plant.companyName}`.slice(0, 80) },
+    });
+    expect(invite.ok(), `/dev/invite returned ${invite.status()}`).toBe(true);
+    const made = (await invite.json()) as { token: string; companyId: string };
+    await api.post(`${API_URL}/api/auth/sign-in/email`, { data: { email, password } });
+    await api.post(`${API_URL}/trpc/invite.acceptByToken`, { data: { token: made.token } });
+    return made.companyId;
+  } finally {
+    await api.dispose();
+  }
 }
 
 test("a member saves their own menu order and resets it", async ({ page }) => {
@@ -117,4 +136,24 @@ test("Escape restores the picked row and a second Escape cancels", async ({ page
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(mainNav(page).getByRole("link").first()).toHaveAccessibleName("Today");
+});
+
+test("a plant change under the editor cannot receive the old plant's order", async ({ page }) => {
+  const plant = await freshPlant("NavPlant");
+  const secondCompanyId = await secondPlantFor(plant);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+  await m(page, "company.switch", { companyId: plant.companyId });
+  await page.reload();
+  await expectShell(page);
+  await mainNav(page).getByRole("button", { name: "Arrange menu" }).click();
+  const dialog = page.getByRole("dialog", { name: "Arrange menu" });
+
+  await m(page, "company.switch", { companyId: secondCompanyId });
+  await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByText("The plant changed. Open the menu again and arrange it for this plant.", { exact: true })).toBeVisible();
+  await expect(dialog).toBeHidden();
+  const me = await q<{ company: { navOrder: unknown } }>(page, "auth.me", {});
+  expect(me.company.navOrder).toBeNull();
 });

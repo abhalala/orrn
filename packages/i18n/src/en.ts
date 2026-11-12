@@ -290,6 +290,7 @@ export const en = {
     moved: "{name} moved to position {position} of {total}",
     orderSaved: "Menu order saved",
     orderSaveFailed: "The menu order could not be saved. Try again.",
+    plantChanged: "The plant changed. Open the menu again and arrange it for this plant.",
   },
 
   auth: {
