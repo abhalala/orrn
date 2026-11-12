@@ -132,6 +132,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "ingest.artifact.reread",
   "ingest.artifact.upload",
   "ingest.block.repick",
+  "ingest.block.reput",
   "ingest.candidate.approve",
   "ingest.candidate.discard",
   "ingest.candidate.hold",

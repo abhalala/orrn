@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8092 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8093 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -7693,7 +7693,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (309)
+### audit (310)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7895,6 +7895,7 @@ Please check, Lalubhai:
 | `actions.ingest__candidate__approve` | Import approved | इम्पोर्ट मंज़ूर किया |
 | `actions.ingest__candidate__discard` | Import discarded | इम्पोर्ट हटाया |
 | `actions.ingest__block__repick` | Header row opened again | कॉलम की लाइन फिर से खोली |
+| `actions.ingest__block__reput` | Table put again | टेबल फिर से भेजी गई |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
 | `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
 | `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |

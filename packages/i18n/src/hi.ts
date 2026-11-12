@@ -6752,6 +6752,7 @@ export const hi = {
       ingest__candidate__approve: "इम्पोर्ट मंज़ूर किया",
       ingest__candidate__discard: "इम्पोर्ट हटाया",
       ingest__block__repick: "कॉलम की लाइन फिर से खोली",
+      ingest__block__reput: "टेबल फिर से भेजी गई",
       ingest__candidate__hold: "इम्पोर्ट होल्ड किया",
       ingest__candidate__recheck: "इम्पोर्ट दोबारा जाँचा",
       ingest__hole__retire: "इम्पोर्ट का लेआउट हटाया",
