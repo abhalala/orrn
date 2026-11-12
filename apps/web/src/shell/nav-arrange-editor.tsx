@@ -8,7 +8,7 @@ import { Sheet } from "@orrn/ui/components/sheet";
 import { cn } from "@orrn/ui/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
-import { useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 
 import { trpc } from "@/shared/utils/trpc";
@@ -51,6 +51,15 @@ export default function NavArrangeEditor({
   const [busy, setBusy] = useState<"save" | "reset" | null>(null);
   const save = useMutation(trpc.auth.setNavOrder.mutationOptions());
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const resetButtonRef = useRef<HTMLButtonElement>(null);
+  const keepOrderButtonRef = useRef<HTMLButtonElement>(null);
+  const wasConfirmReset = useRef(false);
+
+  useEffect(() => {
+    if (confirmReset) keepOrderButtonRef.current?.focus({ preventScroll: true });
+    else if (wasConfirmReset.current) resetButtonRef.current?.focus({ preventScroll: true });
+    wasConfirmReset.current = confirmReset;
+  }, [confirmReset]);
 
   const cancel = () => {
     if (!busy) onOpenChange(false);
@@ -135,14 +144,31 @@ export default function NavArrangeEditor({
       }}
       dismissible={!busy}
       footer={
-        <>
-          <Button variant="secondary" disabled={!!busy} onClick={cancel}>
-            {t("nav.cancel")}
-          </Button>
-          <Button loading={busy === "save"} disabled={!!busy} onClick={() => void finish(navOrderFromRows(rows), "save")}>
-            {t("nav.done")}
-          </Button>
-        </>
+        confirmReset ? (
+          <div className="flex flex-col gap-3" role="alert">
+            <p className="m-0 text-[14px]">{t("nav.resetConfirm")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button ref={keepOrderButtonRef} variant="secondary" disabled={!!busy} onClick={() => setConfirmReset(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button variant="danger" loading={busy === "reset"} disabled={!!busy} onClick={() => void finish(null, "reset")}>
+                {t("nav.resetDefault")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Button ref={resetButtonRef} variant="ghost" disabled={!!busy} onClick={() => setConfirmReset(true)}>
+              {t("nav.resetDefault")}
+            </Button>
+            <Button variant="secondary" disabled={!!busy} onClick={cancel}>
+              {t("common.cancel")}
+            </Button>
+            <Button loading={busy === "save"} disabled={!!busy} onClick={() => void finish(navOrderFromRows(rows), "save")}>
+              {t("common.done")}
+            </Button>
+          </>
+        )
       }
     >
       <DndContext
@@ -165,25 +191,6 @@ export default function NavArrangeEditor({
         </SortableContext>
       </DndContext>
 
-      <div className="mt-5 border-t border-border pt-4">
-        {confirmReset ? (
-          <div className="flex flex-col gap-3" role="alert">
-            <p className="m-0 text-[14px]">{t("nav.resetConfirm")}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" disabled={!!busy} onClick={() => setConfirmReset(false)}>
-                {t("nav.cancel")}
-              </Button>
-              <Button variant="danger" loading={busy === "reset"} disabled={!!busy} onClick={() => void finish(null, "reset")}>
-                {t("nav.resetDefault")}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Button variant="ghost" disabled={!!busy} onClick={() => setConfirmReset(true)}>
-            {t("nav.resetDefault")}
-          </Button>
-        )}
-      </div>
       <p data-testid="nav-order-announcement" role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </p>

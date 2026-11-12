@@ -175,3 +175,21 @@ test("Arrange menu is reachable from the account footer at 1280 by 900", async (
   await menu.getByRole("menuitem", { name: "Arrange menu" }).click();
   await expect(page.getByRole("dialog", { name: "Arrange menu" })).toBeVisible();
 });
+
+test("reset confirmation stays in the footer and restores focus", async ({ page }) => {
+  const plant = await freshPlant("NavResetFocus");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+  await openArrange(page);
+  const dialog = page.getByRole("dialog", { name: "Arrange menu" });
+  const reset = dialog.getByRole("button", { name: "Reset to default" });
+  await reset.click();
+
+  const confirm = dialog.getByRole("alert");
+  await expect(confirm).toBeVisible();
+  await expect(confirm.getByRole("button").first()).toBeFocused();
+  await expect(dialog.locator("[data-slot='sheet-footer']").getByRole("alert")).toHaveCount(1);
+  await confirm.getByRole("button").first().click();
+  await expect(reset).toBeFocused();
+});

@@ -92,7 +92,7 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 lg:px-6">{children}</div>
           {footer ? (
-            <div className="flex flex-col-reverse gap-2 border-t border-border px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end lg:px-6 [&>*]:w-full sm:[&>*]:w-auto">
+            <div data-slot="sheet-footer" className="flex flex-col-reverse gap-2 border-t border-border px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end lg:px-6 [&>*]:w-full sm:[&>*]:w-auto">
               {footer}
             </div>
           ) : (
