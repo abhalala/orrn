@@ -95,6 +95,7 @@ import {
   openDoubts,
   openDoubtWhere,
   ORDER_NO_DATE,
+  clearBulkSkips,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
@@ -789,12 +790,17 @@ export async function setTarget(
     }
   }
   // Rule 11.3: a change into or out of orders changes which sheets are order sheets.
-  const ordersMove = (c.target === "orders") !== (input.target === "orders") && c.state !== "discarded";
+  // A discarded sheet is not an order sheet, so bringing it back into orders is a move too (S9-2).
+  const wasOrders = c.target === "orders" && c.state !== "discarded";
+  const ordersMove = wasOrders !== (input.target === "orders");
   const moved = ordersMove ? await orderSheetsMove(ctx, c) : [];
+  // Rule 11.3 (S9-1): a sheet leaving orders loses the skips the bulk action made under its No.
+  const leaving = c.target === "orders" && input.target !== "orders" ? [clearBulkSkips(ctx, c.id)] : [];
   if (input.target === "ignore") {
     await guardedBatch(ctx.db, [
       ...candidateChange(ctx, c.id, input.expectSeq, { state: "discarded", reasonCode: "ignored" }),
       ...moved,
+      ...leaving,
       clearFillIfNoOrders(ctx, c.artifactId),
       auditInsert(ctx, { action: "ingest.candidate.discard", subjectType: "ingest_candidate", subjectId: c.id, meta: { ignored: true } }),
     ]);
@@ -821,6 +827,7 @@ export async function setTarget(
     ...candidateChange(ctx, c.id, input.expectSeq, { ...set, dryCursor: 0, reasonCode: null, reasonDetail: null }),
     clearLayoutAnswers(ctx, c.id),
     ...moved,
+    ...leaving,
     clearFillIfNoOrders(ctx, c.artifactId),
   ]);
   return candidateDetail(ctx, c.id);
@@ -1884,6 +1891,7 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
         ),
       ),
     ingestAbortUnlessChanged(ctx.db),
+    ...(c.target === "orders" ? [clearBulkSkips(ctx, c.id)] : []),
     clearFillIfNoOrders(ctx, c.artifactId),
     auditInsert(ctx, { action: "ingest.candidate.discard", subjectType: "ingest_candidate", subjectId: c.id, meta: { from: c.state } }),
   ]);
