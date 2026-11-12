@@ -4,7 +4,10 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { Me } from "./me";
 
 // The real trpc module validates the Vite env at import; the guards only need the `auth.me` key.
+// `trpcClient` is an empty stand-in. Bun keeps this mock for the other test files of the same run, and
+// the ingest lib imports that name, so leaving it out broke them with "Export named not found".
 mock.module("../utils/trpc", () => ({
+  trpcClient: {},
   trpc: { auth: { me: { queryOptions: () => ({ queryKey: ["auth.me"], queryFn: async () => null }) } } },
   // Bun keeps a module mock for the whole run; a screen test that loads components needs the client's name to exist.
   trpcClient: {},

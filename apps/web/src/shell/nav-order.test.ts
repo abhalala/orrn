@@ -47,7 +47,8 @@ describe("orderedNavItems", () => {
   test("saved visible keys come first in saved order within their default groups", () => {
     const result = order({ order: ["guides", "stock", "today"] });
     expect(keys(result.primary)).toEqual(["stock", "today", "pack", "dispatch"]);
-    expect(keys(result.more).slice(0, 2)).toEqual(["guides", "orders"]);
+    // Imports leads the default More list since the Infinity Portal; Orders follows it.
+    expect(keys(result.more).slice(0, 3)).toEqual(["guides", "ingest", "orders"]);
   });
 
   test("items absent from the saved order follow in default order", () => {
@@ -124,7 +125,7 @@ describe("orderedNavItems", () => {
 describe("nav editor rows", () => {
   const groups = {
     primary: [TENANT_PRIMARY[0]!, TENANT_PRIMARY[1]!],
-    more: [TENANT_MORE[0]!, TENANT_MORE.find((item) => item.key === "guides")!],
+    more: [TENANT_MORE.find((item) => item.key === "orders")!, TENANT_MORE.find((item) => item.key === "guides")!],
   };
 
   test("one divider serializes as one order plus the first More key", () => {

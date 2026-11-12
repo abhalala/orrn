@@ -48,7 +48,12 @@ export type ImportReplayKind =
   | "ageing.release"
   // Final fixes 5 (M4): links handed out once; see lib/replayToken.ts.
   | "die_share.create"
-  | "invite.create";
+  | "invite.create"
+  // Infinity Portal merge (plan A5): single-row creates that a merge chunk may send again.
+  | "customer.alias"
+  | "vendor.create"
+  | "vendor.alias"
+  | "die_instance.create";
 
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 

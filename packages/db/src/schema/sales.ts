@@ -22,8 +22,12 @@ export type SalesOrderStatus = (typeof salesOrderStatuses)[number];
 /** Statuses whose lines still take bundles (pack suggestion, dispatch link, baki report). */
 export const openSalesOrderStatuses = ["booking", "confirmed", "dispatching"] as const;
 
-/** `office` or `portal` (C29: portal rows are created in booking only). */
-export const salesOrderSources = ["office", "portal"] as const;
+/**
+ * Where an order was booked: `office`, `portal` (C29: portal rows are created in booking only) or
+ * `ingest` (written by the Infinity Portal merge from a file). A text column with no CHECK, so a
+ * new value needs no migration.
+ */
+export const salesOrderSources = ["office", "portal", "ingest"] as const;
 /** Line finish (C20: an alloy such as 6061 is never a finish). */
 export const salesOrderFinishes = ["none", "anodise", "pvd"] as const;
 /** Which side the clerk committed on a line. */
@@ -90,6 +94,9 @@ export const salesOrder = sqliteTable(
     index("sales_order_company_server_seq_idx").on(table.companyId, table.serverSeq),
     // PO repeat check among non-cancelled orders of a customer (enforced at confirm, OP §3).
     index("sales_order_company_customer_po_idx").on(table.companyId, table.customerId, table.poNumber),
+    // The same check as the order screens make it, by lower(po_number): assertPoFree, poRepeatGuard
+    // and the import's live order lookup read one customer's PO, not all of its orders (S3-6).
+    index("sales_order_company_customer_po_lower_idx").on(table.companyId, table.customerId, sql`lower(${table.poNumber})`),
   ],
 );
 

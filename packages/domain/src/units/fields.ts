@@ -17,7 +17,8 @@ export type QuantityField = {
 const T = 1_000_000; // grams in a tonne
 
 const TABLE = {
-  "bundle.weight": { kind: "mass", storage: "g", hard: [0, 50 * T], plausible: [1_000, 2 * T] },
+  // Owner, 2026-11-11: a believable bundle is 5 kg to 150 kg; anything outside is asked, not refused.
+  "bundle.weight": { kind: "mass", storage: "g", hard: [0, 50 * T], plausible: [5_000, 150_000] },
   "bundle.length": { kind: "length", storage: "mm", hard: [0, 30_000], plausible: [300, 12_500] },
   /** Pressed length of a whole push on the press count: the server takes up to 100,000 m (100,000,000 mm), far past a bundle's 30 m. */
   "press.pressedLength": { kind: "length", storage: "mm", hard: [0, 100_000_000] },

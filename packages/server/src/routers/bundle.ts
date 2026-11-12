@@ -33,6 +33,8 @@ import {
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
+import { legacyBundleMap } from "@orrn/db/schema/legacy";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { atomicBatch, mapInChunks, pushChunkedInserts, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { bundleBlockReason, holdingDispatchCodes } from "../lib/bundleHold";
 import { formatBundleSerial, formatGroupCode } from "../lib/bundleSerial";
@@ -251,6 +253,11 @@ const bundleImportRowSchema = z.object({
   weightG: z.number().int().positive("Weight must be greater than 0"),
   lengthMm: z.number().int().positive("Length must be greater than 0"),
   poNumber: z.string().max(500).nullable().optional(),
+  /**
+   * The bundle id in the old system (pre-cutover label). When sent, `legacy_bundle_map` links it to
+   * the new bundle in the same batch, so the old label still resolves (plan B4).
+   */
+  legacyId: z.string().trim().min(1).max(100).optional(),
 });
 
 /**
@@ -477,6 +484,62 @@ async function receiptReplay(db: OrrnDb, companyId: string, groupId: string) {
     bundles: rows,
     rejectCount: Number(rejects?.n ?? 0),
   };
+}
+
+/**
+ * The last bundle number of an old (legacy) group the import appends to. Only `bulkImport` makes
+ * bundles in such a group, numbered 1, 2, 3 with no gaps, and bundles are never deleted, so the
+ * last number is found by looking up serials on bundle_company_serial_unique: powers of two first,
+ * then 16 probes a round between the last one found and the first one missing. About 30 rows read
+ * for a group of 5,000, where reading every bundle of the group grew with each chunk (S4-3). A
+ * group that does not start at 1 falls back to reading its serials.
+ */
+async function lastLegacySerial(ctx: { db: OrrnDb; companyId: string }, group: { id: string; code: string }): Promise<number> {
+  const present = async (ks: number[]) =>
+    new Set(
+      (
+        await ctx.db
+          .select({ serial: bundle.serial })
+          .from(bundle)
+          .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.serial, ks.map((k) => formatBundleSerial(group.code, k)))))
+      ).map((r) => r.serial),
+    );
+  const has = (set: Set<string>, k: number) => set.has(formatBundleSerial(group.code, k));
+  const powers = Array.from({ length: 24 }, (_, i) => 2 ** i);
+  const got = await present(powers);
+  if (!has(got, 1)) {
+    const rows = await ctx.db.select({ serial: bundle.serial }).from(bundle).where(and(eq(bundle.companyId, ctx.companyId), eq(bundle.groupId, group.id)));
+    let max = 0;
+    for (const r of rows) {
+      const n = Number(/-B(\d+)$/.exec(r.serial)?.[1] ?? 0);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+    return max;
+  }
+  let lo = 1;
+  for (const p of powers) {
+    if (!has(got, p)) break;
+    lo = p;
+  }
+  let hi = lo * 2;
+  while (hi - lo > 1) {
+    const step = Math.max(1, Math.floor((hi - lo) / 16));
+    const ks: number[] = [];
+    for (let k = lo + step; k < hi; k += step) ks.push(k);
+    const g = await present(ks);
+    let nextLo = lo;
+    let nextHi = hi;
+    for (const k of ks) {
+      if (has(g, k)) nextLo = k;
+      else {
+        nextHi = k;
+        break;
+      }
+    }
+    lo = nextLo;
+    hi = nextHi;
+  }
+  return lo;
 }
 
 export const bundleRouter = router({
@@ -1517,6 +1580,8 @@ export const bundleRouter = router({
               .where(and(eq(bundle.companyId, ctx.companyId), inArray(bundle.id, replayProbe(ids))))
           ).map((r) => r.id),
         );
+      // The new bundles' ids in input order (the merge records what it wrote, plan A5).
+      const ids = rowIds ?? input.rows.map(() => crypto.randomUUID());
       const replayed = {
         success: true,
         replayed: true,
@@ -1525,11 +1590,28 @@ export const bundleRouter = router({
         newDies: 0,
         newGroups: 0,
         reusedGroups: 0,
+        ids,
       } as const;
       if (rowIds) {
         const state = await landed(rowIds);
         if (state === "replayed") return replayed;
         if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
+      }
+
+      // 0b. Old bundle ids: each once in the call and not already linked to a bundle.
+      const legacyIds = input.rows.map((row) => row.legacyId).filter((v): v is string => !!v);
+      if (legacyIds.length > 0) {
+        const twice = legacyIds.find((v, i) => legacyIds.indexOf(v) !== i);
+        if (twice) throw new TRPCError({ code: "BAD_REQUEST", message: `Old bundle id ${twice} is on two rows` });
+        const linked = await mapInChunks([...new Set(legacyIds)], (part) =>
+          ctx.db
+            .select({ legacyId: legacyBundleMap.legacyId })
+            .from(legacyBundleMap)
+            .where(and(eq(legacyBundleMap.companyId, ctx.companyId), inArray(legacyBundleMap.legacyId, part))),
+        );
+        if (linked.length > 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Old bundle id ${linked[0]!.legacyId} is already in orrn` });
+        }
       }
 
       // 1. Resolve every (series, sectionCode) in the file to a die id.
@@ -1707,23 +1789,7 @@ export const bundleRouter = router({
       }
       for (const dieId of existingDieIdsAppendedTo) {
         const group = dieIdToGroup.get(dieId)!;
-        const existing = await ctx.db
-          .select({ serial: bundle.serial })
-          .from(bundle)
-          .where(
-            and(eq(bundle.companyId, ctx.companyId), eq(bundle.groupId, group.id)),
-          );
-        let maxIdx = 0;
-        for (const row of existing) {
-          // Serial is `{groupCode}-B{N…}` — strip prefix and parse the tail.
-          const m = row.serial.match(/-B(\d+)$/);
-          const tail = m?.[1];
-          if (tail) {
-            const n = parseInt(tail, 10);
-            if (!isNaN(n) && n > maxIdx) maxIdx = n;
-          }
-        }
-        groupIdToNextIdx.set(group.id, maxIdx + 1);
+        groupIdToNextIdx.set(group.id, (await lastLegacySerial(ctx, group)) + 1);
       }
 
       // 6. Build the bundle + status event rows.
@@ -1737,7 +1803,7 @@ export const bundleRouter = router({
         const idx = groupIdToNextIdx.get(group.id)!;
         groupIdToNextIdx.set(group.id, idx + 1);
 
-        const bundleId = rowIds?.[rowIndex] ?? crypto.randomUUID();
+        const bundleId = ids[rowIndex]!;
         bundleRows.push({
           id: bundleId,
           companyId: ctx.companyId,
@@ -1771,6 +1837,15 @@ export const bundleRouter = router({
       const openingVoucherId = crypto.randomUUID();
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundle).values(rows), bundleRows);
       pushChunkedInserts(statements, (rows) => ctx.db.insert(bundleStatusEvent).values(rows), eventRows);
+      pushChunkedInserts(
+        statements,
+        (rows) => ctx.db.insert(legacyBundleMap).values(rows),
+        input.rows.flatMap((row, i) =>
+          row.legacyId
+            ? [{ id: crypto.randomUUID(), companyId: ctx.companyId, serverSeq: seq, legacyId: row.legacyId, bundleId: ids[i]!, createdBy: userId }]
+            : [],
+        ),
+      );
       statements.push(
         ...packRows(
           { db: ctx.db, companyId: ctx.companyId, userId, seq, postedAt: now },
@@ -1792,6 +1867,8 @@ export const bundleRouter = router({
               newGroups: newGroups.length,
               reusedGroups: existingDieIdsAppendedTo.length,
               openingVoucherId,
+              ...(legacyIds.length > 0 ? { legacyIds: legacyIds.length } : {}),
+              ...sourceMeta(ctx),
             },
           },
         ),
@@ -1814,6 +1891,7 @@ export const bundleRouter = router({
         newDies: newDieIds.length,
         newGroups: newGroups.length,
         reusedGroups: existingDieIdsAppendedTo.length,
+        ids,
       };
     }),
 

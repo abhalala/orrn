@@ -49,6 +49,9 @@ export const die = sqliteTable(
   },
   (table) => [
     uniqueIndex("die_company_series_section_unique").on(table.companyId, table.series, table.sectionCode),
+    // Section codes compared the way the import resolves them (trimmed, upper case), so a lookup by
+    // code reads only the dies with that code, never every die of the plant (S4-3).
+    index("die_company_section_norm_idx").on(table.companyId, sql`upper(trim(${table.sectionCode}))`),
     index("die_company_status_idx").on(table.companyId, table.status),
     index("die_company_server_seq_idx").on(table.companyId, table.serverSeq),
     index("die_company_owner_idx").on(table.companyId, table.ownerCustomerId),

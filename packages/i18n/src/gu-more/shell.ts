@@ -117,6 +117,7 @@ export const guShell = {
     adminSupport: "સપોર્ટ",
     press: "Press",
     reports: "રિપોર્ટ",
+    ingest: "ઇમ્પોર્ટ",
     arrange: "મેન્યુનો ક્રમ બદલો",
     resetDefault: "ડિફૉલ્ટ ક્રમ પર પાછા જાઓ",
     resetConfirm: "મેન્યુને ડિફૉલ્ટ ક્રમમાં પાછું લાવવું છે?",

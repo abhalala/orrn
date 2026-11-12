@@ -19,6 +19,8 @@ import { company } from "@orrn/db/schema/tenant";
 import { actionProcedure, anyActionProcedure, router } from "../index";
 import { atomicBatch, type OrrnDb, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsertGuarded } from "../lib/audit";
+import { clientRequestIdSchema, requestRowIds } from "../lib/importReplay";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
 import { can } from "../lib/permissions";
 import { GSTIN_RE, nameKey } from "../lib/purchase";
 import { nextCompanySeq } from "../lib/sequence";
@@ -265,9 +267,30 @@ export const vendorRouter = router({
         city: optText(80),
         notes: optText(500),
         aliases: z.array(vendorName).max(20).optional(),
+        /** Same id, same vendor: a resend answers `replayed` with the vendor the first call made (plan A5). */
+        clientRequestId: clientRequestIdSchema.optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const requestId = input.clientRequestId
+        ? (await requestRowIds(ctx.companyId, "vendor.create", input.clientRequestId, 1))[0]!
+        : null;
+      const madeBefore = async () => {
+        if (!requestId) return null;
+        const [row] = await ctx.db
+          .select({ id: vendor.id, status: vendor.status })
+          .from(vendor)
+          .where(and(eq(vendor.id, requestId), eq(vendor.companyId, ctx.companyId)))
+          .limit(1);
+        if (!row) return null;
+        const aliasRows = await ctx.db
+          .select({ id: vendorAlias.id })
+          .from(vendorAlias)
+          .where(and(eq(vendorAlias.companyId, ctx.companyId), eq(vendorAlias.vendorId, row.id)));
+        return { id: row.id, status: row.status, aliasesAdded: aliasRows.length, replayed: true as const };
+      };
+      const prior = await madeBefore();
+      if (prior) return prior;
       const key = nameKey(input.name);
       const aliasList = [...new Map((input.aliases ?? []).map((a) => [nameKey(a), a.trim()])).entries()].filter(
         ([k]) => k !== key,
@@ -279,7 +302,7 @@ export const vendorRouter = router({
       }
       const publish = can({ company: { role: ctx.role }, isPlatformAdmin: false, platformRole: null }, "masters.publish");
       const status = publish ? "active" : "draft";
-      const id = crypto.randomUUID();
+      const id = requestId ?? crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       const userId = ctx.session.user.id;
       const statements: SqliteBatchItem[] = [
@@ -314,7 +337,7 @@ export const vendorRouter = router({
             action: "vendor.create",
             subjectType: "vendor",
             subjectId: id,
-            meta: { name: input.name, status, aliases: aliasList.map(([, a]) => a) },
+            meta: { name: input.name, status, aliases: aliasList.map(([, a]) => a), ...sourceMeta(ctx) },
           },
           { from: vendor, where: and(eq(vendor.id, id), eq(vendor.serverSeq, seq)) },
         ),
@@ -322,6 +345,9 @@ export const vendorRouter = router({
       try {
         await atomicBatch(ctx.db, statements);
       } catch (e) {
+        // The same request raced in a moment earlier: its vendor stands.
+        const raced = await madeBefore();
+        if (raced) return raced;
         if (/UNIQUE constraint failed: vendor/.test(errorText(e))) {
           throw new TRPCError({ code: "CONFLICT", message: "That name is already used by another vendor" });
         }
@@ -337,7 +363,7 @@ export const vendorRouter = router({
         .select({ id: vendorAlias.id })
         .from(vendorAlias)
         .where(and(eq(vendorAlias.companyId, ctx.companyId), eq(vendorAlias.vendorId, id)));
-      return { id, status, aliasesAdded: aliasRows.length };
+      return { id, status, aliasesAdded: aliasRows.length, replayed: false as const };
     }),
 
   /** Edit a vendor (masters.publish). `status` may move between draft/active/archived, never to merged. */
@@ -389,6 +415,7 @@ export const vendorRouter = router({
               meta: {
                 before: Object.fromEntries(Object.keys(patch).map((k) => [k, existing[k as keyof typeof existing] ?? null])),
                 patch,
+                ...sourceMeta(ctx),
               },
             },
             { from: vendor, where: and(eq(vendor.id, existing.id), eq(vendor.serverSeq, seq)) },
@@ -434,8 +461,29 @@ export const vendorRouter = router({
 
   /** Another spelling of a vendor (masters.publish). A spelling belongs to one vendor only. */
   addAlias: actionProcedure("masters.publish")
-    .input(z.object({ vendorId: z.string().min(1), alias: vendorName }))
+    .input(
+      z.object({
+        vendorId: z.string().min(1),
+        alias: vendorName,
+        /** Same id, same alias: a resend answers `replayed` with the alias the first call made (plan A5). */
+        clientRequestId: clientRequestIdSchema.optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const requestId = input.clientRequestId
+        ? (await requestRowIds(ctx.companyId, "vendor.alias", input.clientRequestId, 1))[0]!
+        : null;
+      const madeBefore = async () => {
+        if (!requestId) return null;
+        const [row] = await ctx.db
+          .select({ id: vendorAlias.id })
+          .from(vendorAlias)
+          .where(and(eq(vendorAlias.id, requestId), eq(vendorAlias.companyId, ctx.companyId)))
+          .limit(1);
+        return row ? { id: row.id, replayed: true as const } : null;
+      };
+      const prior = await madeBefore();
+      if (prior) return prior;
       const existing = await loadVendor(ctx, input.vendorId);
       if (existing.status === "merged") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This vendor was merged into another one" });
@@ -446,18 +494,25 @@ export const vendorRouter = router({
       }
       const owner = await keyOwner(ctx, key);
       if (owner) throw taken(owner.name);
-      const id = crypto.randomUUID();
+      const id = requestId ?? crypto.randomUUID();
       const seq = await nextCompanySeq({ db: ctx.db }, ctx.companyId);
       try {
         await atomicBatch(ctx.db, [
           aliasInsert({ ...ctx, userId: ctx.session.user.id }, { id, vendorId: existing.id, alias: input.alias, key, seq }),
           auditInsertGuarded(
             ctx,
-            { action: "vendor.alias.add", subjectType: "vendor", subjectId: existing.id, meta: { alias: input.alias } },
+            {
+              action: "vendor.alias.add",
+              subjectType: "vendor",
+              subjectId: existing.id,
+              meta: { alias: input.alias, ...sourceMeta(ctx) },
+            },
             { from: vendorAlias, where: and(eq(vendorAlias.id, id), eq(vendorAlias.serverSeq, seq)) },
           ),
         ]);
       } catch (e) {
+        const raced = await madeBefore();
+        if (raced) return raced;
         if (/UNIQUE constraint failed: vendor_alias/.test(errorText(e))) {
           throw new TRPCError({ code: "CONFLICT", message: "That spelling already belongs to another vendor" });
         }
@@ -469,7 +524,7 @@ export const vendorRouter = router({
         .where(and(eq(vendorAlias.id, id), eq(vendorAlias.companyId, ctx.companyId)))
         .limit(1);
       if (!landed) throw new TRPCError({ code: "CONFLICT", message: "The vendor changed; try again" });
-      return { id };
+      return { id, replayed: false as const };
     }),
 
   removeAlias: actionProcedure("masters.publish")

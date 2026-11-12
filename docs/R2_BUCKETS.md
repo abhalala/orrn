@@ -8,12 +8,13 @@ from `main` for the cron).
 |---|---|---|---|
 | `die-files` (`DIE_FILES`) | Die drawings, photos, trial sheets under `{companyId}/dies/{sectionId}/{fileId}`; the spectro watcher's result files under `{companyId}/spectro/{inboxId}` | No. Read through a signed worker URL (10 minutes) | Orphan die-file purge below. Spectro files are kept (the inbox row points at them). |
 | `backups` (`BACKUPS`) | Daily per-company JSON export, `backups/{companyId}/{YYYY-MM-DD}/{runId}.json` | No | None. Never set `empty: true`. See `docs/RESTORE_DRILL.md`. |
+| `ingest-vault` (`INGEST_VAULT`) | Infinity Portal files, under `tenants/{companyId}/artifacts/{sha256}/`: `raw` (the uploaded file), `digest.json` (what was read from it), `canonical/{n}.jsonl.gz` (each sheet as read) and `pages/{n}.jpg` (scanned pages) | No. Writes go through a signed worker URL (10 minutes); nothing is read back by the browser | None for now. One folder per file and plant, so the same bytes are stored once. Do not add a delete rule: provenance links point at these files. |
 
 ## Deploying before R2 is enabled
 
 R2 is optional: `optionalR2Bucket` probes the account before creating either Alchemy resource. An
 HTTP 403 with Cloudflare code `10042` (enable R2), or a 10000-series error explicitly saying R2
-is not enabled/subscribed, skips both buckets. `ORRN_SKIP_R2=1` explicitly skips without an R2 API
+is not enabled/subscribed, skips every bucket. `ORRN_SKIP_R2=1` explicitly skips without an R2 API
 call. Other authentication, permission, network and provider errors fail the deploy; a generic
 403 is not evidence of a missing subscription.
 
@@ -32,6 +33,24 @@ To restore these features, the owner enables R2 on the intended Cloudflare accou
 `ORRN_SKIP_R2=1` from the deployment environment, and redeploys the same stage. Both buckets are
 created or adopted and rebound; no runtime code change or migration is required. Check Settings
 and a real upload/backup after redeploy. This document does not authorize a deployment.
+
+## Ingest vault (Infinity Portal)
+
+The vault is optional like the other buckets. Without `INGEST_VAULT` (or without `ORRN_MASTER_KEY`)
+imports still work: the browser reads the file and sends the rows, `ingest.status` reports
+`vaultReady: false`, `artifact.begin` returns no upload ticket, and the artifact keeps
+`vault_state = 'not_stored'`. The upload route `PUT /files/ingest/upload` answers 503.
+
+With the vault, `artifact.begin` returns a ticket for `raw`. The ticket carries the SHA-256 the
+browser computed, and the worker passes it to R2 as the `sha256` put option, so R2 itself refuses bytes
+that do not match (code 10037, answered as 400). A second PUT to the same key is refused with 409.
+`artifact.commitRaw` checks the stored size and marks the artifact stored.
+
+The bot (`ANTHROPIC_API_KEY`) is a separate optional secret. Without it the column helper is skipped
+and a person maps the columns.
+
+To turn the vault on: enable R2, redeploy the stage. Alchemy creates or adopts `ingest-vault` with
+`delete: false`, so removing the binding later never deletes the bucket or its files.
 
 ## Uncommitted die-file uploads (BACKLOG 18)
 

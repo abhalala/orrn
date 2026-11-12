@@ -23,6 +23,8 @@ jobs:
       ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
       ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
       ALCHEMY_STAGE: production
+      # Column helper for imports. Optional: without it people map new layouts by hand.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

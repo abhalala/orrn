@@ -196,6 +196,22 @@ const backups = await optionalR2Bucket("backups", {
   create: () => R2Bucket("backups", { adopt: true, delete: false }),
 });
 
+/**
+ * Infinity Portal vault (plan A2): the raw bytes of every imported file, kept forever, under
+ * `tenants/<companyId>/artifacts/<sha256>/`. Uploaded by signed PUT. Optional like the others: without
+ * it imports still work from D1 staged rows and the screen says the original file is not kept.
+ * `delete: false` for the same reason as backups.
+ */
+const ingestVault = await optionalR2Bucket("ingest-vault", {
+  feature: "the import file vault",
+  probe: r2Probe,
+  forget: forgetR2State("ingest-vault"),
+  create: () => R2Bucket("ingest-vault", { adopt: true, delete: false }),
+});
+
+/** The column helper's model key (owner decision 2026-11-10). Optional: without it a person maps columns. */
+const anthropicApiKey = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
+console.log(`Imports   -> column helper ${anthropicApiKey ? "key present" : "not configured (manual mapping only)"}`);
 
 const LegacySpoolReleasesBucket = Resource(
   "internal::LegacySpoolReleasesState",
@@ -249,6 +265,7 @@ export const server = await Worker("server", {
     // Absent bucket = no key at all (never an `undefined` binding).
     ...(dieFiles ? { DIE_FILES: dieFiles } : {}),
     ...(backups ? { BACKUPS: backups } : {}),
+    ...(ingestVault ? { INGEST_VAULT: ingestVault } : {}),
     NODE_ENV: isDevStage ? (process.env.NODE_ENV ?? "development") : "production",
     CORS_ORIGIN: corsOrigin,
     CORS_ALLOWED_ORIGINS: corsAllowedOrigins,
@@ -259,6 +276,8 @@ export const server = await Worker("server", {
     ORRN_MASTER_KEY: alchemy.secret(masterKey),
     // Encrypted secret binding, never plain text (it was readable in the dashboard before).
     ...(smtpPassword ? { PURELYMAIL_SMTP_PASSWORD: alchemy.secret(smtpPassword) } : {}),
+    // Encrypted secret binding; absent key = no binding (the helper reports not set up).
+    ...(anthropicApiKey ? { ANTHROPIC_API_KEY: alchemy.secret(anthropicApiKey) } : {}),
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL ?? "",
     LEGACY_COOKIE_DOMAIN: legacyCookieDomain,
     CF_API_TOKEN: process.env.CF_API_TOKEN ?? process.env.CLOUDFLARE_API_TOKEN ?? "",

@@ -1,0 +1,527 @@
+import { sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+
+import { user } from "./auth";
+import { salesOrder } from "./sales";
+import { company } from "./tenant";
+
+const nowMs = sql`(cast(unixepoch('subsecond') * 1000 as integer))`;
+
+/**
+ * Infinity Portal (plan 2026-11-10, section B1). A file comes in as an artifact; each table read from
+ * it is a block; each block gets one candidate per target; a candidate stages one row per source row.
+ * Raw bytes live in the R2 vault (`INGEST_VAULT`), never in D1. Nothing here writes live tables: the
+ * merge does, through the existing procedures.
+ *
+ * The JSON columns hold shapes defined in `@orrn/ingest` (Recipe, FitDiff, PeriodGuess). The db package
+ * does not depend on that package, so the types here are structural; the server checks a recipe with
+ * `recipeSchema` before it uses one.
+ */
+
+export const INGEST_TARGETS = [
+  "customers",
+  "customer_aliases",
+  "vendors",
+  "vendor_aliases",
+  "dies",
+  "die_copies",
+  "bundles",
+  "orders",
+] as const;
+export type IngestTarget = (typeof INGEST_TARGETS)[number];
+
+export const CANDIDATE_STATES = [
+  "processing",
+  "needs_shape",
+  "needs_confirm",
+  "ready",
+  "held",
+  "approved",
+  "merging",
+  "merged",
+  "failed",
+  "discarded",
+] as const;
+export type CandidateState = (typeof CANDIDATE_STATES)[number];
+
+export const ROW_STATES = [
+  "pending",
+  "ready_create",
+  "ready_update",
+  "unchanged",
+  "ambiguous",
+  "conflict",
+  "refused",
+  "skipped",
+] as const;
+export type RowState = (typeof ROW_STATES)[number];
+
+export const QUESTION_CODES = [
+  "unit_unknown",
+  "date_format_ambiguous",
+  "period_needed",
+  "rates_hidden",
+  "column_meaning_unclear",
+  "create_legacy_die",
+  "new_customers",
+  "magnitude_check",
+  "order_po",
+  "bundles_no_old_id",
+  "order_fill_above",
+] as const;
+export type QuestionCode = (typeof QUESTION_CODES)[number];
+
+export const ARTIFACT_KINDS = ["sheet", "csv", "sql", "pdf_text", "pdf_scan", "image"] as const;
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
+export const VAULT_STATES = ["pending", "stored", "not_stored"] as const;
+export type VaultState = (typeof VAULT_STATES)[number];
+/** `kept_unread`: a PDF or photo kept in the vault, not read in this release (no blocks, no candidates). */
+export const READ_STATES = ["reading", "read", "failed", "kept_unread"] as const;
+export type ReadState = (typeof READ_STATES)[number];
+export const CANDIDATE_FITS = ["exact", "near", "none", "manual", "bot"] as const;
+export type CandidateFit = (typeof CANDIDATE_FITS)[number];
+export const ROW_DECISIONS = ["skip", "keep_file", "keep_live", "create_new", "use_match"] as const;
+export type RowDecision = (typeof ROW_DECISIONS)[number];
+export const ROW_MERGE_STATES = ["open", "queued", "written"] as const;
+export const MERGE_RUN_STATES = ["planning", "running", "done", "done_with_holds", "stopped"] as const;
+export type MergeRunState = (typeof MERGE_RUN_STATES)[number];
+export const MERGE_CHUNK_STATES = ["planned", "sent", "written", "failed"] as const;
+export type MergeChunkState = (typeof MERGE_CHUNK_STATES)[number];
+/** `pending`: a call claimed its place under the caps and has not answered yet (A8). */
+export const BOT_RUN_OUTCOMES = ["recipe", "no_target", "invalid", "refused", "error", "capped", "sample_failed", "pending"] as const;
+export type BotRunOutcome = (typeof BOT_RUN_OUTCOMES)[number];
+
+/** Column kinds of plan B3 (`@orrn/ingest` fingerprint). */
+export type IngestCellKind = "date" | "int" | "decimal" | "code" | "text" | "mixed" | "empty";
+
+/** Plan B8 `PeriodGuess`. */
+export type IngestPeriodGuess = {
+  fy: string | null;
+  asOf: string | null;
+  confidence: "high" | "medium" | "low" | "unknown";
+  sources: { kind: string; value: string }[];
+};
+
+/** A recipe (plan B2) as stored. Checked with `recipeSchema` from `@orrn/ingest` before use. */
+export type IngestRecipeJson = { schemaVersion: 1; target: IngestTarget } & Record<string, unknown>;
+
+/** A fit diff (plan B3) as stored; the exact shape is `FitDiff` in `@orrn/ingest`. */
+export type IngestFitDiffJson = Record<string, unknown>;
+
+const companyRef = () =>
+  text("company_id")
+    .notNull()
+    .references(() => company.id, { onDelete: "cascade" });
+const userRef = (name: string) => text(name).references(() => user.id, { onDelete: "set null" });
+const createdAtCol = () => integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull();
+const updatedAtCol = () =>
+  integer("updated_at", { mode: "timestamp_ms" })
+    .default(nowMs)
+    .$onUpdate(() => new Date())
+    .notNull();
+const count = (name: string) => integer(name).notNull().default(0);
+
+export const ingestArtifact = sqliteTable(
+  "ingest_artifact",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    /** Hex SHA-256 of the raw bytes. One artifact per plant per digest. */
+    sha256: text("sha256").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type"),
+    kind: text("kind", { enum: ARTIFACT_KINDS }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    vaultState: text("vault_state", { enum: VAULT_STATES }).notNull(),
+    readState: text("read_state", { enum: READ_STATES }).notNull(),
+    readError: text("read_error"),
+    /**
+     * Rule 7.2: the tables (by ordinal) the server asked about ("ask"), told to read again ("reread"),
+     * or reset for a person's pick ("pick"). A hint is taken only for a table named here.
+     */
+    headerAsked: text("header_asked", { mode: "json" }).$type<Record<string, { answer: "ask" | "reread" | "pick"; at: number }>>(),
+    blockCount: count("block_count"),
+    rowCount: count("row_count"),
+    period: text("period", { mode: "json" }).$type<IngestPeriodGuess>(),
+    periodConfirmed: text("period_confirmed", { mode: "json" }).$type<{ fy: string | null; asOf: string | null }>(),
+    /**
+     * Rule 11.3: the file's one answer to `order_fill_above` (true Yes, false No), with who and when.
+     * Stored on the file, never on a sheet, so no sheet operation brings back an older answer.
+     */
+    fillAbove: text("fill_above", { mode: "json" }).$type<{ answer: boolean; by: string; at: number }>(),
+    note: text("note"),
+    uploadedBy: userRef("uploaded_by"),
+    createdAt: createdAtCol(),
+    updatedAt: updatedAtCol(),
+  },
+  (t) => [
+    uniqueIndex("ingest_artifact_company_sha_unique").on(t.companyId, t.sha256),
+    index("ingest_artifact_company_created_idx").on(t.companyId, t.createdAt),
+  ],
+);
+
+export const ingestBlock = sqliteTable(
+  "ingest_block",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    artifactId: text("artifact_id")
+      .notNull()
+      .references(() => ingestArtifact.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    sheetName: text("sheet_name"),
+    title: text("title"),
+    headerRow: integer("header_row").notNull(),
+    headerRows: integer("header_rows").notNull().default(1),
+    headers: text("headers", { mode: "json" }).$type<string[]>().notNull(),
+    kinds: text("kinds", { mode: "json" }).$type<IngestCellKind[]>().notNull(),
+    headerKey: text("header_key").notNull(),
+    columnCount: integer("column_count").notNull(),
+    rowCount: count("row_count"),
+    rowsPut: count("rows_put"),
+    sample: text("sample", { mode: "json" }).$type<string[][]>().notNull(),
+    readBy: text("read_by", { enum: ["parser", "model"] }).notNull().default("parser"),
+    /** Who settled the header (rule 4.1): the reader alone (old upload shape), a fit to a known layout, or a person. */
+    headerBy: text("header_by", { enum: ["reader", "fit", "person"] }).notNull().default("reader"),
+    /**
+     * Lead answer (b), round 5: vertical merged cell ranges the reader reported, by block row index
+     * and column. Only a merged order-number cell gives its number to the rows under it.
+     */
+    merged: text("merged", { mode: "json" }).$type<{ col: number; firstRow: number; lastRow: number }[]>(),
+    /** Rule 7.2: a person's pick of the header row, with who and when. Null when a fit settled it. */
+    headerPick: text("header_pick", { mode: "json" }).$type<{ by: string; at: number; headerRow: number; headerRows: 1 | 2; lastDataRow?: number | null; skipRows?: number[] }>(),
+    /**
+     * Round 7 item 2: what the reader said about the table, for the review screen only (nothing is
+     * decided from it): blank rows crossed inside it, the lines it skipped (`skipped_repeat_header`,
+     * `skipped_title`, `after_last_row`; at most 200, text cut to 200, with the true count) and the
+     * titles it continues under (`sections`, at most 200, with the true count). Null: none sent.
+     */
+    readerFacts: text("reader_facts", { mode: "json" }).$type<{
+      gaps: number;
+      warnings: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[];
+      warningsTotal: number;
+      sections: { row: number; text: string }[];
+      sectionsTotal: number;
+    }>(),
+    /**
+     * Round 8 item 8: the table above this one, as the reader sent it (`continues`: the table above
+     * is all text). Kept so a re-put from the review screen sends it again. Null: none sent.
+     */
+    follows: text("follows", { mode: "json" }).$type<{ ordinal: number; gapRows: number; continues: boolean }>(),
+    modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
+    /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
+    canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),
+    createdAt: createdAtCol(),
+  },
+  (t) => [
+    uniqueIndex("ingest_block_artifact_ordinal_unique").on(t.artifactId, t.ordinal),
+    index("ingest_block_company_header_key_idx").on(t.companyId, t.headerKey),
+  ],
+);
+
+/** A learned layout of one plant (plan B1). Built-in layouts are code, not rows. */
+export const ingestHole = sqliteTable(
+  "ingest_hole",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    target: text("target", { enum: INGEST_TARGETS }).notNull(),
+    name: text("name").notNull(),
+    currentVersion: integer("current_version").notNull(),
+    state: text("state", { enum: ["active", "retired"] }).notNull().default("active"),
+    createdBy: userRef("created_by"),
+    createdAt: createdAtCol(),
+    updatedAt: updatedAtCol(),
+  },
+  (t) => [index("ingest_hole_company_target_idx").on(t.companyId, t.target)],
+);
+
+export const ingestHoleVersion = sqliteTable(
+  "ingest_hole_version",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    holeId: text("hole_id")
+      .notNull()
+      .references(() => ingestHole.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    headerKey: text("header_key").notNull(),
+    recipe: text("recipe", { mode: "json" }).$type<IngestRecipeJson>().notNull(),
+    madeBy: text("made_by", { enum: ["person", "bot", "bot_edited"] }).notNull(),
+    botRunId: text("bot_run_id"),
+    state: text("state", { enum: ["draft", "approved"] }).notNull(),
+    createdBy: userRef("created_by"),
+    createdAt: createdAtCol(),
+  },
+  (t) => [
+    uniqueIndex("ingest_hole_version_unique").on(t.holeId, t.version),
+    index("ingest_hole_version_company_key_idx").on(t.companyId, t.headerKey, t.state),
+  ],
+);
+
+export const ingestCandidate = sqliteTable(
+  "ingest_candidate",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    artifactId: text("artifact_id")
+      .notNull()
+      .references(() => ingestArtifact.id, { onDelete: "cascade" }),
+    blockId: text("block_id")
+      .notNull()
+      .references(() => ingestBlock.id, { onDelete: "cascade" }),
+    /** A derived candidate, e.g. new customers found in an orders block. */
+    parentId: text("parent_id"),
+    /** Null while `needs_shape` with no guess. */
+    target: text("target", { enum: INGEST_TARGETS }),
+    /** "builtin:<id>@<v>" or "learned:<holeVersionId>". */
+    holeRef: text("hole_ref"),
+    /** The recipe this candidate runs. Null while `needs_shape`. */
+    recipe: text("recipe", { mode: "json" }).$type<IngestRecipeJson>(),
+    fit: text("fit", { enum: CANDIDATE_FITS }).notNull(),
+    fitScore: integer("fit_score"),
+    fitDiff: text("fit_diff", { mode: "json" }).$type<IngestFitDiffJson>(),
+    state: text("state", { enum: CANDIDATE_STATES }).notNull(),
+    reasonCode: text("reason_code"),
+    reasonDetail: text("reason_detail"),
+    /** Compare-and-set guard for every change (`expectSeq`). */
+    serverSeq: count("server_seq"),
+    /** The dry-run pump cursor: the next row index to run (`expectCursor`). */
+    dryCursor: count("dry_cursor"),
+    rowsTotal: count("rows_total"),
+    rowsCreate: count("rows_create"),
+    rowsUpdate: count("rows_update"),
+    rowsUnchanged: count("rows_unchanged"),
+    rowsAmbiguous: count("rows_ambiguous"),
+    rowsConflict: count("rows_conflict"),
+    rowsRefused: count("rows_refused"),
+    rowsSkipped: count("rows_skipped"),
+    rowsWritten: count("rows_written"),
+    /** Rule 7.1: rows whose blank party, date or PO took the value of their order's run. */
+    rowsFilled: count("rows_filled"),
+    /** Rule 7.1: rows a person chose to leave out ("Skip this row"). */
+    rowsSkippedByPerson: count("rows_skipped_by_person"),
+    openQuestions: count("open_questions"),
+    botAttempts: count("bot_attempts"),
+    recipeLocked: integer("recipe_locked", { mode: "boolean" }).notNull().default(false),
+    approvedBy: userRef("approved_by"),
+    approvedAt: integer("approved_at", { mode: "timestamp_ms" }),
+    createdAt: createdAtCol(),
+    updatedAt: updatedAtCol(),
+  },
+  (t) => [
+    uniqueIndex("ingest_candidate_block_target_unique").on(t.blockId, t.target),
+    index("ingest_candidate_company_state_idx").on(t.companyId, t.state),
+    index("ingest_candidate_artifact_idx").on(t.artifactId),
+  ],
+);
+
+export const ingestStagedRow = sqliteTable(
+  "ingest_staged_row",
+  {
+    /** Hex sha256(rowKey + "|" + target). */
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    /** Hex sha256(artifactId|blockOrdinal|rowIndex). */
+    rowKey: text("row_key").notNull(),
+    candidateId: text("candidate_id")
+      .notNull()
+      .references(() => ingestCandidate.id, { onDelete: "cascade" }),
+    rowIndex: integer("row_index").notNull(),
+    raw: text("raw", { mode: "json" }).$type<string[]>().notNull(),
+    values: text("values", { mode: "json" }).$type<Record<string, unknown>>(),
+    /**
+     * What the file gave for each numeric field before conversion, kept for audit (owner rule):
+     * `{ field: { text: "12.5", unit: "kg" } }`. `values` holds the canonical integers.
+     */
+    entered: text("entered", { mode: "json" }).$type<Record<string, { text: string; unit: string | null }>>(),
+    state: text("state", { enum: ROW_STATES }).notNull().default("pending"),
+    reasons: text("reasons", { mode: "json" }).$type<string[]>(),
+    matchId: text("match_id"),
+    diff: text("diff", { mode: "json" }).$type<Record<string, { live: unknown; file: unknown }>>(),
+    decision: text("decision", { enum: ROW_DECISIONS }),
+    /** Rule 11.3: "no_date" when "Skip these {count} lines" made the skip; a person's own decision clears it. */
+    bulkSkip: text("bulk_skip", { enum: ["no_date"] }),
+    mergeState: text("merge_state", { enum: ROW_MERGE_STATES }).notNull().default("open"),
+    committedType: text("committed_type"),
+    committedId: text("committed_id"),
+    /**
+     * Orders only: the old order this row belongs to (PORTAL-RULES-3 section 1), written by the dry
+     * run from `orderIdentityOf` (server lib/ingest/orderid.ts). Plant, financial year, customer and
+     * old order number; the PO is never part of it. Indexed so the dry run and the planner find the
+     * same order in another file.
+     */
+    orderKey: text("order_key"),
+    /**
+     * Customers only: the name key of the customer the row adds (server lib/purchase nameKey).
+     * Indexed so an aliases sheet of the same upload finds a customer another sheet adds (rule 2).
+     */
+    nameKey: text("name_key"),
+    /**
+     * Orders only: the customer part of `order_key` and the row's own PO, trimmed and in lower case
+     * (server lib/ingest/orderid.ts poKeyOf). Null when the row has no PO. Indexed so a PO-only order
+     * finds the numbered order of another sheet that carries its PO, and one PO on two numbered
+     * orders in two sheets is found (PORTAL-RULES-3 4.2).
+     */
+    poKey: text("po_key"),
+    /**
+     * The in-file duplicate key of the row (server lib/ingest/dryrun.ts dupKeyOf), or null. Indexed
+     * with the candidate so a dry run page finds an earlier row with the same key without reading
+     * every earlier page (rule 4.4).
+     */
+    dupKey: text("dup_key"),
+    /**
+     * The row key of a row of another sheet this row waits on: a new section a die sheet adds, or a
+     * new customer a customers sheet adds (`pending:<rowKey>` in `values._ids`). Indexed so a
+     * discard finds the rows that wait on the gone sheet by its own row keys (rule 7.3).
+     */
+    pendingRef: text("pending_ref"),
+    /**
+     * Rule 5.3: where the reader doubted how it split this row (PDF), one entry per code, with the
+     * file line and page. A row with doubts is never ready until a person answers (`doubtBy`).
+     */
+    doubts: text("doubts", { mode: "json" }).$type<{ code: string; line: number; page?: number }[]>(),
+    /** The user who said the doubted row is right, as read. Kept across re-runs; null while open. */
+    doubtBy: text("doubt_by"),
+    updatedAt: updatedAtCol(),
+  },
+  (t) => [
+    uniqueIndex("ingest_staged_row_candidate_index_unique").on(t.candidateId, t.rowIndex),
+    index("ingest_staged_row_candidate_state_idx").on(t.candidateId, t.state),
+    index("ingest_staged_row_committed_idx").on(t.companyId, t.committedType, t.committedId),
+    index("ingest_staged_row_company_key_idx").on(t.companyId, t.rowKey),
+    index("ingest_staged_row_company_order_key_idx").on(t.companyId, t.orderKey, t.candidateId),
+    index("ingest_staged_row_company_name_key_idx").on(t.companyId, t.nameKey),
+    index("ingest_staged_row_company_po_key_idx").on(t.companyId, t.poKey, t.candidateId),
+    index("ingest_staged_row_candidate_dup_key_idx").on(t.candidateId, t.dupKey),
+    index("ingest_staged_row_company_pending_ref_idx").on(t.companyId, t.pendingRef, t.candidateId),
+  ],
+);
+
+/**
+ * The old orders an import made (PORTAL-RULES-3 section 1, S3-6): one row per sales order the merge
+ * wrote for a numbered old order. `key` is the financial year, the customer id and the old order
+ * number after normalising (server lib/ingest/orderid.ts liveOrderKey). The dry run, the planner and
+ * the merge find an old order already in orrn by this key, 90 keys a statement, instead of reading
+ * every order of the customer. An order cancelled and imported again has two rows; only an order
+ * that is not closed or cancelled counts.
+ */
+export const ingestOrderKey = sqliteTable(
+  "ingest_order_key",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    key: text("key").notNull(),
+    salesOrderId: text("sales_order_id")
+      .notNull()
+      .references(() => salesOrder.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (t) => [index("ingest_order_key_company_key_idx").on(t.companyId, t.key)],
+);
+
+export const ingestAnswer = sqliteTable(
+  "ingest_answer",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    candidateId: text("candidate_id")
+      .notNull()
+      .references(() => ingestCandidate.id, { onDelete: "cascade" }),
+    questionCode: text("question_code", { enum: QUESTION_CODES }).notNull(),
+    /** Field name, source value, or "" for the whole candidate. */
+    subject: text("subject").notNull(),
+    answer: text("answer", { mode: "json" }).$type<unknown>().notNull(),
+    answeredBy: userRef("answered_by"),
+    answeredAt: integer("answered_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+  },
+  (t) => [uniqueIndex("ingest_answer_unique").on(t.candidateId, t.questionCode, t.subject)],
+);
+
+export const ingestMergeRun = sqliteTable(
+  "ingest_merge_run",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    state: text("state", { enum: MERGE_RUN_STATES }).notNull(),
+    cursor: count("cursor"),
+    serverSeq: count("server_seq"),
+    chunksTotal: count("chunks_total"),
+    chunksWritten: count("chunks_written"),
+    chunksFailed: count("chunks_failed"),
+    startedBy: userRef("started_by"),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
+    finishedAt: integer("finished_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    // One active run per plant: a second start fails in the statement itself.
+    uniqueIndex("ingest_merge_run_one_active")
+      .on(t.companyId)
+      .where(sql`${t.state} in ('planning','running')`),
+    index("ingest_merge_run_company_started_idx").on(t.companyId, t.startedAt),
+  ],
+);
+
+export const ingestMergeChunk = sqliteTable(
+  "ingest_merge_chunk",
+  {
+    /** The chunk's clientRequestId, "ing-" plus 40 hex. */
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => ingestMergeRun.id, { onDelete: "cascade" }),
+    candidateId: text("candidate_id")
+      .notNull()
+      .references(() => ingestCandidate.id, { onDelete: "cascade" }),
+    target: text("target", { enum: INGEST_TARGETS }).notNull(),
+    seq: integer("seq").notNull(),
+    rowFrom: integer("row_from").notNull(),
+    rowTo: integer("row_to").notNull(),
+    rowCount: integer("row_count").notNull(),
+    state: text("state", { enum: MERGE_CHUNK_STATES }).notNull(),
+    attempts: count("attempts"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+    writtenAt: integer("written_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [
+    uniqueIndex("ingest_merge_chunk_run_seq_unique").on(t.runId, t.seq),
+    index("ingest_merge_chunk_candidate_idx").on(t.candidateId),
+  ],
+);
+
+export const ingestBotRun = sqliteTable(
+  "ingest_bot_run",
+  {
+    id: text("id").primaryKey(),
+    companyId: companyRef(),
+    /**
+     * The block a shape run worked on, or the page key of a vision run (`<artifactId>:p<page>`): a
+     * scan or photo has no block until the vision read makes one. No foreign key, so a run's cost
+     * stays counted toward the day caps when a failed file is read again and its blocks go.
+     */
+    blockId: text("block_id").notNull(),
+    candidateId: text("candidate_id"),
+    purpose: text("purpose", { enum: ["shape", "vision"] }).notNull(),
+    /** The model actually used; fallbacks may change it. */
+    model: text("model").notNull(),
+    attempt: integer("attempt").notNull(),
+    outcome: text("outcome", { enum: BOT_RUN_OUTCOMES }).notNull(),
+    inputTokens: count("input_tokens"),
+    outputTokens: count("output_tokens"),
+    cacheReadTokens: count("cache_read_tokens"),
+    cacheWriteTokens: count("cache_write_tokens"),
+    costMicroUsd: count("cost_micro_usd"),
+    durationMs: count("duration_ms"),
+    /** Codes of a failed attempt (never free model text); sent back on the retry. */
+    errorCodes: text("error_codes", { mode: "json" }).$type<string[]>(),
+    createdBy: userRef("created_by"),
+    createdAt: createdAtCol(),
+  },
+  (t) => [
+    index("ingest_bot_run_company_created_idx").on(t.companyId, t.createdAt),
+    index("ingest_bot_run_block_idx").on(t.blockId),
+  ],
+);

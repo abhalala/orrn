@@ -34,6 +34,7 @@ import { dieShareRouter } from "./dieShare";
 import { likeContains } from "../lib/search";
 import { clientRequestIdSchema, replayProbe, replayState, REQUEST_ID_CONFLICT, requestRowIds } from "../lib/importReplay";
 import { nextCompanySeq } from "../lib/sequence";
+import { sourceMeta } from "../lib/ingest/merge/provenance";
 
 export const dimensionsSchema = z.object({
   widthMm: z.number().optional(),
@@ -730,7 +731,7 @@ export const dieRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       if (input.newRows.length === 0 && input.updatedRows.length === 0) {
-        return { success: true, count: 0, replayed: false };
+        return { success: true, count: 0, replayed: false, ids: [] as string[] };
       }
 
       // New dies get request-derived ids, so a chunk that already landed is recognised; updates are
@@ -750,26 +751,39 @@ export const dieRouter = router({
               .where(and(eq(die.companyId, ctx.companyId), inArray(die.id, replayProbe(ids))))
           ).map((r) => r.id),
         );
+      // Ids in input order: the new dies, then the updated ones (the merge records what it wrote, plan A5).
+      const createdIds = newIds ?? input.newRows.map(() => crypto.randomUUID());
+      const ids = [...createdIds, ...input.updatedRows.map((row) => row.existingId)];
       if (newIds) {
         const state = await landed(newIds);
-        if (state === "replayed") return { success: true, count, replayed: true };
+        if (state === "replayed") return { success: true, count, replayed: true, ids };
         if (state === "conflict") throw new TRPCError(REQUEST_ID_CONFLICT);
       }
 
       if (input.newRows.length > 0) {
-        const codes = [...new Set(input.newRows.map((row) => row.sectionCode))];
-        const deleted = await mapInChunks(codes, (slice) =>
-          ctx.db
-            .select({ series: die.series, sectionCode: die.sectionCode })
-            .from(die)
-            .where(
-              and(
-                eq(die.companyId, ctx.companyId),
-                isNotNull(die.deletedAt),
-                inArray(die.sectionCode, slice),
+        // By series and code on die_company_series_section_unique: only the dies these rows name,
+        // never every die of the plant with one of the codes in any series (S4-3).
+        const bySeries = new Map<string, Set<string>>();
+        for (const row of input.newRows) bySeries.set(row.series, (bySeries.get(row.series) ?? new Set()).add(row.sectionCode));
+        const deleted = (
+          await Promise.all(
+            [...bySeries].map(([series, codes]) =>
+              mapInChunks([...codes], (slice) =>
+                ctx.db
+                  .select({ series: die.series, sectionCode: die.sectionCode })
+                  .from(die)
+                  .where(
+                    and(
+                      eq(die.companyId, ctx.companyId),
+                      eq(die.series, series),
+                      inArray(die.sectionCode, slice),
+                      isNotNull(die.deletedAt),
+                    ),
+                  ),
               ),
             ),
-        );
+          )
+        ).flat();
         const taken = new Set(deleted.map((d) => `${d.series}\u0000${d.sectionCode}`));
         if (input.newRows.some((row) => taken.has(`${row.series}\u0000${row.sectionCode}`))) {
           throw new TRPCError(DELETED_DIE_CONFLICT);
@@ -783,7 +797,7 @@ export const dieRouter = router({
         // New sections take the plant's default alloy / temper, as `die.create` does (FP-DR-14).
         const settings = await loadFloorSettings(ctx.db, ctx.companyId);
         const values = input.newRows.map((row, i) => ({
-          id: newIds?.[i] ?? crypto.randomUUID(),
+          id: createdIds[i]!,
           companyId: ctx.companyId,
           serverSeq,
           alloy: settings.defaultAlloy,
@@ -822,7 +836,7 @@ export const dieRouter = router({
           {
             action: "die.import",
             subjectType: "die",
-            meta: { newCount: input.newRows.length, updateCount: input.updatedRows.length },
+            meta: { newCount: input.newRows.length, updateCount: input.updatedRows.length, ...sourceMeta(ctx) },
           },
         ),
       );
@@ -831,10 +845,10 @@ export const dieRouter = router({
         await atomicBatch(ctx.db, statements);
       } catch (error) {
         // An identical request landed a moment earlier: its die ids are taken, so this batch rolled back.
-        if (newIds && (await landed(newIds)) === "replayed") return { success: true, count, replayed: true };
+        if (newIds && (await landed(newIds)) === "replayed") return { success: true, count, replayed: true, ids };
         throw error;
       }
 
-      return { success: true, count, replayed: false };
+      return { success: true, count, replayed: false, ids };
     }),
 });

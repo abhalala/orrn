@@ -17,6 +17,8 @@ jobs:
     environment: dev
     env:
       ALCHEMY_STAGE: dev
+      # Column helper for imports. Optional: without it people map new layouts by hand.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
       ALCHEMY_STATE_TOKEN: ${{ secrets.ALCHEMY_STATE_TOKEN }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
