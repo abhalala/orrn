@@ -196,7 +196,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
         variant={variant}
         // The phone sheet carries the office pages; on the rail they're already listed.
         items={tablet ? [] : phoneMore}
-        onArrange={tablet ? undefined : openArrange}
+        onArrange={openArrange}
       />
 
       {!godseye && arrangeOpen && arrangeCompanyId ? (

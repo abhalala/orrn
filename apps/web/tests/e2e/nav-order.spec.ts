@@ -20,6 +20,11 @@ async function openPlant(page: Page, plant: FreshPlant, role: PlantRole) {
   await expectShell(page);
 }
 
+async function openArrange(page: Page) {
+  await page.locator("[data-slot='side-nav']").getByRole("button", { name: /W2 owner/ }).click();
+  await page.getByRole("menuitem", { name: "Arrange menu" }).click();
+}
+
 async function secondPlantFor(plant: FreshPlant): Promise<string> {
   const { email, password } = plant.members.owner;
   const api = await request.newContext({ extraHTTPHeaders: { origin: WEB_ORIGIN } });
@@ -45,7 +50,7 @@ test("a member saves their own menu order and resets it", async ({ page }) => {
 
   const total = await mainNav(page).getByRole("link").count();
   await expect(mainNav(page).getByRole("link").first()).toHaveAccessibleName("Today");
-  await mainNav(page).getByRole("button", { name: "Arrange menu" }).click();
+  await openArrange(page);
   const dialog = page.getByRole("dialog", { name: "Arrange menu" });
   await expect(dialog).toBeVisible();
 
@@ -77,7 +82,7 @@ test("a member saves their own menu order and resets it", async ({ page }) => {
   }
 
   await expect(mainNav(page).getByRole("link").first()).toHaveAccessibleName("Orders");
-  await mainNav(page).getByRole("button", { name: "Arrange menu" }).click();
+  await openArrange(page);
   await dialog.getByRole("button", { name: "Reset to default" }).click();
   const confirm = dialog.getByRole("alert");
   await expect(confirm).toContainText("Put the menu back in the default order?");
@@ -120,7 +125,7 @@ test("Escape restores the picked row and a second Escape cancels", async ({ page
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
   await openPlant(page, plant, "owner");
-  await mainNav(page).getByRole("button", { name: "Arrange menu" }).click();
+  await openArrange(page);
 
   const dialog = page.getByRole("dialog", { name: "Arrange menu" });
   const handle = dialog.getByRole("button", { name: "Drag to move Orders" });
@@ -147,7 +152,7 @@ test("a plant change under the editor cannot receive the old plant's order", asy
   await m(page, "company.switch", { companyId: plant.companyId });
   await page.reload();
   await expectShell(page);
-  await mainNav(page).getByRole("button", { name: "Arrange menu" }).click();
+  await openArrange(page);
   const dialog = page.getByRole("dialog", { name: "Arrange menu" });
 
   await m(page, "company.switch", { companyId: secondCompanyId });
@@ -156,4 +161,17 @@ test("a plant change under the editor cannot receive the old plant's order", asy
   await expect(dialog).toBeHidden();
   const me = await q<{ company: { navOrder: unknown } }>(page, "auth.me", {});
   expect(me.company.navOrder).toBeNull();
+});
+
+test("Arrange menu is reachable from the account footer at 1280 by 900", async ({ page }) => {
+  const plant = await freshPlant("NavFooter");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+
+  await page.locator("[data-slot='side-nav']").getByRole("button", { name: /W2 owner/ }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Arrange menu" }).click();
+  await expect(page.getByRole("dialog", { name: "Arrange menu" })).toBeVisible();
 });

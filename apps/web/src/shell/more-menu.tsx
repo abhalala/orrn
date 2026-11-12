@@ -212,7 +212,7 @@ function SheetRow({
 }
 
 /** Sidebar footer from 1024px: who you are, opening language, theme and sign out. */
-export function AccountMenu({ variant }: { variant: ShellVariant }) {
+export function AccountMenu({ variant, onArrange }: { variant: ShellVariant; onArrange?: () => void }) {
   const { t, locale, setLocale } = useT();
   const { me, place, role } = useIdentity(variant);
   const { theme, setTheme } = useTheme();
@@ -275,6 +275,12 @@ export function AccountMenu({ variant }: { variant: ShellVariant }) {
           <DropdownMenuItem onSelect={() => void navigate({ to: "/admin" })}>
             <Eye aria-hidden="true" strokeWidth={2} />
             {t("nav.godseye")}
+          </DropdownMenuItem>
+        ) : null}
+        {onArrange ? (
+          <DropdownMenuItem onSelect={onArrange}>
+            <ListOrdered aria-hidden="true" strokeWidth={2} />
+            {t("nav.arrange")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem onSelect={signOut}>
