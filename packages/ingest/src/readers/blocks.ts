@@ -432,6 +432,8 @@ export type TableRun = { last: number; skipped: RowWarning[] };
  * - a repeat of the header (two or more filled cells, every name of the header in its column, by normalised name):
  *   left out, listed as `skipped_repeat_header`, and the table goes on (with the second header row, when the header
  *   has two rows and the next row repeats it too);
+ * - a row with a sign of another table (section 9): a cell equal to its own column's name, three or more whole
+ *   numbers rising by one, or number cells only in columns blank in every row above. The table ends;
  * - a single text cell: left out and listed as `skipped_title`, when the table goes on after it;
  * - data that fits the column kinds (`ColumnKinds.fits`, with its one guard against a header of words): the table
  *   goes on with it;
@@ -454,6 +456,23 @@ export function readTableRun(rows: readonly (readonly string[])[], header: reado
     if (nonBlank(r) < 2) return false;
     const got = norm(r);
     return got.length === names.length && got.every((c, i) => c === names[i]);
+  };
+  // Section 9: after a blank row, a row that starts another table, never a continuation.
+  const names2 = second ? norm(second) : [];
+  const startsTable = (r: readonly string[]) => {
+    if (kinds.rows === 0) return false;
+    // A cell equal to its own column's name (the row is not a full repeat; the caller tests that first).
+    if (r.some((c, i) => c.trim() !== "" && ((names[i] ?? "") !== "" && normalizeHeader(c) === names[i] || (names2[i] ?? "") !== "" && normalizeHeader(c) === names2[i]))) return true;
+    // Three or more whole numbers rising by one from left to right (column numbers, months, years, lengths).
+    const ints = r.filter((c) => c.trim() !== "" && isValueCell(c)).map((c) => (cellKind(c) === "int" ? Number(c.replace(/,/g, "")) : NaN));
+    let run = 1;
+    for (let k = 1; k < ints.length; k++) {
+      run = Number.isFinite(ints[k]!) && ints[k] === ints[k - 1]! + 1 ? run + 1 : 1;
+      if (run >= 3) return true;
+    }
+    // Number cells only in columns where every row above was blank.
+    const at = r.flatMap((c, i) => (valueKind(c) === "number" ? [i] : []));
+    return at.length > 0 && at.every((i) => kinds.kindOf(i) === undefined);
   };
   const isTitle = (r: readonly string[]) => {
     const cells = r.filter((c) => c.trim() !== "");
@@ -482,6 +501,7 @@ export function readTableRun(rows: readonly (readonly string[])[], header: reado
         }
         break;
       }
+      if (startsTable(row)) break;
       if (isTitle(row)) {
         held.push({ code: "skipped_title", row: k, text: rowText(row) });
         continue;
