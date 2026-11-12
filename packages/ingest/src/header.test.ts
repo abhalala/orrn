@@ -114,6 +114,7 @@ describe("chooseHeader: nothing fits", () => {
 
   test("an empty preview asks with no candidates but the guess", () => {
     const r = chooseHeader({ preview: [], guess: { headerRow: 0 } });
-    expect(r).toEqual({ kind: "ask", guess: { headerRow: 0, headerRows: 1 }, candidates: [], resembles: null });
+    // Round 7 (rule 6.1) adds the two join offers to every "ask"; with no block above both are false.
+    expect(r).toEqual({ kind: "ask", guess: { headerRow: 0, headerRows: 1 }, candidates: [], resembles: null, continuesAbove: false, sameColumnsAsAbove: false });
   });
 });

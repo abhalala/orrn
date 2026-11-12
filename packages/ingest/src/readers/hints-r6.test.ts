@@ -2,30 +2,37 @@ import { describe, expect, test } from "bun:test";
 
 import { HintError, readSheet } from "./blocks";
 
-// Round 6, item 3 (M-R5-1): a hinted block with no last data row runs to the last filled row of its region (up to
-// the next hinted header, or the end of the sheet), across any number of blank rows. Nothing after the header is
-// left as a warning outside every block. Synthetic sheets only.
+// Round 6, item 3 (M-R5-1): rows after blank rows under a hinted header are never lost. Round 7, rule 6.1 replaced
+// "runs to the last filled row": these tests pinned one block across the blank rows; they now pin that the block ends
+// at the first blank row, that the rows below are in a block that follows it (never only a warning), and that a
+// hint with the last row (the web's join) reads them all exactly. Synthetic sheets only.
 
-describe("round 6: a hint with no last row runs to the last filled row", () => {
+describe("round 6, re-pinned by rule 6.1: rows after blank rows under a hint", () => {
   for (const blanks of [2, 3, 7]) {
-    test(`${blanks} blank rows inside the data do not end the block`, () => {
+    test(`${blanks} blank rows inside the data: the rows below follow in a block, and the join reads them all`, () => {
       const m = [["Order book"], ["Party", "Kg"], ["Om", "12"], ...Array.from({ length: blanks }, () => []), ["Mehta", "8"], [], [], ["Total", "20"]];
       const r = readSheet(m, { hints: [{ headerRow: 1 }] });
-      expect(r.blocks.length).toBe(1);
-      const b = r.blocks[0]!;
-      expect(b.guess.lastDataRow).toBe(m.length - 1);
-      expect(b.rows.filter((x) => x.some((c) => c !== "")).map((x) => x[0])).toEqual(["Om", "Mehta", "Total"]);
-      // The title row above the header is kept as the title; no row after the header is a warning.
-      expect(b.warnings.filter((w) => w.row > 1)).toEqual([]);
+      expect(r.blocks.length).toBe(2);
+      expect(r.blocks[0]!.guess.lastDataRow).toBe(2);
+      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: blanks });
+      expect(r.blocks[1]!.guess.headerRow).toBe(3 + blanks);
+      expect(r.blocks[1]!.rows.filter((x) => x.some((c) => c !== "")).map((x) => x[0])).toEqual(["Total"]);
       expect(r.warnings).toEqual([]);
+      const j = readSheet(m, { hints: [{ headerRow: 1, lastDataRow: m.length - 1 }] });
+      expect(j.blocks.length).toBe(1);
+      expect(j.blocks[0]!.rows.filter((x) => x.some((c) => c !== "")).map((x) => x[0])).toEqual(["Om", "Mehta", "Total"]);
+      expect(j.warnings).toEqual([]);
     });
   }
 
-  test("the block stops before the next hinted header, however many blank rows lie between", () => {
+  test("before the next hinted header: the rows between are kept (here as its title), never lost", () => {
     const m = [["Party", "Kg"], ["Om", "12"], [], [], [], ["Mehta", "8"], [], [], ["Section", "Kg"], ["T4012", "3.5"]];
     const r = readSheet(m, { hints: [{ headerRow: 0 }, { headerRow: 8 }] });
-    expect(r.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 5], [8, 9]]);
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 1], [8, 9]]);
+    expect(r.blocks[1]!.warnings).toContainEqual({ code: "kept_as_title", row: 5 });
     expect(r.warnings).toEqual([]);
+    const j = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 5 }, { headerRow: 8 }] });
+    expect(j.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 5], [8, 9]]);
   });
 });
 

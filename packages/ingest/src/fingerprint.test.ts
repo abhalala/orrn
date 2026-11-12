@@ -5,7 +5,8 @@ import { describeBlock, fingerprint, headerKey, normalizeHeader, normalizeHeader
 
 describe("normalizeHeader", () => {
   test("lower case, units canonical, punctuation one space", () => {
-    expect(normalizeHeader("Min Weight (Kgs/12ft)")).toBe("min weight kg/12ft");
+    // Round 7, rule 6.2: "/" between two words is a separator. This pinned "kg/12ft"; it now pins "kg 12ft".
+    expect(normalizeHeader("Min Weight (Kgs/12ft)")).toBe("min weight kg 12ft");
     expect(normalizeHeader("Length (Mtrs)")).toBe("length m");
     expect(normalizeHeader("Length (feet)")).toBe("length ft");
     expect(normalizeHeader("Cut length 12'")).toBe("cut length 12 ft");
