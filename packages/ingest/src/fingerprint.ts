@@ -31,13 +31,20 @@ const WORD = /[\p{L}\p{M}\p{N}]/u;
  *   it, is a sign and is kept ("Tol -", "Kg (-)", "-12"). "+" is always kept, and so are % # ± < > ≤ ≥.
  * - Dots, colons, brackets and every other punctuation count as a space; a dot between single letters joins them
  *   ("P.O. No" is "po no"). A trailing danda is punctuation.
- * - Letters, their marks and digits of every script are kept: a nukta or a matra is part of the letter (B2).
+ * - Letters, their marks and digits of every script are kept: a nukta or a matra is part of the letter (B2). The
+ *   joiners U+200C and U+200D are kept; every other format character is dropped (`DROPPED_FORMAT`).
  * - The spellings of one unit fold ("Kgs" and "kg", "Pieces" and "pcs", "Nos" and "No."); count words do not fold
  *   together (round 6).
  * Blank stays "".
  */
+/**
+ * Format characters to drop (round 7): every invisible format character except U+200C and U+200D, the joiners Indian
+ * scripts use to choose a letter's form. The same in cell text (`toCellText`) and in names.
+ */
+export const DROPPED_FORMAT = /(?![\u200c\u200d])\p{Cf}/gu;
+
 export function normalizeHeader(h: string): string {
-  let t = h.normalize("NFKC").replace(/\p{Cf}/gu, "").toLowerCase();
+  let t = h.normalize("NFKC").replace(DROPPED_FORMAT, "").toLowerCase();
   t = t.replace(DASHES, "-").replace(/'/g, " ft ");
   for (const [re, to] of UNIT_TOKENS) t = t.replace(re, (m) => (m === "\u20b9" ? " inr " : to));
   // A dot between single letters joins them: "p.o." is "po".
@@ -47,7 +54,7 @@ export function normalizeHeader(h: string): string {
     t = t.replace(/(?<![\p{L}\p{M}\p{N}])(\p{L}\p{M}*)\.(?=\p{L}\p{M}*(?:\.|[^\p{L}\p{M}\p{N}]|$))/u, "$1");
   }
   // Every other character that is not a word character, a space, "-", "/" or a kept sign is a space.
-  t = t.replace(new RegExp(`[^\\p{L}\\p{M}\\p{N}\\s\\-/${KEPT}]`, "gu"), " ");
+  t = t.replace(new RegExp(`[^\\p{L}\\p{M}\\p{N}\\s\\-/\\u200c\\u200d${KEPT}]`, "gu"), " ");
   // "/" is never a sign: a separator between words, else punctuation.
   t = t.replace(/\//g, " ");
   // "-": a sign at the end of the name, or right before a digit with no word right before it; else a space.

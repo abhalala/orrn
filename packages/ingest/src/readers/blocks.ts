@@ -7,7 +7,7 @@
  */
 import { cellKind, inferKind } from "../cells";
 import { parseDate } from "../dates";
-import { usedWidth } from "../fingerprint";
+import { DROPPED_FORMAT, usedWidth } from "../fingerprint";
 import { PREVIEW_HEAD_ROWS, PREVIEW_ROWS, type BlockHints, type MatrixCell, type PreviewRow, type ReadBlock, type RowWarning } from "./types";
 
 export const HEADER_SEARCH_ROWS = 20;
@@ -26,7 +26,8 @@ export const HEADER_TEXT_SHARE = 0.6;
  */
 export function toCellText(v: MatrixCell): string {
   if (v === null || v === undefined) return "";
-  if (typeof v === "string") return v.replace(/ /g, " ").trim();
+  // Invisible format characters are dropped as in names (round 7), except the joiners U+200C and U+200D.
+  if (typeof v === "string") return v.replace(DROPPED_FORMAT, "").replace(/\u00a0/g, " ").trim();
   if (typeof v === "number") {
     if (!Number.isFinite(v)) return "";
     if (Object.is(v, -0)) return "0";

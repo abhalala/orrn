@@ -92,10 +92,13 @@ describe("5.1: the normaliser", () => {
     expect(names.map(before)).toEqual(["pcs", "pieces", "tol", "rate", "order", "kg", "min weight kg/12ft", "p o no", "12ft"]);
   });
 
-  test("Hindi and Gujarati names stay names, and joiners are dropped", () => {
+  // Round 7 (item 5): the joiners U+200C and U+200D are kept, as in cell text; other format characters are dropped.
+  // This test pinned the joiner dropped; it now pins it kept, and a zero-width space dropped.
+  test("Hindi and Gujarati names stay names; joiners are kept, other format characters dropped", () => {
     expect(normalizeHeader("પાર્ટી નું નામ")).toBe("પાર્ટી નું નામ");
     expect(normalizeHeader("वज़न (kg)")).toBe("वज़न kg");
-    expect(normalizeHeader("क्‍ष")).toBe("क्ष");
+    expect(normalizeHeader("क्\u200dष")).toBe("क्\u200dष");
+    expect(normalizeHeader("क्\u200bष")).toBe("क्ष");
     expect(normalizeHeaders(["नाम", "", "શહેર"])).toEqual(["नाम", "_1", "શહેર"]);
   });
 

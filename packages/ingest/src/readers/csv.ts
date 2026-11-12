@@ -171,7 +171,10 @@ export class CsvParser {
           continue;
         }
       }
-      if (ch === '"' && this.field === "") {
+      // A quote that opens a field opens a quoted field, after spaces too (round 7): `Om, "Mehta, Rajkot"` is two
+      // cells. The spaces before it are dropped. A quote after other text is a character (an inch mark).
+      if (ch === '"' && /^ *$/.test(this.field)) {
+        this.field = "";
         this.inQuotes = true;
       } else if (ch === d) {
         this.row.push(this.field);
