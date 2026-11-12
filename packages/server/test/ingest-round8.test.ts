@@ -407,3 +407,39 @@ describe("S6-7: a picked block sent again without its pick", () => {
     expect(JSON.parse(row!.pick)).toMatchObject({ lastDataRow: 2 });
   });
 });
+
+describe("rule 10.2: the checks hold inside the batch", () => {
+  test("a re-read that lands between approve's checks and its write wins: the sheet stays ready", async () => {
+    const p = await setup();
+    const { artifactId, candidates } = await upload(p.owner, [{ name: "A", headers: BOOK, rows: [R("41", "PO-41", "31/10/2025", "5100")] }]);
+    const a = candidates[0]!.id;
+    await pump(p.owner, a);
+    env.beforeNextBatch(() => env.d1.prepare("update ingest_artifact set read_state = 'reading' where id = ?").bind(artifactId).run());
+    expect(await tryApprove(p.owner, a)).toStartWith("REFUSED:");
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("ready");
+  });
+
+  test("an approve that lands between a re-put's checks and its write wins: nothing is deleted", async () => {
+    const p = await setup();
+    const { artifactId, candidates } = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: [R("41", "PO-41", "31/10/2025", "5100")] },
+      { name: "B", headers: BOOK, rows: [R("42", "PO-42", "31/10/2025", "5100")] },
+    ]);
+    const a = candidates[0]!.id;
+    const blocks = (await p.owner.ingest.artifact.get({ artifactId })).blocks.map((x) => ({
+      ordinal: x.ordinal,
+      sheetName: x.sheetName,
+      title: null,
+      headerRow: 0,
+      headerRows: 1,
+      rowCount: x.rowCount,
+      sample: x.sample,
+      preview: [{ row: 0, cells: BOOK }, ...x.sample.map((cells, i) => ({ row: i + 1, cells }))],
+    }));
+    env.beforeNextBatch(() => env.d1.prepare("update ingest_candidate set state = 'approved' where id = ?").bind(a).run());
+    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [blocks[0]!, { ...blocks[1]!, hint: { headerRow: 0, headerRows: 1, lastDataRow: 1, skipRows: [] } }] })).rejects.toThrow();
+    const n = await env.d1.prepare("select count(*) as n from ingest_candidate where artifact_id = ?").bind(artifactId).first<{ n: number }>();
+    expect(Number(n!.n)).toBe(2);
+    expect((await p.owner.ingest.artifact.get({ artifactId })).readState).toBe("read");
+  });
+});
