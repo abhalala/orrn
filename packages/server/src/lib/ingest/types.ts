@@ -107,6 +107,12 @@ export type BlockInput = {
   follows?: { ordinal: number; gapRows: number; continues?: boolean } | null;
   /** Lead answer (b): vertical merged cell ranges, by block row index and column. */
   merged?: { col: number; firstRow: number; lastRow: number }[];
+  /** Round 7 item 2: the reader's display facts (see `ReaderFacts`). */
+  gaps?: number;
+  warnings?: ReaderFacts["warnings"];
+  warningsTotal?: number;
+  sections?: ReaderFacts["sections"];
+  sectionsTotal?: number;
   /** A person's pick of the header row, after the server asked. `headerRow` and `headerRows` must be it. */
   hint?: HeaderPickIn & { lastDataRow?: number | null; skipRows?: number[] };
 };
@@ -217,7 +223,21 @@ export type IngestQuestion = {
   open: boolean;
 };
 
-export type BlockView = {
+/**
+ * Round 7 item 2: what the reader said about a table, shown on the review screen and never decided
+ * on. `gaps`: blank rows inside it ("N blank rows inside this table were skipped"). `warnings`: the
+ * lines it skipped, at most 200, `warningsTotal` the true count. `sections`: the titles it continues
+ * under, at most 200, `sectionsTotal` the true count.
+ */
+export type ReaderFacts = {
+  gaps: number;
+  warnings: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[];
+  warningsTotal: number;
+  sections: { row: number; text: string }[];
+  sectionsTotal: number;
+};
+
+export type BlockView = ReaderFacts & {
   id: string;
   ordinal: number;
   sheetName: string | null;

@@ -204,6 +204,11 @@ export function blockView(b: BlockRow): BlockView {
     readBy: b.readBy,
     modelChecked: b.modelChecked,
     canonicalStored: b.canonicalStored,
+    gaps: b.readerFacts?.gaps ?? 0,
+    warnings: b.readerFacts?.warnings ?? [],
+    warningsTotal: b.readerFacts?.warningsTotal ?? 0,
+    sections: b.readerFacts?.sections ?? [],
+    sectionsTotal: b.readerFacts?.sectionsTotal ?? 0,
   };
 }
 

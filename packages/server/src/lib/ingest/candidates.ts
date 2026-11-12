@@ -104,6 +104,7 @@ import {
   KEPT_UNREAD_NOT_READ,
   isKeptUnread,
   type BlockInput,
+  type ReaderFacts,
   type HeaderAnswer,
   type DoubtListOut,
   type RowDoubtView,
@@ -258,6 +259,20 @@ function settleHeader(
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
 }
 
+/** Round 7 item 2: the reader's display facts of one block as stored, or null when it sent none. */
+function readerFactsOf(b: BlockInput): ReaderFacts | null {
+  const warnings = b.warnings ?? [];
+  const sections = b.sections ?? [];
+  if (!b.gaps && warnings.length === 0 && sections.length === 0 && !b.warningsTotal && !b.sectionsTotal) return null;
+  return {
+    gaps: b.gaps ?? 0,
+    warnings,
+    warningsTotal: Math.max(b.warningsTotal ?? 0, warnings.length),
+    sections,
+    sectionsTotal: Math.max(b.sectionsTotal ?? 0, sections.length),
+  };
+}
+
 export async function putBlocks(
   ctx: IngestCtx,
   input: { artifactId: string; blocks: BlockInput[] },
@@ -352,6 +367,7 @@ export async function putBlocks(
         headerBy: settled.by,
         headerPick,
         merged: b.merged?.length ? b.merged : null,
+        readerFacts: readerFactsOf(b),
         headers: fp.headers,
         kinds: fp.kinds,
         headerKey: fp.headerKey,

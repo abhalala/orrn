@@ -43,6 +43,14 @@ const row = z
  */
 const RAW_ROW_MAX = 1_048_576;
 
+/** Round 7 item 2: listed skipped lines and sections a block keeps, each text cut to 200 characters. */
+const READER_FACTS_MAX = 200;
+const factText = z
+  .string()
+  .max(10_000)
+  .default("")
+  .transform((s) => s.slice(0, 200));
+
 export const blockInput = z.object({
   ordinal: z.number().int().min(0).max(L.blocksPerFile - 1),
   sheetName: z.string().max(200).nullable(),
@@ -84,6 +92,18 @@ export const blockInput = z.object({
     .array(z.object({ col: z.number().int().min(0).max(L.columnsPerBlock), firstRow: z.number().int().min(0).max(L.stagedRowsPerBlock), lastRow: z.number().int().min(0).max(L.stagedRowsPerBlock) }))
     .max(10_000)
     .optional(),
+  /**
+   * Round 7 item 2, display facts from the reader (never decided on): `gaps`, the skipped lines with
+   * their true count, and the sections with theirs. At most 200 of each; text is cut to 200.
+   */
+  gaps: z.number().int().min(0).max(L.stagedRowsPerBlock).optional(),
+  warnings: z
+    .array(z.object({ code: z.enum(["skipped_repeat_header", "skipped_title", "after_last_row"]), row: z.number().int().min(0).max(RAW_ROW_MAX), text: factText }))
+    .max(READER_FACTS_MAX)
+    .optional(),
+  warningsTotal: z.number().int().min(0).max(RAW_ROW_MAX).optional(),
+  sections: z.array(z.object({ row: z.number().int().min(0).max(RAW_ROW_MAX), text: factText })).max(READER_FACTS_MAX).optional(),
+  sectionsTotal: z.number().int().min(0).max(RAW_ROW_MAX).optional(),
   /** The header row a person picked on the preview; trusted. */
   hint: z
     .object({
