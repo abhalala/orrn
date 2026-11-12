@@ -1320,7 +1320,7 @@ const blankRaw = (raw: readonly string[]) => raw.every((c) => (c ?? "").trim() =
  */
 /**
  * One row's fill. `ask`: the row waits on `order_fill_above`. `declined`: the person said No, so the
- * row is read as the file has it, and a refused one holds no order (rule 10.1).
+ * row is read as the file has it; a dateless one still holds every order of its number (rule 11.2).
  */
 type RunFill = { raw: string[]; notes: string[]; ask: boolean; declined: boolean };
 
@@ -1796,8 +1796,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         if (c.target === "orders") {
           const found = live.customers ? resolveName(live.customers, str(values.customer)) : null;
           const hold = holdKeyOf(values, found?.kind === "match" ? found.id : null);
-          // A line the person said was not filled right holds no order (rule 10.1, "No").
-          if (hold && !filled.get(r.id)?.declined) values._holdKey = hold;
+          // Rule 11.2: a dateless line, the person's "No" too, holds every order of its number.
+          if (hold) values._holdKey = hold;
         }
         outcomes.set(r.id, {
           // A person may leave a refused row out (rule 7.1).

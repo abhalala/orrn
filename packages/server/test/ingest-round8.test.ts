@@ -107,7 +107,9 @@ describe("rule 10.1 (S6-1): the nearest filled row above, and one question when 
     ]);
   });
 
-  test("No refuses both blank lines with order_no_date:41; the dated lines still write whole", async () => {
+  // Round 9 (rule 11.2, S7-2): the lead's rule replaces round 8's call. After No the dateless lines
+  // hold every order of their number (rule 7.1): nothing is written until they are skipped.
+  test("No refuses both blank lines with order_no_date:41; the orders of 41 wait until those lines are skipped", async () => {
     const p = await setup();
     const { candidates } = await upload(p.owner, [{ name: "Book", headers: BOOK, rows: TWO_YEARS }]);
     const id = candidates[0]!.id;
@@ -115,10 +117,18 @@ describe("rule 10.1 (S6-1): the nearest filled row above, and one question when 
     await p.owner.ingest.answer.set({ candidateId: id, questionCode: "order_fill_above", subject: "", answer: false, expectSeq: await seqOf(p.owner, id) });
     await pump(p.owner, id);
     const rows = await rowsOf(p.owner, id);
-    expect(rows.map((r) => r.state)).toEqual(["ready_create", "refused", "ready_create", "refused"]);
+    expect(rows.map((r) => r.state)).toEqual(["ambiguous", "refused", "ambiguous", "refused"]);
+    expect(rows[0]!.reasons).toContain("order_waits:2");
     expect(rows[1]!.reasons).toContain("order_no_date:41");
     expect(rows[3]!.reasons).toContain("order_no_date:41");
     expect(rows[1]!.reasons.some((r) => r.startsWith("filled_down:"))).toBe(false);
+    expect(await tryApprove(p.owner, id)).toStartWith("REFUSED:");
+    expect(await orders(p.companyId)).toEqual([]);
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [rows[1]!.id, rows[3]!.id], decision: "skip", expectSeq: await seqOf(p.owner, id) });
+    await pump(p.owner, id);
+    const after = await rowsOf(p.owner, id);
+    expect(after.map((r) => r.state)).toEqual(["ready_create", "skipped", "ready_create", "skipped"]);
+    expect(after[0]!.reasons.some((r) => r.startsWith("order_skipped_lines:"))).toBe(true);
     expect(await tryApprove(p.owner, id)).toBe("approved");
     expect((await mergeOnce(p.owner)).state).toBe("done");
     expect(await orders(p.companyId)).toEqual([
