@@ -12272,6 +12272,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "bulk_skip": {
+          "name": "bulk_skip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "merge_state": {
           "name": "merge_state",
           "type": "text",

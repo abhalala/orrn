@@ -201,3 +201,28 @@ describe("rule 11.3 (S8-2): set target changes which sheets are order sheets", (
     expect(await stored(artifactId)).toEqual({ file: true, onSheets: 0 });
   });
 });
+
+describe("rule 11.3 (S8-3): the bulk skip marks its lines", () => {
+  test("No, one line skipped by hand, the bulk skip, then Yes: the bulk-skipped lines are checked again, the hand-skipped line stays skipped", async () => {
+    const p = await setup();
+    const { artifactId, candidates } = await upload(p.owner, [{ name: "A", headers: BOOK, rows: [...TWO("41", "PO-A", "PO-B"), R("41", "", "", "5100", "3000")] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    await fill(p.owner, id, false);
+    await pump(p.owner, id);
+    // After No the dated lines of order 41 wait on its lines with no date (rule 7.1).
+    expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ambiguous", "refused", "ambiguous", "refused", "refused"]);
+    const hand = (await rowsOf(p.owner, id))[1]!;
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: [hand.id], decision: "skip", expectSeq: await seqOf(p.owner, id) });
+    expect((await p.owner.ingest.rows.skipNoDate({ candidateId: id, expectSeq: await seqOf(p.owner, id) })).skipped).toBe(2);
+    await pump(p.owner, id);
+    expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ready_create", "skipped", "ready_create", "skipped", "skipped"]);
+    await fill(p.owner, id, true);
+    await pump(p.owner, id);
+    const rows = await rowsOf(p.owner, id);
+    expect(rows.map((r) => r.state)).toEqual(["ready_create", "skipped", "ready_create", "ready_create", "ready_create"]);
+    expect(rows[3]!.reasons).toContain("filled_down:orderDate");
+    expect(rows[4]!.reasons).toContain("filled_down:orderDate");
+    expect(await stored(artifactId)).toEqual({ file: true, onSheets: 0 });
+  });
+});

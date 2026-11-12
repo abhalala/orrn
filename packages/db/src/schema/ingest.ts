@@ -340,6 +340,8 @@ export const ingestStagedRow = sqliteTable(
     matchId: text("match_id"),
     diff: text("diff", { mode: "json" }).$type<Record<string, { live: unknown; file: unknown }>>(),
     decision: text("decision", { enum: ROW_DECISIONS }),
+    /** Rule 11.3: "no_date" when "Skip these {count} lines" made the skip; a person's own decision clears it. */
+    bulkSkip: text("bulk_skip", { enum: ["no_date"] }),
     mergeState: text("merge_state", { enum: ROW_MERGE_STATES }).notNull().default("open"),
     committedType: text("committed_type"),
     committedId: text("committed_id"),

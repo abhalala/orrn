@@ -285,4 +285,5 @@ ALTER TABLE `ingest_staged_row` ADD `pending_ref` text;--> statement-breakpoint
 CREATE INDEX `ingest_staged_row_company_pending_ref_idx` ON `ingest_staged_row` (`company_id`,`pending_ref`,`candidate_id`);--> statement-breakpoint
 ALTER TABLE `ingest_block` ADD `reader_facts` text;--> statement-breakpoint
 ALTER TABLE `ingest_block` ADD `follows` text;--> statement-breakpoint
-ALTER TABLE `ingest_artifact` ADD `fill_above` text;
+ALTER TABLE `ingest_artifact` ADD `fill_above` text;--> statement-breakpoint
+ALTER TABLE `ingest_staged_row` ADD `bulk_skip` text;

@@ -723,7 +723,8 @@ export async function skipNoDateLines(ctx: IngestCtx, input: { candidateId: stri
   if (count === 0) throw new TRPCError({ code: "BAD_REQUEST", message: NO_DATE_NONE });
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
-    ctx.db.update(ingestStagedRow).set({ decision: "skip", updatedAt: now() }).where(noDateWhere(c.id)),
+    // Rule 11.3: marked as skipped by this action, so a later Yes can take the lines back.
+    ctx.db.update(ingestStagedRow).set({ decision: "skip", bulkSkip: "no_date", updatedAt: now() }).where(noDateWhere(c.id)),
     recountStatement(ctx, c.id),
     auditInsert(ctx, { action: "ingest.rows.skip_no_date", subjectType: "ingest_candidate", subjectId: c.id, meta: { count } }),
   ]);
@@ -1351,7 +1352,7 @@ export async function decideRows(
       derived.push(
         ctx.db
           .update(ingestStagedRow)
-          .set({ decision: "skip", state: "skipped", updatedAt: now() })
+          .set({ decision: "skip", bulkSkip: null, state: "skipped", updatedAt: now() })
           .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),
       );
     }
@@ -1367,7 +1368,7 @@ export async function decideRows(
     statements.push(
       ctx.db
         .update(ingestStagedRow)
-        .set({ decision: input.decision, matchId: input.decision === "use_match" ? input.matchId! : r.matchId, updatedAt: now() })
+        .set({ decision: input.decision, bulkSkip: null, matchId: input.decision === "use_match" ? input.matchId! : r.matchId, updatedAt: now() })
         .where(and(eq(ingestStagedRow.id, r.id), eq(ingestStagedRow.candidateId, c.id), eq(ingestStagedRow.mergeState, "open"))),
     );
   }
@@ -1515,6 +1516,22 @@ export async function setAnswer(
         ),
       ingestAbortUnlessChanged(ctx.db),
     );
+    // Rule 11.3: from No to Yes, the lines the bulk skip took on any order sheet of the file come back
+    // and are checked again; a line a person skipped one by one stays skipped.
+    if (held && held.answer === false && answer === true) {
+      statements.push(
+        ctx.db
+          .update(ingestStagedRow)
+          .set({ decision: null, bulkSkip: null, updatedAt: at })
+          .where(
+            and(
+              eq(ingestStagedRow.mergeState, "open"),
+              eq(ingestStagedRow.bulkSkip, "no_date"),
+              sql`${ingestStagedRow.candidateId} in (select k.id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifact.id} and k.target = 'orders')`,
+            ),
+          ),
+      );
+    }
     if (!held || change) statements.push(...(await fillAboveRerun(ctx, artifact.id, [c.id])));
   }
   if (input.questionCode === "period_needed") {
