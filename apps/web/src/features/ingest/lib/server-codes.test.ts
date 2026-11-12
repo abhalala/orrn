@@ -8,7 +8,7 @@ import { QUESTION_CODES, ROW_DECISIONS } from "@orrn/ingest";
 import { answerFromValue } from "./answers";
 import { decisionOptions, questionView } from "./model";
 import { ingestErrorWords } from "./errors";
-import { KNOWN_REFUSAL_CODES, orderFacts, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
+import { KNOWN_REFUSAL_CODES, orderFacts, poLabel, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
 
 /**
  * The server's code lists and the words the web has for them. When the server adds a question, a row reason or a
@@ -164,13 +164,27 @@ describe("server codes have words", () => {
     expect(refusalLine("po_on_two_orders:poNumber", facts)).toMatchObject({ key: "ingest.refuse.po_on_two_ordersNo" });
     expect(refusalLine("po_on_two_orders:poNumber", { ...facts, sheet: null })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersNoOnly" });
     const say = (key: string, vars?: Record<string, string | number>) =>
-      key === "ingest.refuse.orderNo" ? `old order ${vars?.no}` : key === "ingest.refuse.po_on_two_ordersNo" ? `PO ${vars?.po} is on ${vars?.order} here and on ${vars?.otherOrder} in ${vars?.file} (${vars?.sheet}).` : key;
-    expect(refusalText(say, refusalLine("po_on_two_orders:poNumber", facts)!)).toBe("PO PO-9 is on old order 41 here and on old order 52 in orders.xlsx (Book B).");
+      key === "ingest.refuse.orderNo" ? `old order ${vars?.no}` : key === "ingest.refuse.po_on_two_ordersNo" ? `${vars?.po} is on ${vars?.order} here and on ${vars?.otherOrder} in ${vars?.file} (${vars?.sheet}).` : key;
+    expect(refusalText(say, refusalLine("po_on_two_orders:poNumber", facts)!)).toBe("PO-9 is on old order 41 here and on old order 52 in orders.xlsx (Book B).");
     expect(refusalTone(refusalLine("po_on_two_orders:poNumber", facts)!)).toBe("amber");
     // A PO-only order in the other file has no number to name: the older words stay.
     expect(refusalLine("po_on_two_orders:poNumber", { ...facts, otherOrderNo: null })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFile" });
     // And the facts come from what the server stored on the row.
     expect(orderFacts({ oldOrderNo: "41", poNumber: "PO-9", _otherFile: { fileName: "orders.xlsx", sheetName: "Book B", orderNo: "52" } })).toMatchObject({ file: "orders.xlsx", otherOrderNo: "52" });
+  });
+
+  // Design re-check A8: the sentence says "PO 77", never "PO PO-T5TTS".
+  test("a PO that already starts with PO is not given a second PO", () => {
+    expect(poLabel("77")).toBe("PO 77");
+    expect(poLabel("PO-T5TTS")).toBe("PO-T5TTS");
+    expect(poLabel("po 7")).toBe("po 7");
+    expect(poLabel("PO9")).toBe("PO9");
+    expect(poLabel("POLY-3")).toBe("PO POLY-3");
+    expect(poLabel(null)).toBe("PO");
+    const facts = { orderNo: "41", po: "77", file: null, sheet: null, closedOrder: null };
+    const say = (key: string, vars?: Record<string, string | number>) => (key === "ingest.refuse.po_on_two_orders" ? `${vars?.po} is on two orders.` : key === "ingest.refuse.thisOrder" ? "this order" : key);
+    expect(refusalText(say, refusalLine("po_on_two_orders:poNumber", facts)!)).toBe("PO 77 is on two orders.");
+    expect(refusalText(say, refusalLine("po_on_two_orders:poNumber", { ...facts, po: "PO-77" })!)).toBe("PO-77 is on two orders.");
   });
 
   test("a field filled down from the line above is a muted note with the field's name, never the raw code", () => {

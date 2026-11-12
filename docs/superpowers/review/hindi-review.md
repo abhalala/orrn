@@ -7435,9 +7435,9 @@ Please check, Lalubhai:
 | `refuse.row_cut` | This row was very long and the end of it was cut. | यह लाइन बहुत लंबी थी, इसलिए इसका आखिरी हिस्सा काट दिया गया। |
 | `refuse.orderNo` | old order {no} | पुराना ऑर्डर {no} |
 | `refuse.thisOrder` | this order | यह ऑर्डर |
-| `refuse.po_on_two_orders` | PO {po} is on {order} and on another order in this sheet. One PO can be on one order only. Skip the rows of one of them. | PO {po} {order} पर है और इसी शीट के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
-| `refuse.po_on_two_ordersFile` | PO {po} is on {order} here and on another order in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} ({sheet}) के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
-| `refuse.po_on_live_order` | PO {po} is already on another order in orrn. Keep the orrn order, or skip these rows. | PO {po} orrn के एक और ऑर्डर पर पहले से है। orrn का ऑर्डर रखें, या ये लाइनें छोड़ दें। |
+| `refuse.po_on_two_orders` | {po} is on {order} and on another order in this sheet. One PO can be on one order only. Skip the rows of one of them. | {po} {order} पर है और इसी शीट के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersFile` | {po} is on {order} here and on another order in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them. | {po} यहां {order} पर है और {file} ({sheet}) के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_live_order` | {po} is already on another order in orrn. Keep the orrn order, or skip these rows. | {po} orrn के एक और ऑर्डर पर पहले से है। orrn का ऑर्डर रखें, या ये लाइनें छोड़ दें। |
 | `refuse.order_in_other_file` | This order is also in {file} ({sheet}). Keep it in this file, or skip these rows and keep it there. | यह ऑर्डर {file} ({sheet}) में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें। |
 | `refuse.order_in_other_fileUnnamed` | This order is also in another file. Keep it in this file, or skip these rows. | यह ऑर्डर एक और फ़ाइल में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़ दें। |
 | `refuse.order_po_skipped` | You skipped this order, so its rows are left out. | आपने यह ऑर्डर छोड़ा, इसलिए इसकी लाइनें बाहर हैं। |
@@ -7447,7 +7447,7 @@ Please check, Lalubhai:
 | `refuse.po_two_dates` | This PO has more than one order date in the file. One PO is one order. Fix the dates or skip rows. | इस PO की फ़ाइल में एक से ज़्यादा ऑर्डर तारीखें हैं। एक PO एक ही ऑर्डर है। तारीखें सुधारें या लाइनें छोड़ दें। |
 | `refuse.section_archived` | This section is archived, so it takes no new die copies. | यह सेक्शन बंद है, इसलिए इसमें नई Die कॉपी नहीं बनतीं। |
 | `refuse.check_against_file` | Check this row against the file. | इस लाइन को फ़ाइल से मिलाकर देखें। |
-| `refuse.po_on_closed_order` | PO {po} is also on closed order {closed}. This row is imported as a new order. | PO {po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है। |
+| `refuse.po_on_closed_order` | {po} is also on closed order {closed}. This row is imported as a new order. | {po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है। |
 | `refuse.merged_cell` | Order number taken from the merged cell above. | ऑर्डर नंबर ऊपर के मर्ज किए सेल से लिया गया। |
 | `refuse.section_pending` | This section comes from another sheet of this upload. | यह सेक्शन इसी अपलोड की दूसरी शीट से आता है। |
 | `refuse.customer_pending` | This customer comes from another sheet of this upload. | यह ग्राहक इसी अपलोड की दूसरी शीट से आता है। |
@@ -7455,9 +7455,9 @@ Please check, Lalubhai:
 | `refuse.order_skipped_lines` | Imported without {count} {count:line\|lines} you skipped. | आपकी छोड़ी हुई {count} {count:लाइन\|लाइनों} के बिना जोड़ा गया। |
 | `refuse.order_run_differs` | Rows of one order number show two different values for {field}. Use the file value on this row, or skip it. | एक ऑर्डर नंबर की लाइनों में {field} की दो अलग वैल्यू हैं। इस लाइन पर फ़ाइल की वैल्यू लें, या इसे छोड़ दें। |
 | `refuse.order_no_date` | This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it. | इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें। |
-| `refuse.po_on_two_ordersFileOnly` | PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
-| `refuse.po_on_two_ordersNo` | PO {po} is on {order} here and on {otherOrder} in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} ({sheet}) में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
-| `refuse.po_on_two_ordersNoOnly` | PO {po} is on {order} here and on {otherOrder} in {file}. One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersFileOnly` | {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them. | {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersNo` | {po} is on {order} here and on {otherOrder} in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them. | {po} यहां {order} पर है और {file} ({sheet}) में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersNoOnly` | {po} is on {order} here and on {otherOrder} in {file}. One PO can be on one order only. Skip the rows of one of them. | {po} यहां {order} पर है और {file} में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
 | `refuse.order_in_other_fileOnly` | This order is also in {file}. Keep it in this file, or skip these rows and keep it there. | यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें। |
 | `refuse.filled_down` | {field} came from the dated line above. | {field} ऊपर की तारीख वाली लाइन से आई। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |

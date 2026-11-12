@@ -600,9 +600,9 @@ export const ingestHi = {
     // item 1: old order conflicts, notes and the other checks of an order book
     orderNo: "पुराना ऑर्डर {no}",
     thisOrder: "यह ऑर्डर",
-    po_on_two_orders: "PO {po} {order} पर है और इसी शीट के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
-    po_on_two_ordersFile: "PO {po} यहां {order} पर है और {file} ({sheet}) के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
-    po_on_live_order: "PO {po} orrn के एक और ऑर्डर पर पहले से है। orrn का ऑर्डर रखें, या ये लाइनें छोड़ दें।",
+    po_on_two_orders: "{po} {order} पर है और इसी शीट के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersFile: "{po} यहां {order} पर है और {file} ({sheet}) के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_live_order: "{po} orrn के एक और ऑर्डर पर पहले से है। orrn का ऑर्डर रखें, या ये लाइनें छोड़ दें।",
     order_in_other_file: "यह ऑर्डर {file} ({sheet}) में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें।",
     order_in_other_fileUnnamed: "यह ऑर्डर एक और फ़ाइल में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़ दें।",
     order_po_skipped: "आपने यह ऑर्डर छोड़ा, इसलिए इसकी लाइनें बाहर हैं।",
@@ -612,7 +612,7 @@ export const ingestHi = {
     po_two_dates: "इस PO की फ़ाइल में एक से ज़्यादा ऑर्डर तारीखें हैं। एक PO एक ही ऑर्डर है। तारीखें सुधारें या लाइनें छोड़ दें।",
     section_archived: "यह सेक्शन बंद है, इसलिए इसमें नई Die कॉपी नहीं बनतीं।",
     check_against_file: "इस लाइन को फ़ाइल से मिलाकर देखें।",
-    po_on_closed_order: "PO {po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है।",
+    po_on_closed_order: "{po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है।",
     merged_cell: "ऑर्डर नंबर ऊपर के मर्ज किए सेल से लिया गया।",
     section_pending: "यह सेक्शन इसी अपलोड की दूसरी शीट से आता है।",
     customer_pending: "यह ग्राहक इसी अपलोड की दूसरी शीट से आता है।",
@@ -623,9 +623,9 @@ export const ingestHi = {
     // round 7: item 5
     order_no_date: "इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें।",
     // a file with no sheet name (CSV)
-    po_on_two_ordersFileOnly: "PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
-    po_on_two_ordersNo: "PO {po} यहां {order} पर है और {file} ({sheet}) में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
-    po_on_two_ordersNoOnly: "PO {po} यहां {order} पर है और {file} में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersFileOnly: "{po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersNo: "{po} यहां {order} पर है और {file} ({sheet}) में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersNoOnly: "{po} यहां {order} पर है और {file} में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
     order_in_other_fileOnly: "यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें।",
     // server round 8: filled_down
     filled_down: "{field} ऊपर की तारीख वाली लाइन से आई।",

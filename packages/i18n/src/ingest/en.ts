@@ -601,9 +601,9 @@ export const ingestEn = {
     // item 1: old order conflicts, notes and the other checks of an order book
     orderNo: "old order {no}",
     thisOrder: "this order",
-    po_on_two_orders: "PO {po} is on {order} and on another order in this sheet. One PO can be on one order only. Skip the rows of one of them.",
-    po_on_two_ordersFile: "PO {po} is on {order} here and on another order in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them.",
-    po_on_live_order: "PO {po} is already on another order in orrn. Keep the orrn order, or skip these rows.",
+    po_on_two_orders: "{po} is on {order} and on another order in this sheet. One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersFile: "{po} is on {order} here and on another order in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them.",
+    po_on_live_order: "{po} is already on another order in orrn. Keep the orrn order, or skip these rows.",
     order_in_other_file: "This order is also in {file} ({sheet}). Keep it in this file, or skip these rows and keep it there.",
     order_in_other_fileUnnamed: "This order is also in another file. Keep it in this file, or skip these rows.",
     order_po_skipped: "You skipped this order, so its rows are left out.",
@@ -613,7 +613,7 @@ export const ingestEn = {
     po_two_dates: "This PO has more than one order date in the file. One PO is one order. Fix the dates or skip rows.",
     section_archived: "This section is archived, so it takes no new die copies.",
     check_against_file: "Check this row against the file.",
-    po_on_closed_order: "PO {po} is also on closed order {closed}. This row is imported as a new order.",
+    po_on_closed_order: "{po} is also on closed order {closed}. This row is imported as a new order.",
     merged_cell: "Order number taken from the merged cell above.",
     section_pending: "This section comes from another sheet of this upload.",
     customer_pending: "This customer comes from another sheet of this upload.",
@@ -624,9 +624,9 @@ export const ingestEn = {
     // round 7: item 5
     order_no_date: "This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it.",
     // a file with no sheet name (CSV)
-    po_on_two_ordersFileOnly: "PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them.",
-    po_on_two_ordersNo: "PO {po} is on {order} here and on {otherOrder} in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them.",
-    po_on_two_ordersNoOnly: "PO {po} is on {order} here and on {otherOrder} in {file}. One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersFileOnly: "{po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersNo: "{po} is on {order} here and on {otherOrder} in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersNoOnly: "{po} is on {order} here and on {otherOrder} in {file}. One PO can be on one order only. Skip the rows of one of them.",
     order_in_other_fileOnly: "This order is also in {file}. Keep it in this file, or skip these rows and keep it there.",
     // server round 8: filled_down
     filled_down: "{field} came from the dated line above.",

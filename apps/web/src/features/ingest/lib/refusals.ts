@@ -152,6 +152,16 @@ export function blockerWords(t: (key: string, vars?: Record<string, string | num
   return t(`orders.blockers.${code}`);
 }
 
+/**
+ * A PO as a sentence names it: "PO 77", but a number that already starts with PO ("PO-T5TTS") is said as it is, not "PO PO-T5TTS"
+ * (design re-check A8). The dictionary sentences take the whole label as `{po}`.
+ */
+export function poLabel(po: string | null | undefined): string {
+  const value = (po ?? "").trim();
+  if (value === "") return "PO";
+  return /^po(?=[\s\-:#./\d]|$)/i.test(value) ? value : `PO ${value}`;
+}
+
 /** One line as screen text. */
 export function refusalText(
   t: (key: string, vars?: Record<string, string | number>) => string,
@@ -167,7 +177,7 @@ export function refusalText(
     // The order a row is on, in words ("old order 41"), or "this order" when the file has no number for it.
     vars.n = o.orderNo ?? "";
     vars.order = o.orderNo ? t("ingest.refuse.orderNo", { no: o.orderNo }) : t("ingest.refuse.thisOrder");
-    vars.po = o.po ?? "";
+    vars.po = poLabel(o.po);
     vars.file = o.file ?? "";
     vars.sheet = o.sheet ?? "";
     vars.closed = o.closedOrder ?? "";
