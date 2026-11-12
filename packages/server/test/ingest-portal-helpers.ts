@@ -11,7 +11,7 @@ import type { CompanyRole, TestEnv } from "./harness";
 export type Caller = ReturnType<TestEnv["caller"]>;
 export type Sheet = { headers: string[]; rows: string[][]; name?: string; merged?: { col: number; firstRow: number; lastRow: number }[] };
 
-const sha = () => createHash("sha256").update(randomUUID()).digest("hex");
+export const sha = () => createHash("sha256").update(randomUUID()).digest("hex");
 
 export type Plant = {
   companyId: string;
@@ -67,8 +67,8 @@ export async function putRowsAs(as: Caller, input: Omit<RowsIn, "headerRow" | "h
   return as.ingest.artifact.putRows({ headerRow: h.headerRow, headerRows: h.headerRows, ...input });
 }
 
-export async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx") {
-  const begin = await as.ingest.artifact.begin({ sha256: sha(), fileName, sizeBytes: 1000, contentType: null, kind: "sheet" });
+export async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx", sha256 = sha()) {
+  const begin = await as.ingest.artifact.begin({ sha256, fileName, sizeBytes: 1000, contentType: null, kind: "sheet" });
   const put = await putBlocksPicked(as, {
     artifactId: begin.artifactId,
     blocks: sheets.map((s, ordinal) => ({

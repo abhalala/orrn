@@ -5,7 +5,7 @@
  */
 import { periodRequired, recipeSchema } from "@orrn/ingest";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, inArray, lt, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, ne, notInArray, or, sql } from "drizzle-orm";
 
 import {
   ingestAnswer,
@@ -118,7 +118,7 @@ export async function beginArtifact(
     .from(ingestArtifact)
     .where(and(eq(ingestArtifact.companyId, ctx.companyId), eq(ingestArtifact.sha256, input.sha256)))
     .limit(1);
-  if (existing && existing.sizeBytes === input.sizeBytes && !keptOnly && rereadable(existing)) {
+  if (existing && existing.sizeBytes === input.sizeBytes && !keptOnly && (rereadable(existing) || (await allDiscarded(ctx, existing.id)))) {
     // A file whose read failed, or that gave no table (a scan or photo before the vision read), is read
     // again from the start. Its old sheets, candidates and rows go; the stored bytes stay (A4, A10).
     const at = now();
@@ -220,6 +220,31 @@ export async function beginArtifact(
 }
 
 /** A failed read, or a read that found no table (a scan or photo the browser cannot read), may run again. */
+/**
+ * Rule 7.4: every sheet of a read file was discarded and nothing of it was written, so the same file
+ * is read again from the start. A derived list (new customers) of a discarded sheet goes with it.
+ */
+async function allDiscarded(ctx: IngestCtx, artifactId: string): Promise<boolean> {
+  if (!(await ctx.db.select({ id: ingestCandidate.id }).from(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, artifactId))).limit(1)).length) return false;
+  const [live] = await ctx.db
+    .select({ id: ingestCandidate.id })
+    .from(ingestCandidate)
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        eq(ingestCandidate.artifactId, artifactId),
+        or(
+          and(isNull(ingestCandidate.parentId), ne(ingestCandidate.state, "discarded")),
+          gt(ingestCandidate.rowsWritten, 0),
+          eq(ingestCandidate.recipeLocked, true),
+          inArray(ingestCandidate.state, ["approved", "merging", "merged"]),
+        ),
+      ),
+    )
+    .limit(1);
+  return !live;
+}
+
 function rereadable(a: ArtifactRow): boolean {
   return a.readState === "failed" || (a.readState === "read" && (a.blockCount ?? 0) === 0);
 }

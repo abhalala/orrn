@@ -1211,6 +1211,9 @@ export async function setAnswer(
 // Approve, hold, discard
 // ---------------------------------------------------------------------------
 
+/** Rule 7.4: the words when no row of a sheet would be written. */
+export const NOTHING_TO_IMPORT = "Nothing in this sheet can be imported. Fix the rows or discard it.";
+
 export async function approveCandidate(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<CandidateDetail> {
   const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
   // A held candidate finished its dry run before it was held, so it may be approved again (A20).
@@ -1252,6 +1255,16 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
   const undecided = await undecidedRows(ctx, c.id);
   // Conflicts and doubts are choices, not questions (M-4).
   if (undecided > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Choose for ${undecided} ${undecided === 1 ? "row" : "rows"} first` });
+  // Rule 7.4: a sheet in which no row would be written (all refused or skipped) is not approved.
+  // By the rows themselves (the candidate state index), not the stored counts.
+  if (c.rowsWritten === 0) {
+    const [one] = await ctx.db
+      .select({ id: ingestStagedRow.id })
+      .from(ingestStagedRow)
+      .where(and(eq(ingestStagedRow.candidateId, c.id), inArray(ingestStagedRow.state, ["ready_create", "ready_update", "unchanged"])))
+      .limit(1);
+    if (!one) throw new TRPCError({ code: "PRECONDITION_FAILED", message: NOTHING_TO_IMPORT });
+  }
   if (questions.some((q) => q.code === "rates_hidden" && q.open)) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This file has rates you cannot see. Leave rates out, or ask the owner to merge it." });
   }
