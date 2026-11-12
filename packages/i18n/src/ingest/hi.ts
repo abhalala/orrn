@@ -296,6 +296,14 @@ export const ingestHi = {
     bundles_no_old_id: "इन bundle का पुराना bundle नंबर नहीं है। अगर यही bundle किसी और फ़ाइल में भी हैं, तो orrn पहचान नहीं सकता और इन्हें दो बार जोड़ देगा। इन्हें इम्पोर्ट करें?",
     importThem: "इम्पोर्ट करें",
     doNotImport: "इम्पोर्ट न करें",
+    // server round 8: order_fill_above
+    order_fill_above: "कुछ लाइनों में तारीख नहीं है। orrn ने हर लाइन की तारीख उसके ठीक ऊपर की तारीख वाली लाइन से ली। क्या यह सही है?",
+    fillCaption: "ऊपर की लाइन की तारीख लेने वाली लाइनें",
+    fillRow: "लाइन",
+    fillOrder: "ऑर्डर",
+    fillDate: "ली गई तारीख",
+    fillPo: "PO",
+    fillNoDate: "कोई नहीं",
   },
   questions: {
     title: "मंज़ूर करने से पहले {count} सवाल",
@@ -602,6 +610,10 @@ export const ingestHi = {
     checkAgainButton: "यह शीट दोबारा जांचें",
     nothingToImport: "इस शीट में कुछ भी इम्पोर्ट नहीं हो सकता। लाइनें सुधारें या शीट हटा दें।",
     alreadyWritten: "इस शीट की लाइनें पहले ही लिखी जा चुकी हैं। अब इसके कॉलम नहीं बदल सकते।",
+    // server round 8: refusals
+    beingReadAgainApprove: "यह फ़ाइल फिर से पढ़ी जा रही है। उसे पूरा करें, फिर मंज़ूर करें।",
+    beingReadAgainMerge: "एक फ़ाइल फिर से पढ़ी जा रही है। उसे पूरा करें, फिर मर्ज करें।",
+    sheetApproved: "इस फ़ाइल की एक शीट मंज़ूर हो चुकी है। अब इसकी टेबल नहीं बदल सकतीं।",
   },
   file: {
     rows: "{count} {count:लाइन|लाइनें}",

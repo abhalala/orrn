@@ -14,6 +14,7 @@ import {
   type QuestionView,
 } from "../lib";
 import { ActionButton, EvidencePanel, FieldSelect, useSay } from "./review-bits";
+import { usePlantUnits } from "../lib";
 import { ActionError } from "./shared";
 import { FOCUS, questionFocusKey, questionSentenceKey, type ReviewActions } from "./use-review-actions";
 
@@ -123,6 +124,7 @@ function QuestionRow({
         >
           {sentence}
         </p>
+        {question.fillLines.length > 0 ? <FillLines lines={question.fillLines} /> : null}
         {question.aboutRow !== null && onGoToRow ? (
           <a
             href={`#row-${question.aboutRow}`}
@@ -297,4 +299,33 @@ function QuestionControls({
     );
   }
   return buttons;
+}
+
+/** The lines that took a date from the dated line above them: row, order, the date taken, PO (at most five). */
+function FillLines({ lines }: { lines: QuestionView["fillLines"] }) {
+  const { t } = useSay();
+  const plant = usePlantUnits();
+  return (
+    <table data-testid="fill-lines" className="mt-1 w-full max-w-[560px] border-collapse text-left text-[13px] leading-5">
+      <caption className="sr-only">{t("ingest.q.fillCaption")}</caption>
+      <thead>
+        <tr className="text-muted-foreground">
+          <th scope="col" className="py-1 pr-3 font-medium">{t("ingest.q.fillRow")}</th>
+          <th scope="col" className="py-1 pr-3 font-medium">{t("ingest.q.fillOrder")}</th>
+          <th scope="col" className="py-1 pr-3 font-medium">{t("ingest.q.fillDate")}</th>
+          <th scope="col" className="py-1 font-medium">{t("ingest.q.fillPo")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((l) => (
+          <tr key={l.n} className="border-t border-border align-top">
+            <td className="py-1 pr-3 font-mono tabular-nums">{l.n}</td>
+            <td className="py-1 pr-3 font-mono break-words">{l.order}</td>
+            <td className="py-1 pr-3">{l.date ? plant.day(l.date) : <span className="text-muted-foreground">{t("ingest.q.fillNoDate")}</span>}</td>
+            <td className="py-1 font-mono break-words">{l.po}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }

@@ -287,6 +287,8 @@ export type QuestionView = {
   rows: number;
   /** The 1-based row the question is about, when the server says one. A link to that row. */
   aboutRow: number | null;
+  /** `order_fill_above`: the lines that took a date from the line above (at most 5), for the person to look at. Row is 1-based. */
+  fillLines: { n: number; order: string; date: string | null; po: string }[];
   /** True when "Skip the rows" is a way to answer: the question is about rows that can be left out. */
   canSkipRows: boolean;
 };
@@ -303,6 +305,7 @@ const QUESTION_VARS: Record<QuestionCode, string[]> = {
   magnitude_check: ["field", "unit", "likelyUnit", "side", "count"],
   order_po: ["order", "customer", "pos", "count"],
   bundles_no_old_id: ["count"],
+  order_fill_above: ["count"],
 };
 
 /** Recipe unit id to its dictionary key: `kg/12ft` is `ingest.unit.kg_12ft`. */
@@ -429,6 +432,15 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
       }
       break;
     }
+    case "order_fill_above":
+      // Rule 10.1: lines with no date took the date of the dated line above. One question for the file, with up to five of them.
+      control = { kind: "yesNo" };
+      answers = [
+        { value: true, words: { key: "common.yes" } },
+        { value: false, words: { key: "common.no" } },
+      ];
+      if (answered) answeredWords = { key: answer === true ? "common.yes" : "common.no" };
+      break;
     case "bundles_no_old_id":
       // Rule 7.5: bundles with no old bundle number. orrn cannot tell if the same bundles arrive in another file.
       control = { kind: "yesNo" };
@@ -471,6 +483,7 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
     rows: typeof q.params.rows === "number" ? q.params.rows : 0,
     aboutRow: typeof q.params.row === "number" ? q.params.row + 1 : null,
     canSkipRows,
+    fillLines: ((q as { lines?: { row: number; order: string; date: string | null; po: string }[] }).lines ?? []).slice(0, 5).map((l) => ({ n: l.row + 1, order: l.order, date: l.date, po: l.po })),
   };
 }
 
@@ -531,6 +544,7 @@ export function rowWaitsOn(reasons: readonly string[] | undefined): { code: Ques
     if (code === "magnitude_check") return { code: "magnitude_check", subject };
     if (code === "customer_new") return { code: "new_customers", subject: "" };
     if (code === "section_unknown") return { code: "create_legacy_die", subject };
+    if (code === "order_fill_above") return { code: "order_fill_above", subject: "" };
   }
   return null;
 }

@@ -297,6 +297,14 @@ export const ingestEn = {
     bundles_no_old_id: "These bundles have no old bundle number. If the same bundles are in another file, orrn cannot tell and would add them twice. Import them?",
     importThem: "Import them",
     doNotImport: "Do not import",
+    // server round 8: order_fill_above
+    order_fill_above: "Some lines have no date. orrn took each one's date from the dated line just above it. Is that right?",
+    fillCaption: "Lines that took the date of the line above",
+    fillRow: "Row",
+    fillOrder: "Order",
+    fillDate: "Date taken",
+    fillPo: "PO",
+    fillNoDate: "none",
   },
   questions: {
     title: "{count} {count:question|questions} before you approve",
@@ -603,6 +611,10 @@ export const ingestEn = {
     checkAgainButton: "Check this sheet again",
     nothingToImport: "Nothing in this sheet can be imported. Fix the rows or discard it.",
     alreadyWritten: "Rows of this sheet are already written. Its columns cannot change now.",
+    // server round 8: refusals
+    beingReadAgainApprove: "This file is being read again. Finish it, then approve.",
+    beingReadAgainMerge: "A file is being read again. Finish it, then merge.",
+    sheetApproved: "A sheet of this file is approved. Its tables cannot change now.",
   },
   file: {
     rows: "{count} {count:row|rows}",

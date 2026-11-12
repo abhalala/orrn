@@ -23,6 +23,10 @@ const CHECK_AGAIN = /check this sheet again/i;
 /** Rule 7.4: "Nothing in this sheet can be imported. Fix the rows or discard it." has words of its own, without the English. */
 /** The server's refusal once any row of the file is written: the columns cannot change any more. */
 const ALREADY_WRITTEN = /^Rows of this sheet are already written/i;
+/** Server round 8: a file that is being read again cannot be approved or merged; a sheet approved cannot change its tables. */
+const READ_AGAIN_APPROVE = /^This file is being read again/i;
+const READ_AGAIN_MERGE = /^A file is being read again/i;
+const SHEET_APPROVED = /^A sheet of this file is approved/i;
 const NOTHING_TO_IMPORT = /^Nothing in this sheet can be imported/i;
 
 const messageOf = (error: unknown): string => {
@@ -32,6 +36,9 @@ const messageOf = (error: unknown): string => {
 
 export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
+  if (READ_AGAIN_APPROVE.test(messageOf(error))) return { key: "ingest.error.beingReadAgainApprove", retry: false };
+  if (READ_AGAIN_MERGE.test(messageOf(error))) return { key: "ingest.error.beingReadAgainMerge", retry: false };
+  if (SHEET_APPROVED.test(messageOf(error))) return { key: "ingest.error.sheetApproved", retry: false };
   if (code === "BAD_REQUEST" && ALREADY_WRITTEN.test(messageOf(error))) return { key: "ingest.error.alreadyWritten", retry: false };
   if (code === "PRECONDITION_FAILED") {
     const detail = messageOf(error);

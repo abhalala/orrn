@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8093 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8103 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (502)
+### ingest (512)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7163,6 +7163,13 @@ Please check, Lalubhai:
 | `q.bundles_no_old_id` | These bundles have no old bundle number. If the same bundles are in another file, orrn cannot tell and would add them twice. Import them? | इन bundle का पुराना bundle नंबर नहीं है। अगर यही bundle किसी और फ़ाइल में भी हैं, तो orrn पहचान नहीं सकता और इन्हें दो बार जोड़ देगा। इन्हें इम्पोर्ट करें? |
 | `q.importThem` | Import them | इम्पोर्ट करें |
 | `q.doNotImport` | Do not import | इम्पोर्ट न करें |
+| `q.order_fill_above` | Some lines have no date. orrn took each one's date from the dated line just above it. Is that right? | कुछ लाइनों में तारीख नहीं है। orrn ने हर लाइन की तारीख उसके ठीक ऊपर की तारीख वाली लाइन से ली। क्या यह सही है? |
+| `q.fillCaption` | Lines that took the date of the line above | ऊपर की लाइन की तारीख लेने वाली लाइनें |
+| `q.fillRow` | Row | लाइन |
+| `q.fillOrder` | Order | ऑर्डर |
+| `q.fillDate` | Date taken | ली गई तारीख |
+| `q.fillPo` | PO | PO |
+| `q.fillNoDate` | none | कोई नहीं |
 | `questions.title` | {count} {count:question\|questions} before you approve | मंज़ूर करने से पहले {count} सवाल |
 | `questions.doneTitle` | {count} {count:question\|questions} answered | {count} {count:सवाल का जवाब दिया\|सवालों के जवाब दिए} |
 | `period.fy` | Financial year | वित्त वर्ष |
@@ -7420,6 +7427,9 @@ Please check, Lalubhai:
 | `error.checkAgainButton` | Check this sheet again | यह शीट दोबारा जांचें |
 | `error.nothingToImport` | Nothing in this sheet can be imported. Fix the rows or discard it. | इस शीट में कुछ भी इम्पोर्ट नहीं हो सकता। लाइनें सुधारें या शीट हटा दें। |
 | `error.alreadyWritten` | Rows of this sheet are already written. Its columns cannot change now. | इस शीट की लाइनें पहले ही लिखी जा चुकी हैं। अब इसके कॉलम नहीं बदल सकते। |
+| `error.beingReadAgainApprove` | This file is being read again. Finish it, then approve. | यह फ़ाइल फिर से पढ़ी जा रही है। उसे पूरा करें, फिर मंज़ूर करें। |
+| `error.beingReadAgainMerge` | A file is being read again. Finish it, then merge. | एक फ़ाइल फिर से पढ़ी जा रही है। उसे पूरा करें, फिर मर्ज करें। |
+| `error.sheetApproved` | A sheet of this file is approved. Its tables cannot change now. | इस फ़ाइल की एक शीट मंज़ूर हो चुकी है। अब इसकी टेबल नहीं बदल सकतीं। |
 | `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
 | `file.table` | Table {n} | टेबल {n} |

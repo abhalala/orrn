@@ -165,3 +165,35 @@ describe("the refusal once a row is written", () => {
     expect(typeof (hi as never as { ingest: { error: { alreadyWritten: string } } }).ingest.error.alreadyWritten).toBe("string");
   });
 });
+
+describe("the refusals of server round 8 and the fill question", () => {
+  test("each refusal is said from its own words, in both languages", async () => {
+    const { ingestErrorWords } = await import("./errors");
+    const { en } = await import("@orrn/i18n/en");
+    const { hi } = await import("@orrn/i18n/hi");
+    const err = (code: string, message: string) => Object.assign(new Error(message), { data: { code } });
+    const cases: [string, string, string][] = [
+      ["PRECONDITION_FAILED", "This file is being read again. Finish it, then approve.", "beingReadAgainApprove"],
+      ["BAD_REQUEST", "A file is being read again. Finish it, then merge.", "beingReadAgainMerge"],
+      ["BAD_REQUEST", "A sheet of this file is approved. Its tables cannot change now.", "sheetApproved"],
+    ];
+    for (const [code, message, key] of cases) {
+      expect(ingestErrorWords(err(code, message), "action")).toEqual({ key: `ingest.error.${key}`, retry: false });
+      const tree = (en as never as { ingest: { error: Record<string, string> } }).ingest.error;
+      expect(tree[key]).toBe(message);
+      expect(typeof (hi as never as { ingest: { error: Record<string, string> } }).ingest.error[key]).toBe("string");
+    }
+  });
+
+  test("order_fill_above: one question with up to five lines, Yes and No, and the rows wait on it", async () => {
+    const { questionView, rowWaitsOn, decisionOptions } = await import("./model");
+    const lines = Array.from({ length: 7 }, (_, i) => ({ row: i + 2, order: String(40 + i), date: i === 0 ? null : "2024-06-01", po: "PO-A" }));
+    const q = questionView({ code: "order_fill_above", subject: "", params: { count: 7 }, answer: null, open: true, lines } as never);
+    expect(q.key).toBe("ingest.q.order_fill_above");
+    expect(q.answers.map((a) => [a.value, a.words.key])).toEqual([[true, "common.yes"], [false, "common.no"]]);
+    expect(q.fillLines).toHaveLength(5);
+    expect(q.fillLines[0]).toEqual({ n: 3, order: "40", date: null, po: "PO-A" });
+    expect(rowWaitsOn(["q:order_fill_above"])).toEqual({ code: "order_fill_above", subject: "" });
+    expect(decisionOptions({ state: "ambiguous", options: [], mergeState: "open", reasons: ["q:order_fill_above"] }).map((o) => o.decision)).toEqual(["skip"]);
+  });
+});
