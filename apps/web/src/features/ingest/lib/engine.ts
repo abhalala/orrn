@@ -1,17 +1,41 @@
-import { findBlocks, readPdfTextBlocks, SqlReader, sqlTablesToBlocks, type ReadBlock as EngineRead } from "@orrn/ingest";
+import {
+  HintError, parseCsv, readPdfTextBlocks, readSheet, SqlReader, sqlTablesToBlocks,
+  type BlockHints, type ReadBlock as EngineRead,
+} from "@orrn/ingest";
 
 import { ReadStop } from "./reader-core";
-import type { EngineBlock, PdfItem, ReaderEngine } from "./reader-engine";
+import type { EngineBlock, EngineHints, MatrixRead, PdfItem, ReaderEngine } from "./reader-engine";
 
 /** The reader engine on the pure readers of `@orrn/ingest` (plan C2: `readers/blocks`, `readers/sql`, `readers/pdf-text`). */
 
-const toBlock = (b: EngineRead): EngineBlock => ({
-  title: b.title, headerRow: b.headerRow, headerRows: b.headerRows, headers: b.headers, rows: b.rows,
-});
+const toBlock = (b: EngineRead): EngineBlock => {
+  const follows = (b as { follows?: { block: number; gapRows: number } | null }).follows ?? null;
+  return {
+    title: b.title, headerRow: b.headerRow, headerRows: b.headerRows, headers: b.headers, rows: b.rows,
+    guess: b.guess as EngineHints, hints: b.hints as EngineHints | null, preview: b.preview, width: b.width,
+    firstDataSheetRow: b.firstDataSheetRow, follows,
+  };
+};
+
+/** A hint the package cannot follow is the person's pick, not a broken file: it stops the read with its own code. */
+function read(matrix: string[][], opts: MatrixRead | undefined): EngineBlock[] {
+  try {
+    return readSheet(matrix, { sheetName: opts?.sheetName ?? null, hints: (opts?.hints ?? null) as readonly BlockHints[] | null }).blocks.map(toBlock);
+  } catch (error) {
+    if (error instanceof HintError) throw new ReadStop({ code: "hint_error", detail: error.code });
+    throw error;
+  }
+}
 
 export const engine: ReaderEngine = {
-  blocksFromMatrix(matrix) {
-    return findBlocks(matrix).map(toBlock);
+  blocksFromMatrix(matrix, opts) {
+    return read(matrix, opts);
+  },
+
+  blocksFromCsv(text, opts) {
+    // The package picks the delimiter (tab or semicolon before comma when numbers carry digit grouping).
+    const matrix = parseCsv(text);
+    return { blocks: read(matrix, opts), rawRows: matrix.length };
   },
 
   createSqlReader() {

@@ -325,12 +325,14 @@ describe("review: sheet cells", () => {
     expect(matrixFromSheet(X, sheetOf({}, "A1:XFD1048576"))).toEqual({ matrix: [], dateColumns: [] });
   });
 
-  test("E14: a number shown with leading zeros keeps them; other numbers stay as stored", () => {
+  // Rule 5.4 (PORTAL-RULES-3): a cell is the text a person saw, so a number shown as 12.6 is 12.6. The old assertion kept the
+  // stored 12.64 under a "0.0" format; see reader-text.test.ts for the twelve cells of the rule.
+  test("E14: a number shown with leading zeros keeps them; another number is the text its format shows", () => {
     const sheet = sheetOf({
       A1: { t: "n", v: 7, z: "0000", w: "0007" },
       A2: { t: "n", v: 12.64, z: "0.0", w: "12.6" },
     }, "A1:A2");
-    expect(matrixFromSheet(X, sheet).matrix).toEqual([["0007"], ["12.64"]]);
+    expect(matrixFromSheet(X, sheet).matrix).toEqual([["0007"], ["12.6"]]);
   });
 });
 

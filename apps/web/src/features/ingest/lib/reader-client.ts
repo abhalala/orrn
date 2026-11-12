@@ -1,5 +1,5 @@
 import { detectFileKind } from "./limits";
-import type { ReadBlock, ReadFailure, ReadProgress, WorkerRequest, WorkerResponse } from "./reader-protocol";
+import type { ReadBlock, ReadFailure, ReadProgress, SheetHints, WorkerRequest, WorkerResponse } from "./reader-protocol";
 import type { ArtifactKind } from "./types";
 
 export type ReadResult = { kind: ArtifactKind; blocks: ReadBlock[]; rawRows: number };
@@ -77,10 +77,10 @@ export async function hashFile(file: File, signal?: AbortSignal): Promise<string
 /** Reads a file into blocks in the module worker. Progress goes to `onProgress` (plan A4). Rejects with `ReadError`. */
 export async function readFile(
   file: File,
-  opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal },
+  opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[] },
 ): Promise<ReadResult> {
   const found = detectFileKind(file.name, file.type);
   if (!found) throw new ReadError({ code: "unreadable", detail: "unknown file type" });
-  const done = await ask({ type: "read", file, kind: found.kind }, "blocks", opts);
+  const done = await ask({ type: "read", file, kind: found.kind, ...(opts.hints ? { hints: opts.hints } : {}) }, "blocks", opts);
   return { kind: done.kind, blocks: done.blocks, rawRows: done.rawRows };
 }

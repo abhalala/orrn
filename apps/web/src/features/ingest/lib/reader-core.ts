@@ -1,7 +1,7 @@
 import { clipCell, DEFAULT_LIMITS, WIRE_CELL_MAX_CHARS } from "./limits";
-import type { EngineBlock, PdfItem, ReaderEngine } from "./reader-engine";
-import type { ReadBlock, ReadFailure, ReadProgress } from "./reader-protocol";
-import type { ArtifactKind, BlockInput } from "./types";
+import type { EngineBlock, EngineHints, PdfItem, ReaderEngine } from "./reader-engine";
+import type { BlockMeta, ReadBlock, ReadFailure, ReadProgress, SheetHints, WireBlockInput } from "./reader-protocol";
+import type { ArtifactKind } from "./types";
 
 /**
  * Reading a file into blocks (plan A1, A4). Pure of the browser: the libraries (xlsx, papaparse, pdfjs) and the
@@ -34,11 +34,22 @@ export function sampleRows(rows: readonly string[][], first = 100, spread = 100)
   return out;
 }
 
+/**
+ * A number as the text a person sees when the file has no formatted text for it: a whole number as it is, any other
+ * number at 15 significant digits, which is what Excel shows and removes the float noise (0.1 + 0.2 is "0.3").
+ */
+export function numberText(v: number): string {
+  if (!Number.isFinite(v)) return String(v);
+  if (Number.isInteger(v)) return String(v);
+  return String(Number(v.toPrecision(15)));
+}
+
 /** Text of a cell, as the existing import reader does: no number formatting, dates as `YYYY-MM-DD`. */
 export function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "number") return numberText(value);
   return String(value);
 }
 
@@ -61,7 +72,7 @@ export type XlsxLike = {
   };
 };
 export type XlsxCell = { t?: string; v?: unknown; w?: string; z?: string | number };
-export type XlsxSheet = Record<string, unknown> & { "!ref"?: string };
+export type XlsxSheet = Record<string, unknown> & { "!ref"?: string; "!merges"?: { s: { r: number; c: number }; e: { r: number; c: number } }[] };
 
 export type MatrixOptions = {
   /** The workbook counts days from 1904 (`Workbook.WBProps.date1904`). */
@@ -71,7 +82,8 @@ export type MatrixOptions = {
   maxColumns?: number;
 };
 
-const ZERO_PAD = /^0+$/;
+/** A merged range that runs down a column, in matrix rows and columns (row 0 is the first row of the matrix). */
+export type MatrixMerge = { col: number; firstRow: number; lastRow: number };
 
 /**
  * A sheet as a matrix of text, plus the columns that hold real Excel date cells.
@@ -80,9 +92,16 @@ const ZERO_PAD = /^0+$/;
  * - Date cells become `YYYY-MM-DD` from the serial number (in the workbook's date system), with no time zone in the
  *   way. A time-only cell becomes `HH:mm` and is not a date. A date with a time keeps its day.
  * - An error cell (`#N/A`) keeps its visible text; its numeric code is never a value.
- * - A whole number shown with leading zeros (format `0000`) keeps them. Other numbers stay as stored.
+ * - Everything else is the text the person saw (rule 5.4): the cell's formatted text when the file has it ("007",
+ *   "18%", "(1,234)", "12.30"), else the number written without float noise. Never "7", "0.18" or "12.299999999999999".
+ * - `rowBase` is the sheet row the matrix starts at, for the row numbers a person sees. `merges` are the vertical
+ *   merged ranges, in matrix rows and columns, for an order number written once over several rows.
  */
-export function matrixFromSheet(X: XlsxLike, sheet: XlsxSheet, opts: MatrixOptions = {}): { matrix: string[][]; dateColumns: number[] } {
+export function matrixFromSheet(
+  X: XlsxLike,
+  sheet: XlsxSheet,
+  opts: MatrixOptions = {},
+): { matrix: string[][]; dateColumns: number[]; rowBase?: number; merges?: MatrixMerge[] } {
   const ref = sheet["!ref"];
   if (!ref) return { matrix: [], dateColumns: [] };
   const declared = X.utils.decode_range(ref);
@@ -139,8 +158,11 @@ export function matrixFromSheet(X: XlsxLike, sheet: XlsxSheet, opts: MatrixOptio
         } else if (cell.t === "d" && cell.v instanceof Date) {
           text = cellText(cell.v);
           counts.dates += 1;
-        } else if (cell.t === "n" && typeof cell.v === "number" && typeof cell.z === "string" && ZERO_PAD.test(cell.z) && Number.isInteger(cell.v) && cell.v >= 0) {
-          text = String(cell.v).padStart(cell.z.length, "0");
+        } else if (cell.t === "n" && typeof cell.v === "number") {
+          // The formatted text when the file has it; SheetJS gives none for a format it cannot read (`#,##,##0`).
+          text = typeof cell.w === "string" && cell.w !== "" ? cell.w : numberText(cell.v);
+        } else if (cell.t === "s") {
+          text = String(cell.v);
         } else text = cellText(cell.v);
         dateCounts.set(col, counts);
       }
@@ -152,19 +174,47 @@ export function matrixFromSheet(X: XlsxLike, sheet: XlsxSheet, opts: MatrixOptio
     .filter(([, n]) => n.filled > 0 && n.dates / n.filled >= 0.5)
     .map(([col]) => col)
     .sort((a, b) => a - b);
-  return { matrix, dateColumns };
+  const merges: MatrixMerge[] = [];
+  for (const m of sheet["!merges"] ?? []) {
+    if (merges.length >= MAX_MERGES) break;
+    // A range that runs down: one entry for each column it covers (the value sits in its first row).
+    if (m.e.r <= m.s.r) continue;
+    for (let c = m.s.c; c <= m.e.c; c += 1) {
+      const col = c - c0;
+      const firstRow = m.s.r - r0;
+      const lastRow = Math.min(m.e.r - r0, maxR - r0);
+      if (col >= 0 && col < columns && firstRow >= 0 && lastRow > firstRow) merges.push({ col, firstRow, lastRow });
+    }
+  }
+  return { matrix, dateColumns, rowBase: r0, merges };
 }
 
-type Piece = { sheetName: string | null; block: EngineBlock; dateColumns?: number[] };
+/** The server takes at most this many merged ranges for one table. */
+const MAX_MERGES = 10_000;
+
+type Piece = {
+  sheetName: string | null;
+  block: EngineBlock;
+  dateColumns?: number[];
+  /** The sheet row the matrix started at, and its vertical merged ranges (matrix rows and columns). */
+  rowBase?: number;
+  merges?: MatrixMerge[];
+  /** This table's place among the tables of its sheet. */
+  tableIndex?: number;
+};
+
+const PREVIEW_CELL_CHARS = 200;
+const PREVIEW_CELLS = 200;
 
 /**
  * Turns the engine's tables into `ReadBlock`s. Cells are cut at 200 characters, a block over 50,000 rows is
  * split into parts with the same headers (each part is its own candidate, numbered in order), columns above
- * 200 and blocks above 50 stop the read.
+ * 200 and blocks above 50 stop the read. Each block also carries what the header check needs: the raw rows of its
+ * region (`preview`), the header the rows were read under, the region width and the merged ranges of its rows.
  */
 export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ_LIMITS): ReadBlock[] {
   const out: ReadBlock[] = [];
-  for (const { sheetName, block, dateColumns } of pieces) {
+  for (const { sheetName, block, dateColumns, rowBase = 0, merges = [], tableIndex = 0 } of pieces) {
     // A plain loop: spreading 150,000 rows into one call throws in V8 and Safari.
     let columns = block.headers.length;
     for (const r of block.rows) if (r.length > columns) columns = r.length;
@@ -172,23 +222,55 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
     // The server cuts cells at 200 characters and records why; the browser only keeps the wire cap.
     const headers = block.headers.map((h) => clipCell(h, WIRE_CELL_MAX_CHARS).text);
     const rows = block.rows.map((r) => r.map((c) => clipCell(c, WIRE_CELL_MAX_CHARS).text));
+    const guess: EngineHints = block.guess ?? { headerRow: block.headerRow, headerRows: block.headerRows === 2 ? 2 : 1 };
+    const firstDataRow = block.firstDataSheetRow ?? guess.headerRow + (guess.headerRows ?? 1);
+    const preview = (block.preview ?? []).map((p) => ({
+      row: p.row,
+      ...(p.page !== undefined ? { page: p.page } : {}),
+      cells: p.cells.slice(0, PREVIEW_CELLS).map((c) => clipCell(c, PREVIEW_CELL_CHARS).text),
+    }));
     const parts = Math.max(1, Math.ceil(rows.length / limits.maxRowsPerBlock));
     for (let part = 0; part < parts; part += 1) {
-      const slice = parts === 1 ? rows : rows.slice(part * limits.maxRowsPerBlock, (part + 1) * limits.maxRowsPerBlock);
+      const from = part * limits.maxRowsPerBlock;
+      const slice = parts === 1 ? rows : rows.slice(from, (part + 1) * limits.maxRowsPerBlock);
       const base = block.title ?? sheetName;
       const title = parts === 1 ? block.title : `${base ?? ""} (${part + 1}/${parts})`.trim();
-      const input: BlockInput = {
+      // Merged ranges of this part's rows, by the row index inside the part. A range that starts above the part has its
+      // value in another part, so it is left out; one that runs past the part is cut at its end.
+      const merged: { col: number; firstRow: number; lastRow: number }[] = [];
+      for (const m of merges) {
+        const first = m.firstRow - firstDataRow - from;
+        const last = Math.min(m.lastRow - firstDataRow - from, slice.length - 1);
+        if (first >= 0 && last > first && m.col < headers.length) merged.push({ col: m.col, firstRow: first, lastRow: last });
+      }
+      const input: WireBlockInput = {
         ordinal: out.length,
         sheetName,
         title,
-        headerRow: block.headerRow,
-        headerRows: block.headerRows,
+        // The raw row of the header: the server checks it against the rows of `preview`, which carry raw row numbers.
+        headerRow: guess.headerRow,
+        headerRows: guess.headerRows === 2 ? 2 : 1,
         headers,
         rowCount: slice.length,
         sample: sampleRows(slice),
         ...(dateColumns && dateColumns.length > 0 ? { dateColumns: dateColumns.filter((c) => c < headers.length) } : {}),
+        ...(preview.length > 0 ? { preview } : {}),
+        ...(merged.length > 0 ? { merged } : {}),
+        ...(block.width !== undefined ? { width: block.width } : {}),
       };
-      out.push({ input, rows: slice });
+      const meta: BlockMeta = {
+        sheetName,
+        tableIndex,
+        part,
+        guess,
+        hints: block.hints ?? null,
+        follows: part === 0 ? (block.follows ?? null) : null,
+        rowBase,
+        preview,
+        firstDataRow: firstDataRow + from,
+        lastDataRow: firstDataRow + from + slice.length - 1,
+      };
+      out.push({ input, rows: slice, meta });
       if (out.length > limits.maxBlocks) throw new ReadStop({ code: "too_many_blocks", blocks: out.length });
     }
   }
@@ -232,7 +314,13 @@ function cancelled(deps: ReadDeps): void {
   if (deps.isCancelled?.()) throw new ReadStop({ code: "unreadable", detail: "cancelled" });
 }
 
-export async function readSheetBytes(buffer: ArrayBuffer, deps: ReadDeps): Promise<ReadBlock[]> {
+/** The hints for the tables of one sheet, or none. A CSV is one unnamed sheet. */
+const hintsFor = (all: readonly SheetHints[] | undefined, sheetName: string | null): EngineHints[] | null => {
+  const found = all?.find((h) => h.sheetName === sheetName);
+  return found && found.hints.length > 0 ? found.hints : null;
+};
+
+export async function readSheetBytes(buffer: ArrayBuffer, deps: ReadDeps, hints?: readonly SheetHints[]): Promise<ReadBlock[]> {
   const limits = deps.limits ?? READ_LIMITS;
   const X = await deps.loadXlsx!();
   deps.onProgress?.({ phase: "open", sheet: null, rowsRead: 0, rowsTotal: null });
@@ -244,7 +332,7 @@ export async function readSheetBytes(buffer: ArrayBuffer, deps: ReadDeps): Promi
     cancelled(deps);
     const sheet = book.Sheets[name];
     if (!sheet) continue;
-    const { matrix, dateColumns } = matrixFromSheet(X, sheet, {
+    const { matrix, dateColumns, rowBase, merges } = matrixFromSheet(X, sheet, {
       date1904: book.Workbook?.WBProps?.date1904 === true,
       maxRows: Math.max(0, limits.maxRawRows - rawRows),
       maxColumns: limits.maxColumns,
@@ -252,21 +340,36 @@ export async function readSheetBytes(buffer: ArrayBuffer, deps: ReadDeps): Promi
     rawRows += matrix.length;
     checkRawRows(rawRows, limits);
     deps.onProgress?.({ phase: "sheet", sheet: name, rowsRead: matrix.length, rowsTotal: matrix.length });
-    for (const block of deps.engine.blocksFromMatrix(matrix)) pieces.push({ sheetName: name, block, dateColumns });
+    deps.engine.blocksFromMatrix(matrix, { sheetName: name, hints: hintsFor(hints, name) }).forEach((block, tableIndex) => {
+      pieces.push({ sheetName: name, block, dateColumns, rowBase, merges, tableIndex });
+    });
   }
   deps.onProgress?.({ phase: "blocks", sheet: null, rowsRead: rawRows, rowsTotal: rawRows });
   return finishBlocks(pieces, limits);
 }
 
-export async function readCsvText(text: string, deps: ReadDeps, sheetName: string | null = null): Promise<ReadBlock[]> {
+export async function readCsvText(text: string, deps: ReadDeps, sheetName: string | null = null, hints?: readonly SheetHints[]): Promise<ReadBlock[]> {
   const limits = deps.limits ?? READ_LIMITS;
-  const Papa = await deps.loadPapa!();
   deps.onProgress?.({ phase: "open", sheet: sheetName, rowsRead: 0, rowsTotal: null });
-  const parsed = Papa.parse(text.replace(/^﻿/, ""), { header: false, skipEmptyLines: false });
-  const matrix = parsed.data.map((row) => (Array.isArray(row) ? row.map(cellText) : []));
-  checkRawRows(matrix.length, limits);
-  deps.onProgress?.({ phase: "sheet", sheet: sheetName, rowsRead: matrix.length, rowsTotal: matrix.length });
-  return finishBlocks(deps.engine.blocksFromMatrix(matrix).map((block) => ({ sheetName, block })), limits);
+  const body = text.replace(/^\uFEFF/, "");
+  const read = { sheetName, hints: hintsFor(hints, sheetName) };
+  let tables: EngineBlock[];
+  let rows: number;
+  if (deps.engine.blocksFromCsv) {
+    // The package's own reader picks the delimiter; a hint needs it to number the rows the same way.
+    const out = deps.engine.blocksFromCsv(body, read);
+    tables = out.blocks;
+    rows = out.rawRows;
+  } else {
+    const Papa = await deps.loadPapa!();
+    const parsed = Papa.parse(body, { header: false, skipEmptyLines: false });
+    const matrix = parsed.data.map((row) => (Array.isArray(row) ? row.map(cellText) : []));
+    tables = deps.engine.blocksFromMatrix(matrix, read);
+    rows = matrix.length;
+  }
+  checkRawRows(rows, limits);
+  deps.onProgress?.({ phase: "sheet", sheet: sheetName, rowsRead: rows, rowsTotal: rows });
+  return finishBlocks(tables.map((block, tableIndex) => ({ sheetName, block, tableIndex })), limits);
 }
 
 /** A SQL dump read in chunks of text, so a 100 MB file never sits in one string. */
@@ -282,9 +385,9 @@ export async function readSqlChunks(chunks: AsyncIterable<string>, totalBytes: n
   }
   const tables = reader.finish();
   let rawRows = 0;
-  const pieces: Piece[] = tables.map((t) => {
+  const pieces: Piece[] = tables.map((t, tableIndex) => {
     rawRows += t.rows.length;
-    return { sheetName: t.table, block: { title: null, headerRow: 0, headerRows: 1, headers: t.headers, rows: t.rows } };
+    return { sheetName: t.table, block: { title: null, headerRow: 0, headerRows: 1, headers: t.headers, rows: t.rows }, tableIndex };
   });
   checkRawRows(rawRows, limits);
   return finishBlocks(pieces, limits);
@@ -332,23 +435,27 @@ export async function* textChunks(file: Pick<Blob, "stream">): AsyncGenerator<st
   }
 }
 
-/** Reads one file of a known kind. Throws `ReadStop` with the reason when it cannot. */
+/**
+ * Reads one file of a known kind. Throws `ReadStop` with the reason when it cannot. `hints` are the header rows a person
+ * or the server named, per sheet. PDFs and photos are not read in this release: they are kept, so no reader runs on them
+ * (`readPdfBytes` stays for the release that reads them).
+ */
 export async function readFileBlocks(
   file: Pick<File, "arrayBuffer" | "text" | "stream" | "size">,
   kind: ArtifactKind,
   deps: ReadDeps,
+  hints?: readonly SheetHints[],
 ): Promise<ReadBlock[]> {
   switch (kind) {
     case "sheet":
-      return readSheetBytes(await file.arrayBuffer(), deps);
+      return readSheetBytes(await file.arrayBuffer(), deps, hints);
     case "csv":
-      return readCsvText(await file.text(), deps);
+      return readCsvText(await file.text(), deps, null, hints);
     case "sql":
       return readSqlChunks(textChunks(file), file.size, deps);
     case "pdf_text":
     case "pdf_scan":
-      return readPdfBytes(await file.arrayBuffer(), deps);
     case "image":
-      throw new ReadStop({ code: "unreadable", detail: "images are read by the vision step" });
+      throw new ReadStop({ code: "unreadable", detail: "PDFs and photos are kept, not read, in this release" });
   }
 }
