@@ -260,6 +260,14 @@ export type BlockView = ReaderFacts & {
   modelChecked: boolean;
   /** The canonical rows file of this block is in the vault. */
   canonicalStored: boolean;
+  /**
+   * Round 8 item 8: the saved hint fields, so a re-put from the review screen keeps them. From a
+   * person's pick: the last data row (null: to the end) and the rows left out (at most 1,000, as the
+   * input allows). `follows`: the table above, as the reader sent it.
+   */
+  lastDataRow: number | null;
+  skipRows: number[];
+  follows: { ordinal: number; gapRows: number; continues: boolean } | null;
 };
 
 export type CandidateDetail = CandidateSummary & {

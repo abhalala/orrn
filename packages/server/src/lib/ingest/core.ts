@@ -209,6 +209,9 @@ export function blockView(b: BlockRow): BlockView {
     warningsTotal: b.readerFacts?.warningsTotal ?? 0,
     sections: b.readerFacts?.sections ?? [],
     sectionsTotal: b.readerFacts?.sectionsTotal ?? 0,
+    lastDataRow: b.headerPick?.lastDataRow ?? null,
+    skipRows: (b.headerPick?.skipRows ?? []).slice(0, 1000),
+    follows: b.follows ?? null,
   };
 }
 

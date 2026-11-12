@@ -10917,6 +10917,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "follows": {
+          "name": "follows",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "model_checked": {
           "name": "model_checked",
           "type": "integer",

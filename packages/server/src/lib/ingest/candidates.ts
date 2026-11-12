@@ -527,6 +527,7 @@ export async function putBlocks(
         headerPick,
         merged: b.merged?.length ? b.merged : null,
         readerFacts: readerFactsOf(b),
+        follows: b.follows ? { ordinal: b.follows.ordinal, gapRows: b.follows.gapRows, continues: b.follows.continues === true } : null,
         headers: fp.headers,
         kinds: fp.kinds,
         headerKey: fp.headerKey,

@@ -12,6 +12,8 @@
  * - 10.2 second line (S6-5): re-put and repick refuse once any sheet of the file is approved or merging.
  * - S6-6: a re-put of a 50-block file binds at most 100 values a statement.
  * - S6-7: a block saved by a pick and sent again without it keeps the pick and counts as unchanged.
+ * - item 8 (web round E1): the block view returns the saved hint fields, lastDataRow, skipRows and
+ *   follows, so a re-put from the review screen keeps them.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -441,5 +443,39 @@ describe("rule 10.2: the checks hold inside the batch", () => {
     const n = await env.d1.prepare("select count(*) as n from ingest_candidate where artifact_id = ?").bind(artifactId).first<{ n: number }>();
     expect(Number(n!.n)).toBe(2);
     expect((await p.owner.ingest.artifact.get({ artifactId })).readState).toBe("read");
+  });
+});
+
+describe("item 8: the block view returns the saved hint fields", () => {
+  test("a picked lower table shows its lastDataRow, skipRows and follows in artifact.get and candidate.get; a plain one shows none", async () => {
+    const p = await setup();
+    const { artifactId } = await p.owner.ingest.artifact.begin({ sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"), fileName: "hint.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const r1 = R("41", "PO-41", "31/10/2025", "5100");
+    const r2 = R("42", "PO-42", "31/10/2025", "5101");
+    const r3 = R("43", "PO-43", "31/10/2025", "5102");
+    const upper = { ordinal: 0, sheetName: "S", title: null, headerRow: 0, headerRows: 1, rowCount: 1, sample: [r1], preview: [{ row: 0, cells: BOOK }, { row: 1, cells: r1 }] };
+    const lowerRows = [r2, ["note", "", "", "", "", "", "", ""], r3];
+    const lower = {
+      ordinal: 1,
+      sheetName: "S",
+      title: "December",
+      headerRow: 3,
+      headerRows: 1,
+      rowCount: 3,
+      sample: lowerRows,
+      preview: [{ row: 3, cells: BOOK }, ...lowerRows.map((cells, i) => ({ row: 4 + i, cells })), { row: 7, cells: ["Total", "", "", "", "", "", "", "300"] }],
+      follows: { ordinal: 0, gapRows: 1, continues: false },
+      hint: { headerRow: 3, headerRows: 1 as const, lastDataRow: 6, skipRows: [5] },
+    };
+    // The lower table repeats the header: it is kept by fit, then sent again with a pick.
+    await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [upper, { ...lower, hint: undefined }] });
+    const put = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [upper, lower] });
+    const blocks = (await p.owner.ingest.artifact.get({ artifactId })).blocks;
+    expect(blocks.map((b) => ({ ordinal: b.ordinal, lastDataRow: b.lastDataRow, skipRows: b.skipRows, follows: b.follows }))).toEqual([
+      { ordinal: 0, lastDataRow: null, skipRows: [], follows: null },
+      { ordinal: 1, lastDataRow: 6, skipRows: [5], follows: { ordinal: 0, gapRows: 1, continues: false } },
+    ]);
+    const cid = put.candidates.find((c) => c.blockOrdinal === 1)!.id;
+    expect((await p.owner.ingest.candidate.get({ candidateId: cid })).block).toMatchObject({ lastDataRow: 6, skipRows: [5], follows: { ordinal: 0, gapRows: 1, continues: false } });
   });
 });
