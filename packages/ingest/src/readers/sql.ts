@@ -1059,5 +1059,6 @@ export function sqlTablesToBlocks(tables: readonly SqlTable[]): ReadBlock[] {
       doubts: [],
       follows: null,
       gaps: 0,
+      sections: [],
     }));
 }

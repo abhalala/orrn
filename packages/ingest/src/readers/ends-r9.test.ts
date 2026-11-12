@@ -114,3 +114,46 @@ describe("9: the signs of another table after a blank row", () => {
     }
   });
 });
+
+describe("9: titles are listed as sections", () => {
+  const H = ["Party", "Order No", "Section", "Pcs", "Kg"];
+  const ob = (from: number, n: number) => Array.from({ length: n }, (_, i) => ["Om " + (from + i), String(100 + from + i), "T40" + (10 + i), "12", String(300 + i)]);
+  // Rows: 0 header, 1-4 data, 5 blank, 6 "December", 7-9 data, 10 blank, 11 "Vehicle", 12-13 data.
+  const m = [H, ...ob(0, 4), [], ["December"], ...ob(4, 3), [], ["Vehicle"], ["GJ03AB1234", "", "Morbi", "3", "4520"], ["GJ03AB9876", "", "Surat", "2", "3100"]];
+
+  test("each skipped title is a section of the block, with its row and text", () => {
+    for (const [how, r] of both(m)) {
+      const b = r.blocks[0]!;
+      expect(b.sections, how).toEqual([{ row: 6, text: "December" }, { row: 11, text: "Vehicle" }]);
+      expect(filled(b.rows).length, how).toBe(9);
+      expect(accounted(m, r), how).toBe(true);
+    }
+  });
+
+  test("a table with no title after a gap has no sections", () => {
+    const r = readSheet([H, ...ob(0, 3), [], ...ob(3, 2)]);
+    expect(r.blocks[0]!.sections).toEqual([]);
+  });
+
+  test("'Start a new table here': lastDataRow set to the row before a section ends the table there exactly", () => {
+    const r = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 10 }] });
+    const b = r.blocks.find((x) => x.hints !== null)!;
+    expect(b.rows.length).toBe(9); // rows 1 to 9; the blank row 10 is trailing and cut
+    expect(filled(b.rows).map((x) => x.filter((c) => c !== ""))).toEqual([...ob(0, 4), ["December"], ...ob(4, 3)]);
+    expect(b.guess.lastDataRow).toBe(9);
+    const rest = r.blocks.filter((x) => x !== b);
+    expect(rest.length).toBeGreaterThan(0);
+    expect(rest.every((x) => regionStart(x) >= 11)).toBe(true);
+    expect(rest.some((x) => x.title === "Vehicle" && [x.headers, ...x.rows].some((row) => row[0] === "GJ03AB1234"))).toBe(true);
+    expect(accounted(m, r)).toBe(true);
+    // Read again from the first section: the upper table ends at row 4, the rest are further blocks.
+    const r2 = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 5 }] });
+    const b2 = r2.blocks.find((x) => x.hints !== null)!;
+    expect(filled(b2.rows)).toEqual(ob(0, 4));
+    expect(r2.blocks.filter((x) => x !== b2).every((x) => regionStart(x) >= 6)).toBe(true);
+    expect(r2.blocks.length).toBeGreaterThan(1);
+    expect(accounted(m, r2)).toBe(true);
+  });
+});
+
+const regionStart = (b: { guess: { headerRow: number }; headerRow: number }) => b.guess.headerRow - b.headerRow;

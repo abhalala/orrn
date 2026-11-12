@@ -921,7 +921,15 @@ export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: Find
   const rows = matrix.map((r) => r.map(toCellText));
   const sheetName = opts.sheetName ?? null;
   const read = opts.hints && opts.hints.length > 0 ? readByHints(rows, opts.hints, sheetName) : guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
-  return { blocks: withFollows(rows, read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows), gaps: gapsOf(b) }))), warnings: read.warnings };
+  return { blocks: withFollows(rows, read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows), gaps: gapsOf(b), sections: sectionsOf(b) }))), warnings: read.warnings };
+}
+
+/**
+ * Section 9: the titles a block's table continues under (its `skipped_title` rows), in row order. A one-word header of
+ * another table looks the same, so the screen offers "Start a new table here" on each.
+ */
+export function sectionsOf(b: ReadBlock): { row: number; text: string }[] {
+  return b.warnings.filter((w) => w.code === "skipped_title").map((w) => ({ row: w.row, text: w.text ?? "" })).sort((x, y) => x.row - y.row);
 }
 
 /** Rule 8.1: fully blank rows inside a block's rows, not counting rows it left out (listed in its warnings). */

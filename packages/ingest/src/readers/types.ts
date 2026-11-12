@@ -134,6 +134,12 @@ export type ReadBlock = {
    * table were skipped". Set by the sheet, CSV and SQL readers.
    */
   gaps?: number;
+  /**
+   * Section 9: the titles this table continues under after a blank row (each also a `skipped_title` warning), in row
+   * order. The screen shows "This table continues under '<text>' (row N)" with "Start a new table here", which reads
+   * the table again with `lastDataRow` set to the row before the title. Set by the sheet, CSV and SQL readers.
+   */
+  sections?: { row: number; text: string }[];
   /** Row of the sheet where the first data row sits, 0-based. Row `i` of `rows` is sheet row `firstDataSheetRow + i`. */
   firstDataSheetRow: number;
   /** Raw rows of the block's region, before any header was applied: `PREVIEW_ROWS`, plus `PREVIEW_HEAD_ROWS` when the window moved. */
