@@ -184,6 +184,19 @@ export const ingestBlock = sqliteTable(
     merged: text("merged", { mode: "json" }).$type<{ col: number; firstRow: number; lastRow: number }[]>(),
     /** Rule 7.2: a person's pick of the header row, with who and when. Null when a fit settled it. */
     headerPick: text("header_pick", { mode: "json" }).$type<{ by: string; at: number; headerRow: number; headerRows: 1 | 2; lastDataRow?: number | null; skipRows?: number[] }>(),
+    /**
+     * Round 7 item 2: what the reader said about the table, for the review screen only (nothing is
+     * decided from it): blank rows crossed inside it, the lines it skipped (`skipped_repeat_header`,
+     * `skipped_title`, `after_last_row`; at most 200, text cut to 200, with the true count) and the
+     * titles it continues under (`sections`, at most 200, with the true count). Null: none sent.
+     */
+    readerFacts: text("reader_facts", { mode: "json" }).$type<{
+      gaps: number;
+      warnings: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[];
+      warningsTotal: number;
+      sections: { row: number; text: string }[];
+      sectionsTotal: number;
+    }>(),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
     /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
     canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),

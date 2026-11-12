@@ -1,5 +1,5 @@
 /**
- * Infinity Portal A0: migration 0048 applies on a fresh D1, the one-active-run index holds, the two
+ * Infinity Portal A0: the ingest migration applies on a fresh D1, the one-active-run index holds, the two
  * new actions are owner and admin only, and backups leave out the rebuildable ingest tables.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -31,7 +31,8 @@ const INGEST_TABLES = [
   "ingest_staged_row",
 ];
 
-describe("migration 0048_ingest", () => {
+// The ingest migration is found by its name, not its number: the number moves at integration.
+describe("migration NNNN_ingest", () => {
   test("creates every ingest table on a fresh D1", async () => {
     const rows = await env.d1
       .prepare("select name from sqlite_master where type = 'table' and (name like 'ingest_%' or name = 'customer_alias') order by name")
@@ -39,15 +40,19 @@ describe("migration 0048_ingest", () => {
     expect(rows.results.map((r) => r.name)).toEqual(INGEST_TABLES);
   });
 
-  test("chains after 0047 in the journal", async () => {
+  test("is the last migration in the journal, chained after the one before it", async () => {
     const journal = (await import("../../db/src/migrations/meta/_journal.json")).default as {
       entries: { idx: number; tag: string; when: number }[];
     };
     const last = journal.entries.at(-1)!;
     const prev = journal.entries.at(-2)!;
-    expect(last).toMatchObject({ idx: 48, tag: "0048_ingest" });
-    expect(prev.tag).toBe("0047_dispatch_late_entry");
+    expect(last.tag).toMatch(/^\d{4}_ingest$/);
+    expect(last.idx).toBe(journal.entries.length - 1);
+    expect(last.tag).toBe(`${String(last.idx).padStart(4, "0")}_ingest`);
+    expect(prev.idx).toBe(last.idx - 1);
+    expect(prev.tag).not.toMatch(/_ingest$/);
     expect(last.when).toBeGreaterThan(prev.when);
+    expect(await Bun.file(new URL(`../../db/src/migrations/${last.tag}.sql`, import.meta.url)).exists()).toBe(true);
   });
 
   test("one active merge run per plant; a finished run frees the slot", async () => {

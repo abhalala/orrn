@@ -71,6 +71,7 @@ import {
   liveOrdersOf,
   normOrderNo,
   normPo,
+  fyFits,
   orderFyOf,
   ORDER_GROUP_CODES,
   orderGroupCheck,
@@ -1372,6 +1373,20 @@ export function holdKeyOf(values: Values, customerId: string | null): string | n
   return po ? ["po", cust, po].join(SEP) : null;
 }
 
+/**
+ * Round 7 item 5: `order_no_date:<n>`, a numbered order line with no date. The web says: "This line
+ * has no date, so orrn cannot tell which year's order <n> it belongs to. Give it a date or skip it."
+ * <n> is the order number as the file has it.
+ */
+export const ORDER_NO_DATE = "order_no_date:";
+
+/** The `order_no_date` reason of a row, or none when it has no order number or has a date. */
+export function orderNoDateReasons(values: Values): string[] {
+  const no = str(values.oldOrderNo).trim();
+  if (!normOrderNo(values.oldOrderNo) || orderFyOf(values.orderDate)) return [];
+  return [`${ORDER_NO_DATE}${no}`];
+}
+
 /** Rule 5.3: the row reason of a row the reader doubted, until a person answers it. */
 export const CHECK_AGAINST_FILE = "check_against_file";
 
@@ -1720,7 +1735,12 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
           state: r.decision === "skip" ? "skipped" : "refused",
           values,
           entered,
-          reasons: [...keep, ...a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`), ...(filled.get(r.id)?.notes ?? [])],
+          reasons: [
+            ...keep,
+            ...a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`),
+            ...(c.target === "orders" ? orderNoDateReasons(values) : []),
+            ...(filled.get(r.id)?.notes ?? []),
+          ],
           matchId: null,
           diff: null,
         });
@@ -2078,7 +2098,11 @@ async function matchLiveOrders(ctx: IngestCtx, rows: readonly Staged[], outcomes
     // A numbered old order whose PO is on a live order an import made for another old order: one
     // PO on two orders (rule 4.2). It is not a line of that order. The person skips the rows.
     const hit = live.get(id.key)!;
-    if (id.kind === "no" && hit.by === "po" && hit.oldKey && hit.oldKey !== liveOrderKey(id.customer, id.fy, id.no ?? "")) {
+    // A PO on a live order of another financial year is not a line of it either (rule 4.2, M-1).
+    if (
+      (id.kind === "no" && hit.by === "po" && hit.oldKey && hit.oldKey !== liveOrderKey(id.customer, id.fy, id.no ?? "")) ||
+      (hit.by === "po" && !fyFits(hit.fy ?? "", id.fy))
+    ) {
       out.state = r.decision === "keep_live" ? "unchanged" : "conflict";
       out.reasons = [...out.reasons, PO_ON_LIVE_ORDER];
       continue;

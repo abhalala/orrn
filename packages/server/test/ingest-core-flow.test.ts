@@ -227,16 +227,17 @@ describe("artifact.putRows", () => {
     await expect(putRowsAs(p.admin, { blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [["y".repeat(2001)]] })).rejects.toThrow(/Too big|too_big/i);
   });
 
-  test("putBlocks twice with the same sheets replays; different sheets are a conflict", async () => {
+  test("putBlocks twice with the same sheets replays; another list before any row is written is taken (round 7 item 4)", async () => {
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "e.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
     const first = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
     const again = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
     expect(again.blocks).toEqual(first.blocks);
     expect(again.candidates.map((c) => c.id)).toEqual(first.candidates.map((c) => c.id));
-    await expect(
-      putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(CUSTOMERS, 1)] }),
-    ).rejects.toThrow(/already saved/);
+    // Round 7 item 4: no row is written, so the file may gain a sheet. The saved sheet stays as it is.
+    const more = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(CUSTOMERS, 1)] });
+    expect(more.blocks.map((b) => b.ordinal)).toEqual([0, 1]);
+    expect(more.blocks[0]).toEqual(first.blocks[0]);
   });
 });
 

@@ -104,6 +104,7 @@ import {
   KEPT_UNREAD_NOT_READ,
   isKeptUnread,
   type BlockInput,
+  type ReaderFacts,
   type HeaderAnswer,
   type DoubtListOut,
   type RowDoubtView,
@@ -241,6 +242,11 @@ function settleHeader(
     { preview: b.preview, guess, width: b.width, above, headerRow: Math.max(0, b.headerRow - (b.preview[0]?.row ?? b.headerRow)) },
     { learned },
   );
+  // Round 7 item 3, the owner's rule: a clean sheet is never asked. The guess is one row, nothing
+  // but blank rows is above it in the preview, and it looks like no known layout: the reader's
+  // guess stands and the table goes on to "needs a layout" ("Wrong columns? Pick the row" stays).
+  // A table with an offer about the table above (all text above, the same columns) still asks.
+  if (choice.kind === "ask" && cleanGuess(b, choice)) return { by: "reader" };
   if (choice.kind === "ask") {
     const r = choice.resembles;
     const resembles = r ? { headerRow: r.headerRow, headerRows: r.headerRows, name: r.name, target: r.target, fit: r.fit } : null;
@@ -250,13 +256,58 @@ function settleHeader(
       guess: choice.guess,
       candidates: choice.candidates,
       resembles,
-      follows: b.follows ?? null,
-      continuesAbove: choice.continuesAbove,
+      follows: b.follows ? { ordinal: b.follows.ordinal, gapRows: b.follows.gapRows, continues: b.follows.continues === true } : null,
       sameColumnsAsAbove: choice.sameColumnsAsAbove,
     };
   }
   if (choice.headerRow === guess.headerRow && choice.headerRows === guess.headerRows) return { by: "fit" };
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
+}
+
+/** Round 7 item 3: whether the reader's guess is a clean sheet's header, kept with no question. */
+function cleanGuess(b: BlockInput, choice: { resembles: unknown; sameColumnsAsAbove: boolean }): boolean {
+  if (b.headerRows !== 1 || choice.resembles || choice.sameColumnsAsAbove || b.follows?.continues === true) return false;
+  if (!b.preview.some((p) => p.row === b.headerRow)) return false;
+  return b.preview.every((p) => p.row >= b.headerRow || p.cells.every((c) => c.trim() === ""));
+}
+
+/**
+ * Round 7 item 4: whether a block sent again is the block saved. The same sheet, header rows and
+ * row count, the same names from the preview, and, when a pick is sent, the same pick.
+ */
+function sameBlock(e: BlockRow, b: BlockInput): boolean {
+  if (e.sheetName !== b.sheetName || e.headerRow !== b.headerRow || e.headerRows !== b.headerRows || e.rowCount !== b.rowCount) return false;
+  let names: string[];
+  try {
+    names = namesFromPreview(b);
+  } catch {
+    return false;
+  }
+  const bare = (a: readonly string[]) => {
+    const out = [...a];
+    while (out.length && out[out.length - 1] === "") out.pop();
+    return out;
+  };
+  if (JSON.stringify(bare(names)) !== JSON.stringify(bare(e.headers))) return false;
+  if (!b.hint) return true;
+  const p = e.headerPick;
+  if (!p) return false;
+  const skips = (r: readonly number[] | undefined) => JSON.stringify([...(r ?? [])].sort((x, y) => x - y));
+  return p.headerRow === b.hint.headerRow && p.headerRows === b.hint.headerRows && (p.lastDataRow ?? null) === (b.hint.lastDataRow ?? null) && skips(p.skipRows) === skips(b.hint.skipRows);
+}
+
+/** Round 7 item 2: the reader's display facts of one block as stored, or null when it sent none. */
+function readerFactsOf(b: BlockInput): ReaderFacts | null {
+  const warnings = b.warnings ?? [];
+  const sections = b.sections ?? [];
+  if (!b.gaps && warnings.length === 0 && sections.length === 0 && !b.warningsTotal && !b.sectionsTotal) return null;
+  return {
+    gaps: b.gaps ?? 0,
+    warnings,
+    warningsTotal: Math.max(b.warningsTotal ?? 0, warnings.length),
+    sections,
+    sectionsTotal: Math.max(b.sectionsTotal ?? 0, sections.length),
+  };
 }
 
 export async function putBlocks(
@@ -273,18 +324,42 @@ export async function putBlocks(
     .from(ingestBlock)
     .where(and(eq(ingestBlock.companyId, ctx.companyId), eq(ingestBlock.artifactId, artifact.id)))
     .orderBy(asc(ingestBlock.ordinal));
-  // A block already saved stays as it is; a later call sends the blocks whose header was not settled
-  // yet (rule 4.1), always with every block of the file.
-  // The first call fixes how many blocks the file has; a later call may not add or drop one.
-  const otherSet = (artifact.blockCount ?? 0) > 0 && ordinals.length !== artifact.blockCount;
-  if (otherSet || existing.some((b) => !ordinals.includes(b.ordinal))) throw new TRPCError({ code: "CONFLICT", message: "The sheets of this file are already saved" });
+  // A later call sends every block of the file (rule 4.1). A block already saved and sent again the
+  // same stays as it is, with its rows. Round 7 item 4: while no row of the file is written, a saved
+  // block may be sent again with a new pick ("It continues the table above", "Same columns as the
+  // table above", "Start a new table here"), and the list may gain or lose blocks. A changed or
+  // dropped block goes with its staged rows; the changed one is saved again from this call.
   const keepOf = (b: BlockRow): HeaderAnswer => ({ ordinal: b.ordinal, answer: "keep", by: b.headerBy, blockId: b.id });
-  const fresh = input.blocks.filter((b) => !existing.some((e) => e.ordinal === b.ordinal));
-  if (fresh.length === 0) {
+  const sent = new Map(input.blocks.map((b) => [b.ordinal, b]));
+  const changed = existing.filter((e) => sent.has(e.ordinal) && !sameBlock(e, sent.get(e.ordinal)!));
+  const dropped = existing.filter((e) => !sent.has(e.ordinal));
+  const countChanged = (artifact.blockCount ?? 0) > 0 && ordinals.length !== artifact.blockCount;
+  const fresh = input.blocks.filter((b) => !existing.some((e) => e.ordinal === b.ordinal) || changed.some((e) => e.ordinal === b.ordinal));
+  const added = fresh.filter((b) => !existing.some((e) => e.ordinal === b.ordinal) && !(artifact.headerAsked ?? {})[String(b.ordinal)]);
+  const reput = changed.length > 0 || dropped.length > 0 || countChanged || (artifact.readState === "read" && added.length > 0);
+  if (fresh.length === 0 && !reput) {
     // A replay of the same call (a reload, a second tab): answer with what is stored.
     return { ...(await storedBlocks(ctx, artifact.id, existing)), header: existing.map(keepOf) };
   }
-  if (artifact.readState !== "reading") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
+  const all = await ctx.db
+    .select({
+      id: ingestCandidate.id,
+      blockId: ingestCandidate.blockId,
+      parentId: ingestCandidate.parentId,
+      state: ingestCandidate.state,
+      rowsWritten: ingestCandidate.rowsWritten,
+      recipeLocked: ingestCandidate.recipeLocked,
+      target: ingestCandidate.target,
+    })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, artifact.id)));
+  if (reput) {
+    const written = all.some((k) => k.rowsWritten > 0 || k.recipeLocked || k.state === "approved" || k.state === "merging" || k.state === "merged");
+    if (written) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+    if (artifact.readState !== "reading" && artifact.readState !== "read") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
+  } else if (artifact.readState !== "reading") {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
+  }
   const totalRows = input.blocks.reduce((n, b) => n + b.rowCount, 0);
   if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
@@ -295,8 +370,58 @@ export async function putBlocks(
   const statements: SqliteBatchItem[] = [];
   const open: HeaderAnswer[] = [];
   const asked = { ...(artifact.headerAsked ?? {}) };
-  const byOrdinal = new Map(input.blocks.map((b) => [b.ordinal, b]));
+  for (const key of Object.keys(asked)) if (!sent.has(Number(key))) delete asked[key];
+  const byOrdinal = sent;
   for (const b of input.blocks) checkPreview(b);
+  if (reput) {
+    // The changed and dropped blocks go, with every sheet read from them (the derived lists too).
+    // Pending references other sheets hold to their rows are checked again while the rows exist.
+    const goneBlocks = [...changed, ...dropped].map((e) => e.id);
+    const roots = all.filter((k) => goneBlocks.includes(k.blockId)).map((k) => k.id);
+    const kin = all.filter((k) => roots.includes(k.id) || (k.parentId != null && roots.includes(k.parentId)));
+    const ids = kin.map((k) => k.id);
+    const allIds = all.map((k) => k.id);
+    // No row of the file was written in between.
+    statements.push(
+      ctx.db
+        .update(ingestArtifact)
+        .set({ updatedAt: at })
+        .where(
+          and(
+            eq(ingestArtifact.id, artifact.id),
+            eq(ingestArtifact.companyId, ctx.companyId),
+            allIds.length
+              ? sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${allIds} and r.merge_state = 'written')`
+              : sql`1 = 1`,
+          ),
+        ),
+      ingestAbortUnlessChanged(ctx.db),
+    );
+    for (const k of kin) if (k.target) statements.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
+    if (ids.length) {
+      statements.push(
+        ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, ids))),
+        ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), inArray(ingestAnswer.candidateId, ids))),
+        ctx.db.delete(ingestBotRun).where(and(eq(ingestBotRun.companyId, ctx.companyId), inArray(ingestBotRun.candidateId, ids))),
+        ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, ids))),
+      );
+    }
+    if (goneBlocks.length) statements.push(ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.companyId, ctx.companyId), inArray(ingestBlock.id, goneBlocks))));
+    statements.push(
+      auditInsert(ctx, {
+        action: "ingest.block.reput",
+        subjectType: "ingest_artifact",
+        subjectId: artifact.id,
+        meta: {
+          changed: changed.map((e) => e.ordinal),
+          added: added.map((b) => b.ordinal),
+          dropped: dropped.map((e) => e.ordinal),
+          blockCount: { from: artifact.blockCount ?? 0, to: input.blocks.length },
+          candidateIds: ids,
+        },
+      }),
+    );
+  }
   for (const b of fresh) {
     // Rule 6.1: the table above, for the two offers. Its names come from its own preview.
     let above: { headers: string[]; rows: string[][] } | null = null;
@@ -309,7 +434,9 @@ export async function putBlocks(
         above = null;
       }
     }
-    const settled = settleHeader(b, learned, !!asked[String(b.ordinal)], above);
+    // A saved block sent again with a pick counts as asked: the person picks again (round 7 item 4).
+    const resent = changed.some((e) => e.ordinal === b.ordinal);
+    const settled = settleHeader(b, learned, !!asked[String(b.ordinal)] || resent, above);
     if (!("by" in settled)) {
       open.push(settled);
       if (settled.answer === "ask" || settled.answer === "reread") asked[String(b.ordinal)] = { answer: settled.answer, at: at.getTime() };
@@ -353,6 +480,7 @@ export async function putBlocks(
         headerBy: settled.by,
         headerPick,
         merged: b.merged?.length ? b.merged : null,
+        readerFacts: readerFactsOf(b),
         headers: fp.headers,
         kinds: fp.kinds,
         headerKey: fp.headerKey,
@@ -389,7 +517,7 @@ export async function putBlocks(
   statements.push(
     ctx.db
       .update(ingestArtifact)
-      .set({ blockCount: input.blocks.length, rowCount: totalRows, headerAsked: asked, updatedAt: at })
+      .set({ blockCount: input.blocks.length, rowCount: totalRows, headerAsked: asked, ...(reput ? { readState: "reading" as const } : {}), updatedAt: at })
       .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId))),
   );
   try {

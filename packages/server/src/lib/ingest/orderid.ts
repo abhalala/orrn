@@ -310,6 +310,8 @@ export type LiveOrder = {
   by: "no" | "po";
   /** The old order an import made this order for (`ingest_order_key.key`), or null for an order typed in orrn. */
   oldKey: string | null;
+  /** The financial year of the order's date, for a match by PO (rule 4.2, M-1). "" when unknown. */
+  fy?: string;
 };
 
 /** What one live lookup needs: a live customer id (never `new:`), the year, the number and the PO. */
@@ -369,7 +371,7 @@ export async function liveOrdersOf(
     // On sales_order_company_customer_po_lower_idx: the customer's orders with these POs only.
     const rows = await mapInChunks([...pos], (part) =>
       ctx.db
-        .select({ ...pick, po: sql<string>`lower(${salesOrder.poNumber})`, oldKey: ingestOrderKey.key })
+        .select({ ...pick, po: sql<string>`lower(${salesOrder.poNumber})`, oldKey: ingestOrderKey.key, orderDate: salesOrder.orderDate })
         .from(salesOrder)
         .leftJoin(ingestOrderKey, and(eq(ingestOrderKey.salesOrderId, salesOrder.id), eq(ingestOrderKey.companyId, ctx.companyId)))
         .where(and(eq(salesOrder.companyId, ctx.companyId), eq(salesOrder.customerId, customerId), inArray(sql`lower(${salesOrder.poNumber})`, part), sql`${salesOrder.status} <> 'cancelled'`)),
@@ -380,7 +382,7 @@ export async function liveOrdersOf(
         if (!closedByPo.has(k)) closedByPo.set(k, { number: o.number });
         continue;
       }
-      if (!byPo.has(k)) byPo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "po", oldKey: o.oldKey ?? null });
+      if (!byPo.has(k)) byPo.set(k, { id: o.id, number: o.number, requestId: o.requestId, status: o.status, by: "po", oldKey: o.oldKey ?? null, fy: orderFyOf(o.orderDate) });
     }
   }
   for (const l of real) {

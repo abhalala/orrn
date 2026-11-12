@@ -98,11 +98,11 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
       { row: 2, cells: ["Om Metals", "120", "210"] },
       { row: 3, cells: ["Kamal Bros", "90", "205"] },
     ];
-    const blk = { ordinal: 0, sheetName: "Kharidi", title: null, headers: preview[0]!.cells, rowCount: 3, sample: preview.slice(1).map((r) => r.cells), headerRow: 0, headerRows: 1 };
+    // Round 7 item 3: the reader guessed row 1, under the letterhead, so the server asks (a first-row
+    // guess of a sheet no layout fits is kept by the reader with no question).
+    const blk = { ordinal: 0, sheetName: "Kharidi", title: null, headers, rowCount: 2, sample: preview.slice(2).map((r) => r.cells), headerRow: 1, headerRows: 1 };
     const asked = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [{ ...blk, preview }] });
-    expect(asked.header[0]).toMatchObject({ ordinal: 0, answer: "ask", guess: { headerRow: 0, headerRows: 1 } });
-    const ask = asked.header[0] as { candidates: { headerRow: number }[] };
-    expect(ask.candidates.map((c) => c.headerRow)).toContain(1);
+    expect(asked.header[0]).toMatchObject({ ordinal: 0, answer: "ask", guess: { headerRow: 1, headerRows: 1 } });
     expect(asked.blocks).toEqual([]);
     // The person picks row 1; the browser reads again with that hint and sends the block again.
     const picked = await p.owner.ingest.artifact.putBlocks({
@@ -127,31 +127,40 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     const p = await plant(env);
     await learnLayout(env, p.companyId, p.users.owner.id, bookLayout(), "Book");
     const { artifactId } = await begin(p.owner);
+    // Round 7 item 3: a letterhead above the guess, so this table is asked.
     const odd = [
-      { row: 0, cells: ["Kachha maal", "Vazan", "Bhav"] },
-      { row: 1, cells: ["Om Metals", "120", "210"] },
+      { row: 0, cells: ["Fourcubes Extrusions", "Rajkot", ""] },
+      { row: 1, cells: ["Kachha maal", "Vazan", "Bhav"] },
+      { row: 2, cells: ["Om Metals", "120", "210"] },
     ];
-    const other = { ordinal: 1, sheetName: "Kharidi", title: null, headers: odd[0]!.cells, rowCount: 1, sample: [odd[1]!.cells], headerRow: 0, headerRows: 1, preview: odd };
+    const other = { ordinal: 1, sheetName: "Kharidi", title: null, headers: odd[1]!.cells, rowCount: 1, sample: [odd[2]!.cells], headerRow: 1, headerRows: 1, preview: odd };
     const first = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: PREVIEW }), other] });
     expect(first.header.map((h) => h.answer)).toEqual(["keep", "ask"]);
     const kept = first.blocks[0]!.blockId;
-    const second = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: PREVIEW }), { ...other, hint: { headerRow: 0, headerRows: 1 } }] });
+    const second = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [block({ preview: PREVIEW }), { ...other, hint: { headerRow: 1, headerRows: 1 } }] });
     expect(second.header).toEqual([
       { ordinal: 0, answer: "keep", by: "fit", blockId: kept },
       { ordinal: 1, answer: "keep", by: "person", blockId: second.blocks[1]!.blockId },
     ]);
   });
 
-  test("a block that was asked about comes back alone; the file cannot gain a sheet on the way", async () => {
+  test("a block that was asked about comes back with its pick; before any row is written the file may gain a table (round 7 item 4)", async () => {
     const p = await plant(env);
     const { artifactId } = await begin(p.owner);
+    // Round 7 item 3: a letterhead above the guess, so this table is asked.
     const odd = [
-      { row: 0, cells: ["Kachha maal", "Vazan", "Bhav"] },
-      { row: 1, cells: ["Om Metals", "120", "210"] },
+      { row: 0, cells: ["Fourcubes Extrusions", "Rajkot", ""] },
+      { row: 1, cells: ["Kachha maal", "Vazan", "Bhav"] },
+      { row: 2, cells: ["Om Metals", "120", "210"] },
     ];
-    const blk = { ordinal: 0, sheetName: "Kharidi", title: null, headers: odd[0]!.cells, rowCount: 1, sample: [odd[1]!.cells], headerRow: 0, headerRows: 1, preview: odd };
+    const blk = { ordinal: 0, sheetName: "Kharidi", title: null, headers: odd[1]!.cells, rowCount: 1, sample: [odd[2]!.cells], headerRow: 1, headerRows: 1, preview: odd };
     expect((await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [blk] })).header[0]!.answer).toBe("ask");
-    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [{ ...blk, hint: { headerRow: 0, headerRows: 1 } }, { ...blk, ordinal: 1 }] })).rejects.toThrow(/already saved/);
+    // Round 7 item 4: no row of the file is written, so the list may gain a table. The new one is asked.
+    const again = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [{ ...blk, hint: { headerRow: 1, headerRows: 1 } }, { ...blk, ordinal: 1 }] });
+    expect(again.header.map((h) => [h.ordinal, h.answer, "by" in h ? h.by : null])).toEqual([
+      [0, "keep", "person"],
+      [1, "ask", null],
+    ]);
   });
 
   test("rule 7.2 (round 6): the old shape with no preview is refused; nothing is saved as the reader's", async () => {
