@@ -363,13 +363,20 @@ const isBlankValue = (c: string) => c.trim() === "" || NULL_WORD.test(c.trim());
 /** The text of a row's filled cells, joined by one space. */
 const rowText = (r: readonly string[]) => r.filter((c) => c.trim() !== "").map((c) => c.trim()).join(" ");
 
+/** The kind of a value cell: "number" or "date"; null for text and blanks. */
+const valueKind = (c: string): "number" | "date" | null => {
+  const k = cellKind(c);
+  return k === "int" || k === "decimal" ? "number" : k === "date" ? "date" : null;
+};
+
 /**
- * Rule 8.1: the kind of each column from the data rows read so far. "value" when every value is a number or a date,
- * "text" when any value is text (a code is text), undefined when the column has no value yet. A units row under the
- * header ("kg | pcs") is not data and is not counted.
+ * Rule 8.1 and section 9: the kind of each column from the data rows read so far. "number" when every value is a
+ * number, "date" when every value is a date, "mixed" when it holds both, "text" when any value is text (a code is
+ * text), undefined when the column has no value yet. A units row under the header ("kg | pcs") is not data and is not
+ * counted.
  */
 export class ColumnKinds {
-  private kinds: ("value" | "text" | undefined)[] = [];
+  private kinds: ("number" | "date" | "mixed" | "text" | undefined)[] = [];
   width: number;
   rows = 0;
   constructor(headerWidth: number) {
@@ -380,17 +387,23 @@ export class ColumnKinds {
     if (isUnitsRow(row)) return;
     row.forEach((c, i) => {
       if (isBlankValue(c)) return;
-      this.kinds[i] = this.kinds[i] === "text" || !isValueCell(c) ? "text" : "value";
+      const k = valueKind(c);
+      const was = this.kinds[i];
+      this.kinds[i] = was === "text" || k === null ? "text" : was === undefined || was === k ? k : "mixed";
     });
     this.rows++;
   }
   /** At least one column holds numbers or dates only. */
   hasValueColumn(): boolean {
-    return this.kinds.some((k) => k === "value");
+    return this.kinds.some((k) => k !== undefined && k !== "text");
+  }
+  /** The kind of column `i`, from the data rows read so far. */
+  kindOf(i: number): "number" | "date" | "mixed" | "text" | undefined {
+    return this.kinds[i];
   }
   /**
-   * Data that fits: every filled cell inside the width, and a number or a date (or no value) in every number or date
-   * column. A table with no number or date column takes no row this way. With no data row yet (a blank spacer right
+   * Data that fits: every filled cell inside the width, and in every number column a number (or no value), in every
+   * date column a date (or no value), in a column of both a number or a date (section 9, strict kinds). A table with no number or date column takes no row this way. With no data row yet (a blank spacer right
    * under the header), a row inside the width with a number or a date in it is the first data row.
    */
   fits(row: readonly string[]): boolean {
@@ -402,7 +415,11 @@ export class ColumnKinds {
     // beyond the letter of rule 8.1: it keeps a different table from being swallowed.
     const cells = row.filter((c) => c.trim() !== "");
     if (cells.length >= 2 && cells.every((c) => isWord(c.trim()))) return false;
-    return row.every((c, i) => isBlankValue(c) || this.kinds[i] !== "value" || isValueCell(c));
+    return row.every((c, i) => {
+      const k = this.kinds[i];
+      if (isBlankValue(c) || k === undefined || k === "text") return true;
+      return k === "mixed" ? isValueCell(c) : valueKind(c) === k;
+    });
   }
 }
 
@@ -415,6 +432,8 @@ export type TableRun = { last: number; skipped: RowWarning[] };
  * - a repeat of the header (two or more filled cells, every name of the header in its column, by normalised name):
  *   left out, listed as `skipped_repeat_header`, and the table goes on (with the second header row, when the header
  *   has two rows and the next row repeats it too);
+ * - a row with a sign of another table (section 9): a cell equal to its own column's name, three or more whole
+ *   numbers rising by one, or number cells only in columns blank in every row above. The table ends;
  * - a single text cell: left out and listed as `skipped_title`, when the table goes on after it;
  * - data that fits the column kinds (`ColumnKinds.fits`, with its one guard against a header of words): the table
  *   goes on with it;
@@ -422,7 +441,7 @@ export type TableRun = { last: number; skipped: RowWarning[] };
  *   table's header.
  * Titles with no more of the table after them are not listed here; the caller places them.
  */
-export function readTableRun(rows: readonly (readonly string[])[], header: readonly string[], second: readonly string[] | null, first: number, limit: number): TableRun {
+export function readTableRun(rows: readonly (readonly string[])[], header: readonly string[], second: readonly string[] | null, first: number, limit: number, above: readonly (readonly string[])[] = []): TableRun {
   const kinds = new ColumnKinds(Math.max(filledWidth(header), second ? filledWidth(second) : 0));
   // A repeat holds every name of the header, each in its column, and nothing else (a shorter header that starts with
   // the same names is another table).
@@ -437,6 +456,26 @@ export function readTableRun(rows: readonly (readonly string[])[], header: reado
     if (nonBlank(r) < 2) return false;
     const got = norm(r);
     return got.length === names.length && got.every((c, i) => c === names[i]);
+  };
+  // Section 9: after a blank row, a row that starts another table, never a continuation.
+  // The names of the table's header rows, and of the header rows of the tables above it in this read: a block that
+  // starts below another one may have a row of that table as its header, after a split.
+  const allNames = [names, ...(second ? [norm(second)] : []), ...above.map(norm)];
+  const startsTable = (r: readonly string[]) => {
+    // A cell equal to its own column's name (the row is not a full repeat; the caller tests that first).
+    if (r.some((c, i) => c.trim() !== "" && allNames.some((ns) => (ns[i] ?? "") !== "" && normalizeHeader(c) === ns[i]))) return true;
+    // Three or more whole numbers rising by one from left to right (column numbers, months, years, lengths).
+    const ints = r.filter((c) => c.trim() !== "" && isValueCell(c)).map((c) => (cellKind(c) === "int" ? Number(c.replace(/,/g, "")) : NaN));
+    let run = 1;
+    for (let k = 1; k < ints.length; k++) {
+      run = Number.isFinite(ints[k]!) && ints[k] === ints[k - 1]! + 1 ? run + 1 : 1;
+      if (run >= 3) return true;
+    }
+    // Number cells only in columns where every row above was blank (with no data row yet every column is blank, so
+    // this sign needs one).
+    if (kinds.rows === 0) return false;
+    const at = r.flatMap((c, i) => (valueKind(c) === "number" ? [i] : []));
+    return at.length > 0 && at.every((i) => kinds.kindOf(i) === undefined);
   };
   const isTitle = (r: readonly string[]) => {
     const cells = r.filter((c) => c.trim() !== "");
@@ -465,6 +504,7 @@ export function readTableRun(rows: readonly (readonly string[])[], header: reado
         }
         break;
       }
+      if (startsTable(row)) break;
       if (isTitle(row)) {
         held.push({ code: "skipped_title", row: k, text: rowText(row) });
         continue;
@@ -578,7 +618,7 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       }
     }
     cuts.push(end);
-    const guessed = cuts.slice(0, -1).flatMap((a, i) => guessRange(rows, a, cuts[i + 1]!, sheetName, false, upperHeader !== null).blocks);
+    const guessed = cuts.slice(0, -1).flatMap((a, i) => guessRange(rows, a, cuts[i + 1]!, sheetName, false, upperHeader !== null, upperHeader ? [upperHeader] : []).blocks);
     const inKept = new Set<number>();
     let covered = from - 1;
     for (const b of guessed) {
@@ -737,8 +777,10 @@ function placeLoose(rows: readonly string[][], loose: readonly number[], owner: 
  * holds numbers or dates, which no layout may know, but there is a guess to show and to correct by hints. A window with
  * no such row is reported row by row and the search goes on below it.
  */
-export function guessRange(rows: readonly string[][], from: number, to: number, sheetName: string | null, noHeaderGuess = false, below = false): SheetRead {
+export function guessRange(rows: readonly string[][], from: number, to: number, sheetName: string | null, noHeaderGuess = false, below = false, above: readonly (readonly string[])[] = []): SheetRead {
   const n = to;
+  // Header rows of the tables above, for the section 9 sign "a cell equal to its own column's name".
+  let headersAbove: readonly (readonly string[])[] = above;
   const blocks: ReadBlock[] = [];
   const warnings: RowWarning[] = [];
   let pos = from;
@@ -822,7 +864,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
     const dataStart = h + headerRows;
 
     // Rule 8.1: the table goes on across blank rows only while what follows fits it.
-    const run = readTableRun(rows, rows[h]!, headerRows === 2 ? rows[h + 1]! : null, dataStart, n - 1);
+    const run = readTableRun(rows, rows[h]!, headerRows === 2 ? rows[h + 1]! : null, dataStart, n - 1, headersAbove);
     const left = new Set(run.skipped.map((w) => w.row));
     // A repeat of the header with no data under it is listed and read past.
     const end = Math.max(run.last + 1, ...run.skipped.map((w) => w.row + 1));
@@ -870,6 +912,7 @@ export function guessRange(rows: readonly string[][], from: number, to: number, 
       split = null;
     }
     blocks.push(block);
+    headersAbove = [rows[h]!, ...(headerRows === 2 ? [rows[h + 1]!] : []), ...headersAbove];
     if (end === n) break;
     split = { block, lastData: lastFilled(rows as string[][], dataStart, end - 1) };
   }
@@ -884,7 +927,15 @@ export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: Find
   const rows = matrix.map((r) => r.map(toCellText));
   const sheetName = opts.sheetName ?? null;
   const read = opts.hints && opts.hints.length > 0 ? readByHints(rows, opts.hints, sheetName) : guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
-  return { blocks: withFollows(rows, read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows), gaps: gapsOf(b) }))), warnings: read.warnings };
+  return { blocks: withFollows(rows, read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows), gaps: gapsOf(b), sections: sectionsOf(b) }))), warnings: read.warnings };
+}
+
+/**
+ * Section 9: the titles a block's table continues under (its `skipped_title` rows), in row order. A one-word header of
+ * another table looks the same, so the screen offers "Start a new table here" on each.
+ */
+export function sectionsOf(b: ReadBlock): { row: number; text: string }[] {
+  return b.warnings.filter((w) => w.code === "skipped_title").map((w) => ({ row: w.row, text: w.text ?? "" })).sort((x, y) => x.row - y.row);
 }
 
 /** Rule 8.1: fully blank rows inside a block's rows, not counting rows it left out (listed in its warnings). */
