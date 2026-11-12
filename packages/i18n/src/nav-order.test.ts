@@ -18,10 +18,10 @@ describe("nav arrange review words", () => {
 
   test("the hint and divider announcements name the destination", () => {
     expect(en.nav.arrangeHint).toBe("Items above More stay at the top of the menu. Drag an item across the line to move it.");
-    expect(hi.nav.arrangeHint).toBe("आइटम खींचें या तीर दबाएं। आइटम और वाली रेखा के ऊपर या नीचे जा सकते हैं।");
+    expect(hi.nav.arrangeHint).toBe('"और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं।');
     expect(en.nav.movedAbove).toBe("{name} moved above More");
     expect(en.nav.movedBelow).toBe("{name} moved below More");
-    expect(hi.nav.movedAbove).toBe("{name} और के ऊपर ले जाया गया");
-    expect(hi.nav.movedBelow).toBe("{name} और के नीचे ले जाया गया");
+    expect(hi.nav.movedAbove).toBe('{name} को "और" वाली रेखा के ऊपर ले जाया गया');
+    expect(hi.nav.movedBelow).toBe('{name} को "और" वाली रेखा के नीचे ले जाया गया');
   });
 });

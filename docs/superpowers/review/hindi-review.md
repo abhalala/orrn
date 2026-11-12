@@ -258,13 +258,13 @@ Counts: 7586 screen strings in 49 groups, 45 guides with 866 strings.
 | `moveDown` | Move down | नीचे ले जाएं |
 | `dragToMove` | Reorder {name} | {name} का क्रम बदलें |
 | `moved` | {name} moved to position {position} of {total} | {name} अब {total} में से {position} नंबर पर है |
-| `movedAbove` | {name} moved above More | {name} और के ऊपर ले जाया गया |
-| `movedBelow` | {name} moved below More | {name} और के नीचे ले जाया गया |
+| `movedAbove` | {name} moved above More | {name} को "और" वाली रेखा के ऊपर ले जाया गया |
+| `movedBelow` | {name} moved below More | {name} को "और" वाली रेखा के नीचे ले जाया गया |
 | `orderSaved` | Menu order saved | मेन्यू का क्रम सेव हो गया |
 | `orderSaveFailed` | The menu order could not be saved. Try again. | मेन्यू का क्रम सेव नहीं हो सका। फिर से कोशिश करें। |
 | `plantChanged` | The plant changed. Open the menu again and arrange it for this plant. | प्लांट बदल गया। इस प्लांट के लिए मेन्यू फिर से खोलकर क्रम बदलें। |
 | `keepOrder` | Keep my order | मेरा क्रम रखें |
-| `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | आइटम खींचें या तीर दबाएं। आइटम और वाली रेखा के ऊपर या नीचे जा सकते हैं। |
+| `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
 ### auth (117)
 
