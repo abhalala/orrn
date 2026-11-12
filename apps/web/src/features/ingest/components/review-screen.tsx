@@ -251,6 +251,12 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   // The editor has its own sticky bar (Save layout); two bars would sit on top of each other.
   const showSticky = scrolledOut && !showEditor && (bar.buttons.length > 0 || bar.blocked !== null);
 
+  // The table was put again: this import is replaced. Nothing of it stays to press, so no Approve, no question and no row is
+  // offered; the one thing left is the way back to the list (design fix M2).
+  if (reput.state.phase === "done") {
+    return <ReputArea state={reput.state} fileName={candidate.fileName} onFile={reput.chooseFile} onReply={reput.reply} onDismiss={reput.dismiss} />;
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4">

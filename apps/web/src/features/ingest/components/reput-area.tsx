@@ -1,6 +1,6 @@
 import { Button } from "@orrn/ui/components/button";
 import { UiLink } from "@orrn/ui/components/link";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { ingestErrorWords, ACCEPT_FILES, ReputError, type ReputState, type HeaderReply } from "../lib";
 import { HeaderStep } from "./header-step";
@@ -26,6 +26,11 @@ export function ReputArea({
 }) {
   const { t, say } = useSay();
   const input = useRef<HTMLInputElement>(null);
+  const done = useRef<HTMLDivElement>(null);
+  // The page this replaces is gone: focus goes to the line that says so, so the way back is the next Tab.
+  useEffect(() => {
+    if (state.phase === "done") done.current?.focus();
+  }, [state.phase]);
   if (state.phase === "idle") return null;
   if (state.phase === "needFile") {
     return (
@@ -57,9 +62,9 @@ export function ReputArea({
   if (state.phase === "asking") return <HeaderStep key={state.view.position} view={state.view} fileName={fileName} onReply={onReply} />;
   if (state.phase === "done") {
     return (
-      <div data-testid="reput-area" className="flex flex-wrap items-center gap-3">
-        <p role="status" className="m-0 text-[14px] leading-6">{t("ingest.read.reputDone")}</p>
-        <Button asChild variant="secondary">
+      <div ref={done} tabIndex={-1} data-testid="reput-area" className="flex flex-col items-start gap-3 rounded-card border border-border bg-card p-4 outline-none">
+        <p role="status" className="m-0 text-[15px] leading-6 font-semibold">{t("ingest.read.reputDone")}</p>
+        <Button asChild variant="primary">
           <UiLink to="/ingest">{t("ingest.title")}</UiLink>
         </Button>
       </div>

@@ -22,6 +22,7 @@ let QuestionsPanel: typeof import("./questions-panel").QuestionsPanel;
 let ReadPanel: typeof import("./read-panel").ReadPanel;
 let MappingEditor: typeof import("./mapping-editor").MappingEditor;
 let rows: typeof import("./rows-table");
+let ReputArea: typeof import("./reput-area").ReputArea;
 
 beforeAll(async () => {
   const root = new URL("../../../../", import.meta.url).pathname;
@@ -51,6 +52,7 @@ beforeAll(async () => {
   ReadPanel = (await server.ssrLoadModule("/src/features/ingest/components/read-panel.tsx")).ReadPanel;
   MappingEditor = (await server.ssrLoadModule("/src/features/ingest/components/mapping-editor.tsx")).MappingEditor;
   rows = await server.ssrLoadModule("/src/features/ingest/components/rows-table.tsx");
+  ReputArea = (await server.ssrLoadModule("/src/features/ingest/components/reput-area.tsx")).ReputArea;
 }, 30_000);
 
 afterAll(async () => {
@@ -655,4 +657,13 @@ test("every state of an import draws a bar", () => {
     const html = card(detail({ state }));
     expect(html).toContain(`data-state="${state}"`);
   }
+});
+
+describe("after Start a new table here (design fix M2)", () => {
+  test("done: one loud button that goes to Imports, and the words say the old import is replaced", () => {
+    const html = render(createElement(ReputArea, { state: { phase: "done" }, fileName: "orders.xlsx", onFile: noop, onReply: noop, onDismiss: noop } as never));
+    expect(html).toContain("Done. The tables of this file were read again. Open them from the Imports page.");
+    expect(primaries(html)).toBe(1);
+    expect(html).toContain("Imports");
+  });
 });
