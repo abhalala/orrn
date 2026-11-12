@@ -21,9 +21,10 @@ import { registryUnitOf, type UnitKind } from "@orrn/ingest";
  * of `@orrn/domain` and the few things the screens need on top of it: a stored number in the plant's unit, a count
  * with Indian grouping, a date, and the file's own value when its unit differs.
  *
- * Today the preferences are the orrn default plus the plant's `lengthUnit` setting, read by `readUnitSettings`
- * (it also reads a `units` block when the plant has one). When the plant settings provider merges, the one line
- * that builds `prefs` in `plantUnitsFor` is the only one that changes.
+ * The screens get the plant's resolved preferences from `auth.me` (`company.units`), the same set the plant formatter
+ * provider (`TenantFmtProvider`) holds for every other screen, so an import reads in the same units as the orders and
+ * stock screens. `plantUnitsFromPrefs` builds the object from them. `plantUnitsFor(settings)` resolves a raw settings
+ * object the way the server does, for tests and fixtures only.
  */
 export type PlantUnits = {
   prefs: ResolvedPrefs;
@@ -92,9 +93,13 @@ export function groupBareNumber(text: string, style: NumberStyle): string | null
   return `${neg ? "-" : ""}${groupDigits(intPart, style)}${frac !== undefined ? style.decimal + frac : ""}`;
 }
 
+/** Tests and fixtures: a plant from raw settings (`{ lengthUnit: "mm" }`), resolved as the server resolves `company.units`. */
 export function plantUnitsFor(settings: unknown, env: FormatEnv = DEFAULT_ENV): PlantUnits {
-  // The one line that moves to the plant settings provider.
-  const prefs = screenPrefs(readUnitSettings(settings));
+  return plantUnitsFromPrefs(screenPrefs(readUnitSettings(settings)), env);
+}
+
+/** The plant's units from its resolved preferences (`me.company.units`), for the person's language and the plant's zone. */
+export function plantUnitsFromPrefs(prefs: ResolvedPrefs, env: FormatEnv = DEFAULT_ENV): PlantUnits {
   const fmt = formatterFor(prefs, env);
   const style = prefs.number;
 
@@ -109,7 +114,9 @@ export function plantUnitsFor(settings: unknown, env: FormatEnv = DEFAULT_ENV): 
     if (UNITS[unit].composite) return { text: formatFtIn(stored, prefs.inchGrid, style), unit: "" };
     const decimals = decimalsFor(prefs, kind, unit);
     const money = STORED[kind].kind === "money_per_mass";
-    const text = formatStorage(stored, STORED[kind].storage, unit, decimals, style, { trim: true, minDecimals: money ? Math.min(2, decimals) : 0 });
+    // Lengths are never grouped (the plant formatter's own rule): "3658 mm", not "3,658 mm".
+    const written = STORED[kind].kind === "length" ? { ...style, grouping: "none" as const } : style;
+    const text = formatStorage(stored, STORED[kind].storage, unit, decimals, written, { trim: true, minDecimals: money ? Math.min(2, decimals) : 0 });
     return { text, unit: symbol(unit) };
   };
 
@@ -124,7 +131,7 @@ export function plantUnitsFor(settings: unknown, env: FormatEnv = DEFAULT_ENV): 
     const plantUnit = unitIdOf(kind);
     const enteredUnit = entered.unit === null ? null : registryUnitOf(kind, entered.unit);
     if (enteredUnit !== null && enteredUnit === plantUnit) return null;
-    const grouped = groupBareNumber(raw, style);
+    const grouped = groupBareNumber(raw, STORED[kind].kind === "length" ? { ...style, grouping: "none" as const } : style);
     // A bare number gets the file's unit after it. A cell that already carries its unit (`12' 6"`) is shown as typed.
     const unitWords = enteredUnit !== null ? symbol(enteredUnit) : entered.unit ?? "";
     return grouped === null ? raw : unitWords ? `${grouped} ${unitWords}` : grouped;
