@@ -4,10 +4,20 @@
  * click, so the renderer (~1.4 MB) stays out of every page chunk (W3).
  *
  * Same header, columns, groups and totals as the screen, the Excel sheet and
- * the native print (`packingListModel`). English only, like the plant's
- * paper PL. Print colours are plain greys (a document, not the app UI).
+ * the native print (`packingListModel`). The paper is always English. Print
+ * colours are plain greys.
  */
-import { packingListModel, plKgPerPiece, type PackingListModel, type PackingListSnapshot } from "@orrn/documents/packing-list/model";
+import {
+  packingListModel,
+  plKgPerPiece,
+  plLockedSnapshotFooter,
+  plSignatureLabels,
+  plGroupPrintDetails,
+  plPdfFileName,
+  type PackingListModel,
+  type PackingListModelOptions,
+  type PackingListSnapshot,
+} from "@orrn/documents/packing-list/model";
 import { Document, Font, Page, StyleSheet, Text, View, pdf } from "@react-pdf/renderer";
 
 import { plViewOf, type PlGroupView, type PlView } from "@/features/dispatch/pl-model";
@@ -38,6 +48,9 @@ const s = StyleSheet.create({
   groupText: { fontFamily: "Helvetica-Bold", fontSize: 9 },
   sub: { flexDirection: "row", paddingVertical: 3, backgroundColor: BAND, fontFamily: "Helvetica-Bold" },
   grand: { flexDirection: "row", paddingVertical: 5, borderTopWidth: 1.5, borderColor: INK, marginTop: 6, fontFamily: "Helvetica-Bold", fontSize: 10 },
+  signatures: { flexDirection: "row", gap: 24, marginTop: 32 },
+  signature: { flexGrow: 1, flexBasis: 0 },
+  signatureLine: { height: 40, borderBottomWidth: 0.5, borderColor: INK },
   footer: { position: "absolute", bottom: 20, left: 32, right: 32, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
   cSr: { width: "5%" },
   cBundle: { width: "15%" },
@@ -149,23 +162,31 @@ function PackingListDoc({ model, code, kgPerPiece }: { model: PackingListModel; 
             </View>
           </View>
         ))}
-        <View style={s.grand} wrap={false}>
-          <Text style={s.cSr} />
-          <Text style={s.cBundle}>{bundlesText(totals.bundles)}</Text>
-          <Text style={kgPerPiece ? s.cItemNarrow : s.cItem}>Total</Text>
-          <Text style={s.cKg}>{kg(totals.weightKg)}</Text>
-          <Text style={s.cFt} />
-          <Text style={s.cIn} />
-          <Text style={s.cPcs}>{totals.pieces}</Text>
-          <Text style={s.cK12} />
-          <Text style={s.cRange} />
-          {kgPerPiece ? <Text style={s.cKgPc} /> : null}
+        <View wrap={false}>
+          <View style={s.grand} wrap={false}>
+            <Text style={s.cSr} />
+            <Text style={s.cBundle}>{bundlesText(totals.bundles)}</Text>
+            <Text style={kgPerPiece ? s.cItemNarrow : s.cItem}>Total</Text>
+            <Text style={s.cKg}>{kg(totals.weightKg)}</Text>
+            <Text style={s.cFt} />
+            <Text style={s.cIn} />
+            <Text style={s.cPcs}>{totals.pieces}</Text>
+            <Text style={s.cK12} />
+            <Text style={s.cRange} />
+            {kgPerPiece ? <Text style={s.cKgPc} /> : null}
+          </View>
+          <View style={s.signatures} wrap={false}>
+            {plSignatureLabels().map((label) => (
+              <View key={label} style={s.signature}>
+                <Text>{label}</Text>
+                <View style={s.signatureLine} />
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={s.footer} fixed>
-          <Text>
-            {header.companyName}, {code}
-          </Text>
+          <Text>{`${header.companyName} · ${plLockedSnapshotFooter(code, 1)}`}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -199,6 +220,9 @@ const v2s = StyleSheet.create({
   groupText: { fontFamily: "Helvetica-Bold", fontSize: 8.5 },
   sub: { flexDirection: "row", paddingVertical: 2, backgroundColor: BAND, fontFamily: "Helvetica-Bold" },
   grand: { flexDirection: "row", paddingVertical: 4, borderTopWidth: 1.5, borderColor: INK, marginTop: 4, fontFamily: "Helvetica-Bold", fontSize: 9.5 },
+  signatures: { flexDirection: "row", gap: 24, marginTop: 28 },
+  signature: { flexGrow: 1, flexBasis: 0 },
+  signatureLine: { height: 40, borderBottomWidth: 0.5, borderColor: INK },
   footer: { position: "absolute", bottom: 16, left: 28, right: 28, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: MUTED },
 });
 
@@ -325,7 +349,7 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
         {view.groups.map((g) => (
           <View key={g.key}>
             <View style={v2s.groupRow} wrap={false} minPresenceAhead={30}>
-              <Text style={v2s.groupText}>{g.title}</Text>
+              <Text style={v2s.groupText}>{g.title + plGroupPrintDetails(g)}</Text>
             </View>
             {g.rows.map((r) => {
               const v = cells(g, r) as Record<string, string>;
@@ -345,13 +369,20 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
               : null}
           </View>
         ))}
-        {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
+        <View wrap={false}>
+          {totalRow("Total", view.total.bundles, view.total.pcs, view.total.weightG, v2s.grand, true)}
+          <View style={v2s.signatures} wrap={false}>
+            {plSignatureLabels().map((label) => (
+              <View key={label} style={v2s.signature}>
+                <Text>{label}</Text>
+                <View style={v2s.signatureLine} />
+              </View>
+            ))}
+          </View>
+        </View>
 
         <View style={v2s.footer} fixed>
-          <Text>
-            {view.company.legalName ?? view.company.name}, {code}
-            {view.revision > 1 ? ` (Rev ${view.revision})` : ""}
-          </Text>
+          <Text>{`${view.company.legalName ?? view.company.name} · ${plLockedSnapshotFooter(view.plNumber, view.revision)}`}</Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>
       </Page>
@@ -359,21 +390,25 @@ function PackingListDocV2({ view, code, kgPerPiece = false }: { view: PlView; co
   );
 }
 
-/** Render and save the packing list as `<code>.pdf`. */
-export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: { timeZone?: string; kgPerPiece?: boolean } = {}) {
+export async function buildPackingListPdfBlob(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}): Promise<Blob> {
   const view = plViewOf(pl);
   const kgPerPiece = opts.kgPerPiece === true;
-  const blob = await pdf(
+  return pdf(
     view ? (
       <PackingListDocV2 view={view} code={code} kgPerPiece={kgPerPiece} />
     ) : (
       <PackingListDoc model={packingListModel(pl, opts)} code={code} kgPerPiece={kgPerPiece} />
     ),
   ).toBlob();
+}
+
+/** Render and save the packing list as `{PL number}_{customer name}.pdf`. */
+export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: PackingListModelOptions = {}) {
+  const blob = await buildPackingListPdfBlob(pl, code, opts);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${code.replace(/[^A-Za-z0-9._-]+/g, "-")}.pdf`;
+  a.download = plPdfFileName(pl.header?.plNumber ?? code, pl.dispatch.customer.name);
   document.body.appendChild(a);
   a.click();
   a.remove();

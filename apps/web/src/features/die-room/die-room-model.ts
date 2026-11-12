@@ -3,7 +3,7 @@
  * band position and kg/m arrive from the server (`dieInstance.get`, `.drift`, `die.get`) and are
  * only formatted. What IS parsed here is what a person types (a weight in kg, a wall in mm).
  */
-import type { Fmt } from "@orrn/domain";
+import { withoutGrouping, type Fmt } from "@orrn/domain";
 import { dateText, dayTimeText, pinned, sectionText, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
@@ -145,8 +145,8 @@ export const MAX_MILLI = 500_000;
  * no more (a weight finer than a gram is a typo). Null when empty or not a positive number.
  */
 export function parseKgToMilli(text: string): number | null {
-  const clean = text.replace(/,/g, "").trim();
-  if (!/^\d{1,6}(\.\d{1,3})?$/.test(clean)) return null;
+  const clean = withoutGrouping(text);
+  if (clean === null || !/^\d{1,6}(\.\d{1,3})?$/.test(clean)) return null;
   const [whole = "0", frac = ""] = clean.split(".");
   const milli = Number(whole) * 1000 + Number(frac.padEnd(3, "0"));
   return milli >= 1 && milli <= MAX_MILLI ? milli : null;
@@ -154,8 +154,8 @@ export function parseKgToMilli(text: string): number | null {
 
 /** Wall in mm typed by a person -> tenths of a mm. One decimal at most. */
 export function parseWallTenths(text: string): number | null {
-  const clean = text.replace(/,/g, "").trim();
-  if (!/^\d{1,3}(\.\d)?$/.test(clean)) return null;
+  const clean = withoutGrouping(text);
+  if (clean === null || !/^\d{1,3}(\.\d)?$/.test(clean)) return null;
   const tenth = Math.round(Number(clean) * 10);
   return tenth >= 1 ? tenth : null;
 }
@@ -231,8 +231,8 @@ export function bpText(bp: number | null | undefined): string {
 
 /** Whole kg typed by a person (a die's life) -> grams. Null when empty or not a whole number >= 1. */
 export function parseWholeKgToGrams(text: string): number | null {
-  const clean = text.replace(/,/g, "").trim();
-  if (!/^\d{1,8}$/.test(clean)) return null;
+  const clean = withoutGrouping(text);
+  if (clean === null || !/^\d{1,8}$/.test(clean)) return null;
   const kg = Number(clean);
   return kg >= 1 ? kg * 1000 : null;
 }
@@ -244,8 +244,8 @@ export function gramsToWholeKg(grams: number | null | undefined): string {
 
 /** A non-negative whole number of grams typed in a nitriding field. */
 export function parseGrams(text: string): number | null {
-  const clean = text.replace(/,/g, "").trim();
-  return /^\d{1,9}$/.test(clean) ? Number(clean) : null;
+  const clean = withoutGrouping(text);
+  return clean !== null && /^\d{1,9}$/.test(clean) ? Number(clean) : null;
 }
 
 export type DieFileKind = "image" | "pdf" | "cdr" | "dwg";

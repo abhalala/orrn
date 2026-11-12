@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
+
 import {
   LOT_TONE,
   formatRate,
+  inStockTileText,
   lotListChip,
   lotNextStep,
   maxWeightDebitG,
@@ -184,5 +187,20 @@ describe("formatRate", () => {
   test("paise per kg as rupees with two decimals, Indian grouping", () => {
     expect(formatRate(19_850)).toBe("₹198.50");
     expect(formatRate(1_234_500)).toBe("₹12,345.00");
+  });
+});
+
+describe("the in-stock tile converts the exact weight, then writes it", () => {
+  const fmtOf = (units: Record<string, string>) => formatterFor(screenPrefs({ units }), { locale: "en", timeZone: "Asia/Kolkata" });
+  test("a plant on kg reads whole kg, as the tile always did", () => {
+    expect(inStockTileText(fmtOf({}), 50.4)).toBe("50");
+    expect(inStockTileText(fmtOf({}), 4230)).toBe("4,230");
+  });
+  test("a plant on pounds reads 50.4 kg as 111.11 lb, not the 110.23 lb of 50 kg", () => {
+    expect(inStockTileText(fmtOf({ mass: "lb" }), 50.4)).toBe("111.11");
+    expect(inStockTileText(fmtOf({ mass: "lb" }), 50)).toBe("110.23");
+  });
+  test("a plant on tonnes reads the exact weight too", () => {
+    expect(inStockTileText(fmtOf({ mass: "t" }), 50_400)).toBe("50.4");
   });
 });

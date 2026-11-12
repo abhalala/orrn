@@ -281,6 +281,20 @@ export const en = {
     press: "Press",
     reports: "Reports",
     ingest: "Imports",
+    arrange: "Arrange menu",
+    resetDefault: "Reset to default",
+    resetConfirm: "Put the menu back in the default order?",
+    moveUp: "Move up",
+    moveDown: "Move down",
+    dragToMove: "Reorder {name}",
+    moved: "{name} moved to position {position} of {total}",
+    movedAbove: "{name} moved above More",
+    movedBelow: "{name} moved below More",
+    orderSaved: "Menu order saved",
+    orderSaveFailed: "The menu order could not be saved. Try again.",
+    plantChanged: "The plant changed. Open the menu again and arrange it for this plant.",
+    keepOrder: "Keep my order",
+    arrangeHint: "Items above More stay at the top of the menu. Drag an item across the line to move it.",
   },
 
   auth: {
@@ -1627,6 +1641,17 @@ export const en = {
     po: "PO",
     invoice: "Invoice",
     print: "Print",
+    lockedSnapshotFooter: "Not a tax invoice. Printed from {code} revision {revision} as issued.",
+    signatures: {
+      packedBy: "Packed by",
+      checkedBy: "Checked by",
+      driverReceived: "Driver",
+      receiverSignature: "Receiver's signature",
+    },
+    groupDetails: {
+      orderedKgPer12ft: "Ordered kg/12ft {kg}",
+      poDate: "PO date {date}",
+    },
   },
 
   dies: {

@@ -20,6 +20,7 @@ import { queryClient, trpc } from "@/utils/trpc";
 
 import { CameraSheet } from "./camera-sheet";
 import { foundryError } from "./errors";
+import { runOnce, spectroVoidBody, type WriteGate } from "./reason-write";
 import { ELEMENT_LABEL, readingTone, spectroInput, spectroRows, verdictTone, ppmPct } from "./foundry-model";
 import type { SpectroResult } from "./types";
 import { ErrorLine, Note } from "./ui";
@@ -79,8 +80,9 @@ function ResultTable({ result, limits }: { result: Pick<SpectroResult, "values" 
   );
 }
 
-function ResultCard({ result, limits, webPath }: { result: SpectroResult; limits: readonly SpectroLimit[]; webPath?: string }) {
+function ResultCard({ result, limits, webPath, canVoid }: { result: SpectroResult; limits: readonly SpectroLimit[]; webPath?: string; canVoid: boolean }) {
   const { t } = useT();
+  const [voiding, setVoiding] = useState(false);
   const voided = result.voidedAt != null;
   return (
     <View className={voided ? "gap-2 rounded-card border border-hairline bg-surface p-3 opacity-60" : "gap-2 rounded-card border border-hairline bg-surface p-3"}>
@@ -88,6 +90,11 @@ function ResultCard({ result, limits, webPath }: { result: SpectroResult; limits
         {result.verdict ? <Chip tone={verdictTone(result.verdict as SpectroVerdict)} label={t(VERDICT_KEY[result.verdict as SpectroVerdict])} /> : null}
         <Chip tone="neutral" label={t(SOURCE_KEY[result.source] ?? SOURCE_KEY.file!)} />
         {voided ? <Chip tone="red" label={t("foundry.spectro.void")} /> : null}
+        {canVoid && !voided ? (
+          <Can do="melt.enter">
+            <Button variant="ghost" label={t("foundry.spectro.voidButton")} onPress={() => setVoiding(true)} />
+          </Can>
+        ) : null}
       </View>
       {result.fileName ? <Text className="font-mono text-[13px] text-ink-muted">{result.fileName}</Text> : null}
       {/* FP-FD-11: the stored file opens on the web (the phone does not render PDFs or keep the bytes). */}
@@ -95,8 +102,55 @@ function ResultCard({ result, limits, webPath }: { result: SpectroResult; limits
         <Button variant="secondary" label={t("foundry.spectro.openOnWeb")} onPress={() => void Linking.openURL(webUrl(webPath)).catch(() => {})} />
       ) : null}
       {result.entryReason ? <Text className="font-sans text-sm text-ink-muted">{t("foundry.spectro.typedBecause", { reason: result.entryReason })}</Text> : null}
+      {voided && result.voidReason ? <Text className="font-sans text-sm text-ink-muted">{result.voidReason}</Text> : null}
       {Object.keys(result.values ?? {}).length > 0 ? <ResultTable result={result} limits={limits} /> : null}
+      <VoidSheet id={result.id} visible={voiding} onClose={() => setVoiding(false)} />
     </View>
+  );
+}
+
+function VoidSheet({ id, visible, onClose }: { id: string; visible: boolean; onClose: () => void }) {
+  const { t } = useT();
+  const voidResult = useMutation(trpc.foundry.spectro.void.mutationOptions());
+  const [reason, setReason] = useState("");
+  const [tried, setTried] = useState(false);
+  const [problem, setProblem] = useState<unknown>(null);
+  const confirming = useRef<WriteGate>({ locked: false });
+
+  const done = () => {
+    setReason("");
+    setTried(false);
+    setProblem(null);
+    onClose();
+  };
+
+  const confirm = async () => {
+    setTried(true);
+    if (!reason.trim()) return;
+    setProblem(null);
+    try {
+      const result = await runOnce(confirming.current, () => voidResult.mutateAsync(spectroVoidBody(id, reason)));
+      if (!result.ran) return;
+      feedback.success();
+      refresh();
+      done();
+    } catch (error) {
+      feedback.error();
+      setProblem(error);
+      announce(foundryError(t, error));
+      if (writeFailureKind(error) === "unsure") refresh();
+    }
+  };
+
+  return (
+    <Sheet visible={visible} onClose={done} title={t("foundry.spectro.voidTitle")}>
+      <Field label={t("foundry.spectro.voidReason")} value={reason} onChangeText={setReason} maxLength={500} multiline error={tried && !reason.trim() ? t("foundry.spectro.reasonRequired") : null} />
+      <ErrorLine error={problem} />
+      <View className="gap-2">
+        <Button variant="secondary" size="lg" label={t("common.cancel")} onPress={done} />
+        <Button variant="danger" size="lg" label={t("foundry.spectro.voidConfirm")} loading={voidResult.isPending} onPress={() => void confirm()} />
+      </View>
+    </Sheet>
   );
 }
 
@@ -150,7 +204,7 @@ export function SpectroPanel({ meltId, results, limits, alloyCode, draft, readOn
       <ErrorLine error={problem} />
       {results.length === 0 ? <Text className="font-sans-medium text-[15px] text-ink">{t("foundry.spectro.noneYet")}</Text> : null}
       {[...results].reverse().map((r) => (
-        <ResultCard key={r.id} result={r} limits={limits} webPath={webPath} />
+        <ResultCard key={r.id} result={r} limits={limits} webPath={webPath} canVoid={draft && !readOnly} />
       ))}
       {live.length === 0 && results.length > 0 ? <Note tone="amber">{t("foundry.spectro.allVoid")}</Note> : null}
       {added ? <Text accessibilityLiveRegion="polite" className="font-sans-medium text-sm text-tone-green-ink">{t("foundry.spectro.attached")}</Text> : null}

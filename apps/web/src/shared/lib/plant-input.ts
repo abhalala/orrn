@@ -103,6 +103,16 @@ export function draftToTyped(fmt: Fmt, spec: EntrySpec, draft: string): string {
  */
 export const REFUSED_DRAFT = "?";
 export const isRefusedDraft = (draft: string): boolean => draft.startsWith(REFUSED_DRAFT);
+/**
+ * A refused draft handed to the plain box (the plant's unit became the draft's own while the refusal was open): the text as it
+ * was typed without the marker when the plain box can show and edit it, else a blank box. The plain box's pattern has no "?"
+ * (and no unit words), so a marked draft would show and then refuse every edit but clearing it.
+ */
+export function plainFromRefused(draft: string): string {
+  if (!isRefusedDraft(draft)) return draft;
+  const text = draft.slice(REFUSED_DRAFT.length).trim();
+  return /^[\d,]*\.?\d*$/.test(text) ? text : "";
+}
 const refusedDraft = (text: string): string => REFUSED_DRAFT + text.trim();
 
 export type TypedStep = { draft: string; value: number | null; problem: ParseProblem | "kind" | null };

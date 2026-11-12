@@ -5,12 +5,8 @@ type Out = inferRouterOutputs<AppRouter>["foundry"];
 
 /** What `melts.save` takes: the form's input is checked against it (`satisfies`), never cast away. */
 export type MeltSaveCall = inferRouterInputs<AppRouter>["foundry"]["melts"]["save"];
-/**
- * `MeltSaveCall` with the chemical lines left open. The form (shared with the web) types a free-text chemical unit as
- * kg/g/l/ml/pcs while the server takes its store units (kg, litre, piece, ...); the phone cannot add such a line, and a
- * line picked from the store carries no unit. Every other field is still checked.
- */
-export type MeltSaveBody = Omit<MeltSaveCall, "chemicals"> & { chemicals: readonly object[] };
+/** The shared form's save body, including store and typed chemicals with the server's store units. */
+export type MeltSaveBody = MeltSaveCall;
 
 /** `foundry.casts.get`: the cast, its melts (inputs, outputs, spectro), the live close-out and its approval. */
 export type CastData = Out["casts"]["get"];

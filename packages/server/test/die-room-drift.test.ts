@@ -243,6 +243,17 @@ describe("dieInstance.list carries the drift figures (clients never recompute)",
     expect(byId.get(none.id)).toMatchObject({ latestMilli: null, percentTenths: null, tone: "none", position: null, kgPerMetre: null });
     expect(byId.get(heavy.id)).toMatchObject({ latestMilli: 6_480, percentTenths: 29, tone: "green", position: "in", bandId: band.id });
   });
+
+  test("the band's ends travel as integers beside the kg/12ft text, for the section copy and for a band of its own", async () => {
+    const p = await plant({ min: 5_900, max: 6_200 });
+    const plain = await copyWith(p, []);
+    const band = await p.owner.die.bands.create({ sectionId: p.sectionId, wallTenthMm: 14, weightMinG: 6_300, weightMaxG: 6_600 });
+    const own = await copyWith(p, [], { bandId: band.id });
+    const list = await p.viewer.dieInstance.list({ sectionId: p.sectionId });
+    const byId = new Map(list.items.map((i) => [i.id, i]));
+    expect(byId.get(plain.id)).toMatchObject({ bandText: "5.900-6.200", bandMinG: 5_900, bandMaxG: 6_200 });
+    expect(byId.get(own.id)).toMatchObject({ bandText: "6.300-6.600", bandMinG: 6_300, bandMaxG: 6_600 });
+  });
 });
 
 describe("dieInstance.list carries when the latest reading was taken", () => {

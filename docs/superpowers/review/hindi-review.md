@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8121 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8143 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 8121 screen strings in 50 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (57)
+### nav (71)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -252,6 +252,20 @@ Counts: 8121 screen strings in 50 groups, 45 guides with 866 strings.
 | `press` | Press | प्रेस |
 | `reports` | Reports | रिपोर्ट |
 | `ingest` | Imports | इम्पोर्ट |
+| `arrange` | Arrange menu | मेन्यू का क्रम बदलें |
+| `resetDefault` | Reset to default | डिफ़ॉल्ट क्रम पर लौटें |
+| `resetConfirm` | Put the menu back in the default order? | मेन्यू को डिफ़ॉल्ट क्रम में वापस लाएं? |
+| `moveUp` | Move up | ऊपर ले जाएं |
+| `moveDown` | Move down | नीचे ले जाएं |
+| `dragToMove` | Reorder {name} | {name} का क्रम बदलें |
+| `moved` | {name} moved to position {position} of {total} | {name} अब {total} में से {position} नंबर पर है |
+| `movedAbove` | {name} moved above More | {name} को "और" वाली रेखा के ऊपर ले जाया गया |
+| `movedBelow` | {name} moved below More | {name} को "और" वाली रेखा के नीचे ले जाया गया |
+| `orderSaved` | Menu order saved | मेन्यू का क्रम सेव हो गया |
+| `orderSaveFailed` | The menu order could not be saved. Try again. | मेन्यू का क्रम सेव नहीं हो सका। फिर से कोशिश करें। |
+| `plantChanged` | The plant changed. Open the menu again and arrange it for this plant. | प्लांट बदल गया। इस प्लांट के लिए मेन्यू फिर से खोलकर क्रम बदलें। |
+| `keepOrder` | Keep my order | मेरा क्रम रखें |
+| `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
 ### auth (117)
 
@@ -1373,7 +1387,7 @@ Counts: 8121 screen strings in 50 groups, 45 guides with 866 strings.
 | `header.invoiceNumber` | Tally invoice number | Tally इनवॉइस नंबर |
 | `header.invoiceDate` | Invoice date | इनवॉइस की तारीख |
 
-### packingList (93)
+### packingList (100)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1470,6 +1484,13 @@ Counts: 8121 screen strings in 50 groups, 45 guides with 866 strings.
 | `po` | PO | PO |
 | `invoice` | Invoice | इनवॉइस |
 | `print` | Print | प्रिंट |
+| `lockedSnapshotFooter` | Not a tax invoice. Printed from {code} revision {revision} as issued. | यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी। |
+| `signatures.packedBy` | Packed by | पैक करने वाला |
+| `signatures.checkedBy` | Checked by | जाँच करने वाला |
+| `signatures.driverReceived` | Driver | ड्राइवर |
+| `signatures.receiverSignature` | Receiver's signature | ग्राहक के हस्ताक्षर |
+| `groupDetails.orderedKgPer12ft` | Ordered kg/12ft {kg} | ऑर्डर kg/12ft {kg} |
+| `groupDetails.poDate` | PO date {date} | PO तारीख {date} |
 
 ### dies (68)
 
@@ -5847,7 +5868,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} {massUnit} | {runs} रन, {kg} {massUnit} |
 | `summary.trials` | trials {kg} {massUnit} | ट्रायल {kg} {massUnit} |
 
-### foundry (603)
+### foundry (604)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6251,6 +6272,7 @@ Please check, Lalubhai:
 | `melt.issue.duplicateStream` | This stream is on another line. Put its {massUnit} on one line. | यह स्ट्रीम दूसरी लाइन में है। उसका {massUnit} एक लाइन में रखें। |
 | `melt.issue.chemical` | Write what the chemical is and the open and used quantities. | केमिकल क्या है और ओपन व इस्तेमाल की मात्रा लिखें। |
 | `melt.issue.chemicalClose` | Close must be open less used. | क्लोज़ = ओपन घटा इस्तेमाल होना चाहिए। |
+| `melt.issue.decimalComma` | Use a point for decimals, for example 2.5. | दशमलव के लिए बिंदु लिखें, जैसे 2.5। |
 | `melt.issue.log` | A log line needs pieces, length and {massUnit}. | लॉग लाइन में पीस, लंबाई और {massUnit} चाहिए। |
 | `melt.issue.ldo` | Write the dip as inches, for example 42.5. | डिप इंच में लिखें, जैसे 42.5। |
 | `melt.issue.tooMany` | Too many charge lines. | चार्ज की लाइनें बहुत ज़्यादा हैं। |

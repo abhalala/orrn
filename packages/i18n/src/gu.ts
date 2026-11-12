@@ -1630,6 +1630,17 @@ const guBase = {
     po: "PO",
     invoice: "ઇન્વૉઇસ",
     print: "પ્રિન્ટ",
+    lockedSnapshotFooter: "આ ટેક્સ ઇન્વૉઇસ નથી. {code} સુધારા {revision} મુજબ, જેમ જારી થયું તેમ છપાયું.",
+    signatures: {
+      packedBy: "પૅક કરનાર",
+      checkedBy: "ચકાસનાર",
+      driverReceived: "ડ્રાઇવર",
+      receiverSignature: "ગ્રાહકના હસ્તાક્ષર",
+    },
+    groupDetails: {
+      orderedKgPer12ft: "ઓર્ડર kg/12ft {kg}",
+      poDate: "PO તારીખ {date}",
+    },
   },
   reasons: {
     kinds: {

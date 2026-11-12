@@ -409,6 +409,12 @@ export type MeLike = {
   platformRole?: PlatformStaffRole | null;
 };
 
+export type MemberNavOrder = {
+  order: string[];
+  /** Undefined keeps the default divider. Null puts every item above it. */
+  moreFrom?: string | null;
+};
+
 export type Me = {
   user: {
     id: string;
@@ -432,6 +438,7 @@ export type Me = {
     settings?: { lengthUnit?: LengthUnit; [key: string]: unknown };
     /** Resolved units and formats for this plant's screens (`screenPrefs`). Absent on old payloads. */
     units?: ResolvedPrefs;
+    navOrder?: MemberNavOrder | null;
   } | null;
   /** Every active company the user belongs to (spec P10); `company` is the active one. */
   memberships?: { companyId: string; name: string; role: CompanyRole }[];

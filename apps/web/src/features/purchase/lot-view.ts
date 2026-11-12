@@ -3,7 +3,9 @@
  * notes and the person's permissions. Pure, so the rules are unit-tested and
  * the detail page and list agree.
  */
-import type { StatusTone } from "@orrn/domain";
+import type { Fmt, StatusTone } from "@orrn/domain";
+
+import { kgTrim } from "@/shared/lib/fmt-text";
 
 export type LotStatus = "booking" | "unload" | "ok" | "cancelled";
 
@@ -145,4 +147,13 @@ const RUPEES = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximu
 /** Paise (per kg, or an amount) as "₹198.50". */
 export function formatRate(paise: number): string {
   return `₹${RUPEES.format(paise / 100)}`;
+}
+
+/**
+ * The in-stock tile: kg as the tile always read, whole kg ("4,230"), on a plant that reads kg. Any other plant unit is
+ * converted from the exact weight first (50.4 kg in stock is 111.11 lb, not the 110.23 lb of 50 kg), never from kg rounded
+ * to a whole number. `kg` is the animated value of the tile, kilograms with a fraction.
+ */
+export function inStockTileText(fmt: Fmt, kg: number): string {
+  return fmt.unitOf("mass").id === "kg" ? kgTrim(fmt, Math.round(kg) * 1000) : kgTrim(fmt, Math.round(kg * 1000));
 }

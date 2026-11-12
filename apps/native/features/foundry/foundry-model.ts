@@ -18,6 +18,7 @@ import {
   type SpectroReading,
   type SpectroVerdict,
   type StatusTone,
+  withoutGrouping,
 } from "@orrn/domain";
 
 import { can, canAny, type Me } from "@orrn/server/lib/permissions";
@@ -138,6 +139,11 @@ export function closeBlock(status: string, c: Pick<Closeout, "draftMelts">): Clo
   return c.draftMelts > 0 ? "draft_melts" : null;
 }
 
+/** A cast can be cancelled while it is open, with no live and no draft melt. The server also checks billets. */
+export function canCancelCast(status: string, c: Pick<Closeout, "liveMelts" | "draftMelts">): boolean {
+  return status === "open" && c.liveMelts === 0 && c.draftMelts === 0;
+}
+
 export type CountIssue = "pcs" | "kg" | "together";
 
 /**
@@ -146,10 +152,10 @@ export type CountIssue = "pcs" | "kg" | "together";
  * the tail out from this and the ledger.
  */
 export function countedBillets(pcsText: string, kgText: string): { ok: true; billetsOnHand: { count: number; kgG: number } } | { ok: false; issue: CountIssue } {
-  const pcsRaw = pcsText.trim().replace(/,/g, "");
-  const kgRaw = kgText.trim().replace(/,/g, "");
-  if (!/^\d{1,7}$/.test(pcsRaw)) return { ok: false, issue: "pcs" };
-  if (!/^\d+(\.\d{1,3})?$/.test(kgRaw)) return { ok: false, issue: "kg" };
+  const pcsRaw = withoutGrouping(pcsText);
+  const kgRaw = withoutGrouping(kgText);
+  if (pcsRaw === null || !/^\d{1,7}$/.test(pcsRaw)) return { ok: false, issue: "pcs" };
+  if (kgRaw === null || !/^\d+(\.\d{1,3})?$/.test(kgRaw)) return { ok: false, issue: "kg" };
   const count = Number(pcsRaw);
   const kgG = Math.round(Number(kgRaw) * 1000);
   if (count > 1_000_000 || kgG > 100_000_000) return { ok: false, issue: "kg" };

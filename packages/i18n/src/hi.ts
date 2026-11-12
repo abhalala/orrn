@@ -273,6 +273,20 @@ export const hi = {
     press: "प्रेस",
     reports: "रिपोर्ट",
     ingest: "इम्पोर्ट",
+    arrange: "मेन्यू का क्रम बदलें",
+    resetDefault: "डिफ़ॉल्ट क्रम पर लौटें",
+    resetConfirm: "मेन्यू को डिफ़ॉल्ट क्रम में वापस लाएं?",
+    moveUp: "ऊपर ले जाएं",
+    moveDown: "नीचे ले जाएं",
+    dragToMove: "{name} का क्रम बदलें",
+    moved: "{name} अब {total} में से {position} नंबर पर है",
+    movedAbove: "{name} को \"और\" वाली रेखा के ऊपर ले जाया गया",
+    movedBelow: "{name} को \"और\" वाली रेखा के नीचे ले जाया गया",
+    orderSaved: "मेन्यू का क्रम सेव हो गया",
+    orderSaveFailed: "मेन्यू का क्रम सेव नहीं हो सका। फिर से कोशिश करें।",
+    plantChanged: "प्लांट बदल गया। इस प्लांट के लिए मेन्यू फिर से खोलकर क्रम बदलें।",
+    keepOrder: "मेरा क्रम रखें",
+    arrangeHint: "\"और\" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं।",
   },
 
   auth: {
@@ -1618,6 +1632,17 @@ export const hi = {
     po: "PO",
     invoice: "इनवॉइस",
     print: "प्रिंट",
+    lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी।",
+    signatures: {
+      packedBy: "पैक करने वाला",
+      checkedBy: "जाँच करने वाला",
+      driverReceived: "ड्राइवर",
+      receiverSignature: "ग्राहक के हस्ताक्षर",
+    },
+    groupDetails: {
+      orderedKgPer12ft: "ऑर्डर kg/12ft {kg}",
+      poDate: "PO तारीख {date}",
+    },
   },
 
   dies: {

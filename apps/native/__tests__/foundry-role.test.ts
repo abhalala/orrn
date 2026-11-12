@@ -112,8 +112,10 @@ describe("the foundry writes from the phone", () => {
 
   test("exactly these procedures are sent, each from one file", () => {
     expect(Object.fromEntries([...w].sort())).toEqual({
+      "foundry.casts.cancel": [`${FOUNDRY}/close-sheet.tsx`],
       "foundry.casts.close": [`${FOUNDRY}/close-sheet.tsx`],
       "foundry.casts.open": [`${FOUNDRY}/new-cast-view.tsx`],
+      "foundry.melts.cancel": [`${FOUNDRY}/melt-sheet-view.tsx`],
       "foundry.melts.correct": [`${FOUNDRY}/melt-sheet-view.tsx`],
       "foundry.melts.discard": [`${FOUNDRY}/melt-editor.tsx`],
       "foundry.melts.lock": [`${FOUNDRY}/melt-editor.tsx`],
@@ -121,6 +123,7 @@ describe("the foundry writes from the phone", () => {
       "foundry.melts.save": [`${FOUNDRY}/melt-editor.tsx`],
       "foundry.spectro.attach": [`${FOUNDRY}/spectro-panel.tsx`],
       "foundry.spectro.enter": [`${FOUNDRY}/spectro-panel.tsx`],
+      "foundry.spectro.void": [`${FOUNDRY}/spectro-panel.tsx`],
     });
   });
 

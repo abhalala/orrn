@@ -28,7 +28,7 @@ import { slashBreaks } from "./format";
 import { readKantaG } from "./kanta";
 import { DiffText, LotStatusChip, useCompanyToday, useToleranceBp } from "./lot-ui";
 import { LOT_FILTERS, isLotFilter, type LotFilter } from "./lot-filter";
-import { lotListChip, type LotFlag, type LotStatus } from "./lot-view";
+import { inStockTileText, lotListChip, type LotFlag, type LotStatus } from "./lot-view";
 import { showsQueryError } from "./query-state";
 import { useFmt } from "@/shared/lib/fmt";
 import { kgTrim, massUnit } from "@/shared/lib/fmt-text";
@@ -225,7 +225,7 @@ export function LotsPage({ filter, onFilter }: { filter: LotFilter; onFilter(f: 
             title={t("purchase.kpi.inStock")}
             meta={t("purchase.kpi.inStockMeta")}
             value={stock.data.totalG / 1000}
-            format={(kg) => kgTrim(fmt, Math.round(kg) * 1000)}
+            format={(kg) => inStockTileText(fmt, kg)}
             unit={massUnit(fmt)}
           />
         ) : (
