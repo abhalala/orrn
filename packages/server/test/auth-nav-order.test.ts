@@ -105,6 +105,28 @@ describe("auth.setNavOrder", () => {
     expect(await preferencesOf(companyId, users.owner.id)).toEqual(before);
   });
 
+  test("hostile stored preferences read as default and can be repaired", async () => {
+    const { companyId, users } = await env.seedCompany();
+    const owner = env.caller({ role: "owner", companyId });
+    const hostileValues = [
+      "not json{",
+      "[1,2]",
+      "7",
+      "x".repeat(1024 * 1024),
+      JSON.stringify({ nav: { v: 1, order: [1, 2, 3] } }),
+    ];
+
+    for (const stored of hostileValues) {
+      await env.d1
+        .prepare("update membership set preferences = ? where company_id = ? and user_id = ?")
+        .bind(stored, companyId, users.owner.id)
+        .run();
+      expect((await owner.auth.me()).company?.navOrder).toBeNull();
+      await owner.auth.setNavOrder({ order: ["today", "orders"] });
+      expect((await owner.auth.me()).company?.navOrder).toEqual({ order: ["today", "orders"] });
+    }
+  });
+
   test("a customer portal login cannot save a member menu order", async () => {
     const { companyId } = await env.seedCompany();
     const customerId = await env.seedCustomer(companyId);

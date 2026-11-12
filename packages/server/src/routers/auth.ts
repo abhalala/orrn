@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull, ne } from "drizzle-orm";
+import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
@@ -29,9 +29,19 @@ const navOrderInput = z
     }
   });
 
+function readPreferences(value: unknown): Record<string, unknown> {
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const prototype = Object.getPrototypeOf(parsed);
+    return prototype === Object.prototype || prototype === null ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 function readNavOrder(preferences: unknown): MemberNavOrder | null {
-  if (!preferences || typeof preferences !== "object" || Array.isArray(preferences)) return null;
-  const nav = (preferences as Record<string, unknown>).nav;
+  const nav = readPreferences(preferences).nav;
   if (!nav || typeof nav !== "object" || Array.isArray(nav)) return null;
   const saved = nav as Record<string, unknown>;
   if (saved.v !== 1 || !Array.isArray(saved.order) || saved.order.length === 0 || saved.order.length > 60) return null;
@@ -101,7 +111,7 @@ export const authRouter = router({
     const ownMembership =
       companyRow && ctx.companyId
         ? await ctx.db
-            .select({ preferences: membership.preferences })
+            .select({ preferences: sql<unknown>`${membership.preferences}` })
             .from(membership)
             .where(and(eq(membership.companyId, ctx.companyId), eq(membership.userId, userId)))
             .get()
@@ -158,7 +168,7 @@ export const authRouter = router({
   setNavOrder: companyProcedure.input(navOrderInput).mutation(async ({ ctx, input }) => {
     const userId = ctx.session.user.id;
     const current = await ctx.db
-      .select({ id: membership.id, preferences: membership.preferences })
+      .select({ id: membership.id, preferences: sql<unknown>`${membership.preferences}` })
       .from(membership)
       .where(and(eq(membership.companyId, ctx.companyId), eq(membership.userId, userId)))
       .get();
@@ -166,10 +176,7 @@ export const authRouter = router({
       throw new TRPCError({ code: "FORBIDDEN", message: "Company membership required" });
     }
 
-    const preferences =
-      current.preferences && typeof current.preferences === "object" && !Array.isArray(current.preferences)
-        ? { ...current.preferences }
-        : {};
+    const preferences = { ...readPreferences(current.preferences) };
     if (input.order.length === 0) {
       delete preferences.nav;
     } else {
