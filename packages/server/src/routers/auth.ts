@@ -4,16 +4,50 @@ import { z } from "zod";
 
 import { hashPassword } from "@orrn/auth/password";
 import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
-import { company } from "@orrn/db/schema/tenant";
+import { company, membership } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
 import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
 import { auditInsert } from "../lib/audit";
-import { can } from "../lib/permissions";
+import { can, type MemberNavOrder } from "../lib/permissions";
 import { listActiveMemberships } from "../lib/tenantContext";
-import { authedProcedure, router } from "../index";
+import { authedProcedure, companyProcedure, router } from "../index";
+
+const navOrderInput = z
+  .strictObject({
+    order: z.array(z.string().min(1).max(40)).max(60),
+    moreFrom: z.string().min(1).max(40).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (new Set(value.order).size !== value.order.length) {
+      ctx.addIssue({ code: "custom", message: "Menu items must not repeat", path: ["order"] });
+    }
+    if (value.order.length > 0 && value.moreFrom != null && !value.order.includes(value.moreFrom)) {
+      ctx.addIssue({ code: "custom", message: "The More divider must name a menu item", path: ["moreFrom"] });
+    }
+  });
+
+function readNavOrder(preferences: unknown): MemberNavOrder | null {
+  if (!preferences || typeof preferences !== "object" || Array.isArray(preferences)) return null;
+  const nav = (preferences as Record<string, unknown>).nav;
+  if (!nav || typeof nav !== "object" || Array.isArray(nav)) return null;
+  const saved = nav as Record<string, unknown>;
+  if (saved.v !== 1 || !Array.isArray(saved.order) || saved.order.length === 0 || saved.order.length > 60) return null;
+  if (
+    saved.order.some(
+      (key) => typeof key !== "string" || key.length === 0 || key.length > 40,
+    ) ||
+    new Set(saved.order).size !== saved.order.length
+  ) {
+    return null;
+  }
+  const order = saved.order as string[];
+  if (saved.moreFrom === null) return { order, moreFrom: null };
+  if (typeof saved.moreFrom === "string" && order.includes(saved.moreFrom)) return { order, moreFrom: saved.moreFrom };
+  return { order };
+}
 
 /**
  * Single source of truth for client-side identity + tenancy.
@@ -64,6 +98,15 @@ export const authRouter = router({
           )[0] ?? null
         : null;
 
+    const ownMembership =
+      companyRow && ctx.companyId
+        ? await ctx.db
+            .select({ preferences: membership.preferences })
+            .from(membership)
+            .where(and(eq(membership.companyId, ctx.companyId), eq(membership.userId, userId)))
+            .get()
+        : null;
+
     const memberships = (await listActiveMemberships(ctx.db, userId)).map((m) => ({
       companyId: m.companyId,
       name: m.name,
@@ -94,6 +137,7 @@ export const authRouter = router({
               settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
               /** Units and formats every screen of this plant uses (default, then the plant's choice). */
               units: screenPrefs(readUnitSettings(companyRow.settings)),
+              navOrder: readNavOrder(ownMembership?.preferences),
             }
           : null,
       /** Every active company this user belongs to, most recent first (spec P10). */
@@ -109,6 +153,38 @@ export const authRouter = router({
           }
         : null,
     };
+  }),
+
+  setNavOrder: companyProcedure.input(navOrderInput).mutation(async ({ ctx, input }) => {
+    const userId = ctx.session.user.id;
+    const current = await ctx.db
+      .select({ id: membership.id, preferences: membership.preferences })
+      .from(membership)
+      .where(and(eq(membership.companyId, ctx.companyId), eq(membership.userId, userId)))
+      .get();
+    if (!current) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Company membership required" });
+    }
+
+    const preferences =
+      current.preferences && typeof current.preferences === "object" && !Array.isArray(current.preferences)
+        ? { ...current.preferences }
+        : {};
+    if (input.order.length === 0) {
+      delete preferences.nav;
+    } else {
+      preferences.nav = {
+        v: 1,
+        order: input.order,
+        ...(input.moreFrom !== undefined ? { moreFrom: input.moreFrom } : {}),
+      };
+    }
+
+    await ctx.db
+      .update(membership)
+      .set({ preferences })
+      .where(and(eq(membership.id, current.id), eq(membership.companyId, ctx.companyId), eq(membership.userId, userId)));
+    return { success: true };
   }),
 
   setPassword: authedProcedure
