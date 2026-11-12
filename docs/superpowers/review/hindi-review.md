@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8104 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8111 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (513)
+### ingest (520)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6974,6 +6974,9 @@ Please check, Lalubhai:
 | `read.reputDone` | Done. The tables of this file were read again. Open them from the Imports page. | हो गया। इस फ़ाइल की टेबल फिर से पढ़ी गईं। उन्हें इम्पोर्ट पेज से खोलें। |
 | `read.reputFailed` | orrn could not read the file again. Try once more. | orrn फ़ाइल फिर से नहीं पढ़ सका। एक बार और कोशिश करें। |
 | `read.factsTitle` | What the reader left out | पढ़ने में जो छोड़ा गया |
+| `skipNoDate.title` | Skip these {count} lines? | ये {count} लाइनें छोड़ें? |
+| `skipNoDate.body` | They have no date, so orrn cannot tell which year's order they belong to. They are left out of the import. | इनमें तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ये किस साल के ऑर्डर की हैं। इन्हें इम्पोर्ट से बाहर रखा जाएगा। |
+| `skipNoDate.keep` | Keep them | इन्हें रहने दें |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
@@ -7212,6 +7215,7 @@ Please check, Lalubhai:
 | `action.merging` | Merging | मर्ज हो रहा है |
 | `action.repick` | Wrong columns? Pick the row | कॉलम गलत हैं? लाइन चुनें |
 | `action.repicked` | The columns are open again. Add the file again on the Imports page to pick the row. | कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें। |
+| `action.skipNoDate` | Skip these {count} lines | ये {count} लाइनें छोड़ें |
 | `list.newTable` | New table | नई टेबल |
 | `list.tables` | {count} {count:table\|tables}, added {date} | {count} टेबल, {date} को डाली |
 | `list.tablesNoDate` | {count} {count:table\|tables} | {count} टेबल |
@@ -7431,6 +7435,9 @@ Please check, Lalubhai:
 | `error.beingReadAgainApprove` | This file is being read again. Finish it, then approve. | यह फ़ाइल फिर से पढ़ी जा रही है। उसे पूरा करें, फिर मंज़ूर करें। |
 | `error.beingReadAgainMerge` | A file is being read again. Finish it, then merge. | एक फ़ाइल फिर से पढ़ी जा रही है। उसे पूरा करें, फिर मर्ज करें। |
 | `error.sheetApproved` | A sheet of this file is approved. Its tables cannot change now. | इस फ़ाइल की एक शीट मंज़ूर हो चुकी है। अब इसकी टेबल नहीं बदल सकतीं। |
+| `error.noDateNone` | No line on this sheet is missing a date | इस शीट की किसी लाइन में तारीख की कमी नहीं है |
+| `error.answerLocked` | A sheet of this file is approved. Its answers cannot change now. | इस फ़ाइल की एक शीट मंज़ूर हो चुकी है। अब इसके जवाब नहीं बदल सकते। |
+| `error.doesNotAsk` | This import does not ask that | यह इम्पोर्ट यह सवाल नहीं पूछता |
 | `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
 | `file.table` | Table {n} | टेबल {n} |

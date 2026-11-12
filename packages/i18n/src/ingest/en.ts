@@ -63,6 +63,11 @@ export const ingestEn = {
     reputFailed: "orrn could not read the file again. Try once more.",
     factsTitle: "What the reader left out",
   },
+  skipNoDate: {
+    title: "Skip these {count} lines?",
+    body: "They have no date, so orrn cannot tell which year's order they belong to. They are left out of the import.",
+    keep: "Keep them",
+  },
   kept: {
     title: "Kept, not read yet",
     note: "Reading PDFs and photos comes in a later release.",
@@ -358,6 +363,8 @@ export const ingestEn = {
     merging: "Merging",
     repick: "Wrong columns? Pick the row",
     repicked: "The columns are open again. Add the file again on the Imports page to pick the row.",
+    // server round 9
+    skipNoDate: "Skip these {count} lines",
   },
   list: {
     newTable: "New table",
@@ -617,6 +624,9 @@ export const ingestEn = {
     beingReadAgainApprove: "This file is being read again. Finish it, then approve.",
     beingReadAgainMerge: "A file is being read again. Finish it, then merge.",
     sheetApproved: "A sheet of this file is approved. Its tables cannot change now.",
+    noDateNone: "No line on this sheet is missing a date",
+    answerLocked: "A sheet of this file is approved. Its answers cannot change now.",
+    doesNotAsk: "This import does not ask that",
   },
   file: {
     rows: "{count} {count:row|rows}",

@@ -27,6 +27,10 @@ const ALREADY_WRITTEN = /^Rows of this sheet are already written/i;
 const READ_AGAIN_APPROVE = /^This file is being read again/i;
 const READ_AGAIN_MERGE = /^A file is being read again/i;
 const SHEET_APPROVED = /^A sheet of this file is approved/i;
+/** Server round 9: no line to skip, an answer that cannot change once a sheet is approved, a question this import does not ask. */
+const NO_DATE_NONE = /^No line on this sheet is missing a date/i;
+const ANSWER_LOCKED = /^A sheet of this file is approved\. Its answers cannot change/i;
+const DOES_NOT_ASK = /^This import does not ask that/i;
 const NOTHING_TO_IMPORT = /^Nothing in this sheet can be imported/i;
 
 const messageOf = (error: unknown): string => {
@@ -36,6 +40,9 @@ const messageOf = (error: unknown): string => {
 
 export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
+  if (NO_DATE_NONE.test(messageOf(error))) return { key: "ingest.error.noDateNone", retry: false };
+  if (ANSWER_LOCKED.test(messageOf(error))) return { key: "ingest.error.answerLocked", retry: false };
+  if (DOES_NOT_ASK.test(messageOf(error))) return { key: "ingest.error.doesNotAsk", retry: false };
   if (READ_AGAIN_APPROVE.test(messageOf(error))) return { key: "ingest.error.beingReadAgainApprove", retry: false };
   if (READ_AGAIN_MERGE.test(messageOf(error))) return { key: "ingest.error.beingReadAgainMerge", retry: false };
   if (SHEET_APPROVED.test(messageOf(error))) return { key: "ingest.error.sheetApproved", retry: false };

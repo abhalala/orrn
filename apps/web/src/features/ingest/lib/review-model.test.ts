@@ -53,6 +53,20 @@ describe("Wrong columns? Pick the row (rule 7.2)", () => {
   });
 });
 
+describe("Skip these lines (server round 9)", () => {
+  test("the count comes from the candidate and is 0 when the server sends none", () => {
+    expect(decisionBar(detail({ noDateLines: 4 }), ctx).noDateLines).toBe(4);
+    expect(decisionBar(detail(), ctx).noDateLines).toBe(0);
+  });
+  test("the refusals of the action and of a locked answer are said from their own words", async () => {
+    const { ingestErrorWords } = await import("./errors");
+    const err = (code: string, message: string) => Object.assign(new Error(message), { data: { code } });
+    expect(ingestErrorWords(err("BAD_REQUEST", "No line on this sheet is missing a date"), "action").key).toBe("ingest.error.noDateNone");
+    expect(ingestErrorWords(err("BAD_REQUEST", "A sheet of this file is approved. Its answers cannot change now."), "action").key).toBe("ingest.error.answerLocked");
+    expect(ingestErrorWords(err("BAD_REQUEST", "This import does not ask that"), "action").key).toBe("ingest.error.doesNotAsk");
+  });
+});
+
 describe("how the rows were read (rule 7.1)", () => {
   test("rows with no order number and rows that took party, date or PO from the row above are said once each", () => {
     const bar = decisionBar(detail({ rowsOwnOrder: 2, counts: counts({ filled: 3 }) }), ctx);

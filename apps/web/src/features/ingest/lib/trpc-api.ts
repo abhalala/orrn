@@ -30,6 +30,7 @@ function build(): IngestApi {
     shapeSave: (i) => c.shape.save.mutate(i),
     dryRunStep: (i) => c.dryRun.step.mutate(i),
     rowsList: (i) => c.rows.list.query(i),
+    rowsSkipNoDate: (i) => c.rows.skipNoDate.mutate(i),
     rowsDecide: (i) => c.rows.decide.mutate(i),
     answerSet: (i) => c.answer.set.mutate(i),
     mergeStart: () => c.merge.start.mutate(),

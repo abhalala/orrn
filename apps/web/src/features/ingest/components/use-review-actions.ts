@@ -56,6 +56,7 @@ export type ReviewActions = {
   hold: (reason: string | undefined) => Promise<boolean>;
   release: () => Promise<boolean>;
   repick: () => Promise<boolean>;
+  skipNoDate: () => Promise<boolean>;
   confirmNear: (accept: boolean) => Promise<boolean>;
   ignoreSheet: () => Promise<boolean>;
   answer: (subject: string, built: BuiltAnswer, focusKey: string) => Promise<boolean>;
@@ -142,6 +143,11 @@ export function useReviewActions(input: {
       setAfter(null);
       const ok = await write("bar", "release", () => actions.release(id, serverSeq));
       if (ok) focus.request([FOCUS.bar]);
+      return ok;
+    },
+    skipNoDate: async () => {
+      const ok = await write("rows", "skipNoDate", () => actions.skipNoDate(id, serverSeq));
+      if (ok) focus.request([FOCUS.rowsHeading, FOCUS.bar]);
       return ok;
     },
     repick: async () => {

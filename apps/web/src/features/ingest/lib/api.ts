@@ -32,6 +32,7 @@ export type IngestApi = {
   shapeSave: (input: In["shape"]["save"]) => Promise<Out["shape"]["save"]>;
   dryRunStep: (input: In["dryRun"]["step"]) => Promise<Out["dryRun"]["step"]>;
   rowsList: (input: In["rows"]["list"]) => Promise<Out["rows"]["list"]>;
+  rowsSkipNoDate: (input: In["rows"]["skipNoDate"]) => Promise<Out["rows"]["skipNoDate"]>;
   rowsDecide: (input: In["rows"]["decide"]) => Promise<Out["rows"]["decide"]>;
   answerSet: (input: In["answer"]["set"]) => Promise<Out["answer"]["set"]>;
   mergeStart: () => Promise<Out["merge"]["start"]>;

@@ -60,6 +60,8 @@ export type DecisionBar = {
   sentence: Words | null;
   /** "2 rows cannot be imported." */
   refused: Words | null;
+  /** Lines refused for having no date, for "Skip these {count} lines" (order sheets; 0 otherwise). */
+  noDateLines: number;
   /** Plain facts about how the rows were read: rows with no order number, party, date or PO taken from the row above. */
   notes: Words[];
   /** Muted fit text. */
@@ -86,7 +88,7 @@ export function firstOpen(questions: readonly Pick<QuestionView, "answered">[], 
 const MOVING = new Set(["processing", "merging"]);
 
 export function decisionBar(
-  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & { rowsOwnOrder?: number },
+  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & { rowsOwnOrder?: number; noDateLines?: number },
   ctx: BarContext,
 ): DecisionBar {
   const { can } = ctx;
@@ -197,6 +199,7 @@ export function decisionBar(
     chip,
     sentence,
     refused,
+    noDateLines: c.noDateLines ?? 0,
     notes,
     fit: fitWords(c, diff.name),
     reason: c.state === "held" && c.reasonCode ? { code: c.reasonCode, detail: c.reasonDetail } : null,

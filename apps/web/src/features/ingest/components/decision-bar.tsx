@@ -141,6 +141,7 @@ export function DecisionBarCard({
   onDiscard,
   onIgnore,
   onRepick,
+  onSkipNoDate,
   onGoToFirstOpen,
   editorOpen,
   editorId,
@@ -159,6 +160,8 @@ export function DecisionBarCard({
   onDiscard: () => void;
   onIgnore: () => void;
   onRepick?: () => void;
+  /** "Skip these {count} lines": asks first, then skips every line refused for having no date. */
+  onSkipNoDate?: () => Promise<boolean>;
   onGoToFirstOpen: () => void;
   editorOpen: boolean;
   editorId: string;
@@ -202,6 +205,7 @@ export function DecisionBarCard({
           {bar.notes.map((note) => (
             <Muted key={note.key}>{words(note)}</Muted>
           ))}
+          {bar.noDateLines > 0 && onSkipNoDate ? <SkipNoDate count={bar.noDateLines} onSkip={onSkipNoDate} act={act} /> : null}
           {bar.fit ? <Muted>{words(bar.fit)}</Muted> : null}
           {bar.reason ? <ReasonText code={bar.reason.code} detail={bar.reason.detail} /> : null}
           {candidate.state === "failed" ? (
@@ -367,5 +371,44 @@ export function DiscardDialog({ flow }: { flow: ReturnType<typeof useDiscardFlow
     >
       <ActionError error={flow.error} />
     </Dialog>
+  );
+}
+
+/** "Skip these {count} lines": the lines with no date leave the import. A sheet is asked first, since it cannot be undone. */
+function SkipNoDate({ count, onSkip, act }: { count: number; onSkip: () => Promise<boolean>; act: Pick<ReviewActions, "busy" | "pending" | "failed"> }) {
+  const { t, say } = useSay();
+  const [open, setOpen] = useState(false);
+  const working = act.pending === "skipNoDate";
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <Button variant="secondary" aria-disabled={act.busy || undefined} onClick={() => !act.busy && setOpen(true)}>
+        {say("ingest.action.skipNoDate", { count })}
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title={say("ingest.skipNoDate.title", { count })}
+        description={t("ingest.skipNoDate.body")}
+        actions={
+          <>
+            <Button variant="secondary" aria-disabled={working || undefined} onClick={() => setOpen(false)}>
+              {t("ingest.skipNoDate.keep")}
+            </Button>
+            <ActionButton
+              variant="primary"
+              busy={act.busy}
+              working={working}
+              onClick={async () => {
+                if (await onSkip()) setOpen(false);
+              }}
+            >
+              {say("ingest.action.skipNoDate", { count })}
+            </ActionButton>
+          </>
+        }
+      >
+        <ActionError error={act.failed("rows")} />
+      </Dialog>
+    </div>
   );
 }
