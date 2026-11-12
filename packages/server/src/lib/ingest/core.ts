@@ -251,12 +251,22 @@ export function maskCells(raw: readonly string[], cols: ReadonlySet<number>): st
   return raw.map((cell, i) => (cols.has(i) ? "" : cell));
 }
 
-/** A block as one viewer may see it: the sample's rate cells blank without order.price. */
+/**
+ * A block as one viewer may see it. Without order.price the sample's rate cells are blank, and so is
+ * the reader facts text (S6-4): every warning and section text of a block with a rate column, and
+ * any such text that reads as a rate on a block without one. The codes, rows and counts stay.
+ */
 export function blockViewFor(ctx: Pick<IngestCtx, "role">, block: BlockRow, recipes: readonly unknown[]): BlockView {
   const view = blockView(block);
   if (seesRates(ctx)) return view;
   const cols = rateMaskColumns(block.headers, recipes);
-  return cols.size === 0 ? view : { ...view, sample: view.sample.map((r) => maskCells(r, cols)) };
+  const hide = (text: string) => (cols.size > 0 || RATE_HEADER.test(text) ? "" : text);
+  return {
+    ...view,
+    sample: cols.size === 0 ? view.sample : view.sample.map((r) => maskCells(r, cols)),
+    warnings: view.warnings.map((w) => ({ ...w, text: hide(w.text) })),
+    sections: view.sections.map((x) => ({ ...x, text: hide(x.text) })),
+  };
 }
 
 export function candidateCounts(c: CandidateRow): CandidateCounts {

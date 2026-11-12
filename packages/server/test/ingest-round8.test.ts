@@ -8,6 +8,7 @@
  * - 10.2 (S6-2): nothing is approved or merged while its file is being read; the check is in the batch.
  * - 10.3 (S6-3): a reader keep with no question only for an all-text guess of two or more filled
  *   cells with no blank between them, over a row with a number or a date.
+ * - S6-4: reader facts text is masked for a viewer without order.price, as the sample is.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -234,5 +235,74 @@ describe("rule 10.3 (S6-3): the clean-sheet keep is narrow", () => {
     expect(h).toMatchObject({ answer: "ask" });
     expect(await put(p.owner, [{ row: 0, cells: ["Colour", "Shade", "Vazan"] }, { row: 1, cells: ["Red", "Dark", "120"] }])).toMatchObject({ answer: "keep", by: "reader" });
     expect(await put(p.owner, [{ row: 0, cells: ["Colour", "Shade", "Din"] }, { row: 1, cells: ["Red", "Dark", "01/05/2025"] }])).toMatchObject({ answer: "keep", by: "reader" });
+  });
+});
+
+describe("S6-4: reader facts text and rates", () => {
+  test("R4: without order.price the warnings and sections text of a block with a rate column is blank", async () => {
+    const p = await setup();
+    const { artifactId } = await p.owner.ingest.artifact.begin({ sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"), fileName: "rates.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const NAMES = ["Colour", "Shade", "Batch", "Lot", "Rate"];
+    const row = ["Om Metals", "98250 11111", "Rajkot", "120", "256.50"];
+    await p.owner.ingest.artifact.putBlocks({
+      artifactId,
+      blocks: [
+        {
+          ordinal: 0,
+          sheetName: "S",
+          title: null,
+          headerRow: 0,
+          headerRows: 1,
+          rowCount: 1,
+          sample: [row],
+          preview: [{ row: 0, cells: NAMES }, { row: 1, cells: row }],
+          warnings: [
+            { code: "after_last_row", row: 5, text: "Om Metals 98250 11111 Rajkot 120 256.50" },
+            { code: "skipped_title", row: 3, text: "Rate list 256.50" },
+          ],
+          sections: [{ row: 2, text: "Rates at 256.50" }],
+        },
+      ],
+    });
+    const hidden = (await p.admin.ingest.artifact.get({ artifactId })).blocks[0]!;
+    expect(hidden.sample[0]![4]).toBe("");
+    expect(JSON.stringify({ w: hidden.warnings, s: hidden.sections })).not.toContain("256.50");
+    expect(hidden.warnings.map((w) => [w.code, w.row])).toEqual([
+      ["after_last_row", 5],
+      ["skipped_title", 3],
+    ]);
+    const shown = (await p.owner.ingest.artifact.get({ artifactId })).blocks[0]!;
+    expect(shown.warnings[0]!.text).toBe("Om Metals 98250 11111 Rajkot 120 256.50");
+    expect(shown.sections[0]!.text).toBe("Rates at 256.50");
+  });
+
+  test("a block with no rate column keeps its text, unless the text reads as a rate", async () => {
+    const p = await setup();
+    const { artifactId } = await p.owner.ingest.artifact.begin({ sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"), fileName: "plain.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const NAMES = ["Colour", "Shade", "Batch"];
+    const row = ["Red", "Dark", "120"];
+    await p.owner.ingest.artifact.putBlocks({
+      artifactId,
+      blocks: [
+        {
+          ordinal: 0,
+          sheetName: "S",
+          title: null,
+          headerRow: 0,
+          headerRows: 1,
+          rowCount: 1,
+          sample: [row],
+          preview: [{ row: 0, cells: NAMES }, { row: 1, cells: row }],
+          warnings: [
+            { code: "after_last_row", row: 5, text: "Total 120" },
+            { code: "after_last_row", row: 6, text: "Rate Rs 256.50 per kg" },
+          ],
+          sections: [{ row: 2, text: "December" }],
+        },
+      ],
+    });
+    const b = (await p.admin.ingest.artifact.get({ artifactId })).blocks[0]!;
+    expect(b.warnings.map((w) => w.text)).toEqual(["Total 120", ""]);
+    expect(b.sections[0]!.text).toBe("December");
   });
 });
