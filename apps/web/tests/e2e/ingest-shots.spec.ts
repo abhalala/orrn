@@ -7,7 +7,7 @@ import { API_URL } from "./helpers/ports";
 
 /** Screenshots of the Imports screens for the design review (not a test of behaviour). Run by hand: SHOTS=1. */
 test.skip(!process.env.SHOTS, "set SHOTS=1");
-test.describe.configure({ mode: "serial", timeout: 600_000 });
+test.describe.configure({ mode: "serial", timeout: 1_500_000 });
 
 const OUT = "/Users/abhalala/Documents/business/fc/.unslop-build/platform/portal-shots-3";
 const STAMP = Date.now().toString(36).toUpperCase().slice(-5);
@@ -15,6 +15,8 @@ const DIE_HEADER = "Series,Section code,Min weight (kg/12ft),Max weight (kg/12ft
 const dieRows = (series: string, codes: string[]) => codes.map((c, i) => `${series},${c},${(1.1 + i / 10).toFixed(1)},${(1.4 + i / 10).toFixed(1)},Ingest test ${c},30,1.5,,active,`);
 const dieCsv = (series: string, codes: string[], header = DIE_HEADER) => Buffer.from([header, ...dieRows(series, codes)].join("\n"));
 
+const SKIP = new Set((process.env.SKIP_LABELS ?? "").split(",").filter(Boolean));
+const want = (label: string) => !SKIP.has(label);
 const WIDTHS = [1280, 820, 375] as const;
 const LOCALES = ["en", "hi"] as const;
 
@@ -57,6 +59,15 @@ async function fakeBot(page: Page, body: unknown) {
 
 /** The header step for a file, shot at every width in one language, then once dark. */
 async function shootStep(page: Page, label: string, file: string, csv: Buffer, ready: () => Promise<void>, dark = false) {
+  if (!want(label)) return;
+  try {
+    await shootStepNow(page, label, file, csv, ready, dark);
+  } catch (error) {
+    console.log(`SHOT FAILED ${label}: ${String(error).slice(0, 200)}`);
+  }
+}
+
+async function shootStepNow(page: Page, label: string, file: string, csv: Buffer, ready: () => Promise<void>, dark = false) {
   for (const locale of LOCALES) {
     await prepare(page, locale);
     await page.goto("/ingest");
@@ -83,10 +94,23 @@ test("shots", async ({ page, request }) => {
   const skipHeader = !!process.env.SKIP_HEADER;
   const renamed = DIE_HEADER.replace("Notes", `Remarks ${STAMP}`);
   // Upload screen, nothing yet.
-  if (!skipHeader) await shootUrl(page, "upload-empty", "/ingest", { ready: async () => void (await page.locator("main#main h1").first().waitFor()) });
+  if (!skipHeader && want("upload-empty")) await shootUrl(page, "upload-empty", "/ingest", { ready: async () => void (await page.locator("main#main h1").first().waitFor()) });
 
   // Header step states (in memory: the file is added again for each language).
   if (!skipHeader) {
+    // What the reader left out is listed under the file once it is read.
+    const nums = [`Go series ${STAMP}`, `Go profile ${STAMP}`, `Go low ${STAMP} kg/12ft`, `Go high ${STAMP} kg/12ft`];
+    for (const locale of want("read-left-out") ? LOCALES : []) {
+      // The bytes differ by language: the same bytes twice would be "added before", with no header step.
+      const goesOn = Buffer.from([nums.join(","), `Z1,GO1${locale},1.1,1.4`, "Z1,GO2,1.2,1.5", ",,,", "December,,,", "Z1,GO3,1.3,1.6"].join("\n"));
+      await prepare(page, locale);
+      await page.goto("/ingest");
+      await upload(page, `goes-on-${locale}-${STAMP}.csv`, goesOn);
+      await step(page).getByRole("button", { name: /Use row 1|लाइन 1 लें/ }).click();
+      await page.getByTestId("left-out").waitFor({ timeout: 90_000 });
+      for (const w of WIDTHS) await snap(page, "read-left-out", w, locale);
+    }
+
     const lh = [`Lh series ${STAMP}`, `Lh profile ${STAMP}`, `Lh low ${STAMP} kg/12ft`, `Lh high ${STAMP} kg/12ft`];
     const letterhead = Buffer.from(["FourCubes Extrusions,,,", "Old sections, October,,", lh.join(","), "Z1,LH1,1.1,1.4", "Z1,LH2,1.2,1.5"].join("\n"));
     await shootStep(page, "header-asking", "a.csv", letterhead, async () => {}, true);
@@ -100,19 +124,20 @@ test("shots", async ({ page, request }) => {
     const sameCsv = Buffer.from([uh.join(","), "Z1,JN1,1.1,1.4", "Z1,JN2,1.2,1.5", ",,,", uh.join(","), "Z1,JN3,1.3,1.6"].join("\n"));
     await shootStep(page, "header-join-offers", "d.csv", joinCsv, async () => {
       await step(page).getByRole("button", { name: /Use row 1|लाइन 1 लें/ }).click();
-      await expect(step(page).getByText(/It continues the table above|यह ऊपर की टेबल का ही हिस्सा है/)).toBeVisible({ timeout: 60_000 });
+      await expect(step(page).getByText(/Table 2 of 2|2 में से टेबल 2/)).toBeVisible({ timeout: 60_000 });
     }, true);
     await shootStep(page, "header-same-columns", "e.csv", sameCsv, async () => {
       await step(page).getByRole("button", { name: /Use row 1|लाइन 1 लें/ }).click();
-      await expect(step(page).getByText(/Same columns as the table above|ऊपर की टेबल जैसे ही कॉलम/)).toBeVisible({ timeout: 60_000 });
+      await expect(step(page).getByText(/Table 2 of 2|2 में से टेबल 2/)).toBeVisible({ timeout: 60_000 });
     });
-    const twoTables = Buffer.from([uh.join(","), "Z1,TW1,1.1,1.4", ",,,", "Party,Order,Kg,Date", "Shree,41,10,2026-10-01", "Om,42,20,2026-10-02"].join("\n"));
+    const twoTables = Buffer.from([uh.join(","), "Z1,TW1", ",,,", "Party,Order,Kg,Date", "Shree,41,10,2026-10-01", "Om,42,20,2026-10-02"].join("\n"));
     await shootStep(page, "header-several-tables", "f.csv", twoTables, async () => {
       await expect(step(page).getByText(/Table 1 of 2|2 में से टेबल 1/)).toBeVisible();
     });
 
   }
 
+  await prepare(page, "en");
   // Imports on the list: a known sheet left Ready, one approved, one merged, a held one.
   await prepare(page, "en");
   await page.goto("/ingest");
