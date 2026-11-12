@@ -12301,6 +12301,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "pending_ref": {
+          "name": "pending_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "doubts": {
           "name": "doubts",
           "type": "text",
@@ -12362,7 +12369,8 @@
           "name": "ingest_staged_row_company_order_key_idx",
           "columns": [
             "company_id",
-            "order_key"
+            "order_key",
+            "candidate_id"
           ],
           "isUnique": false
         },
@@ -12378,7 +12386,8 @@
           "name": "ingest_staged_row_company_po_key_idx",
           "columns": [
             "company_id",
-            "po_key"
+            "po_key",
+            "candidate_id"
           ],
           "isUnique": false
         },
@@ -12387,6 +12396,15 @@
           "columns": [
             "candidate_id",
             "dup_key"
+          ],
+          "isUnique": false
+        },
+        "ingest_staged_row_company_pending_ref_idx": {
+          "name": "ingest_staged_row_company_pending_ref_idx",
+          "columns": [
+            "company_id",
+            "pending_ref",
+            "candidate_id"
           ],
           "isUnique": false
         }

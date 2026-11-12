@@ -18,14 +18,14 @@ import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { z } from "zod";
 
-import { customer } from "@orrn/db/schema/customers";
+import { customer, customerAlias } from "@orrn/db/schema/customers";
 import { ingestStagedRow } from "@orrn/db/schema/ingest";
-import { vendor } from "@orrn/db/schema/purchase";
+import { vendor, vendorAlias } from "@orrn/db/schema/purchase";
 
-import { mapInChunks } from "../../atomic";
-import { serverNameKey } from "../resolvers";
+import { chunk, IN_LIST_CHUNK, mapInChunks } from "../../atomic";
+import { serverNameKey, type NameIndex } from "../resolvers";
 import type { IngestCtx } from "../types";
-import { num, text, type Values } from "./shared";
+import { companyNotIndexed, num, text, type Values } from "./shared";
 
 /** One failed row check. `code` and `field` make the dry run reason; `message` is for the merge hold. */
 export type RowCheck = { code: string; field: string; message: string };
@@ -207,6 +207,115 @@ export async function liveCustomersByKey(ctx: Pick<IngestCtx, "db" | "companyId"
       .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.nameKey, part), isNull(customer.deletedAt))),
   );
   return rows.map((r) => ({ id: r.id, name: r.name, key: r.key ?? serverNameKey(r.name) }));
+}
+
+/** Keys read on each side of a name with no exact match, in key order, for near matching (rule 7.3). */
+export const NEAR_NEIGHBOURS = 6;
+/** Where near names are looked for: table, owner id, label (null for an alias), key, live filter. */
+const NEAR_TABLES = {
+  customer: [
+    ["customer", "customer.id", "customer.name", "customer.name_key", " and customer.deleted_at is null"],
+    ["customer_alias", "customer_alias.customer_id", "null", "customer_alias.alias_key", ""],
+  ],
+  vendor: [
+    ["vendor", "vendor.id", "vendor.name", "vendor.name_key", " and vendor.status <> 'merged'"],
+    ["vendor_alias", "vendor_alias.vendor_id", "null", "vendor_alias.alias_key", ""],
+  ],
+} as const;
+
+/** A key with its last one and two characters cut: "Shree Metals 12" is near "Shree Metals 12x". */
+function cutKeys(key: string): string[] {
+  const c = [...key];
+  return [c.slice(0, -1).join(""), c.slice(0, -2).join("")].filter(Boolean);
+}
+
+/**
+ * The customers or vendors the names of one step may match (rule 7.3, S5-3), never the whole table:
+ * - exact, by the stored name key and alias key, 90 keys a statement (`liveCustomersByKey`, the
+ *   vendor and alias key indexes);
+ * - for a name with no exact match, the few names and aliases next to its key in key order on each
+ *   side (`NEAR_NEIGHBOURS`), and those whose key is its key with the last one or two characters cut
+ *   ("Shree Metals 12" for "Shree Metals 12x"), by the same indexes, so `matchName` can offer near
+ *   ones. Any other near name that sorts away from it (a difference in its first letters) is not
+ *   offered: the row then asks whether the party is new, as for any name not found.
+ * Alias owners are read by primary key (`+company_id` keeps SQLite off the company index, S5-4).
+ */
+export async function nameIndexFor(ctx: Pick<IngestCtx, "db" | "companyId">, kind: "customer" | "vendor", texts: readonly string[]): Promise<NameIndex> {
+  const labels = new Map<string, string>();
+  const entries: NameIndex["entries"] = [];
+  const keys = nameKeysOf(texts);
+  if (keys.length === 0) return { entries, labels };
+  const cust = kind === "customer";
+  const named = cust
+    ? await liveCustomersByKey(ctx, keys)
+    : (
+        await mapInChunks(keys, (part) =>
+          ctx.db
+            .select({ id: vendor.id, name: vendor.name, key: vendor.nameKey })
+            .from(vendor)
+            .where(and(eq(vendor.companyId, ctx.companyId), LIVE_VENDOR, inArray(vendor.nameKey, part))),
+        )
+      ).map((v) => ({ id: v.id, name: v.name, key: v.key }));
+  const aliases = cust
+    ? await mapInChunks(keys, (part) =>
+        ctx.db
+          .select({ id: customerAlias.customerId, key: customerAlias.aliasKey })
+          .from(customerAlias)
+          .where(and(eq(customerAlias.companyId, ctx.companyId), inArray(customerAlias.aliasKey, part))),
+      )
+    : await mapInChunks(keys, (part) =>
+        ctx.db
+          .select({ id: vendorAlias.vendorId, key: vendorAlias.aliasKey })
+          .from(vendorAlias)
+          .where(and(eq(vendorAlias.companyId, ctx.companyId), inArray(vendorAlias.aliasKey, part))),
+      );
+  const found = new Set([...named.map((n) => n.key), ...aliases.map((a) => a.key)]);
+  const missing = keys.filter((k) => !found.has(k));
+  type Near = { id: string; label: string | null; key: string | null };
+  const near: Near[] = [];
+  for (const part of chunk(missing, IN_LIST_CHUNK)) {
+    const ks = JSON.stringify(part);
+    const cuts = JSON.stringify([...new Set(part.flatMap(cutKeys))]);
+    for (const t of cust ? NEAR_TABLES.customer : NEAR_TABLES.vendor) {
+      const [table, id, label, key, live] = t.map((x) => sql.raw(x));
+      // One statement a table: the cut keys, then each key's neighbours above and below (D1 takes at
+      // most 5 terms in a compound select). `rowid in (...)` reads each neighbour by its row.
+      near.push(
+        ...(await ctx.db.all<Near>(sql`select ${id} as id, ${label} as label, ${key} as key from ${table} where company_id = ${ctx.companyId} and ${key} in (select value from json_each(${cuts}))${live}
+          union all select ${id} as id, ${label} as label, ${key} as key from json_each(${ks}) k, ${table} where ${table}.rowid in (select rowid from ${table} where company_id = ${ctx.companyId} and ${key} >= k.value${live} order by ${key} limit ${NEAR_NEIGHBOURS})
+          union all select ${id} as id, ${label} as label, ${key} as key from json_each(${ks}) k, ${table} where ${table}.rowid in (select rowid from ${table} where company_id = ${ctx.companyId} and ${key} < k.value${live} order by ${key} desc limit ${NEAR_NEIGHBOURS})`)),
+      );
+    }
+  }
+  for (const n of named) labels.set(n.id, n.name);
+  for (const n of near) if (n.label !== null && n.key) labels.set(n.id, n.label);
+  // Owners of the aliases found: by primary key, live ones only.
+  const owners = [...new Set([...aliases.map((a) => a.id), ...near.filter((n) => n.label === null).map((n) => n.id)])].filter((id) => !labels.has(id));
+  const live = cust
+    ? await mapInChunks(owners, (part) =>
+        ctx.db
+          .select({ id: customer.id, name: customer.name })
+          .from(customer)
+          .where(and(inArray(customer.id, part), companyNotIndexed(customer.companyId, ctx.companyId), isNull(customer.deletedAt))),
+      )
+    : await mapInChunks(owners, (part) =>
+        ctx.db
+          .select({ id: vendor.id, name: vendor.name })
+          .from(vendor)
+          .where(and(inArray(vendor.id, part), companyNotIndexed(vendor.companyId, ctx.companyId), LIVE_VENDOR)),
+      );
+  for (const o of live) labels.set(o.id, o.name);
+  const seen = new Set<string>();
+  const add = (id: string, key: string | null) => {
+    const label = labels.get(id);
+    if (!key || label === undefined || seen.has(`${id}|${key}`)) return;
+    seen.add(`${id}|${key}`);
+    entries.push({ id, key, label });
+  };
+  for (const n of named) add(n.id, n.key);
+  for (const a of aliases) add(a.id, a.key);
+  for (const n of near) add(n.id, n.key);
+  return { entries, labels };
 }
 
 /**
