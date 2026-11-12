@@ -3,11 +3,13 @@
  * - 11.1 (S7-1): the fill answer belongs to the file. When it changes, or a re-put or a pick drops it,
  *   every other order sheet of the file that is processing, ready or held is checked again. It cannot
  *   change once a sheet of the file is approved, merging or merged.
+ * - 11.2: after "No" the orders of that number wait; one action, "Skip these {count} lines", skips
+ *   every line refused with `order_no_date` on the sheet, and the dated orders then write whole.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { layout, learnLayout, plant, pump, putRowsAs, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+import { layout, learnLayout, mergeOnce, plant, pump, putRowsAs, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -147,5 +149,56 @@ describe("rule 11.1 (S7-1): the fill answer belongs to the file", () => {
     await fill(p.owner, c, false);
     await pump(p.owner, a);
     expect(await refusedNoDate(p.owner, a, "41")).toEqual(["refused", true, "refused", true]);
+  });
+});
+
+/** Each live order: its date, PO and the section codes of its lines in code order. */
+async function orders(companyId: string) {
+  const r = await env.d1
+    .prepare(
+      `select o.order_date as d, o.po_number as po, (select group_concat(code, ',') from (select d.section_code as code from sales_order_line l join die d on d.id = l.die_id where l.sales_order_id = o.id order by d.section_code)) as codes
+       from sales_order o where o.company_id = ? order by o.order_date`,
+    )
+    .bind(companyId)
+    .all<{ d: string; po: string | null; codes: string | null }>();
+  return r.results.map((o) => ({ date: o.d, po: o.po, codes: o.codes }));
+}
+
+describe("rule 11.2: one action skips every line with no date", () => {
+  test("after No: the count is on the sheet, one skip takes both lines, then the dated orders write whole", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "A", headers: BOOK, rows: TWO("41", "PO-A", "PO-B") }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    await fill(p.owner, id, false);
+    await pump(p.owner, id);
+    expect(await tryApprove(p.owner, id)).toStartWith("REFUSED:");
+    expect((await p.owner.ingest.candidate.get({ candidateId: id })).noDateLines).toBe(2);
+    // A manager may not; an admin may.
+    await expect(p.as("manager").ingest.rows.skipNoDate({ candidateId: id, expectSeq: await seqOf(p.owner, id) })).rejects.toThrow();
+    const out = await p.admin.ingest.rows.skipNoDate({ candidateId: id, expectSeq: await seqOf(p.owner, id) });
+    expect(out.skipped).toBe(2);
+    await pump(p.owner, id);
+    expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ready_create", "skipped", "ready_create", "skipped"]);
+    expect((await p.owner.ingest.candidate.get({ candidateId: id })).noDateLines).toBe(0);
+    const audit = await env.d1.prepare("select meta from audit_log where company_id = ? and action = 'ingest.rows.skip_no_date'").bind(p.companyId).first<{ meta: string }>();
+    expect(JSON.parse(audit!.meta)).toMatchObject({ count: 2 });
+    expect(await tryApprove(p.owner, id)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect(await orders(p.companyId)).toEqual([
+      { date: "2023-05-01", po: "PO-A", codes: "5100" },
+      { date: "2024-06-01", po: "PO-B", codes: "5102" },
+    ]);
+    // Nothing left to skip.
+    await expect(p.owner.ingest.rows.skipNoDate({ candidateId: id, expectSeq: await seqOf(p.owner, id) })).rejects.toThrow();
+  });
+
+  test("a sheet with no such line refuses the action", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "A", headers: BOOK, rows: [R("44", "PO-44", "01/05/2025", "5100")] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    expect((await p.owner.ingest.candidate.get({ candidateId: id })).noDateLines).toBe(0);
+    await expect(p.owner.ingest.rows.skipNoDate({ candidateId: id, expectSeq: await seqOf(p.owner, id) })).rejects.toThrow("No line on this sheet is missing a date");
   });
 });

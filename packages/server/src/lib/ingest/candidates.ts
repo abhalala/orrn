@@ -95,6 +95,7 @@ import {
   openDoubts,
   openDoubtWhere,
   withFileFillAnswer,
+  ORDER_NO_DATE,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
@@ -662,7 +663,53 @@ export async function candidateDetail(ctx: IngestCtx, candidateId: string): Prom
     periodConfirmed: artifact.periodConfirmed ?? null,
     rowsMissing: Math.max(0, block.rowCount - block.rowsPut),
     rowsOwnOrder: c.target === "orders" ? await rowsOwnOrder(ctx, c.id) : 0,
+    noDateLines: c.target === "orders" ? (await noDateLines(ctx, c.id)).count : 0,
   };
+}
+
+/**
+ * Rule 11.2: the open lines of a sheet refused with `order_no_date` and not yet skipped. One
+ * condition on the candidate's rows, no id list: the count reads them, the skip writes them.
+ */
+const noDateWhere = (candidateId: string) =>
+  and(
+    eq(ingestStagedRow.candidateId, candidateId),
+    eq(ingestStagedRow.mergeState, "open"),
+    eq(ingestStagedRow.state, "refused"),
+    sql`(${ingestStagedRow.decision} is null or ${ingestStagedRow.decision} <> 'skip')`,
+    sql`${ingestStagedRow.reasons} like ${`%"${ORDER_NO_DATE}%`}`,
+  );
+
+async function noDateLines(ctx: IngestCtx, candidateId: string): Promise<{ count: number; from: number }> {
+  const [row] = await ctx.db
+    .select({ n: sql<number>`count(*)`, from: sql<number | null>`min(${ingestStagedRow.rowIndex})` })
+    .from(ingestStagedRow)
+    .where(noDateWhere(candidateId));
+  return { count: Number(row?.n ?? 0), from: Number(row?.from ?? 0) };
+}
+
+/** Rule 11.2: the words when a sheet has no line refused for a missing date. */
+export const NO_DATE_NONE = "No line on this sheet is missing a date";
+
+/**
+ * Rule 11.2, "Skip these {count} lines": every open line of the sheet refused with `order_no_date`
+ * is skipped in one statement, and the sheet checks again from the first of them. After it the
+ * dated orders of those numbers write whole (rule 7.1).
+ */
+export async function skipNoDateLines(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<{ skipped: number; counts: CandidateCounts }> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  assertNotDerived(c);
+  assertState(c, ["ready", "held", "processing"], "Rows of this import can no longer change");
+  if (c.target !== "orders") throw new TRPCError({ code: "BAD_REQUEST", message: NO_DATE_NONE });
+  const { count, from } = await noDateLines(ctx, c.id);
+  if (count === 0) throw new TRPCError({ code: "BAD_REQUEST", message: NO_DATE_NONE });
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, { state: "processing", dryCursor: Math.min(c.dryCursor, from) }),
+    ctx.db.update(ingestStagedRow).set({ decision: "skip", updatedAt: now() }).where(noDateWhere(c.id)),
+    recountStatement(ctx, c.id),
+    auditInsert(ctx, { action: "ingest.rows.skip_no_date", subjectType: "ingest_candidate", subjectId: c.id, meta: { count } }),
+  ]);
+  return { skipped: count, counts: candidateCounts(await loadCandidate(ctx, c.id)) };
 }
 
 /** Order rows of a candidate that are their own order: no old order number, no PO (rule 1). */

@@ -69,6 +69,7 @@ import {
   candidateDetail,
   confirmNear,
   decideRows,
+  skipNoDateLines,
   listDoubts,
   answerDoubts,
   discardCandidate,
@@ -151,6 +152,8 @@ export const ingestRouter = router({
   rows: router({
     list: R.input(rowsListInput).query(({ ctx, input }): Promise<Page<StagedRowView>> => listRows(ix(ctx), input)),
     decide: U.input(rowsDecideInput).mutation(({ ctx, input }): Promise<CandidateCounts> => decideRows(ix(ctx), input)),
+    // Rule 11.2: "Skip these {count} lines", every line of the sheet refused for a missing date.
+    skipNoDate: U.input(candidateSeqInput).mutation(({ ctx, input }): Promise<{ skipped: number; counts: CandidateCounts }> => skipNoDateLines(ix(ctx), input)),
     doubts: R.input(rowsDoubtsInput).query(({ ctx, input }): Promise<DoubtListOut> => listDoubts(ix(ctx), input)),
     answerDoubts: U.input(rowsAnswerDoubtsInput).mutation(({ ctx, input }): Promise<CandidateCounts> => answerDoubts(ix(ctx), input)),
   }),
