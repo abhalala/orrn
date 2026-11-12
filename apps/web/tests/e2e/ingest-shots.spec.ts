@@ -13,9 +13,11 @@ import { API_URL } from "./helpers/ports";
 test.skip(!process.env.SHOTS, "set SHOTS=1");
 test.describe.configure({ mode: "serial", timeout: 2_400_000 });
 
-const OUT = "/Users/abhalala/Documents/business/fc/.unslop-build/platform/portal-shots-3";
+const OUT = "/Users/abhalala/Documents/business/fc/.unslop-build/platform/portal-shots-4";
 const STAMP = Date.now().toString(36).toUpperCase().slice(-5);
 const SKIP = new Set((process.env.SKIP_STAGES ?? "").split(",").filter(Boolean));
+/** ONLY_STAGES=a,b runs just those stages (each one builds what it needs itself). */
+const ONLY = new Set((process.env.ONLY_STAGES ?? "").split(",").filter(Boolean));
 const DIE_HEADER = "Series,Section code,Min weight (kg/12ft),Max weight (kg/12ft),Name,Width (mm),Thickness (mm),Leg (mm),Status,Notes";
 const dieRows = (series: string, codes: string[]) => codes.map((c, i) => `${series},${c},${(1.1 + i / 10).toFixed(1)},${(1.4 + i / 10).toFixed(1)},Shot ${c},30,1.5,,active,`);
 const dieCsv = (series: string, codes: string[], header = DIE_HEADER) => Buffer.from([header, ...dieRows(series, codes)].join("\n"));
@@ -70,12 +72,12 @@ async function shootLive(page: Page, name: string, csvFor: (tag: string) => Buff
 }
 let shotPage: Page | null = null;
 async function stage(name: string, fn: () => Promise<unknown>) {
-  if (SKIP.has(name)) return;
+  if (SKIP.has(name) || (ONLY.size > 0 && !ONLY.has(name))) return;
   try {
     await fn();
     console.log(`STAGE OK ${name}`);
   } catch (error) {
-    console.log(`STAGE FAILED ${name}: ${String(error).slice(0, 300)}`);
+    console.log(`STAGE FAILED ${name}: ${String(error).slice(0, 300)} @ ${String((error as Error).stack ?? "").split("\n").find((l) => l.includes("ingest-shots.spec")) ?? ""}`);
     await shotPage?.screenshot({ path: `/private/tmp/claude-501/-Users-abhalala-Documents-business-fc/a1292c21-af85-40f3-b78f-035cb9d71412/scratchpad/fail-${name}.png`, fullPage: true }).catch(() => undefined);
   }
 }
@@ -104,6 +106,16 @@ async function reviewHref(page: Page, name: string): Promise<string> {
     await page.waitForTimeout(2000);
   }
   throw new Error(`no row for ${name}`);
+}
+/** Answers a tRPC call as it is, with `fix` applied to the data of every query in its batch (a batch carries other queries too). */
+async function changeAnswer(route: import("@playwright/test").Route, fix: (data: any) => void) {
+  const res = await route.fetch();
+  const body = await res.json();
+  for (const item of Array.isArray(body) ? body : [body]) {
+    const data = item?.result?.data?.json ?? item?.result?.data;
+    if (data && typeof data === "object") fix(data);
+  }
+  await route.fulfill({ response: res, json: body }).catch(() => undefined);
 }
 async function fakeBot(page: Page, body: unknown) {
   expect((await page.context().request.post(`${API_URL}/dev/ingest-bot`, { data: body })).ok()).toBe(true);
@@ -163,20 +175,17 @@ test("shots", async ({ page, request }) => {
 
   // Kept, not read: a PDF and a photo (the local plant has no storage, so the list answer carries them).
   await stage("kept", async () => {
-    await page.route("**/trpc/ingest.artifact.list*", async (route) => {
-      const res = await route.fetch();
-      const body = await res.json();
-      const first = Array.isArray(body) ? body[0] : body;
-      const items = first?.result?.data?.json?.items ?? first?.result?.data?.items;
-      const mk = (id: string, fileName: string, kind: string, sizeBytes: number, createdAt: number) => ({
-        id, sha256: id.repeat(8), fileName, contentType: null, kind, sizeBytes, vaultState: "stored", readState: "kept_unread", readError: null,
-        blockCount: 0, rowCount: 0, period: null, periodConfirmed: null, note: null, uploadedBy: null, createdAt,
-      });
-      if (Array.isArray(items)) items.push(mk("kp1", "Packing list Oct-25.pdf", "pdf_text", 482_113, Date.now() - 86_400_000), mk("kp2", "Stock register page 4.jpg", "image", 2_400_000, Date.now() - 3 * 86_400_000));
-      await route.fulfill({ response: res, json: body });
-    });
+    await page.route("**/trpc/*ingest.artifact.list*", (route) =>
+      changeAnswer(route, (data) => {
+        const mk = (id: string, fileName: string, kind: string, sizeBytes: number, createdAt: number) => ({
+          id, sha256: id.repeat(8), fileName, contentType: null, kind, sizeBytes, vaultState: "stored", readState: "kept_unread", readError: null,
+          blockCount: 0, rowCount: 0, period: null, periodConfirmed: null, note: null, uploadedBy: null, createdAt,
+        });
+        if (Array.isArray(data.items)) data.items.push(mk("kp1", "Packing list Oct-25.pdf", "pdf_text", 482_113, Date.now() - 86_400_000), mk("kp2", "Stock register page 4.jpg", "image", 2_400_000, Date.now() - 3 * 86_400_000));
+      }),
+    );
     await shootUrl(page, "kept-not-read", "/ingest", () => page.getByTestId("kept-files").waitFor({ timeout: 30_000 }));
-    await page.unroute("**/trpc/ingest.artifact.list*");
+    await page.unroute("**/trpc/*ingest.artifact.list*");
   });
 
   // The read panel with gaps, a skipped title and a section, and "Start a new table here".
@@ -224,7 +233,7 @@ test("shots", async ({ page, request }) => {
     await page.goto("/ingest");
     await upload(page, first, dieCsv(series, [`${STAMP}M`]));
     await readDone(page, first);
-    await approve(first);
+    urls.merged = await approve(first);
     await page.goto("/ingest");
     await page.getByRole("button", { name: /^Merge \d+ approved imports?$/ }).click();
     if (!process.env.SHOT_MODES) await snap(page, "merge-confirm", ALL_MODES[0]!);
@@ -248,6 +257,9 @@ test("shots", async ({ page, request }) => {
     await shootUrl(page, "candidates-list", "/ingest", () => page.locator("main#main h1").first().waitFor({ timeout: 30_000 }));
     await shootUrl(page, "review-ready", urls.ready, () => expect(bar(page)).toBeVisible({ timeout: 30_000 }));
     await shootUrl(page, "review-hold", urls.held, () => expect(bar(page)).toBeVisible({ timeout: 30_000 }));
+    // The review page of an approved import and of a merged one (design check M7).
+    await shootUrl(page, "review-approved", urls.approved, () => expect(bar(page)).toHaveAttribute("data-state", "approved", { timeout: 30_000 }));
+    await shootUrl(page, "review-merged", urls.merged, () => expect(bar(page)).toHaveAttribute("data-state", "merged", { timeout: 30_000 }));
     await shootUrl(page, "merge-result", urls.mergeDone, () => page.getByRole("heading", { level: 1 }).first().waitFor({ timeout: 30_000 }));
   });
 
@@ -300,20 +312,17 @@ test("shots", async ({ page, request }) => {
     await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 120_000 });
     await page.waitForTimeout(3000);
     const url = new URL(page.url()).pathname;
-    await page.route("**/trpc/ingest.merge.get*", async (route) => {
-      const res = await route.fetch();
-      const body = await res.json();
-      const first = Array.isArray(body) ? body[0] : body;
-      const data = first?.result?.data?.json ?? first?.result?.data;
-      if (data && Array.isArray(data.candidates) && data.candidates.length > 0) {
-        const last = data.candidates[data.candidates.length - 1];
-        Object.assign(last, { state: "held", reasonCode: "merge_failed", reasonDetail: "Section is already in orrn with other values.", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 });
-        data.state = "done_with_holds";
-      }
-      await route.fulfill({ response: res, json: body });
-    });
+    await page.route("**/trpc/*ingest.merge.get*", (route) =>
+      changeAnswer(route, (data) => {
+        if (Array.isArray(data.candidates) && data.candidates.length > 0) {
+          const last = data.candidates[data.candidates.length - 1];
+          Object.assign(last, { state: "held", reasonCode: "merge_failed", reasonDetail: "Section is already in orrn with other values.", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 });
+          data.state = "done_with_holds";
+        }
+      }),
+    );
     await shootUrl(page, "merge-one-back-to-hold", url, () => page.getByRole("heading", { level: 1 }).first().waitFor({ timeout: 30_000 }));
-    await page.unroute("**/trpc/ingest.merge.get*");
+    await page.unroute("**/trpc/*ingest.merge.get*");
   });
 
   // The fill question: lines with no date took the date of the dated line above, in an order with two dates.
@@ -445,5 +454,258 @@ test("shots", async ({ page, request }) => {
     } finally {
       await fakeBot(page, { action: "clear" });
     }
+  });
+
+  // ----- Design check M7: the states that had no shot. Each stage builds what it needs, so ONLY_STAGES can run one. -----
+  const LIVE_MODES: Mode[] = [ALL_MODES[0]!, ALL_MODES[2]!, ALL_MODES[3]!];
+  /** The same live state in a few modes: `drive` makes the state in a fresh page load, then it is shot. */
+  const shootLiveModes = async (name: string, modes: Mode[], drive: (m: Mode) => Promise<unknown>) => {
+    for (const m of modes) {
+      await setMode(page, m);
+      await drive(m);
+      await snap(page, name, m);
+    }
+  };
+  let wrapped = true;
+  const trpcBody = async (route: import("@playwright/test").Route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const first = Array.isArray(body) ? body[0] : body;
+    if (first?.result?.data) wrapped = "json" in first.result.data;
+    return { res, body, first };
+  };
+  /** The data of a real tRPC answer, however the client wraps it. */
+  const dataOf = (first: any) => (first?.result?.data?.json ?? first?.result?.data) as Record<string, unknown> | undefined;
+
+  // True empty page: no imports and no files (the lists answer empty).
+  await stage("empty-true", async () => {
+    for (const proc of ["ingest.candidate.list", "ingest.artifact.list"]) {
+      await page.route(`**/trpc/*${proc}*`, (route) =>
+        changeAnswer(route, (data) => {
+          if (Array.isArray(data.items)) {
+            data.items = [];
+            data.nextCursor = null;
+          }
+        }),
+      );
+    }
+    try {
+      await shootUrl(page, "upload-true-empty", "/ingest", () => page.locator("main#main h1").first().waitFor());
+    } finally {
+      for (const proc of ["ingest.candidate.list", "ingest.artifact.list"]) await page.unroute(`**/trpc/*${proc}*`);
+    }
+  });
+
+  // Reading with progress: the rows are held back on their way to the server, so "Sending N of M rows" stays on screen.
+  await stage("reading-progress", async () => {
+    const big = (tag: string) => Buffer.from([`Rp series ${tag},Rp profile ${tag},Rp low ${tag} kg/12ft,Rp high ${tag} kg/12ft`, ...Array.from({ length: 6000 }, (_, i) => `Z1,RP${tag}${i},1.1,1.4`)].join("\n"));
+    await page.route("**/trpc/*ingest.artifact.putRows*", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 6_000));
+      await route.continue().catch(() => undefined);
+    });
+    try {
+      await shootLiveModes("upload-reading-progress", LIVE_MODES, async (m) => {
+        await page.goto("/ingest");
+        const name = `progress-${modeName(m)}-${STAMP}.csv`;
+        await upload(page, name, big(`${STAMP}${modeName(m)}`));
+        await page.locator("li[data-step]", { hasText: name }).getByText(/\d+\s*(of|में से)\s*\d+/).first().waitFor({ timeout: 60_000 });
+      });
+    } finally {
+      await page.unroute("**/trpc/*ingest.artifact.putRows*");
+    }
+  });
+
+  // Checking rows: the dry run is held back, so the import shows "Checking rows" with its progress.
+  await stage("checking-rows", async () => {
+    await page.route("**/trpc/*ingest.dryRun.step*", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 8_000));
+      await route.continue().catch(() => undefined);
+    });
+    try {
+      for (const m of LIVE_MODES) {
+        await setMode(page, m);
+        await page.goto("/ingest");
+        const name = `checking-${modeName(m)}-${STAMP}.csv`;
+        await upload(page, name, dieCsv(`K${STAMP.slice(0, 3)}`, [`${STAMP}K${m.width}${m.locale}`, `${STAMP}L${m.width}${m.locale}`]));
+        await readDone(page, name);
+        await page.locator("li[data-step]", { hasText: name }).getByRole("link", { name: /^(Review|देखें)/ }).click();
+        await page.getByTestId("decision-bar").waitFor({ timeout: 60_000 });
+        await expect(bar(page)).toHaveAttribute("data-state", "processing", { timeout: 20_000 });
+        await snap(page, "review-checking-rows", m);
+        await page.goto("/ingest");
+        await page.waitForTimeout(500);
+        await snap(page, "list-checking-rows", m);
+      }
+    } finally {
+      await page.unroute("**/trpc/*ingest.dryRun.step*");
+    }
+  });
+
+  // Could not read: bytes that are not a workbook.
+  await stage("could-not-read", async () => {
+    await shootLiveModes("upload-could-not-read", LIVE_MODES, async (m) => {
+      await page.goto("/ingest");
+      const name = `broken-${modeName(m)}-${STAMP}.xlsx`;
+      await upload(page, name, Buffer.from(`not a workbook ${STAMP}${modeName(m)} ${"x".repeat(200)}`), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      await page.getByText(/could not read this file|नहीं पढ़ सका|नहीं पढ़ पाया/).first().waitFor({ timeout: 60_000 });
+    });
+  });
+
+  // Near fit: the review page asks to check the layout and says what changed.
+  await stage("near-fit-review", async () => {
+    const renamedHeader = DIE_HEADER.replace("Notes", `Remarks ${STAMP}b`);
+    for (const m of LIVE_MODES) {
+      await setMode(page, m);
+      await page.goto("/ingest");
+      const name = `nearfit-${modeName(m)}-${STAMP}.csv`;
+      await upload(page, name, dieCsv(`N${STAMP.slice(0, 3)}`, [`${STAMP}N${m.width}${m.locale}`], renamedHeader));
+      await step(page).getByText(/^(This looks like|यह .+ जैसा लगता है)/).waitFor({ timeout: 60_000 });
+      await step(page).getByRole("button", { name: /^(Use row \d+|लाइन \d+ लें)$/ }).click();
+      await readDone(page, name);
+      await page.goto(await reviewHref(page, name));
+      await expect(bar(page)).toHaveAttribute("data-state", "needs_confirm", { timeout: 60_000 });
+      await snap(page, "review-near-fit", m);
+    }
+  });
+
+  // The mapping editor open on a sheet that needs a layout.
+  await stage("editor-open", async () => {
+    const name = `editor-${STAMP}.csv`;
+    const h = [`Ed series ${STAMP}`, `Ed profile ${STAMP}`, `Ed low ${STAMP} kg/12ft`, `Ed high ${STAMP} kg/12ft`];
+    await setMode(page, ALL_MODES[0]!);
+    await page.goto("/ingest");
+    await upload(page, name, Buffer.from([h.join(","), `${series},${STAMP}E,1.2,1.5`].join("\n")));
+    await readDone(page, name);
+    const href = await reviewHref(page, name);
+    await shootUrl(page, "review-mapping-editor", href, async () => {
+      await expect(bar(page)).toBeVisible({ timeout: 30_000 });
+      await bar(page).getByRole("button", { name: /^(Map columns myself|कॉलम खुद मिलाएं)$/ }).click();
+      await page.getByRole("combobox").first().waitFor({ timeout: 30_000 });
+    });
+  });
+
+  // Bot on (a stub stands in for the model): the offer, "could not map this sheet", and today's limit used up.
+  await stage("bot-on", async () => {
+    const h = (t: string) => [`Bt series ${t}`, `Bt profile ${t}`, `Bt low ${t} kg/12ft`, `Bt high ${t} kg/12ft`];
+    const gave = { result: { kind: "no_target", reason: "Looks like a list of names" } };
+    const goTo = async (m: Mode, tag: string) => {
+      await setMode(page, m);
+      await page.goto("/ingest");
+      const name = `bot-${tag}-${modeName(m)}-${STAMP}.csv`;
+      await upload(page, name, Buffer.from([h(`${tag}${STAMP}${modeName(m)}`).join(","), `${series},${STAMP}B,1.2,1.5`].join("\n")));
+      await readDone(page, name);
+      await page.goto(await reviewHref(page, name));
+      await expect(bar(page)).toBeVisible({ timeout: 30_000 });
+    };
+    await fakeBot(page, { action: "install", responses: [gave, gave, gave, gave] });
+    try {
+      for (const m of LIVE_MODES) {
+        await goTo(m, "offer");
+        await expect(bar(page).getByRole("button", { name: /^(Map columns for me|orrn से कॉलम मिलवाएं)$/ })).toBeVisible({ timeout: 30_000 });
+        await snap(page, "review-bot-offer", m);
+      }
+      for (const m of LIVE_MODES) {
+        await goTo(m, "gave");
+        await bar(page).getByRole("button", { name: /^(Map columns for me|orrn से कॉलम मिलवाएं)$/ }).click();
+        await page.getByText(/orrn could not map this sheet|कॉलम नहीं मिला सका/).first().waitFor({ timeout: 120_000 });
+        await snap(page, "review-bot-could-not-map", m);
+      }
+      // Today's limit used up: the model call answers "capped" and hands over.
+      await fakeBot(page, { action: "clear" });
+      await fakeBot(page, { action: "install", responses: [gave] });
+      await page.route("**/trpc/*ingest.shape.make*", (route) => changeAnswer(route, (data) => Object.assign(data, { outcome: "capped", skipReason: null, next: "manual" })));
+      try {
+        for (const m of LIVE_MODES) {
+          await goTo(m, "cap");
+          await bar(page).getByRole("button", { name: /^(Map columns for me|orrn से कॉलम मिलवाएं)$/ }).click();
+          await page.getByText(/used today's limit|आज की सीमा पूरी/).first().waitFor({ timeout: 60_000 });
+          await snap(page, "review-bot-limit-used", m);
+        }
+      } finally {
+        await page.unroute("**/trpc/*ingest.shape.make*");
+      }
+    } finally {
+      await fakeBot(page, { action: "clear" });
+    }
+  });
+
+  // The merge page while it runs, after a stop ("Merge the rest"), and while another tab runs it. The run of one real merge is
+  // changed on its way to the page, as for the held merge above.
+  await stage("merge-states", async () => {
+    await setMode(page, ALL_MODES[0]!);
+    const names = [`ms-a-${STAMP}.csv`, `ms-b-${STAMP}.csv`];
+    for (const [i, n] of names.entries()) {
+      await page.goto("/ingest");
+      await upload(page, n, dieCsv(`T${STAMP.slice(0, 3)}`, [`${STAMP}T${i}`, `${STAMP}U${i}`]));
+      await readDone(page, n);
+    }
+    for (const n of names) {
+      await page.goto(await reviewHref(page, n));
+      await bar(page).getByRole("button", { name: "Approve", exact: true }).click({ timeout: 60_000 });
+      await expect(bar(page)).toHaveAttribute("data-state", "approved", { timeout: 30_000 });
+    }
+    await page.goto("/ingest");
+    await page.getByRole("button", { name: /^Merge \d+ approved imports?$/ }).click();
+    await page.getByRole("dialog").getByRole("button", { name: /^Merge \d+ approved imports?$/ }).click();
+    await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 120_000 });
+    await page.waitForTimeout(3000);
+    const url = new URL(page.url()).pathname;
+    const asRun = (state: "running" | "stopped") => async (route: import("@playwright/test").Route) => {
+      const { res, body } = await trpcBody(route);
+      // The run comes in a batch with the session query: find the element that holds it.
+      for (const item of Array.isArray(body) ? body : [body]) {
+        const data = dataOf(item) as { candidates?: Record<string, unknown>[] } | undefined;
+        if (data && Array.isArray(data.candidates) && data.candidates.length > 1) {
+          Object.assign(data, { state, chunksTotal: 4, chunksWritten: 2, chunksFailed: 0, finishedAt: null });
+          data.candidates.forEach((c, i) => Object.assign(c, i === 0 ? { state: "merged" } : { state: "merging", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 }));
+        }
+      }
+      await route.fulfill({ response: res, json: body }).catch(() => undefined);
+    };
+    // Held at "Part 3 of 4": the step answers "still running" slowly, so the page stays on the running view.
+    const stillRunning = async (route: import("@playwright/test").Route) => {
+      const count = (() => { try { const data = JSON.parse(route.request().postData() ?? "{}"); return Array.isArray(data) ? data.length : 1; } catch { return 1; } })();
+      const out = { state: "running", cursor: 2, chunksTotal: 4, chunksWritten: 2, chunksFailed: 0 };
+      const ok = { result: { data: wrapped ? { json: out } : out } };
+      await new Promise((resolve) => setTimeout(resolve, 3_000));
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify(Array.from({ length: count }, () => ok)) }).catch(() => undefined);
+    };
+    const elsewhere = async (route: import("@playwright/test").Route) => {
+      const count = (() => { try { const data = JSON.parse(route.request().postData() ?? "{}"); return Array.isArray(data) ? data.length : 1; } catch { return 1; } })();
+      const error = { message: "Another tab holds this merge.", code: -32009, data: { code: "CONFLICT", httpStatus: 409, path: "ingest.merge.step" } };
+      const err = { error: wrapped ? { json: error } : error };
+      await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify(Array.from({ length: count }, () => err)) }).catch(() => undefined);
+    };
+    await page.route("**/trpc/*ingest.merge.get*", asRun("running"));
+    await page.route("**/trpc/*ingest.merge.step*", stillRunning);
+    await shootUrl(page, "merge-running", url, () => page.getByText(/Part \d+ of \d+|हिस्सा \d+/).first().waitFor({ timeout: 30_000 }));
+    await page.unroute("**/trpc/*ingest.merge.step*");
+    await page.route("**/trpc/*ingest.merge.step*", elsewhere);
+    await shootUrl(page, "merge-running-other-tab", url, () => page.getByText(/running in another tab|दूसरे टैब/).first().waitFor({ timeout: 30_000 }));
+    await page.unroute("**/trpc/*ingest.merge.step*");
+    await page.unroute("**/trpc/*ingest.merge.get*");
+    await page.route("**/trpc/*ingest.merge.get*", asRun("stopped"));
+    await shootUrl(page, "merge-stopped", url, () => page.getByRole("button", { name: /^(Merge the rest|बाकी मर्ज करें)/ }).waitFor({ timeout: 30_000 }));
+    await page.unroute("**/trpc/*ingest.merge.get*");
+  });
+
+  // The owner's side menu (20 links): at 1280x900 and 1280x720 the whole list shows; the number of links and whether the menu
+  // scrolls are measured and logged.
+  await stage("side-menu-owner", async () => {
+    await signInViaApi(page, "owner");
+    for (const height of [900, 720]) {
+      await page.setViewportSize({ width: 1280, height });
+      await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+      await page.goto("/ingest");
+      await page.locator("main#main h1").first().waitFor();
+      await page.waitForTimeout(800);
+      const nav = page.getByRole("navigation", { name: /^(Main|मुख्य)/ }).first();
+      const links = await nav.getByRole("link").count();
+      const box = await nav.evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }));
+      const rows = await nav.getByRole("link").evaluateAll((els) => els.slice(0, 3).map((e) => Math.round(e.getBoundingClientRect().height)));
+      console.log(`SIDE-MENU owner 1280x${height}: ${links} links, row height ${rows.join("/")} px, scrollHeight ${box.scroll} vs clientHeight ${box.client}`);
+      await page.screenshot({ path: `${OUT}/side-menu-owner-1280x${height}.png`, fullPage: false });
+    }
+    await signInViaApi(page, "admin");
   });
 });
