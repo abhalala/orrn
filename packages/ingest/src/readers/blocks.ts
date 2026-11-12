@@ -317,6 +317,7 @@ export function checkHintShape(h: BlockHints): void {
   if (!optional(h.firstDataRow)) throw new HintError("hint_out_of_range", "the first data row is not a row number");
   if (h.lastDataRow !== null && !optional(h.lastDataRow)) throw new HintError("hint_out_of_range", "the last data row is not a row number");
   if (!optional(h.page) || !optional(h.lastPage)) throw new HintError("hint_out_of_range", "the page is not a page number");
+  if (h.skipRows !== undefined && (!Array.isArray(h.skipRows) || !h.skipRows.every(whole))) throw new HintError("hint_out_of_range", "a skip row is not a row number");
 }
 
 /** The first raw row of a block's region: its title, or its header. Not `preview[0]`, which may show rows above. */
@@ -360,23 +361,24 @@ export function finishShape(headersIn: readonly string[], data: readonly string[
 }
 
 /**
- * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7, rule 5.2).
- * The rest of the sheet keeps the guess, so a hint for one table does not swallow or drop another:
- * - A hinted block without a last data row runs to the last filled row before the next hinted header, or before the
- *   end of the sheet. Blank rows never end it, however many (B5; round 6, M-R5-1): the person said where the table
- *   starts, so every row below it is a row of it until the next table they named. Nothing after the header is left
- *   outside every block.
- * - A guessed block outside every hinted region stays as guessed. One whose header sits above a hinted header and
- *   whose rows run into it (the guess joined two tables) keeps its rows above the hinted region, when there are two
- *   or more and a column of numbers or dates; otherwise those rows are the hinted block's title.
- * - Rows between blocks that no guessed block takes are the title of the hinted block below them (each listed as
- *   `kept_as_title`), else `after_last_row` of the hinted block above, else sheet warnings.
+ * Follow the hints exactly: no header search, no title test, no table split inside a hinted region (R3-7). The rest
+ * of the sheet keeps the guess, so a hint for one table does not swallow or drop another (rule 6.1):
+ * - A hinted block without a last data row ends at the first fully blank row after its first data row, or before the
+ *   next hinted header, or at the end of the sheet. It never runs across a blank row on its own. A given last data
+ *   row is followed exactly, across blank rows; `skipRows` leaves rows of that range out (as blank rows, listed).
+ * - Above the first hinted header and below each hinted block, the rows are guessed again from there, as if the sheet
+ *   started there, so each table below gets its own guess and preview. A guessed block whose header sits above the
+ *   next hinted header and whose rows run into it keeps its rows above the hinted region, when there are two or more
+ *   and a column of numbers or dates; otherwise those rows are the hinted block's title (`kept_as_title`).
+ * - A row no block takes, below some block: rows that look like data (two or more cells, not all text) form a block
+ *   of their own (the first of them is its guessed header), so the person can join it to the table above. Other rows
+ *   (a note, a footer) are `after_last_row` of the nearest block above. Only rows above every block are sheet
+ *   warnings (`not_placed`).
  */
 function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], sheetName: string | null): SheetRead {
   const n = rows.length;
   for (const h of hintsIn) checkHintShape(h);
   const hints = [...hintsIn].sort((a, b) => a.headerRow - b.headerRow);
-  const full = guessRange(rows, 0, n, sheetName).blocks;
   const regionOf = (b: ReadBlock) => [regionStartOf(b), Math.max(b.guess.lastDataRow ?? -1, b.guess.headerRow + b.headerRows - 1)] as const;
   type Span = { hint: BlockHints; h: number; headerRows: 1 | 2; first: number; last: number };
   const spans: Span[] = [];
@@ -395,62 +397,80 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     // A first data row the person named must be a row of the sheet (H12). With none named, a header on the last row
     // is a block with no rows.
     if (hint.firstDataRow != null && first >= n) throw new HintError("hint_out_of_range", `first data row ${first} is not in the sheet`);
-    const last = hint.lastDataRow ?? Math.max(first - 1, lastFilled(rows as string[][], first, next ? next.headerRow - 1 : n - 1));
+    let last: number;
+    if (hint.lastDataRow != null) last = hint.lastDataRow;
+    else {
+      // Rule 6.1: the first fully blank row ends the block.
+      const limit = next ? next.headerRow - 1 : n - 1;
+      last = first;
+      while (last <= limit && nonBlank(rows[last]!) > 0) last++;
+      last--;
+    }
     if (last < first - 1 || last >= n) throw new HintError("hint_out_of_range", `last data row ${last} is not in the sheet`);
     if (next && next.headerRow <= last) throw new HintError("hint_overlap", `header row ${next.headerRow} is inside the block above`);
+    for (const r of hint.skipRows ?? []) if (r < first || r > last) throw new HintError("hint_out_of_range", `skip row ${r} is not a data row of the block`);
     spans.push({ hint, h, headerRows, first, last });
     prevLast = last;
   });
 
-  // The guessed blocks that stay: outside every hinted region, or cut short above one.
-  const keptGuess: ReadBlock[] = [];
-  for (const b of full) {
-    const [start, end] = regionOf(b);
-    const hit = spans.find((sp) => start <= sp.last && end >= sp.h);
-    if (!hit) {
-      keptGuess.push(b);
-      continue;
-    }
-    const dataFrom = b.guess.firstDataRow!;
-    if (b.guess.headerRow + b.headerRows - 1 >= hit.h || dataFrom >= hit.h) continue;
-    const cut = lastFilled(rows as string[][], dataFrom, hit.h - 1);
-    const data = rows.slice(dataFrom, cut + 1);
-    // A table: two or more rows and a column of numbers or dates. Key and value lines ("Phone | 98...") are a title.
-    const filled = data.filter((r) => nonBlank(r) > 0);
-    const width = filled.reduce((w, r) => Math.max(w, r.length), 0);
-    const numberColumn = Array.from({ length: width }, (_, c) => inferKind(filled.map((r) => r[c] ?? ""))).some((k) => k === "int" || k === "decimal" || k === "date");
-    if (filled.length < 2 || !numberColumn) continue;
-    const top = rows[b.guess.headerRow]!;
-    const shaped = finishShape(b.headerRows === 2 ? combineHeaders(top, rows[b.guess.headerRow + 1]!) : top, data);
-    const block: ReadBlock = { ...b, headers: shaped.headers, rows: shaped.rows, preview: previewRows(rows, start, hit.h, b.guess.headerRow, b.headerRows), guess: { ...b.guess, lastDataRow: cut } };
-    keptGuess.push(block);
-  }
-
   const blocks: ReadBlock[] = [];
   const warnings: RowWarning[] = [];
-  let prevHinted: ReadBlock | null = null;
-  /** Rows `from` to `to`: the guessed blocks there, and the first row of the hinted block's title below (or `to`). */
-  const gap = (from: number, to: number, before: boolean): number => {
+  /** Filled rows that no block takes and that are no title. */
+  const loose: number[] = [];
+
+  /**
+   * Rows `from` to `to` (exclusive), guessed again from `from`. Pushes the guessed blocks that start there, cut short
+   * above `span` when they run into it, and notes the rows they leave. Returns the first row of `span`'s title.
+   */
+  const gap = (from: number, to: number, span: Span | null): number => {
+    const guessed = guessRange(rows, from, span ? span.last + 1 : n, sheetName).blocks;
     const inKept = new Set<number>();
     let covered = from - 1;
-    for (const b of keptGuess) {
+    for (const b of guessed) {
       const [start, end] = regionOf(b);
       if (start < from || start >= to) continue;
-      blocks.push(b);
-      for (let r = start; r <= end; r++) inKept.add(r);
-      covered = Math.max(covered, end);
+      // Below a hinted block, a guessed table needs a data row under its header that does not read as names, as a
+      // guessed split does (C33). A footer such as "Prepared by | Checked by" has none: its rows go with the block
+      // above, or form a block when they look like data.
+      if (from > 0 && spans.some((sp) => sp.last + 1 === from)) {
+        const under = rows.slice(b.guess.firstDataRow!, (b.guess.lastDataRow ?? -1) + 1).find((r) => nonBlank(r) > 0);
+        if (!under || isHeaderLike(under)) continue;
+      }
+      let keep: ReadBlock | null = b;
+      if (span && end >= span.h) {
+        keep = null;
+        const dataFrom = b.guess.firstDataRow!;
+        if (b.guess.headerRow + b.headerRows - 1 < span.h && dataFrom < span.h) {
+          const cut = lastFilled(rows as string[][], dataFrom, span.h - 1);
+          const data = rows.slice(dataFrom, cut + 1);
+          // A table: two or more rows and a column of numbers or dates. Key and value lines ("Phone | 98...") are a title.
+          const filled = data.filter((r) => nonBlank(r) > 0);
+          const width = filled.reduce((w, r) => Math.max(w, r.length), 0);
+          const numberColumn = Array.from({ length: width }, (_, c) => inferKind(filled.map((r) => r[c] ?? ""))).some((k) => k === "int" || k === "decimal" || k === "date");
+          if (filled.length >= 2 && numberColumn) {
+            const top = rows[b.guess.headerRow]!;
+            const shaped = finishShape(b.headerRows === 2 ? combineHeaders(top, rows[b.guess.headerRow + 1]!) : top, data);
+            keep = { ...b, headers: shaped.headers, rows: shaped.rows, preview: previewRows(rows, start, span.h, b.guess.headerRow, b.headerRows), guess: { ...b.guess, lastDataRow: cut } };
+          }
+        }
+      }
+      if (!keep) continue;
+      blocks.push(keep);
+      const [, keptEnd] = regionOf(keep);
+      for (let r = start; r <= keptEnd; r++) inKept.add(r);
+      covered = Math.max(covered, keptEnd);
     }
     for (let r = from; r < to; r++) {
-      if (inKept.has(r) || nonBlank(rows[r]!) === 0 || (before && r > covered)) continue;
-      if (prevHinted) prevHinted.warnings.push({ code: "after_last_row", row: r });
-      else warnings.push({ code: "not_placed", row: r });
+      if (inKept.has(r) || nonBlank(rows[r]!) === 0 || (span && r > covered)) continue;
+      loose.push(r);
     }
-    return before ? covered + 1 : to;
+    return span ? covered + 1 : to;
   };
 
   let from = 0;
-  for (const { hint, h, headerRows, first, last } of spans) {
-    const titleFrom = gap(from, h, true);
+  for (const span of spans) {
+    const { hint, h, headerRows, first, last } = span;
+    const titleFrom = gap(from, h, span);
     let start = h;
     for (let r = titleFrom; r < h; r++) {
       if (nonBlank(rows[r]!) > 0) {
@@ -467,9 +487,11 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
     }
     const headers = headerRows === 2 ? combineHeaders(rows[h]!, rows[h + 1]!) : rows[h]!;
     for (let r = h + headerRows; r < first; r++) if (nonBlank(rows[r]!) > 0) blockWarnings.push({ code: "skipped_by_hint", row: r });
+    const skip = new Set(hint.skipRows ?? []);
+    for (const r of [...skip].sort((x, y) => x - y)) blockWarnings.push({ code: "skipped_by_hint", row: r });
     const end = lastFilled(rows as string[][], first, last);
-    const shaped = finishShape(headers, rows.slice(first, end + 1));
-    const block: ReadBlock = {
+    const shaped = finishShape(headers, rows.slice(first, end + 1).map((r, i) => (skip.has(first + i) ? [] : r)));
+    blocks.push({
       sheetName,
       title: titleParts.length > 0 ? titleParts.join(" ") : null,
       headerRow: h - start,
@@ -482,12 +504,54 @@ function readByHints(rows: readonly string[][], hintsIn: readonly BlockHints[], 
       hints: { ...hint },
       warnings: blockWarnings,
       doubts: [],
-    };
-    blocks.push(block);
-    prevHinted = block;
+    });
     from = last + 1;
   }
-  gap(from, n, false);
+  gap(from, n, null);
+
+  // Rows no block takes: rows that look like data form blocks of their own, other rows go with the block above.
+  blocks.sort((x, y) => regionStartOf(x) - regionStartOf(y));
+  const above = (r: number) => {
+    let at: ReadBlock | null = null;
+    for (const b of blocks) if (regionStartOf(b) < r) at = b;
+    return at;
+  };
+  const looksLikeData = (r: number) => nonBlank(rows[r]!) >= 2 && textShare(rows[r]!) < 1;
+  loose.sort((x, y) => x - y);
+  const extra: ReadBlock[] = [];
+  for (let k = 0; k < loose.length; k++) {
+    const r = loose[k]!;
+    const owner = above(r);
+    if (!owner) {
+      warnings.push({ code: "not_placed", row: r });
+      continue;
+    }
+    if (!looksLikeData(r)) {
+      owner.warnings.push({ code: "after_last_row", row: r });
+      continue;
+    }
+    // A run of such rows with nothing between: the first is the guessed header, the rest its rows.
+    let e = r;
+    while (k + 1 < loose.length && loose[k + 1] === e + 1 && looksLikeData(e + 1)) e = loose[++k]!;
+    const shaped = finishShape(rows[r]!, rows.slice(r + 1, e + 1));
+    extra.push({
+      sheetName,
+      title: null,
+      headerRow: 0,
+      headerRows: 1,
+      headers: shaped.headers,
+      rows: shaped.rows,
+      firstDataSheetRow: r + 1,
+      preview: previewRows(rows, r, e + 1, r, 1),
+      guess: { headerRow: r, headerRows: 1, firstDataRow: r + 1, lastDataRow: e },
+      hints: null,
+      warnings: [],
+      doubts: [],
+    });
+  }
+  for (const b of extra) blocks.push(b);
+  blocks.sort((x, y) => regionStartOf(x) - regionStartOf(y));
+  for (const b of blocks) b.warnings.sort((x, y) => x.row - y.row);
   return { blocks, warnings };
 }
 
@@ -636,7 +700,23 @@ export function readSheet(matrix: readonly (readonly MatrixCell[])[], opts: Find
   const rows = matrix.map((r) => r.map(toCellText));
   const sheetName = opts.sheetName ?? null;
   const read = opts.hints && opts.hints.length > 0 ? readByHints(rows, opts.hints, sheetName) : guessRange(rows, 0, rows.length, sheetName, opts.noHeaderGuess ?? false);
-  return { blocks: read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows) })), warnings: read.warnings };
+  return { blocks: withFollows(rows, read.blocks.map((b) => ({ ...b, width: regionWidth(b.headers, b.rows) }))), warnings: read.warnings };
+}
+
+/**
+ * Rule 6.1: a block that starts right after the block before it, with only blank rows between, carries
+ * `follows: { block, gapRows }`; every other block carries null. Blocks are in row order.
+ */
+export function withFollows(rows: readonly string[][], blocks: ReadBlock[]): ReadBlock[] {
+  return blocks.map((b, i) => {
+    if (i === 0) return { ...b, follows: null };
+    const prev = blocks[i - 1]!;
+    const prevEnd = Math.max(prev.guess.headerRow + prev.headerRows - 1, prev.guess.lastDataRow ?? -1);
+    const start = regionStartOf(b);
+    if (start <= prevEnd) return { ...b, follows: null };
+    for (let r = prevEnd + 1; r < start; r++) if (nonBlank(rows[r]!) > 0) return { ...b, follows: null };
+    return { ...b, follows: { block: i - 1, gapRows: start - prevEnd - 1 } };
+  });
 }
 
 /** The widest of `headers` and `rows`, each counted to its last filled cell (round 6, M-R5-2). */

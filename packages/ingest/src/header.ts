@@ -11,7 +11,7 @@ import { headerKey, inferKinds, isUnitOnlyName, normalizeHeaders, usedWidth, typ
 import { candidatesFor, recipeColumns, type FitCandidate, type LearnedHole } from "./fit";
 import { cellKind } from "./cells";
 import { combineHeaders, isHeaderLike, regionWidth } from "./readers/blocks";
-import type { PreviewRow } from "./readers/types";
+import type { PreviewRow, ReadBlock } from "./readers/types";
 import type { IngestTarget } from "./states";
 
 /** What `chooseHeader` reads from a block: its preview and the reader's guess. A `ReadBlock` fits this shape. */
@@ -26,6 +26,10 @@ export type HeaderInput = {
   /** A whole block's names and rows. When given, the width is counted from them and `width` is not used. */
   headers?: readonly string[];
   rows?: readonly (readonly string[])[];
+  /** The header's position inside the block (`ReadBlock.headerRow`): the rows above it are its title. Default 0. */
+  headerRow?: number;
+  /** The block this one follows (`ReadBlock.follows`), for the two offers of rule 6.1. See `chooseHeaderInSheet`. */
+  above?: { headers: readonly string[]; rows: readonly (readonly string[])[] } | null;
 };
 
 /** The layouts to fit against. `learned`: the plant's approved layouts, newest first. `builtins`: default all of them. */
@@ -55,7 +59,20 @@ export type HeaderResemblance = {
 
 export type HeaderChoice =
   | { kind: "fits"; headerRow: number; headerRows: 1 | 2; fit: FitCandidate }
-  | { kind: "ask"; guess: HeaderPick; candidates: HeaderPick[]; resembles: HeaderResemblance | null };
+  | {
+      kind: "ask";
+      guess: HeaderPick;
+      candidates: HeaderPick[];
+      resembles: HeaderResemblance | null;
+      /**
+       * Rule 6.1, only for a block that follows another (`above` given): its first row has as many filled cells as
+       * the rows of the block above most often have, and is not all text, so it reads like data. Offer "It
+       * continues the table above" first.
+       */
+      continuesAbove: boolean;
+      /** Rule 6.1: the block's header row holds exactly the names of the block above. Offer "Same columns as the table above". */
+      sameColumnsAsAbove: boolean;
+    };
 
 /** A near fit counts only when this many of its columns carry a layout's column name exactly. */
 export const NEAR_NAMED_MIN = 2;
@@ -246,5 +263,41 @@ export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): Heade
   const looks = rest.filter((p) => isHeaderLike(p.cells.map((c) => c.trim())));
   const others = rest.filter((p) => !looks.includes(p));
   for (const p of [...looks, ...others]) add({ headerRow: p.row, headerRows: 1 });
-  return { kind: "ask", guess, candidates, resembles };
+  return { kind: "ask", guess, candidates, resembles, ...offers(input, guess) };
+}
+
+/** The two offers of rule 6.1. Exact tests only, no confidence. */
+function offers(input: HeaderInput, guess: HeaderPick): { continuesAbove: boolean; sameColumnsAsAbove: boolean } {
+  const no = { continuesAbove: false, sameColumnsAsAbove: false };
+  const above = input.above;
+  if (!above) return no;
+  const cellsAt = (row: number) => input.preview.find((p) => p.row === row && p.page === undefined)?.cells.map((c) => c.trim()) ?? null;
+  const trimEnd = (cells: readonly string[]) => cells.slice(0, lastFilledCell(cells) + 1);
+  // Continues: the block's first row against the most common number of filled cells in the rows above.
+  const first = cellsAt(guess.headerRow - (input.headerRow ?? 0));
+  const counts = new Map<number, number>();
+  for (const r of above.rows) {
+    const k = filled(r);
+    if (k > 0) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  let mode = 0;
+  for (const [k, f] of counts) if (f > (counts.get(mode) ?? 0) || (f === counts.get(mode) && k > mode)) mode = k;
+  const continuesAbove = first !== null && mode > 0 && filled(first) === mode && !first.filter((c) => c !== "").every(isTextCell);
+  // Same columns: the block's header names equal the names above, exactly.
+  const names = input.headers ?? cellsAt(guess.headerRow);
+  const want = trimEnd(above.headers.map((c) => c.trim()));
+  const sameColumnsAsAbove = names !== null && want.length > 0 && sameCells(trimEnd(names.map((c) => c.trim())), want);
+  return { continuesAbove, sameColumnsAsAbove };
+}
+
+const sameCells = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+
+/**
+ * `chooseHeader` for block `index` of one sheet's blocks, with the block it follows (rule 6.1), so an "ask" carries
+ * the offers to join it to the table above.
+ */
+export function chooseHeaderInSheet(blocks: readonly ReadBlock[], index: number, holes: HeaderHoles = {}): HeaderChoice {
+  const b = blocks[index]!;
+  const up = b.follows ? blocks[b.follows.block] : undefined;
+  return chooseHeader({ ...b, above: up ? { headers: up.headers, rows: up.rows } : null }, holes);
 }

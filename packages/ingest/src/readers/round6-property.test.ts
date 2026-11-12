@@ -6,7 +6,8 @@
  *
  * 1. Wrong fits 0: `chooseHeader` never returns "fits" for a row that is not a true header, never through a layout that
  *    is not the true table's (a decoy), and never through a layout with fewer than two real names.
- * 2. Inexact hinted reads 0: with the right hints, every sheet and CSV read is exact, dates as the date written.
+ * 2. Inexact hinted reads 0: with the right hints, every sheet and CSV read is exact, dates as the date written. With
+ *    no last row a hinted block ends at the first blank row (rule 6.1, round 7); the rows below are counted by 3.
  * 3. Cells lost 0: every filled cell of the file is in a header, a data row (the same text), or a listed row.
  * 4. A known layout with an unnamed column filled only below the preview fits the same file again.
  *
@@ -172,10 +173,14 @@ function toFile(g: Gen): { matrix: MatrixCell[][]; text: string[][]; truths: Tru
     const last = matrix.length - 1;
     let width = headers.length;
     while (width > 0 && headers[width - 1] === "" && t.data.every((row) => (row[width - 1]?.text ?? "") === "")) width--;
+    // Round 7, rule 6.1: with no last row the hinted block ends at the first blank row; the rows below are in further
+    // blocks (the cell accounting checks they are not lost). With the last row it reads across blank rows.
+    const cutAt = g.noLast ? t.data.findIndex((row) => row.every((c) => c.text === "")) : -1;
+    const truthData = cutAt === -1 ? t.data : t.data.slice(0, cutAt);
     truths.push({
       hint: g.noLast ? { headerRow: h, headerRows, firstDataRow: first } : { headerRow: h, headerRows, firstDataRow: first, lastDataRow: last },
       headers: headers.slice(0, width),
-      rows: t.data.map((row) => row.slice(0, width).map((c) => c.text)),
+      rows: truthData.map((row) => row.slice(0, width).map((c) => c.text)),
       key: headerKey(normalizeHeaders(headers.slice(0, width))),
       headerRows,
     });

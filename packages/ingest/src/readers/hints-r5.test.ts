@@ -16,31 +16,36 @@ const S2 = [
 ];
 
 describe("5.2: hints are exact across blank rows", () => {
-  test("s2: a text-only row after a blank is a row of the hinted block", () => {
+  // Round 7, rule 6.1 replaced rule 5.2 for a hint with no last row: the block ends at the first blank row. These
+  // tests pinned one block across a blank row; they now pin that the rows below are a block that follows it, and
+  // that the hint with its last row (the web's join) reads every row exactly, as rule 5.2 wanted.
+  test("s2: rows after a blank follow in their own block; the join with the last row reads them all", () => {
     const r = readSheet(S2, { hints: [{ headerRow: 0 }] });
-    expect(r.blocks.length).toBe(1);
-    const b = r.blocks[0]!;
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 2], [4, 2]]);
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    expect(r.warnings).toEqual([]);
+    const j = readSheet(S2, { hints: [{ headerRow: 0, lastDataRow: 6 }] });
+    expect(j.blocks.length).toBe(1);
+    const b = j.blocks[0]!;
     expect(b.headers).toEqual(ORDER);
     expect(b.rows.map((x) => x[0] ?? "")).toEqual(["Om Metals", "Mehta", "", "Shree Ganesh", "Jay Ambe", "Patel"]);
     expect(b.guess.lastDataRow).toBe(6);
-    expect(r.warnings).toEqual([]);
+    expect(j.warnings).toEqual([]);
   });
 
-  test("a header-like row after one blank row is still a row of the hinted block", () => {
+  test("a header-like row after one blank row is a second table, never swallowed (B-R6-1)", () => {
     const m = [["Party", "Kg"], ["Om", "12"], [], ["Section", "Kg"], ["T4012", "3.5"]];
     const r = readSheet(m, { hints: [{ headerRow: 0 }] });
-    expect(r.blocks.length).toBe(1);
-    expect(r.blocks[0]!.rows).toEqual([["Om", "12"], [], ["Section", "Kg"], ["T4012", "3.5"]]);
+    expect(r.blocks.map((b) => [b.headers, b.rows])).toEqual([[["Party", "Kg"], [["Om", "12"]]], [["Section", "Kg"], [["T4012", "3.5"]]]]);
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    // The join, when the person says it is one table, still reads every row.
+    expect(readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 4 }] }).blocks[0]!.rows).toEqual([["Om", "12"], [], ["Section", "Kg"], ["T4012", "3.5"]]);
   });
 
-  // Round 6 (M-R5-1): blank rows never end a hinted block with no last row. This test pinned that two blank rows
-  // end the region; it now pins that the rows below are rows of the hinted block, and that a hint on the second
-  // table (or a given last row) is how the person keeps the second table apart.
-  test("blank rows do not end the region; a hint on the table below keeps it apart", () => {
+  test("two blank rows end the region too; a hint on the table below keeps it hinted", () => {
     const m = [["Party", "Kg"], ["Om", "12"], [], [], ["Section", "Kg"], ["T4012", "3.5"], ["T4013", "4.5"]];
     const one = readSheet(m, { hints: [{ headerRow: 0 }] });
-    expect(one.blocks.length).toBe(1);
-    expect(one.blocks[0]!.rows.length).toBe(6);
+    expect(one.blocks.map((b) => [b.guess.headerRow, b.rows.length, b.hints !== null])).toEqual([[0, 1, true], [4, 2, false]]);
     const r = readSheet(m, { hints: [{ headerRow: 0 }, { headerRow: 4 }] });
     expect(r.blocks.map((b) => b.headers)).toEqual([["Party", "Kg"], ["Section", "Kg"]]);
     expect(r.blocks[0]!.rows).toEqual([["Om", "12"]]);
@@ -49,10 +54,15 @@ describe("5.2: hints are exact across blank rows", () => {
     expect(l.blocks[1]!.hints).toBeNull();
   });
 
-  test("a given last row is followed exactly, across blank rows", () => {
+  // Round 7, rule 6.1: rows after a given last row that look like data are a block of their own, never only a
+  // warning. This pinned them as `after_last_row`; it now pins the block that follows.
+  test("a given last row is followed exactly, across blank rows; the rows after it are a block", () => {
     const r = readSheet(S2, { hints: [{ headerRow: 0, lastDataRow: 4 }] });
     expect(r.blocks[0]!.rows.map((x) => x[0] ?? "")).toEqual(["Om Metals", "Mehta", "", "Shree Ganesh"]);
-    expect(r.blocks[0]!.warnings.map((w) => [w.code, w.row])).toEqual([["after_last_row", 5], ["after_last_row", 6]]);
+    expect(r.blocks[0]!.warnings).toEqual([]);
+    expect(r.blocks.length).toBe(2);
+    expect([r.blocks[1]!.guess.headerRow, r.blocks[1]!.guess.lastDataRow]).toEqual([5, 6]);
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 0 });
   });
 });
 
