@@ -68,10 +68,13 @@ describe("5.1: the normaliser", () => {
   // of those signs or count words normalises as before, and that the changed names are exactly the ones the owner
   // named.
   // Round 7, rule 6.2 also keeps < and >, makes "/" a separator, and joins single letters split by dots ("P.O.").
+  // Round 8, rule 8.2 also reads quotes after a number as ft and in, drops "per" between words, joins single letters
+  // split by spaces, and joins a number to the unit word after it; such strings are set aside too.
   const changed = (s: string) =>
-    /[+%#<>/-]/.test(s) ||
-    /(?<![a-z0-9])(?:pc|pieces?|nos|kilograms?)(?![a-z0-9])/.test(s.normalize("NFKC").toLowerCase()) ||
-    /(?<![a-z0-9])[a-z]\.[a-z](?![a-z0-9])/i.test(s);
+    /[+%#<>/'"-]/.test(s) ||
+    /(?<![a-z0-9])(?:pc|pieces?|nos|kilograms?|per)(?![a-z0-9])/.test(s.normalize("NFKC").toLowerCase()) ||
+    /(?<![a-z0-9])[a-z][^a-z0-9]+[a-z](?![a-z0-9])/i.test(s) ||
+    /\d[^a-z0-9]+(?:ft|feet|foot|in|mm|cm|m|mtrs?|meters?|metres?|kgs?|kilos?|g|gm|mt|ton)(?![a-z0-9])/i.test(s);
   test("Latin text with no sign and no count word normalises exactly as before (5,000 random ASCII names and every unit form)", () => {
     const r = rng(7);
     const ascii = range(0x20, 0x7e);
@@ -83,13 +86,13 @@ describe("5.1: the normaliser", () => {
       expect(normalizeHeader(s)).toBe(before(s));
     }
     expect(kept).toBeGreaterThan(1500);
-    for (const s of ["Wt (Kgs)", "Kg.", "Rs.", "₹ Rate", "Length 12'", "Pcs.", "Bundle No.", "S.No", "Party Name:", "Sr-No", "Sr. No."]) {
+    for (const s of ["Wt (Kgs)", "Kg.", "Rs.", "₹ Rate", "Pcs.", "Bundle No.", "S.No", "Party Name:", "Sr-No", "Sr. No."]) {
       expect(normalizeHeader(s)).toBe(before(s));
     }
     // The names round 6 changes, and how.
-    const names = ["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)", "Min weight (kg/12ft)", "P.O. No", ">12ft"];
-    expect(names.map(normalizeHeader)).toEqual(["no", "pcs", "tol +", "rate %", "order #", "kg -", "min weight kg 12ft", "po no", "> 12ft"]);
-    expect(names.map(before)).toEqual(["pcs", "pieces", "tol", "rate", "order", "kg", "min weight kg/12ft", "p o no", "12ft"]);
+    const names = ["NOS", "Pieces", "Tol +", "Rate %", "Order #", "Kg (-)", "Min weight (kg/12ft)", "P.O. No", ">12ft", "Length 12'"];
+    expect(names.map(normalizeHeader)).toEqual(["no", "pcs", "tol +", "rate %", "order #", "kg -", "min weight kg 12ft", "po no", "> 12ft", "length 12ft"]);
+    expect(names.map(before)).toEqual(["pcs", "pieces", "tol", "rate", "order", "kg", "min weight kg/12ft", "p o no", "12ft", "length 12 ft"]);
   });
 
   // Round 7 (item 5): the joiners U+200C and U+200D are kept, as in cell text; other format characters are dropped.

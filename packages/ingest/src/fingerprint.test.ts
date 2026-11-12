@@ -9,7 +9,8 @@ describe("normalizeHeader", () => {
     expect(normalizeHeader("Min Weight (Kgs/12ft)")).toBe("min weight kg 12ft");
     expect(normalizeHeader("Length (Mtrs)")).toBe("length m");
     expect(normalizeHeader("Length (feet)")).toBe("length ft");
-    expect(normalizeHeader("Cut length 12'")).toBe("cut length 12 ft");
+    // Round 8, rule 8.2: a prime after a number is ft and joins it. This pinned "cut length 12 ft".
+    expect(normalizeHeader("Cut length 12'")).toBe("cut length 12ft");
     // Round 6 (owner's decision): "Nos" is its own count word, no longer folded into "pcs". These two lines pinned
     // the old fold; they now pin the new rule.
     expect(normalizeHeader("Qty (Nos)")).toBe("qty no");
