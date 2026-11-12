@@ -28,6 +28,8 @@ let renderToStaticMarkup: typeof import("react-dom/server").renderToStaticMarkup
 let CandidateBoard: typeof import("./candidate-board").CandidateBoard;
 let UploadStrip: typeof import("./upload-strip").UploadStrip;
 let StagedFiles: typeof import("./upload-strip").StagedFiles;
+let UnfinishedFiles: typeof import("./upload-strip").UnfinishedFiles;
+let KeptFiles: typeof import("./upload-strip").KeptFiles;
 let IngestUploadScreen: typeof import("./upload-screen").IngestUploadScreen;
 let IngestFileScreen: typeof import("./file-screen").IngestFileScreen;
 let MergeBody: typeof import("./merge-screen").MergeBody;
@@ -58,6 +60,8 @@ beforeAll(async () => {
   const strip = await server.ssrLoadModule(`${dir}/components/upload-strip.tsx`);
   UploadStrip = strip.UploadStrip;
   StagedFiles = strip.StagedFiles;
+  UnfinishedFiles = strip.UnfinishedFiles;
+  KeptFiles = strip.KeptFiles;
   IngestUploadScreen = (await server.ssrLoadModule(`${dir}/components/upload-screen.tsx`)).IngestUploadScreen;
   IngestFileScreen = (await server.ssrLoadModule(`${dir}/components/file-screen.tsx`)).IngestFileScreen;
   MergeBody = (await server.ssrLoadModule(`${dir}/components/merge-screen.tsx`)).MergeBody;
@@ -179,7 +183,7 @@ describe("files being added", () => {
 
   test("a file that was read says what was found, with one Review button to the import", () => {
     const html = strip([item({ step: "done", artifactId: "a1" })], [cand({ id: "c9" })]);
-    expect(html).toContain("Read. 1 table: Dies, Known layout.");
+    expect(html).toContain("Finished reading. 1 table: Dies, Known layout.");
     expect(html).toContain('href="/ingest/review/c9"');
     expect(html).toContain('aria-label="Review: dies-b-RCQCZ.csv"');
   });
@@ -528,5 +532,28 @@ describe("merge screen", () => {
   test("a failed step shows the error line with Try again", () => {
     const html = merge(run({ candidates: two }), { phase: "error", error: { code: "NETWORK", message: "x" } as never });
     expect(html).toContain("Try again");
+  });
+});
+
+describe("unfinished and kept files (design check minors 6, 7, 8)", () => {
+  test("one unfinished file keeps its own line; several are one line with the names under a disclosure", () => {
+    const one = render(createElement(UnfinishedFiles, { files: [{ id: "1", name: "a.xlsx" }] }));
+    expect(one).toContain("a.xlsx was not finished. Add the file again to continue.");
+    expect(one).not.toContain("<details");
+    const many = render(createElement(UnfinishedFiles, { files: [{ id: "1", name: "a.xlsx" }, { id: "2", name: "b.xlsx" }, { id: "3", name: "c.csv" }] }));
+    expect(many).toContain("3 files were not finished. Add them again to continue.");
+    expect(many.match(/was not finished/g) ?? []).toHaveLength(0);
+    expect(many).toContain("<details");
+    for (const name of ["a.xlsx", "b.xlsx", "c.csv"]) expect(many).toContain(name);
+    expect(render(createElement(UnfinishedFiles, { files: [] }))).toBe("");
+  });
+
+  test("a kept file reads 'added 11 Nov' in mid-line, and says it was kept before storage was turned off only when it is off", () => {
+    const files = [{ id: "k1", name: "scan.pdf", size: "470 KB", date: "11 Nov" }];
+    const on = render(createElement(KeptFiles, { files }));
+    expect(on).toContain("added 11 Nov");
+    expect(on).not.toContain("Added 11 Nov");
+    expect(on).not.toContain("Kept before file storage was turned off.");
+    expect(render(createElement(KeptFiles, { files, storageOff: true }))).toContain("Kept before file storage was turned off.");
   });
 });

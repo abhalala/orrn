@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createServer, type ViteDevServer } from "vite";
 
-import type { HeaderAskView } from "../lib/header-step";
+import { useRowsWords, type HeaderAskView } from "../lib/header-step";
 
 let server: ViteDevServer;
 let createElement: typeof import("react").createElement;
@@ -141,6 +141,14 @@ describe("the header step", () => {
     expect(html).not.toMatch(/<td[^>]*break-words/);
     expect(html).toContain("overflow-x-auto");
     expect(html).toContain("max-sm:whitespace-nowrap");
+  });
+
+  test("the question's count says what it counts, and the button names both rows when the names take two", () => {
+    expect(render(view())).toContain("120 rows under the names");
+    const [r6, r7] = [{ n: 6 }, { n: 7 }];
+    expect(useRowsWords(r6, 1, [r6, r7])).toEqual({ key: "ingest.header.use", vars: { n: 6 } });
+    expect(useRowsWords(r6, 2, [r6, r7])).toEqual({ key: "ingest.header.useTwo", vars: { n: 6, m: 7 } });
+    expect(useRowsWords(r6, 2, [r6, null])).toEqual({ key: "ingest.header.use", vars: { n: 6 } });
   });
 
   test("column letters run A to Z, then AA", () => {

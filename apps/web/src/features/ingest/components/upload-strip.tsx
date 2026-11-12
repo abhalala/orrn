@@ -161,6 +161,24 @@ export function StagedFiles({
 export function UnfinishedFiles({ files }: { files: readonly { id: string; name: string }[] }) {
   const { say } = useSay();
   if (files.length === 0) return null;
+  // Over one file: a line, not a pile of amber lines; the names are under it (design check, minor 8).
+  if (files.length > 1) {
+    return (
+      <div data-testid="unfinished-files" className="flex flex-col gap-1">
+        <p className="m-0 text-[13px] leading-5 text-tone-amber-ink">{say("ingest.header.unfinishedMany", { count: files.length })}</p>
+        <details>
+          <summary className="min-h-6 cursor-pointer text-[13px] leading-5 text-muted-foreground pointer-coarse:min-h-11">{say("ingest.header.unfinishedNames")}</summary>
+          <ul className="m-0 flex list-none flex-col gap-1 p-0 pt-1">
+            {files.map((file) => (
+              <li key={file.id} className="text-[13px] leading-5 break-words">
+                <FileName name={file.name} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      </div>
+    );
+  }
   return (
     <ul data-testid="unfinished-files" className="m-0 flex list-none flex-col gap-1 p-0">
       {files.map((file) => (
@@ -176,7 +194,7 @@ export function UnfinishedFiles({ files }: { files: readonly { id: string; name:
  * "Kept, not read yet": the PDFs and photos orrn stored and does not read in this release. Each shows its name, size and
  * date. One line says when reading them comes.
  */
-export function KeptFiles({ files }: { files: readonly KeptFile[] }) {
+export function KeptFiles({ files, storageOff = false }: { files: readonly KeptFile[]; storageOff?: boolean }) {
   const { t } = useT();
   const { say } = useSay();
   const headingId = useId();
@@ -188,6 +206,8 @@ export function KeptFiles({ files }: { files: readonly KeptFile[] }) {
           {t("ingest.kept.title")}
         </h2>
         <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.kept.note")}</p>
+        {/* Storage can be turned off after files were kept: say so, or this card contradicts the "not kept" line at the top. */}
+        {storageOff ? <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.kept.beforeOff")}</p> : null}
       </div>
       <ul className="m-0 list-none divide-y divide-border p-0">
         {files.map((file) => (

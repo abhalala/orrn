@@ -232,7 +232,7 @@ export function IngestUploadScreen() {
         ) : null}
       </QueryPanel>
 
-      <KeptFiles files={kept} />
+      <KeptFiles files={kept} storageOff={status.data?.vaultReady === false} />
     </div>
   );
 }

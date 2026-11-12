@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8147 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8151 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6945,7 +6945,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (533)
+### ingest (537)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6964,7 +6964,7 @@ Please check, Lalubhai:
 | `drop.note` | Note for these files (optional) | इन फ़ाइलों के लिए नोट (ज़रूरी नहीं) |
 | `drop.openIt` | Open it | इसे खोलें |
 | `drop.listLabel` | Files being added | जुड़ रही फ़ाइलें |
-| `drop.done` | Read. {count} {count:table\|tables}: {summary}. | पढ़ ली। {count} टेबल: {summary}। |
+| `drop.done` | Finished reading. {count} {count:table\|tables}: {summary}. | पढ़ ली। {count} टेबल: {summary}। |
 | `drop.noTables` | No table found in this file. Check that it has column names and rows, then add it again. | इस फ़ाइल में कोई टेबल नहीं मिली। देखें कि उसमें कॉलम के नाम और लाइनें हैं, फिर इसे दोबारा डालें। |
 | `drop.keptNoStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए चालू नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
@@ -7005,10 +7005,11 @@ Please check, Lalubhai:
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
-| `kept.addedOn` | Added {date} | {date} को जोड़ी गई |
+| `kept.addedOn` | added {date} | {date} को जोड़ी गई |
+| `kept.beforeOff` | Kept before file storage was turned off. | फ़ाइल स्टोरेज बंद होने से पहले रखी गई थीं। |
 | `header.title` | Which row has the column names? | किस लाइन में कॉलम के नाम हैं? |
 | `header.count` | Table {n} of {total} | {total} में से टेबल {n} |
-| `header.aboutNoSheet` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
+| `header.aboutNoSheet` | {count} {count:row\|rows} under the names | नामों के नीचे {count} {count:लाइन\|लाइनें} |
 | `header.looksLike` | This looks like {name}. Is row {n} the column names? | यह {name} जैसा लगता है। क्या लाइन {n} में कॉलम के नाम हैं? |
 | `header.tableCaption` | The first rows of the table, with their row numbers | टेबल की पहली लाइनें, उनके लाइन नंबर के साथ |
 | `header.rowLabel` | Row {n} | लाइन {n} |
@@ -7021,12 +7022,15 @@ Please check, Lalubhai:
 | `header.twoRows` | Two rows | दो लाइनें |
 | `header.twoHint` | Row {n} and the row under it. | लाइन {n} और उसके नीचे की लाइन। |
 | `header.use` | Use row {n} | लाइन {n} लें |
+| `header.useTwo` | Use rows {n} and {m} | लाइन {n} और {m} लें |
 | `header.skip` | Do not import this table | यह टेबल इम्पोर्ट न करें |
 | `header.continues` | It continues the table above | यह ऊपर की टेबल का ही हिस्सा है |
 | `header.same` | Same columns as the table above | ऊपर की टेबल जैसे ही कॉलम |
 | `header.orPick` | Or pick the row that has the column names | या वह लाइन चुनें जिसमें कॉलम के नाम हैं |
 | `header.pickAnother` | Pick another row | दूसरी लाइन चुनें |
 | `header.unfinished` | {name} was not finished. Add the file again to continue. | {name} पूरी नहीं हुई थी। जारी रखने के लिए फ़ाइल फिर से जोड़ें। |
+| `header.unfinishedMany` | {count} files were not finished. Add them again to continue. | {count} फ़ाइलें पूरी नहीं हुईं। जारी रखने के लिए उन्हें फिर से जोड़ें। |
+| `header.unfinishedNames` | Which files | कौन सी फ़ाइलें |
 | `vault.off` | File storage is not set up for this plant, so the original file is not kept. Ask orrn support to turn it on. | इस प्लांट के लिए फ़ाइल स्टोरेज चालू नहीं है, इसलिए असली फ़ाइल सेव नहीं रहेगी। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `vault.notStored` | Original file not kept | असली फ़ाइल सेव नहीं है |
 | `vault.stored` | Original file kept | असली फ़ाइल सेव है |
@@ -7144,7 +7148,7 @@ Please check, Lalubhai:
 | `enumValue.in_use` | In use | इस्तेमाल में |
 | `enumValue.at_maker` | At the maker | मेकर के पास |
 | `enumValue.on_trial` | On trial | ट्रायल पर |
-| `row.state` | Status | स्थिति |
+| `row.state` | Row status | लाइन की स्थिति |
 | `row.entered` | File said | फ़ाइल में लिखा था |
 | `row.ready_create` | New | नया |
 | `row.ready_update` | Updates orrn | orrn में अपडेट होगा |

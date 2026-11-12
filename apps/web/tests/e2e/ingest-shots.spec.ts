@@ -89,7 +89,7 @@ async function upload(page: Page, name: string, buffer: Buffer, mimeType = "text
   await page.getByRole("button", { name: /^Add \d+ files?$|^\d+ फ़ाइल/ }).click();
 }
 async function readDone(page: Page, name: string) {
-  await expect(page.locator("li[data-step]", { hasText: name }).getByText(/^Read\. \d+ tables?|^पढ़ ली/)).toBeVisible({ timeout: 90_000 });
+  await expect(page.locator("li[data-step]", { hasText: name }).getByText(/^Finished reading\. \d+ tables?|^पढ़ ली/)).toBeVisible({ timeout: 90_000 });
 }
 /** The review link of a file's import, once it has left "Checking rows". */
 async function reviewHref(page: Page, name: string): Promise<string> {

@@ -127,6 +127,16 @@ export function isCurrentHeader(block: ReadBlock, pick: HeaderPickIn): boolean {
   return g !== undefined && g.headerRow === pick.headerRow && (g.headerRows ?? 1) === pick.headerRows;
 }
 
+/** The words of the button that takes the picked row: "Use row 3", or "Use rows 3 and 4" when the names take two rows. */
+export function useRowsWords(
+  selected: Pick<HeaderLine, "n">,
+  headerRows: 1 | 2,
+  two: readonly [Pick<HeaderLine, "n">, Pick<HeaderLine, "n"> | null] | null,
+): { key: "ingest.header.use" | "ingest.header.useTwo"; vars: { n: number; m?: number } } {
+  const next = headerRows === 2 && two ? two[1] : null;
+  return next ? { key: "ingest.header.useTwo", vars: { n: selected.n, m: next.n } } : { key: "ingest.header.use", vars: { n: selected.n } };
+}
+
 /** The row numbers a two-row header covers: its row and the next filled one, as far as the preview shows. */
 export function twoRowsFrom(lines: readonly HeaderLine[], headerRow: number): [HeaderLine, HeaderLine | null] | null {
   const at = lines.findIndex((l) => l.row === headerRow);

@@ -81,7 +81,7 @@ export function SideNav({
               type="button"
               onClick={palette.open}
               aria-keyshortcuts="Meta+K Control+K /"
-              className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-sidebar-accent pr-1.5 pl-3 [@media(min-width:1024px)_and_(max-height:960px)]:h-9 text-left text-[14px] text-sidebar-muted transition-colors duration-[var(--dur-fast)] hover:text-sidebar-foreground"
+              className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-sidebar-accent pr-1.5 pl-3 [@media(min-width:1024px)_and_(max-height:960px)_and_(pointer:fine)]:h-9 text-left text-[14px] text-sidebar-muted transition-colors duration-[var(--dur-fast)] hover:text-sidebar-foreground"
             >
               <Search aria-hidden="true" className="size-[18px] shrink-0" strokeWidth={2} />
               <span className="min-w-0 flex-1 truncate">{t("nav.scanOrSearch")}</span>
@@ -220,8 +220,8 @@ function NavLink({
       className={cn(
         "flex min-w-0 flex-col items-center gap-1 rounded-card px-1 py-2 text-[11px] font-medium no-underline transition-[background-color,color,scale] duration-[var(--dur-fast)] active:scale-[0.97]",
         "lg:h-11 lg:flex-row lg:gap-3 lg:rounded-full lg:px-3.5 lg:py-0 lg:text-[15px]",
-        // A 900 px office monitor (28 px rows, 20 links for the owner with Foundry, Ageing and Imports): tighter rows so the owner's whole list (Masters to Audit) fits without a scroll (BACKLOG 106).
-        "[@media(min-width:1024px)_and_(max-height:960px)]:h-[28px]",
+        // A 900 px office monitor (28 px rows, 20 links for the owner with Foundry, Ageing and Imports): tighter rows so the owner's whole list (Masters to Audit) fits without a scroll (BACKLOG 106). Only for a mouse: a touch laptop or a tablet in landscape keeps 44 px rows and scrolls.
+        "[@media(min-width:1024px)_and_(max-height:960px)_and_(pointer:fine)]:h-[28px]",
         active
           ? variant === "godseye"
             ? "bg-[linear-gradient(160deg,var(--tone-violet-from),var(--tone-violet-to))] font-semibold text-tone-violet-on"

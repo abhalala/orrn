@@ -68,7 +68,7 @@ async function upload(page: Page, name: string, buffer: Buffer, mimeType = "text
 }
 
 async function waitRead(page: Page, fileName: string) {
-  await expect(stripRow(page, fileName).getByText(/^Read\. \d+ tables?/)).toBeVisible({ timeout: 60_000 });
+  await expect(stripRow(page, fileName).getByText(/^Finished reading\. \d+ tables?/)).toBeVisible({ timeout: 60_000 });
 }
 
 async function segment(page: Page, name: "Needs you" | "Ready" | "Approved" | "Merged") {
@@ -158,7 +158,7 @@ test.describe("imports portal", () => {
 
     await upload(page, name, dieCsv(series, codes));
     // The layout is known, so there is no model call and no question: the strip says what was found.
-    await expect(stripRow(page, name).getByText(/^Read\. 1 table: .*Known layout\.$/)).toBeVisible({ timeout: 60_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 1 table: .*Known layout\.$/)).toBeVisible({ timeout: 60_000 });
 
     // Ready, with no question chip, and one action: Approve.
     const r = await waitInSegment(page, name, "Ready");
@@ -387,7 +387,7 @@ test.describe("imports portal", () => {
     const buffer = Buffer.from(XLSX.write(book, { type: "buffer", bookType: "xlsx" }) as Uint8Array);
     await openPortal(page, "admin");
     await upload(page, name, buffer, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    await expect(stripRow(page, name).getByText(/^Read\. 3 tables/)).toBeVisible({ timeout: 60_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 3 tables/)).toBeVisible({ timeout: 60_000 });
 
     // The two die sheets are Ready with no question; the bundles sheet is under Needs you.
     await expect(async () => {
@@ -456,7 +456,7 @@ test.describe("imports portal", () => {
     await openPortal(page, "admin");
     const calls = countPutBlocks(page);
     await upload(page, name, csv);
-    await expect(stripRow(page, name).getByText(/^Read\. 1 table: .*Known layout\.$/)).toBeVisible({ timeout: 60_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 1 table: .*Known layout\.$/)).toBeVisible({ timeout: 60_000 });
     await expect(headerStep(page)).toHaveCount(0);
     // The table was sent, the server named the row, the file was read again and the table sent once more.
     expect(calls.count()).toBeGreaterThanOrEqual(2);
@@ -480,7 +480,7 @@ test.describe("imports portal", () => {
     await headerStep(page).getByRole("button", { name: "It continues the table above" }).click();
 
     // One table, with the rows of both: the second table did not become an import of its own.
-    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     await openReview(page, name, "Needs you");
     await expect(page.getByText(/\b5 rows\b/).first()).toBeVisible();
   });
@@ -494,10 +494,10 @@ test.describe("imports portal", () => {
     await openPortal(page, "admin");
     await upload(page, name, csv);
     // One table that goes on by itself: nothing to ask and no offer to join.
-    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     await expect(headerStep(page)).toHaveCount(0);
     const entry = stripRow(page, name);
-    await expect(entry.getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await expect(entry.getByText(/^Finished reading\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     // Nothing skipped is hidden: the blank row and the month line are listed with their row numbers.
     const listed = entry.getByTestId("left-out");
     await expect(listed.getByText(/^1 blank row inside this table was skipped\.$/)).toBeVisible();
@@ -512,7 +512,7 @@ test.describe("imports portal", () => {
     const csv = Buffer.from([headers.join(","), "Z1,SC1,1.1,1.4", "Z1,SC2,1.2,1.5", ",,,", "December,,,", "Z1,SC3,1.3,1.6", "Z1,SC4,1.4,1.7"].join("\n"));
     await openPortal(page, "admin");
     await upload(page, name, csv);
-    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     await openReview(page, name, "Needs you");
 
     // The panel says what was left out and which title the table went on under, with the row number.
@@ -635,7 +635,7 @@ test.describe("imports portal", () => {
     await upload(page, name, csv);
     await expect(headerStep(page).getByRole("button", { name: "It continues the table above" })).toBeVisible({ timeout: 60_000 });
     await headerStep(page).getByRole("button", { name: "It continues the table above" }).click();
-    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await expect(stripRow(page, name).getByText(/^Finished reading\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     // One import with the rows of both parts, under the known layout.
     const r = await waitInSegment(page, name, "Ready");
     await expect(r.getByText("Known layout")).toBeVisible();
