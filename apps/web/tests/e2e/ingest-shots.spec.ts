@@ -20,8 +20,8 @@ const DIE_HEADER = "Series,Section code,Min weight (kg/12ft),Max weight (kg/12ft
 const dieRows = (series: string, codes: string[]) => codes.map((c, i) => `${series},${c},${(1.1 + i / 10).toFixed(1)},${(1.4 + i / 10).toFixed(1)},Shot ${c},30,1.5,,active,`);
 const dieCsv = (series: string, codes: string[], header = DIE_HEADER) => Buffer.from([header, ...dieRows(series, codes)].join("\n"));
 
-type Mode = { width: 1280 | 375; locale: "en" | "hi"; dark: boolean };
-const MODES: Mode[] = [
+type Mode = { width: 1280 | 820 | 375; locale: "en" | "hi"; dark: boolean };
+const ALL_MODES: Mode[] = [
   { width: 1280, locale: "en", dark: false },
   { width: 1280, locale: "hi", dark: false },
   { width: 375, locale: "en", dark: false },
@@ -30,10 +30,18 @@ const MODES: Mode[] = [
   { width: 375, locale: "en", dark: true },
 ];
 
+/** SHOT_MODES=hidark: Hindi dark at both widths. SHOT_MODES=w820: 820 px, English and Hindi, light. Default: the main set. */
+const MODES: Mode[] =
+  process.env.SHOT_MODES === "hidark"
+    ? [{ width: 1280, locale: "hi", dark: true }, { width: 375, locale: "hi", dark: true }]
+    : process.env.SHOT_MODES === "w820"
+      ? ([{ width: 820, locale: "en", dark: false }, { width: 820, locale: "hi", dark: false }] as unknown as Mode[])
+      : ALL_MODES;
+
 async function setMode(page: Page, m: Mode) {
   await page.addInitScript((l) => localStorage.setItem("orrn.locale", l), m.locale);
   await page.emulateMedia({ colorScheme: m.dark ? "dark" : "light", reducedMotion: "reduce" });
-  await page.setViewportSize({ width: m.width, height: m.width === 375 ? 812 : 900 });
+  await page.setViewportSize({ width: m.width, height: m.width === 375 ? 812 : m.width === 820 ? 1100 : 900 });
 }
 const modeName = (m: Mode) => `${m.width}-${m.locale}${m.dark ? "-dark" : ""}`;
 async function snap(page: Page, name: string, m: Mode) {
@@ -300,6 +308,51 @@ test("shots", async ({ page, request }) => {
     });
     await shootUrl(page, "merge-one-back-to-hold", url, () => page.getByRole("heading", { level: 1 }).first().waitFor({ timeout: 30_000 }));
     await page.unroute("**/trpc/ingest.merge.get*");
+  });
+
+  // The fill question: lines with no date took the date of the dated line above, in an order with two dates.
+  await stage("fill-question", async () => {
+    const party = await makeParty(page, "ShotFill");
+    const die = (await q<{ items: { series: string; sectionCode: string }[] }>(page, "die.list", { search: "14701", limit: 5 })).items[0]!;
+    const fh = [`Party ${STAMP}F`, `Order no ${STAMP}F`, `PO ${STAMP}F`, `Date ${STAMP}F`, `Series ${STAMP}F`, `Section ${STAMP}F`, `Baki ${STAMP}F kg`, `Cut ${STAMP}F mm`];
+    const col = (n: number) => ({ kind: "columns", cols: [{ col: n, header: fh[n] }] });
+    const recipe = {
+      schemaVersion: 1, target: "orders", headerRow: 0, headerRows: 1,
+      match: { headerKey: headerKey(normalizeHeaders(fh)), headers: normalizeHeaders(fh) },
+      fields: [
+        { field: "customer", source: col(0), steps: [{ op: "trim" }, { op: "lookup", resolver: "customer_by_name" }] },
+        { field: "oldOrderNo", source: col(1), steps: [{ op: "trim" }] },
+        { field: "poNumber", source: col(2), steps: [{ op: "trim" }] },
+        { field: "orderDate", source: col(3), steps: [{ op: "date", format: "dmy" }] },
+        { field: "series", source: col(4), steps: [{ op: "trim" }, { op: "case", to: "upper" }] },
+        { field: "sectionCode", source: col(5), steps: [{ op: "trim" }, { op: "lookup", resolver: "section_by_code" }] },
+        { field: "bakiKg", source: col(6), steps: [{ op: "number", kind: "mass", unit: "kg" }] },
+        { field: "cutLength", source: col(7), steps: [{ op: "number", kind: "length", unit: "mm" }] },
+      ],
+      filters: [], keys: ["customer", "oldOrderNo", "orderDate"], onExisting: "ask", unclear: [],
+    };
+    await fakeBot(page, { action: "install", responses: [{ result: { kind: "recipe", recipe } }] });
+    try {
+      await setMode(page, ALL_MODES[0]!);
+      const row = (po: string, d: string, i: number, no = "41") => `${party.name},${no},${po},${d},${die.series},${die.sectionCode},${100 + i},3658`;
+      // Plenty of dated lines of other orders, so the helper's sample check passes; then one order with two dates and blanks.
+      const others = Array.from({ length: 8 }, (_, i) => row(`PO-${i}`, `0${i + 1}/04/2025`, i, String(30 + i)));
+      const name = `fill-${STAMP}.csv`;
+      await page.goto("/ingest");
+      await upload(page, name, Buffer.from([fh.join(","), ...others, row("PO-A", "01/05/2023", 0), row("", "", 1), row("PO-B", "01/06/2024", 2), row("", "", 3)].join("\n")));
+      await readDone(page, name);
+      const href = await reviewHref(page, name);
+      await page.goto(href);
+      await page.getByRole("button", { name: "Map columns for me" }).click();
+      await expect(bar(page)).toHaveAttribute("data-state", "ready", { timeout: 90_000 });
+      await page.getByLabel(/^Financial year/).selectOption("2025-26");
+      await page.getByLabel(/^As on date/).fill("31/03/2026");
+      await page.getByRole("button", { name: "Save year" }).click();
+      await expect(page.getByTestId("fill-lines")).toBeVisible({ timeout: 90_000 });
+      await shootUrl(page, "review-fill-question", href, () => page.getByTestId("fill-lines").waitFor({ timeout: 60_000 }));
+    } finally {
+      await fakeBot(page, { action: "clear" });
+    }
   });
 
   // Review states: near fit confirm, needs layout with the mapping editor, the weight question.

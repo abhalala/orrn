@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8103 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8104 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (512)
+### ingest (513)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7415,6 +7415,7 @@ Please check, Lalubhai:
 | `refuse.order_no_date` | This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it. | इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें। |
 | `refuse.po_on_two_ordersFileOnly` | PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
 | `refuse.order_in_other_fileOnly` | This order is also in {file}. Keep it in this file, or skip these rows and keep it there. | यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें। |
+| `refuse.filled_down` | {field} came from the dated line above. | {field} ऊपर की लाइन से आई। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |
 | `error.forbidden` | Your role cannot do this. Ask the owner. | आपका रोल यह नहीं कर सकता। मालिक से कहें। |
 | `error.notFound` | This import is no longer there. | यह इम्पोर्ट अब नहीं है। |

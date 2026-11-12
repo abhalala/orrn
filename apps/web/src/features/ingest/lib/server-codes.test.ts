@@ -39,6 +39,8 @@ export function reasonLiterals(): Map<string, string> {
       const talks = /reasons?\b|checkReason|\bcode: "|\bREASON|^\s*(export )?const (PO_ON|MERGED_|CHECK_AGAINST|ORDER_[A-Z_]*(UNCLEAR|CHECK))/i.test(line);
       if (!talks) continue;
       for (const m of line.matchAll(/"([a-z][a-z0-9]*(?:_[a-z0-9]+)+)(?::[A-Za-z]+)?"/g)) found.set(m[1]!, file.slice(SERVER_INGEST.length + 1));
+      // A reason built in a template (`filled_down:${field}`): its code is the word before the colon.
+      for (const m of line.matchAll(/`([a-z][a-z0-9]*(?:_[a-z0-9]+)+):\$\{/g)) found.set(m[1]!, file.slice(SERVER_INGEST.length + 1));
     }
   }
   return found;
@@ -154,5 +156,11 @@ describe("server codes have words", () => {
     expect(refusalLine("po_on_two_orders:poNumber", facts)).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFileOnly" });
     expect(refusalLine("order_in_other_file:order", facts)).toMatchObject({ key: "ingest.refuse.order_in_other_fileOnly" });
     expect(refusalLine("po_on_two_orders:poNumber", { ...facts, sheet: "Sheet1" })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFile" });
+  });
+
+  test("a field filled down from the line above is a muted note with the field's name, never the raw code", () => {
+    const line = refusalLine("filled_down:orderDate")!;
+    expect(line).toMatchObject({ kind: "refusal", key: "ingest.refuse.filled_down", fieldKey: "ingest.field.orderDate" });
+    expect(refusalTone(line)).toBe("note");
   });
 });

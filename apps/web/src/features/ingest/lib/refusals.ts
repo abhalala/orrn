@@ -22,6 +22,8 @@ const OTHER_CODES = [
   "order_waits", "order_skipped_lines", "order_run_differs",
   // Round 7: a numbered line with no date; `order_no_date:<n>` carries the order number as the file has it.
   "order_no_date",
+  // Rule 7.1 and 10.1: a blank party, date or PO took the value of the nearest filled line above; the field follows the colon.
+  "filled_down",
 ] as const;
 
 /**
@@ -31,7 +33,7 @@ const OTHER_CODES = [
 export const SILENT_REASONS: readonly string[] = ["order_live"];
 
 /** Reasons that are a note on a row, not a refusal and not a question: muted ink, no action. */
-const NOTE_CODES = new Set(["po_on_closed_order", "merged_cell", "section_pending", "customer_pending", "order_po_skipped", "check_against_file", "order_skipped_lines"]);
+const NOTE_CODES = new Set(["po_on_closed_order", "merged_cell", "section_pending", "customer_pending", "order_po_skipped", "check_against_file", "order_skipped_lines", "filled_down"]);
 
 /** What a row's `values` hold about the old order, for the sentences that name orders and files. */
 export type OrderFacts = { orderNo: string | null; po: string | null; file: string | null; sheet: string | null; closedOrder: string | null };

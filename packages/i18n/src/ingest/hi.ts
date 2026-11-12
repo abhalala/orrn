@@ -596,6 +596,8 @@ export const ingestHi = {
     // a file with no sheet name (CSV)
     po_on_two_ordersFileOnly: "PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
     order_in_other_fileOnly: "यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें।",
+    // server round 8: filled_down
+    filled_down: "{field} ऊपर की लाइन से आई।",
   },
   error: {
     conflict: "देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें।",
