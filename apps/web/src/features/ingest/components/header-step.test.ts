@@ -89,6 +89,19 @@ describe("the header step", () => {
     expect(render(view())).not.toContain("It continues");
   });
 
+  // Design check M5: when orrn offers to join the table to the one above, the join is the main button and no data row is selected.
+  test("with a join offered: the first offer is the one loud button, no row is selected, no Use row yet", () => {
+    const html = render(view({ offers: ["continues"] }));
+    expect(html).not.toContain("checked");
+    expect(html).not.toContain("Use row");
+    expect(html.match(/data-variant="primary"/g) ?? []).toHaveLength(1);
+    expect(html).toMatch(/data-variant="primary"[^>]*>It continues the table above/);
+    // Without an offer the guess is selected and Use row is the loud button, as before.
+    const plain = render(view());
+    expect(plain.match(/data-variant="primary"/g)).toHaveLength(1);
+    expect(plain).toContain("Use row 6");
+  });
+
   test("a pick that could not be followed says so", () => {
     expect(render(view({ hintError: true }))).toContain('role="alert"');
     expect(render(view({ hintError: true }))).toContain("Pick another row");

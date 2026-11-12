@@ -35,7 +35,10 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
   const headingRef = useRef<HTMLHeadingElement>(null);
   const groupId = useId();
   const headingId = useId();
-  const [row, setRow] = useState(view.preselected.headerRow);
+  // When orrn offers to join this table to the one above, that is the answer it expects: no data row is selected, so the person
+  // is not one tap from importing a data row as the column names (design check M5). Picking a row is a different answer.
+  const offered = view.offers.length > 0;
+  const [row, setRow] = useState<number | null>(offered ? null : view.preselected.headerRow);
   const [rows, setRows] = useState<1 | 2>(view.preselected.headerRows);
   const [busy, setBusy] = useState(false);
 
@@ -47,8 +50,8 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
     if (view.hintError) setBusy(false);
   }, [view.hintError, view.attempt]);
 
-  const selected = view.lines.find((l) => l.row === row);
-  const two = twoRowsFrom(view.lines, row);
+  const selected = row === null ? undefined : view.lines.find((l) => l.row === row);
+  const two = row === null ? null : twoRowsFrom(view.lines, row);
   const canTwo = two !== null && two[1] !== null;
   const reply = (r: HeaderReply) => {
     if (busy) return;
@@ -87,8 +90,8 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
 
       {view.offers.length > 0 ? (
         <div className="flex flex-col gap-2 sm:flex-row">
-          {view.offers.map((offer) => (
-            <Button key={offer} variant="secondary" className="max-sm:w-full" aria-disabled={busy || undefined} onClick={() => reply({ kind: offer })}>
+          {view.offers.map((offer, i) => (
+            <Button key={offer} variant={i === 0 && !selected ? "primary" : "secondary"} className="max-sm:w-full" aria-disabled={busy || undefined} onClick={() => reply({ kind: offer })}>
               {t(offer === "continues" ? "ingest.header.continues" : "ingest.header.same")}
             </Button>
           ))}
@@ -177,13 +180,16 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
       ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button
-          className="max-sm:w-full"
-          aria-disabled={busy || !selected || undefined}
-          onClick={() => selected && reply({ kind: "pick", headerRow: row, headerRows: canTwo ? rows : 1 })}
-        >
-          {say("ingest.header.use", { n: selected?.n ?? "" })}
-        </Button>
+        {selected ? (
+          <Button
+            className="max-sm:w-full"
+            variant="primary"
+            aria-disabled={busy || undefined}
+            onClick={() => reply({ kind: "pick", headerRow: selected.row, headerRows: canTwo ? rows : 1 })}
+          >
+            {say("ingest.header.use", { n: selected.n })}
+          </Button>
+        ) : null}
         <Button variant="ghost" className="max-sm:w-full" aria-disabled={busy || undefined} onClick={() => reply({ kind: "skip" })}>
           {t("ingest.header.skip")}
         </Button>
