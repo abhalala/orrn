@@ -79,4 +79,16 @@ export const guDies = {
       ownerClear: "પ્લાન્ટની કરો",
     },
   },
+  masters: {
+    dieCopies: {
+      columns: {
+        section: "સેક્શન",
+        tier: "ટિયર",
+        supplier: "સપ્લાયર",
+      },
+      noReading: "હજી કોઈ રીડિંગ નથી",
+      notRanked: "ટિયર નથી",
+      tier: "ટિયર {rank}",
+    },
+  },
 } as const satisfies DeepPartial<Messages>;

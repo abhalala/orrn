@@ -1630,6 +1630,17 @@ export const hi = {
     po: "PO",
     invoice: "इनवॉइस",
     print: "प्रिंट",
+    lockedSnapshotFooter: "यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी।",
+    signatures: {
+      packedBy: "पैक करने वाला",
+      checkedBy: "जाँच करने वाला",
+      driverReceived: "ड्राइवर",
+      receiverSignature: "ग्राहक के हस्ताक्षर",
+    },
+    groupDetails: {
+      orderedKgPer12ft: "ऑर्डर kg/12ft {kg}",
+      poDate: "PO तारीख {date}",
+    },
   },
 
   dies: {

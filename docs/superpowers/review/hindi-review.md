@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7586 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7594 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -1386,7 +1386,7 @@ Counts: 7586 screen strings in 49 groups, 45 guides with 866 strings.
 | `header.invoiceNumber` | Tally invoice number | Tally इनवॉइस नंबर |
 | `header.invoiceDate` | Invoice date | इनवॉइस की तारीख |
 
-### packingList (93)
+### packingList (100)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -1483,6 +1483,13 @@ Counts: 7586 screen strings in 49 groups, 45 guides with 866 strings.
 | `po` | PO | PO |
 | `invoice` | Invoice | इनवॉइस |
 | `print` | Print | प्रिंट |
+| `lockedSnapshotFooter` | Not a tax invoice. Printed from {code} revision {revision} as issued. | यह टैक्स इनवॉइस नहीं है। {code} रिवीज़न {revision} से, जैसी जारी हुई वैसी छपी। |
+| `signatures.packedBy` | Packed by | पैक करने वाला |
+| `signatures.checkedBy` | Checked by | जाँच करने वाला |
+| `signatures.driverReceived` | Driver | ड्राइवर |
+| `signatures.receiverSignature` | Receiver's signature | ग्राहक के हस्ताक्षर |
+| `groupDetails.orderedKgPer12ft` | Ordered kg/12ft {kg} | ऑर्डर kg/12ft {kg} |
+| `groupDetails.poDate` | PO date {date} | PO तारीख {date} |
 
 ### dies (68)
 
@@ -5859,7 +5866,7 @@ Please check, Lalubhai:
 | `summary.shiftRow` | {runs} {runs:run\|runs}, {kg} {massUnit} | {runs} रन, {kg} {massUnit} |
 | `summary.trials` | trials {kg} {massUnit} | ट्रायल {kg} {massUnit} |
 
-### foundry (603)
+### foundry (604)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6263,6 +6270,7 @@ Please check, Lalubhai:
 | `melt.issue.duplicateStream` | This stream is on another line. Put its {massUnit} on one line. | यह स्ट्रीम दूसरी लाइन में है। उसका {massUnit} एक लाइन में रखें। |
 | `melt.issue.chemical` | Write what the chemical is and the open and used quantities. | केमिकल क्या है और ओपन व इस्तेमाल की मात्रा लिखें। |
 | `melt.issue.chemicalClose` | Close must be open less used. | क्लोज़ = ओपन घटा इस्तेमाल होना चाहिए। |
+| `melt.issue.decimalComma` | Use a point for decimals, for example 2.5. | दशमलव के लिए बिंदु लिखें, जैसे 2.5। |
 | `melt.issue.log` | A log line needs pieces, length and {massUnit}. | लॉग लाइन में पीस, लंबाई और {massUnit} चाहिए। |
 | `melt.issue.ldo` | Write the dip as inches, for example 42.5. | डिप इंच में लिखें, जैसे 42.5। |
 | `melt.issue.tooMany` | Too many charge lines. | चार्ज की लाइनें बहुत ज़्यादा हैं। |

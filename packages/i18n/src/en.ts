@@ -1639,6 +1639,17 @@ export const en = {
     po: "PO",
     invoice: "Invoice",
     print: "Print",
+    lockedSnapshotFooter: "Not a tax invoice. Printed from {code} revision {revision} as issued.",
+    signatures: {
+      packedBy: "Packed by",
+      checkedBy: "Checked by",
+      driverReceived: "Driver",
+      receiverSignature: "Receiver's signature",
+    },
+    groupDetails: {
+      orderedKgPer12ft: "Ordered kg/12ft {kg}",
+      poDate: "PO date {date}",
+    },
   },
 
   dies: {

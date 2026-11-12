@@ -116,17 +116,17 @@ describe("Orders and Dies from More for the packer-set roles", () => {
     expect(extraTabs(me("owner"))).toEqual(["dies", "orders", "press", "cast"]);
     expect(reachableTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch", "dies", "press", "cast", "orders"]);
     expect(visibleTabs(me("owner"))).toEqual(["today", "pack", "scan", "stock", "dispatch"]);
-    expect(rows("owner")).toEqual(["ageing:/more/ageing", "press:/press", "cast:/cast", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("owner")).toEqual(["ageing:/more/ageing", "nitriding:/more/nitriding", "makers:/more/makers", "furnaces:/more/furnaces", "alloys:/more/alloys", "press:/press", "cast:/cast", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("manager (masters.publish, order.manage, order.plan) gets the die board (read-only card) and Orders (m-4)", () => {
     expect(extraTabs(me("manager"))).toEqual(["dies", "orders", "press", "cast"]);
-    expect(rows("manager")).toEqual(["ageing:/more/ageing", "press:/press", "cast:/cast", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("manager")).toEqual(["ageing:/more/ageing", "furnaces:/more/furnaces", "alloys:/more/alloys", "press:/press", "cast:/cast", "dieRoom:/dies", "orders:/orders", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("admin (masters.publish, no order.manage) reaches the die board from More, but not Orders: the web hides Orders from admin too (m-4)", () => {
     expect(extraTabs(me("admin"))).toEqual(["dies", "press", "cast"]);
-    expect(rows("admin")).toEqual(["ageing:/more/ageing", "press:/press", "cast:/cast", "dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("admin")).toEqual(["ageing:/more/ageing", "furnaces:/more/furnaces", "alloys:/more/alloys", "press:/press", "cast:/cast", "dieRoom:/dies", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
   });
 
   test("a masters-publish role has no write action on the die card (it is read-only there)", () => {
@@ -169,7 +169,7 @@ describe("Orders and Dies from More for the packer-set roles", () => {
 
   test("m-1: the die room sees one Dies entry (the tab), not a second 'Dies' row for the read-only list", () => {
     expect(placeScan(visibleTabs(me("die_room")))).toContain("dies");
-    expect(rows("die_room")).toEqual(["customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
+    expect(rows("die_room")).toEqual(["nitriding:/more/nitriding", "makers:/more/makers", "customers:/more/customers", "guides:/more/guides", "settings:/more/settings"]);
     expect(moreRows(me("die_room")).some((r) => r.labelKey === "nav.dies")).toBe(false);
   });
 

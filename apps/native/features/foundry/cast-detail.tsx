@@ -15,8 +15,8 @@ import { StatusBlock } from "@/components/ui/status-block";
 import { useFormat } from "@/lib/use-format";
 import { trpc } from "@/utils/trpc";
 
-import { CloseSheet } from "./close-sheet";
-import { CAST_TONE, closeBlock, closeoutView, latestVerdict, lockedMeltTone, MELT_TONE, bpText, tailChip, verdictTone, type CastStatus, type MeltStatus } from "./foundry-model";
+import { CancelCastSheet, CloseSheet } from "./close-sheet";
+import { CAST_TONE, canCancelCast, closeBlock, closeoutView, latestVerdict, lockedMeltTone, MELT_TONE, bpText, tailChip, verdictTone, type CastStatus, type MeltStatus } from "./foundry-model";
 import type { MeltRow } from "./types";
 import { Figure, kgOf, Note, Section } from "./ui";
 
@@ -48,6 +48,7 @@ export function CastDetail({ id }: { id: string }) {
   const router = useRouter();
   const format = useFormat();
   const [closing, setClosing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const query = useQuery({ ...trpc.foundry.casts.get.queryOptions({ id }), refetchInterval: 30_000 });
   const data = query.data;
 
@@ -140,7 +141,9 @@ export function CastDetail({ id }: { id: string }) {
       <Can do="cast.close">
         {c.status === "open" && block === "draft_melts" ? <Note tone="amber">{t("foundry.cast.close.blockedDraft")}</Note> : null}
         {c.status === "open" && block === null ? <Button variant="secondary" size="lg" label={t("foundry.cast.close.button")} onPress={() => setClosing(true)} /> : null}
+        {canCancelCast(c.status, co) ? <Button variant="ghost" label={t("foundry.cast.cancel.button")} onPress={() => setCancelling(true)} /> : null}
         <CloseSheet visible={closing} onClose={() => setClosing(false)} cast={data} />
+        <CancelCastSheet visible={cancelling} onClose={() => setCancelling(false)} castId={c.id} number={c.number} />
       </Can>
     </View>
   );
