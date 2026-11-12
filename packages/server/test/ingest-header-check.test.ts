@@ -144,7 +144,7 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     ]);
   });
 
-  test("a block that was asked about comes back alone; the file cannot gain a sheet on the way", async () => {
+  test("a block that was asked about comes back with its pick; before any row is written the file may gain a table (round 7 item 4)", async () => {
     const p = await plant(env);
     const { artifactId } = await begin(p.owner);
     // Round 7 item 3: a letterhead above the guess, so this table is asked.
@@ -155,7 +155,12 @@ describe("rule 4.1: the server settles each block's header by fit, or a person p
     ];
     const blk = { ordinal: 0, sheetName: "Kharidi", title: null, headers: odd[1]!.cells, rowCount: 1, sample: [odd[2]!.cells], headerRow: 1, headerRows: 1, preview: odd };
     expect((await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [blk] })).header[0]!.answer).toBe("ask");
-    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [{ ...blk, hint: { headerRow: 1, headerRows: 1 } }, { ...blk, ordinal: 1 }] })).rejects.toThrow(/already saved/);
+    // Round 7 item 4: no row of the file is written, so the list may gain a table. The new one is asked.
+    const again = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [{ ...blk, hint: { headerRow: 1, headerRows: 1 } }, { ...blk, ordinal: 1 }] });
+    expect(again.header.map((h) => [h.ordinal, h.answer, "by" in h ? h.by : null])).toEqual([
+      [0, "keep", "person"],
+      [1, "ask", null],
+    ]);
   });
 
   test("rule 7.2 (round 6): the old shape with no preview is refused; nothing is saved as the reader's", async () => {
