@@ -94,7 +94,7 @@ async function readDone(page: Page, name: string) {
 /** The review link of a file's import, once it has left "Checking rows". */
 async function reviewHref(page: Page, name: string): Promise<string> {
   for (let tries = 0; tries < 45; tries += 1) {
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     await page.goto("/ingest");
     for (const seg of ["Needs you", "Ready", "Approved", "Merged"]) {
       await page.getByRole("radio", { name: new RegExp(`^${seg} `) }).click();
@@ -177,7 +177,7 @@ test("shots", async ({ page, request }) => {
   const nums = [`Go series ${STAMP}`, `Go profile ${STAMP}`, `Go low ${STAMP} kg/12ft`, `Go high ${STAMP} kg/12ft`];
   await stage("read-panel", async () => {
     const name = `goes-on-${STAMP}.csv`;
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     await page.goto("/ingest");
     await upload(page, name, Buffer.from([nums.join(","), "Z1,GO1,1.1,1.4", "Z1,GO2,1.2,1.5", ",,,", "December,,,", "Z1,GO3,1.3,1.6"].join("\n")));
     await readDone(page, name);
@@ -205,7 +205,7 @@ test("shots", async ({ page, request }) => {
   // Candidates: a merged die file first, then others that stay ready, approved, held.
   const series = `S${STAMP.slice(0, 3)}`;
   await stage("candidates", async () => {
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     const approve = async (file: string) => {
       const href = await reviewHref(page, file);
       await page.goto(href);
@@ -221,7 +221,7 @@ test("shots", async ({ page, request }) => {
     await approve(first);
     await page.goto("/ingest");
     await page.getByRole("button", { name: /^Merge \d+ approved imports?$/ }).click();
-    for (const m of MODES.slice(0, 1)) await snap(page, "merge-confirm", m);
+    if (!process.env.SHOT_MODES) await snap(page, "merge-confirm", ALL_MODES[0]!);
     await page.getByRole("dialog").getByRole("button", { name: /^Merge \d+ approved imports?$/ }).click();
     await expect(page.getByRole("heading", { name: "Merge finished", level: 1 })).toBeVisible({ timeout: 120_000 });
     urls.mergeDone = new URL(page.url()).pathname;
@@ -247,7 +247,7 @@ test("shots", async ({ page, request }) => {
 
   // Merge with one failed, back to Hold: two files with the same new section, both approved.
   await stage("merge-with-hold", async () => {
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     const code = `${STAMP}X`;
     const names = [`dup-a-${STAMP}.csv`, `dup-b-${STAMP}.csv`];
     for (const n of names) {
@@ -276,7 +276,7 @@ test("shots", async ({ page, request }) => {
   // A merge where one import fails and goes back to Hold. A real failure needs a server fault, so the merge answer is changed
   // on its way to the page: the last import comes back held with a reason, and the run says it finished with holds.
   await stage("merge-held-mocked", async () => {
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     const names = [`mh-a-${STAMP}.csv`, `mh-b-${STAMP}.csv`];
     for (const [i, n] of names.entries()) {
       await page.goto("/ingest");
@@ -359,7 +359,7 @@ test("shots", async ({ page, request }) => {
   await stage("review-needs-layout", async () => {
     const name = `unknown-${STAMP}.csv`;
     const h = [`Un series ${STAMP}`, `Un profile ${STAMP}`, `Un low ${STAMP} kg/12ft`, `Un high ${STAMP} kg/12ft`];
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     await page.goto("/ingest");
     await upload(page, name, Buffer.from([h.join(","), `${series},${STAMP}U,1.2,1.5`].join("\n")));
     await readDone(page, name);
@@ -368,7 +368,7 @@ test("shots", async ({ page, request }) => {
   });
   await stage("review-magnitude", async () => {
     const name = `bundles-${STAMP}.csv`;
-    await setMode(page, MODES[0]!);
+    await setMode(page, ALL_MODES[0]!);
     await page.goto("/ingest");
     await upload(page, name, Buffer.from(["Legacy id,Series,Section code,Quantity,Weight (kg),Length (mm),PO number", `ZB${STAMP}1,${series},${STAMP}M,10,400,3658,`, `ZB${STAMP}2,${series},${STAMP}M,10,58.4,3658,`].join("\n")));
     await readDone(page, name);
@@ -399,7 +399,7 @@ test("shots", async ({ page, request }) => {
     };
     await fakeBot(page, { action: "install", responses: [{ result: { kind: "recipe", recipe } }] });
     try {
-      await setMode(page, MODES[0]!);
+      await setMode(page, ALL_MODES[0]!);
       const row = (no: string, d: string) => `${party.name},${no},PO-${STAMP},${d},${die.series},${die.sectionCode},100,3658`;
       const one = `orders-one-${STAMP}.csv`;
       const two = `orders-two-${STAMP}.csv`;
