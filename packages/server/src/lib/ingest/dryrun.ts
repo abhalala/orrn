@@ -71,6 +71,7 @@ import {
   liveOrdersOf,
   normOrderNo,
   normPo,
+  fyFits,
   orderFyOf,
   ORDER_GROUP_CODES,
   orderGroupCheck,
@@ -2078,7 +2079,11 @@ async function matchLiveOrders(ctx: IngestCtx, rows: readonly Staged[], outcomes
     // A numbered old order whose PO is on a live order an import made for another old order: one
     // PO on two orders (rule 4.2). It is not a line of that order. The person skips the rows.
     const hit = live.get(id.key)!;
-    if (id.kind === "no" && hit.by === "po" && hit.oldKey && hit.oldKey !== liveOrderKey(id.customer, id.fy, id.no ?? "")) {
+    // A PO on a live order of another financial year is not a line of it either (rule 4.2, M-1).
+    if (
+      (id.kind === "no" && hit.by === "po" && hit.oldKey && hit.oldKey !== liveOrderKey(id.customer, id.fy, id.no ?? "")) ||
+      (hit.by === "po" && !fyFits(hit.fy ?? "", id.fy))
+    ) {
       out.state = r.decision === "keep_live" ? "unchanged" : "conflict";
       out.reasons = [...out.reasons, PO_ON_LIVE_ORDER];
       continue;

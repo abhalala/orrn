@@ -87,6 +87,32 @@ export function stagedRowIdOf(rowKey: string, target: string | null): Promise<st
 // begin / commitRaw
 // ---------------------------------------------------------------------------
 
+/** M-2: the words when the kind sent does not agree with the file's name or type. */
+export const KIND_MISMATCH = "This file does not match the kind sent. Choose the file again.";
+
+const PDF_EXT = new Set(["pdf"]);
+const IMAGE_EXT = new Set(["jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tif", "tiff", "bmp"]);
+const READ_EXT = new Set(["xlsx", "xlsm", "xls", "ods", "csv", "tsv", "txt", "sql"]);
+
+/**
+ * Whether the kind agrees with the name's extension and the content type (M-2): a PDF is a PDF kind,
+ * a photo an image, a sheet, CSV or SQL file one of those. A name with no known extension and no
+ * telling type is taken as sent.
+ */
+export function kindFits(kind: ArtifactKind, fileName: string, contentType: string | null): boolean {
+  const dot = fileName.lastIndexOf(".");
+  const ext = dot > 0 ? fileName.slice(dot + 1).toLowerCase() : "";
+  const type = (contentType ?? "").toLowerCase().split(";")[0]!.trim();
+  const says = new Set<"pdf" | "image" | "read">();
+  if (PDF_EXT.has(ext)) says.add("pdf");
+  if (IMAGE_EXT.has(ext)) says.add("image");
+  if (READ_EXT.has(ext)) says.add("read");
+  if (type === "application/pdf") says.add("pdf");
+  if (type.startsWith("image/")) says.add("image");
+  const want = kind === "pdf_text" || kind === "pdf_scan" ? "pdf" : kind === "image" ? "image" : "read";
+  return [...says].every((x) => x === want);
+}
+
 export async function beginArtifact(
   ctx: IngestCtx,
   input: { sha256: string; fileName: string; sizeBytes: number; contentType: string | null; kind: ArtifactKind; note?: string },
@@ -95,6 +121,8 @@ export async function beginArtifact(
   if (input.sizeBytes > limit) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `${input.fileName} is too big. The limit for this kind of file is ${mb(limit)} MB.` });
   }
+  // M-2: the kind the browser sends must agree with the file's name and type.
+  if (!kindFits(input.kind, input.fileName, input.contentType)) throw new TRPCError({ code: "BAD_REQUEST", message: KIND_MISMATCH });
   const ready = vaultReady();
   // A PDF or photo is only kept in this release, so with no vault there is nothing to keep it in.
   const keptOnly = isKeptUnread(input.kind);
