@@ -220,7 +220,7 @@ export function DecisionBarCard({
             <p className="m-0 text-[14px] leading-5 font-medium text-tone-amber-ink">
               <a
                 href="#review-first-open"
-                className="inline-flex min-h-6 items-center underline underline-offset-4"
+                className="inline-flex min-h-6 pointer-coarse:min-h-11 items-center underline underline-offset-4"
                 onClick={(event) => {
                   event.preventDefault();
                   onGoToFirstOpen();

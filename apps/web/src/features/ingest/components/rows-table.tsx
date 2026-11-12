@@ -231,7 +231,7 @@ function GroupNotes({ group, onGoToQuestion, firstWait }: { group: RowGroupNotes
           {onGoToQuestion && firstWait ? (
             <a
               href="#review-first-open"
-              className="inline-flex min-h-6 items-center underline underline-offset-4"
+              className="inline-flex min-h-6 pointer-coarse:min-h-11 items-center underline underline-offset-4"
               onClick={(event) => {
                 event.preventDefault();
                 onGoToQuestion(firstWait);
@@ -257,7 +257,7 @@ function WaitsOnLine({ view, onGoToQuestion }: { view: RowView; onGoToQuestion?:
   return (
     <a
       href="#review-first-open"
-      className="inline-flex min-h-6 items-center self-start text-[13px] text-foreground underline underline-offset-4"
+      className="inline-flex min-h-6 pointer-coarse:min-h-11 items-center self-start text-[13px] text-foreground underline underline-offset-4"
       onClick={(event) => {
         event.preventDefault();
         onGoToQuestion(waits);

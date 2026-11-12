@@ -101,6 +101,35 @@ describe("the header step", () => {
     expect(render(last)).not.toContain("Two rows");
   });
 
+  // Design check M3: phone targets, a cue for the columns a phone leaves out, no word cut in two.
+  test("the row radios are 44 px targets on touch screens and the whole row picks the row", () => {
+    const html = render(view());
+    expect(html).toContain("pointer-coarse:min-h-11");
+    expect(html.match(/<tr class="[^"]*align-top/g)).toHaveLength(4);
+  });
+
+  test("columns from D on are left out on a phone and said so; the wide screen says its own count", () => {
+    const wide = render(view({ columns: 9 }));
+    expect(wide).toContain('data-testid="more-columns-narrow"');
+    expect(wide).toContain("6 more columns not shown");
+    expect(wide).toContain('data-testid="more-columns"');
+    expect(wide).toContain("3 more columns not shown");
+    // Three columns fit a phone: nothing to say.
+    expect(render(view({ columns: 3 }))).not.toContain("more-columns");
+    // Four columns: a phone leaves one out, a wide screen none.
+    const four = render(view({ columns: 4 }));
+    expect(four).toContain('data-testid="more-columns-narrow"');
+    expect(four).toContain("1 more column not shown");
+    expect(four).not.toContain('data-testid="more-columns"');
+  });
+
+  test("a word is never cut in the preview: no break-words, the table scrolls inside its box", () => {
+    const html = render(view());
+    expect(html).not.toMatch(/<td[^>]*break-words/);
+    expect(html).toContain("overflow-x-auto");
+    expect(html).toContain("max-sm:whitespace-nowrap");
+  });
+
   test("column letters run A to Z, then AA", () => {
     expect([columnLetter(0), columnLetter(25), columnLetter(26), columnLetter(27)]).toEqual(["A", "Z", "AA", "AB"]);
   });

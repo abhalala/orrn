@@ -140,7 +140,7 @@ function QuestionRow({
         {question.aboutRow !== null && onGoToRow ? (
           <a
             href={`#row-${question.aboutRow}`}
-            className="inline-flex min-h-6 items-center self-start text-[13px] text-muted-foreground underline underline-offset-4"
+            className="inline-flex min-h-6 pointer-coarse:min-h-11 items-center self-start text-[13px] text-muted-foreground underline underline-offset-4"
             onClick={(event) => {
               event.preventDefault();
               onGoToRow(question.aboutRow!);

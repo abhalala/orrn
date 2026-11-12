@@ -222,7 +222,7 @@ export function LeftOutNotes({ notes }: { notes: readonly ReadNote[] }) {
       {gaps > 0 ? <p className="m-0">{say("ingest.read.gaps", { count: gaps })}</p> : null}
       {sections.length > 0 ? (
         <details open={sections.length <= SECTIONS_OPEN}>
-          <summary className="min-h-6 cursor-pointer">{say("ingest.read.sections", { count: sections.length })}</summary>
+          <summary className="min-h-6 cursor-pointer pointer-coarse:min-h-11">{say("ingest.read.sections", { count: sections.length })}</summary>
           <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
             {sections.map((section) => (
               <li key={`${section.n}:${section.text}`} className="break-words">
@@ -234,7 +234,7 @@ export function LeftOutNotes({ notes }: { notes: readonly ReadNote[] }) {
       ) : null}
       {rows.length > 0 ? (
         <details open={rows.length <= 3}>
-          <summary className="min-h-6 cursor-pointer">{say("ingest.read.leftOut", { count: rows.length })}</summary>
+          <summary className="min-h-6 cursor-pointer pointer-coarse:min-h-11">{say("ingest.read.leftOut", { count: rows.length })}</summary>
           <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
             {rows.map((row) => (
               <li key={`${row.n}:${row.code}`} className="break-words">

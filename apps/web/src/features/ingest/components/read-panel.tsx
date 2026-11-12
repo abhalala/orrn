@@ -182,7 +182,7 @@ export function ReadFactsView({ facts, reput }: { facts: ReadFacts; reput: { onS
       {facts.gaps > 0 ? <p className="m-0">{say("ingest.read.gaps", { count: facts.gaps })}</p> : null}
       {facts.warnings.length > 0 ? (
         <details open={facts.warnings.length <= 3}>
-          <summary className="min-h-6 cursor-pointer">{say("ingest.read.leftOut", { count: facts.warnings.length + facts.moreWarnings })}</summary>
+          <summary className="min-h-6 cursor-pointer pointer-coarse:min-h-11">{say("ingest.read.leftOut", { count: facts.warnings.length + facts.moreWarnings })}</summary>
           <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0 text-muted-foreground">
             {facts.warnings.map((w) => (
               <li key={`${w.n}:${w.code}`} className="break-words">
@@ -196,7 +196,7 @@ export function ReadFactsView({ facts, reput }: { facts: ReadFacts; reput: { onS
       {facts.sections.length > 0 ? (
         many ? (
           <details>
-            <summary className="min-h-6 cursor-pointer">{say("ingest.read.sections", { count: facts.sections.length + facts.moreSections })}</summary>
+            <summary className="min-h-6 cursor-pointer pointer-coarse:min-h-11">{say("ingest.read.sections", { count: facts.sections.length + facts.moreSections })}</summary>
             <div className="mt-2">{sectionList}</div>
           </details>
         ) : (

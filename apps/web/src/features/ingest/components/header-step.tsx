@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { INGEST_TARGETS, TARGET_KEY, twoRowsFrom, type HeaderAskView, type HeaderReply } from "../lib";
 import { ForeignText, useSay } from "./list-kit";
+import { ScrollCue } from "./shared";
 
 /** Cells shown for each row: all of the first few columns on a wide screen, fewer on a phone. */
 const WIDE_COLUMNS = 6;
@@ -97,54 +98,60 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
       {view.offers.length > 0 ? <p className="m-0 text-[13px] text-muted-foreground">{t("ingest.header.orPick")}</p> : null}
 
       <div role="radiogroup" aria-labelledby={headingId} id={groupId} className="min-w-0">
-        <table className="w-full table-fixed border-collapse text-[13px] leading-5">
-          <caption className="sr-only">{t("ingest.header.tableCaption")}</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="w-[72px] py-1 pr-2 text-left font-medium text-muted-foreground sm:w-[88px]">
-                <span className="sr-only">{t("ingest.header.rowLabel", { n: "" })}</span>
-              </th>
-              {cols.map((c) => (
-                <th key={c} scope="col" aria-hidden="true" className={cn("py-1 pr-2 text-left font-medium text-muted-foreground", c >= NARROW_COLUMNS && "max-sm:hidden")}>
-                  {columnLetter(c)}
+        <ScrollCue>
+          <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[13px] leading-5 max-sm:min-w-max sm:table-fixed">
+            <caption className="sr-only">{t("ingest.header.tableCaption")}</caption>
+            <thead>
+              <tr>
+                <th scope="col" className="w-[72px] py-1 pr-2 text-left font-medium text-muted-foreground sm:w-[88px]">
+                  <span className="sr-only">{t("ingest.header.rowLabel", { n: "" })}</span>
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {view.lines.map((line) => {
-              const on = line.row === row;
-              const cells = line.cells.filter((c) => c.trim() !== "");
-              const name = say("ingest.header.rowName", { n: line.n, cells: cells.length > 0 ? cells.slice(0, 4).join(", ") : t("ingest.header.empty") });
-              return (
-                <RowLines key={line.row} gap={line.gapBefore} columns={shownWide}>
-                  <tr className={cn("border-t border-border align-top", on && "bg-card")}>
-                    <td className={cn("py-1.5 pr-2", on && "border-l-[3px] border-l-foreground pl-1.5")}>
-                      <label className="inline-flex min-h-6 cursor-pointer items-center gap-2 font-medium">
-                        <input
-                          type="radio"
-                          name={groupId}
-                          value={line.row}
-                          checked={on}
-                          aria-label={name}
-                          className="size-4 accent-[var(--color-foreground)]"
-                          onChange={() => setRow(line.row)}
-                        />
-                        <span className="font-mono tabular-nums">{line.n}</span>
-                      </label>
-                    </td>
-                    {cols.map((c) => (
-                      <td key={c} title={line.cells[c] ?? ""} className={cn("py-1.5 pr-2 break-words sm:truncate", on && "font-semibold", c >= NARROW_COLUMNS && "max-sm:hidden")}>
-                        <ForeignText>{line.cells[c] ?? ""}</ForeignText>
+                {cols.map((c) => (
+                  <th key={c} scope="col" aria-hidden="true" className={cn("py-1 pr-2 text-left font-medium text-muted-foreground", c >= NARROW_COLUMNS && "max-sm:hidden")}>
+                    {columnLetter(c)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {view.lines.map((line) => {
+                const on = line.row === row;
+                const cells = line.cells.filter((c) => c.trim() !== "");
+                const name = say("ingest.header.rowName", { n: line.n, cells: cells.length > 0 ? cells.slice(0, 4).join(", ") : t("ingest.header.empty") });
+                return (
+                  <RowLines key={line.row} gap={line.gapBefore} columns={shownWide}>
+                    <tr className={cn("border-t border-border align-top", on && "bg-card")} onClick={() => setRow(line.row)}>
+                      <td className={cn("py-1.5 pr-2", on && "border-l-[3px] border-l-foreground pl-1.5")}>
+                        <label className="inline-flex min-h-6 cursor-pointer items-center gap-2 font-medium pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                          <input
+                            type="radio"
+                            name={groupId}
+                            value={line.row}
+                            checked={on}
+                            aria-label={name}
+                            className="size-4 accent-[var(--color-foreground)]"
+                            onChange={() => setRow(line.row)}
+                          />
+                          <span className="font-mono tabular-nums">{line.n}</span>
+                        </label>
                       </td>
-                    ))}
-                  </tr>
-                </RowLines>
-              );
-            })}
-          </tbody>
-        </table>
-        {view.columns > shownWide ? <p className="m-0 mt-1 text-[12px] text-muted-foreground">{say("ingest.header.moreColumns", { count: view.columns - shownWide })}</p> : null}
+                      {cols.map((c) => (
+                        <td key={c} title={line.cells[c] ?? ""} className={cn("py-1.5 pr-2 max-sm:whitespace-nowrap sm:truncate", on && "font-semibold", c >= NARROW_COLUMNS && "max-sm:hidden")}>
+                          <ForeignText>{line.cells[c] ?? ""}</ForeignText>
+                        </td>
+                      ))}
+                    </tr>
+                  </RowLines>
+                );
+              })}
+            </tbody>
+          </table>
+          </div>
+        </ScrollCue>
+        {/* Columns the phone leaves out (from D on) are said too, not only the ones the wide screen leaves out. */}
+        {view.columns > NARROW_COLUMNS ? <p data-testid="more-columns-narrow" className="m-0 mt-1 text-[12px] text-muted-foreground sm:hidden">{say("ingest.header.moreColumns", { count: view.columns - NARROW_COLUMNS })}</p> : null}
+        {view.columns > shownWide ? <p data-testid="more-columns" className="m-0 mt-1 text-[12px] text-muted-foreground max-sm:hidden">{say("ingest.header.moreColumns", { count: view.columns - shownWide })}</p> : null}
       </div>
 
       {canTwo ? (

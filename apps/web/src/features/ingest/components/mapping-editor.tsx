@@ -206,7 +206,7 @@ export function MappingEditor({
                   <li key={problem.id}>
                     <a
                       href={`#${problem.id}`}
-                      className="inline-flex min-h-6 items-center underline underline-offset-4"
+                      className="inline-flex min-h-6 pointer-coarse:min-h-11 items-center underline underline-offset-4"
                       onClick={(event) => {
                         event.preventDefault();
                         focusProblem(problem.focus);
