@@ -787,9 +787,13 @@ export async function setTarget(
       throw new TRPCError({ code: "BAD_REQUEST", message: "The rows of this sheet were not kept. Upload the file again." });
     }
   }
+  // Rule 11.3: a change into or out of orders changes which sheets are order sheets.
+  const ordersMove = (c.target === "orders") !== (input.target === "orders") && c.state !== "discarded";
+  const moved = ordersMove ? await orderSheetsMove(ctx, c) : [];
   if (input.target === "ignore") {
     await guardedBatch(ctx.db, [
       ...candidateChange(ctx, c.id, input.expectSeq, { state: "discarded", reasonCode: "ignored" }),
+      ...moved,
       clearFillIfNoOrders(ctx, c.artifactId),
       auditInsert(ctx, { action: "ingest.candidate.discard", subjectType: "ingest_candidate", subjectId: c.id, meta: { ignored: true } }),
     ]);
@@ -815,8 +819,40 @@ export async function setTarget(
   await guardedBatch(ctx.db, [
     ...candidateChange(ctx, c.id, input.expectSeq, { ...set, dryCursor: 0, reasonCode: null, reasonDetail: null }),
     clearLayoutAnswers(ctx, c.id),
+    ...moved,
+    clearFillIfNoOrders(ctx, c.artifactId),
   ]);
   return candidateDetail(ctx, c.id);
+}
+
+/**
+ * Rule 11.3 (after 11.1): a sheet goes into or out of orders while the file holds a fill answer.
+ * Refused once any sheet of the file is approved, merging or merged, checked again inside the
+ * batch; otherwise every other order sheet goes back to be checked in the same batch.
+ */
+async function orderSheetsMove(ctx: IngestCtx, c: CandidateRow): Promise<SqliteBatchItem[]> {
+  const artifact = await loadArtifact(ctx, c.artifactId);
+  if (!artifact.fillAbove) return [];
+  const [approved] = await ctx.db
+    .select({ id: ingestCandidate.id })
+    .from(ingestCandidate)
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        eq(ingestCandidate.artifactId, artifact.id),
+        inArray(ingestCandidate.state, ["approved", "merging", "merged"]),
+      ),
+    )
+    .limit(1);
+  if (approved) throw new TRPCError({ code: "BAD_REQUEST", message: FILE_APPROVED });
+  return [
+    ctx.db
+      .update(ingestArtifact)
+      .set({ updatedAt: now() })
+      .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId), noSheetApproved(ctx.companyId, artifact.id))),
+    ingestAbortUnlessChanged(ctx.db),
+    ...(await fillAboveRerun(ctx, artifact.id, [c.id])),
+  ];
 }
 
 /** Save a draft layout version for a candidate; it becomes approved when the candidate is approved. */

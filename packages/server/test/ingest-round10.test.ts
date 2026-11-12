@@ -152,3 +152,52 @@ describe("rule 11.3 (S8-1): one stored answer per file", () => {
     expect(await stored(k.artifactId)).toEqual({ file: null, onSheets: 0 });
   });
 });
+
+const TABLES_LOCKED = "A sheet of this file is approved. Its tables cannot change now.";
+const ANSWERS_LOCKED = "A sheet of this file is approved. Its answers cannot change now.";
+const targetOf = async (as: Caller, candidateId: string) => (await as.ingest.candidate.get({ candidateId })).target;
+const setTarget = async (as: Caller, candidateId: string, target: "orders" | "customers") =>
+  as.ingest.candidate.setTarget({ candidateId, target, expectSeq: await seqOf(as, candidateId) });
+
+describe("rule 11.3 (S8-2): set target changes which sheets are order sheets", () => {
+  test("Yes on A, then A set to customers: B goes back and is checked again with the file's Yes; with no order sheet left the answer is cleared", async () => {
+    const p = await setup();
+    const { artifactId, a, b } = await twoSheetsYes(p);
+    await setTarget(p.owner, a, "customers");
+    expect(await stateOf(p.owner, b)).toBe("processing");
+    await pump(p.owner, b);
+    expect((await p.owner.ingest.candidate.get({ candidateId: b })).questions.find((q) => q.code === "order_fill_above")).toMatchObject({ answer: true, open: false });
+    expect((await rowsOf(p.owner, b))[1]!.reasons).toContain("filled_down:orderDate");
+    expect(await stored(artifactId)).toEqual({ file: true, onSheets: 0 });
+    await setTarget(p.owner, b, "customers");
+    expect(await stored(artifactId)).toEqual({ file: null, onSheets: 0 });
+  });
+
+  test("A, B and C; Yes on A and B approved: A cannot be set to customers, and No on C is refused", async () => {
+    const p = await setup();
+    const up = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: TWO("41", "PO-A", "PO-B") },
+      { name: "B", headers: BOOK, rows: TWO("43", "PO-D", "PO-E") },
+      { name: "C", headers: BOOK, rows: TWO("45", "PO-F", "PO-G") },
+    ]);
+    const [a, b, c] = up.candidates.map((x) => x.id) as [string, string, string];
+    for (const id of [a, b, c]) await pump(p.owner, id);
+    await fill(p.owner, a, true);
+    for (const id of [a, b, c]) await pump(p.owner, id);
+    expect(await tryApprove(p.owner, b)).toBe("approved");
+    await expect(setTarget(p.owner, a, "customers")).rejects.toThrow(TABLES_LOCKED);
+    expect(await targetOf(p.owner, a)).toBe("orders");
+    await expect(fill(p.owner, c, false)).rejects.toThrow(ANSWERS_LOCKED);
+    expect(await stateOf(p.owner, b)).toBe("approved");
+    expect(await stored(up.artifactId)).toEqual({ file: true, onSheets: 0 });
+  });
+
+  test("the refusal is checked inside the batch: B approved just before set target's write", async () => {
+    const p = await setup();
+    const { artifactId, a, b } = await twoSheetsYes(p);
+    env.beforeNextBatch(() => env.d1.prepare("update ingest_candidate set state = 'approved' where id = ?").bind(b).run());
+    await expect(setTarget(p.owner, a, "customers")).rejects.toThrow();
+    expect(await targetOf(p.owner, a)).toBe("orders");
+    expect(await stored(artifactId)).toEqual({ file: true, onSheets: 0 });
+  });
+});
