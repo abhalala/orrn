@@ -62,6 +62,8 @@ export const ingestEn = {
     reputDone: "Done. The tables of this file were read again. Open them from the Imports page.",
     reputFailed: "orrn could not read the file again. Try once more.",
     factsTitle: "What the reader left out",
+    // server round 9: other sheets go back to checking
+    othersChecking: "{count} other {count:sheet of this file is|sheets of this file are} being checked again.",
   },
   skipNoDate: {
     title: "Skip these {count} lines?",

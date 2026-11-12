@@ -401,3 +401,15 @@ export function reviewDocTitle(say: Say, c: Pick<CandidateDetail, "target" | "sh
   const title = c.target ? say(TARGET_KEY(c.target)) : c.sheetName && c.sheetName.trim() !== "" ? c.sheetName : say("ingest.list.newTable");
   return say("ingest.docTitle.review", { target: title, file: c.fileName });
 }
+
+/**
+ * The other sheets of this import's file that are being checked again (server round 9: an answer that changes, a table put
+ * again or a pick sends every other order sheet of the file back to checking). The review screen drives their dry runs and
+ * says how many there are, so nobody reads a stale "Ready" on the list.
+ */
+export function otherSheetsChecking(
+  list: readonly Pick<CandidateSummary, "id" | "artifactId" | "state">[],
+  current: Pick<CandidateSummary, "id" | "artifactId">,
+): string[] {
+  return list.filter((c) => c.artifactId === current.artifactId && c.id !== current.id && c.state === "processing").map((c) => c.id);
+}

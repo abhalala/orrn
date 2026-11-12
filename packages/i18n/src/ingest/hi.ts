@@ -61,6 +61,8 @@ export const ingestHi = {
     reputDone: "हो गया। इस फ़ाइल की टेबल फिर से पढ़ी गईं। उन्हें इम्पोर्ट पेज से खोलें।",
     reputFailed: "orrn फ़ाइल फिर से नहीं पढ़ सका। एक बार और कोशिश करें।",
     factsTitle: "पढ़ने में जो छोड़ा गया",
+    // server round 9: other sheets go back to checking
+    othersChecking: "इस फ़ाइल की {count} और {count:शीट|शीटें} फिर से जांची जा रही {count:है|हैं}।",
   },
   skipNoDate: {
     title: "ये {count} लाइनें छोड़ें?",

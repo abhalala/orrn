@@ -67,6 +67,20 @@ describe("Skip these lines (server round 9)", () => {
   });
 });
 
+describe("other sheets of the file checked again (server round 9)", () => {
+  test("only the file's other sheets that are processing, never this one or another file's", async () => {
+    const { otherSheetsChecking } = await import("./review-model");
+    const list = [
+      { id: "a", artifactId: "F1", state: "processing" },
+      { id: "b", artifactId: "F1", state: "processing" },
+      { id: "c", artifactId: "F1", state: "ready" },
+      { id: "d", artifactId: "F2", state: "processing" },
+    ] as never[];
+    expect(otherSheetsChecking(list, { id: "a", artifactId: "F1" })).toEqual(["b"]);
+    expect(otherSheetsChecking(list, { id: "c", artifactId: "F1" })).toEqual(["a", "b"]);
+  });
+});
+
 describe("how the rows were read (rule 7.1)", () => {
   test("rows with no order number and rows that took party, date or PO from the row above are said once each", () => {
     const bar = decisionBar(detail({ rowsOwnOrder: 2, counts: counts({ filled: 3 }) }), ctx);

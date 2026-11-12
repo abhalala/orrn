@@ -23,6 +23,8 @@ import {
   useCandidates,
   useDiscardFlow,
   useDryRunPump,
+  useDryRunQueue,
+  otherSheetsChecking,
   useFocusReturn,
   useIngestStatus,
   usePlantUnits,
@@ -149,6 +151,9 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   const showRead = candidate.block.headers.length > 0 && candidate.state !== "failed" && candidate.state !== "discarded";
   const showRows = !["needs_confirm", "needs_shape", "discarded"].includes(candidate.state) && candidate.counts.total > 0;
 
+  // The file's other sheets that went back to checking after an answer, a put again or a pick: this screen runs them and says so.
+  const otherChecking = otherSheetsChecking(list.data ?? [], candidate);
+  useDryRunQueue(otherChecking);
   const approved = approvedSummary(list.data ?? []);
   const after = act.after
     ? afterDecision({ kind: act.after.kind, approvedCount: approved.count, nextId: nextNeedsYou(list.data ?? [], candidate.id) })
@@ -274,7 +279,16 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
           after={after}
           barRef={setBarRef}
           afterRef={focus.ref(FOCUS.after)}
-          notices={candidate.state === "needs_shape" ? <ShapeNotices offer={offer} bot={bot} /> : null}
+          notices={
+            <>
+              {candidate.state === "needs_shape" ? <ShapeNotices offer={offer} bot={bot} /> : null}
+              {otherChecking.length > 0 ? (
+                <p role="status" data-testid="others-checking" className="m-0 text-[14px] leading-6 text-muted-foreground">
+                  {t("ingest.read.othersChecking", { count: otherChecking.length })}
+                </p>
+              ) : null}
+            </>
+          }
         />
         {candidate.state === "processing" ? <DryRunBlock dryRun={dryRun} /> : null}
       </div>

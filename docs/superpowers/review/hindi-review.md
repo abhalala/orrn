@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8111 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8112 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (520)
+### ingest (521)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6974,6 +6974,7 @@ Please check, Lalubhai:
 | `read.reputDone` | Done. The tables of this file were read again. Open them from the Imports page. | हो गया। इस फ़ाइल की टेबल फिर से पढ़ी गईं। उन्हें इम्पोर्ट पेज से खोलें। |
 | `read.reputFailed` | orrn could not read the file again. Try once more. | orrn फ़ाइल फिर से नहीं पढ़ सका। एक बार और कोशिश करें। |
 | `read.factsTitle` | What the reader left out | पढ़ने में जो छोड़ा गया |
+| `read.othersChecking` | {count} other {count:sheet of this file is\|sheets of this file are} being checked again. | इस फ़ाइल की {count} और {count:शीट\|शीटें} फिर से जांची जा रही {count:है\|हैं}। |
 | `skipNoDate.title` | Skip these {count} lines? | ये {count} लाइनें छोड़ें? |
 | `skipNoDate.body` | They have no date, so orrn cannot tell which year's order they belong to. They are left out of the import. | इनमें तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ये किस साल के ऑर्डर की हैं। इन्हें इम्पोर्ट से बाहर रखा जाएगा। |
 | `skipNoDate.keep` | Keep them | इन्हें रहने दें |
