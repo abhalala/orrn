@@ -104,7 +104,7 @@ export type BlockInput = {
   /** The region's width (`ReadBlock.width`). */
   width?: number;
   /** Rule 6.1: only blank rows lie between this table and table `ordinal` above it. */
-  follows?: { ordinal: number; gapRows: number } | null;
+  follows?: { ordinal: number; gapRows: number; continues?: boolean } | null;
   /** Lead answer (b): vertical merged cell ranges, by block row index and column. */
   merged?: { col: number; firstRow: number; lastRow: number }[];
   /** A person's pick of the header row, after the server asked. `headerRow` and `headerRows` must be it. */
@@ -133,10 +133,11 @@ export type HeaderAnswer =
       guess: HeaderPickIn;
       candidates: HeaderPickIn[];
       resembles: HeaderResemblesOut | null;
-      /** Rule 6.1: the table this one follows, as sent, or null. */
-      follows: { ordinal: number; gapRows: number } | null;
-      /** Rule 6.1: offer "It continues the table above" first. */
-      continuesAbove: boolean;
+      /**
+       * The table this one follows, as sent, or null. `continues` (rule 8.1, the reader's
+       * `follows.continues`): offer "It continues the table above"; true only under an all-text table.
+       */
+      follows: { ordinal: number; gapRows: number; continues: boolean } | null;
       /** Rule 6.1: offer "Same columns as the table above". */
       sameColumnsAsAbove: boolean;
     };

@@ -250,8 +250,7 @@ function settleHeader(
       guess: choice.guess,
       candidates: choice.candidates,
       resembles,
-      follows: b.follows ?? null,
-      continuesAbove: choice.continuesAbove,
+      follows: b.follows ? { ordinal: b.follows.ordinal, gapRows: b.follows.gapRows, continues: b.follows.continues === true } : null,
       sameColumnsAsAbove: choice.sameColumnsAsAbove,
     };
   }

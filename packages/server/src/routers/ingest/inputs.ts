@@ -71,7 +71,11 @@ export const blockInput = z.object({
   /** The region's width (`ReadBlock.width`): a column filled only below the preview still counts. */
   width: z.number().int().min(0).max(L.columnsPerBlock).optional(),
   /** Rule 6.1: only blank rows lie between this table and the table `ordinal` above it, on the same sheet. */
-  follows: z.object({ ordinal: z.number().int().min(0).max(L.blocksPerFile - 1), gapRows: z.number().int().min(0).max(RAW_ROW_MAX) }).nullable().optional(),
+  // The reader's `follows`; `continues` is its "It continues the table above" offer (rule 8.1, round 8).
+  follows: z
+    .object({ ordinal: z.number().int().min(0).max(L.blocksPerFile - 1), gapRows: z.number().int().min(0).max(RAW_ROW_MAX), continues: z.boolean().optional() })
+    .nullable()
+    .optional(),
   /**
    * Lead answer (b): vertical merged cell ranges the reader saw, by block row index (0 is the first
    * row after the header) and column. Without them a blank cell stays blank.

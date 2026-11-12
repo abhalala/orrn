@@ -105,7 +105,8 @@ describe("rule 7.2: the header check cannot be skipped", () => {
     const odd = ["Kachha maal", "Vazan", "Rate", "", "", "", "", ""];
     const preview = [{ row: 0, cells: LETTER }, { row: 1, cells: odd }, { row: 2, cells: ["Om Metals", "120", "55", "", "", "", "", ""] }, { row: 3, cells: ["Kamal Bros", "80", "54", "", "", "", "", ""] }];
     const first = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 0, headers: LETTER, preview, sample: [preview[2]!.cells] })] });
-    expect(first.header[0]).toMatchObject({ answer: "ask", follows: null, continuesAbove: false, sameColumnsAsAbove: false });
+    expect(first.header[0]).toMatchObject({ answer: "ask", follows: null, sameColumnsAsAbove: false });
+    expect(first.header[0]).not.toHaveProperty("continuesAbove");
     await expect(
       p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 7, headers: BOOK, preview, hint: { headerRow: 7, headerRows: 1 } })] }),
     ).rejects.toThrow("The row you picked is not in the preview");
@@ -139,7 +140,26 @@ describe("rule 7.2: the header check cannot be skipped", () => {
     const upper = { ordinal: 0, sheetName: "A", title: null, headerRow: 0, headerRows: 1, rowCount: 1, sample: [data], preview: [{ row: 0, cells: odd }, { row: 1, cells: data }] };
     const lower = { ordinal: 1, sheetName: "A", title: null, headerRow: 4, headerRows: 1, rowCount: 1, sample: [data], preview: [{ row: 4, cells: odd }, { row: 5, cells: data }], follows: { ordinal: 0, gapRows: 2 } };
     const out = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [upper, lower] });
-    expect(out.header.find((h) => h.ordinal === 1)).toMatchObject({ answer: "ask", sameColumnsAsAbove: true, follows: { ordinal: 0, gapRows: 2 } });
+    expect(out.header.find((h) => h.ordinal === 1)).toMatchObject({ answer: "ask", sameColumnsAsAbove: true, follows: { ordinal: 0, gapRows: 2, continues: false } });
+  });
+
+  test("round 8: the reader's follows.continues is passed through on the ask answer", async () => {
+    const p = await setup();
+    const id = await begin(p.owner);
+    const upper = { ordinal: 0, sheetName: "A", title: null, headerRow: 0, headerRows: 1, rowCount: 1, sample: [["Om Metals", "Rajkot"]], preview: [{ row: 0, cells: ["Party", "City"] }, { row: 1, cells: ["Om Metals", "Rajkot"] }] };
+    const lower = {
+      ordinal: 1,
+      sheetName: "A",
+      title: null,
+      headerRow: 3,
+      headerRows: 1,
+      rowCount: 1,
+      sample: [["Kamal Bros", "Surat"]],
+      preview: [{ row: 3, cells: ["December", ""] }, { row: 4, cells: ["Kamal Bros", "Surat"] }],
+      follows: { ordinal: 0, gapRows: 1, continues: true },
+    };
+    const out = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [upper, lower] });
+    expect(out.header.find((h) => h.ordinal === 1)).toMatchObject({ answer: "ask", follows: { ordinal: 0, gapRows: 1, continues: true } });
   });
 
   test("Wrong columns? Pick the row: resets a sheet with no row written; the pick is then taken; refused once rows are written", async () => {
