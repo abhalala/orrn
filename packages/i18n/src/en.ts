@@ -6766,6 +6766,7 @@ export const en = {
       ingest__candidate__discard: "Import discarded",
       ingest__block__repick: "Header row opened again",
       ingest__block__reput: "Table put again",
+      ingest__rows__skip_no_date: "Lines with no date skipped",
       ingest__candidate__hold: "Import held",
       ingest__candidate__recheck: "Import checked again",
       ingest__hole__retire: "Import layout removed",
