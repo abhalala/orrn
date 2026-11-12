@@ -129,6 +129,10 @@ export const Q_SECTION_UNKNOWN = "q:section_unknown";
 export const Q_MAGNITUDE = "q:magnitude_check";
 /** The rows of one old order with two different POs wait on `order_po` for the order's key (rules 3, 1). */
 export const Q_ORDER_PO = "q:order_po";
+/** A bundle row with no old bundle number waits on `bundles_no_old_id` (rule 7.5). */
+export const Q_BUNDLE_NO_OLD_ID = "q:bundle_no_old_id";
+/** The reason of a bundle row with no old bundle number when the person said "Do not import". */
+export const NO_OLD_ID_NOT_IMPORTED = "no_old_id_not_imported:legacyId";
 
 type Values = Record<string, unknown>;
 type Staged = typeof ingestStagedRow.$inferSelect;
@@ -157,6 +161,8 @@ export type AnswerSet = {
   ratesLeftOut: boolean | null;
   legacyDie: Map<string, boolean>;
   newCustomers: boolean | null;
+  /** `bundles_no_old_id`: true "Import them", false "Do not import", null not answered (rule 7.5). */
+  bundlesNoOldId: boolean | null;
   /** `magnitude_check` answers by field: "as_is", or the unit the column's flagged numbers are in. */
   magnitude: Map<string, string>;
   /** `order_po` answers by order key: the PO picked (`{ po }`), or "skip". */
@@ -192,6 +198,7 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
     ratesLeftOut: null,
     legacyDie: new Map(),
     newCustomers: null,
+    bundlesNoOldId: null,
     magnitude: new Map(),
     orderPo: new Map(),
     answered: new Set(),
@@ -217,6 +224,9 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
         break;
       case "new_customers":
         set.newCustomers = v === true;
+        break;
+      case "bundles_no_old_id":
+        if (typeof v === "boolean") set.bundlesNoOldId = v;
         break;
       case "magnitude_check":
         if (typeof v === "string") set.magnitude.set(a.subject, v);
@@ -972,6 +982,11 @@ export function classifyRow(values: Values, cx: ClassifyCtx): RowOutcome {
     if (hit) return { state: "unchanged", values, reasons: ["legacy_mapped"], matchId: hit, diff: null };
     const sec = sectionOf(values, ids, reasons, cx);
     if (sec) return sec;
+    // Rule 7.5: with no old bundle number orrn cannot tell the bundle from one imported before.
+    if (!str(values.legacyId).trim()) {
+      if (cx.answers.bundlesNoOldId === false) return { state: "skipped", values, reasons: [...reasons, NO_OLD_ID_NOT_IMPORTED], matchId: null, diff: null };
+      if (cx.answers.bundlesNoOldId !== true) return { state: "ambiguous", values, reasons: [...reasons, Q_BUNDLE_NO_OLD_ID], matchId: null, diff: null };
+    }
     return { state: "ready_create", values, reasons, matchId: null, diff: null };
   }
 
@@ -1112,6 +1127,7 @@ export async function candidateQuestions(
     );
   const codes = new Set<string>();
   let newNames = 0;
+  let noOldId = 0;
   // Keyed by subject (field, unit read in, side).
   const flagged = new Map<string, { field: string; unit: string; likelyUnit: string; side: string; count: number }>();
   // Old orders with two POs, by order key: the POs in file order, the order's name, rows waiting.
@@ -1130,6 +1146,7 @@ export async function candidateQuestions(
       if (reason.startsWith(`${Q_MAGNITUDE}:`)) stillWaiting.add(answerKey("magnitude_check", reason.slice(Q_MAGNITUDE.length + 1)));
       if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) stillWaiting.add(answerKey("create_legacy_die", reason.slice(Q_SECTION_UNKNOWN.length + 1)));
       if (reason === Q_CUSTOMER_NEW) stillWaiting.add(answerKey("new_customers", ""));
+      if (reason === Q_BUNDLE_NO_OLD_ID) noOldId += 1;
       if (reason === Q_CUSTOMER_NEW) newNames += 1;
       else if (reason.startsWith(`${Q_SECTION_UNKNOWN}:`)) codes.add(reason.slice(Q_SECTION_UNKNOWN.length + 1));
       else if (reason.startsWith(`${Q_MAGNITUDE}:`)) {
@@ -1167,6 +1184,7 @@ export async function candidateQuestions(
     add("magnitude_check", subject, !seesPrices && RATE_FIELDS.includes(p.field) ? { ...p, likelyUnit: "" } : p);
   }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
+  if (noOldId > 0 || byKey.has(answerKey("bundles_no_old_id", ""))) add("bundles_no_old_id", "", { count: noOldId });
   // One question per old order whose rows carry two different POs (rule 1): pick one, or skip.
   for (const a of answers) {
     if (a.questionCode !== "order_po" || twoPos.has(a.subject)) continue;

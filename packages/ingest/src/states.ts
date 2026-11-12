@@ -55,6 +55,8 @@ export const QUESTION_CODES = [
   "magnitude_check",
   // One old order whose rows carry two different POs (portal rules round 3, section 1).
   "order_po",
+  // Bundles with no old bundle number: import them or not (portal rules round 3, rule 7.5).
+  "bundles_no_old_id",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 

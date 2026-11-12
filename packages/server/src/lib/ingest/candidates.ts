@@ -1109,6 +1109,8 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   column_meaning_unclear: (a) => typeof a === "string" && a.length <= 100,
   create_legacy_die: (a) => typeof a === "boolean",
   new_customers: (a) => typeof a === "boolean",
+  // "Import them" (true) or "Do not import" (false), rule 7.5.
+  bundles_no_old_id: (a) => typeof a === "boolean",
   // "as_is" (the value is right) or the unit the question offers (checked in setAnswer).
   magnitude_check: (a) => typeof a === "string" && a.length > 0 && a.length <= 20,
   // The PO picked for one old order ({ po }, one of the order's), or "skip" (checked in setAnswer).

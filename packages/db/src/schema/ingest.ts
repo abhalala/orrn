@@ -66,6 +66,7 @@ export const QUESTION_CODES = [
   "new_customers",
   "magnitude_check",
   "order_po",
+  "bundles_no_old_id",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 

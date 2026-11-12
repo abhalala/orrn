@@ -65,15 +65,16 @@ describe("instantiate", () => {
     expect(fitBuiltin(fingerprint({ headers, rows: [["R", "2105", "4", "12.5", "12", ""]] }), builtinBundles)?.fit).toBe("exact");
   });
 
-  test("C1: a bundle row with a blank legacy id is refused, so a re-upload cannot create it twice", () => {
+  test("C1, changed by rule 7.5: a bundle row with a blank legacy id is read; the server asks once before importing it", () => {
     const headers = ["Legacy id", "Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)"];
     const recipe = instantiate(builtinBundles, headers);
     const [blank, filled] = applyRecipe(recipe, [
       ["", "R", "2105", "4", "12.5", "12"],
       ["ck1", "R", "2105", "4", "12.5", "12"],
     ]);
-    expect(blank!.state).toBe("refused");
-    expect(blank!.refusals).toContainEqual({ field: "legacyId", code: "blank_required" });
+    // The bundles_no_old_id question (server dry run) stands between this row and a second copy.
+    expect(blank!.state).toBe("ok");
+    expect(blank!.refusals).toEqual([]);
     expect(filled!.state).toBe("ok");
   });
 
