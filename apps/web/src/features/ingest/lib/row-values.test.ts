@@ -42,9 +42,9 @@ describe("row values: the plant's unit first", () => {
   });
 
   // Work order section 4 note: 3658 mm with "12 ft" in the file.
-  test("3658 mm with 12 ft in the file: mm plant shows 3,658 mm first and File said 12 ft", () => {
+  test("3658 mm with 12 ft in the file: mm plant shows 3658 mm first (a length is never grouped) and File said 12 ft", () => {
     const r = row({ values: { lengthMm: 3658 }, entered: { lengthMm: { text: "12", unit: "ft" } } });
-    expect(cell("bundles", r, "lengthMm", mm)).toMatchObject({ text: "3,658", unit: "mm", fileSaid: "12 ft" });
+    expect(cell("bundles", r, "lengthMm", mm)).toMatchObject({ text: "3658", unit: "mm", fileSaid: "12 ft" });
   });
 
   test("3658 mm with 12 ft in the file: a feet and inches plant shows 12 ft and nothing else", () => {
