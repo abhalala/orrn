@@ -209,6 +209,7 @@ export const ingestEn = {
     // screens work order: the group name of the buttons on one row, "Add as new, row 3"
     named: "{label}, row {n}",
     group: "Decide: row {n}",
+    keepHere: "Keep it in this file",
   },
   q: {
     unit_unknown: "{field} has no unit. Which unit is it?",
@@ -239,6 +240,9 @@ export const ingestEn = {
     save: "Save answer",
     // review screen (stage 2): the year question points at the year line
     goToYear: "Choose the year",
+    // item 1 of the web round: one old order with two POs
+    order_po: "Old order {order} has more than one PO in the file: {pos}. Which PO does it take?",
+    skipOrder: "Skip this order",
   },
   questions: {
     title: "{count} {count:question|questions} before you approve",
@@ -499,6 +503,25 @@ export const ingestEn = {
     in_file_duplicate_same: "This row is in the file twice. The second copy is skipped.",
     cell_cut: "A cell in this row was very long and was cut.",
     row_cut: "This row was very long and the end of it was cut.",
+    // item 1: old order conflicts, notes and the other checks of an order book
+    orderNo: "old order {no}",
+    thisOrder: "this order",
+    po_on_two_orders: "PO {po} is on {order} and on another order in this sheet. One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersFile: "PO {po} is on {order} here and on another order in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them.",
+    po_on_live_order: "PO {po} is already on another order in orrn. Keep the orrn order, or skip these rows.",
+    order_in_other_file: "This order is also in {file} ({sheet}). Keep it in this file, or skip these rows and keep it there.",
+    order_in_other_fileUnnamed: "This order is also in another file. Keep it in this file, or skip these rows.",
+    order_po_skipped: "You skipped this order, so its rows are left out.",
+    order_no_unclear: "This row has no order number, and its PO is on more than one order in this sheet. Fill in the order number, or skip the row.",
+    order_two_pos: "This order has more than one PO in the file. Pick the right one, or skip the order.",
+    order_lines_over: "This order has more than 100 lines. Give the lines over 100 another PO number in the file, or skip some rows.",
+    po_two_dates: "This PO has more than one order date in the file. One PO is one order. Fix the dates or skip rows.",
+    section_archived: "This section is archived, so it takes no new die copies.",
+    check_against_file: "Check this row against the file.",
+    po_on_closed_order: "PO {po} is also on closed order {closed}. This row is imported as a new order.",
+    merged_cell: "Order number taken from the merged cell above.",
+    section_pending: "This section comes from another sheet of this upload.",
+    customer_pending: "This customer comes from another sheet of this upload.",
   },
   error: {
     conflict: "This import changed while you were looking. The page now shows the latest. Check it and try again.",
@@ -508,6 +531,9 @@ export const ingestEn = {
     busy: "orrn is busy. Try again in a minute.",
     load: "Could not load this. Check the connection and try again.",
     action: "Could not save that. Check the connection and try again.",
+    checkAgain: "This sheet has to be checked again before it can be approved.",
+    refused: "orrn cannot do this yet.",
+    checkAgainButton: "Check this sheet again",
   },
   file: {
     rows: "{count} {count:row|rows}",

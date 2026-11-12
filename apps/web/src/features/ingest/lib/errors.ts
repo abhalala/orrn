@@ -6,10 +6,35 @@ import { errorCodeOf } from "./pump";
  */
 export type ErrorKind = "load" | "action";
 
-export type ErrorWords = { key: string; retry: boolean };
+export type ErrorWords = {
+  key: string;
+  retry: boolean;
+  /**
+   * The server's own sentence, for the few refusals that name a file, a sheet or a section ("... adds section R 2105.
+   * Finish it first, then check this sheet again."). It is English, so the screen draws it with `lang="en"` under the
+   * words of `key`. Only a PRECONDITION_FAILED refusal carries one: those are written for a person.
+   */
+  detail?: string;
+  /** The refusal ends in "check this sheet again": the screen offers that button next to it. */
+  checkAgain?: boolean;
+};
+
+const CHECK_AGAIN = /check this sheet again/i;
+
+const messageOf = (error: unknown): string => {
+  const message = (error as { message?: unknown } | null | undefined)?.message;
+  return typeof message === "string" ? message.trim().slice(0, 400) : "";
+};
 
 export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
+  if (code === "PRECONDITION_FAILED") {
+    const detail = messageOf(error);
+    if (detail !== "") {
+      const checkAgain = CHECK_AGAIN.test(detail);
+      return { key: checkAgain ? "ingest.error.checkAgain" : "ingest.error.refused", retry: false, detail, checkAgain };
+    }
+  }
   switch (code) {
     case "CONFLICT":
       // The candidate moved under the person: the screen has refreshed, they look and try again.

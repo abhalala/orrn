@@ -208,6 +208,7 @@ export const ingestHi = {
     // screens work order: the group name of the buttons on one row, "Add as new, row 3"
     named: "{label}, लाइन {n}",
     group: "फ़ैसला: लाइन {n}",
+    keepHere: "इसे इसी फ़ाइल में रखें",
   },
   q: {
     unit_unknown: "{field} में यूनिट नहीं लिखी है। कौन सी यूनिट है?",
@@ -238,6 +239,9 @@ export const ingestHi = {
     save: "जवाब सेव करें",
     // review screen (stage 2): the year question points at the year line
     goToYear: "वर्ष चुनें",
+    // item 1 of the web round: one old order with two POs
+    order_po: "पुराने ऑर्डर {order} में फ़ाइल के अंदर एक से ज़्यादा PO हैं: {pos}। इसमें कौन सा PO रखें?",
+    skipOrder: "यह ऑर्डर छोड़ें",
   },
   questions: {
     title: "मंज़ूर करने से पहले {count} सवाल",
@@ -498,6 +502,25 @@ export const ingestHi = {
     in_file_duplicate_same: "यह लाइन फ़ाइल में दो बार है। दूसरी कॉपी छोड़ दी गई।",
     cell_cut: "इस लाइन का एक सेल बहुत लंबा था, इसलिए काट दिया गया।",
     row_cut: "यह लाइन बहुत लंबी थी, इसलिए इसका आखिरी हिस्सा काट दिया गया।",
+    // item 1: old order conflicts, notes and the other checks of an order book
+    orderNo: "पुराना ऑर्डर {no}",
+    thisOrder: "यह ऑर्डर",
+    po_on_two_orders: "PO {po} {order} पर है और इसी शीट के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersFile: "PO {po} यहां {order} पर है और {file} ({sheet}) के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_live_order: "PO {po} orrn के एक और ऑर्डर पर पहले से है। orrn का ऑर्डर रखें, या ये लाइनें छोड़ दें।",
+    order_in_other_file: "यह ऑर्डर {file} ({sheet}) में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें।",
+    order_in_other_fileUnnamed: "यह ऑर्डर एक और फ़ाइल में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़ दें।",
+    order_po_skipped: "आपने यह ऑर्डर छोड़ा, इसलिए इसकी लाइनें बाहर हैं।",
+    order_no_unclear: "इस लाइन में ऑर्डर नंबर नहीं है, और इसका PO इस शीट के एक से ज़्यादा ऑर्डर पर है। ऑर्डर नंबर भरें, या लाइन छोड़ दें।",
+    order_two_pos: "इस ऑर्डर में फ़ाइल के अंदर एक से ज़्यादा PO हैं। सही वाला चुनें, या ऑर्डर छोड़ दें।",
+    order_lines_over: "इस ऑर्डर में 100 से ज़्यादा लाइनें हैं। 100 से ऊपर की लाइनों को फ़ाइल में दूसरा PO नंबर दें, या कुछ लाइनें छोड़ दें।",
+    po_two_dates: "इस PO की फ़ाइल में एक से ज़्यादा ऑर्डर तारीखें हैं। एक PO एक ही ऑर्डर है। तारीखें सुधारें या लाइनें छोड़ दें।",
+    section_archived: "यह सेक्शन आर्काइव है, इसलिए इसमें नई Die कॉपी नहीं बनतीं।",
+    check_against_file: "इस लाइन को फ़ाइल से मिलाकर देखें।",
+    po_on_closed_order: "PO {po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है।",
+    merged_cell: "ऑर्डर नंबर ऊपर के मर्ज किए सेल से लिया गया।",
+    section_pending: "यह सेक्शन इसी अपलोड की दूसरी शीट से आता है।",
+    customer_pending: "यह ग्राहक इसी अपलोड की दूसरी शीट से आता है।",
   },
   error: {
     conflict: "देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें।",
@@ -507,6 +530,9 @@ export const ingestHi = {
     busy: "orrn अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें।",
     load: "यह लोड नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें।",
     action: "सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें।",
+    checkAgain: "इस शीट को मंज़ूर करने से पहले दोबारा जांचना होगा।",
+    refused: "orrn अभी यह नहीं कर सकता।",
+    checkAgainButton: "यह शीट दोबारा जांचें",
   },
   file: {
     rows: "{count} {count:लाइन|लाइनें}",

@@ -301,6 +301,7 @@ const QUESTION_VARS: Record<QuestionCode, string[]> = {
   create_legacy_die: ["code"],
   new_customers: ["count"],
   magnitude_check: ["field", "unit", "likelyUnit", "side", "count"],
+  order_po: ["order", "customer", "pos", "count"],
 };
 
 /** Recipe unit id to its dictionary key: `kg/12ft` is `ingest.unit.kg_12ft`. */
@@ -322,6 +323,11 @@ function fieldKindOf(target: IngestTarget | null | undefined, field: string): st
 }
 
 const str = (v: unknown): string => (v === undefined || v === null ? "" : String(v));
+
+/** The POs of an `order_po` question: the server joins them with ", ". */
+function poChoices(raw: unknown): string[] {
+  return str(raw).split(", ").map((p) => p.trim()).filter((p) => p !== "");
+}
 
 export function questionView(q: IngestQuestion, target?: IngestTarget | null): QuestionView {
   const vars: Record<string, string | number> = {};
@@ -422,6 +428,24 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
       }
       break;
     }
+    case "order_po": {
+      // One old order whose rows carry two or more POs: the person picks the PO the whole order takes, or leaves it out.
+      const pos = poChoices(q.params.pos);
+      const options = pos.map((po) => ({ value: po, label: po }));
+      control = { kind: "choice", options };
+      answers = [
+        ...pos.map((po) => ({ value: po, words: { key: "", text: po } })),
+        { value: "skip", words: { key: "ingest.q.skipOrder" } },
+      ];
+      if (answered) {
+        if (answer === "skip") answeredWords = { key: "ingest.q.skipOrder" };
+        else if (answer && typeof answer === "object" && typeof (answer as { po?: unknown }).po === "string") {
+          answeredWords = { key: "", text: (answer as { po: string }).po };
+        }
+      }
+      canSkipRows = false;
+      break;
+    }
   }
   return {
     code: q.code,
@@ -514,7 +538,13 @@ export function decisionOptions(
       return [...picks, { decision: "create_new", key: "ingest.decide.createNew" }, skip];
     }
     case "conflict":
-      if (reasons.includes("order_line_new")) return [{ decision: "keep_live", key: "ingest.decide.keepLive" }, skip];
+      if (reasons.includes("order_line_new") || reasons.includes("po_on_live_order:poNumber")) {
+        return [{ decision: "keep_live", key: "ingest.decide.keepLive" }, skip];
+      }
+      // One PO on two old orders: keeping both cannot work, so the only way out is to skip the rows of one of them.
+      if (reasons.includes("po_on_two_orders:poNumber")) return [skip];
+      // The same old order in another file: keep it in this one, or skip it here.
+      if (reasons.includes("order_in_other_file:order")) return [{ decision: "keep_file", key: "ingest.decide.keepHere" }, skip];
       return [
         { decision: "keep_file", key: "ingest.decide.keepFile" },
         { decision: "keep_live", key: "ingest.decide.keepLive" },

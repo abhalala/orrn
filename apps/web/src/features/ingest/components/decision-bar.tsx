@@ -259,7 +259,7 @@ export function DecisionBarCard({
           </div>
         </div>
       ) : null}
-      <ActionError error={act.failed("bar")} />
+      <ActionError error={act.failed("bar")} onCheckAgain={() => onPress("release")} busy={act.busy} />
     </div>
   );
 }

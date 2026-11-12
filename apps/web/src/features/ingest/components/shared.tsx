@@ -157,14 +157,32 @@ export function CandidateLink({ id, children, className }: { id: string; childre
   );
 }
 
-/** The words for a failed write, in an alert line. Nothing renders while `error` is null. */
-export function ActionError({ error, kind = "action" }: { error: unknown; kind?: "load" | "action" }) {
+/**
+ * The words for a failed write, in an alert line. Nothing renders while `error` is null. A refusal that names a file,
+ * a sheet or a section adds the server's sentence in English under the words; one that ends in "check this sheet
+ * again" also gets that button when the screen can do it (`onCheckAgain`).
+ */
+export function ActionError({ error, kind = "action", onCheckAgain, busy }: { error: unknown; kind?: "load" | "action"; onCheckAgain?: () => void; busy?: boolean }) {
   const { t } = useT();
   if (error === null || error === undefined || error === false) return null;
+  const words = ingestErrorWords(error, kind);
   return (
-    <p role="alert" className="m-0 text-[13px] text-destructive">
-      {translateKey(t, ingestErrorWords(error, kind).key)}
-    </p>
+    <div className="flex flex-col items-start gap-2">
+      <p role="alert" className="m-0 text-[13px] text-destructive">
+        {translateKey(t, words.key)}
+        {words.detail ? (
+          <>
+            {" "}
+            <span lang="en">{words.detail}</span>
+          </>
+        ) : null}
+      </p>
+      {words.checkAgain && onCheckAgain ? (
+        <Button variant="secondary" aria-disabled={busy || undefined} onClick={() => !busy && onCheckAgain()}>
+          {t("ingest.error.checkAgainButton")}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

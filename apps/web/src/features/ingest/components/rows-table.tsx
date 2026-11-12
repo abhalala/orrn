@@ -190,6 +190,8 @@ function CellValue({ cell, showUnit }: { cell: ValueCell | undefined; showUnit: 
   );
 }
 
+const TONE_CLASS = { amber: "text-tone-amber-ink", red: "text-tone-red-ink", note: "text-muted-foreground" } as const;
+
 /**
  * Why a row is refused or waits, in the order the server wrote it; its raw English sits in a `lang="en"` span. A refusal
  * is red ink. A value that is asked about, never refused, is amber ink.
@@ -200,7 +202,7 @@ function ReasonLines({ view, className }: { view: RowView; className?: string })
   return (
     <ul className={cn("m-0 flex list-none flex-col gap-0.5 p-0 text-[13px] leading-5 break-words", className)}>
       {view.reasons.map((line, index) => (
-        <li key={index} className={refusalTone(line) === "amber" ? "text-tone-amber-ink" : "text-tone-red-ink"}>
+        <li key={index} className={TONE_CLASS[refusalTone(line)]}>
           {line.kind === "raw" ? <span lang="en">{line.text}</span> : refusalText(say, line)}
         </li>
       ))}

@@ -161,7 +161,7 @@ export function rowView(candidate: Pick<CandidateDetail, "target" | "block">, ro
     written: row.mergeState === "written",
     cells,
     raw: cells.length === 0 ? rawCells(row.raw, candidate.block.headers) : [],
-    reasons: refusalLines(row.reasons),
+    reasons: refusalLines(row.reasons, row.values),
     diffs: Object.entries(row.diff ?? {}).map(([field, d]) => {
       const live = diffSide(candidate.target, field, d.live, plant);
       const file = diffSide(candidate.target, field, d.file, plant);
