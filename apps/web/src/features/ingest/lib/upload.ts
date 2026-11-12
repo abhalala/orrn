@@ -1,6 +1,6 @@
 import type { IngestApi } from "./api";
 import {
-  BLOCKS_PER_CALL, chunk, DEFAULT_LIMITS, detectFileKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
+  BLOCKS_PER_CALL, chunk, DEFAULT_LIMITS, detectFileKind, isKeptKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
   type FileProblem,
 } from "./limits";
 import type { HeaderAskView, HeaderReply } from "./header-step";
@@ -13,10 +13,10 @@ import type { ArtifactKind, IngestLimits, UploadTicketOut } from "./types";
  * Where a file is in the upload. The screen shows the step with these keys:
  * `hashing`, `reading` (`ingest.read.reading` with sheet and rows), `asking` (the header step: `ask` holds what it shows),
  * `saving` (`ingest.read.uploading`),
- * `sending` (rows going to the server), `done`, `seenBefore` (`ingest.drop.seenBefore`), `refused`
+ * `sending` (rows going to the server), `done`, `kept` (a PDF or photo: stored, not read), `seenBefore` (`ingest.drop.seenBefore`), `refused`
  * (`problem` holds the key and variables) and `failed` (`ingest.read.failed`).
  */
-export type UploadStep = "queued" | "hashing" | "reading" | "asking" | "saving" | "sending" | "done" | "seenBefore" | "refused" | "failed";
+export type UploadStep = "queued" | "hashing" | "reading" | "asking" | "saving" | "sending" | "done" | "kept" | "seenBefore" | "refused" | "failed";
 
 export type UploadItem = {
   id: string;
@@ -95,6 +95,8 @@ const REPORTED_FAILURES = new Set(["too_many_rows", "too_many_columns", "too_man
 export function problemFromError(error: unknown, name: string, limitMb: number | null): FileProblem | null {
   const message = String((error as { message?: unknown } | null)?.message ?? "");
   if (/merge or discard/i.test(message)) return { key: "ingest.drop.openLimit" };
+  // The server's own refusal when a PDF or photo cannot be stored: nothing is kept without storage.
+  if (/need file storage/i.test(message)) return { key: "ingest.drop.keptNoStorage", vars: { name } };
   if (/too big|larger than|exceeds/i.test(message) && limitMb !== null) return { key: "ingest.drop.tooBig", vars: { name, limit: limitMb } };
   return null;
 }
@@ -139,10 +141,10 @@ export async function uploadOneFile(
 
   // The name says what the file is; the first bytes decide (a .xlsx that is really a CSV is read as a CSV).
   const named = detectFileKind(file.name, file.type, limits);
-  if (!named || !isReadableKind(named.kind)) return wrongType();
+  if (!named || !(isReadableKind(named.kind) || isKeptKind(named.kind))) return wrongType();
   const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
   const sniffed = sniffKind(head, named.kind);
-  if (!sniffed || !isReadableKind(sniffed)) return wrongType();
+  if (!sniffed || !(isReadableKind(sniffed) || isKeptKind(sniffed))) return wrongType();
   const found = { kind: sniffed, limitMb: limitMbFor(sniffed, limits) };
   if (file.size > found.limitMb * 1024 * 1024) {
     return refuse({ key: "ingest.drop.tooBig", vars: { name: file.name, limit: found.limitMb } });
@@ -176,6 +178,18 @@ export async function uploadOneFile(
     }
     await api.artifactCommitRaw({ artifactId });
   };
+
+  // A PDF or a photo is kept, not read: stored in the vault and finished, with no table and no row.
+  if (isKeptKind(found.kind)) {
+    await saveRaw();
+    if (begin.existing) {
+      onItem({ step: "seenBefore", seenOn: begin.uploadedAt, notStored: false });
+      return { artifactId, step: "seenBefore" };
+    }
+    await api.artifactComplete({ artifactId });
+    onItem({ step: "kept", notStored: false });
+    return { artifactId, step: "kept" };
+  }
 
   // Blocks the server already has (a file read before): keyed by ordinal.
   let known: Map<number, { blockId: string; rowCount: number; rowsPut: number }> | null = null;

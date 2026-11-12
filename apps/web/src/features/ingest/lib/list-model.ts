@@ -416,6 +416,9 @@ export function uploadStrip(
       case "failed":
         words = { key: "ingest.read.failed" };
         break;
+      case "kept":
+        words = { key: "ingest.kept.added" };
+        break;
       case "asking":
       case "done":
         break;

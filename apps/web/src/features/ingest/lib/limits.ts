@@ -83,6 +83,7 @@ export type FileProblemKey =
   | "ingest.drop.tooManyRows"
   | "ingest.drop.openLimit"
   | "ingest.drop.wrongType"
+  | "ingest.drop.keptNoStorage"
   | "ingest.read.failed"
   | "ingest.error.network"
   | "ingest.error.action"
@@ -186,7 +187,12 @@ export function sniffKind(head: Uint8Array, declared: ArtifactKind): ArtifactKin
   }
 }
 
-/** Kinds this release can read in the browser. Photos and scanned pages wait for the vision step. */
+/** Kinds this release reads in the browser: sheets, CSV and database dumps. */
 export function isReadableKind(kind: ArtifactKind): boolean {
-  return kind === "sheet" || kind === "csv" || kind === "sql" || kind === "pdf_text";
+  return kind === "sheet" || kind === "csv" || kind === "sql";
+}
+
+/** PDFs and photos: uploaded and kept in the vault, marked "kept, not read yet" (owner decision, 2026-11-11). No reader runs on them. */
+export function isKeptKind(kind: ArtifactKind): boolean {
+  return kind === "pdf_text" || kind === "pdf_scan" || kind === "image";
 }

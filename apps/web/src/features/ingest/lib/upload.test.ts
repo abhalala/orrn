@@ -305,29 +305,58 @@ describe("review: upload fixes", () => {
     expect(reportCalls(calls)).toEqual([]);
   });
 
-  test("E3: a refusal the bytes cause is reported: too many rows, columns, blocks, and a pdf without text", async () => {
+  // A PDF is kept and not read in this release, so no reader runs on it and "no text layer" cannot come from it: the
+  // case moved to the tests of kept files below.
+  test("E3: a refusal the bytes cause is reported: too many rows, columns and blocks", async () => {
     for (const failure of [
       { code: "too_many_rows", rows: 300_000 }, { code: "too_many_columns", sheet: "S", columns: 300 },
-      { code: "too_many_blocks", blocks: 60 }, { code: "no_text_layer" },
+      { code: "too_many_blocks", blocks: 60 },
     ] as const) {
       const { api, calls } = fakeApi();
       const r = reader([], { read: async () => { throw new ReadError(failure); } });
-      const name = failure.code === "no_text_layer" ? "scan.pdf" : "big.xlsx";
-      const bytes = failure.code === "no_text_layer" ? "%PDF-1.7" : "PK\u0003\u0004";
-      const f = new File([bytes], name);
+      const f = new File(["PK\u0003\u0004"], "big.xlsx");
       await uploadOneFile(f, { api, reader: r, fetch: fakeFetch().fn }, { onItem: () => undefined }).catch(() => undefined);
       expect(reportCalls(calls)).toEqual([{ artifactId: "A1", readError: failure.code }]);
     }
   });
 
-  test("E3: a photo is refused before any artifact is made, so nothing is left reading for the vision step", async () => {
+  // Owner decision 2026-11-11: PDFs and photos are uploaded and kept, "kept, not read yet". The old test refused a photo.
+  test("a photo is stored and kept, not read: begin, the raw upload, complete, and no table", async () => {
     const { api, calls } = fakeApi();
     const t = track();
     const jpg = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0])], "register.jpg");
-    const out = await uploadOneFile(jpg, { api, reader: reader([]) }, { onItem: t.onItem });
+    let reads = 0;
+    const out = await uploadOneFile(jpg, { api, reader: reader([], { read: async () => (reads++, { kind: "image", blocks: [], rawRows: 0 }) }), fetch: fakeFetch().fn }, { onItem: t.onItem });
+    expect(out.step).toBe("kept");
+    expect(reads).toBe(0);
+    expect(calls.map((c) => c.name)).toEqual(["begin", "commitRaw", "complete"]);
+    expect((calls[0]!.input as { kind: string }).kind).toBe("image");
+  });
+
+  test("a PDF is kept the same way, whatever its text layer", async () => {
+    const { api, calls } = fakeApi();
+    const out = await uploadOneFile(file("Packing list.pdf"), { api, reader: reader([]), fetch: fakeFetch().fn }, { onItem: () => undefined });
+    expect(out.step).toBe("kept");
+    expect(calls.map((c) => c.name)).toEqual(["begin", "commitRaw", "complete"]);
+    expect((calls[0]!.input as { kind: string }).kind).toBe("pdf_text");
+  });
+
+  test("with no storage the server refuses and the screen says so in its own words", async () => {
+    const refuse = Object.assign(new Error("PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on."), { data: { code: "PRECONDITION_FAILED" } });
+    const { api, calls } = fakeApi({ artifactBegin: async () => { throw refuse; } });
+    const t = track();
+    const out = await uploadOneFile(file("Packing list.pdf"), { api, reader: reader([]), fetch: fakeFetch().fn }, { onItem: t.onItem });
     expect(out.step).toBe("refused");
-    expect(t.item.problem).toEqual({ key: "ingest.drop.wrongType", vars: { name: "register.jpg" } });
+    expect(t.item.problem).toEqual({ key: "ingest.drop.keptNoStorage", vars: { name: "Packing list.pdf" } });
     expect(calls).toEqual([]);
+  });
+
+  test("the same PDF added twice says it was added before and sends nothing more", async () => {
+    const { api, calls } = fakeApi({ artifactBegin: async () => ({ artifactId: "A1", existing: true, uploadedAt: 5, upload: null }) });
+    const t = track();
+    const out = await uploadOneFile(file("Packing list.pdf"), { api, reader: reader([]), fetch: fakeFetch().fn }, { onItem: t.onItem });
+    expect(out.step).toBe("seenBefore");
+    expect(calls.map((c) => c.name)).toEqual([]);
   });
 
   test("E13: a type orrn does not read says which types it does", async () => {

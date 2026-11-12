@@ -4,8 +4,9 @@ import { Chip } from "@orrn/ui/components/chip";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
 import { X } from "lucide-react";
+import { useId } from "react";
 
-import { foundSummary, type HeaderReply, type StripEntry } from "../lib";
+import { foundSummary, type HeaderReply, type KeptFile, type StripEntry } from "../lib";
 import { HeaderStep } from "./header-step";
 import { FileName, ForeignText, useSay } from "./list-kit";
 import { ProgressBar } from "./shared";
@@ -167,5 +168,38 @@ export function UnfinishedFiles({ files }: { files: readonly { id: string; name:
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * "Kept, not read yet": the PDFs and photos orrn stored and does not read in this release. Each shows its name, size and
+ * date. One line says when reading them comes.
+ */
+export function KeptFiles({ files }: { files: readonly KeptFile[] }) {
+  const { t } = useT();
+  const { say } = useSay();
+  const headingId = useId();
+  if (files.length === 0) return null;
+  return (
+    <section aria-labelledby={headingId} data-testid="kept-files" className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-col gap-1">
+        <h2 id={headingId} className="m-0 text-[14px] font-semibold">
+          {t("ingest.kept.title")}
+        </h2>
+        <p className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.kept.note")}</p>
+      </div>
+      <ul className="m-0 list-none divide-y divide-border p-0">
+        {files.map((file) => (
+          <li key={file.id} className="flex min-w-0 flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <FileName name={file.name} className="font-semibold" />
+            <p className="m-0 shrink-0 text-[13px] leading-5 text-muted-foreground">
+              <span className="font-mono tabular-nums">{file.size}</span>
+              {", "}
+              {say("ingest.kept.addedOn", { date: file.date })}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

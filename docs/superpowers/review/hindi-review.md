@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8054 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8059 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,20 +6923,20 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (465)
+### ingest (470)
 
 | Key | English | हिंदी |
 |---|---|---|
 | `title` | Imports | इम्पोर्ट |
 | `lead` | Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge. | पुरानी शीट, एक्सपोर्ट और पैकिंग लिस्ट यहां लाएं। मर्ज करने तक orrn में कुछ नहीं बदलता। |
 | `drop.title` | Drop files here | फ़ाइलें यहां छोड़ें |
-| `drop.hint` | Excel, CSV, database export or PDF. Up to 20 files. | Excel, CSV, डेटाबेस एक्सपोर्ट या PDF। एक बार में 20 फ़ाइलें तक। |
+| `drop.hint` | Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files. | Excel, CSV या डेटाबेस एक्सपोर्ट। PDF और फ़ोटो रखी जाती हैं, अभी पढ़ी नहीं जातीं। एक बार में 20 फ़ाइलें तक। |
 | `drop.choose` | Choose files | फ़ाइलें चुनें |
 | `drop.tooBig` | {name} is too big. The limit for this kind of file is {limit} MB. | {name} बहुत बड़ी है। इस तरह की फ़ाइल की सीमा {limit} MB है। |
 | `drop.tooManyRows` | {name} has more than 200,000 rows. Split it and try again. | {name} में 2,00,000 से ज़्यादा लाइनें हैं। इसे बांटकर फिर कोशिश करें। |
 | `drop.openLimit` | More than 300,000 rows are waiting to merge in this plant. Merge or discard imports, then add this file again. | इस प्लांट में 3,00,000 से ज़्यादा लाइनें मर्ज के इंतज़ार में हैं। इम्पोर्ट मर्ज करें या हटाएं, फिर यह फ़ाइल दोबारा डालें। |
 | `drop.seenBefore` | You added this file on {date}. | यह फ़ाइल आप {date} को डाल चुके हैं। |
-| `drop.wrongType` | {name} is not Excel, CSV, a database export or PDF. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट या PDF नहीं है। इनमें से कोई फ़ाइल चुनें। |
+| `drop.wrongType` | {name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those. | {name} Excel, CSV, डेटाबेस एक्सपोर्ट, PDF या फ़ोटो नहीं है। इनमें से कोई चुनें। |
 | `drop.left` | {count} {count:file was\|files were} left out. Add up to 20 files at a time. | {count} {count:फ़ाइल छूट गई\|फ़ाइलें छूट गईं}। एक बार में 20 फ़ाइलें तक जोड़ें। |
 | `drop.add` | Add files | फ़ाइलें जोड़ें |
 | `drop.note` | Note for these files (optional) | इन फ़ाइलों के लिए नोट (ज़रूरी नहीं) |
@@ -6944,6 +6944,7 @@ Please check, Lalubhai:
 | `drop.listLabel` | Files being added | जुड़ रही फ़ाइलें |
 | `drop.done` | Read. {count} {count:table\|tables}: {summary}. | पढ़ ली। {count} टेबल: {summary}। |
 | `drop.noTables` | No table found in this file. Check that it has column names and rows, then add it again. | इस फ़ाइल में कोई टेबल नहीं मिली। देखें कि उसमें कॉलम के नाम और लाइनें हैं, फिर इसे दोबारा डालें। |
+| `drop.keptNoStorage` | PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on. | PDF और फ़ोटो के लिए फ़ाइल स्टोरेज चाहिए, जो इस प्लांट के लिए चालू नहीं है। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `read.reading` | Reading {sheet} ({rows} rows) | {sheet} पढ़ रहे हैं ({rows} लाइनें) |
 | `read.uploading` | Saving the original file | असली फ़ाइल सेव कर रहे हैं |
 | `read.failed` | orrn could not read this file. Save it as Excel (.xlsx) or CSV and drop it again. | orrn यह फ़ाइल नहीं पढ़ पाया। इसे Excel (.xlsx) या CSV में सेव करके फिर डालें। |
@@ -6957,6 +6958,10 @@ Please check, Lalubhai:
 | `read.change` | Change mapping | कॉलम मिलान बदलें |
 | `read.show` | Show | दिखाएं |
 | `read.hide` | Hide | छिपाएं |
+| `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
+| `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
+| `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
+| `kept.addedOn` | Added {date} | {date} को जोड़ी गई |
 | `header.title` | Which row has the column names? | किस लाइन में कॉलम के नाम हैं? |
 | `header.count` | Table {n} of {total} | {total} में से टेबल {n} |
 | `header.aboutNoSheet` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |

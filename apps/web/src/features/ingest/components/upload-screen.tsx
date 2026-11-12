@@ -12,6 +12,7 @@ import {
   ACCEPT_FILES,
   DEFAULT_LIMITS,
   foundSummary,
+  keptFiles,
   progressStep,
   takeFiles,
   uploadLayout,
@@ -28,7 +29,7 @@ import {
 import { CandidateBoard } from "./candidate-board";
 import { StatusRegion, useDocTitle, useSay } from "./list-kit";
 import { QueryPanel } from "./shared";
-import { StagedFiles, UnfinishedFiles, UploadStrip } from "./upload-strip";
+import { KeptFiles, StagedFiles, UnfinishedFiles, UploadStrip } from "./upload-strip";
 
 /**
  * `/ingest` (work order 3.1 and 3.2): the header with "Add files", the files being added, and the list of imports.
@@ -110,7 +111,7 @@ export function IngestUploadScreen() {
         if (step !== null) announce(`${entry.name}. ${words(entry.words)}`);
         continue;
       }
-      const key = entry.found && entry.found.count > 0 ? `${entry.id}:found` : entry.step === "failed" || entry.step === "refused" || entry.step === "seenBefore" ? `${entry.id}:${entry.step}` : null;
+      const key = entry.found && entry.found.count > 0 ? `${entry.id}:found` : entry.step === "failed" || entry.step === "refused" || entry.step === "seenBefore" || entry.step === "kept" ? `${entry.id}:${entry.step}` : null;
       if (!key || told.current.has(key)) continue;
       told.current.add(key);
       if (entry.found && entry.found.count > 0) announce(`${entry.name}. ${foundSummary(say, entry.found)}`);
@@ -137,6 +138,7 @@ export function IngestUploadScreen() {
   const showStrip = staged.length > 0 || strip.length > 0;
   // A file left half way by a page that was closed: this page is not sending it, so it must be added again.
   const sending = useMemo(() => new Set(upload.items.flatMap((i) => (i.artifactId ? [i.artifactId] : []))), [upload.items]);
+  const kept = useMemo(() => keptFiles(artifacts.data ?? [], fmt), [artifacts.data, fmt]);
   const unfinished = useMemo(() => (canUpload ? unfinishedFiles(artifacts.data ?? [], sending) : []), [artifacts.data, sending, canUpload]);
 
   return (
@@ -229,6 +231,8 @@ export function IngestUploadScreen() {
           </div>
         ) : null}
       </QueryPanel>
+
+      <KeptFiles files={kept} />
     </div>
   );
 }

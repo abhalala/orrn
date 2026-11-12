@@ -122,7 +122,7 @@ describe("upload area", () => {
     const html = render(createElement(IngestUploadScreen), seedList([]));
     expect(html).toContain("Drop files here");
     expect(html).toContain("Choose files");
-    expect(html).toContain("Excel, CSV, database export or PDF. Up to 20 files.");
+    expect(html).toContain("Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files.");
     // The button is described by the hint (WCAG 1.3.1).
     expect(html).toMatch(/aria-describedby="[^"]+"[^>]*>Choose files/);
     expect(html).not.toContain("Note for these files");

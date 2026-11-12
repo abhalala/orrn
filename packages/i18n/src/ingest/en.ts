@@ -11,13 +11,13 @@ export const ingestEn = {
   lead: "Bring in old sheets, exports and packing lists. Nothing changes in orrn until you merge.",
   drop: {
     title: "Drop files here",
-    hint: "Excel, CSV, database export or PDF. Up to 20 files.",
+    hint: "Excel, CSV or a database export. PDFs and photos are kept, not read yet. Up to 20 files.",
     choose: "Choose files",
     tooBig: "{name} is too big. The limit for this kind of file is {limit} MB.",
     tooManyRows: "{name} has more than 200,000 rows. Split it and try again.",
     openLimit: "More than 300,000 rows are waiting to merge in this plant. Merge or discard imports, then add this file again.",
     seenBefore: "You added this file on {date}.",
-    wrongType: "{name} is not Excel, CSV, a database export or PDF. Choose one of those.",
+    wrongType: "{name} is not Excel, CSV, a database export, a PDF or a photo. Choose one of those.",
     left: "{count} {count:file was|files were} left out. Add up to 20 files at a time.",
     // screens work order: upload strip
     add: "Add files",
@@ -26,6 +26,7 @@ export const ingestEn = {
     listLabel: "Files being added",
     done: "Read. {count} {count:table|tables}: {summary}.",
     noTables: "No table found in this file. Check that it has column names and rows, then add it again.",
+    keptNoStorage: "PDFs and photos need file storage, which is not set up for this plant. Ask orrn support to turn it on.",
   },
   read: {
     reading: "Reading {sheet} ({rows} rows)",
@@ -42,6 +43,12 @@ export const ingestEn = {
     change: "Change mapping",
     show: "Show",
     hide: "Hide",
+  },
+  kept: {
+    title: "Kept, not read yet",
+    note: "Reading PDFs and photos comes in a later release.",
+    added: "Kept. orrn does not read PDFs and photos yet.",
+    addedOn: "Added {date}",
   },
   header: {
     title: "Which row has the column names?",
