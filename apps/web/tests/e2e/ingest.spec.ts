@@ -205,8 +205,9 @@ test.describe("imports portal", () => {
     try {
       await openPortal(page, "admin");
       await upload(page, name, csv);
-      // No layout the plant knows fits these headers, so orrn asks which row has the column names before it goes on.
-      await pickHeaderRow(page, 1);
+      // A clean sheet is not asked which row has the column names (server round 7): the reader's row is kept and the sheet
+      // goes straight to "needs a layout".
+      await expect(headerStep(page)).toHaveCount(0);
       // An unknown layout needs a person: it sits under Needs you with "Map columns".
       const r = await waitInSegment(page, name, "Needs you");
       await expect(r.getByText("Needs a layout")).toBeVisible();
@@ -470,11 +471,9 @@ test.describe("imports portal", () => {
     await openPortal(page, "admin");
     await upload(page, name, csv);
 
-    // Two tables wait: the names of the first, then the second. The table above holds only text, so the reader cannot tell
-    // by its columns that the rows below belong to it: the person decides.
-    await expect(headerStep(page).getByText(/^Table 1 of 2/)).toBeVisible({ timeout: 60_000 });
-    await pickHeaderRow(page, 1);
-    await expect(headerStep(page).getByText(/^Table 2 of 2/)).toBeVisible({ timeout: 60_000 });
+    // The first table is clean and is kept. The second, below the blank row, is asked: the table above holds only text, so
+    // the reader cannot tell by its columns that the rows below belong to it, and the person decides.
+    await expect(headerStep(page).getByRole("button", { name: "It continues the table above" })).toBeVisible({ timeout: 60_000 });
     await headerStep(page).getByRole("button", { name: "It continues the table above" }).click();
 
     // One table, with the rows of both: the second table did not become an import of its own.
@@ -491,10 +490,9 @@ test.describe("imports portal", () => {
     );
     await openPortal(page, "admin");
     await upload(page, name, csv);
-    // One table, one question: no second table to ask about, and no offer to join.
-    await expect(headerStep(page).getByText(/^Table \d of \d/)).toHaveCount(0, { timeout: 60_000 });
-    await pickHeaderRow(page, 1);
-    await expect(headerStep(page)).toHaveCount(0, { timeout: 60_000 });
+    // One table that goes on by itself: nothing to ask and no offer to join.
+    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await expect(headerStep(page)).toHaveCount(0);
     const entry = stripRow(page, name);
     await expect(entry.getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     // Nothing skipped is hidden: the blank row and the month line are listed with their row numbers.
@@ -503,6 +501,30 @@ test.describe("imports portal", () => {
     await expect(listed.getByText(/Row 5 is left out: it looks like a title\. It says: December/)).toBeVisible();
     // The table went on under that title (round 9): it is listed as a section, with its row.
     await expect(listed.getByText(/This table continues under "December" \(row 5\)\./)).toBeVisible();
+  });
+
+  test("the read panel lists what the reader left out, and a title can start a new table", async ({ page }) => {
+    const name = `sections-${STAMP}.csv`;
+    const headers = [`Sc series ${STAMP}`, `Sc profile ${STAMP}`, `Sc low ${STAMP} kg/12ft`, `Sc high ${STAMP} kg/12ft`];
+    const csv = Buffer.from([headers.join(","), "Z1,SC1,1.1,1.4", "Z1,SC2,1.2,1.5", ",,,", "December,,,", "Z1,SC3,1.3,1.6", "Z1,SC4,1.4,1.7"].join("\n"));
+    await openPortal(page, "admin");
+    await upload(page, name, csv);
+    await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    await openReview(page, name, "Needs you");
+
+    // The panel says what was left out and which title the table went on under, with the row number.
+    const facts = page.getByTestId("read-facts");
+    await expect(facts.getByText(/^1 blank row inside this table was skipped\.$/)).toBeVisible({ timeout: 30_000 });
+    await expect(facts.getByText(/Row 5 is left out: it looks like a title\. It says: December/)).toBeVisible();
+    await expect(facts.getByText(/This table continues under "December" \(row 5\)\./).first()).toBeVisible();
+
+    // Start a new table here: the file is still in this tab, so it is read again and the tables sent again.
+    await facts.getByRole("button", { name: /^Start a new table here/ }).click();
+    // The rest of the sheet is a table of its own now, and goes through the header step like any other.
+    const step = headerStep(page);
+    await expect(step.getByRole("heading", { name: "Which row has the column names?" })).toBeVisible({ timeout: 60_000 });
+    await step.getByRole("button", { name: /^Use row \d+$/ }).click();
+    await expect(page.getByText(/^Done\. The tables of this file were read again\./)).toBeVisible({ timeout: 90_000 });
   });
 
   test("a value like 007 and a value like 18% arrive in the review rows as written", async ({ page }) => {
@@ -554,7 +576,6 @@ test.describe("imports portal", () => {
     await fakeBot(request, { action: "install", responses: [{ result: { kind: "recipe", recipe } }] });
     try {
       await upload(page, name, csv);
-      await pickHeaderRow(page, 1);
       await openReview(page, name, "Needs you");
       await page.getByRole("button", { name: "Map columns for me" }).click();
       await expect(decisionBar(page)).toHaveAttribute("data-state", "ready", { timeout: 90_000 });

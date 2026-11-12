@@ -52,6 +52,8 @@ const NOT_ROW_REASONS = new Set([
   // states, decisions and answer values
   "ready_create", "ready_update", "use_match", "keep_live", "keep_file", "create_new", "owner_merges", "leave_out", "pricing_off",
   "rates_hidden", "magnitude_check", "create_legacy_die", "new_customers", "period_changed",
+  // what the reader left out of a table, worded as ingest.read.* on the read panel and the file strip
+  "skipped_repeat_header", "skipped_title", "after_last_row",
   // hold and read reasons, worded by `reasonLine`
   "merge_failed", "dependency_held", "module_off", "read_failed", "confirm_blocked", "kept_unread",
   // tables, aliases targets and bot internals

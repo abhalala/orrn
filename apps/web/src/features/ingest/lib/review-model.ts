@@ -300,6 +300,8 @@ export type ReadPanel = {
   canChange: boolean;
   /** A near fit adds the "What changed" table. */
   changes: NearChangeRow[] | null;
+  /** What the reader left out and went on under (round 7). Always shown, whatever the panel's state. */
+  facts: ReadFacts | null;
 };
 
 export type NearChangeRow = {
@@ -330,6 +332,34 @@ export function nearChanges(
   ];
 }
 
+/** What the reader said about the table (round 7): blank rows crossed, lines it left out, titles it went on under. */
+export type ReadFacts = {
+  gaps: number;
+  warnings: { n: number; code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; text: string }[];
+  /** Lines left out beyond the ones listed ("and N more"). */
+  moreWarnings: number;
+  /** `row` is the sheet row counted from 0 (what a re-read takes), `n` the number a person sees. */
+  sections: { n: number; row: number; text: string }[];
+  moreSections: number;
+};
+
+/** More titles than this are a count and a list that opens. */
+export const SECTIONS_OPEN_MAX = 12;
+
+export function readFacts(block: Partial<Pick<CandidateDetail["block"], "gaps" | "warnings" | "warningsTotal" | "sections" | "sectionsTotal">>): ReadFacts | null {
+  const warnings = block.warnings ?? [];
+  const sections = block.sections ?? [];
+  const gaps = block.gaps ?? 0;
+  if (gaps === 0 && warnings.length === 0 && sections.length === 0) return null;
+  return {
+    gaps,
+    warnings: warnings.map((w) => ({ n: w.row + 1, code: w.code, text: w.text })),
+    moreWarnings: Math.max(0, (block.warningsTotal ?? 0) - warnings.length),
+    sections: sections.map((s) => ({ n: s.row + 1, row: s.row, text: s.text })),
+    moreSections: Math.max(0, (block.sectionsTotal ?? 0) - sections.length),
+  };
+}
+
 export function readPanel(
   c: Pick<CandidateDetail, "state" | "fit" | "target" | "recipe" | "block" | "fitDiff">,
   plant: PlantUnits,
@@ -344,6 +374,7 @@ export function readPanel(
     entries: read.entries,
     canChange: canChange && c.state !== "merged" && c.state !== "merging",
     changes: c.fit === "near" || c.state === "needs_confirm" ? nearChanges(c, canSeePrices) : null,
+    facts: readFacts(c.block),
   };
 }
 

@@ -52,6 +52,16 @@ export const ingestEn = {
     // round 9: sections
     section: "This table continues under \"{text}\" (row {n}).",
     sections: "{count} titles inside this table",
+    // round 7: the read panel and putting a table again
+    more: "and {count} more",
+    newTableHere: "Start a new table here",
+    chooseAgain: "Choose the file again",
+    needFile: "The file must be added again before this can change. Choose the same file.",
+    otherFile: "That is not the same file. Choose the file this import came from.",
+    reputBusy: "Reading the file again",
+    reputDone: "Done. The tables of this file were read again. Open them from the Imports page.",
+    reputFailed: "orrn could not read the file again. Try once more.",
+    factsTitle: "What the reader left out",
   },
   kept: {
     title: "Kept, not read yet",
@@ -574,6 +584,8 @@ export const ingestEn = {
     order_waits: "Waits on {count} other {count:line|lines} of this order. An order is added whole, so fix or skip {count:it|them} first.",
     order_skipped_lines: "Imported without {count} {count:line|lines} you skipped.",
     order_run_differs: "Rows of one order number show two different values for {field}. Use the file value on this row, or skip it.",
+    // round 7: item 5
+    order_no_date: "This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it.",
   },
   error: {
     conflict: "This import changed while you were looking. The page now shows the latest. Check it and try again.",
@@ -587,6 +599,7 @@ export const ingestEn = {
     refused: "orrn cannot do this yet.",
     checkAgainButton: "Check this sheet again",
     nothingToImport: "Nothing in this sheet can be imported. Fix the rows or discard it.",
+    alreadyWritten: "Rows of this sheet are already written. Its columns cannot change now.",
   },
   file: {
     rows: "{count} {count:row|rows}",

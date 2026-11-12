@@ -21,6 +21,8 @@ export type ErrorWords = {
 
 const CHECK_AGAIN = /check this sheet again/i;
 /** Rule 7.4: "Nothing in this sheet can be imported. Fix the rows or discard it." has words of its own, without the English. */
+/** The server's refusal once any row of the file is written: the columns cannot change any more. */
+const ALREADY_WRITTEN = /^Rows of this sheet are already written/i;
 const NOTHING_TO_IMPORT = /^Nothing in this sheet can be imported/i;
 
 const messageOf = (error: unknown): string => {
@@ -30,6 +32,7 @@ const messageOf = (error: unknown): string => {
 
 export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
+  if (code === "BAD_REQUEST" && ALREADY_WRITTEN.test(messageOf(error))) return { key: "ingest.error.alreadyWritten", retry: false };
   if (code === "PRECONDITION_FAILED") {
     const detail = messageOf(error);
     if (NOTHING_TO_IMPORT.test(detail)) return { key: "ingest.error.nothingToImport", retry: false };

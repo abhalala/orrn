@@ -20,6 +20,8 @@ const OTHER_CODES = [
   "po_on_closed_order", "merged_cell", "section_pending", "customer_pending",
   // Rule 7.1 (server round 6): an old order is written whole, or not at all. `order_waits:<n>` and `order_skipped_lines:<n>` carry a count.
   "order_waits", "order_skipped_lines", "order_run_differs",
+  // Round 7: a numbered line with no date; `order_no_date:<n>` carries the order number as the file has it.
+  "order_no_date",
 ] as const;
 
 /**
@@ -105,6 +107,9 @@ export function refusalLine(reason: string, facts?: OrderFacts): RefusalLine | n
   if (code === "order_in_other_file" && !facts?.file) {
     return { kind: "refusal", key: "ingest.refuse.order_in_other_fileUnnamed", fieldKey: null, order: facts };
   }
+  if (code === "order_no_date") {
+    return { kind: "refusal", key: "ingest.refuse.order_no_date", fieldKey: null, order: { ...(facts ?? orderFacts(null)), orderNo: rest } };
+  }
   // "order_waits:2" and "order_skipped_lines:1": the number after the colon is a count of lines, not a field.
   if ((code === "order_waits" || code === "order_skipped_lines") && /^\d+$/.test(rest)) {
     return { kind: "refusal", key: `ingest.refuse.${code}`, fieldKey: null, count: Number(rest) };
@@ -149,6 +154,7 @@ export function refusalText(
   const vars: Record<string, string | number> = { field: line.fieldKey ? t(line.fieldKey) : "" };
   if (o) {
     // The order a row is on, in words ("old order 41"), or "this order" when the file has no number for it.
+    vars.n = o.orderNo ?? "";
     vars.order = o.orderNo ? t("ingest.refuse.orderNo", { no: o.orderNo }) : t("ingest.refuse.thisOrder");
     vars.po = o.po ?? "";
     vars.file = o.file ?? "";

@@ -174,6 +174,22 @@ describe("settleHeaders", () => {
     expect(out.blocks[1]!.rows).toEqual([]);
   });
 
+  test("a table can be joined to one above that already fits a layout (saved): the upper goes again with its new end", async () => {
+    const upper = table(0, { header: 0, rows: 2 });
+    const lower = table(1, { header: 4, rows: 2, follows: { block: 0, gapRows: 2, continues: true }, names: ["PRC", "Tol"] });
+    const { api, calls } = server((b) => (b.ordinal === 0 ? "keep" : ask(4)));
+    const views: HeaderAskView[] = [];
+    const out = await settleHeaders({
+      api, artifactId: "A", blocks: [upper, lower],
+      reread: async () => [table(0, { header: 0, rows: 6, hints: { headerRow: 0, headerRows: 1, lastDataRow: 6 } })],
+      ask: async (v) => (views.push(v), { kind: "continues" }),
+    });
+    expect(views[0]!.offers).toEqual(["continues"]);
+    // The second call carries the upper table with the person's hint and its new end.
+    expect(calls.at(-1)![0]).toMatchObject({ ordinal: 0, hint: { headerRow: 0 } });
+    expect(out.blocks[0]!.input.rowCount).toBe(6);
+  });
+
   test("the repeated column names of a joined table are left out of its rows, and so is the title above them", async () => {
     const upper = table(0, { header: 0, rows: 2 });
     const lower = table(1, { header: 5, rows: 2, follows: { block: 0, gapRows: 2 } });

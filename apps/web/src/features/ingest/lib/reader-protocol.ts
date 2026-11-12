@@ -21,6 +21,9 @@ export type WorkerRequest =
 /** `putBlocks` takes the region width too; the server's own type does not list it yet, and it ignores what it does not know. */
 export type WireBlockInput = Omit<BlockInput, "headers"> & { headers?: string[]; width?: number; follows?: { ordinal: number; gapRows: number } | null };
 
+/** The most warnings and sections the server takes for one table; the true counts go in `warningsTotal` and `sectionsTotal`. */
+export const FACTS_MAX = 200;
+
 /** What the header step needs to know about a table that the wire does not carry. */
 export type BlockMeta = {
   sheetName: string | null;

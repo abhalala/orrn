@@ -13,7 +13,9 @@ import type { CandidateSummary, HeaderAnswer } from "./types";
  * read the table again with that row and send it again) or `ask` (nothing fits: the person says which row has the column
  * names, the table is read again with that row as a hint, and sent again as the person's pick). A table the person does not
  * want is sent as an empty table under their pick and its import is discarded after the file is complete, so the number of
- * blocks of the file never changes after the first call, which is the server's rule.
+ * blocks of the file never changes after the first call, which is the server's rule. (Since server round 7 a table may be
+ * put again, and the count may change, before any row of the file is written; a skipped or joined table still goes in empty
+ * because that keeps one rule for the first call and for a put again.)
  */
 
 export type Settled = {
@@ -35,6 +37,8 @@ export type SettleDeps = {
   ask: (view: HeaderAskView) => Promise<HeaderReply>;
   /** Every table is answered: the step goes away. */
   asked?: () => void;
+  /** Headers the blocks were already read under as the person's pick (a table put again), sent as `hint`. */
+  initialHints?: { sheet: string | null; hint: EngineHints }[];
 };
 
 /** A round that does not settle anything again and again is a bug, not a slow person. */
@@ -56,6 +60,7 @@ export async function settleHeaders(deps: SettleDeps): Promise<Settled> {
   const skipped = new Set<number>();
   let held = new Map<string, Held>();
   let candidates: CandidateSummary[] = [];
+  for (const h of deps.initialHints ?? []) held.set(hintKey(h.sheet, h.hint.headerRow), { sheet: h.sheet, hint: h.hint, send: true });
   /** Tables joined to the one above: a read gives one table fewer, so each stays as an empty block at its place. */
   const joined = new Map<number, ReadBlock>();
 
@@ -169,7 +174,7 @@ export async function settleHeaders(deps: SettleDeps): Promise<Settled> {
         q.blocks = current.length > 0 ? current : q.blocks;
         const first = q.blocks[0]!;
         const upper = upperOf(blocks, first);
-        const view = headerAskView(q, { position: i + 1, total: questions.length }, { upper: upper && !ids.has(upper.input.ordinal) ? upper : undefined, hintError, attempt });
+        const view = headerAskView(q, { position: i + 1, total: questions.length }, { upper, hintError, attempt });
         const reply = await deps.ask(view);
         if (reply.kind === "skip") {
           for (const b of q.blocks) skipped.add(b.input.ordinal);
@@ -193,7 +198,7 @@ export async function settleHeaders(deps: SettleDeps): Promise<Settled> {
           }
         } else {
           // A table that continues the one above: the upper one is read again to the last row of this one.
-          if (!upper || ids.has(upper.input.ordinal) || !first.meta) {
+          if (!upper || !first.meta) {
             held = before;
             hintError = true;
             continue;

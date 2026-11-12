@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8079 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8090 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (489)
+### ingest (500)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6965,6 +6965,15 @@ Please check, Lalubhai:
 | `read.after_last_row` | Row {n} is under the table and is not imported. It says: {text} | लाइन {n} टेबल के नीचे है और इम्पोर्ट नहीं होगी। उसमें लिखा है: {text} |
 | `read.section` | This table continues under "{text}" (row {n}). | यह टेबल "{text}" (लाइन {n}) के नीचे भी चलती है। |
 | `read.sections` | {count} titles inside this table | इस टेबल के अंदर {count} शीर्षक |
+| `read.more` | and {count} more | और {count} |
+| `read.newTableHere` | Start a new table here | यहां से नई टेबल शुरू करें |
+| `read.chooseAgain` | Choose the file again | फ़ाइल फिर से चुनें |
+| `read.needFile` | The file must be added again before this can change. Choose the same file. | इसे बदलने से पहले फ़ाइल फिर से जोड़नी होगी। वही फ़ाइल चुनें। |
+| `read.otherFile` | That is not the same file. Choose the file this import came from. | यह वही फ़ाइल नहीं है। वह फ़ाइल चुनें जिससे यह इम्पोर्ट आया है। |
+| `read.reputBusy` | Reading the file again | फ़ाइल फिर से पढ़ी जा रही है |
+| `read.reputDone` | Done. The tables of this file were read again. Open them from the Imports page. | हो गया। इस फ़ाइल की टेबल फिर से पढ़ी गईं। उन्हें इम्पोर्ट पेज से खोलें। |
+| `read.reputFailed` | orrn could not read the file again. Try once more. | orrn फ़ाइल फिर से नहीं पढ़ सका। एक बार और कोशिश करें। |
+| `read.factsTitle` | What the reader left out | पढ़ने में जो छोड़ा गया |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
@@ -7396,6 +7405,7 @@ Please check, Lalubhai:
 | `refuse.order_waits` | Waits on {count} other {count:line\|lines} of this order. An order is added whole, so fix or skip {count:it\|them} first. | इस ऑर्डर की {count} और {count:लाइन\|लाइनों} का इंतज़ार है। ऑर्डर पूरा जोड़ा जाता है, इसलिए पहले {count:उसे\|उन्हें} सुधारें या छोड़ दें। |
 | `refuse.order_skipped_lines` | Imported without {count} {count:line\|lines} you skipped. | आपकी छोड़ी हुई {count} {count:लाइन\|लाइनों} के बिना जोड़ा गया। |
 | `refuse.order_run_differs` | Rows of one order number show two different values for {field}. Use the file value on this row, or skip it. | एक ऑर्डर नंबर की लाइनों में {field} की दो अलग वैल्यू हैं। इस लाइन पर फ़ाइल की वैल्यू लें, या इसे छोड़ दें। |
+| `refuse.order_no_date` | This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it. | इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |
 | `error.forbidden` | Your role cannot do this. Ask the owner. | आपका रोल यह नहीं कर सकता। मालिक से कहें। |
 | `error.notFound` | This import is no longer there. | यह इम्पोर्ट अब नहीं है। |
@@ -7407,6 +7417,7 @@ Please check, Lalubhai:
 | `error.refused` | orrn cannot do this yet. | orrn अभी यह नहीं कर सकता। |
 | `error.checkAgainButton` | Check this sheet again | यह शीट दोबारा जांचें |
 | `error.nothingToImport` | Nothing in this sheet can be imported. Fix the rows or discard it. | इस शीट में कुछ भी इम्पोर्ट नहीं हो सकता। लाइनें सुधारें या शीट हटा दें। |
+| `error.alreadyWritten` | Rows of this sheet are already written. Its columns cannot change now. | इस शीट की लाइनें पहले ही लिखी जा चुकी हैं। अब इसके कॉलम नहीं बदल सकते। |
 | `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
 | `file.table` | Table {n} | टेबल {n} |

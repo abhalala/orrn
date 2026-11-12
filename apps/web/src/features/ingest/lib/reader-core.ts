@@ -1,6 +1,6 @@
 import { clipCell, DEFAULT_LIMITS, WIRE_CELL_MAX_CHARS } from "./limits";
 import type { EngineBlock, EngineHints, PdfItem, ReaderEngine } from "./reader-engine";
-import type { BlockMeta, ReadBlock, ReadFailure, ReadProgress, SheetHints, WireBlockInput } from "./reader-protocol";
+import { FACTS_MAX, type BlockMeta, type ReadBlock, type ReadFailure, type ReadProgress, type SheetHints, type WireBlockInput } from "./reader-protocol";
 import type { ArtifactKind } from "./types";
 
 /**
@@ -232,6 +232,10 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
     // Rows above the header that hold text: the region starts `block.headerRow` rows above the guessed header.
     const regionStart = guess.headerRow - block.headerRow;
     const titleRows = preview.filter((p) => p.row >= regionStart && p.row < guess.headerRow && p.cells.some((c) => c.trim() !== "")).map((p) => p.row);
+    const leftOut = (block.warnings ?? [])
+      .filter((w) => w.code === "skipped_repeat_header" || w.code === "skipped_title" || w.code === "after_last_row")
+      .map((w) => ({ code: w.code as "skipped_repeat_header" | "skipped_title" | "after_last_row", row: w.row, text: w.text ?? "" }));
+    const sections = block.sections ?? [];
     const parts = Math.max(1, Math.ceil(rows.length / limits.maxRowsPerBlock));
     for (let part = 0; part < parts; part += 1) {
       const from = part * limits.maxRowsPerBlock;
@@ -261,6 +265,13 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
         preview,
         ...(merged.length > 0 ? { merged } : {}),
         ...(block.width !== undefined ? { width: block.width } : {}),
+        // What the reader said about the table, for the review screen to show (display only, never decided on). Row numbers
+        // are the sheet's own, counted from 0.
+        gaps: block.gaps ?? 0,
+        warnings: leftOut.slice(0, FACTS_MAX).map((w) => ({ code: w.code, row: w.row + rowBase, text: w.text.slice(0, 200) })),
+        warningsTotal: leftOut.length,
+        sections: sections.slice(0, FACTS_MAX).map((x) => ({ row: x.row + rowBase, text: x.text.slice(0, 200) })),
+        sectionsTotal: sections.length,
       };
       const meta: BlockMeta = {
         sheetName,
@@ -276,9 +287,7 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
         titleRows,
         gaps: block.gaps ?? 0,
         sections: block.sections ?? [],
-        leftOut: (block.warnings ?? [])
-          .filter((w) => w.code === "skipped_repeat_header" || w.code === "skipped_title" || w.code === "after_last_row")
-          .map((w) => ({ code: w.code as "skipped_repeat_header", row: w.row, text: w.text ?? "" })),
+        leftOut,
       };
       out.push({ input, rows: slice, meta });
       if (out.length > limits.maxBlocks) throw new ReadStop({ code: "too_many_blocks", blocks: out.length });

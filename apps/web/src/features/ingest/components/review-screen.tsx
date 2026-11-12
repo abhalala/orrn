@@ -26,6 +26,7 @@ import {
   useFocusReturn,
   useIngestStatus,
   usePlantUnits,
+  useReput,
   yearLine,
   ingestErrorWords,
   type BarActionId,
@@ -35,7 +36,8 @@ import { BarButtons, DecisionBarCard, DiscardDialog, HoldSheet, type BarPress } 
 import { MappingEditor } from "./mapping-editor";
 import { YearLine } from "./period-panel";
 import { QuestionsPanel } from "./questions-panel";
-import { ReadPanel } from "./read-panel";
+import { ReadFactsView, ReadPanel } from "./read-panel";
+import { ReputArea } from "./reput-area";
 import { Muted, useSay, useScrolledOut } from "./review-bits";
 import { StagedRows, type RowsHandle } from "./rows-table";
 import { IngestBar, InlineNotice, ProgressBar, QueryPanel } from "./shared";
@@ -134,6 +136,10 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
   const showEditor = editorOpen && (candidate.state === "needs_shape" || ((candidate.state === "ready" || candidate.state === "held") && canUpload));
   const canChangeMapping = canUpload && candidate.target !== null && (candidate.state === "ready" || candidate.state === "held");
   const read = readPanel(candidate, plant, canSeePrices, canChangeMapping);
+  // Start a new table here: while no row of the import is written and the person may upload.
+  const reput = useReput(candidate.artifactId);
+  const canReput = canUpload && candidate.counts.written === 0 && candidate.state !== "merged" && candidate.state !== "merging" && candidate.state !== "discarded";
+  const reputProps = canReput ? { busy: reput.busy, onStartNewTable: (row: number) => reput.request({ kind: "newTable", ordinal: candidate.blockOrdinal, row }) } : null;
   const showRead = candidate.block.headers.length > 0 && candidate.state !== "failed" && candidate.state !== "discarded";
   const showRows = !["needs_confirm", "needs_shape", "discarded"].includes(candidate.state) && candidate.counts.total > 0;
 
@@ -285,8 +291,10 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
             onCancel={closeEditor}
           />
         ) : showRead ? (
-          <ReadPanel model={read} onChange={openEditor} changeRef={focus.ref(FOCUS.changeMapping)} />
+          <ReadPanel model={read} onChange={openEditor} changeRef={focus.ref(FOCUS.changeMapping)} reput={reputProps} />
         ) : null}
+        {showEditor && read.facts ? <ReadFactsView facts={read.facts} reput={reputProps} /> : null}
+        <ReputArea state={reput.state} fileName={candidate.fileName} onFile={reput.chooseFile} onReply={reput.reply} onDismiss={reput.dismiss} />
         {showRows ? (
           <StagedRows
             key={candidate.id}

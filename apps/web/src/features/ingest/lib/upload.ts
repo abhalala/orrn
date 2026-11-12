@@ -6,6 +6,7 @@ import {
 import type { HeaderAskView, HeaderReply } from "./header-step";
 import { ReadError, type ReadResult } from "./reader-client";
 import type { ReadProgress, SheetHints } from "./reader-protocol";
+import { planReput, rememberFile, type ReputAction, type StoredBlock } from "./reput";
 import { settleHeaders } from "./settle";
 import type { ArtifactKind, IngestLimits, UploadTicketOut } from "./types";
 
@@ -137,7 +138,20 @@ type Hooks = {
    * is taken as the person's pick (a headless upload).
    */
   ask?: (view: HeaderAskView) => Promise<HeaderReply>;
+  /**
+   * Put the tables of a file again (server round 7, before any row is written): the file's SHA-256, the tables as stored and
+   * the change. The file is read, planned, read again under the planned headers, every table is sent again, and rows go for
+   * the tables that changed.
+   */
+  reput?: { sha256: string; stored: StoredBlock[]; action: ReputAction };
 };
+
+/** The file is not the one the import came from, or the change cannot be made on it. */
+export class ReputError extends Error {
+  constructor(readonly code: "other_file" | "unavailable") {
+    super(code);
+  }
+}
 
 /**
  * Sends one file through the whole path (plan A1, A2): hash, `artifact.begin`, the raw PUT and `commitRaw`
@@ -174,6 +188,7 @@ export async function uploadOneFile(
 
   onItem({ step: "hashing", kind: found.kind, problem: null });
   const sha256 = await reader.hash(file, signal);
+  if (hooks.reput && hooks.reput.sha256 !== sha256) throw new ReputError("other_file");
 
   let begin;
   try {
@@ -188,6 +203,7 @@ export async function uploadOneFile(
   }
   const artifactId = begin.artifactId;
   onItem({ artifactId });
+  rememberFile(artifactId, file);
 
   const saveRaw = async () => {
     if (!begin.upload) return;
@@ -218,7 +234,7 @@ export async function uploadOneFile(
   if (begin.existing) {
     const art = await api.artifactGet({ artifactId });
     const complete = art.readState === "read" && art.blocks.every((b) => b.rowsPut >= b.rowCount);
-    if (complete) {
+    if (complete && !hooks.reput) {
       await saveRaw();
       onItem({ step: "seenBefore", seenOn: begin.uploadedAt, notStored: art.vaultState === "not_stored" });
       return { artifactId, step: "seenBefore" };
@@ -250,10 +266,26 @@ export async function uploadOneFile(
   const over = rowCountProblem(file.name, read.rawRows, limits);
   if (over) return refuse(over);
 
+  // A table put again: read the file once more under the headers the plan names.
+  let initialHints: { sheet: string | null; hint: import("./reader-engine").EngineHints }[] | undefined;
+  if (hooks.reput) {
+    const plan = planReput(read.blocks, hooks.reput.stored, hooks.reput.action);
+    if (!plan) throw new ReputError("unavailable");
+    const bySheet = new Map<string, SheetHints>();
+    for (const h of plan.hints) {
+      const entry = bySheet.get(h.sheet ?? "") ?? { sheetName: h.sheet, hints: [] };
+      entry.hints.push(h.hint);
+      bySheet.set(h.sheet ?? "", entry);
+    }
+    const hints = [...bySheet.values()].map((e) => ({ ...e, hints: e.hints.sort((a, b) => a.headerRow - b.headerRow) }));
+    read = await reader.read(file, { onProgress: (progress) => onItem({ progress }), signal, hints });
+    initialHints = plan.hints;
+  }
+
   // Every table's header is settled before any row goes: the server checks each against the layouts of this plant. A file
   // the server already holds in full (every table saved, only rows missing) has nothing left to settle.
   const settled =
-    known && known.size === read.blocks.length
+    !hooks.reput && known && known.size === read.blocks.length
       ? {
           blocks: read.blocks,
           ids: new Map([...known].map(([ordinal, k]) => [ordinal, k.blockId] as const)),
@@ -271,6 +303,7 @@ export async function uploadOneFile(
             return reply;
           },
           asked: () => onItem({ ask: null }),
+          initialHints,
         });
   const ids = settled.ids;
   const blocks = settled.blocks;
@@ -284,7 +317,9 @@ export async function uploadOneFile(
     if (block.rows.length === 0) continue;
     const blockId = ids.get(block.input.ordinal);
     if (!blockId) throw new Error(`The server did not return block ${block.input.ordinal}`);
-    let holds = known?.get(block.input.ordinal)?.rowsPut ?? 0;
+    // Rows a table already holds count only when it is still the same block (a table put again has a new one, with none).
+    const had = known?.get(block.input.ordinal);
+    let holds = had && had.blockId === blockId ? had.rowsPut : 0;
     sent += holds;
     for (const page of rowPages(block.rows)) {
       if (page.fromIndex + page.rows.length <= holds) continue;
