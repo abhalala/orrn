@@ -471,8 +471,11 @@ test.describe("imports portal", () => {
     await openPortal(page, "admin");
     await upload(page, name, csv);
 
-    // The first table is clean and is kept. The second, below the blank row, is asked: the table above holds only text, so
-    // the reader cannot tell by its columns that the rows below belong to it, and the person decides.
+    // A table of text only is not "clean" (the row under its names has no number or date), so the first one is asked too. The
+    // second, below the blank row, follows an all-text table: the reader cannot tell by its columns that the rows below belong
+    // to it, and the person decides.
+    await expect(headerStep(page).getByText(/^Table 1 of 2/)).toBeVisible({ timeout: 60_000 });
+    await pickHeaderRow(page, 1);
     await expect(headerStep(page).getByRole("button", { name: "It continues the table above" })).toBeVisible({ timeout: 60_000 });
     await headerStep(page).getByRole("button", { name: "It continues the table above" }).click();
 
