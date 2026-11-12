@@ -316,7 +316,7 @@ test("shots", async ({ page, request }) => {
       changeAnswer(route, (data) => {
         if (Array.isArray(data.candidates) && data.candidates.length > 0) {
           const last = data.candidates[data.candidates.length - 1];
-          Object.assign(last, { state: "held", reasonCode: "merge_failed", reasonDetail: "Section is already in orrn with other values.", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 });
+          Object.assign(last, { state: "held", reasonCode: "customer_missing", reasonDetail: "Rathod Metals", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 });
           data.state = "done_with_holds";
         }
       }),
