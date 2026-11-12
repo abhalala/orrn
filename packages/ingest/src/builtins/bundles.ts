@@ -1,6 +1,10 @@
 import type { BuiltinHole } from "./types";
 
-/** From `columnGuide("bundles")` and `IMPORT_FIELDS.bundles`, plus the legacy id of plan B4. */
+/**
+ * From `columnGuide("bundles")` and `IMPORT_FIELDS.bundles`, plus the legacy id of plan B4. Rule 6.4 (M-R6-1): the
+ * legacy id column is optional in the layout, so the web's old bundle template (which has none) fits exactly. The
+ * bundles target still needs a legacy id per row (C1), so its dry run refuses a row without one.
+ */
 export const builtinBundles: BuiltinHole = {
   id: "bundles",
   version: 1,
@@ -8,7 +12,7 @@ export const builtinBundles: BuiltinHole = {
   keys: ["legacyId"],
   onExisting: "skip",
   fields: [
-    { field: "legacyId", aliases: ["legacy id", "old id", "bundle id", "uid"], required: true },
+    { field: "legacyId", aliases: ["legacy id", "old id", "bundle id", "uid"] },
     { field: "series", aliases: ["die series", "series"], required: true, caseTo: "upper" },
     { field: "sectionCode", aliases: ["die section code", "section code", "section", "die section", "section no"], required: true },
     { field: "quantity", aliases: ["quantity", "qty", "pieces", "pcs", "piece", "nos"], required: true, unitFromHeader: "count" },

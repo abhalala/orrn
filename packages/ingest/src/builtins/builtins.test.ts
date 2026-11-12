@@ -56,10 +56,13 @@ describe("instantiate", () => {
     expect(analyzeBuiltin(builtinCustomers, ["Name", "Phone", "Email", "GSTIN", "Notes"]).missingRequired).toEqual([]);
   });
 
-  test("C1: a bundle sheet with no legacy id column misses a required field and does not fit", () => {
+  // Round 7, rule 6.4 (M-R6-1): the legacy id column is optional in the layout, so the web's own bundle template
+  // fits. This test pinned "misses a required field and does not fit"; it now pins the exact fit. The row-level
+  // guard of C1 stays in the target: the next test still refuses a row with no legacy id.
+  test("C1, rule 6.4: a bundle sheet with no legacy id column fits the layout exactly", () => {
     const headers = ["Die series", "Section code", "Pieces", "Weight (kg)", "Length (ft)", "PO number"];
-    expect(analyzeBuiltin(builtinBundles, headers).missingRequired).toEqual(["legacyId"]);
-    expect(fitBuiltin(fingerprint({ headers, rows: [["R", "2105", "4", "12.5", "12", ""]] }), builtinBundles)).toBeNull();
+    expect(analyzeBuiltin(builtinBundles, headers).missingRequired).toEqual([]);
+    expect(fitBuiltin(fingerprint({ headers, rows: [["R", "2105", "4", "12.5", "12", ""]] }), builtinBundles)?.fit).toBe("exact");
   });
 
   test("C1: a bundle row with a blank legacy id is refused, so a re-upload cannot create it twice", () => {
