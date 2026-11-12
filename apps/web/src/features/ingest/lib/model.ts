@@ -464,6 +464,17 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
   };
 }
 
+/**
+ * Everything the person must still answer, counted from the questions themselves: the year, a section, a unit, a value
+ * check. The review bar says this number, so it never says "1 question" while two things are open. A rate question a
+ * person who cannot see rates is not asked is not counted (the server's rule). The server's own `openQuestions` is the
+ * floor, for a candidate whose questions are not loaded.
+ */
+export function openQuestionTotal(c: { questions?: readonly IngestQuestion[]; openQuestions: number }): number {
+  const counted = (c.questions ?? []).filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off")).length;
+  return Math.max(c.openQuestions, counted);
+}
+
 /** Unanswered questions first, then answered ones, each in the server's order. */
 export function questionList(questions: readonly IngestQuestion[], target?: IngestTarget | null): QuestionView[] {
   const views = questions.map((q) => questionView(q, target));

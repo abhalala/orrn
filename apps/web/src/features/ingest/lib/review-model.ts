@@ -6,6 +6,7 @@ import {
   allowedActions,
   fitDiffView,
   helperOffer,
+  openQuestionTotal,
   questionList,
   reasonLine,
   TARGET_KEY,
@@ -87,6 +88,8 @@ export function decisionBar(
   ctx: BarContext,
 ): DecisionBar {
   const { can } = ctx;
+  // Every open question counts for the chip and for the line that links to the first one, the year included.
+  c = { ...c, openQuestions: openQuestionTotal(c) };
   const allowed = allowedActions(c, can);
   const diff = fitDiffView(c.fitDiff);
   const changed = diff.renamed.length + diff.extra.length + diff.missing.length;

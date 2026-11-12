@@ -27,6 +27,21 @@ const say = (key: string, vars?: Record<string, string | number>) => {
   return (table[key] ?? key).replace(/\{(\w+)\}/g, (_m, name: string) => String(vars?.[name] ?? `{${name}}`));
 };
 
+describe("the chip counts everything the person must answer (item 6)", () => {
+  const open = (code: string, subject = "") => ({ code, subject, params: {}, answer: null, open: true });
+  test("the year and a section question are two, whatever count the summary carried", () => {
+    const bar = decisionBar(detail({ openQuestions: 1, questions: [open("period_needed"), open("create_legacy_die", "R 2105")] }), ctx);
+    expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 2 } });
+    expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlocked", vars: { count: 2 } });
+  });
+  test("an answered question and a rate question nobody may answer are not counted", () => {
+    const answered = { ...open("unit_unknown", "rate"), open: false, answer: "kg" };
+    const rates = { ...open("rates_hidden"), params: { reason: "no_access" } };
+    const bar = decisionBar(detail({ openQuestions: 1, questions: [open("period_needed"), answered, rates] }), ctx);
+    expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 1 } });
+  });
+});
+
 describe("the decision bar (M7)", () => {
   test("ready with nothing open: Approve is the one primary, Hold is secondary, Discard is in the menu", () => {
     const bar = decisionBar(detail(), ctx);
