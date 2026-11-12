@@ -220,8 +220,8 @@ function NavLink({
       className={cn(
         "flex min-w-0 flex-col items-center gap-1 rounded-card px-1 py-2 text-[11px] font-medium no-underline transition-[background-color,color,scale] duration-[var(--dur-fast)] active:scale-[0.97]",
         "lg:h-11 lg:flex-row lg:gap-3 lg:rounded-full lg:px-3.5 lg:py-0 lg:text-[15px]",
-        // A 900 px office monitor (30 px rows, 19 links for the owner with Foundry and Ageing): tighter rows so the owner's whole list (Masters to Audit) fits without a scroll (BACKLOG 106).
-        "[@media(min-width:1024px)_and_(max-height:960px)]:h-[30px]",
+        // A 900 px office monitor (28 px rows, 20 links for the owner with Foundry, Ageing and Imports): tighter rows so the owner's whole list (Masters to Audit) fits without a scroll (BACKLOG 106).
+        "[@media(min-width:1024px)_and_(max-height:960px)]:h-[28px]",
         active
           ? variant === "godseye"
             ? "bg-[linear-gradient(160deg,var(--tone-violet-from),var(--tone-violet-to))] font-semibold text-tone-violet-on"

@@ -58,7 +58,8 @@ test("a member saves their own menu order and resets it", async ({ page }) => {
   await handle.focus();
   await handle.press("Space");
   await expect(handle).toHaveAttribute("aria-pressed", "true");
-  for (let move = 0; move < 5; move += 1) await handle.press("ArrowUp");
+  // Imports now leads More, so Orders sits one row lower: six moves reach the top.
+  for (let move = 0; move < 6; move += 1) await handle.press("ArrowUp");
   await expect(page.getByTestId("nav-order-announcement")).toHaveText(`Orders moved to position 1 of ${total}`);
   await handle.press("Space");
   await expect(handle).toHaveAttribute("aria-pressed", "false");
@@ -137,7 +138,7 @@ test("Escape restores the picked row and a second Escape cancels", async ({ page
 
   await expect(dialog).toBeVisible();
   await expect(handle).toHaveAttribute("aria-pressed", "false");
-  await expect(dialog.locator("[data-slot='nav-arrange-list'] > li").nth(5)).toHaveAttribute("data-nav-key", "orders");
+  await expect(dialog.locator("[data-slot='nav-arrange-list'] > li").nth(6)).toHaveAttribute("data-nav-key", "orders");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(mainNav(page).getByRole("link").first()).toHaveAccessibleName("Today");
@@ -222,6 +223,8 @@ test("Tab drops the picked row without losing its new place", async ({ page }) =
   const handle = dialog.getByRole("button", { name: "Reorder Orders" });
   await handle.focus();
   await handle.press("Space");
+  // Imports sits between the divider and Orders: two moves put Orders just above the divider.
+  await handle.press("ArrowUp");
   await handle.press("ArrowUp");
   await handle.press("Tab");
 
