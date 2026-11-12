@@ -289,7 +289,9 @@ describe("round 8 acceptance property (rule 8.1, sheets and CSV)", () => {
             while (at < f.text.length && f.text[at]!.filter((x) => x !== "").length <= 1) at++;
             const row = f.text[at] ?? [];
             const words = row.filter((x) => x !== "");
-            const cause = row.includes("note")
+            const cause = words.length === 0
+              ? "oneCellTail" // only one-cell lines follow: listed as after_last_row, the table does not go on
+              : row.includes("note")
               ? "cellPastWidth"
               : row.some((x) => x === "pending" || x === "cancelled")
                 ? "wordInNumber"
