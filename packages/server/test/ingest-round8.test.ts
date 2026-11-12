@@ -1,0 +1,146 @@
+/**
+ * Server round 8 (PORTAL-S-CHECK-6 and PORTAL-RULES-3 section 10).
+ * - 10.1 (S6-1): a blank date, PO or party is filled from the nearest filled row above in the same
+ *   run. A line that took its date from above, in a run of one number that holds two dates, asks the
+ *   file once:
+ *   `order_fill_above`, "Some lines have no date. orrn took each one's date from the dated line just
+ *   above it. Is that right?" Yes keeps the fill; No refuses those lines with `order_no_date:<n>`.
+ */
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+
+import { createTestEnv, type TestEnv } from "./harness";
+import { layout, learnLayout, mergeOnce, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+
+let env: TestEnv;
+
+beforeAll(async () => {
+  env = await createTestEnv();
+});
+
+afterAll(async () => {
+  await env.dispose();
+});
+
+const BOOK = ["Party", "Order no", "PO", "Date", "Series", "Section", "Cut (mm)", "Baki (kg)"];
+const FIELDS = [
+  { field: "customer", steps: [{ op: "trim" as const }, { op: "lookup" as const, resolver: "customer_by_name" as const }] },
+  { field: "oldOrderNo", steps: trim },
+  { field: "poNumber", steps: trim },
+  { field: "orderDate", steps: [{ op: "date" as const, format: "dmy" as const }] },
+  { field: "series", steps: [{ op: "trim" as const }, { op: "case" as const, to: "upper" as const }] },
+  { field: "sectionCode", steps: [{ op: "trim" as const }, { op: "lookup" as const, resolver: "section_by_code" as const }] },
+  { field: "cutLength", steps: [{ op: "number" as const, kind: "length" as const, unit: "mm" }] },
+  { field: "bakiKg", steps: [{ op: "number" as const, kind: "mass" as const, unit: "kg" }] },
+];
+const R = (no: string, po: string, date: string, sec: string) => ["Acme Traders", no, po, date, "R", sec, "3658", "100"];
+
+async function setup() {
+  const p = await plant(env);
+  await p.owner.customer.create({ name: "Acme Traders" });
+  for (const code of ["5100", "5101", "5102", "5103"]) await env.seedDie(p.companyId, { series: "R", sectionCode: code });
+  await learnLayout(env, p.companyId, p.users.owner.id, layout("orders", BOOK, FIELDS, ["customer", "oldOrderNo", "orderDate"]), "Book");
+  return p;
+}
+
+const seqOf = async (as: Caller, candidateId: string) => (await as.ingest.candidate.get({ candidateId })).serverSeq;
+
+async function tryApprove(as: Caller, candidateId: string): Promise<string> {
+  try {
+    await as.ingest.candidate.approve({ candidateId, expectSeq: await seqOf(as, candidateId) });
+    return "approved";
+  } catch (e) {
+    return `REFUSED: ${(e as Error).message}`;
+  }
+}
+
+/** Each live order: its date, PO and the section codes of its lines in code order. */
+async function orders(companyId: string) {
+  const r = await env.d1
+    .prepare(
+      `select o.order_date as d, o.po_number as po, (select group_concat(code, ',') from (select d.section_code as code from sales_order_line l join die d on d.id = l.die_id where l.sales_order_id = o.id order by d.section_code)) as codes
+       from sales_order o where o.company_id = ? order by o.order_date`,
+    )
+    .bind(companyId)
+    .all<{ d: string; po: string | null; codes: string | null }>();
+  return r.results.map((o) => ({ date: o.d, po: o.po, codes: o.codes }));
+}
+
+const TWO_YEARS = [R("41", "PO-A", "01/05/2023", "5100"), R("41", "", "", "5101"), R("41", "PO-B", "01/06/2024", "5102"), R("41", "", "", "5103")];
+
+describe("rule 10.1 (S6-1): the nearest filled row above, and one question when a run holds two values", () => {
+  test("before the answer nothing merges; Yes puts each blank line on the order just above it", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "Book", headers: BOOK, rows: TWO_YEARS }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    const rows = await rowsOf(p.owner, id);
+    expect(rows.map((r) => r.state)).toEqual(["ambiguous", "ambiguous", "ambiguous", "ambiguous"]);
+    expect(rows[1]!.reasons).toContain("q:order_fill_above");
+    expect(rows[3]!.reasons).toContain("q:order_fill_above");
+    expect(rows[0]!.reasons).not.toContain("q:order_fill_above");
+    const q = (await p.owner.ingest.candidate.get({ candidateId: id })).questions.find((x) => x.code === "order_fill_above");
+    expect(q).toMatchObject({ subject: "", open: true, params: { count: 2 } });
+    expect(q!.lines).toEqual([
+      { row: 1, order: "41", date: "2023-05-01", po: "PO-A" },
+      { row: 3, order: "41", date: "2024-06-01", po: "PO-B" },
+    ]);
+    expect(await tryApprove(p.owner, id)).toBe("REFUSED: Answer every question first");
+    expect(await orders(p.companyId)).toEqual([]);
+
+    await p.owner.ingest.answer.set({ candidateId: id, questionCode: "order_fill_above", subject: "", answer: true, expectSeq: await seqOf(p.owner, id) });
+    await pump(p.owner, id);
+    expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create", "ready_create"]);
+    expect(await tryApprove(p.owner, id)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect(await orders(p.companyId)).toEqual([
+      { date: "2023-05-01", po: "PO-A", codes: "5100,5101" },
+      { date: "2024-06-01", po: "PO-B", codes: "5102,5103" },
+    ]);
+  });
+
+  test("No refuses both blank lines with order_no_date:41; the dated lines still write whole", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "Book", headers: BOOK, rows: TWO_YEARS }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    await p.owner.ingest.answer.set({ candidateId: id, questionCode: "order_fill_above", subject: "", answer: false, expectSeq: await seqOf(p.owner, id) });
+    await pump(p.owner, id);
+    const rows = await rowsOf(p.owner, id);
+    expect(rows.map((r) => r.state)).toEqual(["ready_create", "refused", "ready_create", "refused"]);
+    expect(rows[1]!.reasons).toContain("order_no_date:41");
+    expect(rows[3]!.reasons).toContain("order_no_date:41");
+    expect(rows[1]!.reasons.some((r) => r.startsWith("filled_down:"))).toBe(false);
+    expect(await tryApprove(p.owner, id)).toBe("approved");
+    expect((await mergeOnce(p.owner)).state).toBe("done");
+    expect(await orders(p.companyId)).toEqual([
+      { date: "2023-05-01", po: "PO-A", codes: "5100" },
+      { date: "2024-06-01", po: "PO-B", codes: "5102" },
+    ]);
+  });
+
+  test("a run with one value fills from the nearest filled row above, with no question", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [{ name: "Book", headers: BOOK, rows: [R("42", "PO-C", "01/05/2025", "5100"), R("42", "", "", "5101"), R("42", "", "", "5102")] }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create"]);
+    expect((await p.owner.ingest.candidate.get({ candidateId: id })).questions.some((x) => x.code === "order_fill_above")).toBe(false);
+  });
+
+  test("one question for the file: the answer on one sheet settles the other sheet's lines", async () => {
+    const p = await setup();
+    const { candidates } = await upload(p.owner, [
+      { name: "Book", headers: BOOK, rows: TWO_YEARS },
+      { name: "Book 2", headers: BOOK, rows: [R("43", "PO-D", "01/05/2023", "5100"), R("43", "", "", "5101"), R("43", "PO-E", "01/06/2024", "5102"), R("43", "", "", "5103")] },
+    ]);
+    const [a, b] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    await p.owner.ingest.answer.set({ candidateId: a, questionCode: "order_fill_above", subject: "", answer: true, expectSeq: await seqOf(p.owner, a) });
+    await pump(p.owner, a);
+    await pump(p.owner, b);
+    expect((await rowsOf(p.owner, b)).map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create", "ready_create"]);
+    const qb = (await p.owner.ingest.candidate.get({ candidateId: b })).questions.find((x) => x.code === "order_fill_above");
+    expect(qb).toMatchObject({ open: false, answer: true });
+  });
+});

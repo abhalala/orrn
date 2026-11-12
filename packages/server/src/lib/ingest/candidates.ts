@@ -93,6 +93,7 @@ import {
   othersAgainAfter,
   openDoubts,
   openDoubtWhere,
+  Q_ORDER_FILL_ABOVE,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
@@ -1239,6 +1240,8 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   new_customers: (a) => typeof a === "boolean",
   // "Import them" (true) or "Do not import" (false), rule 7.5.
   bundles_no_old_id: (a) => typeof a === "boolean",
+  // Rule 10.1: "Yes" (true) keeps the fill from the line just above; "No" (false) refuses those lines.
+  order_fill_above: (a) => typeof a === "boolean",
   // "as_is" (the value is right) or the unit the question offers (checked in setAnswer).
   magnitude_check: (a) => typeof a === "string" && a.length > 0 && a.length <= 20,
   // The PO picked for one old order ({ po }, one of the order's), or "skip" (checked in setAnswer).
@@ -1322,6 +1325,8 @@ export async function setAnswer(
   // The field is read in another unit now: its magnitude answers were about values the person no
   // longer sees, so they go (X-new-1).
   if (input.questionCode === "unit_unknown") statements.push(clearMagnitudeAnswers(ctx, c.id, input.subject));
+  // Rule 10.1: one question per file. The other sheets whose lines wait on it check again.
+  if (input.questionCode === "order_fill_above") statements.push(...(await fillAboveRerun(ctx, artifact.id, c.id)));
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
     // Sibling order sheets of the file take the same date: they re-run too (A13).
@@ -1335,6 +1340,36 @@ export async function setAnswer(
   }
   await guardedBatch(ctx.db, statements);
   return candidateDetail(ctx, c.id);
+}
+
+/** The other sheets of the file with a line waiting on `order_fill_above`: back to checking. */
+async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: string): Promise<SqliteBatchItem[]> {
+  const others = await ctx.db
+    .select({ id: ingestCandidate.id, serverSeq: ingestCandidate.serverSeq })
+    .from(ingestCandidate)
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        eq(ingestCandidate.artifactId, artifactId),
+        eq(ingestCandidate.target, "orders"),
+        inArray(ingestCandidate.state, ["processing", "ready", "held"]),
+        ne(ingestCandidate.id, except),
+      ),
+    );
+  if (others.length === 0) return [];
+  const waiting = new Set(
+    (
+      await mapInChunks(
+        others.map((o) => o.id),
+        (part) =>
+          ctx.db
+            .selectDistinct({ id: ingestStagedRow.candidateId })
+            .from(ingestStagedRow)
+            .where(and(inArray(ingestStagedRow.candidateId, part), eq(ingestStagedRow.state, "ambiguous"), sql`${ingestStagedRow.reasons} like ${`%"${Q_ORDER_FILL_ABOVE}"%`}`)),
+      )
+    ).map((r) => r.id),
+  );
+  return others.filter((o) => waiting.has(o.id)).flatMap((o) => candidateChange(ctx, o.id, o.serverSeq, { state: "processing", dryCursor: 0 }));
 }
 
 // ---------------------------------------------------------------------------

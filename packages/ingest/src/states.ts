@@ -57,6 +57,9 @@ export const QUESTION_CODES = [
   "order_po",
   // Bundles with no old bundle number: import them or not (portal rules round 3, rule 7.5).
   "bundles_no_old_id",
+  // A run of one old order number holds two dates: were the blank dates filled from the line just
+  // above right? One question per file (portal rules round 3, rule 10.1).
+  "order_fill_above",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 
