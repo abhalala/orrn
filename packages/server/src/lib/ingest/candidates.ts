@@ -194,6 +194,11 @@ export const HEADER_PICK_OUTSIDE = "The row you picked is not in the preview";
 export const PREVIEW_ORDER = "The preview has a row twice or out of order";
 export const HEADER_NOT_IN_PREVIEW = "The column names row is not in the preview. Read the table again.";
 export const REPICK_WRITTEN = "Rows of this sheet are already written. Its columns cannot change now.";
+/** Rule 10.2: re-put and repick refuse once a sheet of the file is approved or merging. */
+export const FILE_APPROVED = "A sheet of this file is approved. Its tables cannot change now.";
+/** Inside a batch: no sheet of the file is approved, merging or merged (rule 10.2). */
+const noSheetApproved = (companyId: string, artifactId: string) =>
+  sql`not exists (select 1 from ingest_candidate k where k.company_id = ${companyId} and k.artifact_id = ${artifactId} and k.state in ('approved', 'merging', 'merged'))`;
 
 /** Rule 7.2: preview rows in order, each once (by page, then row). */
 function checkPreview(b: BlockInput): void {
@@ -372,8 +377,9 @@ export async function putBlocks(
     .from(ingestCandidate)
     .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, artifact.id)));
   if (reput) {
-    const written = all.some((k) => k.rowsWritten > 0 || k.recipeLocked || k.state === "approved" || k.state === "merging" || k.state === "merged");
+    const written = all.some((k) => k.rowsWritten > 0 || k.recipeLocked || k.state === "merged");
     if (written) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+    if (all.some((k) => k.state === "approved" || k.state === "merging")) throw new TRPCError({ code: "BAD_REQUEST", message: FILE_APPROVED });
     if (artifact.readState !== "reading" && artifact.readState !== "read") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
   } else if (artifact.readState !== "reading") {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
@@ -411,6 +417,8 @@ export async function putBlocks(
             allIds.length
               ? sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${allIds} and r.merge_state = 'written')`
               : sql`1 = 1`,
+            // Rule 10.2: no sheet of the file was approved or started merging in between.
+            noSheetApproved(ctx.companyId, artifact.id),
           ),
         ),
       ingestAbortUnlessChanged(ctx.db),
@@ -1702,6 +1710,13 @@ export async function repickHeader(ctx: IngestCtx, input: { candidateId: string;
   const written = (k: { state: CandidateState; rowsWritten: number; recipeLocked: boolean }) =>
     k.rowsWritten > 0 || k.recipeLocked || k.state === "approved" || k.state === "merging" || k.state === "merged";
   if (kin.some(written)) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+  // Rule 10.2: no other sheet of the file is approved, merging or written.
+  const file = await ctx.db
+    .select({ state: ingestCandidate.state, rowsWritten: ingestCandidate.rowsWritten })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, c.artifactId)));
+  if (file.some((k) => k.rowsWritten > 0 || k.state === "merged")) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+  if (file.some((k) => k.state === "approved" || k.state === "merging")) throw new TRPCError({ code: "BAD_REQUEST", message: FILE_APPROVED });
   const block = await loadBlock(ctx, c.blockId);
   const artifact = await loadArtifact(ctx, c.artifactId);
   const at = now();
@@ -1716,7 +1731,13 @@ export async function repickHeader(ctx: IngestCtx, input: { candidateId: string;
     ctx.db
       .update(ingestCandidate)
       .set({ updatedAt: at })
-      .where(and(eq(ingestCandidate.id, c.id), sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${ids} and r.merge_state = 'written')`)),
+      .where(
+        and(
+          eq(ingestCandidate.id, c.id),
+          sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${ids} and r.merge_state = 'written')`,
+          noSheetApproved(ctx.companyId, c.artifactId),
+        ),
+      ),
     ingestAbortUnlessChanged(ctx.db),
     ...again,
     ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, ids))),

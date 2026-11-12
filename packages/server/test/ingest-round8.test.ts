@@ -9,6 +9,7 @@
  * - 10.3 (S6-3): a reader keep with no question only for an all-text guess of two or more filled
  *   cells with no blank between them, over a row with a number or a date.
  * - S6-4: reader facts text is masked for a viewer without order.price, as the sample is.
+ * - 10.2 second line (S6-5): re-put and repick refuse once any sheet of the file is approved or merging.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -304,5 +305,34 @@ describe("S6-4: reader facts text and rates", () => {
     const b = (await p.admin.ingest.artifact.get({ artifactId })).blocks[0]!;
     expect(b.warnings.map((w) => w.text)).toEqual(["Total 120", ""]);
     expect(b.sections[0]!.text).toBe("December");
+  });
+});
+
+describe("rule 10.2 second line (S6-5): no re-put or repick once a sheet of the file is approved", () => {
+  const APPROVED = "A sheet of this file is approved. Its tables cannot change now.";
+
+  test("a sheet approved: the other sheet cannot be picked again or put again", async () => {
+    const p = await setup();
+    const { artifactId, candidates } = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: [R("41", "PO-41", "31/10/2025", "5100")] },
+      { name: "B", headers: BOOK, rows: [R("42", "PO-42", "31/10/2025", "5100")] },
+    ]);
+    const [a, b] = [candidates[0]!.id, candidates[1]!.id];
+    await pump(p.owner, a);
+    expect(await tryApprove(p.owner, a)).toBe("approved");
+    await expect(p.owner.ingest.candidate.repickHeader({ candidateId: b, expectSeq: await seqOf(p.owner, b) })).rejects.toThrow(APPROVED);
+    const blocks = (await p.owner.ingest.artifact.get({ artifactId })).blocks;
+    const sent = blocks.map((x) => ({
+      ordinal: x.ordinal,
+      sheetName: x.sheetName,
+      title: null,
+      headerRow: 0,
+      headerRows: 1,
+      rowCount: x.rowCount,
+      sample: x.sample,
+      preview: [{ row: 0, cells: BOOK }, ...x.sample.map((cells, i) => ({ row: i + 1, cells }))],
+    }));
+    await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [sent[0]!, { ...sent[1]!, hint: { headerRow: 0, headerRows: 1, lastDataRow: 1, skipRows: [] } }] })).rejects.toThrow(APPROVED);
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("approved");
   });
 });
