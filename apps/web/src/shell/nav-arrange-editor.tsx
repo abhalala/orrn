@@ -189,14 +189,13 @@ function ArrangeRow({
   onMove(item: NavItem, delta: number): void;
 }) {
   const { t } = useT();
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useSortable({
     id: row.id,
     disabled: row.kind === "divider" ? { draggable: true, droppable: false } : false,
-    transition: { duration: 150, easing: "ease-out" },
+    transition: null,
   });
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
   };
 
   if (row.kind === "divider") {
