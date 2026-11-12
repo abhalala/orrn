@@ -1719,6 +1719,14 @@ export async function classifyRows(
   });
 }
 
+/** Rule 11.3: the skips the bulk action made on one sheet go, so its lines are checked again. */
+export function clearBulkSkips(ctx: IngestCtx, candidateId: string) {
+  return ctx.db
+    .update(ingestStagedRow)
+    .set({ decision: null, bulkSkip: null, updatedAt: now() })
+    .where(and(eq(ingestStagedRow.candidateId, candidateId), eq(ingestStagedRow.mergeState, "open"), eq(ingestStagedRow.bulkSkip, "no_date")));
+}
+
 export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; expectCursor: number }): Promise<DryRunStepOut> {
   const c = await loadCandidate(ctx, input.candidateId);
   if (c.state !== "processing") {
@@ -1734,6 +1742,9 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     .from(ingestAnswer)
     .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
   const answers = readAnswers(withFileFillAnswer(artifact, answerRows), artifact, recipe);
+  // Rule 11.3: a skip made by "Skip these {count} lines" counts only while the file's answer is No.
+  // Otherwise the dry run drops it before reading, on any path that left one behind.
+  if (artifact.fillAbove?.answer !== false) await ctx.db.batch([clearBulkSkips(ctx, c.id)] as never);
 
   const page = await ctx.db
     .select()
