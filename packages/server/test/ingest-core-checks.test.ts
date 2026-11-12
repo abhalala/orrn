@@ -589,7 +589,8 @@ describe("X-new-3: the dry run refuses what the merge would hold", () => {
     await pump(p.owner, id);
     staged = await all();
     expect(staged.at(-1)!.state).toBe("skipped");
-    expect(new Set(staged.slice(3, -1).map((r) => `${r.state} ${r.reasons.join(",")}`))).toEqual(new Set(["ready_create "]));
+    // Rule 7.1 (round 6): the order's lines note the line the person left out.
+    expect(new Set(staged.slice(3, -1).map((r) => `${r.state} ${r.reasons.join(",")}`))).toEqual(new Set(["ready_create order_skipped_lines:1"]));
     c = await p.owner.ingest.candidate.get({ candidateId: id });
     expect(c.counts).toMatchObject({ create: 101, refused: 2, skipped: 1 });
   });

@@ -265,6 +265,10 @@ export const ingestCandidate = sqliteTable(
     rowsRefused: count("rows_refused"),
     rowsSkipped: count("rows_skipped"),
     rowsWritten: count("rows_written"),
+    /** Rule 7.1: rows whose blank party, date or PO took the value of their order's run. */
+    rowsFilled: count("rows_filled"),
+    /** Rule 7.1: rows a person chose to leave out ("Skip this row"). */
+    rowsSkippedByPerson: count("rows_skipped_by_person"),
     openQuestions: count("open_questions"),
     botAttempts: count("bot_attempts"),
     recipeLocked: integer("recipe_locked", { mode: "boolean" }).notNull().default(false),

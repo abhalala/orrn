@@ -14,4 +14,7 @@ export type IngestSource = {
   rowTo: number;
   /** Rule 5.3: rows of this write the reader doubted and a person said are right, and who. */
   confirmed?: { row: number; by: string; codes: string[] }[];
+  /** Rule 7.1: lines of this order a person chose to leave out, and the note that says so. */
+  skippedLines?: number;
+  note?: string;
 };

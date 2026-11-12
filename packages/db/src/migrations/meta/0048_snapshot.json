@@ -11339,6 +11339,22 @@
           "autoincrement": false,
           "default": 0
         },
+        "rows_filled": {
+          "name": "rows_filled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "rows_skipped_by_person": {
+          "name": "rows_skipped_by_person",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "open_questions": {
           "name": "open_questions",
           "type": "integer",

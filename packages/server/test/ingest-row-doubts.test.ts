@@ -153,7 +153,9 @@ describe("rule 5.3: a row in doubt is checked against the file by a person", () 
     const line = (sec: string) => ["Acme Traders", "41", "PO-9", "31/10/2025", "R", sec, "3658", "100"];
     const id = await send(p.owner, [line("5100"), line("5101")], [{ row: 1, code: "cells_close", line: 12, page: 1 }], BOOK);
     let rows = await rowsOf(p.owner, id);
-    expect(rows.map((r) => r.state)).toEqual(["ready_create", "ambiguous"]);
+    // Rule 7.1 (round 6): the other line of the order waits on the doubted one.
+    expect(rows.map((r) => r.state)).toEqual(["ambiguous", "ambiguous"]);
+    expect(rows[0]!.reasons).toContain("order_waits:1");
     expect(rows[1]!.reasons).toContain("check_against_file");
     expect(await tryApprove(p.owner, id)).toStartWith("REFUSED: Check 1 row against the file first.");
     await p.owner.ingest.rows.answerDoubts({ candidateId: id, answer: "right", rowId: rows[1]!.id, expectSeq: await seqOf(p.owner, id) });

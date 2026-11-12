@@ -9,7 +9,7 @@ import { fingerprint, type Recipe } from "@orrn/ingest";
 import type { CompanyRole, TestEnv } from "./harness";
 
 export type Caller = ReturnType<TestEnv["caller"]>;
-export type Sheet = { headers: string[]; rows: string[][]; name?: string };
+export type Sheet = { headers: string[]; rows: string[][]; name?: string; merged?: { col: number; firstRow: number; lastRow: number }[] };
 
 const sha = () => createHash("sha256").update(randomUUID()).digest("hex");
 
@@ -40,6 +40,7 @@ export async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx"
       headers: s.headers,
       rowCount: s.rows.length,
       sample: s.rows.slice(0, 200),
+      ...(s.merged ? { merged: s.merged } : {}),
     })),
   });
   for (const [i, s] of sheets.entries()) {

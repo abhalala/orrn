@@ -104,6 +104,16 @@ describe("S3-1 and S3-5: one identity is one sales order", () => {
     const { candidates } = await upload(p.owner, [{ headers: BOOK, rows: [R("41", "PO-9", "01/10/2025", "5100"), R("41", "", "05/10/2025", "5101")] }]);
     const id = candidates[0]!.id;
     await pump(p.owner, id);
+    // Rule 7.1 (round 6): two dates inside one order's run are a conflict until the person keeps the
+    // file's values on each row. Then the one identity is one order of 2 lines, as before.
+    const held = await rowsOf(p.owner, id);
+    expect(held.map((r) => [r.state, r.reasons.includes("order_run_differs:orderDate")])).toEqual([
+      ["conflict", true],
+      ["conflict", true],
+    ]);
+    const seq = (await p.owner.ingest.candidate.get({ candidateId: id })).serverSeq;
+    await p.owner.ingest.rows.decide({ candidateId: id, rowIds: held.map((r) => r.id), decision: "keep_file", expectSeq: seq });
+    await pump(p.owner, id);
     expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ready_create", "ready_create"]);
     expect(await tryApprove(p.owner, id)).toBe("approved");
     expect((await mergeOnce(p.owner)).state).toBe("done");
