@@ -23,10 +23,11 @@ export const PREVIEW_HEAD_ROWS = 3;
  * - `headerRow`: the raw row that holds the column names (the top one when the header has two rows).
  * - `headerRows`: 1 (default) or 2. Two rows join as "top bottom", a blank top cell continuing the group to its left.
  * - `firstDataRow`: the first data row. Default: the row under the header.
- * - `lastDataRow`: the last data row. Given, it is followed exactly, across blank rows. Default for sheets and CSV
- *   (rule 6.1): the row before the first fully blank row after the header, or before the next hinted header, else
- *   the end of the sheet. What lies below is read by the guess as further blocks. For PDF: the line before the next
- *   hinted header on the same page, else the end of the page.
+ * - `lastDataRow`: the last data row. Given, it is followed exactly, across blank rows, and rule 8.1 leaves nothing
+ *   out. Default for sheets and CSV (rule 8.1, round 8): the table goes on across blank rows while what follows them
+ *   is a repeat of the header, a single text cell, or data that fits the column kinds; it ends before the next
+ *   hinted header, else at the end of the sheet. What lies below is read by the guess as further blocks. For PDF: the
+ *   line before the next hinted header on the same page, else the end of the page.
  * - `skipRows` (sheets and CSV): data rows to leave out, such as a repeated header inside a range the person joined.
  *   Each must lie between the first and the last data row. A skipped row stays in `rows` as a blank row, so row `i`
  *   of `rows` is still sheet row `firstDataSheetRow + i`, and it is listed as `skipped_by_hint`.
@@ -43,20 +44,36 @@ export type BlockHints = {
 };
 
 /**
- * A row the reader could not place in a table, or left out on purpose, with its row number. No cell text is quoted.
+ * A row the reader could not place in a table, or left out on purpose, with its row number. Only the two lists of
+ * rule 8.1 quote the row's text.
  * - `not_placed`: no table took the row (no header was found for it, or it fits no column).
  * - `footer_left_out` (PDF): a one-cell line under the table read as a footer, not a row.
  * - `title_repeated` (PDF): the title of the table repeated on a later page.
  * - `skipped_by_hint`: a row between the header and the hinted first data row, or a row of the hint's `skipRows`.
  * - `after_last_row`: a row below a block that no block takes and that does not look like data (a note, a footer).
  *   Rows that look like data always go in a block (rule 6.1).
+ * - `skipped_repeat_header` (rule 8.1): after blank rows, a repeat of the header (every filled cell is the header's
+ *   name for that column). Left out of `rows` as a blank row; `text` is its cells joined by one space.
+ * - `skipped_title` (rule 8.1): after blank rows, a single text cell ("December", "contd.") with more of the table
+ *   after it. Left out of `rows` as a blank row; `text` is the cell.
  * - `kept_as_title`: a row above the header, kept in the block's title, not in its rows. It may be data.
  * - `columns_not_matched`: no longer given since round 5; a PDF row in doubt is a `RowDoubt` in `doubts`. Kept so
  *   stored reads still parse.
  */
 export type RowWarning = {
-  code: "not_placed" | "footer_left_out" | "title_repeated" | "skipped_by_hint" | "after_last_row" | "kept_as_title" | "columns_not_matched";
+  code:
+    | "not_placed"
+    | "footer_left_out"
+    | "title_repeated"
+    | "skipped_by_hint"
+    | "after_last_row"
+    | "kept_as_title"
+    | "columns_not_matched"
+    | "skipped_repeat_header"
+    | "skipped_title";
   row: number;
+  /** The row's text, for `skipped_repeat_header` and `skipped_title` only. */
+  text?: string;
   /** 1-based page, for PDF only. */
   page?: number;
 };
@@ -107,8 +124,16 @@ export type ReadBlock = {
    * whole block `chooseHeader` counts the width from the block's own rows, so that number is never used there.
    */
   width?: number;
-  /** Data rows after the header. Interior blank rows stay (the recipe skips them); trailing ones are cut. */
+  /**
+   * Data rows after the header. Interior blank rows stay (the recipe skips them); trailing ones are cut. A row left
+   * out (a hint's `skipRows`, or rule 8.1's lists) stays as a blank row and is listed in `warnings`.
+   */
   rows: string[][];
+  /**
+   * Fully blank rows inside `rows`, not counting rows left out (rule 8.1): the screen says "N blank rows inside this
+   * table were skipped". Set by the sheet, CSV and SQL readers.
+   */
+  gaps?: number;
   /** Row of the sheet where the first data row sits, 0-based. Row `i` of `rows` is sheet row `firstDataSheetRow + i`. */
   firstDataSheetRow: number;
   /** Raw rows of the block's region, before any header was applied: `PREVIEW_ROWS`, plus `PREVIEW_HEAD_ROWS` when the window moved. */
@@ -120,12 +145,15 @@ export type ReadBlock = {
   /** Rows of this block's region that are not in `rows`. */
   warnings: RowWarning[];
   /**
-   * Set when this block starts right after another block of the same sheet, with only blank rows between (rule 6.1):
-   * `block` is that block's index in the sheet's blocks, `gapRows` the number of blank rows between. `chooseHeaderInSheet`
-   * then offers to join it to the block above. Null otherwise. Set by the sheet and CSV readers; the SQL reader gives
-   * null, the PDF reader (not in the first release) leaves it out.
+   * Set when this block starts right after another block of the same sheet, with only blank rows between: `block` is
+   * that block's index in the sheet's blocks, `gapRows` the number of blank rows between. `continues` is the offer
+   * "It continues the table above" (rule 8.1, round 8): true only when every column of the block above is text (such a
+   * table never goes on across a blank row by itself), this block's title rows are single cells, and its rows sit
+   * inside the width of the block above. The person decides; joining is the upper hint with this block's last row as
+   * `lastDataRow` and its title rows in `skipRows`. Null otherwise. Set by the sheet and CSV readers; the SQL reader
+   * gives null, the PDF reader (not in the first release) leaves it out.
    */
-  follows?: { block: number; gapRows: number } | null;
+  follows?: { block: number; gapRows: number; continues: boolean } | null;
   /** Rows of `rows` whose split into columns is in doubt (PDF only; sheets, CSV and SQL give none). */
   doubts: RowDoubt[];
 };

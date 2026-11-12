@@ -90,11 +90,19 @@ describe("findBlocks", () => {
     expect(blocks[1]!.firstDataSheetRow).toBe(6);
   });
 
-  test("a blank row inside a table of text only does not split it", () => {
+  // Re-pinned by rule 8.1 (round 8): this pinned one block. A table of text columns only never goes on across a blank
+  // row by itself. Two or more rows below are a block that follows it, with the offer "It continues the table above";
+  // a single row below cannot be told from a footer (C33) and is a note of the block, listed, never lost.
+  test("a blank row inside a table of text only ends it; the part below is offered as its rows", () => {
     const m = [["Name", "City"], ["Asha", "Surat"], [], ["Ravi", "Pune"]];
-    const blocks = findBlocks(m);
-    expect(blocks.length).toBe(1);
-    expect(blocks[0]!.rows.length).toBe(3);
+    const one = findBlocks(m);
+    expect(one.length).toBe(1);
+    expect(one[0]!.rows.length).toBe(1);
+    expect(one[0]!.warnings).toEqual([{ code: "after_last_row", row: 3 }]);
+    const blocks = findBlocks([...m, ["Mira", "Rajkot"]]);
+    expect(blocks.length).toBe(2);
+    expect(blocks[1]!.guess.headerRow).toBe(3);
+    expect(blocks[1]!.follows).toEqual({ block: 0, gapRows: 1, continues: true });
   });
 
   test("trailing blank columns and rows are cut", () => {

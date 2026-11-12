@@ -7,6 +7,9 @@ import { readCsv } from "./csv";
 // Round 7, rule 6.1 (B-R6-1): a hinted block with no last row ends at the first fully blank row. What lies below is
 // read by the normal path as further blocks, so a second table is never swallowed. A block that follows another with
 // only blank rows between says so, and the header check offers to join it. Synthetic sheets only.
+// Round 8, rule 8.1 replaced the end at the first blank row: the table goes on across blank rows while what follows
+// fits it (a repeat of the header, a single text cell, data that fits the column kinds). Tests below that pinned a
+// split of one table now pin one block; `follows` carries `continues`; `continuesAbove` is gone from "ask".
 
 const H = ["Party", "Order No", "PO", "Section", "Kg", "Rate"];
 const data = (n: number, from = 0) => Array.from({ length: n }, (_, i) => ["Om", String(100 + from + i), `PO${from + i}`, "T4012", "340", "245"]);
@@ -32,13 +35,13 @@ describe("6.1: a hinted table ends at the first blank row", () => {
       const r = readSheet(m, { hints: [{ headerRow: 0 }] });
       expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length, b.hints !== null])).toEqual([[0, 10, true], [11 + gap, 3, false]]);
       expect(r.blocks[1]!.headers).toEqual(["Section", "Pcs", "Kg"]);
-      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: gap });
+      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: gap, continues: false });
       expect(r.blocks[0]!.follows).toBeNull();
       expect(r.warnings).toEqual([]);
       expect(placed(m, r)).toBe(filledRows(m));
       const c = chooseHeaderInSheet(r.blocks, 1);
       expect(c.kind).toBe("ask");
-      if (c.kind === "ask") expect([c.continuesAbove, c.sameColumnsAsAbove]).toEqual([false, false]);
+      if (c.kind === "ask") expect(c.sameColumnsAsAbove).toBe(false);
     });
   }
 
@@ -46,17 +49,18 @@ describe("6.1: a hinted table ends at the first blank row", () => {
     const m = [H, ...data(10), [], [], ["Summary by section"], ...SUB];
     const r = readSheet(m, { hints: [{ headerRow: 0 }] });
     expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length, b.title])).toEqual([[0, 10, null], [14, 3, "Summary by section"]]);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 2 });
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 2, continues: false });
   });
 
-  test("a second month in the same layout below: offered as the same columns, joined by lastDataRow and skipRows", () => {
+  test("a second month in the same layout below: one table by rule 8.1; the join by lastDataRow and skipRows still reads it exactly", () => {
     const m = [H, ...data(10), [], [], ["December"], H, ...data(4, 10)];
     const r = readSheet(m, { hints: [{ headerRow: 0 }] });
-    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length, b.title])).toEqual([[0, 10, null], [14, 4, "December"]]);
-    const c = chooseHeaderInSheet(r.blocks, 1);
-    expect(c.kind).toBe("ask");
-    if (c.kind === "ask") expect([c.continuesAbove, c.sameColumnsAsAbove]).toEqual([false, true]);
-    // The web's join: the upper hint again, with this block's last row and the title and repeated header left out.
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.filter((x) => x.some((c) => c !== "")).length])).toEqual([[0, 14]]);
+    expect(r.blocks[0]!.warnings).toEqual([
+      { code: "skipped_title", row: 13, text: "December" },
+      { code: "skipped_repeat_header", row: 14, text: H.join(" ") },
+    ]);
+    // The round 7 join: the upper hint again, with the last row and the title and repeated header left out.
     const j = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 18, skipRows: [13, 14] }] });
     expect(j.blocks.length).toBe(1);
     const b = j.blocks[0]!;
@@ -68,29 +72,23 @@ describe("6.1: a hinted table ends at the first blank row", () => {
     expect(b.warnings).toEqual([{ code: "skipped_by_hint", row: 13 }, { code: "skipped_by_hint", row: 14 }]);
   });
 
-  test("rows of the same table after a blank row: a block of their own, offered as continuing the table above", () => {
+  test("rows of the same table after a blank row: the same block, across the blank rows", () => {
     const m = [H, ...data(5), [], [], ...data(4, 5)];
     const r = readSheet(m, { hints: [{ headerRow: 0 }] });
-    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 5], [8, 3]]);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 2 });
-    const c = chooseHeaderInSheet(r.blocks, 1);
-    expect(c.kind).toBe("ask");
-    if (c.kind === "ask") expect([c.continuesAbove, c.sameColumnsAsAbove]).toEqual([true, false]);
-    // A hint with a last row reads across blank rows exactly, and the block below goes away.
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length, b.gaps])).toEqual([[0, 11, 2]]);
+    expect(r.blocks[0]!.rows.map((x) => x[1] ?? "")).toEqual(["100", "101", "102", "103", "104", "", "", "105", "106", "107", "108"]);
+    // A hint with a last row reads the same rows exactly.
     const j = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 11 }] });
     expect(j.blocks.length).toBe(1);
     expect(j.blocks[0]!.rows.map((x) => x[1] ?? "")).toEqual(["100", "101", "102", "103", "104", "", "", "105", "106", "107", "108"]);
     expect(j.warnings).toEqual([]);
   });
 
-  test("one row of data after a blank row is a block too, never only a warning", () => {
+  test("one row of data after a blank row goes on in the same block, never only a warning", () => {
     const m = [H, ...data(5), [], ...data(1, 5)];
     const r = readSheet(m, { hints: [{ headerRow: 0 }] });
-    expect(r.blocks.length).toBe(2);
-    expect(r.blocks[1]!.guess.headerRow).toBe(7);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
-    const c = chooseHeaderInSheet(r.blocks, 1);
-    expect(c.kind === "ask" && c.continuesAbove).toBe(true);
+    expect(r.blocks.length).toBe(1);
+    expect(r.blocks[0]!.rows.length).toBe(7);
     expect(placed(m, r)).toBe(filledRows(m));
   });
 
@@ -107,7 +105,7 @@ describe("6.1: a hinted table ends at the first blank row", () => {
     const csv = [H, ...data(3), [], ...SUB].map((r) => r.join(",")).join("\n");
     const r = readCsv(csv, { hints: [{ headerRow: 0 }] });
     expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 3], [5, 3]]);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1, continues: false });
   });
 
   test("a skip row outside the block is a hint error", () => {
@@ -127,35 +125,33 @@ describe("6.1: a hinted table ends at the first blank row", () => {
     const m = [H, ...data(3), [], ...SUB];
     const r = readSheet(m);
     expect(r.blocks.length).toBe(2);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1, continues: false });
   });
 
   // Found by the round 7 property (seeds 148, 16, 253): the guess below a hinted block must not take the next table.
   const LIST = (from: number, n: number) => Array.from({ length: n }, (_, i) => [`Party ${from + i}`, `98250${10000 + from + i}`, i % 2 ? "Rajkot" : "Morbi"]);
-  test("a table that repeats the hinted header below, with no column of numbers, is a block of its own", () => {
-    const head = ["Firm", "Contact", "Place"]; // no built-in layout has these names, so the check asks
+  // Re-pinned by rule 8.1: the phone column holds numbers, so the rows after the blank rows fit, and a repeat of the
+  // header after blank rows is left out and listed. Round 7 pinned separate blocks here.
+  test("a table that repeats the hinted header below is one table, the repeat left out and listed", () => {
+    const head = ["Firm", "Contact", "Place"]; // no built-in layout has these names
     for (const title of [[], [["December"]]]) {
       const m = [head, ...LIST(0, 2), [], ...LIST(2, 3), [], [], [], ...title, head, ...LIST(5, 4)];
       const h2 = m.length - 5;
       const r = readSheet(m, { hints: [{ headerRow: 0 }] });
-      const b2 = r.blocks.find((b) => b.guess.headerRow === h2);
-      expect(b2, JSON.stringify(r.blocks.map((b) => b.guess))).toBeDefined();
-      expect(b2!.rows.length).toBe(4);
-      expect(b2!.follows).not.toBeNull();
-      expect(r.blocks[0]!.rows.length).toBe(2);
+      expect(r.blocks.length).toBe(1);
+      expect(r.blocks[0]!.rows.filter((x) => x.some((c) => c !== "")).length).toBe(9);
+      expect(r.blocks[0]!.warnings.filter((w) => w.code === "skipped_repeat_header").map((w) => w.row)).toEqual([h2]);
+      expect(r.blocks[0]!.warnings.filter((w) => w.code === "skipped_title").length).toBe(title.length);
       expect(placed(m, r)).toBe(filledRows(m));
-      const c = chooseHeaderInSheet(r.blocks, r.blocks.indexOf(b2!));
-      expect(c.kind === "ask" && c.sameColumnsAsAbove).toBe(false); // the block above it is the guessed one, not the hinted header
     }
   });
 
-  test("the guess splits at a row that repeats its own header after blank rows", () => {
-    const head = ["Firm", "Contact", "Place"]; // no built-in layout has these names, so the check asks
+  test("the guess reads past a row that repeats its own header after blank rows", () => {
+    const head = ["Firm", "Contact", "Place"];
     const m = [head, ...LIST(0, 3), [], [], head, ...LIST(3, 3)];
     const r = readSheet(m);
-    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 3], [6, 3]]);
-    const c = chooseHeaderInSheet(r.blocks, 1);
-    expect(c.kind === "ask" && c.sameColumnsAsAbove).toBe(true);
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.filter((x) => x.some((c) => c !== "")).length])).toEqual([[0, 6]]);
+    expect(r.blocks[0]!.warnings).toEqual([{ code: "skipped_repeat_header", row: 6, text: head.join(" ") }]);
   });
 
   test("a units row under the second table's header does not turn the table into warnings", () => {
