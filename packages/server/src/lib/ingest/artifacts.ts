@@ -281,10 +281,14 @@ function doubtsByRow(fromIndex: number, count: number, doubts: readonly RowDoubt
 
 export async function putRows(
   ctx: IngestCtx,
-  input: { blockId: string; fromIndex: number; expectRowsPut: number; rows: string[][]; doubts?: RowDoubtIn[] },
+  input: { blockId: string; headerRow: number; headerRows: number; fromIndex: number; expectRowsPut: number; rows: string[][]; doubts?: RowDoubtIn[] },
 ): Promise<{ rowsPut: number }> {
   const doubts = doubtsByRow(input.fromIndex, input.rows.length, input.doubts ?? []);
   const block = await loadBlock(ctx, input.blockId);
+  // Rule 7.2: rows are taken only as read under the header the server settled.
+  if (input.headerRow !== block.headerRow || input.headerRows !== block.headerRows) {
+    throw new TRPCError({ code: "CONFLICT", message: "These rows were read under another header row. Read the table again." });
+  }
   const artifact = await loadArtifact(ctx, block.artifactId);
   if (artifact.readState !== "reading") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
   if (input.fromIndex !== input.expectRowsPut || block.rowsPut !== input.expectRowsPut) {

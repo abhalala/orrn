@@ -13,7 +13,7 @@ import type { Recipe } from "@orrn/ingest";
 import { createTestEnv, type TestEnv } from "./harness";
 import { counting, newTally, resetTally, seedBulk, type Tally } from "./ingest-count-helpers";
 import { apiFor, contextFor } from "./ingest-merge-fixture";
-import { DIE_HEADERS, dieLayout, layout, learnLayout, trim } from "./ingest-portal-helpers";
+import { DIE_HEADERS, dieLayout, layout, learnLayout, trim, putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { CHUNK_ROWS } from "../src/lib/ingest/merge/shared";
 
 let env: TestEnv;
@@ -56,12 +56,12 @@ async function uploadSheet(companyId: string, ownerId: string, recipe: Recipe, h
   await learnLayout(env, companyId, ownerId, recipe, `L-${randomUUID().slice(0, 6)}`);
   const as = env.caller({ role: "owner", companyId });
   const begin = await as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "big.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
-  const put = await as.ingest.artifact.putBlocks({
+  const put = await putBlocksPicked(as, {
     artifactId: begin.artifactId,
     blocks: [{ ordinal: 0, sheetName: "S", title: null, headerRow: 0, headerRows: 1, headers, rowCount: rows.length, sample: rows.slice(0, 200) }],
   });
   const blockId = put.blocks[0]!.blockId;
-  for (let i = 0; i < rows.length; i += 500) await as.ingest.artifact.putRows({ blockId, fromIndex: i, expectRowsPut: i, rows: rows.slice(i, i + 500) });
+  for (let i = 0; i < rows.length; i += 500) await putRowsAs(as, { blockId, fromIndex: i, expectRowsPut: i, rows: rows.slice(i, i + 500) });
   await as.ingest.artifact.complete({ artifactId: begin.artifactId });
   return put.candidates[0]!.id;
 }

@@ -9,9 +9,12 @@
 import {
   BUILTIN_HOLES,
   chooseHeader,
+  combineHeaders,
   findBuiltin,
+  headerKey,
+  inferKinds,
+  usedWidth,
   unitsFor,
-  fingerprint,
   fitBlock,
   normalizeHeaders,
   nullUnshownUnits,
@@ -182,27 +185,75 @@ function fitDiffJson(fit: FitResult): Record<string, unknown> | null {
 // putBlocks
 // ---------------------------------------------------------------------------
 
+/** Rule 7.2: refusal words of the header check. */
+export const HEADER_NOT_ASKED = "orrn has not asked about this table. Send it without a pick first.";
+export const HEADER_PICK_OUTSIDE = "The row you picked is not in the preview";
+export const PREVIEW_ORDER = "The preview has a row twice or out of order";
+export const HEADER_NOT_IN_PREVIEW = "The column names row is not in the preview. Read the table again.";
+export const REPICK_WRITTEN = "Rows of this sheet are already written. Its columns cannot change now.";
+
+/** Rule 7.2: preview rows in order, each once (by page, then row). */
+function checkPreview(b: BlockInput): void {
+  for (let i = 1; i < b.preview.length; i++) {
+    const a = b.preview[i - 1]!;
+    const c = b.preview[i]!;
+    const pa = a.page ?? 0;
+    const pc = c.page ?? 0;
+    if (pc < pa || (pc === pa && c.row <= a.row)) throw new TRPCError({ code: "BAD_REQUEST", message: PREVIEW_ORDER });
+  }
+}
+
+/** Rule 7.2: the column names the server takes, from the preview row it settled (and the next for two rows). */
+function namesFromPreview(b: Pick<BlockInput, "preview" | "headerRow" | "headerRows">): string[] {
+  const at = b.preview.findIndex((p) => p.row === b.headerRow);
+  if (at === -1) throw new TRPCError({ code: "BAD_REQUEST", message: HEADER_NOT_IN_PREVIEW });
+  const top = b.preview[at]!.cells.map((c) => c.trim().slice(0, INGEST_LIMITS.cellChars));
+  if (b.headerRows !== 2) return top;
+  const next = b.preview[at + 1];
+  if (!next || next.row !== b.headerRow + 1 || next.page !== b.preview[at]!.page) throw new TRPCError({ code: "BAD_REQUEST", message: HEADER_NOT_IN_PREVIEW });
+  return combineHeaders(top, next.cells.map((c) => c.trim().slice(0, INGEST_LIMITS.cellChars)));
+}
+
 /**
- * Who settles a block's header (rule 4.1). A person's pick (`hint`) is trusted. Otherwise the
- * server runs `chooseHeader` over the block's preview with the plant's approved layouts and the
- * built-in ones: the guess fits (`keep`), another row fits (`reread`), or nothing fits (`ask`). The
- * server never trusts a browser's fit. A block with no preview (the old shape, one release) keeps
- * the header the browser read, recorded as `reader`.
+ * Who settles a block's header (rules 4.1 and 7.2). A person's pick (`hint`) is taken only after the
+ * server asked about the table, told it to read again, or reset it for a pick, and only for a row of
+ * the preview. Otherwise the server runs `chooseHeader` over the block's preview with the plant's
+ * approved layouts and the built-in ones: the guess fits (`keep`), another row fits (`reread`), or
+ * nothing fits (`ask`, with the offers of rule 6.1 when the table follows another). The server never
+ * trusts a browser's fit or its names.
  */
-function settleHeader(b: BlockInput, learned: readonly LearnedHole[]): { by: HeaderBy } | Exclude<HeaderAnswer, { answer: "keep" }> {
+function settleHeader(
+  b: BlockInput,
+  learned: readonly LearnedHole[],
+  asked: boolean,
+  above: { headers: string[]; rows: string[][] } | null,
+): { by: HeaderBy } | Exclude<HeaderAnswer, { answer: "keep" }> {
   if (b.hint) {
     if (b.hint.headerRow !== b.headerRow || b.hint.headerRows !== b.headerRows) {
       throw new TRPCError({ code: "BAD_REQUEST", message: "Read this table again with the row you picked, then send it" });
     }
+    if (!asked) throw new TRPCError({ code: "BAD_REQUEST", message: HEADER_NOT_ASKED });
+    if (!b.preview.some((p) => p.row === b.hint!.headerRow)) throw new TRPCError({ code: "BAD_REQUEST", message: HEADER_PICK_OUTSIDE });
     return { by: "person" };
   }
-  if (!b.preview) return { by: "reader" };
   const guess = { headerRow: b.headerRow, headerRows: (b.headerRows === 2 ? 2 : 1) as 1 | 2 };
-  const choice = chooseHeader({ preview: b.preview, guess }, { learned });
+  const choice = chooseHeader(
+    { preview: b.preview, guess, width: b.width, above, headerRow: Math.max(0, b.headerRow - (b.preview[0]?.row ?? b.headerRow)) },
+    { learned },
+  );
   if (choice.kind === "ask") {
     const r = choice.resembles;
     const resembles = r ? { headerRow: r.headerRow, headerRows: r.headerRows, name: r.name, target: r.target, fit: r.fit } : null;
-    return { ordinal: b.ordinal, answer: "ask", guess: choice.guess, candidates: choice.candidates, resembles };
+    return {
+      ordinal: b.ordinal,
+      answer: "ask",
+      guess: choice.guess,
+      candidates: choice.candidates,
+      resembles,
+      follows: b.follows ?? null,
+      continuesAbove: choice.continuesAbove,
+      sameColumnsAsAbove: choice.sameColumnsAsAbove,
+    };
   }
   if (choice.headerRow === guess.headerRow && choice.headerRows === guess.headerRows) return { by: "fit" };
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
@@ -243,21 +294,50 @@ export async function putBlocks(
   const at = now();
   const statements: SqliteBatchItem[] = [];
   const open: HeaderAnswer[] = [];
+  const asked = { ...(artifact.headerAsked ?? {}) };
+  const byOrdinal = new Map(input.blocks.map((b) => [b.ordinal, b]));
+  for (const b of input.blocks) checkPreview(b);
   for (const b of fresh) {
-    for (const m of b.merged ?? []) {
-      if (m.lastRow <= m.firstRow) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged range must run down from its first row" });
-      if (m.col >= b.headers.length || m.lastRow >= b.rowCount) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged range is outside the table" });
+    // Rule 6.1: the table above, for the two offers. Its names come from its own preview.
+    let above: { headers: string[]; rows: string[][] } | null = null;
+    if (b.follows) {
+      const up = byOrdinal.get(b.follows.ordinal);
+      if (!up || up.ordinal === b.ordinal || up.sheetName !== b.sheetName) throw new TRPCError({ code: "BAD_REQUEST", message: "A table follows a table that was not sent" });
+      try {
+        above = { headers: namesFromPreview(up), rows: up.sample };
+      } catch {
+        above = null;
+      }
     }
-    const settled = settleHeader(b, learned);
+    const settled = settleHeader(b, learned, !!asked[String(b.ordinal)], above);
     if (!("by" in settled)) {
       open.push(settled);
+      if (settled.answer === "ask" || settled.answer === "reread") asked[String(b.ordinal)] = { answer: settled.answer, at: at.getTime() };
       continue;
     }
     const sample = capSample(b.sample.slice(0, INGEST_LIMITS.sampleRowsPerBlock).map((r) => r.map((c) => c.slice(0, INGEST_LIMITS.cellChars))));
-    const headersIn = b.headers.map((h) => h.slice(0, INGEST_LIMITS.cellChars));
-    // The server never trusts a browser fit: fingerprint and fit are recomputed here.
-    const fp = fingerprint({ headers: headersIn, rows: sample, headerRow: b.headerRow, headerRows: b.headerRows });
+    // Rule 7.2: the names are the preview's, never the browser's. The fingerprint and the fit are
+    // worked out here, padded to the region's width (a column filled only below the sample counts).
+    const names = namesFromPreview(b);
+    const width = Math.max(usedWidth(names, sample), Math.min(b.width ?? 0, INGEST_LIMITS.columnsPerBlock));
+    const padded = [...names, ...Array<string>(Math.max(0, width - names.length)).fill("")].slice(0, width);
+    const normalized = normalizeHeaders(padded, width);
+    const fp = { headers: padded, normalized, columnCount: width, kinds: inferKinds(sample, width), headerKey: headerKey(normalized), headerRow: b.headerRow, headerRows: b.headerRows };
     if (fp.columnCount === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "A sheet has no columns" });
+    for (const m of b.merged ?? []) {
+      if (m.lastRow <= m.firstRow) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged range must run down from its first row" });
+      if (m.col >= fp.columnCount || m.lastRow >= b.rowCount) throw new TRPCError({ code: "BAD_REQUEST", message: "A merged range is outside the table" });
+    }
+    let headerPick: BlockRow["headerPick"] = null;
+    if (settled.by === "person") {
+      const h = b.hint!;
+      const top = h.headerRow + h.headerRows - 1;
+      for (const r of h.skipRows ?? []) {
+        if (r <= top || (h.lastDataRow != null && r > h.lastDataRow)) throw new TRPCError({ code: "BAD_REQUEST", message: "A skipped row must be inside the table" });
+      }
+      if (h.lastDataRow != null && h.lastDataRow <= top) throw new TRPCError({ code: "BAD_REQUEST", message: "The last row must be below the column names" });
+      headerPick = { by: ctx.session.user.id, at: at.getTime(), headerRow: h.headerRow, headerRows: h.headerRows, lastDataRow: h.lastDataRow ?? null, skipRows: h.skipRows ?? [] };
+    }
     const fit = fitBlock(fp, learned);
     const blockId = createId();
     statements.push(
@@ -271,6 +351,7 @@ export async function putBlocks(
         headerRow: b.headerRow,
         headerRows: b.headerRows,
         headerBy: settled.by,
+        headerPick,
         merged: b.merged?.length ? b.merged : null,
         headers: fp.headers,
         kinds: fp.kinds,
@@ -304,10 +385,11 @@ export async function putBlocks(
     );
   }
   // The file's block count is every block it has, settled or not: complete waits for all of them.
+  // The tables asked about are kept, so a person's pick for them is taken (rule 7.2).
   statements.push(
     ctx.db
       .update(ingestArtifact)
-      .set({ blockCount: input.blocks.length, rowCount: totalRows, updatedAt: at })
+      .set({ blockCount: input.blocks.length, rowCount: totalRows, headerAsked: asked, updatedAt: at })
       .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId))),
   );
   try {
@@ -1397,6 +1479,57 @@ export async function discardCandidate(ctx: IngestCtx, input: { candidateId: str
   const again = await othersAgainAfter(ctx, c, "discarded", now());
   if (again.length) await ctx.db.batch(again as never);
   return candidateDetail(ctx, c.id);
+}
+
+/**
+ * Rule 7.2, "Wrong columns? Pick the row": a sheet with no row written goes back to its header pick.
+ * Its staged rows, answers, candidates (the derived list too) and the block go; the file is reading
+ * again and takes a person's pick for that table. Sheets that waited on it check again.
+ */
+export async function repickHeader(ctx: IngestCtx, input: { candidateId: string; expectSeq: number }): Promise<{ artifactId: string; ordinal: number }> {
+  const c = await loadCandidateAt(ctx, input.candidateId, input.expectSeq);
+  if (c.parentId) throw new TRPCError({ code: "BAD_REQUEST", message: "Pick the row on the sheet this list came from" });
+  const kin = await ctx.db
+    .select({ id: ingestCandidate.id, state: ingestCandidate.state, rowsWritten: ingestCandidate.rowsWritten, recipeLocked: ingestCandidate.recipeLocked, target: ingestCandidate.target })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), or(eq(ingestCandidate.blockId, c.blockId), eq(ingestCandidate.parentId, c.id))));
+  const written = (k: { state: CandidateState; rowsWritten: number; recipeLocked: boolean }) =>
+    k.rowsWritten > 0 || k.recipeLocked || k.state === "approved" || k.state === "merging" || k.state === "merged";
+  if (kin.some(written)) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+  const block = await loadBlock(ctx, c.blockId);
+  const artifact = await loadArtifact(ctx, c.artifactId);
+  const at = now();
+  const ids = kin.map((k) => k.id);
+  // Pending references other sheets hold to these rows are checked again, while the rows still exist.
+  const again: SqliteBatchItem[] = [];
+  for (const k of kin) if (k.target) again.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
+  const asked = { ...(artifact.headerAsked ?? {}), [String(block.ordinal)]: { answer: "pick" as const, at: at.getTime() } };
+  await guardedBatch(ctx.db, [
+    ...candidateChange(ctx, c.id, input.expectSeq, {}),
+    // No row of the sheet was written in between.
+    ctx.db
+      .update(ingestCandidate)
+      .set({ updatedAt: at })
+      .where(and(eq(ingestCandidate.id, c.id), sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${ids} and r.merge_state = 'written')`)),
+    ingestAbortUnlessChanged(ctx.db),
+    ...again,
+    ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, ids))),
+    ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), inArray(ingestAnswer.candidateId, ids))),
+    ctx.db.delete(ingestBotRun).where(and(eq(ingestBotRun.companyId, ctx.companyId), inArray(ingestBotRun.candidateId, ids))),
+    ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, ids))),
+    ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.id, block.id), eq(ingestBlock.companyId, ctx.companyId))),
+    ctx.db
+      .update(ingestArtifact)
+      .set({ readState: "reading", headerAsked: asked, updatedAt: at })
+      .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId))),
+    auditInsert(ctx, {
+      action: "ingest.block.repick",
+      subjectType: "ingest_artifact",
+      subjectId: artifact.id,
+      meta: { ordinal: block.ordinal, sheetName: block.sheetName, headerRow: block.headerRow, headerRows: block.headerRows, headerBy: block.headerBy, candidateIds: ids },
+    }),
+  ]);
+  return { artifactId: artifact.id, ordinal: block.ordinal };
 }
 
 // ---------------------------------------------------------------------------

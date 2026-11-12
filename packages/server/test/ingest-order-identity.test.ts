@@ -9,6 +9,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
+import { putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 import { fingerprint, type Recipe } from "@orrn/ingest";
@@ -36,7 +37,7 @@ async function plant() {
 
 async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx") {
   const begin = await as.ingest.artifact.begin({ sha256: sha(), fileName, sizeBytes: 1000, contentType: null, kind: "sheet" });
-  const put = await as.ingest.artifact.putBlocks({
+  const put = await putBlocksPicked(as, {
     artifactId: begin.artifactId,
     blocks: sheets.map((s, ordinal) => ({
       ordinal,
@@ -51,7 +52,7 @@ async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx") {
   });
   for (const [i, s] of sheets.entries()) {
     const block = put.blocks.find((b) => b.ordinal === i)!;
-    if (s.rows.length > 0) await as.ingest.artifact.putRows({ blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
+    if (s.rows.length > 0) await putRowsAs(as, { blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
   }
   await as.ingest.artifact.complete({ artifactId: begin.artifactId });
   return { artifactId: begin.artifactId, candidates: put.candidates.sort((a, b) => a.blockOrdinal - b.blockOrdinal) };
@@ -355,7 +356,8 @@ describe("financial years", () => {
         rows: [
           ["Acme Traders", "7", "", "15/03/2025", "R", "5100", "3658", "300"],
           ["Acme Traders", "7", "", "10/05/2025", "R", "5100", "3658", "300"],
-          ["Acme Traders", "7", "", "20/05/2025", "R", "5101", "3658", "300"],
+          // One order of 2025-26 has one date: two dates in one order's run are a conflict (rule 7.1).
+          ["Acme Traders", "7", "", "10/05/2025", "R", "5101", "3658", "300"],
         ],
       },
     ]);

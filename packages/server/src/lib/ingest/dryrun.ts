@@ -1312,14 +1312,16 @@ async function orderRunFill(
 
 /**
  * Rule 7.1: which old order a row belongs to, for holding an order whole. Like the order key, but
- * without the year and with the party's live id or its name key, so a row refused before it was
- * matched (a bad cut length, a blank date) still finds the other lines of its order.
+ * with the party's live id or its name key, so a row refused before it was matched (a bad cut
+ * length, a blank date) still finds the other lines of its order. An order number carries its
+ * financial year (rule 4.2), blank when the row has no date: such a row holds every year's order of
+ * its number (`wholeOrders`).
  */
 export function holdKeyOf(values: Values, customerId: string | null): string | null {
   const cust = customerId && !customerId.startsWith("pending:") ? customerId : nameKey(str(values.customer)) ? `name:${nameKey(str(values.customer))}` : null;
   if (!cust) return null;
   const no = normOrderNo(values.oldOrderNo);
-  if (no) return ["no", cust, no].join(SEP);
+  if (no) return ["no", cust, no, orderFyOf(values.orderDate)].join(SEP);
   const po = normPo(values.poNumber);
   return po ? ["po", cust, po].join(SEP) : null;
 }
@@ -2188,8 +2190,19 @@ function wholeOrders(
       want.set(r.id, { ...(w ?? { reasons: b.reasons }), state: "conflict", reasons: [...(w?.reasons ?? b.reasons), `${ORDER_RUN_DIFFERS}${field}`] });
     }
   }
+  // A numbered line with no year belongs to no one year: it holds the order of its number in each.
+  const years = new Map<string, Set<string>>();
+  for (const r of all) {
+    const parts = r.holdKey?.split(SEP);
+    if (parts?.[0] === "no" && parts[3]) {
+      const base = parts.slice(0, 3).join(SEP);
+      years.set(base, (years.get(base) ?? new Set()).add(r.holdKey!));
+    }
+  }
   for (const r of all) {
     if (r.holdKey) join(`id:${r.id}`, `hold:${r.holdKey}`);
+    const parts = r.holdKey?.split(SEP);
+    if (parts?.[0] === "no" && !parts[3]) for (const h of years.get(parts.slice(0, 3).join(SEP)) ?? []) join(`id:${r.id}`, `hold:${h}`);
     const k = keyOf.get(r.id);
     if (k) join(`id:${r.id}`, `key:${k}`);
   }

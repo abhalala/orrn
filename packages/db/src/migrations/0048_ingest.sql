@@ -278,4 +278,6 @@ ALTER TABLE `ingest_staged_row` ADD `doubts` text;--> statement-breakpoint
 ALTER TABLE `ingest_staged_row` ADD `doubt_by` text;--> statement-breakpoint
 ALTER TABLE `ingest_block` ADD `merged` text;--> statement-breakpoint
 ALTER TABLE `ingest_candidate` ADD `rows_filled` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE `ingest_candidate` ADD `rows_skipped_by_person` integer DEFAULT 0 NOT NULL;
+ALTER TABLE `ingest_candidate` ADD `rows_skipped_by_person` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `ingest_artifact` ADD `header_asked` text;--> statement-breakpoint
+ALTER TABLE `ingest_block` ADD `header_pick` text;

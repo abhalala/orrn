@@ -8,7 +8,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { layout, learnLayout, mergeOnce, plant, pump, rowsOf, trim, type Caller } from "./ingest-portal-helpers";
+import { layout, learnLayout, mergeOnce, plant, pump, rowsOf, trim, type Caller, putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -31,11 +31,11 @@ type Doubt = { row: number; code: "crosses_column" | "cells_joined" | "cells_clo
 
 async function send(as: Caller, rows: string[][], doubts: Doubt[], headers = HEADERS) {
   const begin = await as.ingest.artifact.begin({ sha256: createHash("sha256").update(randomUUID()).digest("hex"), fileName: "parties.csv", sizeBytes: 1000, contentType: null, kind: "csv" });
-  const put = await as.ingest.artifact.putBlocks({
+  const put = await putBlocksPicked(as, {
     artifactId: begin.artifactId,
     blocks: [{ ordinal: 0, sheetName: null, title: null, headerRow: 0, headerRows: 1, headers, rowCount: rows.length, sample: rows }],
   });
-  await as.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows, doubts });
+  await putRowsAs(as, { blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows, doubts });
   await as.ingest.artifact.complete({ artifactId: begin.artifactId });
   const candidateId = put.candidates[0]!.id;
   await pump(as, candidateId);

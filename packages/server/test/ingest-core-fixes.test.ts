@@ -7,6 +7,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 
 import { workersEnv } from "./env-mock";
+import { putBlocksPicked, putRowsAs } from "./ingest-portal-helpers";
 import { createTestEnv, type CompanyRole, type TestEnv } from "./harness";
 
 import {
@@ -72,10 +73,10 @@ const blockOf = (s: Sheet, ordinal: number) => ({
 
 async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx", digest = sha()) {
   const begin = await as.ingest.artifact.begin({ sha256: digest, fileName, sizeBytes: 1000, contentType: null, kind: "sheet" });
-  const put = await as.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: sheets.map(blockOf) });
+  const put = await putBlocksPicked(as, { artifactId: begin.artifactId, blocks: sheets.map(blockOf) });
   for (const [i, s] of sheets.entries()) {
     const block = put.blocks.find((b) => b.ordinal === i)!;
-    if (s.rows.length > 0) await as.ingest.artifact.putRows({ blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
+    if (s.rows.length > 0) await putRowsAs(as, { blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
   }
   await as.ingest.artifact.complete({ artifactId: begin.artifactId });
   const candidates = put.candidates.sort((a, b) => a.blockOrdinal - b.blockOrdinal);
@@ -208,14 +209,14 @@ describe("A3: ignoring a sheet while its rows upload does not block the file", (
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "two.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
     const other: Sheet = { headers: ["Foo", "Bar"], rows: [["1", "2"], ["3", "4"], ["5", "6"]] };
-    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(other, 1)] });
+    const put = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0), blockOf(other, 1)] });
     const custBlock = put.blocks.find((b) => b.ordinal === 0)!.blockId;
     const otherBlock = put.blocks.find((b) => b.ordinal === 1)!.blockId;
     const otherCand = put.candidates.find((c) => c.blockOrdinal === 1)!;
-    await p.admin.ingest.artifact.putRows({ blockId: custBlock, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
-    await p.admin.ingest.artifact.putRows({ blockId: otherBlock, fromIndex: 0, expectRowsPut: 0, rows: other.rows.slice(0, 1) });
+    await putRowsAs(p.admin, { blockId: custBlock, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
+    await putRowsAs(p.admin, { blockId: otherBlock, fromIndex: 0, expectRowsPut: 0, rows: other.rows.slice(0, 1) });
     await p.admin.ingest.candidate.setTarget({ candidateId: otherCand.id, target: "ignore", expectSeq: otherCand.serverSeq });
-    const rest = await p.admin.ingest.artifact.putRows({ blockId: otherBlock, fromIndex: 1, expectRowsPut: 1, rows: other.rows.slice(1) });
+    const rest = await putRowsAs(p.admin, { blockId: otherBlock, fromIndex: 1, expectRowsPut: 1, rows: other.rows.slice(1) });
     expect(rest.rowsPut).toBe(3);
     await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
     expect((await p.admin.ingest.artifact.get({ artifactId: begin.artifactId })).readState).toBe("read");
@@ -229,7 +230,7 @@ describe("A4, A10: a file whose read failed can be read again", () => {
     const p = await plant();
     const digest = sha();
     const begin = await p.admin.ingest.artifact.begin({ sha256: digest, fileName: "big.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
-    const first = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    const first = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
     const { ingestBotRun } = await import("@orrn/db/schema/ingest");
     await env.db.insert(ingestBotRun).values({
       id: `run_${randomUUID()}`,
@@ -249,8 +250,8 @@ describe("A4, A10: a file whose read failed can be read again", () => {
     const detail = await p.admin.ingest.artifact.get({ artifactId: begin.artifactId });
     expect(detail).toMatchObject({ readState: "reading", readError: null, blocks: [] });
 
-    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
-    await p.admin.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
+    const put = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    await putRowsAs(p.admin, { blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
     await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
     expect((await pump(p.admin, put.candidates[0]!.id)).state).toBe("ready");
     expect((await p.admin.ingest.status()).botToday.costMicroUsd).toBe(1234);
@@ -1074,8 +1075,8 @@ describe("lead: the upload route records that a canonical rows file landed", () 
     workersEnv.INGEST_VAULT = bucket;
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "c.csv", sizeBytes: 10, contentType: "text/csv", kind: "csv" });
-    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
-    await p.admin.ingest.artifact.putRows({ blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
+    const put = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    await putRowsAs(p.admin, { blockId: put.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: CUSTOMERS.rows });
     const done = await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId });
     expect(done.canonicalUploads).toHaveLength(1);
     expect((await p.admin.ingest.artifact.get({ artifactId: begin.artifactId })).blocks[0]!.canonicalStored).toBe(false);
@@ -1134,7 +1135,7 @@ describe("minor fixes", () => {
     await expect(p.admin.ingest.candidate.setTarget({ candidateId: id, target: "vendors", expectSeq: c.serverSeq })).rejects.toThrow(/Hold this import first/);
 
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "bad.xlsx", sizeBytes: 10, contentType: null, kind: "sheet" });
-    const put = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
+    const put = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf(CUSTOMERS, 0)] });
     await p.admin.ingest.artifact.complete({ artifactId: begin.artifactId, readError: "Broken" });
     const failed = await p.admin.ingest.candidate.get({ candidateId: put.candidates[0]!.id });
     await expect(p.admin.ingest.candidate.setTarget({ candidateId: failed.id, target: "customers", expectSeq: failed.serverSeq })).rejects.toThrow(/could not be read/);
@@ -1164,8 +1165,8 @@ describe("minor fixes", () => {
     const p = await plant();
     const begin = await p.admin.ingest.artifact.begin({ sha256: sha(), fileName: "w.csv", sizeBytes: 10, contentType: null, kind: "csv" });
     const wide = Array.from({ length: 20 }, () => "y".repeat(500));
-    const { blocks } = await p.admin.ingest.artifact.putBlocks({ artifactId: begin.artifactId, blocks: [blockOf({ headers: wide.map((_, i) => `c${i}`), rows: [] }, 0)] });
-    await expect(p.admin.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [wide] })).rejects.toThrow(/too long/);
+    const { blocks } = await putBlocksPicked(p.admin, { artifactId: begin.artifactId, blocks: [blockOf({ headers: wide.map((_, i) => `c${i}`), rows: [] }, 0)] });
+    await expect(putRowsAs(p.admin, { blockId: blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [wide] })).rejects.toThrow(/too long/);
   });
 
   test("A38: the stored sample is cut to 512 KB", async () => {
@@ -1245,7 +1246,7 @@ describe("test gaps", () => {
       ["artifact.get", () => b.owner.ingest.artifact.get({ artifactId })],
       ["artifact.commitRaw", () => b.owner.ingest.artifact.commitRaw({ artifactId })],
       ["artifact.complete", () => b.owner.ingest.artifact.complete({ artifactId })],
-      ["artifact.putRows", () => b.owner.ingest.artifact.putRows({ blockId: blocks[0]!.blockId, fromIndex: 2, expectRowsPut: 2, rows: [["x", "", "y"]] })],
+      ["artifact.putRows", () => putRowsAs(b.owner, { blockId: blocks[0]!.blockId, fromIndex: 2, expectRowsPut: 2, rows: [["x", "", "y"]] })],
       ["period.confirm", () => b.owner.ingest.period.confirm({ artifactId, fy: null, asOf: null })],
       ["candidate.get", () => b.owner.ingest.candidate.get({ candidateId: c.id })],
       ["candidate.setTarget", () => b.owner.ingest.candidate.setTarget({ candidateId: c.id, target: "vendors", expectSeq: seq })],

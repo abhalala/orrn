@@ -49,7 +49,8 @@ export const blockInput = z.object({
   title: z.string().max(500).nullable(),
   headerRow: z.number().int().min(0).max(RAW_ROW_MAX),
   headerRows: z.number().int().min(1).max(2),
-  headers: z.array(cell).min(1).max(L.columnsPerBlock),
+  /** Rule 7.2: not trusted. The server works out the names from the preview row it settles. */
+  headers: z.array(cell).max(L.columnsPerBlock).optional(),
   rowCount: z.number().int().min(0).max(L.stagedRowsPerBlock),
   /** The browser's own reading; the server recomputes both and never trusts these. */
   kinds: z.array(z.string().max(20)).max(L.columnsPerBlock).optional(),
@@ -65,8 +66,12 @@ export const blockInput = z.object({
         cells: z.array(z.string().max(200)).max(200),
       }),
     )
-    .max(PREVIEW_ROWS + PREVIEW_HEAD_ROWS)
-    .optional(),
+    .min(1)
+    .max(PREVIEW_ROWS + PREVIEW_HEAD_ROWS),
+  /** The region's width (`ReadBlock.width`): a column filled only below the preview still counts. */
+  width: z.number().int().min(0).max(L.columnsPerBlock).optional(),
+  /** Rule 6.1: only blank rows lie between this table and the table `ordinal` above it, on the same sheet. */
+  follows: z.object({ ordinal: z.number().int().min(0).max(L.blocksPerFile - 1), gapRows: z.number().int().min(0).max(RAW_ROW_MAX) }).nullable().optional(),
   /**
    * Lead answer (b): vertical merged cell ranges the reader saw, by block row index (0 is the first
    * row after the header) and column. Without them a blank cell stays blank.
@@ -76,7 +81,16 @@ export const blockInput = z.object({
     .max(10_000)
     .optional(),
   /** The header row a person picked on the preview; trusted. */
-  hint: z.object({ headerRow: z.number().int().min(0).max(RAW_ROW_MAX), headerRows: z.union([z.literal(1), z.literal(2)]) }).optional(),
+  hint: z
+    .object({
+      headerRow: z.number().int().min(0).max(RAW_ROW_MAX),
+      headerRows: z.union([z.literal(1), z.literal(2)]),
+      /** Rule 6.1: the last data row, as the reader was told (joins a table that continues after a gap). */
+      lastDataRow: z.number().int().min(0).max(RAW_ROW_MAX).nullable().optional(),
+      /** Rule 6.1: data rows left out, such as a repeated header or a title inside a joined range. */
+      skipRows: z.array(z.number().int().min(0).max(RAW_ROW_MAX)).max(1000).optional(),
+    })
+    .optional(),
 });
 
 export const putBlocksInput = z.object({
@@ -86,6 +100,9 @@ export const putBlocksInput = z.object({
 
 export const putRowsInput = z.object({
   blockId: id,
+  /** Rule 7.2: the header the rows were read under; it must be the one the server settled. */
+  headerRow: z.number().int().min(0).max(RAW_ROW_MAX),
+  headerRows: z.union([z.literal(1), z.literal(2)]),
   fromIndex: z.number().int().min(0).max(L.stagedRowsPerBlock),
   expectRowsPut: z.number().int().min(0).max(L.stagedRowsPerBlock),
   rows: z.array(row).min(1).max(L.rowsPerPut),

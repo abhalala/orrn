@@ -80,6 +80,7 @@ import {
   mergeRunView,
   provenanceFor,
   putBlocks,
+  repickHeader,
   releaseCandidate,
   retireHole,
   saveShape,
@@ -134,6 +135,8 @@ export const ingestRouter = router({
     /** Held back to checking rows (A15): processing from the first open row, then ready. */
     release: R.input(candidateSeqInput).mutation(({ ctx, input }): Promise<CandidateDetail> => releaseCandidate(ix(ctx), input)),
     discard: U.input(candidateSeqInput).mutation(({ ctx, input }): Promise<CandidateDetail> => discardCandidate(ix(ctx), input)),
+    /** Rule 7.2, "Wrong columns? Pick the row": back to the header pick, for a sheet with no row written. */
+    repickHeader: U.input(candidateSeqInput).mutation(({ ctx, input }): Promise<{ artifactId: string; ordinal: number }> => repickHeader(ix(ctx), input)),
   }),
 
   shape: router({

@@ -27,9 +27,49 @@ export async function plant(env: TestEnv, settings?: Record<string, unknown>): P
   return { companyId, users, as, owner: as("owner"), admin: as("admin") };
 }
 
+type BlockIn = Parameters<Caller["ingest"]["artifact"]["putBlocks"]>[0]["blocks"][number];
+type LooseBlock = Omit<BlockIn, "preview"> & { preview?: BlockIn["preview"]; headers?: string[] };
+/** The header each block was settled with, so `putRowsAs` sends the rows as read under it. */
+const settledHeader = new Map<string, { headerRow: number; headerRows: 1 | 2 }>();
+
+/** A preview as a reader gives it: the names on the header row, then the first sample rows (rule 7.2). */
+export function previewOf(b: { headerRow: number; headerRows: number; headers?: string[]; sample: string[][] }): BlockIn["preview"] {
+  const cut = (r: readonly string[]) => r.slice(0, 200).map((c) => c.slice(0, 200));
+  const head = [{ row: b.headerRow, cells: cut(b.headers ?? []) }];
+  if (b.headerRows === 2) head.push({ row: b.headerRow + 1, cells: [] });
+  const from = b.headerRow + b.headerRows;
+  return [...head, ...b.sample.slice(0, 15 - head.length).map((r, i) => ({ row: from + i, cells: cut(r) }))];
+}
+
+/**
+ * putBlocks as the web sends it (rule 7.2): every table with its preview; a table the server asks
+ * about, or tells to read again, is sent again with the person's pick of the guessed row.
+ */
+export async function putBlocksPicked(as: Caller, input: { artifactId: string; blocks: LooseBlock[] }) {
+  const blocks = input.blocks.map((b) => ({ ...b, preview: b.preview ?? previewOf(b) })) as BlockIn[];
+  let out = await as.ingest.artifact.putBlocks({ artifactId: input.artifactId, blocks });
+  const open = out.header.filter((h) => h.answer !== "keep").map((h) => h.ordinal);
+  if (open.length) {
+    const picked = blocks.map((b) => (open.includes(b.ordinal) ? { ...b, hint: { headerRow: b.headerRow, headerRows: (b.headerRows === 2 ? 2 : 1) as 1 | 2 } } : b));
+    out = await as.ingest.artifact.putBlocks({ artifactId: input.artifactId, blocks: picked });
+  }
+  for (const b of out.blocks) {
+    const sent = blocks.find((x) => x.ordinal === b.ordinal)!;
+    settledHeader.set(b.blockId, { headerRow: sent.headerRow, headerRows: sent.headerRows === 2 ? 2 : 1 });
+  }
+  return out;
+}
+
+type RowsIn = Parameters<Caller["ingest"]["artifact"]["putRows"]>[0];
+/** putRows with the header the block was settled with (rule 7.2). */
+export async function putRowsAs(as: Caller, input: Omit<RowsIn, "headerRow" | "headerRows"> & Partial<Pick<RowsIn, "headerRow" | "headerRows">>) {
+  const h = settledHeader.get(input.blockId) ?? { headerRow: 0, headerRows: 1 as const };
+  return as.ingest.artifact.putRows({ headerRow: h.headerRow, headerRows: h.headerRows, ...input });
+}
+
 export async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx") {
   const begin = await as.ingest.artifact.begin({ sha256: sha(), fileName, sizeBytes: 1000, contentType: null, kind: "sheet" });
-  const put = await as.ingest.artifact.putBlocks({
+  const put = await putBlocksPicked(as, {
     artifactId: begin.artifactId,
     blocks: sheets.map((s, ordinal) => ({
       ordinal,
@@ -45,7 +85,7 @@ export async function upload(as: Caller, sheets: Sheet[], fileName = "book.xlsx"
   });
   for (const [i, s] of sheets.entries()) {
     const block = put.blocks.find((b) => b.ordinal === i)!;
-    if (s.rows.length > 0) await as.ingest.artifact.putRows({ blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
+    if (s.rows.length > 0) await putRowsAs(as, { blockId: block.blockId, fromIndex: 0, expectRowsPut: 0, rows: s.rows });
   }
   await as.ingest.artifact.complete({ artifactId: begin.artifactId });
   return { artifactId: begin.artifactId, candidates: put.candidates.sort((a, b) => a.blockOrdinal - b.blockOrdinal) };
