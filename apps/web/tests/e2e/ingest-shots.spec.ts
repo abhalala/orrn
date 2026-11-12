@@ -567,7 +567,9 @@ test("shots", async ({ page, request }) => {
       await step(page).getByText(/^(This looks like|यह .+ जैसा लगता है)/).waitFor({ timeout: 60_000 });
       await step(page).getByRole("button", { name: /^(Use row \d+|लाइन \d+ लें)$/ }).click();
       await readDone(page, name);
-      await page.goto(await reviewHref(page, name));
+      const href = await reviewHref(page, name);
+      await setMode(page, m);
+      await page.goto(href);
       await expect(bar(page)).toHaveAttribute("data-state", "needs_confirm", { timeout: 60_000 });
       await snap(page, "review-near-fit", m);
     }
@@ -599,7 +601,10 @@ test("shots", async ({ page, request }) => {
       const name = `bot-${tag}-${modeName(m)}-${STAMP}.csv`;
       await upload(page, name, Buffer.from([h(`${tag}${STAMP}${modeName(m)}`).join(","), `${series},${STAMP}B,1.2,1.5`].join("\n")));
       await readDone(page, name);
-      await page.goto(await reviewHref(page, name));
+      // `reviewHref` looks in the 1280 English page: the mode of the shot is set again before the review page opens.
+      const href = await reviewHref(page, name);
+      await setMode(page, m);
+      await page.goto(href);
       await expect(bar(page)).toBeVisible({ timeout: 30_000 });
     };
     await fakeBot(page, { action: "install", responses: [gave, gave, gave, gave] });
@@ -662,7 +667,8 @@ test("shots", async ({ page, request }) => {
         const data = dataOf(item) as { candidates?: Record<string, unknown>[] } | undefined;
         if (data && Array.isArray(data.candidates) && data.candidates.length > 1) {
           Object.assign(data, { state, chunksTotal: 4, chunksWritten: 2, chunksFailed: 0, finishedAt: null });
-          data.candidates.forEach((c, i) => Object.assign(c, i === 0 ? { state: "merged" } : { state: "merging", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 }));
+          // A stop puts the imports not started back to Approved (runner.ts), while a running merge shows them as Merging.
+          data.candidates.forEach((c, i) => Object.assign(c, i === 0 ? { state: "merged" } : { state: state === "stopped" ? "approved" : "merging", rowsWritten: 0, rowsCreate: 0, rowsUpdate: 0 }));
         }
       }
       await route.fulfill({ response: res, json: body }).catch(() => undefined);
