@@ -11,6 +11,7 @@
  * - S6-4: reader facts text is masked for a viewer without order.price, as the sample is.
  * - 10.2 second line (S6-5): re-put and repick refuse once any sheet of the file is approved or merging.
  * - S6-6: a re-put of a 50-block file binds at most 100 values a statement.
+ * - S6-7: a block saved by a pick and sent again without it keeps the pick and counts as unchanged.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -372,4 +373,37 @@ describe("S6-6: the re-put statements are chunked", () => {
     const after = await env.d1.prepare("select count(*) as n from ingest_candidate where artifact_id = ?").bind(artifactId).first<{ n: number }>();
     expect(Number(after!.n)).toBe(50);
   }, 120_000);
+});
+
+describe("S6-7: a picked block sent again without its pick", () => {
+  test("keeps its saved pick, its rows and its id, even when the reader counts its rows without the pick", async () => {
+    const p = await setup();
+    const { artifactId } = await p.owner.ingest.artifact.begin({ sha256: crypto.randomUUID().replaceAll("-", "").padEnd(64, "0"), fileName: "picked.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const r1 = R("41", "PO-41", "31/10/2025", "5100");
+    const r2 = R("42", "PO-42", "31/10/2025", "5101");
+    const foot = ["Total", "", "", "", "", "", "", "200"];
+    const plain = {
+      ordinal: 0,
+      sheetName: "S",
+      title: null,
+      headerRow: 0,
+      headerRows: 1,
+      rowCount: 3,
+      sample: [r1, r2, foot],
+      preview: [{ row: 0, cells: BOOK }, { row: 1, cells: r1 }, { row: 2, cells: r2 }, { row: 3, cells: foot }],
+    };
+    const first = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [plain] });
+    // The person ends the table above the total row.
+    const picked = { ...plain, rowCount: 2, sample: [r1, r2], hint: { headerRow: 0, headerRows: 1 as const, lastDataRow: 2, skipRows: [] } };
+    const saved = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [picked] });
+    expect(saved.blocks[0]!.blockId).not.toBe(first.blocks[0]!.blockId);
+    await putRowsAs(p.owner, { blockId: saved.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: [r1, r2] });
+    // A reload sends the block as the reader reads it, with no pick: 3 rows.
+    const again = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [plain] });
+    expect(again.blocks[0]!.blockId).toBe(saved.blocks[0]!.blockId);
+    expect(again.header[0]).toMatchObject({ answer: "keep", by: "person" });
+    const row = await env.d1.prepare("select row_count as n, rows_put as put, header_pick as pick from ingest_block where artifact_id = ?").bind(artifactId).first<{ n: number; put: number; pick: string }>();
+    expect([row!.n, row!.put]).toEqual([2, 2]);
+    expect(JSON.parse(row!.pick)).toMatchObject({ lastDataRow: 2 });
+  });
 });

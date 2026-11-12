@@ -296,10 +296,14 @@ function cleanGuess(b: BlockInput, choice: { resembles: unknown; sameColumnsAsAb
 
 /**
  * Round 7 item 4: whether a block sent again is the block saved. The same sheet, header rows and
- * row count, the same names from the preview, and, when a pick is sent, the same pick.
+ * row count, the same names from the preview, and, when a pick is sent, the same pick. S6-7: a block
+ * saved by a person's pick and sent again with no pick is compared under its saved pick: the reader
+ * counts its rows without the pick, so the row count is not compared, and the pick stays.
  */
 function sameBlock(e: BlockRow, b: BlockInput): boolean {
-  if (e.sheetName !== b.sheetName || e.headerRow !== b.headerRow || e.headerRows !== b.headerRows || e.rowCount !== b.rowCount) return false;
+  const underSavedPick = !b.hint && !!e.headerPick;
+  if (e.sheetName !== b.sheetName || e.headerRow !== b.headerRow || e.headerRows !== b.headerRows) return false;
+  if (!underSavedPick && e.rowCount !== b.rowCount) return false;
   let names: string[];
   try {
     names = namesFromPreview(b);
@@ -384,7 +388,12 @@ export async function putBlocks(
   } else if (artifact.readState !== "reading") {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
   }
-  const totalRows = input.blocks.reduce((n, b) => n + b.rowCount, 0);
+  // A saved block that stays keeps its own row count (S6-7: under its saved pick).
+  const keptCount = (b: BlockInput) => {
+    const e = existing.find((x) => x.ordinal === b.ordinal);
+    return e && !changed.includes(e) ? e.rowCount : b.rowCount;
+  };
+  const totalRows = input.blocks.reduce((n, b) => n + keptCount(b), 0);
   if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
   }
