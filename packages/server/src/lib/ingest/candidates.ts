@@ -46,7 +46,7 @@ import {
   type RowState,
 } from "@orrn/db/schema/ingest";
 
-import { mapInChunks, type SqliteBatchItem } from "../atomic";
+import { chunk, IN_LIST_CHUNK, mapInChunks, type SqliteBatchItem } from "../atomic";
 import { auditInsert } from "../audit";
 import { now } from "../clock";
 import { createId } from "../id";
@@ -403,36 +403,47 @@ export async function putBlocks(
     const goneBlocks = [...changed, ...dropped].map((e) => e.id);
     const roots = all.filter((k) => goneBlocks.includes(k.blockId)).map((k) => k.id);
     const kin = all.filter((k) => roots.includes(k.id) || (k.parentId != null && roots.includes(k.parentId)));
-    const ids = kin.map((k) => k.id);
+    // A derived list goes before the sheet it came from. Id lists are cut to IN_LIST_CHUNK a
+    // statement, so no statement binds more than 100 values (S6-6).
+    const ids = [...kin.filter((k) => k.parentId != null), ...kin.filter((k) => k.parentId == null)].map((k) => k.id);
     const allIds = all.map((k) => k.id);
-    // No row of the file was written in between.
+    // Rule 10.2: no sheet of the file was approved or started merging in between.
     statements.push(
       ctx.db
         .update(ingestArtifact)
         .set({ updatedAt: at })
-        .where(
-          and(
-            eq(ingestArtifact.id, artifact.id),
-            eq(ingestArtifact.companyId, ctx.companyId),
-            allIds.length
-              ? sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${allIds} and r.merge_state = 'written')`
-              : sql`1 = 1`,
-            // Rule 10.2: no sheet of the file was approved or started merging in between.
-            noSheetApproved(ctx.companyId, artifact.id),
-          ),
-        ),
+        .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId), noSheetApproved(ctx.companyId, artifact.id))),
       ingestAbortUnlessChanged(ctx.db),
     );
-    for (const k of kin) if (k.target) statements.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
-    if (ids.length) {
+    // No row of the file was written in between.
+    for (const part of chunk(allIds, IN_LIST_CHUNK)) {
       statements.push(
-        ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, ids))),
-        ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), inArray(ingestAnswer.candidateId, ids))),
-        ctx.db.delete(ingestBotRun).where(and(eq(ingestBotRun.companyId, ctx.companyId), inArray(ingestBotRun.candidateId, ids))),
-        ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, ids))),
+        ctx.db
+          .update(ingestArtifact)
+          .set({ updatedAt: at })
+          .where(
+            and(
+              eq(ingestArtifact.id, artifact.id),
+              eq(ingestArtifact.companyId, ctx.companyId),
+              sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${part} and r.merge_state = 'written')`,
+            ),
+          ),
+        ingestAbortUnlessChanged(ctx.db),
       );
     }
-    if (goneBlocks.length) statements.push(ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.companyId, ctx.companyId), inArray(ingestBlock.id, goneBlocks))));
+    for (const k of kin) if (k.target) statements.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
+    const parts = chunk(ids, IN_LIST_CHUNK);
+    for (const part of parts) {
+      statements.push(
+        ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, part))),
+        ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), inArray(ingestAnswer.candidateId, part))),
+        ctx.db.delete(ingestBotRun).where(and(eq(ingestBotRun.companyId, ctx.companyId), inArray(ingestBotRun.candidateId, part))),
+      );
+    }
+    for (const part of parts) statements.push(ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, part))));
+    for (const part of chunk(goneBlocks, IN_LIST_CHUNK)) {
+      statements.push(ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.companyId, ctx.companyId), inArray(ingestBlock.id, part))));
+    }
     statements.push(
       auditInsert(ctx, {
         action: "ingest.block.reput",

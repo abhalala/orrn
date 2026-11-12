@@ -10,10 +10,11 @@
  *   cells with no blank between them, over a row with a number or a date.
  * - S6-4: reader facts text is masked for a viewer without order.price, as the sample is.
  * - 10.2 second line (S6-5): re-put and repick refuse once any sheet of the file is approved or merging.
+ * - S6-6: a re-put of a 50-block file binds at most 100 values a statement.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
-import { createTestEnv, type TestEnv } from "./harness";
+import { createTestEnv, D1_MAX_PARAMS, type TestEnv } from "./harness";
 import { layout, learnLayout, mergeOnce, plant, pump, putRowsAs, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
@@ -335,4 +336,40 @@ describe("rule 10.2 second line (S6-5): no re-put or repick once a sheet of the 
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [sent[0]!, { ...sent[1]!, hint: { headerRow: 0, headerRows: 1, lastDataRow: 1, skipRows: [] } }] })).rejects.toThrow(APPROVED);
     expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("approved");
   });
+});
+
+describe("S6-6: the re-put statements are chunked", () => {
+  test("50 order sheets, each with its new customers list: changing every sheet binds at most 100 values a statement", async () => {
+    const p = await setup();
+    const sheets = Array.from({ length: 50 }, (_, i) => ({
+      name: `S${i}`,
+      headers: BOOK,
+      rows: [[`New Party ${i}`, String(100 + i), `PO-${i}`, "31/10/2025", "R", "5100", "3658", "100"]],
+    }));
+    const { artifactId, candidates } = await upload(p.owner, sheets, "fifty.xlsx");
+    for (const c of candidates) {
+      await pump(p.owner, c.id);
+      await p.owner.ingest.answer.set({ candidateId: c.id, questionCode: "new_customers", subject: "", answer: true, expectSeq: await seqOf(p.owner, c.id) });
+      await pump(p.owner, c.id);
+    }
+    const before = await env.d1.prepare("select count(*) as n from ingest_candidate where artifact_id = ?").bind(artifactId).first<{ n: number }>();
+    expect(Number(before!.n)).toBe(100);
+    const blocks = sheets.map((sh, ordinal) => ({
+      ordinal,
+      sheetName: sh.name,
+      title: null,
+      headerRow: 0,
+      headerRows: 1,
+      rowCount: 1,
+      sample: sh.rows,
+      preview: [{ row: 0, cells: BOOK }, { row: 1, cells: sh.rows[0]! }],
+      hint: { headerRow: 0, headerRows: 1 as const, lastDataRow: 1, skipRows: [] },
+    }));
+    env.resetPeakParams();
+    const again = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks });
+    expect(env.peakParams()).toBeLessThanOrEqual(D1_MAX_PARAMS);
+    expect(again.blocks).toHaveLength(50);
+    const after = await env.d1.prepare("select count(*) as n from ingest_candidate where artifact_id = ?").bind(artifactId).first<{ n: number }>();
+    expect(Number(after!.n)).toBe(50);
+  }, 120_000);
 });
