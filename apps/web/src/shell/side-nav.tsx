@@ -1,7 +1,7 @@
 import { useT } from "@orrn/i18n";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { Eye, ScanLine, Search } from "lucide-react";
+import { Eye, ListOrdered, ScanLine, Search } from "lucide-react";
 import { useId, type ReactNode } from "react";
 
 import { useMe } from "@/shared/lib/me";
@@ -25,6 +25,7 @@ export function SideNav({
   pathname,
   onScan,
   onOpenAccount,
+  onArrange,
 }: {
   variant: ShellVariant;
   primary: readonly NavItem[];
@@ -33,6 +34,7 @@ export function SideNav({
   onScan?: () => void;
   /** Rail (768-1023): the avatar opens the account sheet. */
   onOpenAccount(): void;
+  onArrange?: () => void;
 }) {
   const { t } = useT();
   const palette = usePalette();
@@ -114,6 +116,21 @@ export function SideNav({
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+
+        {onArrange ? (
+          <div className="mt-auto flex justify-center px-2 pt-2 pb-3 lg:px-3">
+            <button
+              type="button"
+              onClick={onArrange}
+              aria-label={t("nav.arrange")}
+              title={t("nav.arrange")}
+              className="motion-reduce:transition-none flex size-11 items-center justify-center gap-2 rounded-full text-sidebar-muted transition-colors duration-[var(--dur-fast)] hover:bg-sidebar-accent hover:text-sidebar-foreground lg:h-11 lg:w-full lg:justify-start lg:px-3.5 lg:text-[14px] [@media(min-width:1024px)_and_(max-height:960px)]:h-[30px]"
+            >
+              <ListOrdered aria-hidden="true" className="size-5 shrink-0" />
+              <span className="hidden lg:inline">{t("nav.arrange")}</span>
+            </button>
           </div>
         ) : null}
       </nav>
