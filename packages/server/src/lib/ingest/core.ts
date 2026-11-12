@@ -180,6 +180,7 @@ export function artifactSummary(a: ArtifactRow): ArtifactSummary {
     rowCount: a.rowCount,
     period: a.period ?? null,
     periodConfirmed: a.periodConfirmed ?? null,
+    fillAbove: a.fillAbove ?? null,
     note: a.note,
     uploadedBy: a.uploadedBy,
     createdAt: ms(a.createdAt),

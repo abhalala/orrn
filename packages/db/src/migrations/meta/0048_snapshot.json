@@ -10688,6 +10688,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "fill_above": {
+          "name": "fill_above",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "note": {
           "name": "note",
           "type": "text",

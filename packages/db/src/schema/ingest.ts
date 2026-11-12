@@ -144,6 +144,11 @@ export const ingestArtifact = sqliteTable(
     rowCount: count("row_count"),
     period: text("period", { mode: "json" }).$type<IngestPeriodGuess>(),
     periodConfirmed: text("period_confirmed", { mode: "json" }).$type<{ fy: string | null; asOf: string | null }>(),
+    /**
+     * Rule 11.3: the file's one answer to `order_fill_above` (true Yes, false No), with who and when.
+     * Stored on the file, never on a sheet, so no sheet operation brings back an older answer.
+     */
+    fillAbove: text("fill_above", { mode: "json" }).$type<{ answer: boolean; by: string; at: number }>(),
     note: text("note"),
     uploadedBy: userRef("uploaded_by"),
     createdAt: createdAtCol(),

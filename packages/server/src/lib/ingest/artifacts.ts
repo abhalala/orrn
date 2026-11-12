@@ -156,7 +156,7 @@ export async function beginArtifact(
       [
         ctx.db
           .update(ingestArtifact)
-          .set({ readState: "reading", readError: null, rowCount: 0, blockCount: 0, period: null, updatedAt: at })
+          .set({ readState: "reading", readError: null, rowCount: 0, blockCount: 0, period: null, fillAbove: null, updatedAt: at })
           .where(
             and(
               eq(ingestArtifact.id, existing.id),

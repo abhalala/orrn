@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -1076,26 +1076,27 @@ export function applyDecision(out: RowOutcome, row: Pick<Staged, "decision" | "m
 // ---------------------------------------------------------------------------
 
 /**
- * Rule 10.1: `order_fill_above` is one question per file. Its answer is stored on the sheet it was
- * given on; every sheet of the file reads the latest one. The candidate's own answers come back with
- * that answer in place of its own.
+ * Rule 11.3: `order_fill_above` has one answer, stored on the file (`ingest_artifact.fill_above`),
+ * never on a sheet. A sheet's answers come back with the file's answer in place of any of its own,
+ * so every order sheet reads the same word and no sheet operation brings back an older one.
  */
-export async function withFileFillAnswer(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string, rows: readonly AnswerRow[]): Promise<AnswerRow[]> {
-  const [file] = await ctx.db
-    .select()
-    .from(ingestAnswer)
-    .where(
-      and(
-        eq(ingestAnswer.companyId, ctx.companyId),
-        eq(ingestAnswer.questionCode, "order_fill_above"),
-        // Rule 11.1 (S7-3): only order sheets' answers count.
-        sql`${ingestAnswer.candidateId} in (select k.id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId} and k.target = 'orders')`,
-      ),
-    )
-    .orderBy(desc(ingestAnswer.answeredAt))
-    .limit(1);
+export function withFileFillAnswer(artifact: Pick<ArtifactRow, "id" | "companyId" | "fillAbove">, rows: readonly AnswerRow[]): AnswerRow[] {
   const own = rows.filter((a) => a.questionCode !== "order_fill_above");
-  return file ? [...own, file] : own;
+  const f = artifact.fillAbove;
+  if (!f) return own;
+  return [
+    ...own,
+    {
+      id: `file:${artifact.id}`,
+      companyId: artifact.companyId,
+      candidateId: "",
+      questionCode: "order_fill_above",
+      subject: "",
+      answer: f.answer as never,
+      answeredBy: f.by,
+      answeredAt: new Date(f.at),
+    },
+  ];
 }
 
 /**
@@ -1111,9 +1112,8 @@ export async function candidateQuestions(
   if (!c.recipe || !c.target) return [];
   const recipe = recipeSchema.safeParse(c.recipe);
   if (!recipe.success) return [];
-  const answers = await withFileFillAnswer(
-    ctx,
-    c.artifactId,
+  const answers = withFileFillAnswer(
+    artifact,
     answerRows ?? (await ctx.db.select().from(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)))),
   );
   const byKey = new Map(answers.map((a) => [answerKey(a.questionCode, a.subject), a.answer as unknown]));
@@ -1733,7 +1733,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     .select()
     .from(ingestAnswer)
     .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
-  const answers = readAnswers(await withFileFillAnswer(ctx, artifact.id, answerRows), artifact, recipe);
+  const answers = readAnswers(withFileFillAnswer(artifact, answerRows), artifact, recipe);
 
   const page = await ctx.db
     .select()
