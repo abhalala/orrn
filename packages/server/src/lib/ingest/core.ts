@@ -265,6 +265,8 @@ export function candidateCounts(c: CandidateRow): CandidateCounts {
     refused: c.rowsRefused,
     skipped: c.rowsSkipped,
     written: c.rowsWritten,
+    filled: c.rowsFilled,
+    skippedByPerson: c.rowsSkippedByPerson,
   };
 }
 

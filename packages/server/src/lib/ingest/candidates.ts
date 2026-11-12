@@ -84,6 +84,8 @@ import {
   recountStatement,
   staleRefusal,
   undecidedRows,
+  waitingLines,
+  ORDER_WAITS,
   CHECK_AGAINST_FILE,
   othersAgainAfter,
   openDoubts,
@@ -947,6 +949,10 @@ export async function decideRows(
   if (input.decision !== "skip" && rows.some((r) => (r.reasons ?? []).includes(CHECK_AGAINST_FILE) && (r.reasons ?? []).every((x) => x === CHECK_AGAINST_FILE || x === "cell_cut" || x === "row_cut"))) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Check this row against the file: say it is right, or skip it" });
   }
+  // Rule 7.1: a line that waits on other lines of its order takes no choice but a skip.
+  if (input.decision !== "skip" && rows.some((r) => (r.reasons ?? []).some((x) => x.startsWith(ORDER_WAITS)))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "This line waits on other lines of its order. Fix or skip those lines first." });
+  }
   if (input.decision !== "skip" && rows.some((r) => (r.reasons ?? []).some((x) => x.startsWith("q:")))) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Answer the question above for these rows, or skip them" });
   }
@@ -1152,8 +1158,18 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
     });
   }
   const questions = await candidateQuestions(ctx, c, artifact);
-  const open = openQuestionCount(questions) + (await undecidedRows(ctx, c.id));
-  if (open > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Answer every question first" });
+  if (openQuestionCount(questions) > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Answer every question first" });
+  // Rule 7.1: an order is written whole; its lines wait while another line of it is refused or open.
+  const waiting = await waitingLines(ctx, c.id);
+  if (waiting > 0) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: `${waiting} ${waiting === 1 ? "line waits" : "lines wait"} on other lines of their order. Fix the file, answer, or skip those lines first.`,
+    });
+  }
+  const undecided = await undecidedRows(ctx, c.id);
+  // Conflicts and doubts are choices, not questions (M-4).
+  if (undecided > 0) throw new TRPCError({ code: "PRECONDITION_FAILED", message: `Choose for ${undecided} ${undecided === 1 ? "row" : "rows"} first` });
   if (questions.some((q) => q.code === "rates_hidden" && q.open)) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This file has rates you cannot see. Leave rates out, or ask the owner to merge it." });
   }

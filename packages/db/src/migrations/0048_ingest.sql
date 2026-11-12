@@ -276,4 +276,6 @@ CREATE INDEX `die_company_section_norm_idx` ON `die` (`company_id`,upper(trim("s
 ALTER TABLE `ingest_block` ADD `header_by` text DEFAULT 'reader' NOT NULL;--> statement-breakpoint
 ALTER TABLE `ingest_staged_row` ADD `doubts` text;--> statement-breakpoint
 ALTER TABLE `ingest_staged_row` ADD `doubt_by` text;--> statement-breakpoint
-ALTER TABLE `ingest_block` ADD `merged` text;
+ALTER TABLE `ingest_block` ADD `merged` text;--> statement-breakpoint
+ALTER TABLE `ingest_candidate` ADD `rows_filled` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `ingest_candidate` ADD `rows_skipped_by_person` integer DEFAULT 0 NOT NULL;

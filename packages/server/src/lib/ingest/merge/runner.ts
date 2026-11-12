@@ -24,6 +24,7 @@
  *   candidate merges again, the run resends the chunk with the same rows and keys before anything
  *   else is planned.
  */
+import { ORDER_SKIPPED_LINES } from "../dryrun";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
 import type { SQLiteUpdateSetSource } from "drizzle-orm/sqlite-core";
@@ -575,7 +576,10 @@ async function writeChunk(ctx: IngestCtx, run: RunRow, expectCursor: number, chu
         sourceOf: (part) => {
           if (part.length === 0) return base;
           const confirmed = part.filter((r) => r.doubtBy && r.doubts?.length).map((r) => ({ row: r.rowIndex, by: r.doubtBy!, codes: r.doubts!.map((d) => d.code) }));
-          return { ...base, rowFrom: Math.min(...part.map((r) => r.rowIndex)), rowTo: Math.max(...part.map((r) => r.rowIndex)), ...(confirmed.length ? { confirmed } : {}) };
+          // Rule 7.1: an order imported without lines a person skipped says so.
+          const skippedLines = Math.max(0, ...part.flatMap((r) => (r.reasons ?? []).filter((x) => x.startsWith(ORDER_SKIPPED_LINES)).map((x) => Number(x.slice(ORDER_SKIPPED_LINES.length)) || 0)));
+          const skipped = skippedLines > 0 ? { skippedLines, note: `Imported without ${skippedLines} ${skippedLines === 1 ? "line" : "lines"} the person skipped` } : {};
+          return { ...base, rowFrom: Math.min(...part.map((r) => r.rowIndex)), rowTo: Math.max(...part.map((r) => r.rowIndex)), ...(confirmed.length ? { confirmed } : {}), ...skipped };
         },
       });
       written = res.written;

@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gte, inArray, isNull, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -67,6 +67,9 @@ import {
   groupFyOf,
   liveOrderKey,
   liveOrdersOf,
+  normOrderNo,
+  normPo,
+  orderFyOf,
   ORDER_GROUP_CODES,
   orderGroupCheck,
   orderIdentityOf,
@@ -1196,48 +1199,129 @@ function fieldColumn(recipe: Recipe, field: string): number | null {
   return src?.kind === "columns" && src.cols?.length === 1 ? src.cols[0]!.col : null;
 }
 
+/** Rule 7.1: the fields that belong to the whole order, filled down inside one order's run. */
+const ORDER_WHOLE_FIELDS = ["customer", "orderDate", "poNumber"] as const;
+/** Rows read before and after a page to finish the order runs it cuts. An order has at most 100 lines. */
+const RUN_WINDOW = 100;
+const SEP = "\u001f";
+
+const cellOf = (raw: readonly string[], col: number) => (raw[col] ?? "").trim();
+const blankRaw = (raw: readonly string[]) => raw.every((c) => (c ?? "").trim() === "");
+
 /**
- * Lead answer (b), round 5: a blank order number takes the number above it only when the reader
- * marked the cell as part of a merged range, the top cell is filled, and the other key columns
- * (customer, date) are blank or the same as the top row's. Never from position alone. Returns the
- * filled raw cells by row id; the stored raw row is left as the file had it.
+ * Rule 7.1 and lead answer (b). A blank order number takes the number above it only when the reader
+ * marked the cell as part of a merged range whose top cell is filled; never from position alone. A
+ * run is the rows in a row that share an order number (typed, or carried by a merged cell); a fully
+ * blank row inside it does not end it. Inside a run of two or more rows, a blank party, order date or
+ * PO takes the value of the first row of the run that has one. Two different values inside one run
+ * are left as the file has them: the whole-order pass makes them a conflict. A run cut by the page is
+ * finished from at most 100 rows on each side. Returns the filled raw cells and the row notes by row
+ * id; the stored raw row is left as the file had it.
  */
-async function mergedOrderNumbers(ctx: IngestCtx, candidateId: string, recipe: Recipe, merged: readonly { col: number; firstRow: number; lastRow: number }[], rows: readonly Staged[]): Promise<Map<string, string[]>> {
-  const out = new Map<string, string[]>();
+async function orderRunFill(
+  ctx: IngestCtx,
+  candidateId: string,
+  recipe: Recipe,
+  merged: readonly { col: number; firstRow: number; lastRow: number }[],
+  page: readonly Staged[],
+): Promise<Map<string, { raw: string[]; notes: string[] }>> {
+  const out = new Map<string, { raw: string[]; notes: string[] }>();
   const noCol = fieldColumn(recipe, "oldOrderNo");
-  if (noCol === null || merged.length === 0) return out;
+  if (noCol === null || page.length === 0) return out;
+  const cols = ORDER_WHOLE_FIELDS.map((f) => [f, fieldColumn(recipe, f)] as const).filter((x): x is readonly [(typeof ORDER_WHOLE_FIELDS)[number], number] => x[1] !== null && x[1] !== noCol);
+  const first = page[0]!.rowIndex;
+  const last = page.at(-1)!.rowIndex;
+  const R = ingestStagedRow;
+  const pick = { rowIndex: R.rowIndex, raw: R.raw };
+  // On the candidate and row index unique index: two ranges of at most 100 rows.
+  const before = await ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), gte(R.rowIndex, first - RUN_WINDOW), lt(R.rowIndex, first)));
+  const after = await ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), gt(R.rowIndex, last), lte(R.rowIndex, last + RUN_WINDOW)));
+  const all = [...before, ...page.map((r) => ({ rowIndex: r.rowIndex, raw: r.raw })), ...after].sort((a, b) => a.rowIndex - b.rowIndex);
   const ranges = merged.filter((m) => m.col === noCol);
-  const others = recipe.keys.filter((k) => k !== "oldOrderNo").map((k) => fieldColumn(recipe, k)).filter((x): x is number => x !== null);
-  const want = new Map<string, number>();
-  for (const r of rows) {
-    if ((r.raw[noCol] ?? "").trim() !== "") continue;
-    const m = ranges.find((x) => r.rowIndex > x.firstRow && r.rowIndex <= x.lastRow);
-    if (m) want.set(r.id, m.firstRow);
+  const rangeOf = (i: number) => ranges.find((x) => i > x.firstRow && i <= x.lastRow);
+  const have = new Map(all.map((r) => [r.rowIndex, r.raw]));
+  const wantTops = [...new Set(all.filter((r) => cellOf(r.raw, noCol) === "" && !blankRaw(r.raw)).map((r) => rangeOf(r.rowIndex)?.firstRow).filter((x): x is number => x !== undefined && !have.has(x)))];
+  const tops = new Map(have);
+  if (wantTops.length) {
+    const got = await mapInChunks(wantTops, (part) => ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), inArray(R.rowIndex, part))));
+    for (const t of got) tops.set(t.rowIndex, t.raw);
   }
-  if (want.size === 0) return out;
-  const tops = await mapInChunks([...new Set(want.values())], (part) =>
-    ctx.db
-      .select({ rowIndex: ingestStagedRow.rowIndex, raw: ingestStagedRow.raw })
-      .from(ingestStagedRow)
-      .where(and(eq(ingestStagedRow.candidateId, candidateId), inArray(ingestStagedRow.rowIndex, part))),
-  );
-  const top = new Map(tops.map((t) => [t.rowIndex, t.raw]));
-  for (const r of rows) {
-    const at = want.get(r.id);
-    const t = at === undefined ? undefined : top.get(at);
-    const no = (t?.[noCol] ?? "").trim();
-    if (!t || !no) continue;
-    const same = others.every((col) => {
-      const mine = (r.raw[col] ?? "").trim();
-      return mine === "" || mine.toLowerCase() === (t[col] ?? "").trim().toLowerCase();
-    });
-    if (!same) continue;
-    const raw = [...r.raw];
-    while (raw.length <= noCol) raw.push("");
-    raw[noCol] = t[noCol]!;
-    out.set(r.id, raw);
+  const numberOf = new Map<number, { no: string; merged: boolean }>();
+  for (const r of all) {
+    if (blankRaw(r.raw)) continue;
+    const own = cellOf(r.raw, noCol);
+    if (own) {
+      numberOf.set(r.rowIndex, { no: own, merged: false });
+      continue;
+    }
+    const m = rangeOf(r.rowIndex);
+    const top = m ? tops.get(m.firstRow) : undefined;
+    const no = top ? cellOf(top, noCol) : "";
+    if (no) numberOf.set(r.rowIndex, { no, merged: true });
+  }
+  const runs: { rowIndex: number; raw: string[] }[][] = [];
+  let cur: { rowIndex: number; raw: string[] }[] = [];
+  let curNo = "";
+  let prev = Number.NEGATIVE_INFINITY;
+  for (const r of all) {
+    if (blankRaw(r.raw) && cur.length && r.rowIndex === prev + 1) {
+      prev = r.rowIndex;
+      continue;
+    }
+    const n = numberOf.get(r.rowIndex);
+    const k = n ? normOrderNo(n.no) : "";
+    if (k && cur.length && r.rowIndex === prev + 1 && k === curNo) cur.push(r);
+    else {
+      if (cur.length) runs.push(cur);
+      cur = k ? [r] : [];
+      curNo = k;
+    }
+    prev = r.rowIndex;
+  }
+  if (cur.length) runs.push(cur);
+  const ids = new Map(page.map((r) => [r.rowIndex, r.id]));
+  for (const run of runs) {
+    const fills = cols.map(([field, col]) => ({ field, col, value: run.map((r) => cellOf(r.raw, col)).find((v) => v !== "") ?? "" }));
+    for (const r of run) {
+      const id = ids.get(r.rowIndex);
+      if (!id) continue;
+      const raw = [...r.raw];
+      const notes: string[] = [];
+      const set = (col: number, v: string) => {
+        while (raw.length <= col) raw.push("");
+        raw[col] = v;
+      };
+      const n = numberOf.get(r.rowIndex)!;
+      if (n.merged) {
+        set(noCol, n.no);
+        notes.push(MERGED_CELL);
+      }
+      if (run.length > 1) {
+        for (const f of fills) {
+          if (f.value && cellOf(raw, f.col) === "") {
+            set(f.col, f.value);
+            notes.push(`filled_down:${f.field}`);
+          }
+        }
+      }
+      if (notes.length) out.set(id, { raw, notes });
+    }
   }
   return out;
+}
+
+/**
+ * Rule 7.1: which old order a row belongs to, for holding an order whole. Like the order key, but
+ * without the year and with the party's live id or its name key, so a row refused before it was
+ * matched (a bad cut length, a blank date) still finds the other lines of its order.
+ */
+export function holdKeyOf(values: Values, customerId: string | null): string | null {
+  const cust = customerId && !customerId.startsWith("pending:") ? customerId : nameKey(str(values.customer)) ? `name:${nameKey(str(values.customer))}` : null;
+  if (!cust) return null;
+  const no = normOrderNo(values.oldOrderNo);
+  if (no) return ["no", cust, no].join(SEP);
+  const po = normPo(values.poNumber);
+  return po ? ["po", cust, po].join(SEP) : null;
 }
 
 /** Rule 5.3: the row reason of a row the reader doubted, until a person answers it. */
@@ -1267,6 +1351,15 @@ export const openDoubtWhere = (candidateId: string) =>
 
 export async function openDoubts(ctx: Pick<IngestCtx, "db">, candidateId: string): Promise<number> {
   const [row] = await ctx.db.select({ n: sql<number>`count(*)` }).from(ingestStagedRow).where(openDoubtWhere(candidateId));
+  return Number(row?.n ?? 0);
+}
+
+/** Rule 7.1: lines that wait on other lines of their order. */
+export async function waitingLines(ctx: Pick<IngestCtx, "db">, candidateId: string): Promise<number> {
+  const [row] = await ctx.db
+    .select({ n: sql<number>`count(*)` })
+    .from(ingestStagedRow)
+    .where(and(eq(ingestStagedRow.candidateId, candidateId), eq(ingestStagedRow.state, "ambiguous"), sql`${ingestStagedRow.reasons} like ${`%"${ORDER_WAITS}%`}`));
   return Number(row?.n ?? 0);
 }
 
@@ -1301,6 +1394,8 @@ export function recountStatement(ctx: Pick<IngestCtx, "db" | "companyId">, candi
       rowsRefused: n("refused"),
       rowsSkipped: n("skipped"),
       rowsWritten: sql`(select count(*) from ingest_staged_row r where r.candidate_id = ${candidateId} and r.merge_state = 'written')`,
+      rowsFilled: sql`(select count(*) from ingest_staged_row r where r.candidate_id = ${candidateId} and (r.reasons like '%"filled_down:%' or r.reasons like '%"merged_cell:%'))`,
+      rowsSkippedByPerson: sql`(select count(*) from ingest_staged_row r where r.candidate_id = ${candidateId} and r.decision = 'skip')`,
     })
     .where(and(eq(ingestCandidate.id, candidateId), eq(ingestCandidate.companyId, ctx.companyId)));
 }
@@ -1543,15 +1638,16 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     const dropRateFlags = c.target === "orders" && answers.ratesLeftOut === true;
     // Every read of a row goes through it, the re-reads of settleMagnitude too (X-new-2).
     const keepFlag = dropRateFlags ? (f: MagnitudeFlag) => !RATE_FIELDS.includes(f.field) : undefined;
-    const filled = c.target === "orders" ? await mergedOrderNumbers(ctx, c.id, recipe, block.merged ?? [], editable) : new Map<string, string[]>();
+    const filled = c.target === "orders" ? await orderRunFill(ctx, c.id, recipe, block.merged ?? [], editable) : new Map<string, { raw: string[]; notes: string[] }>();
     const applied = editable.map((r) => {
-      const raw = filled.get(r.id) ?? r.raw;
+      const raw = filled.get(r.id)?.raw ?? r.raw;
       return { r, ...settleMagnitude(applyRow(compiled, raw, r.rowIndex), raw, answers, compileWith, keepFlag) };
     });
+    // Orders: a refused row's party is looked up too, so the row still finds its order (rule 7.1).
     const live = await loadPageLive(
       ctx,
       c.target,
-      applied.filter((x) => x.applied.state === "ok").map((x) => cleanValues(x.applied.values)),
+      applied.filter((x) => x.applied.state === "ok" || (c.target === "orders" && x.applied.state === "refused")).map((x) => cleanValues(x.applied.values)),
     );
     for (const { r, applied: a, waiting, notes } of applied) {
       const keep = (r.reasons ?? []).filter((x) => x === "cell_cut" || x === "row_cut");
@@ -1566,11 +1662,17 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       const values: Values = cleanValues(a.values);
       const entered = a.entered as Entered;
       if (a.state === "refused") {
+        if (c.target === "orders") {
+          const found = live.customers ? resolveName(live.customers, str(values.customer)) : null;
+          const hold = holdKeyOf(values, found?.kind === "match" ? found.id : null);
+          if (hold) values._holdKey = hold;
+        }
         outcomes.set(r.id, {
-          state: "refused",
+          // A person may leave a refused row out (rule 7.1).
+          state: r.decision === "skip" ? "skipped" : "refused",
           values,
           entered,
-          reasons: [...keep, ...a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`)],
+          reasons: [...keep, ...a.refusals.map((f) => `${f.code}${f.field ? `:${f.field}` : ""}`), ...(filled.get(r.id)?.notes ?? [])],
           matchId: null,
           diff: null,
         });
@@ -1587,7 +1689,11 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       out = applyDecision(out, r, c.target);
       out = holdForMagnitude(out, waiting, entered);
       if (c.target === "die_copies") out = copyStatusCheck(out, live.sections ?? []);
-      out.reasons = [...keep, ...out.reasons, ...notes, ...(filled.has(r.id) ? [MERGED_CELL] : [])];
+      out.reasons = [...keep, ...out.reasons, ...notes, ...(filled.get(r.id)?.notes ?? [])];
+      if (c.target === "orders" && out.values) {
+        const hold = holdKeyOf(out.values, ((out.values._ids ?? {}) as Record<string, string>).customer ?? null);
+        if (hold) out.values._holdKey = hold;
+      }
       out.entered = entered;
       const dup = dupKeyOf(c.target, values);
       if (dup) values._dupKey = dup;
@@ -1825,6 +1931,8 @@ function stepOut(final: CandidateRow, done: boolean): DryRunStepOut {
       refused: final.rowsRefused,
       skipped: final.rowsSkipped,
       written: final.rowsWritten,
+      filled: final.rowsFilled,
+      skippedByPerson: final.rowsSkippedByPerson,
     },
   };
 }
@@ -1959,11 +2067,26 @@ export const ORDER_PASS_BATCH = 396;
 
 /** A numbered old order whose PO is on a live order of another old order (rule 4.2). */
 const PO_ON_LIVE_ORDER = "po_on_live_order:poNumber";
+/** Rule 7.1: `order_waits:<n>`, a line that waits on n other lines of its order (refused or open). */
+export const ORDER_WAITS = "order_waits:";
+/** Rule 7.1: `order_skipped_lines:<n>`, a note on the lines of an order a person left n lines out of. */
+export const ORDER_SKIPPED_LINES = "order_skipped_lines:";
+/** Rule 7.1: `order_run_differs:<field>`, two different values of a whole-order field in one run. */
+export const ORDER_RUN_DIFFERS = "order_run_differs:";
 /** A note, not a question: the row's PO is also on a closed order of the customer (`values._closedOrder`). */
 const PO_ON_CLOSED_ORDER = "po_on_closed_order:poNumber";
 
 /** Row reasons the whole-order pass sets; a row with one of them was ready before that pass. */
-const ORDER_PASS_REASONS = [...ORDER_GROUP_CODES.map((c) => `${c}:`), "order_in_other_file:", `${Q_ORDER_PO}:`, "order_po_skipped", "order_live:"];
+const ORDER_PASS_REASONS = [
+  ...ORDER_GROUP_CODES.map((c) => `${c}:`),
+  "order_in_other_file:",
+  `${Q_ORDER_PO}:`,
+  "order_po_skipped",
+  "order_live:",
+  ORDER_WAITS,
+  ORDER_SKIPPED_LINES,
+  ORDER_RUN_DIFFERS,
+];
 const isOrderPassReason = (r: string) => ORDER_PASS_REASONS.some((p) => r === p || r.startsWith(p));
 
 type OrderPassRow = {
@@ -1979,6 +2102,7 @@ type OrderPassRow = {
   orderDate: string | null;
   oldNo: string | null;
   other: string | null;
+  holdKey: string | null;
 };
 
 /**
@@ -1999,6 +2123,98 @@ type OrderWant = {
   fillPicked?: boolean;
   other?: Record<string, unknown> | null;
 };
+
+/**
+ * Rule 7.1, after every other check of the pass: an old order is written whole, or not at all.
+ * - A run (rows in a row with one order number) whose rows name two parties or two order dates is a
+ *   conflict on each of its rows, until a person keeps the file's values on the row or skips it.
+ * - The lines of one order are linked by their hold key (a refused row has one), their order key
+ *   and their run. A line that is refused, in conflict, or waiting on a question or a doubt holds
+ *   every other line of its order: those that would be written wait (`order_waits:<n>`).
+ * - Lines a person skipped are left out; the written lines note how many (`order_skipped_lines:<n>`).
+ */
+function wholeOrders(
+  all: readonly { id: string; rowIndex: number; state: RowState; decision: RowDecision | null; orderKey: string | null; orderDate: string | null; oldNo: string | null; holdKey: string | null; reasons: string[] | null }[],
+  base: readonly { r: { id: string }; key: string; reasons: string[]; state: RowState }[],
+  want: Map<string, OrderWant>,
+): void {
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    let p = parent.get(x) ?? x;
+    while (p !== (parent.get(p) ?? p)) p = parent.get(p) ?? p;
+    parent.set(x, p);
+    return p;
+  };
+  const join = (a: string, b: string) => {
+    const x = find(a);
+    const y = find(b);
+    if (x !== y) parent.set(x, y);
+  };
+  const keyOf = new Map(base.map((b) => [b.r.id, b.key]));
+  const baseOf = new Map(base.map((b) => [b.r.id, b]));
+  // The state of each row after the checks above: the pass's want, else the page pass's state.
+  const stateOf = (r: (typeof all)[number]) => want.get(r.id)?.state ?? baseOf.get(r.id)?.state ?? r.state;
+  // Runs over the whole candidate: rows in a row with one order number. The same number in another
+  // financial year is another order (rule 4.2), so a change of year starts a new run.
+  const runs: (typeof all)[number][][] = [];
+  let cur: (typeof all)[number][] = [];
+  let curFy = "";
+  for (const r of all) {
+    const no = normOrderNo(r.oldNo);
+    const fy = orderFyOf(r.orderDate);
+    const last = cur.at(-1);
+    if (no && last && r.rowIndex === last.rowIndex + 1 && normOrderNo(last.oldNo) === no && !(fy && curFy && fy !== curFy)) {
+      cur.push(r);
+      curFy ||= fy;
+    } else {
+      if (cur.length > 1) runs.push(cur);
+      cur = no ? [r] : [];
+      curFy = fy;
+    }
+  }
+  if (cur.length > 1) runs.push(cur);
+  const partyOf = (r: (typeof all)[number]) => (r.holdKey ? r.holdKey.split(SEP)[1]! : null);
+  for (const run of runs) {
+    const live = run.filter((r) => stateOf(r) !== "skipped");
+    const parties = new Set(live.map(partyOf).filter(Boolean));
+    const dates = new Set(live.map((r) => r.orderDate).filter(Boolean));
+    const field = parties.size > 1 ? "customer" : dates.size > 1 ? "orderDate" : null;
+    for (let i = 1; i < run.length; i++) join(`id:${run[i]!.id}`, `id:${run[0]!.id}`);
+    if (!field) continue;
+    for (const r of run) {
+      const b = baseOf.get(r.id);
+      if (!b || r.decision === "keep_file" || r.decision === "skip" || stateOf(r) !== "ready_create") continue;
+      const w = want.get(r.id);
+      want.set(r.id, { ...(w ?? { reasons: b.reasons }), state: "conflict", reasons: [...(w?.reasons ?? b.reasons), `${ORDER_RUN_DIFFERS}${field}`] });
+    }
+  }
+  for (const r of all) {
+    if (r.holdKey) join(`id:${r.id}`, `hold:${r.holdKey}`);
+    const k = keyOf.get(r.id);
+    if (k) join(`id:${r.id}`, `key:${k}`);
+  }
+  const blockers = new Map<string, number>();
+  const skipped = new Map<string, number>();
+  for (const r of all) {
+    const g = find(`id:${r.id}`);
+    const st = stateOf(r);
+    if (st === "skipped") {
+      if (r.decision === "skip") skipped.set(g, (skipped.get(g) ?? 0) + 1);
+      continue;
+    }
+    if (st === "refused" || st === "ambiguous" || st === "conflict") blockers.set(g, (blockers.get(g) ?? 0) + 1);
+  }
+  for (const r of all) {
+    const b = baseOf.get(r.id);
+    if (!b || stateOf(r) !== "ready_create") continue;
+    const g = find(`id:${r.id}`);
+    const w = want.get(r.id) ?? { state: "ready_create" as RowState, reasons: b.reasons };
+    const n = blockers.get(g) ?? 0;
+    const left = skipped.get(g) ?? 0;
+    if (n > 0) want.set(r.id, { ...w, state: "ambiguous", reasons: [...w.reasons, `${ORDER_WAITS}${n}`] });
+    else if (left > 0) want.set(r.id, { ...w, reasons: [...w.reasons, `${ORDER_SKIPPED_LINES}${left}`] });
+  }
+}
 
 /**
  * Whole old orders (rule 1), once every row of the candidate is checked, because one order may span
@@ -2041,19 +2257,22 @@ async function orderPassStatements(
       orderDate: sql<string | null>`json_extract(${V}, '$.orderDate')`,
       oldNo: sql<string | null>`nullif(trim(coalesce(json_extract(${V}, '$.oldOrderNo'), '')), '')`,
       other: sql<string | null>`json_extract(${V}, '$._otherFile')`,
+      holdKey: sql<string | null>`json_extract(${V}, '$._holdKey')`,
     })
     .from(ingestStagedRow)
     .where(
       and(
         eq(ingestStagedRow.candidateId, c.id),
         eq(ingestStagedRow.mergeState, "open"),
-        sql`${ingestStagedRow.orderKey} is not null`,
-        or(inArray(ingestStagedRow.state, ["ready_create", "unchanged", "conflict", "ambiguous"]), passLike),
+        // Every row of an order, refused and skipped ones too: rule 7.1 holds an order whole.
+        or(sql`${ingestStagedRow.orderKey} is not null`, sql`json_extract(${V}, '$._holdKey') is not null`),
       ),
     )
     .orderBy(asc(ingestStagedRow.rowIndex));
+  void passLike;
+  const all = rows;
   // Each row as the page pass left it, before this pass.
-  const base = rows.map((r) => {
+  const base = rows.filter((r) => r.orderKey !== null).map((r) => {
     const reasons = r.reasons ?? [];
     const had = reasons.some(isOrderPassReason);
     const wasLive = reasons.some((x) => x.startsWith("order_live:"));
@@ -2199,6 +2418,7 @@ async function orderPassStatements(
       otherRows.set(at2, e);
     }
   }
+  wholeOrders(all, base, want);
   const R = ingestStagedRow;
   // Rows with no order number that the sheet placed in a numbered order, by primary key: 30 rows a
   // statement. The unary plus keeps SQLite on the primary key, never on the candidate index (S4-2).

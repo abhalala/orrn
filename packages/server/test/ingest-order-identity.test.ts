@@ -267,7 +267,7 @@ describe("the same old order in two files is never written twice (M-new-3)", () 
     expect(ra[0]!.reasons).toContain("order_in_other_file:order");
     expect((rb[0]!.values as Record<string, unknown>)._otherFile).toMatchObject({ candidateId: a, fileName: "two-sheets.xlsx", sheetName: "Book A" });
     expect((ra[0]!.values as Record<string, unknown>)._otherFile).toMatchObject({ candidateId: b, sheetName: "Book B" });
-    await expect(approve(p.owner, a)).rejects.toThrow("Answer every question first");
+    await expect(approve(p.owner, a)).rejects.toThrow("Choose for 2 rows first");
     // The person leaves old order 41 out of sheet B and keeps sheet A's.
     await decide(p.owner, b, [rb[0]!.id], "skip");
     await decide(p.owner, a, [ra[0]!.id, ra[1]!.id], "keep_file");

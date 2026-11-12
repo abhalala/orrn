@@ -413,12 +413,19 @@ describe("lead answer (b): a merged order-number cell gives its number only when
     expect((await orders(p.companyId)).map((o) => o.lines)).toEqual([1, 1, 1]);
   });
 
-  test("merged, but the customer changes: that row does not take the number", async () => {
+  test("merged, but the customer changes: the row takes the number and the order's run is a conflict", async () => {
     const p = await setup();
     await p.owner.customer.create({ name: "Kamal Bros" });
     const id = await sendMerged(p.owner, lines("Kamal Bros"), [{ col: 1, firstRow: 0, lastRow: 2 }]);
     const rows = await rowsOf(p.owner, id);
-    expect(rows.map((r) => r.reasons.includes("merged_cell:oldOrderNo"))).toEqual([false, true, false]);
+    // Rule 7.1 (round 6): a merged cell carries the number; two parties in one order's run are a
+    // conflict for a person, where round 5 left the row out of the order.
+    expect(rows.map((r) => r.reasons.includes("merged_cell:oldOrderNo"))).toEqual([false, true, true]);
+    expect(rows.map((r) => [r.state, r.reasons.includes("order_run_differs:customer")])).toEqual([
+      ["conflict", true],
+      ["conflict", true],
+      ["conflict", true],
+    ]);
   });
 
   test("merged ranges are bounded: inside the block, top row first", async () => {

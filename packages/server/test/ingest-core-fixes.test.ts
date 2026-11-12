@@ -374,7 +374,7 @@ describe("A5, A-new-1: an order book matches the plant's live orders", () => {
     expect(rows[1]!.reasons).toContain("order_line_new");
     let c = await p.owner.ingest.candidate.get({ candidateId: id });
     expect(c.state).toBe("ready");
-    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    await expect(p.owner.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow("Choose for 1 row first");
     // The merge cannot add a line to a live order, so the file's version is refused.
     await expect(
       p.owner.ingest.rows.decide({ candidateId: id, rowIds: [rows[1]!.id], decision: "keep_file", expectSeq: c.serverSeq }),
@@ -664,7 +664,7 @@ describe("A11: a row decision applies only when it fits the re-run", () => {
     await pump(p.admin, id);
     c = await p.admin.ingest.candidate.get({ candidateId: id });
     expect((await p.admin.ingest.rows.list({ candidateId: id })).items[0]!.state).toBe("ambiguous");
-    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow(/Answer every question/);
+    await expect(p.admin.ingest.candidate.approve({ candidateId: id, expectSeq: c.serverSeq })).rejects.toThrow("Choose for 1 row first");
     // use_match on the listed option does resolve it.
     await p.admin.ingest.rows.decide({ candidateId: id, rowIds: [row.id], decision: "use_match", matchId: row.options[0]!.id, expectSeq: c.serverSeq });
     const done = await pump(p.admin, id);

@@ -158,6 +158,10 @@ export type CandidateCounts = {
   refused: number;
   skipped: number;
   written: number;
+  /** Rule 7.1: rows whose blank party, date or PO took the value of their order's run. */
+  filled: number;
+  /** Rule 7.1: rows a person chose to leave out. */
+  skippedByPerson: number;
 };
 
 export type CandidateSummary = {
