@@ -25,6 +25,7 @@ export function SideNav({
   pathname,
   onScan,
   onOpenAccount,
+  onArrange,
 }: {
   variant: ShellVariant;
   primary: readonly NavItem[];
@@ -33,6 +34,7 @@ export function SideNav({
   onScan?: () => void;
   /** Rail (768-1023): the avatar opens the account sheet. */
   onOpenAccount(): void;
+  onArrange?: () => void;
 }) {
   const { t } = useT();
   const palette = usePalette();
@@ -131,7 +133,7 @@ export function SideNav({
           </button>
         </div>
         <div className="hidden lg:block">
-          <AccountMenu variant={variant} />
+          <AccountMenu variant={variant} onArrange={onArrange} />
         </div>
       </div>
     </div>

@@ -2,22 +2,43 @@ import { useT } from "@orrn/i18n";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Eye } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Eye, LoaderCircle } from "lucide-react";
+import { Component, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import { OutboxSessionGuard } from "@/features/press/outbox-session-guard";
 import { useScan } from "@/features/scan/scan-context";
 import { ImpersonationBanner } from "@/shared/components/impersonation-banner";
 import { useMe } from "@/shared/lib/me";
+import { queryClient, trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { CommandPaletteProvider } from "./command-palette";
 import { Avatar, MoreSheet, type ShellVariant } from "./more-menu";
 import { GODSEYE_MORE, GODSEYE_NAV, TENANT_MORE, TENANT_PRIMARY, visibleItems } from "./nav-items";
+import { canArrangeMenu, orderedNavItems } from "./nav-order";
 import { PlantSwitcher } from "./plant-switcher";
 import { switcherPlants } from "./plant-switcher-model";
 import { SideNav } from "./side-nav";
 import { SkipLink } from "./skip-link";
 import { TabBar } from "./tab-bar";
+
+const LazyNavArrangeEditor = lazy(() => import("./nav-arrange-editor"));
+
+class NavArrangeBoundary extends Component<{ children: ReactNode; onFailed: () => void }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch() {
+    this.props.onFailed();
+  }
+
+  override render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 export type AppShellProps = {
   variant: ShellVariant;
@@ -50,14 +71,47 @@ function ShellFrame({ variant, children }: AppShellProps) {
   const scan = useScan();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [moreOpen, setMoreOpen] = useState(false);
+  const [arrangeOpen, setArrangeOpen] = useState(false);
+  const [arrangeCompanyId, setArrangeCompanyId] = useState<string | null>(null);
   const tablet = useMediaQuery(breakpoints.tablet);
 
   const godseye = variant === "godseye";
-  const primary = visibleItems(godseye ? GODSEYE_NAV : TENANT_PRIMARY, me);
-  const more = visibleItems(godseye ? GODSEYE_MORE : TENANT_MORE, me);
+  const defaultPrimary = visibleItems(godseye ? GODSEYE_NAV : TENANT_PRIMARY, me);
+  const defaultMore = visibleItems(godseye ? GODSEYE_MORE : TENANT_MORE, me);
+  const { primary, more } = godseye
+    ? { primary: defaultPrimary, more: defaultMore }
+    : orderedNavItems({
+        defaultPrimary: TENANT_PRIMARY,
+        defaultMore: TENANT_MORE,
+        visiblePrimary: defaultPrimary,
+        visibleMore: defaultMore,
+        saved: me?.company?.navOrder,
+      });
+  const tabPrimary = godseye ? primary : visibleItems(TENANT_PRIMARY, me);
+  const tabKeys = new Set(tabPrimary.map((item) => item.key));
+  const phoneMore = godseye ? more : [...primary, ...more].filter((item) => !tabKeys.has(item.key));
   const modules = (me?.company?.modules ?? []).map((m) => m.toLowerCase());
   const scanOn = !godseye && scan.available && (modules.length === 0 || modules.includes("bundles"));
   const openScan = scanOn ? () => scan.open({ kind: "lookup" }) : undefined;
+  const openArrange = !godseye && canArrangeMenu(me)
+    ? () => {
+        setArrangeCompanyId(me?.company?.id ?? null);
+        setMoreOpen(false);
+        setArrangeOpen(true);
+      }
+    : undefined;
+  type AuthMe = Awaited<ReturnType<typeof trpcClient.auth.me.query>>;
+  const navSaved = (navOrder: NonNullable<AuthMe["company"]>["navOrder"]) => {
+    queryClient.setQueryData(trpc.auth.me.queryKey(), (current: AuthMe | undefined) =>
+      current?.company ? { ...current, company: { ...current.company, navOrder } } : current,
+    );
+  };
+  const arrangeLoadFailed = () => {
+    setArrangeOpen(false);
+    toast.error(t("nav.orderSaveFailed"));
+  };
+
+  useEffect(() => setArrangeOpen(false), [me?.company?.id]);
 
   // Portalled sheets and menus live outside this tree; give them the violet tone too.
   useLayoutEffect(() => {
@@ -90,6 +144,7 @@ function ShellFrame({ variant, children }: AppShellProps) {
         pathname={pathname}
         onScan={openScan}
         onOpenAccount={() => setMoreOpen(true)}
+        onArrange={openArrange}
       />
 
       <div className="flex min-w-0 flex-col">
@@ -149,11 +204,11 @@ function ShellFrame({ variant, children }: AppShellProps) {
       </div>
 
       <TabBar
-        items={primary}
+        items={tabPrimary}
         pathname={pathname}
         variant={variant}
         onScan={openScan}
-        onMore={more.length ? () => setMoreOpen(true) : undefined}
+        onMore={more.length || !godseye ? () => setMoreOpen(true) : undefined}
       />
 
       <MoreSheet
@@ -161,8 +216,30 @@ function ShellFrame({ variant, children }: AppShellProps) {
         onOpenChange={setMoreOpen}
         variant={variant}
         // The phone sheet carries the office pages; on the rail they're already listed.
-        items={tablet ? [] : more}
+        items={tablet ? [] : phoneMore}
+        onArrange={openArrange}
       />
+
+      {!godseye && arrangeOpen && arrangeCompanyId ? (
+        <NavArrangeBoundary onFailed={arrangeLoadFailed}>
+          <Suspense
+            fallback={
+              <div role="status" className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+                <LoaderCircle aria-hidden="true" className="size-6 animate-spin motion-reduce:animate-none" />
+                <span className="sr-only">{t("common.loading")}</span>
+              </div>
+            }
+          >
+            <LazyNavArrangeEditor
+              open={arrangeOpen}
+              onOpenChange={setArrangeOpen}
+              groups={{ primary, more }}
+              companyId={arrangeCompanyId}
+              onSaved={navSaved}
+            />
+          </Suspense>
+        </NavArrangeBoundary>
+      ) : null}
     </div>
   );
 }

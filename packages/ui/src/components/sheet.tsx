@@ -3,7 +3,7 @@
 import { useT } from "@orrn/i18n";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { escapeUnlessComboboxOpen } from "@orrn/ui/lib/escape";
 import { useReturnFocus } from "@orrn/ui/lib/return-focus";
@@ -20,6 +20,7 @@ export type SheetProps = {
   /** One line under the title, read with it. */
   description?: string;
   className?: string;
+  onEscapeKeyDown?: ComponentPropsWithoutRef<typeof DialogPrimitive.Content>["onEscapeKeyDown"];
   /**
    * False while the sheet must stay open (a save in progress): the close
    * button is hidden so it never looks live. Escape and the overlay still call
@@ -35,7 +36,7 @@ export type SheetProps = {
  * that slides in from the right, full height, 440px wide. The body scrolls;
  * the header and footer stay put.
  */
-export function Sheet({ open, onOpenChange, title, children, footer, description, className, dismissible = true }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, children, footer, description, className, onEscapeKeyDown, dismissible = true }: SheetProps) {
   const { t } = useT();
   const returnFocus = useReturnFocus(open);
   return (
@@ -48,7 +49,10 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
         <DialogPrimitive.Content
           data-slot="sheet"
           {...returnFocus}
-          onEscapeKeyDown={escapeUnlessComboboxOpen}
+          onEscapeKeyDown={(event) => {
+            onEscapeKeyDown?.(event);
+            if (!event.defaultPrevented) escapeUnlessComboboxOpen(event);
+          }}
           // No description: tell Radix explicitly so it doesn't point at a missing node.
           {...(description ? {} : { "aria-describedby": undefined })}
           className={cn(
@@ -88,7 +92,7 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 lg:px-6">{children}</div>
           {footer ? (
-            <div className="flex flex-col-reverse gap-2 border-t border-border px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end lg:px-6 [&>*]:w-full sm:[&>*]:w-auto">
+            <div data-slot="sheet-footer" className="flex flex-col-reverse gap-2 border-t border-border px-5 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end lg:px-6 [&>*]:w-full sm:[&>*]:w-auto">
               {footer}
             </div>
           ) : (

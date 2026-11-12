@@ -1,0 +1,1 @@
+ALTER TABLE `membership` ADD `preferences` text DEFAULT '{}' NOT NULL;

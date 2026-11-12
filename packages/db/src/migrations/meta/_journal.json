@@ -337,6 +337,13 @@
       "when": 1794366000000,
       "tag": "0047_dispatch_late_entry",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1794472029952,
+      "tag": "0048_membership_preferences",
+      "breakpoints": true
     }
   ]
 }

@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 7580 screen strings in 49 groups, 45 guides with 866 strings.
+Counts: 7594 screen strings in 49 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -191,7 +191,7 @@ Counts: 7580 screen strings in 49 groups, 45 guides with 866 strings.
 | `admin` | Admin | एडमिन |
 | `support` | Support | सपोर्ट |
 
-### nav (56)
+### nav (70)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -251,6 +251,20 @@ Counts: 7580 screen strings in 49 groups, 45 guides with 866 strings.
 | `adminSupport` | Support | सपोर्ट |
 | `press` | Press | प्रेस |
 | `reports` | Reports | रिपोर्ट |
+| `arrange` | Arrange menu | मेन्यू का क्रम बदलें |
+| `resetDefault` | Reset to default | डिफ़ॉल्ट क्रम पर लौटें |
+| `resetConfirm` | Put the menu back in the default order? | मेन्यू को डिफ़ॉल्ट क्रम में वापस लाएं? |
+| `moveUp` | Move up | ऊपर ले जाएं |
+| `moveDown` | Move down | नीचे ले जाएं |
+| `dragToMove` | Reorder {name} | {name} का क्रम बदलें |
+| `moved` | {name} moved to position {position} of {total} | {name} अब {total} में से {position} नंबर पर है |
+| `movedAbove` | {name} moved above More | {name} को "और" वाली रेखा के ऊपर ले जाया गया |
+| `movedBelow` | {name} moved below More | {name} को "और" वाली रेखा के नीचे ले जाया गया |
+| `orderSaved` | Menu order saved | मेन्यू का क्रम सेव हो गया |
+| `orderSaveFailed` | The menu order could not be saved. Try again. | मेन्यू का क्रम सेव नहीं हो सका। फिर से कोशिश करें। |
+| `plantChanged` | The plant changed. Open the menu again and arrange it for this plant. | प्लांट बदल गया। इस प्लांट के लिए मेन्यू फिर से खोलकर क्रम बदलें। |
+| `keepOrder` | Keep my order | मेरा क्रम रखें |
+| `arrangeHint` | Items above More stay at the top of the menu. Drag an item across the line to move it. | "और" वाली रेखा के ऊपर के आइटम मेन्यू में सबसे ऊपर रहते हैं। किसी आइटम को रेखा के पार खींचकर ले जाएं। |
 
 ### auth (117)
 

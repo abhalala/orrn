@@ -1,0 +1,296 @@
+import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useT } from "@orrn/i18n";
+import type { MemberNavOrder } from "@orrn/server/lib/permissions";
+import { Button } from "@orrn/ui/components/button";
+import { Sheet } from "@orrn/ui/components/sheet";
+import { cn } from "@orrn/ui/lib/utils";
+import { useMutation } from "@tanstack/react-query";
+import { ArrowDown, ArrowUp, GripVertical } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { toast } from "sonner";
+
+import { trpc } from "@/shared/utils/trpc";
+
+import type { NavItem } from "./nav-items";
+import {
+  moveNavRow,
+  moveNavRowBy,
+  navOrderFromRows,
+  navRowsFromGroups,
+  type NavEditorRow,
+  type NavGroups,
+} from "./nav-order";
+
+const silentAnnouncements = {
+  onDragStart: () => "",
+  onDragOver: () => "",
+  onDragEnd: () => "",
+  onDragCancel: () => "",
+};
+
+export default function NavArrangeEditor({
+  open,
+  onOpenChange,
+  groups,
+  companyId,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  groups: NavGroups;
+  companyId: string;
+  onSaved(order: MemberNavOrder | null): void;
+}) {
+  const { t } = useT();
+  const [rows, setRows] = useState<NavEditorRow[]>(() => navRowsFromGroups(groups));
+  const [picked, setPicked] = useState<{ id: string; before: NavEditorRow[] } | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [busy, setBusy] = useState<"save" | "reset" | null>(null);
+  const save = useMutation(trpc.auth.setNavOrder.mutationOptions());
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const resetButtonRef = useRef<HTMLButtonElement>(null);
+  const confirmFirstButtonRef = useRef<HTMLButtonElement>(null);
+  const wasConfirmReset = useRef(false);
+
+  useEffect(() => {
+    if (confirmReset) confirmFirstButtonRef.current?.focus({ preventScroll: true });
+    else if (wasConfirmReset.current) resetButtonRef.current?.focus({ preventScroll: true });
+    wasConfirmReset.current = confirmReset;
+  }, [confirmReset]);
+
+  const cancel = () => {
+    if (!busy) onOpenChange(false);
+  };
+
+  const announce = (item: NavItem, next: NavEditorRow[]) => {
+    const beforeMore = rows.findIndex((row) => row.id === item.key) > rows.findIndex((row) => row.kind === "divider");
+    const afterMore = next.findIndex((row) => row.id === item.key) > next.findIndex((row) => row.kind === "divider");
+    if (beforeMore !== afterMore) {
+      setAnnouncement(t(afterMore ? "nav.movedBelow" : "nav.movedAbove", { name: t(item.labelKey) }));
+      return;
+    }
+    const items = next.flatMap((row) => (row.kind === "item" ? [row.item] : []));
+    const position = items.findIndex((candidate) => candidate.key === item.key) + 1;
+    setAnnouncement(t("nav.moved", { name: t(item.labelKey), position, total: items.length }));
+  };
+
+  const moveBy = (item: NavItem, delta: number) => {
+    const next = moveNavRowBy(rows, item.key, delta);
+    if (next.every((row, index) => row.id === rows[index]?.id)) return;
+    setRows(next);
+    announce(item, next);
+  };
+
+  const dragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const item = rows.find((row) => row.id === active.id && row.kind === "item");
+    if (!item || item.kind !== "item") return;
+    const next = moveNavRow(rows, String(active.id), String(over.id));
+    setRows(next);
+    announce(item.item, next);
+  };
+
+  const handleKey = (event: KeyboardEvent<HTMLButtonElement>, item: NavItem) => {
+    if (event.key === "Escape" && picked?.id === item.key) {
+      event.preventDefault();
+      event.stopPropagation();
+      setRows(picked.before);
+      setPicked(null);
+      setAnnouncement("");
+      return;
+    }
+    if ((event.key === " " || event.key === "Enter") && (!picked || picked.id === item.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      setPicked((current) => (current ? null : { id: item.key, before: rows }));
+      return;
+    }
+    if (picked?.id === item.key && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+      event.preventDefault();
+      event.stopPropagation();
+      moveBy(item, event.key === "ArrowUp" ? -1 : 1);
+    }
+  };
+
+  const finish = async (order: MemberNavOrder | null, kind: "save" | "reset") => {
+    setBusy(kind);
+    try {
+      await save.mutateAsync({ ...(order ?? { order: [] }), expectCompanyId: companyId });
+      onSaved(order);
+      toast.success(t("nav.orderSaved"));
+      onOpenChange(false);
+    } catch (error) {
+      if ((error as { data?: { code?: string } }).data?.code === "CONFLICT") {
+        toast.error(t("nav.plantChanged"));
+        onOpenChange(false);
+      } else {
+        toast.error(t("nav.orderSaveFailed"));
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) cancel();
+      }}
+      title={t("nav.arrange")}
+      description={t("nav.arrangeHint")}
+      onEscapeKeyDown={(event) => {
+        if (!picked) return;
+        event.preventDefault();
+        setRows(picked.before);
+        setPicked(null);
+        setAnnouncement("");
+      }}
+      dismissible={!busy}
+      footer={
+        confirmReset ? (
+          <div className="flex flex-col gap-3" role="alert">
+            <p className="m-0 text-[14px]">{t("nav.resetConfirm")}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button ref={confirmFirstButtonRef} variant="danger" loading={busy === "reset"} disabled={!!busy} onClick={() => void finish(null, "reset")}>
+                {t("nav.resetDefault")}
+              </Button>
+              <Button variant="secondary" disabled={!!busy} onClick={() => setConfirmReset(false)}>
+                {t("nav.keepOrder")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Button ref={resetButtonRef} variant="ghost" disabled={!!busy} onClick={() => setConfirmReset(true)}>
+              {t("nav.resetDefault")}
+            </Button>
+            <Button variant="secondary" disabled={!!busy} onClick={cancel}>
+              {t("common.cancel")}
+            </Button>
+            <Button loading={busy === "save"} disabled={!!busy} onClick={() => void finish(navOrderFromRows(rows), "save")}>
+              {t("common.done")}
+            </Button>
+          </>
+        )
+      }
+    >
+      <DndContext
+        sensors={sensors}
+        accessibility={{ announcements: silentAnnouncements, screenReaderInstructions: { draggable: "" } }}
+        onDragEnd={dragEnd}
+      >
+        <SortableContext items={rows.map((row) => row.id)} strategy={verticalListSortingStrategy}>
+          <ul data-slot="nav-arrange-list" className="m-0 flex list-none flex-col gap-1 p-0">
+            {rows.map((row) => (
+              <ArrangeRow
+                key={row.id}
+                row={row}
+                picked={picked?.id === row.id}
+                onKey={handleKey}
+                onMove={moveBy}
+                onDrop={() => setPicked(null)}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+
+      <p data-testid="nav-order-announcement" role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </p>
+    </Sheet>
+  );
+}
+
+function ArrangeRow({
+  row,
+  picked,
+  onKey,
+  onMove,
+  onDrop,
+}: {
+  row: NavEditorRow;
+  picked: boolean;
+  onKey(event: KeyboardEvent<HTMLButtonElement>, item: NavItem): void;
+  onMove(item: NavItem, delta: number): void;
+  onDrop(): void;
+}) {
+  const { t } = useT();
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useSortable({
+    id: row.id,
+    disabled: row.kind === "divider" ? { draggable: true, droppable: false } : false,
+    transition: null,
+  });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+  };
+
+  if (row.kind === "divider") {
+    return (
+      <li
+        ref={setNodeRef}
+        style={style}
+        data-slot="nav-more-divider"
+        className="motion-reduce:transition-none flex items-center gap-3 py-2 text-[13px] font-medium text-muted-foreground"
+      >
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        {t("nav.more")}
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      </li>
+    );
+  }
+
+  const item = row.item;
+  const Icon = item.icon;
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      data-nav-key={item.key}
+      className={cn(
+        "motion-reduce:transition-none flex min-w-0 items-center gap-1 rounded-card border border-border bg-card px-1 py-1",
+        (isDragging || picked) && "z-10 border-primary bg-accent shadow-lg",
+      )}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={t("nav.dragToMove", { name: t(item.labelKey) })}
+        aria-pressed={picked}
+        onKeyDown={(event) => onKey(event, item)}
+        onBlur={onDrop}
+        className="motion-reduce:transition-none flex size-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground active:cursor-grabbing"
+      >
+        <GripVertical aria-hidden="true" className="size-5" />
+      </button>
+      <Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+      <span title={t(item.labelKey)} className="min-w-0 flex-1 truncate px-1 text-[15px] font-medium">{t(item.labelKey)}</span>
+      <button
+        type="button"
+        aria-label={t("nav.moveUp")}
+        title={t("nav.moveUp")}
+        data-slot="nav-move-up"
+        onClick={() => onMove(item, -1)}
+        className="motion-reduce:transition-none flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground"
+      >
+        <ArrowUp aria-hidden="true" className="size-5" />
+      </button>
+      <button
+        type="button"
+        aria-label={t("nav.moveDown")}
+        title={t("nav.moveDown")}
+        data-slot="nav-move-down"
+        onClick={() => onMove(item, 1)}
+        className="motion-reduce:transition-none flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-[var(--dur-fast)] hover:bg-accent hover:text-foreground"
+      >
+        <ArrowDown aria-hidden="true" className="size-5" />
+      </button>
+    </li>
+  );
+}

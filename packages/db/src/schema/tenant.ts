@@ -67,6 +67,7 @@ export const membership = sqliteTable(
       .notNull()
       .references(() => company.id, { onDelete: "cascade" }),
     role: text("role", { enum: companyRoles }).notNull().default("viewer"),
+    preferences: text("preferences", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).default(nowMs).notNull(),
     /** Set by `company.switch`; the active company without a header is the latest of these. */
     lastActiveAt: integer("last_active_at", { mode: "timestamp_ms" }),

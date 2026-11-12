@@ -266,8 +266,8 @@ into the gitignored `apps/server/.dev.local-account.local`); the e2e helper `sig
 ## Migrations: numbering map
 
 Migrations are Drizzle SQL files in `packages/db/src/migrations` with a journal (`meta/_journal.json`) and one snapshot each;
-`bun run db:generate` writes them (a clean run must write nothing). The head today is `0042_cast_legacy_code`: 43 files, `0000` to
-`0042`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
+`bun run db:generate` writes them (a clean run must write nothing). The head today is `0048_membership_preferences`: 49 files, `0000` to
+`0048`, consecutive. A new migration is additive, takes the next consecutive number, its snapshot `prevId` must chain off the
 previous snapshot and its journal `when` must stay above the previous one (the db tests check both). Never edit a shipped
 migration. Lanes that carry a migration are renumbered consecutively at merge (decision D30) and their snapshot regenerated
 on top of the new head; the SQL header of a renumbered file says what it was called before.
@@ -298,6 +298,7 @@ on top of the new head; the SQL header of a renumbered file says what it was cal
 | 0041 | ageing 3 | `ageing_hardness.pass` nullable; **data step**: the table is rebuilt (`PRAGMA foreign_keys=OFF`, copy, drop, rename), empty on any database that never ran 0039 |
 | 0042 | cast legacy code | `cast.legacy_code`, unique per plant; continue an imported paper cast alongside its series number |
 | 0047 | dispatch late entry | `dispatch.late_entry`, `late_entry_reason`, `late_entry_approval_id` (arch 52). Chained after 0046 (the session revoke, which changes no schema) |
+| 0048 | membership preferences | `membership.preferences`, per-person and per-plant JSON preferences, starting with the side menu order |
 
 The two data steps and the 0028 refusal are what [DEPLOY_PROMOTION.md](DEPLOY_PROMOTION.md) checks before a real database
 gets them. If you need a number before a lane merges, take the next one after the highest merged and tell whoever is merging.
