@@ -229,8 +229,9 @@ describe("S4-4 and rule 4.3: approve waits only on a sheet that may matter, and 
   }
   const BOOK_ROWS = [
     ["Acme Traders", "PO-1", "01/10/2025", "R", "5100", "3658", "", "300"],
-    // A typo: letter O for zero. No die sheet anywhere holds 51OO.
-    ["Acme Traders", "PO-1", "01/10/2025", "R", "51OO", "3658", "", "300"],
+    // A typo: letter O for zero. No die sheet anywhere holds 51OO. Another order (PO-2): a refused
+    // line holds every line of its own order (rule 7.1).
+    ["Acme Traders", "PO-2", "01/10/2025", "R", "51OO", "3658", "", "300"],
   ];
 
   test("T6: an unread die sheet of another upload that does not hold the code never blocks the order book", async () => {

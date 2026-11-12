@@ -356,7 +356,8 @@ describe("financial years", () => {
         rows: [
           ["Acme Traders", "7", "", "15/03/2025", "R", "5100", "3658", "300"],
           ["Acme Traders", "7", "", "10/05/2025", "R", "5100", "3658", "300"],
-          ["Acme Traders", "7", "", "20/05/2025", "R", "5101", "3658", "300"],
+          // One order of 2025-26 has one date: two dates in one order's run are a conflict (rule 7.1).
+          ["Acme Traders", "7", "", "10/05/2025", "R", "5101", "3658", "300"],
         ],
       },
     ]);

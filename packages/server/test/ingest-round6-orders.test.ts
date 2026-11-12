@@ -161,6 +161,19 @@ describe("rule 7.1: an old order is written whole, or not at all", () => {
     expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["ambiguous", "ready_create", "refused"]);
   });
 
+  test("a refused line holds only its own financial year's order: the same number in another year is another order (rule 4.2)", async () => {
+    const p = await setup();
+    const id = await book(p.owner, [R("7", "", "15/03/2025", "5100", "Acme Traders", "abc"), R("7", "", "10/05/2025", "5101")]);
+    expect((await rowsOf(p.owner, id)).map((r) => r.state)).toEqual(["refused", "ready_create"]);
+  });
+
+  test("a refused line with no date holds every year's order of its number", async () => {
+    const p = await setup();
+    const id = await book(p.owner, [R("7", "PO-1", "15/03/2025", "5100"), R("8", "", "", "5101"), R("7", "PO-2", "10/05/2025", "5102"), R("9", "", "", "5101"), R("7", "", "", "5103")]);
+    const rows = await rowsOf(p.owner, id);
+    expect([rows[0]!.state, rows[2]!.state, rows[4]!.state]).toEqual(["ambiguous", "ambiguous", "refused"]);
+  });
+
   test("two different dates inside one order's run are a conflict; keeping the file's values on every row clears it", async () => {
     const p = await setup();
     const id = await book(p.owner, [R("41", "PO-9", "01/10/2025", "5100"), R("41", "", "02/10/2025", "5101")]);
