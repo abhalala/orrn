@@ -415,6 +415,8 @@ export type OtherHolder = {
   why: "order" | "po";
   /** The other candidate's order key. */
   otherKey: string;
+  /** The other candidate's old order number as its file wrote it (null: a PO-only order, or none written). */
+  otherNo: string | null;
   /** Rows of the other candidate's order that would write it, or wrote it. */
   rows: { id: string; state: string; decision: string | null; written: boolean }[];
 };
@@ -472,13 +474,14 @@ export async function otherFileHolders(
     key: R.orderKey,
     poKey: R.poKey,
     orderDate: sql<string | null>`json_extract(${R.values}, '$.orderDate')`,
+    oldNo: sql<string | null>`nullif(trim(coalesce(json_extract(${R.values}, '$.oldOrderNo'), '')), '')`,
     id: R.id,
     state: R.state,
     decision: R.decision,
     mergeState: R.mergeState,
     candidateId: R.candidateId,
   };
-  type Hit = { key: string | null; poKey: string | null; orderDate: string | null; id: string; state: string; decision: string | null; mergeState: string; candidateId: string };
+  type Hit = { key: string | null; poKey: string | null; orderDate: string | null; oldNo: string | null; id: string; state: string; decision: string | null; mergeState: string; candidateId: string };
   const byKey = await mapInChunks([...new Set(mine.map((m) => m.key))], (part) =>
     ctx.db
       .select(pick)
@@ -539,6 +542,7 @@ export async function otherFileHolders(
         sheetName: o.sheetName,
         why,
         otherKey,
+        otherNo: hits.find((h) => h.oldNo)?.oldNo ?? null,
         rows: hits.map((h) => ({ id: h.id, state: h.state, decision: h.decision, written: h.mergeState === "written" })),
       });
     }

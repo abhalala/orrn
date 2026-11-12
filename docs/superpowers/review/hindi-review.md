@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8144 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8147 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6945,7 +6945,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (530)
+### ingest (533)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7151,6 +7151,7 @@ Please check, Lalubhai:
 | `row.unchanged` | Already in orrn | orrn में पहले से है |
 | `row.ambiguous` | Pick a match | कौन सा है, चुनें |
 | `row.conflict` | Differs from orrn | orrn से अलग है |
+| `row.clash` | Clashes with another file | दूसरी फ़ाइल से टकराव |
 | `row.refused` | Cannot import | इम्पोर्ट नहीं हो सकता |
 | `row.skipped` | Skipped | छोड़ा गया |
 | `row.waiting` | Waits on a question | सवाल का इंतज़ार |
@@ -7449,6 +7450,8 @@ Please check, Lalubhai:
 | `refuse.order_run_differs` | Rows of one order number show two different values for {field}. Use the file value on this row, or skip it. | एक ऑर्डर नंबर की लाइनों में {field} की दो अलग वैल्यू हैं। इस लाइन पर फ़ाइल की वैल्यू लें, या इसे छोड़ दें। |
 | `refuse.order_no_date` | This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it. | इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें। |
 | `refuse.po_on_two_ordersFileOnly` | PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersNo` | PO {po} is on {order} here and on {otherOrder} in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} ({sheet}) में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersNoOnly` | PO {po} is on {order} here and on {otherOrder} in {file}. One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
 | `refuse.order_in_other_fileOnly` | This order is also in {file}. Keep it in this file, or skip these rows and keep it there. | यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें। |
 | `refuse.filled_down` | {field} came from the dated line above. | {field} ऊपर की तारीख वाली लाइन से आई। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |

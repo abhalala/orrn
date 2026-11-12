@@ -260,6 +260,7 @@ export const ingestEn = {
     unchanged: "Already in orrn",
     ambiguous: "Pick a match",
     conflict: "Differs from orrn",
+    clash: "Clashes with another file",
     refused: "Cannot import",
     skipped: "Skipped",
     waiting: "Waits on a question",
@@ -618,6 +619,8 @@ export const ingestEn = {
     order_no_date: "This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it.",
     // a file with no sheet name (CSV)
     po_on_two_ordersFileOnly: "PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersNo: "PO {po} is on {order} here and on {otherOrder} in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them.",
+    po_on_two_ordersNoOnly: "PO {po} is on {order} here and on {otherOrder} in {file}. One PO can be on one order only. Skip the rows of one of them.",
     order_in_other_fileOnly: "This order is also in {file}. Keep it in this file, or skip these rows and keep it there.",
     // server round 8: filled_down
     filled_down: "{field} came from the dated line above.",

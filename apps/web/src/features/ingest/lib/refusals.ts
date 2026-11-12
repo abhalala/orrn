@@ -36,7 +36,7 @@ export const SILENT_REASONS: readonly string[] = ["order_live"];
 const NOTE_CODES = new Set(["po_on_closed_order", "merged_cell", "section_pending", "customer_pending", "order_po_skipped", "check_against_file", "order_skipped_lines", "filled_down"]);
 
 /** What a row's `values` hold about the old order, for the sentences that name orders and files. */
-export type OrderFacts = { orderNo: string | null; po: string | null; file: string | null; sheet: string | null; closedOrder: string | null };
+export type OrderFacts = { orderNo: string | null; po: string | null; file: string | null; sheet: string | null; closedOrder: string | null; otherOrderNo?: string | null };
 
 const text = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : typeof v === "number" ? String(v) : null);
 const objectOf = (v: unknown): Record<string, unknown> => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
@@ -53,6 +53,7 @@ export function orderFacts(values: Record<string, unknown> | null | undefined): 
     file: text(other.fileName),
     sheet: text(other.sheetName),
     closedOrder: text(objectOf(v._closedOrder).number),
+    otherOrderNo: text(other.orderNo),
   };
 }
 
@@ -103,6 +104,10 @@ export function refusalLine(reason: string, facts?: OrderFacts): RefusalLine | n
   }
   if (SILENT_REASONS.includes(code)) return null;
   // One PO on two orders and the same order in two files name the other file when the server says which one.
+  if (code === "po_on_two_orders" && facts?.file && facts.otherOrderNo) {
+    // The other file's order is named too: "and on old order 52 in orders.xlsx" (design fix M6).
+    return { kind: "refusal", key: facts.sheet ? "ingest.refuse.po_on_two_ordersNo" : "ingest.refuse.po_on_two_ordersNoOnly", fieldKey: null, order: facts };
+  }
   if (code === "po_on_two_orders" && facts?.file) {
     // A CSV has no sheet name: say the file alone, not "file ()".
     return { kind: "refusal", key: facts.sheet ? "ingest.refuse.po_on_two_ordersFile" : "ingest.refuse.po_on_two_ordersFileOnly", fieldKey: null, order: facts };
@@ -166,6 +171,7 @@ export function refusalText(
     vars.file = o.file ?? "";
     vars.sheet = o.sheet ?? "";
     vars.closed = o.closedOrder ?? "";
+    vars.otherOrder = o.otherOrderNo ? t("ingest.refuse.orderNo", { no: o.otherOrderNo }) : "";
   }
   if (line.count !== undefined) vars.count = line.count;
   return t(line.key, vars);
@@ -179,6 +185,8 @@ const WAITING_KEYS = new Set([
   "ingest.refuse.po_on_two_orders",
   "ingest.refuse.po_on_two_ordersFile",
   "ingest.refuse.po_on_two_ordersFileOnly",
+  "ingest.refuse.po_on_two_ordersNo",
+  "ingest.refuse.po_on_two_ordersNoOnly",
   "ingest.refuse.order_in_other_fileOnly",
   "ingest.refuse.po_on_live_order",
   "ingest.refuse.order_waits",

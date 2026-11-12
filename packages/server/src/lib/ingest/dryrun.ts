@@ -2582,7 +2582,10 @@ async function orderPassStatements(
   // plant: both keys are compared (rule 4.2).
   const holders = await otherFileHolders(ctx, c.id, toOtherCheck);
   const out: SqliteBatchItem[] = [];
-  const otherRows = new Map<string, { candidateId: string; reason: string; rowIds: string[] }>();
+  const otherRows = new Map<string, { candidateId: string; reason: string; mineKey: string; mineNo: string | null; rowIds: string[] }>();
+  // The other order's number as its file wrote it (a numbered order only), so the sentence can say "and on old order 52 in orders.xlsx" (design fix M6).
+  const oldNoOf = (key: string, raw: string | null | undefined): { orderNo?: string } =>
+    parseOrderKey(key).kind === "no" && raw ? { orderNo: raw.slice(0, 40) } : {};
   const reasonOf = (why: "order" | "po") => (why === "order" ? "order_in_other_file:order" : "po_on_two_orders:poNumber");
   for (const { key, ready } of toOtherCheck) {
     const hs = holders.get(key);
@@ -2591,15 +2594,15 @@ async function orderPassStatements(
     for (const b of ready) {
       if (b.r.decision === "keep_file") continue;
       const w = want.get(b.r.id)!;
-      want.set(b.r.id, { ...w, state: "conflict", reasons: [...w.reasons, reasonOf(h.why)], other: { candidateId: h.candidateId, fileName: h.fileName, sheetName: h.sheetName } });
+      want.set(b.r.id, { ...w, state: "conflict", reasons: [...w.reasons, reasonOf(h.why)], other: { candidateId: h.candidateId, fileName: h.fileName, sheetName: h.sheetName, ...oldNoOf(h.otherKey, h.otherNo) } });
     }
     // The other candidate's rows of that order, while a person may still change them.
     for (const o of hs) {
       if (o.candidateState !== "ready" && o.candidateState !== "held") continue;
       const ids = o.rows.filter((x) => !x.written && x.state === "ready_create" && x.decision !== "keep_file").map((x) => x.id);
       if (!ids.length) continue;
-      const at2 = `${o.candidateId}|${o.why}`;
-      const e = otherRows.get(at2) ?? { candidateId: o.candidateId, reason: reasonOf(o.why), rowIds: [] };
+      const at2 = `${o.candidateId}|${o.why}|${key}`;
+      const e = otherRows.get(at2) ?? { candidateId: o.candidateId, reason: reasonOf(o.why), mineKey: key, mineNo: ready.find((x) => x.r.oldNo)?.r.oldNo ?? null, rowIds: [] };
       e.rowIds.push(...ids);
       otherRows.set(at2, e);
     }
@@ -2676,8 +2679,8 @@ async function orderPassStatements(
     }
   }
   // The other candidates: their rows of the order turn into the same conflict, naming this sheet.
-  const mine = JSON.stringify({ candidateId: c.id, fileName: names.fileName, sheetName: names.sheetName });
-  for (const { candidateId, reason, rowIds } of otherRows.values()) {
+  for (const { candidateId, reason, mineKey, mineNo, rowIds } of otherRows.values()) {
+    const mine = JSON.stringify({ candidateId: c.id, fileName: names.fileName, sheetName: names.sheetName, ...oldNoOf(mineKey, mineNo) });
     // 40 a statement: the counts statement names the rows twice (under D1's 100 parameters).
     for (const part of chunk(rowIds, 40)) {
       // Its counts move by the rows this statement turns: counted by primary key first, in the same

@@ -167,6 +167,10 @@ describe("S4-1 and rule 4.2: a PO joins the numbered order that carries it, acro
     await pump(p.owner, b);
     expect(await shown(p.owner, a)).toEqual([["conflict", "po_on_two_orders:poNumber", "B"]]);
     expect(await shown(p.owner, b)).toEqual([["conflict", "po_on_two_orders:poNumber", "A"]]);
+    // Design fix M6: each side also says the number of the other file's order, as that file wrote it.
+    const otherNo = async (id: string) => ((await rowsOf(p.owner, id))[0]!.values as { _otherFile?: { orderNo?: string } })._otherFile?.orderNo;
+    expect(await otherNo(a)).toBe("42");
+    expect(await otherNo(b)).toBe("41");
     expect(await tryApprove(p.owner, a)).toStartWith("REFUSED");
     expect(await tryApprove(p.owner, b)).toStartWith("REFUSED");
     await decide(p.owner, b, (await rowsOf(p.owner, b)).map((r) => r.id), "skip");

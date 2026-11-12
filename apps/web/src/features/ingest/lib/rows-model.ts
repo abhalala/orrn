@@ -12,7 +12,7 @@ import {
   type Words,
 } from "./model";
 import type { PlantUnits } from "./plant-units";
-import { refusalLines, type RefusalLine } from "./refusals";
+import { orderFacts, refusalLines, type RefusalLine } from "./refusals";
 import { diffSide, rawCells, rowColumns, rowFieldLabelKey, valueCells, type RowColumn, type ValueCell } from "./row-values";
 import type { CandidateCounts, CandidateDetail, RowState, StagedRowView } from "./types";
 
@@ -145,6 +145,11 @@ function chosenWords(row: Pick<StagedRowView, "decision" | "matchId" | "options"
   return picked ? { key, vars: { name: picked.label } } : null;
 }
 
+/** A conflict that is a clash with another file: the order or PO it names is also in another file or sheet of the plant. */
+function clashesWithFile(row: Pick<StagedRowView, "reasons" | "values">): boolean {
+  return row.reasons.some((r) => r.startsWith("po_on_two_orders:") || r.startsWith("order_in_other_file:")) && orderFacts(row.values).file !== null;
+}
+
 /** One staged row as the table and the cards show it. */
 export function rowView(candidate: Pick<CandidateDetail, "target" | "block">, row: StagedRowView, plant: PlantUnits): RowView {
   const cells = valueCells(candidate.target, row, plant);
@@ -163,7 +168,10 @@ export function rowView(candidate: Pick<CandidateDetail, "target" | "block">, ro
       ? { key: "ingest.row.waitsOrder", tone: rowTone(row.state) }
       : waits && row.state === "ambiguous"
         ? { key: "ingest.row.waiting", tone: rowTone(row.state) }
-        : key ? { key, tone: rowTone(row.state) } : null,
+        // Two files that cannot both be written are a clash between the files, not a difference from orrn (design check M6).
+        : row.state === "conflict" && clashesWithFile(row)
+          ? { key: "ingest.row.clash", tone: rowTone(row.state) }
+          : key ? { key, tone: rowTone(row.state) } : null,
     written: row.mergeState === "written",
     cells,
     raw: cells.length === 0 ? rawCells(row.raw, candidate.block.headers) : [],

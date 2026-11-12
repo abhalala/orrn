@@ -8,7 +8,7 @@ import { QUESTION_CODES, ROW_DECISIONS } from "@orrn/ingest";
 import { answerFromValue } from "./answers";
 import { decisionOptions, questionView } from "./model";
 import { ingestErrorWords } from "./errors";
-import { KNOWN_REFUSAL_CODES, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
+import { KNOWN_REFUSAL_CODES, orderFacts, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
 
 /**
  * The server's code lists and the words the web has for them. When the server adds a question, a row reason or a
@@ -156,6 +156,21 @@ describe("server codes have words", () => {
     expect(refusalLine("po_on_two_orders:poNumber", facts)).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFileOnly" });
     expect(refusalLine("order_in_other_file:order", facts)).toMatchObject({ key: "ingest.refuse.order_in_other_fileOnly" });
     expect(refusalLine("po_on_two_orders:poNumber", { ...facts, sheet: "Sheet1" })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFile" });
+  });
+
+  // Design check M6: the other file's order number is named when the server sends it.
+  test("a PO on two orders names the other file's order too, with or without a sheet", () => {
+    const facts = { orderNo: "41", po: "PO-9", file: "orders.xlsx", sheet: "Book B", closedOrder: null, otherOrderNo: "52" };
+    expect(refusalLine("po_on_two_orders:poNumber", facts)).toMatchObject({ key: "ingest.refuse.po_on_two_ordersNo" });
+    expect(refusalLine("po_on_two_orders:poNumber", { ...facts, sheet: null })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersNoOnly" });
+    const say = (key: string, vars?: Record<string, string | number>) =>
+      key === "ingest.refuse.orderNo" ? `old order ${vars?.no}` : key === "ingest.refuse.po_on_two_ordersNo" ? `PO ${vars?.po} is on ${vars?.order} here and on ${vars?.otherOrder} in ${vars?.file} (${vars?.sheet}).` : key;
+    expect(refusalText(say, refusalLine("po_on_two_orders:poNumber", facts)!)).toBe("PO PO-9 is on old order 41 here and on old order 52 in orders.xlsx (Book B).");
+    expect(refusalTone(refusalLine("po_on_two_orders:poNumber", facts)!)).toBe("amber");
+    // A PO-only order in the other file has no number to name: the older words stay.
+    expect(refusalLine("po_on_two_orders:poNumber", { ...facts, otherOrderNo: null })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFile" });
+    // And the facts come from what the server stored on the row.
+    expect(orderFacts({ oldOrderNo: "41", poNumber: "PO-9", _otherFile: { fileName: "orders.xlsx", sheetName: "Book B", orderNo: "52" } })).toMatchObject({ file: "orders.xlsx", otherOrderNo: "52" });
   });
 
   test("a field filled down from the line above is a muted note with the field's name, never the raw code", () => {

@@ -259,6 +259,7 @@ export const ingestHi = {
     unchanged: "orrn में पहले से है",
     ambiguous: "कौन सा है, चुनें",
     conflict: "orrn से अलग है",
+    clash: "दूसरी फ़ाइल से टकराव",
     refused: "इम्पोर्ट नहीं हो सकता",
     skipped: "छोड़ा गया",
     waiting: "सवाल का इंतज़ार",
@@ -617,6 +618,8 @@ export const ingestHi = {
     order_no_date: "इस लाइन में तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ऑर्डर {n} किस साल का है। तारीख दें या लाइन छोड़ दें।",
     // a file with no sheet name (CSV)
     po_on_two_ordersFileOnly: "PO {po} यहां {order} पर है और {file} के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersNo: "PO {po} यहां {order} पर है और {file} ({sheet}) में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
+    po_on_two_ordersNoOnly: "PO {po} यहां {order} पर है और {file} में {otherOrder} पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें।",
     order_in_other_fileOnly: "यह ऑर्डर {file} में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें।",
     // server round 8: filled_down
     filled_down: "{field} ऊपर की तारीख वाली लाइन से आई।",

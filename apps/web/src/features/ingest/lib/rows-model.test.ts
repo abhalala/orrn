@@ -19,6 +19,20 @@ const staged = (over: Partial<StagedRowView>): StagedRowView => ({
   options: [], diff: null, decision: null, mergeState: "open", committedType: null, committedId: null, rate: null, rateHidden: false, ...over,
 });
 
+describe("a clash between two files is labelled as such (design check M6)", () => {
+  const other = { fileName: "orders.xlsx", sheetName: "Book B", orderNo: "52" };
+  test("a conflict that names another file says 'Clashes with another file'", () => {
+    const po = rowView(candidate, staged({ state: "conflict", reasons: ["po_on_two_orders:poNumber"], values: { legacyId: "L1", _otherFile: other } }), plant);
+    expect(po.chip).toEqual({ key: "ingest.row.clash", tone: "warning" });
+    const same = rowView(candidate, staged({ state: "conflict", reasons: ["order_in_other_file:order"], values: { _otherFile: other } }), plant);
+    expect(same.chip?.key).toBe("ingest.row.clash");
+  });
+  test("a conflict with orrn, and a PO twice inside one sheet, keep their own chip", () => {
+    expect(rowView(candidate, staged({ state: "conflict", diff: { weightG: { live: 100, file: 200 } } }), plant).chip?.key).toBe("ingest.row.conflict");
+    expect(rowView(candidate, staged({ state: "conflict", reasons: ["po_on_two_orders:poNumber"] }), plant).chip?.key).toBe("ingest.row.conflict");
+  });
+});
+
 describe("filters (M12)", () => {
   test("Needs a decision is first and the default when above 0, then the row states, then All", () => {
     const options = rowFilters(counts({ ambiguous: 2, conflict: 1, create: 90, refused: 7 }));
