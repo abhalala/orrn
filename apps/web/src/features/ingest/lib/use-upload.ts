@@ -6,6 +6,7 @@ import { DEFAULT_LIMITS, detectFileKind, takeFiles } from "./limits";
 import { useIngestStatus } from "./queries";
 import { ingestErrorWords } from "./errors";
 import type { FileProblemKey } from "./limits";
+import type { HeaderReply } from "./header-step";
 import { hashFile, ReadError, readFile } from "./reader-client";
 import { ingestApi } from "./trpc-api";
 import { uploadOneFile, type UploadItem } from "./upload";
@@ -17,6 +18,8 @@ export function useIngestUpload(): {
   add: (files: readonly File[], note?: string) => { left: number };
   retry: (id: string) => void;
   remove: (id: string) => void;
+  /** The person's answer to the header step of a file ("Which row has the column names?"). */
+  answerHeader: (id: string, reply: HeaderReply) => void;
   busy: boolean;
 } {
   const qc = useQueryClient();
@@ -26,6 +29,7 @@ export function useIngestUpload(): {
   const files = useRef(new Map<string, { file: File; note?: string }>());
   const running = useRef<{ id: string; ctl: AbortController } | null>(null);
   const counter = useRef(0);
+  const waiting = useRef(new Map<string, { resolve: (reply: HeaderReply) => void; reject: (error: unknown) => void }>());
   const [tick, setTick] = useState(0);
 
   const patch = useCallback((id: string, p: Partial<UploadItem>) => {
@@ -55,8 +59,17 @@ export function useIngestUpload(): {
     [patch],
   );
 
+  const answerHeader = useCallback((id: string, reply: HeaderReply) => {
+    const pending = waiting.current.get(id);
+    if (!pending) return;
+    waiting.current.delete(id);
+    pending.resolve(reply);
+  }, []);
+
   const remove = useCallback((id: string) => {
     if (running.current?.id === id) running.current.ctl.abort();
+    waiting.current.get(id)?.reject(new DOMException("Cancelled", "AbortError"));
+    waiting.current.delete(id);
     files.current.delete(id);
     setItems((all) => all.filter((i) => i.id !== id));
   }, []);
@@ -75,6 +88,10 @@ export function useIngestUpload(): {
       onItem: (p) => patch(nextId, p),
       signal: ctl.signal,
       note: entry.note,
+      ask: (view) =>
+        new Promise<HeaderReply>((resolve, reject) => {
+          waiting.current.set(nextId, { resolve, reject });
+        }),
     })
       .catch((error: unknown) => {
         if ((error as { name?: string } | null)?.name === "AbortError") return;
@@ -90,5 +107,5 @@ export function useIngestUpload(): {
       });
   }, [nextId, limits, patch, qc, tick]);
 
-  return { items, add, retry, remove, busy };
+  return { items, add, retry, remove, answerHeader, busy };
 }

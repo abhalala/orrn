@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8009 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8054 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (420)
+### ingest (465)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6957,6 +6957,27 @@ Please check, Lalubhai:
 | `read.change` | Change mapping | कॉलम मिलान बदलें |
 | `read.show` | Show | दिखाएं |
 | `read.hide` | Hide | छिपाएं |
+| `header.title` | Which row has the column names? | किस लाइन में कॉलम के नाम हैं? |
+| `header.count` | Table {n} of {total} | {total} में से टेबल {n} |
+| `header.aboutNoSheet` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
+| `header.looksLike` | This looks like {name}. Is row {n} the column names? | यह {name} जैसा लगता है। क्या लाइन {n} में कॉलम के नाम हैं? |
+| `header.tableCaption` | The first rows of the table, with their row numbers | टेबल की पहली लाइनें, उनके लाइन नंबर के साथ |
+| `header.rowLabel` | Row {n} | लाइन {n} |
+| `header.rowName` | Row {n}: {cells} | लाइन {n}: {cells} |
+| `header.empty` | Empty row | खाली लाइन |
+| `header.gap` | Rows left out | बीच की लाइनें छोड़ी गई हैं |
+| `header.moreColumns` | {count} more {count:column\|columns} not shown | {count} और कॉलम नहीं दिखाए गए |
+| `header.namesTake` | The column names take | कॉलम के नाम |
+| `header.oneRow` | One row | एक लाइन |
+| `header.twoRows` | Two rows | दो लाइनें |
+| `header.twoHint` | Row {n} and the row under it. | लाइन {n} और उसके नीचे की लाइन। |
+| `header.use` | Use row {n} | लाइन {n} लें |
+| `header.skip` | Do not import this table | यह टेबल इम्पोर्ट न करें |
+| `header.continues` | It continues the table above | यह ऊपर की टेबल का ही हिस्सा है |
+| `header.same` | Same columns as the table above | ऊपर की टेबल जैसे ही कॉलम |
+| `header.orPick` | Or pick the row that has the column names | या वह लाइन चुनें जिसमें कॉलम के नाम हैं |
+| `header.pickAnother` | Pick another row | दूसरी लाइन चुनें |
+| `header.unfinished` | {name} was not finished. Add the file again to continue. | {name} पूरी नहीं हुई थी। जारी रखने के लिए फ़ाइल फिर से जोड़ें। |
 | `vault.off` | File storage is not set up for this plant, so the original file is not kept. Ask orrn support to turn it on. | इस प्लांट के लिए फ़ाइल स्टोरेज चालू नहीं है, इसलिए असली फ़ाइल सेव नहीं रहेगी। orrn सपोर्ट से इसे चालू करने को कहें। |
 | `vault.notStored` | Original file not kept | असली फ़ाइल सेव नहीं है |
 | `vault.stored` | Original file kept | असली फ़ाइल सेव है |
@@ -7089,6 +7110,7 @@ Please check, Lalubhai:
 | `decide.skip` | Skip this row | यह लाइन छोड़ें |
 | `decide.named` | {label}, row {n} | {label}, लाइन {n} |
 | `decide.group` | Decide: row {n} | फ़ैसला: लाइन {n} |
+| `decide.keepHere` | Keep it in this file | इसे इसी फ़ाइल में रखें |
 | `q.unit_unknown` | {field} has no unit. Which unit is it? | {field} में यूनिट नहीं लिखी है। कौन सी यूनिट है? |
 | `q.date_format_ambiguous` | Dates like {sample} could be day first or month first. Which is it? | {sample} जैसी तारीखों में शुरू में दिन है या महीना? |
 | `q.period_needed` | Which financial year is this file from, and on what date? | यह फ़ाइल किस वित्त वर्ष की है, और किस तारीख तक की? |
@@ -7114,6 +7136,8 @@ Please check, Lalubhai:
 | `q.aboutRow` | Row {n} | लाइन {n} |
 | `q.save` | Save answer | जवाब सेव करें |
 | `q.goToYear` | Choose the year | वर्ष चुनें |
+| `q.order_po` | Old order {order} has more than one PO in the file: {pos}. Which PO does it take? | पुराने ऑर्डर {order} में फ़ाइल के अंदर एक से ज़्यादा PO हैं: {pos}। इसमें कौन सा PO रखें? |
+| `q.skipOrder` | Skip this order | यह ऑर्डर छोड़ें |
 | `questions.title` | {count} {count:question\|questions} before you approve | मंज़ूर करने से पहले {count} सवाल |
 | `questions.doneTitle` | {count} {count:question\|questions} answered | {count} {count:सवाल का जवाब दिया\|सवालों के जवाब दिए} |
 | `period.fy` | Financial year | वित्त वर्ष |
@@ -7331,6 +7355,24 @@ Please check, Lalubhai:
 | `refuse.in_file_duplicate_same` | This row is in the file twice. The second copy is skipped. | यह लाइन फ़ाइल में दो बार है। दूसरी कॉपी छोड़ दी गई। |
 | `refuse.cell_cut` | A cell in this row was very long and was cut. | इस लाइन का एक सेल बहुत लंबा था, इसलिए काट दिया गया। |
 | `refuse.row_cut` | This row was very long and the end of it was cut. | यह लाइन बहुत लंबी थी, इसलिए इसका आखिरी हिस्सा काट दिया गया। |
+| `refuse.orderNo` | old order {no} | पुराना ऑर्डर {no} |
+| `refuse.thisOrder` | this order | यह ऑर्डर |
+| `refuse.po_on_two_orders` | PO {po} is on {order} and on another order in this sheet. One PO can be on one order only. Skip the rows of one of them. | PO {po} {order} पर है और इसी शीट के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_two_ordersFile` | PO {po} is on {order} here and on another order in {file} ({sheet}). One PO can be on one order only. Skip the rows of one of them. | PO {po} यहां {order} पर है और {file} ({sheet}) के एक और ऑर्डर पर भी है। एक PO एक ही ऑर्डर पर हो सकता है। किसी एक की लाइनें छोड़ दें। |
+| `refuse.po_on_live_order` | PO {po} is already on another order in orrn. Keep the orrn order, or skip these rows. | PO {po} orrn के एक और ऑर्डर पर पहले से है। orrn का ऑर्डर रखें, या ये लाइनें छोड़ दें। |
+| `refuse.order_in_other_file` | This order is also in {file} ({sheet}). Keep it in this file, or skip these rows and keep it there. | यह ऑर्डर {file} ({sheet}) में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़कर वहां रखें। |
+| `refuse.order_in_other_fileUnnamed` | This order is also in another file. Keep it in this file, or skip these rows. | यह ऑर्डर एक और फ़ाइल में भी है। इसे इसी फ़ाइल में रखें, या ये लाइनें छोड़ दें। |
+| `refuse.order_po_skipped` | You skipped this order, so its rows are left out. | आपने यह ऑर्डर छोड़ा, इसलिए इसकी लाइनें बाहर हैं। |
+| `refuse.order_no_unclear` | This row has no order number, and its PO is on more than one order in this sheet. Fill in the order number, or skip the row. | इस लाइन में ऑर्डर नंबर नहीं है, और इसका PO इस शीट के एक से ज़्यादा ऑर्डर पर है। ऑर्डर नंबर भरें, या लाइन छोड़ दें। |
+| `refuse.order_two_pos` | This order has more than one PO in the file. Pick the right one, or skip the order. | इस ऑर्डर में फ़ाइल के अंदर एक से ज़्यादा PO हैं। सही वाला चुनें, या ऑर्डर छोड़ दें। |
+| `refuse.order_lines_over` | This order has more than 100 lines. Give the lines over 100 another PO number in the file, or skip some rows. | इस ऑर्डर में 100 से ज़्यादा लाइनें हैं। 100 से ऊपर की लाइनों को फ़ाइल में दूसरा PO नंबर दें, या कुछ लाइनें छोड़ दें। |
+| `refuse.po_two_dates` | This PO has more than one order date in the file. One PO is one order. Fix the dates or skip rows. | इस PO की फ़ाइल में एक से ज़्यादा ऑर्डर तारीखें हैं। एक PO एक ही ऑर्डर है। तारीखें सुधारें या लाइनें छोड़ दें। |
+| `refuse.section_archived` | This section is archived, so it takes no new die copies. | यह सेक्शन आर्काइव है, इसलिए इसमें नई Die कॉपी नहीं बनतीं। |
+| `refuse.check_against_file` | Check this row against the file. | इस लाइन को फ़ाइल से मिलाकर देखें। |
+| `refuse.po_on_closed_order` | PO {po} is also on closed order {closed}. This row is imported as a new order. | PO {po} बंद ऑर्डर {closed} पर भी है। यह लाइन नए ऑर्डर के रूप में जोड़ी जाती है। |
+| `refuse.merged_cell` | Order number taken from the merged cell above. | ऑर्डर नंबर ऊपर के मर्ज किए सेल से लिया गया। |
+| `refuse.section_pending` | This section comes from another sheet of this upload. | यह सेक्शन इसी अपलोड की दूसरी शीट से आता है। |
+| `refuse.customer_pending` | This customer comes from another sheet of this upload. | यह ग्राहक इसी अपलोड की दूसरी शीट से आता है। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |
 | `error.forbidden` | Your role cannot do this. Ask the owner. | आपका रोल यह नहीं कर सकता। मालिक से कहें। |
 | `error.notFound` | This import is no longer there. | यह इम्पोर्ट अब नहीं है। |
@@ -7338,6 +7380,9 @@ Please check, Lalubhai:
 | `error.busy` | orrn is busy. Try again in a minute. | orrn अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। |
 | `error.load` | Could not load this. Check the connection and try again. | यह लोड नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
 | `error.action` | Could not save that. Check the connection and try again. | सेव नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें। |
+| `error.checkAgain` | This sheet has to be checked again before it can be approved. | इस शीट को मंज़ूर करने से पहले दोबारा जांचना होगा। |
+| `error.refused` | orrn cannot do this yet. | orrn अभी यह नहीं कर सकता। |
+| `error.checkAgainButton` | Check this sheet again | यह शीट दोबारा जांचें |
 | `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
 | `file.table` | Table {n} | टेबल {n} |

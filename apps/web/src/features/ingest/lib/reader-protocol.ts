@@ -39,6 +39,8 @@ export type BlockMeta = {
   /** Raw row of the first and of the last data row, for a join with the table below. */
   firstDataRow: number;
   lastDataRow: number;
+  /** Raw rows above the header that hold text (a title, a month name): they are skipped when the table is joined to the one above. */
+  titleRows: number[];
 };
 
 /** A block as read: what `putBlocks` sends, plus the rows that follow it in `putRows` and the canonical file. */

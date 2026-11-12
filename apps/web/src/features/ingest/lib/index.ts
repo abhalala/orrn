@@ -17,6 +17,8 @@ export { useIngestActions, makeIngestActions, refreshIngest, DECIDE_ROWS_PER_CAL
 export { hashFile, readFile, ReadError, setReaderWorkerFactoryForTests, type ReadResult, type WorkerLike } from "./reader-client";
 export type { ReadProgress, ReadFailure, ReadBlock } from "./reader-protocol";
 export { useIngestUpload } from "./use-upload";
+export * from "./header-step";
+export * from "./files-model";
 export {
   uploadOneFile, ticketUrl, gzipJsonl, problemFromError, UploadPutError,
   type UploadItem, type UploadStep, type UploadReader, type UploadClientDeps,

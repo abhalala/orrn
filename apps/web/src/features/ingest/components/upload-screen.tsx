@@ -22,12 +22,13 @@ import {
   useDryRunQueue,
   useFocusReturn,
   useIngestStatus,
+  unfinishedFiles,
   useIngestUpload,
 } from "../lib";
 import { CandidateBoard } from "./candidate-board";
 import { StatusRegion, useDocTitle, useSay } from "./list-kit";
 import { QueryPanel } from "./shared";
-import { StagedFiles, UploadStrip } from "./upload-strip";
+import { StagedFiles, UnfinishedFiles, UploadStrip } from "./upload-strip";
 
 /**
  * `/ingest` (work order 3.1 and 3.2): the header with "Add files", the files being added, and the list of imports.
@@ -134,6 +135,9 @@ export function IngestUploadScreen() {
   );
   const choose = () => inputRef.current?.click();
   const showStrip = staged.length > 0 || strip.length > 0;
+  // A file left half way by a page that was closed: this page is not sending it, so it must be added again.
+  const sending = useMemo(() => new Set(upload.items.flatMap((i) => (i.artifactId ? [i.artifactId] : []))), [upload.items]);
+  const unfinished = useMemo(() => (canUpload ? unfinishedFiles(artifacts.data ?? [], sending) : []), [artifacts.data, sending, canUpload]);
 
   return (
     <div
@@ -186,6 +190,8 @@ export function IngestUploadScreen() {
         </div>
       ) : null}
 
+      <UnfinishedFiles files={unfinished} />
+
       {left > 0 ? <p className="m-0 text-[14px] text-tone-amber-ink">{t("ingest.drop.left", { count: left })}</p> : null}
 
       {showStrip ? (
@@ -203,7 +209,7 @@ export function IngestUploadScreen() {
               onCancel={cancel}
             />
           ) : null}
-          <UploadStrip entries={strip} headingId={stripId} onRetry={upload.retry} onRemove={upload.remove} storageNoticeShown={status.data?.vaultReady === false} />
+          <UploadStrip entries={strip} headingId={stripId} onRetry={upload.retry} onRemove={upload.remove} onHeader={upload.answerHeader} storageNoticeShown={status.data?.vaultReady === false} />
         </section>
       ) : null}
 

@@ -3,17 +3,20 @@ import {
   BLOCKS_PER_CALL, chunk, DEFAULT_LIMITS, detectFileKind, isReadableKind, limitMbFor, rowCountProblem, rowPages, sniffKind,
   type FileProblem,
 } from "./limits";
+import type { HeaderAskView, HeaderReply } from "./header-step";
 import { ReadError, type ReadResult } from "./reader-client";
-import type { ReadProgress } from "./reader-protocol";
+import type { ReadProgress, SheetHints } from "./reader-protocol";
+import { settleHeaders } from "./settle";
 import type { ArtifactKind, IngestLimits, UploadTicketOut } from "./types";
 
 /**
  * Where a file is in the upload. The screen shows the step with these keys:
- * `hashing`, `reading` (`ingest.read.reading` with sheet and rows), `saving` (`ingest.read.uploading`),
+ * `hashing`, `reading` (`ingest.read.reading` with sheet and rows), `asking` (the header step: `ask` holds what it shows),
+ * `saving` (`ingest.read.uploading`),
  * `sending` (rows going to the server), `done`, `seenBefore` (`ingest.drop.seenBefore`), `refused`
  * (`problem` holds the key and variables) and `failed` (`ingest.read.failed`).
  */
-export type UploadStep = "queued" | "hashing" | "reading" | "saving" | "sending" | "done" | "seenBefore" | "refused" | "failed";
+export type UploadStep = "queued" | "hashing" | "reading" | "asking" | "saving" | "sending" | "done" | "seenBefore" | "refused" | "failed";
 
 export type UploadItem = {
   id: string;
@@ -32,13 +35,15 @@ export type UploadItem = {
   notStored: boolean;
   /** The rebuild copy of the rows could not be saved (it was tried twice). The import itself went through. */
   canonicalMissing?: boolean;
+  /** While `asking`: the table waiting on the person ("Which row has the column names?"). */
+  ask?: HeaderAskView | null;
   problem: FileProblem | null;
 };
 
 /** What the upload needs from the reader: injected so tests can use a fake. */
 export type UploadReader = {
   hash: (file: File, signal?: AbortSignal) => Promise<string>;
-  read: (file: File, opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal }) => Promise<ReadResult>;
+  read: (file: File, opts: { onProgress?: (p: ReadProgress) => void; signal?: AbortSignal; hints?: SheetHints[] }) => Promise<ReadResult>;
 };
 
 export type UploadClientDeps = {
@@ -99,7 +104,16 @@ async function reportReadFailure(api: IngestApi, artifactId: string, readError: 
   await api.artifactComplete({ artifactId, readError }).catch(() => undefined);
 }
 
-type Hooks = { onItem: (patch: Partial<UploadItem>) => void; signal?: AbortSignal; note?: string };
+type Hooks = {
+  onItem: (patch: Partial<UploadItem>) => void;
+  signal?: AbortSignal;
+  note?: string;
+  /**
+   * The header step: shows one table waiting on the person and resolves with their answer. Without it the reader's guess
+   * is taken as the person's pick (a headless upload).
+   */
+  ask?: (view: HeaderAskView) => Promise<HeaderReply>;
+};
 
 /**
  * Sends one file through the whole path (plan A1, A2): hash, `artifact.begin`, the raw PUT and `commitRaw`
@@ -200,20 +214,37 @@ export async function uploadOneFile(
   const over = rowCountProblem(file.name, read.rawRows, limits);
   if (over) return refuse(over);
 
-  // Blocks: send only the ones the server does not have.
-  const ids = new Map<number, string>();
-  const missing = read.blocks.filter((b) => !known?.has(b.input.ordinal));
-  if (known) for (const [ordinal, k] of known) ids.set(ordinal, k.blockId);
-  for (const group of chunk(missing, BLOCKS_PER_CALL)) {
-    const res = await api.artifactPutBlocks({ artifactId, blocks: group.map((b) => b.input) });
-    for (const b of res.blocks) ids.set(b.ordinal, b.blockId);
-  }
+  // Every table's header is settled before any row goes: the server checks each against the layouts of this plant. A file
+  // the server already holds in full (every table saved, only rows missing) has nothing left to settle.
+  const settled =
+    known && known.size === read.blocks.length
+      ? {
+          blocks: read.blocks,
+          ids: new Map([...known].map(([ordinal, k]) => [ordinal, k.blockId] as const)),
+          skipped: new Set<number>(),
+        }
+      : await settleHeaders({
+          api,
+          artifactId,
+          blocks: read.blocks,
+          reread: async (hints) => (await reader.read(file, { signal, hints })).blocks,
+          ask: async (view) => {
+            onItem({ step: "asking", ask: view });
+            const reply = hooks.ask ? await hooks.ask(view) : ({ kind: "pick", ...view.preselected } as HeaderReply);
+            onItem({ step: "reading", ask: null });
+            return reply;
+          },
+          asked: () => onItem({ ask: null }),
+        });
+  const ids = settled.ids;
+  const blocks = settled.blocks;
 
   // Rows, 500 a call, each telling the server how many it already holds.
-  const total = read.blocks.reduce((n, b) => n + b.rows.length, 0);
+  const total = blocks.reduce((n, b) => n + b.rows.length, 0);
   let sent = 0;
   onItem({ step: "sending", sent: { rows: 0, total } });
-  for (const block of read.blocks) {
+  for (const block of blocks) {
+    if (block.rows.length === 0) continue;
     const blockId = ids.get(block.input.ordinal);
     if (!blockId) throw new Error(`The server did not return block ${block.input.ordinal}`);
     let holds = known?.get(block.input.ordinal)?.rowsPut ?? 0;
@@ -233,7 +264,7 @@ export async function uploadOneFile(
   const done = await api.artifactComplete({ artifactId });
   // The canonical copy lets staged rows be rebuilt later. A miss here does not undo the import.
   for (const upload of done.canonicalUploads) {
-    const block = read.blocks.find((b) => b.input.ordinal === upload.blockOrdinal);
+    const block = blocks.find((b) => b.input.ordinal === upload.blockOrdinal);
     if (!block) continue;
     const body = await gzipJsonl(block.rows);
     let saved = false;
@@ -246,6 +277,18 @@ export async function uploadOneFile(
       }
     }
     if (!saved) onItem({ canonicalMissing: true });
+  }
+  // A table the person did not want (or that was joined to the one above) went in as an empty table: discard its import.
+  if (settled.skipped.size > 0) {
+    try {
+      const art = await api.artifactGet({ artifactId });
+      for (const b of art.blocks) {
+        if (!settled.skipped.has(b.ordinal)) continue;
+        for (const c of b.candidates) if (c.state !== "discarded") await api.candidateDiscard({ candidateId: c.id, expectSeq: c.serverSeq });
+      }
+    } catch {
+      // an empty import left behind is discarded by hand from the list; the file itself went through
+    }
   }
   onItem({ step: "done" });
   return { artifactId, step: "done" };

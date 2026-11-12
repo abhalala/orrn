@@ -9,6 +9,7 @@ import {
   type Tone,
   type Words,
 } from "./model";
+import type { HeaderAskView } from "./header-step";
 import type { PlantUnits } from "./plant-units";
 import type { UploadItem } from "./upload";
 import type { ArtifactSummary, CandidateSummary } from "./types";
@@ -358,6 +359,8 @@ export type StripEntry =
       seenOn: number | null;
       notStored: boolean;
       canonicalMissing: boolean;
+      /** While `asking`: the table waiting on the person. */
+      ask: HeaderAskView | null;
     }
   | {
       kind: "checking";
@@ -413,6 +416,7 @@ export function uploadStrip(
       case "failed":
         words = { key: "ingest.read.failed" };
         break;
+      case "asking":
       case "done":
         break;
     }
@@ -440,6 +444,7 @@ export function uploadStrip(
       seenOn: item.seenOn,
       notStored: item.notStored,
       canonicalMissing: item.canonicalMissing === true,
+      ask: item.step === "asking" ? (item.ask ?? null) : null,
     };
   });
   const shown = new Set(items.map((i) => i.artifactId).filter((id): id is string => Boolean(id)));

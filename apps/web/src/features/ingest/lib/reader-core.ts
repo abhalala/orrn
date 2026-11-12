@@ -229,6 +229,9 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
       ...(p.page !== undefined ? { page: p.page } : {}),
       cells: p.cells.slice(0, PREVIEW_CELLS).map((c) => clipCell(c, PREVIEW_CELL_CHARS).text),
     }));
+    // Rows above the header that hold text: the region starts `block.headerRow` rows above the guessed header.
+    const regionStart = guess.headerRow - block.headerRow;
+    const titleRows = preview.filter((p) => p.row >= regionStart && p.row < guess.headerRow && p.cells.some((c) => c.trim() !== "")).map((p) => p.row);
     const parts = Math.max(1, Math.ceil(rows.length / limits.maxRowsPerBlock));
     for (let part = 0; part < parts; part += 1) {
       const from = part * limits.maxRowsPerBlock;
@@ -269,6 +272,7 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
         preview,
         firstDataRow: firstDataRow + from,
         lastDataRow: firstDataRow + from + slice.length - 1,
+        titleRows,
       };
       out.push({ input, rows: slice, meta });
       if (out.length > limits.maxBlocks) throw new ReadStop({ code: "too_many_blocks", blocks: out.length });
@@ -387,7 +391,17 @@ export async function readSqlChunks(chunks: AsyncIterable<string>, totalBytes: n
   let rawRows = 0;
   const pieces: Piece[] = tables.map((t, tableIndex) => {
     rawRows += t.rows.length;
-    return { sheetName: t.table, block: { title: null, headerRow: 0, headerRows: 1, headers: t.headers, rows: t.rows }, tableIndex };
+    // A dump's column list is its header, always: the preview is the list and the first rows, so the server can check it.
+    const preview = [{ row: 0, cells: t.headers }, ...t.rows.slice(0, 11).map((cells, i) => ({ row: i + 1, cells }))];
+    return {
+      sheetName: t.table,
+      block: {
+        title: null, headerRow: 0, headerRows: 1, headers: t.headers, rows: t.rows,
+        guess: { headerRow: 0, headerRows: 1 as const }, hints: null, preview, firstDataSheetRow: 1,
+        width: t.headers.length,
+      },
+      tableIndex,
+    };
   });
   checkRawRows(rawRows, limits);
   return finishBlocks(pieces, limits);

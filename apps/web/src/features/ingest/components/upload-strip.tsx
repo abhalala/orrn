@@ -5,7 +5,8 @@ import { Field, TextInput } from "@orrn/ui/components/field";
 import { UiLink } from "@orrn/ui/components/link";
 import { X } from "lucide-react";
 
-import { foundSummary, type StripEntry } from "../lib";
+import { foundSummary, type HeaderReply, type StripEntry } from "../lib";
+import { HeaderStep } from "./header-step";
 import { FileName, ForeignText, useSay } from "./list-kit";
 import { ProgressBar } from "./shared";
 
@@ -18,12 +19,15 @@ export function UploadStrip({
   entries,
   onRetry,
   onRemove,
+  onHeader,
   headingId,
   storageNoticeShown,
 }: {
   entries: StripEntry[];
   onRetry: (id: string) => void;
   onRemove: (id: string) => void;
+  /** The person's answer to "Which row has the column names?" for a file. */
+  onHeader: (id: string, reply: HeaderReply) => void;
   /** The heading is shared with the staged files, so the screen draws it. */
   headingId: string;
   /** The page already says the original file is not kept: a file does not say it again. */
@@ -74,6 +78,7 @@ export function UploadStrip({
               </div>
               <IconButton label={`${t("common.remove")}: ${entry.name}`} icon={<X aria-hidden="true" />} onClick={() => onRemove(entry.id)} />
             </div>
+            {entry.ask ? <HeaderStep key={entry.ask.position} view={entry.ask} fileName={entry.name} onReply={(reply) => onHeader(entry.id, reply)} /> : null}
             {entry.actions.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
                 {entry.actions.includes("review") && entry.found?.firstCandidateId ? (
@@ -147,5 +152,20 @@ export function StagedFiles({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** Files a closed page left half way: one muted line each. Adding the same file again carries on from where it stopped. */
+export function UnfinishedFiles({ files }: { files: readonly { id: string; name: string }[] }) {
+  const { say } = useSay();
+  if (files.length === 0) return null;
+  return (
+    <ul data-testid="unfinished-files" className="m-0 flex list-none flex-col gap-1 p-0">
+      {files.map((file) => (
+        <li key={file.id} className="text-[13px] leading-5 break-words text-tone-amber-ink">
+          {say("ingest.header.unfinished", { name: file.name })}
+        </li>
+      ))}
+    </ul>
   );
 }
