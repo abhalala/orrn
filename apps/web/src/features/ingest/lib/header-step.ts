@@ -127,6 +127,14 @@ export function isCurrentHeader(block: ReadBlock, pick: HeaderPickIn): boolean {
   return g !== undefined && g.headerRow === pick.headerRow && (g.headerRows ?? 1) === pick.headerRows;
 }
 
+/**
+ * A table whose guessed names leave no row under them (one line left over from a split) has nothing to import under that
+ * pick: the step says so and offers to skip the table, not "Use row N". Another row picked is a new answer and gets its button.
+ */
+export function noRowsUnderGuess(view: Pick<HeaderAskView, "rowCount" | "preselected">, pickedRow: number | null): boolean {
+  return view.rowCount === 0 && pickedRow === view.preselected.headerRow;
+}
+
 /** The words of the button that takes the picked row: "Use row 3", or "Use rows 3 and 4" when the names take two rows. */
 export function useRowsWords(
   selected: Pick<HeaderLine, "n">,

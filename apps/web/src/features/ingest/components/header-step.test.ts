@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createServer, type ViteDevServer } from "vite";
 
-import { useRowsWords, type HeaderAskView } from "../lib/header-step";
+import { noRowsUnderGuess, useRowsWords, type HeaderAskView } from "../lib/header-step";
 
 let server: ViteDevServer;
 let createElement: typeof import("react").createElement;
@@ -149,6 +149,25 @@ describe("the header step", () => {
     expect(useRowsWords(r6, 1, [r6, r7])).toEqual({ key: "ingest.header.use", vars: { n: 6 } });
     expect(useRowsWords(r6, 2, [r6, r7])).toEqual({ key: "ingest.header.useTwo", vars: { n: 6, m: 7 } });
     expect(useRowsWords(r6, 2, [r6, null])).toEqual({ key: "ingest.header.use", vars: { n: 6 } });
+  });
+
+  // Design re-check N3: a one-row leftover table has nothing under its names.
+  test("no rows under the names: said plainly, no Use row button, skipping the table is the main button", () => {
+    const html = render(view({ rowCount: 0, lines: [{ row: 5, n: 6, cells: ["Kisan", "Vapi"], gapBefore: false }], preselected: { headerRow: 5, headerRows: 1 } }));
+    expect(html).toContain("There are no rows under these names.");
+    expect(html).not.toContain("0 rows");
+    expect(html).not.toContain("Use row");
+    expect(html).toMatch(/data-variant="primary"[^>]*>Do not import this table/);
+    expect(html.match(/data-variant="primary"/g)).toHaveLength(1);
+    // With rows under the names nothing changes.
+    expect(render(view())).toContain("Use row 6");
+    expect(render(view())).not.toContain("no rows under");
+  });
+
+  test("another row picked after an empty guess is a new answer", () => {
+    expect(noRowsUnderGuess({ rowCount: 0, preselected: { headerRow: 5, headerRows: 1 } }, 5)).toBe(true);
+    expect(noRowsUnderGuess({ rowCount: 0, preselected: { headerRow: 5, headerRows: 1 } }, 6)).toBe(false);
+    expect(noRowsUnderGuess({ rowCount: 3, preselected: { headerRow: 5, headerRows: 1 } }, 5)).toBe(false);
   });
 
   test("column letters run A to Z, then AA", () => {

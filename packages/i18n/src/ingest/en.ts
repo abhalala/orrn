@@ -98,6 +98,7 @@ export const ingestEn = {
     twoHint: "Row {n} and the row under it.",
     use: "Use row {n}",
     useTwo: "Use rows {n} and {m}",
+    noRowsUnder: "There are no rows under these names.",
     skip: "Do not import this table",
     continues: "It continues the table above",
     same: "Same columns as the table above",

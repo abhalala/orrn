@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8151 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8152 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6945,7 +6945,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (537)
+### ingest (538)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7023,6 +7023,7 @@ Please check, Lalubhai:
 | `header.twoHint` | Row {n} and the row under it. | लाइन {n} और उसके नीचे की लाइन। |
 | `header.use` | Use row {n} | लाइन {n} लें |
 | `header.useTwo` | Use rows {n} and {m} | लाइन {n} और {m} लें |
+| `header.noRowsUnder` | There are no rows under these names. | इन नामों के नीचे कोई लाइन नहीं है। |
 | `header.skip` | Do not import this table | यह टेबल इम्पोर्ट न करें |
 | `header.continues` | It continues the table above | यह ऊपर की टेबल का ही हिस्सा है |
 | `header.same` | Same columns as the table above | ऊपर की टेबल जैसे ही कॉलम |

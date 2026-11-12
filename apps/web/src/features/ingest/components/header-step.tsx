@@ -4,7 +4,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { cn } from "@orrn/ui/lib/utils";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { INGEST_TARGETS, TARGET_KEY, twoRowsFrom, useRowsWords, type HeaderAskView, type HeaderReply } from "../lib";
+import { INGEST_TARGETS, TARGET_KEY, noRowsUnderGuess, twoRowsFrom, useRowsWords, type HeaderAskView, type HeaderReply } from "../lib";
 import { ForeignText, useSay } from "./list-kit";
 import { ScrollCue } from "./shared";
 
@@ -53,7 +53,8 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
   const selected = row === null ? undefined : view.lines.find((l) => l.row === row);
   const two = row === null ? null : twoRowsFrom(view.lines, row);
   const canTwo = two !== null && two[1] !== null;
-  const useWords = selected ? useRowsWords(selected, canTwo ? rows : 1, two) : null;
+  const empty = noRowsUnderGuess(view, row) && !offered;
+  const useWords = selected && !empty ? useRowsWords(selected, canTwo ? rows : 1, two) : null;
   const reply = (r: HeaderReply) => {
     if (busy) return;
     setBusy(true);
@@ -75,8 +76,10 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
             <>
               <ForeignText>{view.sheetName}</ForeignText>
               {", "}
-              {say("ingest.header.aboutNoSheet", { count: view.rowCount })}
+              {view.rowCount === 0 ? t("ingest.header.noRowsUnder") : say("ingest.header.aboutNoSheet", { count: view.rowCount })}
             </>
+          ) : view.rowCount === 0 ? (
+            t("ingest.header.noRowsUnder")
           ) : (
             say("ingest.header.aboutNoSheet", { count: view.rowCount })
           )}
@@ -191,7 +194,7 @@ export function HeaderStep({ view, fileName, onReply }: { view: HeaderAskView; f
             {say(useWords.key, useWords.vars)}
           </Button>
         ) : null}
-        <Button variant="ghost" className="max-sm:w-full" aria-disabled={busy || undefined} onClick={() => reply({ kind: "skip" })}>
+        <Button variant={empty ? "primary" : "ghost"} className="max-sm:w-full" aria-disabled={busy || undefined} onClick={() => reply({ kind: "skip" })}>
           {t("ingest.header.skip")}
         </Button>
       </div>
