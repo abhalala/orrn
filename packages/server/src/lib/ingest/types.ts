@@ -305,6 +305,8 @@ export type ArtifactSummary = {
   rowCount: number;
   period: IngestPeriodGuess | null;
   periodConfirmed: { fy: string | null; asOf: string | null } | null;
+  /** Rule 11.3: the file's one answer to `order_fill_above` (true Yes, false No), who gave it and when (ms). */
+  fillAbove: { answer: boolean; by: string; at: number } | null;
   note: string | null;
   uploadedBy: string | null;
   createdAt: number;

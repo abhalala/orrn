@@ -144,6 +144,11 @@ export const ingestArtifact = sqliteTable(
     rowCount: count("row_count"),
     period: text("period", { mode: "json" }).$type<IngestPeriodGuess>(),
     periodConfirmed: text("period_confirmed", { mode: "json" }).$type<{ fy: string | null; asOf: string | null }>(),
+    /**
+     * Rule 11.3: the file's one answer to `order_fill_above` (true Yes, false No), with who and when.
+     * Stored on the file, never on a sheet, so no sheet operation brings back an older answer.
+     */
+    fillAbove: text("fill_above", { mode: "json" }).$type<{ answer: boolean; by: string; at: number }>(),
     note: text("note"),
     uploadedBy: userRef("uploaded_by"),
     createdAt: createdAtCol(),
@@ -335,6 +340,8 @@ export const ingestStagedRow = sqliteTable(
     matchId: text("match_id"),
     diff: text("diff", { mode: "json" }).$type<Record<string, { live: unknown; file: unknown }>>(),
     decision: text("decision", { enum: ROW_DECISIONS }),
+    /** Rule 11.3: "no_date" when "Skip these {count} lines" made the skip; a person's own decision clears it. */
+    bulkSkip: text("bulk_skip", { enum: ["no_date"] }),
     mergeState: text("merge_state", { enum: ROW_MERGE_STATES }).notNull().default("open"),
     committedType: text("committed_type"),
     committedId: text("committed_id"),

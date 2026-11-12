@@ -102,7 +102,9 @@ describe("rule 11.1 (S7-1): the fill answer belongs to the file", () => {
     expect(await stateOf(p.owner, b)).toBe("approved");
   });
 
-  test("way 3: a re-put that changes A drops its answer: B goes back, asks again, and No on the new A refuses B's lines", async () => {
+  // Rule 11.3 (round 10) changed this test: the answer is the file's, so a re-put of A keeps it. B goes
+  // back and is checked again with the file's Yes; No on the new A then refuses B's lines.
+  test("way 3: a re-put that changes A keeps the file's answer: B goes back and is checked again, and No on the new A refuses B's lines", async () => {
     const p = await setup();
     const { artifactId, a, b } = await twoSheetsYes(p);
     const blocks = (await p.owner.ingest.artifact.get({ artifactId })).blocks.map((x) => ({
@@ -123,14 +125,15 @@ describe("rule 11.1 (S7-1): the fill answer belongs to the file", () => {
     expect(a2).not.toBe(a);
     await pump(p.owner, a2);
     await pump(p.owner, b);
-    expect((await rowsOf(p.owner, b))[1]!.reasons).toContain("q:order_fill_above");
+    expect((await rowsOf(p.owner, b))[1]!.reasons).toContain("filled_down:orderDate");
     await fill(p.owner, a2, false);
     await pump(p.owner, a2);
     await pump(p.owner, b);
     expect(await refusedNoDate(p.owner, b, "43")).toEqual(["refused", true, "refused", true]);
   });
 
-  test("a pick on A drops its answer too: B goes back and asks again", async () => {
+  // Rule 11.3 (round 10): the pick keeps the file's answer; B goes back and is checked again.
+  test("a pick on A sends B back to be checked again", async () => {
     const p = await setup();
     const { a, b } = await twoSheetsYes(p);
     await p.owner.ingest.candidate.repickHeader({ candidateId: a, expectSeq: await seqOf(p.owner, a) });
