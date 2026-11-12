@@ -6,6 +6,8 @@
  *   `order_fill_above`, "Some lines have no date. orrn took each one's date from the dated line just
  *   above it. Is that right?" Yes keeps the fill; No refuses those lines with `order_no_date:<n>`.
  * - 10.2 (S6-2): nothing is approved or merged while its file is being read; the check is in the batch.
+ * - 10.3 (S6-3): a reader keep with no question only for an all-text guess of two or more filled
+ *   cells with no blank between them, over a row with a number or a date.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -194,5 +196,43 @@ describe("rule 10.2 (S6-2): nothing is approved or merged while its file is bein
     await expect(p.owner.ingest.merge.start()).rejects.toThrow("A file is being read again. Finish it, then merge.");
     expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("approved");
     expect(await orders(p.companyId)).toEqual([]);
+  });
+});
+
+describe("rule 10.3 (S6-3): the clean-sheet keep is narrow", () => {
+  const sha = () => crypto.randomUUID().replaceAll("-", "").padEnd(64, "0");
+  const put = async (as: Caller, preview: { row: number; cells: string[] }[]) => {
+    const { artifactId } = await as.ingest.artifact.begin({ sha256: sha(), fileName: "odd.xlsx", sizeBytes: 1000, contentType: null, kind: "sheet" });
+    const rows = preview.slice(1).map((p) => p.cells);
+    const out = await as.ingest.artifact.putBlocks({
+      artifactId,
+      blocks: [{ ordinal: 0, sheetName: "S", title: null, headerRow: preview[0]!.row, headerRows: 1, rowCount: rows.length, sample: rows, preview }],
+    });
+    return out.header[0]!;
+  };
+
+  test("R3: a row of column numbers on top asks, with the names row among the candidates", async () => {
+    const p = await setup();
+    const h = await put(p.owner, [
+      { row: 0, cells: ["1", "2", "3", "4", "5"] },
+      { row: 1, cells: ["Colour", "Shade", "Batch", "Lot", "Rate"] },
+      { row: 2, cells: ["Om Metals", "98250 11111", "Rajkot", "120", "256.50"] },
+    ]);
+    expect(h.answer).toBe("ask");
+    expect(h.answer === "ask" && h.candidates.some((c) => c.headerRow === 1)).toBe(true);
+  });
+
+  test("a guess with one filled cell, or a blank between filled cells, asks", async () => {
+    const p = await setup();
+    expect((await put(p.owner, [{ row: 0, cells: ["Kharidi", "", ""] }, { row: 1, cells: ["Om Metals", "120", "210"] }])).answer).toBe("ask");
+    expect((await put(p.owner, [{ row: 0, cells: ["Party", "", "Vazan"] }, { row: 1, cells: ["Om Metals", "120", "210"] }])).answer).toBe("ask");
+  });
+
+  test("a guess over a row with no number or date asks; over a row with one it is kept by the reader", async () => {
+    const p = await setup();
+    const h = await put(p.owner, [{ row: 0, cells: ["Colour", "Shade", "Note"] }, { row: 1, cells: ["Red", "Dark", "good"] }]);
+    expect(h).toMatchObject({ answer: "ask" });
+    expect(await put(p.owner, [{ row: 0, cells: ["Colour", "Shade", "Vazan"] }, { row: 1, cells: ["Red", "Dark", "120"] }])).toMatchObject({ answer: "keep", by: "reader" });
+    expect(await put(p.owner, [{ row: 0, cells: ["Colour", "Shade", "Din"] }, { row: 1, cells: ["Red", "Dark", "01/05/2025"] }])).toMatchObject({ answer: "keep", by: "reader" });
   });
 });

@@ -12,6 +12,7 @@ import {
   combineHeaders,
   findBuiltin,
   headerKey,
+  cellKind,
   inferKinds,
   usedWidth,
   unitsFor,
@@ -265,11 +266,27 @@ function settleHeader(
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
 }
 
-/** Round 7 item 3: whether the reader's guess is a clean sheet's header, kept with no question. */
+/**
+ * Round 7 item 3 and rule 10.3: whether the reader's guess is a clean sheet's header, kept with no
+ * question. One row, nothing but blank rows above it, and narrow: every filled cell is text (not a
+ * number or a date), two or more filled cells with no blank between them, and the row below has at
+ * least one number or date.
+ */
 function cleanGuess(b: BlockInput, choice: { resembles: unknown; sameColumnsAsAbove: boolean }): boolean {
   if (b.headerRows !== 1 || choice.resembles || choice.sameColumnsAsAbove || b.follows?.continues === true) return false;
-  if (!b.preview.some((p) => p.row === b.headerRow)) return false;
-  return b.preview.every((p) => p.row >= b.headerRow || p.cells.every((c) => c.trim() === ""));
+  const at = b.preview.findIndex((p) => p.row === b.headerRow);
+  if (at === -1) return false;
+  if (!b.preview.every((p) => p.row >= b.headerRow || p.cells.every((c) => c.trim() === ""))) return false;
+  const numberOrDate = (c: string) => {
+    const k = cellKind(c);
+    return k === "date" || k === "int" || k === "decimal";
+  };
+  const cells = b.preview[at]!.cells;
+  const filled = cells.map((c, i) => (c.trim() === "" ? -1 : i)).filter((i) => i >= 0);
+  if (filled.length < 2 || filled.at(-1)! - filled[0]! + 1 !== filled.length) return false;
+  if (filled.some((i) => numberOrDate(cells[i]!))) return false;
+  const below = b.preview[at + 1];
+  return !!below && below.row === b.headerRow + 1 && (below.page ?? 0) === (b.preview[at]!.page ?? 0) && below.cells.some(numberOrDate);
 }
 
 /**
