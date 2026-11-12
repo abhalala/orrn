@@ -44,6 +44,8 @@ export type IngestActions = {
    * one, so a cause fixed outside (a die added, a customer merged) shows. The import then reaches ready.
    */
   release: (candidateId: string, expectSeq: number) => Promise<void>;
+  /** "Wrong columns? Pick the row": the table goes back to the header pick (nothing written yet); add the file again to pick. */
+  repickHeader: (candidateId: string, expectSeq: number) => Promise<void>;
   discard: (candidateId: string, expectSeq: number) => Promise<void>;
   /**
    * Skip every row of a column's value check at once (`magnitude_check`, "Skip the rows"). Reads the ambiguous rows
@@ -112,6 +114,7 @@ export function makeIngestActions(qc: QueryClient, api: () => ReturnType<typeof 
       return { approved, failed };
     },
     release: (candidateId, expectSeq) => api().candidateRelease({ candidateId, expectSeq }).then(then(candidateId)),
+    repickHeader: (candidateId, expectSeq) => api().candidateRepickHeader({ candidateId, expectSeq }).then(then(candidateId)),
     skipFlaggedRows: async (candidateId, field, expectSeq) => {
       const marker = `magnitude:${field}`;
       const ids: string[] = [];

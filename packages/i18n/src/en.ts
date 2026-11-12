@@ -6764,6 +6764,7 @@ export const en = {
       ingest__artifact__upload: "File uploaded for import",
       ingest__candidate__approve: "Import approved",
       ingest__candidate__discard: "Import discarded",
+      ingest__block__repick: "Header row opened again",
       ingest__candidate__hold: "Import held",
       ingest__candidate__recheck: "Import checked again",
       ingest__hole__retire: "Import layout removed",

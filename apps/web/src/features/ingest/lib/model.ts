@@ -302,6 +302,7 @@ const QUESTION_VARS: Record<QuestionCode, string[]> = {
   new_customers: ["count"],
   magnitude_check: ["field", "unit", "likelyUnit", "side", "count"],
   order_po: ["order", "customer", "pos", "count"],
+  bundles_no_old_id: ["count"],
 };
 
 /** Recipe unit id to its dictionary key: `kg/12ft` is `ingest.unit.kg_12ft`. */
@@ -428,6 +429,15 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
       }
       break;
     }
+    case "bundles_no_old_id":
+      // Rule 7.5: bundles with no old bundle number. orrn cannot tell if the same bundles arrive in another file.
+      control = { kind: "yesNo" };
+      answers = [
+        { value: true, words: { key: "ingest.q.importThem" } },
+        { value: false, words: { key: "ingest.q.doNotImport" } },
+      ];
+      if (answered) answeredWords = { key: answer === true ? "ingest.q.importThem" : "ingest.q.doNotImport" };
+      break;
     case "order_po": {
       // One old order whose rows carry two or more POs: the person picks the PO the whole order takes, or leaves it out.
       const pos = poChoices(q.params.pos);

@@ -104,7 +104,7 @@ export function BarButtons({
   );
 }
 
-export function BarOverflow({ bar, onDiscard, onIgnore, busy }: { bar: Pick<DecisionBarModel, "overflow" | "moreFor">; onDiscard: () => void; onIgnore: () => void; busy: boolean }) {
+export function BarOverflow({ bar, onDiscard, onIgnore, onRepick, busy }: { bar: Pick<DecisionBarModel, "overflow" | "moreFor">; onDiscard: () => void; onIgnore: () => void; onRepick?: () => void; busy: boolean }) {
   const { words } = useSay();
   if (bar.overflow.length === 0) return null;
   return (
@@ -120,6 +120,7 @@ export function BarOverflow({ bar, onDiscard, onIgnore, busy }: { bar: Pick<Deci
             onSelect={() => {
               if (busy) return;
               if (item.id === "discard") onDiscard();
+              else if (item.id === "repick") onRepick?.();
               else onIgnore();
             }}
             className={cn("min-h-11 text-[15px]", item.id === "discard" && "text-destructive focus:text-destructive")}
@@ -139,6 +140,7 @@ export function DecisionBarCard({
   onPress,
   onDiscard,
   onIgnore,
+  onRepick,
   onGoToFirstOpen,
   editorOpen,
   editorId,
@@ -156,6 +158,7 @@ export function DecisionBarCard({
   onPress: BarPress;
   onDiscard: () => void;
   onIgnore: () => void;
+  onRepick?: () => void;
   onGoToFirstOpen: () => void;
   editorOpen: boolean;
   editorId: string;
@@ -237,7 +240,7 @@ export function DecisionBarCard({
               hideGoMerge={Boolean(after?.goMerge)}
               firstRef={firstButtonRef}
             />
-            <BarOverflow bar={bar} onDiscard={onDiscard} onIgnore={onIgnore} busy={act.busy} />
+            <BarOverflow bar={bar} onDiscard={onDiscard} onIgnore={onIgnore} onRepick={onRepick} busy={act.busy} />
           </div>
         ) : null}
       </div>

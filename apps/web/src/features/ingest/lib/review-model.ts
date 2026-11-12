@@ -44,7 +44,7 @@ export type BarButton = {
   mode: "write" | "toggle" | "link";
 };
 
-export type OverflowItem = { id: "discard" | "ignore"; words: Words };
+export type OverflowItem = { id: "discard" | "ignore" | "repick"; words: Words };
 
 export type BarContext = {
   can: { merge: boolean; upload: boolean };
@@ -187,6 +187,10 @@ export function decisionBar(
     default:
       break;
   }
+  // "Wrong columns? Pick the row" (rule 7.2): only while no row of the table is written, and for a person who may upload.
+  if (can.upload && c.counts.written === 0 && (c.state === "ready" || c.state === "held" || c.state === "needs_confirm" || c.state === "needs_shape")) {
+    overflow.push({ id: "repick", words: { key: "ingest.action.repick" } });
+  }
   if (allowed.discard && !MOVING.has(c.state)) overflow.push(discard);
   const title = rowTitle(c);
   return {
@@ -223,14 +227,19 @@ export function nextNeedsYou(candidates: readonly Pick<CandidateSummary, "id" | 
 
 /** The line in the bar after Approve or Hold (S6): what happened and the next step. */
 export function afterDecision(input: {
-  kind: "approved" | "held";
+  kind: "approved" | "held" | "repicked";
   approvedCount: number;
   nextId: string | null;
 }): { words: Words; next: { id: string } | null; goMerge: boolean } {
   return {
-    words: input.kind === "approved" ? { key: "ingest.action.approvedSoFar", vars: { count: input.approvedCount } } : { key: "ingest.action.heldDone" },
-    next: input.nextId ? { id: input.nextId } : null,
-    goMerge: input.approvedCount > 0,
+    words:
+      input.kind === "approved"
+        ? { key: "ingest.action.approvedSoFar", vars: { count: input.approvedCount } }
+        : input.kind === "repicked"
+          ? { key: "ingest.action.repicked" }
+          : { key: "ingest.action.heldDone" },
+    next: input.kind === "repicked" ? null : input.nextId ? { id: input.nextId } : null,
+    goMerge: input.kind !== "repicked" && input.approvedCount > 0,
   };
 }
 

@@ -243,6 +243,7 @@ function ReviewBody({ candidate, announce }: { candidate: CandidateDetail; annou
           onPress={press}
           onDiscard={discard.ask}
           onIgnore={() => void act.ignoreSheet()}
+          onRepick={() => void act.repick()}
           onGoToFirstOpen={goToFirstOpen}
           editorOpen={showEditor}
           editorId={EDITOR_ID}

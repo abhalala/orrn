@@ -131,6 +131,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "foundry.spectro.void",
   "ingest.artifact.reread",
   "ingest.artifact.upload",
+  "ingest.block.repick",
   "ingest.candidate.approve",
   "ingest.candidate.discard",
   "ingest.candidate.hold",

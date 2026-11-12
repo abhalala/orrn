@@ -51,10 +51,11 @@ export type ReviewActions = {
   /** The last failed write of this part of the page, or null. */
   failed: (area: ReviewArea) => unknown;
   /** After Approve or Hold: the line in the bar. `nonce` changes on every new one. */
-  after: { kind: "approved" | "held"; nonce: number } | null;
+  after: { kind: "approved" | "held" | "repicked"; nonce: number } | null;
   approve: () => Promise<boolean>;
   hold: (reason: string | undefined) => Promise<boolean>;
   release: () => Promise<boolean>;
+  repick: () => Promise<boolean>;
   confirmNear: (accept: boolean) => Promise<boolean>;
   ignoreSheet: () => Promise<boolean>;
   answer: (subject: string, built: BuiltAnswer, focusKey: string) => Promise<boolean>;
@@ -141,6 +142,15 @@ export function useReviewActions(input: {
       setAfter(null);
       const ok = await write("bar", "release", () => actions.release(id, serverSeq));
       if (ok) focus.request([FOCUS.bar]);
+      return ok;
+    },
+    repick: async () => {
+      const ok = await write("bar", "repick", () => actions.repickHeader(id, serverSeq));
+      if (ok) {
+        nonce.current += 1;
+        setAfter({ kind: "repicked", nonce: nonce.current });
+        focus.request([FOCUS.after, FOCUS.bar]);
+      }
       return ok;
     },
     confirmNear: async (accept) => {

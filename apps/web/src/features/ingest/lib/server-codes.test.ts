@@ -5,6 +5,7 @@ import { en } from "@orrn/i18n/en";
 import { hi } from "@orrn/i18n/hi";
 import { QUESTION_CODES, ROW_DECISIONS } from "@orrn/ingest";
 
+import { answerFromValue } from "./answers";
 import { decisionOptions, questionView } from "./model";
 import { ingestErrorWords } from "./errors";
 import { KNOWN_REFUSAL_CODES, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
@@ -137,5 +138,12 @@ describe("server codes have words", () => {
     expect(ingestErrorWords(error, "action")).toEqual({ key: "ingest.error.nothingToImport", retry: false });
     expect(typeof get(en, "ingest.error.nothingToImport")).toBe("string");
     expect(typeof get(hi, "ingest.error.nothingToImport")).toBe("string");
+  });
+
+  test("the bundles question (rule 7.5) is answered with Import them or Do not import", () => {
+    const q = questionView({ code: "bundles_no_old_id", subject: "", params: { count: 4 }, answer: null, open: true });
+    expect(q.control.kind).toBe("yesNo");
+    expect(q.answers.map((a) => [a.value, a.words.key])).toEqual([[true, "ingest.q.importThem"], [false, "ingest.q.doNotImport"]]);
+    expect(answerFromValue("bundles_no_old_id", true)).toEqual({ code: "bundles_no_old_id", answer: true });
   });
 });

@@ -282,6 +282,10 @@ export const ingestHi = {
     // item 1 of the web round: one old order with two POs
     order_po: "पुराने ऑर्डर {order} में फ़ाइल के अंदर एक से ज़्यादा PO हैं: {pos}। इसमें कौन सा PO रखें?",
     skipOrder: "यह ऑर्डर छोड़ें",
+    // server round 6, rule 7.5
+    bundles_no_old_id: "इन bundle का पुराना bundle नंबर नहीं है। अगर यही bundle किसी और फ़ाइल में भी हैं, तो orrn पहचान नहीं सकता और इन्हें दो बार जोड़ देगा। इन्हें इम्पोर्ट करें?",
+    importThem: "इम्पोर्ट करें",
+    doNotImport: "इम्पोर्ट न करें",
   },
   questions: {
     title: "मंज़ूर करने से पहले {count} सवाल",
@@ -333,6 +337,8 @@ export const ingestHi = {
     more: "{name} के लिए और",
     seeFile: "फ़ाइल देखें",
     merging: "मर्ज हो रहा है",
+    repick: "कॉलम गलत हैं? लाइन चुनें",
+    repicked: "कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें।",
   },
   list: {
     newTable: "नई टेबल",

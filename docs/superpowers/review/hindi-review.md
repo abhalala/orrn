@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8073 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8079 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (484)
+### ingest (489)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7151,6 +7151,9 @@ Please check, Lalubhai:
 | `q.goToYear` | Choose the year | वर्ष चुनें |
 | `q.order_po` | Old order {order} has more than one PO in the file: {pos}. Which PO does it take? | पुराने ऑर्डर {order} में फ़ाइल के अंदर एक से ज़्यादा PO हैं: {pos}। इसमें कौन सा PO रखें? |
 | `q.skipOrder` | Skip this order | यह ऑर्डर छोड़ें |
+| `q.bundles_no_old_id` | These bundles have no old bundle number. If the same bundles are in another file, orrn cannot tell and would add them twice. Import them? | इन bundle का पुराना bundle नंबर नहीं है। अगर यही bundle किसी और फ़ाइल में भी हैं, तो orrn पहचान नहीं सकता और इन्हें दो बार जोड़ देगा। इन्हें इम्पोर्ट करें? |
+| `q.importThem` | Import them | इम्पोर्ट करें |
+| `q.doNotImport` | Do not import | इम्पोर्ट न करें |
 | `questions.title` | {count} {count:question\|questions} before you approve | मंज़ूर करने से पहले {count} सवाल |
 | `questions.doneTitle` | {count} {count:question\|questions} answered | {count} {count:सवाल का जवाब दिया\|सवालों के जवाब दिए} |
 | `period.fy` | Financial year | वित्त वर्ष |
@@ -7191,6 +7194,8 @@ Please check, Lalubhai:
 | `action.more` | More for {name} | {name} के लिए और |
 | `action.seeFile` | See the file | फ़ाइल देखें |
 | `action.merging` | Merging | मर्ज हो रहा है |
+| `action.repick` | Wrong columns? Pick the row | कॉलम गलत हैं? लाइन चुनें |
+| `action.repicked` | The columns are open again. Add the file again on the Imports page to pick the row. | कॉलम फिर से खुल गए हैं। लाइन चुनने के लिए इम्पोर्ट पेज पर फ़ाइल फिर से जोड़ें। |
 | `list.newTable` | New table | नई टेबल |
 | `list.tables` | {count} {count:table\|tables}, added {date} | {count} टेबल, {date} को डाली |
 | `list.tablesNoDate` | {count} {count:table\|tables} | {count} टेबल |
@@ -7675,7 +7680,7 @@ Please check, Lalubhai:
 | `loadFailed` | Couldn't load your requests. Try again. | आपके अनुरोध लोड नहीं हुए। फिर कोशिश करें। |
 | `cantAsk` | Your role can't send help requests. | आपकी भूमिका मदद का अनुरोध नहीं भेज सकती। |
 
-### audit (308)
+### audit (309)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7876,6 +7881,7 @@ Please check, Lalubhai:
 | `actions.ingest__artifact__upload` | File uploaded for import | इम्पोर्ट के लिए फ़ाइल डाली |
 | `actions.ingest__candidate__approve` | Import approved | इम्पोर्ट मंज़ूर किया |
 | `actions.ingest__candidate__discard` | Import discarded | इम्पोर्ट हटाया |
+| `actions.ingest__block__repick` | Header row opened again | कॉलम की लाइन फिर से खोली |
 | `actions.ingest__candidate__hold` | Import held | इम्पोर्ट होल्ड किया |
 | `actions.ingest__candidate__recheck` | Import checked again | इम्पोर्ट दोबारा जाँचा |
 | `actions.ingest__hole__retire` | Import layout removed | इम्पोर्ट का लेआउट हटाया |

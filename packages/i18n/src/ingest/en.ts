@@ -283,6 +283,10 @@ export const ingestEn = {
     // item 1 of the web round: one old order with two POs
     order_po: "Old order {order} has more than one PO in the file: {pos}. Which PO does it take?",
     skipOrder: "Skip this order",
+    // server round 6, rule 7.5
+    bundles_no_old_id: "These bundles have no old bundle number. If the same bundles are in another file, orrn cannot tell and would add them twice. Import them?",
+    importThem: "Import them",
+    doNotImport: "Do not import",
   },
   questions: {
     title: "{count} {count:question|questions} before you approve",
@@ -334,6 +338,8 @@ export const ingestEn = {
     more: "More for {name}",
     seeFile: "See the file",
     merging: "Merging",
+    repick: "Wrong columns? Pick the row",
+    repicked: "The columns are open again. Add the file again on the Imports page to pick the row.",
   },
   list: {
     newTable: "New table",

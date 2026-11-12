@@ -42,6 +42,17 @@ describe("the chip counts everything the person must answer (item 6)", () => {
   });
 });
 
+describe("Wrong columns? Pick the row (rule 7.2)", () => {
+  test("offered while no row is written and to a person who may upload; not once rows are merged, not to one who may not", () => {
+    expect(decisionBar(detail(), ctx).overflow.map((o) => o.id)).toContain("repick");
+    expect(decisionBar(detail({ counts: counts({ written: 2 }) }), ctx).overflow.map((o) => o.id)).not.toContain("repick");
+    expect(decisionBar(detail(), { ...ctx, can: { merge: true, upload: false } }).overflow.map((o) => o.id)).not.toContain("repick");
+  });
+  test("what it says afterwards points at adding the file again", () => {
+    expect(afterDecision({ kind: "repicked", approvedCount: 3, nextId: "x" })).toEqual({ words: { key: "ingest.action.repicked" }, next: null, goMerge: false });
+  });
+});
+
 describe("how the rows were read (rule 7.1)", () => {
   test("rows with no order number and rows that took party, date or PO from the row above are said once each", () => {
     const bar = decisionBar(detail({ rowsOwnOrder: 2, counts: counts({ filled: 3 }) }), ctx);
@@ -60,7 +71,7 @@ describe("the decision bar (M7)", () => {
       { id: "approve", words: { key: "ingest.action.approve" }, variant: "primary", mode: "write" },
       { id: "hold", words: { key: "ingest.action.hold" }, variant: "secondary", mode: "write" },
     ]);
-    expect(bar.overflow.map((o) => o.id)).toEqual(["discard"]);
+    expect(bar.overflow.map((o) => o.id)).toEqual(["repick", "discard"]);
     expect(bar.sentence).toEqual({ key: "ingest.effect.line", vars: { create: 3, update: 1 } });
     expect(bar.chip).toEqual({ words: { key: "ingest.state.ready" }, tone: "success" });
     expect(bar.fit).toEqual({ key: "ingest.fit.exact" });
@@ -109,7 +120,7 @@ describe("the decision bar (M7)", () => {
     expect(bar.buttons.map((b) => [b.id, b.variant])).toEqual([["useLayout", "primary"], ["rejectLayout", "secondary"]]);
     expect(bar.sentence).toEqual({ key: "ingest.near.title", vars: { name: "Die list", count: 2 } });
     expect(bar.fit).toBeNull();
-    expect(bar.overflow.map((o) => o.id)).toEqual(["discard"]);
+    expect(bar.overflow.map((o) => o.id)).toEqual(["repick", "discard"]);
   });
 
   test("needs a layout: orrn first when the helper is set up, myself as a toggle; both quiet once the editor is open", () => {
@@ -118,7 +129,7 @@ describe("the decision bar (M7)", () => {
     expect(decisionBar(state, { ...ctx, botReady: false }).buttons.map((b) => [b.id, b.variant])).toEqual([["mapMyself", "primary"]]);
     expect(decisionBar(state, { ...ctx, editorOpen: true }).buttons.map((b) => b.variant)).toEqual(["secondary", "secondary"]);
     expect(decisionBar(detail({ state: "needs_shape", botAttempts: 4 }), ctx).buttons.map((b) => b.id)).toEqual(["mapMyself"]);
-    expect(decisionBar(state, ctx).overflow.map((o) => o.id)).toEqual(["ignore", "discard"]);
+    expect(decisionBar(state, ctx).overflow.map((o) => o.id)).toEqual(["ignore", "repick", "discard"]);
   });
 
   test("held (M15): Check again is primary, Approve as it is only with nothing open, the reason in amber", () => {
