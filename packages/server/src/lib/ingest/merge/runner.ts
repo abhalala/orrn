@@ -141,12 +141,19 @@ const inIds = (ids: readonly string[]) => chunkList([...ids], 90);
 // start
 // ---------------------------------------------------------------------------
 
+/** Rule 10.2: the words when every approved sheet's file is being read again. */
+export const MERGE_FILE_READING = "A file is being read again. Finish it, then merge.";
+
 export async function startMerge(ctx: IngestCtx): Promise<{ runId: string }> {
-  const approved = await ctx.db
-    .select({ id: ingestCandidate.id })
+  const all = await ctx.db
+    .select({ id: ingestCandidate.id, readState: ingestArtifact.readState })
     .from(ingestCandidate)
+    .innerJoin(ingestArtifact, and(eq(ingestArtifact.id, ingestCandidate.artifactId), eq(ingestArtifact.companyId, ctx.companyId)))
     .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.state, "approved")));
-  if (approved.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Nothing is approved to merge" });
+  if (all.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: "Nothing is approved to merge" });
+  // Rule 10.2: a sheet whose file is being read again stays approved and is not merged.
+  const approved = all.filter((a) => a.readState === "read");
+  if (approved.length === 0) throw new TRPCError({ code: "BAD_REQUEST", message: MERGE_FILE_READING });
   const runId = createId();
   const ids = approved.map((a) => a.id);
   const statements: SqliteBatchItem[] = [
@@ -157,7 +164,15 @@ export async function startMerge(ctx: IngestCtx): Promise<{ runId: string }> {
       ctx.db
         .update(ingestCandidate)
         .set({ state: "merging", serverSeq: sql`${ingestCandidate.serverSeq} + 1`, updatedAt: now() })
-        .where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, part), eq(ingestCandidate.state, "approved"))),
+        .where(
+          and(
+            eq(ingestCandidate.companyId, ctx.companyId),
+            inArray(ingestCandidate.id, part),
+            eq(ingestCandidate.state, "approved"),
+            // Rule 10.2, inside the batch: the file is still read.
+            sql`exists (select 1 from ingest_artifact a where a.id = ${ingestCandidate.artifactId} and a.read_state = 'read')`,
+          ),
+        ),
     );
   }
   statements.push(

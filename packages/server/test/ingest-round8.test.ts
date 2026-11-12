@@ -5,11 +5,12 @@
  *   file once:
  *   `order_fill_above`, "Some lines have no date. orrn took each one's date from the dated line just
  *   above it. Is that right?" Yes keeps the fill; No refuses those lines with `order_no_date:<n>`.
+ * - 10.2 (S6-2): nothing is approved or merged while its file is being read; the check is in the batch.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { layout, learnLayout, mergeOnce, plant, pump, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
+import { layout, learnLayout, mergeOnce, plant, pump, putRowsAs, rowsOf, trim, upload, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -142,5 +143,56 @@ describe("rule 10.1 (S6-1): the nearest filled row above, and one question when 
     expect((await rowsOf(p.owner, b)).map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create", "ready_create"]);
     const qb = (await p.owner.ingest.candidate.get({ candidateId: b })).questions.find((x) => x.code === "order_fill_above");
     expect(qb).toMatchObject({ open: false, answer: true });
+  });
+});
+
+describe("rule 10.2 (S6-2): nothing is approved or merged while its file is being read", () => {
+  const READING = "This file is being read again. Finish it, then approve.";
+  const blockOf = (ordinal: number, name: string, rows: string[][], hint?: { lastDataRow: number }) => ({
+    ordinal,
+    sheetName: name,
+    title: null,
+    headerRow: 0,
+    headerRows: 1,
+    rowCount: rows.length,
+    sample: rows,
+    preview: [{ row: 0, cells: BOOK }, ...rows.map((cells, i) => ({ row: i + 1, cells }))],
+    ...(hint ? { hint: { headerRow: 0, headerRows: 1 as const, lastDataRow: hint.lastDataRow, skipRows: [] } } : {}),
+  });
+
+  test("a sheet put again with a pick sends the file back to reading: the other sheet cannot be approved until it is read", async () => {
+    const p = await setup();
+    const A = [R("41", "PO-41", "31/10/2025", "5100")];
+    const { artifactId, candidates } = await upload(p.owner, [
+      { name: "A", headers: BOOK, rows: A },
+      { name: "B", headers: BOOK, rows: [R("42", "PO-42", "31/10/2025", "5100")] },
+    ]);
+    const a = candidates[0]!.id;
+    await pump(p.owner, a);
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("ready");
+    const B2 = [R("42", "PO-42", "31/10/2025", "5100"), R("41", "PO-41", "31/10/2025", "5101")];
+    const again = await p.owner.ingest.artifact.putBlocks({ artifactId, blocks: [blockOf(0, "A", A), blockOf(1, "B", B2, { lastDataRow: 2 })] });
+    expect((await p.owner.ingest.artifact.get({ artifactId })).readState).toBe("reading");
+    expect(await tryApprove(p.owner, a)).toBe(`REFUSED: ${READING}`);
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("ready");
+    // Once read again, the two sheets of order 41 meet: nothing of it is written from one sheet alone.
+    await putRowsAs(p.owner, { blockId: again.blocks[1]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: B2 });
+    await p.owner.ingest.artifact.complete({ artifactId });
+    const b = again.candidates.find((c) => c.blockOrdinal === 1)!.id;
+    await pump(p.owner, b);
+    const rb = await rowsOf(p.owner, b);
+    expect(rb[1]!.reasons.some((r) => r.startsWith("order_in_other_file"))).toBe(true);
+  });
+
+  test("an approved sheet in a file being read is not merged", async () => {
+    const p = await setup();
+    const { artifactId, candidates } = await upload(p.owner, [{ name: "A", headers: BOOK, rows: [R("41", "PO-41", "31/10/2025", "5100")] }]);
+    const a = candidates[0]!.id;
+    await pump(p.owner, a);
+    expect(await tryApprove(p.owner, a)).toBe("approved");
+    await env.d1.prepare("update ingest_artifact set read_state = 'reading' where id = ?").bind(artifactId).run();
+    await expect(p.owner.ingest.merge.start()).rejects.toThrow("A file is being read again. Finish it, then merge.");
+    expect((await p.owner.ingest.candidate.get({ candidateId: a })).state).toBe("approved");
+    expect(await orders(p.companyId)).toEqual([]);
   });
 });

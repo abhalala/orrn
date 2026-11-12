@@ -1376,6 +1376,9 @@ async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: string
 // Approve, hold, discard
 // ---------------------------------------------------------------------------
 
+/** Rule 10.2: the words when a sheet is approved while its file is being read again. */
+export const FILE_READING = "This file is being read again. Finish it, then approve.";
+
 /** Rule 7.4: the words when no row of a sheet would be written. */
 export const NOTHING_TO_IMPORT = "Nothing in this sheet can be imported. Fix the rows or discard it.";
 
@@ -1388,6 +1391,8 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Check these rows against the page first" });
   }
   const artifact = await loadArtifact(ctx, c.artifactId);
+  // Rule 10.2: nothing is approved while its file is being read (a re-put or a pick sent it back).
+  if (artifact.readState !== "read") throw new TRPCError({ code: "PRECONDITION_FAILED", message: FILE_READING });
   // Raw files are kept forever: with a vault, nothing is approved before its bytes are stored (A21).
   if (vaultReady() && artifact.vaultState !== "stored") {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The original file is not saved yet. Upload the same file again, then approve." });
@@ -1456,6 +1461,12 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
       reasonCode: null,
       reasonDetail: null,
     }),
+    // Rule 10.2, inside the batch: a re-put or a pick that lands first wins.
+    ctx.db
+      .update(ingestArtifact)
+      .set({ readState: "read" })
+      .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId), eq(ingestArtifact.readState, "read"))),
+    ingestAbortUnlessChanged(ctx.db),
     auditInsert(ctx, {
       action: "ingest.candidate.approve",
       subjectType: "ingest_candidate",
