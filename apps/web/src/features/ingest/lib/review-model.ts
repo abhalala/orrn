@@ -100,7 +100,11 @@ export function decisionBar(
   const diff = fitDiffView(c.fitDiff);
   const changed = diff.renamed.length + diff.extra.length + diff.missing.length;
   // Questions and lines that wait are said apart, so the number on the chip is never more than the page shows.
-  const chip = open.other > 0 && c.state === "ready" ? { words: { key: "ingest.state.toAnswer", vars: { count: open.total } }, tone: "warning" as Tone } : statusChip(c);
+  // The chip names what it counts: lines that wait when no question is left, else the total to answer.
+  const chip =
+    open.other > 0 && c.state === "ready"
+      ? { words: open.questions === 0 ? { key: "ingest.state.linesWait", vars: { count: open.other } } : { key: "ingest.state.toAnswer", vars: { count: open.total } }, tone: "warning" as Tone }
+      : statusChip(c);
 
   let sentence: Words | null = null;
   switch (c.state) {

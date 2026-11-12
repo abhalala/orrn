@@ -599,6 +599,9 @@ test.describe("imports portal", () => {
       await expect(skip).toBeVisible({ timeout: 90_000 });
       await expect(decisionBar(page).getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
       await expect(page.getByText(/has no date, so orrn cannot tell which year's order 41/).first()).toBeVisible();
+      // Nothing is left to answer, only lines wait: the chip says what it counts.
+      await expect(decisionBar(page).getByText(/^\d+ lines wait$/)).toBeVisible();
+      await expect(decisionBar(page).getByText(/to answer$/)).toHaveCount(0);
       // It asks first, then skips every such line in one action.
       await skip.click();
       const dialog = page.getByRole("dialog");
@@ -607,6 +610,17 @@ test.describe("imports portal", () => {
       await expect(dialog).toHaveCount(0, { timeout: 30_000 });
       await expect(skip).toHaveCount(0, { timeout: 90_000 });
       await expect(decisionBar(page).getByRole("button", { name: "Approve", exact: true })).toBeVisible({ timeout: 90_000 });
+
+      // Changing No to Yes brings the skipped lines back, and says so before it does.
+      const panel = page.getByRole("list").filter({ hasText: /Some lines have no date/ });
+      await panel.getByRole("button", { name: /^Change/ }).click();
+      await page.getByRole("group", { name: /Some lines have no date/ }).getByRole("button", { name: "Yes", exact: true }).click();
+      const confirm = page.getByRole("dialog");
+      await expect(confirm.getByText("Change the answer to Yes?")).toBeVisible();
+      await expect(confirm.getByText(/Lines you skipped with .Skip these lines. come back and are checked again\. Lines you skipped one by one stay skipped\./)).toBeVisible();
+      await confirm.getByRole("button", { name: "Yes", exact: true }).click();
+      await expect(confirm).toHaveCount(0, { timeout: 30_000 });
+      await expect(page.getByText(/^Answered: Yes/)).toBeVisible({ timeout: 30_000 });
     } finally {
       await fakeBot(request, { action: "clear" });
     }

@@ -63,6 +63,8 @@ describe("the count says what it counts (server round 9)", () => {
   test("lines that wait with no question left say so alone, never '0 questions'", () => {
     const bar = decisionBar(detail({ target: "orders", openQuestions: 2, periodConfirmed: { fy: "2025-26", asOf: "2026-03-31" }, questions: [{ code: "order_fill_above", subject: "", params: {}, answer: true, open: false }] }), ctx);
     expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlockedRows", vars: { rows: 2 } });
+    // The chip says the same: "2 lines wait", not "2 to answer" (nothing is left to answer).
+    expect(bar.chip.words).toEqual({ key: "ingest.state.linesWait", vars: { count: 2 } });
   });
   test("when the server's number is the page's questions, it is still said as questions", () => {
     const bar = decisionBar(detail({ target: "orders", openQuestions: 2, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);

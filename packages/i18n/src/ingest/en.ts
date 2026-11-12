@@ -70,6 +70,10 @@ export const ingestEn = {
     body: "They have no date, so orrn cannot tell which year's order they belong to. They are left out of the import.",
     keep: "Keep them",
   },
+  fillChange: {
+    title: "Change the answer to Yes?",
+    body: "Lines you skipped with \"Skip these lines\" come back and are checked again. Lines you skipped one by one stay skipped.",
+  },
   kept: {
     title: "Kept, not read yet",
     note: "Reading PDFs and photos comes in a later release.",
@@ -134,6 +138,8 @@ export const ingestEn = {
     questions: "{count} {count:question|questions}",
     // item 4a: say what the count holds
     toAnswer: "{count} to answer",
+    // item 4: the chip names what it counts
+    linesWait: "{count} {count:line waits|lines wait}",
   },
   target: {
     customers: "Customers",

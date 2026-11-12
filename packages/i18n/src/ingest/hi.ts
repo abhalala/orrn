@@ -69,6 +69,10 @@ export const ingestHi = {
     body: "इनमें तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ये किस साल के ऑर्डर की हैं। इन्हें इम्पोर्ट से बाहर रखा जाएगा।",
     keep: "इन्हें रहने दें",
   },
+  fillChange: {
+    title: "जवाब बदलकर हां करें?",
+    body: "\"ये लाइनें छोड़ें\" से छोड़ी गई लाइनें वापस आएंगी और फिर से जांची जाएंगी। एक-एक करके छोड़ी गई लाइनें छोड़ी ही रहेंगी।",
+  },
   kept: {
     title: "रखी हैं, अभी पढ़ी नहीं गईं",
     note: "PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा।",
@@ -133,6 +137,8 @@ export const ingestHi = {
     questions: "{count} सवाल",
     // item 4a: say what the count holds
     toAnswer: "{count} का जवाब देना है",
+    // item 4: the chip names what it counts
+    linesWait: "{count} {count:लाइन इंतज़ार में है|लाइनें इंतज़ार में हैं}",
   },
   target: {
     customers: "ग्राहक",

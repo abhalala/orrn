@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8118 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8121 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (526)
+### ingest (529)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -6978,6 +6978,8 @@ Please check, Lalubhai:
 | `skipNoDate.title` | Skip these {count} lines? | ये {count} लाइनें छोड़ें? |
 | `skipNoDate.body` | They have no date, so orrn cannot tell which year's order they belong to. They are left out of the import. | इनमें तारीख नहीं है, इसलिए orrn नहीं जान सकता कि ये किस साल के ऑर्डर की हैं। इन्हें इम्पोर्ट से बाहर रखा जाएगा। |
 | `skipNoDate.keep` | Keep them | इन्हें रहने दें |
+| `fillChange.title` | Change the answer to Yes? | जवाब बदलकर हां करें? |
+| `fillChange.body` | Lines you skipped with "Skip these lines" come back and are checked again. Lines you skipped one by one stay skipped. | "ये लाइनें छोड़ें" से छोड़ी गई लाइनें वापस आएंगी और फिर से जांची जाएंगी। एक-एक करके छोड़ी गई लाइनें छोड़ी ही रहेंगी। |
 | `kept.title` | Kept, not read yet | रखी हैं, अभी पढ़ी नहीं गईं |
 | `kept.note` | Reading PDFs and photos comes in a later release. | PDF और फ़ोटो पढ़ना अगले रिलीज़ में आएगा। |
 | `kept.added` | Kept. orrn does not read PDFs and photos yet. | रख ली गई। orrn अभी PDF और फ़ोटो नहीं पढ़ता। |
@@ -7027,6 +7029,7 @@ Please check, Lalubhai:
 | `state.discarded` | Discarded | हटाया गया |
 | `state.questions` | {count} {count:question\|questions} | {count} सवाल |
 | `state.toAnswer` | {count} to answer | {count} का जवाब देना है |
+| `state.linesWait` | {count} {count:line waits\|lines wait} | {count} {count:लाइन इंतज़ार में है\|लाइनें इंतज़ार में हैं} |
 | `target.customers` | Customers | ग्राहक |
 | `target.customer_aliases` | Other names for customers | ग्राहकों के दूसरे नाम |
 | `target.vendors` | Vendors | पार्टियां |

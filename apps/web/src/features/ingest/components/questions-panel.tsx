@@ -1,4 +1,5 @@
 import { Button } from "@orrn/ui/components/button";
+import { Dialog } from "@orrn/ui/components/dialog";
 import { Field, TextInput } from "@orrn/ui/components/field";
 import { cn } from "@orrn/ui/lib/utils";
 import { Check } from "lucide-react";
@@ -105,10 +106,20 @@ function QuestionRow({
     was.current = editing;
   }, [editing]);
 
-  const send = async (value: string | boolean) => {
-    if (act.busy) return;
+  const [confirmYes, setConfirmYes] = useState(false);
+  const commit = async (value: string | boolean) => {
     const ok = await act.answer(question.subject, answerValue(question, value), key);
     if (ok) setEditing(false);
+    return ok;
+  };
+  const send = async (value: string | boolean) => {
+    if (act.busy) return;
+    // No to Yes on the fill question brings back the lines "Skip these lines" skipped: say so before it happens.
+    if (question.code === "order_fill_above" && question.answered && question.answer === false && value === true) {
+      setConfirmYes(true);
+      return;
+    }
+    await commit(value);
   };
 
   return (
@@ -178,6 +189,29 @@ function QuestionRow({
           </div>
         ) : null}
       </div>
+      <Dialog
+        open={confirmYes}
+        onOpenChange={setConfirmYes}
+        title={t("ingest.fillChange.title")}
+        description={t("ingest.fillChange.body")}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmYes(false)}>
+              {t("common.cancel")}
+            </Button>
+            <ActionButton
+              variant="primary"
+              busy={act.busy}
+              working={act.pending === `answer:${question.subject}`}
+              onClick={async () => {
+                if (await commit(true)) setConfirmYes(false);
+              }}
+            >
+              {t("common.yes")}
+            </ActionButton>
+          </>
+        }
+      />
     </li>
   );
 }
