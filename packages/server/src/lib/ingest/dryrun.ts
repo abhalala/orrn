@@ -1317,7 +1317,7 @@ const blankRaw = (raw: readonly string[]) => raw.every((c) => (c ?? "").trim() =
  * PO takes the value of the nearest row above it in the run that has one (rule 10.1), never a row
  * below. When the run holds two values of a field, its filled rows wait on the file's question
  * `order_fill_above`: Yes keeps the fill, No leaves those rows as the file has them. A run cut by the page is
- * finished from at most 100 rows on each side. Returns the filled raw cells and the row notes by row
+ * finished from at most 100 rows on each side, plus one row past each edge (S7-4). Returns the filled raw cells and the row notes by row
  * id; the stored raw row is left as the file had it.
  */
 /**
@@ -1342,9 +1342,12 @@ async function orderRunFill(
   const last = page.at(-1)!.rowIndex;
   const R = ingestStagedRow;
   const pick = { rowIndex: R.rowIndex, raw: R.raw };
-  // On the candidate and row index unique index: two ranges of at most 100 rows.
-  const before = await ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), gte(R.rowIndex, first - RUN_WINDOW), lt(R.rowIndex, first)));
-  const after = await ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), gt(R.rowIndex, last), lte(R.rowIndex, last + RUN_WINDOW)));
+  // On the candidate and row index unique index: two ranges of at most 101 rows. The one row past
+  // each window edge tells a run that goes on beyond what this page reads (S7-4).
+  const edgeLow = first - RUN_WINDOW - 1;
+  const edgeHigh = last + RUN_WINDOW + 1;
+  const before = await ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), gte(R.rowIndex, edgeLow), lt(R.rowIndex, first)));
+  const after = await ctx.db.select(pick).from(R).where(and(eq(R.candidateId, candidateId), gt(R.rowIndex, last), lte(R.rowIndex, edgeHigh)));
   const all = [...before, ...page.map((r) => ({ rowIndex: r.rowIndex, raw: r.raw })), ...after].sort((a, b) => a.rowIndex - b.rowIndex);
   const ranges = merged.filter((m) => m.col === noCol);
   const rangeOf = (i: number) => ranges.find((x) => i > x.firstRow && i <= x.lastRow);
@@ -1395,7 +1398,11 @@ async function orderRunFill(
     // answered. Two POs on one date are one order with two POs (the order_po question), and two
     // parties are a conflict (order_run_differs), so only the date asks.
     const dateCol = cols.find(([f]) => f === "orderDate")?.[1];
-    const twoDates = run.length > 1 && dateCol !== undefined && new Set(run.map((r) => cellOf(r.raw, dateCol).toLowerCase()).filter((v) => v !== "")).size > 1;
+    // S7-4: a run that reaches a window edge may hold a second date this page cannot see. Its lines
+    // that took a date from above wait on the question too, like those of a run of two dates.
+    const crossesWindow = run.some((r) => r.rowIndex === edgeLow || r.rowIndex === edgeHigh);
+    const twoDates =
+      run.length > 1 && dateCol !== undefined && (crossesWindow || new Set(run.map((r) => cellOf(r.raw, dateCol).toLowerCase()).filter((v) => v !== "")).size > 1);
     // The nearest filled value above, by column, inside this run.
     const above = new Map<number, string>();
     for (const r of run) {

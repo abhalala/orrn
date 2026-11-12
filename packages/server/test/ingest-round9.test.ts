@@ -5,6 +5,8 @@
  *   change once a sheet of the file is approved, merging or merged.
  * - 11.2: after "No" the orders of that number wait; one action, "Skip these {count} lines", skips
  *   every line refused with `order_no_date` on the sheet, and the dated orders then write whole.
+ * - S7-4: a run longer than the page window: its lines that took a date from above wait on the
+ *   question on every page, not only on the page that sees the second date.
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
@@ -208,4 +210,28 @@ describe("rule 11.2: one action skips every line with no date", () => {
     expect((await p.owner.ingest.candidate.get({ candidateId: id })).noDateLines).toBe(0);
     await expect(p.owner.ingest.rows.skipNoDate({ candidateId: id, expectSeq: await seqOf(p.owner, id) })).rejects.toThrow("No line on this sheet is missing a date");
   });
+});
+
+describe("S7-4: a run longer than the page window", () => {
+  test("a run of 41 over 330 lines with a 2024 date at line 320: the first page's filled lines ask too; No refuses them", async () => {
+    const p = await setup();
+    const rows = Array.from({ length: 330 }, (_, i) =>
+      i === 0 ? R("41", "PO-A", "01/05/2023", "5100", "3000") : i === 320 ? R("41", "PO-B", "01/06/2024", "5100", "3320") : R("41", "", "", "5100", String(3000 + i)),
+    );
+    const { candidates } = await upload(p.owner, [{ name: "A", headers: BOOK, rows }]);
+    const id = candidates[0]!.id;
+    await pump(p.owner, id);
+    const at = async (i: number) => {
+      const r = await env.d1.prepare("select state, reasons from ingest_staged_row where candidate_id = ? and row_index = ?").bind(id, i).first<{ state: string; reasons: string }>();
+      return { state: r!.state, reasons: JSON.parse(r!.reasons ?? "[]") as string[] };
+    };
+    expect((await at(150)).reasons).toContain("q:order_fill_above");
+    // Line 250's nearest date (line 0) is out of its page's reach: it is not filled from it, but
+    // refused for its missing date, and it holds the orders of 41 like any dateless line.
+    expect((await at(250)).reasons).toContain("order_no_date:41");
+    await fill(p.owner, id, false);
+    await pump(p.owner, id);
+    const after = await at(150);
+    expect([after.state, after.reasons.includes("order_no_date:41")]).toEqual(["refused", true]);
+  }, 120_000);
 });
