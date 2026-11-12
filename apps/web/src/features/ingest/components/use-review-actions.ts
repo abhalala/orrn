@@ -3,7 +3,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
+  ingestApi,
+  isConflict,
   nextFocus,
+  openQuestionTotal,
   refreshIngest,
   rowFocusKey,
   useIngestActions,
@@ -105,7 +108,19 @@ export function useReviewActions(input: {
     failed: (area) => (failure && failure.area === area ? failure.error : null),
     after,
     approve: async () => {
-      const ok = await write("bar", "approve", () => actions.approve(id, serverSeq));
+      const ok = await write("bar", "approve", async () => {
+        try {
+          await actions.approve(id, serverSeq);
+        } catch (error) {
+          // The page showed Ready from the dry run's last answer while the server had moved the candidate once more (it
+          // checks again by itself after another sheet changes). If, read afresh, it is still ready with nothing open,
+          // the person's press stands: approve once more on the fresh number. Anything else is theirs to look at.
+          if (!isConflict(error)) throw error;
+          const fresh = await ingestApi().candidateGet({ candidateId: id });
+          if (fresh.state !== "ready" || openQuestionTotal(fresh) > 0) throw error;
+          await actions.approve(id, fresh.serverSeq);
+        }
+      });
       if (ok) {
         nonce.current += 1;
         setAfter({ kind: "approved", nonce: nonce.current });

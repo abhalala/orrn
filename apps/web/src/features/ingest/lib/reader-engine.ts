@@ -20,7 +20,10 @@ export type EngineHints = {
 export type EnginePreviewRow = { row: number; page?: number; cells: string[] };
 
 /** A table that starts right after another one of the same sheet, with only blank rows between them. */
-export type EngineFollows = { block: number; gapRows: number };
+export type EngineFollows = { block: number; gapRows: number; /** Offer "It continues the table above": true only when every column of the table above is text (rule 8.1). */ continues?: boolean };
+
+/** A row of the region a reader left out and listed (rule 8.1): a repeated header, a title line, a note under the table. */
+export type EngineWarning = { code: string; row: number; text?: string };
 
 export type EngineBlock = {
   title: string | null;
@@ -41,6 +44,9 @@ export type EngineBlock = {
   firstDataSheetRow?: number;
   /** Set when this table starts right after another one of the sheet (blank rows between). */
   follows?: EngineFollows | null;
+  /** Blank rows crossed inside the table (rule 8.1). */
+  gaps?: number;
+  warnings?: EngineWarning[];
 };
 
 /** What a read of one sheet or CSV may be told: its name and the hints for its tables. */

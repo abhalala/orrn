@@ -9,11 +9,13 @@ import type { EngineBlock, EngineHints, MatrixRead, PdfItem, ReaderEngine } from
 /** The reader engine on the pure readers of `@orrn/ingest` (plan C2: `readers/blocks`, `readers/sql`, `readers/pdf-text`). */
 
 const toBlock = (b: EngineRead): EngineBlock => {
-  const follows = (b as { follows?: { block: number; gapRows: number } | null }).follows ?? null;
+  const follows = (b as { follows?: { block: number; gapRows: number; continues?: boolean } | null }).follows ?? null;
   return {
     title: b.title, headerRow: b.headerRow, headerRows: b.headerRows, headers: b.headers, rows: b.rows,
     guess: b.guess as EngineHints, hints: b.hints as EngineHints | null, preview: b.preview, width: b.width,
     firstDataSheetRow: b.firstDataSheetRow, follows,
+    gaps: (b as { gaps?: number }).gaps ?? 0,
+    warnings: (b.warnings ?? []) as { code: string; row: number; text?: string }[],
   };
 };
 

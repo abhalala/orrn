@@ -81,6 +81,7 @@ test("shots", async ({ page, request }) => {
   await signInViaApi(page, "admin");
 
   const skipHeader = !!process.env.SKIP_HEADER;
+  const renamed = DIE_HEADER.replace("Notes", `Remarks ${STAMP}`);
   // Upload screen, nothing yet.
   if (!skipHeader) await shootUrl(page, "upload-empty", "/ingest", { ready: async () => void (await page.locator("main#main h1").first().waitFor()) });
 
@@ -93,8 +94,7 @@ test("shots", async ({ page, request }) => {
       await step(page).getByRole("radio", { name: /^(Row|लाइन) 3:/ }).check();
       await step(page).getByRole("radio", { name: /Two rows|दो लाइनें/ }).check();
     });
-    const renamed = DIE_HEADER.replace("Notes", `Remarks ${STAMP}`);
-    await shootStep(page, "header-resembles", "c.csv", dieCsv(`H${STAMP.slice(0, 3)}`, [`${STAMP}H1`], renamed), async () => {});
+      await shootStep(page, "header-resembles", "c.csv", dieCsv(`H${STAMP.slice(0, 3)}`, [`${STAMP}H1`], renamed), async () => {});
     const uh = [`Jn series ${STAMP}`, `Jn profile ${STAMP}`, `Jn low ${STAMP} kg/12ft`, `Jn high ${STAMP} kg/12ft`];
     const joinCsv = Buffer.from([uh.join(","), "Z1,JN1,1.1,1.4", "Z1,JN2,1.2,1.5", ",,,", "Z1,Total,,", "Z1,JN3,1.3,1.6"].join("\n"));
     const sameCsv = Buffer.from([uh.join(","), "Z1,JN1,1.1,1.4", "Z1,JN2,1.2,1.5", ",,,", uh.join(","), "Z1,JN3,1.3,1.6"].join("\n"));

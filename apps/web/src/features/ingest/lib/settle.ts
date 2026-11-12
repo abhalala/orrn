@@ -80,7 +80,16 @@ export async function settleHeaders(deps: SettleDeps): Promise<Settled> {
       return input;
     }
     const h = b.meta && held.get(hintKey(sheetOf(b), b.meta.guess.headerRow));
-    if (h?.send && b.meta?.hints) input.hint = { headerRow: input.headerRow, headerRows: input.headerRows === 2 ? 2 : 1 };
+    if (h?.send && b.meta?.hints) {
+      // The pick as the reader read it: the end of the table and the rows left out go with it (rule 7.2).
+      const read = b.meta.hints;
+      input.hint = {
+        headerRow: input.headerRow,
+        headerRows: input.headerRows === 2 ? 2 : 1,
+        ...(read.lastDataRow !== undefined ? { lastDataRow: read.lastDataRow } : {}),
+        ...(read.skipRows && read.skipRows.length > 0 ? { skipRows: read.skipRows } : {}),
+      };
+    }
     return input;
   };
 
@@ -175,7 +184,11 @@ export async function settleHeaders(deps: SettleDeps): Promise<Settled> {
           held.set(hintKey(sheet, pick.headerRow), { sheet, hint: hintOfPick(pick), send: true });
           if (isCurrentHeader(first, pick)) {
             // Mark every part as read under a hint, so the block goes out with the person's pick.
-            blocks = blocks.map((b) => (q.blocks.includes(b) && b.meta ? { ...b, meta: { ...b.meta, hints: hintOfPick(pick) } } : b));
+            // The guess given back as the hint reads the same (round 8), so its end and its skipped rows go with the pick.
+            const g = first.meta?.guess;
+            const given: EngineHints = { ...hintOfPick(pick), ...(g?.lastDataRow !== undefined ? { lastDataRow: g.lastDataRow } : {}), ...(g?.skipRows?.length ? { skipRows: g.skipRows } : {}) };
+            held.set(hintKey(sheet, pick.headerRow), { sheet, hint: given, send: true });
+            blocks = blocks.map((b) => (q.blocks.includes(b) && b.meta ? { ...b, meta: { ...b.meta, hints: given } } : b));
             break;
           }
         } else {

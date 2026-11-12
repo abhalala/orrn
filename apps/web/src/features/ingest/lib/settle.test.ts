@@ -6,11 +6,11 @@ import { ReadError } from "./reader-client";
 import type { EngineHints } from "./reader-engine";
 import type { ReadBlock, SheetHints } from "./reader-protocol";
 import { settleHeaders } from "./settle";
-import { uploadOneFile, type UploadItem, type UploadReader } from "./upload";
+import { readNotes, uploadOneFile, type UploadItem, type UploadReader } from "./upload";
 import type { HeaderAnswer } from "./types";
 
 /** A table of one sheet: raw header row, `n` data rows right under it, a preview of its first rows. */
-function table(ordinal: number, o: { header?: number; rows?: number; sheet?: string; follows?: { block: number; gapRows: number }; hints?: EngineHints | null; tableIndex?: number; names?: string[] } = {}): ReadBlock {
+function table(ordinal: number, o: { header?: number; rows?: number; sheet?: string; follows?: { block: number; gapRows: number; continues?: boolean }; hints?: EngineHints | null; tableIndex?: number; names?: string[] } = {}): ReadBlock {
   const header = o.header ?? 0;
   const rows = o.rows ?? 2;
   const names = o.names ?? ["Section", "Kg"];
@@ -26,7 +26,7 @@ function table(ordinal: number, o: { header?: number; rows?: number; sheet?: str
     rows: Array.from({ length: rows }, (_, i) => [`r${ordinal}-${i}`, String(i + 1)]),
     meta: {
       sheetName: o.sheet ?? "Sheet1", tableIndex: o.tableIndex ?? ordinal, part: 0, guess: { headerRow: header, headerRows: 1 }, hints: o.hints ?? null,
-      follows: o.follows ?? null, rowBase: 0, preview, firstDataRow: header + 1, lastDataRow: header + rows, titleRows: [],
+      follows: o.follows ?? null, rowBase: 0, preview, firstDataRow: header + 1, lastDataRow: header + rows, titleRows: [], gaps: 0, leftOut: [],
     },
   };
 }
@@ -149,7 +149,7 @@ describe("settleHeaders", () => {
 
   test("a table that continues the one above is joined: the upper one is read to the last row of the lower, the lower stays as an empty block", async () => {
     const upper = table(0, { header: 0, rows: 2 });
-    const lower = table(1, { header: 4, rows: 2, follows: { block: 0, gapRows: 2 }, names: ["PRC", "Tol"] });
+    const lower = table(1, { header: 4, rows: 2, follows: { block: 0, gapRows: 2, continues: true }, names: ["PRC", "Tol"] });
     const { api, calls } = server((b) => (b.ordinal === 0 ? ask(0) : ask(4)));
     const hints: SheetHints[][] = [];
     const views: HeaderAskView[] = [];
@@ -188,14 +188,17 @@ describe("settleHeaders", () => {
     expect(hints[0]![0]!.hints[0]!.skipRows).toEqual([4, 5]);
   });
 
-  test("the offers are only for a table that follows another one, and 'same columns' only when it repeats the names", () => {
+  test("'It continues the table above' only when the reader says the table above is all text; 'same columns' only when it repeats the names", () => {
     const upper = table(0);
-    const lower = table(1, { header: 4, follows: { block: 0, gapRows: 1 }, names: ["Section", "Kg"] });
     const q = (b: ReadBlock) => ({ key: "k", blocks: [b], guess: { headerRow: b.meta!.guess.headerRow, headerRows: 1 as const }, candidates: [], resembles: null });
-    expect(headerAskView(q(lower), { position: 1, total: 1 }, { upper, hintError: false }).offers).toEqual(["continues", "same"]);
-    const other = table(1, { header: 4, follows: { block: 0, gapRows: 1 }, names: ["Party", "Date"] });
-    expect(headerAskView(q(other), { position: 1, total: 1 }, { upper, hintError: false }).offers).toEqual(["continues"]);
-    expect(headerAskView(q(table(1, { header: 4 })), { position: 1, total: 1 }, { upper, hintError: false }).offers).toEqual([]);
+    const view = (b: ReadBlock) => headerAskView(q(b), { position: 1, total: 1 }, { upper, hintError: false }).offers;
+    // The table above has number columns: it continues by itself, so nothing is offered but the repeated names.
+    expect(view(table(1, { header: 4, follows: { block: 0, gapRows: 1, continues: false }, names: ["Party", "Date"] }))).toEqual([]);
+    expect(view(table(1, { header: 4, follows: { block: 0, gapRows: 1, continues: false }, names: ["Section", "Kg"] }))).toEqual(["same"]);
+    // An all-text table above: the person decides.
+    expect(view(table(1, { header: 4, follows: { block: 0, gapRows: 1, continues: true }, names: ["Party", "Date"] }))).toEqual(["continues"]);
+    expect(view(table(1, { header: 4, follows: { block: 0, gapRows: 1, continues: true }, names: ["Section", "Kg"] }))).toEqual(["continues", "same"]);
+    expect(view(table(1, { header: 4 }))).toEqual([]);
   });
 
   test("the view draws a gap where row numbers were left out, numbers rows from 1 on the sheet, and selects the row the question names", () => {
@@ -258,5 +261,39 @@ describe("the upload around the header step", () => {
     expect(r.items.some((i) => i.step === "asking")).toBe(false);
     expect(r.rows).toEqual([{ blockId: "B0", n: 2 }]);
     expect(r.discarded).toEqual([]);
+  });
+});
+
+describe("what the reader left out is shown (rule 8.1)", () => {
+  test("blank rows crossed and listed rows reach the notes with the sheet's own row numbers; a table with nothing to say has none", () => {
+    const a = table(0);
+    a.meta!.gaps = 2;
+    a.meta!.rowBase = 1;
+    a.meta!.leftOut = [{ code: "skipped_title", row: 5, text: "December" }, { code: "skipped_repeat_header", row: 9, text: "Section | Kg" }];
+    const b = table(1);
+    expect(readNotes([a, b])).toEqual([
+      { sheetName: "Sheet1", gaps: 2, rows: [{ n: 7, code: "skipped_title", text: "December" }, { n: 11, code: "skipped_repeat_header", text: "Section | Kg" }] },
+    ]);
+  });
+
+  test("a table's own guess goes back as the hint, with its end and its skipped rows, and a join keeps its skipped rows", async () => {
+    const t0 = table(0);
+    t0.meta!.guess = { headerRow: 0, headerRows: 1, lastDataRow: 6, skipRows: [3, 4] };
+    const seen: { headerRow: number; lastDataRow?: number | null; skipRows?: number[] }[] = [];
+    const calls: unknown[] = [];
+    const api = {
+      artifactPutBlocks: async (input: { blocks: { ordinal: number; hint?: (typeof seen)[number] }[] }) => {
+        calls.push(input);
+        const hint = input.blocks[0]!.hint;
+        if (hint) seen.push(hint);
+        return {
+          blocks: hint ? [{ blockId: "B0", ordinal: 0 }] : [],
+          candidates: [],
+          header: [hint ? { ordinal: 0, answer: "keep" as const, by: "person" as const, blockId: "B0" } : { ordinal: 0, answer: "ask" as const, guess: { headerRow: 0, headerRows: 1 as const }, candidates: [], resembles: null }],
+        };
+      },
+    } as unknown as Pick<IngestApi, "artifactPutBlocks">;
+    await settleHeaders({ api, artifactId: "A", blocks: [t0], reread: async () => [], ask: async () => ({ kind: "pick", headerRow: 0, headerRows: 1 }) });
+    expect(seen).toEqual([{ headerRow: 0, headerRows: 1, lastDataRow: 6, skipRows: [3, 4] }]);
   });
 });

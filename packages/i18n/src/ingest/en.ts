@@ -43,6 +43,12 @@ export const ingestEn = {
     change: "Change mapping",
     show: "Show",
     hide: "Hide",
+    // round 8 of the readers: nothing skipped is hidden
+    gaps: "{count} blank {count:row|rows} inside this table {count:was|were} skipped.",
+    leftOut: "{count} {count:row|rows} left out of the table",
+    skipped_repeat_header: "Row {n} is left out: it repeats the column names.",
+    skipped_title: "Row {n} is left out: it looks like a title. It says: {text}",
+    after_last_row: "Row {n} is under the table and is not imported. It says: {text}",
   },
   kept: {
     title: "Kept, not read yet",

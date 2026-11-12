@@ -257,7 +257,8 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
         rowCount: slice.length,
         sample: sampleRows(slice),
         ...(dateColumns && dateColumns.length > 0 ? { dateColumns: dateColumns.filter((c) => c < headers.length) } : {}),
-        ...(preview.length > 0 ? { preview } : {}),
+        // Required by the server (rule 7.2): it checks the header on the preview and takes the names from it.
+        preview,
         ...(merged.length > 0 ? { merged } : {}),
         ...(block.width !== undefined ? { width: block.width } : {}),
       };
@@ -273,10 +274,21 @@ export function finishBlocks(pieces: readonly Piece[], limits: ReadLimits = READ
         firstDataRow: firstDataRow + from,
         lastDataRow: firstDataRow + from + slice.length - 1,
         titleRows,
+        gaps: block.gaps ?? 0,
+        leftOut: (block.warnings ?? [])
+          .filter((w) => w.code === "skipped_repeat_header" || w.code === "skipped_title" || w.code === "after_last_row")
+          .map((w) => ({ code: w.code as "skipped_repeat_header", row: w.row, text: w.text ?? "" })),
       };
       out.push({ input, rows: slice, meta });
       if (out.length > limits.maxBlocks) throw new ReadStop({ code: "too_many_blocks", blocks: out.length });
     }
+  }
+  // The server wants the table above as the ordinal of its block in this same list.
+  for (const b of out) {
+    const f = b.meta?.follows;
+    if (!f) continue;
+    const upper = out.find((x) => x.meta && x.meta.sheetName === b.meta!.sheetName && x.meta.tableIndex === f.block && x.meta.part === 0);
+    if (upper) b.input.follows = { ordinal: upper.input.ordinal, gapRows: f.gapRows };
   }
   return out;
 }

@@ -42,6 +42,12 @@ export const ingestHi = {
     change: "कॉलम मिलान बदलें",
     show: "दिखाएं",
     hide: "छिपाएं",
+    // round 8 of the readers: nothing skipped is hidden
+    gaps: "इस टेबल के अंदर की {count} खाली {count:लाइन|लाइनें} छोड़ी गईं।",
+    leftOut: "टेबल से छोड़ी गई {count} {count:लाइन|लाइनें}",
+    skipped_repeat_header: "लाइन {n} छोड़ी गई: उसमें कॉलम के नाम फिर से लिखे हैं।",
+    skipped_title: "लाइन {n} छोड़ी गई: वह शीर्षक जैसी लगती है। उसमें लिखा है: {text}",
+    after_last_row: "लाइन {n} टेबल के नीचे है और इम्पोर्ट नहीं होगी। उसमें लिखा है: {text}",
   },
   kept: {
     title: "रखी हैं, अभी पढ़ी नहीं गईं",

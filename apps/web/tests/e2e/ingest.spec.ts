@@ -463,16 +463,15 @@ test.describe("imports portal", () => {
     await expect(r.getByText("Known layout")).toBeVisible();
   });
 
-  test("a second table below a blank row is joined with \"It continues the table above\"", async ({ page }) => {
+  test("a second table below a blank row, with only text above, is joined with \"It continues the table above\"", async ({ page }) => {
     const name = `continues-${STAMP}.csv`;
-    const headers = [`Cn series ${STAMP}`, `Cn profile ${STAMP}`, `Cn low ${STAMP} kg/12ft`, `Cn high ${STAMP} kg/12ft`];
-    const csv = Buffer.from(
-      [headers.join(","), "Z1,CN1,1.1,1.4", "Z1,CN2,1.2,1.5", ",,,", "Z1,Total,,", "Z1,CN3,1.3,1.6", "Z1,CN4,1.4,1.7"].join("\n"),
-    );
+    const headers = [`Cn party ${STAMP}`, `Cn city ${STAMP}`];
+    const csv = Buffer.from([headers.join(","), "Shree,Surat", "Om,Rajkot", ",", "Kisan,Vapi", "Jay,Anand"].join("\n"));
     await openPortal(page, "admin");
     await upload(page, name, csv);
 
-    // Two tables wait: the names of the first, then the second, whose first row does not look like column names.
+    // Two tables wait: the names of the first, then the second. The table above holds only text, so the reader cannot tell
+    // by its columns that the rows below belong to it: the person decides.
     await expect(headerStep(page).getByText(/^Table 1 of 2/)).toBeVisible({ timeout: 60_000 });
     await pickHeaderRow(page, 1);
     await expect(headerStep(page).getByText(/^Table 2 of 2/)).toBeVisible({ timeout: 60_000 });
@@ -481,7 +480,27 @@ test.describe("imports portal", () => {
     // One table, with the rows of both: the second table did not become an import of its own.
     await expect(stripRow(page, name).getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
     await openReview(page, name, "Needs you");
-    await expect(page.getByText(/\b6 rows\b/).first()).toBeVisible();
+    await expect(page.getByText(/\b5 rows\b/).first()).toBeVisible();
+  });
+
+  test("a table with number columns goes on across a blank row by itself, and what was left out is listed", async ({ page }) => {
+    const name = `goes-on-${STAMP}.csv`;
+    const headers = [`Go series ${STAMP}`, `Go profile ${STAMP}`, `Go low ${STAMP} kg/12ft`, `Go high ${STAMP} kg/12ft`];
+    const csv = Buffer.from(
+      [headers.join(","), "Z1,GO1,1.1,1.4", "Z1,GO2,1.2,1.5", ",,,", "December,,,", "Z1,GO3,1.3,1.6", "Z1,GO4,1.4,1.7"].join("\n"),
+    );
+    await openPortal(page, "admin");
+    await upload(page, name, csv);
+    // One table, one question: no second table to ask about, and no offer to join.
+    await expect(headerStep(page).getByText(/^Table \d of \d/)).toHaveCount(0, { timeout: 60_000 });
+    await pickHeaderRow(page, 1);
+    await expect(headerStep(page)).toHaveCount(0, { timeout: 60_000 });
+    const entry = stripRow(page, name);
+    await expect(entry.getByText(/^Read\. 1 table\b/)).toBeVisible({ timeout: 90_000 });
+    // Nothing skipped is hidden: the blank row and the month line are listed with their row numbers.
+    const listed = entry.getByTestId("left-out");
+    await expect(listed.getByText(/^1 blank row inside this table was skipped\.$/)).toBeVisible();
+    await expect(listed.getByText(/Row 5 is left out: it looks like a title\. It says: December/)).toBeVisible();
   });
 
   test("a value like 007 and a value like 18% arrive in the review rows as written", async ({ page }) => {

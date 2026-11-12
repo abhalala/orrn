@@ -37,8 +37,28 @@ export type UploadItem = {
   canonicalMissing?: boolean;
   /** While `asking`: the table waiting on the person ("Which row has the column names?"). */
   ask?: HeaderAskView | null;
+  /** What the reader left out, so the person sees it (rule 8.1): blank rows crossed inside a table, repeated headers, titles, notes. */
+  notes?: ReadNote[];
   problem: FileProblem | null;
 };
+
+/** Rows a reader left out of one table and listed, with the blank rows it crossed. `n` is the row number on the sheet. */
+export type ReadNote = {
+  sheetName: string | null;
+  gaps: number;
+  rows: { n: number; code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; text: string }[];
+};
+
+/** The notes of the tables that were read, in file order. Tables with nothing to say are left out. */
+export function readNotes(blocks: readonly { input: { sheetName: string | null }; meta?: { gaps: number; rowBase: number; part: number; leftOut: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[] } }[]): ReadNote[] {
+  const out: ReadNote[] = [];
+  for (const b of blocks) {
+    const m = b.meta;
+    if (!m || m.part !== 0 || (m.gaps === 0 && m.leftOut.length === 0)) continue;
+    out.push({ sheetName: b.input.sheetName, gaps: m.gaps, rows: m.leftOut.map((w) => ({ n: w.row + m.rowBase + 1, code: w.code, text: w.text })) });
+  }
+  return out;
+}
 
 /** What the upload needs from the reader: injected so tests can use a fake. */
 export type UploadReader = {
@@ -252,6 +272,7 @@ export async function uploadOneFile(
         });
   const ids = settled.ids;
   const blocks = settled.blocks;
+  onItem({ notes: readNotes(blocks.filter((b) => !settled.skipped.has(b.input.ordinal))) });
 
   // Rows, 500 a call, each telling the server how many it already holds.
   const total = blocks.reduce((n, b) => n + b.rows.length, 0);
@@ -267,7 +288,9 @@ export async function uploadOneFile(
       if (page.fromIndex + page.rows.length <= holds) continue;
       const from = Math.max(page.fromIndex, holds);
       const rows = page.rows.slice(from - page.fromIndex);
-      const res = await api.artifactPutRows({ blockId, fromIndex: from, expectRowsPut: holds, rows });
+      const res = await api.artifactPutRows({
+        blockId, headerRow: block.input.headerRow, headerRows: block.input.headerRows === 2 ? 2 : 1, fromIndex: from, expectRowsPut: holds, rows,
+      });
       sent += res.rowsPut - holds;
       holds = res.rowsPut;
       onItem({ sent: { rows: sent, total } });

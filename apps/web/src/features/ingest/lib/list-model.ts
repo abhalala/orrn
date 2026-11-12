@@ -361,6 +361,8 @@ export type StripEntry =
       canonicalMissing: boolean;
       /** While `asking`: the table waiting on the person. */
       ask: HeaderAskView | null;
+      /** Rows the reader left out and listed, and blank rows crossed inside a table. */
+      notes: UploadItem["notes"];
     }
   | {
       kind: "checking";
@@ -448,6 +450,7 @@ export function uploadStrip(
       notStored: item.notStored,
       canonicalMissing: item.canonicalMissing === true,
       ask: item.step === "asking" ? (item.ask ?? null) : null,
+      notes: item.step === "done" ? (item.notes ?? []) : [],
     };
   });
   const shown = new Set(items.map((i) => i.artifactId).filter((id): id is string => Boolean(id)));

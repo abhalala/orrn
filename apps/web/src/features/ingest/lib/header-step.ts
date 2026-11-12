@@ -73,7 +73,7 @@ export function repeatsTableAbove(lower: ReadBlock, upper: ReadBlock | undefined
   const here = lower.meta?.preview.find((p) => p.row === lower.meta?.guess.headerRow);
   if (!here) return false;
   const a = norm(here.cells).filter((c) => c !== "");
-  const b = norm(upper.input.headers).filter((c) => c !== "");
+  const b = norm(upper.input.headers ?? []).filter((c) => c !== "");
   return a.length > 0 && a.length === b.length && a.every((c, i) => c === b[i]);
 }
 
@@ -97,8 +97,10 @@ export function headerAskView(
   const r = question.resembles;
   const preselected: HeaderPickIn = r ? { headerRow: r.headerRow, headerRows: r.headerRows } : question.guess;
   const offers: HeaderOffer[] = [];
+  // "It continues the table above" only when the reader says so: the table above is all text (rule 8.1). A table whose
+  // columns hold numbers or dates continues across blank rows by itself, so there is nothing to offer.
   if (meta?.follows) {
-    offers.push("continues");
+    if (meta.follows.continues) offers.push("continues");
     if (repeatsTableAbove(block, context.upper)) offers.push("same");
   }
   return {

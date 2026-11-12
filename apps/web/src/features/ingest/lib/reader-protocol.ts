@@ -19,7 +19,7 @@ export type WorkerRequest =
   | { id: number; type: "read"; file: File; kind: ArtifactKind; hints?: SheetHints[] };
 
 /** `putBlocks` takes the region width too; the server's own type does not list it yet, and it ignores what it does not know. */
-export type WireBlockInput = BlockInput & { width?: number };
+export type WireBlockInput = Omit<BlockInput, "headers"> & { headers?: string[]; width?: number; follows?: { ordinal: number; gapRows: number } | null };
 
 /** What the header step needs to know about a table that the wire does not carry. */
 export type BlockMeta = {
@@ -39,6 +39,9 @@ export type BlockMeta = {
   /** Raw row of the first and of the last data row, for a join with the table below. */
   firstDataRow: number;
   lastDataRow: number;
+  /** Blank rows crossed inside the table, and the rows the reader left out and listed (rule 8.1): shown to the person, never hidden. */
+  gaps: number;
+  leftOut: { code: "skipped_repeat_header" | "skipped_title" | "after_last_row"; row: number; text: string }[];
   /** Raw rows above the header that hold text (a title, a month name): they are skipped when the table is joined to the one above. */
   titleRows: number[];
 };

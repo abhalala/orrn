@@ -6,7 +6,7 @@ import { UiLink } from "@orrn/ui/components/link";
 import { X } from "lucide-react";
 import { useId } from "react";
 
-import { foundSummary, type HeaderReply, type KeptFile, type StripEntry } from "../lib";
+import { foundSummary, type HeaderReply, type KeptFile, type ReadNote, type StripEntry } from "../lib";
 import { HeaderStep } from "./header-step";
 import { FileName, ForeignText, useSay } from "./list-kit";
 import { ProgressBar } from "./shared";
@@ -79,6 +79,7 @@ export function UploadStrip({
               </div>
               <IconButton label={`${t("common.remove")}: ${entry.name}`} icon={<X aria-hidden="true" />} onClick={() => onRemove(entry.id)} />
             </div>
+            {entry.notes && entry.notes.length > 0 ? <LeftOutNotes notes={entry.notes} /> : null}
             {entry.ask ? <HeaderStep key={entry.ask.position} view={entry.ask} fileName={entry.name} onReply={(reply) => onHeader(entry.id, reply)} /> : null}
             {entry.actions.length > 0 ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -201,5 +202,32 @@ export function KeptFiles({ files }: { files: readonly KeptFile[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * What the reader left out of a table (rule 8.1): the blank rows it crossed, a repeated header, a title line, a note under
+ * the table. Nothing skipped is hidden: each row is listed with its number and its text, folded when there are many.
+ */
+export function LeftOutNotes({ notes }: { notes: readonly ReadNote[] }) {
+  const { say } = useSay();
+  const gaps = notes.reduce((n, note) => n + note.gaps, 0);
+  const rows = notes.flatMap((note) => note.rows);
+  return (
+    <div data-testid="left-out" className="flex min-w-0 flex-col gap-1 text-[13px] leading-5 text-muted-foreground">
+      {gaps > 0 ? <p className="m-0">{say("ingest.read.gaps", { count: gaps })}</p> : null}
+      {rows.length > 0 ? (
+        <details open={rows.length <= 3}>
+          <summary className="min-h-6 cursor-pointer">{say("ingest.read.leftOut", { count: rows.length })}</summary>
+          <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
+            {rows.map((row) => (
+              <li key={`${row.n}:${row.code}`} className="break-words">
+                {say(`ingest.read.${row.code}`, { n: row.n, text: row.text })}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </div>
   );
 }

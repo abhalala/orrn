@@ -21,7 +21,7 @@ export * from "./header-step";
 export * from "./files-model";
 export {
   uploadOneFile, ticketUrl, gzipJsonl, problemFromError, UploadPutError,
-  type UploadItem, type UploadStep, type UploadReader, type UploadClientDeps,
+  type UploadItem, type UploadStep, type ReadNote, readNotes, type UploadReader, type UploadClientDeps,
 } from "./upload";
 export * from "./recipe-builder";
 export * from "./errors";
