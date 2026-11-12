@@ -119,6 +119,13 @@ export default function NavArrangeEditor({
         if (!next) cancel();
       }}
       title={t("nav.arrange")}
+      onEscapeKeyDown={(event) => {
+        if (!picked) return;
+        event.preventDefault();
+        setRows(picked.before);
+        setPicked(null);
+        setAnnouncement("");
+      }}
       dismissible={!busy}
       footer={
         <>

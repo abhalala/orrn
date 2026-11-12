@@ -95,3 +95,26 @@ test("phone More keeps items moved above the divider", async ({ page }) => {
   await expect(moreSheet.getByRole("link", { name: "Reports" })).toBeVisible();
   await expect(moreSheet.getByRole("link").first()).toHaveAccessibleName("Reports");
 });
+
+test("Escape restores the picked row and a second Escape cancels", async ({ page }) => {
+  const plant = await freshPlant("NavEscape");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await openPlant(page, plant, "owner");
+  await mainNav(page).getByRole("button", { name: "Arrange menu" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Arrange menu" });
+  const handle = dialog.getByRole("button", { name: "Drag to move Orders" });
+  await handle.focus();
+  await handle.press("Space");
+  await handle.press("ArrowUp");
+  await handle.press("ArrowUp");
+  await handle.press("Escape");
+
+  await expect(dialog).toBeVisible();
+  await expect(handle).toHaveAttribute("aria-pressed", "false");
+  await expect(dialog.locator("[data-slot='nav-arrange-list'] > li").nth(5)).toHaveAttribute("data-nav-key", "orders");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(mainNav(page).getByRole("link").first()).toHaveAccessibleName("Today");
+});

@@ -3,7 +3,7 @@
 import { useT } from "@orrn/i18n";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { escapeUnlessComboboxOpen } from "@orrn/ui/lib/escape";
 import { useReturnFocus } from "@orrn/ui/lib/return-focus";
@@ -20,6 +20,7 @@ export type SheetProps = {
   /** One line under the title, read with it. */
   description?: string;
   className?: string;
+  onEscapeKeyDown?: ComponentPropsWithoutRef<typeof DialogPrimitive.Content>["onEscapeKeyDown"];
   /**
    * False while the sheet must stay open (a save in progress): the close
    * button is hidden so it never looks live. Escape and the overlay still call
@@ -35,7 +36,7 @@ export type SheetProps = {
  * that slides in from the right, full height, 440px wide. The body scrolls;
  * the header and footer stay put.
  */
-export function Sheet({ open, onOpenChange, title, children, footer, description, className, dismissible = true }: SheetProps) {
+export function Sheet({ open, onOpenChange, title, children, footer, description, className, onEscapeKeyDown, dismissible = true }: SheetProps) {
   const { t } = useT();
   const returnFocus = useReturnFocus(open);
   return (
@@ -48,7 +49,10 @@ export function Sheet({ open, onOpenChange, title, children, footer, description
         <DialogPrimitive.Content
           data-slot="sheet"
           {...returnFocus}
-          onEscapeKeyDown={escapeUnlessComboboxOpen}
+          onEscapeKeyDown={(event) => {
+            onEscapeKeyDown?.(event);
+            if (!event.defaultPrevented) escapeUnlessComboboxOpen(event);
+          }}
           // No description: tell Radix explicitly so it doesn't point at a missing node.
           {...(description ? {} : { "aria-describedby": undefined })}
           className={cn(
