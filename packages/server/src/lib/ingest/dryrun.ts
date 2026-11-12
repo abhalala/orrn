@@ -1724,7 +1724,15 @@ export function clearBulkSkips(ctx: IngestCtx, candidateId: string) {
   return ctx.db
     .update(ingestStagedRow)
     .set({ decision: null, bulkSkip: null, updatedAt: now() })
-    .where(and(eq(ingestStagedRow.candidateId, candidateId), eq(ingestStagedRow.mergeState, "open"), eq(ingestStagedRow.bulkSkip, "no_date")));
+    .where(
+      and(
+        eq(ingestStagedRow.candidateId, candidateId),
+        // A marked row is refused (before its dry run) or skipped: the (candidate, state) index reads only those.
+        inArray(ingestStagedRow.state, ["refused", "skipped"]),
+        eq(ingestStagedRow.mergeState, "open"),
+        eq(ingestStagedRow.bulkSkip, "no_date"),
+      ),
+    );
 }
 
 export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; expectCursor: number }): Promise<DryRunStepOut> {
@@ -1743,8 +1751,9 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
   const answers = readAnswers(withFileFillAnswer(artifact, answerRows), artifact, recipe);
   // Rule 11.3: a skip made by "Skip these {count} lines" counts only while the file's answer is No.
-  // Otherwise the dry run drops it before reading, on any path that left one behind.
-  if (artifact.fillAbove?.answer !== false) await ctx.db.batch([clearBulkSkips(ctx, c.id)] as never);
+  // Otherwise the dry run drops it before reading, on any path that left one behind. Every skip
+  // recounts rowsSkippedByPerson in its own batch, so a sheet with none is not read (rule 4.4).
+  if (artifact.fillAbove?.answer !== false && c.rowsSkippedByPerson > 0) await ctx.db.batch([clearBulkSkips(ctx, c.id)] as never);
 
   const page = await ctx.db
     .select()

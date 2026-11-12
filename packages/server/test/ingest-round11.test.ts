@@ -138,8 +138,9 @@ describe("S9-1: a bulk skip counts only while the file's answer is No", () => {
     await fill(p.owner, a, true);
     await pump(p.owner, a);
     // A path that forgot to clear the marks: the rows say skipped by the bulk action, the file says Yes.
-    await env.d1.prepare("update ingest_staged_row set decision = 'skip', bulk_skip = 'no_date' where candidate_id = ? and row_index in (1, 3)").bind(a).run();
-    await env.d1.prepare("update ingest_candidate set state = 'processing', dry_cursor = 0 where id = ?").bind(a).run();
+    await env.d1.prepare("update ingest_staged_row set state = 'skipped', decision = 'skip', bulk_skip = 'no_date' where candidate_id = ? and row_index in (1, 3)").bind(a).run();
+    // As every skip does, the sheet's count of skips is recounted.
+    await env.d1.prepare("update ingest_candidate set state = 'processing', dry_cursor = 0, rows_skipped_by_person = 2 where id = ?").bind(a).run();
     await pump(p.owner, a);
     const rows = await rowsOf(p.owner, a);
     expect(rows.map((r) => r.state)).toEqual(["ready_create", "ready_create", "ready_create", "ready_create"]);
