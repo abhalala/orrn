@@ -65,7 +65,8 @@ describe("R3-7: a hint for one block leaves the other blocks to the guess", () =
       expect(picked(r.blocks[0]!)).toBe(true);
       expect(r.blocks[1]!.rows).toEqual([["T 4012", "3"], ["R 2105", "4"]]);
       expect(r.blocks[1]!.hints).toBeNull();
-      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: mm.length - m.length + 1 });
+      // Round 8, rule 8.1: "Section" sits in the Qty number column, so the table ends; the offer to join is not made.
+      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: mm.length - m.length + 1, continues: false });
       expect(asked(r.blocks[1]!)).toBe(true);
     }
   });

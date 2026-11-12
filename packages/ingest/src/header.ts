@@ -7,7 +7,7 @@
  */
 import { BUILTIN_HOLES } from "./builtins";
 import type { BuiltinHole } from "./builtins/types";
-import { headerKey, inferKinds, isUnitOnlyName, normalizeHeaders, usedWidth, type Fingerprint } from "./fingerprint";
+import { headerKey, inferKinds, isUnitOnlyName, normalizeHeader, normalizeHeaders, usedWidth, type Fingerprint } from "./fingerprint";
 import { candidatesFor, recipeColumns, type FitCandidate, type LearnedHole } from "./fit";
 import { cellKind } from "./cells";
 import { combineHeaders, isHeaderLike, regionWidth } from "./readers/blocks";
@@ -28,7 +28,7 @@ export type HeaderInput = {
   rows?: readonly (readonly string[])[];
   /** The header's position inside the block (`ReadBlock.headerRow`): the rows above it are its title. Default 0. */
   headerRow?: number;
-  /** The block this one follows (`ReadBlock.follows`), for the two offers of rule 6.1. See `chooseHeaderInSheet`. */
+  /** The block this one follows (`ReadBlock.follows`), for the "same columns" offer. See `chooseHeaderInSheet`. */
   above?: { headers: readonly string[]; rows: readonly (readonly string[])[] } | null;
 };
 
@@ -65,12 +65,12 @@ export type HeaderChoice =
       candidates: HeaderPick[];
       resembles: HeaderResemblance | null;
       /**
-       * Rule 6.1, only for a block that follows another (`above` given): its first row has as many filled cells as
-       * the rows of the block above most often have, and is not all text, so it reads like data. Offer "It
-       * continues the table above" first.
+       * Only for a block that follows another (`above` given): the block's header row holds the names of the block
+       * above, by normalised name. Offer "Same columns as the table above". Rule 8.1 already joins a repeat of the
+       * header after blank rows, so this is left for a block the reader did not join (below a hint's last row, or
+       * after a row that is not blank). The offer "It continues the table above" is `ReadBlock.follows.continues`
+       * (round 8; the round 7 `continuesAbove`, decided by counting filled cells, is gone).
        */
-      continuesAbove: boolean;
-      /** Rule 6.1: the block's header row holds exactly the names of the block above. Offer "Same columns as the table above". */
       sameColumnsAsAbove: boolean;
     };
 
@@ -269,35 +269,25 @@ export function chooseHeader(input: HeaderInput, holes: HeaderHoles = {}): Heade
   return { kind: "ask", guess, candidates, resembles, ...offers(input, guess) };
 }
 
-/** The two offers of rule 6.1. Exact tests only, no confidence. */
-function offers(input: HeaderInput, guess: HeaderPick): { continuesAbove: boolean; sameColumnsAsAbove: boolean } {
-  const no = { continuesAbove: false, sameColumnsAsAbove: false };
+/** The "same columns" offer: the block's header names equal the names of the block above, normalised. */
+function offers(input: HeaderInput, guess: HeaderPick): { sameColumnsAsAbove: boolean } {
   const above = input.above;
-  if (!above) return no;
-  const cellsAt = (row: number) => input.preview.find((p) => p.row === row && p.page === undefined)?.cells.map((c) => c.trim()) ?? null;
-  const trimEnd = (cells: readonly string[]) => cells.slice(0, lastFilledCell(cells) + 1);
-  // Continues: the block's first row against the most common number of filled cells in the rows above.
-  const first = cellsAt(guess.headerRow - (input.headerRow ?? 0));
-  const counts = new Map<number, number>();
-  for (const r of above.rows) {
-    const k = filled(r);
-    if (k > 0) counts.set(k, (counts.get(k) ?? 0) + 1);
-  }
-  let mode = 0;
-  for (const [k, f] of counts) if (f > (counts.get(mode) ?? 0) || (f === counts.get(mode) && k > mode)) mode = k;
-  const continuesAbove = first !== null && mode > 0 && filled(first) === mode && !first.filter((c) => c !== "").every(isTextCell);
-  // Same columns: the block's header names equal the names above, exactly.
+  if (!above) return { sameColumnsAsAbove: false };
+  const cellsAt = (row: number) => input.preview.find((p) => p.row === row && p.page === undefined)?.cells ?? null;
+  const norm = (cells: readonly string[]) => {
+    const t = cells.map((c) => normalizeHeader(c));
+    return t.slice(0, lastFilledCell(t) + 1);
+  };
   const names = input.headers ?? cellsAt(guess.headerRow);
-  const want = trimEnd(above.headers.map((c) => c.trim()));
-  const sameColumnsAsAbove = names !== null && want.length > 0 && sameCells(trimEnd(names.map((c) => c.trim())), want);
-  return { continuesAbove, sameColumnsAsAbove };
+  const want = norm(above.headers);
+  return { sameColumnsAsAbove: names !== null && want.length > 0 && sameCells(norm(names), want) };
 }
 
 const sameCells = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**
- * `chooseHeader` for block `index` of one sheet's blocks, with the block it follows (rule 6.1), so an "ask" carries
- * the offers to join it to the table above.
+ * `chooseHeader` for block `index` of one sheet's blocks, with the block it follows, so an "ask" carries the "same
+ * columns" offer. The "continues" offer is on the block itself (`follows.continues`).
  */
 export function chooseHeaderInSheet(blocks: readonly ReadBlock[], index: number, holes: HeaderHoles = {}): HeaderChoice {
   const b = blocks[index]!;

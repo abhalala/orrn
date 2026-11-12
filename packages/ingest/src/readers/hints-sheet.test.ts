@@ -58,7 +58,8 @@ describe("sheet hints are followed exactly", () => {
     // row (below) it holds every row, as this test's title says.
     const open = findBlocks(m, { hints: [{ headerRow: 0 }] });
     expect(open.map((b) => b.rows.length)).toEqual([1, 1]);
-    expect(open[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    // Round 8, rule 8.1: "Cancelled" is text in the Qty number column, so the table still ends at the blank row.
+    expect(open[1]!.follows).toEqual({ block: 0, gapRows: 1, continues: false });
     // Without hints the guess still splits, and the second block is asked about.
     expect(asked(findBlocks(m)[1]!)).toBe(true);
     const [b, ...rest] = findBlocks(m, { hints: [{ headerRow: 0, lastDataRow: 4 }] });

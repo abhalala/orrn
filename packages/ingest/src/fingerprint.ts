@@ -22,6 +22,10 @@ const DASHES = /[\u2010\u2011\u2012\u2013\u2014\u2212\ufe58\ufe63\uff0d]/g;
 /** Signs that are always kept as their own token (rule 6.2). "+" is kept too; "-" only where it is a sign. */
 const KEPT = "+%#\u00b1<>\u2264\u2265";
 const WORD = /[\p{L}\p{M}\p{N}]/u;
+/** A "-" kept as a sign, held in a private-use character until the punctuation is gone (rule 8.2). */
+const SIGN = "\ue000";
+/** Unit words a number before them joins with, across a space (rule 8.2): "12 ft" is "12ft". */
+const GLUED_UNIT = /^(?:ft|in|mm|cm|m|kg|g|gm|mt|ton)$/;
 
 /**
  * The key form of a column name (PORTAL-RULES-3 rule 6.2, round 7). NFKC and lower case, so non-breaking and
@@ -33,6 +37,14 @@ const WORD = /[\p{L}\p{M}\p{N}]/u;
  *   ("P.O. No" is "po no"). A trailing danda is punctuation.
  * - Letters, their marks and digits of every script are kept: a nukta or a matra is part of the letter (B2). The
  *   joiners U+200C and U+200D are kept; every other format character is dropped (`DROPPED_FORMAT`).
+ * Rule 8.2 (round 8) adds:
+ * - "per" between two words is a separator, as "/" is ("Rate per Kg" is "Rate/Kg" is "Rate Kg").
+ * - A number and a unit word after it join across a space ("12 ft" is "12ft"). After a number a prime (') is ft and a
+ *   double prime (" or '') is in. Elsewhere an apostrophe is punctuation, and "'s" after a word joins it ("No's" is
+ *   "Nos", so "no"; "KG's" is "Kgs", so "kg").
+ * - Single Latin letters separated by dots or spaces join ("P. O. No" is "po no", "S. No" is "s no").
+ * - A "-" in brackets, or standing before a word at the start of the name, is a sign and is kept ("(-) Kg" is "- kg",
+ *   not "kg" and not "+ kg"; "- Wastage" is not "Wastage"). A "-" between two words is still a separator.
  * - The spellings of one unit fold ("Kgs" and "kg", "Pieces" and "pcs", "Nos" and "No."); count words do not fold
  *   together (round 6).
  * Blank stays "".
@@ -45,7 +57,11 @@ export const DROPPED_FORMAT = /(?![\u200c\u200d])\p{Cf}/gu;
 
 export function normalizeHeader(h: string): string {
   let t = h.normalize("NFKC").replace(DROPPED_FORMAT, "").toLowerCase();
-  t = t.replace(DASHES, "-").replace(/'/g, " ft ");
+  t = t.replace(DASHES, "-");
+  // Primes after a number (rule 8.2): a double prime is in, a prime is ft. NFKC writes U+2033 as two U+2032.
+  t = t.replace(/(\p{N})\s*(?:''|\u2032\u2032|"|\u201d)/gu, "$1in ").replace(/(\p{N})\s*['\u2032\u2019]/gu, "$1ft ");
+  // "'s" after a word joins it: "No's" is "Nos".
+  t = t.replace(/(\p{L})['\u2019]s(?![\p{L}\p{M}\p{N}])/gu, "$1s");
   for (const [re, to] of UNIT_TOKENS) t = t.replace(re, (m) => (m === "\u20b9" ? " inr " : to));
   // A dot between single letters joins them: "p.o." is "po".
   let prev = "";
@@ -53,8 +69,15 @@ export function normalizeHeader(h: string): string {
     prev = t;
     t = t.replace(/(?<![\p{L}\p{M}\p{N}])(\p{L}\p{M}*)\.(?=\p{L}\p{M}*(?:\.|[^\p{L}\p{M}\p{N}]|$))/u, "$1");
   }
+  // A "-" in brackets, or with no word before it, is a sign (rule 8.2): "(-) Kg", "Tol (-) Kg", "- Wastage", "(+/-)".
+  t = t.replace(/-/g, (m, i: number, str: string) => {
+    const before = str.slice(0, i);
+    const after = str.slice(i + 1);
+    if (/[([{]\s*$/.test(before) || /^\s*[)\]}]/.test(after) || !WORD.test(before)) return SIGN;
+    return m;
+  });
   // Every other character that is not a word character, a space, "-", "/" or a kept sign is a space.
-  t = t.replace(new RegExp(`[^\\p{L}\\p{M}\\p{N}\\s\\-/\\u200c\\u200d${KEPT}]`, "gu"), " ");
+  t = t.replace(new RegExp(`[^\\p{L}\\p{M}\\p{N}\\s\\-/\\u200c\\u200d${SIGN}${KEPT}]`, "gu"), " ");
   // "/" is never a sign: a separator between words, else punctuation.
   t = t.replace(/\//g, " ");
   // "-": a sign at the end of the name, or right before a digit with no word right before it; else a space.
@@ -63,8 +86,40 @@ export function normalizeHeader(h: string): string {
     const beforeDigit = /\p{N}/u.test(str[i + 1] ?? "") && !WORD.test(str[i - 1] ?? "");
     return end || beforeDigit ? " - " : " ";
   });
-  t = t.replace(new RegExp(`[${KEPT}]`, "g"), " $& ");
-  return t.replace(/\s+/g, " ").trim();
+  t = t.replace(new RegExp(`[${KEPT}]`, "g"), " $& ").replace(new RegExp(SIGN, "g"), " - ");
+  return joinTokens(t.replace(/\s+/g, " ").trim());
+}
+
+/**
+ * Rule 8.2 on the tokens: "per" between two words goes; runs of single Latin letters join ("p o no" is "po no"); a
+ * number joins the unit word after it ("12 ft" is "12ft").
+ */
+function joinTokens(t: string): string {
+  if (t === "") return t;
+  const isWordTok = (x: string | undefined) => x !== undefined && WORD.test(x);
+  const toks = t.split(" ");
+  const out: string[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    const x = toks[i]!;
+    if (x === "per" && i > 0 && isWordTok(toks[i - 1]) && isWordTok(toks[i + 1])) continue;
+    if (/^[a-z]$/.test(x)) {
+      let run = x;
+      while (i + 1 < toks.length && /^[a-z]$/.test(toks[i + 1]!)) run += toks[++i]!;
+      out.push(run);
+      continue;
+    }
+    out.push(x);
+  }
+  const glued: string[] = [];
+  for (let i = 0; i < out.length; i++) {
+    const x = out[i]!;
+    if (/^\d+(?:\.\d+)?$/.test(x) && i + 1 < out.length && GLUED_UNIT.test(out[i + 1]!)) {
+      glued.push(x + out[++i]!);
+      continue;
+    }
+    glued.push(x);
+  }
+  return glued.join(" ");
 }
 
 /** A word that only names a unit, a count or a sign, alone or glued to a number ("12ft"). */

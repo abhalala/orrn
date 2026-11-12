@@ -31,7 +31,8 @@ describe("round 6: a layout needs two real names to be trusted", () => {
   });
 
   test("unit-only names", () => {
-    for (const n of ["Kg", "Kgs", "Pcs", "Nos", "kg/12ft", "Rs.", "%", "mm", ""]) expect(isUnitOnlyName(normalizeHeader(n)), n).toBe(true);
-    for (const n of ["Party", "Weight kg", "Cut Length", "12", "12 ft", "Section", "नाम"]) expect(isUnitOnlyName(normalizeHeader(n)), n).toBe(false);
+    // Round 8, rule 8.2: "12 ft" is "12ft", which was already unit-only like "kg/12ft"; it moved from the second list.
+    for (const n of ["Kg", "Kgs", "Pcs", "Nos", "kg/12ft", "Rs.", "%", "mm", "", "12 ft"]) expect(isUnitOnlyName(normalizeHeader(n)), n).toBe(true);
+    for (const n of ["Party", "Weight kg", "Cut Length", "12", "Section", "नाम"]) expect(isUnitOnlyName(normalizeHeader(n)), n).toBe(false);
   });
 });
