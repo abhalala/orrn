@@ -229,6 +229,7 @@ export const ingestEn = {
     refused: "Cannot import",
     skipped: "Skipped",
     waiting: "Waits on a question",
+    waitsOrder: "Waits on other lines",
   },
   decide: {
     useMatch: "Use {name}",
@@ -377,6 +378,8 @@ export const ingestEn = {
     approved: "Approved. It is added when you merge.",
     merged: "Merged. {created} added, {updated} updated.",
     discarded: "Discarded. Nothing from it will be imported.",
+    ownOrder: "{count} {count:row has|rows have} no order number. Each becomes its own order.",
+    filled: "{count} {count:row|rows} took party, date or PO from the row above.",
   },
   rows: {
     title: "Rows as they will appear in orrn",
@@ -552,6 +555,10 @@ export const ingestEn = {
     merged_cell: "Order number taken from the merged cell above.",
     section_pending: "This section comes from another sheet of this upload.",
     customer_pending: "This customer comes from another sheet of this upload.",
+    // server round 6: an old order is written whole
+    order_waits: "Waits on {count} other {count:line|lines} of this order. An order is added whole, so fix or skip {count:it|them} first.",
+    order_skipped_lines: "Imported without {count} {count:line|lines} you skipped.",
+    order_run_differs: "Rows of one order number show two different values for {field}. Use the file value on this row, or skip it.",
   },
   error: {
     conflict: "This import changed while you were looking. The page now shows the latest. Check it and try again.",
@@ -564,6 +571,7 @@ export const ingestEn = {
     checkAgain: "This sheet has to be checked again before it can be approved.",
     refused: "orrn cannot do this yet.",
     checkAgainButton: "Check this sheet again",
+    nothingToImport: "Nothing in this sheet can be imported. Fix the rows or discard it.",
   },
   file: {
     rows: "{count} {count:row|rows}",

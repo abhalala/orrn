@@ -539,7 +539,8 @@ export function decisionOptions(
   const waits = rowWaitsOn(reasons) !== null;
   switch (row.state) {
     case "ambiguous": {
-      if (waits) return [skip];
+      // A line that waits on other lines of its order has nothing to pick: the others are fixed or skipped first.
+      if (waits || reasons.some((r) => r.startsWith("order_waits:"))) return [skip];
       const picks = row.options.map((m) => ({
         decision: "use_match" as const,
         key: "ingest.decide.useMatch",
@@ -552,6 +553,8 @@ export function decisionOptions(
       if (reasons.includes("order_line_new") || reasons.includes("po_on_live_order:poNumber")) {
         return [{ decision: "keep_live", key: "ingest.decide.keepLive" }, skip];
       }
+      // Two different values of one whole-order field in a run: keep the file's value on the row, or skip it (rule 7.1).
+      if (reasons.some((r) => r.startsWith("order_run_differs:"))) return [{ decision: "keep_file", key: "ingest.decide.keepFile" }, skip];
       // One PO on two old orders: keeping both cannot work, so the only way out is to skip the rows of one of them.
       if (reasons.includes("po_on_two_orders:poNumber")) return [skip];
       // The same old order in another file: keep it in this one, or skip it here.

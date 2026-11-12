@@ -42,6 +42,17 @@ describe("the chip counts everything the person must answer (item 6)", () => {
   });
 });
 
+describe("how the rows were read (rule 7.1)", () => {
+  test("rows with no order number and rows that took party, date or PO from the row above are said once each", () => {
+    const bar = decisionBar(detail({ rowsOwnOrder: 2, counts: counts({ filled: 3 }) }), ctx);
+    expect(bar.notes).toEqual([
+      { key: "ingest.effect.ownOrder", vars: { count: 2 } },
+      { key: "ingest.effect.filled", vars: { count: 3 } },
+    ]);
+    expect(decisionBar(detail(), ctx).notes).toEqual([]);
+  });
+});
+
 describe("the decision bar (M7)", () => {
   test("ready with nothing open: Approve is the one primary, Hold is secondary, Discard is in the menu", () => {
     const bar = decisionBar(detail(), ctx);

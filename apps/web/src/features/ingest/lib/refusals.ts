@@ -18,6 +18,8 @@ const OTHER_CODES = [
   "order_lines_over", "po_two_dates", "section_archived", "check_against_file",
   // Notes: they say what happened to a row and ask for nothing.
   "po_on_closed_order", "merged_cell", "section_pending", "customer_pending",
+  // Rule 7.1 (server round 6): an old order is written whole, or not at all. `order_waits:<n>` and `order_skipped_lines:<n>` carry a count.
+  "order_waits", "order_skipped_lines", "order_run_differs",
 ] as const;
 
 /**
@@ -27,7 +29,7 @@ const OTHER_CODES = [
 export const SILENT_REASONS: readonly string[] = ["order_live"];
 
 /** Reasons that are a note on a row, not a refusal and not a question: muted ink, no action. */
-const NOTE_CODES = new Set(["po_on_closed_order", "merged_cell", "section_pending", "customer_pending", "order_po_skipped", "check_against_file"]);
+const NOTE_CODES = new Set(["po_on_closed_order", "merged_cell", "section_pending", "customer_pending", "order_po_skipped", "check_against_file", "order_skipped_lines"]);
 
 /** What a row's `values` hold about the old order, for the sentences that name orders and files. */
 export type OrderFacts = { orderNo: string | null; po: string | null; file: string | null; sheet: string | null; closedOrder: string | null };
@@ -57,7 +59,7 @@ const BLOCKER = /^(po_number|no_lines|line_\d+_(pcs|kg|length|alloy|temper|die_o
 const ALL_FIELDS = new Set(INGEST_TARGETS.flatMap((t) => TARGETS[t].fields.map((f) => f.name)));
 
 export type RefusalLine =
-  | { kind: "refusal"; key: string; fieldKey: string | null; order?: OrderFacts }
+  | { kind: "refusal"; key: string; fieldKey: string | null; order?: OrderFacts; count?: number }
   | { kind: "blocked"; blockers: string[] }
   /** The server's own English. Draw it with `lang="en"` until the server sends codes only. */
   | { kind: "raw"; text: string };
@@ -102,6 +104,10 @@ export function refusalLine(reason: string, facts?: OrderFacts): RefusalLine | n
   }
   if (code === "order_in_other_file" && !facts?.file) {
     return { kind: "refusal", key: "ingest.refuse.order_in_other_fileUnnamed", fieldKey: null, order: facts };
+  }
+  // "order_waits:2" and "order_skipped_lines:1": the number after the colon is a count of lines, not a field.
+  if ((code === "order_waits" || code === "order_skipped_lines") && /^\d+$/.test(rest)) {
+    return { kind: "refusal", key: `ingest.refuse.${code}`, fieldKey: null, count: Number(rest) };
   }
   if (KNOWN_REFUSAL_CODES.includes(code)) {
     return {
@@ -149,6 +155,7 @@ export function refusalText(
     vars.sheet = o.sheet ?? "";
     vars.closed = o.closedOrder ?? "";
   }
+  if (line.count !== undefined) vars.count = line.count;
   return t(line.key, vars);
 }
 
@@ -160,6 +167,8 @@ const WAITING_KEYS = new Set([
   "ingest.refuse.po_on_two_orders",
   "ingest.refuse.po_on_two_ordersFile",
   "ingest.refuse.po_on_live_order",
+  "ingest.refuse.order_waits",
+  "ingest.refuse.order_run_differs",
   "ingest.refuse.order_in_other_file",
   "ingest.refuse.order_in_other_fileUnnamed",
   "ingest.refuse.magnitude",

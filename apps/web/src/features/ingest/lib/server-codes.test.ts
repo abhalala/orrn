@@ -6,7 +6,8 @@ import { hi } from "@orrn/i18n/hi";
 import { QUESTION_CODES, ROW_DECISIONS } from "@orrn/ingest";
 
 import { decisionOptions, questionView } from "./model";
-import { KNOWN_REFUSAL_CODES, refusalLine, SILENT_REASONS } from "./refusals";
+import { ingestErrorWords } from "./errors";
+import { KNOWN_REFUSAL_CODES, refusalLine, refusalText, refusalTone, SILENT_REASONS } from "./refusals";
 
 /**
  * The server's code lists and the words the web has for them. When the server adds a question, a row reason or a
@@ -113,5 +114,28 @@ describe("server codes have words", () => {
     expect(keep("order_in_other_file:order")).toEqual(["keep_file", "skip"]);
     expect(keep("order_line_new")).toEqual(["keep_live", "skip"]);
     for (const decision of ROW_DECISIONS) expect(typeof decision).toBe("string");
+  });
+
+  test("an old order is written whole (rule 7.1): a waiting line can only be skipped, two values in a run keep the file's or skip", () => {
+    const options = (state: "ambiguous" | "conflict", reason: string) => decisionOptions({ state, options: [{ id: "x", label: "X" }], mergeState: "open", reasons: [reason] }).map((o) => o.decision);
+    expect(options("ambiguous", "order_waits:2")).toEqual(["skip"]);
+    expect(options("conflict", "order_run_differs:customer")).toEqual(["keep_file", "skip"]);
+  });
+
+  test("the counts in order_waits and order_skipped_lines reach the sentence, and the skipped note is muted", () => {
+    expect(refusalLine("order_waits:2")).toEqual({ kind: "refusal", key: "ingest.refuse.order_waits", fieldKey: null, count: 2 });
+    const note = refusalLine("order_skipped_lines:1")!;
+    expect(note).toMatchObject({ key: "ingest.refuse.order_skipped_lines", count: 1 });
+    expect(refusalTone(note)).toBe("note");
+    const t = (key: string, vars?: Record<string, string | number>) => `${key}:${vars?.count}`;
+    expect(refusalText(t, note)).toBe("ingest.refuse.order_skipped_lines:1");
+    expect(refusalTone(refusalLine("order_waits:2")!)).toBe("amber");
+  });
+
+  test("a refusal that says nothing can be imported has words of its own", () => {
+    const error = Object.assign(new Error("Nothing in this sheet can be imported. Fix the rows or discard it."), { data: { code: "PRECONDITION_FAILED" } });
+    expect(ingestErrorWords(error, "action")).toEqual({ key: "ingest.error.nothingToImport", retry: false });
+    expect(typeof get(en, "ingest.error.nothingToImport")).toBe("string");
+    expect(typeof get(hi, "ingest.error.nothingToImport")).toBe("string");
   });
 });

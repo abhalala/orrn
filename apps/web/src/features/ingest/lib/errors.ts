@@ -20,6 +20,8 @@ export type ErrorWords = {
 };
 
 const CHECK_AGAIN = /check this sheet again/i;
+/** Rule 7.4: "Nothing in this sheet can be imported. Fix the rows or discard it." has words of its own, without the English. */
+const NOTHING_TO_IMPORT = /^Nothing in this sheet can be imported/i;
 
 const messageOf = (error: unknown): string => {
   const message = (error as { message?: unknown } | null | undefined)?.message;
@@ -30,6 +32,7 @@ export function ingestErrorWords(error: unknown, kind: ErrorKind): ErrorWords {
   const code = errorCodeOf(error);
   if (code === "PRECONDITION_FAILED") {
     const detail = messageOf(error);
+    if (NOTHING_TO_IMPORT.test(detail)) return { key: "ingest.error.nothingToImport", retry: false };
     if (detail !== "") {
       const checkAgain = CHECK_AGAIN.test(detail);
       return { key: checkAgain ? "ingest.error.checkAgain" : "ingest.error.refused", retry: false, detail, checkAgain };

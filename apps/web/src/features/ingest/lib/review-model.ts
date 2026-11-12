@@ -60,6 +60,8 @@ export type DecisionBar = {
   sentence: Words | null;
   /** "2 rows cannot be imported." */
   refused: Words | null;
+  /** Plain facts about how the rows were read: rows with no order number, party, date or PO taken from the row above. */
+  notes: Words[];
   /** Muted fit text. */
   fit: Words | null;
   /** The amber reason line of a held import, and the server's own English for it. */
@@ -84,7 +86,7 @@ export function firstOpen(questions: readonly Pick<QuestionView, "answered">[], 
 const MOVING = new Set(["processing", "merging"]);
 
 export function decisionBar(
-  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts">,
+  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & { rowsOwnOrder?: number },
   ctx: BarContext,
 ): DecisionBar {
   const { can } = ctx;
@@ -132,6 +134,11 @@ export function decisionBar(
       break;
   }
   const showsCounts = c.state === "ready" || c.state === "held";
+  const notes: Words[] = [];
+  // An order book: rows with no order number and no PO are one order each (rule 1); a blank party, date or PO took the
+  // value of the first row of its order's run (rule 7.1).
+  if (showsCounts && (c.rowsOwnOrder ?? 0) > 0) notes.push({ key: "ingest.effect.ownOrder", vars: { count: c.rowsOwnOrder! } });
+  if (showsCounts && (c.counts.filled ?? 0) > 0) notes.push({ key: "ingest.effect.filled", vars: { count: c.counts.filled } });
   const refused = showsCounts && c.counts.refused > 0 ? { key: "ingest.effect.refused", vars: { count: c.counts.refused } } : null;
 
   const buttons: BarButton[] = [];
@@ -186,6 +193,7 @@ export function decisionBar(
     chip,
     sentence,
     refused,
+    notes,
     fit: fitWords(c, diff.name),
     reason: c.state === "held" && c.reasonCode ? { code: c.reasonCode, detail: c.reasonDetail } : null,
     blocked,

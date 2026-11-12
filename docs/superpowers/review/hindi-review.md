@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8059 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8066 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (470)
+### ingest (477)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7108,6 +7108,7 @@ Please check, Lalubhai:
 | `row.refused` | Cannot import | इम्पोर्ट नहीं हो सकता |
 | `row.skipped` | Skipped | छोड़ा गया |
 | `row.waiting` | Waits on a question | सवाल का इंतज़ार |
+| `row.waitsOrder` | Waits on other lines | ऑर्डर की दूसरी लाइनों का इंतज़ार |
 | `decide.useMatch` | Use {name} | {name} लें |
 | `decide.keepFile` | Use the file value | फ़ाइल की वैल्यू लें |
 | `decide.keepLive` | Keep the orrn value | orrn की वैल्यू रखें |
@@ -7223,6 +7224,8 @@ Please check, Lalubhai:
 | `effect.approved` | Approved. It is added when you merge. | मंज़ूर। मर्ज करने पर यह जुड़ेगा। |
 | `effect.merged` | Merged. {created} added, {updated} updated. | मर्ज हो गया। {created} जुड़े, {updated} अपडेट हुए। |
 | `effect.discarded` | Discarded. Nothing from it will be imported. | हटाया गया। इसमें से कुछ इम्पोर्ट नहीं होगा। |
+| `effect.ownOrder` | {count} {count:row has\|rows have} no order number. Each becomes its own order. | {count} {count:लाइन में\|लाइनों में} ऑर्डर नंबर नहीं है। हर लाइन अपना अलग ऑर्डर बनेगी। |
+| `effect.filled` | {count} {count:row\|rows} took party, date or PO from the row above. | {count} {count:लाइन ने\|लाइनों ने} पार्टी, तारीख या PO ऊपर की लाइन से ली। |
 | `rows.title` | Rows as they will appear in orrn | orrn में ये लाइनें ऐसे दिखेंगी |
 | `rows.needsDecision` | Needs a decision {count} | फ़ैसला चाहिए {count} |
 | `rows.needsDecisionName` | Needs a decision | फ़ैसला चाहिए |
@@ -7378,6 +7381,9 @@ Please check, Lalubhai:
 | `refuse.merged_cell` | Order number taken from the merged cell above. | ऑर्डर नंबर ऊपर के मर्ज किए सेल से लिया गया। |
 | `refuse.section_pending` | This section comes from another sheet of this upload. | यह सेक्शन इसी अपलोड की दूसरी शीट से आता है। |
 | `refuse.customer_pending` | This customer comes from another sheet of this upload. | यह ग्राहक इसी अपलोड की दूसरी शीट से आता है। |
+| `refuse.order_waits` | Waits on {count} other {count:line\|lines} of this order. An order is added whole, so fix or skip {count:it\|them} first. | इस ऑर्डर की {count} और {count:लाइन\|लाइनों} का इंतज़ार है। ऑर्डर पूरा जोड़ा जाता है, इसलिए पहले {count:उसे\|उन्हें} सुधारें या छोड़ दें। |
+| `refuse.order_skipped_lines` | Imported without {count} {count:line\|lines} you skipped. | आपकी छोड़ी हुई {count} {count:लाइन\|लाइनों} के बिना जोड़ा गया। |
+| `refuse.order_run_differs` | Rows of one order number show two different values for {field}. Use the file value on this row, or skip it. | एक ऑर्डर नंबर की लाइनों में {field} की दो अलग वैल्यू हैं। इस लाइन पर फ़ाइल की वैल्यू लें, या इसे छोड़ दें। |
 | `error.conflict` | This import changed while you were looking. The page now shows the latest. Check it and try again. | देखते-देखते यह इम्पोर्ट बदल गया। पेज अब ताज़ा जानकारी दिखा रहा है। देखकर फिर कोशिश करें। |
 | `error.forbidden` | Your role cannot do this. Ask the owner. | आपका रोल यह नहीं कर सकता। मालिक से कहें। |
 | `error.notFound` | This import is no longer there. | यह इम्पोर्ट अब नहीं है। |
@@ -7388,6 +7394,7 @@ Please check, Lalubhai:
 | `error.checkAgain` | This sheet has to be checked again before it can be approved. | इस शीट को मंज़ूर करने से पहले दोबारा जांचना होगा। |
 | `error.refused` | orrn cannot do this yet. | orrn अभी यह नहीं कर सकता। |
 | `error.checkAgainButton` | Check this sheet again | यह शीट दोबारा जांचें |
+| `error.nothingToImport` | Nothing in this sheet can be imported. Fix the rows or discard it. | इस शीट में कुछ भी इम्पोर्ट नहीं हो सकता। लाइनें सुधारें या शीट हटा दें। |
 | `file.rows` | {count} {count:row\|rows} | {count} {count:लाइन\|लाइनें} |
 | `file.columns` | {count} {count:column\|columns} | {count} {count:कॉलम\|कॉलम} |
 | `file.table` | Table {n} | टेबल {n} |

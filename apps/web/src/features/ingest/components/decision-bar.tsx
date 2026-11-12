@@ -196,6 +196,9 @@ export function DecisionBarCard({
             {bar.sentence ? <p className="m-0 min-w-0 text-[17px] leading-6 font-medium break-words">{words(bar.sentence)}</p> : null}
           </div>
           {bar.refused ? <p className="m-0 text-[14px] leading-5 text-tone-red-ink">{words(bar.refused)}</p> : null}
+          {bar.notes.map((note) => (
+            <Muted key={note.key}>{words(note)}</Muted>
+          ))}
           {bar.fit ? <Muted>{words(bar.fit)}</Muted> : null}
           {bar.reason ? <ReasonText code={bar.reason.code} detail={bar.reason.detail} /> : null}
           {candidate.state === "failed" ? (
