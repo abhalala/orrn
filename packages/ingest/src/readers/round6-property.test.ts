@@ -8,11 +8,15 @@
  *    is not the true table's (a decoy), and never through a layout with fewer than two named columns or no real name
  *    (rule 6.3, round 7).
  * 2. Inexact hinted reads 0: with the right hints, every sheet and CSV read is exact, dates as the date written. With
- *    no last row a hinted block ends at the first blank row (rule 6.1, round 7); the rows below are counted by 3.
- * 3. Cells lost 0: every filled cell of the file is in a header, a data row (the same text), or a listed row.
+ *    no last row a hinted block goes on across blank rows while the rows fit its column kinds (rule 8.1, round 8;
+ *    round 7 ended it at the first blank row). Every table here has a number column, so it reads whole.
+ * 3. Cells lost 0: every filled cell of the file is in a header, a data row (the same text), or a listed row. A row
+ *    rule 8.1 left out is blank in `rows` and listed with its text.
  * 4. A known layout with an unnamed column filled only below the preview fits the same file again.
  * 5. Round 7, rule 6.1: a second table one or more blank rows below a hinted one (hinted alone, no last row) is never
- *    swallowed: it heads a block of its own that follows the block above.
+ *    swallowed: it heads a block of its own that follows the block above. Round 8, rule 8.1: a second month in the
+ *    same layout is not another table; its repeated header (and month line) are left out and listed, and its rows
+ *    join the hinted block.
  *
  * `R6_SEEDS` sets the number of files (default 300); `R6_REPORT=1` prints the counts.
  */
@@ -184,10 +188,9 @@ function toFile(g: Gen): { matrix: MatrixCell[][]; text: string[][]; truths: Tru
     const last = matrix.length - 1;
     let width = headers.length;
     while (width > 0 && headers[width - 1] === "" && t.data.every((row) => (row[width - 1]?.text ?? "") === "")) width--;
-    // Round 7, rule 6.1: with no last row the hinted block ends at the first blank row; the rows below are in further
-    // blocks (the cell accounting checks they are not lost). With the last row it reads across blank rows.
-    const cutAt = g.noLast ? t.data.findIndex((row) => row.every((c) => c.text === "")) : -1;
-    const truthData = cutAt === -1 ? t.data : t.data.slice(0, cutAt);
+    // Rule 8.1 (round 8): with no last row the hinted block goes on across the blank rows, since its rows fit its
+    // column kinds; with the last row it reads across them exactly. Round 7 cut it at the first blank row.
+    const truthData = t.data;
     truths.push({
       hint: g.noLast ? { headerRow: h, headerRows, firstDataRow: first } : { headerRow: h, headerRows, firstDataRow: first, lastDataRow: last },
       headers: headers.slice(0, width),
@@ -230,7 +233,11 @@ function lost(text: readonly string[][], read: SheetRead): string[] {
   const covered = new Set<number>();
   const listed = new Set<number>(read.warnings.map((w) => w.row));
   for (const b of read.blocks) {
-    for (const w of b.warnings) listed.add(w.row);
+    const left = new Map<number, string | undefined>();
+    for (const w of b.warnings) {
+      listed.add(w.row);
+      if (w.code === "skipped_title" || w.code === "skipped_repeat_header" || w.code === "skipped_by_hint") left.set(w.row, w.text);
+    }
     for (let k = 0; k < b.headerRows; k++) {
       const at = b.guess.headerRow + k;
       covered.add(at);
@@ -240,6 +247,13 @@ function lost(text: readonly string[][], read: SheetRead): string[] {
       const at = b.firstDataSheetRow + i;
       if (covered.has(at)) out.push(`row ${at} twice`);
       covered.add(at);
+      if (left.has(at)) {
+        // Left out: blank in rows, and listed with the row's text (rule 8.1; a hint's skipRows carry no text).
+        const want = (text[at] ?? []).filter((c) => c !== "").join(" ");
+        if (row.some((c) => c !== "")) out.push(`row ${at} left out but not blank`);
+        if (left.get(at) !== undefined && left.get(at) !== want) out.push(`row ${at} listed as ${JSON.stringify(left.get(at))}`);
+        return;
+      }
       (text[at] ?? []).forEach((c, j) => c !== "" && (row[j] ?? "") !== c && out.push(`cell ${at}:${j} ${JSON.stringify(c)} read ${JSON.stringify(row[j] ?? null)}`));
     });
   }
@@ -255,7 +269,7 @@ const hinted = (bs: readonly ReadBlock[]) => bs.filter((b) => b.hints !== null);
 describe("round 6 acceptance property (sheets and CSV)", () => {
   test("wrong fits 0, inexact hinted reads 0, cells lost 0, known unnamed-below layouts fit", () => {
     const seeds = Number(process.env.R6_SEEDS ?? 300);
-    const counts = { files: 0, sheets: 0, csvs: 0, wrongFits: 0, inexactHinted: 0, cellsLost: 0, unnamedBelow: 0, unnamedBelowAsked: 0, fits: 0, asks: 0, belowHinted: 0, swallowed: 0 };
+    const counts = { files: 0, sheets: 0, csvs: 0, wrongFits: 0, inexactHinted: 0, cellsLost: 0, unnamedBelow: 0, unnamedBelowAsked: 0, fits: 0, asks: 0, belowHinted: 0, swallowed: 0, sameLayoutJoined: 0 };
     const feats = new Map<string, number>();
     for (let seed = 1; seed <= seeds; seed++) {
       const g = generate(seed);
@@ -295,16 +309,25 @@ describe("round 6 acceptance property (sheets and CSV)", () => {
         }
         // Round 7, rule 6.1: a second table one or more blank rows below a hinted one, hinted alone with no last row,
         // is never swallowed. It heads a block of its own that follows the blocks above, and no cell is lost.
+        // Round 8, rule 8.1: a second month in the same layout joins the hinted block, its header listed as skipped.
         if (truths.length === 2 && g.gaps[1]! >= 1) {
           counts.belowHinted++;
           const only = { ...truths[0]!.hint, lastDataRow: undefined };
           const one = kind === "sheet" ? readSheet(matrix, { hints: [only] }) : readCsv(csvText, { hints: [only] });
           const top = one.blocks.find((b) => b.hints !== null)!;
           const h2 = truths[1]!.hint.headerRow;
-          const swallowed = h2 >= top.firstDataSheetRow && h2 < top.firstDataSheetRow + top.rows.length;
-          const heads = one.blocks.find((b) => b.guess.headerRow === h2 || (b.guess.headerRow < h2 && h2 < b.guess.headerRow + b.headerRows));
-          const ok = !swallowed && heads !== undefined && heads.follows != null;
-          if (!ok) counts.swallowed++;
+          const inTop = h2 >= top.firstDataSheetRow && h2 < top.firstDataSheetRow + top.rows.length;
+          let ok: boolean;
+          // Same layout: the second header repeats the first, name for name (normalised), by the feature or by chance.
+          const names = (h: readonly string[]) => normalizeHeaders(h).join("|").replace(/\|+$/, "");
+          if (names(g.tables[0]!.head) === names(g.tables[1]!.head)) {
+            counts.sameLayoutJoined++;
+            ok = inTop && top.warnings.some((w) => w.code === "skipped_repeat_header" && w.row === h2);
+          } else {
+            const heads = one.blocks.find((b) => b.guess.headerRow === h2 || (b.guess.headerRow < h2 && h2 < b.guess.headerRow + b.headerRows));
+            ok = !inTop && heads !== undefined && heads.follows != null;
+            if (!ok) counts.swallowed++;
+          }
           expect(ok, `${label} ${kind} second table below a hinted one: ${JSON.stringify(one.blocks.map((b) => [b.guess, b.follows]))}`).toBe(true);
           const l = lost(text, one);
           counts.cellsLost += l.length;

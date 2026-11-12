@@ -7,16 +7,17 @@ import { HintError, readSheet } from "./blocks";
 // at the first blank row, that the rows below are in a block that follows it (never only a warning), and that a
 // hint with the last row (the web's join) reads them all exactly. Synthetic sheets only.
 
-describe("round 6, re-pinned by rule 6.1: rows after blank rows under a hint", () => {
+// Re-pinned by rule 8.1 (round 8): rows that fit the column kinds go on across blank rows under a hint with no last
+// row (round 7 ended the block at the first blank row and made the rows below a block that follows it).
+describe("round 6, re-pinned by rule 8.1: rows after blank rows under a hint", () => {
   for (const blanks of [2, 3, 7]) {
-    test(`${blanks} blank rows inside the data: the rows below follow in a block, and the join reads them all`, () => {
+    test(`${blanks} blank rows inside the data: rows that fit go on in the same block, and the join reads them all`, () => {
       const m = [["Order book"], ["Party", "Kg"], ["Om", "12"], ...Array.from({ length: blanks }, () => []), ["Mehta", "8"], [], [], ["Total", "20"]];
       const r = readSheet(m, { hints: [{ headerRow: 1 }] });
-      expect(r.blocks.length).toBe(2);
-      expect(r.blocks[0]!.guess.lastDataRow).toBe(2);
-      expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: blanks });
-      expect(r.blocks[1]!.guess.headerRow).toBe(3 + blanks);
-      expect(r.blocks[1]!.rows.filter((x) => x.some((c) => c !== "")).map((x) => x[0])).toEqual(["Total"]);
+      expect(r.blocks.length).toBe(1);
+      expect(r.blocks[0]!.guess.lastDataRow).toBe(m.length - 1);
+      expect(r.blocks[0]!.gaps).toBe(blanks + 2);
+      expect(r.blocks[0]!.rows.filter((x) => x.some((c) => c !== "")).map((x) => x[0])).toEqual(["Om", "Mehta", "Total"]);
       expect(r.warnings).toEqual([]);
       const j = readSheet(m, { hints: [{ headerRow: 1, lastDataRow: m.length - 1 }] });
       expect(j.blocks.length).toBe(1);
@@ -25,14 +26,15 @@ describe("round 6, re-pinned by rule 6.1: rows after blank rows under a hint", (
     });
   }
 
-  test("before the next hinted header: the rows between are kept (here as its title), never lost", () => {
+  test("before the next hinted header: the rows that fit go on up to it, never lost", () => {
     const m = [["Party", "Kg"], ["Om", "12"], [], [], [], ["Mehta", "8"], [], [], ["Section", "Kg"], ["T4012", "3.5"]];
     const r = readSheet(m, { hints: [{ headerRow: 0 }, { headerRow: 8 }] });
-    expect(r.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 1], [8, 9]]);
-    expect(r.blocks[1]!.warnings).toContainEqual({ code: "kept_as_title", row: 5 });
+    expect(r.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 5], [8, 9]]);
+    expect(r.blocks[1]!.warnings).toEqual([]);
     expect(r.warnings).toEqual([]);
-    const j = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 5 }, { headerRow: 8 }] });
-    expect(j.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 5], [8, 9]]);
+    const j = readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 1 }, { headerRow: 8 }] });
+    expect(j.blocks.map((b) => [b.guess.headerRow, b.guess.lastDataRow])).toEqual([[0, 1], [8, 9]]);
+    expect(j.blocks[1]!.warnings).toContainEqual({ code: "kept_as_title", row: 5 });
   });
 });
 

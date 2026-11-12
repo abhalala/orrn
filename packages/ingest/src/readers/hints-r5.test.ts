@@ -19,10 +19,12 @@ describe("5.2: hints are exact across blank rows", () => {
   // Round 7, rule 6.1 replaced rule 5.2 for a hint with no last row: the block ends at the first blank row. These
   // tests pinned one block across a blank row; they now pin that the rows below are a block that follows it, and
   // that the hint with its last row (the web's join) reads every row exactly, as rule 5.2 wanted.
+  // Round 8, rule 8.1: s2 still splits, because the row after the blank row holds "pending" in the Kg column (text in
+  // a number column). `follows` now carries `continues: false`: the table above has number columns.
   test("s2: rows after a blank follow in their own block; the join with the last row reads them all", () => {
     const r = readSheet(S2, { hints: [{ headerRow: 0 }] });
     expect(r.blocks.map((b) => [b.guess.headerRow, b.rows.length])).toEqual([[0, 2], [4, 2]]);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1, continues: false });
     expect(r.warnings).toEqual([]);
     const j = readSheet(S2, { hints: [{ headerRow: 0, lastDataRow: 6 }] });
     expect(j.blocks.length).toBe(1);
@@ -37,7 +39,7 @@ describe("5.2: hints are exact across blank rows", () => {
     const m = [["Party", "Kg"], ["Om", "12"], [], ["Section", "Kg"], ["T4012", "3.5"]];
     const r = readSheet(m, { hints: [{ headerRow: 0 }] });
     expect(r.blocks.map((b) => [b.headers, b.rows])).toEqual([[["Party", "Kg"], [["Om", "12"]]], [["Section", "Kg"], [["T4012", "3.5"]]]]);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1 });
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 1, continues: false });
     // The join, when the person says it is one table, still reads every row.
     expect(readSheet(m, { hints: [{ headerRow: 0, lastDataRow: 4 }] }).blocks[0]!.rows).toEqual([["Om", "12"], [], ["Section", "Kg"], ["T4012", "3.5"]]);
   });
@@ -62,7 +64,7 @@ describe("5.2: hints are exact across blank rows", () => {
     expect(r.blocks[0]!.warnings).toEqual([]);
     expect(r.blocks.length).toBe(2);
     expect([r.blocks[1]!.guess.headerRow, r.blocks[1]!.guess.lastDataRow]).toEqual([5, 6]);
-    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 0 });
+    expect(r.blocks[1]!.follows).toEqual({ block: 0, gapRows: 0, continues: false });
   });
 });
 
