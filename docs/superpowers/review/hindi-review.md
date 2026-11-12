@@ -7255,8 +7255,8 @@ Please check, Lalubhai:
 | `list.tablesNoDate` | {count} {count:table\|tables} | {count} टेबल |
 | `list.ready` | Ready to merge | मर्ज के लिए तैयार |
 | `list.importsUnit` | {count:import\|imports} | {count:इम्पोर्ट\|इम्पोर्ट} |
-| `list.mergeMeta` | {created} {created:row\|rows} will be added, {updated} updated | {created} लाइनें जुड़ेंगी, {updated} अपडेट होंगी |
-| `list.bar` | {count} {count:import\|imports} approved, {rows} {rows:row\|rows} | {count} इम्पोर्ट मंज़ूर, {rows} लाइनें |
+| `list.mergeMeta` | {created} {created:row\|rows} will be added, {updated} updated | {created} {created:लाइन जुड़ेगी\|लाइनें जुड़ेंगी}, {updated} अपडेट {updated:होगी\|होंगी} |
+| `list.bar` | {count} {count:import\|imports} approved, {rows} {rows:row\|rows} | {count} इम्पोर्ट मंज़ूर, {rows} {rows:लाइन\|लाइनें} |
 | `list.segments` | Show | दिखाएं |
 | `list.showing` | Showing {name}, {count} {count:import\|imports}. | {name} दिखा रहे हैं, {count} इम्पोर्ट। |
 | `list.colNew` | New | नया |
