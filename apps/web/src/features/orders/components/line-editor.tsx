@@ -1,5 +1,4 @@
 import type { LengthUnit } from "@orrn/domain";
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -11,13 +10,18 @@ import { useRef, useState } from "react";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { kgFieldText, milliText, orderKgText, pcsText } from "../format";
+import { pcsText } from "../format";
 import { useDebounced } from "../hooks";
 import { cutLengthMm, lineProblems, quoteArgs, sameQuoteArgs, type Finish, type LineDraft, type LineProblems, type WeightBasis } from "../line-model";
 import { QUICK_FEET } from "../view";
 import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, lengthIsMetres, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { FeetInchesGroup } from "@/shared/components/feet-inches-group";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 /**
  * One line of the new-order form. The person types ONE side (pieces or kg); the other side, the
@@ -51,6 +55,7 @@ export function LineEditor({
   stockPrompt?: boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const [stockOpen, setStockOpen] = useState(false);
   const { choices } = useCopyChoices(line.die?.id ?? null);
   const mm = cutLengthMm(line, unit);
@@ -84,13 +89,13 @@ export function LineEditor({
     staleTime: 15_000,
   });
 
-  const label = (mmValue: number) => formatLengthMm(mmValue, unit);
-  const ownProblems = problems ?? lineProblems(line, unit);
+  const label = (mmValue: number) => fmt.q("bundle.length", mmValue);
+  const ownProblems = problems ?? lineProblems(line, unit, showRates);
   const shown = problems != null;
 
   // The side that was typed shows the text as typed; the other side is the quote.
   const pcsValue = line.basis === "pcs" ? line.pcsText : q && line.basis === "kg" ? String(q.pcs) : "";
-  const kgValue = line.basis === "kg" ? line.kgText : q && line.basis === "pcs" ? kgFieldText(q.kgG) : "";
+  const kgValue = line.basis === "kg" ? line.kgText : q && line.basis === "pcs" ? kgPlain3(fmt, q.kgG) : "";
   const bestPcs = q?.pcs ?? null;
 
   return (
@@ -124,10 +129,10 @@ export function LineEditor({
         <Field
           label={t("orders.line.cutLength")}
           error={shown && ownProblems.length ? t(ownProblems.length) : undefined}
-          hint={unit === "inch" ? t("orders.form.lengthHintInch") : t("orders.form.lengthHintMm")}
+          hint={unit === "inch" ? t("orders.form.lengthHintInch") : t(lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm")}
         >
           {unit === "inch" ? (
-            <div className="flex min-w-0 flex-wrap gap-2">
+            <FeetInchesGroup label={t("orders.line.cutLength")}>
               <div className="min-w-[7rem] flex-1">
                 <NumberInput
                   value={line.feet}
@@ -145,9 +150,9 @@ export function LineEditor({
                   aria-label={t("orders.form.inches")}
                 />
               </div>
-            </div>
+            </FeetInchesGroup>
           ) : (
-            <NumberInput value={line.mm} onValueChange={(v) => onChange({ mm: v })} suffix={t("units.mm")} decimal={false} aria-label={t("orders.line.cutLength")} />
+            <PlantInput spec={LENGTH_MM} value={line.mm} onValueChange={(v) => onChange({ mm: v })} decimal={false} aria-label={t("orders.line.cutLength")} />
           )}
         </Field>
         {unit === "inch" ? (
@@ -179,10 +184,9 @@ export function LineEditor({
           />
         </Field>
         <Field label={t("orders.line.kg")}>
-          <NumberInput
+          <PlantInput spec={MASS_KG}
             value={kgValue}
             onValueChange={(text) => onChange({ kgText: text, basis: text.trim() === "" ? (line.basis === "kg" ? null : line.basis) : "kg" })}
-            suffix={t("units.kg")}
             aria-label={t("orders.line.kg")}
           />
         </Field>
@@ -201,7 +205,7 @@ export function LineEditor({
           </FieldSelect>
         </Field>
         {showRates ? (
-          <Field label={t("orders.line.rate")}>
+          <Field label={t("orders.line.rate")} error={shown && ownProblems.rate ? t(ownProblems.rate) : undefined}>
             <NumberInput value={line.rate} onValueChange={(rate) => onChange({ rate })} aria-label={t("orders.line.rate")} />
           </Field>
         ) : null}
@@ -228,16 +232,16 @@ export function LineEditor({
           <div className="flex min-w-0 flex-col gap-2" data-quote="">
             <p className="m-0 text-[14px] leading-5 text-muted-foreground">
               {q.locked
-                ? t("orders.form.basisLocked", { milli: milliText(q.basisMilli) })
+                ? t("orders.form.basisLocked", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli) })
                 : q.weightBasis === "copy_current"
-                  ? t("orders.form.basisUsingCopy", { milli: milliText(q.basisMilli), copy: q.copyCode ?? "" })
-                  : t("orders.form.basisUsingBand", { milli: milliText(q.basisMilli) })}
+                  ? t("orders.form.basisUsingCopy", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli), copy: q.copyCode ?? "" })
+                  : t("orders.form.basisUsingBand", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli) })}
               {!q.locked && q.weightBasis === "band_start" && q.copyMilli == null ? ` ${t("orders.form.noReading")}` : ""}
             </p>
             {line.basis === "kg" ? (
               <>
                 <p className="m-0 text-[14px] leading-5">
-                  {t("orders.form.impliedLine", { pcs: pcsText(q.pcs), implied: orderKgText(q.impliedG), kg: orderKgText(q.kgG) })}
+                  {t("orders.form.impliedLine", { massUnit: massUnit(fmt), pcs: countText(fmt, q.pcs), implied: kgGrouped3(fmt, q.impliedG), kg: kgGrouped3(fmt, q.kgG) })}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -254,7 +258,7 @@ export function LineEditor({
               </>
             ) : (
               <p className="m-0 text-[14px] leading-5">
-                {t("orders.form.quoteLine", { pcs: pcsText(q.pcs), kg: orderKgText(q.kgG) })}
+                {t("orders.form.quoteLine", { massUnit: massUnit(fmt), pcs: countText(fmt, q.pcs), kg: kgGrouped3(fmt, q.kgG) })}
               </p>
             )}
           </div>
@@ -268,7 +272,7 @@ export function LineEditor({
           <div className="flex min-w-0 flex-col items-start gap-2 rounded-card border border-border bg-surface-sunken px-3 py-3">
             <p className="m-0 text-[14px] leading-5" data-stock-prompt="">
               {stock.data && stock.data.readyBundles > 0
-                ? t("orders.stock.prompt", { count: stock.data.readyBundles, kg: orderKgText(stock.data.readyG) })
+                ? t("orders.stock.prompt", { massUnit: massUnit(fmt), count: stock.data.readyBundles, kg: kgGrouped3(fmt, stock.data.readyG) })
                 : t("orders.stock.promptNone")}
             </p>
             <Button variant="secondary" onClick={() => setStockOpen(true)}>

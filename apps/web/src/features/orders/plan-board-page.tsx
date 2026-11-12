@@ -4,7 +4,6 @@
  * sets the 24-hour window, and `plans.create` saves a draft. Releasing it is on the plan's page.
  * Kg per line is what the server says is still planable; nothing is worked out here.
  */
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -26,7 +25,7 @@ import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "./errors";
-import { dayText, dayTimeText, orderKgText } from "./format";
+import { } from "./format";
 import { useCompanyTimeZone, useMinWidth } from "./hooks";
 import {
   addPlanLine,
@@ -45,13 +44,16 @@ import {
   windowState,
   windowWords,
   type DraftDie,
-  type PlanView,
-} from "./view";
+  type PlanView } from "./view";
 import { OtherLines } from "./components/other-lines";
 import { PhonePlan } from "./components/phone-plan";
 import { parseKgG } from "./line-model";
 import { isTrialPurpose, PLAN_PURPOSES, trialDraftProblems, trialPlanInput, type PlanPurpose } from "./plan-purpose";
 import { EMPTY_TRIAL, PlanTrialForm, type TrialDraft } from "./plan-trial-form";
+import { useFmt } from "@/shared/lib/fmt";
+import { dayOf, dayTimeAt, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
 
 type DraftLineInfo = {
   lineId: string;
@@ -122,6 +124,7 @@ function PlanList() {
 }
 
 function PlanListPage({ offset, first, onMore }: { offset: number; first: boolean; onMore?: (next: number) => void }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const zone = useCompanyTimeZone();
   const plans = useQuery(trpc.plans.list.queryOptions({ limit: PLAN_PAGE, offset }));
@@ -159,10 +162,10 @@ function PlanListPage({ offset, first, onMore }: { offset: number; first: boolea
                   </span>
                 </span>
                 <span className="text-[13px] text-muted-foreground">
-                  {t("press.plan.window", { from: dayTimeText(p.windowStart, locale, zone), to: dayTimeText(p.windowEnd, locale, zone) })}
+                  {t("press.plan.window", { from: dayTimeAt(fmt, p.windowStart), to: dayTimeAt(fmt, p.windowEnd) })}
                 </span>
                 <span className="font-mono text-[13px] tabular-nums text-muted-foreground">
-                  {t("orders.plan.summary", { dies: p.dies, kg: orderKgText(p.kgG) })}
+                  {t("orders.plan.summary", { massUnit: massUnit(fmt), dies: p.dies, kg: kgGrouped3(fmt, p.kgG) })}
                 </span>
               </Link>
             </li>
@@ -180,6 +183,7 @@ function PlanListPage({ offset, first, onMore }: { offset: number; first: boolea
 
 function PlanBuilder() {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { unit } = useLengthUnit();
@@ -326,7 +330,7 @@ function PlanBuilder() {
     onError: (error) => setErrors(orderErrorLines(t, error)),
   });
 
-  const label = (mm: number) => formatLengthMm(mm, unit);
+  const label = (mm: number) => fmt.q("bundle.length", mm);
   const orderOf = (lineId: string) => infoOf(lineId)?.orderNumber;
   const orderIdOf = (lineId: string) => dies.flatMap((d) => d.lines).find((l) => l.lineId === lineId)?.orderId ?? others.data?.lines.find((l) => l.lineId === lineId)?.orderId;
   const groups = draftGroups(draft, view, orderOf);
@@ -348,16 +352,15 @@ function PlanBuilder() {
             {l.poNumber ? ` · ${l.poNumber}` : ""}
           </p>
           <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-            {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.planableG) })}
+            {l.orderNumber} · {label(l.cutLengthMm)} · {t("orders.plan.planable", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, l.planableG) })}
           </p>
         </div>
         <div className="w-[9rem]">
           <Field label={t("orders.plan.lineKg", { order: l.orderNumber })} error={bad ? t("orders.form.errors.qty") : undefined}>
-            <NumberInput
+            <PlantInput spec={MASS_KG}
               value={kgText}
               onValueChange={(v) => setLineKg((cur) => ({ ...cur, [lineId]: v }))}
-              suffix={t("units.kg")}
-              placeholder={orderKgText(l.planableG)}
+              placeholder={kgGrouped3(fmt, l.planableG)}
               aria-label={t("orders.plan.lineKg", { order: l.orderNumber })}
             />
           </Field>
@@ -426,14 +429,14 @@ function PlanBuilder() {
           {defaultWin.data && startMs != null && endMs != null && win === "ok" ? (
             <p data-plan-window="" className="m-0 text-[14px] leading-6 text-muted-foreground md:col-span-2">
               {(() => {
-                const w = windowWords(startMs, endMs, planZone, defaultWin.data.productionDay);
+                const w = windowWords(startMs, endMs, planZone, defaultWin.data.productionDay, fmt);
                 const at = (e: typeof w.from) =>
                   e.day === "today"
                     ? t("orders.plan.atToday", { time: e.time })
                     : e.day === "tomorrow"
                       ? t("orders.plan.atTomorrow", { time: e.time })
-                      : t("orders.plan.atOther", { date: dayText(e.date, locale), time: e.time });
-                return t("orders.plan.windowShown", { day: dayText(defaultWin.data.productionDay, locale), from: at(w.from), to: at(w.to) });
+                      : t("orders.plan.atOther", { date: dayOf(fmt, e.date), time: e.time });
+                return t("orders.plan.windowShown", { day: dayOf(fmt, defaultWin.data.productionDay), from: at(w.from), to: at(w.to) });
               })()}
             </p>
           ) : null}
@@ -537,7 +540,7 @@ function PlanBuilder() {
                             {l.poNumber ? ` · ${l.poNumber}` : ""}
                           </p>
                           <p className="m-0 font-mono text-[13px] leading-5 tabular-nums text-muted-foreground">
-                            {label(l.cutLengthMm)} · {t("orders.plan.planable", { kg: orderKgText(l.strip.planableG) })}
+                            {label(l.cutLengthMm)} · {t("orders.plan.planable", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, l.strip.planableG) })}
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">

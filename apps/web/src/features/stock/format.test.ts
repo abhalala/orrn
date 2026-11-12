@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatKgBand, formatWhen, reprintErrorKey, transitionError } from "./format";
+import { formatWhen } from "../../../test-support/legacy/stock-format";
+import { formatKgBand, reprintErrorKey, transitionError } from "./format";
 
 const NOW = Date.parse("2026-10-03T12:00:00Z");
 

@@ -1,13 +1,24 @@
-import { formatKg, formatLength, gToKg, type LengthUnit } from "@orrn/domain";
+import { formatKg, type Fmt, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { bandText, driftChipTone, driftText, kg12Text, positionKey, positionTone, type ServerDriftTone, type ServerPosition } from "@/features/pack/line-preview";
+import { bandText, driftChipTone, driftText, positionKey, positionTone, type ServerDriftTone, type ServerPosition } from "@/features/pack/line-preview";
 import { partyNoLabel } from "@/features/pack/party";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 type Fact = { key: string; label: string; value: ReactNode; mono?: boolean };
+
+/**
+ * The packing list's weight range of 12 ft (kg per 12 ft, one decimal: the paper's own figure). A plant on kg/12ft reads the bare
+ * number it always did; a plant on kg/m or lb/ft reads it with its unit word, so it is not taken for a figure in its own unit.
+ */
+export function range12ftText(fmt: Fmt, range12ft: number | null): string {
+  if (range12ft === null) return "-";
+  return fmt.unitOf("linear_mass").id === "kg_12ft" ? formatKg(range12ft, 1) : `${formatKg(range12ft, 1)} kg/12ft`;
+}
 
 /** The server's band verdict for the bundle (`bundle.getBySerial().band`, D15). */
 export type BundleBandView = {
@@ -68,18 +79,19 @@ export function BundleFacts({
   lengthUnit: LengthUnit;
   packedAt: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
-  const k12 = kg12Text(bundle.kgPer12ftMilli);
+  const k12 = sectionOrNull(fmt, bundle.kgPer12ftMilli);
   const key = positionKey(band.position);
   const chip = driftChipTone(band.tone);
   const drift = driftText(band.percentTenths);
   const party = partyNoLabel(bundle);
-  const bandRange = band.minG != null && band.maxG != null ? bandText({ minG: band.minG, maxG: band.maxG }) : null;
+  const bandRange = band.minG != null && band.maxG != null ? bandText({ minG: band.minG, maxG: band.maxG }, fmt) : null;
 
   const facts: Fact[] = [
-    { key: "weight", label: t("bundle.facts.weight"), value: `${formatKg(gToKg(bundle.weightG))} kg`, mono: true },
+    { key: "weight", label: t("bundle.facts.weight"), value: `${kgGrouped2(fmt, (bundle.weightG))} ${massUnit(fmt)}`, mono: true },
     { key: "pieces", label: t("bundle.facts.pieces"), value: String(bundle.quantity), mono: true },
-    { key: "length", label: t("bundle.facts.cutLength"), value: formatLength(bundle.lengthMm, lengthUnit), mono: true },
+    { key: "length", label: t("bundle.facts.cutLength"), value: fmt.q("bundle.length", bundle.lengthMm), mono: true },
     {
       key: "kg12",
       label: t("bundle.facts.kgPer12ft"),
@@ -107,7 +119,7 @@ export function BundleFacts({
     {
       key: "range",
       label: t("bundle.facts.weightRange"),
-      value: range12ft === null ? "-" : formatKg(range12ft, 1),
+      value: range12ftText(fmt, range12ft),
       mono: true,
     },
     ...(bandRange

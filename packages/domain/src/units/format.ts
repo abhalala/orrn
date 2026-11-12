@@ -55,12 +55,20 @@ export function formatStorage(
 }
 
 /**
- * Feet and inches from mm on a grid of 1/4, 1/8 or 1/16 inch: "11 ft 6.25 in", "12 ft", "6.5 in".
+ * Feet and inches from a length (mm unless `storage` says otherwise) on a grid of 1/4, 1/8 or 1/16 inch: "11 ft 6.25 in", "12 ft", "6.5 in".
  * With `fraction` the inches read "6 1/4". Today's quarter-inch output is `grid: 4` without `fraction`.
  */
-export function formatFtIn(mm: number, grid: 4 | 8 | 16, style: NumberStyle, opts: { fraction?: boolean } = {}): string {
-  const r = valueRatio(mm);
-  if (!r) return EMPTY_TEXT;
+export function formatFtIn(
+  value: number,
+  grid: 4 | 8 | 16,
+  style: NumberStyle,
+  opts: { fraction?: boolean } = {},
+  storage: UnitId = "mm",
+): string {
+  const stored = valueRatio(value);
+  if (!stored) return EMPTY_TEXT;
+  // The value is in the field's storage unit (mm, or tenth_mm for walls); the grid is read off exact millimetres.
+  const r = storage === "mm" ? stored : toBase(stored, storage);
   const g = BigInt(grid);
   const total = roundHalfAway(r.num * 5n * g, r.den * 127n);
   const neg = total < 0n;
@@ -162,21 +170,28 @@ function zoned(at: number, zone: string): { y: number; m: number; d: number; hh:
   }
 }
 
-function monthName(locale: FormatEnv["locale"], m: number): string {
-  const f = dtf(`m|${locale}`, () => new Intl.DateTimeFormat(LOCALE_TAG[locale], { timeZone: "UTC", month: "short" }));
-  return f.format(Date.UTC(2024, m - 1, 15));
+function monthName(locale: FormatEnv["locale"], m: number, width: "short" | "long" = "short"): string {
+  const f = dtf(`m${width}|${locale}`, () => new Intl.DateTimeFormat(LOCALE_TAG[locale], { timeZone: "UTC", month: width }));
+  const name = f.format(Date.UTC(2024, m - 1, 15));
+  // Some ICU builds write the English short September as "Sept"; the screens have always written "Sep".
+  return locale === "en" && width === "short" ? name.replace(/^Sept$/, "Sep") : name;
+}
+
+function weekdayName(locale: FormatEnv["locale"], y: number, m: number, d: number): string {
+  const f = dtf(`w|${locale}`, () => new Intl.DateTimeFormat(LOCALE_TAG[locale], { timeZone: "UTC", weekday: "long" }));
+  return f.format(Date.UTC(y, m - 1, d));
 }
 
 const p2 = (n: number) => String(n).padStart(2, "0");
 
-function assembleDate(prefs: ResolvedPrefs, env: FormatEnv, y: number, m: number, d: number, withYear: boolean): string {
+function assembleDate(prefs: ResolvedPrefs, env: FormatEnv, y: number, m: number, d: number, withYear: boolean, width: "short" | "long" = "short"): string {
   const { order, month } = prefs.date;
   if (month === "numeric") {
     if (order === "ymd") return withYear ? `${y}-${p2(m)}-${p2(d)}` : `${p2(m)}-${p2(d)}`;
     const [a, b] = order === "dmy" ? [p2(d), p2(m)] : [p2(m), p2(d)];
     return withYear ? `${a}/${b}/${y}` : `${a}/${b}`;
   }
-  const name = monthName(env.locale, m);
+  const name = monthName(env.locale, m, width);
   if (order === "dmy") return withYear ? `${d} ${name} ${y}` : `${d} ${name}`;
   if (order === "mdy") return withYear ? `${name} ${d}, ${y}` : `${name} ${d}`;
   return withYear ? `${y} ${name} ${d}` : `${name} ${d}`;
@@ -184,8 +199,14 @@ function assembleDate(prefs: ResolvedPrefs, env: FormatEnv, y: number, m: number
 
 export type Fmt = {
   key: string;
+  /** The resolved number style (grouping and marks), for callers that read text with `convertText` or `parseAmount`. */
+  style: NumberStyle;
+  /** The plant clock's zone and the screen language, for callers that need the year of an instant or a language's own joiner. */
+  zone: string;
+  locale: "en" | "hi" | "gu";
   q(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context): string;
-  n(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context): string;
+  /** `trim` drops trailing zeros of the fraction ("12.5" for "12.500"), as the purchase and die screens do. */
+  n(field: QuantityField | FieldId, value: number | null | undefined, ctx?: Context, opts?: { trim?: boolean }): string;
   unitOf(kind: Kind): UnitDef;
   header(caption: string, kind: Kind): string;
   entryText(field: QuantityField | FieldId, value: number): string;
@@ -194,7 +215,23 @@ export type Fmt = {
   compact(value: number): string;
   date(at: number | string, opts?: { year?: boolean }): string;
   time(at: number): string;
-  day(ymd: string): string;
+  /** Wall thickness from tenths of a mm: one decimal in mm, decimal inches (3) on a feet and inches plant, metres (4). */
+  wall(tenthMm: number, withUnit?: boolean): string;
+  /** A die width, thickness or leg in mm (may carry a tenth): "12.5 mm", decimal inches, or metres. */
+  geometry(mm: number): string;
+  /** The second section weight beside the first: kg/m when the plant reads kg/12ft, kg/12ft otherwise. */
+  altSection(gramsPer12ft: number): string;
+  /** Whole units of weight, grouped ("60,000"). */
+  wholeMass(grams: number): string;
+  /** A production day (no zone shift). `year` defaults to true. */
+  day(ymd: string, opts?: { year?: boolean }): string;
+  /** "Saturday, 3 October": the weekday and the day with the month written in full, no year, in the plant's date order. */
+  longDate(at: number): string;
+  /**
+   * The same plant style on another clock or in another language: `in({ zone })` for a screen that reads a fixed zone,
+   * `in({ locale: "en" })` for a text that has always been English. Built once per pair, like `formatterFor`.
+   */
+  in(env: Partial<FormatEnv>): Fmt;
 };
 
 const memo = new Map<string, Fmt>();
@@ -211,7 +248,9 @@ export function formatterFor(prefs: ResolvedPrefs, env: FormatEnv): Fmt {
 
 function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
   const plain: NumberStyle = { grouping: "none", decimal: ".", group: "," };
-  const styleFor = (ctx: Context): NumberStyle => (ctx === "export" ? plain : prefs.number);
+  // Lengths are never grouped: today's screens print "3658 mm" (slice b parity), and a cut length never needs it.
+  const styleFor = (ctx: Context, kind?: Kind): NumberStyle =>
+    ctx === "export" ? plain : kind === "length" ? { ...prefs.number, grouping: "none" } : prefs.number;
   const unitFor = (kind: Kind): UnitDef => UNITS[prefs.units[kind]];
   const decimalsFor = (kind: Kind, unit: UnitId, storage: UnitId, ctx: Context): number =>
     prefs.precision[`${kind}.${ctx}`] ?? defaultDecimals(unit, storage, ctx);
@@ -221,23 +260,26 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
     const c = prefs.currency.symbol;
     return `${c}${c === "₹" ? "" : " "}${num}${unit.symbol.slice(1)}`;
   };
-  const text = (field: QuantityField | FieldId, value: number | null | undefined, ctx: Context, withUnit: boolean): string => {
+  const text = (field: QuantityField | FieldId, value: number | null | undefined, ctx: Context, withUnit: boolean, trim = false): string => {
     if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY_TEXT;
     const f = resolveField(field);
     const unit = unitFor(f.kind);
     if (unit.composite) {
       const grid = ctx === "entry" ? 16 : prefs.inchGrid;
-      return formatFtIn(value, grid, styleFor(ctx), { fraction: ctx === "entry" });
+      return formatFtIn(value, grid, styleFor(ctx, f.kind), { fraction: ctx === "entry" }, f.storage);
     }
-    const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx));
+    const num = formatStorage(value, f.storage, unit.id, decimalsFor(f.kind, unit.id, f.storage, ctx), styleFor(ctx, f.kind), { trim });
     if (!withUnit || num === EMPTY_TEXT) return num;
     if (f.kind === "money" || f.kind === "money_per_mass") return withCurrency(num, unit);
     return unit.symbol === "%" ? `${num}%` : `${num} ${unit.symbol}`;
   };
   return {
     key,
+    style: prefs.number,
+    zone: env.timeZone,
+    locale: env.locale,
     q: (field, value, ctx = "screen") => text(field, value, ctx, true),
-    n: (field, value, ctx = "screen") => text(field, value, ctx, false),
+    n: (field, value, ctx = "screen", opts = {}) => text(field, value, ctx, false, opts.trim === true),
     unitOf: unitFor,
     header(caption, kind) {
       return `${caption} (${currency(unitFor(kind).symbol)})`;
@@ -245,7 +287,7 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
     entryText(field, value) {
       const f = resolveField(field);
       const unit = unitFor(f.kind);
-      if (unit.composite) return formatFtIn(value, 16, { ...prefs.number, grouping: "none" }, { fraction: true });
+      if (unit.composite) return formatFtIn(value, 16, { ...prefs.number, grouping: "none" }, { fraction: true }, f.storage);
       const d = entryDecimals(unit.id, f.storage);
       return formatStorage(value, f.storage, unit.id, d, { ...prefs.number, grouping: "none" }, { trim: true });
     },
@@ -261,6 +303,24 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
       return `${c}${c === "₹" ? "" : " "}${num}`;
     },
     compact: (value) => formatCompact(value, prefs.currency.compact, prefs.number),
+    wall(tenthMm, withUnit = true) {
+      const u = unitFor("length");
+      if (u.composite) return formatStorage(tenthMm, "tenth_mm", "in", 3, plain, { trim: true }) + (withUnit ? " in" : "");
+      if (u.id === "m") return formatStorage(tenthMm, "tenth_mm", "m", 4, plain, { trim: true }) + (withUnit ? " m" : "");
+      return formatStorage(tenthMm, "tenth_mm", "mm", 1, plain) + (withUnit ? " mm" : "");
+    },
+    geometry(mm) {
+      const u = unitFor("length");
+      if (u.composite) return `${formatStorage(mm, "mm", "in", 3, plain, { trim: true })} in`;
+      if (u.id === "m") return `${formatStorage(mm, "mm", "m", 4, plain, { trim: true })} m`;
+      return `${formatStorage(mm, "mm", "mm", 1, plain, { trim: true })} mm`;
+    },
+    altSection(g) {
+      // kg per metre from grams per 12 ft: g x 10000 / 36576, rounded, over 1000 (the die room's kgPerMetre).
+      if (unitFor("linear_mass").id === "kg_12ft") return `${(Math.round((g * 10_000) / 36_576) / 1000).toFixed(3)} kg/m`;
+      return `${(g / 1000).toFixed(3)} kg/12ft`;
+    },
+    wholeMass: (g) => formatStorage(g, "g", unitFor("mass").id, 0, prefs.number),
     date(at, opts = {}) {
       if (typeof at === "string") {
         if (/^\d{4}-\d{2}-\d{2}$/.test(at)) return this.day(at);
@@ -276,11 +336,17 @@ function build(prefs: ResolvedPrefs, env: FormatEnv, key: string): Fmt {
       const h = z.hh % 12 === 0 ? 12 : z.hh % 12;
       return `${h}:${p2(z.mm)} ${z.hh < 12 ? "am" : "pm"}`;
     },
-    day(ymd) {
+    day(ymd, opts = {}) {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
       if (!m) return EMPTY_TEXT;
-      return assembleDate(prefs, env, Number(m[1]), Number(m[2]), Number(m[3]), true);
+      return assembleDate(prefs, env, Number(m[1]), Number(m[2]), Number(m[3]), opts.year !== false);
     },
+    longDate(at) {
+      const z = zoned(at, env.timeZone);
+      if (!z) return EMPTY_TEXT;
+      return `${weekdayName(env.locale, z.y, z.m, z.d)}, ${assembleDate(prefs, env, z.y, z.m, z.d, false, "long")}`;
+    },
+    in: (other) => formatterFor(prefs, { locale: other.locale ?? env.locale, timeZone: other.timeZone ?? env.timeZone }),
   };
 }
 

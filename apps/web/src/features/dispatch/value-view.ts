@@ -1,4 +1,5 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
+import { formatKgTotal, gToKg, type Fmt } from "@orrn/domain";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 /**
  * FP-OP-14: what the dispatch's value card shows, from `dispatch.getDispatch().value` (the server
@@ -27,11 +28,11 @@ export type ValueCardModel = {
   missing: { count: number; kg: string } | null;
 };
 
-export function valueCardModel(value: DispatchValue | null | undefined): ValueCardModel | null {
+export function valueCardModel(value: DispatchValue | null | undefined, fmt?: Fmt): ValueCardModel | null {
   if (!value) return null;
   return {
-    amount: formatRupees(value.valuePaise),
-    pricedKg: formatKgTotal(gToKg(value.pricedG)),
-    missing: value.rateMissing > 0 ? { count: value.rateMissing, kg: formatKgTotal(gToKg(value.missingG)) } : null,
+    amount: fmt ? fmt.money(value.valuePaise) : formatRupees(value.valuePaise),
+    pricedKg: fmt ? kgGrouped1(fmt, value.pricedG) : formatKgTotal(gToKg(value.pricedG)),
+    missing: value.rateMissing > 0 ? { count: value.rateMissing, kg: fmt ? kgGrouped1(fmt, value.missingG) : formatKgTotal(gToKg(value.missingG)) } : null,
   };
 }

@@ -1,4 +1,3 @@
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { EmptyState } from "@orrn/ui/components/empty-state";
@@ -20,6 +19,8 @@ import { periodSearch, rememberPeriod, usePeriod } from "@/features/customers/us
 import type { Period } from "@/features/customers/period";
 import { Can } from "@/shared/components/can";
 import { ImportSheet } from "@/features/imports/import-sheet";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -54,6 +55,7 @@ function cityOf(c: CustomerRow): string {
 
 function CustomersList() {
   const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -127,7 +129,7 @@ function CustomersList() {
               kgStale && "opacity-60",
             )}
           >
-            {formatKgTotal(g / 1000)}
+            {kgGrouped1(fmt, g)}
           </span>
         );
       },

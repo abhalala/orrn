@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
+
 import { bpText, chunkCodes, codesFromPaste, coversEveryYard, matchKey, matchTone, needsUnscannedConfirm, signed, varianceTotal } from "./count-model";
+
+const IST = { locale: "en", timeZone: "Asia/Kolkata" } as const;
+const fmt = formatterFor(screenPrefs({}), IST);
 
 describe("count codes", () => {
   test("pasted codes: one per line or comma, trimmed, each once, order kept", () => {
@@ -28,13 +33,20 @@ describe("what a scan found", () => {
 });
 
 describe("numbers", () => {
+  test("signed variance follows the plant's grouping", () => {
+    const intl = formatterFor(screenPrefs({ number: { grouping: "international" } }), IST);
+    expect(signed(intl, 1_234_567)).toBe("+1,234,567");
+    expect(signed(intl, -1_234_567)).toBe("-1,234,567");
+    expect(signed(fmt, 1_234_567)).toBe("+12,34,567");
+  });
+
   test("phantom share and signed variance", () => {
     expect(bpText(120)).toBe("1.2%");
     expect(bpText(0)).toBe("0.0%");
-    expect(signed(3)).toBe("+3");
-    expect(signed(-2)).toBe("-2");
-    expect(signed(0)).toBe("0");
-    expect(signed(1200)).toBe("+1,200");
+    expect(signed(fmt, 3)).toBe("+3");
+    expect(signed(fmt, -2)).toBe("-2");
+    expect(signed(fmt, 0)).toBe("0");
+    expect(signed(fmt, 1200)).toBe("+1,200");
   });
 
   test("variance footer adds the rows", () => {

@@ -12,7 +12,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
 
-import { kgFromG } from "@/features/press/model";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -20,6 +19,8 @@ import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { CAST_STATUSES, CAST_TONE, castPeriodText, legacyQuery, parseCastsSearch, traceQuery, type CastsSearch, type CastStatus } from "./model";
 import { ErrorLine, LoadFailed, Note } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type CastRow = inferRouterOutputs<AppRouter>["foundry"]["casts"]["list"]["items"][number];
 
@@ -31,6 +32,7 @@ export const CASTS_PAGE = 25;
  * number to the cast it came from.
  */
 export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearch(next: CastsSearch): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const when = useCompanyWhen();
   const [offset, setOffset] = useState(0);
@@ -103,8 +105,8 @@ export function CastsScreen({ search, onSearch }: { search: CastsSearch; onSearc
         </span>
       ),
     },
-    { key: "logs", header: t("foundry.casts.columns.logs"), align: "end", cell: (c) => <span className="tabular-nums whitespace-nowrap">{kgFromG(c.logsG)} {t("units.kg")}</span> },
-    { key: "onHand", header: t("foundry.casts.columns.onHand"), align: "end", cell: (c) => <span className="tabular-nums whitespace-nowrap">{kgFromG(c.billetsOnHandG)} {t("units.kg")}</span> },
+    { key: "logs", header: t("foundry.casts.columns.logs"), align: "end", cell: (c) => <span className="tabular-nums whitespace-nowrap">{kgGrouped1(fmt, c.logsG)} {massUnit(fmt)}</span> },
+    { key: "onHand", header: t("foundry.casts.columns.onHand"), align: "end", cell: (c) => <span className="tabular-nums whitespace-nowrap">{kgGrouped1(fmt, c.billetsOnHandG)} {massUnit(fmt)}</span> },
     { key: "opened", header: t("foundry.casts.columns.opened"), hideOnPhone: true, cell: (c) => <span className="tabular-nums text-[14px]">{when(c.openedAt)}</span> },
   ];
 

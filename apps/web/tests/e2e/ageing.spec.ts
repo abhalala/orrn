@@ -90,6 +90,15 @@ const localInput = (ms: number) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
+/** A cut length as the plant's screens write it: feet and inches on the demo plant (quarter inch), mm on a plant that chose mm. */
+function lengthRegExp(mm: number): RegExp {
+  const q = Math.round(mm / 25.4 / 0.25) / 4;
+  const ft = Math.floor(q / 12);
+  const inch = q - ft * 12;
+  const ftIn = inch === 0 ? `${ft} ft` : `${ft} ft ${inch} in`;
+  return new RegExp(`(${mm} mm|${ftIn})(?!\\d)`);
+}
+
 type Line = { pressRunLineId: string; pressRunNumber: string; sectionLabel: string; lengthMm: number; pcsLeft: number; alloy: string | null; temper: string | null; salesOrderLineId: string | null };
 type Fx = { tag: string; oven: { id: string; code: string }; trolleys: { id: string; code: string }[]; recipeId: string; shiftId: string; lines: Line[]; batches: string[]; orderId: string; pressLineId: string; copyId: string };
 
@@ -258,7 +267,7 @@ for (const width of WIDTHS) {
       await expect(page.getByRole("heading", { level: 1, name: "Load a trolley" })).toBeVisible();
       await expect(page.locator('[data-slot="trolley-picker"]').getByRole("radio", { name: fx.trolleys[0]!.code })).toBeChecked();
       const line = fx.lines[0]!;
-      const pickedPressLine = page.locator(`[data-line="${line.pressRunNumber}"]`).filter({ hasText: `${line.lengthMm} mm` });
+      const pickedPressLine = page.locator(`[data-line="${line.pressRunNumber}"]`).filter({ hasText: lengthRegExp(line.lengthMm) });
       await pickedPressLine.getByRole("checkbox").check();
       // Pieces default to all that is left; a pick over the line is told so and not sent.
       const pcs = pickedPressLine.getByTestId("line-pcs");

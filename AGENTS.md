@@ -78,6 +78,11 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
     silent fallback to another plant.
   - Clients that get that error must clear their stored `x-orrn-company`
     value, refetch `auth.me` and let the user pick a plant again.
+- After a plant switch (web) the server answers for the new plant while `auth.me` still carries the old plant's units.
+  `PlantSwitcher` calls `expectPlant(newId)` (`shared/lib/plant-sync.ts`) before it leaves the page; `TenantFmtProvider`
+  (keyed on the company id) and the portal's `PortalFmtProvider` render their content only when the units in hand
+  belong to that plant, the loading state meanwhile, so no weight is read or typed under the old unit
+  (`tenant-fmt.test.tsx`, `portal-fmt.test.tsx`). If `me` cannot be read again the page reloads.
   - Without the header, the active plant is the one last chosen with
     `company.switch({ companyId })`, else the newest membership.
   - `auth.me` returns `company` (the active plant) and `memberships:
@@ -248,6 +253,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   | `press_reopen` | owner, admin, manager | reopens a logged run with reversal postings |
   | `press_late_entry` | owner, supervisor, manager | approved: the run's `late_entry_approval_id` names it and the close gate passes (billets still debit the cast); rejected: the late run is voided and a copy it held goes back to the rack |
   | `ageing_override` | owner, admin, manager | approved: stamps `ageing_batch.override_approval_id` (batch still held, guarded on status held/released); the supervisor's next `ageing.batches.release` then releases the soak/hardness rejects. Approving never releases by itself |
+- **Two people on every dispatch request (lead, 2026-11-10).** `dispatch_overdraw` and `dispatch_off_band` are requested by the person whose scan (or add) opened them, or by whoever pressed Complete when Complete opened them. The approver must be a different person holding an approver role (`approval.decide` refuses the requester). The person who presses Dispatch MAY be the approver: the scanner and the approver are then the two people. A note typed at Complete that fills a scanner's request keeps its author in `meta.noteById`; `approval.list` names that person as `noteByName`, and the approvals screens show "Note from {name}" when it is not the requester. Pinned by the "review 3" tests in `dispatch-tolerance-scan.test.ts` and `dispatch-off-band.test.ts`.
 - A hook runs in the decision's own batch, scopes its statements by company and guards them with `decisionLanded`. A hook that can refuse adds its own batch abort and an explanation in `explainApplyAbort`, which `approval.decide` calls when the batch fails. A kind with an effect adds its hook to `APPROVAL_APPLIERS`; a kind without one says so in this table.
 - **Prepare step.** Work that needs reads or allocation (party numbers, for one) cannot run inside the batch, so a kind may add an `APPROVAL_PREPARERS` entry (`lib/approvalApply.ts`). `approval.decide` runs it for the kind after the request is read and before the decision batch, and hands the result to the applier as `prepared`. A prepare step must spend only what the applier will really use (`order_reallocate` allocates party numbers only for bundles still available on the line they were asked from, so the customer's series has no gap); anything it allocates and the batch then refuses is lost, which the numbering convention (`allocateDocNumbers`) accepts as a residual gap.
 - **Live facts.** The review sheet shows the FACTS of the thing a request touches, not only the requester's note, and Approve stays disabled until they load (Reject is open). The request's own meta is the snapshot (second); `approval.facts` (`lib/approvalFacts.ts`, open to every role like `list`, ids/names/kg/numbers only) is what is true now (first). `press_late_entry` reads the run (`press.runs.get`), `order_reallocate` reads each bundle (still available on the asked line, who would move, who takes a new party number, whether the target order is still open), `die_rerank` reads the copy now (tier, band, last reading against the band, and a flag when the copy changed after the ask). A tier request that changes nothing is refused when it is made (`planTierChange` `nothing_changes`), so a title never reads "tier 2 to 2"; a band lift names both bands. A new kind whose meta cannot stay true adds its facts to `loadApprovalFacts` and to `FACT_KINDS` in `approval-view.ts`.
@@ -453,7 +459,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
   before, different labels (en, hi, gu).
   Correlated subqueries name the outer line as `"sales_order_line"."company_id"` explicitly (a bare
   column in a single-table select would bind to the inner table).
-- **Hold for an order line (FP-OP-17, D17).** `lib/orderHold.ts`: `orders.hold` / `orders.release` / `orders.holds` / `orders.matchStock` (`order.manage`) set `bundle.held_for_line_id`; the bundle stays available and stays where it is. Dispatch refuses a bundle held for another customer's open line (`held_for_order`, "Held for SO-n (customer)"); held for this customer it goes on linked to that line and the hold ends when the dispatch completes. Closing or cancelling the order, or voiding the bundle (D17), releases the hold, all audited. Known gap: a count's `phantom_void` does not release a hold (BACKLOG 24). UI: `/orders/$id` per line "Hold stock" (`orders.matchStock` → bundles on no line or this line, not held, at most 100 → `orders.hold`, length warnings shown from the answer), a "Held" chip (`strip.heldBundles`, `heldG`) and "Held bundles" with Release selected / all. Hold refusals are mapped with every other orders refusal (see i18n).
+- **Hold for an order line (FP-OP-17, D17).** `lib/orderHold.ts`: `orders.hold` / `orders.release` / `orders.holds` / `orders.matchStock` (`order.manage`) set `bundle.held_for_line_id`; the bundle stays available and stays where it is. Dispatch refuses a bundle held for another customer's open line (`held_for_order`, "Held for SO-n (customer)"); held for this customer it goes on linked to that line and the hold ends when the dispatch completes. Closing or cancelling the order, or voiding the bundle (D17), releases the hold, all audited. An approved count `phantom_void` releases holds the same way, with holds read in chunks before the same decision batch. UI: `/orders/$id` per line "Hold stock" (`orders.matchStock` → bundles on no line or this line, not held, at most 100 → `orders.hold`, length warnings shown from the answer), a "Held" chip (`strip.heldBundles`, `heldG`) and "Held bundles" with Release selected / all. Hold refusals are mapped with every other orders refusal (see i18n).
 - Reallocation (`lib/reallocate.ts`): same customer / plant / unassigned -> applied in one batch
   (bundle UPDATE per from-line, append-only `bundle_transfer` rows, a count abort); another
   customer's bundles -> pending `order_reallocate` (subject = batch id, meta bundle + line ids and
@@ -601,7 +607,7 @@ in `docs/LOCAL_DEV.md`. Promotion to production is `docs/DEPLOY_PROMOTION.md`; a
 - A frame belongs to the run that was on its line when it was sampled; the rule is applied when a run is evaluated (on ingest, by the sweep of recently changed runs, and on every `runSummary` read), so a late-entered, re-timed or voided run is still right. `press_run_id` on a frame is only a cache of that rule. A frame sampled more than 5 minutes ahead of ORRN's clock is refused.
 - Retention: simulated frames 24 h, real frames 90 days (the real period is an owner decision), purged by the daily cron; run annotations outlive their frames.
 - Spectro: the file is hashed before it is stored (R2 `{companyId}/spectro/{inboxId}`, at most 5 MB, ticketed 10-minute PUT), idempotent on (company, sha256). A person with `cast.enter` attaches it to a melt of an existing cast or dismisses it; nothing is attached automatically (the sample label is free text) and a simulated file can only be dismissed.
-- **Open alert (BACKLOG 81, `alertOpenSql`).** ONE definition: an alert is open until it is acknowledged, whether its reading has ended or not. The Today chip (`dashboard.today.pressAlerts.open`), `press.collector.alerts({ openOnly })`, `openAlertCount` ({ open, all }, the page's tab counts) and the "No open alerts" empty state all use it. Whether the reading is still out of band is a separate fact on the row ("Ongoing" or "Ended", `alertEndedAt`). "Alerts today" counts alerts that started since the production day began. Known gap (BACKLOG, review m7): there is no "Acknowledge all ended" action and alerts are never purged, so a noisy sensor or the simulator makes the open count grow until somebody acknowledges each one; add a bulk acknowledge for ended alerts (`press.close`).
+- **Open alert (BACKLOG 81, `alertOpenSql`).** ONE definition: an alert is open until it is acknowledged, whether its reading has ended or not. The Today chip (`dashboard.today.pressAlerts.open`), `press.collector.alerts({ openOnly })`, `openAlertCount` ({ open, all }, the page's tab counts) and the "No open alerts" empty state all use it. Whether the reading is still out of band is a separate fact on the row ("Ongoing" or "Ended", `alertEndedAt`). "Alerts today" counts alerts that started since the production day began. `press.collector.acknowledgeEndedAlerts` (`press.close`) acknowledges up to 2,000 ended alerts per call and returns `{ acknowledged, more }` so the caller repeats while needed. A call that acknowledges any alerts writes one audit row in the same batch. A call that finds none writes no audit. Alerts are never purged.
 - Screens: `/press/alerts` (list + acknowledge, `press.close`), Settings > Standards "Collectors" card (`CollectorsCard` in `standards-tab.tsx`: limits per press and reading; the Standards tab has no `requires`, the card gates its own edits with `masters.publish` (`<Can>` in `collectors-card.tsx`); the Devices tab needs users.manage and does not hold it) and `/casts/inbox` (attach / dismiss, `cast.enter`). The Today alerts chip links to the list.
 
 # 9. Purchase, store and foundry
@@ -970,15 +976,32 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   press opens a `dispatch_late_entry` request (subject = the dispatch, meta `{ dispatchId, dispatchCode,
   occurredAt, reason }`, note = the reason, audit `dispatch.late_entry.request`) and refuses
   PRECONDITION_FAILED "Entered late: ..."; nothing is held or posted. An approval covers only the exact
-  `occurredAt` it was asked for; another time withdraws a waiting ask ("Withdrawn: asked again with
-  another time.") and asks again. Once approved, Complete writes `completed_at` = `occurredAt`, the
+  `occurredAt` it was asked for and the load in its meta (`bundles`, `weightG`, review 7); another time
+  withdraws a waiting ask ("Withdrawn: asked again with another time.") and asks again, and so does a
+  changed load ("Withdrawn: the bundles on the dispatch changed."). The 72 h window is measured only
+  when a new request would open: an approved time stands after the 72 hours (review 1); past them only
+  a time this dispatch already asked for (approved or waiting) may be asked again, so a manager can
+  approve a corrected load for that same time (check N1). The load is the bundle count, grams and a
+  SHA-256 of the sorted bundle ids (`bundlesHash`, check N7). An approval is used for 7 days after `decided_at` (check N3,
+  `LATE_APPROVAL_LIFE_MS`, read and write); after that Complete asks again for the same time, and
+  `lateEntry.status` is `expired`. The PL number comes from the series of `completed_at` (the time the
+  truck left), so a truck that left on 31 March and was entered in April takes the old year's series. The
+  dispatch stores the approved request's reason, never the one typed on the second press (review 4).
+  `getDispatch` returns `lateEntry` `{ status: pending|approved|changed, occurredAt, reason,
+  approvalId }` for a building or held dispatch, and both Complete sheets fill and lock the time and
+  reason from it until "Use another time" (review 5). Once approved, Complete writes `completed_at` = `occurredAt`, the
   ledger `posted_at` = `occurredAt` (still clamped to just after the bundle's last ledger row, so a
   bundle packed after that time posts just after its pack), sets `late_entry`, `late_entry_reason` and
   `late_entry_approval_id` (migration `0047_dispatch_late_entry`), guards the UPDATE on the approval
   still being approved, and puts `lateEntry` in the `dispatch.complete` audit meta. Cancel or delete
   withdraws a waiting ask. The completed dispatch shows "Entered late" with the time and reason; the
-  approvals review sheet shows the time the truck left and how many hours later it was asked. Guide
-  "When the internet is down" (`internet-down`) in en, hi and gu.
+  approvals review sheet shows the time the truck left, how many hours later it was asked and the
+  bundles and kg it was asked for. Guide "When the internet is down" (`internet-down`) in en, hi and gu.
+  Known split (review 8, by design): when the packing was also entered late, the ledger clamps each
+  dispatch row to just after its pack row (entry time), while `dispatchShipDay` reads `completed_at`
+  (the late time). The dispatch register then shows the load on day D and stock at the end of D still
+  holds it; from D+1 they agree, nothing is counted twice and the ledger stays balanced per bundle. The
+  guide says so ("Stock for that day still shows the bundles").
 - Dispatch header: `vehicleNo` (normalised GJ05AB1234), `driverName`, `driverPhone`, `transporter`
   via `dispatch.update` until cancelled (after completion only `dispatch.complete` holders, and the
   stored v2 PL header follows with `json_set`, same number and rows); `invoiceNumber`, `invoiceDate`
@@ -1033,7 +1056,12 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   top-level `offBand` `{ pending, rejected, unasked, approved, blocked }`; web and phone hold Dispatch
   (not Hold stock) while `blocked` and say why. `approval.facts` shows the row as it is now (gone, moved,
   or the line and both weights). A bundle with no line has nothing to compare with. Pack's D15 band is
-  separate and untouched.
+  separate and untouched. Review fixes (2026-11-10): an approval counts only while the bundle's and the
+  line's kg/12ft equal the figures in its meta (`sameFigures` in `offBandStates`), so a line edited after
+  it asks again; the completing UPDATE also requires the linked lines' newest `server_seq` unchanged
+  since the off-band read (`linkedLinesSeqSql`), so a line edited during Complete fails the write and
+  the abort asks; `linkItem` back to a line already approved with the same figures asks nothing; and
+  `getDispatch`'s `offBand` counts cover every item even past the 500 rows it lists.
 - "Add all that fit" sends ≤ 100 serials per call, one call after another, with progress
   (`addInChunks`); a failed call stops the run and says how many went on.
 - The off-band chip and the capacity fill are computed by the server on every read (`getDispatch`); the web draws them and sums nothing.
@@ -1363,7 +1391,8 @@ D31 brought the lane back to the hub. The satellite pushed `wt/W3-AG-C-omafranky
   the page into every first load: `/purchase` once put `/` at 306.8 kB) and never use a zod
   schema there (zod is ~18 kB gzip: `/login` parses `?next` with a plain function). The same holds
   for anything the entry imports (`@orrn/env/web` validates with a Standard Schema check, no zod).
-- `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (188.4 kB after the 2026-11 homepage rebuild) and fails if Hindi, the full English or guide text reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
+- A route file exports `Route` and nothing else. The code splitter leaves a file whole when it exports more, and every import of that file then lands in the entry (a test-only `export function` in `customers.$id.tsx` once carried the plant formatter and the unit registry into `/`, 196.9 kB to 212.0 kB). A component a test needs lives in a module under `features/` (`scripts/route-imports.test.ts` fails on any other export). The plant formatter provider (`FmtProvider`) is mounted only in the tenant frame and the portal shell; public pages read the default words.
+- `bun run --cwd apps/web build` runs `scripts/check-route-budget.ts`: the marketing `/` closure stays under 250 kB gzip (188.5 kB after the units layer) and fails if Hindi, the full English, guide text or the unit registry (`UNITS_MODULE_SIGNATURES`) reaches it. A heavy new library or dictionary goes behind a dynamic import (`report-charts.tsx`, the order-sheet builders and the PDF code load on click only).
 
 ## No fixture-only routes in production nav
 

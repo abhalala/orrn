@@ -9,6 +9,8 @@ import type { Me } from "./me";
 mock.module("../utils/trpc", () => ({
   trpcClient: {},
   trpc: { auth: { me: { queryOptions: () => ({ queryKey: ["auth.me"], queryFn: async () => null }) } } },
+  // Bun keeps a module mock for the whole run; a screen test that loads components needs the client's name to exist.
+  trpcClient: {},
 }));
 const { requireCompanyMe, requirePlatformAdmin, requireSession } = await import("./guards");
 

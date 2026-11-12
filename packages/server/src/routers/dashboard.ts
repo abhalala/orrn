@@ -9,7 +9,7 @@ import { printLog, printerProfile } from "@orrn/db/schema/printing";
 import { pressRun } from "@orrn/db/schema/press";
 import { salesOrder, salesOrderLine } from "@orrn/db/schema/sales";
 import { company, type CompanyRole } from "@orrn/db/schema/tenant";
-import { readFloorSettings } from "@orrn/domain";
+import { isModuleOn, readFloorSettings } from "@orrn/domain";
 
 import { companyProcedure, router } from "../index";
 import { mapInChunks, type OrrnDb } from "../lib/atomic";
@@ -235,7 +235,7 @@ export const dashboardRouter = router({
     const pressAlerts = kpisOnly ? null : await pressAlertsToday(ctx.db, companyId, day.startMs);
     // W3-AG-S Today tile `ageing`: batches in the oven and held (pieces waiting on QC), for ageing.view.
     let ageing: { inOven: number; held: number; out: number } | null = null;
-    if (!kpisOnly && can(me, "ageing.view")) {
+    if (!kpisOnly && isModuleOn(companyRow?.modules, "ageing") && can(me, "ageing.view")) {
       const [a] = await ctx.db.all<{ in_oven: number; held: number; out: number }>(
         sql`select coalesce(sum(case when status = 'in_oven' then 1 else 0 end), 0) as in_oven,
               coalesce(sum(case when status = 'held' then 1 else 0 end), 0) as held,
@@ -312,7 +312,7 @@ export const dashboardRouter = router({
       pressedToday,
       /** `{ open, today, simulated }` press alerts (FP-PR-22) for the Today chip; null when none / viewer. */
       pressAlerts,
-      /** W3-AG-S: `{ inOven, held, out }` ageing batches for the Today tile; null without ageing.view. */
+      /** W3-AG-S: `{ inOven, held, out }` ageing batches; null without the module or ageing.view. */
       ageing,
       /**
        * First steps for an empty plant (Today's "Start here"): a live die, a live customer, any

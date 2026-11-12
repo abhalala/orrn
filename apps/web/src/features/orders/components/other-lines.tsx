@@ -4,7 +4,8 @@ import { Card } from "@orrn/ui/components/card";
 
 import { Can } from "@/shared/components/can";
 
-import { orderKgText, pcsText } from "../format";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /** One row of `plans.openLinesForDies` (the server's figures; nothing is worked out here). */
 export type OtherLine = {
@@ -45,6 +46,7 @@ export function OtherLines({
   addingId?: string | null;
   formatLength(mm: number): string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <section data-other-lines="" aria-label={t("orders.plan.otherLinesTitle")} className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-surface-sunken px-3 py-3">
@@ -73,8 +75,8 @@ export function OtherLines({
                       </p>
                       <p className="m-0 font-mono text-[13px] leading-5 tabular-nums text-muted-foreground">
                         {r.planablePcs != null
-                          ? t("orders.plan.planableBoth", { kg: orderKgText(r.planableG), pcs: pcsText(r.planablePcs) })
-                          : t("orders.plan.planable", { kg: orderKgText(r.planableG) })}
+                          ? t("orders.plan.planableBoth", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, r.planableG), pcs: countText(fmt, r.planablePcs) })
+                          : t("orders.plan.planable", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, r.planableG) })}
                       </p>
                       {r.ownerBlocked ? (
                         <p data-owner-blocked="" className="m-0 text-[13px] font-medium leading-5 text-tone-amber-ink">

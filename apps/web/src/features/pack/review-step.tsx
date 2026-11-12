@@ -1,4 +1,4 @@
-import { formatKg, formatKgTotal, formatLength, gToKg, type LengthUnit } from "@orrn/domain";
+import type { LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { Button } from "@orrn/ui/components/button";
@@ -11,12 +11,14 @@ import { Can } from "@/shared/components/can";
 
 import type { DieOption } from "./die-step";
 import { draftTotals } from "./pack-math";
-import { kg12Text, type LineVerdict } from "./line-preview";
+import { type LineVerdict } from "./line-preview";
 import { Measure, PackBar, type RangeState } from "./pack-ui";
 import { VerdictChip } from "./bundles-step";
 import type { SaveErrorKind } from "./save-error";
 import type { PackDraft } from "./use-pack-draft";
 import { useCasts, useDieCopies, useLinesPreview, useOpenLines, useTrolleyLines } from "./use-pack-server";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 type Props = {
   draft: PackDraft;
@@ -47,6 +49,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
   ref,
 ) {
   const { t } = useT();
+  const fmt = useFmt();
   const totals = draftTotals(draft.bundles);
   // The server's verdict for every bundle (one call): the same band rule the stock lists and /b use.
   const lines = useMemo(
@@ -90,8 +93,8 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         <Total label={t("pack.new.totalPieces")} value={totals.pieces} />
         <Total
           label={t("pack.new.totalKg")}
-          value={gToKg(totals.weightG)}
-          format={formatKgTotal}
+          value={totals.weightG}
+          format={(g) => kgGrouped1(fmt, Math.round(g))}
           className="col-span-2 sm:col-span-1"
         />
       </div>
@@ -110,7 +113,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         </Fact>
         <Fact label={t("pack.new.cutLength")}>
           <span className="font-mono font-semibold whitespace-nowrap">
-            {formatLength(draft.defaults.lengthMm, unit)}
+            {fmt.q("bundle.length", draft.defaults.lengthMm)}
           </span>
         </Fact>
         <Fact label={t("pack.new.po")}>
@@ -161,7 +164,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
         <p data-slot="review-rejects" className="m-0 rounded-card border border-border bg-card px-4 py-3 text-[15px] font-semibold">
           {t("pack.reject.saved", { count: rejectPcs })}
           <span className="font-normal text-muted-foreground">
-            {rejectG > 0 ? ` · ${t("pack.reject.atScrap", { kg: formatKgTotal(gToKg(rejectG)) })}` : ` · ${t("pack.reject.noWeight")}`}
+            {rejectG > 0 ? ` · ${t("pack.reject.atScrap", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, (rejectG)) })}` : ` · ${t("pack.reject.noWeight")}`}
           </span>
         </p>
       ) : null}
@@ -183,11 +186,11 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
               <li key={r.n} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2.5">
                 <span className="font-mono text-[13px] font-semibold text-muted-foreground tabular-nums">{r.n}</span>
                 <span className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-0.5 text-[15px]">
-                  <Measure value={formatKg(gToKg(r.b.weightG))} unit={t("units.kg")} className="font-semibold" />
+                  <Measure value={kgGrouped2(fmt, (r.b.weightG))} unit={massUnit(fmt)} className="font-semibold" />
                   <Measure value={String(r.b.pieces)} unit={t("units.pcs")} />
-                  <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(r.lengthMm, unit)}</span>
+                  <span className="font-mono text-[14px] whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</span>
                   {r.k !== null ? (
-                    <Measure value={kg12Text(r.k) ?? ""} unit={t("units.kgPer12ft")} className="text-[14px]" />
+                    <Measure value={sectionOrNull(fmt, r.k) ?? ""} unit={sectionUnit(fmt)} className="text-[14px]" />
                   ) : null}
                 </span>
                 <VerdictChip verdict={r.verdict} />
@@ -214,7 +217,7 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                   {t("pack.new.po")}
                 </th>
                 <th scope="col" className="px-3 text-right font-semibold">
-                  {t("units.kgPer12ft")}
+                  {sectionUnit(fmt)}
                 </th>
                 <th scope="col" className="pr-5 pl-3 text-left font-semibold">
                   <span className="sr-only">{t("stock.columns.status")}</span>
@@ -226,12 +229,12 @@ export const ReviewStep = forwardRef<HTMLDivElement, Props>(function ReviewStep(
                 <tr key={r.n} className="border-b border-border last:border-0">
                   <td className="h-12 pr-3 pl-5 font-mono text-muted-foreground tabular-nums">{r.n}</td>
                   <td className="px-3 text-right font-mono font-semibold tabular-nums">
-                    {formatKg(gToKg(r.b.weightG))}
+                    {kgGrouped2(fmt, (r.b.weightG))}
                   </td>
                   <td className="px-3 text-right font-mono tabular-nums">{r.b.pieces}</td>
-                  <td className="px-3 font-mono whitespace-nowrap">{formatLength(r.lengthMm, unit)}</td>
+                  <td className="px-3 font-mono whitespace-nowrap">{fmt.q("bundle.length", r.lengthMm)}</td>
                   <td className="px-3 font-mono break-all">{r.b.po ?? draft.defaults.po ?? ""}</td>
-                  <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? (kg12Text(r.k) ?? "") : ""}</td>
+                  <td className="px-3 text-right font-mono tabular-nums">{r.k !== null ? (sectionOrNull(fmt, r.k) ?? "") : ""}</td>
                   <td className="pr-5 pl-3">
                     <VerdictChip verdict={r.verdict} />
                   </td>

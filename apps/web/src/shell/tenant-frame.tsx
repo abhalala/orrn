@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { ScanProvider } from "@/features/scan/scan-context";
+import { TenantFmtProvider } from "@/shared/lib/tenant-fmt";
 
 import { AppShell } from "./app-shell";
 import { PlantLocaleDefault } from "./plant-locale";
@@ -12,9 +13,11 @@ import { PlantLocaleDefault } from "./plant-locale";
  */
 export function TenantFrame({ children }: { children: ReactNode }) {
   return (
-    <ScanProvider>
-      <PlantLocaleDefault />
-      <AppShell variant="tenant">{children}</AppShell>
-    </ScanProvider>
+    <TenantFmtProvider>
+      <ScanProvider>
+        <PlantLocaleDefault />
+        <AppShell variant="tenant">{children}</AppShell>
+      </ScanProvider>
+    </TenantFmtProvider>
   );
 }

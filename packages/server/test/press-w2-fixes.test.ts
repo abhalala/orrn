@@ -413,6 +413,10 @@ describe("console keys for every gate (W2-PR-W)", () => {
       const missing = Object.keys(PRESS_GATE_TEXT).filter((code) => !console.gates?.[code]);
       expect({ lang, missing }).toEqual({ lang, missing: [] });
     }
-    expect(dicts.en.press).toMatchObject({ console: { startLocked: "Die not issued. Start is locked.", gates: PRESS_GATE_TEXT } });
+    // The web sentences carry the plant's unit word as {massUnit}; on a kg plant they read as the server's plain text.
+    const enGates = (dicts.en.press as { console: { gates: Record<string, string> } }).console.gates;
+    const gatesAsKg = Object.fromEntries(Object.entries(enGates).map(([code, text]) => [code, text.replaceAll("{massUnit}", "kg")]));
+    expect(dicts.en.press).toMatchObject({ console: { startLocked: "Die not issued. Start is locked." } });
+    expect(gatesAsKg).toMatchObject(PRESS_GATE_TEXT);
   });
 });

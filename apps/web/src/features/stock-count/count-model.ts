@@ -2,6 +2,9 @@
  * Stock count screens (PL-10, FP stock count): view helpers over `count.*`. The server decides what
  * is phantom, found or moved; these only name it and shape what the floor types or pastes.
  */
+import type { Fmt } from "@orrn/domain";
+
+import { countText } from "@/shared/lib/fmt-text";
 
 /** A count's codes per request: the server takes at most 200 (a scanner burst or a pasted sheet). */
 export const SCAN_CHUNK = 200;
@@ -47,8 +50,8 @@ export function bpText(bp: number): string {
 }
 
 /** Variance with its sign: short is positive, extra is negative (the column says which). */
-export function signed(n: number): string {
-  return n > 0 ? `+${n.toLocaleString("en-IN")}` : n < 0 ? `-${Math.abs(n).toLocaleString("en-IN")}` : "0";
+export function signed(fmt: Fmt, n: number): string {
+  return n > 0 ? `+${countText(fmt, n)}` : n < 0 ? `-${countText(fmt, Math.abs(n))}` : "0";
 }
 
 export type VarianceRow = { expected: number; counted: number; variance: number };

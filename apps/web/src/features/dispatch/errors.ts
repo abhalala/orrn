@@ -36,6 +36,8 @@ export function dispatchErrorText(t: Translate, error: unknown): string {
   const message = typeof e.message === "string" ? e.message : "";
   switch (e.data?.code) {
     case "CONFLICT":
+      // Check N6: an order line was saved while Dispatch ran; nothing about the bundles changed.
+      if (/^The order was edited while you pressed Dispatch/i.test(message)) return t("dispatch.errors.orderEdited");
       return t("dispatch.errors.conflict");
     case "BAD_REQUEST":
       // Arch 52: the late time and reason are checked on the sheet first; these are the server's own refusals.

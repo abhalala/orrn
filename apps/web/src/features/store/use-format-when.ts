@@ -1,9 +1,11 @@
 import { useT } from "@orrn/i18n";
+import { useFmt } from "@/shared/lib/fmt";
+import { whenText } from "@/shared/lib/fmt-text";
 import { useCallback } from "react";
 
 import { useMe } from "@/shared/lib/me";
 
-import { DEFAULT_TIMEZONE, formatWhen } from "./format";
+import { DEFAULT_TIMEZONE } from "./format";
 
 /** The company's timezone from settings, else the plant default. */
 export function useCompanyTimeZone(): string {
@@ -14,7 +16,6 @@ export function useCompanyTimeZone(): string {
 
 /** `formatWhen` bound to the company timezone and the UI language. */
 export function useFormatWhen(): (at: string | number | Date) => string {
-  const { locale } = useT();
-  const timeZone = useCompanyTimeZone();
-  return useCallback((at) => formatWhen(at, { locale, timeZone }), [locale, timeZone]);
+  const fmt = useFmt();
+  return useCallback((at) => whenText(fmt, at), [fmt]);
 }

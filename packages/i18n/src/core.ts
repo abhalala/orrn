@@ -31,9 +31,16 @@ function lookup(dict: unknown, key: string): string | undefined {
  * `vars.count` is 1, else `other`. A missing variable renders as `{name}` (form
  * templates too) so the gap is visible instead of silently blank.
  */
+/**
+ * Unit words a string may carry as a variable (`{massUnit}`). A caller that knows the plant's unit passes it
+ * (web: `massUnit(fmt)`); a caller that does not (the phone, an unswitched screen) gets today's word, so no
+ * screen ever shows a bare placeholder for a unit.
+ */
+export const UNIT_PLACEHOLDER_DEFAULTS = { massUnit: "kg", sectionUnit: "kg/12ft", lengthUnit: "mm" } as const;
+
 export function interpolate(template: string, vars: TranslateVars = {}): string {
   return template.replace(/\{(\w+)(?::([^|}]*)\|([^}]*))?\}/g, (_whole, name: string, one?: string, other?: string) => {
-    const value = vars[name];
+    const value = vars[name] ?? (UNIT_PLACEHOLDER_DEFAULTS as Record<string, string>)[name];
     if (value === undefined) return `{${name}}`;
     if (one !== undefined && other !== undefined) return Number(value) === 1 ? one : other;
     return String(value);

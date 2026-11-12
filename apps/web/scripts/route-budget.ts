@@ -141,3 +141,11 @@ export function filesWithSignatures(dist: string, files: readonly string[], sign
   }
   return hits;
 }
+
+/**
+ * Spellings only the unit registry (`packages/domain/src/units/registry.ts`) carries: unit aliases (a unit id
+ * such as `kg_12ft` is not one, the small text helpers name it). The plant formatter and the registry are for the signed-in shell and the portal, so a
+ * chunk of the `/` closure that holds one of these has pulled them in (a route file that exports more than
+ * `Route` is not code-split and brings its imports to the entry; `route-imports.test.ts`).
+ */
+export const UNITS_MODULE_SIGNATURES: readonly string[] = ["kgs/12ft", "feetinches", "gms/12ft"];

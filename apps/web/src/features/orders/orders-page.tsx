@@ -20,7 +20,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { bookDateText } from "@/features/purchase/format";
+import { bookDateText } from "@/shared/lib/fmt-text";
 import { Can } from "@/shared/components/can";
 import { RouterLink } from "@/shared/components/router-link";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
@@ -34,14 +34,14 @@ import {
   withBookFilter,
   type Bar,
   type BookSearch,
-  type BookShow,
-} from "./book-view";
+  type BookShow } from "./book-view";
 import { BookStrip } from "./components/book-strip";
 import { BookExportButton } from "./components/print-buttons";
 import { OrderBar } from "./components/order-bar";
-import { listKgText } from "./format";
 import { useDebounced } from "./hooks";
 import { STATUS_TONE, type OrderStatus } from "./view";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 type Scope = "open" | "late" | "closed" | "cancelled";
 const OPEN_STATUSES = ["booking", "confirmed", "dispatching"] as const;
@@ -68,7 +68,8 @@ type Row = {
 };
 
 export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(next: BookSearch): void }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const [text, setText] = useState(search.q ?? "");
   const typed = useDebounced(text.trim(), 300);
   const set = (patch: Partial<Record<keyof BookSearch, string | number | undefined>>) => onSearch(withBookFilter(search, patch));
@@ -163,8 +164,8 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
       hideOnPhone: true,
       cell: (o) => (
         <span className="flex flex-col whitespace-nowrap">
-          <span>{bookDateText(o.orderDate, locale)}</span>
-          {o.expectedDate ? <span className="text-[13px] text-muted-foreground">{t("orders.book.due", { date: bookDateText(o.expectedDate, locale) })}</span> : null}
+          <span>{bookDateText(fmt, o.orderDate)}</span>
+          {o.expectedDate ? <span className="text-[13px] text-muted-foreground">{t("orders.book.due", { date: bookDateText(fmt, o.expectedDate) })}</span> : null}
         </span>
       ),
     },
@@ -173,7 +174,7 @@ export function OrdersPage({ search, onSearch }: { search: BookSearch; onSearch(
       header: t("orders.list.ordered"),
       align: "end",
       hideOnPhone: true,
-      cell: (o) => <span className="font-mono tabular-nums">{listKgText(o.orderedG)}</span>,
+      cell: (o) => <span className="font-mono tabular-nums">{kgGrouped1(fmt, o.orderedG)}</span>,
     },
   ];
 

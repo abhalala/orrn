@@ -31,7 +31,9 @@ re-verified before wiring the hybrid router.
 - Every plant module is built end to end on the web, with the phone app for the floor roles: die room (with the share link), orders and planning, press (station, queue, report, collectors as simulators), foundry (casts, melts, spectro, count-based close, trace, certificate, yield), ageing (ovens, trolleys, recipes, batches, release, pack from a released line), pack, stock, dispatch from an order, packing list v2, stock count, platform (modules, shifts, thresholds, releases, backups, audit, support, approvals with live facts), customer portal, analytics and reports. 44 guides in en and hi; Gujarati for the floor.
 - Current verification is recorded in the build ledger/final report; historical gate counts are not proof of the current continuation.
 - FINAL-FIXES-4 removes `features/preview` and repoints `/preview/ageing*` to `/ageing` and `/reports/ageing`.
-- The continuation schema head is 0042. Dev can deploy without R2 using the explicit dev-only override; actual deployment state and immutable gated SHA are in the final report. Production requires a separate explicit go. See `docs/DEPLOY_PROMOTION.md`.
+- Dispatch rules (off-band approval, tolerance at scan, late packing-list entry, vehicle required) and the 2026-11-04 security fixes went to production on 2026-11-11 (migrations 0046 and 0047).
+- The continuation schema head is 0047. Dev can deploy without R2 using the explicit dev-only override; actual deployment state and immutable gated SHA are in the final report. Production requires a separate explicit go. See `docs/DEPLOY_PROMOTION.md`.
+- Customer portal (owner, 2026-11-10): a customer sees orders, dispatches and packing lists only. No die drift readings and no trial copies.
 - Three things are not in this file because they are the owner's: the owner-only list is `docs/OWNER_HANDOVER.md`, device bring-up is its own section below (O9), and Gujarati is its own section below (O8).
 
 ## Owner only (no agent can do these)
@@ -79,7 +81,7 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 |---|---|---|
 | **Infinity Portal Wave 1** | Top priority — see the "Top priority" section above. Build the `ingest_artifact` vault + AI digest + XLSX/CSV staging for masters, dies, bundles, baki; spec `docs/superpowers/specs/2026-10-26-orrn-infinity-portal-design.md`. | owner 2026-10-27 |
 | Bulk acknowledge | No "acknowledge all ended alerts" on `/press/alerts` (owner tour): add with `press.close` and an audit row. | BL 109 |
-| Ageing block for plants without the module | `dashboard.today().ageing` returns 0/0/0 for a plant without the ageing module (the tile is hidden client-side on web and phone); the server should omit the block. | BL 113 |
+| Ageing block for plants without the module | `dashboard.today().ageing` returns 0/0/0 for a plant without the ageing module (the tile is hidden client-side on phone, but web shows an empty tile); the server should omit the block. | BL 113 |
 | Pack phone Review | The "For order" line should sit above the sticky bar (owner tour 99, second half). | BL 111 |
 | Prod logs: email in a Better Auth message | Better Auth's own logger prints the address on "Reset Password: User not found" (PII in prod logs): custom logger or suppress. | BL 69 |
 | Purchase register columns | The register screens do not show `meltedKgG` and `remainingKgG` per lot (the server returns them). | BL 74 |
@@ -92,17 +94,16 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 | Replay for downtime, remarks and handover | `press.downtime.start/stop` take `clientMutationId` + `tappedAt` so downtime can be queued in the station outbox (the server stamps the resend time today, which is the wrong window); remarks and handover are not queued either. The 30-minute WAN-pull test of the outbox is owner. | BL 60 |
 | Renumber plant-stock bundles at dispatch | A plant-stock bundle scanned onto another customer's load keeps its plain serial. The fuller fix renumbers at add/scan and sets `sticker_stale` (the flag, the "Sticker needs reprint" badge and the move-time reset exist). | BL 76 |
 | Ageing load picker (web) | `availableLines` is capped at 100 with no paging; the capacity chip ignores pieces already on the trolley; the bundle picks drop silently when the search changes; the web sends `batchId` under one page-long key (a re-read can change the body under the same key). Align it to the phone's `loadBody()` / attempt pattern. Also not built: typed (manual) trolley lines and a device screen for the oven collector. | BL 112, W3-AG-N m-7 |
-| Review minors | Reprint can print nothing in one path; the approvals sheet and the phone review show a plant-added reason as its raw key; no server test for the D18 automatic `requireCastOnBundle` rule; reason pickers are empty while loading or offline. Check each on the head and delete the row if already done. | BL 63 |
+| Review minors | Reprint can print nothing in one path; the approvals sheet and the phone review show a plant-added reason as its raw key; reason pickers are empty while loading or offline. Check each on the head and delete the row if already done. | BL 63 |
 | Reprint reason, rejects on the saved session, seed ordering | Explorer lows L5 (reprint reason picker + server input), L6 (rejects on the saved session page), L11 (seed ordering CNT-1 / opening voucher / PP-2). | BL 71 |
 | Role-shaped Today | Die room and store get their own tile set (foundry and ageing have theirs). | BL 101 |
-| Owner question: parties see die drift and trial copies? | The portal leads with the customer's PO and invoice; whether it also shows die drift and trial copies to a party is the owner's call. | BL 103 |
-| Order timeline | List dispatches and invoices on the order timeline. | BL 104 |
+| Order timeline | List invoices on the order timeline. | BL 104 |
 | One set of stock-age buckets | Today, Stock and the report use the same buckets or say how they differ. | BL 105 |
 | Explorer lows | L2-L18 of the owner walk-through that are still open (language card text, cast switch, held-dispatch rounding, PL columns, chart tooltip and curves, die life wording, ISO dates, approval card title, empty released plan, stock header lines, role nav noise, OK on a beyond-tolerance lot, public link without `?c=`, DSP gaps, date input format check, viewer export). | BL 107 |
-| Test health | `chain.spec` @1280 press-plan step flaked once (planned 7,493,835 vs 8,000,000 g); `pack.spec:227` weight caret; `w2-fd-s-foundry` 'a REAL tail' uses a UTC day vs the production day; the press report table fits 1280 at 941 of 943 px (`expectTableFitsFrame`, fragile); `die-room-flows` leaves on_trial copies it cannot retire. W4-TESTSWEEP-2 owns the first four; drop each row when its merge lands. | BL 73, 64, 110, 114, 66 |
+| Test health | `chain.spec` @1280 press-plan step flaked once (planned 7,493,835 vs 8,000,000 g); `pack.spec:227` weight caret; the press report table fits 1280 at 941 of 943 px (`expectTableFitsFrame`, fragile); `die-room-flows` leaves on_trial copies it cannot retire. W4-TESTSWEEP-2 owns the first four; drop each row when its merge lands. | BL 73, 64, 110, 114, 66 |
 | Test gaps | The approvals inbox as its own flow, `/audit` outside `platform.spec`, Maestro on a device. (Maker send / receive and nitriding are covered by `die-room-flows.spec.ts`.) | base 19 |
 | Settings gaps | `orderLeadDays` has no settings screen (set with `company.updateSettings`); `spool.retryJob` must not mark a job queued when the spool call failed (verify). | base 7 |
-| Small verify list | Pack minors from T20 (tile wording with a draft, cut-length print rule, 820 yard tile wrap, override Feet / Inches labels, PackBar toast lift, sign-out clears `orrn.packDraft`) and die-room minors m-6, m-8, m-10: check on the head and delete the row if already done. | base 2, 18 |
+| Small verify list | Pack minors from T20 (tile wording with a draft, cut-length print rule, 820 yard tile wrap, override Feet / Inches labels, sign-out clears `orrn.packDraft`) and die-room minors m-6, m-8, m-10: check on the head and delete the row if already done. | base 2, 18 |
 
 ### Later
 
@@ -110,7 +111,7 @@ Bands: **Next** = decided by the owner or a go-live risk, small; **Soon** = real
 |---|---|---|
 | Dispatch header | Vehicle, driver, transporter and capacity entry exist on web ("Edit details") and the phone asks for the vehicle number before it completes (`vehicleGate`); missing: the confirm check "Vehicle and ship-to are correct", which waits for ship-to. | pl-flow 62 |
 | Ship-to per dispatch | "Same as bill-to" or a second customer address (unit 2, job worker) snapshotted into `header.shipTo`; needs a customer address list. | pl-flow 63, base 7 |
-| PL print polish | Footer "Not a tax invoice, generated from the locked snapshot of {PL} rev n" and "Page x of y", signature lines Packed by / Checked by / Driver received, group title with ordered kg/12ft and PO date, a Print button beside PDF, PDF named `{PL}_{customer}.pdf`. | pl-flow 65 |
+| PL print polish | Footer "Not a tax invoice, generated from the locked snapshot of {PL} rev n", signature lines Packed by / Checked by / Driver received, group title with ordered kg/12ft and PO date, PDF named `{PL}_{customer}.pdf`. | pl-flow 65 |
 | Dispatch labels | On demand only, on a completed dispatch (Q38): a 100x50 template per bundle with PL no, n/N, party no, section, cut, pcs, kg/12ft, kg, customer, city, PO; "Reprint one"; A4 fallback. | pl-flow 66 |
 | Scan refusal wording | `dispatched` names the PL number and date, `void` names reason and date plus "keep it aside", a non-orrn code reads "Not an orrn bundle label" with "Type bundle number" and "Reprint this bundle's label" (en, hi, gu). | pl-flow 67 |
 | Rejected-scan log | Store each refused or needs-approval scan (code, outcome, reason, who, when), list with filters All / On PL / Needs OK / Rejected; review shows Removed and Rejected lines; refused rows never reach the snapshot. | pl-flow 68 |

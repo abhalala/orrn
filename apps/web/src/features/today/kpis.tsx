@@ -1,5 +1,4 @@
 import type { StatusTone } from "@orrn/domain";
-import { formatKgTotal } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { riseDelay } from "@orrn/ui/components/motion";
@@ -7,7 +6,9 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { cn } from "@orrn/ui/lib/utils";
 import { useId } from "react";
 
-import { formatCount, formatRupees, type TodayData } from "./today-model";
+import { formatCount, type TodayData } from "./today-model";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type KpiBlockProps = {
   testId: string;
@@ -72,6 +73,7 @@ const KPI_GRID = "m-0 grid list-none grid-cols-2 gap-3 p-0 @[56rem]:grid-cols-4"
  */
 export function TodayKpis({ data }: { data: TodayData }) {
   const { t } = useT();
+  const fmt = useFmt();
   const headingId = useId();
   const { kpis, value } = data;
 
@@ -86,9 +88,9 @@ export function TodayKpis({ data }: { data: TodayData }) {
           tone="blue"
           index={0}
           title={t("today.kpi.packed")}
-          value={kpis.packedG / 1000}
-          format={formatKgTotal}
-          unit={t("units.kg")}
+          value={kpis.packedG}
+          format={(g) => kgGrouped1(fmt, g)}
+          unit={massUnit(fmt)}
           meta={t("today.kpi.packedMeta")}
         />
         <KpiBlock
@@ -97,7 +99,7 @@ export function TodayKpis({ data }: { data: TodayData }) {
           index={1}
           title={t("today.kpi.bundles")}
           value={kpis.packedBundles}
-          format={formatCount}
+          format={(n) => formatCount(fmt, n)}
           unit={t("today.bundleUnit", { count: kpis.packedBundles })}
           meta={kpis.packedBundles > 0 ? t("today.kpi.bundlesMeta") : t("today.nothingPackedYet")}
         />
@@ -106,9 +108,9 @@ export function TodayKpis({ data }: { data: TodayData }) {
           tone="red"
           index={2}
           title={t("today.kpi.dispatched")}
-          value={kpis.dispatchedG / 1000}
-          format={formatKgTotal}
-          unit={t("units.kg")}
+          value={kpis.dispatchedG}
+          format={(g) => kgGrouped1(fmt, g)}
+          unit={massUnit(fmt)}
           meta={kpis.dispatchedG > 0 ? t("today.kpi.dispatchedMeta") : t("today.noDispatchYet")}
         />
         <KpiBlock
@@ -116,10 +118,10 @@ export function TodayKpis({ data }: { data: TodayData }) {
           tone="green"
           index={3}
           title={t("today.kpi.stock")}
-          value={kpis.inStockG / 1000}
-          format={formatKgTotal}
-          unit={t("units.kg")}
-          meta={t("today.kpi.stockMeta", { count: formatCount(kpis.inStockBundles) })}
+          value={kpis.inStockG}
+          format={(g) => kgGrouped1(fmt, g)}
+          unit={massUnit(fmt)}
+          meta={t("today.kpi.stockMeta", { count: formatCount(fmt, kpis.inStockBundles) })}
         />
         {value ? (
           <KpiBlock
@@ -129,9 +131,9 @@ export function TodayKpis({ data }: { data: TodayData }) {
             wide
             title={t("today.kpi.value")}
             value={value.dispatchedPaise}
-            format={formatRupees}
+            format={(paise) => fmt.money(paise)}
             unit=""
-            meta={t("today.kpi.valueMeta", { count: formatCount(value.pricedBundles) })}
+            meta={t("today.kpi.valueMeta", { count: formatCount(fmt, value.pricedBundles) })}
           />
         ) : null}
       </ul>

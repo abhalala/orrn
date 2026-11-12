@@ -9,3 +9,4 @@ export * from "./canonical";
 export * from "./prefs";
 export * from "./format";
 export * from "./portal";
+export * from "./offered";

@@ -14,10 +14,14 @@ import { CapacityBanner } from "./capacity-banner";
 import { dispatchNow } from "./dispatch-now";
 import { dispatchErrorText } from "./errors";
 import { groupItems, type DispatchItem } from "./group-items";
+import { plantTimeText } from "@/features/approvals/approval-view";
+import { toZonedInput } from "@/features/orders/view";
+
 import { useCompanyTimeZone } from "./hooks";
-import { lateBounds, lateCheck } from "./late-entry";
+import { LATE_STATUS_KEY, lateBounds, lateCheck, type LateEntryAsk } from "./late-entry";
 import { overdrawView, overLineText, type OverdrawState } from "./over-tolerance";
-import { dispatchKgText } from "./format";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2 } from "@/shared/lib/fmt-text";
 
 type Props = {
   open: boolean;
@@ -32,6 +36,8 @@ type Props = {
   capacity?: CapacityReport | null;
   /** Lines past ordered + tolerance (pl-flow 61): listed in amber, with a note for the manager. */
   overdraw?: OverdrawState;
+  /** Review 5: the late time already asked for (waiting) or approved; the sheet pre-fills and locks it. */
+  lateEntry?: LateEntryAsk | null;
 };
 
 /**
@@ -39,8 +45,9 @@ type Props = {
  * From Building it holds the stock first (the server only completes a held
  * dispatch), then dispatches; the packing list is written in the same step.
  */
-export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh, capacity, overdraw }: Props) {
+export function CompleteSheet({ open, onOpenChange, dispatch, customerName, items, onDispatched, onRefresh, capacity, overdraw, lateEntry }: Props) {
   const { t } = useT();
+  const fmt = useFmt();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [reason, setReason] = useState("");
@@ -58,6 +65,9 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
   const [lateTime, setLateTime] = useState("");
   const [lateReason, setLateReason] = useState("");
   const [lateError, setLateError] = useState<{ field: "time" | "reason"; key: MessageKey } | null>(null);
+  // Review 5: locked to the asked time until "Use another time"; any other minute asks a manager again.
+  const [lateLocked, setLateLocked] = useState(false);
+  const locked = lateLocked && lateEntry ? lateEntry : null;
   // Held by this sheet a moment ago: a retry after a failed complete must not hold twice
   // (the refreshed status may not be back yet).
   const heldHere = useRef({ held: false });
@@ -73,11 +83,23 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
       setLateTime("");
       setLateReason("");
       setLateError(null);
+      setLateLocked(false);
     }
   }, [open]);
+  // Pre-fill on open, and again when a press opens the request or a manager decides it.
+  const askKey = lateEntry ? `${lateEntry.approvalId}:${lateEntry.status}` : "";
+  useEffect(() => {
+    if (!open || !lateEntry) return;
+    setLate(true);
+    setLateTime(toZonedInput(lateEntry.occurredAt, tz));
+    setLateReason(lateEntry.reason);
+    setLateError(null);
+    setLateLocked(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the ask itself changes
+  }, [open, askKey, tz]);
   const groups = groupItems(items);
   const weightG = items.reduce((s, i) => s + i.weightG, 0);
-  const kg = dispatchKgText(weightG);
+  const kg = kgGrouped2(fmt, weightG);
 
   const confirm = async () => {
     const gate = vehicleGate(dispatch.vehicleNo, vehicle);
@@ -92,7 +114,8 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
       document.getElementById("capacity-reason")?.focus();
       return;
     }
-    const lateSend = late ? lateCheck(lateTime, lateReason, tz, Date.now()) : null;
+    // A locked time is sent as asked: the server decides (an approved time stands past 72 hours).
+    const lateSend = !late ? null : locked ? { kind: "ok" as const, occurredAt: locked.occurredAt, reason: locked.reason } : lateCheck(lateTime, lateReason, tz, Date.now());
     if (lateSend?.kind === "error") {
       setLateError({ field: lateSend.field, key: lateSend.key });
       document.getElementById(lateSend.field === "time" ? "late-time" : "late-reason")?.focus();
@@ -156,7 +179,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
                 {g.labelled ? t("dispatch.build.groupNamed", { label: g.label }) : g.label}
               </span>
               <span className="shrink-0 text-[14px] text-muted-foreground tabular-nums">
-                {t("dispatch.build.groupTotal", { bundles: g.bundles.length, kg: dispatchKgText(g.weightG) })}
+                {t("dispatch.build.groupTotal", { bundles: g.bundles.length, kg: kgGrouped2(fmt, g.weightG) })}
               </span>
             </li>
           ))}
@@ -213,7 +236,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
             <p className="m-0 text-[15px] font-semibold text-tone-amber-ink">{t("dispatch.overTolerance.title")}</p>
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[14px] text-tone-amber-ink">
               {overOrder.lines.map((l) => (
-                <li key={l.lineId}>{overLineText(t, l)}</li>
+                <li key={l.lineId}>{overLineText(t, l, fmt)}</li>
               ))}
             </ul>
             <p className="m-0 text-[14px] text-tone-amber-ink">{t(overOrder.statusKey)}</p>
@@ -238,12 +261,41 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
         </label>
         {late ? (
           <div data-late-entry="" className="flex flex-col gap-3">
+            {locked ? (
+              <div
+                className={`flex flex-col gap-2 rounded-card p-4 ${locked.status === "approved" ? "bg-tone-green-tint text-tone-green-ink" : "bg-tone-amber-tint text-tone-amber-ink"}`}
+                data-testid="late-locked"
+                data-status={locked.status}
+              >
+                <p className="m-0 text-[15px] font-semibold">
+                  {t(LATE_STATUS_KEY[locked.status], { when: plantTimeText(fmt, locked.occurredAt, tz) })}
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="self-start"
+                  disabled={busy}
+                  onClick={() => {
+                    setLateLocked(false);
+                    setLateTime("");
+                    setLateReason("");
+                    setLateError(null);
+                  }}
+                  data-testid="late-use-another"
+                >
+                  {t("dispatch.late.useAnother")}
+                </Button>
+              </div>
+            ) : lateEntry ? (
+              <p className="m-0 text-[14px] text-muted-foreground">{t("dispatch.late.anotherAsks")}</p>
+            ) : null}
             <Field id="late-time" label={t("dispatch.late.time")} hint={t("dispatch.late.timeHint")} error={lateError?.field === "time" ? t(lateError.key) : undefined}>
               <TextInput
                 id="late-time"
                 type="datetime-local"
                 value={lateTime}
-                {...lateBounds(tz, Date.now())}
+                readOnly={locked !== null}
+                {...(locked ? {} : lateBounds(tz, Date.now()))}
                 onChange={(e) => {
                   setLateTime(e.currentTarget.value);
                   setLateError(null);
@@ -256,6 +308,7 @@ export function CompleteSheet({ open, onOpenChange, dispatch, customerName, item
               <FieldTextArea
                 id="late-reason"
                 value={lateReason}
+                readOnly={locked !== null}
                 onChangeText={(v) => {
                   setLateReason(v);
                   setLateError(null);

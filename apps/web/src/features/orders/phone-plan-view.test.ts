@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { formatterFor, screenPrefs } from "@orrn/domain";
+
 import { DIE_STATE_TONE, dieStateKey, pressedBarWidth, pressedPctText, pressedVsPlanned } from "./phone-plan-view";
 
 describe("FP-OP-21 phone plan view", () => {
@@ -16,6 +18,14 @@ describe("FP-OP-21 phone plan view", () => {
       pcs: { pressed: "120", planned: "150" },
     });
     expect(pressedVsPlanned({ plannedPcs: 0, plannedG: 300_000, pressedPcs: 0, pressedG: 0 }).pcs).toBeNull();
+  });
+
+  test("on a pound plant the figures are in pounds (the sentence's word is lb), and a plain plant reads today's text", () => {
+    const row = { plannedPcs: 150, plannedG: 750_000, pressedPcs: 120, pressedG: 598_000 };
+    const lb = formatterFor(screenPrefs({ units: { mass: "lb" } }), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(pressedVsPlanned(row, lb).kg).toEqual({ pressed: "1,318.36", planned: "1,653.47" });
+    const plain = formatterFor(screenPrefs({}), { locale: "en", timeZone: "Asia/Kolkata" });
+    expect(pressedVsPlanned(row, plain)).toEqual(pressedVsPlanned(row));
   });
 
   test("bar clamps at 100; percent text one decimal", () => {

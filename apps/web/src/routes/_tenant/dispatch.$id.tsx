@@ -411,7 +411,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
             onAdded={onAdded}
           />
           {data.salesOrder ? (
-            <SuggestSheet open={sheet === "suggest"} onOpenChange={(open) => setSheet(open ? "suggest" : null)} dispatchId={d.id} unit={unit} onAdded={onAdded} />
+            <SuggestSheet open={sheet === "suggest"} onOpenChange={(open) => setSheet(open ? "suggest" : null)} dispatchId={d.id} onAdded={onAdded} />
           ) : null}
           <GroupLabelSheet
             group={labelGroup}
@@ -434,6 +434,7 @@ function DispatchDetail({ data }: { data: DetailData }) {
             onDispatched={onDispatched}
             capacity={data.capacity}
             overdraw={data.overdraw}
+            lateEntry={data.lateEntry}
           />
         </Can>
       ) : null}

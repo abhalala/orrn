@@ -9,6 +9,8 @@
  */
 import type { MessageKey, Translate } from "@orrn/i18n";
 
+import { ymdInZone } from "@/shared/lib/plant-calendar";
+
 export const PERIODS = ["month", "quarter", "fy"] as const;
 export type Period = (typeof PERIODS)[number];
 export const DEFAULT_PERIOD: Period = "fy";
@@ -21,10 +23,7 @@ export function companyTimeZone(settings: { [key: string]: unknown } | null | un
   return typeof tz === "string" && tz.length > 0 ? tz : FALLBACK_ZONE;
 }
 
-function ymdIn(timeZone: string, at: Date): string {
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
-}
+const ymdIn = (timeZone: string, at: Date): string => ymdInZone(at, timeZone);
 
 /** Today's calendar day in the company's zone; an unknown zone reads as IST instead of throwing. */
 export function todayIn(timeZone: string, now: Date = new Date()): string {

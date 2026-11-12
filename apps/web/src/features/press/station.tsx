@@ -1,4 +1,4 @@
-import { bpPercent1, formatLength, type LengthUnit } from "@orrn/domain";
+import { bpPercent1, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import type { MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
@@ -19,7 +19,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/shared/components/can";
-import { ymdLabel } from "@/shared/lib/intl-tag";
 import { useLengthUnit } from "@/shared/lib/length";
 import { useMe } from "@/shared/lib/me";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -31,10 +30,12 @@ import { ErrorLines } from "./error-lines";
 import { pressErrorText, pressErrorToast, roleCan, useActionKey, useCompanyTimeZone, useHolds } from "./hooks";
 import { OutboxBanner, queuedText, useStationSend, type SendResult } from "./outbox-hooks";
 import { statusTone } from "./job-card";
-import { bannerOf, clockOf, elapsedText, kgFromG, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
+import { bannerOf, clockOf, elapsedText, pollIntervalFor, STATION_ACTION, stationActions, type Banner } from "./model";
 import { reasonLabel, type ReasonWording } from "./reason-label";
 import { CountingPanel } from "./station-count";
 import type { RunDetail } from "./types";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 const NONE = "__none";
 
@@ -152,6 +153,7 @@ function useRunWrite(runId: string) {
 
 function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunDetail; tz: string; actions: ReturnType<typeof stationActions> }) {
   const { t } = useT();
+  const fmt = useFmt();
   const runId = data.run.id;
   const refresh = useRunWrite(runId);
   const [error, setError] = useState<string | null>(null);
@@ -226,7 +228,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
     ready: t("press.console.readyBody"),
     stopped: t("press.console.stoppedBody"),
     counting: t("press.console.countingBody"),
-    logged: data.run.stored.goodG != null ? t("press.console.loggedBody", { good: kgFromG(data.run.stored.goodG), input: kgFromG(data.run.stored.inputG ?? 0) }) : undefined,
+    logged: data.run.stored.goodG != null ? t("press.console.loggedBody", { massUnit: massUnit(fmt), good: kgGrouped1(fmt, data.run.stored.goodG), input: kgGrouped1(fmt, data.run.stored.inputG ?? 0) }) : undefined,
     voided: data.run.voidNote ? `${t("press.console.voidedBody")} ${data.run.voidNote}` : t("press.console.voidedBody"),
   };
 
@@ -241,7 +243,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
       {banner === "running" ? <RunningClock data={data} tz={tz} /> : null}
       {banner === "stopped" ? (
         <p className="m-0 font-mono text-[26px] font-semibold tabular-nums" data-testid="stopped-window">
-          {clockOf(data.run.startedAt, tz)} – {clockOf(data.run.stoppedAt, tz)}
+          {clockOf(fmt, data.run.startedAt, tz)} – {clockOf(fmt, data.run.stoppedAt, tz)}
         </p>
       ) : null}
       {body[banner] ? <p className="m-0 text-[16px] leading-6 text-muted-foreground">{body[banner]}</p> : null}
@@ -309,6 +311,7 @@ function BannerBlock({ banner, data, tz, actions }: { banner: Banner; data: RunD
 }
 
 function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -319,7 +322,7 @@ function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="m-0 text-[15px] font-medium text-muted-foreground" data-testid="started-at">
-        {t("press.console.startedAt", { time: clockOf(data.run.startedAt, tz) })}
+        {t("press.console.startedAt", { time: clockOf(fmt, data.run.startedAt, tz) })}
       </p>
       <p className="m-0 font-mono text-[44px] font-semibold leading-none tabular-nums" aria-live="off" data-testid="elapsed">
         {startedMs ? elapsedText(now - startedMs) : "00:00"}
@@ -333,7 +336,8 @@ function RunningClock({ data, tz }: { data: RunDetail; tz: string }) {
 // The run card: who, what, which orders
 // ---------------------------------------------------------------------------
 
-function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: string }) {
+export function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: string }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { data: me } = useMe();
   const qc = useQueryClient();
@@ -404,9 +408,9 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
         <Fact label={t("press.console.operator")} value={run.operatorName} />
         <Fact label={t("press.console.relief")} value={run.reliefOperatorName} />
         <Fact label={t("press.console.supervisor")} value={run.supervisorName} />
-        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: ymdLabel(run.productionDay, locale) }), ymdLabel(run.productionDay, locale)) : keepTogether(ymdLabel(run.productionDay, locale), ymdLabel(run.productionDay, locale))} /> : null}
+        {run.productionDay ? <Fact label={t("press.console.shift")} value={shiftName ? keepTogether(t("press.console.shiftLine", { shift: shiftName, day: fmt.day(run.productionDay) }), fmt.day(run.productionDay)) : keepTogether(fmt.day(run.productionDay), fmt.day(run.productionDay))} /> : null}
         {run.castNumber ? <Fact label={t("press.console.cast")} value={run.castNumber} mono /> : null}
-        {run.startedAt ? <Fact label={t("press.console.startedAt", { time: "" }).trim()} value={clockOf(run.startedAt, tz)} mono /> : null}
+        {run.startedAt ? <Fact label={t("press.console.startedAt", { time: "" }).trim()} value={clockOf(fmt, run.startedAt, tz)} mono /> : null}
       </dl>
 
       {data.planLines.length > 0 ? (
@@ -419,13 +423,13 @@ function RunCard({ data, unit, tz }: { data: RunDetail; unit: LengthUnit; tz: st
                   <span className="font-mono font-semibold">{l.orderNumber}</span> <span className="text-muted-foreground">{l.customerName}</span>
                 </span>
                 <span className="whitespace-nowrap tabular-nums">
-                  {formatLength(l.cutLengthMm, unit)} × {l.pcs} {t("units.pcs")} · {kgFromG(l.kgG)} {t("units.kg")}
+                  {fmt.q("bundle.length", l.cutLengthMm)} × {l.pcs} {t("units.pcs")} · {kgGrouped1(fmt, l.kgG)} {massUnit(fmt)}
                 </span>
               </li>
             ))}
           </ul>
           <p className="m-0 border-t border-border pt-2 text-[15px] font-semibold tabular-nums">
-            {t("press.console.totalLine", { pcs: data.planTotals.pcs, kg: kgFromG(data.planTotals.kgG) })}
+            {t("press.console.totalLine", { massUnit: massUnit(fmt), pcs: data.planTotals.pcs, kg: kgGrouped1(fmt, data.planTotals.kgG) })}
           </p>
         </div>
       ) : null}
@@ -622,6 +626,7 @@ function HandoverDialog({ data, onClose, onSaved }: { data: RunDetail; onClose: 
 }
 
 function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; canStart: boolean }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const qc = useQueryClient();
   const refresh = useRunWrite(data.run.id);
@@ -692,7 +697,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
             <li key={r.id} data-open={!r.stoppedAt} className="flex flex-wrap items-baseline justify-between gap-2 text-[15px]">
               <span className="font-medium">{label(r.reasonCode ?? "other", r.reasonLabel ?? "", r)}</span>
               <span className="tabular-nums text-muted-foreground">
-                {r.stoppedAt ? t("press.console.downtimeMin", { min: minutes(r) }) : t("press.console.downtimeSince", { time: clockOf(r.startedAt, tz) })}
+                {r.stoppedAt ? t("press.console.downtimeMin", { min: minutes(r) }) : t("press.console.downtimeSince", { time: clockOf(fmt, r.startedAt, tz) })}
               </span>
               {r.note ? <span className="basis-full text-[14px] text-muted-foreground">{r.note}</span> : null}
             </li>
@@ -750,6 +755,7 @@ function DowntimeCard({ data, tz, canStart }: { data: RunDetail; tz: string; can
 // ---------------------------------------------------------------------------
 
 function LoggedPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
+  const fmt = useFmt();
   const { t } = useT();
   const refresh = useRunWrite(data.run.id);
   const [open, setOpen] = useState(false);
@@ -778,12 +784,12 @@ function LoggedPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
           </p>
         </div>
         <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Fact label={t("press.console.input")} value={s.inputG != null ? `${kgFromG(s.inputG)} ${t("units.kg")}` : null} mono />
-          <Fact label={t("press.console.good")} value={s.goodG != null ? `${kgFromG(s.goodG)} ${t("units.kg")}` : null} mono />
-          <Fact label={t("press.console.discard")} value={data.run.discardG != null ? `${kgFromG(data.run.discardG)} ${t("units.kg")}` : null} mono />
-          <Fact label={t("press.console.ends")} value={data.run.endsG != null ? `${kgFromG(data.run.endsG)} ${t("units.kg")}` : null} mono />
-          <Fact label={t("press.console.reject")} value={s.rejectG != null ? `${kgFromG(s.rejectG)} ${t("units.kg")}` : null} mono />
-          <Fact label={t("press.console.balanceLabel")} value={s.balanceG != null ? `${kgFromG(s.balanceG)} ${t("units.kg")}` : null} mono />
+          <Fact label={t("press.console.input")} value={s.inputG != null ? `${kgGrouped1(fmt, s.inputG)} ${massUnit(fmt)}` : null} mono />
+          <Fact label={t("press.console.good")} value={s.goodG != null ? `${kgGrouped1(fmt, s.goodG)} ${massUnit(fmt)}` : null} mono />
+          <Fact label={t("press.console.discard")} value={data.run.discardG != null ? `${kgGrouped1(fmt, data.run.discardG)} ${massUnit(fmt)}` : null} mono />
+          <Fact label={t("press.console.ends")} value={data.run.endsG != null ? `${kgGrouped1(fmt, data.run.endsG)} ${massUnit(fmt)}` : null} mono />
+          <Fact label={t("press.console.reject")} value={s.rejectG != null ? `${kgGrouped1(fmt, s.rejectG)} ${massUnit(fmt)}` : null} mono />
+          <Fact label={t("press.console.balanceLabel")} value={s.balanceG != null ? `${kgGrouped1(fmt, s.balanceG)} ${massUnit(fmt)}` : null} mono />
         </dl>
         {data.lines.length > 0 ? (
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -794,7 +800,7 @@ function LoggedPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
                   {l.customerName ? <span className="text-muted-foreground"> {l.customerName}</span> : null}
                 </span>
                 <span className="whitespace-nowrap tabular-nums">
-                  {formatLength(l.cutLengthMm, unit)} × {l.pcs} {t("units.pcs")} · {kgFromG(l.goodG)} {t("units.kg")}
+                  {fmt.q("bundle.length", l.cutLengthMm)} × {l.pcs} {t("units.pcs")} · {kgGrouped1(fmt, l.goodG)} {massUnit(fmt)}
                 </span>
               </li>
             ))}

@@ -1,4 +1,4 @@
-import { bundleTone, formatKg, formatKgTotal, formatLength, gToKg, type BundleStatus } from "@orrn/domain";
+import { bundleTone, type BundleStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { Button } from "@orrn/ui/components/button";
@@ -16,7 +16,7 @@ import { useMemo } from "react";
 
 import { VerdictChip } from "@/features/pack/bundles-step";
 import { packedWhen } from "@/features/pack/format";
-import { kg12Text, type LineVerdict } from "@/features/pack/line-preview";
+import type { LineVerdict } from "@/features/pack/line-preview";
 import { lengthUnitOf, timezoneOf } from "@/features/pack/pack-ui";
 import { partyNoLabel } from "@/features/pack/party";
 import { LabelFallback, PrintPanel } from "@/features/pack/print-panel";
@@ -26,6 +26,8 @@ import { Can } from "@/shared/components/can";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, kgGrouped2, massUnit, sectionOrNull } from "@/shared/lib/fmt-text";
 
 export const Route = createFileRoute("/_tenant/pack/$id")({
   component: PackSession,
@@ -52,7 +54,8 @@ const STATUS_ORDER: BundleStatus[] = ["available", "reserved", "dispatched", "vo
 const bySerial = new Intl.Collator("en", { numeric: true });
 
 function PackSession() {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const { id } = Route.useParams();
   const { data: me } = useMe();
   const unit = lengthUnitOf(me?.company?.settings);
@@ -110,7 +113,7 @@ function PackSession() {
         key: "weight",
         header: t("stock.columns.weight"),
         align: "end",
-        cell: (b) => <span className="font-mono tabular-nums">{formatKg(gToKg(b.weightG))}</span>,
+        cell: (b) => <span className="font-mono tabular-nums">{kgGrouped2(fmt, (b.weightG))}</span>,
       },
       {
         key: "pieces",
@@ -124,7 +127,7 @@ function PackSession() {
               key: "length",
               header: t("stock.columns.cutLength"),
               cell: (b: SessionBundle) => (
-                <span className="font-mono whitespace-nowrap">{formatLength(b.lengthMm, unit)}</span>
+                <span className="font-mono whitespace-nowrap">{fmt.q("bundle.length", b.lengthMm)}</span>
               ),
             },
           ]
@@ -133,7 +136,7 @@ function PackSession() {
         key: "k12",
         header: t("stock.columns.kgPer12ft"),
         align: "end",
-        cell: (b) => <span className="font-mono tabular-nums">{kg12Text(b.kgPer12ftMilli) ?? ""}</span>,
+        cell: (b) => <span className="font-mono tabular-nums">{sectionOrNull(fmt, b.kgPer12ftMilli) ?? ""}</span>,
       },
       {
         // Shown on phones too: an amber bundle is what a floor check looks for.
@@ -209,7 +212,7 @@ function PackSession() {
   const outsideRange = bundles.filter((b) => b.status !== "void" && (b.band.position === "below" || b.band.position === "above")).length;
   // Where the bundles are now (packed into one yard; a later move can split them).
   const yards = new Set(bundles.flatMap((b) => (b.locationId ? [b.locationId] : [])));
-  const when = packedWhen(group.createdAt, { timeZone, locale });
+  const when = packedWhen(fmt, group.createdAt, { timeZone });
   const whenText =
     when.day === "today"
       ? t("pack.whenToday", { time: when.time })
@@ -256,8 +259,8 @@ function PackSession() {
               <BigNumber value={totalPieces} className="text-[44px] sm:text-[52px]" />
             </div>
             <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-[13px] font-semibold">{t("units.kg")}</span>
-              <BigNumber value={gToKg(totalWeightG)} format={formatKgTotal} className="text-[44px] sm:text-[52px]" />
+              <span className="text-[13px] font-semibold">{massUnit(fmt)}</span>
+              <BigNumber value={totalWeightG} format={(g) => kgGrouped1(fmt, g)} className="text-[44px] sm:text-[52px]" />
             </div>
           </div>
           {counts.length > 0 ? (
@@ -285,7 +288,7 @@ function PackSession() {
           <Fact label={t("pack.new.cutLength")}>
             <span className="font-mono font-semibold whitespace-nowrap" data-testid="session-cut-length">
               {lengths.size === 1
-                ? formatLength([...lengths][0]!, unit)
+                ? fmt.q("bundle.length", [...lengths][0]!)
                 : lengths.size > 1
                   ? t("pack.detail.mixed")
                   : ""}

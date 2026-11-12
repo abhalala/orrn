@@ -13,9 +13,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Search } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
-import { dispatchKgText, formatYmdDay } from "@/features/dispatch/format";
 import { Can } from "@/shared/components/can";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped2, shipDayText } from "@/shared/lib/fmt-text";
 
 /** Monthly volume chart, only fetched for `analytics.view` (chart kit stays out of floor roles' downloads). */
 const DispatchVolumeChart = lazy(() => import("@/features/dispatch/volume-chart"));
@@ -51,7 +52,8 @@ type Row = {
 };
 
 function DispatchListPage() {
-  const { t, locale } = useT();
+  const fmt = useFmt();
+  const { t } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const status: ListTab = search.status ?? "open";
@@ -98,13 +100,13 @@ function DispatchListPage() {
     {
       key: "ship",
       header: t("dispatch.columns.shipDate"),
-      cell: (r) => formatYmdDay(r.shipDay?.ymd, { locale }) ?? <span className="text-muted-foreground">-</span>,
+      cell: (r) => shipDayText(fmt, r.shipDay?.ymd) ?? <span className="text-muted-foreground">-</span>,
     },
     {
       key: "bundles",
       header: t("dispatch.columns.bundles"),
       align: "end",
-      cell: (r) => <span className="font-mono">{Number(r.itemCount).toLocaleString("en-IN")}</span>,
+      cell: (r) => <span className="font-mono">{countText(fmt, Number(r.itemCount))}</span>,
     },
     {
       key: "kg",
@@ -112,7 +114,7 @@ function DispatchListPage() {
       align: "end",
       cell: (r) => (
         <span data-no-truncate="" className="font-mono">
-          {dispatchKgText(Number(r.totalWeightG))}
+          {kgGrouped2(fmt, Number(r.totalWeightG))}
         </span>
       ),
     },

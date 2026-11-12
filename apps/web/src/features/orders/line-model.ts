@@ -3,7 +3,7 @@
  * sends ONE side (pieces or kg); the other side, the basis and the implied kg come back from
  * `orders.quote` / `orders.create` and are only displayed (FP-OP-03/04).
  */
-import { kgToG, lengthFromInput, MM_PER_INCH, parseDecimal, type LengthUnit } from "@orrn/domain";
+import { kgToG, lengthFromInput, MM_PER_INCH, parseDecimal, toCanonical, type LengthUnit } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 
 import { kgFieldText, rateText } from "./format";
@@ -77,6 +77,15 @@ export function parseKgG(text: string): number | null {
   return g >= 1 ? g : null;
 }
 
+/**
+ * Paise per kg from typed rupees, exact: "1.005" is 101 (half away from zero), not the 100 that
+ * `Math.round(1.005 * 100)` gave. Null for text that is not a plain non-negative number, as before.
+ */
+export function ratePaiseOf(text: string): number | null {
+  const r = toCanonical("order.rate", text, "inr_kg", { mode: "round" });
+  return r.ok ? r.value : null;
+}
+
 export type QuoteArgs = {
   /** A saved line: quoted on the basis it was locked with (`orders.quote` `lineId`). */
   lineId?: string;
@@ -117,10 +126,15 @@ export function sameQuoteArgs(a: QuoteArgs, b: QuoteArgs): boolean {
   return keys.every((k) => (a[k] ?? null) === (b[k] ?? null));
 }
 
-export type LineProblems = { die?: MessageKey; length?: MessageKey; qty?: MessageKey };
+export type LineProblems = { die?: MessageKey; length?: MessageKey; qty?: MessageKey; rate?: MessageKey };
 
-export function lineProblems(d: LineDraft, unit: LengthUnit): LineProblems {
+/**
+ * What is wrong with a line. With `withRate`, a rate that is written but is not a plain number of rupees ("10,00") is a problem;
+ * without this the rate was dropped from the save without a word.
+ */
+export function lineProblems(d: LineDraft, unit: LengthUnit, withRate = false): LineProblems {
   const out: LineProblems = {};
+  if (withRate && d.rate.trim() !== "" && ratePaiseOf(d.rate) === null) out.rate = "orders.form.errors.rate";
   if (!d.die) out.die = "orders.form.errors.die";
   if (cutLengthMm(d, unit) == null) out.length = "orders.form.errors.length";
   if (d.basis == null || (d.basis === "pcs" ? parsePieces(d.pcsText) : parseKgG(d.kgText)) == null) out.qty = "orders.form.errors.qty";
@@ -138,7 +152,7 @@ export function toLineInput(d: LineDraft, unit: LengthUnit, withRate: boolean) {
   const { dieInstanceId, tierRank } = copyChoiceInput(d.copy);
   const alloy = (d.alloy ?? "").trim();
   const temper = (d.temper ?? "").trim();
-  const rate = withRate ? parseDecimal(d.rate) : null;
+  const ratePaise = withRate ? ratePaiseOf(d.rate) : null;
   return {
     sectionId: args.sectionId,
     cutLengthMm: args.cutLengthMm,
@@ -151,7 +165,7 @@ export function toLineInput(d: LineDraft, unit: LengthUnit, withRate: boolean) {
     ...(alloy ? { alloy } : {}),
     ...(temper ? { temper } : {}),
     finish: d.finish === "none" ? null : d.finish,
-    ...(rate != null ? { ratePaise: Math.round(rate * 100) } : {}),
+    ...(ratePaise != null ? { ratePaise } : {}),
   };
 }
 

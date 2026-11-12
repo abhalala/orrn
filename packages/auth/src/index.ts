@@ -8,6 +8,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import { magicLinkGuardBody } from "./magic-link-guard";
 import { signUpGuardBody } from "./sign-up-guard";
 import { limitPasswordReset, RESET_REQUEST_PATH } from "./reset-throttle";
+import { writeAuthLog } from "./logger";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -103,6 +104,7 @@ function buildAuth(opts: { magicLinkStoreToken?: MagicLinkStoreToken } = {}, env
   const db = createDb(environment.DB);
 
   return betterAuth({
+    logger: { log: writeAuthLog },
     database: drizzleAdapter(db, {
       provider: "sqlite",
 

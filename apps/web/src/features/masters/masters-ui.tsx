@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { Can } from "@/shared/components/can";
 import type { Action } from "@/shared/lib/me";
 
+import { ymdInZone } from "@/shared/lib/plant-calendar";
+
 import { masterErrorKey } from "./masters-model";
 
 /** A titled block of a masters page: an `h2`, actions on the right, then its content. */
@@ -328,13 +330,8 @@ export function FieldTextArea({ id, "aria-describedby": describedBy, "aria-inval
 /** The company's calendar day as YYYY-MM-DD (its time zone setting, else the device's). */
 export function companyToday(timeZone: unknown, now = new Date()): string {
   try {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: typeof timeZone === "string" && timeZone ? timeZone : undefined,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
+    return ymdInZone(now, typeof timeZone === "string" && timeZone ? timeZone : undefined);
   } catch {
-    return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+    return ymdInZone(now, undefined);
   }
 }

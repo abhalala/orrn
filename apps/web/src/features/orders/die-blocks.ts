@@ -8,6 +8,7 @@
  */
 import type { LengthUnit } from "@orrn/domain";
 
+import { ymdInZone } from "@/shared/lib/plant-calendar";
 import { newLine, lineProblems, parseKgG, parsePieces, type LineDraft, type LineProblems } from "./line-model";
 
 export type DieBlock = {
@@ -79,20 +80,20 @@ export function patchRow(block: DieBlock, key: string, patch: Partial<LineDraft>
 export type BlockProblems = { die: boolean; rows: Record<string, LineProblems> };
 
 /** The die problem is the block's; a row only has its own length and quantity problems. */
-export function blockProblems(block: DieBlock, unit: LengthUnit): BlockProblems {
+export function blockProblems(block: DieBlock, unit: LengthUnit, withRate = false): BlockProblems {
   const rows: Record<string, LineProblems> = {};
   for (const line of blockLines(block)) {
-    const { die: _die, ...own } = lineProblems(line, unit);
+    const { die: _die, ...own } = lineProblems(line, unit, withRate);
     rows[line.key] = own;
   }
   return { die: block.die == null, rows };
 }
 
-export function blocksComplete(blocks: readonly DieBlock[], unit: LengthUnit): boolean {
+export function blocksComplete(blocks: readonly DieBlock[], unit: LengthUnit, withRate = false): boolean {
   return (
     blocks.length > 0 &&
     blocks.every((b) => {
-      const p = blockProblems(b, unit);
+      const p = blockProblems(b, unit, withRate);
       return !p.die && Object.values(p.rows).every((r) => Object.keys(r).length === 0);
     })
   );
@@ -142,7 +143,7 @@ export function addDaysYmd(ymd: string, days: number): string {
 /** Today as `YYYY-MM-DD` on the plant's clock. */
 export function todayYmd(timeZone: string, nowMs: number = Date.now()): string {
   try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(nowMs));
+    return ymdInZone(nowMs, timeZone);
   } catch {
     return new Date(nowMs).toISOString().slice(0, 10);
   }

@@ -18,9 +18,12 @@ import { useFormat } from "@/lib/use-format";
 import { useLengthUnit } from "@/utils/length";
 import { queryClient, trpc } from "@/utils/trpc";
 
+import { HeldSheet, HoldStockSheet, type HoldTarget } from "./hold-sheet";
+import { HoldActions } from "./hold-ui";
 import {
   blockerText,
   dieTitle,
+  isOpenStatus,
   lateLabel,
   milliText,
   orderErrorLines,
@@ -34,14 +37,37 @@ import {
   type Strip,
 } from "./order-model";
 
-function LineCard({ n, title, lengthText, ordered, strip, basis, pin }: { n: number; title: string; lengthText: string; ordered: string; strip: Strip | null; basis: string | null; pin: string | null }) {
+function LineCard({
+  target,
+  title,
+  lengthText,
+  ordered,
+  strip,
+  basis,
+  pin,
+  openOrder,
+  onHold,
+  onHeld,
+}: {
+  target: HoldTarget;
+  title: string;
+  lengthText: string;
+  ordered: string;
+  strip: Strip | null;
+  basis: string | null;
+  pin: string | null;
+  openOrder: boolean;
+  onHold: (target: HoldTarget) => void;
+  onHeld: (target: HoldTarget) => void;
+}) {
   const { t } = useT();
   const cells = strip ? stripCells(strip) : [];
+  const heldG = strip?.heldG ?? 0;
   return (
     <View className="gap-3 rounded-card border border-hairline bg-surface p-5">
       <View className="gap-0.5">
         <Text accessibilityRole="header" className="font-display-bold text-[17px] text-ink">
-          {`${t("orders.detail.lineShort", { n })} ${title}`}
+          {`${t("orders.detail.lineShort", { n: target.lineNo })} ${title}`}
         </Text>
         <Text className="font-sans text-[15px] text-ink-muted">{[lengthText, ordered, pin].filter(Boolean).join(", ")}</Text>
       </View>
@@ -57,6 +83,7 @@ function LineCard({ n, title, lengthText, ordered, strip, basis, pin }: { n: num
         </View>
       ) : null}
       {strip && strip.overG > 0 ? <Chip tone="amber" label={t("orders.over", { kg: orderKgText(strip.overG) })} /> : null}
+      <HoldActions target={target} openOrder={openOrder} heldG={heldG} heldBundles={strip?.heldBundles ?? 0} onHold={onHold} onHeld={onHeld} />
       {basis ? <Text className="font-sans text-sm text-ink-muted">{basis}</Text> : null}
     </View>
   );
@@ -74,6 +101,8 @@ export function OrderDetail({ id }: { id: string }) {
   const { formatLength } = useLengthUnit();
   const [refreshing, setRefreshing] = useState(false);
   const [problems, setProblems] = useState<string[]>([]);
+  const [holdLine, setHoldLine] = useState<HoldTarget | null>(null);
+  const [heldLine, setHeldLine] = useState<HoldTarget | null>(null);
   const order = useQuery({ ...trpc.orders.get.queryOptions({ id }), enabled: !!id, retry: false });
   const timeline = useQuery({ ...trpc.orders.timeline.queryOptions({ id, limit: 20 }), enabled: !!order.data });
   const confirm = useMutation(trpc.orders.confirm.mutationOptions());
@@ -163,21 +192,25 @@ export function OrderDetail({ id }: { id: string }) {
         </View>
       ) : null}
 
-      {lines.map((line, i) => {
+      {lines.map((line) => {
         const d = lineDetails.find((x) => x.lineId === line.lineId);
         const basis = d?.copyMilli != null || d?.bandStartMilli != null ? basisText(t, d) : null;
         const pin = d?.dieInstanceId ? t("orders.line.copyPinned") : d?.tierRank != null ? t("orders.line.tierOrBetter", { rank: d.tierRank }) : null;
         const ordered = line.orderedPcs != null ? `${pcsText(line.orderedPcs)} ${t("units.pcs")}, ${orderKgText(line.orderedG)} ${t("units.kg")}` : `${orderKgText(line.orderedG)} ${t("units.kg")}`;
+        const target: HoldTarget = { lineId: line.lineId, lineNo: line.lineNo, orderNumber: o.number, sectionId: line.sectionId, cutLengthMm: line.cutLengthMm, customerId: o.customerId };
         return (
           <LineCard
             key={line.lineId}
-            n={i + 1}
+            target={target}
             title={dieTitle(line)}
             lengthText={formatLength(line.cutLengthMm)}
             ordered={ordered}
             strip={(d?.strip as Strip | undefined) ?? null}
             basis={basis}
             pin={pin}
+            openOrder={isOpenStatus(status)}
+            onHold={setHoldLine}
+            onHeld={setHeldLine}
           />
         );
       })}
@@ -202,6 +235,9 @@ export function OrderDetail({ id }: { id: string }) {
           })
         )}
       </View>
+
+      {holdLine ? <HoldStockSheet target={holdLine} onClose={() => setHoldLine(null)} /> : null}
+      {heldLine ? <HeldSheet target={heldLine} onClose={() => setHeldLine(null)} /> : null}
     </Screen>
   );
 }

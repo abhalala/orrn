@@ -9,6 +9,7 @@ import { Can } from "@/components/can";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Screen } from "@/components/ui/screen";
+import { PackReviewActionBar } from "@/features/pack/review-action-bar";
 import { BundlesStep } from "@/features/pack/bundles-step";
 import { DieStep } from "@/features/pack/die-step";
 import { DRAFT_VERSION, type PackDraft } from "@/features/pack/draft-store";
@@ -164,7 +165,7 @@ export default function NewPackSessionScreen() {
     } catch (error) {
       const text = packSaveText(t, error);
       feedback.error();
-      announce(`${text.title}. ${text.body}`);
+      announce(`${text.title}. ${text.body}`, { shownInLiveRegion: true });
       setProblem(text);
       // A refusal about the Source step sends the packer back to it.
       if (text.kind === "cast" || text.kind === "copy" || text.kind === "owned" || text.kind === "order" || text.kind === "pin" || text.kind === "retired") setStep(0);
@@ -216,8 +217,9 @@ export default function NewPackSessionScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t("pack.new.title") }} />
-      <Screen>
-        <Can do="bundle.create" fallback={<EmptyState title={t("errors.forbidden")} />}>
+      <View className="flex-1 bg-canvas">
+        <Screen>
+          <Can do="bundle.create" fallback={<EmptyState title={t("errors.forbidden")} />}>
           {offered ? (
             <View accessibilityLiveRegion="polite" className="gap-3 rounded-card border border-hairline bg-surface-sunken p-4">
               <Text className="font-sans-semibold text-base text-ink">{t("pack.new.draftKept")}</Text>
@@ -293,16 +295,16 @@ export default function NewPackSessionScreen() {
                   source={summary}
                   bundles={bundles}
                   rejects={rejects}
-                  saving={create.isPending}
-                  problem={problem}
-                  onSave={() => void save()}
-                  onBack={() => setStep(1)}
                 />
               ) : null}
             </>
           ) : null}
-        </Can>
-      </Screen>
+          </Can>
+        </Screen>
+        {step === 2 && die && defaultLengthMm !== null ? (
+          <PackReviewActionBar saving={create.isPending} problem={problem} onSave={() => void save()} onBack={() => setStep(1)} />
+        ) : null}
+      </View>
     </>
   );
 }

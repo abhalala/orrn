@@ -9,7 +9,6 @@ import { cn } from "@orrn/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Flame, PackagePlus } from "lucide-react";
 
-import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
@@ -18,6 +17,8 @@ import { BOARD_POLL_MS, useDuration, useNow, useShifts, type Batch, type BatchSu
 import { batchByOven, batchByTrolley, capacityTone, soakProgress, x10Text } from "./model";
 import { TempSpark } from "./sparkline";
 import { Panel, PhaseChip, Section } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 /**
  * `/ageing` (FP-AG-01, 02, 05, 11): the ovens with the batch in each, a stage timer and the last
@@ -183,6 +184,7 @@ function Notice({ text, to, action }: { text: string; to?: string; action?: stri
 
 /** The batch in an oven: stage timer, last reading and the line of the log. */
 function OvenCard({ oven, batch, now }: { oven: Oven; batch: BatchSummary | undefined; now: number }) {
+  const fmt = useFmt();
   const { t } = useT();
   const out = oven.status === "out_of_service";
   return (
@@ -199,7 +201,7 @@ function OvenCard({ oven, batch, now }: { oven: Oven; batch: BatchSummary | unde
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="m-0 text-[14px] text-muted-foreground">
-            {oven.capacityG ? t("ageing.floor.capacity", { kg: kgFromG(oven.capacityG) }) : t("ageing.capacity.unknown")}
+            {oven.capacityG ? t("ageing.floor.capacity", { kg: kgGrouped1(fmt, oven.capacityG) }) : t("ageing.capacity.unknown")}
           </p>
           {!out ? (
             <Can do="ageing.load">
@@ -217,6 +219,7 @@ function OvenCard({ oven, batch, now }: { oven: Oven; batch: BatchSummary | unde
 }
 
 function OvenBatch({ batch, now }: { batch: BatchSummary; now: number }) {
+  const fmt = useFmt();
   const { t } = useT();
   const duration = useDuration();
   // The curve and the band come from the batch itself; one detail query per batch in an oven.
@@ -251,7 +254,7 @@ function OvenBatch({ batch, now }: { batch: BatchSummary; now: number }) {
         <div className="flex min-w-0 flex-col gap-0.5">
           <dt className="text-[13px] font-medium text-muted-foreground">{t("ageing.field.loaded")}</dt>
           <dd className="m-0 text-[17px] font-semibold tabular-nums">
-            {t("ageing.pcsKg", { pcs: batch.totals.loadedPcs, kg: kgFromG(batch.totals.loadedKgG) })}
+            {t("ageing.pcsKg", { pcs: batch.totals.loadedPcs, kg: kgGrouped1(fmt, batch.totals.loadedKgG) })}
           </dd>
         </div>
       </dl>

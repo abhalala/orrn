@@ -7,6 +7,7 @@ import { Can } from "@/shared/components/can";
 
 import { clockTime, sessionSummary, type TodayData } from "./today-model";
 import { TodayEmptyAction, TodayEmptyRows, TodayRows, TodaySection, rowLinkClass, rowNameClass } from "./today-section";
+import { useFmt } from "@/shared/lib/fmt";
 
 /**
  * Today's packing sessions (newest first, up to 10): session code, die,
@@ -15,7 +16,8 @@ import { TodayEmptyAction, TodayEmptyRows, TodayRows, TodaySection, rowLinkClass
  */
 export function RecentSessions({ data }: { data: TodayData }) {
   const { t } = useT();
-  const time = useMemo(() => clockTime(data.timezone), [data.timezone]);
+  const fmt = useFmt();
+  const time = useMemo(() => clockTime(fmt, data.timezone), [fmt, data.timezone]);
   const rows = data.recentSessions;
   return (
     <TodaySection
@@ -36,7 +38,7 @@ export function RecentSessions({ data }: { data: TodayData }) {
       ) : (
         <TodayRows>
           {rows.map((s) => {
-            const summary = sessionSummary(s);
+            const summary = sessionSummary(s, fmt);
             return (
               <li key={s.id}>
                 <UiLink to={`/pack/${encodeURIComponent(s.id)}`} className={rowLinkClass}>

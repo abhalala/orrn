@@ -119,9 +119,9 @@ describe("formatters reproduce today's output, 10,000 seeded values each", () =>
         if (want !== null && (!got.ok || got.value !== want)) bad.push(`${feet} ft ${inches} in: old ${want}, new ${got.ok ? got.value : got.problem}`);
       }
     }
-    // One exact half-millimetre tie on the whole grid. 322.5 in x 25.4 is exactly 8191.5 mm; the old float maths
-    // reads 8191.499999999999 and rounds down, the exact path rounds half away from zero. Confirmed defect, see UNITS-A-REPORT.md.
-    expect(bad).toEqual(["26 ft 10.5 in: old 8191, new 8192"]);
+    // Slice b forwarded lengthFromInput to the exact path, so the one float defect of slice a (26 ft 10.5 in, exactly
+    // 8191.5 mm, read 8191) is gone and the two now agree on the whole grid. The regression is pinned in units.test.ts.
+    expect(bad).toEqual([]);
   });
 });
 
@@ -154,6 +154,33 @@ describe("formatFtIn", () => {
   });
 });
 
+describe("a feet and inches plant reads a field by its own storage unit", () => {
+  const inch = formatterFor({ ...ORRN_DEFAULT_PREFS, units: { ...ORRN_DEFAULT_PREFS.units, length: "ft_in" } }, IST);
+  test("die.wall is tenths of a mm: 1.6 mm is 1/16 in, not 16 mm", () => {
+    expect(inch.entryText("die.wall", 16)).toBe("1/16 in");
+    expect(inch.entryText("die.wall", 127)).toBe("1/2 in");
+    expect(inch.entryText("die.wall", 254)).toBe("1 in");
+    expect(inch.q("die.wall", 127)).toBe("0.5 in");
+    expect(inch.q("die.wall", 3048)).toBe("1 ft");
+  });
+  test("a mm field is unchanged", () => {
+    expect(inch.entryText("bundle.length", 3811)).toBe("12 ft 6 1/16 in");
+    expect(inch.q("bundle.length", 3810)).toBe("12 ft 6 in");
+  });
+  test("formatFtIn takes the storage unit and does not round to whole mm first", () => {
+    expect(formatFtIn(16, 16, IN, { fraction: true }, "tenth_mm")).toBe("1/16 in");
+    expect(formatFtIn(3811, 16, IN, { fraction: true }, "mm")).toBe(formatFtIn(38110, 16, IN, { fraction: true }, "tenth_mm"));
+  });
+  test("a wall shown in tenth_mm reads back to a stored value that shows the same text", () => {
+    for (const tenths of [16, 32, 127, 254, 508, 1016, 3048]) {
+      const text = inch.entryText("die.wall", tenths);
+      const back = inch.parse("die.wall", text);
+      expect(back.ok).toBe(true);
+      if (back.ok) expect(inch.entryText("die.wall", back.value)).toBe(text);
+    }
+  });
+});
+
 describe("formatterFor", () => {
   const f = formatterFor(ORRN_DEFAULT_PREFS, IST);
   test("kg for a bundle, in each context", () => {
@@ -169,7 +196,10 @@ describe("formatterFor", () => {
     expect(f.q("bundle.weight", Infinity)).toBe("-");
   });
   test("other kinds at the default set", () => {
-    expect(f.q("bundle.length", 3658)).toBe("3,658 mm");
+    // Slice b: lengths are not grouped, so a plant that changed nothing still reads today's "3658 mm".
+    expect(f.q("bundle.length", 3658)).toBe("3658 mm");
+    expect(f.n("bundle.length", 12_500)).toBe("12500");
+    expect(formatterFor(screenPrefs({ number: { grouping: "international" } }), IST).q("bundle.length", 12_500)).toBe("12500 mm");
     expect(f.q("die.band", 2090)).toBe("2.090 kg/12ft");
     expect(f.q("order.rate", 25_000)).toBe("₹250.00/kg");
     expect(f.q("customer.tolerance", 250)).toBe("2.5%");
@@ -267,6 +297,24 @@ describe("dates and times", () => {
     expect(f.day("10/11/2026")).toBe("-");
     expect(f.date(Number.NaN)).toBe("-");
     expect(formatterFor(ORRN_DEFAULT_PREFS, { locale: "en", timeZone: "Not/AZone" }).date(at)).toBe("-");
+  });
+  test("the long date for a greeting follows the plant's order", () => {
+    const f = formatterFor(ORRN_DEFAULT_PREFS, IST);
+    expect(f.longDate(at)).toBe("Wednesday, 11 November");
+    expect(formatterFor(screenPrefs({ date: { order: "mdy" } }), IST).longDate(at)).toBe("Wednesday, November 11");
+    expect(formatterFor(screenPrefs({ date: { order: "dmy", month: "numeric" } }), IST).longDate(at)).toBe("Wednesday, 11/11");
+    expect(f.longDate(Number.NaN)).toBe("-");
+    expect(formatterFor(ORRN_DEFAULT_PREFS, { locale: "hi", timeZone: "Asia/Kolkata" }).longDate(at)).toMatch(/^\D+, 11 \D+$/);
+  });
+  test("in() keeps the plant's style and swaps the zone or the language", () => {
+    const f = formatterFor(screenPrefs({ date: { order: "mdy" }, clock: "h12" }), IST);
+    const ny = f.in({ timeZone: "America/New_York" });
+    expect(ny.date(at)).toBe("Nov 10, 2026");
+    expect(ny.time(at)).toBe("2:00 pm");
+    expect(f.in({})).toBe(f);
+    expect(f.in({ locale: "hi" }).zone).toBe("Asia/Kolkata");
+    expect(f.in({ locale: "hi" }).locale).toBe("hi");
+    expect(f.in({ locale: "hi" }).in({ locale: "en" })).toBe(f);
   });
   test("the other languages give a month name but Latin digits", () => {
     const hi = formatterFor(ORRN_DEFAULT_PREFS, { locale: "hi", timeZone: "Asia/Kolkata" });

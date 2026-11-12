@@ -17,11 +17,12 @@ import { trpc } from "@/shared/utils/trpc";
 
 import {
   gstinValid,
-  lengthUnitOf,
+  lengthChoiceOf,
   letterheadDirty,
   letterheadDraft,
   timezoneOf,
   timezoneOptions,
+  type LengthChoice,
   type LengthUnitSetting,
   type LetterheadDraft,
 } from "./model";
@@ -37,7 +38,7 @@ export function CompanyTab() {
   const { data: me } = useMe();
   const company = me?.company;
   if (!company) return null;
-  const unit = lengthUnitOf(company.settings);
+  const unit = lengthChoiceOf(company.units, company.settings);
   const timezone = timezoneOf(company.settings);
 
   return (
@@ -67,7 +68,7 @@ export function CompanyTab() {
               <dl className="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Fact
                   label={t("settings.company.lengthUnit")}
-                  value={unit === "inch" ? t("settings.company.unitInch") : t("settings.company.unitMm")}
+                  value={unit === "inch" ? t("settings.company.unitInch") : unit === "m" ? t("settings.company.unitMetres") : t("settings.company.unitMm")}
                 />
                 <Fact label={t("settings.company.timezone")} value={timezone} mono />
               </dl>
@@ -105,13 +106,16 @@ function Fact({ label, value, mono }: { label: string; value: ReactNode; mono?: 
   );
 }
 
-function UnitsForm({ unit, timezone }: { unit: LengthUnitSetting; timezone: string }) {
+function UnitsForm({ unit, timezone }: { unit: LengthChoice; timezone: string }) {
   const { t } = useT();
   const queryClient = useQueryClient();
-  const [nextUnit, setNextUnit] = useState<LengthUnitSetting>(unit);
+  // A metres plant has no two-way switch here: its length is chosen on the Units tab, and this form never sends one.
+  const metres = unit === "m";
+  const [nextUnit, setNextUnit] = useState<LengthUnitSetting>(unit === "m" ? "mm" : unit);
   const [nextZone, setNextZone] = useState(timezone);
   const zones = useMemo(() => timezoneOptions(timezone), [timezone]);
-  const dirty = nextUnit !== unit || nextZone !== timezone;
+  const unitChanged = !metres && nextUnit !== unit;
+  const dirty = unitChanged || nextZone !== timezone;
 
   const save = useMutation(
     trpc.company.updateSettings.mutationOptions({
@@ -127,7 +131,7 @@ function UnitsForm({ unit, timezone }: { unit: LengthUnitSetting; timezone: stri
     e.preventDefault();
     if (!dirty) return;
     save.mutate({
-      ...(nextUnit !== unit ? { lengthUnit: nextUnit } : {}),
+      ...(unitChanged ? { lengthUnit: nextUnit } : {}),
       ...(nextZone !== timezone ? { timezone: nextZone } : {}),
     });
   };
@@ -135,18 +139,26 @@ function UnitsForm({ unit, timezone }: { unit: LengthUnitSetting; timezone: stri
   return (
     <form onSubmit={submit} className="flex min-w-0 flex-col gap-4" noValidate>
       <CardContent>
-        <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="text-[14px] leading-5 font-semibold">{t("settings.company.lengthUnit")}</span>
-          <SegmentedControl<LengthUnitSetting>
-            label={t("settings.company.lengthUnit")}
-            value={nextUnit}
-            options={[
-              { value: "mm", label: t("settings.company.unitMm") },
-              { value: "inch", label: t("settings.company.unitInch") },
-            ]}
-            onChange={setNextUnit}
-          />
-        </div>
+        {metres ? (
+          <dl className="m-0 flex min-w-0 flex-col gap-0.5">
+            <dt className="text-[14px] leading-5 font-semibold">{t("settings.company.lengthUnit")}</dt>
+            <dd className="m-0 text-[15px]">{t("settings.company.unitMetres")}</dd>
+            <dd className="m-0 text-[13px] leading-5 text-muted-foreground">{t("settings.company.lengthOnUnitsTab")}</dd>
+          </dl>
+        ) : (
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-[14px] leading-5 font-semibold">{t("settings.company.lengthUnit")}</span>
+            <SegmentedControl<LengthUnitSetting>
+              label={t("settings.company.lengthUnit")}
+              value={nextUnit}
+              options={[
+                { value: "mm", label: t("settings.company.unitMm") },
+                { value: "inch", label: t("settings.company.unitInch") },
+              ]}
+              onChange={setNextUnit}
+            />
+          </div>
+        )}
         <Field id="settings-timezone" label={t("settings.company.timezone")} hint={t("settings.company.timezoneHint")} className="md:max-w-sm">
           <NativeSelect id="settings-timezone" value={nextZone} onChange={(e) => setNextZone(e.target.value)} data-testid="settings-timezone">
             {zones.map((zone) => (

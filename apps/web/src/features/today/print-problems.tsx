@@ -1,4 +1,5 @@
 import { useT } from "@orrn/i18n";
+import { useFmt } from "@/shared/lib/fmt";
 import { Button } from "@orrn/ui/components/button";
 import { UiLink } from "@orrn/ui/components/link";
 import { PrinterX } from "lucide-react";
@@ -13,6 +14,7 @@ import { formatCount } from "./today-model";
  * and where to fix it.
  */
 export function PrintProblems({ failed }: { failed: number }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (failed <= 0) return null;
   return (
@@ -30,7 +32,7 @@ export function PrintProblems({ failed }: { failed: number }) {
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-[15px] leading-6 font-semibold break-words">
-            {t("today.printProblemsCount", { count: formatCount(failed) })}
+            {t("today.printProblemsCount", { count: formatCount(fmt, failed) })}
           </span>
           <span className="text-[14px] leading-5 text-muted-foreground break-words">{t("today.printProblemsBody")}</span>
         </span>

@@ -13,6 +13,9 @@ export type DispatchItemLike = {
   dieId: string;
   dieSeries: string;
   dieSectionCode: string;
+  kgPer12ftMilli?: number | null;
+  lineKgPer12ftMilli?: number | null;
+  offBand?: boolean;
   /** Q36 decided: where an off-band row's approval stands (null or absent when it is not off band). */
   offBandStatus?: "pending" | "approved" | "rejected" | "none" | null;
 };

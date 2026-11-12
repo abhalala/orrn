@@ -134,7 +134,7 @@ export function parseLengthText(
   opts: { style?: NumberStyle; negative?: boolean } = {},
 ): ParsedLength {
   const style = opts.style ?? DEFAULT_NUMBER_STYLE;
-  let t = cleanText(text).toLowerCase().replace(/[‘’′]/g, "'").replace(/[“”″]/g, '"');
+  let t = cleanText(text).toLowerCase().replace(/[‘’′]/g, "'").replace(/[“”″]/g, '"').replace(/''/g, '"');
   if (t === "") return { ok: false, problem: "empty" };
   let neg = false;
   if (t[0] === "-" || t[0] === "−") {

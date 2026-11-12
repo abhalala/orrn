@@ -1,15 +1,13 @@
-import { useT } from "@orrn/i18n";
 import { useCallback } from "react";
 
-import { useMe } from "@/shared/lib/me";
+import { useFmt } from "@/shared/lib/fmt";
+import { whenText } from "@/shared/lib/fmt-text";
 
-import { DEFAULT_TIMEZONE, formatWhen } from "./format";
-
-/** `formatWhen` bound to the company's timezone (settings.timezone, else Asia/Kolkata) and the UI language. */
+/**
+ * "3 Oct, 14:20" in the plant's date order and clock, in the plant's zone (`settings.timezone`) and the UI language.
+ * Under the default set it is the text `formatWhen` wrote (`fmt-text.test.ts` runs both).
+ */
 export function useCompanyWhen(): (at: string | number | Date) => string {
-  const { locale } = useT();
-  const { data: me } = useMe();
-  const settings = (me?.company?.settings ?? {}) as { timezone?: unknown };
-  const timeZone = typeof settings.timezone === "string" && settings.timezone ? settings.timezone : DEFAULT_TIMEZONE;
-  return useCallback((at) => formatWhen(at, { locale, timeZone }), [locale, timeZone]);
+  const fmt = useFmt();
+  return useCallback((at) => whenText(fmt, at), [fmt]);
 }

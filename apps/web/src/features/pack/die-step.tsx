@@ -22,6 +22,10 @@ import { DEFAULT_SOURCE, preselectSource, type SourceChoice } from "./source-gat
 import { SourceExtras, useSourceGate } from "./source-extras";
 import { readLastYard, type YardState } from "./use-yards";
 import { YardPicker } from "./yard-picker";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, lengthIsMetres } from "@/shared/lib/fmt-text";
 
 export type { DieOption };
 
@@ -153,6 +157,7 @@ export function DieStep({
 }
 
 function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?: string }) {
+  const fmt = useFmt();
   const { t } = useT();
   const [text, setText] = useState("");
   const typed = text.trim();
@@ -329,8 +334,8 @@ function DiePicker({ onChoose, error }: { onChoose(die: DieOption): void; error?
             <li>
               <p role="status" className="m-0 text-[13px] font-medium text-muted-foreground">
                 {t("pack.new.diesShowing", {
-                  shown: more.shown.toLocaleString("en-IN"),
-                  total: more.total.toLocaleString("en-IN"),
+                  shown: countText(fmt, more.shown),
+                  total: countText(fmt, more.total),
                 })}
               </p>
             </li>
@@ -381,6 +386,7 @@ function DieRow({
   onKeyDown(e: KeyboardEvent<HTMLButtonElement>): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <button
       type="button"
@@ -399,11 +405,11 @@ function DieRow({
         <span className="text-[13px] font-semibold text-muted-foreground">{die.series}</span>
       </span>
       <span className="col-start-2 row-span-2 row-start-1 hidden text-right text-[13px] font-medium text-muted-foreground tabular-nums sm:block">
-        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
+        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })}
       </span>
       {die.name ? <span className="col-start-1 min-w-0 text-[14px] leading-5 break-words text-foreground">{die.name}</span> : null}
       <span className="col-span-2 text-[13px] font-medium text-muted-foreground tabular-nums sm:hidden">
-        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
+        {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })}
       </span>
     </button>
   );
@@ -421,6 +427,7 @@ function ChosenDie({
   onChange(): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <div
       data-slot="chosen-die"
@@ -442,7 +449,7 @@ function ChosenDie({
             </p>
             {die.name ? <p className="m-0 text-[14px] break-words">{die.name}</p> : null}
             <p className="m-0 text-[13px] font-medium text-muted-foreground tabular-nums">
-              {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })}
+              {t("pack.new.dieRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })}
             </p>
           </>
         )}
@@ -474,6 +481,7 @@ function DefaultsForm({
   onSubmit(defaults: PackDraft["defaults"]): boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const initial = lengthToInput(draft.defaults.lengthMm, unit);
   const [mm, setMm] = useState(initial.mm);
   const [feet, setFeet] = useState(initial.feet);
@@ -645,15 +653,14 @@ function DefaultsForm({
         ) : (
           <Field
             label={t("pack.new.cutLengthMm")}
-            hint={t("pack.new.cutLengthHintMm")}
+            hint={t(lengthIsMetres(fmt) ? "pack.new.cutLengthHintMetres" : "pack.new.cutLengthHintMm")}
             error={lengthError}
             className="sm:max-w-[240px]"
           >
-            <NumberInput
+            <PlantInput spec={LENGTH_MM}
               ref={firstInputRef}
               value={mm}
               onValueChange={setMm}
-              suffix={t("units.mm")}
               enterKeyHint="go"
               className="h-14 text-[22px]"
             />

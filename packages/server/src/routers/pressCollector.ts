@@ -4,17 +4,18 @@
  * procedure here takes frames, so no member role can post them.
  *
  * - thresholds / setThreshold (masters.publish): the band per metric, per line or for every line.
- * - alerts (any member) / acknowledgeAlert (press.close): alert rows; no notification beyond the
- *   Today chip (`dashboard.today.pressAlerts`). "Open" is read as of now: an alert whose last
+ * - alerts (any member) / acknowledgeAlert / acknowledgeEndedAlerts (press.close): alert rows; no
+ *   notification beyond the Today chip (`dashboard.today.pressAlerts`). "Open" is read as of now: an alert whose last
  *   out-of-band frame is over 5 minutes old reads as ended there (I-3).
  * - runSummary (any member): the run's annotation (frames, ram speed, temperatures, billets
  *   counted, Q-09 variance), computed at read time from the frames in the run's window (I-1).
  *   Ram speed stays off the press report until a real collector exists.
  */
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNotNull, isNull, notInArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { auditLog } from "@orrn/db/schema";
 import {
   pressAlert,
   pressAlertMetrics,
@@ -24,10 +25,10 @@ import { pressLine, pressRun } from "@orrn/db/schema/press";
 
 import { actionProcedure, companyProcedure, router } from "../index";
 import { auditInsert } from "../lib/audit";
-import { atomicBatch } from "../lib/atomic";
+import { atomicBatch, atomicBatchLast, chunk, IN_LIST_CHUNK } from "../lib/atomic";
 import { now } from "../lib/clock";
 import { createId } from "../lib/id";
-import { alertEndedAt, alertOpenSql, pressAlertCounts, refreshRunCollector } from "../lib/pressCollector";
+import { ALERT_GAP_MS, alertEndedAt, alertOpenSql, pressAlertCounts, refreshRunCollector } from "../lib/pressCollector";
 
 const id = z.string().min(1).max(64);
 const bound = z.number().finite().min(-50).max(5000).nullable();
@@ -172,6 +173,66 @@ export const pressCollectorRouter = router({
       ]);
       return { id: row.id, already: false };
     }),
+
+  acknowledgeEndedAlerts: actionProcedure("press.close").mutation(async ({ ctx }) => {
+    const nowMs = now().getTime();
+    const acknowledgedAt = new Date(nowMs);
+    const ended = or(isNotNull(pressAlert.endedAt), lt(pressAlert.lastAt, new Date(nowMs - ALERT_GAP_MS)));
+    const rows = await ctx.db
+      .select({ id: pressAlert.id })
+      .from(pressAlert)
+      .where(and(eq(pressAlert.companyId, ctx.companyId), isNull(pressAlert.acknowledgedAt), ended))
+      .orderBy(asc(pressAlert.id))
+      .limit(2000);
+    const ids = rows.map((row) => row.id);
+    let acknowledged = 0;
+    if (ids.length > 0) {
+      const updates = chunk(ids, IN_LIST_CHUNK).map((part) =>
+        ctx.db
+          .update(pressAlert)
+          .set({ acknowledgedAt, acknowledgedBy: ctx.session.user.id })
+          .where(
+            and(
+              eq(pressAlert.companyId, ctx.companyId),
+              inArray(pressAlert.id, part),
+              isNull(pressAlert.acknowledgedAt),
+              ended,
+            ),
+          ),
+      );
+      const idJson = JSON.stringify(ids);
+      const stamped = and(
+        eq(pressAlert.companyId, ctx.companyId),
+        eq(pressAlert.acknowledgedAt, acknowledgedAt),
+        eq(pressAlert.acknowledgedBy, ctx.session.user.id),
+        sql`${pressAlert.id} in (select j.value from json_each(${idJson}) j)`,
+      );
+      const audit = ctx.db.insert(auditLog).select(
+        ctx.db
+          .select({
+            id: sql<string>`${createId()}`.as("id"),
+            companyId: sql<string>`${ctx.companyId}`.as("company_id"),
+            actorId: sql<string>`${ctx.session.user.id}`.as("actor_id"),
+            impersonatorId: sql<string | null>`${ctx.impersonation?.actorUserId ?? null}`.as("impersonator_id"),
+            action: sql<string>`'press.alert.ackEnded'`.as("action"),
+            subjectType: sql<string>`'company'`.as("subject_type"),
+            subjectId: sql<string>`${ctx.companyId}`.as("subject_id"),
+            meta: sql<string>`json_object('acknowledged', (select count(*) from press_alert where ${stamped}))`.as("meta"),
+            at: sql<number>`${nowMs}`.as("at"),
+          })
+          .from(pressAlert)
+          .where(stamped)
+          .limit(1),
+      );
+      const [countRow] = await atomicBatchLast<{ n: number }>(ctx.db, [
+        ...updates,
+        audit,
+        ctx.db.select({ n: sql<number>`count(*)` }).from(pressAlert).where(stamped),
+      ]);
+      acknowledged = Number(countRow?.n ?? 0);
+    }
+    return { acknowledged, more: ids.length === 2000 };
+  }),
 
   /**
    * The collector's annotation of one run (null when its window holds no frame). Computed here, at

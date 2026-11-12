@@ -14,9 +14,11 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
-import { csvFileName, kgText, monthNames, ordersCsv, ordersFilterInput, ordersRowName, rupeeText } from "./model";
+import { csvFileName, monthNames, ordersCsv, ordersFilterInput, ordersRowName } from "./model";
 import { NUM, ReportActions, ReportPrintContext, ReportPrintStyle, ReportsGate, ReportTableFrame, ReportToggle, TD, TH } from "./report-chrome";
 import type { OrdersReportSearch, OrdersShow } from "./search";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, rupeeScreen } from "@/shared/lib/fmt-text";
 
 const OrderMonthsChart = lazy(() => import("./report-charts").then((m) => ({ default: m.OrderMonthsChart })));
 
@@ -35,6 +37,7 @@ export function OrdersReport({ search, onSearch }: { search: OrdersReportSearch;
 
 function OrdersBody({ search, onSearch }: { search: OrdersReportSearch; onSearch: (next: OrdersReportSearch) => void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const group = search.group ?? "customer";
   // Open orders unless the person picks another status: the order book's own default, so the foot
   // below is the order book strip for these filters.
@@ -190,15 +193,15 @@ function OrdersBody({ search, onSearch }: { search: OrdersReportSearch; onSearch
                     </th>
                     <td className={`${TD} ${NUM}`}>{r.orders}</td>
                     <td className={`${TD} ${NUM} ${r.lateOrders > 0 ? "font-semibold text-destructive" : ""}`}>{r.lateOrders}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(r.orderedG)}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(r.dispatchedG)}</td>
-                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(r.bakiG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, r.orderedG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, r.dispatchedG)}</td>
+                    <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, r.bakiG)}</td>
                     <td className={`${TD} ${NUM}`}>{r.dispatchedPct}</td>
                     {showRates && r.rates ? (
                       <>
-                        <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeText(r.rates.orderedValuePaise)}</td>
-                        <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeText(r.rates.dispatchedValuePaise)}</td>
-                        <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeText(r.rates.bakiValuePaise)}</td>
+                        <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeScreen(fmt, r.rates.orderedValuePaise)}</td>
+                        <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeScreen(fmt, r.rates.dispatchedValuePaise)}</td>
+                        <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeScreen(fmt, r.rates.bakiValuePaise)}</td>
                       </>
                     ) : null}
                   </tr>
@@ -211,15 +214,15 @@ function OrdersBody({ search, onSearch }: { search: OrdersReportSearch; onSearch
                   </th>
                   <td className={`${TD} ${NUM}`}>{data.sum.orders}</td>
                   <td className={`${TD} ${NUM}`}>{data.sum.lateOrders}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(data.sum.orderedG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(data.sum.dispatchedG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgText(data.sum.bakiG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, data.sum.orderedG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, data.sum.dispatchedG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped3(fmt, data.sum.bakiG)}</td>
                   <td className={`${TD} ${NUM}`}>{data.sum.dispatchedPct}</td>
                   {showRates && data.rateTotals ? (
                     <>
-                      <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeText(data.rateTotals.orderedValuePaise)}</td>
-                      <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeText(data.rateTotals.dispatchedValuePaise)}</td>
-                      <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeText(data.rateTotals.bakiValuePaise)}</td>
+                      <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeScreen(fmt, data.rateTotals.orderedValuePaise)}</td>
+                      <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeScreen(fmt, data.rateTotals.dispatchedValuePaise)}</td>
+                      <td className={`${TD} ${NUM} whitespace-nowrap`}>{rupeeScreen(fmt, data.rateTotals.bakiValuePaise)}</td>
                     </>
                   ) : null}
                 </tr>

@@ -6,6 +6,7 @@ import { labelTemplate, printLog, printerProfile } from "@orrn/db/schema";
 import { edgeCommand, spoolDeployment } from "@orrn/db/schema/spool";
 
 import { createEdgeEnrollmentNode } from "../src/lib/edge-v1";
+import { SpoolClient } from "../src/lib/spool-client";
 import { DEV_MASTER_KEY } from "./env-mock";
 import { createTestEnv, type TestEnv } from "./harness";
 
@@ -171,6 +172,53 @@ describe("V1 spool router callers", () => {
     expect(await env.db.select().from(printLog).where(eq(printLog.id, logId)).get()).toMatchObject({ status: "queued", attempt: 2 });
     expect(await env.db.select().from(printLog).where(eq(printLog.companyId, companyId)).all()).toHaveLength(1);
     expect(await env.db.select().from(edgeCommand).where(and(eq(edgeCommand.companyId, companyId), eq(edgeCommand.deploymentId, deploymentId))).all()).toEqual([]);
+  });
+
+  test("legacy retry queues only after the print computer accepts it", async () => {
+    const { companyId } = await env.seedCompany();
+    const other = await env.seedCompany();
+    const deploymentId = crypto.randomUUID();
+    await env.db.insert(spoolDeployment).values({
+      id: deploymentId,
+      companyId,
+      instanceId: crypto.randomUUID(),
+      status: "active",
+      subdomain: `legacy-${deploymentId.slice(0, 8)}`,
+      nodeDomain: `legacy-${deploymentId.slice(0, 8)}.spool.orrn.in`,
+      cfTunnelTokenWrapped: await wrapSecret("tunnel", DEV_MASTER_KEY),
+      sharedSecretHash: "legacy-hash",
+      sharedSecretWrapped: await wrapSecret("legacy-secret", DEV_MASTER_KEY),
+    });
+    const refs = await printRefs(companyId, deploymentId);
+    const successId = crypto.randomUUID();
+    const failureId = crypto.randomUUID();
+    await env.db.insert(printLog).values([
+      { id: successId, companyId, ...refs, deploymentId, spoolJobId: "41", status: "failed", responseText: "old failure", attempt: 1 },
+      { id: failureId, companyId, ...refs, deploymentId, spoolJobId: "42", status: "failed", responseText: "old failure", attempt: 1 },
+    ]);
+    const owner = env.caller({ role: "owner", companyId });
+    const failureMessage = `Spool offline ${"x".repeat(600)}`;
+    const retry = spyOn(SpoolClient.prototype, "retryJob")
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error(failureMessage));
+    try {
+      await expect(env.caller({ role: "viewer", companyId }).spool.retryJob({ id: successId })).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(env.caller({ role: "owner", companyId: other.companyId }).spool.retryJob({ id: successId })).rejects.toMatchObject({ code: "NOT_FOUND" });
+      expect(retry).not.toHaveBeenCalled();
+
+      await expect(owner.spool.retryJob({ id: successId })).resolves.toMatchObject({ success: true });
+      expect(await env.db.select().from(printLog).where(eq(printLog.id, successId)).get()).toMatchObject({ status: "queued", responseText: null, attempt: 2 });
+
+      await expect(owner.spool.retryJob({ id: failureId })).rejects.toMatchObject({ code: "BAD_GATEWAY", message: "Print computer did not accept the retry" });
+      expect(await env.db.select().from(printLog).where(eq(printLog.id, failureId)).get()).toMatchObject({
+        status: "failed",
+        responseText: failureMessage.slice(0, 500),
+        attempt: 1,
+      });
+      expect(retry).toHaveBeenCalledTimes(2);
+    } finally {
+      retry.mockRestore();
+    }
   });
 
   test("regenerate stages V1 overlap while preserving immediate legacy rotation", async () => {

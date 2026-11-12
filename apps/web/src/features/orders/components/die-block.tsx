@@ -1,5 +1,5 @@
 import type { LengthUnit } from "@orrn/domain";
-import { bpPercent1, formatLength as formatLengthMm } from "@orrn/domain";
+import { bpPercent1 } from "@orrn/domain";
 import { useT, type MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -12,13 +12,18 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { blockLines, rowHasQty, totalsView, type BlockProblems, type DieBlock, type Totals } from "../die-blocks";
-import { kgFieldText, milliText, orderKgText, pcsText } from "../format";
+import { pcsText } from "../format";
 import { useDebounced } from "../hooks";
 import { cutLengthMm, quoteArgs, sameQuoteArgs, type Finish, type LineDraft, type QuoteArgs, type WeightBasis } from "../line-model";
 import { QUICK_FEET } from "../view";
 import { FieldSelect } from "./controls";
 import { DieField, useCopyChoices } from "./pickers";
 import { StockSheet } from "./stock-sheet";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, lengthIsMetres, kgPlain3, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
+import { FeetInchesGroup } from "@/shared/components/feet-inches-group";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG } from "@/shared/lib/plant-input";
 
 type Quote = {
   pcs: number;
@@ -140,6 +145,7 @@ export function DieBlockCard({
   onRemoveRow(key: string): void;
   onRemoveBlock(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const { choices } = useCopyChoices(block.die?.id ?? null);
   const first = block.rows[0]!;
@@ -216,7 +222,7 @@ export function DieBlockCard({
         </Button>
         {totals.lines > 0 ? (
           <p data-block-total="" className="m-0 font-mono text-[14px] font-semibold tabular-nums" aria-live="polite">
-            {t("orders.form.block.subtotal", { lines: totals.lines, pcs: pcsText(totals.pcs), kg: orderKgText(totals.kgG) })}
+            {t("orders.form.block.subtotal", { massUnit: massUnit(fmt), lines: totals.lines, pcs: countText(fmt, totals.pcs), kg: kgGrouped3(fmt, totals.kgG) })}
             {totals.pending ? ` ${t("orders.form.quoting")}` : ""}
           </p>
         ) : null}
@@ -240,7 +246,7 @@ export function DieBlockCard({
             </FieldSelect>
           </Field>
           {showRates ? (
-            <Field label={t("orders.line.rate")}>
+            <Field label={t("orders.line.rate")} error={shown && problems.rows[first.key]?.rate ? t(problems.rows[first.key]!.rate!) : undefined}>
               <NumberInput value={first.rate} onValueChange={(rate) => onShared({ rate })} aria-label={t("orders.line.rate")} />
             </Field>
           ) : null}
@@ -300,6 +306,7 @@ function LengthRow({
   onRemove(): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const [stockOpen, setStockOpen] = useState(false);
   const lengthRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -323,7 +330,7 @@ function LengthRow({
   });
 
   const pcsValue = row.basis === "pcs" ? row.pcsText : q && row.basis === "kg" ? String(q.pcs) : "";
-  const kgValue = row.basis === "kg" ? row.kgText : q && row.basis === "pcs" ? kgFieldText(q.kgG) : "";
+  const kgValue = row.basis === "kg" ? row.kgText : q && row.basis === "pcs" ? kgPlain3(fmt, q.kgG) : "";
   const bestPcs = q?.pcs ?? null;
   const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
@@ -352,10 +359,10 @@ function LengthRow({
         <Field
           label={t("orders.line.cutLength")}
           error={problems?.length ? t(problems.length) : undefined}
-          hint={unit === "inch" ? t("orders.form.lengthHintInch") : t("orders.form.lengthHintMm")}
+          hint={unit === "inch" ? t("orders.form.lengthHintInch") : t(lengthIsMetres(fmt) ? "orders.form.lengthHintMetres" : "orders.form.lengthHintMm")}
         >
           {unit === "inch" ? (
-            <div className="flex min-w-0 flex-wrap gap-2">
+            <FeetInchesGroup label={t("orders.line.cutLength")}>
               <div className="min-w-[7rem] flex-1">
                 <NumberInput
                   ref={lengthRef}
@@ -369,9 +376,9 @@ function LengthRow({
               <div className="min-w-[7rem] flex-1">
                 <NumberInput value={row.inches} onValueChange={(inches) => onChange({ inches })} suffix={t("units.inch")} aria-label={t("orders.form.inches")} />
               </div>
-            </div>
+            </FeetInchesGroup>
           ) : (
-            <NumberInput ref={lengthRef} value={row.mm} onValueChange={(v) => onChange({ mm: v })} suffix={t("units.mm")} decimal={false} aria-label={t("orders.line.cutLength")} />
+            <PlantInput spec={LENGTH_MM} ref={lengthRef} value={row.mm} onValueChange={(v) => onChange({ mm: v })} decimal={false} aria-label={t("orders.line.cutLength")} />
           )}
         </Field>
         {unit === "inch" ? (
@@ -404,11 +411,10 @@ function LengthRow({
           />
         </Field>
         <Field label={t("orders.line.kg")}>
-          <NumberInput
+          <PlantInput spec={MASS_KG}
             value={kgValue}
             onValueChange={(text) => onChange({ kgText: text, basis: text.trim() === "" ? (row.basis === "kg" ? null : row.basis) : "kg" })}
             onKeyDown={onKey}
-            suffix={t("units.kg")}
             aria-label={t("orders.line.kg")}
           />
         </Field>
@@ -424,16 +430,16 @@ function LengthRow({
             {showBasis ? (
               <p className="m-0 text-[14px] leading-5 text-muted-foreground">
                 {q.locked
-                  ? t("orders.form.basisLocked", { milli: milliText(q.basisMilli) })
+                  ? t("orders.form.basisLocked", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli) })
                   : q.weightBasis === "copy_current"
-                    ? t("orders.form.basisUsingCopy", { milli: milliText(q.basisMilli), copy: q.copyCode ?? "" })
-                    : t("orders.form.basisUsingBand", { milli: milliText(q.basisMilli) })}
+                    ? t("orders.form.basisUsingCopy", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli), copy: q.copyCode ?? "" })
+                    : t("orders.form.basisUsingBand", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, q.basisMilli) })}
                 {!q.locked && q.weightBasis === "band_start" && q.copyMilli == null ? ` ${t("orders.form.noReading")}` : ""}
               </p>
             ) : null}
             {row.basis === "kg" ? (
               <>
-                <p className="m-0 text-[14px] leading-5">{t("orders.form.impliedLine", { pcs: pcsText(q.pcs), implied: orderKgText(q.impliedG), kg: orderKgText(q.kgG) })}</p>
+                <p className="m-0 text-[14px] leading-5">{t("orders.form.impliedLine", { massUnit: massUnit(fmt), pcs: countText(fmt, q.pcs), implied: kgGrouped3(fmt, q.impliedG), kg: kgGrouped3(fmt, q.kgG) })}</p>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" disabled={bestPcs == null || bestPcs <= 1} onClick={() => bestPcs != null && onChange({ basis: "pcs", pcsText: String(bestPcs - 1) })}>
                     {t("orders.form.minusPiece")}
@@ -444,7 +450,7 @@ function LengthRow({
                 </div>
               </>
             ) : (
-              <p className="m-0 text-[14px] leading-5">{t("orders.form.quoteLine", { pcs: pcsText(q.pcs), kg: orderKgText(q.kgG) })}</p>
+              <p className="m-0 text-[14px] leading-5">{t("orders.form.quoteLine", { massUnit: massUnit(fmt), pcs: countText(fmt, q.pcs), kg: kgGrouped3(fmt, q.kgG) })}</p>
             )}
             {share ? (
               <p data-share="" className="m-0 text-[13px] leading-5 text-muted-foreground">
@@ -462,7 +468,7 @@ function LengthRow({
           <div className="flex min-w-0 flex-col items-start gap-2 rounded-card border border-border bg-surface-sunken px-3 py-3">
             <p className="m-0 text-[14px] leading-5" data-stock-prompt="">
               {stock.data && stock.data.readyBundles > 0
-                ? t("orders.stock.prompt", { count: stock.data.readyBundles, kg: orderKgText(stock.data.readyG) })
+                ? t("orders.stock.prompt", { massUnit: massUnit(fmt), count: stock.data.readyBundles, kg: kgGrouped3(fmt, stock.data.readyG) })
                 : t("orders.stock.promptNone")}
             </p>
             <Button variant="secondary" onClick={() => setStockOpen(true)}>
@@ -478,7 +484,7 @@ function LengthRow({
         items={stock.data?.items}
         loading={stock.isPending && line.die != null}
         failed={stock.isError}
-        formatLength={(v) => formatLengthMm(v, unit)}
+        formatLength={(v) => fmt.q("bundle.length", v)}
       />
     </li>
   );

@@ -4,7 +4,6 @@
  * as blockers the page words. Move bundles is the reallocate sheet; a request waiting for a
  * manager shows here with a link to it.
  */
-import { formatLength as formatLengthMm } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Card, CardHeader, CardTitle } from "@orrn/ui/components/card";
@@ -19,9 +18,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { OrderLineAged } from "@/features/ageing/order-aged";
-import { bookDateText } from "@/features/purchase/format";
+import { bookDateText } from "@/shared/lib/fmt-text";
 import { Can } from "@/shared/components/can";
-import { useLengthUnit } from "@/shared/lib/length";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { BakiStrip } from "./components/baki-strip";
@@ -38,13 +36,14 @@ import { Timeline } from "./components/timeline";
 import { lateRuleKey } from "./book-view";
 import { orderErrorLines } from "./errors";
 import { filterOptions, lineFilterActive, NO_LINE_FILTER, serverLineFilter, shownOf, showLineFilters, type LineFilterState } from "./line-filter";
-import { milliText, orderKgText, pcsText, rateText } from "./format";
 import { blockerText, dieTitle, isOrderStatus, STATUS_TONE, statusActions, type OrderStatus, type Strip } from "./view";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit, rateText, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 export function OrderDetailPage({ id }: { id: string }) {
-  const { t, locale } = useT();
+  const fmt = useFmt();
+  const { t } = useT();
   const queryClient = useQueryClient();
-  const { unit } = useLengthUnit();
   const [editOpen, setEditOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -209,7 +208,7 @@ export function OrderDetailPage({ id }: { id: string }) {
           ) : null}
           {totals.overG > 0 ? (
             <Chip tone="red" truncate={false}>
-              {t("orders.over", { kg: orderKgText(totals.overG) })}
+              {t("orders.over", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, totals.overG) })}
             </Chip>
           ) : null}
         </div>
@@ -268,9 +267,9 @@ export function OrderDetailPage({ id }: { id: string }) {
                   {t("reallocate.waiting")}
                 </Chip>
                 <p className="m-0 text-[14px] font-medium leading-5">
-                  {t("orders.pending.line", {
+                  {t("orders.pending.line", { massUnit: massUnit(fmt),
                     count: r.bundles,
-                    kg: orderKgText(r.kgG),
+                    kg: kgGrouped3(fmt, r.kgG),
                     order: r.to.orderNumber ?? t("reallocate.toPlant"),
                     customer: r.to.customerName ?? "",
                   })}
@@ -289,8 +288,8 @@ export function OrderDetailPage({ id }: { id: string }) {
           <dl className="m-0 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <Fact label={t("orders.customer")} value={order.customerName} />
             <Fact label={t("orders.poNumber")} value={order.poNumber || t("orders.noPo")} mono={Boolean(order.poNumber)} />
-            <Fact label={t("orders.orderDate")} value={bookDateText(order.orderDate, locale)} />
-            {order.expectedDate ? <Fact label={t("orders.expectedDate")} value={bookDateText(order.expectedDate, locale)} /> : null}
+            <Fact label={t("orders.orderDate")} value={bookDateText(fmt, order.orderDate)} />
+            {order.expectedDate ? <Fact label={t("orders.expectedDate")} value={bookDateText(fmt, order.expectedDate)} /> : null}
             <Fact label={t("orders.source.label")} value={t(`orders.source.${order.source === "portal" || order.source === "ingest" ? order.source : "office"}`)} />
             {order.note ? <Fact label={t("common.note")} value={order.note} /> : null}
             {order.closeReason ? <Fact label={t("orders.closeReason")} value={order.closeReason} /> : null}
@@ -318,7 +317,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                 >
                   <dt className={open ? "m-0 text-xs font-medium" : "m-0 text-xs font-medium text-muted-foreground"}>{t(`orders.totals.${key}`)}</dt>
                   <dd className="m-0 mt-1 font-mono text-[15px] font-semibold tabular-nums leading-5 break-words sm:text-base">
-                    {orderKgText(grams)} {t("units.kg")}
+                    {kgGrouped3(fmt, grams)} {massUnit(fmt)}
                   </dd>
                 </div>
               );
@@ -342,7 +341,6 @@ export function OrderDetailPage({ id }: { id: string }) {
               value={lineFilter}
               onChange={setLineFilter}
               options={filterOptions(lines)}
-              unit={unit}
               shown={get.data.shown}
               total={lines.length}
             />
@@ -381,26 +379,26 @@ export function OrderDetailPage({ id }: { id: string }) {
                 <p className="m-0 text-[14px] leading-5">
                   <CopyText sectionId={line.sectionId} dieInstanceId={d?.dieInstanceId ?? null} tierRank={d?.tierRank ?? null} />
                   {" · "}
-                  {formatLengthMm(line.cutLengthMm, unit)}
+                  {fmt.q("bundle.length", line.cutLengthMm)}
                   {d?.alloy || d?.temper ? ` · ${[d.alloy, d.temper].filter(Boolean).join(" / ")}` : ""}
                   {line.finish ? ` · ${t(`orders.finish.${line.finish === "anodise" || line.finish === "pvd" ? line.finish : "none"}`)}` : ""}
                 </p>
                 <p className="m-0 font-mono text-[14px] tabular-nums">
-                  {line.orderedPcs != null ? `${pcsText(line.orderedPcs)} ${t("units.pcs")} · ` : ""}
-                  {orderKgText(line.orderedG)} {t("units.kg")}
-                  {rate != null ? ` · ${t("orders.detail.rate", { rate: rateText(rate) })}` : ""}
+                  {line.orderedPcs != null ? `${countText(fmt, line.orderedPcs)} ${t("units.pcs")} · ` : ""}
+                  {kgGrouped3(fmt, line.orderedG)} {massUnit(fmt)}
+                  {rate != null ? ` · ${t("orders.detail.rate", { rate: rateText(fmt, rate) })}` : ""}
                 </p>
                 {d && line.kgPer12ftMilli != null ? (
                   <p className="m-0 text-[13px] leading-5 text-muted-foreground">
                     {d.weightBasis === "band_start" && d.copyMilli == null
                       ? // Review m-10: "no reading, band start used" already names the basis.
-                        `${t("orders.detail.basisLineBare", { milli: milliText(line.kgPer12ftMilli) })} ${t("orders.form.noReading")}`
-                      : t("orders.detail.basisLine", {
-                          milli: milliText(line.kgPer12ftMilli),
+                        `${t("orders.detail.basisLineBare", { sectionUnit: sectionUnit(fmt), milli: sectionText(fmt, line.kgPer12ftMilli) })} ${t("orders.form.noReading")}`
+                      : t("orders.detail.basisLine", { sectionUnit: sectionUnit(fmt),
+                          milli: sectionText(fmt, line.kgPer12ftMilli),
                           basis: d.weightBasis ? t(`orders.weightBasis.${d.weightBasis === "band_start" ? "band_start" : "copy_current"}`) : "",
                         })}
                     {d.qtyBasis === "kg" && d.impliedG != null && d.impliedG !== line.orderedG
-                      ? ` ${t("orders.detail.implied", { pcs: pcsText(line.orderedPcs ?? 0), implied: orderKgText(d.impliedG) })}`
+                      ? ` ${t("orders.detail.implied", { massUnit: massUnit(fmt), pcs: countText(fmt, line.orderedPcs ?? 0), implied: kgGrouped3(fmt, d.impliedG) })}`
                       : ""}
                   </p>
                 ) : null}
@@ -424,7 +422,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                       <div className="flex flex-wrap items-center gap-2" data-hold-line={line.lineNo}>
                         {heldG > 0 ? (
                           <Chip tone="blue" truncate={false} data-held-chip={line.lineNo}>
-                            {t("orders.hold.chip", { count: strip?.heldBundles ?? 0, kg: orderKgText(heldG) })}
+                            {t("orders.hold.chip", { massUnit: massUnit(fmt), count: strip?.heldBundles ?? 0, kg: kgGrouped3(fmt, heldG) })}
                           </Chip>
                         ) : null}
                         {openOrder ? (
@@ -512,7 +510,7 @@ export function OrderDetailPage({ id }: { id: string }) {
         open={closeOpen}
         onOpenChange={setCloseOpen}
         title={t("orders.close")}
-        description={totals.bakiG > 0 ? t("orders.closeBakiHint", { kg: orderKgText(totals.bakiG) }) : undefined}
+        description={totals.bakiG > 0 ? t("orders.closeBakiHint", { massUnit: massUnit(fmt), kg: kgGrouped3(fmt, totals.bakiG) }) : undefined}
         label={t("orders.closeReason")}
         submitLabel={t("orders.close")}
         required={totals.bakiG > 0}
@@ -538,7 +536,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setTakeLine(null);
           }}
           target={takeLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
       {holdLine ? (
@@ -548,7 +546,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setHoldLine(null);
           }}
           target={holdLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
       {heldLine ? (
@@ -558,7 +556,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setHeldLine(null);
           }}
           target={heldLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
       {moveLine ? (
@@ -568,7 +566,7 @@ export function OrderDetailPage({ id }: { id: string }) {
             if (!o) setMoveLine(null);
           }}
           source={moveLine}
-          formatLength={(mm) => formatLengthMm(mm, unit)}
+          formatLength={(mm) => fmt.q("bundle.length", mm)}
         />
       ) : null}
     </>

@@ -15,10 +15,11 @@ import { reasonOptions } from "@/features/press/reason-label";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { orderErrorLines } from "../errors";
-import { orderKgText } from "../format";
 import { reallocateProblem } from "../view";
 import { FieldSelect } from "./controls";
 import { StockList } from "./stock-sheet";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 export type TakeStockTarget = {
   lineId: string;
@@ -50,6 +51,7 @@ export function TakeStockSheet({
   formatLength(mm: number): string;
 }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reasonCode, setReasonCode] = useState("");
@@ -154,7 +156,7 @@ export function TakeStockSheet({
               <Chip tone="amber" truncate={false}>
                 {t("reallocate.waiting")}
               </Chip>
-              <p className="m-0 text-[15px] font-medium leading-6">{t("reallocate.waitingBody", { count: done.count, kg: orderKgText(done.kgG) })}</p>
+              <p className="m-0 text-[15px] font-medium leading-6">{t("reallocate.waitingBody", { massUnit: massUnit(fmt), count: done.count, kg: kgGrouped3(fmt, done.kgG) })}</p>
               <Button variant="secondary" asChild className="self-start">
                 <Link to="/approvals" search={{ kind: "order_reallocate" }}>
                   {t("reallocate.openRequest")}

@@ -11,9 +11,11 @@ import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
-import { AGE_BUCKET_KEYS, csvFileName, kgText, stockAgeCsv, stockAgeRowName } from "./model";
+import { AGE_BUCKET_KEYS, csvFileName, stockAgeCsv, stockAgeRowName } from "./model";
 import { NUM, ReportActions, ReportPrintStyle, ReportsGate, ReportTableFrame, TD, TH } from "./report-chrome";
 import type { StockAgeSearch } from "./search";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3 } from "@/shared/lib/fmt-text";
 
 const StockAgeChart = lazy(() => import("./report-charts").then((m) => ({ default: m.StockAgeChart })));
 
@@ -140,12 +142,13 @@ function StockAgeBody({ search, onSearch }: { search: StockAgeSearch; onSearch: 
 
 /** "1,220.000 kg" over "8 bundles"; an empty cell is a quiet dash. */
 function AgeCell({ kgG, bundles }: { kgG: number; bundles: number }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (bundles === 0) return <span className="text-muted-foreground">—</span>;
   return (
     <span className="flex flex-col items-end">
       <span>
-        {kgText(kgG)} {t("reports.stockAge.kg")}
+        {kgGrouped3(fmt, kgG)} {t("reports.stockAge.kg")}
       </span>
       <span className="text-[12px] text-muted-foreground">{t("reports.stockAge.bundleCount", { count: bundles })}</span>
     </span>

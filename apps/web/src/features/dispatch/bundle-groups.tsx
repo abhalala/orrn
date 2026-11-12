@@ -1,4 +1,5 @@
-import { formatKg, formatLength, kgPer12ft, type DispatchStatus, type LengthUnit } from "@orrn/domain";
+import type { Fmt } from "@orrn/domain";
+import { kgPer12ft, type DispatchStatus, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button, IconButton } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -9,9 +10,10 @@ import { Tag, X } from "lucide-react";
 import { Can } from "@/shared/components/can";
 
 import { blockText, itemBlock, sortBlockedFirst } from "./blocked";
-import { dispatchKgText } from "./format";
 import { groupItems, type DispatchItem, type ItemGroup } from "./group-items";
 import { OFF_BAND_TONE, offBandStatusKey } from "./off-band";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 export type BundleGroupsProps = {
   items: DispatchItem[];
@@ -29,9 +31,11 @@ export type BundleGroupsProps = {
   onEditLabel?(group: ItemGroup): void;
 };
 
-const kg12Text = (it: DispatchItem) => {
+/** kg per 12 ft worked out from the row (two decimals in kg/12ft, as before); the plant's section weight unit otherwise. */
+const kg12Text = (it: DispatchItem, fmt: Fmt) => {
   const v = kgPer12ft({ weightG: it.weightG, pieces: it.quantity, lengthMm: it.lengthMm });
-  return v === null ? "-" : v.toFixed(2);
+  if (v === null) return "-";
+  return fmt.unitOf("linear_mass").id === "kg_12ft" ? v.toFixed(2) : fmt.n("die.band", Math.round(v * 1000), "screen");
 };
 
 /** The remove button of a row, found again after a refetch to move focus (data-remove-serial). */
@@ -77,6 +81,7 @@ function GroupHeader({
   labelable: boolean;
   onEditLabel?(group: ItemGroup): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b border-border px-4 py-3 sm:px-5">
@@ -87,7 +92,7 @@ function GroupHeader({
         <p className="m-0 text-[13px] leading-5 text-muted-foreground break-words">
           {group.labelled ? `${group.dieLabel}. ` : ""}
           <span className="tabular-nums">
-            {t("dispatch.build.groupTotal", { bundles: group.bundles.length, kg: dispatchKgText(group.weightG) })}
+            {t("dispatch.build.groupTotal", { bundles: group.bundles.length, kg: kgGrouped2(fmt, group.weightG) })}
           </span>
         </p>
       </div>
@@ -121,6 +126,7 @@ function RemoveButton({ item, removing, onRemove, className }: { item: DispatchI
 }
 
 function GroupTable({ group, unit, fresh, removable, removing, onRemove, dispatchStatus }: BundleGroupsProps & { group: ItemGroup }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <table className="w-full border-collapse text-[14px]" aria-labelledby={`group-${cssId(group.key)}`}>
@@ -172,10 +178,10 @@ function GroupTable({ group, unit, fresh, removable, removing, onRemove, dispatc
                   {it.offBand ? <OffBandChip item={it} /> : null}
                 </div>
               </td>
-              <td className="px-4 text-right font-mono tabular-nums whitespace-nowrap">{formatKg(it.weightG / 1000)}</td>
+              <td className="px-4 text-right font-mono tabular-nums whitespace-nowrap">{kgGrouped2(fmt, it.weightG)}</td>
               <td className="px-4 text-right font-mono tabular-nums">{it.quantity}</td>
-              <td className="px-4 text-right font-mono whitespace-nowrap">{formatLength(it.lengthMm, unit)}</td>
-              <td className="px-4 text-right font-mono tabular-nums">{kg12Text(it)}</td>
+              <td className="px-4 text-right font-mono whitespace-nowrap">{fmt.q("bundle.length", it.lengthMm)}</td>
+              <td className="px-4 text-right font-mono tabular-nums">{kg12Text(it, fmt)}</td>
               {removable ? (
                 <Can do="dispatch.addBundle">
                   <td className="pr-3 text-right">
@@ -196,14 +202,15 @@ function GroupTable({ group, unit, fresh, removable, removing, onRemove, dispatc
  * amber, and beside them where its approval stands (waiting, approved, rejected).
  */
 function OffBandChip({ item }: { item: DispatchItem }) {
+  const fmt = useFmt();
   const { t } = useT();
   const status = item.offBandStatus ?? null;
   return (
     <>
       <Chip tone="amber" truncate={false} data-off-band="">
         {t("dispatch.offBand.chip", {
-          kg: ((item.kgPer12ftMilli ?? 0) / 1000).toFixed(3),
-          line: ((item.lineKgPer12ftMilli ?? 0) / 1000).toFixed(3),
+          kg: sectionText(fmt, item.kgPer12ftMilli ?? 0),
+          line: sectionText(fmt, item.lineKgPer12ftMilli ?? 0),
         })}
       </Chip>
       {status ? (
@@ -216,6 +223,7 @@ function OffBandChip({ item }: { item: DispatchItem }) {
 }
 
 function GroupRows({ group, unit, fresh, removable, removing, onRemove, dispatchStatus }: BundleGroupsProps & { group: ItemGroup }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <ul className="m-0 list-none divide-y divide-border p-0">
@@ -239,7 +247,7 @@ function GroupRows({ group, unit, fresh, removable, removing, onRemove, dispatch
                   {it.serial}
                 </span>
                 <span data-no-truncate="" className="shrink-0 font-mono text-[15px] font-semibold tabular-nums">
-                  {formatKg(it.weightG / 1000)} {t("units.kg")}
+                  {kgGrouped2(fmt, it.weightG)} {massUnit(fmt)}
                 </span>
               </div>
               {block ? (
@@ -254,10 +262,10 @@ function GroupRows({ group, unit, fresh, removable, removing, onRemove, dispatch
               ) : null}
               <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[13px] text-muted-foreground">
                 <span className="font-mono">
-                  {it.quantity} {t("units.pcs")} · {formatLength(it.lengthMm, unit)}
+                  {it.quantity} {t("units.pcs")} · {fmt.q("bundle.length", it.lengthMm)}
                 </span>
                 <span className="font-mono">
-                  {kg12Text(it)} {t("units.kgPer12ft")}
+                  {kg12Text(it, fmt)} {sectionUnit(fmt)}
                 </span>
               </div>
             </div>

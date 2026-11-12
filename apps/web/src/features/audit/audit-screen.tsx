@@ -9,6 +9,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Can } from "@/shared/components/can";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
+import { useFmt } from "@/shared/lib/fmt";
+import { dateText, pinned } from "@/shared/lib/fmt-text";
 import { useMe } from "@/shared/lib/me";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
@@ -23,7 +25,8 @@ const PAGE = 50;
  * URL so a view can be shared. Dates are the plant's calendar days.
  */
 export function AuditScreen({ filters, onFilters }: { filters: AuditFilters; onFilters(next: AuditFilters): void }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const when = useCompanyWhen();
   const tz = typeof me?.company?.settings?.timezone === "string" && me.company.settings.timezone ? me.company.settings.timezone : "Asia/Kolkata";
@@ -53,7 +56,7 @@ export function AuditScreen({ filters, onFilters }: { filters: AuditFilters; onF
     for (const k of Object.keys(next) as (keyof AuditFilters)[]) if (next[k] === undefined || next[k] === "") delete next[k];
     onFilters(next);
   };
-  const dateLabel = since ? new Intl.DateTimeFormat(locale === "hi" ? "hi-IN" : locale === "gu" ? "gu-IN" : "en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: tz, numberingSystem: "latn" }).format(new Date(since)) : "";
+  const dateLabel = since ? dateText(pinned(fmt, { zone: tz }), since) : "";
 
   return (
     <>

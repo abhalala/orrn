@@ -119,6 +119,31 @@ describe("lengthFromInput", () => {
     expect(lengthFromInput({ unit: "mm", mm: "3658" })).toBe(3658);
     expect(lengthFromInput({ unit: "mm", mm: "3,658.4" })).toBe(3658);
   });
+  test("regression: 26 ft 10.5 in is exactly 8191.5 mm and rounds half away to 8192 (the float sum gave 8191)", () => {
+    expect(lengthFromInput({ unit: "inch", feet: "26", inches: "10.5" })).toBe(8192);
+    // The old float path, kept here as the reference the new exact path is compared with.
+    const oldFloat = (feet: number, inches: number) => Math.round((feet * 12 + inches) * 25.4);
+    expect(oldFloat(26, 10.5)).toBe(8191);
+    // Every quarter inch from 0 to 40 ft: the exact path equals the old one except where the float was wrong.
+    const differs: string[] = [];
+    for (let feet = 0; feet <= 40; feet++) {
+      for (let q = 0; q < 48; q++) {
+        const inches = q / 4;
+        if (feet === 0 && inches === 0) continue;
+        const now = lengthFromInput({ unit: "inch", feet: String(feet), inches: String(inches) });
+        if (now !== oldFloat(feet, inches)) differs.push(`${feet} ft ${inches} in`);
+        // Exact check: mm = (feet*12 + inches) * 127 / 5, half away from zero.
+        const num = (feet * 48 + q) * 127; // quarter inches * 127 / 20 mm
+        expect(now).toBe(Math.floor((num * 2 + 20) / 40));
+      }
+    }
+    expect(differs).toEqual(["26 ft 10.5 in"]);
+  });
+  test("regression: text beyond a double is read exactly", () => {
+    expect(lengthFromInput({ unit: "mm", mm: "0.49999999999999999" })).toBeNull(); // 0.4999... rounds to 0, which is not a length
+    expect(lengthFromInput({ unit: "mm", mm: "1234.5" })).toBe(1235);
+    expect(lengthFromInput({ unit: "mm", mm: "99999999999999999999" })).toBeNull(); // not a safe integer
+  });
   test("never reads mm text as inches (25.4x guard)", () => {
     expect(lengthFromInput({ unit: "inch", mm: "3658" })).toBeNull();
     expect(lengthFromInput({ unit: "mm", feet: "12", inches: "0" })).toBeNull();

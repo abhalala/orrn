@@ -2,11 +2,13 @@ import { formatKg, type LengthUnit } from "@orrn/domain";
 import { useToastLift } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
+import type { Fmt } from "@orrn/domain";
 
 /** Small shared pieces of the Pack screens. */
 
 /** Range limits for copy ("2.4"): one decimal unless the die stores finer. */
-export function formatRangeKg(g: number): string {
+export function formatRangeKg(g: number, fmt?: Fmt): string {
+  if (fmt && fmt.unitOf("linear_mass").id !== "kg_12ft") return fmt.n("die.band", g, "screen");
   const kg = g / 1000;
   return Number.isInteger(kg * 10) ? kg.toFixed(1) : formatKg(kg, 2);
 }

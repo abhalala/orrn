@@ -4,6 +4,7 @@ import { useT } from "@orrn/i18n";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 
 import { formatShipDate } from "./format";
+import { paperT } from "@/shared/lib/fmt-text";
 
 const num = (v: number | null, digits: number) => (v === null ? "-" : v.toFixed(digits));
 const bundleWord = (t: ReturnType<typeof useT>["t"], n: number) => t("units.bundles", { count: n });
@@ -13,7 +14,8 @@ const bundleWord = (t: ReturnType<typeof useT>["t"], n: number) => t("units.bund
  * sections). New lists use `packing-list-v2.tsx`; this keeps the old ones readable.
  */
 export function LegacyBody({ model, code, kgPerPiece = false }: { model: PackingListModel; code: string; kgPerPiece?: boolean }) {
-  const { t, locale } = useT();
+  const { t: tUi, locale } = useT();
+  const t = paperT(tUi);
   const wide = useMediaQuery(breakpoints.desktop);
   const { header, groups, totals } = model;
   const facts: { label: string; value: string; mono?: boolean }[] = [
@@ -65,7 +67,8 @@ function groupTitle(t: ReturnType<typeof useT>["t"], g: PackingListGroup) {
 }
 
 function PackingListTable({ groups, totals, kgPerPiece }: Pick<PackingListModel, "groups" | "totals"> & { kgPerPiece: boolean }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const cols = [
     { key: "sr", label: t("packingList.columns.sr"), end: false },
     { key: "bundle", label: t("packingList.columns.bundleNo"), end: false },
@@ -160,7 +163,8 @@ function PlTableRow({ row: r, cell, kgPerPiece }: { row: PackingListRow; cell: s
 }
 
 function PackingListStack({ groups, totals, kgPerPiece }: Pick<PackingListModel, "groups" | "totals"> & { kgPerPiece: boolean }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {groups.map((g) => {

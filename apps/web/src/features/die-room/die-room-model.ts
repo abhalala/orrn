@@ -3,6 +3,8 @@
  * band position and kg/m arrive from the server (`dieInstance.get`, `.drift`, `die.get`) and are
  * only formatted. What IS parsed here is what a person types (a weight in kg, a wall in mm).
  */
+import type { Fmt } from "@orrn/domain";
+import { dateText, dayTimeText, pinned, sectionText, sectionUnit, wallWithUnit } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { Translate } from "@orrn/i18n";
 
@@ -10,18 +12,10 @@ import { serverRefusal } from "@/features/shared/server-refusal";
 
 export type DriftTone = "none" | "under" | "green" | "amber" | "red";
 export type BandPosition = "in" | "above" | "below";
-export type CopyStatus = "available" | "in_use" | "at_nitriding" | "at_maker" | "retired" | "on_trial";
-
-export const COPY_STATUSES: readonly CopyStatus[] = ["available", "in_use", "at_nitriding", "at_maker", "on_trial", "retired"];
-
-/** Tabs of the die card, in the order the spec lists them. */
-export const CARD_TABS = ["readings", "runs", "nitriding", "work", "tier", "maker", "files"] as const;
-export type CardTab = (typeof CARD_TABS)[number];
-
-/** `?tab=` from the URL: anything unknown is the first tab. Plain function (no zod in route files). */
-export function cardTabParam(value: unknown): CardTab {
-  return typeof value === "string" && (CARD_TABS as readonly string[]).includes(value) ? (value as CardTab) : "readings";
-}
+// What the route files read from the URL lives in `search-params.ts`: their `validateSearch` and the board model run in the app
+// entry, and this model imports the plant formatter text helpers, which the `/` closure must not carry (`scripts/route-imports.test.ts`).
+import type { CopyStatus } from "./search-params";
+export { CARD_TABS, cardTabParam, COPY_STATUSES, type CardTab, type CopyStatus } from "./search-params";
 
 export function toneToChip(tone: DriftTone): StatusTone {
   switch (tone) {
@@ -91,7 +85,8 @@ export function milliKgText(milli: number): string {
 }
 
 /** A band as one string, always kg per 12 ft to three decimals: "5.900–6.200". */
-export function bandRangeText(minG: number, maxG: number): string {
+export function bandRangeText(minG: number, maxG: number, fmt?: Fmt): string {
+  if (fmt) return `${sectionText(fmt, minG)}\u2013${sectionText(fmt, maxG)}`;
   return `${milliKgText(minG)}–${milliKgText(maxG)}`;
 }
 
@@ -99,8 +94,8 @@ export function bandRangeText(minG: number, maxG: number): string {
  * THE band format, used on the board, the section, the card, the lift and the forms:
  * "5.900\u20136.200 kg/12ft" (kg per 12 ft to three decimals, an en dash, the translated unit).
  */
-export function formatBand(minG: number, maxG: number, unit: string): string {
-  return `${bandRangeText(minG, maxG)} ${unit}`;
+export function formatBand(minG: number, maxG: number, unit: string, fmt?: Fmt): string {
+  return `${bandRangeText(minG, maxG, fmt)} ${fmt ? sectionUnit(fmt) : unit}`;
 }
 
 /**
@@ -108,9 +103,10 @@ export function formatBand(minG: number, maxG: number, unit: string): string {
  * or just the band when the section has no wall written (the server sends 0 then). `mm` and
  * `kg12` are the translated units.
  */
-export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string, kg12: string): string {
-  const range = formatBand(band.weightMinG, band.weightMaxG, kg12);
-  return band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${mm} \u00b7 ${range}` : range;
+export function bandTitle(band: { wallTenthMm: number; weightMinG: number; weightMaxG: number }, mm: string, kg12: string, fmt?: Fmt): string {
+  const range = formatBand(band.weightMinG, band.weightMaxG, kg12, fmt);
+  if (band.wallTenthMm <= 0) return range;
+  return fmt ? `${wallWithUnit(fmt, band.wallTenthMm)} \u00b7 ${range}` : `${wallMmText(band.wallTenthMm)} ${mm} \u00b7 ${range}`;
 }
 
 /** Wall in tenths of a mm: 12 -> "1.2". */
@@ -212,20 +208,20 @@ export function refusalText(error: unknown, t: Translate): string {
   return serverRefusal(t, error);
 }
 
-/** "24 Oct 2026" from an ISO string, epoch ms or Date (the API sends ISO strings). Empty when unknown. */
-export function shortDate(value: string | number | Date | null | undefined): string {
+/**
+ * "24 Oct 2026" from an ISO string, epoch ms or Date (the API sends ISO strings). Empty when unknown. The die room reads
+ * the Kolkata clock in English month names, as it always did; only the date order follows the plant.
+ */
+export function shortDate(fmt: Fmt, value: string | number | Date | null | undefined): string {
   if (value == null) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+  return dateText(pinned(fmt, { zone: "Asia/Kolkata", locale: "en" }), value);
 }
 
-/** "24 Oct, 09:12" for a reading or an issue. */
-export function shortDateTime(value: string | number | Date | null | undefined): string {
+/** "24 Oct, 09:12" for a reading or an issue: the plant's date order and clock, Kolkata, English month names. */
+export function shortDateTime(fmt: Fmt, value: string | number | Date | null | undefined): string {
   if (value == null) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kolkata" });
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? "" : dayTimeText(pinned(fmt, { zone: "Asia/Kolkata", locale: "en" }), ms);
 }
 
 /** Basis points as percent with one decimal: 7550 -> "75.5%". */

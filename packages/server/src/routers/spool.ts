@@ -972,15 +972,19 @@ export const spoolRouter = router({
         const client = await createSpoolClient(deployment);
         try {
           await client.retryJob(Number(row.spoolJobId));
-        } catch {
-          // Legacy retry remains best effort.
+        } catch (error) {
+          await ctx.db
+            .update(printLog)
+            .set({ status: "failed", responseText: (error instanceof Error ? error.message : String(error)).slice(0, 500) })
+            .where(and(eq(printLog.id, input.id), eq(printLog.companyId, ctx.companyId!)));
+          throw new TRPCError({ code: "BAD_GATEWAY", message: "Print computer did not accept the retry" });
         }
       }
 
       await ctx.db
         .update(printLog)
-        .set({ status: "queued", attempt: row.attempt + 1 })
-        .where(eq(printLog.id, input.id));
+        .set({ status: "queued", responseText: null, attempt: row.attempt + 1 })
+        .where(and(eq(printLog.id, input.id), eq(printLog.companyId, ctx.companyId!)));
 
       return { success: true, id: null, commandId: null, jobKey: null };
     }),

@@ -7,6 +7,8 @@
  */
 import { MELT_TIME_KEYS, type MeltTimeKey } from "@orrn/domain";
 
+import { wallParts } from "@/shared/lib/plant-calendar";
+
 export { MELT_TIME_KEYS };
 export type { MeltTimeKey };
 export type MeltTimes = Record<MeltTimeKey, string>;
@@ -14,23 +16,6 @@ export type MeltTimes = Record<MeltTimeKey, string>;
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_RE = /^(\d{1,2}):(\d{2})$/;
 const DAY_MS = 86_400_000;
-
-type Parts = { y: number; m: number; d: number; h: number; min: number };
-
-function wallParts(at: number, timeZone: string): Parts {
-  const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  const parts = fmt.formatToParts(new Date(at));
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
-  return { y: get("year"), m: get("month"), d: get("day"), h: get("hour"), min: get("minute") };
-}
 
 /** Offset of `timeZone` from UTC at instant `at`, in ms (IST = +5.5 h). */
 function zoneOffset(at: number, timeZone: string): number {

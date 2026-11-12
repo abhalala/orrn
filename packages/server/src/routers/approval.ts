@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 
@@ -10,12 +10,15 @@ import { loadApprovalFacts } from "../lib/approvalFacts";
 import { APPROVAL_APPLIERS, APPROVAL_PREPARERS, explainApplyAbort } from "../lib/approvalApply";
 import { APPROVAL_KIND_MODULE, assertModule } from "../lib/moduleGate";
 import { atomicBatch } from "../lib/atomic";
+import { now as clockNow } from "../lib/clock";
 import { auditInsertGuarded } from "../lib/audit";
 import { canAny, canApprove, type Action } from "../lib/permissions";
 import { nextCompanySeq } from "../lib/sequence";
 import { companyProcedure, router } from "../index";
 
 const requester = alias(user, "approval_requester");
+/** Review finding 3: who wrote the request's note when it is not the requester (meta.noteById). */
+const noteAuthor = alias(user, "approval_note_author");
 
 /** Who may read scrap purchase figures (mirror of `purchaseReader` in routers/vendor.ts). */
 const PURCHASE_READ_ACTIONS: readonly Action[] = ["purchase.receipt", "purchase.dcnote", "reports.read", "masters.publish"];
@@ -60,6 +63,7 @@ export const approvalRouter = router({
           meta: approval.meta,
           requestedBy: approval.requestedBy,
           requestedByName: requester.name,
+          noteByName: noteAuthor.name,
           decidedBy: approval.decidedBy,
           decidedByName: decider.name,
           decidedAt: approval.decidedAt,
@@ -68,6 +72,7 @@ export const approvalRouter = router({
         })
         .from(approval)
         .leftJoin(requester, eq(requester.id, approval.requestedBy))
+        .leftJoin(noteAuthor, sql`${noteAuthor.id} = json_extract(${approval.meta}, '$.noteById')`)
         .leftJoin(decider, eq(decider.id, approval.decidedBy))
         .where(where)
         .orderBy(desc(approval.createdAt), desc(approval.id))
@@ -157,7 +162,8 @@ export const approvalRouter = router({
       }
 
       const serverSeq = await nextCompanySeq(ctx, ctx.companyId);
-      const decidedAt = new Date();
+      // The plant clock (real time in production): check N3 measures a late approval's age from it.
+      const decidedAt = clockNow();
       const note = input.note ? input.note : null;
       const mine = and(
         eq(approval.id, row.id),
@@ -168,7 +174,7 @@ export const approvalRouter = router({
 
       // Kind-specific effect (e.g. die re-rank writes the tier), guarded to land only if this
       // decision did, in the same batch as the decision.
-      const applyCtx = { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt };
+      const applyCtx = { db: ctx.db, companyId: ctx.companyId, userId, seq: serverSeq, decidedAt, session: ctx.session, impersonation: ctx.impersonation };
       const prepared = await APPROVAL_PREPARERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId, meta: row.meta ?? null }, input.decision);
       const apply = APPROVAL_APPLIERS[row.kind]?.(applyCtx, { id: row.id, subjectId: row.subjectId }, input.decision, prepared) ?? [];
 

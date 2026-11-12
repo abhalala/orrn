@@ -2,15 +2,14 @@ import { useT } from "@orrn/i18n";
 
 import {
   bandTitle,
-  kgGroupedText,
   kgPerMetreText,
-  milliKgText,
   pctTenthText,
   shortDate,
   shortDateTime,
-  wallMmText,
-} from "./die-room-model";
+  wallMmText } from "./die-room-model";
 import type { CardData } from "./types";
+import { useFmt, usePaperFmt } from "@/shared/lib/fmt";
+import { altSectionText, kgTrim, massUnit, sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 /**
  * The A4 copy card (D16 / backlog 39): what the die room keeps on paper for one copy. Hidden on
@@ -43,6 +42,8 @@ const PRINT_CSS = `
 `;
 
 export function PrintCard({ card }: { card: CardData }) {
+  const paper = usePaperFmt();
+  const fmt = useFmt();
   const { t } = useT();
   const { instance, section, band } = card;
   const shape = [
@@ -55,7 +56,7 @@ export function PrintCard({ card }: { card: CardData }) {
   const facts: [string, string | null][] = [
     [t("dieRoom.card.cavities"), card.cavityCount == null ? null : String(card.cavityCount)],
     [t("dieRoom.card.wall"), band && band.wallTenthMm > 0 ? `${wallMmText(band.wallTenthMm)} ${t("units.mm")}` : null],
-    [t("dieRoom.card.trial"), instance.trialKgPer12ftMilli == null ? null : `${milliKgText(instance.trialKgPer12ftMilli)} ${t("units.kgPer12ft")}`],
+    [t("dieRoom.card.trial"), instance.trialKgPer12ftMilli == null ? null : `${sectionText(fmt, instance.trialKgPer12ftMilli)} ${sectionUnit(fmt)}`],
     [t("dieRoom.card.hardness"), instance.hardness == null ? null : String(instance.hardness)],
     [t("dieRoom.copies.rack"), instance.rackNo],
     [t("dieRoom.card.bolster"), instance.bolster],
@@ -66,7 +67,7 @@ export function PrintCard({ card }: { card: CardData }) {
     [t("dieRoom.card.supplier"), instance.supplier],
     [t("dieRoom.card.ftr"), instance.ftr],
     [t("dieRoom.copies.owner"), card.owner?.name ?? null],
-    [t("dieRoom.card.lifeKg"), instance.lifeG == null ? null : `${kgGroupedText(card.producedG)} / ${kgGroupedText(instance.lifeG)} ${t("units.kg")}`],
+    [t("dieRoom.card.lifeKg"), instance.lifeG == null ? null : `${kgTrim(fmt, card.producedG)} / ${kgTrim(fmt, instance.lifeG)} ${massUnit(fmt)}`],
   ];
   const cell = "border border-black px-2 py-1 text-left align-top";
 
@@ -79,16 +80,16 @@ export function PrintCard({ card }: { card: CardData }) {
         {shape ? ` · ${shape}` : ""}
       </p>
       {band ? (
-        <p className="m-0 mt-2 font-mono text-[15px] font-semibold">{bandTitle(band, t("units.mm"), t("units.kgPer12ft"))}</p>
+        <p className="m-0 mt-2 font-mono text-[15px] font-semibold">{bandTitle(band, t("units.mm"), sectionUnit(fmt), fmt)}</p>
       ) : null}
       <p className="m-0 mt-2 text-[15px]">
         {card.currentMilli == null ? (
           t("dieRoom.card.noReading")
         ) : (
           <>
-            <strong className="font-mono text-[20px]">{milliKgText(card.currentMilli)}</strong> {t("units.kgPer12ft")}
+            <strong className="font-mono text-[20px]">{sectionText(fmt, card.currentMilli)}</strong> {sectionUnit(fmt)}
             {" · "}
-            {kgPerMetreText(card.kgPerMetre)} {t("units.kgPerMetre")}
+            {altSectionText(fmt, card.currentMilli)}
             {card.pctTenth == null ? "" : ` · ${pctTenthText(card.pctTenth)}`}
           </>
         )}
@@ -109,7 +110,7 @@ export function PrintCard({ card }: { card: CardData }) {
         <thead>
           <tr>
             <th scope="col" className={cell}>{t("dieRoom.print.date")}</th>
-            <th scope="col" className={cell}>{t("units.kgPer12ft")}</th>
+            <th scope="col" className={cell}>{sectionUnit(fmt)}</th>
             <th scope="col" className={cell}>%</th>
             <th scope="col" className={cell}>{t("dieRoom.issues.run")}</th>
           </tr>
@@ -117,8 +118,8 @@ export function PrintCard({ card }: { card: CardData }) {
         <tbody>
           {card.readings.slice(0, 12).map((r) => (
             <tr key={r.id}>
-              <td className={cell}>{shortDateTime(r.readAt)}</td>
-              <td className={`${cell} font-mono tabular-nums`}>{milliKgText(r.kgPer12ftMilli)}</td>
+              <td className={cell}>{shortDateTime(paper, r.readAt)}</td>
+              <td className={`${cell} font-mono tabular-nums`}>{sectionText(fmt, r.kgPer12ftMilli)}</td>
               <td className={`${cell} font-mono tabular-nums`}>{r.pctTenth == null ? "" : pctTenthText(r.pctTenth)}</td>
               <td className={cell}>{r.pressRunNumber ?? t("dieRoom.reading.bench")}</td>
             </tr>
@@ -138,7 +139,7 @@ export function PrintCard({ card }: { card: CardData }) {
         <tbody>
           {card.nitriding.slice(0, 6).map((n) => (
             <tr key={n.id}>
-              <td className={cell}>{shortDate(n.nitridedAt)}</td>
+              <td className={cell}>{shortDate(paper, n.nitridedAt)}</td>
               <td className={cell}>{n.hardness ?? ""}</td>
             </tr>
           ))}

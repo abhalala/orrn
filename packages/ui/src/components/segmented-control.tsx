@@ -10,6 +10,8 @@ export type SegmentedControlProps<T extends string> = {
   onChange(v: NoInfer<T>): void;
   /** Accessible name for the group, e.g. "Show". Recommended. */
   label?: string;
+  /** Id of a hint that explains the group; read with its name. */
+  "aria-describedby"?: string;
   className?: string;
 };
 
@@ -26,6 +28,7 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   label,
+  "aria-describedby": describedBy,
   className,
 }: SegmentedControlProps<T>) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -99,6 +102,7 @@ export function SegmentedControl<T extends string>({
       ref={trackRef}
       role="radiogroup"
       aria-label={label}
+      aria-describedby={describedBy}
       data-slot="segmented-control"
       className={cn(
         "relative flex w-full max-w-full rounded-full bg-surface-sunken p-1 sm:w-auto sm:self-start dark:bg-background dark:ring-1 dark:ring-border",

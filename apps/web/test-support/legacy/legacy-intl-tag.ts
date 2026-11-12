@@ -1,3 +1,4 @@
+/** Reference copy of `shared/lib/intl-tag.ts` before the plant formatter (units layer, slice b part 3). No screen imports it. */
 /**
  * The `Intl` locale tag for a screen language (BACKLOG 87: dates on floor screens follow the user's
  * language, so a Gujarati screen never reads "23 Oct"). Digits stay Latin (`numberingSystem: "latn"` at

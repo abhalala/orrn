@@ -1,4 +1,4 @@
-import { bpPercent1, formatLength, parseDecimal, type LengthUnit } from "@orrn/domain";
+import { bpPercent1, parseDecimal, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import type { MessageKey } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
@@ -29,17 +29,19 @@ import {
   COUNT_STEPS,
   gateSentences,
   isLastStep,
-  kgFromG,
   kgTextToG,
   lineRows,
   notesToSend,
   qcRows,
   STATION_ACTION,
   stepOfGate,
-  type NoteAttempts,
-} from "./model";
+  type NoteAttempts } from "./model";
 import { reasonLabel } from "./reason-label";
 import type { RunDetail } from "./types";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_IN, LENGTH_MM, MASS_KG, PRESSED_IN, PRESSED_MM, SECTION_KG12 } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, sectionText } from "@/shared/lib/fmt-text";
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -59,6 +61,7 @@ const unitSuffix = (unit: LengthUnit) => (unit === "inch" ? "in" : "mm");
  * person typed is cleared when a save fails: the message says so and the same button tries again.
  */
 export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUnit }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const qc = useQueryClient();
   const { data: me } = useMe();
@@ -130,7 +133,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
         .sort((a, b) => b.billetsOnHandG - a.billetsOnHandG)
         .map((c) => ({
           value: c.id,
-          label: `${c.number} · ${c.alloy} · ${t("press.console.castOnHand", { kg: kgFromG(c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { kg: kgFromG(c.billetsShortG) })}` : ""}${c.spectroFailedMelts > 0 ? ` · ${t("press.console.castSpectroFail")}` : ""}`,
+          label: `${c.number} · ${c.alloy} · ${t("press.console.castOnHand", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, c.billetsOnHandG) })}${c.billetsShortG > 0 ? ` · ${t("press.console.billetsShortBy", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, c.billetsShortG) })}` : ""}${c.spectroFailedMelts > 0 ? ` · ${t("press.console.castSpectroFail")}` : ""}`,
         })),
     [casts.data, draft.castId, t],
   );
@@ -211,7 +214,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
     if (!canRun) return true;
     try {
       const typedReading = draft.readingText.trim() !== "" && data.copy ? parseDecimal(draft.readingText) : null;
-      if (draft.readingText.trim() !== "" && data.copy && (typedReading === null || typedReading <= 0)) return invalid("press.console.kgInvalid");
+      if (draft.readingText.trim() !== "" && data.copy && (typedReading === null || typedReading <= 0)) return invalid("dieRoom.band.kgInvalid");
       const fresh = await qc.fetchQuery({ ...trpc.press.runs.get.queryOptions({ id: runId }), staleTime: 0 });
       const todo = notesToSend(
         { pressRemark: draft.pressRemark, dieRemark: draft.dieRemark, readingMilli: typedReading === null ? null : Math.round(typedReading * 1000) },
@@ -290,8 +293,8 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
 
   const figures = preview.data?.figures;
   // D22: the run is logged with the weighed kg whatever the store shows; the cast carries the shortfall.
-  const onHandKg = kgFromG(preview.data?.billetsOnHandG ?? 0);
-  const shortHint = figures?.billetShortG ? t("press.console.shortStock", { kg: onHandKg, short: kgFromG(figures.billetShortG) }) : t("press.console.shortStockNoFigure", { kg: onHandKg });
+  const onHandKg = kgGrouped1(fmt, preview.data?.billetsOnHandG ?? 0);
+  const shortHint = figures?.billetShortG ? t("press.console.shortStock", { massUnit: massUnit(fmt), kg: onHandKg, short: kgGrouped1(fmt, figures.billetShortG) }) : t("press.console.shortStockNoFigure", { kg: onHandKg });
   const liveGates = (preview.data?.gates ?? []).filter((g) => canClose || (g !== "no_close_permission" && g !== "not_supervisor"));
   const shownGates = liveGates;
   const stepLabels = COUNT_STEPS.map((s) => t(`press.console.steps.${s}` as MessageKey));
@@ -335,10 +338,10 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
           {draft.billets.map((row, i) => (
             <div key={row.key} className="grid grid-cols-1 gap-3 rounded-card bg-surface-sunken p-3 sm:grid-cols-3">
               <Field label={i === 0 ? t("press.console.billetLength") : `${t("press.console.billetLength")} ${i + 1}`}>
-                <NumberInput
+                <PlantInput spec={unit === "inch" ? LENGTH_IN : LENGTH_MM}
                   value={row.lengthText}
                   onValueChange={(lengthText) => setDraft((d) => ({ ...d, billets: d.billets.map((b) => (b.key === row.key ? { ...b, lengthText } : b)) }))}
-                  suffix={unitSuffix(unit)}
+                  
                 />
               </Field>
               <Field label={i === 0 ? t("press.console.billetCount") : `${t("press.console.billetCount")} ${i + 1}`}>
@@ -349,10 +352,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                 />
               </Field>
               <Field label={i === 0 ? t("press.console.weighedKg") : `${t("press.console.weighedKg")} ${i + 1}`}>
-                <NumberInput
+                <PlantInput spec={MASS_KG}
                   value={row.kgText}
                   onValueChange={(kgText) => setDraft((d) => ({ ...d, billets: d.billets.map((b) => (b.key === row.key ? { ...b, kgText } : b)) }))}
-                  suffix={t("units.kg")}
                 />
               </Field>
               {draft.billets.length > 1 ? (
@@ -403,21 +405,21 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                         if (pl) setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, pressPlanLineId: pl.id, orderNumber: pl.orderNumber, cutLengthMm: pl.cutLengthMm, releasedPcs: pl.pcs } : l)) }));
                       }}
                       placeholder={t("press.console.pickOne")}
-                      options={data.planLines.map((p) => ({ value: p.id, label: `${p.orderNumber} ${p.customerName} · ${formatLength(p.cutLengthMm, unit)}` }))}
+                      options={data.planLines.map((p) => ({ value: p.id, label: `${p.orderNumber} ${p.customerName} · ${fmt.q("bundle.length", p.cutLengthMm)}` }))}
                     />
                   </Field>
                 ) : null}
                 {row.cutLengthMm === null ? (
                   <Field label={t("press.console.cutLength")}>
-                    <NumberInput
+                    <PlantInput spec={unit === "inch" ? LENGTH_IN : LENGTH_MM}
                       value={row.cutText}
                       onValueChange={(cutText) => setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, cutText } : l)) }))}
-                      suffix={unitSuffix(unit)}
+                      
                     />
                   </Field>
                 ) : (
                   <p className="m-0 self-end text-[15px] font-medium tabular-nums">
-                    {t("press.console.cutLength")}: {formatLength(row.cutLengthMm, unit)}
+                    {t("press.console.cutLength")}: {fmt.q("bundle.length", row.cutLengthMm)}
                   </p>
                 )}
                 <Field label={t("press.console.pcs")}>
@@ -429,12 +431,11 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
                 </Field>
                 <Field
                   label={t("press.console.good")}
-                  hint={hint ? t("press.console.hint", { kg: kgFromG(hint) }) : undefined}
+                  hint={hint ? t("press.console.hint", { massUnit: massUnit(fmt), kg: kgGrouped1(fmt, hint) }) : undefined}
                 >
-                  <NumberInput
+                  <PlantInput spec={MASS_KG}
                     value={row.kgText}
                     onValueChange={(kgText) => setDraft((d) => ({ ...d, lines: d.lines.map((l) => (l.key === row.key ? { ...l, kgText } : l)) }))}
-                    suffix={t("units.kg")}
                   />
                 </Field>
                 {row.pressPlanLineId === null && draft.lines.length > 1 ? (
@@ -449,7 +450,7 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             {t("press.console.addLength")}
           </Button>
           <Field label={t("press.console.pressedLength")} hint={t("press.console.pressedLengthHint")}>
-            <NumberInput value={draft.pressedLengthText} onValueChange={(pressedLengthText) => patch({ pressedLengthText })} suffix={unitSuffix(unit)} />
+            <PlantInput spec={unit === "inch" ? PRESSED_IN : PRESSED_MM} value={draft.pressedLengthText} onValueChange={(pressedLengthText) => patch({ pressedLengthText })}  />
           </Field>
         </Card>
       ) : null}
@@ -457,10 +458,10 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
       {draft.step === 2 ? (
         <Card className="gap-4">
           <Field label={t("press.console.discard")} hint={t("press.console.buttHint")}>
-            <NumberInput value={draft.discardText} onValueChange={(discardText) => patch({ discardText })} suffix={t("units.kg")} />
+            <PlantInput spec={MASS_KG} value={draft.discardText} onValueChange={(discardText) => patch({ discardText })} />
           </Field>
           <Field label={t("press.console.ends")} hint={t("press.console.endsHint")}>
-            <NumberInput value={draft.endsText} onValueChange={(endsText) => patch({ endsText })} suffix={t("units.kg")} />
+            <PlantInput spec={MASS_KG} value={draft.endsText} onValueChange={(endsText) => patch({ endsText })} />
           </Field>
         </Card>
       ) : null}
@@ -474,10 +475,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             return (
               <div key={row.key} className="grid grid-cols-1 gap-3 rounded-card bg-surface-sunken p-3 sm:grid-cols-2" data-slot="reject-row">
                 <Field label={i === 0 ? t("press.console.reject") : `${t("press.console.reject")} ${i + 1}`}>
-                  <NumberInput
+                  <PlantInput spec={MASS_KG}
                     value={row.kgText}
                     onValueChange={(kgText) => setDraft((d) => ({ ...d, qc: d.qc.map((q) => (q.key === row.key ? { ...q, kgText } : q)) }))}
-                    suffix={t("units.kg")}
                   />
                 </Field>
                 <Field label={i === 0 ? t("press.console.rejectPcs") : `${t("press.console.rejectPcs")} ${i + 1}`}>
@@ -544,9 +544,9 @@ export function CountingPanel({ data, unit }: { data: RunDetail; unit: LengthUni
             <Can do="die.reading">
               <Field
                 label={t("press.console.readingTitle")}
-                hint={data.copy.kgPer12ftMilli ? t("press.console.readingLast", { kg: (data.copy.kgPer12ftMilli / 1000).toFixed(3) }) : t("press.console.readingNone")}
+                hint={data.copy.kgPer12ftMilli ? t("press.console.readingLast", { kg: sectionText(fmt, data.copy.kgPer12ftMilli) }) : t("press.console.readingNone")}
               >
-                <NumberInput value={draft.readingText} onValueChange={(readingText) => patch({ readingText })} suffix={t("press.console.readingLabel")} />
+                <PlantInput spec={SECTION_KG12} value={draft.readingText} onValueChange={(readingText) => patch({ readingText })} />
               </Field>
             </Can>
           ) : null}
@@ -704,6 +704,7 @@ function PreviewPanel({
   t: ReturnType<typeof useT>["t"];
   onGoto: (step: number) => void;
 }) {
+  const fmt = useFmt();
   const visible = gates.filter((g) => canClose || (g !== "no_close_permission" && g !== "not_supervisor"));
   return (
     <section aria-labelledby="close-preview" data-slot="close-preview" className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface-sunken p-4">
@@ -724,10 +725,10 @@ function PreviewPanel({
             </p>
           </div>
           <dl className="m-0 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Fig label={t("press.console.input")} value={`${kgFromG(figures.inputG)} ${t("units.kg")}`} testid="preview-input" />
-            <Fig label={t("press.console.good")} value={`${kgFromG(figures.goodG)} ${t("units.kg")}`} testid="preview-good" />
-            <Fig label={t("press.console.reject")} value={`${kgFromG(figures.rejectG)} ${t("units.kg")}`} testid="preview-reject" />
-            <Fig label={t("press.console.balanceLabel")} value={`${kgFromG(figures.balanceG)} ${t("units.kg")}`} testid="preview-balance" />
+            <Fig label={t("press.console.input")} value={`${kgGrouped1(fmt, figures.inputG)} ${massUnit(fmt)}`} testid="preview-input" />
+            <Fig label={t("press.console.good")} value={`${kgGrouped1(fmt, figures.goodG)} ${massUnit(fmt)}`} testid="preview-good" />
+            <Fig label={t("press.console.reject")} value={`${kgGrouped1(fmt, figures.rejectG)} ${massUnit(fmt)}`} testid="preview-reject" />
+            <Fig label={t("press.console.balanceLabel")} value={`${kgGrouped1(fmt, figures.balanceG)} ${massUnit(fmt)}`} testid="preview-balance" />
           </dl>
           {figures.balanceWarn ? <p className="m-0 text-[14px] leading-6">{t("press.console.balanceWarn", { pct: warnPct })}</p> : null}
         </>

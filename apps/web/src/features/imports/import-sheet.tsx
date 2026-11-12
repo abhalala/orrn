@@ -1,4 +1,4 @@
-import { formatKg, formatLength, type LengthUnit } from "@orrn/domain";
+import { formatLength, type LengthUnit } from "@orrn/domain";
 import { useT, type Translate } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { motionClass } from "@orrn/ui/components/motion";
@@ -11,6 +11,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, UploadCloud } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 
+import { useFmt } from "@/shared/lib/fmt";
+import { bandEndText, kgGrouped2, massUnit, sectionUnit } from "@/shared/lib/fmt-text";
 import { useLengthUnit } from "@/shared/lib/length";
 import { useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
@@ -1035,8 +1037,10 @@ function ColumnsRead({
   );
 }
 
-function Preview({ kind, unit, ops }: { kind: ImportKind; unit: LengthUnit; ops: readonly Op[] }) {
+/** The first rows as they will be saved. The weights are the plant's own unit, as every screen shows them (the file's columns are read as kg). */
+export function Preview({ kind, unit, ops }: { kind: ImportKind; unit: LengthUnit; ops: readonly Op[] }) {
   const { t } = useT();
+  const pf = useFmt();
   const headingId = useId();
   const lines = ops.map((op) => {
     let title: ReactNode;
@@ -1048,7 +1052,7 @@ function Preview({ kind, unit, ops }: { kind: ImportKind; unit: LengthUnit; ops:
           {b.dieSeries} / {b.dieSectionCode}
         </span>
       );
-      facts = [`${fmt(b.quantity)} ${t("units.pcs")}`, `${formatKg(b.weightG / 1000)} ${t("units.kg")}`, formatLength(b.lengthMm, unit)];
+      facts = [`${fmt(b.quantity)} ${t("units.pcs")}`, `${kgGrouped2(pf, b.weightG)} ${massUnit(pf)}`, formatLength(b.lengthMm, unit)];
     } else if (kind === "dies") {
       const d = op.data as DieImportRow;
       title = (
@@ -1056,7 +1060,7 @@ function Preview({ kind, unit, ops }: { kind: ImportKind; unit: LengthUnit; ops:
           {d.series} / {d.sectionCode}
         </span>
       );
-      facts = [`${formatKg(d.weightMinG / 1000)}-${formatKg(d.weightMaxG / 1000)} ${t("units.kgPer12ft")}`];
+      facts = [`${bandEndText(pf, d.weightMinG)}-${bandEndText(pf, d.weightMaxG)} ${sectionUnit(pf)}`];
       if (d.name) facts.unshift(<span className="font-sans">{d.name}</span>);
     } else {
       const c = op.data as CustomerImportRow;

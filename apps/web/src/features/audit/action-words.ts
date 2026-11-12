@@ -179,6 +179,7 @@ export const AUDIT_ACTION_WORDS: ReadonlySet<string> = new Set([
   "portal.user.grant",
   "portal.user.revoke",
   "press.alert.ack",
+  "press.alert.ackEnded",
   "press.alert.threshold",
   "press.run.close",
   "press_downtime.start",

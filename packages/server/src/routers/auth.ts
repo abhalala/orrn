@@ -6,6 +6,7 @@ import { hashPassword } from "@orrn/auth/password";
 import { account, session as sessionTable, user } from "@orrn/db/schema/auth";
 import { company } from "@orrn/db/schema/tenant";
 import { createAuth } from "@orrn/auth";
+import { readUnitSettings, screenPrefs } from "@orrn/domain";
 import type { LengthUnit } from "../lib/length";
 
 import { atomicBatch, type SqliteBatchItem } from "../lib/atomic";
@@ -91,6 +92,8 @@ export const authRouter = router({
               modules: companyRow.modules ?? [],
               role: ctx.role,
               settings: (companyRow.settings ?? {}) as { lengthUnit?: LengthUnit; [key: string]: unknown },
+              /** Units and formats every screen of this plant uses (default, then the plant's choice). */
+              units: screenPrefs(readUnitSettings(companyRow.settings)),
             }
           : null,
       /** Every active company this user belongs to, most recent first (spec P10). */

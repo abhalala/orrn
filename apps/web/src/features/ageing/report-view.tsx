@@ -16,6 +16,8 @@ import { useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { companyToday } from "@/features/masters/masters-ui";
 import { ReportActions, ReportPrintStyle, ReportsGate, ReportTableFrame, NUM, TD, TH } from "@/features/reports/report-chrome";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
+import { useFmt } from "@/shared/lib/fmt";
+import { cutLengthText } from "@/shared/lib/fmt-text";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
@@ -36,6 +38,7 @@ const PAGE = 100;
  */
 export function AgeingReport({ search, onSearch }: { search: AgeingReportSearch; onSearch: (next: AgeingReportSearch) => void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const when = useCompanyWhen();
   const tz = useCompanyTimeZone();
   const queryClient = useQueryClient();
@@ -86,7 +89,7 @@ export function AgeingReport({ search, onSearch }: { search: AgeingReportSearch;
     { key: "order", header: t("ageing.field.salesOrder"), hideOnPhone: true, cell: (r) => [r.salesOrderNumber, r.customerName, r.customerPo].filter(Boolean).join(" · ") || "-" },
     { key: "cast", header: t("ageing.field.cast"), hideOnPhone: true, cell: (r) => <span className="font-mono">{r.castCode ?? "-"}</span> },
     { key: "section", header: t("ageing.field.section"), cell: (r) => [r.dieInstanceCode, r.sectionLabel].filter(Boolean).join(" · ") },
-    { key: "len", header: t("ageing.field.cutLength"), hideOnPhone: true, align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.lengthMm}</span> },
+    { key: "len", header: t("ageing.field.cutLength"), hideOnPhone: true, align: "end", cell: (r) => <span className="font-mono tabular-nums">{cutLengthText(fmt, r.lengthMm)}</span> },
     { key: "loaded", header: t("ageing.field.loaded"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.loadedPcs}</span> },
     { key: "taken", header: t("ageing.report.taken"), hideOnPhone: true, align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.takenByPackPcs}</span> },
     { key: "bundles", header: t("ageing.report.onBundles"), hideOnPhone: true, align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.onBundlesPcs}</span> },

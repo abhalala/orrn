@@ -7,12 +7,15 @@ import { useQuery } from "@tanstack/react-query";
 
 import { trpc } from "@/shared/utils/trpc";
 
-import { bandPosition, kgPer12ftText, sectionMarker, sectionTitle } from "./model";
+import { bandPosition, sectionMarker, sectionTitle } from "./model";
 import { PortalError, PortalSkeleton } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { sectionText, sectionUnit } from "@/shared/lib/fmt-text";
 
 /** `/portal/dies`: the sections the plant opened for this party and the ones it owns, with their copies. */
 export function PortalDiesPage() {
   const { t } = useT();
+  const fmt = useFmt();
   const q = useQuery({ ...trpc.portal.sections.visible.queryOptions(), retry: false });
   return (
     <>
@@ -43,7 +46,7 @@ export function PortalDiesPage() {
                     </div>
                     <CardDescription>
                       {[s.name, s.profileKind, [s.alloy, s.temper].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
-                      {s.band ? ` · ${t("portal.dies.bandRange", { min: kgPer12ftText(s.band.minG), max: kgPer12ftText(s.band.maxG) })}` : ""}
+                      {s.band ? ` · ${t("portal.dies.bandRange", { sectionUnit: sectionUnit(fmt), min: sectionText(fmt, s.band.minG), max: sectionText(fmt, s.band.maxG) })}` : ""}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -63,14 +66,14 @@ export function PortalDiesPage() {
                                 {c.latestKgPer12ftMilli == null ? (
                                   <span className="font-sans text-muted-foreground">{t("portal.dies.noReading")}</span>
                                 ) : (
-                                  `${kgPer12ftText(c.latestKgPer12ftMilli)} ${t("units.kgPer12ft")}`
+                                  `${sectionText(fmt, c.latestKgPer12ftMilli)} ${sectionUnit(fmt)}`
                                 )}
                               </span>
                               {pos ? (
                                 <Chip tone={pos.position === "in" ? "green" : "amber"} truncate={false}>
                                   {pos.position === "in"
                                     ? t("portal.dies.inBand")
-                                    : t(pos.position === "over" ? "portal.dies.overBand" : "portal.dies.underBand", { kg: kgPer12ftText(pos.offG) })}
+                                    : t(pos.position === "over" ? "portal.dies.overBand" : "portal.dies.underBand", { sectionUnit: sectionUnit(fmt), kg: sectionText(fmt, pos.offG) })}
                                 </Chip>
                               ) : null}
                             </li>

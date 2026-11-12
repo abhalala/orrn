@@ -1,6 +1,8 @@
-import { tolerancePercentText } from "@orrn/domain";
+import { tolerancePercentText, type Fmt } from "@orrn/domain";
 import type { MessageKey, Translate, TranslateVars } from "@orrn/i18n";
 import type { ScanOutcome, ScanRefusalCode } from "@orrn/server/lib/scan";
+
+import { sectionText } from "@/shared/lib/fmt-text";
 
 const BUNDLE_STATUSES = ["available", "reserved", "dispatched", "void"] as const;
 type BundleStatus = (typeof BUNDLE_STATUSES)[number];
@@ -88,10 +90,12 @@ export function overToleranceText(t: Translate, report: Pick<AddBundlesReport, "
 export type OffBandWarning = { serial: string; orderNumber: string; lineNo: number; bundleMilli: number; lineMilli: number; diffMilli: number };
 
 /** The warning for one added serial in the floor's words ("2.620 kg/12ft, the order says 2.500"), or null. */
-export function offBandText(t: Translate, report: Pick<AddBundlesReport, "warnings">, serial: string): string | null {
+export function offBandText(t: Translate, report: Pick<AddBundlesReport, "warnings">, serial: string, fmt?: Fmt): string | null {
   const w = report.warnings?.find((x) => x.serial === serial);
   if (!w) return null;
-  return t("scan.continuous.offBand", { kg: (w.bundleMilli / 1000).toFixed(3), line: (w.lineMilli / 1000).toFixed(3), order: w.orderNumber });
+  // The words beside the figures are the plant's section unit, so the figures are written in it (today's three decimals without a formatter).
+  const sec = (milli: number) => (fmt ? sectionText(fmt, milli) : (milli / 1000).toFixed(3));
+  return t("scan.continuous.offBand", { kg: sec(w.bundleMilli), line: sec(w.lineMilli), order: w.orderNumber });
 }
 
 /**

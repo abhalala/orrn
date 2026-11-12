@@ -9,6 +9,7 @@ import { useId, useMemo, useState, type ReactNode } from "react";
 import { categoryLabel, unitShort } from "./store-labels";
 import { formatQty, STORE_CATEGORIES } from "./store-qty";
 import { storeItemPath } from "./store-ui";
+import { useFmt } from "@/shared/lib/fmt";
 
 /** One row of the list: a balance row (store.balances) or an item with its balance (Store items page). */
 export type BalanceRow = {
@@ -50,6 +51,7 @@ export function BalanceFilters({
   onCategory(c: string): void;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   // NativeSelect does not read the Field context, so the label is tied by id.
   const categoryId = `store-category-${useId().replace(/:/g, "")}`;
   return (
@@ -74,10 +76,11 @@ export function BalanceFilters({
 /** "12.5 kg" with the number in mono. Never truncated. */
 export function Qty({ milli, unit, className }: { milli: number; unit: string; className?: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <span data-no-truncate="" className={className}>
-      <span className="font-mono font-medium tabular-nums">{formatQty(milli)}</span>{" "}
-      <span className="text-muted-foreground">{unitShort(t, unit, Math.abs(milli))}</span>
+      <span className="font-mono font-medium tabular-nums">{formatQty(milli, unit, fmt)}</span>{" "}
+      <span className="text-muted-foreground">{unitShort(t, unit, Math.abs(milli), fmt)}</span>
     </span>
   );
 }
@@ -88,6 +91,7 @@ export function Qty({ milli, unit, className }: { milli: number; unit: string; c
  */
 export function ItemStatus({ row }: { row: Pick<BalanceRow, "active" | "balanceMilli"> }) {
   const { t } = useT();
+  const fmt = useFmt();
   if (!row.active) return <Chip tone="neutral">{t("store.status.retired")}</Chip>;
   if (row.balanceMilli <= 0) return <Chip tone="amber">{t("store.status.empty")}</Chip>;
   return <span className="text-[14px] text-muted-foreground">{t("store.status.inStock")}</span>;
@@ -109,6 +113,7 @@ export function BalancesList({
   label: string;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const columns: ResponsiveListColumn<BalanceRow>[] = [
     { key: "item", header: t("store.columns.item"), cell: (r) => <span className="break-words">{r.name}</span> },
     {
@@ -140,6 +145,7 @@ export function BalancesList({
 /** Empty list: no items at all, or nothing matching the search or category. */
 export function BalancesEmpty({ hasAny, query, action }: { hasAny: boolean; query: string; action?: ReactNode }) {
   const { t } = useT();
+  const fmt = useFmt();
   if (!hasAny) return <EmptyState title={t("store.noItems")} body={t("store.noItemsBody")} action={action} />;
   if (query.trim()) return <EmptyState title={t("common.noResults", { query: query.trim() })} />;
   return <EmptyState title={t("store.noItemsInCategory")} />;

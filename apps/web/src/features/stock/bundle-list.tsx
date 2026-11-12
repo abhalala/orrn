@@ -1,17 +1,19 @@
-import { bundleTone, formatKg, formatLength, gToKg, type BundleStatus } from "@orrn/domain";
+import { bundleTone, type BundleStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Chip } from "@orrn/ui/components/chip";
 import { ResponsiveList, type ResponsiveListColumn, type ResponsiveListPage } from "@orrn/ui/components/responsive-list";
 import { breakpoints, useMediaQuery } from "@orrn/ui/hooks/use-media-query";
 import type { ReactNode } from "react";
 
-import { kg12Text, positionKey, positionTone, type ServerPosition } from "@/features/pack/line-preview";
+import { positionKey, positionTone, type ServerPosition } from "@/features/pack/line-preview";
 import { partyNoLabel } from "@/features/pack/party";
 import { useLengthUnit } from "@/shared/lib/length";
 import { bundleDetailPath } from "@/shared/lib/paths";
 
 import { sectionLabel } from "./sections";
 import { useCompanyWhen } from "./use-company-when";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
 
 /** One `bundle.listBundles` item (dates arrive as ISO strings). */
 export type BundleListItem = {
@@ -66,6 +68,7 @@ export function BundleList({
   showSection?: boolean;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   const lu = useLengthUnit();
   const when = useCompanyWhen();
   // Same breakpoint as ResponsiveList's table.
@@ -115,9 +118,9 @@ export function BundleList({
     },
     {
       key: "weight",
-      header: t("stock.columns.weight"),
+      header: t("stock.columns.weight", { massUnit: massUnit(fmt) }),
       align: "end",
-      cell: (r) => <span className="font-mono">{formatKg(gToKg(r.weightG))}</span>,
+      cell: (r) => <span className="font-mono">{kgGrouped2(fmt, (r.weightG))}</span>,
     },
     ...(wide
       ? ([
@@ -131,7 +134,7 @@ export function BundleList({
             key: "length",
             header: t("stock.columns.cutLength"),
             align: "end",
-            cell: (r) => <span className="font-mono">{formatLength(r.lengthMm, lu.unit)}</span>,
+            cell: (r) => <span className="font-mono">{fmt.q("bundle.length", r.lengthMm)}</span>,
           },
         ] satisfies ResponsiveListColumn<BundleListItem>[])
       : ([
@@ -141,18 +144,18 @@ export function BundleList({
             header: t("stock.columns.piecesLength"),
             cell: (r) => (
               <span className="font-mono whitespace-nowrap">
-                {r.quantity} × {formatLength(r.lengthMm, lu.unit)}
+                {r.quantity} × {fmt.q("bundle.length", r.lengthMm)}
               </span>
             ),
           },
         ] satisfies ResponsiveListColumn<BundleListItem>[])),
     {
       key: "kg12",
-      header: t("stock.columns.kgPer12ft"),
+      header: t("stock.columns.kgPer12ft", { sectionUnit: sectionUnit(fmt) }),
       align: "end",
       cell: (r) => {
         // The server's figure and verdict, never worked out here (D15).
-        const k = kg12Text(r.kgPer12ftMilli ?? null);
+        const k = sectionOrNull(fmt, r.kgPer12ftMilli ?? null);
         const key = positionKey(r.band?.position ?? null);
         return (
           <span className="inline-flex items-center justify-end gap-2">

@@ -5,6 +5,8 @@
  * role, so meta is treated as data: ids only become links when they look like
  * ids.
  */
+import type { Fmt } from "@orrn/domain";
+import { dayClockText, kgGrouped3, massUnit, pinned, sectionText, windowText } from "@/shared/lib/fmt-text";
 import type { StatusTone } from "@orrn/domain";
 import type { MessageKey } from "@orrn/i18n";
 import type { MoveFacts, OffBandFacts, TierFacts } from "@orrn/server/lib/approvalFacts";
@@ -36,6 +38,16 @@ export type ApprovalSubject = {
   /** Label of the link to the subject ("Open lot"), null when there is no screen for it yet. */
   openKey: MessageKey | null;
 };
+
+/**
+ * Review finding 3: whose words the request's note is. A note typed at Complete lands on the request the
+ * scanner opened; its author (`meta.noteById`, named by `approval.list` as `noteByName`) is named then.
+ */
+export function noteAuthorName(row: { requestedBy: string | null; meta: Record<string, unknown> | null; noteByName?: string | null }): string | null {
+  const by = row.meta?.noteById;
+  if (typeof by !== "string" || by === row.requestedBy) return null;
+  return row.noteByName ?? null;
+}
 
 /** uuid-ish or the seed's readable ids: letters, digits, dashes and underscores only. */
 const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -116,11 +128,13 @@ export type FoundryFigure = { labelKey: MessageKey; value: string };
  * billets produced, the tail and its share, or the melt's metal in and logs. Absent figures are
  * left out (a request made before a figure existed).
  */
-export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknown> | null | undefined): FoundryFigure[] {
+export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknown> | null | undefined, fmt?: Fmt): FoundryFigure[] {
+  const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
+  const U = fmt ? massUnit(fmt) : "kg";
   const m = meta ?? {};
   const rows: FoundryFigure[] = [];
   const kg = (g: number | null, labelKey: MessageKey) => {
-    if (g !== null) rows.push({ labelKey, value: `${moveKgText(g)} kg` });
+    if (g !== null) rows.push({ labelKey, value: `${W(g)} ${U}` });
   };
   if (kind === "cast_close") {
     kg(num(m.producedG), "approvals.foundry.produced");
@@ -128,11 +142,11 @@ export function foundryFiguresOf(kind: ApprovalKind, meta: Record<string, unknow
     kg(num(m.ledgerOnHandG), "approvals.foundry.ledgerOnHand");
     kg(num(m.countedG), "approvals.foundry.counted");
     const adjust = num(m.adjustG);
-    if (adjust !== null && adjust !== 0) rows.push({ labelKey: "approvals.foundry.adjust", value: `${adjust < 0 ? "-" : "+"}${moveKgText(Math.abs(adjust))} kg` });
+    if (adjust !== null && adjust !== 0) rows.push({ labelKey: "approvals.foundry.adjust", value: `${adjust < 0 ? "-" : "+"}${W(Math.abs(adjust))} ${U}` });
     const tail = num(m.tailG);
     if (tail !== null) {
       const pct = bpPct(num(m.tailBp));
-      rows.push({ labelKey: "approvals.foundry.tail", value: `${tail < 0 ? "-" : ""}${moveKgText(Math.abs(tail))} kg${pct ? ` (${pct}%)` : ""}` });
+      rows.push({ labelKey: "approvals.foundry.tail", value: `${tail < 0 ? "-" : ""}${W(Math.abs(tail))} ${U}${pct ? ` (${pct}%)` : ""}` });
     }
     kg(num(m.shortG) && num(m.shortG)! > 0 ? num(m.shortG) : null, "approvals.foundry.short");
   } else if (kind === "melt_correct") {
@@ -170,15 +184,18 @@ export function foundryLiveOf(
   subjectId: string,
   meta: Record<string, unknown> | null | undefined,
   live: FoundryLiveSource,
+  fmt?: Fmt,
 ): { rows: FoundryFigure[]; notes: FoundryLiveNote[] } | null {
+  const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
+  const U = fmt ? massUnit(fmt) : "kg";
   const m = meta ?? {};
-  const kg = (g: number, labelKey: MessageKey): FoundryFigure => ({ labelKey, value: `${moveKgText(g)} kg` });
+  const kg = (g: number, labelKey: MessageKey): FoundryFigure => ({ labelKey, value: `${W(g)} ${U}` });
   if (kind === "cast_close") {
     const notes: FoundryLiveNote[] = [];
     const asked = num(m.ledgerOnHandG);
     const now = live.closeout.billetsOnHandG;
-    if (asked !== null && now < asked) notes.push({ key: "approvals.foundry.usedSince", kg: moveKgText(asked - now) });
-    else if (asked !== null && now > asked) notes.push({ key: "approvals.foundry.addedSince", kg: moveKgText(now - asked) });
+    if (asked !== null && now < asked) notes.push({ key: "approvals.foundry.usedSince", kg: W(asked - now) });
+    else if (asked !== null && now > asked) notes.push({ key: "approvals.foundry.addedSince", kg: W(now - asked) });
     if (live.cast.status !== "closing") notes.push({ key: "approvals.foundry.castMoved" });
     return {
       rows: [kg(live.closeout.producedG, "approvals.foundry.produced"), kg(live.closeout.inputG, "approvals.foundry.metalIn"), kg(now, "approvals.foundry.ledgerOnHand")],
@@ -224,10 +241,16 @@ export function lateEntryOf(row: Pick<ApprovalForView, "subjectId" | "meta">): L
 }
 
 /** The time a `dispatch_late_entry` request asks to record as the truck leaving (null on a malformed row). */
-export function lateDispatchOf(row: Pick<ApprovalForView, "kind" | "meta">): { occurredAt: number } | null {
+export function lateDispatchOf(
+  row: Pick<ApprovalForView, "kind" | "meta">,
+): { occurredAt: number; load?: { bundles: number; weightG: number } } | null {
   if (row.kind !== "dispatch_late_entry") return null;
   const at = num(row.meta?.occurredAt);
-  return at === null ? null : { occurredAt: at };
+  if (at === null) return null;
+  // Review 7: the bundles on the dispatch when it was asked (the approval covers that load only).
+  const bundles = num(row.meta?.bundles);
+  const weightG = num(row.meta?.weightG);
+  return bundles === null || weightG === null ? { occurredAt: at } : { occurredAt: at, load: { bundles, weightG } };
 }
 
 /** Whole hours between the truck leaving and the request (never below 0). */
@@ -235,34 +258,17 @@ export function lateHours(occurredAt: number, askedAt: number): number {
   return Math.max(0, Math.round((askedAt - occurredAt) / 3_600_000));
 }
 
-function zonedParts(at: number, timeZone: string): { day: string; month: string; hour: string; minute: string } {
-  const fmt = (tz: string | undefined) =>
-    new Intl.DateTimeFormat("en-GB", { timeZone: tz, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(at));
-  let parts: Intl.DateTimeFormatPart[];
-  try {
-    parts = fmt(timeZone);
-  } catch {
-    parts = fmt(undefined);
-  }
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
-  return { day: get("day"), month: get("month"), hour: get("hour"), minute: get("minute") };
-}
-
 /**
- * "24 Oct 21:00" in the plant's time zone (not the device's), built from parts so the wording is
- * the same on every ICU.
+ * "24 Oct 21:00" in the plant's time zone (not the device's), in English month names as the approvals have always
+ * read, with the plant's date order and clock. `tz` is the plant zone the screen already holds.
  */
-export function plantTimeText(at: number, timeZone: string): string {
-  const p = zonedParts(at, timeZone);
-  return `${p.day} ${p.month} ${p.hour}:${p.minute}`;
+export function plantTimeText(fmt: Fmt, at: number, tz?: string): string {
+  return dayClockText(pinned(fmt, { zone: tz, locale: "en" }), at);
 }
 
 /** "24 Oct 21:00 to 23:00", or both dates when the run crosses midnight. */
-export function lateWindowText(startedAt: number, stoppedAt: number, timeZone: string): string {
-  const a = zonedParts(startedAt, timeZone);
-  const b = zonedParts(stoppedAt, timeZone);
-  const sameDay = a.day === b.day && a.month === b.month;
-  return `${a.day} ${a.month} ${a.hour}:${a.minute} to ${sameDay ? "" : `${b.day} ${b.month} `}${b.hour}:${b.minute}`;
+export function lateWindowText(fmt: Fmt, startedAt: number, stoppedAt: number, tz?: string): string {
+  return windowText(pinned(fmt, { zone: tz, locale: "en" }), startedAt, stoppedAt);
 }
 
 /** "2 h 05 min" between two instants. */
@@ -280,13 +286,27 @@ export type SubjectWords = { plant: string; mainBand?: string; otherBand?: strin
  * One end of a band lift (M6): the band's label or kg range as the server wrote it, the main band
  * for no band id, "another band" for an older request that only kept the id.
  */
-function bandEnd(id: unknown, label: unknown, words: SubjectWords): string {
+/**
+ * The server writes a band with no label as "5.900-6.200", kg per 12 ft with three decimals and no unit. On a plant that reads another
+ * section unit that text is turned into the plant's unit; a label (a name a person typed) is kept as it is.
+ */
+const BAND_RANGE = /^(\d+)\.(\d{3})-(\d+)\.(\d{3})$/;
+export function bandWordText(text: string, fmt?: Fmt): string {
+  const m = fmt ? BAND_RANGE.exec(text) : null;
+  if (!fmt || !m) return text;
+  const milli = (whole: string, frac: string) => Number(whole) * 1000 + Number(frac);
+  return `${sectionText(fmt, milli(m[1]!, m[2]!))}-${sectionText(fmt, milli(m[3]!, m[4]!))}`;
+}
+
+function bandEnd(id: unknown, label: unknown, words: SubjectWords, fmt?: Fmt): string {
   const named = str(label);
-  if (named) return named;
+  if (named) return bandWordText(named, fmt);
   return id == null ? (words.mainBand ?? "main band") : (words.otherBand ?? "another band");
 }
 
-export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }): ApprovalSubject {
+export function approvalSubject(row: ApprovalForView, words: SubjectWords = { plant: "plant stock" }, fmt?: Fmt): ApprovalSubject {
+  const W = (g: number) => (fmt ? kgGrouped3(fmt, g) : moveKgText(g));
+  const U = fmt ? massUnit(fmt) : "kg";
   const kindKey = `approvals.kind.${row.kind}` as MessageKey;
   const m = row.meta ?? {};
   if (row.kind === "press_late_entry") {
@@ -305,7 +325,7 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
       return {
         kindKey,
         titleKey: "approvals.subject.reallocate",
-        vars: { count: move.count, kg: moveKgText(move.kgG), from: moveFromText(move.from, words.plant), to: moveEndText(move.to, words.plant) },
+        vars: { count: move.count, kg: W(move.kgG), from: moveFromText(move.from, words.plant), to: moveEndText(move.to, words.plant) },
         href: move.orderId ? `/orders/${move.orderId}` : null,
         openKey: move.orderId ? "approvals.openOrder" : null,
       };
@@ -339,7 +359,7 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
     const openKey: MessageKey | null = sectionId ? "approvals.openDie" : null;
     // M6: a band lift names the bands ("main band to Heavy 2.600-2.800"), not "tier 2 to 2".
     if (m.isLift === true) {
-      const vars = { code: text(m.code), from: bandEnd(m.fromBandId, m.fromBandText, words), to: bandEnd(m.toBandId, m.toBandText, words) };
+      const vars = { code: text(m.code), from: bandEnd(m.fromBandId, m.fromBandText, words, fmt), to: bandEnd(m.toBandId, m.toBandText, words, fmt) };
       if (typeof m.fromRank === "number" && typeof m.toRank === "number" && m.fromRank !== m.toRank) {
         return { kindKey, titleKey: "approvals.subject.dieLiftRank", vars: { ...vars, fromRank: m.fromRank, toRank: m.toRank }, href, openKey };
       }
@@ -357,7 +377,7 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
     return {
       kindKey,
       titleKey: tail === null ? "approvals.subject.castCloseBare" : "approvals.subject.castClose",
-      vars: { number: castNumber, kg: tail === null ? "" : moveKgText(Math.abs(tail)) },
+      vars: { number: castNumber, kg: tail === null ? "" : W(Math.abs(tail)) },
       href: safeId(row.subjectId) ? `/casts/${row.subjectId}` : null,
       openKey: safeId(row.subjectId) ? "approvals.openCast" : null,
     };
@@ -365,7 +385,8 @@ export function approvalSubject(row: ApprovalForView, words: SubjectWords = { pl
   if (row.kind === "dispatch_off_band") {
     // Q36: the bundle, its dispatch and both weights (meta is the request's snapshot).
     const dispatchId = safeId(m.dispatchId);
-    const milli = (v: unknown) => (num(v) === null ? "" : (num(v)! / 1000).toFixed(3));
+    // A section weight in the plant's unit (the number and the word beside it agree); today's three decimals without a formatter.
+    const milli = (v: unknown) => (num(v) === null ? "" : fmt ? sectionText(fmt, num(v)!) : (num(v)! / 1000).toFixed(3));
     return {
       kindKey,
       titleKey: "approvals.subject.offBand",
@@ -521,8 +542,8 @@ export function moveFactsView(f: MoveFacts) {
 }
 
 /** An off-band row as it stands now (Q36): gone, moved to another line, or still where it was asked. */
-export function offBandFactsView(f: OffBandFacts) {
-  const kg = (milli: number | null) => (milli === null ? null : (milli / 1000).toFixed(3));
+export function offBandFactsView(f: OffBandFacts, fmt?: Fmt) {
+  const kg = (milli: number | null) => (milli === null ? null : fmt ? sectionText(fmt, milli) : (milli / 1000).toFixed(3));
   if (!f.row) return { gone: true as const };
   return {
     gone: false as const,
@@ -535,21 +556,25 @@ export function offBandFactsView(f: OffBandFacts) {
 }
 
 /** A tier change as it stands now: the copy now, what is asked, the last reading against the band. */
-export function tierFactsView(f: TierFacts, words: { mainBand: string }) {
+export function tierFactsView(f: TierFacts, words: { mainBand: string }, fmt?: Fmt) {
   const r = f.reading;
   const position: "above" | "below" | "inside" | null = r ? (r.kgPer12ftMilli > f.copy.band.maxG ? "above" : r.kgPer12ftMilli < f.copy.band.minG ? "below" : "inside") : null;
   const rank = (n: number | null) => (n === null ? null : String(n));
+  // The band's text is the server's kg per 12 ft; a band with a label keeps the label.
+  const bandNow = fmt && f.copy.band.text === `${(f.copy.band.minG / 1000).toFixed(3)}-${(f.copy.band.maxG / 1000).toFixed(3)}`
+    ? `${sectionText(fmt, f.copy.band.minG)}-${sectionText(fmt, f.copy.band.maxG)}`
+    : f.copy.band.text;
   return {
     code: f.copy.code,
     nowTier: rank(f.copy.tierRank),
     askedFromTier: rank(f.request.fromRank),
     askedToTier: String(f.request.toRank),
     tierChanges: f.request.fromRank !== f.request.toRank,
-    nowBand: f.copy.band.main ? `${words.mainBand} ${f.copy.band.text}` : f.copy.band.text,
+    nowBand: f.copy.band.main ? `${words.mainBand} ${bandNow}` : bandNow,
     bandChange: f.request.isLift
-      ? { from: f.request.fromBandText ?? words.mainBand, to: f.request.toBandText ?? words.mainBand }
+      ? { from: f.request.fromBandText ? bandWordText(f.request.fromBandText, fmt) : words.mainBand, to: f.request.toBandText ? bandWordText(f.request.toBandText, fmt) : words.mainBand }
       : null,
-    readingKg: r ? (r.kgPer12ftMilli / 1000).toFixed(3) : null,
+    readingKg: r ? (fmt ? sectionText(fmt, r.kgPer12ftMilli) : (r.kgPer12ftMilli / 1000).toFixed(3)) : null,
     readAt: r ? r.readAt : null,
     position,
     changedSince: f.changedSince,

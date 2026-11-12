@@ -95,3 +95,17 @@ describe("final explore L8: combine button plural", () => {
     expect(interpolate(en.packingList.v2.combineSubmit, { count: 2 })).toBe("Combine 2 lists");
   });
 });
+
+describe("unit placeholders", () => {
+  test("a string with {massUnit} reads kg for a caller that passes nothing, and the plant's unit for one that does", () => {
+    const { t } = createI18n("en");
+    expect(t("stock.block.kg", { kg: "12.5" })).toBe("12.5 kg");
+    expect(t("stock.block.kg", { kg: "27.56", massUnit: "lb" })).toBe("27.56 lb");
+    expect(t("stock.block.band", { band: "2.40-2.60" })).toBe("2.40-2.60 kg/12ft");
+    expect(t("stock.block.band", { band: "0.44", sectionUnit: "lb/ft" })).toBe("0.44 lb/ft");
+    expect(t("stock.columns.weight")).toBe("Weight (kg)");
+  });
+  test("any other missing variable still shows its braces", () => {
+    expect(interpolate("{kg} {gone}", { kg: 1 })).toBe("1 {gone}");
+  });
+});

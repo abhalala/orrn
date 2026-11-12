@@ -10,7 +10,9 @@ import { trpc } from "@/shared/utils/trpc";
 
 import { usePortalMe } from "./hooks";
 import { bookDate, PortalError, PortalSkeleton } from "./ui";
-import { castState, certCasts, chemistryNotes, kgText, pcsText, type CertCast, type CertSnapshot } from "./model";
+import { castState, certCasts, chemistryNotes, type CertCast, type CertSnapshot } from "./model";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped3, massUnit } from "@/shared/lib/fmt-text";
 
 /**
  * `/portal/certificate/$dispatchId`: the test certificate of a dispatch, a frozen snapshot. It cites
@@ -18,7 +20,8 @@ import { castState, certCasts, chemistryNotes, kgText, pcsText, type CertCast, t
  * foundry has not tested. A quality document: no rate, not a tax invoice.
  */
 export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   usePortalMe();
   const q = useQuery({ ...trpc.portal.certificate.get.queryOptions({ dispatchId }), retry: false });
   const back = { to: `/portal/dispatches/${dispatchId}`, label: t("portal.dispatches.title") };
@@ -70,7 +73,7 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
         <dl className="m-0 grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
           {[
             { k: t("portal.certificate.number"), v: snap.number, mono: true },
-            { k: t("portal.certificate.issuedOn"), v: bookDate(snap.issuedOn, locale) },
+            { k: t("portal.certificate.issuedOn"), v: bookDate(fmt, snap.issuedOn) },
             { k: t("portal.certificate.dispatch"), v: snap.dispatch.code, mono: true },
             { k: t("portal.dispatches.plNo"), v: snap.dispatch.plNumber ?? "-", mono: true },
           ].map((f) => (
@@ -104,7 +107,7 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
                 {l.standardSource === "as_of_issue" ? <p className="m-0 text-[12px] text-muted-foreground">{t("portal.certificate.standardAsOfIssue")}</p> : null}
                 {!l.profileKindSet ? <p className="m-0 text-[12px] text-muted-foreground">{t("portal.certificate.profileKindNotSet")}</p> : null}
                 <p className="m-0 font-mono text-[14px] tabular-nums">
-                  {pcsText(l.bundles)} {t("portal.dispatches.bundlesLabel")} · {pcsText(l.pcs)} {t("units.pcs")} · {kgText(l.weightG)} {t("units.kg")}
+                  {countText(fmt, l.bundles)} {t("portal.dispatches.bundlesLabel")} · {countText(fmt, l.pcs)} {t("units.pcs")} · {kgGrouped3(fmt, l.weightG)} {massUnit(fmt)}
                 </p>
               </li>
             ))}
@@ -139,6 +142,7 @@ export function PortalCertificatePage({ dispatchId }: { dispatchId: string }) {
 
 export function CastBlock({ cast }: { cast: CertCast }) {
   const { t } = useT();
+  const fmt = useFmt();
   const state = castState(cast);
   return (
     <li className="flex min-w-0 flex-col gap-3 rounded-card border border-border p-3" data-cast={cast.castNo} data-cast-state={state}>
@@ -158,7 +162,7 @@ export function CastBlock({ cast }: { cast: CertCast }) {
         )}
       </div>
       <p className="m-0 font-mono text-[13px] tabular-nums text-muted-foreground">
-        {pcsText(cast.bundles)} {t("portal.dispatches.bundlesLabel")} · {kgText(cast.weightG)} {t("units.kg")}
+        {countText(fmt, cast.bundles)} {t("portal.dispatches.bundlesLabel")} · {kgGrouped3(fmt, cast.weightG)} {massUnit(fmt)}
         {cast.sectionCodes.length > 0 ? ` · ${cast.sectionCodes.join(", ")}` : ""}
       </p>
       {state !== "pending" ? (

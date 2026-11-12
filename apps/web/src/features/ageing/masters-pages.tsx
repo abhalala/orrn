@@ -11,7 +11,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { MasterNote, MastersLoadError, RowEdit } from "@/features/masters/masters-ui";
-import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { trpc } from "@/shared/utils/trpc";
@@ -19,6 +18,10 @@ import { trpc } from "@/shared/utils/trpc";
 import { useAgeingInvalidate, useDuration, type Oven, type Recipe, type Trolley } from "./hooks";
 import { kgFromText, kgToText, wholeFromText, x10FromText, x10Text } from "./model";
 import { FormSheet, FieldSelect as NativeSelect } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 type Status = "draft" | "active" | "out_of_service";
 
@@ -74,6 +77,7 @@ function Shell({ title, subtitle, add, children }: { title: string; subtitle: st
 // ---------------------------------------------------------------------------
 
 export function OvensPage() {
+  const fmt = useFmt();
   const { t } = useT();
   const access = useMasterAccess();
   const list = useQuery(trpc.ageing.ovens.list.queryOptions({ includeInactive: true }));
@@ -89,7 +93,7 @@ export function OvensPage() {
       ),
     },
     { key: "name", header: t("ageing.field.name"), cell: (r) => r.name ?? "-" },
-    { key: "cap", header: t("ageing.field.capacityKg"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.capacityG ? kgFromG(r.capacityG) : "-"}</span> },
+    { key: "cap", header: t("ageing.field.capacityKg"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.capacityG ? kgGrouped1(fmt, r.capacityG) : "-"}</span> },
     { key: "max", header: t("ageing.field.maxTemp"), align: "end", hideOnPhone: true, cell: (r) => <span className="font-mono tabular-nums">{r.maxTempX10 ? x10Text(r.maxTempX10) : "-"}</span> },
     { key: "use", header: t("ageing.masters.inUse"), hideOnPhone: true, cell: (r) => r.busyBatchNumber ?? "-" },
     { key: "status", header: t("ageing.masters.status"), phoneWide: true, cell: (r) => <StatusChip status={r.status} /> },
@@ -184,7 +188,7 @@ function OvenSheet({ open, onOpenChange, row }: { open: boolean; onOpenChange(o:
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("ageing.field.capacityKg")} error={tried && cap.trim() && capG === null ? t("ageing.masters.numberInvalid") : undefined}>
-          <NumberInput value={cap} onValueChange={setCap} suffix={t("units.kg")} data-testid="master-capacity" />
+          <PlantInput spec={MASS_KG} value={cap} onValueChange={setCap} data-testid="master-capacity" />
         </Field>
         <Field label={t("ageing.field.maxTemp")} error={tried && max.trim() && maxX10 === null ? t("ageing.masters.numberInvalid") : undefined}>
           <NumberInput value={max} onValueChange={setMax} suffix="°C" />
@@ -206,6 +210,7 @@ function OvenSheet({ open, onOpenChange, row }: { open: boolean; onOpenChange(o:
 // ---------------------------------------------------------------------------
 
 export function TrolleysPage() {
+  const fmt = useFmt();
   const { t } = useT();
   const access = useMasterAccess();
   const list = useQuery(trpc.ageing.trolleys.list.queryOptions({ includeInactive: true }));
@@ -220,7 +225,7 @@ export function TrolleysPage() {
         </RowEdit>
       ),
     },
-    { key: "cap", header: t("ageing.field.capacityKg"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.capacityG ? kgFromG(r.capacityG) : "-"}</span> },
+    { key: "cap", header: t("ageing.field.capacityKg"), align: "end", cell: (r) => <span className="font-mono tabular-nums">{r.capacityG ? kgGrouped1(fmt, r.capacityG) : "-"}</span> },
     { key: "use", header: t("ageing.masters.inUse"), hideOnPhone: true, cell: (r) => (r.openBatchNumber ? <span className="font-mono">{r.openBatchNumber}</span> : "-") },
     { key: "status", header: t("ageing.masters.status"), phoneWide: true, cell: (r) => <StatusChip status={r.status} /> },
   ];
@@ -294,7 +299,7 @@ function TrolleySheet({ open, onOpenChange, row }: { open: boolean; onOpenChange
         <TextInput value={code} maxLength={16} autoComplete="off" className="font-mono" onChange={(e) => setCode(e.currentTarget.value)} data-testid="master-code" />
       </Field>
       <Field label={t("ageing.field.capacityKg")} error={tried && cap.trim() && capG === null ? t("ageing.masters.numberInvalid") : undefined}>
-        <NumberInput value={cap} onValueChange={setCap} suffix={t("units.kg")} data-testid="master-capacity" />
+        <PlantInput spec={MASS_KG} value={cap} onValueChange={setCap} data-testid="master-capacity" />
       </Field>
       <StatusField value={status} onChange={setStatus} publish={access.publish} extra={[{ value: "out_of_service", label: t("ageing.masterStatus.out_of_service") }]} />
       <Field label={t("ageing.hold.note")} hint={t("common.optional")}>

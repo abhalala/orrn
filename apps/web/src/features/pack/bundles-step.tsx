@@ -1,4 +1,4 @@
-import { formatKg, formatKgTotal, formatLength, gToKg, lengthFromInput, type LengthUnit } from "@orrn/domain";
+import { gToKg, lengthFromInput, type LengthUnit } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -14,11 +14,9 @@ import {
   bandText,
   driftChipTone,
   driftText,
-  kg12Text,
   positionKey,
   positionTone,
-  type LineVerdict,
-} from "./line-preview";
+  type LineVerdict } from "./line-preview";
 import { lengthToInput, parsePieces, parseWeightG } from "./pack-math";
 import { Measure, PackBar, formatRangeKg, type RangeState } from "./pack-ui";
 import { RejectsPanel } from "./rejects-panel";
@@ -27,8 +25,7 @@ import {
   gramsToKgText,
   typedWeightNeedsReason,
   weightProvenance,
-  type ScaleView,
-} from "./scale-view";
+  type ScaleView } from "./scale-view";
 import { useLinePreview, useLinesPreview, useScale } from "./use-pack-server";
 import { focusSelected, stillMayFocus } from "./focus-weight";
 import {
@@ -39,8 +36,11 @@ import {
   removeReject,
   replaceBundle,
   type DraftBundle,
-  type PackDraft,
-} from "./use-pack-draft";
+  type PackDraft } from "./use-pack-draft";
+import { useFmt } from "@/shared/lib/fmt";
+import { countText, kgGrouped1, kgGrouped2, massUnit, sectionOrNull, sectionUnit } from "@/shared/lib/fmt-text";
+import { PlantInput } from "@/shared/components/plant-input";
+import { LENGTH_MM, MASS_KG, type EntrySpec } from "@/shared/lib/plant-input";
 
 type Props = {
   draft: PackDraft;
@@ -81,6 +81,7 @@ export function BundlesStep({
   onReview,
   announce,
 }: Props) {
+  const fmt = useFmt();
   const { t } = useT();
   const uid = useId();
   const weightRef = useRef<HTMLInputElement | null>(null);
@@ -229,7 +230,7 @@ export function BundlesStep({
       update((d) => addBundle(d, b));
       // The saved sentence names the server's verdict for this bundle when it is on screen.
       const word = live.verdict && positionKey(live.verdict.position) ? t(positionKey(live.verdict.position)!) : t("status.range.noRange");
-      announce(t("pack.new.bundleSaved", { n, kg: formatKg(gToKg(b.weightG)), pieces: b.pieces, status: word }));
+      announce(t("pack.new.bundleSaved", { massUnit: massUnit(fmt), n, kg: kgGrouped2(fmt, (b.weightG)), pieces: b.pieces, status: word }));
       setPopped(n - 1);
     }
     resetCard();
@@ -413,7 +414,7 @@ export function BundlesStep({
                 if (errors.weight) setErrors((x) => ({ ...x, weight: undefined }));
               }}
               onKeyDown={onWeightKey}
-              suffix={t("units.kg")}
+              spec={MASS_KG}
               error={errors.weight}
               enterKeyHint="next"
             />
@@ -535,9 +536,9 @@ export function BundlesStep({
               <span data-testid="pack-total-bundles" className="whitespace-nowrap">
                 {t("units.bundles", { count: draft.bundles.length })}
               </span>
-              <Measure value={totals.pieces.toLocaleString("en-IN")} unit={t("units.pcs")} />
-              <Measure value={formatKgTotal(gToKg(totals.weightG))} unit={t("units.kg")} />
-              {rejectPcs > 0 ? <Measure value={rejectPcs.toLocaleString("en-IN")} unit={t("pack.reject.unit")} /> : null}
+              <Measure value={countText(fmt, totals.pieces)} unit={t("units.pcs")} />
+              <Measure value={kgGrouped1(fmt, (totals.weightG))} unit={massUnit(fmt)} />
+              {rejectPcs > 0 ? <Measure value={countText(fmt, rejectPcs)} unit={t("pack.reject.unit")} /> : null}
             </span>
           </div>
         }
@@ -564,6 +565,7 @@ function BigNumberField({
   onChange,
   onKeyDown,
   suffix,
+  spec,
   error,
   enterKeyHint,
 }: {
@@ -573,7 +575,9 @@ function BigNumberField({
   value: string;
   onChange(v: string): void;
   onKeyDown?(e: KeyboardEvent<HTMLInputElement>): void;
-  suffix: string;
+  suffix?: string;
+  /** A weight or length box: takes the plant's unit while the draft stays in the unit the model reads. */
+  spec?: EntrySpec;
   error?: string;
   enterKeyHint?: "next" | "done";
 }) {
@@ -583,18 +587,31 @@ function BigNumberField({
       <label htmlFor={id} className="text-[14px] font-semibold leading-5">
         {label}
       </label>
-      <NumberInput
+      {spec ? (
+        <PlantInput spec={spec}
         id={id}
         ref={inputRef}
         value={value}
         onValueChange={onChange}
         onKeyDown={onKeyDown}
-        suffix={suffix}
-        enterKeyHint={enterKeyHint}
+                enterKeyHint={enterKeyHint}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         className="h-16 text-[28px] font-semibold tracking-[-0.01em] pointer-coarse:h-16"
       />
+      ) : (
+        <NumberInput
+        id={id}
+        ref={inputRef}
+        value={value}
+        onValueChange={onChange}
+        onKeyDown={onKeyDown}
+                enterKeyHint={enterKeyHint}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className="h-16 text-[28px] font-semibold tracking-[-0.01em] pointer-coarse:h-16"
+       suffix={suffix} />
+      )}
       {error ? (
         <p id={errorId} role="alert" className="m-0 flex items-start gap-1.5 text-[13px] font-medium leading-5 text-destructive">
           <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={2} />
@@ -626,6 +643,7 @@ function LiveReadout({
   copyCode: string | null;
   className?: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const key = verdict ? positionKey(verdict.position) : null;
   const tone = verdict === null ? "idle" : verdict.position === "in" ? "green" : verdict.position ? "amber" : "neutral";
@@ -634,14 +652,14 @@ function LiveReadout({
   const drift = verdict ? driftText(verdict.driftPercentTenths) : null;
   // The copy's band when the bundle names a copy, else the section's; the die range text until the server answers.
   const range = verdict?.band
-    ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band) })
+    ? t(verdict.band.source === "copy" ? "pack.new.liveBandCopy" : "pack.new.liveBand", { band: bandText(verdict.band, fmt) })
     : die
-      ? t("pack.new.liveRange", { min: formatRangeKg(die.weightMinG), max: formatRangeKg(die.weightMaxG) })
+      ? t("pack.new.liveRange", { min: formatRangeKg(die.weightMinG, fmt), max: formatRangeKg(die.weightMaxG, fmt) })
       : null;
   void copyCode;
   return (
     <div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-      <span className="text-[14px] font-semibold leading-5">{t("units.kgPer12ft")}</span>
+      <span className="text-[14px] font-semibold leading-5">{sectionUnit(fmt)}</span>
       <div
         data-slot="live-k12"
         data-tone={tone}
@@ -664,7 +682,7 @@ function LiveReadout({
         ) : (
           <>
             <span data-no-truncate="" data-testid="live-k12-value" className="font-mono text-[28px] font-semibold tracking-[-0.02em] tabular-nums">
-              {kg12Text(verdict.kgPer12ftMilli) ?? ""}
+              {sectionOrNull(fmt, verdict.kgPer12ftMilli) ?? ""}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[14px] font-bold">
               {key ? <Icon aria-hidden="true" strokeWidth={2} className="size-[18px]" /> : null}
@@ -715,13 +733,14 @@ function ScaleStrip({
   onReason(v: string): void;
   uid: string;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (view.state === "off") return null;
   const usingScale = view.state === "stable" && filledFrom === view.grams && weightText === gramsToFieldText(view.grams);
   const chip =
     view.state === "stable" ? (
       <Chip tone="green" data-testid="scale-chip" data-scale="stable">
-        {t("pack.scale.stable")} {gramsToKgText(view.grams)} {t("units.kg")}
+        {t("pack.scale.stable")} {gramsToKgText(view.grams, fmt)} {massUnit(fmt)}
       </Chip>
     ) : view.state === "waiting" ? (
       <Chip tone="amber" data-testid="scale-chip" data-scale="waiting">
@@ -825,11 +844,10 @@ function OverrideLength({
           </div>
         </div>
       ) : (
-        <NumberInput
+        <PlantInput spec={LENGTH_MM}
           aria-label={t("pack.new.cutLengthMm")}
           value={value.mm}
           onValueChange={(mm) => onChange({ ...value, mm })}
-          suffix={t("units.mm")}
           aria-invalid={error ? true : undefined}
           className="h-12"
         />
@@ -863,6 +881,7 @@ function SavedRow({
   popped: boolean;
   onEdit(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const lengthMm = bundle.lengthMm ?? defaultLength;
   return (
@@ -885,16 +904,16 @@ function SavedRow({
         {index + 1}
       </span>
       <span className="flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-0.5 text-[15px]">
-        <Measure value={formatKg(gToKg(bundle.weightG))} unit={t("units.kg")} className="font-semibold" />
+        <Measure value={kgGrouped2(fmt, (bundle.weightG))} unit={massUnit(fmt)} className="font-semibold" />
         <Measure value={String(bundle.pieces)} unit={t("units.pcs")} />
-        <span className="font-mono text-[14px] whitespace-nowrap">{formatLength(lengthMm, unit)}</span>
+        <span className="font-mono text-[14px] whitespace-nowrap">{fmt.q("bundle.length", lengthMm)}</span>
         {bundle.po !== undefined ? (
           <span className="text-[13px] whitespace-nowrap text-muted-foreground">
             {t("pack.new.poValue", { po: bundle.po })}
           </span>
         ) : null}
         {verdict?.kgPer12ftMilli != null ? (
-          <Measure value={kg12Text(verdict.kgPer12ftMilli) ?? ""} unit={t("units.kgPer12ft")} className="text-[14px]" />
+          <Measure value={sectionOrNull(fmt, verdict.kgPer12ftMilli) ?? ""} unit={sectionUnit(fmt)} className="text-[14px]" />
         ) : null}
         {bundle.weightSource === "manual" && bundle.weightOverrideReason ? (
           <span className="text-[13px] text-muted-foreground">{t("pack.scale.typed")}</span>
@@ -935,6 +954,7 @@ function SessionStrip({
   yardCode: string | null;
   onChange(): void;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   return (
     <div
@@ -951,7 +971,7 @@ function SessionStrip({
         <div className="flex items-baseline gap-2">
           <dt className="text-[13px] font-medium text-muted-foreground">{t("pack.new.cutLength")}</dt>
           <dd className="m-0 font-mono text-[15px] font-semibold whitespace-nowrap">
-            {formatLength(draft.defaults.lengthMm, unit)}
+            {fmt.q("bundle.length", draft.defaults.lengthMm)}
           </dd>
         </div>
         {yardCode ? (

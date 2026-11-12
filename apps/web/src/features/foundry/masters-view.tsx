@@ -14,13 +14,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { FieldTextArea } from "@/features/catalog/field-text-area";
-import { kgFromG } from "@/features/press/model";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
 import { trpc } from "@/shared/utils/trpc";
 
 import { ELEMENT_LABEL, furnaceInput, limitDraft, limitRows, limitText, type LimitDraft } from "./model";
 import { ErrorLine, LoadFailed, Note } from "./ui";
+import { PlantInput } from "@/shared/components/plant-input";
+import { DIAMETER_MM, MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { diameterText, diameterVars, kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 type Furnace = inferRouterOutputs<AppRouter>["foundry"]["furnaces"]["list"]["items"][number];
 type AlloyRow = inferRouterOutputs<AppRouter>["foundry"]["alloys"]["list"]["items"][number];
@@ -31,6 +34,7 @@ const STATUS_TONE = { active: "green", retired: "neutral" } as const;
 
 /** `/masters/furnaces` (FP-FD-01): code, name, capacity and billet diameter. Capacity is a limit the lock enforces. */
 export function FurnacesPage() {
+  const fmt = useFmt();
   const { t } = useT();
   const queryClient = useQueryClient();
   const query = useQuery({ ...trpc.foundry.furnaces.list.queryOptions(), meta: INLINE_ERROR_META });
@@ -53,8 +57,8 @@ export function FurnacesPage() {
   const columns: ResponsiveListColumn<Furnace>[] = [
     { key: "code", header: t("foundry.masters.code"), cell: (f) => <span className="font-mono text-[16px] font-bold">{f.code}</span> },
     { key: "name", header: t("foundry.masters.name"), cell: (f) => f.name },
-    { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgFromG(f.capacityG)} {t("units.kg")}</span> },
-    { key: "dia", header: t("foundry.masters.billetDia"), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? `${f.billetDiaMm} ${t("units.mm")}` : "-"}</span> },
+    { key: "cap", header: t("foundry.masters.capacity"), align: "end", cell: (f) => <span className="tabular-nums">{kgGrouped1(fmt, f.capacityG)} {massUnit(fmt)}</span> },
+    { key: "dia", header: t("foundry.masters.billetDia", diameterVars(fmt)), align: "end", cell: (f) => <span className="tabular-nums">{f.billetDiaMm ? diameterText(fmt, f.billetDiaMm, t("units.mm")) : "-"}</span> },
     { key: "status", header: t("foundry.masters.status"), phoneWide: true, cell: (f) => <Chip tone={STATUS_TONE[f.status]}>{t(`foundry.masters.state.${f.status}`)}</Chip> },
     {
       key: "edit",
@@ -96,6 +100,7 @@ export function FurnacesPage() {
 
 function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" | null; onClose(): void; onSaved(): void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const row = editing && editing !== "new" ? editing : null;
   const [form, setForm] = useState({ code: "", name: "", capacityKg: "", billetDiaMm: "" });
   const [seeded, setSeeded] = useState<string | null>(null);
@@ -154,10 +159,10 @@ function FurnaceSheet({ editing, onClose, onSaved }: { editing: Furnace | "new" 
           <TextInput value={form.name} maxLength={60} onChange={(e) => setForm({ ...form, name: e.currentTarget.value })} data-testid="furnace-name" />
         </Field>
         <Field label={t("foundry.masters.capacityKg")} hint={t("foundry.masters.capacityHint")} error={err === "capacity" ? t("foundry.masters.capacityInvalid") : undefined}>
-          <NumberInput value={form.capacityKg} suffix={t("units.kg")} onValueChange={(v) => setForm({ ...form, capacityKg: v })} data-testid="furnace-capacity" />
+          <PlantInput spec={MASS_KG} value={form.capacityKg} onValueChange={(v) => setForm({ ...form, capacityKg: v })} data-testid="furnace-capacity" />
         </Field>
-        <Field label={t("foundry.masters.billetDia")} error={err === "dia" ? t("foundry.masters.diaInvalid") : undefined}>
-          <NumberInput decimal={false} value={form.billetDiaMm} suffix={t("units.mm")} onValueChange={(v) => setForm({ ...form, billetDiaMm: v })} data-testid="furnace-dia" />
+        <Field label={t("foundry.masters.billetDia", diameterVars(fmt))} error={err === "dia" ? t("foundry.masters.diaInvalid") : undefined}>
+          <PlantInput spec={DIAMETER_MM} decimal={false} value={form.billetDiaMm} onValueChange={(v) => setForm({ ...form, billetDiaMm: v })} data-testid="furnace-dia" />
         </Field>
         {row ? (
           <div>

@@ -20,6 +20,11 @@ export function offBandStatusKey(status: OffBandStatus): MessageKey {
   return `dispatch.offBand.${status}` as MessageKey;
 }
 
+export function offBandChipText(t: Translate, item: { offBand?: boolean | null; kgPer12ftMilli?: number | null; lineKgPer12ftMilli?: number | null }): string | null {
+  if (!item.offBand) return null;
+  return t("dispatch.offBand.chip", { kg: ((item.kgPer12ftMilli ?? 0) / 1000).toFixed(3), line: ((item.lineKgPer12ftMilli ?? 0) / 1000).toFixed(3) });
+}
+
 /** Why Dispatch is off (rows rejected, then waiting), else what pressing it will ask. */
 export function offBandNote(summary: OffBandSummary | null | undefined): { key: MessageKey; count: number } | null {
   if (!summary) return null;
@@ -55,10 +60,21 @@ export function overdrawLines(state: OverdrawState | undefined): { lines: { line
   };
 }
 
+/**
+ * pl-flow 61 (web parity, `complete-sheet.tsx`): the note for the manager goes with Complete only while a
+ * line is over ordered + tolerance and something was written. The server fills the request's note only
+ * while it has none.
+ */
+export function overdrawExtras(over: ReturnType<typeof overdrawLines>, note: string): { overdrawNote?: string } {
+  return over && note.trim() ? { overdrawNote: note.trim() } : {};
+}
+
 /** A refused Complete in the floor's words when it is about the dispatch rules; null for anything else. */
 export function completeRefusalText(t: Translate, error: unknown): string | null {
   const e = (error && typeof error === "object" ? error : {}) as { message?: unknown; data?: { code?: unknown } | null };
   if (typeof e.message !== "string") return null;
+  // Check N6: an order line was saved while Dispatch ran; pressing again works.
+  if (e.data?.code === "CONFLICT") return /^The order was edited while you pressed Dispatch/i.test(e.message) ? t("dispatch.errors.orderEdited") : null;
   if (e.data?.code === "BAD_REQUEST") {
     // Arch 52: the server's own refusals of a late time (the sheet checks the same rule first).
     if (/in the future/i.test(e.message)) return t("dispatch.late.future");

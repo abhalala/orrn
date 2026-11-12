@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  documentPrefs, LEGACY_DOC_UNITS, ORRN_DEFAULT_PREFS, prefsKey, readUnitSettings, readUserPrefs, screenPrefs,
+  documentPrefs, LEGACY_DOC_UNITS, mergeUnitSettings, ORRN_DEFAULT_PREFS, prefsKey, readUnitSettings, readUserPrefs, screenPrefs,
   validatePlantUnitSettings, validateUnitPrefs,
 } from "./prefs";
 import { KINDS } from "./registry";
@@ -50,6 +50,31 @@ describe("screens: default, then plant, then user", () => {
   test("number style merges by field", () => {
     const p = screenPrefs({ number: { grouping: "international" } }, { number: { decimal: "," , group: "." } });
     expect(p.number).toEqual({ grouping: "international", decimal: ",", group: "." });
+  });
+  test("one mark alone never resolves to a set whose decimal and group marks are the same", () => {
+    // decimal "," alone over the default group ","
+    expect(screenPrefs({ number: { decimal: "," } }).number).toEqual({ grouping: "indian", decimal: ",", group: "." });
+    // group "." alone over the default decimal "." keeps the group mark the plant had
+    expect(screenPrefs({ number: { group: "." } }).number).toEqual({ grouping: "indian", decimal: ".", group: "," });
+    // a user layer that sends one mark over a plant with different marks
+    const plant = { number: { decimal: "," as const, group: "." as const } };
+    expect(screenPrefs(plant, { number: { decimal: "." } }).number).toEqual({ grouping: "indian", decimal: ".", group: "," });
+    expect(screenPrefs(plant, { number: { group: "," } }).number).toEqual({ grouping: "indian", decimal: ",", group: "." });
+    // a stored clash from before reads safely too
+    const stored = readUnitSettings({ units: { number: { decimal: "," } } });
+    const p = screenPrefs(stored);
+    expect(p.number.decimal).not.toBe(p.number.group);
+    // a plant that changed nothing is untouched
+    expect(screenPrefs({}).number).toEqual({ grouping: "indian", decimal: ".", group: "," });
+  });
+  test("a plant write that sends one mark alone is refused when it lands on the default's other mark", () => {
+    for (const number of [{ decimal: "," }, { group: "." }]) {
+      const r = validatePlantUnitSettings({ number });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors.join(" ")).toContain("must differ");
+    }
+    expect(validatePlantUnitSettings({ number: { decimal: ",", group: "." } }).ok).toBe(true);
+    expect(validatePlantUnitSettings({ number: { grouping: "international" } }).ok).toBe(true);
   });
   test("a plant's legacy lengthUnit reads as a unit choice", () => {
     expect(readUnitSettings({ lengthUnit: "inch" })).toMatchObject({ units: { length: "ft_in" }, inchGrid: 4 });
@@ -134,6 +159,20 @@ describe("validateUnitPrefs refuses on write", () => {
     expect(bad({ precision: { "gold.screen": 1 } })[0]).toContain("precision");
     expect(bad("x")[0]).toContain("object");
   });
+  test("a bad date, currency or a non-object block is refused, not dropped (slice b)", () => {
+    const bad = (x: unknown) => {
+      const r = validateUnitPrefs(x);
+      return r.ok ? [] : r.errors;
+    };
+    expect(bad({ date: { order: "ydm" } })[0]).toContain("date.order");
+    expect(bad({ date: { month: "long" } })[0]).toContain("date.month");
+    expect(bad({ date: "dmy" })[0]).toContain("date must be an object");
+    expect(bad({ currency: { symbol: "$" } })[0]).toContain("currency.symbol");
+    expect(bad({ currency: { compact: "western" } })[0]).toContain("currency.compact");
+    expect(bad({ number: "indian" })[0]).toContain("number must be an object");
+    // The tolerant reader still drops them without a word.
+    expect(readUserPrefs({ date: { order: "ydm" }, number: "indian" })).toEqual({});
+  });
   test("over 2 kB is refused", () => {
     const big = { units: { mass: "kg" }, pad: "x".repeat(3000) };
     const r = validateUnitPrefs(big);
@@ -152,5 +191,28 @@ describe("prefsKey", () => {
     const b = screenPrefs({ units: { length: "m", mass: "lb" } });
     expect(prefsKey(a)).toBe(prefsKey(b));
     expect(prefsKey(a)).not.toBe(prefsKey(ORRN_DEFAULT_PREFS));
+  });
+});
+
+describe("mergeUnitSettings: a plant write laid over the plant", () => {
+  const plant = readUnitSettings({ units: { v: 1, units: { mass: "lb", length: "m" }, number: { grouping: "international", decimal: ",", group: "." }, date: { order: "mdy", month: "numeric" }, clock: "h12" } });
+  test("a write that names one choice keeps the others, one level deeper", () => {
+    const merged = mergeUnitSettings(plant, { units: { mass: "t" } });
+    expect(merged.units).toEqual({ mass: "t", length: "m" });
+    expect(merged.number).toEqual(plant.number);
+    expect(merged.clock).toBe("h12");
+  });
+  test("marks and month style survive a grouping or date order write", () => {
+    const merged = mergeUnitSettings(plant, { number: { grouping: "indian" }, date: { order: "ymd" } });
+    expect(merged.number).toEqual({ grouping: "indian", decimal: ",", group: "." });
+    expect(merged.date).toEqual({ order: "ymd", month: "numeric" });
+  });
+  test("a top-level key that is not a map replaces", () => {
+    expect(mergeUnitSettings(plant, { clock: "h23" }).clock).toBe("h23");
+  });
+  test("the plant is not changed", () => {
+    const before = JSON.stringify(plant);
+    mergeUnitSettings(plant, { units: { mass: "kg" } });
+    expect(JSON.stringify(plant)).toBe(before);
   });
 });

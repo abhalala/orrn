@@ -101,17 +101,21 @@ function readLayer(raw: unknown, errors: string[] | null): UnitPrefs {
     if (m) n.group = m; else if (raw.number.group !== undefined) bad("bad number.group");
     if (n.decimal && (n.group ?? "") === n.decimal) bad("decimal mark and group mark must differ");
     if (Object.keys(n).length) out.number = n;
-  }
+  } else if (raw.number !== undefined) bad("number must be an object");
   if (isObj(raw.currency)) {
     const symbol = pick(["₹", "Rs", "INR"] as const, raw.currency.symbol);
     const compact = pick(["indian", "international"] as const, raw.currency.compact);
+    if (raw.currency.symbol !== undefined && !symbol) bad("bad currency.symbol");
+    if (raw.currency.compact !== undefined && !compact) bad("bad currency.compact");
     if (symbol || compact) out.currency = { ...(symbol ? { symbol } : {}), ...(compact ? { compact } : {}) };
-  }
+  } else if (raw.currency !== undefined) bad("currency must be an object");
   if (isObj(raw.date)) {
     const order = pick(["dmy", "mdy", "ymd"] as const, raw.date.order);
     const month = pick(["short", "numeric"] as const, raw.date.month);
+    if (raw.date.order !== undefined && !order) bad("bad date.order");
+    if (raw.date.month !== undefined && !month) bad("bad date.month");
     if (order || month) out.date = { ...(order ? { order } : {}), ...(month ? { month } : {}) };
-  }
+  } else if (raw.date !== undefined) bad("date must be an object");
   const clock = pick(["h23", "h12"] as const, raw.clock);
   if (clock) out.clock = clock;
   else if (raw.clock !== undefined) bad("clock must be h23 or h12");
@@ -169,6 +173,20 @@ export function readUnitSettings(raw: unknown): PlantUnitSettings {
   return out;
 }
 
+/**
+ * A plant write laid over what the plant has: the keys sent win, and the maps of choices (`units`, `number`, `date`,
+ * `currency`) merge one level deeper, so a write that names only the clock keeps the plant's weight, length and
+ * marks. The Units tab sends only the choices the person changed, so two admins' saves do not undo each other.
+ */
+export function mergeUnitSettings(current: PlantUnitSettings, sent: Record<string, unknown>): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...current, ...sent };
+  for (const key of ["units", "number", "date", "currency"] as const) {
+    const before = (current as Record<string, unknown>)[key];
+    if (isObj(before) && isObj(sent[key])) merged[key] = { ...before, ...sent[key] };
+  }
+  return merged;
+}
+
 /** Tolerant reader for one person's stored preferences: unknown ids dropped, never throws. */
 export function readUserPrefs(raw: unknown): UnitPrefs {
   return readLayer(raw, null);
@@ -201,6 +219,11 @@ export function validatePlantUnitSettings(
   }
   if (size > MAX_BYTES) return { ok: false, errors: [`over ${MAX_BYTES} bytes`] };
   const layer = readLayer(input, errors);
+  // The plant's marks are laid over the default set, so a layer that sends only one mark must still differ from the other (the default's).
+  if (layer.number && !errors.some((e) => e.includes("must differ"))) {
+    const merged = { ...ORRN_DEFAULT_PREFS.number, ...layer.number };
+    if (merged.decimal === merged.group) errors.push("decimal mark and group mark must differ");
+  }
   const settings: PlantUnitSettings = { ...layer };
   if (isObj(input)) {
     if (input.lock !== undefined) {
@@ -238,7 +261,16 @@ function apply(base: Mutable, layer: UnitPrefs | undefined, blocked: readonly Ki
     if (!blocked.includes(k as Kind) && u) base.units[k as Kind] = u;
   }
   if (layer.inchGrid) base.inchGrid = layer.inchGrid;
-  if (layer.number) base.number = { ...base.number, ...layer.number };
+  if (layer.number) {
+    const before = base.number;
+    base.number = { ...before, ...layer.number };
+    // A layer that sends only one mark can land on the other layer's mark (decimal "," over the default group ","). Never resolve
+    // to a set whose decimal and group marks are the same: keep the group mark we had, or take the one that differs.
+    if (base.number.decimal === base.number.group) {
+      const other = base.number.decimal === "," ? "." : ",";
+      base.number = { ...base.number, group: before.group !== base.number.decimal ? before.group : other };
+    }
+  }
   if (layer.currency) base.currency = { ...base.currency, ...layer.currency };
   if (layer.date) base.date = { ...base.date, ...layer.date };
   if (layer.clock) base.clock = layer.clock;

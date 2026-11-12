@@ -1,4 +1,4 @@
-import { dispatchTone, formatKgTotal, type DispatchStatus } from "@orrn/domain";
+import { dispatchTone, type DispatchStatus } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { Button } from "@orrn/ui/components/button";
 import { Chip } from "@orrn/ui/components/chip";
@@ -24,6 +24,7 @@ import { BundleNumbersCard } from "@/features/customers/bundle-numbers-card";
 import { CustomerForm, type StoredCustomer } from "@/features/customers/customer-form";
 import { formatDay, formatDispatchDay } from "@/features/customers/dates";
 import { KpiTile, KpiTileSkeleton } from "@/features/customers/kpi-tile";
+import { OpenOrders } from "@/features/customers/open-orders";
 import { customerShare, formatSharePct } from "@/features/customers/leaderboard";
 import { customerFactsLine, type Period } from "@/features/customers/period";
 import { PeriodRow } from "@/features/customers/period-row";
@@ -33,6 +34,8 @@ import { Can } from "@/shared/components/can";
 import { can, useMe } from "@/shared/lib/me";
 import { isNotFound } from "@/shared/lib/session-errors";
 import { trpc } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit } from "@/shared/lib/fmt-text";
 
 // The chart kit loads only for analytics.view roles (never in the entry chunk).
 const VolumeCard = lazy(() => import("@/features/customers/customer-charts").then((m) => ({ default: m.VolumeCard })));
@@ -281,6 +284,7 @@ function CustomerAnalytics({
   periodState: PeriodState;
   onPeriod(period: Period): void;
 }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const { period, range, months, today } = periodState;
 
@@ -305,7 +309,7 @@ function CustomerAnalytics({
   const boardReady = board.data !== undefined && !board.isPlaceholderData;
   const boardFailed = board.isError && board.data === undefined;
   const share = totals && !stale && boardReady ? customerShare(customerId, totals.kgG, board.data) : null;
-  const caption = t("customers.period.range", { from: formatDay(range.from, locale, today), to: formatDay(range.to, locale, today) });
+  const caption = t("customers.period.range", { from: formatDay(fmt, range.from, today), to: formatDay(fmt, range.to, today) });
   const openOrders = current.data?.openOrders ?? null;
 
   return (
@@ -338,8 +342,8 @@ function CustomerAnalytics({
             title={t("customers.detail.kpi.kg")}
             meta={caption}
             value={totals.kgG / 1000}
-            format={formatKgTotal}
-            unit={t("units.kg")}
+            format={(n) => kgGrouped1(fmt, Math.round(n * 1000))}
+            unit={massUnit(fmt)}
             className="animate-rise col-span-2 md:col-span-1"
             style={riseDelay(0)}
           />
@@ -352,7 +356,7 @@ function CustomerAnalytics({
           <KpiTile
             label={t("customers.detail.kpi.avgLoad")}
             value={totals.avgLoadKgG / 1000}
-            format={formatKgTotal}
+            format={(n) => kgGrouped1(fmt, Math.round(n * 1000))}
             unit={t("customers.detail.kpi.perDispatch")}
             className="animate-rise"
             style={riseDelay(2)}
@@ -361,7 +365,7 @@ function CustomerAnalytics({
             label={t("customers.detail.kpi.share")}
             meta={
               boardReady
-                ? t("customers.detail.kpi.shareOf", { total: formatKgTotal(board.data.totalKgG / 1000) })
+                ? t("customers.detail.kpi.shareOf", { total: kgGrouped1(fmt, board.data.totalKgG) })
                 : boardFailed
                   ? t("customers.detail.kpi.shareFailed")
                   : undefined
@@ -409,39 +413,6 @@ function CustomerAnalytics({
 
       {openOrders ? <OpenOrders orders={openOrders} /> : null}
     </>
-  );
-}
-
-/** Order book for the customer, once sales orders exist (plant PL-8). Hidden while null. */
-function OpenOrders({ orders }: { orders: { orderedG: number; dispatchedG: number; bakiG: number; lines: number } }) {
-  const { t } = useT();
-  const titleId = useId();
-  const cells = [
-    { key: "ordered", label: t("customers.detail.openOrders.ordered"), g: orders.orderedG },
-    { key: "dispatched", label: t("customers.detail.openOrders.dispatched"), g: orders.dispatchedG },
-    { key: "baki", label: t("customers.detail.openOrders.baki"), g: orders.bakiG },
-  ];
-  return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-3 rounded-card border border-border bg-card p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={titleId} className="m-0 text-[17px] leading-6 font-semibold tracking-[-0.01em]">
-          {t("customers.detail.openOrders.title")}
-        </h2>
-        <span className="text-[13px] font-medium text-muted-foreground">
-          {t("customers.detail.openOrders.lines", { count: orders.lines })}
-        </span>
-      </div>
-      <dl className="m-0 grid grid-cols-3 gap-3">
-        {cells.map((c) => (
-          <div key={c.key} className="flex min-w-0 flex-col gap-0.5">
-            <dt className="text-[13px] font-medium text-muted-foreground">{c.label}</dt>
-            <dd data-no-truncate="" className="m-0 font-mono text-[17px] font-semibold tabular-nums">
-              {formatKgTotal(c.g / 1000)} {t("units.kg")}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </section>
   );
 }
 
@@ -558,6 +529,7 @@ function RecentDispatches({
   className?: string;
 }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const titleId = useId();
   const [offset, setOffset] = useState(0);
   const query = useQuery({
@@ -580,7 +552,7 @@ function RecentDispatches({
       header: t("customers.detail.recent.date"),
       // The server's one ship day (a completed load: the day it left; one being built: its entered ship date),
       // else the day it was started: the same date the dispatch list and detail show.
-      cell: (d) => <span className="whitespace-nowrap">{formatDispatchDay(d, locale, timeZone, today)}</span>,
+      cell: (d) => <span className="whitespace-nowrap">{formatDispatchDay(fmt, d, timeZone, today)}</span>,
     },
     {
       key: "status",
@@ -599,7 +571,7 @@ function RecentDispatches({
       align: "end",
       cell: (d) => (
         <span data-no-truncate="" className="font-mono whitespace-nowrap">
-          {formatKgTotal(d.totalWeightG / 1000)}
+          {kgGrouped1(fmt, d.totalWeightG)}
         </span>
       ),
     },

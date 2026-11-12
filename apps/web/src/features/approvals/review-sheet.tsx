@@ -28,11 +28,10 @@ import { canAny, useMe } from "@/shared/lib/me";
 import { useCompanyTimeZone } from "@/features/dispatch/hooks";
 import { INLINE_ERROR_META } from "@/shared/lib/query-errors";
 import { useOnceMutation } from "@/shared/lib/once-mutation";
-import { dayText } from "@/features/orders/format";
 import { trpc } from "@/shared/utils/trpc";
 
 import { isStaleRefusal } from "../purchase/errors";
-import { kgText, pctText } from "../purchase/format";
+import { pctText } from "../purchase/format";
 import { formatRate, weightNotesOverShortG } from "../purchase/lot-view";
 import { showsQueryError } from "../purchase/query-state";
 import {
@@ -44,6 +43,7 @@ import {
   durationText,
   hasLiveFacts,
   lateDispatchOf,
+  noteAuthorName,
   lateEntryOf,
   lateHours,
   lateWindowText,
@@ -51,7 +51,6 @@ import {
   moveEndText,
   moveFactsView,
   offBandFactsView,
-  moveKgText,
   reallocateMoveOf,
   subjectCodes,
   tierFactsView,
@@ -62,13 +61,16 @@ import {
   foundryFiguresOf,
   foundryLiveOf,
   type FoundryLiveNote,
-  type FoundryFigure,
-} from "./approval-view";
+  type FoundryFigure } from "./approval-view";
+import { useFmt } from "@/shared/lib/fmt";
+import { dayOf, massUnit } from "@/shared/lib/fmt-text";
+import { kgGrouped2, kgGrouped3, kgTrim } from "@/shared/lib/fmt-text";
 
 export type ApprovalItem = inferRouterOutputs<AppRouter>["approval"]["list"]["items"][number];
 
 export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null; onOpenChange(open: boolean): void }) {
   const { t } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const queryClient = useQueryClient();
   const [note, setNote] = useState("");
@@ -88,10 +90,10 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
   const open = item !== null;
   const current = item ?? shown;
   const state = current ? decideState(me, current) : "view";
-  const subject = current ? approvalSubject(current, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") }) : null;
+  const subject = current ? approvalSubject(current, { plant: t("approvals.move.plant"), mainBand: t("approvals.band.main"), otherBand: t("approvals.band.other") }, fmt) : null;
   // BACKLOG 34: a move request shows what moves, from where to where, before anyone decides.
   const move = current?.kind === "order_reallocate" ? reallocateMoveOf(current.meta) : null;
-  const foundry = current ? foundryFiguresOf(current.kind, current.meta) : [];
+  const foundry = current ? foundryFiguresOf(current.kind, current.meta, fmt) : [];
   const readsFigures = canAny(me, PURCHASE_READERS);
   const isNote = current?.kind === "dc_note";
   // One live-loader pattern for every request that is decided on what is true now, not only on the
@@ -105,7 +107,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
     enabled: open && isFoundryLive,
     meta: INLINE_ERROR_META,
   });
-  const live = current && liveCast.data ? foundryLiveOf(current.kind, current.subjectId, current.meta, liveCast.data) : null;
+  const live = current && liveCast.data ? foundryLiveOf(current.kind, current.subjectId, current.meta, liveCast.data, fmt) : null;
 
   // H1: a late entry shows the run (press, copy, the typed start and stop, kg in and good) before anyone decides.
   const late = current?.kind === "press_late_entry" ? lateEntryOf(current) : null;
@@ -210,7 +212,7 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
         </div>
 
         {current.requestNote ? (
-          <Block title={t("approvals.theirNote")}>
+          <Block title={noteAuthorName(current) ? t("approvals.noteFrom", { name: noteAuthorName(current)! }) : t("approvals.theirNote")}>
             <p className="m-0 rounded-input bg-surface-sunken px-3 py-2 text-[15px] break-words">{current.requestNote}</p>
           </Block>
         ) : null}
@@ -229,9 +231,16 @@ export function ReviewSheet({ item, onOpenChange }: { item: ApprovalItem | null;
           <Block title={t("approvals.facts.lateLeft")}>
             <p className="m-0 text-[15px] font-medium" data-testid="late-dispatch-time">
               {t("approvals.facts.lateLeftValue", {
-                when: plantTimeText(lateDispatch.occurredAt, tz),
+                when: plantTimeText(fmt, lateDispatch.occurredAt, tz),
                 hours: lateHours(lateDispatch.occurredAt, new Date(current.createdAt).getTime()),
               })}
+            </p>
+          </Block>
+        ) : null}
+        {lateDispatch?.load ? (
+          <Block title={t("approvals.facts.lateLoad")}>
+            <p className="m-0 text-[15px] font-medium tabular-nums" data-testid="late-dispatch-load">
+              {t("units.bundlesKg", { bundles: lateDispatch.load.bundles, kg: kgGrouped2(fmt, lateDispatch.load.weightG) })}
             </p>
           </Block>
         ) : null}
@@ -354,11 +363,12 @@ function FoundryLive({ live, loading, error }: { live: ReturnType<typeof foundry
 
 /** The bundles of a move request: count and kg, from and to, each bundle's serial and kg, the reason code. */
 function MoveFigures({ move }: { move: ReallocateView }) {
+  const fmt = useFmt();
   const { t } = useT();
   const plant = t("approvals.move.plant");
   const endText = (end: ReallocateView["to"]) => (end ? t("approvals.move.line", { party: end.customerName, order: end.orderNumber, line: end.lineNo }) : plant);
   const rows: [string, ReactNode][] = [
-    [t("approvals.move.bundles"), t("approvals.move.count", { count: move.count, kg: moveKgText(move.kgG) })],
+    [t("approvals.move.bundles"), t("approvals.move.count", { count: move.count, kg: kgGrouped3(fmt, move.kgG) })],
     [t("approvals.move.from"), move.from.map(endText).join(", ") || plant],
     [t("approvals.move.to"), endText(move.to)],
   ];
@@ -379,7 +389,7 @@ function MoveFigures({ move }: { move: ReallocateView }) {
             <li key={b.serial} className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[14px]">
               <span className="font-mono font-semibold">{b.serial}</span>
               <span className="min-w-0 flex-1 text-muted-foreground break-words">{moveEndText(b.from, plant)}</span>
-              <span className="font-mono">{moveKgText(b.weightG)} kg</span>
+              <span className="font-mono">{kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}</span>
             </li>
           ))}
         </ul>
@@ -409,6 +419,7 @@ function Rows({ rows, testId }: { rows: [string, ReactNode][]; testId: string })
  * last reading against the band. Approve waits for this (the sheet disables it until the facts load).
  */
 function LiveFacts({ data, loading, error }: { data: FactsData | undefined; loading: boolean; error: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   const tz = useCompanyTimeZone();
   if (loading || data === undefined) {
@@ -424,7 +435,7 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
   }
   if (data === null) return null;
   if (data.kind === "dispatch_off_band") {
-    const v = offBandFactsView(data);
+    const v = offBandFactsView(data, fmt);
     if (v.gone) {
       return (
         <Block title={t("approvals.facts.offBandTitle")}>
@@ -458,7 +469,7 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
     return (
       <Block title={t("approvals.facts.moveTitle")}>
         <p className="m-0 text-[15px] font-medium" data-testid="live-move-count">
-          {t("approvals.facts.moveCount", { count: v.moving, total: v.total, kg: moveKgText(data.willMove.kgG) })}
+          {t("approvals.facts.moveCount", { count: v.moving, total: v.total, kg: kgGrouped3(fmt, data.willMove.kgG) })}
         </p>
         {v.closed ? <p className="m-0 text-[14px] text-destructive">{t("approvals.facts.closed")}</p> : null}
         {v.skipped > 0 && !v.closed ? <p className="m-0 text-[14px] text-destructive">{t("approvals.facts.skipped", { count: v.skipped })}</p> : null}
@@ -474,14 +485,14 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
               <span className="min-w-0 flex-1 break-words text-muted-foreground">{t("approvals.facts.partyNow", { number: b.partyNo })}</span>
               {b.newNumber ? <Chip tone="amber">{t("approvals.facts.newNumber")}</Chip> : null}
               {!b.willMove ? <Chip tone="red">{t("approvals.facts.stays")}</Chip> : null}
-              <span className="font-mono">{moveKgText(b.weightG)} kg</span>
+              <span className="font-mono">{kgGrouped3(fmt, b.weightG)} {massUnit(fmt)}</span>
             </li>
           ))}
         </ul>
       </Block>
     );
   }
-  const v = tierFactsView(data, { mainBand: t("approvals.band.main") });
+  const v = tierFactsView(data, { mainBand: t("approvals.band.main") }, fmt);
   const rows: [string, ReactNode][] = [[t("approvals.facts.copy"), v.code]];
   rows.push([
     t("approvals.facts.tier"),
@@ -497,7 +508,7 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
     t("approvals.facts.reading"),
     v.readingKg === null || v.readAt === null
       ? t("approvals.facts.readingNone")
-      : `${t("approvals.facts.readingValue", { kg: v.readingKg, when: plantTimeText(v.readAt, tz) })}${v.position ? `, ${t(`approvals.facts.${v.position}`)}` : ""}`,
+      : `${t("approvals.facts.readingValue", { kg: v.readingKg, when: plantTimeText(fmt, v.readAt, tz) })}${v.position ? `, ${t(`approvals.facts.${v.position}`)}` : ""}`,
   ]);
   return (
     <Block title={t("approvals.facts.tierTitle")}>
@@ -513,14 +524,13 @@ function LiveFacts({ data, loading, error }: { data: FactsData | undefined; load
 
 type RunData = inferRouterOutputs<AppRouter>["press"]["runs"]["get"];
 
-const KG3 = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-
 /**
  * H1 (final explore): what a late entry asks to accept. Round 1 (m1): the live run comes first (that is what
  * Approve accepts: times, press, copy, day and shift, kg in and good); the request's own copy fills in only
  * while the run loads, and a note says so when the request asked for other times. Times are in the plant's time zone.
  */
-function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
+export function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; run: RunData | undefined; loading: boolean; error: boolean }) {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const tz = useCompanyTimeZone();
   const ms = (v: string | number | Date | null | undefined) => (v ? new Date(v).getTime() : null);
@@ -534,7 +544,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
     run !== undefined && late.startedAt !== null && late.stoppedAt !== null && (late.startedAt !== ms(run.run.startedAt) || late.stoppedAt !== ms(run.run.stoppedAt));
   const figures = run?.figures;
   const counted = figures !== undefined && figures.inputG > 0;
-  const kg = (g: number) => `${KG3.format(g / 1000)} kg`;
+  const kg = (g: number) => `${kgGrouped3(fmt, g)} ${massUnit(fmt)}`;
   const pending = loading ? <Skeleton className="h-5 w-24" /> : "-";
   const rows: [string, ReactNode, string][] = [
     [t("approvals.late.run"), run?.run.number || late.runNumber || "-", "run"],
@@ -543,11 +553,11 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
   if (run?.run.sectionCode) rows.push([t("approvals.late.die"), `${run.run.sectionCode}${run.run.sectionName ? ` ${run.run.sectionName}` : ""}`, "die"]);
   rows.push([t("approvals.late.copy"), copyCode ?? "-", "copy"]);
   if (startedAt !== null && stoppedAt !== null) {
-    rows.push([t("approvals.late.times"), lateWindowText(startedAt, stoppedAt, tz), "times"]);
+    rows.push([t("approvals.late.times"), lateWindowText(fmt, startedAt, stoppedAt, tz), "times"]);
     rows.push([t("approvals.late.duration"), durationText(startedAt, stoppedAt), "duration"]);
   }
   // L6: the day as a person says it ("25 Oct"), not the ISO date.
-  if (day) rows.push([t("approvals.late.shift"), shift !== null ? t("approvals.late.shiftValue", { day: dayText(day, locale), shift }) : dayText(day, locale), "shift"]);
+  if (day) rows.push([t("approvals.late.shift"), shift !== null ? t("approvals.late.shiftValue", { day: dayOf(fmt, day), shift }) : dayOf(fmt, day), "shift"]);
   rows.push([t("approvals.late.kgIn"), figures ? (counted ? kg(figures.inputG) : t("approvals.late.notCounted")) : pending, "kg-in"]);
   rows.push([t("approvals.late.good"), figures ? (figures.goodG > 0 ? kg(figures.goodG) : t("approvals.late.notCounted")) : pending, "good"]);
   if (figures && counted && figures.recoveryPct) rows.push([t("approvals.late.recovery"), `${figures.recoveryPct}%`, "recovery"]);
@@ -563,7 +573,7 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
       </dl>
       {askedDiffers ? (
         <p className="m-0 text-[14px] text-muted-foreground" data-testid="late-entry-differs">
-          {t("approvals.late.changed", { times: lateWindowText(late.startedAt!, late.stoppedAt!, tz) })}
+          {t("approvals.late.changed", { times: lateWindowText(fmt, late.startedAt!, late.stoppedAt!, tz) })}
         </p>
       ) : null}
       {error ? <p className="m-0 text-[14px] text-destructive">{t("approvals.late.runError")}</p> : null}
@@ -573,7 +583,8 @@ function LateEntryFigures({ late, run, loading, error }: { late: LateEntryView; 
 
 type NoteData = inferRouterOutputs<AppRouter>["purchase"]["dcNotes"]["get"];
 
-function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loading: boolean; error: boolean }) {
+export function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loading: boolean; error: boolean }) {
+  const fmt = useFmt();
   const { t } = useT();
   if (loading) {
     return (
@@ -594,12 +605,12 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
     (n) => n.type === "debit" && n.reason === "weight" && (n.status === "pending" || n.status === "approved"),
   );
   const rows: [string, ReactNode][] = [
-    [t("approvals.party"), `${kgText(lot.partyKgG)} kg`],
-    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgText(lot.fcKgG)} kg`],
-    [t("approvals.short"), data.shortG === null ? "-" : `${kgText(Math.max(0, data.shortG))} kg`],
-    [t("approvals.tolerance"), `${kgText(data.toleranceG)} kg (${pct})`],
-    [t("approvals.kgDiff"), `${kgText(note.kgDiffG)} kg`],
-    [t("approvals.bori"), `${kgText(note.boriDeductionG)} kg`],
+    [t("approvals.party"), `${kgTrim(fmt, lot.partyKgG)} ${massUnit(fmt)}`],
+    [t("approvals.ours"), lot.fcKgG === null ? "-" : `${kgTrim(fmt, lot.fcKgG)} ${massUnit(fmt)}`],
+    [t("approvals.short"), data.shortG === null ? "-" : `${kgTrim(fmt, Math.max(0, data.shortG))} ${massUnit(fmt)}`],
+    [t("approvals.tolerance"), `${kgTrim(fmt, data.toleranceG)} ${massUnit(fmt)} (${pct})`],
+    [t("approvals.kgDiff"), `${kgTrim(fmt, note.kgDiffG)} ${massUnit(fmt)}`],
+    [t("approvals.bori"), `${kgTrim(fmt, note.boriDeductionG)} ${massUnit(fmt)}`],
     [
       t("approvals.rate"),
       <>
@@ -625,7 +636,7 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
         >
           <AlertTriangle aria-hidden="true" strokeWidth={2} className="mt-0.5 size-4 shrink-0" />
           <span className="min-w-0 break-words">
-            {othersLive ? t("approvals.overShortWithOthers", { kg: kgText(overG) }) : t("approvals.overShort", { kg: kgText(overG) })}
+            {othersLive ? t("approvals.overShortWithOthers", { kg: kgTrim(fmt, overG) }) : t("approvals.overShort", { kg: kgTrim(fmt, overG) })}
           </span>
         </p>
       ) : weightDebit && data.shortBeyondTolerance ? (
@@ -646,7 +657,7 @@ function NoteFigures({ data, loading, error }: { data: NoteData | undefined; loa
               <li key={n.id} className="flex flex-wrap items-center gap-2 text-[14px]">
                 <span className="font-mono font-semibold">{n.number}</span>
                 <span>{t(`purchase.detail.noteType.${n.type}`)}</span>
-                <span className="font-mono text-muted-foreground">{kgText(n.kgDiffG)} kg</span>
+                <span className="font-mono text-muted-foreground">{kgTrim(fmt, n.kgDiffG)} {massUnit(fmt)}</span>
                 <Chip tone={APPROVAL_TONE[n.status]}>{t(`status.request.${n.status}`)}</Chip>
               </li>
             ))}

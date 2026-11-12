@@ -7,7 +7,6 @@ import { PageHeader } from "@orrn/ui/components/page-header";
 import { ResponsiveList, type ResponsiveListColumn } from "@orrn/ui/components/responsive-list";
 import { useQuery } from "@tanstack/react-query";
 
-import { kgFromG } from "@/features/press/model";
 import { useCompanyWhen } from "@/features/stock/use-company-when";
 import { Can } from "@/shared/components/can";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -17,6 +16,8 @@ import type { BatchSummary } from "./hooks";
 import { STATUS_FILTERS } from "./model";
 import type { HistorySearch, HistoryStatus } from "./search";
 import { PhaseChip, FieldSelect as NativeSelect } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 const PAGE = 50;
 
@@ -26,6 +27,7 @@ const PAGE = 50;
  * "1-50 of N", never a silently cut list. The CSV and the line-level report are `/reports/ageing`.
  */
 export function HistoryScreen({ search, onSearch }: { search: HistorySearch; onSearch: (next: HistorySearch) => void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const when = useCompanyWhen();
   const offset = search.offset ?? 0;
@@ -60,7 +62,7 @@ export function HistoryScreen({ search, onSearch }: { search: HistorySearch; onS
     { key: "trolley", header: t("ageing.field.trolley"), hideOnPhone: true, cell: (b) => <span className="font-mono">{b.trolleyCode}</span> },
     { key: "recipe", header: t("ageing.field.recipe"), cell: (b) => b.recipeLabel ?? "-" },
     { key: "in", header: t("ageing.field.inAt"), hideOnPhone: true, cell: (b) => (b.inAt ? <span className="whitespace-nowrap tabular-nums">{when(b.inAt)}</span> : "-") },
-    { key: "pcs", header: t("ageing.field.loaded"), align: "end", cell: (b) => <span className="font-mono tabular-nums">{b.totals.loadedPcs} · {kgFromG(b.totals.loadedKgG)}</span> },
+    { key: "pcs", header: t("ageing.field.loaded"), align: "end", cell: (b) => <span className="font-mono tabular-nums">{b.totals.loadedPcs} · {kgGrouped1(fmt, b.totals.loadedKgG)}</span> },
     { key: "status", header: t("ageing.field.verdict"), phoneWide: true, cell: (b) => <PhaseChip phase={b.phase} /> },
   ];
 

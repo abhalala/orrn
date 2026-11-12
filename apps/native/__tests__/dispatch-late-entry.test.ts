@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createI18n } from "@orrn/i18n";
 
-import { lateCheck, lateExtras, lateStartDate } from "../features/dispatch/late-entry";
+import { LATE_STATUS_KEY, lateCheck, lateExtras, lateStart, lateStartDate, lockedCheck } from "../features/dispatch/late-entry";
 import { completeRefusalText } from "../features/dispatch/off-band";
 
 const TZ = "Asia/Kolkata";
@@ -34,12 +34,38 @@ describe("arch 52: late packing list on the phone (parity with web)", () => {
 
   test("the server's late refusals are said in the floor's words", () => {
     expect(completeRefusalText(t, err("Entered late: a second person has to approve the dispatch time before this dispatch can complete."))).toBe(
-      "A manager has to approve the time the truck left. Press Dispatch again once it is approved.",
+      "A manager has to approve the time the truck left. Press Dispatch again with the same time once it is approved.",
     );
     expect(completeRefusalText(t, err("The dispatch time can't be in the future.", "BAD_REQUEST"))).toBe("That time is in the future. Check the date and time.");
     expect(completeRefusalText(t, err("A late packing list can go back at most 72 hours.", "BAD_REQUEST"))).toBe("A late packing list can go back at most 72 hours.");
     expect(completeRefusalText(t, err("Dispatch is empty", "BAD_REQUEST"))).toBeNull();
+    // Check N6: the order was saved while Dispatch ran; any other conflict is not a rule refusal.
+    expect(completeRefusalText(t, err("The order was edited while you pressed Dispatch. Press Dispatch again.", "CONFLICT"))).toBe("The order was edited while you pressed Dispatch. Press Dispatch again.");
+    expect(completeRefusalText(t, err("Bundles on this dispatch changed. Reload and try again.", "CONFLICT"))).toBeNull();
     // BACKLOG 70: no vehicle number.
     expect(completeRefusalText(t, err("No vehicle number: add it before this dispatch can complete."))).toBe("Add the vehicle number before you dispatch.");
   });
+
+  test("review 5: a time already asked for fills the sheet and is locked; it is sent as asked, even past 72 hours", () => {
+    expect(lateStart(null, TZ, NOW)).toEqual({ late: false, date: "2026-11-10", time: "", reason: "", locked: false });
+    // Friday 18:00 in Kolkata, approved; pressed on Monday evening, more than 72 hours later.
+    const ask = { status: "approved" as const, occurredAt: Date.UTC(2026, 10, 6, 12, 30), reason: "Line down all weekend", approvalId: "a1" };
+    expect(lateStart(ask, TZ, NOW)).toEqual({ late: true, date: "2026-11-06", time: "18:00", reason: "Line down all weekend", locked: true });
+    expect(lateExtras(lockedCheck(ask))).toEqual({ occurredAt: ask.occurredAt, lateReason: "Line down all weekend" });
+    const later = Date.UTC(2026, 10, 9, 13, 30);
+    expect(lateCheck("2026-11-06", "18:00", "Line down all weekend", TZ, later).kind).toBe("error");
+  });
+
+  test("check N3: an approval older than 7 days has its own line; every status says what Dispatch does", () => {
+    expect(LATE_STATUS_KEY).toEqual({
+      pending: "dispatch.late.waitingFor",
+      approved: "dispatch.late.approvedFor",
+      changed: "dispatch.late.loadChanged",
+      expired: "dispatch.late.expired",
+    });
+    expect(t(LATE_STATUS_KEY.expired, { when: "6 Nov 18:00" })).toBe(
+      "A manager approved 6 Nov 18:00 more than 7 days ago. Pressing Dispatch asks a manager to approve it again.",
+    );
+  });
 });
+

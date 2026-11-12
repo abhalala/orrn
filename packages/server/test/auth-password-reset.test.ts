@@ -306,3 +306,86 @@ describe("rate limit on /request-password-reset (BACKLOG 23)", () => {
     expect(await throttleHit(db, key, t0 + RESET_LIMIT.windowMs + 1)).toBe(true);
   });
 });
+
+describe("auth log redaction", () => {
+  test("redacts addresses in messages and nested arguments", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    const redacted = redactAuthLog({
+      message: "Reset Password: User not found person@example.com",
+      nested: ["Second.Person+tag@example.co.uk", 42],
+    });
+    expect(redacted).toEqual({
+      message: "Reset Password: User not found [redacted email]",
+      nested: ["[redacted email]", 42],
+    });
+  });
+
+  test("redacts a circular object without throwing", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    const value: Record<string, unknown> = { email: "person@example.com" };
+    value.self = value;
+    const redacted = redactAuthLog(value) as Record<string, unknown>;
+    expect(redacted.email).toBe("[redacted email]");
+    expect(redacted.self).toBe("[circular]");
+  });
+
+  test("stops recursion on a deep object", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    const value: Record<string, unknown> = {};
+    let cursor = value;
+    for (let i = 0; i < 10; i += 1) {
+      cursor.next = {};
+      cursor = cursor.next as Record<string, unknown>;
+    }
+    expect(JSON.stringify(redactAuthLog(value))).toContain("[truncated]");
+  });
+
+  test("keeps an Error cause and own properties while redacting both messages", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    const value = new Error("outer someone%40example.com", { cause: new Error("inner josé@example.com") }) as Error & { code?: string };
+    value.code = "D1_FAILURE";
+    const redacted = redactAuthLog(value) as Error & { code?: string };
+    expect(redacted.message).toBe("outer [redacted email]");
+    expect(redacted.cause).toBeInstanceOf(Error);
+    expect((redacted.cause as Error).message).toBe("inner [redacted email]");
+    expect(redacted.code).toBe("D1_FAILURE");
+  });
+
+  test("redacts a percent-encoded address", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    expect(redactAuthLog("someone%40example.com")).toBe("[redacted email]");
+  });
+
+  test("redacts an address with non-ASCII letters and an address in an object key", async () => {
+    const { redactAuthLog } = await import("@orrn/auth/logger");
+    expect(redactAuthLog("josé@example.com")).toBe("[redacted email]");
+    expect(redactAuthLog({ "person@example.com": true })).toEqual({ "[redacted email]": true });
+  });
+
+  test("the logger falls back without throwing when an argument cannot be read", async () => {
+    const { writeAuthLog } = await import("@orrn/auth/logger");
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error("cannot read"); } });
+    const error = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() => writeAuthLog("error", "safe message", hostile)).not.toThrow();
+      expect(error).toHaveBeenCalledWith("safe message");
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  test("Better Auth does not print an unknown reset address", async () => {
+    const error = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const email = `unknown.${crypto.randomUUID().slice(0, 8)}@test.orrn`;
+      const res = await post("request-password-reset", { email, redirectTo: "https://app.test/reset-password" });
+      expect(res.status).toBe(200);
+      const logged = error.mock.calls.map((args) => args.map((arg) => typeof arg === "string" ? arg : JSON.stringify(arg)).join(" ")).join("\n");
+      expect(logged).toContain("Reset Password: User not found");
+      expect(logged).toContain("[redacted email]");
+      expect(logged).not.toContain(email);
+    } finally {
+      error.mockRestore();
+    }
+  });
+});

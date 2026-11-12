@@ -8,7 +8,6 @@ import type { AppRouter } from "@orrn/server/routers/index";
 import { useQuery } from "@tanstack/react-query";
 import type { inferRouterOutputs } from "@trpc/server";
 
-import { kgFromG } from "@/features/press/model";
 import { csvFileName, toCsv } from "@/features/reports/model";
 import { NUM, ReportActions, ReportPrintStyle, ReportsGate, ReportTableFrame, TD, TH } from "@/features/reports/report-chrome";
 import { INLINE_ERROR_META, showsQueryError } from "@/shared/lib/query-errors";
@@ -18,6 +17,8 @@ import { addDays, todayIn } from "./melt-times";
 import { bpText } from "./model";
 import type { YieldGroup, YieldSearch } from "./search";
 import { ErrorLine, LoadFailed, useTimeZone } from "./ui";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1 } from "@/shared/lib/fmt-text";
 
 const GROUPS: readonly YieldGroup[] = ["day", "alloy", "furnace"];
 
@@ -30,6 +31,7 @@ const ldoText = (tenth: number | null) => (tenth === null ? "-" : (tenth / 10).t
  * server worked them out. A draft cannot improve the month.
  */
 export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; onSearch(next: YieldSearch): void }) {
+  const fmt = useFmt();
   const { t } = useT();
   const tz = useTimeZone();
   const today = todayIn(tz);
@@ -39,12 +41,13 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
   const query = useQuery({ ...trpc.analytics.foundryYield.queryOptions({ from, to, groupBy: group }), meta: INLINE_ERROR_META });
   const d = query.data;
   const label = (key: string) => (group === "alloy" || group === "furnace" ? key : key);
+  const kt = (key: Parameters<typeof t>[0]) => t(key, { massUnit: "kg" });
   const csv = () =>
     d
       ? {
           name: csvFileName(t("foundry.yield.csvName"), from, to),
           text: toCsv(
-            [t(`foundry.yield.group.${group}`), t("foundry.yield.melts"), t("foundry.yield.in"), t("foundry.yield.fromLots"), t("foundry.yield.fromStreams"), t("foundry.yield.logs"), t("foundry.yield.dross"), t("foundry.yield.fe"), t("foundry.yield.burn"), t("foundry.yield.yield"), t("foundry.yield.ldo")],
+            [kt(`foundry.yield.group.${group}`), kt("foundry.yield.melts"), kt("foundry.yield.in"), kt("foundry.yield.fromLots"), kt("foundry.yield.fromStreams"), kt("foundry.yield.logs"), kt("foundry.yield.dross"), kt("foundry.yield.fe"), kt("foundry.yield.burn"), kt("foundry.yield.yield"), kt("foundry.yield.ldo")],
             d.rows.map((r) => [r.key, r.melts, (r.inputG / 1000).toFixed(3), (r.lotsG / 1000).toFixed(3), (r.streamsG / 1000).toFixed(3), (r.logsG / 1000).toFixed(3), (r.drossG / 1000).toFixed(3), (r.feG / 1000).toFixed(3), r.burnBp === null ? "" : bpText(r.burnBp), r.yieldBp === null ? "" : bpText(r.yieldBp), r.ldoPerTonneTenthIn === null ? "" : ldoText(r.ldoPerTonneTenthIn)]),
           ),
         }
@@ -101,10 +104,10 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
                 <tr key={r.key} className="border-b border-border last:border-0" data-key={r.key}>
                   <th scope="row" className={`${TD} font-medium`}>{label(r.key)}</th>
                   <td className={`${TD} ${NUM}`}>{r.melts}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(r.inputG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(r.logsG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(r.drossG)}</td>
-                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(r.feG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, r.inputG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, r.logsG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, r.drossG)}</td>
+                  <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, r.feG)}</td>
                   <td className={`${TD} ${NUM}`}>{r.burnBp === null ? "-" : bpText(r.burnBp)}</td>
                   <td className={`${TD} ${NUM} font-semibold`}>{r.yieldBp === null ? "-" : bpText(r.yieldBp)}</td>
                   <td className={`${TD} ${NUM}`}>{ldoText(r.ldoPerTonneTenthIn)}</td>
@@ -115,8 +118,8 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
               <tr className="border-t border-border font-semibold" data-testid="yield-totals">
                 <th scope="row" className={TD}>{t("reports.total")}</th>
                 <td className={`${TD} ${NUM}`}>{d.total.melts}</td>
-                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(d.total.inputG)}</td>
-                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(d.total.logsG)}</td>
+                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, d.total.inputG)}</td>
+                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, d.total.logsG)}</td>
                 <td className={TD} />
                 <td className={TD} />
                 <td className={`${TD} ${NUM}`}>{d.total.inputG > 0 ? bpText(Math.round((d.total.burnG * 10_000) / d.total.inputG)) : "-"}</td>
@@ -130,7 +133,7 @@ export function FoundryYieldReport({ search, onSearch }: { search: YieldSearch; 
       {d && d.rows.length > 0 && d.total.inputG > 0 ? <BySource d={d} /> : null}
       {d && d.total.tailAdjustG !== 0 ? (
         <p className="m-0 text-[13px] text-muted-foreground" data-testid="yield-tail-adjust">
-          {t("foundry.yield.tailAdjust", { kg: `${d.total.tailAdjustG < 0 ? "-" : "+"}${kgFromG(Math.abs(d.total.tailAdjustG))}`, pct: d.total.netYieldBp === null ? "-" : bpText(d.total.netYieldBp) })}
+          {t("foundry.yield.tailAdjust", { kg: `${d.total.tailAdjustG < 0 ? "-" : "+"}${kgGrouped1(fmt, Math.abs(d.total.tailAdjustG))}`, pct: d.total.netYieldBp === null ? "-" : bpText(d.total.netYieldBp) })}
         </p>
       ) : null}
       <p className="m-0 text-[13px] text-muted-foreground">{t("foundry.yield.note")}</p>
@@ -145,6 +148,7 @@ type YieldData = inferRouterOutputs<AppRouter>["analytics"]["foundryYield"];
  * metal charged into the locked melts of the range. The server sums them; nothing is added up here.
  */
 function BySource({ d }: { d: YieldData }) {
+  const fmt = useFmt();
   const { t } = useT();
   const share = (g: number) => (d.total.inputG > 0 ? bpText(Math.round((g * 10_000) / d.total.inputG)) : "-");
   const rows = [
@@ -168,7 +172,7 @@ function BySource({ d }: { d: YieldData }) {
             {rows.map((r) => (
               <tr key={r.key} className="border-b border-border last:border-0" data-source={r.key}>
                 <th scope="row" className={`${TD} font-medium`}>{r.label}</th>
-                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgFromG(r.kgG)}</td>
+                <td className={`${TD} ${NUM} whitespace-nowrap`}>{kgGrouped1(fmt, r.kgG)}</td>
                 <td className={`${TD} ${NUM}`}>{share(r.kgG)}</td>
               </tr>
             ))}

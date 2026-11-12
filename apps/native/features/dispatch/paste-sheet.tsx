@@ -11,8 +11,9 @@ import { announce } from "@/lib/a11y";
 import { feedback } from "@/lib/feedback";
 import { saveErrorText } from "@/lib/save-error";
 
-import { renderScanMessage, unavailableMessage, type AddBundlesReport } from "../scan/outcome";
+import { renderScanMessage, tolerancePct, unavailableMessage, type AddBundlesReport } from "../scan/outcome";
 import type { ResolveHit } from "../scan/scan-flow";
+import { kgTotal } from "./format";
 import { addPastedSerials, emptyReport, resolvePasted } from "./paste";
 
 type Result = { report: AddBundlesReport; ambiguous: string[]; unsent: string[]; error: string | null };
@@ -124,6 +125,16 @@ function ReportView({ result }: { result: Result }) {
         <View className="gap-1 rounded-card bg-tone-red-tint p-3">
           <Text className="font-sans-semibold text-[15px] text-tone-red-ink">{t("native.dispatch.pastePartial", { count: result.unsent.length })}</Text>
           <Text className="font-sans text-[15px] leading-6 text-tone-red-ink">{result.error}</Text>
+        </View>
+      ) : null}
+      {report.overTolerance && report.overTolerance.length > 0 ? (
+        <View testID="paste-over-tolerance" className="gap-1 rounded-card bg-tone-amber-tint p-3">
+          {report.overTolerance.map((line) => (
+            <Text key={line.lineId} className="font-sans-semibold text-sm text-tone-amber-ink">
+              {t("dispatch.overTolerance.line", { pct: tolerancePct(line.toleranceBp), order: line.orderNumber, line: line.lineNo, kg: kgTotal(line.overG) })}
+            </Text>
+          ))}
+          <Text className="font-sans text-sm leading-5 text-tone-amber-ink">{t("dispatch.overTolerance.pending")}</Text>
         </View>
       ) : null}
       <ReportGroup tone="green" label={t("dispatch.paste.added", { count: report.added.length })} serials={report.added} />

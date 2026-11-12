@@ -1,4 +1,3 @@
-import { formatKgTotal, gToKg } from "@orrn/domain";
 import { useT } from "@orrn/i18n";
 import { BigNumber } from "@orrn/ui/components/big-number";
 import { Chip } from "@orrn/ui/components/chip";
@@ -11,6 +10,8 @@ import { useEffect, useRef } from "react";
 
 import { formatKgBand } from "./format";
 import { sectionHeadline, sectionLabel, type SectionStock } from "./sections";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped1, massUnit, sectionUnit } from "@/shared/lib/fmt-text";
 
 const GRID = "m-0 grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-3 xl:grid-cols-4";
 /** Rise only the first screenful on first load; the rest appear still. */
@@ -27,11 +28,12 @@ const RISE_LIMIT = 8;
  * chip (ruled in the ledger).
  */
 export function SectionBlock({ section, rise }: { section: SectionStock; rise?: number }) {
+  const fmt = useFmt();
   const { t } = useT();
   const head = sectionHeadline(section);
   const allHeld = head.state === "held";
-  const band = formatKgBand(section.weightMinG, section.weightMaxG);
-  const kg = formatKgTotal(gToKg(head.weightG));
+  const band = formatKgBand(section.weightMinG, section.weightMaxG, fmt);
+  const kg = kgGrouped1(fmt, (head.weightG));
 
   return (
     <Link
@@ -61,8 +63,8 @@ export function SectionBlock({ section, rise }: { section: SectionStock; rise?: 
 
       {/* Meta under the title and the number on the bottom edge, so numbers line up across a row. */}
       <span className="relative mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[13px] font-medium leading-snug tabular-nums">
-        <span>{t("stock.block.kg", { kg })}</span>
-        {band ? <span>{t("stock.block.band", { band })}</span> : null}
+        <span>{t("stock.block.kg", { kg, massUnit: massUnit(fmt) })}</span>
+        {band ? <span>{t("stock.block.band", { band, sectionUnit: sectionUnit(fmt) })}</span> : null}
       </span>
       {!allHeld && head.held > 0 ? (
         <span className="relative mt-2 flex">

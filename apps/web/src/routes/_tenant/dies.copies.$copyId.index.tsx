@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { CopyCard } from "@/features/die-room/copy-card";
-import { cardTabParam, type CardTab } from "@/features/die-room/die-room-model";
+import { cardTabParam, type CardTab } from "@/features/die-room/search-params";
 
 type CardSearch = { tab?: CardTab };
 

@@ -30,7 +30,8 @@ import { Can } from "@/shared/components/can";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { saveMayHaveLanded } from "./errors";
-import { bookDateText, kgText, pctText, slashBreaks } from "./format";
+import { bookDateText } from "@/shared/lib/fmt-text";
+import { pctText, slashBreaks } from "./format";
 import { kgTextToG, readKanta, type KantaReading } from "./kanta";
 import {
   BILL_BOOKS,
@@ -45,12 +46,15 @@ import {
   stepErrors,
   type DraftErrors,
   type LotDraft,
-  type LotStep,
-} from "./lot-draft";
+  type LotStep } from "./lot-draft";
 import { useInvalidatePurchase } from "./lot-sheets";
 import { useCompanyToday, useLotPerms, useToleranceBp } from "./lot-ui";
 import { formatRate } from "./lot-view";
 import { showsQueryError } from "./query-state";
+import { PlantInput } from "@/shared/components/plant-input";
+import { MASS_KG } from "@/shared/lib/plant-input";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgTrim, massUnit } from "@/shared/lib/fmt-text";
 
 export function NewLotPage() {
   const { t } = useT();
@@ -69,6 +73,7 @@ export function NewLotPage() {
 }
 
 function NewLotForm() {
+  const fmt = useFmt();
   const { t, locale } = useT();
   const navigate = useNavigate();
   const perms = useLotPerms();
@@ -619,6 +624,7 @@ function WeightsStep({
   canNote,
 }: StepProps & { reading: KantaReading; toleranceBp: number; canNote: boolean }) {
   const { t } = useT();
+  const fmt = useFmt();
   const pct = pctText(toleranceBp);
   const word =
     reading.state === "incomplete"
@@ -637,10 +643,10 @@ function WeightsStep({
     <>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label={t("purchase.new.party")} hint={t("purchase.new.partyHint")} error={errors.party ? t(errors.party) : undefined}>
-          <NumberInput value={draft.partyText} onValueChange={(partyText) => set({ partyText })} suffix="kg" className="h-14 text-[22px] pointer-coarse:h-14" />
+          <PlantInput spec={MASS_KG} value={draft.partyText} onValueChange={(partyText) => set({ partyText })} className="h-14 text-[22px] pointer-coarse:h-14" />
         </Field>
         <Field label={t("purchase.new.fc")} hint={t("purchase.new.fcHint")} error={errors.fc ? t(errors.fc) : undefined}>
-          <NumberInput value={draft.fcText} onValueChange={(fcText) => set({ fcText })} suffix="kg" className="h-14 text-[22px] pointer-coarse:h-14" />
+          <PlantInput spec={MASS_KG} value={draft.fcText} onValueChange={(fcText) => set({ fcText })} className="h-14 text-[22px] pointer-coarse:h-14" />
         </Field>
       </div>
 
@@ -656,9 +662,9 @@ function WeightsStep({
         <span className="relative text-[14px] font-semibold">{t("purchase.new.difference")}</span>
         <p data-no-truncate="" className="relative m-0 flex flex-wrap items-baseline gap-x-2">
           <span className="font-display text-[48px] leading-none font-extrabold tracking-[-0.04em] tabular-nums">
-            {reading.diffG === null ? "-" : kgText(Math.abs(reading.diffG))}
+            {reading.diffG === null ? "-" : kgTrim(fmt, Math.abs(reading.diffG))}
           </span>
-          {reading.diffG !== null ? <span className="text-[16px] font-semibold">kg</span> : null}
+          {reading.diffG !== null ? <span className="text-[16px] font-semibold">{massUnit(fmt)}</span> : null}
         </p>
         {/* The tolerance chip: the verdict in words, so the block's colour is never the only signal. */}
         <p
@@ -670,7 +676,7 @@ function WeightsStep({
         </p>
         {reading.partyG !== null ? (
           <p className="relative m-0 text-[14px] font-medium">
-            {t("purchase.tolerance", { kg: kgText(reading.toleranceG), pct })}
+            {t("purchase.tolerance", { kg: kgTrim(fmt, reading.toleranceG), pct })}
           </p>
         ) : null}
       </section>
@@ -682,7 +688,7 @@ function WeightsStep({
               {t("purchase.new.noteTitle")}
             </h3>
             <p className="m-0 text-[15px] leading-6 text-muted-foreground">
-              {t("purchase.new.noteBody", { kg: kgText(reading.shortG), pct, min: kgText(reading.minNoteG) })}
+              {t("purchase.new.noteBody", { kg: kgTrim(fmt, reading.shortG), pct, min: kgTrim(fmt, reading.minNoteG) })}
             </p>
             <div className="flex min-h-11 items-center gap-3">
               <Checkbox
@@ -698,14 +704,13 @@ function WeightsStep({
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field
                   label={t("purchase.new.noteKg")}
-                  hint={t("purchase.new.noteKgRange", { min: kgText(reading.minNoteG), max: kgText(reading.shortG) })}
+                  hint={t("purchase.new.noteKgRange", { min: kgTrim(fmt, reading.minNoteG), max: kgTrim(fmt, reading.shortG) })}
                   error={errors.noteKg ? t(errors.noteKg) : undefined}
                 >
                   {/* The whole short until the person types here; follows the weights again when they change. */}
-                  <NumberInput
+                  <PlantInput spec={MASS_KG}
                     value={noteKgText(draft, toleranceBp)}
                     onValueChange={(text) => set({ noteKgText: text })}
-                    suffix="kg"
                   />
                 </Field>
                 <Field
@@ -713,7 +718,7 @@ function WeightsStep({
                   hint={t("purchase.new.boriHint")}
                   error={errors.bori ? t(errors.bori) : undefined}
                 >
-                  <NumberInput value={draft.boriText} onValueChange={(boriText) => set({ boriText })} suffix="kg" />
+                  <PlantInput spec={MASS_KG} value={draft.boriText} onValueChange={(boriText) => set({ boriText })} />
                 </Field>
                 <Field label={`${t("purchase.new.noteText")} (${t("common.optional").toLowerCase()})`} className="sm:col-span-2">
                   <TextInput value={draft.noteText} onChangeText={(noteText) => set({ noteText })} maxLength={500} />
@@ -793,6 +798,7 @@ function Summary({
   locale: Locale;
   canNote: boolean;
 }) {
+  const fmt = useFmt();
   const { t } = useT();
   const none = t("purchase.new.notChosen");
   const rate = parseDecimal(draft.rateText);
@@ -813,8 +819,8 @@ function Summary({
         none
       ),
     ],
-    [t("purchase.detail.party"), reading.partyG !== null ? <span className="font-mono">{kgText(reading.partyG)} kg</span> : none],
-    [t("purchase.detail.ours"), reading.fcG !== null ? <span className="font-mono">{kgText(reading.fcG)} kg</span> : none],
+    [t("purchase.detail.party"), reading.partyG !== null ? <span className="font-mono">{kgTrim(fmt, reading.partyG)} {massUnit(fmt)}</span> : none],
+    [t("purchase.detail.ours"), reading.fcG !== null ? <span className="font-mono">{kgTrim(fmt, reading.fcG)} {massUnit(fmt)}</span> : none],
     // The note goes with the lot: its kg is the last look before Save (and the approver's first).
     ...(withNote
       ? ([
@@ -822,7 +828,7 @@ function Summary({
             t("purchase.new.summaryNote"),
             noteG !== null ? (
               <span className="font-mono">
-                {kgText(noteG)} kg{boriG ? `, ${t("purchase.detail.noteBori", { kg: kgText(boriG) })}` : ""}
+                {kgTrim(fmt, noteG)} {massUnit(fmt)}{boriG ? `, ${t("purchase.detail.noteBori", { kg: kgTrim(fmt, boriG) })}` : ""}
               </span>
             ) : (
               none
@@ -831,7 +837,7 @@ function Summary({
         ] as [string, ReactNode][])
       : []),
     [t("purchase.detail.billBook"), t(`purchase.billBooks.${draft.billBook}`)],
-    [t("purchase.new.date"), draft.date ? bookDateText(draft.date, locale) : none],
+    [t("purchase.new.date"), draft.date ? bookDateText(fmt, draft.date) : none],
   ];
   return (
     <section className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-card p-4">
@@ -850,7 +856,7 @@ function Summary({
         </Chip>
       ) : reading.state !== "incomplete" ? (
         <span className="text-[14px] text-muted-foreground">
-          {t("purchase.tolerance", { kg: kgText(reading.toleranceG), pct: pctText(toleranceBp) })}
+          {t("purchase.tolerance", { kg: kgTrim(fmt, reading.toleranceG), pct: pctText(toleranceBp) })}
         </span>
       ) : null}
     </section>

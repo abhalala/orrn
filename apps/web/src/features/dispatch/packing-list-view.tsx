@@ -25,6 +25,7 @@ import { PlV2Body } from "./packing-list-v2";
 import { CombineSheet, RegenerateDialog, RevisionsPanel } from "./packing-list-revisions";
 import { regenerateState } from "./pl-regenerate";
 import { plViewOf } from "./pl-model";
+import { paperT } from "@/shared/lib/fmt-text";
 
 /**
  * The packing list, the dispatch's final state (FP-PK-13). On `/dispatch/$id` it is the dispatch's
@@ -48,7 +49,8 @@ export function PackingListView({
   customerName?: string;
   focusTitle?: boolean;
 }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const titleRef = useRef<HTMLHeadingElement>(null);
   // Just dispatched: the confirm sheet and the Dispatch button are gone, so focus lands on the
   // packing list (the next job) and the page returns to the top, where the hero says Dispatched.
@@ -290,7 +292,8 @@ export function PackingListView({
 
 /** "Combined into PL/2026-27/9": this list was folded into another (shown at its own address). */
 function FoldedNote({ code, combinedIntoId }: { code: string; combinedIntoId: string }) {
-  const { t } = useT();
+  const { t: tUi } = useT();
+  const t = paperT(tUi);
   const into = useQuery(trpc.packingList.get.queryOptions({ id: combinedIntoId }));
   return (
     <p role="status" className="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card bg-tone-blue-tint px-4 py-3 text-[14px] font-medium text-tone-blue-ink">

@@ -15,7 +15,6 @@ import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type Rea
 import { toast } from "sonner";
 
 import { sendOnce } from "@/features/dispatch/request-key";
-import { orderKgText } from "@/features/orders/format";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
 
 import { CapacityBanner } from "@/features/dispatch/capacity-banner";
@@ -34,10 +33,11 @@ import {
   scanErrorText,
   type AddBundlesReport,
   type BundleBlockCode,
-  type CapacityReport,
-} from "./scan-outcome";
+  type CapacityReport } from "./scan-outcome";
 import { isSpeechOn, speak, toggleSpeech } from "./speak";
 import { useResolveScan, type ScanCandidate } from "./use-resolve-scan";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3 } from "@/shared/lib/fmt-text";
 
 export type { AddBundlesReport } from "./scan-outcome";
 
@@ -343,6 +343,7 @@ const RECENT_LIMIT = 8;
 
 function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "dispatch" }>; active: boolean }) {
   const { t, locale } = useT();
+  const fmt = useFmt();
   const { data: me } = useMe();
   const canAddAnyway = can(me, "order.manage");
   const coarse = useCoarsePointer();
@@ -412,7 +413,7 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
             message: noOrder ? t("scan.continuous.addedNoOrder", { serial: outcome.serial }) : t("scan.continuous.added", { serial: outcome.serial }),
             extra: t("scan.continuous.count", { count: countRef.current }),
             // Q36 off band and pl-flow 61 over tolerance: both amber, both need a manager.
-            warn: [offBandText(t, report, outcome.serial), overToleranceText(t, report, outcome.serial)].filter(Boolean).join(" ") || undefined,
+            warn: [offBandText(t, report, outcome.serial, fmt), overToleranceText(t, report, outcome.serial)].filter(Boolean).join(" ") || undefined,
           });
           remember(outcome.serial, "added", { note: noOrder });
           addedReport = report;
@@ -519,10 +520,10 @@ function DispatchPanel({ mode, active }: { mode: Extract<ScanMode, { kind: "disp
               <p data-scan-order={orderProgress.number} aria-live="polite" className="m-0 rounded-card bg-surface-sunken px-3 py-2 text-[14px] leading-5">
                 {t("scan.continuous.orderBaki", {
                   order: orderProgress.number,
-                  baki: orderKgText(orderProgress.progress.bakiG),
-                  left: orderKgText(orderProgress.progress.leftG),
+                  baki: kgGrouped3(fmt, orderProgress.progress.bakiG),
+                  left: kgGrouped3(fmt, orderProgress.progress.leftG),
                 })}
-                {orderProgress.progress.overG > 0 ? ` ${t("scan.continuous.orderOver", { kg: orderKgText(orderProgress.progress.overG) })}` : ""}
+                {orderProgress.progress.overG > 0 ? ` ${t("scan.continuous.orderOver", { kg: kgGrouped3(fmt, orderProgress.progress.overG) })}` : ""}
               </p>
             ) : null}
 

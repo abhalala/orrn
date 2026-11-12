@@ -6,6 +6,8 @@
 import { useT } from "@orrn/i18n";
 import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 
+import { useFmt } from "@/shared/lib/fmt";
+
 import { formatDay } from "./dates";
 import { PERIOD_LABEL, PERIODS, type Period } from "./period";
 
@@ -20,7 +22,8 @@ export function PeriodRow({
   today: string;
   onChange(period: Period): void;
 }) {
-  const { t, locale } = useT();
+  const { t } = useT();
+  const fmt = useFmt();
   return (
     <div data-slot="period-row" className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
       <SegmentedControl
@@ -30,7 +33,7 @@ export function PeriodRow({
         options={PERIODS.map((p) => ({ value: p, label: t(PERIOD_LABEL[p]) }))}
       />
       <p className="m-0 text-[14px] font-medium text-muted-foreground tabular-nums">
-        {t("customers.period.range", { from: formatDay(range.from, locale, today), to: formatDay(range.to, locale, today) })}
+        {t("customers.period.range", { from: formatDay(fmt, range.from, today), to: formatDay(fmt, range.to, today) })}
       </p>
     </div>
   );

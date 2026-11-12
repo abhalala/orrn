@@ -3,6 +3,8 @@
  * difference in words, and the company settings the screens read (D/C
  * tolerance, today's book date) from `auth.me`.
  */
+import type { Fmt } from "@orrn/domain";
+import { useFmt } from "@/shared/lib/fmt";
 import { useT, type Translate } from "@orrn/i18n";
 import { companyToday, dcToleranceBp } from "@orrn/server/lib/purchase";
 import { Chip } from "@orrn/ui/components/chip";
@@ -10,9 +12,10 @@ import { cn } from "@orrn/ui/lib/utils";
 
 import { can, useMe } from "@/shared/lib/me";
 
-import { kgText, pctText } from "./format";
+import { pctText } from "./format";
 import type { KantaReading } from "./kanta";
 import { LOT_TONE, type LotPerms, type LotStatus } from "./lot-view";
+import { kgTrim } from "@/shared/lib/fmt-text";
 
 export function LotStatusChip({ status }: { status: LotStatus }) {
   const { t } = useT();
@@ -20,7 +23,7 @@ export function LotStatusChip({ status }: { status: LotStatus }) {
 }
 
 /** The difference in words: "220 kg short, beyond 0.5%". The words carry the verdict, not only colour. */
-export function diffText(t: Translate, reading: KantaReading, toleranceBp: number): string {
+export function diffText(t: Translate, reading: KantaReading, toleranceBp: number, fmt: Fmt): string {
   const pct = pctText(toleranceBp);
   switch (reading.state) {
     case "incomplete":
@@ -28,11 +31,11 @@ export function diffText(t: Translate, reading: KantaReading, toleranceBp: numbe
     case "even":
       return t("purchase.diff.even");
     case "over":
-      return t("purchase.diff.over", { kg: kgText(reading.diffG ?? 0) });
+      return t("purchase.diff.over", { kg: kgTrim(fmt, reading.diffG ?? 0) });
     case "within":
-      return t("purchase.diff.within", { kg: kgText(reading.shortG), pct });
+      return t("purchase.diff.within", { kg: kgTrim(fmt, reading.shortG), pct });
     case "short":
-      return t("purchase.diff.short", { kg: kgText(reading.shortG), pct });
+      return t("purchase.diff.short", { kg: kgTrim(fmt, reading.shortG), pct });
   }
 }
 
@@ -52,6 +55,7 @@ export function DiffText({
   className?: string;
 }) {
   const { t } = useT();
+  const fmt = useFmt();
   return (
     <span
       className={cn(
@@ -60,7 +64,7 @@ export function DiffText({
         className,
       )}
     >
-      {diffText(t, reading, toleranceBp)}
+      {diffText(t, reading, toleranceBp, fmt)}
     </span>
   );
 }

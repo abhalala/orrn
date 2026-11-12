@@ -106,7 +106,14 @@ export async function offBandRows(db: OrrnDb, companyId: string, dispatchId: str
 }
 
 /** An item's requests, newest first. */
-type ItemRequest = { id: string; status: "pending" | "approved" | "rejected"; lineId: string | null };
+type ItemRequest = {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  lineId: string | null;
+  /** The bundle's and the line's kg/12ft the request was asked with (review finding 2). */
+  bundleMilli: number | null;
+  lineMilli: number | null;
+};
 
 async function requestsOf(db: OrrnDb, companyId: string, itemIds: readonly string[]): Promise<Map<string, ItemRequest[]>> {
   const out = new Map<string, ItemRequest[]>();
@@ -121,15 +128,28 @@ async function requestsOf(db: OrrnDb, companyId: string, itemIds: readonly strin
   rows.sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
   for (const r of rows) {
     const lineId = typeof r.meta?.lineId === "string" ? r.meta.lineId : null;
+    const milli = (v: unknown) => (typeof v === "number" ? v : null);
     const list = out.get(r.subjectId) ?? [];
-    list.push({ id: r.id, status: r.status, lineId });
+    list.push({ id: r.id, status: r.status, lineId, bundleMilli: milli(r.meta?.bundleMilli), lineMilli: milli(r.meta?.lineMilli) });
     out.set(r.subjectId, list);
   }
   return out;
 }
 
+/** Whether a request was asked with the kg/12ft the row has now. */
+function sameFigures(q: Pick<ItemRequest, "bundleMilli" | "lineMilli">, r: Pick<OffBandRow, "bundleMilli" | "lineMilli">): boolean {
+  return q.bundleMilli === r.bundleMilli && q.lineMilli === r.lineMilli;
+}
+
 /** Each off-band row with where it stands for the line it is on NOW, and any pending request asked for another line. */
-export type OffBandState = OffBandRow & { status: OffBandStatus; approvalId: string | null; stalePendingId: string | null };
+export type OffBandState = OffBandRow & {
+  status: OffBandStatus;
+  approvalId: string | null;
+  /** A waiting request that no longer fits the row: asked for another line, or (check N4) other figures. */
+  stalePendingId: string | null;
+  /** Check N4: that waiting request was for this line with other kg/12ft (else for another line). */
+  staleFigures: boolean;
+};
 
 export async function offBandStates(db: OrrnDb, companyId: string, rows: readonly OffBandRow[]): Promise<OffBandState[]> {
   const requests = await requestsOf(
@@ -139,9 +159,18 @@ export async function offBandStates(db: OrrnDb, companyId: string, rows: readonl
   );
   return rows.map((r) => {
     const list = requests.get(r.itemId) ?? [];
-    const forLine = list.find((q) => q.lineId === r.lineId) ?? null;
-    const stale = list.find((q) => q.status === "pending" && q.lineId !== r.lineId) ?? null;
-    return { ...r, status: forLine?.status ?? "none", approvalId: forLine?.id ?? null, stalePendingId: stale?.id ?? null };
+    // Review 2 and check N4: a request decides the row only for the line AND the kg/12ft it was asked
+    // with. The newest such request (approved, waiting or rejected) decides; with none the row is not
+    // asked yet, and a waiting request for other figures or another line is withdrawn when it is asked.
+    const forLine = list.find((q) => q.lineId === r.lineId && sameFigures(q, r)) ?? null;
+    const stale = list.find((q) => q.status === "pending" && q !== forLine) ?? null;
+    return {
+      ...r,
+      status: forLine?.status ?? "none",
+      approvalId: forLine?.id ?? null,
+      stalePendingId: stale?.id ?? null,
+      staleFigures: stale !== null && stale.lineId === r.lineId,
+    };
   });
 }
 
@@ -171,14 +200,20 @@ export function offBandRequestStatements(
   rows: readonly OffBandRow[],
   seq: number,
   withdraw: readonly string[] = [],
+  /** Check N4: waiting requests for the same line asked with other kg/12ft. */
+  withdrawFigures: readonly string[] = [],
 ): SqliteBatchItem[] {
   const statements: SqliteBatchItem[] = [];
-  if (withdraw.length > 0) {
+  for (const [ids, note] of [
+    [withdraw, "Withdrawn: the bundle is on another order line now."],
+    [withdrawFigures, "Withdrawn: the kg/12ft changed after it was asked."],
+  ] as const) {
+    if (ids.length === 0) continue;
     statements.push(
       ctx.db
         .update(approval)
-        .set({ status: "rejected", decidedAt: new Date(), note: "Withdrawn: the bundle is on another order line now.", serverSeq: seq })
-        .where(and(eq(approval.companyId, ctx.companyId), eq(approval.kind, "dispatch_off_band"), inArray(approval.id, [...withdraw]), eq(approval.status, "pending"))),
+        .set({ status: "rejected", decidedAt: new Date(), note, serverSeq: seq })
+        .where(and(eq(approval.companyId, ctx.companyId), eq(approval.kind, "dispatch_off_band"), inArray(approval.id, [...ids]), eq(approval.status, "pending"))),
     );
   }
   for (const r of rows) {

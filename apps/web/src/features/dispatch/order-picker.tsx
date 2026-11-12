@@ -4,8 +4,9 @@ import { Field } from "@orrn/ui/components/field";
 import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 
-import { orderKgText } from "@/features/orders/format";
 import { trpc, trpcClient } from "@/shared/utils/trpc";
+import { useFmt } from "@/shared/lib/fmt";
+import { kgGrouped3 } from "@/shared/lib/fmt-text";
 
 export type PickedOrder = { id: string; number: string; customerName: string };
 
@@ -16,6 +17,7 @@ export type PickedOrder = { id: string; number: string; customerName: string };
  */
 export function OrderPicker({ value, onChange, error }: { value: PickedOrder | null; onChange(next: PickedOrder): void; error?: string }) {
   const { t } = useT();
+  const fmt = useFmt();
   const seen = useRef(new Map<string, PickedOrder>());
   // The order named in the URL (Dispatch on an order's page) shows its label before any search.
   const known = useQuery({
@@ -43,7 +45,7 @@ export function OrderPicker({ value, onChange, error }: { value: PickedOrder | n
               return {
                 value: o.id,
                 label: `${o.number} · ${o.customerName}`,
-                hint: `${t("dispatch.fromOrder.baki", { kg: orderKgText(o.bakiG) })}${o.poNumber ? ` · ${o.poNumber}` : ""}`,
+                hint: `${t("dispatch.fromOrder.baki", { kg: kgGrouped3(fmt, o.bakiG) })}${o.poNumber ? ` · ${o.poNumber}` : ""}`,
               };
             });
         }}

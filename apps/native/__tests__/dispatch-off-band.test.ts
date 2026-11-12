@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { createI18n } from "@orrn/i18n";
 
-import { completeRefusalText, OFF_BAND_TONE, offBandNote, offBandStatusKey, offBandStops } from "../features/dispatch/off-band";
+import { completeRefusalText, OFF_BAND_TONE, offBandChipText, offBandNote, offBandStatusKey, offBandStops } from "../features/dispatch/off-band";
 
 const sum = (over: Partial<{ pending: number; rejected: number; unasked: number; approved: number }>) => {
   const s = { pending: 0, rejected: 0, unasked: 0, approved: 0, ...over };
@@ -29,6 +29,16 @@ describe("Q36 off-band rows on the phone's dispatch screen (parity with web)", (
   test("status words and tones", () => {
     expect(offBandStatusKey("rejected")).toBe("dispatch.offBand.rejected");
     expect(OFF_BAND_TONE.approved).toBe("green");
+  });
+
+  test("the bundle row names both kg/12ft figures beside the approval chip", async () => {
+    expect(offBandChipText(t, { offBand: true, kgPer12ftMilli: 12_498, lineKgPer12ftMilli: 12_000 })).toBe("12.498 kg/12ft, the order says 12.000");
+    expect(offBandChipText(t, { offBand: false, kgPer12ftMilli: 12_000, lineKgPer12ftMilli: 12_000 })).toBeNull();
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const card = readFileSync(join(import.meta.dir, "..", "features/dispatch/group-card.tsx"), "utf8");
+    expect(card).toContain("offBandChipText(t, b)");
+    expect(card).toContain("offBandStatusKey(b.offBandStatus)");
   });
 
   test("a refused Complete is said in the floor's words; anything else is left to the generic text", () => {
@@ -72,4 +82,30 @@ describe("pl-flow 61 tolerance at scan on the phone (parity with web)", () => {
       "This load is more than the order allows. A manager has to approve it first. Your note went with the request.",
     );
   });
+
+  test("pl-flow 61 (web parity): the Dispatch sheet's note goes with Complete only while a line is over and something is written", async () => {
+    const { overdrawExtras, overdrawLines } = await import("../features/dispatch/off-band");
+    const line = { lineId: "l1", orderNumber: "SO-4", lineNo: 2, overG: 30_000, covered: false };
+    const over = overdrawLines({ toleranceBp: 500, lines: [line], approval: null });
+    expect(overdrawExtras(over, "  Party asked for the full truck ")).toEqual({ overdrawNote: "Party asked for the full truck" });
+    expect(overdrawExtras(over, "   ")).toEqual({});
+    expect(overdrawExtras(overdrawLines({ toleranceBp: 500, lines: [{ ...line, covered: true }], approval: null }), "note")).toEqual({});
+    expect(overdrawExtras(null, "note")).toEqual({});
+  });
+
+  test("the Dispatch and paste sheets show the same tolerance lines and approval message as the web", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const read = (file: string) => readFileSync(join(import.meta.dir, "..", file), "utf8");
+    const detail = read("app/(tabs)/dispatch/[id].tsx");
+    expect(detail).toContain('testID="dispatch-sheet-over-tolerance"');
+    expect(detail).toContain('t("dispatch.overTolerance.title")');
+    expect(detail).toContain('t("dispatch.overTolerance.line"');
+    expect(detail).toContain("t(overOrder.statusKey)");
+    const paste = read("features/dispatch/paste-sheet.tsx");
+    expect(paste).toContain('testID="paste-over-tolerance"');
+    expect(paste).toContain('t("dispatch.overTolerance.line"');
+    expect(paste).toContain('t("dispatch.overTolerance.pending")');
+  });
 });
+
