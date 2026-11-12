@@ -67,6 +67,7 @@ export const QUESTION_CODES = [
   "magnitude_check",
   "order_po",
   "bundles_no_old_id",
+  "order_fill_above",
 ] as const;
 export type QuestionCode = (typeof QUESTION_CODES)[number];
 
@@ -197,6 +198,11 @@ export const ingestBlock = sqliteTable(
       sections: { row: number; text: string }[];
       sectionsTotal: number;
     }>(),
+    /**
+     * Round 8 item 8: the table above this one, as the reader sent it (`continues`: the table above
+     * is all text). Kept so a re-put from the review screen sends it again. Null: none sent.
+     */
+    follows: text("follows", { mode: "json" }).$type<{ ordinal: number; gapRows: number; continues: boolean }>(),
     modelChecked: integer("model_checked", { mode: "boolean" }).notNull().default(false),
     /** The browser's canonical rows file for this block landed in the vault (set by the upload route). */
     canonicalStored: integer("canonical_stored", { mode: "boolean" }).notNull().default(false),

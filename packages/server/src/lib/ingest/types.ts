@@ -219,9 +219,14 @@ export type IngestQuestion = {
   subject: string;
   /** Values for the i18n text, e.g. `{ field: "rate" }` or `{ count: 12 }`. */
   params: Record<string, string | number>;
+  /** `order_fill_above` only: up to five of the lines it is about (rule 10.1). */
+  lines?: FillAboveLine[];
   answer: unknown;
   open: boolean;
 };
+
+/** A line filled from the line just above it, shown with `order_fill_above`: its row index and what it took. */
+export type FillAboveLine = { row: number; order: string; date: string | null; po: string | null };
 
 /**
  * Round 7 item 2: what the reader said about a table, shown on the review screen and never decided
@@ -255,6 +260,14 @@ export type BlockView = ReaderFacts & {
   modelChecked: boolean;
   /** The canonical rows file of this block is in the vault. */
   canonicalStored: boolean;
+  /**
+   * Round 8 item 8: the saved hint fields, so a re-put from the review screen keeps them. From a
+   * person's pick: the last data row (null: to the end) and the rows left out (at most 1,000, as the
+   * input allows). `follows`: the table above, as the reader sent it.
+   */
+  lastDataRow: number | null;
+  skipRows: number[];
+  follows: { ordinal: number; gapRows: number; continues: boolean } | null;
 };
 
 export type CandidateDetail = CandidateSummary & {

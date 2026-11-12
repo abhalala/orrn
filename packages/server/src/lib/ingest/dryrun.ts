@@ -29,7 +29,7 @@ import {
 } from "@orrn/ingest";
 import { isModuleOn, type CompanyModule } from "@orrn/domain";
 import { TRPCError } from "@trpc/server";
-import { and, asc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 import { customer, customerAlias, die, dieInstance, salesOrderLine, vendor, vendorAlias } from "@orrn/db/schema";
 import {
@@ -110,7 +110,7 @@ import {
   type NameIndex,
   type Resolution,
 } from "./resolvers";
-import { INGEST_LIMITS, type DryRunStepOut, type IngestCtx, type IngestQuestion } from "./types";
+import { INGEST_LIMITS, type DryRunStepOut, type FillAboveLine, type IngestCtx, type IngestQuestion } from "./types";
 
 export const TARGET_MODULE: Record<IngestTarget, CompanyModule> = {
   customers: "customers",
@@ -132,6 +132,11 @@ export const Q_MAGNITUDE = "q:magnitude_check";
 export const Q_ORDER_PO = "q:order_po";
 /** A bundle row with no old bundle number waits on `bundles_no_old_id` (rule 7.5). */
 export const Q_BUNDLE_NO_OLD_ID = "q:bundle_no_old_id";
+/**
+ * Rule 10.1: a line filled from the nearest filled line above it, in a run of one order number that
+ * holds two values of a field, waits on `order_fill_above` (one question per file).
+ */
+export const Q_ORDER_FILL_ABOVE = "q:order_fill_above";
 /** The reason of a bundle row with no old bundle number when the person said "Do not import". */
 export const NO_OLD_ID_NOT_IMPORTED = "no_old_id_not_imported:legacyId";
 
@@ -164,6 +169,8 @@ export type AnswerSet = {
   newCustomers: boolean | null;
   /** `bundles_no_old_id`: true "Import them", false "Do not import", null not answered (rule 7.5). */
   bundlesNoOldId: boolean | null;
+  /** `order_fill_above`, the file's answer: true keeps the fill from above, false refuses those lines (rule 10.1). */
+  fillAbove: boolean | null;
   /** `magnitude_check` answers by field: "as_is", or the unit the column's flagged numbers are in. */
   magnitude: Map<string, string>;
   /** `order_po` answers by order key: the PO picked (`{ po }`), or "skip". */
@@ -200,6 +207,7 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
     legacyDie: new Map(),
     newCustomers: null,
     bundlesNoOldId: null,
+    fillAbove: null,
     magnitude: new Map(),
     orderPo: new Map(),
     answered: new Set(),
@@ -228,6 +236,9 @@ export function readAnswers(rows: readonly AnswerRow[], artifact: Pick<ArtifactR
         break;
       case "bundles_no_old_id":
         if (typeof v === "boolean") set.bundlesNoOldId = v;
+        break;
+      case "order_fill_above":
+        if (typeof v === "boolean") set.fillAbove = v;
         break;
       case "magnitude_check":
         if (typeof v === "string") set.magnitude.set(a.subject, v);
@@ -1065,6 +1076,28 @@ export function applyDecision(out: RowOutcome, row: Pick<Staged, "decision" | "m
 // ---------------------------------------------------------------------------
 
 /**
+ * Rule 10.1: `order_fill_above` is one question per file. Its answer is stored on the sheet it was
+ * given on; every sheet of the file reads the latest one. The candidate's own answers come back with
+ * that answer in place of its own.
+ */
+export async function withFileFillAnswer(ctx: Pick<IngestCtx, "db" | "companyId">, artifactId: string, rows: readonly AnswerRow[]): Promise<AnswerRow[]> {
+  const [file] = await ctx.db
+    .select()
+    .from(ingestAnswer)
+    .where(
+      and(
+        eq(ingestAnswer.companyId, ctx.companyId),
+        eq(ingestAnswer.questionCode, "order_fill_above"),
+        sql`${ingestAnswer.candidateId} in (select k.id from ingest_candidate k where k.company_id = ${ctx.companyId} and k.artifact_id = ${artifactId})`,
+      ),
+    )
+    .orderBy(desc(ingestAnswer.answeredAt))
+    .limit(1);
+  const own = rows.filter((a) => a.questionCode !== "order_fill_above");
+  return file ? [...own, file] : own;
+}
+
+/**
  * The candidate's questions (plan B7): from the recipe, the period, rates and the rows that wait on
  * an answer. `rates_hidden` is asked only of a viewer who cannot see rates (A8, D8).
  */
@@ -1077,8 +1110,11 @@ export async function candidateQuestions(
   if (!c.recipe || !c.target) return [];
   const recipe = recipeSchema.safeParse(c.recipe);
   if (!recipe.success) return [];
-  const answers =
-    answerRows ?? (await ctx.db.select().from(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id))));
+  const answers = await withFileFillAnswer(
+    ctx,
+    c.artifactId,
+    answerRows ?? (await ctx.db.select().from(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)))),
+  );
   const byKey = new Map(answers.map((a) => [answerKey(a.questionCode, a.subject), a.answer as unknown]));
   const out: IngestQuestion[] = [];
   // Questions rows still wait on. A row waits only while its question has no answer that settles
@@ -1112,6 +1148,8 @@ export async function candidateQuestions(
 
   const waiting = await ctx.db
     .select({
+      rowIndex: ingestStagedRow.rowIndex,
+      orderDate: sql<string | null>`json_extract(${ingestStagedRow.values}, '$.orderDate')`,
       reasons: ingestStagedRow.reasons,
       magnitude: sql<string | null>`json_extract(${ingestStagedRow.values}, '$._magnitude')`,
       poText: sql<string | null>`nullif(trim(coalesce(json_extract(${ingestStagedRow.values}, '$.poNumber'), '')), '')`,
@@ -1125,8 +1163,12 @@ export async function candidateQuestions(
         eq(ingestStagedRow.state, "ambiguous"),
         sql`${ingestStagedRow.reasons} like '%"q:%'`,
       ),
-    );
+    )
+    .orderBy(asc(ingestStagedRow.rowIndex));
   const codes = new Set<string>();
+  // Rule 10.1: the lines filled from the line above in a run of two values, and the first five of them.
+  let fillAbove = 0;
+  const fillLines: FillAboveLine[] = [];
   let newNames = 0;
   let noOldId = 0;
   // Keyed by subject (field, unit read in, side).
@@ -1135,6 +1177,12 @@ export async function candidateQuestions(
   const twoPos = new Map<string, { order: string; customer: string; pos: string[]; count: number }>();
   for (const w of waiting) {
     for (const reason of w.reasons ?? []) {
+      if (reason === Q_ORDER_FILL_ABOVE) {
+        fillAbove += 1;
+        if (fillLines.length < 5) fillLines.push({ row: w.rowIndex, order: w.oldNo ?? "", date: w.orderDate ?? null, po: w.poText ?? null });
+        stillWaiting.add(answerKey("order_fill_above", ""));
+        continue;
+      }
       if (reason.startsWith(`${Q_ORDER_PO}:`)) {
         const subject = reason.slice(Q_ORDER_PO.length + 1);
         const seen = twoPos.get(subject) ?? { order: w.oldNo ?? w.poText ?? "", customer: w.party ?? "", pos: [], count: 0 };
@@ -1186,6 +1234,10 @@ export async function candidateQuestions(
   }
   if (newNames > 0 || byKey.has(answerKey("new_customers", ""))) add("new_customers", "", { count: newNames });
   if (noOldId > 0 || byKey.has(answerKey("bundles_no_old_id", ""))) add("bundles_no_old_id", "", { count: noOldId });
+  if (fillAbove > 0 || byKey.has(answerKey("order_fill_above", ""))) {
+    add("order_fill_above", "", { count: fillAbove });
+    out[out.length - 1]!.lines = fillLines;
+  }
   // One question per old order whose rows carry two different POs (rule 1): pick one, or skip.
   for (const a of answers) {
     if (a.questionCode !== "order_po" || twoPos.has(a.subject)) continue;
@@ -1260,19 +1312,27 @@ const blankRaw = (raw: readonly string[]) => raw.every((c) => (c ?? "").trim() =
  * marked the cell as part of a merged range whose top cell is filled; never from position alone. A
  * run is the rows in a row that share an order number (typed, or carried by a merged cell); a fully
  * blank row inside it does not end it. Inside a run of two or more rows, a blank party, order date or
- * PO takes the value of the first row of the run that has one. Two different values inside one run
- * are left as the file has them: the whole-order pass makes them a conflict. A run cut by the page is
+ * PO takes the value of the nearest row above it in the run that has one (rule 10.1), never a row
+ * below. When the run holds two values of a field, its filled rows wait on the file's question
+ * `order_fill_above`: Yes keeps the fill, No leaves those rows as the file has them. A run cut by the page is
  * finished from at most 100 rows on each side. Returns the filled raw cells and the row notes by row
  * id; the stored raw row is left as the file had it.
  */
+/**
+ * One row's fill. `ask`: the row waits on `order_fill_above`. `declined`: the person said No, so the
+ * row is read as the file has it, and a refused one holds no order (rule 10.1).
+ */
+type RunFill = { raw: string[]; notes: string[]; ask: boolean; declined: boolean };
+
 async function orderRunFill(
   ctx: IngestCtx,
   candidateId: string,
   recipe: Recipe,
   merged: readonly { col: number; firstRow: number; lastRow: number }[],
   page: readonly Staged[],
-): Promise<Map<string, { raw: string[]; notes: string[] }>> {
-  const out = new Map<string, { raw: string[]; notes: string[] }>();
+  fillAbove: boolean | null,
+): Promise<Map<string, RunFill>> {
+  const out = new Map<string, RunFill>();
   const noCol = fieldColumn(recipe, "oldOrderNo");
   if (noCol === null || page.length === 0) return out;
   const cols = ORDER_WHOLE_FIELDS.map((f) => [f, fieldColumn(recipe, f)] as const).filter((x): x is readonly [(typeof ORDER_WHOLE_FIELDS)[number], number] => x[1] !== null && x[1] !== noCol);
@@ -1328,10 +1388,16 @@ async function orderRunFill(
   if (cur.length) runs.push(cur);
   const ids = new Map(page.map((r) => [r.rowIndex, r.id]));
   for (const run of runs) {
-    const fills = cols.map(([field, col]) => ({ field, col, value: run.map((r) => cellOf(r.raw, col)).find((v) => v !== "") ?? "" }));
+    // Rule 10.1: a run that holds two dates is two orders under one number (numbers restart each
+    // year). A line that took its date from above is not trusted until the file's question is
+    // answered. Two POs on one date are one order with two POs (the order_po question), and two
+    // parties are a conflict (order_run_differs), so only the date asks.
+    const dateCol = cols.find(([f]) => f === "orderDate")?.[1];
+    const twoDates = run.length > 1 && dateCol !== undefined && new Set(run.map((r) => cellOf(r.raw, dateCol).toLowerCase()).filter((v) => v !== "")).size > 1;
+    // The nearest filled value above, by column, inside this run.
+    const above = new Map<number, string>();
     for (const r of run) {
       const id = ids.get(r.rowIndex);
-      if (!id) continue;
       const raw = [...r.raw];
       const notes: string[] = [];
       const set = (col: number, v: string) => {
@@ -1343,15 +1409,17 @@ async function orderRunFill(
         set(noCol, n.no);
         notes.push(MERGED_CELL);
       }
-      if (run.length > 1) {
-        for (const f of fills) {
-          if (f.value && cellOf(raw, f.col) === "") {
-            set(f.col, f.value);
-            notes.push(`filled_down:${f.field}`);
-          }
+      const fills = run.length > 1 ? cols.filter(([, col]) => cellOf(r.raw, col) === "" && above.has(col)) : [];
+      const doubtful = twoDates && fills.some(([, col]) => col === dateCol);
+      const declined = doubtful && fillAbove === false;
+      if (!declined) {
+        for (const [field, col] of fills) {
+          set(col, above.get(col)!);
+          notes.push(`filled_down:${field}`);
         }
       }
-      if (notes.length) out.set(id, { raw, notes });
+      for (const [, col] of cols) if (cellOf(r.raw, col) !== "") above.set(col, cellOf(r.raw, col));
+      if (id && (notes.length || doubtful)) out.set(id, { raw, notes, ask: doubtful && fillAbove === null, declined });
     }
   }
   return out;
@@ -1656,7 +1724,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     .select()
     .from(ingestAnswer)
     .where(and(eq(ingestAnswer.companyId, ctx.companyId), eq(ingestAnswer.candidateId, c.id)));
-  const answers = readAnswers(answerRows, artifact, recipe);
+  const answers = readAnswers(await withFileFillAnswer(ctx, artifact.id, answerRows), artifact, recipe);
 
   const page = await ctx.db
     .select()
@@ -1701,7 +1769,7 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
     const dropRateFlags = c.target === "orders" && answers.ratesLeftOut === true;
     // Every read of a row goes through it, the re-reads of settleMagnitude too (X-new-2).
     const keepFlag = dropRateFlags ? (f: MagnitudeFlag) => !RATE_FIELDS.includes(f.field) : undefined;
-    const filled = c.target === "orders" ? await orderRunFill(ctx, c.id, recipe, block.merged ?? [], editable) : new Map<string, { raw: string[]; notes: string[] }>();
+    const filled = c.target === "orders" ? await orderRunFill(ctx, c.id, recipe, block.merged ?? [], editable, answers.fillAbove) : new Map<string, RunFill>();
     const applied = editable.map((r) => {
       const raw = filled.get(r.id)?.raw ?? r.raw;
       return { r, ...settleMagnitude(applyRow(compiled, raw, r.rowIndex), raw, answers, compileWith, keepFlag) };
@@ -1728,7 +1796,8 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
         if (c.target === "orders") {
           const found = live.customers ? resolveName(live.customers, str(values.customer)) : null;
           const hold = holdKeyOf(values, found?.kind === "match" ? found.id : null);
-          if (hold) values._holdKey = hold;
+          // A line the person said was not filled right holds no order (rule 10.1, "No").
+          if (hold && !filled.get(r.id)?.declined) values._holdKey = hold;
         }
         outcomes.set(r.id, {
           // A person may leave a refused row out (rule 7.1).
@@ -1758,6 +1827,10 @@ export async function dryRunStep(ctx: IngestCtx, input: { candidateId: string; e
       out = holdForMagnitude(out, waiting, entered);
       if (c.target === "die_copies") out = copyStatusCheck(out, live.sections ?? []);
       out.reasons = [...keep, ...out.reasons, ...notes, ...(filled.get(r.id)?.notes ?? [])];
+      // Rule 10.1: a line filled from above in a run of two values waits on the file's question.
+      if (filled.get(r.id)?.ask && (out.state === "ready_create" || out.state === "ambiguous")) {
+        out = { ...out, state: "ambiguous", reasons: [...out.reasons, Q_ORDER_FILL_ABOVE] };
+      }
       if (c.target === "orders" && out.values) {
         const hold = holdKeyOf(out.values, ((out.values._ids ?? {}) as Record<string, string>).customer ?? null);
         if (hold) out.values._holdKey = hold;

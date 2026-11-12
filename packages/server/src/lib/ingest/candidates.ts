@@ -12,6 +12,7 @@ import {
   combineHeaders,
   findBuiltin,
   headerKey,
+  cellKind,
   inferKinds,
   usedWidth,
   unitsFor,
@@ -45,7 +46,7 @@ import {
   type RowState,
 } from "@orrn/db/schema/ingest";
 
-import { mapInChunks, type SqliteBatchItem } from "../atomic";
+import { chunk, IN_LIST_CHUNK, mapInChunks, type SqliteBatchItem } from "../atomic";
 import { auditInsert } from "../audit";
 import { now } from "../clock";
 import { createId } from "../id";
@@ -93,6 +94,7 @@ import {
   othersAgainAfter,
   openDoubts,
   openDoubtWhere,
+  Q_ORDER_FILL_ABOVE,
 } from "./dryrun";
 import { fyOfDate, periodRerun, validDate, validFy } from "./artifacts";
 import { aliasMoveRefusal } from "./merge/rowchecks";
@@ -192,6 +194,11 @@ export const HEADER_PICK_OUTSIDE = "The row you picked is not in the preview";
 export const PREVIEW_ORDER = "The preview has a row twice or out of order";
 export const HEADER_NOT_IN_PREVIEW = "The column names row is not in the preview. Read the table again.";
 export const REPICK_WRITTEN = "Rows of this sheet are already written. Its columns cannot change now.";
+/** Rule 10.2: re-put and repick refuse once a sheet of the file is approved or merging. */
+export const FILE_APPROVED = "A sheet of this file is approved. Its tables cannot change now.";
+/** Inside a batch: no sheet of the file is approved, merging or merged (rule 10.2). */
+const noSheetApproved = (companyId: string, artifactId: string) =>
+  sql`not exists (select 1 from ingest_candidate k where k.company_id = ${companyId} and k.artifact_id = ${artifactId} and k.state in ('approved', 'merging', 'merged'))`;
 
 /** Rule 7.2: preview rows in order, each once (by page, then row). */
 function checkPreview(b: BlockInput): void {
@@ -264,19 +271,39 @@ function settleHeader(
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
 }
 
-/** Round 7 item 3: whether the reader's guess is a clean sheet's header, kept with no question. */
+/**
+ * Round 7 item 3 and rule 10.3: whether the reader's guess is a clean sheet's header, kept with no
+ * question. One row, nothing but blank rows above it, and narrow: every filled cell is text (not a
+ * number or a date), two or more filled cells with no blank between them, and the row below has at
+ * least one number or date.
+ */
 function cleanGuess(b: BlockInput, choice: { resembles: unknown; sameColumnsAsAbove: boolean }): boolean {
   if (b.headerRows !== 1 || choice.resembles || choice.sameColumnsAsAbove || b.follows?.continues === true) return false;
-  if (!b.preview.some((p) => p.row === b.headerRow)) return false;
-  return b.preview.every((p) => p.row >= b.headerRow || p.cells.every((c) => c.trim() === ""));
+  const at = b.preview.findIndex((p) => p.row === b.headerRow);
+  if (at === -1) return false;
+  if (!b.preview.every((p) => p.row >= b.headerRow || p.cells.every((c) => c.trim() === ""))) return false;
+  const numberOrDate = (c: string) => {
+    const k = cellKind(c);
+    return k === "date" || k === "int" || k === "decimal";
+  };
+  const cells = b.preview[at]!.cells;
+  const filled = cells.map((c, i) => (c.trim() === "" ? -1 : i)).filter((i) => i >= 0);
+  if (filled.length < 2 || filled.at(-1)! - filled[0]! + 1 !== filled.length) return false;
+  if (filled.some((i) => numberOrDate(cells[i]!))) return false;
+  const below = b.preview[at + 1];
+  return !!below && below.row === b.headerRow + 1 && (below.page ?? 0) === (b.preview[at]!.page ?? 0) && below.cells.some(numberOrDate);
 }
 
 /**
  * Round 7 item 4: whether a block sent again is the block saved. The same sheet, header rows and
- * row count, the same names from the preview, and, when a pick is sent, the same pick.
+ * row count, the same names from the preview, and, when a pick is sent, the same pick. S6-7: a block
+ * saved by a person's pick and sent again with no pick is compared under its saved pick: the reader
+ * counts its rows without the pick, so the row count is not compared, and the pick stays.
  */
 function sameBlock(e: BlockRow, b: BlockInput): boolean {
-  if (e.sheetName !== b.sheetName || e.headerRow !== b.headerRow || e.headerRows !== b.headerRows || e.rowCount !== b.rowCount) return false;
+  const underSavedPick = !b.hint && !!e.headerPick;
+  if (e.sheetName !== b.sheetName || e.headerRow !== b.headerRow || e.headerRows !== b.headerRows) return false;
+  if (!underSavedPick && e.rowCount !== b.rowCount) return false;
   let names: string[];
   try {
     names = namesFromPreview(b);
@@ -354,13 +381,19 @@ export async function putBlocks(
     .from(ingestCandidate)
     .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, artifact.id)));
   if (reput) {
-    const written = all.some((k) => k.rowsWritten > 0 || k.recipeLocked || k.state === "approved" || k.state === "merging" || k.state === "merged");
+    const written = all.some((k) => k.rowsWritten > 0 || k.recipeLocked || k.state === "merged");
     if (written) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+    if (all.some((k) => k.state === "approved" || k.state === "merging")) throw new TRPCError({ code: "BAD_REQUEST", message: FILE_APPROVED });
     if (artifact.readState !== "reading" && artifact.readState !== "read") throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
   } else if (artifact.readState !== "reading") {
     throw new TRPCError({ code: "BAD_REQUEST", message: "This file is already read" });
   }
-  const totalRows = input.blocks.reduce((n, b) => n + b.rowCount, 0);
+  // A saved block that stays keeps its own row count (S6-7: under its saved pick).
+  const keptCount = (b: BlockInput) => {
+    const e = existing.find((x) => x.ordinal === b.ordinal);
+    return e && !changed.includes(e) ? e.rowCount : b.rowCount;
+  };
+  const totalRows = input.blocks.reduce((n, b) => n + keptCount(b), 0);
   if (totalRows > INGEST_LIMITS.rawRowsPerFile) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `${artifact.fileName} has more than 200,000 rows. Split it and try again.` });
   }
@@ -379,34 +412,47 @@ export async function putBlocks(
     const goneBlocks = [...changed, ...dropped].map((e) => e.id);
     const roots = all.filter((k) => goneBlocks.includes(k.blockId)).map((k) => k.id);
     const kin = all.filter((k) => roots.includes(k.id) || (k.parentId != null && roots.includes(k.parentId)));
-    const ids = kin.map((k) => k.id);
+    // A derived list goes before the sheet it came from. Id lists are cut to IN_LIST_CHUNK a
+    // statement, so no statement binds more than 100 values (S6-6).
+    const ids = [...kin.filter((k) => k.parentId != null), ...kin.filter((k) => k.parentId == null)].map((k) => k.id);
     const allIds = all.map((k) => k.id);
-    // No row of the file was written in between.
+    // Rule 10.2: no sheet of the file was approved or started merging in between.
     statements.push(
       ctx.db
         .update(ingestArtifact)
         .set({ updatedAt: at })
-        .where(
-          and(
-            eq(ingestArtifact.id, artifact.id),
-            eq(ingestArtifact.companyId, ctx.companyId),
-            allIds.length
-              ? sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${allIds} and r.merge_state = 'written')`
-              : sql`1 = 1`,
-          ),
-        ),
+        .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId), noSheetApproved(ctx.companyId, artifact.id))),
       ingestAbortUnlessChanged(ctx.db),
     );
-    for (const k of kin) if (k.target) statements.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
-    if (ids.length) {
+    // No row of the file was written in between.
+    for (const part of chunk(allIds, IN_LIST_CHUNK)) {
       statements.push(
-        ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, ids))),
-        ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), inArray(ingestAnswer.candidateId, ids))),
-        ctx.db.delete(ingestBotRun).where(and(eq(ingestBotRun.companyId, ctx.companyId), inArray(ingestBotRun.candidateId, ids))),
-        ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, ids))),
+        ctx.db
+          .update(ingestArtifact)
+          .set({ updatedAt: at })
+          .where(
+            and(
+              eq(ingestArtifact.id, artifact.id),
+              eq(ingestArtifact.companyId, ctx.companyId),
+              sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${part} and r.merge_state = 'written')`,
+            ),
+          ),
+        ingestAbortUnlessChanged(ctx.db),
       );
     }
-    if (goneBlocks.length) statements.push(ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.companyId, ctx.companyId), inArray(ingestBlock.id, goneBlocks))));
+    for (const k of kin) if (k.target) statements.push(...(await othersAgainAfter(ctx, { id: k.id, target: k.target }, "discarded", at)));
+    const parts = chunk(ids, IN_LIST_CHUNK);
+    for (const part of parts) {
+      statements.push(
+        ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, part))),
+        ctx.db.delete(ingestAnswer).where(and(eq(ingestAnswer.companyId, ctx.companyId), inArray(ingestAnswer.candidateId, part))),
+        ctx.db.delete(ingestBotRun).where(and(eq(ingestBotRun.companyId, ctx.companyId), inArray(ingestBotRun.candidateId, part))),
+      );
+    }
+    for (const part of parts) statements.push(ctx.db.delete(ingestCandidate).where(and(eq(ingestCandidate.companyId, ctx.companyId), inArray(ingestCandidate.id, part))));
+    for (const part of chunk(goneBlocks, IN_LIST_CHUNK)) {
+      statements.push(ctx.db.delete(ingestBlock).where(and(eq(ingestBlock.companyId, ctx.companyId), inArray(ingestBlock.id, part))));
+    }
     statements.push(
       auditInsert(ctx, {
         action: "ingest.block.reput",
@@ -481,6 +527,7 @@ export async function putBlocks(
         headerPick,
         merged: b.merged?.length ? b.merged : null,
         readerFacts: readerFactsOf(b),
+        follows: b.follows ? { ordinal: b.follows.ordinal, gapRows: b.follows.gapRows, continues: b.follows.continues === true } : null,
         headers: fp.headers,
         kinds: fp.kinds,
         headerKey: fp.headerKey,
@@ -1239,6 +1286,8 @@ const ANSWER_CHECK: Record<QuestionCode, (a: unknown) => boolean> = {
   new_customers: (a) => typeof a === "boolean",
   // "Import them" (true) or "Do not import" (false), rule 7.5.
   bundles_no_old_id: (a) => typeof a === "boolean",
+  // Rule 10.1: "Yes" (true) keeps the fill from the line just above; "No" (false) refuses those lines.
+  order_fill_above: (a) => typeof a === "boolean",
   // "as_is" (the value is right) or the unit the question offers (checked in setAnswer).
   magnitude_check: (a) => typeof a === "string" && a.length > 0 && a.length <= 20,
   // The PO picked for one old order ({ po }, one of the order's), or "skip" (checked in setAnswer).
@@ -1322,6 +1371,8 @@ export async function setAnswer(
   // The field is read in another unit now: its magnitude answers were about values the person no
   // longer sees, so they go (X-new-1).
   if (input.questionCode === "unit_unknown") statements.push(clearMagnitudeAnswers(ctx, c.id, input.subject));
+  // Rule 10.1: one question per file. The other sheets whose lines wait on it check again.
+  if (input.questionCode === "order_fill_above") statements.push(...(await fillAboveRerun(ctx, artifact.id, c.id)));
   if (input.questionCode === "period_needed") {
     const a = answer as { fy?: string | null; asOf: string };
     // Sibling order sheets of the file take the same date: they re-run too (A13).
@@ -1337,9 +1388,42 @@ export async function setAnswer(
   return candidateDetail(ctx, c.id);
 }
 
+/** The other sheets of the file with a line waiting on `order_fill_above`: back to checking. */
+async function fillAboveRerun(ctx: IngestCtx, artifactId: string, except: string): Promise<SqliteBatchItem[]> {
+  const others = await ctx.db
+    .select({ id: ingestCandidate.id, serverSeq: ingestCandidate.serverSeq })
+    .from(ingestCandidate)
+    .where(
+      and(
+        eq(ingestCandidate.companyId, ctx.companyId),
+        eq(ingestCandidate.artifactId, artifactId),
+        eq(ingestCandidate.target, "orders"),
+        inArray(ingestCandidate.state, ["processing", "ready", "held"]),
+        ne(ingestCandidate.id, except),
+      ),
+    );
+  if (others.length === 0) return [];
+  const waiting = new Set(
+    (
+      await mapInChunks(
+        others.map((o) => o.id),
+        (part) =>
+          ctx.db
+            .selectDistinct({ id: ingestStagedRow.candidateId })
+            .from(ingestStagedRow)
+            .where(and(inArray(ingestStagedRow.candidateId, part), eq(ingestStagedRow.state, "ambiguous"), sql`${ingestStagedRow.reasons} like ${`%"${Q_ORDER_FILL_ABOVE}"%`}`)),
+      )
+    ).map((r) => r.id),
+  );
+  return others.filter((o) => waiting.has(o.id)).flatMap((o) => candidateChange(ctx, o.id, o.serverSeq, { state: "processing", dryCursor: 0 }));
+}
+
 // ---------------------------------------------------------------------------
 // Approve, hold, discard
 // ---------------------------------------------------------------------------
+
+/** Rule 10.2: the words when a sheet is approved while its file is being read again. */
+export const FILE_READING = "This file is being read again. Finish it, then approve.";
 
 /** Rule 7.4: the words when no row of a sheet would be written. */
 export const NOTHING_TO_IMPORT = "Nothing in this sheet can be imported. Fix the rows or discard it.";
@@ -1353,6 +1437,8 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Check these rows against the page first" });
   }
   const artifact = await loadArtifact(ctx, c.artifactId);
+  // Rule 10.2: nothing is approved while its file is being read (a re-put or a pick sent it back).
+  if (artifact.readState !== "read") throw new TRPCError({ code: "PRECONDITION_FAILED", message: FILE_READING });
   // Raw files are kept forever: with a vault, nothing is approved before its bytes are stored (A21).
   if (vaultReady() && artifact.vaultState !== "stored") {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The original file is not saved yet. Upload the same file again, then approve." });
@@ -1421,6 +1507,12 @@ export async function approveCandidate(ctx: IngestCtx, input: { candidateId: str
       reasonCode: null,
       reasonDetail: null,
     }),
+    // Rule 10.2, inside the batch: a re-put or a pick that lands first wins.
+    ctx.db
+      .update(ingestArtifact)
+      .set({ readState: "read" })
+      .where(and(eq(ingestArtifact.id, artifact.id), eq(ingestArtifact.companyId, ctx.companyId), eq(ingestArtifact.readState, "read"))),
+    ingestAbortUnlessChanged(ctx.db),
     auditInsert(ctx, {
       action: "ingest.candidate.approve",
       subjectType: "ingest_candidate",
@@ -1639,6 +1731,13 @@ export async function repickHeader(ctx: IngestCtx, input: { candidateId: string;
   const written = (k: { state: CandidateState; rowsWritten: number; recipeLocked: boolean }) =>
     k.rowsWritten > 0 || k.recipeLocked || k.state === "approved" || k.state === "merging" || k.state === "merged";
   if (kin.some(written)) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+  // Rule 10.2: no other sheet of the file is approved, merging or written.
+  const file = await ctx.db
+    .select({ state: ingestCandidate.state, rowsWritten: ingestCandidate.rowsWritten })
+    .from(ingestCandidate)
+    .where(and(eq(ingestCandidate.companyId, ctx.companyId), eq(ingestCandidate.artifactId, c.artifactId)));
+  if (file.some((k) => k.rowsWritten > 0 || k.state === "merged")) throw new TRPCError({ code: "BAD_REQUEST", message: REPICK_WRITTEN });
+  if (file.some((k) => k.state === "approved" || k.state === "merging")) throw new TRPCError({ code: "BAD_REQUEST", message: FILE_APPROVED });
   const block = await loadBlock(ctx, c.blockId);
   const artifact = await loadArtifact(ctx, c.artifactId);
   const at = now();
@@ -1653,7 +1752,13 @@ export async function repickHeader(ctx: IngestCtx, input: { candidateId: string;
     ctx.db
       .update(ingestCandidate)
       .set({ updatedAt: at })
-      .where(and(eq(ingestCandidate.id, c.id), sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${ids} and r.merge_state = 'written')`)),
+      .where(
+        and(
+          eq(ingestCandidate.id, c.id),
+          sql`not exists (select 1 from ingest_staged_row r where r.candidate_id in ${ids} and r.merge_state = 'written')`,
+          noSheetApproved(ctx.companyId, c.artifactId),
+        ),
+      ),
     ingestAbortUnlessChanged(ctx.db),
     ...again,
     ctx.db.delete(ingestStagedRow).where(and(eq(ingestStagedRow.companyId, ctx.companyId), inArray(ingestStagedRow.candidateId, ids))),
