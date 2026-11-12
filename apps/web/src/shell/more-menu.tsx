@@ -14,7 +14,7 @@ import { SegmentedControl } from "@orrn/ui/components/segmented-control";
 import { Sheet } from "@orrn/ui/components/sheet";
 import { cn } from "@orrn/ui/lib/utils";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Eye, LogOut } from "lucide-react";
+import { ChevronRight, Eye, ListOrdered, LogOut } from "lucide-react";
 import { forwardRef, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -96,11 +96,13 @@ export function MoreSheet({
   onOpenChange,
   variant,
   items,
+  onArrange,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
   variant: ShellVariant;
   items: readonly NavItem[];
+  onArrange?: () => void;
 }) {
   const { t } = useT();
   const { me, place, role } = useIdentity(variant);
@@ -110,7 +112,7 @@ export function MoreSheet({
   const godseye = showGodseyeLink(me, variant);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={items.length ? t("nav.more") : t("nav.account")}>
+    <Sheet open={open} onOpenChange={onOpenChange} title={items.length || onArrange ? t("nav.more") : t("nav.account")}>
       <div className="flex flex-col gap-6 pt-1">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar name={me?.user.name} className="size-12 text-[16px]" />
@@ -147,6 +149,13 @@ export function MoreSheet({
               </li>
             ) : null}
           </ul>
+        ) : null}
+
+        {onArrange ? (
+          <Button variant="secondary" className="w-full" onClick={onArrange}>
+            <ListOrdered aria-hidden="true" strokeWidth={2} />
+            {t("nav.arrange")}
+          </Button>
         ) : null}
 
         <div className="flex flex-col gap-2">
