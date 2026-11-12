@@ -71,6 +71,62 @@ export function plFileName(code: string): string {
   return code.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "packing-list";
 }
 
+const utf8 = new TextEncoder();
+const utf8Bytes = (value: string) => utf8.encode(value).length;
+
+function pdfNamePart(value: string, fallback: string): string {
+  return value
+    .replace(/[\u200B\u200E\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "")
+    .replace(/[<>:"\/\\|?*\u0000-\u001F\u007F]+/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[-. ]+|[-. ]+$/g, "") || fallback;
+}
+
+function cutUtf8(value: string, max: number): string {
+  if (utf8Bytes(value) <= max) return value;
+  let out = "";
+  let bytes = 0;
+  for (const { segment } of new Intl.Segmenter("en", { granularity: "grapheme" }).segment(value)) {
+    const size = utf8Bytes(segment);
+    if (bytes + size > max) break;
+    out += segment;
+    bytes += size;
+  }
+  return out;
+}
+
+/** `{PL number}_{customer name}.pdf`, safe to save and at most 200 UTF-8 bytes. */
+export function plPdfFileName(code: string, customerName: string): string {
+  const number = cutUtf8(pdfNamePart(code, "packing-list"), 100).replace(/[-. ]+$/g, "");
+  const customer = cutUtf8(pdfNamePart(customerName, "customer"), 195 - utf8Bytes(number)).replace(/[-. ]+$/g, "") || "customer";
+  return `${number}_${customer}.pdf`;
+}
+
+export type PackingListPrintText = {
+  lockedSnapshotFooter: (code: string, revision: number) => string;
+  packedBy: string;
+  checkedBy: string;
+  driverReceived: string;
+  receiverSignature: string;
+  orderedKgPer12ft: (kg: string) => string;
+  poDate: (date: string) => string;
+};
+
+export function plLockedSnapshotFooter(code: string, revision: number, text?: Partial<PackingListPrintText>): string {
+  return text?.lockedSnapshotFooter?.(code, revision) ?? `Not a tax invoice. Printed from ${code} revision ${revision} as issued.`;
+}
+
+export function plSignatureLabels(text?: Partial<PackingListPrintText>): [string, string, string, string] {
+  return [
+    text?.packedBy ?? "Packed by",
+    text?.checkedBy ?? "Checked by",
+    text?.driverReceived ?? "Driver",
+    text?.receiverSignature ?? "Receiver's signature",
+  ];
+}
+
 /** Printed column headings, in order (the PL is a customer document, printed in English). */
 export const PL_COLUMN_HEADINGS = [
   "Sr",
@@ -153,6 +209,21 @@ export function plShipDateText(shipDate: string | null | undefined, shipYmd?: st
   }
   const [y, m, d] = ymd.split("-");
   return `${d} ${MONTHS[Number(m) - 1]} ${y}`;
+}
+
+export type PlGroupPrintDetails = {
+  orderedKgPer12ftMilli?: number | null;
+  poDate?: string | null;
+};
+
+export function plGroupPrintDetails(g: PlGroupPrintDetails, text?: Partial<PackingListPrintText>): string {
+  const kg = typeof g.orderedKgPer12ftMilli === "number" && Number.isFinite(g.orderedKgPer12ftMilli) ? (g.orderedKgPer12ftMilli / 1000).toFixed(3) : null;
+  const date = g.poDate ? plShipDateText(null, g.poDate) : null;
+  const parts = [
+    kg === null ? null : (text?.orderedKgPer12ft?.(kg) ?? `Ordered kg/12ft ${kg}`),
+    date === null ? null : (text?.poDate?.(date) ?? `PO date ${date}`),
+  ].filter(Boolean);
+  return parts.length > 0 ? ` · ${parts.join(" · ")}` : "";
 }
 
 /** FP-PK-13 extras a v2 snapshot may carry (absent on lists stored before them). */

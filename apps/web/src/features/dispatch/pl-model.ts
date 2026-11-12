@@ -7,6 +7,7 @@ import {
   plSectionSubtotalAfter,
   plShipDateText,
   type PackingListSnapshot,
+  type PlGroupPrintDetails,
 } from "@orrn/documents/packing-list/model";
 
 /**
@@ -34,7 +35,7 @@ export type PlRowView = {
 
 export type PlSubtotal = { bundles: number; pcs: number; weightG: number };
 
-export type PlGroupView = {
+export type PlGroupView = PlGroupPrintDetails & {
   key: string;
   title: string;
   rows: PlRowView[];
@@ -97,6 +98,8 @@ export function plViewOf(pl: PackingListSnapshot): PlView | null {
     groups: pl.groups.map((g, i) => ({
       key: g.key,
       title: plGroupTitle(g, pl.groups),
+      orderedKgPer12ftMilli: (g as PlGroupPrintDetails).orderedKgPer12ftMilli ?? null,
+      poDate: (g as PlGroupPrintDetails).poDate ?? null,
       rows: g.rows.map((r) => {
         const x = plRowExtras(pl, r);
         return {

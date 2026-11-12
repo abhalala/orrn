@@ -9,7 +9,11 @@ import type { PackingListSnapshot } from "@orrn/documents/packing-list/model";
 
 export type { PackingListSnapshot };
 
-export type ExportOptions = { timeZone?: string; /** FP-PK-13: the optional kg-per-piece column. */ kgPerPiece?: boolean };
+export type ExportOptions = {
+  timeZone?: string;
+  /** FP-PK-13: the optional kg-per-piece column. */
+  kgPerPiece?: boolean;
+};
 
 export async function downloadPackingListPdf(pl: PackingListSnapshot, code: string, opts: ExportOptions = {}) {
   const { downloadPackingListPdf: run } = await import("./packingListPdf");

@@ -35,7 +35,10 @@ export {
   plDispatchCodesText,
   plExtraColumns,
   plFileName,
+  plPdfFileName,
   plGroupTitle,
+  plGroupPrintDetails,
+  type PlGroupPrintDetails,
   plKgPerPiece,
   plProfileLines,
   plRevisionText,
@@ -43,4 +46,7 @@ export {
   plRowExtras,
   plSectionSubtotalAfter,
   plShipDateText,
+  plLockedSnapshotFooter,
+  plSignatureLabels,
+  type PackingListPrintText,
 } from "./snapshot";

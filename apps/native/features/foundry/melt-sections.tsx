@@ -10,20 +10,28 @@ import { ListRow } from "@/components/ui/list-row";
 import { NumberInput } from "@/components/ui/number-input";
 import { PressableScale } from "@/components/ui/pressable-scale";
 import { Sheet } from "@/components/ui/sheet";
+import { ErrorBlock } from "@/components/ui/state";
 import { useThemeColor } from "@/lib/theme";
 
 import { MELT_MORE_TIMES, MELT_PAIR, bpText } from "./foundry-model";
 import {
+  CHEMICAL_UNITS,
   figuresOf,
+  inchToTenth,
   kgToG,
+  LDO_KEYS,
   lineKey,
+  MAX_CHEMICALS,
   MAX_LOG_LINES,
   MAX_LOT_LINES,
   MAX_STREAM_RETURNS,
+  qtyToMilli,
   type FormIssue,
+  type LdoKey,
   type MeltForm,
 } from "./melt-form";
 import { nowTimeIn, resolveMeltTimes, type MeltTimeKey } from "./melt-times";
+import { hasValidDigitGrouping } from "./phone-quantities";
 import { kgOf, Note } from "./ui";
 
 export type Lot = { id: string; number: string; itemName: string; gradeCode: string; remainingG: number };
@@ -304,7 +312,96 @@ export function ChargeSection({ form, patch, issue, lots, streams, capacityG }: 
   );
 }
 
-// --- 3. Output ----------------------------------------------------------------------------------------------------------------
+// --- 3. Chemicals and LDO ------------------------------------------------------------------------------------------------------
+
+export type StoreItem = { id: string; name: string; unit: string; active: boolean };
+
+export function ChemicalsSection({ form, patch, issue, storeItems, storeError, onStoreRetry, storeRetrying }: SectionProps & { storeItems: StoreItem[]; storeError: unknown; onStoreRetry: () => void; storeRetrying: boolean }) {
+  const { t } = useT();
+  const active = storeItems.filter((item) => item.active);
+  const taken = new Set(form.chemicals.map((c) => c.storeItemId).filter(Boolean));
+  const start = inchToTenth(form.ldo.start);
+  const end = inchToTenth(form.ldo.end);
+  const ldoUsed = start === null || end === null || end > start ? null : (start - end) / 10;
+  return (
+    <View className="gap-5">
+      <View className="gap-3">
+        <Text accessibilityRole="header" className="font-sans-semibold text-base text-ink">{t("foundry.melt.chem.title")}</Text>
+        <Text className="font-sans text-sm text-ink-muted">{t("foundry.melt.chem.hint")}</Text>
+        {storeError ? <ErrorBlock error={storeError} onRetry={onStoreRetry} retrying={storeRetrying} /> : null}
+        {form.chemicals.map((c, i) => {
+          const other = c.storeItemId === "" && c.unit !== "";
+          const item = active.find((x) => x.id === c.storeItemId);
+          const open = hasValidDigitGrouping(c.openText) ? qtyToMilli(c.openText) : null;
+          const used = hasValidDigitGrouping(c.usedText) ? qtyToMilli(c.usedText) : null;
+          const close = open !== null && used !== null ? open - used : null;
+          const marked = issue?.step === "chemicals" && issue.line === i && issue.code !== "ldo";
+          const set = (next: Partial<typeof c>) => patch({ chemicals: form.chemicals.map((x) => (x.key === c.key ? { ...x, ...next } : x)) });
+          return (
+            <View key={c.key} className={lineBox}>
+              <PickerField
+                label={t("foundry.melt.chem.item")}
+                valueLabel={other ? t("foundry.melt.chem.other") : item ? `${item.name} (${item.unit})` : undefined}
+                placeholder={t("foundry.melt.chem.pick")}
+                title={t("foundry.melt.chem.item")}
+                options={[...active.map((x) => ({ value: x.id, title: x.name, subtitle: x.unit, disabled: taken.has(x.id) && x.id !== c.storeItemId })), { value: "__other", title: t("foundry.melt.chem.other") }]}
+                value={other ? "__other" : c.storeItemId}
+                onPick={(value) => set(value === "__other" ? { storeItemId: "", unit: c.unit || "kg" } : { storeItemId: value, name: "", unit: "" })}
+              />
+              {other ? (
+                <View className="gap-3">
+                  <Field label={t("foundry.melt.chem.name")} value={c.name} onChangeText={(name) => set({ name })} maxLength={60} />
+                  <PickerField
+                    label={t("foundry.melt.chem.unit")}
+                    valueLabel={c.unit}
+                    placeholder={t("foundry.melt.chem.unit")}
+                    title={t("foundry.melt.chem.unit")}
+                    options={CHEMICAL_UNITS.map((unit) => ({ value: unit, title: unit }))}
+                    value={c.unit}
+                    onPick={(unit) => set({ unit })}
+                  />
+                </View>
+              ) : null}
+              <View className="flex-row gap-2">
+                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.open")} value={c.openText} onChangeText={(openText) => set({ openText, closeText: "" })} error={!hasValidDigitGrouping(c.openText) ? t("foundry.melt.issue.decimalComma") : marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : null} />
+                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.used")} value={c.usedText} onChangeText={(usedText) => set({ usedText, closeText: "" })} error={!hasValidDigitGrouping(c.usedText) ? t("foundry.melt.issue.decimalComma") : marked && issue!.code === "chemical" ? t("foundry.melt.issue.chemical") : null} />
+                <NumberInput className="min-w-0 flex-1" label={t("foundry.melt.chem.close")} value={close === null ? "" : String(close / 1000)} editable={false} error={marked && issue!.code === "chemicalClose" ? t("foundry.melt.issue.chemicalClose") : null} />
+              </View>
+              <RemoveButton onPress={() => patch({ chemicals: form.chemicals.filter((x) => x.key !== c.key) })} />
+            </View>
+          );
+        })}
+        <Button
+          variant="secondary"
+          label={t("foundry.melt.chem.add")}
+          disabled={form.chemicals.length >= MAX_CHEMICALS}
+          onPress={() => patch({ chemicals: [...form.chemicals, { key: lineKey(), storeItemId: "", name: "", unit: "", openText: "", usedText: "", closeText: "" }] })}
+        />
+      </View>
+
+      <View className="gap-3">
+        <Text accessibilityRole="header" className="font-sans-semibold text-base text-ink">{t("foundry.melt.ldo.title")}</Text>
+        <Text className="font-sans text-sm text-ink-muted">{t("foundry.melt.ldo.hint")}</Text>
+        <View className="flex-row flex-wrap gap-3">
+          {LDO_KEYS.map((k: LdoKey) => (
+            <NumberInput
+              key={k}
+              className="min-w-[30%] flex-1"
+              label={t(`foundry.melt.ldo.${k}`)}
+              unit={t("units.inch")}
+              value={form.ldo[k]}
+              onChangeText={(value) => patch({ ldo: { ...form.ldo, [k]: value } })}
+              error={!hasValidDigitGrouping(form.ldo[k]) ? t("foundry.melt.issue.decimalComma") : issue?.code === "ldo" && form.ldo[k].trim() !== "" ? t("foundry.melt.issue.ldo") : null}
+            />
+          ))}
+        </View>
+        {ldoUsed !== null ? <Text className="font-mono-semibold text-[15px] text-ink">{t("foundry.melt.ldo.used", { inches: ldoUsed })}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+// --- 4. Output ----------------------------------------------------------------------------------------------------------------
 
 export function OutputSection({ form, patch, issue, streams, capacityG }: SectionProps & { streams: Stream[]; capacityG: number | null }) {
   const { t } = useT();

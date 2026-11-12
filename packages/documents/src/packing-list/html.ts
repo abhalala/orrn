@@ -15,6 +15,11 @@ import {
   plDispatchCodesText,
   plSectionSubtotalAfter,
   plShipDateText,
+  plLockedSnapshotFooter,
+  plSignatureLabels,
+  plGroupPrintDetails,
+  plPdfFileName,
+  type PlGroupPrintDetails,
   type PlSnapshotV2,
 } from "./snapshot";
 import type { PackingListSnapshot } from "./types";
@@ -28,6 +33,10 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escapeCssString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/</g, "\\3C ").replace(/[\r\n]+/g, " ");
 }
 
 const kgText = (kg: number, digits = 2) =>
@@ -48,6 +57,7 @@ function ddMmmYyyy(ymd: string | null | undefined): string {
 }
 
 const NUMERIC_COLUMNS = new Set([0, 4, 5, 6, 7, 8, 9]);
+const V1_COLGROUP = `<colgroup><col style="width:5%"><col style="width:15%"><col style="width:24%"><col style="width:10%"><col style="width:8%"><col style="width:8%"><col style="width:7%"><col style="width:10%"><col style="width:13%"></colgroup>`;
 
 /** v2: the plant's PL — letterhead, bill-to / ship-to, transport, refs, 11 columns grouped by order line. */
 function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = {}): string {
@@ -86,7 +96,7 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
         .join("");
       const sec = sectionAfter.get(gi);
       return `
-      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups))}</td></tr>
+      <tr class="group"><td colspan="${span}">${escapeHtml(plGroupTitle(g, pl.groups) + plGroupPrintDetails(g as PlGroupPrintDetails))}</td></tr>
       ${rows}
       <tr class="sub"><td colspan="4">${bundlesText(g.subtotal.bundles)}</td><td class="num">${formatPlKg(g.subtotal.weightG)}</td><td></td><td></td><td class="num">${g.subtotal.pcs}</td><td colspan="${tail}"></td></tr>${
         sec
@@ -99,14 +109,21 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
   const brand = pl.issue?.branding;
   const profiles = plProfileLines(pl);
   const revision = plRevisionText(pl);
+  const footer = `${h.company.legalName ?? h.company.name} · ${plLockedSnapshotFooter(h.plNumber, pl.issue?.revision ?? 1)}`;
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${e(h.plNumber)}</title>
+  <title>${e(plPdfFileName(h.plNumber, pl.dispatch.customer.name).replace(/\.pdf$/, ""))}</title>
   <style>
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #111; padding: 24px; }
+    @page {
+      size: A4;
+      margin: 12mm 10mm 16mm;
+      @bottom-left { content: "${escapeCssString(footer)}"; font: 8px Helvetica, Arial, sans-serif; color: #555; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8px Helvetica, Arial, sans-serif; color: #555; }
+    }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10px; color: #111; padding: 0; }
     h1 { font-size: 16px; margin: 0; }
     .muted { color: #555; }
     .top { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #111; padding-bottom: 8px; }
@@ -124,8 +141,11 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
     .notes { border: 1px solid #ddd; padding: 6px; margin-bottom: 10px; white-space: pre-wrap; }
     .total { margin-top: 10px; text-align: right; font-size: 13px; font-weight: bold; }
     .kinds { margin-top: 8px; display: flex; gap: 16px; justify-content: flex-end; font-size: 10px; }
+    .closing { break-inside: avoid; page-break-inside: avoid; }
     .logo { max-height: 36px; max-width: 160px; margin-bottom: 4px; }
-    .footer { margin-top: 18px; font-size: 8px; color: #999; display: flex; justify-content: space-between; }
+    .signatures { margin-top: 32px; display: flex; gap: 24px; break-inside: avoid; page-break-inside: avoid; }
+    .signature { flex: 1; }
+    .signature-line { height: 40px; border-bottom: 1px solid #111; }
   </style>
 </head>
 <body>
@@ -166,9 +186,11 @@ function buildPackingListHtmlV2(pl: V2Snapshot, opts: PackingListModelOptions = 
     <thead><tr>${head}</tr></thead>
     <tbody>${body}</tbody>
   </table>
-  ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
-  <div class="total">${escapeHtml(pl.summary.text)}</div>
-  <div class="footer"><span>${e(h.company.name)} · ${e(h.plNumber)}</span><span>Receiver's signature ____________________</span></div>
+  <div class="closing">
+    ${profiles.length > 0 ? `<div class="kinds">${profiles.map((l) => `<span>${escapeHtml(l)}</span>`).join("")}</div>` : ""}
+    <div class="total">${escapeHtml(pl.summary.text)}</div>
+    <div class="signatures">${plSignatureLabels().map((label) => `<div class="signature">${e(label)}<div class="signature-line"></div></div>`).join("")}</div>
+  </div>
 </body>
 </html>`;
 }
@@ -218,21 +240,28 @@ export function buildPackingListHtml(
       return head + rows + sub;
     })
     .join("");
+  const footer = `${header.companyName} · ${plLockedSnapshotFooter(code, 1)}`;
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(code)}</title>
+  <title>${escapeHtml(plPdfFileName(code, header.customerName).replace(/\.pdf$/, ""))}</title>
   <style>
-    body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #111; padding: 28px; }
+    @page {
+      size: A4;
+      margin: 12mm 10mm 16mm;
+      @bottom-left { content: "${escapeCssString(footer)}"; font: 8px Helvetica, Arial, sans-serif; color: #555; }
+      @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8px Helvetica, Arial, sans-serif; color: #555; }
+    }
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #111; padding: 0; }
     h1 { font-size: 18px; margin: 0; }
     h2 { font-size: 12px; color: #555; margin: 4px 0 0; font-weight: normal; }
     .header { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
     dl { display: grid; grid-template-columns: auto auto; gap: 2px 12px; margin: 0; }
     dt { color: #555; } dd { margin: 0; font-weight: bold; }
     .totals { font-size: 14px; font-weight: bold; margin: 8px 0 12px; }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th { background: #f3f4f6; text-align: left; font-size: 9px; color: #333; padding: 6px; border-bottom: 1px solid #d1d5db; }
     td { padding: 4px 6px; border-bottom: 1px solid #eee; font-size: 10px; }
     .n { text-align: right; font-variant-numeric: tabular-nums; }
@@ -240,6 +269,10 @@ export function buildPackingListHtml(
     tr.sub td { font-weight: bold; background: #fafafa; }
     tr.grand td { font-weight: bold; font-size: 12px; border-top: 2px solid #111; }
     .notes { margin: 0 0 12px; }
+    .closing { break-inside: avoid; page-break-inside: avoid; }
+    .signatures { margin-top: 32px; display: flex; gap: 24px; break-inside: avoid; page-break-inside: avoid; }
+    .signature { flex: 1; }
+    .signature-line { height: 40px; border-bottom: 1px solid #111; }
   </style>
 </head>
 <body>
@@ -253,6 +286,7 @@ export function buildPackingListHtml(
   <p class="totals">${bundlesText(totals.bundles)} · ${kgText(totals.weightKg)} kg</p>
   ${header.notes ? `<p class="notes">${escapeHtml(header.notes)}</p>` : ""}
   <table>
+    ${V1_COLGROUP}
     <thead>
       <tr>
         <th>Sr</th><th>Bundle no</th><th>Item</th>
@@ -260,10 +294,14 @@ export function buildPackingListHtml(
         <th class="n">Pcs</th><th class="n">kg/12ft</th><th class="n">Weight range /12'</th>
       </tr>
     </thead>
-    <tbody>${body}
-      <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
-    </tbody>
+    <tbody>${body}</tbody>
   </table>
+  <div class="closing">
+    <table>${V1_COLGROUP}<tbody>
+      <tr class="grand"><td></td><td>${bundlesText(totals.bundles)}</td><td>Total</td><td class="n">${kgText(totals.weightKg)}</td><td></td><td></td><td class="n">${totals.pieces}</td><td></td><td></td></tr>
+    </tbody></table>
+    <div class="signatures">${plSignatureLabels().map((label) => `<div class="signature">${escapeHtml(label)}<div class="signature-line"></div></div>`).join("")}</div>
+  </div>
 </body>
 </html>`;
 }
