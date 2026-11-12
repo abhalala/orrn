@@ -162,10 +162,13 @@ function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, 
   // A built-in layout has no unnamed column: a blank name over data is never an exact built-in fit.
   const unnamed = padded.slice(0, fp.columnCount).some((c) => c === "");
   const exact = all.find((c) => c.fit === "exact" && c.learned) ?? (unnamed ? null : all.find((c) => c.fit === "exact")) ?? null;
-  // Round 6 (B-R5-2): an exact fit is trusted only through two real names, not blank and not only unit words. A
-  // layout of a blank and "Kg | Pcs" would trust a units row under any header.
+  // Round 6 (B-R5-2): a layout of a blank and "Kg | Pcs" would trust a units row under any header, so a layout of
+  // only blanks and unit words is never trusted.
+  // Round 7, rule 6.3 (M-R6-4): at least two named columns (not blank), at least one of them a real name.
+  const named = fp.normalized.filter((nm) => nm !== "" && !/^_\d+$/.test(nm)).length;
   const realNames = fp.normalized.filter((nm) => !isUnitOnlyName(nm)).length;
-  if (headerRows === 2) return { exact, trusted: exact !== null && realNames >= 2, near: null };
+  const trustable = exact !== null && named >= 2 && realNames >= 1;
+  if (headerRows === 2) return { exact, trusted: trustable, near: null };
   const last = lastFilledCell(names);
   const first = firstFilledCell(names);
   const wider = dataRows.filter((r) => lastFilledCell(r) > last || (firstFilledCell(r) !== -1 && firstFilledCell(r) < first)).length;
@@ -178,7 +181,7 @@ function fitsFor(preview: readonly PreviewRow[], at: number, headerRows: 1 | 2, 
       if (!near || nearer(c, near)) near = c;
     }
   }
-  return { exact, trusted: exact !== null && realNames >= 2, near };
+  return { exact, trusted: trustable, near };
 }
 
 /** More columns found by their own name, then the higher score. */

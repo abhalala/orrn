@@ -5,7 +5,8 @@
  * column filled only below the preview, Date cells, and remarks that hold a semicolon or a pipe.
  *
  * 1. Wrong fits 0: `chooseHeader` never returns "fits" for a row that is not a true header, never through a layout that
- *    is not the true table's (a decoy), and never through a layout with fewer than two real names.
+ *    is not the true table's (a decoy), and never through a layout with fewer than two named columns or no real name
+ *    (rule 6.3, round 7).
  * 2. Inexact hinted reads 0: with the right hints, every sheet and CSV read is exact, dates as the date written. With
  *    no last row a hinted block ends at the first blank row (rule 6.1, round 7); the rows below are counted by 3.
  * 3. Cells lost 0: every filled cell of the file is in a header, a data row (the same text), or a listed row.
@@ -203,7 +204,9 @@ function wrongFit(b: ReadBlock, truths: readonly Truth[], holes: HeaderHoles): s
   const c = chooseHeader(b, holes);
   if (c.kind !== "fits") return null;
   const names = c.fit.recipe.match.headers;
-  if (names.filter((n) => !isUnitOnlyName(n)).length < 2) return `fits ${c.headerRow} through a layout of unit words ${c.fit.name}`;
+  // Round 7, rule 6.3: two named columns, one of them a real name (this checked two real names in round 6).
+  const named = names.filter((n) => n !== "" && !/^_\d+$/.test(n)).length;
+  if (named < 2 || names.filter((n) => !isUnitOnlyName(n)).length < 1) return `fits ${c.headerRow} through a layout of unit words ${c.fit.name}`;
   if (c.fit.learned && !truths.some((t) => t.key === c.fit.recipe.match.headerKey)) return `fits ${c.headerRow} through ${c.fit.name}, not the table's layout`;
   const at = truths.some((t) => t.hint.headerRow === c.headerRow && (t.hint.headerRows ?? 1) === c.headerRows);
   if (at) return null;

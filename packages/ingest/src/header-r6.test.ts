@@ -16,11 +16,13 @@ describe("round 6: a layout needs two real names to be trusted", () => {
     if (c.kind === "ask") expect(c.resembles).toMatchObject({ headerRow: 1, fit: "exact", name: "unit-cols" });
   });
 
-  test("the same sheet as the layout itself still asks: one name or none is not enough", () => {
+  // Round 7, rule 6.3 (M-R6-4): two named columns with one real name are enough. This test pinned "Party | Kg" as
+  // asking; it now pins it as fitting, and keeps the layout of a blank and unit words asking.
+  test("the same sheet as the layout itself: unit words alone still ask, Party | Kg now fits", () => {
     const U = layoutOf(["", "Kg", "Pcs"], "unit-cols");
     expect(choose([["", "Kg", "Pcs"], ["Angle", "12.5", "4"], ["Tee", "13", "5"]], { learned: [U] }).kind).toBe("ask");
     const T2 = layoutOf(["Party", "Kg"], "party-kg");
-    expect(choose([["Party", "Kg"], ["Om", "12"], ["Mehta", "13"]], { learned: [T2] }).kind).toBe("ask");
+    expect(choose([["Party", "Kg"], ["Om", "12"], ["Mehta", "13"]], { learned: [T2] })).toMatchObject({ kind: "fits", headerRow: 0 });
   });
 
   test("two real names and unit columns fit", () => {
