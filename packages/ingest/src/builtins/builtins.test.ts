@@ -19,7 +19,8 @@ describe("instantiate", () => {
     const recipe = instantiate(builtinDies, DIE_SHEET_HEADERS);
     const want = createHash("sha256").update(`v1|${recipe.match.headers.join("\u001f")}`).digest("hex");
     expect(recipe.match.headerKey).toBe(want);
-    expect(recipe.match.headers.slice(0, 4)).toEqual(["series", "section code", "min weight kg/12ft", "max weight kg/12ft"]);
+    // Round 7, rule 6.2: "/" between two words is a separator. This pinned "kg/12ft"; it now pins "kg 12ft".
+    expect(recipe.match.headers.slice(0, 4)).toEqual(["series", "section code", "min weight kg 12ft", "max weight kg 12ft"]);
   });
 
   test("a numeric header with no unit leaves unit null and flags unit_unknown", () => {

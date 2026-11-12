@@ -19,11 +19,12 @@ export const DIE_SHEET_HEADERS = [
   "Status",
   "Notes",
 ];
+// Round 7, rule 6.2: "/" between two words is a separator, so the stored names read "kg 12ft" (they read "kg/12ft").
 const dieNormalized = [
   "series",
   "section code",
-  "min weight kg/12ft",
-  "max weight kg/12ft",
+  "min weight kg 12ft",
+  "max weight kg 12ft",
   "name",
   "width mm",
   "thickness mm",
@@ -93,7 +94,7 @@ const bakiNormalized = [
   "order no",
   "date",
   "section",
-  "wt kg/12ft",
+  "wt kg 12ft",
   "ord qty kg",
   "disp kg",
   "baki kg",
