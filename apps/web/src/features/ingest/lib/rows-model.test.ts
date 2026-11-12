@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { plantUnitsFor } from "./plant-units";
+import { groupRowNotes } from "./rows-model";
 import {
   cardFields, decisionButtonName, decisionGroupName, defaultRowFilter, effectiveFilter, rowFilters, rowsShowingWords, rowsTable, rowView,
   serverStatesFor, visibleRowFilters, ROWS_UI_PAGE,
@@ -161,5 +162,37 @@ describe("cards and names", () => {
     const say = (key: string, vars?: Record<string, string | number>) => (vars ? `${key}:${Object.values(vars).join("|")}` : key);
     expect(decisionButtonName(say, { decision: "create_new", key: "ingest.decide.createNew" }, 3)).toBe("ingest.decide.named:ingest.decide.createNew|3");
     expect(decisionGroupName(say, 3)).toBe("ingest.decide.group:3");
+  });
+});
+
+describe("what a group of waiting rows repeats is said once (server round 9)", () => {
+  const waiting = (n: number, extra: Partial<RowView> = {}): RowView =>
+    ({
+      id: `r${n}`, n, state: "ambiguous", chip: { key: "ingest.row.waitsOrder", tone: "warning" }, written: false, cells: [], raw: [],
+      reasons: [{ kind: "refusal", key: "ingest.refuse.order_waits", fieldKey: null, count: 1 }], diffs: [], needsDecision: true,
+      waitsOn: { code: "order_fill_above", subject: "" }, decisions: [], menu: [], chosen: null, ...extra,
+    }) as unknown as RowView;
+
+  test("two rows with the same sentence: it moves above the table and each row keeps its chip and its action", () => {
+    const g = groupRowNotes([waiting(1), waiting(2)]);
+    expect(g.lines).toHaveLength(1);
+    expect(g.lines[0]).toMatchObject({ key: "ingest.refuse.order_waits", count: 1 });
+    expect(g.waitsOnQuestion).toBe(true);
+    expect(g.views.every((v) => v.reasons.length === 0 && v.waitsOn === null && v.chip !== null)).toBe(true);
+  });
+
+  test("one row on its own keeps its sentences where they are; a different count is its own sentence", () => {
+    const one = groupRowNotes([waiting(1)]);
+    expect(one.lines).toEqual([]);
+    expect(one.views[0]!.reasons).toHaveLength(1);
+    expect(one.waitsOnQuestion).toBe(false);
+    const mixed = groupRowNotes([waiting(1), waiting(2), waiting(3, { reasons: [{ kind: "refusal", key: "ingest.refuse.order_waits", fieldKey: null, count: 2 }] as never })]);
+    expect(mixed.lines).toHaveLength(1);
+    expect(mixed.views[2]!.reasons).toHaveLength(1);
+  });
+
+  test("a refusal that is not about waiting stays on its row", () => {
+    const refused = waiting(4, { reasons: [{ kind: "refusal", key: "ingest.refuse.order_no_date", fieldKey: null }] as never, waitsOn: null });
+    expect(groupRowNotes([refused, waiting(5)]).views[0]!.reasons).toHaveLength(1);
   });
 });

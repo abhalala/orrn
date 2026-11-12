@@ -435,6 +435,8 @@ export const ingestEn = {
     decided: "Row {n} decided.",
     none: "No rows in this view.",
     waitsOnQuestion: "Answer the question above, or skip the row.",
+    // item 4b: a wide table scrolls with a cue
+    scrollHint: "Scroll sideways to see the other columns.",
   },
   merge: {
     running: "Part {n} of {total}",

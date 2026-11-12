@@ -488,14 +488,23 @@ export function questionView(q: IngestQuestion, target?: IngestTarget | null): Q
 }
 
 /**
- * Everything the person must still answer, counted from the questions themselves: the year, a section, a unit, a value
- * check. The review bar says this number, so it never says "1 question" while two things are open. A rate question a
- * person who cannot see rates is not asked is not counted (the server's rule). The server's own `openQuestions` is the
- * floor, for a candidate whose questions are not loaded.
+ * Everything the page asks the person before Approve, counted from what the page shows: the open questions of the list, and
+ * the year when the year line is still asking (orders and bundles, the year not saved, no `period_needed` in the list). The
+ * server's own `openQuestions` is not used when the questions are loaded: it counts things the page does not ask (it said 3
+ * where the page asked a year and one question). A rate question a person who cannot see rates is not asked is not counted.
+ * With no questions loaded (a list row, or none stored), the server's number is all there is.
  */
-export function openQuestionTotal(c: { questions?: readonly IngestQuestion[]; openQuestions: number }): number {
-  const counted = (c.questions ?? []).filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off")).length;
-  return Math.max(c.openQuestions, counted);
+export function openQuestionTotal(c: {
+  questions?: readonly IngestQuestion[];
+  openQuestions: number;
+  target?: IngestTarget | null;
+  periodConfirmed?: { fy: string | null; asOf: string | null } | null;
+}): number {
+  if (!c.questions || c.questions.length === 0) return c.openQuestions;
+  const open = c.questions.filter((q) => q.open && (q.code !== "rates_hidden" || q.params.reason === "pricing_off"));
+  const yearListed = open.some((q) => q.code === "period_needed");
+  const yearAsking = !yearListed && (c.target === "orders" || c.target === "bundles") && !(c.periodConfirmed && (c.periodConfirmed.fy || c.periodConfirmed.asOf));
+  return open.length + (yearAsking ? 1 : 0);
 }
 
 /** Unanswered questions first, then answered ones, each in the server's order. */

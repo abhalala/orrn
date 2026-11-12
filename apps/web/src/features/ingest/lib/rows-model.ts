@@ -208,3 +208,48 @@ export function decisionButtonName(say: (key: string, vars?: Record<string, stri
 export function decisionGroupName(say: (key: string, vars?: Record<string, string | number>) => string, n: number): string {
   return say("ingest.decide.group", { n });
 }
+
+/** Reasons that say the same thing on every row of a group, so they are said once above the table. */
+const GROUPED_KEYS = new Set(["ingest.refuse.order_waits"]);
+
+export type RowGroupNotes = {
+  /** Sentences said once above the table: each distinct one, in the order the rows first showed it. */
+  lines: Extract<RefusalLine, { kind: "refusal" }>[];
+  /** Rows that wait on a question say so once above too ("Answer the question above, or skip the row."). */
+  waitsOnQuestion: boolean;
+  /** The same rows with those sentences taken out: a row keeps its status and its action. */
+  views: RowView[];
+};
+
+/**
+ * The long sentences a group of waiting rows repeats ("Waits on 1 other line of this order. An order is added whole...",
+ * "Answer the question above, or skip the row.") are said once above the table when two or more rows of the page carry
+ * them; a row then shows its status chip and its action. The sentences are not changed, only where they show. One row on
+ * its own keeps its sentence in place.
+ */
+export function groupRowNotes(views: readonly RowView[]): RowGroupNotes {
+  const seen = new Map<string, { line: Extract<RefusalLine, { kind: "refusal" }>; rows: number }>();
+  let waiting = 0;
+  for (const v of views) {
+    if (v.waitsOn) waiting += 1;
+    for (const line of v.reasons) {
+      if (line.kind !== "refusal" || !GROUPED_KEYS.has(line.key)) continue;
+      const key = `${line.key}|${line.count ?? ""}`;
+      const found = seen.get(key);
+      if (found) found.rows += 1;
+      else seen.set(key, { line, rows: 1 });
+    }
+  }
+  const groupedKeys = new Set([...seen].filter(([, v]) => v.rows >= 2).map(([k]) => k));
+  const waitsOnQuestion = waiting >= 2;
+  const key = (l: RefusalLine) => (l.kind === "refusal" ? `${l.key}|${l.count ?? ""}` : "");
+  return {
+    lines: [...seen].filter(([k]) => groupedKeys.has(k)).map(([, v]) => v.line),
+    waitsOnQuestion,
+    views: views.map((v) => ({
+      ...v,
+      reasons: v.reasons.filter((l) => !groupedKeys.has(key(l))),
+      waitsOn: waitsOnQuestion ? null : v.waitsOn,
+    })),
+  };
+}

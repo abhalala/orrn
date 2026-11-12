@@ -6,7 +6,7 @@ import { Skeleton } from "@orrn/ui/components/skeleton";
 import { UiLink } from "@orrn/ui/components/link";
 import { useToastLift } from "@orrn/ui/hooks/use-toast-lift";
 import { cn } from "@orrn/ui/lib/utils";
-import { useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { Can } from "@/shared/components/can";
 import { showsQueryError } from "@/shared/lib/query-errors";
@@ -246,4 +246,36 @@ function useFocusClearance(ref: RefObject<HTMLElement | null>) {
       root.style.scrollPaddingBottom = "";
     };
   }, [ref]);
+}
+
+/**
+ * A wide table that scrolls sideways inside its own box says so: while more columns lie to the right, a fade shows on that
+ * edge and a line under the box names the way ("Scroll sideways to see the other columns"). Text is never cut without a cue.
+ */
+export function ScrollCue({ children }: { children: ReactNode }) {
+  const { t } = useT();
+  const root = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const box = root.current?.querySelector<HTMLElement>(".overflow-x-auto");
+    if (!box) return;
+    const check = () => setMore(box.scrollWidth - box.clientWidth - box.scrollLeft > 4);
+    check();
+    box.addEventListener("scroll", check, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(check);
+    observer?.observe(box);
+    return () => {
+      box.removeEventListener("scroll", check);
+      observer?.disconnect();
+    };
+  });
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div ref={root} className="relative" data-scrollable={more || undefined}>
+        {children}
+        {more ? <div aria-hidden="true" data-testid="scroll-fade" className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-card bg-gradient-to-l from-card to-transparent" /> : null}
+      </div>
+      {more ? <p data-testid="scroll-hint" className="m-0 text-[13px] leading-5 text-muted-foreground">{t("ingest.rows.scrollHint")}</p> : null}
+    </div>
+  );
 }

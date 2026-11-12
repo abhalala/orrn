@@ -88,7 +88,7 @@ export function firstOpen(questions: readonly Pick<QuestionView, "answered">[], 
 const MOVING = new Set(["processing", "merging"]);
 
 export function decisionBar(
-  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & { rowsOwnOrder?: number; noDateLines?: number },
+  c: Pick<CandidateDetail, "state" | "openQuestions" | "counts" | "fit" | "holeName" | "fitDiff" | "reasonCode" | "reasonDetail" | "target" | "sheetName" | "fileName" | "questions" | "botAttempts"> & { rowsOwnOrder?: number; noDateLines?: number; periodConfirmed?: { fy: string | null; asOf: string | null } | null },
   ctx: BarContext,
 ): DecisionBar {
   const { can } = ctx;

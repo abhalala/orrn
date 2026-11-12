@@ -53,6 +53,19 @@ describe("Wrong columns? Pick the row (rule 7.2)", () => {
   });
 });
 
+describe("the count matches what the page asks (server round 9)", () => {
+  const open = (code: string, subject = "") => ({ code, subject, params: {}, answer: null, open: true });
+  test("the server said 3 where the page asks a year and one question: the page's 2 is what is said", () => {
+    const bar = decisionBar(detail({ target: "orders", openQuestions: 3, periodConfirmed: null, questions: [open("order_fill_above")] }), ctx);
+    expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 2 } });
+    expect(bar.blocked!.words).toEqual({ key: "ingest.action.approveBlocked", vars: { count: 2 } });
+  });
+  test("the year saved is not asked again", () => {
+    const bar = decisionBar(detail({ target: "orders", openQuestions: 3, periodConfirmed: { fy: "2025-26", asOf: "2026-03-31" }, questions: [open("order_fill_above")] }), ctx);
+    expect(bar.chip.words).toEqual({ key: "ingest.state.questions", vars: { count: 1 } });
+  });
+});
+
 describe("Skip these lines (server round 9)", () => {
   test("the count comes from the candidate and is 0 when the server sends none", () => {
     expect(decisionBar(detail({ noDateLines: 4 }), ctx).noDateLines).toBe(4);

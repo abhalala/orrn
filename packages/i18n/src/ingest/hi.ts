@@ -434,6 +434,8 @@ export const ingestHi = {
     decided: "लाइन {n} पर फ़ैसला हो गया।",
     none: "इस दृश्य में कोई लाइन नहीं।",
     waitsOnQuestion: "ऊपर के सवाल का जवाब दें, या लाइन छोड़ दें।",
+    // item 4b: a wide table scrolls with a cue
+    scrollHint: "बाकी कॉलम देखने के लिए साइड में स्क्रॉल करें।",
   },
   merge: {
     running: "हिस्सा {n}/{total}",

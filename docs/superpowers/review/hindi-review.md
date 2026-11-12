@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8112 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8113 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6923,7 +6923,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (521)
+### ingest (522)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7270,6 +7270,7 @@ Please check, Lalubhai:
 | `rows.decided` | Row {n} decided. | लाइन {n} पर फ़ैसला हो गया। |
 | `rows.none` | No rows in this view. | इस दृश्य में कोई लाइन नहीं। |
 | `rows.waitsOnQuestion` | Answer the question above, or skip the row. | ऊपर के सवाल का जवाब दें, या लाइन छोड़ दें। |
+| `rows.scrollHint` | Scroll sideways to see the other columns. | बाकी कॉलम देखने के लिए साइड में स्क्रॉल करें। |
 | `merge.running` | Part {n} of {total} | हिस्सा {n}/{total} |
 | `merge.otherTab` | This merge is running in another tab. | यह मर्ज दूसरे टैब में चल रहा है। |
 | `merge.done` | {created} added and {updated} updated in orrn. | orrn में {created} जुड़े, {updated} अपडेट हुए। |

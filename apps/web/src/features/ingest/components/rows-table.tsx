@@ -12,6 +12,7 @@ import {
   cardFields,
   decisionButtonName,
   decisionGroupName,
+  groupRowNotes,
   refusalText,
   refusalTone,
   ROWS_UI_PAGE,
@@ -24,11 +25,12 @@ import {
   type CandidateDetail,
   type DecisionOption,
   type RowColumn,
+  type RowGroupNotes,
   type RowView,
   type ValueCell,
 } from "../lib";
 import { ActionButton, EvidencePanel, Foreign, useSay } from "./review-bits";
-import { ActionError, chipTone, QueryPanel } from "./shared";
+import { ActionError, chipTone, QueryPanel, ScrollCue } from "./shared";
 import { FOCUS, type ReviewActions } from "./use-review-actions";
 
 type Act = Pick<ReviewActions, "decide" | "busy" | "pending" | "failed">;
@@ -70,7 +72,10 @@ export function StagedRows({
   const wide = useMediaQuery(breakpoints.desktop);
   const browser = useRowsBrowser(candidate.id, candidate.counts);
   const items = browser.rows.items;
-  const views = useMemo(() => items.map((row) => rowView(candidate, row, plant)), [items, candidate, plant]);
+  const allViews = useMemo(() => items.map((row) => rowView(candidate, row, plant)), [items, candidate, plant]);
+  // What a group of waiting rows repeats is said once above the table; each row keeps its status and its action.
+  const group = useMemo(() => groupRowNotes(allViews), [allViews]);
+  const views = group.views;
   const table = useMemo(() => rowsTable(candidate, views, plant), [candidate, views, plant]);
   const ids = useMemo(() => items.map((row) => row.id), [items]);
   const [wantRow, setWantRow] = useState<number | null>(null);
@@ -130,13 +135,14 @@ export function StagedRows({
           })}
         </div>
       ) : null}
+      {group.lines.length > 0 || group.waitsOnQuestion ? <GroupNotes group={group} onGoToQuestion={onGoToQuestion} firstWait={allViews.find((v) => v.waitsOn)?.waitsOn ?? null} /> : null}
       <QueryPanel query={browser.rows}>
         {views.length === 0 ? (
           <div className="rounded-card border border-border">
             <EmptyState title={t("ingest.rows.none")} />
           </div>
         ) : asTable ? (
-          <RowsTable views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} onGoToQuestion={onGoToQuestion} />
+          <ScrollCue><RowsTable views={views} columns={table.columns} showChoice={showChoice} decisionColumn={table.decisionColumn} canDecide={canDecide} act={act} focusRef={focusRef} onDecide={decide} onGoToQuestion={onGoToQuestion} /></ScrollCue>
         ) : (
           <ul className="m-0 flex list-none flex-col gap-3 p-0 lg:grid lg:grid-cols-2">
             {views.map((row) => (
@@ -206,6 +212,38 @@ function ReasonLines({ view, className }: { view: RowView; className?: string })
           {line.kind === "raw" ? <span lang="en">{line.text}</span> : refusalText(say, line)}
         </li>
       ))}
+    </ul>
+  );
+}
+
+/** The sentences a group of waiting rows shares, said once above the table. */
+function GroupNotes({ group, onGoToQuestion, firstWait }: { group: RowGroupNotes; onGoToQuestion?: (question: RowQuestionRef) => void; firstWait: RowQuestionRef | null }) {
+  const { t, say } = useSay();
+  return (
+    <ul data-testid="row-group-notes" className="m-0 flex list-none flex-col gap-1 p-0 text-[14px] leading-6">
+      {group.lines.map((line) => (
+        <li key={`${line.key}|${line.count ?? ""}`} className={TONE_CLASS[refusalTone(line)]}>
+          {refusalText(say, line)}
+        </li>
+      ))}
+      {group.waitsOnQuestion ? (
+        <li>
+          {onGoToQuestion && firstWait ? (
+            <a
+              href="#review-first-open"
+              className="inline-flex min-h-6 items-center underline underline-offset-4"
+              onClick={(event) => {
+                event.preventDefault();
+                onGoToQuestion(firstWait);
+              }}
+            >
+              {t("ingest.rows.waitsOnQuestion")}
+            </a>
+          ) : (
+            <span className="text-muted-foreground">{t("ingest.rows.waitsOnQuestion")}</span>
+          )}
+        </li>
+      ) : null}
     </ul>
   );
 }
