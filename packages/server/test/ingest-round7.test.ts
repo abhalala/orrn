@@ -2,12 +2,14 @@
  * Server round 7 (PORTAL-RULES-3 sections 8 and 9, the web lane's findings):
  * - item 2: what the reader said about each table (blank rows crossed, skipped lines, sections) is
  *   kept with the block and shown with the candidate and the file. Display facts only.
+ * - item 3: a clean sheet is not asked. No layout fits, the reader's guess is one row, nothing is
+ *   above it in the preview, and it resembles no layout: kept by the reader, on to "needs a layout".
  */
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import { createTestEnv, type TestEnv } from "./harness";
-import { layout, learnLayout, plant, trim, type Caller } from "./ingest-portal-helpers";
+import { layout, learnLayout, plant, putRowsAs, trim, type Caller } from "./ingest-portal-helpers";
 
 let env: TestEnv;
 
@@ -103,5 +105,82 @@ describe("item 2: the reader's facts about each table are kept and shown", () =>
     const id2 = await begin(p.owner, "two.xlsx");
     const many = Array.from({ length: 201 }, (_, i) => ({ code: "skipped_title" as const, row: i + 2, text: "Month" }));
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId: id2, blocks: [book({ warnings: many })] })).rejects.toThrow();
+  });
+});
+
+describe("item 3: a clean sheet no layout fits is kept, not asked", () => {
+  const ODD = ["Kachha maal", "Vazan", "Rate"];
+  const DATA = [
+    ["Om Metals", "120", "55"],
+    ["Kamal Bros", "80", "54"],
+  ];
+  const plain = (o: Record<string, unknown> = {}) => ({
+    ordinal: 0,
+    sheetName: "Scrap",
+    title: null,
+    headerRow: 0,
+    headerRows: 1,
+    rowCount: 2,
+    sample: DATA,
+    preview: [{ row: 0, cells: ODD }, ...DATA.map((cells, i) => ({ row: i + 1, cells }))],
+    ...o,
+  });
+
+  test("a plain unknown sheet is kept by the reader with no question and reaches needs a layout", async () => {
+    const p = await setup();
+    const id = await begin(p.owner, "scrap.xlsx");
+    const out = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [plain()] });
+    expect(out.header[0]).toMatchObject({ answer: "keep", by: "reader" });
+    await putRowsAs(p.owner, { blockId: out.blocks[0]!.blockId, fromIndex: 0, expectRowsPut: 0, rows: DATA });
+    await p.owner.ingest.artifact.complete({ artifactId: id });
+    const c = await p.owner.ingest.candidate.get({ candidateId: out.candidates[0]!.id });
+    expect(c.state).toBe("needs_shape");
+    expect(c.block.headers).toEqual(ODD);
+  });
+
+  test("blank rows above the header in the preview still count as nothing above it", async () => {
+    const p = await setup();
+    const id = await begin(p.owner, "scrap.xlsx");
+    const out = await p.owner.ingest.artifact.putBlocks({
+      artifactId: id,
+      blocks: [plain({ headerRow: 2, preview: [{ row: 0, cells: ["", "", ""] }, { row: 2, cells: ODD }, ...DATA.map((cells, i) => ({ row: i + 3, cells }))] })],
+    });
+    expect(out.header[0]).toMatchObject({ answer: "keep", by: "reader" });
+  });
+
+  test("a letterhead above the guessed header asks", async () => {
+    const p = await setup();
+    const id = await begin(p.owner, "scrap.xlsx");
+    const out = await p.owner.ingest.artifact.putBlocks({
+      artifactId: id,
+      blocks: [plain({ headerRow: 1, preview: [{ row: 0, cells: ["Fourcubes Extrusions", "Rajkot", ""] }, { row: 1, cells: ODD }, ...DATA.map((cells, i) => ({ row: i + 2, cells }))] })],
+    });
+    expect(out.header[0]).toMatchObject({ answer: "ask", guess: { headerRow: 1, headerRows: 1 } });
+    expect(out.blocks).toEqual([]);
+  });
+
+  test("a guess of two header rows asks", async () => {
+    const p = await setup();
+    const id = await begin(p.owner, "scrap.xlsx");
+    const out = await p.owner.ingest.artifact.putBlocks({
+      artifactId: id,
+      blocks: [plain({ headerRows: 2, preview: [{ row: 0, cells: ODD }, { row: 1, cells: ["", "kg", "Rs/kg"] }, ...DATA.map((cells, i) => ({ row: i + 2, cells }))] })],
+    });
+    expect(out.header[0]).toMatchObject({ answer: "ask" });
+  });
+
+  test("a near fit asks with resembles", async () => {
+    const p = await setup();
+    const id = await begin(p.owner);
+    const near = ["Party", "Order no", "PO", "Date", "Series", "Section", "Cut (mm)", "Bakee (kg)"];
+    const out = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [book({ preview: [{ row: 0, cells: near }, { row: 1, cells: ROW }] })] });
+    expect(out.header[0]).toMatchObject({ answer: "ask", resembles: { name: "Book", fit: "near" } });
+  });
+
+  test("an exact fit is kept as before", async () => {
+    const p = await setup();
+    const id = await begin(p.owner);
+    const out = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [book()] });
+    expect(out.header[0]).toMatchObject({ answer: "keep", by: "fit" });
   });
 });

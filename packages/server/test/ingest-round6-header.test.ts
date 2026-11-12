@@ -93,7 +93,8 @@ describe("rule 7.2: the header check cannot be skipped", () => {
     const id = await begin(p.owner);
     const odd = ["Kachha maal", "Vazan", "Rate", "", "", "", "", ""];
     const preview = [{ row: 0, cells: LETTER }, { row: 1, cells: odd }, { row: 2, cells: ["Om Metals", "120", "55", "", "", "", "", ""] }];
-    expect((await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 0, headers: LETTER, preview })] })).header[0]!.answer).toBe("ask");
+    // Round 7 item 3: the guess sits under the letterhead, so it is asked (a first-row guess of a clean sheet is kept).
+    expect((await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 1, headers: odd, preview })] })).header[0]!.answer).toBe("ask");
     await expect(p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 2, headerRows: 2, preview, hint: { headerRow: 2, headerRows: 2 } })] })).rejects.toThrow(
       "The column names row is not in the preview. Read the table again.",
     );
@@ -104,7 +105,8 @@ describe("rule 7.2: the header check cannot be skipped", () => {
     const id = await begin(p.owner);
     const odd = ["Kachha maal", "Vazan", "Rate", "", "", "", "", ""];
     const preview = [{ row: 0, cells: LETTER }, { row: 1, cells: odd }, { row: 2, cells: ["Om Metals", "120", "55", "", "", "", "", ""] }, { row: 3, cells: ["Kamal Bros", "80", "54", "", "", "", "", ""] }];
-    const first = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 0, headers: LETTER, preview, sample: [preview[2]!.cells] })] });
+    // Round 7 item 3: the guess sits under the letterhead, so it is asked (a first-row guess of a clean sheet is kept).
+    const first = await p.owner.ingest.artifact.putBlocks({ artifactId: id, blocks: [block({ headerRow: 1, headers: odd, preview, sample: [preview[2]!.cells] })] });
     expect(first.header[0]).toMatchObject({ answer: "ask", follows: null, sameColumnsAsAbove: false });
     expect(first.header[0]).not.toHaveProperty("continuesAbove");
     await expect(

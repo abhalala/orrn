@@ -242,6 +242,11 @@ function settleHeader(
     { preview: b.preview, guess, width: b.width, above, headerRow: Math.max(0, b.headerRow - (b.preview[0]?.row ?? b.headerRow)) },
     { learned },
   );
+  // Round 7 item 3, the owner's rule: a clean sheet is never asked. The guess is one row, nothing
+  // but blank rows is above it in the preview, and it looks like no known layout: the reader's
+  // guess stands and the table goes on to "needs a layout" ("Wrong columns? Pick the row" stays).
+  // A table with an offer about the table above (all text above, the same columns) still asks.
+  if (choice.kind === "ask" && cleanGuess(b, choice)) return { by: "reader" };
   if (choice.kind === "ask") {
     const r = choice.resembles;
     const resembles = r ? { headerRow: r.headerRow, headerRows: r.headerRows, name: r.name, target: r.target, fit: r.fit } : null;
@@ -257,6 +262,13 @@ function settleHeader(
   }
   if (choice.headerRow === guess.headerRow && choice.headerRows === guess.headerRows) return { by: "fit" };
   return { ordinal: b.ordinal, answer: "reread", headerRow: choice.headerRow, headerRows: choice.headerRows };
+}
+
+/** Round 7 item 3: whether the reader's guess is a clean sheet's header, kept with no question. */
+function cleanGuess(b: BlockInput, choice: { resembles: unknown; sameColumnsAsAbove: boolean }): boolean {
+  if (b.headerRows !== 1 || choice.resembles || choice.sameColumnsAsAbove || b.follows?.continues === true) return false;
+  if (!b.preview.some((p) => p.row === b.headerRow)) return false;
+  return b.preview.every((p) => p.row >= b.headerRow || p.cells.every((c) => c.trim() === ""));
 }
 
 /** Round 7 item 2: the reader's display facts of one block as stored, or null when it sent none. */
