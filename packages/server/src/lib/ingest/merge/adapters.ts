@@ -38,6 +38,7 @@ import {
 } from "./rowchecks";
 import {
   companyNotIndexed,
+  CustomerMissing,
   failureOf,
   fileRowsIn,
   MESSAGE_MAX,
@@ -49,6 +50,7 @@ import {
   valuesOf,
   type Adapter,
   type AdapterArgs,
+  type ChunkFailure,
   type AdapterOut,
   type StagedRow,
   type Values,
@@ -385,6 +387,23 @@ const customers: Adapter = async (args) => {
 // customer_aliases (11): customer.addAliases
 // ---------------------------------------------------------------------------
 
+/**
+ * A customer the rows point at that is not in orrn any more (design fix M1). The procedures answer "Customer not found" with
+ * no name; this says which party, as a reason code the page words with the name and the next step. Reads this company only.
+ */
+async function missingCustomer(ctx: IngestCtx, picks: readonly { customerId: string; name: string | null }[]): Promise<ChunkFailure | null> {
+  if (picks.length === 0) return null;
+  const live = await mapInChunks([...new Set(picks.map((p) => p.customerId))], (part) =>
+    ctx.db
+      .select({ id: customer.id })
+      .from(customer)
+      .where(and(eq(customer.companyId, ctx.companyId), inArray(customer.id, part), isNull(customer.deletedAt))),
+  );
+  const have = new Set(live.map((r) => r.id));
+  const gone = picks.find((p) => !have.has(p.customerId));
+  return gone ? { code: "NOT_FOUND", message: (gone.name?.trim() || "This party").slice(0, MESSAGE_MAX), reason: "customer_missing" } : null;
+}
+
 const customerAliases: Adapter = async (args) => {
   const { ctx, rows, refs } = args;
   if (rows.some(isUpdate)) {
@@ -403,6 +422,8 @@ const customerAliases: Adapter = async (args) => {
       const refusal = aliasRefusal(row.rowIndex, alias, customerId, owners);
       if (refusal) throw new TRPCError({ code: "CONFLICT", message: refusal });
     }
+    const gone = await missingCustomer(ctx, rows.map((row) => ({ customerId: refOf(row, "customer", refs)!, name: text(valuesOf(row).customer) })));
+    if (gone) throw new CustomerMissing(gone);
     const caller = await args.callerFor(args.sourceOf(rows));
     const res = await caller.customer.addAliases({ clientRequestId: args.chunk.id, rows: list.map(({ customerId, alias }) => ({ customerId, alias })) });
     return list.map(({ row, customerId }, i) => ({
@@ -875,6 +896,9 @@ const orders: Adapter = async (args) => {
       const first = valuesOf(group.rows[0]!);
       const customerId = refOf(group.rows[0]!, "customer", refs);
       if (!customerId) throw new TRPCError({ code: "BAD_REQUEST", message: `${text(first.customer) ?? "This party"} is not a customer in orrn` });
+      // Deleted since the dry run: say which party, not "Customer not found" (design fix M1).
+      const gone = await missingCustomer(ctx, [{ customerId, name: text(first.customer) }]);
+      if (gone) return { written, failure: gone };
       // The PO the order's rows agree on (rows with a blank PO take it).
       const po = orderPoOf(group.rows.map(groupRowOf));
       const requestId = await rowsRequestId(group.rows.map((r) => r.id));

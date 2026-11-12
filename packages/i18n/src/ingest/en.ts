@@ -483,6 +483,7 @@ export const ingestEn = {
   reason: {
     merge_failed: "Not merged. {detail}",
     dependency_held: "Waits for {name}, which is held",
+    customer_missing: "Not merged. Customer {name} is not in orrn. Add the customer, then press Check again.",
     module_off: "{module} is turned off for this plant",
     confirm_blocked: "Saved as a booking: {detail}",
   },

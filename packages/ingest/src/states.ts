@@ -91,6 +91,7 @@ export type HoleMadeBy = (typeof HOLE_MADE_BY)[number];
 export const CANDIDATE_REASON_CODES = [
   "merge_failed",
   "dependency_held",
+  "customer_missing",
   "module_off",
   "confirm_blocked",
   "read_failed",

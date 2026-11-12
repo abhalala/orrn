@@ -444,6 +444,20 @@ describe("an alias that is a name (B13)", () => {
     expect((await candidateRow(env, seeded.candidateId)).reasonDetail).toBe("File row 2: Shree Ram is already the name of Shree Ram. Skip the row.");
   });
 
+  test("a customer deleted since the dry run holds the candidate with its name (design fix M1)", async () => {
+    const { companyId } = await env.seedCompany();
+    const api = await adminApi(companyId);
+    const made = await api.customer.create({ name: "Fortune Aluminium" });
+    const seeded = await seedCandidate(env, companyId, "customer_aliases", [
+      { values: { customer: "Fortune Aluminium", alias: "FORTUNE", _ids: { customer: made.id } } },
+    ]);
+    const { customer } = await import("@orrn/db/schema/customers");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(customer).set({ deletedAt: new Date() }).where(eq(customer.id, made.id));
+    expect((await mergeAll(api)).state).toBe("done_with_holds");
+    expect(await candidateRow(env, seeded.candidateId)).toMatchObject({ state: "held", reasonCode: "customer_missing", reasonDetail: "Fortune Aluminium" });
+  });
+
   test("a customer alias that is another customer's name in a later chunk holds the candidate before any alias is added", async () => {
     const { companyId } = await env.seedCompany();
     const api = await adminApi(companyId);

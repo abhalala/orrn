@@ -10,7 +10,7 @@ What to check:
 2. Is it the word the plant actually uses? (for example ग्राहक or पार्टी, रद्द or कैंसल)
 3. Words kept in English on purpose: bundle, die, dispatch, PO, kg, kg/12ft, serial numbers, codes, numbers, orrn. Tell us if any of these should be Hindi, or if more words should stay English.
 
-Counts: 8143 screen strings in 50 groups, 45 guides with 866 strings.
+Counts: 8144 screen strings in 50 groups, 45 guides with 866 strings.
 
 ## Screen strings
 
@@ -6945,7 +6945,7 @@ Please check, Lalubhai:
 | `forOrder.pcs` | {pcs} pcs | {pcs} पीस |
 | `forOrder.note` | Pieces of this line that went through the ageing oven, by where they are now. | इस लाइन के जो पीस एजिंग ओवन से गुज़रे, अभी वे कहां हैं। |
 
-### ingest (529)
+### ingest (530)
 
 | Key | English | हिंदी |
 |---|---|---|
@@ -7330,6 +7330,7 @@ Please check, Lalubhai:
 | `merge.announceDone` | Merge finished. {created} added, {updated} updated, {held} not merged. | मर्ज पूरा हुआ। {created} जुड़े, {updated} अपडेट हुए, {held} मर्ज नहीं हुए। |
 | `reason.merge_failed` | Not merged. {detail} | मर्ज नहीं हुआ। {detail} |
 | `reason.dependency_held` | Waits for {name}, which is held | {name} का इंतज़ार है, जो होल्ड पर है |
+| `reason.customer_missing` | Not merged. Customer {name} is not in orrn. Add the customer, then press Check again. | मर्ज नहीं हुआ। ग्राहक {name} orrn में नहीं है। ग्राहक जोड़ें, फिर "फिर से जांचें" दबाएं। |
 | `reason.module_off` | {module} is turned off for this plant | इस प्लांट में {module} बंद है |
 | `reason.confirm_blocked` | Saved as a booking: {detail} | बुकिंग बनकर सेव हुआ: {detail} |
 | `vision.check` | orrn checked these rows against the original page. | orrn ने ये लाइनें असली पन्ने से मिलाकर देखीं। |

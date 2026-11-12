@@ -482,6 +482,7 @@ export const ingestHi = {
   reason: {
     merge_failed: "मर्ज नहीं हुआ। {detail}",
     dependency_held: "{name} का इंतज़ार है, जो होल्ड पर है",
+    customer_missing: "मर्ज नहीं हुआ। ग्राहक {name} orrn में नहीं है। ग्राहक जोड़ें, फिर \"फिर से जांचें\" दबाएं।",
     module_off: "इस प्लांट में {module} बंद है",
     confirm_blocked: "बुकिंग बनकर सेव हुआ: {detail}",
   },

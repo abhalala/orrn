@@ -21,7 +21,12 @@ export type Values = Record<string, unknown>;
 /** What a staged row became in a live table. `committedType` is the live table's name. */
 export type Written = { rowId: string; committedType: string; committedId: string; reasons?: string[] };
 
-export type ChunkFailure = { code: string; message: string; reason: "merge_failed" | "dependency_held" };
+/**
+ * Why a chunk was refused. `merge_failed`: the procedure's own message, shown as it is. `dependency_held`: `message` is the
+ * held candidate's name. `customer_missing` (design fix M1): `message` is the party's name as the file wrote it, so the
+ * page can say which customer is missing and what to do, in the person's language.
+ */
+export type ChunkFailure = { code: string; message: string; reason: "merge_failed" | "dependency_held" | "customer_missing" };
 
 export type AdapterOut = { written: Written[]; failure: ChunkFailure | null };
 
@@ -121,6 +126,13 @@ export class DependencyHeld extends Error {
   }
 }
 
+/** Thrown inside a one-call chunk when a customer its rows point at is gone (design fix M1). `failureOf` hands the failure back as it is. */
+export class CustomerMissing extends Error {
+  constructor(readonly failure: ChunkFailure) {
+    super(failure.message);
+  }
+}
+
 /** The live id a row refers to for `field` (`_ids`), with `pending:` references resolved. */
 export function refOf(row: StagedRow, field: string, refs: Map<string, string>): string | null {
   const ids = (valuesOf(row)._ids ?? {}) as Record<string, unknown>;
@@ -151,6 +163,7 @@ export const INTERNAL_MESSAGE = "The import could not be written. Try again; if 
  * stored: the hold reason and audit row get INTERNAL_MESSAGE, and the raw error is logged (Bm3).
  */
 export function failureOf(e: unknown): ChunkFailure {
+  if (e instanceof CustomerMissing) return e.failure;
   if (e instanceof DependencyHeld) return { code: "DEPENDENCY_HELD", message: e.heldName.slice(0, MESSAGE_MAX), reason: "dependency_held" };
   let code = "INTERNAL_SERVER_ERROR";
   let message = e instanceof Error ? e.message : String(e);

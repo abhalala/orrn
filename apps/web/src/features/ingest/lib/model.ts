@@ -655,12 +655,14 @@ export function reasonLine(
   if (reasonCode === "read_failed") return { key: "ingest.read.failed", vars: {} };
   // A person's own words for holding it, and an ignored sheet, are shown as typed or not at all.
   if (reasonCode === "ignored") return null;
-  const known = ["merge_failed", "dependency_held", "module_off", "confirm_blocked"];
+  const known = ["merge_failed", "dependency_held", "customer_missing", "module_off", "confirm_blocked"];
   if (!known.includes(reasonCode)) return reasonDetail ? { key: null, vars: { detail: reasonDetail } } : null;
   const detail = reasonDetail ?? "";
   switch (reasonCode) {
     case "dependency_held":
       return { key: "ingest.reason.dependency_held", vars: { name: detail } };
+    case "customer_missing":
+      return { key: "ingest.reason.customer_missing", vars: { name: detail } };
     case "module_off":
       return { key: "ingest.reason.module_off", vars: { module: detail } };
     default:

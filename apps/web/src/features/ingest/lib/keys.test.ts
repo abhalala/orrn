@@ -48,7 +48,7 @@ describe("dictionary keys the logic emits", () => {
     }
   });
   test("every hold reason the server writes", () => {
-    for (const code of ["merge_failed", "dependency_held", "module_off", "confirm_blocked", "read_failed"]) {
+    for (const code of ["merge_failed", "dependency_held", "customer_missing", "module_off", "confirm_blocked", "read_failed"]) {
       const line = reasonLine(code, "detail");
       expect(line?.key).toBeTruthy();
       expectKey(line!.key!);

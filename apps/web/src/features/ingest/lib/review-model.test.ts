@@ -261,6 +261,10 @@ describe("the reason line (M17)", () => {
       { text: "Not merged. " }, { text: "Bundle LRCQCZ is already in orrn.", lang: "en" },
     ]);
     expect(reasonPieces(say, "dependency_held", "Customers 1")).toEqual([{ text: "Waits for Customers 1, which is held." }]);
+    // Design fix M1: a customer that is gone is said with its name and the next step, never the server's English.
+    expect(reasonPieces((key, vars) => (key === "ingest.reason.customer_missing" ? `Not merged. Customer ${vars?.name} is not in orrn. Add the customer, then press Check again.` : say(key, vars)), "customer_missing", "Rathod Metals")).toEqual([
+      { text: "Not merged. Customer Rathod Metals is not in orrn. Add the customer, then press Check again." },
+    ]);
     expect(reasonPieces(say, "person", "Waiting for the PO")).toEqual([{ text: "Waiting for the PO" }]);
     expect(reasonPieces(say, "odd_code", "Exact words")).toEqual([{ text: "Exact words.", lang: "en" }]);
     expect(reasonPieces(say, null, null)).toEqual([]);

@@ -175,6 +175,31 @@ describe("orders", () => {
   });
 });
 
+describe("a customer that is gone holds the candidate with its name (design fix M1)", () => {
+  test("orders: reason customer_missing with the party's name, not 'Customer not found'", async () => {
+    const { companyId, customerId, dieId } = await plant();
+    const { customer } = await import("@orrn/db/schema/customers");
+    const { eq } = await import("drizzle-orm");
+    const seeded = await seedCandidate(env, companyId, "orders", [line(customerId, dieId, { customer: "Rathod Metals", oldOrderNo: "B-17" })]);
+    // Deleted after the dry run, before the merge.
+    await env.db.update(customer).set({ deletedAt: new Date() }).where(eq(customer.id, customerId));
+    const res = await mergeAll(await api(companyId, "admin"));
+    expect(res.state).toBe("done_with_holds");
+    expect(await candidateRow(env, seeded.candidateId)).toMatchObject({ state: "held", reasonCode: "customer_missing", reasonDetail: "Rathod Metals" });
+    expect((await orderRows(companyId)).orders).toHaveLength(0);
+  });
+
+  test("a customer of another company is no customer here: the id is read in this company only", async () => {
+    const { companyId, dieId } = await plant();
+    const other = await env.seedCompany({});
+    const strangerId = await env.seedCustomer(other.companyId);
+    const seeded = await seedCandidate(env, companyId, "orders", [line(strangerId, dieId, { customer: "Elsewhere Ltd", oldOrderNo: "Z-1" })]);
+    await mergeAll(await api(companyId, "admin"));
+    expect(await candidateRow(env, seeded.candidateId)).toMatchObject({ state: "held", reasonCode: "customer_missing", reasonDetail: "Elsewhere Ltd" });
+    expect((await orderRows(companyId)).orders).toHaveLength(0);
+  });
+});
+
 describe("one order is never sent as two (B1, B5)", () => {
   test("an order of 150 lines on one PO is held before anything of the candidate is written", async () => {
     const { companyId, customerId, dieId } = await plant();
