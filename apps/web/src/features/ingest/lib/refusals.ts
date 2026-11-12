@@ -102,7 +102,8 @@ export function refusalLine(reason: string, facts?: OrderFacts): RefusalLine | n
   if (SILENT_REASONS.includes(code)) return null;
   // One PO on two orders and the same order in two files name the other file when the server says which one.
   if (code === "po_on_two_orders" && facts?.file) {
-    return { kind: "refusal", key: "ingest.refuse.po_on_two_ordersFile", fieldKey: null, order: facts };
+    // A CSV has no sheet name: say the file alone, not "file ()".
+    return { kind: "refusal", key: facts.sheet ? "ingest.refuse.po_on_two_ordersFile" : "ingest.refuse.po_on_two_ordersFileOnly", fieldKey: null, order: facts };
   }
   if (code === "order_in_other_file" && !facts?.file) {
     return { kind: "refusal", key: "ingest.refuse.order_in_other_fileUnnamed", fieldKey: null, order: facts };
@@ -113,6 +114,9 @@ export function refusalLine(reason: string, facts?: OrderFacts): RefusalLine | n
   // "order_waits:2" and "order_skipped_lines:1": the number after the colon is a count of lines, not a field.
   if ((code === "order_waits" || code === "order_skipped_lines") && /^\d+$/.test(rest)) {
     return { kind: "refusal", key: `ingest.refuse.${code}`, fieldKey: null, count: Number(rest) };
+  }
+  if (code === "order_in_other_file" && facts?.file && !facts.sheet) {
+    return { kind: "refusal", key: "ingest.refuse.order_in_other_fileOnly", fieldKey: null, order: facts };
   }
   if (KNOWN_REFUSAL_CODES.includes(code)) {
     return {
@@ -172,6 +176,8 @@ const WAITING_KEYS = new Set([
   // Two orders that cannot both be written wait for a person to skip one side or keep one.
   "ingest.refuse.po_on_two_orders",
   "ingest.refuse.po_on_two_ordersFile",
+  "ingest.refuse.po_on_two_ordersFileOnly",
+  "ingest.refuse.order_in_other_fileOnly",
   "ingest.refuse.po_on_live_order",
   "ingest.refuse.order_waits",
   "ingest.refuse.order_run_differs",

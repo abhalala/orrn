@@ -586,6 +586,9 @@ export const ingestEn = {
     order_run_differs: "Rows of one order number show two different values for {field}. Use the file value on this row, or skip it.",
     // round 7: item 5
     order_no_date: "This line has no date, so orrn cannot tell which year's order {n} it belongs to. Give it a date or skip it.",
+    // a file with no sheet name (CSV)
+    po_on_two_ordersFileOnly: "PO {po} is on {order} here and on another order in {file}. One PO can be on one order only. Skip the rows of one of them.",
+    order_in_other_fileOnly: "This order is also in {file}. Keep it in this file, or skip these rows and keep it there.",
   },
   error: {
     conflict: "This import changed while you were looking. The page now shows the latest. Check it and try again.",

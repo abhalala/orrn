@@ -148,4 +148,11 @@ describe("server codes have words", () => {
     expect(q.answers.map((a) => [a.value, a.words.key])).toEqual([[true, "ingest.q.importThem"], [false, "ingest.q.doNotImport"]]);
     expect(answerFromValue("bundles_no_old_id", true)).toEqual({ code: "bundles_no_old_id", answer: true });
   });
+
+  test("a file with no sheet name is named alone, not as 'file ()'", () => {
+    const facts = { orderNo: "42", po: "PO-1", file: "orders-one.csv", sheet: null, closedOrder: null };
+    expect(refusalLine("po_on_two_orders:poNumber", facts)).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFileOnly" });
+    expect(refusalLine("order_in_other_file:order", facts)).toMatchObject({ key: "ingest.refuse.order_in_other_fileOnly" });
+    expect(refusalLine("po_on_two_orders:poNumber", { ...facts, sheet: "Sheet1" })).toMatchObject({ key: "ingest.refuse.po_on_two_ordersFile" });
+  });
 });
