@@ -153,7 +153,13 @@ test("shots", async ({ page, request }) => {
   const twoTables = (tag: string) => Buffer.from([text.join(","), `Shree${tag},Surat`, "Om,Rajkot", ",", "Party,Order,Kg,Date", "Shree,41,10,2026-10-01", "Om,42,20,2026-10-02"].join("\n"));
   await stage("several-tables", () => shootLive(page, "header-several-tables", twoTables, () => step(page).getByText(/Table 1 of|टेबल 1/).or(step(page)).first().waitFor({ timeout: 60_000 })));
   const continues = (tag: string) => Buffer.from([text.join(","), `Shree${tag},Surat`, "Om,Rajkot", ",", "Kisan,Vapi", "Jay,Anand"].join("\n"));
-  await stage("continues-above", () => shootLive(page, "header-continues-above", continues, () => step(page).getByRole("button", { name: /It continues the table above|यह ऊपर की टेबल का ही हिस्सा है/ }).waitFor({ timeout: 60_000 })));
+  await stage("continues-above", () =>
+    shootLive(page, "header-continues-above", continues, async () => {
+      // A table of text only is asked too (server round 8): the first table first, then the second with its offer.
+      await step(page).getByRole("button", { name: /^(Use row \d+|लाइन \d+ लें)$/ }).click();
+      await step(page).getByRole("button", { name: /It continues the table above|यह ऊपर की टेबल का ही हिस्सा है/ }).waitFor({ timeout: 60_000 });
+    }),
+  );
 
   // Kept, not read: a PDF and a photo (the local plant has no storage, so the list answer carries them).
   await stage("kept", async () => {
@@ -311,10 +317,11 @@ test("shots", async ({ page, request }) => {
   });
 
   // The fill question: lines with no date took the date of the dated line above, in an order with two dates.
-  await stage("fill-question", async () => {
-    const party = await makeParty(page, "ShotFill");
+  for (const variant of ["fill-question", "fill-no"] as const) await stage(variant, async () => {
+    const tagF = variant === "fill-no" ? "N" : "Y";
+    const party = await makeParty(page, `ShotFill${tagF}`);
     const die = (await q<{ items: { series: string; sectionCode: string }[] }>(page, "die.list", { search: "14701", limit: 5 })).items[0]!;
-    const fh = [`Party ${STAMP}F`, `Order no ${STAMP}F`, `PO ${STAMP}F`, `Date ${STAMP}F`, `Series ${STAMP}F`, `Section ${STAMP}F`, `Baki ${STAMP}F kg`, `Cut ${STAMP}F mm`];
+    const fh = [`Party ${STAMP}${tagF}`, `Order no ${STAMP}${tagF}`, `PO ${STAMP}${tagF}`, `Date ${STAMP}${tagF}`, `Series ${STAMP}${tagF}`, `Section ${STAMP}${tagF}`, `Baki ${STAMP}${tagF} kg`, `Cut ${STAMP}${tagF} mm`];
     const col = (n: number) => ({ kind: "columns", cols: [{ col: n, header: fh[n] }] });
     const recipe = {
       schemaVersion: 1, target: "orders", headerRow: 0, headerRows: 1,
@@ -337,7 +344,7 @@ test("shots", async ({ page, request }) => {
       const row = (po: string, d: string, i: number, no = "41") => `${party.name},${no},${po},${d},${die.series},${die.sectionCode},${100 + i},3658`;
       // Plenty of dated lines of other orders, so the helper's sample check passes; then one order with two dates and blanks.
       const others = Array.from({ length: 8 }, (_, i) => row(`PO-${i}`, `0${i + 1}/04/2025`, i, String(30 + i)));
-      const name = `fill-${STAMP}.csv`;
+      const name = `fill-${tagF}-${STAMP}.csv`;
       await page.goto("/ingest");
       await upload(page, name, Buffer.from([fh.join(","), ...others, row("PO-A", "01/05/2023", 0), row("", "", 1), row("PO-B", "01/06/2024", 2), row("", "", 3)].join("\n")));
       await readDone(page, name);
@@ -349,7 +356,13 @@ test("shots", async ({ page, request }) => {
       await page.getByLabel(/^As on date/).fill("31/03/2026");
       await page.getByRole("button", { name: "Save year" }).click();
       await expect(page.getByTestId("fill-lines")).toBeVisible({ timeout: 90_000 });
-      await shootUrl(page, "review-fill-question", href, () => page.getByTestId("fill-lines").waitFor({ timeout: 60_000 }));
+      if (variant === "fill-question") {
+        await shootUrl(page, "review-fill-question", href, () => page.getByTestId("fill-lines").waitFor({ timeout: 60_000 }));
+      } else {
+        await page.getByRole("group", { name: /Some lines have no date/ }).getByRole("button", { name: "No", exact: true }).click();
+        await expect(bar(page).getByRole("button", { name: /^Skip these \d+ lines$/ })).toBeVisible({ timeout: 90_000 });
+        await shootUrl(page, "review-skip-these-lines", href, () => bar(page).getByRole("button").first().waitFor({ timeout: 60_000 }));
+      }
     } finally {
       await fakeBot(page, { action: "clear" });
     }

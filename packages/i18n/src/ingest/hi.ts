@@ -369,6 +369,7 @@ export const ingestHi = {
     // server round 9
     skipNoDate: "ये {count} लाइनें छोड़ें",
     approveBlockedMixed: "मंज़ूर करने से पहले: {questions} {questions:सवाल|सवाल} का जवाब और इंतज़ार कर रही {rows} {rows:लाइन|लाइनें} (कुल {count})।",
+    approveBlockedRows: "मंज़ूर करने से पहले: {rows} {rows:लाइन इंतज़ार कर रही है|लाइनें इंतज़ार कर रही हैं}।",
   },
   list: {
     newTable: "नई टेबल",

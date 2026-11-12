@@ -156,9 +156,11 @@ export function decisionBar(
       if (c.openQuestions > 0) {
         blocked = {
           words:
-            open.other > 0
-              ? { key: "ingest.action.approveBlockedMixed", vars: { count: open.total, questions: open.questions, rows: open.other } }
-              : { key: "ingest.action.approveBlocked", vars: { count: c.openQuestions } },
+            open.other > 0 && open.questions === 0
+              ? { key: "ingest.action.approveBlockedRows", vars: { rows: open.other } }
+              : open.other > 0
+                ? { key: "ingest.action.approveBlockedMixed", vars: { count: open.total, questions: open.questions, rows: open.other } }
+                : { key: "ingest.action.approveBlocked", vars: { count: c.openQuestions } },
           to: firstOpen(questionList(c.questions, c.target), c.counts.ambiguous + c.counts.conflict),
         };
       } else if (allowed.approve) buttons.push(approveBtn);

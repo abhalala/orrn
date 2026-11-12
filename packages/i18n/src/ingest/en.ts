@@ -370,6 +370,7 @@ export const ingestEn = {
     // server round 9
     skipNoDate: "Skip these {count} lines",
     approveBlockedMixed: "Before you approve: {questions} {questions:question|questions} to answer and {rows} {rows:line|lines} that wait ({count} in all).",
+    approveBlockedRows: "Before you approve: {rows} {rows:line waits|lines wait}.",
   },
   list: {
     newTable: "New table",
